@@ -1,1 +1,3 @@
 2026-09-25T01:12:23+05:30 · ADVANCED · init done (D-000..D-006); T-001 build dispatched; config audit dispatched · wave=1 · serial=[T-002: waits on T-001 (plan doc drives scaffold), T-003..T-010: dep chain in TASKS.md]
+2026-09-25T01:19:15+05:30 · ADVANCED · t-001-plan-doc ready-for-check (fix cycle 0), checker dispatched · wave=1 · serial=[T-002: waits on T-001 PASS]
+2026-09-25T01:29:50+05:30 · ADVANCED · t-001-plan-doc cycle-0 FAIL (ISS-006: 4 missing I/O lines) → fixed, fix cycle 1 re-check dispatched · serial=[T-002: waits on T-001 PASS]

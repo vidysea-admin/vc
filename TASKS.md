@@ -5,7 +5,7 @@
 | ID | Status | Task | Notes |
 |---|---|---|---|
 | T-000 | open | Backfill interview: capture the 4–6 biggest past decisions and REJECTED approaches (run /grill or /init-lab resume) | deferred by AUTO mode |
-| T-001 | open | Unit 1: the 7-section plan doc (`docs/plan.md`) per goal.md, covering CEO/team/AI-tool zoom levels, 3 Mermaid diagrams, the tech map extended with D-002..D-005, milestones and FAQ | first maker unit; graded by rubric |
+| T-001 | done | Unit 1: the 7-section plan doc (`docs/plan.md`) per goal.md, covering CEO/team/AI-tool zoom levels, 3 Mermaid diagrams, the tech map extended with D-002..D-005, milestones and FAQ | checker PASS cycle 1, verdict `748e4e4` |
 | T-002 | open | Monorepo scaffold (pnpm TS: apps/api, apps/web, packages/engine, packages/schemas, packages/providers, skills/, mcp/) + Zod schemas | after T-001 |
 | T-003 | open | Student Knowledge Graph collections + consent/purpose model (work DB) | depends T-002 |
 | T-004 | open | Langfuse self-hosted compose + tracing wiring | depends T-002 |
