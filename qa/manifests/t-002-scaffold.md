@@ -138,4 +138,4 @@ see UNIT brief) and are not claimed by this manifest.
 Not UI-touching — apps/web is a plain TS stub, no rendered surface (Next.js is deliberately not
 installed in this unit; see `apps/web/src/index.ts` and D-note "Next.js in T-008").
 
-## Status: ready-for-check
+## Status: checked-PASS — qa/verdicts/t-002-scaffold.md (Cycle checked: 0, commit 253d70d)
