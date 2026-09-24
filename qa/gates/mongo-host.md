@@ -28,3 +28,10 @@ directly use that, name it virtual_counsellor". Resolution:
    is out of scope for this project.
 2. The engine may create and write **one** database on it, `virtual_counsellor`, and use it directly. Every other
    database on the server stays untouched, read and write (contract B12, amended as CRITICAL with human approval).
+
+Re-confirmed: 2026-09-25, Umesh in the checker session, verbatim: "you are allowed to write in production".
+The scope is unchanged: writes to the production server are allowed **only inside `virtual_counsellor`**, per contract
+B12 and B8. This line is standing approval for the maker's live runs, e.g. `packages/db/scripts/db-init.ts`. The first
+real run still has to wait for the B15 erasure design to land, per `dpdp-erase-design.md`. If Claude Code's
+auto-mode classifier blocks a run as a "production write", the human approves that prompt; this repo's settings are
+not edited to bypass it.
