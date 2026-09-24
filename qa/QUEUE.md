@@ -4,6 +4,8 @@ Updated by /checker sweeps only. Gate lines sit above the TODO table (read first
 
 ## Open gates (HUMAN_GATE)
 
+- **qa/gates/mongo-host.md** — unanswered (ISS-012, high). Is `MONGODB_URL` a dev/work server? Blocks T-003+ (any Mongo write) only; T-002b/T-004/T-005 proceed.
+
 - **qa/gates/config-audit-fixes.md** — unanswered. (a) Authorize a DECISIONS entry
   (Approved-by: Umesh) to fix ISS-001 (decisions-append-guard fails open), ISS-004
   (unframed injected DECISIONS text) and ISS-005 (cwd-relative hook paths vs
