@@ -1,4 +1,4 @@
-# ARCHITECTURE — current ground truth (as of: 2026-09-25, last change: D-005)
+# ARCHITECTURE — current ground truth (as of: 2026-09-25, last change: D-008)
 
 <!-- Lab Protocol STATE file. Only sections named in an authorizing DECISIONS entry's
      Changes-authorized field may change, and only during /landplane.
@@ -64,7 +64,7 @@ None yet. This is the research phase; `contracts/contracts.json` is empty.
 | `apps/api` · `apps/web` · `packages/*` · `skills/` · `mcp/` | [ASSUMPTION] Planned TS pnpm monorepo, not scaffolded yet | — |
 
 ## 5. Cross-cutting rules
-- **Production Mongo is read-only.** Writes go to a work DB only.
+- **Mongo (D-008):** the engine writes only to the database `virtual_counsellor` on the production server in `.env`. Every other database there is read and write off-limits. One DB helper names it and refuses any other name (B12). Tests run offline; drops and bulk deletes need a gate.
 - **Student data never goes to an external service** without per-use approval. That includes tracing, so Langfuse stays
   self-hosted.
 - **Every fact shown or stored carries a source.** Uncited facts are dropped or labelled "unverified".

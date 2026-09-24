@@ -42,14 +42,15 @@
   "isolation": {
     "reserve": [
       "git worktree per unit",
-      "Mongo work DB name vc_work_<slug> on a local/dev Mongo only"
+      "Mongo: database 'virtual_counsellor' only, via the single DB helper; tests use mocks/in-memory, never the live server (B8, B12)"
     ],
     "forbidden": [
-      "any write to production MongoDB",
       "real student / Pathlynks / applicant data in the tree (anonymised fixtures only, per-use approval)",
       "sending transcripts or student data to any external service other than the approved model provider",
       "Langfuse Cloud or Langfuse telemetry on",
-      "any application-portal submit action"
+      "any application-portal submit action",
+      "any read or write to a Mongo database other than 'virtual_counsellor' (B12, D-008)",
+      "Mongo drops / bulk deletes without a qa/gates/ approval"
     ],
     "done": "checker VERDICT: PASS (Cycle checked == Fix cycle), manifest flipped to checked-PASS and committed. No deploy in the loop; publishing the plan doc as a shared Claude Doc is a human gate."
   },

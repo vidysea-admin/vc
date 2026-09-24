@@ -78,3 +78,10 @@ not replace them.
 **Why:** The T-002 review (ISS-007) found that cross-package imports fail without an exports field. Source exports keep the loop fast for one developer and match ikigai-counsellor (tsx). Adding dist/ later is a reversible change to the exports map.
 **Result:** --
 **Links:** T-002b, ISS-007
+
+## D-008 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** The engine's database is `virtual_counsellor` on the production Mongo server in `.env` MONGODB_URL (IP-allowlisted). The engine creates and uses only that database, directly. Every other database on the server (Pathlynks, global_university_db and the rest) stays untouched, both reads and writes. Automated tests stay offline. Only an explicit live-run script writes. Drops and bulk deletes need a gate.
+**Why:** Umesh, 2026-09-25, verbatim: "the mongo uri in the .env is the product one, and don't worry this one is ip protected ... make a new db of yours and just directly use that, name it virtual_counsellor". It was given in the checker session (qa/gates/mongo-host.md) and repeated to the maker. It is a deliberate, scoped exception to the AIOS "production Mongo is read-only / writes go to a work DB" boundary: one named database, enforced by the B12 guard.
+**Result:** -- (contract B12 amended by the checker, CRITICAL, human-approved)
+**Changes-authorized:** ARCHITECTURE.md section 5 first bullet (the prod-Mongo rule now names the single allowed DB); qa/adapter.json isolation.reserve and forbidden (replace the "vc_work_<slug> local/dev only" rule, which is stale).
+**Links:** qa/gates/mongo-host.md, ISS-012, T-003
