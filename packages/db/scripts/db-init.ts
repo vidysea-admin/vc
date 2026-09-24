@@ -9,11 +9,18 @@
  *
  * It creates the engine's collections (if missing) and a small set of
  * indexes:
- *   - facts:    { studentId, key, validTo } — fast lookup of a student's
- *               active fact for a given key (validTo unset = active).
+ *   - facts:    UNIQUE partial index on { studentId, key } where `validTo` is
+ *               unset — at most one active fact per (studentId, key)
+ *               (ISS-019). This is what makes a concurrent-writer race a real
+ *               Mongo duplicate-key error (code 11000) instead of silently
+ *               producing two open facts; src/facts.ts's applyApprovedDiff
+ *               handles that error deterministically (see its docstring).
  *   - consents: { studentId } — fast lookup for requireConsent().
- *   - edges:    relies on Mongo's built-in unique _id index; link() already
- *               derives a deterministic _id, so no extra index is created.
+ *   - edges:    relies on Mongo's built-in unique _id index for idempotent
+ *               link() upserts, PLUS { "from.kind", "from.id" } and
+ *               { "to.kind", "to.id" } (ISS-021) so a lookup of "everything
+ *               sourced from X" or "everything pointing at Y" isn't a full
+ *               collection scan.
  *
  * It never calls db.dropDatabase() (D-009: that stays human-gated) and never
  * touches any database other than virtual_counsellor (getVcDb enforces this).
@@ -38,11 +45,26 @@ async function main(): Promise<void> {
       await ensureCollection(db, name);
     }
 
-    await db
-      .collection(COLLECTION_NAMES.facts)
-      .createIndex({ studentId: 1, key: 1, validTo: 1 }, { name: "facts_studentId_key_validTo" });
+    // ISS-019: unique among docs where validTo is unset — at most one open
+    // fact per (studentId, key). See the module docstring for why.
+    await db.collection(COLLECTION_NAMES.facts).createIndex(
+      { studentId: 1, key: 1 },
+      {
+        name: "facts_studentId_key_active_unique",
+        unique: true,
+        partialFilterExpression: { validTo: { $exists: false } },
+      },
+    );
 
     await db.collection(COLLECTION_NAMES.consents).createIndex({ studentId: 1 }, { name: "consents_studentId" });
+
+    // ISS-021: edges had no from/to index.
+    await db
+      .collection(COLLECTION_NAMES.edges)
+      .createIndex({ "from.kind": 1, "from.id": 1 }, { name: "edges_from" });
+    await db
+      .collection(COLLECTION_NAMES.edges)
+      .createIndex({ "to.kind": 1, "to.id": 1 }, { name: "edges_to" });
 
     // eslint-disable-next-line no-console
     console.log(`db-init: "${COLLECTION_NAMES.facts}", "${COLLECTION_NAMES.consents}" and sibling collections ready in virtual_counsellor`);

@@ -19,8 +19,64 @@ function matchesFilter(doc: Record<string, unknown>, filter: Filter): boolean {
   });
 }
 
+export interface FakeUniqueIndexSpec {
+  keys: string[];
+  partialFilterExpression?: Filter;
+}
+
+/**
+ * Mirrors the shape of a real MongoDB duplicate-key error closely enough for
+ * production code to branch on `err.code === 11000` the same way it would
+ * against the real driver's `MongoServerError` (ISS-019, facts.ts's
+ * applyApprovedDiff). Duck-typed on purpose: production code (src/**) never
+ * imports from this file, so it can only ever detect this by shape.
+ */
+export class FakeDuplicateKeyError extends Error {
+  readonly code = 11000;
+  readonly codeName = "DuplicateKey";
+  constructor(message: string) {
+    super(message);
+    this.name = "FakeDuplicateKeyError";
+  }
+}
+
 export class FakeCollection<T extends { _id: string }> {
   private readonly docs = new Map<string, T>();
+  private readonly uniqueIndexes: FakeUniqueIndexSpec[] = [];
+
+  /**
+   * Test-only: declare a unique (optionally partial) index so `insertOne`
+   * enforces it the way a real Mongo unique partial index would — throwing a
+   * `{code: 11000}` error on a conflicting insert — matching the index this
+   * package's scripts/db-init.ts creates on `facts` (ISS-019: unique on
+   * {studentId, key} where `validTo` is unset).
+   */
+  declareUniqueIndex(keys: string[], options: { partialFilterExpression?: Filter } = {}): void {
+    this.uniqueIndexes.push({ keys, partialFilterExpression: options.partialFilterExpression });
+  }
+
+  private assertNoUniqueConflict(doc: T): void {
+    const docRecord = doc as unknown as Record<string, unknown>;
+    for (const idx of this.uniqueIndexes) {
+      if (idx.partialFilterExpression && !matchesFilter(docRecord, idx.partialFilterExpression)) {
+        continue; // this doc doesn't fall under the partial index at all
+      }
+      const conflict = [...this.docs.values()].find((other) => {
+        if (other._id === doc._id) return false;
+        const otherRecord = other as unknown as Record<string, unknown>;
+        if (idx.partialFilterExpression && !matchesFilter(otherRecord, idx.partialFilterExpression)) {
+          return false;
+        }
+        return idx.keys.every((key) => otherRecord[key] === docRecord[key]);
+      });
+      if (conflict) {
+        const keyDesc = idx.keys.map((key) => `${key}: ${JSON.stringify(docRecord[key])}`).join(", ");
+        throw new FakeDuplicateKeyError(
+          `E11000 duplicate key error collection: fake.${idx.keys.join("_")} index dup key: { ${keyDesc} }`,
+        );
+      }
+    }
+  }
 
   async findOne(filter: Filter = {}): Promise<T | null> {
     for (const doc of this.docs.values()) {
@@ -33,6 +89,7 @@ export class FakeCollection<T extends { _id: string }> {
     if (this.docs.has(doc._id)) {
       throw new Error(`FakeCollection.insertOne: duplicate _id "${doc._id}"`);
     }
+    this.assertNoUniqueConflict(doc);
     this.docs.set(doc._id, doc);
     return { insertedId: doc._id };
   }

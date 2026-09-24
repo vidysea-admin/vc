@@ -37,13 +37,18 @@ test("B4: requireConsent throws for a minor with no guardianConsent even if a co
 });
 
 test("B4: requireConsent resolves for a minor WITH guardianConsent covering the purpose", async () => {
+  // ISS-018: the old form (`assert.doesNotThrow(async () => requireConsent(...))`)
+  // never awaits the inner call — `doesNotThrow` only checks that invoking the
+  // wrapper *synchronously* throws, which an async function never does, so the
+  // test passed unconditionally regardless of what requireConsent actually
+  // did. `assert.doesNotReject` awaits the returned promise.
   const { db, fakeDb } = createFakeDb();
   seedConsent(fakeDb, { minor: true, guardianConsent: true });
-  await assert.doesNotThrow(async () => requireConsent(db, "student-1", "counselling"));
+  await assert.doesNotReject(() => requireConsent(db, "student-1", "counselling"));
 });
 
 test("B4: requireConsent resolves for an adult with a matching consent row", async () => {
   const { db, fakeDb } = createFakeDb();
   seedConsent(fakeDb);
-  await assert.doesNotThrow(async () => requireConsent(db, "student-1", "counselling"));
+  await assert.doesNotReject(() => requireConsent(db, "student-1", "counselling"));
 });
