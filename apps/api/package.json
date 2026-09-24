@@ -1,0 +1,16 @@
+{
+  "name": "@vc/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stub — the backend orchestrator surface (Fastify + LangGraph, plan.md §5) lands here",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2",
+    "tsx": "^4.21.0",
+    "@types/node": "^22.14.0"
+  }
+}

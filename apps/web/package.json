@@ -1,0 +1,16 @@
+{
+  "name": "@vc/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stub — plain TS placeholder. Next.js is NOT installed yet, see T-008.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2",
+    "tsx": "^4.21.0",
+    "@types/node": "^22.14.0"
+  }
+}
