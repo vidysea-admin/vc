@@ -47,3 +47,24 @@ Never keep bare markdown TODO lists without IDs.
 Explore → Conclude → Execute; AI assists, the human decides. It is never a script ("cheating platform"). The architecture
 choices (D-002..D-005) are LangGraph.js, the Mongo knowledge graph, Langfuse self-hosted, and skills/MCP. Sibling repos
 are read-only sources for ports (D-001).
+
+## Maker-checker discipline (installed 2026-09-25, authorized by D-006)
+
+This project runs dev work through the maker-checker pair:
+
+- **Substantive dev work** (feature, module, schema/data-model change, multi-file edit) routes through `/maker`.
+  Announce it in one line; the user can say "normal" to opt out.
+- **Trivial work** (typo, single command, read-only) runs in normal mode, with no ceremony.
+- Ground truth lives in `qa/contracts/`, and the **maker never edits it**. Feedback goes verbatim into
+  `qa/feedback-inbox.md`, and `/checker` folds it in.
+- Only `/checker` can PASS a unit. A "done" claim without a checker verdict is invalid.
+- Open issues live in `qa/issues.jsonl`, the canonical ledger.
+- **The maker↔checker handshake is files, never memory:**
+  - the maker's request is a manifest at `Status: ready-for-check` (with `Fix cycle: N`)
+  - the checker's reply is `qa/verdicts/<same-slug>.md` (with `Cycle checked: N`)
+  - the maker's close-out is the manifest flip to `checked-PASS`
+- **AUTO-CONTINUE (no human hand-crank):** on session start, if the hook line or `qa/` shows pending state (unchecked
+  manifest · PASS not closed out · open issues / TODO queue rows · stale `.last-tick`), run `/maker continue "D:\vc"`
+  **before anything else**. The maker self-continues via `ScheduleWakeup` and dispatches its own checker subagents
+  and sweeps. The only human actions are `/maker init` (once) and answering HUMAN_GATE decisions.
+- Manual overrides (never required): `/checker sweep` · `/loop /maker continue "D:\vc"`.

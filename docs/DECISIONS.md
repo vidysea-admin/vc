@@ -64,3 +64,11 @@ swappable. ikigai-counsellor's prompts/*.json pattern is migrated to that standa
 not replace them.
 **Result:** —
 **Links:** T-001
+
+## D-006 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** Start the maker-checker loop in D:/vc. The initial contract qa/contracts/counselling-engine.md (A1-A9 plan doc, B1-B10 engine) and the rubric qa/rubrics/plan-doc.md are approved as drafted. Install the maker-checker enforcement wiring (Layers 1-3 of maker/references/enforcement-wiring.md).
+**Why:** The loop only self-continues if every session is told that pending state exists (Layer 2), and commits should follow a checker PASS (Layer 3). The START gate folds the contract and the wiring into one approval, so the approval is recorded on disk and never asked again.
+**Result:** -- (wiring installed in the same session; see commit)
+**Changes-authorized:** .claude/settings.json (hooks merge: 2nd SessionStart entry, PreToolUse Bash|PowerShell commit guard) - needed to run the mc hooks; .claude/hooks/mc-sessionstart.ps1 - AUTO-CONTINUE directive; .claude/hooks/mc-precommit.ps1 - warn-only commit guard; project .claude/CLAUDE.md "Maker-checker discipline" block - the soft rule.
+**Approved-by:** Umesh
+**Links:** T-001, qa/gates/maker-start.md (Answered 2026-09-25, chat, operator account himanshu@vidysea.com)

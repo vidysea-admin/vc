@@ -7,3 +7,4 @@ DECISIONS entry with Approved-by: Umesh authorizing .claude/settings.json (hooks
 **Options:** approve as drafted · approve with changes (state them) · do not start
 **Answer format:** chat reply. The maker appends `Answered:` here before acting.
 **Blocks:** T-001 (first unit) and every later unit
+Answered: 2026-09-25 — approve as drafted — chat AskUserQuestion (operator account, Approver Umesh)
