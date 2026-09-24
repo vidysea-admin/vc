@@ -4,9 +4,16 @@
   "private": true,
   "description": "Stub — the LangGraph.js StateGraph (H1/D-002) lands here in a later unit",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@vc/schemas": "workspace:*"
   },
   "devDependencies": {
     "typescript": "~5.8.2",

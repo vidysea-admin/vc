@@ -18,13 +18,32 @@ import { isScriptLike } from "./guards.js";
 // a non-empty purposeTags array (contract B4 / D-003, DPDP purpose-tagging).
 // ---------------------------------------------------------------------------
 
-export const FactSourceSchema = z.object({
-  type: z.enum(["transcript", "profile", "kb", "student-direct"]),
-  id: z.string().min(1),
-  quote: z.string().optional(),
-  turnId: z.string().optional(),
-  fetchedAt: z.string().optional(),
-});
+// ISS-009: a discriminated union so each source `type` requires exactly the
+// fields that make it a real citation — a "transcript" source with no quote/
+// turnId, or a "kb" source with no fetchedAt, is not actually traceable back
+// to anything and now fails to parse instead of silently passing.
+export const FactSourceSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("transcript"),
+    quote: z.string().min(1),
+    turnId: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("kb"),
+    id: z.string().min(1),
+    fetchedAt: z.string().datetime(),
+  }),
+  z.object({
+    type: z.literal("profile"),
+    id: z.string().min(1),
+  }),
+  z.object({
+    // The answer record for a fact the student gave directly (e.g. in a form
+    // or a direct prompt outside the transcript flow).
+    type: z.literal("student-direct"),
+    id: z.string().min(1),
+  }),
+]);
 export type FactSource = z.infer<typeof FactSourceSchema>;
 
 export const SensitivitySchema = z.enum(["low", "medium", "high"]);
@@ -37,8 +56,10 @@ export const FactSchema = z.object({
   // no source object fails to parse at all.
   source: FactSourceSchema,
   confidence: z.number().min(0).max(1),
-  validFrom: z.string().min(1),
-  validTo: z.string().optional(),
+  // ISS-010: an ISO-8601 datetime string, not just any non-empty string — a
+  // fact with validFrom: "banana" no longer parses.
+  validFrom: z.string().datetime(),
+  validTo: z.string().datetime().optional(),
   // B4: purposeTags must be non-empty — a fact with purposeTags: [] fails parse.
   purposeTags: z.array(z.string().min(1)).min(1),
   sensitivity: SensitivitySchema,
@@ -63,12 +84,15 @@ export type CardSource = z.infer<typeof CardSourceSchema>;
 
 export const CardSchema = z
   .object({
+    // ISS-011: every card needs a stable id (feedback events key off it —
+    // FeedbackEventSchema.cardId — and a card with no id can't be cited back).
+    id: z.string().min(1),
     type: CardTypeSchema,
     prompt: z.string().min(1),
     sources: z.array(CardSourceSchema).min(1),
     confidence: z.number().min(0).max(1),
   })
-  .refine((card) => !isScriptLike(card.prompt), {
+  .refine((card) => !isScriptLike(card.prompt, card.type), {
     message:
       "Card.prompt reads as a script (a sentence for the counsellor to recite) rather than a question, comparison or evidence prompt — see contract B1",
     path: ["prompt"],

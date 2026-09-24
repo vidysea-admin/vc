@@ -6,7 +6,7 @@ function validFact() {
   return {
     key: "targetCountry",
     value: "Canada",
-    source: { type: "transcript" as const, id: "turn-42", quote: "I want to study in Canada", turnId: "42" },
+    source: { type: "transcript" as const, quote: "I want to study in Canada", turnId: "42" },
     confidence: 0.8,
     validFrom: "2026-09-25T00:00:00.000Z",
     purposeTags: ["counselling"],
@@ -26,4 +26,21 @@ test("B4: a fact with empty purposeTags is rejected", () => {
 test("B2: a fact with no source is rejected", () => {
   const { source, ...withoutSource } = validFact();
   assert.throws(() => FactSchema.parse(withoutSource));
+});
+
+// ISS-010: validFrom/validTo must be ISO-8601 datetime strings, not just any
+// non-empty string.
+test("ISS-010: a fact with validFrom: 'banana' is rejected", () => {
+  const bad = { ...validFact(), validFrom: "banana" };
+  assert.throws(() => FactSchema.parse(bad));
+});
+
+test("ISS-010: a fact with a non-datetime validTo is rejected", () => {
+  const bad = { ...validFact(), validTo: "banana" };
+  assert.throws(() => FactSchema.parse(bad));
+});
+
+test("ISS-010: a fact with a valid ISO datetime validTo parses", () => {
+  const ok = { ...validFact(), validTo: "2026-12-31T00:00:00.000Z" };
+  assert.doesNotThrow(() => FactSchema.parse(ok));
 });
