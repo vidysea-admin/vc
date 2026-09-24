@@ -362,4 +362,4 @@ code they cover changed this cycle).
   scope note.
 - No checker dispatched (per this fix-cycle brief — maker never dispatches its own checker).
 
-## Status: ready-for-check
+## Status: checked-PASS — qa/verdicts/t-004-langfuse.md (Cycle checked: 1, commit f318306)
