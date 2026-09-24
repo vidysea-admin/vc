@@ -4,7 +4,11 @@ Updated by /checker sweeps only. Gate lines sit above the TODO table (read first
 
 ## Open gates (HUMAN_GATE)
 
-- **qa/gates/mongo-host.md** — unanswered (ISS-012, high). Is `MONGODB_URL` a dev/work server? Blocks T-003+ (any Mongo write) only; T-002b/T-004/T-005 proceed.
+- **qa/gates/mongo-host.md**: ANSWERED 2026-09-25. It is the production server, and the engine's only database is
+  `virtual_counsellor` (contract B12). The maker still owes:
+  (a) update the isolation line in `qa/adapter.json`, which still says `vc_work_<slug>` local/dev;
+  (b) a DECISIONS entry through `append_decision.ps1` for the production-server DB choice;
+  (c) the B12 DB helper plus its refuse-other-name test, shipped in the first Mongo unit (T-003).
 
 - **qa/gates/config-audit-fixes.md** — unanswered. (a) Authorize a DECISIONS entry
   (Approved-by: Umesh) to fix ISS-001 (decisions-append-guard fails open), ISS-004

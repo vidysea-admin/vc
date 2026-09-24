@@ -21,4 +21,10 @@ whether the host is production.
 2. Is it really open with no authentication on a public IP? If so, that is a separate security finding for whoever
    owns the server.
 
-Answered:
+Answered: 2026-09-25, by the user in the checker session, verbatim: "the mongo uri in the .env is the product one,
+and don't worry this one is ip protected and also i just want to make you aware that make a new db of yours and just
+directly use that, name it virtual_counsellor". Resolution:
+1. The host is the **production** Mongo server. Access is IP-allowlisted, and the owner accepts that its auth posture
+   is out of scope for this project.
+2. The engine may create and write **one** database on it, `virtual_counsellor`, and use it directly. Every other
+   database on the server stays untouched, read and write (contract B12, amended as CRITICAL with human approval).
