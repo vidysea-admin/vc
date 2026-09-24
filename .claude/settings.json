@@ -1,0 +1,39 @@
+{
+  "_comment": "Lab Protocol project settings (scaffolded by /init-lab, D-000). Paths are $CLAUDE_PROJECT_DIR-relative. Merge, never overwrite. Maker-checker hooks (mc-*.ps1) are added only under an Approved-by DECISIONS entry at /maker init.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/lab-session-start.ps1",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/lab-session-end.ps1",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/decisions-append-guard.ps1"
+          }
+        ]
+      }
+    ]
+  }
+}

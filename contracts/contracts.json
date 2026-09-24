@@ -1,0 +1,7 @@
+{
+  "_meta": {
+    "version": 1,
+    "note": "Only FROZEN contracts live here. Additions/changes ONLY via /graduate or an approved PIVOT checkpoint, each citing a DECISIONS entry. Research-first projects START EMPTY: hypotheses live in ARCHITECTURE.md section 3 until they meet the graduation gate (3 consecutive sessions unchanged + 2 verified real-data runs, or an explicit freeze from the Approver)."
+  },
+  "stages": {}
+}
