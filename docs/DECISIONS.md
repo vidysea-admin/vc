@@ -85,3 +85,11 @@ not replace them.
 **Result:** -- (contract B12 amended by the checker, CRITICAL, human-approved)
 **Changes-authorized:** ARCHITECTURE.md section 5 first bullet (the prod-Mongo rule now names the single allowed DB); qa/adapter.json isolation.reserve and forbidden (replace the "vc_work_<slug> local/dev only" rule, which is stale).
 **Links:** qa/gates/mongo-host.md, ISS-012, T-003
+
+## D-009 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** The engine has full CRUD inside `virtual_counsellor`: insert, find, update, delete (including bulk), and create or drop its own collections and indexes. Only `dropDatabase` on `virtual_counsellor` stays gated. Every other database on the server stays untouched (D-008).
+**Supersedes:** D-008 -- D-008 gated collection drops and bulk deletes inside virtual_counsellor. Umesh widened that to "proper crud" (contract B12 critical amendment 6ff9dd9, human-approved), because the engine owns this database and gating routine collection work would stall every data unit. The single-DB-name guard and the untouched-other-databases rule from D-008 are re-stated here unchanged.
+**Why:** It aligns ARCHITECTURE and the adapter with the amended contract B12 (sweep finding ISS-015). The contract is the ground truth; the docs drifted to a stricter reading.
+**Result:** -- (ARCHITECTURE Â§5 and qa/adapter.json updated in the same commit)
+**Changes-authorized:** ARCHITECTURE.md section 5 Mongo bullet (full CRUD inside virtual_counsellor, only dropDatabase gated); qa/adapter.json isolation.forbidden (replace "drops / bulk deletes" with "dropDatabase on virtual_counsellor").
+**Links:** ISS-015, qa/gates/mongo-host.md, T-003

@@ -50,7 +50,7 @@
       "Langfuse Cloud or Langfuse telemetry on",
       "any application-portal submit action",
       "any read or write to a Mongo database other than 'virtual_counsellor' (B12, D-008)",
-      "Mongo drops / bulk deletes without a qa/gates/ approval"
+      "dropDatabase on 'virtual_counsellor' without a qa/gates/ approval (collection drops and bulk deletes inside it are allowed, D-009)"
     ],
     "done": "checker VERDICT: PASS (Cycle checked == Fix cycle), manifest flipped to checked-PASS and committed. No deploy in the loop; publishing the plan doc as a shared Claude Doc is a human gate."
   },
