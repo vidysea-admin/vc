@@ -124,3 +124,124 @@ test("a malformed base URL throws a clear error rather than silently disabling",
     /is not a valid URL/,
   );
 });
+
+// ISS-016 (senior review, critical): the Cloud refusal was an exact-match Set lookup on the raw
+// hostname, so a trailing-dot FQDN (which resolves to the exact same host over DNS) bypassed it
+// entirely -- `loadTracingConfig({LANGFUSE_BASE_URL:'https://cloud.langfuse.com./v1', ...keys})`
+// returned `enabled: true`. Fixed by normalising (lowercase + strip all trailing dots) before the
+// lookup, and by refusing `langfuse.com` and any `*.langfuse.com` suffix as a catch-all.
+test("ISS-016: refuses a Langfuse Cloud host with a single trailing DNS-root dot", () => {
+  assert.throws(
+    () =>
+      loadTracingConfig({
+        LANGFUSE_BASE_URL: "https://cloud.langfuse.com./v1",
+        ...VALID_KEYS,
+      }),
+    /refusing Langfuse Cloud host/,
+  );
+});
+
+test("ISS-016: refuses a Langfuse Cloud host with a double trailing dot", () => {
+  assert.throws(
+    () =>
+      loadTracingConfig({
+        LANGFUSE_BASE_URL: "https://cloud.langfuse.com../v1",
+        ...VALID_KEYS,
+      }),
+    /refusing Langfuse Cloud host/,
+  );
+});
+
+test("ISS-016: refuses an uppercase Langfuse Cloud host with a trailing dot", () => {
+  assert.throws(
+    () =>
+      loadTracingConfig({
+        LANGFUSE_BASE_URL: "https://CLOUD.LANGFUSE.COM./v1",
+        ...VALID_KEYS,
+      }),
+    /refusing Langfuse Cloud host/,
+  );
+});
+
+test("ISS-016: refuses an arbitrary *.langfuse.com subdomain not in the explicit Set", () => {
+  assert.throws(
+    () =>
+      loadTracingConfig({
+        LANGFUSE_BASE_URL: "https://foo.cloud.langfuse.com/v1",
+        ...VALID_KEYS,
+      }),
+    /refusing Langfuse Cloud host/,
+  );
+});
+
+test("ISS-016: refuses the bare apex host langfuse.com", () => {
+  assert.throws(
+    () =>
+      loadTracingConfig({
+        LANGFUSE_BASE_URL: "https://langfuse.com/v1",
+        ...VALID_KEYS,
+      }),
+    /refusing Langfuse Cloud host/,
+  );
+});
+
+// Contract B7 (qa/contracts/counselling-engine.md, amended 2026-09-25 after ISS-016): "Host guards
+// are tested against hostile variants: trailing dot, mixed case, explicit port, userinfo,
+// IDN/punycode." Trailing dot, double trailing dot, uppercase+trailing dot and explicit port are
+// covered above; userinfo and IDN/punycode below. Both are verified against real Node `URL`
+// behavior (not assumed): `new URL("https://user:pass@cloud.langfuse.com/v1").hostname` and
+// `new URL("https://cloud。langfuse。com/v1").hostname` (IDEOGRAPHIC FULL STOP, U+3002 --
+// and FULLWIDTH FULL STOP, U+FF0E, likewise) both resolve to the plain ASCII "cloud.langfuse.com"
+// under WHATWG URL's IDNA host-parsing step, so loadTracingConfig's existing normalise-then-refuse
+// logic (config.ts) already refuses them; these tests pin that down so a future change to the
+// normalisation logic can't silently regress it.
+test("ISS-016 hostile variant: refuses a Langfuse Cloud host with userinfo (user:pass@) in the URL", () => {
+  assert.throws(
+    () =>
+      loadTracingConfig({
+        LANGFUSE_BASE_URL: "https://attacker:token@cloud.langfuse.com/v1",
+        ...VALID_KEYS,
+      }),
+    /refusing Langfuse Cloud host/,
+  );
+});
+
+test("ISS-016 hostile variant: refuses a Langfuse Cloud host written with IDN ideographic-full-stop dots (U+3002)", () => {
+  assert.throws(
+    () =>
+      loadTracingConfig({
+        LANGFUSE_BASE_URL: "https://cloud。langfuse。com/v1",
+        ...VALID_KEYS,
+      }),
+    /refusing Langfuse Cloud host/,
+  );
+});
+
+test("ISS-016 hostile variant: refuses a Langfuse Cloud host written with IDN fullwidth-full-stop dots (U+FF0E)", () => {
+  assert.throws(
+    () =>
+      loadTracingConfig({
+        LANGFUSE_BASE_URL: "https://cloud．langfuse．com/v1",
+        ...VALID_KEYS,
+      }),
+    /refusing Langfuse Cloud host/,
+  );
+});
+
+test("ISS-016: still accepts localhost, 127.0.0.1 and a non-langfuse.com internal domain", () => {
+  assert.equal(
+    loadTracingConfig({ LANGFUSE_BASE_URL: "http://localhost:3000", ...VALID_KEYS }).enabled,
+    true,
+  );
+  assert.equal(
+    loadTracingConfig({ LANGFUSE_BASE_URL: "http://127.0.0.1:3000", ...VALID_KEYS }).enabled,
+    true,
+  );
+  assert.equal(
+    loadTracingConfig({
+      LANGFUSE_BASE_URL: "https://langfuse.internal.vidysea.com",
+      ...VALID_KEYS,
+    }).enabled,
+    true,
+  );
+});

@@ -1,27 +1,32 @@
 import { CallbackHandler } from "@langfuse/langchain";
 import type { TracingConfig } from "./config.js";
+import { initTracing } from "./tracing.js";
 
 /**
  * Thin adapter: turns a resolved TracingConfig into the LangChain callback array a LangGraph
  * `config.callbacks` (or any LangChain `.invoke(..., { callbacks })`) expects. Callers can always
  * spread this in unconditionally — it's `[]` when tracing is disabled, never `undefined`.
  *
- * Why this sets three env vars: `@langfuse/langchain`'s `CallbackHandler` constructor (verified
- * against the published `@langfuse/langchain@5.11.1` `.d.ts` — its `ConstructorParams` is only
- * `{ userId?, sessionId?, tags?, version?, traceMetadata? }`) has no `baseUrl`/`publicKey`/
- * `secretKey` fields. Connection details are read by the underlying `@langfuse/core` client
- * exclusively from `LANGFUSE_BASE_URL` / `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` env vars
- * (`@langfuse/core`'s `getEnv()`). `loadTracingConfig()` is the single source of truth for those
- * three values (and the place that refuses Langfuse Cloud), so this adapter applies them to
- * `process.env` immediately before constructing the handler rather than making every call site
- * set three raw env vars itself. It never overwrites a var with an empty/undefined value.
+ * ISS-017 (senior review, critical, 2026-09-25) corrected a wrong comment here: this adapter used
+ * to set `LANGFUSE_BASE_URL`/`LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY` on `process.env`,
+ * believing the underlying `@langfuse/core` client read connection details exclusively that way.
+ * That was never true for `@langfuse/langchain`'s `CallbackHandler` -- its published `.d.ts`
+ * (`ConstructorParams: { userId?, sessionId?, tags?, version?, traceMetadata? }`) has no
+ * Langfuse-credential fields and no network client of its own; its private methods
+ * (`startAndRegisterOtelSpan`/`handleOtelSpanEnd`) show it only creates OpenTelemetry spans.
+ * Export happens entirely through whichever `LangfuseSpanProcessor` is registered on the process's
+ * global OTel tracer provider -- see `tracing.ts`, which takes `config` EXPLICITLY (never
+ * `process.env`) so a hand-constructed `TracingConfig` can never silently fall through to
+ * `LangfuseSpanProcessor`'s own `https://cloud.langfuse.com` default. So this adapter now calls
+ * `initTracing(config)` (idempotent -- safe even if a caller already initialized tracing at
+ * startup) instead of mutating `process.env`, and constructs the handler with zero Langfuse
+ * config, matching the `@langfuse/langchain@5.11.1` README Quickstart
+ * (https://langfuse.com/integrations/frameworks/langchain).
  */
 export function createLangfuseCallbacks(config: TracingConfig): CallbackHandler[] {
   if (!config.enabled) return [];
 
-  if (config.baseUrl) process.env.LANGFUSE_BASE_URL = config.baseUrl;
-  if (config.publicKey) process.env.LANGFUSE_PUBLIC_KEY = config.publicKey;
-  if (config.secretKey) process.env.LANGFUSE_SECRET_KEY = config.secretKey;
+  initTracing(config);
 
   return [new CallbackHandler({})];
 }
