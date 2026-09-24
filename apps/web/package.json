@@ -4,6 +4,10 @@
   "private": true,
   "description": "Stub — plain TS placeholder. Next.js is NOT installed yet, see T-008.",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"

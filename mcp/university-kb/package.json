@@ -4,6 +4,10 @@
   "private": true,
   "description": "Stub — MCP server exposing the University Knowledge Base tool boundary (H5/D-005) lands here",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"

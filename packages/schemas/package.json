@@ -4,6 +4,10 @@
   "private": true,
   "description": "Zod source of truth for the Vidysea AI Counselling Engine (plan.md §3/§4 shapes)",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"

@@ -54,8 +54,36 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - **B9 (crisis):** A distress or self-harm signal routes to an escalation card before any generative call.
 - **B10 (draft-only, P2):** The application filler never triggers submit, and it stops at login, 2FA, CAPTCHA, payment
   or the declaration.
+- **B11 (secrets):** Keys are read only from `.env`, which git ignores. A tracked `.env.example` lists every key name
+  and holds no values. No key value appears in the tree, git history, logs, traces, manifests or verdicts. The checker
+  greps history for each key value on any unit that touches config.
+- **B12 (single DB on the production server):** `MONGODB_URL` is the production server. The engine's only database
+  there is `virtual_counsellor` (answer in `qa/gates/mongo-host.md`). Code never takes the database name from the
+  URI default. One shared DB helper names `virtual_counsellor` explicitly and refuses any other database name. Tests
+  prove that the helper rejects another name and that no module calls `client.db(` outside the helper. The engine
+  never reads, writes, drops or indexes any other database on that server, including Pathlynks and
+  `global_university_db`. Using another database needs a new gate. **Inside `virtual_counsellor` the engine has full
+  CRUD**: insert, find, update, delete (including bulk), and creating or dropping its own collections and indexes.
+  Only `dropDatabase` on `virtual_counsellor` needs a gate. Automated tests never connect to it (B8: offline, mocks or
+  in-memory). Live CRUD runs through the app or an explicit script.
+- **B13 (no student data to external models):** Only synthetic or anonymised text reaches Gemini or any other external
+  API. Using real transcripts, even the ikigai fixtures, needs Umesh's per-use approval recorded in `qa/gates/`, and
+  the approval names the files. Automated tests run offline with mock providers (B8); live-provider runs use synthetic
+  fixtures only.
 
 ## Non-goals (this contract)
 - The avatar (P3) and the student-facing voice surface.
 - Production deploy.
 - Joining real Pathlynks data (gated on the DPDP legal review, Q3).
+
+## Amendment log
+- 2026-09-25 · routine (tighten) · added B11 secrets, B12 explicit work-DB name + host gate, B13 no student data to
+  external models · the keys and `MONGODB_URL` landed in `.env`, and the contract had no invariant covering them. The
+  URI points to a remote host with no DB name and no credentials (ISS-012).
+- 2026-09-25 · **critical (human-approved)** · B12 rewritten: the host is the production server, and the engine gets
+  one database there, `virtual_counsellor`, with a refuse-any-other-name guard, no drops or bulk deletes without a gate,
+  and tests kept offline. Replaces "`vc_work_<slug>` on local/dev only" · approved by the user's answer recorded in
+  `qa/gates/mongo-host.md`.
+- 2026-09-25 · **critical (human-approved)** · B12: removed the gate on bulk deletes and collection drops. The engine
+  now has full CRUD inside `virtual_counsellor`, and only `dropDatabase` stays gated · the user said "it will be proper
+  crud thing". The global CLAUDE.md and the AIOS lifecycle.md hard-boundary lines record the same exception.

@@ -67,6 +67,10 @@ importers:
         version: 5.8.3
 
   packages/engine:
+    dependencies:
+      '@vc/schemas':
+        specifier: workspace:*
+        version: link:../schemas
     devDependencies:
       '@types/node':
         specifier: ^22.14.0

@@ -4,6 +4,10 @@
   "private": true,
   "description": "Stub — the model/provider seam (H5/D-005, ported from KnowledgeBase packages/ai) lands here",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"

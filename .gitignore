@@ -6,3 +6,5 @@ dist/
 .worktrees/
 *.log
 .claude/scheduled_tasks.lock
+!.env.example
+!**/.env.example
