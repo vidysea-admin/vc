@@ -301,3 +301,145 @@ B11 narrative is recorded above (the root .gitignore has no .env.example negatio
 corroborates, rather than contradicts, the project's own `qa/issues.jsonl`/`qa/QUEUE.md` state,
 which already shows T-004 reopened over these same two issues.
 ```
+
+---
+
+## Cycle 1 verdict
+**Cycle checked:** 1
+**Date:** 2026-09-25
+**Checker:** fresh Claude Sonnet subagent (Mode A, dispatched directly), bound to
+`D:\vc\.worktrees\t-004-langfuse` (branch `wave/t-004-langfuse`), HEAD `6485ee6` (`acb6911` cycle-1
+fix + a merge of main/T-003/T-005 + B14, not the unit's own work — full suite re-run on it per
+dispatch). Judged against main's amended `qa/contracts/counselling-engine.md` (B7 now requires a
+captured exported span + hostile-variant host tests; new B14 "outcome, not construction"). No other
+context used.
+
+### What I re-ran myself
+- `pnpm install` → exit 0, "Already up to date", lockfile stable (10 workspace projects — `packages/db`
+  now present from the merged T-003 work).
+- `pnpm -r typecheck` → exit 0, all 9 typecheck-carrying packages report "Done" incl.
+  `packages/observability`.
+- `pnpm -r test` → exit 0. `packages/observability`: 43/43 pass, exact same test names as the
+  manifest (28 pre-existing + 3 ISS-016 hostile variants + 4 tracing.test.ts + 2 outcome.test.ts +
+  the rewritten callbacks.test.ts 3rd test). All other packages green (`schemas` 50, `engine` 31,
+  `db` 31, 4×1 stub packages).
+- `python contracts/verify_contracts.py` → exit 0, "PASS by vacuity".
+- `docker compose -f infra/langfuse/docker-compose.yml --env-file <temp copy of .env.example,
+  placed in my own scratchpad OUTSIDE D:\vc> config --quiet` → exit 0, no output (validate only,
+  deleted after).
+- `git diff a5693d6 acb6911 --stat` / `--name-status` — 12 files, all `M` except `A tracing.ts` and
+  `A outcome.test.ts`/`A tracing.test.ts`, plus the lockfile and the manifest itself. Matches the
+  manifest's "What changed" exactly; no file outside that list touched, no pre-existing export/
+  test/config key deleted or renamed.
+- `grep -rn "process.env" packages/observability/src/` → three hits, all inside comments/docstrings
+  explaining the OLD (removed) behaviour; zero live `process.env` reads/writes remain.
+- Read the installed `@langfuse/otel@5.11.1` `.d.ts` directly
+  (`node_modules/.pnpm/@langfuse+otel@5.11.1_.../dist/index.d.ts`): `LangfuseSpanProcessorParams.baseUrl`
+  is `@defaultValue "https://cloud.langfuse.com"` — confirms the trap the manifest describes. Read
+  `tracing.ts`: `initTracing` always passes `baseUrl: config.baseUrl` explicitly into the
+  `LangfuseSpanProcessor` constructor, in every call path (module has no branch that omits it) — the
+  Cloud default is never reachable through this code.
+- `git log -p a5693d6..acb6911 | grep -iE "sk-lf-|pk-lf-|secret...|password..."` (excluding
+  CHANGE_ME/test/example/placeholder) → zero hits. `git ls-files | grep -i '\.env'` → only
+  `.env.example` and `infra/langfuse/.env.example`, both tracked with placeholders only; `infra/langfuse/.env`
+  itself was never present in this diff range.
+
+### Independent capability-coverage reproduction (own throwaway copy)
+Built my own copy at `<scratchpad>/checker-t004-c1b/` (outside `D:\vc`, `packages/observability` +
+`infra/langfuse/docker-compose.yml` only, `npm install` fresh). Confirmed **GREEN before touching
+anything**: `tests 43 / pass 43 / fail 0`. Reproduced all 6 cycle-1 rows plus 1 cycle-0 row as a spot
+check, each a single-hunk edit to the single named file, run, then reverted and re-confirmed
+byte-identical against the worktree's own files:
+
+| row | edit | result |
+|---|---|---|
+| ISS-016 trailing-dot normalisation | `config.ts`: `.replace(/\.+$/, "")` removed | before 29/29 (config.test.ts); after **26/29** — exactly the 3 named trailing-dot tests fail. Matches manifest. |
+| ISS-016 `*.langfuse.com` catch-all | `config.ts`: suffix/apex check removed, exact-Set-only | before 29/29; after **27/29** — exactly the subdomain + apex tests fail. Matches manifest. |
+| ISS-017 processor registration | `tracing.ts`: `registerProvider(processor)` call commented out | before 6/6 (tracing+outcome); after **3/6** — registration, idempotency, and (cascading) the outcome test fail. Matches manifest. |
+| ISS-017 idempotent init | `tracing.ts`: `if (singletonHandle) return` guard removed | before 4/4; after **3/4** — only the idempotency test fails, registration/outcome stay green. Matches manifest. |
+| ISS-017 no `process.env` mutation | `callbacks.ts`: reintroduced `process.env.LANGFUSE_BASE_URL = config.baseUrl` | before 3/3; after **2/3** — only the named ISS-017 test fails. Matches manifest. |
+| B7/B14 outcome (real export) | `tracing.ts`: `exporter: deps.exporter` dropped from the processor constructor | before 2/2; after **1/2** — the outcome test fails with a REAL `OTLPExporterError: Not Found` (404 against localhost:3000) — the processor fell through to its real default network exporter. Matches manifest, and independently proves the injected exporter (not a mock of the thing under test) is what keeps this test meaningful. |
+| (spot-check, cycle-0) 127.0.0.1-binding | `docker-compose.yml`: `"127.0.0.1:3000:3000"` → `"3000:3000"` | before 5/5; after 4/5 — only the named port-binding test fails. Matches cycle-0 record. |
+
+No collateral test flipped red in any row. Full suite re-confirmed GREEN (43/43) after all reverts;
+`config.ts`/`tracing.ts`/`callbacks.ts`/`docker-compose.yml` diffed byte-identical against the
+worktree's own copies afterward.
+
+### My own hostile-variant probe (beyond the manifest's tests)
+Ran `loadTracingConfig` directly (read-only, no edit) against 13 variants including the manifest's
+named repro strings plus my own: mixed-case no-dot, explicit `:443` port, userinfo, apex+trailing-dot,
+percent-encoded dot (`%2e`), a nested subdomain (`x.us.cloud.langfuse.com`), a zero-width space
+appended to the host, IDN ideographic-dot, a path-traversal suffix, and a null-byte injection
+attempt. **All 12 real cloud-host variants throw**; the one that does NOT throw
+(`https://cloud.langfuse.com.evil.com`) is a correct non-match — that is genuinely a different host
+(a subdomain of `evil.com`), not a bypass of the real Langfuse Cloud. No new bypass found.
+
+### B7 — MET
+Cloud-host refusal now normalises (lowercase + strip trailing dots) before the Set/suffix check and
+adds a `langfuse.com`/`*.langfuse.com` catch-all; both ISS-016 repro strings from the dispatch now
+throw, and my own 12 additional hostile variants all throw too. Emission is proven, not assumed:
+`tests/outcome.test.ts` drives a real `@langchain/core` `RunnableLambda` through
+`createLangfuseCallbacks` → `initTracing` → a real `LangfuseSpanProcessor` registered on a real
+`NodeTracerProvider`, with only the destination (an in-process `SpanExporter`, not OTel's own
+`InMemorySpanExporter`, which the code correctly avoids for the documented `shutdown()`-clears-first
+reason) faked — and I independently confirmed the exporter is load-bearing by removing it and
+observing a genuine outbound HTTP call fail with a real 404, not a silent pass. `baseUrl` is always
+passed explicitly into the processor (verified: no code path omits it), closing the
+Cloud-default trap confirmed in the installed `@langfuse/otel` `.d.ts`. No `process.env` mutation
+remains anywhere in `packages/observability/src` (grepped; only comments reference the old
+behaviour).
+
+### B8 — MET (unchanged)
+No Mongo code touched, `packages/db` (merged from T-003, unrelated to this unit) is untouched by
+this diff, `pnpm -r test` fully offline.
+
+### B11 — MET (unchanged)
+`infra/langfuse/.env` not tracked in this diff range; `.env.example` files hold only
+`CHANGE_ME`-family placeholders; zero secret-shaped literals anywhere in `git log -p a5693d6..acb6911`.
+
+### B14 — MET
+This is exactly the unit the amendment was written for: the fix cycle stops at neither "the client
+was built" nor "the config parsed" — `outcome.test.ts` proves a span reaches an exporter through the
+real path, and I independently corroborated that by falsifying the exporter injection and watching
+a real network call fire and fail, rather than pass silently.
+
+### Diff scope (4c)
+`git diff a5693d6 acb6911 --name-status`: 12 files — 9 `M` (incl. `pnpm-lock.yaml` and the manifest
+itself) and 3 `A` (`tracing.ts`, `outcome.test.ts`, `tracing.test.ts`). Every path is
+listed in the manifest's cycle-1 "What changed" section. No pre-existing export, test, or config key
+was deleted or renamed. `6485ee6` (current HEAD) is a merge of `main` on top of `acb6911` — its own
+diff brings in T-003/T-005 work and a regenerated lockfile, not this unit's work; I ran the full
+verify suite on that merged state per the dispatch and it stays green.
+
+### Live browser (5b)
+Not applicable — confirmed. Changed paths are `packages/observability/*`, `infra/langfuse/*` only;
+no rendered UI surface, `packages/engine` (the only eventual render path) is untouched by this diff.
+
+### Issues ledger
+ISS-016 and ISS-017 verifiably fixed by this unit, independently reproduced above — both flipped
+`open → fixed` in `qa/issues.jsonl` with this check's own evidence (not the maker's pasted claim).
+`ISS-t-004-langfuse-1` (low, informational) stays open, correctly deferred to T-007 per its own scope
+note — not a blocker on this unit. No new findings at >80% confidence beyond what's already on the
+ledger.
+
+```
+VERDICT: PASS
+SCOREBOARD: 4/4 criteria met (B7, B8, B11, B14), 0/0 invariants scored (B1-B6/B9/B10/B12/B13 out of scope, correctly disclosed)
+FAILURES (if any): none
+CAPABILITY-COVERAGE: 6/6 cycle-1 rows reproduced + 1/1 cycle-0 spot-check row reproduced (own throwaway copy, all isolate the named assertion)
+LIVE-BROWSER: not-applicable (packages/observability/*, infra/langfuse/* — no rendered surface)
+ISSUES-WRITTEN: none new; ISS-016 and ISS-017 flipped open->fixed with this check's own evidence
+EXECUTOR: claude-sonnet-subagent (checker: claude-sonnet-subagent)
+EXPLANATION: Both critical defects from cycle 0 (ISS-016 cloud-host bypass, ISS-017 silent-no-op
+tracing) are fixed and independently reproduced: 6 cycle-1 falsifications plus a cycle-0 spot-check
+all isolate exactly their named assertion in a fresh throwaway copy, confirmed green-before/red-
+after/reverted-identical. My own 13-variant hostile-host probe (beyond the manifest's own tests)
+found no further bypass. The exporter-removal falsification independently proves span export is
+real (a genuine network call fired and failed with 404 when the injected exporter was dropped),
+directly answering B14 "outcome, not construction." No process.env mutation remains in
+packages/observability/src; initTracing always passes baseUrl explicitly, closing the
+@langfuse/otel Cloud-default trap. B8/B11 remain MET, unaffected by this cycle's changes. Diff scope
+is exactly what the manifest's "What changed" lists, no undisclosed touches, no deletions. Not
+UI-touching. All 5 verify commands (install/typecheck/test/verify_contracts/docker-compose-config)
+re-run and matched.
+```
