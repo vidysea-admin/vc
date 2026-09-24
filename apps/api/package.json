@@ -4,6 +4,10 @@
   "private": true,
   "description": "Stub — the backend orchestrator surface (Fastify + LangGraph, plan.md §5) lands here",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"
