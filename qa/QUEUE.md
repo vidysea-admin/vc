@@ -4,6 +4,8 @@ Updated by /checker sweeps only. Gate lines sit above the TODO table (read first
 
 ## Open gates (HUMAN_GATE)
 
+- **2026-09-25 gate answers (checker scribed):** `dpdp-erase-design` = (a) hard delete + confirm + read-back verification (B15); `crisis-safety-layers` = (b) + escalate to admin and concerned counsellors (B16, SLA not set); `config-audit-fixes` = (a) YES, fix ISS-001/004/005 (Approved-by: Umesh), (b) email accepted, correct approver to umeshsugara@vidysea.com via a new D-entry; `real-transcripts-gemini` = anonymise first, raw allowed as a fallback (B13). **Maker owes:** the D-entries recording these via append_decision.ps1, plus the hook fix unit.
+
 - **qa/gates/mongo-host.md**: ANSWERED 2026-09-25. Production server, engine's only database is
   `virtual_counsellor` (contract B12, now full CRUD except `dropDatabase`). Of the three items this
   sweep previously listed as owed: (a) `qa/adapter.json` isolation line — DONE (`b1e6e83`, now reads

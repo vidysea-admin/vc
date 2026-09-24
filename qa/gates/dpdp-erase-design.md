@@ -16,3 +16,12 @@ on read) are part of the same design.
 first, then records a DECISIONS entry.
 **Blocks:** running packages/db/scripts/db-init.ts against the real `virtual_counsellor` database, and any
 real-student-data unit. It does NOT block building or testing T-003 to T-010 offline.
+
+Answered: 2026-09-25, Umesh in the checker session, verbatim: "hard delete with confirmation and verification".
+Resolution: option **(a) hard delete**, with two required steps:
+1. **Confirmation:** an erasure request is confirmed before anything is deleted, through an explicit confirm step
+   recorded in the audit log (who asked, who confirmed, when). A single unconfirmed call never deletes.
+2. **Verification:** after the purge, the engine reads back every collection (facts, edges, sessions, decisions,
+   consents, cards/feedback, audit payloads) and proves zero documents remain for that student. It writes a
+   verification receipt (counts per collection, timestamp) that carries no personal data.
+Export stays as proposed: a per-student JSON bundle. Contract B15.
