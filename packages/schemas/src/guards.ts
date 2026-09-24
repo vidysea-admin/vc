@@ -38,16 +38,18 @@
 
 import type { CardType } from "./schemas.js";
 
-const RECITAL_CUES = [
-  "Tell the student",
-  "Tell them",
-  "Say:",
-  "Say to",
-  "You should tell",
-  "Ask them to agree",
-  "Convince",
-  "Reassure them that",
-] as const;
+// Case-insensitive patterns (ISS-t-002b-schema-hardening-1): statement-type cards have no "?"
+// fallback, so a missed cue is their only defence. Third-party reporting verbs in cited evidence
+// ("Alumni say ...", "Recruiters tell us ...") are deliberately NOT matched.
+const RECITAL_CUES: readonly RegExp[] = [
+  /\btell (the student|them|him|her)\b/i,
+  /^say\b/i, // leading imperative: "Say the deadline is ..."
+  /\bsay(:|\s+to\b|\s+that\b)/i,
+  /\byou (should|must|need to|have to|ought to) (tell|say|inform|explain)\b/i,
+  /\bask them to agree\b/i,
+  /\bconvince\b/i,
+  /\breassure (them|the student|him|her)\b/i,
+];
 
 // A leading definitive assertion ("definitely" / "certainly" / "clearly" /
 // "obviously" / "surely") closed with a tag question ("right?", "isn't it?",
@@ -64,7 +66,7 @@ const STATEMENT_TYPES: ReadonlySet<CardType> = new Set(["compare", "challenge", 
 export function isScriptLike(prompt: string, type?: CardType): boolean {
   const trimmed = prompt.trim();
 
-  const hasRecitalCue = RECITAL_CUES.some((cue) => trimmed.includes(cue));
+  const hasRecitalCue = RECITAL_CUES.some((cue) => cue.test(trimmed));
   if (hasRecitalCue || DEFINITIVE_TAG_QUESTION.test(trimmed)) {
     return true;
   }

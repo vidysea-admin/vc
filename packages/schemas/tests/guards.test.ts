@@ -79,3 +79,23 @@ test("compare/challenge/evidence: a cited statement is not script-like even with
 test("compare/challenge/evidence: a recital cue still flags regardless of type", () => {
   assert.equal(isScriptLike("Tell the student University A is better.", "evidence"), true);
 });
+
+// ISS-t-002b-schema-hardening-1: statement-type cards (compare/challenge/evidence) have no "?"
+// fallback, so recital cues must match case-insensitively and cover plain imperatives.
+test("ISS-t-002b-1: lowercase / mid-sentence recital cues flag statement-type cards", () => {
+  assert.equal(isScriptLike("You must tell the student their application is rejected.", "evidence"), true);
+  assert.equal(isScriptLike("Next, tell the student that LSE is the better fit.", "challenge"), true);
+  assert.equal(isScriptLike("you need to tell them the deadline has passed.", "compare"), true);
+  assert.equal(isScriptLike("Tell them LSE is the right choice.", "evidence"), true);
+});
+
+test("ISS-t-002b-1: a leading imperative 'Say ...' flags as script", () => {
+  assert.equal(isScriptLike("Say the international office deadline is March 1.", "evidence"), true);
+  assert.equal(isScriptLike("say that the scholarship covers 50% of fees.", "challenge"), true);
+});
+
+test("ISS-t-002b-1: third-party reporting verbs in cited evidence are NOT scripts", () => {
+  assert.equal(isScriptLike("Alumni say the campus is safe (2024 survey, n=312).", "evidence"), false);
+  assert.equal(isScriptLike("Recruiters tell us LSE graduates earn 12% more in year one.", "evidence"), false);
+  assert.equal(isScriptLike("The 2024 QS ranking puts University A 15 places above University B.", "compare"), false);
+});

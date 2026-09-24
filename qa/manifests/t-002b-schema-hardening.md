@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (section B)
 **Goal task:** T-002b
 **Date:** 2026-09-25
-**Fix cycle:** 0
+**Fix cycle:** 1
 **Dual check:** no
 **Issues addressed:** ISS-007, ISS-008, ISS-009, ISS-010, ISS-011
 **Executor:** claude-sonnet-subagent
@@ -198,5 +198,33 @@ falsify-copy re-confirmed 49/49 pass, 0 fail — the copy was left in the same s
 Not UI-touching — no surface changed. This unit only touched `package.json` metadata, Zod schema
 source (`packages/schemas/src/{schemas,guards}.ts`), and `.test.ts` files under `packages/schemas/`
 and `packages/engine/`. No `apps/web` or any browser-reachable surface changed.
+
+
+## Fix cycle 1 (2026-09-25), answering qa/verdicts/t-002b-schema-hardening.md (Cycle checked: 0, VERDICT: FAIL)
+Quoted failure:
+- "[B1] sev: high · isScriptLike false-negatives on obvious recitals for compare/challenge/evidence card types (case-sensitive cue match misses lowercase mid-sentence recitals like "You must tell the student..."; fixed cue list misses plain imperative "Say the X is Y." forms) ... · issue: ISS-t-002b-schema-hardening-1"
+
+### What changed (cycle 1, maker-built in the orchestrator session)
+- packages/schemas/src/guards.ts: RECITAL_CUES changed from a case-sensitive string list (`includes`) to case-insensitive RegExps (`.test`). Added a leading-imperative `^say`, `say(:| to| that)`, and `you (should|must|need to|have to|ought to) (tell|say|inform|explain)`. Third-party reporting verbs ("Alumni say ...", "Recruiters tell us ...") are deliberately not matched.
+- packages/schemas/tests/guards.test.ts: 3 new tests, written first and seen RED (12 pass / 2 fail) before the change:
+  - test 12: lowercase and mid-sentence recital cues on statement types, including the checker's "You must tell the student their application is rejected." (evidence) and "Tell them LSE is the right choice." (evidence)
+  - test 13: leading "Say ..." imperative, including the checker's "Say the international office deadline is March 1." (evidence)
+  - test 14: false-positive guard. Cited third-party evidence is NOT flagged.
+
+### Actual outputs (cycle 1, worktree)
+- `npx tsx --test --test-reporter=tap tests/guards.test.ts` (packages/schemas) → `# pass 14` `# fail 0`
+- `pnpm -r typecheck` → exit 0 (all packages "Done")
+- `pnpm -r test` → exit=0; every package `ℹ fail 0` (apps/api, mcp/student-profile, mcp/university-kb, apps/web, packages/providers, packages/schemas, packages/engine)
+- `python contracts/verify_contracts.py` → "no frozen contracts yet (research phase) -- PASS by vacuity", exit 0
+- Stated anomaly: one earlier chained run printed `test exit=1` right after typecheck. Two immediate re-runs gave exit 0 with 0 failures in every package, and I could not reproduce it. It is disclosed here, not hidden.
+
+### Capability coverage (cycle 1 rows; temp copy outside D:c: scratchpad/falsify-002b-c1, `pnpm install --offline`, GREEN first: `# pass 14 # fail 0`)
+| capability | check | falsifying edit (single hunk, guards.ts) | observed |
+|---|---|---|---|
+| recital cues match case-insensitively (lowercase/mid-sentence) | guards.test.ts test 12 | drop the `i` flag on the `tell (the student|them...)` and `you (should|must...)` regexes (lines 45, 48) | before: `ok 12 - ISS-t-002b-1: lowercase / mid-sentence recital cues flag statement-type cards` · after: `not ok 12 - ISS-t-002b-1: lowercase / mid-sentence ...` (also `not ok 3`, `not ok 11`: capitalised "Tell" no longer matches a now case-sensitive lowercase pattern, same cause) · `# pass 11 # fail 3` |
+| leading imperative "Say ..." flagged | guards.test.ts test 13 | delete line 46 `/^say/i` | before: `ok 13 - ISS-t-002b-1: a leading imperative 'Say ...' flags as script` · after: `not ok 13 - ...` · `# pass 13 # fail 1` (only the named test) |
+| third-party reporting verbs not flagged | guards.test.ts test 14 | UNVERIFIED -- no single-hunk edit isolates it without also breaking tests 12/13; the green `ok 14` on both edits above shows no false positive was introduced | enumerated, see ISS-t-002b-schema-hardening-1 |
+
+Live browser evidence (cycle 1): Not UI-touching. Only packages/schemas/src/guards.ts and packages/schemas/tests/guards.test.ts changed.
 
 ## Status: ready-for-check
