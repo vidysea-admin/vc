@@ -30,3 +30,13 @@ target.
   fast front agent, so the second pass runs async and must not block the live turn.
 Net: expand the keywords now (not gated); run the LLM concern pass on "concern" turns plus a stratified sample of
 "none"; measure recall offline. The SLA stays a product/ops decision for Umesh.
+
+Answered: 2026-09-25, Umesh in the checker session, verbatim: "go with your recommendation, we will escalate to admin
+and concerned counsellors".
+Resolution:
+1. **Option (b):** keyword guard first. Then an LLM concern classifier (Flash-Lite, async, never blocking the live
+   turn) runs on every "concern"-level turn plus a stratified sample of "none" turns. Recall is measured offline on
+   the crisis golden set before any pilot.
+2. **Escalation:** an escalation notifies **the admin and the concerned counsellor(s)**.
+   [ASSUMPTION, flagged] No response-time number was given. Until Umesh sets one, the engine notifies both at the
+   same moment, with no waiting window. Contract B16.
