@@ -72,3 +72,9 @@ not replace them.
 **Changes-authorized:** .claude/settings.json (hooks merge: 2nd SessionStart entry, PreToolUse Bash|PowerShell commit guard) - needed to run the mc hooks; .claude/hooks/mc-sessionstart.ps1 - AUTO-CONTINUE directive; .claude/hooks/mc-precommit.ps1 - warn-only commit guard; project .claude/CLAUDE.md "Maker-checker discipline" block - the soft rule.
 **Approved-by:** Umesh
 **Links:** T-001, qa/gates/maker-start.md (Answered 2026-09-25, chat, operator account himanshu@vidysea.com)
+
+## D-007 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** Workspace packages are consumed as TypeScript source with no build step. Every package.json declares "exports": {".": "./src/index.ts"}, and runtime and tests run through tsx. A tsc build to dist/ is deferred until a deploy target exists.
+**Why:** The T-002 review (ISS-007) found that cross-package imports fail without an exports field. Source exports keep the loop fast for one developer and match ikigai-counsellor (tsx). Adding dist/ later is a reversible change to the exports map.
+**Result:** --
+**Links:** T-002b, ISS-007

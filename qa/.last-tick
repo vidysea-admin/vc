@@ -2,3 +2,4 @@
 2026-09-25T01:19:15+05:30 · ADVANCED · t-001-plan-doc ready-for-check (fix cycle 0), checker dispatched · wave=1 · serial=[T-002: waits on T-001 PASS]
 2026-09-25T01:29:50+05:30 · ADVANCED · t-001-plan-doc cycle-0 FAIL (ISS-006: 4 missing I/O lines) → fixed, fix cycle 1 re-check dispatched · serial=[T-002: waits on T-001 PASS]
 2026-09-25T01:39:39+05:30 · ADVANCED · t-001-plan-doc closed checked-PASS (7c84eb6); wave 2: T-002 build (worktree wave/t-002-scaffold) + checker sweep, one message · wave=1 unit · concurrent peak=2 · serial=[T-003..T-010: depend on T-002 per TASKS.md]
+2026-09-25T01:51:36+05:30 · ADVANCED · t-002-scaffold ready-for-check (4e845fd on wave/t-002-scaffold); checker + senior-SWE review dispatched in one message · concurrent peak=2 · serial=[T-003/T-004/T-005: wait on T-002 merge (they import packages/schemas)]
