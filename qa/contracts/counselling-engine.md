@@ -62,8 +62,10 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   URI default. One shared DB helper names `virtual_counsellor` explicitly and refuses any other database name. Tests
   prove that the helper rejects another name and that no module calls `client.db(` outside the helper. The engine
   never reads, writes, drops or indexes any other database on that server, including Pathlynks and
-  `global_university_db`. Using another database needs a new gate. Automated tests never connect to it (B8: offline,
-  mocks or in-memory). Only an explicit live-run script writes to it. Collection drops and bulk deletes need a gate.
+  `global_university_db`. Using another database needs a new gate. **Inside `virtual_counsellor` the engine has full
+  CRUD**: insert, find, update, delete (including bulk), and creating or dropping its own collections and indexes.
+  Only `dropDatabase` on `virtual_counsellor` needs a gate. Automated tests never connect to it (B8: offline, mocks or
+  in-memory). Live CRUD runs through the app or an explicit script.
 - **B13 (no student data to external models):** Only synthetic or anonymised text reaches Gemini or any other external
   API. Using real transcripts, even the ikigai fixtures, needs Umesh's per-use approval recorded in `qa/gates/`, and
   the approval names the files. Automated tests run offline with mock providers (B8); live-provider runs use synthetic
@@ -82,3 +84,6 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   one database there, `virtual_counsellor`, with a refuse-any-other-name guard, no drops or bulk deletes without a gate,
   and tests kept offline. Replaces "`vc_work_<slug>` on local/dev only" · approved by the user's answer recorded in
   `qa/gates/mongo-host.md`.
+- 2026-09-25 · **critical (human-approved)** · B12: removed the gate on bulk deletes and collection drops. The engine
+  now has full CRUD inside `virtual_counsellor`, and only `dropDatabase` stays gated · the user said "it will be proper
+  crud thing". The global CLAUDE.md and the AIOS lifecycle.md hard-boundary lines record the same exception.
