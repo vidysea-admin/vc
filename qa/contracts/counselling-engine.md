@@ -48,7 +48,10 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - **B6 (portable core):** Prompts and soft rules live in `skills/*/SKILL.md`. Hard rules live in code guards that run
   before any LLM call. Tools are MCP servers. The model is chosen by config.
 - **B7 (tracing, no egress):** Graph runs emit Langfuse traces to a self-hosted endpoint only, with
-  `TELEMETRY_ENABLED=false`.
+  `TELEMETRY_ENABLED=false`. **Emit must be proven, not assumed:** a test captures at least one exported span through
+  the real export path, using an in-process exporter or collector. A test that only constructs a handler or client does
+  not count (ISS-017). Host guards are tested against hostile variants: trailing dot, mixed case, explicit port,
+  userinfo, IDN/punycode (ISS-016).
 - **B8 (data boundary):** No production Mongo writes. No real student data in the tree. Tests run offline with mock
   providers.
 - **B9 (crisis):** A distress or self-harm signal routes to an escalation card before any generative call.
@@ -71,6 +74,11 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   the approval names the files. Automated tests run offline with mock providers (B8); live-provider runs use synthetic
   fixtures only.
 
+- **B14 (outcome, not construction):** Every integration unit (tracing, Mongo, model provider, MCP, STT) proves its
+  claimed effect end to end against a real or in-process fake: data written and read back, a span exported, a request
+  refused. It must not stop at "the client was built" or "the config parsed". Any allow-list or deny-list guard has a
+  hostile-variant test.
+
 ## Non-goals (this contract)
 - The avatar (P3) and the student-facing voice surface.
 - Production deploy.
@@ -87,3 +95,7 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - 2026-09-25 · **critical (human-approved)** · B12: removed the gate on bulk deletes and collection drops. The engine
   now has full CRUD inside `virtual_counsellor`, and only `dropDatabase` stays gated · the user said "it will be proper
   crud thing". The global CLAUDE.md and the AIOS lifecycle.md hard-boundary lines record the same exception.
+- 2026-09-25 · routine (tighten) · B7 now requires a captured exported span and hostile-variant host tests; new B14,
+  "outcome, not construction", for every integration unit · the t-004 cycle-0 checker PASSed a unit whose tracing was
+  a silent no-op (ISS-017) and whose cloud block had a trailing-dot bypass (ISS-016), because the tests only asserted
+  construction.
