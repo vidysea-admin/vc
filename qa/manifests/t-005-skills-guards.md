@@ -152,4 +152,4 @@ change), `packages/engine/src/skills/loader.ts`, `packages/engine/src/guards/*.t
 `skills/*/SKILL.md` — all backend/library code and markdown prompt files, no `apps/web` or any
 rendered surface touched.
 
-## Status: ready-for-check
+## Status: checked-PASS — qa/verdicts/t-005-skills-guards.md (Cycle checked: 0, commit 431182a)
