@@ -2,15 +2,24 @@
   "name": "@vc/mcp-university-kb",
   "version": "0.1.0",
   "private": true,
-  "description": "Stub — MCP server exposing the University Knowledge Base tool boundary (H5/D-005) lands here",
+  "description": "MCP server exposing the University Knowledge Base tool boundary (H5/D-005, contract B2): search_courses, get_course",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
   "types": "./src/index.ts",
+  "bin": {
+    "vc-mcp-university-kb": "./src/bin.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    "@vc/db": "workspace:*",
+    "mongodb": "^6.21.0",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
     "typescript": "~5.8.2",
