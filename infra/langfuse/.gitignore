@@ -1,0 +1,2 @@
+# Real secrets — never commit. .env.example is the committed, placeholder-only template.
+.env
