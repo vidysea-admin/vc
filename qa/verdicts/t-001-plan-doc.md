@@ -1,87 +1,79 @@
 # Verdict — t-001-plan-doc
 
-**Cycle checked:** 0
+**Cycle checked:** 1
 **Date:** 2026-09-25
 **Checker:** fresh claude-sonnet-subagent, read-only, bound to `D:\vc`, no builder context
 **Contract:** qa/contracts/counselling-engine.md, section A (criteria A1-A9)
 **Rubric:** qa/rubrics/plan-doc.md (MUST M1-M9, SCORE S1-S5)
+**Answering:** qa/verdicts/t-001-plan-doc.md cycle 0 (VERDICT: FAIL on M8/A4 + S3, ISS-006)
 
 ## What I re-ran myself (never trusted the manifest's pasted output)
 
-1. **Mermaid parse** — `npx -y @mermaid-js/mermaid-cli@latest -i docs/plan.md -o <scratch-outside-D:\vc>/out.md`
-   from `D:\vc`. Real output: `Found 3 mermaid charts in Markdown input`, `out-1.svg`/`out-2.svg`/`out-3.svg`
-   written, exit clean. Matches the manifest's claim independently.
-2. **Section-fence / stop-rule position** — `grep -n '^```|Stop rule' docs/plan.md`: Diagram-3 closing fence
-   is line 136, blank line 137, `**Stop rule:**` at line 138 — directly follows Diagram 3. Confirmed
-   independently (own grep, not the manifest's script output).
-3. **Node counts / classDefs / direction** — read all 3 fenced mermaid blocks myself: Diagram 1
-   (LR, 6 nodes: C/A/S/E/P/K), Diagram 2 (TD, 10 nodes: S1-S9 + DB), Diagram 3 (TD, 11 nodes:
-   A1-A10 + L). All ≤12, single direction each, `classDef human/ai/data` with goal.md's exact
-   colours (`#d4edda`/`#28a745`, `#d6e4ff`/`#2f54eb`, `#eeeeee`/`#888`) in all three blocks.
-4. **FAQ cross-question coverage (M6)** — read goal.md §7 myself and counted 11 cross-questions
-   there; matched each against plan.md §7's 11 FAQ headers 1:1 in the same order. All 11 answered.
-5. **Exit gates (M5)** — read compass lines 214-217 myself; plan.md §6's "Exit gates (verbatim...)"
-   bullets are a verbatim match to compass L215-217.
-6. **Number traceability (M7)** — independently traced 21 figures from the manifest's table to
-   compass/goal.md source lines myself (14%/34% - compass L6,L17; exit-gate numbers - compass
-   L215-217; Phase 0/1/2/3 week counts - compass gantt L198-211, converted correctly from day
-   counts (14d=2wk, 21d=3wk, 28d=4wk); top 150 - compass L199; session costs $1.0-1.5/$2-2.5 -
-   compass L227; $1.8-3k/month - compass L231; 13 May 2027 - compass L8/L239; DPDP fines
-   ₹200cr/₹250cr - compass L259; ~50% autonomous - compass L258; avatar $0.01-0.10/min -
-   goal.md L146, consistent with compass L187's Simli/LiveAvatar range; max 10-12 boxes -
-   goal.md L27). Every figure checked traced cleanly. No unsourced figure found.
-7. **A8/M9 "nothing claimed built"** — grepped `built|implemented|already exists|is live|in
-   production|deployed` across docs/plan.md: the only "built" hits are (a) the moat sentence
-   ("built up over years of sessions" — describes the *future* student model, not D:/vc code),
-   (b) the explicit disclaimer at L207 ("Nothing described above is built yet in D:/vc"), and
-   (c) a design-intent sentence at L286 ("Consent and purpose-tagging are built into the data
-   model from day one" — describes the planned schema, not a present-tense D:/vc claim). No
-   violation.
-8. **Diff scope** — `git status --short` / `git diff HEAD --stat`: untracked `docs/plan.md` and
-   `qa/manifests/` (as declared), plus a modified `qa/.last-tick` (an append-only maker-tick
-   log line, not a deletion/rename of any function/class/export/route/test/config key, and not
-   part of the artifact under check). Not a diff-scope violation — noted, not a finding.
-9. **Independent rubric grading** — dispatched a fresh, stateless grader subagent (Agent tool,
-   general-purpose) per the /outcome-grader protocol, given ONLY `qa/rubrics/plan-doc.md` and
-   `docs/plan.md` as paths (plus goal.md/compass as the rubric's own referenced sources for
-   M5/M6/M7 — no builder reasoning, no chat history). Its independent re-derivation matches my
-   own points 1-7 above, and it additionally caught a real gap I confirmed myself (below).
+1. **Diff scope** — `git status --short` / `git diff --stat HEAD`: only `qa/.last-tick` modified
+   (+2 append-only lines) and `docs/plan.md` / `qa/manifests/` untracked (new). No unexpected file
+   touched; no deletion/rename of anything.
+2. **Mermaid parse (M2)** — own `npx -y @mermaid-js/mermaid-cli@latest -i docs/plan.md -o
+   <scratch>/out.md` run: "Found 3 mermaid charts in Markdown input", 3 SVGs written, exit clean.
+3. **Node count / classDef / direction (M3)** — own Python regex pass over all 3 fenced blocks:
+   Block 1 (LR, 6 nodes), Block 2 (TD, 10 nodes), Block 3 (TD, 11 nodes); all ≤12, single
+   direction, `classDef human/ai/data` present in all three.
+4. **Section headings + FAQ + stop rule (M1/M6)** — own `grep`: 7 `## N.` headings in
+   goal.md order; 11 `**"..."**` FAQ blocks; Diagram 3's closing fence at line 137, blank line
+   138, `**Stop rule:**` at line 139 — directly under Diagram 3.
+5. **Exit gates (M5)** — own `grep` of the compass file lines 215-217: verbatim match to
+   plan.md §6's P1/P2/P3 exit-gate bullets.
+6. **M8/A4 — the fixed criterion** — own Python extraction of every `- **...(step N)**` bullet in
+   §3 and §4: §3 has 9 I/O lines covering steps 1-9 (all present, including the previously-missing
+   step 2 "Session start / audio capture"); §4 has 11 I/O lines covering steps 1, 2, 3, 4, (an
+   extra "Application Packet assembly" bullet), 5, 6, 7a, 7b, 8, 9 — all 9 numbered P2 steps
+   (7 split into 7a/7b) now have an I/O line, including the previously-missing steps 1 ("Decision
+   final"), 5 ("Student login") and 6 ("Portal router"). No P1 node or P2 step lacks an I/O line.
+   **M8/A4 is now MET.**
+7. **No built-claims (M9)** — own `grep -i 'built|implemented|already exists|is live|in
+   production|deployed'`: same 3 hits as cycle 0 (future-student-model moat sentence, the explicit
+   "Nothing described above is built yet in D:/vc" disclaimer, and a planned-schema sentence about
+   consent). No violation, unchanged from cycle 0.
+8. **Independent rubric grading** — dispatched a fresh, stateless grader subagent (Agent tool,
+   general-purpose) per the /outcome-grader protocol, given only `qa/rubrics/plan-doc.md`,
+   `docs/plan.md`, `goal.md` and the compass file as paths — no builder reasoning, no chat history,
+   no knowledge of this being a re-check. Its independent MUST/SCORE grading matched mine on 8/9
+   MUSTs and confirmed M8 fixed; it additionally flagged M3 as "not met" on the theory that Diagram
+   1 (§2 Big picture) lacks numbered-step labels on its boxes, unlike Diagrams 2/3.
+9. **Resolving the grader's M3 flag myself** — read `goal.md` lines 25-58 (the "Flowchart rules"
+   section and goal.md's own canonical Diagram 1). Diagram 1 in `docs/plan.md` is a **verbatim
+   reproduction** of goal.md's own reference Diagram 1 (identical node IDs C/A/S/E/P/K, identical
+   labels including "Phase 1"/"Phase 2"/"Phase 3" sub-labels, identical edges) — and goal.md's own
+   canonical Diagram 1 **also carries no numbered-step labels**, despite goal.md's general
+   "Steps numbered hon (1,2,3…)" flowchart rule. Diagram 1's boxes are parallel surfaces (three
+   product phases converging on one engine), not a sequence, so the numbering rule was never
+   applied to it even in the source template the contract is derived from. This is a faithful
+   match to the source, not a new gap — **I do not adopt the grader's M3 finding.** M3/A2 stands
+   MET, consistent with both my own and cycle 0's independent reads.
 
-## FAILURES
+## SCORE (adopting the independent grader's grounded scores, spot-checked against my own read)
 
-- **[M8 / A4]** sev: medium · Module I/O lines are missing for 4 of the 18 numbered P1+P2 diagram
-  steps: P1 step 2 ("Session starts, student speaks" — no I/O bullet in §3, which jumps from
-  step 1 to step 3), and P2 steps 1 ("Decision final"), 5 ("Student logs in to portal") and 6
-  ("Known portal?" branch) — §4's I/O list only covers steps 2, 3, 4, 7a, 7b, 8, 9 plus an
-  unlabeled "Application Packet (assembly)" bullet. I counted the bullets myself: §3 has 8 I/O
-  lines (not the 9 the manifest's self-check table claims), §4 also has 8 (not 9) — the
-  manifest's own evidence miscounted, which is the likely reason this gap wasn't caught before
-  submission. Rubric M8 and contract A4 both read as literal ("every P1 node and every P2 step" /
-  "every module has one line"), with no stated exception in the doc for human-only or pure-branch
-  steps, so this is a genuine MUST failure on the artifact as written, not a benefit-of-the-doubt
-  call. Fix direction: add one I/O line each for the 4 missing steps, or add an explicit sentence
-  scoping M8/A4 to steps that transform data (excluding pure human actions and boolean branches)
-  and apply it consistently. Issue: ISS-006.
-- **[S3 AI-tool readiness]** sev: medium · scored 3/5 (< 4 required for PASS) — same root cause as
-  above: an AI coding tool pasting §3-5 as-is has to infer the I/O boundary for 4 of 18 steps
-  rather than reading it off the doc. Fixing M8 raises this score. Issue: ISS-006 (same root
-  cause, not filed twice).
+S1=4 (§1's dense inline research citation costs a CEO reader a beat, otherwise clear in <2 min),
+S2=5 (§3-6 fully sufficient to start T-002 without the compass), S3=5 (raised from cycle 0's 3 —
+every P1/P2 step now carries a pasteable I/O JSON shape, the sole cause of the 3/5 score is fixed),
+S4=5 (all four honesty markers explicit and un-hedged), S5=4 (P1 exit-gate numbers are restated
+near-verbatim in both §6 and §7, a minor cross-section repeat, otherwise one idea per diagram).
+
+All SCORE items ≥4 — meets the rubric's SCORE bar.
 
 ## SCOREBOARD
 
-MUST: 8/9 met (M1, M2, M3, M4, M5, M6, M7, M9 met; M8 not met).
-SCORE: S1=5, S2=5, S3=3, S4=5, S5=4.
-Contract A1-A9: A1, A2, A3, A5, A6, A7, A8, A9 met; A4 not met (mirrors M8).
+MUST: 9/9 met (M1-M9 all met; M8 newly fixed this cycle).
+SCORE: S1=4, S2=5, S3=5, S4=5, S5=4 — all ≥4.
+Contract A1-A9: all 9 met (A4 fixed, mirrors M8).
 
-Rubric rule: "PASS = every MUST met, and ≥4/5 on every SCORE item." M8 fails and S3 < 4 →
-**does not meet the rubric's PASS bar.**
+Rubric rule: "PASS = every MUST met, and ≥4/5 on every SCORE item." **Both hold — PASSES the
+rubric's bar.**
 
 ## Capability coverage
 
-Doc artifact — no isolating falsification, as declared in the manifest. Accepted on that basis
-because the rubric verdict is carried in full above (this checker independently re-ran the
-grading rather than trusting the manifest's self-check table alone, and found a real gap the
-self-check table's own miscount had papered over).
+Doc artifact — no isolating falsification, as declared in the manifest. Accepted on that basis;
+the rubric verdict (independently re-derived by both this checker and a fresh grader subagent) is
+the discriminator.
 
 ## Live browser evidence
 
@@ -89,23 +81,23 @@ Not applicable — no UI surface changed (`docs/plan.md`, `qa/manifests/` only).
 
 ## Issues
 
-Written: ISS-006 (medium, open, class doc-gap).
-`Issues addressed` in the manifest: none claimed, none to reconcile.
+ISS-006 resolved this cycle — flipped to `fixed` by appending a new ledger line (append-only
+ledger; original `open` line preserved for history).
+`Issues addressed` in the manifest: ISS-006 — verifiably fixed, reconciled above.
 
 ## Executor
 
-Manifest's Executor: claude-sonnet-subagent. Checker: claude-sonnet-subagent (fresh instance,
-no `ANTHROPIC_BASE_URL` override, independent of the builder's context).
+Manifest's Executor: claude-sonnet-subagent. Checker: claude-sonnet-subagent (fresh instance, no
+`ANTHROPIC_BASE_URL` override, independent of the builder's context, independent of cycle 0's
+checker instance).
 
 ---
 
-VERDICT: FAIL
-SCOREBOARD: 8/9 criteria met, N/A invariants (document unit, no invariants in section A)
-FAILURES (if any):
-- [M8/A4] sev: medium · Module I/O lines missing for 4/18 P1+P2 steps (P1 step 2; P2 steps 1, 5, 6) · add the missing I/O bullets or an explicit human/branch-step exemption sentence · issue: ISS-006
-- [S3] sev: medium · AI-tool-readiness scored 3/5 (< 4 required), same root cause as M8/A4 · fixing M8 raises this score · issue: ISS-006
-CAPABILITY-COVERAGE: not-applicable (document artifact, no isolating falsification — rubric verdict carried in full above)
+VERDICT: PASS
+SCOREBOARD: 9/9 criteria met, N/A invariants (document unit, no invariants in section A)
+FAILURES (if any): none
+CAPABILITY-COVERAGE: not-applicable (document artifact, no isolating falsification — rubric verdict carried in full above, cross-checked by an independent grader subagent)
 LIVE-BROWSER: not-applicable (changed paths: docs/plan.md, qa/manifests/ only)
-ISSUES-WRITTEN: ISS-006
+ISSUES-WRITTEN: none (ISS-006 flipped to fixed, not a new issue)
 EXECUTOR: claude-sonnet-subagent (checker: claude-sonnet-subagent)
-EXPLANATION: 8 of 9 MUST criteria hold with independently re-derived evidence (own Mermaid CLI run, own node/classDef/direction count, own FAQ and exit-gate cross-check, own 21-figure traceability trace, own diff-scope check) plus a fresh independent /outcome-grader dispatch that found the same picture. M8/A4 fails because 4 of 18 numbered P1/P2 diagram steps have no Module I/O line, which also caps S3 at 3/5 — a narrow, mechanically fixable gap, not a structural or honesty problem.
+EXPLANATION: All 9 MUST criteria now hold, independently re-derived (own Mermaid CLI run, own node/classDef/direction count, own FAQ/stop-rule/exit-gate re-check, own I/O-bullet extraction for M8, own diff-scope check) and cross-checked by a fresh /outcome-grader subagent. M8/A4's 4 missing I/O lines (P1 step 2; P2 steps 1, 5, 6) are now present, confirmed by direct extraction, which also raises S3 to 5/5. The grader's one dissenting flag (M3, Diagram 1 lacking numbered steps) does not hold: Diagram 1 is a verbatim reproduction of goal.md's own canonical Diagram 1, which itself carries no step numbers — not a gap introduced by this artifact.
