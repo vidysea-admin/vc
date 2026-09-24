@@ -54,8 +54,23 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - **B9 (crisis):** A distress or self-harm signal routes to an escalation card before any generative call.
 - **B10 (draft-only, P2):** The application filler never triggers submit, and it stops at login, 2FA, CAPTCHA, payment
   or the declaration.
+- **B11 (secrets):** Keys are read only from `.env`, which git ignores. A tracked `.env.example` lists every key name
+  and holds no values. No key value appears in the tree, git history, logs, traces, manifests or verdicts. The checker
+  greps history for each key value on any unit that touches config.
+- **B12 (work DB pinned):** Code never takes the database name from the URI default. Every Mongo client names its
+  database explicitly as `vc_work_<slug>`, and a test proves it. No unit that writes (T-003+) may run against a host
+  until Umesh has confirmed, in `qa/gates/`, that the host is a dev/work server and not production (ISS-012).
+- **B13 (no student data to external models):** Only synthetic or anonymised text reaches Gemini or any other external
+  API. Using real transcripts, even the ikigai fixtures, needs Umesh's per-use approval recorded in `qa/gates/`, and
+  the approval names the files. Automated tests run offline with mock providers (B8); live-provider runs use synthetic
+  fixtures only.
 
 ## Non-goals (this contract)
 - The avatar (P3) and the student-facing voice surface.
 - Production deploy.
 - Joining real Pathlynks data (gated on the DPDP legal review, Q3).
+
+## Amendment log
+- 2026-09-25 · routine (tighten) · added B11 secrets, B12 explicit work-DB name + host gate, B13 no student data to
+  external models · the keys and `MONGODB_URL` landed in `.env`, and the contract had no invariant covering them. The
+  URI points to a remote host with no DB name and no credentials (ISS-012).
