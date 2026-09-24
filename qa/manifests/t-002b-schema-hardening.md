@@ -227,4 +227,4 @@ Quoted failure:
 
 Live browser evidence (cycle 1): Not UI-touching. Only packages/schemas/src/guards.ts and packages/schemas/tests/guards.test.ts changed.
 
-## Status: ready-for-check
+## Status: checked-PASS — qa/verdicts/t-002b-schema-hardening.md (Cycle checked: 1, commit 8f9a445)
