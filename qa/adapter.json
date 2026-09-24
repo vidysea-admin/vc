@@ -1,0 +1,29 @@
+{
+  "adapter": "coding",
+  "_why": "Mixed project. Unit T-001 is a document (verify = rubric_ref via /outcome-grader against qa/rubrics/plan-doc.md). Every later unit is TS code (verify = shell). The per-unit verify kind is named in the manifest; the checker must reproduce it from scratch either way.",
+  "unit_vocab": { "id_prefix": "ISS", "severity": ["critical", "high", "medium", "low"] },
+  "data_class": "synthetic",
+  "real_data_markers": ["pathlynks", "global_university_db"],
+  "verify": {
+    "kind": "shell",
+    "commands": [
+      { "cmd": "pnpm -r typecheck", "expect": "exit 0" },
+      { "cmd": "pnpm -r test", "expect": "exit 0" },
+      { "cmd": "python contracts/verify_contracts.py", "expect": "exit 0" }
+    ],
+    "doc_units": { "kind": "rubric_ref", "rubric": "qa/rubrics/plan-doc.md" },
+    "reproducible_by_checker": true
+  },
+  "artifact": { "kind": "code", "baseline": "git", "revert_op": "git revert-file" },
+  "isolation": {
+    "reserve": ["git worktree per unit", "Mongo work DB name vc_work_<slug> on a local/dev Mongo only"],
+    "forbidden": [
+      "any write to production MongoDB",
+      "real student / Pathlynks / applicant data in the tree (anonymised fixtures only, per-use approval)",
+      "sending transcripts or student data to any external service other than the approved model provider",
+      "Langfuse Cloud or Langfuse telemetry on",
+      "any application-portal submit action"
+    ],
+    "done": "checker VERDICT: PASS (Cycle checked == Fix cycle), manifest flipped to checked-PASS and committed. No deploy in the loop; publishing the plan doc as a shared Claude Doc is a human gate."
+  }
+}
