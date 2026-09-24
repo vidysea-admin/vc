@@ -183,4 +183,4 @@ After the last row, the falsify-copy's `pnpm test` in `packages/db` was re-run a
 Not UI-touching — no surface changed. This unit only touched `packages/db/**` (new package) and
 `pnpm-lock.yaml`. No `apps/web` or any browser-reachable surface changed.
 
-## Status: ready-for-check
+## Status: checked-PASS — qa/verdicts/t-003-student-kg.md (Cycle checked: 0, commit a4dd339)
