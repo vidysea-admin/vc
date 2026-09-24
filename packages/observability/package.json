@@ -1,0 +1,30 @@
+{
+  "name": "@vc/observability",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted Langfuse tracing config + LangChain callback adapter (D-004, ARCHITECTURE.md H4, agentic-architecture-standard.md rule 5)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@langfuse/langchain": "^5.11.1",
+    "@langfuse/otel": "^5.11.1",
+    "@opentelemetry/sdk-trace-node": "^2.11.0"
+  },
+  "devDependencies": {
+    "@langchain/core": "^1.2.12",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/core": "^2.11.0",
+    "@opentelemetry/sdk-trace-base": "^2.11.0",
+    "typescript": "~5.8.2",
+    "tsx": "^4.21.0",
+    "@types/node": "^22.14.0",
+    "yaml": "^2.9.1"
+  }
+}

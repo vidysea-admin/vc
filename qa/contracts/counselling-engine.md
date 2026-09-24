@@ -52,8 +52,8 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   the real export path, using an in-process exporter or collector. A test that only constructs a handler or client does
   not count (ISS-017). Host guards are tested against hostile variants: trailing dot, mixed case, explicit port,
   userinfo, IDN/punycode (ISS-016).
-- **B8 (data boundary):** No production Mongo writes. No real student data in the tree. Tests run offline with mock
-  providers.
+- **B8 (data boundary):** Production Mongo writes only inside `virtual_counsellor` (B12). Nothing else on the
+  production server is ever written. No real student data in the tree. Tests run offline with mock providers.
 - **B9 (crisis):** A distress or self-harm signal routes to an escalation card before any generative call.
 - **B10 (draft-only, P2):** The application filler never triggers submit, and it stops at login, 2FA, CAPTCHA, payment
   or the declaration.
@@ -72,12 +72,26 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - **B13 (no student data to external models):** Only synthetic or anonymised text reaches Gemini or any other external
   API. Using real transcripts, even the ikigai fixtures, needs Umesh's per-use approval recorded in `qa/gates/`, and
   the approval names the files. Automated tests run offline with mock providers (B8); live-provider runs use synthetic
-  fixtures only.
+  fixtures only. **Approval on record** (`qa/gates/real-transcripts-gemini.md`): anonymise first by default. Raw
+  `D:/ikigai_counsellor/transcripts/` files may go to Gemini as a fallback, with the files listed in the manifest.
+  Raw transcripts are never committed.
 
 - **B14 (outcome, not construction):** Every integration unit (tracing, Mongo, model provider, MCP, STT) proves its
   claimed effect end to end against a real or in-process fake: data written and read back, a span exported, a request
   refused. It must not stop at "the client was built" or "the config parsed". Any allow-list or deny-list guard has a
   hostile-variant test.
+- **B15 (DPDP erasure: hard delete, confirmed, verified):** An erasure request hard-deletes every document for that
+  student across all engine collections: facts, edges, sessions, decisions, consents, cards/feedback, audit payloads.
+  It only runs after an explicit confirmation step recorded in the audit log (requester, confirmer, time). An
+  unconfirmed call deletes nothing, and a test proves it. After the purge, a verification pass reads back every
+  collection and proves zero documents remain for that student. It writes a receipt of counts and time only, with no
+  personal data. Export is a per-student JSON bundle. Tests cover confirm-required, full purge (read-back = 0) and a
+  partial-failure path that is reported, not silently swallowed (`qa/gates/dpdp-erase-design.md`).
+- **B16 (crisis escalation):** The keyword guard runs first, before any generative call (B9). An async Flash-Lite
+  concern classifier, which never blocks the live turn, runs on concern-level turns plus a stratified sample of "none"
+  turns. An escalation notifies **the admin and the concerned counsellor(s)** at the same moment. Crisis recall is
+  measured on an offline golden set (indirect Hinglish, Devanagari, abuse, benign idioms) before any real-student
+  pilot (`qa/gates/crisis-safety-layers.md`; the response-time SLA is not yet set).
 
 ## Non-goals (this contract)
 - The avatar (P3) and the student-facing voice surface.
@@ -99,3 +113,8 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   "outcome, not construction", for every integration unit · the t-004 cycle-0 checker PASSed a unit whose tracing was
   a silent no-op (ISS-017) and whose cloud block had a trailing-dot bypass (ISS-016), because the tests only asserted
   construction.
+- 2026-09-25 · routine (consistency + tighten, from Umesh's gate answers) · B8 aligned with B12 (it said "no production
+  writes", which contradicted the approved `virtual_counsellor` CRUD); B13 records the transcripts approval (anonymise
+  by default, raw allowed as a fallback); new B15 DPDP hard delete with confirm and read-back verification; new B16
+  crisis escalation to admin plus the concerned counsellors · answers in qa/gates/{dpdp-erase-design, crisis-safety-layers,
+  real-transcripts-gemini}.md.
