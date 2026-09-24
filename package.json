@@ -1,0 +1,19 @@
+{
+  "name": "vc-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vidysea AI Counselling Engine — pnpm TypeScript monorepo (T-002 scaffold)",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2",
+    "tsx": "^4.21.0",
+    "@types/node": "^22.14.0"
+  }
+}

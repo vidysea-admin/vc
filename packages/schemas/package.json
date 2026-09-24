@@ -1,0 +1,19 @@
+{
+  "name": "@vc/schemas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zod source of truth for the Vidysea AI Counselling Engine (plan.md §3/§4 shapes)",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2",
+    "tsx": "^4.21.0",
+    "@types/node": "^22.14.0"
+  }
+}

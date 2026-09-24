@@ -1,0 +1,16 @@
+{
+  "name": "@vc/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stub — the LangGraph.js StateGraph (H1/D-002) lands here in a later unit",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2",
+    "tsx": "^4.21.0",
+    "@types/node": "^22.14.0"
+  }
+}
