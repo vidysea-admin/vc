@@ -22,6 +22,12 @@
  *        - second-person recital verbs: "Tell the student", "Tell them",
  *          "Say:", "Say to", "You should tell", "Ask them to agree",
  *          "Convince", "Reassure them that"
+ *        - explain/inform aimed at the student: "Explain to the student",
+ *          "Explain them", "Inform them", "Inform the student"
+ *          (ISS-t-002b-schema-hardening-2)
+ *        - "let the student/them/him/her know" (ISS-t-002b-schema-hardening-2)
+ *        - a leading script-label cue: "Your line:", "Script:", "Say this:"
+ *          (ISS-t-002b-schema-hardening-2)
  *        - a leading definitive assertion closed with a tag question, e.g.
  *          "This is definitely your best option, right?"
  *   2. Otherwise, behaviour depends on the card's `type`:
@@ -49,6 +55,13 @@ const RECITAL_CUES: readonly RegExp[] = [
   /\bask them to agree\b/i,
   /\bconvince\b/i,
   /\breassure (them|the student|him|her)\b/i,
+  // ISS-t-002b-schema-hardening-2: bare explain/inform aimed at the student —
+  // distinct from the "you must/should ... explain/inform" combinator above,
+  // which requires a leading "you" modal that these do not have.
+  /\b(explain|inform)( to)? (the student|them|him|her)\b/i,
+  /\blet (the student|them|him|her) know\b/i,
+  // a leading script-label cue, e.g. "Your line: University A is better."
+  /^(your line|script|say this)\s*:/i,
 ];
 
 // A leading definitive assertion ("definitely" / "certainly" / "clearly" /

@@ -1,0 +1,49 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { requireConsent, ConsentRequiredError } from "../src/consent.js";
+import { COLLECTION_NAMES } from "../src/collections.js";
+import { createFakeDb } from "./fakes.js";
+import type { ConsentDoc } from "../src/collections.js";
+
+function seedConsent(fakeDb: ReturnType<typeof createFakeDb>["fakeDb"], overrides: Partial<ConsentDoc> = {}) {
+  const doc: ConsentDoc = {
+    _id: "consent-student-1",
+    studentId: "student-1",
+    guardianConsent: false,
+    purposes: ["counselling"],
+    recordedAt: "2026-09-25T00:00:00.000Z",
+    minor: false,
+    ...overrides,
+  };
+  fakeDb.collection<ConsentDoc>(COLLECTION_NAMES.consents).seed(doc);
+  return doc;
+}
+
+test("B4: requireConsent throws ConsentRequiredError when no consent row exists", async () => {
+  const { db } = createFakeDb();
+  await assert.rejects(() => requireConsent(db, "student-1", "counselling"), ConsentRequiredError);
+});
+
+test("B4: requireConsent throws when the recorded consent does not cover the purpose", async () => {
+  const { db, fakeDb } = createFakeDb();
+  seedConsent(fakeDb, { purposes: ["marketing"] });
+  await assert.rejects(() => requireConsent(db, "student-1", "counselling"), ConsentRequiredError);
+});
+
+test("B4: requireConsent throws for a minor with no guardianConsent even if a consent row exists", async () => {
+  const { db, fakeDb } = createFakeDb();
+  seedConsent(fakeDb, { minor: true, guardianConsent: false });
+  await assert.rejects(() => requireConsent(db, "student-1", "counselling"), ConsentRequiredError);
+});
+
+test("B4: requireConsent resolves for a minor WITH guardianConsent covering the purpose", async () => {
+  const { db, fakeDb } = createFakeDb();
+  seedConsent(fakeDb, { minor: true, guardianConsent: true });
+  await assert.doesNotThrow(async () => requireConsent(db, "student-1", "counselling"));
+});
+
+test("B4: requireConsent resolves for an adult with a matching consent row", async () => {
+  const { db, fakeDb } = createFakeDb();
+  seedConsent(fakeDb);
+  await assert.doesNotThrow(async () => requireConsent(db, "student-1", "counselling"));
+});
