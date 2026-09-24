@@ -99,3 +99,34 @@ test("ISS-t-002b-1: third-party reporting verbs in cited evidence are NOT script
   assert.equal(isScriptLike("Recruiters tell us LSE graduates earn 12% more in year one.", "evidence"), false);
   assert.equal(isScriptLike("The 2024 QS ranking puts University A 15 places above University B.", "compare"), false);
 });
+
+// ISS-t-002b-schema-hardening-2: further recital synonyms beyond tell/say —
+// explain/inform (to) the student/them/him/her, "let ... know", and a leading
+// script-label cue ("Your line:", "Script:", "Say this:").
+test("ISS-t-002b-2: 'explain (to) the student/them' is flagged as script-like", () => {
+  assert.equal(isScriptLike("Explain to the student that LSE is the better fit.", "evidence"), true);
+});
+
+test("ISS-t-002b-2: 'inform them' is flagged as script-like", () => {
+  assert.equal(isScriptLike("Inform them the scholarship covers 50%.", "evidence"), true);
+});
+
+test("ISS-t-002b-2: 'let the student know' is flagged as script-like", () => {
+  assert.equal(isScriptLike("Let the student know the deadline is March 1.", "evidence"), true);
+});
+
+test("ISS-t-002b-2: a leading script-label cue ('Your line:') is flagged as script-like", () => {
+  assert.equal(isScriptLike("Your line: University A is ranked higher.", "evidence"), true);
+});
+
+test("ISS-t-002b-2: false-positive guards from the earlier fix stay false", () => {
+  assert.equal(isScriptLike("Alumni say the campus is safe (2024 survey, n=312).", "evidence"), false);
+  assert.equal(
+    isScriptLike("The office will inform applicants by May 1 (source: admissions page).", "evidence"),
+    false,
+  );
+  assert.equal(
+    isScriptLike("Recruiters tell us LSE graduates earn 12% more in year one.", "evidence"),
+    false,
+  );
+});
