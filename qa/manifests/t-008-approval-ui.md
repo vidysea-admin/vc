@@ -2,7 +2,7 @@
 
 **Contract:** qa/contracts/counselling-engine.md (B1, B2, B3, B4, B5, B11, B12 primary; B8, B14, B15 fencing; D-012, D-014, D-015, D-016, D-017)
 **Goal task:** T-008 (counsellor diff-approval UI, Next.js per docs/plan.md §5 "UI" row)
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 0; senior review Approve)
 **Fix cycle:** 0
 **Branch:** `wave/t-008-approval-ui` (worktree `D:/vc/.worktrees/t-008-approval-ui`), branched from main `e2257fa`
 **Diff range (cycle 0):** `e2257fa..HEAD`, three commits:
