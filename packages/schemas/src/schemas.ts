@@ -287,3 +287,85 @@ export const AuditEventSchema = z.object({
   result: z.string(),
 });
 export type AuditEvent = z.infer<typeof AuditEventSchema>;
+
+// ---------------------------------------------------------------------------
+// DPDP erasure (contract B15, T-011, qa/gates/dpdp-erase-design.md)
+// ---------------------------------------------------------------------------
+
+/**
+ * Why an erasure was requested: a closed set of codes, never free text. The request row
+ * outlives the erasure (it is the audit log), so a free-text "reason" field would be a
+ * place for personal data to survive the purge.
+ */
+export const ErasureReasonSchema = z.enum([
+  "student_request",
+  "guardian_request",
+  "account_closure",
+  "legal_order",
+]);
+export type ErasureReason = z.infer<typeof ErasureReasonSchema>;
+
+/** Lifecycle of an erasure request row: pending → confirmed → completed, or failed (retryable). */
+export const ErasureStatusSchema = z.enum(["pending", "confirmed", "completed", "failed"]);
+export type ErasureStatus = z.infer<typeof ErasureStatusSchema>;
+
+/**
+ * One collection's line in an erasure receipt. `outcome`:
+ *  - purged: deleteMany ran without error;
+ *  - failed: deleteMany threw (only the error's name/code is kept, never its message,
+ *    because driver messages can echo filter values such as ids);
+ *  - deferred: not attempted this run, because it is an anchor collection (facts,
+ *    sessions, scribe_resolutions, students) needed to resolve the other collections'
+ *    selectors on a retry, and an earlier step failed.
+ * `remaining` is the read-back count with the same selector after the purge.
+ */
+export const ErasureCollectionLineSchema = z.object({
+  collection: z.string().min(1),
+  outcome: z.enum(["purged", "failed", "deferred"]),
+  deleted: z.number().int().min(0),
+  remaining: z.number().int().min(0),
+  error: z.string().optional(),
+});
+export type ErasureCollectionLine = z.infer<typeof ErasureCollectionLineSchema>;
+
+/** The verification receipt: counts and times only, no personal data (B15). */
+export const ErasureReceiptSchema = z
+  .object({
+    requestId: z.string().min(1),
+    attempt: z.number().int().min(1),
+    verified: z.boolean(),
+    totalRemaining: z.number().int().min(0),
+    collections: z.array(ErasureCollectionLineSchema).min(1),
+    /**
+     * T-011 cycle 1 (ISS-t-011-rev-3): purge rounds this attempt ran. The purge re-resolves and
+     * re-purges until a read-back finds nothing (a writer can add documents mid-erasure), bounded;
+     * `deleted` sums every round. Optional so receipts stored before cycle 1 still parse.
+     */
+    rounds: z.number().int().min(1).optional(),
+    startedAt: z.string().datetime(),
+    verifiedAt: z.string().datetime(),
+  })
+  .strict();
+export type ErasureReceipt = z.infer<typeof ErasureReceiptSchema>;
+
+/**
+ * T-011 cycle 2 (ISS-t-011-c1-rev-2): the hard cap on each id list an erasure attempt accumulates
+ * and carries on a failed audit row (`carriedSelectors`). It bounds the audit row's size (Mongo's
+ * 16 MB document limit) and the `$in` selectors. An attempt that would exceed it stops before
+ * deleting anything more and ends `failed` with the distinct label `selectors:over_cap`.
+ */
+export const MAX_CARRIED_IDS = 20_000;
+
+/**
+ * The ids a failed erasure attempt resolved, stored on the audit row so a retry can still find a
+ * dependent whose anchor was already deleted. Validated on read: a corrupted row is refused, never
+ * silently merged.
+ */
+export const ErasureCarriedSelectorsSchema = z
+  .object({
+    factIds: z.array(z.string().min(1)).max(MAX_CARRIED_IDS),
+    sessionIds: z.array(z.string().min(1)).max(MAX_CARRIED_IDS),
+    threadIds: z.array(z.string().min(1)).max(MAX_CARRIED_IDS),
+  })
+  .strict();
+export type ErasureCarriedSelectors = z.infer<typeof ErasureCarriedSelectorsSchema>;

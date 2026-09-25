@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { MemorySaver } from "@langchain/langgraph";
 import { COLLECTION_NAMES, type FactDoc, type EdgeDoc, type ConsentDoc } from "@vc/db";
 import { MockProvider, type MockResponse } from "@vc/providers";
-import { createFakeDb, INDEX_PLAN, type FakeCollection } from "@vc/db/testing";
+import { createFakeDb, INDEX_PLAN, type FakeCollection, type FakeDb } from "@vc/db/testing";
 import { compileScribeGraph, SCRIBE_PURPOSE, type ScribeInput } from "../src/scribe/index.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -96,6 +96,9 @@ export interface Harness {
   consents: FakeCollection<ConsentDoc>;
   checkpointer: MemorySaver;
   openFacts: () => FactDoc[];
+  /** T-011 / D-015: the Db the graph writes to, and its fake (for erasure-race tests). */
+  db: import("mongodb").Db;
+  fakeDb: FakeDb;
 }
 
 export function seedConsent(consents: FakeCollection<ConsentDoc>, overrides: Partial<ConsentDoc> = {}): void {
@@ -134,5 +137,7 @@ export function makeHarness(opts: { provider?: MockProvider; consent?: boolean }
     consents,
     checkpointer,
     openFacts: () => facts.all().filter((f) => f.active === true),
+    db,
+    fakeDb,
   };
 }

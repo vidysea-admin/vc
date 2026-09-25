@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { requireConsent, ConsentRequiredError } from "../src/consent.js";
+import { requireConsent, ConsentRequiredError, CONSENT_REQUIRED_MESSAGE } from "../src/consent.js";
+import { requestErasure, confirmErasure } from "../src/erasure.js";
 import { COLLECTION_NAMES } from "../src/collections.js";
 import { createFakeDb } from "./fakes.js";
 import type { ConsentDoc } from "../src/collections.js";
@@ -51,4 +52,35 @@ test("B4: requireConsent resolves for an adult with a matching consent row", asy
   const { db, fakeDb } = createFakeDb();
   seedConsent(fakeDb);
   await assert.doesNotReject(() => requireConsent(db, "student-1", "counselling"));
+});
+
+test("ISS-043: every refusal carries ONE generic message, so the error never reveals minor status or purposes", async () => {
+  const messages: string[] = [];
+  for (const overrides of [null, { purposes: ["marketing"] }, { minor: true, guardianConsent: false }] as const) {
+    const { db, fakeDb } = createFakeDb();
+    if (overrides) seedConsent(fakeDb, overrides);
+    const err = await requireConsent(db, "student-1", "counselling").then(
+      () => assert.fail("expected ConsentRequiredError"),
+      (e: unknown) => e,
+    );
+    assert.ok(err instanceof ConsentRequiredError);
+    messages.push(err.message);
+  }
+  assert.equal(new Set(messages).size, 1, `distinct messages: ${JSON.stringify(messages)}`);
+  assert.doesNotMatch(messages[0] ?? "", /minor|guardian|marketing|no consent row|does not cover/i);
+});
+
+test("D-015: requireConsent REFUSES while the student is fenced by a confirmed erasure (same generic message), other students unaffected", async () => {
+  const { db, fakeDb } = createFakeDb();
+  seedConsent(fakeDb);
+  seedConsent(fakeDb, { _id: "consent-student-2", studentId: "student-2" });
+  const { requestId } = await requestErasure(db, { studentId: "student-1", requestedBy: "counsellor-7", reason: "student_request" });
+  await confirmErasure(db, { requestId, confirmedBy: "admin-2" });
+  const err = await requireConsent(db, "student-1", "counselling").then(
+    () => assert.fail("a fenced student must be refused"),
+    (e: unknown) => e,
+  );
+  assert.ok(err instanceof ConsentRequiredError);
+  assert.equal((err as Error).message, CONSENT_REQUIRED_MESSAGE, "no erasure status leaks through the message");
+  await assert.doesNotReject(() => requireConsent(db, "student-2", "counselling"));
 });

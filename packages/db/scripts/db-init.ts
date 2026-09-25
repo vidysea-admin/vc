@@ -39,6 +39,12 @@
  *   - consents: { studentId } — fast lookup for requireConsent().
  *   - scribe_resolutions: UNIQUE { threadId } (ISS-t-007-rev-8) -- the atomic
  *               approval claim for a scribe thread; plus a plain { studentId }.
+ *   - scribe_checkpoints / scribe_checkpoint_writes: the MongoDBSaver.setup()
+ *               indexes, verbatim (T-011: erasure deletes by thread_id).
+ *   - erasure_requests: { studentId } (open requests only) and
+ *               { status, requestedAt } (T-011 audit log).
+ *   - erasure_requests: UNIQUE { studentKey } among open statuses (D-016: one open request).
+ *   - erasure_fences: no secondary index (its _id is the hashed student key; D-015/D-016).
  *   - edges:    relies on Mongo's built-in unique _id index for idempotent
  *               link() upserts, PLUS { "from.kind", "from.id" } and
  *               { "to.kind", "to.id" } (ISS-021) so a lookup of "everything
@@ -102,6 +108,41 @@ export const INDEX_PLAN: IndexSpec[] = [
     unique: true,
   },
   { collection: COLLECTION_NAMES.scribe_resolutions, keys: { studentId: 1 }, name: "scribe_resolutions_studentId" },
+  // T-011 / ISS-t-007-rev-6: EXACTLY the indexes LangGraph's MongoDBSaver.setup() creates
+  // (@langchain/langgraph-checkpoint-mongodb dist/checkpoint.js, same keys and names), so a later
+  // setup() is a no-op and B15 erasure's {thread_id: {$in: [...]}} read/delete is index-served
+  // even if setup() is never called (the index leads with thread_id).
+  {
+    collection: COLLECTION_NAMES.scribe_checkpoints,
+    keys: { thread_id: 1, checkpoint_ns: 1, checkpoint_id: -1 },
+    name: "thread_ns_checkpoint_idx",
+  },
+  {
+    collection: COLLECTION_NAMES.scribe_checkpoint_writes,
+    keys: { thread_id: 1, checkpoint_ns: 1, checkpoint_id: 1, task_id: 1, idx: 1 },
+    name: "thread_ns_checkpoint_task_idx",
+  },
+  // T-011 / B15: the erasure audit log. studentId is present only while a request is open
+  // (unset on verified completion), so this index only ever holds open requests' ids.
+  { collection: COLLECTION_NAMES.erasure_requests, keys: { studentId: 1 }, name: "erasure_requests_studentId" },
+  { collection: COLLECTION_NAMES.erasure_requests, keys: { status: 1, requestedAt: 1 }, name: "erasure_requests_status" },
+  // D-016 / ISS-t-011-c2-rev-4: ONE open request per student. UNIQUE on the fence key among open
+  // statuses; a completed row leaves the index (and has studentKey unset). `$in` is a supported
+  // partialFilterExpression operator (D-013; MongoDB 6.0+), `$ne`/`$nin`/`$exists:false` are not.
+  {
+    collection: COLLECTION_NAMES.erasure_requests,
+    keys: { studentKey: 1 },
+    name: "erasure_requests_open_studentKey_unique",
+    unique: true,
+    partialFilterExpression: { status: { $in: ["pending", "confirmed", "failed"] } },
+  },
+  // T-011 cycle 2 / D-015: the erasure write fence has NO secondary index: its _id IS the hashed
+  // student key, so every fence read is an _id point read (ISS-t-011-c2-rev-3 removed the redundant
+  // unique studentKey index).
+  // ISS-t-011-c1-rev-3 (index note): `sessions` has NO sessionId index, deliberately. Every
+  // erasure/export query on sessions carries studentId ({studentId} to resolve, {studentId, $or:
+  // [_id $in, sessionId $in]} to delete), so sessions_studentId serves them; the _id arm is the
+  // built-in _id index. Add {sessionId: 1} only if a query ever filters on sessionId alone.
   // ISS-021: edges had no from/to index.
   { collection: COLLECTION_NAMES.edges, keys: { "from.kind": 1, "from.id": 1 }, name: "edges_from" },
   { collection: COLLECTION_NAMES.edges, keys: { "to.kind": 1, "to.id": 1 }, name: "edges_to" },
