@@ -4,6 +4,8 @@ Updated by /checker sweeps only. Gate lines sit above the TODO table (read first
 
 ## Open gates (HUMAN_GATE)
 
+- **qa/gates/crisis-guard-precision.md — UNANSWERED (blocks T-005b merge).** T-005b STALLED after 3 cycles (diagnosis qa/debug/t-005b-guard-hardening-cycle3.md). Umesh chooses: (A) recall-only keyword guard now, false alarms accepted until T-012; (B) A + a later 'reviewed, likely benign' downgrade layer from T-012 (needs a B16 amendment); (C) a 4th narrow patch (not recommended). Main still runs the pre-hardening T-005 guard.
+
 - **2026-09-25 gate answers (checker scribed):** `dpdp-erase-design` = (a) hard delete + confirm + read-back verification (B15); `crisis-safety-layers` = (b) + escalate to admin and concerned counsellors (B16, SLA not set); `config-audit-fixes` = (a) YES, fix ISS-001/004/005 (Approved-by: Umesh), (b) email accepted, correct approver to umeshsugara@vidysea.com via a new D-entry; `real-transcripts-gemini` = anonymise first, raw allowed as a fallback (B13). **Maker owes:** the D-entries recording these via append_decision.ps1, plus the hook fix unit.
 
 - **qa/gates/mongo-host.md**: ANSWERED 2026-09-25. Production server, engine's only database is
@@ -27,49 +29,21 @@ Updated by /checker sweeps only. Gate lines sit above the TODO table (read first
   out of this sweep's binding either way.) Does not block the build path; re-raised every
   sweep until answered.
 
-## Top-3 recommended next units (TASKS.md order; T-002b and T-004 are currently in
-## `.worktrees/`, checker verdicts pending there — not judged by this sweep)
+## Top-3 recommended next units (sweep 2026-09-25 10:55)
 
-1. **T-003** — Student Knowledge Graph collections + consent/purpose model, in
-   `virtual_counsellor`. Depends on T-002b (schema hardening) merging first.
-2. **T-005** — Skill loader + first skills; hard-rule guards. Waits on T-002b merge.
-3. **T-006** — MCP servers: student-profile, university-kb. Depends on T-003, so also waits
-   on T-002b merge.
+1. **T-013 cycle 3 (last cycle)** — answer the cycle-2 FAIL (verdict 5e7d85c, 10:25). Fix gap open.
+2. **T-014** — T-011 erasure follow-ups; carries ISS-t-011-c3-rev-1 (high: linkTracked over-deletes a pre-existing edge) and the missing client timeoutMS.
+3. **T-008 prerequisite ISS-t-007-rev-6 (high)** — checkpoint collections governance, before the diff-approval UI.
+Hygiene (not a unit): ISS-044 re-arm .last-tick stamping; ISS-045 `git worktree prune` + remove the 5 orphaned dirs so data_boundary.py runs again.
 
-## Sweep notes (2026-09-25, this sweep)
+## Sweep notes (2026-09-25 10:55, sharded: 3 shards + consolidation)
 
-- **Bypass detection:** CLEAN. Every commit on `main` since `7c84eb6` traces to a manifest+verdict
-  (T-002 scaffold: `4e845fd` → PASS `253d70d` → merge `468234d`), an authorized D-entry (D-007, D-008),
-  or a checker-owned surface (contract amendments, ledger, gates, ticks). `dee1b8e` (.env.example +
-  .gitignore) is a trivial single-file config fix tied to ISS-013, not a unit requiring ceremony.
-- **Pair-state:** clean for `t-001-plan-doc` and `t-002-scaffold` (both `checked-PASS`, cycle numbers
-  match their verdicts). `t-002b-schema-hardening` and `t-004-langfuse` manifests/verdicts live only in
-  their worktrees, out of this sweep's binding.
-- **Feedback-inbox:** both entries already marked FOLDED from the prior sweep; nothing new to fold.
-- **Contract staleness / consistency (NEW FINDING, ISS-015):** `qa/contracts/counselling-engine.md` B12
-  was amended (`6ff9dd9`, critical, human-approved) to grant full CRUD inside `virtual_counsellor` with
-  only `dropDatabase` gated — but `ARCHITECTURE.md` §5 and `qa/adapter.json`'s `isolation.forbidden`
-  list still say drops/bulk deletes need a gate. D-008's `Changes-authorized` covered the earlier
-  single-DB-name update to those two files, not this later loosening. Filed `ISS-015` (medium): update
-  both files to match B12; the drift is in the conservative direction (over-restrictive, not
-  under-restrictive), so nothing was unsafely widened, but the docs and the contract now disagree.
-- **Enforcement liveness:** hooks installed per D-006 (Approved-by Umesh) — `decisions-append-guard.ps1`,
-  `mc-precommit.ps1`, `mc-sessionstart.ps1`, `lab-session-start.ps1`/`lab-session-end.ps1` all wired in
-  `.claude/settings.json`; repo has commits. `qa/loop.md` Stop line lists all 7 maker terminal states;
-  human-gate list not contradicted by `qa/adapter.json` (no `improve` block). Loop-Doctor-lite's 3
-  questions (spin / Goodhart / wrong-answer-to-completion): no "yes" found.
-- **B11 secrets check:** re-ran `git log -p --all -S<prefix>` for both `.env.example` key names.
-  `GEMINI_API_KEY`: not found. `MONGODB_URL`: the generic 8-char scheme prefix (`mongodb:`) matches
-  prose in the contract/gate/adapter describing the URL *shape* — not a leak. Re-checked with a
-  host:port-specific fingerprint (not printed): not found anywhere in tracked history or the working
-  tree outside `.env`. No secret values in the tree.
-- **Data boundary:** `python D:/ai_os/.claude/skills/_shared_validation/data_boundary.py D:/vc` — same
-  single hit as ISS-003 (`docs/DECISIONS.md`, 1 email, D-006's Links line), no new violation on `main`.
-- **Silent-failure hunt** over code PASSed since the last sweep (T-002 scaffold, `468234d`): CLEAN —
-  every touched file is boilerplate (8-9 line index.ts stubs, Zod schemas, tests); no catch/except,
-  no masking fallback, no unguarded side effect in the diff.
-- **Token ledger:** `opus_sub_share` 0.017 (well under the 25% flag threshold); no unit at fix cycle
-  ≥3 (`t-002b` is at cycle 1). No finding.
-- **Goal coverage / drift:** no `.goal/goal.json` in this project — checks 5/6 not applicable.
-- **Structural erosion / code-graph blast radius:** no `graph.json` exists yet; too little code on
-  `main` (one PASSed scaffold unit) for churn/duplication signal to be meaningful. Skipped, not run.
+- **Main re-verified by the checker itself:** typecheck clean in 9/9 packages; `pnpm -r test` 373/373 pass; contracts validator PASS (vacuity).
+- **Bypass:** CLEAN. Every merge since 25d6b5e (t-002b, t-004, t-003, t-005, t-003b, t-006, t-007, t-009, t-011) traces to a matching-cycle PASS; config commits trace to D-010/D-011.
+- **Pair-state:** T-013 FAIL c2, maker response pending; T-005b STALLED c3 with diagnosis, gate unanswered; T-014 not started. Done units T-007/T-011 carry open highs that are forward-tasked to T-008/T-014 (accepted convention).
+- **Safety invariants (outcome-proven by shard runs):** B7 COVERED (real export path via LangfuseSpanProcessor + RecordingExporter; hostile host variants incl. trailing dot, punycode, homoglyph); B11 COVERED (0 secret hits in full history); B12 COVERED (single helper getVcDb, refuse-other-name + static no-`.db(` scan, no dropDatabase call site); B13 COVERED; B15 COVERED (confirm/read-back-zero/partial-failure/fencing against fakes with production indexes). B9 PARTIAL (main guard is pre-hardening); B16 MISSING (T-012 not started).
+- **Silent failures:** none high. The erasure undo() deleteMany has no timeoutMS (same root as the T-014 item, not re-filed).
+- **Erosion signal:** crisis.ts regex-boundary patching churned for 3 cycles without converging (see the gate above).
+- **Checker-quality signal:** review agents overrode a checker PASS 3 times (T-003b, T-007, T-005b), plus the T-004 PASS overridden by review. Standing rule: review agents run alongside the checker, and a Block overrides a PASS.
+- **Inbox:** entry 04:47:54 folded into B16 (recall >= 0.95).
+- **Token ledger:** opus_sub_share 0.212 (<0.25). Fix cycle >=3: T-011 (closed), T-005b (stalled).

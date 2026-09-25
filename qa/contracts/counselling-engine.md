@@ -90,7 +90,7 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - **B16 (crisis escalation):** The keyword guard runs first, before any generative call (B9). An async Flash-Lite
   concern classifier, which never blocks the live turn, runs on concern-level turns plus a stratified sample of "none"
   turns. An escalation notifies **the admin and the concerned counsellor(s)** at the same moment. Crisis recall is
-  measured on an offline golden set (indirect Hinglish, Devanagari, abuse, benign idioms) before any real-student
+  measured on an offline golden set (indirect Hinglish, Devanagari, abuse, benign idioms) with a bar of **recall >= 0.95** before any real-student
   pilot (`qa/gates/crisis-safety-layers.md`; the response-time SLA is not yet set).
 
 ## Non-goals (this contract)
@@ -118,3 +118,4 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   by default, raw allowed as a fallback); new B15 DPDP hard delete with confirm and read-back verification; new B16
   crisis escalation to admin plus the concerned counsellors · answers in qa/gates/{dpdp-erase-design, crisis-safety-layers,
   real-transcripts-gemini}.md.
+- 2026-09-25 · routine (tighten, inbox fold) · B16 crisis recall bar set to >= 0.95 on the offline golden set · qa/feedback-inbox.md 04:47:54 ai-engineer review of T-005.
