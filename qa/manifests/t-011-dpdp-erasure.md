@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B15 primary; B4, B8, B11, B12, B14)
 **Goal task:** T-011
 **Date:** 2026-09-25
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 3; verdict qa/verdicts/t-011-dpdp-erasure.md; reviews: senior Approve, data-engineer Warning → follow-up T-014)
 **Fix cycle:** 3
 **Fix cycle budget (cycle 3):** 3 of max 3, the LAST cycle (cycle-2 checker FAIL 57a92aa: ISS-t-011-c2-1 grace-0; design D-016)
 **Fix cycle budget:** 2 of max 3 (cycle-1 checker FAIL 4b6ad21: ISS-t-011-c1-1 non-atomic read-back; design D-015 fence + post-write compensation)
