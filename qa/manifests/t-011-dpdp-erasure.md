@@ -2,8 +2,8 @@
 **Contract:** qa/contracts/counselling-engine.md (B15 primary; B4, B8, B11, B12, B14)
 **Goal task:** T-011
 **Date:** 2026-09-25
-**Status:** ready-for-check
-**Fix cycle:** 0
+**Status:** fix-in-progress
+**Fix cycle:** 1 of max 3 (cycle-0 checker FAIL 2c5a09e: ISS-t-011-c0-1; data-engineer high ISS-t-011-rev-3 orphan-edge race)
 **Fix cycle budget:** 0 of max 3
 **Design:** qa/gates/dpdp-erase-design.md answer (a) "hard delete with confirmation and verification"; D-003 (history by retirement, so erasure must include retired facts), D-012 (fact `_id` is a fresh ObjectId, so edges are found through the resolved fact ids), D-013 (`active: true` marks open facts; retired facts have it unset), D-014 (scribe_resolutions hold approved fact values, so they are erased)
 **Diff range:** `e10e49d..HEAD` on branch `wave/t-011-dpdp-erasure`. It is a single commit: "feat(db): T-011 DPDP erasure (confirm → hard delete → read-back verify → receipt) + export". `e10e49d` is "tasks: T-007 done; T-008 prerequisites", the main branch point.
