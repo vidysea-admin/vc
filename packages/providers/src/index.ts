@@ -14,10 +14,19 @@
  *   - `GeminiProvider`: a STUB selected by config. It holds the model name and key but has no
  *     network code yet; `generate` throws. The real call is a later unit, and live runs need
  *     synthetic fixtures or the recorded gate (B13, qa/gates/real-transcripts-gemini.md).
+ *   - `LiteLlmProvider` (T-019): a SECOND real provider, so Gemini going away does not take the
+ *     whole engine down ("Gemini dependence is not AI dependence" — the lead's 2026-09-25 review,
+ *     qa/feedback-inbox.md). An OpenAI-compatible chat-completions client against a configurable
+ *     gateway base URL (D:/ai_os/litellm-config.yaml's class names — fast-cheap / balanced /
+ *     smart-coding — are valid VC_LLM_MODEL values when VC_LLM_BASE_URL points at that gateway).
+ *   - `RulesProvider` (T-019): a deterministic, NO-MODEL provider. Lets P1 (scribe -> facts ->
+ *     profile diff -> approve) complete end to end with zero AI calls, so the counsellor's core
+ *     flow never depends on any model vendor being up. See the doc comment above its class for the
+ *     input contract.
  */
 import { z } from "zod";
 
-export type ProviderKind = "mock" | "gemini";
+export type ProviderKind = "mock" | "gemini" | "litellm" | "rules";
 
 export interface GenerateRequest<T> {
   /** The skill folder name, e.g. "fact-extraction". */
@@ -43,6 +52,13 @@ export interface LlmProvider {
 export const ProviderConfigSchema = z.discriminatedUnion("provider", [
   z.object({ provider: z.literal("mock"), model: z.string().min(1) }),
   z.object({ provider: z.literal("gemini"), model: z.string().min(1), apiKey: z.string().min(1) }),
+  z.object({
+    provider: z.literal("litellm"),
+    model: z.string().min(1),
+    baseUrl: z.string().min(1),
+    apiKey: z.string().min(1).optional(),
+  }),
+  z.object({ provider: z.literal("rules"), model: z.string().min(1) }),
 ]);
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 
@@ -50,6 +66,10 @@ export interface ProviderEnv {
   VC_LLM_PROVIDER?: string;
   VC_LLM_MODEL?: string;
   GEMINI_API_KEY?: string;
+  /** T-019: the OpenAI-compatible gateway base URL for the litellm provider. */
+  VC_LLM_BASE_URL?: string;
+  /** T-019: optional — some gateways (e.g. a locally-run LiteLLM proxy) need no key. */
+  VC_LLM_API_KEY?: string;
   [key: string]: string | undefined;
 }
 
@@ -57,7 +77,9 @@ export interface ProviderEnv {
  * Reads the provider config from an env-like object (call with `process.env`; this function never
  * reads `process.env` itself). `VC_LLM_PROVIDER` is required: there is deliberately no default, so
  * a deployment can never silently run on canned mock output. Gemini needs `VC_LLM_MODEL` and
- * `GEMINI_API_KEY` (B11: keys only from the environment). Error messages name keys, never values.
+ * `GEMINI_API_KEY` (B11: keys only from the environment). litellm needs `VC_LLM_MODEL` and
+ * `VC_LLM_BASE_URL`; `VC_LLM_API_KEY` is optional. rules needs nothing else (T-019: no model, so
+ * there is nothing to configure beyond picking it). Error messages name keys, never values.
  */
 export function loadProviderConfig(env: ProviderEnv): ProviderConfig {
   const provider = env.VC_LLM_PROVIDER;
@@ -69,8 +91,21 @@ export function loadProviderConfig(env: ProviderEnv): ProviderConfig {
     if (!env.GEMINI_API_KEY) throw new Error("loadProviderConfig: GEMINI_API_KEY is required for the gemini provider");
     return { provider: "gemini", model: env.VC_LLM_MODEL, apiKey: env.GEMINI_API_KEY };
   }
+  if (provider === "litellm") {
+    if (!env.VC_LLM_MODEL) throw new Error("loadProviderConfig: VC_LLM_MODEL is required for the litellm provider");
+    if (!env.VC_LLM_BASE_URL) throw new Error("loadProviderConfig: VC_LLM_BASE_URL is required for the litellm provider");
+    return {
+      provider: "litellm",
+      model: env.VC_LLM_MODEL,
+      baseUrl: env.VC_LLM_BASE_URL,
+      ...(env.VC_LLM_API_KEY ? { apiKey: env.VC_LLM_API_KEY } : {}),
+    };
+  }
+  if (provider === "rules") {
+    return { provider: "rules", model: env.VC_LLM_MODEL || "rules" };
+  }
   throw new Error(
-    `loadProviderConfig: VC_LLM_PROVIDER must be "mock" or "gemini" (got ${provider === undefined ? "nothing" : JSON.stringify(provider)})`,
+    `loadProviderConfig: VC_LLM_PROVIDER must be "mock", "gemini", "litellm" or "rules" (got ${provider === undefined ? "nothing" : JSON.stringify(provider)})`,
   );
 }
 
@@ -168,6 +203,272 @@ export class GeminiProvider implements LlmProvider {
 }
 
 // ---------------------------------------------------------------------------
+// LiteLlmProvider (T-019) — a SECOND real provider: an OpenAI-compatible
+// chat-completions client against a configurable gateway base URL, so the
+// engine does not go down if Gemini does (lead's 2026-09-25 review).
+// ---------------------------------------------------------------------------
+
+/** Generous enough for a gateway hop; bounded so a hung socket can never wedge a node forever. */
+export const LITELLM_DEFAULT_TIMEOUT_MS = 30_000;
+
+export class LiteLlmHttpError extends Error {
+  readonly status: number;
+  constructor(status: number, model: string) {
+    super(`LiteLlmHttpError: the litellm provider (model "${model}") request failed with HTTP ${status}`);
+    this.name = "LiteLlmHttpError";
+    this.status = status;
+  }
+}
+
+export class LiteLlmTimeoutError extends Error {
+  constructor(model: string, timeoutMs: number) {
+    super(`LiteLlmTimeoutError: the litellm provider (model "${model}") did not respond within ${timeoutMs}ms`);
+    this.name = "LiteLlmTimeoutError";
+  }
+}
+
+/** The HTTP response came back but was not a usable chat-completion (bad body, no content, non-JSON content). */
+export class LiteLlmMalformedResponseError extends Error {
+  constructor(model: string, reason: string) {
+    super(`LiteLlmMalformedResponseError: the litellm provider (model "${model}") returned an unusable response: ${reason}`);
+    this.name = "LiteLlmMalformedResponseError";
+  }
+}
+
+/** The request could not be sent at all (DNS, connection refused, TLS, ...). Never the abort/timeout case. */
+export class LiteLlmNetworkError extends Error {
+  constructor(model: string, reason: string) {
+    super(`LiteLlmNetworkError: the litellm provider (model "${model}") request could not be sent: ${reason}`);
+    this.name = "LiteLlmNetworkError";
+  }
+}
+
+export interface LiteLlmProviderOptions {
+  model: string;
+  /** OpenAI-compatible base URL, e.g. "http://127.0.0.1:4000/v1" (a trailing slash is tolerated). */
+  baseUrl: string;
+  apiKey?: string;
+  /** Overridable for tests; production leaves this at LITELLM_DEFAULT_TIMEOUT_MS. */
+  timeoutMs?: number;
+}
+
+export class LiteLlmProvider implements LlmProvider {
+  readonly kind = "litellm" as const;
+  readonly model: string;
+  private readonly baseUrl: string;
+  private readonly timeoutMs: number;
+  // A private class field (#), so the key never shows up in JSON.stringify, String() or
+  // util.inspect output (B11: no key value in logs, traces or error messages).
+  readonly #apiKey: string | undefined;
+
+  constructor(options: LiteLlmProviderOptions) {
+    this.model = options.model;
+    this.baseUrl = options.baseUrl.replace(/\/+$/, "");
+    this.timeoutMs = options.timeoutMs ?? LITELLM_DEFAULT_TIMEOUT_MS;
+    this.#apiKey = options.apiKey;
+  }
+
+  /** True when a key is configured; the value itself is never exposed. */
+  hasApiKey(): boolean {
+    return typeof this.#apiKey === "string" && this.#apiKey.length > 0;
+  }
+
+  toString(): string {
+    return `LiteLlmProvider(model=${this.model}, baseUrl=${this.baseUrl})`;
+  }
+
+  /**
+   * One request, JSON-mode, no retries (retries that could duplicate a write belong to the caller —
+   * packages/engine/src/scribe/nodes.ts generateWithRetry already re-asks on a schema-invalid output;
+   * this provider makes exactly one HTTP attempt per call). A schema-invalid output's ZodError is
+   * thrown as-is (never swallowed or wrapped) so that retry path recognises it, same as MockProvider.
+   * Every other failure mode (timeout, non-2xx, malformed body) becomes a typed, key-free error (B11).
+   */
+  async generate<T>(request: GenerateRequest<T>): Promise<T> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(this.#apiKey ? { authorization: `Bearer ${this.#apiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          model: this.model,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: request.skillPrompt },
+            { role: "user", content: JSON.stringify(request.input) },
+          ],
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if ((err as { name?: unknown } | null)?.name === "AbortError") {
+        throw new LiteLlmTimeoutError(this.model, this.timeoutMs);
+      }
+      throw new LiteLlmNetworkError(this.model, err instanceof Error ? err.message : String(err));
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) {
+      throw new LiteLlmHttpError(res.status, this.model);
+    }
+
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      throw new LiteLlmMalformedResponseError(this.model, "response body was not valid JSON");
+    }
+    const content = (body as { choices?: Array<{ message?: { content?: unknown } }> } | null)?.choices?.[0]?.message
+      ?.content;
+    if (typeof content !== "string" || content.length === 0) {
+      throw new LiteLlmMalformedResponseError(this.model, "no choices[0].message.content string in the response");
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      throw new LiteLlmMalformedResponseError(this.model, "choices[0].message.content was not valid JSON");
+    }
+    // B5: no free text crosses the seam — the caller's Zod schema is the only judge.
+    return request.outputSchema.parse(parsed);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// RulesProvider (T-019) — deterministic, NO MODEL. Lets P1 (scribe -> facts ->
+// profile diff -> approve) complete end to end with zero AI calls (the lead's
+// "AI dependence is one thing, Gemini dependence is another" review).
+//
+// Input contract (there is no model to interpret a free-form prompt, so the
+// input itself must already be structured):
+//   - fact-extraction: `input.turns` is the engine's normal ScribeTurn[] (see
+//     packages/engine/src/scribe/schemas.ts ScribeTurnSchema). Any turn whose
+//     `translatedText` (falling back to `text` when translatedText has none)
+//     contains one or more "key: value" lines is read as a structured
+//     annotation / form field rendered into the transcript — e.g. a
+//     counsellor's structured intake form surfaced as a turn reading
+//     "targetCountry: Canada\nbudget_inr_per_year: 2000000". Each matched
+//     line becomes one candidate fact, cited to that exact turn and the exact
+//     matched line (a verbatim substring of the turn text, so the engine's
+//     citation guard, B2, accepts it without any fuzzy matching). A value
+//     that parses as a plain number is coerced to a number; anything else
+//     stays a trimmed string. `confidence` is always 1 (deterministic, not
+//     modeled). A turn with no such line contributes no facts — this
+//     provider never invents one.
+//   - session-summary: `input.facts` is the session's already-extracted
+//     Fact[]. The summary is a fixed template listing each fact's key, value
+//     and source turn — a record of what was captured, never an instruction
+//     to the counsellor (contract B1). Zero facts still produces a valid,
+//     non-empty summary string.
+// ---------------------------------------------------------------------------
+
+export class RulesProviderUnsupportedSkillError extends Error {
+  constructor(skillName: string) {
+    super(`RulesProviderUnsupportedSkillError: the rules provider has no deterministic handling for skill "${skillName}"`);
+    this.name = "RulesProviderUnsupportedSkillError";
+  }
+}
+
+const RULES_FIELD_LINE = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/;
+
+interface RulesTurnLike {
+  turnId?: unknown;
+  text?: unknown;
+  translatedText?: unknown;
+}
+
+function coerceRuleValue(raw: string): string | number {
+  const trimmed = raw.trim();
+  if (trimmed.length > 0 && /^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
+  return trimmed;
+}
+
+/** Every "key: value" line in `text`, matched verbatim so each `line` is a real substring of it. */
+function annotationLines(text: string): Array<{ line: string; key: string; value: string | number }> {
+  const out: Array<{ line: string; key: string; value: string | number }> = [];
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const m = RULES_FIELD_LINE.exec(line);
+    if (!m) continue;
+    out.push({ line, key: m[1]!, value: coerceRuleValue(m[2]!) });
+  }
+  return out;
+}
+
+function rulesExtractFacts(input: unknown): { facts: unknown[] } {
+  const turns = Array.isArray((input as { turns?: unknown } | null)?.turns)
+    ? ((input as { turns: unknown[] }).turns as RulesTurnLike[])
+    : [];
+  const facts: unknown[] = [];
+  for (const turn of turns) {
+    const turnId = typeof turn.turnId === "string" ? turn.turnId : "";
+    if (!turnId) continue;
+    const translated = typeof turn.translatedText === "string" ? turn.translatedText : "";
+    const original = typeof turn.text === "string" ? turn.text : "";
+    const source = annotationLines(translated).length > 0 ? translated : original;
+    for (const { line, key, value } of annotationLines(source)) {
+      facts.push({
+        key,
+        value,
+        source: { type: "transcript", quote: line, turnId },
+        confidence: 1,
+        purposeTags: [],
+        sensitivity: "low",
+      });
+    }
+  }
+  return { facts };
+}
+
+function rulesSummarizeSession(input: unknown): { summary: string } {
+  const rawFacts = (input as { facts?: unknown } | null)?.facts;
+  const facts = Array.isArray(rawFacts) ? rawFacts : [];
+  if (facts.length === 0) return { summary: "No facts were recorded this session." };
+  const lines = facts.map((f) => {
+    const fact = f as { key?: unknown; value?: unknown; source?: { turnId?: unknown } };
+    const key = typeof fact.key === "string" ? fact.key : "unknown";
+    const value =
+      fact.value !== null && typeof fact.value === "object" ? JSON.stringify(fact.value) : String(fact.value);
+    const turnId = typeof fact.source?.turnId === "string" ? fact.source.turnId : "unknown turn";
+    return `${key} = ${value} (turn ${turnId})`;
+  });
+  return { summary: `Facts recorded this session: ${lines.join("; ")}.` };
+}
+
+export class RulesProvider implements LlmProvider {
+  readonly kind = "rules" as const;
+  readonly model: string;
+
+  constructor(options: { model?: string } = {}) {
+    this.model = options.model ?? "rules";
+  }
+
+  /** Dispatches on skillName to a deterministic, template-based handler; never calls a network. */
+  async generate<T>(request: GenerateRequest<T>): Promise<T> {
+    let raw: unknown;
+    switch (request.skillName) {
+      case "fact-extraction":
+        raw = rulesExtractFacts(request.input);
+        break;
+      case "session-summary":
+        raw = rulesSummarizeSession(request.input);
+        break;
+      default:
+        throw new RulesProviderUnsupportedSkillError(request.skillName);
+    }
+    // B5: even a deterministic path returns only what the caller's Zod schema accepts.
+    return request.outputSchema.parse(raw);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 
@@ -184,9 +485,13 @@ export function createProvider(config: ProviderConfig, deps: CreateProviderDeps 
       return new MockProvider({ model: parsed.model, responses: deps.mockResponses ?? {} });
     case "gemini":
       return new GeminiProvider({ model: parsed.model, apiKey: parsed.apiKey });
+    case "litellm":
+      return new LiteLlmProvider({ model: parsed.model, baseUrl: parsed.baseUrl, apiKey: parsed.apiKey });
+    case "rules":
+      return new RulesProvider({ model: parsed.model });
   }
 }
 
 export function providersStatus(): string {
-  return "@vc/providers: provider seam (mock + gemini stub), model chosen by config (B6)";
+  return "@vc/providers: provider seam (mock, gemini stub, litellm, rules), model chosen by config (B6)";
 }
