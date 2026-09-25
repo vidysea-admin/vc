@@ -2,7 +2,7 @@
 
 **Contract:** qa/contracts/counselling-engine.md (B3, B12, B14, B15 primary; D-012, D-014, D-015, D-016, D-017)
 **Goal task:** T-017
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 2; senior re-review Approve)
 **Fix cycle:** 2
 **Diff range (cycle 0):** `8e5ed73..5c748fe` on branch `wave/t-017-residuals`, one commit:
 "fix(db,engine,api): t-017 summary fence compensation, lease bound, sweep/startApi hardening".
