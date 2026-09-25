@@ -51,6 +51,7 @@ import {
   type ScribeInput,
   type ScribeResult,
   type ScribeTurn,
+  type SummaryDecision,
 } from "./schemas.js";
 
 export const SCRIBE_NODES = {
@@ -81,6 +82,8 @@ export const ScribeState = Annotation.Root({
   diff: last<ProfileDiff | undefined>(),
   proposedFacts: last<Fact[] | undefined>(),
   decision: last<CounsellorDecision | undefined>(),
+  /** T-008: the counsellor's summary choice on a per_fact response (absent for the batch actions). */
+  summaryDecision: last<SummaryDecision | undefined>(),
   result: last<ScribeResult | undefined>(),
 });
 type State = typeof ScribeState.State;
@@ -126,14 +129,20 @@ export function buildScribeGraph(deps: ScribeDeps) {
       });
       // B3: the graph suspends here; the counsellor's typed response resumes it.
       const response = ApprovalResponseSchema.parse(interrupt(request));
-      const { decision } = decisionFromResponse(response, s.proposedFacts ?? []);
+      const { decision, summaryDecision } = decisionFromResponse(response, s.proposedFacts ?? []);
       return decision.approve
-        ? { decision }
+        ? { decision, summaryDecision }
         : {
             decision,
+            summaryDecision,
             result: ScribeResultSchema.parse({
               status: "rejected",
-              reason: response.action === "reject" ? response.reason : undefined,
+              reason:
+                response.action === "reject"
+                  ? response.reason
+                  : response.action === "per_fact"
+                    ? "every proposed fact was rejected and the summary withheld"
+                    : undefined,
             }),
           };
     })
@@ -149,6 +158,7 @@ export function buildScribeGraph(deps: ScribeDeps) {
           decision: s.decision,
           summary: s.summary ?? "",
           summaryWithheldReason: s.summaryWithheldReason,
+          summaryDecision: s.summaryDecision,
         },
         deps,
         { writerDeadlineExpiresAt: runtime.configurable?.writerDeadlineExpiresAt },
@@ -708,4 +718,48 @@ async function recoverUnder(
     }
   });
   return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId);
+}
+
+// ---------------------------------------------------------------------------
+// T-008: read-only inspection for the counsellor approval UI
+// ---------------------------------------------------------------------------
+
+/**
+ * What the approval UI shows for one scribe thread. READ-ONLY: it never claims, invokes or writes.
+ * - `not_found`: no checkpoint for this thread.
+ * - `fenced`: the student has an erasure in progress (or the fence state can not be read); no
+ *   student data is disclosed (the same "fenced over already_resolved" rule as resumeScribe).
+ * - `awaiting_approval`: paused at the interrupt and unclaimed; `request` is the typed payload.
+ * - `in_progress`: a decision is claimed or recorded but its write has not finished (the claim
+ *   winner is still running, or crashed and awaits resumeScribe(null) recovery).
+ * - `done`: the run ended; `decision` / `summaryDecision` are what the counsellor decided (null when
+ *   the run ended before any approval, e.g. refused or escalated).
+ */
+export type ScribeInspection =
+  | { kind: "not_found" }
+  | { kind: "fenced" }
+  | { kind: "in_progress" }
+  | { kind: "awaiting_approval"; request: ApprovalRequest }
+  | { kind: "done"; result: ScribeResult; decision: CounsellorDecision | null; summaryDecision?: SummaryDecision };
+
+export async function inspectScribe(graph: ScribeGraph, threadId: string): Promise<ScribeInspection> {
+  const deps = depsFor(graph, "inspectScribe");
+  const snapshot = await graph.getState({ configurable: { thread_id: threadId } });
+  const latest = (snapshot.values ?? {}) as Partial<State>;
+  if (!latest.studentId) return { kind: "not_found" };
+  if (await fencedForPostCheck(deps.db, latest.studentId)) return { kind: "fenced" };
+  const interrupts = snapshot.tasks.flatMap((task) => task.interrupts);
+  if (interrupts.length > 0) {
+    if (latest.decision) return { kind: "in_progress" };
+    const claim = await scribeResolutionsCollection(deps.db).findOne({ threadId });
+    if (claim) return { kind: "in_progress" };
+    return { kind: "awaiting_approval", request: ApprovalRequestSchema.parse(interrupts[0]!.value) };
+  }
+  if (snapshot.next.length > 0 || latest.result === undefined) return { kind: "in_progress" };
+  return {
+    kind: "done",
+    result: ScribeResultSchema.parse(latest.result),
+    decision: latest.decision ?? null,
+    ...(latest.summaryDecision ? { summaryDecision: latest.summaryDecision } : {}),
+  };
 }

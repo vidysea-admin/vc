@@ -29,6 +29,7 @@ import { loadSkill } from "../skills/loader.js";
 import {
   ApprovalOutputSchema,
   CandidateFactSchema,
+  COUNSELLOR_WITHHELD_SUMMARY_REASON,
   ConsentGateInputSchema,
   ConsentGateOutputSchema,
   CrisisGateInputSchema,
@@ -316,8 +317,56 @@ export async function proposeDiff(rawInput: unknown, deps: Pick<ScribeDeps, "db"
 // (f) counsellor response -> CounsellorDecision
 // ---------------------------------------------------------------------------
 
+/**
+ * T-008: a counsellor response that is schema-valid but does not fit the thread's proposal (a
+ * per_fact response that misses a proposed fact, names an unknown key, or decides a key twice).
+ * Thrown by decisionFromResponse, which resumeScribe runs BEFORE taking the claim, so nothing is
+ * claimed or written and the thread stays open for a corrected response.
+ */
+export class ApprovalResponseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ApprovalResponseError";
+  }
+}
+
+/**
+ * T-008 / ISS-t-013-rev-5: per-fact decisions -> the facts to write (approved as proposed, edited
+ * with the counsellor's value, rejected ones left out). The decision approves when anything is
+ * kept: at least one fact, or the summary.
+ */
+function perFactDecision(
+  response: Extract<ApprovalResponse, { action: "per_fact" }>,
+  proposedFacts: Fact[],
+): ApprovalOutput {
+  const proposedByKey = new Map(proposedFacts.map((f) => [f.key, f]));
+  const seen = new Set<string>();
+  for (const d of response.facts) {
+    if (!proposedByKey.has(d.key)) throw new ApprovalResponseError(`per_fact: "${d.key}" is not a proposed fact of this thread`);
+    if (seen.has(d.key)) throw new ApprovalResponseError(`per_fact: "${d.key}" is decided more than once`);
+    seen.add(d.key);
+  }
+  const missing = proposedFacts.filter((f) => !seen.has(f.key)).map((f) => f.key);
+  if (missing.length > 0) throw new ApprovalResponseError(`per_fact: no decision for proposed fact(s) ${missing.join(", ")}`);
+
+  const edits: Fact[] = [];
+  for (const d of response.facts) {
+    const proposed = proposedByKey.get(d.key)!;
+    // ISS-t-007-rev-5: the consent purpose is never widened by an approval or an edit.
+    if (d.decision === "approve") edits.push({ ...proposed, purposeTags: [SCRIBE_PURPOSE] });
+    if (d.decision === "edit") edits.push({ ...proposed, value: d.value, purposeTags: [SCRIBE_PURPOSE] });
+  }
+  const approve = edits.length > 0 || response.summary === "approve";
+  return ApprovalOutputSchema.parse({
+    decision: approve ? { approve: true, edits } : { approve: false },
+    summaryDecision: response.summary,
+  });
+}
+
 export function decisionFromResponse(response: ApprovalResponse, proposedFacts: Fact[]): ApprovalOutput {
   switch (response.action) {
+    case "per_fact":
+      return perFactDecision(response, proposedFacts);
     case "approve":
       return ApprovalOutputSchema.parse({ decision: { approve: true, edits: proposedFacts } });
     case "edit":
@@ -407,13 +456,15 @@ export async function writeApproved(
   if (!input.decision.approve) {
     return ScribeResultSchema.parse({ status: "rejected" });
   }
+  // T-008: a counsellor-withheld summary stores no text, only the reason.
+  const withheld = input.summaryDecision === "withhold";
   const { approvedAt: summaryApprovedAt } = await recordApprovedSessionSummary(
     deps.db,
     {
       sessionId: input.sessionId,
       studentId: input.studentId,
-      summary: input.summary,
-      summaryWithheldReason: input.summaryWithheldReason,
+      summary: withheld ? "" : input.summary,
+      summaryWithheldReason: withheld ? COUNSELLOR_WITHHELD_SUMMARY_REASON : input.summaryWithheldReason,
     },
     { deadlineMs: boundedDeadlineMs(options.writerDeadlineExpiresAt) },
   );
