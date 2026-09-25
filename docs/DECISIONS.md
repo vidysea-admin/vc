@@ -116,3 +116,9 @@ not replace them.
 **Why:** T-003b cycle-1 reviews (data-engineer Block, senior Block, 2026-09-25) reproduced two failures. First, a content-addressed `_id` collides with the retired historical document when a student reverts a value (A to B to A), leaving the key permanently at zero open facts. Second, a concurrent replay of the identical decision throws a spurious FactConflictError. Separating identity from content fixes both and keeps the ISS-020 idempotency guarantee.
 **Result:** -- (implemented in T-003b fix cycle 2)
 **Links:** T-003b, ISS-026, ISS-020, T-011 (edges have no studentId; B15 erasure resolves them in two hops via the student's fact and session ids)
+
+## D-013 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** An open fact carries an explicit `active: true` field. Retiring a fact sets validTo and unsets `active` in the same CAS update. The unique partial index is `{studentId:1, key:1}` with `partialFilterExpression: {active: true}`. Every "open fact" query filters on `{active: true}`, with validTo kept for history.
+**Why:** MongoDB partialFilterExpression accepts equality, `$exists: true`, range, $type, $and, $or and $in, but NOT `$exists: false` (docs: mongodb.com/docs/manual/core/index-partial, checked 2026-09-25). The T-003b index `{validTo: {$exists: false}}` would therefore fail to create at db:init on the live server, leaving the concurrency guarantees (ISS-019, D-012 11000 handling) with no index in production. The offline fake accepted it. The T-003b cycle-2 builder flagged this and the docs confirm it. A live probe on a scratch collection was not run (classifier-denied).
+**Result:** -- (implemented inside T-003b cycle 2 before the checker; the fake must now reject unsupported partial filters)
+**Links:** T-003b, D-012, ISS-019
