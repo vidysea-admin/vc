@@ -2,8 +2,8 @@
 **Contract:** qa/contracts/counselling-engine.md (B1, B2, B3, B4, B5, B6, B7, B8, B9, B11, B12, B13, B14; B16 context)
 **Goal task:** T-007
 **Date:** 2026-09-25
-**Status:** ready-for-check
-**Fix cycle:** 1 of max 3 (cycle-0 checker PASS f35a6e1; reviews Warning x3 with high ISS-t-007-rev-4 reproduced twice; checker ISS-t-007-c0-1)
+**Status:** fix-in-progress
+**Fix cycle:** 2 of max 3 (cycle-1 checker PASS 4916102 overridden by senior Block: ISS-t-007-rev-8 concurrent-resume race, reproduced)
 **Fix cycle budget:** 1 of max 3
 **Design:** H1/D-002 (LangGraph.js 1.x StateGraph, thin wiring, `interrupt()` approval), H5/D-005 (SKILL.md prompts, code guards before any LLM call, provider seam), D-012 (sessionId-keyed contentHash idempotency), D-013 (open fact = `active: true`)
 **Cycle-1 diff range:** `7e8474d..HEAD` (the single commit "fix(engine): t-007 cycle 1 — ..."; `7e8474d` = "qa: t-007 fix cycle 1 (review findings before merge)"). **Cycle-0 unit diff range:** `067ebb8..1d2d452`. `067ebb8` = "tasks: T-003b done; T-007 carry-forward notes" (the main branch point); `1d2d452` = the single cycle-0 T-007 commit "feat(engine): T-007 post-session scribe graph (...)".
