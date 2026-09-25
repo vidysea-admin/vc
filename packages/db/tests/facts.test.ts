@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyApprovedDiff, proposeFactChanges, deriveFactId, FactConflictError } from "../src/facts.js";
+import {
+  applyApprovedDiff,
+  proposeFactChanges,
+  deriveFactId,
+  FactConflictError,
+  PartialApplyError,
+} from "../src/facts.js";
 import { COLLECTION_NAMES } from "../src/collections.js";
 import { createFakeDb } from "./fakes.js";
 import type { FactDoc } from "../src/collections.js";
@@ -147,6 +153,10 @@ test("applyApprovedDiff falls back to a source-derived edge when no sessionId is
 test("supersede-not-delete: approving a changed value closes the old fact via validTo instead of removing it", async () => {
   const { db, fakeDb } = createFakeDb();
   const factsColl = fakeDb.collection<FactDoc>(COLLECTION_NAMES.facts);
+  // ISS-026: declared so this test exercises the same unique partial index
+  // scripts/db-init.ts actually creates — without it, the insert-before-retire
+  // bug (ISS-026) was invisible to this test.
+  factsColl.declareUniqueIndex(["studentId", "key"], { partialFilterExpression: { validTo: { $exists: false } } });
   const existing: FactDoc = { ...citedFact(), _id: "student-1:targetCountry:v1", studentId: "student-1" };
   factsColl.seed(existing);
 
@@ -303,4 +313,124 @@ test("ISS-021: proposeFactChanges skips a schema-drifted stored fact instead of 
   assert.equal(diff.changes[0]?.op, "add", "the drifted doc must be skipped, not treated as an active fact");
   assert.ok(warnings.length >= 1, "a schema-drifted stored fact must be reported");
   assert.match(String(warnings[0]?.[0]), /schema-drifted/);
+});
+
+// ---------------------------------------------------------------------------
+// ISS-026: retire-then-insert (CAS) — insert-before-retire made every
+// sequential update after the first throw FactConflictError against the real
+// unique partial index.
+// ---------------------------------------------------------------------------
+
+test("ISS-026: two SEQUENTIAL applyApprovedDiff calls with different values for the same key both succeed", async () => {
+  const { db, fakeDb } = createFakeDb();
+  const factsColl = fakeDb.collection<FactDoc>(COLLECTION_NAMES.facts);
+  // Mirrors scripts/db-init.ts's facts_studentId_key_active_unique index exactly.
+  factsColl.declareUniqueIndex(["studentId", "key"], { partialFilterExpression: { validTo: { $exists: false } } });
+
+  const diff = emptyDiff();
+  const first = await applyApprovedDiff(
+    db,
+    diff,
+    { approve: true, edits: [citedFact({ value: "Canada" })] },
+    "session-1",
+  );
+  const second = await applyApprovedDiff(
+    db,
+    diff,
+    { approve: true, edits: [citedFact({ value: "United Kingdom" })] },
+    "session-2",
+  );
+
+  assert.equal(first.written.length, 1);
+  assert.equal(second.written.length, 1, "the second sequential update must succeed, not throw FactConflictError");
+  assert.deepEqual(second.supersededKeys, ["targetCountry"], "supersededKeys must contain the updated key");
+
+  const openFacts = factsColl.all().filter((f) => f.validTo === undefined);
+  assert.equal(openFacts.length, 1, "exactly one open fact after two sequential updates to the same key");
+  assert.equal(openFacts[0]?.value, "United Kingdom");
+});
+
+test("ISS-026: a crash between retiring the old fact and inserting the new one heals on retry of the same decision (never stuck at zero open facts)", async () => {
+  const { db, fakeDb } = createFakeDb();
+  const factsColl = fakeDb.collection<FactDoc>(COLLECTION_NAMES.facts);
+  factsColl.declareUniqueIndex(["studentId", "key"], { partialFilterExpression: { validTo: { $exists: false } } });
+
+  // Simulate the worst-case crash window ISS-026 names: a prior (crashed)
+  // attempt at this exact decision already retired the old fact but never
+  // got to insert the new one, so this key currently has ZERO open facts.
+  factsColl.seed({
+    ...citedFact({ value: "Canada" }),
+    _id: "student-1:targetCountry:v1",
+    studentId: "student-1",
+    validTo: "2026-09-24T00:00:00.000Z",
+  });
+  assert.equal(
+    factsColl.all().filter((f) => f.validTo === undefined).length,
+    0,
+    "precondition: zero open facts for this key, simulating the crash window",
+  );
+
+  const decision: CounsellorDecision = { approve: true, edits: [citedFact({ value: "United Kingdom" })] };
+  const result = await applyApprovedDiff(db, emptyDiff(), decision, "session-1");
+
+  const openFacts = factsColl.all().filter((f) => f.validTo === undefined);
+  assert.equal(openFacts.length, 1, "retry after the simulated crash must heal to exactly one open fact");
+  assert.equal(result.written.length, 1);
+  assert.equal(
+    result.written[0]?._id,
+    deriveFactId("student-1", "targetCountry", "United Kingdom", "session-1"),
+    "the healed fact must have the same deterministic _id a fresh apply of this decision would produce",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// ISS-028: a multi-fact diff that fails part-way must surface the partial
+// outcome (ids already written + the failing key), not just the raw error.
+// ---------------------------------------------------------------------------
+
+test("ISS-028: a multi-fact diff that fails part-way throws PartialApplyError carrying the ids written so far and the failing key", async () => {
+  const { db, fakeDb } = createFakeDb();
+  const factsColl = fakeDb.collection<FactDoc>(COLLECTION_NAMES.facts);
+
+  let insertCount = 0;
+  const originalInsertOne = factsColl.insertOne.bind(factsColl);
+  factsColl.insertOne = (async (doc: FactDoc) => {
+    insertCount += 1;
+    if (insertCount === 2) {
+      throw new Error("simulated write failure on the second fact");
+    }
+    return originalInsertOne(doc);
+  }) as typeof factsColl.insertOne;
+
+  const firstId = deriveFactId("student-1", "targetCountry", "Canada", undefined);
+  const decision: CounsellorDecision = {
+    approve: true,
+    edits: [citedFact({ key: "targetCountry", value: "Canada" }), citedFact({ key: "budget", value: 20000 })],
+  };
+
+  await assert.rejects(
+    () => applyApprovedDiff(db, emptyDiff(), decision),
+    (err: unknown) => {
+      assert.ok(err instanceof PartialApplyError, `expected PartialApplyError, got ${String(err)}`);
+      const partial = err as PartialApplyError;
+      assert.deepEqual(partial.writtenIds, [firstId], "must carry the id of the fact already written");
+      assert.equal(partial.failingKey, "budget", "must carry the key that failed");
+      assert.ok(partial.cause instanceof Error);
+      assert.match((partial.cause as Error).message, /simulated write failure/);
+      return true;
+    },
+  );
+
+  assert.equal(factsColl.size(), 1, "the first fact must remain committed even though the diff as a whole failed");
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-003b-db-hardening-1: deriveFactId must not collide when a delimiter
+// character moves between fields.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-003b-db-hardening-1: deriveFactId does not collide when a '|' character moves between studentId and key", () => {
+  const a = deriveFactId("alice|X", "c", "same-value", "session-1");
+  const b = deriveFactId("alice", "X|c", "same-value", "session-1");
+  assert.notEqual(a, b, "('alice|X','c') and ('alice','X|c') must not derive the same fact _id");
 });

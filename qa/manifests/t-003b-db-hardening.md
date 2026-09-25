@@ -4,68 +4,77 @@
 **Date:** 2026-09-25
 **Fix cycle:** 1 of max 3 (cycle-0 checker PASS overridden by two independent Block reviews: ISS-026 critical)
 **Dual check:** no
-**Issues addressed:** ISS-018, ISS-019, ISS-020, ISS-021, ISS-t-003-student-kg-1
-**Executor:** claude-sonnet-subagent
-**Executor rationale:** in-scope hardening of an existing, well-understood module (packages/db); no external tool was worthy of delegation.
+**Issues addressed this cycle:** ISS-026 (critical), ISS-027, ISS-028, ISS-t-003b-db-hardening-1
+**Prior cycle (0) issues, unchanged this cycle:** ISS-018, ISS-019, ISS-020, ISS-021, ISS-t-003-student-kg-1
+**Executor:** claude-opus-subagent
+**Executor rationale:** in-scope hardening of an existing, well-understood module (packages/db) with a concrete, fully-specified fix (retire-then-insert CAS + index-plan test + error wrapping + id-collision fix); no external tool was worthy of delegation.
 
-## What changed
-- `packages/db/tests/consent.test.ts:39-49` — ISS-018: the two B4 "resolves" tests wrapped `requireConsent` in `assert.doesNotThrow(async () => ...)`, which never awaits the inner call and so passed unconditionally. Switched to `await assert.doesNotReject(() => requireConsent(...))`.
-- `packages/db/tests/fakes.ts` — added `FakeDuplicateKeyError` (duck-typed `{code: 11000}`, matching a real `MongoServerError`) and `FakeCollection.declareUniqueIndex(keys, {partialFilterExpression})` + enforcement in `insertOne`, so tests can reproduce Mongo's unique-partial-index behaviour offline (ISS-019).
+## What changed (cycle 1)
+
 - `packages/db/src/facts.ts`:
-  - Added `canonicalize`/`canonicalJson`/`deepEqualValue` (recursive key-sorted JSON) — deep-equal value comparison, not reference equality (ISS-021).
-  - Added `deriveFactId(studentId, key, value, sessionId)` — sha256-based deterministic fact `_id`, replacing the old wall-clock `${studentId}:${key}:${now}:${i}` scheme (ISS-020).
-  - Added `FactConflictError` — typed error thrown when a duplicate-key race is a genuine conflict, not a replay (ISS-019).
-  - Rewrote `applyApprovedDiff`'s per-fact loop: insert-new-before-retire-old ordering (a crash between the two leaves the OLD fact open, never zero), duplicate-key (`code 11000`) handling that re-reads and either treats an identical concurrent insert as success (idempotent) or throws `FactConflictError`, and skips the whole insert/retire path entirely when the deterministic `_id` shows this is a replay of an already-applied diff (ISS-019, ISS-020).
-  - `proposeFactChanges`: every stored `existingFacts` doc is now `FactSchema.safeParse`d before being treated as active; a schema-drifted doc is skipped and reported via `console.warn` (return shape unchanged — still `ProfileDiff`) instead of trusted as-is (ISS-021). Value comparison switched to `deepEqualValue` (ISS-021).
-  - Module + function docstrings rewritten to document the failure modes (crash windows, conflict resolution, replay semantics) per the ISS-019 requirement.
-- `packages/db/scripts/db-init.ts` (script, NOT run by this unit) — replaced the non-unique `facts_studentId_key_validTo` index with a UNIQUE partial index `{studentId:1, key:1}` / `partialFilterExpression: {validTo: {$exists:false}}` (ISS-019); added `edges_from` (`{"from.kind":1,"from.id":1}`) and `edges_to` (`{"to.kind":1,"to.id":1}`) indexes (ISS-021). Docstring updated.
-- `packages/db/tests/db-scope.test.ts` — ISS-t-003-student-kg-1: extracted `containsDirectDbCall` (now `/\.db\s*\(/` OR `/\[\s*(["'`])db\1\s*\]\s*\(/`, catching whitespace-before-call and bracket property access) and `isScannableSourceFile` (now `.ts`/`.mts`/`.cts`/`.tsx`, excluding `.test.`/`.spec.` markers, not just `.test.ts`) as named functions, and added 7 in-memory-fixture regression tests exercising each variant directly.
-- `packages/db/tests/facts.test.ts` — added tests for ISS-019 (interleaved concurrent writers), ISS-020 (replay idempotency, `deriveFactId` determinism), and ISS-021 (deep-equal object/array comparison, schema-drift skip+report).
+  - **ISS-026 (critical).** `applyApprovedDiff`'s per-fact write is now **retire-then-insert**, not insert-then-retire. When a different fact is currently open for the key, the old fact is retired FIRST via a CAS `findOneAndUpdate({_id: existing._id, validTo: {$exists:false}}, {$set:{validTo:now}})`; only once that CAS has actually matched (proving the retirement landed and nobody else raced it) does the function insert the new fact. If the CAS matches nothing, `FactConflictError` is thrown — the old (insert-before-retire) order always collided with the unique partial index on `{studentId,key}` (validTo unset) on every update after the first, because for a moment two facts would be open for the same key; that made every sequential update throw `FactConflictError`. A real process crash between the CAS-retire and the insert leaves zero open facts for the key; re-running the SAME approved decision heals it because the deterministic `_id` (`deriveFactId`) means the retry finds no active fact (already retired) and just inserts, no CAS needed.
+  - **ISS-028.** New `PartialApplyError` class (`writtenIds: string[]`, `failingKey: string`, `cause: unknown`). The per-fact loop body is now wrapped in a try/catch; if a later fact in a multi-fact `decision.edits` fails after earlier facts in the same call already committed, the error is re-thrown as `PartialApplyError` carrying the ids already written and the key that failed. A diff whose FIRST fact fails throws the raw underlying error (nothing partial to report yet) — this preserves the existing single-fact tests' `FactConflictError`-direct assertions unchanged.
+  - **ISS-t-003b-db-hardening-1.** `deriveFactId` no longer joins its four fields with an unescaped `"|"` (`${studentId}|${key}|...`), which let a `"|"` character inside `studentId` or `key` make two different identities collide (`("alice|X","c")` and `("alice","X|c")` both joined to the same string). It now hashes `JSON.stringify([studentId, key, canonicalize(value), sessionId ?? null])` — a JSON array unambiguously delimits and escapes each element regardless of its contents.
+  - Module docstring and `applyApprovedDiff`'s function docstring rewritten to describe all four failure modes (ISS-019/020/026/028) together.
+- `packages/db/tests/fakes.ts` — added `FakeCollection.findOneAndUpdate(filter, {$set})`, a minimal CAS-capable stand-in for the real driver method (matches, mutates in place, returns the doc; returns `null` on no match) so `applyApprovedDiff`'s retire CAS step is testable fully offline (contract B8).
+- `packages/db/scripts/db-init.ts` (script, NOT run by this unit):
+  - **ISS-027.** Extracted the whole index set into an exported, plain-data `INDEX_PLAN: IndexSpec[]` array (no Mongo, no side effects), consumed by both `main()` (real `createIndex` calls) and offline tests. Added a plain (non-partial) `{studentId:1}` index on `facts`, `sessions`, `decisions` and `students` (`consents` already had one).
+  - Guarded `main()` behind an entrypoint check (`fileURLToPath(import.meta.url) === process.argv[1]`) so importing the module for `INDEX_PLAN` — which the new test does — never attempts a live Mongo connection; previously `main().catch(...)` ran unconditionally at module load.
+  - Docstring updated to describe `INDEX_PLAN`'s dual purpose and the new indexes.
+- `packages/db/tests/facts.test.ts`:
+  - Enabled `factsColl.declareUniqueIndex(...)` (mirroring `db-init.ts`'s real index exactly) in the pre-existing `supersede-not-delete` test — under the OLD insert-before-retire code this test never declared the unique index, so ISS-026's bug was invisible to it.
+  - New: `ISS-026: two SEQUENTIAL applyApprovedDiff calls with different values for the same key both succeed` (the exact required regression test — asserts the second call does not throw and `supersededKeys` contains the key).
+  - New: `ISS-026: a crash between retiring the old fact and inserting the new one heals on retry of the same decision` (seeds a "zero open facts" precondition simulating the crash window, then proves a retry heals to exactly one open fact with the correct deterministic `_id`).
+  - New: `ISS-028: a multi-fact diff that fails part-way throws PartialApplyError carrying the ids written so far and the failing key` (monkey-patches `FakeCollection.insertOne` to fail deterministically on the 2nd of 2 facts; asserts `PartialApplyError.writtenIds`, `.failingKey`, `.cause`, and that the first fact remains committed).
+  - New: `ISS-t-003b-db-hardening-1: deriveFactId does not collide when a '|' character moves between studentId and key` (the exact collision pair from the issue).
+  - Kept the existing `ISS-019: interleaving two applyApprovedDiff calls...` concurrent-race test unchanged — still asserts at most 1 open fact and a `FactConflictError` for the loser.
+- New file `packages/db/tests/db-init.test.ts` (ISS-027): asserts every studentId-bearing collection in `COLLECTION_NAMES` (facts, sessions, decisions, consents, students) has a plain, non-partial index led by `studentId` in `INDEX_PLAN`; asserts importing the module for `INDEX_PLAN` does not throw/connect; regression-checks the ISS-019 unique partial index and ISS-021 edges indexes are still present in the plan.
 
 ## How to verify (commands + expected)
-- `pnpm install --offline` → expected: exit 0
-- `pnpm -r typecheck` → expected: exit 0, all workspaces "Done"
-- `pnpm -r test` → expected: exit 0, `packages/db test: ℹ pass 43` / `ℹ fail 0`
+
+- `pnpm -r typecheck` → expected: exit 0, all 9 workspaces "Done"
+- `pnpm -r test` → expected: exit 0, `packages/db test: ℹ pass 50` / `ℹ fail 0` (up from 43 in cycle 0; +7 new tests: 2x ISS-026, 1x ISS-028, 1x ISS-t-003b-db-hardening-1, 2x ISS-027 in the new db-init.test.ts file + 1 regression check in that same file)
 - `python contracts/verify_contracts.py` → expected: exit 0 (`PASS by vacuity` — no frozen contracts yet)
-- `git diff --stat HEAD -- pnpm-lock.yaml` → expected: empty (lockfile untouched relative to this branch's own history)
+- `git diff --stat HEAD -- pnpm-lock.yaml` → expected: empty (lockfile untouched)
 - `git diff --stat HEAD` → expected: only `packages/db/**` (+ this manifest, once staged)
 
-## Actual outputs (from maker's own run)
-```
-$ pnpm install --offline
-Scope: all 9 workspace projects
-Lockfile is up to date, resolution step is skipped
-Already up to date
-Done in 756ms using pnpm v10.33.0
+## Actual outputs (from maker's own run, this cycle)
 
+```
 $ pnpm -r typecheck
-Scope: 8 of 9 workspace projects
+Scope: 9 of 10 workspace projects
 apps/api typecheck: Done
 apps/web typecheck: Done
 mcp/student-profile typecheck: Done
 mcp/university-kb typecheck: Done
 packages/providers typecheck: Done
 packages/schemas typecheck: Done
+packages/observability typecheck: Done
 packages/engine typecheck: Done
 packages/db typecheck: Done
 
-$ pnpm -r test   (packages/db excerpt; full run: 8/8 workspaces green)
-packages/db test: ✔ B4: requireConsent resolves for a minor WITH guardianConsent covering the purpose (0.3772ms)
-packages/db test: ✔ B4: requireConsent resolves for an adult with a matching consent row (0.3133ms)
-packages/db test: ✔ B12: no module outside packages/db/src/client.ts calls `.db(` (40.1978ms)
-packages/db test: ✔ B12 scanner: catches `.db(` with whitespace before the call (0.2796ms)
-packages/db test: ✔ B12 scanner: catches bracket property access client["db"]( (0.1725ms)
-packages/db test: ✔ B12 scanner: catches bracket property access with single quotes client['db']( (0.1735ms)
-packages/db test: ✔ B12 scanner: catches bracket property access with backticks and internal whitespace (0.1569ms)
-packages/db test: ✔ B12 scanner: file filter now includes .mts/.cts/.tsx and excludes .test./.spec. variants (0.206ms)
-packages/db test: ✔ ISS-020: applyApprovedDiff twice with the same inputs is idempotent (one open fact, no duplicate edges) (0.9242ms)
-packages/db test: ✔ ISS-020: deriveFactId is deterministic for identical inputs and differs when the value differs (0.312ms)
-packages/db test: ✔ ISS-019: interleaving two applyApprovedDiff calls for the same (studentId,key) leaves at most one open fact (1.1757ms)
-packages/db test: ✔ ISS-021: proposeFactChanges treats structurally-equal object/array values as unchanged (deep-equal, not reference-equal) (0.4418ms)
-packages/db test: ✔ ISS-021: proposeFactChanges DOES flag an object/array value whose content actually differs (0.3869ms)
-packages/db test: ✔ ISS-021: proposeFactChanges skips a schema-drifted stored fact instead of throwing, and reports it (0.7069ms)
-packages/db test: ℹ tests 43
-packages/db test: ℹ pass 43
+$ pnpm -r test   (all 9 workspaces; packages/db excerpt below, full run: 9/9 green)
+mcp/student-profile test: ℹ tests 1 / pass 1 / fail 0
+apps/web test: ℹ tests 1 / pass 1 / fail 0
+apps/api test: ℹ tests 1 / pass 1 / fail 0
+mcp/university-kb test: ℹ tests 1 / pass 1 / fail 0
+packages/providers test: ℹ tests 1 / pass 1 / fail 0
+packages/schemas test: ℹ tests 50 / pass 50 / fail 0
+packages/observability test: ℹ tests 43 / pass 43 / fail 0
+packages/engine test: ℹ tests 31 / pass 31 / fail 0
+packages/db test:
+  ✔ supersede-not-delete: approving a changed value closes the old fact via validTo instead of removing it (unique index now declared)
+  ✔ ISS-026: two SEQUENTIAL applyApprovedDiff calls with different values for the same key both succeed
+  ✔ ISS-026: a crash between retiring the old fact and inserting the new one heals on retry of the same decision (never stuck at zero open facts)
+  ✔ ISS-028: a multi-fact diff that fails part-way throws PartialApplyError carrying the ids written so far and the failing key
+  ✔ ISS-t-003b-db-hardening-1: deriveFactId does not collide when a '|' character moves between studentId and key
+  ✔ ISS-027: every studentId-bearing collection has a plain (non-partial, non-unique) index led by studentId
+  ✔ ISS-027: importing db-init.ts for its index plan does not attempt a Mongo connection
+  ✔ ISS-019/ISS-021 (regression): the facts unique-partial and edges from/to indexes are still declared
+  ✔ ISS-019: interleaving two applyApprovedDiff calls for the same (studentId,key) leaves at most one open fact (unchanged, still passes)
+  ✔ ISS-020: applyApprovedDiff twice with the same inputs is idempotent (unchanged, still passes)
+packages/db test: ℹ tests 50
+packages/db test: ℹ pass 50
 packages/db test: ℹ fail 0
 
 $ python contracts/verify_contracts.py
@@ -75,49 +84,37 @@ $ git diff --stat HEAD -- pnpm-lock.yaml
 (empty)
 
 $ git diff --stat HEAD
- packages/db/scripts/db-init.ts     |  36 +++++--
- packages/db/src/facts.ts           | 196 +++++++++++++++++++++++++++++++++----
- packages/db/tests/consent.test.ts  |   9 +-
- packages/db/tests/db-scope.test.ts |  88 +++++++++++++++--
- packages/db/tests/facts.test.ts    | 136 ++++++++++++++++++++++++-
- packages/db/tests/fakes.ts         |  57 +++++++++++
- 6 files changed, 486 insertions(+), 36 deletions(-)
+ packages/db/scripts/db-init.ts  |  99 ++++++++++++-----
+ packages/db/src/facts.ts        | 241 ++++++++++++++++++++++++++++------------
+ packages/db/tests/facts.test.ts | 132 +++++++++++++++++++++-
+ packages/db/tests/fakes.ts      |  16 +++
+ 4 files changed, 386 insertions(+), 102 deletions(-)
+ (+ new file packages/db/tests/db-init.test.ts, untracked at diff time)
 ```
 
-**Note on `git diff --stat main`:** run against the current `main` tip, this shows additional
-files outside `packages/db/**` (packages/engine/**, skills/**, qa/manifests/t-005-skills-guards.md,
-TASKS.md, pnpm-lock.yaml, ...) as apparent deletions. This is NOT something this unit touched —
-`git merge-base HEAD main` is `793e4c7`, the exact commit `wave/t-003b-db-hardening` forked from;
-`main`'s tip has since moved to `61de27d` via a separate, already-merged wave (T-005:
-skills/guards) that landed after this branch forked. `git diff --stat HEAD` (this branch's own
-history) and `git diff --stat HEAD -- pnpm-lock.yaml` (both pasted above) are the correct measure
-of this unit's own scope and both confirm: packages/db/** only, lockfile untouched. Verified with
-`git diff HEAD -- TASKS.md` also being empty (the TASKS.md delta against `main` is the same
-upstream-drift artifact, not a local edit).
+**Unit diff range for cycle 1:** `001411b..HEAD` (this cycle's fix commit), where `001411b`
+("qa: reopen t-003b fix cycle 1 (ISS-026 critical, ISS-027, ISS-028 from reviews)") is the reopen
+commit this cycle answers. Cycle 0's own fix landed at `8aafe46`.
 
 ## Capability coverage (each new claim -> its isolating falsification)
 
-All falsification below was run in an isolated temp copy at
-`%LOCALAPPDATA%\Temp\claude\d--vc\...\scratchpad\t003b-fz2` — a fresh `pnpm-workspace.yaml` +
-`packages/db` + `packages/schemas` (source only, no `node_modules`) followed by `pnpm install
---offline` + `pnpm rebuild esbuild`, entirely outside `D:\vc`. GREEN was confirmed first
-(43/43), then each row's edit was applied, the named check re-run, reverted, and GREEN
-re-confirmed (43/43 at the end). No real MongoDB connection was made anywhere in this exercise.
+All falsification below was run directly in this worktree (`D:\vc\.worktrees\t-003b-db-hardening`)
+via the Edit tool: GREEN confirmed first (50/50), then each row's fix was reverted to the exact
+pre-fix form, `pnpm --filter @vc/db test` re-run to observe the named test(s) go RED, then the fix
+was restored and GREEN re-confirmed (50/50 at the end, and again after all four falsifications).
+No real MongoDB connection was made anywhere in this exercise.
 
-| capability (one line) | the check that covers it | the falsifying edit | observed (pasted runner output) |
+| capability (one line) | the check that covers it | the falsifying edit | observed |
 |---|---|---|---|
-| ISS-018: the two `requireConsent` "resolves" tests can now actually fail | `tests/consent.test.ts` "B4: requireConsent resolves for a minor WITH guardianConsent..." | `src/consent.ts:37` invert `if (consent.minor && !consent.guardianConsent)` → `if (consent.minor && consent.guardianConsent)` | BEFORE (old vacuous form, separate script proving it): `OLD FORM RESULT: assert.doesNotThrow did NOT fail synchronously (vacuous pass) -- the bug was invisible to it` (exit 0, bug present). AFTER (fixed form, same bug): `✖ B4: requireConsent resolves for a minor WITH guardianConsent covering the purpose` / `AssertionError [ERR_ASSERTION]: Got unwanted rejection. Actual message: "ConsentRequiredError: ... student is a minor and guardianConsent is not recorded ..."` |
-| ISS-019: `FakeCollection` enforces a unique partial index (throws `{code:11000}`) | `tests/facts.test.ts` "ISS-019: interleaving two applyApprovedDiff calls..." | `tests/fakes.ts:92` comment out `this.assertNoUniqueConflict(doc);` in `insertOne` | BEFORE: `✔ ISS-019: interleaving two applyApprovedDiff calls for the same (studentId,key) leaves at most one open fact (0.9034ms)`. AFTER: `✖ ISS-019: ...` / `AssertionError: expected at most one open fact after the race, got 2` |
-| ISS-019: `applyApprovedDiff` resolves a duplicate-key race deterministically (idempotent-match or typed `FactConflictError`), never a raw driver error or a silent second open fact | `tests/facts.test.ts` "ISS-019: interleaving..." + "ISS-020: applyApprovedDiff twice..." | `src/facts.ts` revert the `let doc: FactDoc; if (existingBefore && existingBefore._id === _id) {...} else { try {...} catch {...} ...}` block to the pre-fix unguarded `supersede-then-insert` with wall-clock `_id` | BEFORE: both `✔`. AFTER: `✖ ISS-020: ... AssertionError: replay must resolve to the same deterministic _id` (`...2026-09-24T23:35:14.640Z:0` !== `...641Z:0`) AND `✖ ISS-019: ... AssertionError: expected FactConflictError, got FakeDuplicateKeyError: E11000 duplicate key error...` |
-| ISS-020: `deriveFactId` is deterministic (same _id for identical inputs) and replaying an approved diff is a no-op | `tests/facts.test.ts` "ISS-020: deriveFactId is deterministic..." + "ISS-020: applyApprovedDiff twice..." | same edit as the row above (the old wall-clock `_id` scheme) | see the ISS-020 AssertionError pasted in the row above — the two calls no longer resolve to the same `_id`, so the "no duplicate open fact on replay" guarantee breaks at the source |
-| ISS-021: `proposeFactChanges` compares values by deep-equal (canonical JSON), not reference | `tests/facts.test.ts` "ISS-021: proposeFactChanges treats structurally-equal object/array values as unchanged..." | `src/facts.ts` revert `!deepEqualValue(existing.value, candidate.value)` → `existing.value !== candidate.value` | BEFORE: `✔`. AFTER: `✖ ISS-021: ... treats structurally-equal... AssertionError: Expected values to be strictly equal: 1 !== 0` (a same-content, different-instance object was wrongly flagged as changed) |
-| ISS-021: `proposeFactChanges` skips a schema-drifted stored fact (not thrown, not trusted) and reports it | `tests/facts.test.ts` "ISS-021: proposeFactChanges skips a schema-drifted stored fact..." | `src/facts.ts` revert the `FactSchema.safeParse(fact)` skip+warn block to plain `activeByKey.set(fact.key, fact)` | BEFORE: `✔`. AFTER: `✖ ISS-021: ... skips a schema-drifted... AssertionError: Expected values to be strictly equal: 0 !== 1` (the drifted doc was trusted as "Canada" already-active, so the identical-value candidate produced 0 changes instead of the expected "add") |
-| ISS-t-003-student-kg-1: scanner catches whitespace-before-call and bracket-property-access `.db(` variants | `tests/db-scope.test.ts` "B12 scanner: catches ... whitespace..." / "...bracket property access..." (x3) | `containsDirectDbCall` reverted to `return content.includes(".db(")` (the original substring-only check) | BEFORE: all 4 `✔`. AFTER: `✖ B12 scanner: catches \`.db(\` with whitespace before the call` / `✖ ...client["db"](` / `✖ ...client['db'](` / `✖ ...backticks...` — all `AssertionError: Expected values to be strictly equal: false !== true` |
-| ISS-t-003-student-kg-1: file filter now scans `.mts`/`.cts`/`.tsx`, excludes `.test.`/`.spec.` | `tests/db-scope.test.ts` "B12 scanner: file filter now includes .mts/.cts/.tsx..." | `isScannableSourceFile` reverted to `return name.endsWith(".ts") && !name.endsWith(".test.ts")` | BEFORE: `✔`. AFTER: `✖ B12 scanner: file filter... AssertionError: Expected values to be strictly equal: false !== true` (`isScannableSourceFile("client.mts")` now `false`) |
-| edges gets `from`/`to` indexes; facts gets the unique partial index (scripts/db-init.ts) | Not automatically tested — `scripts/db-init.ts` connects to the real production server and this unit is explicitly forbidden from running it (B8: offline tests only; this file is "NOT RUN by T-003b") | n/a | `UNVERIFIED — scripts/db-init.ts's new `createIndex` calls (unique partial on facts, edges_from, edges_to) are reviewed by inspection only (see "What changed"); they cannot be executed or falsified without a real MongoDB connection, which this unit and contract B8 forbid. Coverage is: (a) `tests/fakes.ts`'s `declareUniqueIndex`/`FakeDuplicateKeyError` independently prove the *shape and semantics* the real index is meant to provide (row 2 above), and (b) the index spec is copied verbatim from the ledger's fix text (ISS-019/ISS-021).` — enumerated debt, not silently shipped. |
+| ISS-026: retire-then-insert CAS — two sequential updates to the same key both succeed | `tests/facts.test.ts` "ISS-026: two SEQUENTIAL applyApprovedDiff calls..." + the now-hardened `supersede-not-delete` test | Reverted `applyApprovedDiff` to the old insert-before-retire order (removed the CAS-retire block entirely, insert directly) | BEFORE: both `✔`. AFTER: both `✖` — `supersede-not-delete` and the ISS-026 sequential-update test both failed (`ℹ fail 2`), reproducing the exact "every sequential update after the first throws FactConflictError" bug the issue describes. RESTORED: both `✔` again, 50/50 total. |
+| ISS-026: a crash between retire and insert heals on retry of the same decision | `tests/facts.test.ts` "ISS-026: a crash between retiring..." | Removed `validTo: { $exists: false }` from `activeFilter` in `applyApprovedDiff`, so a historical (already-retired) doc for the key is mistaken for an active one | BEFORE: `✔`. AFTER: `✖ ISS-026: a crash between retiring... (ℹ fail 1)` — the seeded retired doc (simulating the crash window) was wrongly treated as still-active, so the code attempted a CAS-retire against a doc whose `validTo` is already set, the CAS matched nothing, and it threw `FactConflictError` instead of healing. RESTORED: `✔` again, 50/50 total. |
+| ISS-028: a multi-fact diff that fails part-way throws `PartialApplyError` with the partial outcome | `tests/facts.test.ts` "ISS-028: a multi-fact diff that fails part-way..." | Removed the `if (written.length > 0) throw new PartialApplyError(...)` branch, leaving only `throw err;` | BEFORE: `✔`. AFTER: `✖ ISS-028: ... (ℹ fail 1)` — the raw `Error("simulated write failure...")` propagated instead of `PartialApplyError`. RESTORED: `✔` again, 50/50 total. |
+| ISS-t-003b-db-hardening-1: `deriveFactId` does not collide across a `"|"` field boundary | `tests/facts.test.ts` "ISS-t-003b-db-hardening-1: deriveFactId does not collide..." | Reverted `deriveFactId`'s material to the old `` `${studentId}|${key}|${canonicalJson(value)}|${sessionId ?? ""}` `` join | BEFORE: `✔`. AFTER: `✖ ISS-t-003b-db-hardening-1: ... (ℹ fail 1)` — `deriveFactId("alice|X","c",...)` and `deriveFactId("alice","X|c",...)` produced the identical hash. RESTORED: `✔` again, 50/50 total. |
+| ISS-027: every studentId-bearing collection gets a plain `{studentId:1}` index | `tests/db-init.test.ts` "ISS-027: every studentId-bearing collection has a plain..." | Removed the four new `INDEX_PLAN` rows (facts/sessions/decisions/students plain studentId indexes), leaving only the pre-existing `consents_studentId` entry | BEFORE: `✔`. AFTER: `✖ ISS-027: ... (ℹ fail 1)` — no plain studentId-led index found for `facts`/`sessions`/`decisions`/`students`. RESTORED: `✔` again, 50/50 total. |
+| `scripts/db-init.ts`'s `INDEX_PLAN` and the actual `createIndex` calls it drives | Not automatically tested end-to-end — `scripts/db-init.ts`'s `main()` connects to the real production server and this unit is explicitly forbidden from running it (B8: offline tests only; still "NOT RUN by T-003/T-003b" per the script's own docstring) | n/a | `UNVERIFIED against a real server, same as cycle 0` — `INDEX_PLAN` is now a single source of truth consumed by both `main()`'s real `createIndex` loop and the offline test, so the offline test's coverage of the *plan's shape* directly constrains what `main()` will execute; the actual live `createIndex` calls remain reviewed-by-inspection only, enumerated debt, not silently shipped. |
 
 ## Live browser evidence
 Not UI-touching — no surface changed. This unit only touches `packages/db/**` (a Mongo access
-layer with no HTTP/UI surface) and a manifest file.
+layer with no HTTP/UI surface) and this manifest file.
 
 ## Status: ready-for-check

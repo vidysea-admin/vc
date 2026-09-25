@@ -94,6 +94,22 @@ export class FakeCollection<T extends { _id: string }> {
     return { insertedId: doc._id };
   }
 
+  /**
+   * A minimal CAS-capable stand-in for the real driver's findOneAndUpdate:
+   * finds the first doc matching `filter`, applies `$set` to it in place, and
+   * returns the (updated) doc — or `null` if nothing matched, which is what
+   * facts.ts's retire-then-insert CAS step (ISS-026) branches on to detect a
+   * losing race. Unlike `updateOne` this never upserts.
+   */
+  async findOneAndUpdate(filter: Filter, update: { $set?: Partial<T> }): Promise<T | null> {
+    const existing = [...this.docs.values()].find((doc) =>
+      matchesFilter(doc as unknown as Record<string, unknown>, filter),
+    );
+    if (!existing) return null;
+    if (update.$set) Object.assign(existing, update.$set);
+    return existing;
+  }
+
   async updateOne(
     filter: Filter,
     update: { $set?: Partial<T>; $setOnInsert?: T },
