@@ -2,19 +2,34 @@
   "name": "@vc/web",
   "version": "0.1.0",
   "private": true,
-  "description": "Stub — plain TS placeholder. Next.js is NOT installed yet, see T-008.",
+  "description": "Counsellor side-panel UI (Next.js App Router, plan.md §5). T-008: the scribe diff-approval screen + route handlers.",
   "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  },
-  "types": "./src/index.ts",
   "scripts": {
+    "dev": "next dev --webpack --port 3108",
+    "demo": "next dev --webpack --port 3108",
+    "build": "next build --webpack",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts tests/*.test.tsx",
+    "evidence:browser": "tsx demo/browser-evidence.ts"
+  },
+  "dependencies": {
+    "@langchain/langgraph": "^1.4.17",
+    "@vc/db": "workspace:*",
+    "@vc/engine": "workspace:*",
+    "@vc/providers": "workspace:*",
+    "@vc/schemas": "workspace:*",
+    "mongodb": "^6.21.0",
+    "next": "^16.3.6",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^3.25.32"
   },
   "devDependencies": {
-    "typescript": "~5.8.2",
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "playwright": "^1.63.0",
     "tsx": "^4.21.0",
-    "@types/node": "^22.14.0"
+    "typescript": "~5.8.2"
   }
 }
