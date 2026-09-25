@@ -150,3 +150,18 @@ not replace them.
 **Why:** A writer whose pre-check passed just before the fence existed finishes, at the latest, within the enforced deadline from that moment. A fence held for at least that long after its creation is therefore always visible to that writer's post-check, and the writer removes its own writes. Every other writer either sees the fence in its pre-check or wrote before the fence existed, and is caught by the purge.
 **Result:** -- (T-011 fix cycle 3)
 **Links:** T-011, ISS-t-011-c2-1, ISS-t-011-c2-rev-1, ISS-t-011-c2-rev-2, ISS-t-011-c2-rev-4, D-015, qa/gates/erasure-fencing.md
+
+## D-017 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** The scribe owns the start of a `sessions` row, and the D-014 claim carries a run lease.
+- **Session row:** startScribe upserts {_id: sessionId, studentId} with scribeThreadIds ($addToSet) BEFORE the first checkpoint. consentId and startedAt are optional until the session writer (T-008) fills them.
+- **Approved summary:** it lives on that row (summary, summaryWithheldReason, summaryApprovedAt). It is written only on approval and never by upsert.
+- **Erasure/export:** they resolve scribe threads from scribeThreadIds, as well as from scribe:<sessionId> and claims.
+- **Run lease:** the D-014 claim doc carries a lease (lease.token, and lease.expiresAt = writer deadline + FENCE_MARGIN_MS). A resumeScribe(null) recovery takes it atomically; the loser gets `in_progress`.
+- **Not decided:** moving the lease to the session row, which would also cover a recovery before any claim exists (T-016 residual 1). That needs its own entry.
+**Why:** Three gaps from earlier reviews:
+- ISS-t-011-rev-5: a run that ended without an interrupt had no anchor that erasure could discover.
+- ISS-t-007-rev-7: the approved summary had no durable home.
+- ISS-t-007-rev-10: recovery could invoke concurrently with an in-flight winner.
+Consent is still enforced by requireConsent against the consents collection (B4), not by SessionDoc.consentId.
+**Result:** -- (T-016 cycle 0, checked-PASS; the follow-ups ISS-t-016-rev-1 and ISS-t-016-c0-1 are in T-017)
+**Links:** T-016, T-017, T-008, ISS-t-007-rev-6, ISS-t-007-rev-7, ISS-t-007-rev-9, ISS-t-007-rev-10, ISS-t-011-rev-5, D-014, D-016
