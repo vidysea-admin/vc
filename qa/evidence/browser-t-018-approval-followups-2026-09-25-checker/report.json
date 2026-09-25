@@ -1,0 +1,47 @@
+{
+  "unit": "t-018-approval-followups",
+  "cycle": 0,
+  "role": "checker",
+  "date": "2026-09-25",
+  "serverMode": "build",
+  "buildCommand": "pnpm --filter @vc/web build (next build --webpack, compiled successfully, own run)",
+  "serverCommand": "npx next start --port 3129 (VC_WEB_MODE unset => demo)",
+  "tool": "playwright MCP (mcp__plugin_playwright_playwright__*), own browser session, own script/tool calls, never reused the maker's browser-evidence.ts run or its report",
+  "port": 3129,
+  "startedByThisRun": true,
+  "stoppedByThisRun": true,
+  "interactions": [
+    { "n": 1, "what": "navigate to /", "result": "index lists 3 demo threads", "pass": true },
+    { "n": 2, "what": "navigate to /approvals/scribe:demo-session-1", "result": "per-fact proposal screen renders 4 facts, dropped-facts table, draft summary", "pass": true },
+    { "n": 3, "what": "hostile POST: edit value = object {not:\"a number\"} for budget_inr_per_year (the exact ISS-t-008-c0-1 probe)", "result": "400 invalid, schema-boundary message; thread stays awaiting_approval; readback facts=0 claims=0", "pass": true },
+    { "n": 4, "what": "hostile POST: edit value = array [1,2,3]", "result": "400 invalid, schema-boundary message; nothing written", "pass": true },
+    { "n": 5, "what": "hostile POST: edit value = boolean true for a numeric fact", "result": "400 invalid, engine-boundary type-mismatch message (boolean vs number); nothing written", "pass": true },
+    { "n": 6, "what": "hostile POST: edit value = null", "result": "400 invalid, non-empty-value + scalar-type messages; nothing written", "pass": true },
+    { "n": 7, "what": "hostile POST: edit value = empty string \"\"", "result": "400 invalid, non-empty-value message; nothing written", "pass": true },
+    { "n": 8, "what": "hostile POST: edit value = numeric STRING \"2000000\" for a numeric fact", "result": "400 invalid, engine-boundary type-mismatch (string vs number); nothing written -- confirms the match is by TYPE, not by content", "pass": true },
+    { "n": 9, "what": "hostile POST: edit value = wrong-type string \"twenty lakh\"", "result": "400 invalid, engine-boundary type-mismatch; nothing written", "pass": true },
+    { "n": 10, "what": "hostile POST: raw body with a literal NaN token (not valid JSON.stringify output; sent as a raw string)", "result": "400 invalid, \"(body): not valid JSON\" -- refused before reaching any decision/type check; nothing written. Confirms NaN/Infinity are not reachable through the JSON API boundary (checker dispatch's own caveat), independent of this unit's type-match logic", "pass": true },
+    { "n": 11, "what": "after 8 refused hostile POSTs, re-fetch GET view + demo readback", "result": "state still awaiting_approval; readback facts=[], claims=0 -- confirms cumulative refusal, not just per-call", "pass": true },
+    { "n": 12, "what": "live per-fact flow via UI clicks: approve targetCountry, REJECT intendedMajor (no reason field exists in the UI -- see finding below), approve preferredIntake, select Edit on budget_inr_per_year, approve draft summary, Submit decisions", "result": "200/written; Written facts table shows targetCountry, preferredIntake, budget_inr_per_year (3 of 4 -- intendedMajor correctly excluded by the reject); readback facts=3, claims=1", "pass": true },
+    { "n": 13, "what": "GET fenced thread scribe:demo-session-2 (pre-fenced by seed.ts)", "result": "423 fenced on both GET and POST, no student data (pre-existing T-008 behavior, unaffected by this unit -- regression check)", "pass": true },
+    { "n": 14, "what": "POST the same valid decision again to the now-resolved scribe:demo-session-1", "result": "409 already_resolved, same winning decision echoed, readback unchanged (facts=3, claims=1) -- no duplicate claim or write", "pass": true }
+  ],
+  "totals": { "interactions": 14, "pass": 14, "fail": 0 },
+  "consoleErrors": {
+    "count": 11,
+    "unexpected": 0,
+    "note": "all 11 are the deliberate 400s from interactions 3-10 and 14 (8 hostile probes surfaced as 'Failed to load resource: 400' + the 409 replay); none are unexpected exceptions or 5xx"
+  },
+  "findings": [
+    {
+      "severity": "medium",
+      "id": "ISS-t-018-c0-1",
+      "title": "The counsellor-facing ApprovalScreen.tsx has NO input for a rejection reason. The RejectedFactSchema.reason field this unit's audit is built around can only ever be populated by a raw API caller, never by a counsellor using the shipped UI (apps/web/src/components/ApprovalScreen.tsx buildResponse() returns `{key, decision}` for a reject with no `reason`, and there is no textbox/field rendered for a reject decision anywhere in the component). In real usage the reject-reason audit record will always be written with `rejected: [{key}]` and no `reason`, which undercuts the feature's own stated purpose ('records the counsellor's own reason text' / 'this unit's whole point'). Not disclosed as a residual in the manifest.",
+      "reproduced_live": true
+    },
+    {
+      "severity": "info",
+      "title": "DemoReadback (apps/web/demo/seed.ts DemoReadback interface + readback()) does not include the `decisions` collection, so the reject-reason audit record cannot be observed through the running app at all (not via /api/demo/readback, not via any UI screen) -- consistent with, and slightly broader than, the manifest's own disclosed residual 2 ('no screen reads it back'). The checker verified the audit record's existence, fencing, idempotency, erasure read-back=0 and export inclusion at the packages/db level instead (own falsifying edits reproduced; see verdict CAPABILITY-COVERAGE)."
+    }
+  ]
+}
