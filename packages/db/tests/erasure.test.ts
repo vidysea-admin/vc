@@ -1707,6 +1707,59 @@ test("ISS-t-015-c0-3: an onError that itself throws does not produce an unhandle
   }
 });
 
+test("ISS-t-017-rev-2: an ASYNC onError whose returned promise rejects (not a synchronous throw) does not produce an unhandledRejection, and the interval keeps running", async () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  const unhandled: unknown[] = [];
+  const onUnhandledRejection = (err: unknown) => unhandled.push(err);
+  process.on("unhandledRejection", onUnhandledRejection);
+  try {
+    const { db, fakeDb, a } = await seedTwo();
+    const fences = coll(fakeDb, FENCES);
+    const boom = new Error("simulated sweep read failure");
+    const realFind = fences.find.bind(fences);
+    let calls = 0;
+    fences.find = (f?: Record<string, unknown>) => {
+      calls += 1;
+      if (calls === 1) throw boom;
+      return realFind(f);
+    };
+    const sweep = startErasureFenceSweep(db, {
+      intervalMs: 1000,
+      // ISS-t-017-rev-2: rejects on a LATER microtask, not synchronously — the realistic shape of an
+      // onError that awaits its own logging call (e.g. `await logToService(err)`). A plain
+      // `try { onError(err) } catch {}` (the ISS-t-015-c0-3 fix) can not catch this: the call itself
+      // returns a promise without throwing, and the rejection surfaces afterwards.
+      onError: async () => {
+        await Promise.resolve();
+        throw new Error("async onError's own promise rejects (must never happen per the docstring, but must not crash the process either)");
+      },
+    });
+    try {
+      const longAgo = new Date(Date.now() - MINIMUM_FENCE_HOLD_MS - 60_000).toISOString();
+      fences.seed({ _id: erasureFenceKey(a.studentId), studentKey: erasureFenceKey(a.studentId), requestId: "r-gone", createdAt: longAgo, releaseAfter: longAgo });
+
+      mock.timers.tick(1000); // the failing tick; its async onError's returned promise rejects later
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      // A real unhandledRejection fires on a later turn of the microtask/macrotask queue; give it a
+      // chance to surface before asserting it did not.
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(unhandled.length, 0, "an async onError's rejection must not produce a process-level unhandledRejection");
+      assert.equal(fences.size(), 1, "nothing released on the failing tick");
+
+      mock.timers.tick(1000); // the interval must still be alive despite the broken async onError
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(fences.size(), 0, "a later, non-failing tick still recovers — the broken async onError did not kill the interval");
+    } finally {
+      sweep.stop();
+    }
+  } finally {
+    process.off("unhandledRejection", onUnhandledRejection);
+    mock.timers.reset();
+  }
+});
+
 test("T-015/ISS-t-014-rev-4: an in-flight tick is not overlapped by the next scheduled tick; a tick AFTER the previous one finished is not skipped", async () => {
   mock.timers.enable({ apis: ["setInterval"] });
   try {

@@ -572,11 +572,15 @@ export interface ErasureFenceSweepOptions {
    * best-effort per fence (releaseErasureFence's own try/catch); this covers a failure in the sweep
    * loop itself (e.g. the whole read fails), so one bad tick never kills the interval — the next
    * tick simply tries again. Defaults to a no-op; a caller SHOULD pass one wired to its logging.
-   * ISS-t-015-c0-3: SHOULD never throw — but if it does, the tick catches it too (silently; the
-   * failure it was called to report is not re-escalated), so a broken onError still can not turn a
-   * reported sweep failure into an unhandled rejection or kill the interval.
+   * ISS-t-015-c0-3 / ISS-t-017-rev-2: SHOULD never throw OR return a promise that rejects — but if
+   * it does either, `tick()` swallows it (silently; the failure it was called to report is not
+   * re-escalated), so a broken `onError` still can not turn a reported sweep failure into an
+   * unhandled rejection or kill the interval or the process. The type is widened to
+   * `void | Promise<void>` to make an async `onError` (e.g. one that awaits a logging call) a
+   * documented, supported shape rather than one that happens to compile via structural typing but
+   * silently loses its own rejections.
    */
-  onError?: (err: unknown) => void;
+  onError?: (err: unknown) => void | Promise<void>;
 }
 
 export interface ErasureFenceSweep {
@@ -623,17 +627,26 @@ export function startErasureFenceSweep(db: Db, options: ErasureFenceSweepOptions
     inFlight = true;
     const now = options.now?.() ?? new Date();
     releaseExpiredErasureFences(db, now, options.graceMs ?? ERASURE_FENCE_GRACE_MS)
-      .catch((err) => {
-        try {
-          options.onError?.(err);
-        } catch {
-          // ISS-t-015-c0-3: onError is caller-supplied and documented to report, never throw — but
-          // an onError that throws anyway must not turn a reported sweep failure into an
-          // unconsumed rejection here (a real process crash under Node's default unhandledRejection
-          // policy, >=15). The sweep's own failure was already handed to onError; a broken onError
-          // is silently swallowed rather than escalated, so one bad tick never kills the interval.
-        }
-      })
+      .catch((err) =>
+        // ISS-t-015-c0-3 / ISS-t-017-rev-2: onError is caller-supplied and documented to report,
+        // never throw or reject — but it may do either: a SYNCHRONOUS throw from the call itself, or
+        // an ASYNC onError whose returned promise rejects on a later microtask (the realistic shape
+        // for an onError that awaits its own logging call). A plain `try { onError(err) } catch {}`
+        // only ever catches the synchronous case — a rejection surfacing from a promise `onError`
+        // returned, that nothing here awaits or catches, becomes a genuine Node `unhandledRejection`
+        // (reproduced; crashes the process under Node's default policy, >=15), which is exactly the
+        // failure class ISS-t-015-c0-3 was written to close. `Promise.resolve().then(...)` runs the
+        // call inside its OWN fresh promise chain, so however `onError` fails — sync throw (rejects
+        // the `.then`) or async rejection (propagates through it) — the `.catch(() => undefined)`
+        // right after fully consumes it. Returned (not just executed) so this outer `.catch` waits
+        // for it before `.finally` resets `inFlight`, keeping the in-flight guard accurate either
+        // way. The sweep's own failure was already handed to `onError`; a broken `onError` is
+        // silently swallowed rather than escalated, so one bad tick never kills the interval or the
+        // process.
+        Promise.resolve()
+          .then(() => options.onError?.(err))
+          .catch(() => undefined),
+      )
       .finally(() => {
         inFlight = false;
       });
