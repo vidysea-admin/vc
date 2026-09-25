@@ -2,8 +2,8 @@
 **Contract:** qa/contracts/counselling-engine.md (B15 primary; B4, B8, B11, B12, B14)
 **Goal task:** T-011
 **Date:** 2026-09-25
-**Status:** ready-for-check
-**Fix cycle:** 1 (of max 3). Cycle-0 checker FAIL 2c5a09e: ISS-t-011-c0-1. Also fixed: data-engineer high ISS-t-011-rev-3 (orphan-edge race) and senior low ISS-t-011-rev-1.
+**Status:** fix-in-progress
+**Fix cycle:** 2 of max 3 (cycle-1 checker FAIL 4b6ad21: ISS-t-011-c1-1 non-atomic read-back; D-015 fence + compensation)
 **Fix cycle budget:** 1 of max 3
 **Design:** qa/gates/dpdp-erase-design.md answer (a) "hard delete with confirmation and verification"; D-003 (history by retirement, so erasure must include retired facts), D-012 (fact `_id` is a fresh ObjectId, so edges are found through the resolved fact ids), D-013 (`active: true` marks open facts; retired facts have it unset), D-014 (scribe_resolutions hold approved fact values, so they are erased)
 **Diff range (cycle 1):** `1d7facb..HEAD` on branch `wave/t-011-dpdp-erasure`, a single commit: "fix(db): t-011 cycle 1 — stable-loop purge (no orphan edges under concurrent writers), checked final CAS". `1d7facb` is "qa: t-011 fix cycle 1", after the main merge `b5e6b55`. Cycle 1 touches `packages/db/src/erasure.ts`, `packages/db/tests/{erasure.test.ts, fakes.ts}`, `packages/db/README.md`, `packages/schemas/src/schemas.ts` (additive: optional `ErasureReceipt.rounds`) and this manifest.
