@@ -2,7 +2,7 @@
 
 **Contract:** qa/contracts/counselling-engine.md (B6 primary; B1, B2, B5, B8, B11, B13, B14)
 **Goal task:** T-019
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 0; ai-engineer review Approve)
 **Fix cycle:** 0
 **Design:** no new ACTIVE decision is written here. The provider set and the rules-provider input
 contract are drafted below as a recommended D-entry for the Approver (see "Proposed D-entry").
