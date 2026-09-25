@@ -15,9 +15,11 @@ server (contract B12, D-008/D-009, `qa/gates/mongo-host.md`).
 - `src/edges.ts` — the generic `{from, to, rel}` edge shape and the idempotent `link()` helper.
 - `src/erasure.ts` — DPDP erasure and export (contract B15, T-011): `requestErasure` (pending) →
   `confirmErasure` (a different staff actor) → `executeErasure` (hard delete across every engine
-  collection, two-phase so a failed step leaves the anchor collections for the retry, then a
-  read-back with the same selectors and a counts-only receipt; throws `ErasureIncompleteError` on
-  any failure). The `erasure_requests` audit row keeps only a salted studentId hash, staff actor
+  collection, two-phase so a failed step leaves the anchor collections for the retry; anchors are
+  deleted by resolved id and the purge loops, at most `ERASURE_MAX_ROUNDS` times, until a read-back
+  finds nothing, so a writer active mid-erasure can not leave orphan edges or checkpoints; a
+  counts-only receipt; throws `ErasureIncompleteError` on any failure, with the ids carried into
+  the retry; the final row update is a checked CAS, so concurrent calls all get the stored receipt). The `erasure_requests` audit row keeps only a salted studentId hash, staff actor
   ids, a reason code and the receipt once completed. `exportStudent` returns the student's own
   access bundle (not purpose-filtered; release only to the authenticated student/guardian).
 

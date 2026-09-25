@@ -547,3 +547,192 @@ test("B15 export: an unknown student yields an empty bundle, not someone else's 
   const json = JSON.stringify(bundle);
   for (const needle of [...identifiers(a), ...identifiers(b)]) assert.ok(!json.includes(needle));
 });
+
+// ---------------------------------------------------------------------------
+// Cycle 1 — ISS-t-011-rev-3: concurrent writers mid-erasure must never leave an orphan
+// (an edge / checkpoint whose anchor was deleted, so no later selector can find it).
+// ---------------------------------------------------------------------------
+
+/** Edges that reference a fact id no longer present in `facts` (unfindable by any future erasure). */
+function orphanFactEdges(fakeDb: FakeDb): string[] {
+  const live = new Set(coll(fakeDb, COLLECTION_NAMES.facts).all().map((f) => f._id));
+  return coll(fakeDb, COLLECTION_NAMES.edges)
+    .all()
+    .filter((e) => {
+      const ends = [e.from, e.to] as Array<{ kind: string; id: string }>;
+      return ends.some((r) => (r.kind === "fact" || r.kind === "profile_fact") && !live.has(r.id));
+    })
+    .map((e) => e._id);
+}
+
+/**
+ * Runs the request until it completes (a failed attempt must be retryable), at most `max` calls.
+ * Every unverified attempt must leave the row `failed`, never `completed`.
+ */
+async function runUntilCompleted(db: import("mongodb").Db, fakeDb: FakeDb, requestId: string, max = 3) {
+  const attempts: Array<{ ok: boolean; verified: boolean }> = [];
+  for (let i = 0; i < max; i += 1) {
+    try {
+      const out = await executeErasure(db, requestId);
+      attempts.push({ ok: true, verified: out.receipt.verified });
+      return attempts;
+    } catch (err) {
+      assert.ok(err instanceof ErasureIncompleteError, `unexpected error ${String(err)}`);
+      assert.equal(err.receipt.verified, false);
+      const row = (await coll(fakeDb, COLLECTION_NAMES.erasure_requests).findOne({ _id: requestId })) as unknown as ErasureRequestDoc;
+      assert.equal(row.status, "failed", "an unverified run must leave the request retryable, never completed");
+      attempts.push({ ok: false, verified: false });
+    }
+  }
+  return attempts;
+}
+
+test("rev-3: a fact (with edges, via the real applyApprovedDiff) written at the START of phase 2 leaves no orphan edge and nothing of A", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const facts = coll(fakeDb, COLLECTION_NAMES.facts);
+  const realDeleteMany = facts.deleteMany.bind(facts);
+  const lateFactIds: string[] = [];
+  let injected = false;
+  facts.deleteMany = async (filter) => {
+    if (!injected) {
+      injected = true;
+      const diff = { studentId: a.studentId, summary: a.marker, changes: [], citedFactIds: [] };
+      await applyApprovedDiff(db, diff, { approve: true, edits: [fact("intake", `${a.marker}-late`, "t-late")] }, a.sessionIds[0]);
+      // The data-engineer's exact shape: a fact whose sourced_from edge points at NOTHING the
+      // erasure resolves (a session with no session row), so only the fact id can find that edge.
+      await applyApprovedDiff(db, diff, { approve: true, edits: [fact("scholarship", `${a.marker}-late2`, "t-late2")] }, "sess-unrecorded");
+      for (const f of facts.all()) if ((f.key === "intake" || f.key === "scholarship") && f.studentId === a.studentId) lateFactIds.push(f._id);
+    }
+    return realDeleteMany(filter);
+  };
+  const attempts = await runUntilCompleted(db, fakeDb, requestId);
+  assert.ok(injected && lateFactIds.length === 2, "the concurrent writes really happened mid-erasure");
+  assert.ok(attempts.at(-1)?.ok, `never completed: ${JSON.stringify(attempts)}`);
+  assert.deepEqual(orphanFactEdges(fakeDb), [], "an edge survives for a deleted fact");
+  assert.deepEqual(docsMentioning(fakeDb, [...identifiers(a), ...lateFactIds]), []);
+  assert.ok(docsMentioning(fakeDb, identifiers(b)).length > 20, "B untouched");
+});
+
+test("rev-3: a SESSION (row, checkpoints, checkpoint writes, a session edge) inserted mid-erasure is erased too, never orphaned", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const lateSession = `${a.studentId}-sess-late`;
+  const lateThread = `scribe:${lateSession}`;
+  const facts = coll(fakeDb, COLLECTION_NAMES.facts);
+  const realDeleteMany = facts.deleteMany.bind(facts);
+  let injected = false;
+  facts.deleteMany = async (filter) => {
+    if (!injected) {
+      injected = true;
+      const now = "2026-09-25T11:00:00.000Z";
+      coll(fakeDb, COLLECTION_NAMES.sessions).seed({ _id: lateSession, sessionId: lateSession, studentId: a.studentId, startedAt: now });
+      coll(fakeDb, "scribe_checkpoints").seed({ _id: `${lateThread}|c1`, thread_id: lateThread, checkpoint_ns: "", checkpoint_id: "c1", checkpoint: "x" });
+      coll(fakeDb, "scribe_checkpoint_writes").seed({
+        _id: `${lateThread}|c1|w`,
+        thread_id: lateThread,
+        checkpoint_ns: "",
+        checkpoint_id: "c1",
+        task_id: "t",
+        idx: 0,
+        value: "y",
+      });
+      coll(fakeDb, COLLECTION_NAMES.edges).seed({
+        _id: `session:${lateSession}->discussed->kb_record:uni-9`,
+        from: { kind: "session", id: lateSession },
+        to: { kind: "kb_record", id: "uni-9" },
+        rel: "discussed",
+        createdAt: now,
+      });
+    }
+    return realDeleteMany(filter);
+  };
+  const attempts = await runUntilCompleted(db, fakeDb, requestId);
+  assert.ok(injected);
+  assert.ok(attempts.at(-1)?.ok, `never completed: ${JSON.stringify(attempts)}`);
+  assert.deepEqual(docsMentioning(fakeDb, [...identifiers(a), lateSession, lateThread]), []);
+  assert.deepEqual(orphanFactEdges(fakeDb), []);
+  assert.ok(docsMentioning(fakeDb, identifiers(b)).length > 20, "B untouched");
+});
+
+test("rev-3: a writer that never stops exhausts the bounded loop -> verified:false + failed (retryable); the retry still finds edges of facts deleted in the failed run", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const facts = coll(fakeDb, COLLECTION_NAMES.facts);
+  const realDeleteMany = facts.deleteMany.bind(facts);
+  const deletedFactId = a.factIds[0] as string;
+  let writerOn = true;
+  let n = 0;
+  facts.deleteMany = async (filter) => {
+    const res = await realDeleteMany(filter);
+    if (writerOn) {
+      // A late provenance edge for a fact this erasure has ALREADY deleted (a writer finishing its link()).
+      n += 1;
+      coll(fakeDb, COLLECTION_NAMES.edges).seed({
+        _id: `fact:${deletedFactId}->sourced_from->transcript_turn:late-${n}`,
+        from: { kind: "fact", id: deletedFactId },
+        to: { kind: "transcript_turn", id: `late-${n}` },
+        rel: "sourced_from",
+        createdAt: "2026-09-25T11:00:00.000Z",
+      });
+    }
+    return res;
+  };
+  const err = await executeErasure(db, requestId).then(
+    () => assert.fail("a never-stable run must not complete"),
+    (e: unknown) => e,
+  );
+  assert.ok(err instanceof ErasureIncompleteError);
+  assert.equal(err.receipt.verified, false);
+  assert.ok(err.receipt.totalRemaining > 0);
+  assert.ok(n >= 2 && n <= 10, `the loop is bounded and re-purges (writer ran ${n} times)`);
+  const row = (await coll(fakeDb, COLLECTION_NAMES.erasure_requests).findOne({ _id: requestId })) as unknown as ErasureRequestDoc;
+  assert.equal(row.status, "failed");
+  assert.equal(row.studentId, a.studentId);
+
+  writerOn = false;
+  const retry = await executeErasure(db, requestId);
+  assert.equal(retry.status, "completed");
+  assert.deepEqual(orphanFactEdges(fakeDb), [], "the retry must still find the late edge of an already-deleted fact");
+  assert.deepEqual(docsMentioning(fakeDb, identifiers(a)), []);
+  const doneJson = JSON.stringify(await coll(fakeDb, COLLECTION_NAMES.erasure_requests).findOne({ _id: requestId }));
+  for (const needle of identifiers(a)) assert.ok(!doneJson.includes(needle), `completed audit row leaks ${needle}`);
+});
+
+// ---------------------------------------------------------------------------
+// Cycle 1 — ISS-t-011-c0-1 / ISS-t-011-rev-1: the final CAS is checked
+// ---------------------------------------------------------------------------
+
+test("c0-1: two concurrent executeErasure calls on one confirmed request both return the STORED receipt; attempts counted once", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const results = await Promise.all([executeErasure(db, requestId), executeErasure(db, requestId)]);
+  const row = (await coll(fakeDb, COLLECTION_NAMES.erasure_requests).findOne({ _id: requestId })) as unknown as ErasureRequestDoc;
+  assert.equal(row.status, "completed");
+  assert.equal(row.attempts, 1, "a concurrent loser that finds the request completed records no attempt");
+  for (const r of results) {
+    assert.equal(r.status, "completed");
+    assert.deepEqual(r.receipt, row.receipt, "every returned receipt IS the persisted audit record");
+  }
+  assert.deepEqual(results.map((r) => r.alreadyCompleted).sort(), [false, true], "exactly one caller performed the completion");
+  assert.deepEqual(docsMentioning(fakeDb, identifiers(a)), []);
+  assert.ok(docsMentioning(fakeDb, identifiers(b)).length > 20);
+});
+
+test("c0-1: two concurrent FAILING runs each record their own attempt (1 and 2); the stored receipt is the last one recorded", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  coll(fakeDb, "scribe_checkpoints").deleteMany = async () => ({ acknowledged: true, deletedCount: 0 });
+  const settled = await Promise.allSettled([executeErasure(db, requestId), executeErasure(db, requestId)]);
+  const receipts = settled.map((s) => {
+    assert.equal(s.status, "rejected");
+    const reason = (s as PromiseRejectedResult).reason as unknown;
+    assert.ok(reason instanceof ErasureIncompleteError);
+    return reason.receipt;
+  });
+  assert.deepEqual(receipts.map((r) => r.attempt).sort(), [1, 2]);
+  const row = (await coll(fakeDb, COLLECTION_NAMES.erasure_requests).findOne({ _id: requestId })) as unknown as ErasureRequestDoc;
+  assert.equal(row.status, "failed");
+  assert.equal(row.attempts, 2);
+  assert.deepEqual(row.receipt, receipts.find((r) => r.attempt === 2));
+});

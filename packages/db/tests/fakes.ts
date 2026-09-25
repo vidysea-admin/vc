@@ -170,9 +170,14 @@ export class FakeCollection<T extends { _id: string }> {
     }
   }
 
+  /**
+   * Returns a COPY, like the real driver (T-011 cycle 1): returning the stored object let a
+   * caller's snapshot silently change under a concurrent writer, which hid (and could fake) CAS
+   * races such as ISS-t-011-c0-1.
+   */
   async findOne(filter: Filter = {}): Promise<T | null> {
     for (const doc of this.docs.values()) {
-      if (matchesFilter(doc as unknown as Record<string, unknown>, filter)) return doc;
+      if (matchesFilter(doc as unknown as Record<string, unknown>, filter)) return structuredClone(doc);
     }
     return null;
   }

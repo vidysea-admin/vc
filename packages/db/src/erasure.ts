@@ -35,17 +35,33 @@
  *   2. anchors: facts, sessions, scribe_resolutions, students. Only if every phase-1 step
  *      succeeded; otherwise they are `deferred` and left intact for the retry.
  * Each step is attempted independently and its error is recorded (name/code only: driver
- * messages can echo filter values). Selectors are resolved ONCE, before any delete, and the
- * verification pass reuses them: re-resolving after the purge would find no fact / session ids
- * and "verify" dependents against an empty selector. Any failed or deferred step, or any
- * non-zero read-back, marks the request `failed` (retryable, studentId kept) and THROWS
- * ErasureIncompleteError carrying the receipt, so a caller can not ignore it. deleteMany is
- * idempotent, so a retry re-runs every step safely. A completed request returns its stored
- * receipt on any later call.
+ * messages can echo filter values). Any failed or deferred step, or any non-zero read-back,
+ * marks the request `failed` (retryable, studentId kept) and THROWS ErasureIncompleteError
+ * carrying the receipt, so a caller can not ignore it. deleteMany is idempotent, so a retry
+ * re-runs every step safely. A completed request returns its stored receipt on any later call.
  *
- * No multi-document transactions (D-008/D-009): each deleteMany is its own operation. A writer
- * that inserts for the student DURING an erasure is caught by the read-back (remaining > 0).
- * Stopping new writes after completion (e.g. a scribe thread resumed later) is the caller's job.
+ * ## Concurrent writers: the stable loop (T-011 cycle 1, ISS-t-011-rev-3)
+ * No multi-document transactions (D-008/D-009): each deleteMany is its own operation, and a
+ * writer can add a fact / session / claim / edge / checkpoint for the student mid-erasure. If
+ * anchors were deleted by studentId, a fact that arrived after the resolve would be deleted
+ * while its edges (found only through its id) survived as permanent orphans. So:
+ *   - anchors are deleted by the ids RESOLVED this round, never by studentId, so a late anchor
+ *     survives the round together with its dependents;
+ *   - ids accumulate across rounds (never re-resolved to a smaller set), so a dependent written
+ *     after its anchor was deleted is still found;
+ *   - the read-back uses the accumulated ids for dependents and studentId for anchors (so a late
+ *     anchor shows); a non-zero read-back starts another round, up to ERASURE_MAX_ROUNDS;
+ *   - if the attempt ends unclean, the accumulated ids are stored on the failed row
+ *     (`carriedSelectors`) and merged into the retry: a deleted anchor can not be re-resolved.
+ * Writes that land AFTER a verified completion (e.g. a scribe thread resumed later) are outside
+ * any erasure; stopping them is the caller's job.
+ *
+ * ## Concurrent executeErasure calls (ISS-t-011-c0-1)
+ * The final row update is a CAS on {status, attempts} and its result is checked (as in
+ * confirmErasure). A run that loses to a concurrent completion returns the STORED receipt with
+ * `alreadyCompleted: true` and records nothing; a run that loses to a concurrent failure records
+ * itself as the next attempt. So `attempts` counts recorded attempts, and every receipt a caller
+ * is handed as "completed" is the one persisted in the audit row.
  *
  * B12: this is ordinary CRUD inside virtual_counsellor (bulk delete included); nothing here calls
  * dropDatabase or drops a collection.
@@ -92,6 +108,13 @@ export interface ErasureRequestDoc {
   lastAttemptAt?: string;
   completedAt?: string;
   receipt?: ErasureReceipt;
+  /**
+   * Present only while the request is `failed`: every fact / session / thread id the failed
+   * attempt resolved. A deleted anchor can not be re-resolved from the database, so a retry
+   * merges these in to still find a dependent written after its anchor was deleted
+   * (ISS-t-011-rev-3). Unset on completion, together with studentId.
+   */
+  carriedSelectors?: CarriedSelectors;
 }
 
 const HASH_SCHEME = "sha256(vc-erasure-v1|salt|studentId)" as const;
@@ -238,7 +261,7 @@ export function scribeCheckpointThreadId(sessionId: string): string {
   return `scribe:${sessionId}`;
 }
 
-/** Everything needed to find a student's documents, resolved ONCE before any delete. */
+/** Everything needed to find a student's documents; accumulated across purge rounds (and carried into a retry). */
 export interface ErasureSelectors {
   studentId: string;
   factIds: string[];
@@ -250,7 +273,15 @@ export interface ErasureStep {
   collection: string;
   /** 1 = dependent / direct rows; 2 = anchors, only run when every phase-1 step succeeded. */
   phase: 1 | 2;
+  /**
+   * The delete selector. Anchors (phase 2) delete ONLY the ids resolved for this round, never
+   * "everything with this studentId": an anchor that arrived after the resolve still has
+   * dependents nobody has deleted, so it must survive until the next round resolves it
+   * (ISS-t-011-rev-3).
+   */
   filter: (s: ErasureSelectors) => Filter<Document>;
+  /** The read-back selector. Anchors are read back broadly (by studentId) so a late arrival is seen. */
+  residue: (s: ErasureSelectors) => Filter<Document>;
 }
 
 function edgeFilter(s: ErasureSelectors): Filter<Document> {
@@ -270,19 +301,50 @@ function edgeFilter(s: ErasureSelectors): Filter<Document> {
 
 const byStudent = (s: ErasureSelectors): Filter<Document> => ({ studentId: s.studentId });
 const byThread = (s: ErasureSelectors): Filter<Document> => ({ thread_id: { $in: s.threadIds } });
+// Anchor deletes: resolved ids only (still scoped to the student, defensively). These
+// collections use string _ids (D-012 fact ids are ObjectId HEX strings), which the driver's
+// generic Filter<Document> types as ObjectId, so they are typed as plain query Documents.
+const factsById = (s: ErasureSelectors): Document =>
+  ({ studentId: s.studentId, _id: { $in: s.factIds } });
+const sessionsById = (s: ErasureSelectors): Document =>
+  ({
+    studentId: s.studentId,
+    $or: [{ _id: { $in: s.sessionIds } }, { sessionId: { $in: s.sessionIds } }],
+  });
+const claimsByThread = (s: ErasureSelectors): Filter<Document> => ({ studentId: s.studentId, threadId: { $in: s.threadIds } });
 
 /** Ordered: consents first (blocks processing, B4), anchors last (see the module docstring). */
 export const ERASURE_PLAN: readonly ErasureStep[] = [
-  { collection: COLLECTION_NAMES.consents, phase: 1, filter: byStudent },
-  { collection: COLLECTION_NAMES.decisions, phase: 1, filter: byStudent },
-  { collection: COLLECTION_NAMES.edges, phase: 1, filter: edgeFilter },
-  { collection: COLLECTION_NAMES.scribe_checkpoints, phase: 1, filter: byThread },
-  { collection: COLLECTION_NAMES.scribe_checkpoint_writes, phase: 1, filter: byThread },
-  { collection: COLLECTION_NAMES.facts, phase: 2, filter: byStudent }, // active AND retired
-  { collection: COLLECTION_NAMES.sessions, phase: 2, filter: byStudent },
-  { collection: COLLECTION_NAMES.scribe_resolutions, phase: 2, filter: byStudent },
-  { collection: COLLECTION_NAMES.students, phase: 2, filter: byStudent },
+  { collection: COLLECTION_NAMES.consents, phase: 1, filter: byStudent, residue: byStudent },
+  { collection: COLLECTION_NAMES.decisions, phase: 1, filter: byStudent, residue: byStudent },
+  { collection: COLLECTION_NAMES.edges, phase: 1, filter: edgeFilter, residue: edgeFilter },
+  { collection: COLLECTION_NAMES.scribe_checkpoints, phase: 1, filter: byThread, residue: byThread },
+  { collection: COLLECTION_NAMES.scribe_checkpoint_writes, phase: 1, filter: byThread, residue: byThread },
+  { collection: COLLECTION_NAMES.facts, phase: 2, filter: factsById, residue: byStudent }, // active AND retired
+  { collection: COLLECTION_NAMES.sessions, phase: 2, filter: sessionsById, residue: byStudent },
+  { collection: COLLECTION_NAMES.scribe_resolutions, phase: 2, filter: claimsByThread, residue: byStudent },
+  { collection: COLLECTION_NAMES.students, phase: 2, filter: byStudent, residue: byStudent },
 ];
+
+/**
+ * Purge rounds per attempt (ISS-t-011-rev-3). A round = resolve (merged with every id seen so
+ * far) -> phase 1 -> phase 2 -> read-back. The attempt stops at the first clean read-back; a
+ * writer that keeps adding documents for longer than this leaves the request `failed`.
+ */
+export const ERASURE_MAX_ROUNDS = 5;
+
+type CarriedSelectors = Omit<ErasureSelectors, "studentId">;
+
+function mergeSelectors(base: ErasureSelectors, add: CarriedSelectors | undefined): ErasureSelectors {
+  if (!add) return base;
+  const union = (x: string[], y: string[] | undefined) => [...new Set([...x, ...(y ?? [])])];
+  return {
+    studentId: base.studentId,
+    factIds: union(base.factIds, add.factIds),
+    sessionIds: union(base.sessionIds, add.sessionIds),
+    threadIds: union(base.threadIds, add.threadIds),
+  };
+}
 
 /**
  * Collections deliberately NOT erased, with the reason. A test requires every COLLECTION_NAMES
@@ -353,81 +415,123 @@ export async function executeErasure(db: Db, requestId: string): Promise<Erasure
     throw new ErasureStateError(row.status, "execute (studentId missing or does not match its hash)");
   }
 
-  const attempt = row.attempts + 1;
+  // The CAS keys, snapshotted at the read (never a live object that could change under us).
+  const readState = { status: row.status, attempts: row.attempts };
   const startedAt = new Date().toISOString();
-  const selectors = await resolveSelectors(db, studentId);
+  // Ids a previous failed attempt resolved: their anchors may already be gone.
+  let selectors: ErasureSelectors = mergeSelectors(
+    { studentId, factIds: [], sessionIds: [], threadIds: [] },
+    row.carriedSelectors,
+  );
 
   const deleted = new Map<string, number>();
   const failed = new Map<string, string>();
   const deferred = new Set<string>();
-  for (const phase of [1, 2] as const) {
-    const steps = ERASURE_PLAN.filter((s) => s.phase === phase);
-    if (phase === 2 && failed.size > 0) {
-      for (const step of steps) deferred.add(step.collection);
-      continue;
+  let collections: ErasureCollectionLine[] = [];
+  let totalRemaining = 0;
+  let rounds = 0;
+  // Stable loop (ISS-t-011-rev-3): a writer may add a fact / session / claim / edge / checkpoint
+  // for the student while this runs. Anchors are deleted by resolved id only, so a late anchor
+  // survives the round and is resolved (with its dependents) by the next one; ids accumulate, so
+  // a dependent written after its anchor was deleted is still found. Stop at the first clean
+  // read-back, at any failure, or after ERASURE_MAX_ROUNDS.
+  while (rounds < ERASURE_MAX_ROUNDS) {
+    rounds += 1;
+    try {
+      selectors = mergeSelectors(selectors, await resolveSelectors(db, studentId));
+    } catch (err) {
+      if (rounds === 1) throw err; // nothing deleted yet; the row is untouched
+      failed.set(COLLECTION_NAMES.facts, `resolve:${errorLabel(err)}`);
     }
-    for (const step of steps) {
-      try {
-        const res = await db.collection(step.collection).deleteMany(step.filter(selectors));
-        deleted.set(step.collection, res.deletedCount ?? 0);
-      } catch (err) {
-        failed.set(step.collection, errorLabel(err));
+    for (const phase of [1, 2] as const) {
+      const steps = ERASURE_PLAN.filter((s) => s.phase === phase);
+      if (failed.size > 0 && (phase === 2 || rounds > 1)) {
+        if (phase === 2) for (const step of steps) if (!failed.has(step.collection)) deferred.add(step.collection);
+        continue;
+      }
+      for (const step of steps) {
+        try {
+          const res = await db.collection(step.collection).deleteMany(step.filter(selectors));
+          deleted.set(step.collection, (deleted.get(step.collection) ?? 0) + (res.deletedCount ?? 0));
+        } catch (err) {
+          failed.set(step.collection, errorLabel(err));
+        }
       }
     }
-  }
 
-  // Verification: read every collection back with the SAME selectors (resolved before the purge).
-  const collections: ErasureCollectionLine[] = [];
-  for (const step of ERASURE_PLAN) {
-    let remaining: number;
-    try {
-      remaining = await db.collection(step.collection).countDocuments(step.filter(selectors));
-    } catch (err) {
-      // An unverifiable collection is never reported as clean.
-      failed.set(step.collection, failed.get(step.collection) ?? `verify:${errorLabel(err)}`);
-      remaining = Number.MAX_SAFE_INTEGER;
+    // Read-back: dependents with every id seen so far; anchors broadly, so a late arrival shows.
+    collections = [];
+    for (const step of ERASURE_PLAN) {
+      let remaining: number;
+      try {
+        remaining = await db.collection(step.collection).countDocuments(step.residue(selectors));
+      } catch (err) {
+        // An unverifiable collection is never reported as clean.
+        failed.set(step.collection, failed.get(step.collection) ?? `verify:${errorLabel(err)}`);
+        remaining = Number.MAX_SAFE_INTEGER;
+      }
+      const outcome = failed.has(step.collection) ? "failed" : deferred.has(step.collection) ? "deferred" : "purged";
+      const line: ErasureCollectionLine = {
+        collection: step.collection,
+        outcome,
+        deleted: deleted.get(step.collection) ?? 0,
+        remaining,
+      };
+      const error = failed.get(step.collection);
+      if (error) line.error = error;
+      collections.push(line);
     }
-    const outcome = failed.has(step.collection) ? "failed" : deferred.has(step.collection) ? "deferred" : "purged";
-    const line: ErasureCollectionLine = {
-      collection: step.collection,
-      outcome,
-      deleted: deleted.get(step.collection) ?? 0,
-      remaining,
-    };
-    const error = failed.get(step.collection);
-    if (error) line.error = error;
-    collections.push(line);
-  }
-  const totalRemaining = Math.min(
-    Number.MAX_SAFE_INTEGER,
-    collections.reduce((sum, l) => sum + l.remaining, 0),
-  );
-  const verified = failed.size === 0 && deferred.size === 0 && totalRemaining === 0;
-  const receipt = ErasureReceiptSchema.parse({
-    requestId,
-    attempt,
-    verified,
-    totalRemaining,
-    collections,
-    startedAt,
-    verifiedAt: new Date().toISOString(),
-  });
-
-  if (verified) {
-    await erasureRequests(db).findOneAndUpdate(
-      { _id: requestId, status: row.status },
-      {
-        $set: { status: "completed", attempts: attempt, lastAttemptAt: startedAt, completedAt: receipt.verifiedAt, receipt },
-        $unset: { studentId: "" },
-      },
+    totalRemaining = Math.min(
+      Number.MAX_SAFE_INTEGER,
+      collections.reduce((sum, l) => sum + l.remaining, 0),
     );
-    return { status: "completed", receipt, alreadyCompleted: false };
+    if (failed.size > 0 || deferred.size > 0 || totalRemaining === 0) break;
   }
-  await erasureRequests(db).findOneAndUpdate(
-    { _id: requestId, status: row.status },
-    { $set: { status: "failed", attempts: attempt, lastAttemptAt: startedAt, receipt } },
-  );
-  throw new ErasureIncompleteError(receipt);
+  const verified = failed.size === 0 && deferred.size === 0 && totalRemaining === 0;
+  const verifiedAt = new Date().toISOString();
+  const buildReceipt = (attempt: number): ErasureReceipt =>
+    ErasureReceiptSchema.parse({ requestId, attempt, verified, totalRemaining, collections, rounds, startedAt, verifiedAt });
+
+  // Checked CAS (ISS-t-011-c0-1 / rev-1), like confirmErasure. The filter pins status AND attempts,
+  // so only one of several concurrent runs records against a given row state. On a miss, re-read:
+  //   - completed by a concurrent run -> return ITS stored receipt, alreadyCompleted: true (this
+  //     run records nothing, so `attempts` counts recorded attempts only);
+  //   - still confirmed / failed (a concurrent run recorded a failure) -> record this run as the
+  //     next attempt against the fresh row.
+  let current = readState;
+  for (let tries = 0; tries < 5; tries += 1) {
+    const attempt = current.attempts + 1;
+    const receipt = buildReceipt(attempt);
+    const cas = { _id: requestId, status: current.status, attempts: current.attempts };
+    const updated = verified
+      ? await erasureRequests(db).findOneAndUpdate(cas, {
+          $set: { status: "completed", attempts: attempt, lastAttemptAt: startedAt, completedAt: verifiedAt, receipt },
+          $unset: { studentId: "", carriedSelectors: "" },
+        })
+      : await erasureRequests(db).findOneAndUpdate(cas, {
+          $set: {
+            status: "failed",
+            attempts: attempt,
+            lastAttemptAt: startedAt,
+            receipt,
+            carriedSelectors: { factIds: selectors.factIds, sessionIds: selectors.sessionIds, threadIds: selectors.threadIds },
+          },
+        });
+    if (updated) {
+      if (verified) return { status: "completed", receipt, alreadyCompleted: false };
+      throw new ErasureIncompleteError(receipt);
+    }
+    const now = await erasureRequests(db).findOne({ _id: requestId });
+    if (!now) throw new ErasureRequestNotFoundError();
+    if (now.status === "completed" && now.receipt) {
+      return { status: "completed", receipt: now.receipt, alreadyCompleted: true };
+    }
+    if (now.status !== "confirmed" && now.status !== "failed") throw new ErasureStateError(now.status, "record");
+    // A concurrent failed run may have carried ids this run did not see; keep them for the retry.
+    selectors = mergeSelectors(selectors, now.carriedSelectors);
+    current = { status: now.status, attempts: now.attempts };
+  }
+  throw new ErasureStateError(current.status, "record (the request row kept changing under concurrent runs)");
 }
 
 // ---------------------------------------------------------------------------

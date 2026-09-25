@@ -2,15 +2,16 @@
 **Contract:** qa/contracts/counselling-engine.md (B15 primary; B4, B8, B11, B12, B14)
 **Goal task:** T-011
 **Date:** 2026-09-25
-**Status:** fix-in-progress
-**Fix cycle:** 1 of max 3 (cycle-0 checker FAIL 2c5a09e: ISS-t-011-c0-1; data-engineer high ISS-t-011-rev-3 orphan-edge race)
-**Fix cycle budget:** 0 of max 3
+**Status:** ready-for-check
+**Fix cycle:** 1 (of max 3). Cycle-0 checker FAIL 2c5a09e: ISS-t-011-c0-1. Also fixed: data-engineer high ISS-t-011-rev-3 (orphan-edge race) and senior low ISS-t-011-rev-1.
+**Fix cycle budget:** 1 of max 3
 **Design:** qa/gates/dpdp-erase-design.md answer (a) "hard delete with confirmation and verification"; D-003 (history by retirement, so erasure must include retired facts), D-012 (fact `_id` is a fresh ObjectId, so edges are found through the resolved fact ids), D-013 (`active: true` marks open facts; retired facts have it unset), D-014 (scribe_resolutions hold approved fact values, so they are erased)
-**Diff range:** `e10e49d..HEAD` on branch `wave/t-011-dpdp-erasure`. It is a single commit: "feat(db): T-011 DPDP erasure (confirm → hard delete → read-back verify → receipt) + export". `e10e49d` is "tasks: T-007 done; T-008 prerequisites", the main branch point.
+**Diff range (cycle 1):** `1d7facb..HEAD` on branch `wave/t-011-dpdp-erasure`, a single commit: "fix(db): t-011 cycle 1 — stable-loop purge (no orphan edges under concurrent writers), checked final CAS". `1d7facb` is "qa: t-011 fix cycle 1", after the main merge `b5e6b55`. Cycle 1 touches `packages/db/src/erasure.ts`, `packages/db/tests/{erasure.test.ts, fakes.ts}`, `packages/db/README.md`, `packages/schemas/src/schemas.ts` (additive: optional `ErasureReceipt.rounds`) and this manifest.
+**Diff range (cycle 0):** `e10e49d..HEAD` on branch `wave/t-011-dpdp-erasure`. It is a single commit: "feat(db): T-011 DPDP erasure (confirm → hard delete → read-back verify → receipt) + export". `e10e49d` is "tasks: T-007 done; T-008 prerequisites", the main branch point.
 **Scope:** `packages/db/src/erasure.ts` (new, the unit's module), `packages/db/src/{collections,consent,index}.ts`, `packages/db/scripts/db-init.ts` (INDEX_PLAN), `packages/db/tests/{erasure.test.ts (new), consent.test.ts, db-init.test.ts, fakes.ts}`, `packages/db/README.md`, `packages/schemas/src/schemas.ts` (additive: the Erasure* schemas), this manifest.
 **Not touched:** `.claude/**`, `docs/DECISIONS.md`, `scripts/**`, `packages/engine/**` (read only, by the drift-guard test), `qa/contracts/**`.
 **Dual check:** no
-**Issues addressed:** ISS-t-011-pre-1 (medium), ISS-t-007-rev-6 (high; the erasure half plus the INDEX_PLAN half: the checkpoint collections are now named and indexed; `saver.setup()` wiring stays with the first live-wiring unit), ISS-043 (low)
+**Issues addressed:** cycle 1: ISS-t-011-c0-1 (medium), ISS-t-011-rev-1 (low), ISS-t-011-rev-3 (high). Cycle 0: ISS-t-011-pre-1 (medium), ISS-t-007-rev-6 (high; the erasure half plus the INDEX_PLAN half: the checkpoint collections are now named and indexed; `saver.setup()` wiring stays with the first live-wiring unit), ISS-043 (low)
 **Executor:** claude-opus-subagent (maker build subagent)
 
 ## What changed
@@ -89,10 +90,81 @@ Every test below is in `packages/db/tests/erasure.test.ts` unless noted otherwis
 | B8 / B12 | Tests are offline. No `client.db(`, no `dropDatabase`, no collection drop. | The whole suite uses `createFakeDb`, and the `db-scope.test.ts` B12 scanner passes. `erasure.ts` uses only `deleteMany`, `countDocuments` and `find` inside `virtual_counsellor`. | VERIFIED |
 | Live DB | The erasure and export run against the real `virtual_counsellor` on the production server, the INDEX_PLAN additions are created, and `$or` + `$in` behave as they do in the fake. | Not run (B8: automated tests never connect; live CRUD needs an explicit script run). | **UNVERIFIED** |
 | Live checkpoints | Real MongoDBSaver documents carry `thread_id` equal to `scribe:<sessionId>`. | The field name was checked in the library source (`checkpoint.js` writes and `deleteThread` use `thread_id`). No real saver run was made. | **UNVERIFIED** |
-| Concurrency | A writer racing the erasure is caught by the read-back, leaving the request `failed` and retryable. | By construction (the read-back runs after the deletes). There is no dedicated concurrent-writer test. | **UNVERIFIED (by construction)** |
+| Concurrency | (cycle 0 claim; superseded by the "Fix cycle 1" section below) | Cycle 1 adds dedicated concurrent-writer and concurrent-execute tests. | see Fix cycle 1 |
 | Transcripts | Raw transcript and audio collections are erased. | No such collections exist yet. Transcripts live only inside the scribe checkpoints, which are erased. The coverage test forces any new collection into the plan. | **N/A yet** |
 
-## Falsification (mutate → red → restore)
+## Fix cycle 1 (ISS-t-011-rev-3, ISS-t-011-c0-1, ISS-t-011-rev-1)
+
+### What changed
+- **Stable-loop purge (rev-3)** is in `src/erasure.ts` `executeErasure` and `ERASURE_PLAN`:
+  - Each `ErasureStep` now has a delete `filter` and a read-back `residue`.
+  - Anchors are deleted **by the ids resolved in that round**:
+    - facts use `{studentId, _id: {$in: factIds}}`;
+    - sessions use `{studentId, $or: [_id|sessionId $in sessionIds]}`;
+    - scribe_resolutions use `{studentId, threadId: {$in: threadIds}}`.
+  - Anchors are read back **broadly**, by studentId.
+  - Each round does resolve → merge with every id seen so far → phase 1 → phase 2 → read-back. The loop stops at the first clean read-back or at any failure, and never runs more than `ERASURE_MAX_ROUNDS = 5` rounds. A late fact, session or claim therefore survives the round it arrived in, together with its dependents, and the next round resolves it.
+  - Ids accumulate across rounds, so an edge or checkpoint written *after* its anchor was deleted is still found.
+  - An unclean attempt stores the accumulated ids on the failed row as `carriedSelectors`. The retry merges them in, because a deleted anchor can not be re-resolved. `carriedSelectors` is `$unset` on completion, together with `studentId`.
+  - A resolve error in a round after the first is recorded as `facts: resolve:<label>`, and the attempt ends failed, so the carried ids are kept.
+  - The receipt gains an optional `rounds` field. This is additive; old receipts still parse.
+- **Checked final CAS (c0-1 / rev-1).**
+  - The CAS filter is `{_id, status, attempts}`. It uses a snapshot taken at the initial read, and its result is checked.
+  - If the CAS misses and a concurrent run has completed the request, the call returns that run's **stored** receipt with `alreadyCompleted: true` and records nothing.
+  - If the CAS misses and a concurrent run has recorded a failure, this run is recorded as the next attempt against the fresh row, and any carried ids are merged in. The number of re-tries is bounded.
+  - The documented meaning of `attempts` is now "recorded attempts".
+- **Fake fidelity** (`tests/fakes.ts`): `findOne` now returns a copy, as the real driver does. Returning the stored object had let a caller's snapshot change under a concurrent writer.
+
+### TDD: RED before the fix
+5 new tests were added to `tests/erasure.test.ts` first. They were run against the cycle-0 `erasure.ts` with `npx tsx --test tests/erasure.test.ts`: **tests 23, pass 18, fail 5**. All 5 new tests were red:
+- rev-3 fact: the orphan was `fact:<id>->sourced_from->session:stu-A-sess-1`;
+- rev-3 session: the late session's checkpoints, checkpoint writes and edge were orphaned;
+- rev-3 bound: the retry completed with an orphan;
+- c0-1 concurrent success: `alreadyCompleted` was `[false,false]` and the receipts differed;
+- c0-1 concurrent failure: attempts were `[1,1]`.
+
+This was re-confirmed after the fix by swapping in `git show HEAD:packages/db/src/erasure.ts`: **fail 5 / 23**, the same 5 tests.
+
+### New tests (outcome-proven: full scans of every collection, not the implementation's selectors)
+| Test | What it proves |
+|---|---|
+| rev-3 fact | The write is injected at the START of phase 2, which is the first `facts.deleteMany`. It goes through the **real `applyApprovedDiff`** and writes 2 facts. One cites a known session. The other cites `sess-unrecorded`, which has no session row, so only its fact id can find its `sourced_from` edge. The run must complete, possibly after retries, and every unverified attempt must leave the row `failed`. At the end, `orphanFactEdges` (any edge referencing a fact id that is not in `facts`) is `[]`, the full scan for A's ids and the late fact ids is `[]`, and B is untouched. |
+| rev-3 session | A session row, a checkpoint, a checkpoint write and a session edge are inserted at the start of phase 2. At the end, the full scan (including the late session and thread ids) is `[]`, there are no orphan fact edges and B is untouched. |
+| rev-3 bound + carry | A writer adds a late edge for an **already deleted** fact on every facts delete, so the run never stabilises. The run throws `ErasureIncompleteError` with `verified:false` and `totalRemaining>0`. The writer ran between 2 and 10 times, which shows the loop is bounded. The row is `failed` and still holds its studentId. Once the writer stops, the retry completes with no orphan edge and a clean full scan, and the completed audit row leaks none of A's ids. |
+| c0-1 concurrent success | Two `executeErasure` calls on one confirmed request, run with `Promise.all`. Both receipts deep-equal the stored `row.receipt`. `alreadyCompleted` is `[false,true]`, `row.attempts === 1`, A is clean and B is untouched. |
+| c0-1 concurrent failure | Two concurrent failing runs (checkpoint delete stubbed to a no-op). Both throw. Their attempts are `[1,2]`, `row.attempts === 2`, and the stored receipt is attempt 2. |
+
+### Verification (exact commands, worktree root, after the fix)
+```
+pnpm install                  -> exit 0, "Done in 531ms using pnpm v10.33.0"
+pnpm -r typecheck             -> exit 0; 9 "typecheck: Done", 0 "error TS"
+pnpm -r test                  -> exit 0; every package fail 0:
+  apps/web 1 · apps/api 1 · packages/providers 8 · packages/schemas 50 · packages/observability 57
+  packages/db 99 (was 94; +5 cycle-1 tests) · mcp/university-kb 9 · mcp/student-profile 12 · packages/engine 67
+  total 304 tests, 0 fail
+python contracts/verify_contracts.py -> "verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity", exit 0
+```
+
+### Falsification (revert one fix → red → restore; `npx tsx --test tests/erasure.test.ts`, 23 tests)
+The file was restored from a backup each time, and `cmp` confirmed it was byte-identical.
+
+| # | Fix reverted | Result | Red tests |
+|---|---|---|---|
+| C1-F1 | Anchors deleted by studentId again (facts and sessions `filter: byStudent`). | fail 2 / 23 | rev-3 fact, rev-3 session |
+| C1-F2 | No loop (`ERASURE_MAX_ROUNDS = 1`). | fail 1 / 23 | rev-3 bound + carry (the writer ran 1 time, not ≥2) |
+| C1-F3 | `carriedSelectors` not merged into the retry. | fail 1 / 23 | rev-3 bound + carry (the retry completed with an orphan edge) |
+| C1-F4 | Unchecked CAS (`if (updated \|\| true)`). | fail 2 / 23 | both c0-1 tests |
+| C1-F5 | Fake `findOne` returns the stored object by reference (fake fidelity). | 99/99 green | Not load-bearing now, because production snapshots the CAS keys at the read. With the snapshot taken late, this mutation made c0-1 red, and that is why the snapshot was moved. |
+| cycle-0 file | The whole cycle-0 `erasure.ts`. | fail 5 / 23 | all 5 new tests |
+
+The cycle-0 falsification table below (F1–F7) still applies: all 18 original tests are unchanged and green.
+
+### Residual (not blocking)
+- A write that lands **after** a verified completion (for example, a resumed scribe thread) is outside any erasure. This is follow-up #3 below.
+- A writer faster than 5 rounds leaves the request `failed` and retryable, never `completed`. That outcome is proven by the bound test.
+- Live DB: the new `$or`, `$in` and `_id $in <hex strings>` filters are exercised only in the fake. This is the same UNVERIFIED live row as cycle 0.
+
+## Falsification (mutate → red → restore) — cycle 0
 
 Each mutation was applied to `src/erasure.ts`, then `npx tsx --test tests/erasure.test.ts` was run (18 tests), and the file was restored from a backup. `diff -q` confirmed the restore.
 

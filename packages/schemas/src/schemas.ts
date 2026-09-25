@@ -336,6 +336,12 @@ export const ErasureReceiptSchema = z
     verified: z.boolean(),
     totalRemaining: z.number().int().min(0),
     collections: z.array(ErasureCollectionLineSchema).min(1),
+    /**
+     * T-011 cycle 1 (ISS-t-011-rev-3): purge rounds this attempt ran. The purge re-resolves and
+     * re-purges until a read-back finds nothing (a writer can add documents mid-erasure), bounded;
+     * `deleted` sums every round. Optional so receipts stored before cycle 1 still parse.
+     */
+    rounds: z.number().int().min(1).optional(),
     startedAt: z.string().datetime(),
     verifiedAt: z.string().datetime(),
   })
