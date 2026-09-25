@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B1, B2, B3, B4, B5, B6, B7, B8, B9, B11, B12, B13, B14; B16 context)
 **Goal task:** T-007
 **Date:** 2026-09-25
-**Status:** ready-for-check
+**Status:** checked-PASS (verdict cycle 2, f217e81; senior + data-engineer Warning, no Block; follow-ups ISS-t-007-rev-6,7,9,10 gate T-008)
 **Fix cycle:** 2 of max 3 (cycle-1 checker PASS 4916102 overridden by senior Block: ISS-t-007-rev-8 concurrent-resume race, reproduced)
 **Fix cycle budget:** 2 of max 3
 **Design:** H1/D-002 (LangGraph.js 1.x StateGraph, thin wiring, `interrupt()` approval), H5/D-005 (SKILL.md prompts, code guards before any LLM call, provider seam), D-012 (sessionId-keyed contentHash idempotency), D-013 (open fact = `active: true`)
