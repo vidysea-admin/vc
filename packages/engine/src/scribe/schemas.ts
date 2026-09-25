@@ -162,8 +162,13 @@ export type ApprovalOutput = z.infer<typeof ApprovalOutputSchema>;
 
 export const WriteInputSchema = z.object({
   sessionId: z.string().min(1),
+  /** T-016 / ISS-t-007-rev-7: the approved summary is stored on this student's session row. */
+  studentId: z.string().min(1),
   diff: ProfileDiffSchema,
   decision: CounsellorDecisionSchema,
+  /** The summary the counsellor saw and approved ("" when it was withheld, B1). */
+  summary: z.string(),
+  summaryWithheldReason: z.string().optional(),
 });
 
 // --- result -----------------------------------------------------------------

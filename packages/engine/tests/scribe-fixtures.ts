@@ -12,10 +12,11 @@
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { MemorySaver } from "@langchain/langgraph";
-import { COLLECTION_NAMES, type FactDoc, type EdgeDoc, type ConsentDoc } from "@vc/db";
+import type { MongoDBSaver } from "@langchain/langgraph-checkpoint-mongodb";
+import { COLLECTION_NAMES, VC_DB_NAME, type FactDoc, type EdgeDoc, type ConsentDoc } from "@vc/db";
 import { MockProvider, type MockResponse } from "@vc/providers";
-import { createFakeDb, INDEX_PLAN, type FakeCollection, type FakeDb } from "@vc/db/testing";
-import { compileScribeGraph, SCRIBE_PURPOSE, type ScribeInput } from "../src/scribe/index.js";
+import { createFakeDb, createFakeMongoClient, INDEX_PLAN, type FakeCollection, type FakeDb } from "@vc/db/testing";
+import { compileScribeGraph, createScribeCheckpointer, SCRIBE_PURPOSE, type ScribeInput } from "../src/scribe/index.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 /** The repo's real skills/ directory — the graph loads real SKILL.md bodies (B6). */
@@ -94,7 +95,12 @@ export interface Harness {
   facts: FakeCollection<FactDoc>;
   edges: FakeCollection<EdgeDoc>;
   consents: FakeCollection<ConsentDoc>;
-  checkpointer: MemorySaver;
+  /**
+   * MemorySaver by default. T-016: `makeHarness({ saver: "mongo" })` gives the REAL LangGraph
+   * MongoDBSaver class (createScribeCheckpointer) over the same in-process fake db, so its
+   * checkpoints land in the fake's scribe_checkpoints / scribe_checkpoint_writes collections.
+   */
+  checkpointer: MemorySaver | MongoDBSaver;
   openFacts: () => FactDoc[];
   /** T-011 / D-015: the Db the graph writes to, and its fake (for erasure-race tests). */
   db: import("mongodb").Db;
@@ -113,8 +119,20 @@ export function seedConsent(consents: FakeCollection<ConsentDoc>, overrides: Par
   });
 }
 
-export function makeHarness(opts: { provider?: MockProvider; consent?: boolean } = {}): Harness {
-  const { db, fakeDb } = createFakeDb();
+export function makeHarness(opts: { provider?: MockProvider; consent?: boolean; saver?: "memory" | "mongo" } = {}): Harness {
+  let db: import("mongodb").Db;
+  let fakeDb: FakeDb;
+  let checkpointer: MemorySaver | MongoDBSaver;
+  if (opts.saver === "mongo") {
+    // The saver opens VC_DB_NAME on the client; the graph's deps get the SAME fake Db (B12).
+    const fake = createFakeMongoClient();
+    checkpointer = createScribeCheckpointer(fake.client);
+    db = fake.client.db(VC_DB_NAME);
+    fakeDb = fake.dbFor(VC_DB_NAME);
+  } else {
+    ({ db, fakeDb } = createFakeDb());
+    checkpointer = new MemorySaver();
+  }
   for (const spec of INDEX_PLAN) {
     if (!spec.unique) continue;
     fakeDb
@@ -127,7 +145,6 @@ export function makeHarness(opts: { provider?: MockProvider; consent?: boolean }
   if (opts.consent !== false) seedConsent(consents);
 
   const provider = opts.provider ?? mockProvider();
-  const checkpointer = new MemorySaver();
   const graph = compileScribeGraph({ db, provider, skillsDir: SKILLS_DIR }, { checkpointer });
   return {
     graph,

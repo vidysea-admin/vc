@@ -141,7 +141,7 @@ import {
   type FactChange,
   type CounsellorDecision,
 } from "@vc/schemas";
-import { factsCollection, edgesCollection, type FactDoc } from "./collections.js";
+import { factsCollection, edgesCollection, sessionsCollection, type FactDoc } from "./collections.js";
 import { deriveEdgeId, link, type EdgeRef, type EdgeDoc } from "./edges.js";
 import {
   assertStudentNotFenced,
@@ -579,4 +579,98 @@ export async function applyApprovedDiff(
   if (timedOut) throw new FencedWriterDeadlineError(settled, { cause: failure!.err });
   if (failure) throw failure.err;
   return result!;
+}
+
+// ---------------------------------------------------------------------------
+// T-016: the scribe's session row (ISS-t-011-rev-5) and the approved summary (ISS-t-007-rev-7)
+//
+// Both live here, next to applyApprovedDiff, because they are the other two writes of the scribe's
+// counsellor-approval path, and this module is on the D-016 fence-aware writer allowlist. They are
+// NOT fence-aware on their own: their one caller is packages/engine scribe/graph.ts, which runs them
+// under its writer deadline, after its fence pre-check, and removes a row it created when its
+// post-check finds the student fenced (invokeFenceAware). recordApprovedSessionSummary never
+// upserts, so a late summary write can never resurrect a row the erasure already purged.
+// ---------------------------------------------------------------------------
+
+export interface ScribeSessionRowInput {
+  sessionId: string;
+  studentId: string;
+  /** The LangGraph thread this scribe run checkpoints under (any id, recorded so erasure finds it). */
+  threadId: string;
+  /** When the counselling session ended (the scribe input's sessionEndedAt). */
+  endedAt?: string;
+}
+
+function requireNonEmpty(fields: Record<string, unknown>, caller: string): void {
+  for (const [name, value] of Object.entries(fields)) {
+    if (typeof value !== "string" || value.trim() === "") {
+      throw new Error(`${caller}: ${name} must be a non-empty string (a row without it is invisible to B15 erasure)`);
+    }
+  }
+}
+
+/**
+ * ISS-t-011-rev-5: makes sure the session row exists and records `threadId` on it, BEFORE the
+ * scribe writes its first checkpoint, so B15 erasure/export can reach every checkpoint of the run
+ * (erasure.ts resolveSelectors reads `scribeThreadIds`), including a run that ends without an
+ * interrupt. One upsert on `{_id: sessionId, studentId}`:
+ *   - no row: inserts `{_id, sessionId, studentId, endedAt, scribeThreadIds: [threadId]}` -> created: true;
+ *   - the student's row: adds the thread once ($addToSet, idempotent on replay) -> created: false;
+ *   - a row with this sessionId owned by ANOTHER student: the upsert's insert collides on `_id`
+ *     and the server throws 11000 — the other student's row is never touched or hijacked.
+ * `created` lets the caller's fence compensation delete only a row IT created.
+ */
+export async function ensureScribeSessionRow(
+  db: Db,
+  input: ScribeSessionRowInput,
+  options: { timeoutMS?: number } = {},
+): Promise<{ created: boolean }> {
+  requireNonEmpty({ sessionId: input.sessionId, studentId: input.studentId, threadId: input.threadId }, "ensureScribeSessionRow");
+  const res = await sessionsCollection(db).updateOne(
+    { _id: input.sessionId, studentId: input.studentId },
+    {
+      $setOnInsert: {
+        sessionId: input.sessionId,
+        ...(input.endedAt ? { endedAt: input.endedAt } : {}),
+      },
+      $addToSet: { scribeThreadIds: input.threadId },
+    },
+    { upsert: true, ...options },
+  );
+  return { created: res.upsertedCount === 1 };
+}
+
+/** ISS-t-007-rev-7: the approved summary's session row does not exist (never written, or erased). */
+export class SessionRowMissingError extends Error {
+  constructor() {
+    super("recordApprovedSessionSummary: no session row for this session and student (it was never written, or it was erased)");
+    this.name = "SessionRowMissingError";
+  }
+}
+
+/**
+ * ISS-t-007-rev-7: stores the counsellor-approved summary on the session row (B3: called only after
+ * an approve/edit decision). `summary` is "" with `summaryWithheldReason` set when the model's text was
+ * withheld (B1). Never upserts: a missing row throws SessionRowMissingError (the scribe's start wrote
+ * it, so a missing row means it was erased, and nothing may be recreated). Idempotent on replay
+ * (the same $set again).
+ */
+export async function recordApprovedSessionSummary(
+  db: Db,
+  input: { sessionId: string; studentId: string; summary: string; summaryWithheldReason?: string },
+  options: { timeoutMS?: number } = {},
+): Promise<void> {
+  requireNonEmpty({ sessionId: input.sessionId, studentId: input.studentId }, "recordApprovedSessionSummary");
+  const res = await sessionsCollection(db).updateOne(
+    { _id: input.sessionId, studentId: input.studentId },
+    {
+      $set: {
+        summary: input.summary,
+        summaryApprovedAt: new Date().toISOString(),
+        ...(input.summaryWithheldReason ? { summaryWithheldReason: input.summaryWithheldReason } : {}),
+      },
+    },
+    options,
+  );
+  if (res.matchedCount === 0) throw new SessionRowMissingError();
 }

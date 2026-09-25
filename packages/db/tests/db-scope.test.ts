@@ -154,10 +154,11 @@ const FENCE_SCAN_DIRS = ["packages", "mcp", "apps"];
 /** file -> why its writes are fence-aware. Adding a file here is a reviewed decision. */
 const FENCE_AWARE_WRITERS: Record<string, string> = {
   "packages/db/src/facts.ts":
-    "applyApprovedDiff: pre-check, writes under FENCED_WRITER_DEADLINE_MS (driver timeoutMS + app deadline), finally post-check + compensation (D-015/D-016)",
+    "applyApprovedDiff: pre-check, writes under FENCED_WRITER_DEADLINE_MS (driver timeoutMS + app deadline), finally post-check + compensation (D-015/D-016). " +
+    "T-016 ensureScribeSessionRow / recordApprovedSessionSummary: called only from scribe/graph.ts (start under its deadline + fence pre-check, row compensated by invokeFenceAware; summary inside graph.invoke, never upserts)",
   "packages/db/src/erasure.ts": "the erasure purge itself (deletes under the fence) plus the fence and audit rows",
   "packages/engine/src/scribe/graph.ts":
-    "startScribe/resumeScribe: claim insert and graph.invoke under the writer deadline, finally post-check + compensation (invokeFenceAware)",
+    "startScribe/resumeScribe: session row, claim insert (+ run lease) and graph.invoke under the writer deadline, finally post-check + compensation (invokeFenceAware)",
   "packages/engine/src/scribe/checkpointer.ts":
     "constructs the MongoDBSaver; its checkpoint writes run only inside graph.invoke, which graph.ts wraps fence-aware",
 };

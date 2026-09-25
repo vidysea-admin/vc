@@ -54,13 +54,33 @@ export interface StudentDoc {
   createdAt: string;
 }
 
+/**
+ * One counselling session. `_id` is the sessionId.
+ *
+ * T-016 / ISS-t-011-rev-5: the scribe writes this row (facts.ts ensureScribeSessionRow) BEFORE its
+ * first checkpoint, so every scribe thread is discoverable by B15 erasure/export through
+ * `scribeThreadIds`, even a run that ends without an interrupt and even a thread id that is not
+ * scribeThreadId(sessionId). A scribe-created row has no `consentId`/`startedAt` yet (the consent
+ * gate runs inside the graph, after the row exists), so both are optional; the session-writer that
+ * owns the live session (T-008) fills them.
+ *
+ * T-016 / ISS-t-007-rev-7: `summary` is the COUNSELLOR-APPROVED session summary, written only on an
+ * approve/edit decision (facts.ts recordApprovedSessionSummary; B3). `summaryWithheldReason` is set
+ * when the model's summary was withheld (B1), in which case `summary` is "" and the withheld text is
+ * never stored.
+ */
 export interface SessionDoc {
   _id: string;
   sessionId: string;
   studentId: string;
-  consentId: string;
-  startedAt: string;
+  consentId?: string;
+  startedAt?: string;
   endedAt?: string;
+  /** Every scribe thread run for this session (each added once). */
+  scribeThreadIds?: string[];
+  summary?: string;
+  summaryWithheldReason?: string;
+  summaryApprovedAt?: string;
 }
 
 /**
@@ -102,6 +122,15 @@ export interface ScribeResolutionDoc {
   response: Record<string, unknown>;
   responseHash: string;
   claimedAt: string;
+  /**
+   * T-016 / ISS-t-007-rev-10: the run lease on this thread. Present while a process is invoking the
+   * graph for this claim (the winning resume from the moment it inserts the claim, or a
+   * resumeScribe(null) recovery that took it with a CAS). A recovery takes it only when it is absent
+   * or `expiresAt` has passed, so two recoveries, or a recovery and the in-flight winner, never
+   * invoke the same thread concurrently. `expiresAt` = the holder's writer deadline + FENCE_MARGIN_MS
+   * (D-016), so a holder that crashed releases it by expiry. ISO-8601 UTC, compared as a string.
+   */
+  lease?: { token: string; expiresAt: string };
 }
 
 export function studentsCollection(db: Db): Collection<StudentDoc> {

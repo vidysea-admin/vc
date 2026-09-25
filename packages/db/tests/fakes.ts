@@ -9,7 +9,32 @@
  * `@vc/db/testing` subpath (src/testing.ts), which src/index.ts never re-exports.
  */
 
+import { Binary, ObjectId } from "mongodb";
+
 type Filter = Record<string, unknown>;
+
+/**
+ * T-016: the real driver stores a Uint8Array/Buffer as BSON Binary and hands back a `Binary`
+ * (whose `.value()` LangGraph's MongoDBSaver calls). The fake converts on write, the same way,
+ * so the REAL MongoDBSaver class can run against it. Pure (bson types only, no I/O, B8).
+ */
+function toStored(value: unknown): unknown {
+  if (value instanceof Binary) return new Binary(Buffer.from(value.buffer), value.sub_type);
+  if (value instanceof Uint8Array) return new Binary(Buffer.from(value));
+  if (Array.isArray(value)) return value.map(toStored);
+  if (value !== null && typeof value === "object" && !(value instanceof Date)) {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, toStored(v)]));
+  }
+  return value;
+}
+
+/**
+ * A driver-faithful copy (T-011 cycle 1: never hand out the stored object). structuredClone drops
+ * the Binary prototype, so Binary is copied explicitly (T-016).
+ */
+function cloneDoc<T>(value: T): T {
+  return toStored(value) as T;
+}
 
 /** T-011: dotted-path read (`"from.id"`), as the server resolves embedded fields. */
 function getPath(doc: Record<string, unknown>, path: string): unknown {
@@ -48,6 +73,17 @@ function matchesFilter(doc: Record<string, unknown>, filter: Filter): boolean {
             return valueMatches(actual, arg);
           case "$in":
             return (arg as unknown[]).some((candidate) => valueMatches(actual, candidate));
+          // T-016: range comparisons (the scribe recovery lease's expiry, MongoDBSaver.list's
+          // `before`). Mongo type bracketing: only same-type values compare; a missing field never matches.
+          case "$lt":
+          case "$lte":
+          case "$gt":
+          case "$gte": {
+            if (actual === undefined || actual === null || typeof actual !== typeof arg) return false;
+            const a = actual as string | number;
+            const b = arg as string | number;
+            return op === "$lt" ? a < b : op === "$lte" ? a <= b : op === "$gt" ? a > b : a >= b;
+          }
           default:
             throw new Error(`FakeCollection: unsupported query operator ${op}`);
         }
@@ -106,6 +142,78 @@ export function assertSupportedPartialFilter(filter: Filter, path = ""): void {
         reject(`${field}: {${op}}`);
       }
     }
+  }
+}
+
+/**
+ * T-016: an INCLUSION projection, as the server applies it (only the listed top-level fields, plus
+ * `_id` unless `_id: 0`). Before this the fake ignored projections, so a reader that forgot to
+ * project a field it later used passed offline and read `undefined` in production.
+ */
+function project<T>(doc: T, projection?: Record<string, 0 | 1>): T {
+  if (!projection || Object.keys(projection).length === 0) return doc;
+  const fields = Object.entries(projection);
+  if (fields.some(([k, v]) => v !== 1 && k !== "_id")) throw new Error("FakeCollection.find: only inclusion projections are supported");
+  const src = doc as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  if (projection._id !== 0) out._id = src._id;
+  for (const [k, v] of fields) if (v === 1 && k in src) out[k] = src[k];
+  return out as T;
+}
+
+/** The filter's plain equality fields (what an upsert seeds the inserted doc with). */
+function equalityFields(filter: Filter): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(filter).filter(([k, v]) => !k.startsWith("$") && !k.includes(".") && !isOperatorObject(v)),
+  );
+}
+
+/** Applies $set / $unset / $addToSet (top-level fields; $addToSet with a scalar or `$each`). */
+function applyUpdate(
+  doc: Record<string, unknown>,
+  update: { $set?: unknown; $unset?: Record<string, unknown>; $addToSet?: Record<string, unknown> },
+): void {
+  if (update.$set) Object.assign(doc, toStored(update.$set));
+  // T-011 cycle 2: `$unset` removes the field (re-setting an erasure fence clears releaseAfter).
+  for (const field of Object.keys(update.$unset ?? {})) delete doc[field];
+  for (const [field, arg] of Object.entries(update.$addToSet ?? {})) {
+    const current = doc[field];
+    if (current !== undefined && !Array.isArray(current)) throw new Error(`FakeCollection: $addToSet on non-array field ${field}`);
+    const list = [...((current as unknown[] | undefined) ?? [])];
+    const add = isOperatorObject(arg) && "$each" in arg ? (arg.$each as unknown[]) : [arg];
+    for (const v of add) if (!list.some((el) => JSON.stringify(el) === JSON.stringify(v))) list.push(v);
+    doc[field] = list;
+  }
+}
+
+/**
+ * T-016: a cursor with the subset LangGraph's MongoDBSaver uses: `sort(field, dir)` or
+ * `sort({field: dir})`, `limit(n)`, `toArray()` and async iteration.
+ */
+export class FakeCursor<T> {
+  constructor(private docs: T[]) {}
+
+  sort(spec: string | Record<string, 1 | -1>, dir: 1 | -1 = 1): FakeCursor<T> {
+    const [field, order] = typeof spec === "string" ? [spec, dir] : Object.entries(spec)[0]!;
+    this.docs = [...this.docs].sort((a, b) => {
+      const x = getPath(a as Record<string, unknown>, field) as string | number;
+      const y = getPath(b as Record<string, unknown>, field) as string | number;
+      return (x < y ? -1 : x > y ? 1 : 0) * order;
+    });
+    return this;
+  }
+
+  limit(n: number): FakeCursor<T> {
+    if (n > 0) this.docs = this.docs.slice(0, n);
+    return this;
+  }
+
+  async toArray(): Promise<T[]> {
+    return this.docs;
+  }
+
+  async *[Symbol.asyncIterator](): AsyncGenerator<T> {
+    for (const doc of this.docs) yield doc;
   }
 }
 
@@ -198,7 +306,7 @@ export class FakeCollection<T extends { _id: string }> {
    */
   async findOne(filter: Filter = {}): Promise<T | null> {
     for (const doc of this.docs.values()) {
-      if (matchesFilter(doc as unknown as Record<string, unknown>, filter)) return structuredClone(doc);
+      if (matchesFilter(doc as unknown as Record<string, unknown>, filter)) return cloneDoc(doc);
     }
     return null;
   }
@@ -210,11 +318,11 @@ export class FakeCollection<T extends { _id: string }> {
    * (ISS-t-007-c1-1: `{purposeTags: purpose}` matches a doc whose purposeTags include it). Returns copies so a
    * caller mutating a result never mutates the stored doc (driver semantics).
    */
-  find(filter: Filter = {}): { toArray: () => Promise<T[]> } {
+  find(filter: Filter = {}, options: { projection?: Record<string, 0 | 1> } = {}): FakeCursor<T> {
     const matched = [...this.docs.values()]
       .filter((doc) => matchesFilter(doc as unknown as Record<string, unknown>, filter))
-      .map((doc) => structuredClone(doc));
-    return { toArray: async () => matched };
+      .map((doc) => project(cloneDoc(doc), options.projection));
+    return new FakeCursor(matched);
   }
 
   async insertOne(doc: T): Promise<{ insertedId: string }> {
@@ -227,7 +335,7 @@ export class FakeCollection<T extends { _id: string }> {
       );
     }
     this.assertNoUniqueConflict(doc);
-    this.docs.set(doc._id, doc);
+    this.docs.set(doc._id, toStored(doc) as T);
     return { insertedId: doc._id };
   }
 
@@ -251,35 +359,71 @@ export class FakeCollection<T extends { _id: string }> {
       matchesFilter(doc as unknown as Record<string, unknown>, filter),
     );
     if (!existing) return null;
-    const preImage = structuredClone(existing);
-    if (update.$set) Object.assign(existing, update.$set);
+    const preImage = cloneDoc(existing);
     // D-013: `$unset` removes the field entirely (the retire CAS unsets `active`).
-    for (const field of Object.keys(update.$unset ?? {})) delete (existing as Record<string, unknown>)[field];
-    return options.returnDocument === "after" ? structuredClone(existing) : preImage;
+    applyUpdate(existing as unknown as Record<string, unknown>, update);
+    return options.returnDocument === "after" ? cloneDoc(existing) : preImage;
   }
 
   async updateOne(
     filter: Filter,
-    update: { $set?: Partial<T>; $setOnInsert?: T; $unset?: Record<string, unknown> },
-    options: { upsert?: boolean } = {},
+    update: {
+      $set?: Partial<T> | Record<string, unknown>;
+      $setOnInsert?: Partial<T> | Record<string, unknown>;
+      $unset?: Record<string, unknown>;
+      $addToSet?: Record<string, unknown>;
+    },
+    options: { upsert?: boolean } & Record<string, unknown> = {},
   ): Promise<{ matchedCount: number; upsertedCount: number; upsertedId: string | null }> {
+    for (const op of Object.keys(update)) {
+      if (!["$set", "$setOnInsert", "$unset", "$addToSet"].includes(op)) {
+        throw new Error(`FakeCollection.updateOne: unsupported update operator ${op}`);
+      }
+    }
     const existing = [...this.docs.values()].find((doc) =>
       matchesFilter(doc as unknown as Record<string, unknown>, filter),
     );
     if (existing) {
-      if (update.$set) Object.assign(existing, update.$set);
-      // T-011 cycle 2: `$unset` removes the field (re-setting an erasure fence clears releaseAfter).
-      for (const field of Object.keys(update.$unset ?? {})) delete (existing as Record<string, unknown>)[field];
+      applyUpdate(existing as unknown as Record<string, unknown>, update);
       return { matchedCount: 1, upsertedCount: 0, upsertedId: null };
     }
     if (!options.upsert) return { matchedCount: 0, upsertedCount: 0, upsertedId: null };
-    const seed = update.$setOnInsert ?? ({ ...filter } as unknown as T);
-    const _id = (seed as { _id?: string })._id ?? (filter._id as string | undefined);
-    if (!_id) throw new Error("FakeCollection.updateOne: upsert requires a resolvable _id");
-    const created = { ...seed, _id } as T;
-    if (update.$set) Object.assign(created, update.$set);
-    this.docs.set(_id, created);
+    // T-016: driver semantics for an upsert insert: the filter's equality fields, then
+    // $setOnInsert, then $set / $addToSet; `_id` is generated when neither supplies one (the
+    // MongoDBSaver's upserts filter on thread_id/checkpoint_ns/checkpoint_id only).
+    const seed: Record<string, unknown> = { ...equalityFields(filter), ...(update.$setOnInsert ?? {}) };
+    const _id = (seed._id as string | undefined) ?? new ObjectId().toHexString();
+    const created = { ...seed, _id } as Record<string, unknown>;
+    applyUpdate(created, { $set: update.$set, $addToSet: update.$addToSet });
+    const doc = created as unknown as T;
+    // T-016: an upsert that inserts is an insert: a duplicate _id or unique key is 11000, as on the server.
+    if (this.docs.has(_id)) {
+      throw new FakeDuplicateKeyError(
+        `E11000 duplicate key error collection: fake index: _id_ dup key: { _id: ${JSON.stringify(_id)} }`,
+      );
+    }
+    this.assertNoUniqueConflict(doc);
+    this.docs.set(_id, toStored(doc) as T);
     return { matchedCount: 0, upsertedCount: 1, upsertedId: _id };
+  }
+
+  /**
+   * T-016: the subset of bulkWrite LangGraph's MongoDBSaver.putWrites uses — `updateOne` ops with
+   * upsert, applied in order (ordered: the first failure stops the batch, like the driver's default).
+   */
+  async bulkWrite(
+    ops: Array<{ updateOne?: { filter: Filter; update: Parameters<FakeCollection<T>["updateOne"]>[1]; upsert?: boolean } }>,
+    _options?: Record<string, unknown>,
+  ): Promise<{ matchedCount: number; upsertedCount: number }> {
+    let matchedCount = 0;
+    let upsertedCount = 0;
+    for (const op of ops) {
+      if (!op.updateOne || Object.keys(op).length !== 1) throw new Error("FakeCollection.bulkWrite: only updateOne ops are supported");
+      const r = await this.updateOne(op.updateOne.filter, op.updateOne.update, { upsert: op.updateOne.upsert });
+      matchedCount += r.matchedCount;
+      upsertedCount += r.upsertedCount;
+    }
+    return { matchedCount, upsertedCount };
   }
 
   /** T-011: driver-shaped deleteMany (`{acknowledged, deletedCount}`), same filter semantics as find. */
@@ -374,6 +518,8 @@ export function createFakeMongoClient(): {
       return dbsByName.get(name) as unknown as import("mongodb").Db;
     },
     connect: async () => fakeClient,
+    // T-016: MongoDBSaver's constructor calls client.appendMetadata (driver handshake metadata; no I/O).
+    appendMetadata: () => {},
     close: async () => {},
   };
   return {
