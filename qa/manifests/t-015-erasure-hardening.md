@@ -2,7 +2,7 @@
 
 **Contract:** qa/contracts/counselling-engine.md (B15 primary; B8, B12, D-016)
 **Goal task:** T-015
-**Date:** 2026-09-25
+**Status:** checked-PASS (cycle 0; senior review Approve)
 **Status:** ready-for-check
 **Fix cycle:** 0
 **Design:** no new decision; closes five follow-ups the T-014 reviews and checker left open
