@@ -16,7 +16,7 @@
 | T-006 | done | MCP servers: student-profile, university-kb | depends T-003 |
 | T-007 | done | Post-session scribe graph (transcript → facts → summary → profile diff → interrupt → approve → write); carry-forward: sessionId stable across checkpoint replay (D-012 idempotency), readers treat no-open-fact as being-updated, db:init once before first live write, ISS-025, ISS-t-004-langfuse-1 | depends T-003..T-006 (all done) |
 | T-008 | open | Counsellor diff-approval UI (Next.js); prereqs: ISS-t-007-rev-6 (checkpoint collections governed + saver.setup), rev-7 (sessions.summary), rev-9 (studentId throw), rev-10 (recovery claim + live MongoDBSaver probe) | depends T-007 (done) |
-| T-009 | open | Golden-session eval set (anonymised) + scribe eval | depends T-007 |
+| T-009 | done | Golden-session eval set (anonymised) + scribe eval | depends T-007 |
 | T-010 | open | Live cards (Widen/Challenge/Compare/Evidence) + verifier | gated on the scribe passing |
 | T-011 | open | DPDP erasure + export (B15): confirm step in audit log, hard delete across all engine collections, read-back-zero verification, counts-only receipt, per-student JSON export; adds cards/feedback + audit collections | depends T-003b (studentId indexes) |
 | T-012 | open | Crisis escalation (B16): async Flash-Lite concern classifier on concern turns + stratified none sample; notify admin + concerned counsellors at the same moment; grow crisis golden set with hard negatives | depends T-005b, T-007 |
