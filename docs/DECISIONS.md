@@ -128,3 +128,14 @@ not replace them.
 **Why:** The T-007 cycle-1 senior review reproduced a TOCTOU race. Two concurrent resumes of one thread both reported "written" while only one decision persisted, so a counsellor's reject or edit was silently dropped (ISS-t-007-rev-8, high). A read-then-invoke check cannot close that race. A single-document insertOne on _id can, and it is atomic server-side. This authorizes T-007 cycle 2's edits to packages/db/src (collections.ts, db-init INDEX_PLAN), which the T-007 manifest had listed as untouched.
 **Result:** -- (T-007 cycle 2, 087ffa0)
 **Links:** T-007, T-011, ISS-t-007-rev-8, ISS-t-007-c1-2, D-012
+
+## D-015 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** Erasure uses fence-plus-compensation, because there are no multi-document transactions.
+- confirmErasure sets an erasure fence for the studentId BEFORE executeErasure resolves any selector. The fence is a single document with a unique studentId.
+- Every student-data writer (applyApprovedDiff, the scribe claim, and scribe start/resume, whose checkpoints come from graph.invoke) checks the fence AFTER its own writes. If the fence is set, the writer deletes what it just wrote and returns a refused/fenced result.
+- The fence lives from confirm until the request completes. Whether it lingers afterwards (re-enrolment policy) is left to gate erasure-fencing Q1.
+**Why:** The T-011 cycle-1 checker (FAIL, ISS-t-011-c1-1) and data-engineer review (ISS-t-011-c1-rev-1) reproduced a write landing after a collection's read-back count, or between the final read-back and the completion CAS. It survived while the receipt said verified. Another read-back pass only narrows that window. Fence plus post-write compensation closes it with single-document linearizable operations:
+- a write that completes before the fence is visible to the purge, which resolves after the fence
+- a write that starts after the fence sees it in its own post-check and removes itself
+**Result:** -- (T-011 fix cycle 2)
+**Links:** T-011, ISS-t-011-c1-1, ISS-t-011-c1-rev-1, qa/gates/erasure-fencing.md, D-012, D-014
