@@ -1,0 +1,137 @@
+=== F1: remove EditedValueSchema's scalar-type refine (non-scalar edit values no longer refused at the schema boundary) ===
+✔ T-008 per_fact: approve one, reject one, edit one -> exactly the approved + edited facts are written (read back) (171.4298ms)
+✔ T-008 per_fact: a rejected fact is never written, whatever else is approved (48.6295ms)
+✔ T-008 per_fact: withholding the summary stores no summary text, only the counsellor's withheld reason (42.6096ms)
+✔ T-008 per_fact: every fact rejected AND the summary withheld -> rejected, nothing written at all (55.6042ms)
+✔ T-008 per_fact: every fact rejected but the summary approved -> the summary alone is stored, zero facts (73.4588ms)
+✔ T-008 B3: nothing is written before submit, and an invalid per_fact response writes nothing and takes no claim (42.6104ms)
+✔ T-008 B5: the per_fact schema refuses an edit with no value, an unknown decision and an unknown summary choice (2.2343ms)
+✔ T-008 backward compatibility: a whole-batch approve still writes every proposed fact and the summary (36.689ms)
+✔ T-008: a second per_fact submit is already_resolved with the first decision; nothing new is written (41.1901ms)
+✔ T-008: ApprovalRequestSchema keeps an optional needsReview/reviewReasons per fact and still parses facts without it (26.103ms)
+✔ T-008 inspectScribe: not_found -> awaiting_approval -> done (with the decision), and reading never writes (45.7387ms)
+✔ T-008 inspectScribe: a claimed thread whose decision is not recorded yet is in_progress (27.1408ms)
+✔ T-008 inspectScribe: a fenced student (erasure in progress) is reported fenced, with no student data (36.4626ms)
+✖ T-018 ISS-t-008-c0-1: an object edit value for a numeric fact is refused at the schema boundary, before any claim, writing nothing (28.8665ms)
+✖ T-018 ISS-t-008-c0-1: an array edit value is refused the same way (not just a plain object) (24.2588ms)
+✔ T-018: a string edit value for a numeric fact is refused at the engine boundary (decisionFromResponse), before any claim (36.1297ms)
+✔ T-018: a boolean edit value for a numeric fact is refused; a same-type numeric edit is accepted (80.6256ms)
+✔ T-018 residual 3: a per_fact rejection writes an audit record with the thread id, student id, rejected keys and reasons, no transcript text (31.1953ms)
+✔ T-018 residual 3: an audit record is written even when EVERY fact is rejected (the overall decision is 'rejected') (25.094ms)
+✔ T-018 residual 3: no rejections -> no audit record is written (29.8933ms)
+✔ T-018 residual 3: the audit write is idempotent under a checkpoint replay of the approval node (same deterministic _id, no duplicate) (36.7686ms)
+ℹ tests 21
+ℹ pass 19
+ℹ fail 2
+✖ failing tests:
+test at tests\scribe-per-fact.test.ts:316:1
+✖ T-018 ISS-t-008-c0-1: an object edit value for a numeric fact is refused at the schema boundary, before any claim, writing nothing (28.8665ms)
+      at async TestContext.<anonymous> (D:\vc\.worktrees\t-018-approval-followups\packages\engine\tests\scribe-per-fact.test.ts:329:3)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+        at async TestContext.<anonymous> (D:\vc\.worktrees\t-018-approval-followups\packages\engine\tests\scribe-per-fact.test.ts:329:3)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:785:7),
+test at tests\scribe-per-fact.test.ts:340:1
+✖ T-018 ISS-t-008-c0-1: an array edit value is refused the same way (not just a plain object) (24.2588ms)
+      at async TestContext.<anonymous> (D:\vc\.worktrees\t-018-approval-followups\packages\engine\tests\scribe-per-fact.test.ts:352:3)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+        at async TestContext.<anonymous> (D:\vc\.worktrees\t-018-approval-followups\packages\engine\tests\scribe-per-fact.test.ts:352:3)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:785:7),
+
+=== F2: remove perFactDecision's type-match check against the proposed value (string/boolean edits for a numeric fact go silently through) ===
+✔ T-008 per_fact: approve one, reject one, edit one -> exactly the approved + edited facts are written (read back) (147.7274ms)
+✔ T-008 per_fact: a rejected fact is never written, whatever else is approved (58.4031ms)
+✔ T-008 per_fact: withholding the summary stores no summary text, only the counsellor's withheld reason (43.8408ms)
+✔ T-008 per_fact: every fact rejected AND the summary withheld -> rejected, nothing written at all (37.4857ms)
+✔ T-008 per_fact: every fact rejected but the summary approved -> the summary alone is stored, zero facts (65.2179ms)
+✔ T-008 B3: nothing is written before submit, and an invalid per_fact response writes nothing and takes no claim (41.988ms)
+✔ T-008 B5: the per_fact schema refuses an edit with no value, an unknown decision and an unknown summary choice (2.4601ms)
+✔ T-008 backward compatibility: a whole-batch approve still writes every proposed fact and the summary (30.1918ms)
+✔ T-008: a second per_fact submit is already_resolved with the first decision; nothing new is written (32.31ms)
+✔ T-008: ApprovalRequestSchema keeps an optional needsReview/reviewReasons per fact and still parses facts without it (18.4506ms)
+✔ T-008 inspectScribe: not_found -> awaiting_approval -> done (with the decision), and reading never writes (39.6337ms)
+✔ T-008 inspectScribe: a claimed thread whose decision is not recorded yet is in_progress (30.5395ms)
+✔ T-008 inspectScribe: a fenced student (erasure in progress) is reported fenced, with no student data (27.1311ms)
+✔ T-018 ISS-t-008-c0-1: an object edit value for a numeric fact is refused at the schema boundary, before any claim, writing nothing (32.7149ms)
+✔ T-018 ISS-t-008-c0-1: an array edit value is refused the same way (not just a plain object) (22.6617ms)
+✖ T-018: a string edit value for a numeric fact is refused at the engine boundary (decisionFromResponse), before any claim (29.3866ms)
+✖ T-018: a boolean edit value for a numeric fact is refused; a same-type numeric edit is accepted (60.3769ms)
+✔ T-018 residual 3: a per_fact rejection writes an audit record with the thread id, student id, rejected keys and reasons, no transcript text (29.8752ms)
+✔ T-018 residual 3: an audit record is written even when EVERY fact is rejected (the overall decision is 'rejected') (22.2272ms)
+✔ T-018 residual 3: no rejections -> no audit record is written (24.642ms)
+✔ T-018 residual 3: the audit write is idempotent under a checkpoint replay of the approval node (same deterministic _id, no duplicate) (22.9636ms)
+ℹ tests 21
+ℹ pass 19
+ℹ fail 2
+✖ failing tests:
+test at tests\scribe-per-fact.test.ts:356:1
+✖ T-018: a string edit value for a numeric fact is refused at the engine boundary (decisionFromResponse), before any claim (29.3866ms)
+      at async TestContext.<anonymous> (D:\vc\.worktrees\t-018-approval-followups\packages\engine\tests\scribe-per-fact.test.ts:371:3)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+test at tests\scribe-per-fact.test.ts:383:1
+✖ T-018: a boolean edit value for a numeric fact is refused; a same-type numeric edit is accepted (60.3769ms)
+      at async TestContext.<anonymous> (D:\vc\.worktrees\t-018-approval-followups\packages\engine\tests\scribe-per-fact.test.ts:386:3)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+
+=== F3: disable the recordRejectReasons call in the approval node (audit records are never written) ===
+✔ T-008 per_fact: approve one, reject one, edit one -> exactly the approved + edited facts are written (read back) (112.4377ms)
+✔ T-008 per_fact: a rejected fact is never written, whatever else is approved (33.874ms)
+✔ T-008 per_fact: withholding the summary stores no summary text, only the counsellor's withheld reason (32.4802ms)
+✔ T-008 per_fact: every fact rejected AND the summary withheld -> rejected, nothing written at all (27.7527ms)
+✔ T-008 per_fact: every fact rejected but the summary approved -> the summary alone is stored, zero facts (42.6101ms)
+✔ T-008 B3: nothing is written before submit, and an invalid per_fact response writes nothing and takes no claim (30.7778ms)
+✔ T-008 B5: the per_fact schema refuses an edit with no value, an unknown decision and an unknown summary choice (1.037ms)
+✔ T-008 backward compatibility: a whole-batch approve still writes every proposed fact and the summary (23.3296ms)
+✔ T-008: a second per_fact submit is already_resolved with the first decision; nothing new is written (26.7775ms)
+✔ T-008: ApprovalRequestSchema keeps an optional needsReview/reviewReasons per fact and still parses facts without it (20.8737ms)
+✔ T-008 inspectScribe: not_found -> awaiting_approval -> done (with the decision), and reading never writes (30.2339ms)
+✔ T-008 inspectScribe: a claimed thread whose decision is not recorded yet is in_progress (20.8364ms)
+✔ T-008 inspectScribe: a fenced student (erasure in progress) is reported fenced, with no student data (20.4462ms)
+✔ T-018 ISS-t-008-c0-1: an object edit value for a numeric fact is refused at the schema boundary, before any claim, writing nothing (32.5271ms)
+✔ T-018 ISS-t-008-c0-1: an array edit value is refused the same way (not just a plain object) (14.6269ms)
+✔ T-018: a string edit value for a numeric fact is refused at the engine boundary (decisionFromResponse), before any claim (26.9755ms)
+✔ T-018: a boolean edit value for a numeric fact is refused; a same-type numeric edit is accepted (54.1468ms)
+✖ T-018 residual 3: a per_fact rejection writes an audit record with the thread id, student id, rejected keys and reasons, no transcript text (18.1118ms)
+✖ T-018 residual 3: an audit record is written even when EVERY fact is rejected (the overall decision is 'rejected') (23.5965ms)
+✔ T-018 residual 3: no rejections -> no audit record is written (28.0565ms)
+✖ T-018 residual 3: the audit write is idempotent under a checkpoint replay of the approval node (same deterministic _id, no duplicate) (23.0339ms)
+ℹ tests 21
+ℹ pass 18
+ℹ fail 3
+✖ failing tests:
+test at tests\scribe-per-fact.test.ts:430:1
+✖ T-018 residual 3: a per_fact rejection writes an audit record with the thread id, student id, rejected keys and reasons, no transcript text (18.1118ms)
+      at TestContext.<anonymous> (D:\vc\.worktrees\t-018-approval-followups\packages\engine\tests\scribe-per-fact.test.ts:438:10)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+test at tests\scribe-per-fact.test.ts:448:1
+✖ T-018 residual 3: an audit record is written even when EVERY fact is rejected (the overall decision is 'rejected') (23.5965ms)
+      at TestContext.<anonymous> (D:\vc\.worktrees\t-018-approval-followups\packages\engine\tests\scribe-per-fact.test.ts:466:10)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+test at tests\scribe-per-fact.test.ts:480:1
+✖ T-018 residual 3: the audit write is idempotent under a checkpoint replay of the approval node (same deterministic _id, no duplicate) (23.0339ms)
+      at TestContext.<anonymous> (D:\vc\.worktrees\t-018-approval-followups\packages\engine\tests\scribe-per-fact.test.ts:485:10)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+
+=== F4: disable recordRejectReasons's post-check/compensation (a fence confirmed mid-write no longer removes the just-inserted record) ===
+✔ recordRejectReasons: writes the thread id, student id, rejected keys/reasons and a decision time; no transcript text (4.6993ms)
+✔ recordRejectReasons: an empty rejected list is a no-op — nothing is written (0.4052ms)
+✔ recordRejectReasons: rejects an empty threadId or studentId before writing anything (0.8104ms)
+✔ recordRejectReasons: idempotent under the SAME threadId (deterministic _id) — a second call does not duplicate or error (0.7204ms)
+✔ recordRejectReasons: a student already fenced BEFORE the call is refused; nothing is written (2.4298ms)
+✖ recordRejectReasons: a fence that appears AFTER the insert is compensated — the record is deleted and StudentFencedError is thrown (1.7286ms)
+✖ recordRejectReasons: compensation removes only the document THIS call inserted — a DIFFERENT student's record is untouched (1.1387ms)
+✔ recordRejectReasons: a call that runs past its writer deadline throws FencedWriterDeadlineError and is undone when it settles (21.2672ms)
+✔ recordRejectReasons: RangeError on a deadline longer than FENCED_WRITER_DEADLINE_MS, before anything is written (0.4797ms)
+✔ B15: a reject-reason record is erased (read-back zero) and never re-created by a retry (3.6769ms)
+✔ B15 export: exportStudent's `decisions` array carries a reject-reason record for its student, and it disappears after erasure (1.6002ms)
+ℹ tests 11
+ℹ pass 9
+ℹ fail 2
+✖ failing tests:
+test at tests\decisions.test.ts:95:1
+✖ recordRejectReasons: a fence that appears AFTER the insert is compensated — the record is deleted and StudentFencedError is thrown (1.7286ms)
+      at async TestContext.<anonymous> (D:\vc\.worktrees\t-018-approval-followups\packages\db\tests\decisions.test.ts:108:3)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+test at tests\decisions.test.ts:115:1
+✖ recordRejectReasons: compensation removes only the document THIS call inserted — a DIFFERENT student's record is untouched (1.1387ms)
+      at async TestContext.<anonymous> (D:\vc\.worktrees\t-018-approval-followups\packages\db\tests\decisions.test.ts:131:3)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {

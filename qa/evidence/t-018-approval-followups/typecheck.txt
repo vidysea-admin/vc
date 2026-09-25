@@ -1,0 +1,20 @@
+Scope: 9 of 10 workspace projects
+packages/observability typecheck$ tsc --noEmit
+packages/providers typecheck$ tsc --noEmit
+packages/schemas typecheck$ tsc --noEmit
+packages/providers typecheck: Done
+packages/schemas typecheck: Done
+packages/observability typecheck: Done
+packages/db typecheck$ tsc --noEmit
+packages/db typecheck: Done
+packages/engine typecheck$ tsc --noEmit && tsc --noEmit -p evals/tsconfig.json
+mcp/university-kb typecheck$ tsc --noEmit
+mcp/student-profile typecheck$ tsc --noEmit
+apps/api typecheck$ tsc --noEmit
+apps/api typecheck: Done
+mcp/student-profile typecheck: Done
+mcp/university-kb typecheck: Done
+packages/engine typecheck: Done
+apps/web typecheck$ tsc --noEmit
+apps/web typecheck: Done
+exit=0

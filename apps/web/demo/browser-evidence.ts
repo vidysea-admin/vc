@@ -1,22 +1,31 @@
 /**
- * T-008 live browser evidence. Starts the demo server (next dev, in-process fake db, mock provider,
- * synthetic threads), drives a real Chromium through Playwright, reads the fake db back through the
- * demo-only read-back route, and writes
- *   qa/evidence/browser-t-008-approval-ui-<date>/report.json (+ screenshots).
+ * T-008 / T-018 live browser evidence. Starts the demo server, drives a real Chromium through
+ * Playwright, reads the fake db back through the demo-only read-back route, and writes
+ *   qa/evidence/browser-<unit>-<date>/report.json (+ screenshots).
  * It stops only the server process tree it started itself (by that PID).
  *
- * Run: pnpm --filter @vc/web evidence:browser
+ * Two server modes, chosen by VC_EVIDENCE_MODE (default "dev"):
+ *   - "dev":   next dev --webpack (T-008's original evidence: fast, hot-reloading).
+ *   - "build": T-018 residual 7. Runs `next build --webpack` first (spawnSync, must exit 0),
+ *              THEN `next start` against that production build — the actual production artifact,
+ *              not the dev server. VC_WEB_MODE stays "demo" either way (B8/B12: the in-process
+ *              fake db, never MONGODB_URL); the production build changes nothing about that.
+ *
+ * Run (T-008, dev mode):   pnpm --filter @vc/web evidence:browser
+ * Run (T-018, prod build): VC_EVIDENCE_MODE=build VC_EVIDENCE_UNIT=t-018-approval-followups VC_EVIDENCE_PORT=3128 npx tsx demo/browser-evidence.ts
  */
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Page } from "playwright";
 
-const PORT = Number(process.env.VC_EVIDENCE_PORT ?? 3118);
+const MODE: "dev" | "build" = process.env.VC_EVIDENCE_MODE === "build" ? "build" : "dev";
+const UNIT = process.env.VC_EVIDENCE_UNIT ?? "t-008-approval-ui";
+const PORT = Number(process.env.VC_EVIDENCE_PORT ?? (MODE === "build" ? 3128 : 3118));
 const BASE = `http://localhost:${PORT}`;
 const DATE = new Date().toISOString().slice(0, 10);
 const REPO = join(process.cwd(), "..", "..");
-const OUT = join(REPO, "qa", "evidence", `browser-t-008-approval-ui-${DATE}`);
+const OUT = join(REPO, "qa", "evidence", `browser-${UNIT}-${DATE}`);
 
 const PAUSED = "scribe:demo-session-1";
 const FENCED = "scribe:demo-session-2";
@@ -47,26 +56,43 @@ function record(did: string, expected: string, observed: string, pass: boolean) 
   console.log(`${pass ? "PASS" : "FAIL"}  ${did}  ->  ${observed}`);
 }
 
+const nextBin = join(process.cwd(), "node_modules", "next", "dist", "bin", "next");
+
+/** T-018 residual 7: `next build --webpack`, run to completion before the server starts. Throws on a non-zero exit. */
+function runProductionBuild(): void {
+  console.log("next build --webpack ...");
+  const res = spawnSync(process.execPath, [nextBin, "build", "--webpack"], {
+    cwd: process.cwd(),
+    env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+    stdio: "inherit",
+  });
+  if (res.status !== 0) {
+    throw new Error(`next build --webpack failed (exit ${res.status ?? res.signal})`);
+  }
+}
+
 function startServer(): Promise<ChildProcess> {
-  const nextBin = join(process.cwd(), "node_modules", "next", "dist", "bin", "next");
-  const child = spawn(process.execPath, [nextBin, "dev", "--webpack", "--port", String(PORT)], {
+  if (MODE === "build") runProductionBuild();
+  const args = MODE === "build" ? ["start", "--port", String(PORT)] : ["dev", "--webpack", "--port", String(PORT)];
+  const child = spawn(process.execPath, [nextBin, ...args], {
     cwd: process.cwd(),
     env: { ...process.env, VC_WEB_MODE: "demo", NEXT_TELEMETRY_DISABLED: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let log = "";
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`next dev did not become ready:\n${log}`)), 120_000);
+    const timer = setTimeout(() => reject(new Error(`next ${MODE === "build" ? "start" : "dev"} did not become ready:\n${log}`)), 120_000);
     const onData = (buf: Buffer) => {
       log += buf.toString();
-      if (/Ready in/.test(log)) {
+      // "next dev" prints "Ready in <ms>"; "next start" prints "- Local:  http://..." instead.
+      if (/Ready in/.test(log) || /- Local:/.test(log)) {
         clearTimeout(timer);
         resolve(child);
       }
     };
     child.stdout!.on("data", onData);
     child.stderr!.on("data", onData);
-    child.on("exit", (code) => reject(new Error(`next dev exited (${code}):\n${log}`)));
+    child.on("exit", (code) => reject(new Error(`next ${MODE === "build" ? "start" : "dev"} exited (${code}):\n${log}`)));
   });
 }
 
@@ -153,6 +179,38 @@ async function main() {
       const submitDisabled = await a.locator('[data-testid="submit"]').isDisabled();
       record("look at Submit before deciding", "Submit is disabled until every fact and the summary are decided", `disabled=${submitDisabled}`, submitDisabled);
       await a.screenshot({ path: join(OUT, "01-pending.png"), fullPage: true });
+    });
+
+    // 2.5. T-018 / ISS-t-008-c0-1: a fully valid per-fact decision except one edit value is an
+    // object for a numeric fact -> refused (400), nothing claimed or written. Run BEFORE any real
+    // decision touches this thread (mirrors the T-008 checker's own probe order).
+    await track(a, "type refusal (per-fact edit value type mismatch)", [400], async () => {
+      const res = await a.request.post(`${BASE}/api/approvals/${encodeURIComponent(PAUSED)}`, {
+        data: {
+          facts: [
+            { key: "targetCountry", decision: "approve" },
+            { key: "intendedMajor", decision: "approve" },
+            { key: "preferredIntake", decision: "approve" },
+            { key: "budget_inr_per_year", decision: "edit", value: { not: "a number" } },
+          ],
+          summary: "approve",
+        },
+      });
+      const body = await res.json();
+      record(
+        "POST a fully valid per-fact decision except one edit value is an object for a numeric fact (ISS-t-008-c0-1 / T-018)",
+        "refused 400 invalid, before any claim; nothing written",
+        `status=${res.status()} state=${body.state}`,
+        res.status() === 400 && body.state === "invalid",
+      );
+      const pre = await readback(a, "demo-student-1");
+      const view = await (await a.request.get(`${BASE}/api/approvals/${encodeURIComponent(PAUSED)}`)).json();
+      record(
+        "confirm the thread is untouched after the refused edit",
+        "still awaiting_approval, 0 facts, 0 claims",
+        `state=${view.state} facts=${pre.facts.length} claims=${pre.claims}`,
+        view.state === "awaiting_approval" && pre.facts.length === 0 && pre.claims === 0,
+      );
     });
 
     // 3. Tab B opens the same thread BEFORE tab A submits (it will lose later).
@@ -266,11 +324,15 @@ async function main() {
   }
 
   const report = {
-    unit: "T-008 counsellor diff-approval UI",
+    unit: UNIT === "t-008-approval-ui" ? "T-008 counsellor diff-approval UI" : `T-018 follow-ups (${UNIT}): edit type refusal + production-build browser evidence`,
     date: DATE,
     generatedAt: new Date().toISOString(),
     baseUrl: BASE,
-    mode: "demo: next dev (webpack), in-process fake db via @vc/db getVcDb + real MongoDBSaver over the fake, MockProvider, synthetic threads; no MONGODB_URL, no Gemini",
+    serverMode: MODE,
+    mode:
+      MODE === "build"
+        ? "demo: next build --webpack then next start (PRODUCTION build/server), in-process fake db via @vc/db getVcDb + real MongoDBSaver over the fake, MockProvider, synthetic threads; no MONGODB_URL, no Gemini"
+        : "demo: next dev (webpack), in-process fake db via @vc/db getVcDb + real MongoDBSaver over the fake, MockProvider, synthetic threads; no MONGODB_URL, no Gemini",
     browser: `chromium ${browser.version()} (playwright, headless)`,
     pages,
     interactions,
