@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B2, B3, B4, B8, B12, B14, B15)
 **Goal task:** T-003b
 **Date:** 2026-09-25
-**Status:** ready-for-check
+**Status:** checked-PASS (verdict cycle 2, 67c3882; senior Approve + data-engineer Approve)
 **Fix cycle:** 2
 **Fix cycle budget:** 2 of max 3 (cycle-1 PASS overridden: data-engineer + senior Block, ISS-t-003b-c1-1 critical, -2 high)
 **Design:** D-012 (fact identity separate from content: fresh `_id`, `contentHash` for idempotency) + D-013 (open facts flagged `active: true`; partial unique index `{active: true}`)
