@@ -13,7 +13,7 @@
 | T-004 | done | Langfuse self-hosted compose + tracing wiring | depends T-002 |
 | T-005 | done | Skill loader + first skills; hard-rule guards (no-script incl. ISS-t-002b-schema-hardening-2, citation-required, crisis) | depends T-002b |
 | T-005b | open | Guard hardening: ISS-022 (skill path containment), ISS-023 (crisis Devanagari/indirect Hinglish/evasion + crisis eval set), ISS-024 (block-scalar), ISS-t-005-skills-guards-1 (Hinglish no-script, low) | from T-005 reviews; blocks T-010 |
-| T-006 | open | MCP servers: student-profile, university-kb | depends T-003 |
+| T-006 | done | MCP servers: student-profile, university-kb | depends T-003 |
 | T-007 | open | Post-session scribe graph (transcript → facts → summary → profile diff → interrupt → approve → write) | depends T-003..T-006 |
 | T-008 | open | Counsellor diff-approval UI (Next.js) | depends T-007 |
 | T-009 | open | Golden-session eval set (anonymised) + scribe eval | depends T-007 |
