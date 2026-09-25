@@ -28,6 +28,7 @@ export const LABELS = {
   reject: "Reject",
   withhold: "Withhold",
   editedValue: "Edited value",
+  rejectReason: "Reason (optional)",
   needsReview: "Needs review",
   summaryWithheldBefore: "Withheld before review",
   summaryApproved: "Summary approved",

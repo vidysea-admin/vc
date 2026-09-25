@@ -22,6 +22,7 @@ import {
   ApprovalResponseSchema,
   COUNSELLOR_WITHHELD_SUMMARY_REASON,
   inspectScribe,
+  MAX_REJECT_REASON_LENGTH,
   resumeScribe,
   SCRIBE_PURPOSE,
   startScribe,
@@ -490,4 +491,89 @@ test("T-018 residual 3: the audit write is idempotent under a checkpoint replay 
   const recovered = await resumeScribe(h.graph, null, cfg("pf-reject-replay"));
   assert.equal(recovered.kind, "done");
   assert.equal(decisionsColl(h).all().filter((d) => d._id === rejectReasonAuditId("pf-reject-replay")).length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// T-020 / ISS-t-018-c0-1: the reject reason is trimmed and length-limited at the schema boundary
+// (RejectReasonSchema, schemas.ts), shared by ApprovalResponseSchema's per_fact reject variant and
+// the audit record's own RejectedFactSchema.
+// ---------------------------------------------------------------------------
+
+test("T-020 ISS-t-018-c0-1: a reject reason is trimmed by the schema before it ever reaches the audit record", async () => {
+  const h = threeFactHarness();
+  await startScribe(h.graph, baseInput(), cfg("pf-reject-trim"));
+  const outcome = await resumeScribe(
+    h.graph,
+    {
+      action: "per_fact",
+      facts: [
+        { key: "targetCountry", decision: "approve" },
+        { key: "budget_inr_per_year", decision: "reject", reason: "  needs a second look  " },
+        { key: "intendedMajor", decision: "approve" },
+      ],
+      summary: "approve",
+    },
+    cfg("pf-reject-trim"),
+  );
+  assert.equal(outcome.kind === "done" && outcome.result.status, "written");
+  const doc = decisionsColl(h).all().find((d) => d._id === rejectReasonAuditId("pf-reject-trim"));
+  assert.deepEqual(doc?.rejected, [{ key: "budget_inr_per_year", reason: "needs a second look" }], "leading/trailing whitespace never reaches the audit record");
+});
+
+test("T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH, or whitespace-only, is refused at the schema boundary; exactly the limit is accepted", () => {
+  const tooLong = { action: "per_fact" as const, facts: [{ key: "a", decision: "reject" as const, reason: "x".repeat(MAX_REJECT_REASON_LENGTH + 1) }], summary: "approve" as const };
+  const blank = { action: "per_fact" as const, facts: [{ key: "a", decision: "reject" as const, reason: "   " }], summary: "approve" as const };
+  assert.equal(ApprovalResponseSchema.safeParse(tooLong).success, false, "a reason 1 character over the limit must be refused");
+  assert.equal(ApprovalResponseSchema.safeParse(blank).success, false, "a whitespace-only reason must be refused (omit it instead)");
+  const atLimit = { action: "per_fact" as const, facts: [{ key: "a", decision: "reject" as const, reason: "x".repeat(MAX_REJECT_REASON_LENGTH) }], summary: "approve" as const };
+  assert.equal(ApprovalResponseSchema.safeParse(atLimit).success, true, "a reason exactly at the limit is accepted");
+  const absent = { action: "per_fact" as const, facts: [{ key: "a", decision: "reject" as const }], summary: "approve" as const };
+  assert.equal(ApprovalResponseSchema.safeParse(absent).success, true, "no reason at all stays accepted (it is optional)");
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-018-rev-2: recordRejectReasons' own write must be bound to the SAME (short) outer
+// writerDeadlineMs the run lease (and write_approved's own inner writes, ISS-t-016-c0-1) already
+// use, not the package's full 60s default.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-018-rev-2: recordRejectReasons' own insert is bound to the SAME (short) outer writerDeadlineMs, not the package's full 60s default", async () => {
+  const h = threeFactHarness();
+  await startScribe(h.graph, baseInput(), cfg("pf-reject-deadline"));
+
+  const decisions = decisionsColl(h);
+  const timeouts: number[] = [];
+  const realInsertOne = decisions.insertOne.bind(decisions);
+  (decisions as unknown as { insertOne: typeof decisions.insertOne }).insertOne = (async (
+    doc: Parameters<typeof realInsertOne>[0],
+    options?: { timeoutMS?: number },
+  ) => {
+    if (options?.timeoutMS !== undefined) timeouts.push(options.timeoutMS);
+    return realInsertOne(doc, options as Parameters<typeof realInsertOne>[1]);
+  }) as typeof decisions.insertOne;
+
+  const SHORT_MS = 200; // well below FENCED_WRITER_DEADLINE_MS (60_000) but a legal (0, 60_000] value
+  const outcome = await resumeScribe(
+    h.graph,
+    {
+      action: "per_fact",
+      facts: [
+        { key: "targetCountry", decision: "approve" },
+        { key: "budget_inr_per_year", decision: "reject", reason: "needs review" },
+        { key: "intendedMajor", decision: "approve" },
+      ],
+      summary: "approve",
+    },
+    { threadId: "pf-reject-deadline", writerDeadlineMs: SHORT_MS },
+  );
+  assert.equal(outcome.kind === "done" && outcome.result.status, "written");
+
+  assert.ok(timeouts.length > 0, "the audit insert carried an explicit timeoutMS at all");
+  for (const t of timeouts) {
+    assert.ok(
+      t <= SHORT_MS,
+      `ISS-t-018-rev-2: recordRejectReasons' own insert timeoutMS must be bound to the outer writerDeadlineMs (${SHORT_MS}ms), got ${t}ms — ` +
+        `a value close to 60000 means it is STILL using the package default, independent of the outer deadline`,
+    );
+  }
 });
