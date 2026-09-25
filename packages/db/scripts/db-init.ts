@@ -14,9 +14,12 @@
  * it for `INDEX_PLAN` never triggers a connection attempt.
  *
  * The plan creates the engine's collections (if missing) and this index set:
- *   - facts:    UNIQUE partial index on { studentId, key } where `validTo` is
- *               unset — at most one active fact per (studentId, key)
- *               (ISS-019). This is what makes a concurrent-writer race a real
+ *   - facts:    UNIQUE partial index on { studentId, key } where
+ *               `active: true` — at most one open fact per (studentId, key)
+ *               (ISS-019, D-013: an open fact carries `active: true`; retiring
+ *               it sets validTo and unsets `active` in one CAS update. A
+ *               `{validTo: {$exists: false}}` filter is NOT allowed in a
+ *               partial index by the server, so it can not be the filter). This is what makes a concurrent-writer race a real
  *               Mongo duplicate-key error (code 11000) instead of silently
  *               producing two open facts; src/facts.ts's applyApprovedDiff
  *               handles that error deterministically (see its docstring).
@@ -26,7 +29,7 @@
  *               superseded ones) needs its own, unrestricted index.
  *               NO index on { studentId, key, contentHash } (D-012): no query
  *               filters on `contentHash`. applyApprovedDiff reads the ACTIVE
- *               fact by { studentId, key, validTo unset } (served by the
+ *               fact by { studentId, key, active: true } (served by the
  *               unique partial index above) and compares its contentHash in
  *               memory, so such an index would only cost writes. Add it if a
  *               future reader ever queries history by content.
@@ -69,14 +72,16 @@ export interface IndexSpec {
  * a single source of truth for both.
  */
 export const INDEX_PLAN: IndexSpec[] = [
-  // ISS-019: unique among docs where validTo is unset — at most one open
-  // fact per (studentId, key). See the module docstring for why.
+  // ISS-019 + D-013: unique among docs with `active: true` — at most one
+  // open fact per (studentId, key). NOT `{validTo: {$exists: false}}`: the
+  // server rejects `$exists: false` in a partialFilterExpression (it becomes
+  // `$not`), so that index could never be created.
   {
     collection: COLLECTION_NAMES.facts,
     keys: { studentId: 1, key: 1 },
-    name: "facts_studentId_key_active_unique",
+    name: "facts_studentId_key_active_true_unique",
     unique: true,
-    partialFilterExpression: { validTo: { $exists: false } },
+    partialFilterExpression: { active: true },
   },
   // ISS-027: plain studentId indexes on every studentId-bearing collection
   // (consents already had one).

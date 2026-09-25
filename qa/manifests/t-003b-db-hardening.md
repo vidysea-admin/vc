@@ -5,10 +5,10 @@
 **Status:** ready-for-check
 **Fix cycle:** 2
 **Fix cycle budget:** 2 of max 3 (cycle-1 PASS overridden: data-engineer + senior Block, ISS-t-003b-c1-1 critical, -2 high)
-**Design:** D-012 (fact identity separate from content: fresh `_id`, `contentHash` for idempotency)
-**Unit diff range (cycle 2):** `1dd38b0..HEAD` (`1dd38b0` = "qa: reopen t-003b fix cycle 2")
+**Design:** D-012 (fact identity separate from content: fresh `_id`, `contentHash` for idempotency) + D-013 (open facts flagged `active: true`; partial unique index `{active: true}`)
+**Unit diff range (cycle 2, extended for D-013):** `1dd38b0..HEAD`. `1dd38b0` = "qa: reopen t-003b fix cycle 2". It includes `4c4878c` (D-012 fix), `1242b3b` (merge main, which brings in D-013) and the D-013 fix commit at HEAD.
 **Dual check:** no
-**Issues addressed this cycle:** ISS-t-003b-c1-1 (critical), ISS-t-003b-c1-2 (high), ISS-t-003b-c1-3, ISS-t-003b-c1-4
+**Issues addressed this cycle:** ISS-t-003b-c1-1 (critical), ISS-t-003b-c1-2 (high), ISS-t-003b-c1-3, ISS-t-003b-c1-4, and the D-013 index fix (partialFilterExpression `$exists:false` is uncreatable)
 **Prior issues, unchanged this cycle (regression-covered):** ISS-018..ISS-021, ISS-026..ISS-028, ISS-t-003b-db-hardening-1, ISS-t-003-student-kg-1
 **Executor:** claude-opus-subagent
 **Executor rationale:** in-scope fix of one module (packages/db) against a fully specified decision (D-012); no external tool worth delegating to.
@@ -61,18 +61,82 @@ This ran as a script. Each mutation was applied to the file, `pnpm --filter @vc/
 | c1-3 production index in setup | skip every INDEX_PLAN index | fail=4: ISS-019 race; 11000-winner-ours; window test; INDEX_PLAN test |
 | RESTORED | all originals written back | `tests=63 pass=63 fail=0` |
 
+## D-013 evidence (cycle 2 follow-up, before the checker)
+
+**Why:** MongoDB's partialFilterExpression accepts equality, `$exists: true`, `$gt/$gte/$lt/$lte`, `$type`, `$and`, `$or` and `$in`, but not `$exists: false` (mongodb.com/docs/manual/core/index-partial, checked 2026-09-25 by the coordinator; recorded as D-013). The previous index `{validTo: {$exists: false}}` would have failed at `db:init` on the live server.
+
+**What changed:**
+- `packages/db/scripts/db-init.ts` `INDEX_PLAN`: the unique partial index is now `{studentId:1, key:1}` with `partialFilterExpression: {active: true}`, renamed `facts_studentId_key_active_true_unique`. The docstring explains why `$exists:false` cannot be used.
+- `packages/db/src/facts.ts`:
+  - `activeFilter` is `{studentId, key, active: true}`.
+  - The insert candidate carries `active: true`.
+  - The retire CAS filter is `{_id, active: true}`. The update is `{$set: {validTo: now}, $unset: {active: ""}}`, one single-document update.
+  - `proposeFactChanges` diffs only against `active === true` facts. A doc without `active`, including a pre-D-013 legacy doc with no validTo, is history.
+  - The module docstring is updated.
+- `packages/db/src/collections.ts`: `FactDoc` gains `active?: true`, which is optional and backward compatible. It is `true` on the open fact and absent on retired ones, never `false`.
+- `packages/db/tests/fakes.ts`:
+  - New exported `assertSupportedPartialFilter(filter)` throws "Expression not supported in partial index: …" on anything outside the documented set. It rejects `$exists:false`, `$ne`, `$nin`, `$not`, `$nor`, `$regex` and `field: null`, and it recurses into `$and`/`$or`. `declareUniqueIndex` calls it.
+  - `findOneAndUpdate` supports `$unset`.
+  - `{active: true}` equality was already evaluated by `matchesFilter`, and it is now exercised by the INDEX_PLAN fidelity test.
+- Test fixtures that model an OPEN fact now carry `active: true`: the proposeFactChanges fixtures, the supersede seed, the INDEX_PLAN fidelity test and the ISS-021 drifted-open-fact fixture. The `open()` helpers count `active === true`.
+
+**New tests (RED, then GREEN):**
+
+| Test | File | RED | GREEN |
+|---|---|---|---|
+| D-013: every partialFilterExpression in INDEX_PLAN passes the server-supported-operator validator | tests/db-init.test.ts | ✖ (file failed to import: `does not provide an export named 'assertSupportedPartialFilter'`; after the fake: ✖ on the old plan) | ✔ |
+| D-013: the fake rejects {validTo: {$exists: false}} as a partial filter, like the real server | tests/db-init.test.ts | ✖ (import) | ✔ |
+| D-013: the partial-filter validator accepts the documented operators and rejects the rest | tests/db-init.test.ts | ✖ (import) | ✔ |
+| ISS-019/ISS-021 regression: the facts unique-partial index is `{active: true}` and named `facts_studentId_key_active_true_unique` | tests/db-init.test.ts | ✖ | ✔ |
+| D-013: an inserted open fact carries active:true and no validTo | tests/facts.test.ts | ✖ | ✔ |
+| D-013: retiring a fact sets validTo and unsets active in ONE CAS update filtered on {_id, active:true} | tests/facts.test.ts | ✖ | ✔ |
+| D-013: applyApprovedDiff treats only active:true as open (a doc without active is history, never CAS-retired) | tests/facts.test.ts | ✖ | ✔ |
+| D-013: proposeFactChanges diffs only against active:true facts | tests/facts.test.ts | ✖ | ✔ |
+
+RED sequence in `packages/db`:
+1. Tests written first: `tests 65 / pass 49 / fail 16`. The failures were 15 facts tests plus the db-init file failing to import.
+2. After the fake validator: `tests 70 / pass 41 / fail 29`. Every test on the production index failed with `Expression not supported in partial index: validTo: {$exists: false} ($not)`. The fake reproduces the live-server failure.
+3. After INDEX_PLAN and facts.ts: `fail 1`. The remaining failure was the ISS-021 drifted fixture, which modelled an open fact without `active`, so the fixture was corrected.
+4. Final: `tests 70 / pass 70 / fail 0`.
+
+**Falsification (D-013): each change reverted by script, tests run, then restored**
+
+| Change | Revert | Observed RED |
+|---|---|---|
+| INDEX_PLAN filter `{active: true}` | back to `{validTo: {$exists: false}}` | fail=28, including the INDEX_PLAN-validator test and the ISS-019/021 plan test |
+| INDEX_PLAN name | old name | fail=1 (ISS-019/021 plan test) |
+| declareUniqueIndex validates | validation call removed | fail=1 (fake rejects `$exists:false`) |
+| validator rejects `$exists:false` | check disabled | fail=2 (rejects-`$exists:false`; accepts/rejects matrix) |
+| fake `$unset` | removed | fail=11, including the retire-CAS test |
+| insert carries `active: true` | removed | fail=15, including the inserted-active and retire-CAS tests |
+| CAS filter `{_id, active: true}` | `{_id, validTo: {$exists:false}}` | fail=1 (retire-CAS test) |
+| CAS update `$unset: {active: ""}` | `$set` only | fail=11, including the retire-CAS test |
+| activeFilter `active: true` | `validTo: {$exists:false}` | fail=1 (only-active-is-open test) |
+| proposeFactChanges `active === true` | `validTo === undefined` | fail=1 (proposeFactChanges D-013 test) |
+| RESTORED | | `tests=70 pass=70 fail=0` |
+
+**Out of scope (mcp/, not edited per brief). These still use the old "open = no validTo" rule:**
+- `mcp/student-profile/src/index.ts:108`: `get_profile_facts` query filter `validTo: { $exists: false }`. This is a query, not an index, so the server accepts it. It is inconsistent with D-013 and should become `active: true`. As written it would also return legacy docs with no `active` field.
+- `mcp/student-profile/src/index.ts:154`: a comment ("proposeFactChanges itself filters to the active ones, no validTo") that D-013 makes stale.
+- `mcp/student-profile/tests/index.test.ts`: `seedFact` fixtures at lines 97, 109, 134, 173, 304, 358, 413 and 469 seed OPEN facts without `active: true`. Under D-013, `proposeFactChanges` treats them as history. **Two mcp tests now fail as a result**:
+  - `B3 propose_profile_diff writes nothing…`: its `['add','add']` does not equal the expected `['add','update']`.
+  - `ISS-029: the legitimate path…` (`index.test.ts:505`): `'add' !== 'update'`.
+  - The fix is to add `active: true` to the open-fact seeds (and change line 108), in the mcp/student-profile unit.
+- `mcp/student-profile/tests/fakes.ts:16-18` and `mcp/university-kb/tests/fakes.ts:16-18`: `$exists` handling in the fake query matcher. This is valid for queries and needs no change, but those fakes have no partial-filter validator.
+
 ## How to verify (commands + expected)
 
 - `pnpm -r typecheck` → exit 0, all 9 workspaces "Done"
-- `pnpm -r test` → exit 0; `packages/db test: ℹ tests 63 / ℹ pass 63 / ℹ fail 0` (50 in cycle 1, plus 13 new)
+- `pnpm -r test` → `packages/db test: ℹ tests 70 / pass 70 / fail 0`. **Exit 1** because of the 2 out-of-scope `mcp/student-profile` fixture failures listed above. Every other workspace is green.
 - `python contracts/verify_contracts.py` → exit 0, PASS by vacuity
-- `git diff --stat 1dd38b0..HEAD` → only `packages/db/**` and this manifest; `pnpm-lock.yaml` untouched
+- `git diff --stat 1dd38b0..HEAD -- . ':!docs/DECISIONS.md'` → only `packages/db/**` and this manifest (docs/DECISIONS.md changes come only from the `merge main` of D-013); `pnpm-lock.yaml` is untouched
 
-## Actual outputs (maker's own run, cycle 2)
+## Actual outputs (maker's own run, cycle 2 + D-013)
 
 ```
 $ pnpm -r typecheck            (exit 0)
 apps/api typecheck: Done
+apps/web typecheck: Done
 packages/providers typecheck: Done
 packages/observability typecheck: Done
 packages/schemas typecheck: Done
@@ -80,27 +144,28 @@ packages/engine typecheck: Done
 packages/db typecheck: Done
 mcp/student-profile typecheck: Done
 mcp/university-kb typecheck: Done
-apps/web typecheck: Done
 
-$ pnpm -r test                 (exit 0)
+$ pnpm -r test                 (exit 1: mcp/student-profile, out of scope, see above)
+apps/web            ℹ tests 1  pass 1  fail 0
 apps/api            ℹ tests 1  pass 1  fail 0
 packages/providers  ℹ tests 1  pass 1  fail 0
-apps/web            ℹ tests 1  pass 1  fail 0
 packages/schemas    ℹ tests 50 pass 50 fail 0
 packages/observability ℹ tests 43 pass 43 fail 0
 packages/engine     ℹ tests 31 pass 31 fail 0
-packages/db         ℹ tests 63 pass 63 fail 0
+packages/db         ℹ tests 70 pass 70 fail 0
 mcp/university-kb   ℹ tests 9  pass 9  fail 0
-mcp/student-profile ℹ tests 11 pass 11 fail 0
+mcp/student-profile ℹ tests 11 pass 9  fail 2
+  ✖ B3 propose_profile_diff writes nothing: the facts collection is unchanged after the call, read back directly
+  ✖ ISS-029: the legitimate path (consented purpose, fact tagged with that purpose) still produces a correct update diff
 
 $ python contracts/verify_contracts.py   (exit 0)
 verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity
 ```
 
-## Open risk surfaced this cycle (NOT fixed; outside the D-012 scope, needs a decision)
+## Remaining risk
 
-- **[UNVERIFIED, from memory of the MongoDB docs] The production unique partial index may not be creatable.** `INDEX_PLAN`'s `facts_studentId_key_active_unique` uses `partialFilterExpression: { validTo: { $exists: false } }`. MongoDB's partial-index filter supports equality, `$exists: true`, `$gt/$gte/$lt/$lte`, `$type`, `$and`/`$or`/`$in`. As far as I recall, it does NOT support `$exists: false` (the server rejects it as `$not`). If so, `pnpm db:init` would fail on the live server, and ISS-019, the concurrency guarantees and this cycle's 11000 handling would have no index behind them in production. The fake accepts the filter, so offline tests can not catch this. A fix changes the data model (for example an `active: true` field or a `$type`-based filter), so it needs its own decision. Recommendation: confirm against the docs or a scratch collection before T-003b ships; do not treat the offline green as proof of the index.
-- `scripts/db-init.ts` `main()` is still not run by this unit (B8/B12: offline only). Live `createIndex` behaviour is unverified, as it was in cycles 0 and 1.
+- `scripts/db-init.ts` `main()` is still not run by this unit (B8/B12: offline only). The index shape is now checked against the documented operator whitelist by the fake validator, but no live `createIndex` has run. The coordinator's scratch-collection probe was classifier-denied (D-013).
+- Legacy pre-D-013 open facts (no `active` field) are treated as history. The production `facts` collection has not been initialised yet (db:init has never run), so none should exist. If any do, a one-off backfill `{validTo: {$exists: false}} → $set {active: true}` is needed before db:init creates the unique index.
 
 ## Live browser evidence
 Not UI-touching. Only `packages/db/**` and this manifest changed.

@@ -37,16 +37,24 @@
  *     (A -> B -> A): the insert failed with 11000 on `_id` and the key was
  *     left at zero open facts for good. With fresh ids, history simply grows
  *     (A retired, B retired, A open) and the old A stays retired.
+ *   - **"Open" means `active: true` (D-013).** An open fact carries an
+ *     explicit `active: true`. Retiring it sets `validTo` (history) and
+ *     `$unset`s `active` in the SAME single-document CAS update, so a doc is
+ *     never half-retired. Every open-fact read filters on `{active: true}`.
+ *     A doc with no `active` field is history, even if `validTo` is unset
+ *     (e.g. a pre-D-013 legacy doc); it is never diffed against or retired.
+ *     `{validTo: {$exists: false}}` can not be used: MongoDB rejects
+ *     `$exists: false` in a partialFilterExpression.
  *   - **Duplicate open facts from a concurrent writer.** scripts/db-init.ts
  *     creates a UNIQUE partial index on `facts` — {studentId, key} unique
- *     among documents where `validTo` is unset ("the active fact for this
- *     key"). Two callers racing to open a fact for the same key can only ever
+ *     among documents where `active: true` ("the open fact for this key"). Two callers racing to open a fact for the same key can only ever
  *     have one insert succeed; the loser's `insertOne` throws a Mongo
  *     duplicate-key error (code 11000).
  *   - **Sequential updates to the same key must never spuriously conflict
  *     (ISS-026).** The old fact is RETIRED FIRST, via a compare-and-swap
- *     `findOneAndUpdate` filtered on `{_id: existing._id, validTo:
- *     {$exists:false}}`, and the new fact is inserted only after that.
+ *     `findOneAndUpdate` filtered on `{_id: existing._id, active: true}`
+ *     (update: `$set validTo` + `$unset active`), and the new fact is
+ *     inserted only after that.
  *     Inserting first would be rejected by the unique partial index, because
  *     for a moment two facts would be open for the key.
  *   - **A lost race is read back, never assumed (ISS-t-003b-c1-2, B14).** On
@@ -214,7 +222,7 @@ export class PartialApplyError extends Error {
 export interface ProposeFactChangesInput {
   studentId: string;
   summary: string;
-  /** Currently stored facts for this student (active + superseded; only active ones — no validTo — are diffed against). */
+  /** Currently stored facts for this student (active + superseded; only `active: true` ones are diffed against, D-013). */
   existingFacts: FactDoc[];
   /** Newly extracted facts from this session, each already carrying a citation (B2). */
   candidateFacts: Fact[];
@@ -229,7 +237,7 @@ export interface ProposeFactChangesInput {
 export function proposeFactChanges(input: ProposeFactChangesInput): ProfileDiff {
   const activeByKey = new Map<string, FactDoc>();
   for (const fact of input.existingFacts) {
-    if (fact.validTo !== undefined) continue; // only active facts are diffed against
+    if (fact.active !== true) continue; // D-013: only active:true facts are diffed against
     const parsed = FactSchema.safeParse(fact);
     if (!parsed.success) {
       // ISS-021: a stored fact that no longer matches FactSchema (schema
@@ -339,7 +347,7 @@ export async function applyApprovedDiff(
       const activeFilter: Filter<FactDoc> = {
         studentId: diff.studentId,
         key: fact.key,
-        validTo: { $exists: false },
+        active: true, // D-013: open == active:true (served by the partial unique index)
       };
       // D-012: identity (_id) and content (contentHash) are separate. The
       // hash decides "is this write already applied?"; the _id is always fresh.
@@ -358,8 +366,10 @@ export async function applyApprovedDiff(
           // _id with validTo still unset. Inserting first would collide with
           // the unique partial index (two open facts for a moment).
           const retired = await facts.findOneAndUpdate(
-            { _id: existingBefore._id, validTo: { $exists: false } } as Filter<FactDoc>,
-            { $set: { validTo: now } },
+            { _id: existingBefore._id, active: true } as Filter<FactDoc>,
+            // D-013: ONE atomic update closes the fact: validTo for history,
+            // and `active` removed so it leaves the partial unique index.
+            { $set: { validTo: now }, $unset: { active: "" } },
           );
           if (retired) {
             supersededKeys.push(fact.key);
@@ -386,6 +396,7 @@ export async function applyApprovedDiff(
             _id: new ObjectId().toHexString(),
             studentId: diff.studentId,
             contentHash,
+            active: true, // D-013: enters the partial unique index as THE open fact
           };
           try {
             await facts.insertOne(candidate);

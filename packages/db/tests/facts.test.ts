@@ -44,7 +44,7 @@ function setup() {
   const edgesColl = fakeDb.collection<{ _id: string; from: { kind: string; id: string }; to: { kind: string; id: string }; rel: string }>(
     COLLECTION_NAMES.edges,
   );
-  const open = (key = "targetCountry") => factsColl.all().filter((f) => f.validTo === undefined && f.key === key);
+  const open = (key = "targetCountry") => factsColl.all().filter((f) => f.active === true && f.key === key);
   return { db, fakeDb, factsColl, edgesColl, open };
 }
 
@@ -77,7 +77,7 @@ test("proposeFactChanges never touches the facts collection (it only returns a P
 });
 
 test("proposeFactChanges emits an 'update' op when a candidate changes an existing active fact's value", () => {
-  const existing: FactDoc = { ...citedFact(), _id: "student-1:targetCountry:v1", studentId: "student-1" };
+  const existing: FactDoc = { ...citedFact(), _id: "student-1:targetCountry:v1", studentId: "student-1", active: true };
   const diff = proposeFactChanges({
     studentId: "student-1",
     summary: "session summary",
@@ -91,7 +91,7 @@ test("proposeFactChanges emits an 'update' op when a candidate changes an existi
 });
 
 test("proposeFactChanges emits no change when the candidate value matches the existing active fact", () => {
-  const existing: FactDoc = { ...citedFact(), _id: "student-1:targetCountry:v1", studentId: "student-1" };
+  const existing: FactDoc = { ...citedFact(), _id: "student-1:targetCountry:v1", studentId: "student-1", active: true };
   const diff = proposeFactChanges({
     studentId: "student-1",
     summary: "session summary",
@@ -176,7 +176,7 @@ test("applyApprovedDiff falls back to a source-derived edge when no sessionId is
 test("supersede-not-delete: approving a changed value closes the old fact via validTo instead of removing it", async () => {
   const { db, fakeDb } = setup();
   const factsColl = fakeDb.collection<FactDoc>(COLLECTION_NAMES.facts);
-  const existing: FactDoc = { ...citedFact(), _id: "student-1:targetCountry:v1", studentId: "student-1" };
+  const existing: FactDoc = { ...citedFact(), _id: "student-1:targetCountry:v1", studentId: "student-1", active: true };
   factsColl.seed(existing);
 
   const decision: CounsellorDecision = {
@@ -216,7 +216,7 @@ test("ISS-020: applyApprovedDiff twice with the same inputs is idempotent (one o
   assert.equal(second.supersededKeys.length, 0, "replay must not treat its own fact as something it superseded");
 
   const factsColl = fakeDb.collection<FactDoc>(COLLECTION_NAMES.facts);
-  const openFacts = factsColl.all().filter((f) => f.validTo === undefined);
+  const openFacts = factsColl.all().filter((f) => f.active === true);
   assert.equal(openFacts.length, 1, "replay must not create a second open fact");
 
   const edgesColl = fakeDb.collection(COLLECTION_NAMES.edges);
@@ -254,7 +254,7 @@ test("ISS-019: interleaving two applyApprovedDiff calls for the same (studentId,
     assert.ok(r.reason instanceof FactConflictError, `expected FactConflictError, got ${String(r.reason)}`);
   }
 
-  const openFacts = factsColl.all().filter((f) => f.validTo === undefined && f.key === "targetCountry");
+  const openFacts = factsColl.all().filter((f) => f.active === true && f.key === "targetCountry");
   assert.ok(openFacts.length <= 1, `expected at most one open fact after the race, got ${openFacts.length}`);
 });
 
@@ -267,6 +267,7 @@ test("ISS-021: proposeFactChanges treats structurally-equal object/array values 
     ...citedFact({ value: { country: "Canada", cities: ["Toronto", "Vancouver"] } }),
     _id: "student-1:targetCountry:v1",
     studentId: "student-1",
+    active: true,
   };
   const diff = proposeFactChanges({
     studentId: "student-1",
@@ -284,6 +285,7 @@ test("ISS-021: proposeFactChanges DOES flag an object/array value whose content 
     ...citedFact({ value: { country: "Canada", cities: ["Toronto"] } }),
     _id: "student-1:targetCountry:v1",
     studentId: "student-1",
+    active: true,
   };
   const diff = proposeFactChanges({
     studentId: "student-1",
@@ -299,6 +301,7 @@ test("ISS-021: proposeFactChanges skips a schema-drifted stored fact instead of 
   const drifted = {
     _id: "student-1:targetCountry:v1",
     studentId: "student-1",
+    active: true, // D-013: a drifted OPEN fact (a history doc is skipped before the schema check)
     key: "targetCountry",
     value: "Canada",
     // missing `source` (required by FactSchema, B2) — simulates a legacy
@@ -360,7 +363,7 @@ test("ISS-026: two SEQUENTIAL applyApprovedDiff calls with different values for 
   assert.equal(second.written.length, 1, "the second sequential update must succeed, not throw FactConflictError");
   assert.deepEqual(second.supersededKeys, ["targetCountry"], "supersededKeys must contain the updated key");
 
-  const openFacts = factsColl.all().filter((f) => f.validTo === undefined);
+  const openFacts = factsColl.all().filter((f) => f.active === true);
   assert.equal(openFacts.length, 1, "exactly one open fact after two sequential updates to the same key");
   assert.equal(openFacts[0]?.value, "United Kingdom");
 });
@@ -379,7 +382,7 @@ test("ISS-026: a crash between retiring the old fact and inserting the new one h
     validTo: "2026-09-24T00:00:00.000Z",
   });
   assert.equal(
-    factsColl.all().filter((f) => f.validTo === undefined).length,
+    factsColl.all().filter((f) => f.active === true).length,
     0,
     "precondition: zero open facts for this key, simulating the crash window",
   );
@@ -387,7 +390,7 @@ test("ISS-026: a crash between retiring the old fact and inserting the new one h
   const decision: CounsellorDecision = { approve: true, edits: [citedFact({ value: "United Kingdom" })] };
   const result = await applyApprovedDiff(db, emptyDiff(), decision, "session-1");
 
-  const openFacts = factsColl.all().filter((f) => f.validTo === undefined);
+  const openFacts = factsColl.all().filter((f) => f.active === true);
   assert.equal(openFacts.length, 1, "retry after the simulated crash must heal to exactly one open fact");
   assert.equal(result.written.length, 1);
   assert.equal(
@@ -481,9 +484,9 @@ test("ISS-t-003b-c1-3: FakeCollection.findOneAndUpdate returns the PRE-image by 
 test("ISS-t-003b-c1-3: the facts tests run with the production unique partial index from INDEX_PLAN", async () => {
   const { factsColl } = setup();
   const base = { ...citedFact(), studentId: "student-1" };
-  await factsColl.insertOne({ ...base, _id: "a" });
+  await factsColl.insertOne({ ...base, _id: "a", active: true });
   await assert.rejects(
-    () => factsColl.insertOne({ ...base, _id: "b" }),
+    () => factsColl.insertOne({ ...base, _id: "b", active: true }),
     (err: unknown) => (err as { code?: number }).code === 11000,
   );
   await factsColl.insertOne({ ...base, _id: "c", validTo: "2026-09-25T00:00:00.000Z" });
@@ -670,4 +673,61 @@ test("crash between retire and insert: re-running the same decision heals to exa
   assert.equal(open().length, 1);
   assert.equal(open()[0]?.value, "United Kingdom");
   assert.equal(factsColl.size(), 2);
+});
+
+// ---------------------------------------------------------------------------
+// D-013: open facts carry `active: true`; retiring sets validTo AND unsets
+// active in the same CAS update; every open-fact read filters on active:true.
+// ---------------------------------------------------------------------------
+
+test("D-013: an inserted open fact carries active:true and no validTo", async () => {
+  const { db, factsColl } = setup();
+  const r = await applyValue(db, "Canada");
+  const stored = await factsColl.findOne({ _id: r.written[0]!._id });
+  assert.equal(stored?.active, true);
+  assert.equal(stored?.validTo, undefined);
+});
+
+test("D-013: retiring a fact sets validTo and unsets active in ONE CAS update filtered on {_id, active:true}", async () => {
+  const { db, factsColl } = setup();
+  const first = await applyValue(db, "Canada");
+  const calls: Array<{ filter: unknown; update: unknown }> = [];
+  const original = factsColl.findOneAndUpdate.bind(factsColl);
+  factsColl.findOneAndUpdate = (async (filter: Record<string, unknown>, update: Record<string, unknown>, options?: { returnDocument?: "before" | "after" }) => {
+    calls.push({ filter, update });
+    return original(filter, update, options);
+  }) as typeof factsColl.findOneAndUpdate;
+  await applyValue(db, "United Kingdom");
+
+  assert.equal(calls.length, 1, "exactly one CAS update per supersession");
+  assert.deepEqual(calls[0]?.filter, { _id: first.written[0]!._id, active: true });
+  const update = calls[0]?.update as { $set?: { validTo?: string }; $unset?: Record<string, unknown> };
+  assert.ok(update.$set?.validTo, "the CAS update sets validTo");
+  assert.deepEqual(update.$unset, { active: "" }, "the SAME update unsets active");
+
+  const old = await factsColl.findOne({ _id: first.written[0]!._id });
+  assert.ok(old?.validTo);
+  assert.equal("active" in (old as object), false, "a retired fact has no active field at all");
+});
+
+test("D-013: applyApprovedDiff treats only active:true as open (a doc without active is history, never CAS-retired)", async () => {
+  const { db, factsColl, open } = setup();
+  // A doc with no validTo but also no `active` is NOT open under D-013.
+  factsColl.seed({ ...citedFact({ value: "Canada" }), _id: "legacy", studentId: "student-1" });
+  const r = await applyValue(db, "United Kingdom");
+  assert.deepEqual(r.supersededKeys, [], "nothing active to supersede");
+  assert.equal(open().length, 1);
+  assert.equal(open()[0]?.value, "United Kingdom");
+});
+
+test("D-013: proposeFactChanges diffs only against active:true facts", () => {
+  const history: FactDoc = { ...citedFact({ value: "Canada" }), _id: "h", studentId: "student-1" };
+  const diff = proposeFactChanges({
+    studentId: "student-1",
+    summary: "s",
+    existingFacts: [history],
+    candidateFacts: [citedFact({ value: "Canada" })],
+  });
+  assert.equal(diff.changes.length, 1);
+  assert.equal(diff.changes[0]?.op, "add", "a fact without active:true is not the current value");
 });

@@ -47,8 +47,11 @@ export interface SessionDoc {
  * idempotent-replay detection. `contentHash` is optional only so a legacy doc
  * written before D-012 still types; such a doc never matches a replay and is
  * simply superseded by the next approved write.
+ * D-013: `active` is `true` on the open fact for a (studentId, key) and
+ * ABSENT on every retired one (never `false`), because the unique partial
+ * index filters on `{active: true}`. Optional so legacy docs still type.
  */
-export type FactDoc = Fact & { _id: string; studentId: string; contentHash?: string };
+export type FactDoc = Fact & { _id: string; studentId: string; contentHash?: string; active?: true };
 
 /** A stored Consent row: the Zod-validated shape plus its Mongo identity field. */
 export type ConsentDoc = Consent & { _id: string };

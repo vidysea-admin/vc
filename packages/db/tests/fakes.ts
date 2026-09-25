@@ -20,6 +20,42 @@ function matchesFilter(doc: Record<string, unknown>, filter: Filter): boolean {
   });
 }
 
+/**
+ * D-013: throws on any partialFilterExpression the real server rejects, so an
+ * offline test can never again pass against an index `createIndex` would
+ * refuse. Per the MongoDB manual (core/index-partial, checked 2026-09-25) a
+ * partial filter accepts ONLY: equality (`field: value` or `$eq`),
+ * `$exists: true`, `$gt/$gte/$lt/$lte`, `$type`, `$in`, and top-level
+ * `$and`/`$or` of those. Everything else — notably `$exists: false` (the
+ * server rewrites it to `$not`), `$ne`, `$nin`, `$not`, `$nor`, `$regex`, and
+ * `field: null` (which the server also treats as a missing-field match) — is
+ * rejected with the server's own wording ("not supported in partial index").
+ */
+export function assertSupportedPartialFilter(filter: Filter, path = ""): void {
+  const reject = (what: string): never => {
+    throw new Error(`Expression not supported in partial index: ${what}${path ? ` (at ${path})` : ""}`);
+  };
+  for (const [field, expected] of Object.entries(filter)) {
+    if (field === "$and" || field === "$or") {
+      if (!Array.isArray(expected) || expected.length === 0) reject(`${field} must be a non-empty array`);
+      (expected as Filter[]).forEach((sub, i) => assertSupportedPartialFilter(sub, `${path}${field}[${i}].`));
+      continue;
+    }
+    if (field.startsWith("$")) reject(field);
+    if (expected === null) reject(`${field}: null`);
+    if (typeof expected !== "object" || Array.isArray(expected) || expected instanceof Date) continue; // equality
+    const ops = Object.entries(expected as Record<string, unknown>);
+    if (ops.length === 0 || !ops.every(([op]) => op.startsWith("$"))) continue; // embedded-document equality
+    for (const [op, arg] of ops) {
+      if (op === "$exists") {
+        if (arg !== true) reject(`${field}: {$exists: ${JSON.stringify(arg)}} ($not)`);
+      } else if (!["$eq", "$gt", "$gte", "$lt", "$lte", "$type", "$in"].includes(op)) {
+        reject(`${field}: {${op}}`);
+      }
+    }
+  }
+}
+
 export interface FakeUniqueIndexSpec {
   keys: string[];
   partialFilterExpression?: Filter;
@@ -53,6 +89,8 @@ export class FakeCollection<T extends { _id: string }> {
    * {studentId, key} where `validTo` is unset).
    */
   declareUniqueIndex(keys: string[], options: { partialFilterExpression?: Filter } = {}): void {
+    // D-013: refuse a filter the real server would refuse at createIndex.
+    if (options.partialFilterExpression) assertSupportedPartialFilter(options.partialFilterExpression);
     this.uniqueIndexes.push({ keys, partialFilterExpression: options.partialFilterExpression });
   }
 
@@ -113,7 +151,7 @@ export class FakeCollection<T extends { _id: string }> {
    */
   async findOneAndUpdate(
     filter: Filter,
-    update: { $set?: Partial<T> },
+    update: { $set?: Partial<T>; $unset?: Record<string, unknown> },
     options: { returnDocument?: "before" | "after" } = {},
   ): Promise<T | null> {
     const existing = [...this.docs.values()].find((doc) =>
@@ -122,6 +160,8 @@ export class FakeCollection<T extends { _id: string }> {
     if (!existing) return null;
     const preImage = structuredClone(existing);
     if (update.$set) Object.assign(existing, update.$set);
+    // D-013: `$unset` removes the field entirely (the retire CAS unsets `active`).
+    for (const field of Object.keys(update.$unset ?? {})) delete (existing as Record<string, unknown>)[field];
     return options.returnDocument === "after" ? structuredClone(existing) : preImage;
   }
 
