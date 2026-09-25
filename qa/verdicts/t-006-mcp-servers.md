@@ -134,7 +134,7 @@ scratch copy (`%TEMP%\claude\d--vc\...\scratchpad\t006-checker-falsify`, `tar`-c
 - Falsified file reverted to the `.bak` copy inside the scratch directory only; the real worktree
   was never touched (`git status --porcelain=v1` above shows nothing under `mcp/`).
 
-## New finding: B4 consent bypass via `propose_profile_diff` (see ISS-026)
+## New finding: B4 consent bypass via `propose_profile_diff` (see ISS-029)
 
 While independently probing `propose_profile_diff`'s "writes nothing" claim, I tested a second,
 unstated property: **does the tool leak existing profile data to a caller with no consent at
@@ -172,7 +172,7 @@ path for existing profile facts that bypasses B4 entirely.
 This directly contradicts contract B4 ("Every fact carries purposeTags + sensitivity. A session
 without a recorded consent row cannot be processed") and B14 ("Any allow-list or deny-list guard
 has a hostile-variant test") — there is no guard here at all, so there is no test for it either.
-Filed as **ISS-026, severity critical** (see `qa/issues.jsonl`).
+Filed as **ISS-029, severity critical** (see `qa/issues.jsonl`).
 
 ## Contract criteria — summary
 
@@ -180,16 +180,16 @@ Filed as **ISS-026, severity critical** (see `qa/issues.jsonl`).
 |---|---|---|
 | B2 (cited facts) | MET | `CourseDocSchema` requires `sourceUrl`/`fetchedAt`; missing, empty-string, and invalid-datetime variants all dropped/errored, not invented. `FactSchema.source` is a required discriminated union (packages/schemas). |
 | B3 (writes only after approval / propose writes nothing) | MET for the literal claim | `propose_profile_diff` never calls `factsCollection(db).insertOne/updateOne`; `applyApprovedDiff` is not imported (`grep -n applyApprovedDiff mcp/student-profile/src/index.ts` → 3 hits, all in doc-comments). Re-verified via `collection.size()` before/after. |
-| B4 (consent first) | **NOT MET** | `get_profile_facts` is correctly gated; `propose_profile_diff` is not gated at all and leaks existing fact values with zero consent (ISS-026). |
+| B4 (consent first) | **NOT MET** | `get_profile_facts` is correctly gated; `propose_profile_diff` is not gated at all and leaks existing fact values with zero consent (ISS-029). |
 | B6 (tools are MCP) | MET | Both tools proven callable via a real `Client`/`InMemoryTransport` round trip, `tools/list` and `tools/call`. |
 | B8/B12 (offline tests, DB helper only) | MET | No network I/O in any test (fake `Db`/`Collection` only); `packages/db`'s repo-wide `.db(` scan (covers `mcp/**`) passes; independently grepped, zero `client.db(`/`.db(` hits in `mcp/`. |
 | B11 (secrets) | MET | No literal `MONGODB_URL`/`mongodb://` in `mcp/`; keys only ever read via `connectFromEnv(process.env)` in the untested `bin.ts`. |
 | B13 (no student data to external models) | MET (informational) | Both READMEs carry the per-use gate note; this unit makes no external-model calls at all. |
-| B14 (outcome, not construction; hostile-variant tests) | **NOT MET** | Both `get_profile_facts` and `search_courses`/`get_course` prove their outcome end to end with hostile variants. `propose_profile_diff` has no guard and no hostile-variant test for the leak in ISS-026 — the exact gap B14 exists to catch. |
+| B14 (outcome, not construction; hostile-variant tests) | **NOT MET** | Both `get_profile_facts` and `search_courses`/`get_course` prove their outcome end to end with hostile variants. `propose_profile_diff` has no guard and no hostile-variant test for the leak in ISS-029 — the exact gap B14 exists to catch. |
 
 ## New issues
 
-One new issue found and appended to `qa/issues.jsonl` (ISS-026, severity critical — see above and
+One new issue found and appended to `qa/issues.jsonl` (ISS-029, severity critical — see above and
 the ledger entry for the exact fix suggestion).
 
 ## Why this is a cycle-0 FAIL, not a PASS-with-issue

@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B2, B3, B4, B6, B8, B11, B12, B13, B14)
 **Goal task:** T-006
 **Date:** 2026-09-25
-**Fix cycle:** 0
+**Fix cycle:** 1 of max 3 (cycle-0 FAIL: ISS-029 critical)
 **Dual check:** no
 **Issues addressed:** none
 **Executor:** claude-sonnet-subagent
