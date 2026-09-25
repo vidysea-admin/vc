@@ -8,7 +8,15 @@
  * (ARCHITECTURE.md Q1). Nothing in this package reads or writes them.
  */
 import type { Collection, Db } from "mongodb";
-import { FactSchema, ConsentSchema, DecisionSchema, type Fact, type Consent, type Decision } from "@vc/schemas";
+import {
+  FactSchema,
+  ConsentSchema,
+  DecisionSchema,
+  type CounsellorDecision,
+  type Fact,
+  type Consent,
+  type Decision,
+} from "@vc/schemas";
 import type { EdgeDoc } from "./edges.js";
 
 export type { EdgeDoc };
@@ -20,6 +28,8 @@ export const COLLECTION_NAMES = {
   decisions: "decisions",
   consents: "consents",
   edges: "edges",
+  // ISS-t-007-rev-8: one approval claim per scribe thread (unique threadId, see INDEX_PLAN).
+  scribe_resolutions: "scribe_resolutions",
   // Name constants only — owned by the university-kb unit (ARCHITECTURE Q1).
   universities: "universities",
   courses: "courses",
@@ -59,6 +69,28 @@ export type ConsentDoc = Consent & { _id: string };
 /** A stored Decision (plan.md §4 step 1): the Zod-validated shape plus identity + timestamp. */
 export type DecisionDoc = Decision & { _id: string; decidedAt: string };
 
+/**
+ * ISS-t-007-rev-8: the atomic, cross-process claim on a scribe thread's approval interrupt.
+ * resumeScribe inserts one of these BEFORE resuming the graph; the unique index on `threadId`
+ * (INDEX_PLAN) makes a second, concurrent claim fail with 11000, so exactly one counsellor
+ * decision can ever be applied per thread. `_id` is the threadId as well.
+ * - `decision`: the CounsellorDecision the winner's response resolves to (what a loser is told).
+ * - `response`: the winner's validated approval response, kept so crash recovery
+ *   (resumeScribe(null)) can apply the claimed decision if the process died after the claim but
+ *   before the graph recorded it.
+ * - `responseHash`: sha256 of the canonical JSON of `response`; equal hash = the same request.
+ * - `studentId`: for B15/T-011 erasure (the doc holds the decision's fact values).
+ */
+export interface ScribeResolutionDoc {
+  _id: string;
+  threadId: string;
+  studentId: string;
+  decision: CounsellorDecision;
+  response: Record<string, unknown>;
+  responseHash: string;
+  claimedAt: string;
+}
+
 export function studentsCollection(db: Db): Collection<StudentDoc> {
   return db.collection<StudentDoc>(COLLECTION_NAMES.students);
 }
@@ -81,6 +113,10 @@ export function consentsCollection(db: Db): Collection<ConsentDoc> {
 
 export function edgesCollection(db: Db): Collection<EdgeDoc> {
   return db.collection<EdgeDoc>(COLLECTION_NAMES.edges);
+}
+
+export function scribeResolutionsCollection(db: Db): Collection<ScribeResolutionDoc> {
+  return db.collection<ScribeResolutionDoc>(COLLECTION_NAMES.scribe_resolutions);
 }
 
 /** Validates a candidate Fact against the shared Zod schema before any write. */

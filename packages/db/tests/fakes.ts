@@ -17,8 +17,24 @@ function matchesFilter(doc: Record<string, unknown>, filter: Filter): boolean {
       const exists = doc[key] !== undefined;
       return exists === (expected as { $exists: boolean }).$exists;
     }
-    return doc[key] === expected;
+    return valueMatches(doc[key], expected);
   });
+}
+
+/**
+ * ISS-t-007-c1-1: Mongo equality semantics for one field. A scalar filter value against an ARRAY
+ * field matches when the array contains it (`{purposeTags: "x"}` matches `["x", "y"]`); an array
+ * filter value matches an exactly-equal array (order-sensitive) or an array element equal to it.
+ * Everything else is strict equality, as before.
+ */
+function valueMatches(actual: unknown, expected: unknown): boolean {
+  if (actual === expected) return true;
+  if (Array.isArray(expected)) {
+    const want = JSON.stringify(expected);
+    if (JSON.stringify(actual) === want) return true;
+    return Array.isArray(actual) && actual.some((el) => JSON.stringify(el) === want);
+  }
+  return Array.isArray(actual) && actual.some((el) => el === expected);
 }
 
 /**
@@ -128,7 +144,8 @@ export class FakeCollection<T extends { _id: string }> {
   /**
    * T-007: the scribe graph reads a student's open facts with
    * `find({studentId, active: true}).toArray()` (the query the unique partial
-   * index serves). Equality-only matching, like findOne. Returns copies so a
+   * index serves). Mongo equality semantics, like findOne, including array-contains-scalar
+   * (ISS-t-007-c1-1: `{purposeTags: purpose}` matches a doc whose purposeTags include it). Returns copies so a
    * caller mutating a result never mutates the stored doc (driver semantics).
    */
   find(filter: Filter = {}): { toArray: () => Promise<T[]> } {

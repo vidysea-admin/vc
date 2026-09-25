@@ -2,11 +2,11 @@
 **Contract:** qa/contracts/counselling-engine.md (B1, B2, B3, B4, B5, B6, B7, B8, B9, B11, B12, B13, B14; B16 context)
 **Goal task:** T-007
 **Date:** 2026-09-25
-**Status:** fix-in-progress
+**Status:** ready-for-check
 **Fix cycle:** 2 of max 3 (cycle-1 checker PASS 4916102 overridden by senior Block: ISS-t-007-rev-8 concurrent-resume race, reproduced)
-**Fix cycle budget:** 1 of max 3
+**Fix cycle budget:** 2 of max 3
 **Design:** H1/D-002 (LangGraph.js 1.x StateGraph, thin wiring, `interrupt()` approval), H5/D-005 (SKILL.md prompts, code guards before any LLM call, provider seam), D-012 (sessionId-keyed contentHash idempotency), D-013 (open fact = `active: true`)
-**Cycle-1 diff range:** `7e8474d..HEAD` (the single commit "fix(engine): t-007 cycle 1 — ..."; `7e8474d` = "qa: t-007 fix cycle 1 (review findings before merge)"). **Cycle-0 unit diff range:** `067ebb8..1d2d452`. `067ebb8` = "tasks: T-003b done; T-007 carry-forward notes" (the main branch point); `1d2d452` = the single cycle-0 T-007 commit "feat(engine): T-007 post-session scribe graph (...)".
+**Cycle-2 diff range:** `d80dc43..HEAD` (see "Fix cycle 2"). **Cycle-1 diff range:** `7e8474d..HEAD` (the single commit "fix(engine): t-007 cycle 1 — ..."; `7e8474d` = "qa: t-007 fix cycle 1 (review findings before merge)"). **Cycle-0 unit diff range:** `067ebb8..1d2d452`. `067ebb8` = "tasks: T-003b done; T-007 carry-forward notes" (the main branch point); `1d2d452` = the single cycle-0 T-007 commit "feat(engine): T-007 post-session scribe graph (...)".
 **Scope:** `packages/engine/src/scribe/**` (new), `packages/engine/src/index.ts` (one additive export line), `packages/engine/tests/scribe*` (new), `packages/engine/package.json`, `packages/providers/**`, `packages/observability/src/{config,tracing}.ts` + `tests/tracing.test.ts` (ISS-025, ISS-t-004-langfuse-1), `packages/db/tests/fakes.ts` (test-only `find()`), `.env.example` (two key names, no values), `pnpm-lock.yaml`, this manifest.
 **Not touched (brief constraints):** `.claude/**`, `docs/DECISIONS.md`, `scripts/**`, `packages/engine/src/guards/**` (imported only; T-005b is changing `crisis.ts` in parallel), `packages/db/src/**`.
 **Dual check:** no
@@ -150,6 +150,85 @@ The script is `scratchpad/t007c1-falsify.py`. For each guard it makes an assert-
 - `resumeScribe` (the API) decides `already_resolved`, not the graph. A caller that bypasses `resumeScribe` and calls `graph.invoke(new Command(...))` directly still gets LangGraph's cached replay. The supported entry point is guarded and documented.
 - After a crashed write, the decision is recorded but there is no result. A resume with a response then returns `already_resolved` with `result: null`, and the retry path is `resumeScribe(graph, null, ...)`.
 - The schema-error check is `instanceof ZodError || name === "ZodError"`, so a duplicated zod copy in the provider package cannot turn a schema error into a throw that is never retried.
+
+## Fix cycle 2 (ISS-t-007-rev-8 high / ISS-t-007-c1-2, ISS-t-007-c1-1)
+
+**Cycle-2 diff range:** `d80dc43..HEAD`. This is the single commit "fix(engine,db): t-007 cycle 2 — atomic resume claim (scribe_resolutions unique threadId), array-contains fake". `d80dc43` is "qa: t-007 fix cycle 2 (senior Block overrides cycle-1 PASS)".
+
+**Files in the cycle-2 diff:**
+- `packages/db/src/collections.ts`: `COLLECTION_NAMES.scribe_resolutions`, `ScribeResolutionDoc`, `scribeResolutionsCollection`.
+- `packages/db/scripts/db-init.ts`: INDEX_PLAN gets `scribe_resolutions_threadId_unique` (unique `{threadId:1}`, no partial filter) and `scribe_resolutions_studentId` (the ISS-027 plain index, used for B15/T-011 erasure).
+- `packages/db/tests/fakes.ts`: `matchesFilter` now uses `valueMatches`, which follows Mongo array semantics.
+- `packages/db/tests/db-init.test.ts`: 3 new tests, and `scribe_resolutions` is added to the ISS-027 studentId list.
+- `packages/engine/src/scribe/graph.ts`: `resumeScribe`, `compileScribeGraph`, `approvalResponseHash`, and the `already_resolved.sameAsWinner` field.
+- `packages/engine/tests/scribe.test.ts`: 6 new tests.
+- This manifest.
+
+This cycle deliberately touches `packages/db/src/**`, because the brief requires the new collection and accessor there.
+
+**Not touched:** `.claude/**`, `docs/DECISIONS.md`, `scripts/**`, `packages/engine/src/guards/**`, `pnpm-lock.yaml`, and `qa/issues.jsonl`, which the checker owns.
+
+**TDD RED.** The tests were written first, and their outputs are in the scratchpad (`t007c2-red-db.txt`, `t007c2-red-engine.txt`).
+- db: `tests 73 | fail 4`:
+  - ISS-027 failed on `collection "undefined"`.
+  - The rev-8 name test failed with `actual: undefined, expected: 'scribe_resolutions'`.
+  - The rev-8 fake-index test failed with `Cannot read properties of undefined (reading 'keys')`.
+  - c1-1 failed with `the correct purpose must NOT come back empty: actual [], expected ['f1','f2']`.
+- engine `tests/scribe.test.ts`: `tests 32 | pass 27 | fail 5`.
+  - (a) and (b) failed with `exactly one caller may be told its decision was applied, got done,done`. This reproduces the senior's finding.
+  - (d) failed with `got done,done,done,done,done`.
+  - The crash-after-claim test failed.
+  - c1-1 failed with `the consented purpose must not silently return zero`.
+  - (c), the identical approves, was already green: both calls returned done and D-012 prevented a double write.
+
+| Issue | Fix (file:function) | Evidence (tests) | Status |
+|---|---|---|---|
+| ISS-t-007-rev-8 / c1-2 | `graph.ts:resumeScribe`. With a response, it keeps the c0-1 pre-check: a decision already recorded in state means `already_resolved`. If an interrupt is pending, it computes `decisionFromResponse(parsed, proposedFacts)` and then **`insertOne`s the claim** `{_id: threadId, threadId, studentId, decision, response, responseHash: sha256(canonical JSON), claimedAt}` into `scribe_resolutions` **before** `graph.invoke`. On 11000 it re-reads the claim and returns `already_resolved` with the **winner's** `decision`, its own `attempted` response, `result` (null while the winner is in flight), and `sameAsWinner` (true when the hashes are equal). The loser never invokes, so there is one claim, one invoke and no double write. Non-11000 errors propagate. A graph that was not built by `compileScribeGraph` is refused (fail closed, WeakMap lookup of the Db). | tests/scribe.test.ts, every one with `Promise.allSettled`: **(a)** two different edits: exactly 1 `done`, the other is `already_resolved` with the winner's edit values, and the read-back open budget equals the winner's value with no double write. **(b)** approve vs reject, in both orders: the same property; persisted = winner (0 facts if reject won, 2 facts and 4 edges if approve won). **(c)** two identical approves: one `done` and one `already_resolved` with `sameAsWinner: true`; 2 facts, 4 edges. **(d)** 5 concurrent mixed resumes (2 different edits, 2 rejects, 1 approve): exactly 1 `done`, 4 `already_resolved` all carrying the winner's decision, persisted = winner; a later resume is also `already_resolved`. Stability: `scribe.test.ts` was run 8 times in a row, 32/32 each time. | READY FOR CHECK |
+| Crash after the claim, before the invoke | `resumeScribe(null)`: if there is **no decision in state, an interrupt is still pending and a claim exists**, it resumes with `Command({resume: <the CLAIMED response>})`, so exactly the decision that won the claim is applied. Every other null resume behaves as before (`invoke(null)`, the D-012 write retry). The claim is never deleted, so a crashed claim cannot be re-won by a different decision. The docstring notes that recovery is not itself claimed (run it from the retry job, not concurrently with an in-flight winner); even then, D-012 keeps the write idempotent. | "ISS-t-007-rev-8: a crash AFTER the claim but BEFORE graph.invoke ...": the first invoke throws after the claim, and 0 facts are written. A rival approve gets `already_resolved`, `result: null`, the CLAIMED edit value `[1800000]` and `sameAsWinner: false`, and still 0 facts. Then `resumeScribe(null)` returns `done` / `written`, and the read-back budget is 1800000 with 1 fact. The existing sequential tests still pass: c0-1 (both), D-012 crash mid-write, and D-012 fork. | READY FOR CHECK |
+| ISS-t-007-c1-1 | `packages/db/tests/fakes.ts:valueMatches`, used by `find`, `findOne`, `findOneAndUpdate`, `updateOne` and the partial-index filter. A scalar filter against an array field matches when the array contains it. An array filter matches an exactly-equal (order-sensitive) array or an equal element. Everything else is strict equality, as before. | db: "ISS-t-007-c1-1: find({purposeTags: scalar}) matches ...": profile_synthesis gives f1,f2; application_filling gives f2,f3; marketing gives 0; exact-array equality matches, and reordered does not. engine: "ISS-t-007-c1-1: the scribe's written facts are found by a purpose-filtered find() ...": profile_synthesis gives 2 and application_filling gives 0. packages/db stays green at 73/73 (70 existing + 3 new). | READY FOR CHECK |
+
+### Falsification, cycle 2
+
+The script is `scratchpad/t007c2_falsify.py`. For each guard it makes an assert-found replace, runs the package suite through `pnpm --filter`, and restores the original in a `finally` block. `md5sum -c` confirmed all 3 mutated files were byte-identical afterwards.
+
+| Guard | Mutation | Observed RED |
+|---|---|---|
+| F1 atomic claim | `await claims.insertOne(claim);` becomes `void claim;` | engine fail=4: (a), (b), (d), and crash-after-claim |
+| F2 winner's decision to the loser | the 11000 branch returns the loser's OWN decision instead of the re-read claim's | engine fail=4: (a), (b), (d), and crash-after-claim |
+| F3 crash recovery via claim | `if (claim)` becomes `if (false && claim)` in the null path | engine fail=1: crash-after-claim |
+| F4 array-contains match | `valueMatches` array branch becomes `return false` | db fail=1 (c1-1); engine fail=1 (c1-1 read-back) |
+| F5 unique index | `unique: true` dropped from `scribe_resolutions_threadId_unique` | db fail=2: both rev-8 db tests |
+| RESTORED | originals written back | db `tests 73 pass 73 fail 0`, engine `tests 67 pass 67 fail 0` |
+
+### Actual outputs, cycle 2 (the maker's own run, from the worktree root)
+
+- `pnpm install`: `Done in 608ms using pnpm v10.33.0`, exit 0. `pnpm install --frozen-lockfile`: exit 0.
+- `pnpm -r typecheck`: exit 0, with 9 x `typecheck: Done`.
+- `pnpm -r test`: exit 0.
+
+| Package | tests | pass | fail |
+|---|---|---|---|
+| apps/api | 1 | 1 | 0 |
+| apps/web | 1 | 1 | 0 |
+| packages/providers | 8 | 8 | 0 |
+| packages/schemas | 50 | 50 | 0 |
+| packages/observability | 57 | 57 | 0 |
+| packages/db | 73 | 73 | 0 |
+| mcp/university-kb | 9 | 9 | 0 |
+| mcp/student-profile | 12 | 12 | 0 |
+| packages/engine | 67 | 67 | 0 |
+| **Total** | **278** | **278** | **0** |
+
+- `python contracts/verify_contracts.py`: `verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity`, exit 0.
+
+### Notes for the checker (cycle 2)
+
+- **The fake's atomicity is faithful.** `FakeCollection.insertOne` checks and sets in one synchronous step, with no `await` between them, the same way a single server-side unique-index insert is atomic. The race is real: the RED run shows both callers passing `getState` before either invoked.
+- **Live DB.** `scribe_resolutions` and its indexes exist only after `db:init` runs, which is a human-gated live step and was not run here. Without the unique index, `_id = threadId` still gives the same one-claim guarantee through Mongo's built-in `_id` index. The explicit threadId index is belt and braces, and it is what INDEX_PLAN declares.
+- **B15/T-011.** Claim docs hold the decision's fact values. They carry `studentId`, which has a plain index, so erasure can find them. Add `scribe_resolutions` to the T-011 purge list together with the checkpoint collections.
+- **Remaining behaviour, documented.**
+  - A recovery `resumeScribe(null)` that runs concurrently with an in-flight winner is not claimed. D-012 keeps its write idempotent.
+  - A caller that bypasses `resumeScribe` (`graph.invoke(new Command(...))`) bypasses the claim. That entry point is not exported.
 
 ## Falsification (each guard reverted → RED → restored)
 

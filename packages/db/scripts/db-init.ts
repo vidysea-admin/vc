@@ -37,6 +37,8 @@
  *               (ISS-027) — every studentId-bearing collection gets a lookup
  *               index; consents already had one.
  *   - consents: { studentId } — fast lookup for requireConsent().
+ *   - scribe_resolutions: UNIQUE { threadId } (ISS-t-007-rev-8) -- the atomic
+ *               approval claim for a scribe thread; plus a plain { studentId }.
  *   - edges:    relies on Mongo's built-in unique _id index for idempotent
  *               link() upserts, PLUS { "from.kind", "from.id" } and
  *               { "to.kind", "to.id" } (ISS-021) so a lookup of "everything
@@ -90,6 +92,16 @@ export const INDEX_PLAN: IndexSpec[] = [
   { collection: COLLECTION_NAMES.decisions, keys: { studentId: 1 }, name: "decisions_studentId" },
   { collection: COLLECTION_NAMES.students, keys: { studentId: 1 }, name: "students_studentId" },
   { collection: COLLECTION_NAMES.consents, keys: { studentId: 1 }, name: "consents_studentId" },
+  // ISS-t-007-rev-8: the scribe approval claim. UNIQUE on threadId (no partial filter: every
+  // claim counts), so a concurrent second resume of the same thread gets 11000 and loses.
+  // Plus the ISS-027 plain studentId index (B15/T-011 erasure finds a student's claims).
+  {
+    collection: COLLECTION_NAMES.scribe_resolutions,
+    keys: { threadId: 1 },
+    name: "scribe_resolutions_threadId_unique",
+    unique: true,
+  },
+  { collection: COLLECTION_NAMES.scribe_resolutions, keys: { studentId: 1 }, name: "scribe_resolutions_studentId" },
   // ISS-021: edges had no from/to index.
   { collection: COLLECTION_NAMES.edges, keys: { "from.kind": 1, "from.id": 1 }, name: "edges_from" },
   { collection: COLLECTION_NAMES.edges, keys: { "to.kind": 1, "to.id": 1 }, name: "edges_to" },

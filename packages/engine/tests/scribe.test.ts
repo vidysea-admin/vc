@@ -529,3 +529,175 @@ test("ISS-t-007-rev-1: a malformed summary is retried once; always-malformed end
   assert.equal(h2.facts.size(), 0);
   assert.equal(h2.edges.size(), 0);
 });
+
+// ---------------------------------------------------------------------------
+// ISS-t-007-rev-8 / ISS-t-007-c1-2: concurrent resumes of ONE paused thread.
+// The approval claim is an atomic insert into scribe_resolutions (unique
+// threadId): exactly one caller wins; every loser gets already_resolved with
+// the WINNER's decision and is never told "written" for its own response.
+// ---------------------------------------------------------------------------
+
+type Outcome = Awaited<ReturnType<typeof resumeScribe>>;
+type Resp = Exclude<Parameters<typeof resumeScribe>[1], null>;
+
+function editBudget(value: number): Resp {
+  return {
+    action: "edit",
+    facts: [{ ...citedCandidate("budget_inr_per_year", value, "around 20 lakh rupees a year", "t3"), validFrom: "2026-09-25T10:00:00.000Z" }],
+  } as Resp;
+}
+
+/** Settles every resume concurrently and pairs each outcome with what that caller submitted. */
+async function raceResumes(h: ReturnType<typeof makeHarness>, threadId: string, responses: Resp[]) {
+  const settled = await Promise.allSettled(responses.map((r) => resumeScribe(h.graph, r, cfg(threadId))));
+  for (const s of settled) assert.equal(s.status, "fulfilled", s.status === "rejected" ? String(s.reason) : "");
+  return settled.map((s, i) => ({ submitted: responses[i]!, outcome: (s as PromiseFulfilledResult<Outcome>).value }));
+}
+
+/** The persisted outcome must be exactly the winner's decision (read back). */
+function assertPersistedMatches(h: ReturnType<typeof makeHarness>, winner: Resp) {
+  const open = h.openFacts();
+  if (winner.action === "reject") {
+    assert.equal(h.facts.size(), 0, "winner rejected: nothing may be written");
+    assert.equal(h.edges.size(), 0);
+  } else if (winner.action === "approve") {
+    assert.deepEqual(
+      open.map((f) => [f.key, f.value]).sort(),
+      [
+        ["budget_inr_per_year", 2000000],
+        ["targetCountry", "Canada"],
+      ],
+    );
+    assert.equal(h.facts.size(), 2, "no double write");
+    assert.equal(h.edges.size(), 4);
+  } else {
+    assert.deepEqual(open.map((f) => [f.key, f.value]), winner.facts.map((f) => [f.key, f.value]));
+    assert.equal(h.facts.size(), winner.facts.length, "no double write");
+  }
+}
+
+/**
+ * Exactly one caller is told "done"; every other caller is already_resolved with the WINNER's
+ * decision and its own attempted response echoed. Returns the winner.
+ */
+function assertOneWinner(results: Array<{ submitted: Resp; outcome: Outcome }>) {
+  const done = results.filter((r) => r.outcome.kind === "done");
+  assert.equal(done.length, 1, `exactly one caller may be told its decision was applied, got ${results.map((r) => r.outcome.kind)}`);
+  const winner = done[0]!;
+  for (const loser of results.filter((r) => r !== winner)) {
+    assert.equal(loser.outcome.kind, "already_resolved", "a losing caller must get already_resolved, never done");
+    if (loser.outcome.kind !== "already_resolved") continue;
+    assert.equal(loser.outcome.decision.approve, winner.submitted.action !== "reject", "already_resolved carries the WINNER's decision");
+    if (winner.submitted.action === "edit") {
+      assert.deepEqual(loser.outcome.decision.edits?.map((f) => f.value), winner.submitted.facts.map((f) => f.value));
+    }
+    assert.deepEqual(loser.outcome.attempted, loser.submitted, "echoes the loser's own (unapplied) response");
+    const sameAsWinner = JSON.stringify(loser.submitted) === JSON.stringify(winner.submitted);
+    assert.equal(loser.outcome.sameAsWinner, sameAsWinner, "sameAsWinner is true only for an identical request");
+  }
+  return winner;
+}
+
+test("ISS-t-007-rev-8 (a): two DIFFERENT concurrent edits -> exactly one done, the other already_resolved with the winner's decision; persisted = winner", async () => {
+  const h = makeHarness();
+  await startScribe(h.graph, baseInput(), cfg("thread-race-edits"));
+  const results = await raceResumes(h, "thread-race-edits", [editBudget(1800000), editBudget(1500000)]);
+  const winner = assertOneWinner(results);
+  assert.equal(winner.outcome.kind === "done" && winner.outcome.result.status, "written");
+  assertPersistedMatches(h, winner.submitted);
+});
+
+test("ISS-t-007-rev-8 (b): approve racing reject (both orders) -> exactly one done; the loser is already_resolved with the winner's decision; persisted = winner", async () => {
+  for (const order of [
+    ["approve", "reject"],
+    ["reject", "approve"],
+  ] as const) {
+    const h = makeHarness();
+    const thread = `thread-race-ar-${order[0]}`;
+    await startScribe(h.graph, baseInput(), cfg(thread));
+    const responses = order.map((a) => (a === "approve" ? { action: "approve" } : { action: "reject", reason: "no" })) as Resp[];
+    const winner = assertOneWinner(await raceResumes(h, thread, responses));
+    assertPersistedMatches(h, winner.submitted);
+  }
+});
+
+test("ISS-t-007-rev-8 (c): two IDENTICAL concurrent approves -> one done + one already_resolved(sameAsWinner), no double write", async () => {
+  const h = makeHarness();
+  await startScribe(h.graph, baseInput(), cfg("thread-race-same"));
+  const results = await raceResumes(h, "thread-race-same", [{ action: "approve" }, { action: "approve" }]);
+  assert.ok(results.some((r) => r.outcome.kind === "done"), "the identical request succeeds");
+  for (const r of results) {
+    if (r.outcome.kind === "done") {
+      assert.equal(r.outcome.result.status, "written");
+    } else {
+      assert.equal(r.outcome.kind, "already_resolved");
+      if (r.outcome.kind === "already_resolved") {
+        assert.equal(r.outcome.sameAsWinner, true, "an identical request is flagged as the same as the winner");
+        assert.equal(r.outcome.decision.approve, true);
+      }
+    }
+  }
+  assertPersistedMatches(h, { action: "approve" });
+});
+
+test("ISS-t-007-rev-8 (d): 5 concurrent mixed resumes -> exactly one winner, every loser carries its decision, persisted = winner", async () => {
+  const h = makeHarness();
+  await startScribe(h.graph, baseInput(), cfg("thread-race-5"));
+  const responses: Resp[] = [
+    editBudget(1700000),
+    { action: "reject", reason: "no" },
+    { action: "approve" },
+    editBudget(1600000),
+    { action: "reject", reason: "second opinion" },
+  ];
+  const winner = assertOneWinner(await raceResumes(h, "thread-race-5", responses));
+  assertPersistedMatches(h, winner.submitted);
+  // A later resume after the race is also already_resolved with the same winner, and changes nothing.
+  const late = await resumeScribe(h.graph, { action: "approve" }, cfg("thread-race-5"));
+  assert.equal(late.kind, "already_resolved");
+  if (late.kind === "already_resolved") assert.equal(late.decision.approve, winner.submitted.action !== "reject");
+  assertPersistedMatches(h, winner.submitted);
+});
+
+test("ISS-t-007-rev-8: a crash AFTER the claim but BEFORE graph.invoke -> a rival decision is already_resolved; resumeScribe(null) completes the CLAIMED decision", async () => {
+  const h = makeHarness();
+  await startScribe(h.graph, baseInput(), cfg("thread-claim-crash"));
+  const realInvoke = h.graph.invoke.bind(h.graph);
+  let crashes = 1;
+  (h.graph as unknown as { invoke: unknown }).invoke = async (...args: Parameters<typeof realInvoke>) => {
+    if (crashes > 0) {
+      crashes -= 1;
+      throw new Error("simulated crash between the claim and the graph invoke");
+    }
+    return realInvoke(...args);
+  };
+
+  await assert.rejects(resumeScribe(h.graph, editBudget(1800000), cfg("thread-claim-crash")), /simulated crash/);
+  assert.equal(h.facts.size(), 0, "nothing written yet");
+
+  // A different decision cannot steal the claim.
+  const rival = await resumeScribe(h.graph, { action: "approve" }, cfg("thread-claim-crash"));
+  assert.equal(rival.kind, "already_resolved");
+  if (rival.kind === "already_resolved") {
+    assert.equal(rival.result, null, "the claimed decision is not applied yet");
+    assert.deepEqual(rival.decision.edits?.map((f) => f.value), [1800000], "carries the CLAIMED decision");
+    assert.equal(rival.sameAsWinner, false);
+  }
+  assert.equal(h.facts.size(), 0);
+
+  // Crash recovery: a null resume applies the claimed decision, and only it.
+  const recovered = await resumeScribe(h.graph, null, cfg("thread-claim-crash"));
+  assert.equal(recovered.kind, "done");
+  assert.equal(recovered.kind === "done" && recovered.result.status, "written");
+  assertPersistedMatches(h, editBudget(1800000));
+});
+
+test("ISS-t-007-c1-1: the scribe's written facts are found by a purpose-filtered find() on the shared fake (profile_synthesis -> 2, application_filling -> 0)", async () => {
+  const h = makeHarness();
+  await startScribe(h.graph, baseInput(), cfg("thread-purpose-read"));
+  await resumeScribe(h.graph, { action: "approve" }, cfg("thread-purpose-read"));
+  const synth = await h.facts.find({ studentId: STUDENT_ID, active: true, purposeTags: SCRIBE_PURPOSE }).toArray();
+  assert.equal(synth.length, 2, "the consented purpose must not silently return zero");
+  const app = await h.facts.find({ studentId: STUDENT_ID, active: true, purposeTags: "application_filling" }).toArray();
+  assert.equal(app.length, 0);
+});

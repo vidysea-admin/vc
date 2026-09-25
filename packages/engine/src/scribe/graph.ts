@@ -14,6 +14,8 @@
  */
 import { Annotation, Command, END, START, StateGraph, interrupt, type BaseCheckpointSaver } from "@langchain/langgraph";
 import type { Callbacks } from "@langchain/core/callbacks/manager";
+import { createHash } from "node:crypto";
+import { scribeResolutionsCollection, type ScribeResolutionDoc } from "@vc/db";
 import type { CounsellorDecision, Fact, ProfileDiff } from "@vc/schemas";
 import { createLangfuseCallbacks, type TracingConfig } from "@vc/observability";
 import {
@@ -161,8 +163,18 @@ export function buildScribeGraph(deps: ScribeDeps) {
  * MemorySaver; runtime passes createScribeCheckpointer(client) (Mongo, virtual_counsellor only).
  */
 export function compileScribeGraph(deps: ScribeDeps, options: { checkpointer: BaseCheckpointSaver }) {
-  return buildScribeGraph(deps).compile({ checkpointer: options.checkpointer });
+  const graph = buildScribeGraph(deps).compile({ checkpointer: options.checkpointer });
+  graphDb.set(graph, deps.db);
+  return graph;
 }
+
+/**
+ * ISS-t-007-rev-8: resumeScribe claims the approval in the graph's own `virtual_counsellor` Db
+ * (B12), so it needs the Db the graph was compiled with. Kept off the public ScribeGraph type so
+ * callers keep the (graph, response, opts) signature. A graph compiled some other way has no Db
+ * here, and resumeScribe refuses it (fails closed) rather than resuming without a claim.
+ */
+const graphDb = new WeakMap<object, ScribeDeps["db"]>();
 
 export type ScribeGraph = ReturnType<typeof compileScribeGraph>;
 
@@ -209,7 +221,18 @@ export type ScribeOutcome =
    * `decision` is the original, still-effective decision; `result` is its outcome (null while a
    * failed write is pending, which only `resumeScribe(graph, null, ...)` retries).
    */
-  | { kind: "already_resolved"; decision: CounsellorDecision; result: ScribeResult | null; attempted: ApprovalResponse };
+  /**
+   * ISS-t-007-rev-8: under concurrency, the loser of the atomic claim gets this too, with the
+   * WINNER's decision. `sameAsWinner` is true when `attempted` is the identical request (same
+   * response hash) as the one that holds the claim, i.e. the caller's decision IS the applied one.
+   */
+  | {
+      kind: "already_resolved";
+      decision: CounsellorDecision;
+      result: ScribeResult | null;
+      attempted: ApprovalResponse;
+      sameAsWinner: boolean;
+    };
 
 function runnableConfig(opts: ScribeRunOptions) {
   return {
@@ -237,6 +260,49 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
   return readOutcome(graph, opts.threadId);
 }
 
+/** Canonical JSON (sorted object keys, recursively), so equal responses hash equally. */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** sha256 of a parsed approval response: the claim's "same request" identity. */
+export function approvalResponseHash(response: ApprovalResponse): string {
+  return createHash("sha256").update(canonicalJson(response)).digest("hex");
+}
+
+function isDuplicateKey(err: unknown): boolean {
+  return (err as { code?: unknown } | null)?.code === 11000;
+}
+
+function claimsFor(graph: ScribeGraph) {
+  const db = graphDb.get(graph);
+  if (!db) {
+    throw new Error("resumeScribe: graph was not built by compileScribeGraph, so the approval claim store is unknown");
+  }
+  return scribeResolutionsCollection(db);
+}
+
+function alreadyResolved(
+  winner: { decision: CounsellorDecision; responseHash?: string },
+  result: ScribeResult | undefined,
+  attempted: ApprovalResponse,
+): ScribeOutcome {
+  return {
+    kind: "already_resolved",
+    decision: winner.decision,
+    result: result ? ScribeResultSchema.parse(result) : null,
+    attempted,
+    sameAsWinner: winner.responseHash === approvalResponseHash(attempted),
+  };
+}
+
 /**
  * Resumes a paused or failed run. With a counsellor response, resumes the interrupt (the response is
  * validated first, so an invalid one never reaches the graph). With `null`, re-runs whatever the
@@ -244,29 +310,85 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
  *
  * ISS-t-007-c0-1: LangGraph caches an interrupt's resolution per task, so resuming an
  * already-decided approval (e.g. forking the pre-approval checkpoint with a different response)
- * would silently replay the ORIGINAL decision and report it as done. This function therefore reads
- * the thread's latest state first: if a decision is already recorded, it returns `already_resolved`
- * with that decision and does not invoke the graph.
+ * would silently replay the ORIGINAL decision and report it as done. If a decision is already
+ * recorded in the thread's latest state, this returns `already_resolved` and does not invoke.
+ *
+ * ISS-t-007-rev-8 (atomic claim): that state check alone is read-then-invoke, so two concurrent
+ * resumes could both pass it. Before invoking, this therefore inserts ONE claim doc into
+ * `scribe_resolutions` (`_id` = `threadId`, unique index on `threadId`), which is atomic across
+ * processes. Only the caller whose insert succeeds invokes the graph. A caller whose insert fails
+ * with 11000 reads the claim and returns `already_resolved` with the WINNER's decision. Its
+ * `sameAsWinner` is true when its response hash equals the claim's, so an identical duplicate is
+ * recognisable, but it still does NOT invoke: one claim, one invoke, no double write. Such a caller
+ * is never told `done`.
+ *
+ * Crash handling around the claim:
+ * - Crash AFTER the claim, BEFORE the graph records the decision (the invoke never ran, or died
+ *   inside the approval node): the thread is still paused at the interrupt and the claim holds the
+ *   winner's validated `response`. Any further response gets `already_resolved` (result `null`).
+ *   `resumeScribe(graph, null, ...)` sees a claim plus a still-pending interrupt and resumes the
+ *   graph with the CLAIMED response, applying exactly the decision that won the claim.
+ * - Crash AFTER the decision is recorded (e.g. inside write_approved): unchanged. `resumeScribe(null)`
+ *   re-runs the pending write from the checkpoint, idempotent by D-012.
+ * - The claim is never deleted here, so a crashed claim can not be re-won by a different decision.
+ * Recovery (`null`) is not itself claimed: run it from one place (the retry job), not concurrently
+ * with an in-flight winner. Even then, D-012 keeps the write idempotent.
  */
 export async function resumeScribe(
   graph: ScribeGraph,
   response: ApprovalResponse | null,
   opts: ScribeRunOptions,
 ): Promise<ScribeOutcome> {
+  const claims = claimsFor(graph);
+  const stateConfig = { configurable: { thread_id: opts.threadId } };
+
   if (response === null) {
-    await graph.invoke(null, runnableConfig(opts));
-  } else {
-    const parsed = ApprovalResponseSchema.parse(response);
-    const latest = (await graph.getState({ configurable: { thread_id: opts.threadId } })).values as Partial<State>;
-    if (latest.decision) {
-      return {
-        kind: "already_resolved",
-        decision: latest.decision,
-        result: latest.result ? ScribeResultSchema.parse(latest.result) : null,
-        attempted: parsed,
-      };
+    const snapshot = await graph.getState(stateConfig);
+    const latest = snapshot.values as Partial<State>;
+    const pendingInterrupt = snapshot.tasks.some((task) => task.interrupts.length > 0);
+    const claim = !latest.decision && pendingInterrupt ? await claims.findOne({ threadId: opts.threadId }) : null;
+    if (claim) {
+      // Crash after the claim, before the decision was recorded: apply the CLAIMED response.
+      const claimed = ApprovalResponseSchema.parse(claim.response);
+      await graph.invoke(new Command({ resume: claimed }), runnableConfig({ ...opts, checkpointId: undefined }));
+    } else {
+      await graph.invoke(null, runnableConfig(opts));
     }
-    await graph.invoke(new Command({ resume: parsed }), runnableConfig(opts));
+    return readOutcome(graph, opts.threadId);
   }
+
+  const parsed = ApprovalResponseSchema.parse(response);
+  const snapshot = await graph.getState(stateConfig);
+  const latest = snapshot.values as Partial<State>;
+  if (latest.decision) {
+    const claim = await claims.findOne({ threadId: opts.threadId });
+    return alreadyResolved({ decision: latest.decision, responseHash: claim?.responseHash }, latest.result, parsed);
+  }
+
+  if (snapshot.tasks.some((task) => task.interrupts.length > 0)) {
+    // The decision this response resolves to (the same pure function the approval node runs), so a
+    // loser can be told the winner's decision even while the winner's invoke is still in flight.
+    // A response that decisionFromResponse refuses throws here, BEFORE any claim is taken.
+    const { decision } = decisionFromResponse(parsed, latest.proposedFacts ?? []);
+    const claim: ScribeResolutionDoc = {
+      _id: opts.threadId,
+      threadId: opts.threadId,
+      studentId: latest.studentId ?? "",
+      decision,
+      response: parsed as unknown as Record<string, unknown>,
+      responseHash: approvalResponseHash(parsed),
+      claimedAt: new Date().toISOString(),
+    };
+    try {
+      await claims.insertOne(claim);
+    } catch (err) {
+      if (!isDuplicateKey(err)) throw err;
+      const winner = await claims.findOne({ threadId: opts.threadId });
+      if (!winner) throw err;
+      const now = (await graph.getState(stateConfig)).values as Partial<State>;
+      return alreadyResolved(winner, now.result, parsed);
+    }
+  }
+  await graph.invoke(new Command({ resume: parsed }), runnableConfig(opts));
   return readOutcome(graph, opts.threadId);
 }
