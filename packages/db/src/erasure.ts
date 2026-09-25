@@ -595,16 +595,35 @@ export interface ErasureFenceSweep {
  * calls releaseExpiredErasureFences on a timer, plus a `stop()` to clear it. The caller — the
  * process that owns the live Mongo client (apps/api/src/index.ts's startApi; see also
  * scripts/db-init.ts for the other live-only entry point) — is responsible for calling `stop()` on
- * shutdown, matching client.close().
+ * shutdown, matching client.close(). T-015 / ISS-t-014-rev-4: a tick is skipped (silently — see the
+ * in-flight guard below) while the previous tick's own releaseExpiredErasureFences call is still
+ * running, so overlapping sweeps can not run concurrently against the same db.
  */
 export function startErasureFenceSweep(db: Db, options: ErasureFenceSweepOptions = {}): ErasureFenceSweep {
   const intervalMs = options.intervalMs ?? MINIMUM_FENCE_HOLD_MS;
   if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
     throw new RangeError(`startErasureFenceSweep: intervalMs must be a positive number of ms, got ${intervalMs}`);
   }
+  // T-015 / ISS-t-014-rev-4: an in-flight guard. releaseExpiredErasureFences reads every fence and
+  // (for each) may read erasure_requests too — on a slow tick (a large fence backlog, or a slow
+  // server), a fixed setInterval keeps firing regardless, so without this guard two ticks' reads
+  // and best-effort releases could interleave concurrently. Nothing about that was known to be
+  // UNSAFE (releaseErasureFence's own CAS-by-{_id, requestId} + hasFencingRequest check make a
+  // single fence's release idempotent either way), but it was untested and wasteful — this makes
+  // "at most one sweep runs at a time" an explicit guarantee instead of an inferred one. A skipped
+  // tick is silent (by design: the NEXT tick, at most `intervalMs` later, covers the same ground —
+  // this is not a lost unit of work, unlike a sweep failure, which is why only failures go through
+  // onError).
+  let inFlight = false;
   const tick = (): void => {
+    if (inFlight) return;
+    inFlight = true;
     const now = options.now?.() ?? new Date();
-    releaseExpiredErasureFences(db, now, options.graceMs ?? ERASURE_FENCE_GRACE_MS).catch((err) => options.onError?.(err));
+    releaseExpiredErasureFences(db, now, options.graceMs ?? ERASURE_FENCE_GRACE_MS)
+      .catch((err) => options.onError?.(err))
+      .finally(() => {
+        inFlight = false;
+      });
   };
   const timer = setInterval(tick, intervalMs);
   timer.unref?.();
@@ -793,6 +812,26 @@ export const ERASURE_PLAN: readonly ErasureStep[] = [
  */
 export const ERASURE_MAX_ROUNDS = 5;
 
+/**
+ * T-015 / ISS-t-014-rev-1: every real client this package hands out now always carries a
+ * client-level `timeoutMS` backstop (client.ts's `connectFromEnv`, capped at `FENCE_MARGIN_MS` =
+ * 30s, D-016) — but that cap was SIZED for a single fenced writer's post-check margin, not for
+ * `executeErasure`'s own `deleteMany`/`countDocuments` calls, which can span up to
+ * `ERASURE_PLAN.length` (9) collections per round, up to `ERASURE_MAX_ROUNDS` (5) rounds, for a
+ * student with an arbitrarily large document count. Racing that against a 30s budget risks a
+ * spurious timeout on an otherwise-healthy purge. Per the module docstring ("Ordering, partial
+ * failure and idempotent retry"), a step that times out is recorded as `failed` (or an unverifiable
+ * read-back is treated as non-zero) and the whole request is marked `failed`/retryable — so a
+ * spurious per-op timeout here degrades to "retry", never silent data loss. An explicit per-op
+ * `timeoutMS` always overrides the client default for that one call (mongodb@6 CSOT: an
+ * operation-level option wins over the client-level one), so this does not touch, and is not
+ * bounded by, the fence's own liveness guarantee (D-016) for OTHER operations. Deliberately still
+ * finite, not unbounded: a purge step that is genuinely stuck must still fail and retry rather
+ * than block the caller forever. 120s (4x the client default) is chosen as headroom generous
+ * enough for a large multi-round purge while still failing well inside a human-observable timeframe.
+ */
+export const ERASURE_PURGE_OP_TIMEOUT_MS = 120_000;
+
 /** The ids carried on a failed row: validated by ErasureCarriedSelectorsSchema, each list capped at MAX_CARRIED_IDS. */
 type CarriedSelectors = Omit<ErasureSelectors, "studentId">;
 
@@ -977,7 +1016,9 @@ export async function executeErasure(db: Db, requestId: string, options: Execute
       }
       for (const step of steps) {
         try {
-          const res = await db.collection(step.collection).deleteMany(step.filter(selectors));
+          // ISS-t-014-rev-1: an explicit per-op timeoutMS, larger than the client-level default
+          // (D-016's fence margin, sized for a different purpose) — see ERASURE_PURGE_OP_TIMEOUT_MS.
+          const res = await db.collection(step.collection).deleteMany(step.filter(selectors), { timeoutMS: ERASURE_PURGE_OP_TIMEOUT_MS });
           deleted.set(step.collection, (deleted.get(step.collection) ?? 0) + (res.deletedCount ?? 0));
         } catch (err) {
           failed.set(step.collection, errorLabel(err));
@@ -990,7 +1031,8 @@ export async function executeErasure(db: Db, requestId: string, options: Execute
     for (const step of ERASURE_PLAN) {
       let remaining: number;
       try {
-        remaining = await db.collection(step.collection).countDocuments(step.residue(selectors));
+        // ISS-t-014-rev-1: same explicit per-op timeoutMS as the deletes above.
+        remaining = await db.collection(step.collection).countDocuments(step.residue(selectors), { timeoutMS: ERASURE_PURGE_OP_TIMEOUT_MS });
       } catch (err) {
         // An unverifiable collection is never reported as clean.
         failed.set(step.collection, failed.get(step.collection) ?? `verify:${errorLabel(err)}`);

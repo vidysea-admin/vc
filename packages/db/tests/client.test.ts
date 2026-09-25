@@ -102,3 +102,44 @@ for (const bad of ["nope", "0", "-5"]) {
     );
   });
 }
+
+// ---------------------------------------------------------------------------
+// T-015 / ISS-t-014-c0-2: an override above FENCE_MARGIN_MS is REJECTED (chosen over clamping —
+// see resolveClientTimeoutMs's docstring in client.ts), closing the gap the checker found: only the
+// DEFAULT used to respect the "<= FENCE_MARGIN_MS" cap; an operator override had none.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-014-c0-2: MONGO_CLIENT_TIMEOUT_MS above FENCE_MARGIN_MS is rejected, naming the cap", () => {
+  assert.throws(
+    () => connectFromEnv({ MONGODB_URL: "mongodb://h:1/x", MONGO_CLIENT_TIMEOUT_MS: String(FENCE_MARGIN_MS + 1) }),
+    /FENCE_MARGIN_MS/,
+  );
+});
+
+test("ISS-t-014-c0-2: a HUGE override (the checker's own repro: 10 days in ms) is rejected, not silently accepted", () => {
+  const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
+  assert.throws(
+    () => connectFromEnv({ MONGODB_URL: "mongodb://h:1/x", MONGO_CLIENT_TIMEOUT_MS: String(tenDaysMs) }),
+    /FENCE_MARGIN_MS/,
+  );
+});
+
+test("ISS-t-014-c0-2: MONGO_CLIENT_TIMEOUT_MS exactly at FENCE_MARGIN_MS (the boundary) is accepted and reaches the driver", () => {
+  const { client } = createFakeMongoClient();
+  let seenOptions: unknown;
+  connectFromEnv({ MONGODB_URL: "mongodb://h:1/x", MONGO_CLIENT_TIMEOUT_MS: String(FENCE_MARGIN_MS) }, (url, options) => {
+    seenOptions = options;
+    return client;
+  });
+  assert.deepEqual(seenOptions, { timeoutMS: FENCE_MARGIN_MS });
+});
+
+test("ISS-t-014-c0-2: a normal override well within the cap (e.g. 5000ms) is unaffected by the new cap check", () => {
+  const { client } = createFakeMongoClient();
+  let seenOptions: unknown;
+  connectFromEnv({ MONGODB_URL: "mongodb://h:1/x", MONGO_CLIENT_TIMEOUT_MS: "5000" }, (url, options) => {
+    seenOptions = options;
+    return client;
+  });
+  assert.deepEqual(seenOptions, { timeoutMS: 5000 });
+});

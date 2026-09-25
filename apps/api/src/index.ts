@@ -28,23 +28,56 @@ export interface StartApiOptions extends ErasureFenceSweepOptions {
 }
 
 /**
+ * T-015 / ISS-t-014-rev-2: startErasureFenceSweep's own `onError` default is a no-op BY DESIGN
+ * (packages/db does not own a logger or a process's stdout/stderr). `startApi` is the process that
+ * DOES, so a caller who does not inject their own `onError` still gets visibility instead of a
+ * fence-release failure vanishing silently forever: one structured JSON line per failing tick,
+ * naming the failure. A real deployment is expected to inject its own `onError` wired to its actual
+ * logging/alerting pipeline (Langfuse/observability, structured log shipper, etc.) — this default
+ * is the floor, not the intended production behaviour.
+ */
+function defaultSweepErrorLogger(err: unknown): void {
+  // eslint-disable-next-line no-console
+  console.error(
+    JSON.stringify({
+      level: "error",
+      event: "erasure_fence_sweep_failed",
+      name: err instanceof Error ? err.name : undefined,
+      message: err instanceof Error ? err.message : String(err),
+      ts: new Date().toISOString(),
+    }),
+  );
+}
+
+/**
  * Connects to `virtual_counsellor` (B12) and starts the erasure-fence sweep (D-016,
  * ISS-t-011-c3-rev-3). `env` defaults to `process.env`; a test passes a fixture instead so nothing
  * here ever reads the real environment. `stop()` clears the sweep's interval and closes the client
  * — call it on shutdown (SIGTERM/SIGINT) once this scaffold grows an actual server loop.
+ *
+ * T-015 / ISS-t-014-rev-3: everything after `client.connect()` runs inside a try/catch. A connected
+ * client is a resource this function owns until it hands back `stop()` — if starting the sweep
+ * fails (e.g. startErasureFenceSweep's own intervalMs validation), the caller never receives a
+ * `stop()` to close it with, so this function itself closes the client before rethrowing, instead
+ * of leaking a live connection.
  */
 export async function startApi(
   env: Record<string, string | undefined> = process.env,
   options: StartApiOptions = {},
 ): Promise<Api> {
-  const { clientFactory, ...sweepOptions } = options;
+  const { clientFactory, onError, ...sweepOptions } = options;
   const { client, db } = connectFromEnv(env, clientFactory);
   await client.connect();
-  const sweep = startErasureFenceSweep(db, sweepOptions);
-  return {
-    stop: async () => {
-      sweep.stop();
-      await client.close();
-    },
-  };
+  try {
+    const sweep = startErasureFenceSweep(db, { ...sweepOptions, onError: onError ?? defaultSweepErrorLogger });
+    return {
+      stop: async () => {
+        sweep.stop();
+        await client.close();
+      },
+    };
+  } catch (err) {
+    await client.close();
+    throw err;
+  }
 }

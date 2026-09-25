@@ -83,3 +83,127 @@ test("T-014/ISS-t-011-c3-rev-3: startApi connects via connectFromEnv (B12: virtu
     mock.timers.reset();
   }
 });
+
+// ---------------------------------------------------------------------------
+// T-015 / ISS-t-014-rev-2: startApi's default onError is a structured log line, not a silent no-op.
+// ---------------------------------------------------------------------------
+
+test("T-015/ISS-t-014-rev-2: startApi's default onError logs a structured JSON line naming the failure, instead of discarding it", async () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  try {
+    const { client, dbFor } = createFakeMongoClient();
+    const api = await startApi({ MONGODB_URL: "mongodb://fake-host/ignored" }, { clientFactory: () => client, intervalMs: 1000 });
+    try {
+      const fences = dbFor("virtual_counsellor").collection<{ _id: string }>(COLLECTION_NAMES.erasure_fences);
+      const boom = new Error("simulated sweep read failure");
+      fences.find = () => {
+        throw boom;
+      };
+
+      const realConsoleError = console.error;
+      const logs: unknown[][] = [];
+      console.error = (...args: unknown[]) => {
+        logs.push(args);
+      };
+      try {
+        mock.timers.tick(1000);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(logs.length, 1, "expected exactly one console.error call for the failing tick");
+        const [line] = logs[0]!;
+        assert.equal(typeof line, "string", "the logged line must be a plain string (JSON), not an object dump");
+        const parsed = JSON.parse(line as string);
+        assert.equal(parsed.event, "erasure_fence_sweep_failed");
+        assert.equal(parsed.message, boom.message);
+        assert.equal(parsed.level, "error");
+        assert.equal(typeof parsed.ts, "string");
+      } finally {
+        console.error = realConsoleError;
+      }
+    } finally {
+      await api.stop();
+    }
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("T-015/ISS-t-014-rev-2: a caller-supplied onError still wins over the default (not double-logged)", async () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  try {
+    const { client, dbFor } = createFakeMongoClient();
+    const errors: unknown[] = [];
+    const api = await startApi(
+      { MONGODB_URL: "mongodb://fake-host/ignored" },
+      { clientFactory: () => client, intervalMs: 1000, onError: (err) => errors.push(err) },
+    );
+    try {
+      const fences = dbFor("virtual_counsellor").collection<{ _id: string }>(COLLECTION_NAMES.erasure_fences);
+      const boom = new Error("simulated sweep read failure 2");
+      fences.find = () => {
+        throw boom;
+      };
+      const realConsoleError = console.error;
+      const logs: unknown[] = [];
+      console.error = (...args: unknown[]) => logs.push(args);
+      try {
+        mock.timers.tick(1000);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(errors.length, 1, "the caller's own onError received the error");
+        assert.equal(errors[0], boom);
+        assert.equal(logs.length, 0, "the default logger must not ALSO fire when a caller supplies its own onError");
+      } finally {
+        console.error = realConsoleError;
+      }
+    } finally {
+      await api.stop();
+    }
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// T-015 / ISS-t-014-rev-3: startApi closes the Mongo client and rethrows if anything fails AFTER
+// connect (a leaked, connected client if starting the sweep itself throws).
+// ---------------------------------------------------------------------------
+
+test("T-015/ISS-t-014-rev-3: startApi closes the client and rethrows when starting the sweep fails after connect", async () => {
+  const { client } = createFakeMongoClient();
+  const fakeClient = client as unknown as FakeConnectable;
+  let connected = 0;
+  let closed = 0;
+  const realConnect = fakeClient.connect.bind(fakeClient);
+  const realClose = fakeClient.close.bind(fakeClient);
+  fakeClient.connect = async () => {
+    connected += 1;
+    return realConnect();
+  };
+  fakeClient.close = async () => {
+    closed += 1;
+    return realClose();
+  };
+
+  await assert.rejects(
+    startApi({ MONGODB_URL: "mongodb://fake-host/ignored" }, { clientFactory: () => client, intervalMs: 0 }),
+    RangeError,
+  );
+  assert.equal(connected, 1, "connect() was reached (the failure is AFTER connect, per the brief)");
+  assert.equal(closed, 1, "the client must be closed on the post-connect error path, not leaked");
+});
+
+test("T-015/ISS-t-014-rev-3 (regression): a SUCCESSFUL startApi does not close the client until stop() is called", async () => {
+  const { client } = createFakeMongoClient();
+  const fakeClient = client as unknown as FakeConnectable;
+  let closed = 0;
+  const realClose = fakeClient.close.bind(fakeClient);
+  fakeClient.close = async () => {
+    closed += 1;
+    return realClose();
+  };
+  const api = await startApi({ MONGODB_URL: "mongodb://fake-host/ignored" }, { clientFactory: () => client, intervalMs: 1000 });
+  assert.equal(closed, 0, "startApi itself must not close a client it successfully started");
+  await api.stop();
+  assert.equal(closed, 1);
+});

@@ -12,7 +12,10 @@ import {
   UnsupportedServerVersionError,
   isServerVersionAtLeast,
   assertServerVersionSupportsPartialIn,
+  createPlannedIndexes,
+  DB_INIT_CREATE_INDEX_TIMEOUT_MS,
 } from "../scripts/db-init.js";
+import { DEFAULT_MONGO_CLIENT_TIMEOUT_MS } from "../src/client.js";
 import { COLLECTION_NAMES } from "../src/collections.js";
 import { FakeCollection, assertSupportedPartialFilter, createFakeDb } from "./fakes.js";
 
@@ -243,4 +246,49 @@ test("ISS-t-011-c3-rev-4: an unreadable/missing buildInfo.version is treated as 
   const { db, fakeDb } = createFakeDb();
   fakeDb.buildInfoVersion = undefined as unknown as string; // simulate a malformed buildInfo response
   await assert.rejects(assertServerVersionSupportsPartialIn(db), UnsupportedServerVersionError);
+});
+
+// ---------------------------------------------------------------------------
+// T-015 / ISS-t-014-rev-1: db-init's createIndex gets an explicit per-op timeoutMS, larger than the
+// client-level default (D-016's fence margin, sized for a fenced writer's post-check, not an index
+// build). createPlannedIndexes is the loop split out of main() so it is testable offline (B8) — it
+// is never run against a real server here, only against the fake, which records what it was called
+// with.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-014-rev-1: DB_INIT_CREATE_INDEX_TIMEOUT_MS is larger than the client-level default (D-016's fence margin)", () => {
+  assert.ok(
+    DB_INIT_CREATE_INDEX_TIMEOUT_MS > DEFAULT_MONGO_CLIENT_TIMEOUT_MS,
+    `expected ${DB_INIT_CREATE_INDEX_TIMEOUT_MS} > ${DEFAULT_MONGO_CLIENT_TIMEOUT_MS}`,
+  );
+});
+
+test("ISS-t-014-rev-1: createPlannedIndexes passes {timeoutMS: DB_INIT_CREATE_INDEX_TIMEOUT_MS} to EVERY createIndex call (the fake records the options it received)", async () => {
+  const { db, fakeDb } = createFakeDb();
+  await createPlannedIndexes(db, INDEX_PLAN);
+  assert.ok(INDEX_PLAN.length > 0, "fixture sanity: there is something to assert on");
+  for (const spec of INDEX_PLAN) {
+    const collection = fakeDb.collection<{ _id: string }>(spec.collection);
+    const call = collection.createIndexCalls.find((c) => c.options?.name === spec.name);
+    assert.ok(call, `expected a createIndex call named "${spec.name}" on "${spec.collection}"`);
+    assert.equal(call!.options?.timeoutMS, DB_INIT_CREATE_INDEX_TIMEOUT_MS, `createIndex(${spec.name})`);
+    assert.deepEqual(call!.keys, spec.keys, `createIndex(${spec.name}) keys must match the plan`);
+  }
+});
+
+test("ISS-t-014-rev-1: createPlannedIndexes defaults to INDEX_PLAN when no plan is passed", async () => {
+  const { db, fakeDb } = createFakeDb();
+  await createPlannedIndexes(db);
+  const spec = INDEX_PLAN[0]!;
+  const collection = fakeDb.collection<{ _id: string }>(spec.collection);
+  assert.ok(collection.createIndexCalls.some((c) => c.options?.name === spec.name));
+});
+
+test("ISS-t-014-rev-1 falsification: a createIndex call WITHOUT the timeoutMS override does not satisfy the assertion above (sanity check on the test itself)", async () => {
+  const { fakeDb } = createFakeDb();
+  const collection = fakeDb.collection<{ _id: string }>(COLLECTION_NAMES.facts);
+  await collection.createIndex({ studentId: 1 }, { name: "no_timeout_here" });
+  const call = collection.createIndexCalls.find((c) => c.options?.name === "no_timeout_here");
+  assert.ok(call);
+  assert.notEqual(call!.options?.timeoutMS, DB_INIT_CREATE_INDEX_TIMEOUT_MS, "confirms the fake does not inject the option itself — createPlannedIndexes must");
 });
