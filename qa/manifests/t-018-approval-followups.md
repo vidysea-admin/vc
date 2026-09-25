@@ -2,7 +2,7 @@
 
 **Contract:** qa/contracts/counselling-engine.md (B3, B5, B15 primary per the dispatch; B2, B8, B12, B14 touched by the audit writer)
 **Goal task:** T-018 (T-008 follow-ups, TASKS.md row 28): ISS-t-008-c0-1, residual 3, residual 7 of `qa/manifests/t-008-approval-ui.md`
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 0; senior review Warning → ISS-t-018-rev-1/2, checker ISS-t-018-c0-1/2)
 **Fix cycle:** 0
 **Branch:** `wave/t-018-approval-followups` (worktree `D:/vc/.worktrees/t-018-approval-followups`), branched from main `3190ad2`
 **Diff range:** `3190ad2..445f63f` (one commit, "feat(engine,db,web): t-018 edit type validation, reject-reason audit, prod-build browser evidence"), plus this manifest + evidence commit
