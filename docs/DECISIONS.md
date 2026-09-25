@@ -122,3 +122,9 @@ not replace them.
 **Why:** MongoDB partialFilterExpression accepts equality, `$exists: true`, range, $type, $and, $or and $in, but NOT `$exists: false` (docs: mongodb.com/docs/manual/core/index-partial, checked 2026-09-25). The T-003b index `{validTo: {$exists: false}}` would therefore fail to create at db:init on the live server, leaving the concurrency guarantees (ISS-019, D-012 11000 handling) with no index in production. The offline fake accepted it. The T-003b cycle-2 builder flagged this and the docs confirm it. A live probe on a scratch collection was not run (classifier-denied).
 **Result:** -- (implemented inside T-003b cycle 2 before the checker; the fake must now reject unsupported partial filters)
 **Links:** T-003b, D-012, ISS-019
+
+## D-014 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** Add a `scribe_resolutions` collection to packages/db. Each document is `_id = threadId`, with a unique `{threadId:1}` index and a `{studentId:1}` index. It is the atomic, cross-process claim for resuming a paused scribe thread: exactly one counsellor decision per thread; every other caller gets already_resolved with the winner's decision. Claims are never deleted in normal operation. They hold decision and fact values, so T-011 erasure MUST purge them by studentId, together with scribe_checkpoints and scribe_checkpoint_writes.
+**Why:** The T-007 cycle-1 senior review reproduced a TOCTOU race. Two concurrent resumes of one thread both reported "written" while only one decision persisted, so a counsellor's reject or edit was silently dropped (ISS-t-007-rev-8, high). A read-then-invoke check cannot close that race. A single-document insertOne on _id can, and it is atomic server-side. This authorizes T-007 cycle 2's edits to packages/db/src (collections.ts, db-init INDEX_PLAN), which the T-007 manifest had listed as untouched.
+**Result:** -- (T-007 cycle 2, 087ffa0)
+**Links:** T-007, T-011, ISS-t-007-rev-8, ISS-t-007-c1-2, D-012
