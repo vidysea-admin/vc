@@ -110,3 +110,9 @@ not replace them.
 **Why:** DECISIONS is append-only, so the correction is a new entry and D-006 is never edited. Umesh's gate answer: "yes fix and mail is umeshsugara@vidysea.com".
 **Result:** -- (ISS-003 status set to wontfix-accepted in qa/issues.jsonl)
 **Links:** D-006, ISS-003, qa/gates/config-audit-fixes.md
+
+## D-012 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** A fact document's identity is separate from its content. Every fact write gets a fresh `_id`: a driver ObjectId or a ULID, never derived from content. A separate `contentHash` field (sha256 of the JSON array [studentId, key, canonical value, sessionId]) detects idempotent replays: the write is skipped when the active fact's contentHash equals the candidate's. Supersession keeps retire-then-insert with a CAS on {_id, validTo unset}. On a CAS or 11000 failure the writer re-reads the active fact and treats a matching contentHash as its own already-landed write.
+**Why:** T-003b cycle-1 reviews (data-engineer Block, senior Block, 2026-09-25) reproduced two failures. First, a content-addressed `_id` collides with the retired historical document when a student reverts a value (A to B to A), leaving the key permanently at zero open facts. Second, a concurrent replay of the identical decision throws a spurious FactConflictError. Separating identity from content fixes both and keeps the ISS-020 idempotency guarantee.
+**Result:** -- (implemented in T-003b fix cycle 2)
+**Links:** T-003b, ISS-026, ISS-020, T-011 (edges have no studentId; B15 erasure resolves them in two hops via the student's fact and session ids)
