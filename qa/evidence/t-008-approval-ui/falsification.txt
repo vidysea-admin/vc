@@ -1,0 +1,26 @@
+CAUGHT  F1 rejected facts are written too  [packages/engine/src/scribe/nodes.ts]  ℹ pass 6 ℹ fail 7
+    ✖ T-008 inspectScribe: not_found -> awaiting_approval -> done (with the decision), and reading never writes (31.506ms)
+    ✖ T-008 per_fact: a rejected fact is never written, whatever else is approved (28.816ms)
+    ✖ T-008 per_fact: approve one, reject one, edit one -> exactly the approved + edited facts are written (read back) (88.234ms)
+    ✖ T-008 per_fact: every fact rejected AND the summary withheld -> rejected, nothing written at all (28.2622ms)
+CAUGHT  F2 edit writes the proposed value, not the edited one  [packages/engine/src/scribe/nodes.ts]  ℹ pass 12 ℹ fail 1
+    ✖ T-008 per_fact: approve one, reject one, edit one -> exactly the approved + edited facts are written (read back) (149.1438ms)
+CAUGHT  F3 summary withhold ignored  [packages/engine/src/scribe/nodes.ts]  ℹ pass 12 ℹ fail 1
+    ✖ T-008 per_fact: withholding the summary stores no summary text, only the counsellor's withheld reason (29.5391ms)
+CAUGHT  F4 missing-decision check removed  [packages/engine/src/scribe/nodes.ts]  ℹ pass 12 ℹ fail 1
+    ✖ T-008 B3: nothing is written before submit, and an invalid per_fact response writes nothing and takes no claim (17.8119ms)
+CAUGHT  F5 inspectScribe ignores the claim  [packages/engine/src/scribe/graph.ts]  ℹ pass 12 ℹ fail 1
+    ✖ T-008 inspectScribe: a claimed thread whose decision is not recorded yet is in_progress (45.7307ms)
+CAUGHT  F6 inspectScribe ignores the erasure fence  [packages/engine/src/scribe/graph.ts]  ℹ pass 12 ℹ fail 1
+    ✖ T-008 inspectScribe: a fenced student (erasure in progress) is reported fenced, with no student data (32.46ms)
+CAUGHT  F7 web body schema not strict  [apps/web/src/server/contracts.ts]  ℹ pass 9 ℹ fail 1
+    ✖ B5: invalid decision bodies are refused (400) and write nothing, claim nothing (227.2529ms)
+CAUGHT  F8 web GET resumes instead of reading (writes on read)  [apps/web/src/server/approval-service.ts]  ℹ pass 6 ℹ fail 4
+    ✖ B3: reading the pending approval (repeatedly) writes nothing and claims nothing (78.1834ms)
+    ✖ B5: invalid decision bodies are refused (400) and write nothing, claim nothing (78.6423ms)
+    ✖ GET: a paused thread returns the proposal fact by fact, the dropped facts with reasons and the draft summary (122.4487ms)
+    ✖ route handlers: GET and POST through the Next route module, JSON in and out (64.8056ms)
+CAUGHT  F9 UI composes a sentence (B1)  [apps/web/src/components/ApprovalScreen.tsx]  ℹ pass 6 ℹ fail 1
+    ✖ B1: the only text on the screen is labels or data from the proposal (nothing the UI composes itself) (7.0231ms)
+CAUGHT  F10 needsReview flag not rendered  [apps/web/src/components/ApprovalScreen.tsx]  ℹ pass 6 ℹ fail 1
+    ✖ pending: a needsReview fact is flagged with its reasons; an unflagged fact is not (4.231ms)
