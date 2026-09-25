@@ -18,7 +18,7 @@
 #
 # Bash-level bypasses (Add-Content, >>) do not hit PreToolUse for file tools -- they
 # are caught by the landplane additions-only diff audit and the compound sweep.
-# Always exits 0; FAILS OPEN. PS 5.1-safe, pure ASCII.
+# Always exits 0; on a parse/logic failure it FAILS CLOSED to "ask" (D-010, ISS-001). PS 5.1-safe, pure ASCII.
 
 param(
   [string]$InputJson = ""
@@ -34,12 +34,6 @@ if ([string]::IsNullOrWhiteSpace($InputJson)) {
 }
 if ([string]::IsNullOrWhiteSpace($inputJson)) { exit 0 }
 
-try {
-  $event = $inputJson | ConvertFrom-Json
-} catch {
-  exit 0
-}
-
 function Emit-Decision([string]$decision, [string]$reason) {
   $payload = [ordered]@{
     hookSpecificOutput = [ordered]@{
@@ -49,6 +43,16 @@ function Emit-Decision([string]$decision, [string]$reason) {
     }
   }
   $payload | ConvertTo-Json -Depth 6 -Compress | ForEach-Object { [regex]::Replace($_, "[^\x00-\x7F]", { param($m) ("\u{0:x4}" -f [int][char]$m.Value) }) } | Write-Output   # ASCII-only JSON: under the harness PowerShell writes stdout in the OEM codepage and non-ASCII becomes 0x1a, which is invalid inside a JSON string (found 2026-09-05)
+}
+
+# D-010 / ISS-001: fail CLOSED to "ask" -- a guard that cannot read its input must not wave the edit through.
+$failClosedReason = "Lab Protocol guard could not evaluate this edit (malformed input or internal error). Failing closed: confirm only if the target is not docs/DECISIONS.md or an enforcement file, or the authorizing DECISIONS entry exists."
+
+try {
+  $event = $inputJson | ConvertFrom-Json
+} catch {
+  Emit-Decision "ask" $failClosedReason
+  exit 0
 }
 
 try {
@@ -102,5 +106,6 @@ try {
   exit 0
 }
 catch {
+  Emit-Decision "ask" $failClosedReason
   exit 0
 }
