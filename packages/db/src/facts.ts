@@ -103,6 +103,13 @@
  *     `PartialApplyError`, carrying the ids already written and the key that
  *     failed, instead of letting the caller see only the last error and lose
  *     track of the partial state.
+ *   - **A write racing a DPDP erasure (D-015, T-011 cycle 2).** applyApprovedDiff
+ *     is a fence-aware writer: it refuses a fenced student before writing
+ *     (`StudentFencedError`, nothing written), and after ALL of its writes
+ *     (also after a partial failure) it checks the fence again. If an erasure
+ *     was confirmed meanwhile, it deletes the facts it inserted and the edges
+ *     it linked, by id, and throws `StudentFencedError`. See src/erasure.ts
+ *     "The erasure fence" for why pre-check + post-check closes the race.
  */
 import { ObjectId, type Db, type Filter } from "mongodb";
 import { createHash } from "node:crypto";
@@ -116,7 +123,8 @@ import {
   type CounsellorDecision,
 } from "@vc/schemas";
 import { factsCollection, edgesCollection, type FactDoc } from "./collections.js";
-import { link, type EdgeRef } from "./edges.js";
+import { deriveEdgeId, link, type EdgeRef } from "./edges.js";
+import { assertStudentNotFenced, compensateIfFenced } from "./erasure.js";
 
 /**
  * Deterministically orders object keys (recursively) so two structurally
@@ -336,107 +344,135 @@ export async function applyApprovedDiff(
   // in the list can't leave earlier facts partially committed.
   const parsedFacts = decision.edits.map((edit) => FactSchema.parse(edit));
 
+  // D-015 pre-check: a student with an erasure in progress gets nothing written at all.
+  await assertStudentNotFenced(db, diff.studentId);
+
   const facts = factsCollection(db);
   const edges = edgesCollection(db);
   const written: FactDoc[] = [];
   const supersededKeys: string[] = [];
   const now = new Date().toISOString();
+  // D-015: exactly what THIS call wrote, so the post-write fence check can undo it by id.
+  const insertedFactIds: string[] = [];
+  const linkedEdgeIds: string[] = [];
+  let failure: { err: unknown } | null = null;
 
-  for (const fact of parsedFacts) {
-    try {
-      const activeFilter: Filter<FactDoc> = {
-        studentId: diff.studentId,
-        key: fact.key,
-        active: true, // D-013: open == active:true (served by the partial unique index)
-      };
-      // D-012: identity (_id) and content (contentHash) are separate. The
-      // hash decides "is this write already applied?"; the _id is always fresh.
-      const contentHash = deriveContentHash(diff.studentId, fact.key, fact.value, sessionId);
-      const existingBefore = await facts.findOne(activeFilter);
+  try {
+    for (const fact of parsedFacts) {
+      try {
+        const activeFilter: Filter<FactDoc> = {
+          studentId: diff.studentId,
+          key: fact.key,
+          active: true, // D-013: open == active:true (served by the partial unique index)
+        };
+        // D-012: identity (_id) and content (contentHash) are separate. The
+        // hash decides "is this write already applied?"; the _id is always fresh.
+        const contentHash = deriveContentHash(diff.studentId, fact.key, fact.value, sessionId);
+        const existingBefore = await facts.findOne(activeFilter);
 
-      let doc: FactDoc | null = null;
+        let doc: FactDoc | null = null;
 
-      if (existingBefore && existingBefore.contentHash === contentHash) {
-        // ISS-020 / D-012: idempotent replay. The open fact for this key
-        // already carries our content. Nothing to insert or supersede.
-        doc = existingBefore;
-      } else {
-        if (existingBefore) {
-          // ISS-026: retire the OLD fact FIRST, guarded by a CAS on its own
-          // _id with validTo still unset. Inserting first would collide with
-          // the unique partial index (two open facts for a moment).
-          const retired = await facts.findOneAndUpdate(
-            { _id: existingBefore._id, active: true } as Filter<FactDoc>,
-            // D-013: ONE atomic update closes the fact: validTo for history,
-            // and `active` removed so it leaves the partial unique index.
-            { $set: { validTo: now }, $unset: { active: "" } },
-          );
-          if (retired) {
-            supersededKeys.push(fact.key);
-          } else {
-            // ISS-t-003b-c1-2: another writer retired it between our read and
-            // our CAS. Read the outcome back (B14) instead of assuming a
-            // conflict: our own content already open means our write landed.
-            const current = await facts.findOne(activeFilter);
-            if (current && current.contentHash === contentHash) {
-              doc = current;
-            } else if (current) {
-              throw new FactConflictError(diff.studentId, fact.key);
-            }
-            // current === null: the other writer is inside its own
-            // retire->insert window (or crashed there). Fall through to the
-            // insert; the unique partial index picks exactly one winner and
-            // the 11000 branch below applies the same contentHash rule.
-          }
-        }
-
-        if (!doc) {
-          const candidate: FactDoc = {
-            ...fact,
-            _id: new ObjectId().toHexString(),
-            studentId: diff.studentId,
-            contentHash,
-            active: true, // D-013: enters the partial unique index as THE open fact
-          };
-          try {
-            await facts.insertOne(candidate);
-            doc = candidate;
-          } catch (err) {
-            if ((err as { code?: number } | undefined)?.code !== 11000) throw err;
-            // Someone else's open fact now exists for this key. Re-read: our
-            // contentHash means an identical concurrent write already landed
-            // (success); anything else is a genuine conflict (B14).
-            const winner = await facts.findOne(activeFilter);
-            if (winner && winner.contentHash === contentHash) {
-              doc = winner;
+        if (existingBefore && existingBefore.contentHash === contentHash) {
+          // ISS-020 / D-012: idempotent replay. The open fact for this key
+          // already carries our content. Nothing to insert or supersede.
+          doc = existingBefore;
+        } else {
+          if (existingBefore) {
+            // ISS-026: retire the OLD fact FIRST, guarded by a CAS on its own
+            // _id with validTo still unset. Inserting first would collide with
+            // the unique partial index (two open facts for a moment).
+            const retired = await facts.findOneAndUpdate(
+              { _id: existingBefore._id, active: true } as Filter<FactDoc>,
+              // D-013: ONE atomic update closes the fact: validTo for history,
+              // and `active` removed so it leaves the partial unique index.
+              { $set: { validTo: now }, $unset: { active: "" } },
+            );
+            if (retired) {
+              supersededKeys.push(fact.key);
             } else {
-              throw new FactConflictError(diff.studentId, fact.key);
+              // ISS-t-003b-c1-2: another writer retired it between our read and
+              // our CAS. Read the outcome back (B14) instead of assuming a
+              // conflict: our own content already open means our write landed.
+              const current = await facts.findOne(activeFilter);
+              if (current && current.contentHash === contentHash) {
+                doc = current;
+              } else if (current) {
+                throw new FactConflictError(diff.studentId, fact.key);
+              }
+              // current === null: the other writer is inside its own
+              // retire->insert window (or crashed there). Fall through to the
+              // insert; the unique partial index picks exactly one winner and
+              // the 11000 branch below applies the same contentHash rule.
+            }
+          }
+
+          if (!doc) {
+            const candidate: FactDoc = {
+              ...fact,
+              _id: new ObjectId().toHexString(),
+              studentId: diff.studentId,
+              contentHash,
+              active: true, // D-013: enters the partial unique index as THE open fact
+            };
+            try {
+              await facts.insertOne(candidate);
+              insertedFactIds.push(candidate._id);
+              doc = candidate;
+            } catch (err) {
+              if ((err as { code?: number } | undefined)?.code !== 11000) throw err;
+              // Someone else's open fact now exists for this key. Re-read: our
+              // contentHash means an identical concurrent write already landed
+              // (success); anything else is a genuine conflict (B14).
+              const winner = await facts.findOne(activeFilter);
+              if (winner && winner.contentHash === contentHash) {
+                doc = winner;
+              } else {
+                throw new FactConflictError(diff.studentId, fact.key);
+              }
             }
           }
         }
-      }
 
-      written.push(doc);
+        written.push(doc);
 
-      const to: EdgeRef = sessionId ? { kind: "session", id: sessionId } : sourceEdgeRef(fact.source);
-      await link(edges, { kind: "fact", id: doc._id }, to, "sourced_from");
-      await link(edges, { kind: "student", id: diff.studentId }, { kind: "fact", id: doc._id }, "has");
-    } catch (err) {
-      // ISS-028: earlier iterations of this same call already committed
-      // their facts (no cross-document transaction spans the whole diff —
-      // D-008/D-009). Wrap the failure with what already landed so the
-      // caller doesn't lose track of the partial outcome. A diff whose FIRST
-      // fact fails has nothing partial to report, so it throws the raw error.
-      if (written.length > 0) {
-        throw new PartialApplyError(
-          written.map((d) => d._id),
-          fact.key,
-          err,
-        );
+        const to: EdgeRef = sessionId ? { kind: "session", id: sessionId } : sourceEdgeRef(fact.source);
+        const factRef: EdgeRef = { kind: "fact", id: doc._id };
+        const studentRef: EdgeRef = { kind: "student", id: diff.studentId };
+        linkedEdgeIds.push(deriveEdgeId(factRef, to, "sourced_from"));
+        await link(edges, factRef, to, "sourced_from");
+        linkedEdgeIds.push(deriveEdgeId(studentRef, factRef, "has"));
+        await link(edges, studentRef, factRef, "has");
+      } catch (err) {
+        // ISS-028: earlier iterations of this same call already committed
+        // their facts (no cross-document transaction spans the whole diff —
+        // D-008/D-009). Wrap the failure with what already landed so the
+        // caller doesn't lose track of the partial outcome. A diff whose FIRST
+        // fact fails has nothing partial to report, so it throws the raw error.
+        if (written.length > 0) {
+          throw new PartialApplyError(
+            written.map((d) => d._id),
+            fact.key,
+            err,
+          );
+        }
+        throw err;
       }
-      throw err;
     }
+  } catch (err) {
+    failure = { err };
   }
+
+  // D-015 post-write check, after ALL of this call's writes (and also after a partial failure,
+  // whose earlier writes are committed). If an erasure fenced the student meanwhile, delete what
+  // this call wrote, by id, and refuse. The previous open fact this call may have retired is left
+  // as it is: the erasure deletes it.
+  await compensateIfFenced(db, diff.studentId, async () => {
+    if (insertedFactIds.length > 0) {
+      await facts.deleteMany({ studentId: diff.studentId, _id: { $in: insertedFactIds } } as Filter<FactDoc>);
+    }
+    if (linkedEdgeIds.length > 0) await edges.deleteMany({ _id: { $in: linkedEdgeIds } });
+  });
+  if (failure) throw failure.err;
 
   return { written, supersededKeys };
 }

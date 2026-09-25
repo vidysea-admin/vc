@@ -181,3 +181,12 @@ test("T-011: the erasure_requests audit log has a status index and no unique ind
   assert.ok(specs.some((s) => Object.keys(s.keys)[0] === "status"));
   assert.ok(specs.every((s) => !s.unique));
 });
+
+test("T-011 / D-015: erasure_fences is a named collection with a UNIQUE (non-partial) index on the hashed student key", () => {
+  assert.equal(COLLECTION_NAMES.erasure_fences, "erasure_fences");
+  const specs = INDEX_PLAN.filter((s) => s.collection === COLLECTION_NAMES.erasure_fences);
+  assert.deepEqual(
+    specs.map((s) => [s.name, s.keys, s.unique, s.partialFilterExpression]),
+    [["erasure_fences_studentKey_unique", { studentKey: 1 }, true, undefined]],
+  );
+});

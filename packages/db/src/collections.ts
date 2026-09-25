@@ -39,6 +39,9 @@ export const COLLECTION_NAMES = {
   // T-011 / B15: the erasure audit log (src/erasure.ts). Survives erasure; no personal data
   // once a request completes.
   erasure_requests: "erasure_requests",
+  // T-011 cycle 2 / D-015: the erasure write fence, one doc per fenced student (src/erasure.ts).
+  // Keyed by a hash of the studentId, never the clear id; set at confirm, removed on completion.
+  erasure_fences: "erasure_fences",
   // Name constants only — owned by the university-kb unit (ARCHITECTURE Q1).
   universities: "universities",
   courses: "courses",

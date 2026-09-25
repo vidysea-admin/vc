@@ -2,16 +2,17 @@
 **Contract:** qa/contracts/counselling-engine.md (B15 primary; B4, B8, B11, B12, B14)
 **Goal task:** T-011
 **Date:** 2026-09-25
-**Status:** fix-in-progress
-**Fix cycle:** 2 of max 3 (cycle-1 checker FAIL 4b6ad21: ISS-t-011-c1-1 non-atomic read-back; D-015 fence + compensation)
-**Fix cycle budget:** 1 of max 3
+**Status:** ready-for-check
+**Fix cycle:** 2
+**Fix cycle budget:** 2 of max 3 (cycle-1 checker FAIL 4b6ad21: ISS-t-011-c1-1 non-atomic read-back; design D-015 fence + post-write compensation)
 **Design:** qa/gates/dpdp-erase-design.md answer (a) "hard delete with confirmation and verification"; D-003 (history by retirement, so erasure must include retired facts), D-012 (fact `_id` is a fresh ObjectId, so edges are found through the resolved fact ids), D-013 (`active: true` marks open facts; retired facts have it unset), D-014 (scribe_resolutions hold approved fact values, so they are erased)
-**Diff range (cycle 1):** `1d7facb..HEAD` on branch `wave/t-011-dpdp-erasure`, a single commit: "fix(db): t-011 cycle 1 — stable-loop purge (no orphan edges under concurrent writers), checked final CAS". `1d7facb` is "qa: t-011 fix cycle 1", after the main merge `b5e6b55`. Cycle 1 touches `packages/db/src/erasure.ts`, `packages/db/tests/{erasure.test.ts, fakes.ts}`, `packages/db/README.md`, `packages/schemas/src/schemas.ts` (additive: optional `ErasureReceipt.rounds`) and this manifest.
+**Diff range (cycle 2):** `58a38f6..HEAD` on branch `wave/t-011-dpdp-erasure`, a single commit: "fix(db,engine): t-011 cycle 2 — erasure fence + post-write compensation (D-015)". `58a38f6` is "qa: t-011 fix cycle 2 (D-015)", after the main merge `5a9a2a3` (which brought D-015). Cycle 2 touches `packages/db/src/{erasure,facts,consent,collections}.ts`, `packages/db/scripts/db-init.ts`, `packages/db/tests/{erasure,consent,db-init}.test.ts`, `packages/db/tests/fakes.ts`, `packages/db/README.md`, `packages/schemas/src/schemas.ts` (additive: `MAX_CARRIED_IDS`, `ErasureCarriedSelectorsSchema`), `packages/engine/src/scribe/graph.ts`, `packages/engine/tests/{scribe-erasure-fence.test.ts (new), scribe-fixtures.ts}` and this manifest. `packages/engine/src/scribe/nodes.ts` is NOT touched (T-013 owns it).
+**Diff range (cycle 1):** `1d7facb..58a38f6` on branch `wave/t-011-dpdp-erasure`, a single commit: "fix(db): t-011 cycle 1 — stable-loop purge (no orphan edges under concurrent writers), checked final CAS". `1d7facb` is "qa: t-011 fix cycle 1", after the main merge `b5e6b55`. Cycle 1 touches `packages/db/src/erasure.ts`, `packages/db/tests/{erasure.test.ts, fakes.ts}`, `packages/db/README.md`, `packages/schemas/src/schemas.ts` (additive: optional `ErasureReceipt.rounds`) and this manifest.
 **Diff range (cycle 0):** `e10e49d..HEAD` on branch `wave/t-011-dpdp-erasure`. It is a single commit: "feat(db): T-011 DPDP erasure (confirm → hard delete → read-back verify → receipt) + export". `e10e49d` is "tasks: T-007 done; T-008 prerequisites", the main branch point.
 **Scope:** `packages/db/src/erasure.ts` (new, the unit's module), `packages/db/src/{collections,consent,index}.ts`, `packages/db/scripts/db-init.ts` (INDEX_PLAN), `packages/db/tests/{erasure.test.ts (new), consent.test.ts, db-init.test.ts, fakes.ts}`, `packages/db/README.md`, `packages/schemas/src/schemas.ts` (additive: the Erasure* schemas), this manifest.
-**Not touched:** `.claude/**`, `docs/DECISIONS.md`, `scripts/**`, `packages/engine/**` (read only, by the drift-guard test), `qa/contracts/**`.
+**Not touched:** `.claude/**`, `docs/DECISIONS.md`, `scripts/**`, `guards/**`, `qa/contracts/**`, and `packages/engine/**` except (cycle 2 only) `src/scribe/graph.ts` and `tests/**`.
 **Dual check:** no
-**Issues addressed:** cycle 1: ISS-t-011-c0-1 (medium), ISS-t-011-rev-1 (low), ISS-t-011-rev-3 (high). Cycle 0: ISS-t-011-pre-1 (medium), ISS-t-007-rev-6 (high; the erasure half plus the INDEX_PLAN half: the checkpoint collections are now named and indexed; `saver.setup()` wiring stays with the first live-wiring unit), ISS-043 (low)
+**Issues addressed:** cycle 2: ISS-t-011-c1-1 (high), ISS-t-011-c1-rev-1 (high), ISS-t-011-c1-rev-2 (medium), ISS-t-011-c1-rev-3 (low). Cycle 1: ISS-t-011-c0-1 (medium), ISS-t-011-rev-1 (low), ISS-t-011-rev-3 (high). Cycle 0: ISS-t-011-pre-1 (medium), ISS-t-007-rev-6 (high; the erasure half plus the INDEX_PLAN half: the checkpoint collections are now named and indexed; `saver.setup()` wiring stays with the first live-wiring unit), ISS-043 (low)
 **Executor:** claude-opus-subagent (maker build subagent)
 
 ## What changed
@@ -92,6 +93,90 @@ Every test below is in `packages/db/tests/erasure.test.ts` unless noted otherwis
 | Live checkpoints | Real MongoDBSaver documents carry `thread_id` equal to `scribe:<sessionId>`. | The field name was checked in the library source (`checkpoint.js` writes and `deleteThread` use `thread_id`). No real saver run was made. | **UNVERIFIED** |
 | Concurrency | (cycle 0 claim; superseded by the "Fix cycle 1" section below) | Cycle 1 adds dedicated concurrent-writer and concurrent-execute tests. | see Fix cycle 1 |
 | Transcripts | Raw transcript and audio collections are erased. | No such collections exist yet. Transcripts live only inside the scribe checkpoints, which are erased. The coverage test forces any new collection into the plan. | **N/A yet** |
+
+## Fix cycle 2 (D-015: ISS-t-011-c1-1, ISS-t-011-c1-rev-1; lows ISS-t-011-c1-rev-2, ISS-t-011-c1-rev-3)
+
+### What changed
+- **The fence (`src/erasure.ts`, section "The erasure fence").**
+  - It is a new `erasure_fences` collection, with one doc per fenced student: `{_id = studentKey, studentKey, requestId, createdAt, releaseAfter?}`.
+  - It is in `COLLECTION_NAMES` and in INDEX_PLAN (`erasure_fences_studentKey_unique`, UNIQUE, non-partial). It is also in `ERASURE_EXEMPT_COLLECTIONS`, with the reason that it must outlive the purge it protects and holds only a hash.
+  - **Key decision:** the fence stores NO clear studentId. `studentKey = sha256("vc-erasure-fence-v1|" + studentId)` is unsalted on purpose, because every writer must compute the lookup key from the studentId it already holds. The residual (a dictionary check against candidate ids) is the same as the audit row's hash, and gate erasure-fencing Q2 (HMAC) covers both.
+  - **Order:** `confirmErasure` sets the fence BEFORE its confirm CAS, so no confirmed request is ever unfenced. If the CAS then loses, the only way out of `pending` is a concurrent confirm, so the fence is still right.
+  - `executeErasure` re-sets the fence (an idempotent upsert that also takes it over for this request and clears a stale `releaseAfter`) BEFORE the first `resolveSelectors`.
+  - The fence is released only AFTER the completion CAS succeeds, and also on the CAS-miss → already-completed path, so a concurrent run can not leave it lingering. With the grace period at 0 it is deleted, only when `requestId` matches. Otherwise it is stamped `releaseAfter`.
+  - The release is best effort: a failure leaves the fence, which fails safe because writes stay refused. `releaseExpiredErasureFences(db, now, graceMs)` sweeps expired fences and fences orphaned by a crash after completion.
+  - `ERASURE_FENCE_GRACE_MS = 0` is documented as the place where gate erasure-fencing Q1's re-enrolment policy goes.
+  - A failed request keeps its fence until its retry completes.
+- **The writer API** consists of `isStudentFenced`, `assertStudentNotFenced` (the pre-check) and `compensateIfFenced(db, studentId, undo)` (the post-check). If the post-check finds the student fenced, it runs `undo` and then throws `StudentFencedError`. An error from `undo` is never masked.
+- **`applyApprovedDiff` (`src/facts.ts`)** now does three things:
+  - It runs the pre-check before any write.
+  - It tracks the fact ids it INSERTED and the edge ids it LINKED (`deriveEdgeId`).
+  - After ALL its writes, and also after a partial failure, it runs `compensateIfFenced`. If fenced, it deletes those facts (`{studentId, _id $in}`) and edges (`{_id $in}`) and throws `StudentFencedError`.
+  - `writeApproved` (nodes.ts, untouched) inherits this, because it rethrows a non-conflict error.
+- **`requireConsent`** refuses while the student is fenced, with the same generic `ConsentRequiredError` (ISS-043: nothing reveals that an erasure is running).
+- **`startScribe` / `resumeScribe` (`packages/engine/src/scribe/graph.ts`)** return a new outcome kind, `{kind: "fenced"}`:
+  - `startScribe` pre-checks the student and refuses before any node runs.
+  - `resumeScribe` pre-checks the thread's `studentId` from state BEFORE claiming, on both the response path and the `null` recovery path.
+  - `invokeFenceAware` wraps every invoke. After it (or when the invoke threw `StudentFencedError`), if the student is fenced it calls `checkpointer.deleteThread(threadId)` and deletes the claim THIS call inserted (by `_id` and `responseHash`), then returns `fenced`.
+  - The compiled graph's `WeakMap` now holds `{db, checkpointer}`. `startScribe` now also fails closed for a graph not built by `compileScribeGraph`, as `resumeScribe` already did.
+- **Why this closes ISS-t-011-c1-1 and -rev-1.** Take any fence-aware writer W, whose post-check follows all of its writes:
+  - If W's post-check runs while the fence exists, W removes its own writes.
+  - If W's post-check ran before the fence, every write of W landed before the purge's first resolve, so the purge deletes it.
+  - Either way, a write that lands between two read-back counts, or between the last count and the CAS, is removed.
+- **Lows.**
+  - rev-2: `MAX_CARRIED_IDS = 20_000` per list, with `ErasureCarriedSelectorsSchema` (zod, strict) in @vc/schemas. The carried ids are validated on read, and a corrupt row gives `ErasureStateError` before anything is touched. A round whose merged ids would exceed the cap deletes nothing more, keeps the within-cap ids, and ends `failed` with the distinct label `selectors:over_cap` on the line for that list. A concurrent run's carry is merged only if it is valid and stays within the cap.
+  - rev-3: on CAS exhaustion, the attempt is recorded anyway (`failed`, attempts+1, an unverified receipt, carried ids, studentId and the fence kept) and the call throws `ErasureStateError`. `resolveSelectors` failures carry the failing collection, so the round-2+ label is accurate (for example `sessions: resolve:MongoNetworkError`, which also covers the senior's round-2 resolve-failure label). An INDEX_PLAN note records why `sessions` has no `sessionId` index: every erasure query on sessions carries studentId.
+- **Test support:** the fake `updateOne` now honours `$unset`. The scribe harness exposes `db`/`fakeDb` (an additive change).
+
+### TDD: RED before the implementation
+The tests were written first, against skeleton exports (right names, no behaviour), so each test failed on its own. Raw output is in the maker scratchpad `t011c2/red-db.txt` and `red-engine.txt`.
+- `npx tsx --test tests/erasure.test.ts tests/consent.test.ts tests/db-init.test.ts`: **tests 60, pass 42, fail 18**. All 18 new db tests were red. One example: the rev-3 resolve label was `undefined` instead of `'resolve:MongoNetworkError'`.
+- `npx tsx --test tests/scribe-erasure-fence.test.ts`: **tests 5, pass 1, fail 4**. The resume race returned `{kind:'done', result:{status:'written'}}` instead of `{kind:'fenced'}`. The one pass is the isolation guard (another student's scribe runs normally), which is green by design.
+
+### New tests (outcome-based: a full scan of every fake collection, plus the MemorySaver itself)
+| Test | What it proves |
+|---|---|
+| H4 (the checker's fact + edge probe) | The REAL `applyApprovedDiff` starts before confirm and is paused after its pre-check. It is released inside `students.countDocuments`, the LAST read-back, after the real count. Its fact and 2 edges really exist mid read-back (3 docs observed). Its post-check compensates and it gets `StudentFencedError`. The erasure ends `verified`, with a zero full-scan residue, no orphan fact edge, and B untouched. |
+| H4 variant | A writer that STARTS inside the same hook, after confirm, is refused by its pre-check. The residue is zero. |
+| H4b (the checker's session + checkpoint + edge probe) | A fence-aware writer (pre-check → a session row, checkpoint, checkpoint write and session edge → `compensateIfFenced`) is released inside `scribe_resolutions.countDocuments`. It is fenced, and the residue is zero, including the late session and thread ids. |
+| H4b with the REAL scribe (engine) | `resumeScribe` is paused inside `applyApprovedDiff`, after it has claimed. It is released inside `scribe_resolutions.countDocuments` of a real `executeErasure`. Its writes landed mid read-back. The outcome is `{kind:'fenced'}`, the erasure is `verified`, the residue across every collection is zero, the MemorySaver holds nothing for the thread, and the fence is released. |
+| before confirm → after confirm | A writer paused across the confirm removes its own fact and edges, and the erasure then completes clean. |
+| starts after confirm | It is refused, and every collection is byte-identical. |
+| racing the completion CAS (rev-1) | The writer is released inside the `completed` CAS. It is fenced, and the residue is zero. |
+| another student | B writes while A is fenced, and B's fact and both its edges survive A's erasure. On the engine side, B's scribe start and resume write normally. |
+| fence lifecycle | Confirm sets the fence with no clear studentId, and a pending request sets none. The fence is present during the purge and removed on completion, and re-enrolment works with a grace of 0. A failed attempt keeps it. Execute re-creates a missing fence before the first resolve. Two concurrent executes leave no fence. A grace period makes it linger, then the sweep releases it. A failed release does not fail a verified erasure, and the sweep clears it. |
+| requireConsent | It refuses while fenced, with the same generic message, and another student is unaffected. |
+| engine pre-checks | A fenced `startScribe` gives `fenced` with 0 provider calls and no checkpoint. A fenced `resumeScribe` gives `fenced` with 0 claim inserts attempted and the thread left as it was. A fence that appears mid-`startScribe` gives `fenced` and the thread is deleted. |
+| rev-2 / rev-3 | These cover the over-cap label and parse, the zod refusal of a corrupt carry, CAS exhaustion being recorded, and the resolve failure labelled `sessions`. |
+| db-init | `erasure_fences` has exactly one UNIQUE non-partial `{studentKey:1}` index. |
+
+The cycle-1 test "rev-3: a fact … written at the START of phase 2" injected through the real `applyApprovedDiff`, which the fence now refuses by design. The test targets the round loop, so it now lifts the fence around its two late writes (modelling a writer that does not check the fence) and restores it. Its assertions are unchanged.
+
+### Verification (exact commands, run from the worktree root, final tree)
+```
+pnpm install                          -> exit 0, "Done in 537ms using pnpm v10.33.0"
+pnpm -r typecheck                     -> exit 0; 9 "typecheck: Done", 0 "error TS"
+pnpm -r test                          -> exit 0; every package fail 0:
+  apps/web 1 · apps/api 1 · packages/providers 8 · packages/schemas 50 · packages/observability 57
+  packages/db 119 (was 99; +20) · mcp/university-kb 9 · mcp/student-profile 12 · packages/engine 102 (was 97; +5)
+  total 359 tests, 0 fail
+python contracts/verify_contracts.py  -> "verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity", exit 0
+```
+
+### Falsification (mutate → red → restore; each file restored from a backup and confirmed byte-identical with filecmp)
+The runs used db `tests/{erasure,consent,facts}.test.ts` (85 tests) and engine `tests/{scribe-erasure-fence,scribe}.test.ts` (37 tests). Script and output: the maker scratchpad `t011c2/falsify.py` and `falsify.txt`.
+
+| # | Mutation | db | engine | Red tests |
+|---|---|---|---|---|
+| C2-F1 | Remove the writer's post-check (`if (false) await compensateIfFenced(...)` in applyApprovedDiff). | fail 3 / 85 | fail 1 / 37 | H4 fact probe, before→after confirm, the completion-CAS race; engine H4b with the real scribe |
+| C2-F2 | Remove the fence insert (`setErasureFence` returns before its upsert, in both confirm and execute). | fail 14 / 85 | fail 4 / 37 | every fence test: H4, H4 variant, H4b, CAS race, after-confirm refusal, lifecycle, grace, re-create, requireConsent, CAS-exhaustion fence; engine: all 4 fence tests |
+| C2-F3 | Remove the pre-check in `resumeScribe` (response path). | fail 0 / 85 | fail 1 / 37 | "resumeScribe for a FENCED student is refused BEFORE claiming" (a claim insert was attempted; the post-check alone still ends `fenced`, which the test tells apart) |
+
+### Residuals (not blocking; they belong to gate erasure-fencing)
+- **Grace 0:** a writer whose writes landed before completion, but whose post-check runs AFTER the fence is released, keeps its writes. A grace period longer than the slowest writer closes this. That is Q1, and its recommendation is 24h.
+- **Coverage:** the fence binds only fence-aware writers. Today these are applyApprovedDiff, requireConsent, startScribe and resumeScribe. No code writes `sessions` or `students` rows yet. Any new student-data writer must use `assertStudentNotFenced` and `compensateIfFenced`, as the README and the module doc now say. A raw write that does not check the fence (the checker's original raw-seed H4) still hits the non-atomic read-back.
+- **Fence key:** an unsalted hash. See Q2 (HMAC).
+- **Live DB:** the fence upsert (`$set` + `$setOnInsert` + `$unset`), `deleteThread` against a real MongoDBSaver, and the `status $in` fallback update run only against the fake and MemorySaver. This is the same UNVERIFIED live row as before.
 
 ## Fix cycle 1 (ISS-t-011-rev-3, ISS-t-011-c0-1, ISS-t-011-rev-1)
 

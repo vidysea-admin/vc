@@ -347,3 +347,25 @@ export const ErasureReceiptSchema = z
   })
   .strict();
 export type ErasureReceipt = z.infer<typeof ErasureReceiptSchema>;
+
+/**
+ * T-011 cycle 2 (ISS-t-011-c1-rev-2): the hard cap on each id list an erasure attempt accumulates
+ * and carries on a failed audit row (`carriedSelectors`). It bounds the audit row's size (Mongo's
+ * 16 MB document limit) and the `$in` selectors. An attempt that would exceed it stops before
+ * deleting anything more and ends `failed` with the distinct label `selectors:over_cap`.
+ */
+export const MAX_CARRIED_IDS = 20_000;
+
+/**
+ * The ids a failed erasure attempt resolved, stored on the audit row so a retry can still find a
+ * dependent whose anchor was already deleted. Validated on read: a corrupted row is refused, never
+ * silently merged.
+ */
+export const ErasureCarriedSelectorsSchema = z
+  .object({
+    factIds: z.array(z.string().min(1)).max(MAX_CARRIED_IDS),
+    sessionIds: z.array(z.string().min(1)).max(MAX_CARRIED_IDS),
+    threadIds: z.array(z.string().min(1)).max(MAX_CARRIED_IDS),
+  })
+  .strict();
+export type ErasureCarriedSelectors = z.infer<typeof ErasureCarriedSelectorsSchema>;

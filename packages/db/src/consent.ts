@@ -10,6 +10,7 @@
  */
 import type { Db } from "mongodb";
 import { consentsCollection } from "./collections.js";
+import { isStudentFenced } from "./erasure.js";
 
 /**
  * ISS-043: ONE generic message for every refusal. The three causes (no row, purpose not
@@ -34,6 +35,12 @@ export class ConsentRequiredError extends Error {
  * a minor, has `guardianConsent: true`. Resolves with no value otherwise.
  */
 export async function requireConsent(db: Db, studentId: string, purpose: string): Promise<void> {
+  // D-015 (T-011 cycle 2): a student with a confirmed erasure in progress is refused, before the
+  // purge has reached the consents collection. Same generic refusal (ISS-043): the error does not
+  // reveal that an erasure is running.
+  if (await isStudentFenced(db, studentId)) {
+    throw new ConsentRequiredError();
+  }
   const consent = await consentsCollection(db).findOne({ studentId });
   if (!consent) {
     throw new ConsentRequiredError();

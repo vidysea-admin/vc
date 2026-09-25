@@ -22,6 +22,14 @@ server (contract B12, D-008/D-009, `qa/gates/mongo-host.md`).
   the retry; the final row update is a checked CAS, so concurrent calls all get the stored receipt). The `erasure_requests` audit row keeps only a salted studentId hash, staff actor
   ids, a reason code and the receipt once completed. `exportStudent` returns the student's own
   access bundle (not purpose-filtered; release only to the authenticated student/guardian).
+- **Erasure fence (D-015, T-011 cycle 2).** `confirmErasure` sets a fence in `erasure_fences`
+  (keyed by an unsalted sha256 of the studentId, no clear id) before its confirm CAS;
+  `executeErasure` re-sets it before resolving anything and releases it after the completion is
+  recorded (`ERASURE_FENCE_GRACE_MS`, default 0, is where gate erasure-fencing Q1's re-enrolment
+  policy goes; `releaseExpiredErasureFences` is the sweep). Every student-data writer must be
+  fence-aware: `assertStudentNotFenced` before writing, `compensateIfFenced` (undo by id, then
+  `StudentFencedError`) after all its writes. `applyApprovedDiff`, `requireConsent` and the
+  engine's `startScribe`/`resumeScribe` are.
 
 ## Live DB init (NOT run by T-003)
 

@@ -26,13 +26,20 @@ import {
   ErasureIncompleteError,
   ErasureRequestNotFoundError,
   ErasureStateError,
+  StudentFencedError,
+  isStudentFenced,
+  assertStudentNotFenced,
+  compensateIfFenced,
+  erasureFenceKey,
+  releaseExpiredErasureFences,
+  ERASURE_FENCE_GRACE_MS,
   type ErasureRequestDoc,
 } from "../src/erasure.js";
 import { applyApprovedDiff } from "../src/facts.js";
 import { COLLECTION_NAMES, type FactDoc } from "../src/collections.js";
 import { INDEX_PLAN } from "../scripts/db-init.js";
 import { createFakeDb, type FakeDb, type FakeCollection } from "./fakes.js";
-import { ErasureReceiptSchema, type Fact } from "@vc/schemas";
+import { ErasureCarriedSelectorsSchema, ErasureReceiptSchema, type Fact } from "@vc/schemas";
 
 type AnyDoc = { _id: string } & Record<string, unknown>;
 
@@ -597,11 +604,19 @@ test("rev-3: a fact (with edges, via the real applyApprovedDiff) written at the 
   facts.deleteMany = async (filter) => {
     if (!injected) {
       injected = true;
+      // Cycle 2 (D-015): applyApprovedDiff is now fence-aware and would refuse here. This test
+      // targets the round loop itself, so the fence is lifted around the late writes: they model a
+      // writer that does NOT check the fence (the loop must still leave no orphan). The fence
+      // paths are covered by the D-015 tests below.
+      const fences = coll(fakeDb, "erasure_fences");
+      const lifted = fences.all();
+      await fences.deleteMany({});
       const diff = { studentId: a.studentId, summary: a.marker, changes: [], citedFactIds: [] };
       await applyApprovedDiff(db, diff, { approve: true, edits: [fact("intake", `${a.marker}-late`, "t-late")] }, a.sessionIds[0]);
       // The data-engineer's exact shape: a fact whose sourced_from edge points at NOTHING the
       // erasure resolves (a session with no session row), so only the fact id can find that edge.
       await applyApprovedDiff(db, diff, { approve: true, edits: [fact("scholarship", `${a.marker}-late2`, "t-late2")] }, "sess-unrecorded");
+      for (const doc of lifted) fences.seed(doc);
       for (const f of facts.all()) if ((f.key === "intake" || f.key === "scholarship") && f.studentId === a.studentId) lateFactIds.push(f._id);
     }
     return realDeleteMany(filter);
@@ -735,4 +750,446 @@ test("c0-1: two concurrent FAILING runs each record their own attempt (1 and 2);
   assert.equal(row.status, "failed");
   assert.equal(row.attempts, 2);
   assert.deepEqual(row.receipt, receipts.find((r) => r.attempt === 2));
+});
+
+// ---------------------------------------------------------------------------
+// Cycle 2 — D-015: the erasure fence + post-write compensation
+// (ISS-t-011-c1-1: a write landing after its collection's read-back count;
+//  ISS-t-011-c1-rev-1: a write landing between the final read-back and the completion CAS).
+// Every "nothing left" check is a full scan of every fake collection, never the implementation's
+// selectors. Late writers are the REAL fence-aware writers (applyApprovedDiff, or a writer built
+// on compensateIfFenced), because the fence can only bind writers that check it.
+// ---------------------------------------------------------------------------
+
+const FENCES = "erasure_fences";
+
+function gate() {
+  let open!: () => void;
+  const opened = new Promise<void>((resolve) => (open = resolve));
+  return { opened, open };
+}
+
+type WriterResult = { ok: true } | { ok: false; err: unknown };
+
+/**
+ * Starts the REAL applyApprovedDiff for `s`, and pauses it at its first facts.insertOne (i.e. AFTER
+ * its fence pre-check, BEFORE any write). `release()` lets it write its fact + 2 edges and run its
+ * post-write fence check. `lateFactIds` collects the ids it inserted.
+ */
+function pausedWriter(db: import("mongodb").Db, fakeDb: FakeDb, s: Seeded, key: string) {
+  const facts = coll(fakeDb, COLLECTION_NAMES.facts);
+  const realInsert = facts.insertOne.bind(facts);
+  const g = gate();
+  const reached = gate();
+  const lateFactIds: string[] = [];
+  facts.insertOne = async (doc) => {
+    if (doc.studentId === s.studentId && doc.key === key) {
+      lateFactIds.push(doc._id);
+      reached.open();
+      await g.opened;
+    }
+    return realInsert(doc);
+  };
+  const diff = { studentId: s.studentId, summary: s.marker, changes: [], citedFactIds: [] };
+  const done: Promise<WriterResult> = applyApprovedDiff(
+    db,
+    diff,
+    { approve: true, edits: [fact(key, `${s.marker}-late-${key}`, `t-${key}`)] },
+    s.sessionIds[0],
+  ).then(
+    () => ({ ok: true as const }),
+    (err: unknown) => ({ ok: false as const, err }),
+  );
+  return { atGate: reached.opened, release: g.open, done, lateFactIds };
+}
+
+async function requestRow(fakeDb: FakeDb, requestId: string) {
+  return (await coll(fakeDb, COLLECTION_NAMES.erasure_requests).findOne({ _id: requestId })) as unknown as ErasureRequestDoc;
+}
+
+/** Full-scan residue for A: every identifier, plus the late ids the test injected. */
+function residue(fakeDb: FakeDb, a: Seeded, extra: string[] = []) {
+  return docsMentioning(fakeDb, [...identifiers(a), ...extra]);
+}
+
+test("D-015 fence: confirm sets a fence that holds NO clear studentId (hashed key), unique per student; pending sets none", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const { requestId } = await requestErasure(db, { studentId: a.studentId, requestedBy: "counsellor-7", reason: "student_request" });
+  assert.equal(coll(fakeDb, FENCES).size(), 0, "a pending request fences nothing");
+  assert.equal(await isStudentFenced(db, a.studentId), false);
+  await confirmErasure(db, { requestId, confirmedBy: "admin-2" });
+  const fences = coll(fakeDb, FENCES).all();
+  assert.equal(fences.length, 1);
+  assert.equal(fences[0]!._id, erasureFenceKey(a.studentId));
+  assert.equal(fences[0]!.requestId, requestId);
+  assert.ok(typeof fences[0]!.createdAt === "string");
+  assert.ok(!JSON.stringify(fences).includes(a.studentId), "the fence holds no clear studentId");
+  assert.equal(await isStudentFenced(db, a.studentId), true);
+  assert.equal(await isStudentFenced(db, "stu-B"), false, "the fence is per student");
+  assert.equal(COLLECTION_NAMES.erasure_fences, FENCES);
+});
+
+test("D-015 fence: a writer that STARTS after confirm is refused and writes nothing (every collection unchanged)", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  await confirmedRequest(db, a.studentId);
+  const before = snapshot(fakeDb);
+  const diff = { studentId: a.studentId, summary: a.marker, changes: [], citedFactIds: [] };
+  await assert.rejects(
+    applyApprovedDiff(db, diff, { approve: true, edits: [fact("intake", `${a.marker}-after`, "t-after")] }, a.sessionIds[0]),
+    StudentFencedError,
+  );
+  assert.equal(snapshot(fakeDb), before, "a fenced writer must write nothing");
+  await assert.rejects(assertStudentNotFenced(db, a.studentId), StudentFencedError);
+});
+
+test("D-015 H4 (checker probe, fact + edge): a writer started BEFORE confirm and landing inside students.countDocuments (the LAST read-back) is compensated -> zero residue, fenced error", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const w = pausedWriter(db, fakeDb, a, "intake");
+  await w.atGate; // passed its pre-check, nothing written yet
+  const requestId = await confirmedRequest(db, a.studentId);
+  const students = coll(fakeDb, COLLECTION_NAMES.students);
+  const realCount = students.countDocuments.bind(students);
+  const facts = coll(fakeDb, COLLECTION_NAMES.facts);
+  const realFactsDelete = facts.deleteMany.bind(facts);
+  let injected = false;
+  let lateDocsSeenMidReadBack = 0;
+  students.countDocuments = async (filter) => {
+    const n = await realCount(filter); // the real count FIRST, exactly like the checker's H4
+    if (!injected) {
+      injected = true;
+      // Observe the late write really landing mid read-back: the writer's compensation starts by
+      // deleting its fact; count its fact + edges at that moment.
+      facts.deleteMany = async (f) => {
+        lateDocsSeenMidReadBack = docsMentioning(fakeDb, w.lateFactIds).length;
+        return realFactsDelete(f);
+      };
+      w.release();
+      const r = await w.done;
+      facts.deleteMany = realFactsDelete;
+      assert.ok(!r.ok && r.err instanceof StudentFencedError, `the late writer must be told it was fenced, got ${JSON.stringify(r)}`);
+    }
+    return n;
+  };
+  const out = await executeErasure(db, requestId);
+  assert.ok(injected, "the write really happened during the read-back");
+  assert.equal(w.lateFactIds.length, 1);
+  assert.equal(lateDocsSeenMidReadBack, 3, "the late fact + 2 edges existed mid read-back (then were compensated)");
+  assert.equal(out.status, "completed");
+  assert.equal(out.receipt.verified, true);
+  assert.deepEqual(residue(fakeDb, a, w.lateFactIds), [], "the late fact and its edges must not survive");
+  assert.deepEqual(orphanFactEdges(fakeDb), []);
+  assert.ok(docsMentioning(fakeDb, identifiers(b)).length > 20, "B untouched");
+});
+
+test("D-015 H4 variant: a writer that STARTS inside students.countDocuments (after confirm) is refused by its pre-check -> zero residue", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const students = coll(fakeDb, COLLECTION_NAMES.students);
+  const realCount = students.countDocuments.bind(students);
+  let refused: unknown = null;
+  students.countDocuments = async (filter) => {
+    const n = await realCount(filter);
+    if (refused === null) {
+      const diff = { studentId: a.studentId, summary: a.marker, changes: [], citedFactIds: [] };
+      refused = await applyApprovedDiff(db, diff, { approve: true, edits: [fact("intake", `${a.marker}-h4`, "t-h4")] }, "sess-h4").then(
+        () => "WROTE",
+        (e: unknown) => e,
+      );
+    }
+    return n;
+  };
+  const out = await executeErasure(db, requestId);
+  assert.ok(refused instanceof StudentFencedError, `the late writer must be refused, got ${String(refused)}`);
+  assert.equal(out.receipt.verified, true);
+  assert.deepEqual(residue(fakeDb, a, ["sess-h4", `${a.marker}-h4`]), []);
+});
+
+test("D-015 H4b (checker probe, session + checkpoint + edge): a fence-aware writer landing inside scribe_resolutions.countDocuments leaves zero residue", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const lateSession = `${a.studentId}-sess-h4b`;
+  const lateThread = `scribe:${lateSession}`;
+  const g = gate();
+  const now = "2026-09-25T12:00:00.000Z";
+  let wrote = false;
+  // A writer shaped like a session start: pre-check, write a session row + checkpoint + checkpoint
+  // write + a session edge, then the post-write fence check with an undo by the ids it wrote.
+  const writer = (async () => {
+    await assertStudentNotFenced(db, a.studentId);
+    await g.opened;
+    const edgeId = `session:${lateSession}->discussed->kb_record:uni-9`;
+    coll(fakeDb, COLLECTION_NAMES.sessions).seed({ _id: lateSession, sessionId: lateSession, studentId: a.studentId, startedAt: now });
+    coll(fakeDb, "scribe_checkpoints").seed({ _id: `${lateThread}|c1`, thread_id: lateThread, checkpoint_ns: "", checkpoint_id: "c1", checkpoint: "x" });
+    coll(fakeDb, "scribe_checkpoint_writes").seed({
+      _id: `${lateThread}|c1|w`,
+      thread_id: lateThread,
+      checkpoint_ns: "",
+      checkpoint_id: "c1",
+      task_id: "t",
+      idx: 0,
+      value: "y",
+    });
+    coll(fakeDb, COLLECTION_NAMES.edges).seed({
+      _id: edgeId,
+      from: { kind: "session", id: lateSession },
+      to: { kind: "kb_record", id: "uni-9" },
+      rel: "discussed",
+      createdAt: now,
+    });
+    wrote = true;
+    await compensateIfFenced(db, a.studentId, async () => {
+      await coll(fakeDb, COLLECTION_NAMES.sessions).deleteMany({ _id: lateSession });
+      await coll(fakeDb, "scribe_checkpoints").deleteMany({ thread_id: lateThread });
+      await coll(fakeDb, "scribe_checkpoint_writes").deleteMany({ thread_id: lateThread });
+      await coll(fakeDb, COLLECTION_NAMES.edges).deleteMany({ _id: edgeId });
+    });
+  })().then(
+    () => ({ ok: true as const }),
+    (err: unknown) => ({ ok: false as const, err }),
+  );
+  const requestId = await confirmedRequest(db, a.studentId);
+  const claims = coll(fakeDb, COLLECTION_NAMES.scribe_resolutions);
+  const realCount = claims.countDocuments.bind(claims);
+  let injected = false;
+  claims.countDocuments = async (filter) => {
+    const n = await realCount(filter);
+    if (!injected) {
+      injected = true;
+      g.open();
+      const r = await writer;
+      assert.ok(!r.ok && r.err instanceof StudentFencedError, `expected a fenced writer, got ${JSON.stringify(r)}`);
+    }
+    return n;
+  };
+  const out = await executeErasure(db, requestId);
+  assert.ok(injected && wrote, "the session writer really wrote during the read-back");
+  assert.equal(out.receipt.verified, true);
+  assert.deepEqual(residue(fakeDb, a, [lateSession, lateThread]), []);
+  assert.ok(docsMentioning(fakeDb, identifiers(b)).length > 20, "B untouched");
+});
+
+test("D-015: a writer that starts BEFORE confirm and finishes AFTER it (before execute) compensates; the erasure then completes with zero residue", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const w = pausedWriter(db, fakeDb, a, "intake");
+  await w.atGate;
+  const requestId = await confirmedRequest(db, a.studentId);
+  w.release();
+  const r = await w.done;
+  assert.ok(!r.ok && r.err instanceof StudentFencedError, `expected a fenced writer, got ${JSON.stringify(r)}`);
+  assert.deepEqual(docsMentioning(fakeDb, w.lateFactIds), [], "the writer removed its own fact and edges");
+  const out = await executeErasure(db, requestId);
+  assert.equal(out.receipt.verified, true);
+  assert.deepEqual(residue(fakeDb, a, w.lateFactIds), []);
+});
+
+test("D-015 (ISS-t-011-c1-rev-1): a writer landing between the final read-back and the completion CAS is compensated -> zero residue", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const w = pausedWriter(db, fakeDb, a, "intake");
+  await w.atGate;
+  const requestId = await confirmedRequest(db, a.studentId);
+  const rows = coll(fakeDb, COLLECTION_NAMES.erasure_requests);
+  const realCas = rows.findOneAndUpdate.bind(rows);
+  let raced = false;
+  rows.findOneAndUpdate = async (filter, update, options) => {
+    if (!raced && (update.$set as { status?: string } | undefined)?.status === "completed") {
+      raced = true;
+      w.release();
+      const r = await w.done;
+      assert.ok(!r.ok && r.err instanceof StudentFencedError, `the racing writer must be fenced, got ${JSON.stringify(r)}`);
+    }
+    return realCas(filter, update, options);
+  };
+  const out = await executeErasure(db, requestId);
+  assert.ok(raced, "the writer really ran between the read-back and the CAS");
+  assert.equal(out.receipt.verified, true);
+  assert.deepEqual(residue(fakeDb, a, w.lateFactIds), []);
+  assert.deepEqual(orphanFactEdges(fakeDb), []);
+  assert.ok(docsMentioning(fakeDb, identifiers(b)).length > 20, "B untouched");
+});
+
+test("D-015: ANOTHER student is unaffected by A's fence (B writes while A is fenced; B intact after A's erasure)", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  assert.equal(await isStudentFenced(db, b.studentId), false);
+  const diffB = { studentId: b.studentId, summary: b.marker, changes: [], citedFactIds: [] };
+  const res = await applyApprovedDiff(db, diffB, { approve: true, edits: [fact("intake", `${b.marker}-while-A-fenced`, "t-b")] }, b.sessionIds[0]);
+  assert.equal(res.written.length, 1);
+  const bFactId = res.written[0]!._id;
+  await executeErasure(db, requestId);
+  assert.ok(coll(fakeDb, COLLECTION_NAMES.facts).all().some((f) => f._id === bFactId), "B's write survives A's erasure");
+  assert.equal(docsMentioning(fakeDb, [bFactId]).length, 3, "B's fact and both its edges survive");
+  assert.deepEqual(residue(fakeDb, a), []);
+});
+
+test("D-015: the fence is REMOVED on completion (grace 0 by default); the student can be written again afterwards", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  assert.equal(ERASURE_FENCE_GRACE_MS, 0, "the default grace is 0 until gate erasure-fencing Q1 sets the policy");
+  const requestId = await confirmedRequest(db, a.studentId);
+  let fencedDuringExecute = false;
+  const consents = coll(fakeDb, COLLECTION_NAMES.consents);
+  const realDelete = consents.deleteMany.bind(consents);
+  consents.deleteMany = async (f) => {
+    fencedDuringExecute ||= await isStudentFenced(db, a.studentId);
+    return realDelete(f);
+  };
+  await executeErasure(db, requestId);
+  assert.ok(fencedDuringExecute, "the fence exists while the purge runs");
+  assert.equal(coll(fakeDb, FENCES).size(), 0, "no fence left after a verified completion");
+  assert.equal(await isStudentFenced(db, a.studentId), false);
+  const diff = { studentId: a.studentId, summary: "re-enrolled", changes: [], citedFactIds: [] };
+  const res = await applyApprovedDiff(db, diff, { approve: true, edits: [fact("intake", "re-enrolled", "t-new")] }, "sess-new");
+  assert.equal(res.written.length, 1, "re-enrolment after completion is allowed with grace 0");
+});
+
+test("D-015: a FAILED attempt keeps the fence (writes still refused) until the retry completes", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const edges = coll(fakeDb, COLLECTION_NAMES.edges);
+  const realDelete = edges.deleteMany.bind(edges);
+  edges.deleteMany = async () => {
+    throw Object.assign(new Error("boom"), { name: "MongoNetworkError" });
+  };
+  await assert.rejects(executeErasure(db, requestId), ErasureIncompleteError);
+  assert.equal(await isStudentFenced(db, a.studentId), true, "a failed (open) request keeps its fence");
+  edges.deleteMany = realDelete;
+  await executeErasure(db, requestId);
+  assert.equal(await isStudentFenced(db, a.studentId), false);
+});
+
+test("D-015: executeErasure re-creates a missing fence BEFORE resolving any selector", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  await coll(fakeDb, FENCES).deleteMany({}); // e.g. removed by hand, or a row confirmed before cycle 2
+  const facts = coll(fakeDb, COLLECTION_NAMES.facts);
+  const realFind = facts.find.bind(facts);
+  let fencedAtFirstResolve: boolean | null = null;
+  facts.find = (filter) => {
+    if (fencedAtFirstResolve === null) fencedAtFirstResolve = coll(fakeDb, FENCES).size() === 1;
+    return realFind(filter);
+  };
+  await executeErasure(db, requestId);
+  assert.equal(fencedAtFirstResolve, true, "the fence must exist before the first selector is resolved");
+});
+
+test("D-015: two concurrent executes leave no lingering fence", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  await Promise.all([executeErasure(db, requestId), executeErasure(db, requestId)]);
+  assert.equal(coll(fakeDb, FENCES).size(), 0);
+});
+
+test("D-015: with a grace period the fence lingers after completion (writes refused), and releaseExpiredErasureFences releases it once expired", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const graceMs = 24 * 3600 * 1000;
+  await executeErasure(db, requestId, { fenceGraceMs: graceMs });
+  assert.equal(await isStudentFenced(db, a.studentId), true, "fenced during the grace period");
+  const [fence] = coll(fakeDb, FENCES).all();
+  assert.ok(typeof fence?.releaseAfter === "string");
+  assert.equal(await releaseExpiredErasureFences(db, new Date()), 0, "not expired yet");
+  const later = new Date(Date.now() + graceMs + 1000);
+  assert.equal(await isStudentFenced(db, a.studentId, later), false, "an expired fence no longer fences");
+  assert.equal(await releaseExpiredErasureFences(db, later), 1);
+  assert.equal(coll(fakeDb, FENCES).size(), 0);
+});
+
+test("D-015: a failed fence release never fails a verified erasure, and releaseExpiredErasureFences clears the leftover fence", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const fences = coll(fakeDb, FENCES);
+  const realDelete = fences.deleteMany.bind(fences);
+  fences.deleteMany = async () => {
+    throw Object.assign(new Error("crash"), { name: "MongoNetworkError" });
+  };
+  const out = await executeErasure(db, requestId);
+  fences.deleteMany = realDelete;
+  assert.equal(out.receipt.verified, true);
+  assert.equal((await requestRow(fakeDb, requestId)).status, "completed");
+  assert.equal(fences.size(), 1, "the fence lingered (fail-safe: writes stay refused)");
+  assert.equal(await releaseExpiredErasureFences(db), 1);
+  assert.equal(fences.size(), 0);
+});
+
+// ---------------------------------------------------------------------------
+// Cycle 2 — the lows: ISS-t-011-c1-rev-2 (cap + zod), ISS-t-011-c1-rev-3 (CAS exhaustion, labels)
+// ---------------------------------------------------------------------------
+
+test("rev-2: ids over MAX_CARRIED_IDS -> failed with the distinct 'selectors:over_cap' label, no anchor deleted past the cap, the carried ids stay within the cap and parse", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const beforeFacts = coll(fakeDb, COLLECTION_NAMES.facts).size();
+  const err = await executeErasure(db, requestId, { maxCarriedIds: 2 }).catch((e: unknown) => e);
+  assert.ok(err instanceof ErasureIncompleteError, `expected ErasureIncompleteError, got ${String(err)}`);
+  const factsLine = err.receipt.collections.find((l) => l.collection === COLLECTION_NAMES.facts);
+  assert.equal(factsLine?.outcome, "failed");
+  assert.equal(factsLine?.error, "selectors:over_cap");
+  assert.equal(coll(fakeDb, COLLECTION_NAMES.facts).size(), beforeFacts, "no anchor deleted past the cap");
+  const row = await requestRow(fakeDb, requestId);
+  assert.equal(row.status, "failed");
+  const carried = ErasureCarriedSelectorsSchema.parse(row.carriedSelectors ?? { factIds: [], sessionIds: [], threadIds: [] });
+  for (const list of [carried.factIds, carried.sessionIds, carried.threadIds]) assert.ok(list.length <= 2);
+  const retry = await executeErasure(db, requestId);
+  assert.equal(retry.receipt.verified, true);
+  assert.deepEqual(residue(fakeDb, a), []);
+});
+
+test("rev-2: a corrupted carriedSelectors on the row is refused (zod) before anything is deleted", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const rows = coll(fakeDb, COLLECTION_NAMES.erasure_requests);
+  await rows.findOneAndUpdate({ _id: requestId }, { $set: { carriedSelectors: { factIds: [42], sessionIds: [], threadIds: [], extra: 1 } } });
+  const before = snapshot(fakeDb);
+  await assert.rejects(executeErasure(db, requestId), ErasureStateError);
+  assert.equal(snapshot(fakeDb), before);
+});
+
+test("rev-3: CAS retries exhausted -> the attempt is STILL recorded (attempts+1, failed, receipt stored) and the call throws", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const rows = coll(fakeDb, COLLECTION_NAMES.erasure_requests);
+  const realCas = rows.findOneAndUpdate.bind(rows);
+  rows.findOneAndUpdate = async (filter, update, options) => {
+    if ("attempts" in filter) return null; // every checked CAS misses while the row never changes
+    return realCas(filter, update, options);
+  };
+  await assert.rejects(executeErasure(db, requestId), ErasureStateError);
+  const row = await requestRow(fakeDb, requestId);
+  assert.equal(row.attempts, 1, "the exhausted attempt is recorded, not dropped from the audit");
+  assert.equal(row.status, "failed");
+  assert.ok(row.receipt, "its receipt is stored");
+  assert.equal(row.studentId, a.studentId, "still retryable");
+  assert.equal(await isStudentFenced(db, a.studentId), true, "an unrecorded completion keeps the fence");
+});
+
+test("rev-3: a resolve failure in a later round is labelled with the collection that failed (sessions), not always facts", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const facts = coll(fakeDb, COLLECTION_NAMES.facts);
+  const realFactsDelete = facts.deleteMany.bind(facts);
+  let seeded = false;
+  facts.deleteMany = async (f) => {
+    if (!seeded) {
+      seeded = true; // force a second round: a raw late session row
+      coll(fakeDb, COLLECTION_NAMES.sessions).seed({ _id: "late-s", sessionId: "late-s", studentId: a.studentId, startedAt: "2026-09-25T00:00:00.000Z" });
+    }
+    return realFactsDelete(f);
+  };
+  const sessions = coll(fakeDb, COLLECTION_NAMES.sessions);
+  const realFind = sessions.find.bind(sessions);
+  let calls = 0;
+  sessions.find = (filter) => {
+    calls += 1;
+    if (calls === 2) {
+      return {
+        toArray: async () => {
+          throw Object.assign(new Error("x"), { name: "MongoNetworkError" });
+        },
+      };
+    }
+    return realFind(filter);
+  };
+  const err = await executeErasure(db, requestId).catch((e: unknown) => e);
+  assert.ok(err instanceof ErasureIncompleteError, `expected ErasureIncompleteError, got ${String(err)}`);
+  const line = (c: string) => err.receipt.collections.find((l) => l.collection === c);
+  assert.equal(line(COLLECTION_NAMES.sessions)?.error, "resolve:MongoNetworkError");
+  assert.notEqual(line(COLLECTION_NAMES.facts)?.error?.startsWith("resolve:"), true, "facts did not fail to resolve");
 });

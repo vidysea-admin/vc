@@ -15,7 +15,7 @@
 import { Annotation, Command, END, START, StateGraph, interrupt, type BaseCheckpointSaver } from "@langchain/langgraph";
 import type { Callbacks } from "@langchain/core/callbacks/manager";
 import { createHash } from "node:crypto";
-import { scribeResolutionsCollection, type ScribeResolutionDoc } from "@vc/db";
+import { isStudentFenced, scribeResolutionsCollection, StudentFencedError, type ScribeResolutionDoc } from "@vc/db";
 import type { CounsellorDecision, Fact, ProfileDiff } from "@vc/schemas";
 import { createLangfuseCallbacks, type TracingConfig } from "@vc/observability";
 import {
@@ -164,17 +164,19 @@ export function buildScribeGraph(deps: ScribeDeps) {
  */
 export function compileScribeGraph(deps: ScribeDeps, options: { checkpointer: BaseCheckpointSaver }) {
   const graph = buildScribeGraph(deps).compile({ checkpointer: options.checkpointer });
-  graphDb.set(graph, deps.db);
+  graphDeps.set(graph, { db: deps.db, checkpointer: options.checkpointer });
   return graph;
 }
 
 /**
  * ISS-t-007-rev-8: resumeScribe claims the approval in the graph's own `virtual_counsellor` Db
- * (B12), so it needs the Db the graph was compiled with. Kept off the public ScribeGraph type so
- * callers keep the (graph, response, opts) signature. A graph compiled some other way has no Db
- * here, and resumeScribe refuses it (fails closed) rather than resuming without a claim.
+ * (B12), so it needs the Db the graph was compiled with. T-011 cycle 2 (D-015): start and resume
+ * also check that Db's erasure fence and, when fenced mid-run, delete the thread from the graph's
+ * own checkpointer. Kept off the public ScribeGraph type so callers keep the (graph, input/response,
+ * opts) signatures. A graph compiled some other way has neither here, and start/resume refuse it
+ * (fail closed) rather than run without a claim or a fence check.
  */
-const graphDb = new WeakMap<object, ScribeDeps["db"]>();
+const graphDeps = new WeakMap<object, { db: ScribeDeps["db"]; checkpointer: BaseCheckpointSaver }>();
 
 export type ScribeGraph = ReturnType<typeof compileScribeGraph>;
 
@@ -232,7 +234,14 @@ export type ScribeOutcome =
       result: ScribeResult | null;
       attempted: ApprovalResponse;
       sameAsWinner: boolean;
-    };
+    }
+  /**
+   * T-011 / D-015: the student has an erasure in progress (an erasure fence is set). The run was
+   * refused before invoking, or it was invoked and everything it wrote for this thread was removed
+   * again (its checkpoints and checkpoint writes, and the approval claim this call created; the
+   * facts and edges are removed by applyApprovedDiff's own post-write compensation).
+   */
+  | { kind: "fenced" };
 
 function runnableConfig(opts: ScribeRunOptions) {
   return {
@@ -253,10 +262,66 @@ async function readOutcome(graph: ScribeGraph, threadId: string): Promise<Scribe
   return { kind: "done", result: ScribeResultSchema.parse((snapshot.values as State).result) };
 }
 
-/** Starts a scribe run. The input is Zod-validated before the graph sees it (B5). */
+function depsFor(graph: ScribeGraph, caller: string) {
+  const deps = graphDeps.get(graph);
+  if (!deps) {
+    throw new Error(`${caller}: graph was not built by compileScribeGraph, so its claim store and erasure fence are unknown`);
+  }
+  return deps;
+}
+
+type GraphDeps = NonNullable<ReturnType<typeof graphDeps.get>>;
+
+/**
+ * T-011 cycle 2 / D-015: runs one graph.invoke as a fence-aware writer. The caller has already
+ * refused a student fenced BEFORE the call. AFTER the invoke (or when it threw because the write
+ * node's applyApprovedDiff was fenced), if the student is fenced now, this call's writes are
+ * removed: the thread's checkpoints and checkpoint writes (deleteThread on the graph's own
+ * checkpointer) and the approval claim this call inserted (by its _id + responseHash, never another
+ * caller's). The facts and edges were already removed by applyApprovedDiff's own post-write check.
+ * Returns true when fenced. Any other error propagates unchanged.
+ */
+async function invokeFenceAware(
+  deps: GraphDeps,
+  studentId: string | undefined,
+  threadId: string,
+  createdClaim: ScribeResolutionDoc | null,
+  invoke: () => Promise<unknown>,
+): Promise<boolean> {
+  let thrown: { err: unknown } | null = null;
+  try {
+    await invoke();
+  } catch (err) {
+    thrown = { err };
+  }
+  // StudentFencedError means applyApprovedDiff saw the fence; compensate even if the erasure has
+  // completed (and released the fence) since.
+  const fenced =
+    (thrown !== null && thrown.err instanceof StudentFencedError) ||
+    (studentId !== undefined && studentId !== "" && (await isStudentFenced(deps.db, studentId)));
+  if (!fenced) {
+    if (thrown) throw thrown.err;
+    return false;
+  }
+  await deps.checkpointer.deleteThread(threadId);
+  if (createdClaim) {
+    await scribeResolutionsCollection(deps.db).deleteMany({ _id: createdClaim._id, responseHash: createdClaim.responseHash });
+  }
+  return true;
+}
+
+/**
+ * Starts a scribe run. The input is Zod-validated before the graph sees it (B5). T-011 cycle 2 /
+ * D-015: a student with an erasure in progress is refused with `fenced` before any node runs; a
+ * fence that appears during the run removes the run's checkpoints and returns `fenced`.
+ */
 export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: ScribeRunOptions): Promise<ScribeOutcome> {
   const parsed = ScribeInputSchema.parse(input);
-  await graph.invoke(parsed, runnableConfig(opts));
+  const deps = depsFor(graph, "startScribe");
+  if (await isStudentFenced(deps.db, parsed.studentId)) return { kind: "fenced" };
+  if (await invokeFenceAware(deps, parsed.studentId, opts.threadId, null, () => graph.invoke(parsed, runnableConfig(opts)))) {
+    return { kind: "fenced" };
+  }
   return readOutcome(graph, opts.threadId);
 }
 
@@ -279,14 +344,6 @@ export function approvalResponseHash(response: ApprovalResponse): string {
 
 function isDuplicateKey(err: unknown): boolean {
   return (err as { code?: unknown } | null)?.code === 11000;
-}
-
-function claimsFor(graph: ScribeGraph) {
-  const db = graphDb.get(graph);
-  if (!db) {
-    throw new Error("resumeScribe: graph was not built by compileScribeGraph, so the approval claim store is unknown");
-  }
-  return scribeResolutionsCollection(db);
 }
 
 function alreadyResolved(
@@ -333,38 +390,50 @@ function alreadyResolved(
  * - The claim is never deleted here, so a crashed claim can not be re-won by a different decision.
  * Recovery (`null`) is not itself claimed: run it from one place (the retry job), not concurrently
  * with an in-flight winner. Even then, D-012 keeps the write idempotent.
+ *
+ * T-011 cycle 2 / D-015 (erasure fence): if the thread's student has an erasure in progress, this
+ * returns `fenced` BEFORE claiming or invoking (nothing written). If the fence appears while the
+ * invoke runs, the thread's checkpoints and the claim this call inserted are removed again and the
+ * outcome is `fenced` (see invokeFenceAware).
  */
 export async function resumeScribe(
   graph: ScribeGraph,
   response: ApprovalResponse | null,
   opts: ScribeRunOptions,
 ): Promise<ScribeOutcome> {
-  const claims = claimsFor(graph);
+  const deps = depsFor(graph, "resumeScribe");
+  const claims = scribeResolutionsCollection(deps.db);
   const stateConfig = { configurable: { thread_id: opts.threadId } };
 
   if (response === null) {
     const snapshot = await graph.getState(stateConfig);
     const latest = snapshot.values as Partial<State>;
+    if (latest.studentId && (await isStudentFenced(deps.db, latest.studentId))) return { kind: "fenced" };
     const pendingInterrupt = snapshot.tasks.some((task) => task.interrupts.length > 0);
     const claim = !latest.decision && pendingInterrupt ? await claims.findOne({ threadId: opts.threadId }) : null;
-    if (claim) {
-      // Crash after the claim, before the decision was recorded: apply the CLAIMED response.
-      const claimed = ApprovalResponseSchema.parse(claim.response);
-      await graph.invoke(new Command({ resume: claimed }), runnableConfig({ ...opts, checkpointId: undefined }));
-    } else {
-      await graph.invoke(null, runnableConfig(opts));
-    }
-    return readOutcome(graph, opts.threadId);
+    const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, null, async () => {
+      if (claim) {
+        // Crash after the claim, before the decision was recorded: apply the CLAIMED response.
+        const claimed = ApprovalResponseSchema.parse(claim.response);
+        await graph.invoke(new Command({ resume: claimed }), runnableConfig({ ...opts, checkpointId: undefined }));
+      } else {
+        await graph.invoke(null, runnableConfig(opts));
+      }
+    });
+    return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId);
   }
 
   const parsed = ApprovalResponseSchema.parse(response);
   const snapshot = await graph.getState(stateConfig);
   const latest = snapshot.values as Partial<State>;
+  // D-015 pre-check: before the claim, so a fenced resume writes nothing at all.
+  if (latest.studentId && (await isStudentFenced(deps.db, latest.studentId))) return { kind: "fenced" };
   if (latest.decision) {
     const claim = await claims.findOne({ threadId: opts.threadId });
     return alreadyResolved({ decision: latest.decision, responseHash: claim?.responseHash }, latest.result, parsed);
   }
 
+  let createdClaim: ScribeResolutionDoc | null = null;
   if (snapshot.tasks.some((task) => task.interrupts.length > 0)) {
     // The decision this response resolves to (the same pure function the approval node runs), so a
     // loser can be told the winner's decision even while the winner's invoke is still in flight.
@@ -381,6 +450,7 @@ export async function resumeScribe(
     };
     try {
       await claims.insertOne(claim);
+      createdClaim = claim;
     } catch (err) {
       if (!isDuplicateKey(err)) throw err;
       const winner = await claims.findOne({ threadId: opts.threadId });
@@ -389,6 +459,8 @@ export async function resumeScribe(
       return alreadyResolved(winner, now.result, parsed);
     }
   }
-  await graph.invoke(new Command({ resume: parsed }), runnableConfig(opts));
-  return readOutcome(graph, opts.threadId);
+  const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, createdClaim, () =>
+    graph.invoke(new Command({ resume: parsed }), runnableConfig(opts)),
+  );
+  return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId);
 }

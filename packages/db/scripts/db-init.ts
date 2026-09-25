@@ -43,6 +43,7 @@
  *               indexes, verbatim (T-011: erasure deletes by thread_id).
  *   - erasure_requests: { studentId } (open requests only) and
  *               { status, requestedAt } (T-011 audit log).
+ *   - erasure_fences: UNIQUE { studentKey } (T-011 cycle 2 / D-015 write fence).
  *   - edges:    relies on Mongo's built-in unique _id index for idempotent
  *               link() upserts, PLUS { "from.kind", "from.id" } and
  *               { "to.kind", "to.id" } (ISS-021) so a lookup of "everything
@@ -125,6 +126,19 @@ export const INDEX_PLAN: IndexSpec[] = [
   // No unique index: two requests for one student are allowed (each is its own audit record).
   { collection: COLLECTION_NAMES.erasure_requests, keys: { studentId: 1 }, name: "erasure_requests_studentId" },
   { collection: COLLECTION_NAMES.erasure_requests, keys: { status: 1, requestedAt: 1 }, name: "erasure_requests_status" },
+  // T-011 cycle 2 / D-015: the erasure write fence. UNIQUE on the hashed student key (the doc's
+  // _id is the same key, so this index restates the invariant for any future re-keying): one
+  // fence per student, and every writer's fence check is a single index point read.
+  {
+    collection: COLLECTION_NAMES.erasure_fences,
+    keys: { studentKey: 1 },
+    name: "erasure_fences_studentKey_unique",
+    unique: true,
+  },
+  // ISS-t-011-c1-rev-3 (index note): `sessions` has NO sessionId index, deliberately. Every
+  // erasure/export query on sessions carries studentId ({studentId} to resolve, {studentId, $or:
+  // [_id $in, sessionId $in]} to delete), so sessions_studentId serves them; the _id arm is the
+  // built-in _id index. Add {sessionId: 1} only if a query ever filters on sessionId alone.
   // ISS-021: edges had no from/to index.
   { collection: COLLECTION_NAMES.edges, keys: { "from.kind": 1, "from.id": 1 }, name: "edges_from" },
   { collection: COLLECTION_NAMES.edges, keys: { "to.kind": 1, "to.id": 1 }, name: "edges_to" },

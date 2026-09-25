@@ -239,7 +239,7 @@ export class FakeCollection<T extends { _id: string }> {
 
   async updateOne(
     filter: Filter,
-    update: { $set?: Partial<T>; $setOnInsert?: T },
+    update: { $set?: Partial<T>; $setOnInsert?: T; $unset?: Record<string, unknown> },
     options: { upsert?: boolean } = {},
   ): Promise<{ matchedCount: number; upsertedId: string | null }> {
     const existing = [...this.docs.values()].find((doc) =>
@@ -247,6 +247,8 @@ export class FakeCollection<T extends { _id: string }> {
     );
     if (existing) {
       if (update.$set) Object.assign(existing, update.$set);
+      // T-011 cycle 2: `$unset` removes the field (re-setting an erasure fence clears releaseAfter).
+      for (const field of Object.keys(update.$unset ?? {})) delete (existing as Record<string, unknown>)[field];
       return { matchedCount: 1, upsertedId: null };
     }
     if (!options.upsert) return { matchedCount: 0, upsertedId: null };
