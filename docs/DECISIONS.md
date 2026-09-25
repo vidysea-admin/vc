@@ -139,3 +139,14 @@ not replace them.
 - a write that starts after the fence sees it in its own post-check and removes itself
 **Result:** -- (T-011 fix cycle 2)
 **Links:** T-011, ISS-t-011-c1-1, ISS-t-011-c1-rev-1, qa/gates/erasure-fencing.md, D-012, D-014
+
+## D-016 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** An erasure fence must outlive every writer that could have passed its pre-check before the fence existed.
+- **Writer deadline:** every fence-aware writer runs under an enforced deadline `FENCED_WRITER_DEADLINE_MS`. It uses the driver-level operation timeout (mongodb@6 `timeoutMS` or maxTimeMS) plus an application deadline. Its post-write fence check (compensation) ALWAYS runs, including after a timeout or an error.
+- **Minimum hold:** the fence is not removed before `fence.createdAt + FENCED_WRITER_DEADLINE_MS + margin`, whatever the completion time. This technical minimum hold is separate from, and at most as long as, the re-enrolment grace in gate erasure-fencing Q1.
+- **One open request per student:** a unique partial index on the studentKey of open requests (pending/confirmed/failed). The fence is released only when no open request remains.
+- **Scanner test:** a test in the style of the B12 scanner fails if any module outside the fence-aware allowlist writes to a student-data collection.
+**Supersedes:** D-015 -- D-015 said fence plus compensation "closes" the race. That holds only if every writer's post-check runs while the fence exists, which the shipped grace of 0 does not guarantee: the T-011 cycle-2 checker (ISS-t-011-c2-1) reproduced a completed, verified receipt with a surviving fact. The fence and compensation design is kept, and the missing liveness bound is added.
+**Why:** A writer whose pre-check passed just before the fence existed finishes, at the latest, within the enforced deadline from that moment. A fence held for at least that long after its creation is therefore always visible to that writer's post-check, and the writer removes its own writes. Every other writer either sees the fence in its pre-check or wrote before the fence existed, and is caught by the purge.
+**Result:** -- (T-011 fix cycle 3)
+**Links:** T-011, ISS-t-011-c2-1, ISS-t-011-c2-rev-1, ISS-t-011-c2-rev-2, ISS-t-011-c2-rev-4, D-015, qa/gates/erasure-fencing.md
