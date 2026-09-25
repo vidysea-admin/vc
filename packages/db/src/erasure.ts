@@ -1,0 +1,493 @@
+/**
+ * DPDP erasure and export (contract B15, T-011; design answer in qa/gates/dpdp-erase-design.md:
+ * "hard delete with confirmation and verification").
+ *
+ * Flow: requestErasure (pending) -> confirmErasure by a DIFFERENT actor (confirmed) ->
+ * executeErasure: hard-delete every document for the student in every engine collection, read
+ * every collection back with the same selectors, and store a counts-only receipt. An
+ * unconfirmed request deletes nothing.
+ *
+ * ## The audit row (`erasure_requests`) and why it holds no personal data after completion
+ * The row is the audit log, so it must survive the erasure. It holds:
+ *   - `_id`: an opaque request id (ObjectId hex), not derived from the student;
+ *   - `studentHash` + `hashSalt`: sha256 over a domain tag, a random per-request salt and the
+ *     studentId. Someone who already knows a studentId can prove a completed row was for that
+ *     student (`erasureRequestMatchesStudent`), but the row alone does not reveal it, and two
+ *     requests for one student can not be linked to each other without the id. Residual risk:
+ *     studentIds are internal, not secret, so an attacker holding a list of candidate ids can
+ *     test each against a row (a dictionary check). A keyed hash (HMAC with a secret from .env)
+ *     would close that and is a follow-up option, not a requirement of B15;
+ *   - `requestedBy` / `confirmedBy`: staff actor ids (the student is never the actor id; a
+ *     student's own request is logged by the staff member who took it, reason "student_request");
+ *   - `reason`: a closed code (ErasureReasonSchema), never free text;
+ *   - timestamps, `status`, `attempts`, and the last `receipt` (counts only).
+ *   - `studentId` in clear, ONLY while the request is open (pending / confirmed / failed): the
+ *     purge needs it, and the student's data still exists at that point anyway. It is `$unset`
+ *     in the same update that marks the request completed.
+ *
+ * ## Ordering, partial failure and idempotent retry
+ * Edges and scribe checkpoints carry no studentId: they are found through the student's fact
+ * ids, session ids and scribe thread ids, which are read from facts / sessions /
+ * scribe_resolutions. If those anchor collections were purged while a dependent delete failed,
+ * a retry could no longer find the orphaned dependents. So the plan runs in two phases:
+ *   1. dependents + direct rows: consents FIRST (so processing is blocked for the whole erasure,
+ *      B4), decisions, edges, scribe_checkpoints, scribe_checkpoint_writes;
+ *   2. anchors: facts, sessions, scribe_resolutions, students. Only if every phase-1 step
+ *      succeeded; otherwise they are `deferred` and left intact for the retry.
+ * Each step is attempted independently and its error is recorded (name/code only: driver
+ * messages can echo filter values). Selectors are resolved ONCE, before any delete, and the
+ * verification pass reuses them: re-resolving after the purge would find no fact / session ids
+ * and "verify" dependents against an empty selector. Any failed or deferred step, or any
+ * non-zero read-back, marks the request `failed` (retryable, studentId kept) and THROWS
+ * ErasureIncompleteError carrying the receipt, so a caller can not ignore it. deleteMany is
+ * idempotent, so a retry re-runs every step safely. A completed request returns its stored
+ * receipt on any later call.
+ *
+ * No multi-document transactions (D-008/D-009): each deleteMany is its own operation. A writer
+ * that inserts for the student DURING an erasure is caught by the read-back (remaining > 0).
+ * Stopping new writes after completion (e.g. a scribe thread resumed later) is the caller's job.
+ *
+ * B12: this is ordinary CRUD inside virtual_counsellor (bulk delete included); nothing here calls
+ * dropDatabase or drops a collection.
+ */
+import { ObjectId, type Db, type Document, type Filter } from "mongodb";
+import { createHash, randomBytes } from "node:crypto";
+import {
+  ErasureReasonSchema,
+  ErasureReceiptSchema,
+  type ErasureCollectionLine,
+  type ErasureReason,
+  type ErasureReceipt,
+  type ErasureStatus,
+} from "@vc/schemas";
+import {
+  COLLECTION_NAMES,
+  type ConsentDoc,
+  type DecisionDoc,
+  type FactDoc,
+  type ScribeResolutionDoc,
+  type SessionDoc,
+  type StudentDoc,
+} from "./collections.js";
+import type { EdgeDoc } from "./edges.js";
+
+// ---------------------------------------------------------------------------
+// Audit row
+// ---------------------------------------------------------------------------
+
+export interface ErasureRequestDoc {
+  _id: string;
+  studentHash: string;
+  hashSalt: string;
+  hashScheme: typeof HASH_SCHEME;
+  /** Present only while the request is open; unset on completion. */
+  studentId?: string;
+  requestedBy: string;
+  reason: ErasureReason;
+  requestedAt: string;
+  status: ErasureStatus;
+  confirmedBy?: string;
+  confirmedAt?: string;
+  attempts: number;
+  lastAttemptAt?: string;
+  completedAt?: string;
+  receipt?: ErasureReceipt;
+}
+
+const HASH_SCHEME = "sha256(vc-erasure-v1|salt|studentId)" as const;
+
+function hashStudentId(studentId: string, salt: string): string {
+  return createHash("sha256").update(`vc-erasure-v1|${salt}|${studentId}`).digest("hex");
+}
+
+/** True if `row` is a request for `studentId` (recomputes the salted hash; the row holds no clear id once done). */
+export function erasureRequestMatchesStudent(row: Pick<ErasureRequestDoc, "studentHash" | "hashSalt">, studentId: string): boolean {
+  return hashStudentId(studentId, row.hashSalt) === row.studentHash;
+}
+
+function erasureRequests(db: Db) {
+  return db.collection<ErasureRequestDoc>(COLLECTION_NAMES.erasure_requests);
+}
+
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
+
+export class ErasureRequestNotFoundError extends Error {
+  constructor() {
+    super("ErasureRequestNotFoundError: no erasure request with that id");
+    this.name = "ErasureRequestNotFoundError";
+  }
+}
+
+/** The confirm gate: an unconfirmed request deletes nothing. */
+export class ErasureNotConfirmedError extends Error {
+  constructor() {
+    super("ErasureNotConfirmedError: the erasure request has not been confirmed; nothing was deleted (B15)");
+    this.name = "ErasureNotConfirmedError";
+  }
+}
+
+export class ErasureSelfConfirmError extends Error {
+  constructor() {
+    super("ErasureSelfConfirmError: the confirmer must be a different actor from the requester (B15)");
+    this.name = "ErasureSelfConfirmError";
+  }
+}
+
+export class ErasureStateError extends Error {
+  constructor(status: string, action: string) {
+    super(`ErasureStateError: can not ${action} a request in status "${status}"`);
+    this.name = "ErasureStateError";
+  }
+}
+
+/** Partial failure or a non-zero read-back. Carries the counts-only receipt; the request stays retryable. */
+export class ErasureIncompleteError extends Error {
+  readonly receipt: ErasureReceipt;
+  constructor(receipt: ErasureReceipt) {
+    const failed = receipt.collections.filter((l) => l.outcome === "failed").map((l) => l.collection);
+    const deferred = receipt.collections.filter((l) => l.outcome === "deferred").map((l) => l.collection);
+    super(
+      `ErasureIncompleteError: erasure attempt ${receipt.attempt} is incomplete ` +
+        `(failed: [${failed.join(", ")}], deferred: [${deferred.join(", ")}], documents remaining: ${receipt.totalRemaining}). ` +
+        `The request is marked failed and can be retried with executeErasure.`,
+    );
+    this.name = "ErasureIncompleteError";
+    this.receipt = receipt;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Request + confirm
+// ---------------------------------------------------------------------------
+
+/** Actor ids compare case- and whitespace-insensitively, so "Admin-1 " can not confirm "admin-1"'s request. */
+function normaliseActor(actor: string): string {
+  return actor.trim().toLowerCase();
+}
+
+function requireActor(actor: unknown, field: string, studentId?: string): string {
+  if (typeof actor !== "string" || actor.trim() === "") {
+    throw new Error(`erasure: ${field} must be a non-empty staff actor id`);
+  }
+  if (studentId !== undefined && normaliseActor(actor) === normaliseActor(studentId)) {
+    // The audit row outlives the erasure; the student's own id must never be stored as an actor.
+    throw new Error(`erasure: ${field} must be a staff actor id, not the student's id`);
+  }
+  return actor.trim();
+}
+
+export interface RequestErasureInput {
+  studentId: string;
+  requestedBy: string;
+  reason: ErasureReason;
+}
+
+/** Creates a PENDING erasure request. Deletes nothing. */
+export async function requestErasure(db: Db, input: RequestErasureInput): Promise<{ requestId: string }> {
+  if (typeof input.studentId !== "string" || input.studentId.trim() === "") {
+    throw new Error("requestErasure: studentId must be a non-empty string");
+  }
+  const requestedBy = requireActor(input.requestedBy, "requestedBy", input.studentId);
+  const reason = ErasureReasonSchema.parse(input.reason);
+  const hashSalt = randomBytes(16).toString("hex");
+  const requestId = new ObjectId().toHexString();
+  await erasureRequests(db).insertOne({
+    _id: requestId,
+    studentHash: hashStudentId(input.studentId, hashSalt),
+    hashSalt,
+    hashScheme: HASH_SCHEME,
+    studentId: input.studentId,
+    requestedBy,
+    reason,
+    requestedAt: new Date().toISOString(),
+    status: "pending",
+    attempts: 0,
+  });
+  return { requestId };
+}
+
+/**
+ * Confirms a pending request. The confirmer must differ from the requester and must not be the
+ * student. A CAS on `status: "pending"` makes a double confirm (or a confirm racing another)
+ * resolve to exactly one recorded confirmer.
+ */
+export async function confirmErasure(db: Db, input: { requestId: string; confirmedBy: string }): Promise<void> {
+  const row = await erasureRequests(db).findOne({ _id: input.requestId });
+  if (!row) throw new ErasureRequestNotFoundError();
+  const confirmedBy = requireActor(input.confirmedBy, "confirmedBy", row.studentId);
+  if (row.status !== "pending") throw new ErasureStateError(row.status, "confirm");
+  if (normaliseActor(confirmedBy) === normaliseActor(row.requestedBy)) throw new ErasureSelfConfirmError();
+  const updated = await erasureRequests(db).findOneAndUpdate(
+    { _id: input.requestId, status: "pending" },
+    { $set: { status: "confirmed", confirmedBy, confirmedAt: new Date().toISOString() } },
+  );
+  if (!updated) {
+    const now = await erasureRequests(db).findOne({ _id: input.requestId });
+    throw new ErasureStateError(now?.status ?? "unknown", "confirm");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The plan
+// ---------------------------------------------------------------------------
+
+/** One scribe thread per session (packages/engine/src/scribe/graph.ts scribeThreadId; drift-guarded by a test). */
+export function scribeCheckpointThreadId(sessionId: string): string {
+  return `scribe:${sessionId}`;
+}
+
+/** Everything needed to find a student's documents, resolved ONCE before any delete. */
+export interface ErasureSelectors {
+  studentId: string;
+  factIds: string[];
+  sessionIds: string[];
+  threadIds: string[];
+}
+
+export interface ErasureStep {
+  collection: string;
+  /** 1 = dependent / direct rows; 2 = anchors, only run when every phase-1 step succeeded. */
+  phase: 1 | 2;
+  filter: (s: ErasureSelectors) => Filter<Document>;
+}
+
+function edgeFilter(s: ErasureSelectors): Filter<Document> {
+  // Kind-qualified, so an id that happens to equal another kind's id never matches.
+  return {
+    $or: [
+      { "from.kind": "student", "from.id": s.studentId },
+      { "to.kind": "student", "to.id": s.studentId },
+      { "from.kind": "fact", "from.id": { $in: s.factIds } },
+      { "to.kind": "fact", "to.id": { $in: s.factIds } },
+      { "to.kind": "profile_fact", "to.id": { $in: s.factIds } },
+      { "from.kind": "session", "from.id": { $in: s.sessionIds } },
+      { "to.kind": "session", "to.id": { $in: s.sessionIds } },
+    ],
+  };
+}
+
+const byStudent = (s: ErasureSelectors): Filter<Document> => ({ studentId: s.studentId });
+const byThread = (s: ErasureSelectors): Filter<Document> => ({ thread_id: { $in: s.threadIds } });
+
+/** Ordered: consents first (blocks processing, B4), anchors last (see the module docstring). */
+export const ERASURE_PLAN: readonly ErasureStep[] = [
+  { collection: COLLECTION_NAMES.consents, phase: 1, filter: byStudent },
+  { collection: COLLECTION_NAMES.decisions, phase: 1, filter: byStudent },
+  { collection: COLLECTION_NAMES.edges, phase: 1, filter: edgeFilter },
+  { collection: COLLECTION_NAMES.scribe_checkpoints, phase: 1, filter: byThread },
+  { collection: COLLECTION_NAMES.scribe_checkpoint_writes, phase: 1, filter: byThread },
+  { collection: COLLECTION_NAMES.facts, phase: 2, filter: byStudent }, // active AND retired
+  { collection: COLLECTION_NAMES.sessions, phase: 2, filter: byStudent },
+  { collection: COLLECTION_NAMES.scribe_resolutions, phase: 2, filter: byStudent },
+  { collection: COLLECTION_NAMES.students, phase: 2, filter: byStudent },
+];
+
+/**
+ * Collections deliberately NOT erased, with the reason. A test requires every COLLECTION_NAMES
+ * entry to be in ERASURE_PLAN or here, so a future cards/feedback collection (none exists yet)
+ * fails that test until it is added to the plan.
+ */
+export const ERASURE_EXEMPT_COLLECTIONS = {
+  [COLLECTION_NAMES.universities]: "public university KB data; holds no student documents",
+  [COLLECTION_NAMES.courses]: "public course KB data; holds no student documents",
+  [COLLECTION_NAMES.erasure_requests]:
+    "the erasure audit log itself; must survive the erasure and holds no personal data once completed",
+} as const;
+
+async function resolveSelectors(db: Db, studentId: string): Promise<ErasureSelectors> {
+  const facts = await db
+    .collection<FactDoc>(COLLECTION_NAMES.facts)
+    .find({ studentId }, { projection: { _id: 1 } })
+    .toArray();
+  const sessions = await db
+    .collection<SessionDoc>(COLLECTION_NAMES.sessions)
+    .find({ studentId }, { projection: { _id: 1, sessionId: 1 } })
+    .toArray();
+  const claims = await db
+    .collection<ScribeResolutionDoc>(COLLECTION_NAMES.scribe_resolutions)
+    .find({ studentId }, { projection: { threadId: 1 } })
+    .toArray();
+  const sessionIds = [...new Set(sessions.flatMap((s) => [s.sessionId, s._id]).filter((x): x is string => !!x))];
+  // Threads from the student's sessions AND from their approval claims (covers a claim whose
+  // session row is already gone or was never written).
+  const threadIds = [...new Set([...sessionIds.map(scribeCheckpointThreadId), ...claims.map((c) => c.threadId)])];
+  return { studentId, factIds: facts.map((f) => f._id), sessionIds, threadIds };
+}
+
+function errorLabel(err: unknown): string {
+  // Name and code only: a driver message can echo the filter (ids).
+  const e = err as { name?: unknown; code?: unknown; codeName?: unknown } | undefined;
+  const name = typeof e?.name === "string" ? e.name : "Error";
+  const code = typeof e?.codeName === "string" ? e.codeName : typeof e?.code === "number" ? String(e.code) : "";
+  return code ? `${name}:${code}` : name;
+}
+
+// ---------------------------------------------------------------------------
+// Execute
+// ---------------------------------------------------------------------------
+
+export interface ErasureOutcome {
+  status: "completed";
+  receipt: ErasureReceipt;
+  /** True when the request had already completed and this call changed nothing. */
+  alreadyCompleted: boolean;
+}
+
+/**
+ * Runs a CONFIRMED (or previously failed) erasure request. Returns the verified receipt, or throws
+ * ErasureIncompleteError (request left `failed`, retryable). Throws ErasureNotConfirmedError for a
+ * pending request, before touching any student collection.
+ */
+export async function executeErasure(db: Db, requestId: string): Promise<ErasureOutcome> {
+  const row = await erasureRequests(db).findOne({ _id: requestId });
+  if (!row) throw new ErasureRequestNotFoundError();
+  if (row.status === "completed" && row.receipt) {
+    return { status: "completed", receipt: row.receipt, alreadyCompleted: true };
+  }
+  if (row.status === "pending" || !row.confirmedBy) throw new ErasureNotConfirmedError();
+  if (row.status !== "confirmed" && row.status !== "failed") throw new ErasureStateError(row.status, "execute");
+  const studentId = row.studentId;
+  if (!studentId || !erasureRequestMatchesStudent(row, studentId)) {
+    throw new ErasureStateError(row.status, "execute (studentId missing or does not match its hash)");
+  }
+
+  const attempt = row.attempts + 1;
+  const startedAt = new Date().toISOString();
+  const selectors = await resolveSelectors(db, studentId);
+
+  const deleted = new Map<string, number>();
+  const failed = new Map<string, string>();
+  const deferred = new Set<string>();
+  for (const phase of [1, 2] as const) {
+    const steps = ERASURE_PLAN.filter((s) => s.phase === phase);
+    if (phase === 2 && failed.size > 0) {
+      for (const step of steps) deferred.add(step.collection);
+      continue;
+    }
+    for (const step of steps) {
+      try {
+        const res = await db.collection(step.collection).deleteMany(step.filter(selectors));
+        deleted.set(step.collection, res.deletedCount ?? 0);
+      } catch (err) {
+        failed.set(step.collection, errorLabel(err));
+      }
+    }
+  }
+
+  // Verification: read every collection back with the SAME selectors (resolved before the purge).
+  const collections: ErasureCollectionLine[] = [];
+  for (const step of ERASURE_PLAN) {
+    let remaining: number;
+    try {
+      remaining = await db.collection(step.collection).countDocuments(step.filter(selectors));
+    } catch (err) {
+      // An unverifiable collection is never reported as clean.
+      failed.set(step.collection, failed.get(step.collection) ?? `verify:${errorLabel(err)}`);
+      remaining = Number.MAX_SAFE_INTEGER;
+    }
+    const outcome = failed.has(step.collection) ? "failed" : deferred.has(step.collection) ? "deferred" : "purged";
+    const line: ErasureCollectionLine = {
+      collection: step.collection,
+      outcome,
+      deleted: deleted.get(step.collection) ?? 0,
+      remaining,
+    };
+    const error = failed.get(step.collection);
+    if (error) line.error = error;
+    collections.push(line);
+  }
+  const totalRemaining = Math.min(
+    Number.MAX_SAFE_INTEGER,
+    collections.reduce((sum, l) => sum + l.remaining, 0),
+  );
+  const verified = failed.size === 0 && deferred.size === 0 && totalRemaining === 0;
+  const receipt = ErasureReceiptSchema.parse({
+    requestId,
+    attempt,
+    verified,
+    totalRemaining,
+    collections,
+    startedAt,
+    verifiedAt: new Date().toISOString(),
+  });
+
+  if (verified) {
+    await erasureRequests(db).findOneAndUpdate(
+      { _id: requestId, status: row.status },
+      {
+        $set: { status: "completed", attempts: attempt, lastAttemptAt: startedAt, completedAt: receipt.verifiedAt, receipt },
+        $unset: { studentId: "" },
+      },
+    );
+    return { status: "completed", receipt, alreadyCompleted: false };
+  }
+  await erasureRequests(db).findOneAndUpdate(
+    { _id: requestId, status: row.status },
+    { $set: { status: "failed", attempts: attempt, lastAttemptAt: startedAt, receipt } },
+  );
+  throw new ErasureIncompleteError(receipt);
+}
+
+// ---------------------------------------------------------------------------
+// Export
+// ---------------------------------------------------------------------------
+
+export interface StudentExport {
+  format: "vc-student-export/v1";
+  /**
+   * Purpose-safe by construction: this bundle is the data subject's own access copy (DPDP right
+   * to access), so it is NOT filtered by purposeTags; every purpose's facts belong to the
+   * student. It must only be released to the authenticated student (or guardian, for a minor);
+   * that authorisation is the caller's job. It must never feed profiling, analytics or a model.
+   */
+  purpose: "data_subject_access";
+  exportedAt: string;
+  studentId: string;
+  student: StudentDoc | null;
+  /** Full history: active facts (`active: true`) and retired ones (`validTo` set). */
+  facts: FactDoc[];
+  sessions: SessionDoc[];
+  decisions: DecisionDoc[];
+  consents: ConsentDoc[];
+  edges: EdgeDoc[];
+  /** Scribe approval claims (they hold the approved fact values). */
+  approvalClaims: ScribeResolutionDoc[];
+  /**
+   * Scribe checkpoints are serialized LangGraph state (they duplicate the transcript and the
+   * extracted facts, both of which are exported above in readable form). Counted, not dumped.
+   */
+  checkpoints: { threads: string[]; checkpointDocs: number; writeDocs: number };
+}
+
+/** Read-only per-student JSON bundle. Uses the same selectors as the erasure, so it covers what erasure deletes. */
+export async function exportStudent(db: Db, studentId: string): Promise<StudentExport> {
+  if (typeof studentId !== "string" || studentId.trim() === "") {
+    throw new Error("exportStudent: studentId must be a non-empty string");
+  }
+  const s = await resolveSelectors(db, studentId);
+  const facts = await db.collection<FactDoc>(COLLECTION_NAMES.facts).find({ studentId }).toArray();
+  facts.sort((a, b) => a.key.localeCompare(b.key) || a.validFrom.localeCompare(b.validFrom) || a._id.localeCompare(b._id));
+  return {
+    format: "vc-student-export/v1",
+    purpose: "data_subject_access",
+    exportedAt: new Date().toISOString(),
+    studentId,
+    student: await db.collection<StudentDoc>(COLLECTION_NAMES.students).findOne({ studentId }),
+    facts,
+    sessions: await db.collection<SessionDoc>(COLLECTION_NAMES.sessions).find({ studentId }).toArray(),
+    decisions: await db.collection<DecisionDoc>(COLLECTION_NAMES.decisions).find({ studentId }).toArray(),
+    consents: await db.collection<ConsentDoc>(COLLECTION_NAMES.consents).find({ studentId }).toArray(),
+    edges: (await db.collection(COLLECTION_NAMES.edges).find(edgeFilter(s)).toArray()) as unknown as EdgeDoc[],
+    approvalClaims: await db
+      .collection<ScribeResolutionDoc>(COLLECTION_NAMES.scribe_resolutions)
+      .find({ studentId })
+      .toArray(),
+    checkpoints: {
+      threads: [...s.threadIds].sort(),
+      checkpointDocs: await db.collection(COLLECTION_NAMES.scribe_checkpoints).countDocuments(byThread(s)),
+      writeDocs: await db.collection(COLLECTION_NAMES.scribe_checkpoint_writes).countDocuments(byThread(s)),
+    },
+  };
+}

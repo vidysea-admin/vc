@@ -30,6 +30,15 @@ export const COLLECTION_NAMES = {
   edges: "edges",
   // ISS-t-007-rev-8: one approval claim per scribe thread (unique threadId, see INDEX_PLAN).
   scribe_resolutions: "scribe_resolutions",
+  // ISS-t-007-rev-6 / T-011: LangGraph MongoDBSaver's collections for the scribe graph
+  // (packages/engine/src/scribe/checkpointer.ts SCRIBE_CHECKPOINT_COLLECTIONS; the erasure test's
+  // drift guard reads that file). Owned by the saver; named here so db-init creates them with
+  // their indexes and B15 erasure covers them (they hold transcripts). Keyed by `thread_id`.
+  scribe_checkpoints: "scribe_checkpoints",
+  scribe_checkpoint_writes: "scribe_checkpoint_writes",
+  // T-011 / B15: the erasure audit log (src/erasure.ts). Survives erasure; no personal data
+  // once a request completes.
+  erasure_requests: "erasure_requests",
   // Name constants only — owned by the university-kb unit (ARCHITECTURE Q1).
   universities: "universities",
   courses: "courses",

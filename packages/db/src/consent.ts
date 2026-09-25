@@ -11,12 +11,19 @@
 import type { Db } from "mongodb";
 import { consentsCollection } from "./collections.js";
 
+/**
+ * ISS-043: ONE generic message for every refusal. The three causes (no row, purpose not
+ * covered, minor without guardianConsent) used to produce three distinct messages, and the
+ * guardianConsent one told an unconsented caller that the student is a minor. The message also
+ * names neither the student nor the purpose, so it is safe to surface through an MCP tool error.
+ * The cause is kept off the error object entirely; callers only ever need "refused".
+ */
+export const CONSENT_REQUIRED_MESSAGE =
+  "ConsentRequiredError: no valid recorded consent covers this request (contract B4); it was not processed.";
+
 export class ConsentRequiredError extends Error {
-  constructor(studentId: string, purpose: string, reason: string) {
-    super(
-      `ConsentRequiredError: student "${studentId}" has no valid recorded consent covering purpose ` +
-        `"${purpose}" (${reason}) — contract B4, no session may be processed without one.`,
-    );
+  constructor() {
+    super(CONSENT_REQUIRED_MESSAGE);
     this.name = "ConsentRequiredError";
   }
 }
@@ -29,12 +36,12 @@ export class ConsentRequiredError extends Error {
 export async function requireConsent(db: Db, studentId: string, purpose: string): Promise<void> {
   const consent = await consentsCollection(db).findOne({ studentId });
   if (!consent) {
-    throw new ConsentRequiredError(studentId, purpose, "no consent row found");
+    throw new ConsentRequiredError();
   }
   if (!consent.purposes.includes(purpose)) {
-    throw new ConsentRequiredError(studentId, purpose, "the recorded consent does not cover this purpose");
+    throw new ConsentRequiredError();
   }
   if (consent.minor && !consent.guardianConsent) {
-    throw new ConsentRequiredError(studentId, purpose, "student is a minor and guardianConsent is not recorded");
+    throw new ConsentRequiredError();
   }
 }

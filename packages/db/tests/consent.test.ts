@@ -52,3 +52,19 @@ test("B4: requireConsent resolves for an adult with a matching consent row", asy
   seedConsent(fakeDb);
   await assert.doesNotReject(() => requireConsent(db, "student-1", "counselling"));
 });
+
+test("ISS-043: every refusal carries ONE generic message, so the error never reveals minor status or purposes", async () => {
+  const messages: string[] = [];
+  for (const overrides of [null, { purposes: ["marketing"] }, { minor: true, guardianConsent: false }] as const) {
+    const { db, fakeDb } = createFakeDb();
+    if (overrides) seedConsent(fakeDb, overrides);
+    const err = await requireConsent(db, "student-1", "counselling").then(
+      () => assert.fail("expected ConsentRequiredError"),
+      (e: unknown) => e,
+    );
+    assert.ok(err instanceof ConsentRequiredError);
+    messages.push(err.message);
+  }
+  assert.equal(new Set(messages).size, 1, `distinct messages: ${JSON.stringify(messages)}`);
+  assert.doesNotMatch(messages[0] ?? "", /minor|guardian|marketing|no consent row|does not cover/i);
+});

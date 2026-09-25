@@ -13,6 +13,13 @@ server (contract B12, D-008/D-009, `qa/gates/mongo-host.md`).
 - `src/facts.ts` — `proposeFactChanges` (pure, writes nothing) and `applyApprovedDiff` (the only
   function that writes to `facts`; contract B3, supersede-not-delete via `validTo`).
 - `src/edges.ts` — the generic `{from, to, rel}` edge shape and the idempotent `link()` helper.
+- `src/erasure.ts` — DPDP erasure and export (contract B15, T-011): `requestErasure` (pending) →
+  `confirmErasure` (a different staff actor) → `executeErasure` (hard delete across every engine
+  collection, two-phase so a failed step leaves the anchor collections for the retry, then a
+  read-back with the same selectors and a counts-only receipt; throws `ErasureIncompleteError` on
+  any failure). The `erasure_requests` audit row keeps only a salted studentId hash, staff actor
+  ids, a reason code and the receipt once completed. `exportStudent` returns the student's own
+  access bundle (not purpose-filtered; release only to the authenticated student/guardian).
 
 ## Live DB init (NOT run by T-003)
 

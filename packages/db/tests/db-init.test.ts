@@ -19,6 +19,8 @@ const STUDENT_ID_COLLECTIONS = [
   COLLECTION_NAMES.consents,
   COLLECTION_NAMES.students,
   COLLECTION_NAMES.scribe_resolutions,
+  // T-011: the audit row holds studentId only while the request is open (unset on completion).
+  COLLECTION_NAMES.erasure_requests,
 ];
 
 test("ISS-027: every studentId-bearing collection has a plain (non-partial, non-unique) index led by studentId", () => {
@@ -159,4 +161,23 @@ test("ISS-t-007-c1-1: find({purposeTags: scalar}) matches docs whose array CONTA
     ["f2"],
   );
   assert.equal((await coll.find({ purposeTags: ["profile_synthesis", "application_filling"] }).toArray()).length, 0);
+});
+
+test("T-011: the scribe checkpoint collections carry EXACTLY the indexes MongoDBSaver.setup() creates (same keys + names), thread_id-led", () => {
+  const cp = INDEX_PLAN.filter((s) => s.collection === COLLECTION_NAMES.scribe_checkpoints);
+  const wr = INDEX_PLAN.filter((s) => s.collection === COLLECTION_NAMES.scribe_checkpoint_writes);
+  assert.deepEqual(
+    cp.map((s) => [s.name, s.keys]),
+    [["thread_ns_checkpoint_idx", { thread_id: 1, checkpoint_ns: 1, checkpoint_id: -1 }]],
+  );
+  assert.deepEqual(
+    wr.map((s) => [s.name, s.keys]),
+    [["thread_ns_checkpoint_task_idx", { thread_id: 1, checkpoint_ns: 1, checkpoint_id: 1, task_id: 1, idx: 1 }]],
+  );
+});
+
+test("T-011: the erasure_requests audit log has a status index and no unique index", () => {
+  const specs = INDEX_PLAN.filter((s) => s.collection === COLLECTION_NAMES.erasure_requests);
+  assert.ok(specs.some((s) => Object.keys(s.keys)[0] === "status"));
+  assert.ok(specs.every((s) => !s.unique));
 });

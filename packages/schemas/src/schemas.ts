@@ -287,3 +287,57 @@ export const AuditEventSchema = z.object({
   result: z.string(),
 });
 export type AuditEvent = z.infer<typeof AuditEventSchema>;
+
+// ---------------------------------------------------------------------------
+// DPDP erasure (contract B15, T-011, qa/gates/dpdp-erase-design.md)
+// ---------------------------------------------------------------------------
+
+/**
+ * Why an erasure was requested: a closed set of codes, never free text. The request row
+ * outlives the erasure (it is the audit log), so a free-text "reason" field would be a
+ * place for personal data to survive the purge.
+ */
+export const ErasureReasonSchema = z.enum([
+  "student_request",
+  "guardian_request",
+  "account_closure",
+  "legal_order",
+]);
+export type ErasureReason = z.infer<typeof ErasureReasonSchema>;
+
+/** Lifecycle of an erasure request row: pending → confirmed → completed, or failed (retryable). */
+export const ErasureStatusSchema = z.enum(["pending", "confirmed", "completed", "failed"]);
+export type ErasureStatus = z.infer<typeof ErasureStatusSchema>;
+
+/**
+ * One collection's line in an erasure receipt. `outcome`:
+ *  - purged: deleteMany ran without error;
+ *  - failed: deleteMany threw (only the error's name/code is kept, never its message,
+ *    because driver messages can echo filter values such as ids);
+ *  - deferred: not attempted this run, because it is an anchor collection (facts,
+ *    sessions, scribe_resolutions, students) needed to resolve the other collections'
+ *    selectors on a retry, and an earlier step failed.
+ * `remaining` is the read-back count with the same selector after the purge.
+ */
+export const ErasureCollectionLineSchema = z.object({
+  collection: z.string().min(1),
+  outcome: z.enum(["purged", "failed", "deferred"]),
+  deleted: z.number().int().min(0),
+  remaining: z.number().int().min(0),
+  error: z.string().optional(),
+});
+export type ErasureCollectionLine = z.infer<typeof ErasureCollectionLineSchema>;
+
+/** The verification receipt: counts and times only, no personal data (B15). */
+export const ErasureReceiptSchema = z
+  .object({
+    requestId: z.string().min(1),
+    attempt: z.number().int().min(1),
+    verified: z.boolean(),
+    totalRemaining: z.number().int().min(0),
+    collections: z.array(ErasureCollectionLineSchema).min(1),
+    startedAt: z.string().datetime(),
+    verifiedAt: z.string().datetime(),
+  })
+  .strict();
+export type ErasureReceipt = z.infer<typeof ErasureReceiptSchema>;

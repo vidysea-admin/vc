@@ -1,7 +1,7 @@
 /**
  * In-process fakes for the mongodb driver's Db/Collection/MongoClient surface —
- * only the subset this package's tests exercise (findOne, insertOne, updateOne,
- * findOneAndUpdate).
+ * only the subset this package's tests exercise (findOne, find, insertOne, updateOne,
+ * findOneAndUpdate, and for T-011 deleteMany + countDocuments with dotted paths, $in, $or).
  * No network I/O anywhere in this file (contract B8: tests run offline). The
  * `as unknown as <mongodb type>` casts at the bottom are the one place fakes
  * cross into the real driver's type surface; production code never imports
@@ -11,13 +11,49 @@
 
 type Filter = Record<string, unknown>;
 
+/** T-011: dotted-path read (`"from.id"`), as the server resolves embedded fields. */
+function getPath(doc: Record<string, unknown>, path: string): unknown {
+  let current: unknown = doc;
+  for (const part of path.split(".")) {
+    if (current === null || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+}
+
+function isOperatorObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const keys = Object.keys(value);
+  return keys.length > 0 && keys.every((k) => k.startsWith("$"));
+}
+
+/**
+ * Mongo query semantics for the subset the engine uses: equality (incl. array-contains),
+ * dotted paths, `$exists`, `$eq`, `$in`, and top-level `$or` / `$and` (T-011 erasure
+ * selectors). Any other operator THROWS, so a test can never pass because the fake
+ * silently ignored a filter the real server would apply.
+ */
 function matchesFilter(doc: Record<string, unknown>, filter: Filter): boolean {
   return Object.entries(filter).every(([key, expected]) => {
-    if (expected !== null && typeof expected === "object" && "$exists" in (expected as object)) {
-      const exists = doc[key] !== undefined;
-      return exists === (expected as { $exists: boolean }).$exists;
+    if (key === "$or") return (expected as Filter[]).some((sub) => matchesFilter(doc, sub));
+    if (key === "$and") return (expected as Filter[]).every((sub) => matchesFilter(doc, sub));
+    if (key.startsWith("$")) throw new Error(`FakeCollection: unsupported top-level operator ${key}`);
+    const actual = getPath(doc, key);
+    if (isOperatorObject(expected)) {
+      return Object.entries(expected).every(([op, arg]) => {
+        switch (op) {
+          case "$exists":
+            return (actual !== undefined) === arg;
+          case "$eq":
+            return valueMatches(actual, arg);
+          case "$in":
+            return (arg as unknown[]).some((candidate) => valueMatches(actual, candidate));
+          default:
+            throw new Error(`FakeCollection: unsupported query operator ${op}`);
+        }
+      });
     }
-    return valueMatches(doc[key], expected);
+    return valueMatches(actual, expected);
   });
 }
 
@@ -216,6 +252,24 @@ export class FakeCollection<T extends { _id: string }> {
     if (update.$set) Object.assign(created, update.$set);
     this.docs.set(_id, created);
     return { matchedCount: 0, upsertedId: _id };
+  }
+
+  /** T-011: driver-shaped deleteMany (`{acknowledged, deletedCount}`), same filter semantics as find. */
+  async deleteMany(filter: Filter = {}): Promise<{ acknowledged: true; deletedCount: number }> {
+    let deletedCount = 0;
+    for (const [id, doc] of [...this.docs.entries()]) {
+      if (matchesFilter(doc as unknown as Record<string, unknown>, filter)) {
+        this.docs.delete(id);
+        deletedCount += 1;
+      }
+    }
+    return { acknowledged: true, deletedCount };
+  }
+
+  /** T-011: the read-back used by the erasure verification pass. */
+  async countDocuments(filter: Filter = {}): Promise<number> {
+    return [...this.docs.values()].filter((doc) => matchesFilter(doc as unknown as Record<string, unknown>, filter))
+      .length;
   }
 
   all(): T[] {

@@ -39,6 +39,10 @@
  *   - consents: { studentId } — fast lookup for requireConsent().
  *   - scribe_resolutions: UNIQUE { threadId } (ISS-t-007-rev-8) -- the atomic
  *               approval claim for a scribe thread; plus a plain { studentId }.
+ *   - scribe_checkpoints / scribe_checkpoint_writes: the MongoDBSaver.setup()
+ *               indexes, verbatim (T-011: erasure deletes by thread_id).
+ *   - erasure_requests: { studentId } (open requests only) and
+ *               { status, requestedAt } (T-011 audit log).
  *   - edges:    relies on Mongo's built-in unique _id index for idempotent
  *               link() upserts, PLUS { "from.kind", "from.id" } and
  *               { "to.kind", "to.id" } (ISS-021) so a lookup of "everything
@@ -102,6 +106,25 @@ export const INDEX_PLAN: IndexSpec[] = [
     unique: true,
   },
   { collection: COLLECTION_NAMES.scribe_resolutions, keys: { studentId: 1 }, name: "scribe_resolutions_studentId" },
+  // T-011 / ISS-t-007-rev-6: EXACTLY the indexes LangGraph's MongoDBSaver.setup() creates
+  // (@langchain/langgraph-checkpoint-mongodb dist/checkpoint.js, same keys and names), so a later
+  // setup() is a no-op and B15 erasure's {thread_id: {$in: [...]}} read/delete is index-served
+  // even if setup() is never called (the index leads with thread_id).
+  {
+    collection: COLLECTION_NAMES.scribe_checkpoints,
+    keys: { thread_id: 1, checkpoint_ns: 1, checkpoint_id: -1 },
+    name: "thread_ns_checkpoint_idx",
+  },
+  {
+    collection: COLLECTION_NAMES.scribe_checkpoint_writes,
+    keys: { thread_id: 1, checkpoint_ns: 1, checkpoint_id: 1, task_id: 1, idx: 1 },
+    name: "thread_ns_checkpoint_task_idx",
+  },
+  // T-011 / B15: the erasure audit log. studentId is present only while a request is open
+  // (unset on verified completion), so this index only ever holds open requests' ids.
+  // No unique index: two requests for one student are allowed (each is its own audit record).
+  { collection: COLLECTION_NAMES.erasure_requests, keys: { studentId: 1 }, name: "erasure_requests_studentId" },
+  { collection: COLLECTION_NAMES.erasure_requests, keys: { status: 1, requestedAt: 1 }, name: "erasure_requests_status" },
   // ISS-021: edges had no from/to index.
   { collection: COLLECTION_NAMES.edges, keys: { "from.kind": 1, "from.id": 1 }, name: "edges_from" },
   { collection: COLLECTION_NAMES.edges, keys: { "to.kind": 1, "to.id": 1 }, name: "edges_to" },
