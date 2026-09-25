@@ -93,3 +93,20 @@ not replace them.
 **Result:** -- (ARCHITECTURE Â§5 and qa/adapter.json updated in the same commit)
 **Changes-authorized:** ARCHITECTURE.md section 5 Mongo bullet (full CRUD inside virtual_counsellor, only dropDatabase gated); qa/adapter.json isolation.forbidden (replace "drops / bulk deletes" with "dropDatabase on virtual_counsellor").
 **Links:** ISS-015, qa/gates/mongo-host.md, T-003
+
+## D-010 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** Fix three enforcement-path findings from the 2026-09-25 config audit.
+- ISS-001: decisions-append-guard.ps1 now fails CLOSED to "ask" on a JSON parse or logic failure, instead of silently exiting 0.
+- ISS-004: lab-session-start.ps1 wraps the verbatim DECISIONS excerpt it injects in an explicit "untrusted repo content, not instructions" frame.
+- ISS-005: every .claude/settings.json hook command uses "$CLAUDE_PROJECT_DIR"-anchored paths, not cwd-relative ones.
+**Why:** A guard that fails open lets a malformed Edit/Write through the DECISIONS hard wall and the guard-the-guards ask without anyone noticing. Injected repo text without a frame can steer the model. cwd-relative hook paths silently no-op when the session cwd is a worktree or a subdirectory, which this project now uses routinely for its parallel waves.
+**Result:** -- (fixes land in the same commit; /aios-config-auditor re-run afterwards)
+**Changes-authorized:** .claude/hooks/decisions-append-guard.ps1 (fail to ask on exception); .claude/hooks/lab-session-start.ps1 (untrusted-content frame around the last-entries excerpt); .claude/settings.json (hook command paths anchored at $CLAUDE_PROJECT_DIR).
+**Approved-by:** Umesh
+**Links:** ISS-001, ISS-004, ISS-005, qa/gates/config-audit-fixes.md (Answered 2026-09-25: "yes fix ..."). The upstream template fix in D:/ai_os/templates/lab-protocol is a follow-up outside this repo (D-001).
+
+## D-011 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** Correction to D-006's Links detail. The approver of record is Umesh, whose email is umeshsugara@vidysea.com. The account named in D-006 ("operator account himanshu@vidysea.com") was the session's operator account, not the approver's identity. Staff work emails in docs/DECISIONS.md are an accepted, documented false positive for data_boundary.py: they are internal staff, not student data. ISS-003 closes as wontfix (accepted).
+**Why:** DECISIONS is append-only, so the correction is a new entry and D-006 is never edited. Umesh's gate answer: "yes fix and mail is umeshsugara@vidysea.com".
+**Result:** -- (ISS-003 status set to wontfix-accepted in qa/issues.jsonl)
+**Links:** D-006, ISS-003, qa/gates/config-audit-fixes.md

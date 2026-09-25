@@ -18,3 +18,5 @@
 | T-008 | open | Counsellor diff-approval UI (Next.js) | depends T-007 |
 | T-009 | open | Golden-session eval set (anonymised) + scribe eval | depends T-007 |
 | T-010 | open | Live cards (Widen/Challenge/Compare/Evidence) + verifier | gated on the scribe passing |
+| T-011 | open | DPDP erasure + export (B15): confirm step in audit log, hard delete across all engine collections, read-back-zero verification, counts-only receipt, per-student JSON export; adds cards/feedback + audit collections | depends T-003b (studentId indexes) |
+| T-012 | open | Crisis escalation (B16): async Flash-Lite concern classifier on concern turns + stratified none sample; notify admin + concerned counsellors at the same moment; grow crisis golden set with hard negatives | depends T-005b, T-007 |
