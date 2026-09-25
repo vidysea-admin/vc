@@ -6,9 +6,15 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { INDEX_PLAN } from "../scripts/db-init.js";
+import {
+  INDEX_PLAN,
+  MIN_SERVER_VERSION,
+  UnsupportedServerVersionError,
+  isServerVersionAtLeast,
+  assertServerVersionSupportsPartialIn,
+} from "../scripts/db-init.js";
 import { COLLECTION_NAMES } from "../src/collections.js";
-import { FakeCollection, assertSupportedPartialFilter } from "./fakes.js";
+import { FakeCollection, assertSupportedPartialFilter, createFakeDb } from "./fakes.js";
 
 // Every collection whose documents carry a `studentId` field (per
 // src/collections.ts's *Doc interfaces) — edges/universities/courses do not.
@@ -197,4 +203,44 @@ test("T-011 / D-016 (ISS-t-011-c2-rev-3): erasure_fences has NO redundant studen
   assert.equal(COLLECTION_NAMES.erasure_fences, "erasure_fences");
   const specs = INDEX_PLAN.filter((s) => s.collection === COLLECTION_NAMES.erasure_fences);
   assert.deepEqual(specs, []);
+});
+
+// ---------------------------------------------------------------------------
+// T-014 / ISS-t-011-c3-rev-4: db-init checks the server's version supports the erasure_requests
+// index's "$in" partial filter (MongoDB 6.0+, D-013) BEFORE creating anything, instead of failing
+// deep inside the createIndex loop with a server error that never names the real cause.
+// ---------------------------------------------------------------------------
+
+test("isServerVersionAtLeast compares NUMERICALLY, not lexicographically (6.10 >= 6.9, 6.2 < 6.10)", () => {
+  assert.ok(isServerVersionAtLeast("6.10.0", "6.9.0"), "6.10.0 >= 6.9.0");
+  assert.ok(!isServerVersionAtLeast("6.2.0", "6.10.0"), "6.2.0 < 6.10.0 (a lexicographic compare would get this backwards)");
+  assert.ok(isServerVersionAtLeast("6.0.0", "6.0.0"), "equal versions satisfy >=");
+  assert.ok(!isServerVersionAtLeast("5.9.9", "6.0.0"));
+  assert.ok(isServerVersionAtLeast("7.0.4"), "defaults to MIN_SERVER_VERSION when `required` is omitted");
+});
+
+test("ISS-t-011-c3-rev-4: assertServerVersionSupportsPartialIn throws UnsupportedServerVersionError against a server below MongoDB 6.0 (the fake's buildInfo)", async () => {
+  const { db, fakeDb } = createFakeDb();
+  fakeDb.buildInfoVersion = "4.4.20";
+  await assert.rejects(assertServerVersionSupportsPartialIn(db), (err: unknown) => {
+    assert.ok(err instanceof UnsupportedServerVersionError, `expected UnsupportedServerVersionError, got ${String(err)}`);
+    assert.equal(err.version, "4.4.20");
+    assert.equal(err.required, MIN_SERVER_VERSION);
+    assert.match(err.message, /\$in/);
+    return true;
+  });
+});
+
+test("ISS-t-011-c3-rev-4: assertServerVersionSupportsPartialIn does not throw for a server at or above MongoDB 6.0", async () => {
+  const { db, fakeDb } = createFakeDb();
+  for (const version of ["6.0.0", "6.0.1", "7.0.4", "8.2.1"]) {
+    fakeDb.buildInfoVersion = version;
+    await assertServerVersionSupportsPartialIn(db); // must not throw
+  }
+});
+
+test("ISS-t-011-c3-rev-4: an unreadable/missing buildInfo.version is treated as unsupported (fails closed, not open)", async () => {
+  const { db, fakeDb } = createFakeDb();
+  fakeDb.buildInfoVersion = undefined as unknown as string; // simulate a malformed buildInfo response
+  await assert.rejects(assertServerVersionSupportsPartialIn(db), UnsupportedServerVersionError);
 });

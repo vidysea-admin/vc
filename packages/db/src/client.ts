@@ -11,10 +11,43 @@
  * Establishing a live socket ( `.connect()` ) is left to the caller — the live
  * init script (scripts/db-init.ts, NOT run by this unit) or the app itself.
  */
-import { MongoClient, type Db } from "mongodb";
+import { MongoClient, type Db, type MongoClientOptions } from "mongodb";
+import { FENCE_MARGIN_MS } from "./erasure.js";
 
 /** D-008/D-009: the engine's one database on the production Mongo server. */
 export const VC_DB_NAME = "virtual_counsellor";
+
+/**
+ * T-014 / ISS-t-011-c3-rev-2: the client-LEVEL backstop timeout (mongodb@6 CSOT `timeoutMS`) for
+ * any operation on this client that does NOT carry its own per-operation `timeoutMS` — most
+ * notably the writes LangGraph's MongoDBSaver checkpointer makes on the scribe's behalf, which
+ * erasure.ts's "Honest caveats" section says are "bounded by the graph's AbortSignal plus the
+ * MongoClient's own timeoutMS where one is configured". Before this, `new MongoClient(url)` was
+ * built with no options at all, so that backstop did not exist and the comment was aspirational,
+ * not true. Capped at FENCE_MARGIN_MS (D-016): the fence is never released before
+ * `createdAt + MINIMUM_FENCE_HOLD_MS` (= FENCED_WRITER_DEADLINE_MS + FENCE_MARGIN_MS), so a
+ * client-level operation that respects this backstop always finishes — or is aborted server-side —
+ * within the margin window past a fence-aware writer's own deadline.
+ * Per-operation `timeoutMS` (e.g. WriterDeadline.op() in facts.ts/erasure.ts) always overrides this
+ * when one is passed explicitly; this is only the floor for operations that pass none.
+ */
+export const DEFAULT_MONGO_CLIENT_TIMEOUT_MS = FENCE_MARGIN_MS;
+
+/**
+ * Reads the client-level timeout override from `env`. `MONGO_CLIENT_TIMEOUT_MS` is an ops/config
+ * knob (how long an unguarded driver operation may run), never a secret — it is read the same way
+ * MONGODB_URL is, straight from the process environment, no vault involved. Unset or blank falls
+ * back to DEFAULT_MONGO_CLIENT_TIMEOUT_MS.
+ */
+function resolveClientTimeoutMs(env: Record<string, string | undefined>): number {
+  const raw = env.MONGO_CLIENT_TIMEOUT_MS;
+  if (raw === undefined || raw.trim() === "") return DEFAULT_MONGO_CLIENT_TIMEOUT_MS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`connectFromEnv: MONGO_CLIENT_TIMEOUT_MS must be a positive number of ms, got "${raw}"`);
+  }
+  return parsed;
+}
 
 /**
  * Returns the `virtual_counsellor` database from `client`, or throws for any
@@ -33,9 +66,9 @@ export function getVcDb(client: MongoClient, name: string = VC_DB_NAME): Db {
   return client.db(name);
 }
 
-export type MongoClientFactory = (url: string) => MongoClient;
+export type MongoClientFactory = (url: string, options?: MongoClientOptions) => MongoClient;
 
-const defaultClientFactory: MongoClientFactory = (url) => new MongoClient(url);
+const defaultClientFactory: MongoClientFactory = (url, options) => new MongoClient(url, options);
 
 /**
  * Reads MONGODB_URL from `env` (throws if missing — B11: keys only come from
@@ -44,10 +77,13 @@ const defaultClientFactory: MongoClientFactory = (url) => new MongoClient(url);
  * (e.g. the `/otherdb` in `mongodb://h:1/otherdb`) is never consulted — the
  * database name always comes from VC_DB_NAME, passed explicitly to getVcDb.
  *
- * `clientFactory` defaults to `new MongoClient(url)`, which itself performs no
- * I/O (the mongodb driver only connects on `.connect()` or a first command).
- * Tests inject a fake factory so this function is exercised with zero network
- * activity (contract B8).
+ * `clientFactory` defaults to `new MongoClient(url, options)`, which itself
+ * performs no I/O (the mongodb driver only connects on `.connect()` or a first
+ * command). Tests inject a fake factory so this function is exercised with
+ * zero network activity (contract B8). `options` always carries `timeoutMS`
+ * (ISS-t-011-c3-rev-2, resolveClientTimeoutMs): every real client this
+ * function builds has the driver-level backstop, whether or not the caller
+ * ever passes a factory.
  */
 export function connectFromEnv(
   env: Record<string, string | undefined>,
@@ -57,7 +93,8 @@ export function connectFromEnv(
   if (!url) {
     throw new Error("connectFromEnv: MONGODB_URL is not set (see .env.example, contract B11)");
   }
-  const client = clientFactory(url);
+  const timeoutMS = resolveClientTimeoutMs(env);
+  const client = clientFactory(url, { timeoutMS });
   const db = getVcDb(client, VC_DB_NAME);
   return { client, db };
 }

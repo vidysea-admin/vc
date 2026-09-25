@@ -246,8 +246,12 @@ export class ErasureIncompleteError extends Error {
 //     margin is not. FENCE_MARGIN_MS is the budget for that plus clock skew between app servers
 //     (createdAt is stamped by the confirming process, release is decided by the executing one).
 //   - Writes the scribe's LangGraph checkpointer (MongoDBSaver) makes are not given our per-op
-//     timeoutMS; they are bounded by the graph's AbortSignal plus the MongoClient's own timeoutMS
-//     where one is configured. graph.ts re-runs the post-check when an aborted run finally settles.
+//     timeoutMS; they are bounded by the graph's AbortSignal plus the MongoClient's own timeoutMS.
+//     T-014 / ISS-t-011-c3-rev-2: that backstop is no longer conditional — client.ts's
+//     connectFromEnv always builds its MongoClient with `timeoutMS: DEFAULT_MONGO_CLIENT_TIMEOUT_MS`
+//     (= FENCE_MARGIN_MS, overridable via MONGO_CLIENT_TIMEOUT_MS), so every client this package
+//     hands out already carries it — "where one is configured" no longer means "maybe none is".
+//     graph.ts re-runs the post-check when an aborted run finally settles.
 //   - A writer that does not check the fence is not covered; the scanner in
 //     tests/db-scope.test.ts fails the build if a new module writes student data outside the
 //     fence-aware allowlist (ISS-t-011-c2-rev-2).
@@ -551,6 +555,67 @@ export async function releaseExpiredErasureFences(
     released += res.deletedCount ?? 0;
   }
   return released;
+}
+
+export interface ErasureFenceSweepOptions {
+  /**
+   * How often to sweep. Default: MINIMUM_FENCE_HOLD_MS — a fence can not be eligible for release
+   * any sooner than that after it was created, so sweeping faster only spends cycles on no-ops.
+   */
+  intervalMs?: number;
+  /** Injected clock (tests only); defaults to `() => new Date()`. */
+  now?: () => Date;
+  /** Overrides ERASURE_FENCE_GRACE_MS (tests; the Q1 policy belongs in the constant). */
+  graceMs?: number;
+  /**
+   * Called with a tick's error instead of throwing it. releaseExpiredErasureFences is already
+   * best-effort per fence (releaseErasureFence's own try/catch); this covers a failure in the sweep
+   * loop itself (e.g. the whole read fails), so one bad tick never kills the interval — the next
+   * tick simply tries again. Defaults to a no-op; a caller SHOULD pass one wired to its logging.
+   */
+  onError?: (err: unknown) => void;
+}
+
+export interface ErasureFenceSweep {
+  /** Clears the interval. Idempotent; safe to call more than once (e.g. from a shutdown handler). */
+  stop: () => void;
+}
+
+/**
+ * T-014 / ISS-t-011-c3-rev-3: releaseExpiredErasureFences had no caller outside tests. A fence
+ * whose owning request completed cleanly gets a `releaseAfter` stamp (or an immediate delete) from
+ * executeErasure itself — but a fence left behind by a crash right after the completion CAS (before
+ * releaseErasureFence ran), or one whose best-effort release attempt failed (see
+ * releaseErasureFence's own catch), had NOTHING that would ever come back and clear it: every
+ * future write for that student stayed refused forever (D-016's whole point — a stuck-open fence —
+ * inverted into a stuck-CLOSED one).
+ *
+ * This starts a periodic sweep: an unref'd `setInterval` (per Node's own semantics, an unref'd
+ * timer never by itself keeps the event loop alive, so this can not stall process shutdown) that
+ * calls releaseExpiredErasureFences on a timer, plus a `stop()` to clear it. The caller — the
+ * process that owns the live Mongo client (apps/api/src/index.ts's startApi; see also
+ * scripts/db-init.ts for the other live-only entry point) — is responsible for calling `stop()` on
+ * shutdown, matching client.close().
+ */
+export function startErasureFenceSweep(db: Db, options: ErasureFenceSweepOptions = {}): ErasureFenceSweep {
+  const intervalMs = options.intervalMs ?? MINIMUM_FENCE_HOLD_MS;
+  if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
+    throw new RangeError(`startErasureFenceSweep: intervalMs must be a positive number of ms, got ${intervalMs}`);
+  }
+  const tick = (): void => {
+    const now = options.now?.() ?? new Date();
+    releaseExpiredErasureFences(db, now, options.graceMs ?? ERASURE_FENCE_GRACE_MS).catch((err) => options.onError?.(err));
+  };
+  const timer = setInterval(tick, intervalMs);
+  timer.unref?.();
+  let stopped = false;
+  return {
+    stop: () => {
+      if (stopped) return;
+      stopped = true;
+      clearInterval(timer);
+    },
+  };
 }
 
 export interface ExecuteErasureOptions {

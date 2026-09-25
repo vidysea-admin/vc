@@ -116,9 +116,22 @@
  *     `FencedWriterDeadlineError`. See src/erasure.ts "The erasure fence" for
  *     why the pre-check, the deadline, the post-check and the fence's minimum
  *     hold together close the race.
+ *   - **"The edges it CREATED" is enforced by ownership, not just by which ids
+ *     were recorded (ISS-t-011-c3-rev-1).** Edge ids are deterministic
+ *     (`deriveEdgeId`), so a `link()` call whose own outcome is AMBIGUOUS (it
+ *     threw, e.g. after a timeout — the write may or may not have landed)
+ *     can not tell "I just created this edge" from "a previous call already
+ *     owns this deterministic id" by id alone. Such an outcome is still
+ *     speculatively recorded (so a genuine creation is never left
+ *     uncompensated), but every write in this call — fact or edge — carries a
+ *     fresh per-call `writerToken`, stamped on an edge only via its own
+ *     `$setOnInsert`. The undo's edge delete filters on `{_id, writerToken}`,
+ *     so it can only ever remove a document THIS call's insert actually
+ *     stamped; a pre-existing edge from a different call never matches,
+ *     whatever the ambiguous outcome guessed.
  */
 import { ObjectId, type Db, type Filter } from "mongodb";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   FactSchema,
   ProfileDiffSchema,
@@ -129,7 +142,7 @@ import {
   type CounsellorDecision,
 } from "@vc/schemas";
 import { factsCollection, edgesCollection, type FactDoc } from "./collections.js";
-import { deriveEdgeId, link, type EdgeRef } from "./edges.js";
+import { deriveEdgeId, link, type EdgeRef, type EdgeDoc } from "./edges.js";
 import {
   assertStudentNotFenced,
   compensateIfFenced,
@@ -382,6 +395,11 @@ export async function applyApprovedDiff(
 
   const facts = factsCollection(db);
   const edges = edgesCollection(db);
+  // T-014 / ISS-t-011-c3-rev-1: this call's own ownership token, stamped on every edge it actually
+  // inserts (edges.ts link()'s $setOnInsert). Edge ids are DETERMINISTIC (deriveEdgeId), so an
+  // ambiguous linkTracked outcome (below) can not tell "I created this" from "a previous call
+  // already owns this" by id alone — the writerToken lets `undo` tell them apart at delete time.
+  const writerToken = randomUUID();
   // D-015: exactly what THIS call wrote, so the post-write fence check can undo it by id.
   // A fact id is recorded BEFORE its insert (deleting an id that never landed is harmless, and an
   // insert whose outcome is unknown after a timeout is still covered). An edge id is recorded only
@@ -392,16 +410,28 @@ export async function applyApprovedDiff(
     if (insertedFactIds.length > 0) {
       await facts.deleteMany({ studentId: diff.studentId, _id: { $in: [...insertedFactIds] } } as Filter<FactDoc>);
     }
-    if (createdEdgeIds.length > 0) await edges.deleteMany({ _id: { $in: [...createdEdgeIds] } });
+    if (createdEdgeIds.length > 0) {
+      // ISS-t-011-c3-rev-1: scoped to writerToken, not just _id. `createdEdgeIds` can contain an id
+      // this call never actually created (an AMBIGUOUS linkTracked outcome speculatively records
+      // it, see below) — the deterministic id may belong to an edge a PREVIOUS call already wrote.
+      // Since writerToken is set only via $setOnInsert on THIS call's own insert, the delete only
+      // ever removes a document this call actually created; a pre-existing edge (no writerToken, or
+      // a different call's token) can never match, whatever the ambiguous guess was.
+      await edges.deleteMany({ _id: { $in: [...createdEdgeIds] }, writerToken } as Filter<EdgeDoc>);
+    }
   };
   const linkTracked = async (from: EdgeRef, to: EdgeRef, rel: string) => {
     const edgeId = deriveEdgeId(from, to, rel);
     const opts = deadline.op(); // throws before issuing anything once the deadline has passed
     let known = false;
     try {
-      await link(edges, from, to, rel, { ...opts, onCreated: (id) => createdEdgeIds.push(id) });
+      await link(edges, from, to, rel, { ...opts, writerToken, onCreated: (id) => createdEdgeIds.push(id) });
       known = true;
     } finally {
+      // Ambiguous outcome (e.g. link() threw after a timeout: the write may or may not have
+      // landed): speculatively record the id so a genuine creation is never left uncompensated.
+      // Safe even when this id belongs to a pre-existing edge from another call — the writerToken
+      // scope on the delete above means that edge is never touched (ISS-t-011-c3-rev-1).
       if (!known && !createdEdgeIds.includes(edgeId)) createdEdgeIds.push(edgeId);
     }
   };
