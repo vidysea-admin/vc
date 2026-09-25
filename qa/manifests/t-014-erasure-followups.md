@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B15 primary; B8, B12, B14)
 **Goal task:** T-014
 **Date:** 2026-09-25
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 0; reviews: data-engineer Warning, senior Warning → follow-up T-015)
 **Fix cycle:** 0
 **Design:** D-016 (fence + writer deadline + minimum hold); this unit does not open a new decision, it closes four follow-ups the T-011 cycle-3 reviews left open (`qa/issues.jsonl` ISS-t-011-c3-rev-1..4) plus documents ISS-t-011-c3-note-1.
 **Diff range:** `8df46de..HEAD` on branch `wave/t-014-erasure-followups`, one commit: "fix(db): t-014 erasure follow-ups (edge ownership, client timeoutMS, fence sweep, server version)". `8df46de` is main's tip ("tasks: T-011 done; T-014 erasure follow-ups"), the branch point (no merge in between — this unit branches directly off main).
