@@ -4,29 +4,24 @@ Updated by /checker sweeps only. Gate lines sit above the TODO table (read first
 
 ## Open gates (HUMAN_GATE)
 
-Four gates are UNANSWERED (sweep 2026-09-25 16:45 confirmed there is no off-disk answer):
-- **crisis-guard-precision.md** blocks the T-005b merge. (A) recall-only / (B) A + a later downgrade layer / (C) 4th patch. Recommended: A.
-- **citation-guarantee-scope.md** blocks T-013 (STALLED c3). (a) auto-accept only numbers + fixed vocabulary; every other text fact needs counsellor review. Recommended: a.
-- **erasure-fencing.md** blocks nothing now. Q1 fence: (b) confirm -> completion + 24h. Q2 audit pseudonym: HMAC with `VC_AUDIT_HMAC_KEY`. Recommended: b + yes.
-- **scribe-concern-level.md** blocks nothing now. (a) concern = flag and continue. Recommended: a.
-Answered, on record: mongo-host, dpdp-erase-design, crisis-safety-layers, config-audit-fixes (ISS-001/004/005 verified fixed this sweep), real-transcripts-gemini, maker-start.
+Six gates are UNANSWERED (sweep 2026-09-25 18:45):
+- **crisis-guard-precision.md** blocks the T-005b merge. Recommended: (A) recall-only.
+- **citation-guarantee-scope.md** blocks T-013. Recommended: (a) numbers + fixed vocabulary auto-accepted, the rest needs review.
+- **edit-provenance.md** blocks the T-008 follow-up (ISS-051, high). Recommended: (a) source = counsellor-edit, original quote kept as 'edited from'.
+- **counsellor-auth.md** blocks live mode and any deployment of apps/web (ISS-052, high). Recommended: (a) the existing Vidysea/Pathlynks login; which system?
+- **erasure-fencing.md** blocks nothing now. Recommended: (b) confirm -> completion + 24h, plus HMAC audit key.
+- **scribe-concern-level.md** blocks nothing now. Recommended: (a) flag and continue.
 
-## Top-3 recommended next units (sweep 2026-09-25 16:45)
+## Top-3 recommended next units (sweep 2026-09-25 18:45)
 
-1. **T-017 fix cycle 1.** The checker's independent check FAILED cycle 0 (a708ee7): an async onError crashes the fence-sweep host. Fix: `await` the handler inside try/catch, plus a 0-unhandledRejection test. The maker is already editing erasure.ts (16:37, uncommitted).
-2. **Hygiene, ISS-045 (high):** `git worktree prune`, remove the 5 orphan worktree dirs and `.worktrees/otel.d.ts.tmp`, so `data_boundary.py` can run again. Also ISS-044: stamp qa/.last-tick every tick.
-3. **T-008 counsellor diff-approval UI.** Its prerequisite ISS-t-007-rev-6 is fixed (T-016). It touches UI, so the checker will run Mode D with its own browser.
+1. **Hygiene, high:** ISS-045 (`git worktree prune`, remove the orphan dirs incl. t-018 and otel.d.ts.tmp; restores the B8 data-boundary check) and ISS-044 (stamp qa/.last-tick every tick).
+2. **ISS-t-008-c0-1 (medium):** type-check the edit value on the approval POST (B5).
+3. **T-018 approval follow-ups:** the ungated parts first. ISS-051 and ISS-052 wait on the edit-provenance and counsellor-auth gates.
 
-## Sweep notes (2026-09-25 16:45, sharded: 3 shards + 1 adjudication + consolidation)
+## Sweep notes (2026-09-25 18:45, shards 1+3 and 2 (shard 2 stalled; its checks finished by the consolidator) + consolidation)
 
-- **Main re-verified by the checker:** typecheck 9/9, `pnpm -r test` 434/434, contracts PASS (vacuity).
-- **Bypass:** CLEAN. T-014, T-015 and T-016 each merged after a matching-cycle PASS with no open Block.
-- **T-017:** cycle-0 PASS overturned by an INDEPENDENT CONCURRENT CHECK = FAIL. The review Block (async onError -> unhandledRejection) was reproduced 7/7.
-- **Stalled:** T-005b (c3, gate crisis-guard-precision), T-013 (c3, gate citation-guarantee-scope).
-- **Liveness:** the maker is active (erasure.ts edited 16:37) but has not stamped .last-tick since 06:21 (ISS-044).
-- **Safety:** B1-B9, B11, B12, B14 and B15 COVERED with outcome tests (db 162/162, engine 129/129; real exported span; read-back-zero erasure). B13 PARTIAL (no live-provider run yet). B10 and B16 MISSING (T-010 and T-012 not built).
-- **Hooks:** ISS-001/004/005 verified fixed. The data-boundary scanner still crashes on orphan worktrees (ISS-045, now high).
-- **Ledger hygiene:** stale high rows ISS-t-011-c3-rev-1 and ISS-t-007-rev-6 closed as fixed, citing their closing verdicts.
-- **Contract:** B15 clarified to cite D-015/D-016/D-017 (no weakening).
-- **Erosion signal:** erasure.ts grew +117 lines over 3 units, one special case per unit. Accreting, not oscillating; watch it.
-- **Tokens:** opus_sub_share 0.19. Units at fix cycle >=3: T-013, T-005b.
+- **Main re-verified by the checker:** typecheck 9/9, `pnpm -r test` 495/495.
+- **Merged since the last sweep:** T-017 (cycle 2; checker probe 4/4 onError shapes safe, senior Approve) and T-008 approval UI (checker Mode D with its own Playwright script: submit gating, 0 writes before approval, exact approved facts after, 409 on a stale tab, 423 when fenced; console errors all from deliberate negative scenarios).
+- **Bypass:** CLEAN. **Silent failures:** none. **Erosion:** none (the web layer delegates all approval logic to the engine).
+- **Web safety:** demo mode unless VC_WEB_MODE is exactly 'live'; live mode uses connectFromEnv; the db-scope test scans apps/**; no NEXT_PUBLIC env; invalid decision bodies get 400 and write nothing. B11: 0 secret hits.
+- **New ledger rows:** ISS-051 (edit provenance, high), ISS-052 (no login, high). Escalated: ISS-t-008-c0-1 to medium, ISS-044 to high. ISS-045 reconfirmed high and worsening.
