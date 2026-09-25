@@ -3,7 +3,7 @@
 **Contract:** qa/contracts/counselling-engine.md (A5 exit gates: 0 uncited facts / 50 sessions, ≥80% light-edit notes; B1, B2, B9, B13, B14)
 **Goal task:** T-009 (part 1 of 2 — the golden-session dataset and scorer; the live-Gemini run is a later, separately gated unit)
 **Date:** 2026-09-25
-**Status:** ready-for-check
+**Status:** checked-PASS (verdict cycle 0, 17da68e; ai-engineer Warning, no Block; follow-ups ISS-t-009-rev-1/2, c0-1)
 **Fix cycle:** 0
 **Fix cycle budget:** 0 of max 3 (no checker cycle has run yet)
 **Design:** builds on T-007's real scribe graph (`packages/engine/src/scribe`) unchanged — this unit adds evaluation tooling only, no graph/node/schema edits.
