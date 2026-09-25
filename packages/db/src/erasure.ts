@@ -23,7 +23,8 @@
  *   - timestamps, `status`, `attempts`, and the last `receipt` (counts only).
  *   - `studentId` in clear, ONLY while the request is open (pending / confirmed / failed): the
  *     purge needs it, and the student's data still exists at that point anyway. It is `$unset`
- *     in the same update that marks the request completed.
+ *     in the same update that marks the request completed, together with `studentKey` (the
+ *     fence key, which makes at most one request per student open: D-016, ISS-t-011-c2-rev-4).
  *
  * ## Ordering, partial failure and idempotent retry
  * Edges and scribe checkpoints carry no studentId: they are found through the student's fact
@@ -59,8 +60,10 @@
  * (ISS-t-011-c1-1 / -rev-1). The erasure fence (D-015, section "The erasure fence" below) closes
  * that for every fence-aware writer: such a writer either landed before the fence (so the purge,
  * which resolves after the fence, deletes it) or sees the fence in its own post-write check and
- * removes itself. Writes after completion are governed by the fence grace period (gate
- * erasure-fencing Q1; ERASURE_FENCE_GRACE_MS, default 0).
+ * removes itself. D-016 makes the second half hold at the release boundary too: every fence-aware
+ * writer runs under FENCED_WRITER_DEADLINE_MS and the fence is never removed before
+ * createdAt + MINIMUM_FENCE_HOLD_MS, so a writer's post-check always runs while the fence exists.
+ * ERASURE_FENCE_GRACE_MS (default 0) is only the re-enrolment policy on top (gate Q1).
  *
  * ## Concurrent executeErasure calls (ISS-t-011-c0-1)
  * The final row update is a CAS on {status, attempts} and its result is checked (as in
@@ -106,6 +109,12 @@ export interface ErasureRequestDoc {
   hashScheme: typeof HASH_SCHEME;
   /** Present only while the request is open; unset on completion. */
   studentId?: string;
+  /**
+   * D-016 / ISS-t-011-c2-rev-4: erasureFenceKey(studentId), present only while the request is
+   * open (unset on completion, like studentId, so a completed row holds no unsalted, linkable key).
+   * A unique partial index on it among open statuses allows ONE open request per student.
+   */
+  studentKey?: string;
   requestedBy: string;
   reason: ErasureReason;
   requestedAt: string;
@@ -173,6 +182,18 @@ export class ErasureStateError extends Error {
   }
 }
 
+/**
+ * D-016 / ISS-t-011-c2-rev-4: the student already has an open (pending / confirmed / failed)
+ * erasure request; at most one may be open (unique partial index on `studentKey`). Continue that
+ * request instead of opening another.
+ */
+export class ErasureRequestAlreadyOpenError extends Error {
+  constructor() {
+    super("ErasureRequestAlreadyOpenError: this student already has an open erasure request; continue that one (D-016)");
+    this.name = "ErasureRequestAlreadyOpenError";
+  }
+}
+
 /** Partial failure or a non-zero read-back. Carries the counts-only receipt; the request stays retryable. */
 export class ErasureIncompleteError extends Error {
   readonly receipt: ErasureReceipt;
@@ -190,7 +211,7 @@ export class ErasureIncompleteError extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// The erasure fence (D-015, T-011 cycle 2)
+// The erasure fence (D-015, T-011 cycle 2; liveness bound D-016, cycle 3)
 // ---------------------------------------------------------------------------
 //
 // There are no multi-document transactions (D-008/D-009), so the purge can never atomically prove
@@ -201,56 +222,174 @@ export class ErasureIncompleteError extends Error {
 //     it resolves any selector. So every confirmed request is fenced, and the purge's first resolve
 //     happens strictly after the fence exists.
 //   - Every student-data writer checks the fence before writing (refuse early) and AGAIN AFTER its
-//     own writes (compensateIfFenced). If fenced, it deletes exactly what it wrote, by id, and
-//     throws StudentFencedError.
-// Why that is enough, for a writer W whose writes all land before its post-check:
-//   - W's post-check runs while the fence exists -> W removes its own writes;
-//   - W's post-check ran BEFORE the fence was set -> every write of W landed before the fence,
-//     hence before the purge's first resolve, so the purge sees and deletes it.
+//     own writes (compensateIfFenced), in a `finally`, so also after an error or its deadline. If
+//     fenced, it deletes exactly what it wrote, by id, and throws StudentFencedError.
+//
+// D-016 (why that is enough, and what D-015 missed). Take a fence-aware writer W whose pre-check
+// ran at time t0:
+//   - the fence already existed at t0 -> W is refused and writes nothing;
+//   - the fence did not exist at t0 -> the fence's createdAt is after t0. W runs under an enforced
+//     deadline (FENCED_WRITER_DEADLINE_MS from t0): every driver operation carries timeoutMS = the
+//     time left (mongodb@6 CSOT, which also sends maxTimeMS to the server) and an application timer
+//     aborts W at t0 + deadline. W's post-check read is bounded by FENCE_POSTCHECK_TIMEOUT_MS. The
+//     fence is never removed before createdAt + MINIMUM_FENCE_HOLD_MS (= deadline + margin), which
+//     is later than t0 + deadline + margin. So:
+//       - W's writes all landed before the fence -> the purge (which resolves after the fence) sees
+//         and deletes them;
+//       - otherwise W's post-check runs while the fence still exists -> W removes its own writes.
+//   D-015 said this "closes" the race with a grace of 0; the cycle-2 checker (ISS-t-011-c2-1)
+//   showed a writer whose post-check ran after an immediate release. The minimum hold is the
+//   missing liveness bound.
+// Honest caveats (not closed by construction, bounded by configuration):
+//   - A write the server applies AFTER the client timed out is bounded server-side by the same
+//     timeoutMS (the driver sends maxTimeMS); a request that sits on the network longer than the
+//     margin is not. FENCE_MARGIN_MS is the budget for that plus clock skew between app servers
+//     (createdAt is stamped by the confirming process, release is decided by the executing one).
+//   - Writes the scribe's LangGraph checkpointer (MongoDBSaver) makes are not given our per-op
+//     timeoutMS; they are bounded by the graph's AbortSignal plus the MongoClient's own timeoutMS
+//     where one is configured. graph.ts re-runs the post-check when an aborted run finally settles.
+//   - A writer that does not check the fence is not covered; the scanner in
+//     tests/db-scope.test.ts fails the build if a new module writes student data outside the
+//     fence-aware allowlist (ISS-t-011-c2-rev-2).
 // Writers: applyApprovedDiff (facts + edges), requireConsent (refuses), and the engine's
 // startScribe / resumeScribe (checkpoints + the approval claim; packages/engine scribe/graph.ts).
-// A writer that does not check the fence is not covered: every new student-data writer must use
-// assertStudentNotFenced + compensateIfFenced.
 //
 // Key (decided in cycle 2): the fence stores NO clear studentId. `_id` = `studentKey` =
 // sha256("vc-erasure-fence-v1|" + studentId), unsalted, so any writer can compute its lookup key
-// from the studentId it already holds (one index point read). A lingering fence (grace period)
-// therefore holds no clear id. Residual: an unsalted hash is dictionary-checkable against a list of
-// candidate ids, like the audit row's hash; gate erasure-fencing Q2 (HMAC keyed from .env) covers
-// both.
+// from the studentId it already holds (one _id point read; no separate index, ISS-t-011-c2-rev-3).
+// Residual: an unsalted hash is dictionary-checkable against a list of candidate ids, like the
+// audit row's hash; gate erasure-fencing Q2 (HMAC keyed from .env) covers both.
 //
-// Lifetime: from confirm until the request completes. On completion the fence is removed when the
-// grace period is 0 (the default), or stamped with `releaseAfter` otherwise and removed later by
-// releaseExpiredErasureFences. The re-enrolment policy (how long, if at all, the fence outlives
-// completion) is gate erasure-fencing Q1; ERASURE_FENCE_GRACE_MS is where its answer goes.
-// Residual with grace 0: a writer whose writes landed before completion but whose post-check runs
-// AFTER the fence is released keeps its writes. A grace period longer than the slowest writer
-// closes that window, which is why Q1 recommends one.
+// Lifetime: from confirm until BOTH (a) no confirmed/failed request for the student remains (one
+// open request per student is enforced by a unique partial index, ISS-t-011-c2-rev-4) and (b)
+// max(createdAt + MINIMUM_FENCE_HOLD_MS, completedAt + ERASURE_FENCE_GRACE_MS) has passed. On
+// completion the fence is deleted if that time has already passed, otherwise stamped with
+// `releaseAfter` and removed by releaseExpiredErasureFences. createdAt is set once and never reset
+// when a request re-arms (takes over) the fence. ERASURE_FENCE_GRACE_MS stays the separate
+// re-enrolment policy knob (gate erasure-fencing Q1); the technical hold does not depend on it.
 
 /**
- * How long the fence outlives a verified completion, in ms. 0 = released immediately (default)
- * until gate erasure-fencing Q1 sets the re-enrolment policy (its recommendation: 24h).
+ * How long the fence outlives a verified completion, in ms, as RE-ENROLMENT POLICY (gate
+ * erasure-fencing Q1; its recommendation: 24h). 0 = no extra policy delay. Correctness does not
+ * depend on it: MINIMUM_FENCE_HOLD_MS always applies (D-016).
  */
 export const ERASURE_FENCE_GRACE_MS = 0;
 
+/**
+ * D-016: the enforced deadline of every fence-aware writer, from its fence pre-check to its last
+ * write. Enforced at the driver (each operation gets `timeoutMS` = the time left) and in the
+ * application (a timer aborts the writer; see WriterDeadline). A writer may use a SHORTER deadline,
+ * never a longer one. Raising this raises MINIMUM_FENCE_HOLD_MS with it. 60 s covers an
+ * applyApprovedDiff and one scribe run (two provider calls) with room to spare.
+ */
+export const FENCED_WRITER_DEADLINE_MS = 60_000;
+
+/**
+ * D-016: the fence hold's margin on top of the writer deadline: the post-check read
+ * (FENCE_POSTCHECK_TIMEOUT_MS), network latency, and clock skew between app servers.
+ */
+export const FENCE_MARGIN_MS = 30_000;
+
+/** D-016: the post-check read's own timeout (must stay below FENCE_MARGIN_MS). */
+export const FENCE_POSTCHECK_TIMEOUT_MS = 10_000;
+
+/** D-016: a fence is never removed before `createdAt + MINIMUM_FENCE_HOLD_MS`. */
+export const MINIMUM_FENCE_HOLD_MS = FENCED_WRITER_DEADLINE_MS + FENCE_MARGIN_MS;
+
 /** One fence per fenced student (collection `erasure_fences`). Holds no clear studentId. */
 export interface ErasureFenceDoc {
-  /** = studentKey. */
+  /** = studentKey (the lookup key; the _id index serves every fence read). */
   _id: string;
-  /** erasureFenceKey(studentId); unique index (INDEX_PLAN erasure_fences_studentKey_unique). */
+  /** erasureFenceKey(studentId); equal to _id. */
   studentKey: string;
   /** The request that last (re)set the fence; only that request's completion releases it. */
   requestId: string;
+  /** When the fence was FIRST created; never reset on re-arm (D-016 minimum hold is measured from it). */
   createdAt: string;
-  /** Set on completion when a grace period applies; the fence stops fencing at this instant. */
+  /** Set on completion: the fence stops fencing at this instant, and the sweep may remove it. */
   releaseAfter?: string;
 }
 
 /** Thrown by a fence-aware writer: an erasure is in progress for the student, nothing it wrote remains. */
 export class StudentFencedError extends Error {
-  constructor() {
-    super("StudentFencedError: this student has an erasure in progress; the write was refused and nothing was kept (D-015, B15)");
+  /** `cause`: the writer's own error, when it failed or timed out before the post-check found the fence (ISS-t-011-c2-rev-3). */
+  constructor(options?: { cause?: unknown }) {
+    super(
+      "StudentFencedError: this student has an erasure in progress; the write was refused and nothing was kept (D-015, B15)",
+      options,
+    );
     this.name = "StudentFencedError";
+  }
+}
+
+/**
+ * D-016: a fence-aware writer ran past its deadline and was aborted. Everything it wrote has been
+ * removed (the post-check always undoes a timed-out writer). `settled` resolves once an operation
+ * that was still in flight at the abort has settled and been undone too.
+ */
+export class FencedWriterDeadlineError extends Error {
+  readonly settled: Promise<void>;
+  constructor(settled: Promise<void> = Promise.resolve(), options?: { cause?: unknown }) {
+    super(
+      "FencedWriterDeadlineError: the write did not finish within the fenced-writer deadline (D-016); it was aborted and nothing it wrote was kept",
+      options,
+    );
+    this.name = "FencedWriterDeadlineError";
+    this.settled = settled;
+  }
+}
+
+/**
+ * D-016: the deadline of one fence-aware writer. Construct it right before the fence pre-check.
+ *   - `op()` returns the driver options for the next operation (`timeoutMS` = the time left) and
+ *     throws FencedWriterDeadlineError once the deadline has passed, so no new write starts after it;
+ *   - `run(p)` races `p` against the deadline (the application-level abort);
+ *   - `signal` aborts at the deadline (LangGraph invoke, provider calls);
+ *   - `dispose()` clears the timer; call it in a `finally`.
+ * A deadline longer than FENCED_WRITER_DEADLINE_MS is refused: the fence hold would not cover it.
+ */
+export class WriterDeadline {
+  readonly expiresAt: number;
+  private readonly controller = new AbortController();
+  private readonly timer: ReturnType<typeof setTimeout>;
+  private readonly expiry: Promise<never>;
+
+  constructor(ms: number = FENCED_WRITER_DEADLINE_MS) {
+    if (!Number.isFinite(ms) || ms <= 0 || ms > FENCED_WRITER_DEADLINE_MS) {
+      throw new RangeError(
+        `WriterDeadline: a fenced writer's deadline must be in (0, ${FENCED_WRITER_DEADLINE_MS}] ms (D-016: the fence hold covers no longer), got ${ms}`,
+      );
+    }
+    this.expiresAt = Date.now() + ms;
+    let fire!: (err: Error) => void;
+    this.expiry = new Promise<never>((_resolve, reject) => (fire = reject));
+    this.expiry.catch(() => undefined); // observed through run() only
+    this.timer = setTimeout(() => {
+      this.controller.abort();
+      fire(new FencedWriterDeadlineError());
+    }, ms);
+  }
+
+  get signal(): AbortSignal {
+    return this.controller.signal;
+  }
+
+  expired(): boolean {
+    return this.controller.signal.aborted || Date.now() >= this.expiresAt;
+  }
+
+  op(): { timeoutMS: number } {
+    const left = this.expiresAt - Date.now();
+    if (left <= 0 || this.controller.signal.aborted) throw new FencedWriterDeadlineError();
+    return { timeoutMS: left };
+  }
+
+  run<T>(work: Promise<T>): Promise<T> {
+    return Promise.race([work, this.expiry]);
+  }
+
+  dispose(): void {
+    clearTimeout(this.timer);
   }
 }
 
@@ -263,31 +402,75 @@ function erasureFences(db: Db) {
   return db.collection<ErasureFenceDoc>(COLLECTION_NAMES.erasure_fences);
 }
 
-/** True while an erasure fence is in force for the student (a fence past its releaseAfter is not). */
-export async function isStudentFenced(db: Db, studentId: string, now: Date = new Date()): Promise<boolean> {
-  const fence = await erasureFences(db).findOne({ _id: erasureFenceKey(studentId) });
+function parseTime(iso: string | undefined, fallback: number): number {
+  const t = iso === undefined ? Number.NaN : Date.parse(iso);
+  return Number.isFinite(t) ? t : fallback;
+}
+
+/** D-016: the earliest instant a fence may be removed after `completedAt`. */
+function fenceReleaseTime(fence: Pick<ErasureFenceDoc, "createdAt">, completedAt: string, graceMs: number): number {
+  const completed = parseTime(completedAt, Date.now());
+  // An unreadable createdAt is treated as "created at completion" (the longer hold).
+  const created = parseTime(fence.createdAt, completed);
+  return Math.max(created + MINIMUM_FENCE_HOLD_MS, completed + Math.max(0, graceMs));
+}
+
+/**
+ * True while an erasure fence is in force for the student. A fence inside its minimum hold always
+ * fences; after that, one past its releaseAfter does not.
+ */
+export async function isStudentFenced(
+  db: Db,
+  studentId: string,
+  now: Date = new Date(),
+  options: { timeoutMS?: number } = {},
+): Promise<boolean> {
+  const fence = await erasureFences(db).findOne({ _id: erasureFenceKey(studentId) }, options);
   if (!fence) return false;
+  if (now.getTime() < parseTime(fence.createdAt, now.getTime()) + MINIMUM_FENCE_HOLD_MS) return true;
   return fence.releaseAfter === undefined || Date.parse(fence.releaseAfter) > now.getTime();
 }
 
 /** The writer's pre-check: throws StudentFencedError (before anything is written) if fenced. */
-export async function assertStudentNotFenced(db: Db, studentId: string): Promise<void> {
-  if (await isStudentFenced(db, studentId)) throw new StudentFencedError();
+export async function assertStudentNotFenced(db: Db, studentId: string, options: { timeoutMS?: number } = {}): Promise<void> {
+  if (await isStudentFenced(db, studentId, new Date(), options)) throw new StudentFencedError();
+}
+
+export interface CompensateOptions {
+  /** The writer's own error (if it failed), chained as StudentFencedError's `cause`. */
+  cause?: unknown;
+  /** Undo even when not fenced (D-016: a writer that ran past its deadline keeps nothing). */
+  alwaysUndo?: boolean;
 }
 
 /**
- * The writer's post-check, called AFTER all of its own writes: if the student is fenced now, runs
- * `undo` (delete exactly what this writer wrote, by id) and throws StudentFencedError. An error
- * from `undo` itself propagates (never masked as a clean refusal).
+ * The writer's post-check. Call it in a `finally`, AFTER all of the writer's own writes, also after
+ * an error or its deadline. If the student is fenced now, runs `undo` (delete exactly what this
+ * writer wrote, by id) and throws StudentFencedError (with `cause`). If the fence state can not be
+ * read (the read failed or timed out), it fails safe: `undo`, then the read error propagates. An
+ * error from `undo` itself propagates (never masked as a clean refusal).
  */
-export async function compensateIfFenced(db: Db, studentId: string, undo: () => Promise<unknown>): Promise<void> {
-  if (await isStudentFenced(db, studentId)) {
+export async function compensateIfFenced(
+  db: Db,
+  studentId: string,
+  undo: () => Promise<unknown>,
+  options: CompensateOptions = {},
+): Promise<void> {
+  let fenced: boolean;
+  try {
+    fenced = await isStudentFenced(db, studentId, new Date(), { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS });
+  } catch (readErr) {
     await undo();
-    throw new StudentFencedError();
+    throw readErr;
   }
+  if (fenced) {
+    await undo();
+    throw new StudentFencedError(options.cause === undefined ? undefined : { cause: options.cause });
+  }
+  if (options.alwaysUndo) await undo();
 }
 
-/** Sets (or takes over, and re-arms) the student's fence for `requestId`. Idempotent. */
+/** Sets (or takes over, and re-arms) the student's fence for `requestId`. Idempotent; createdAt is set once. */
 async function setErasureFence(db: Db, studentId: string, requestId: string): Promise<void> {
   const studentKey = erasureFenceKey(studentId);
   await erasureFences(db).updateOne(
@@ -295,27 +478,44 @@ async function setErasureFence(db: Db, studentId: string, requestId: string): Pr
     {
       $set: { requestId },
       $setOnInsert: { _id: studentKey, studentKey, createdAt: new Date().toISOString() } as ErasureFenceDoc,
-      // A fence re-set during a previous request's grace period must not expire mid-erasure.
+      // A fence re-set during a previous request's hold / grace must not expire mid-erasure.
       $unset: { releaseAfter: "" },
     },
     { upsert: true },
   );
 }
 
+/** Statuses of a request that fences (a pending request does not: confirm sets the fence). */
+const FENCING_STATUSES: ErasureStatus[] = ["confirmed", "failed"];
+
 /**
- * Releases the fence after a verified completion: removed now (grace 0) or stamped with
- * releaseAfter. Only the request that owns the fence releases it. Best effort: a failure leaves the
- * fence in place (fail-safe: writes stay refused) for releaseExpiredErasureFences, and never turns
- * a verified, recorded erasure into an error.
+ * True if the student (by fence key) still has a confirmed or failed request. Such a request owns
+ * (or will re-arm) the fence, so it must not be removed. A PENDING request does not count: it
+ * never fences until confirmed, and holding a fence for a request nobody confirms would recreate
+ * the stuck-fence DoS of ISS-t-011-c2-rev-4.
+ */
+async function hasFencingRequest(db: Db, studentKey: string): Promise<boolean> {
+  return (await erasureRequests(db).countDocuments({ studentKey, status: { $in: FENCING_STATUSES } })) > 0;
+}
+
+/**
+ * D-016: after a verified completion, removes the fence if its release time (fenceReleaseTime) has
+ * already passed and no other request fences the student; otherwise stamps `releaseAfter` for the
+ * sweep. Only the request that owns the fence acts on it. Best effort: a failure leaves the fence
+ * in place (fail-safe: writes stay refused) for releaseExpiredErasureFences, and never turns a
+ * verified, recorded erasure into an error.
  */
 async function releaseErasureFence(db: Db, studentId: string, requestId: string, graceMs: number, completedAt: string): Promise<void> {
   const _id = erasureFenceKey(studentId);
   try {
-    if (graceMs <= 0) {
+    const fence = await erasureFences(db).findOne({ _id, requestId });
+    if (!fence) return; // gone, or taken over by another request
+    if (await hasFencingRequest(db, _id)) return; // another open request relies on it
+    const releaseAt = fenceReleaseTime(fence, completedAt, graceMs);
+    if (releaseAt <= Date.now()) {
       await erasureFences(db).deleteMany({ _id, requestId });
     } else {
-      const releaseAfter = new Date(Date.parse(completedAt) + graceMs).toISOString();
-      await erasureFences(db).updateOne({ _id, requestId }, { $set: { releaseAfter } });
+      await erasureFences(db).updateOne({ _id, requestId }, { $set: { releaseAfter: new Date(releaseAt).toISOString() } });
     }
   } catch {
     // Left for releaseExpiredErasureFences (see above).
@@ -323,11 +523,11 @@ async function releaseErasureFence(db: Db, studentId: string, requestId: string,
 }
 
 /**
- * The fence sweep (run from the scheduled job that will own erasure housekeeping). Removes every
- * fence whose releaseAfter has passed, and every fence left behind by a completed request whose
- * own release did not happen (crash after the completion CAS), once completedAt + graceMs has
- * passed. Fences of open (pending / confirmed / failed) requests are never touched. Returns the
- * number removed.
+ * The fence sweep (run from the scheduled job that will own erasure housekeeping). Removes a fence
+ * only when no confirmed/failed request for its student remains AND its release time has passed:
+ * `releaseAfter` if stamped (never earlier than createdAt + MINIMUM_FENCE_HOLD_MS), or, for a fence
+ * left behind by a completed request whose own release did not happen (crash after the completion
+ * CAS), max(createdAt + hold, completedAt + graceMs). Returns the number removed.
  */
 export async function releaseExpiredErasureFences(
   db: Db,
@@ -336,14 +536,17 @@ export async function releaseExpiredErasureFences(
 ): Promise<number> {
   let released = 0;
   for (const fence of await erasureFences(db).find({}).toArray()) {
-    let expired = false;
+    if (await hasFencingRequest(db, fence.studentKey ?? fence._id)) continue;
+    let releaseAt: number;
+    const holdEnd = parseTime(fence.createdAt, now.getTime()) + MINIMUM_FENCE_HOLD_MS;
     if (fence.releaseAfter !== undefined) {
-      expired = Date.parse(fence.releaseAfter) <= now.getTime();
+      releaseAt = Math.max(parseTime(fence.releaseAfter, Number.POSITIVE_INFINITY), holdEnd);
     } else {
       const row = await erasureRequests(db).findOne({ _id: fence.requestId });
-      expired = row?.status === "completed" && !!row.completedAt && Date.parse(row.completedAt) + graceMs <= now.getTime();
+      if (row?.status !== "completed" || !row.completedAt) continue;
+      releaseAt = fenceReleaseTime(fence, row.completedAt, graceMs);
     }
-    if (!expired) continue;
+    if (releaseAt > now.getTime()) continue;
     const res = await erasureFences(db).deleteMany({ _id: fence._id, requestId: fence.requestId });
     released += res.deletedCount ?? 0;
   }
@@ -351,7 +554,7 @@ export async function releaseExpiredErasureFences(
 }
 
 export interface ExecuteErasureOptions {
-  /** Overrides ERASURE_FENCE_GRACE_MS (tests; the Q1 policy belongs in the constant). */
+  /** Overrides ERASURE_FENCE_GRACE_MS (tests; the Q1 policy belongs in the constant). Never shortens the D-016 minimum hold. */
   fenceGraceMs?: number;
   /** Overrides MAX_CARRIED_IDS (tests only). */
   maxCarriedIds?: number;
@@ -383,7 +586,11 @@ export interface RequestErasureInput {
   reason: ErasureReason;
 }
 
-/** Creates a PENDING erasure request. Deletes nothing. */
+/**
+ * Creates a PENDING erasure request. Deletes nothing. Throws ErasureRequestAlreadyOpenError if the
+ * student already has an open (pending / confirmed / failed) request: the unique partial index
+ * `erasure_requests_open_studentKey_unique` makes that atomic across processes (D-016).
+ */
 export async function requestErasure(db: Db, input: RequestErasureInput): Promise<{ requestId: string }> {
   if (typeof input.studentId !== "string" || input.studentId.trim() === "") {
     throw new Error("requestErasure: studentId must be a non-empty string");
@@ -392,18 +599,25 @@ export async function requestErasure(db: Db, input: RequestErasureInput): Promis
   const reason = ErasureReasonSchema.parse(input.reason);
   const hashSalt = randomBytes(16).toString("hex");
   const requestId = new ObjectId().toHexString();
-  await erasureRequests(db).insertOne({
-    _id: requestId,
-    studentHash: hashStudentId(input.studentId, hashSalt),
-    hashSalt,
-    hashScheme: HASH_SCHEME,
-    studentId: input.studentId,
-    requestedBy,
-    reason,
-    requestedAt: new Date().toISOString(),
-    status: "pending",
-    attempts: 0,
-  });
+  try {
+    await erasureRequests(db).insertOne({
+      _id: requestId,
+      studentHash: hashStudentId(input.studentId, hashSalt),
+      hashSalt,
+      hashScheme: HASH_SCHEME,
+      studentId: input.studentId,
+      studentKey: erasureFenceKey(input.studentId),
+      requestedBy,
+      reason,
+      requestedAt: new Date().toISOString(),
+      status: "pending",
+      attempts: 0,
+    });
+  } catch (err) {
+    // The _id is a fresh ObjectId, so a duplicate key here is the one-open-request index.
+    if ((err as { code?: unknown } | null)?.code === 11000) throw new ErasureRequestAlreadyOpenError();
+    throw err;
+  }
   return { requestId };
 }
 
@@ -539,7 +753,7 @@ export const ERASURE_EXEMPT_COLLECTIONS = {
   [COLLECTION_NAMES.erasure_requests]:
     "the erasure audit log itself; must survive the erasure and holds no personal data once completed",
   [COLLECTION_NAMES.erasure_fences]:
-    "the erasure write fence (D-015): it must outlive the purge it protects; it holds only a hash of the studentId, a request id and timestamps, and is removed on completion (after the grace period, if any)",
+    "the erasure write fence (D-015/D-016): it must outlive the purge it protects; it holds only a hash of the studentId, a request id and timestamps, and is removed after completion once its minimum hold (and grace, if any) has passed",
 } as const;
 
 /** A resolve read failed; carries WHICH anchor collection, so the receipt labels it accurately (ISS-t-011-c1-rev-3). */
@@ -753,14 +967,15 @@ export async function executeErasure(db: Db, requestId: string, options: Execute
     const updated = verified
       ? await erasureRequests(db).findOneAndUpdate(cas, {
           $set: { status: "completed", attempts: attempt, lastAttemptAt: startedAt, completedAt: verifiedAt, receipt },
-          $unset: { studentId: "", carriedSelectors: "" },
+          $unset: { studentId: "", studentKey: "", carriedSelectors: "" },
         })
       : await erasureRequests(db).findOneAndUpdate(cas, {
           $set: { status: "failed", attempts: attempt, lastAttemptAt: startedAt, receipt, carriedSelectors: carried(selectors) },
         });
     if (updated) {
       if (verified) {
-        // D-015: released only AFTER the completion is recorded; until then every writer stays fenced.
+        // D-015/D-016: released only AFTER the completion is recorded, and never before the minimum
+        // hold (createdAt + MINIMUM_FENCE_HOLD_MS): until then every writer stays fenced.
         await releaseErasureFence(db, studentId, requestId, fenceGraceMs, verifiedAt);
         return { status: "completed", receipt, alreadyCompleted: false };
       }

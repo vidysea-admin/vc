@@ -103,13 +103,19 @@
  *     `PartialApplyError`, carrying the ids already written and the key that
  *     failed, instead of letting the caller see only the last error and lose
  *     track of the partial state.
- *   - **A write racing a DPDP erasure (D-015, T-011 cycle 2).** applyApprovedDiff
+ *   - **A write racing a DPDP erasure (D-015/D-016, T-011).** applyApprovedDiff
  *     is a fence-aware writer: it refuses a fenced student before writing
- *     (`StudentFencedError`, nothing written), and after ALL of its writes
- *     (also after a partial failure) it checks the fence again. If an erasure
- *     was confirmed meanwhile, it deletes the facts it inserted and the edges
- *     it linked, by id, and throws `StudentFencedError`. See src/erasure.ts
- *     "The erasure fence" for why pre-check + post-check closes the race.
+ *     (`StudentFencedError`, nothing written). It runs under an enforced
+ *     deadline (FENCED_WRITER_DEADLINE_MS, D-016): every driver operation
+ *     carries `timeoutMS` = the time left, and an application timer aborts it.
+ *     After ALL of its writes, in a `finally` (so also after a partial failure
+ *     or the deadline), it checks the fence again. If an erasure was confirmed
+ *     meanwhile, it deletes the facts it inserted and the edges it CREATED, by
+ *     id, and throws `StudentFencedError` (its own error, if any, as `cause`).
+ *     A writer that ran past its deadline keeps nothing either and throws
+ *     `FencedWriterDeadlineError`. See src/erasure.ts "The erasure fence" for
+ *     why the pre-check, the deadline, the post-check and the fence's minimum
+ *     hold together close the race.
  */
 import { ObjectId, type Db, type Filter } from "mongodb";
 import { createHash } from "node:crypto";
@@ -124,7 +130,13 @@ import {
 } from "@vc/schemas";
 import { factsCollection, edgesCollection, type FactDoc } from "./collections.js";
 import { deriveEdgeId, link, type EdgeRef } from "./edges.js";
-import { assertStudentNotFenced, compensateIfFenced } from "./erasure.js";
+import {
+  assertStudentNotFenced,
+  compensateIfFenced,
+  FencedWriterDeadlineError,
+  StudentFencedError,
+  WriterDeadline,
+} from "./erasure.js";
 
 /**
  * Deterministically orders object keys (recursively) so two structurally
@@ -288,6 +300,14 @@ export function proposeFactChanges(input: ProposeFactChangesInput): ProfileDiff 
   });
 }
 
+export interface ApplyApprovedDiffOptions {
+  /**
+   * D-016: a writer deadline SHORTER than FENCED_WRITER_DEADLINE_MS (the default). A longer one
+   * throws RangeError: the fence's minimum hold would not cover it.
+   */
+  deadlineMs?: number;
+}
+
 export interface ApplyApprovedDiffResult {
   written: FactDoc[];
   supersededKeys: string[];
@@ -335,6 +355,7 @@ export async function applyApprovedDiff(
   diff: ProfileDiff,
   decision: CounsellorDecision,
   sessionId?: string,
+  options: ApplyApprovedDiffOptions = {},
 ): Promise<ApplyApprovedDiffResult> {
   if (!decision.approve || !decision.edits || decision.edits.length === 0) {
     return { written: [], supersededKeys: [] };
@@ -344,20 +365,51 @@ export async function applyApprovedDiff(
   // in the list can't leave earlier facts partially committed.
   const parsedFacts = decision.edits.map((edit) => FactSchema.parse(edit));
 
+  // D-016: the writer deadline starts BEFORE the fence pre-check (the hold is measured from it).
+  // A deadline longer than FENCED_WRITER_DEADLINE_MS throws RangeError here, before anything runs.
+  const deadline = new WriterDeadline(options.deadlineMs);
+
   // D-015 pre-check: a student with an erasure in progress gets nothing written at all.
-  await assertStudentNotFenced(db, diff.studentId);
+  try {
+    await deadline.run(assertStudentNotFenced(db, diff.studentId, deadline.op()));
+  } catch (err) {
+    deadline.dispose();
+    if (deadline.expired() && !(err instanceof StudentFencedError)) {
+      throw new FencedWriterDeadlineError(Promise.resolve(), { cause: err });
+    }
+    throw err;
+  }
 
   const facts = factsCollection(db);
   const edges = edgesCollection(db);
-  const written: FactDoc[] = [];
-  const supersededKeys: string[] = [];
-  const now = new Date().toISOString();
   // D-015: exactly what THIS call wrote, so the post-write fence check can undo it by id.
+  // A fact id is recorded BEFORE its insert (deleting an id that never landed is harmless, and an
+  // insert whose outcome is unknown after a timeout is still covered). An edge id is recorded only
+  // when this call CREATED it (ISS-t-011-c2-rev-3), or when its upsert's outcome is unknown.
   const insertedFactIds: string[] = [];
-  const linkedEdgeIds: string[] = [];
-  let failure: { err: unknown } | null = null;
+  const createdEdgeIds: string[] = [];
+  const undo = async () => {
+    if (insertedFactIds.length > 0) {
+      await facts.deleteMany({ studentId: diff.studentId, _id: { $in: [...insertedFactIds] } } as Filter<FactDoc>);
+    }
+    if (createdEdgeIds.length > 0) await edges.deleteMany({ _id: { $in: [...createdEdgeIds] } });
+  };
+  const linkTracked = async (from: EdgeRef, to: EdgeRef, rel: string) => {
+    const edgeId = deriveEdgeId(from, to, rel);
+    const opts = deadline.op(); // throws before issuing anything once the deadline has passed
+    let known = false;
+    try {
+      await link(edges, from, to, rel, { ...opts, onCreated: (id) => createdEdgeIds.push(id) });
+      known = true;
+    } finally {
+      if (!known && !createdEdgeIds.includes(edgeId)) createdEdgeIds.push(edgeId);
+    }
+  };
 
-  try {
+  const writeAll = async (): Promise<ApplyApprovedDiffResult> => {
+    const written: FactDoc[] = [];
+    const supersededKeys: string[] = [];
+    const now = new Date().toISOString();
     for (const fact of parsedFacts) {
       try {
         const activeFilter: Filter<FactDoc> = {
@@ -368,7 +420,7 @@ export async function applyApprovedDiff(
         // D-012: identity (_id) and content (contentHash) are separate. The
         // hash decides "is this write already applied?"; the _id is always fresh.
         const contentHash = deriveContentHash(diff.studentId, fact.key, fact.value, sessionId);
-        const existingBefore = await facts.findOne(activeFilter);
+        const existingBefore = await facts.findOne(activeFilter, deadline.op());
 
         let doc: FactDoc | null = null;
 
@@ -386,6 +438,7 @@ export async function applyApprovedDiff(
               // D-013: ONE atomic update closes the fact: validTo for history,
               // and `active` removed so it leaves the partial unique index.
               { $set: { validTo: now }, $unset: { active: "" } },
+              deadline.op(),
             );
             if (retired) {
               supersededKeys.push(fact.key);
@@ -393,7 +446,7 @@ export async function applyApprovedDiff(
               // ISS-t-003b-c1-2: another writer retired it between our read and
               // our CAS. Read the outcome back (B14) instead of assuming a
               // conflict: our own content already open means our write landed.
-              const current = await facts.findOne(activeFilter);
+              const current = await facts.findOne(activeFilter, deadline.op());
               if (current && current.contentHash === contentHash) {
                 doc = current;
               } else if (current) {
@@ -414,16 +467,17 @@ export async function applyApprovedDiff(
               contentHash,
               active: true, // D-013: enters the partial unique index as THE open fact
             };
+            const insertOptions = deadline.op();
+            insertedFactIds.push(candidate._id); // before the insert: see `undo` above
             try {
-              await facts.insertOne(candidate);
-              insertedFactIds.push(candidate._id);
+              await facts.insertOne(candidate, insertOptions);
               doc = candidate;
             } catch (err) {
               if ((err as { code?: number } | undefined)?.code !== 11000) throw err;
               // Someone else's open fact now exists for this key. Re-read: our
               // contentHash means an identical concurrent write already landed
               // (success); anything else is a genuine conflict (B14).
-              const winner = await facts.findOne(activeFilter);
+              const winner = await facts.findOne(activeFilter, deadline.op());
               if (winner && winner.contentHash === contentHash) {
                 doc = winner;
               } else {
@@ -438,10 +492,8 @@ export async function applyApprovedDiff(
         const to: EdgeRef = sessionId ? { kind: "session", id: sessionId } : sourceEdgeRef(fact.source);
         const factRef: EdgeRef = { kind: "fact", id: doc._id };
         const studentRef: EdgeRef = { kind: "student", id: diff.studentId };
-        linkedEdgeIds.push(deriveEdgeId(factRef, to, "sourced_from"));
-        await link(edges, factRef, to, "sourced_from");
-        linkedEdgeIds.push(deriveEdgeId(studentRef, factRef, "has"));
-        await link(edges, studentRef, factRef, "has");
+        await linkTracked(factRef, to, "sourced_from");
+        await linkTracked(studentRef, factRef, "has");
       } catch (err) {
         // ISS-028: earlier iterations of this same call already committed
         // their facts (no cross-document transaction spans the whole diff —
@@ -458,21 +510,43 @@ export async function applyApprovedDiff(
         throw err;
       }
     }
+    return { written, supersededKeys };
+  };
+
+  const work = writeAll();
+  let result: ApplyApprovedDiffResult | undefined;
+  let failure: { err: unknown } | null = null;
+  try {
+    // D-016 application-level deadline: stop waiting at the deadline (each operation's driver
+    // timeoutMS bounds whatever is still in flight).
+    result = await deadline.run(work);
   } catch (err) {
     failure = { err };
+  } finally {
+    deadline.dispose();
   }
+  const timedOut = failure !== null && deadline.expired();
+  // D-016: an operation still in flight at the abort may land later; once it settles, undo again.
+  const settled: Promise<void> = timedOut
+    ? work.then(
+        () => undo(),
+        () => undo(),
+      ).then(
+        () => undefined,
+        () => undefined,
+      )
+    : Promise.resolve();
 
-  // D-015 post-write check, after ALL of this call's writes (and also after a partial failure,
-  // whose earlier writes are committed). If an erasure fenced the student meanwhile, delete what
-  // this call wrote, by id, and refuse. The previous open fact this call may have retired is left
-  // as it is: the erasure deletes it.
-  await compensateIfFenced(db, diff.studentId, async () => {
-    if (insertedFactIds.length > 0) {
-      await facts.deleteMany({ studentId: diff.studentId, _id: { $in: insertedFactIds } } as Filter<FactDoc>);
-    }
-    if (linkedEdgeIds.length > 0) await edges.deleteMany({ _id: { $in: linkedEdgeIds } });
+  // D-015/D-016 post-write check, ALWAYS (after success, a partial failure, or the deadline). If an
+  // erasure fenced the student meanwhile, delete what this call wrote, by id, and refuse, with the
+  // original error as `cause`. A timed-out writer is undone even when not fenced. The previous
+  // open fact this call may have retired is left as it is: the erasure deletes it, and a retry of
+  // the same decision re-opens the key (D-012).
+  await compensateIfFenced(db, diff.studentId, undo, {
+    ...(failure ? { cause: failure.err } : {}),
+    alwaysUndo: timedOut,
   });
+  if (timedOut) throw new FencedWriterDeadlineError(settled, { cause: failure!.err });
   if (failure) throw failure.err;
-
-  return { written, supersededKeys };
+  return result!;
 }

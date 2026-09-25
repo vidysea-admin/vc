@@ -33,6 +33,11 @@ import {
   erasureFenceKey,
   releaseExpiredErasureFences,
   ERASURE_FENCE_GRACE_MS,
+  FENCED_WRITER_DEADLINE_MS,
+  FENCE_MARGIN_MS,
+  MINIMUM_FENCE_HOLD_MS,
+  FencedWriterDeadlineError,
+  ErasureRequestAlreadyOpenError,
   type ErasureRequestDoc,
 } from "../src/erasure.js";
 import { applyApprovedDiff } from "../src/facts.js";
@@ -393,6 +398,9 @@ test("B15: the receipt and the surviving audit row carry NO personal data (searc
 test("B15: the audit hash is salted per request (two requests for one student do not share a hash)", async () => {
   const { db, fakeDb, a } = await seedTwo();
   const r1 = await requestErasure(db, { studentId: a.studentId, requestedBy: "c-1", reason: "student_request" });
+  // D-016: one OPEN request per student, so the first completes before the second is opened.
+  await confirmErasure(db, { requestId: r1.requestId, confirmedBy: "admin-2" });
+  await executeErasure(db, r1.requestId);
   const r2 = await requestErasure(db, { studentId: a.studentId, requestedBy: "c-1", reason: "student_request" });
   const rows = coll(fakeDb, COLLECTION_NAMES.erasure_requests).all() as unknown as ErasureRequestDoc[];
   const [h1, h2] = [r1, r2].map((r) => rows.find((x) => x._id === r.requestId)?.studentHash);
@@ -1020,9 +1028,9 @@ test("D-015: ANOTHER student is unaffected by A's fence (B writes while A is fen
   assert.deepEqual(residue(fakeDb, a), []);
 });
 
-test("D-015: the fence is REMOVED on completion (grace 0 by default); the student can be written again afterwards", async () => {
+test("D-016: on completion the fence is HELD until createdAt + MINIMUM_FENCE_HOLD_MS (grace 0 by default); after the hold the sweep removes it and the student can be written again", async () => {
   const { db, fakeDb, a } = await seedTwo();
-  assert.equal(ERASURE_FENCE_GRACE_MS, 0, "the default grace is 0 until gate erasure-fencing Q1 sets the policy");
+  assert.equal(ERASURE_FENCE_GRACE_MS, 0, "the re-enrolment grace (gate Q1 policy) stays 0; the technical hold is separate");
   const requestId = await confirmedRequest(db, a.studentId);
   let fencedDuringExecute = false;
   const consents = coll(fakeDb, COLLECTION_NAMES.consents);
@@ -1033,11 +1041,17 @@ test("D-015: the fence is REMOVED on completion (grace 0 by default); the studen
   };
   await executeErasure(db, requestId);
   assert.ok(fencedDuringExecute, "the fence exists while the purge runs");
-  assert.equal(coll(fakeDb, FENCES).size(), 0, "no fence left after a verified completion");
-  assert.equal(await isStudentFenced(db, a.studentId), false);
+  const [fence] = coll(fakeDb, FENCES).all();
+  assert.ok(fence, "the fence outlives the completion (minimum hold)");
+  const holdEnd = Date.parse(fence.createdAt as string) + MINIMUM_FENCE_HOLD_MS;
+  assert.equal(fence.releaseAfter, new Date(holdEnd).toISOString(), "releaseAfter = createdAt + hold (grace 0)");
+  assert.equal(await isStudentFenced(db, a.studentId), true, "still fenced inside the hold");
+  assert.equal(await releaseExpiredErasureFences(db, new Date(holdEnd - 1)), 0, "never removed before the hold ends");
+  assert.equal(await releaseExpiredErasureFences(db, new Date(holdEnd)), 1);
+  assert.equal(coll(fakeDb, FENCES).size(), 0);
   const diff = { studentId: a.studentId, summary: "re-enrolled", changes: [], citedFactIds: [] };
   const res = await applyApprovedDiff(db, diff, { approve: true, edits: [fact("intake", "re-enrolled", "t-new")] }, "sess-new");
-  assert.equal(res.written.length, 1, "re-enrolment after completion is allowed with grace 0");
+  assert.equal(res.written.length, 1, "re-enrolment after the hold is allowed");
 });
 
 test("D-015: a FAILED attempt keeps the fence (writes still refused) until the retry completes", async () => {
@@ -1052,7 +1066,9 @@ test("D-015: a FAILED attempt keeps the fence (writes still refused) until the r
   assert.equal(await isStudentFenced(db, a.studentId), true, "a failed (open) request keeps its fence");
   edges.deleteMany = realDelete;
   await executeErasure(db, requestId);
-  assert.equal(await isStudentFenced(db, a.studentId), false);
+  const [fence] = coll(fakeDb, FENCES).all();
+  assert.ok(typeof fence?.releaseAfter === "string", "after the retry completes the fence is stamped for release (D-016 hold)");
+  assert.equal(await isStudentFenced(db, a.studentId, new Date(Date.parse(fence.releaseAfter as string))), false);
 });
 
 test("D-015: executeErasure re-creates a missing fence BEFORE resolving any selector", async () => {
@@ -1070,10 +1086,14 @@ test("D-015: executeErasure re-creates a missing fence BEFORE resolving any sele
   assert.equal(fencedAtFirstResolve, true, "the fence must exist before the first selector is resolved");
 });
 
-test("D-015: two concurrent executes leave no lingering fence", async () => {
+test("D-015/D-016: two concurrent executes leave no fence beyond the hold (one fence, stamped; the sweep removes it after the hold)", async () => {
   const { db, fakeDb, a } = await seedTwo();
   const requestId = await confirmedRequest(db, a.studentId);
   await Promise.all([executeErasure(db, requestId), executeErasure(db, requestId)]);
+  const fences = coll(fakeDb, FENCES).all();
+  assert.equal(fences.length, 1);
+  assert.ok(typeof fences[0]!.releaseAfter === "string", "stamped, never left un-releasable");
+  assert.equal(await releaseExpiredErasureFences(db, new Date(Date.parse(fences[0]!.releaseAfter as string))), 1);
   assert.equal(coll(fakeDb, FENCES).size(), 0);
 });
 
@@ -1092,20 +1112,29 @@ test("D-015: with a grace period the fence lingers after completion (writes refu
   assert.equal(coll(fakeDb, FENCES).size(), 0);
 });
 
-test("D-015: a failed fence release never fails a verified erasure, and releaseExpiredErasureFences clears the leftover fence", async () => {
+test("D-015: a failed fence release never fails a verified erasure, and releaseExpiredErasureFences clears the leftover fence after the hold", async () => {
   const { db, fakeDb, a } = await seedTwo();
   const requestId = await confirmedRequest(db, a.studentId);
   const fences = coll(fakeDb, FENCES);
   const realDelete = fences.deleteMany.bind(fences);
-  fences.deleteMany = async () => {
+  const realUpdate = fences.updateOne.bind(fences);
+  const crash = async (): Promise<never> => {
     throw Object.assign(new Error("crash"), { name: "MongoNetworkError" });
   };
+  let armed = false;
+  fences.deleteMany = async (f) => (armed ? crash() : realDelete(f));
+  fences.updateOne = async (f, u, o) => (armed && u.$set && "releaseAfter" in u.$set ? crash() : realUpdate(f, u, o));
+  armed = true;
   const out = await executeErasure(db, requestId);
+  armed = false;
   fences.deleteMany = realDelete;
+  fences.updateOne = realUpdate;
   assert.equal(out.receipt.verified, true);
   assert.equal((await requestRow(fakeDb, requestId)).status, "completed");
   assert.equal(fences.size(), 1, "the fence lingered (fail-safe: writes stay refused)");
-  assert.equal(await releaseExpiredErasureFences(db), 1);
+  assert.equal(await releaseExpiredErasureFences(db), 0, "not before the hold");
+  const holdEnd = Date.parse(fences.all()[0]!.createdAt as string) + MINIMUM_FENCE_HOLD_MS;
+  assert.equal(await releaseExpiredErasureFences(db, new Date(holdEnd)), 1);
   assert.equal(fences.size(), 0);
 });
 
@@ -1192,4 +1221,268 @@ test("rev-3: a resolve failure in a later round is labelled with the collection 
   const line = (c: string) => err.receipt.collections.find((l) => l.collection === c);
   assert.equal(line(COLLECTION_NAMES.sessions)?.error, "resolve:MongoNetworkError");
   assert.notEqual(line(COLLECTION_NAMES.facts)?.error?.startsWith("resolve:"), true, "facts did not fail to resolve");
+});
+
+// ---------------------------------------------------------------------------
+// Cycle 3 — D-016: writer deadline + minimum fence hold (ISS-t-011-c2-1, ISS-t-011-c2-rev-1),
+// one open request per student (ISS-t-011-c2-rev-4), lows (ISS-t-011-c2-rev-3).
+// ---------------------------------------------------------------------------
+
+test("D-016 KEY PROBE (ISS-t-011-c2-1): a real writer paused before its insert and released only AFTER completion AND the fence-release call is still fenced -> compensated, zero residue; the sweep removes the fence only after the hold", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const w = pausedWriter(db, fakeDb, a, "intake");
+  await w.atGate; // its pre-check passed before the fence existed
+  const requestId = await confirmedRequest(db, a.studentId);
+  const fences = coll(fakeDb, FENCES);
+  const realDelete = fences.deleteMany.bind(fences);
+  const realUpdate = fences.updateOne.bind(fences);
+  let releaseCalls = 0;
+  let writer: WriterResult | null = null;
+  let statusWhenReleased: string | undefined;
+  const releaseWriterAfter = async () => {
+    releaseCalls += 1;
+    if (writer !== null) return;
+    statusWhenReleased = (await requestRow(fakeDb, requestId)).status;
+    w.release(); // exactly the checker's probe: the write + post-check run after the release attempt
+    writer = await w.done;
+  };
+  fences.deleteMany = async (f) => {
+    const res = await realDelete(f);
+    await releaseWriterAfter();
+    return res;
+  };
+  fences.updateOne = async (f, u, o) => {
+    const res = await realUpdate(f, u, o);
+    if (u.$set && "releaseAfter" in u.$set) await releaseWriterAfter();
+    return res;
+  };
+  const out = await executeErasure(db, requestId);
+  fences.deleteMany = realDelete;
+  fences.updateOne = realUpdate;
+  assert.ok(releaseCalls > 0, "the fence release was attempted");
+  assert.equal(statusWhenReleased, "completed", "the writer ran only after the completion was recorded");
+  assert.equal(out.status, "completed");
+  assert.equal(out.receipt.verified, true);
+  const result = writer as WriterResult | null;
+  assert.ok(result && !result.ok && result.err instanceof StudentFencedError, `the late writer must be fenced, got ${JSON.stringify(result)}`);
+  assert.equal(w.lateFactIds.length, 1, "its insert really ran");
+  assert.deepEqual(residue(fakeDb, a, w.lateFactIds), [], "zero residue: the late fact and its edges were compensated");
+  assert.deepEqual(orphanFactEdges(fakeDb), []);
+  assert.ok(docsMentioning(fakeDb, identifiers(b)).length > 20, "B untouched");
+  // The fence is removed only after createdAt + hold (fake clock).
+  const [fence] = fences.all();
+  assert.ok(fence, "fence still present after completion");
+  const holdEnd = Date.parse(fence.createdAt as string) + MINIMUM_FENCE_HOLD_MS;
+  assert.equal(await releaseExpiredErasureFences(db, new Date(holdEnd - 1)), 0);
+  assert.equal(await releaseExpiredErasureFences(db, new Date(holdEnd + 1)), 1);
+  assert.equal(fences.size(), 0);
+});
+
+test("D-016 minimum hold: releaseAfter = max(createdAt + hold, completion + grace); createdAt is NOT reset on re-arm; an old fence past its hold is deleted at completion", async () => {
+  assert.equal(MINIMUM_FENCE_HOLD_MS, FENCED_WRITER_DEADLINE_MS + FENCE_MARGIN_MS);
+  assert.ok(FENCED_WRITER_DEADLINE_MS > 0 && FENCE_MARGIN_MS > 0);
+  // (1) grace larger than the hold -> completion + grace.
+  {
+    const { db, fakeDb, a } = await seedTwo();
+    const requestId = await confirmedRequest(db, a.studentId);
+    const graceMs = 24 * 3600 * 1000;
+    await executeErasure(db, requestId, { fenceGraceMs: graceMs });
+    const [fence] = coll(fakeDb, FENCES).all();
+    const row = await requestRow(fakeDb, requestId);
+    assert.equal(fence!.releaseAfter, new Date(Date.parse(row.completedAt!) + graceMs).toISOString());
+  }
+  // (2) re-arm keeps the original createdAt (a failed attempt, then execute re-sets the fence).
+  {
+    const { db, fakeDb, a } = await seedTwo();
+    const requestId = await confirmedRequest(db, a.studentId);
+    const original = coll(fakeDb, FENCES).all()[0]!.createdAt;
+    const edges = coll(fakeDb, COLLECTION_NAMES.edges);
+    const realDelete = edges.deleteMany.bind(edges);
+    edges.deleteMany = async () => {
+      throw Object.assign(new Error("boom"), { name: "MongoNetworkError" });
+    };
+    await new Promise((r) => setTimeout(r, 5));
+    await assert.rejects(executeErasure(db, requestId), ErasureIncompleteError);
+    edges.deleteMany = realDelete;
+    await executeErasure(db, requestId);
+    const [fence] = coll(fakeDb, FENCES).all();
+    assert.equal(fence!.createdAt, original, "re-arming never resets createdAt");
+    assert.equal(fence!.releaseAfter, new Date(Date.parse(original as string) + MINIMUM_FENCE_HOLD_MS).toISOString());
+  }
+  // (3) a fence created longer ago than the hold is deleted at completion (grace 0).
+  {
+    const { db, fakeDb, a } = await seedTwo();
+    const requestId = await confirmedRequest(db, a.studentId);
+    const fences = coll(fakeDb, FENCES);
+    const old = new Date(Date.now() - 2 * MINIMUM_FENCE_HOLD_MS).toISOString();
+    await fences.updateOne({ _id: erasureFenceKey(a.studentId) }, { $set: { createdAt: old } });
+    await executeErasure(db, requestId);
+    assert.equal(fences.size(), 0, "hold already over: released immediately");
+  }
+});
+
+test("D-016 deadline: a writer that exceeds its deadline is ABORTED and COMPENSATED (typed error; its in-flight insert is undone when it lands; every op carried a driver timeoutMS)", { timeout: 5000 }, async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const facts = coll(fakeDb, COLLECTION_NAMES.facts);
+  const realInsert = facts.insertOne.bind(facts);
+  const g = gate();
+  const lateIds: string[] = [];
+  const seenTimeouts: unknown[] = [];
+  facts.insertOne = (async (doc: AnyDoc, options?: { timeoutMS?: number }) => {
+    seenTimeouts.push(options?.timeoutMS);
+    if (doc.key === "slow") {
+      lateIds.push(doc._id);
+      await g.opened; // a stuck write: the deadline must fire first
+    }
+    return realInsert(doc);
+  }) as typeof facts.insertOne;
+  const diff = { studentId: a.studentId, summary: a.marker, changes: [], citedFactIds: [] };
+  const started = Date.now();
+  const err = await applyApprovedDiff(
+    db,
+    diff,
+    { approve: true, edits: [fact("slow", `${a.marker}-slow`, "t-slow")] },
+    a.sessionIds[0],
+    { deadlineMs: 40 },
+  ).catch((e: unknown) => e);
+  assert.ok(err instanceof FencedWriterDeadlineError, `expected FencedWriterDeadlineError, got ${String(err)}`);
+  assert.ok(Date.now() - started < 2000, "aborted at the deadline, not when the stuck write finished");
+  assert.ok(
+    seenTimeouts.length > 0 && seenTimeouts.every((t) => typeof t === "number" && t > 0 && t <= 40),
+    `every insert carried timeoutMS <= deadline, got ${JSON.stringify(seenTimeouts)}`,
+  );
+  g.open(); // the stuck insert lands after the abort
+  await err.settled;
+  assert.equal(lateIds.length, 1);
+  assert.deepEqual(docsMentioning(fakeDb, [...lateIds, `${a.marker}-slow`]), [], "the late-landing write was compensated");
+  await assert.rejects(
+    applyApprovedDiff(db, diff, { approve: true, edits: [fact("x", 1, "t-x")] }, undefined, { deadlineMs: FENCED_WRITER_DEADLINE_MS + 1 }),
+    RangeError,
+    "a writer can not opt into a deadline longer than the fence hold covers",
+  );
+});
+
+test("D-016 finally post-check: an unrelated error mid-write still runs the post-check; when fenced it compensates and StudentFencedError carries the original error as `cause` (ISS-t-011-c2-rev-3)", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const edges = coll(fakeDb, COLLECTION_NAMES.edges);
+  const realUpdate = edges.updateOne.bind(edges);
+  const boom = Object.assign(new Error("network"), { name: "MongoNetworkError" });
+  let factId = "";
+  edges.updateOne = async () => {
+    // the fact is inserted; the erasure is confirmed now; then the edge write fails
+    factId = coll(fakeDb, COLLECTION_NAMES.facts).all().find((f) => f.key === "mid")!._id;
+    await confirmedRequest(db, a.studentId);
+    throw boom;
+  };
+  const diff = { studentId: a.studentId, summary: a.marker, changes: [], citedFactIds: [] };
+  const err = await applyApprovedDiff(db, diff, { approve: true, edits: [fact("mid", `${a.marker}-mid`, "t-mid")] }, a.sessionIds[0]).catch(
+    (e: unknown) => e,
+  );
+  edges.updateOne = realUpdate;
+  assert.ok(err instanceof StudentFencedError, `expected StudentFencedError, got ${String(err)}`);
+  const chain: unknown[] = [];
+  for (let c: unknown = (err as Error & { cause?: unknown }).cause; c !== undefined; c = (c as { cause?: unknown }).cause) chain.push(c);
+  assert.ok(chain.includes(boom), "the original error is chained as `cause` (here wrapped in PartialApplyError), not masked");
+  assert.ok(factId);
+  assert.deepEqual(docsMentioning(fakeDb, [factId]), [], "the inserted fact was compensated");
+});
+
+test("D-016 lows (ISS-t-011-c2-rev-3): the fenced undo removes ONLY edges this call created, never pre-existing deterministic edges (idempotent replay)", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  // Replay the exact session-1 budget write: the fact is already open, its edges already exist.
+  const diff = { studentId: a.studentId, summary: a.marker, changes: [], citedFactIds: [] };
+  const edges = coll(fakeDb, COLLECTION_NAMES.edges);
+  const before = edges.all().map((e) => e._id).sort();
+  const realUpdate = edges.updateOne.bind(edges);
+  let fenced = false;
+  edges.updateOne = async (f, u, o) => {
+    if (!fenced) {
+      fenced = true;
+      await confirmedRequest(db, a.studentId); // the fence appears mid-write
+    }
+    return realUpdate(f, u, o);
+  };
+  const err = await applyApprovedDiff(db, diff, { approve: true, edits: [fact("budget", `${a.marker}-20L`, "t2")] }, a.sessionIds[0]).catch(
+    (e: unknown) => e,
+  );
+  edges.updateOne = realUpdate;
+  assert.ok(err instanceof StudentFencedError, `expected StudentFencedError, got ${String(err)}`);
+  assert.deepEqual(edges.all().map((e) => e._id).sort(), before, "no pre-existing edge was deleted by the undo");
+});
+
+test("D-016 one open request (ISS-t-011-c2-rev-4): a second open request for the same student is refused with a typed error, also under concurrency; after completion a new one is allowed", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const input = { studentId: a.studentId, requestedBy: "counsellor-7", reason: "student_request" as const };
+  const settled = await Promise.allSettled([requestErasure(db, input), requestErasure(db, input)]);
+  const ok = settled.filter((s) => s.status === "fulfilled");
+  const refused = settled.filter((s) => s.status === "rejected") as PromiseRejectedResult[];
+  assert.equal(ok.length, 1, "exactly one concurrent request wins");
+  assert.equal(refused.length, 1);
+  assert.ok(refused[0]!.reason instanceof ErasureRequestAlreadyOpenError, `typed refusal, got ${String(refused[0]!.reason)}`);
+  const rows = coll(fakeDb, COLLECTION_NAMES.erasure_requests).all();
+  assert.equal(rows.length, 1, "only one open row");
+  assert.equal(rows[0]!.studentKey, erasureFenceKey(a.studentId));
+  // Another student is independent.
+  await requestErasure(db, { ...input, studentId: b.studentId });
+  // confirmed stays open: still refused.
+  const requestId = (ok[0] as PromiseFulfilledResult<{ requestId: string }>).value.requestId;
+  await confirmErasure(db, { requestId, confirmedBy: "admin-2" });
+  await assert.rejects(requestErasure(db, input), ErasureRequestAlreadyOpenError);
+  await executeErasure(db, requestId);
+  const done = await requestRow(fakeDb, requestId);
+  assert.equal(done.status, "completed");
+  assert.equal((done as unknown as { studentKey?: string }).studentKey, undefined, "the completed audit row keeps no unsalted key");
+  const again = await requestErasure(db, input);
+  assert.ok(again.requestId, "a completed request no longer blocks a new one");
+});
+
+test("D-016 no stuck fence (ISS-t-011-c2-rev-4): the fence is released only when no fencing request remains, and never left behind", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const fences = coll(fakeDb, FENCES);
+  const r1 = await confirmedRequest(db, a.studentId);
+  await executeErasure(db, r1);
+  const hold1 = Date.parse(fences.all()[0]!.releaseAfter as string);
+  // A new request is confirmed inside R1's hold: it re-arms (takes over) the same fence.
+  const r2 = await confirmedRequest(db, a.studentId);
+  assert.equal(fences.all()[0]!.requestId, r2);
+  assert.equal(fences.all()[0]!.releaseAfter, undefined, "re-armed: no release while R2 is open");
+  assert.equal(await releaseExpiredErasureFences(db, new Date(hold1 + 1)), 0, "R2 is open: never swept");
+  // Even a fence stamped for release is kept while the student still has an open request.
+  await fences.updateOne({ _id: erasureFenceKey(a.studentId) }, { $set: { requestId: r1, releaseAfter: new Date(hold1).toISOString() } });
+  assert.equal(await releaseExpiredErasureFences(db, new Date(hold1 + 1)), 0, "an open request for the student keeps the fence");
+  await fences.updateOne({ _id: erasureFenceKey(a.studentId) }, { $set: { requestId: r2 }, $unset: { releaseAfter: "" } });
+  await executeErasure(db, r2);
+  const holdEnd = Date.parse(fences.all()[0]!.releaseAfter as string);
+  assert.equal(await releaseExpiredErasureFences(db, new Date(holdEnd)), 1);
+  assert.equal(fences.size(), 0, "no fence is stuck once no request is open");
+});
+
+test("D-016 deadline: the post-check runs AT the abort (in the finally), not only when the stuck op settles: a fact that landed before the stuck edge write is already gone when the writer returns", { timeout: 5000 }, async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const edges = coll(fakeDb, COLLECTION_NAMES.edges);
+  const realUpdate = edges.updateOne.bind(edges);
+  const g = gate();
+  edges.updateOne = async (f, u, o) => {
+    await g.opened; // the first edge write is stuck; the fact insert already landed
+    return realUpdate(f, u, o);
+  };
+  const diff = { studentId: a.studentId, summary: a.marker, changes: [], citedFactIds: [] };
+  const err = await applyApprovedDiff(
+    db,
+    diff,
+    { approve: true, edits: [fact("stuck-edge", `${a.marker}-stuck-edge`, "t-se")] },
+    a.sessionIds[0],
+    { deadlineMs: 40 },
+  ).catch((e: unknown) => e);
+  assert.ok(err instanceof FencedWriterDeadlineError, `expected FencedWriterDeadlineError, got ${String(err)}`);
+  assert.deepEqual(
+    docsMentioning(fakeDb, [`${a.marker}-stuck-edge`]),
+    [],
+    "the fact was undone by the post-check at the abort, before the stuck edge write settled",
+  );
+  g.open();
+  await err.settled;
+  edges.updateOne = realUpdate;
+  assert.deepEqual(docsMentioning(fakeDb, [`${a.marker}-stuck-edge`]), []);
+  assert.deepEqual(orphanFactEdges(fakeDb), [], "the edge that landed late was undone too");
 });

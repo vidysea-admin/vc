@@ -2,17 +2,19 @@
 **Contract:** qa/contracts/counselling-engine.md (B15 primary; B4, B8, B11, B12, B14)
 **Goal task:** T-011
 **Date:** 2026-09-25
-**Status:** fix-in-progress
-**Fix cycle:** 3 of max 3 (cycle-2 checker FAIL 57a92aa: ISS-t-011-c2-1 grace-0; D-016)
+**Status:** ready-for-check
+**Fix cycle:** 3
+**Fix cycle budget (cycle 3):** 3 of max 3, the LAST cycle (cycle-2 checker FAIL 57a92aa: ISS-t-011-c2-1 grace-0; design D-016)
 **Fix cycle budget:** 2 of max 3 (cycle-1 checker FAIL 4b6ad21: ISS-t-011-c1-1 non-atomic read-back; design D-015 fence + post-write compensation)
 **Design:** qa/gates/dpdp-erase-design.md answer (a) "hard delete with confirmation and verification"; D-003 (history by retirement, so erasure must include retired facts), D-012 (fact `_id` is a fresh ObjectId, so edges are found through the resolved fact ids), D-013 (`active: true` marks open facts; retired facts have it unset), D-014 (scribe_resolutions hold approved fact values, so they are erased)
-**Diff range (cycle 2):** `58a38f6..HEAD` on branch `wave/t-011-dpdp-erasure`, a single commit: "fix(db,engine): t-011 cycle 2 — erasure fence + post-write compensation (D-015)". `58a38f6` is "qa: t-011 fix cycle 2 (D-015)", after the main merge `5a9a2a3` (which brought D-015). Cycle 2 touches `packages/db/src/{erasure,facts,consent,collections}.ts`, `packages/db/scripts/db-init.ts`, `packages/db/tests/{erasure,consent,db-init}.test.ts`, `packages/db/tests/fakes.ts`, `packages/db/README.md`, `packages/schemas/src/schemas.ts` (additive: `MAX_CARRIED_IDS`, `ErasureCarriedSelectorsSchema`), `packages/engine/src/scribe/graph.ts`, `packages/engine/tests/{scribe-erasure-fence.test.ts (new), scribe-fixtures.ts}` and this manifest. `packages/engine/src/scribe/nodes.ts` is NOT touched (T-013 owns it).
+**Diff range (cycle 3):** `474c0fe..HEAD` on branch `wave/t-011-dpdp-erasure`, a single commit: "fix(db,engine): t-011 cycle 3 — writer deadline + minimum fence hold (D-016), one open request, write-path scanner". `474c0fe` is "qa: t-011 fix cycle 3 (D-016, last cycle)", after the main merge `042d6c6` (which brought D-016). It touches `packages/db/src/{erasure,facts,edges,collections}.ts`, `packages/db/scripts/db-init.ts`, `packages/db/tests/{erasure,db-init,db-scope}.test.ts`, `packages/db/tests/fakes.ts`, `packages/db/README.md`, `packages/engine/src/scribe/graph.ts`, `packages/engine/tests/scribe-erasure-fence.test.ts` and this manifest. `packages/engine/src/scribe/nodes.ts` is NOT touched (T-013); `packages/schemas` is unchanged.
+**Diff range (cycle 2):** `58a38f6..ee89337` on branch `wave/t-011-dpdp-erasure`, a single commit: "fix(db,engine): t-011 cycle 2 — erasure fence + post-write compensation (D-015)". `58a38f6` is "qa: t-011 fix cycle 2 (D-015)", after the main merge `5a9a2a3` (which brought D-015). Cycle 2 touches `packages/db/src/{erasure,facts,consent,collections}.ts`, `packages/db/scripts/db-init.ts`, `packages/db/tests/{erasure,consent,db-init}.test.ts`, `packages/db/tests/fakes.ts`, `packages/db/README.md`, `packages/schemas/src/schemas.ts` (additive: `MAX_CARRIED_IDS`, `ErasureCarriedSelectorsSchema`), `packages/engine/src/scribe/graph.ts`, `packages/engine/tests/{scribe-erasure-fence.test.ts (new), scribe-fixtures.ts}` and this manifest. `packages/engine/src/scribe/nodes.ts` is NOT touched (T-013 owns it).
 **Diff range (cycle 1):** `1d7facb..58a38f6` on branch `wave/t-011-dpdp-erasure`, a single commit: "fix(db): t-011 cycle 1 — stable-loop purge (no orphan edges under concurrent writers), checked final CAS". `1d7facb` is "qa: t-011 fix cycle 1", after the main merge `b5e6b55`. Cycle 1 touches `packages/db/src/erasure.ts`, `packages/db/tests/{erasure.test.ts, fakes.ts}`, `packages/db/README.md`, `packages/schemas/src/schemas.ts` (additive: optional `ErasureReceipt.rounds`) and this manifest.
 **Diff range (cycle 0):** `e10e49d..HEAD` on branch `wave/t-011-dpdp-erasure`. It is a single commit: "feat(db): T-011 DPDP erasure (confirm → hard delete → read-back verify → receipt) + export". `e10e49d` is "tasks: T-007 done; T-008 prerequisites", the main branch point.
 **Scope:** `packages/db/src/erasure.ts` (new, the unit's module), `packages/db/src/{collections,consent,index}.ts`, `packages/db/scripts/db-init.ts` (INDEX_PLAN), `packages/db/tests/{erasure.test.ts (new), consent.test.ts, db-init.test.ts, fakes.ts}`, `packages/db/README.md`, `packages/schemas/src/schemas.ts` (additive: the Erasure* schemas), this manifest.
 **Not touched:** `.claude/**`, `docs/DECISIONS.md`, `scripts/**`, `guards/**`, `qa/contracts/**`, and `packages/engine/**` except (cycle 2 only) `src/scribe/graph.ts` and `tests/**`.
 **Dual check:** no
-**Issues addressed:** cycle 2: ISS-t-011-c1-1 (high), ISS-t-011-c1-rev-1 (high), ISS-t-011-c1-rev-2 (medium), ISS-t-011-c1-rev-3 (low). Cycle 1: ISS-t-011-c0-1 (medium), ISS-t-011-rev-1 (low), ISS-t-011-rev-3 (high). Cycle 0: ISS-t-011-pre-1 (medium), ISS-t-007-rev-6 (high; the erasure half plus the INDEX_PLAN half: the checkpoint collections are now named and indexed; `saver.setup()` wiring stays with the first live-wiring unit), ISS-043 (low)
+**Issues addressed:** cycle 3: ISS-t-011-c2-1 (high), ISS-t-011-c2-rev-1 (high), ISS-t-011-c2-rev-2 (medium), ISS-t-011-c2-rev-4 (medium), ISS-t-011-c2-rev-3 (low), ISS-t-011-c2-rev-5 (low). Cycle 2: ISS-t-011-c1-1 (high), ISS-t-011-c1-rev-1 (high), ISS-t-011-c1-rev-2 (medium), ISS-t-011-c1-rev-3 (low). Cycle 1: ISS-t-011-c0-1 (medium), ISS-t-011-rev-1 (low), ISS-t-011-rev-3 (high). Cycle 0: ISS-t-011-pre-1 (medium), ISS-t-007-rev-6 (high; the erasure half plus the INDEX_PLAN half: the checkpoint collections are now named and indexed; `saver.setup()` wiring stays with the first live-wiring unit), ISS-043 (low)
 **Executor:** claude-opus-subagent (maker build subagent)
 
 ## What changed
@@ -94,6 +96,110 @@ Every test below is in `packages/db/tests/erasure.test.ts` unless noted otherwis
 | Concurrency | (cycle 0 claim; superseded by the "Fix cycle 1" section below) | Cycle 1 adds dedicated concurrent-writer and concurrent-execute tests. | see Fix cycle 1 |
 | Transcripts | Raw transcript and audio collections are erased. | No such collections exist yet. Transcripts live only inside the scribe checkpoints, which are erased. The coverage test forces any new collection into the plan. | **N/A yet** |
 
+## Fix cycle 3 (D-016: ISS-t-011-c2-1, ISS-t-011-c2-rev-1; ISS-t-011-c2-rev-2, -rev-4; lows -rev-3, -rev-5)
+
+### The guarantee, stated exactly (D-016)
+For every **fence-aware** writer W (applyApprovedDiff, startScribe/resumeScribe; requireConsent only refuses):
+- W's deadline starts just before its fence pre-check, at t0. If the fence existed at t0, W is refused and writes nothing.
+- Otherwise the fence was created after t0. W's writes are bounded by `FENCED_WRITER_DEADLINE_MS` from t0, at two levels: every driver write carries `timeoutMS` = the time left, and an application timer aborts W at t0 + deadline. W's post-check runs in a `finally` (also after an error or the deadline), with its read bounded by `FENCE_POSTCHECK_TIMEOUT_MS`.
+- The fence is never removed before `createdAt + MINIMUM_FENCE_HOLD_MS` (= deadline + `FENCE_MARGIN_MS`), which is later than t0 + deadline + margin. So either W's writes landed before the fence (and the purge, which resolves after the fence, deletes them), or W's post-check sees the fence and W removes its own writes.
+- A W that runs past its deadline keeps nothing, fenced or not: it is undone at the abort, and again once an operation still in flight at the abort settles (`FencedWriterDeadlineError.settled`).
+
+**Residual caveats (not closed by construction; bounded by configuration and documented in `src/erasure.ts` and the README):**
+1. A write the server applies after the client timed out is bounded server-side by the same `timeoutMS` (the driver sends `maxTimeMS`). A request delayed on the network longer than the margin, or clock skew between app servers larger than the margin (`createdAt` is stamped by the confirming process, the release is decided by the executing one), is not covered.
+2. The scribe checkpointer's (MongoDBSaver) own writes do not carry our per-operation `timeoutMS`. They are bounded by the graph's AbortSignal and by a client-level `timeoutMS` if the runtime MongoClient sets one. `invokeFenceAware` re-runs the post-check when an aborted run settles, but a checkpoint write that lands after both post-checks and after the hold is not covered. Recommendation for the first live-wiring unit: construct the runtime MongoClient with `timeoutMS <= FENCED_WRITER_DEADLINE_MS`.
+3. A writer that bypasses the fence entirely is caught only by the scanner. A method name assembled at runtime from variables can not be proven statically.
+4. Everything is proven against the in-memory fake and MemorySaver. The live server's CSOT behaviour, the `$in` partial unique index (MongoDB 6.0+), and `deleteThread` on a real MongoDBSaver are still in the UNVERIFIED live row.
+5. **Unchanged semantics to note:** a timed-out or fenced applyApprovedDiff that superseded a key leaves the old fact retired and the new one undone. The key is then at zero open facts until the same decision is retried (idempotent by D-012), which is the documented crash-mid-write behaviour.
+
+### What changed
+- **`src/erasure.ts`, fence section (rewritten comment and code):**
+  - Constants: `FENCED_WRITER_DEADLINE_MS = 60_000`, `FENCE_MARGIN_MS = 30_000`, `FENCE_POSTCHECK_TIMEOUT_MS = 10_000`, `MINIMUM_FENCE_HOLD_MS = deadline + margin`. `ERASURE_FENCE_GRACE_MS` stays 0 and is documented as the re-enrolment policy only (gate Q1).
+  - `WriterDeadline`: `op()` gives `{timeoutMS: left}` and throws once expired, so no new write starts after the deadline. `run(p)` races the deadline, `signal` aborts at it, and `dispose()` clears the timer. A deadline longer than `FENCED_WRITER_DEADLINE_MS` throws `RangeError`.
+  - `FencedWriterDeadlineError` (with `settled`). `StudentFencedError` now takes `{cause}` (ISS-t-011-c2-rev-3).
+  - `isStudentFenced(db, id, now, {timeoutMS})`: a fence inside its minimum hold ALWAYS fences, whatever `releaseAfter` says. After the hold, an expired `releaseAfter` does not fence.
+  - `compensateIfFenced(db, id, undo, {cause, alwaysUndo})`: the post-check read is bounded by `FENCE_POSTCHECK_TIMEOUT_MS`. If the read fails, it fails safe: `undo`, then the read error propagates. `alwaysUndo` undoes a timed-out writer even when it is not fenced.
+  - `releaseErasureFence`: only the owning request acts, and only when no confirmed or failed request for the student remains. It deletes the fence only if `max(createdAt + hold, completedAt + grace)` has passed. Otherwise it stamps `releaseAfter` with that time.
+  - `releaseExpiredErasureFences`: it skips a student with a confirmed or failed request. It never removes a fence before `createdAt + hold`, even if `releaseAfter` is earlier.
+  - `setErasureFence` still sets `createdAt` only on insert (`$setOnInsert`), so a re-arm never resets it. This is now tested.
+  - Pending requests do not hold a fence: a pending request never fences, and holding a fence for a request nobody confirms would recreate the rev-4 stuck-fence DoS.
+- **One open request (ISS-t-011-c2-rev-4):**
+  - The audit row gains `studentKey` (= the fence key) while it is open. It is `$unset` on completion together with `studentId`, so a completed row holds no unsalted, linkable key.
+  - INDEX_PLAN adds `erasure_requests_open_studentKey_unique`: `{studentKey:1}` UNIQUE with `partialFilterExpression: {status: {$in: ["pending","confirmed","failed"]}}` (`$in` is allowed per D-013).
+  - `requestErasure` maps the 11000 to `ErasureRequestAlreadyOpenError`.
+- **`src/facts.ts` `applyApprovedDiff`:**
+  - It takes a new optional 5th argument `{deadlineMs}` (shorter only). The `writeApproved` call site in nodes.ts is unchanged.
+  - The deadline starts before the pre-check. Every read and write carries `deadline.op()`.
+  - A fact id is recorded before its insert. An edge id is recorded only when this call CREATED it (`link` `onCreated`), or when its upsert's outcome is unknown (ISS-t-011-c2-rev-3: an idempotent replay no longer deletes pre-existing deterministic edges).
+  - The writes run as `work`, raced against the deadline. The post-check always runs afterwards. A timed-out writer is undone and throws `FencedWriterDeadlineError(settled)`, where `settled` undoes again once `work` settles.
+- **`src/edges.ts` `link`:** gains optional `{timeoutMS, onCreated}`. `onCreated` fires on `upsertedCount > 0` or `upsertedId`. Existing callers and tests are unchanged.
+- **`scripts/db-init.ts`:** the redundant `erasure_fences_studentKey_unique` index is removed (ISS-t-011-c2-rev-3: the `_id` is the key, and every read is by `_id`). The open-request index above is added.
+- **`packages/engine/src/scribe/graph.ts`:**
+  - `ScribeRunOptions.writerDeadlineMs` (shorter only).
+  - `startScribe` / `resumeScribe` create the deadline before the pre-check and dispose it in a `finally`. The claim insert carries `deadline.op()`, and the graph gets the deadline's `signal`.
+  - `invokeFenceAware` races the invoke against the deadline and always runs the post-check. A fence read error counts as fenced. When a timed-out run settles later, the post-check runs again.
+  - An unfenced timeout throws `FencedWriterDeadlineError`, and the thread is left as crash-recovery state.
+  - rev-5: "fenced over already_resolved" is documented in the resumeScribe docstring (a KEEP decision, now tested).
+- **Scanner (ISS-t-011-c2-rev-2), `packages/db/tests/db-scope.test.ts`:**
+  - It follows the B12 `.db(` scanner. Every `packages|mcp|apps/*/src` file that references a student-data collection and mentions a write must be in `FENCE_AWARE_WRITERS`, with its reason. The allowlist today is facts.ts, erasure.ts, graph.ts and checkpointer.ts.
+  - A reference is an accessor, `COLLECTION_NAMES.x` or `COLLECTION_NAMES["x"]`, a literal or dynamic `.collection(`/`["collection"](`, or `MongoDBSaver`/`SCRIBE_CHECKPOINT_COLLECTIONS`.
+  - A write is insertOne, insertMany, updateOne, updateMany, replaceOne, findOneAndUpdate/Replace/Delete, deleteOne, deleteMany, bulkWrite, `link(`, `new MongoDBSaver`, or a concatenated string key. `\u` escapes are resolved first.
+  - The allowlist must equal the detected writer set exactly, so it can not go stale.
+- **Fake:** `updateOne` returns `upsertedCount`, like the driver.
+
+### TDD: RED before the implementation
+The tests were written first, against skeleton exports (the new constants and error classes, an ignored `deadlineMs` and `writerDeadlineMs`). Raw output is in the maker scratchpad `t011c3/red-db.txt` and `red-engine.txt`.
+- `npx tsx --test tests/erasure.test.ts tests/db-init.test.ts tests/db-scope.test.ts` → **tests 71, pass 58, fail 12**.
+  - Red: the key probe (`the late writer must be fenced, got {"ok":true}`, which is the cycle-2 checker's exact failure), the minimum hold, hold-on-completion, failed-attempt hold, concurrent-execute hold, failed-release hold, the deadline test (cancelled at its 5 s timeout: the stuck insert was never aborted), the finally post-check `cause` (`actual: undefined`), undo scoped to created edges (pre-existing edges were deleted), one open request (`actual: 2` winners), no stuck fence, and the two INDEX_PLAN tests.
+  - The 3 scanner tests were green on the first run. They are guards, and the current code is compliant. That they are load-bearing is shown by F4a and F4b below.
+- `npx tsx --test tests/scribe-erasure-fence.test.ts` → **tests 8, pass 5, fail 1, plus 2 cancelled**.
+  - H4b's fence was released on completion.
+  - Both deadline tests hung until their 5 s timeout (no deadline).
+  - The rev-5 test is green by design, because it documents kept behaviour.
+- One test was added after the implementation: "the post-check runs AT the abort…". It was added because F2 below first showed that the late `settled` undo alone masked a missing finally-undo. It is red under F2.
+
+### Verification (exact commands, worktree root, final tree)
+```
+$ pnpm install                         -> exit 0, "Done in 724ms using pnpm v10.33.0"
+$ pnpm -r typecheck                    -> exit 0; 9 x "typecheck: Done", 0 "error TS"
+$ pnpm -r test                         -> exit 0; every package fail 0:
+    apps/web 1 · apps/api 1 · packages/providers 8 · packages/schemas 50 · packages/observability 57
+    packages/db 130 (was 119; +11) · mcp/university-kb 9 · mcp/student-profile 12 · packages/engine 105 (was 102; +3)
+    total 373 tests, 0 fail
+$ python contracts/verify_contracts.py -> "verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity", exit 0
+```
+
+### New or changed tests (outcome-based: full scans of every fake collection, plus the MemorySaver)
+| Test | What it proves |
+|---|---|
+| **D-016 KEY PROBE** (db) | The cycle-2 checker's probe, as a test. A REAL applyApprovedDiff is paused after its pre-check and before its insert. The erasure is confirmed and runs to `completed`/`verified`. The writer is released only inside the fence-release call (the `deleteMany` or the `releaseAfter` stamp), after the real call returned and with the row already `completed`. The writer gets `StudentFencedError`, its insert really ran, the residue is zero, there are no orphan edges and B is untouched. Fake clock: `releaseExpiredErasureFences(holdEnd-1)` gives 0 and `(holdEnd+1)` gives 1. |
+| minimum hold | `releaseAfter` = completion + 24h when the grace is larger than the hold. A failed attempt then a retry keeps the ORIGINAL `createdAt`, so `releaseAfter` = createdAt + hold. A fence older than the hold is deleted at completion. |
+| hold on completion (replaces the cycle-2 "removed on completion") | The fence is present with `releaseAfter = createdAt + hold` and is still fenced. The sweep gives 0 before the hold and 1 at it, and re-enrolment works after that. |
+| deadline: abort + compensate | A stuck `facts.insertOne` with `deadlineMs: 40` gives `FencedWriterDeadlineError` in under 2 s. Every insert carried `0 < timeoutMS <= 40`. After release and `err.settled`, the late-landing fact is gone. `deadlineMs` > max gives `RangeError`. |
+| deadline: post-check AT the abort | A stuck edge write after the fact landed. When the writer returns, the fact is ALREADY gone (undone in the finally, not only later). After it settles, there are no orphan edges. |
+| finally post-check + `cause` | The fence appears mid-write, then the edge write throws. The result is `StudentFencedError`, whose `cause` chain holds the original `MongoNetworkError` (via PartialApplyError), and the fact is compensated. |
+| undo scoped to created edges | An idempotent replay is fenced mid-write. `StudentFencedError`, and the edge set is identical to before. |
+| one open request | Two concurrent `requestErasure` calls: exactly one wins and the other gets `ErasureRequestAlreadyOpenError`. The row carries `studentKey`, and another student is independent. A confirmed request is still refused. After completion the row has no `studentKey`, and a new request is accepted. |
+| no stuck fence | R2 is confirmed inside R1's hold and re-arms the fence (`releaseAfter` unset). The sweep never removes it while R2 is open, even when the fence is forced to look expired. After R2 completes, the sweep removes it after the hold. |
+| db-init | `erasure_requests` has exactly one unique index, the partial studentKey index, and its filter passes `assertSupportedPartialFilter`. `erasure_fences` has no secondary index. |
+| scanner (3 tests) | The real repo scan equals the allowlist exactly. 16 hostile variants are caught (bracket, whitespace/optional chaining, bind alias, destructure, literal/generic/bracket/optional `collection(`, dynamic name, `COLLECTION_NAMES[...]`, `link(`, `new MongoDBSaver`, a `O` escape, a concatenated key). There are no false positives for reads, a `courses` write, or a comment mentioning "collection (". |
+| engine rev-5 | A resolved thread returns `already_resolved` unfenced and `{kind:"fenced"}` while fenced. |
+| engine deadline, fenced | The run hangs in the consent node while the erasure is confirmed. With `writerDeadlineMs: 50`, the result is `{kind:"fenced"}` in under 2 s. After the stuck node settles, the thread holds no checkpoints and the provider was never called. |
+| engine deadline, unfenced | `FencedWriterDeadlineError`. After `settled`, 0 provider calls (the graph was aborted). A deadline above the max gives `RangeError`. |
+| engine H4b (updated) | After a verified erasure, the fence is still held. The sweep at `createdAt + hold` removes it. |
+
+### Falsification (mutate → red → restore; each file restored from a backup and confirmed byte-identical with `filecmp`, temp files deleted)
+The runs used db `tests/{erasure,db-init,db-scope,facts,consent,edges}.test.ts` (121 tests) and engine `tests/{scribe-erasure-fence,scribe}.test.ts` (40 tests). Script and output: the maker scratchpad `t011c3/falsify.py` and `falsify.txt`.
+
+| # | Mutation | db | engine | Red tests |
+|---|---|---|---|---|
+| F1 | Minimum hold removed (release = completion + grace; `isStudentFenced` and the sweep ignore the hold). | fail 7 / 121 | fail 1 / 40 | the KEY PROBE, minimum hold, hold on completion, failed-attempt hold, concurrent-execute hold, failed-release hold, no stuck fence; engine H4b |
+| F2 | Post-check skipped after an error or the deadline (`if (!failure) await compensateIfFenced(...)`). | fail 2 / 121 | fail 0 / 40 | finally post-check + `cause`; deadline: post-check AT the abort |
+| F3 | Open-request index not unique. | fail 2 / 121 | – | one open request; db-init index test |
+| F4a | A raw writer file `packages/db/src/zz-raw-writer.ts` (`factsCollection(db).insertOne`). | fail 1 / 11 | – | scanner repo scan |
+| F4b | A hostile writer in `packages/engine/src` (`db["collection"](name)` + `["insertOne"]`). | fail 1 / 11 | – | scanner repo scan |
+| F5 | Engine post-check skipped after a deadline (`invokeFenceAware`). | – | fail 1 / 40 | engine deadline, fenced |
+
 ## Fix cycle 2 (D-015: ISS-t-011-c1-1, ISS-t-011-c1-rev-1; lows ISS-t-011-c1-rev-2, ISS-t-011-c1-rev-3)
 
 ### What changed
@@ -173,7 +279,7 @@ The runs used db `tests/{erasure,consent,facts}.test.ts` (85 tests) and engine `
 | C2-F3 | Remove the pre-check in `resumeScribe` (response path). | fail 0 / 85 | fail 1 / 37 | "resumeScribe for a FENCED student is refused BEFORE claiming" (a claim insert was attempted; the post-check alone still ends `fenced`, which the test tells apart) |
 
 ### Residuals (not blocking; they belong to gate erasure-fencing)
-- **Grace 0:** a writer whose writes landed before completion, but whose post-check runs AFTER the fence is released, keeps its writes. A grace period longer than the slowest writer closes this. That is Q1, and its recommendation is 24h.
+- **Grace 0 (superseded by D-016, fix cycle 3: the minimum hold closes it):** a writer whose writes landed before completion, but whose post-check runs AFTER the fence is released, keeps its writes. A grace period longer than the slowest writer closes this. That is Q1, and its recommendation is 24h.
 - **Coverage:** the fence binds only fence-aware writers. Today these are applyApprovedDiff, requireConsent, startScribe and resumeScribe. No code writes `sessions` or `students` rows yet. Any new student-data writer must use `assertStudentNotFenced` and `compensateIfFenced`, as the README and the module doc now say. A raw write that does not check the fence (the checker's original raw-seed H4) still hits the non-atomic read-back.
 - **Fence key:** an unsalted hash. See Q2 (HMAC).
 - **Live DB:** the fence upsert (`$set` + `$setOnInsert` + `$unset`), `deleteThread` against a real MongoDBSaver, and the `status $in` fallback update run only against the fake and MemorySaver. This is the same UNVERIFIED live row as before.

@@ -176,17 +176,25 @@ test("T-011: the scribe checkpoint collections carry EXACTLY the indexes MongoDB
   );
 });
 
-test("T-011: the erasure_requests audit log has a status index and no unique index", () => {
+test("T-011 / D-016: the erasure_requests audit log has a status index and exactly ONE unique index: studentKey among OPEN requests (pending/confirmed/failed), with a server-supported partial filter", () => {
   const specs = INDEX_PLAN.filter((s) => s.collection === COLLECTION_NAMES.erasure_requests);
   assert.ok(specs.some((s) => Object.keys(s.keys)[0] === "status"));
-  assert.ok(specs.every((s) => !s.unique));
+  const unique = specs.filter((s) => s.unique);
+  assert.deepEqual(
+    unique.map((s) => [s.name, s.keys, s.partialFilterExpression]),
+    [
+      [
+        "erasure_requests_open_studentKey_unique",
+        { studentKey: 1 },
+        { status: { $in: ["pending", "confirmed", "failed"] } },
+      ],
+    ],
+  );
+  assertSupportedPartialFilter(unique[0]!.partialFilterExpression!); // D-013: $in is allowed, $exists:false/$ne are not
 });
 
-test("T-011 / D-015: erasure_fences is a named collection with a UNIQUE (non-partial) index on the hashed student key", () => {
+test("T-011 / D-016 (ISS-t-011-c2-rev-3): erasure_fences has NO redundant studentKey index (the fence _id IS the key; lookups use _id)", () => {
   assert.equal(COLLECTION_NAMES.erasure_fences, "erasure_fences");
   const specs = INDEX_PLAN.filter((s) => s.collection === COLLECTION_NAMES.erasure_fences);
-  assert.deepEqual(
-    specs.map((s) => [s.name, s.keys, s.unique, s.partialFilterExpression]),
-    [["erasure_fences_studentKey_unique", { studentKey: 1 }, true, undefined]],
-  );
+  assert.deepEqual(specs, []);
 });

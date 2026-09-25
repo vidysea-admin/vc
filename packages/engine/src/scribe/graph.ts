@@ -15,7 +15,15 @@
 import { Annotation, Command, END, START, StateGraph, interrupt, type BaseCheckpointSaver } from "@langchain/langgraph";
 import type { Callbacks } from "@langchain/core/callbacks/manager";
 import { createHash } from "node:crypto";
-import { isStudentFenced, scribeResolutionsCollection, StudentFencedError, type ScribeResolutionDoc } from "@vc/db";
+import {
+  FENCE_POSTCHECK_TIMEOUT_MS,
+  FencedWriterDeadlineError,
+  isStudentFenced,
+  scribeResolutionsCollection,
+  StudentFencedError,
+  WriterDeadline,
+  type ScribeResolutionDoc,
+} from "@vc/db";
 import type { CounsellorDecision, Fact, ProfileDiff } from "@vc/schemas";
 import { createLangfuseCallbacks, type TracingConfig } from "@vc/observability";
 import {
@@ -196,6 +204,11 @@ export interface ScribeRunOptions {
   checkpointId?: string;
   /** LangChain callbacks, e.g. from createLangfuseCallbacks (B7). */
   callbacks?: Callbacks;
+  /**
+   * D-016: this call's fenced-writer deadline, SHORTER than @vc/db FENCED_WRITER_DEADLINE_MS (the
+   * default). A longer one throws RangeError: the erasure fence's minimum hold would not cover it.
+   */
+  writerDeadlineMs?: number;
 }
 
 /** One thread per session, derivable from the sessionId (so T-011 erasure can find the checkpoints). */
@@ -243,13 +256,15 @@ export type ScribeOutcome =
    */
   | { kind: "fenced" };
 
-function runnableConfig(opts: ScribeRunOptions) {
+function runnableConfig(opts: ScribeRunOptions, signal?: AbortSignal) {
   return {
     configurable: {
       thread_id: opts.threadId,
       ...(opts.checkpointId ? { checkpoint_id: opts.checkpointId } : {}),
     },
     callbacks: opts.callbacks,
+    // D-016: the writer deadline aborts the run (LangGraph stops scheduling further steps).
+    ...(signal ? { signal } : {}),
   };
 }
 
@@ -272,42 +287,79 @@ function depsFor(graph: ScribeGraph, caller: string) {
 
 type GraphDeps = NonNullable<ReturnType<typeof graphDeps.get>>;
 
+/** The post-check's fence read; an unreadable fence state counts as fenced (fail-safe). */
+async function fencedForPostCheck(db: GraphDeps["db"], studentId: string | undefined): Promise<boolean> {
+  if (studentId === undefined || studentId === "") return false;
+  try {
+    return await isStudentFenced(db, studentId, new Date(), { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS });
+  } catch {
+    return true;
+  }
+}
+
 /**
- * T-011 cycle 2 / D-015: runs one graph.invoke as a fence-aware writer. The caller has already
- * refused a student fenced BEFORE the call. AFTER the invoke (or when it threw because the write
- * node's applyApprovedDiff was fenced), if the student is fenced now, this call's writes are
- * removed: the thread's checkpoints and checkpoint writes (deleteThread on the graph's own
- * checkpointer) and the approval claim this call inserted (by its _id + responseHash, never another
- * caller's). The facts and edges were already removed by applyApprovedDiff's own post-write check.
- * Returns true when fenced. Any other error propagates unchanged.
+ * T-011 / D-015 + D-016: runs one graph.invoke as a fence-aware writer. The caller has already
+ * refused a student fenced BEFORE the call, under the same `deadline`.
+ * - The invoke runs under the writer deadline: its AbortSignal stops the graph and an application
+ *   timer stops waiting at the deadline (the facts/edges writer inside, applyApprovedDiff, has its
+ *   own driver-level timeoutMS and deadline).
+ * - The post-check ALWAYS runs afterwards (success, error, or deadline). If the student is fenced
+ *   (or applyApprovedDiff already reported StudentFencedError, or the fence can not be read), this
+ *   call's writes are removed: the thread's checkpoints and checkpoint writes (deleteThread on the
+ *   graph's own checkpointer) and the approval claim this call inserted (by its _id + responseHash,
+ *   never another caller's). The facts and edges were removed by applyApprovedDiff's own post-check.
+ * - An aborted run may still settle later (a node or checkpoint write in flight); when it does, the
+ *   post-check runs again, so a late checkpoint write of a fenced student is removed too.
+ * Returns true when fenced. A run that timed out while unfenced throws FencedWriterDeadlineError
+ * (its checkpoints are left as ordinary crash-recovery state; resumeScribe(null) retries). Any
+ * other error propagates unchanged.
  */
 async function invokeFenceAware(
   deps: GraphDeps,
   studentId: string | undefined,
   threadId: string,
   createdClaim: ScribeResolutionDoc | null,
-  invoke: () => Promise<unknown>,
+  deadline: WriterDeadline,
+  invoke: (signal: AbortSignal) => Promise<unknown>,
 ): Promise<boolean> {
+  const compensate = async () => {
+    await deps.checkpointer.deleteThread(threadId);
+    if (createdClaim) {
+      await scribeResolutionsCollection(deps.db).deleteMany({ _id: createdClaim._id, responseHash: createdClaim.responseHash });
+    }
+  };
+  const work = invoke(deadline.signal);
   let thrown: { err: unknown } | null = null;
   try {
-    await invoke();
+    await deadline.run(work);
   } catch (err) {
     thrown = { err };
+  } finally {
+    deadline.dispose();
   }
-  // StudentFencedError means applyApprovedDiff saw the fence; compensate even if the erasure has
-  // completed (and released the fence) since.
+  const timedOut = thrown !== null && deadline.expired();
+  const noop = () => undefined;
+  const settled: Promise<void> = timedOut
+    ? work
+        .then(noop, noop)
+        .then(async () => {
+          if (await fencedForPostCheck(deps.db, studentId)) await compensate();
+        })
+        .then(noop, noop)
+    : Promise.resolve();
+  // StudentFencedError means applyApprovedDiff saw the fence; compensate even if the fence was
+  // released since.
   const fenced =
-    (thrown !== null && thrown.err instanceof StudentFencedError) ||
-    (studentId !== undefined && studentId !== "" && (await isStudentFenced(deps.db, studentId)));
-  if (!fenced) {
-    if (thrown) throw thrown.err;
-    return false;
+    (thrown !== null && thrown.err instanceof StudentFencedError) || (await fencedForPostCheck(deps.db, studentId));
+  if (fenced) {
+    await compensate();
+    return true;
   }
-  await deps.checkpointer.deleteThread(threadId);
-  if (createdClaim) {
-    await scribeResolutionsCollection(deps.db).deleteMany({ _id: createdClaim._id, responseHash: createdClaim.responseHash });
+  if (thrown) {
+    if (timedOut) throw new FencedWriterDeadlineError(settled, { cause: thrown.err });
+    throw thrown.err;
   }
-  return true;
+  return false;
 }
 
 /**
@@ -318,9 +370,16 @@ async function invokeFenceAware(
 export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: ScribeRunOptions): Promise<ScribeOutcome> {
   const parsed = ScribeInputSchema.parse(input);
   const deps = depsFor(graph, "startScribe");
-  if (await isStudentFenced(deps.db, parsed.studentId)) return { kind: "fenced" };
-  if (await invokeFenceAware(deps, parsed.studentId, opts.threadId, null, () => graph.invoke(parsed, runnableConfig(opts)))) {
-    return { kind: "fenced" };
+  // D-016: the deadline starts before the pre-check.
+  const deadline = new WriterDeadline(opts.writerDeadlineMs);
+  try {
+    if (await isStudentFenced(deps.db, parsed.studentId, new Date(), deadline.op())) return { kind: "fenced" };
+    const fenced = await invokeFenceAware(deps, parsed.studentId, opts.threadId, null, deadline, (signal) =>
+      graph.invoke(parsed, runnableConfig(opts, signal)),
+    );
+    if (fenced) return { kind: "fenced" };
+  } finally {
+    deadline.dispose();
   }
   return readOutcome(graph, opts.threadId);
 }
@@ -394,7 +453,15 @@ function alreadyResolved(
  * T-011 cycle 2 / D-015 (erasure fence): if the thread's student has an erasure in progress, this
  * returns `fenced` BEFORE claiming or invoking (nothing written). If the fence appears while the
  * invoke runs, the thread's checkpoints and the claim this call inserted are removed again and the
- * outcome is `fenced` (see invokeFenceAware).
+ * outcome is `fenced` (see invokeFenceAware). D-016: the claim and the invoke run under the
+ * writer deadline (`opts.writerDeadlineMs`, at most FENCED_WRITER_DEADLINE_MS), started before
+ * the pre-check.
+ *
+ * Fenced over already_resolved (ISS-t-011-c2-rev-5, kept by design): the fence pre-check runs
+ * BEFORE the already-decided check, so while an erasure is in progress a resume of an
+ * already-resolved thread returns `fenced`, not `already_resolved`. During an erasure no student
+ * state (the recorded decision, its facts) is disclosed to any caller; once the fence is released
+ * the thread is gone anyway (the erasure purged its checkpoints and claim).
  */
 export async function resumeScribe(
   graph: ScribeGraph,
@@ -402,22 +469,40 @@ export async function resumeScribe(
   opts: ScribeRunOptions,
 ): Promise<ScribeOutcome> {
   const deps = depsFor(graph, "resumeScribe");
+  // D-016: the deadline starts before the pre-check and covers the claim and the invoke.
+  const deadline = new WriterDeadline(opts.writerDeadlineMs);
+  try {
+    return await resumeUnderDeadline(graph, deps, response, opts, deadline);
+  } finally {
+    deadline.dispose();
+  }
+}
+
+async function resumeUnderDeadline(
+  graph: ScribeGraph,
+  deps: GraphDeps,
+  response: ApprovalResponse | null,
+  opts: ScribeRunOptions,
+  deadline: WriterDeadline,
+): Promise<ScribeOutcome> {
   const claims = scribeResolutionsCollection(deps.db);
   const stateConfig = { configurable: { thread_id: opts.threadId } };
 
   if (response === null) {
     const snapshot = await graph.getState(stateConfig);
     const latest = snapshot.values as Partial<State>;
-    if (latest.studentId && (await isStudentFenced(deps.db, latest.studentId))) return { kind: "fenced" };
+    if (latest.studentId && (await isStudentFenced(deps.db, latest.studentId, new Date(), deadline.op()))) {
+      return { kind: "fenced" };
+    }
     const pendingInterrupt = snapshot.tasks.some((task) => task.interrupts.length > 0);
     const claim = !latest.decision && pendingInterrupt ? await claims.findOne({ threadId: opts.threadId }) : null;
-    const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, null, async () => {
+    const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, null, deadline, async (signal) => {
       if (claim) {
         // Crash after the claim, before the decision was recorded: apply the CLAIMED response.
         const claimed = ApprovalResponseSchema.parse(claim.response);
-        await graph.invoke(new Command({ resume: claimed }), runnableConfig({ ...opts, checkpointId: undefined }));
+        await graph.invoke(new Command({ resume: claimed }), runnableConfig({ ...opts, checkpointId: undefined }, signal));
       } else {
-        await graph.invoke(null, runnableConfig(opts));
+        await graph.invoke(null, runnableConfig(opts, signal));
       }
     });
     return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId);
@@ -426,8 +511,11 @@ export async function resumeScribe(
   const parsed = ApprovalResponseSchema.parse(response);
   const snapshot = await graph.getState(stateConfig);
   const latest = snapshot.values as Partial<State>;
-  // D-015 pre-check: before the claim, so a fenced resume writes nothing at all.
-  if (latest.studentId && (await isStudentFenced(deps.db, latest.studentId))) return { kind: "fenced" };
+  // D-015 pre-check: before the claim, so a fenced resume writes nothing at all. It also runs
+  // before the already-decided check: fenced over already_resolved (see the docstring).
+  if (latest.studentId && (await isStudentFenced(deps.db, latest.studentId, new Date(), deadline.op()))) {
+    return { kind: "fenced" };
+  }
   if (latest.decision) {
     const claim = await claims.findOne({ threadId: opts.threadId });
     return alreadyResolved({ decision: latest.decision, responseHash: claim?.responseHash }, latest.result, parsed);
@@ -449,7 +537,7 @@ export async function resumeScribe(
       claimedAt: new Date().toISOString(),
     };
     try {
-      await claims.insertOne(claim);
+      await claims.insertOne(claim, deadline.op());
       createdClaim = claim;
     } catch (err) {
       if (!isDuplicateKey(err)) throw err;
@@ -459,8 +547,8 @@ export async function resumeScribe(
       return alreadyResolved(winner, now.result, parsed);
     }
   }
-  const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, createdClaim, () =>
-    graph.invoke(new Command({ resume: parsed }), runnableConfig(opts)),
+  const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, createdClaim, deadline, (signal) =>
+    graph.invoke(new Command({ resume: parsed }), runnableConfig(opts, signal)),
   );
   return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId);
 }

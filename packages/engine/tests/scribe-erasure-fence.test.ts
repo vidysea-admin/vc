@@ -8,7 +8,17 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COLLECTION_NAMES, confirmErasure, executeErasure, isStudentFenced, requestErasure } from "@vc/db";
+import {
+  COLLECTION_NAMES,
+  confirmErasure,
+  executeErasure,
+  FENCED_WRITER_DEADLINE_MS,
+  FencedWriterDeadlineError,
+  isStudentFenced,
+  MINIMUM_FENCE_HOLD_MS,
+  releaseExpiredErasureFences,
+  requestErasure,
+} from "@vc/db";
 import { resumeScribe, startScribe } from "../src/scribe/index.js";
 import { baseInput, makeHarness, seedConsent, SESSION_ID, STUDENT_ID, type Harness } from "./scribe-fixtures.js";
 
@@ -138,7 +148,12 @@ test("D-015 H4b with the REAL scribe: a resume racing the erasure (released insi
   assert.equal(erased.receipt.verified, true);
   assert.deepEqual(residue(h), [], "no fact, edge, claim or consent of the student survives");
   assert.equal(threadStored(h, threadId), false, "the thread's checkpoints and writes are gone");
-  assert.equal(await isStudentFenced(h.db, STUDENT_ID), false, "the fence is released on completion");
+  // D-016: the fence is held until createdAt + MINIMUM_FENCE_HOLD_MS, then swept.
+  assert.equal(await isStudentFenced(h.db, STUDENT_ID), true, "the fence is held after completion (minimum hold)");
+  const [f] = h.fakeDb.collection<AnyDoc>(COLLECTION_NAMES.erasure_fences).all();
+  const holdEnd = Date.parse(f!.createdAt as string) + MINIMUM_FENCE_HOLD_MS;
+  assert.equal(await releaseExpiredErasureFences(h.db, new Date(holdEnd)), 1);
+  assert.equal(await isStudentFenced(h.db, STUDENT_ID), false, "released after the hold");
 });
 
 test("D-015: ANOTHER student's scribe runs normally while this student is fenced", async () => {
@@ -154,4 +169,69 @@ test("D-015: ANOTHER student's scribe runs normally while this student is fenced
   if (outcome.kind !== "done") return;
   assert.equal(outcome.result.status, "written");
   assert.equal(h.openFacts().filter((f) => f.studentId === other).length, 2);
+});
+
+// ---------------------------------------------------------------------------
+// Cycle 3 — D-016: the scribe's invoke runs under the writer deadline; its post-check always runs.
+// ---------------------------------------------------------------------------
+
+test("D-016 (ISS-t-011-c2-rev-5, kept by design): resumeScribe on an ALREADY-RESOLVED thread returns `fenced`, not `already_resolved`, while a fence is up (no student state is disclosed during an erasure)", async () => {
+  const h = makeHarness();
+  const threadId = "thread-f6";
+  assert.equal((await startScribe(h.graph, baseInput(), { threadId })).kind, "awaiting_approval");
+  const done = await resumeScribe(h.graph, { action: "approve" }, { threadId });
+  assert.equal(done.kind, "done");
+  // Unfenced, a second response is already_resolved...
+  assert.equal((await resumeScribe(h.graph, { action: "reject", reason: "x" }, { threadId })).kind, "already_resolved");
+  // ...but while an erasure is in progress the answer is `fenced`, with no decision echoed back.
+  await fence(h);
+  const outcome = await resumeScribe(h.graph, { action: "reject", reason: "x" }, { threadId });
+  assert.deepEqual(outcome, { kind: "fenced" });
+});
+
+test("D-016 deadline: a startScribe whose run exceeds the writer deadline is ABORTED; its post-check still runs and, fenced meanwhile, removes the thread -> `fenced`", { timeout: 5000 }, async () => {
+  const h = makeHarness();
+  const g = gate();
+  const realFindOne = h.consents.findOne.bind(h.consents);
+  let hung = false;
+  h.consents.findOne = async (filter) => {
+    if (!hung) {
+      hung = true;
+      await fence(h); // the erasure is confirmed while this run is stuck
+      await g.opened; // a stuck node: only the deadline ends the run
+    }
+    return realFindOne(filter);
+  };
+  const started = Date.now();
+  const outcome = await startScribe(h.graph, baseInput(), { threadId: "thread-d1", writerDeadlineMs: 50 });
+  assert.ok(hung);
+  assert.ok(Date.now() - started < 2000, "ended by the deadline, not by the stuck node");
+  assert.deepEqual(outcome, { kind: "fenced" });
+  g.open();
+  await new Promise((r) => setTimeout(r, 50)); // let the aborted run settle; its late re-check runs
+  assert.equal(threadStored(h, "thread-d1"), false, "the thread's checkpoints are gone, also after the stuck node settled");
+  assert.equal(h.provider.calls.length, 0, "the aborted run never reached the provider");
+});
+
+test("D-016 deadline: an UNFENCED run that exceeds the deadline throws FencedWriterDeadlineError and is aborted (no later node runs); a deadline above FENCED_WRITER_DEADLINE_MS is refused", { timeout: 5000 }, async () => {
+  const h = makeHarness();
+  const g = gate();
+  const realFindOne = h.consents.findOne.bind(h.consents);
+  let hung = false;
+  h.consents.findOne = async (filter) => {
+    if (!hung) {
+      hung = true;
+      await g.opened;
+    }
+    return realFindOne(filter);
+  };
+  const err = await startScribe(h.graph, baseInput(), { threadId: "thread-d2", writerDeadlineMs: 50 }).catch((e: unknown) => e);
+  assert.ok(err instanceof FencedWriterDeadlineError, `expected FencedWriterDeadlineError, got ${String(err)}`);
+  g.open();
+  await err.settled;
+  assert.equal(h.provider.calls.length, 0, "aborted: extract_facts never ran after the stuck consent node");
+  await assert.rejects(
+    startScribe(h.graph, baseInput(), { threadId: "thread-d3", writerDeadlineMs: FENCED_WRITER_DEADLINE_MS + 1 }),
+    RangeError,
+  );
 });

@@ -43,7 +43,8 @@
  *               indexes, verbatim (T-011: erasure deletes by thread_id).
  *   - erasure_requests: { studentId } (open requests only) and
  *               { status, requestedAt } (T-011 audit log).
- *   - erasure_fences: UNIQUE { studentKey } (T-011 cycle 2 / D-015 write fence).
+ *   - erasure_requests: UNIQUE { studentKey } among open statuses (D-016: one open request).
+ *   - erasure_fences: no secondary index (its _id is the hashed student key; D-015/D-016).
  *   - edges:    relies on Mongo's built-in unique _id index for idempotent
  *               link() upserts, PLUS { "from.kind", "from.id" } and
  *               { "to.kind", "to.id" } (ISS-021) so a lookup of "everything
@@ -123,18 +124,21 @@ export const INDEX_PLAN: IndexSpec[] = [
   },
   // T-011 / B15: the erasure audit log. studentId is present only while a request is open
   // (unset on verified completion), so this index only ever holds open requests' ids.
-  // No unique index: two requests for one student are allowed (each is its own audit record).
   { collection: COLLECTION_NAMES.erasure_requests, keys: { studentId: 1 }, name: "erasure_requests_studentId" },
   { collection: COLLECTION_NAMES.erasure_requests, keys: { status: 1, requestedAt: 1 }, name: "erasure_requests_status" },
-  // T-011 cycle 2 / D-015: the erasure write fence. UNIQUE on the hashed student key (the doc's
-  // _id is the same key, so this index restates the invariant for any future re-keying): one
-  // fence per student, and every writer's fence check is a single index point read.
+  // D-016 / ISS-t-011-c2-rev-4: ONE open request per student. UNIQUE on the fence key among open
+  // statuses; a completed row leaves the index (and has studentKey unset). `$in` is a supported
+  // partialFilterExpression operator (D-013; MongoDB 6.0+), `$ne`/`$nin`/`$exists:false` are not.
   {
-    collection: COLLECTION_NAMES.erasure_fences,
+    collection: COLLECTION_NAMES.erasure_requests,
     keys: { studentKey: 1 },
-    name: "erasure_fences_studentKey_unique",
+    name: "erasure_requests_open_studentKey_unique",
     unique: true,
+    partialFilterExpression: { status: { $in: ["pending", "confirmed", "failed"] } },
   },
+  // T-011 cycle 2 / D-015: the erasure write fence has NO secondary index: its _id IS the hashed
+  // student key, so every fence read is an _id point read (ISS-t-011-c2-rev-3 removed the redundant
+  // unique studentKey index).
   // ISS-t-011-c1-rev-3 (index note): `sessions` has NO sessionId index, deliberately. Every
   // erasure/export query on sessions carries studentId ({studentId} to resolve, {studentId, $or:
   // [_id $in, sessionId $in]} to delete), so sessions_studentId serves them; the _id arm is the

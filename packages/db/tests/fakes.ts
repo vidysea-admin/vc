@@ -241,7 +241,7 @@ export class FakeCollection<T extends { _id: string }> {
     filter: Filter,
     update: { $set?: Partial<T>; $setOnInsert?: T; $unset?: Record<string, unknown> },
     options: { upsert?: boolean } = {},
-  ): Promise<{ matchedCount: number; upsertedId: string | null }> {
+  ): Promise<{ matchedCount: number; upsertedCount: number; upsertedId: string | null }> {
     const existing = [...this.docs.values()].find((doc) =>
       matchesFilter(doc as unknown as Record<string, unknown>, filter),
     );
@@ -249,16 +249,16 @@ export class FakeCollection<T extends { _id: string }> {
       if (update.$set) Object.assign(existing, update.$set);
       // T-011 cycle 2: `$unset` removes the field (re-setting an erasure fence clears releaseAfter).
       for (const field of Object.keys(update.$unset ?? {})) delete (existing as Record<string, unknown>)[field];
-      return { matchedCount: 1, upsertedId: null };
+      return { matchedCount: 1, upsertedCount: 0, upsertedId: null };
     }
-    if (!options.upsert) return { matchedCount: 0, upsertedId: null };
+    if (!options.upsert) return { matchedCount: 0, upsertedCount: 0, upsertedId: null };
     const seed = update.$setOnInsert ?? ({ ...filter } as unknown as T);
     const _id = (seed as { _id?: string })._id ?? (filter._id as string | undefined);
     if (!_id) throw new Error("FakeCollection.updateOne: upsert requires a resolvable _id");
     const created = { ...seed, _id } as T;
     if (update.$set) Object.assign(created, update.$set);
     this.docs.set(_id, created);
-    return { matchedCount: 0, upsertedId: _id };
+    return { matchedCount: 0, upsertedCount: 1, upsertedId: _id };
   }
 
   /** T-011: driver-shaped deleteMany (`{acknowledged, deletedCount}`), same filter semantics as find. */
