@@ -1,6 +1,7 @@
 /**
  * In-process fakes for the mongodb driver's Db/Collection/MongoClient surface —
- * only the subset this package's tests exercise (findOne, insertOne, updateOne).
+ * only the subset this package's tests exercise (findOne, insertOne, updateOne,
+ * findOneAndUpdate).
  * No network I/O anywhere in this file (contract B8: tests run offline). The
  * `as unknown as <mongodb type>` casts at the bottom are the one place fakes
  * cross into the real driver's type surface; production code (src/**) never
@@ -87,7 +88,12 @@ export class FakeCollection<T extends { _id: string }> {
 
   async insertOne(doc: T): Promise<{ insertedId: string }> {
     if (this.docs.has(doc._id)) {
-      throw new Error(`FakeCollection.insertOne: duplicate _id "${doc._id}"`);
+      // ISS-t-003b-c1-3: the real driver reports a duplicate _id through the
+      // built-in unique _id index, i.e. as code 11000, exactly like any other
+      // unique-index violation. A plain Error here hid ISS-t-003b-c1-1.
+      throw new FakeDuplicateKeyError(
+        `E11000 duplicate key error collection: fake index: _id_ dup key: { _id: ${JSON.stringify(doc._id)} }`,
+      );
     }
     this.assertNoUniqueConflict(doc);
     this.docs.set(doc._id, doc);
@@ -97,17 +103,26 @@ export class FakeCollection<T extends { _id: string }> {
   /**
    * A minimal CAS-capable stand-in for the real driver's findOneAndUpdate:
    * finds the first doc matching `filter`, applies `$set` to it in place, and
-   * returns the (updated) doc — or `null` if nothing matched, which is what
-   * facts.ts's retire-then-insert CAS step (ISS-026) branches on to detect a
-   * losing race. Unlike `updateOne` this never upserts.
+   * returns a doc — or `null` if nothing matched, which is what facts.ts's
+   * retire-then-insert CAS step (ISS-026) branches on to detect a losing race.
+   * Unlike `updateOne` this never upserts.
+   *
+   * ISS-t-003b-c1-3: matches mongodb@6 (`FindOneAndUpdateOptions.returnDocument`,
+   * "The default is 'before'"): it returns a copy of the PRE-image by default
+   * and the post-image only when `{returnDocument: "after"}` is passed.
    */
-  async findOneAndUpdate(filter: Filter, update: { $set?: Partial<T> }): Promise<T | null> {
+  async findOneAndUpdate(
+    filter: Filter,
+    update: { $set?: Partial<T> },
+    options: { returnDocument?: "before" | "after" } = {},
+  ): Promise<T | null> {
     const existing = [...this.docs.values()].find((doc) =>
       matchesFilter(doc as unknown as Record<string, unknown>, filter),
     );
     if (!existing) return null;
+    const preImage = structuredClone(existing);
     if (update.$set) Object.assign(existing, update.$set);
-    return existing;
+    return options.returnDocument === "after" ? structuredClone(existing) : preImage;
   }
 
   async updateOne(

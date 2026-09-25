@@ -24,6 +24,12 @@
  *               the unique partial index above only covers OPEN facts, so a
  *               query across a student's full fact history (including
  *               superseded ones) needs its own, unrestricted index.
+ *               NO index on { studentId, key, contentHash } (D-012): no query
+ *               filters on `contentHash`. applyApprovedDiff reads the ACTIVE
+ *               fact by { studentId, key, validTo unset } (served by the
+ *               unique partial index above) and compares its contentHash in
+ *               memory, so such an index would only cost writes. Add it if a
+ *               future reader ever queries history by content.
  *   - sessions, decisions, students: plain { studentId } index each
  *               (ISS-027) — every studentId-bearing collection gets a lookup
  *               index; consents already had one.
@@ -33,6 +39,14 @@
  *               { "to.kind", "to.id" } (ISS-021) so a lookup of "everything
  *               sourced from X" or "everything pointing at Y" isn't a full
  *               collection scan.
+ *               ERASURE NOTE (B15, for T-011): edge docs carry no studentId.
+ *               Erasing a student's edges resolves in TWO hops: first collect
+ *               the student's fact _ids (facts by studentId, full history)
+ *               and session ids (sessions by studentId), then delete edges
+ *               whose from.id or to.id is one of those ids, plus the
+ *               student --has--> edges ({ "from.kind": "student",
+ *               "from.id": studentId }). The edges_from / edges_to indexes
+ *               below serve both hops.
  *
  * It never calls db.dropDatabase() (D-009: that stays human-gated) and never
  * touches any database other than virtual_counsellor (getVcDb enforces this).

@@ -40,8 +40,15 @@ export interface SessionDoc {
   endedAt?: string;
 }
 
-/** A stored Fact: the Zod-validated shape plus its Mongo identity fields. */
-export type FactDoc = Fact & { _id: string; studentId: string };
+/**
+ * A stored Fact: the Zod-validated shape plus its Mongo identity fields.
+ * D-012: `_id` is a fresh ObjectId hex string per write (identity), and
+ * `contentHash` (facts.ts deriveContentHash) is the content used for
+ * idempotent-replay detection. `contentHash` is optional only so a legacy doc
+ * written before D-012 still types; such a doc never matches a replay and is
+ * simply superseded by the next approved write.
+ */
+export type FactDoc = Fact & { _id: string; studentId: string; contentHash?: string };
 
 /** A stored Consent row: the Zod-validated shape plus its Mongo identity field. */
 export type ConsentDoc = Consent & { _id: string };

@@ -1,13 +1,112 @@
 # Manifest — t-003b-db-hardening
-**Contract:** qa/contracts/counselling-engine.md (B3, B4, B12, B14)
+**Contract:** qa/contracts/counselling-engine.md (B2, B3, B4, B8, B12, B14, B15)
 **Goal task:** T-003b
 **Date:** 2026-09-25
-**Fix cycle:** 2 of max 3 (cycle-1 PASS overridden: data-engineer + senior Block, ISS-t-003b-c1-1 critical, -2 high)
+**Status:** ready-for-check
+**Fix cycle:** 2
+**Fix cycle budget:** 2 of max 3 (cycle-1 PASS overridden: data-engineer + senior Block, ISS-t-003b-c1-1 critical, -2 high)
+**Design:** D-012 (fact identity separate from content: fresh `_id`, `contentHash` for idempotency)
+**Unit diff range (cycle 2):** `1dd38b0..HEAD` (`1dd38b0` = "qa: reopen t-003b fix cycle 2")
 **Dual check:** no
-**Issues addressed this cycle:** ISS-026 (critical), ISS-027, ISS-028, ISS-t-003b-db-hardening-1
-**Prior cycle (0) issues, unchanged this cycle:** ISS-018, ISS-019, ISS-020, ISS-021, ISS-t-003-student-kg-1
+**Issues addressed this cycle:** ISS-t-003b-c1-1 (critical), ISS-t-003b-c1-2 (high), ISS-t-003b-c1-3, ISS-t-003b-c1-4
+**Prior issues, unchanged this cycle (regression-covered):** ISS-018..ISS-021, ISS-026..ISS-028, ISS-t-003b-db-hardening-1, ISS-t-003-student-kg-1
 **Executor:** claude-opus-subagent
-**Executor rationale:** in-scope hardening of an existing, well-understood module (packages/db) with a concrete, fully-specified fix (retire-then-insert CAS + index-plan test + error wrapping + id-collision fix); no external tool was worthy of delegation.
+**Executor rationale:** in-scope fix of one module (packages/db) against a fully specified decision (D-012); no external tool worth delegating to.
+
+## What changed (cycle 2)
+
+- `packages/db/tests/fakes.ts` (ISS-t-003b-c1-3, done FIRST):
+  - `insertOne` of a duplicate `_id` now throws `FakeDuplicateKeyError` (`code: 11000`), like the real driver's built-in `_id_` unique index. The old plain `Error` hid ISS-t-003b-c1-1.
+  - `findOneAndUpdate(filter, update, {returnDocument?})` returns a copy of the PRE-image by default and the post-image only with `{returnDocument: "after"}`. This matches mongodb@6 (`node_modules/mongodb/mongodb.d.ts` `FindOneAndUpdateOptions.returnDocument`: "The default is 'before'"; overload with no options returns `Promise<WithId<TSchema> | null>`).
+- `packages/db/tests/facts.test.ts`: new `setup()` helper declares every unique index from `scripts/db-init.ts` `INDEX_PLAN` on the fake (not hand-copied). EVERY test in the file now uses it, so every facts test runs against the production unique partial index. The hand-written `declareUniqueIndex` calls were removed.
+- `packages/db/src/facts.ts` `applyApprovedDiff` (ISS-t-003b-c1-1, D-012):
+  - Every write gets a fresh `_id` (`new ObjectId().toHexString()`, from the existing `mongodb` dependency; no new dependency).
+  - `deriveFactId` renamed to `deriveContentHash` (same material: sha256 of JSON `[studentId, key, canonical value, sessionId ?? null]`). It is stored as `contentHash`. The only callers were inside packages/db (tests), and they are updated. Nothing outside packages/db referenced it (grep over apps/, mcp/, packages/: none).
+  - Idempotent replay compares the active fact's `contentHash`, not its `_id`.
+- `packages/db/src/facts.ts` (ISS-t-003b-c1-2): on a CAS miss the writer re-reads the active fact. If the contentHash matches, the write already landed and counts as success. A different open fact throws `FactConflictError`. If no fact is open (the other writer is inside its retire->insert window, or crashed there), the writer falls through to the insert and the unique partial index picks one winner. On an 11000 from the insert, the same rule applies: a matching contentHash is success, anything else throws `FactConflictError`.
+- `packages/db/src/collections.ts`: `FactDoc` gains `contentHash?: string` (optional only so legacy pre-D-012 docs still type; such a doc never matches a replay and is superseded).
+- ISS-t-003b-c1-4, documentation plus a test:
+  - The facts.ts module docstring now documents that a retry with a different sessionId is a NEW write with its own provenance edge. The old fact keeps its edge to the old session, so provenance is never silently re-pointed.
+  - It also documents the live retire->insert zero-fact window that T-007 readers must tolerate: "no open fact" means unknown or being updated, never "no value", and a reader must not write on the strength of it.
+  - `scripts/db-init.ts` gains an ERASURE NOTE for T-011 (B15): edges carry no studentId, so erasure resolves in two hops through the student's fact ids and session ids, plus the student --has--> edges.
+- `scripts/db-init.ts` `INDEX_PLAN`: **no** `{studentId, key, contentHash}` index was added. The docstring records why: no query filters on `contentHash`. The active fact is read by `{studentId, key, validTo unset}`, which the unique partial index serves, and the hash is compared in memory.
+
+## Evidence per issue (cycle 2)
+
+| Issue | Tests (all in `packages/db/tests/facts.test.ts`) | RED before the fix (old code, driver-faithful fake) | GREEN after |
+|---|---|---|---|
+| ISS-t-003b-c1-1 (critical) | "A -> B -> A succeeds; one open fact with value A, history holds 3 docs with the old A still retired"; "A -> B -> A -> B also succeeds"; "every write gets a fresh _id that is not derived from content"; "replaying an identical decision is a no-op" | The first 3 were `✖`. The A->B->A failure was `Error: FakeCollection.insertOne: duplicate _id "bc44d7a0…"` from `facts.ts:372`. With the fixed fake it became 11000, then re-read found no open fact, then `FactConflictError`, with the key stuck at zero open facts. The replay test passed on old code too (old replay was already idempotent) and is a regression guard. | `✔` all 4 |
+| ISS-t-003b-c1-2 (high) | "two CONCURRENT identical decisions against a key holding a different open fact both succeed, one open fact" (Promise.allSettled); "concurrent identical decisions still succeed when the loser re-reads inside the winner's retire->insert window"; "an 11000 on insert whose winner has our contentHash is success"; kept: "concurrent writers with DIFFERENT values … losers get FactConflictError" (now asserts exactly 1 rejection) plus the original ISS-019 race test | The first 3 were `✖`, for example `identical concurrent replay must not fail: FactConflictError: … another writer already holds the open fact`. The different-value tests were `✔` on old code as well, and remain guards. | `✔` all 5 |
+| ISS-t-003b-c1-3 | "FakeCollection.insertOne of a duplicate _id throws a code-11000 error"; "FakeCollection.findOneAndUpdate returns the PRE-image by default and the post-image only with returnDocument:'after'"; "the facts tests run with the production unique partial index from INDEX_PLAN" | First 2 `✖` against the old fake | `✔` all 3 |
+| ISS-t-003b-c1-4 | "the same value re-approved under a different sessionId is a new write with a provenance edge to the new session" (asserts supersededKeys, 2 docs, 1 open, the new contentHash, the new fact's sourced_from edge to session-2, and the old fact's edge still to session-1) | `✖` (no `contentHash` on docs) | `✔` |
+| Crash healing | "crash between retire and insert: re-running the same decision heals to exactly one open fact" (real crash: insertOne throws after the CAS retire; asserts 0 open, then heals to 1 open, 2 docs). The kept ISS-026 seeded-crash test now asserts `contentHash` in place of the `_id` | `✔` on old code as well (a guard) | `✔` |
+
+RED run (after the rename-only refactor so the file loads, before the fake and facts fixes): `ℹ tests 63 / ℹ pass 53 / ℹ fail 10`. After the fake fix only: `ℹ fail 8` (the 2 fake-fidelity tests turned green). After the facts.ts fix: `ℹ fail 0`.
+
+## Falsification (cycle 2): each fix reverted, the named test goes RED, then restored
+
+This ran as a script. Each mutation was applied to the file, `pnpm --filter @vc/db test` was run, and then the original bytes were written back.
+
+| Fix | Mutation (revert) | Observed RED |
+|---|---|---|
+| c1-1 fresh `_id` | `_id: new ObjectId().toHexString()` → `_id: contentHash` | fail=3: A->B->A; A->B->A->B; fresh-_id |
+| c1-2 CAS-miss re-read | throw `FactConflictError` straight away on a CAS miss | fail=2: both concurrent-identical tests |
+| c1-2 null fall-through | `else if (current)` → `else` (throw when no fact is open) | fail=1: the retire->insert-window concurrent test |
+| c1-2 11000 contentHash match | winner check → `false` | fail=2: 11000-winner-ours; the window test |
+| replay short-circuit (ISS-020/D-012) | replay check → `false` | fail=2: ISS-020 idempotent; c1-1 replay no-op |
+| c1-4 sessionId in contentHash | drop sessionId from the hash material | fail=1: the c1-4 provenance test |
+| crash heal (active filter) | remove `validTo: {$exists:false}` from activeFilter | fail=7, including ISS-026 seeded crash, the new crash-heal test, and A->B->A |
+| c1-3 fake dup `_id` → 11000 | throw a plain `Error` | fail=1: fake dup-_id test |
+| c1-3 fake pre-image | `return existing` (post-image) | fail=1: fake pre-image test |
+| c1-3 production index in setup | skip every INDEX_PLAN index | fail=4: ISS-019 race; 11000-winner-ours; window test; INDEX_PLAN test |
+| RESTORED | all originals written back | `tests=63 pass=63 fail=0` |
+
+## How to verify (commands + expected)
+
+- `pnpm -r typecheck` → exit 0, all 9 workspaces "Done"
+- `pnpm -r test` → exit 0; `packages/db test: ℹ tests 63 / ℹ pass 63 / ℹ fail 0` (50 in cycle 1, plus 13 new)
+- `python contracts/verify_contracts.py` → exit 0, PASS by vacuity
+- `git diff --stat 1dd38b0..HEAD` → only `packages/db/**` and this manifest; `pnpm-lock.yaml` untouched
+
+## Actual outputs (maker's own run, cycle 2)
+
+```
+$ pnpm -r typecheck            (exit 0)
+apps/api typecheck: Done
+packages/providers typecheck: Done
+packages/observability typecheck: Done
+packages/schemas typecheck: Done
+packages/engine typecheck: Done
+packages/db typecheck: Done
+mcp/student-profile typecheck: Done
+mcp/university-kb typecheck: Done
+apps/web typecheck: Done
+
+$ pnpm -r test                 (exit 0)
+apps/api            ℹ tests 1  pass 1  fail 0
+packages/providers  ℹ tests 1  pass 1  fail 0
+apps/web            ℹ tests 1  pass 1  fail 0
+packages/schemas    ℹ tests 50 pass 50 fail 0
+packages/observability ℹ tests 43 pass 43 fail 0
+packages/engine     ℹ tests 31 pass 31 fail 0
+packages/db         ℹ tests 63 pass 63 fail 0
+mcp/university-kb   ℹ tests 9  pass 9  fail 0
+mcp/student-profile ℹ tests 11 pass 11 fail 0
+
+$ python contracts/verify_contracts.py   (exit 0)
+verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity
+```
+
+## Open risk surfaced this cycle (NOT fixed; outside the D-012 scope, needs a decision)
+
+- **[UNVERIFIED, from memory of the MongoDB docs] The production unique partial index may not be creatable.** `INDEX_PLAN`'s `facts_studentId_key_active_unique` uses `partialFilterExpression: { validTo: { $exists: false } }`. MongoDB's partial-index filter supports equality, `$exists: true`, `$gt/$gte/$lt/$lte`, `$type`, `$and`/`$or`/`$in`. As far as I recall, it does NOT support `$exists: false` (the server rejects it as `$not`). If so, `pnpm db:init` would fail on the live server, and ISS-019, the concurrency guarantees and this cycle's 11000 handling would have no index behind them in production. The fake accepts the filter, so offline tests can not catch this. A fix changes the data model (for example an `active: true` field or a `$type`-based filter), so it needs its own decision. Recommendation: confirm against the docs or a scratch collection before T-003b ships; do not treat the offline green as proof of the index.
+- `scripts/db-init.ts` `main()` is still not run by this unit (B8/B12: offline only). Live `createIndex` behaviour is unverified, as it was in cycles 0 and 1.
+
+## Live browser evidence
+Not UI-touching. Only `packages/db/**` and this manifest changed.
+
+---
+# Cycle 1 history (kept for the record)
 
 ## What changed (cycle 1)
 
@@ -117,4 +216,4 @@ No real MongoDB connection was made anywhere in this exercise.
 Not UI-touching — no surface changed. This unit only touches `packages/db/**` (a Mongo access
 layer with no HTTP/UI surface) and this manifest file.
 
-## Status: ready-for-check
+## Cycle 1 status (superseded by the header above)

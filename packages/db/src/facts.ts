@@ -24,10 +24,19 @@
  * edges per written fact: fact -> its source ("sourced_from") and
  * student -> fact ("has").
  *
- * Failure modes this package now guards against (ISS-019/ISS-020/ISS-026/
+ * Failure modes this package guards against (ISS-019/ISS-020/ISS-026/
  * ISS-028, D-008/D-009 — no multi-document transactions on this server, so
  * each Mongo call below is its own atomic single-document operation, never a
- * batch):
+ * batch; D-012 — a fact's identity is separate from its content):
+ *   - **Identity vs content (D-012, ISS-t-003b-c1-1).** Every fact write gets
+ *     a FRESH `_id` (a driver ObjectId, hex string), never one derived from
+ *     content. The content is recorded separately as `contentHash`
+ *     (`deriveContentHash`: sha256 of the JSON array [studentId, key,
+ *     canonical value, sessionId ?? null]). A content-addressed `_id` used to
+ *     collide with the retired historical doc when a student reverted a value
+ *     (A -> B -> A): the insert failed with 11000 on `_id` and the key was
+ *     left at zero open facts for good. With fresh ids, history simply grows
+ *     (A retired, B retired, A open) and the old A stays retired.
  *   - **Duplicate open facts from a concurrent writer.** scripts/db-init.ts
  *     creates a UNIQUE partial index on `facts` — {studentId, key} unique
  *     among documents where `validTo` is unset ("the active fact for this
@@ -35,47 +44,50 @@
  *     have one insert succeed; the loser's `insertOne` throws a Mongo
  *     duplicate-key error (code 11000).
  *   - **Sequential updates to the same key must never spuriously conflict
- *     (ISS-026).** The unique partial index means at most ONE open fact per
- *     (studentId, key) can exist at any instant — so inserting the new fact
- *     BEFORE retiring the old one (the previous order) is rejected by that
- *     same index on every update after the first, because for a moment there
- *     would be two open facts for the key. This function instead RETIRES the
- *     old fact FIRST, via a compare-and-swap `findOneAndUpdate` filtered on
- *     `{_id: existing._id, validTo: {$exists:false}}`, and only inserts the
- *     new fact once that CAS has actually matched (proving the retirement
- *     really happened and nobody else got there first). If the CAS matches
- *     nothing, a different writer already changed that fact, and this
- *     function throws `FactConflictError` rather than guessing what happened.
- *   - **A crash mid-write must never leave a key silently, permanently
- *     stuck at zero open facts.** Retire-then-insert does have a window
- *     between the two steps where a real process crash leaves zero open
- *     facts for that key. This is recoverable, not silent: the caller is
- *     expected to retry the SAME approved decision (LangGraph checkpoint
- *     replay), and because the new fact's `_id` is deterministic
- *     (`deriveFactId`, see below), the retry finds no active fact for the key
- *     (the old one is already retired) and simply inserts — no CAS needed,
- *     no conflict, exactly one open fact once it lands.
- *   - **A duplicate-key error is resolved deterministically, never silently.**
- *     On code 11000 this function re-reads the now-active fact for the key.
- *     If its _id matches the _id we were about to write (see ISS-020 below),
- *     the concurrent writer inserted byte-for-byte the same fact — an
- *     idempotent race, not a conflict, and this function proceeds as if its
- *     own insert had succeeded. Otherwise a different writer's fact won, and
- *     this function throws `FactConflictError` rather than overwriting it;
- *     the caller (the LangGraph node) is expected to re-derive its diff
- *     against the now-current state and retry (contract B14: outcome read
- *     back, not assumed).
- *   - **Replaying the same approved diff must be a no-op, not a duplicate.**
- *     ISS-020: a fact's Mongo `_id` is `deriveFactId(studentId, key, value,
- *     sessionId)` — a deterministic sha256 hash over a JSON-array encoding of
- *     its identity (ISS-t-003b-db-hardening-1: not a "|"-joined string, which
- *     let a delimiter character inside a field collide two different
- *     identities), not a wall-clock timestamp. Applying the identical
- *     decision twice (e.g. a LangGraph node re-running after a checkpoint
- *     restore) resolves to the same `_id` both times: the second call finds
- *     its own fact already open and neither inserts nor supersedes anything,
- *     so there is exactly one open fact and no duplicate edges afterward
- *     (`link()` is independently idempotent via `deriveEdgeId`).
+ *     (ISS-026).** The old fact is RETIRED FIRST, via a compare-and-swap
+ *     `findOneAndUpdate` filtered on `{_id: existing._id, validTo:
+ *     {$exists:false}}`, and the new fact is inserted only after that.
+ *     Inserting first would be rejected by the unique partial index, because
+ *     for a moment two facts would be open for the key.
+ *   - **A lost race is read back, never assumed (ISS-t-003b-c1-2, B14).** On
+ *     a CAS miss AND on an 11000 from the insert, this function re-reads the
+ *     active fact for the key. If its `contentHash` equals ours, an identical
+ *     write (e.g. a concurrent replay of the same decision) already landed:
+ *     that is success, and the landed doc is reported as written. If a
+ *     DIFFERENT fact is open, it throws `FactConflictError`; the caller (the
+ *     LangGraph node) re-derives its diff against the current state. If the
+ *     CAS missed and NO fact is open, the other writer is inside its own
+ *     retire->insert window (or crashed there), so this function goes on to
+ *     insert and lets the unique partial index pick exactly one winner; the
+ *     11000 rule above then settles the loser. A writer whose CAS retired the
+ *     old fact but whose insert then lost to a different value gets
+ *     `FactConflictError`; the old fact stays retired (both writers were
+ *     superseding it) and exactly one fact is open.
+ *   - **The live retire->insert window (for T-007 readers).** Between the CAS
+ *     retire and the insert, a concurrent reader sees ZERO open facts for the
+ *     key. This is inherent to retire-then-insert without transactions.
+ *     Readers must treat "no open fact" as "unknown / being updated", never as
+ *     "the student has no value", and must not write on the strength of it;
+ *     the window is one round trip long in normal operation.
+ *   - **A crash mid-write must never leave a key permanently stuck at zero
+ *     open facts.** A real process crash inside that window leaves zero open
+ *     facts. The caller is expected to retry the SAME approved decision
+ *     (LangGraph checkpoint replay): the retry finds no active fact, skips
+ *     the CAS and inserts, so the key heals to exactly one open fact.
+ *   - **Replaying the same approved diff is a no-op, not a duplicate
+ *     (ISS-020).** A replay finds the active fact's `contentHash` equal to its
+ *     own and neither inserts nor supersedes; `link()` is independently
+ *     idempotent via `deriveEdgeId`, so no duplicate edges either. The hash
+ *     is a JSON array, not a "|"-joined string (ISS-t-003b-db-hardening-1),
+ *     so a delimiter inside a field can not collide two identities. A legacy
+ *     doc with no `contentHash` never matches, so it is simply superseded.
+ *   - **A retry under a DIFFERENT sessionId is a new write (ISS-t-003b-c1-4).**
+ *     `sessionId` is part of the content hash, so re-approving the same value
+ *     in a new session is NOT a replay: the open fact is retired and a new
+ *     fact is opened with its own provenance edge (fact --sourced_from-->
+ *     the new session). The old fact keeps its edge to the old session. This
+ *     is deliberate: provenance is never silently re-pointed, and the history
+ *     shows which session re-confirmed the value.
  *   - **A multi-fact diff that fails partway must not hide what already
  *     landed (ISS-028).** Each fact in `decision.edits` is its own atomic
  *     write; if fact N fails after facts `0..N-1` succeeded, those earlier
@@ -84,7 +96,7 @@
  *     failed, instead of letting the caller see only the last error and lose
  *     track of the partial state.
  */
-import type { Db, Filter } from "mongodb";
+import { ObjectId, type Db, type Filter } from "mongodb";
 import { createHash } from "node:crypto";
 import {
   FactSchema,
@@ -126,31 +138,30 @@ function deepEqualValue(a: unknown, b: unknown): boolean {
 }
 
 /**
- * ISS-020: a fact's Mongo `_id`, derived from its identity (studentId, key,
- * canonical value, sessionId) rather than wall-clock time. Replaying the SAME
- * approved diff (same student, key, value, session) always produces the SAME
- * `_id`, which is what makes applyApprovedDiff's replay a no-op instead of a
- * duplicate open fact.
+ * D-012: a fact's CONTENT hash (studentId, key, canonical value, sessionId),
+ * stored on the doc as `contentHash`. It is NOT the `_id` (that is a fresh
+ * ObjectId per write). Replaying the SAME approved diff always produces the
+ * SAME hash, which is how applyApprovedDiff recognises a replay (or an
+ * identical concurrent write) as already applied.
  *
  * ISS-t-003b-db-hardening-1: the four fields are combined via
  * `JSON.stringify([...])`, NOT string concatenation with a "|" separator. A
- * naive `${studentId}|${key}|...` join is ambiguous — a "|" that happens to
- * sit INSIDE studentId or key can make two different (studentId, key) pairs
- * serialize to the identical joined string, e.g. ("alice|X","c") and
- * ("alice","X|c") both used to join to "alice|X|c|...". JSON array encoding
- * quotes and escapes each element independently, so the array boundary is
- * never confusable with a character inside a field.
+ * naive `${studentId}|${key}|...` join is ambiguous — ("alice|X","c") and
+ * ("alice","X|c") both joined to "alice|X|c|...". JSON array encoding quotes
+ * and escapes each element independently, so the boundary is never
+ * confusable with a character inside a field.
  */
-export function deriveFactId(studentId: string, key: string, value: unknown, sessionId: string | undefined): string {
+export function deriveContentHash(studentId: string, key: string, value: unknown, sessionId: string | undefined): string {
   const material = JSON.stringify([studentId, key, canonicalize(value), sessionId ?? null]);
   return createHash("sha256").update(material).digest("hex");
 }
 
 /**
- * Thrown by applyApprovedDiff when a duplicate-key error (code 11000, the
- * unique partial index on `facts`) turns out to be a genuine conflict — a
- * different writer's fact is now the active one for this (studentId, key),
- * not a byte-for-byte replay of ours. This package never silently picks a
+ * Thrown by applyApprovedDiff when a lost race (a CAS miss, or a duplicate-key
+ * error 11000 from the unique partial index on `facts`) turns out to be a
+ * genuine conflict — after re-reading, a different writer's fact is the
+ * active one for this (studentId, key), and its `contentHash` is not ours
+ * (D-012). This package never silently picks a
  * winner; the caller must re-read the student's current facts and retry.
  */
 export class FactConflictError extends Error {
@@ -286,17 +297,15 @@ function sourceEdgeRef(source: FactSource): EdgeRef {
  * are exactly `decision.edits`, re-validated with FactSchema (so an uncited
  * fact throws here too, even if it slipped past proposeFactChanges some other
  * way). For each written fact (see the module docstring for the full
- * ISS-019/ISS-020/ISS-026 failure-mode reasoning):
- *   - its `_id` is deterministic (`deriveFactId`), so replaying the same
- *     approved diff is a no-op, not a duplicate;
+ * ISS-019/ISS-020/ISS-026/D-012 failure-mode reasoning):
+ *   - its `_id` is fresh (ObjectId) and its `contentHash` records the
+ *     content; an open fact with the same `contentHash` means a replay, which
+ *     is a no-op;
  *   - if a different fact is currently open for this key, it is retired
- *     FIRST via a CAS `findOneAndUpdate`, and only once that CAS has matched
- *     is the new fact inserted (ISS-026: insert-before-retire made every
- *     sequential update after the first collide with the unique partial
- *     index and throw `FactConflictError`);
- *   - a duplicate-key error (the unique partial index on `facts`) is resolved
- *     deterministically: an identical concurrent insert is treated as success,
- *     a genuinely different one throws `FactConflictError`;
+ *     FIRST via a CAS `findOneAndUpdate`, then the new fact is inserted;
+ *   - a CAS miss or a duplicate-key error re-reads the active fact: a
+ *     matching `contentHash` is success, a different open fact throws
+ *     `FactConflictError`;
  *   - an edge fact --sourced_from--> {session, if `sessionId` is given;
  *     otherwise the fact's own citation target} is recorded;
  *   - an edge student --has--> fact is recorded.
@@ -332,54 +341,66 @@ export async function applyApprovedDiff(
         key: fact.key,
         validTo: { $exists: false },
       };
-      const _id = deriveFactId(diff.studentId, fact.key, fact.value, sessionId);
+      // D-012: identity (_id) and content (contentHash) are separate. The
+      // hash decides "is this write already applied?"; the _id is always fresh.
+      const contentHash = deriveContentHash(diff.studentId, fact.key, fact.value, sessionId);
       const existingBefore = await facts.findOne(activeFilter);
 
-      let doc: FactDoc;
+      let doc: FactDoc | null = null;
 
-      if (existingBefore && existingBefore._id === _id) {
-        // ISS-020: idempotent replay — the open fact for this key already IS
-        // the one we're about to write. Nothing to insert or supersede.
+      if (existingBefore && existingBefore.contentHash === contentHash) {
+        // ISS-020 / D-012: idempotent replay. The open fact for this key
+        // already carries our content. Nothing to insert or supersede.
         doc = existingBefore;
       } else {
         if (existingBefore) {
           // ISS-026: retire the OLD fact FIRST, guarded by a CAS on its own
-          // _id with validTo still unset. Only once this CAS has actually
-          // matched do we insert the new fact — inserting first (the old
-          // order) collided with the unique partial index on every update
-          // after the first, because for a moment two facts would be open
-          // for the same (studentId, key).
+          // _id with validTo still unset. Inserting first would collide with
+          // the unique partial index (two open facts for a moment).
           const retired = await facts.findOneAndUpdate(
             { _id: existingBefore._id, validTo: { $exists: false } } as Filter<FactDoc>,
             { $set: { validTo: now } },
           );
-          if (!retired) {
-            // Someone else already retired or replaced this fact between our
-            // read and our CAS — a genuine conflict, not something to guess
-            // at (contract B14: outcome read back, never assumed).
-            throw new FactConflictError(diff.studentId, fact.key);
+          if (retired) {
+            supersededKeys.push(fact.key);
+          } else {
+            // ISS-t-003b-c1-2: another writer retired it between our read and
+            // our CAS. Read the outcome back (B14) instead of assuming a
+            // conflict: our own content already open means our write landed.
+            const current = await facts.findOne(activeFilter);
+            if (current && current.contentHash === contentHash) {
+              doc = current;
+            } else if (current) {
+              throw new FactConflictError(diff.studentId, fact.key);
+            }
+            // current === null: the other writer is inside its own
+            // retire->insert window (or crashed there). Fall through to the
+            // insert; the unique partial index picks exactly one winner and
+            // the 11000 branch below applies the same contentHash rule.
           }
-          supersededKeys.push(fact.key);
         }
 
-        doc = { ...fact, _id, studentId: diff.studentId };
-        try {
-          // The unique partial index on {studentId, key} (validTo unset)
-          // rejects a concurrent writer's conflicting insert with code 11000,
-          // handled below. (If `existingBefore` was set, we've just retired
-          // it above, so this insert lands cleanly unless a THIRD writer beat
-          // us to opening a new fact for this key in the meantime.)
-          await facts.insertOne(doc);
-        } catch (err) {
-          if ((err as { code?: number } | undefined)?.code !== 11000) throw err;
-          // Someone else's open fact now exists for this key. Re-read to find
-          // out whether it's byte-for-byte ours (idempotent race) or a real
-          // conflict (contract B14: outcome read back, never assumed).
-          const winner = await facts.findOne(activeFilter);
-          if (winner && winner._id === _id) {
-            doc = winner;
-          } else {
-            throw new FactConflictError(diff.studentId, fact.key);
+        if (!doc) {
+          const candidate: FactDoc = {
+            ...fact,
+            _id: new ObjectId().toHexString(),
+            studentId: diff.studentId,
+            contentHash,
+          };
+          try {
+            await facts.insertOne(candidate);
+            doc = candidate;
+          } catch (err) {
+            if ((err as { code?: number } | undefined)?.code !== 11000) throw err;
+            // Someone else's open fact now exists for this key. Re-read: our
+            // contentHash means an identical concurrent write already landed
+            // (success); anything else is a genuine conflict (B14).
+            const winner = await facts.findOne(activeFilter);
+            if (winner && winner.contentHash === contentHash) {
+              doc = winner;
+            } else {
+              throw new FactConflictError(diff.studentId, fact.key);
+            }
           }
         }
       }
