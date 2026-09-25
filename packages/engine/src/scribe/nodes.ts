@@ -11,11 +11,13 @@ import {
   ConsentRequiredError,
   FactConflictError,
   PartialApplyError,
+  StudentFencedError,
   applyApprovedDiff,
   factsCollection,
   recordApprovedSessionSummary,
   proposeFactChanges,
   requireConsent,
+  undoApprovedSessionSummary,
 } from "@vc/db";
 import type { LlmProvider } from "@vc/providers";
 import { citationGuard } from "../guards/citation.js";
@@ -364,6 +366,18 @@ function boundedDeadlineMs(expiresAt: number | undefined): number | undefined {
  * (recordApprovedSessionSummary: never upserts, so a row the erasure already purged is not
  * recreated, and it throws, so no facts are written for an erased session either). Replays re-set
  * the same value.
+ *
+ * ISS-t-017-rev-1: recordApprovedSessionSummary's own pre/post-check can only see a fence that
+ * exists by the time ITS post-check runs. A fence confirmed strictly AFTER that (but before or
+ * during the applyApprovedDiff call right below) is invisible to it — it already returned
+ * successfully. So when applyApprovedDiff itself ends fenced (`StudentFencedError`, from either its
+ * own pre-check or its own post-check), this function also undoes the summary write by the exact
+ * `approvedAt` recordApprovedSessionSummary returned, via `undoApprovedSessionSummary` (the same
+ * match-key compensation, invoked one level up). Only with this does the full two-write approval
+ * path ever leave zero summary residue on a `fenced` outcome, whichever of the two writes actually
+ * caught the fence — closing the window `packages/db/src/facts.ts`'s module docstring and
+ * `undoApprovedSessionSummary`'s own docstring describe, and that this function's docstring and
+ * `packages/engine/src/scribe/graph.ts`'s `invokeFenceAware` docstring both now reflect accurately.
  */
 export async function writeApproved(
   rawInput: unknown,
@@ -374,7 +388,7 @@ export async function writeApproved(
   if (!input.decision.approve) {
     return ScribeResultSchema.parse({ status: "rejected" });
   }
-  await recordApprovedSessionSummary(
+  const { approvedAt: summaryApprovedAt } = await recordApprovedSessionSummary(
     deps.db,
     {
       sessionId: input.sessionId,
@@ -394,6 +408,19 @@ export async function writeApproved(
       supersededKeys: applied.supersededKeys,
     });
   } catch (err) {
+    if (err instanceof StudentFencedError) {
+      // ISS-t-017-rev-1: applyApprovedDiff caught the fence (its own pre-check or post-check) AFTER
+      // recordApprovedSessionSummary's own post-check already ran clean. Undo the summary this call
+      // wrote too, matched on its own approvedAt, so it can only ever remove THIS call's value.
+      // If the undo itself throws, that error propagates instead (never a silently-masked residue),
+      // matching compensateIfFenced's own documented contract.
+      await undoApprovedSessionSummary(deps.db, {
+        sessionId: input.sessionId,
+        studentId: input.studentId,
+        summaryApprovedAt,
+      });
+      throw err;
+    }
     if (err instanceof FactConflictError) {
       return ScribeResultSchema.parse({ status: "conflict", key: err.key, message: err.message });
     }

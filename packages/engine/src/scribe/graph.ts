@@ -349,7 +349,11 @@ async function fencedForPostCheck(db: GraphDeps["db"], studentId: string | undef
  *   graph's own checkpointer), the approval claim this call inserted (by its _id + responseHash,
  *   never another caller's) and the session row this call inserted (T-016; never a row that already
  *   existed, which the erasure purges). The facts and edges were removed by applyApprovedDiff's own
- *   post-check; the approved summary lives on the session row.
+ *   post-check. The approved summary is NOT this function's job: ISS-t-017-rev-1 — a fence landing
+ *   between recordApprovedSessionSummary's own post-check and applyApprovedDiff is invisible to
+ *   both writes taken alone, so `writeApproved` (nodes.ts) itself undoes the summary (by its
+ *   `approvedAt`) when applyApprovedDiff ends fenced, before this function ever sees the error.
+ *   By the time a `StudentFencedError` reaches this post-check, any summary residue is already gone.
  * - An aborted run may still settle later (a node or checkpoint write in flight); when it does, the
  *   post-check runs again, so a late checkpoint write of a fenced student is removed too.
  * Returns true when fenced. A run that timed out while unfenced throws FencedWriterDeadlineError

@@ -449,6 +449,49 @@ test("ISS-t-016-rev-1: a fence that appears BETWEEN the summary write and applyA
 });
 
 // ---------------------------------------------------------------------------
+// ISS-t-017-rev-1: recordApprovedSessionSummary's OWN pre/post-check can only see a fence that
+// exists by the time ITS post-check runs. A fence confirmed strictly AFTER that — during the
+// applyApprovedDiff call right after it — is invisible to either write taken alone; writeApproved
+// (nodes.ts) must close that window itself.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-017-rev-1: a fence that appears DURING applyApprovedDiff (after recordApprovedSessionSummary's own post-check already ran clean) also removes the summary, IMMEDIATELY (not just facts/edges, and not only once executeErasure runs)", async () => {
+  const h = makeHarness({ saver: "mongo" });
+  await startScribe(h.graph, baseInput(), { threadId: "thread-sum-fence-2" });
+
+  // Intercept applyApprovedDiff's FIRST fact write. By construction this runs strictly after
+  // recordApprovedSessionSummary has fully returned (writeApproved awaits it first) — including its
+  // own post-check, which by then found no fence at all (the fence does not exist yet). Confirming
+  // an erasure right here lands the fence exactly inside the window this issue is about: after the
+  // summary write's own compensation already ran clean, before/during applyApprovedDiff.
+  const realInsertOne = h.facts.insertOne.bind(h.facts);
+  let fenced = false;
+  (h.facts as unknown as { insertOne: typeof h.facts.insertOne }).insertOne = (async (
+    doc: Parameters<typeof realInsertOne>[0],
+    options?: Parameters<typeof realInsertOne>[1],
+  ) => {
+    if (!fenced) {
+      fenced = true;
+      const { requestId } = await requestErasure(h.db, { studentId: STUDENT_ID, requestedBy: "counsellor-7", reason: "student_request" });
+      await confirmErasure(h.db, { requestId, confirmedBy: "admin-2" });
+    }
+    return realInsertOne(doc, options);
+  }) as typeof h.facts.insertOne;
+
+  const outcome = await resumeScribe(h.graph, { action: "approve" }, { threadId: "thread-sum-fence-2" });
+  assert.deepEqual(outcome, { kind: "fenced" });
+
+  // IMMEDIATELY after the fenced outcome, BEFORE executeErasure runs: the summary
+  // recordApprovedSessionSummary wrote (and whose OWN post-check found clean) must already be gone
+  // too — undone by writeApproved, not left on the row for the eventual purge.
+  const row = await sessions(h).findOne({ _id: SESSION_ID });
+  assert.equal(row?.summary, undefined, "ISS-t-017-rev-1: the summary must be compensated by writeApproved, not left for the purge");
+  assert.equal(row?.summaryApprovedAt, undefined);
+  assert.equal(row?.summaryWithheldReason, undefined);
+  assert.equal(h.facts.size(), 0, "applyApprovedDiff's own post-check compensated the facts it inserted, as before");
+});
+
+// ---------------------------------------------------------------------------
 // ISS-t-016-c0-1: the run lease's window (newLease, derived from the outer writerDeadlineMs) must
 // bound the INNER write's own deadline too — a caller-shortened writerDeadlineMs must shorten the
 // driver-level timeoutMS the write's own operations receive, not just the lease's window.

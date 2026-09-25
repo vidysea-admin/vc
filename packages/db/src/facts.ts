@@ -115,7 +115,12 @@
  *     A writer that ran past its deadline keeps nothing either and throws
  *     `FencedWriterDeadlineError`. See src/erasure.ts "The erasure fence" for
  *     why the pre-check, the deadline, the post-check and the fence's minimum
- *     hold together close the race.
+ *     hold together close the race for THIS function's own writes (facts +
+ *     edges). It says nothing about `recordApprovedSessionSummary`'s sibling
+ *     write below — ISS-t-017-rev-1: a fence landing between the two calls of
+ *     one approval is closed one level up, by the caller (writeApproved,
+ *     nodes.ts), not by either write alone; see `undoApprovedSessionSummary`'s
+ *     own docstring.
  *   - **"The edges it CREATED" is enforced by ownership, not just by which ids
  *     were recorded (ISS-t-011-c3-rev-1).** Edge ids are deterministic
  *     (`deriveEdgeId`), so a `link()` call whose own outcome is AMBIGUOUS (it
@@ -658,6 +663,16 @@ export interface RecordApprovedSessionSummaryOptions {
   deadlineMs?: number;
 }
 
+export interface RecordApprovedSessionSummaryResult {
+  /**
+   * ISS-t-017-rev-1: the exact `summaryApprovedAt` this call stamped. The caller (writeApproved,
+   * nodes.ts) keeps it so that if its NEXT write (applyApprovedDiff) ends fenced, it can call
+   * `undoApprovedSessionSummary` with this same value — the only way to close the window this
+   * function's OWN pre/post-check can not see (below).
+   */
+  approvedAt: string;
+}
+
 /**
  * ISS-t-007-rev-7: stores the counsellor-approved summary on the session row (B3: called only after
  * an approve/edit decision). `summary` is "" with `summaryWithheldReason` set when the model's text was
@@ -678,12 +693,26 @@ export interface RecordApprovedSessionSummaryOptions {
  *   - a post-check (compensateIfFenced), in a `finally`-equivalent (always runs, success or
  *     failure), unsets exactly `summary` / `summaryApprovedAt` / `summaryWithheldReason` when the
  *     student is fenced now, and throws StudentFencedError.
+ *
+ * ISS-t-017-rev-1 (what this function's OWN fence-awareness does NOT cover, by construction): its
+ * post-check can only see a fence that exists by the time IT runs — a fence confirmed strictly AFTER
+ * this post-check completes clean, but before or during the NEXT write in the same approval
+ * (applyApprovedDiff), is invisible to this function; it has already returned successfully. This
+ * function can not close that window itself (it does not know whether a sibling write is coming).
+ * The caller does: writeApproved (nodes.ts) keeps this result's `approvedAt` and, if
+ * applyApprovedDiff subsequently ends fenced (`StudentFencedError`), calls
+ * `undoApprovedSessionSummary` with it — the SAME match-key undo this function's own post-check
+ * would have run, just invoked one level up. Only with that caller-side step is the full
+ * recordApprovedSessionSummary-then-applyApprovedDiff path actually free of summary residue; see
+ * `packages/db/tests/db-scope.test.ts`'s FENCE_AWARE_WRITERS entry for this file, and
+ * `packages/engine/src/scribe/graph.ts`'s `invokeFenceAware` docstring, for the two other places
+ * that describe this same, now-closed, cross-write window.
  */
 export async function recordApprovedSessionSummary(
   db: Db,
   input: { sessionId: string; studentId: string; summary: string; summaryWithheldReason?: string },
   options: RecordApprovedSessionSummaryOptions = {},
-): Promise<void> {
+): Promise<RecordApprovedSessionSummaryResult> {
   requireNonEmpty({ sessionId: input.sessionId, studentId: input.studentId }, "recordApprovedSessionSummary");
 
   // D-016: the writer deadline starts BEFORE the fence pre-check (the hold is measured from it),
@@ -707,12 +736,7 @@ export async function recordApprovedSessionSummary(
   // separate "did we write" flag is needed, matching applyApprovedDiff's own undo-by-id, which is
   // equally harmless against an insert that never happened.
   const approvedAt = new Date().toISOString();
-  const undo = async () => {
-    await sessionsCollection(db).updateOne(
-      { _id: input.sessionId, studentId: input.studentId, summaryApprovedAt: approvedAt },
-      { $unset: { summary: "", summaryApprovedAt: "", summaryWithheldReason: "" } },
-    );
-  };
+  const undo = () => undoApprovedSessionSummary(db, { sessionId: input.sessionId, studentId: input.studentId, summaryApprovedAt: approvedAt });
 
   const work = sessionsCollection(db).updateOne(
     { _id: input.sessionId, studentId: input.studentId },
@@ -755,4 +779,35 @@ export async function recordApprovedSessionSummary(
   });
   if (timedOut) throw new FencedWriterDeadlineError(settled, { cause: failure!.err });
   if (failure) throw failure.err;
+  return { approvedAt };
+}
+
+export interface UndoApprovedSessionSummaryInput {
+  sessionId: string;
+  studentId: string;
+  /**
+   * The exact `summaryApprovedAt` value the write being undone stamped (the
+   * `RecordApprovedSessionSummaryResult.approvedAt` that call returned). The match key, so this can
+   * only ever unset that ONE call's own fields — a later legitimate write (its own fresh timestamp)
+   * is never touched, exactly like recordApprovedSessionSummary's own internal `undo`.
+   */
+  summaryApprovedAt: string;
+}
+
+/**
+ * ISS-t-017-rev-1: the same match-key compensation recordApprovedSessionSummary's own post-check
+ * runs, exported so a caller can invoke it after the fact. recordApprovedSessionSummary's own
+ * fence-awareness only covers a fence that exists by the time ITS post-check runs; it can not see
+ * one confirmed after it has already returned successfully. writeApproved (nodes.ts) is such a
+ * caller: when its NEXT write in the same approval, applyApprovedDiff, ends fenced
+ * (`StudentFencedError`), it calls this with the `approvedAt` `recordApprovedSessionSummary`
+ * returned, so the two writes of one approval are compensated together and a `fenced` outcome never
+ * leaves summary residue for executeErasure to find, whichever of the two writes actually caught
+ * the fence.
+ */
+export async function undoApprovedSessionSummary(db: Db, input: UndoApprovedSessionSummaryInput): Promise<void> {
+  await sessionsCollection(db).updateOne(
+    { _id: input.sessionId, studentId: input.studentId, summaryApprovedAt: input.summaryApprovedAt },
+    { $unset: { summary: "", summaryApprovedAt: "", summaryWithheldReason: "" } },
+  );
 }
