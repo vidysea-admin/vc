@@ -6,7 +6,8 @@
 **Fix cycle:** 2
 **Fix cycle budget:** 2 of max 3 (cycle-1 PASS overridden: data-engineer + senior Block, ISS-t-003b-c1-1 critical, -2 high)
 **Design:** D-012 (fact identity separate from content: fresh `_id`, `contentHash` for idempotency) + D-013 (open facts flagged `active: true`; partial unique index `{active: true}`)
-**Unit diff range (cycle 2, extended for D-013):** `1dd38b0..HEAD`. `1dd38b0` = "qa: reopen t-003b fix cycle 2". It includes `4c4878c` (D-012 fix), `1242b3b` (merge main, which brings in D-013) and the D-013 fix commit at HEAD.
+**Unit diff range (cycle 2, extended for D-013 + mcp alignment):** `1dd38b0..HEAD`. `1dd38b0` = "qa: reopen t-003b fix cycle 2". It includes `4c4878c` (D-012 fix), `1242b3b` (merge main, which brings in D-013), `958883a` (D-013 fix in packages/db) and the mcp/student-profile D-013 alignment commit at HEAD.
+**Scope (widened by the coordinator for the D-013 alignment):** `packages/db/**`, `mcp/student-profile/**`, this manifest.
 **Dual check:** no
 **Issues addressed this cycle:** ISS-t-003b-c1-1 (critical), ISS-t-003b-c1-2 (high), ISS-t-003b-c1-3, ISS-t-003b-c1-4, and the D-013 index fix (partialFilterExpression `$exists:false` is uncreatable)
 **Prior issues, unchanged this cycle (regression-covered):** ISS-018..ISS-021, ISS-026..ISS-028, ISS-t-003b-db-hardening-1, ISS-t-003-student-kg-1
@@ -115,23 +116,40 @@ RED sequence in `packages/db`:
 | proposeFactChanges `active === true` | `validTo === undefined` | fail=1 (proposeFactChanges D-013 test) |
 | RESTORED | | `tests=70 pass=70 fail=0` |
 
-**Out of scope (mcp/, not edited per brief). These still use the old "open = no validTo" rule:**
-- `mcp/student-profile/src/index.ts:108`: `get_profile_facts` query filter `validTo: { $exists: false }`. This is a query, not an index, so the server accepts it. It is inconsistent with D-013 and should become `active: true`. As written it would also return legacy docs with no `active` field.
-- `mcp/student-profile/src/index.ts:154`: a comment ("proposeFactChanges itself filters to the active ones, no validTo") that D-013 makes stale.
-- `mcp/student-profile/tests/index.test.ts`: `seedFact` fixtures at lines 97, 109, 134, 173, 304, 358, 413 and 469 seed OPEN facts without `active: true`. Under D-013, `proposeFactChanges` treats them as history. **Two mcp tests now fail as a result**:
-  - `B3 propose_profile_diff writes nothing…`: its `['add','add']` does not equal the expected `['add','update']`.
-  - `ISS-029: the legitimate path…` (`index.test.ts:505`): `'add' !== 'update'`.
-  - The fix is to add `active: true` to the open-fact seeds (and change line 108), in the mcp/student-profile unit.
-- `mcp/student-profile/tests/fakes.ts:16-18` and `mcp/university-kb/tests/fakes.ts:16-18`: `$exists` handling in the fake query matcher. This is valid for queries and needs no change, but those fakes have no partial-filter validator.
+## mcp/student-profile D-013 alignment (scope widened by the coordinator)
+
+**What changed:**
+- `mcp/student-profile/src/index.ts`, `get_profile_facts`:
+  - The open-fact filter is `active: true` (it was `validTo: { $exists: false }`, formerly line 108).
+  - The tool description now says "open, i.e. active: true".
+- `mcp/student-profile/src/index.ts`, `propose_profile_diff`: the stale comment (formerly line 154) now says `proposeFactChanges` diffs only against `active: true` facts, so a retired or legacy doc is never used as `before`.
+- `mcp/student-profile/tests/index.test.ts`:
+  - `FactRow` gains `active?: true`.
+  - All 8 open-fact `seedFact` calls carry `active: true`. The retired `f3` (the one with `validTo`) is unchanged.
+  - New test: "D-013: a legacy open fact with no `active` field is NOT returned by get_profile_facts and is NOT used as `before` in propose_profile_diff".
+- After this change, no `$exists: false` remains in mcp/, apps/ or packages/engine. In packages/db it appears only in comments and in the validator's rejection tests.
+
+**RED → GREEN:**
+1. Fixtures updated and the new test added, before the source fix: `mcp/student-profile` had 12 tests, 11 pass, 1 fail. The failing test was the new legacy test, with `a doc without active:true is not an open fact`, because `get_profile_facts` returned the legacy doc. The 2 earlier fixture failures (B3 writes-nothing, ISS-029 legitimate path) were already green.
+2. After the `index.ts` filter fix: 12 tests, 12 pass, 0 fail. The ISS-029 consent tests (4) and the B4 consent test stay green.
+
+**Falsification (reverted by script, restored):**
+
+| Change | Revert | Observed RED |
+|---|---|---|
+| get_profile_facts `active: true` | `validTo: {$exists: false}` | fail=1: the legacy test (`a doc without active:true is not an open fact`) |
+| get_profile_facts open-fact filter | removed entirely | fail=2: the legacy test, and "purpose filter: … superseded facts excluded" |
+| proposeFactChanges `active === true` (packages/db) | `validTo === undefined` | fail=1: the legacy test (`the legacy value must never surface as before`) |
+| RESTORED | | `tests=12 pass=12 fail=0` |
 
 ## How to verify (commands + expected)
 
 - `pnpm -r typecheck` → exit 0, all 9 workspaces "Done"
-- `pnpm -r test` → `packages/db test: ℹ tests 70 / pass 70 / fail 0`. **Exit 1** because of the 2 out-of-scope `mcp/student-profile` fixture failures listed above. Every other workspace is green.
+- `pnpm -r test` → exit 0; `packages/db` 70/70, `mcp/student-profile` 12/12, and every other workspace green
 - `python contracts/verify_contracts.py` → exit 0, PASS by vacuity
-- `git diff --stat 1dd38b0..HEAD -- . ':!docs/DECISIONS.md'` → only `packages/db/**` and this manifest (docs/DECISIONS.md changes come only from the `merge main` of D-013); `pnpm-lock.yaml` is untouched
+- `git diff --stat 1dd38b0..HEAD -- . ':!docs/DECISIONS.md'` → only `packages/db/**`, `mcp/student-profile/**` and this manifest (the only `docs/DECISIONS.md` change comes from the merge of main that brought in D-013); `pnpm-lock.yaml` is untouched
 
-## Actual outputs (maker's own run, cycle 2 + D-013)
+## Actual outputs (maker's own run, cycle 2 + D-013 + mcp alignment)
 
 ```
 $ pnpm -r typecheck            (exit 0)
@@ -142,10 +160,10 @@ packages/observability typecheck: Done
 packages/schemas typecheck: Done
 packages/engine typecheck: Done
 packages/db typecheck: Done
-mcp/student-profile typecheck: Done
 mcp/university-kb typecheck: Done
+mcp/student-profile typecheck: Done
 
-$ pnpm -r test                 (exit 1: mcp/student-profile, out of scope, see above)
+$ pnpm -r test                 (exit 0)
 apps/web            ℹ tests 1  pass 1  fail 0
 apps/api            ℹ tests 1  pass 1  fail 0
 packages/providers  ℹ tests 1  pass 1  fail 0
@@ -154,9 +172,7 @@ packages/observability ℹ tests 43 pass 43 fail 0
 packages/engine     ℹ tests 31 pass 31 fail 0
 packages/db         ℹ tests 70 pass 70 fail 0
 mcp/university-kb   ℹ tests 9  pass 9  fail 0
-mcp/student-profile ℹ tests 11 pass 9  fail 2
-  ✖ B3 propose_profile_diff writes nothing: the facts collection is unchanged after the call, read back directly
-  ✖ ISS-029: the legitimate path (consented purpose, fact tagged with that purpose) still produces a correct update diff
+mcp/student-profile ℹ tests 12 pass 12 fail 0
 
 $ python contracts/verify_contracts.py   (exit 0)
 verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity

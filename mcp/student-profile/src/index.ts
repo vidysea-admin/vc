@@ -86,7 +86,7 @@ export function createStudentProfileServer(deps: StudentProfileServerDeps): McpS
     {
       title: "Get profile facts",
       description:
-        "Returns the student's current (open, i.e. no validTo) facts whose purposeTags include the given purpose. " +
+        "Returns the student's current (open, i.e. active: true) facts whose purposeTags include the given purpose. " +
         "Requires a recorded consent row covering that purpose (contract B4) -- with no consent, this returns a " +
         "tool error and zero facts, never partial data.",
       inputSchema: {
@@ -105,7 +105,10 @@ export function createStudentProfileServer(deps: StudentProfileServerDeps): McpS
 
       const filter: Filter<FactDoc> = {
         studentId,
-        validTo: { $exists: false },
+        // D-013: an open fact is flagged `active: true` (retiring it unsets the
+        // flag and sets validTo in one update). A doc with neither flag nor
+        // validTo is legacy history and is never returned as current.
+        active: true,
         // Mongo matches an array field against a scalar by element membership
         // -- this returns only facts whose purposeTags array contains `purpose`.
         purposeTags: purpose,
@@ -149,9 +152,10 @@ export function createStudentProfileServer(deps: StudentProfileServerDeps): McpS
 
       // Only facts whose purposeTags include the consented purpose are ever
       // loaded -- a fact tagged with a different purpose is never fetched, so
-      // it can never leak into `before` (ISS-029). Both active and superseded
-      // rows are fetched (proposeFactChanges itself filters to the active
-      // ones, no validTo, before diffing).
+      // it can never leak into `before` (ISS-029). Both open and superseded
+      // rows are fetched; proposeFactChanges itself diffs only against the
+      // open ones, i.e. `active: true` (D-013), so a retired or legacy doc is
+      // never used as `before`.
       const existingFacts = await factsCollection(db).find({ studentId, purposeTags: purpose }).toArray();
 
       const diff = proposeFactChanges({
