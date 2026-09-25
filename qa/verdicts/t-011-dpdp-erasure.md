@@ -1,220 +1,163 @@
 # Verdict — t-011-dpdp-erasure
 
 **Verdict:** FAIL
-**Cycle checked:** 1
+**Cycle checked:** 2
 **Unit:** T-011 (DPDP erasure and export)
 **Contract:** B15 above all, plus B4, B8, B11, B12, B14
-**Diff range checked:** `1d7facb..7ae8fc8` (single commit `7ae8fc8`, "fix(db): t-011 cycle 1 — stable-loop purge (no orphan edges under concurrent writers), checked final CAS")
+**Diff range checked:** `58a38f6..ee89337` (single commit `ee89337`, "fix(db,engine): t-011 cycle 2 — erasure fence + post-write compensation (D-015)")
 **Manifest read:** `qa/manifests/t-011-dpdp-erasure.md`
-**In scope this cycle:** ISS-t-011-c0-1 (unchecked final CAS under concurrent `executeErasure`), ISS-t-011-rev-3 (orphan edges under a concurrent writer — round-based purge fix)
+**Design:** D-015 (`docs/DECISIONS.md`), gate `qa/gates/erasure-fencing.md`
+**In scope this cycle:** ISS-t-011-c1-1 (a write landing after its own collection's read-back count), ISS-t-011-c1-rev-1 (a write landing between the final read-back and the completion CAS); lows ISS-t-011-c1-rev-2, ISS-t-011-c1-rev-3
 
 ## 1. Verification commands re-run (worktree `D:\vc\.worktrees\t-011-dpdp-erasure`)
 
 ```
 $ pnpm install
-Scope: all 10 workspace projects
-Lockfile is up to date, resolution step is skipped
-Already up to date (exit 0)
+Lockfile is up to date, resolution step is skipped. Already up to date. Done in 477ms (exit 0)
 
 $ pnpm -r typecheck
-apps/api, apps/web, packages/observability, packages/providers, packages/schemas,
-packages/db, mcp/student-profile, mcp/university-kb, packages/engine — all "typecheck: Done"
-(exit 0, 9/9 clean)
+apps/api, apps/web, packages/observability, packages/providers, packages/schemas, packages/db,
+mcp/student-profile, mcp/university-kb, packages/engine — all "typecheck: Done" (exit 0, 9/9 clean)
 
 $ pnpm -r test
-apps/api 1/1 · apps/web 1/1 · packages/providers 8/8 · packages/schemas 50/50 ·
-packages/observability 57/57 · packages/db 99/99 · mcp/university-kb 9/9 ·
-mcp/student-profile 12/12 · packages/engine 67/67
-TOTAL 304/304, 0 fail (exit 0) — matches the manifest's claimed counts exactly.
+apps/web 1/1 · apps/api 1/1 · packages/providers 8/8 · packages/schemas 50/50 ·
+packages/observability 57/57 · packages/db 119/119 · mcp/student-profile 12/12 ·
+mcp/university-kb 9/9 · packages/engine 102/102
+TOTAL 359/359, 0 fail (exit 0) — matches the manifest's claimed counts exactly.
 
 $ python contracts/verify_contracts.py
 verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity (exit 0)
 ```
 
+Diff scope confirmed: `packages/engine/src/scribe/nodes.ts` is untouched in `58a38f6..ee89337`
+(empty `git diff --stat`), matching the manifest's claim that T-013 owns it.
+
 ## 2. Method
 
-Read `src/erasure.ts` in full (the cycle-1 diff: the round-based purge loop, `mergeSelectors`,
-`ERASURE_MAX_ROUNDS`, `carriedSelectors`, and the checked CAS retry loop in `executeErasure`),
-`tests/fakes.ts` (confirmed `findOne`/`find` now return copies — fixed for cycle 1), and the
-maker's 5 new cycle-1 tests in `tests/erasure.test.ts`.
-
-I then wrote my own hostile probe suite, structurally independent of the maker's tests, in
-`packages/db/tests/zz-checker-scratch.test.ts` (drafted at
-`C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\4028b141-b4f9-4793-84a0-f900414a84fb\scratchpad\t011-hostile-c1.test.ts`,
+Read `src/erasure.ts` in full (the fence section, `executeErasure`'s CAS + release ordering),
+`src/facts.ts`'s `applyApprovedDiff` (pre-check, tracked ids, post-write `compensateIfFenced`),
+`packages/engine/src/scribe/graph.ts` (`invokeFenceAware`, `startScribe`/`resumeScribe` pre-checks),
+`src/consent.ts` (`requireConsent`'s fence check), D-015 and gate `erasure-fencing.md`. Then wrote
+my own hostile probe suites, structurally independent of the maker's tests, in
+`packages/db/tests/zz-checker-scratch.test.ts` (10 probes) and
+`packages/engine/tests/zz-checker-scratch.test.ts` (2 probes), drafted at
+`C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\4028b141-b4f9-4793-84a0-f900414a84fb\scratchpad\t011-hostile-c2-{db,engine}.test.ts`,
 run via `npx tsx --test tests/zz-checker-scratch.test.ts` inside the real pnpm workspace, then
-**deleted** before this commit — `git status --short` confirmed clean). Two additional one-off
-debug repros (`zz-debug-h4.test.ts`, `zz-debug-h4b.test.ts`) were written, run, and also deleted.
-12 probes (H1–H10c), covering:
+**deleted** before this commit (`git status --short` confirmed clean). A standalone permanence
+repro (`zz-ckr2-permanence.mjs`) was also written, run and deleted the same way.
 
-- **H1–H3:** a concurrent writer injected before phase 1 (at the first `resolveSelectors` read),
-  between phase 1 and phase 2, and mid-phase-2 (between the `facts` anchor delete and the
-  `sessions` anchor delete) — new facts, new sessions, new checkpoints, and an edge pointing at a
-  fact already deleted this round.
-- **H4:** a concurrent writer injected **during the read-back itself** (see §3 — this is where the
-  FAIL comes from).
-- **H5:** an unstoppable writer — bounded-loop and clean-retry-after-stop.
-- **H6–H8:** concurrent `executeErasure`, 2 calls (success), 5 calls (success), 5 calls (all
-  failing).
-- **H9:** privacy of the completed row after a prior failed attempt had set `carriedSelectors`.
-- **H10a–c:** regression — unconfirmed-deletes-nothing, self-confirm refusal, shared-external-
-  target isolation.
+## 3. Item 2 — cycle-1 probes re-run with the REAL fence-aware writers
 
-11/12 probes passed outright, confirming both in-scope fixes work correctly (see §4–5). **H4
-failed**, and I reproduced it twice more, independently, with full diagnostic output (§3).
+- **CKR2-1** (db, own injection point — `scribe_resolutions.countDocuments`, not the maker's
+  `students.countDocuments`): a REAL `applyApprovedDiff` writer paused right before its
+  `facts.insertOne`, released mid read-back. Result: `StudentFencedError`, zero residue for the
+  student (full JSON scan of every fake collection), zero orphan fact→edge, the other student's
+  data untouched. **PASS.**
+- **CKR2-ENG-1** (engine, own injection point — `students.countDocuments`, the LAST step in
+  `ERASURE_PLAN`, vs. the manifest's `scribe_resolutions.countDocuments`): a REAL `resumeScribe`
+  paused inside `applyApprovedDiff`, released mid read-back of a real `executeErasure`. Result:
+  `{kind:'fenced'}`, `receipt.verified:true`, zero residue across every engine collection, the
+  MemorySaver holds nothing for the thread, fence released on completion. **PASS.**
+- **Falsification (mutate → red → restore):** disabled the post-write `compensateIfFenced` call in
+  `packages/db/src/facts.ts` (`if (false) await compensateIfFenced(...)`), re-ran CKR2-1: it goes
+  **red** (the writer is no longer refused; the hook's own assertion throws). Restored the file and
+  confirmed byte-identical with `cmp`; the full 359-test suite is green again afterward. Confirms
+  the probe is load-bearing, not a tautology.
 
-## 3. THE BUG — a writer racing the read-back itself defeats verification (H4)
+Both in-scope H4/H4b-class races (ISS-t-011-c1-1, ISS-t-011-c1-rev-1) are genuinely closed for the
+timing window D-015 targets — see the `qa/issues.jsonl` updates. **This part of cycle 2 is correct.**
 
-**This is the reason for the FAIL.** The brief explicitly asked to inject a concurrent writer
-"during the read-back" as one of four required injection points. I did, and found a structural
-gap the round-based purge fix does not close.
+## 4. Item 3 — THE KEY PROBE (grace-0 residual)
 
-### Root cause
+**Construction.** A writer's own pre-check (`assertStudentNotFenced`) refuses immediately once a
+fence exists, so the only way a real writer's insert can ever land at all is for its pre-check to
+pass before the fence is set (the standard `pausedWriter` pattern the maker's own tests use). I
+therefore: paused a REAL `applyApprovedDiff` writer right before its `facts.insertOne` (pre-check
+already passed); confirmed the erasure (fence now set); hooked `erasure_fences.deleteMany` — the
+exact call `releaseErasureFence` makes at grace 0 — so that **after** the real fence deletion
+completes, the paused writer is released and its write + post-check (`compensateIfFenced`) run.
+This directly targets the boundary the brief asked for: a real writer inserting after the final
+read-back, whose post-check is scheduled to run only after the fence's own release.
 
-`executeErasure`'s per-round read-back (`src/erasure.ts:462–489`) is **not atomic**: it is a
-sequential loop over the 9 `ERASURE_PLAN` steps, each doing its own `await
-db.collection(...).countDocuments(...)`. `totalRemaining` is the sum of all 9 counts, computed
-**after the loop finishes**. If a writer inserts a new document for the student into a collection
-**after that collection's own count has already run in this round**, but the round as a whole
-hasn't finished yet, that new document is invisible to `totalRemaining` for this round. If every
-*other* collection was already clean, `totalRemaining === 0`, so the loop breaks (line 488),
-`verified = true` is computed, and the CAS commits `status: "completed"` with `studentId` and
-`carriedSelectors` **unset**. The new document is now permanently unfindable by any future
-erasure — there is no further round (the loop already exited) and no retry path (the request is
-`completed`, and a later `executeErasure` call on it just returns `alreadyCompleted: true` with
-the same stale, wrong receipt forever).
-
-This is a real race window, not a fake-only artifact: `countDocuments` is a genuine network round
-trip against the real driver, so the gap between two sequential `countDocuments` calls in
-production is exactly the kind of window a concurrent writer (another counsellor session, a
-resuming scribe thread) can land in.
-
-### Reproduction 1 (fact + edge, `H4` in the probe file)
-
-Hooked `students.countDocuments` (the **last** step in `ERASURE_PLAN`, so every other collection's
-residue — including `facts` and `edges` — has already been counted clean earlier in the same
-loop). Inside the hook, after computing the real count, seeded a brand-new fact (`studentId:
-"stu-A"`) and its `sourced_from` edge, then returned the real (pre-injection) count.
-
-Result (`zz-debug-h4.test.ts`, full output captured):
+**Result** (probe `CKR2-KEY`, and a standalone permanence repro):
 ```
-receipt.verified: true
-receipt.totalRemaining: 0
-row.status: "completed"
+out (executeErasure):        { status: 'completed', receipt.verified: true }
+writer (applyApprovedDiff):  { ok: true }  -- NOT StudentFencedError
+survivedDocs:                facts:<id>, edges:fact-><id>->sourced_from->session, edges:student->has-><id>
+fenceGoneWhenWriterChecked:  true
 ```
-but:
-```
-facts remaining: [ { _id: 'stu-A-late-h4', studentId: 'stu-A', key: 'h4late', ... } ]
-edges remaining: [ { _id: 'fact:stu-A-late-h4->sourced_from->transcript_turn:t-h4', ... } ]
-```
-The fact and its edge are real documents belonging to `stu-A`, sitting in the database, after a
-request that reports `verified: true, totalRemaining: 0, status: completed`.
+A second `executeErasure(db, requestId)` call on the same, now-`completed` request returns
+`alreadyCompleted:true` with the identical stale receipt (`totalRemaining:0`) — it does **not**
+re-scan. The row's `studentId` and `carriedSelectors` are already unset. The orphaned fact and its
+2 edges are permanently unreachable by any future retry of this request; only a **brand-new**
+erasure request for the same student would ever find them again.
 
-### Reproduction 2 (session + checkpoint + edge, `zz-debug-h4b.test.ts`)
+**Ruling on item 3's question.** Yes — a non-zero technical grace period, at least as long as the
+slowest fence-aware writer can realistically take, is **required for correctness**, independent of
+the re-enrolment policy question gate `erasure-fencing.md` Q1 asks. Q1 frames grace length as a
+re-enrolment/UX tradeoff; this probe shows grace also does load-bearing correctness work (closing
+the release-boundary race). D-015's own closure argument ("W's post-check runs while the fence
+exists → W removes its own writes; W's post-check ran before the fence → the purge deletes it")
+implicitly assumes every writer's post-check runs before the fence is released — grace 0 does not
+guarantee that, and the receipt actively misreports the outcome (`verified:true` over real
+residue) with no automated recovery path once `completed` discards the retry key. The maker
+already documents this exact mechanism honestly (manifest "Fix cycle 2 → Residuals → Grace 0",
+D-015's own comments in `src/erasure.ts`), which is why this is a FAIL rather than an
+undisclosed-defect finding — but it is shipped as the **default**, not an opt-in, and it
+contradicts contract B15's stated guarantee ("a verification pass … proves zero documents remain
+for that student") under a realistic, not contrived, timing window (this is exactly the kind of
+race a real MongoDB deployment's per-operation round trips create). Filed as **ISS-t-011-c2-1**
+(high).
 
-Same technique, hooked `scribe_resolutions.countDocuments` (runs right after `sessions`' own
-residue check) to inject a new session row, a scribe checkpoint, and a session-kind edge. Same
-result: `verified: true`, `totalRemaining: 0`, `status: "completed"`, and the late session,
-checkpoint and edge all survive, confirmed by direct collection reads after the call returns.
+## 5. Item 4 — the fence must not overreach
 
-### Why this is worse than ISS-t-011-c0-1 or the original ISS-t-011-rev-3
+- **CKR2-4a:** while A is fenced and mid-purge, a normal write for B (`applyApprovedDiff`)
+  succeeds and survives A's erasure untouched (fact + 2 edges intact); A is fully erased. **PASS.**
+- **CKR2-4b:** with `fenceGraceMs: 60_000`, the fence lingers past completion; `isStudentFenced`
+  correctly reports fenced within the window and unfenced once the clock passes it;
+  `releaseExpiredErasureFences` physically sweeps it. **PASS.**
+- **CKR2-4c:** a fence-release failure (`erasure_fences.deleteMany` throws) does **not** fail a
+  verified erasure (`status:'completed'`, `verified:true`), and fails safe — the fence lingers so
+  writes stay refused (`assertStudentNotFenced` still throws). **PASS.**
+- **CKR2-4d:** `requireConsent` on a fenced student throws `ConsentRequiredError` with the exact
+  same `CONSENT_REQUIRED_MESSAGE` as every other refusal (ISS-043) — no leak that an erasure is
+  running. **PASS.**
 
-Both prior issues left the request in a **retryable** state (`failed`, `studentId` kept) when
-something went wrong — the system was honest about not having finished. This bug is the opposite:
-it reports success, unsets the only fields (`studentId`, `carriedSelectors`) a retry would need,
-and the orphaned document is real personal data (a fact, or a session plus its scribe checkpoint
-and an edge) that DPDP requires be erased. It directly falsifies the contract's stated guarantee
-(B15): "a verification pass reads back every collection and proves zero documents remain for that
-student."
+## 6. Item 5 — regression (cycle 0 / cycle 1)
 
-### Suggested fix (for the maker to implement, not mine to make)
+- **CKR2-REG-1:** an unconfirmed request deletes nothing — full byte-identical snapshot before and
+  after (`ErasureNotConfirmedError`). **PASS.**
+- **CKR2-REG-2:** self-confirm refused across exact/padded/upper-cased variants. **PASS.**
+- **CKR2-REG-3:** two concurrent `executeErasure` calls on one request — exactly one recorded
+  attempt, both callers' receipts deep-equal the persisted row, `alreadyCompleted` is
+  `[false,true]` (checked CAS, ISS-t-011-c0-1). **PASS.**
+- **CKR2-REG-4:** a REAL `applyApprovedDiff` writer injected at the start of phase 2 (round-based
+  purge, ISS-t-011-rev-3) — whichever way it resolves (fenced, or picked up by the round loop), the
+  erasure ends `verified:true` with zero residue and zero orphan fact→edges, B untouched. **PASS.**
 
-The per-round read-back needs to be treated as unreliable by construction, the same way the
-delete phases already are. Options include: (a) after the loop computes `totalRemaining === 0`,
-re-resolve selectors fresh and run one more **full** read-back pass before committing
-`completed`; only commit if *that* pass is also clean, otherwise treat it as residue and run
-another round (bounded by the existing `ERASURE_MAX_ROUNDS`); or (b) collapse the 9 sequential
-`countDocuments` calls into fewer round trips / a tighter time window and accept a documented,
-much smaller residual race, with a scheduled reconciliation sweep as the backstop. Either way, a
-single monotonic "if every count so far is zero, we're done" is not enough when documents can be
-written into an already-counted collection before the round is declared clean.
-
-Filed as **`ISS-t-011-c1-1`** (high) in `qa/issues.jsonl`.
-
-## 4. ISS-t-011-rev-3 (orphan edges under a concurrent writer) — the round-based purge fix ITSELF is correct
-
-Independently re-verified, distinct from the maker's 3 rev-3 tests, with H1 (writer before phase
-1), H2 (writer between phases, new session), H3 (writer mid-phase-2, edge for a fact just deleted
-this round plus a new session), and H5 (an unstoppable writer: bounded to `n` between 2 and 10
-rounds as required, ends `failed` with `studentId` kept and `carriedSelectors` set, then a clean
-retry after the writer stops reaches `verified: true` with zero orphan edges and a full identifier
-scan of `[]`). All four passed, and B was untouched throughout every one (`docsMentioning(fakeDb,
-identifiers(b)).length > 15` held in every probe). **The specific mechanism (anchors deleted by
-resolved id, ids accumulated across rounds, `carriedSelectors` on a failed row) is sound** — the
-gap is elsewhere, in the read-back's non-atomicity (§3), which is a different failure mode from
-the one rev-3 described (orphans surviving a *delete* race) and was not in the original rev-3
-scope.
-
-## 5. ISS-t-011-c0-1 / ISS-t-011-rev-1 (unchecked final CAS) — VERIFIED FIXED
-
-- **H6 (2 concurrent, success):** both receipts deep-equal the persisted row's receipt,
-  `row.attempts === 1`, `alreadyCompleted` is exactly one `false` and one `true`. PASS.
-- **H7 (5 concurrent, success — a stronger version of the maker's 2-call test):** all 5 returned
-  receipts deep-equal the persisted row's receipt, `row.attempts === 1` (not 5 — only the true
-  winner records), exactly 1 of 5 `alreadyCompleted: false`. PASS.
-- **H8 (5 concurrent, all failing — `scribe_checkpoints.deleteMany` stubbed to a silent no-op):**
-  each of the 5 calls records its own attempt; attempts observed across the 5 rejections are
-  exactly `{1,2,3,4,5}` (some serialization order — the real driver would serialize these CAS
-  writes similarly), the final row's `attempts === 5` and its `receipt` deep-equals the attempt-5
-  receipt, and `studentId` + `carriedSelectors` are retained for a future retry. PASS.
-- **H9:** after a failed attempt sets `carriedSelectors`, a subsequent successful completion
-  unsets **both** `studentId` and `carriedSelectors`, and the completed row's JSON contains none of
-  the student's identifiers. PASS.
-
-The CAS-check fix itself is correct and matches the manifest's claims. This is not the reason for
-the FAIL.
-
-## 6. Regression (H10a–c)
-
-- **H10a:** an unconfirmed request — full before/after snapshot of every collection (except the
-  audit log) is byte-identical. PASS.
-- **H10b:** self-confirm refused under exact / padded / upper-cased forms of the requester's own
-  id. PASS.
-- **H10c:** two students each have an edge to the **same** external `kb_record` id
-  (`kb-shared`); after erasing A, A's edge is gone and B's identically-shaped edge to the same
-  target survives untouched — confirms the edge filter's kind+id qualification, not incidental
-  non-overlap. PASS.
-
-No regression in any previously-verified behavior (confirm gate, isolation, partial-failure
-reporting/retry, export, coverage, ISS-043, B8/B12 offline-ness) — I re-read the relevant guards
-in the diff and they are unchanged from cycle 0 except where the manifest documents the cycle-1
-changes.
+No regression found in any previously-verified behaviour.
 
 ## 7. Verdict rationale
 
-Both issues explicitly in scope for this cycle — the unchecked final CAS (ISS-t-011-c0-1 /
-ISS-t-011-rev-1) and the orphan-edge race under a concurrent writer (ISS-t-011-rev-3) — are
-genuinely fixed, and I verified each by outcome with probes of my own (H1–H3, H5–H9), distinct
-from and in most cases stronger than the maker's suite (5-way concurrent execute, not just 2-way;
-an unstoppable-writer bound-then-recover test; injection at three distinct points around the
-delete phases).
+Both issues explicitly in scope for this cycle — ISS-t-011-c1-1 and ISS-t-011-c1-rev-1 — are
+genuinely fixed for the exact race windows they describe, verified with my own probes at different
+injection points than the maker's, and confirmed load-bearing by falsification. Item 4 (fence
+scope) and item 5 (regression) are clean.
 
-However, the brief also asked me to inject a concurrent writer "during the read-back," and doing
-so (H4, reproduced twice independently with full diagnostic output in §3) surfaced a real,
-high-severity structural gap that neither this cycle's fix nor the cycle-0 implementation
-addresses: the read-back itself is a sequence of independent `countDocuments` calls, not an atomic
-check, so a write landing between two of those calls in the same round can leave real personal
-data (a fact, or a session with its scribe checkpoint and an edge) permanently in the database
-while the receipt reports `verified: true, totalRemaining: 0` and the request is marked
-`completed` — a state from which no retry is possible, because `studentId` and `carriedSelectors`
-are unset on exactly that path.
+**The FAIL is item 3.** The grace-0 default leaves a real, reproducible gap in B15's core
+guarantee: a fence-aware writer's write can permanently survive a request the system reports as
+`completed` / `verified:true`, with the retry key (`studentId`, `carriedSelectors`) already
+discarded on that same commit, so there is no automated way to ever find or erase it again. This is
+not a hypothetical misconfiguration — `ERASURE_FENCE_GRACE_MS = 0` is the value shipped in this
+diff. The maker has been transparent about the mechanism (it is documented, not hidden), and the
+fix is narrow and already identified by the maker's own gate document (`erasure-fencing.md` Q1
+already recommends a non-zero grace): fix cycle 3 should close this before the 3-cycle budget is
+exhausted, either by shipping a safe non-zero default grace or by keeping the retry key alive until
+a grace-delayed confirmation pass has also come back clean.
 
-This is a genuine defect on B15, the contract's top-priority item, found via the exact probe the
-brief asked for, so this unit does not PASS cycle 1. `ISS-t-011-c1-1` is filed with the
-reproduction and a suggested fix direction above.
+## 8. Issues ledger
 
-**Everything else in this cycle is solid.** The round-based purge design for the delete-phase race
-(the original rev-3 scope) is correctly implemented and holds under every variant I threw at it,
-and the CAS-check fix for concurrent `executeErasure` is correct under both 2-way and 5-way
-concurrency, success and failure. The fix cycle needed here should be targeted: make the read-back
-itself resilient to a write landing mid-scan (§3 suggests two directions), which is a smaller,
-more contained change than the round-loop work already done this cycle.
+- `ISS-t-011-c1-1` → **fixed**, verified this cycle (see `qa/issues.jsonl`).
+- `ISS-t-011-c1-rev-1` → **fixed**, verified this cycle (see `qa/issues.jsonl`).
+- `ISS-t-011-c2-1` (new, **high**) → the grace-0 release-boundary residual (item 3 above); blocks
+  the PASS this cycle.
