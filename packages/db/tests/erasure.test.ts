@@ -8,7 +8,7 @@
  * ids, fact ids, thread ids, and a marker string planted in every value), so a selector bug in
  * src/erasure.ts can not hide behind a matching bug in the test.
  */
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -32,6 +32,7 @@ import {
   compensateIfFenced,
   erasureFenceKey,
   releaseExpiredErasureFences,
+  startErasureFenceSweep,
   ERASURE_FENCE_GRACE_MS,
   FENCED_WRITER_DEADLINE_MS,
   FENCE_MARGIN_MS,
@@ -1410,6 +1411,80 @@ test("D-016 lows (ISS-t-011-c2-rev-3): the fenced undo removes ONLY edges this c
   assert.deepEqual(edges.all().map((e) => e._id).sort(), before, "no pre-existing edge was deleted by the undo");
 });
 
+// ---------------------------------------------------------------------------
+// T-014 / ISS-t-011-c3-rev-1: an AMBIGUOUS linkTracked outcome (link() itself throws — e.g. a
+// timeout where the write may or may not have landed) must never let the fenced undo delete a
+// pre-existing edge this call did not create. The sibling test above ("D-016 lows") only covers
+// link() completing NORMALLY on a replay (onCreated correctly never fires); these two cover the
+// case the c3 review actually flagged: link() throwing, which unconditionally added the
+// deterministic id to createdEdgeIds before the writerToken fix.
+// ---------------------------------------------------------------------------
+
+test("T-014/ISS-t-011-c3-rev-1: a PRE-EXISTING edge survives even when THIS call's link() to it throws (ambiguous outcome), because it lacks this call's writerToken", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  // Replay the exact session-1 budget write: the fact and its two edges already exist on disk
+  // (written by seedStudent's earlier, DIFFERENT applyApprovedDiff call, with ITS OWN writerToken).
+  const diff = { studentId: a.studentId, summary: a.marker, changes: [], citedFactIds: [] };
+  const edges = coll(fakeDb, COLLECTION_NAMES.edges);
+  const before = edges.all().map((e) => JSON.stringify(e)).sort();
+  const realUpdate = edges.updateOne.bind(edges);
+  let thrown = false;
+  edges.updateOne = async (f, u, o) => {
+    const res = await realUpdate(f, u, o); // the no-op update against the pre-existing doc really runs
+    if (!thrown) {
+      thrown = true;
+      await confirmedRequest(db, a.studentId); // the fence appears mid-write, as in the sibling test
+      // Simulate an ambiguous outcome: the server applied the (no-op) update, but the client never
+      // saw the acknowledgement (e.g. a timeout). link() propagates this; linkTracked can not tell
+      // "I just created this" from "someone else's edge, already there" by the deterministic id alone.
+      throw Object.assign(new Error("simulated network timeout"), { name: "MongoServerSelectionError" });
+    }
+    return res;
+  };
+  const err = await applyApprovedDiff(db, diff, { approve: true, edits: [fact("budget", `${a.marker}-20L`, "t2")] }, a.sessionIds[0]).catch(
+    (e: unknown) => e,
+  );
+  edges.updateOne = realUpdate;
+  assert.ok(err instanceof StudentFencedError, `expected StudentFencedError, got ${String(err)}`);
+  assert.deepEqual(
+    edges.all().map((e) => JSON.stringify(e)).sort(),
+    before,
+    "a pre-existing edge must survive an ambiguous (thrown) link() outcome — the writerToken scope on the undo must exclude it",
+  );
+});
+
+test("T-014/ISS-t-011-c3-rev-1: an edge THIS call actually created is still removed by the fenced undo, even though link()'s own outcome to it was ambiguous", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const diff = { studentId: a.studentId, summary: a.marker, changes: [], citedFactIds: [] };
+  const edges = coll(fakeDb, COLLECTION_NAMES.edges);
+  const before = edges.all().map((e) => e._id).sort();
+  const realUpdate = edges.updateOne.bind(edges);
+  let thrown = false;
+  edges.updateOne = async (f, u, o) => {
+    const res = await realUpdate(f, u, o); // the edge is genuinely CREATED here (writerToken stamped)
+    if (!thrown) {
+      thrown = true;
+      await confirmedRequest(db, a.studentId);
+      throw Object.assign(new Error("simulated network timeout"), { name: "MongoServerSelectionError" });
+    }
+    return res;
+  };
+  const err = await applyApprovedDiff(
+    db,
+    diff,
+    { approve: true, edits: [fact("rev1-new-key", `${a.marker}-rev1-new`, "t-rev1")] },
+    a.sessionIds[0],
+  ).catch((e: unknown) => e);
+  edges.updateOne = realUpdate;
+  assert.ok(err instanceof StudentFencedError, `expected StudentFencedError, got ${String(err)}`);
+  assert.deepEqual(
+    edges.all().map((e) => e._id).sort(),
+    before,
+    "the edge this call actually created (with an ambiguous outcome) must still be removed by the undo",
+  );
+  assert.deepEqual(docsMentioning(fakeDb, [`${a.marker}-rev1-new`]), [], "the new fact was compensated too");
+});
+
 test("D-016 one open request (ISS-t-011-c2-rev-4): a second open request for the same student is refused with a typed error, also under concurrency; after completion a new one is allowed", async () => {
   const { db, fakeDb, a, b } = await seedTwo();
   const input = { studentId: a.studentId, requestedBy: "counsellor-7", reason: "student_request" as const };
@@ -1455,6 +1530,93 @@ test("D-016 no stuck fence (ISS-t-011-c2-rev-4): the fence is released only when
   const holdEnd = Date.parse(fences.all()[0]!.releaseAfter as string);
   assert.equal(await releaseExpiredErasureFences(db, new Date(holdEnd)), 1);
   assert.equal(fences.size(), 0, "no fence is stuck once no request is open");
+});
+
+// ---------------------------------------------------------------------------
+// T-014 / ISS-t-011-c3-rev-3: releaseExpiredErasureFences finally gets a scheduled caller.
+// ---------------------------------------------------------------------------
+
+test("T-014/ISS-t-011-c3-rev-3: startErasureFenceSweep's timer actually releases an expired fence, and stop() actually stops it (fake timers)", async () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  try {
+    const { db, fakeDb, a } = await seedTwo();
+    const fences = coll(fakeDb, FENCES);
+    const errors: unknown[] = [];
+    const sweep = startErasureFenceSweep(db, { intervalMs: 1000, onError: (err) => errors.push(err) });
+    try {
+      // Seed a fence that is already eligible for release: no erasure_requests row references it
+      // (hasFencingRequest is false), createdAt is long past its minimum hold, and releaseAfter is
+      // already in the past.
+      const longAgo = new Date(Date.now() - MINIMUM_FENCE_HOLD_MS - 60_000).toISOString();
+      fences.seed({ _id: erasureFenceKey(a.studentId), studentKey: erasureFenceKey(a.studentId), requestId: "r-gone", createdAt: longAgo, releaseAfter: longAgo });
+      assert.equal(fences.size(), 1, "the fence is seeded before the first tick");
+
+      mock.timers.tick(1000); // fires the first tick synchronously; the tick's own work is async
+      await new Promise((resolve) => setTimeout(resolve, 0)); // let the tick's promise chain settle (real macrotask; setInterval alone is faked)
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      assert.equal(fences.size(), 0, "the scheduled sweep released the expired fence");
+      assert.deepEqual(errors, [], "no errors from a clean tick");
+    } finally {
+      sweep.stop();
+    }
+
+    // stop() must actually stop it: reseed and advance well past several more intervals.
+    const longAgo2 = new Date(Date.now() - MINIMUM_FENCE_HOLD_MS - 60_000).toISOString();
+    fences.seed({ _id: erasureFenceKey(a.studentId), studentKey: erasureFenceKey(a.studentId), requestId: "r-gone-2", createdAt: longAgo2, releaseAfter: longAgo2 });
+    mock.timers.tick(10_000);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(fences.size(), 1, "stop() must have cleared the interval: no further sweeps run");
+
+    // Idempotent.
+    assert.doesNotThrow(() => sweep.stop());
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("T-014/ISS-t-011-c3-rev-3: startErasureFenceSweep rejects a non-positive intervalMs", () => {
+  const { db } = createFakeDb();
+  assert.throws(() => startErasureFenceSweep(db, { intervalMs: 0 }), RangeError);
+  assert.throws(() => startErasureFenceSweep(db, { intervalMs: -5 }), RangeError);
+});
+
+test("T-014/ISS-t-011-c3-rev-3: a failing tick is reported via onError, not thrown, and does not stop the interval", async () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  try {
+    const { db, fakeDb, a } = await seedTwo();
+    const fences = coll(fakeDb, FENCES);
+    const boom = new Error("simulated sweep read failure");
+    const realFind = fences.find.bind(fences);
+    let calls = 0;
+    fences.find = (f?: Record<string, unknown>) => {
+      calls += 1;
+      if (calls === 1) throw boom;
+      return realFind(f);
+    };
+    const errors: unknown[] = [];
+    const sweep = startErasureFenceSweep(db, { intervalMs: 1000, onError: (err) => errors.push(err) });
+    try {
+      const longAgo = new Date(Date.now() - MINIMUM_FENCE_HOLD_MS - 60_000).toISOString();
+      fences.seed({ _id: erasureFenceKey(a.studentId), studentKey: erasureFenceKey(a.studentId), requestId: "r-gone", createdAt: longAgo, releaseAfter: longAgo });
+
+      mock.timers.tick(1000); // this tick's read throws synchronously inside releaseExpiredErasureFences's for-await
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(errors.length, 1, "the failing tick's error reached onError");
+      assert.equal(errors[0], boom);
+      assert.equal(fences.size(), 1, "nothing was released on the failing tick");
+
+      mock.timers.tick(1000); // the NEXT tick still runs (a fake with no more scripted failures)
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(fences.size(), 0, "a later tick recovers and releases the fence — one bad tick did not kill the interval");
+    } finally {
+      sweep.stop();
+    }
+  } finally {
+    mock.timers.reset();
+  }
 });
 
 test("D-016 deadline: the post-check runs AT the abort (in the finally), not only when the stuck op settles: a fact that landed before the stuck edge write is already gone when the writer returns", { timeout: 5000 }, async () => {

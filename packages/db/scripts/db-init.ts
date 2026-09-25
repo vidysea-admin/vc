@@ -157,10 +157,71 @@ async function ensureCollection(db: import("mongodb").Db, name: string): Promise
   }
 }
 
+/**
+ * T-014 / ISS-t-011-c3-rev-4: the lowest server version this plan is known to run on. The
+ * `erasure_requests_open_studentKey_unique` index's partial filter uses `$in`, which the MongoDB
+ * manual (core/index-partial, checked 2026-09-25, D-013) documents as supported only from
+ * MongoDB 6.0. Below that, `createIndex` for that one index fails at the bottom of the loop below,
+ * after every earlier collection/index in the plan has already been created — a confusing partial
+ * state to debug from. Checking buildInfo first fails loudly, up front, naming the real cause.
+ */
+export const MIN_SERVER_VERSION = "6.0.0";
+
+export class UnsupportedServerVersionError extends Error {
+  constructor(
+    readonly version: string,
+    readonly required: string = MIN_SERVER_VERSION,
+  ) {
+    super(
+      `db-init: server version "${version}" is below the required ${required} — the ` +
+        `erasure_requests_open_studentKey_unique partial index uses "$in", which MongoDB only ` +
+        `supports in a partialFilterExpression from 6.0 (D-013). Refusing to run against this server.`,
+    );
+    this.name = "UnsupportedServerVersionError";
+  }
+}
+
+/**
+ * Numeric (not lexicographic) major.minor.patch comparison — `"6.10.0" >= "6.9.0"` must be true,
+ * which plain string comparison would get backwards. A missing/non-numeric component is treated
+ * as 0.
+ */
+export function isServerVersionAtLeast(version: string, required: string = MIN_SERVER_VERSION): boolean {
+  const parse = (v: string): [number, number, number] => {
+    const [maj = 0, min = 0, patch = 0] = v.split(".").map((part) => Number.parseInt(part, 10) || 0);
+    return [maj, min, patch];
+  };
+  const [vMaj, vMin, vPatch] = parse(version);
+  const [rMaj, rMin, rPatch] = parse(required);
+  if (vMaj !== rMaj) return vMaj > rMaj;
+  if (vMin !== rMin) return vMin > rMin;
+  return vPatch >= rPatch;
+}
+
+/**
+ * Reads the connected server's version via `db.admin().buildInfo()` (no side effects — a plain
+ * read) and throws UnsupportedServerVersionError if it is below MIN_SERVER_VERSION. Takes the
+ * driver's own `Db` shape (`{admin(): {buildInfo(): Promise<{version?: unknown}>}}`) so an offline
+ * test can exercise it against `@vc/db/testing`'s FakeDb (its `admin().buildInfo()` stub) without
+ * ever touching a real server.
+ */
+export async function assertServerVersionSupportsPartialIn(
+  db: Pick<import("mongodb").Db, "admin">,
+): Promise<void> {
+  const info: unknown = await db.admin().buildInfo();
+  const version = typeof (info as { version?: unknown } | null)?.version === "string" ? (info as { version: string }).version : "0.0.0";
+  if (!isServerVersionAtLeast(version)) {
+    throw new UnsupportedServerVersionError(version);
+  }
+}
+
 async function main(): Promise<void> {
   const { client, db } = connectFromEnv(process.env);
   await client.connect();
   try {
+    // ISS-t-011-c3-rev-4: fail loudly, up front — before touching any collection or index — if the
+    // server can not support the plan's one $in partial index.
+    await assertServerVersionSupportsPartialIn(db);
     for (const name of Object.values(COLLECTION_NAMES)) {
       await ensureCollection(db, name);
     }

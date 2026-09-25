@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { VC_DB_NAME, getVcDb, connectFromEnv } from "../src/client.js";
+import { VC_DB_NAME, getVcDb, connectFromEnv, DEFAULT_MONGO_CLIENT_TIMEOUT_MS } from "../src/client.js";
+import { FENCE_MARGIN_MS } from "../src/erasure.js";
 import { createFakeMongoClient } from "./fakes.js";
 
 test("VC_DB_NAME is virtual_counsellor", () => {
@@ -46,3 +47,58 @@ test("connectFromEnv never connects to a real MongoClient (the injected factory 
   assert.equal(factoryCalledWith, "mongodb://h:1/otherdb");
   assert.deepEqual(dbCalls, ["virtual_counsellor"]);
 });
+
+// ---------------------------------------------------------------------------
+// T-014 / ISS-t-011-c3-rev-2: the MongoClient timeoutMS backstop.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-011-c3-rev-2: DEFAULT_MONGO_CLIENT_TIMEOUT_MS is at most FENCE_MARGIN_MS (D-016)", () => {
+  assert.ok(
+    DEFAULT_MONGO_CLIENT_TIMEOUT_MS > 0 && DEFAULT_MONGO_CLIENT_TIMEOUT_MS <= FENCE_MARGIN_MS,
+    `expected 0 < ${DEFAULT_MONGO_CLIENT_TIMEOUT_MS} <= FENCE_MARGIN_MS (${FENCE_MARGIN_MS})`,
+  );
+});
+
+test("ISS-t-011-c3-rev-2: connectFromEnv passes {timeoutMS} through to the client factory", () => {
+  const { client } = createFakeMongoClient();
+  let seenOptions: unknown;
+  connectFromEnv({ MONGODB_URL: "mongodb://h:1/otherdb" }, (url, options) => {
+    seenOptions = options;
+    return client;
+  });
+  assert.deepEqual(seenOptions, { timeoutMS: DEFAULT_MONGO_CLIENT_TIMEOUT_MS });
+});
+
+test("ISS-t-011-c3-rev-2: the OPTION REALLY REACHES the driver — a real (unconnected) MongoClient built by connectFromEnv's default factory reports timeoutMS in its own parsed `.options`, not just an argument some factory received", async () => {
+  // No `.connect()` is ever called here — constructing a MongoClient and reading its parsed
+  // `.options` is synchronous, local, and network-free (same guarantee client.ts already relies on
+  // for `client.db(name)`, contract B8).
+  const { client } = connectFromEnv({ MONGODB_URL: "mongodb://localhost:27017/ignored" });
+  try {
+    assert.equal(
+      client.options.timeoutMS,
+      DEFAULT_MONGO_CLIENT_TIMEOUT_MS,
+      "the real driver's own client options must carry the backstop timeout, as an outcome — not merely what was passed to some intermediate factory",
+    );
+  } finally {
+    await client.close();
+  }
+});
+
+test("ISS-t-011-c3-rev-2: MONGO_CLIENT_TIMEOUT_MS overrides the default, and the override also reaches the real driver's options", async () => {
+  const { client } = connectFromEnv({ MONGODB_URL: "mongodb://localhost:27017/ignored", MONGO_CLIENT_TIMEOUT_MS: "5000" });
+  try {
+    assert.equal(client.options.timeoutMS, 5000);
+  } finally {
+    await client.close();
+  }
+});
+
+for (const bad of ["nope", "0", "-5"]) {
+  test(`ISS-t-011-c3-rev-2: connectFromEnv rejects a non-positive-number MONGO_CLIENT_TIMEOUT_MS ("${bad}")`, () => {
+    assert.throws(
+      () => connectFromEnv({ MONGODB_URL: "mongodb://h:1/x", MONGO_CLIENT_TIMEOUT_MS: bad }),
+      /MONGO_CLIENT_TIMEOUT_MS/,
+    );
+  });
+}

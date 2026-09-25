@@ -12,6 +12,9 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts"
   },
+  "dependencies": {
+    "@vc/db": "workspace:*"
+  },
   "devDependencies": {
     "typescript": "~5.8.2",
     "tsx": "^4.21.0",

@@ -295,11 +295,22 @@ export class FakeCollection<T extends { _id: string }> {
 export class FakeDb {
   private readonly collections = new Map<string, FakeCollection<{ _id: string }>>();
 
+  /**
+   * ISS-t-011-c3-rev-4: db-init.ts's assertServerVersionSupportsPartialIn reads
+   * `db.admin().buildInfo().version`. Defaults to a supported version so every OTHER test using
+   * createFakeDb() is unaffected; a test targeting the version gate sets this before calling it.
+   */
+  buildInfoVersion = "7.0.0";
+
   collection<T extends { _id: string }>(name: string): FakeCollection<T> {
     if (!this.collections.has(name)) {
       this.collections.set(name, new FakeCollection<{ _id: string }>());
     }
     return this.collections.get(name) as unknown as FakeCollection<T>;
+  }
+
+  admin(): { buildInfo: () => Promise<{ version: string }> } {
+    return { buildInfo: async () => ({ version: this.buildInfoVersion }) };
   }
 }
 
