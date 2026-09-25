@@ -330,6 +330,27 @@ export function decisionFromResponse(response: ApprovalResponse, proposedFacts: 
 // (g) write — only on approval (B3)
 // ---------------------------------------------------------------------------
 
+export interface WriteApprovedOptions {
+  /**
+   * ISS-t-016-c0-1 / D-016: the SAME absolute instant the outer run's lease (graph.ts newLease) is
+   * derived from. recordApprovedSessionSummary and applyApprovedDiff each bind their OWN
+   * WriterDeadline to the time remaining until THIS instant (recomputed fresh at each call site, so
+   * neither call's deadline can outlive the other's) instead of independently defaulting to the
+   * package's full FENCED_WRITER_DEADLINE_MS whenever the outer run shortened its own deadline —
+   * closing the gap where a caller-shortened `writerDeadlineMs` left the lease's window shorter
+   * than the write's own (driver-level `timeoutMS`-bound) internal bound. Absent (a graph invoked
+   * outside start/resumeScribe, e.g. a test driving graph.invoke directly): both calls fall back to
+   * their own package default, unchanged from before this fix.
+   */
+  writerDeadlineExpiresAt?: number;
+}
+
+/** ISS-t-016-c0-1: ms remaining until `expiresAt`, recomputed fresh at each call site (never cached across the two writes), floored at 1ms so an already-expired outer deadline still yields a valid (if immediately-expiring) WriterDeadline rather than falling back to the full default. */
+function boundedDeadlineMs(expiresAt: number | undefined): number | undefined {
+  if (expiresAt === undefined) return undefined;
+  return Math.max(1, expiresAt - Date.now());
+}
+
 /**
  * Applies an approved decision with @vc/db applyApprovedDiff, passing the sessionId FROM STATE
  * (D-012: the contentHash includes it, so a checkpoint replay of this node is an idempotent no-op).
@@ -344,19 +365,29 @@ export function decisionFromResponse(response: ApprovalResponse, proposedFacts: 
  * recreated, and it throws, so no facts are written for an erased session either). Replays re-set
  * the same value.
  */
-export async function writeApproved(rawInput: unknown, deps: Pick<ScribeDeps, "db">): Promise<ScribeResult> {
+export async function writeApproved(
+  rawInput: unknown,
+  deps: Pick<ScribeDeps, "db">,
+  options: WriteApprovedOptions = {},
+): Promise<ScribeResult> {
   const input = WriteInputSchema.parse(rawInput);
   if (!input.decision.approve) {
     return ScribeResultSchema.parse({ status: "rejected" });
   }
-  await recordApprovedSessionSummary(deps.db, {
-    sessionId: input.sessionId,
-    studentId: input.studentId,
-    summary: input.summary,
-    summaryWithheldReason: input.summaryWithheldReason,
-  });
+  await recordApprovedSessionSummary(
+    deps.db,
+    {
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      summary: input.summary,
+      summaryWithheldReason: input.summaryWithheldReason,
+    },
+    { deadlineMs: boundedDeadlineMs(options.writerDeadlineExpiresAt) },
+  );
   try {
-    const applied = await applyApprovedDiff(deps.db, input.diff, input.decision, input.sessionId);
+    const applied = await applyApprovedDiff(deps.db, input.diff, input.decision, input.sessionId, {
+      deadlineMs: boundedDeadlineMs(options.writerDeadlineExpiresAt),
+    });
     return ScribeResultSchema.parse({
       status: "written",
       writtenFactIds: applied.written.map((doc) => doc._id),

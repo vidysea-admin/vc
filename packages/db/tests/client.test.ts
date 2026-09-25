@@ -143,3 +143,27 @@ test("ISS-t-014-c0-2: a normal override well within the cap (e.g. 5000ms) is una
   });
   assert.deepEqual(seenOptions, { timeoutMS: 5000 });
 });
+
+// ---------------------------------------------------------------------------
+// ISS-t-015-c0-4: MONGO_CLIENT_TIMEOUT_MS accepts only a strict decimal integer — bare Number(raw)
+// silently accepted hex, exponential notation, fractional ms and surrounding whitespace.
+// ---------------------------------------------------------------------------
+
+for (const surprising of ["0x1000", "0X1000", "1e5", "1E5", "30000.5", " 5000", "5000 ", "5 000", "+5000", "5000n", "Infinity", "NaN"]) {
+  test(`ISS-t-015-c0-4: MONGO_CLIENT_TIMEOUT_MS rejects surprising-but-Number()-parseable notation "${surprising}"`, () => {
+    assert.throws(
+      () => connectFromEnv({ MONGODB_URL: "mongodb://h:1/x", MONGO_CLIENT_TIMEOUT_MS: surprising }),
+      /MONGO_CLIENT_TIMEOUT_MS must be a plain decimal integer/,
+    );
+  });
+}
+
+test("ISS-t-015-c0-4: a plain decimal integer (no surrounding characters) is still accepted", () => {
+  const { client } = createFakeMongoClient();
+  let seenOptions: unknown;
+  connectFromEnv({ MONGODB_URL: "mongodb://h:1/x", MONGO_CLIENT_TIMEOUT_MS: "12345" }, (url, options) => {
+    seenOptions = options;
+    return client;
+  });
+  assert.deepEqual(seenOptions, { timeoutMS: 12345 });
+});

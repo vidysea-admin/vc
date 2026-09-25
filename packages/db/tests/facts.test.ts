@@ -10,6 +10,13 @@ import {
   recordApprovedSessionSummary,
   SessionRowMissingError,
 } from "../src/facts.js";
+import {
+  requestErasure,
+  confirmErasure,
+  StudentFencedError,
+  FencedWriterDeadlineError,
+  FENCED_WRITER_DEADLINE_MS,
+} from "../src/erasure.js";
 import { COLLECTION_NAMES } from "../src/collections.js";
 import { INDEX_PLAN } from "../scripts/db-init.js";
 import { createFakeDb, FakeCollection } from "./fakes.js";
@@ -794,4 +801,124 @@ test("ISS-t-007-rev-7: recordApprovedSessionSummary stores the summary on the ex
   // Another student's id never matches the row.
   await assert.rejects(recordApprovedSessionSummary(db, { sessionId: "sess-9", studentId: "stu-2", summary: "x" }), SessionRowMissingError);
   assert.equal((await sessions.findOne({ _id: "sess-9" }))?.summary, "Wants CS in Canada.");
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-016-rev-1: recordApprovedSessionSummary is fence-aware, mirroring applyApprovedDiff.
+// ---------------------------------------------------------------------------
+
+async function fenceStudent(db: Awaited<ReturnType<typeof setup>>["db"], studentId: string): Promise<void> {
+  const { requestId } = await requestErasure(db, { studentId, requestedBy: "counsellor-7", reason: "student_request" });
+  await confirmErasure(db, { requestId, confirmedBy: "admin-2" });
+}
+
+test("ISS-t-016-rev-1: a student already fenced BEFORE the call is refused; nothing is written", async () => {
+  const { db, fakeDb } = setup();
+  const sessions = fakeDb.collection<{ _id: string } & Record<string, unknown>>(COLLECTION_NAMES.sessions);
+  await ensureScribeSessionRow(db, { sessionId: "sess-fence-1", studentId: "stu-fence-1", threadId: "t" });
+  await fenceStudent(db, "stu-fence-1");
+  await assert.rejects(
+    recordApprovedSessionSummary(db, { sessionId: "sess-fence-1", studentId: "stu-fence-1", summary: "s" }),
+    StudentFencedError,
+  );
+  const row = await sessions.findOne({ _id: "sess-fence-1" });
+  assert.equal(row?.summary, undefined, "the pre-check refused before any write");
+  assert.equal(row?.summaryApprovedAt, undefined);
+});
+
+test("ISS-t-016-rev-1: a fence that appears AFTER the write is compensated — summary, summaryApprovedAt and summaryWithheldReason are unset, and StudentFencedError is thrown", async () => {
+  const { db, fakeDb } = setup();
+  const sessions = fakeDb.collection<{ _id: string } & Record<string, unknown>>(COLLECTION_NAMES.sessions);
+  await ensureScribeSessionRow(db, { sessionId: "sess-fence-2", studentId: "stu-fence-2", threadId: "t" });
+  const realUpdate = sessions.updateOne.bind(sessions);
+  let fenced = false;
+  sessions.updateOne = (async (filter, update, opts) => {
+    const res = await realUpdate(filter, update, opts);
+    const set = (update as { $set?: { summary?: unknown } } | undefined)?.$set;
+    if (!fenced && set && set.summary !== undefined) {
+      fenced = true;
+      await fenceStudent(db, "stu-fence-2");
+    }
+    return res;
+  }) as typeof sessions.updateOne;
+
+  await assert.rejects(
+    recordApprovedSessionSummary(db, {
+      sessionId: "sess-fence-2",
+      studentId: "stu-fence-2",
+      summary: "Wants CS in Canada.",
+      summaryWithheldReason: undefined,
+    }),
+    StudentFencedError,
+  );
+  const row = await sessions.findOne({ _id: "sess-fence-2" });
+  assert.equal(row?.summary, undefined, "the write this call made is undone immediately, not left for executeErasure");
+  assert.equal(row?.summaryApprovedAt, undefined);
+  assert.equal(row?.summaryWithheldReason, undefined);
+});
+
+test("ISS-t-016-rev-1: compensation matches on the value THIS call wrote — a LATER legitimate write is never clobbered by a stale undo", async () => {
+  const { db, fakeDb } = setup();
+  const sessions = fakeDb.collection<{ _id: string } & Record<string, unknown>>(COLLECTION_NAMES.sessions);
+  await ensureScribeSessionRow(db, { sessionId: "sess-fence-3", studentId: "stu-fence-3", threadId: "t" });
+
+  // Write once (this succeeds normally, unfenced).
+  await recordApprovedSessionSummary(db, { sessionId: "sess-fence-3", studentId: "stu-fence-3", summary: "first" });
+  const afterFirst = await sessions.findOne({ _id: "sess-fence-3" });
+  assert.equal(afterFirst?.summary, "first");
+  const firstApprovedAt = afterFirst?.summaryApprovedAt;
+
+  // Fence the student now (independent of any write), and confirm a SECOND (fenced) call's own undo
+  // never touches the row because its own pre-check refuses it before writing anything at all —
+  // the FIRST call's legitimately-written value survives.
+  await fenceStudent(db, "stu-fence-3");
+  await assert.rejects(
+    recordApprovedSessionSummary(db, { sessionId: "sess-fence-3", studentId: "stu-fence-3", summary: "second" }),
+    StudentFencedError,
+  );
+  const row = await sessions.findOne({ _id: "sess-fence-3" });
+  assert.equal(row?.summary, "first", "the pre-check refused the second call before writing; the first call's value is untouched");
+  assert.equal(row?.summaryApprovedAt, firstApprovedAt);
+});
+
+test("ISS-t-016-rev-1: a call that runs past its writer deadline throws FencedWriterDeadlineError and is undone when it settles", { timeout: 5000 }, async () => {
+  const { db, fakeDb } = setup();
+  const sessions = fakeDb.collection<{ _id: string } & Record<string, unknown>>(COLLECTION_NAMES.sessions);
+  await ensureScribeSessionRow(db, { sessionId: "sess-fence-4", studentId: "stu-fence-4", threadId: "t" });
+  const realUpdate = sessions.updateOne.bind(sessions);
+  let gate!: () => void;
+  const opened = new Promise<void>((resolve) => (gate = resolve));
+  let calls = 0;
+  sessions.updateOne = (async (filter, update, opts) => {
+    calls += 1;
+    if (calls === 1) await opened; // stuck past the (short) deadline
+    return realUpdate(filter, update, opts);
+  }) as typeof sessions.updateOne;
+
+  const call = recordApprovedSessionSummary(
+    db,
+    { sessionId: "sess-fence-4", studentId: "stu-fence-4", summary: "late" },
+    { deadlineMs: 20 },
+  );
+  const err = await call.catch((e: unknown) => e);
+  assert.ok(err instanceof FencedWriterDeadlineError, `expected FencedWriterDeadlineError, got ${String(err)}`);
+  gate(); // let the stuck write land
+  await (err as FencedWriterDeadlineError).settled;
+  const row = await sessions.findOne({ _id: "sess-fence-4" });
+  assert.equal(row?.summary, undefined, "a timed-out writer keeps nothing, even once its late write lands");
+});
+
+test("ISS-t-016-rev-1: RangeError on a deadline longer than FENCED_WRITER_DEADLINE_MS, before anything is written", async () => {
+  const { db, fakeDb } = setup();
+  const sessions = fakeDb.collection<{ _id: string } & Record<string, unknown>>(COLLECTION_NAMES.sessions);
+  await ensureScribeSessionRow(db, { sessionId: "sess-fence-5", studentId: "stu-fence-5", threadId: "t" });
+  await assert.rejects(
+    recordApprovedSessionSummary(
+      db,
+      { sessionId: "sess-fence-5", studentId: "stu-fence-5", summary: "x" },
+      { deadlineMs: FENCED_WRITER_DEADLINE_MS + 1 },
+    ),
+    RangeError,
+  );
+  assert.equal((await sessions.findOne({ _id: "sess-fence-5" }))?.summary, undefined);
 });

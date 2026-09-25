@@ -219,7 +219,7 @@ test("ISS-t-007-rev-7: a withheld (script-like) summary is stored as withheld, n
 // ISS-t-007-rev-9: no empty studentId claim
 // ---------------------------------------------------------------------------
 
-for (const missing of [undefined, ""] as const) {
+for (const missing of [undefined, "", "  "] as const) {
   test(`ISS-t-007-rev-9: a paused thread whose state has studentId=${JSON.stringify(missing)} -> resume throws and writes NO claim`, async () => {
     const h = makeHarness();
     await startScribe(h.graph, baseInput(), { threadId: "thread-nostudent" });
@@ -375,4 +375,123 @@ test("ISS-t-011-rev-5 + D-015: a fenced start does NOT delete a session row that
   const row = await sessions(h).findOne({ _id: SESSION_ID });
   assert.ok(row, "a pre-existing row is left for the erasure (compensation removes only what this call created)");
   assert.ok(row.scribeThreadIds?.includes("thread-first"));
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-016-c0-2: a student with TWO DISTINCT sessions (not just one session with two threads),
+// each with their own scribe thread, end-to-end through erasure.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-016-c0-2: a student with TWO DISTINCT sessions (each its own thread) is exported and erased to zero residue for BOTH", async () => {
+  const h = makeHarness({ saver: "mongo" });
+  const SESSION_2 = "session-synthetic-2";
+  await startScribe(h.graph, baseInput(), { threadId: "thread-multi-a" });
+  await startScribe(h.graph, baseInput({ sessionId: SESSION_2 }), { threadId: "thread-multi-b" });
+
+  assert.equal(sessions(h).size(), 2, "two distinct session rows, not one row with two threads");
+  const rowA = await sessions(h).findOne({ _id: SESSION_ID });
+  const rowB = await sessions(h).findOne({ _id: SESSION_2 });
+  assert.deepEqual(rowA?.scribeThreadIds, ["thread-multi-a"]);
+  assert.deepEqual(rowB?.scribeThreadIds, ["thread-multi-b"]);
+
+  const exported = await exportStudent(h.db, STUDENT_ID);
+  assert.equal(exported.sessions.length, 2);
+  // resolveSelectors also derives scribe:<sessionId> per session (unused here, since each run used
+  // its own explicit threadId) alongside the actually-recorded threads; both real threads must
+  // still be found through their OWN session's scribeThreadIds (ISS-t-016-c0-2's point: a second
+  // DISTINCT session, not just a second thread on the same session).
+  assert.ok(exported.checkpoints.threads.includes("thread-multi-a"));
+  assert.ok(exported.checkpoints.threads.includes("thread-multi-b"));
+
+  const erased = await erase(h);
+  assert.equal(erased.status, "completed");
+  assert.deepEqual(residue(h, [STUDENT_ID, SESSION_ID, SESSION_2, "thread-multi-a", "thread-multi-b"]), [], "zero residue across BOTH sessions");
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-016-rev-1: recordApprovedSessionSummary is fence-aware, matching applyApprovedDiff's own
+// pre-check/post-check. A fence landing BETWEEN the summary write and applyApprovedDiff must not
+// leave the approved summary on the row until executeErasure eventually purges it.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-016-rev-1: a fence that appears BETWEEN the summary write and applyApprovedDiff removes the summary too, IMMEDIATELY (not just facts/checkpoints, and not only once executeErasure runs)", async () => {
+  const h = makeHarness({ saver: "mongo" });
+  await startScribe(h.graph, baseInput(), { threadId: "thread-sum-fence" });
+
+  const sessionsColl = sessions(h);
+  const realUpdate = sessionsColl.updateOne.bind(sessionsColl);
+  let fenced = false;
+  (sessionsColl as unknown as { updateOne: typeof sessionsColl.updateOne }).updateOne = (async (
+    filter: Parameters<typeof realUpdate>[0],
+    update: Parameters<typeof realUpdate>[1],
+    opts: Parameters<typeof realUpdate>[2],
+  ) => {
+    const res = await realUpdate(filter, update, opts);
+    const set = (update as { $set?: { summary?: unknown } } | undefined)?.$set;
+    if (!fenced && set && set.summary !== undefined) {
+      fenced = true;
+      const { requestId } = await requestErasure(h.db, { studentId: STUDENT_ID, requestedBy: "counsellor-7", reason: "student_request" });
+      await confirmErasure(h.db, { requestId, confirmedBy: "admin-2" });
+    }
+    return res;
+  }) as typeof sessionsColl.updateOne;
+
+  const outcome = await resumeScribe(h.graph, { action: "approve" }, { threadId: "thread-sum-fence" });
+  assert.deepEqual(outcome, { kind: "fenced" });
+
+  // IMMEDIATELY after the fenced outcome, BEFORE executeErasure runs: the summary fields this call
+  // wrote must already be gone.
+  const row = await sessions(h).findOne({ _id: SESSION_ID });
+  assert.equal(row?.summary, undefined, "ISS-t-016-rev-1: the summary this call wrote must be compensated, not left for the purge");
+  assert.equal(row?.summaryApprovedAt, undefined);
+  assert.equal(row?.summaryWithheldReason, undefined);
+  assert.equal(h.facts.size(), 0, "applyApprovedDiff never ran (its own pre-check, or this call's, refused first)");
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-016-c0-1: the run lease's window (newLease, derived from the outer writerDeadlineMs) must
+// bound the INNER write's own deadline too — a caller-shortened writerDeadlineMs must shorten the
+// driver-level timeoutMS the write's own operations receive, not just the lease's window.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-016-c0-1: recordApprovedSessionSummary's and applyApprovedDiff's own writes are bound to the SAME (short) outer writerDeadlineMs, not the package's full 60s default", async () => {
+  const h = makeHarness({ saver: "mongo" });
+  await startScribe(h.graph, baseInput(), { threadId: "thread-bound" });
+
+  const sessionsColl = sessions(h);
+  const summaryTimeouts: number[] = [];
+  const realSessionsUpdate = sessionsColl.updateOne.bind(sessionsColl);
+  (sessionsColl as unknown as { updateOne: typeof sessionsColl.updateOne }).updateOne = (async (
+    filter: Parameters<typeof realSessionsUpdate>[0],
+    update: Parameters<typeof realSessionsUpdate>[1],
+    options?: { timeoutMS?: number },
+  ) => {
+    const set = (update as { $set?: { summary?: unknown } } | undefined)?.$set;
+    if (set && set.summary !== undefined && options?.timeoutMS !== undefined) summaryTimeouts.push(options.timeoutMS);
+    return realSessionsUpdate(filter, update, options as Parameters<typeof realSessionsUpdate>[2]);
+  }) as typeof sessionsColl.updateOne;
+
+  const factTimeouts: number[] = [];
+  const realFactsInsert = h.facts.insertOne.bind(h.facts);
+  (h.facts as unknown as { insertOne: typeof h.facts.insertOne }).insertOne = (async (
+    doc: Parameters<typeof realFactsInsert>[0],
+    options?: { timeoutMS?: number },
+  ) => {
+    if (options?.timeoutMS !== undefined) factTimeouts.push(options.timeoutMS);
+    return realFactsInsert(doc, options as Parameters<typeof realFactsInsert>[1]);
+  }) as typeof h.facts.insertOne;
+
+  const SHORT_MS = 200; // well below FENCED_WRITER_DEADLINE_MS (60_000) but a legal (0, 60_000] value
+  const outcome = await resumeScribe(h.graph, { action: "approve" }, { threadId: "thread-bound", writerDeadlineMs: SHORT_MS });
+  assert.equal(outcome.kind === "done" && outcome.result.status, "written");
+
+  assert.ok(summaryTimeouts.length > 0, "the summary write carried an explicit timeoutMS at all");
+  assert.ok(factTimeouts.length > 0, "the fact insert carried an explicit timeoutMS at all");
+  for (const t of [...summaryTimeouts, ...factTimeouts]) {
+    assert.ok(
+      t <= SHORT_MS,
+      `ISS-t-016-c0-1: every inner write's timeoutMS must be bound to the outer writerDeadlineMs (${SHORT_MS}ms), got ${t}ms — ` +
+        `a value close to 60000 means the inner write is STILL using the package default, independent of the outer deadline`,
+    );
+  }
 });

@@ -572,6 +572,9 @@ export interface ErasureFenceSweepOptions {
    * best-effort per fence (releaseErasureFence's own try/catch); this covers a failure in the sweep
    * loop itself (e.g. the whole read fails), so one bad tick never kills the interval — the next
    * tick simply tries again. Defaults to a no-op; a caller SHOULD pass one wired to its logging.
+   * ISS-t-015-c0-3: SHOULD never throw — but if it does, the tick catches it too (silently; the
+   * failure it was called to report is not re-escalated), so a broken onError still can not turn a
+   * reported sweep failure into an unhandled rejection or kill the interval.
    */
   onError?: (err: unknown) => void;
 }
@@ -620,7 +623,17 @@ export function startErasureFenceSweep(db: Db, options: ErasureFenceSweepOptions
     inFlight = true;
     const now = options.now?.() ?? new Date();
     releaseExpiredErasureFences(db, now, options.graceMs ?? ERASURE_FENCE_GRACE_MS)
-      .catch((err) => options.onError?.(err))
+      .catch((err) => {
+        try {
+          options.onError?.(err);
+        } catch {
+          // ISS-t-015-c0-3: onError is caller-supplied and documented to report, never throw — but
+          // an onError that throws anyway must not turn a reported sweep failure into an
+          // unconsumed rejection here (a real process crash under Node's default unhandledRejection
+          // policy, >=15). The sweep's own failure was already handed to onError; a broken onError
+          // is silently swallowed rather than escalated, so one bad tick never kills the interval.
+        }
+      })
       .finally(() => {
         inFlight = false;
       });
@@ -928,8 +941,13 @@ function carried(s: ErasureSelectors): CarriedSelectors {
   return { factIds: s.factIds, sessionIds: s.sessionIds, threadIds: s.threadIds };
 }
 
-function errorLabel(err: unknown): string {
-  // Name and code only: a driver message can echo the filter (ids).
+/**
+ * Name and code only: a driver message can echo the filter (ids), and (ISS-t-015-c0-1) a
+ * Mongo-shaped error's message can embed a document field value (e.g. an E11000 duplicate-key
+ * line). Exported so other loggers of driver/writer errors (apps/api's defaultSweepErrorLogger)
+ * get the same redaction instead of reinventing it.
+ */
+export function errorLabel(err: unknown): string {
   const e = err as { name?: unknown; code?: unknown; codeName?: unknown } | undefined;
   const name = typeof e?.name === "string" ? e.name : "Error";
   const code = typeof e?.codeName === "string" ? e.codeName : typeof e?.code === "number" ? String(e.code) : "";

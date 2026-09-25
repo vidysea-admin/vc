@@ -155,7 +155,8 @@ const FENCE_SCAN_DIRS = ["packages", "mcp", "apps"];
 const FENCE_AWARE_WRITERS: Record<string, string> = {
   "packages/db/src/facts.ts":
     "applyApprovedDiff: pre-check, writes under FENCED_WRITER_DEADLINE_MS (driver timeoutMS + app deadline), finally post-check + compensation (D-015/D-016). " +
-    "T-016 ensureScribeSessionRow / recordApprovedSessionSummary: called only from scribe/graph.ts (start under its deadline + fence pre-check, row compensated by invokeFenceAware; summary inside graph.invoke, never upserts)",
+    "T-016 ensureScribeSessionRow: called only from scribe/graph.ts (start under its deadline + fence pre-check, row compensated by invokeFenceAware). " +
+    "ISS-t-016-rev-1: recordApprovedSessionSummary is now fence-aware on its OWN (pre-check + writes under a WriterDeadline + finally post-check that unsets exactly the fields it wrote, matched on its own summaryApprovedAt), mirroring applyApprovedDiff, so a fence landing between it and applyApprovedDiff no longer leaves the summary behind for executeErasure to find",
   "packages/db/src/erasure.ts": "the erasure purge itself (deletes under the fence) plus the fence and audit rows",
   "packages/engine/src/scribe/graph.ts":
     "startScribe/resumeScribe: session row, claim insert (+ run lease) and graph.invoke under the writer deadline, finally post-check + compensation (invokeFenceAware)",
