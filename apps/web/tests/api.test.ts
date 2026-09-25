@@ -114,6 +114,66 @@ test("B5: invalid decision bodies are refused (400) and write nothing, claim not
   assert.equal(view.state, "awaiting_approval", "the thread stays open after refused submits");
 });
 
+test("T-018 ISS-t-008-c0-1: an edit value that does not match the proposed value's type is refused (400) through the full API, and writes nothing", async () => {
+  const rt = await fresh();
+  const hostileBodies: unknown[] = [
+    // The exact reported probe: an object for a numeric fact.
+    {
+      facts: [
+        { key: "targetCountry", decision: "approve" },
+        { key: "intendedMajor", decision: "approve" },
+        { key: "preferredIntake", decision: "approve" },
+        { key: "budget_inr_per_year", decision: "edit", value: { not: "a number" } },
+      ],
+      summary: "approve",
+    },
+    // An array for a numeric fact.
+    {
+      facts: [
+        { key: "targetCountry", decision: "approve" },
+        { key: "intendedMajor", decision: "approve" },
+        { key: "preferredIntake", decision: "approve" },
+        { key: "budget_inr_per_year", decision: "edit", value: [1, 2, 3] },
+      ],
+      summary: "approve",
+    },
+    // Schema-valid (a non-empty string) but the wrong type for the proposed numeric value —
+    // only decisionFromResponse (which sees the proposal) can catch this, not the Zod schema alone.
+    {
+      facts: [
+        { key: "targetCountry", decision: "approve" },
+        { key: "intendedMajor", decision: "approve" },
+        { key: "preferredIntake", decision: "approve" },
+        { key: "budget_inr_per_year", decision: "edit", value: "twenty lakh" },
+      ],
+      summary: "approve",
+    },
+  ];
+  for (const body of hostileBodies) {
+    const { status, body: resBody } = await submitDecision(rt, DEMO_THREADS.paused, body);
+    assert.equal(status, 400, JSON.stringify(body));
+    assert.equal(SubmitResultSchema.parse(resBody).state, "invalid");
+  }
+  const rb = rt.readback("demo-student-1");
+  assert.equal(rb.facts.length, 0, "nothing written by any of the refused edits");
+  assert.equal(rb.claims, 0, "no claim taken");
+  const view = ApprovalViewSchema.parse((await getApprovalView(rt, DEMO_THREADS.paused)).body);
+  assert.equal(view.state, "awaiting_approval", "the thread stays open, untouched, for a corrected response");
+
+  // The thread heals: a same-type numeric edit is accepted and written.
+  const ok = await submitDecision(rt, DEMO_THREADS.paused, {
+    facts: [
+      { key: "targetCountry", decision: "approve" },
+      { key: "intendedMajor", decision: "approve" },
+      { key: "preferredIntake", decision: "approve" },
+      { key: "budget_inr_per_year", decision: "edit", value: 2500000 },
+    ],
+    summary: "approve",
+  });
+  assert.equal(ok.status, 200);
+  assert.equal(rt.readback("demo-student-1").facts.find((f) => f.key === "budget_inr_per_year" && f.active)?.value, 2500000);
+});
+
 test("fenced: a student with an erasure in progress -> GET and POST both 423 fenced, no student data, nothing written", async () => {
   const rt = await fresh();
   const get = await getApprovalView(rt, DEMO_THREADS.fenced);

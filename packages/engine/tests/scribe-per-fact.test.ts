@@ -6,7 +6,16 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COLLECTION_NAMES, confirmErasure, requestErasure, type SessionDoc, type ScribeResolutionDoc } from "@vc/db";
+import { ZodError } from "zod";
+import {
+  COLLECTION_NAMES,
+  confirmErasure,
+  rejectReasonAuditId,
+  requestErasure,
+  type SessionDoc,
+  type ScribeResolutionDoc,
+  type RejectReasonAuditDoc,
+} from "@vc/db";
 import {
   ApprovalRequestSchema,
   ApprovalResponseError,
@@ -298,4 +307,187 @@ test("T-008 inspectScribe: a fenced student (erasure in progress) is reported fe
   const resumed = await resumeScribe(h.graph, mixed(), cfg("pf-fenced"));
   assert.equal(resumed.kind, "fenced");
   assert.equal(h.facts.size(), 0);
+});
+
+// ---------------------------------------------------------------------------
+// T-018 / ISS-t-008-c0-1: an edited value must match the proposed value's type
+// ---------------------------------------------------------------------------
+
+test("T-018 ISS-t-008-c0-1: an object edit value for a numeric fact is refused at the schema boundary, before any claim, writing nothing", async () => {
+  const h = threeFactHarness();
+  await startScribe(h.graph, baseInput(), cfg("pf-type-object"));
+  const hostile: ApprovalResponse = {
+    action: "per_fact",
+    facts: [
+      { key: "targetCountry", decision: "approve" },
+      // The exact ISS-t-008-c0-1 probe: an object where budget_inr_per_year (a number) was proposed.
+      { key: "budget_inr_per_year", decision: "edit", value: { not: "a number" } as unknown as string },
+      { key: "intendedMajor", decision: "approve" },
+    ],
+    summary: "approve",
+  };
+  await assert.rejects(resumeScribe(h.graph, hostile, cfg("pf-type-object")), ZodError);
+  assert.equal(h.facts.size(), 0, "nothing written");
+  assert.equal(claims(h).length, 0, "no claim taken");
+  const view = await inspectScribe(h.graph, "pf-type-object");
+  assert.equal(view.kind, "awaiting_approval", "the thread is untouched and still open for a corrected response");
+
+  // The thread heals: a valid response afterwards is still applied.
+  const ok = await resumeScribe(h.graph, mixed(), cfg("pf-type-object"));
+  assert.equal(ok.kind === "done" && ok.result.status, "written");
+});
+
+test("T-018 ISS-t-008-c0-1: an array edit value is refused the same way (not just a plain object)", async () => {
+  const h = threeFactHarness();
+  await startScribe(h.graph, baseInput(), cfg("pf-type-array"));
+  const hostile: ApprovalResponse = {
+    action: "per_fact",
+    facts: [
+      { key: "targetCountry", decision: "approve" },
+      { key: "budget_inr_per_year", decision: "edit", value: [1, 2, 3] as unknown as string },
+      { key: "intendedMajor", decision: "approve" },
+    ],
+    summary: "approve",
+  };
+  await assert.rejects(resumeScribe(h.graph, hostile, cfg("pf-type-array")), ZodError);
+  assert.equal(h.facts.size(), 0);
+});
+
+test("T-018: a string edit value for a numeric fact is refused at the engine boundary (decisionFromResponse), before any claim", async () => {
+  const h = threeFactHarness();
+  await startScribe(h.graph, baseInput(), cfg("pf-type-mismatch"));
+  const mismatched: ApprovalResponse = {
+    action: "per_fact",
+    facts: [
+      { key: "targetCountry", decision: "approve" },
+      // Schema-valid (a non-empty string, EditedValueSchema is satisfied) but the PROPOSED value
+      // is a number — this is the check EditedValueSchema alone can not make (it never sees the
+      // proposal), only perFactDecision/decisionFromResponse can, because both sides are there.
+      { key: "budget_inr_per_year", decision: "edit", value: "twenty lakh" },
+      { key: "intendedMajor", decision: "approve" },
+    ],
+    summary: "approve",
+  };
+  await assert.rejects(resumeScribe(h.graph, mismatched, cfg("pf-type-mismatch")), (err: unknown) => {
+    assert.equal((err as Error).name, "ApprovalResponseError");
+    assert.match((err as Error).message, /budget_inr_per_year.*string value.*proposed value is a number/);
+    return true;
+  });
+  assert.equal(h.facts.size(), 0, "nothing written");
+  assert.equal(claims(h).length, 0, "no claim taken");
+
+  const ok = await resumeScribe(h.graph, mixed(), cfg("pf-type-mismatch"));
+  assert.equal(ok.kind === "done" && ok.result.status, "written");
+});
+
+test("T-018: a boolean edit value for a numeric fact is refused; a same-type numeric edit is accepted", async () => {
+  const h = threeFactHarness();
+  await startScribe(h.graph, baseInput(), cfg("pf-type-bool"));
+  await assert.rejects(
+    resumeScribe(
+      h.graph,
+      {
+        action: "per_fact",
+        facts: [
+          { key: "targetCountry", decision: "approve" },
+          { key: "budget_inr_per_year", decision: "edit", value: true },
+          { key: "intendedMajor", decision: "approve" },
+        ],
+        summary: "approve",
+      },
+      cfg("pf-type-bool"),
+    ),
+    ApprovalResponseError,
+  );
+  assert.equal(h.facts.size(), 0);
+
+  const outcome = await resumeScribe(
+    h.graph,
+    {
+      action: "per_fact",
+      facts: [
+        { key: "targetCountry", decision: "approve" },
+        { key: "budget_inr_per_year", decision: "edit", value: 2500000 },
+        { key: "intendedMajor", decision: "approve" },
+      ],
+      summary: "approve",
+    },
+    cfg("pf-type-bool"),
+  );
+  assert.equal(outcome.kind === "done" && outcome.result.status, "written");
+  const open = new Map(h.openFacts().map((f) => [f.key, f]));
+  assert.equal(open.get("budget_inr_per_year")?.value, 2500000, "a same-type numeric edit is accepted and written");
+});
+
+// ---------------------------------------------------------------------------
+// T-018 / residual 3: per-fact reject reasons are recorded to the `decisions` collection
+// ---------------------------------------------------------------------------
+
+function decisionsColl(h: Harness) {
+  return h.fakeDb.collection<RejectReasonAuditDoc>(COLLECTION_NAMES.decisions);
+}
+
+test("T-018 residual 3: a per_fact rejection writes an audit record with the thread id, student id, rejected keys and reasons, no transcript text", async () => {
+  const h = threeFactHarness();
+  await startScribe(h.graph, baseInput(), cfg("pf-reject-audit"));
+  const outcome = await resumeScribe(h.graph, mixed(), cfg("pf-reject-audit"));
+  assert.equal(outcome.kind === "done" && outcome.result.status, "written");
+
+  const _id = rejectReasonAuditId("pf-reject-audit");
+  const doc = decisionsColl(h).all().find((d) => d._id === _id);
+  assert.ok(doc, "an audit record was written");
+  assert.equal(doc?.kind, "per_fact_reject");
+  assert.equal(doc?.threadId, "pf-reject-audit");
+  assert.equal(doc?.studentId, STUDENT_ID);
+  assert.deepEqual(doc?.rejected, [{ key: "budget_inr_per_year", reason: "family said this is not final" }]);
+  assert.equal(typeof doc?.decidedAt, "string");
+  // No transcript text (the proposal's quote "around 20 lakh rupees a year") anywhere in the record.
+  assert.equal(JSON.stringify(doc).includes("lakh"), false);
+});
+
+test("T-018 residual 3: an audit record is written even when EVERY fact is rejected (the overall decision is 'rejected')", async () => {
+  const h = threeFactHarness();
+  await startScribe(h.graph, baseInput(), cfg("pf-reject-audit-all"));
+  const outcome = await resumeScribe(
+    h.graph,
+    {
+      action: "per_fact",
+      facts: [
+        { key: "targetCountry", decision: "reject", reason: "not confirmed" },
+        { key: "budget_inr_per_year", decision: "reject" },
+        { key: "intendedMajor", decision: "reject", reason: "wants to change it" },
+      ],
+      summary: "withhold",
+    },
+    cfg("pf-reject-audit-all"),
+  );
+  assert.equal(outcome.kind === "done" && outcome.result.status, "rejected");
+  const doc = decisionsColl(h).all().find((d) => d._id === rejectReasonAuditId("pf-reject-audit-all"));
+  assert.ok(doc, "an audit record was written even though nothing else was");
+  assert.deepEqual(
+    doc?.rejected.map((r) => r.key).sort(),
+    ["budget_inr_per_year", "intendedMajor", "targetCountry"],
+  );
+});
+
+test("T-018 residual 3: no rejections -> no audit record is written", async () => {
+  const h = threeFactHarness();
+  await startScribe(h.graph, baseInput(), cfg("pf-no-reject"));
+  await resumeScribe(h.graph, { action: "approve" }, cfg("pf-no-reject"));
+  assert.equal(decisionsColl(h).all().length, 0);
+});
+
+test("T-018 residual 3: the audit write is idempotent under a checkpoint replay of the approval node (same deterministic _id, no duplicate)", async () => {
+  const h = threeFactHarness();
+  await startScribe(h.graph, baseInput(), cfg("pf-reject-replay"));
+  const outcome = await resumeScribe(h.graph, mixed(), cfg("pf-reject-replay"));
+  assert.equal(outcome.kind === "done" && outcome.result.status, "written");
+  assert.equal(decisionsColl(h).all().filter((d) => d._id === rejectReasonAuditId("pf-reject-replay")).length, 1);
+
+  // A resumeScribe(null) recovery re-invokes from the same checkpoint; the approval node already
+  // recorded its decision, so this is the recorder-recovery no-op path, and the audit record must
+  // still be exactly one document (no duplicate from re-running the node's own logic).
+  const recovered = await resumeScribe(h.graph, null, cfg("pf-reject-replay"));
+  assert.equal(recovered.kind, "done");
+  assert.equal(decisionsColl(h).all().filter((d) => d._id === rejectReasonAuditId("pf-reject-replay")).length, 1);
 });

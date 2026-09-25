@@ -21,6 +21,7 @@ import {
   FENCE_POSTCHECK_TIMEOUT_MS,
   FencedWriterDeadlineError,
   isStudentFenced,
+  recordRejectReasons,
   scribeResolutionsCollection,
   sessionsCollection,
   StudentFencedError,
@@ -117,7 +118,7 @@ export function buildScribeGraph(deps: ScribeDeps) {
     .addNode(SCRIBE_NODES.diff, async (s: State) =>
       proposeDiff({ studentId: s.studentId, summary: s.summary, facts: s.facts }, deps),
     )
-    .addNode(SCRIBE_NODES.approval, (s: State) => {
+    .addNode(SCRIBE_NODES.approval, async (s: State, runtime: { configurable?: { thread_id?: string } }) => {
       const request: ApprovalRequest = ApprovalRequestSchema.parse({
         sessionId: s.sessionId,
         studentId: s.studentId,
@@ -129,7 +130,28 @@ export function buildScribeGraph(deps: ScribeDeps) {
       });
       // B3: the graph suspends here; the counsellor's typed response resumes it.
       const response = ApprovalResponseSchema.parse(interrupt(request));
-      const { decision, summaryDecision } = decisionFromResponse(response, s.proposedFacts ?? []);
+      const { decision, summaryDecision, rejectedFacts } = decisionFromResponse(response, s.proposedFacts ?? []);
+      // T-018 / residual 3: a per_fact response that rejected at least one proposed fact gets an
+      // audit record of the rejected keys and why (never a transcript quote), written whether or
+      // not the overall decision approves anything else — independently fence-aware
+      // (recordRejectReasons: pre-check, deadline-bounded insert, post-check + compensation), and
+      // idempotent under a checkpoint replay of this node (deterministic _id keyed on the thread).
+      if (rejectedFacts && rejectedFacts.length > 0) {
+        // The REAL LangGraph thread id (whatever the caller passed to start/resumeScribe's
+        // ScribeRunOptions.threadId), read from this invoke's own config — NOT derived from
+        // sessionId. scribeThreadId(sessionId) is only the RECOMMENDED threadId (see
+        // ScribeRunOptions' own docstring); it is not enforced, and every test harness in this
+        // package uses its own arbitrary thread ids, so deriving it from sessionId here would
+        // record the audit under the wrong key. Falls back to the recommended derivation only
+        // for a graph invoked directly (bypassing start/resumeScribe) with no thread_id in its
+        // config, which should not happen in practice but keeps this from throwing.
+        const threadId = runtime.configurable?.thread_id ?? scribeThreadId(s.sessionId);
+        await recordRejectReasons(deps.db, {
+          threadId,
+          studentId: s.studentId,
+          rejected: rejectedFacts,
+        });
+      }
       return decision.approve
         ? { decision, summaryDecision }
         : {

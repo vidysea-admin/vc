@@ -159,6 +159,8 @@ const FENCE_AWARE_WRITERS: Record<string, string> = {
     "ISS-t-016-rev-1: recordApprovedSessionSummary is now fence-aware on its OWN (pre-check + writes under a WriterDeadline + finally post-check that unsets exactly the fields it wrote, matched on its own summaryApprovedAt), mirroring applyApprovedDiff — but that ONLY covers a fence that exists by the time its own post-check runs. " +
     "ISS-t-017-rev-1: a fence confirmed strictly AFTER that post-check, but before or during the applyApprovedDiff call right after it, was invisible to either write alone and left the summary behind for executeErasure to find; exporting `undoApprovedSessionSummary` (same match-key undo) lets the caller (writeApproved, nodes.ts, on the fence-aware allowlist below) close that window too, so the full two-write approval path now leaves zero summary residue on any `fenced` outcome",
   "packages/db/src/erasure.ts": "the erasure purge itself (deletes under the fence) plus the fence and audit rows",
+  "packages/db/src/decisions.ts":
+    "T-018 recordRejectReasons: pre-check, a WriterDeadline-bounded insert into `decisions` (a deterministic _id, so a checkpoint replay collides idempotently rather than duplicating), finally post-check + compensation that deletes exactly the document this call inserted (D-015/D-016, mirroring facts.ts's recordApprovedSessionSummary)",
   "packages/engine/src/scribe/graph.ts":
     "startScribe/resumeScribe: session row, claim insert (+ run lease) and graph.invoke under the writer deadline, finally post-check + compensation (invokeFenceAware)",
   "packages/engine/src/scribe/checkpointer.ts":

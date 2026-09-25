@@ -52,6 +52,7 @@ import {
   type DiffOutput,
   type DroppedFact,
   type ExtractOutput,
+  type RejectedFact,
   type ScribeEscalation,
   type ScribeResult,
   type ScribeTurn,
@@ -330,10 +331,30 @@ export class ApprovalResponseError extends Error {
   }
 }
 
+/** "string" | "number" | "boolean" for a scalar; "other" for anything else (object, array, null, ...). */
+function scalarTypeOf(v: unknown): "string" | "number" | "boolean" | "other" {
+  if (typeof v === "string") return "string";
+  if (typeof v === "number") return "number";
+  if (typeof v === "boolean") return "boolean";
+  return "other";
+}
+
 /**
  * T-008 / ISS-t-013-rev-5: per-fact decisions -> the facts to write (approved as proposed, edited
  * with the counsellor's value, rejected ones left out). The decision approves when anything is
  * kept: at least one fact, or the summary.
+ *
+ * T-018 / ISS-t-008-c0-1: an edit's value must be the SAME scalar type as the proposed value it
+ * replaces (a number stays a number, a string stays a string, a boolean stays a boolean). This is
+ * checked here, not only in EditedValueSchema (schemas.ts), because only this function has BOTH
+ * sides to compare — the schema alone can refuse a non-scalar edit value (cheap, no context
+ * needed) but can not know what type the proposal itself was. A proposed value that is itself an
+ * array or object (scalarTypeOf -> "other") can never match any scalar edit, so editing such a
+ * fact is refused outright: the counsellor must reject it and add a new fact by hand instead
+ * (same design choice as EditedValueSchema's own refusal, qa/manifests/t-008-approval-ui.md
+ * residual 1). Checked in the SAME loop that validates keys, before any edit is applied, so a bad
+ * response is refused before anything is claimed or written (B3), matching
+ * ApprovalResponseError's existing contract.
  */
 function perFactDecision(
   response: Extract<ApprovalResponse, { action: "per_fact" }>,
@@ -345,21 +366,35 @@ function perFactDecision(
     if (!proposedByKey.has(d.key)) throw new ApprovalResponseError(`per_fact: "${d.key}" is not a proposed fact of this thread`);
     if (seen.has(d.key)) throw new ApprovalResponseError(`per_fact: "${d.key}" is decided more than once`);
     seen.add(d.key);
+    if (d.decision === "edit") {
+      const proposed = proposedByKey.get(d.key)!;
+      const proposedType = scalarTypeOf(proposed.value);
+      const editedType = scalarTypeOf(d.value);
+      if (editedType !== proposedType) {
+        throw new ApprovalResponseError(
+          `per_fact: "${d.key}" is edited with a ${editedType} value, but the proposed value is a ${proposedType} ` +
+            `(an edited value must match the proposed value's type; reject the fact and add a new one instead)`,
+        );
+      }
+    }
   }
   const missing = proposedFacts.filter((f) => !seen.has(f.key)).map((f) => f.key);
   if (missing.length > 0) throw new ApprovalResponseError(`per_fact: no decision for proposed fact(s) ${missing.join(", ")}`);
 
   const edits: Fact[] = [];
+  const rejectedFacts: RejectedFact[] = [];
   for (const d of response.facts) {
     const proposed = proposedByKey.get(d.key)!;
     // ISS-t-007-rev-5: the consent purpose is never widened by an approval or an edit.
     if (d.decision === "approve") edits.push({ ...proposed, purposeTags: [SCRIBE_PURPOSE] });
     if (d.decision === "edit") edits.push({ ...proposed, value: d.value, purposeTags: [SCRIBE_PURPOSE] });
+    if (d.decision === "reject") rejectedFacts.push({ key: d.key, ...(d.reason ? { reason: d.reason } : {}) });
   }
   const approve = edits.length > 0 || response.summary === "approve";
   return ApprovalOutputSchema.parse({
     decision: approve ? { approve: true, edits } : { approve: false },
     summaryDecision: response.summary,
+    ...(rejectedFacts.length > 0 ? { rejectedFacts } : {}),
   });
 }
 
