@@ -176,3 +176,23 @@ Consent is still enforced by requireConsent against the consents collection (B4)
 **Open:** the provenance of an edited value is gated separately. The edited value keeps the original quote, which can contradict it. See qa/gates/edit-provenance.md.
 **Result:** -- (T-008 cycle 0, checked-PASS; senior review Approve)
 **Links:** T-008, ISS-t-013-rev-5, ISS-t-008-c0-1, T-013, D-014, D-017
+
+## D-019 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** The provider seam (B6) has four kinds, chosen by `VC_LLM_PROVIDER`, which still has no default.
+- **mock:** used in tests.
+- **gemini:** still a stub.
+- **litellm:** an OpenAI-compatible chat-completions client for the LiteLLM gateway.
+  - Config: `VC_LLM_BASE_URL`, `VC_LLM_MODEL` (a gateway class or model), and an optional `VC_LLM_API_KEY`.
+  - Behaviour: JSON mode, one attempt per call, typed key-free errors, and a 30 s timeout.
+- **rules:** deterministic, with no model.
+  - Fact extraction reads `key: value` lines at the start of a transcript turn, and each fact is cited to that exact turn and line (B2).
+  - The session summary is a fixed template (B1).
+
+This input contract is provisional until a structured intake form exists. Runtime failover and the live-gateway smoke run are gated separately, in qa/gates/provider-fallback.md.
+**Why:** The lead's review, relayed by Umesh on 2026-09-25 (qa/feedback-inbox.md), set two requirements:
+- the counsellor tool must not depend on one AI vendor
+- the core flow must finish with no AI
+
+The rules e2e proves that scribe â†’ facts â†’ profile diff â†’ approve completes with zero network.
+**Result:** -- (T-019 cycle 0, checked-PASS; ai-engineer review Approve)
+**Links:** T-019, ISS-t-019-rev-1, ISS-t-019-rev-2, ISS-t-019-rev-3, ISS-t-019-c0-1, ISS-t-019-c0-2, D-005
