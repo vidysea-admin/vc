@@ -1,0 +1,215 @@
+{
+  "unit": "T-008 counsellor diff-approval UI",
+  "date": "2026-09-25",
+  "generatedAt": "2026-09-25T12:34:48.672Z",
+  "baseUrl": "http://localhost:3118",
+  "mode": "demo: next dev (webpack), in-process fake db via @vc/db getVcDb + real MongoDBSaver over the fake, MockProvider, synthetic threads; no MONGODB_URL, no Gemini",
+  "browser": "chromium 153.0.8010.12 (playwright, headless)",
+  "pages": [
+    {
+      "url": "http://localhost:3118/",
+      "label": "index",
+      "consoleErrors": 0,
+      "expectedStatusLogs": 0,
+      "unexpectedConsoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3118/approvals/scribe%3Ademo-session-1",
+      "label": "approval (tab A)",
+      "consoleErrors": 0,
+      "expectedStatusLogs": 0,
+      "unexpectedConsoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3118/approvals/scribe%3Ademo-session-1",
+      "label": "approval (tab B, opened before tab A submits)",
+      "consoleErrors": 0,
+      "expectedStatusLogs": 0,
+      "unexpectedConsoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3118/approvals/scribe%3Ademo-session-1",
+      "label": "decide + submit (tab A)",
+      "consoleErrors": 0,
+      "expectedStatusLogs": 0,
+      "unexpectedConsoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3118/approvals/scribe%3Ademo-session-1",
+      "label": "reload (tab A)",
+      "consoleErrors": 0,
+      "expectedStatusLogs": 0,
+      "unexpectedConsoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3118/approvals/scribe%3Ademo-session-1",
+      "label": "second submit (tab B)",
+      "consoleErrors": 1,
+      "expectedStatusLogs": 1,
+      "unexpectedConsoleErrors": 0,
+      "messages": [
+        "Failed to load resource: the server responded with a status of 409 (Conflict)"
+      ]
+    },
+    {
+      "url": "http://localhost:3118/approvals/scribe%3Ademo-session-2",
+      "label": "fenced thread",
+      "consoleErrors": 2,
+      "expectedStatusLogs": 2,
+      "unexpectedConsoleErrors": 0,
+      "messages": [
+        "Failed to load resource: the server responded with a status of 423 (Locked)",
+        "Failed to load resource: the server responded with a status of 423 (Locked)"
+      ]
+    },
+    {
+      "url": "http://localhost:3118/approvals/scribe%3Ademo-session-3",
+      "label": "in-progress thread",
+      "consoleErrors": 0,
+      "expectedStatusLogs": 0,
+      "unexpectedConsoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3118/approvals/scribe%3Ano-such-session",
+      "label": "unknown thread",
+      "consoleErrors": 2,
+      "expectedStatusLogs": 2,
+      "unexpectedConsoleErrors": 0,
+      "messages": [
+        "Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      ]
+    },
+    {
+      "url": "http://localhost:3118/approvals/scribe%3Ademo-session-1",
+      "label": "mobile width",
+      "consoleErrors": 0,
+      "expectedStatusLogs": 0,
+      "unexpectedConsoleErrors": 0,
+      "messages": []
+    }
+  ],
+  "interactions": [
+    {
+      "did": "open the index page",
+      "expected": "the 3 seeded demo threads are listed",
+      "observed": "links: scribe:demo-session-1, scribe:demo-session-2, scribe:demo-session-3",
+      "pass": true
+    },
+    {
+      "did": "open the paused thread",
+      "expected": "4 proposed facts with quote/turn/confidence, 2 dropped facts with reasons, the draft summary",
+      "observed": "facts=[targetCountry, intendedMajor, preferredIntake, budget_inr_per_year] dropped=[scholarshipNeed, parentOccupation] budget quote=\"around 20 lakh rupees a year\" confidence=66% summary starts \"Student is weighing computer science in \"",
+      "pass": true
+    },
+    {
+      "did": "look at Submit before deciding",
+      "expected": "Submit is disabled until every fact and the summary are decided",
+      "observed": "disabled=true",
+      "pass": true
+    },
+    {
+      "did": "approve targetCountry",
+      "expected": "the fact is marked approved",
+      "observed": "aria-checked=true",
+      "pass": true
+    },
+    {
+      "did": "reject intendedMajor",
+      "expected": "the fact is marked rejected",
+      "observed": "aria-checked=true",
+      "pass": true
+    },
+    {
+      "did": "edit preferredIntake to \"January 2028\"",
+      "expected": "the edit field holds the new value",
+      "observed": "value=\"January 2028\"",
+      "pass": true
+    },
+    {
+      "did": "approve budget_inr_per_year (the 4th fact must be decided too)",
+      "expected": "the fact is marked approved",
+      "observed": "clicked",
+      "pass": true
+    },
+    {
+      "did": "withhold the summary",
+      "expected": "all 4 facts decided and Submit enabled",
+      "observed": "decided=4/4 submitEnabled=true",
+      "pass": true
+    },
+    {
+      "did": "read back the fake db BEFORE submit (B3)",
+      "expected": "0 facts, 0 claims, no stored summary",
+      "observed": "facts=0 claims=0 summary=undefined",
+      "pass": true
+    },
+    {
+      "did": "submit",
+      "expected": "resolved: outcome written, written facts = targetCountry, preferredIntake, budget_inr_per_year",
+      "observed": "outcome=written written=[targetCountry, preferredIntake, budget_inr_per_year]",
+      "pass": true
+    },
+    {
+      "did": "read back the fake db after submit",
+      "expected": "exactly targetCountry=Canada, preferredIntake=January 2028, budget_inr_per_year=2000000 written; intendedMajor never written; summary withheld (\"\" + reason)",
+      "observed": "active={\"targetCountry\":\"Canada\",\"preferredIntake\":\"January 2028\",\"budget_inr_per_year\":2000000} allFactDocs=3 summary=\"\" withheldReason=\"withheld by the counsellor at approval\"",
+      "pass": true
+    },
+    {
+      "did": "reload the page",
+      "expected": "the resolved state (not the form) with 3 written facts and the summary withheld",
+      "observed": "state=done written=3 summaryDecision=withhold",
+      "pass": true
+    },
+    {
+      "did": "second submit of the same thread from a stale tab",
+      "expected": "already_resolved, carrying the FIRST decision (3 facts), not this one",
+      "observed": "state=already_resolved sameAsWinner=false winnerFacts=[targetCountry, preferredIntake, budget_inr_per_year]",
+      "pass": true
+    },
+    {
+      "did": "read back after the second submit",
+      "expected": "unchanged: still 3 fact docs, intendedMajor absent, summary still withheld",
+      "observed": "allFactDocs=3 summary=\"\"",
+      "pass": true
+    },
+    {
+      "did": "open a thread whose student has an erasure in progress",
+      "expected": "the fenced state, no fact data shown",
+      "observed": "state=fenced factCards=0",
+      "pass": true
+    },
+    {
+      "did": "open a claimed thread whose write has not run",
+      "expected": "the in-progress state",
+      "observed": "state=in_progress",
+      "pass": true
+    },
+    {
+      "did": "open an unknown thread",
+      "expected": "the not-found state",
+      "observed": "state=not_found",
+      "pass": true
+    },
+    {
+      "did": "open the resolved thread at 390px width",
+      "expected": "no horizontal page scroll",
+      "observed": "horizontalOverflowPx=0",
+      "pass": true
+    }
+  ],
+  "totals": {
+    "interactions": 18,
+    "passed": 18,
+    "failed": 0,
+    "consoleErrors": 5,
+    "unexpectedConsoleErrors": 0
+  }
+}

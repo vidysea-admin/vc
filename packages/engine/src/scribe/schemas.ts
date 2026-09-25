@@ -135,6 +135,17 @@ export type DiffOutput = z.infer<typeof DiffOutputSchema>;
 
 // --- (f) counsellor approval (interrupt) -------------------------------------
 
+/**
+ * T-008 / ISS-t-013-rev-5: a proposed fact as the counsellor sees it. `needsReview`/`reviewReasons`
+ * are OPTIONAL and additive: T-013 (citation robustness, not merged yet) sets them on FactSchema
+ * itself; until then they are simply absent ("not flagged"). The UI renders the flag per fact.
+ */
+export const ApprovalFactSchema = FactSchema.extend({
+  needsReview: z.boolean().optional(),
+  reviewReasons: z.array(z.string().min(1)).optional(),
+});
+export type ApprovalFact = z.infer<typeof ApprovalFactSchema>;
+
 /** The payload the counsellor UI receives at `interrupt()`. */
 export const ApprovalRequestSchema = z.object({
   sessionId: z.string().min(1),
@@ -142,20 +153,59 @@ export const ApprovalRequestSchema = z.object({
   summary: z.string(),
   summaryWithheldReason: z.string().optional(),
   diff: ProfileDiffSchema,
-  facts: z.array(FactSchema),
+  facts: z.array(ApprovalFactSchema),
   dropped: z.array(DroppedFactSchema),
 });
 export type ApprovalRequest = z.infer<typeof ApprovalRequestSchema>;
 
-/** The typed response the counsellor sends back to resume the graph (`interrupt(response_schema)`). */
+/** T-008: the counsellor's choice for the draft session summary. */
+export const SummaryDecisionSchema = z.enum(["approve", "withhold"]);
+export type SummaryDecision = z.infer<typeof SummaryDecisionSchema>;
+
+/** The reason stored on the session row when the counsellor withholds the draft summary (T-008). */
+export const COUNSELLOR_WITHHELD_SUMMARY_REASON = "withheld by the counsellor at approval";
+
+/** An edited value: present, not null, not an empty string. */
+const EditedValueSchema = z
+  .unknown()
+  .refine((v) => v !== undefined && v !== null && !(typeof v === "string" && v.trim() === ""), {
+    message: "an edited fact needs a non-empty value",
+  });
+
+/**
+ * T-008 / ISS-t-013-rev-5: one decision per proposed fact, by key. `edit` replaces only the value;
+ * the fact's cited source, confidence and sensitivity stay those of the proposal (B2).
+ */
+export const PerFactDecisionSchema = z.discriminatedUnion("decision", [
+  z.object({ key: z.string().min(1), decision: z.literal("approve") }),
+  z.object({ key: z.string().min(1), decision: z.literal("reject"), reason: z.string().optional() }),
+  z.object({ key: z.string().min(1), decision: z.literal("edit"), value: EditedValueSchema }),
+]);
+export type PerFactDecision = z.infer<typeof PerFactDecisionSchema>;
+
+/**
+ * The typed response the counsellor sends back to resume the graph (`interrupt(response_schema)`).
+ * T-008 adds `per_fact` (additive: the three whole-batch actions are unchanged). A per_fact
+ * response must decide every proposed fact exactly once; decisionFromResponse enforces that
+ * against the thread's proposal and throws ApprovalResponseError before anything is claimed.
+ */
 export const ApprovalResponseSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("approve") }),
   z.object({ action: z.literal("edit"), facts: z.array(FactSchema).min(1) }),
   z.object({ action: z.literal("reject"), reason: z.string().optional() }),
+  z.object({
+    action: z.literal("per_fact"),
+    facts: z.array(PerFactDecisionSchema),
+    summary: SummaryDecisionSchema,
+  }),
 ]);
 export type ApprovalResponse = z.infer<typeof ApprovalResponseSchema>;
 
-export const ApprovalOutputSchema = z.object({ decision: CounsellorDecisionSchema });
+export const ApprovalOutputSchema = z.object({
+  decision: CounsellorDecisionSchema,
+  /** T-008: absent for the whole-batch actions (the summary follows the batch decision). */
+  summaryDecision: SummaryDecisionSchema.optional(),
+});
 export type ApprovalOutput = z.infer<typeof ApprovalOutputSchema>;
 
 // --- (g) write --------------------------------------------------------------
@@ -169,6 +219,8 @@ export const WriteInputSchema = z.object({
   /** The summary the counsellor saw and approved ("" when it was withheld, B1). */
   summary: z.string(),
   summaryWithheldReason: z.string().optional(),
+  /** T-008: "withhold" stores no summary text, only COUNSELLOR_WITHHELD_SUMMARY_REASON. Absent = approve. */
+  summaryDecision: SummaryDecisionSchema.optional(),
 });
 
 // --- result -----------------------------------------------------------------

@@ -1,0 +1,60 @@
+node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'D:\vc\.worktrees\t-008-approval-ui\apps\web\src\server\approval-service' imported from D:\vc\.worktrees\t-008-approval-ui\apps\web\tests\api.test.ts
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:866:10)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:719:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:736:38)
+    at nextStep (node:internal/modules/customization_hooks:189:26)
+    at resolveBaseSync (file:///D:/vc/.worktrees/t-008-approval-ui/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:11092)
+    at resolveDirectorySync (file:///D:/vc/.worktrees/t-008-approval-ui/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:12398)
+    at resolveTsPathsSync (file:///D:/vc/.worktrees/t-008-approval-ui/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:13605)
+    at resolve (file:///D:/vc/.worktrees/t-008-approval-ui/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:16832) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///D:/vc/.worktrees/t-008-approval-ui/apps/web/src/server/approval-service'
+}
+
+Node.js v24.13.1
+✖ tests\api.test.ts (2696.9305ms)
+node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'D:\vc\.worktrees\t-008-approval-ui\apps\web\src\components\ApprovalScreen' imported from D:\vc\.worktrees\t-008-approval-ui\apps\web\tests\ui.test.tsx
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:866:10)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:719:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:736:38)
+    at nextStep (node:internal/modules/customization_hooks:189:26)
+    at resolveBaseSync (file:///D:/vc/.worktrees/t-008-approval-ui/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:11092)
+    at resolveDirectorySync (file:///D:/vc/.worktrees/t-008-approval-ui/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:12398)
+    at resolveTsPathsSync (file:///D:/vc/.worktrees/t-008-approval-ui/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:13605)
+    at resolve (file:///D:/vc/.worktrees/t-008-approval-ui/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:16832) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///D:/vc/.worktrees/t-008-approval-ui/apps/web/src/components/ApprovalScreen'
+}
+
+Node.js v24.13.1
+✖ tests\ui.test.tsx (656.8238ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2709.2209
+
+✖ failing tests:
+
+test at tests\api.test.ts:1:1
+✖ tests\api.test.ts (2696.9305ms)
+  'test failed'
+
+test at tests\ui.test.tsx:1:1
+✖ tests\ui.test.tsx (656.8238ms)
+  'test failed'
