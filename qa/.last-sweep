@@ -1,3 +1,4 @@
 2026-09-25T01:44:00+05:30 FINDINGS: 0-new (CLEAN aside from pre-ledgered ISS-003 re-confirmed) 7c84eb6122815d2513adee750dfc24e6f37f39dc
 2026-09-25T03:22:33+05:30 FINDINGS: 1-new (ISS-015 contract/ARCHITECTURE/adapter drift on B12 full-CRUD) 25d6b5edd4b89e32183a47efa29f75e59f75dc1b
 2026-09-25T10:56:15+05:30 FINDINGS: 5-new (ISS-044..048; crisis-guard-precision gate unanswered) 8df46debcafea0f358d7643f63be2ffc79723224
+2026-09-25T16:38:15+05:30 FINDINGS: 4 (T-017 FAIL adjudication; ISS-045+ISS-t-017-c0-1 escalated high; ISS-049; B15 clarified; 2 stale highs closed) 29436583de365d647c9a6013b7a87595965ad007

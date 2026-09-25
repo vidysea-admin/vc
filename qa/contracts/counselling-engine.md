@@ -86,7 +86,7 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   unconfirmed call deletes nothing, and a test proves it. After the purge, a verification pass reads back every
   collection and proves zero documents remain for that student. It writes a receipt of counts and time only, with no
   personal data. Export is a per-student JSON bundle. Tests cover confirm-required, full purge (read-back = 0) and a
-  partial-failure path that is reported, not silently swallowed (`qa/gates/dpdp-erase-design.md`).
+  partial-failure path that is reported, not silently swallowed (`qa/gates/dpdp-erase-design.md`). Fencing per D-015/D-016/D-017: a confirmed erasure fences the student's writes until completion plus the D-016 minimum fence hold. Any write that lands in the gap and survives the read-back is a **B15 violation, not an accepted residual** (ISS-t-017-rev-1 is open against this). The sweep that releases fences must not be able to crash its host process (ISS-t-017-rev-2).
 - **B16 (crisis escalation):** The keyword guard runs first, before any generative call (B9). An async Flash-Lite
   concern classifier, which never blocks the live turn, runs on concern-level turns plus a stratified sample of "none"
   turns. An escalation notifies **the admin and the concerned counsellor(s)** at the same moment. Crisis recall is
@@ -119,3 +119,4 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   crisis escalation to admin plus the concerned counsellors · answers in qa/gates/{dpdp-erase-design, crisis-safety-layers,
   real-transcripts-gemini}.md.
 - 2026-09-25 · routine (tighten, inbox fold) · B16 crisis recall bar set to >= 0.95 on the offline golden set · qa/feedback-inbox.md 04:47:54 ai-engineer review of T-005.
+- 2026-09-25 · routine (clarify, no weakening) · B15 now cites the D-015/D-016/D-017 fencing and states that a surviving write in the fence gap is a violation (ISS-t-017-rev-1) and that the fence sweep must not crash its host (ISS-t-017-rev-2) · sweep shard 1 found B15 stale against D-016/D-017.
