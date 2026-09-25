@@ -162,6 +162,14 @@ test("purpose filter: only facts whose purposeTags include the requested purpose
 
 test("B3 propose_profile_diff writes nothing: the facts collection is unchanged after the call, read back directly", async () => {
   const { fakeDb, db } = createFakeDb();
+  seedConsent(fakeDb, {
+    _id: "c1",
+    studentId: "s1",
+    guardianConsent: true,
+    purposes: ["counselling_session"],
+    recordedAt: "2026-09-25T00:00:00.000Z",
+    minor: false,
+  });
   seedFact(fakeDb, {
     _id: "f1",
     studentId: "s1",
@@ -183,6 +191,7 @@ test("B3 propose_profile_diff writes nothing: the facts collection is unchanged 
       name: "propose_profile_diff",
       arguments: {
         studentId: "s1",
+        purpose: "counselling_session",
         candidateFacts: [
           {
             key: "targetCountry",
@@ -270,11 +279,232 @@ test("hostile: an uncited candidate fact in propose_profile_diff is rejected by 
       name: "propose_profile_diff",
       arguments: {
         studentId: "s1",
+        purpose: "counselling_session",
         candidateFacts: [{ key: "targetCountry", value: "Canada", confidence: 0.9, validFrom: "2026-09-25T00:00:00.000Z", purposeTags: ["x"], sensitivity: "low" }],
       },
     });
     assert.equal(result.isError, true);
     assert.match(textOf(result as any), /Input validation error/);
+  } finally {
+    await cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ISS-029 (contract B4/B14): propose_profile_diff must not be a consent-bypass
+// oracle. A caller with no consent row (or consent for the wrong purpose, or
+// a fact tagged with a purpose the caller isn't consented for) must never see
+// the real stored value in `before`, no matter what key it guesses.
+// ---------------------------------------------------------------------------
+
+const SECRET = "diabetes-type-2-CONFIDENTIAL";
+
+test("ISS-029: propose_profile_diff with no consent row and a guessed key leaks nothing -- the secret string appears nowhere in the response", async () => {
+  const { fakeDb, db } = createFakeDb();
+  seedFact(fakeDb, {
+    _id: "f1",
+    studentId: "s1",
+    key: "medicalCondition",
+    value: SECRET,
+    source: { type: "student-direct", id: "answer-1" },
+    confidence: 0.9,
+    validFrom: "2026-09-25T00:00:00.000Z",
+    purposeTags: ["counselling_session"],
+    sensitivity: "high",
+  });
+  // Zero consent rows for s1.
+
+  const server = createStudentProfileServer({ db });
+  const { client, cleanup } = await connectedClient(server);
+  try {
+    const result = await client.callTool({
+      name: "propose_profile_diff",
+      arguments: {
+        studentId: "s1",
+        purpose: "counselling_session",
+        candidateFacts: [
+          {
+            key: "medicalCondition",
+            value: "guess",
+            source: { type: "student-direct", id: "caller-guess" },
+            confidence: 0.1,
+            validFrom: "2026-09-25T02:00:00.000Z",
+            purposeTags: ["counselling_session"],
+            sensitivity: "high",
+          },
+        ],
+      },
+    });
+    assert.equal(result.isError, true);
+    assert.match(textOf(result as any), /ConsentRequiredError|no valid recorded consent/);
+    assert.equal((result as any).structuredContent, undefined);
+    const serialized = JSON.stringify(result);
+    assert.equal(serialized.includes(SECRET), false, "the secret stored value must not appear anywhere in the response");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("ISS-029: consent recorded for a DIFFERENT purpose still leaks nothing", async () => {
+  const { fakeDb, db } = createFakeDb();
+  seedConsent(fakeDb, {
+    _id: "c1",
+    studentId: "s1",
+    guardianConsent: true,
+    purposes: ["application_filling"], // NOT counselling_session
+    recordedAt: "2026-09-25T00:00:00.000Z",
+    minor: false,
+  });
+  seedFact(fakeDb, {
+    _id: "f1",
+    studentId: "s1",
+    key: "medicalCondition",
+    value: SECRET,
+    source: { type: "student-direct", id: "answer-1" },
+    confidence: 0.9,
+    validFrom: "2026-09-25T00:00:00.000Z",
+    purposeTags: ["counselling_session"],
+    sensitivity: "high",
+  });
+
+  const server = createStudentProfileServer({ db });
+  const { client, cleanup } = await connectedClient(server);
+  try {
+    const result = await client.callTool({
+      name: "propose_profile_diff",
+      arguments: {
+        studentId: "s1",
+        purpose: "counselling_session",
+        candidateFacts: [
+          {
+            key: "medicalCondition",
+            value: "guess",
+            source: { type: "student-direct", id: "caller-guess" },
+            confidence: 0.1,
+            validFrom: "2026-09-25T02:00:00.000Z",
+            purposeTags: ["counselling_session"],
+            sensitivity: "high",
+          },
+        ],
+      },
+    });
+    assert.equal(result.isError, true);
+    assert.match(textOf(result as any), /ConsentRequiredError|no valid recorded consent/);
+    assert.equal((result as any).structuredContent, undefined);
+    const serialized = JSON.stringify(result);
+    assert.equal(serialized.includes(SECRET), false, "the secret stored value must not appear anywhere in the response");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("ISS-029: consented purpose, but the stored fact is tagged with a DIFFERENT purpose -- no before leak, diff treats it as unseen", async () => {
+  const { fakeDb, db } = createFakeDb();
+  seedConsent(fakeDb, {
+    _id: "c1",
+    studentId: "s1",
+    guardianConsent: true,
+    purposes: ["counselling_session"],
+    recordedAt: "2026-09-25T00:00:00.000Z",
+    minor: false,
+  });
+  // Stored fact is tagged application_filling only -- caller is consented for
+  // counselling_session, so this fact must stay invisible to this call.
+  seedFact(fakeDb, {
+    _id: "f1",
+    studentId: "s1",
+    key: "medicalCondition",
+    value: SECRET,
+    source: { type: "student-direct", id: "answer-1" },
+    confidence: 0.9,
+    validFrom: "2026-09-25T00:00:00.000Z",
+    purposeTags: ["application_filling"],
+    sensitivity: "high",
+  });
+
+  const server = createStudentProfileServer({ db });
+  const { client, cleanup } = await connectedClient(server);
+  try {
+    const result = await client.callTool({
+      name: "propose_profile_diff",
+      arguments: {
+        studentId: "s1",
+        purpose: "counselling_session",
+        candidateFacts: [
+          {
+            key: "medicalCondition",
+            value: "guess",
+            source: { type: "student-direct", id: "caller-guess" },
+            confidence: 0.1,
+            validFrom: "2026-09-25T02:00:00.000Z",
+            purposeTags: ["counselling_session"],
+            sensitivity: "high",
+          },
+        ],
+      },
+    });
+    assert.notEqual(result.isError, true);
+    const serialized = JSON.stringify(result);
+    assert.equal(serialized.includes(SECRET), false, "a fact outside the consented purpose must never appear in `before`");
+    const diff = (result.structuredContent as { diff: { changes: Array<{ op: string; key: string; before?: unknown }> } }).diff;
+    assert.equal(diff.changes.length, 1);
+    // Treated as having no visible prior value -- an "add", never an "update" with a real `before`.
+    assert.equal(diff.changes[0].op, "add");
+    assert.equal(diff.changes[0].before, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("ISS-029: the legitimate path (consented purpose, fact tagged with that purpose) still produces a correct update diff", async () => {
+  const { fakeDb, db } = createFakeDb();
+  seedConsent(fakeDb, {
+    _id: "c1",
+    studentId: "s1",
+    guardianConsent: true,
+    purposes: ["counselling_session"],
+    recordedAt: "2026-09-25T00:00:00.000Z",
+    minor: false,
+  });
+  seedFact(fakeDb, {
+    _id: "f1",
+    studentId: "s1",
+    key: "targetCountry",
+    value: "Canada",
+    source: { type: "student-direct", id: "answer-1" },
+    confidence: 0.9,
+    validFrom: "2026-09-25T00:00:00.000Z",
+    purposeTags: ["counselling_session"],
+    sensitivity: "low",
+  });
+
+  const server = createStudentProfileServer({ db });
+  const { client, cleanup } = await connectedClient(server);
+  try {
+    const result = await client.callTool({
+      name: "propose_profile_diff",
+      arguments: {
+        studentId: "s1",
+        purpose: "counselling_session",
+        candidateFacts: [
+          {
+            key: "targetCountry",
+            value: "Germany",
+            source: { type: "student-direct", id: "answer-2" },
+            confidence: 0.85,
+            validFrom: "2026-09-25T01:00:00.000Z",
+            purposeTags: ["counselling_session"],
+            sensitivity: "low",
+          },
+        ],
+      },
+    });
+    assert.notEqual(result.isError, true);
+    const diff = (result.structuredContent as { diff: { changes: Array<{ op: string; key: string; before?: unknown; after?: unknown }> } }).diff;
+    assert.equal(diff.changes.length, 1);
+    assert.equal(diff.changes[0].op, "update");
+    assert.equal(diff.changes[0].before, "Canada");
+    assert.equal(diff.changes[0].after, "Germany");
   } finally {
     await cleanup();
   }

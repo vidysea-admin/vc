@@ -13,7 +13,19 @@
  *                            NOTHING (B3) — the only write path is the
  *                            counsellor-approved graph step in T-007.
  *                            `applyApprovedDiff` is deliberately not exposed
- *                            here.
+ *                            here. Also requires a recorded consent row for
+ *                            the given purpose (B4, via @vc/db
+ *                            requireConsent), same as get_profile_facts —
+ *                            fixed under ISS-029: this tool reads existing
+ *                            stored facts to build the diff, so without a
+ *                            consent gate it was a read oracle for any caller
+ *                            who could guess a fact key. Existing facts are
+ *                            further restricted to those whose purposeTags
+ *                            include the given purpose; a stored fact outside
+ *                            that purpose is treated as having no visible
+ *                            prior value (never echoed in `before`) — safe
+ *                            because the diff is only a proposal (B3: nothing
+ *                            is written until the counsellor approves).
  *
  * D-007: this package is consumed as TypeScript source (no build step) via
  * `"exports": {".": "./src/index.ts"}` — everything callers need lives in
@@ -115,19 +127,32 @@ export function createStudentProfileServer(deps: StudentProfileServerDeps): McpS
       description:
         "Diffs candidateFacts against the student's current active facts and returns a ProfileDiff. " +
         "Writes nothing to the facts collection (contract B3) -- the only write path is the " +
-        "counsellor-approved graph step (T-007); this tool deliberately does not expose applyApprovedDiff.",
+        "counsellor-approved graph step (T-007); this tool deliberately does not expose applyApprovedDiff. " +
+        "Requires a recorded consent row covering the given purpose (contract B4, ISS-029) -- with no " +
+        "consent, this returns a tool error and no fact data, never a partial or guessable diff. Only " +
+        "existing facts whose purposeTags include that purpose are ever compared against; a stored fact " +
+        "outside the consented purpose is treated as unseen and never appears in `before`.",
       inputSchema: {
         studentId: z.string().min(1),
+        purpose: ProfilePurposeSchema,
         candidateFacts: z.array(FactSchema),
       },
       outputSchema: {
         diff: ProfileDiffSchema,
       },
     },
-    async ({ studentId, candidateFacts }) => {
-      // All facts (active + superseded) for this student -- proposeFactChanges
-      // itself filters to the active ones (no validTo) before diffing.
-      const existingFacts = await factsCollection(db).find({ studentId }).toArray();
+    async ({ studentId, purpose, candidateFacts }) => {
+      // B4/ISS-029: same consent gate as get_profile_facts. This call happens
+      // before any read of stored facts -- a refusal here returns a tool
+      // error with no fact data in the response at all.
+      await requireConsent(db, studentId, purpose);
+
+      // Only facts whose purposeTags include the consented purpose are ever
+      // loaded -- a fact tagged with a different purpose is never fetched, so
+      // it can never leak into `before` (ISS-029). Both active and superseded
+      // rows are fetched (proposeFactChanges itself filters to the active
+      // ones, no validTo, before diffing).
+      const existingFacts = await factsCollection(db).find({ studentId, purposeTags: purpose }).toArray();
 
       const diff = proposeFactChanges({
         studentId,

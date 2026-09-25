@@ -2,9 +2,9 @@
 **Contract:** qa/contracts/counselling-engine.md (B2, B3, B4, B6, B8, B11, B12, B13, B14)
 **Goal task:** T-006
 **Date:** 2026-09-25
-**Fix cycle:** 1 of max 3 (cycle-0 FAIL: ISS-029 critical)
+**Fix cycle:** 1 of max 3 (cycle-0 FAIL: ISS-029 critical — fixed this cycle, see "Fix cycle 1" below)
 **Dual check:** no
-**Issues addressed:** none
+**Issues addressed:** ISS-029 (critical)
 **Executor:** claude-sonnet-subagent
 **Executor rationale:** two well-specified MCP servers over an existing, already-hardened `@vc/db`
 API (T-003, checker PASS `a4dd339`) — a focused build against a fixed brief and a real (verified)
@@ -124,7 +124,10 @@ third-party SDK API, no open design questions that need a larger model.
   accessor there — the accessor equivalent (`coursesCollection`) lives locally in
   `mcp/university-kb/src/index.ts` instead.
 
-## Note on why "purpose" has no consent check on `propose_profile_diff`
+## SUPERSEDED — original note on why "purpose" had no consent check on `propose_profile_diff`
+**This reasoning was wrong; see "Fix cycle 1 (ISS-029)" below for the fix.** Kept verbatim for the
+record, not because it still applies.
+
 The brief's tool signature for `propose_profile_diff` is `{studentId, candidateFacts}` — no
 `purpose` field, unlike `get_profile_facts`. `requireConsent` needs a specific `purpose` to check
 against, so it cannot be meaningfully called here without inventing a field the brief didn't ask
@@ -132,6 +135,87 @@ for. This tool only diffs already-extracted candidate facts (the caller's job to
 consensually) against stored facts and writes nothing; it does not expose new protected data the
 caller didn't already hand it. Followed the brief literally rather than silently widening scope;
 flagging here per the anti-drift discipline of naming design choices instead of burying them.
+
+The cycle-0 checker falsified this claim directly (ISS-029): `propose_profile_diff` echoes the
+real stored value of any fact key the caller guesses back in `ProfileDiff.changes[].before`, with
+**zero consent check**. That is new protected data reaching the caller — the caller supplied a
+guess, not the real value, and got the real value back. "Writes nothing" (B3) does not make a read
+path safe; B4 governs reads independently.
+
+## Fix cycle 1 (ISS-029)
+
+**Fix, in `mcp/student-profile/src/index.ts`:**
+- `propose_profile_diff`'s `inputSchema` gained a required `purpose: ProfilePurposeSchema` field
+  (same enum as `get_profile_facts`).
+- The handler now calls `await requireConsent(db, studentId, purpose)` before reading anything —
+  identical gate to `get_profile_facts`. A refusal is a tool error (`isError: true`) with no
+  `structuredContent`, i.e. no fact data in the response at all.
+- The existing-facts read changed from `factsCollection(db).find({ studentId })` to
+  `factsCollection(db).find({ studentId, purposeTags: purpose })` — only facts tagged with the
+  *consented* purpose are ever fetched from the DB in the first place. A stored fact outside that
+  purpose is never loaded, so it can never reach `proposeFactChanges`'s diff and can never appear
+  in `before`. Per the brief's instruction, that key is instead treated as having no visible prior
+  value (an "add" op, not an "update" with a real `before`) — safe because B3 means nothing is
+  written until the counsellor approves the proposal.
+- Checked the rest of `ProfileDiff` for other echo paths: `summary` only contains a count
+  (`candidateFacts.length`), and `citedFactIds` is built from `candidate.key` (the caller's own
+  input), never from a stored fact's `_id`/source/quote. No other field echoes data the caller
+  cannot already see.
+
+**TDD — RED then GREEN** (`mcp/student-profile/tests/index.test.ts`, 4 new tests + 1 existing test
+updated for the new required `purpose` field):
+- Tests written first against the unfixed code (`pnpm test` in `mcp/student-profile`): 3 of the 4
+  new tests failed as expected —
+  `ISS-029: propose_profile_diff with no consent row and a guessed key leaks nothing` (RED:
+  `result.isError` was `undefined`, i.e. it silently succeeded and leaked),
+  `ISS-029: consent recorded for a DIFFERENT purpose still leaks nothing` (RED: same),
+  `ISS-029: consented purpose, but the stored fact is tagged with a DIFFERENT purpose -- no before
+  leak, diff treats it as unseen` (RED: `AssertionError: a fact outside the consented purpose must
+  never appear in \`before\`` — `true !== false`, i.e. the secret string was found in the
+  serialized response). The 4th (`ISS-029: the legitimate path ... still produces a correct update
+  diff`) already passed against the unfixed code, since it doesn't exercise the new gate.
+- After the fix: all 11 tests in the package pass (7 original + 4 new), including the 3 that were
+  RED.
+
+**Hostile tests added (all run over the real MCP `Client` + `InMemoryTransport`, asserting on the
+full serialized response, not just `structuredContent`):**
+1. No consent row, guessed key → `isError: true`, `structuredContent` undefined, and
+   `JSON.stringify(result)` does not contain the seeded secret string anywhere.
+2. Consent recorded for a *different* purpose (`application_filling`) than the one requested
+   (`counselling_session`) → same result as (1).
+3. Consent covers the requested purpose, but the stored fact is tagged with a *different* purpose
+   → call succeeds, but the secret never appears in the serialized response; the diff reports an
+   `"add"` op with `before: undefined`, not an `"update"` with the real value.
+4. The legitimate path (consented purpose, fact tagged with that same purpose) still produces a
+   correct `"update"` diff with the real `before`/`after` values — proves the fix didn't
+   over-restrict the honest case.
+5. `B3 propose_profile_diff writes nothing` (pre-existing test) updated to seed a consent row and
+   pass `purpose`, and re-confirmed the facts collection is still byte-for-byte unchanged
+   before/after (zero writes, re-verified under the new gate).
+
+**Falsification (this cycle, isolating the exact guard added):** in the real worktree, commented
+out the `await requireConsent(db, studentId, purpose);` line inside `propose_profile_diff` only
+(the sibling call inside `get_profile_facts` was left untouched, confirmed by `grep -n
+requireConsent src/index.ts` showing both call sites before the edit and only the
+`get_profile_facts` one after). Re-ran `pnpm test`:
+- PASS-before (fix in place): 11/11.
+- FAIL-after (gate removed): 9/11 — exactly the two tests that assert the no-consent /
+  wrong-purpose oracle is closed went red:
+  `✖ ISS-029: propose_profile_diff with no consent row and a guessed key leaks nothing ...` —
+  `AssertionError: Expected values to be strictly equal: + undefined - true` (`result.isError` was
+  `undefined`, i.e. the call silently succeeded again with the consent gate gone), and
+  `✖ ISS-029: consent recorded for a DIFFERENT purpose still leaks nothing ...` — same failure
+  shape. The purpose-tag-filter row (test 3) and the legitimate-path row (test 4) stayed green,
+  since they don't depend on the `requireConsent` call being present, correctly showing the
+  falsification was isolated to the one guard.
+- Restored the file from the pre-edit backup (`mv src/index.ts.bak src/index.ts`); re-ran `pnpm
+  test`: 11/11 green again. `grep -n requireConsent src/index.ts` shows both call sites restored
+  (lines 104 and 148).
+
+**Diff range for cycle 1:** `c676e9f..<this commit>` — touches only
+`mcp/student-profile/src/index.ts` and `mcp/student-profile/tests/index.test.ts` (verified via
+`git status --porcelain=v1` showing no other tracked path changed; `.handoffs/` is pre-existing and
+untouched by this cycle).
 
 ## How to verify (commands + expected)
 - `pnpm install` → expected: exit 0
@@ -272,5 +356,67 @@ repo path, so nothing in `D:\vc` is affected).
 Not UI-touching — no surface changed. This unit only touched `mcp/student-profile/**`,
 `mcp/university-kb/**`, and `pnpm-lock.yaml`. No `apps/web` or any browser-reachable surface
 changed; the two servers are stdio MCP processes with no HTTP/UI surface.
+
+## Fix cycle 1 — actual outputs (this session's own run, from the worktree, post-fix)
+
+**`pnpm -r typecheck`** — exit 0, all 9 workspace packages "Done" (`packages/observability` landed
+via the T-004/T-005 merge already reflected in the checker's own cycle-0 run — not a cycle-1
+change):
+```
+apps/api typecheck: Done
+apps/web typecheck: Done
+packages/providers typecheck: Done
+packages/observability typecheck: Done
+packages/schemas typecheck: Done
+packages/db typecheck: Done
+packages/engine typecheck: Done
+mcp/student-profile typecheck: Done
+mcp/university-kb typecheck: Done
+```
+
+**`pnpm -r test`** — exit 0, 178 tests total, 0 failures:
+```
+apps/web test: pass 1, fail 0
+packages/providers test: pass 1, fail 0
+apps/api test: pass 1, fail 0
+packages/schemas test: pass 50, fail 0
+packages/observability test: pass 43, fail 0
+packages/engine test: pass 31, fail 0
+packages/db test: pass 31, fail 0
+mcp/student-profile test: pass 11, fail 0
+mcp/university-kb test: pass 9, fail 0
+```
+
+`mcp/student-profile` (11/11 — 7 pre-existing + 4 new ISS-029 tests):
+```
+✔ tool registered and callable through MCP: both tools appear in tools/list
+✔ B4 consent required: get_profile_facts with no consent row returns a tool error and zero facts
+✔ purpose filter: only facts whose purposeTags include the requested purpose come back, superseded facts excluded
+✔ B3 propose_profile_diff writes nothing: the facts collection is unchanged after the call, read back directly
+✔ hostile: purpose not in the enum is rejected by Zod before any DB read
+✔ hostile: a NoSQL-operator object as studentId ({"$ne": null}) is rejected by Zod, not passed to the DB
+✔ hostile: an uncited candidate fact in propose_profile_diff is rejected by Zod (FactSchema requires source)
+✔ ISS-029: propose_profile_diff with no consent row and a guessed key leaks nothing -- the secret string appears nowhere in the response
+✔ ISS-029: consent recorded for a DIFFERENT purpose still leaks nothing
+✔ ISS-029: consented purpose, but the stored fact is tagged with a DIFFERENT purpose -- no before leak, diff treats it as unseen
+✔ ISS-029: the legitimate path (consented purpose, fact tagged with that purpose) still produces a correct update diff
+ℹ tests 11
+ℹ pass 11
+ℹ fail 0
+```
+
+**`python contracts/verify_contracts.py`** — exit 0:
+```
+verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity
+```
+
+**`git status --porcelain=v1`** (worktree, before staging this cycle's commit):
+```
+ M mcp/student-profile/src/index.ts
+ M mcp/student-profile/tests/index.test.ts
+?? .handoffs/
+```
+(`.handoffs/` is pre-existing and unrelated to this cycle, same as noted in the checker's cycle-0
+verdict.)
 
 ## Status: ready-for-check
