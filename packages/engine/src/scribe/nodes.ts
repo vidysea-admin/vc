@@ -10,10 +10,13 @@ import { FactSchema, isScriptLike, type Fact } from "@vc/schemas";
 import {
   ConsentRequiredError,
   FactConflictError,
+  FENCE_POSTCHECK_TIMEOUT_MS,
+  FencedWriterDeadlineError,
   PartialApplyError,
   StudentFencedError,
   applyApprovedDiff,
   factsCollection,
+  isStudentFenced,
   recordApprovedSessionSummary,
   proposeFactChanges,
   requireConsent,
@@ -378,6 +381,22 @@ function boundedDeadlineMs(expiresAt: number | undefined): number | undefined {
  * caught the fence — closing the window `packages/db/src/facts.ts`'s module docstring and
  * `undoApprovedSessionSummary`'s own docstring describe, and that this function's docstring and
  * `packages/engine/src/scribe/graph.ts`'s `invokeFenceAware` docstring both now reflect accurately.
+ *
+ * ISS-t-017-c1-2 (a narrower window `StudentFencedError` alone does not cover): applyApprovedDiff
+ * can ALSO end `FencedWriterDeadlineError` — thrown only when its OWN post-check (compensateIfFenced)
+ * found the student NOT fenced at that exact instant (a genuine fence there throws
+ * `StudentFencedError` instead, the case already handled above). A deadline error alone is therefore
+ * ambiguous: it could be a plain slow write with nothing to do with erasure (D-012's retry is
+ * idempotent; the summary should stay), or it could be an erasure confirmed strictly AFTER
+ * applyApprovedDiff's own post-check read ran clean — a race narrower than the one this function's
+ * pre-check window covers, invisible to applyApprovedDiff itself for the same reason a
+ * `StudentFencedError` there wouldn't be ambiguous. So this function re-checks the fence itself
+ * (`isStudentFenced`, the same read `compensateIfFenced`'s own post-check uses) before deciding: if
+ * the student is fenced now, or the fence state can not be read at all (fail-safe — the same
+ * "unreadable counts as fenced" rule `compensateIfFenced` and `graph.ts`'s `fencedForPostCheck` both
+ * already use), the summary is undone before rethrowing; an UNFENCED deadline error is left alone —
+ * legitimate, self-healing via `resumeScribe(null)`'s idempotent retry (D-012), nothing to
+ * compensate.
  */
 export async function writeApproved(
   rawInput: unknown,
@@ -419,6 +438,30 @@ export async function writeApproved(
         studentId: input.studentId,
         summaryApprovedAt,
       });
+      throw err;
+    }
+    if (err instanceof FencedWriterDeadlineError) {
+      // ISS-t-017-c1-2: applyApprovedDiff's own post-check only found the student NOT fenced at the
+      // instant it ran (a genuine fence there is StudentFencedError, handled above) — a fence
+      // confirmed strictly AFTER that, in the narrow window before this deadline error surfaced, is
+      // invisible to applyApprovedDiff itself. Re-check directly, right now, with the same read
+      // compensateIfFenced's own post-check uses. An unreadable fence state fails safe (treated as
+      // fenced), matching compensateIfFenced and graph.ts's fencedForPostCheck. An UNFENCED deadline
+      // error (a plain slow write, nothing to do with erasure) leaves the summary alone: the retry is
+      // idempotent under D-012, so there is nothing to compensate.
+      let fencedNow: boolean;
+      try {
+        fencedNow = await isStudentFenced(deps.db, input.studentId, new Date(), { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS });
+      } catch {
+        fencedNow = true; // fail-safe: an unreadable fence state is treated as fenced
+      }
+      if (fencedNow) {
+        await undoApprovedSessionSummary(deps.db, {
+          sessionId: input.sessionId,
+          studentId: input.studentId,
+          summaryApprovedAt,
+        });
+      }
       throw err;
     }
     if (err instanceof FactConflictError) {

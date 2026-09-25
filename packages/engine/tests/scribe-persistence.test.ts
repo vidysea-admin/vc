@@ -17,13 +17,16 @@ import assert from "node:assert/strict";
 import {
   COLLECTION_NAMES,
   confirmErasure,
+  ensureScribeSessionRow,
   executeErasure,
   exportStudent,
+  FencedWriterDeadlineError,
   requestErasure,
   type ScribeResolutionDoc,
   type SessionDoc,
 } from "@vc/db";
-import { resumeScribe, startScribe, type ScribeOutcome } from "../src/scribe/index.js";
+import { resumeScribe, startScribe, writeApproved, type ScribeOutcome } from "../src/scribe/index.js";
+import type { Fact } from "@vc/schemas";
 import {
   baseInput,
   DEFAULT_SUMMARY,
@@ -489,6 +492,142 @@ test("ISS-t-017-rev-1: a fence that appears DURING applyApprovedDiff (after reco
   assert.equal(row?.summaryApprovedAt, undefined);
   assert.equal(row?.summaryWithheldReason, undefined);
   assert.equal(h.facts.size(), 0, "applyApprovedDiff's own post-check compensated the facts it inserted, as before");
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-017-c1-2: applyApprovedDiff can ALSO end FencedWriterDeadlineError instead of
+// StudentFencedError — thrown only when its OWN post-check found the student NOT fenced at that
+// exact instant. A fence confirmed strictly AFTER that read (but before writeApproved's catch runs)
+// is invisible to applyApprovedDiff, so writeApproved must re-check the fence itself before deciding
+// whether to compensate the summary.
+// ---------------------------------------------------------------------------
+
+/** A minimal, schema-valid Fact for a writeApproved decision.edits entry (facts.test.ts's own shape). */
+function citedFact(overrides: Partial<Fact> = {}): Fact {
+  return {
+    key: "targetCountry",
+    value: "Canada",
+    source: { type: "transcript", quote: "I want to study in Canada", turnId: "t1" },
+    confidence: 0.8,
+    validFrom: "2026-09-25T00:00:00.000Z",
+    purposeTags: ["counselling"],
+    sensitivity: "low",
+    ...overrides,
+  };
+}
+
+/**
+ * These two tests call `writeApproved` directly (not through startScribe/resumeScribe and its own
+ * outer LangGraph invoke + invokeFenceAware deadline/AbortController), so the ONLY deadline racing
+ * against the stalled write is applyApprovedDiff's own inner one — the exact mechanism ISS-t-017-c1-2
+ * is about, isolated from the outer graph's competing timing.
+ */
+test("ISS-t-017-c1-2: an erasure confirmed strictly AFTER applyApprovedDiff's own post-check ran clean, surfacing as FencedWriterDeadlineError, still removes the summary IMMEDIATELY", async () => {
+  const h = makeHarness({ saver: "mongo" });
+  await ensureScribeSessionRow(h.db, { sessionId: "sess-c1-2-fenced", studentId: STUDENT_ID, threadId: "thread-c1-2-fenced" });
+
+  // Stall applyApprovedDiff's first fact write so its own WriterDeadline (bound to the short
+  // writerDeadlineExpiresAt below) actually expires — a genuine timeout, not a fence caught mid-write.
+  let releaseInsert!: () => void;
+  const insertGate = new Promise<void>((resolve) => (releaseInsert = resolve));
+  const realInsertOne = h.facts.insertOne.bind(h.facts);
+  (h.facts as unknown as { insertOne: typeof h.facts.insertOne }).insertOne = (async (
+    doc: Parameters<typeof realInsertOne>[0],
+    options?: Parameters<typeof realInsertOne>[1],
+  ) => {
+    await insertGate;
+    return realInsertOne(doc, options);
+  }) as typeof h.facts.insertOne;
+
+  // Intercept the erasure-fence reads (isStudentFenced -> erasure_fences.findOne). In writeApproved's
+  // own sequence, four such reads happen before applyApprovedDiff's OWN post-check returns:
+  //   1. recordApprovedSessionSummary's pre-check
+  //   2. recordApprovedSessionSummary's post-check
+  //   3. applyApprovedDiff's pre-check
+  //   4. applyApprovedDiff's post-check (compensateIfFenced, run after the deadline fires) — this
+  //      MUST see "not fenced" (a genuine fence there throws StudentFencedError instead, a
+  //      different, already-handled path).
+  // On read #4, confirm a real erasure AFTER capturing its (not-fenced) result but BEFORE returning
+  // it, so the fence document genuinely exists in the collection by the time writeApproved's own
+  // re-check (read #5) runs — reproducing the checker's exact race deterministically, without
+  // relying on wall-clock timing for the fence side of it.
+  const fencesColl = h.fakeDb.collection(COLLECTION_NAMES.erasure_fences);
+  const realFencesFindOne = fencesColl.findOne.bind(fencesColl);
+  let fenceChecks = 0;
+  (fencesColl as unknown as { findOne: typeof fencesColl.findOne }).findOne = (async (
+    filter: Parameters<typeof realFencesFindOne>[0],
+    options?: Parameters<typeof realFencesFindOne>[1],
+  ) => {
+    fenceChecks += 1;
+    const result = await realFencesFindOne(filter, options);
+    if (fenceChecks === 4) {
+      const { requestId } = await requestErasure(h.db, { studentId: STUDENT_ID, requestedBy: "counsellor-7", reason: "student_request" });
+      await confirmErasure(h.db, { requestId, confirmedBy: "admin-2" });
+    }
+    return result; // the ORIGINAL (pre-confirm) result: applyApprovedDiff's own post-check sees "not fenced"
+  }) as typeof fencesColl.findOne;
+
+  const rawInput = {
+    sessionId: "sess-c1-2-fenced",
+    studentId: STUDENT_ID,
+    diff: { studentId: STUDENT_ID, summary: DEFAULT_SUMMARY, changes: [], citedFactIds: [] },
+    decision: { approve: true, edits: [citedFact()] },
+    summary: DEFAULT_SUMMARY,
+  };
+
+  const callPromise = writeApproved(rawInput, { db: h.db }, { writerDeadlineExpiresAt: Date.now() + 20 });
+  callPromise.catch(() => undefined); // observed below; suppress a premature unhandledRejection warning
+  await new Promise((resolve) => setTimeout(resolve, 60)); // let the 20ms deadline actually fire
+  releaseInsert(); // let the stuck insert land afterwards (harmless; undone regardless)
+
+  const err = await callPromise.catch((e: unknown) => e);
+  assert.ok(err instanceof FencedWriterDeadlineError, `expected FencedWriterDeadlineError, got ${String(err)}`);
+  assert.ok(fenceChecks >= 5, `expected at least 5 fence reads (4 pre-existing + writeApproved's own re-check), got ${fenceChecks}`);
+
+  // IMMEDIATELY after the call rejects: the summary recordApprovedSessionSummary wrote (and whose
+  // OWN post-check found clean) must already be gone too — undone by writeApproved's own re-check on
+  // the FencedWriterDeadlineError, not left on the row for the eventual purge.
+  const row = await sessions(h).findOne({ _id: "sess-c1-2-fenced" });
+  assert.equal(row?.summary, undefined, "ISS-t-017-c1-2: the summary must be compensated on a FencedWriterDeadlineError too, when the student is genuinely fenced by the time writeApproved re-checks");
+  assert.equal(row?.summaryApprovedAt, undefined);
+  assert.equal(row?.summaryWithheldReason, undefined);
+});
+
+test("ISS-t-017-c1-2: an UNFENCED FencedWriterDeadlineError (a plain slow write) keeps the summary — legitimate, idempotent under D-012", async () => {
+  const h = makeHarness({ saver: "mongo" });
+  await ensureScribeSessionRow(h.db, { sessionId: "sess-c1-2-clean", studentId: STUDENT_ID, threadId: "thread-c1-2-clean" });
+
+  // Stall applyApprovedDiff's first fact write past a short writer deadline; never confirm any
+  // erasure. This is a plain slow write timing out — nothing to do with fencing.
+  let releaseInsert!: () => void;
+  const insertGate = new Promise<void>((resolve) => (releaseInsert = resolve));
+  const realInsertOne = h.facts.insertOne.bind(h.facts);
+  (h.facts as unknown as { insertOne: typeof h.facts.insertOne }).insertOne = (async (
+    doc: Parameters<typeof realInsertOne>[0],
+    options?: Parameters<typeof realInsertOne>[1],
+  ) => {
+    await insertGate;
+    return realInsertOne(doc, options);
+  }) as typeof h.facts.insertOne;
+
+  const rawInput = {
+    sessionId: "sess-c1-2-clean",
+    studentId: STUDENT_ID,
+    diff: { studentId: STUDENT_ID, summary: DEFAULT_SUMMARY, changes: [], citedFactIds: [] },
+    decision: { approve: true, edits: [citedFact()] },
+    summary: DEFAULT_SUMMARY,
+  };
+
+  const callPromise = writeApproved(rawInput, { db: h.db }, { writerDeadlineExpiresAt: Date.now() + 20 });
+  callPromise.catch(() => undefined);
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  releaseInsert();
+
+  const err = await callPromise.catch((e: unknown) => e);
+  assert.ok(err instanceof FencedWriterDeadlineError, `expected FencedWriterDeadlineError, got ${String(err)}`);
+
+  const row = await sessions(h).findOne({ _id: "sess-c1-2-clean" });
+  assert.equal(row?.summary, DEFAULT_SUMMARY, "an UNFENCED deadline error must leave the legitimately-written summary alone (D-012: the retry is idempotent)");
 });
 
 // ---------------------------------------------------------------------------
