@@ -124,6 +124,19 @@ export class FakeCollection<T extends { _id: string }> {
     return null;
   }
 
+  /**
+   * T-007: the scribe graph reads a student's open facts with
+   * `find({studentId, active: true}).toArray()` (the query the unique partial
+   * index serves). Equality-only matching, like findOne. Returns copies so a
+   * caller mutating a result never mutates the stored doc (driver semantics).
+   */
+  find(filter: Filter = {}): { toArray: () => Promise<T[]> } {
+    const matched = [...this.docs.values()]
+      .filter((doc) => matchesFilter(doc as unknown as Record<string, unknown>, filter))
+      .map((doc) => structuredClone(doc));
+    return { toArray: async () => matched };
+  }
+
   async insertOne(doc: T): Promise<{ insertedId: string }> {
     if (this.docs.has(doc._id)) {
       // ISS-t-003b-c1-3: the real driver reports a duplicate _id through the

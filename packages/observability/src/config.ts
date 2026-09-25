@@ -57,33 +57,64 @@ export function loadTracingConfig(env: TracingEnv): TracingConfig {
   const secretKey = env.LANGFUSE_SECRET_KEY;
 
   if (baseUrl) {
-    let rawHost: string;
-    try {
-      rawHost = new URL(baseUrl).hostname;
-    } catch {
-      throw new Error(
-        `loadTracingConfig: LANGFUSE_BASE_URL/LANGFUSE_HOST "${baseUrl}" is not a valid URL`,
-      );
-    }
-    // ISS-016: normalise before comparing. `new URL(...).hostname` already lowercases per the
-    // WHATWG URL spec, but does NOT strip a trailing DNS root dot ("cloud.langfuse.com." and
-    // "cloud.langfuse.com.." both resolve to the exact same host as "cloud.langfuse.com" -- an
-    // exact-match Set lookup on the raw hostname let that FQDN form bypass the refusal entirely.
-    // .toLowerCase() is kept explicit anyway (belt and suspenders, not relying on URL's behavior).
-    const host = rawHost.toLowerCase().replace(/\.+$/, "");
-    const isLangfuseCloudHost =
-      LANGFUSE_CLOUD_HOSTS.has(host) || host === "langfuse.com" || host.endsWith(".langfuse.com");
-    if (isLangfuseCloudHost) {
-      throw new Error(
-        `loadTracingConfig: refusing Langfuse Cloud host "${host}". Standard rule 5 (D-004): ` +
-          "tracing must stay on our own self-hosted Langfuse (infra/langfuse/docker-compose.yml), " +
-          "never Langfuse Cloud, in any region — no exceptions.",
-      );
-    }
+    assertSelfHostedBaseUrl(baseUrl);
   }
 
   if (baseUrl && publicKey && secretKey) {
     return { enabled: true, baseUrl, publicKey, secretKey };
   }
   return { enabled: false };
+}
+
+/**
+ * The Langfuse Cloud refusal as one reusable check (ISS-016 normalisation). Throws for an invalid
+ * URL or any Langfuse Cloud host; returns the normalised host otherwise.
+ *
+ * ISS-t-004-langfuse-1 (T-007): `loadTracingConfig` is not the only way a `TracingConfig` can
+ * exist -- it is a plain interface, so a caller can hand-build one. `initTracing` (tracing.ts), the
+ * one chokepoint that constructs a `LangfuseSpanProcessor`, therefore calls this again on whatever
+ * config it is given, so a hand-built config can not bypass the refusal.
+ */
+export function assertSelfHostedBaseUrl(baseUrl: string): string {
+  let rawHost: string;
+  try {
+    rawHost = new URL(baseUrl).hostname;
+  } catch {
+    throw new Error(
+      `loadTracingConfig: LANGFUSE_BASE_URL/LANGFUSE_HOST "${baseUrl}" is not a valid URL`,
+    );
+  }
+  // ISS-016: normalise before comparing. `new URL(...).hostname` already lowercases per the
+  // WHATWG URL spec, strips userinfo and port, and punycodes IDN labels, but does NOT strip a
+  // trailing DNS root dot ("cloud.langfuse.com." resolves to the same host as
+  // "cloud.langfuse.com"). .toLowerCase() is kept explicit anyway (belt and suspenders).
+  const host = rawHost.toLowerCase().replace(/\.+$/, "");
+  const isLangfuseCloudHost =
+    LANGFUSE_CLOUD_HOSTS.has(host) || host === "langfuse.com" || host.endsWith(".langfuse.com");
+  if (isLangfuseCloudHost) {
+    throw new Error(
+      `loadTracingConfig: refusing Langfuse Cloud host "${host}". Standard rule 5 (D-004): ` +
+        "tracing must stay on our own self-hosted Langfuse (infra/langfuse/docker-compose.yml), " +
+        "never Langfuse Cloud, in any region — no exceptions.",
+    );
+  }
+  return host;
+}
+
+/**
+ * ISS-t-004-langfuse-1: validates a `TracingConfig` however it was built. An enabled config must
+ * carry a self-hosted `baseUrl` and both keys -- an enabled config with no `baseUrl` would let
+ * `LangfuseSpanProcessor` fall back to its own `https://cloud.langfuse.com` default.
+ */
+export function assertValidTracingConfig(config: TracingConfig): void {
+  if (!config.enabled) return;
+  if (!config.baseUrl) {
+    throw new Error(
+      "initTracing: an enabled TracingConfig has no baseUrl -- LangfuseSpanProcessor would default to " +
+        "Langfuse Cloud, which standard rule 5 (D-004) forbids. Build the config with loadTracingConfig().",
+    );
+  }
+  assertSelfHostedBaseUrl(config.baseUrl);
+  if (!config.publicKey) throw new Error("initTracing: an enabled TracingConfig has no publicKey");
+  if (!config.secretKey) throw new Error("initTracing: an enabled TracingConfig has no secretKey");
 }

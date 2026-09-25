@@ -23,15 +23,15 @@
  * DEFAULTS TO `"https://cloud.langfuse.com"` when omitted (verified in its published `.d.ts`), so
  * an implicit/env-only config would silently point traces -- full prompts and student
  * transcripts -- at Langfuse Cloud, which standard rule 5 (D-004) forbids unconditionally. The
- * Cloud refusal itself lives in `loadTracingConfig` (config.ts, ISS-016); this module trusts
- * whatever `TracingConfig` it is given, so callers must always construct it via
- * `loadTracingConfig`.
+ * Cloud refusal lives in config.ts (ISS-016) and is re-applied here on every call
+ * (ISS-t-004-langfuse-1), so even a hand-built `TracingConfig` is checked before any processor
+ * exists.
  */
 
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import type { SpanExporter } from "@opentelemetry/sdk-trace-base";
-import type { TracingConfig } from "./config.js";
+import { assertValidTracingConfig, type TracingConfig } from "./config.js";
 
 export interface TracingHandle {
   /** Flushes any pending spans and shuts the processor down. Safe to call even when disabled. */
@@ -62,24 +62,55 @@ function defaultRegisterProvider(processor: LangfuseSpanProcessor): void {
 // Module-level singleton: `initTracing` must register the processor at most once per process,
 // no matter how many call sites (every graph invocation, T-007+) call it.
 let singletonHandle: TracingHandle | undefined;
+// ISS-025: the config that won the first call, so a later call with a DIFFERENT config is detected
+// instead of silently ignored.
+let singletonConfig: TracingConfig | undefined;
+
+function sameTracingConfig(a: TracingConfig, b: TracingConfig): boolean {
+  return (
+    a.enabled === b.enabled &&
+    a.baseUrl === b.baseUrl &&
+    a.publicKey === b.publicKey &&
+    a.secretKey === b.secretKey
+  );
+}
 
 /**
  * Idempotently wires up Langfuse OTel span export for the current process.
  *
+ * - Every call first re-validates `config` (ISS-t-004-langfuse-1): a hand-built `TracingConfig`
+ *   that skipped `loadTracingConfig` still can not point at Langfuse Cloud (any hostile variant),
+ *   and an enabled config must carry a baseUrl and both keys.
  * - `config.enabled === false` → registers nothing, returns a no-op handle. Safe to call
  *   unconditionally at startup even when tracing is off.
  * - `config.enabled === true` → constructs exactly one `LangfuseSpanProcessor`, configured
  *   explicitly from `config` (never from `process.env`), and registers it via `deps.registerProvider`
  *   (real `NodeTracerProvider(...).register()` by default).
- * - A second call in the same process (any config) returns the same handle without registering
- *   again — the first call to actually initialize wins for the lifetime of the process.
+ * - A second call with the SAME config returns the same handle without registering again.
+ * - A second call with a DIFFERENT config throws (ISS-025). The OTel provider is process-global and
+ *   can only be registered once, so the first config really does win; silently ignoring the second
+ *   would let a caller believe its endpoint/keys (or its "disabled") were in effect when they are
+ *   not. The error names which fields differ, never their values (B11: no key in logs).
  */
 export function initTracing(config: TracingConfig, deps: InitTracingDeps = {}): TracingHandle {
-  if (singletonHandle) {
+  assertValidTracingConfig(config);
+
+  if (singletonHandle && singletonConfig) {
+    if (!sameTracingConfig(singletonConfig, config)) {
+      const fields = (["enabled", "baseUrl", "publicKey", "secretKey"] as const).filter(
+        (field) => singletonConfig?.[field] !== config[field],
+      );
+      throw new Error(
+        `initTracing (ISS-025): tracing is already initialised in this process with a different config ` +
+          `(differs in: ${fields.join(", ")}). The first config stays in effect; initialise tracing once at ` +
+          "startup and pass the same TracingConfig everywhere.",
+      );
+    }
     return singletonHandle;
   }
 
   if (!config.enabled) {
+    singletonConfig = { ...config };
     singletonHandle = { shutdown: async () => {} };
     return singletonHandle;
   }
@@ -94,6 +125,7 @@ export function initTracing(config: TracingConfig, deps: InitTracingDeps = {}): 
   const registerProvider = deps.registerProvider ?? defaultRegisterProvider;
   registerProvider(processor);
 
+  singletonConfig = { ...config };
   singletonHandle = {
     shutdown: async () => {
       await processor.shutdown();
@@ -105,4 +137,5 @@ export function initTracing(config: TracingConfig, deps: InitTracingDeps = {}): 
 /** Test-only: clears the module singleton so each test starts from a clean slate. */
 export function __resetTracingForTests(): void {
   singletonHandle = undefined;
+  singletonConfig = undefined;
 }
