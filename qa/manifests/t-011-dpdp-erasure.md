@@ -2,8 +2,8 @@
 **Contract:** qa/contracts/counselling-engine.md (B15 primary; B4, B8, B11, B12, B14)
 **Goal task:** T-011
 **Date:** 2026-09-25
-**Status:** ready-for-check
-**Fix cycle:** 2
+**Status:** fix-in-progress
+**Fix cycle:** 3 of max 3 (cycle-2 checker FAIL 57a92aa: ISS-t-011-c2-1 grace-0; D-016)
 **Fix cycle budget:** 2 of max 3 (cycle-1 checker FAIL 4b6ad21: ISS-t-011-c1-1 non-atomic read-back; design D-015 fence + post-write compensation)
 **Design:** qa/gates/dpdp-erase-design.md answer (a) "hard delete with confirmation and verification"; D-003 (history by retirement, so erasure must include retired facts), D-012 (fact `_id` is a fresh ObjectId, so edges are found through the resolved fact ids), D-013 (`active: true` marks open facts; retired facts have it unset), D-014 (scribe_resolutions hold approved fact values, so they are erased)
 **Diff range (cycle 2):** `58a38f6..HEAD` on branch `wave/t-011-dpdp-erasure`, a single commit: "fix(db,engine): t-011 cycle 2 — erasure fence + post-write compensation (D-015)". `58a38f6` is "qa: t-011 fix cycle 2 (D-015)", after the main merge `5a9a2a3` (which brought D-015). Cycle 2 touches `packages/db/src/{erasure,facts,consent,collections}.ts`, `packages/db/scripts/db-init.ts`, `packages/db/tests/{erasure,consent,db-init}.test.ts`, `packages/db/tests/fakes.ts`, `packages/db/README.md`, `packages/schemas/src/schemas.ts` (additive: `MAX_CARRIED_IDS`, `ErasureCarriedSelectorsSchema`), `packages/engine/src/scribe/graph.ts`, `packages/engine/tests/{scribe-erasure-fence.test.ts (new), scribe-fixtures.ts}` and this manifest. `packages/engine/src/scribe/nodes.ts` is NOT touched (T-013 owns it).
