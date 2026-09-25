@@ -6,6 +6,9 @@ import {
   deriveContentHash,
   FactConflictError,
   PartialApplyError,
+  ensureScribeSessionRow,
+  recordApprovedSessionSummary,
+  SessionRowMissingError,
 } from "../src/facts.js";
 import { COLLECTION_NAMES } from "../src/collections.js";
 import { INDEX_PLAN } from "../scripts/db-init.js";
@@ -730,4 +733,65 @@ test("D-013: proposeFactChanges diffs only against active:true facts", () => {
   });
   assert.equal(diff.changes.length, 1);
   assert.equal(diff.changes[0]?.op, "add", "a fact without active:true is not the current value");
+});
+
+// ---------------------------------------------------------------------------
+// T-016: the scribe's session row (ISS-t-011-rev-5) and its approved summary (ISS-t-007-rev-7)
+// ---------------------------------------------------------------------------
+
+test("ISS-t-011-rev-5: ensureScribeSessionRow creates the row once, records each thread once, and reports `created` only for the insert", async () => {
+  const { db, fakeDb } = setup();
+  const sessions = fakeDb.collection<{ _id: string } & Record<string, unknown>>(COLLECTION_NAMES.sessions);
+  const input = { sessionId: "sess-1", studentId: "stu-1", threadId: "scribe:sess-1", endedAt: "2026-09-25T10:00:00.000Z" };
+  assert.deepEqual(await ensureScribeSessionRow(db, input), { created: true });
+  assert.deepEqual(await ensureScribeSessionRow(db, input), { created: false }, "replay: no new row");
+  assert.deepEqual(await ensureScribeSessionRow(db, { ...input, threadId: "retry-thread" }), { created: false });
+  assert.equal(sessions.size(), 1);
+  const row = await sessions.findOne({ _id: "sess-1" });
+  assert.equal(row?.studentId, "stu-1");
+  assert.equal(row?.sessionId, "sess-1");
+  assert.equal(row?.endedAt, "2026-09-25T10:00:00.000Z");
+  assert.deepEqual(row?.scribeThreadIds, ["scribe:sess-1", "retry-thread"], "each thread once (idempotent $addToSet)");
+});
+
+test("ISS-t-011-rev-5 hostile: a sessionId owned by another student is refused with 11000 and the row is untouched", async () => {
+  const { db, fakeDb } = setup();
+  const sessions = fakeDb.collection<{ _id: string } & Record<string, unknown>>(COLLECTION_NAMES.sessions);
+  await ensureScribeSessionRow(db, { sessionId: "sess-1", studentId: "stu-1", threadId: "t-1" });
+  await assert.rejects(
+    ensureScribeSessionRow(db, { sessionId: "sess-1", studentId: "stu-2", threadId: "t-evil" }),
+    (err: unknown) => (err as { code?: number }).code === 11000,
+  );
+  assert.deepEqual((await sessions.findOne({ _id: "sess-1" }))?.scribeThreadIds, ["t-1"]);
+  assert.equal((await sessions.findOne({ _id: "sess-1" }))?.studentId, "stu-1");
+});
+
+test("ISS-t-011-rev-5: ensureScribeSessionRow refuses an empty studentId / sessionId / threadId (an anonymous row is invisible to erasure)", async () => {
+  const { db, fakeDb } = setup();
+  for (const bad of [
+    { sessionId: "s", studentId: "", threadId: "t" },
+    { sessionId: "", studentId: "u", threadId: "t" },
+    { sessionId: "s", studentId: "u", threadId: " " },
+  ]) {
+    await assert.rejects(ensureScribeSessionRow(db, bad), /non-empty/);
+  }
+  assert.equal(fakeDb.collection(COLLECTION_NAMES.sessions).size(), 0);
+});
+
+test("ISS-t-007-rev-7: recordApprovedSessionSummary stores the summary on the existing row and NEVER creates one", async () => {
+  const { db, fakeDb } = setup();
+  const sessions = fakeDb.collection<{ _id: string } & Record<string, unknown>>(COLLECTION_NAMES.sessions);
+  await assert.rejects(
+    recordApprovedSessionSummary(db, { sessionId: "sess-9", studentId: "stu-1", summary: "s" }),
+    SessionRowMissingError,
+  );
+  assert.equal(sessions.size(), 0, "no upsert: a purged row is never resurrected by a late summary write");
+  await ensureScribeSessionRow(db, { sessionId: "sess-9", studentId: "stu-1", threadId: "t" });
+  await recordApprovedSessionSummary(db, { sessionId: "sess-9", studentId: "stu-1", summary: "Wants CS in Canada." });
+  const row = await sessions.findOne({ _id: "sess-9" });
+  assert.equal(row?.summary, "Wants CS in Canada.");
+  assert.equal(typeof row?.summaryApprovedAt, "string");
+  // Another student's id never matches the row.
+  await assert.rejects(recordApprovedSessionSummary(db, { sessionId: "sess-9", studentId: "stu-2", summary: "x" }), SessionRowMissingError);
+  assert.equal((await sessions.findOne({ _id: "sess-9" }))?.summary, "Wants CS in Canada.");
 });

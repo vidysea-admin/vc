@@ -13,6 +13,7 @@ import {
   PartialApplyError,
   applyApprovedDiff,
   factsCollection,
+  recordApprovedSessionSummary,
   proposeFactChanges,
   requireConsent,
 } from "@vc/db";
@@ -337,12 +338,23 @@ export function decisionFromResponse(response: ApprovalResponse, proposedFacts: 
  * in `writtenFactIds`). Both are terminal: a retry would hit the same foreign fact forever. Every
  * other error, including a PartialApplyError with a non-conflict cause, propagates so LangGraph can
  * retry this node from its checkpoint (idempotent by D-012).
+ *
+ * T-016 / ISS-t-007-rev-7: on approval, the approved summary is stored on the session row FIRST
+ * (recordApprovedSessionSummary: never upserts, so a row the erasure already purged is not
+ * recreated, and it throws, so no facts are written for an erased session either). Replays re-set
+ * the same value.
  */
 export async function writeApproved(rawInput: unknown, deps: Pick<ScribeDeps, "db">): Promise<ScribeResult> {
   const input = WriteInputSchema.parse(rawInput);
   if (!input.decision.approve) {
     return ScribeResultSchema.parse({ status: "rejected" });
   }
+  await recordApprovedSessionSummary(deps.db, {
+    sessionId: input.sessionId,
+    studentId: input.studentId,
+    summary: input.summary,
+    summaryWithheldReason: input.summaryWithheldReason,
+  });
   try {
     const applied = await applyApprovedDiff(deps.db, input.diff, input.decision, input.sessionId);
     return ScribeResultSchema.parse({

@@ -14,12 +14,15 @@
  */
 import { Annotation, Command, END, START, StateGraph, interrupt, type BaseCheckpointSaver } from "@langchain/langgraph";
 import type { Callbacks } from "@langchain/core/callbacks/manager";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
+  ensureScribeSessionRow,
+  FENCE_MARGIN_MS,
   FENCE_POSTCHECK_TIMEOUT_MS,
   FencedWriterDeadlineError,
   isStudentFenced,
   scribeResolutionsCollection,
+  sessionsCollection,
   StudentFencedError,
   WriterDeadline,
   type ScribeResolutionDoc,
@@ -135,7 +138,18 @@ export function buildScribeGraph(deps: ScribeDeps) {
           };
     })
     .addNode(SCRIBE_NODES.write, async (s: State) => ({
-      result: await writeApproved({ sessionId: s.sessionId, diff: s.diff, decision: s.decision }, deps),
+      // ISS-t-007-rev-7: the approved summary goes to the session row along with the facts.
+      result: await writeApproved(
+        {
+          sessionId: s.sessionId,
+          studentId: s.studentId,
+          diff: s.diff,
+          decision: s.decision,
+          summary: s.summary ?? "",
+          summaryWithheldReason: s.summaryWithheldReason,
+        },
+        deps,
+      ),
     }))
     .addEdge(START, SCRIBE_NODES.consent)
     .addConditionalEdges(SCRIBE_NODES.consent, (s: State) => (s.consent === "granted" ? SCRIBE_NODES.crisis : END), [
@@ -254,7 +268,14 @@ export type ScribeOutcome =
    * again (its checkpoints and checkpoint writes, and the approval claim this call created; the
    * facts and edges are removed by applyApprovedDiff's own post-write compensation).
    */
-  | { kind: "fenced" };
+  | { kind: "fenced" }
+  /**
+   * T-016 / ISS-t-007-rev-10: a resumeScribe(null) recovery found the thread's run lease held by
+   * another process (the in-flight winner of the claim, or another recovery), so it did NOT invoke.
+   * Nothing was written. Retry later: the holder releases the lease when it finishes, or the lease
+   * expires (the holder's writer deadline + FENCE_MARGIN_MS) if the holder crashed.
+   */
+  | { kind: "in_progress" };
 
 function runnableConfig(opts: ScribeRunOptions, signal?: AbortSignal) {
   return {
@@ -287,6 +308,14 @@ function depsFor(graph: ScribeGraph, caller: string) {
 
 type GraphDeps = NonNullable<ReturnType<typeof graphDeps.get>>;
 
+/** What one fence-aware call created, so its compensation removes exactly that and nothing else. */
+interface CreatedByCall {
+  /** The approval claim this call inserted (deleted by its _id + responseHash, never another caller's). */
+  claim?: ScribeResolutionDoc | null;
+  /** T-016 / ISS-t-011-rev-5: the session row this call inserted (not one that already existed). */
+  sessionRow?: { sessionId: string; studentId: string } | null;
+}
+
 /** The post-check's fence read; an unreadable fence state counts as fenced (fail-safe). */
 async function fencedForPostCheck(db: GraphDeps["db"], studentId: string | undefined): Promise<boolean> {
   if (studentId === undefined || studentId === "") return false;
@@ -306,8 +335,10 @@ async function fencedForPostCheck(db: GraphDeps["db"], studentId: string | undef
  * - The post-check ALWAYS runs afterwards (success, error, or deadline). If the student is fenced
  *   (or applyApprovedDiff already reported StudentFencedError, or the fence can not be read), this
  *   call's writes are removed: the thread's checkpoints and checkpoint writes (deleteThread on the
- *   graph's own checkpointer) and the approval claim this call inserted (by its _id + responseHash,
- *   never another caller's). The facts and edges were removed by applyApprovedDiff's own post-check.
+ *   graph's own checkpointer), the approval claim this call inserted (by its _id + responseHash,
+ *   never another caller's) and the session row this call inserted (T-016; never a row that already
+ *   existed, which the erasure purges). The facts and edges were removed by applyApprovedDiff's own
+ *   post-check; the approved summary lives on the session row.
  * - An aborted run may still settle later (a node or checkpoint write in flight); when it does, the
  *   post-check runs again, so a late checkpoint write of a fenced student is removed too.
  * Returns true when fenced. A run that timed out while unfenced throws FencedWriterDeadlineError
@@ -318,14 +349,17 @@ async function invokeFenceAware(
   deps: GraphDeps,
   studentId: string | undefined,
   threadId: string,
-  createdClaim: ScribeResolutionDoc | null,
+  created: CreatedByCall,
   deadline: WriterDeadline,
   invoke: (signal: AbortSignal) => Promise<unknown>,
 ): Promise<boolean> {
   const compensate = async () => {
     await deps.checkpointer.deleteThread(threadId);
-    if (createdClaim) {
-      await scribeResolutionsCollection(deps.db).deleteMany({ _id: createdClaim._id, responseHash: createdClaim.responseHash });
+    if (created.claim) {
+      await scribeResolutionsCollection(deps.db).deleteMany({ _id: created.claim._id, responseHash: created.claim.responseHash });
+    }
+    if (created.sessionRow) {
+      await sessionsCollection(deps.db).deleteMany({ _id: created.sessionRow.sessionId, studentId: created.sessionRow.studentId });
     }
   };
   const work = invoke(deadline.signal);
@@ -374,7 +408,16 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
   const deadline = new WriterDeadline(opts.writerDeadlineMs);
   try {
     if (await isStudentFenced(deps.db, parsed.studentId, new Date(), deadline.op())) return { kind: "fenced" };
-    const fenced = await invokeFenceAware(deps, parsed.studentId, opts.threadId, null, deadline, (signal) =>
+    // ISS-t-011-rev-5: the session row (with this thread id) is written BEFORE the first checkpoint,
+    // so erasure/export find this run's checkpoints even if it ends without an interrupt. A
+    // sessionId owned by another student throws 11000 here, before anything is checkpointed.
+    const { created } = await ensureScribeSessionRow(
+      deps.db,
+      { sessionId: parsed.sessionId, studentId: parsed.studentId, threadId: opts.threadId, endedAt: parsed.sessionEndedAt },
+      deadline.op(),
+    );
+    const sessionRow = created ? { sessionId: parsed.sessionId, studentId: parsed.studentId } : null;
+    const fenced = await invokeFenceAware(deps, parsed.studentId, opts.threadId, { sessionRow }, deadline, (signal) =>
       graph.invoke(parsed, runnableConfig(opts, signal)),
     );
     if (fenced) return { kind: "fenced" };
@@ -399,6 +442,47 @@ function canonicalJson(value: unknown): string {
 /** sha256 of a parsed approval response: the claim's "same request" identity. */
 export function approvalResponseHash(response: ApprovalResponse): string {
   return createHash("sha256").update(canonicalJson(response)).digest("hex");
+}
+
+/**
+ * T-016 / ISS-t-007-rev-10: a run lease for `deadline`'s holder. It outlives the holder's writer
+ * deadline by FENCE_MARGIN_MS (D-016: the client-level timeoutMS backstop is capped at that margin),
+ * so an aborted invoke that is still settling is not overlapped by a recovery.
+ */
+function newLease(deadline: WriterDeadline): NonNullable<ScribeResolutionDoc["lease"]> {
+  return { token: randomUUID(), expiresAt: new Date(deadline.expiresAt + FENCE_MARGIN_MS).toISOString() };
+}
+
+/**
+ * Releases `token`'s lease (a CAS on the token: never another holder's). Best effort: a failed
+ * release only delays the next recovery until the lease expires, so it never masks the outcome.
+ */
+async function releaseLease(deps: GraphDeps, threadId: string, token: string): Promise<void> {
+  try {
+    await scribeResolutionsCollection(deps.db).updateOne(
+      { _id: threadId, "lease.token": token },
+      { $unset: { lease: "" } },
+      { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS },
+    );
+  } catch {
+    // The lease expires by itself (see newLease).
+  }
+}
+
+/**
+ * Runs `work` as the holder of `token`'s lease and releases it afterwards, EXCEPT after a writer
+ * deadline timeout: the aborted invoke may still be settling, so the lease is left to expire.
+ */
+async function underLease<T>(deps: GraphDeps, threadId: string, token: string, work: () => Promise<T>): Promise<T> {
+  let release = true;
+  try {
+    return await work();
+  } catch (err) {
+    if (err instanceof FencedWriterDeadlineError) release = false;
+    throw err;
+  } finally {
+    if (release) await releaseLease(deps, threadId, token);
+  }
 }
 
 function isDuplicateKey(err: unknown): boolean {
@@ -447,8 +531,20 @@ function alreadyResolved(
  * - Crash AFTER the decision is recorded (e.g. inside write_approved): unchanged. `resumeScribe(null)`
  *   re-runs the pending write from the checkpoint, idempotent by D-012.
  * - The claim is never deleted here, so a crashed claim can not be re-won by a different decision.
- * Recovery (`null`) is not itself claimed: run it from one place (the retry job), not concurrently
- * with an in-flight winner. Even then, D-012 keeps the write idempotent.
+ *
+ * T-016 / ISS-t-007-rev-10 (run lease on the D-014 claim doc): the winner inserts its claim WITH a
+ * lease (`lease.token`, `lease.expiresAt` = its writer deadline + FENCE_MARGIN_MS) and releases it
+ * when its invoke settles. A recovery (`null`) of a claimed thread first takes that lease with one
+ * atomic findOneAndUpdate, only when it is absent or expired. The loser (a second recovery, or a
+ * recovery racing the in-flight winner) returns `in_progress` without invoking, so a claimed thread
+ * has at most one graph.invoke in flight across processes. After a writer-deadline timeout the lease
+ * is NOT released (the aborted invoke may still settle); it expires by itself.
+ * Residual: a thread with NO claim yet (a crash before the approval interrupt, e.g. mid-extraction)
+ * has no claim doc to lease, so its recovery is not leased. It writes only checkpoints (no facts,
+ * no claim), and a duplicate costs a repeated provider call. See the T-016 manifest.
+ *
+ * ISS-t-007-rev-9: a claim is never written without a studentId (it would be invisible to B15
+ * erasure); a paused thread whose state lacks one throws before claiming.
  *
  * T-011 cycle 2 / D-015 (erasure fence): if the thread's student has an erasure in progress, this
  * returns `fenced` BEFORE claiming or invoking (nothing written). If the fence appears while the
@@ -494,18 +590,23 @@ async function resumeUnderDeadline(
     if (latest.studentId && (await isStudentFenced(deps.db, latest.studentId, new Date(), deadline.op()))) {
       return { kind: "fenced" };
     }
-    const pendingInterrupt = snapshot.tasks.some((task) => task.interrupts.length > 0);
-    const claim = !latest.decision && pendingInterrupt ? await claims.findOne({ threadId: opts.threadId }) : null;
-    const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, null, deadline, async (signal) => {
-      if (claim) {
-        // Crash after the claim, before the decision was recorded: apply the CLAIMED response.
-        const claimed = ApprovalResponseSchema.parse(claim.response);
-        await graph.invoke(new Command({ resume: claimed }), runnableConfig({ ...opts, checkpointId: undefined }, signal));
-      } else {
-        await graph.invoke(null, runnableConfig(opts, signal));
-      }
-    });
-    return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId);
+    const claimDoc = await claims.findOne({ threadId: opts.threadId });
+    if (!claimDoc) {
+      // No claim yet (a pre-approval crash): nothing to lease (see the docstring's residual).
+      return recoverUnder(graph, deps, opts, deadline, snapshot, null);
+    }
+    // ISS-t-007-rev-10: take the claim's run lease atomically, or step aside.
+    const lease = newLease(deadline);
+    const took = await claims.findOneAndUpdate(
+      { _id: claimDoc._id, $or: [{ lease: { $exists: false } }, { "lease.expiresAt": { $lt: new Date().toISOString() } }] },
+      { $set: { lease } },
+      { ...deadline.op(), returnDocument: "after" },
+    );
+    if (!took) return { kind: "in_progress" };
+    return underLease(deps, opts.threadId, lease.token, async () =>
+      // Re-read under the lease: a holder that finished in between has advanced the thread.
+      recoverUnder(graph, deps, opts, deadline, await graph.getState(stateConfig), took),
+    );
   }
 
   const parsed = ApprovalResponseSchema.parse(response);
@@ -527,14 +628,20 @@ async function resumeUnderDeadline(
     // loser can be told the winner's decision even while the winner's invoke is still in flight.
     // A response that decisionFromResponse refuses throws here, BEFORE any claim is taken.
     const { decision } = decisionFromResponse(parsed, latest.proposedFacts ?? []);
+    // ISS-t-007-rev-9: never an empty studentId (the claim holds fact values; B15 finds it by studentId).
+    if (typeof latest.studentId !== "string" || latest.studentId.trim() === "") {
+      throw new Error(`resumeScribe: the thread's state has no studentId; refusing to claim it (B15 erasure could not find the claim)`);
+    }
     const claim: ScribeResolutionDoc = {
       _id: opts.threadId,
       threadId: opts.threadId,
-      studentId: latest.studentId ?? "",
+      studentId: latest.studentId,
       decision,
       response: parsed as unknown as Record<string, unknown>,
       responseHash: approvalResponseHash(parsed),
       claimedAt: new Date().toISOString(),
+      // ISS-t-007-rev-10: the winner holds the run lease from the moment it claims.
+      lease: newLease(deadline),
     };
     try {
       await claims.insertOne(claim, deadline.op());
@@ -547,8 +654,40 @@ async function resumeUnderDeadline(
       return alreadyResolved(winner, now.result, parsed);
     }
   }
-  const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, createdClaim, deadline, (signal) =>
-    graph.invoke(new Command({ resume: parsed }), runnableConfig(opts, signal)),
-  );
+  const run = async (): Promise<ScribeOutcome> => {
+    const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, { claim: createdClaim }, deadline, (signal) =>
+      graph.invoke(new Command({ resume: parsed }), runnableConfig(opts, signal)),
+    );
+    return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId);
+  };
+  return createdClaim?.lease ? underLease(deps, opts.threadId, createdClaim.lease.token, run) : run();
+}
+
+/**
+ * The recovery invoke, from `snapshot` (read under the lease when there is a claim). With a claim
+ * and a still-pending interrupt (a crash after the claim, before the decision was recorded) it
+ * applies the CLAIMED response; otherwise it re-runs whatever the checkpoint left pending (e.g. a
+ * failed write_approved, idempotent by D-012). A thread with nothing pending is not invoked.
+ */
+async function recoverUnder(
+  graph: ScribeGraph,
+  deps: GraphDeps,
+  opts: ScribeRunOptions,
+  deadline: WriterDeadline,
+  snapshot: Awaited<ReturnType<ScribeGraph["getState"]>>,
+  claim: ScribeResolutionDoc | null,
+): Promise<ScribeOutcome> {
+  const latest = snapshot.values as Partial<State>;
+  if (snapshot.next.length === 0) return readOutcome(graph, opts.threadId);
+  const pendingInterrupt = snapshot.tasks.some((task) => task.interrupts.length > 0);
+  const claimed = claim !== null && !latest.decision && pendingInterrupt ? ApprovalResponseSchema.parse(claim.response) : null;
+  const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, {}, deadline, async (signal) => {
+    if (claimed) {
+      // Crash after the claim, before the decision was recorded: apply the CLAIMED response.
+      await graph.invoke(new Command({ resume: claimed }), runnableConfig({ ...opts, checkpointId: undefined }, signal));
+    } else {
+      await graph.invoke(null, runnableConfig(opts, signal));
+    }
+  });
   return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId);
 }

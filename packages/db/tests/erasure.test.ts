@@ -1733,3 +1733,39 @@ test("D-016 deadline: the post-check runs AT the abort (in the finally), not onl
   assert.deepEqual(docsMentioning(fakeDb, [`${a.marker}-stuck-edge`]), []);
   assert.deepEqual(orphanFactEdges(fakeDb), [], "the edge that landed late was undone too");
 });
+
+// ---------------------------------------------------------------------------
+// T-016 / ISS-t-011-rev-5: a session row's recorded scribe threads (any thread id, not only
+// scribe:<sessionId>) are purged and exported.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-011-rev-5: checkpoints of a thread recorded on the session row (NOT scribe:<sessionId>) are exported and purged to zero", async () => {
+  const { db, fakeDb } = setup();
+  const thread = "custom-thread-77";
+  coll(fakeDb, COLLECTION_NAMES.sessions).seed({
+    _id: "sess-x",
+    sessionId: "sess-x",
+    studentId: "stu-X",
+    scribeThreadIds: [thread],
+    summary: "approved summary marker-X",
+  });
+  coll(fakeDb, "scribe_checkpoints").seed({ _id: `${thread}|c1`, thread_id: thread, checkpoint_ns: "", checkpoint_id: "c1", checkpoint: "transcript" });
+  coll(fakeDb, "scribe_checkpoint_writes").seed({
+    _id: `${thread}|c1|w`,
+    thread_id: thread,
+    checkpoint_ns: "",
+    checkpoint_id: "c1",
+    task_id: "t",
+    idx: 0,
+    value: "w",
+  });
+  const exported = await exportStudent(db, "stu-X");
+  assert.ok(exported.checkpoints.threads.includes(thread));
+  assert.equal(exported.checkpoints.checkpointDocs, 1);
+  assert.equal(exported.checkpoints.writeDocs, 1);
+  assert.equal(exported.sessions[0]?.summary, "approved summary marker-X", "export carries the approved summary");
+  const requestId = await confirmedRequest(db, "stu-X");
+  const out = await executeErasure(db, requestId, { fenceGraceMs: 0 });
+  assert.equal(out.status, "completed");
+  assert.deepEqual(docsMentioning(fakeDb, ["stu-X", "sess-x", thread, "marker-X"]), []);
+});

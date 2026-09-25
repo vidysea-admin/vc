@@ -886,7 +886,7 @@ async function resolveSelectors(db: Db, studentId: string): Promise<ErasureSelec
   const sessions = await resolveFrom(COLLECTION_NAMES.sessions, () =>
     db
       .collection<SessionDoc>(COLLECTION_NAMES.sessions)
-      .find({ studentId }, { projection: { _id: 1, sessionId: 1 } })
+      .find({ studentId }, { projection: { _id: 1, sessionId: 1, scribeThreadIds: 1 } })
       .toArray(),
   );
   const claims = await resolveFrom(COLLECTION_NAMES.scribe_resolutions, () =>
@@ -897,8 +897,18 @@ async function resolveSelectors(db: Db, studentId: string): Promise<ErasureSelec
   );
   const sessionIds = [...new Set(sessions.flatMap((s) => [s.sessionId, s._id]).filter((x): x is string => !!x))];
   // Threads from the student's sessions AND from their approval claims (covers a claim whose
-  // session row is already gone or was never written).
-  const threadIds = [...new Set([...sessionIds.map(scribeCheckpointThreadId), ...claims.map((c) => c.threadId)])];
+  // session row is already gone or was never written). T-016 / ISS-t-011-rev-5: plus every thread
+  // the scribe recorded on the session row before its first checkpoint (`scribeThreadIds`), which
+  // covers a run that ended without an interrupt (no claim) on a thread id that is not
+  // scribeThreadId(sessionId).
+  const recorded = sessions.flatMap((s) => (Array.isArray(s.scribeThreadIds) ? s.scribeThreadIds : []));
+  const threadIds = [
+    ...new Set(
+      [...sessionIds.map(scribeCheckpointThreadId), ...recorded, ...claims.map((c) => c.threadId)].filter(
+        (x): x is string => typeof x === "string" && x !== "",
+      ),
+    ),
+  ];
   return { studentId, factIds: facts.map((f) => f._id), sessionIds, threadIds };
 }
 
