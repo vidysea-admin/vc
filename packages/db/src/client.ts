@@ -28,8 +28,11 @@ export const VC_DB_NAME = "virtual_counsellor";
  * `createdAt + MINIMUM_FENCE_HOLD_MS` (= FENCED_WRITER_DEADLINE_MS + FENCE_MARGIN_MS), so a
  * client-level operation that respects this backstop always finishes — or is aborted server-side —
  * within the margin window past a fence-aware writer's own deadline.
- * Per-operation `timeoutMS` (e.g. WriterDeadline.op() in facts.ts/erasure.ts) always overrides this
- * when one is passed explicitly; this is only the floor for operations that pass none.
+ * Per-operation `timeoutMS` (e.g. WriterDeadline.op() in facts.ts/erasure.ts, and T-015's
+ * ERASURE_PURGE_OP_TIMEOUT_MS in erasure.ts) always overrides this when one is passed explicitly;
+ * this is only the floor for operations that pass none. T-015 / ISS-t-014-c0-2: an operator
+ * override (MONGO_CLIENT_TIMEOUT_MS) is capped at this same FENCE_MARGIN_MS ceiling — see
+ * resolveClientTimeoutMs below.
  */
 export const DEFAULT_MONGO_CLIENT_TIMEOUT_MS = FENCE_MARGIN_MS;
 
@@ -37,7 +40,16 @@ export const DEFAULT_MONGO_CLIENT_TIMEOUT_MS = FENCE_MARGIN_MS;
  * Reads the client-level timeout override from `env`. `MONGO_CLIENT_TIMEOUT_MS` is an ops/config
  * knob (how long an unguarded driver operation may run), never a secret — it is read the same way
  * MONGODB_URL is, straight from the process environment, no vault involved. Unset or blank falls
- * back to DEFAULT_MONGO_CLIENT_TIMEOUT_MS.
+ * back to DEFAULT_MONGO_CLIENT_TIMEOUT_MS (unchanged by this rule).
+ *
+ * T-015 / ISS-t-014-c0-2: an override is REJECTED, not clamped, above FENCE_MARGIN_MS. Before this,
+ * only the default respected the "at most FENCE_MARGIN_MS" cap (D-016) — an operator override had
+ * no upper bound at all, and could silently defeat the exact liveness guarantee this client-level
+ * backstop exists for (an unguarded operation, e.g. the scribe's LangGraph checkpointer, must
+ * finish within the fence's own margin window; see erasure.ts's "Honest caveats"). Rejecting (over
+ * clamping) is the chosen behaviour: a silent clamp would let an operator believe they had
+ * configured e.g. 5 minutes of headroom while the real client still behaved as 30s — a worse trap
+ * than a loud failure at startup, which is when connectFromEnv is called.
  */
 function resolveClientTimeoutMs(env: Record<string, string | undefined>): number {
   const raw = env.MONGO_CLIENT_TIMEOUT_MS;
@@ -45,6 +57,13 @@ function resolveClientTimeoutMs(env: Record<string, string | undefined>): number
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new Error(`connectFromEnv: MONGO_CLIENT_TIMEOUT_MS must be a positive number of ms, got "${raw}"`);
+  }
+  if (parsed > FENCE_MARGIN_MS) {
+    throw new Error(
+      `connectFromEnv: MONGO_CLIENT_TIMEOUT_MS must be at most FENCE_MARGIN_MS (${FENCE_MARGIN_MS}ms, D-016) — ` +
+        `got ${parsed}ms. A larger client-level backstop would let an unguarded operation outlive the erasure ` +
+        `fence's own margin window (ISS-t-014-c0-2).`,
+    );
   }
   return parsed;
 }

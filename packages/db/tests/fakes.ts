@@ -130,9 +130,30 @@ export class FakeDuplicateKeyError extends Error {
   }
 }
 
+/** T-015 / ISS-t-014-rev-1: one recorded call, so a test can assert what OPTIONS reached the fake. */
+export interface FakeOptionCall {
+  filter: Filter;
+  options?: Record<string, unknown>;
+}
+
+/** T-015 / ISS-t-014-rev-1: one recorded createIndex call. */
+export interface FakeCreateIndexCall {
+  keys: Record<string, unknown>;
+  options?: Record<string, unknown>;
+}
+
 export class FakeCollection<T extends { _id: string }> {
   private readonly docs = new Map<string, T>();
   private readonly uniqueIndexes: FakeUniqueIndexSpec[] = [];
+
+  /**
+   * T-015 / ISS-t-014-rev-1: every deleteMany/countDocuments/createIndex call this collection saw,
+   * options included — so a test can prove an explicit per-op `timeoutMS` really reached the
+   * driver-shaped call, not just an argument some intermediate helper received.
+   */
+  readonly deleteManyCalls: FakeOptionCall[] = [];
+  readonly countDocumentsCalls: FakeOptionCall[] = [];
+  readonly createIndexCalls: FakeCreateIndexCall[] = [];
 
   /**
    * Test-only: declare a unique (optionally partial) index so `insertOne`
@@ -262,7 +283,8 @@ export class FakeCollection<T extends { _id: string }> {
   }
 
   /** T-011: driver-shaped deleteMany (`{acknowledged, deletedCount}`), same filter semantics as find. */
-  async deleteMany(filter: Filter = {}): Promise<{ acknowledged: true; deletedCount: number }> {
+  async deleteMany(filter: Filter = {}, options?: Record<string, unknown>): Promise<{ acknowledged: true; deletedCount: number }> {
+    this.deleteManyCalls.push({ filter, options });
     let deletedCount = 0;
     for (const [id, doc] of [...this.docs.entries()]) {
       if (matchesFilter(doc as unknown as Record<string, unknown>, filter)) {
@@ -274,9 +296,21 @@ export class FakeCollection<T extends { _id: string }> {
   }
 
   /** T-011: the read-back used by the erasure verification pass. */
-  async countDocuments(filter: Filter = {}): Promise<number> {
+  async countDocuments(filter: Filter = {}, options?: Record<string, unknown>): Promise<number> {
+    this.countDocumentsCalls.push({ filter, options });
     return [...this.docs.values()].filter((doc) => matchesFilter(doc as unknown as Record<string, unknown>, filter))
       .length;
+  }
+
+  /**
+   * T-015 / ISS-t-014-rev-1: a minimal, recording-only stand-in for the real driver's createIndex —
+   * db-init.ts's `createPlannedIndexes` is never run against a real server by these tests (B8), so
+   * this only needs to record what it was called with, not enforce anything (declareUniqueIndex
+   * already covers the "does the fake ENFORCE this index" behaviour used elsewhere).
+   */
+  async createIndex(keys: Record<string, unknown>, options?: Record<string, unknown>): Promise<string> {
+    this.createIndexCalls.push({ keys, options });
+    return (options?.name as string | undefined) ?? "index";
   }
 
   all(): T[] {

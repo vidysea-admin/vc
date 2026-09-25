@@ -39,9 +39,11 @@ import {
   MINIMUM_FENCE_HOLD_MS,
   FencedWriterDeadlineError,
   ErasureRequestAlreadyOpenError,
+  ERASURE_PURGE_OP_TIMEOUT_MS,
   type ErasureRequestDoc,
 } from "../src/erasure.js";
 import { applyApprovedDiff } from "../src/facts.js";
+import { DEFAULT_MONGO_CLIENT_TIMEOUT_MS } from "../src/client.js";
 import { COLLECTION_NAMES, type FactDoc } from "../src/collections.js";
 import { INDEX_PLAN } from "../scripts/db-init.js";
 import { createFakeDb, type FakeDb, type FakeCollection } from "./fakes.js";
@@ -338,6 +340,44 @@ test("B15: the receipt counts match what was actually there (read back, per coll
   const { receipt } = await executeErasure(db, requestId);
   const byName = Object.fromEntries(receipt.collections.map((l) => [l.collection, l.deleted]));
   assert.deepEqual(byName, expected);
+});
+
+// ---------------------------------------------------------------------------
+// T-015 / ISS-t-014-rev-1: executeErasure's deleteMany/countDocuments carry an explicit per-op
+// timeoutMS, larger than the client-level default (which is capped at FENCE_MARGIN_MS, D-016 —
+// sized for a fenced writer's post-check margin, not a multi-collection bulk purge).
+// ---------------------------------------------------------------------------
+
+test("ISS-t-014-rev-1: ERASURE_PURGE_OP_TIMEOUT_MS is larger than the client-level default (D-016's fence margin)", () => {
+  assert.ok(
+    ERASURE_PURGE_OP_TIMEOUT_MS > DEFAULT_MONGO_CLIENT_TIMEOUT_MS,
+    `expected ${ERASURE_PURGE_OP_TIMEOUT_MS} > ${DEFAULT_MONGO_CLIENT_TIMEOUT_MS}`,
+  );
+});
+
+test("ISS-t-014-rev-1: every executeErasure deleteMany/countDocuments call REALLY CARRIES {timeoutMS: ERASURE_PURGE_OP_TIMEOUT_MS} (the fake records the options it received)", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  const requestId = await confirmedRequest(db, a.studentId);
+  const outcome = await executeErasure(db, requestId);
+  assert.equal(outcome.status, "completed"); // fixture sanity: the purge really ran end to end
+
+  let deleteManyCallsSeen = 0;
+  let countDocumentsCallsSeen = 0;
+  for (const step of ERASURE_PLAN) {
+    const collection = coll(fakeDb, step.collection);
+    assert.ok(collection.deleteManyCalls.length > 0, `expected at least one deleteMany call for ${step.collection}`);
+    assert.ok(collection.countDocumentsCalls.length > 0, `expected at least one countDocuments call for ${step.collection}`);
+    for (const call of collection.deleteManyCalls) {
+      assert.equal(call.options?.timeoutMS, ERASURE_PURGE_OP_TIMEOUT_MS, `deleteMany on ${step.collection}`);
+      deleteManyCallsSeen += 1;
+    }
+    for (const call of collection.countDocumentsCalls) {
+      assert.equal(call.options?.timeoutMS, ERASURE_PURGE_OP_TIMEOUT_MS, `countDocuments on ${step.collection}`);
+      countDocumentsCallsSeen += 1;
+    }
+  }
+  assert.ok(deleteManyCallsSeen >= ERASURE_PLAN.length, "at least one deleteMany per plan step");
+  assert.ok(countDocumentsCallsSeen >= ERASURE_PLAN.length, "at least one countDocuments per plan step");
 });
 
 test("B15: ANOTHER student's data is untouched, byte for byte", async () => {
@@ -1613,6 +1653,51 @@ test("T-014/ISS-t-011-c3-rev-3: a failing tick is reported via onError, not thro
       assert.equal(fences.size(), 0, "a later tick recovers and releases the fence — one bad tick did not kill the interval");
     } finally {
       sweep.stop();
+    }
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("T-015/ISS-t-014-rev-4: an in-flight tick is not overlapped by the next scheduled tick; a tick AFTER the previous one finished is not skipped", async () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  try {
+    const { db, fakeDb, a } = await seedTwo();
+    const fences = coll(fakeDb, FENCES);
+    const realFind = fences.find.bind(fences);
+    const g = gate();
+    let findCalls = 0;
+    // Tick 1's read is stuck until the gate opens; every later call resolves immediately.
+    fences.find = (f?: Record<string, unknown>) => {
+      findCalls += 1;
+      const isFirst = findCalls === 1;
+      return {
+        toArray: async () => {
+          if (isFirst) await g.opened;
+          return realFind(f).toArray();
+        },
+      };
+    };
+    const sweep = startErasureFenceSweep(db, { intervalMs: 1000 });
+    try {
+      mock.timers.tick(1000); // fires tick 1; its releaseExpiredErasureFences is now stuck on g.opened
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(findCalls, 1, "tick 1 started");
+
+      mock.timers.tick(1000); // fires tick 2 WHILE tick 1 is still in flight
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(findCalls, 1, "tick 2 was skipped: tick 1 had not finished yet (no overlap)");
+
+      g.open(); // let tick 1 finish
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      mock.timers.tick(1000); // fires tick 3, AFTER tick 1 has finished
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(findCalls, 2, "a tick scheduled after the previous one finished is NOT skipped");
+    } finally {
+      sweep.stop();
+      fences.find = realFind;
     }
   } finally {
     mock.timers.reset();

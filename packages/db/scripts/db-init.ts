@@ -215,6 +215,37 @@ export async function assertServerVersionSupportsPartialIn(
   }
 }
 
+/**
+ * T-015 / ISS-t-014-rev-1: an explicit per-op timeoutMS for createIndex, larger than the client's
+ * own DEFAULT_MONGO_CLIENT_TIMEOUT_MS (client.ts, 30s — D-016's fence margin, sized for a fenced
+ * writer's post-check, not an index build). Building a unique/partial index on a collection that
+ * already holds data can take meaningfully longer than that. This script is never run
+ * automatically (only by a human, per the file banner and README) and only ever builds indexes
+ * once per shape change, so generous headroom here costs nothing in the steady state and avoids a
+ * spurious timeout aborting an otherwise-healthy (if slow) index build.
+ */
+export const DB_INIT_CREATE_INDEX_TIMEOUT_MS = 120_000;
+
+/**
+ * The createIndex loop, split out from main() so it is importable and testable offline against
+ * `@vc/db/testing`'s FakeDb (ISS-t-014-rev-1) without ever connecting to a real server — `db` only
+ * needs the driver's `collection(name).createIndex(...)` shape. `main()` below is the only caller
+ * that passes a real, connected Db.
+ */
+export async function createPlannedIndexes(
+  db: Pick<import("mongodb").Db, "collection">,
+  plan: readonly IndexSpec[] = INDEX_PLAN,
+): Promise<void> {
+  for (const spec of plan) {
+    await db.collection(spec.collection).createIndex(spec.keys, {
+      name: spec.name,
+      unique: spec.unique,
+      partialFilterExpression: spec.partialFilterExpression,
+      timeoutMS: DB_INIT_CREATE_INDEX_TIMEOUT_MS,
+    });
+  }
+}
+
 async function main(): Promise<void> {
   const { client, db } = connectFromEnv(process.env);
   await client.connect();
@@ -226,13 +257,7 @@ async function main(): Promise<void> {
       await ensureCollection(db, name);
     }
 
-    for (const spec of INDEX_PLAN) {
-      await db.collection(spec.collection).createIndex(spec.keys, {
-        name: spec.name,
-        unique: spec.unique,
-        partialFilterExpression: spec.partialFilterExpression,
-      });
-    }
+    await createPlannedIndexes(db);
 
     // eslint-disable-next-line no-console
     console.log(`db-init: "${COLLECTION_NAMES.facts}", "${COLLECTION_NAMES.consents}" and sibling collections ready in virtual_counsellor`);
