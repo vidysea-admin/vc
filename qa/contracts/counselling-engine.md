@@ -46,7 +46,7 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   be processed. A test covers it.
 - **B5 (typed boundaries):** Every graph node's input and output is a Zod schema. No free text passes between nodes.
 - **B6 (portable core):** Prompts and soft rules live in `skills/*/SKILL.md`. Hard rules live in code guards that run
-  before any LLM call. Tools are MCP servers. The model is chosen by config.
+  before any LLM call. Tools are MCP servers. The model is chosen by config. **Provider independence (lead review, 2026-09-25):** no single AI vendor is load-bearing. At least two real providers sit behind the provider seam: Gemini, and LiteLLM gateway classes. A deterministic `rules` provider, which uses no model, lets the P1 flow scribe -> facts -> profile diff -> counsellor approval complete end to end, with its output clearly marked "AI unavailable". An e2e test passes with `VC_LLM_PROVIDER=rules`.
 - **B7 (tracing, no egress):** Graph runs emit Langfuse traces to a self-hosted endpoint only, with
   `TELEMETRY_ENABLED=false`. **Emit must be proven, not assumed:** a test captures at least one exported span through
   the real export path, using an in-process exporter or collector. A test that only constructs a handler or client does
@@ -93,6 +93,8 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   measured on an offline golden set (indirect Hinglish, Devanagari, abuse, benign idioms) with a bar of **recall >= 0.95** before any real-student
   pilot (`qa/gates/crisis-safety-layers.md`; the response-time SLA is not yet set).
 
+- **B17 (persona usability):** Every UI-touching unit, and every release, is judged by user personas, not only login roles. The declared personas are an average counsellor in a tier-2 city such as Jaipur (1-2 years' experience) and a school counsellor. The checker's browser run (Mode D / Mode C) walks each changed flow as each persona and records per-screen findings. A flow the persona cannot finish unaided is a finding, not a pass. A `high` persona finding blocks PASS the same way a failed criterion does.
+
 ## Non-goals (this contract)
 - The avatar (P3) and the student-facing voice surface.
 - Production deploy.
@@ -120,3 +122,4 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   real-transcripts-gemini}.md.
 - 2026-09-25 · routine (tighten, inbox fold) · B16 crisis recall bar set to >= 0.95 on the offline golden set · qa/feedback-inbox.md 04:47:54 ai-engineer review of T-005.
 - 2026-09-25 · routine (clarify, no weakening) · B15 now cites the D-015/D-016/D-017 fencing and states that a surviving write in the fence gap is a violation (ISS-t-017-rev-1) and that the fence sweep must not crash its host (ISS-t-017-rev-2) · sweep shard 1 found B15 stale against D-016/D-017.
+- 2026-09-25 · routine (tighten, inbox fold) · B6 gains provider independence (2 real providers + a no-AI `rules` provider that completes the P1 flow, with an e2e in rules mode); new B17 persona usability (Jaipur counsellor + school counsellor walks; a high persona finding blocks PASS) · qa/feedback-inbox.md entries 5-6, the lead's counselor-portal review relayed by Umesh.
