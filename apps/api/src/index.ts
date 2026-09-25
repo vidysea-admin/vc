@@ -11,7 +11,7 @@
  * sweep ONLY when actually invoked, never on import (contract B8: importing this module performs
  * no I/O and starts no timer).
  */
-import { connectFromEnv, startErasureFenceSweep, type MongoClientFactory, type ErasureFenceSweepOptions } from "@vc/db";
+import { connectFromEnv, errorLabel, startErasureFenceSweep, type MongoClientFactory, type ErasureFenceSweepOptions } from "@vc/db";
 
 export function apiStatus(): string {
   return "@vc/api: not yet implemented (scaffold only, see T-002)";
@@ -35,6 +35,13 @@ export interface StartApiOptions extends ErasureFenceSweepOptions {
  * naming the failure. A real deployment is expected to inject its own `onError` wired to its actual
  * logging/alerting pipeline (Langfuse/observability, structured log shipper, etc.) — this default
  * is the floor, not the intended production behaviour.
+ *
+ * ISS-t-015-c0-1: logs `errorLabel(err)` (name + code only, the same redaction erasure.ts's own
+ * receipt lines use), never `err.message`. A realistic Mongo-shaped error (e.g. an E11000
+ * duplicate-key line, which real servers embed document field values into) is not exploitable
+ * TODAY through this path specifically (erasureFenceKey is a SHA-256 hash, not a raw studentId; no
+ * $jsonSchema validators are configured), but the no-PII guarantee on this log line should not
+ * depend on that staying true.
  */
 function defaultSweepErrorLogger(err: unknown): void {
   // eslint-disable-next-line no-console
@@ -42,8 +49,7 @@ function defaultSweepErrorLogger(err: unknown): void {
     JSON.stringify({
       level: "error",
       event: "erasure_fence_sweep_failed",
-      name: err instanceof Error ? err.name : undefined,
-      message: err instanceof Error ? err.message : String(err),
+      error: errorLabel(err),
       ts: new Date().toISOString(),
     }),
   );
@@ -60,6 +66,13 @@ function defaultSweepErrorLogger(err: unknown): void {
  * fails (e.g. startErasureFenceSweep's own intervalMs validation), the caller never receives a
  * `stop()` to close it with, so this function itself closes the client before rethrowing, instead
  * of leaking a live connection.
+ *
+ * ISS-t-015-c0-2: closing the client is itself fallible. Before, `await client.close(); throw err;`
+ * silently discarded the ROOT cause (e.g. startErasureFenceSweep's RangeError) whenever close()
+ * itself threw, and left it unclear whether the client was actually released. Now a close() failure
+ * is caught and reported as an AggregateError carrying BOTH the original error (first) and the
+ * close failure (second), so a caller can always see the real root cause, and never mistakes a
+ * close-time symptom for it.
  */
 export async function startApi(
   env: Record<string, string | undefined> = process.env,
@@ -77,7 +90,14 @@ export async function startApi(
       },
     };
   } catch (err) {
-    await client.close();
+    try {
+      await client.close();
+    } catch (closeErr) {
+      throw new AggregateError(
+        [err, closeErr],
+        "startApi: failed to start the erasure fence sweep, and closing the Mongo client afterwards also failed",
+      );
+    }
     throw err;
   }
 }

@@ -10,12 +10,17 @@ import { FactSchema, isScriptLike, type Fact } from "@vc/schemas";
 import {
   ConsentRequiredError,
   FactConflictError,
+  FENCE_POSTCHECK_TIMEOUT_MS,
+  FencedWriterDeadlineError,
   PartialApplyError,
+  StudentFencedError,
   applyApprovedDiff,
   factsCollection,
+  isStudentFenced,
   recordApprovedSessionSummary,
   proposeFactChanges,
   requireConsent,
+  undoApprovedSessionSummary,
 } from "@vc/db";
 import type { LlmProvider } from "@vc/providers";
 import { citationGuard } from "../guards/citation.js";
@@ -330,6 +335,27 @@ export function decisionFromResponse(response: ApprovalResponse, proposedFacts: 
 // (g) write — only on approval (B3)
 // ---------------------------------------------------------------------------
 
+export interface WriteApprovedOptions {
+  /**
+   * ISS-t-016-c0-1 / D-016: the SAME absolute instant the outer run's lease (graph.ts newLease) is
+   * derived from. recordApprovedSessionSummary and applyApprovedDiff each bind their OWN
+   * WriterDeadline to the time remaining until THIS instant (recomputed fresh at each call site, so
+   * neither call's deadline can outlive the other's) instead of independently defaulting to the
+   * package's full FENCED_WRITER_DEADLINE_MS whenever the outer run shortened its own deadline —
+   * closing the gap where a caller-shortened `writerDeadlineMs` left the lease's window shorter
+   * than the write's own (driver-level `timeoutMS`-bound) internal bound. Absent (a graph invoked
+   * outside start/resumeScribe, e.g. a test driving graph.invoke directly): both calls fall back to
+   * their own package default, unchanged from before this fix.
+   */
+  writerDeadlineExpiresAt?: number;
+}
+
+/** ISS-t-016-c0-1: ms remaining until `expiresAt`, recomputed fresh at each call site (never cached across the two writes), floored at 1ms so an already-expired outer deadline still yields a valid (if immediately-expiring) WriterDeadline rather than falling back to the full default. */
+function boundedDeadlineMs(expiresAt: number | undefined): number | undefined {
+  if (expiresAt === undefined) return undefined;
+  return Math.max(1, expiresAt - Date.now());
+}
+
 /**
  * Applies an approved decision with @vc/db applyApprovedDiff, passing the sessionId FROM STATE
  * (D-012: the contentHash includes it, so a checkpoint replay of this node is an idempotent no-op).
@@ -343,26 +369,101 @@ export function decisionFromResponse(response: ApprovalResponse, proposedFacts: 
  * (recordApprovedSessionSummary: never upserts, so a row the erasure already purged is not
  * recreated, and it throws, so no facts are written for an erased session either). Replays re-set
  * the same value.
+ *
+ * ISS-t-017-rev-1: recordApprovedSessionSummary's own pre/post-check can only see a fence that
+ * exists by the time ITS post-check runs. A fence confirmed strictly AFTER that (but before or
+ * during the applyApprovedDiff call right below) is invisible to it — it already returned
+ * successfully. So when applyApprovedDiff itself ends fenced (`StudentFencedError`, from either its
+ * own pre-check or its own post-check), this function also undoes the summary write by the exact
+ * `approvedAt` recordApprovedSessionSummary returned, via `undoApprovedSessionSummary` (the same
+ * match-key compensation, invoked one level up). Only with this does the full two-write approval
+ * path ever leave zero summary residue on a `fenced` outcome, whichever of the two writes actually
+ * caught the fence — closing the window `packages/db/src/facts.ts`'s module docstring and
+ * `undoApprovedSessionSummary`'s own docstring describe, and that this function's docstring and
+ * `packages/engine/src/scribe/graph.ts`'s `invokeFenceAware` docstring both now reflect accurately.
+ *
+ * ISS-t-017-c1-2 (a narrower window `StudentFencedError` alone does not cover): applyApprovedDiff
+ * can ALSO end `FencedWriterDeadlineError` — thrown only when its OWN post-check (compensateIfFenced)
+ * found the student NOT fenced at that exact instant (a genuine fence there throws
+ * `StudentFencedError` instead, the case already handled above). A deadline error alone is therefore
+ * ambiguous: it could be a plain slow write with nothing to do with erasure (D-012's retry is
+ * idempotent; the summary should stay), or it could be an erasure confirmed strictly AFTER
+ * applyApprovedDiff's own post-check read ran clean — a race narrower than the one this function's
+ * pre-check window covers, invisible to applyApprovedDiff itself for the same reason a
+ * `StudentFencedError` there wouldn't be ambiguous. So this function re-checks the fence itself
+ * (`isStudentFenced`, the same read `compensateIfFenced`'s own post-check uses) before deciding: if
+ * the student is fenced now, or the fence state can not be read at all (fail-safe — the same
+ * "unreadable counts as fenced" rule `compensateIfFenced` and `graph.ts`'s `fencedForPostCheck` both
+ * already use), the summary is undone before rethrowing; an UNFENCED deadline error is left alone —
+ * legitimate, self-healing via `resumeScribe(null)`'s idempotent retry (D-012), nothing to
+ * compensate.
  */
-export async function writeApproved(rawInput: unknown, deps: Pick<ScribeDeps, "db">): Promise<ScribeResult> {
+export async function writeApproved(
+  rawInput: unknown,
+  deps: Pick<ScribeDeps, "db">,
+  options: WriteApprovedOptions = {},
+): Promise<ScribeResult> {
   const input = WriteInputSchema.parse(rawInput);
   if (!input.decision.approve) {
     return ScribeResultSchema.parse({ status: "rejected" });
   }
-  await recordApprovedSessionSummary(deps.db, {
-    sessionId: input.sessionId,
-    studentId: input.studentId,
-    summary: input.summary,
-    summaryWithheldReason: input.summaryWithheldReason,
-  });
+  const { approvedAt: summaryApprovedAt } = await recordApprovedSessionSummary(
+    deps.db,
+    {
+      sessionId: input.sessionId,
+      studentId: input.studentId,
+      summary: input.summary,
+      summaryWithheldReason: input.summaryWithheldReason,
+    },
+    { deadlineMs: boundedDeadlineMs(options.writerDeadlineExpiresAt) },
+  );
   try {
-    const applied = await applyApprovedDiff(deps.db, input.diff, input.decision, input.sessionId);
+    const applied = await applyApprovedDiff(deps.db, input.diff, input.decision, input.sessionId, {
+      deadlineMs: boundedDeadlineMs(options.writerDeadlineExpiresAt),
+    });
     return ScribeResultSchema.parse({
       status: "written",
       writtenFactIds: applied.written.map((doc) => doc._id),
       supersededKeys: applied.supersededKeys,
     });
   } catch (err) {
+    if (err instanceof StudentFencedError) {
+      // ISS-t-017-rev-1: applyApprovedDiff caught the fence (its own pre-check or post-check) AFTER
+      // recordApprovedSessionSummary's own post-check already ran clean. Undo the summary this call
+      // wrote too, matched on its own approvedAt, so it can only ever remove THIS call's value.
+      // If the undo itself throws, that error propagates instead (never a silently-masked residue),
+      // matching compensateIfFenced's own documented contract.
+      await undoApprovedSessionSummary(deps.db, {
+        sessionId: input.sessionId,
+        studentId: input.studentId,
+        summaryApprovedAt,
+      });
+      throw err;
+    }
+    if (err instanceof FencedWriterDeadlineError) {
+      // ISS-t-017-c1-2: applyApprovedDiff's own post-check only found the student NOT fenced at the
+      // instant it ran (a genuine fence there is StudentFencedError, handled above) — a fence
+      // confirmed strictly AFTER that, in the narrow window before this deadline error surfaced, is
+      // invisible to applyApprovedDiff itself. Re-check directly, right now, with the same read
+      // compensateIfFenced's own post-check uses. An unreadable fence state fails safe (treated as
+      // fenced), matching compensateIfFenced and graph.ts's fencedForPostCheck. An UNFENCED deadline
+      // error (a plain slow write, nothing to do with erasure) leaves the summary alone: the retry is
+      // idempotent under D-012, so there is nothing to compensate.
+      let fencedNow: boolean;
+      try {
+        fencedNow = await isStudentFenced(deps.db, input.studentId, new Date(), { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS });
+      } catch {
+        fencedNow = true; // fail-safe: an unreadable fence state is treated as fenced
+      }
+      if (fencedNow) {
+        await undoApprovedSessionSummary(deps.db, {
+          sessionId: input.sessionId,
+          studentId: input.studentId,
+          summaryApprovedAt,
+        });
+      }
+      throw err;
+    }
     if (err instanceof FactConflictError) {
       return ScribeResultSchema.parse({ status: "conflict", key: err.key, message: err.message });
     }

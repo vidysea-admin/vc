@@ -51,9 +51,26 @@ export const DEFAULT_MONGO_CLIENT_TIMEOUT_MS = FENCE_MARGIN_MS;
  * configured e.g. 5 minutes of headroom while the real client still behaved as 30s — a worse trap
  * than a loud failure at startup, which is when connectFromEnv is called.
  */
+/**
+ * ISS-t-015-c0-4: a plain decimal integer only. `Number(raw)` alone silently accepts hex
+ * ("0x1000" -> 4096), exponential notation ("1e5" -> 100000), a leading "+", and — because `Number`
+ * trims — surrounding whitespace, none of which is the legible ms count an operator setting this
+ * env var meant to type. The FENCE_MARGIN_MS cap below is never bypassed by any of these notations
+ * (they all funnel through the same comparison), so this is config hygiene, not a safety gap on its
+ * own — rejected anyway so a typo like "1e5" fails loudly at startup instead of quietly meaning
+ * something other than what was typed.
+ */
+const STRICT_DECIMAL_INTEGER = /^[0-9]+$/;
+
 function resolveClientTimeoutMs(env: Record<string, string | undefined>): number {
   const raw = env.MONGO_CLIENT_TIMEOUT_MS;
   if (raw === undefined || raw.trim() === "") return DEFAULT_MONGO_CLIENT_TIMEOUT_MS;
+  if (!STRICT_DECIMAL_INTEGER.test(raw)) {
+    throw new Error(
+      `connectFromEnv: MONGO_CLIENT_TIMEOUT_MS must be a plain decimal integer number of ms ` +
+        `(no hex, exponents, fractions, signs or whitespace), got "${raw}"`,
+    );
+  }
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new Error(`connectFromEnv: MONGO_CLIENT_TIMEOUT_MS must be a positive number of ms, got "${raw}"`);

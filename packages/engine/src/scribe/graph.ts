@@ -137,8 +137,10 @@ export function buildScribeGraph(deps: ScribeDeps) {
             }),
           };
     })
-    .addNode(SCRIBE_NODES.write, async (s: State) => ({
+    .addNode(SCRIBE_NODES.write, async (s: State, runtime: { configurable?: { writerDeadlineExpiresAt?: number } }) => ({
       // ISS-t-007-rev-7: the approved summary goes to the session row along with the facts.
+      // ISS-t-016-c0-1: writeApproved binds its own inner writes to the SAME absolute deadline this
+      // run's writer deadline (and therefore its lease) was derived from — see runnableConfig below.
       result: await writeApproved(
         {
           sessionId: s.sessionId,
@@ -149,6 +151,7 @@ export function buildScribeGraph(deps: ScribeDeps) {
           summaryWithheldReason: s.summaryWithheldReason,
         },
         deps,
+        { writerDeadlineExpiresAt: runtime.configurable?.writerDeadlineExpiresAt },
       ),
     }))
     .addEdge(START, SCRIBE_NODES.consent)
@@ -277,15 +280,23 @@ export type ScribeOutcome =
    */
   | { kind: "in_progress" };
 
-function runnableConfig(opts: ScribeRunOptions, signal?: AbortSignal) {
+/**
+ * ISS-t-016-c0-1: takes the WriterDeadline itself (not just its signal), so `configurable` can carry
+ * `writerDeadlineExpiresAt` — the SAME absolute instant `newLease` derives the run lease from. The
+ * write node (SCRIBE_NODES.write above) reads it back and binds applyApprovedDiff's and
+ * recordApprovedSessionSummary's own inner WriterDeadlines to it, so the lease's window and the
+ * write's own bound can never diverge, however short a caller sets `writerDeadlineMs`.
+ */
+function runnableConfig(opts: ScribeRunOptions, deadline: WriterDeadline) {
   return {
     configurable: {
       thread_id: opts.threadId,
       ...(opts.checkpointId ? { checkpoint_id: opts.checkpointId } : {}),
+      writerDeadlineExpiresAt: deadline.expiresAt,
     },
     callbacks: opts.callbacks,
     // D-016: the writer deadline aborts the run (LangGraph stops scheduling further steps).
-    ...(signal ? { signal } : {}),
+    signal: deadline.signal,
   };
 }
 
@@ -338,7 +349,14 @@ async function fencedForPostCheck(db: GraphDeps["db"], studentId: string | undef
  *   graph's own checkpointer), the approval claim this call inserted (by its _id + responseHash,
  *   never another caller's) and the session row this call inserted (T-016; never a row that already
  *   existed, which the erasure purges). The facts and edges were removed by applyApprovedDiff's own
- *   post-check; the approved summary lives on the session row.
+ *   post-check. The approved summary is NOT this function's job: ISS-t-017-rev-1 / ISS-t-017-c1-2 — a
+ *   fence landing between recordApprovedSessionSummary's own post-check and applyApprovedDiff (or
+ *   confirmed strictly after applyApprovedDiff's OWN post-check ran clean, surfacing as
+ *   `FencedWriterDeadlineError` rather than `StudentFencedError`) is invisible to both writes taken
+ *   alone, so `writeApproved` (nodes.ts) itself undoes the summary (by its `approvedAt`) when
+ *   applyApprovedDiff ends fenced — either error shape, re-checking the fence itself for the
+ *   deadline-error case — before this function ever sees the error. By the time either error reaches
+ *   this post-check, any summary residue is already gone.
  * - An aborted run may still settle later (a node or checkpoint write in flight); when it does, the
  *   post-check runs again, so a late checkpoint write of a fenced student is removed too.
  * Returns true when fenced. A run that timed out while unfenced throws FencedWriterDeadlineError
@@ -417,8 +435,8 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
       deadline.op(),
     );
     const sessionRow = created ? { sessionId: parsed.sessionId, studentId: parsed.studentId } : null;
-    const fenced = await invokeFenceAware(deps, parsed.studentId, opts.threadId, { sessionRow }, deadline, (signal) =>
-      graph.invoke(parsed, runnableConfig(opts, signal)),
+    const fenced = await invokeFenceAware(deps, parsed.studentId, opts.threadId, { sessionRow }, deadline, () =>
+      graph.invoke(parsed, runnableConfig(opts, deadline)),
     );
     if (fenced) return { kind: "fenced" };
   } finally {
@@ -655,8 +673,8 @@ async function resumeUnderDeadline(
     }
   }
   const run = async (): Promise<ScribeOutcome> => {
-    const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, { claim: createdClaim }, deadline, (signal) =>
-      graph.invoke(new Command({ resume: parsed }), runnableConfig(opts, signal)),
+    const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, { claim: createdClaim }, deadline, () =>
+      graph.invoke(new Command({ resume: parsed }), runnableConfig(opts, deadline)),
     );
     return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId);
   };
@@ -681,12 +699,12 @@ async function recoverUnder(
   if (snapshot.next.length === 0) return readOutcome(graph, opts.threadId);
   const pendingInterrupt = snapshot.tasks.some((task) => task.interrupts.length > 0);
   const claimed = claim !== null && !latest.decision && pendingInterrupt ? ApprovalResponseSchema.parse(claim.response) : null;
-  const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, {}, deadline, async (signal) => {
+  const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, {}, deadline, async () => {
     if (claimed) {
       // Crash after the claim, before the decision was recorded: apply the CLAIMED response.
-      await graph.invoke(new Command({ resume: claimed }), runnableConfig({ ...opts, checkpointId: undefined }, signal));
+      await graph.invoke(new Command({ resume: claimed }), runnableConfig({ ...opts, checkpointId: undefined }, deadline));
     } else {
-      await graph.invoke(null, runnableConfig(opts, signal));
+      await graph.invoke(null, runnableConfig(opts, deadline));
     }
   });
   return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId);

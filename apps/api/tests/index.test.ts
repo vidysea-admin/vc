@@ -114,9 +114,56 @@ test("T-015/ISS-t-014-rev-2: startApi's default onError logs a structured JSON l
         assert.equal(typeof line, "string", "the logged line must be a plain string (JSON), not an object dump");
         const parsed = JSON.parse(line as string);
         assert.equal(parsed.event, "erasure_fence_sweep_failed");
-        assert.equal(parsed.message, boom.message);
+        assert.equal(parsed.error, "Error", "ISS-t-015-c0-1: name/code label, not the raw message");
+        assert.equal(parsed.message, undefined, "ISS-t-015-c0-1: the raw err.message is never logged");
         assert.equal(parsed.level, "error");
         assert.equal(typeof parsed.ts, "string");
+      } finally {
+        console.error = realConsoleError;
+      }
+    } finally {
+      await api.stop();
+    }
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-015-c0-1: the default sweep logger must never leak err.message (a real Mongo-shaped error's
+// message can embed document field values, e.g. an E11000 duplicate-key line).
+// ---------------------------------------------------------------------------
+
+test("ISS-t-015-c0-1: a Mongo-shaped error whose message embeds a value does not survive in the logged line", async () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  try {
+    const { client, dbFor } = createFakeMongoClient();
+    const api = await startApi({ MONGODB_URL: "mongodb://fake-host/ignored" }, { clientFactory: () => client, intervalMs: 1000 });
+    try {
+      const fences = dbFor("virtual_counsellor").collection<{ _id: string }>(COLLECTION_NAMES.erasure_fences);
+      const secretValue = "student-secret-value-should-not-leak";
+      const mongoShaped = Object.assign(
+        new Error(`E11000 duplicate key error collection: virtual_counsellor.erasure_fences index: _id_ dup key: { _id: "${secretValue}" }`),
+        { name: "MongoServerError", code: 11000, codeName: "DuplicateKey" },
+      );
+      fences.find = () => {
+        throw mongoShaped;
+      };
+
+      const realConsoleError = console.error;
+      const logs: unknown[][] = [];
+      console.error = (...args: unknown[]) => logs.push(args);
+      try {
+        mock.timers.tick(1000);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(logs.length, 1);
+        const [line] = logs[0]!;
+        assert.equal(typeof line, "string");
+        assert.ok(!(line as string).includes(secretValue), "the embedded value must never reach the logged line");
+        assert.ok(!(line as string).includes("dup key"), "no raw driver message text at all, only a name:code label");
+        const parsed = JSON.parse(line as string);
+        assert.equal(parsed.error, "MongoServerError:DuplicateKey");
       } finally {
         console.error = realConsoleError;
       }
@@ -191,6 +238,28 @@ test("T-015/ISS-t-014-rev-3: startApi closes the client and rethrows when starti
   );
   assert.equal(connected, 1, "connect() was reached (the failure is AFTER connect, per the brief)");
   assert.equal(closed, 1, "the client must be closed on the post-connect error path, not leaked");
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-015-c0-2: when close() ALSO throws on the post-connect error path, the ROOT error (e.g.
+// startErasureFenceSweep's RangeError) must survive, not be silently replaced by the close failure.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-015-c0-2: when close() throws too, the ORIGINAL error is preserved (not discarded), with the close failure attached", async () => {
+  const { client } = createFakeMongoClient();
+  const fakeClient = client as unknown as FakeConnectable;
+  const closeErr = new Error("simulated close() failure");
+  fakeClient.close = async () => {
+    throw closeErr;
+  };
+
+  const err: unknown = await startApi({ MONGODB_URL: "mongodb://fake-host/ignored" }, { clientFactory: () => client, intervalMs: 0 }).catch(
+    (e: unknown) => e,
+  );
+  assert.ok(err instanceof AggregateError, "both failures are surfaced, never just the close() one");
+  assert.equal(err.errors.length, 2);
+  assert.ok(err.errors[0] instanceof RangeError, "the ROOT cause (intervalMs validation) is preserved as the first error");
+  assert.equal(err.errors[1], closeErr, "the close() failure is also surfaced, not silently swallowed");
 });
 
 test("T-015/ISS-t-014-rev-3 (regression): a SUCCESSFUL startApi does not close the client until stop() is called", async () => {

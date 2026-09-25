@@ -1659,6 +1659,250 @@ test("T-014/ISS-t-011-c3-rev-3: a failing tick is reported via onError, not thro
   }
 });
 
+test("ISS-t-015-c0-3: an onError that itself throws does not produce an unhandledRejection, and the interval keeps running", async () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  const unhandled: unknown[] = [];
+  const onUnhandledRejection = (err: unknown) => unhandled.push(err);
+  process.on("unhandledRejection", onUnhandledRejection);
+  try {
+    const { db, fakeDb, a } = await seedTwo();
+    const fences = coll(fakeDb, FENCES);
+    const boom = new Error("simulated sweep read failure");
+    const realFind = fences.find.bind(fences);
+    let calls = 0;
+    fences.find = (f?: Record<string, unknown>) => {
+      calls += 1;
+      if (calls === 1) throw boom;
+      return realFind(f);
+    };
+    const sweep = startErasureFenceSweep(db, {
+      intervalMs: 1000,
+      onError: () => {
+        throw new Error("onError itself is broken (must never happen per the docstring, but must not crash the process either)");
+      },
+    });
+    try {
+      const longAgo = new Date(Date.now() - MINIMUM_FENCE_HOLD_MS - 60_000).toISOString();
+      fences.seed({ _id: erasureFenceKey(a.studentId), studentKey: erasureFenceKey(a.studentId), requestId: "r-gone", createdAt: longAgo, releaseAfter: longAgo });
+
+      mock.timers.tick(1000); // the failing tick; its onError throws
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      // A real unhandledRejection fires on a later turn of the microtask/macrotask queue; give it a
+      // chance to surface before asserting it did not.
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(unhandled.length, 0, "a broken onError must not produce a process-level unhandledRejection");
+      assert.equal(fences.size(), 1, "nothing released on the failing tick");
+
+      mock.timers.tick(1000); // the interval must still be alive despite the broken onError
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(fences.size(), 0, "a later, non-failing tick still recovers — the broken onError did not kill the interval");
+    } finally {
+      sweep.stop();
+    }
+  } finally {
+    process.off("unhandledRejection", onUnhandledRejection);
+    mock.timers.reset();
+  }
+});
+
+test("ISS-t-017-rev-2: an ASYNC onError whose returned promise rejects (not a synchronous throw) does not produce an unhandledRejection, and the interval keeps running", async () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  const unhandled: unknown[] = [];
+  const onUnhandledRejection = (err: unknown) => unhandled.push(err);
+  process.on("unhandledRejection", onUnhandledRejection);
+  try {
+    const { db, fakeDb, a } = await seedTwo();
+    const fences = coll(fakeDb, FENCES);
+    const boom = new Error("simulated sweep read failure");
+    const realFind = fences.find.bind(fences);
+    let calls = 0;
+    fences.find = (f?: Record<string, unknown>) => {
+      calls += 1;
+      if (calls === 1) throw boom;
+      return realFind(f);
+    };
+    const sweep = startErasureFenceSweep(db, {
+      intervalMs: 1000,
+      // ISS-t-017-rev-2: rejects on a LATER microtask, not synchronously — the realistic shape of an
+      // onError that awaits its own logging call (e.g. `await logToService(err)`). A plain
+      // `try { onError(err) } catch {}` (the ISS-t-015-c0-3 fix) can not catch this: the call itself
+      // returns a promise without throwing, and the rejection surfaces afterwards.
+      onError: async () => {
+        await Promise.resolve();
+        throw new Error("async onError's own promise rejects (must never happen per the docstring, but must not crash the process either)");
+      },
+    });
+    try {
+      const longAgo = new Date(Date.now() - MINIMUM_FENCE_HOLD_MS - 60_000).toISOString();
+      fences.seed({ _id: erasureFenceKey(a.studentId), studentKey: erasureFenceKey(a.studentId), requestId: "r-gone", createdAt: longAgo, releaseAfter: longAgo });
+
+      mock.timers.tick(1000); // the failing tick; its async onError's returned promise rejects later
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      // A real unhandledRejection fires on a later turn of the microtask/macrotask queue; give it a
+      // chance to surface before asserting it did not.
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(unhandled.length, 0, "an async onError's rejection must not produce a process-level unhandledRejection");
+      assert.equal(fences.size(), 1, "nothing released on the failing tick");
+
+      mock.timers.tick(1000); // the interval must still be alive despite the broken async onError
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(fences.size(), 0, "a later, non-failing tick still recovers — the broken async onError did not kill the interval");
+    } finally {
+      sweep.stop();
+    }
+  } finally {
+    process.off("unhandledRejection", onUnhandledRejection);
+    mock.timers.reset();
+  }
+});
+
+test("ISS-t-017-rev-3: an onError that returns a NEVER-SETTLING promise does not stall the sweep — a LATER tick still runs and releases an expired fence", async () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  try {
+    const { db, fakeDb, a } = await seedTwo();
+    const fences = coll(fakeDb, FENCES);
+    const boom = new Error("simulated sweep read failure");
+    const realFind = fences.find.bind(fences);
+    let calls = 0;
+    fences.find = (f?: Record<string, unknown>) => {
+      calls += 1;
+      if (calls === 1) throw boom;
+      return realFind(f);
+    };
+    let onErrorCalls = 0;
+    const sweep = startErasureFenceSweep(db, {
+      intervalMs: 1000,
+      // ISS-t-017-rev-3: never resolves NOR rejects — the realistic shape of an onError that awaits
+      // an unbounded fetch/HTTP call to a logging/alerting endpoint with no internal timeout. A fix
+      // that ADOPTS this promise into tick()'s own chain (so `.finally` waits for it) makes `inFlight`
+      // never reset, silently no-op'ing every later tick forever — the exact bug this test targets.
+      onError: () => {
+        onErrorCalls += 1;
+        return new Promise<void>(() => {
+          /* never settles */
+        });
+      },
+    });
+    try {
+      const longAgo = new Date(Date.now() - MINIMUM_FENCE_HOLD_MS - 60_000).toISOString();
+      fences.seed({ _id: erasureFenceKey(a.studentId), studentKey: erasureFenceKey(a.studentId), requestId: "r-gone", createdAt: longAgo, releaseAfter: longAgo });
+
+      mock.timers.tick(1000); // the failing tick; its onError never settles
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(onErrorCalls, 1, "onError was called once for the failing tick");
+      assert.equal(fences.size(), 1, "nothing released on the failing tick");
+
+      // Several LATER ticks must still run — the in-flight guard must have reset even though the
+      // first tick's onError promise is still pending and will NEVER settle.
+      for (let i = 0; i < 4; i += 1) {
+        mock.timers.tick(1000);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      assert.equal(fences.size(), 0, "a later tick recovered and released the expired fence — the never-settling onError did not stall the sweep");
+      assert.equal(onErrorCalls, 1, "the never-settling onError is not re-invoked by later, non-failing ticks");
+    } finally {
+      sweep.stop();
+    }
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("ISS-t-017-rev-3: onError returning a THENABLE (not a native Promise) that never resolves does not stall the sweep either", async () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  try {
+    const { db, fakeDb, a } = await seedTwo();
+    const fences = coll(fakeDb, FENCES);
+    const boom = new Error("simulated sweep read failure");
+    const realFind = fences.find.bind(fences);
+    let calls = 0;
+    fences.find = (f?: Record<string, unknown>) => {
+      calls += 1;
+      if (calls === 1) throw boom;
+      return realFind(f);
+    };
+    const sweep = startErasureFenceSweep(db, {
+      intervalMs: 1000,
+      // A thenable, not a native Promise: `.then` is called by the runtime's own promise machinery
+      // if this value is adopted, but here `onError`'s own return value is never adopted by tick()'s
+      // chain at all, so it makes no difference whether `then` is ever invoked.
+      onError: () => ({ then: () => undefined }) as unknown as Promise<void>,
+    });
+    try {
+      const longAgo = new Date(Date.now() - MINIMUM_FENCE_HOLD_MS - 60_000).toISOString();
+      fences.seed({ _id: erasureFenceKey(a.studentId), studentKey: erasureFenceKey(a.studentId), requestId: "r-gone", createdAt: longAgo, releaseAfter: longAgo });
+
+      mock.timers.tick(1000);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(fences.size(), 1, "nothing released on the failing tick");
+
+      mock.timers.tick(1000); // the next tick must not be silently skipped
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(fences.size(), 0, "a later tick recovered — a never-resolving thenable did not stall the sweep");
+    } finally {
+      sweep.stop();
+    }
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("ISS-t-017-rev-3: a non-function onError does not crash tick() or stall the sweep", async () => {
+  mock.timers.enable({ apis: ["setInterval"] });
+  const unhandled: unknown[] = [];
+  const onUnhandledRejection = (err: unknown) => unhandled.push(err);
+  process.on("unhandledRejection", onUnhandledRejection);
+  try {
+    const { db, fakeDb, a } = await seedTwo();
+    const fences = coll(fakeDb, FENCES);
+    const boom = new Error("simulated sweep read failure");
+    const realFind = fences.find.bind(fences);
+    let calls = 0;
+    fences.find = (f?: Record<string, unknown>) => {
+      calls += 1;
+      if (calls === 1) throw boom;
+      return realFind(f);
+    };
+    const sweep = startErasureFenceSweep(db, {
+      intervalMs: 1000,
+      // A caller can defeat the static type at runtime (a plain object, JS, or a mis-typed value).
+      // options.onError?.(err) throws a TypeError calling a non-function; that must be absorbed like
+      // any other onError failure, not surface as an unhandledRejection or stall the interval.
+      onError: "not-a-function" as unknown as (err: unknown) => void,
+    });
+    try {
+      const longAgo = new Date(Date.now() - MINIMUM_FENCE_HOLD_MS - 60_000).toISOString();
+      fences.seed({ _id: erasureFenceKey(a.studentId), studentKey: erasureFenceKey(a.studentId), requestId: "r-gone", createdAt: longAgo, releaseAfter: longAgo });
+
+      mock.timers.tick(1000);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(unhandled.length, 0, "a non-function onError must not produce a process-level unhandledRejection");
+      assert.equal(fences.size(), 1, "nothing released on the failing tick");
+
+      mock.timers.tick(1000); // the next tick must not be silently skipped
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.equal(fences.size(), 0, "a later tick recovered — a non-function onError did not stall the sweep");
+    } finally {
+      sweep.stop();
+    }
+  } finally {
+    process.off("unhandledRejection", onUnhandledRejection);
+    mock.timers.reset();
+  }
+});
+
 test("T-015/ISS-t-014-rev-4: an in-flight tick is not overlapped by the next scheduled tick; a tick AFTER the previous one finished is not skipped", async () => {
   mock.timers.enable({ apis: ["setInterval"] });
   try {

@@ -17,13 +17,16 @@ import assert from "node:assert/strict";
 import {
   COLLECTION_NAMES,
   confirmErasure,
+  ensureScribeSessionRow,
   executeErasure,
   exportStudent,
+  FencedWriterDeadlineError,
   requestErasure,
   type ScribeResolutionDoc,
   type SessionDoc,
 } from "@vc/db";
-import { resumeScribe, startScribe, type ScribeOutcome } from "../src/scribe/index.js";
+import { resumeScribe, startScribe, writeApproved, type ScribeOutcome } from "../src/scribe/index.js";
+import type { Fact } from "@vc/schemas";
 import {
   baseInput,
   DEFAULT_SUMMARY,
@@ -219,7 +222,7 @@ test("ISS-t-007-rev-7: a withheld (script-like) summary is stored as withheld, n
 // ISS-t-007-rev-9: no empty studentId claim
 // ---------------------------------------------------------------------------
 
-for (const missing of [undefined, ""] as const) {
+for (const missing of [undefined, "", "  "] as const) {
   test(`ISS-t-007-rev-9: a paused thread whose state has studentId=${JSON.stringify(missing)} -> resume throws and writes NO claim`, async () => {
     const h = makeHarness();
     await startScribe(h.graph, baseInput(), { threadId: "thread-nostudent" });
@@ -375,4 +378,302 @@ test("ISS-t-011-rev-5 + D-015: a fenced start does NOT delete a session row that
   const row = await sessions(h).findOne({ _id: SESSION_ID });
   assert.ok(row, "a pre-existing row is left for the erasure (compensation removes only what this call created)");
   assert.ok(row.scribeThreadIds?.includes("thread-first"));
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-016-c0-2: a student with TWO DISTINCT sessions (not just one session with two threads),
+// each with their own scribe thread, end-to-end through erasure.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-016-c0-2: a student with TWO DISTINCT sessions (each its own thread) is exported and erased to zero residue for BOTH", async () => {
+  const h = makeHarness({ saver: "mongo" });
+  const SESSION_2 = "session-synthetic-2";
+  await startScribe(h.graph, baseInput(), { threadId: "thread-multi-a" });
+  await startScribe(h.graph, baseInput({ sessionId: SESSION_2 }), { threadId: "thread-multi-b" });
+
+  assert.equal(sessions(h).size(), 2, "two distinct session rows, not one row with two threads");
+  const rowA = await sessions(h).findOne({ _id: SESSION_ID });
+  const rowB = await sessions(h).findOne({ _id: SESSION_2 });
+  assert.deepEqual(rowA?.scribeThreadIds, ["thread-multi-a"]);
+  assert.deepEqual(rowB?.scribeThreadIds, ["thread-multi-b"]);
+
+  const exported = await exportStudent(h.db, STUDENT_ID);
+  assert.equal(exported.sessions.length, 2);
+  // resolveSelectors also derives scribe:<sessionId> per session (unused here, since each run used
+  // its own explicit threadId) alongside the actually-recorded threads; both real threads must
+  // still be found through their OWN session's scribeThreadIds (ISS-t-016-c0-2's point: a second
+  // DISTINCT session, not just a second thread on the same session).
+  assert.ok(exported.checkpoints.threads.includes("thread-multi-a"));
+  assert.ok(exported.checkpoints.threads.includes("thread-multi-b"));
+
+  const erased = await erase(h);
+  assert.equal(erased.status, "completed");
+  assert.deepEqual(residue(h, [STUDENT_ID, SESSION_ID, SESSION_2, "thread-multi-a", "thread-multi-b"]), [], "zero residue across BOTH sessions");
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-016-rev-1: recordApprovedSessionSummary is fence-aware, matching applyApprovedDiff's own
+// pre-check/post-check. A fence landing BETWEEN the summary write and applyApprovedDiff must not
+// leave the approved summary on the row until executeErasure eventually purges it.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-016-rev-1: a fence that appears BETWEEN the summary write and applyApprovedDiff removes the summary too, IMMEDIATELY (not just facts/checkpoints, and not only once executeErasure runs)", async () => {
+  const h = makeHarness({ saver: "mongo" });
+  await startScribe(h.graph, baseInput(), { threadId: "thread-sum-fence" });
+
+  const sessionsColl = sessions(h);
+  const realUpdate = sessionsColl.updateOne.bind(sessionsColl);
+  let fenced = false;
+  (sessionsColl as unknown as { updateOne: typeof sessionsColl.updateOne }).updateOne = (async (
+    filter: Parameters<typeof realUpdate>[0],
+    update: Parameters<typeof realUpdate>[1],
+    opts: Parameters<typeof realUpdate>[2],
+  ) => {
+    const res = await realUpdate(filter, update, opts);
+    const set = (update as { $set?: { summary?: unknown } } | undefined)?.$set;
+    if (!fenced && set && set.summary !== undefined) {
+      fenced = true;
+      const { requestId } = await requestErasure(h.db, { studentId: STUDENT_ID, requestedBy: "counsellor-7", reason: "student_request" });
+      await confirmErasure(h.db, { requestId, confirmedBy: "admin-2" });
+    }
+    return res;
+  }) as typeof sessionsColl.updateOne;
+
+  const outcome = await resumeScribe(h.graph, { action: "approve" }, { threadId: "thread-sum-fence" });
+  assert.deepEqual(outcome, { kind: "fenced" });
+
+  // IMMEDIATELY after the fenced outcome, BEFORE executeErasure runs: the summary fields this call
+  // wrote must already be gone.
+  const row = await sessions(h).findOne({ _id: SESSION_ID });
+  assert.equal(row?.summary, undefined, "ISS-t-016-rev-1: the summary this call wrote must be compensated, not left for the purge");
+  assert.equal(row?.summaryApprovedAt, undefined);
+  assert.equal(row?.summaryWithheldReason, undefined);
+  assert.equal(h.facts.size(), 0, "applyApprovedDiff never ran (its own pre-check, or this call's, refused first)");
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-017-rev-1: recordApprovedSessionSummary's OWN pre/post-check can only see a fence that
+// exists by the time ITS post-check runs. A fence confirmed strictly AFTER that — during the
+// applyApprovedDiff call right after it — is invisible to either write taken alone; writeApproved
+// (nodes.ts) must close that window itself.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-017-rev-1: a fence that appears DURING applyApprovedDiff (after recordApprovedSessionSummary's own post-check already ran clean) also removes the summary, IMMEDIATELY (not just facts/edges, and not only once executeErasure runs)", async () => {
+  const h = makeHarness({ saver: "mongo" });
+  await startScribe(h.graph, baseInput(), { threadId: "thread-sum-fence-2" });
+
+  // Intercept applyApprovedDiff's FIRST fact write. By construction this runs strictly after
+  // recordApprovedSessionSummary has fully returned (writeApproved awaits it first) — including its
+  // own post-check, which by then found no fence at all (the fence does not exist yet). Confirming
+  // an erasure right here lands the fence exactly inside the window this issue is about: after the
+  // summary write's own compensation already ran clean, before/during applyApprovedDiff.
+  const realInsertOne = h.facts.insertOne.bind(h.facts);
+  let fenced = false;
+  (h.facts as unknown as { insertOne: typeof h.facts.insertOne }).insertOne = (async (
+    doc: Parameters<typeof realInsertOne>[0],
+    options?: Parameters<typeof realInsertOne>[1],
+  ) => {
+    if (!fenced) {
+      fenced = true;
+      const { requestId } = await requestErasure(h.db, { studentId: STUDENT_ID, requestedBy: "counsellor-7", reason: "student_request" });
+      await confirmErasure(h.db, { requestId, confirmedBy: "admin-2" });
+    }
+    return realInsertOne(doc, options);
+  }) as typeof h.facts.insertOne;
+
+  const outcome = await resumeScribe(h.graph, { action: "approve" }, { threadId: "thread-sum-fence-2" });
+  assert.deepEqual(outcome, { kind: "fenced" });
+
+  // IMMEDIATELY after the fenced outcome, BEFORE executeErasure runs: the summary
+  // recordApprovedSessionSummary wrote (and whose OWN post-check found clean) must already be gone
+  // too — undone by writeApproved, not left on the row for the eventual purge.
+  const row = await sessions(h).findOne({ _id: SESSION_ID });
+  assert.equal(row?.summary, undefined, "ISS-t-017-rev-1: the summary must be compensated by writeApproved, not left for the purge");
+  assert.equal(row?.summaryApprovedAt, undefined);
+  assert.equal(row?.summaryWithheldReason, undefined);
+  assert.equal(h.facts.size(), 0, "applyApprovedDiff's own post-check compensated the facts it inserted, as before");
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-017-c1-2: applyApprovedDiff can ALSO end FencedWriterDeadlineError instead of
+// StudentFencedError — thrown only when its OWN post-check found the student NOT fenced at that
+// exact instant. A fence confirmed strictly AFTER that read (but before writeApproved's catch runs)
+// is invisible to applyApprovedDiff, so writeApproved must re-check the fence itself before deciding
+// whether to compensate the summary.
+// ---------------------------------------------------------------------------
+
+/** A minimal, schema-valid Fact for a writeApproved decision.edits entry (facts.test.ts's own shape). */
+function citedFact(overrides: Partial<Fact> = {}): Fact {
+  return {
+    key: "targetCountry",
+    value: "Canada",
+    source: { type: "transcript", quote: "I want to study in Canada", turnId: "t1" },
+    confidence: 0.8,
+    validFrom: "2026-09-25T00:00:00.000Z",
+    purposeTags: ["counselling"],
+    sensitivity: "low",
+    ...overrides,
+  };
+}
+
+/**
+ * These two tests call `writeApproved` directly (not through startScribe/resumeScribe and its own
+ * outer LangGraph invoke + invokeFenceAware deadline/AbortController), so the ONLY deadline racing
+ * against the stalled write is applyApprovedDiff's own inner one — the exact mechanism ISS-t-017-c1-2
+ * is about, isolated from the outer graph's competing timing.
+ */
+test("ISS-t-017-c1-2: an erasure confirmed strictly AFTER applyApprovedDiff's own post-check ran clean, surfacing as FencedWriterDeadlineError, still removes the summary IMMEDIATELY", async () => {
+  const h = makeHarness({ saver: "mongo" });
+  await ensureScribeSessionRow(h.db, { sessionId: "sess-c1-2-fenced", studentId: STUDENT_ID, threadId: "thread-c1-2-fenced" });
+
+  // Stall applyApprovedDiff's first fact write so its own WriterDeadline (bound to the short
+  // writerDeadlineExpiresAt below) actually expires — a genuine timeout, not a fence caught mid-write.
+  let releaseInsert!: () => void;
+  const insertGate = new Promise<void>((resolve) => (releaseInsert = resolve));
+  const realInsertOne = h.facts.insertOne.bind(h.facts);
+  (h.facts as unknown as { insertOne: typeof h.facts.insertOne }).insertOne = (async (
+    doc: Parameters<typeof realInsertOne>[0],
+    options?: Parameters<typeof realInsertOne>[1],
+  ) => {
+    await insertGate;
+    return realInsertOne(doc, options);
+  }) as typeof h.facts.insertOne;
+
+  // Intercept the erasure-fence reads (isStudentFenced -> erasure_fences.findOne). In writeApproved's
+  // own sequence, four such reads happen before applyApprovedDiff's OWN post-check returns:
+  //   1. recordApprovedSessionSummary's pre-check
+  //   2. recordApprovedSessionSummary's post-check
+  //   3. applyApprovedDiff's pre-check
+  //   4. applyApprovedDiff's post-check (compensateIfFenced, run after the deadline fires) — this
+  //      MUST see "not fenced" (a genuine fence there throws StudentFencedError instead, a
+  //      different, already-handled path).
+  // On read #4, confirm a real erasure AFTER capturing its (not-fenced) result but BEFORE returning
+  // it, so the fence document genuinely exists in the collection by the time writeApproved's own
+  // re-check (read #5) runs — reproducing the checker's exact race deterministically, without
+  // relying on wall-clock timing for the fence side of it.
+  const fencesColl = h.fakeDb.collection(COLLECTION_NAMES.erasure_fences);
+  const realFencesFindOne = fencesColl.findOne.bind(fencesColl);
+  let fenceChecks = 0;
+  (fencesColl as unknown as { findOne: typeof fencesColl.findOne }).findOne = (async (
+    filter: Parameters<typeof realFencesFindOne>[0],
+    options?: Parameters<typeof realFencesFindOne>[1],
+  ) => {
+    fenceChecks += 1;
+    const result = await realFencesFindOne(filter, options);
+    if (fenceChecks === 4) {
+      const { requestId } = await requestErasure(h.db, { studentId: STUDENT_ID, requestedBy: "counsellor-7", reason: "student_request" });
+      await confirmErasure(h.db, { requestId, confirmedBy: "admin-2" });
+    }
+    return result; // the ORIGINAL (pre-confirm) result: applyApprovedDiff's own post-check sees "not fenced"
+  }) as typeof fencesColl.findOne;
+
+  const rawInput = {
+    sessionId: "sess-c1-2-fenced",
+    studentId: STUDENT_ID,
+    diff: { studentId: STUDENT_ID, summary: DEFAULT_SUMMARY, changes: [], citedFactIds: [] },
+    decision: { approve: true, edits: [citedFact()] },
+    summary: DEFAULT_SUMMARY,
+  };
+
+  const callPromise = writeApproved(rawInput, { db: h.db }, { writerDeadlineExpiresAt: Date.now() + 20 });
+  callPromise.catch(() => undefined); // observed below; suppress a premature unhandledRejection warning
+  await new Promise((resolve) => setTimeout(resolve, 60)); // let the 20ms deadline actually fire
+  releaseInsert(); // let the stuck insert land afterwards (harmless; undone regardless)
+
+  const err = await callPromise.catch((e: unknown) => e);
+  assert.ok(err instanceof FencedWriterDeadlineError, `expected FencedWriterDeadlineError, got ${String(err)}`);
+  assert.ok(fenceChecks >= 5, `expected at least 5 fence reads (4 pre-existing + writeApproved's own re-check), got ${fenceChecks}`);
+
+  // IMMEDIATELY after the call rejects: the summary recordApprovedSessionSummary wrote (and whose
+  // OWN post-check found clean) must already be gone too — undone by writeApproved's own re-check on
+  // the FencedWriterDeadlineError, not left on the row for the eventual purge.
+  const row = await sessions(h).findOne({ _id: "sess-c1-2-fenced" });
+  assert.equal(row?.summary, undefined, "ISS-t-017-c1-2: the summary must be compensated on a FencedWriterDeadlineError too, when the student is genuinely fenced by the time writeApproved re-checks");
+  assert.equal(row?.summaryApprovedAt, undefined);
+  assert.equal(row?.summaryWithheldReason, undefined);
+});
+
+test("ISS-t-017-c1-2: an UNFENCED FencedWriterDeadlineError (a plain slow write) keeps the summary — legitimate, idempotent under D-012", async () => {
+  const h = makeHarness({ saver: "mongo" });
+  await ensureScribeSessionRow(h.db, { sessionId: "sess-c1-2-clean", studentId: STUDENT_ID, threadId: "thread-c1-2-clean" });
+
+  // Stall applyApprovedDiff's first fact write past a short writer deadline; never confirm any
+  // erasure. This is a plain slow write timing out — nothing to do with fencing.
+  let releaseInsert!: () => void;
+  const insertGate = new Promise<void>((resolve) => (releaseInsert = resolve));
+  const realInsertOne = h.facts.insertOne.bind(h.facts);
+  (h.facts as unknown as { insertOne: typeof h.facts.insertOne }).insertOne = (async (
+    doc: Parameters<typeof realInsertOne>[0],
+    options?: Parameters<typeof realInsertOne>[1],
+  ) => {
+    await insertGate;
+    return realInsertOne(doc, options);
+  }) as typeof h.facts.insertOne;
+
+  const rawInput = {
+    sessionId: "sess-c1-2-clean",
+    studentId: STUDENT_ID,
+    diff: { studentId: STUDENT_ID, summary: DEFAULT_SUMMARY, changes: [], citedFactIds: [] },
+    decision: { approve: true, edits: [citedFact()] },
+    summary: DEFAULT_SUMMARY,
+  };
+
+  const callPromise = writeApproved(rawInput, { db: h.db }, { writerDeadlineExpiresAt: Date.now() + 20 });
+  callPromise.catch(() => undefined);
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  releaseInsert();
+
+  const err = await callPromise.catch((e: unknown) => e);
+  assert.ok(err instanceof FencedWriterDeadlineError, `expected FencedWriterDeadlineError, got ${String(err)}`);
+
+  const row = await sessions(h).findOne({ _id: "sess-c1-2-clean" });
+  assert.equal(row?.summary, DEFAULT_SUMMARY, "an UNFENCED deadline error must leave the legitimately-written summary alone (D-012: the retry is idempotent)");
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-016-c0-1: the run lease's window (newLease, derived from the outer writerDeadlineMs) must
+// bound the INNER write's own deadline too — a caller-shortened writerDeadlineMs must shorten the
+// driver-level timeoutMS the write's own operations receive, not just the lease's window.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-016-c0-1: recordApprovedSessionSummary's and applyApprovedDiff's own writes are bound to the SAME (short) outer writerDeadlineMs, not the package's full 60s default", async () => {
+  const h = makeHarness({ saver: "mongo" });
+  await startScribe(h.graph, baseInput(), { threadId: "thread-bound" });
+
+  const sessionsColl = sessions(h);
+  const summaryTimeouts: number[] = [];
+  const realSessionsUpdate = sessionsColl.updateOne.bind(sessionsColl);
+  (sessionsColl as unknown as { updateOne: typeof sessionsColl.updateOne }).updateOne = (async (
+    filter: Parameters<typeof realSessionsUpdate>[0],
+    update: Parameters<typeof realSessionsUpdate>[1],
+    options?: { timeoutMS?: number },
+  ) => {
+    const set = (update as { $set?: { summary?: unknown } } | undefined)?.$set;
+    if (set && set.summary !== undefined && options?.timeoutMS !== undefined) summaryTimeouts.push(options.timeoutMS);
+    return realSessionsUpdate(filter, update, options as Parameters<typeof realSessionsUpdate>[2]);
+  }) as typeof sessionsColl.updateOne;
+
+  const factTimeouts: number[] = [];
+  const realFactsInsert = h.facts.insertOne.bind(h.facts);
+  (h.facts as unknown as { insertOne: typeof h.facts.insertOne }).insertOne = (async (
+    doc: Parameters<typeof realFactsInsert>[0],
+    options?: { timeoutMS?: number },
+  ) => {
+    if (options?.timeoutMS !== undefined) factTimeouts.push(options.timeoutMS);
+    return realFactsInsert(doc, options as Parameters<typeof realFactsInsert>[1]);
+  }) as typeof h.facts.insertOne;
+
+  const SHORT_MS = 200; // well below FENCED_WRITER_DEADLINE_MS (60_000) but a legal (0, 60_000] value
+  const outcome = await resumeScribe(h.graph, { action: "approve" }, { threadId: "thread-bound", writerDeadlineMs: SHORT_MS });
+  assert.equal(outcome.kind === "done" && outcome.result.status, "written");
+
+  assert.ok(summaryTimeouts.length > 0, "the summary write carried an explicit timeoutMS at all");
+  assert.ok(factTimeouts.length > 0, "the fact insert carried an explicit timeoutMS at all");
+  for (const t of [...summaryTimeouts, ...factTimeouts]) {
+    assert.ok(
+      t <= SHORT_MS,
+      `ISS-t-016-c0-1: every inner write's timeoutMS must be bound to the outer writerDeadlineMs (${SHORT_MS}ms), got ${t}ms — ` +
+        `a value close to 60000 means the inner write is STILL using the package default, independent of the outer deadline`,
+    );
+  }
 });
