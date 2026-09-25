@@ -24,6 +24,8 @@ interface FactRow {
   confidence: number;
   validFrom: string;
   validTo?: string;
+  /** D-013: `true` on the open fact, absent on retired (and legacy) ones. */
+  active?: true;
   purposeTags: string[];
   sensitivity: "low" | "medium" | "high";
 }
@@ -96,6 +98,7 @@ test("purpose filter: only facts whose purposeTags include the requested purpose
   });
   seedFact(fakeDb, {
     _id: "f1",
+    active: true, // D-013: an OPEN fact
     studentId: "s1",
     key: "targetCountry",
     value: "Canada",
@@ -108,6 +111,7 @@ test("purpose filter: only facts whose purposeTags include the requested purpose
   // Different purpose -- must NOT leak into a counselling_session query.
   seedFact(fakeDb, {
     _id: "f2",
+    active: true, // D-013: an OPEN fact
     studentId: "s1",
     key: "applicationBudget",
     value: 20000,
@@ -133,6 +137,7 @@ test("purpose filter: only facts whose purposeTags include the requested purpose
   // Different student entirely -- must never leak across studentId.
   seedFact(fakeDb, {
     _id: "f4",
+    active: true, // D-013: an OPEN fact
     studentId: "s2",
     key: "targetCountry",
     value: "UK",
@@ -172,6 +177,7 @@ test("B3 propose_profile_diff writes nothing: the facts collection is unchanged 
   });
   seedFact(fakeDb, {
     _id: "f1",
+    active: true, // D-013: an OPEN fact
     studentId: "s1",
     key: "targetCountry",
     value: "Canada",
@@ -303,6 +309,7 @@ test("ISS-029: propose_profile_diff with no consent row and a guessed key leaks 
   const { fakeDb, db } = createFakeDb();
   seedFact(fakeDb, {
     _id: "f1",
+    active: true, // D-013: an OPEN fact
     studentId: "s1",
     key: "medicalCondition",
     value: SECRET,
@@ -357,6 +364,7 @@ test("ISS-029: consent recorded for a DIFFERENT purpose still leaks nothing", as
   });
   seedFact(fakeDb, {
     _id: "f1",
+    active: true, // D-013: an OPEN fact
     studentId: "s1",
     key: "medicalCondition",
     value: SECRET,
@@ -412,6 +420,7 @@ test("ISS-029: consented purpose, but the stored fact is tagged with a DIFFERENT
   // counselling_session, so this fact must stay invisible to this call.
   seedFact(fakeDb, {
     _id: "f1",
+    active: true, // D-013: an OPEN fact
     studentId: "s1",
     key: "medicalCondition",
     value: SECRET,
@@ -468,6 +477,7 @@ test("ISS-029: the legitimate path (consented purpose, fact tagged with that pur
   });
   seedFact(fakeDb, {
     _id: "f1",
+    active: true, // D-013: an OPEN fact
     studentId: "s1",
     key: "targetCountry",
     value: "Canada",
@@ -505,6 +515,75 @@ test("ISS-029: the legitimate path (consented purpose, fact tagged with that pur
     assert.equal(diff.changes[0].op, "update");
     assert.equal(diff.changes[0].before, "Canada");
     assert.equal(diff.changes[0].after, "Germany");
+  } finally {
+    await cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// D-013: "open" means `active: true`. A legacy doc with neither validTo nor
+// active (written before D-013) is history: never returned as a current fact
+// and never used as `before` in a proposed diff.
+// ---------------------------------------------------------------------------
+
+test("D-013: a legacy open fact with no `active` field is NOT returned by get_profile_facts and is NOT used as `before` in propose_profile_diff", async () => {
+  const { fakeDb, db } = createFakeDb();
+  seedConsent(fakeDb, {
+    _id: "c1",
+    studentId: "s1",
+    guardianConsent: true,
+    purposes: ["counselling_session"],
+    recordedAt: "2026-09-25T00:00:00.000Z",
+    minor: false,
+  });
+  // Legacy: no validTo AND no active.
+  seedFact(fakeDb, {
+    _id: "legacy",
+    studentId: "s1",
+    key: "targetCountry",
+    value: "LEGACY-VALUE",
+    source: { type: "student-direct", id: "answer-legacy" },
+    confidence: 0.9,
+    validFrom: "2026-09-20T00:00:00.000Z",
+    purposeTags: ["counselling_session"],
+    sensitivity: "low",
+  });
+
+  const server = createStudentProfileServer({ db });
+  const { client, cleanup } = await connectedClient(server);
+  try {
+    const got = await client.callTool({
+      name: "get_profile_facts",
+      arguments: { studentId: "s1", purpose: "counselling_session" },
+    });
+    assert.notEqual(got.isError, true);
+    const facts = (got.structuredContent as { facts: Array<{ key: string; value: unknown }> }).facts;
+    assert.equal(facts.length, 0, "a doc without active:true is not an open fact");
+
+    const proposed = await client.callTool({
+      name: "propose_profile_diff",
+      arguments: {
+        studentId: "s1",
+        purpose: "counselling_session",
+        candidateFacts: [
+          {
+            key: "targetCountry",
+            value: "Germany",
+            source: { type: "student-direct", id: "answer-2" },
+            confidence: 0.85,
+            validFrom: "2026-09-25T01:00:00.000Z",
+            purposeTags: ["counselling_session"],
+            sensitivity: "low",
+          },
+        ],
+      },
+    });
+    assert.notEqual(proposed.isError, true);
+    assert.equal(JSON.stringify(proposed).includes("LEGACY-VALUE"), false, "the legacy value must never surface as `before`");
+    const diff = (proposed.structuredContent as { diff: { changes: Array<{ op: string; before?: unknown }> } }).diff;
+    assert.equal(diff.changes.length, 1);
+    assert.equal(diff.changes[0].op, "add");
+    assert.equal(diff.changes[0].before, undefined);
   } finally {
     await cleanup();
   }
