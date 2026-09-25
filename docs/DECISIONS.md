@@ -165,3 +165,14 @@ not replace them.
 Consent is still enforced by requireConsent against the consents collection (B4), not by SessionDoc.consentId.
 **Result:** -- (T-016 cycle 0, checked-PASS; the follow-ups ISS-t-016-rev-1 and ISS-t-016-c0-1 are in T-017)
 **Links:** T-016, T-017, T-008, ISS-t-007-rev-6, ISS-t-007-rev-7, ISS-t-007-rev-9, ISS-t-007-rev-10, ISS-t-011-rev-5, D-014, D-016
+
+## D-018 | 2026-09-25 | type: decision | status: ACTIVE
+**What:** Counsellor approval is decided per fact, and the web approval API is demo-safe by default.
+- **Per-fact response:** `ApprovalResponse` gains `per_fact`. The response decides every proposed key exactly once (approve, edit or reject), and approves or withholds the summary. A response that does not do this is refused before any claim, so nothing is written. The whole-batch approve/edit/reject responses are unchanged.
+- **Edits:** an edit replaces only the value; the fact keeps its original transcript source. Rejecting every fact and withholding the summary makes the run `rejected`.
+- **Web approval API:** Next.js route handlers in apps/web. They run in `demo` mode (the in-process fake) unless `VC_WEB_MODE` is exactly `live`.
+- **Build:** apps/web builds with webpack (`--webpack`) until Turbopack resolves the workspace packages' NodeNext `.js` specifiers.
+**Why:** Whole-batch approval could not hold back a flagged fact (ISS-t-013-rev-5), and B3 needs a per-fact human decision. Defaulting to demo mode keeps a misconfigured web server from writing to the production server (B8/B12).
+**Open:** the provenance of an edited value is gated separately. The edited value keeps the original quote, which can contradict it. See qa/gates/edit-provenance.md.
+**Result:** -- (T-008 cycle 0, checked-PASS; senior review Approve)
+**Links:** T-008, ISS-t-013-rev-5, ISS-t-008-c0-1, T-013, D-014, D-017
