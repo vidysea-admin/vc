@@ -9,8 +9,9 @@
   },
   "types": "./src/index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p evals/tsconfig.json",
+    "test": "tsx --test tests/*.test.ts evals/*.test.ts",
+    "eval:scribe": "tsx evals/run-eval.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.2.12",
