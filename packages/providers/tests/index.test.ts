@@ -4,6 +4,8 @@ import { z } from "zod";
 import {
   MockProvider,
   GeminiProvider,
+  LiteLlmProvider,
+  RulesProvider,
   createProvider,
   loadProviderConfig,
   providersStatus,
@@ -63,6 +65,38 @@ test("B6: loadProviderConfig reads the provider and model from config, and requi
   assert.throws(() => loadProviderConfig({ VC_LLM_PROVIDER: "openai" }), /VC_LLM_PROVIDER/);
   assert.throws(() => loadProviderConfig({ VC_LLM_PROVIDER: "gemini", GEMINI_API_KEY: "k" }), /VC_LLM_MODEL/);
   assert.throws(() => loadProviderConfig({ VC_LLM_PROVIDER: "gemini", VC_LLM_MODEL: "m" }), /GEMINI_API_KEY/);
+});
+
+test("T-019 B6: loadProviderConfig reads litellm (base URL + optional key) and rules (no model needed) config", () => {
+  assert.deepEqual(
+    loadProviderConfig({ VC_LLM_PROVIDER: "litellm", VC_LLM_MODEL: "balanced", VC_LLM_BASE_URL: "http://127.0.0.1:4000/v1" }),
+    { provider: "litellm", model: "balanced", baseUrl: "http://127.0.0.1:4000/v1" },
+  );
+  assert.deepEqual(
+    loadProviderConfig({
+      VC_LLM_PROVIDER: "litellm",
+      VC_LLM_MODEL: "balanced",
+      VC_LLM_BASE_URL: "http://127.0.0.1:4000/v1",
+      VC_LLM_API_KEY: "k",
+    }),
+    { provider: "litellm", model: "balanced", baseUrl: "http://127.0.0.1:4000/v1", apiKey: "k" },
+  );
+  assert.throws(() => loadProviderConfig({ VC_LLM_PROVIDER: "litellm", VC_LLM_BASE_URL: "http://x" }), /VC_LLM_MODEL/);
+  assert.throws(() => loadProviderConfig({ VC_LLM_PROVIDER: "litellm", VC_LLM_MODEL: "m" }), /VC_LLM_BASE_URL/);
+
+  assert.deepEqual(loadProviderConfig({ VC_LLM_PROVIDER: "rules" }), { provider: "rules", model: "rules" });
+  assert.deepEqual(loadProviderConfig({ VC_LLM_PROVIDER: "rules", VC_LLM_MODEL: "rules-v1" }), { provider: "rules", model: "rules-v1" });
+});
+
+test("T-019 B6: createProvider builds LiteLlmProvider and RulesProvider from config; still no default provider", () => {
+  const litellm = createProvider({ provider: "litellm", model: "balanced", baseUrl: "http://127.0.0.1:4000/v1" });
+  assert.ok(litellm instanceof LiteLlmProvider);
+  assert.equal(litellm.kind, "litellm");
+  assert.equal(litellm.model, "balanced");
+
+  const rules = createProvider({ provider: "rules", model: "rules" });
+  assert.ok(rules instanceof RulesProvider);
+  assert.equal(rules.kind, "rules");
 });
 
 test("B6: createProvider selects the implementation by config; the Gemini stub is constructed, never called", () => {
