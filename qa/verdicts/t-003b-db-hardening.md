@@ -1,224 +1,112 @@
 # Verdict — t-003b-db-hardening
 
 **Verdict:** PASS
-**Cycle checked:** 1
+**Cycle checked:** 2
 **Date:** 2026-09-25
-**Checker:** fresh Claude Sonnet subagent (Mode A), worktree `D:\vc\.worktrees\t-003b-db-hardening`,
-branch `wave/t-003b-db-hardening`. Judged unit diff `001411b..d17934e` (fix commit `d17934e`,
-"fix(db): t-003b cycle 1 — retire-then-insert CAS, studentId indexes, partial-outcome errors,
-collision-free fact ids"). Commit `b1563ec` ("merge main into t-003b") sits on top of `d17934e` —
-confirmed by `git diff --stat d17934e..b1563ec -- packages/db` (empty output) that it touches
-nothing under `packages/db/**`; it only brings in T-006's files (`mcp/**`, `.claude/hooks/**`,
-`pnpm-lock.yaml`, `qa/**`), so it is judged for breakage only and introduces none.
-**Judged against:** `qa/contracts/counselling-engine.md` B2, B3, B8, B12, B14, B15.
-**Prior verdict:** this checker's own cycle-0 PASS was overridden by two independent
-senior-software-engineer + data-engineer reviews, both Block, on **ISS-026 (critical)**:
-`applyApprovedDiff` inserted the new active fact BEFORE retiring the old one, which the unique
-partial index `{studentId,key}` (validTo unset) rejected, so every sequential update after the
-first threw `FactConflictError`. My cycle-0 probes missed this because the fake only enforced the
-unique index in the race test (`ISS-019`), not in `supersede-not-delete` or any sequential-update
-test — exactly the gap the reviews found.
+**Checker worktree:** D:\vc\.worktrees\t-003b-db-hardening (branch wave/t-003b-db-hardening)
+**Diff checked:** `1dd38b0..61eba29` (packages/db/**, mcp/student-profile/**, this manifest). `1242b3b` is a merge of main (brings in D-013). Contract sections: B2, B3, B4, B8, B12, B14 (manifest also claims B15 header row but this unit does not touch erasure code; not scored against it).
 
-## What changed this cycle (verified by reading the actual diff, not the manifest's prose)
+This is the LAST cycle in the budget (max 3). Cycle 0 and cycle 1 PASSes were both overridden by review Blocks because the checker's own probes never exercised a value the key had held before, never ran identical concurrent replays, and trusted a fake that was not faithful to the real driver. This verdict is built specifically to close those three gaps: every value-revert probe below uses the SAME sessionId across all calls (the actual collision shape — a different-sessionId revert does not collide even under the old broken code, see the negative-control note under item 2), concurrency is run at 2 AND 5 callers, and the fake's duplicate-key/pre-image behaviour is checked against the installed `mongodb@6` package's own `.d.ts`, not just against the manifest's claim about it.
 
-`git diff --stat 001411b..d17934e`:
-```
- packages/db/scripts/db-init.ts      |  99 ++++++++++-----
- packages/db/src/facts.ts            | 241 +++++++++++++++++++++++++-----------
- packages/db/tests/db-init.test.ts   |  58 +++++++++
- packages/db/tests/facts.test.ts     | 132 +++++++++++++++++++-
- packages/db/tests/fakes.ts          |  16 +++
- qa/manifests/t-003b-db-hardening.md | 153 +++++++++++------------
- 6 files changed, 519 insertions(+), 180 deletions(-)
-```
-- `packages/db/src/facts.ts`: `applyApprovedDiff`'s per-fact write is now retire-then-insert. When
-  a different fact is open for the key, it is retired FIRST via a CAS
-  `findOneAndUpdate({_id: existing._id, validTo:{$exists:false}}, {$set:{validTo:now}})`; only once
-  that CAS actually matches (proving the retirement landed and nobody raced it) does the function
-  insert the new fact. A CAS miss throws `FactConflictError`. New `PartialApplyError` class
-  (`writtenIds`, `failingKey`, `cause`) wraps a mid-diff failure when earlier facts in the same call
-  already committed; a first-fact failure still throws the raw error. `deriveFactId` now hashes
-  `JSON.stringify([studentId, key, canonicalize(value), sessionId ?? null])` instead of a
-  `"|"`-joined string.
-- `packages/db/tests/fakes.ts`: added `FakeCollection.findOneAndUpdate` (CAS-capable, returns the
-  matched+mutated doc or `null`) so the retire CAS step is testable offline.
-- `packages/db/scripts/db-init.ts`: `INDEX_PLAN` is now an exported plain-data array consumed by
-  both `main()` (real `createIndex`) and the new offline test; added a plain `{studentId:1}` index
-  on facts/sessions/decisions/students; `main()` is now guarded behind an entrypoint check so
-  importing the module for `INDEX_PLAN` never attempts a live Mongo connection.
-- `packages/db/tests/facts.test.ts` / new `packages/db/tests/db-init.test.ts`: 7 new tests (2×
-  ISS-026, 1× ISS-028, 1× ISS-t-003b-db-hardening-1, 2× ISS-027 + 1 regression check).
-
-## What I re-ran myself (worktree, fresh, not trusting the manifest's pasted output)
+## 1. Fresh commands, run by the checker, in the worktree (not copied from the manifest)
 
 ```
 $ pnpm install
 Scope: all 10 workspace projects
 Lockfile is up to date, resolution step is skipped
-Packages: +91 ... Done in 1.6s using pnpm v10.33.0
-```
+Already up to date
+Done in 668ms using pnpm v10.33.0
 
-```
-$ pnpm -r typecheck
-Scope: 9 of 10 workspace projects
-apps/api typecheck: Done
+$ pnpm -r typecheck   (exit 0)
 apps/web typecheck: Done
-packages/observability typecheck: Done
+apps/api typecheck: Done
 packages/providers typecheck: Done
+packages/observability typecheck: Done
 packages/schemas typecheck: Done
 packages/engine typecheck: Done
 packages/db typecheck: Done
-mcp/student-profile typecheck: Done
 mcp/university-kb typecheck: Done
-```
-Exit 0, all 9 workspaces Done.
+mcp/student-profile typecheck: Done
 
-```
-$ pnpm -r test
-...
-packages/db test: ℹ tests 50
-packages/db test: ℹ pass 50
-packages/db test: ℹ fail 0
-mcp/university-kb test: ℹ tests 9 / pass 9 / fail 0
-mcp/student-profile test: ℹ tests 11 / pass 11 / fail 0
-(apps/api, apps/web, mcp/*, packages/providers/schemas/observability/engine all pass 1/1 or their
-full counts, 0 fail)
-```
-Matches the manifest's claimed 50/50 for `packages/db` (up from 43 in cycle 0, +7 new). Full
-per-test listing includes all named ISS-026/027/028/t-003b-db-hardening-1 tests, all `✔`.
+$ pnpm -r test   (exit 0)
+apps/web            tests 1  pass 1  fail 0
+apps/api             tests 1  pass 1  fail 0
+packages/providers   tests 1  pass 1  fail 0
+packages/schemas     tests 50 pass 50 fail 0
+packages/observability tests 43 pass 43 fail 0
+packages/engine      tests 31 pass 31 fail 0
+packages/db          tests 70 pass 70 fail 0
+mcp/university-kb    tests 9  pass 9  fail 0
+mcp/student-profile  tests 12 pass 12 fail 0
 
-```
-$ python contracts/verify_contracts.py
+$ python contracts/verify_contracts.py   (exit 0)
 verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity
-EXIT:0
 ```
 
-```
-$ git diff --stat HEAD -- pnpm-lock.yaml   -> (empty, untouched)
-```
+All 9 workspaces green, matching the manifest's own claimed counts exactly (packages/db 70/70 including all D-013 and D-012 tests; mcp/student-profile 12/12 including the new D-013 legacy-fact test and all 4 ISS-029 tests).
 
-## Issue-by-issue verification
+## 2. Value revert — A→B→A, A→B→A→B, A→B→C→A (item 2)
 
-### ISS-026 (critical) — retire-then-insert CAS
-Read `facts.ts:328-407` directly. The fix is exactly as described: CAS-retire before insert, CAS
-miss → `FactConflictError`, deterministic `_id` makes a crash-then-retry heal without a second CAS
-(the retry finds `existingBefore` falsy and just inserts). Required scenarios, all present and
-green in `facts.test.ts`:
-- **3+ sequential values, same key:** not literally 3 in the maker's test (2), but I independently
-  verified 2 concurrent + repeated-session variants below; the maker's sequential test plus my own
-  concurrent-supersession probe together cover this without gaps.
-- **Concurrent writers, at most 1 open fact, loser gets FactConflictError:** covered by the
-  pre-existing ISS-019 test (fresh-insert race) AND my own new probe below (supersession race,
-  which the pre-existing suite did not cover).
-- **Crash between retire and insert, retry heals:** `facts.test.ts` "a crash between retiring...".
-  I read this test closely — it seeds a pre-retired doc (zero open facts) and asserts the retry
-  lands exactly one open fact with the correct deterministic `_id`. Correct.
-- **Retry after successful apply is idempotent no-op:** pre-existing ISS-020 test, unchanged,
-  still green.
-- **Approved diff where the value is unchanged:** this is the same code path as the idempotent
-  no-op (value is part of `_id`'s material) — I independently verified it as a distinct scenario
-  below (own probe), since the existing tests exercise it via `_id` equality without a
-  same-value-different-session control.
+The manifest's own tests use a fixed default `sessionId = "session-1"` across all three calls in its A→B→A / A→B→A→B tests, which is in fact the exact collision shape (same studentId+key+value+sessionId recurring is what made the old content-addressed `_id` collide with the retired original). I wrote fresh, independently-authored probes in a scratch copy (`packages/db/tests/checker-probe.test.ts`, never committed) against the **unmodified** production `facts.ts`/`fakes.ts`, with the production `INDEX_PLAN`'s unique partial index declared via `setupWithProdIndex()`:
 
-**Verdict on ISS-026: fixed.** See "My own falsification" below for independent proof, including a
-negative control that confirms my new tests actually detect the regression when reverted.
+- `A->B->A` (same sessionId throughout): 1 open fact = A at the end, 3 docs in history, the original A doc still carries `validTo` and no `active` field, and the reverted A has a **fresh, different `_id`** from the original A.
+- `A->B->A->B`: 1 open fact = B, 4 docs, the second B has a fresh `_id` distinct from the first B's now-retired `_id`.
+- `A->B->C->A`: 1 open fact = A (a NEW document, not the resurrected original — asserted by `_id` inequality), 4 docs total, A/B/C all remain retired with `validTo` set.
 
-### ISS-027 — studentId indexes + import safety
-Read `db-init.ts:57-77` and `db-init.test.ts`. `INDEX_PLAN` has a plain, non-partial
-`{studentId:1}`-led index for `facts`, `sessions`, `decisions`, `students`, `consents` — confirmed
-against `collections.ts`'s `*Doc` interfaces and `@vc/schemas`'s `ConsentSchema`/`DecisionSchema`
-(`schemas.ts:189`, `:206`) that every one of those five actually carries a `studentId` field;
-`edges`/`universities`/`courses` correctly excluded (no `studentId`). The entrypoint guard
-(`fileURLToPath(import.meta.url) === process.argv[1]`) correctly gates `main()`; the offline test
-importing `INDEX_PLAN` under `tsx --test` (no `MONGODB_URL` set) passed, which is only possible if
-`main()` never ran on import. **Verdict: fixed.**
+All green on the real code (14/14 in the final probe file — see full listing below). All 3 revert probes were also run with a distinct-sessionId variant (matching the manifest's own coverage) — also green — to make explicit that the same-sessionId case is the harder one.
 
-### ISS-028 — PartialApplyError
-Read `facts.ts:169-201, 392-406`. The try/catch around the per-fact loop body only wraps in
-`PartialApplyError` when `written.length > 0`; a first-fact failure re-throws raw. The test
-monkey-patches `insertOne` to fail on the 2nd of 2 facts and asserts `writtenIds`, `failingKey`,
-`cause`, and that the first fact is durably committed. Correct and matches the requirement.
-**Verdict: fixed.**
+**Negative control (falsifies the probe itself, not just the code):** in the scratch copy only, I reverted `_id: new ObjectId().toHexString()` back to `_id: contentHash` (the exact cycle-1 bug). Result: the distinct-sessionId revert probes stayed green (they don't exercise the collision — each write's contentHash differs because sessionId differs, so `_id` never collides even under the buggy code — this is exactly the gap in my own cycle-0/1 verdicts), but the **same-sessionId** revert probes went RED on all 3, each with `FactConflictError: another writer already holds the open fact` at the second occurrence of value A/B — reproducing ISS-t-003b-c1-1's "stuck at zero open facts" symptom precisely. Mutation reverted, 14/14 reconfirmed green.
 
-### ISS-t-003b-db-hardening-1 — "|" collision in deriveFactId
-Read `facts.ts:144-147`. `deriveFactId` now hashes `JSON.stringify([studentId, key,
-canonicalize(value), sessionId ?? null])`. A JSON array unambiguously delimits and escapes each
-element, so a literal `"|"` inside `studentId` or `key` can no longer make two different identities
-collide. I additionally probed **other** potential collisions per the brief:
-- **Values that canonicalize the same:** `canonicalize()` (used inside the material) already
-  deep-sorts object keys before hashing, so `{a:1,b:2}` and `{b:2,a:1}` hash identically — this is
-  the *intended* behavior (ISS-020/ISS-021: structurally-equal values are the same fact, not a
-  collision), not a bug.
-- **null vs missing sessionId:** the material uses `sessionId ?? null`, so `sessionId: undefined`
-  (omitted) and `sessionId: null` (if ever passed) already collapse to the same `null` entry by
-  construction — again intended, since both mean "no session", not a bug. I did not find a case
-  where two *semantically different* inputs produce the same hash beyond the fixed "|" issue.
-**Verdict: fixed.**
+## 3. Concurrency (item 3)
 
-## My own falsification (scratch copy, independent of the maker's tests)
+Fresh probes, 2 AND 5 callers, `Promise.allSettled`, against an **existing DIFFERENT open fact** (not a fresh empty key):
 
-Run in `C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\4028b141-b4f9-4793-84a0-f900414a84fb\scratchpad\t003b-falsify`
-— a standalone pnpm workspace with `packages/db` and `packages/schemas` copied out of the worktree
-(verified byte-identical via `diff -rq` against the worktree before running), `pnpm install`ed and
-run with `npx tsx --test`, never touching the worktree or a real MongoDB. I wrote 3 new tests the
-maker's suite does not have, targeting scenarios the brief calls out that are adjacent to, but
-distinct from, the maker's own coverage:
+- 2 identical concurrent replays (same value, same sessionId) → both fulfilled, 1 open fact with the new value.
+- 5 identical concurrent replays → all 5 fulfilled, 0 rejections, 1 open fact.
+- 5 DIFFERENT-value concurrent writers against an existing open fact → exactly 1 fulfilled, 4 rejected with `FactConflictError` (verified by `instanceof`, not just message text), 1 open fact after the race, `factsColl.size() === 2` (original retired + exactly one new winner — proves no silent loss: every attempted write is accounted for as either the winner or a typed rejection, none vanish).
 
-1. **Two CONCURRENT writers both SUPERSEDING an already-open fact** (as opposed to ISS-019's test,
-   which races two concurrent *inserts* into an empty key — no `existingBefore`). This exercises
-   the CAS-retire branch under real concurrency for the first time.
-2. **An approved diff whose value is unchanged from the current active fact**, as its own explicit
-   scenario (not just inferred from `_id` equality).
-3. **Same studentId/key/value but a different sessionId** — proving `sessionId` is load-bearing in
-   `deriveFactId` and a same-value-different-session apply still supersedes correctly rather than
-   being mistaken for a replay.
+**Negative control:** removed the CAS-miss re-read block (`else if (current) throw FactConflictError` branch collapsed to an unconditional immediate throw) in the scratch copy. Both the 2-caller and 5-caller identical-replay probes went RED — 2-caller: 1 fulfilled / 1 rejected with `FactConflictError` on what should have been a no-op replay; 5-caller: 4 of 5 rejected. This is exactly ISS-t-003b-c1-2's symptom ("loser errors although its write landed"). Mutation reverted, reconfirmed green.
 
-Result against the actual cycle-1 code: **3/3 pass.**
+## 4. Crash between retire and insert (item 4)
 
-**Negative control (proving these tests are not vacuous):** I reverted the CAS-retire block in the
-scratch copy only (removed the `findOneAndUpdate`/CAS/`FactConflictError` guard, reproducing the
-pre-fix insert-before-retire shape) and re-ran. Result: my new concurrent-supersession test and the
-different-sessionId test both went **red** —
-`AssertionError: exactly one writer must win, got 0 fulfilled` and a raw `FactConflictError`
-thrown on what should have been an ordinary sequential supersede — reproducing the exact ISS-026
-symptom ("every update after the first throws FactConflictError") independently of the maker's own
-regression tests. Restored the scratch copy's `facts.ts` from the worktree afterward; scratch
-copy discarded, worktree never touched.
+Fresh probe: monkey-patched `factsColl.insertOne` to throw immediately after an existing open fact was seeded, simulating a crash inside the CAS-retire→insert window. Confirmed the precondition (zero open facts) is real, then restored `insertOne` and retried the **same** decision (same value, same sessionId) — healed to exactly 1 open fact.
 
-(Note: my first attempt at this falsification produced spurious failures traced to a `cp -r`
-mistake in my own scratch setup — the initial copy silently picked up stale pre-fix source. I
-caught this via `diff -rq` against the worktree before trusting any result, recopied, and got the
-3/3 pass above against confirmed-identical code. Recorded here for transparency, not because it
-reflects on the maker's work.)
+Second probe: same crash window, but the retry uses a **different** sessionId. Confirmed this is treated as a genuinely new write (not silently merged with the crashed attempt): the healed fact's `contentHash` matches `deriveContentHash(..., "sessionB")`, not `deriveContentHash(..., "sessionA")` — matching the module docstring's documented behaviour ("a retry under a DIFFERENT sessionId is a new write with its own provenance edge").
 
-## B12 / B8 / B11
+## 5. D-013 (item 5)
 
-- `grep -rn "\.db(" packages/*/src apps/*/src mcp/*/src` outside `client.ts`: **zero matches.**
-  `packages/db/tests/db-scope.test.ts`'s static scanner (from a prior cycle, unchanged this cycle)
-  also asserts this and passed.
-- All 50 `packages/db` tests ran via `tsx --test` with no network calls; `connectFromEnv`/`getVcDb`
-  are exercised only through injected fake factories. `scripts/db-init.ts`'s `main()` (the one
-  function that would actually connect) is confirmed unreachable on import (ISS-027's test) and is
-  not invoked by any test or by this unit.
-- `grep -rniE "mongodb\+srv://|mongodb://[^ ]*:[^ ]*@"` across `packages/db/src`, `scripts`,
-  `tests`: **zero matches** — no secrets.
+- Confirmed by direct code read (`facts.ts:350`, `:369-372`, `:399`) and by the maker's own `D-013:` tests (all green, re-run fresh): every open fact carries `active: true`; the retire CAS filter is `{_id, active: true}` and the SAME update both sets `validTo` and unsets `active` (one atomic operation, not two).
+- Ran `assertSupportedPartialFilter` from `tests/fakes.ts` directly (not through the test suite) against 8 cases: rejects `{validTo: {$exists: false}}` with `"Expression not supported in partial index: validTo: {$exists: false} ($not)"`, rejects `$ne` and `field: null`, accepts plain equality, `$gt`, `$or`/`$in`, and `$exists: true`.
+- **Independently fact-checked** (not just trusting the manifest's claim) against MongoDB's own docs via WebSearch (mongodb.com/docs/manual/core/index-partial/): `$exists: true`, `$or` and `$in` are documented as supported in a `partialFilterExpression`; `$exists: false` is not (only `$exists: true` is named). This matches D-013's rationale and the fake's rejection list. `INDEX_PLAN`'s only `partialFilterExpression` is `{active: true}` — pure equality, unambiguously within the allowed set regardless of the edge cases.
+- Grepped the full repo for `$exists: false`: the only occurrences are in comments/docstrings explaining why it's NOT used, and in `tests/db-init.test.ts`'s own tests asserting the validator *rejects* it. Zero occurrences as an actual query/index filter in `mcp/`, `apps/`, or `packages/engine`. In `packages/db` it appears only in the same explanatory/negative-test contexts.
 
-## Residual / unverified (carried, not new)
+## 6. Fake fidelity (item 6)
 
-- `scripts/db-init.ts`'s actual `createIndex` calls against a real server remain
-  reviewed-by-inspection only (as in cycle 0) — this script is explicitly not run by this unit
-  (B8, human-gated). `INDEX_PLAN` being a single source of truth for both the real `main()` and the
-  offline test narrows this gap but does not close it.
-- Prior-cycle issues ISS-018, ISS-019, ISS-020, ISS-021, ISS-t-003-student-kg-1 are unchanged this
-  cycle per the manifest and out of scope for this verdict; their `status:"fixed"` entries from
-  cycle 0 stand as before, `verified_date` still null (not re-verified here).
+- Duplicate `_id` on `FakeCollection.insertOne` throws `FakeDuplicateKeyError` with `code === 11000` — confirmed via a fresh probe, not the maker's test.
+- `findOneAndUpdate` with no `options` returns the pre-image (`v` before the update) — confirmed via a fresh probe.
+- Cross-checked against the actual installed driver: read `node_modules/mongodb/mongodb.d.ts` directly (via `require.resolve('mongodb/package.json')`, not by trusting the manifest's quote) and found, verbatim: `"When set to 'after', returns the updated document rather than the original. The default is 'before'."` on the `returnDocument` field of `FindOneAndUpdateOptions`. This matches the fake's behaviour exactly.
+- **Negative control:** reverted the fake's duplicate-`_id` branch to a plain `Error` (no `code`). The fidelity probe went RED (`expected 11000, got undefined`). Restored, reconfirmed green.
 
-## Verdict
+## 7. mcp/student-profile (item 7)
 
-All four cycle-1 issues (ISS-026 critical, ISS-027, ISS-028, ISS-t-003b-db-hardening-1) are fixed,
-independently verified by direct code reading, a full fresh re-run of the verification commands,
-and my own falsification (including a negative control) exercising a concurrency scenario the
-maker's own suite did not cover. No regressions found. The merge commit `b1563ec` touches nothing
-under `packages/db/**`.
+- Full suite re-run fresh: 12/12 green, including the new "D-013: a legacy open fact with no `active` field is NOT returned..." test and all 4 ISS-029 consent-leak-oracle tests (no-consent, wrong-purpose consent, purpose-tag mismatch, legitimate path).
+- **Negative control:** in the scratch copy, reverted `get_profile_facts`'s filter from `active: true` back to the pre-D-013 `validTo: {$exists: false}` shape. Result: exactly 1 test went RED — the new D-013 legacy-fact test (`1 !== 0`, the legacy doc was wrongly returned) — while all 3 ISS-029 tests and the purpose-filter test stayed green, proving the D-013 fix is surgical and doesn't ride on unrelated test slack. Restored, reconfirmed 12/12.
 
-**PASS.**
+## 8. B12 / B8 / B11 (item 8)
+
+- `grep -rn "\.db("` over `packages/db/src` and `mcp/`: the only call is `packages/db/src/client.ts:33` (`return client.db(name);`), inside the one designated helper. No other module calls `.db(` directly. This is additionally enforced by the existing `B12: no module outside packages/db/src/client.ts calls .db(` test and its 5 hostile-variant siblings (bracket access, quotes, backticks, whitespace) — all green.
+- B8 offline: `connectFromEnv never connects to a real MongoClient` and the db-init `INDEX_PLAN` import-does-not-connect test both pass; no test in this diff opens a real socket. `pnpm -r test` completed without any network dependency.
+- B11 secrets: grepped the full `1dd38b0..61eba29` diff for API-key/secret/password/token/`mongodb+srv://` patterns — the only 3 hits are the literal string `SECRET` used as a placeholder value in the pre-existing ISS-029 "guessed key leaks nothing" test fixture (mcp/student-profile), not a real credential. `.env` is not tracked (`git ls-files` confirms). `.env.example` holds only key names (`GEMINI_API_KEY=`, `MONGODB_URL=`), no values.
+
+## Methodology note (why this cycle's evidence is different from cycles 0/1)
+
+All falsification for items 2–7 was run in an independent scratch copy at `C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\...\scratchpad\c2-falsify` — a `robocopy` of the worktree (excluding `.git` and `node_modules`) with `node_modules` re-linked via NTFS junctions back to the same pnpm content-addressable store (`D:\.pnpm-store\v10`), so the copy runs the identical installed `mongodb` package but is a physically separate tree the checker could mutate freely. The actual worktree (`D:\vc\.worktrees\t-003b-db-hardening`) was never edited during falsification; `git status --short` there is clean throughout and after. Every negative control listed above was reverted and green re-confirmed before moving to the next.
+
+## Issues closed this cycle
+
+`ISS-t-003b-c1-1` (critical), `ISS-t-003b-c1-2` (high), `ISS-t-003b-c1-3`, `ISS-t-003b-c1-4` — all four verified fixed by outcome (not construction) as detailed above, and fixed-status lines appended to `qa/issues.jsonl`. No new issues found this cycle (no `ISS-t-003b-c2-N` needed).
+
+## Remaining risk (carried forward, not blocking)
+
+- `scripts/db-init.ts`'s `main()` (real `createIndex` calls) has still never run against a live server — offline-only per B8/B12, unchanged from prior cycles. The shape is now validated against the documented partial-index operator whitelist, but the live `createIndex` call itself remains reviewed-by-inspection debt, same as cycles 0/1.
+- If any pre-D-013 open facts (no `active` field) exist in a live `virtual_counsellor.facts` collection before `db:init` runs, they need a one-off backfill before the unique index can be created — the manifest already flags this; production has never been initialised, so it should be moot, but it is not this unit's job to verify that.
