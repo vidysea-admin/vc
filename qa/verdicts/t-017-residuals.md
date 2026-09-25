@@ -1,5 +1,247 @@
 # Verdict — t-017-residuals
 
+**Verdict:** PASS
+**Cycle checked:** 2
+**Unit:** T-017 (residuals: recordApprovedSessionSummary fence-compensation, writer-deadline/lease
+binding, and the T-015 sweep/startApi hardening residuals) — cycle 2: fire-and-forget onError,
+deadline-error summary undo
+**Contract:** B3, B12, B14, B15 primary (qa/contracts/counselling-engine.md); D-012, D-014, D-015,
+D-016, D-017
+**Diff range checked:** `16c1370..bd22ade` (one commit: "fix(db,engine): t-017 cycle 2 —
+fire-and-forget onError, deadline-error summary undo")
+**Manifest read:** `qa/manifests/t-017-residuals.md` (Status: ready-for-check, Fix cycle: 2,
+"Cycle 2" section)
+**Issues addressed (claimed):** ISS-t-017-rev-3 / "ISS-t-017-c1-1" (never-settling `onError`
+silently stalls the sweep forever), ISS-t-017-c1-2 (a `FencedWriterDeadlineError` from
+`applyApprovedDiff` can still leave the summary behind)
+
+## Cycles 0 and 1 history (kept, not re-litigated)
+
+Cycle 0 checker verdict: PASS. A fresh, independent adjudication subagent then reproduced the
+senior-review BLOCK (ISS-t-017-rev-2: an async `onError` rejection escapes `tick()` as an
+unhandled rejection and crashes the sweep's process) and overturned it to FAIL. Cycle 1 fixed that
+by making the outer `.catch(...).finally(...)` wait for `onError`'s own promise chain to settle,
+plus a data-engineer-review finding (ISS-t-017-rev-1, the summary residue window one write later).
+Cycle 1 checker verdict: **FAIL** — the cycle-1 fix traded a loud crash for a silent hang: an
+`onError` that returns a promise that never settles (not rejects — never settles at all) makes
+`.finally` never run either, so `inFlight` is never reset and every later tick silently no-ops
+forever (filed as ISS-t-017-rev-3, called "ISS-t-017-c1-1" in the cycle-1 verdict's own prose). The
+same cycle-1 verdict also filed a second, non-blocking NEW FINDING: `writeApproved`'s catch only
+compensated the summary on `StudentFencedError`, not on `FencedWriterDeadlineError` (ISS-t-017-c1-2).
+T-017 went to fix cycle 2 to close ISS-t-017-rev-3 and, optionally, ISS-t-017-c1-2. Both full prior
+verdicts are preserved byte-intact below the `---` separator.
+
+## 1. Verification commands re-run (worktree `D:\vc\.worktrees\t-017-residuals`)
+
+```
+$ pnpm install
+Scope: all 10 workspace projects; lockfile up to date. Done in 1.3s (exit 0)
+
+$ pnpm -r typecheck
+9/9 packages "Done" (apps/web, packages/providers, packages/schemas, packages/observability,
+packages/db, apps/api, mcp/student-profile, mcp/university-kb, packages/engine + evals/tsconfig.json)
+-- exit 0, no errors.
+
+$ pnpm -r test
+apps/web 1/1, packages/providers 8/8, packages/schemas 50/50, packages/observability 57/57,
+packages/db 185/185, apps/api 8/8, mcp/university-kb 9/9, mcp/student-profile 12/12,
+packages/engine 136/136
+TOTAL 466/466, 0 fail -- matches the manifest's claimed count exactly (was 461 after cycle 1;
+db +3, engine +2).
+
+$ python contracts/verify_contracts.py
+verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity (exit 0)
+```
+
+## 2. Method
+
+Read the full cycle-2 diff (`git diff 16c1370..bd22ade`) for both files it touches:
+`packages/db/src/erasure.ts` (`tick()`'s onError handling, now fire-and-forget) and
+`packages/engine/src/scribe/{nodes,graph}.ts` (`writeApproved`'s new `FencedWriterDeadlineError`
+branch, `invokeFenceAware`'s updated docstring), plus the 5 new committed tests
+(`erasure.test.ts` x3, `scribe-persistence.test.ts` x2). Cross-read `isStudentFenced`,
+`compensateIfFenced`, `FENCE_POSTCHECK_TIMEOUT_MS`, and D-016's full "why that is enough" proof in
+`erasure.ts`'s own comment block (lines ~211-249) and `docs/DECISIONS.md` D-016, since the checker
+brief's own open question (a race after `writeApproved`'s own re-check) requires tracing that proof
+precisely, not just reading the diff.
+
+Falsification ran in a scratch copy (robocopy, `.git`-file/`node_modules` excluded, `pnpm install`)
+at `...\scratchpad\t017-c2-falsify`, per the brief's hard rule. Two new probe files (scratch-only,
+not committed):
+- `packages/db/tests/checker-probe-c2-onerror.test.ts` — 4 tests: `onError` slow-then-rejects,
+  rejects on the Nth call only, synchronously throws a non-`Error` value (plain string + a
+  hostile-`toString` object), and a never-settling `onError` sustained across 300+ real ticks with
+  a quantitative memory check.
+- `packages/engine/tests/checker-probe-c2-writeapproved.test.ts` — 2 tests: an unreadable fence
+  state on `writeApproved`'s own re-check (fail-safe undo), and the undo's match-key confirmed to
+  touch only the calling session (an unrelated student's concurrent write is untouched).
+
+All 6 pass against the fixed source (`bd22ade`). To confirm they are load-bearing, `erasure.ts`,
+`nodes.ts` and `graph.ts` were reverted to the cycle-1 commit (`16c1370`) shape in the scratch copy
+and re-run:
+- The never-settling-`onError` probe hangs indefinitely against the cycle-1 shape (bounded-timeout
+  re-run confirms it never completes — `onErrorCalls` never advances past 1, matching the cycle-1
+  verdict's own empirical finding word-for-word: "the sweep is dead"). RED confirmed by hang, the
+  correct signature for this exact bug class.
+- The other 3 onError probes (slow-then-reject, Nth-call, non-Error throw) still pass against the
+  cycle-1 shape — expected and correct: cycle 1's fix already fully closed the reject/throw cases;
+  only the never-settle case was broken. Not a falsification gap — regression coverage confirming
+  cycle 1's own fix is still solid, not the property cycle 2 changed.
+Source restored to `bd22ade`; all 6 probes green again.
+
+## 3. Findings, by manifest issue
+
+**ISS-t-017-rev-3 / "ISS-t-017-c1-1" (a never-settling `onError` silently stalls the sweep) —
+CONFIRMED FIXED, falsified, and the checker's own memory-growth question answered
+empirically.** The fix makes `tick()`'s `onError` call fully fire-and-forget: it is still invoked
+inside `Promise.resolve().then(() => options.onError?.(err)).catch(() => undefined)` (so a
+synchronous throw or an eventual async rejection is fully absorbed, zero `unhandledRejection`
+either way), but that chain is now constructed and left running on its own — never `return`ed from
+or otherwise adopted by the outer `.catch(...)` callback. The outer `.catch`'s own returned promise
+therefore settles immediately regardless of what `onError` does, so `.finally` (which resets
+`inFlight`) always runs. Read `erasure.ts:626-654` directly to confirm the outer `.catch` callback
+body no longer has a `return` statement in front of the `Promise.resolve()...` chain (cycle 1's own
+bug was exactly that `return`).
+
+Verified against the manifest's own 3 new committed tests (never-settling native promise,
+never-resolving thenable, non-function `onError` — all pass, all confirm a later tick recovers) and
+my own 4 independent probes:
+- slow-then-rejects, rejects-on-Nth-call-only, sync-throw of a non-`Error` value: all pass, zero
+  `unhandledRejection`, the interval recovers on the next tick in every case.
+- **The memory-growth question the checker brief itself asks — answered empirically, not just
+  reasoned about.** Ran 300 real ticks (real timers, `intervalMs: 5`) with `onError` returning a
+  promise that NEVER settles on every single tick (the worst case: every tick fails, forever).
+  `onErrorCalls` reached 300+ — the sweep kept ticking throughout, not stalled by any earlier
+  never-settling chain (this alone falsifies the cycle-1 bug class). Then, with `--expose-gc`,
+  forced a GC, ran 300 MORE ticks under the same conditions, forced GC again, and compared
+  `process.memoryUsage().heapUsed`: **delta = -0.03MB over 300 additional ticks** (before=18.30MB,
+  after=18.27MB) — flat, not growing. This is the correct, expected result: each tick's detached
+  `Promise.resolve().then(...).catch(...)` chain, once constructed and left un-adopted, is held
+  alive only by the never-settling inner promise `onError` returns; since nothing external
+  (no array, no Set, no timer, no closure over a growing collection) references either promise,
+  V8's GC can and does collect the whole chain once it is unreachable, even while technically
+  "pending" forever. **Answer: not a memory growth concern, and it is bounded** — bounded not by an
+  explicit cap but by the structural fact that these are genuinely detached objects with nothing
+  rooting them, confirmed empirically rather than assumed.
+- Falsified: reverting `erasure.ts` to the cycle-1 (adopted-promise) shape reproduces the exact
+  cycle-1 bug — the never-settling probe hangs forever (`onErrorCalls` stuck at 1), the sweep is
+  provably dead. The fix is load-bearing.
+
+**ISS-t-017-c1-2 (`FencedWriterDeadlineError` from `applyApprovedDiff` can leave the summary
+behind) — CONFIRMED FIXED for both tested windows, plus two hostile variants the manifest's own
+tests didn't cover.** `writeApproved`'s catch (`nodes.ts:443-465`) adds a branch for
+`FencedWriterDeadlineError` that re-checks the fence itself (`isStudentFenced`, the same read
+`compensateIfFenced`'s own post-check uses, bounded by `FENCE_POSTCHECK_TIMEOUT_MS`) before
+deciding: fenced now → undo via `undoApprovedSessionSummary`; unreadable → fail-safe undo (treated
+as fenced, matching `compensateIfFenced`/`fencedForPostCheck`'s own documented rule); unfenced →
+leave the summary alone (legitimate, idempotent retry under D-012).
+
+Verified against the manifest's own 2 new committed tests (a fenced deadline-error → undone
+immediately; an unfenced deadline-error → summary kept) and my own 2 independent probes:
+- **Unreadable fence state (fail-safe).** Made `erasure_fences.findOne` throw specifically on
+  `writeApproved`'s own re-check read (the 5th fence read in this call's sequence — confirmed the
+  same 4 pre-existing reads the manifest's own tests document happen first). Result: the summary
+  was undone anyway — the fail-safe branch works as documented, not just as claimed.
+- **Match-key scope, one layer up from where cycle 1's own probe tested it.** Ran a genuinely
+  fenced call (undone, confirmed) on one student/session, then a concurrent, unrelated, unfenced
+  student's legitimate write on a different session through the SAME `writeApproved` function: the
+  second write landed cleanly (`status: "written"`) and its summary was completely untouched by the
+  first call's compensation. (The narrower, same-session stale-`approvedAt` match-key guarantee was
+  already independently reprobed by the cycle-1 checker directly against `undoApprovedSessionSummary`
+  itself — not re-litigated here, since the code path that guarantee lives in did not change in
+  cycle 2, and a same-session "later legitimate write to an already-fenced student" scenario is not
+  reachable in this system at all: once fenced, the pre-check refuses every subsequent write for
+  that student until the row is purged.)
+
+**Open sub-question from the checker brief: is there still a window after `writeApproved`'s OWN
+re-check, and is it bounded/disclosed?** Yes, there is still a window — not reproduced (it requires
+winning a race narrower than the one just closed), but real by construction: any single
+read-then-decide check has a race after its own last read; this is not specific to this fix, it is
+the same structural property every fence-aware check in this codebase already has
+(`fencedForPostCheck`, `compensateIfFenced`, `recordApprovedSessionSummary`'s own post-check).
+Traced through D-016's own proof (`erasure.ts:211-249`): a writer's write that lands BEFORE the
+fence is guaranteed to be caught by `executeErasure`'s purge, because the purge's first selector
+resolve happens strictly AFTER the fence is created (`confirmErasure` sets the fence before its own
+confirm CAS). So if a fence is confirmed strictly after `writeApproved`'s re-check found "not
+fenced," the summary this call left behind necessarily predates the fence — and `executeErasure`
+will catch it when it eventually runs, per the SAME argument the whole design already relies on for
+every other writer. **Bounded, yes — by D-016's write-predates-fence argument plus B15's own
+absolute backstop (the full session row is hard-deleted on purge regardless).** Honestly disclosed
+in substance, but not by name: the manifest's cycle-2 "Residuals" section states this cycle
+"introduces no new residual," which is defensible (it truly is the same class of race already
+accepted everywhere else in this design, not a fresh mechanism), but doesn't name this specific
+instance the way `facts.ts`'s module docstring explicitly names ISS-t-017-rev-1 and ISS-t-017-c1-2
+themselves. Logged as **ISS-t-017-c2-1** (low, non-blocking, documentation-only — add one sentence
+to `facts.ts`'s module docstring on the next touch).
+
+## 4. Judgment on the two open questions (cycle 2)
+
+- **Should the fire-and-forget `onError` chain log (via a separate, non-`onError` path) if it is
+  still pending after some bound, as an operator liveness signal?** Agree with leaving it out here.
+  The correctness guarantee (the sweep itself keeps working, proven above) no longer depends on
+  `onError` at all, so this is a pure observability improvement, not a fix — and adding a new
+  timer/constant into `tick()` right after this exact function was over-fixed once already (cycle 1
+  traded one bug for a worse one by adding complexity to this same 20-line block) argues for
+  restraint, not more surface area, in a residual-fix cycle. Logged as **ISS-t-017-c2-2** (low,
+  observability enhancement, non-blocking) so the suggestion isn't lost, per the manifest's own
+  framing.
+- **Is re-reading the fence directly (`isStudentFenced`) at the `writeApproved` caller level
+  equivalent to a hypothetical exposed post-check result from `applyApprovedDiff` itself?** Agree
+  with the manifest's reasoning, and would go further: re-reading independently is not just
+  equivalent, it is strictly better. `applyApprovedDiff`'s own post-check, by construction, can only
+  ever have observed "not fenced" on the path that reaches this branch (a fenced observation there
+  produces `StudentFencedError` instead, a different, already-handled branch) — so an exposed value
+  from that post-check would always read "not fenced," a stale answer by definition. A fresh,
+  independent read at `writeApproved`'s own catch is the only way to pick up a fence confirmed in
+  the (small but real) window between `applyApprovedDiff`'s post-check and this catch running.
+
+## 5. Regression
+
+The full `pnpm -r test` re-run (466/466) covers every cycle-0/cycle-1 fix, since none of their
+underlying production code changed in cycle 2 — only `erasure.ts`'s `tick()` callback body and
+`nodes.ts`'s `writeApproved` catch (plus `graph.ts`'s docstring) changed. The cycle-1 checker's own
+regression argument (the committed suite stands in for cycle-0's ad-hoc scratch probes, which were
+session-local) still applies unchanged. My own cycle-2 probes are additive, scratch-only, and
+target specifically the two files this cycle touched.
+
+## 6. Verdict rationale
+
+**PASS.** Both defects this cycle was scoped to close are genuinely closed, not just claimed:
+ISS-t-017-rev-3 (the never-settling `onError` silent stall) is fixed by making `tick()`'s `onError`
+invocation fully fire-and-forget — verified via the manifest's own 3 tests, 4 independent hostile
+probes (including an empirical, not just reasoned-about, answer to the memory-growth question this
+checker brief specifically asked: heap stayed flat, -0.03MB over 300 additional never-settling
+ticks), and falsified by reproducing the cycle-1 hang when reverted. ISS-t-017-c1-2 (the
+`FencedWriterDeadlineError` summary-residue gap) is fixed by `writeApproved`'s new re-check branch
+— verified via the manifest's own 2 tests plus 2 independent probes (an unreadable fence fails safe;
+the compensation never touches an unrelated student's write). `pnpm -r typecheck`, `pnpm -r test`
+(466/466, matching the manifest's claimed count exactly), and `verify_contracts.py` all reproduce
+green.
+
+One narrower residual remains, reasoned through but not reproduced: a fence confirmed strictly
+after `writeApproved`'s own re-check. This is not a new kind of gap — it is the same
+"a race exists after any check's last read" property already accepted throughout this codebase's
+entire fence-based design, bounded by D-016's own write-predates-fence argument and backstopped by
+B15's full purge — but the manifest's cycle-2 "Residuals" section doesn't name this specific
+instance, only the three carried-forward from cycle 0. Logged as ISS-t-017-c2-1 (low,
+non-blocking, documentation-only). A second, purely-observability suggestion from the manifest's own
+open questions is logged as ISS-t-017-c2-2 (low, non-blocking). Neither blocks: both are the same
+severity class (low) as issues this project has repeatedly shipped units with (T-015, T-016, T-017
+cycle 0 all PASSed with open low/medium issues queued for the next touch), and neither touches B15
+DPDP correctness, B12 data-boundary, or B3 approval-gating in a way this cycle's own fixes didn't
+already close for the cases that matter.
+
+**T-017 is DONE.** ISS-t-017-c1-1 and ISS-t-017-c1-2 are updated to `fixed` in the ledger
+(`qa/issues.jsonl`), with `fixed_by` pointing to this cycle's commit and the specific tests/probes
+that verify each. ISS-t-017-c2-1 and ISS-t-017-c2-2 are appended as new, low-severity, non-blocking
+follow-ups for the next touch of this area.
+
+---
+
+## Cycle 1 (preserved byte-intact below)
+
+# Verdict — t-017-residuals
+
 **Verdict:** FAIL
 **Cycle checked:** 1
 **Unit:** T-017 (residuals: recordApprovedSessionSummary fence-compensation, writer-deadline/lease
