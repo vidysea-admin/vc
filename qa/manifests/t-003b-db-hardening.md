@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B3, B4, B12, B14)
 **Goal task:** T-003b
 **Date:** 2026-09-25
-**Fix cycle:** 1 of max 3 (cycle-0 checker PASS overridden by two independent Block reviews: ISS-026 critical)
+**Fix cycle:** 2 of max 3 (cycle-1 PASS overridden: data-engineer + senior Block, ISS-t-003b-c1-1 critical, -2 high)
 **Dual check:** no
 **Issues addressed this cycle:** ISS-026 (critical), ISS-027, ISS-028, ISS-t-003b-db-hardening-1
 **Prior cycle (0) issues, unchanged this cycle:** ISS-018, ISS-019, ISS-020, ISS-021, ISS-t-003-student-kg-1
