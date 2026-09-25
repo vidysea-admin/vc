@@ -2,7 +2,7 @@
 
 **Contract:** qa/contracts/counselling-engine.md (B3, B12, B14, B15 primary; B8, D-012, D-014, D-015, D-016)
 **Goal task:** T-016
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 0; reviews: data-engineer Approve x2, senior Approve + Warning → ISS-t-016-rev-1 in T-017)
 **Fix cycle:** 0
 **Design:** no new ACTIVE decision is written here. Two shape changes ride on existing authority and are
 drafted as a recommended D-entry below for the Approver (see "Proposed D-entry").
