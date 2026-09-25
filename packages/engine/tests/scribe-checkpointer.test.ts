@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MongoDBSaver } from "@langchain/langgraph-checkpoint-mongodb";
 import { VC_DB_NAME } from "@vc/db";
-import { createFakeMongoClient } from "../../db/tests/fakes.js";
+import { createFakeMongoClient } from "@vc/db/testing";
 import { createScribeCheckpointer } from "../src/scribe/index.js";
 
 function fakeClientWithMetadata() {

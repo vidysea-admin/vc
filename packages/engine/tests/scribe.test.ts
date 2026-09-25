@@ -318,7 +318,7 @@ test("D-012: a crash mid-write, resumed from the checkpoint, re-applies idempote
   assert.equal(h.edges.size(), 4, "edges healed, none duplicated");
 });
 
-test("D-012: replaying the approval from the pre-approval checkpoint (fork) writes nothing new", async () => {
+test("D-012 / ISS-t-007-c0-1: replaying the approval from the pre-approval checkpoint (fork) writes nothing new and is reported as already_resolved", async () => {
   const h = makeHarness();
   await startScribe(h.graph, baseInput(), cfg("thread-fork"));
   await resumeScribe(h.graph, { action: "approve" }, cfg("thread-fork"));
@@ -337,7 +337,8 @@ test("D-012: replaying the approval from the pre-approval checkpoint (fork) writ
   assert.ok(pausedCheckpointId, "the paused checkpoint must be in the thread history");
 
   const outcome = await resumeScribe(h.graph, { action: "approve" }, { threadId: "thread-fork", checkpointId: pausedCheckpointId });
-  assert.equal(outcome.kind === "done" && outcome.result.status, "written");
+  assert.equal(outcome.kind, "already_resolved");
+  assert.equal(outcome.kind === "already_resolved" && outcome.result?.status, "written");
   assert.deepEqual(h.facts.all().map((f) => f._id).sort(), factsBefore, "no new fact docs on replay");
   assert.equal(h.openFacts().length, 2);
   assert.equal(h.edges.size(), edgesBefore);
@@ -363,4 +364,168 @@ test("the second session re-confirming a changed value supersedes via the diff (
   const country = h.facts.all().filter((f) => f.key === "targetCountry");
   assert.equal(country.length, 2, "history kept (supersede, not delete)");
   assert.deepEqual(h.openFacts().filter((f) => f.key === "targetCountry").map((f) => f.value), ["Germany"]);
+});
+
+// ---------------------------------------------------------------------------
+// T-007 fix cycle 1
+// ---------------------------------------------------------------------------
+
+test("ISS-t-007-rev-4: a genuine conflict on fact 2 (another writer holds the key with a different value) is a TERMINAL partial_conflict; fact 1 stays committed and is reported", async () => {
+  const h = makeHarness();
+  await startScribe(h.graph, baseInput(), cfg("thread-partial-conflict"));
+
+  // A different writer opens budget_inr_per_year with a different value between our read and our
+  // insert. The production partial unique index (INDEX_PLAN) makes our insert fail with 11000; the
+  // re-read shows a foreign contentHash -> FactConflictError on fact #2 -> PartialApplyError.
+  const realInsert = h.facts.insertOne.bind(h.facts);
+  let raced = false;
+  h.facts.insertOne = (async (doc: Parameters<typeof realInsert>[0]) => {
+    if (!raced && doc.key === "budget_inr_per_year") {
+      raced = true;
+      await realInsert({ ...doc, _id: "rival-budget-fact", value: 999, contentHash: "rival-writer-hash", active: true });
+    }
+    return realInsert(doc);
+  }) as typeof h.facts.insertOne;
+
+  const outcome = await resumeScribe(h.graph, { action: "approve" }, cfg("thread-partial-conflict"));
+  assert.equal(outcome.kind, "done");
+  if (outcome.kind !== "done") return;
+  assert.equal(outcome.result.status, "partial_conflict");
+  if (outcome.result.status !== "partial_conflict") return;
+  assert.equal(outcome.result.key, "budget_inr_per_year");
+
+  // Read back: fact 1 committed with the approved value, and it is the one reported as written.
+  const open = h.openFacts();
+  const country = open.find((f) => f.key === "targetCountry");
+  assert.equal(country?.value, "Canada");
+  assert.deepEqual(outcome.result.writtenFactIds, [country!._id]);
+  // The rival writer's fact is untouched: no silent overwrite.
+  const budget = open.find((f) => f.key === "budget_inr_per_year");
+  assert.equal(budget?._id, "rival-budget-fact");
+  assert.equal(budget?.value, 999);
+
+  // Terminal: a checkpoint retry does not re-run the write or throw; the same result is reported.
+  const again = await resumeScribe(h.graph, null, cfg("thread-partial-conflict"));
+  assert.equal(again.kind === "done" && again.result.status, "partial_conflict");
+  assert.equal(h.facts.size(), 2, "no further writes after the terminal result");
+});
+
+test("ISS-t-007-rev-5: scribe-extracted facts carry EXACTLY [profile_synthesis]; model-supplied purposeTags are stripped (diff and read-back)", async () => {
+  const provider = mockProvider({
+    "fact-extraction": {
+      facts: [
+        { ...citedCandidate("targetCountry", "Canada", "study computer science in Canada", "t1"), purposeTags: ["application_filling", SCRIBE_PURPOSE] },
+        { ...citedCandidate("budget_inr_per_year", 2000000, "around 20 lakh rupees a year", "t3"), purposeTags: ["marketing"] },
+      ],
+    },
+  });
+  const h = makeHarness({ provider });
+  const outcome = await startScribe(h.graph, baseInput(), cfg("thread-purpose-extract"));
+  assert.equal(outcome.kind, "awaiting_approval");
+  if (outcome.kind !== "awaiting_approval") return;
+  for (const f of outcome.request.facts) assert.deepEqual(f.purposeTags, [SCRIBE_PURPOSE], f.key);
+
+  await resumeScribe(h.graph, { action: "approve" }, cfg("thread-purpose-extract"));
+  const open = h.openFacts();
+  assert.equal(open.length, 2);
+  for (const f of open) assert.deepEqual(f.purposeTags, [SCRIBE_PURPOSE], `read back ${f.key}`);
+});
+
+test("ISS-t-007-rev-5: the counsellor edit path cannot add purposes beyond profile_synthesis", async () => {
+  const h = makeHarness();
+  await startScribe(h.graph, baseInput(), cfg("thread-purpose-edit"));
+  const edited = {
+    ...citedCandidate("budget_inr_per_year", 1800000, "around 20 lakh rupees a year", "t3"),
+    purposeTags: ["application_filling", "counselling_session"],
+    validFrom: "2026-09-25T10:00:00.000Z",
+  };
+  const outcome = await resumeScribe(h.graph, { action: "edit", facts: [edited] }, cfg("thread-purpose-edit"));
+  assert.equal(outcome.kind === "done" && outcome.result.status, "written");
+  const open = h.openFacts();
+  assert.equal(open.length, 1);
+  assert.deepEqual(open[0]?.purposeTags, [SCRIBE_PURPOSE]);
+});
+
+async function pausedCheckpointOf(h: ReturnType<typeof makeHarness>, threadId: string): Promise<string> {
+  for await (const snap of h.graph.getStateHistory({ configurable: { thread_id: threadId } })) {
+    if (snap.tasks.some((t) => t.interrupts.length > 0)) return snap.config.configurable?.checkpoint_id as string;
+  }
+  throw new Error("no paused checkpoint in the thread history");
+}
+
+test("ISS-t-007-c0-1: approve, then fork-resume the SAME pre-approval checkpoint with reject -> already_resolved carrying the original decision; nothing claims the reject was applied", async () => {
+  const h = makeHarness();
+  await startScribe(h.graph, baseInput(), cfg("thread-resolved-fork"));
+  await resumeScribe(h.graph, { action: "approve" }, cfg("thread-resolved-fork"));
+  const factsBefore = h.facts.all().map((f) => f._id).sort();
+  const paused = await pausedCheckpointOf(h, "thread-resolved-fork");
+
+  const outcome = await resumeScribe(h.graph, { action: "reject", reason: "changed my mind" }, {
+    threadId: "thread-resolved-fork",
+    checkpointId: paused,
+  });
+  assert.equal(outcome.kind, "already_resolved", "a second, different decision must not be reported as done");
+  if (outcome.kind !== "already_resolved") return;
+  assert.equal(outcome.decision.approve, true, "carries the ORIGINAL decision");
+  assert.equal(outcome.attempted.action, "reject", "echoes what was attempted, so the caller can see it was not applied");
+  assert.equal(outcome.result?.status, "written", "the original, still-effective result");
+  assert.deepEqual(h.facts.all().map((f) => f._id).sort(), factsBefore, "nothing new written");
+  assert.equal(h.openFacts().length, 2, "the reject was not applied: the approved facts are still open");
+});
+
+test("ISS-t-007-c0-1: resuming an already-completed thread (no checkpointId) with a different decision is also already_resolved", async () => {
+  const h = makeHarness();
+  await startScribe(h.graph, baseInput(), cfg("thread-resolved-latest"));
+  await resumeScribe(h.graph, { action: "reject" }, cfg("thread-resolved-latest"));
+  const outcome = await resumeScribe(h.graph, { action: "approve" }, cfg("thread-resolved-latest"));
+  assert.equal(outcome.kind, "already_resolved");
+  if (outcome.kind === "already_resolved") assert.equal(outcome.decision.approve, false);
+  assert.equal(h.facts.size(), 0, "the late approve wrote nothing");
+});
+
+test("ISS-t-007-rev-1: a schema-invalid extraction output is retried ONCE with the validation error appended, then succeeds", async () => {
+  let n = 0;
+  const provider = mockProvider({
+    "fact-extraction": () =>
+      n++ === 0 ? { notFacts: "oops" } : { facts: [citedCandidate("targetCountry", "Canada", "study computer science in Canada", "t1")] },
+  });
+  const h = makeHarness({ provider });
+  const outcome = await startScribe(h.graph, baseInput(), cfg("thread-extract-retry"));
+  assert.equal(outcome.kind, "awaiting_approval");
+  const extractCalls = h.provider.calls.filter((c) => c.skillName === "fact-extraction");
+  assert.equal(extractCalls.length, 2, "exactly one retry");
+  const retryInput = extractCalls[1]!.input as { previousAttemptError?: string };
+  assert.match(retryInput.previousAttemptError ?? "", /facts/, "the validation error is appended to the retry input");
+});
+
+test("ISS-t-007-rev-1: an always-malformed extraction output ends in a terminal extraction_failed result and writes nothing", async () => {
+  const provider = mockProvider({ "fact-extraction": { notFacts: "never valid" } });
+  const h = makeHarness({ provider });
+  const outcome = await startScribe(h.graph, baseInput(), cfg("thread-extract-failed"));
+  assert.equal(outcome.kind, "done");
+  if (outcome.kind !== "done") return;
+  assert.equal(outcome.result.status, "extraction_failed");
+  assert.equal(h.provider.calls.filter((c) => c.skillName === "fact-extraction").length, 2, "bounded: 1 try + 1 retry");
+  assert.equal(h.provider.calls.filter((c) => c.skillName === "session-summary").length, 0);
+  assert.equal(h.facts.size(), 0);
+  assert.equal(h.edges.size(), 0);
+});
+
+test("ISS-t-007-rev-1: a malformed summary is retried once; always-malformed ends in summary_failed and writes nothing", async () => {
+  let n = 0;
+  const once = mockProvider({ "session-summary": () => (n++ === 0 ? { summary: 12345 } : { summary: "Student wants Canada." }) });
+  const h1 = makeHarness({ provider: once });
+  const ok = await startScribe(h1.graph, baseInput(), cfg("thread-summary-retry"));
+  assert.equal(ok.kind, "awaiting_approval");
+  const summaryCalls = h1.provider.calls.filter((c) => c.skillName === "session-summary");
+  assert.equal(summaryCalls.length, 2);
+  assert.match((summaryCalls[1]!.input as { previousAttemptError?: string }).previousAttemptError ?? "", /summary/);
+
+  const always = mockProvider({ "session-summary": { summary: 12345 } });
+  const h2 = makeHarness({ provider: always });
+  const failed = await startScribe(h2.graph, baseInput(), cfg("thread-summary-failed"));
+  assert.equal(failed.kind === "done" && failed.result.status, "summary_failed");
+  assert.equal(h2.provider.calls.filter((c) => c.skillName === "session-summary").length, 2);
+  assert.equal(h2.facts.size(), 0);
+  assert.equal(h2.edges.size(), 0);
 });

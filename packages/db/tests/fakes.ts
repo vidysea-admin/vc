@@ -4,8 +4,9 @@
  * findOneAndUpdate).
  * No network I/O anywhere in this file (contract B8: tests run offline). The
  * `as unknown as <mongodb type>` casts at the bottom are the one place fakes
- * cross into the real driver's type surface; production code (src/**) never
- * imports from here.
+ * cross into the real driver's type surface; production code never imports
+ * from here. Other packages' tests reach it only through the test-only
+ * `@vc/db/testing` subpath (src/testing.ts), which src/index.ts never re-exports.
  */
 
 type Filter = Record<string, unknown>;

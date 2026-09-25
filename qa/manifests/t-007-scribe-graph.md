@@ -2,15 +2,15 @@
 **Contract:** qa/contracts/counselling-engine.md (B1, B2, B3, B4, B5, B6, B7, B8, B9, B11, B12, B13, B14; B16 context)
 **Goal task:** T-007
 **Date:** 2026-09-25
-**Status:** fix-in-progress
+**Status:** ready-for-check
 **Fix cycle:** 1 of max 3 (cycle-0 checker PASS f35a6e1; reviews Warning x3 with high ISS-t-007-rev-4 reproduced twice; checker ISS-t-007-c0-1)
-**Fix cycle budget:** 0 of max 3
+**Fix cycle budget:** 1 of max 3
 **Design:** H1/D-002 (LangGraph.js 1.x StateGraph, thin wiring, `interrupt()` approval), H5/D-005 (SKILL.md prompts, code guards before any LLM call, provider seam), D-012 (sessionId-keyed contentHash idempotency), D-013 (open fact = `active: true`)
-**Unit diff range:** `067ebb8..HEAD`. `067ebb8` = "tasks: T-003b done; T-007 carry-forward notes" (the main branch point). HEAD = the single T-007 commit "feat(engine): T-007 post-session scribe graph (...)".
+**Cycle-1 diff range:** `7e8474d..HEAD` (the single commit "fix(engine): t-007 cycle 1 — ..."; `7e8474d` = "qa: t-007 fix cycle 1 (review findings before merge)"). **Cycle-0 unit diff range:** `067ebb8..1d2d452`. `067ebb8` = "tasks: T-003b done; T-007 carry-forward notes" (the main branch point); `1d2d452` = the single cycle-0 T-007 commit "feat(engine): T-007 post-session scribe graph (...)".
 **Scope:** `packages/engine/src/scribe/**` (new), `packages/engine/src/index.ts` (one additive export line), `packages/engine/tests/scribe*` (new), `packages/engine/package.json`, `packages/providers/**`, `packages/observability/src/{config,tracing}.ts` + `tests/tracing.test.ts` (ISS-025, ISS-t-004-langfuse-1), `packages/db/tests/fakes.ts` (test-only `find()`), `.env.example` (two key names, no values), `pnpm-lock.yaml`, this manifest.
 **Not touched (brief constraints):** `.claude/**`, `docs/DECISIONS.md`, `scripts/**`, `packages/engine/src/guards/**` (imported only; T-005b is changing `crisis.ts` in parallel), `packages/db/src/**`.
 **Dual check:** no
-**Issues addressed:** ISS-025 (low), ISS-t-004-langfuse-1 (low)
+**Issues addressed:** ISS-025 (low), ISS-t-004-langfuse-1 (low); cycle 1: ISS-t-007-rev-4 (high), ISS-t-007-rev-5 (medium), ISS-t-007-c0-1 (medium), ISS-t-007-rev-1 (medium), review low item (`@vc/db/testing` subpath)
 **Executor:** claude-opus-subagent (maker build subagent)
 **Executor rationale:** a multi-package build unit (new graph, provider seam, two observability fixes) against fixed contract rows and an existing, hardened DB API.
 
@@ -74,6 +74,83 @@ The tests were written first and run before any `src` existed (outputs are in th
 | Summary persisted | The approved summary is stored. | Not stored. `SessionDoc` has no summary field, and this slice writes facts and edges only. | **UNVERIFIED / out of scope** (see open questions) |
 | B16 | The async concern classifier and admin notification. | Not in this unit (T-012). The scribe only returns an `escalated` result. | **OUT OF SCOPE** |
 
+## Fix cycle 1 (review findings + checker ISS-t-007-c0-1)
+
+**Files in the cycle-1 diff:**
+- `packages/engine/src/scribe/{schemas,nodes,graph}.ts`
+- `packages/engine/tests/{scribe.test.ts,scribe-fixtures.ts,scribe-checkpointer.test.ts}`
+- `packages/db/src/testing.ts` (new, a test-only subpath)
+- `packages/db/package.json` (one `exports` entry)
+- `packages/db/tests/fakes.ts` (a comment only)
+- this manifest
+
+**Not touched:** `.claude/**`, `docs/DECISIONS.md`, `scripts/**`, `packages/engine/src/guards/**`, and `pnpm-lock.yaml` (unchanged; `pnpm install --frozen-lockfile` exits 0).
+
+**TDD.** The 8 new tests were appended to `tests/scribe.test.ts` and run before any src change: `tests 26 | pass 18 | fail 8`. All 8 new tests were RED, each for its intended reason:
+- rev-4: an uncaught `PartialApplyError`.
+- rev-5 (extraction): `actual: ['application_filling','profile_synthesis']` where `['profile_synthesis']` was expected.
+- rev-5 (edit): `actual: ['application_filling','counselling_session']` where `['profile_synthesis']` was expected.
+- c0-1 (both tests): `actual: 'done'` where `'already_resolved'` was expected.
+- rev-1 (all three tests): an uncaught `ZodError`.
+
+Every test runs over the real graph with `MemorySaver` and the driver-faithful fake, with INDEX_PLAN's unique indexes declared.
+
+| Issue | Fix (file:function) | Evidence (test, tests/scribe.test.ts) | Status |
+|---|---|---|---|
+| ISS-t-007-rev-4 (high) | `nodes.ts:writeApproved` maps a `PartialApplyError` whose `cause` is a `FactConflictError` to a new terminal `ScribeResult` variant, `partial_conflict {key, writtenFactIds, message}` (`schemas.ts:ScribeResultSchema`). A `PartialApplyError` with any other cause still propagates, so it retries from the checkpoint (idempotent by D-012). | "ISS-t-007-rev-4: a genuine conflict on fact 2 ...": a rival writer opens `budget_inr_per_year` (value 999, foreign contentHash) between our read and our insert, and the real partial unique index returns 11000. The result is `partial_conflict` with `key` budget and `writtenFactIds == [targetCountry._id]`. Read back: targetCountry=Canada is open, and budget is still the rival's doc, untouched. A later `resumeScribe(null)` returns the same terminal result without throwing, and `facts.size()==2`. | VERIFIED |
+| ISS-t-007-rev-5 (DPDP) | `nodes.ts:verifyCandidateFact` sets `purposeTags: [profile_synthesis]` and discards the model's tags instead of merging them. In `nodes.ts:decisionFromResponse`, "edit" rewrites every edited fact's `purposeTags` to `[profile_synthesis]`. "Approve" writes `proposedFacts`, which come from extraction. | "ISS-t-007-rev-5: scribe-extracted facts carry EXACTLY [profile_synthesis]...": the model supplies `application_filling` and `marketing`, and both the approval request and the read-back docs are exactly `[profile_synthesis]`. "ISS-t-007-rev-5: the counsellor edit path cannot add purposes...": an edit carrying `application_filling` and `counselling_session` reads back as `[profile_synthesis]`. | VERIFIED |
+| ISS-t-007-c0-1 | `graph.ts:resumeScribe` reads the thread's latest state before it resumes with a response. If a decision is already recorded, it returns a new `ScribeOutcome` kind, `already_resolved {decision (original), result, attempted}`, and does not invoke the graph. The behaviour is documented on `ScribeRunOptions.checkpointId` ("one-shot per thread"). A `null` resume (the crash retry) is unaffected. | "ISS-t-007-c0-1: approve, then fork-resume the SAME pre-approval checkpoint with reject ...": `kind already_resolved`, `decision.approve true`, `attempted.action reject`, `result.status written`, the same fact `_id` set, and 2 facts still open. "...already-completed thread (no checkpointId) ...": reject, then approve, gives `already_resolved` with `decision.approve false` and 0 facts. The old D-012 fork test (an identical approve) now asserts `already_resolved` with the original `written` result, and it still asserts no new docs or edges. | VERIFIED |
+| ISS-t-007-rev-1 | `nodes.ts:generateWithRetry` is used by `extractFacts` and `summarizeSession`. On a schema error (`ZodError`) it re-asks at most `PROVIDER_OUTPUT_RETRIES = 1` time, appending `previousAttemptError` (a list of path: message) to the input. After that it returns `failedReason`, and the graph maps that to a terminal `extraction_failed` / `summary_failed` result and routes to END. A non-schema provider error still propagates. | "...retried ONCE ... then succeeds": 2 extraction calls, the 2nd call's `previousAttemptError` matches /facts/, and the run reaches approval. "...always-malformed extraction ... extraction_failed": 2 extraction calls, 0 summary calls, 0 facts, 0 edges. "...malformed summary retried once; always-malformed ends in summary_failed": both cases write nothing. | VERIFIED |
+| low: cross-package relative imports | `packages/db/package.json` gets `exports["./testing"] = "./src/testing.ts"`. `src/testing.ts` re-exports `tests/fakes.ts`, plus `INDEX_PLAN`/`IndexSpec` from `scripts/db-init.ts` (importing it has no side effects). `src/index.ts` does not re-export it. Engine `scribe-fixtures.ts` and `scribe-checkpointer.test.ts` now import `@vc/db/testing`, and `grep "../../db" packages/engine/{src,tests}` returns nothing. packages/db's own tests are unchanged (70/70). | `pnpm -r typecheck` exits 0; db now typechecks `src/testing.ts` and, through it, `tests/fakes.ts`. engine 61/61; db 70/70. | VERIFIED |
+
+**Not in this cycle** (not in the brief):
+- ISS-t-007-rev-2: citation normalisation.
+- rev-3: waiting on the gate `scribe-concern-level`.
+- rev-6: checkpoint collections (live wiring + T-011).
+- rev-7: summary persistence (T-008).
+- c0-2: Devanagari crisis patterns (T-005b/T-012).
+
+### Falsification, cycle 1
+
+The script is `scratchpad/t007c1-falsify.py`. For each guard it makes an assert-found replace, runs `tests/scribe.test.ts`, and restores the original in a `finally` block.
+
+| Guard | Mutation | Observed RED |
+|---|---|---|
+| F1 rev-4 mapping | `if (false && err instanceof PartialApplyError ...)` | fail=1: the rev-4 partial_conflict test |
+| F2 rev-5 extraction strip | `purposeTags: [...new Set([...candidate.purposeTags, SCRIBE_PURPOSE])]` (the cycle-0 merge) | fail=1: the rev-5 extraction test |
+| F3 rev-5 edit strip | `response.facts.map((f) => ({ ...f }))` | fail=1: the rev-5 edit test |
+| F4 c0-1 guard | `if (false && latest.decision)` | fail=3: both c0-1 tests + the D-012 fork test |
+| F5 rev-1 bounded retry | `PROVIDER_OUTPUT_RETRIES = 0` | fail=3: all three rev-1 tests |
+| F6 rev-1 terminal status | schema error rethrown (`throw err;`) | fail=3: all three rev-1 tests |
+| RESTORED | originals written back | `tests 26 pass 26 fail 0`; the src `git diff --stat` is identical before and after |
+
+### Actual outputs, cycle 1 (the maker's own run, from the worktree root)
+
+- `pnpm install`: `Done in 672ms using pnpm v10.33.0`, exit 0. `pnpm install --frozen-lockfile`: exit 0.
+- `pnpm -r typecheck`: exit 0, with 9 x `typecheck: Done`.
+- `pnpm -r test`: exit 0.
+
+| Package | tests | pass | fail |
+|---|---|---|---|
+| apps/api | 1 | 1 | 0 |
+| apps/web | 1 | 1 | 0 |
+| packages/providers | 8 | 8 | 0 |
+| packages/schemas | 50 | 50 | 0 |
+| packages/observability | 57 | 57 | 0 |
+| packages/db | 70 | 70 | 0 |
+| mcp/university-kb | 9 | 9 | 0 |
+| mcp/student-profile | 12 | 12 | 0 |
+| packages/engine | 61 | 61 | 0 |
+| **Total** | **269** | **269** | **0** |
+
+- `python contracts/verify_contracts.py`: `verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity`, exit 0.
+
+### Notes for the checker (cycle 1)
+
+- `resumeScribe` (the API) decides `already_resolved`, not the graph. A caller that bypasses `resumeScribe` and calls `graph.invoke(new Command(...))` directly still gets LangGraph's cached replay. The supported entry point is guarded and documented.
+- After a crashed write, the decision is recorded but there is no result. A resume with a response then returns `already_resolved` with `result: null`, and the retry path is `resumeScribe(graph, null, ...)`.
+- The schema-error check is `instanceof ZodError || name === "ZodError"`, so a duplicated zod copy in the provider package cannot turn a schema error into a throw that is never retried.
+
 ## Falsification (each guard reverted → RED → restored)
 
 The engine rows ran `tests/scribe.test.ts` + `tests/scribe-tracing.test.ts` (20 tests); the observability rows ran the full observability suite (57 tests). The mutations were scripted with an assert-found replace and restored in a `finally` block.
@@ -96,7 +173,7 @@ Run from the worktree root:
 ```
 pnpm install                        # exit 0; pnpm install --frozen-lockfile also exit 0
 pnpm -r typecheck                   # every package "Done", exit 0
-pnpm -r test                        # 261 tests, 0 fail, exit 0
+pnpm -r test                        # 269 tests, 0 fail, exit 0 (cycle 1; cycle 0 was 261)
 python contracts/verify_contracts.py  # "PASS by vacuity", exit 0
 ```
 

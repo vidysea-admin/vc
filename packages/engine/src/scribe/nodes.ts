@@ -5,10 +5,12 @@
  * survive a framework swap unchanged.
  */
 import type { Db } from "mongodb";
+import { ZodError, type z } from "zod";
 import { FactSchema, isScriptLike, type Fact } from "@vc/schemas";
 import {
   ConsentRequiredError,
   FactConflictError,
+  PartialApplyError,
   applyApprovedDiff,
   factsCollection,
   proposeFactChanges,
@@ -160,28 +162,69 @@ export function verifyCandidateFact(
     return { dropped: { key, reason: `quote is not verbatim in turn "${source.id}" (fabricated citation, B2)` } };
   }
 
-  const purposeTags = [...new Set([...candidate.purposeTags, SCRIBE_PURPOSE])];
   const fact = FactSchema.parse({
     key: candidate.key,
     value: candidate.value,
     source: { type: "transcript", quote: source.quote, turnId: source.id },
     confidence: candidate.confidence,
     validFrom: sessionEndedAt,
-    purposeTags,
+    // ISS-t-007-rev-5 (DPDP purpose limitation): the scribe runs under the profile_synthesis consent
+    // only, so its facts carry exactly that purpose. Model-supplied tags are discarded, never merged.
+    purposeTags: [SCRIBE_PURPOSE],
     sensitivity: candidate.sensitivity,
   });
   return { fact };
 }
 
+/** How many times a schema-invalid provider output is re-asked before the node fails (ISS-t-007-rev-1). */
+export const PROVIDER_OUTPUT_RETRIES = 1;
+
+function isSchemaError(err: unknown): err is ZodError {
+  return err instanceof ZodError || (err as { name?: unknown } | null)?.name === "ZodError";
+}
+
+function describeSchemaError(err: ZodError): string {
+  return err.issues.map((i) => `${i.path.length > 0 ? i.path.join(".") : "(root)"}: ${i.message}`).join("; ");
+}
+
+/**
+ * Calls the provider; if its output fails the node's output schema, re-asks at most
+ * PROVIDER_OUTPUT_RETRIES times with the validation error appended to the input
+ * (`previousAttemptError`), then gives up with `{ failedReason }`. Only schema failures are retried
+ * here: any other provider error (network, auth, not wired) propagates to the checkpoint retry.
+ */
+async function generateWithRetry<T>(
+  provider: LlmProvider,
+  request: { skillName: string; skillPrompt: string; outputSchema: z.ZodType<T>; input: Record<string, unknown> },
+): Promise<{ output: T } | { failedReason: string }> {
+  let lastError = "";
+  for (let attempt = 0; attempt <= PROVIDER_OUTPUT_RETRIES; attempt += 1) {
+    const input = attempt === 0 ? request.input : { ...request.input, previousAttemptError: lastError };
+    try {
+      return { output: await provider.generate({ ...request, input }) };
+    } catch (err) {
+      if (!isSchemaError(err)) throw err;
+      lastError = describeSchemaError(err);
+    }
+  }
+  return {
+    failedReason: `the ${request.skillName} output was schema-invalid after ${PROVIDER_OUTPUT_RETRIES + 1} attempts: ${lastError}`,
+  };
+}
+
 export async function extractFacts(rawInput: unknown, deps: Omit<ScribeDeps, "db">): Promise<ExtractOutput> {
   const input = ExtractInputSchema.parse(rawInput);
   const skillPrompt = loadSkill(deps.skillsDir, "fact-extraction");
-  const output = await deps.provider.generate({
+  const generated = await generateWithRetry(deps.provider, {
     skillName: "fact-extraction",
     skillPrompt,
     outputSchema: ExtractionSkillOutputSchema,
     input: { turns: input.turns },
   });
+  if ("failedReason" in generated) {
+    return ExtractOutputSchema.parse({ facts: [], dropped: [], failedReason: generated.failedReason });
+  }
+  const output = generated.output;
 
   const turnsById = new Map(input.turns.map((t) => [t.turnId, t]));
   const keptByKey = new Map<string, Fact>();
@@ -213,12 +256,16 @@ export async function extractFacts(rawInput: unknown, deps: Omit<ScribeDeps, "db
 export async function summarizeSession(rawInput: unknown, deps: Omit<ScribeDeps, "db">): Promise<SummaryOutput> {
   const input = SummaryInputSchema.parse(rawInput);
   const skillPrompt = loadSkill(deps.skillsDir, "session-summary");
-  const output = await deps.provider.generate({
+  const generated = await generateWithRetry(deps.provider, {
     skillName: "session-summary",
     skillPrompt,
     outputSchema: SummarySkillOutputSchema,
     input: { turns: input.turns, facts: input.facts },
   });
+  if ("failedReason" in generated) {
+    return SummaryOutputSchema.parse({ summary: "", failedReason: generated.failedReason });
+  }
+  const output = generated.output;
   // B1: a summary is a record, never a script. Judged as a statement-type text ("evidence"), so
   // only recital cues flag it, never the lack of a "?".
   if (isScriptLike(output.summary, "evidence")) {
@@ -268,7 +315,11 @@ export function decisionFromResponse(response: ApprovalResponse, proposedFacts: 
     case "approve":
       return ApprovalOutputSchema.parse({ decision: { approve: true, edits: proposedFacts } });
     case "edit":
-      return ApprovalOutputSchema.parse({ decision: { approve: true, edits: response.facts } });
+      // ISS-t-007-rev-5: a counsellor edit changes values, never the consent purpose. The scribe's
+      // facts are processed under profile_synthesis only, so any other tag in the edit is dropped.
+      return ApprovalOutputSchema.parse({
+        decision: { approve: true, edits: response.facts.map((f) => ({ ...f, purposeTags: [SCRIBE_PURPOSE] })) },
+      });
     case "reject":
       return ApprovalOutputSchema.parse({ decision: { approve: false } });
   }
@@ -281,8 +332,11 @@ export function decisionFromResponse(response: ApprovalResponse, proposedFacts: 
 /**
  * Applies an approved decision with @vc/db applyApprovedDiff, passing the sessionId FROM STATE
  * (D-012: the contentHash includes it, so a checkpoint replay of this node is an idempotent no-op).
- * A non-approval writes nothing. A genuine conflicting writer becomes status "conflict"; every other
- * error propagates so LangGraph can retry this node from its checkpoint.
+ * A non-approval writes nothing. A genuine conflicting writer becomes status "conflict" (on the first
+ * fact) or "partial_conflict" (on fact 2+, ISS-t-007-rev-4: earlier facts are committed and reported
+ * in `writtenFactIds`). Both are terminal: a retry would hit the same foreign fact forever. Every
+ * other error, including a PartialApplyError with a non-conflict cause, propagates so LangGraph can
+ * retry this node from its checkpoint (idempotent by D-012).
  */
 export async function writeApproved(rawInput: unknown, deps: Pick<ScribeDeps, "db">): Promise<ScribeResult> {
   const input = WriteInputSchema.parse(rawInput);
@@ -299,6 +353,14 @@ export async function writeApproved(rawInput: unknown, deps: Pick<ScribeDeps, "d
   } catch (err) {
     if (err instanceof FactConflictError) {
       return ScribeResultSchema.parse({ status: "conflict", key: err.key, message: err.message });
+    }
+    if (err instanceof PartialApplyError && err.cause instanceof FactConflictError) {
+      return ScribeResultSchema.parse({
+        status: "partial_conflict",
+        key: err.failingKey,
+        writtenFactIds: err.writtenIds,
+        message: err.message,
+      });
     }
     throw err;
   }

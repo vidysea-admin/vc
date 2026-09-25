@@ -14,8 +14,7 @@ import { join } from "node:path";
 import { MemorySaver } from "@langchain/langgraph";
 import { COLLECTION_NAMES, type FactDoc, type EdgeDoc, type ConsentDoc } from "@vc/db";
 import { MockProvider, type MockResponse } from "@vc/providers";
-import { createFakeDb, type FakeCollection } from "../../db/tests/fakes.js";
-import { INDEX_PLAN } from "../../db/scripts/db-init.js";
+import { createFakeDb, INDEX_PLAN, type FakeCollection } from "@vc/db/testing";
 import { compileScribeGraph, SCRIBE_PURPOSE, type ScribeInput } from "../src/scribe/index.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));

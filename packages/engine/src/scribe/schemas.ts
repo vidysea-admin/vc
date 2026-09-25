@@ -99,6 +99,8 @@ export const ExtractInputSchema = z.object({
 export const ExtractOutputSchema = z.object({
   facts: z.array(FactSchema),
   dropped: z.array(DroppedFactSchema),
+  /** Set when the provider output stayed schema-invalid after the bounded retry (ISS-t-007-rev-1). */
+  failedReason: z.string().min(1).optional(),
 });
 export type ExtractOutput = z.infer<typeof ExtractOutputSchema>;
 
@@ -112,6 +114,8 @@ export const SummaryInputSchema = z.object({
 export const SummaryOutputSchema = z.object({
   summary: z.string(),
   summaryWithheldReason: z.string().optional(),
+  /** Set when the provider output stayed schema-invalid after the bounded retry (ISS-t-007-rev-1). */
+  failedReason: z.string().min(1).optional(),
 });
 export type SummaryOutput = z.infer<typeof SummaryOutputSchema>;
 
@@ -174,5 +178,21 @@ export const ScribeResultSchema = z.discriminatedUnion("status", [
     supersededKeys: z.array(z.string()),
   }),
   z.object({ status: z.literal("conflict"), key: z.string().min(1), message: z.string().min(1) }),
+  /**
+   * ISS-t-007-rev-4: a genuine conflict on fact 2+ of a multi-fact approval. The facts in
+   * `writtenFactIds` are durably committed (no cross-document transaction, D-008/D-009); `key` is the
+   * fact another writer holds with a different value. Terminal: re-running the write cannot succeed,
+   * so the counsellor sees what landed and re-reviews `key`.
+   */
+  z.object({
+    status: z.literal("partial_conflict"),
+    key: z.string().min(1),
+    writtenFactIds: z.array(z.string()).min(1),
+    message: z.string().min(1),
+  }),
+  /** ISS-t-007-rev-1: the extraction skill's output stayed schema-invalid after one retry. Nothing written. */
+  z.object({ status: z.literal("extraction_failed"), reason: z.string().min(1) }),
+  /** ISS-t-007-rev-1: the summary skill's output stayed schema-invalid after one retry. Nothing written. */
+  z.object({ status: z.literal("summary_failed"), reason: z.string().min(1) }),
 ]);
 export type ScribeResult = z.infer<typeof ScribeResultSchema>;

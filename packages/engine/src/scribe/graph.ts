@@ -8,6 +8,7 @@
  *
  * - consent refused  -> END with status "refused"   (B4: before anything else)
  * - crisis/concern   -> END with status "escalated" (B9: before any provider call)
+ * - provider output schema-invalid after 1 retry -> END with "extraction_failed" / "summary_failed"
  * - counsellor reject -> END with status "rejected" (B3: nothing written)
  * - approve / edit   -> write_approved              (B3: the only write, after the interrupt)
  */
@@ -85,10 +86,18 @@ export function buildScribeGraph(deps: ScribeDeps) {
         ? { escalation: out.escalation, result: ScribeResultSchema.parse({ status: "escalated", escalation: out.escalation }) }
         : { escalation: null };
     })
-    .addNode(SCRIBE_NODES.extract, async (s: State) =>
-      extractFacts({ turns: s.turns, sessionEndedAt: s.sessionEndedAt }, deps),
-    )
-    .addNode(SCRIBE_NODES.summary, async (s: State) => summarizeSession({ turns: s.turns, facts: s.facts }, deps))
+    .addNode(SCRIBE_NODES.extract, async (s: State) => {
+      const { failedReason, ...out } = await extractFacts({ turns: s.turns, sessionEndedAt: s.sessionEndedAt }, deps);
+      return failedReason
+        ? { ...out, result: ScribeResultSchema.parse({ status: "extraction_failed", reason: failedReason }) }
+        : out;
+    })
+    .addNode(SCRIBE_NODES.summary, async (s: State) => {
+      const { failedReason, ...out } = await summarizeSession({ turns: s.turns, facts: s.facts }, deps);
+      return failedReason
+        ? { ...out, result: ScribeResultSchema.parse({ status: "summary_failed", reason: failedReason }) }
+        : out;
+    })
     .addNode(SCRIBE_NODES.diff, async (s: State) =>
       proposeDiff({ studentId: s.studentId, summary: s.summary, facts: s.facts }, deps),
     )
@@ -127,8 +136,17 @@ export function buildScribeGraph(deps: ScribeDeps) {
       SCRIBE_NODES.extract,
       END,
     ])
-    .addEdge(SCRIBE_NODES.extract, SCRIBE_NODES.summary)
-    .addEdge(SCRIBE_NODES.summary, SCRIBE_NODES.diff)
+    // ISS-t-007-rev-1: a schema-invalid provider output (after the bounded retry) ends the run.
+    .addConditionalEdges(
+      SCRIBE_NODES.extract,
+      (s: State) => (s.result?.status === "extraction_failed" ? END : SCRIBE_NODES.summary),
+      [SCRIBE_NODES.summary, END],
+    )
+    .addConditionalEdges(
+      SCRIBE_NODES.summary,
+      (s: State) => (s.result?.status === "summary_failed" ? END : SCRIBE_NODES.diff),
+      [SCRIBE_NODES.diff, END],
+    )
     .addEdge(SCRIBE_NODES.diff, SCRIBE_NODES.approval)
     .addConditionalEdges(
       SCRIBE_NODES.approval,
@@ -155,7 +173,12 @@ export type ScribeGraph = ReturnType<typeof compileScribeGraph>;
 export interface ScribeRunOptions {
   /** The LangGraph thread. Recommended: scribeThreadId(sessionId), one thread per session. */
   threadId: string;
-  /** Resume/fork from a specific checkpoint (replay). */
+  /**
+   * Resume/fork from a specific checkpoint (replay). An approval interrupt is ONE-SHOT per thread
+   * (ISS-t-007-c0-1): once a decision is recorded, resuming with a response, from this or any
+   * earlier checkpoint, returns `already_resolved` and applies nothing. A genuine "redo the
+   * approval" needs a new scribe run on a new thread.
+   */
   checkpointId?: string;
   /** LangChain callbacks, e.g. from createLangfuseCallbacks (B7). */
   callbacks?: Callbacks;
@@ -180,7 +203,13 @@ export function scribeRunConfig(opts: { threadId: string; checkpointId?: string;
 
 export type ScribeOutcome =
   | { kind: "awaiting_approval"; request: ApprovalRequest }
-  | { kind: "done"; result: ScribeResult };
+  | { kind: "done"; result: ScribeResult }
+  /**
+   * ISS-t-007-c0-1: the thread's approval was already decided, so `attempted` was NOT applied.
+   * `decision` is the original, still-effective decision; `result` is its outcome (null while a
+   * failed write is pending, which only `resumeScribe(graph, null, ...)` retries).
+   */
+  | { kind: "already_resolved"; decision: CounsellorDecision; result: ScribeResult | null; attempted: ApprovalResponse };
 
 function runnableConfig(opts: ScribeRunOptions) {
   return {
@@ -212,6 +241,12 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
  * Resumes a paused or failed run. With a counsellor response, resumes the interrupt (the response is
  * validated first, so an invalid one never reaches the graph). With `null`, re-runs whatever the
  * last checkpoint left pending (crash recovery: e.g. a failed write_approved).
+ *
+ * ISS-t-007-c0-1: LangGraph caches an interrupt's resolution per task, so resuming an
+ * already-decided approval (e.g. forking the pre-approval checkpoint with a different response)
+ * would silently replay the ORIGINAL decision and report it as done. This function therefore reads
+ * the thread's latest state first: if a decision is already recorded, it returns `already_resolved`
+ * with that decision and does not invoke the graph.
  */
 export async function resumeScribe(
   graph: ScribeGraph,
@@ -222,6 +257,15 @@ export async function resumeScribe(
     await graph.invoke(null, runnableConfig(opts));
   } else {
     const parsed = ApprovalResponseSchema.parse(response);
+    const latest = (await graph.getState({ configurable: { thread_id: opts.threadId } })).values as Partial<State>;
+    if (latest.decision) {
+      return {
+        kind: "already_resolved",
+        decision: latest.decision,
+        result: latest.result ? ScribeResultSchema.parse(latest.result) : null,
+        attempted: parsed,
+      };
+    }
     await graph.invoke(new Command({ resume: parsed }), runnableConfig(opts));
   }
   return readOutcome(graph, opts.threadId);
