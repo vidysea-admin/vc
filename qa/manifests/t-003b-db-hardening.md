@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B3, B4, B12, B14)
 **Goal task:** T-003b
 **Date:** 2026-09-25
-**Fix cycle:** 0 of max 3
+**Fix cycle:** 1 of max 3 (cycle-0 checker PASS overridden by two independent Block reviews: ISS-026 critical)
 **Dual check:** no
 **Issues addressed:** ISS-018, ISS-019, ISS-020, ISS-021, ISS-t-003-student-kg-1
 **Executor:** claude-sonnet-subagent
