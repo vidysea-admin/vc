@@ -1,0 +1,284 @@
+{
+  "date": "2026-09-25",
+  "role": "checker",
+  "results": [
+    {
+      "name": "index lists 3 synthetic threads",
+      "pass": true,
+      "detail": 3
+    },
+    {
+      "name": "paused thread renders 4 fact cards",
+      "pass": true,
+      "detail": 4
+    },
+    {
+      "name": "submit disabled before any decision",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "submit still disabled with 3/4 decided",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "decided count shows 4/4 before summary chosen",
+      "pass": true,
+      "detail": "4/4"
+    },
+    {
+      "name": "submit still disabled before summary decided",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "submit enabled once summary withheld too",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "read-back BEFORE submit: 0 facts, 0 claims",
+      "pass": true,
+      "detail": {
+        "studentId": "demo-student-1",
+        "facts": [],
+        "sessions": [
+          {
+            "sessionId": "demo-session-1"
+          }
+        ],
+        "claims": 0
+      }
+    },
+    {
+      "name": "tab B also ready to submit (stale, different decision)",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "tab A submit outcome is written",
+      "pass": true,
+      "detail": "written"
+    },
+    {
+      "name": "tab A written facts are targetCountry, preferredIntake, budget_inr_per_year (no intendedMajor)",
+      "pass": true,
+      "detail": [
+        "targetCountry",
+        "preferredIntake",
+        "budget_inr_per_year"
+      ]
+    },
+    {
+      "name": "read-back after submit: active facts are exactly targetCountry, preferredIntake, budget_inr_per_year",
+      "pass": true,
+      "detail": {
+        "studentId": "demo-student-1",
+        "facts": [
+          {
+            "key": "targetCountry",
+            "value": "Canada",
+            "active": true
+          },
+          {
+            "key": "preferredIntake",
+            "value": "January 2028",
+            "active": true
+          },
+          {
+            "key": "budget_inr_per_year",
+            "value": 2000000,
+            "active": true
+          }
+        ],
+        "sessions": [
+          {
+            "sessionId": "demo-session-1",
+            "summary": "",
+            "summaryWithheldReason": "withheld by the counsellor at approval",
+            "summaryApprovedAt": "2026-09-25T12:59:29.213Z"
+          }
+        ],
+        "claims": 1
+      }
+    },
+    {
+      "name": "edited fact preferredIntake stored as 'January 2028'",
+      "pass": true,
+      "detail": {
+        "key": "preferredIntake",
+        "value": "January 2028",
+        "active": true
+      }
+    },
+    {
+      "name": "rejected fact intendedMajor never written (no doc at all)",
+      "pass": true,
+      "detail": [
+        "targetCountry",
+        "preferredIntake",
+        "budget_inr_per_year"
+      ]
+    },
+    {
+      "name": "summary withheld: stored summary is empty string with the counsellor-withheld reason",
+      "pass": true,
+      "detail": {
+        "sessionId": "demo-session-1",
+        "summary": "",
+        "summaryWithheldReason": "withheld by the counsellor at approval",
+        "summaryApprovedAt": "2026-09-25T12:59:29.213Z"
+      }
+    },
+    {
+      "name": "reload shows resolved (done) state, not the form",
+      "pass": true,
+      "detail": "done"
+    },
+    {
+      "name": "tab B double-submit gets a non-2xx (already_resolved)",
+      "pass": true,
+      "detail": 409
+    },
+    {
+      "name": "tab B already_resolved carries sameAsWinner=false (different decision)",
+      "pass": true,
+      "detail": "false"
+    },
+    {
+      "name": "tab B shows the WINNER's written facts, not its own attempted decision",
+      "pass": true,
+      "detail": [
+        "targetCountry",
+        "preferredIntake",
+        "budget_inr_per_year"
+      ]
+    },
+    {
+      "name": "read-back after tab B's rejected double-submit is unchanged",
+      "pass": true,
+      "detail": {
+        "before": {
+          "studentId": "demo-student-1",
+          "facts": [
+            {
+              "key": "targetCountry",
+              "value": "Canada",
+              "active": true
+            },
+            {
+              "key": "preferredIntake",
+              "value": "January 2028",
+              "active": true
+            },
+            {
+              "key": "budget_inr_per_year",
+              "value": 2000000,
+              "active": true
+            }
+          ],
+          "sessions": [
+            {
+              "sessionId": "demo-session-1",
+              "summary": "",
+              "summaryWithheldReason": "withheld by the counsellor at approval",
+              "summaryApprovedAt": "2026-09-25T12:59:29.213Z"
+            }
+          ],
+          "claims": 1
+        },
+        "after": {
+          "studentId": "demo-student-1",
+          "facts": [
+            {
+              "key": "targetCountry",
+              "value": "Canada",
+              "active": true
+            },
+            {
+              "key": "preferredIntake",
+              "value": "January 2028",
+              "active": true
+            },
+            {
+              "key": "budget_inr_per_year",
+              "value": 2000000,
+              "active": true
+            }
+          ],
+          "sessions": [
+            {
+              "sessionId": "demo-session-1",
+              "summary": "",
+              "summaryWithheldReason": "withheld by the counsellor at approval",
+              "summaryApprovedAt": "2026-09-25T12:59:29.213Z"
+            }
+          ],
+          "claims": 1
+        }
+      }
+    },
+    {
+      "name": "fenced thread page: 0 fact cards, fenced banner shown",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "in-progress thread page shows in_progress state",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "not-found thread page shows not_found state",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "mobile width (390px): no horizontal overflow",
+      "pass": true,
+      "detail": 0
+    }
+  ],
+  "consoleCounts": {
+    "index": {
+      "total": 0,
+      "messages": []
+    },
+    "tabA-approval": {
+      "total": 0,
+      "messages": []
+    },
+    "tabB-approval": {
+      "total": 1,
+      "messages": [
+        "Failed to load resource: the server responded with a status of 409 (Conflict)"
+      ]
+    },
+    "fenced": {
+      "total": 2,
+      "messages": [
+        "Failed to load resource: the server responded with a status of 423 (Locked)",
+        "Failed to load resource: the server responded with a status of 423 (Locked)"
+      ]
+    },
+    "in-progress": {
+      "total": 0,
+      "messages": []
+    },
+    "not-found": {
+      "total": 2,
+      "messages": [
+        "Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "Failed to load resource: the server responded with a status of 404 (Not Found)"
+      ]
+    },
+    "mobile": {
+      "total": 2,
+      "messages": [
+        "Failed to load resource: the server responded with a status of 423 (Locked)",
+        "Failed to load resource: the server responded with a status of 423 (Locked)"
+      ]
+    }
+  }
+}
