@@ -183,3 +183,45 @@ any data-residue path, and it is the same severity class (medium) as issues this
 previously PASSed a unit with and queued for the next touch (T-015 cycle 0's own four issues, closed
 by THIS unit). Per the same precedent (T-015, T-016 both PASSed with open medium/low issues logged for
 follow-up), this unit **PASSes** with ISS-t-017-c0-1 appended to the ledger.
+
+---
+
+## INDEPENDENT CONCURRENT CHECK
+**Cycle checked: 0** · **Date:** 2026-09-25 16:45 · **Checker:** fresh read-only adjudication subagent, dispatched by
+the standing checker session. The verdict above is left byte-intact.
+
+**VERDICT: FAIL. The PASS above does not stand.**
+
+**Trigger:** the senior-software-engineer review Block (ISS-t-017-rev-2, high, main `2943658`, 13:27) conflicts with
+the PASS above (13:40). Project rule: a review Block overrides a checker PASS unless it is disproved. It was **not**
+disproved. It was reproduced.
+
+**What I re-ran myself** (scratch copy of HEAD `30e38ea` outside D:\vc, `pnpm install` clean, `packages/db` 181/181
+green before probing), using a probe built on the package's own `createFakeDb()` with `erasure_fences.find` forced to
+throw:
+```
+CASE A (sync-throw onError):   unhandledRejections = 0  caughtBySweep = 8   -> handled as intended
+CASE B (async-reject onError): unhandledRejections = 7  caughtBySweep = 0   -> every tick escapes
+```
+`tick()` (erasure.ts ~621-640) wraps the *call* `options.onError?.(err)` in a synchronous try/catch. An async
+`onError` rejects later, is never awaited, and becomes a process-level `unhandledRejection`. Node >= 15 exits the
+process on that. `ErasureFenceSweepOptions.onError: (err) => void` accepts an async function silently.
+
+**Why this is FAIL and not a medium residual:** the PASS above graded ISS-t-017-c0-1 as "a log line lost". The effect
+is actually a **crash of the API process that runs the DPDP fence sweep**. When that process dies, the sweep stops,
+and expired erasure fences are never released (the B15 fence behaviour stops). A process-crash path cannot be carried
+forward as an accepted residual.
+
+FAILURES:
+- [B14/B15] sev: high · an async `onError` rejection escapes `tick()` as an unhandledRejection and crashes the process
+  hosting the erasure fence sweep · `await` the handler: `try { await options.onError?.(err) } catch {}` (or wrap the
+  handler in `Promise.resolve().then(...)`). Add a test that registers an `unhandledRejection` listener and asserts
+  it fires 0 times for an async-rejecting onError · issue: ISS-t-017-rev-2 (ISS-t-017-c0-1 is the same defect,
+  escalated to high)
+
+CAPABILITY-COVERAGE: not re-run (adjudication scope: the Block claim only)
+LIVE-BROWSER: not-applicable (packages/db, packages/engine only)
+ISSUES-WRITTEN: ISS-t-017-c0-1 escalated medium -> high (main ledger)
+EXECUTOR: claude-sonnet-subagent (checker: claude-sonnet-subagent, adjudication)
+EXPLANATION: The review Block is technically correct and reproduced. The cycle-0 PASS under-graded a process-crash
+path as a logging nit. The fix is small, and T-017 goes to fix cycle 1.
