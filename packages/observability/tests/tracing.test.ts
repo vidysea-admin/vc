@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { initTracing, __resetTracingForTests } from "../src/tracing.js";
 import { loadTracingConfig } from "../src/config.js";
+import { createLangfuseCallbacks } from "../src/callbacks.js";
 import type { TracingConfig } from "../src/config.js";
 
 // ISS-017 (senior review, critical): @langfuse/langchain's CallbackHandler creates OTel spans
@@ -98,6 +99,97 @@ test("the Langfuse Cloud refusal still applies through the loadTracingConfig -> 
           ...VALID_KEYS,
         }),
       ),
+    /refusing Langfuse Cloud host/,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// ISS-025: a later initTracing call with a DIFFERENT config must not be silently ignored.
+// ---------------------------------------------------------------------------
+
+test("ISS-025: a second initTracing call with a different config throws instead of being silently ignored", (t) => {
+  __resetTracingForTests();
+  t.after(__resetTracingForTests);
+
+  const registered: LangfuseSpanProcessor[] = [];
+  const deps = { registerProvider: (processor: LangfuseSpanProcessor) => registered.push(processor) };
+  initTracing(enabledConfig("http://localhost:3000"), deps);
+
+  assert.throws(() => initTracing(enabledConfig("http://langfuse.internal:3000"), deps), /ISS-025/);
+  assert.throws(() => initTracing({ ...enabledConfig(), secretKey: "sk-lf-other" }, deps), /ISS-025/);
+  assert.throws(() => initTracing({ enabled: false }, deps), /ISS-025/);
+  assert.equal(registered.length, 1, "the rejected calls must not register a second processor");
+});
+
+test("ISS-025: disabled first, then enabled, also throws (tracing can not be silently left off)", (t) => {
+  __resetTracingForTests();
+  t.after(__resetTracingForTests);
+  initTracing({ enabled: false });
+  assert.throws(() => initTracing(enabledConfig()), /ISS-025/);
+});
+
+test("ISS-025: the error message never echoes a secret key", (t) => {
+  __resetTracingForTests();
+  t.after(__resetTracingForTests);
+  const deps = { registerProvider: () => {} };
+  initTracing(enabledConfig(), deps);
+  assert.throws(
+    () => initTracing({ ...enabledConfig(), secretKey: "sk-lf-very-secret" }, deps),
+    (err: Error) => !err.message.includes("sk-lf-very-secret") && !err.message.includes("sk-lf-test"),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-004-langfuse-1: a hand-constructed TracingConfig (bypassing loadTracingConfig) must be
+// re-validated at the chokepoint that builds the processor.
+// ---------------------------------------------------------------------------
+
+const HOSTILE_HAND_BUILT_URLS = [
+  "https://cloud.langfuse.com",
+  "https://cloud.langfuse.com.", // trailing dot
+  "https://CLOUD.Langfuse.COM", // mixed case
+  "https://us.cloud.langfuse.com:443/api", // explicit port + path
+  "https://user:pass@eu.cloud.langfuse.com", // userinfo
+  "https://xn--clod-8na.langfuse.com", // punycode label under langfuse.com
+  "https://clоud.langfuse.com", // IDN (Cyrillic o) -> punycode under langfuse.com
+  "https://langfuse.com",
+];
+
+for (const baseUrl of HOSTILE_HAND_BUILT_URLS) {
+  test(`ISS-t-004-langfuse-1: a hand-constructed config pointing at ${JSON.stringify(baseUrl)} is refused by initTracing`, (t) => {
+    __resetTracingForTests();
+    t.after(__resetTracingForTests);
+    const registered: LangfuseSpanProcessor[] = [];
+    assert.throws(
+      () => initTracing({ enabled: true, baseUrl, publicKey: "pk", secretKey: "sk" }, { registerProvider: (p) => registered.push(p) }),
+      /refusing Langfuse Cloud host/,
+    );
+    assert.equal(registered.length, 0, "no processor may be registered for a Cloud host");
+  });
+}
+
+test("ISS-t-004-langfuse-1: an enabled hand-built config with NO baseUrl is refused (LangfuseSpanProcessor would default to Langfuse Cloud)", (t) => {
+  __resetTracingForTests();
+  t.after(__resetTracingForTests);
+  const registered: LangfuseSpanProcessor[] = [];
+  assert.throws(
+    () => initTracing({ enabled: true, publicKey: "pk", secretKey: "sk" }, { registerProvider: (p) => registered.push(p) }),
+    /baseUrl/,
+  );
+  assert.equal(registered.length, 0);
+});
+
+test("ISS-t-004-langfuse-1: an enabled hand-built config missing a key is refused", (t) => {
+  __resetTracingForTests();
+  t.after(__resetTracingForTests);
+  assert.throws(() => initTracing({ enabled: true, baseUrl: "http://localhost:3000", publicKey: "pk" }, { registerProvider: () => {} }), /secretKey/);
+});
+
+test("ISS-t-004-langfuse-1: createLangfuseCallbacks with a hand-built Cloud config throws and yields no handler", (t) => {
+  __resetTracingForTests();
+  t.after(__resetTracingForTests);
+  assert.throws(
+    () => createLangfuseCallbacks({ enabled: true, baseUrl: "https://cloud.langfuse.com.", publicKey: "pk", secretKey: "sk" }),
     /refusing Langfuse Cloud host/,
   );
 });

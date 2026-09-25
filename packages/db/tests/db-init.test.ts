@@ -18,6 +18,7 @@ const STUDENT_ID_COLLECTIONS = [
   COLLECTION_NAMES.decisions,
   COLLECTION_NAMES.consents,
   COLLECTION_NAMES.students,
+  COLLECTION_NAMES.scribe_resolutions,
 ];
 
 test("ISS-027: every studentId-bearing collection has a plain (non-partial, non-unique) index led by studentId", () => {
@@ -105,4 +106,57 @@ test("D-013: the partial-filter validator accepts the documented operators and r
     { $and: [{ a: { $exists: false } }] },
   ];
   for (const f of bad) assert.throws(() => assertSupportedPartialFilter(f), /not supported in partial index/, JSON.stringify(f));
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-007-rev-8 / ISS-t-007-c1-2: scribe_resolutions is the atomic,
+// cross-process claim for a scribe approval — one claim per thread, enforced
+// by a UNIQUE index on threadId (the loser of a concurrent resume gets 11000).
+// ---------------------------------------------------------------------------
+
+test("ISS-t-007-rev-8: scribe_resolutions is a named collection with a UNIQUE (non-partial) index on threadId", () => {
+  assert.equal(COLLECTION_NAMES.scribe_resolutions, "scribe_resolutions");
+  const unique = INDEX_PLAN.find(
+    (spec) => spec.collection === COLLECTION_NAMES.scribe_resolutions && spec.unique === true,
+  );
+  assert.ok(unique, "expected a unique index on scribe_resolutions");
+  assert.deepEqual(unique?.keys, { threadId: 1 });
+  assert.equal(unique?.partialFilterExpression, undefined, "the claim must be unique for EVERY doc, not a filtered subset");
+});
+
+test("ISS-t-007-rev-8: the fake enforces the planned threadId unique index even when _id differs (11000 on a second claim)", async () => {
+  const coll = new FakeCollection<{ _id: string; threadId: string }>();
+  const spec = INDEX_PLAN.find((s) => s.collection === COLLECTION_NAMES.scribe_resolutions && s.unique)!;
+  coll.declareUniqueIndex(Object.keys(spec.keys));
+  await coll.insertOne({ _id: "a", threadId: "scribe:s1" });
+  await assert.rejects(coll.insertOne({ _id: "b", threadId: "scribe:s1" }), (err: { code?: number }) => err.code === 11000);
+  assert.equal(coll.size(), 1);
+});
+
+// ---------------------------------------------------------------------------
+// ISS-t-007-c1-1: the shared fake's find()/findOne() follow Mongo's
+// array-contains-scalar semantics ({purposeTags: "x"} matches ["x", "y"]),
+// so a purpose-filtered read never silently returns zero.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-007-c1-1: find({purposeTags: scalar}) matches docs whose array CONTAINS it, and only those", async () => {
+  type Doc = { _id: string; studentId: string; purposeTags: string[] };
+  const coll = new FakeCollection<Doc>();
+  coll.seed({ _id: "f1", studentId: "s1", purposeTags: ["profile_synthesis"] });
+  coll.seed({ _id: "f2", studentId: "s1", purposeTags: ["application_filling", "profile_synthesis"] });
+  coll.seed({ _id: "f3", studentId: "s1", purposeTags: ["application_filling"] });
+  coll.seed({ _id: "f4", studentId: "s2", purposeTags: ["profile_synthesis"] });
+
+  const synth = await coll.find({ studentId: "s1", purposeTags: "profile_synthesis" }).toArray();
+  assert.deepEqual(synth.map((d) => d._id).sort(), ["f1", "f2"], "the correct purpose must NOT come back empty");
+  const app = await coll.find({ studentId: "s1", purposeTags: "application_filling" }).toArray();
+  assert.deepEqual(app.map((d) => d._id).sort(), ["f2", "f3"]);
+  assert.equal((await coll.find({ purposeTags: "marketing" }).toArray()).length, 0, "no false positives");
+  assert.equal((await coll.findOne({ purposeTags: "application_filling", studentId: "s1" }))?._id !== undefined, true);
+  // Mongo: an array filter value matches an exactly-equal array (order-sensitive).
+  assert.deepEqual(
+    (await coll.find({ purposeTags: ["application_filling", "profile_synthesis"] }).toArray()).map((d) => d._id),
+    ["f2"],
+  );
+  assert.equal((await coll.find({ purposeTags: ["profile_synthesis", "application_filling"] }).toArray()).length, 0);
 });

@@ -14,3 +14,4 @@ export function engineStatus(): string {
 
 export * from "./skills/loader.js";
 export * from "./guards/index.js";
+export * from "./scribe/index.js";

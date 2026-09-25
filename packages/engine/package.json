@@ -2,7 +2,7 @@
   "name": "@vc/engine",
   "version": "0.1.0",
   "private": true,
-  "description": "Stub — the LangGraph.js StateGraph (H1/D-002) lands here in a later unit",
+  "description": "LangGraph.js StateGraph (H1/D-002): post-session scribe graph (T-007), skill loader + hard-rule guards (T-005)",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -13,11 +13,21 @@
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
-    "@vc/schemas": "workspace:*"
+    "@langchain/core": "^1.2.12",
+    "@langchain/langgraph": "^1.4.17",
+    "@langchain/langgraph-checkpoint-mongodb": "^1.4.1",
+    "@vc/db": "workspace:*",
+    "@vc/observability": "workspace:*",
+    "@vc/providers": "workspace:*",
+    "@vc/schemas": "workspace:*",
+    "mongodb": "^6.21.0",
+    "zod": "^3.25.32"
   },
   "devDependencies": {
     "typescript": "~5.8.2",
     "tsx": "^4.21.0",
-    "@types/node": "^22.14.0"
+    "@types/node": "^22.14.0",
+    "@opentelemetry/core": "^2.11.0",
+    "@opentelemetry/sdk-trace-base": "^2.11.0"
   }
 }
