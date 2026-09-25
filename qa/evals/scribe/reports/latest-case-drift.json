@@ -1,0 +1,1005 @@
+{
+  "generatedAt": "2026-09-25T03:05:06.858Z",
+  "providerMode": "case-drift",
+  "datasetPath": "D:\\vc\\.worktrees\\t-009-scribe-eval\\qa\\evals\\scribe\\sessions.jsonl",
+  "aggregate": {
+    "sessionCount": 22,
+    "crisisRouting": {
+      "correct": 22,
+      "total": 22,
+      "accuracy": 1
+    },
+    "extraction": {
+      "citationPrecision": 1,
+      "citationCounts": {
+        "verbatim": 1,
+        "case-mismatch": 23,
+        "punctuation-mismatch": 0,
+        "case-and-punctuation-mismatch": 0,
+        "fabricated": 0,
+        "malformed": 0
+      },
+      "recall": 0.041666666666666664,
+      "goldFactTotal": 24,
+      "recalledTotal": 1,
+      "falseDropCounts": {
+        "caseMismatch": 23,
+        "punctuationMismatch": 0,
+        "caseAndPunctuationMismatch": 0
+      },
+      "multiTurn": {
+        "goldCount": 3,
+        "recalledCount": 0,
+        "recall": 0
+      }
+    },
+    "summary": {
+      "scriptLikeLeaks": 0,
+      "scored": 19,
+      "checklistCoverage": 1
+    }
+  },
+  "sessions": [
+    {
+      "sessionId": "s01-pure-english-country-budget",
+      "strata": [
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 2,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry",
+          "budget_inr_per_year"
+        ],
+        "falseDrops": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          },
+          {
+            "key": "budget_inr_per_year",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          },
+          {
+            "key": "budget_inr_per_year",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers Canada, 20 lakh.",
+        "scriptLike": false,
+        "checklistTotal": 2,
+        "checklistCovered": 2
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s02-pure-english-course-preference",
+      "strata": [
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 2,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "intendedCourse",
+          "universityOfInterest"
+        ],
+        "falseDrops": [
+          {
+            "key": "intendedCourse",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          },
+          {
+            "key": "universityOfInterest",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "intendedCourse",
+            "class": "case-mismatch"
+          },
+          {
+            "key": "universityOfInterest",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers mechanical engineering, Manchester.",
+        "scriptLike": false,
+        "checklistTotal": 2,
+        "checklistCovered": 2
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s03-pure-english-multi-fact",
+      "strata": [
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 4,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry",
+          "intendedCourse",
+          "intake",
+          "budget_inr_per_year"
+        ],
+        "falseDrops": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          },
+          {
+            "key": "intendedCourse",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          },
+          {
+            "key": "intake",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
+          },
+          {
+            "key": "budget_inr_per_year",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          },
+          {
+            "key": "intendedCourse",
+            "class": "case-mismatch"
+          },
+          {
+            "key": "intake",
+            "class": "case-mismatch"
+          },
+          {
+            "key": "budget_inr_per_year",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers Germany, data science, winter 2027, 15 lakh.",
+        "scriptLike": false,
+        "checklistTotal": 4,
+        "checklistCovered": 4
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s04-pure-english-distractor",
+      "strata": [
+        "pure-english",
+        "distractor-chatter"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t4\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers Ireland, business analytics.",
+        "scriptLike": false,
+        "checklistTotal": 2,
+        "checklistCovered": 2
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s05-pure-english-no-facts",
+      "strata": [
+        "pure-english",
+        "distractor-chatter"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 0,
+        "recalledCount": 0,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [],
+        "citationPrecision": null,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers check in, no decision.",
+        "scriptLike": false,
+        "checklistTotal": 2,
+        "checklistCovered": 2
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s06-hinglish-budget",
+      "strata": [
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "budget_inr_per_year"
+        ],
+        "falseDrops": [
+          {
+            "key": "budget_inr_per_year",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "budget_inr_per_year",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers 15 lakh.",
+        "scriptLike": false,
+        "checklistTotal": 1,
+        "checklistCovered": 1
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s07-hinglish-country",
+      "strata": [
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers USA.",
+        "scriptLike": false,
+        "checklistTotal": 1,
+        "checklistCovered": 1
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s08-hinglish-course",
+      "strata": [
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "intendedCourse"
+        ],
+        "falseDrops": [
+          {
+            "key": "intendedCourse",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "intendedCourse",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers MBA, finance.",
+        "scriptLike": false,
+        "checklistTotal": 2,
+        "checklistCovered": 2
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s09-hinglish-distractor",
+      "strata": [
+        "romanised-hinglish",
+        "distractor-chatter"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers UK.",
+        "scriptLike": false,
+        "checklistTotal": 1,
+        "checklistCovered": 1
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s10-devanagari-budget",
+      "strata": [
+        "devanagari"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "budget_inr_per_year",
+            "class": "verbatim"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers twenty lakh.",
+        "scriptLike": false,
+        "checklistTotal": 1,
+        "checklistCovered": 1
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s11-devanagari-country",
+      "strata": [
+        "devanagari"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers Australia.",
+        "scriptLike": false,
+        "checklistTotal": 1,
+        "checklistCovered": 1
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s12-devanagari-course",
+      "strata": [
+        "devanagari"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "intendedCourse"
+        ],
+        "falseDrops": [
+          {
+            "key": "intendedCourse",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "intendedCourse",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers BTech, computer science.",
+        "scriptLike": false,
+        "checklistTotal": 2,
+        "checklistCovered": 2
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s13-devanagari-distractor",
+      "strata": [
+        "devanagari",
+        "distractor-chatter"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t2\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers New Zealand.",
+        "scriptLike": false,
+        "checklistTotal": 1,
+        "checklistCovered": 1
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s14-code-mixed-country-budget",
+      "strata": [
+        "code-mixed"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 2,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry",
+          "budget_inr_per_year"
+        ],
+        "falseDrops": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          },
+          {
+            "key": "budget_inr_per_year",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          },
+          {
+            "key": "budget_inr_per_year",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers Canada, 18 lakh.",
+        "scriptLike": false,
+        "checklistTotal": 2,
+        "checklistCovered": 2
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s15-code-mixed-course",
+      "strata": [
+        "code-mixed"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "intendedCourse"
+        ],
+        "falseDrops": [
+          {
+            "key": "intendedCourse",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "intendedCourse",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers business analytics.",
+        "scriptLike": false,
+        "checklistTotal": 1,
+        "checklistCovered": 1
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s16-code-mixed-distractor",
+      "strata": [
+        "code-mixed",
+        "distractor-chatter"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers UK.",
+        "scriptLike": false,
+        "checklistTotal": 1,
+        "checklistCovered": 1
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s17-multiturn-country-decision",
+      "strata": [
+        "multi-turn"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 1,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers Canada.",
+        "scriptLike": false,
+        "checklistTotal": 1,
+        "checklistCovered": 1
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s18-multiturn-budget-range-to-figure",
+      "strata": [
+        "multi-turn"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "budget_inr_per_year"
+        ],
+        "falseDrops": [
+          {
+            "key": "budget_inr_per_year",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "budget_inr_per_year",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 1,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers 18 lakh.",
+        "scriptLike": false,
+        "checklistTotal": 1,
+        "checklistCovered": 1
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s19-multiturn-course-decision",
+      "strata": [
+        "multi-turn"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "intendedCourse"
+        ],
+        "falseDrops": [
+          {
+            "key": "intendedCourse",
+            "class": "case-mismatch",
+            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
+          }
+        ],
+        "citationVerdicts": [
+          {
+            "key": "intendedCourse",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 1,
+          "recalledCount": 0
+        }
+      },
+      "summary": {
+        "text": "Session record: the student's current position covers cybersecurity.",
+        "scriptLike": false,
+        "checklistTotal": 1,
+        "checklistCovered": 1
+      },
+      "result": null
+    },
+    {
+      "sessionId": "s20-routine-concern-level",
+      "strata": [
+        "concern"
+      ],
+      "crisis": {
+        "expected": "concern",
+        "actual": "concern",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": null,
+      "summary": null,
+      "result": {
+        "status": "escalated",
+        "escalation": {
+          "type": "escalation",
+          "level": "concern",
+          "message": "This turn matched a distress signal — it's not an emergency-level flag, but worth a direct check-in. Ask the student how they're really doing before moving on to the next topic. iCALL (9152987821) is free and confidential if they want to talk to someone outside this session.",
+          "matched": [
+            "\\bso\\s+much\\s+(pressure|stress)\\s+i\\s+can'?t\\s+(cope|breathe)\\b"
+          ],
+          "turnId": "t3"
+        }
+      }
+    },
+    {
+      "sessionId": "s21-crisis-session",
+      "strata": [
+        "crisis"
+      ],
+      "crisis": {
+        "expected": "crisis",
+        "actual": "crisis",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": null,
+      "summary": null,
+      "result": {
+        "status": "escalated",
+        "escalation": {
+          "type": "escalation",
+          "level": "crisis",
+          "message": "Hey — what you just shared matters more than this session. I'd really like you to talk to someone who can help right now. iCALL is free, confidential, and trained for exactly this — you can call them at 9152987821 anytime. If you're in immediate danger, please call 112. Want to pause our session and pick it up another day? You're not alone.",
+          "matched": [
+            "\\b(want|going|gonna|trying|wanna)\\s+to\\s+(die|kill myself|end (it|my life))\\b",
+            "\\bkill\\s+myself\\b"
+          ],
+          "turnId": "t3"
+        }
+      }
+    },
+    {
+      "sessionId": "s22-crisis-original-language-only",
+      "strata": [
+        "crisis",
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "crisis",
+        "actual": "crisis",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": null,
+      "summary": null,
+      "result": {
+        "status": "escalated",
+        "escalation": {
+          "type": "escalation",
+          "level": "crisis",
+          "message": "Hey — what you just shared matters more than this session. I'd really like you to talk to someone who can help right now. iCALL is free, confidential, and trained for exactly this — you can call them at 9152987821 anytime. If you're in immediate danger, please call 112. Want to pause our session and pick it up another day? You're not alone.",
+          "matched": [
+            "\\bjeene?\\s+ka\\s+(mann|man|dil|fayda)\\s+(nahi|nahin|na|nai)\\b",
+            "\\bsab\\s+kuch\\s+khatam\\b"
+          ],
+          "turnId": "t2"
+        }
+      }
+    }
+  ]
+}
