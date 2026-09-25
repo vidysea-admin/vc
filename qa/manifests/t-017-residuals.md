@@ -3,19 +3,25 @@
 **Contract:** qa/contracts/counselling-engine.md (B3, B12, B14, B15 primary; D-012, D-014, D-015, D-016, D-017)
 **Goal task:** T-017
 **Status:** ready-for-check
-**Fix cycle:** 0
-**Diff range:** `8e5ed73..HEAD` on branch `wave/t-017-residuals`, one commit:
+**Fix cycle:** 1
+**Diff range (cycle 0):** `8e5ed73..5c748fe` on branch `wave/t-017-residuals`, one commit:
 "fix(db,engine,api): t-017 summary fence compensation, lease bound, sweep/startApi hardening".
 `8e5ed73` is main's tip ("decisions: D-017 session row + summary + claim lease (T-016); tasks: T-016
 done, T-017 scope"), the branch point.
+**Diff range (cycle 1):** `5c748fe..b77b3d9`, two commits: `e44444d` ("fix(db): t-017 cycle 1 part 1 —
+async onError rejection no longer unhandled") and `b77b3d9` ("fix(db,engine): t-017 cycle 1 part 2 —
+closes the summary residue window"). (`30e38ea` and `a708ee7` between them are the checker's own
+cycle-0 verdict/re-check commits, not maker changes — see "What changed in cycle 1" below.)
 **Scope:** `packages/db/src/{facts,erasure,client}.ts`, `packages/db/tests/{facts,erasure,client,db-scope}.test.ts`,
 `packages/engine/src/scribe/{graph,nodes}.ts`, `packages/engine/tests/scribe-persistence.test.ts`,
 `apps/api/src/index.ts`, `apps/api/tests/index.test.ts`, this manifest.
 **Not touched:** `.claude/**`, `docs/DECISIONS.md`, `scripts/**`, `qa/contracts/**`, `TASKS.md` (left `open`),
 `packages/schemas/**`, `packages/providers/**`, `packages/observability/**`, `mcp/**`, `apps/web/**`.
 **Dual check:** no
-**Issues addressed:** ISS-t-016-rev-1 (high), ISS-t-016-c0-1 (medium), ISS-t-016-c0-2 (low),
+**Issues addressed (cycle 0):** ISS-t-016-rev-1 (high), ISS-t-016-c0-1 (medium), ISS-t-016-c0-2 (low),
 ISS-t-015-c0-1 (medium), ISS-t-015-c0-3 (medium), ISS-t-015-c0-2 (low), ISS-t-015-c0-4 (low)
+**Issues addressed (cycle 1):** ISS-t-017-rev-2 (high, senior review BLOCK), ISS-t-017-c0-1 (medium,
+the same bug, found independently by the checker), ISS-t-017-rev-1 (medium, data-engineer review)
 **Executor:** claude-sonnet-subagent (maker build subagent)
 **Offline:** every run below is offline (B8). Nothing connected to MONGODB_URL.
 
@@ -254,3 +260,167 @@ python contracts/verify_contracts.py   -> "no frozen contracts yet (research pha
   just far smaller in magnitude than the pre-fix 60s-vs-outer gap)?
 - Is the `summaryApprovedAt`-as-match-key compensation design (Residual 3) an acceptable trade-off
   against a dedicated token field, given `writeApproved` is currently the only caller?
+
+---
+
+# Cycle 1: fix cycle (ISS-t-017-rev-2, ISS-t-017-c0-1, ISS-t-017-rev-1)
+
+The checker PASSed cycle 0 (`qa/verdicts/t-017-residuals.md`), but the senior review BLOCKED it
+(ISS-t-017-rev-2) and a data-engineer review filed a second, medium finding (ISS-t-017-rev-1). This
+cycle fixes both. Two commits, each green before the next started (per the build brief's "commit as
+you go" rule):
+
+- `e44444d` fix(db): async onError rejection no longer unhandled (ISS-t-017-rev-2 / ISS-t-017-c0-1)
+- `b77b3d9` fix(db,engine): closes the summary residue window (ISS-t-017-rev-1)
+
+## What changed
+
+### ISS-t-017-rev-2 (high, senior review BLOCK) / ISS-t-017-c0-1 (medium, same bug, found by the checker)
+
+`packages/db/src/erasure.ts` `startErasureFenceSweep`'s `tick()`: the cycle-0 fix
+(`try { options.onError?.(err); } catch { ... }`) only ever catches a SYNCHRONOUS throw from the
+`onError` call itself. An async `onError` (e.g. `async (err) => { await logToService(err); }`) whose
+returned promise rejects on a LATER microtask is not a throw at all from `tick()`'s point of view —
+the call returns normally (a pending promise), and the rejection surfaces afterwards with nothing
+awaiting or catching it: a genuine Node `unhandledRejection`, reproduced, crashing the process under
+Node's default policy (>=15). `ErasureFenceSweepOptions.onError`'s type (`(err: unknown) => void`)
+does not prevent this: TypeScript's structural typing accepts a `Promise`-returning function where
+`void` is expected, so the unsafe shape compiled silently.
+
+Fix: `tick()`'s `.catch((err) => ...)` now routes the `onError` call through
+`Promise.resolve().then(() => options.onError?.(err)).catch(() => undefined)`, returned (not just
+executed) so the outer `.catch` — and therefore `.finally`'s `inFlight` reset — waits for it. Whether
+`onError` throws synchronously or its returned promise rejects later, the inner `.catch(() =>
+undefined)` fully consumes it before anything is left unhandled. `onError`'s type is widened to
+`(err: unknown) => void | Promise<void>`, making an async `onError` a documented, supported shape
+instead of one that happened to compile via structural typing while silently losing its own
+rejections.
+
+### ISS-t-017-rev-1 (medium, data-engineer review) — the summary residue window between the two writes
+
+`recordApprovedSessionSummary`'s own pre/post-check (added in cycle 0 for ISS-t-016-rev-1) can only
+see a fence that exists by the time ITS post-check runs. A fence confirmed strictly AFTER that — in
+the window before or during the very next call in the same approval, `applyApprovedDiff` — is
+invisible to either write taken alone: `recordApprovedSessionSummary` has already returned
+successfully (nothing further to compensate from inside it), and `applyApprovedDiff`'s own
+pre-check/post-check only know about ITS OWN facts/edges, never the sibling summary write. The result:
+a `fenced` outcome from `writeApproved` (via `applyApprovedDiff` throwing `StudentFencedError`) left
+the approved summary on the session row, surviving until `executeErasure` eventually purged it — the
+same class of bug ISS-t-016-rev-1 fixed for the OTHER ordering (fence during the summary write
+itself), just shifted one write later. Three locations overclaimed this window as already closed by
+the cycle-0 fix: `packages/db/src/facts.ts`'s module docstring (~106-118), `db-scope.test.ts`'s
+`FENCE_AWARE_WRITERS` entry for `facts.ts` ("no longer leaves the summary behind"), and
+`packages/engine/src/scribe/graph.ts`'s `invokeFenceAware` docstring (~352, "the approved summary
+lives on the session row" — stated as a settled fact, not flagged as the open gap it was).
+
+Fix (chosen over reordering the two writes, which the module docstring documents as intentional —
+summary-before-facts so an erased row can never be silently recreated by facts alone):
+- `packages/db/src/facts.ts` `recordApprovedSessionSummary` now returns `{ approvedAt: string }`
+  instead of `void` — the exact match-key value its own post-check would use to undo its write.
+- A new exported `undoApprovedSessionSummary(db, { sessionId, studentId, summaryApprovedAt })` factors
+  out the same match-key `$unset` `recordApprovedSessionSummary`'s internal `undo` already ran; the
+  internal `undo` now calls it, so there is exactly one implementation of this compensation.
+- `packages/engine/src/scribe/nodes.ts` `writeApproved` keeps the `approvedAt` from
+  `recordApprovedSessionSummary`'s result and, when the subsequent `applyApprovedDiff` call throws
+  `StudentFencedError`, calls `undoApprovedSessionSummary` with it before rethrowing — so the fenced
+  outcome is never reported until the summary this call wrote is actually gone too, whichever of the
+  two writes caught the fence. If the undo itself throws, that error propagates instead of the
+  original (never a silently-masked residue), matching `compensateIfFenced`'s own documented contract.
+- The three overclaiming locations above are corrected to describe the real, now-accurate mechanism
+  (cross-write compensation in `writeApproved`, not either write alone) instead of asserting the race
+  was already closed.
+
+**Reuse of the cycle-0 Residual 3 trade-off, not a new one.** `undoApprovedSessionSummary` reuses
+`summaryApprovedAt` as its match key — the same theoretical same-millisecond-collision window cycle
+0's Residual 3 already disclosed and reasoned about (still not a real risk: `writeApproved` is the
+only caller of both `recordApprovedSessionSummary` and this new export, always sequential per thread).
+No new field was introduced for this fix; the existing trade-off simply gained a second caller.
+
+## TDD: RED before implementation, for both fixes
+
+**ISS-t-017-rev-2** (`packages/db/tests/erasure.test.ts`, new test "ISS-t-017-rev-2: an ASYNC onError
+whose returned promise rejects..."): temporarily reverted `tick()`'s `.catch` to the cycle-0
+`try/catch` shape (source restored from the pre-cycle-1 commit), ran `npx tsx --test
+tests/erasure.test.ts`:
+```
+RED: ✖ ISS-t-017-rev-2: ... — Error: async onError's own promise rejects ...
+     (the unhandledRejection crashed the test itself, per node:test's own attribution, and corrupted
+     mock-timer state for the NEXT test: "MockTimers is already enabled!" — the identical failure
+     signature the cycle-0 manifest recorded for the synchronous-throw case, now reproduced for the
+     async-rejection case the cycle-0 fix missed)
+     2 failing (this test + the timer-state casualty after it)
+```
+Restored the fix, re-ran: `packages/db` 60/60, all green (was 59 before this test was added).
+
+**ISS-t-017-rev-1** (`packages/engine/tests/scribe-persistence.test.ts`, new test "ISS-t-017-rev-1: a
+fence that appears DURING applyApprovedDiff..."): temporarily removed the `StudentFencedError` branch
+from `writeApproved`'s catch block (nodes.ts), ran `npx tsx --test tests/scribe-persistence.test.ts`:
+```
+RED: ✖ ISS-t-017-rev-1: ...
+     AssertionError: ISS-t-017-rev-1: the summary must be compensated by writeApproved, not left for
+     the purge
+     + actual:   'Student wants to study computer science in Canada; the family budget is around 20
+                  lakh rupees a year.'
+     - expected: undefined
+     1 failing
+```
+Restored the fix, re-ran: `packages/engine` 26/26, all green (was 25 before this test was added).
+
+**Falsification, folded into the RED/GREEN cycles above** (each fix's own new test IS its
+falsification):
+
+| # | Mutation (= pre-fix source) | Result (targeted suite) |
+|---|---|---|
+| G1 | `tick()`'s onError call uses a plain `try { onError(err) } catch {}` (cycle-0 shape) | erasure.test.ts: the new async test's `process.on("unhandledRejection")` listener fires; the unhandled rejection crashes the test AND corrupts mock-timer state for the next one |
+| G2 | `writeApproved`'s catch has no `StudentFencedError` branch | scribe-persistence.test.ts: the new test's summary-residue assertion fails — the summary text survives the fenced outcome |
+
+## Verification (exact commands, run in the worktree, final state)
+
+```
+pnpm -r typecheck                      -> exit 0 (every package, incl. evals/tsconfig.json)
+pnpm -r test                           -> exit 0
+  apps/web 1/1, packages/providers 8/8, packages/schemas 50/50, packages/observability 57/57,
+  packages/db 182/182 (was 181; +1: erasure.test.ts ISS-t-017-rev-2), apps/api 8/8,
+  mcp/student-profile 12/12, mcp/university-kb 9/9,
+  packages/engine 134/134 (was 133; +1: scribe-persistence.test.ts ISS-t-017-rev-1)
+  total 461 / 461 (was 459)
+python contracts/verify_contracts.py   -> "no frozen contracts yet (research phase) -- PASS by vacuity", exit 0
+```
+
+## Claims -> evidence (cycle 1)
+
+| Claim | Evidence (test, file) |
+|---|---|
+| ISS-t-017-rev-2: a synchronous throw from onError is still caught (regression) | "ISS-t-015-c0-3: an onError that itself throws ..." (erasure.test.ts, unchanged, still green) |
+| ISS-t-017-rev-2 / ISS-t-017-c0-1: an ASYNC onError whose returned promise rejects produces zero unhandled rejections; the interval survives | "ISS-t-017-rev-2: an ASYNC onError whose returned promise rejects ..." (erasure.test.ts, a live `process.on("unhandledRejection")` listener) |
+| ISS-t-017-rev-1: a fence confirmed strictly after recordApprovedSessionSummary's own post-check, during applyApprovedDiff's first facts write, still leaves zero summary residue IMMEDIATELY (before executeErasure) | "ISS-t-017-rev-1: a fence that appears DURING applyApprovedDiff ..." (scribe-persistence.test.ts) |
+| ISS-t-017-rev-1: applyApprovedDiff's own facts/edges compensation is unaffected by the new summary compensation | same test, `assert.equal(h.facts.size(), 0, ...)` |
+| ISS-t-016-rev-1 (cycle 0, regression check): a fence DURING the summary write itself is still compensated by recordApprovedSessionSummary's own post-check | "ISS-t-016-rev-1: a fence that appears BETWEEN the summary write and applyApprovedDiff ..." (scribe-persistence.test.ts, unchanged, still green) |
+
+## Residuals (unchanged from cycle 0, still not fixed here)
+
+Cycle 0's three residuals (the offline-fake `timeoutMS` gap for ISS-t-016-c0-1's exact checker-probe
+scenario; the T-016 manifest's unclaimed-recovery-not-leased residual; the theoretical
+`summaryApprovedAt` same-millisecond collision window) are unchanged by this cycle — see the
+"Residuals" section above. This cycle's own fix reuses, rather than deepens, Residual 3.
+
+## Open questions for the checker (cycle 1)
+
+- Is compensating the summary from `writeApproved` (one level up, on `StudentFencedError` from
+  `applyApprovedDiff`) the right layer, or should `applyApprovedDiff` itself take an optional
+  "also undo this on fence" callback so the compensation stays inside the fence-aware primitive
+  rather than in the caller? Chose the caller-side shape here because `applyApprovedDiff` has no
+  reason to know about a sibling write in a DIFFERENT collection that isn't its own concern, and
+  because the existing precedent (`invokeFenceAware` in graph.ts) already compensates sibling
+  writers — claim, session row, checkpoints — one level up from the writes themselves.
+- Should `undoApprovedSessionSummary` also run when `applyApprovedDiff` throws
+  `FencedWriterDeadlineError` (a timeout, not necessarily a confirmed fence) rather than only
+  `StudentFencedError`? Left out deliberately: a timeout alone does not mean the student is fenced
+  (D-016's deadline exists to bound EVERY fenced-writer scenario defensively, fenced or not), and
+  `invokeFenceAware` (graph.ts) already re-checks the actual fence state via `fencedForPostCheck`
+  after any thrown error — including a propagated `FencedWriterDeadlineError` — and compensates
+  checkpoints/claim/sessionRow if genuinely fenced at that point. Whether that same later check should
+  ALSO trigger the summary undo (a fence confirmed after `applyApprovedDiff`'s own post-check already
+  ran clean, caught only by `invokeFenceAware`'s later, broader check) is a narrower, not-yet-tested
+  residual of the same class as ISS-t-016-c0-1's own offline-fake gap — flagging it for the checker
+  rather than silently expanding this fix's scope.
