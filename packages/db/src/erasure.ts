@@ -96,6 +96,7 @@ import {
   type SessionDoc,
   type StudentDoc,
 } from "./collections.js";
+import type { RejectReasonAuditDoc } from "./decisions.js";
 import type { EdgeDoc } from "./edges.js";
 
 // ---------------------------------------------------------------------------
@@ -1198,7 +1199,13 @@ export interface StudentExport {
   /** Full history: active facts (`active: true`) and retired ones (`validTo` set). */
   facts: FactDoc[];
   sessions: SessionDoc[];
-  decisions: DecisionDoc[];
+  /**
+   * T-018: the `decisions` collection holds two discriminated shapes — pre-existing course/
+   * university selection rows (DecisionDoc, `kind` absent) and per-fact reject-reason audit
+   * records (RejectReasonAuditDoc, `kind: "per_fact_reject"`, decisions.ts). Both are the
+   * student's own data and both belong in their access copy.
+   */
+  decisions: Array<DecisionDoc | RejectReasonAuditDoc>;
   consents: ConsentDoc[];
   edges: EdgeDoc[];
   /** Scribe approval claims (they hold the approved fact values). */
@@ -1226,7 +1233,7 @@ export async function exportStudent(db: Db, studentId: string): Promise<StudentE
     student: await db.collection<StudentDoc>(COLLECTION_NAMES.students).findOne({ studentId }),
     facts,
     sessions: await db.collection<SessionDoc>(COLLECTION_NAMES.sessions).find({ studentId }).toArray(),
-    decisions: await db.collection<DecisionDoc>(COLLECTION_NAMES.decisions).find({ studentId }).toArray(),
+    decisions: await db.collection<DecisionDoc | RejectReasonAuditDoc>(COLLECTION_NAMES.decisions).find({ studentId }).toArray(),
     consents: await db.collection<ConsentDoc>(COLLECTION_NAMES.consents).find({ studentId }).toArray(),
     edges: (await db.collection(COLLECTION_NAMES.edges).find(edgeFilter(s)).toArray()) as unknown as EdgeDoc[],
     approvalClaims: await db

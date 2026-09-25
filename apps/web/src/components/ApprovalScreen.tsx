@@ -34,8 +34,13 @@ function display(value: unknown): string {
   return JSON.stringify(value);
 }
 
-/** The edited text as a value of the proposed value's type (a number stays a number). */
-function editedValue(fact: ProposedFact, text: string): { ok: true; value: unknown } | { ok: false } {
+/**
+ * The edited text as a value of the proposed value's type (a number stays a number). T-018: the
+ * return type is narrowed to `string | number | boolean` (never `unknown`) because that is what
+ * this function actually produces, and it is now what the engine boundary (EditedValueSchema,
+ * perFactDecision) requires too — this was already the client-side mirror of that rule.
+ */
+function editedValue(fact: ProposedFact, text: string): { ok: true; value: string | number | boolean } | { ok: false } {
   const t = text.trim();
   if (t === "") return { ok: false };
   if (typeof fact.value === "number") {

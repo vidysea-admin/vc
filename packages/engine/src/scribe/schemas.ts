@@ -165,11 +165,30 @@ export type SummaryDecision = z.infer<typeof SummaryDecisionSchema>;
 /** The reason stored on the session row when the counsellor withholds the draft summary (T-008). */
 export const COUNSELLOR_WITHHELD_SUMMARY_REASON = "withheld by the counsellor at approval";
 
-/** An edited value: present, not null, not an empty string. */
+/**
+ * An edited value: present, not null, not an empty string, and a SCALAR (string, number or
+ * boolean) — never an array or object.
+ *
+ * T-018 / ISS-t-008-c0-1: a hostile probe sent `{not: "a number"}` as the edited value for a
+ * numeric fact and the API accepted it (this schema previously only refused
+ * undefined/null/empty-string). Refusing every non-scalar edited value here is a CHEAP, static
+ * check (it needs no knowledge of the proposed fact's own type) that already closes the exact
+ * probe. It does not by itself catch a same-shape-of-type mismatch (a STRING sent for a NUMERIC
+ * fact) — that needs the proposed value to compare against, so the full match is enforced one
+ * level up, in perFactDecision (nodes.ts), which has both sides. Design choice (residual 1 of
+ * qa/manifests/t-008-approval-ui.md, "arrays and objects must match in shape, or be refused"):
+ * REFUSED, not shape-matched — an edit to an array/object-valued fact is never well-formed
+ * through this text-only channel (the UI's own text input can not produce real JSON either, see
+ * that manifest's residual 11), so the counsellor must reject the fact and add a new one by hand
+ * instead.
+ */
 const EditedValueSchema = z
   .unknown()
   .refine((v) => v !== undefined && v !== null && !(typeof v === "string" && v.trim() === ""), {
     message: "an edited fact needs a non-empty value",
+  })
+  .refine((v) => typeof v === "string" || typeof v === "number" || typeof v === "boolean", {
+    message: "an edited fact's value must be a string, number or boolean (arrays and objects are refused; reject the fact and add a new one instead)",
   });
 
 /**
@@ -201,10 +220,21 @@ export const ApprovalResponseSchema = z.discriminatedUnion("action", [
 ]);
 export type ApprovalResponse = z.infer<typeof ApprovalResponseSchema>;
 
+/**
+ * T-018 / residual 3 (qa/manifests/t-008-approval-ui.md): one rejected fact from a per_fact
+ * response, with the counsellor's (optional, free-text-but-never-transcript) reason. Used only to
+ * build the reject-reason audit record; never stored on the written Fact itself (edit provenance
+ * stays gated separately, qa/gates/edit-provenance.md).
+ */
+export const RejectedFactSchema = z.object({ key: z.string().min(1), reason: z.string().optional() });
+export type RejectedFact = z.infer<typeof RejectedFactSchema>;
+
 export const ApprovalOutputSchema = z.object({
   decision: CounsellorDecisionSchema,
   /** T-008: absent for the whole-batch actions (the summary follows the batch decision). */
   summaryDecision: SummaryDecisionSchema.optional(),
+  /** T-018: set only by a per_fact response that rejected at least one proposed fact. */
+  rejectedFacts: z.array(RejectedFactSchema).optional(),
 });
 export type ApprovalOutput = z.infer<typeof ApprovalOutputSchema>;
 
