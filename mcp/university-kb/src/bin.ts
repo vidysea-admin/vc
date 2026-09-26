@@ -8,12 +8,19 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { connectFromEnv } from "@vc/db";
 import { createUniversityKbServer } from "./index.js";
+import { createKnowledgeBaseClient, loadKbConfigFromEnv } from "./kb-client.js";
 
 async function main(): Promise<void> {
   const { client, db } = connectFromEnv(process.env);
   await client.connect();
 
-  const server = createUniversityKbServer({ db });
+  // T-026: optional -- VC_KB_BASE_URL unset means no KB configured, and the server runs with
+  // only its two Mongo-backed tools, exactly as before this unit (names only in .env.example,
+  // contract B11; never read a real value here beyond process.env at runtime).
+  const kbConfig = loadKbConfigFromEnv(process.env);
+  const kb = kbConfig ? createKnowledgeBaseClient(kbConfig) : undefined;
+
+  const server = createUniversityKbServer({ db, kb });
   const transport = new StdioServerTransport();
   await server.connect(transport);
 

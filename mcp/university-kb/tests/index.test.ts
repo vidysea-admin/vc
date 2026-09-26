@@ -5,6 +5,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createUniversityKbServer } from "../src/index.js";
 import { createFakeDb, type FakeDb } from "./fakes.js";
+import type { KbAskResult, KnowledgeBaseClient } from "../src/kb-client.js";
 
 interface CourseRow {
   _id: string;
@@ -47,6 +48,112 @@ test("tool registered and callable through MCP: both tools appear in tools/list"
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     assert.deepEqual(names, ["get_course", "search_courses"]);
+  } finally {
+    await cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// T-026: ask_knowledge_base wiring. A fake KnowledgeBaseClient (not a real HTTP server -- that
+// level is covered in tests/kb-client.test.ts) proves the MCP tool boundary itself: registered
+// only when `kb` is supplied, surfaces citations verbatim on success, and turns any non-"ok"
+// KbAskResult into a tool error (isError), never a fabricated or uncited answer.
+// ---------------------------------------------------------------------------
+function fakeKbClient(result: KbAskResult): KnowledgeBaseClient {
+  return { ask: async () => result };
+}
+
+test("ask_knowledge_base is NOT registered when no kb client is configured", async () => {
+  const { db } = createFakeDb();
+  const server = createUniversityKbServer({ db }); // no `kb`
+  const { client, cleanup } = await connectedClient(server);
+  try {
+    const { tools } = await client.listTools();
+    const names = tools.map((t) => t.name).sort();
+    assert.deepEqual(names, ["get_course", "search_courses"]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("ask_knowledge_base is registered and returns the answer with citations carried through verbatim when the kb client succeeds", async () => {
+  const { db } = createFakeDb();
+  const kb = fakeKbClient({
+    status: "ok",
+    answer: "Testland U offers a BSc in CS.",
+    citations: { internal: [{ node_id: "course:testland-cs" }], web: [] },
+    verdict: "answered",
+    reason: "matched",
+    scored: [],
+    webUsed: false,
+    insufficientCoverage: false,
+    auditLog: [],
+    raw: {
+      answer: "Testland U offers a BSc in CS.",
+      verdict: "answered",
+      reason: "matched",
+      scored: [],
+      web_used: false,
+      insufficient_coverage: false,
+      sources: { internal: [{ node_id: "course:testland-cs" }], web: [] },
+      auditLog: [],
+    },
+  });
+  const server = createUniversityKbServer({ db, kb });
+  const { client, cleanup } = await connectedClient(server);
+  try {
+    const { tools } = await client.listTools();
+    assert.deepEqual(
+      tools.map((t) => t.name).sort(),
+      ["ask_knowledge_base", "get_course", "search_courses"],
+    );
+    const result = await client.callTool({ name: "ask_knowledge_base", arguments: { query: "cs courses?" } });
+    assert.notEqual(result.isError, true);
+    const structured = result.structuredContent as { answer: string; citations: { internal: unknown[]; web: unknown[] } };
+    assert.equal(structured.answer, "Testland U offers a BSc in CS.");
+    assert.deepEqual(structured.citations, { internal: [{ node_id: "course:testland-cs" }], web: [] });
+  } finally {
+    await cleanup();
+  }
+});
+
+test("ask_knowledge_base surfaces a KB outage as a tool error, never a fabricated answer", async () => {
+  const { db } = createFakeDb();
+  const kb = fakeKbClient({ status: "unavailable", reason: "http_error", detail: "KbHttpError: HTTP 503" });
+  const server = createUniversityKbServer({ db, kb });
+  const { client, cleanup } = await connectedClient(server);
+  try {
+    const result = await client.callTool({ name: "ask_knowledge_base", arguments: { query: "cs courses?" } });
+    assert.equal(result.isError, true);
+    assert.equal(result.structuredContent, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("ask_knowledge_base surfaces an uncited KB answer as a tool error too (B2: never served uncited)", async () => {
+  const { db } = createFakeDb();
+  const kb = fakeKbClient({ status: "unavailable", reason: "uncited", detail: "zero citations" });
+  const server = createUniversityKbServer({ db, kb });
+  const { client, cleanup } = await connectedClient(server);
+  try {
+    const result = await client.callTool({ name: "ask_knowledge_base", arguments: { query: "cs courses?" } });
+    assert.equal(result.isError, true);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("hostile: ask_knowledge_base rejects an empty query via Zod before ever calling the kb client", async () => {
+  const { db } = createFakeDb();
+  let called = false;
+  const kb: KnowledgeBaseClient = { ask: async () => { called = true; return { status: "unavailable", reason: "uncited", detail: "n/a" }; } };
+  const server = createUniversityKbServer({ db, kb });
+  const { client, cleanup } = await connectedClient(server);
+  try {
+    const result = await client.callTool({ name: "ask_knowledge_base", arguments: { query: "" } });
+    assert.equal(result.isError, true);
+    assert.equal(called, false);
   } finally {
     await cleanup();
   }
