@@ -3,7 +3,6 @@
 **Contract:** qa/contracts/counselling-engine.md (B15 primary; B8, B12, D-016)
 **Goal task:** T-015
 **Status:** checked-PASS (cycle 0; senior review Approve)
-**Status:** ready-for-check
 **Fix cycle:** 0
 **Design:** no new decision; closes five follow-ups the T-014 reviews and checker left open
 (`qa/issues.jsonl` `ISS-t-014-rev-1..4`, `ISS-t-014-c0-2`).
