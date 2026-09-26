@@ -36,9 +36,11 @@ import {
   type ApprovalResponse,
   type ScribeGraph,
   type ScribeInput,
+  type ScribeOutcome,
 } from "@vc/engine";
-import { MockProvider } from "@vc/providers";
+import { AiUnavailableError, MockProvider, type GenerateRequest, type LlmProvider } from "@vc/providers";
 import type { ApprovalRuntime } from "../src/server/approval-service";
+import type { SessionRuntime } from "../src/server/session-service";
 
 export const DEMO_THREADS = {
   /** Paused at the approval interrupt: the main demo thread. */
@@ -117,10 +119,51 @@ export interface DemoReadback {
   decisions: { threadId: string; rejected: { key: string; reason?: string }[]; decidedAt: string }[];
 }
 
-export interface DemoRuntime extends ApprovalRuntime {
+export interface DemoRuntime extends ApprovalRuntime, SessionRuntime {
   mode: "demo";
   threads: typeof DEMO_THREADS;
   readback(studentId: string): DemoReadback;
+}
+
+// ---------------------------------------------------------------------------
+// T-021 (D-020, contract B6 "runtime failover"): the demo/browser proof that a real
+// FailoverProvider exhaustion (packages/providers) surfaces as the apologetic "AI unavailable"
+// state in apps/web, with a Retry that resubmits the identical input and completes normally.
+// ---------------------------------------------------------------------------
+
+/** The synthetic student the "start a new session" demo flow submits against. */
+export const DEMO_NEW_SESSION_STUDENT_ID = "demo-student-4";
+
+/**
+ * Wraps a normal MockProvider so the FIRST `failCount` calls throw the SAME typed error a real
+ * exhausted FailoverProvider chain throws (packages/providers AiUnavailableError) -- proving the
+ * apologetic error + Retry path end to end without any real network (B8/B13). Every call after
+ * that delegates to `base`, so clicking Retry with the identical input succeeds normally, same as
+ * a real provider recovering. Demo/test infrastructure only (lives outside src/, like the rest of
+ * this file) -- never used by the live runtime, which gets its real FailoverProvider straight from
+ * createProvider(loadProviderConfig(env)) (runtime.ts).
+ */
+export class FlakyOnceProvider implements LlmProvider {
+  readonly kind: LlmProvider["kind"];
+  readonly model: string;
+  #remaining: number;
+
+  constructor(
+    private readonly base: MockProvider,
+    failCount = 1,
+  ) {
+    this.kind = base.kind;
+    this.model = base.model;
+    this.#remaining = failCount;
+  }
+
+  async generate<T>(request: GenerateRequest<T>): Promise<T> {
+    if (this.#remaining > 0) {
+      this.#remaining -= 1;
+      throw new AiUnavailableError(["fast-cheap", "balanced", "smart-coding"], 10, "LiteLlmTimeoutError");
+    }
+    return this.base.generate<T>(request);
+  }
 }
 
 function resolveSkillsDir(): string {
@@ -150,12 +193,27 @@ export async function createDemoRuntime(): Promise<DemoRuntime> {
       minor: true,
     });
   }
+  // T-021: consent for the "start a new session" demo flow's student (see FlakyOnceProvider above).
+  consents.seed({
+    _id: `consent-${DEMO_NEW_SESSION_STUDENT_ID}`,
+    studentId: DEMO_NEW_SESSION_STUDENT_ID,
+    guardianConsent: true,
+    purposes: [SCRIBE_PURPOSE],
+    recordedAt: "2026-09-01T00:00:00.000Z",
+    minor: true,
+  });
 
   const provider = new MockProvider({ responses: { "fact-extraction": DEMO_EXTRACTION, "session-summary": { summary: DEMO_SUMMARY } } });
-  const graph: ScribeGraph = compileScribeGraph(
-    { db, provider, skillsDir: resolveSkillsDir() },
-    { checkpointer: createScribeCheckpointer(fake.client) },
+  const skillsDir = resolveSkillsDir();
+  const checkpointer = createScribeCheckpointer(fake.client);
+  const graph: ScribeGraph = compileScribeGraph({ db, provider, skillsDir }, { checkpointer });
+  // T-021: a SEPARATE graph for the "start a new session" flow, sharing the same db/skills/
+  // checkpointer but wired to a FlakyOnceProvider — so the 3 preseeded threads above (already
+  // extracted through the always-succeeding `provider`) are never affected by the forced failure.
+  const sessionProvider = new FlakyOnceProvider(
+    new MockProvider({ responses: { "fact-extraction": DEMO_EXTRACTION, "session-summary": { summary: DEMO_SUMMARY } } }),
   );
+  const sessionGraph: ScribeGraph = compileScribeGraph({ db, provider: sessionProvider, skillsDir }, { checkpointer });
 
   for (const n of [1, 2, 3]) {
     const outcome = await startScribe(graph, transcript(`demo-session-${n}`, `demo-student-${n}`), {
@@ -187,6 +245,8 @@ export async function createDemoRuntime(): Promise<DemoRuntime> {
     graph,
     engine: { inspectScribe, resumeScribe },
     threads: DEMO_THREADS,
+    startSession: (input: ScribeInput): Promise<ScribeOutcome> =>
+      startScribe(sessionGraph, input, { threadId: scribeThreadId(input.sessionId) }),
     readback(studentId: string): DemoReadback {
       const facts = fakeDb
         .collection<FactDoc>(COLLECTION_NAMES.facts)
