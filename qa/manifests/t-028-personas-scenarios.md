@@ -165,4 +165,4 @@ for r in rows:
             bad_nyb.append((r["id"], tid, st))
 ```
 
-## Status: ready-for-check
+## Status: checked-PASS (cycle 1, verdict 2637f20)
