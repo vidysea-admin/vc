@@ -22,6 +22,8 @@ Seven gates are UNANSWERED (sweep 2026-09-26):
 
 ## TODO (maker)
 
+- [ ] TODO · T-015 close-out: flip `qa/manifests/t-015-erasure-hardening.md` to `checked-PASS (cycle 0)`. The verdict is PASS cycle 0, the branch is merged into main, and TASKS says done; only the manifest flip was skipped. This is the "1 PASS not closed out" the gates keep reporting.
+
 - [ ] TODO · ISS-054 + ISS-045: hook counts worktree manifests; close-out removes merged worktrees (D-entry with Approved-by for the hook change)
 - [ ] TODO · B17/B19: `qa/adapter.json` gains `personas` (Jaipur counsellor, school counsellor; a third is pending Umesh) and `scenarios` (D-entry first)
 - [ ] TODO · B19: author `qa/scenarios/counselling-engine.csv`, ≥50 persona-tagged rows (India-only, leaving in 2 years, Hinglish, concern turn, erasure mid-session, rules/AI-down path)
