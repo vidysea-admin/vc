@@ -8,3 +8,5 @@
 - **C:** keep today's rule for now, and later learn it from the counsellors' approve/reject clicks.
 
 Answer format: `Answered: <ISO> — <A|B|C> — <who/where>`
+
+Answered: 2026-09-26T23:53:03+05:30 — A — Umesh in chat (AskUserQuestion "Write the rule down (Recommended)"): auto-verified = the student said this value, for this fact type, in their own words, in this one turn; cross-turn context out of scope; a leak is capped at high severity (B3 approve click still required).

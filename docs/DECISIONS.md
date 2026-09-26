@@ -260,3 +260,11 @@ The rules e2e proves that scribe â†’ facts â†’ profile diff â†’ a
 **Changes-authorized:** none (unit scope change; no ARCHITECTURE or contract change).
 **Result:** --
 **Links:** T-030, T-013, D-023, D-024, ISS-t-013r-rev-14, ISS-t-013r-rev-15, qa/debug/t-013-citation-rescope-cycle3.md
+
+## D-026 | 2026-09-26 | type: decision | status: ACTIVE
+**What:** "Auto-verified" (`needsReview:false`) now has a written property: the student said this value, for this fact type (key), in their own words, in this one turn. Context from other turns (a hypothetical framed earlier, a retraction later) is out of scope for auto-verify. An auto-verify leak is capped at high severity and Blocks only when it breaks this property. B3 still requires the counsellor's approve click on every fact.
+**Why:** the T-013 stall diagnosis (qa/debug/t-013-citation-rescope-cycle3.md) showed that each fix cycle found a new leak class because B2 named a mechanism, not a property. Umesh chose option A of gate auto-verify-property.
+**Changes-authorized:** qa/contracts/counselling-engine.md B2 wording, via /checker only (the maker never edits contracts).
+**Approved-by:** Umesh (chat, 2026-09-26, AskUserQuestion "Write the rule down (Recommended)")
+**Result:** --
+**Links:** T-030, T-013, D-024, D-025, qa/gates/auto-verify-property.md, ISS-069, ISS-070, ISS-071, ISS-072
