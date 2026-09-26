@@ -5,3 +5,4 @@ export * from "./decisions.js";
 export * from "./facts.js";
 export * from "./edges.js";
 export * from "./erasure.js";
+export * from "./tenant.js";

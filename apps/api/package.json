@@ -2,7 +2,7 @@
   "name": "@vc/api",
   "version": "0.1.0",
   "private": true,
-  "description": "Stub — the backend orchestrator surface (Fastify + LangGraph, plan.md §5) lands here",
+  "description": "The VC HTTP API (T-025): JWT-authenticated, tenant-scoped routes over the scribe, profile and erasure",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -13,11 +13,16 @@
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
-    "@vc/db": "workspace:*"
+    "@vc/db": "workspace:*",
+    "@vc/engine": "workspace:*",
+    "@vc/providers": "workspace:*",
+    "@vc/schemas": "workspace:*",
+    "jose": "6.2.12",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "typescript": "~5.8.2",
+    "@types/node": "^22.14.0",
     "tsx": "^4.21.0",
-    "@types/node": "^22.14.0"
+    "typescript": "~5.8.2"
   }
 }

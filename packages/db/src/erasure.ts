@@ -100,6 +100,8 @@ import {
 } from "./collections.js";
 import type { RejectReasonAuditDoc } from "./decisions.js";
 import type { EdgeDoc } from "./edges.js";
+// T-025: the fence sweep runs per tenant. tenant.ts imports nothing at runtime, so this adds no cycle.
+import { TENANT_FIELD, TENANT_ID_PATTERN, stripDocument, tenantIdOf, tenantScopedDb } from "./tenant.js";
 
 // ---------------------------------------------------------------------------
 // Audit row
@@ -501,8 +503,10 @@ const FENCING_STATUSES: ErasureStatus[] = ["confirmed", "failed"];
  * never fences until confirmed, and holding a fence for a request nobody confirms would recreate
  * the stuck-fence DoS of ISS-t-011-c2-rev-4.
  */
-async function hasFencingRequest(db: Db, studentKey: string): Promise<boolean> {
-  return (await erasureRequests(db).countDocuments({ studentKey, status: { $in: FENCING_STATUSES } })) > 0;
+async function hasFencingRequest(db: Db, studentKey: string, scope: Filter<Document> = {}): Promise<boolean> {
+  return (
+    (await erasureRequests(db).countDocuments({ studentKey, status: { $in: FENCING_STATUSES }, ...scope } as Filter<ErasureRequestDoc>)) > 0
+  );
 }
 
 /**
@@ -535,26 +539,66 @@ async function releaseErasureFence(db: Db, studentId: string, requestId: string,
  * `releaseAfter` if stamped (never earlier than createdAt + MINIMUM_FENCE_HOLD_MS), or, for a fence
  * left behind by a completed request whose own release did not happen (crash after the completion
  * CAS), max(createdAt + hold, completedAt + graceMs). Returns the number removed.
+ *
+ * T-025 (B21 tenancy): a tenant's fence and request rows carry `tenantId` and a tenant-prefixed
+ * `_id`, so one unscoped pass would miss them (its `_id: requestId` read can not match
+ * `<tenant>:<requestId>`) and could let one tenant's open request hold another tenant's fence.
+ * So: given a tenant-scoped Db, the sweep runs inside that tenant only. Given the unscoped system
+ * Db (startApi's), it runs once over the pre-tenancy (unstamped) rows, restricted to unstamped
+ * rows on both sides, then once per tenant that has a fence, through tenantScopedDb. A stored
+ * tenantId that is not a well-formed tenant id can not have been written through a scope and is
+ * skipped (its fence stays: fail safe, writes stay refused).
  */
 export async function releaseExpiredErasureFences(
   db: Db,
   now: Date = new Date(),
   graceMs: number = ERASURE_FENCE_GRACE_MS,
 ): Promise<number> {
-  let released = 0;
+  if (tenantIdOf(db) !== undefined) {
+    return releaseExpiredFencesIn(db, {}, await erasureFences(db).find({}).toArray(), now, graceMs);
+  }
+  // ONE read of every fence per tick (the in-flight guard's tests count reads per tick), then
+  // partitioned in memory: unstamped rows, and each well-formed tenant's rows as that tenant sees them.
+  const legacy: ErasureFenceDoc[] = [];
+  const byTenant = new Map<string, ErasureFenceDoc[]>();
   for (const fence of await erasureFences(db).find({}).toArray()) {
-    if (await hasFencingRequest(db, fence.studentKey ?? fence._id)) continue;
+    const tenant = (fence as { [TENANT_FIELD]?: unknown })[TENANT_FIELD];
+    if (tenant === undefined) legacy.push(fence);
+    else if (typeof tenant === "string" && TENANT_ID_PATTERN.test(tenant)) {
+      const list = byTenant.get(tenant) ?? [];
+      list.push(stripDocument(tenant, fence));
+      byTenant.set(tenant, list);
+    }
+  }
+  let released = await releaseExpiredFencesIn(db, { [TENANT_FIELD]: { $exists: false } }, legacy, now, graceMs);
+  for (const tenant of [...byTenant.keys()].sort()) {
+    released += await releaseExpiredFencesIn(tenantScopedDb(db, tenant), {}, byTenant.get(tenant)!, now, graceMs);
+  }
+  return released;
+}
+
+/** One sweep pass over `fences` (already read, all matching `scope`) and the requests they depend on. */
+async function releaseExpiredFencesIn(
+  db: Db,
+  scope: Filter<Document>,
+  fences: ErasureFenceDoc[],
+  now: Date,
+  graceMs: number,
+): Promise<number> {
+  let released = 0;
+  for (const fence of fences) {
+    if (await hasFencingRequest(db, fence.studentKey ?? fence._id, scope)) continue;
     let releaseAt: number;
     const holdEnd = parseTime(fence.createdAt, now.getTime()) + MINIMUM_FENCE_HOLD_MS;
     if (fence.releaseAfter !== undefined) {
       releaseAt = Math.max(parseTime(fence.releaseAfter, Number.POSITIVE_INFINITY), holdEnd);
     } else {
-      const row = await erasureRequests(db).findOne({ _id: fence.requestId });
+      const row = await erasureRequests(db).findOne({ _id: fence.requestId, ...scope } as Filter<ErasureRequestDoc>);
       if (row?.status !== "completed" || !row.completedAt) continue;
       releaseAt = fenceReleaseTime(fence, row.completedAt, graceMs);
     }
     if (releaseAt > now.getTime()) continue;
-    const res = await erasureFences(db).deleteMany({ _id: fence._id, requestId: fence.requestId });
+    const res = await erasureFences(db).deleteMany({ _id: fence._id, requestId: fence.requestId, ...scope } as Filter<ErasureFenceDoc>);
     released += res.deletedCount ?? 0;
   }
   return released;
@@ -709,7 +753,7 @@ export interface RequestErasureInput {
 /**
  * Creates a PENDING erasure request. Deletes nothing. Throws ErasureRequestAlreadyOpenError if the
  * student already has an open (pending / confirmed / failed) request: the unique partial index
- * `erasure_requests_open_studentKey_unique` makes that atomic across processes (D-016).
+ * `erasure_requests_open_tenantId_studentKey_unique` makes that atomic across processes (D-016; per tenant since T-025).
  */
 export async function requestErasure(db: Db, input: RequestErasureInput): Promise<{ requestId: string }> {
   if (typeof input.studentId !== "string" || input.studentId.trim() === "") {

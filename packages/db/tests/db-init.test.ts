@@ -66,11 +66,12 @@ test("ISS-019/ISS-021 (regression): the facts unique-partial and edges from/to i
     (spec) => spec.collection === COLLECTION_NAMES.facts && spec.unique === true,
   );
   assert.ok(factsUnique, "expected the unique partial index on facts");
-  assert.deepEqual(factsUnique?.keys, { studentId: 1, key: 1 });
+  // T-025: tenant-led, so two tenants' open facts never collide.
+  assert.deepEqual(factsUnique?.keys, { tenantId: 1, studentId: 1, key: 1 });
   // D-013: MongoDB rejects `$exists: false` in a partialFilterExpression, so
   // open facts carry an explicit `active: true` and the index filters on it.
   assert.deepEqual(factsUnique?.partialFilterExpression, { active: true });
-  assert.equal(factsUnique?.name, "facts_studentId_key_active_true_unique");
+  assert.equal(factsUnique?.name, "facts_tenantId_studentId_key_active_true_unique");
 
   const edgesFrom = INDEX_PLAN.find((spec) => spec.collection === COLLECTION_NAMES.edges && spec.name === "edges_from");
   const edgesTo = INDEX_PLAN.find((spec) => spec.collection === COLLECTION_NAMES.edges && spec.name === "edges_to");
@@ -136,17 +137,20 @@ test("ISS-t-007-rev-8: scribe_resolutions is a named collection with a UNIQUE (n
     (spec) => spec.collection === COLLECTION_NAMES.scribe_resolutions && spec.unique === true,
   );
   assert.ok(unique, "expected a unique index on scribe_resolutions");
-  assert.deepEqual(unique?.keys, { threadId: 1 });
+  // T-025: one claim per thread PER TENANT (tenant-led key).
+  assert.deepEqual(unique?.keys, { tenantId: 1, threadId: 1 });
+  assert.equal(unique?.name, "scribe_resolutions_tenantId_threadId_unique");
   assert.equal(unique?.partialFilterExpression, undefined, "the claim must be unique for EVERY doc, not a filtered subset");
 });
 
-test("ISS-t-007-rev-8: the fake enforces the planned threadId unique index even when _id differs (11000 on a second claim)", async () => {
-  const coll = new FakeCollection<{ _id: string; threadId: string }>();
+test("ISS-t-007-rev-8 / T-025: the fake enforces the planned tenant+threadId unique index even when _id differs (11000 on a second claim), and two tenants' claims on the same thread id coexist", async () => {
+  const coll = new FakeCollection<{ _id: string; tenantId: string; threadId: string }>();
   const spec = INDEX_PLAN.find((s) => s.collection === COLLECTION_NAMES.scribe_resolutions && s.unique)!;
   coll.declareUniqueIndex(Object.keys(spec.keys));
-  await coll.insertOne({ _id: "a", threadId: "scribe:s1" });
-  await assert.rejects(coll.insertOne({ _id: "b", threadId: "scribe:s1" }), (err: { code?: number }) => err.code === 11000);
-  assert.equal(coll.size(), 1);
+  await coll.insertOne({ _id: "a", tenantId: "t1", threadId: "scribe:s1" });
+  await assert.rejects(coll.insertOne({ _id: "b", tenantId: "t1", threadId: "scribe:s1" }), (err: { code?: number }) => err.code === 11000);
+  await coll.insertOne({ _id: "c", tenantId: "t2", threadId: "scribe:s1" });
+  assert.equal(coll.size(), 2);
 });
 
 // ---------------------------------------------------------------------------
@@ -198,8 +202,8 @@ test("T-011 / D-016: the erasure_requests audit log has a status index and exact
     unique.map((s) => [s.name, s.keys, s.partialFilterExpression]),
     [
       [
-        "erasure_requests_open_studentKey_unique",
-        { studentKey: 1 },
+        "erasure_requests_open_tenantId_studentKey_unique",
+        { tenantId: 1, studentKey: 1 },
         { status: { $in: ["pending", "confirmed", "failed"] } },
       ],
     ],
@@ -363,4 +367,32 @@ test("ISS-t-013r-c0-3 scanner falsification: the TTL pattern catches the forms a
   assert.equal(containsTtl(`new MongoDBSaver({ client, ttl: 3600 })`), true);
   assert.equal(containsTtl(`const opts = { TTL: 5 }`), true);
   assert.equal(containsTtl(`const settled = true; // a subtle title`), false);
+});
+
+// ---------------------------------------------------------------------------
+// T-025 (B21 tenancy): a UNIQUE index that does not lead with tenantId makes one tenant's write
+// collide with another tenant's document (11000): an existence oracle and a write-blocker across
+// tenants. Every unique index in the plan therefore leads with tenantId.
+// ---------------------------------------------------------------------------
+
+test("T-025: every UNIQUE index in INDEX_PLAN leads with tenantId (per-tenant uniqueness, INDEX_PLAN)", () => {
+  const unique = INDEX_PLAN.filter((s) => s.unique);
+  assert.ok(unique.length >= 3, "sanity: facts, scribe_resolutions and erasure_requests have unique indexes");
+  for (const spec of unique) {
+    assert.equal(Object.keys(spec.keys)[0], "tenantId", `${spec.name} must lead with tenantId`);
+    assert.match(spec.name, /tenantId/, `${spec.name}: the name changed with the keys (a live DB drops the old one first, human-gated)`);
+  }
+});
+
+test("T-025: the fake enforces the tenant-led facts index: the same open (studentId, key) in two tenants coexists, a duplicate within one tenant is 11000", async () => {
+  const coll = new FakeCollection<{ _id: string; tenantId: string; studentId: string; key: string; active: true }>();
+  const spec = INDEX_PLAN.find((s) => s.collection === COLLECTION_NAMES.facts && s.unique)!;
+  coll.declareUniqueIndex(Object.keys(spec.keys), { partialFilterExpression: spec.partialFilterExpression });
+  await coll.insertOne({ _id: "a", tenantId: "t1", studentId: "s", key: "k", active: true });
+  await coll.insertOne({ _id: "b", tenantId: "t2", studentId: "s", key: "k", active: true });
+  await assert.rejects(
+    coll.insertOne({ _id: "c", tenantId: "t1", studentId: "s", key: "k", active: true }),
+    (err: { code?: number }) => err.code === 11000,
+  );
+  assert.equal(coll.size(), 2);
 });

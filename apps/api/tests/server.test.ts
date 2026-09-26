@@ -1,0 +1,503 @@
+/**
+ * T-025 (contract B21, D-021): the VC HTTP API. Offline (B8): the in-process @vc/db fake behind the
+ * PRODUCTION tenant wiring (createTenantWiring: tenantScopedDb + the real LangGraph Mongo saver over
+ * tenantScopedClient), a MockProvider, and JWTs signed here with locally generated keys. Synthetic
+ * data only (B13). Assertions read the RAW fake collections (B14: outcome, not construction).
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { generateKeyPairSync } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { SignJWT, type JWTPayload } from "jose";
+import { COLLECTION_NAMES, VC_DB_NAME, getVcDb, tenantScopedDb } from "@vc/db";
+import { createFakeMongoClient, INDEX_PLAN, type FakeDb } from "@vc/db/testing";
+import { MockProvider } from "@vc/providers";
+import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
+import { API_ROUTES, createApiHandler, createApiServer, createTenantWiring, type ApiDeps, type ApiLogLine, type ApiRequest } from "../src/server.js";
+import { OPENAPI_DOCUMENT } from "../src/openapi.js";
+import { startApi } from "../src/index.js";
+
+const SKILLS_DIR = fileURLToPath(new URL("../../../skills", import.meta.url));
+const ISSUER = "https://issuer.synthetic.test";
+const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const otherKeys = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const PEM = keys.publicKey.export({ type: "spki", format: "pem" }).toString();
+const verifier = createJwtVerifier(jwtConfigFromEnv({ VC_JWT_ISSUER: ISSUER, VC_JWT_PUBLIC_KEY: PEM }));
+
+const STUDENT = "student-synthetic-1";
+const SESSION = "session-synthetic-1";
+const ALL_COLLECTIONS = Object.values(COLLECTION_NAMES);
+
+type AnyDoc = Record<string, unknown>;
+
+async function token(
+  claims: Record<string, unknown>,
+  opts: { key?: Parameters<SignJWT["sign"]>[0]; alg?: string; iss?: string; exp?: number } = {},
+): Promise<string> {
+  return new SignJWT(claims as JWTPayload)
+    .setProtectedHeader({ alg: opts.alg ?? "RS256" })
+    .setIssuer(opts.iss ?? ISSUER)
+    .setIssuedAt()
+    .setExpirationTime(opts.exp ?? Math.floor(Date.now() / 1000) + 300)
+    .sign(opts.key ?? keys.privateKey);
+}
+
+const as = (tenant: string, counsellorId: string, role: "counsellor" | "admin") => token({ tenant, counsellorId, role });
+
+function mockProvider(): MockProvider {
+  const cite = (key: string, value: unknown, quote: string, turnId: string) => ({
+    key,
+    value,
+    source: { type: "transcript", quote, turnId },
+    confidence: 0.85,
+    purposeTags: ["profile_synthesis"],
+    sensitivity: "low",
+  });
+  return new MockProvider({
+    responses: {
+      "fact-extraction": {
+        facts: [
+          cite("targetCountry", "Canada", "study computer science in Canada", "t1"),
+          cite("budget_inr_per_year", 2000000, "around 20 lakh rupees a year", "t3"),
+        ],
+      },
+      "session-summary": { summary: "Student wants computer science in Canada; budget around 20 lakh a year." },
+    },
+  });
+}
+
+const START_BODY = {
+  sessionEndedAt: "2026-09-25T10:00:00.000Z",
+  turns: [
+    { turnId: "t1", speaker: "student", lang: "en", text: "I want to study computer science in Canada.", translatedText: "I want to study computer science in Canada.", ts: 1 },
+    { turnId: "t2", speaker: "counsellor", lang: "en", text: "What budget does your family have in mind?", translatedText: "What budget does your family have in mind?", ts: 2 },
+    { turnId: "t3", speaker: "student", lang: "en", text: "We can manage around 20 lakh rupees a year.", translatedText: "We can manage around 20 lakh rupees a year.", ts: 3 },
+  ],
+};
+
+interface World {
+  handler: ReturnType<typeof createApiHandler>;
+  fakeDb: FakeDb;
+  calls: { db: string[]; graph: string[] };
+  logs: ApiLogLine[];
+}
+
+function world(overrides: Partial<ApiDeps> = {}): World {
+  const fake = createFakeMongoClient();
+  const db = getVcDb(fake.client);
+  const fakeDb = fake.dbFor(VC_DB_NAME);
+  for (const spec of INDEX_PLAN) {
+    if (!spec.unique) continue;
+    fakeDb.collection<{ _id: string }>(spec.collection).declareUniqueIndex(Object.keys(spec.keys), {
+      partialFilterExpression: spec.partialFilterExpression,
+    });
+  }
+  const wiring = createTenantWiring({ client: fake.client, db, provider: mockProvider(), skillsDir: SKILLS_DIR });
+  const calls = { db: [] as string[], graph: [] as string[] };
+  const logs: ApiLogLine[] = [];
+  const handler = createApiHandler({
+    verifier,
+    dbForTenant: (t) => {
+      calls.db.push(t);
+      return wiring.dbForTenant(t);
+    },
+    graphForTenant: (t) => {
+      calls.graph.push(t);
+      return wiring.graphForTenant(t);
+    },
+    log: (l) => logs.push(l),
+    ...overrides,
+  });
+  return { handler, fakeDb, calls, logs };
+}
+
+async function call(w: World, method: string, url: string, opts: { token?: string; body?: unknown; auth?: string } = {}) {
+  const headers: ApiRequest["headers"] = {};
+  if (opts.auth !== undefined) headers.authorization = opts.auth;
+  else if (opts.token !== undefined) headers.authorization = `Bearer ${opts.token}`;
+  const res = await w.handler({
+    method,
+    url,
+    headers,
+    readBody: async () => (opts.body === undefined ? "" : typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body)),
+  });
+  return { ...res, json: JSON.parse(res.body) as AnyDoc };
+}
+
+function rawAll(fakeDb: FakeDb): Record<string, AnyDoc[]> {
+  const out: Record<string, AnyDoc[]> = {};
+  for (const name of ALL_COLLECTIONS) {
+    out[name] = fakeDb
+      .collection<{ _id: string }>(name)
+      .all()
+      .map((d) => JSON.parse(JSON.stringify(d)) as AnyDoc)
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  }
+  return out;
+}
+
+function docCount(fakeDb: FakeDb): number {
+  return Object.values(rawAll(fakeDb)).reduce((n, docs) => n + docs.length, 0);
+}
+
+/** Seeds consent through the tenant-scoped Db (so it is stamped like any other document). */
+async function seedConsent(w: World, tenant: string, studentId = STUDENT): Promise<void> {
+  await tenantScopedDb(w.fakeDb as unknown as Parameters<typeof tenantScopedDb>[0], tenant)
+    .collection(COLLECTION_NAMES.consents)
+    .insertOne({
+      _id: `consent-${studentId}`,
+      studentId,
+      guardianConsent: true,
+      purposes: ["profile_synthesis", "counselling_session"],
+      recordedAt: "2026-09-01T00:00:00.000Z",
+      minor: true,
+    } as never);
+}
+
+/** Tenant A runs a whole scribe: start -> approval pending. */
+async function scribeToApproval(w: World, tenant = "tenant-a"): Promise<void> {
+  await seedConsent(w, tenant);
+  const res = await call(w, "POST", `/v1/students/${STUDENT}/sessions/${SESSION}/scribe`, {
+    token: await as(tenant, "counsellor-1", "counsellor"),
+    body: START_BODY,
+  });
+  assert.equal(res.status, 200, res.body);
+  assert.equal(res.json.kind, "awaiting_approval", res.body);
+}
+
+function concrete(path: string): string {
+  return path
+    .replace("{studentId}", STUDENT)
+    .replace("{sessionId}", SESSION)
+    .replace("{requestId}", "0123456789abcdef01234567");
+}
+
+// ---------------------------------------------------------------------------
+// 401: every failure identical, nothing read or written
+// ---------------------------------------------------------------------------
+
+test("T-025 api: every auth failure on every protected route is the same 401, and no Db or graph is touched", async () => {
+  const w = world();
+  await scribeToApproval(w);
+  w.calls.db.length = 0;
+  w.calls.graph.length = 0;
+  const before = rawAll(w.fakeDb);
+  const now = Math.floor(Date.now() / 1000);
+  const bad: [string, { auth?: string; token?: string }][] = [
+    ["no header", {}],
+    ["Basic", { auth: "Basic dXNlcjpwYXNz" }],
+    ["bearer, empty", { auth: "Bearer " }],
+    ["garbage", { token: "not.a.jwt" }],
+    ["expired", { token: await token({ tenant: "tenant-a", counsellorId: "c1", role: "admin" }, { exp: now - 3600 }) }],
+    ["wrong issuer", { token: await token({ tenant: "tenant-a", counsellorId: "c1", role: "admin" }, { iss: "https://evil.test" }) }],
+    ["wrong key", { token: await token({ tenant: "tenant-a", counsellorId: "c1", role: "admin" }, { key: otherKeys.privateKey }) }],
+    [
+      "alg confusion",
+      { token: await token({ tenant: "tenant-a", counsellorId: "c1", role: "admin" }, { key: new TextEncoder().encode(PEM), alg: "HS256" }) },
+    ],
+    ["bad tenant claim", { token: await token({ tenant: "tenant:a", counsellorId: "c1", role: "admin" }) }],
+    ["no role", { token: await token({ tenant: "tenant-a", counsellorId: "c1" }) }],
+  ];
+  const protectedRoutes = API_ROUTES.filter((r) => r.roles !== "public");
+  assert.equal(protectedRoutes.length, 10);
+  let first: { body: string; headers: Record<string, string> } | undefined;
+  for (const route of protectedRoutes) {
+    for (const [label, cred] of bad) {
+      const res = await call(w, route.method, concrete(route.path), { ...cred, body: route.body ? { action: "approve", reason: "student_request" } : undefined });
+      assert.equal(res.status, 401, `${route.id} / ${label}`);
+      first ??= { body: res.body, headers: res.headers };
+      assert.equal(res.body, first.body, `${route.id} / ${label}: identical body`);
+      assert.deepEqual(res.headers, first.headers, `${route.id} / ${label}: identical headers`);
+    }
+  }
+  assert.equal(first!.body, '{"error":"unauthorized"}');
+  assert.equal(first!.headers["www-authenticate"], 'Bearer realm="vc-api"');
+  assert.deepEqual(w.calls, { db: [], graph: [] }, "no Db and no graph was requested for any 401");
+  assert.deepEqual(rawAll(w.fakeDb), before, "no document changed");
+});
+
+test("T-025 api: a role outside a route's roles is 403 before any Db access; unknown paths 404; wrong method 405 + Allow", async () => {
+  const w = world();
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  for (const route of API_ROUTES.filter((r) => Array.isArray(r.roles) && !r.roles.includes("counsellor"))) {
+    const res = await call(w, route.method, concrete(route.path), { token: counsellor });
+    assert.equal(res.status, 403, route.id);
+    assert.deepEqual(res.json, { error: "forbidden" });
+  }
+  assert.deepEqual(w.calls, { db: [], graph: [] });
+  assert.equal((await call(w, "GET", "/v1/nothing", { token: counsellor })).status, 404);
+  assert.equal((await call(w, "GET", `/v1/students/${STUDENT}/profile/`, { token: counsellor })).status, 404, "a trailing slash is not the route");
+  const wrong = await call(w, "DELETE", `/v1/students/${STUDENT}/sessions/${SESSION}/approval`, { token: counsellor });
+  assert.equal(wrong.status, 405);
+  assert.equal(wrong.headers.allow, "GET, POST");
+});
+
+test("T-025 api: bad ids, bad JSON and bad bodies are 400 before any Db access, with issue paths but no values", async () => {
+  const w = world();
+  const admin = await as("tenant-a", "admin-1", "admin");
+  const cases: [string, string, unknown][] = [
+    ["GET", "/v1/students/-bad/export", undefined],
+    ["GET", "/v1/students/a%2Fb/export", undefined],
+    ["GET", `/v1/students/${"x".repeat(129)}/export`, undefined],
+    ["POST", "/v1/erasure-requests/not-an-object-id/confirm", undefined],
+    ["GET", `/v1/students/${STUDENT}/profile`, undefined],
+    ["GET", `/v1/students/${STUDENT}/profile?purpose=Bad-Purpose`, undefined],
+    ["POST", `/v1/students/${STUDENT}/sessions/${SESSION}/scribe`, "{not json"],
+    ["POST", `/v1/students/${STUDENT}/sessions/${SESSION}/scribe`, { ...START_BODY, studentId: "someone-else" }],
+    ["POST", `/v1/students/${STUDENT}/sessions/${SESSION}/scribe`, { ...START_BODY, turns: [] }],
+    ["POST", `/v1/students/${STUDENT}/sessions/${SESSION}/approval`, { action: "delete-everything" }],
+    ["POST", `/v1/students/${STUDENT}/erasure-requests`, { reason: "because SECRET-VALUE" }],
+  ];
+  for (const [method, url, body] of cases) {
+    const res = await call(w, method, url, { token: admin, body });
+    assert.equal(res.status, 400, `${method} ${url}: ${res.body}`);
+    assert.doesNotMatch(res.body, /SECRET-VALUE|someone-else/);
+  }
+  assert.equal(docCount(w.fakeDb), 0, "nothing was written");
+  assert.deepEqual(w.calls.graph, []);
+});
+
+// ---------------------------------------------------------------------------
+// The scribe flow over the tenant-scoped wiring
+// ---------------------------------------------------------------------------
+
+test("T-025 api: scribe start -> approval diff -> approve -> profile, with every stored document stamped with the token's tenant", async () => {
+  const w = world();
+  await scribeToApproval(w, "tenant-a");
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
+
+  const pending = await call(w, "GET", `${base}/approval`, { token: counsellor });
+  assert.equal(pending.status, 200);
+  assert.equal(pending.json.kind, "awaiting_approval");
+  const request = pending.json.request as { facts: { key: string }[] };
+  assert.deepEqual(request.facts.map((f) => f.key).sort(), ["budget_inr_per_year", "targetCountry"]);
+
+  const transcript = await call(w, "GET", `${base}/transcript`, { token: counsellor });
+  assert.equal(transcript.status, 200);
+  assert.equal((transcript.json.turns as unknown[]).length, 3);
+
+  const decided = await call(w, "POST", `${base}/approval`, { token: counsellor, body: { action: "approve" } });
+  assert.equal(decided.status, 200, decided.body);
+  assert.equal(decided.json.kind, "done");
+
+  const again = await call(w, "POST", `${base}/approval`, { token: counsellor, body: { action: "reject" } });
+  assert.equal(again.status, 200);
+  assert.equal(again.json.kind, "already_resolved", "a second decision is not applied");
+
+  const profile = await call(w, "GET", `/v1/students/${STUDENT}/profile?purpose=profile_synthesis`, { token: counsellor });
+  assert.equal(profile.status, 200, profile.body);
+  assert.deepEqual((profile.json.facts as { key: string }[]).map((f) => f.key), ["budget_inr_per_year", "targetCountry"]);
+
+  const resumed = await call(w, "POST", `${base}/scribe/resume`, { token: counsellor });
+  assert.equal(resumed.status, 200);
+
+  // Outcome: every raw document the flow wrote carries tenantId "tenant-a", checkpoints included.
+  const raw = rawAll(w.fakeDb);
+  const written = Object.entries(raw).flatMap(([name, docs]) => docs.map((d) => ({ name, d })));
+  assert.ok(written.some((x) => x.name === "facts") && written.some((x) => x.name === "scribe_checkpoints"));
+  for (const { name, d } of written) assert.equal(d.tenantId, "tenant-a", `${name} document not stamped`);
+  assert.deepEqual([...new Set(w.calls.db)], ["tenant-a"]);
+  assert.deepEqual([...new Set(w.calls.graph)], ["tenant-a"]);
+});
+
+test("T-025 api: another tenant sees tenant A's student exactly as a student that never existed, and changes nothing of A's", async () => {
+  const w = world();
+  await scribeToApproval(w, "tenant-a");
+  const aBefore = rawAll(w.fakeDb);
+  const bCounsellor = await as("tenant-b", "counsellor-9", "counsellor");
+  const bAdmin = await as("tenant-b", "admin-9", "admin");
+  const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
+  const ghost = `/v1/students/ghost-student/sessions/ghost-session`;
+
+  const pairs: [string, string, string, unknown, string][] = [
+    ["GET", `${base}/approval`, `${ghost}/approval`, undefined, bCounsellor],
+    ["POST", `${base}/approval`, `${ghost}/approval`, { action: "approve" }, bCounsellor],
+    ["GET", `${base}/transcript`, `${ghost}/transcript`, undefined, bCounsellor],
+    ["POST", `${base}/scribe/resume`, `${ghost}/scribe/resume`, undefined, bCounsellor],
+    ["GET", `/v1/students/${STUDENT}/profile?purpose=profile_synthesis`, `/v1/students/ghost-student/profile?purpose=profile_synthesis`, undefined, bCounsellor],
+  ];
+  for (const [method, aUrl, ghostUrl, body, tok] of pairs) {
+    const seen = await call(w, method, aUrl, { token: tok, body });
+    const never = await call(w, method, ghostUrl, { token: tok, body });
+    assert.ok(seen.status >= 400, `${method} ${aUrl} leaked: ${seen.body}`);
+    assert.equal(seen.status, never.status, `${method} ${aUrl}`);
+    assert.equal(seen.body, never.body, `${method} ${aUrl}`);
+  }
+
+  // Export: B's view of A's student has none of A's data and equals a never-existing student's.
+  const exp = await call(w, "GET", `/v1/students/${STUDENT}/export`, { token: bAdmin });
+  const ghostExp = await call(w, "GET", `/v1/students/ghost-student/export`, { token: bAdmin });
+  assert.equal(exp.status, 200);
+  assert.doesNotMatch(exp.body, /Canada|computer science|tenant/);
+  const norm = (b: AnyDoc) => JSON.stringify({ ...b, exportedAt: "X", studentId: "X" });
+  assert.equal(norm(exp.json), norm(ghostExp.json));
+
+  // A's erasure request id, confirmed from tenant B: the same 404 as an id that never existed.
+  const aReq = await call(w, "POST", `/v1/students/${STUDENT}/erasure-requests`, {
+    token: await as("tenant-a", "counsellor-1", "counsellor"),
+    body: { reason: "student_request" },
+  });
+  assert.equal(aReq.status, 201, aReq.body);
+  const requestId = aReq.json.requestId as string;
+  const aAfterRequest = rawAll(w.fakeDb);
+  const crossConfirm = await call(w, "POST", `/v1/erasure-requests/${requestId}/confirm`, { token: bAdmin });
+  const ghostConfirm = await call(w, "POST", `/v1/erasure-requests/ffffffffffffffffffffffff/confirm`, { token: bAdmin });
+  assert.equal(crossConfirm.status, 404);
+  assert.equal(crossConfirm.body, ghostConfirm.body);
+  const crossExecute = await call(w, "POST", `/v1/erasure-requests/${requestId}/execute`, { token: bAdmin });
+  assert.equal(crossExecute.status, 404);
+
+  // Nothing tenant A owns changed through any of B's calls.
+  const onlyA = (snap: Record<string, AnyDoc[]>) =>
+    Object.fromEntries(Object.entries(snap).map(([k, docs]) => [k, docs.filter((d) => d.tenantId === "tenant-a")]));
+  assert.deepEqual(onlyA(aAfterRequest), onlyA(rawAll(w.fakeDb)));
+  assert.ok(Object.values(onlyA(aBefore)).some((d) => d.length > 0));
+});
+
+test("T-025 api: erasure request -> confirm by a second person -> execute; self-confirm and student-as-actor are refused", async () => {
+  const w = world();
+  await scribeToApproval(w, "tenant-a");
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const adminSame = await as("tenant-a", "counsellor-1", "admin");
+  const admin = await as("tenant-a", "admin-1", "admin");
+
+  const asStudent = await call(w, "POST", `/v1/students/${STUDENT}/erasure-requests`, {
+    token: await as("tenant-a", STUDENT.toUpperCase(), "counsellor"),
+    body: { reason: "student_request" },
+  });
+  assert.equal(asStudent.status, 400);
+  assert.deepEqual(asStudent.json, { error: "actor_is_student" });
+
+  const opened = await call(w, "POST", `/v1/students/${STUDENT}/erasure-requests`, { token: counsellor, body: { reason: "guardian_request" } });
+  assert.equal(opened.status, 201, opened.body);
+  const requestId = opened.json.requestId as string;
+  const dup = await call(w, "POST", `/v1/students/${STUDENT}/erasure-requests`, { token: counsellor, body: { reason: "guardian_request" } });
+  assert.equal(dup.status, 409);
+
+  const early = await call(w, "POST", `/v1/erasure-requests/${requestId}/execute`, { token: admin });
+  assert.equal(early.status, 409);
+  assert.deepEqual(early.json, { error: "erasure_not_confirmed" });
+
+  const self = await call(w, "POST", `/v1/erasure-requests/${requestId}/confirm`, { token: adminSame });
+  assert.equal(self.status, 403);
+  assert.deepEqual(self.json, { error: "self_confirm_refused" });
+
+  assert.equal((await call(w, "POST", `/v1/erasure-requests/${requestId}/confirm`, { token: admin })).status, 200);
+  const done = await call(w, "POST", `/v1/erasure-requests/${requestId}/execute`, { token: admin });
+  assert.equal(done.status, 200, done.body);
+  assert.equal(done.json.status, "completed");
+  assert.doesNotMatch(done.body, new RegExp(STUDENT));
+
+  const gone = await call(w, "GET", `/v1/students/${STUDENT}/sessions/${SESSION}/approval`, { token: counsellor });
+  assert.equal(gone.status, 404);
+  const exported = await call(w, "GET", `/v1/students/${STUDENT}/export`, { token: admin });
+  assert.doesNotMatch(exported.body, /Canada/);
+  for (const name of ["facts", "sessions", "session_transcripts", "scribe_checkpoints", "scribe_checkpoint_writes"]) {
+    assert.equal(w.fakeDb.collection<{ _id: string }>(name).size(), 0, `${name} not erased`);
+  }
+});
+
+test("T-025 api: an unexpected error is a 500 with a fixed body, logged by error label only", async () => {
+  const w = world({
+    graphForTenant: () => {
+      throw new Error("detail with student-synthetic-1 and SECRET");
+    },
+  });
+  await seedConsent(w, "tenant-a");
+  const res = await call(w, "POST", `/v1/students/${STUDENT}/sessions/${SESSION}/scribe`, {
+    token: await as("tenant-a", "counsellor-1", "counsellor"),
+    body: START_BODY,
+  });
+  assert.equal(res.status, 500);
+  assert.equal(res.body, '{"error":"internal"}');
+  assert.equal(w.logs.length, 1);
+  assert.equal(w.logs[0]!.route, "startScribe");
+  assert.equal(w.logs[0]!.error, "Error");
+  assert.doesNotMatch(JSON.stringify(w.logs), /SECRET|student-synthetic/);
+});
+
+test("T-025 api: a consent-less profile read is 403 consent_required", async () => {
+  const w = world();
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const res = await call(w, "GET", `/v1/students/${STUDENT}/profile?purpose=application_filling`, { token: counsellor });
+  assert.equal(res.status, 403);
+  assert.deepEqual(res.json, { error: "consent_required" });
+});
+
+// ---------------------------------------------------------------------------
+// OpenAPI
+// ---------------------------------------------------------------------------
+
+test("T-025 api: the OpenAPI document is public and matches the route table (method, path, roles) in both directions", async () => {
+  const w = world();
+  const res = await call(w, "GET", "/v1/openapi.json");
+  assert.equal(res.status, 200);
+  assert.equal(res.json.openapi, "3.1.0");
+  const doc = new Set<string>();
+  for (const [path, ops] of Object.entries(OPENAPI_DOCUMENT.paths)) {
+    for (const [method, op] of Object.entries(ops as Record<string, { "x-roles": readonly string[] }>)) {
+      doc.add(`${method.toUpperCase()} ${path} [${[...op["x-roles"]].join(",")}]`);
+    }
+  }
+  const table = new Set(API_ROUTES.map((r) => `${r.method} ${r.path} [${r.roles === "public" ? "" : r.roles.join(",")}]`));
+  assert.deepEqual([...doc].sort(), [...table].sort());
+  assert.deepEqual(w.calls, { db: [], graph: [] });
+});
+
+// ---------------------------------------------------------------------------
+// node:http adapter and startApi (loopback 127.0.0.1 only)
+// ---------------------------------------------------------------------------
+
+test("T-025 api: the node:http adapter serves on loopback, answers 401 and refuses a body over 1 MiB with 413", async () => {
+  const w = world();
+  const server = createApiServer(w.handler);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const { port } = server.address() as { port: number };
+    const base = `http://127.0.0.1:${port}`;
+    const doc = await fetch(`${base}/v1/openapi.json`);
+    assert.equal(doc.status, 200);
+    assert.equal(doc.headers.get("cache-control"), "no-store");
+    const anon = await fetch(`${base}/v1/students/${STUDENT}/export`);
+    assert.equal(anon.status, 401);
+    const big = await fetch(`${base}/v1/students/${STUDENT}/sessions/${SESSION}/scribe`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${await as("tenant-a", "c1", "counsellor")}`, "content-type": "application/json" },
+      body: "x".repeat(1024 * 1024 + 10),
+    });
+    assert.equal(big.status, 413);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+test("T-025 api: startApi serves HTTP only when asked, on virtual_counsellor only, and stop() closes the server", async () => {
+  const fake = createFakeMongoClient();
+  const api = await startApi(
+    { MONGODB_URL: "mongodb://fake-host/ignored" },
+    { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR } },
+  );
+  try {
+    assert.ok(api.port && api.port > 0);
+    const res = await fetch(`http://127.0.0.1:${api.port}/v1/openapi.json`);
+    assert.equal(res.status, 200);
+    assert.deepEqual([...new Set(fake.dbCalls)], ["virtual_counsellor"]);
+  } finally {
+    await api.stop();
+  }
+  await assert.rejects(fetch(`http://127.0.0.1:${api.port}/v1/openapi.json`));
+});
+
+test("T-025 api: startApi with http refuses a missing JWT configuration before connecting", async () => {
+  const fake = createFakeMongoClient();
+  let connected = 0;
+  (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => {
+    connected += 1;
+  };
+  await assert.rejects(
+    startApi({ MONGODB_URL: "mongodb://fake-host/ignored" }, { clientFactory: () => fake.client, http: { port: 0, provider: mockProvider() } }),
+    /VC_JWT_ISSUER/,
+  );
+  assert.equal(connected, 0);
+});

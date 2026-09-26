@@ -160,6 +160,7 @@ import {
   type TranscriptTurnDoc,
 } from "./collections.js";
 import { deriveEdgeId, link, type EdgeRef, type EdgeDoc } from "./edges.js";
+import { requireConsent } from "./consent.js";
 import {
   assertStudentNotFenced,
   compensateIfFenced,
@@ -960,6 +961,31 @@ export async function readSessionTranscript(
     .find({ studentId: input.studentId, sessionId: input.sessionId })
     .toArray();
   return docs.sort((a, b) => a.ts - b.ts || a.turnId.localeCompare(b.turnId));
+}
+
+/**
+ * T-025 (B21): true when the session row `{_id: sessionId, studentId}` exists, i.e. this session
+ * belongs to this student. The API checks it before touching a session's scribe thread, so a
+ * session id of another student (or of another tenant, through a tenant-scoped Db) reads as
+ * "not found". Read-only.
+ */
+export async function hasStudentSession(db: Db, input: { studentId: string; sessionId: string }): Promise<boolean> {
+  requireNonEmpty({ sessionId: input.sessionId, studentId: input.studentId }, "hasStudentSession");
+  const row = await sessionsCollection(db).findOne({ _id: input.sessionId, studentId: input.studentId }, { projection: { _id: 1 } });
+  return row !== null;
+}
+
+/**
+ * T-025 (B21): the student's current profile for one purpose: the open facts (`active: true`)
+ * whose purposeTags include `purpose`, sorted by key. The consent gate runs FIRST (B4): with no
+ * consent covering `purpose` (or an erasure in progress) it throws ConsentRequiredError and reads
+ * no fact. Same query as mcp/student-profile's get_profile_facts. Read-only.
+ */
+export async function readActiveProfile(db: Db, studentId: string, purpose: string): Promise<FactDoc[]> {
+  requireNonEmpty({ studentId, purpose }, "readActiveProfile");
+  await requireConsent(db, studentId, purpose);
+  const docs = await factsCollection(db).find({ studentId, active: true, purposeTags: purpose } as Filter<FactDoc>).toArray();
+  return docs.sort((a, b) => a.key.localeCompare(b.key));
 }
 
 /** The span a fact's citation points at inside the persisted transcript. */
