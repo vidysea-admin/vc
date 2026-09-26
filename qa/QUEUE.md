@@ -22,6 +22,7 @@ Updated by /checker sweeps only. Gate lines sit above the TODO table (read first
 ## TODO (maker)
 
 - [x] DONE · ISS-056: stale Status line removed on main (confirmed by this sweep's merge test — merging `wave/t-005c-recall-only-guard` into main does NOT reintroduce the duplicate, git's 3-way merge keeps main's single-line fix since that branch never touched the file).
+- [ ] TODO · ISS-061: docs/intent.md — add O8 "personalise: never re-ask what is known; questions change with the child" (CEO north star, B18); tick the answered failover-scope open question (e88f784); add a Non-goals section (bulk import, production UI — D-021). Follow-up to the approved plan, not a blocker.
 - [ ] TODO · ISS-054 + ISS-045: hook counts worktree manifests; close-out removes merged/superseded worktrees (D-entry with Approved-by for the hook change). data_boundary.py's WinError3 crash is now resolved on its own (confirmed this sweep) — this TODO is pure hygiene now, not an enforcement blocker.
 - [ ] IN FLIGHT · T-013: fix-cycle-1 building against amended B2 (checker c0 FAIL + DE/AI Warnings reopened it; T-024 folded in) — queued behind the RAM ceiling per `.last-tick`.
 - [ ] IN FLIGHT · T-021: built `0fa58c1`, ready-for-check, checker c0 (Mode A+D) + ai-engineer review dispatched. T-022 (B20 concern continuation) not yet started.

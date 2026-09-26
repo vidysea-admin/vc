@@ -206,3 +206,34 @@ The rules e2e proves that scribe â†’ facts â†’ profile diff â†’ a
 **Why:** T-005b and T-013 each stalled after 3 fix cycles, because rule-only precision kept opening new holes. The North star is "AI assists, the human decides", so uncertain facts go to the counsellor instead of being auto-trusted or dropped. The lead's B6 concern is extended from config-time to runtime.
 **Result:** --
 **Links:** T-005c, T-013, T-021, T-022, T-010, T-012, D-019, qa/gates/crisis-guard-precision.md, qa/gates/citation-guarantee-scope.md, qa/gates/scribe-concern-level.md, qa/gates/provider-fallback.md
+
+## D-021 | 2026-09-26 | type: decision | status: ACTIVE
+**What:** Umesh answered the last three gates and the lead-review scope in chat on 2026-09-26. The answers are recorded verbatim in qa/gates/counsellor-auth.md, edit-provenance.md and erasure-fencing.md, and the checker folded them into the contract as B21, B22, B17, B2 and B15.
+- **API-first headless engine (B21, gate counsellor-auth):** VC is an intelligence service, and Pathlynks is its first client, not its host.
+  - Every capability is reachable through a versioned HTTP API (apps/api) with an OpenAPI document.
+  - Auth is a JWT issued by the client backend. VC checks signature, expiry and issuer, and reads the tenant, counsellorId and role claims. VC has no login screen.
+  - The verified tenantId is stamped on every document and filters every query.
+  - Knowledge comes from the KnowledgeBase over `POST /ask`, with its citations carried through. A KB outage shows "knowledge unavailable" and never produces an uncited answer.
+  - Approved facts, erasure requests and concern flags go out as signed webhooks.
+  - The production UI is the client's; apps/web stays VC's reference and test UI.
+  - Tests use a locally signed JWT and a fake KB. Nothing connects to real Pathlynks until an integration unit is approved.
+- **North-star metric (B22):** a novice working with VC reaches at least 90 % of the expert benchmark (Sapna ma'am) on the same anonymised case. Until her reference rubric is recorded, it is reported as NOT-YET-MEASURABLE and blocks nothing; after that, it is a release gate.
+- **Persona ladder (B17):** 10 declared personas, including gaurav-bhaiya (Hindi and voice only, no typing) and the UK/US/AU/CA policy-compliance personas.
+- **Edit provenance (B2):** `counsellor-edit` plus `editedFrom`, held by both VC and the client.
+- **Erasure (B15):** double confirm, then an email-outbox approver, then the purge. `autoDelete` defaults to false. Fence plus 24 h, and an HMAC audit pseudonym.
+- **Non-goal:** bulk student import (it belongs to the counsellor portal).
+- **Human-only:** the release video goes to Sapna ma'am and Gaurav bhaiya with a Hindi voice-over. Umesh sends it (outward-facing).
+**Why:** this is a direction change that Umesh approved. The Pathlynks backend team integrates over the API, and "UI vo log khud bnaa lenge", so VC must not build auth or a production UI of its own. The CEO north star ("AI assists, the human decides") is made measurable as novice+VC â‰ˆ expert.
+**Changes-authorized:** ARCHITECTURE.md Â§3 (hypothesis rows: H-API-first headless engine, JWT/tenant) and Â§6 (open questions: the JWT issuer/key-rotation details from the Pathlynks backend team; the KB `/ask` contract version), at the next /landplane.
+**Result:** --
+**Links:** T-025, T-026, T-027, T-028, qa/gates/counsellor-auth.md, qa/gates/edit-provenance.md, qa/gates/erasure-fencing.md, qa/contracts/counselling-engine.md (B2, B15, B17, B21, B22), D-020
+
+## D-022 | 2026-09-26 | type: decision | status: ACTIVE
+**What:** T-028 adds the B17 persona ladder and the B19 scenario matrix to the maker-checker adapter.
+- `qa/adapter.json` gains a `personas` array with the 10 ids approved in D-021 (sapna-expert, gaurav-pm, gaurav-bhaiya, jaipur-counsellor, school-counsellor, govt-teacher, uk-counsellor, us-counselor, au-agent, ca-consultant), and a `scenarios` pointer.
+- A new `qa/scenarios/counselling-engine.csv` holds at least 50 rows (id,persona,type,preconditions,steps,expected), with happy and negative paths per flow.
+- Nothing else in the adapter changes: verify commands, data_class and isolation stay as they are.
+**Why:** B17 and B19 require checker Mode C/D persona walks and scenario runs, and those read the personas and scenarios from the adapter. The QUEUE sweep flagged this groundwork as not started (top-3 #3). The persona set itself was approved by Umesh on 2026-09-26 (D-021).
+**Changes-authorized:** qa/adapter.json (add `personas` + `scenarios` keys only) Â· qa/scenarios/counselling-engine.csv (new)
+**Result:** --
+**Links:** T-028, D-021, qa/contracts/counselling-engine.md (B17, B19)
