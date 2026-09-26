@@ -1178,3 +1178,26 @@ test("ISS-t-013r-rev-8: resolveCitationSpan finds a span whose STORED text mixes
   assert.equal(slice, `${qaPre}ानून प${rhaDec}ना`, "offsets index the RAW stored text");
   assert.equal(slice.normalize("NFC"), quote.normalize("NFC"));
 });
+
+test("ISS-t-013r-rev-12: a Devanagari quote cropped MID-SYLLABLE resolves to exactly its own span (slice === quote), never widened to the whole cluster", async () => {
+  const { db } = setup();
+  // "मुझे लॉ पढ़ना है", typed in its NFC-stable form (RHA as ढ + nukta). The quote "पढ़न" stops after
+  // न, inside the cluster "ना" (न + vowel sign ा); "ुझे लॉ" starts on a combining vowel sign.
+  const rha = String.fromCodePoint(0x0922, 0x093c);
+  const stored = `मुझे लॉ प${rha}ना है`;
+  assert.equal(stored.normalize("NFC"), stored, "sanity: every cluster is NFC-stable (the 1:1 path)");
+  await recordSessionTranscript(db, {
+    sessionId: "sess-crop",
+    studentId: "stu-1",
+    turns: [{ turnId: "t1", speaker: "student", lang: "hi", text: stored, translatedText: "I want to study law.", ts: 1 }],
+  });
+  const turns = await readSessionTranscript(db, { studentId: "stu-1", sessionId: "sess-crop" });
+  for (const quote of [`प${rha}न`, "ुझे लॉ", `प${rha}`, "मुझे"]) {
+    const span = resolveCitationSpan(turns, { turnId: "t1", quote });
+    assert.ok(span, `must resolve: ${quote}`);
+    assert.equal(turns[0]!.text.slice(span!.start, span!.end), quote, `slice === quote (no widening): ${quote}`);
+  }
+  // the ledger's exact reproduction: previously slice(8,13) = "पढ़ना"
+  const span = resolveCitationSpan(turns, { turnId: "t1", quote: `प${rha}न` });
+  assert.deepEqual([span!.start, span!.end], [8, 12]);
+});

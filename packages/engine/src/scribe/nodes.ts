@@ -143,7 +143,19 @@ const CITATION_PUNCTUATION_RE = new RegExp(`[${CITATION_PUNCTUATION}]`, "gu");
 /** Tier 1 ("verbatim"): Unicode NFC, then whitespace collapse. Canonically-equivalent text only —
  *  this alone recovers an NFD-decomposed Devanagari quote against an NFC transcript (or vice versa). */
 function normaliseVerbatim(text: string): string {
-  return collapseWhitespace(text.normalize("NFC"));
+  return collapseWhitespace(stripInvisibleFormat(text).normalize("NFC"));
+}
+
+/**
+ * ISS-t-013r-rev-10 (fix cycle 3): invisible format characters are DELETED (never a token break) before
+ * any tokenising, so "n​ot" is the word "not" and cannot hide a cue from a marker set. Closed
+ * list: soft hyphen U+00AD, zero-width space U+200B, LRM/RLM U+200E/U+200F, word joiner U+2060, BOM
+ * U+FEFF. ZWNJ U+200C and ZWJ U+200D are KEPT — they are meaningful inside Devanagari words.
+ */
+const INVISIBLE_FORMAT_RE = /[­​‎‏⁠﻿]/gu;
+
+function stripInvisibleFormat(text: string): string {
+  return text.replace(INVISIBLE_FORMAT_RE, "");
 }
 
 /**
@@ -381,6 +393,27 @@ function hasConditional(normalisedText: string): boolean {
   return hasMarker(withoutPolitePreference, CONDITIONAL_MARKERS);
 }
 
+/**
+ * ISS-t-013r-c2-1 / ISS-t-013r-rev-9 (fix cycle 3): reported speech / attribution — the SECOND layer
+ * behind the single-clause rule. "Rahul said, I want to study in UK", "according to X …", "woh kehta
+ * hai …", "मेरे समधी कहते हैं, …": the clause is someone else's words, whoever the (unlisted) subject is.
+ * Closed set; "according to" / "ke mutabik" / "के अनुसार" are caught by their content word.
+ */
+const REPORTING_MARKERS = new Set(
+  [
+    "say", "says", "said", "saying", "tell", "tells", "told", "telling", "ask", "asks", "asked", "wrote", "writes",
+    "written", "texted", "texts", "messaged", "mentioned", "mentions", "according", "claims", "claimed", "quoted",
+    "kaha", "kahaa", "kehta", "kehte", "kehti", "kahta", "kahte", "kahti", "bola", "boli", "bole", "bolta", "bolti",
+    "bolte", "bataya", "batati", "batata", "batate", "mutabik", "mutaabik", "anusar", "anusaar",
+    "कहा", "कहता", "कहते", "कहती", "बोला", "बोली", "बोले", "बोलता", "बोलती", "बोलते", "बताया", "बताती", "बताता",
+    "बताते", "मुताबिक", "मुताबिक़", "अनुसार",
+  ].map((w) => w.normalize("NFC")),
+);
+
+function hasReportedSpeech(normalisedText: string): boolean {
+  return hasMarker(normalisedText, REPORTING_MARKERS);
+}
+
 // ---------------------------------------------------------------------------
 // ISS-t-013r-rev-6 (fix cycle 2): the ALLOW-LIST. A fact auto-verifies only when its cited quote is,
 // on its own, ONE whole clause of the cited turn AND that clause matches one of a small set of
@@ -397,7 +430,7 @@ function hasConditional(normalisedText: string): boolean {
  */
 function normaliseTemplate(text: string): string {
   return collapseWhitespace(
-    text
+    stripInvisibleFormat(text)
       .normalize("NFC")
       .toLowerCase()
       .replace(/(?<!\p{Nd})[.,]|[.,](?!\p{Nd})/gu, " ")
@@ -410,7 +443,7 @@ function normaliseTemplate(text: string): string {
  * grouping) and at "because"/"kyunki"/"क्योंकि", each template-normalised.
  */
 function clausesOf(text: string): string[] {
-  return text
+  return stripInvisibleFormat(text)
     .normalize("NFC")
     .split(/[!?？;:।\n]|(?<!\p{Nd})[.,]|[.,](?!\p{Nd})|(?:^|\s)(?:because|kyunki|kyonki|kyoki|क्योंकि)(?=\s|$)/iu)
     .map((c) => normaliseTemplate(c ?? ""))
@@ -488,14 +521,43 @@ function countryTemplatesFor(canonical: string): readonly RegExp[] {
 }
 
 /**
- * The allow-list gate: true only when the quote is one whole clause of the cited turn (or of the quote
- * itself when no turn context is given) AND that clause matches a template whose slot is the value.
+ * ISS-t-013r-c2-1 / ISS-t-013r-rev-9 (fix cycle 3): the ONE closed two-clause shape that survives the
+ * single-clause rule — a bare acknowledgement clause ("Yes, I want to study in Canada", "Haan ji. Main
+ * Canada jaana chahta hoon"). Nothing else counts as trivial: "scratch that", "nope", "kidding",
+ * "Rahul said" are all non-trivial clauses, so the turn goes to review.
  */
-function matchesAllowedTemplate(value: unknown, quote: string, turnTexts: readonly string[]): boolean {
+const TRIVIAL_CLAUSES = new Set(
+  ["yes", "yeah", "yep", "ok", "okay", "haan", "han", "haan ji", "ji haan", "ji", "hmm", "sir", "maam", "ma am",
+    "हाँ", "हां", "जी", "हाँ जी", "जी हाँ", "हां जी", "जी हां"].map((c) => normaliseTemplate(c)),
+);
+
+/** The non-trivial clauses of one turn text. */
+function substantiveClauses(text: string): string[] {
+  return clausesOf(text).filter((c) => !TRIVIAL_CLAUSES.has(c));
+}
+
+type AllowListVerdict = "allowed" | "multi-clause" | "unrecognised-form";
+
+/**
+ * The allow-list gate. "allowed" only when:
+ *   - the quote is one whole clause of the cited turn (or of the quote itself when no turn context is
+ *     given) and that clause matches a template whose slot is the value; otherwise "unrecognised-form";
+ *   - (fix cycle 3, STRUCTURAL) every text of the cited turn (text and translatedText) has exactly ONE
+ *     non-trivial clause — so no other clause of the same turn can attribute ("Rahul said, …"), retract
+ *     ("… Scratch that, Canada.") or otherwise qualify it, whatever words it uses; otherwise "multi-clause".
+ */
+function matchesAllowedTemplate(value: unknown, quote: string, turnTexts: readonly string[]): AllowListVerdict {
   const clause = normaliseTemplate(quote);
-  if (clause.length === 0) return false;
+  if (clause.length === 0) return "unrecognised-form";
   const sources = turnTexts.length > 0 ? turnTexts : [quote];
-  if (!sources.some((t) => clausesOf(t).includes(clause))) return false;
+  const clausesPerSource = sources.map(substantiveClauses);
+  if (!clausesPerSource.some((cs) => cs.includes(clause))) return "unrecognised-form";
+  if (!clauseMatchesTemplate(value, clause)) return "unrecognised-form";
+  if (clausesPerSource.some((cs) => cs.length !== 1)) return "multi-clause";
+  return "allowed";
+}
+
+function clauseMatchesTemplate(value: unknown, clause: string): boolean {
   if (typeof value === "number" && Number.isFinite(value)) {
     return COMPILED_NUMBER_TEMPLATES.some((re) => {
       const m = re.exec(clause);
@@ -567,6 +629,12 @@ export const REVIEW_REASONS = {
     "unrecognised-form: the cited quote is not one whole declarative first-person clause matching an auto-verify " +
     "template (I want to study in <country> / my budget is <number> / I scored <number> in <exam> …, English, " +
     "Hinglish, Devanagari); the counsellor decides (D-020, allow-list)",
+  multiClause:
+    "multi-clause: the cited turn has more than one clause, so another clause can attribute, retract or qualify " +
+    "the value (Rahul said, … / … scratch that, Canada); only a single-clause turn auto-verifies (D-020, allow-list)",
+  reportedSpeech:
+    "reported-speech: a reporting or attribution cue (said/says/told/according to/kaha/kehta/bola/ke mutabik/" +
+    "कहा/बोला/के मुताबिक …) appears in the cited turn; the words may be someone else's (D-020, fail-safe)",
 } as const;
 
 /**
@@ -583,7 +651,10 @@ export const REVIEW_REASONS = {
  *   6. (fix cycle 2, ISS-t-013r-rev-4/-5) the cited TURN carries no interrogative or conditional cue;
  *   7. (fix cycle 2, ISS-t-013r-rev-6, the ALLOW-LIST) the quote is one whole clause of the cited turn
  *      and matches a declarative first-person template whose slot is exactly the value
- *      (matchesAllowedTemplate); otherwise `unrecognised-form`.
+ *      (matchesAllowedTemplate); otherwise `unrecognised-form`;
+ *   8. (fix cycle 3, ISS-t-013r-c2-1/-rev-9) every text of the cited turn has exactly ONE non-trivial
+ *      clause (a bare "yes/haan ji" acknowledgement is the only trivial one); otherwise `multi-clause`;
+ *   9. (fix cycle 3) the cited TURN carries no reporting/attribution cue; otherwise `reported-speech`.
  * A `reasoning` fact is always needsReview, regardless of its value.
  *
  * `context` is the full text of the cited turn (and its translation, if any). Conditions 3-5 are
@@ -606,6 +677,8 @@ export function assessFactForReview(
   // ISS-t-013r-rev-4/-rev-5 (fix cycle 2): mood deny layer, judged on the quote plus the whole turn.
   const interrogative = contextPairs.some(([raw, n]) => hasInterrogative(raw, n));
   const conditional = contextPairs.some(([, n]) => hasConditional(n));
+  // ISS-t-013r-c2-1 / -rev-9 (fix cycle 3): attribution deny layer (second layer behind multi-clause).
+  const reportedSpeech = contextPairs.some(([, n]) => hasReportedSpeech(n));
 
   if (thirdParty) reasons.push(REVIEW_REASONS.thirdParty);
 
@@ -618,9 +691,13 @@ export function assessFactForReview(
   if (!firstPerson) guards.push(REVIEW_REASONS.noFirstPerson);
   if (interrogative) guards.push(REVIEW_REASONS.interrogative);
   if (conditional) guards.push(REVIEW_REASONS.conditional);
+  if (reportedSpeech) guards.push(REVIEW_REASONS.reportedSpeech);
   // ISS-t-013r-rev-6 (fix cycle 2): the allow-list gate — the first layer; the deny sets are the second.
+  // Fix cycle 3 (ISS-t-013r-c2-1 / -rev-9): it also requires a single-clause cited turn.
   const turnTexts = context.filter((t): t is string => typeof t === "string" && t.length > 0);
-  if (!matchesAllowedTemplate(candidate.value, quote, turnTexts)) guards.push(REVIEW_REASONS.unrecognisedForm);
+  const allowVerdict = matchesAllowedTemplate(candidate.value, quote, turnTexts);
+  if (allowVerdict === "unrecognised-form") guards.push(REVIEW_REASONS.unrecognisedForm);
+  if (allowVerdict === "multi-clause") guards.push(REVIEW_REASONS.multiClause);
 
   if (typeof candidate.value === "number" && Number.isFinite(candidate.value)) {
     const matched = containsNumberToken(quote, candidate.value);

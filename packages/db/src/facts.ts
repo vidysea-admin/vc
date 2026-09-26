@@ -1029,8 +1029,8 @@ export function resolveCitationSpan(
 
 /**
  * NFC form of `raw` built cluster by cluster (a non-mark character plus the combining marks after it;
- * NFC never composes across such a boundary), with, for every UTF-16 index of the NFC text, the raw
- * start and raw end of the cluster it came from.
+ * NFC never composes across such a boundary), with, for every UTF-16 index of the NFC text, its raw
+ * start and raw end: 1:1 when NFC left the cluster unchanged (rev-12), else the whole cluster's bounds.
  */
 function nfcWithRawOffsets(raw: string): { text: string; rawStart: number[]; rawEnd: number[] } {
   let text = "";
@@ -1041,9 +1041,19 @@ function nfcWithRawOffsets(raw: string): { text: string; rawStart: number[]; raw
     const end = start + m[0].length;
     const norm = m[0].normalize("NFC");
     text += norm;
-    for (let i = 0; i < norm.length; i++) {
-      rawStart.push(start);
-      rawEnd.push(end);
+    if (norm === m[0]) {
+      // ISS-t-013r-rev-12 (fix cycle 3): NFC left this cluster unchanged, so its indices map 1:1 — a quote
+      // cropped mid-syllable ("पढ़न" out of "पढ़ना") keeps exact bounds and slice === quote.
+      for (let i = 0; i < norm.length; i++) {
+        rawStart.push(start + i);
+        rawEnd.push(start + i + 1);
+      }
+    } else {
+      // NFC changed the cluster (mixed NFC/NFD, rev-8): only then collapse to whole-cluster raw bounds.
+      for (let i = 0; i < norm.length; i++) {
+        rawStart.push(start);
+        rawEnd.push(end);
+      }
     }
   }
   return { text, rawStart, rawEnd };

@@ -547,3 +547,93 @@ test("ISS-t-013r-c1-1: a first-person number in a date / year / ordinal context 
     assert.ok(reasonsStartWith(fact?.reviewReasons, "unrecognised-form:"), `named reason: ${quote}`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Fix cycle 3 (ISS-t-013r-c2-1 / -rev-9 / -rev-10): another clause of the same cited turn attributes or
+// retracts the fact; invisible format characters hide a cue.
+// ---------------------------------------------------------------------------
+
+function reasonPrefixes(fact: { reviewReasons?: string[] } | null | undefined): string[] {
+  return (fact?.reviewReasons ?? []).map((r) => r.split(":")[0]!);
+}
+
+test("ISS-t-013r-c2-1/rev-9 STRUCTURAL: a template clause in a MULTI-CLAUSE turn never auto-verifies (reason: multi-clause), even with no deny word at all", () => {
+  const cases: Array<[string, string, unknown]> = [
+    // retraction in a second sentence (the reviewer's repros)
+    ["I want to study in UK. Scratch that, Canada.", "I want to study in UK", "UK"],
+    ["I want to study in UK. Nope, forget it, Canada it is.", "I want to study in UK", "UK"],
+    // attribution by an unlisted subject, with NO reporting verb the deny layer knows
+    ["Rahul's version: I want to study in UK", "I want to study in UK", "UK"],
+    ["My landlord, I want to study in the UK", "I want to study in the UK", "UK"],
+    ["Main Canada jaana chahta hoon. Pakka nahi hai.", "Main Canada jaana chahta hoon", "Canada"],
+    ["मैं Canada जाना चाहता हूँ। पर देखते हैं।", "मैं Canada जाना चाहता हूँ", "Canada"],
+    ["My budget is 1500000. Papa decides.", "My budget is 1500000", 1500000],
+    ["I got 7.5 in IELTS; that was the mock.", "I got 7.5 in IELTS", 7.5],
+    ["I want to go to Canada because the fees are low.", "I want to go to Canada", "Canada"],
+  ];
+  for (const [text, quote, value] of cases) {
+    const fact = verifyOne(text, quote, value, typeof value === "number" ? "score" : "targetCountry");
+    assert.equal(fact?.needsReview, true, `multi-clause turn must not auto-verify: ${text}`);
+    assert.ok(reasonPrefixes(fact).includes("multi-clause"), `named multi-clause reason: ${text}`);
+  }
+});
+
+test("ISS-t-013r-c2-1/rev-9: the only surviving two-clause shape is a bare acknowledgement (yes / haan ji / हाँ) — it still auto-verifies", () => {
+  const cases: Array<[string, string, string]> = [
+    ["Yes, I want to study in Canada.", "I want to study in Canada", "Canada"],
+    ["Haan ji. Main Canada jaana chahta hoon.", "Main Canada jaana chahta hoon", "Canada"],
+    ["हाँ, मैं Canada जाना चाहता हूँ।", "मैं Canada जाना चाहता हूँ", "Canada"],
+  ];
+  for (const [text, quote, value] of cases) {
+    const fact = verifyOne(text, quote, value);
+    assert.equal(fact?.needsReview, false, `acknowledgement + template should verify: ${text}`);
+  }
+});
+
+test("ISS-t-013r-c2-1/rev-9 second layer: a reporting / attribution cue forces review (reason: reported-speech), English / Hinglish / Devanagari", () => {
+  const cases: Array<[string, string]> = [
+    ["Rahul said, I want to study in UK", "I want to study in UK"],
+    ["Rahul said: I want to study in UK", "I want to study in UK"],
+    ["Rahul said I want to study in UK", "I want to study in UK"], // no clause break at all
+    ["Priya says, I want to study in UK", "I want to study in UK"],
+    ["My landlord says, I want to study in the UK", "I want to study in the UK"],
+    ["According to Rahul I want to study in UK", "I want to study in UK"],
+    ["Rahul kehta hai main UK jaana chahta hoon", "main UK jaana chahta hoon"],
+    ["Rahul ne kaha main UK jaana chahta hoon", "main UK jaana chahta hoon"],
+    ["Sir ke mutabik main UK jaana chahta hoon", "main UK jaana chahta hoon"],
+    ["मेरे समधी कहते हैं, मैं UK जाना चाहता हूं", "मैं UK जाना चाहता हूं"],
+    ["राहुल ने कहा मैं UK जाना चाहता हूँ", "मैं UK जाना चाहता हूँ"],
+    ["सर के मुताबिक मैं UK जाना चाहता हूँ", "मैं UK जाना चाहता हूँ"],
+  ];
+  for (const [text, quote] of cases) {
+    const fact = verifyOne(text, quote, "UK");
+    assert.equal(fact?.needsReview, true, `reported speech must not auto-verify: ${text}`);
+    assert.ok(reasonPrefixes(fact).includes("reported-speech"), `named reported-speech reason: ${text}`);
+  }
+});
+
+test("ISS-t-013r-rev-10: invisible format characters (ZWSP, WJ, BOM, soft hyphen, LRM/RLM) cannot hide a cue — stripped before tokenising; ZWJ/ZWNJ kept", () => {
+  const hidden: Array<[string, string]> = [
+    ["I do n\u200Bot want to study in UK", "negation"],
+    ["I do n\u2060ot want to study in UK", "negation"],
+    ["I do n\uFEFFot want to study in UK", "negation"],
+    ["I do n\u00ADot want to study in UK", "negation"],
+    ["I do\u200E not\u200F want to study in UK", "negation"],
+    ["May\u200Bbe I want to study in UK", "conditional"],
+    ["Rahul sa\u200Bid I want to study in UK", "reported-speech"],
+  ];
+  for (const [text, reason] of hidden) {
+    const fact = verifyOne(text, text, "UK");
+    assert.equal(fact?.needsReview, true, `hidden cue must not auto-verify: ${JSON.stringify(text)}`);
+    assert.ok(reasonPrefixes(fact).includes(reason), `named ${reason} reason: ${JSON.stringify(text)}`);
+  }
+  // the reviewer's two-clause repro also lands in review
+  const repro = verifyOne("I want to study in UK. Kidding, I do n\u200Bot mean it.", "I want to study in UK", "UK");
+  assert.equal(repro?.needsReview, true);
+  // stripping is deletion, never a break: a ZWSP inside the template clause still verifies
+  assert.equal(verifyOne("I want to st\u200Budy in Canada", "I want to st\u200Budy in Canada", "Canada")?.needsReview, false);
+  // ZWJ / ZWNJ are part of Devanagari words and are NOT stripped
+  const zwj = "\u200D";
+  assert.equal(verifyOne(`मैं Canada जाना चाहता हूँ${zwj}`, `मैं Canada जाना चाहता हूँ${zwj}`, "Canada")?.needsReview, true,
+    "ZWJ is kept, so the clause no longer equals the template (fail-safe), proving it is not stripped");
+});

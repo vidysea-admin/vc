@@ -79,3 +79,25 @@ test("ISS-t-013r-rev-6: cycle-2 hostile classes stay in review, and every templa
   }
   assert.ok(report.aggregate.extraction.reviewCounts.verified >= positives.length);
 });
+// ISS-t-013r-c2-1 / -rev-9 / -rev-10 (fix cycle 3): reported-speech (English, Hinglish, Devanagari, an
+// unlisted subject), retraction-in-a-second-sentence and zero-width-hidden-negation rows; none may
+// auto-verify, and the template positives still do.
+test("ISS-t-013r-c2-1: cycle-3 hostile classes (reported-speech, retraction, zero-width) stay in review; fabricatedVerified 0; positives still verify", async () => {
+  const sessions = loadDataset(DATASET_PATH);
+  const cycle3 = sessions.filter((s) =>
+    s.goldFacts.some((f) => f.mustReview && ["reported-speech", "retraction", "zero-width"].includes(f.hostile ?? "")),
+  );
+  const classes = new Set(cycle3.flatMap((s) => s.goldFacts.map((f) => f.hostile)));
+  for (const c of ["reported-speech", "retraction", "zero-width"]) assert.ok(classes.has(c), `hostile class ${c} present`);
+  assert.ok(cycle3.length >= 9, `expected >= 9 cycle-3 hostile sessions, got ${cycle3.length}`);
+
+  const report = await scoreDataset(sessions, "perfect", { datasetPath: DATASET_PATH });
+  assert.equal(report.aggregate.extraction.reviewCounts.fabricatedVerified, 0);
+  for (const session of cycle3) {
+    const s = report.sessions.find((x) => x.sessionId === session.id);
+    assert.equal(s?.extraction?.reviewCounts.kept, session.goldFacts.length, `${session.id}: kept, never dropped`);
+    assert.equal(s?.extraction?.reviewCounts.verified, 0, `${session.id}: must not auto-verify`);
+  }
+  const positives = sessions.filter((s) => s.strata.includes("d020-template-positive"));
+  assert.ok(report.aggregate.extraction.reviewCounts.verified >= positives.length && positives.length > 0);
+});

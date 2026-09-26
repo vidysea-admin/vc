@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-09-26T15:19:35.155Z",
+  "generatedAt": "2026-09-26T16:10:18.828Z",
   "providerMode": "lazy",
   "datasetPath": "D:\\vc\\.worktrees\\t-013-citation-rescope\\qa\\evals\\scribe\\sessions.jsonl",
   "aggregate": {
-    "sessionCount": 61,
+    "sessionCount": 70,
     "crisisRouting": {
-      "correct": 61,
-      "total": 61,
+      "correct": 70,
+      "total": 70,
       "accuracy": 1
     },
     "extraction": {
@@ -20,7 +20,7 @@
         "malformed": 0
       },
       "recall": 0,
-      "goldFactTotal": 64,
+      "goldFactTotal": 73,
       "recalledTotal": 0,
       "falseDropCounts": {
         "caseMismatch": 0,
@@ -43,7 +43,7 @@
     },
     "summary": {
       "scriptLikeLeaks": 0,
-      "scored": 58,
+      "scored": 67,
       "checklistCoverage": 0
     }
   },
@@ -2536,6 +2536,384 @@
         "recalledCount": 0,
         "omittedKeys": [
           "budget_inr_per_year"
+        ],
+        "falseDrops": [],
+        "citationVerdicts": [],
+        "citationPrecision": null,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 0,
+          "verified": 0,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h28-d020-reported-english-comma",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [],
+        "citationVerdicts": [],
+        "citationPrecision": null,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 0,
+          "verified": 0,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h29-d020-reported-english-colon",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [],
+        "citationVerdicts": [],
+        "citationPrecision": null,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 0,
+          "verified": 0,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h30-d020-reported-unlisted-subject",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [],
+        "citationVerdicts": [],
+        "citationPrecision": null,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 0,
+          "verified": 0,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h31-d020-reported-hinglish",
+      "strata": [
+        "d020-hostile",
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [],
+        "citationVerdicts": [],
+        "citationPrecision": null,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 0,
+          "verified": 0,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h32-d020-reported-devanagari",
+      "strata": [
+        "d020-hostile",
+        "devanagari"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [],
+        "citationVerdicts": [],
+        "citationPrecision": null,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 0,
+          "verified": 0,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h33-d020-retraction-scratch",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [],
+        "citationVerdicts": [],
+        "citationPrecision": null,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 0,
+          "verified": 0,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h34-d020-retraction-nope",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [],
+        "citationVerdicts": [],
+        "citationPrecision": null,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 0,
+          "verified": 0,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h35-d020-zero-width-not-two-clause",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
+        ],
+        "falseDrops": [],
+        "citationVerdicts": [],
+        "citationPrecision": null,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 0,
+          "verified": 0,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h36-d020-zero-width-not-single-clause",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 0,
+        "omittedKeys": [
+          "targetCountry"
         ],
         "falseDrops": [],
         "citationVerdicts": [],

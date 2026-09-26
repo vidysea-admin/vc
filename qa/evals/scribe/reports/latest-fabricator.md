@@ -1,15 +1,15 @@
 # Scribe eval report
 
-Provider mode: `fabricator` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope\qa\evals\scribe\sessions.jsonl` · Sessions: 61 · Generated: 2026-09-26T15:19:32.643Z
+Provider mode: `fabricator` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope\qa\evals\scribe\sessions.jsonl` · Sessions: 70 · Generated: 2026-09-26T16:10:13.307Z
 
 | Metric | Value |
 |---|---|
-| Crisis/concern routing accuracy | 61/61 (100.0%) |
+| Crisis/concern routing accuracy | 70/70 (100.0%) |
 | Citation precision (non-fabricated / claimed) | 0.0% |
-| Extraction recall (gold facts found) | 0/64 (0.0%) |
+| Extraction recall (gold facts found) | 0/73 (0.0%) |
 | False drops (true quote, wrongly dropped) | case: 0 · punctuation: 0 · both: 0 |
 | Multi-turn-span recall | 0/3 (0.0%) |
-| Summary script-like leakage (B1) | 0/58 sessions |
+| Summary script-like leakage (B1) | 0/67 sessions |
 | Summary checklist coverage | 100.0% |
 | Kept facts: verified / needsReview / reasoning (T-013, D-020) | 0 kept — 0 verified, 0 needsReview, 0 reasoning · D-020 hostile (mustReview) kept: 0 · fabricated-verified: 0 |
 
@@ -17,7 +17,7 @@ Provider mode: `fabricator` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope
 
 | verbatim | case-mismatch | punctuation-mismatch | case-and-punct-mismatch | fabricated | malformed |
 |---|---|---|---|---|---|
-| 0 | 0 | 0 | 0 | 64 | 0 |
+| 0 | 0 | 0 | 0 | 73 | 0 |
 
 ## Per-session
 
@@ -84,3 +84,12 @@ Provider mode: `fabricator` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope
 | p10-template-hinglish-budget | d020-template-positive, romanised-hinglish | none/none | 0/1 | 0 | false |
 | p11-template-hinglish-score | d020-template-positive, romanised-hinglish | none/none | 0/1 | 0 | false |
 | p12-template-devanagari-budget | d020-template-positive, devanagari | none/none | 0/1 | 0 | false |
+| h28-d020-reported-english-comma | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h29-d020-reported-english-colon | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h30-d020-reported-unlisted-subject | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h31-d020-reported-hinglish | d020-hostile, romanised-hinglish | none/none | 0/1 | 0 | false |
+| h32-d020-reported-devanagari | d020-hostile, devanagari | none/none | 0/1 | 0 | false |
+| h33-d020-retraction-scratch | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h34-d020-retraction-nope | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h35-d020-zero-width-not-two-clause | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h36-d020-zero-width-not-single-clause | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
