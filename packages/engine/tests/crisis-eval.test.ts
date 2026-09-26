@@ -32,7 +32,27 @@ interface EvalLine {
   text: string;
   expected: CrisisLevel;
   lang: string;
-  category: "explicit" | "indirect" | "concern" | "abuse" | "benign_idiom" | "hard_negative" | "accepted_residual";
+  category:
+    | "explicit"
+    | "indirect"
+    | "concern"
+    | "abuse"
+    | "benign_idiom"
+    | "hard_negative"
+    | "accepted_residual"
+    | "evasion_spaced"
+    | "evasion_confusable"
+    | "known_gap";
+  /**
+   * T-005c cycle 1 (ISS-t-005c-c0-1): a row the keyword guard is KNOWN not to catch, tagged with the
+   * unit that owns the fix (e.g. "T-012", the classifier). Indirect ideation such as "everyone would
+   * be better off without me" has no stable keyword shape — a pattern list cannot cover that class
+   * without flagging ordinary speech wholesale. These rows are labelled with their TRUE level
+   * ("crisis") and reported separately; they are excluded from the B16 recall bar and from the
+   * row-must-match assertion, so the bar measures what this guard is responsible for and the gap
+   * stays visible instead of being relabelled away.
+   */
+  known_gap?: string;
 }
 
 const TESTS_DIR = dirname(fileURLToPath(import.meta.url));
@@ -57,7 +77,21 @@ test("crisis-eval: every row matches its documented expected level; crisis recal
   let crisisTotal = 0;
   let crisisCaught = 0;
 
-  for (const line of lines) {
+  const knownGap: EvalLine[] = lines.filter((line) => line.known_gap !== undefined);
+  const counted: EvalLine[] = lines.filter((line) => line.known_gap === undefined);
+
+  let gapCaught = 0;
+  const gapReport: string[] = [];
+  for (const line of knownGap) {
+    const level = crisisGuard(line.text).level;
+    if (level === line.expected) gapCaught++;
+    gapReport.push(`  [${line.known_gap}] expected=${line.expected} actual=${level} :: ${JSON.stringify(line.text)}`);
+  }
+  console.log(
+    `known_gap rows (NOT counted toward B16): ${gapCaught}/${knownGap.length} caught\n` + gapReport.join("\n"),
+  );
+
+  for (const line of counted) {
     const result = crisisGuard(line.text);
     confusion[line.expected] ??= {};
     confusion[line.expected][result.level] = (confusion[line.expected][result.level] ?? 0) + 1;
@@ -76,7 +110,7 @@ test("crisis-eval: every row matches its documented expected level; crisis recal
   const recall = crisisTotal === 0 ? 1 : crisisCaught / crisisTotal;
 
   console.log("crisis-eval confusion matrix (expected -> {actual: count}):", JSON.stringify(confusion));
-  console.log(`crisis recall: ${crisisCaught}/${crisisTotal} (${recall.toFixed(4)})`);
+  console.log(`crisis recall (counted rows, B16): ${crisisCaught}/${crisisTotal} (${recall.toFixed(4)})`);
   if (mismatches.length > 0) {
     console.log("mismatches:\n" + mismatches.join("\n"));
   }

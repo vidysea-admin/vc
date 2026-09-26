@@ -13,8 +13,10 @@
  *
  * ISS-023 (a prior unit) added Devanagari and indirect-Hinglish CRISIS/CONCERN patterns on top of
  * the ported base, plus a squeezed-substring fallback for letter-spaced evasion of the clearest
- * English signals ("k i l l myself" -> "killmyself"). See the crisis-vs-concern classification
- * table below the pattern lists.
+ * English signals ("k i l l myself" -> "killmyself"). T-005c cycle 1 replaced that hand-kept
+ * 7-substring fallback with a separator-free twin DERIVED from every pattern (see
+ * `squeezePatternSource`), so fully spaced phrases in any script are covered. See the
+ * crisis-vs-concern classification table below the pattern lists.
  *
  * D-020 / qa/gates/crisis-guard-precision.md (2026-09-26, Umesh): this guard matches for RECALL
  * ONLY and suppresses nothing. A prior unit (T-005b) spent three fix cycles building sentence-
@@ -46,8 +48,8 @@
  *     never manufactures a gap the patterns can't cross.
  *   - runs of single-letter tokens ("k i l l", "k.i.l.l", "b e a t s") collapse into one word, so
  *     letter-spacing evasion is caught by the ordinary CRISIS_PATTERNS/CONCERN_PATTERNS regexes
- *     directly (`collapseLetterSpacedRuns`) — not only by the narrow, English-only
- *     SQUEEZED_CRISIS_SUBSTRINGS list below, which has no Devanagari or Hinglish entries.
+ *     directly (`collapseLetterSpacedRuns`); a phrase whose EVERY word is spaced is caught by the
+ *     derived separator-free patterns (SQUEEZED_CRISIS_PATTERNS/SQUEEZED_CONCERN_PATTERNS).
  * Deliberately NOT ported from that branch: `isStrongBoundary`, the capitalisation/infinitive gate,
  * `FORMAT_RUN_BETWEEN_WORDS`'s quadratic lookbehind, `squeezedAcrossWholeFragments`'s join-point
  * logic, and `SELF_COMPOUND` — every one of those existed only to suppress a match, which is exactly
@@ -70,8 +72,10 @@ export interface EscalationCard {
 
 export type RouteResult = { route: "escalate"; card: EscalationCard } | { route: "continue" };
 
-// Ported verbatim from ikigai-counsellor's crisis-guard.ts (H6).
-const CRISIS_PATTERNS: readonly RegExp[] = [
+// Ported verbatim from ikigai-counsellor's crisis-guard.ts (H6). Exported (read-only) so the test
+// suite can generate every letter-/punctuation-/double-spaced evasion form of every pattern
+// (T-005c cycle 1, ISS-t-005c-rev-1) — the coverage is closed by construction, not by examples.
+export const CRISIS_PATTERNS: readonly RegExp[] = [
   // English — suicidal ideation / self-harm
   /\b(want|going|gonna|trying|wanna)\s+to\s+(die|kill myself|end (it|my life))\b/i,
   /\bkill\s+myself\b/i,
@@ -100,6 +104,11 @@ const CRISIS_PATTERNS: readonly RegExp[] = [
   /\bmarne\s+ka\s+man+\b/i,
   // "jeena nahi chahta/chahti" — an explicit "don't want to live" statement.
   /\bjeena\s+nahi[n]?\s+chaht[ai]\b/i,
+  // ISS-t-005c-c0-2: "mar jaunga/jaungi/jaaunga/jaoonga" (I will die) and "mar jaana hai / mar
+  // jaana chahta" — a first-person statement of dying, distinct from "marna chahta" above. The
+  // idiomatic "mar jaunga hanste hanste" (I'll die laughing) also flags: an accepted false alarm
+  // (D-020). "mar gaye yaar" (past tense, a common idiom) still does not match.
+  /\bmar\s+(ja+[ou]+n?g[ai]|ja+na?\s+(hai|chaht[ai]))\b/i,
 
   // --- ISS-023: Devanagari -----------------------------------------------------------------------
   // \b is not used here — JS's default \b is defined over ASCII word chars ([A-Za-z0-9_]) and does
@@ -115,7 +124,7 @@ const CRISIS_PATTERNS: readonly RegExp[] = [
 // New in this engine (not in ikigai's source) — softer distress language: stressed/hopeless/
 // overwhelmed, but not itself a self-harm, suicide, or abuse signal. Deliberately narrower than the
 // crisis list so ordinary frustration ("I'm dying to go to LSE") never lands here either.
-const CONCERN_PATTERNS: readonly RegExp[] = [
+export const CONCERN_PATTERNS: readonly RegExp[] = [
   /\bi\s+feel\s+(so\s+)?(hopeless|worthless|empty)\b/i,
   /\bi\s+feel\s+like\s+giving\s+up\b/i,
   /\bnobody\s+(cares|understands|listens\s+to\s+me)\b/i,
@@ -147,25 +156,79 @@ const CONCERN_PATTERNS: readonly RegExp[] = [
 // | जीना नहीं चाहता/चाहती (jeena nahi chahta/chahti) | Devanagari | crisis  | explicit "don't want to live"                |
 // | बहुत टेंशन (bahut tension)                    | Devanagari | concern | academic-stress language, mirrors Hinglish "bahut tension" — no death assertion |
 
-// ISS-023: substrings matched against the fully-squeezed (every separator in the whole turn
-// removed, not just collapsed to one space) text, as a fallback for the case where an ENTIRE
-// multi-word phrase is letter- or format-spaced ("e n d i t a l l", "attend<ZWSP>it<ZWSP>all") —
-// once every separator disappears the phrase reforms as one run no \s+-based CRISIS_PATTERNS entry
-// can match, since the space that used to sit between what were "end"/"it"/"all" is gone too.
-// Deliberately a short list of unambiguous, high-signal substrings only: because squeezing an
-// entire turn destroys every word boundary in it, an ordinary sentence can end up with two
-// unrelated words landing next to each other here in a way `collapseLetterSpacedRuns` (below,
-// scoped to single-letter runs only) cannot produce. That is a known, accepted trade for recall —
-// see the D-020 note above and the crisis-eval hard_negative rows this reopens.
-const SQUEEZED_CRISIS_SUBSTRINGS: readonly string[] = [
-  "killmyself",
-  "suicidal",
-  "suicide",
-  "enditall",
-  "hurtmyself",
-  "harmmyself",
-  "cuttingmyself",
-];
+// T-005c cycle 1 (ISS-t-005c-rev-1, critical): the separator-free twin of EVERY pattern above,
+// DERIVED from the pattern list itself — never a hand-kept allowlist. Cycle 0 matched the fully-
+// squeezed turn (every separator removed) against 7 hardcoded English substrings ("killmyself",
+// "enditall", ...), so a fully letter- or punctuation-spaced multi-word phrase outside those 7
+// ("b e a t s  m e", "m a r n a  c h a h t a", every Devanagari phrase) collapsed into one run
+// ("beatsme") that neither the \s+-based regexes nor the list could match. The root cause is not
+// fixable by a better collapse: once letters are single-space separated, "the gap between two
+// words" and "the gap inside one letter-spaced word" are the same single space, so no collapse
+// can know where the word boundary was. Instead each pattern is recompiled with its whitespace
+// (`\s`, `\s+`, `\s*`, `\s?`, a literal space and its quantifier), its `\b` word-boundary
+// assertions and its apostrophes removed (`squeezePatternSource`), and run against `squeeze()`'s
+// separator-free view of the whole turn. A new pattern added above is covered automatically.
+// Accepted cost (D-020, recall-only): with every word boundary gone, two unrelated adjacent words
+// can now form a match ("spend it all" -> "spenditall" contains "enditall"; "can't go online" ->
+// "cantgoonline" contains "cantgoon"). Those are documented false alarms, never suppressed.
+// Linear time: the derived regexes have exactly the atoms/quantifiers of their originals minus
+// separators — no nesting, no lookaround is introduced.
+
+/**
+ * Drops every separator-tolerance construct from a pattern's source: `\s` (with any `+ * ?`
+ * quantifier), a literal space or apostrophe (with its quantifier), and `\b`. Inside a character
+ * class nothing is touched. Escapes other than `\s`/`\b` are copied verbatim.
+ */
+export function squeezePatternSource(source: string): string {
+  let out = "";
+  let inClass = false;
+  const isQuantifier = (ch: string | undefined): boolean => ch === "+" || ch === "*" || ch === "?";
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === "\\") {
+      const next = source[i + 1];
+      if (!inClass && (next === "s" || next === "b")) {
+        i++;
+        if (next === "s" && isQuantifier(source[i + 1])) i++;
+        continue;
+      }
+      out += ch + (next ?? "");
+      i++;
+      continue;
+    }
+    if (inClass) {
+      if (ch === "]") inClass = false;
+      out += ch;
+      continue;
+    }
+    if (ch === "[") {
+      inClass = true;
+      out += ch;
+      continue;
+    }
+    if (ch === " " || ch === "'") {
+      if (isQuantifier(source[i + 1])) i++;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+interface SqueezedPattern {
+  source: string;
+  regex: RegExp;
+}
+
+function deriveSqueezed(patterns: readonly RegExp[]): readonly SqueezedPattern[] {
+  return patterns.map((pattern) => ({
+    source: pattern.source,
+    regex: new RegExp(squeezePatternSource(pattern.source), pattern.flags),
+  }));
+}
+
+const SQUEEZED_CRISIS_PATTERNS = deriveSqueezed(CRISIS_PATTERNS);
+const SQUEEZED_CONCERN_PATTERNS = deriveSqueezed(CONCERN_PATTERNS);
 
 const CRISIS_MESSAGE = [
   "Hey — what you just shared matters more than this session.",
@@ -207,8 +270,62 @@ const NON_SQUEEZE_RUN = /[^\p{L}\p{M}\p{N}]+/gu;
 const SINGLE_LETTER_TOKEN = /^\p{L}\p{M}*$/u;
 
 /**
- * Step 1 (recall, not suppression): NFC-normalise, delete invisible format characters, lowercase
- * (a safe no-op on Devanagari, which has no case), then collapse every remaining separator —
+ * ISS-t-005c-c0-3: common Cyrillic and Greek lowercase homoglyphs of Latin letters, folded to the
+ * Latin letter they impersonate ("кill myself" with a Cyrillic ka, "suiсidal" with a
+ * Cyrillic es). Applied after lowercasing, so uppercase homoglyphs are covered too. NFKC (below)
+ * already folds fullwidth/compatibility forms ("ｋｉｌｌ" -> "kill"); homoglyphs
+ * from other scripts are not compatibility-equivalent, so they need this explicit map. Recall-only:
+ * a genuine Russian/Greek word that folds into an English pattern is an accepted false alarm.
+ */
+const HOMOGLYPHS: Readonly<Record<string, string>> = {
+  // Cyrillic
+  "а": "a", // а
+  "е": "e", // е
+  "ё": "e", // ё
+  "о": "o", // о
+  "р": "p", // р
+  "с": "c", // с
+  "х": "x", // х
+  "у": "y", // у
+  "і": "i", // і
+  "ї": "i", // ї
+  "ј": "j", // ј
+  "к": "k", // к
+  "м": "m", // м
+  "т": "t", // т
+  "н": "h", // н
+  "в": "b", // в
+  "ѕ": "s", // ѕ
+  "ԁ": "d", // ԁ
+  "һ": "h", // һ
+  "ӏ": "l", // ӏ
+  "ԛ": "q", // ԛ
+  "ԝ": "w", // ԝ
+  "г": "r", // г (italic/handwritten r-like)
+  "п": "n", // п
+  "и": "u", // и
+  // Greek
+  "α": "a", // α
+  "ε": "e", // ε
+  "ο": "o", // ο
+  "ρ": "p", // ρ
+  "ι": "i", // ι
+  "κ": "k", // κ
+  "ν": "v", // ν
+  "τ": "t", // τ
+  "υ": "u", // υ
+  "χ": "x", // χ
+  "η": "n", // η
+  "ω": "w", // ω
+};
+const HOMOGLYPH_CHAR = new RegExp(`[${Object.keys(HOMOGLYPHS).join("")}]`, "gu");
+
+/**
+ * Step 1 (recall, not suppression): NFKC-normalise (compatibility folding: fullwidth Latin, ligatures,
+ * etc. become plain ASCII — ISS-t-005c-c0-3; Devanagari has no compatibility forms the patterns rely
+ * on, so its matching is unchanged — see the Devanagari tests), delete invisible format characters,
+ * lowercase (a safe no-op on Devanagari, which has no case), fold Cyrillic/Greek homoglyphs to Latin
+ * (`HOMOGLYPHS`), then collapse every remaining separator —
  * whitespace including a newline, sentence punctuation, an ellipsis, anything that is not a
  * letter/mark/digit/apostrophe — down to a single space. This is what lets "kill. myself",
  * "kill\nmyself" and "kill....myself" all match the same `\bkill\s+myself\b` pattern as an
@@ -217,9 +334,10 @@ const SINGLE_LETTER_TOKEN = /^\p{L}\p{M}*$/u;
  */
 function normalise(text: string): string {
   return text
-    .normalize("NFC")
+    .normalize("NFKC")
     .replace(INVISIBLE_FORMAT_CHARS, "")
     .toLowerCase()
+    .replace(HOMOGLYPH_CHAR, (ch) => HOMOGLYPHS[ch] ?? ch)
     .replace(NON_WORD_RUN, " ")
     .trim();
 }
@@ -232,7 +350,12 @@ function normalise(text: string): string {
  * the one place multi-word runs do glue together, by design — see its own comment). This is what
  * lets ordinary CRISIS_PATTERNS/CONCERN_PATTERNS regexes (which need a real `\s+` between two
  * words, e.g. `\bbeats\s+me\b`) catch letter-spacing evasion directly, including for Devanagari and
- * Hinglish phrases that have no entry in the narrow, English-only SQUEEZED_CRISIS_SUBSTRINGS list.
+ * Hinglish phrases.
+ *
+ * Known limit (ISS-t-005c-rev-1): when EVERY word of a multi-word phrase is letter-spaced
+ * ("b e a t s  m e"), the whole phrase is one single-letter run and merges into one token
+ * ("beatsme") — the word gap is indistinguishable from the letter gaps after `normalise()`. This
+ * view cannot recover that case by design; the derived squeezed patterns (Step 3) do.
  */
 function collapseLetterSpacedRuns(normalised: string): string {
   if (normalised.length === 0) return normalised;
@@ -251,10 +374,11 @@ function collapseLetterSpacedRuns(normalised: string): string {
 }
 
 /**
- * Step 3 (recall, narrow use — see SQUEEZED_CRISIS_SUBSTRINGS): strips every remaining separator
- * from the WHOLE turn, so a multi-word phrase that is fully letter- or format-spaced across a word
- * gap ("e n d i t a l l") still reforms into a substring the short, unambiguous list above can
- * match, at the accepted cost that two unrelated adjacent words can now glue together too.
+ * Step 3 (recall — see SQUEEZED_CRISIS_PATTERNS/SQUEEZED_CONCERN_PATTERNS): strips every remaining
+ * separator (and apostrophe) from the WHOLE turn, so a multi-word phrase that is fully letter-,
+ * punctuation- or format-spaced across a word gap ("e n d i t a l l", "b.e.a.t.s m.e") still reforms
+ * into a run the derived separator-free twin of its pattern can match, at the accepted cost that two
+ * unrelated adjacent words can now glue together too.
  */
 function squeeze(normalised: string): string {
   return normalised.replace(NON_SQUEEZE_RUN, "");
@@ -269,8 +393,8 @@ function matchAll(text: string, patterns: readonly RegExp[]): string[] {
  * level patterns take priority over concern-level ones — a turn that matches both is reported as
  * "crisis" only, since that is the severity the counsellor needs to act on. Every regex runs
  * against both the plain normalised view and the letter-spacing-collapsed view (so a collapse can
- * only ADD a match, never hide one the plain view had); the squeezed-substring fallback runs once
- * against the whole turn.
+ * only ADD a match, never hide one the plain view had); the derived separator-free twin of every
+ * pattern runs once against the whole squeezed turn, at the pattern's own level.
  */
 export function crisisGuard(text: string): CrisisCheckResult {
   if (!text || text.trim().length === 0) {
@@ -292,8 +416,11 @@ export function crisisGuard(text: string): CrisisCheckResult {
     for (const source of matchAll(view, CRISIS_PATTERNS)) crisisMatched.add(source);
     for (const source of matchAll(view, CONCERN_PATTERNS)) concernMatched.add(source);
   }
-  for (const substring of SQUEEZED_CRISIS_SUBSTRINGS) {
-    if (squeezed.includes(substring)) crisisMatched.add(`squeezed:${substring}`);
+  for (const { source, regex } of SQUEEZED_CRISIS_PATTERNS) {
+    if (regex.test(squeezed)) crisisMatched.add(`squeezed:${source}`);
+  }
+  for (const { source, regex } of SQUEEZED_CONCERN_PATTERNS) {
+    if (regex.test(squeezed)) concernMatched.add(`squeezed:${source}`);
   }
 
   if (crisisMatched.size > 0) {

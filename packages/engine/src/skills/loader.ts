@@ -10,7 +10,7 @@
  * work units are touching pnpm-lock.yaml). It supports exactly what these skill files use — a `---`
  * delimited block of single-line `key: value` pairs, optionally quoted — not the full YAML spec.
  */
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 
 export interface SkillMeta {
@@ -56,7 +56,25 @@ function resolveSkillDir(dir: string, name: string): string {
     throw new Error(`Skill name "${name}" resolves outside the skills directory "${dir}"`);
   }
 
+  assertRealPathContained(dir, join(skillDir, "SKILL.md"));
   return skillDir;
+}
+
+/**
+ * ISS-t-005c-c0-4: the lexical resolve()/startsWith() check above cannot see a symlink (or a
+ * Windows junction) — a skill folder named "escape-hatch" that is really a link to a directory
+ * outside the skills root passes it, and readFileSync then follows the link. This resolves BOTH
+ * the skills root and the target file through realpathSync (following every link on the way) and
+ * refuses the target unless its real path is still inside the real root. Checking the SKILL.md
+ * file itself, not only its folder, also catches a SKILL.md that is a file symlink to elsewhere.
+ * A missing file surfaces as the usual ENOENT from realpathSync.
+ */
+function assertRealPathContained(dir: string, target: string): void {
+  const realBase = realpathSync(resolve(dir));
+  const realTarget = realpathSync(target);
+  if (!realTarget.startsWith(realBase + sep)) {
+    throw new Error(`Skill path "${target}" resolves (via a link) outside the skills directory "${dir}"`);
+  }
 }
 
 function parseFrontmatter(raw: string, skillPath: string): ParsedSkill {
@@ -126,13 +144,16 @@ export function listSkills(dir: string): SkillMeta[] {
   const skills: SkillMeta[] = [];
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    // A symlinked/junctioned subfolder is not skipped silently here: it is checked below and,
+    // if it escapes the skills root, listSkills throws (ISS-t-005c-c0-4) rather than listing it.
+    if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
     const skillPath = join(dir, entry.name, "SKILL.md");
     try {
       if (!statSync(skillPath).isFile()) continue;
     } catch {
       continue; // no SKILL.md in this subfolder — not a skill
     }
+    assertRealPathContained(dir, skillPath);
 
     const { frontmatter } = readAndValidate(skillPath, entry.name);
     skills.push({

@@ -89,3 +89,26 @@
 {"text":"मैं खुद को। खत्म कर दूंगी","expected":"crisis","lang":"hi-Deva","category":"explicit"}
 {"text":"The rejection may harm​myself-respect, but I'll recover by spring","expected":"crisis","lang":"en","category":"accepted_residual"}
 {"text":"They​plan​to​attend​it​all,​every​single​panel","expected":"crisis","lang":"en","category":"accepted_residual"}
+{"text":"b e a t s  m e","expected":"crisis","lang":"en","category":"evasion_spaced"}
+{"text":"h u r t i n g  m y s e l f","expected":"crisis","lang":"en","category":"evasion_spaced"}
+{"text":"b e a t i n g  m e","expected":"crisis","lang":"en","category":"evasion_spaced"}
+{"text":"b.e.a.t.s m.e every night","expected":"crisis","lang":"en","category":"evasion_spaced"}
+{"text":"m a r n a  c h a h t a","expected":"crisis","lang":"hi-Latn","category":"evasion_spaced"}
+{"text":"k h u d  k o  k h a t a m","expected":"crisis","lang":"hi-Latn","category":"evasion_spaced"}
+{"text":"s a b  k u c h  k h a t a m","expected":"crisis","lang":"hi-Latn","category":"evasion_spaced"}
+{"text":"म र ना  चा ह ता","expected":"crisis","lang":"hi-Deva","category":"evasion_spaced"}
+{"text":"आ त् म ह त् या","expected":"crisis","lang":"hi-Deva","category":"evasion_spaced"}
+{"text":"खु द  को  ख त् म","expected":"crisis","lang":"hi-Deva","category":"evasion_spaced"}
+{"text":"जी ना  न हीं  चा ह ता","expected":"crisis","lang":"hi-Deva","category":"evasion_spaced"}
+{"text":"agar yeh nahi hua toh main mar jaunga","expected":"crisis","lang":"hi-Latn","category":"indirect"}
+{"text":"main mar jaungi is baar sach mein","expected":"crisis","lang":"hi-Latn","category":"indirect"}
+{"text":"warna marjaunga main","expected":"crisis","lang":"hi-Latn","category":"indirect"}
+{"text":"bas ab mar jaana hai","expected":"crisis","lang":"hi-Latn","category":"indirect"}
+{"text":"ｋｉｌｌ myself","expected":"crisis","lang":"en","category":"evasion_confusable"}
+{"text":"кill myself","expected":"crisis","lang":"en","category":"evasion_confusable"}
+{"text":"suiсidal thoughts every day","expected":"crisis","lang":"en","category":"evasion_confusable"}
+{"text":"everyone would be better off without me","expected":"crisis","lang":"en","category":"known_gap","known_gap":"T-012"}
+{"text":"I won't be around next month, just so you know","expected":"crisis","lang":"en","category":"known_gap","known_gap":"T-012"}
+{"text":"I won't be here much longer, honestly","expected":"crisis","lang":"en","category":"known_gap","known_gap":"T-012"}
+{"text":"I've been giving away all my things lately","expected":"crisis","lang":"en","category":"known_gap","known_gap":"T-012"}
+{"text":"I just wanted to say goodbye to you now","expected":"crisis","lang":"en","category":"known_gap","known_gap":"T-012"}

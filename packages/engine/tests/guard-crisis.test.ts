@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { crisisGuard, routeBeforeGeneration } from "../src/guards/crisis.js";
+import {
+  CONCERN_PATTERNS,
+  CRISIS_PATTERNS,
+  crisisGuard,
+  routeBeforeGeneration,
+  squeezePatternSource,
+} from "../src/guards/crisis.js";
 
 test("a plain statement is level 'none' and continues", () => {
   const result = crisisGuard("I want to study computer science in Canada.");
@@ -247,3 +253,276 @@ test("doubling zalgo input roughly doubles the time (linear, not quadratic)", ()
   // manifest, which reproduced a ~5500x slowdown at just 25k chars with the old quadratic step).
   assert.ok(ratio < 3.5, `expected roughly linear scaling (ratio < 3.5), got ${ratio.toFixed(2)}`);
 });
+
+// -------------------------------------------------------------------------------------------
+// T-005c cycle 1 — ISS-t-005c-rev-1 (critical): full-phrase spacing merged two words into one
+// token ("b e a t s  m e" -> "beatsme") that no \s+-based pattern could match, and the hand-kept
+// 7-substring squeeze list only rescued English entries. The fix derives a separator-free twin of
+// EVERY pattern. This block closes the class BY CONSTRUCTION: it expands each pattern in
+// CRISIS_PATTERNS and CONCERN_PATTERNS into concrete example phrases, then asserts every spaced
+// evasion form of every example is flagged at that pattern's level. A new pattern is covered the
+// moment it is added to either list.
+// -------------------------------------------------------------------------------------------
+
+/**
+ * Expands a regex source into concrete matching strings, for the small regex subset the crisis
+ * patterns use: literals, `(...)` groups with `|`, `[...]` classes (no ranges/negation), escapes
+ * (`\s` -> " ", `\b` -> "", `\w` -> "x"), and the `? + *` quantifiers (`?` -> absent and present,
+ * `+` -> once, `*` -> absent). Throws on anything outside that subset so a future pattern using
+ * new syntax fails loudly instead of being silently skipped. Output is capped per pattern.
+ */
+function expandPattern(source: string, cap = 48): string[] {
+  let pos = 0;
+  const limit = (list: string[]): string[] => [...new Set(list)].slice(0, cap);
+  const product = (a: string[], b: string[]): string[] => limit(a.flatMap((x) => b.map((y) => x + y)));
+
+  function parseAlternation(): string[] {
+    const branches: string[] = [...parseSequence()];
+    while (source[pos] === "|") {
+      pos++;
+      branches.push(...parseSequence());
+    }
+    return limit(branches);
+  }
+  function parseSequence(): string[] {
+    let acc = [""];
+    while (pos < source.length && source[pos] !== "|" && source[pos] !== ")") {
+      let atom = parseAtom();
+      const q = source[pos];
+      if (q === "?") {
+        pos++;
+        atom = ["", ...atom];
+      } else if (q === "+") {
+        pos++;
+      } else if (q === "*") {
+        pos++;
+        atom = [""];
+      } else if (q === "{") {
+        throw new Error(`expandPattern: unsupported {n,m} quantifier in ${source}`);
+      }
+      acc = product(acc, atom);
+    }
+    return acc;
+  }
+  function parseAtom(): string[] {
+    const ch = source[pos];
+    if (ch === "(") {
+      pos++;
+      if (source.startsWith("?:", pos)) pos += 2;
+      else if (source[pos] === "?") throw new Error(`expandPattern: unsupported group in ${source}`);
+      const inner = parseAlternation();
+      if (source[pos] !== ")") throw new Error(`expandPattern: unclosed group in ${source}`);
+      pos++;
+      return inner;
+    }
+    if (ch === "[") {
+      const end = source.indexOf("]", pos);
+      const body = [...source.slice(pos + 1, end)];
+      if (body[0] === "^" || body.includes("-") || body.includes("\\")) {
+        throw new Error(`expandPattern: unsupported class in ${source}`);
+      }
+      pos = end + 1;
+      return body;
+    }
+    if (ch === "\\") {
+      const next = source[pos + 1];
+      pos += 2;
+      if (next === "s") return [" "];
+      if (next === "b") return [""];
+      if (next === "w") return ["x"];
+      if (/[a-zA-Z0-9]/.test(next)) throw new Error(`expandPattern: unsupported escape \\${next} in ${source}`);
+      return [next];
+    }
+    if (ch === "." || ch === "^" || ch === "$") throw new Error(`expandPattern: unsupported ${ch} in ${source}`);
+    const cp = String.fromCodePoint(source.codePointAt(pos)!);
+    pos += cp.length;
+    return [cp];
+  }
+
+  const out = parseAlternation();
+  if (pos !== source.length) throw new Error(`expandPattern: trailing input at ${pos} in ${source}`);
+  return out.map((s) => s.replace(/\s+/g, " ").trim()).filter((s) => s.length > 0);
+}
+
+/** One letter plus its combining marks (a Devanagari piece like "त्" or "हीं"), or one other char. */
+const GRAPHEME = /\p{L}\p{M}*|[^\s]/gu;
+const graphemes = (word: string): string[] => word.match(GRAPHEME) ?? [];
+
+/** (a) every word fully letter-spaced, words separated by a double space: "b e a t s  m e". */
+const letterSpaced = (phrase: string): string =>
+  phrase.split(" ").map((w) => graphemes(w).join(" ")).join("  ");
+/** (a') letter-spaced with SINGLE spaces everywhere — the word gap is indistinguishable. */
+const letterSpacedFlat = (phrase: string): string =>
+  phrase.split(" ").map((w) => graphemes(w).join(" ")).join(" ");
+/** (b) punctuation-spaced: "b.e.a.t.s m.e". */
+const punctuationSpaced = (phrase: string): string =>
+  phrase.split(" ").map((w) => graphemes(w).join(".")).join(" ");
+/** (c) double space between words: "beats  me". */
+const doubleSpaced = (phrase: string): string => phrase.split(" ").join("  ");
+
+const LEVEL_OF = { none: 0, concern: 1, crisis: 2 } as const;
+
+const PATTERN_GROUPS: ReadonlyArray<readonly [readonly RegExp[], "crisis" | "concern"]> = [
+  [CRISIS_PATTERNS, "crisis"],
+  [CONCERN_PATTERNS, "concern"],
+];
+
+for (const [patterns, level] of PATTERN_GROUPS) {
+  for (const pattern of patterns) {
+    test(`ISS-t-005c-rev-1 generated: every spaced form of /${pattern.source}/ -> ${level}`, () => {
+      const examples = expandPattern(pattern.source);
+      assert.ok(examples.length > 0, `no example generated for ${pattern.source}`);
+      const failures: string[] = [];
+      for (const example of examples) {
+        // Generator sanity: the example must match its own pattern as plain text.
+        assert.ok(pattern.test(example), `generator produced a non-matching example ${JSON.stringify(example)}`);
+        const forms: ReadonlyArray<readonly [string, string]> = [
+          ["plain", example],
+          ["letter-spaced", letterSpaced(example)],
+          ["letter-spaced-flat", letterSpacedFlat(example)],
+          ["punctuation-spaced", punctuationSpaced(example)],
+          ["double-spaced", doubleSpaced(example)],
+          ["letter-spaced in a sentence", `she said ${letterSpaced(example)} tonight`],
+        ];
+        for (const [formName, text] of forms) {
+          const actual = crisisGuard(text).level;
+          // A crisis pattern must flag "crisis"; a concern pattern at least "concern" (a squeezed
+          // merge that ALSO hits a crisis pattern is the safe direction under D-020) — the next
+          // test pins concern forms to exactly "concern" today.
+          if (LEVEL_OF[actual] < LEVEL_OF[level]) failures.push(`${formName}: ${JSON.stringify(text)} -> ${actual}`);
+        }
+      }
+      assert.deepEqual(failures, [], `missed spaced forms for /${pattern.source}/`);
+    });
+  }
+}
+
+test("ISS-t-005c-rev-1 generated: concern-pattern spaced forms land at exactly 'concern'", () => {
+  const escalated: string[] = [];
+  for (const pattern of CONCERN_PATTERNS) {
+    for (const example of expandPattern(pattern.source)) {
+      for (const text of [letterSpaced(example), punctuationSpaced(example), doubleSpaced(example)]) {
+        const actual = crisisGuard(text).level;
+        if (actual !== "concern") escalated.push(`${JSON.stringify(text)} -> ${actual}`);
+      }
+    }
+  }
+  assert.deepEqual(escalated, []);
+});
+
+test("squeezePatternSource derives a separator-free twin that compiles for every pattern", () => {
+  for (const pattern of [...CRISIS_PATTERNS, ...CONCERN_PATTERNS]) {
+    const derived = squeezePatternSource(pattern.source);
+    assert.doesNotThrow(() => new RegExp(derived, pattern.flags), derived);
+    assert.ok(!/\\s|\\b| |'/.test(derived), `separator construct left in ${derived}`);
+  }
+  assert.equal(
+    squeezePatternSource(String.raw`\bcan'?t\s+(go on|do this any ?more)\b`),
+    "cant(goon|dothisanymore)",
+  );
+});
+
+// The six strings reproduced in the senior review (ISS-t-005c-rev-1), verbatim.
+const REV1_REPRODUCED: ReadonlyArray<string> = [
+  "b e a t s  m e",
+  "h u r t i n g  m y s e l f",
+  "m a r n a  c h a h t a",
+  "k h u d  k o  k h a t a m",
+  "s a b  k u c h  k h a t a m",
+  "b e a t i n g  m e",
+];
+
+for (const text of REV1_REPRODUCED) {
+  test(`ISS-t-005c-rev-1 reproduced miss: ${JSON.stringify(text)} -> crisis`, () => {
+    assert.equal(crisisGuard(text).level, "crisis");
+  });
+}
+
+// All four Devanagari crisis patterns fully spaced per akshara piece (single and double word gap,
+// and dot-spaced), plus the Devanagari concern pattern.
+const DEVANAGARI_SPACED: ReadonlyArray<readonly [string, "crisis" | "concern"]> = [
+  ["म र ना  चा ह ता", "crisis"],
+  ["म र ना चा ह ती", "crisis"],
+  ["आ त् म ह त् या", "crisis"],
+  ["आ.त्.म.ह.त्.या", "crisis"],
+  ["खु द  को  ख त् म", "crisis"],
+  ["खु द को ख त् म", "crisis"],
+  ["जी ना  न हीं  चा ह ता", "crisis"],
+  ["जी.ना न.हीं चा.ह.ती", "crisis"],
+  ["ब हु त  टें श न", "concern"],
+];
+
+for (const [text, level] of DEVANAGARI_SPACED) {
+  test(`ISS-t-005c-rev-1 Devanagari fully spaced: ${JSON.stringify(text)} -> ${level}`, () => {
+    assert.equal(crisisGuard(text).level, level);
+  });
+}
+
+// ISS-t-005c-c0-2 — Hinglish "mar jaunga" family.
+const MAR_JAUNGA: ReadonlyArray<string> = [
+  "agar yeh nahi hua toh main mar jaunga",
+  "main mar jaungi is baar sach mein",
+  "warna marjaunga main",
+  "main mar jaaunga ek din",
+  "mar jaoongi main",
+  "bas ab mar jaana hai",
+  "mujhe mar jana hai",
+  "main mar jaana chahta hoon",
+  "m a r  j a u n g a",
+];
+
+for (const text of MAR_JAUNGA) {
+  test(`ISS-t-005c-c0-2: ${JSON.stringify(text)} -> crisis`, () => {
+    assert.equal(crisisGuard(text).level, "crisis");
+  });
+}
+
+test("ISS-t-005c-c0-2: past-tense idiom 'mar gaye yaar' still does not flag crisis", () => {
+  assert.notEqual(crisisGuard("mar gaye yaar, itna homework de diya").level, "crisis");
+});
+
+// ISS-t-005c-c0-3 — confusable evasion: fullwidth (NFKC) and Cyrillic/Greek homoglyphs.
+const CONFUSABLES: ReadonlyArray<readonly [string, string]> = [
+  ["fullwidth 'kill myself'", "ｋｉｌｌ myself"],
+  ["Cyrillic ka in 'kill myself'", "кill myself"],
+  ["Cyrillic es in 'suicidal'", "suiсidal thoughts every day"],
+  ["uppercase Cyrillic in 'KILL MYSELF'", "КILL MYЅELF"],
+  ["Cyrillic ie in 'beats me'", "bеats mе"],
+  ["Greek alpha in 'end it all'", "end it αll"],
+  ["fullwidth letter-spaced 'beats me'", "ｂ ｅ ａ ｔ ｓ  ｍ ｅ"],
+];
+
+for (const [name, text] of CONFUSABLES) {
+  test(`ISS-t-005c-c0-3 confusable: ${name} -> crisis`, () => {
+    assert.equal(crisisGuard(text).level, "crisis");
+  });
+}
+
+test("ISS-t-005c-c0-3: NFKC folding leaves every Devanagari pattern matching", () => {
+  for (const text of [
+    "मैं मरना चाहता हूं",
+    "मुझे आत्महत्या के विचार आ रहे हैं",
+    "मैं खुद को खत्म करना चाहता हूं",
+    "मैं जीना नहीं चाहती अब",
+    "आत्म‍हत्या",
+  ]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+  assert.equal(crisisGuard("मुझे बहुत टेंशन हो रही है").level, "concern");
+});
+
+// D-020 accepted residuals introduced by cycle 1's derived separator-free patterns: with every word
+// boundary gone, adjacent ordinary words can form a pattern ("can't go online" -> "cantgoon...",
+// "want to diet" -> "wanttodie..."). Documented expected flags, not suppressed — the recall-only
+// trade D-020 accepted; T-012's classifier may annotate them "likely benign", never hide them.
+const CYCLE1_ACCEPTED_RESIDUALS: ReadonlyArray<string> = [
+  "I can't go online today, the wifi is down",
+  "I want to diet before the trip",
+  "mar jaunga hanste hanste yaar",
+];
+
+for (const text of CYCLE1_ACCEPTED_RESIDUALS) {
+  test(`D-020 accepted residual (cycle 1 squeeze): ${JSON.stringify(text)} -> crisis`, () => {
+    assert.equal(crisisGuard(text).level, "crisis");
+  });
+}
