@@ -1,0 +1,31 @@
+{
+  "unit": "t-020-reject-reason-ui",
+  "role": "checker (Mode D, independent re-verification, cycle 0)",
+  "date": "2026-09-26",
+  "baseUrl": "http://localhost:3108",
+  "serverMode": "dev (next dev --webpack --port 3108), VC_WEB_MODE=demo throughout",
+  "mode": "demo: in-process fake db via @vc/db getVcDb + real MongoDBSaver over the fake, MockProvider, synthetic threads; no MONGODB_URL, no Gemini",
+  "browser": "chromium (playwright MCP, headed via browser tool)",
+  "note": "Driven with the checker's own Playwright MCP browser tool -- the maker's demo/browser-evidence.ts script was never re-run and its screenshots/report.json were never read for this section.",
+  "interactions": [
+    { "did": "open the index page", "expected": "the 3 seeded demo threads are listed", "observed": "3 links incl. scribe:demo-session-1", "pass": true },
+    { "did": "open the paused thread (session-1)", "expected": "4 proposed facts, 2 dropped facts, draft summary, Submit disabled", "observed": "rendered as expected, 0 console errors", "pass": true },
+    { "did": "click Reject on intendedMajor", "expected": "a reason text input is revealed, labelled 'Reason (optional)' (B17)", "observed": "textbox 'Reason (optional)' appeared", "pass": true },
+    { "did": "HOSTILE: type/paste a 600-char reason", "expected": "client-side maxLength stops input at MAX_REJECT_REASON_LENGTH so a Jaipur counsellor can never even exceed the limit", "observed": "input value length=500, maxLength=500", "pass": true },
+    { "did": "HOSTILE: type a whitespace-only reason ('   ')", "expected": "the fact still counts as decided (reason is optional; server trims+refuses empty, client never blocks on it)", "observed": "Decided 1/4, Submit still gated only on the other 3 facts", "pass": true },
+    { "did": "HOSTILE: type '<script>window.__xss=true</script><img src=x onerror=\"window.__xss2=true\">' as the reason", "expected": "never executes in the browser (plain text input value, no HTML sink)", "observed": "window.__xss and window.__xss2 both undefined after typing", "pass": true },
+    { "did": "decide the remaining 3 facts (approve/approve/approve) + withhold summary + submit", "expected": "resolves, 0 unexpected console errors", "observed": "state=done, 0 console errors", "pass": true },
+    { "did": "read back /api/demo/readback?studentId=demo-student-1 after the hostile-reason reject+submit", "expected": "the decisions collection exposes one record: rejected=[{key:intendedMajor, reason:<the exact XSS string>}]", "observed": "decisions=[{\"threadId\":\"scribe:demo-session-1\",\"rejected\":[{\"key\":\"intendedMajor\",\"reason\":\"<script>window.__xss=true</script><img src=x onerror=\\\"window.__xss2=true\\\">\"}],\"decidedAt\":\"...\"}] -- stored verbatim as inert text, never rendered as HTML anywhere in the app (observational note, not a defect: no dangerouslySetInnerHTML in ApprovalScreen.tsx and this field is not currently displayed on any screen)", "pass": true },
+    { "did": "open the fenced thread (session-2)", "expected": "the fenced state, no fact data leaked", "observed": "'Erasure in progress' shown, 0 fact cards; console shows 2 expected 423-status resource logs (the state's own fetch) + 1 favicon 404 (browser noise), 0 unexpected errors", "pass": true },
+    { "did": "open the in-progress thread (session-3)", "expected": "the in-progress state", "observed": "'Decision recorded, write pending' shown, 0 console errors", "pass": true },
+    { "did": "HOSTILE (raw API, after a server restart re-seeded a fresh thread): POST a per-fact decision with decision:'approve' PLUS a stray reason field on that same fact", "expected": "B5 typed boundary strips the unknown field silently (PerFactDecisionSchema's approve variant has no reason key); the request proceeds as a plain approve; no audit record is fabricated for a non-reject decision", "observed": "state=done, all 4 facts written; readback shows decisions=[] (no bogus audit row)", "pass": true },
+    { "did": "resize to 390x844 (mobile) and click Reject on intendedMajor on a fresh seeded thread", "expected": "no horizontal page scroll with the reason field visible (B17: usable on a lower-end/mobile device)", "observed": "document.documentElement.scrollWidth - clientWidth = 0", "pass": true }
+  ],
+  "totals": {
+    "interactions": 12,
+    "passed": 12,
+    "failed": 0,
+    "unexpectedConsoleErrors": 0
+  },
+  "screenshot": "mobile-reject.png (390x844, reject-reason field revealed, no overflow)"
+}
