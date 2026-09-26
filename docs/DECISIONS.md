@@ -245,3 +245,11 @@ The rules e2e proves that scribe â†’ facts â†’ profile diff â†’ a
 **Approved-by:** Umesh (chat, 2026-09-26, AskUserQuestion "Allow cycle 3")
 **Result:** --
 **Links:** T-013, qa/gates/t013-extra-cycle.md, ISS-t-013r-rev-9, ISS-t-013r-rev-10, ISS-t-013r-rev-11
+
+## D-024 | 2026-09-26 | type: decision | status: ACTIVE
+**What:** T-013 (citation rescope) merges to main at checker cycle-3 PASS (6736ee2) even though the AI-engineer review Blocks it on ISS-t-013r-rev-14. That issue is an open 0 to 4 word gap in COUNTRY_TEMPLATES[0] (nodes.ts:464): "I want to study as agent advised in Australia" still auto-verifies. rev-14 stays open. T-030 fixes it and merges as soon as its own checker passes. This is a one-off human override of the rule that "a review Block overrides a checker PASS", scoped to this one issue on this one unit.
+**Why:** the cycle-3 checker PASSed with 34 hostile variants and no new finding, and the data-engineer review Approved. The Block covers one narrow template gap, and the counsellor still approves every fact (B3), so an auto-verified country is never final. The downstream units (T-025, T-022, T-029, T-012) are built on T-013, so a held merge would stall them. T-030 already carries the fix in parallel.
+**Changes-authorized:** none (process exception for one unit; no ARCHITECTURE or contract change).
+**Approved-by:** Umesh (chat, 2026-09-26, AskUserQuestion "Merge now, T-030 follows")
+**Result:** --
+**Links:** T-013, T-030, ISS-t-013r-rev-14, D-023
