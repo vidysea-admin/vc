@@ -13,3 +13,5 @@ Q2. If model 1 answers but in the wrong shape (bad JSON structure, not an outage
 Answer format: "Q1 A, Q2 A" in chat; recorded here as `Answered: <ISO> — <choice> — <where>`.
 
 Answered: 2026-09-26T20:07:30+05:30 — Q1 A (10 attempts TOTAL across the 3 models, as built), Q2 A (wrong-shape output counts as failed: fail over to models 2/3, then alert engineering + apology/Retry) — Umesh in chat to the checker session ("Am, A", read as "A, A")
+
+Answered: 2026-09-26T20:13:59+05:30 — Q1 A (10 attempts TOTAL across the 3 models) · Q2 A (wrong-shape output counts as failed: fail over to models 2/3, then alert + apology/Retry) — Umesh via AskUserQuestion in the maker session
