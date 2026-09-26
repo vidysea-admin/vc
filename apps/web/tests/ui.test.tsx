@@ -7,9 +7,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { isScriptLike } from "@vc/schemas";
-import { ApprovalScreen } from "../src/components/ApprovalScreen";
+import { ApprovalScreen, buildRejectDecision } from "../src/components/ApprovalScreen";
 import { LABELS } from "../src/components/labels";
-import type { ApprovalView } from "../src/server/contracts";
+import { MAX_REJECT_REASON_LENGTH, type ApprovalView } from "../src/server/contracts";
 
 const quoteSource = (quote: string, turnId: string) => ({ type: "transcript" as const, quote, turnId });
 
@@ -158,4 +158,36 @@ test("B1: the only text on the screen is labels or data from the proposal (nothi
   const labels = new Set<string>(Object.values(LABELS));
   const stray = textNodes(html).filter((t) => !labels.has(t) && !data.has(t) && !/^[\d\s%/→:·()-]+$/.test(t));
   assert.deepEqual(stray, [], "text on screen that is neither a label nor proposal data");
+});
+
+test("pending: no fact is decided yet, so no reject-reason field is rendered (it only appears once a fact is marked reject)", () => {
+  const html = renderToStaticMarkup(<ApprovalScreen threadId="scribe:s-1" initialView={PENDING} />);
+  assert.equal(html.includes("data-reason-for"), false);
+  assert.equal(html.includes(LABELS.rejectReason), false);
+});
+
+// ---------------------------------------------------------------------------
+// T-020 / ISS-t-018-c0-1: the per-fact reject decision the form sends to the server. This is the
+// UI's own logic for what to send when a fact is marked "reject" — exercised directly (a real
+// counsellor typing into the field and clicking Submit is proven live, against a real browser and a
+// real production build, in demo/browser-evidence.ts's own interactions, not re-simulated here).
+// ---------------------------------------------------------------------------
+
+test("buildRejectDecision: a typed reason is trimmed and sent", () => {
+  assert.deepEqual(buildRejectDecision("budget_inr_per_year", "  needs a second look  "), {
+    key: "budget_inr_per_year",
+    decision: "reject",
+    reason: "needs a second look",
+  });
+});
+
+test("buildRejectDecision: an empty or whitespace-only reason is OMITTED, never sent as reason: \"\"", () => {
+  assert.deepEqual(buildRejectDecision("budget_inr_per_year", undefined), { key: "budget_inr_per_year", decision: "reject" });
+  assert.deepEqual(buildRejectDecision("budget_inr_per_year", ""), { key: "budget_inr_per_year", decision: "reject" });
+  assert.deepEqual(buildRejectDecision("budget_inr_per_year", "   "), { key: "budget_inr_per_year", decision: "reject" });
+});
+
+test("buildRejectDecision: a reason at exactly MAX_REJECT_REASON_LENGTH is sent as-is (the server, RejectReasonSchema, is the length authority)", () => {
+  const atLimit = "x".repeat(MAX_REJECT_REASON_LENGTH);
+  assert.deepEqual(buildRejectDecision("k", atLimit), { key: "k", decision: "reject", reason: atLimit });
 });

@@ -4,12 +4,12 @@ Updated by /checker sweeps only. Gate lines sit above the TODO table (read first
 
 ## Open gates (HUMAN_GATE)
 
-**Three gates remain UNANSWERED** (refreshed 2026-09-26 full sweep — the other four were answered same-day via
-D-020 and are now folded into the contract, see below):
-- **erasure-fencing.md** blocks nothing now (T-011 residual). Recommended: (b) confirm -> completion + 24h, plus HMAC audit key.
-- **counsellor-auth.md** blocks live mode and any deployment of apps/web (ISS-052, high). Recommended: (a) the existing Vidysea/Pathlynks login; which system?
-- **edit-provenance.md** blocks the T-008 follow-up (ISS-051, high). Recommended: (a) source = counsellor-edit, original quote kept as 'edited from'.
-- **Lead-review scope (not yet a gate file):** bulk student import (Excel with AI column mapping) Phase 1 / Phase 2 / out of scope? Add a third persona (government-school, first-time laptop user, Hindi-first)? Should the real reviewers (Sapna ma'am, Gaurav) receive the release video? Asked in session ef98f055 and never answered. Not currently blocking any building unit.
+**No gate is unanswered** (checker, 2026-09-26). Umesh answered the last three plus the lead-review scope in chat; they are folded into the contract:
+- counsellor-auth → new **B21**: API-first headless engine, a JWT from the client backend, tenant stamping, KB via `/ask`, webhooks; the production UI is the client's, and apps/web is the reference UI.
+- edit-provenance → **B2**: `counsellor-edit` + `editedFrom`, held by both VC and the client.
+- erasure-fencing → **B15**: double confirm, then an email-outbox approver, then the purge; `autoDelete` defaults to false; fence + 24 h; HMAC audit pseudonym.
+- Lead-review scope → **B17**, a 10-persona ladder (Sapna ma'am as the benchmark, Gaurav bhaiya Hindi + voice, UK/US/AU/CA policy personas), and new **B22**, the novice + VC ≥ 90 % of expert metric. Bulk import is a non-goal. The release video goes to Sapna ma'am + Gaurav bhaiya with a Hindi voice-over, and **Umesh sends it** (outward-facing).
+- **Maker, first:** write **D-021** via `scripts/append_decision.ps1` covering B21 + B22 + the persona ladder (a direction change approved by Umesh 2026-09-26), then update ARCHITECTURE H-rows / §4 (apps/api is no longer a placeholder target) in /landplane.
 
 **Answered and folded (D-020, this sweep):** crisis-guard-precision → B9+B16 (recall-only guard, downgrade-never-hide); citation-guarantee-scope → B2 (numbers+vocabulary auto-verify, everything else needs-review, transcript persisted under B15); scribe-concern-level → new B20 (concern never stops the scribe); provider-fallback → B6 (3-model runtime failover, ~10 retries, no drop to rules, alert + input-preserving Retry). T-005c, T-013, T-021, T-022 can now build against these criteria.
 
@@ -25,13 +25,21 @@ D-020 and are now folded into the contract, see below):
 - [ ] TODO · ISS-054 + ISS-045: hook counts worktree manifests; close-out removes merged worktrees (D-entry with Approved-by for the hook change) — also expected to clear the ISS-045 data_boundary.py crash.
 - [ ] TODO · T-013: rebuild against amended B2 (numbers + fixed vocabulary auto-verify; everything else + `reasoning` kind kept as needs-review, cited to the persisted transcript span).
 - [ ] TODO · T-021/T-022: build against amended B6 (runtime failover) and new B20 (concern continuation).
-- [ ] TODO · B17/B19: `qa/adapter.json` gains `personas` (Jaipur counsellor, school counsellor; a third is pending Umesh) and `scenarios` (D-entry first)
+- [ ] TODO · D-021 (see gates above), then **B21 API unit**: an HTTP server in `apps/api`, an OpenAPI doc, JWT verification (signature/expiry/issuer; `tenant`/`counsellorId`/`role`), tenant stamping + a cross-tenant refusal test, over the existing engine functions. Test JWT signed locally; no real Pathlynks connection.
+- [ ] TODO · B21 KB client: `POST /ask` to the KnowledgeBase with a Bearer key from `.env`; citations carried through; a KB outage → "knowledge unavailable", never uncited.
+- [ ] TODO · B21 webhooks: signed fact-approved (with B2 provenance), erasure-requested and concern-flag events.
+- [ ] TODO · B2 edit provenance (ISS-051): `counsellor-edit` + `editedFrom` on edited facts.
+- [ ] TODO · B15 erasure approver workflow: two confirmations, an email outbox (logged in dev), approver approval, `autoDelete` default false, fence + 24 h, HMAC `VC_AUDIT_HMAC_KEY`.
+- [ ] TODO · B17/B19: `qa/adapter.json` gains `personas` (the 10 ids in B17) and `scenarios` (D-entry first)
+- [ ] TODO · B17 `gaurav-bhaiya`: Hindi i18n for every counsellor-facing label in apps/web (plain-language copy), plus counsellor voice input for approval edits (Hindi STT → proposed value → counsellor confirms, B3).
+- [ ] TODO · Lead review: a student activity timeline (read API + reference view: sessions, approved facts with provenance, decisions, in order).
+- [ ] TODO · B22: a golden-session "novice + VC vs expert" eval harness (rubric grader); stays NOT-YET-MEASURABLE until Sapna ma'am's reference rubric is recorded (a human step, Umesh arranges it).
 - [ ] TODO · B19: author `qa/scenarios/counselling-engine.csv`, ≥50 persona-tagged rows (India-only, leaving in 2 years, Hinglish, concern turn, erasure mid-session, rules/AI-down path)
 - [ ] TODO · B18: an outcome test proving the scribe suppresses irrelevant and known items (India-only → zero visa facts; a known fact is not re-asked)
 - [ ] TODO · ISS-053: backfill `regression_check` on the remaining fixed high rows (the 6 criticals are done 2026-09-26; 52 rows remain)
 - [ ] TODO · ISS-057 (signal only, not blocking): a human structural read-through of `packages/db/src/erasure.ts` (1249 lines, 7+ units) before the next erasure-path change.
 - [ ] TODO · Lead review: enable the maker's second-opinion tester for UI units via LiteLLM, synthetic data only (B13); its findings enter as leads
-- [ ] TODO · Lead review: a recorded release walkthrough video (checker Playwright run of the full counsellor flow) under `qa/evidence/release-<date>/`
+- [ ] TODO · Lead review: a recorded release walkthrough video (checker Playwright run of the full counsellor flow) under `qa/evidence/release-<date>/`, with a Hindi voice-over, plus a 7–8 point pre-release checklist the release verdict cites. Umesh sends it to Sapna ma'am + Gaurav bhaiya; the VC never sends it itself.
 
 ## Sweep notes (2026-09-26, full sweep — checks 1–9, following the targeted sweep f8e8b50)
 

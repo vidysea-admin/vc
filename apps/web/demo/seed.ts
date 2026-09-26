@@ -19,6 +19,7 @@ import {
   VC_DB_NAME,
   type ConsentDoc,
   type FactDoc,
+  type RejectReasonAuditDoc,
   type ScribeResolutionDoc,
   type SessionDoc,
 } from "@vc/db";
@@ -106,6 +107,14 @@ export interface DemoReadback {
   facts: { key: string; value: unknown; active: boolean }[];
   sessions: { sessionId: string; summary?: string; summaryWithheldReason?: string; summaryApprovedAt?: string }[];
   claims: number;
+  /**
+   * T-020 / ISS-t-018-c0-1: the reject-reason audit records for this student (the `decisions`
+   * collection, `kind: "per_fact_reject"` rows only — the pre-existing course/university-selection
+   * `DecisionDoc` shape, if any is ever written, is a different `kind` and excluded here). This is
+   * the demo-only observability the checker found missing: without it, a reject reason written
+   * through the live UI could never be confirmed through the running app.
+   */
+  decisions: { threadId: string; rejected: { key: string; reason?: string }[]; decidedAt: string }[];
 }
 
 export interface DemoRuntime extends ApprovalRuntime {
@@ -198,7 +207,12 @@ export async function createDemoRuntime(): Promise<DemoRuntime> {
         .collection<ScribeResolutionDoc>(COLLECTION_NAMES.scribe_resolutions)
         .all()
         .filter((c) => c.studentId === studentId).length;
-      return { studentId, facts, sessions, claims };
+      const decisions = fakeDb
+        .collection<RejectReasonAuditDoc>(COLLECTION_NAMES.decisions)
+        .all()
+        .filter((d) => d.kind === "per_fact_reject" && d.studentId === studentId)
+        .map((d) => ({ threadId: d.threadId, rejected: d.rejected, decidedAt: d.decidedAt }));
+      return { studentId, facts, sessions, claims, decisions };
     },
   };
 }

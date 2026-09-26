@@ -1,0 +1,110 @@
+{
+  "unit": "t-020-reject-reason-ui",
+  "checker": true,
+  "date": "2026-09-26",
+  "generatedAt": "2026-09-26T02:22:22.229Z",
+  "findings": [
+    {
+      "did": "the reject choice reveals a reason input (persona: can they find it?)",
+      "expected": "input[data-reason-for=intendedMajor] visible",
+      "observed": "visible=true",
+      "pass": true
+    },
+    {
+      "did": "the real browser POST carries the TRIMMED reason (server trims too, but the client already sends it trimmed-looking)",
+      "expected": "reason starts with \"family wants\"",
+      "observed": "sent reason=\"family wants to re-check this major with the school counsellor first\"",
+      "pass": true
+    },
+    {
+      "did": "readback after a REAL UI reject+submit carries the trimmed reason",
+      "expected": "one decisions record, rejected=[{key:intendedMajor, reason:<trimmed>}]",
+      "observed": "decisions=[{\"threadId\":\"scribe:demo-session-1\",\"rejected\":[{\"key\":\"intendedMajor\",\"reason\":\"family wants to re-check this major with the school counsellor first\"}],\"decidedAt\":\"2026-09-26T02:21:50.673Z\"}]",
+      "pass": true
+    },
+    {
+      "did": "hostile: an over-length reason POSTed directly (past the client's maxLength) is refused",
+      "expected": "400",
+      "observed": "status=400",
+      "pass": true
+    },
+    {
+      "did": "the over-length attempt wrote no new audit record",
+      "expected": "still exactly 1 decisions record (the happy-path one)",
+      "observed": "decisions.length=1",
+      "pass": true
+    },
+    {
+      "did": "hostile: a stale tab resubmitting an already-resolved thread",
+      "expected": "409",
+      "observed": "status=409",
+      "pass": true
+    },
+    {
+      "did": "hostile: GET on a fenced student's thread shows the fenced state, no fact data",
+      "expected": "data-state=fenced",
+      "observed": "data-state=fenced",
+      "pass": true
+    },
+    {
+      "did": "hostile: POST on a fenced student's thread is refused",
+      "expected": "423",
+      "observed": "status=423",
+      "pass": true
+    },
+    {
+      "did": "hostile: a whitespace-only reason is OMITTED from the real request (never sent as reason:\"\")",
+      "expected": "no \"reason\" key on the intendedMajor decision",
+      "observed": "sent={\"key\":\"intendedMajor\",\"decision\":\"reject\"}",
+      "pass": true
+    },
+    {
+      "did": "hostile: the persisted audit record has no reason field / no empty-string reason for the whitespace-only submit",
+      "expected": "rejected=[{key:intendedMajor}] with reason absent (never \"\")",
+      "observed": "decisions=[{\"threadId\":\"scribe:demo-session-1\",\"rejected\":[{\"key\":\"intendedMajor\"}],\"decidedAt\":\"2026-09-26T02:22:18.357Z\"}]",
+      "pass": true
+    }
+  ],
+  "passCount": 10,
+  "totalCount": 10,
+  "consoleErrorsByPage": [
+    {
+      "url": "http://localhost:3241/approvals/scribe%3Ademo-session-1",
+      "label": "approval screen (paused thread)",
+      "count": 0,
+      "messages": [],
+      "unexplained": false
+    },
+    {
+      "url": "http://localhost:3241/approvals/scribe%3Ademo-session-1",
+      "label": "submit reject+reason",
+      "count": 0,
+      "messages": [],
+      "unexplained": false
+    },
+    {
+      "url": "http://localhost:3241/approvals/scribe%3Ademo-session-2",
+      "label": "approval screen (fenced thread)",
+      "count": 2,
+      "messages": [
+        "Failed to load resource: the server responded with a status of 423 (Locked)",
+        "Failed to load resource: the server responded with a status of 423 (Locked)"
+      ],
+      "unexplained": true
+    },
+    {
+      "url": "http://localhost:3242/approvals/scribe%3Ademo-session-1",
+      "label": "approval screen (fresh paused thread)",
+      "count": 0,
+      "messages": [],
+      "unexplained": false
+    },
+    {
+      "url": "http://localhost:3242/approvals/scribe%3Ademo-session-1",
+      "label": "submit reject with whitespace-only reason",
+      "count": 0,
+      "messages": [],
+      "unexplained": false
+    }
+  ]
+}

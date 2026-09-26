@@ -199,12 +199,33 @@ const EditedValueSchema = z
   });
 
 /**
+ * T-020 / ISS-t-018-c0-1: the maximum length of a counsellor's own typed reject reason (a short
+ * note, never a transcript or a generated sentence — B1). Shared by the per-fact decision and the
+ * reject-reason audit record so both boundaries agree on one number.
+ */
+export const MAX_REJECT_REASON_LENGTH = 500;
+
+/**
+ * T-020 / ISS-t-018-c0-1: an optional reject reason, TRIMMED first (so surrounding whitespace never
+ * counts toward the length or the emptiness check), then refused if it trims to empty (send no
+ * reason at all instead of a blank one) or exceeds MAX_REJECT_REASON_LENGTH. `.trim()` runs before
+ * `.min`/`.max` in Zod's own check order, so the value a caller sees after `.parse()` is already
+ * the trimmed string (B5: one boundary owns both the shape and the normalization).
+ */
+const RejectReasonSchema = z
+  .string()
+  .trim()
+  .min(1, "a reject reason cannot be empty or whitespace-only (omit it instead)")
+  .max(MAX_REJECT_REASON_LENGTH, `a reject reason must be ${MAX_REJECT_REASON_LENGTH} characters or fewer`)
+  .optional();
+
+/**
  * T-008 / ISS-t-013-rev-5: one decision per proposed fact, by key. `edit` replaces only the value;
  * the fact's cited source, confidence and sensitivity stay those of the proposal (B2).
  */
 export const PerFactDecisionSchema = z.discriminatedUnion("decision", [
   z.object({ key: z.string().min(1), decision: z.literal("approve") }),
-  z.object({ key: z.string().min(1), decision: z.literal("reject"), reason: z.string().optional() }),
+  z.object({ key: z.string().min(1), decision: z.literal("reject"), reason: RejectReasonSchema }),
   z.object({ key: z.string().min(1), decision: z.literal("edit"), value: EditedValueSchema }),
 ]);
 export type PerFactDecision = z.infer<typeof PerFactDecisionSchema>;
@@ -233,7 +254,7 @@ export type ApprovalResponse = z.infer<typeof ApprovalResponseSchema>;
  * build the reject-reason audit record; never stored on the written Fact itself (edit provenance
  * stays gated separately, qa/gates/edit-provenance.md).
  */
-export const RejectedFactSchema = z.object({ key: z.string().min(1), reason: z.string().optional() });
+export const RejectedFactSchema = z.object({ key: z.string().min(1), reason: RejectReasonSchema });
 export type RejectedFact = z.infer<typeof RejectedFactSchema>;
 
 export const ApprovalOutputSchema = z.object({

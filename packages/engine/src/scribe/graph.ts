@@ -31,6 +31,7 @@ import {
 import type { CounsellorDecision, Fact, ProfileDiff } from "@vc/schemas";
 import { createLangfuseCallbacks, type TracingConfig } from "@vc/observability";
 import {
+  boundedDeadlineMs,
   checkConsent,
   checkCrisis,
   decisionFromResponse,
@@ -118,7 +119,10 @@ export function buildScribeGraph(deps: ScribeDeps) {
     .addNode(SCRIBE_NODES.diff, async (s: State) =>
       proposeDiff({ studentId: s.studentId, summary: s.summary, facts: s.facts }, deps),
     )
-    .addNode(SCRIBE_NODES.approval, async (s: State, runtime: { configurable?: { thread_id?: string } }) => {
+    .addNode(SCRIBE_NODES.approval, async (
+      s: State,
+      runtime: { configurable?: { thread_id?: string; writerDeadlineExpiresAt?: number } },
+    ) => {
       const request: ApprovalRequest = ApprovalRequestSchema.parse({
         sessionId: s.sessionId,
         studentId: s.studentId,
@@ -146,11 +150,19 @@ export function buildScribeGraph(deps: ScribeDeps) {
         // for a graph invoked directly (bypassing start/resumeScribe) with no thread_id in its
         // config, which should not happen in practice but keeps this from throwing.
         const threadId = runtime.configurable?.thread_id ?? scribeThreadId(s.sessionId);
-        await recordRejectReasons(deps.db, {
-          threadId,
-          studentId: s.studentId,
-          rejected: rejectedFacts,
-        });
+        // ISS-t-018-rev-2: bind this write's own deadline to the SAME absolute instant the run
+        // lease (and write_approved's own inner writes) are derived from, the ISS-t-016-c0-1
+        // pattern — so a caller-shortened writerDeadlineMs shortens this write's timeoutMS too,
+        // instead of this call silently defaulting to the package's full 60s default.
+        await recordRejectReasons(
+          deps.db,
+          {
+            threadId,
+            studentId: s.studentId,
+            rejected: rejectedFacts,
+          },
+          { deadlineMs: boundedDeadlineMs(runtime.configurable?.writerDeadlineExpiresAt) },
+        );
       }
       return decision.approve
         ? { decision, summaryDecision }

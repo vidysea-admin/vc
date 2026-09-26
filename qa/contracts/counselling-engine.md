@@ -45,6 +45,11 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   dropped** — cited to its span in the persisted transcript, and marked `needs-review` for the counsellor's approval
   (B3). Nothing is silently discarded; a test proves a non-auto-verified fact is marked `needs-review` rather than
   dropped, and that a number/vocabulary match is accepted without review.
+  **Edit provenance (gate `edit-provenance`, answered 2026-09-26):** a fact the counsellor edits on approval is
+  stored with source `counsellor-edit` (counsellorId, time), and its original transcript quote is kept as
+  `editedFrom`. The saved value is never shown with a quote that contradicts it. The same provenance goes out to
+  the client (API response and the fact-approved event, B21), so both VC and the Pathlynks side hold it. A test proves
+  an edited fact carries `counsellor-edit` + `editedFrom` and that an unedited fact keeps its transcript source.
 - **B3 (human approves writes):** A profile change reaches the student graph only after the counsellor approves it,
   through LangGraph `interrupt`. A test proves no write happens before approval.
 - **B4 (consent first):** Every fact carries purposeTags + sensitivity. A session without a recorded consent row cannot
@@ -101,6 +106,14 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   collection and proves zero documents remain for that student. It writes a receipt of counts and time only, with no
   personal data. Export is a per-student JSON bundle. Tests cover confirm-required, full purge (read-back = 0) and a
   partial-failure path that is reported, not silently swallowed (`qa/gates/dpdp-erase-design.md`). Fencing per D-015/D-016/D-017: a confirmed erasure fences the student's writes until completion plus the D-016 minimum fence hold. Any write that lands in the gap and survives the read-back is a **B15 violation, not an accepted residual** (ISS-t-017-rev-1 is open against this). The sweep that releases fences must not be able to crash its host process (ISS-t-017-rev-2).
+  **Approver workflow (gate `erasure-fencing`, answered 2026-09-26):**
+  - The requester confirms **twice** (two distinct recorded confirmations). A request with fewer purges nothing.
+  - The request then goes to a configured approver (the admin or a concerned person) through an email **outbox**.
+    In dev and tests the outbox is logged, never sent. Only that approver's recorded approval starts the purge.
+  - `autoDelete` is a config flag that defaults to `false`. Only when an operator switches it on does a double-confirmed request purge without an approver.
+  - The fence runs from the first confirmation until the purge completes, **plus 24 h**. Re-enrolment of the same person is allowed after that.
+  - The audit pseudonym is an **HMAC** keyed by `VC_AUDIT_HMAC_KEY`, whose name only appears in `.env.example`. It replaces the salted sha256.
+  - Tests prove: one confirmation purges nothing; two confirmations without approval purge nothing; approval purges + read-back = 0; `autoDelete=true` skips the approver; the HMAC is not recoverable from a candidate list without the key.
 - **B16 (crisis escalation):** The keyword guard runs first, before any generative call (B9). An async Flash-Lite
   concern classifier, which never blocks the live turn, runs on concern-level turns plus a stratified sample of "none"
   turns. An escalation notifies **the admin and the concerned counsellor(s)** at the same moment. Crisis recall is
@@ -110,7 +123,19 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   benign" for the counsellor's view. It may never hide, suppress or remove the underlying B9 flag itself — the
   counsellor always still sees it. Escalation severity rises through this same layer as a concern deepens (B20).
 
-- **B17 (persona usability):** Every UI-touching unit, and every release, is judged by user personas, not only login roles. The declared personas are an average counsellor in a tier-2 city such as Jaipur (1-2 years' experience) and a school counsellor. The checker's browser run (Mode D / Mode C) walks each changed flow as each persona and records per-screen findings. A flow the persona cannot finish unaided is a finding, not a pass. A `high` persona finding blocks PASS the same way a failed criterion does.
+- **B17 (persona usability):** Every UI-touching unit, and every release, is judged by user personas, not only login roles. The declared personas (Umesh, 2026-09-26; the ids go into `qa/adapter.json` `personas`) are:
+  - `sapna-expert`: Sapna ma'am, a top Indian counsellor (Mayo College, Ajmer). She is **the benchmark** (B22), not a walker who needs help.
+  - `gaurav-pm`: Gaurav, IIT, a product manager with no counselling background.
+  - `gaurav-bhaiya`: office staff, about 12th pass. He understands and speaks Hindi, but does not read English and cannot write. Every flow he walks must be finishable in **Hindi and by voice**, with no typing required.
+  - `jaipur-counsellor`: a tier-2-city counsellor with 1-2 years' experience.
+  - `school-counsellor`: a school counsellor.
+  - `govt-teacher`: a government-school teacher opening a laptop for the first time, Hindi-first (the Haryana 160-school pilot).
+  - `uk-counsellor`: GDPR, the UCAS flow, UKVI rules.
+  - `us-counselor`: FERPA student-record privacy, the NACAC ethics code.
+  - `au-agent`: ESOS, the PIER agent code, commission disclosure.
+  - `ca-consultant`: Canada, where only licensed consultants may give visa advice, so VC must never give visa advice there (with B1 and B18).
+
+  The international personas judge **policy compliance**: what VC shows or suggests must not breach that market's rule. The checker's browser run (Mode D / Mode C) walks each changed flow as each persona and records per-screen findings. A flow the persona cannot finish unaided is a finding, not a pass. A `high` persona finding blocks PASS the same way a failed criterion does.
 
 - **B18 (context relevance):** The engine does not show or ask about what doesn't apply to this student, or what is already known.
   - A topic the student's own facts make irrelevant is suppressed in scribe output, the summary and (from T-010) live cards. For example, a student whose only destination is India gets no visa facts, questions or cards.
@@ -137,8 +162,42 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   **crisis**-level signal (B9) stops generation and escalates immediately; concern never does. A test proves the
   scribe completes on a concern-level fixture and that the concern node carries a citation.
 
+- **B21 (API-first headless engine; gate `counsellor-auth`, answered 2026-09-26):** VC is an intelligence
+  service, and Pathlynks is its first client, not its host.
+  - Every capability (scribe, approval, profile, cards, timeline, erasure, export) is reachable through a versioned
+    HTTP API described by an OpenAPI document in the repo.
+  - **Auth:** every request carries a JWT issued by the client backend (for Pathlynks, its backend). VC verifies
+    signature, expiry and issuer, and reads the `tenant`, `counsellorId` and `role` claims. VC has no login screen
+    and no password store. A missing, expired, wrong-issuer or tampered token gets 401, and nothing is read or written.
+  - **Tenancy:** the verified `tenantId` is stamped on every document and filters every query. A test proves tenant
+    A can never read or change tenant B's student.
+  - **Knowledge:** university and seminar knowledge comes from the KnowledgeBase over its API (`POST /ask`, Bearer
+    key from `.env`, B11). Its citations are carried through (B2). A KB outage degrades to "knowledge unavailable";
+    it never produces an uncited answer.
+  - **Events:** approved facts (with provenance, B2), erasure requests and concern flags go out as signed webhooks,
+    so the client keeps its own copy.
+  - **UI:** production UI is built by the client's team. `apps/web` is VC's reference and test UI, the surface that
+    persona walks (B17), scenario runs (B19) and the release video run on.
+  - Tests use a locally signed test JWT and a fake KB. Nothing connects to the real Pathlynks backend until an
+    integration unit is approved.
+
+- **B22 (novice + VC ≈ expert; north-star metric, Umesh 2026-09-26):**
+  - **Goal:** a person with no counselling background, working with VC, reaches **at least 90 %** of the expert
+    benchmark (`sapna-expert`) on the same case. VC gets them there as a sounding board: questions, comparisons and
+    evidence, never a script (B1). The human still decides.
+  - **Measurement:**
+    - the case set is the golden sessions (T-009), anonymised (B13);
+    - the reference outcome is Sapna ma'am's judgement per case (what she would explore, conclude and recommend), captured once as a rubric;
+    - an independent grader scores the `gaurav-pm` and `gaurav-bhaiya` walks with VC against that rubric.
+  - **Before the reference exists:** until Sapna ma'am's reference rubric is recorded, B22 is reported as
+    `NOT-YET-MEASURABLE`, never as a pass, and it does not block unit PASS.
+  - **Once the reference exists:** B22 becomes a release gate.
+
 ## Non-goals (this contract)
-- The avatar (P3) and the student-facing voice surface.
+- The avatar (P3) and the student-facing voice surface. (Counsellor-side **voice input**, such as dictating an edit in Hindi, is in scope: B17 `gaurav-bhaiya`.)
+- Bulk student import (Excel with AI column mapping). Umesh 2026-09-26: out of this project's context; it belongs to the counselor portal.
+- The production counsellor UI. It is built by the client's team (B21).
+- Journey map, test tracker, commission and supplier onboarding, school subject grouping (these belong to the counselor portal or Pathlynks).
 - Production deploy.
 - Joining real Pathlynks data (gated on the DPDP legal review, Q3).
 
@@ -178,3 +237,5 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   a script) · qa/feedback-inbox.md 2026-09-26 entries (crisis-guard-precision, citation-guarantee-scope,
   scribe-concern-level, provider-fallback), D-020, qa/gates/{crisis-guard-precision,citation-guarantee-scope,
   scribe-concern-level,provider-fallback}.md.
+- 2026-09-26 · routine (tighten, gate answers) · B2 edit provenance (`counsellor-edit` + `editedFrom`, held by both VC and the client) · B15 approver erasure (double confirm → email-outbox approver → purge; `autoDelete` default false; fence + 24 h; HMAC audit pseudonym) · B17 persona ladder (10 personas incl. Sapna ma'am as benchmark, Gaurav bhaiya Hindi + voice, 4 international policy personas) · non-goals: bulk import, production UI · gates counsellor-auth, edit-provenance, erasure-fencing answered by Umesh 2026-09-26.
+- 2026-09-26 · **critical (human-approved)** · new B21 API-first headless engine (JWT from the client backend, tenant stamping, KB over `/ask`, webhooks, `apps/web` = reference UI) and new B22 north-star metric (novice + VC ≥ 90 % of the expert benchmark, NOT-YET-MEASURABLE until Sapna ma'am's reference rubric exists) · direction changes approved by Umesh in chat 2026-09-26 ("api based … ui vo log khud bnaa lenge"; "Sapna ji ka 90-95 % level"). The maker records them as D-021 and updates ARCHITECTURE through /landplane.

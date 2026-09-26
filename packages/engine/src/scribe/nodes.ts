@@ -657,8 +657,14 @@ export interface WriteApprovedOptions {
   writerDeadlineExpiresAt?: number;
 }
 
-/** ISS-t-016-c0-1: ms remaining until `expiresAt`, recomputed fresh at each call site (never cached across the two writes), floored at 1ms so an already-expired outer deadline still yields a valid (if immediately-expiring) WriterDeadline rather than falling back to the full default. */
-function boundedDeadlineMs(expiresAt: number | undefined): number | undefined {
+/**
+ * ISS-t-016-c0-1 / ISS-t-018-rev-2: ms remaining until `expiresAt`, recomputed fresh at each call
+ * site (never cached across writes), floored at 1ms so an already-expired outer deadline still
+ * yields a valid (if immediately-expiring) WriterDeadline rather than falling back to the full
+ * default. Exported so graph.ts's approval node can bind recordRejectReasons' deadline to the same
+ * run lease writeApproved's own inner writes already use (the ISS-t-016-c0-1 pattern).
+ */
+export function boundedDeadlineMs(expiresAt: number | undefined): number | undefined {
   if (expiresAt === undefined) return undefined;
   return Math.max(1, expiresAt - Date.now());
 }

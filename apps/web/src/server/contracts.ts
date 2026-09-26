@@ -7,10 +7,14 @@ import { z } from "zod";
 import { CounsellorDecisionSchema } from "@vc/schemas";
 import {
   ApprovalRequestSchema,
+  MAX_REJECT_REASON_LENGTH,
   PerFactDecisionSchema,
   ScribeResultSchema,
   SummaryDecisionSchema,
 } from "@vc/engine/scribe/schemas";
+
+/** T-020: re-exported so the (client-safe) UI can cap the reason input at the same length the server enforces. */
+export { MAX_REJECT_REASON_LENGTH };
 
 /** A scribe thread id as it appears in a URL: `scribe:<sessionId>`-style, no spaces or slashes. */
 export const ThreadIdSchema = z

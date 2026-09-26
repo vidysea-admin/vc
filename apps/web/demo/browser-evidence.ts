@@ -58,16 +58,31 @@ function record(did: string, expected: string, observed: string, pass: boolean) 
 
 const nextBin = join(process.cwd(), "node_modules", "next", "dist", "bin", "next");
 
-/** T-018 residual 7: `next build --webpack`, run to completion before the server starts. Throws on a non-zero exit. */
+/** ISS-t-018-rev-1: a hung `next build` must not block this script forever. */
+const BUILD_TIMEOUT_MS = 300_000;
+
+/**
+ * T-018 residual 7: `next build --webpack`, run to completion before the server starts. Throws on
+ * a non-zero exit, and ISS-t-018-rev-1: also on a signal (the BUILD_TIMEOUT_MS kill) or a spawn
+ * error (e.g. the binary could not be launched) — `spawnSync`'s own `status` alone stays `null` in
+ * both of those cases, so checking only `res.status !== 0` would silently pass through a hang.
+ */
 function runProductionBuild(): void {
   console.log("next build --webpack ...");
   const res = spawnSync(process.execPath, [nextBin, "build", "--webpack"], {
     cwd: process.cwd(),
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
     stdio: "inherit",
+    timeout: BUILD_TIMEOUT_MS,
   });
+  if (res.error) {
+    throw new Error(`next build --webpack failed to run: ${res.error.message}`);
+  }
+  if (res.signal !== null) {
+    throw new Error(`next build --webpack was killed by signal ${res.signal} (likely the ${BUILD_TIMEOUT_MS}ms timeout)`);
+  }
   if (res.status !== 0) {
-    throw new Error(`next build --webpack failed (exit ${res.status ?? res.signal})`);
+    throw new Error(`next build --webpack failed (exit ${res.status})`);
   }
 }
 
@@ -137,8 +152,12 @@ async function readback(page: Page, studentId: string) {
     facts: { key: string; value: unknown; active: boolean }[];
     sessions: { sessionId: string; summary?: string; summaryWithheldReason?: string }[];
     claims: number;
+    /** T-020 / ISS-t-018-c0-1: the reject-reason audit records (`decisions` collection). */
+    decisions: { threadId: string; rejected: { key: string; reason?: string }[]; decidedAt: string }[];
   };
 }
+
+const TYPED_REJECT_REASON = "family wants to re-check this major with the school counsellor first";
 
 async function main() {
   mkdirSync(OUT, { recursive: true });
@@ -226,6 +245,10 @@ async function main() {
       record("approve targetCountry", "the fact is marked approved", `aria-checked=${await a.getAttribute('button[data-fact="targetCountry"][data-decision="approve"]', "aria-checked")}`, (await a.getAttribute('button[data-fact="targetCountry"][data-decision="approve"]', "aria-checked")) === "true");
       await a.click('button[data-fact="intendedMajor"][data-decision="reject"]');
       record("reject intendedMajor", "the fact is marked rejected", `aria-checked=${await a.getAttribute('button[data-fact="intendedMajor"][data-decision="reject"]', "aria-checked")}`, (await a.getAttribute('button[data-fact="intendedMajor"][data-decision="reject"]', "aria-checked")) === "true");
+      // T-020 / ISS-t-018-c0-1: type a reject reason into the field the rejected fact now reveals.
+      await a.fill('input[data-reason-for="intendedMajor"]', TYPED_REJECT_REASON);
+      const typedReason = await a.inputValue('input[data-reason-for="intendedMajor"]');
+      record("type a reject reason for intendedMajor", "the reason field holds the typed text", `value="${typedReason}"`, typedReason === TYPED_REJECT_REASON);
       await a.click('button[data-fact="preferredIntake"][data-decision="edit"]');
       await a.fill('input[data-edit-for="preferredIntake"]', "January 2028");
       const edited = await a.inputValue('input[data-edit-for="preferredIntake"]');
@@ -264,6 +287,20 @@ async function main() {
         !rb.facts.some((f) => f.key === "intendedMajor") &&
         rb.sessions[0]?.summary === "" &&
         typeof rb.sessions[0]?.summaryWithheldReason === "string",
+    );
+
+    // 5.5. T-020 / ISS-t-018-c0-1: the reject-reason audit record, written by the REAL UI submit
+    // above (not a raw API call), is observable through the demo read-back route.
+    const auditRecord = rb.decisions.find((d) => d.threadId === PAUSED);
+    record(
+      "read back the reject-reason audit record after a real UI reject+submit",
+      "one decisions-collection record for this thread, rejected=[{key: intendedMajor, reason: <typed text>}]",
+      `decisions=${JSON.stringify(rb.decisions)}`,
+      auditRecord !== undefined &&
+        auditRecord.rejected.length === 1 &&
+        auditRecord.rejected[0]!.key === "intendedMajor" &&
+        auditRecord.rejected[0]!.reason === TYPED_REJECT_REASON &&
+        typeof auditRecord.decidedAt === "string",
     );
 
     // 6. Reload shows the resolved state.
@@ -324,7 +361,7 @@ async function main() {
   }
 
   const report = {
-    unit: UNIT === "t-008-approval-ui" ? "T-008 counsellor diff-approval UI" : `T-018 follow-ups (${UNIT}): edit type refusal + production-build browser evidence`,
+    unit: UNIT === "t-008-approval-ui" ? "T-008 counsellor diff-approval UI" : `follow-up evidence run (${UNIT})`,
     date: DATE,
     generatedAt: new Date().toISOString(),
     baseUrl: BASE,
