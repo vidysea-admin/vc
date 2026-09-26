@@ -1,72 +1,135 @@
 # Verdict — t-028-personas-scenarios
 
 **Date:** 2026-09-26
-**Cycle checked:** 0
+**Cycle checked: 1**
 **Checker:** claude-sonnet-subagent (fresh context, no builder reasoning)
 **Bound root:** D:/vc/.worktrees/t-028-personas-scenarios
-**Base:** eabddf3 · **Head:** d17785b (verified: `git log -1` in the worktree)
-**Authority:** docs/DECISIONS.md D-022, `Changes-authorized`: `qa/adapter.json` (add `personas`+`scenarios` keys only), `qa/scenarios/counselling-engine.csv` (new)
+**Cycle-1 diff base:** a1534e1 · **Head:** 81304ce (verified: `git log -1` in the worktree)
+**Prior verdict:** `qa/verdicts/t-028-personas-scenarios.md`, cycle 0, commit `9ff8aed`, FAIL on `ISS-t-028-c0-1`
 
-## What I re-ran myself
+## Diff scope (step 4c)
 
-- `python -c "json.load(open('qa/adapter.json'))"` → no exception. Matches.
-- Key-diff of `qa/adapter.json` vs `git show HEAD:qa/adapter.json` (re-derived in Python, not the maker's script) → `added={personas, scenarios}`, `removed=set()`, `changed=[]`. Matches.
-- CSV structural check (re-derived independently, not the maker's pasted script): row count 57, no duplicate ids, types = {happy, negative} only, every CSV persona id is in adapter, every adapter persona id is used at least once. Matches the manifest's pasted output exactly.
-- `grep -c "@" qa/scenarios/counselling-engine.csv qa/adapter.json` → 0, 0. No email-shaped data in the two new files.
-- `python D:/ai_os/.claude/skills/_shared_validation/data_boundary.py D:/vc/.worktrees/t-028-personas-scenarios` → same 6 pre-existing VIOLATION lines as the manifest pasted, none on the two new files. Cross-checked `ISS-060` on the ledger: it documents this exact set of 34-repo-wide hits (umeshsugara@vidysea.com staff address + a `pass@eu.cloud.langfuse.com` credential-URL false match) as an accepted false positive. B13 (synthetic-only) holds for this unit's own files.
-- `git diff eabddf3...HEAD --stat` → exactly 3 files: `qa/adapter.json` (+83), `qa/manifests/t-028-personas-scenarios.md` (+97), `qa/scenarios/counselling-engine.csv` (+58, new). Nothing else touched, nothing deleted or renamed. Matches "What changed" and D-022's authorization exactly. No diff-scope violation (step 4c).
-- Not UI-touching, confirmed against the diff (no path under `apps/web` or `apps/api`), not merely asserted.
+`git diff a1534e1...HEAD --stat` → exactly 2 files: `qa/scenarios/counselling-engine.csv` (+15/-9) and
+`qa/manifests/t-028-personas-scenarios.md` (+75/-0... net +81/-9 total across both). No other file touched;
+`qa/adapter.json` confirmed untouched (matches the manifest's own "not touched in cycle 1" claim — I did not
+take that on trust, the diff stat proves it). Nothing deleted or renamed. Matches D-022's authorization
+(only `qa/adapter.json` and `qa/scenarios/counselling-engine.csv` are in scope, and only the CSV was
+touched this cycle). No diff-scope violation.
 
-## Capability coverage (step 4b)
+## Structural re-checks (re-derived independently, same discipline as cycle 0)
 
-One claimed capability, one row. Reproduced in a **throwaway copy outside the bound root**
-(`C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/<session>/scratchpad/falsify/t028copy/`, containing only
-`adapter.json` + `counselling-engine.csv` + the pasted `check.py`, copied from the worktree, never edited in place):
+- `python -c "json.load(open('qa/adapter.json'))"` → no exception. Unchanged, still valid.
+- CSV structural check (my own script, not the maker's pasted one): row count **58** (57→58, +SC-058),
+  no duplicate ids, types = {happy, negative}, full persona↔adapter membership both ways. Matches.
+- `grep -c "@"` on both files under test → `qa/scenarios/counselling-engine.csv:0`, `qa/adapter.json:0`.
+  No new email-shaped data.
+- `data_boundary.py` re-run against the worktree → 7 VIOLATION lines, not 6. The 7th is
+  `qa/verdicts/t-028-personas-scenarios.md` — **my own cycle-0 verdict file**, which quotes
+  `umeshsugara@vidysea.com` and `pass@eu.cloud.langfuse.com` verbatim while explaining `ISS-060`'s
+  documented false-positive pattern. This is the same accepted pattern as `ISS-060` (staff address +
+  langfuse credential-URL fragment matched by the email regex), on a file the cycle-1 diff does not
+  touch and that I created in the prior cycle, not a violation introduced by this fix. Not counted
+  against this unit. (Worth a follow-up: `ISS-060` should list this file too — not filed here since
+  it changes nothing about this unit's verdict and would just be re-documenting the same accepted
+  pattern.)
 
-- **Before** (copy, unmodified): `PERSONA-MEMBERSHIP: PASS | missing_from_csv=[] | csv_persona_not_in_adapter=[]` — green, proving the copy is real.
-- **Falsifying edit** (single-hunk, the one file named in "What changed"): removed the `govt-teacher` object from the copy's `adapter.json.personas` array.
-- **After**: `PERSONA-MEMBERSHIP: FAIL | missing_from_csv=[] | csv_persona_not_in_adapter=['govt-teacher']` — red, and for the right reason (the assertion that fired is exactly the membership check the row claims to isolate, not a parse/import crash).
+## Re-verified: not-yet-built markers vs TASKS.md (independent re-derivation)
 
-**CAPABILITY-COVERAGE: 1/1 reproduced.**
+Wrote my own parser (not the maker's `verify_c1.py`, though the logic checked out identical) against
+`TASKS.md` and the CSV. Every `not-yet-built:<T-id>` row and its task's live status:
 
-## Judgment against the checked criteria
+```
+SC-022 -> T-012 (open)   SC-023 -> T-012 (open)   SC-024 -> T-022 (open)
+SC-025 -> T-010 (open)   SC-026 -> T-012 (open)   SC-028 -> T-029 (open)
+SC-029 -> T-029 (open)   SC-030 -> T-029 (open)   SC-031 -> T-029 (open)
+SC-033 -> T-029 (open)   SC-053 -> T-010 (open)   SC-054 -> T-025 (open)
+SC-055 -> T-025 (open)   SC-056 -> T-027 (open)   SC-057 -> T-027 (open)
+```
+All 15 cite genuinely `open` tasks. **T-029 itself re-read from `TASKS.md`:1 "B15 erasure approver
+workflow ... T-028 scenario rows SC-028..034 exercise it" — status `open`.** Zero bad entries.
 
-**Personas faithful to B17, "not-specified" honest:** all 10 `who`/`goal`/`blocks_on` triples trace verbatim or near-verbatim to either B17's bullet text or `docs/intent.md`'s persona table (cross-checked line by line, e.g. `sapna-expert.goal` = "the benchmark, and the reviewer of VC's suggestions" matches intent.md's table cell exactly; `ca-consultant.goal` = B17's "VC must never give visa advice there"). `language`/`input_mode` are `"not-specified"` for every persona except `gaurav-bhaiya` (`hi`/`voice`, matches B17's explicit "Hindi and by voice, no typing") and `govt-teacher` (`hi`/`not-specified`, matches B17 saying "Hindi-first" but never naming an input mode). No invented values found. **Met.**
+A keyword scan (webhook→T-027, live-card→T-010, concern-classifier/flag→T-012/T-022, JWT/OpenAPI/tenant→T-025)
+across every row's steps+expected text found no row referencing an unbuilt surface without a matching,
+correct `not-yet-built:<T-id>` marker. **No other row over-claims.**
 
-**≥50 rows:** 57, re-counted myself. **Met.**
+## SC-032 / SC-034 / SC-058 checked against the shipped `packages/db/src/erasure.ts` (read in full, 1249 lines)
 
-**B19 must-include list, checked row by row:**
-- India-only student → SC-035. Present.
-- Two-years-out student → SC-038. Present.
-- Hinglish session → SC-039. Present.
-- Concern-level turn → SC-024/025/026. Present (also correctly carry `not-yet-built:T-022`/`T-012`/`T-010`, all confirmed **open** in TASKS.md).
-- AI-down `rules`-provider path → SC-017/018. Present, and directly testable today (T-005's e2e already exercises `VC_LLM_PROVIDER=rules`, no not-yet-built marker needed here).
-- **Erasure request mid-session → SC-033/034 — see FAILURES below.** Structurally present as rows, but not honestly runnable against the shipped code.
+- **SC-032** ("a confirmed erasure request (`confirmErasure`) is executed" → "`executeErasure` runs and
+  one collection's `deleteMany` fails" → "the step is recorded failed/deferred on the receipt and the
+  request is marked failed (`ErasureIncompleteError`)..."): confirmed against code — `executeErasure`'s
+  purge loop catches a `deleteMany` failure into `failed.set(step.collection, errorLabel(err))` (line
+  ~1073), the collection line's `outcome` becomes `"failed"` (line ~1090), and when not `verified` the
+  function throws `new ErasureIncompleteError(receipt)` (line ~1138). Matches exactly, including that the
+  read-back reflects what remains (the receipt's `collections[].remaining`).
+- **SC-034** ("a confirmed erasure request's fence is active (`setErasureFence`/`isStudentFenced`)" → "a
+  write... lands inside the fence window and `executeErasure`'s read-back runs after it" → "...treated as
+  a B15 violation, never an accepted residual"): both named functions exist and behave as described
+  (`setErasureFence` line ~479, `isStudentFenced` line ~427); the invariant matches the contract's own B15
+  text and the module's read-back logic (a non-zero `totalRemaining` never resolves to `verified`).
+- **SC-058** (new; walks `requestErasure` → `confirmErasure` by a different actor, which calls
+  `setErasureFence` and marks confirmed → a mid-session write refused/undone by `assertStudentNotFenced`/
+  `compensateIfFenced` throwing `StudentFencedError` → `executeErasure` purges and reads back zero): every
+  named function and error class exists with exactly the described behavior — `confirmErasure` calls
+  `setErasureFence(db, row.studentId, input.requestId)` **before** its confirm CAS (line 757), requires a
+  different actor (`ErasureSelfConfirmError` else, line 752), `assertStudentNotFenced`/`compensateIfFenced`
+  both throw `StudentFencedError` when fenced (lines 441, 473), and `executeErasure`'s completion path
+  writes a counts-only receipt. This row is genuinely runnable against today's code and gives B19's
+  "erasure request mid-session" must-include case an honest, currently-executable row — closing the gap
+  ISS-t-028-c0-1 identified.
 
-**Actionable rows:** spot-checked across personas (jaipur-counsellor approval rows, the 4 international-policy rows, gaurav-bhaiya's 3 rows) — concrete steps and a checkable expected outcome in each, not vague prose.
+## Capability coverage (step 4b) — cycle-1 addition
 
-**International personas are real rule checks:** SC-046 ("the engine never gives visa advice for Canada; it redirects to a licensed consultant instead") matches the checker task's own example. SC-040/041 (GDPR/UCAS/UKVI), SC-042/043 (FERPA/NACAC), SC-044/045 (ESOS/PIER commission disclosure) each name the specific market rule and a checkable pass/fail direction, not generic "policy compliance" filler. **Met.**
+**Note on the manifest's own proposed falsifying edit:** the cycle-1 capability-coverage cell instructs
+editing `TASKS.md`'s T-029 row from `open` to `done`. `TASKS.md` is **not** a file named in this unit's
+"What changed" (`qa/scenarios/counselling-engine.csv`, `qa/manifests/t-028-personas-scenarios.md` only) —
+it was authorized and touched by a different commit (`e9777d5`) on `main`. Per protocol this specific cell
+is not admissible as an instruction to execute as-is (analogous to "an edit to a conftest/fixture/CI
+file" — a file outside the unit's own scope). **I did not take it on trust.** I instead devised and ran
+my own admissible reproduction: a single-hunk edit **inside `counselling-engine.csv` itself** (the file
+this unit does own) — repointing `SC-028`'s marker from `not-yet-built:T-029` to `not-yet-built:T-011`
+(`T-011` is `done` in `TASKS.md`) — which exercises the identical assertion the manifest's cell claims to
+cover.
 
-**gaurav-bhaiya finishable in Hindi by voice, no typing:** his 3 rows (SC-019, SC-048, SC-049) are internally consistent with that constraint — SC-048 is the explicit full-flow happy path, SC-049 is the negative (any typed/English-only screen blocks him, filed as a high-severity persona finding, matching B17's own framing). **Met.**
+Run in a **fresh throwaway copy** outside the bound root
+(`C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/<session>/scratchpad/falsify/t028c1/`, containing only
+`adapter.json` + `counselling-engine.csv` + `TASKS.md`, copied from the worktree, plus my own
+`verify_c1.py`, never edited in place):
 
-**not-yet-built preconditions vs TASKS.md:** T-010, T-012, T-022, T-025, T-027 are all `open` in TASKS.md — re-checked myself, not taken on the manifest's word. Every row citing one of those five is accurate. **Met, for those five.**
+- **Before** (clean copy): `not-yet-built rows citing a non-open (or unknown) task (should be empty): []` /
+  `CHECKS PASSED`, exit 0 — green, proving the copy is real.
+- **Falsifying edit** (single-hunk, inside `counselling-engine.csv`): `SC-028`'s `not-yet-built:T-029` →
+  `not-yet-built:T-011`.
+- **After**: `not-yet-built rows citing a non-open (or unknown) task (should be empty): [('SC-028', 'T-011', 'done')]` /
+  `CHECKS FAILED`, exit 1 — red, and for the right reason (the exact row and task I retargeted, not a
+  parse/import crash; every other assertion in the same script still ran).
 
-## FAILURES
+I also separately reproduced the manifest's own literal TASKS.md-status-flip scenario out of curiosity
+(same tool, same throwaway pattern) and it behaves identically (green→red on the same assertion) — so the
+underlying capability is real either way; the point above is procedural (which edit is *admissible* to
+cite as the check), not a doubt about the capability itself.
 
-- **[B19] sev: high · SC-028, SC-029, SC-030, SC-031 and SC-033 describe the B15 approver-erasure workflow (double confirm → email-outbox approver → `autoDelete` default false → HMAC pseudonym → fence+24h, per the 2026-09-26 gate answer folded into the contract) as ordinary runnable rows, but `packages/db/src/erasure.ts` — read in full — implements only the older single-confirm model: `requestErasure` (pending) → one `confirmErasure` by a different actor (confirmed) → `executeErasure`. There is no approver, outbox, or `autoDelete` code anywhere (`grep -rniE "approver|autoDelete|outbox|HMAC" packages/ apps/` hits only erasure.ts's own comments proposing HMAC as a future option); the audit hash is still salted sha256 (`HASH_SCHEME`), not HMAC; `ERASURE_FENCE_GRACE_MS` is hardcoded `0`, not the 24h the same gate recommended. No task in TASKS.md builds this — T-011/T-014/T-015/T-016/T-017 are all `done` and predate the amendment, and no later T-id claims it — so there is not even a valid `<T-id>` these rows could cite for a `not-yet-built:<T-id>` marker. Net effect: B19's required "erasure request mid-session" scenario has no row that is honestly runnable against the shipped code today, even though the underlying mid-session write-fence (single-confirm model) is already built and tested (T-011/T-014-017) and could have been the row instead. Fix direction: either (a) rewrite SC-028/029/030/031/033 against the actually-shipped single-confirm+fence model and add a *separate* row explicitly marked `not-yet-built:<new-T-id>` for the approver/outbox/autoDelete/HMAC pieces once a task exists to build them, or (b) create that task now and mark all five rows `not-yet-built:<that-id>` — but then also add one currently-testable row so B19's mid-session-erasure requirement has real coverage in the meantime. issue: ISS-t-028-c0-1
+**CAPABILITY-COVERAGE: 1/1 reproduced** (via an admissible in-scope edit).
 
-## Scope / authority check
+## ISS-t-028-c0-1 — flipped to `fixed`
 
-D-022's `Changes-authorized` is exactly `qa/adapter.json` (add `personas`+`scenarios` keys only) and `qa/scenarios/counselling-engine.csv` (new). The diff touches exactly those two files plus the manifest itself — nothing else. No out-of-scope edit found.
+On my own reproduced evidence above (diff scope, the 15 not-yet-built markers re-verified against live
+`TASKS.md` status including `T-029` itself, SC-032/034/058 checked function-by-function against the
+1249-line `erasure.ts`, and the coverage row re-falsified admissibly), the original finding is resolved:
+SC-028/029/030/031/033 now correctly cite the real `T-029` task (created between cycles, confirmed `open`);
+SC-032/034 are reworded to cite shipped functions/errors and no longer over-claim; SC-058 gives B19's
+"erasure request mid-session" case a row that is honestly runnable today. Ledger updated:
+`qa/issues.jsonl` `ISS-t-028-c0-1` → `status: fixed`, `fixed_date: 2026-09-26`,
+`regression_check: scenario:counselling-engine#SC-058` (a `fixed → verified` move still requires a later
+checker run confirming this regression check would fail with the fix reverted, per the ledger's own rule
+— not done in this cycle).
 
 ---
 
-VERDICT: FAIL
-SCOREBOARD: 6/7 criteria met, 2/2 invariants hold
-FAILURES (if any):
-- [B19] sev: high · SC-028/029/030/031/033 describe the not-yet-built B15 approver workflow without a `not-yet-built` precondition and with no T-id to cite one from, leaving B19's mid-session-erasure requirement without an honestly runnable row · rewrite against the shipped single-confirm+fence model and/or open a task for the approver workflow, marking those rows `not-yet-built:<id>` · issue: ISS-t-028-c0-1
+VERDICT: PASS
+SCOREBOARD: 7/7 criteria met, 2/2 invariants hold
+FAILURES (if any): none
 CAPABILITY-COVERAGE: 1/1 rows reproduced
-LIVE-BROWSER: not-applicable (diff touches only qa/adapter.json, qa/manifests/t-028-personas-scenarios.md, qa/scenarios/counselling-engine.csv — no apps/web or apps/api path)
-ISSUES-WRITTEN: ISS-t-028-c0-1
+LIVE-BROWSER: not-applicable (diff touches only qa/scenarios/counselling-engine.csv and qa/manifests/t-028-personas-scenarios.md — no apps/web or apps/api path)
+ISSUES-WRITTEN: none (ISS-t-028-c0-1 flipped open→fixed, no new issue)
 EXECUTOR: claude-sonnet-subagent (checker: claude-sonnet-subagent)
-EXPLANATION: JSON validity, the adapter key-diff, the CSV structural checks, the data-boundary run, and the diff-scope check all reproduced exactly as the manifest claimed, and the sole capability-coverage row falsifies correctly in a throwaway copy. The unit fails on content correctness: five scenario rows (SC-028/029/030/031/033) describe a B15 erasure sub-workflow (approver, outbox, autoDelete, HMAC, 24h fence) that `packages/db/src/erasure.ts` does not implement and that no TASKS.md entry is building, so they are neither accurately testable today nor properly marked as future work — and this leaves B19's explicit "erasure request mid-session" must-include scenario without a row that is honest against the shipped code.
+EXPLANATION: All cycle-0 structural checks still hold (JSON validity, adapter untouched, CSV membership, data-boundary clean on the unit's own files, diff-scope clean). The cycle-1 fix is verified on my own evidence, not the maker's: SC-028/029/030/031/033 correctly cite the newly created, genuinely open T-029; SC-032/034/058 were checked line-by-line against the full erasure.ts and every named function/error class exists and behaves exactly as each row describes; the coverage row was re-falsified with an admissible in-scope edit (the manifest's own proposed edit touched TASKS.md, outside this unit's "What changed", so I substituted an equivalent edit inside the CSV itself). ISS-t-028-c0-1 is fixed.
