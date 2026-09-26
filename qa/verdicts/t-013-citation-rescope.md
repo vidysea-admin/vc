@@ -340,3 +340,179 @@ ISSUES-WRITTEN: ISS-t-013r-c2-1 (new, critical, open); ISS-t-013r-rev-4, ISS-t-0
 EXECUTOR: claude-sonnet-subagent (checker: claude-sonnet-subagent)
 EXPLANATION: All five issues this cycle targeted are genuinely fixed and independently reproduced, including capability-coverage falsification in a throwaway worktree and 21 of the checker's own hostile variants beyond the manifest's tests (no-? questions, bare "chahiye", mid-sentence conditionals, ZWSP/whitespace, fullwidth/Devanagari digits, slot/value mismatches, in-law Devanagari, date/ordinal numbers) all landing needsReview as required, with positive templates still auto-verifying (not vacuous). However, pushing one step further than the manifest's own hostile set found a new, critical, twice-reproduced bypass: reported-speech attribution lets a third party's stated intent auto-verify as the student's own decided fact, the exact failure mode D-020 exists to prevent, via a lexical class (reporting verbs) the deny layer does not yet cover. This is a bounded, fixable gap, not the unbounded aboutness problem the rescope declined to solve, but it is real and unresolved, so the unit cannot PASS this cycle.
 ```
+
+---
+
+# FIX CYCLE 3
+
+**Cycle checked:** 3
+**Date:** 2026-09-26
+**Checker:** fresh Claude subagent (Mode A unit check), bound to `D:/vc/.worktrees/t-013-citation-rescope` (branch `wave/t-013-citation-rescope`, HEAD `6bc395f`). No `ANTHROPIC_BASE_URL` override — self != executor holds.
+**Authority:** contract `qa/contracts/counselling-engine.md` B2 + D-020 (primary), B3, B9, B13, B16, B17, B19. Ledger: `qa/issues.jsonl`. This is the final cycle, a one-time extra authorized by D-023 (per `qa/gates/t013-extra-cycle.md`, answered A: cycle 3, templates unchanged).
+**Base for diff scope:** `893789b` (reopen commit) .. HEAD `6bc395f`. `git diff 893789b..HEAD --stat`: 15 files, all named in the manifest's "What changed" (`packages/db/src/facts.ts`, `packages/db/tests/facts.test.ts`, `packages/engine/evals/score-perfect.test.ts`, `packages/engine/src/scribe/nodes.ts`, `packages/engine/tests/scribe-citation-rescope.test.ts`, eval report JSON/MD snapshots, `qa/evals/scribe/sessions.jsonl`, the manifest). No test, function, export or config key was deleted anywhere in this diff (checked `git diff … | grep '^-'` against both source files: only refactors of lines this cycle's own commits touch, e.g. `matchesAllowedTemplate`'s return type widened from `boolean` to a 3-way enum — no test case removed). No file outside "What changed" was touched. Diff scope: clean.
+
+## Scope of this cycle
+
+Exactly `ISS-t-013r-c2-1` (critical, reported-speech attribution), `ISS-t-013r-rev-9` (high, multi-clause
+retraction/attribution), `ISS-t-013r-rev-10` (medium, invisible format characters), `ISS-t-013r-rev-12` (high,
+`nfcWithRawOffsets` mid-cluster crop widening). `ISS-t-013r-rev-11` (template-widening recommendation) is
+parked by Umesh, per the brief, and is not counted as a defect here. `ISS-t-013r-rev-7` (review load) remains
+the same disclosed, contract-authorized trade-off it has been since cycle 1.
+
+## What I re-ran myself
+
+- `pnpm install --offline` in the bound worktree — already satisfied, exit 0 (RAM 3.13 GB free at the time).
+- `pnpm -r typecheck` — all 9 workspace projects, exit 0.
+- Per-package `pnpm --filter <pkg> test` (never `pnpm -r test` in one shot; RAM gated every run, always ≥2.5 GB
+  free, no waits needed this cycle): `@vc/engine` 315/315, `@vc/db` 214/214, `@vc/schemas` 56/56,
+  `@vc/mcp-student-profile` 12/12, `@vc/web` 31/31 — **every count matches the manifest exactly.**
+- `python contracts/verify_contracts.py` → `PASS by vacuity`, exit 0, matches manifest.
+- All four eval providers re-run myself end to end on the real 70-session golden set (`qa/evals/scribe/sessions.jsonl`):
+
+  | provider | recall | kept | verified | needsReview | reasoning | fabricated-verified |
+  |---|---|---|---|---|---|---|
+  | perfect | 73/73 | 73 | 12 | 61 | 1 | 0 |
+  | case-drift | 73/73 | 73 | 12 | 61 | 1 | 0 |
+  | fabricator | 0/73 (precision 0.0%) | 0 | 0 | 0 | 0 | 0 |
+  | lazy | 0/73 (precision n/a) | 0 | 0 | 0 | 0 | 0 |
+
+  Every number matches the manifest exactly. **Eval-report side effects reverted**: `git checkout --
+  qa/evals/scribe/reports/` after my own eval runs — `git status --porcelain` confirmed clean (only the
+  timestamp line inside each report differed; content otherwise identical) before I moved on.
+
+## My OWN hostile variants (none taken from the manifest's test set) — 34 hostile + 8 positive controls, run directly against `verifyCandidateFact`/`assessFactForReview` in the bound worktree's real source (read-only import, no edit)
+
+Every one of the following landed `needsReview: true` (never auto-verified, never dropped), except the two
+explicitly marked positive/fail-safe controls, which behaved as intended:
+
+- **Acknowledgement exception abused as a smuggling channel (5 cases):** "Yes, Rahul wants to study in UK";
+  "Haan ji, papa bole I want UK" (both as the full clause and as a shorter quote that doesn't equal the whole
+  clause); "Yes, I want to study in UK. Scratch that, Canada." (both the UK and the Canada value). All correctly
+  needsReview — multi-clause, third-party, reported-speech and unrecognised-form guards fired as appropriate;
+  none smuggled through the acknowledgement exception.
+- **Clause splits on characters `clausesOf` does not split on (7 cases):** em dash, en dash, ellipsis character
+  (…), double danda ॥, newline, U+2028 LINE SEPARATOR, U+2029 PARAGRAPH SEPARATOR. All correctly needsReview —
+  in each case the template's `$`-anchored full-string match fails on the trailing/leftover text even where the
+  clause split itself missed the boundary, so the structural gap does not translate into a leak.
+- **Reporting verbs in other tenses (7 cases):** says, saying, tells, mentioned, claims — all caught by
+  `REPORTING_MARKERS` (reason `reported-speech`). "reckons" and "thinks" are confirmed **not** in
+  `REPORTING_MARKERS` (a disclosed gap, manifest "Open gaps") — both still correctly needsReview via
+  `unrecognised-form`, because the `^i…` template anchor fails on a clause that opens with the third party's
+  name instead of "I". Confirms the manifest's own claim about this gap empirically.
+- **Reported speech with no comma (2 cases):** "Rahul said I want to study in UK"; "राहुल ने कहा मुझे यूके जाना
+  है" — both needsReview via `reported-speech`.
+- **Devanagari reporting variants (2 cases):** बताया ("मैंने बताया …"), कहती है ("मेरी दीदी कहती है …") — both
+  needsReview (reported-speech, and third-party for the kinship word "दीदी").
+- **`translatedText` differs from `text`, one single-clause / one multi-clause (2 cases):** a Devanagari
+  single-clause `text` with a multi-clause English `translatedText` containing a retraction, and the reverse
+  (multi-clause `text`, single-clause `translatedText`) — both needsReview, since condition checks run over
+  BOTH texts.
+- **Invisible characters in other positions (5 cases):** ZWSP inside the reporting verb ("Rahul s\u200Baid …") —
+  needsReview via reported-speech (the strip recovers the hidden verb, exactly as rev-10 intends); U+2028
+  between "Rahul" and "said" — needsReview; U+2029 inside "said" — needsReview; U+180E inside "said" —
+  needsReview (fails safe via unrecognised-form even though U+180E isn't on the explicit strip list, because
+  the resulting garbled token doesn't match the template's `$`-anchor either way). One **positive** control: ZWSP
+  inside the country name itself ("U\u200BK") still correctly **auto-verifies** — confirms the strip does not
+  over-trigger review on a genuine value.
+- **Emoji / surrogate pair adjacent to the span (3 cases):** a trailing emoji after "UK" in a citation quote
+  correctly fails safe to needsReview (`unrecognised-form` — the `$` anchor requires the string to end exactly
+  at the country/degree suffix, so a decorative emoji is enough to break the template match, which is the
+  correct conservative direction); an emoji beside "said" in a reported-speech turn — needsReview; and
+  (separately, against `resolveCitationSpan`) a Devanagari mid-cluster-cropped quote with a surrogate-pair emoji
+  on **both** sides in the raw stored text — `slice === quote` exactly, unaffected by the adjacent astral-plane
+  characters.
+- **Positive controls, non-vacuity (8 cases):** English/Hinglish/Devanagari country templates and
+  English/Hinglish/Devanagari budget templates all still auto-verify with zero review reasons, confirming the
+  fail-safe machinery above did not also swallow the legitimate positive surface. (Note: a Devanagari-*spelled*
+  country name, e.g. "यूके" instead of Latin "UK", does **not** auto-verify — this is the manifest's own
+  disclosed gap ["Devanagari country names … are not in COUNTRY_ALIASES"], not a new finding; confirmed by
+  testing it explicitly and then confirming the Latin-inside-Devanagari-sentence form the manifest actually
+  claims does verify.)
+
+**Total: 42/42 as expected** (34 hostile-safe + 8 positive-controls), 0 leaks, 0 drops.
+
+## rev-12 boundary re-verification (Devanagari mid-cluster crop, start AND end)
+
+Ran `resolveCitationSpan` directly against a `TranscriptTurnDoc` fixture (`text: "मुझे लॉ पढ़ना है"`), independent
+of the manifest's own fixture:
+- **End-boundary crop** (drop trailing मात्रा): quote `"पढ़न"` (out of `"पढ़ना"`) → `slice(start,end) === "पढ़न"`
+  exactly. Not widened.
+- **Start-boundary crop** (drop leading base consonant, keep from the nukta-bearing cluster into the vowel
+  sign): quote `"ढ़ना"` (out of `"पढ़ना"`) → `slice(start,end) === "ढ़ना"` exactly. Not widened.
+- Both directions confirmed correct — the brief specifically asked for both boundaries, not just the ledger's
+  own end-boundary example.
+
+## Capability coverage — 3 rows independently falsified in my OWN throwaway worktree (outside the bound root)
+
+Setup: `git worktree add C:/Users/Lenovo/AppData/Local/Temp/claude/checker-t013c3-scratch HEAD --detach` (at
+`6bc395f`), `pnpm install --offline` (RAM-gated, 19.6s). Cleanup: `git worktree remove --force` + `git worktree
+prune` + manual `rm -rf` of a residual lock-held `node_modules` directory; confirmed absent afterward. The bound
+worktree was never touched.
+
+| capability | falsifying edit (scratch copy only) | BEFORE (GREEN, my own run) | AFTER (RED, my own run) |
+|---|---|---|---|
+| Single-clause structural rule: a multi-clause turn never auto-verifies | `nodes.ts` `matchesAllowedTemplate`: `if (clausesPerSource.some(...)) return "multi-clause";` → `if (false && ...)` | `✔ ISS-t-013r-c2-1/rev-9 STRUCTURAL: … multi-clause …` [pass 1 fail 0] | `✖ … AssertionError: multi-clause turn must not auto-verify: I want to study in UK. Scratch that, Canada. — false !== true` [pass 0 fail 1] |
+| Reported-speech second layer | `nodes.ts` `hasReportedSpeech`: `return hasMarker(normalisedText, REPORTING_MARKERS);` → `return false;` | `✔ ISS-t-013r-c2-1/rev-9 second layer: … reported-speech …` [pass 1 fail 0] | `✖ … AssertionError: named reported-speech reason: Rahul said, I want to study in UK` [pass 0 fail 1] |
+| rev-12 1:1 offsets for an NFC-unchanged cluster | `facts.ts` `nfcWithRawOffsets`: `if (norm === m[0]) {` → `if (false) {` (forces the old rev-8 always-whole-cluster path) | `✔ ISS-t-013r-rev-12: … slice === quote …` [pass 1 fail 0] | `✖ … AssertionError: slice === quote (no widening): पढ़न — 'पढ़ना' !== 'पढ़न'` [pass 0 fail 1] — reproduces the EXACT widening bug from the ledger's own description |
+
+All three reverted and confirmed byte-identical (`git diff --stat` empty) before removing the scratch worktree.
+This satisfies the brief's "falsify at least 3 manifest rows in your own throwaway copy" independently of the
+manifest's own (also independently-plausible) capability-coverage table.
+
+## Diff scope, persona walk, live browser, scenarios
+
+- **Diff scope (4c):** clean, see "Base for diff scope" above — no unclaimed deletions, no untouched-file
+  surprises.
+- **Persona walk:** the manifest's `skip` is correct — `git diff --name-only 893789b..HEAD -- apps/web` returns
+  0 lines, confirmed myself. No `false-persona-skip` finding.
+- **Live browser (Mode D):** not applicable — no file under `apps/web` changed in this cycle, and `@vc/web`
+  passes 31/31 unchanged (re-run myself above). Not a UI-touching unit.
+- **Scenarios (B19):** this is a unit check, not a release; `qa/scenarios/counselling-engine.csv` full-matrix
+  replay is a Mode C (release) obligation, not scoped to this cycle.
+
+## Ledger
+
+Flipped to `fixed` (own reproduced evidence, this cycle): `ISS-t-013r-c2-1` (critical), `ISS-t-013r-rev-9`
+(high), `ISS-t-013r-rev-10` (medium), `ISS-t-013r-rev-12` (high). `ISS-t-013r-rev-7` and `ISS-t-013r-rev-11`
+left untouched — both are disclosed, human-parked product trade-offs (review load / template widening), not
+defects this unit must fix. No new issues found: every one of my 34 hostile variants and 3 falsification rows
+behaved correctly.
+
+## EXECUTOR
+
+claude-sonnet-subagent (manifest's own Executor: claude-sonnet-subagent — schema/db-write unit, never
+delegated; checker: claude-sonnet-subagent, fresh session, no `ANTHROPIC_BASE_URL` override — self != executor
+holds).
+
+## VERDICT
+
+**PASS.** All four issues this cycle targeted are genuinely fixed and independently reproduced: the structural
+single-clause rule closes the multi-clause retraction/attribution class regardless of vocabulary (rev-9); the
+reported-speech second layer catches the single-clause "X said, I want to study in UK" shape that motivated
+c2-1; the invisible-format strip removes ZWSP/WJ/BOM/soft-hyphen/LRM/RLM before any marker check while
+preserving ZWJ/ZWNJ (rev-10); and `nfcWithRawOffsets` now maps 1:1 for an NFC-unchanged cluster, fixing the
+exact mid-cluster widening the ledger described (rev-12), at both the start and end boundary, without
+regressing the rev-8 mixed-NFC/NFD case (the full `@vc/db` suite, including the rev-8 fixture, is still
+214/214 green).
+
+Pushing well past the manifest's own hostile set — 34 of my own variants across every category the brief named
+(acknowledgement-exception abuse, clause-split evasion via em/en dash and line/paragraph separators, unlisted
+reporting-verb tenses, comma-less attribution, Devanagari reporting variants, `text`/`translatedText`
+divergence, invisible characters in new positions, and emoji/surrogate-pair adjacency), plus 3 independent
+capability-coverage falsifications in a throwaway worktree and a from-scratch re-run of all four eval
+providers — found **zero** new leaks and **zero** dropped facts. This is the first cycle of this unit's checks
+that did not surface a structurally new leak. The two remaining gaps (unlisted reporting verbs like
+"reckons"/"thinks", and Devanagari-spelled country names) both fail SAFE to `needsReview` by construction (the
+`^i…` template anchor and the Latin-only vocabulary respectively), and are named in the manifest's own "Open
+gaps" section rather than hidden.
+
+```
+VERDICT: PASS
+SCOREBOARD: 4/4 targeted cycle-3 issues fixed and verified (c2-1, rev-9, rev-10, rev-12); 0 new findings from 34 of the checker's own hostile variants + 8 positive controls + 3 independent capability-coverage falsifications
+FAILURES: none
+CAPABILITY-COVERAGE: 3/3 rows independently falsified by the checker in its own throwaway git worktree (single-clause structural rule, reported-speech second layer, rev-12 1:1 offsets), GREEN-before/RED-after/byte-identical-revert confirmed for each
+LIVE-BROWSER: not-applicable (git diff --name-only 893789b..6bc395f -- apps/web is empty; @vc/web 31/31 unchanged)
+ISSUES-WRITTEN: ISS-t-013r-c2-1, ISS-t-013r-rev-9, ISS-t-013r-rev-10, ISS-t-013r-rev-12 (all flipped fixed, own reproduced evidence); none new
+EXECUTOR: claude-sonnet-subagent (checker: claude-sonnet-subagent)
+EXPLANATION: Independently re-ran typecheck (9/9 packages), per-package tests (315+214+56+12+31, all matching the manifest), contracts verify (PASS by vacuity), and all four eval providers on the real 70-session golden set (recall 73/73, fabricatedVerified 0 in perfect/case-drift; 0%/n/a precision in fabricator/lazy) — every number matches the manifest exactly, and eval-report side effects were reverted afterward. Ran 34 of my own hostile variants (none from the manifest's test set) spanning every category the brief named — acknowledgement-exception smuggling, clause-split evasion characters, unlisted reporting-verb tenses, comma-less attribution, Devanagari reporting verbs, text/translatedText divergence, invisible characters in new positions, and emoji/surrogate-pair adjacency — plus 8 positive-control template cases, all landing exactly as they should (needsReview for every hostile case, never dropped; auto-verify preserved for genuine templates). Re-verified rev-12's mid-cluster-crop fix at both the start AND end cluster boundary (the brief's specific ask), including with adjacent surrogate-pair emojis. Independently falsified 3 capability-coverage rows in my own throwaway git worktree (outside the bound root), each GREEN before the edit and RED after, byte-identical on revert — one of them (rev-12) reproduces the exact widening bug the ledger originally described. This is the first cycle of this unit where the checker's own hostile probing did not find a structurally new leak. Ledger flipped to fixed for all 4 targeted issues on this reproduced evidence.
+```
