@@ -42,3 +42,11 @@ test("NewSessionForm: the initial idle render offers no Retry button and no ai_u
   assert.equal(html.includes('data-state="ai_unavailable"'), false);
   assert.equal(html.includes('data-state="started"'), false);
 });
+
+test("T-021 fix cycle 1 (ISS-t-021-c0-1, B17): the transcript table has its OWN column label for the spoken text, never the approval screen's colValue (\"Proposed value\")", () => {
+  const html = renderToStaticMarkup(<NewSessionForm />);
+  assert.ok(html.includes(LABELS.colTranscriptText), "the transcript column header renders its own label");
+  assert.equal(LABELS.colTranscriptText, "What was said");
+  assert.notEqual(LABELS.colTranscriptText, LABELS.colValue, "must not be the approval screen's proposed-fact label");
+  assert.ok(!html.includes(LABELS.colValue), 'the new-session screen must never render "Proposed value" — this text is not a proposed fact');
+});

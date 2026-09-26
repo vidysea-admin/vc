@@ -9,10 +9,21 @@
  * The whole submission body (session id + transcript) is built ONCE in local state
  * (`useState(() => ...)`, never regenerated on Retry) and reused byte-for-byte on every submit —
  * so Retry resubmits the IDENTICAL input and the counsellor never retypes anything (B6/D-020).
+ *
+ * T-021 fix cycle 1 (ISS-t-021-rev-1): the server's own FailoverProvider now enforces a wall-clock
+ * deadline (default 45s, VC_LLM_DEADLINE_MS) before it can return the ai_unavailable reply — but a
+ * client-side safety net still matters (a proxy/load balancer with its own shorter idle timeout, a
+ * flaky mobile connection that never delivers the response at all). CLIENT_TIMEOUT_MS aborts the
+ * fetch slightly above that server deadline and renders the EXACT SAME apology + Retry state, with
+ * `submission` (built once, never rebuilt) still intact — a client timeout is indistinguishable from
+ * the server's own ai_unavailable outcome from the counsellor's point of view.
  */
 import { useState } from "react";
 import { StartSessionResultSchema, type StartSessionRequest, type StartSessionResult } from "../server/contracts";
 import { LABELS } from "./labels";
+
+/** Slightly above FAILOVER_DEFAULT_DEADLINE_MS (45_000, @vc/providers) — see the module docstring. */
+const CLIENT_TIMEOUT_MS = 50_000;
 
 /** A fixed synthetic transcript (same content as demo/seed.ts's demo threads) — no real student data (B13). */
 function buildDemoSubmission(): StartSessionRequest {
@@ -56,18 +67,28 @@ export function NewSessionForm() {
 
   const submit = async () => {
     setScreen({ kind: "submitting" });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
     try {
       const res = await fetch(SESSIONS_URL, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(submission),
+        signal: controller.signal,
       });
       const parsed: StartSessionResult = StartSessionResultSchema.parse(await res.json());
       if (parsed.state === "ai_unavailable") setScreen({ kind: "ai_unavailable", attempts: parsed.attempts });
       else if (parsed.state === "started") setScreen({ kind: "started", threadId: parsed.threadId });
       else setScreen({ kind: "error" });
-    } catch {
-      setScreen({ kind: "error" });
+    } catch (err) {
+      // T-021 fix cycle 1 (ISS-t-021-rev-1): an aborted-by-us fetch (our own CLIENT_TIMEOUT_MS
+      // firing) renders the SAME apology + Retry state as a server-reported ai_unavailable — never
+      // the generic error banner — and `submission` is untouched (built once, never rebuilt), so
+      // Retry resubmits the identical input exactly as it would after a server-side exhaustion.
+      if ((err as { name?: unknown } | null)?.name === "AbortError") setScreen({ kind: "ai_unavailable", attempts: 0 });
+      else setScreen({ kind: "error" });
+    } finally {
+      clearTimeout(timer);
     }
   };
 
@@ -87,7 +108,7 @@ export function NewSessionForm() {
           <thead>
             <tr>
               <th>{LABELS.colTurn}</th>
-              <th>{LABELS.colValue}</th>
+              <th>{LABELS.colTranscriptText}</th>
             </tr>
           </thead>
           <tbody>

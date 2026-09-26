@@ -31,7 +31,11 @@
  *     whole budget is spent it raises an engineering alert (@vc/observability) and throws the
  *     typed `AiUnavailableError`. `createProvider` builds one automatically when the litellm config
  *     carries `models` (from VC_LLM_MODELS); a plain single-model config is unchanged (backward
- *     compatible — still a bare `LiteLlmProvider`, one attempt, no retry).
+ *     compatible — still a bare `LiteLlmProvider`, one attempt, no retry). T-021 fix cycle 1
+ *     (ISS-t-021-rev-1): a wall-clock `deadlineMs` (default 45s, VC_LLM_DEADLINE_MS) bounds the
+ *     whole call independent of the attempt counter, and chain members default to a shorter 8s
+ *     per-attempt timeout (VC_LLM_ATTEMPT_TIMEOUT_MS) instead of the standalone provider's 30s —
+ *     together these replace the old, unbounded ~5.4 minute worst case with a real ceiling.
  */
 import { z } from "zod";
 import { recordErrorSpan } from "@vc/observability";
@@ -76,6 +80,17 @@ export const ProviderConfigSchema = z.discriminatedUnion("provider", [
     models: z.array(z.string().min(1)).min(1).optional(),
     /** T-021: total retry budget across the whole chain (VC_LLM_RETRY_BUDGET; default ~10, D-020). */
     maxAttempts: z.number().int().positive().optional(),
+    /**
+     * T-021 fix cycle 1 (ISS-t-021-rev-1): wall-clock deadline for the WHOLE chain, independent of
+     * the attempt counter (VC_LLM_DEADLINE_MS; default FAILOVER_DEFAULT_DEADLINE_MS = 45000).
+     */
+    deadlineMs: z.number().int().positive().optional(),
+    /**
+     * T-021 fix cycle 1 (ISS-t-021-rev-1): a shorter default per-attempt timeout for chain members,
+     * so 10 attempts at the old 30s-per-attempt default could never reach a 45s deadline in fewer
+     * than the whole budget (VC_LLM_ATTEMPT_TIMEOUT_MS; default LITELLM_DEFAULT_ATTEMPT_TIMEOUT_MS).
+     */
+    attemptTimeoutMs: z.number().int().positive().optional(),
   }),
   z.object({ provider: z.literal("rules"), model: z.string().min(1) }),
 ]);
@@ -97,6 +112,17 @@ export interface ProviderEnv {
   VC_LLM_MODELS?: string;
   /** T-021: total retry budget across the whole chain. Optional; FailoverProvider defaults it. */
   VC_LLM_RETRY_BUDGET?: string;
+  /**
+   * T-021 fix cycle 1 (ISS-t-021-rev-1): wall-clock deadline in ms for the whole chain, independent
+   * of the attempt counter. Optional; FailoverProvider defaults it (FAILOVER_DEFAULT_DEADLINE_MS).
+   */
+  VC_LLM_DEADLINE_MS?: string;
+  /**
+   * T-021 fix cycle 1 (ISS-t-021-rev-1): per-attempt timeout in ms for chain members, shorter than
+   * the standalone LiteLlmProvider default so the deadline is reachable within the retry budget.
+   * Optional; defaults to LITELLM_DEFAULT_ATTEMPT_TIMEOUT_MS.
+   */
+  VC_LLM_ATTEMPT_TIMEOUT_MS?: string;
   [key: string]: string | undefined;
 }
 
@@ -137,6 +163,25 @@ export function loadProviderConfig(env: ProviderEnv): ProviderConfig {
       }
       maxAttempts = n;
     }
+    // T-021 fix cycle 1 (ISS-t-021-rev-1): the wall-clock deadline and the per-attempt timeout for
+    // chain members. Both optional, same "absent -> byte-for-byte unchanged" backward-compatibility
+    // rule as maxAttempts above.
+    let deadlineMs: number | undefined;
+    if (env.VC_LLM_DEADLINE_MS !== undefined) {
+      const n = Number(env.VC_LLM_DEADLINE_MS);
+      if (!Number.isInteger(n) || n <= 0) {
+        throw new Error(`loadProviderConfig: VC_LLM_DEADLINE_MS must be a positive integer (got ${JSON.stringify(env.VC_LLM_DEADLINE_MS)})`);
+      }
+      deadlineMs = n;
+    }
+    let attemptTimeoutMs: number | undefined;
+    if (env.VC_LLM_ATTEMPT_TIMEOUT_MS !== undefined) {
+      const n = Number(env.VC_LLM_ATTEMPT_TIMEOUT_MS);
+      if (!Number.isInteger(n) || n <= 0) {
+        throw new Error(`loadProviderConfig: VC_LLM_ATTEMPT_TIMEOUT_MS must be a positive integer (got ${JSON.stringify(env.VC_LLM_ATTEMPT_TIMEOUT_MS)})`);
+      }
+      attemptTimeoutMs = n;
+    }
     return {
       provider: "litellm",
       model: env.VC_LLM_MODEL,
@@ -144,6 +189,8 @@ export function loadProviderConfig(env: ProviderEnv): ProviderConfig {
       ...(env.VC_LLM_API_KEY ? { apiKey: env.VC_LLM_API_KEY } : {}),
       ...(modelsRaw && modelsRaw.length > 0 ? { models: modelsRaw } : {}),
       ...(maxAttempts !== undefined ? { maxAttempts } : {}),
+      ...(deadlineMs !== undefined ? { deadlineMs } : {}),
+      ...(attemptTimeoutMs !== undefined ? { attemptTimeoutMs } : {}),
     };
   }
   if (provider === "rules") {
@@ -255,6 +302,16 @@ export class GeminiProvider implements LlmProvider {
 
 /** Generous enough for a gateway hop; bounded so a hung socket can never wedge a node forever. */
 export const LITELLM_DEFAULT_TIMEOUT_MS = 30_000;
+
+/**
+ * T-021 fix cycle 1 (ISS-t-021-rev-1): the default per-attempt timeout for a LiteLlmProvider built
+ * as a FailoverProvider chain member (VC_LLM_ATTEMPT_TIMEOUT_MS) — deliberately shorter than
+ * LITELLM_DEFAULT_TIMEOUT_MS, since a chain retries several models within a bounded wall-clock
+ * deadline (FAILOVER_DEFAULT_DEADLINE_MS): at the old 30s-per-attempt default, a single hung attempt
+ * could nearly exhaust the whole deadline on its own. A standalone (non-chain) LiteLlmProvider is
+ * unaffected and keeps LITELLM_DEFAULT_TIMEOUT_MS (backward compatibility).
+ */
+export const LITELLM_DEFAULT_ATTEMPT_TIMEOUT_MS = 8_000;
 
 export class LiteLlmHttpError extends Error {
   readonly status: number;
@@ -419,20 +476,28 @@ export class AiUnavailableError extends Error {
 }
 
 /**
- * Retryable: a timeout, an HTTP 429 or 5xx, or a response whose body was not usable JSON
+ * Retryable: a timeout, an HTTP 429 or 5xx, a response whose body was not usable JSON
  * (LiteLlmMalformedResponseError — "invalid/unparseable JSON") or could not be sent at all
- * (LiteLlmNetworkError — DNS/connection-refused/TLS, transient by nature). NEVER retryable: any
- * other HTTP status (400/401/403/404/... — auth/config errors, D-020's "never on auth/config
- * errors"), a schema-invalid output (ZodError — that is generateWithRetry's own, pre-existing,
- * same-provider retry in packages/engine/src/scribe/nodes.ts, unrelated to this chain), a stub
- * provider's ProviderNotWiredError, or anything unrecognised. This is a WHITELIST on purpose: an
- * unrecognised failure mode fails closed (no retry, no failover) rather than silently retried.
+ * (LiteLlmNetworkError — DNS/connection-refused/TLS, transient by nature), or — T-021 fix cycle 1,
+ * ISS-t-021-rev-2, gate `failover-scope` Q2 A (Umesh, 2026-09-26: "treat wrong-shape like an
+ * outage") — a schema-invalid output (a Zod validation error): the model answered, but not in the
+ * shape the caller's outputSchema requires. Treating this as retryable here (not only at
+ * generateWithRetry's own same-provider layer, packages/engine/src/scribe/nodes.ts) is what fails
+ * it over to the NEXT chain member within the SAME attempt budget and wall-clock deadline, instead
+ * of generateWithRetry re-asking with a fresh top-level `provider.generate()` call that would
+ * otherwise restart FailoverProvider's internal chain position at model 0 and start a brand-new
+ * deadline window (ISS-t-021-rev-2's actual bug: "never fails over ... restarts at chain[0]").
+ * NEVER retryable: any other HTTP status (400/401/403/404/... — auth/config errors, D-020's "never
+ * on auth/config errors"), a stub provider's ProviderNotWiredError, or anything unrecognised. This
+ * is a WHITELIST on purpose: an unrecognised failure mode fails closed (no retry, no failover)
+ * rather than silently retried.
  */
 export function isRetryableProviderError(err: unknown): boolean {
   if (err instanceof LiteLlmTimeoutError) return true;
   if (err instanceof LiteLlmMalformedResponseError) return true;
   if (err instanceof LiteLlmNetworkError) return true;
   if (err instanceof LiteLlmHttpError) return err.status === 429 || err.status >= 500;
+  if (err instanceof z.ZodError) return true;
   return false;
 }
 
@@ -441,6 +506,29 @@ export const FAILOVER_DEFAULT_MAX_ATTEMPTS = 10;
 /** Doubles per attempt, capped at FAILOVER_DEFAULT_MAX_DELAY_MS. */
 export const FAILOVER_DEFAULT_BASE_DELAY_MS = 200;
 export const FAILOVER_DEFAULT_MAX_DELAY_MS = 4_000;
+
+/**
+ * T-021 fix cycle 1 (ISS-t-021-rev-1): default wall-clock deadline, in ms, for the WHOLE
+ * FailoverProvider.generate() call — independent of the attempt counter. At the pre-fix defaults
+ * (10 attempts x 30s per-attempt timeout + backoff) the worst-case wait before the apology was
+ * ~5.4 minutes with no upper bound enforced at all; this deadline is the actual bound now, whatever
+ * the attempt budget or per-attempt timeout are configured to.
+ */
+export const FAILOVER_DEFAULT_DEADLINE_MS = 45_000;
+
+/**
+ * T-021 fix cycle 1 (ISS-t-021-rev-1): thrown internally when the wall-clock deadline is hit before
+ * an attempt (or the whole chain) completes. Never escapes FailoverProvider.generate() to the
+ * caller — it is folded into the same onExhausted alert + AiUnavailableError as a normal
+ * attempt-budget exhaustion (its name is carried as AiUnavailableError.lastErrorName so the alert
+ * and the caller can tell a deadline-cutoff apart from an ordinary provider failure).
+ */
+export class FailoverDeadlineExceededError extends Error {
+  constructor(deadlineMs: number) {
+    super(`FailoverDeadlineExceededError: the failover chain did not complete within the ${deadlineMs}ms wall-clock deadline (contract B6)`);
+    this.name = "FailoverDeadlineExceededError";
+  }
+}
 
 /**
  * Full-jitter exponential backoff (AWS "Exponential Backoff And Jitter"): a uniformly random delay
@@ -507,6 +595,13 @@ export interface FailoverProviderOptions {
   maxAttempts?: number;
   baseDelayMs?: number;
   maxDelayMs?: number;
+  /**
+   * T-021 fix cycle 1 (ISS-t-021-rev-1): wall-clock deadline in ms for the WHOLE generate() call,
+   * independent of maxAttempts — defaults to FAILOVER_DEFAULT_DEADLINE_MS. Each attempt (and each
+   * backoff wait) is capped at whatever remains of this budget, so a hung attempt can never by
+   * itself push the total wait past the deadline.
+   */
+  deadlineMs?: number;
   /** Injectable for tests (no real waiting; node:test fake timers also work against the default). */
   sleep?: (ms: number) => Promise<void>;
   /** Injectable for deterministic jitter in tests. */
@@ -527,6 +622,7 @@ export class FailoverProvider implements LlmProvider {
   private readonly maxAttempts: number;
   private readonly baseDelayMs: number;
   private readonly maxDelayMs: number;
+  private readonly deadlineMs: number;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly random: () => number;
   private readonly onExhausted: (info: FailoverExhaustedInfo) => void;
@@ -539,9 +635,29 @@ export class FailoverProvider implements LlmProvider {
     this.maxAttempts = options.maxAttempts ?? FAILOVER_DEFAULT_MAX_ATTEMPTS;
     this.baseDelayMs = options.baseDelayMs ?? FAILOVER_DEFAULT_BASE_DELAY_MS;
     this.maxDelayMs = options.maxDelayMs ?? FAILOVER_DEFAULT_MAX_DELAY_MS;
+    this.deadlineMs = options.deadlineMs ?? FAILOVER_DEFAULT_DEADLINE_MS;
     this.sleep = options.sleep ?? defaultSleep;
     this.random = options.random ?? Math.random;
     this.onExhausted = options.onExhausted ?? emitFailoverAlert;
+  }
+
+  /**
+   * Races `promise` against a timer for `remainingMs` — the wall-clock deadline's actual
+   * enforcement mechanism (ISS-t-021-rev-1's "each attempt's timeout is capped at the remaining
+   * budget"): whatever timeout the provider itself is configured with, this attempt can never take
+   * longer than what is left of FailoverProvider's own deadline. Always clears its timer so a
+   * settled attempt never leaves a dangling handle.
+   */
+  private async raceDeadline<T>(promise: Promise<T>, remainingMs: number): Promise<T> {
+    let timer!: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new FailoverDeadlineExceededError(this.deadlineMs)), Math.max(0, remainingMs));
+    });
+    try {
+      return await Promise.race([promise, timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   toString(): string {
@@ -556,20 +672,41 @@ export class FailoverProvider implements LlmProvider {
    * generateWithRetry's own same-provider retry and an auth/config error surfaces exactly as the
    * chosen model reported it. Only once the WHOLE budget is spent on retryable failures does this
    * raise the alert and throw the typed AiUnavailableError — never a silent drop to `rules`.
+   *
+   * T-021 fix cycle 1 (ISS-t-021-rev-1): a wall-clock deadline (this.deadlineMs) bounds the WHOLE
+   * call independently of the attempt counter. Before every attempt, and before every backoff wait,
+   * the remaining deadline budget is checked; once it runs out the loop stops exactly like an
+   * ordinary attempt-budget exhaustion (same single alert, same AiUnavailableError), just with
+   * `FailoverDeadlineExceededError` as the recorded lastErrorName. Each attempt itself is raced
+   * against the remaining budget (raceDeadline), so a single hung attempt can never by itself push
+   * the total wait past the deadline, whatever its own configured timeout is.
    */
   async generate<T>(request: GenerateRequest<T>): Promise<T> {
+    const deadlineAt = Date.now() + this.deadlineMs;
     let lastError: unknown;
     let attempt = 0;
     while (attempt < this.maxAttempts) {
+      const remaining = deadlineAt - Date.now();
+      if (remaining <= 0) {
+        lastError = lastError ?? new FailoverDeadlineExceededError(this.deadlineMs);
+        break;
+      }
       const provider = this.chain[attempt % this.chain.length]!;
       attempt += 1;
       try {
-        return await provider.generate<T>(request);
+        return await this.raceDeadline(provider.generate<T>(request), remaining);
       } catch (err) {
+        if (err instanceof FailoverDeadlineExceededError) {
+          lastError = err;
+          break;
+        }
         if (!isRetryableProviderError(err)) throw err;
         lastError = err;
         if (attempt >= this.maxAttempts) break;
-        await this.sleep(computeBackoffMs(attempt, this.baseDelayMs, this.maxDelayMs, this.random));
+        const remainingForBackoff = deadlineAt - Date.now();
+        if (remainingForBackoff <= 0) break;
+        const backoffMs = Math.min(computeBackoffMs(attempt, this.baseDelayMs, this.maxDelayMs, this.random), remainingForBackoff);
+        await this.sleep(backoffMs);
       }
     }
     const models = this.chain.map((p) => p.model);
@@ -730,9 +867,15 @@ export function createProvider(config: ProviderConfig, deps: CreateProviderDeps 
       // (VC_LLM_MODELS). No `models` -> exactly the old single-attempt LiteLlmProvider, unchanged
       // (backward compatibility with the single-model config).
       if (parsed.models && parsed.models.length > 0) {
+        // T-021 fix cycle 1 (ISS-t-021-rev-1): chain members get the shorter attempt timeout
+        // (LITELLM_DEFAULT_ATTEMPT_TIMEOUT_MS unless VC_LLM_ATTEMPT_TIMEOUT_MS overrides it) —
+        // never the standalone LITELLM_DEFAULT_TIMEOUT_MS, which alone could nearly exhaust the
+        // whole wall-clock deadline on a single hung attempt.
+        const attemptTimeoutMs = parsed.attemptTimeoutMs ?? LITELLM_DEFAULT_ATTEMPT_TIMEOUT_MS;
         return new FailoverProvider({
-          chain: parsed.models.map((model) => new LiteLlmProvider({ model, baseUrl: parsed.baseUrl, apiKey: parsed.apiKey })),
+          chain: parsed.models.map((model) => new LiteLlmProvider({ model, baseUrl: parsed.baseUrl, apiKey: parsed.apiKey, timeoutMs: attemptTimeoutMs })),
           ...(parsed.maxAttempts !== undefined ? { maxAttempts: parsed.maxAttempts } : {}),
+          ...(parsed.deadlineMs !== undefined ? { deadlineMs: parsed.deadlineMs } : {}),
         });
       }
       return new LiteLlmProvider({ model: parsed.model, baseUrl: parsed.baseUrl, apiKey: parsed.apiKey });

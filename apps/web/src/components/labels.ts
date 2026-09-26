@@ -56,6 +56,10 @@ export const LABELS = {
   newSessionTitle: "New session",
   newSessionLinkHome: "Start a new session",
   sectionTranscript: "Session transcript",
+  // T-021 fix cycle 1 (ISS-t-021-c0-1, B17): the transcript table used to reuse colValue ("Proposed
+  // value") for plain conversation text — a label that means an AI-proposed fact everywhere else in
+  // the product (the approval screen). This is its own, correctly-scoped label instead.
+  colTranscriptText: "What was said",
   submitSession: "Submit for scribe review",
   stateAiUnavailable: "AI is unavailable right now",
   aiUnavailableApology: "Sorry for the trouble",
