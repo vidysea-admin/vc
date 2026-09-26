@@ -2,7 +2,7 @@
 
 **Contract:** qa/contracts/counselling-engine.md (B1 no-script, B3 human approves writes, B5 typed boundaries, B15 erasure/export)
 **Goal task:** T-020 (T-018 follow-ups, TASKS.md row 30): ISS-t-018-c0-1, ISS-t-018-rev-1, ISS-t-018-rev-2
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 0; verdict qa/verdicts/t-020-reject-reason-ui.md fd6fa06; senior review Approve)
 **Fix cycle:** 0
 **Branch:** `wave/t-020-reject-reason-ui` (worktree `D:/vc/.worktrees/t-020-reject-reason-ui`), branched from main `1ce83e0`
 **Diff range:** `1ce83e0..fe111a0` (one commit, "feat(web,db,engine): t-020 reject-reason UI, audit read-back, lease-bound audit deadline"), plus this manifest + evidence commit. **Merge-base verified with `git merge-base main wave/t-020-reject-reason-ui`** (T-018's own checker cycle 0 flagged a manifest that stated the wrong branch point — this one is computed, not eyeballed). `main` has advanced past `1ce83e0` since this worktree was created (now at `ec2a54f`, unrelated concurrent work); `git merge-tree --write-tree wave/t-020-reject-reason-ui main` resolves to a single clean tree (no conflict markers), and `git diff 1ce83e0..wave/t-020-reject-reason-ui -- qa/ TASKS.md .claude scripts docs/DECISIONS.md` is empty — nothing gated touched.
