@@ -253,3 +253,10 @@ The rules e2e proves that scribe â†’ facts â†’ profile diff â†’ a
 **Approved-by:** Umesh (chat, 2026-09-26, AskUserQuestion "Merge now, T-030 follows")
 **Result:** --
 **Links:** T-013, T-030, ISS-t-013r-rev-14, D-023
+
+## D-025 | 2026-09-26 | type: decision | status: ACTIVE
+**What:** T-030 is widened beyond ISS-t-013r-rev-14 (the COUNTRY_TEMPLATES[0] word gap) to three structural, fail-safe checks on auto-verify (`needsReview:false`): (1) the cited turn's speaker must be the student, so a counsellor turn always needs review; (2) each template declares the fact keys it may verify, and any other key needs review (no more `nationality: UK` from "I want to study in the UK"); (3) the template must match the original text, not only the machine translation. Acceptance adds a property test: single and two-token edits of the finite template language must flip to needsReview unless they are still in the language, random off-grammar sentences need review, and flipping one input at a time (speaker, key, translation-only) flips the result.
+**Why:** the T-013 stall diagnosis (qa/debug/t-013-citation-rescope-cycle3.md) found that at the merged code (7b14a55), 8 probes on 4 dimensions T-030 did not touch still return needsReview:false. The root cause is that B2 names a mechanism and not the property ("the student affirmed this value, for this key, in their own words"). Every added check only moves facts toward review, which matches the fail-safe default Umesh set in D-023, so no new product decision is needed for it. Cross-turn context (a hypothetical framed in an earlier turn, a retraction in a later one) stays OUT of T-030 and goes to Umesh as the gate qa/gates/auto-verify-property.md.
+**Changes-authorized:** none (unit scope change; no ARCHITECTURE or contract change).
+**Result:** --
+**Links:** T-030, T-013, D-023, D-024, ISS-t-013r-rev-14, ISS-t-013r-rev-15, qa/debug/t-013-citation-rescope-cycle3.md
