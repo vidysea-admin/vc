@@ -20,3 +20,7 @@
 ## 2026-09-26 — Umesh (chat, AskUserQuestion, gate auto-verify-property) — verbatim choice
 "Write the rule down (Recommended)": Auto-verified means: the student said this value, for this fact type, in their own words, in this one turn. Earlier or later turns (a hypothetical, a retraction) are out of scope. A leak counts as high severity, not critical, since the counsellor still approves every fact.
 (Recorded as D-026. For /checker: fold this into B2, and reclassify ISS-071 (cross-turn) accordingly.) · FOLDED: 2026-09-26 into B2 auto-verify property (checker); ISS-071 wontfix (outside the property)
+
+## 2026-09-26 — Umesh (chat) — JWT issuer placeholder, verbatim
+"abhi umesh k naame se lee lee" (asked why Pathlynks login details are needed: VC needs the issuer, the public key / JWKS URL, and the claim names to verify the client's JWT, B21).
+PATTERN: until the Pathlynks backend team supplies its issuer and keys, VC's JWT verification runs against a placeholder issuer owned by Umesh (issuer `umesh`, a locally generated key pair), set only through config (e.g. `VC_JWT_ISSUER`, `VC_JWT_PUBLIC_KEY` / JWKS URL), never hard-coded · EVIDENCE: chat 2026-09-26 · APPLIES NEXT: T-025 reads issuer + key from .env; swapping to the real Pathlynks issuer is a config change plus a contract test, no code change; no private key is committed · FOLDED: 2026-09-26 into B21 (checker)

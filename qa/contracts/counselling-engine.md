@@ -177,6 +177,9 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   - **Auth:** every request carries a JWT issued by the client backend (for Pathlynks, its backend). VC verifies
     signature, expiry and issuer, and reads the `tenant`, `counsellorId` and `role` claims. VC has no login screen
     and no password store. A missing, expired, wrong-issuer or tampered token gets 401, and nothing is read or written.
+    Issuer and verification key come only from config (`.env`); until the Pathlynks team supplies theirs, a
+    placeholder issuer owned by Umesh (`umesh`, local key pair) is used (Umesh, 2026-09-26). Moving to the real issuer
+    is a config change plus a contract test, with no code change; no private key is ever committed.
   - **Tenancy:** the verified `tenantId` is stamped on every document and filters every query. A test proves tenant
     A can never read or change tenant B's student.
   - **Knowledge:** university and seminar knowledge comes from the KnowledgeBase over its API (`POST /ask`, Bearer
@@ -248,3 +251,4 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - 2026-09-26 · routine (tighten, gate answers) · B2 edit provenance (`counsellor-edit` + `editedFrom`, held by both VC and the client) · B15 approver erasure (double confirm → email-outbox approver → purge; `autoDelete` default false; fence + 24 h; HMAC audit pseudonym) · B17 persona ladder (10 personas incl. Sapna ma'am as benchmark, Gaurav bhaiya Hindi + voice, 4 international policy personas) · non-goals: bulk import, production UI · gates counsellor-auth, edit-provenance, erasure-fencing answered by Umesh 2026-09-26.
 - 2026-09-26 · **critical (human-approved)** · new B21 API-first headless engine (JWT from the client backend, tenant stamping, KB over `/ask`, webhooks, `apps/web` = reference UI) and new B22 north-star metric (novice + VC ≥ 90 % of the expert benchmark, NOT-YET-MEASURABLE until Sapna ma'am's reference rubric exists) · direction changes approved by Umesh in chat 2026-09-26 ("api based … ui vo log khud bnaa lenge"; "Sapna ji ka 90-95 % level"). The maker records them as D-021 and updates ARCHITECTURE through /landplane.
 - 2026-09-26 · routine (human-answered gate, D-026) · B2 auto-verify property: `needsReview:false` = the student said this value, for this key, in their own words, in this one turn; cross-turn context out of scope; a leak is high at most and Blocks only when it breaks one of the four clauses · gate auto-verify-property answered by Umesh (option A), verbatim in qa/feedback-inbox.md 2026-09-26. Ledger: ISS-069 (key), ISS-070 (speaker), ISS-072 (own words) are breaches, owner T-030; ISS-071 (cross-turn) is outside the property, wontfix.
+- 2026-09-26 · routine (human answer) · B21 auth: issuer + key from config only; placeholder issuer `umesh` until Pathlynks supplies its own (Umesh: "abhi umesh k naame se lee lee"); no private key committed.
