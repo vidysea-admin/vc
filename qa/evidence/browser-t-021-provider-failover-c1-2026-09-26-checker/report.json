@@ -1,0 +1,45 @@
+{
+  "unit": "t-021-provider-failover",
+  "fix_cycle": 1,
+  "date": "2026-09-26",
+  "run_by": "checker (fresh Claude subagent, own Playwright/Chromium browser session via MCP, including browser_run_code_unsafe for page.clock + page.route control)",
+  "servers": [
+    "next dev --webpack --port 3211, apps/web (bound worktree, real code), VC_WEB_MODE=demo -- started and stopped by the checker",
+    "next dev --webpack --port 3212, apps/web (checker's own throwaway git-worktree copy at HEAD 7c0496e, pnpm install --offline), VC_WEB_MODE=demo -- used ONLY for the row-7 falsifying edit (CLIENT_TIMEOUT_MS 50_000 -> 999_000_000); started and stopped by the checker; the live bound worktree was never edited"
+  ],
+  "interactions": [
+    { "step": 1, "action": "navigate /sessions/new (real code, port 3211)", "result": "accessibility snapshot confirms columnheader \"What was said\" (NOT \"Proposed value\") over the transcript text -- ISS-t-021-c0-1 relabel confirmed live", "console_errors": 0 },
+    { "step": 2, "action": "click 'Submit for scribe review'", "result": "POST /api/sessions -> 503 (FlakyOnceProvider's first, forced AiUnavailableError); banner renders 'AI is unavailable right now' / 'Sorry for the trouble' / 'Nothing you typed is lost' + Retry; 5 transcript rows still visible unchanged", "console_errors": 1, "console_error_detail": "expected 503 from the forced failure" },
+    { "step": 3, "action": "pull request-body of the failed POST (network request #8) directly from the browser's network panel", "result": "captured full JSON body (sessionId, studentId, sessionEndedAt, 5 turns)", "console_errors": 0 },
+    { "step": 4, "action": "click Retry", "result": "POST /api/sessions (network request #12) -> 200; banner switches to 'Session submitted' with a working link to the approval screen", "console_errors": 0 },
+    { "step": 5, "action": "pull request-body of the Retry POST (#12) and diff byte-for-byte against step 3's body", "result": "IDENTICAL JSON, character for character -- confirmed directly by the checker, not from the maker's report or tests", "console_errors": 0 },
+    { "step": 6, "action": "fresh navigation; page.clock.install(); page.route('**/api/sessions') that never fulfills (true hang, request never reaches the server); click Submit; page.clock.fastForward(51_000)", "result": "data-state flips to 'ai_unavailable' with the same apology + Retry banner, proving the CLIENT-SIDE CLIENT_TIMEOUT_MS AbortController genuinely fires independently of the server, without a real 51-second wait", "console_errors": "not recorded separately for this interaction" },
+    { "step": 7, "action": "FALSIFICATION (row 7, throwaway copy, port 3212 only): edited CLIENT_TIMEOUT_MS from 50_000 to 999_000_000 in the copy's NewSessionForm.tsx; repeated step 6's exact route+clock script (fast-forward 51_000) against the falsified copy", "result": "RED as predicted: stateAfter is null, no apology renders -- the abort never fires within the fast-forwarded window when the constant is falsified, proving CLIENT_TIMEOUT_MS is load-bearing, not decorative. Edit reverted immediately after capturing the RED result; the live bound worktree was never touched.", "console_errors": 0 }
+  ],
+  "total_interactions": 7,
+  "total_passed": 7,
+  "total_failed": 0,
+  "capability_coverage_reproduced_by_checker": {
+    "row_5_deadline_bounds_hung_chain": "reproduced independently in checker's own throwaway git-worktree copy (packages/providers): bypassed raceDeadline (called provider.generate() directly, un-raced) -> test timed out after 5000ms (RED, matches manifest's claimed reason); reverted -> 16/16 green again",
+    "row_6_zoderror_failover": "reproduced independently in checker's own throwaway copy: neutralised the `if (err instanceof z.ZodError) return true;` line (index.ts:500) with `if (false && ...)` -> 3 test failures (raw ZodError escaped; AiUnavailableError assertion false), matching manifest's claimed reasons; reverted -> 16/16 green again",
+    "row_7_client_timeout": "see interactions 6-7 above -- reproduced live in a real browser (not a unit test), both the green (real code) and red (falsified code) sides",
+    "additional_checker_only_hostile_variants": [
+      "deadline expires mid-backoff (not mid-attempt): independent test in throwaway copy, chain of instant retryable failures + 10s backoff + 100ms deadline -> settles in well under 2s, at least 1 real attempt happened first",
+      "VC_LLM_DEADLINE_MS='0' and '<garbage>' both rejected synchronously at loadProviderConfig with a message naming VC_LLM_DEADLINE_MS",
+      "VC_LLM_ATTEMPT_TIMEOUT_MS='0' and '<garbage>' both rejected synchronously at loadProviderConfig with a message naming VC_LLM_ATTEMPT_TIMEOUT_MS",
+      "non-retryable 401 still stops immediately: confirmed via the existing live-stub-server test in failover.test.ts (re-ran green, part of the 47/47 providers run), not merely the isRetryableProviderError unit check",
+      "generateWithRetry no longer resets the chain: confirmed by reading packages/engine/src/scribe/nodes.ts -- isSchemaError only matches ZodError by instanceof/name, so the typed AiUnavailableError from an exhausted FailoverProvider is rethrown unchanged at the first attempt, never triggering a second top-level provider.generate() call",
+      "keys never appear in logs/spans/UI: grepped the full cycle-1 diff for apiKey/secret/token -- no new logging/exposure surface; apiKey is only ever passed through construction exactly as before, unchanged by the deadline/timeout/ZodError additions, and the existing B11 tests (key never in JSON.stringify/String(), never in error messages) were re-run green"
+    ]
+  },
+  "console_error_count_total_across_run": 1,
+  "console_error_count_explanation": "the single expected 503 from the deliberately forced first-submit failure",
+  "screenshots": ["01-apology-retry.png", "02-started-after-retry.png"],
+  "persona_walks": [
+    "qa/evidence/persona-t-021-provider-failover-jaipur-counsellor/persona-walk.md (re-walked, ISS-t-021-c0-1 confirmed resolved)",
+    "qa/evidence/persona-t-021-provider-failover-school-counsellor/persona-walk.md (re-walked)",
+    "qa/evidence/persona-t-021-provider-failover-gaurav-bhaiya/persona-walk.md (new, explicitly named in the cycle-1 dispatch; D-021 persona, 'Hindi and voice only, no typing')"
+  ],
+  "adapter_personas_note": "qa/adapter.json has no `personas` field on this worktree or on main as of this check (T-028 is still `open` in TASKS.md on main) -- the persona set above was drawn directly from D-021/D-022 decision text and the coordinator's explicit naming, not from the adapter (which does not yet carry a structured persona list).",
+  "server_cleanup": "both next dev processes (port 3211 real, port 3212 throwaway) stopped by PID; the throwaway git worktree was removed (git worktree remove --force, then PowerShell Remove-Item for the leftover node_modules tree) and pruned; the live bound worktree was never edited"
+}

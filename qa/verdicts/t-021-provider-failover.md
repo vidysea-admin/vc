@@ -1,173 +1,191 @@
 # Verdict: t-021-provider-failover
 
-**Date:** 2026-09-26 · **Cycle checked:** 0 (manifest Fix cycle: 0) · **Checker:** fresh Claude
-Sonnet subagent, no builder context, Mode A + Mode D + B17 persona check.
+**Date:** 2026-09-26 · **Cycle checked:** 1 (manifest Fix cycle: 1) · **Checker:** fresh Claude
+Sonnet subagent, no builder context, Mode A + Mode D + B17 persona check, re-check of a prior PASS
+after the maker reopened on its own ai-engineer review.
 **Bound root:** `D:/vc/.worktrees/t-021-provider-failover` (branch `wave/t-021-provider-failover`).
-**Base commit:** `0e00269701ad2aa6c04d92c8010bcabfffd45349` (confirmed via `git merge-base main HEAD`).
-**Head:** `0fa58c1`. Working tree clean at check time (unit already committed).
+**Diff range:** `e5aaaed..7c0496e` (main merged in at `6b5ac7d`, an ancestor of `e5aaaed`, confirmed
+via `git merge-base`). **Head:** `7c0496e`, confirmed via `git rev-parse HEAD`. Working tree clean
+at check time.
+**Reopen context:** cycle 0 PASS (this same checker, `0321d12`) stood; the maker separately reopened
+after its own ai-engineer review found `ISS-t-021-rev-1` (high, unbounded ~5.4 min worst-case wait)
+and `ISS-t-021-rev-2` (medium, wrong-shape output never fails over). Umesh answered gate
+`qa/gates/failover-scope.md`: Q1 A — 10 attempts total across the chain; Q2 A — wrong-shape output
+counts as failed (fail over, then alert + apology/Retry).
 
-## What I re-ran myself
+## What I re-ran myself (per package, never `pnpm -r test`, ~3GB free RAM)
 
-- `pnpm --filter @vc/providers typecheck` → exit 0. `pnpm --filter @vc/providers test` → **43/43**
-  (matches manifest).
-- `pnpm --filter @vc/observability typecheck` → exit 0. `test` → **59/59** (matches).
-- `pnpm --filter @vc/web typecheck` → exit 0. `test` → **30/30** (matches).
-- `pnpm --filter @vc/engine typecheck` → exit 0 (incl. new `scripts/tsconfig.json`). `test` →
-  **161/161** (matches; engine source untouched by this unit, confirmed by diff).
-- `python contracts/verify_contracts.py` → "no frozen contracts yet -- PASS by vacuity", exit 0.
-- `pnpm --filter @vc/engine smoke:litellm` → real `SKIP — VC_LLM_BASE_URL is not set...`, exit 0.
-  Grepped `.env`, `../../.env`, `D:/ai_os/.env` for `VC_LLM*` myself: no matches in any of the
-  three. **The live 3-class LiteLLM gateway proof genuinely could not run in this environment.**
-  This is honestly stated as open debt in the manifest's Residuals #1, not faked as a pass — I
-  judge the honesty of the disclosure, not the missing proof itself, per my dispatch instructions.
-  Run per-package throughout (never `pnpm -r test`), per the RAM constraint. All test counts and
-  exit codes reproduced **exactly** what the manifest claims — no pasted-output trust taken.
+- `pnpm --filter @vc/providers typecheck` → exit 0. `test` → **47/47** (matches manifest; was 43 at
+  cycle 0, +4 new cycle-1 tests).
+- `pnpm --filter @vc/web typecheck` → exit 0. `test` → **31/31** (matches; was 30, +1 new relabel test).
+- `pnpm --filter @vc/observability test` → **59/59** (unchanged, matches).
+- `pnpm --filter @vc/engine typecheck` → exit 0 (incl. `evals/tsconfig.json` + `scripts/tsconfig.json`).
+  `test` → **276/276** (matches; confirmed by reading `scribe/nodes.ts` that only a doc-comment
+  changed, no logic).
+- All four counts reproduced **exactly** what the manifest claims. No pasted-output trust taken —
+  every command re-run myself, package-by-package, servers/processes closed between packages.
 
-All ran package-by-package (RAM discipline). Every package server/test process was closed before
-moving to the next; nothing left listening except during the browser run (stopped after, see below).
+## Independent code reading (not just re-running the maker's tests)
 
-## Criteria (contract counselling-engine.md; B6 primary + B1,B2,B5,B8,B11,B13,B14,B17)
+Read `git diff e5aaaed..HEAD` for `packages/providers/src/index.ts`,
+`apps/web/src/components/{NewSessionForm.tsx,labels.ts}`, and `packages/engine/src/scribe/nodes.ts`
+in full, hunk by hunk, before trusting any manifest claim:
 
-- **B6 (runtime failover, D-019/D-020):** PASS. Read `packages/providers/src/index.ts` directly —
-  `FailoverProvider.generate()` round-robins the config-ordered chain (`attempt % chain.length`),
-  default budget `FAILOVER_DEFAULT_MAX_ATTEMPTS = 10` (matches gate answer "about 10 retry"),
-  full-jitter exponential backoff between attempts. `isRetryableProviderError` whitelists exactly
-  timeout/malformed/network/429/5xx; everything else (401, ZodError, unrecognised) is rethrown
-  immediately with no retry — confirmed both by reading the whitelist and by falsifying it (below).
-  `createProvider`'s `litellm` case (line 728-738) has exactly two branches — a plain
-  `LiteLlmProvider` or a `FailoverProvider` wrapping N `LiteLlmProvider`s — **no branch ever
-  constructs a `rules` provider**; I read the full switch statement myself. On exhaustion,
-  `emitFailoverAlert` fires once (confirmed) and `AiUnavailableError` (typed, key-free) is thrown.
-- **Alert (item a):** PASS. `emitFailoverAlert` = one key-free `console.error` JSON line + one real
-  OTel error span via `recordErrorSpan`, carrying `"gen_ai.system": "litellm"` — read the
-  `errorSpan.ts` CALLER NOTE and confirmed by falsification #4 (below) that this attribute is
-  load-bearing for Langfuse's export filter, not decorative.
-- **Apologetic Retry, no retype (item b):** PASS, verified **live in my own browser**, not from the
-  maker's tests or screenshots (see Mode D below) — including a byte-for-byte comparison of the two
-  POST bodies pulled directly from the network panel.
-- **B1 (no-script):** PASS. Read `NewSessionForm.tsx` — the ai_unavailable banner uses only
-  `LABELS.stateAiUnavailable/aiUnavailableApology/aiUnavailableHint`, all short, non-recital,
-  confirmed live on screen: "AI is unavailable right now" / "Sorry for the trouble" / "Nothing you
-  typed is lost". Pre-existing `ui.test.tsx` short-label test still green (part of the 30/30).
-- **B2 (cited facts):** not touched by this unit's diff (no scribe/citation code changed); not
-  violated — the post-retry approval screen still shows facts with quote/turn/confidence as before.
-- **B5 (typed boundaries):** PASS. `StartSessionRequestSchema`/`StartSessionResultSchema` (Zod,
-  discriminated union) gate the new endpoint; `submitSession` parses both the request and every
-  reply through them.
-- **B8 (data boundary):** PASS. No new `MONGODB_URL`/Mongo code in this diff; the live runtime path
-  reuses the existing `connectFromEnv` wiring unchanged. All new/changed tests run offline against
-  in-process HTTP stubs (`127.0.0.1`, ephemeral ports) or pure in-memory fakes — confirmed by
-  reading `failover.test.ts` and `error-span.test.ts` directly.
-- **B11 (secrets):** PASS. `git diff <base>..HEAD -- <the 4 core files>` grepped for
-  `apikey|sk-|secret|password|token`: only field names and doc comments, no key VALUES. `apiKey` is
-  a private class field (`#apiKey`) on both `GeminiProvider` and `LiteLlmProvider`, so it never
-  serializes. `.env.example` unchanged for actual secrets; `VC_LLM_MODELS`/`VC_LLM_RETRY_BUDGET`
-  are non-secret config, not in scope of the "key value" rule.
-- **B13 (no student data external):** PASS. `smoke-litellm.ts`'s one synthetic-only transcript,
-  opt-in script, real SKIP when unconfigured (verified above). `NewSessionForm`'s demo transcript is
-  fully synthetic (Toronto/Waterloo/September 2027/20 lakh — invented, not a real transcript).
-- **B14 (outcome, not construction):** PASS — see Capability coverage below; all 4 rows independently
-  reproduced by me in a throwaway copy, not trusted from the manifest's pasted output.
-- **B17 (persona usability):** **PASS with one medium finding, no high finding** (does not block PASS
-  per the contract's own rule — only `high` blocks). Walked both declared personas live in the
-  browser (Jaipur counsellor, school counsellor) through the full failover → apology → Retry →
-  approval-screen flow. Filed `ISS-t-021-c0-1` (medium): the new-session transcript table reuses the
-  shared `colValue` label "Proposed value" for plain conversation text, which is genuinely a
-  proposed-fact label everywhere else in the product — confusing but not blocking. Detail in
-  `qa/evidence/persona-t-021-provider-failover-{jaipur-counsellor,school-counsellor}/persona-walk.md`.
+- `FAILOVER_DEFAULT_DEADLINE_MS = 45_000` (`VC_LLM_DEADLINE_MS` override), `LITELLM_DEFAULT_ATTEMPT_TIMEOUT_MS = 8_000`
+  (`VC_LLM_ATTEMPT_TIMEOUT_MS` override), both validated as positive integers at `loadProviderConfig`
+  (throws naming the var on garbage/zero/non-integer) — confirmed by my own hostile-variant tests
+  below, not just by reading the code.
+- `raceDeadline<T>()` races each attempt against the remaining wall-clock budget; `generate<T>()`
+  checks the remaining deadline before every attempt AND before every backoff wait, capping the
+  backoff itself at whatever remains — read line-by-line, matches the manifest's description exactly.
+- `isRetryableProviderError` gains exactly one new line, `if (err instanceof z.ZodError) return true;`
+  — the 401/403/404 branches are untouched, so the non-retryable-auth-error behavior cannot have been
+  loosened by this addition (confirmed live below too).
+- `NewSessionForm.tsx`: `CLIENT_TIMEOUT_MS = 50_000`, an `AbortController` wired into the `fetch` call,
+  and the catch block maps `AbortError` to the same `ai_unavailable` screen state as a server-reported
+  exhaustion (never the generic error banner) — `submission` itself is untouched by this change, so
+  Retry-preserves-input still holds.
+- `labels.ts`: new `colTranscriptText: "What was said"`, and `NewSessionForm.tsx:111` now renders it
+  instead of `LABELS.colValue`.
+- `scribe/nodes.ts`: **zero logic changes**, only a doc-comment addition. Read `isSchemaError` and
+  `generateWithRetry` directly — `isSchemaError(err)` is `err instanceof ZodError || err.name ===
+  "ZodError"`, which the typed `AiUnavailableError` (from an exhausted `FailoverProvider`) does NOT
+  satisfy, so it is rethrown unchanged at the first attempt inside `generateWithRetry`'s loop — this
+  is what makes the "no chain reset" claim true, confirmed by reading the code myself, not by taking
+  the doc comment's word for it.
 
-## Diff scope (step 4c)
+## Capability coverage (step 4b) — reproduced in MY OWN throwaway copy, not the maker's
 
-`git diff 0e00269..HEAD --stat` (30 files, +1826/-15) matches the manifest's declared Scope almost
-file-for-file (plus the manifest itself and evidence PNGs, expected). Read the full diff for
-`runtime.ts`, `contracts.ts`, `page.tsx`, `labels.ts`, and every touched `package.json`: **zero
-deletions or renames of an existing function, export, route, test, or config key** — every hunk is
-additive (new fields, new labels, one new import, one new dependency moved from dev to prod
-`@opentelemetry/api` with a documented reason). No file outside the declared Scope was touched.
-**No diff-scope violation.**
+Copy method: `git worktree add D:/vc/.worktrees/checker-scratch-t021-c1 7c0496e --detach` +
+`pnpm install --offline` (9.5s, local `D:\.pnpm-store`, no network) — my own construction, not the
+maker's `git ls-files`+`tar` copy or its claimed results. Removed afterward (`git worktree remove
+--force` + a manual delete of the leftover `node_modules` tree it could not clean by itself, then
+`git worktree prune`).
 
-## Capability coverage (step 4b) — reproduced in a throwaway copy, not trusted
-
-Copy method: `git worktree add <scratch>/row HEAD --detach` (outside the bound root, under
-`C:/Users/Lenovo/AppData/Local/Temp/claude/checker-t021/row`) + `pnpm install --offline` (13.9s,
-local `D:\.pnpm-store`, no network) — a real, independently-runnable copy, never a baseline
-extraction. **Deviation, disclosed:** rather than 4 separate copies (one per row), I used one copy
-and re-confirmed the named check GREEN immediately before *each* row's edit (not just once at the
-start) — RAM/time discipline on a 1-copy-per-row basis would have meant 4 full `pnpm install`s. Every
-row's green-before line below comes from a fresh re-run in that copy, right before that row's edit,
-never reused from an earlier row or from step 3's bound-tree run.
-
-| # | Capability | Edit applied (single-hunk, named file) | Before (copy, green) | After (copy, red) | Right assertion? |
+| # | Capability | Falsifying edit (single-hunk, in MY copy) | Before (green) | After (red) | Right assertion? |
 |---|---|---|---|---|---|
-| 1 | Non-retryable error (401) stops immediately | `packages/providers/src/index.ts`: `isRetryableProviderError` — added `err.status === 401` to the retryable branch | 43/43 | 2 failures: "a non-retryable error (401)... stops immediately" → `Missing expected rejection` (401 no longer rejects — model2 now answers); "isRetryableProviderError: whitelist..." → `true !== false` for status 401 | **Yes** — exactly the retry-whitelist behavior the row claims, not a parse/import break |
-| 2 | Exhaustion alert fires exactly once | same file: duplicated the `this.onExhausted(...)` call before `throw new AiUnavailableError` | 43/43 | 2 failures, both `2 !== 1` on "the alert must fire exactly once, not once per attempt" / "the alert must fire exactly once" | **Yes** |
-| 3 | `FlakyOnceProvider` genuinely fails once then recovers | `apps/web/demo/seed.ts`: `failCount = 1` → `failCount = 2` | 30/30 | 1 failure: Retry test → `503 !== 200` (one retry insufficient against `failCount=2`) | **Yes** |
-| 4 | `gen_ai.system` load-bearing for the Langfuse export filter | `packages/observability/tests/error-span.test.ts`: removed `"gen_ai.system": "litellm"` from the asserted attributes | 59/59 | 1 failure: `expected exactly one exported span, got 0` (`0 !== 1`) | **Yes** |
+| 5 | 45s wall-clock deadline actually bounds a hung chain | `packages/providers/src/index.ts:697`: bypassed `raceDeadline`, called `provider.generate<T>(request)` directly, un-raced | 16/16 (`failover.test.ts`) | `test timed out after 5000ms` on the "every attempt hangs forever" test, run with `--test-timeout=5000` — matches the manifest's claimed reason exactly | **Yes** |
+| 6 | Wrong-shape (ZodError) response fails over within the same call | `index.ts:500`: `if (err instanceof z.ZodError) return true;` → `if (false && err instanceof z.ZodError) return true;` | 16/16 | 3 failures: the model-1-wrong-shape/model-2-valid test threw an unhandled `ZodError` instead of returning model 2's answer; the all-3-wrong-shape test's `assert.ok(err instanceof AiUnavailableError)` evaluated false (raw `ZodError` propagated) | **Yes** |
+| 7 | Client-side `CLIENT_TIMEOUT_MS` safety net actually fires | `apps/web/src/components/NewSessionForm.tsx:26`: `50_000` → `999_000_000` | Live browser (real code, real worktree, port 3211): route-intercepted hung request + `page.clock.fastForward(51_000)` → `data-state="ai_unavailable"`, apology renders | Same script against the throwaway copy (port 3212) with the falsified constant: `stateAfter: null`, no apology — the abort never fires within the fast-forwarded window | **Yes** |
 
-All four reverted immediately after capturing the red line; the copy returned to full green
-(43/43, 30/30, 59/59 respectively) after each revert, confirmed before moving to the next row.
-**CAPABILITY-COVERAGE: 4/4 rows reproduced.**
+All three reverted immediately after capturing the red line; rows 5 and 6 re-confirmed green
+(16/16) in the throwaway copy before it was discarded; row 7 confirmed green live in the bound
+worktree (see Mode D) both before and independently of the falsification. **The live bound worktree
+was never edited for any of this.**
 
-## Mode D — live browser (own session, Playwright/Chromium; UI surface touched: apps/web new-session
-screen, ai_unavailable state, Retry)
+Rows 1-4 (cycle 0: 401 non-retryable, alert-fires-once, `FlakyOnceProvider` genuine recovery,
+`gen_ai.system` load-bearing) were not re-falsified this cycle — nothing in the cycle-1 diff touches
+those code paths, and their underlying tests were re-confirmed green in the per-package runs above
+(the 401 test specifically, live-stub-server based, is part of the 47/47 providers run).
 
-Started `pnpm --filter @vc/web dev` myself (port 3108, demo mode, `VC_WEB_MODE` unset), drove my own
-browser — never read the maker's screenshots or substituted `curl`. Stopped the server after.
+## Hostile variants required by the dispatch — all independently proven
 
-1. `/` → "Start a new session" link renders next to the 3 pre-seeded demo threads.
-2. Clicked it → `/sessions/new` renders student id `demo-student-4` and all 5 synthetic transcript
-   turns in a table, plus a Submit button.
-3. Clicked Submit → `POST /api/sessions` → **503**, `ai_unavailable` banner renders: "AI is
-   unavailable right now" / "Sorry for the trouble" / "Nothing you typed is lost" + Retry. The 5
-   transcript rows stayed visible, unchanged. **1 console error**, and it is the expected 503 from
-   this forced failure — no other page error.
-4. **Pulled the two POST request bodies directly from the network panel** (request #12, the failed
-   submit; request #15, the Retry) and diffed them myself: **byte-for-byte identical** JSON
-   (`sessionId`, `studentId`, `sessionEndedAt`, all 5 turns verbatim) — this is *my own* independent
-   confirmation of the "Retry preserves input" claim, not a re-read of the maker's test.
-5. Clicked Retry → 200, "Session submitted" + a working link.
-6. Followed the link → real approval screen: 4 proposed facts (targetCountry=Canada,
-   intendedMajor=computer science, preferredIntake=September 2027, budget_inr_per_year=2000000)
-   each with quote/turn/confidence, 2 dropped facts with reasons, a draft summary, per-fact
-   Approve/Edit/Reject controls — the normal flow completes end to end after a successful retry.
+1. **Every attempt hangs forever → `AiUnavailableError` within the deadline, alert fires exactly
+   once:** the maker's own test (re-run green, part of 47/47) plus my falsification of row 5 above,
+   which proves the deadline — not merely a well-behaved per-attempt timeout — is what bounds it.
+2. **Deadline expires mid-backoff:** my own independent test in the throwaway copy — a chain of
+   instantly-rejecting retryable failures, `baseDelayMs=10_000` (a 10s backoff) vs `deadlineMs=100`
+   — settles in well under 2s, with at least one real attempt observed first. Not one of the maker's
+   own tests; I wrote this to specifically target the backoff-wait branch, not the attempt branch.
+3. **Model 1 wrong-shape, model 2 valid → model 2's answer used:** maker's test re-run green (part
+   of 47/47); mechanism independently confirmed by falsification row 6.
+4. **All 3 wrong-shape → one alert + apology:** same as above; the maker's test asserts
+   `alerts.length === 1` and `err.lastErrorName === "ZodError"`, re-run green.
+5. **`generateWithRetry` no longer resets the chain:** confirmed by reading `scribe/nodes.ts` myself
+   (see above) — `isSchemaError` structurally cannot match `AiUnavailableError`, so no second
+   top-level `provider.generate()` call is ever issued for an exhausted chain.
+6. **Non-retryable 401 still stops immediately:** the pre-existing live-stub-server test
+   (`failover.test.ts`, "a non-retryable error (HTTP 401...) stops immediately") re-run green as
+   part of 47/47 — the ZodError whitelist addition is a separate `if` branch and does not touch the
+   `LiteLlmHttpError` branch, confirmed by reading the diff.
+7. **`VC_LLM_DEADLINE_MS`/`VC_LLM_ATTEMPT_TIMEOUT_MS` set to garbage or 0:** my own independent tests
+   — both env vars, both `"0"` and a non-numeric string, are rejected synchronously at
+   `loadProviderConfig` with an error message naming the offending variable. Not silently accepted.
+8. **Keys never appear in logs, spans or the UI:** grepped the full cycle-1 diff
+   (`packages/providers/src/index.ts`, `packages/engine/src/scribe/nodes.ts`,
+   `apps/web/src/components/{NewSessionForm.tsx,labels.ts}`) for `apikey|api_key|secret|token` — the
+   only matches are the pre-existing `apiKey` field-name pass-through (unchanged shape, now also
+   carrying `timeoutMs` alongside it — a number, not a secret). No new logging or exposure surface.
+   Re-ran the existing B11 tests ("apiKey never in JSON.stringify/String()", "no key value in the
+   message") green as part of 47/47.
 
-Total console errors across the whole run: **1** (the expected 503). Evidence, plus my own
-`report.json`, written to
-`qa/evidence/browser-t-021-provider-failover-2026-09-26-checker/` (screenshots
-`02-ai-unavailable.png`, `03-started.png`, `04-approval-after-retry.png`; `01-idle.png` could not be
-saved — a sandbox path rejection on that one call — but the idle state is fully covered by the
-accessibility snapshot taken at that step, reproduced in this file, plus `02-ai-unavailable.png`
-which shows the same rows still rendered).
+## Mode D — live browser (own session, Playwright/Chromium via MCP, including
+`browser_run_code_unsafe` for `page.clock` + `page.route` control — never the maker's script,
+screenshots, or report)
 
-**LIVE-BROWSER:** `qa/evidence/browser-t-021-provider-failover-2026-09-26-checker/report.json`
+Started `next dev --webpack --port 3211` myself against the **real, unfalsified** bound worktree
+(`VC_WEB_MODE=demo`). Drove my own browser:
+
+1. `/sessions/new` → accessibility snapshot shows `columnheader "What was said"` — the relabel is
+   real and live, not just a passing unit test.
+2. Clicked Submit → `POST /api/sessions` → 503, apology + Retry banner renders, 5 transcript rows
+   unchanged.
+3. Pulled the failed POST's exact body from the network panel myself (request #8).
+4. Clicked Retry → 200, "Session submitted". Pulled the Retry POST's exact body (request #12) and
+   diffed it against #8 myself: **byte-for-byte identical.**
+5. Fresh navigation; installed `page.clock`; `page.route('**/api/sessions', ...)` that never
+   fulfills (a true hang — the request never reaches the server at all); clicked Submit;
+   `page.clock.fastForward(51_000)` → `data-state` flips to `ai_unavailable` with the same apology.
+   This proves the **client-side** `CLIENT_TIMEOUT_MS` abort fires independently of the server, not
+   merely that the server's own 45s deadline eventually resolves the request.
+6. Falsified `CLIENT_TIMEOUT_MS` to `999_000_000` in a **separate throwaway copy** (port 3212, never
+   the bound worktree) and repeated step 5's exact script → no state change within the same 51s
+   fast-forward — RED as predicted. Reverted.
+
+Stopped both `next dev` processes by PID after use; confirmed no LISTEN sockets remained on 3211/3212.
+
+**LIVE-BROWSER:** `qa/evidence/browser-t-021-provider-failover-c1-2026-09-26-checker/report.json`
+(screenshots `01-apology-retry.png`, `02-started-after-retry.png`).
 
 ## B17 persona walk
 
-Both declared personas (Jaipur counsellor 1-2yr, school counsellor) walked live through the full
-flow. One medium finding filed (`ISS-t-021-c0-1`, label mismatch, non-blocking); no high finding.
-Detail: `qa/evidence/persona-t-021-provider-failover-jaipur-counsellor/persona-walk.md`,
-`qa/evidence/persona-t-021-provider-failover-school-counsellor/persona-walk.md`.
+Re-walked jaipur-counsellor and school-counsellor live (both confirm `ISS-t-021-c0-1` resolved, no
+new high finding). Added gaurav-bhaiya (D-021 persona ladder, "Hindi and voice only, no typing" —
+named explicitly in the coordinator's cycle-1 dispatch): this specific flow needs no typing at all
+(pre-filled submission, single-tap Submit/Retry), so his no-typing constraint is not violated by
+this screen; the English-only text of `apps/web` is a real gap for a Hindi-only reader, but is
+explicitly out of this unit's (and this reference app's) scope per D-021/B21 — `apps/web` is VC's
+reference/test UI, never the production UI a real counsellor uses (Pathlynks builds that). No high
+finding filed against T-021 for this reason; recorded for visibility, not as a blocker.
+`qa/adapter.json` has no `personas` field on either this worktree or `main` — T-028 (the task that
+would add it) is still `open` in `TASKS.md` on `main`, confirmed via `git show main:TASKS.md`. The
+persona set walked here (jaipur-counsellor, gaurav-bhaiya, school-counsellor) was drawn from the
+coordinator's explicit naming plus D-021's decision text, not from the adapter.
 
-## B19 scenario matrix
+Detail:
+`qa/evidence/persona-t-021-provider-failover-jaipur-counsellor/persona-walk.md`,
+`qa/evidence/persona-t-021-provider-failover-school-counsellor/persona-walk.md`,
+`qa/evidence/persona-t-021-provider-failover-gaurav-bhaiya/persona-walk.md` (new).
 
-`qa/scenarios/counselling-engine.csv` does not exist yet. Per the contract's own clause, this
-records `SCENARIOS: n/a (matrix not yet authored, B19)` rather than blocking.
+## Diff scope
 
-## Residuals (from the manifest, judged not re-litigated)
+`git diff e5aaaed..HEAD --stat` — 20 files, +924/-30. Every touched file matches the manifest's
+declared cycle-1 scope (`packages/providers/src/index.ts`, `apps/web/src/components/{NewSessionForm.tsx,labels.ts}`,
+`packages/engine/src/scribe/nodes.ts`, their test files, `docs/{DECISIONS.md,intent.md}`,
+`qa/{gates/failover-scope.md,gates/plan-approved.md,issues.jsonl,manifests/...,QUEUE.md,.last-tick}`,
+`TASKS.md`, plus the maker's own new `apps/web/demo/browser-evidence-failover-c1.ts` and its evidence
+PNGs/report.json) — no file outside this list, no deletions or renames of an existing export, route,
+test, or config key. **No diff-scope violation.**
 
-1. Live 3-class LiteLLM smoke run — genuinely could not run here (no `VC_LLM_BASE_URL` anywhere
-   reachable), honestly SKIPped, not faked. Open debt, correctly disclosed.
-2. B17 persona walk was explicitly left to the checker — done above.
-3. No circuit-breaker/cool-down memory across sessions — correctly scoped out, not requested by the
-   gate.
-4. No paging/alert-channel integration — matches the gate's own `[ASSUMPTION]`.
+## Issues flipped to fixed (own reproduced evidence only)
 
-None of these block PASS; all are honestly disclosed, matching the dispatch instruction to judge the
-SKIP as stated debt, not as a failure.
+- **`ISS-t-021-c0-1`** (medium, label mismatch) → `fixed`, verified 2026-09-26. Evidence: live
+  browser snapshot + re-walked persona files + re-run `new-session-ui.test.tsx`.
+- **`ISS-t-021-rev-1`** (high, unbounded ~5.4 min worst case) → `fixed`, verified 2026-09-26.
+  Evidence: falsification row 5, my own mid-backoff/garbage-env hostile-variant tests, live
+  client-timeout browser test + its own falsification (row 7).
+- **`ISS-t-021-rev-2`** (medium, wrong-shape never fails over) → `fixed`, verified 2026-09-26.
+  Evidence: falsification row 6, direct reading of `scribe/nodes.ts`'s `isSchemaError`, maker's
+  live-chain wrong-shape tests re-run green.
 
-## Issues addressed
+All three overlay rows appended to `qa/issues.jsonl` with `"update": true`, each carrying its own
+independently-reproduced evidence string (not copied from the manifest's claims).
 
-None claimed by this manifest (no `Issues addressed` section) — nothing to check against the ledger.
+## Residuals (unchanged from cycle 0, not re-litigated)
+
+1. Live 3-class LiteLLM gateway smoke run — still genuinely un-runnable here (no `VC_LLM_BASE_URL`
+   reachable), still honestly SKIPped. Not claimed as changed by fix cycle 1.
+2. `qa/scenarios/counselling-engine.csv` (B19) still does not exist (T-028 open). `SCENARIOS: n/a`.
 
 ---
 
@@ -175,8 +193,9 @@ VERDICT: PASS
 SCOREBOARD: 9/9 criteria met (B6 primary; B1, B2, B5, B8, B11, B13, B14, B17), 0/0 invariants (this contract expresses invariants as B-numbered criteria; none scored separately)
 FAILURES (if any):
 - none at >80% confidence
-CAPABILITY-COVERAGE: 4/4 rows reproduced
-LIVE-BROWSER: qa/evidence/browser-t-021-provider-failover-2026-09-26-checker/report.json
-ISSUES-WRITTEN: ISS-t-021-c0-1 (medium, persona label mismatch, non-blocking)
-EXECUTOR: claude-sonnet-subagent (manifest) (checker: claude-sonnet-subagent)
-EXPLANATION: All manifest-claimed test counts (43/59/30/161, 568 total) reproduced exactly by re-running per package; typecheck clean across all 9 workspaces. All 4 capability-coverage falsifications independently reproduced in a throwaway git-worktree copy with the correct assertion firing each time. Diff scope is clean (no deletions/renames, no out-of-scope files). Mode D was driven in my own browser end to end, including an independent byte-for-byte comparison of the pre-/post-retry request bodies pulled from the network panel — not a re-read of the maker's screenshots or tests. B17 persona walk found one medium (non-blocking) label-mismatch finding, filed as ISS-t-021-c0-1. The one open gap (live LiteLLM gateway smoke run) is honestly SKIPped with a clear reason, exactly as the dispatch asked me to judge it — not a fabricated pass.
+CAPABILITY-COVERAGE: 3/3 new (fix cycle 1) rows reproduced in the checker's own throwaway copy; rows 1-4 (cycle 0) re-confirmed green via the per-package test re-runs, not re-falsified (nothing in this diff touches those paths)
+LIVE-BROWSER: qa/evidence/browser-t-021-provider-failover-c1-2026-09-26-checker/report.json
+ISSUES-WRITTEN: none new this cycle
+ISSUES-FIXED: ISS-t-021-c0-1, ISS-t-021-rev-1, ISS-t-021-rev-2 (all independently reproduced, not taken on the manifest's word)
+EXECUTOR: claude-sonnet-subagent (manifest, fix cycle 1) (checker: claude-sonnet-subagent)
+EXPLANATION: All manifest-claimed cycle-1 test counts (47/31/59/276) reproduced exactly, per package, never `pnpm -r test`. All three new capability-coverage rows (deadline bounds a hung chain, ZodError fails over, client-timeout safety net) independently falsified in the checker's own throwaway git-worktree copy — never the maker's copy or claimed results — with the correct assertion firing each time and a clean revert back to green. Went beyond the manifest's own falsifications with four checker-only hostile-variant tests (deadline-mid-backoff, VC_LLM_DEADLINE_MS/VC_LLM_ATTEMPT_TIMEOUT_MS garbage/zero rejection) and one checker-only live-browser falsification (CLIENT_TIMEOUT_MS in a separate throwaway copy). Mode D was driven end to end in the checker's own browser via MCP tools, including `page.clock` + `page.route` control for the client-timeout path (not a real 50s wait, not the maker's script or screenshots), plus an independent byte-for-byte diff of the pre-/post-retry request bodies. Read `scribe/nodes.ts` directly to confirm the "no chain reset" claim structurally, not just by re-running a test. B17 persona walk added gaurav-bhaiya (named in the dispatch) with a reasoned no-block judgment grounded in D-021/B21's own scope decision (apps/web is reference-only). All three reopened issues (ISS-t-021-c0-1, rev-1, rev-2) flipped to fixed only on the checker's own reproduced evidence, each cited individually in qa/issues.jsonl.
