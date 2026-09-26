@@ -3,7 +3,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B17 persona usability, B19 scenario matrix)
 **Goal task:** T-028
 **Date:** 2026-09-26
-**Fix cycle:** 0 of max 3
+**Fix cycle:** 1 of max 3
 **Dual check:** no
 **Persona walk:** skip (data/config only, no UI surface)
 **Issues addressed:** none
@@ -94,4 +94,4 @@ print("PERSONA-MEMBERSHIP:", "PASS" if ok else "FAIL", "| missing_from_csv=%s | 
 ## Live browser evidence
 Not UI-touching — no surface changed. This unit only edits `qa/adapter.json` (add two keys) and adds `qa/scenarios/counselling-engine.csv`; no code, screen, or flow in `apps/web` or `apps/api` was touched.
 
-## Status: ready-for-check
+## Status: fix-cycle-1 building (checker c0 FAIL 9ff8aed: ISS-t-028-c0-1)
