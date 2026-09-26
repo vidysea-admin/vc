@@ -10,3 +10,7 @@ Backfilled: 2026-09-26 — t-001-plan-doc, t-002-scaffold, t-002b-schema-hardeni
 - plan → `docs/plan.md` (T-001, checker PASS) + `TASKS.md` (T-000..T-028)
 
 Answer format: approve all three, or name what to change. Recorded below as `Answered: <ISO> — <intent|spec|plan> — <where>`.
+
+Answered: 2026-09-26T20:12:31+05:30 — intent — approved (docs/intent.md as drafted d592317) — Umesh in chat to the checker session ("approve all")
+Answered: 2026-09-26T20:12:31+05:30 — spec — approved (qa/contracts/counselling-engine.md B1..B22) — Umesh in chat ("approve all")
+Answered: 2026-09-26T20:12:31+05:30 — plan — approved (docs/plan.md + TASKS.md T-000..T-028) — Umesh in chat ("approve all"). Follow-up, not a condition: ISS-061 (add O8 personalisation/skip-known per CEO north star + B18; close the answered failover-scope question; add Non-goals).
