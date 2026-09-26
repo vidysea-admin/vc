@@ -200,6 +200,16 @@ function describeSchemaError(err: ZodError): string {
  * PROVIDER_OUTPUT_RETRIES times with the validation error appended to the input
  * (`previousAttemptError`), then gives up with `{ failedReason }`. Only schema failures are retried
  * here: any other provider error (network, auth, not wired) propagates to the checkpoint retry.
+ *
+ * T-021 fix cycle 1 (ISS-t-021-rev-2, gate `failover-scope` Q2 A): when `provider` is a
+ * `@vc/providers` `FailoverProvider`, a schema-invalid (ZodError) response is now retried INSIDE
+ * that call — it fails over to the next chain member within the SAME attempt budget and wall-clock
+ * deadline (see `isRetryableProviderError` there). A raw ZodError only ever reaches this function's
+ * catch block for a non-chain (single-model) provider; for an exhausted FailoverProvider chain the
+ * error that arrives here is the typed `AiUnavailableError`, which `isSchemaError` correctly does
+ * NOT match, so it is rethrown unchanged below rather than triggering a second, fresh top-level
+ * `provider.generate()` call that would otherwise reset the chain back to model 0 and start a brand
+ * new deadline window (that reset was the actual bug ISS-t-021-rev-2 reported).
  */
 async function generateWithRetry<T>(
   provider: LlmProvider,

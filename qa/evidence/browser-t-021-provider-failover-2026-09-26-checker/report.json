@@ -1,0 +1,27 @@
+{
+  "unit": "t-021-provider-failover",
+  "date": "2026-09-26",
+  "run_by": "checker (fresh Claude subagent, own Playwright/Chromium browser session)",
+  "server": "next dev --webpack --port 3108, apps/web, VC_WEB_MODE unset (demo mode), started and stopped by the checker",
+  "interactions": [
+    { "step": 1, "action": "navigate /", "result": "index renders, 'Start a new session' link visible alongside 3 pre-seeded demo threads", "console_errors": 0 },
+    { "step": 2, "action": "click 'Start a new session'", "result": "navigates to /sessions/new, renders student id (demo-student-4) and 5 transcript turns in a table + Submit button", "console_errors": 0 },
+    { "step": 3, "action": "click Submit", "result": "POST /api/sessions -> 503 ai_unavailable (seeded FlakyOnceProvider all-fail path); banner renders 'AI is unavailable right now' / 'Sorry for the trouble' / 'Nothing you typed is lost' + Retry button; the 5 transcript rows remain visible unchanged; no stack trace, vendor/model name, or '500'/'503' string on screen", "console_errors": 1, "console_error_detail": "Failed to load resource: the server responded with a status of 503 (Service Unavailable) @ /api/sessions -- expected, matches the forced all-fail submit" },
+    { "step": 4, "action": "compare POST bodies of the failed submit (network request #12) and the Retry submit (network request #15) byte-for-byte", "result": "IDENTICAL JSON bodies (same sessionId, studentId, sessionEndedAt, all 5 turns verbatim) -- confirmed directly from captured network request bodies, not from the maker's tests", "console_errors": 0 },
+    { "step": 5, "action": "click Retry", "result": "POST /api/sessions -> 200 started (FlakyOnceProvider's second call succeeds); banner switches to 'Session submitted' with a working link to the approval screen", "console_errors": 0 },
+    { "step": 6, "action": "click 'Open the approval screen'", "result": "renders the real approval screen: 4 proposed facts (targetCountry, intendedMajor, preferredIntake, budget_inr_per_year) each with evidence quote/turn/confidence, 2 dropped facts with reasons, a draft summary, and per-fact Approve/Edit/Reject controls -- the normal flow completes end to end after a successful retry", "console_errors": 0 }
+  ],
+  "total_interactions": 6,
+  "total_passed": 6,
+  "total_failed": 0,
+  "console_error_count_total_across_run": 1,
+  "console_error_count_explanation": "the single 503 from the deliberately forced all-fail submit; no unexpected page errors",
+  "screenshots": ["02-ai-unavailable.png", "03-started.png", "04-approval-after-retry.png"],
+  "screenshot_note": "01-idle.png was captured but could not be saved (Playwright MCP file-write sandbox rejected a path outside its allowed roots for that one call); the idle screen is fully covered by the accessibility snapshot taken at that step (see verdict) and by 02-ai-unavailable.png, which shows the same transcript rows still rendered",
+  "persona_walks": [
+    "qa/evidence/persona-t-021-provider-failover-jaipur-counsellor/persona-walk.md",
+    "qa/evidence/persona-t-021-provider-failover-school-counsellor/persona-walk.md"
+  ],
+  "scenarios_matrix": "n/a (qa/scenarios/counselling-engine.csv not yet authored, B19)",
+  "server_cleanup": "next dev process stopped after the run (port 3108 freed)"
+}

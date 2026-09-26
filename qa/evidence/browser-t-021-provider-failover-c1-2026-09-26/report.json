@@ -1,0 +1,68 @@
+{
+  "unit": "T-021 fix cycle 1 — client-side timeout (ISS-t-021-rev-1) + transcript column relabel (ISS-t-021-c0-1)",
+  "date": "2026-09-26",
+  "generatedAt": "2026-09-26T14:42:26.200Z",
+  "baseUrl": "http://localhost:3149",
+  "mode": "demo: next dev (webpack), page.clock installed BEFORE navigation and fast-forwarded past CLIENT_TIMEOUT_MS (50s) so the browser's own AbortController timer fires without a real 50s wait; POST /api/sessions intercepted at the Playwright network layer (page.route, never fulfilled) to simulate a true network hang the server's own 45s deadline can never reach; no live LiteLLM gateway, no MONGODB_URL, no real student data (B8/B13)",
+  "browser": "chromium 153.0.8010.12 (playwright, headless)",
+  "pages": [
+    {
+      "url": "http://localhost:3149/sessions/new",
+      "label": "new session (idle) — relabelled column header",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3149/sessions/new",
+      "label": "submit while the request hangs forever, then fast-forward past CLIENT_TIMEOUT_MS",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3149/sessions/new",
+      "label": "input preserved after the client-side timeout",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3149/sessions/new",
+      "label": "retry after a client-side timeout reaches the normal flow",
+      "consoleErrors": 1,
+      "messages": [
+        "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "did": "read the transcript table's column headers",
+      "expected": "the second column reads \"What was said\" (its own label), never \"Proposed value\" (the approval screen's proposed-fact label)",
+      "observed": "headers=[\"Turn\",\"What was said\"]",
+      "pass": true
+    },
+    {
+      "did": "let the intercepted (hung) request outlive CLIENT_TIMEOUT_MS",
+      "expected": "the SAME apology + Retry banner as a server-reported ai_unavailable — no stack trace, no AbortError/timeout jargon",
+      "observed": "interceptedRequests=1 bannerText=\"AI is unavailable right now\\n\\nSorry for the trouble\\n\\nNothing you typed is lost\\n\\nRetry\" hasStackTrace=false mentionsAbort=false retryButtons=1",
+      "pass": true
+    },
+    {
+      "did": "re-check the transcript/student after the client-side timeout",
+      "expected": "unchanged: still 5 turns, same student",
+      "observed": "turns=5 student=demo-student-4",
+      "pass": true
+    },
+    {
+      "did": "click Retry after a client-side timeout",
+      "expected": "a real request goes out again and reaches a server-decided state",
+      "observed": "state=ai_unavailable",
+      "pass": true
+    }
+  ],
+  "totals": {
+    "interactions": 4,
+    "passed": 4,
+    "failed": 0,
+    "consoleErrors": 1
+  }
+}

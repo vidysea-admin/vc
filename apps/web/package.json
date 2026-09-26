@@ -10,7 +10,8 @@
     "build": "next build --webpack",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts tests/*.test.tsx",
-    "evidence:browser": "tsx demo/browser-evidence.ts"
+    "evidence:browser": "tsx demo/browser-evidence.ts",
+    "evidence:browser:failover": "tsx demo/browser-evidence-failover.ts"
   },
   "dependencies": {
     "@langchain/langgraph": "^1.4.17",

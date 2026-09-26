@@ -13,6 +13,12 @@ export default async function Home() {
       <header className="head">
         <h1>{LABELS.title}</h1>
       </header>
+      {/* T-021: entry point to the "start a new session" demo flow (runtime failover + Retry). */}
+      <p>
+        <Link className="mono" href="/sessions/new" data-testid="new-session-link">
+          {LABELS.newSessionLinkHome}
+        </Link>
+      </p>
       <ul className="thread-list">
         {threads.map((id) => (
           <li key={id}>

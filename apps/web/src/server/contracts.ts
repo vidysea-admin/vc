@@ -9,6 +9,7 @@ import {
   ApprovalRequestSchema,
   MAX_REJECT_REASON_LENGTH,
   PerFactDecisionSchema,
+  ScribeInputSchema,
   ScribeResultSchema,
   SummaryDecisionSchema,
 } from "@vc/engine/scribe/schemas";
@@ -75,3 +76,37 @@ export const SubmitResultSchema = z.discriminatedUnion("state", [
   InvalidSchema,
 ]);
 export type SubmitResult = z.infer<typeof SubmitResultSchema>;
+
+// ---------------------------------------------------------------------------
+// T-021 (D-020, contract B6 "runtime failover"): POST /api/sessions starts a new scribe run from a
+// transcript. Its only NEW outcome, relative to the approval endpoints above, is "ai_unavailable" —
+// the typed error the provider failover chain raises when every model in it failed within the retry
+// budget. The client keeps the exact request body it sent (client state, per B6/D-020) so Retry can
+// resubmit it unchanged — the counsellor never retypes anything.
+// ---------------------------------------------------------------------------
+
+/** POST /api/sessions body: the engine's own ScribeInputSchema (sessionId, studentId, sessionEndedAt, turns). */
+export const StartSessionRequestSchema = ScribeInputSchema;
+export type StartSessionRequest = z.infer<typeof StartSessionRequestSchema>;
+
+const AiUnavailableSchema = z.object({
+  state: z.literal("ai_unavailable"),
+  sessionId: z.string(),
+  /** Total attempts actually made across the whole failover chain (<= its configured budget). */
+  attempts: z.number().int().nonnegative(),
+  /** Model names only (never a key value, B11) — the chain FailoverProvider exhausted, config order. */
+  modelsAttempted: z.array(z.string()),
+});
+const StartedSchema = z.object({ state: z.literal("started"), threadId, sessionId: z.string() });
+const StartDoneSchema = z.object({ state: z.literal("done"), threadId, result: ScribeResultSchema });
+
+/** POST /api/sessions response. */
+export const StartSessionResultSchema = z.discriminatedUnion("state", [
+  StartedSchema,
+  StartDoneSchema,
+  AiUnavailableSchema,
+  InProgressSchema,
+  FencedSchema,
+  InvalidSchema,
+]);
+export type StartSessionResult = z.infer<typeof StartSessionResultSchema>;
