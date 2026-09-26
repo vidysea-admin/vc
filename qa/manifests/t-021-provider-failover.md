@@ -3,7 +3,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B6 primary; B1, B2, B5, B8, B11, B13, B14, B17)
 **Goal task:** T-021 (TASKS.md line 32)
 **Status:** ready-for-check
-**Fix cycle:** 0 of max 3
+**Fix cycle:** 1 of max 3
 **Design:** implements D-019 ("Runtime failover ... gated separately, in qa/gates/provider-fallback.md")
 and D-020 ("Provider failover: a 3-model chain with a total retry budget of about 10 and backoff,
 with no drop to the rules provider. When every model fails, engineering is alerted and the user
@@ -243,4 +243,4 @@ against `next dev` on an ephemeral port, server stopped after the run — RAM di
    Langfuse error span, matching the gate's own `[ASSUMPTION]` ("no paging channel exists yet").
    Wiring a real page (Slack/PagerDuty) is out of scope until such a channel is decided.
 
-## Status: ready-for-check
+## Status: fix-cycle-1 building (checker c0 PASS 0321d12, reopened by maker on the ai-engineer review: ISS-t-021-rev-1 high ~5.4 min worst-case wait before the apology; plus checker ISS-t-021-c0-1 label)
