@@ -237,3 +237,11 @@ The rules e2e proves that scribe â†’ facts â†’ profile diff â†’ a
 **Changes-authorized:** qa/adapter.json (add `personas` + `scenarios` keys only) Â· qa/scenarios/counselling-engine.csv (new)
 **Result:** --
 **Links:** T-028, D-021, qa/contracts/counselling-engine.md (B17, B19)
+
+## D-023 | 2026-09-26 | type: decision | status: ACTIVE
+**What:** T-013 (citation rescope) gets ONE fix cycle beyond the max-3 bound: cycle 3, scoped strictly to ISS-t-013r-rev-9 (a retraction or attribution in another clause of the cited turn), ISS-t-013r-rev-10 (zero-width characters) and any finding from the cycle-2 checker and data-engineer review. The auto-verify template list is NOT widened: ISS-t-013r-rev-11 stays parked as a product question.
+**Why:** cycle 2 cut fabricated auto-verified facts from 14 to 0, and the remaining Block is small and structural (auto-verify only single-clause turns; strip invisible format characters). Four units (T-025, T-029, T-012, T-022) wait on T-013, so re-planning costs more than one bounded cycle. B3 per-fact approval bounds the risk meanwhile. On the templates, Umesh answered "no idea regarding this", so the fail-safe default (review, not auto-verify) stands.
+**Changes-authorized:** none (process exception for one unit; no ARCHITECTURE or contract change).
+**Approved-by:** Umesh (chat, 2026-09-26, AskUserQuestion "Allow cycle 3")
+**Result:** --
+**Links:** T-013, qa/gates/t013-extra-cycle.md, ISS-t-013r-rev-9, ISS-t-013r-rev-10, ISS-t-013r-rev-11
