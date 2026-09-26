@@ -213,4 +213,4 @@ All falsifications were run against throwaway copies in the scratchpad (`crisis-
 
 Not UI-touching (cycle 1 touches the same code/test/eval paths plus this manifest; no UI path). Changed paths: `packages/engine/src/guards/crisis.ts`, `packages/engine/src/skills/loader.ts`, `packages/engine/tests/{guard-crisis,crisis-eval,loader}.test.ts`, `packages/engine/tests/fixtures/skills-malformed/{block-scalar,block-scalar-pipe}/SKILL.md`, `qa/evals/crisis-eval.jsonl`. None are `*.tsx|jsx|vue|svelte|html|css`, `apps/web/**`, `**/routes/**`, `**/pages/**`, or `**/components/**`, and none of `apps/web`'s existing UI tests changed behaviour (still 18/18 pass) — the crisis guard's output only reaches the UI as an `EscalationCard.matched` string array already covered by `guard-crisis.test.ts`/`crisis-eval.test.ts`, not rendered as new UI copy.
 
-## Status: ready-for-check
+## Status: checked-PASS — qa/verdicts/t-005c-recall-only-guard.md (Cycle checked: 1, commit c825ecf); senior re-review Warning (no Block), follow-up ISS-t-005c-rev-2
