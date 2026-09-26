@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createDemoRuntime, DEMO_THREADS, type DemoRuntime } from "../demo/seed";
 import { getApprovalView, submitDecision } from "../src/server/approval-service";
-import { ApprovalViewSchema, SubmitResultSchema, type DecisionRequest } from "../src/server/contracts";
+import { ApprovalViewSchema, MAX_REJECT_REASON_LENGTH, SubmitResultSchema, type DecisionRequest } from "../src/server/contracts";
 import { resolveMode, setRuntimeForTests } from "../src/server/runtime";
 import { GET, POST } from "../src/app/api/approvals/[threadId]/route";
 
@@ -172,6 +172,52 @@ test("T-018 ISS-t-008-c0-1: an edit value that does not match the proposed value
   });
   assert.equal(ok.status, 200);
   assert.equal(rt.readback("demo-student-1").facts.find((f) => f.key === "budget_inr_per_year" && f.active)?.value, 2500000);
+});
+
+test("T-020 ISS-t-018-c0-1: a per-fact reject with a typed reason writes an audit record the demo read-back exposes (decisions collection)", async () => {
+  const rt = await fresh();
+  const { status, body } = await submitDecision(rt, DEMO_THREADS.paused, MIXED);
+  assert.equal(status, 200);
+  assert.equal(SubmitResultSchema.parse(body).state, "done");
+
+  const rb = rt.readback("demo-student-1");
+  assert.equal(rb.decisions.length, 1, "the demo read-back now exposes the decisions collection");
+  const record = rb.decisions[0]!;
+  assert.equal(record.threadId, DEMO_THREADS.paused);
+  assert.deepEqual(record.rejected, [{ key: "intendedMajor", reason: "still undecided" }]);
+  assert.equal(typeof record.decidedAt, "string");
+});
+
+test("T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH is refused (400), writes nothing and records no audit", async () => {
+  const rt = await fresh();
+  const tooLong: DecisionRequest = {
+    facts: [
+      { key: "targetCountry", decision: "approve" },
+      { key: "intendedMajor", decision: "reject", reason: "x".repeat(MAX_REJECT_REASON_LENGTH + 1) },
+      { key: "preferredIntake", decision: "approve" },
+      { key: "budget_inr_per_year", decision: "approve" },
+    ],
+    summary: "approve",
+  };
+  const { status, body } = await submitDecision(rt, DEMO_THREADS.paused, tooLong);
+  assert.equal(status, 400);
+  assert.equal(SubmitResultSchema.parse(body).state, "invalid");
+
+  const rb = rt.readback("demo-student-1");
+  assert.equal(rb.facts.length, 0, "nothing written by the refused reject");
+  assert.equal(rb.claims, 0, "no claim taken");
+  assert.equal(rb.decisions.length, 0, "no audit record for a refused response");
+
+  const view = ApprovalViewSchema.parse((await getApprovalView(rt, DEMO_THREADS.paused)).body);
+  assert.equal(view.state, "awaiting_approval", "the thread stays open, untouched, for a corrected reason");
+
+  // The thread heals: a reason within the limit is accepted and recorded.
+  const ok = await submitDecision(rt, DEMO_THREADS.paused, {
+    ...tooLong,
+    facts: tooLong.facts.map((f) => (f.key === "intendedMajor" ? { key: f.key, decision: "reject" as const, reason: "shortened reason" } : f)),
+  });
+  assert.equal(ok.status, 200);
+  assert.deepEqual(rt.readback("demo-student-1").decisions[0]?.rejected, [{ key: "intendedMajor", reason: "shortened reason" }]);
 });
 
 test("fenced: a student with an erasure in progress -> GET and POST both 423 fenced, no student data, nothing written", async () => {

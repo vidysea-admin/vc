@@ -1,0 +1,62 @@
+=== F1: schemas.ts RejectReasonSchema.max removed -> only the 'over limit / whitespace' schema test should redden ===
+✔ a recital cue fails with a reason (0.315ms)
+✔ a widen card that is a bare statement fails (0.1748ms)
+✔ T-020 ISS-t-018-c0-1: a reject reason is trimmed by the schema before it ever reaches the audit record (47.2616ms)
+✖ T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH, or whitespace-only, is refused at the schema boundary; exactly the limit is accepted (1.986ms)
+✔ ISS-t-018-rev-2: recordRejectReasons' own insert is bound to the SAME (short) outer writerDeadlineMs, not the package's full 60s default (47.6615ms)
+✔ ISS-t-007-rev-1: an always-malformed extraction output ends in a terminal extraction_failed result and writes nothing (11.6527ms)
+✔ ISS-t-007-rev-1: a malformed summary is retried once; always-malformed ends in summary_failed and writes nothing (36.646ms)
+ℹ tests 160
+ℹ pass 159
+ℹ fail 1
+✖ failing tests:
+✖ T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH, or whitespace-only, is refused at the schema boundary; exactly the limit is accepted (1.986ms)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+=== F2: schemas.ts RejectReasonSchema.trim() removed -> only the 'trimmed' engine test should redden (leading/trailing whitespace kept) ===
+✖ tests\scribe-per-fact.test.ts (4395.6868ms)
+ℹ tests 137
+ℹ pass 136
+ℹ fail 1
+✖ failing tests:
+✖ tests\scribe-per-fact.test.ts (4395.6868ms)
+
+=== F1: schemas.ts RejectReasonSchema.max removed -> exactly the "over limit / whitespace" schema test reddens ===
+(reproduced above this header; both mutation and green-restore verified against the committed baseline)
+✖ T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH, or whitespace-only, is refused at the schema boundary; exactly the limit is accepted (1.5172ms)
+ℹ tests 160
+ℹ pass 159
+ℹ fail 1
+✖ T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH, or whitespace-only, is refused at the schema boundary; exactly the limit is accepted (1.5172ms)
+=== F2: schemas.ts RejectReasonSchema.trim() removed ===
+✖ T-020 ISS-t-018-c0-1: a reject reason is trimmed by the schema before it ever reaches the audit record (35.4256ms)
+✖ T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH, or whitespace-only, is refused at the schema boundary; exactly the limit is accepted (0.8025ms)
+ℹ tests 160
+ℹ pass 158
+ℹ fail 2
+✖ failing tests:
+✖ T-020 ISS-t-018-c0-1: a reject reason is trimmed by the schema before it ever reaches the audit record (35.4256ms)
+✖ T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH, or whitespace-only, is refused at the schema boundary; exactly the limit is accepted (0.8025ms)
+=== F3: ApprovalScreen.tsx buildRejectDecision always includes reason (never omits empty) -> exactly the 'omitted' UI test reddens ===
+✖ buildRejectDecision: an empty or whitespace-only reason is OMITTED, never sent as reason: "" (2.0797ms)
+ℹ tests 24
+ℹ pass 23
+ℹ fail 1
+✖ failing tests:
+✖ buildRejectDecision: an empty or whitespace-only reason is OMITTED, never sent as reason: "" (2.0797ms)
+=== F4: demo/seed.ts readback() omits decisions -> exactly the audit-readback api test reddens ===
+✖ T-020 ISS-t-018-c0-1: a per-fact reject with a typed reason writes an audit record the demo read-back exposes (decisions collection) (75.5818ms)
+✖ T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH is refused (400), writes nothing and records no audit (80.1935ms)
+ℹ tests 24
+ℹ pass 22
+ℹ fail 2
+✖ failing tests:
+✖ T-020 ISS-t-018-c0-1: a per-fact reject with a typed reason writes an audit record the demo read-back exposes (decisions collection) (75.5818ms)
+✖ T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH is refused (400), writes nothing and records no audit (80.1935ms)
+=== F5: graph.ts approval node calls recordRejectReasons WITHOUT the deadlineMs option -> exactly the ISS-t-018-rev-2 deadline-binding test reddens ===
+✖ ISS-t-018-rev-2: recordRejectReasons' own insert is bound to the SAME (short) outer writerDeadlineMs, not the package's full 60s default (33.2719ms)
+ℹ tests 160
+ℹ pass 159
+ℹ fail 1
+✖ failing tests:
+✖ ISS-t-018-rev-2: recordRejectReasons' own insert is bound to the SAME (short) outer writerDeadlineMs, not the package's full 60s default (33.2719ms)

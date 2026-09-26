@@ -6,16 +6,21 @@
  *   the draft summary.
  * - The counsellor approves, edits or rejects each fact, and approves or withholds the summary.
  *   Nothing is sent until Submit (B3); the server applies only approved and edited facts.
- * - B1: every word the UI writes comes from LABELS; all other text is proposal data.
+ * - T-020 / ISS-t-018-c0-1: rejecting a fact reveals an optional free-text reason box (the
+ *   counsellor's own words typed in, never a suggested sentence — B1). The reason is sent with the
+ *   per-fact reject decision and recorded as a fence-aware audit record (packages/db decisions.ts).
+ * - B1: every word the UI writes comes from LABELS; all other text is proposal data or the
+ *   counsellor's own typed text (the edited value, the reject reason).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ApprovalView, DecisionRequest, SubmitResult } from "../server/contracts";
-import { ApprovalViewSchema, SubmitResultSchema } from "../server/contracts";
+import { ApprovalViewSchema, MAX_REJECT_REASON_LENGTH, SubmitResultSchema } from "../server/contracts";
 import { LABELS } from "./labels";
 
 type Pending = Extract<ApprovalView, { state: "awaiting_approval" }>;
 type ProposedFact = Pending["request"]["facts"][number];
-type FactChoice = { decision: "approve" | "reject" | "edit"; text: string };
+/** `reason` only ever applies when `decision === "reject"`; absent otherwise. */
+type FactChoice = { decision: "approve" | "reject" | "edit"; text: string; reason?: string };
 type Screen =
   | { kind: "view"; view: ApprovalView }
   | { kind: "loading" }
@@ -52,6 +57,19 @@ function editedValue(fact: ProposedFact, text: string): { ok: true; value: strin
     return { ok: false };
   }
   return { ok: true, value: t };
+}
+
+/**
+ * T-020 / ISS-t-018-c0-1: builds the per-fact `reject` decision the server receives. The reason is
+ * trimmed and OMITTED (never sent as `reason: ""`) when it is empty or whitespace-only: the
+ * server's own RejectReasonSchema (schemas.ts, engine) refuses a PRESENT-but-empty reason after its
+ * own trim, so an untouched or blanked-out box must be sent as no reason at all, not a blank one.
+ * The server is the actual authority on length + trim (B5); this only mirrors it so a counsellor
+ * who left the box empty never gets a needless validation error back.
+ */
+export function buildRejectDecision(key: string, reason: string | undefined): DecisionRequest["facts"][number] {
+  const trimmed = (reason ?? "").trim();
+  return trimmed === "" ? { key, decision: "reject" } : { key, decision: "reject", reason: trimmed };
 }
 
 const apiUrl = (threadId: string) => `/api/approvals/${encodeURIComponent(threadId)}`;
@@ -252,9 +270,18 @@ function PendingForm({
   const ready = decided === request.facts.length && summary !== undefined && !submitting;
 
   const setChoice = (fact: ProposedFact, decision: FactChoice["decision"]) =>
-    setChoices((prev) => ({ ...prev, [fact.key]: { decision, text: prev[fact.key]?.text ?? display(fact.value) } }));
+    setChoices((prev) => ({
+      ...prev,
+      [fact.key]: { decision, text: prev[fact.key]?.text ?? display(fact.value), reason: prev[fact.key]?.reason },
+    }));
   const setText = (fact: ProposedFact, text: string) =>
     setChoices((prev) => ({ ...prev, [fact.key]: { decision: "edit", text } }));
+  const setReason = (fact: ProposedFact, reason: string) =>
+    setChoices((prev) => {
+      const current = prev[fact.key];
+      if (!current) return prev;
+      return { ...prev, [fact.key]: { ...current, reason } };
+    });
 
   const send = () => {
     if (!ready || summary === undefined) return;
@@ -264,6 +291,7 @@ function PendingForm({
         const v = editedValue(f, c.text);
         return { key: f.key, decision: "edit", value: v.ok ? v.value : c.text };
       }
+      if (c.decision === "reject") return buildRejectDecision(f.key, c.reason);
       return { key: f.key, decision: c.decision };
     });
     onSubmit({ facts, summary });
@@ -369,6 +397,18 @@ function PendingForm({
                       onChange={(e) => setText(fact, e.target.value)}
                     />
                     {edit !== null && !edit.ok ? <span className="error">{LABELS.invalidNumber}</span> : null}
+                  </label>
+                ) : null}
+                {choice?.decision === "reject" ? (
+                  <label className="reject-reason">
+                    <span>{LABELS.rejectReason}</span>
+                    <input
+                      type="text"
+                      value={choice.reason ?? ""}
+                      data-reason-for={fact.key}
+                      maxLength={MAX_REJECT_REASON_LENGTH}
+                      onChange={(e) => setReason(fact, e.target.value)}
+                    />
                   </label>
                 ) : null}
               </article>
