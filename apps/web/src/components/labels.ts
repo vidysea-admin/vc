@@ -51,4 +51,16 @@ export const LABELS = {
   sameDecision: "Same decision",
   otherDecision: "Other decision applied",
   reload: "Reload",
+  // T-021 (D-020, contract B6 "runtime failover"): the "start a new session" demo flow and the
+  // apologetic AI-unavailable error state + Retry.
+  newSessionTitle: "New session",
+  newSessionLinkHome: "Start a new session",
+  sectionTranscript: "Session transcript",
+  submitSession: "Submit for scribe review",
+  stateAiUnavailable: "AI is unavailable right now",
+  aiUnavailableApology: "Sorry for the trouble",
+  aiUnavailableHint: "Nothing you typed is lost",
+  retry: "Retry",
+  stateSessionStarted: "Session submitted",
+  openApprovalScreen: "Open the approval screen",
 } as const;

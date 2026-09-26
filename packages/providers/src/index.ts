@@ -23,8 +23,18 @@
  *     profile diff -> approve) complete end to end with zero AI calls, so the counsellor's core
  *     flow never depends on any model vendor being up. See the doc comment above its class for the
  *     input contract.
+ *   - `FailoverProvider` (T-021, D-020, contract B6 "runtime failover"): wraps a config-ordered
+ *     chain of `LiteLlmProvider`s (e.g. VC_LLM_MODELS="fast-cheap,balanced,smart-coding") and
+ *     retries across it, within a total attempt budget, on retryable failures only (timeout, 429,
+ *     5xx, unparseable JSON) — never on auth/config errors, and NEVER auto-dropping to `rules`
+ *     (that would silently trade "AI unavailable" for wrong facts nobody asked to see). When the
+ *     whole budget is spent it raises an engineering alert (@vc/observability) and throws the
+ *     typed `AiUnavailableError`. `createProvider` builds one automatically when the litellm config
+ *     carries `models` (from VC_LLM_MODELS); a plain single-model config is unchanged (backward
+ *     compatible — still a bare `LiteLlmProvider`, one attempt, no retry).
  */
 import { z } from "zod";
+import { recordErrorSpan } from "@vc/observability";
 
 export type ProviderKind = "mock" | "gemini" | "litellm" | "rules";
 
@@ -57,6 +67,15 @@ export const ProviderConfigSchema = z.discriminatedUnion("provider", [
     model: z.string().min(1),
     baseUrl: z.string().min(1),
     apiKey: z.string().min(1).optional(),
+    /**
+     * T-021: the full failover chain, config order, when set (from VC_LLM_MODELS). Absent by
+     * default so an existing plain single-model config object is byte-for-byte unchanged
+     * (backward compatibility, D-020) — createProvider only builds a FailoverProvider when this is
+     * present.
+     */
+    models: z.array(z.string().min(1)).min(1).optional(),
+    /** T-021: total retry budget across the whole chain (VC_LLM_RETRY_BUDGET; default ~10, D-020). */
+    maxAttempts: z.number().int().positive().optional(),
   }),
   z.object({ provider: z.literal("rules"), model: z.string().min(1) }),
 ]);
@@ -70,6 +89,14 @@ export interface ProviderEnv {
   VC_LLM_BASE_URL?: string;
   /** T-019: optional — some gateways (e.g. a locally-run LiteLLM proxy) need no key. */
   VC_LLM_API_KEY?: string;
+  /**
+   * T-021 (D-020): the failover chain, config order, comma-separated (e.g.
+   * "fast-cheap,balanced,smart-coding"). Optional — absent keeps the old single-model litellm
+   * config shape exactly as it was (backward compatibility).
+   */
+  VC_LLM_MODELS?: string;
+  /** T-021: total retry budget across the whole chain. Optional; FailoverProvider defaults it. */
+  VC_LLM_RETRY_BUDGET?: string;
   [key: string]: string | undefined;
 }
 
@@ -94,11 +121,29 @@ export function loadProviderConfig(env: ProviderEnv): ProviderConfig {
   if (provider === "litellm") {
     if (!env.VC_LLM_MODEL) throw new Error("loadProviderConfig: VC_LLM_MODEL is required for the litellm provider");
     if (!env.VC_LLM_BASE_URL) throw new Error("loadProviderConfig: VC_LLM_BASE_URL is required for the litellm provider");
+    // T-021 / D-020: VC_LLM_MODELS is optional. Absent -> the object below has exactly the same
+    // shape it always had (no `models`, no `maxAttempts`) — backward compatible, byte for byte.
+    const modelsRaw = env.VC_LLM_MODELS?.split(",")
+      .map((m) => m.trim())
+      .filter((m) => m.length > 0);
+    if (env.VC_LLM_MODELS !== undefined && (modelsRaw === undefined || modelsRaw.length === 0)) {
+      throw new Error("loadProviderConfig: VC_LLM_MODELS was set but contained no model names");
+    }
+    let maxAttempts: number | undefined;
+    if (env.VC_LLM_RETRY_BUDGET !== undefined) {
+      const n = Number(env.VC_LLM_RETRY_BUDGET);
+      if (!Number.isInteger(n) || n <= 0) {
+        throw new Error(`loadProviderConfig: VC_LLM_RETRY_BUDGET must be a positive integer (got ${JSON.stringify(env.VC_LLM_RETRY_BUDGET)})`);
+      }
+      maxAttempts = n;
+    }
     return {
       provider: "litellm",
       model: env.VC_LLM_MODEL,
       baseUrl: env.VC_LLM_BASE_URL,
       ...(env.VC_LLM_API_KEY ? { apiKey: env.VC_LLM_API_KEY } : {}),
+      ...(modelsRaw && modelsRaw.length > 0 ? { models: modelsRaw } : {}),
+      ...(maxAttempts !== undefined ? { maxAttempts } : {}),
     };
   }
   if (provider === "rules") {
@@ -341,6 +386,201 @@ export class LiteLlmProvider implements LlmProvider {
 }
 
 // ---------------------------------------------------------------------------
+// FailoverProvider (T-021, D-020, contract B6 "runtime failover") — cycles a config-ordered
+// chain of providers within a total attempt budget, retrying only retryable failures, and NEVER
+// auto-dropping to the `rules` provider (that decision belongs to the deployment's config, not to
+// a mid-session failure). When the whole budget is spent it raises the engineering alert and
+// throws AiUnavailableError, the typed error apps/web surfaces as the apologetic "AI unavailable"
+// state with a Retry that resubmits the same input (no retype).
+// ---------------------------------------------------------------------------
+
+/**
+ * Thrown when every model in a FailoverProvider's chain failed within the retry budget. `name` is
+ * checked BY STRING (not `instanceof`) by callers in another bundled copy (apps/web), the same
+ * pattern already used for ApprovalResponseError/ZodError in apps/web/src/server/approval-service.ts.
+ * Carries no transcript content and no key value (B11/B13) — only model names (never secrets) and
+ * counts.
+ */
+export class AiUnavailableError extends Error {
+  readonly modelsAttempted: string[];
+  readonly attempts: number;
+  readonly lastErrorName: string;
+
+  constructor(modelsAttempted: string[], attempts: number, lastErrorName: string) {
+    super(
+      `AiUnavailableError: every model in the failover chain (${modelsAttempted.join(" -> ")}) failed after ` +
+        `${attempts} attempt(s) (last error: ${lastErrorName}); there is no automatic drop to the rules provider (contract B6)`,
+    );
+    this.name = "AiUnavailableError";
+    this.modelsAttempted = modelsAttempted;
+    this.attempts = attempts;
+    this.lastErrorName = lastErrorName;
+  }
+}
+
+/**
+ * Retryable: a timeout, an HTTP 429 or 5xx, or a response whose body was not usable JSON
+ * (LiteLlmMalformedResponseError — "invalid/unparseable JSON") or could not be sent at all
+ * (LiteLlmNetworkError — DNS/connection-refused/TLS, transient by nature). NEVER retryable: any
+ * other HTTP status (400/401/403/404/... — auth/config errors, D-020's "never on auth/config
+ * errors"), a schema-invalid output (ZodError — that is generateWithRetry's own, pre-existing,
+ * same-provider retry in packages/engine/src/scribe/nodes.ts, unrelated to this chain), a stub
+ * provider's ProviderNotWiredError, or anything unrecognised. This is a WHITELIST on purpose: an
+ * unrecognised failure mode fails closed (no retry, no failover) rather than silently retried.
+ */
+export function isRetryableProviderError(err: unknown): boolean {
+  if (err instanceof LiteLlmTimeoutError) return true;
+  if (err instanceof LiteLlmMalformedResponseError) return true;
+  if (err instanceof LiteLlmNetworkError) return true;
+  if (err instanceof LiteLlmHttpError) return err.status === 429 || err.status >= 500;
+  return false;
+}
+
+/** Total retry budget across the whole chain when the config/caller does not set one (D-020: "about 10"). */
+export const FAILOVER_DEFAULT_MAX_ATTEMPTS = 10;
+/** Doubles per attempt, capped at FAILOVER_DEFAULT_MAX_DELAY_MS. */
+export const FAILOVER_DEFAULT_BASE_DELAY_MS = 200;
+export const FAILOVER_DEFAULT_MAX_DELAY_MS = 4_000;
+
+/**
+ * Full-jitter exponential backoff (AWS "Exponential Backoff And Jitter"): a uniformly random delay
+ * in [0, min(maxDelayMs, baseDelayMs * 2^(attempt-1))]. `attempt` is 1-based (the attempt number
+ * that just failed). `random` is injectable so tests can make the jitter deterministic.
+ */
+export function computeBackoffMs(attempt: number, baseDelayMs: number, maxDelayMs: number, random: () => number = Math.random): number {
+  const cap = Math.min(maxDelayMs, baseDelayMs * 2 ** Math.max(0, attempt - 1));
+  return Math.round(random() * cap);
+}
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** What FailoverProvider hands its alert hook when the whole budget is exhausted. */
+export interface FailoverExhaustedInfo {
+  /** Every model in the chain, config order (not secrets — safe to log). */
+  models: string[];
+  /** Total attempts actually made (<= the configured budget). */
+  attempts: number;
+  lastErrorName: string;
+  lastErrorMessage: string;
+}
+
+/**
+ * The default alert (contract B6 "runtime failover", item (a) engineering alert): a structured,
+ * key-free, transcript-free console.error line PLUS a Langfuse-visible OTel error span through the
+ * existing @vc/observability wiring (recordErrorSpan — the same export path callbacks.ts/tracing.ts
+ * use for LangChain runs, so this needs no second exporter). Safe to call even when tracing was
+ * never initialised (recordErrorSpan no-ops via the OTel API's default no-op tracer).
+ */
+export function emitFailoverAlert(info: FailoverExhaustedInfo): void {
+  console.error(
+    JSON.stringify({
+      event: "provider_failover_exhausted",
+      models: info.models,
+      attempts: info.attempts,
+      lastErrorName: info.lastErrorName,
+    }),
+  );
+  recordErrorSpan({
+    name: "provider.failover.exhausted",
+    attributes: {
+      // "gen_ai.*" is the OTel GenAI semantic-convention prefix; @langfuse/otel's LangfuseSpanProcessor
+      // only exports a span by default when it recognises it as LLM-related (its own instrumentation
+      // scope, a known LLM instrumentor's scope, or a "gen_ai."-prefixed attribute) — verified against
+      // its published dist (span-filter.ts's isDefaultExportSpan). Without this, the span is a real,
+      // correctly-built OTel span that the processor silently drops before it ever reaches Langfuse.
+      "gen_ai.system": "litellm",
+      "failover.models": info.models.join(" -> "),
+      "failover.attempts": info.attempts,
+      "failover.last_error_name": info.lastErrorName,
+    },
+    errorName: info.lastErrorName,
+    errorMessage: `every model in the failover chain (${info.models.join(" -> ")}) failed after ${info.attempts} attempt(s)`,
+  });
+}
+
+export interface FailoverProviderOptions {
+  /** Providers in config order — the chain FailoverProvider cycles through on a retryable failure. */
+  chain: LlmProvider[];
+  /** Total retry budget across the WHOLE chain (D-020: "about 10"). */
+  maxAttempts?: number;
+  baseDelayMs?: number;
+  maxDelayMs?: number;
+  /** Injectable for tests (no real waiting; node:test fake timers also work against the default). */
+  sleep?: (ms: number) => Promise<void>;
+  /** Injectable for deterministic jitter in tests. */
+  random?: () => number;
+  /**
+   * Called exactly once, synchronously, when the whole attempt budget is spent — BEFORE
+   * AiUnavailableError is thrown. Defaults to emitFailoverAlert (real console.error + Langfuse
+   * span); tests inject a spy to assert "emitted exactly once, no secrets" without depending on
+   * console output.
+   */
+  onExhausted?: (info: FailoverExhaustedInfo) => void;
+}
+
+export class FailoverProvider implements LlmProvider {
+  readonly kind: ProviderKind;
+  readonly model: string;
+  private readonly chain: LlmProvider[];
+  private readonly maxAttempts: number;
+  private readonly baseDelayMs: number;
+  private readonly maxDelayMs: number;
+  private readonly sleep: (ms: number) => Promise<void>;
+  private readonly random: () => number;
+  private readonly onExhausted: (info: FailoverExhaustedInfo) => void;
+
+  constructor(options: FailoverProviderOptions) {
+    if (options.chain.length === 0) throw new Error("FailoverProvider: chain must have at least one provider");
+    this.chain = options.chain;
+    this.kind = options.chain[0]!.kind;
+    this.model = options.chain.map((p) => p.model).join(" -> ");
+    this.maxAttempts = options.maxAttempts ?? FAILOVER_DEFAULT_MAX_ATTEMPTS;
+    this.baseDelayMs = options.baseDelayMs ?? FAILOVER_DEFAULT_BASE_DELAY_MS;
+    this.maxDelayMs = options.maxDelayMs ?? FAILOVER_DEFAULT_MAX_DELAY_MS;
+    this.sleep = options.sleep ?? defaultSleep;
+    this.random = options.random ?? Math.random;
+    this.onExhausted = options.onExhausted ?? emitFailoverAlert;
+  }
+
+  toString(): string {
+    return `FailoverProvider(chain=${this.chain.map((p) => p.model).join(",")})`;
+  }
+
+  /**
+   * Cycles the chain in config order (attempt 1 -> chain[0], attempt 2 -> chain[1], ... wrapping
+   * back to chain[0] if the budget outlives one full pass), applying full-jitter exponential
+   * backoff between attempts. A non-retryable error (isRetryableProviderError) is NEVER retried and
+   * NEVER fails over — it is thrown immediately, unchanged, so a schema-invalid output still hits
+   * generateWithRetry's own same-provider retry and an auth/config error surfaces exactly as the
+   * chosen model reported it. Only once the WHOLE budget is spent on retryable failures does this
+   * raise the alert and throw the typed AiUnavailableError — never a silent drop to `rules`.
+   */
+  async generate<T>(request: GenerateRequest<T>): Promise<T> {
+    let lastError: unknown;
+    let attempt = 0;
+    while (attempt < this.maxAttempts) {
+      const provider = this.chain[attempt % this.chain.length]!;
+      attempt += 1;
+      try {
+        return await provider.generate<T>(request);
+      } catch (err) {
+        if (!isRetryableProviderError(err)) throw err;
+        lastError = err;
+        if (attempt >= this.maxAttempts) break;
+        await this.sleep(computeBackoffMs(attempt, this.baseDelayMs, this.maxDelayMs, this.random));
+      }
+    }
+    const models = this.chain.map((p) => p.model);
+    const lastErrorName = lastError instanceof Error ? lastError.name : "UnknownError";
+    const lastErrorMessage = lastError instanceof Error ? lastError.message : String(lastError);
+    this.onExhausted({ models, attempts: attempt, lastErrorName, lastErrorMessage });
+    throw new AiUnavailableError(models, attempt, lastErrorName);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // RulesProvider (T-019) — deterministic, NO MODEL. Lets P1 (scribe -> facts ->
 // profile diff -> approve) complete end to end with zero AI calls (the lead's
 // "AI dependence is one thing, Gemini dependence is another" review).
@@ -486,6 +726,15 @@ export function createProvider(config: ProviderConfig, deps: CreateProviderDeps 
     case "gemini":
       return new GeminiProvider({ model: parsed.model, apiKey: parsed.apiKey });
     case "litellm":
+      // T-021 / D-020: only build the failover chain when the config actually carries one
+      // (VC_LLM_MODELS). No `models` -> exactly the old single-attempt LiteLlmProvider, unchanged
+      // (backward compatibility with the single-model config).
+      if (parsed.models && parsed.models.length > 0) {
+        return new FailoverProvider({
+          chain: parsed.models.map((model) => new LiteLlmProvider({ model, baseUrl: parsed.baseUrl, apiKey: parsed.apiKey })),
+          ...(parsed.maxAttempts !== undefined ? { maxAttempts: parsed.maxAttempts } : {}),
+        });
+      }
       return new LiteLlmProvider({ model: parsed.model, baseUrl: parsed.baseUrl, apiKey: parsed.apiKey });
     case "rules":
       return new RulesProvider({ model: parsed.model });

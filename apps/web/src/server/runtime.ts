@@ -11,9 +11,10 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { connectFromEnv } from "@vc/db";
-import { compileScribeGraph, initScribeCheckpointer, inspectScribe, resumeScribe } from "@vc/engine";
+import { compileScribeGraph, initScribeCheckpointer, inspectScribe, resumeScribe, scribeThreadId, startScribe } from "@vc/engine";
 import { createProvider, loadProviderConfig } from "@vc/providers";
 import type { ApprovalRuntime } from "./approval-service";
+import type { SessionRuntime } from "./session-service";
 
 export type RuntimeMode = "demo" | "live";
 
@@ -21,7 +22,7 @@ export function resolveMode(env: Record<string, string | undefined>): RuntimeMod
   return env.VC_WEB_MODE === "live" ? "live" : "demo";
 }
 
-export interface WebRuntime extends ApprovalRuntime {
+export interface WebRuntime extends ApprovalRuntime, SessionRuntime {
   mode: RuntimeMode;
   /** Demo only: the seeded thread ids, for the index page. */
   threads?: Record<string, string>;
@@ -37,11 +38,16 @@ async function createLiveRuntime(env: Record<string, string | undefined>): Promi
   if (!existsSync(skillsDir)) throw new Error("live runtime: skills/ directory not found (set VC_SKILLS_DIR)");
   const { client, db } = connectFromEnv(env);
   const checkpointer = await initScribeCheckpointer(client);
+  // T-021 / D-020: createProvider(loadProviderConfig(env)) already returns the FailoverProvider
+  // chain automatically when VC_LLM_MODELS is set (packages/providers) -- no separate wiring
+  // needed here for the runtime-failover behavior itself.
   const provider = createProvider(loadProviderConfig(env));
+  const graph = compileScribeGraph({ db, provider, skillsDir }, { checkpointer });
   return {
     mode: "live",
-    graph: compileScribeGraph({ db, provider, skillsDir }, { checkpointer }),
+    graph,
     engine: { inspectScribe, resumeScribe },
+    startSession: (input) => startScribe(graph, input, { threadId: scribeThreadId(input.sessionId) }),
   };
 }
 
