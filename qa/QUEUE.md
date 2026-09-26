@@ -62,3 +62,11 @@ Updated by /checker sweeps only. Gate lines sit above the TODO table (read first
 - **Silent-failure hunt (7):** diffed the T-020 range (`fe111a0~1..9cee660`) across `apps/web` + `packages/engine` touched files — no empty catches, no masked fallbacks, no lost propagation; the only new `throw`s tighten error handling (ISS-t-018-rev-1's timeout fix). CLEAN.
 - **Structural erosion (9):** no new signal beyond the existing ISS-057.
 - **Token ledger:** appended (`opus_sub_share` 0.029, well under the 25% flag threshold; no unit at fix-cycle ≥3 in this window — T-013 and T-005c are both at cycle 1).
+
+## CORRECTION (2026-09-26T19:49 IST, re-read fresh — the maker committed concurrently while the sweep above was being written)
+
+The maker was never asleep and kept advancing past this sweep's first read. Re-read `git log -1` (now `0b1d89b`) and `qa/.last-tick` fresh: **T-005c is DONE** (checker c1 PASS `c825ecf` + senior Warning → closed out → merged `0e13394`, `bd24712`) and its worktree, along with `t-005b-guard-hardening` and `t-013-citation-robustness`, **were removed by the maker's own close-out** — `git worktree list` now shows only `t-006-mcp-servers`, `t-013-citation-rescope`, `t-021-provider-failover`. T-021 has since drawn an ai-engineer WARNING (`ISS-t-021-rev-1` high, `ISS-t-021-rev-2` medium) and a non-blocking gate `failover-scope`; its fix cycle 1 opens once the T-021 checker c0 verdict lands. Superseding the stale bits above:
+- **Top-3 #1** is stale where it lists T-005c as "waiting" — it's closed. Current in-flight: T-021 checker c0 + ai review response pending, T-013 c1 building (opus) behind the RAM ceiling. D-021 is still the next unstarted item (still absent from `docs/DECISIONS.md`, confirmed again at 19:49).
+- **Top-3 #2 / TODO ISS-054+ISS-045** narrows to `t-006-mcp-servers` only — the other two worktrees this item named are already gone.
+- ISS-055 is now `verified-resolved` (ledger), not merely "resolved-for-now" — 4 ticks landed in the 18 minutes after this sweep's first read, unambiguous liveness.
+No new contract/process finding from this correction; it is a liveness/staleness reconciliation only. See `qa/issues.jsonl` ISS-055 and ISS-045 for the matching append-only ledger notes.
