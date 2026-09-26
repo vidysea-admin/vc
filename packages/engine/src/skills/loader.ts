@@ -11,7 +11,7 @@
  * delimited block of single-line `key: value` pairs, optionally quoted — not the full YAML spec.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 
 export interface SkillMeta {
   name: string;
@@ -25,6 +25,39 @@ interface ParsedSkill {
 }
 
 const FRONTMATTER_DELIM = "---";
+
+// ISS-022: loadSkill's `name` comes from a caller-chosen value (a graph node's own picks, not a
+// fixed enum), so it must be treated as untrusted input. A name outside this shape can never
+// resolve to anything but a single subfolder of `dir`.
+const SAFE_SKILL_NAME = /^[a-z0-9][a-z0-9-]*$/;
+
+// ISS-024: a bare YAML block-scalar indicator (optionally followed by a chomping/indentation
+// modifier — "-", "+", or a digit) as the entire value of a `key: value` line. This hand-written
+// parser only understands single-line values, so `description: >` would otherwise silently store
+// the literal ">" instead of the multi-line body that follows it.
+const BLOCK_SCALAR_VALUE = /^[|>][+-]?\d*$/;
+const BLOCK_SCALAR_KEYS = new Set(["name", "description"]);
+
+/**
+ * Resolves `name` to a subfolder of `dir`, refusing anything that is not a bare, lowercase,
+ * hyphenated skill-folder name (ISS-022). Two independent checks, deliberately redundant: the
+ * regex allowlist rejects every hostile shape outright (no `/`, `\`, `..`, empty string, NUL,
+ * whitespace, uppercase), and the resolved-path containment check is a second, path.sep-aware
+ * line of defence against any future loosening of that regex.
+ */
+function resolveSkillDir(dir: string, name: string): string {
+  if (!SAFE_SKILL_NAME.test(name)) {
+    throw new Error(`Invalid skill name "${name}" — must match ${SAFE_SKILL_NAME}`);
+  }
+
+  const base = resolve(dir);
+  const skillDir = resolve(dir, name);
+  if (skillDir !== base && !skillDir.startsWith(base + sep)) {
+    throw new Error(`Skill name "${name}" resolves outside the skills directory "${dir}"`);
+  }
+
+  return skillDir;
+}
 
 function parseFrontmatter(raw: string, skillPath: string): ParsedSkill {
   const lines = raw.split(/\r?\n/);
@@ -54,6 +87,13 @@ function parseFrontmatter(raw: string, skillPath: string): ParsedSkill {
       (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
     if (isQuoted && value.length >= 2) {
       value = value.slice(1, -1);
+    }
+    if (BLOCK_SCALAR_KEYS.has(key) && BLOCK_SCALAR_VALUE.test(value)) {
+      throw new Error(
+        `${skillPath}: "${key}" uses a YAML block scalar ("${value}") — this hand-written ` +
+          "frontmatter parser only supports single-line \"key: value\" pairs (see the module " +
+          `header comment); rewrite "${key}" as a single-line, optionally quoted string.`,
+      );
     }
     frontmatter[key] = value;
   }
@@ -110,7 +150,8 @@ export function listSkills(dir: string): SkillMeta[] {
  * from `listSkills` metadata, that it needs this particular skill's full prompt/soft rules).
  */
 export function loadSkill(dir: string, name: string): string {
-  const skillPath = join(dir, name, "SKILL.md");
+  const skillDir = resolveSkillDir(dir, name);
+  const skillPath = join(skillDir, "SKILL.md");
   const { body } = readAndValidate(skillPath, name);
   return body;
 }
