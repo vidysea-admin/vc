@@ -11,3 +11,5 @@ Q2. If model 1 answers but in the wrong shape (bad JSON structure, not an outage
   - B. No — keep the current behaviour (one re-ask on model 1, then the session continues with no facts and a note)
 
 Answer format: "Q1 A, Q2 A" in chat; recorded here as `Answered: <ISO> — <choice> — <where>`.
+
+Answered: 2026-09-26T20:07:30+05:30 — Q1 A (10 attempts TOTAL across the 3 models, as built), Q2 A (wrong-shape output counts as failed: fail over to models 2/3, then alert engineering + apology/Retry) — Umesh in chat to the checker session ("Am, A", read as "A, A")
