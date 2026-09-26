@@ -49,6 +49,26 @@ export type FactSource = z.infer<typeof FactSourceSchema>;
 export const SensitivitySchema = z.enum(["low", "medium", "high"]);
 export type Sensitivity = z.infer<typeof SensitivitySchema>;
 
+/**
+ * T-013 (D-020, citation-guarantee-scope): how strongly a transcript quote matched its cited turn.
+ * - "verbatim": the quote is a substring of the turn after only Unicode NFC + whitespace collapse
+ *   (canonically-equivalent text, i.e. the same characters).
+ * - "normalised": the quote only matched after ALSO casefolding and turning a fixed punctuation set
+ *   into token breaks. Still a STRICT substring (never fuzzy), but weaker evidence than verbatim, so
+ *   the counsellor and the audit trail can see it.
+ */
+export const CitationMatchSchema = z.enum(["verbatim", "normalised"]);
+export type CitationMatch = z.infer<typeof CitationMatchSchema>;
+
+/**
+ * T-013 (D-020): a fact is either a "value" (the default — a discrete piece of information) or a
+ * "reasoning" fact — a citable INFERENCE about why a value holds (e.g. "why UK: sister lives
+ * there"), never a literal value itself. A reasoning fact always carries `explains` (the key of the
+ * value fact it accounts for) and is always kept `needsReview` (B2 amendment log 2026-09-26).
+ */
+export const FactKindSchema = z.enum(["value", "reasoning"]);
+export type FactKind = z.infer<typeof FactKindSchema>;
+
 export const FactSchema = z.object({
   key: z.string().min(1),
   value: z.unknown(),
@@ -63,6 +83,23 @@ export const FactSchema = z.object({
   // B4: purposeTags must be non-empty — a fact with purposeTags: [] fails parse.
   purposeTags: z.array(z.string().min(1)).min(1),
   sensitivity: SensitivitySchema,
+  // T-013 (additive, optional — NOT .default() on purpose: a default would make `kind` REQUIRED on
+  // every existing Fact object literal across the tree, breaking unrelated call sites and test
+  // fixtures that predate T-013 for no functional gain). Absent means "value", the same as
+  // `kind: "value"` explicitly; every call site that cares reads it as `fact.kind ?? "value"`. See
+  // FactKindSchema. A "reasoning" fact names the value-fact key it explains via `explains`.
+  kind: FactKindSchema.optional(),
+  explains: z.string().min(1).optional(),
+  // T-013 (additive, optional): the citation match tier for a transcript-sourced fact. Absent on
+  // facts from other sources and on facts written before T-013.
+  citationMatch: CitationMatchSchema.optional(),
+  // T-013 (additive, optional): the scribe sets `needsReview: true` (plus the reasons) on every fact
+  // whose value is not on the closed auto-verify surface (a typed number or the fixed country/alias
+  // vocabulary, matched as a whole word) — never dropped, per B2's 2026-09-26 amendment (D-020,
+  // citation-guarantee-scope). A later UI gates on `needsReview === true`. Absent means "not
+  // flagged"; facts written before this cycle parse unchanged.
+  needsReview: z.boolean().optional(),
+  reviewReasons: z.array(z.string().min(1)).optional(),
 });
 export type Fact = z.infer<typeof FactSchema>;
 
@@ -122,6 +159,15 @@ export const TranscriptTurnSchema = z.object({
   speaker: z.enum(["student", "counsellor"]),
 });
 export type TranscriptTurn = z.infer<typeof TranscriptTurnSchema>;
+
+/**
+ * T-024 / ISS-t-013r-c0-3 (D-020): one transcript turn as it is PERSISTED for the counsellor to read
+ * (packages/db session_transcripts) — the turn verbatim plus the `turnId` every fact citation names.
+ */
+export const TranscriptTurnRecordSchema = TranscriptTurnSchema.extend({
+  turnId: z.string().min(1),
+});
+export type TranscriptTurnRecord = z.infer<typeof TranscriptTurnRecordSchema>;
 
 // ---------------------------------------------------------------------------
 // AudioChunk metadata (plan.md §3 step 2) — META ONLY. No raw audio field is

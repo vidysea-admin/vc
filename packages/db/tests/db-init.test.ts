@@ -6,6 +6,9 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   INDEX_PLAN,
   MIN_SERVER_VERSION,
@@ -28,6 +31,8 @@ const STUDENT_ID_COLLECTIONS = [
   COLLECTION_NAMES.consents,
   COLLECTION_NAMES.students,
   COLLECTION_NAMES.scribe_resolutions,
+  // T-024 / ISS-t-013r-c0-3: every persisted transcript turn carries studentId.
+  COLLECTION_NAMES.session_transcripts,
   // T-011: the audit row holds studentId only while the request is open (unset on completion).
   COLLECTION_NAMES.erasure_requests,
 ];
@@ -291,4 +296,71 @@ test("ISS-t-014-rev-1 falsification: a createIndex call WITHOUT the timeoutMS ov
   const call = collection.createIndexCalls.find((c) => c.options?.name === "no_timeout_here");
   assert.ok(call);
   assert.notEqual(call!.options?.timeoutMS, DB_INIT_CREATE_INDEX_TIMEOUT_MS, "confirms the fake does not inject the option itself — createPlannedIndexes must");
+});
+
+// ---------------------------------------------------------------------------
+// T-024 / ISS-t-013r-c0-3 (D-020 "puri chat bhi save rehegi"): the transcript and the checkpoint
+// collections must never expire on their own. A TTL index (expireAfterSeconds) — or a TTL option
+// handed to MongoDBSaver — would silently delete the chat that every fact's citation points into,
+// outside any B15 erasure. Two guards: the index plan itself, and a repo-wide source scanner.
+// ---------------------------------------------------------------------------
+
+const NEVER_TTL_COLLECTIONS: readonly string[] = [
+  COLLECTION_NAMES.session_transcripts,
+  COLLECTION_NAMES.scribe_checkpoints,
+  COLLECTION_NAMES.scribe_checkpoint_writes,
+];
+
+test("ISS-t-013r-c0-3: the transcript is a planned collection with a studentId index, and NO index on the transcript or checkpoint collections carries a TTL", () => {
+  assert.ok(INDEX_PLAN.some((s) => s.collection === COLLECTION_NAMES.session_transcripts && Object.keys(s.keys)[0] === "studentId"));
+  for (const spec of INDEX_PLAN.filter((s) => NEVER_TTL_COLLECTIONS.includes(s.collection))) {
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(spec, "expireAfterSeconds"),
+      false,
+      `${spec.collection}.${spec.name} must never be a TTL index (D-020)`,
+    );
+  }
+});
+
+/** A TTL index option or a TTL option for the checkpointer, in any source form. */
+const TTL_PATTERN = /expireAfterSeconds|expire_after_seconds|\bttl\s*[:=]/i;
+
+function containsTtl(content: string): boolean {
+  return TTL_PATTERN.test(content);
+}
+
+const TTL_SCAN_ROOT = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
+const TTL_SCAN_DIRS = ["packages", "apps", "mcp"];
+const TTL_SKIP_DIRS = new Set(["node_modules", "dist", "tests", "evals"]);
+
+function listSourceFilesForTtl(dir: string, out: string[] = []): string[] {
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
+    if (TTL_SKIP_DIRS.has(entry)) continue;
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) listSourceFilesForTtl(full, out);
+    else if (/\.(ts|mts|cts|tsx|js|mjs|cjs)$/.test(entry) && !/\.(test|spec)\./.test(entry)) out.push(full);
+  }
+  return out;
+}
+
+test("ISS-t-013r-c0-3 scanner: no source file under packages/, apps/ or mcp/ declares a TTL (expireAfterSeconds / a ttl option) — the transcript and checkpoints never expire", () => {
+  const files = TTL_SCAN_DIRS.flatMap((d) => listSourceFilesForTtl(join(TTL_SCAN_ROOT, d)));
+  assert.ok(files.some((f) => f.replace(/\\/g, "/").endsWith("packages/db/scripts/db-init.ts")), "sanity: the scanner reaches db-init.ts");
+  assert.ok(files.some((f) => f.replace(/\\/g, "/").endsWith("packages/engine/src/scribe/checkpointer.ts")), "sanity: the scanner reaches checkpointer.ts");
+  const offenders = files.filter((f) => containsTtl(readFileSync(f, "utf8")));
+  assert.deepEqual(offenders, [], `a TTL was declared; D-020 keeps the full chat until a B15 erasure: ${offenders.join(", ")}`);
+});
+
+test("ISS-t-013r-c0-3 scanner falsification: the TTL pattern catches the forms a TTL would take", () => {
+  assert.equal(containsTtl(`createIndex({ ts: 1 }, { expireAfterSeconds: 86400 })`), true);
+  assert.equal(containsTtl(`{ collection: "session_transcripts", keys: { ts: 1 }, name: "x", expireAfterSeconds: 60 }`), true);
+  assert.equal(containsTtl(`new MongoDBSaver({ client, ttl: 3600 })`), true);
+  assert.equal(containsTtl(`const opts = { TTL: 5 }`), true);
+  assert.equal(containsTtl(`const settled = true; // a subtle title`), false);
 });

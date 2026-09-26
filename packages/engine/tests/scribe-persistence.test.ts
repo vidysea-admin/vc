@@ -25,6 +25,7 @@ import {
   type ScribeResolutionDoc,
   type SessionDoc,
 } from "@vc/db";
+import { readSessionTranscript, resolveCitationSpan } from "@vc/db";
 import { resumeScribe, startScribe, writeApproved, type ScribeOutcome } from "../src/scribe/index.js";
 import type { Fact } from "@vc/schemas";
 import {
@@ -676,4 +677,48 @@ test("ISS-t-016-c0-1: recordApprovedSessionSummary's and applyApprovedDiff's own
         `a value close to 60000 means the inner write is STILL using the package default, independent of the outer deadline`,
     );
   }
+});
+
+// ---------------------------------------------------------------------------
+// T-024 / ISS-t-013r-c0-3 (D-020 "puri chat bhi save rehegi"): startScribe persists the full chat
+// verbatim, the counsellor reads it back, and every citation the scribe proposes points at a span
+// inside the PERSISTED transcript (not only inside the transient graph input).
+// ---------------------------------------------------------------------------
+
+test("ISS-t-013r-c0-3: startScribe persists every input turn verbatim, and every proposed fact's citation resolves to a span in the stored chat", async () => {
+  const h = makeHarness();
+  const input = baseInput();
+  const outcome = await startScribe(h.graph, input, { threadId: "thread-transcript-1" });
+  assert.equal(outcome.kind, "awaiting_approval");
+  const stored = await readSessionTranscript(h.db, { studentId: STUDENT_ID, sessionId: SESSION_ID });
+  assert.deepEqual(
+    stored.map((t) => ({ turnId: t.turnId, speaker: t.speaker, lang: t.lang, text: t.text, translatedText: t.translatedText, ts: t.ts })),
+    input.turns,
+    "the full chat, verbatim and in order",
+  );
+  if (outcome.kind !== "awaiting_approval") return;
+  assert.ok(outcome.request.facts.length >= 2, "the default fixture proposes facts");
+  for (const fact of outcome.request.facts) {
+    assert.equal(fact.source.type, "transcript");
+    const span = resolveCitationSpan(stored, { turnId: fact.source.turnId!, quote: fact.source.quote });
+    assert.ok(span, `citation of ${fact.key} must resolve inside the persisted transcript`);
+    const doc = stored.find((t) => t.turnId === fact.source.turnId)!;
+    assert.equal(doc[span!.field].slice(span!.start, span!.end).toLowerCase(), fact.source.quote.toLowerCase());
+  }
+});
+
+test("ISS-t-013r-c0-3: a second scribe run over the same session adds only NEW turns and never rewrites the first record; the export carries them all", async () => {
+  const h = makeHarness();
+  await startScribe(h.graph, baseInput(), { threadId: "thread-transcript-2a" });
+  const more = baseInput();
+  more.turns = [
+    ...more.turns.map((t) => (t.turnId === "t1" ? { ...t, text: "REWRITTEN" } : t)),
+    { turnId: "t4", speaker: "student", lang: "en", text: "I also like Germany.", translatedText: "I also like Germany.", ts: 4 },
+  ];
+  await startScribe(h.graph, more, { threadId: "thread-transcript-2b" });
+  const stored = await readSessionTranscript(h.db, { studentId: STUDENT_ID, sessionId: SESSION_ID });
+  assert.deepEqual(stored.map((t) => t.turnId), ["t1", "t2", "t3", "t4"]);
+  assert.equal(stored[0]!.text, baseInput().turns[0]!.text, "the first recorded text stands");
+  const bundle = await exportStudent(h.db, STUDENT_ID);
+  assert.deepEqual(bundle.transcripts.map((t) => [t.turnId, t.text]), stored.map((t) => [t.turnId, t.text]));
 });

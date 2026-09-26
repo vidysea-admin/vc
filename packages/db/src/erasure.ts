@@ -32,7 +32,8 @@
  * scribe_resolutions. If those anchor collections were purged while a dependent delete failed,
  * a retry could no longer find the orphaned dependents. So the plan runs in two phases:
  *   1. dependents + direct rows: consents FIRST (so processing is blocked for the whole erasure,
- *      B4), decisions, edges, scribe_checkpoints, scribe_checkpoint_writes;
+ *      B4), decisions, edges, scribe_checkpoints, scribe_checkpoint_writes, session_transcripts
+ *      (T-024: the readable chat, by studentId);
  *   2. anchors: facts, sessions, scribe_resolutions, students. Only if every phase-1 step
  *      succeeded; otherwise they are `deferred` and left intact for the retry.
  * Each step is attempted independently and its error is recorded (name/code only: driver
@@ -95,6 +96,7 @@ import {
   type ScribeResolutionDoc,
   type SessionDoc,
   type StudentDoc,
+  type TranscriptTurnDoc,
 } from "./collections.js";
 import type { RejectReasonAuditDoc } from "./decisions.js";
 import type { EdgeDoc } from "./edges.js";
@@ -833,6 +835,9 @@ export const ERASURE_PLAN: readonly ErasureStep[] = [
   { collection: COLLECTION_NAMES.edges, phase: 1, filter: edgeFilter, residue: edgeFilter },
   { collection: COLLECTION_NAMES.scribe_checkpoints, phase: 1, filter: byThread, residue: byThread },
   { collection: COLLECTION_NAMES.scribe_checkpoint_writes, phase: 1, filter: byThread, residue: byThread },
+  // T-024 / ISS-t-013r-c0-3: the readable transcript carries studentId on every turn document, so it
+  // is a direct row (like consents/decisions): deleted and read back by studentId.
+  { collection: COLLECTION_NAMES.session_transcripts, phase: 1, filter: byStudent, residue: byStudent },
   { collection: COLLECTION_NAMES.facts, phase: 2, filter: factsById, residue: byStudent }, // active AND retired
   { collection: COLLECTION_NAMES.sessions, phase: 2, filter: sessionsById, residue: byStudent },
   { collection: COLLECTION_NAMES.scribe_resolutions, phase: 2, filter: claimsByThread, residue: byStudent },
@@ -1211,6 +1216,12 @@ export interface StudentExport {
   /** Scribe approval claims (they hold the approved fact values). */
   approvalClaims: ScribeResolutionDoc[];
   /**
+   * T-024 / ISS-t-013r-c0-3 (D-020): the full chat, VERBATIM — every persisted transcript turn of
+   * every session, in speaking order (sessionId, ts, turnId). This is the readable copy the
+   * checkpoints below duplicate as serialized state.
+   */
+  transcripts: TranscriptTurnDoc[];
+  /**
    * Scribe checkpoints are serialized LangGraph state (they duplicate the transcript and the
    * extracted facts, both of which are exported above in readable form). Counted, not dumped.
    */
@@ -1225,6 +1236,8 @@ export async function exportStudent(db: Db, studentId: string): Promise<StudentE
   const s = await resolveSelectors(db, studentId);
   const facts = await db.collection<FactDoc>(COLLECTION_NAMES.facts).find({ studentId }).toArray();
   facts.sort((a, b) => a.key.localeCompare(b.key) || a.validFrom.localeCompare(b.validFrom) || a._id.localeCompare(b._id));
+  const transcripts = await db.collection<TranscriptTurnDoc>(COLLECTION_NAMES.session_transcripts).find({ studentId }).toArray();
+  transcripts.sort((a, b) => a.sessionId.localeCompare(b.sessionId) || a.ts - b.ts || a.turnId.localeCompare(b.turnId));
   return {
     format: "vc-student-export/v1",
     purpose: "data_subject_access",
@@ -1240,6 +1253,7 @@ export async function exportStudent(db: Db, studentId: string): Promise<StudentE
       .collection<ScribeResolutionDoc>(COLLECTION_NAMES.scribe_resolutions)
       .find({ studentId })
       .toArray(),
+    transcripts,
     checkpoints: {
       threads: [...s.threadIds].sort(),
       checkpointDocs: await db.collection(COLLECTION_NAMES.scribe_checkpoints).countDocuments(byThread(s)),

@@ -44,6 +44,8 @@ function candidateFor(goldFact: GoldFact, mode: ProviderMode): Record<string, un
     confidence: 0.9,
     purposeTags: [SCRIBE_PURPOSE],
     sensitivity: goldFact.sensitivity,
+    ...(goldFact.kind ? { kind: goldFact.kind } : {}),
+    ...(goldFact.explains ? { explains: goldFact.explains } : {}),
   };
 }
 

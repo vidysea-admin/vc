@@ -9,6 +9,9 @@ import {
   ensureScribeSessionRow,
   recordApprovedSessionSummary,
   SessionRowMissingError,
+  recordSessionTranscript,
+  readSessionTranscript,
+  resolveCitationSpan,
 } from "../src/facts.js";
 import {
   requestErasure,
@@ -921,4 +924,280 @@ test("ISS-t-016-rev-1: RangeError on a deadline longer than FENCED_WRITER_DEADLI
     RangeError,
   );
   assert.equal((await sessions.findOne({ _id: "sess-fence-5" }))?.summary, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// T-013 (D-020, citation-guarantee-scope): a "reasoning" fact is linked to the value fact it
+// `explains` via a third edge in the SAME edges collection.
+// ---------------------------------------------------------------------------
+
+test("T-013: a reasoning fact approved ALONGSIDE the value fact it explains gets an 'explains' edge to it", async () => {
+  const { db, fakeDb } = setup();
+  const valueFact = citedFact({ key: "targetCountry", value: "UK" });
+  const reasoningFact = citedFact({
+    key: "why_targetCountry",
+    value: "sister lives there",
+    kind: "reasoning",
+    explains: "targetCountry",
+    needsReview: true,
+    source: { type: "transcript", quote: "because my sister lives there", turnId: "42" },
+  });
+  const decision: CounsellorDecision = { approve: true, edits: [valueFact, reasoningFact] };
+  const result = await applyApprovedDiff(db, emptyDiff(), decision, "session-1");
+  assert.equal(result.written.length, 2);
+
+  const edges = fakeDb.collection(COLLECTION_NAMES.edges).all() as Array<{
+    from: { kind: string; id: string };
+    to: { kind: string; id: string };
+    rel: string;
+  }>;
+  const explainsEdge = edges.find((e) => e.rel === "explains");
+  assert.ok(explainsEdge, "expected a fact->fact 'explains' edge");
+  const reasoningDoc = result.written.find((f) => f.key === "why_targetCountry")!;
+  const valueDoc = result.written.find((f) => f.key === "targetCountry")!;
+  assert.equal(explainsEdge?.from.kind, "fact");
+  assert.equal(explainsEdge?.from.id, reasoningDoc._id);
+  assert.equal(explainsEdge?.to.kind, "fact");
+  assert.equal(explainsEdge?.to.id, valueDoc._id);
+});
+
+test("T-013: a reasoning fact approved for a value fact ALREADY active in the DB (a different, earlier session) still gets linked", async () => {
+  const { db, fakeDb, factsColl } = setup();
+  const existing: FactDoc = { ...citedFact({ key: "targetCountry", value: "UK" }), _id: "existing-1", studentId: "student-1", active: true };
+  factsColl.seed(existing);
+
+  const reasoningFact = citedFact({
+    key: "why_targetCountry",
+    value: "sister lives there",
+    kind: "reasoning",
+    explains: "targetCountry",
+    needsReview: true,
+    source: { type: "transcript", quote: "because my sister lives there", turnId: "42" },
+  });
+  const decision: CounsellorDecision = { approve: true, edits: [reasoningFact] };
+  const result = await applyApprovedDiff(db, emptyDiff(), decision, "session-1");
+  assert.equal(result.written.length, 1);
+
+  const edges = fakeDb.collection(COLLECTION_NAMES.edges).all() as Array<{
+    from: { kind: string; id: string };
+    to: { kind: string; id: string };
+    rel: string;
+  }>;
+  const explainsEdge = edges.find((e) => e.rel === "explains");
+  assert.ok(explainsEdge, "expected the reasoning fact to link to the PRE-EXISTING active value fact");
+  assert.equal(explainsEdge?.to.id, "existing-1");
+});
+
+test("T-013: a reasoning fact whose `explains` key has no active fact anywhere is written unlinked (no 'explains' edge), never dropped", async () => {
+  const { db, fakeDb } = setup();
+  const reasoningFact = citedFact({
+    key: "why_targetCountry",
+    value: "sister lives there",
+    kind: "reasoning",
+    explains: "targetCountry",
+    needsReview: true,
+    source: { type: "transcript", quote: "because my sister lives there", turnId: "42" },
+  });
+  const decision: CounsellorDecision = { approve: true, edits: [reasoningFact] };
+  const result = await applyApprovedDiff(db, emptyDiff(), decision, "session-1");
+  assert.equal(result.written.length, 1, "the reasoning fact is still written even with nothing to link to");
+
+  const edges = fakeDb.collection(COLLECTION_NAMES.edges).all() as Array<{ rel: string }>;
+  assert.equal(edges.some((e) => e.rel === "explains"), false);
+  // The ordinary sourced_from + has edges are still recorded.
+  assert.equal(edges.filter((e) => e.rel === "sourced_from" || e.rel === "has").length, 2);
+});
+
+test("T-013: an ordinary 'value' fact never gets an 'explains' edge, even if it happens to carry `explains`-shaped data elsewhere", async () => {
+  const { db, fakeDb } = setup();
+  const decision: CounsellorDecision = { approve: true, edits: [citedFact()] };
+  await applyApprovedDiff(db, emptyDiff(), decision, "session-1");
+  const edges = fakeDb.collection(COLLECTION_NAMES.edges).all() as Array<{ rel: string }>;
+  assert.equal(edges.some((e) => e.rel === "explains"), false);
+});
+
+// ISS-t-013r-rev-1: the explains edge must not depend on the order of `decision.edits`.
+test("ISS-t-013r-rev-1: a reasoning fact listed BEFORE its value fact in the same call still gets an 'explains' edge to it", async () => {
+  const { db, fakeDb } = setup();
+  const valueFact = citedFact({ key: "targetCountry", value: "UK" });
+  const reasoningFact = citedFact({
+    key: "why_targetCountry",
+    value: "sister lives there",
+    kind: "reasoning",
+    explains: "targetCountry",
+    needsReview: true,
+    source: { type: "transcript", quote: "because my sister lives there", turnId: "42" },
+  });
+  // reasoning FIRST, value second: the order that used to lose the edge silently.
+  const decision: CounsellorDecision = { approve: true, edits: [reasoningFact, valueFact] };
+  const result = await applyApprovedDiff(db, emptyDiff(), decision, "session-1");
+  assert.equal(result.written.length, 2);
+
+  const edges = fakeDb.collection(COLLECTION_NAMES.edges).all() as Array<{
+    from: { kind: string; id: string };
+    to: { kind: string; id: string };
+    rel: string;
+  }>;
+  const explainsEdges = edges.filter((e) => e.rel === "explains");
+  assert.equal(explainsEdges.length, 1, "exactly one explains edge");
+  const reasoningDoc = result.written.find((f) => f.key === "why_targetCountry")!;
+  const valueDoc = result.written.find((f) => f.key === "targetCountry")!;
+  assert.equal(explainsEdges[0]?.from.id, reasoningDoc._id);
+  assert.equal(explainsEdges[0]?.to.id, valueDoc._id);
+});
+
+test("ISS-t-013r-rev-1: reasoning-before-value when an OLDER value fact is active links to the NEW value fact of this call, not the retired one (both orders)", async () => {
+  for (const order of ["reasoning-first", "value-first"] as const) {
+    const { db, fakeDb, factsColl } = setup();
+    const existing: FactDoc = { ...citedFact({ key: "targetCountry", value: "Canada" }), _id: "old-1", studentId: "student-1", active: true };
+    factsColl.seed(existing);
+    const valueFact = citedFact({ key: "targetCountry", value: "UK" });
+    const reasoningFact = citedFact({
+      key: "why_targetCountry",
+      value: "sister lives there",
+      kind: "reasoning",
+      explains: "targetCountry",
+      needsReview: true,
+      source: { type: "transcript", quote: "because my sister lives there", turnId: "42" },
+    });
+    const edits = order === "reasoning-first" ? [reasoningFact, valueFact] : [valueFact, reasoningFact];
+    const result = await applyApprovedDiff(db, emptyDiff(), { approve: true, edits }, "session-1");
+    const valueDoc = result.written.find((f) => f.key === "targetCountry")!;
+    assert.notEqual(valueDoc._id, "old-1", `${order}: a new value fact was written`);
+    const edges = fakeDb.collection(COLLECTION_NAMES.edges).all() as Array<{ to: { id: string }; rel: string }>;
+    const explainsEdges = edges.filter((e) => e.rel === "explains");
+    assert.equal(explainsEdges.length, 1, `${order}: exactly one explains edge`);
+    assert.equal(explainsEdges[0]?.to.id, valueDoc._id, `${order}: links to the new value fact, not the retired old-1`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// T-024 / ISS-t-013r-c0-3: recordSessionTranscript persists the chat verbatim, once, per student.
+// ---------------------------------------------------------------------------
+
+const TURNS = [
+  { turnId: "t1", speaker: "student" as const, lang: "hi-Latn", text: "Mujhe Canada jaana hai.", translatedText: "I want to go to Canada.", ts: 1 },
+  { turnId: "t2", speaker: "counsellor" as const, lang: "en", text: "Why Canada?", translatedText: "Why Canada?", ts: 2 },
+];
+
+test("ISS-t-013r-c0-3: recordSessionTranscript stores every turn verbatim and the counsellor reads it back in order", async () => {
+  const { db, fakeDb } = setup();
+  const { createdIds } = await recordSessionTranscript(db, { sessionId: "sess-1", studentId: "stu-1", turns: [...TURNS].reverse() });
+  assert.deepEqual(createdIds.sort(), ["sess-1:t1", "sess-1:t2"]);
+  const stored = fakeDb.collection(COLLECTION_NAMES.session_transcripts).all();
+  assert.equal(stored.length, 2);
+  const read = await readSessionTranscript(db, { studentId: "stu-1", sessionId: "sess-1" });
+  assert.deepEqual(
+    read.map((t) => ({ turnId: t.turnId, speaker: t.speaker, lang: t.lang, text: t.text, translatedText: t.translatedText, ts: t.ts })),
+    TURNS,
+    "verbatim, in speaking order",
+  );
+});
+
+test("ISS-t-013r-c0-3: a replay writes nothing, a changed text never overwrites the first record, and new turns accumulate", async () => {
+  const { db, fakeDb } = setup();
+  await recordSessionTranscript(db, { sessionId: "sess-1", studentId: "stu-1", turns: TURNS });
+  const replay = await recordSessionTranscript(db, { sessionId: "sess-1", studentId: "stu-1", turns: TURNS });
+  assert.deepEqual(replay.createdIds, [], "replay creates nothing");
+  const tampered = await recordSessionTranscript(db, {
+    sessionId: "sess-1",
+    studentId: "stu-1",
+    turns: [{ ...TURNS[0]!, text: "Mujhe UK jaana hai." }, { turnId: "t3", speaker: "student", lang: "en", text: "Because of the work visa.", translatedText: "Because of the work visa.", ts: 3 }],
+  });
+  assert.deepEqual(tampered.createdIds, ["sess-1:t3"], "only the new turn is created");
+  const read = await readSessionTranscript(db, { studentId: "stu-1", sessionId: "sess-1" });
+  assert.equal(read.find((t) => t.turnId === "t1")?.text, "Mujhe Canada jaana hai.", "the first recorded text stands");
+  assert.deepEqual(read.map((t) => t.turnId), ["t1", "t2", "t3"]);
+  assert.equal(fakeDb.collection(COLLECTION_NAMES.session_transcripts).all().length, 3);
+});
+
+test("ISS-t-013r-c0-3: another student's session/turn id is never hijacked (11000), and a malformed or duplicate turn writes nothing", async () => {
+  const { db, fakeDb } = setup();
+  await recordSessionTranscript(db, { sessionId: "sess-1", studentId: "stu-1", turns: TURNS });
+  await assert.rejects(
+    () => recordSessionTranscript(db, { sessionId: "sess-1", studentId: "stu-2", turns: [TURNS[0]!] }),
+    (err: unknown) => (err as { code?: number }).code === 11000,
+  );
+  assert.deepEqual(await readSessionTranscript(db, { studentId: "stu-2", sessionId: "sess-1" }), []);
+  const before = fakeDb.collection(COLLECTION_NAMES.session_transcripts).all().length;
+  await assert.rejects(() =>
+    recordSessionTranscript(db, { sessionId: "sess-9", studentId: "stu-1", turns: [{ ...TURNS[0]!, speaker: "robot" as never }] }),
+  );
+  await assert.rejects(() => recordSessionTranscript(db, { sessionId: "sess-9", studentId: "stu-1", turns: [TURNS[0]!, TURNS[0]!] }), /duplicate turnId/);
+  await assert.rejects(() => recordSessionTranscript(db, { sessionId: "", studentId: "stu-1", turns: TURNS }));
+  assert.equal(fakeDb.collection(COLLECTION_NAMES.session_transcripts).all().length, before, "nothing written");
+});
+
+test("ISS-t-013r-c0-3: resolveCitationSpan points a citation at offsets in the persisted text (verbatim, case/punctuation drift, translation, NFD) and refuses a quote that is not there", async () => {
+  const { db } = setup();
+  const decomposed = "मुझे क़ानून पढ़ना है।".normalize("NFD");
+  await recordSessionTranscript(db, {
+    sessionId: "sess-1",
+    studentId: "stu-1",
+    turns: [...TURNS, { turnId: "t3", speaker: "student", lang: "hi", text: decomposed, translatedText: "I want to study law.", ts: 3 }],
+  });
+  const turns = await readSessionTranscript(db, { studentId: "stu-1", sessionId: "sess-1" });
+  const slice = (turnId: string, quote: string) => {
+    const span = resolveCitationSpan(turns, { turnId, quote });
+    if (!span) return null;
+    const doc = turns.find((t) => t.turnId === turnId)!;
+    return doc[span.field].slice(span.start, span.end);
+  };
+  assert.equal(slice("t1", "Canada jaana hai"), "Canada jaana hai");
+  assert.equal(slice("t1", "canada JAANA hai"), "Canada jaana hai", "case drift resolves to the stored casing");
+  assert.equal(slice("t1", "go to Canada"), "go to Canada", "a quote from the translation resolves in translatedText");
+  assert.equal(slice("t3", "क़ानून पढ़ना".normalize("NFC")), "क़ानून पढ़ना".normalize("NFD"), "an NFC quote finds the NFD-stored text");
+  assert.equal(resolveCitationSpan(turns, { turnId: "t1", quote: "Mujhe UK jaana hai" }), null);
+  assert.equal(resolveCitationSpan(turns, { turnId: "t1", quote: "   " }), null);
+});
+
+test("ISS-t-013r-rev-8: resolveCitationSpan finds a span whose STORED text mixes NFC and NFD Devanagari, and the offsets slice the raw stored text", async () => {
+  const { db } = setup();
+  // "मुझे क़ानून पढ़ना है": the stored text writes QA as ONE precomposed code point (U+0958) and
+  // RHA as the decomposed pair (U+0922 U+093C); the quote does the opposite (QA decomposed, RHA
+  // precomposed U+095D). Neither whole-string NFC nor NFD of the quote equals the raw stored span.
+  const qaPre = String.fromCodePoint(0x0958);
+  const qaDec = String.fromCodePoint(0x0915, 0x093c);
+  const rhaPre = String.fromCodePoint(0x095d);
+  const rhaDec = String.fromCodePoint(0x0922, 0x093c);
+  const stored = `मुझे ${qaPre}ानून प${rhaDec}ना है।`;
+  const quote = `${qaDec}ानून प${rhaPre}ना`;
+  assert.equal(stored.includes(quote), false, "sanity: the raw forms differ");
+  assert.equal(stored.includes(quote.normalize("NFC")), false, "sanity: NFC of the quote alone is not enough");
+  assert.equal(stored.includes(quote.normalize("NFD")), false, "sanity: NFD of the quote alone is not enough");
+  await recordSessionTranscript(db, {
+    sessionId: "sess-mixed",
+    studentId: "stu-1",
+    turns: [{ turnId: "t1", speaker: "student", lang: "hi", text: stored, translatedText: "I want to study law.", ts: 1 }],
+  });
+  const turns = await readSessionTranscript(db, { studentId: "stu-1", sessionId: "sess-mixed" });
+  const span = resolveCitationSpan(turns, { turnId: "t1", quote });
+  assert.ok(span, "a mixed-normalisation span must resolve");
+  assert.equal(span!.field, "text");
+  const slice = turns[0]!.text.slice(span!.start, span!.end);
+  assert.equal(slice, `${qaPre}ानून प${rhaDec}ना`, "offsets index the RAW stored text");
+  assert.equal(slice.normalize("NFC"), quote.normalize("NFC"));
+});
+
+test("ISS-t-013r-rev-12: a Devanagari quote cropped MID-SYLLABLE resolves to exactly its own span (slice === quote), never widened to the whole cluster", async () => {
+  const { db } = setup();
+  // "मुझे लॉ पढ़ना है", typed in its NFC-stable form (RHA as ढ + nukta). The quote "पढ़न" stops after
+  // न, inside the cluster "ना" (न + vowel sign ा); "ुझे लॉ" starts on a combining vowel sign.
+  const rha = String.fromCodePoint(0x0922, 0x093c);
+  const stored = `मुझे लॉ प${rha}ना है`;
+  assert.equal(stored.normalize("NFC"), stored, "sanity: every cluster is NFC-stable (the 1:1 path)");
+  await recordSessionTranscript(db, {
+    sessionId: "sess-crop",
+    studentId: "stu-1",
+    turns: [{ turnId: "t1", speaker: "student", lang: "hi", text: stored, translatedText: "I want to study law.", ts: 1 }],
+  });
+  const turns = await readSessionTranscript(db, { studentId: "stu-1", sessionId: "sess-crop" });
+  for (const quote of [`प${rha}न`, "ुझे लॉ", `प${rha}`, "मुझे"]) {
+    const span = resolveCitationSpan(turns, { turnId: "t1", quote });
+    assert.ok(span, `must resolve: ${quote}`);
+    assert.equal(turns[0]!.text.slice(span!.start, span!.end), quote, `slice === quote (no widening): ${quote}`);
+  }
+  // the ledger's exact reproduction: previously slice(8,13) = "पढ़ना"
+  const span = resolveCitationSpan(turns, { turnId: "t1", quote: `प${rha}न` });
+  assert.deepEqual([span!.start, span!.end], [8, 12]);
 });

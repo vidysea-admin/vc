@@ -17,6 +17,7 @@ import {
   type RejectReasonAuditDoc,
 } from "@vc/db";
 import {
+  ApprovalFactSchema,
   ApprovalRequestSchema,
   ApprovalResponseError,
   ApprovalResponseSchema,
@@ -38,7 +39,9 @@ function threeFactHarness(): Harness {
     provider: mockProvider({
       "fact-extraction": {
         facts: [
-          citedCandidate("targetCountry", "Canada", "study computer science in Canada", "t1"),
+          // fix cycle 1 (D-020 fail-safe rule): the quote now carries the first-person "I" so the
+          // closed-vocabulary country can still auto-verify.
+          citedCandidate("targetCountry", "Canada", "I want to study computer science in Canada", "t1"),
           citedCandidate("budget_inr_per_year", 2000000, "around 20 lakh rupees a year", "t3"),
           citedCandidate("intendedMajor", "computer science", "study computer science", "t1"),
         ],
@@ -236,7 +239,10 @@ test("T-008: a second per_fact submit is already_resolved with the first decisio
 });
 
 // ---------------------------------------------------------------------------
-// needsReview (T-013 fills it; the approval payload must carry it when present)
+// needsReview (T-013, D-020 citation-guarantee-scope: the scribe now sets it on every fact it
+// extracts — false for the closed auto-verify surface (typed numbers + the fixed country/alias
+// vocabulary, whole-word), true otherwise, never absent. ApprovalRequestSchema itself stays
+// backward-compatible: a Fact literal that omits the field entirely still parses.)
 // ---------------------------------------------------------------------------
 
 test("T-008: ApprovalRequestSchema keeps an optional needsReview/reviewReasons per fact and still parses facts without it", async () => {
@@ -244,7 +250,15 @@ test("T-008: ApprovalRequestSchema keeps an optional needsReview/reviewReasons p
   const paused = await startScribe(h.graph, baseInput(), cfg("pf-review"));
   assert.equal(paused.kind, "awaiting_approval");
   if (paused.kind !== "awaiting_approval") return;
-  assert.equal(paused.request.facts[0]?.needsReview, undefined, "absent means not flagged");
+  // targetCountry="Canada" is quoted from "I want to study computer science in Canada" (t1): a
+  // closed-vocabulary country, whole-word matched, first-person, no negation, no third-party referent
+  // -> auto-verified (fix cycle 1 fail-safe rule).
+  assert.equal(paused.request.facts[0]?.key, "targetCountry");
+  assert.equal(paused.request.facts[0]?.needsReview, false, "a closed-vocabulary country match auto-verifies (B2, D-020)");
+  // The schema itself stays backward-compatible: a Fact object that never mentions the field at all
+  // still parses (a legacy fact, or a non-scribe caller that never sets it).
+  const { needsReview: _drop, reviewReasons: _drop2, ...withoutReview } = paused.request.facts[0]!;
+  assert.equal(ApprovalFactSchema.parse(withoutReview).needsReview, undefined, "absent means not flagged");
   const flagged = ApprovalRequestSchema.parse({
     ...paused.request,
     facts: paused.request.facts.map((f, i) => (i === 0 ? { ...f, needsReview: true, reviewReasons: ["negation near the quote"] } : f)),

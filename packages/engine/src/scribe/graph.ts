@@ -22,8 +22,10 @@ import {
   FencedWriterDeadlineError,
   isStudentFenced,
   recordRejectReasons,
+  recordSessionTranscript,
   scribeResolutionsCollection,
   sessionsCollection,
+  sessionTranscriptsCollection,
   StudentFencedError,
   WriterDeadline,
   type ScribeResolutionDoc,
@@ -369,6 +371,11 @@ interface CreatedByCall {
   claim?: ScribeResolutionDoc | null;
   /** T-016 / ISS-t-011-rev-5: the session row this call inserted (not one that already existed). */
   sessionRow?: { sessionId: string; studentId: string } | null;
+  /**
+   * T-024 / ISS-t-013r-c0-3: the transcript turn documents this call CREATED (never turns an
+   * earlier run already recorded), filled as each is written so a part-way failure is covered too.
+   */
+  transcriptTurns?: { studentId: string; ids: string[] } | null;
 }
 
 /** The post-check's fence read; an unreadable fence state counts as fenced (fail-safe). */
@@ -422,6 +429,12 @@ async function invokeFenceAware(
     }
     if (created.sessionRow) {
       await sessionsCollection(deps.db).deleteMany({ _id: created.sessionRow.sessionId, studentId: created.sessionRow.studentId });
+    }
+    if (created.transcriptTurns && created.transcriptTurns.ids.length > 0) {
+      await sessionTranscriptsCollection(deps.db).deleteMany({
+        _id: { $in: [...created.transcriptTurns.ids] },
+        studentId: created.transcriptTurns.studentId,
+      });
     }
   };
   const work = invoke(deadline.signal);
@@ -479,8 +492,25 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
       deadline.op(),
     );
     const sessionRow = created ? { sessionId: parsed.sessionId, studentId: parsed.studentId } : null;
-    const fenced = await invokeFenceAware(deps, parsed.studentId, opts.threadId, { sessionRow }, deadline, () =>
-      graph.invoke(parsed, runnableConfig(opts, deadline)),
+    // T-024 / ISS-t-013r-c0-3 (D-020 "puri chat bhi save rehegi"): the full chat is persisted verbatim
+    // in session_transcripts before the graph runs, so every citation {turnId, quote} the scribe
+    // proposes points into a stored turn (resolveCitationSpan). It runs INSIDE the fence-aware call:
+    // the post-check covers it, and the compensation deletes exactly the turns this call created.
+    const transcriptTurns = { studentId: parsed.studentId, ids: [] as string[] };
+    const fenced = await invokeFenceAware(
+      deps,
+      parsed.studentId,
+      opts.threadId,
+      { sessionRow, transcriptTurns },
+      deadline,
+      async () => {
+        await recordSessionTranscript(
+          deps.db,
+          { sessionId: parsed.sessionId, studentId: parsed.studentId, turns: parsed.turns },
+          { ...deadline.op(), createdSink: transcriptTurns.ids },
+        );
+        return graph.invoke(parsed, runnableConfig(opts, deadline));
+      },
     );
     if (fenced) return { kind: "fenced" };
   } finally {

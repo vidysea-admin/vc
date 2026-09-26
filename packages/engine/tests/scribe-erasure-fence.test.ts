@@ -19,6 +19,7 @@ import {
   releaseExpiredErasureFences,
   requestErasure,
 } from "@vc/db";
+import { recordSessionTranscript } from "@vc/db";
 import { resumeScribe, startScribe } from "../src/scribe/index.js";
 import { baseInput, makeHarness, seedConsent, SESSION_ID, STUDENT_ID, type Harness } from "./scribe-fixtures.js";
 
@@ -234,4 +235,25 @@ test("D-016 deadline: an UNFENCED run that exceeds the deadline throws FencedWri
     startScribe(h.graph, baseInput(), { threadId: "thread-d3", writerDeadlineMs: FENCED_WRITER_DEADLINE_MS + 1 }),
     RangeError,
   );
+});
+
+test("ISS-t-013r-c0-3: a fence that appears DURING startScribe removes the transcript turns THIS call created, and keeps turns an earlier run recorded", async () => {
+  const h = makeHarness();
+  // An earlier run already recorded t1 (e.g. a first pass over the start of the chat).
+  const earlier = baseInput().turns[0]!;
+  await recordSessionTranscript(h.db, { sessionId: SESSION_ID, studentId: STUDENT_ID, turns: [earlier] });
+  const realFindOne = h.consents.findOne.bind(h.consents);
+  let fencedMidRun = false;
+  h.consents.findOne = async (filter) => {
+    if (!fencedMidRun) {
+      fencedMidRun = true;
+      await fence(h);
+    }
+    return realFindOne(filter);
+  };
+  const outcome = await startScribe(h.graph, baseInput(), { threadId: "thread-f-transcript" });
+  assert.ok(fencedMidRun);
+  assert.deepEqual(outcome, { kind: "fenced" });
+  const left = h.fakeDb.collection<AnyDoc>(COLLECTION_NAMES.session_transcripts).all().map((d) => d._id);
+  assert.deepEqual(left, [`${SESSION_ID}:t1`], "t2/t3 (created by the fenced call) are gone; the earlier t1 is not this call's to delete");
 });

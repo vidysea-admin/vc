@@ -7,6 +7,7 @@
 import { z } from "zod";
 import {
   CounsellorDecisionSchema,
+  FactKindSchema,
   FactSchema,
   ProfileDiffSchema,
   SensitivitySchema,
@@ -86,6 +87,12 @@ export const CandidateFactSchema = z.object({
   confidence: z.number().min(0).max(1),
   purposeTags: z.array(z.string().min(1)).default([]),
   sensitivity: SensitivitySchema,
+  // T-013 (D-020): a candidate may declare itself a "reasoning" fact (default "value" when absent —
+  // legacy provider output that never mentions kind keeps working unchanged). `explains` names the
+  // value-fact key a reasoning fact accounts for; verifyCandidateFact (nodes.ts) drops a reasoning
+  // candidate that omits it.
+  kind: FactKindSchema.optional(),
+  explains: z.string().min(1).optional(),
 });
 export type CandidateFact = z.infer<typeof CandidateFactSchema>;
 
