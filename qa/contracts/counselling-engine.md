@@ -95,6 +95,22 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 
 - **B17 (persona usability):** Every UI-touching unit, and every release, is judged by user personas, not only login roles. The declared personas are an average counsellor in a tier-2 city such as Jaipur (1-2 years' experience) and a school counsellor. The checker's browser run (Mode D / Mode C) walks each changed flow as each persona and records per-screen findings. A flow the persona cannot finish unaided is a finding, not a pass. A `high` persona finding blocks PASS the same way a failed criterion does.
 
+- **B18 (context relevance):** The engine does not show or ask about what doesn't apply to this student, or what is already known.
+  - A topic the student's own facts make irrelevant is suppressed in scribe output, the summary and (from T-010) live cards. For example, a student whose only destination is India gets no visa facts, questions or cards.
+  - An approved fact is never asked again as if it were unknown.
+  - Nothing on the student's do-not-ask list is raised.
+  - Proof is an outcome test on synthetic transcripts. An India-only student produces zero visa items, and a student with a known fact gets no card or question asking for that fact. A test that only checks a filter function exists does not count (B14).
+
+- **B19 (scenario matrix):** `qa/scenarios/counselling-engine.csv` holds at least 50 rows, covering the happy path and negative cases, and each row names a persona and an expected outcome. The file must include:
+  - an India-only student;
+  - a student leaving two years from now;
+  - a Hinglish session;
+  - a concern-level turn;
+  - an erasure request mid-session;
+  - the AI-down (`rules` provider) path.
+
+  Every UI-touching unit check and every release runs every row. Each row is recorded as `pass | fail | skip(<reason>)`. An unrun row is a SKIP, never a PASS, and the verdict states `SCENARIOS: <passed>/<total>`. Until the file exists, a UI verdict records `SCENARIOS: n/a (matrix not yet authored, B19)` rather than blocking.
+
 ## Non-goals (this contract)
 - The avatar (P3) and the student-facing voice surface.
 - Production deploy.
@@ -123,3 +139,4 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - 2026-09-25 · routine (tighten, inbox fold) · B16 crisis recall bar set to >= 0.95 on the offline golden set · qa/feedback-inbox.md 04:47:54 ai-engineer review of T-005.
 - 2026-09-25 · routine (clarify, no weakening) · B15 now cites the D-015/D-016/D-017 fencing and states that a surviving write in the fence gap is a violation (ISS-t-017-rev-1) and that the fence sweep must not crash its host (ISS-t-017-rev-2) · sweep shard 1 found B15 stale against D-016/D-017.
 - 2026-09-25 · routine (tighten, inbox fold) · B6 gains provider independence (2 real providers + a no-AI `rules` provider that completes the P1 flow, with an e2e in rules mode); new B17 persona usability (Jaipur counsellor + school counsellor walks; a high persona finding blocks PASS) · qa/feedback-inbox.md entries 5-6, the lead's counselor-portal review relayed by Umesh.
+- 2026-09-26 · routine (tighten, inbox fold) · new B18 context relevance (suppress irrelevant and already-known items, e.g. no visa for India-only; outcome-tested) and new B19 scenario matrix (at least 50 persona-tagged rows, run on every UI check and release, an unrun row = SKIP) · the same counselor-portal review transcript Umesh shared on 2026-09-25 (lead: "irrelevant cheezein dikhni hi nahi chahiye", "~50 cases ki sheet"). These were planned in session ef98f055 and never applied. B17 persona-list changes wait on Umesh's answer.
