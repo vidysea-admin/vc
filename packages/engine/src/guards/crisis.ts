@@ -119,6 +119,105 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /आत्महत्या/, // "aatmahatya" — suicide
   /खुद\s+को\s+खत्म/, // "khud ko khatam" — end oneself
   /जीना\s+नहीं\s+चाहत[ाी]/, // "jeena nahi chahta/chahti" — don't want to live
+
+  // --- T-033 / ISS-t-005c-c0-1: indirect suicidal-ideation WARNING SIGNS -------------------------
+  // The classic warning-sign statements a keyword list used to miss entirely ("everyone would be
+  // better off without me", "I won't be around", "giving away my things", "saying goodbye") — the
+  // families named in the issue, in English, romanised Hinglish and Devanagari. All crisis-level: see
+  // the classification table below. Recall-only (D-020): several of these share words with ordinary
+  // study-abroad talk ("I won't be around next week", "say goodbye to my friends before I fly",
+  // "don't want to live in a hostel"); those false alarms are the accepted safe direction, measured
+  // in the crisis eval set (category accepted_residual), never suppressed. Every pattern is star-
+  // height 1 (no quantified group, no {n,m}, no \w run) so matching stays linear.
+  // English — burden / better off without me / no one would miss me
+  /\b(i\s+am|i'?m|feel\s+like|i'?ve\s+become|i\s+have\s+become|i\s+became)\s+(such\s+|just\s+|only\s+|nothing\s+but\s+)?a\s+(huge\s+|big\s+|total\s+)?burden\b/i,
+  /\bbeing\s+(such\s+)?a\s+burden\b/i,
+  /\bburden\s+(to|on|for)\s+(everyone|everybody|my\s+family|my\s+parents|them\s+all|you\s+all|all\s+of\s+you|the\s+world|others)\b/i,
+  /\b(better|happier|easier|fine)\s+off\s+without\s+me\b/i,
+  /\b(be|is|are|been)\s+(better|happier|easier|fine)\s+without\s+me\b/i,
+  /\b(no\s*one|nobody)(\s+would|\s+will|'d|'ll)\s+(even\s+)?(miss|notice)\s+me\b/i,
+  /\bif\s+i\s+(died|disappeared|vanished|was\s+gone|were\s+gone|was\s+dead|were\s+dead|wasn'?t\s+(here|around|alive)|weren'?t\s+(here|around|alive)|was\s+not\s+(here|around|alive))\b/i,
+  /\bif\s+i'?m\s+(gone|dead|not\s+here|not\s+around|no\s+longer\s+(here|around))\b/i,
+  // English — won't be around
+  /\b(won'?t|will\s+not|not\s+going\s+to|not\s+gonna)\s+be\s+(around|here|alive)\b/i,
+  /\b(won'?t|will\s+not|never)\s+have\s+to\s+(deal\s+with|worry\s+about|see|put\s+up\s+with)\s+me\b/i,
+  /\b(i'?ll|i\s+will)\s+be\s+gone\b/i,
+  // English — no reason to live
+  /\b(no|any|lost\s+(my|the|all)|losing\s+(my|the))\s+(reasons?|will|purpose)\s+to\s+(live|go\s+on|keep\s+living|stay\s+alive|keep\s+going|carry\s+on|be\s+alive|exist)\b/i,
+  /\b(nothing|nobody|no\s*one|not\s+much|what\s+do\s+i\s+have|what\s+is\s+there|what'?s\s+there)\s+(left\s+)?to\s+live\s+for\b/i,
+  /\b(not|isn'?t|wasn'?t|no\s+longer)\s+worth\s+living\b/i,
+  /\bcan'?t\s+live\s+(like\s+this|anymore|any\s+more|with\s+myself|this\s+life)\b/i,
+  /\b(don'?t|do\s+not)\s+(want\s+to|wanna)\s+(live|exist|be\s+alive|be\s+here|wake\s+up|go\s+on|be\s+around)\b/i,
+  // English — want to disappear / sleep forever / wish I was dead
+  /\b(want|wanna|wanted|need|needed)\s+(to\s+)?(just\s+)?(disappear|vanish|stop\s+existing|not\s+exist|cease\s+to\s+exist|be\s+dead|not\s+be\s+alive|not\s+be\s+here|not\s+be\s+around|be\s+gone|never\s+wake\s+up|not\s+wake\s+up)\b/i,
+  /\b(want|wanna|wish|going|gonna)\s+(to\s+)?(just\s+)?sleep\s+forever\b/i,
+  /\bsleep\s+and\s+(never|not)\s+wake\s+up\b/i,
+  /\b(hope|pray|wish|want\s+to|wanna)\s+(i\s+)?(never|don'?t|do\s+not|won'?t|will\s+not|wouldn'?t)\s+wake\s+up\b/i,
+  /\b(disappear|vanish)\s+(forever|for\s+good|from\s+(this|the)\s+world|from\s+everyone)\b/i,
+  /\bwish\s+i\s+(was|were)\s+(dead|never\s+born|gone)\b/i,
+  /\bwish\s+i\s+(wasn'?t|weren'?t|was\s+not|were\s+not|didn'?t|did\s+not)\s+(alive|born|here|around|exist)\b/i,
+  /\bwish\s+i(\s+could|\s+would|'d|\s+had|\s+can)\s+(just\s+)?(die|disappear|vanish|stop\s+existing|sleep\s+forever|never\s+wake\s+up|not\s+wake\s+up|never\s+(have\s+)?been\s+born|not\s+exist|never\s+existed)\b/i,
+  // English — giving things away
+  /\b(giving|gave|give|given|gives)\s+away\s+(all\s+(of\s+)?my|everything|my\s+(things|stuff|belongings|possessions|favou?rite|prized|valuables))\b/i,
+  /\b(giving|gave|give|given|gives)\s+(all\s+(of\s+)?)?my\s+(things|stuff|belongings|possessions)\s+away\b/i,
+  // English — saying goodbye
+  /\b(want|wanted|wanna|need|needed|came|here|just|trying|going)\s+to\s+say\s+(goodbye|good\s*bye|bye|my\s+goodbyes)\b/i,
+  /\b(final|last)\s+(goodbye|good\s*bye|goodbyes)\b/i,
+  /\b(this\s+is|it'?s|it\s+is)\s+goodbye\b/i,
+  /\b(good\s*bye|bye)\s+(forever|for\s+ever|for\s+good|cruel\s+world)\b/i,
+  /\bgood\s*bye\s+(world|everyone|everybody|all)\b/i,
+  /\b(won'?t|will\s+not|never)\s+(hear\s+from|see|talk\s+to)\s+me\s+(again|anymore|any\s+more)\b/i,
+  /\blast\s+time\s+(you'?ll|you\s+will|anyone\s+will|you\s+ever)\s+(hear\s+from|see|talk\s+to)\s+me\b/i,
+  // English — explicit / method language the ported base lacked
+  /\b(take|taking|took)\s+my\s+(own\s+)?life\b/i,
+  /\b(rather\s+(be\s+dead|die|not\s+exist|not\s+be\s+alive)|better\s+off\s+dead)\b/i,
+  /\b(hang|hanging|hanged|shoot|shooting|drown|drowning|poison|poisoning|stab|stabbing|strangle|strangling|suffocate|suffocating|overdose|overdosing|starve|starving)\s+myself\b/i,
+  /\bunaliv(e|ed|ing)\b/i,
+  /\b(slit|slitting|slash|slashing)\s+my\s+(wrists?|throat)\b/i,
+  /\b(jump|jumping)\s+(off|from)\s+(a|the|my)\s+(bridge|building|roof|terrace|balcony|cliff|tower)\b/i,
+  /\b(jump|jumping)\s+in\s+front\s+of\s+(a|the)\s+(train|bus|truck|car|metro)\b/i,
+  // Hinglish (romanised) — burden, better off without me, won't be around
+  /\b(bojh|bojha|boj|burden)\s+(hoon|hun|hu|ban\s+(gaya|gayi|gya|gyi|chuka|chuki))\b/i,
+  /\bmere\s+(bina|baghair|bagair|bager)\s+(sab\s+|sabhi\s+|log\s+|sab\s+log\s+|ghar\s*wale\s+|family\s+|mummy\s+papa\s+)?(khush|better|theek|thik|behtar|zyada\s+khush|jyada\s+khush)\b/i,
+  /\b(main|mai)\s+(nahi|nahin|na)\s+(rahunga|rahungi|rahoonga|rahoongi|bachunga|bachungi)\b/i,
+  /\b(nahi|nahin|na)\s+(bachunga|bachungi|bachoonga|bachoongi)\b/i,
+  /\b(zyada|jyada|jaada|jada)\s+din\s+(nahi|nahin|na)\s+(rahunga|rahungi|bachunga|bachungi|jiunga|jiungi|jeeunga|jeeungi)\b/i,
+  /\bmere\s+(marne\s+ke\s+baad|na\s+(rehne|rahne)\s+(se|par|pe|ke\s+baad))\b/i,
+  // Hinglish — no reason to live, disappear / sleep forever, wish I was dead
+  /\bjeene?\s+ki\s+(koi\s+)?(wajah|vajah|wajeh|reason)\s+(nahi|nahin|na|nai)\b/i,
+  /\bjeene?\s+ka\s+(koi\s+)?(matlab|maksad|maqsad|reason|point|faida|fayda)\s+(nahi|nahin|na|nai)\b/i,
+  /\b(kis|kiske)\s+(liye|lie)\s+(jeena|jiyu|jiyun|jiyoon|jiun|jeeun)\b/i,
+  /\b(gayab|gaayab|gaib|ghayab)\s+ho\s+(jana|jaana|jaun|jaaun|jau|jaau|jaoon|jaunga|jaungi)\b/i,
+  /\bhamesha\s+ke\s+(liye|lie)\s+(so\s+(jaun|jaau|jau|jaana|jana|jaunga|jaungi)|sona|chala\s+(jaun|jaunga)|chali\s+(jaun|jaungi))\b/i,
+  /\bkabhi\s+(na|nahi|nahin)\s+(uthun|uthu|uthoon|uthna|jaagun|jagun|jaagu|jagu)\b/i,
+  /\bmar\s+(jaun|jaaun|jau|jaau|jaoon|jaaoon)\b/i,
+  /\b(kaash|kash)\s+(main|mai)\s+(paida|peda)\s+(hi\s+)?(na|nahi|nahin)\s+(hota|hoti|hua|hui)\b/i,
+  /\b(kaash|kash)\s+(main|mai)\s+mar\s+(gaya|gayi|chuka|chuki|jaata|jaati)\b/i,
+  // Hinglish — giving things away, saying goodbye
+  /\b(apna|apni|apne|mera|meri|mere)\s+(saara\s+|saari\s+|saare\s+|sara\s+|sari\s+|sare\s+|sab\s+)?(saman|samaan|cheezein|cheezen|chizein|chizen|cheeze|chize|cheezon\s+ko|chizon\s+ko)\s+(sab\s*ko\s+|logon\s+ko\s+|doston\s+ko\s+|dosto\s+ko\s+)?(de|dena|baant|bant)\b/i,
+  /\b(sab\s*ko|sabhi\s+ko|aap\s+sab\s*ko|tum\s+sab\s*ko|aapko|tumko|tumhe|tumhein)\s+(alvida|alwida|goodbye|good\s*bye)\b/i,
+  /\b(alvida|alwida)\s+(dosto|doston|sab|sabko|duniya|zindagi|hamesha|forever)\b/i,
+  /\b(aakhri|akhri|aakhiri|aakhari|akhiri)\s+(baar|bar)\s+(baat\s+kar|mil)\s+(raha|rahi|rahe)\b/i,
+  // Devanagari (no \b, see the note above). A nukta is written as an optional DECOMPOSED combining
+  // nukta (U+093C) because NFKC leaves every nukta letter decomposed — "ख़ुश" typed with a precomposed
+  // U+0959 reaches the patterns as ख + ़ + ु + श. Pinned by the NFKC-stability test.
+  /बोझ\s+(हू[ंँ]?|बन\s+(गया|गई|गयी|चुका|चुकी))/, // "bojh hoon / ban gaya" — I am a burden
+  /मेरे\s+(बिना|बग़?ैर)\s+(सब\s+|सभी\s+|लोग\s+|घरवाले\s+|परिवार\s+)?(ख़?ुश|बेहतर|ठीक)/, // better off without me
+  /मैं\s+(नहीं|ना|न)\s+(रहू[ंँ]?ग[ाी]|बचू[ंँ]?ग[ाी])/, // "main nahi rahunga" — I won't be around
+  /(नहीं|ना|न)\s+बचू[ंँ]?ग[ाी]/, // "nahi bachunga" — I won't survive
+  /दिन\s+(नहीं|ना|न)\s+(रहू[ंँ]?ग[ाी]|बचू[ंँ]?ग[ाी]|जिऊ[ंँ]?ग[ाी]|जीऊ[ंँ]?ग[ाी])/, // "(zyada) din nahi rahunga"
+  /मेरे\s+मरने\s+के\s+बाद/, // "mere marne ke baad" — after I die
+  /जीने\s+(की|का)\s+(कोई\s+)?(वज़?ह|कारण|मतलब|मक़?सद|मन|दिल|फ़?ायदा)\s+(नहीं|ना|न)/, // no reason / no wish to live
+  /(किस|किसके)\s+(लिए|लिये)\s+(जीना|जियू[ंँ]?|जिऊ[ंँ]?)/, // "kis liye jeena" — what to live for
+  /ग़?ायब\s+हो\s+(जाना|जा[उऊ])/, // "gayab ho jana / jaun" — disappear
+  /हमेशा\s+के\s+(लिए|लिये)\s+(सो\s+जा|सोना|चला\s+जा|चली\s+जा)/, // "hamesha ke liye so jaun" — sleep forever
+  /कभी\s+(नहीं|ना|न)\s+(उठू[ंँ]?|जागू[ंँ]?)/, // "kabhi na uthun" — never wake up
+  /मर\s+(जा[उऊ]|जाना\s+(है|चाहत[ाी]))/, // "mar jaun / jaunga / jaana hai" — (wish to) die
+  /काश\s+(मैं|में)\s+(पैदा\s+(ही\s+)?(नहीं|ना|न)\s+(होता|होती|हुआ|हुई)|मर\s+(गया|गई|जाता|जाती))/, // wish I was never born / dead
+  /(अपनी|अपना|अपने|मेरी|मेरा|मेरे)\s+(सारी\s+|सारा\s+|सारे\s+|सब\s+)?(चीज़?ें|सामान)\s+(सबको\s+|सब\s+को\s+|लोगों\s+को\s+|दोस्तों\s+को\s+)?(दे|बा[ंँ]ट)/, // giving my things away
+  /(सबको|सब\s+को|आप\s+सबको|तुम\s+सबको|आपको|तुम्हें|तुमको)\s+अलविदा/, // "sabko alvida" — goodbye everyone
+  /अलविदा\s+(दोस्तों|दोस्तो|दुनिया|सबको|हमेशा)/, // "alvida duniya" — goodbye world
+  /आख़?िरी\s+बार\s+(बात\s+कर|मिल)\s+(रहा|रही|रहे)/, // "aakhri baar baat kar raha" — talking for the last time
 ];
 
 // New in this engine (not in ikigai's source) — softer distress language: stressed/hopeless/
@@ -155,6 +254,18 @@ export const CONCERN_PATTERNS: readonly RegExp[] = [
 // | खुद को खत्म (khud ko khatam)                  | Devanagari | crisis  | explicit "end myself", mirrors existing Hinglish pattern |
 // | जीना नहीं चाहता/चाहती (jeena nahi chahta/chahti) | Devanagari | crisis  | explicit "don't want to live"                |
 // | बहुत टेंशन (bahut tension)                    | Devanagari | concern | academic-stress language, mirrors Hinglish "bahut tension" — no death assertion |
+//
+// T-033 (ISS-t-005c-c0-1) warning-sign families — every one is CRISIS, in all three scripts:
+//
+// | family                                      | examples                                         | level  | why |
+// |---------------------------------------------|--------------------------------------------------|--------|-----|
+// | burden / better off without me              | "I'm a burden", "mere bina sab khush", "बोझ हूं"   | crisis | recognised suicide warning sign; labelled crisis in the golden set |
+// | won't be around / after I'm gone            | "I won't be around", "main nahi rahunga"          | crisis | veiled statement of intent |
+// | no reason to live                           | "no reason to live", "jeene ki wajah nahi"        | crisis | a wish not to live, stated indirectly |
+// | want to disappear / sleep forever           | "want to sleep forever", "gayab ho jana"          | crisis | a wish for death in euphemism |
+// | giving things away / saying goodbye         | "giving away my things", "sabko alvida"           | crisis | classic preparatory behaviour |
+// Filing any of these as concern would be the UNSAFE direction: B20 lets concern turns continue to
+// generation, so a veiled goodbye would get a chatty reply instead of the escalation card.
 
 // T-005c cycle 1 (ISS-t-005c-rev-1, critical): the separator-free twin of EVERY pattern above,
 // DERIVED from the pattern list itself — never a hand-kept allowlist. Cycle 0 matched the fully-
@@ -178,18 +289,29 @@ export const CONCERN_PATTERNS: readonly RegExp[] = [
  * Drops every separator-tolerance construct from a pattern's source: `\s` (with any `+ * ?`
  * quantifier), a literal space or apostrophe (with its quantifier), and `\b`. Inside a character
  * class nothing is touched. Escapes other than `\s`/`\b` are copied verbatim.
+ *
+ * T-033 (ISS-t-005c-rev-2): an unescaped `{` outside a character class is a `{n,m}` quantifier this
+ * derivation cannot handle (dropping `\s{2,4}` would leave a dangling `{2,4}` quantifying the
+ * previous atom, silently changing what the twin matches), so it THROWS — the same contract as the
+ * test suite's `expandPattern`, so a pattern author finds out at module load, not from a missed
+ * signal. A lazy `?` after a dropped separator quantifier (`\s+?`) is consumed with it.
  */
 export function squeezePatternSource(source: string): string {
   let out = "";
   let inClass = false;
   const isQuantifier = (ch: string | undefined): boolean => ch === "+" || ch === "*" || ch === "?";
+  // Index just past a separator's quantifier, including a lazy `?` after `+`/`*`/`?`.
+  const skipQuantifier = (at: number): number => {
+    if (!isQuantifier(source[at])) return at;
+    return source[at + 1] === "?" ? at + 2 : at + 1;
+  };
   for (let i = 0; i < source.length; i++) {
     const ch = source[i];
     if (ch === "\\") {
       const next = source[i + 1];
       if (!inClass && (next === "s" || next === "b")) {
         i++;
-        if (next === "s" && isQuantifier(source[i + 1])) i++;
+        if (next === "s") i = skipQuantifier(i + 1) - 1;
         continue;
       }
       out += ch + (next ?? "");
@@ -206,8 +328,11 @@ export function squeezePatternSource(source: string): string {
       out += ch;
       continue;
     }
+    if (ch === "{") {
+      throw new Error(`squeezePatternSource: unsupported {n,m} quantifier in /${source}/`);
+    }
     if (ch === " " || ch === "'") {
-      if (isQuantifier(source[i + 1])) i++;
+      i = skipQuantifier(i + 1) - 1;
       continue;
     }
     out += ch;
@@ -321,7 +446,41 @@ const HOMOGLYPHS: Readonly<Record<string, string>> = {
 const HOMOGLYPH_CHAR = new RegExp(`[${Object.keys(HOMOGLYPHS).join("")}]`, "gu");
 
 /**
- * Step 1 (recall, not suppression): NFKC-normalise (compatibility folding: fullwidth Latin, ligatures,
+ * T-033 (found while writing the brief's zalgo/long-input test): combining marks stacked on a Latin
+ * letter ("k̶i̶l̶l̶" with U+0336 strikethrough, zalgo "b̖̕e̖t̖t̖e̖r̖") were kept as \p{M} word characters,
+ * so "k̶i̶l̶l̶ myself" never contained "kill" and evaded every pattern. Every
+ * combining mark OUTSIDE a Devanagari run is now deleted — a Devanagari matra, virama, nukta or
+ * anusvara is part of the word and is kept (the Deva script run is matched as a whole and copied
+ * back unchanged). The text is stripped, decomposed (NFKD, so "é" precomposed becomes e + U+0301),
+ * stripped again, then recomposed by the NFKC step in `normalise()`. A marked Latin/Cyrillic/Greek
+ * letter therefore folds to its base letter ("é" -> "e", which only ADDS matches: recall-only).
+ * Linear: one alternation of a script-run and a single mark, no nested quantifier.
+ */
+/**
+ * T-033 (found by the linear-time probe; pre-existing on main): `String.prototype.normalize` puts a
+ * run of combining marks into canonical order with a QUADRATIC sort when their combining classes
+ * alternate (Devanagari nukta ccc 7 / virama ccc 9: the base guard took 203ms at 25k chars, 786ms at
+ * 50k, 3187ms at 100k). No real word carries more than a handful of marks on one letter, so every
+ * run longer than MAX_MARK_RUN is cut to its first MAX_MARK_RUN marks BEFORE any normalisation.
+ * Recall-safe: a letter is never removed, only surplus marks stacked on one letter, so no word a
+ * pattern could match is lost. Linear: a bounded-minimum run of one class, matched greedily.
+ */
+const MAX_MARK_RUN = 32;
+const LONG_MARK_RUN = /\p{M}{33,}/gu;
+function capMarkRun(run: string): string {
+  return Array.from(run).slice(0, MAX_MARK_RUN).join("");
+}
+
+const DEVANAGARI_RUN_OR_MARK =/\p{Script=Devanagari}+|\p{M}/gu;
+const IS_DEVANAGARI = /^\p{Script=Devanagari}/u;
+function stripForeignMarks(text: string): string {
+  // The first alternative wins at any Devanagari character, so a lone-mark match is never Devanagari.
+  return text.replace(DEVANAGARI_RUN_OR_MARK, (run) => (IS_DEVANAGARI.test(run) ? run : ""));
+}
+
+/**
+ * Step 1 (recall, not suppression): strip combining marks outside Devanagari (`stripForeignMarks`),
+ * NFKC-normalise (compatibility folding: fullwidth Latin, ligatures,
  * etc. become plain ASCII — ISS-t-005c-c0-3; Devanagari has no compatibility forms the patterns rely
  * on, so its matching is unchanged — see the Devanagari tests), delete invisible format characters,
  * lowercase (a safe no-op on Devanagari, which has no case), fold Cyrillic/Greek homoglyphs to Latin
@@ -333,7 +492,9 @@ const HOMOGLYPH_CHAR = new RegExp(`[${Object.keys(HOMOGLYPHS).join("")}]`, "gu")
  * never treated as a boundary a pattern cannot cross (D-020).
  */
 function normalise(text: string): string {
-  return text
+  const capped = text.replace(INVISIBLE_FORMAT_CHARS, "").replace(LONG_MARK_RUN, capMarkRun);
+  const stripped = stripForeignMarks(stripForeignMarks(capped).normalize("NFKD"));
+  return stripped
     .normalize("NFKC")
     .replace(INVISIBLE_FORMAT_CHARS, "")
     .toLowerCase()

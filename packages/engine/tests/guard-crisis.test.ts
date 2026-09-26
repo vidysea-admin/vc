@@ -526,3 +526,275 @@ for (const text of CYCLE1_ACCEPTED_RESIDUALS) {
     assert.equal(crisisGuard(text).level, "crisis");
   });
 }
+
+// -------------------------------------------------------------------------------------------
+// T-033 / ISS-t-005c-c0-1 (high): indirect suicidal-ideation WARNING SIGNS. The five checker
+// repros (formerly `known_gap` rows owned by T-012) plus the named families — burden / "better
+// off without me", "won't be around", "no reason to live", "want to disappear / sleep forever",
+// giving things away, saying goodbye, wishing to be dead — in English, romanised Hinglish and
+// Devanagari. All at level 'crisis' (see the classification table in crisis.ts). Recall-only
+// (D-020): false alarms these patterns open are pinned below as documented expected flags.
+// -------------------------------------------------------------------------------------------
+
+const T033_WARNING_SIGNS: ReadonlyArray<readonly [string, string]> = [
+  // The five ISS-t-005c-c0-1 repros, verbatim.
+  ["en", "everyone would be better off without me"],
+  ["en", "I won't be around next month, just so you know"],
+  ["en", "I won't be here much longer, honestly"],
+  ["en", "I've been giving away all my things lately"],
+  ["en", "I just wanted to say goodbye to you now"],
+  // English — burden / better off without me
+  ["en", "I feel like such a burden to my family"],
+  ["en", "I'm just a burden to everyone"],
+  ["en", "I'm so tired of being a burden"],
+  ["en", "they'd all be happier without me"],
+  ["en", "the world is better without me in it"],
+  ["en", "no one would miss me if I left"],
+  ["en", "nobody would even notice if I was gone"],
+  ["en", "would anyone care if I died"],
+  // English — won't be around
+  ["en", "I'm not going to be around much longer"],
+  ["en", "soon you won't have to deal with me anymore"],
+  ["en", "don't worry, I'll be gone soon"],
+  // English — no reason to live
+  ["en", "there's no reason to live anymore"],
+  ["en", "I've lost my will to live"],
+  ["en", "I have nothing left to live for"],
+  ["en", "life isn't worth living"],
+  ["en", "I can't live like this anymore"],
+  ["en", "I don't want to be alive anymore"],
+  ["en", "I dont wanna exist"],
+  // English — disappear / sleep forever / wish I was dead
+  ["en", "I just want to disappear"],
+  ["en", "sometimes I wanna vanish and never come back"],
+  ["en", "I want to sleep forever"],
+  ["en", "I wish I could sleep forever"],
+  ["en", "I want to go to sleep and never wake up"],
+  ["en", "I hope I don't wake up tomorrow"],
+  ["en", "I wish I was dead"],
+  ["en", "I wish I'd never been born"],
+  ["en", "I wish I didn't exist"],
+  // English — giving things away / saying goodbye
+  ["en", "I gave away my stuff to my cousins this week"],
+  ["en", "I'm giving my things away, I won't need them"],
+  ["en", "this is goodbye, thanks for trying"],
+  ["en", "consider this my final goodbye"],
+  ["en", "goodbye forever"],
+  ["en", "you won't hear from me again after tonight"],
+  ["en", "this is the last time you'll hear from me"],
+  // English — explicit / method language missing from the ported base
+  ["en", "I've been thinking about taking my own life"],
+  ["en", "I'd rather be dead than go back there"],
+  ["en", "I thought about hanging myself"],
+  ["en", "I want to unalive myself"],
+  ["en", "I keep thinking of jumping off the roof"],
+  // Hinglish (romanised)
+  ["hi-Latn", "main sab pe bojh hoon"],
+  ["hi-Latn", "main sabke liye bojh ban gaya hoon"],
+  ["hi-Latn", "mere bina sab khush rahenge"],
+  ["hi-Latn", "main nahi rahungi zyada time"],
+  ["hi-Latn", "main zyada din nahi rahunga"],
+  ["hi-Latn", "jeene ki koi wajah nahi hai"],
+  ["hi-Latn", "jeene ka koi matlab nahi"],
+  ["hi-Latn", "kahin gayab ho jana chahta hoon"],
+  ["hi-Latn", "hamesha ke liye so jaun bas"],
+  ["hi-Latn", "kaash main paida hi na hoti"],
+  ["hi-Latn", "kaash main mar jaun"],
+  ["hi-Latn", "apni saari cheezein doston ko de di maine"],
+  ["hi-Latn", "sabko alvida, ab nahi milenge"],
+  ["hi-Latn", "aakhri baar baat kar raha hoon tumse"],
+  // Devanagari
+  ["hi-Deva", "मैं सब पर बोझ हूं"],
+  ["hi-Deva", "मेरे बिना सब खुश रहेंगे"],
+  ["hi-Deva", "मैं अब ज्यादा दिन नहीं रहूंगा"],
+  ["hi-Deva", "जीने की कोई वजह नहीं है"],
+  ["hi-Deva", "जीने का मन नहीं करता"],
+  ["hi-Deva", "बस गायब हो जाना चाहता हूं"],
+  ["hi-Deva", "हमेशा के लिए सो जाना चाहती हूं"],
+  ["hi-Deva", "काश मैं पैदा ही न होता"],
+  ["hi-Deva", "मैंने अपनी सारी चीजें दोस्तों को दे दी हैं"],
+  ["hi-Deva", "सबको अलविदा, अब नहीं मिलेंगे"],
+  ["hi-Deva", "आखिरी बार बात कर रहा हूं"],
+];
+
+for (const [lang, text] of T033_WARNING_SIGNS) {
+  test(`T-033 warning sign (${lang}): ${JSON.stringify(text)} -> crisis`, () => {
+    assert.equal(crisisGuard(text).level, "crisis", JSON.stringify(text));
+  });
+}
+
+// Nukta spellings (ज़, ख़, ग़, फ़): a student may type a precomposed nukta letter (U+0958..U+095F) or
+// the base letter + combining nukta U+093C. NFKC always leaves them decomposed, so the patterns carry
+// an optional decomposed nukta — both spellings, and the nukta-less one, must flag.
+test("T-033: Devanagari nukta spellings (precomposed, decomposed, none) all flag crisis", () => {
+  for (const text of [
+    "मैंने अपनी सारी चीज़ें दे दीं", // precomposed ज़ (U+095B)
+    "मैंने अपनी सारी चीज़ें दे दीं", // ज + combining nukta
+    "मैंने अपनी सारी चीजें दे दीं", // no nukta
+    "बस ग़ायब हो जाना चाहता हूं", // precomposed ग़ (U+095A)
+    "मेरे बिना सब ख़ुश रहेंगे", // precomposed ख़ (U+0959)
+    "आख़िरी बार बात कर रही हूं", // precomposed ख़ in आख़िरी
+  ]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+});
+
+// A pattern literal that NFKC would rewrite (a precomposed nukta letter, a fullwidth form) can never
+// match, because the input is NFKC-normalised before matching. Pin every pattern source as NFKC-stable.
+test("T-033: every pattern source is NFKC-stable (no literal the normaliser would rewrite)", () => {
+  const unstable = [...CRISIS_PATTERNS, ...CONCERN_PATTERNS]
+    .map((pattern) => pattern.source)
+    .filter((source) => source !== source.normalize("NFKC"));
+  assert.deepEqual(unstable, []);
+});
+
+// Hard negatives: idioms and near-misses of the new families that must stay 'none' (nothing in
+// them asserts a warning sign, and no pattern or derived squeezed twin collides with them).
+const T033_HARD_NEGATIVES: ReadonlyArray<string> = [
+  "I'm dying to go to Canada for my masters",
+  "this exam is killing me",
+  "mar gaya yaar hasi se",
+  "hasi se pet dard ho gaya, mar gaye hum toh",
+  "My phone battery is dying, can we continue later?",
+  "The traffic near the coaching centre is killing me",
+  "I'm going to miss my friends a lot when I leave",
+  "Bye! See you in the next session",
+  "The rash should disappear in a week, the doctor said",
+  "No one will notice the typo, don't worry",
+  "sab log mere bina movie dekhne chale gaye",
+  "उसने अपनी किताबें जूनियर्स को दे दीं",
+  "मैं कल कॉलेज नहीं आऊंगा",
+  "Is there any scholarship for students who want to live on campus?",
+];
+
+for (const text of T033_HARD_NEGATIVES) {
+  test(`T-033 hard negative stays 'none': ${JSON.stringify(text)}`, () => {
+    assert.equal(crisisGuard(text).level, "none", JSON.stringify(text));
+  });
+}
+
+// D-020 accepted residuals opened by the T-033 patterns: ordinary study-abroad phrasing that shares
+// a warning sign's words. Documented expected flags, measured in the eval set's false-positive line
+// (qa/evals/crisis-eval.jsonl, category accepted_residual), never suppressed. T-012's classifier may
+// annotate them "likely benign"; it may never hide them.
+const T033_ACCEPTED_RESIDUALS: ReadonlyArray<string> = [
+  "I won't be around next week, it's my cousin's wedding in Jaipur",
+  "I want to say goodbye to my friends before I fly to Toronto",
+  "I don't want to live in a hostel in first year",
+  "I feel like a huge burden has been lifted off my shoulders",
+  "The seats will be gone by March, so apply early", // squeezed: "seatswillbegone" contains "illbegone"
+  "My wifi died in the middle of the mock test", // squeezed: "wifidied" contains "ifidied"
+];
+
+for (const text of T033_ACCEPTED_RESIDUALS) {
+  test(`D-020 accepted residual (T-033 warning-sign patterns): ${JSON.stringify(text)} -> crisis`, () => {
+    assert.equal(crisisGuard(text).level, "crisis", JSON.stringify(text));
+  });
+}
+
+// -------------------------------------------------------------------------------------------
+// T-033 — linear-time matching. Every pattern is star-height 1: no `+`/`*`-quantified group and no
+// `{n,m}` quantifier, so a backtracking engine does bounded work per start position (the plain view
+// has single spaces only, and the squeezed twins have no separators at all). Checked statically, then
+// measured on long adversarial input built from every pattern's own near-miss prefixes.
+// -------------------------------------------------------------------------------------------
+
+test("T-033: no pattern has a quantified group or a {n,m} quantifier (star height 1)", () => {
+  const offenders = [...CRISIS_PATTERNS, ...CONCERN_PATTERNS]
+    .map((pattern) => pattern.source)
+    .filter((source) => /\)[+*{]/.test(source) || /(^|[^\\])\{/.test(source));
+  assert.deepEqual(offenders, []);
+});
+
+/** Near-miss prefixes of every pattern's examples (last grapheme dropped), plus long single-letter runs. */
+function adversarialInput(targetLength: number): string {
+  const pieces: string[] = [];
+  for (const pattern of [...CRISIS_PATTERNS, ...CONCERN_PATTERNS]) {
+    for (const example of expandPattern(pattern.source, 4)) {
+      const parts = graphemes(example.replace(/ /g, "\u0001"));
+      pieces.push(parts.slice(0, -1).join("").replace(/\u0001/g, " "));
+    }
+  }
+  pieces.push("a".repeat(200), "ja" + "a".repeat(200), "man" + "n".repeat(200), "wish i ".repeat(20));
+  const unit = pieces.join(" ");
+  let out = "";
+  while (out.length < targetLength) out += unit + " ";
+  return out.slice(0, targetLength);
+}
+
+test("T-033: long adversarial input (50k chars of near-miss prefixes) runs well under budget", () => {
+  const input = adversarialInput(50000);
+  const elapsed = bestOf(input, 3);
+  assert.ok(elapsed < 3000, `50k-char adversarial input took ${elapsed.toFixed(2)}ms (budget 3000ms)`);
+});
+
+test("T-033: doubling the adversarial input roughly doubles the time (linear, not quadratic)", () => {
+  const smallMs = bestOf(adversarialInput(50000), 5);
+  const largeMs = bestOf(adversarialInput(100000), 5);
+  const ratio = largeMs / Math.max(smallMs, 0.01);
+  console.log(`adversarial timing: 50k=${smallMs.toFixed(2)}ms, 100k=${largeMs.toFixed(2)}ms, ratio=${ratio.toFixed(2)}`);
+  assert.ok(ratio < 3.5, `expected roughly linear scaling (ratio < 3.5), got ${ratio.toFixed(2)}`);
+});
+
+test("T-033: zalgo-stacked warning-sign phrase still flags, and 100k chars of it stays linear", () => {
+  const zalgoPhrase = [..."better off without me"].map((ch) => (ch === " " ? ch : ch + "̶́")).join("");
+  assert.equal(crisisGuard(zalgoPhrase).level, "crisis");
+  const long = (zalgoPhrase + " ").repeat(Math.ceil(100000 / (zalgoPhrase.length + 1)));
+  const elapsed = bestOf(long, 3);
+  assert.ok(elapsed < 3000, `100k-char zalgo warning-sign input took ${elapsed.toFixed(2)}ms (budget 3000ms)`);
+});
+
+// T-033 (found by the linear-time probe, pre-existing on main): a run of combining marks whose
+// canonical combining classes ALTERNATE (Devanagari nukta ccc 7 / virama ccc 9, or Latin acute 230 /
+// grave-below 220) makes String.prototype.normalize reorder them with a quadratic sort — measured on
+// the base guard: 25k chars 203ms, 50k 786ms, 100k 3187ms. The single-mark zalgo test above never
+// hit it because one repeated mark needs no reordering.
+function alternatingMarks(length: number, pair: string): string {
+  return "क" + pair.repeat(Math.floor((length - 1) / pair.length));
+}
+
+test("T-033: alternating-class combining-mark runs (Devanagari and Latin) stay linear", () => {
+  for (const [label, base, pair] of [
+    ["deva nukta/virama", "क", "़्"],
+    ["deva virama/nukta", "क", "़्"],
+    ["latin acute/grave-below", "e", "̖́"],
+  ] as const) {
+    const make = (n: number): string => base + alternatingMarks(n, pair).slice(1);
+    const smallMs = bestOf(make(50000), 3);
+    const largeMs = bestOf(make(100000), 3);
+    const ratio = largeMs / Math.max(smallMs, 0.01);
+    console.log(`${label}: 50k=${smallMs.toFixed(2)}ms, 100k=${largeMs.toFixed(2)}ms, ratio=${ratio.toFixed(2)}`);
+    assert.ok(largeMs < 3000, `${label}: 100k chars took ${largeMs.toFixed(2)}ms (budget 3000ms)`);
+    assert.ok(ratio < 3.5 || largeMs < 50, `${label}: expected roughly linear scaling, got ratio ${ratio.toFixed(2)}`);
+  }
+});
+
+test("T-033: a signal next to a huge combining-mark run still flags", () => {
+  assert.equal(crisisGuard("मैं आत्महत्या" + "़्".repeat(20000)).level, "crisis");
+  assert.equal(crisisGuard("k" + "̖́".repeat(20000) + "ill myself").level, "crisis");
+});
+
+// -------------------------------------------------------------------------------------------
+// T-033 / ISS-t-005c-rev-2 (medium): squeezePatternSource silently mis-derived a bounded quantifier
+// on a separator (`hi\s{2,4}bye` -> `hi{2,4}bye`, which misses "hibye"), and the compile-only test
+// passed vacuously. It now throws on any `{` quantifier outside a character class (mirroring the
+// test's own expandPattern), and a lazy `?` after a separator quantifier is consumed with it.
+// -------------------------------------------------------------------------------------------
+
+test("ISS-t-005c-rev-2: squeezePatternSource throws on an unhandled {n,m} quantifier", () => {
+  assert.throws(() => squeezePatternSource(String.raw`\bhi\s{2,4}bye\b`), /\{n,m\}/);
+  assert.throws(() => squeezePatternSource("hi {2}bye"), /\{n,m\}/);
+  assert.throws(() => squeezePatternSource("ki{2}ll"), /\{n,m\}/);
+});
+
+test("ISS-t-005c-rev-2: a brace inside a class or escaped is a literal, not a quantifier", () => {
+  assert.equal(squeezePatternSource("a[{]b"), "a[{]b");
+  assert.equal(squeezePatternSource(String.raw`a\{b`), String.raw`a\{b`);
+});
+
+test("ISS-t-005c-rev-2: a lazy separator quantifier is dropped whole, never re-attached to a letter", () => {
+  assert.equal(squeezePatternSource(String.raw`a\s+?b`), "ab");
+  assert.equal(squeezePatternSource(String.raw`a\s*?b`), "ab");
+  assert.equal(squeezePatternSource("a +?b"), "ab");
+  assert.ok(new RegExp(squeezePatternSource(String.raw`kill\s+?myself`)).test("killmyself"));
+});
