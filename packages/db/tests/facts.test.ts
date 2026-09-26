@@ -922,3 +922,93 @@ test("ISS-t-016-rev-1: RangeError on a deadline longer than FENCED_WRITER_DEADLI
   );
   assert.equal((await sessions.findOne({ _id: "sess-fence-5" }))?.summary, undefined);
 });
+
+// ---------------------------------------------------------------------------
+// T-013 (D-020, citation-guarantee-scope): a "reasoning" fact is linked to the value fact it
+// `explains` via a third edge in the SAME edges collection.
+// ---------------------------------------------------------------------------
+
+test("T-013: a reasoning fact approved ALONGSIDE the value fact it explains gets an 'explains' edge to it", async () => {
+  const { db, fakeDb } = setup();
+  const valueFact = citedFact({ key: "targetCountry", value: "UK" });
+  const reasoningFact = citedFact({
+    key: "why_targetCountry",
+    value: "sister lives there",
+    kind: "reasoning",
+    explains: "targetCountry",
+    needsReview: true,
+    source: { type: "transcript", quote: "because my sister lives there", turnId: "42" },
+  });
+  const decision: CounsellorDecision = { approve: true, edits: [valueFact, reasoningFact] };
+  const result = await applyApprovedDiff(db, emptyDiff(), decision, "session-1");
+  assert.equal(result.written.length, 2);
+
+  const edges = fakeDb.collection(COLLECTION_NAMES.edges).all() as Array<{
+    from: { kind: string; id: string };
+    to: { kind: string; id: string };
+    rel: string;
+  }>;
+  const explainsEdge = edges.find((e) => e.rel === "explains");
+  assert.ok(explainsEdge, "expected a fact->fact 'explains' edge");
+  const reasoningDoc = result.written.find((f) => f.key === "why_targetCountry")!;
+  const valueDoc = result.written.find((f) => f.key === "targetCountry")!;
+  assert.equal(explainsEdge?.from.kind, "fact");
+  assert.equal(explainsEdge?.from.id, reasoningDoc._id);
+  assert.equal(explainsEdge?.to.kind, "fact");
+  assert.equal(explainsEdge?.to.id, valueDoc._id);
+});
+
+test("T-013: a reasoning fact approved for a value fact ALREADY active in the DB (a different, earlier session) still gets linked", async () => {
+  const { db, fakeDb, factsColl } = setup();
+  const existing: FactDoc = { ...citedFact({ key: "targetCountry", value: "UK" }), _id: "existing-1", studentId: "student-1", active: true };
+  factsColl.seed(existing);
+
+  const reasoningFact = citedFact({
+    key: "why_targetCountry",
+    value: "sister lives there",
+    kind: "reasoning",
+    explains: "targetCountry",
+    needsReview: true,
+    source: { type: "transcript", quote: "because my sister lives there", turnId: "42" },
+  });
+  const decision: CounsellorDecision = { approve: true, edits: [reasoningFact] };
+  const result = await applyApprovedDiff(db, emptyDiff(), decision, "session-1");
+  assert.equal(result.written.length, 1);
+
+  const edges = fakeDb.collection(COLLECTION_NAMES.edges).all() as Array<{
+    from: { kind: string; id: string };
+    to: { kind: string; id: string };
+    rel: string;
+  }>;
+  const explainsEdge = edges.find((e) => e.rel === "explains");
+  assert.ok(explainsEdge, "expected the reasoning fact to link to the PRE-EXISTING active value fact");
+  assert.equal(explainsEdge?.to.id, "existing-1");
+});
+
+test("T-013: a reasoning fact whose `explains` key has no active fact anywhere is written unlinked (no 'explains' edge), never dropped", async () => {
+  const { db, fakeDb } = setup();
+  const reasoningFact = citedFact({
+    key: "why_targetCountry",
+    value: "sister lives there",
+    kind: "reasoning",
+    explains: "targetCountry",
+    needsReview: true,
+    source: { type: "transcript", quote: "because my sister lives there", turnId: "42" },
+  });
+  const decision: CounsellorDecision = { approve: true, edits: [reasoningFact] };
+  const result = await applyApprovedDiff(db, emptyDiff(), decision, "session-1");
+  assert.equal(result.written.length, 1, "the reasoning fact is still written even with nothing to link to");
+
+  const edges = fakeDb.collection(COLLECTION_NAMES.edges).all() as Array<{ rel: string }>;
+  assert.equal(edges.some((e) => e.rel === "explains"), false);
+  // The ordinary sourced_from + has edges are still recorded.
+  assert.equal(edges.filter((e) => e.rel === "sourced_from" || e.rel === "has").length, 2);
+});
+
+test("T-013: an ordinary 'value' fact never gets an 'explains' edge, even if it happens to carry `explains`-shaped data elsewhere", async () => {
+  const { db, fakeDb } = setup();
+  const decision: CounsellorDecision = { approve: true, edits: [citedFact()] };
+  await applyApprovedDiff(db, emptyDiff(), decision, "session-1");
+  const edges = fakeDb.collection(COLLECTION_NAMES.edges).all() as Array<{ rel: string }>;
+  assert.equal(edges.some((e) => e.rel === "explains"), false);
+});

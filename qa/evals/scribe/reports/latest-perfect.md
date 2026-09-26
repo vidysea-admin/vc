@@ -1,6 +1,6 @@
 # Scribe eval report
 
-Provider mode: `perfect` · Dataset: `D:\vc\.worktrees\t-009-scribe-eval\qa\evals\scribe\sessions.jsonl` · Sessions: 22 · Generated: 2026-09-25T03:05:01.866Z
+Provider mode: `perfect` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope\qa\evals\scribe\sessions.jsonl` · Sessions: 22 · Generated: 2026-09-26T03:00:06.751Z
 
 | Metric | Value |
 |---|---|
@@ -11,6 +11,7 @@ Provider mode: `perfect` · Dataset: `D:\vc\.worktrees\t-009-scribe-eval\qa\eval
 | Multi-turn-span recall | 3/3 (100.0%) |
 | Summary script-like leakage (B1) | 0/19 sessions |
 | Summary checklist coverage | 100.0% |
+| Kept facts: verified / needsReview / reasoning (T-013, D-020) | 24 kept — 10 verified, 14 needsReview, 0 reasoning · fabricated-verified: 0 |
 
 ## Citation classification (raw candidates)
 

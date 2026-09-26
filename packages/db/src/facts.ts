@@ -22,7 +22,9 @@
  * previous active fact for the same (studentId, key) via `validTo` instead of
  * deleting it (D-003: the knowledge graph is longitudinal), and records two
  * edges per written fact: fact -> its source ("sourced_from") and
- * student -> fact ("has").
+ * student -> fact ("has"). T-013 (D-020): a written fact with `kind: "reasoning"` also gets a third
+ * edge, fact -> the value fact it `explains` ("explains"), when that value fact was written in the
+ * same call or is currently active for the student.
  *
  * Failure modes this package guards against (ISS-019/ISS-020/ISS-026/
  * ISS-028, D-008/D-009 — no multi-document transactions on this server, so
@@ -441,6 +443,11 @@ export async function applyApprovedDiff(
     }
   };
 
+  // T-013 (D-020): a "reasoning" fact's key -> the value fact's own _id it explains, populated as
+  // each fact in THIS call is written, so a reasoning fact approved alongside the value fact it
+  // explains (the common case) can link to it without a second read.
+  const writtenIdByKey = new Map<string, string>();
+
   const writeAll = async (): Promise<ApplyApprovedDiffResult> => {
     const written: FactDoc[] = [];
     const supersededKeys: string[] = [];
@@ -523,12 +530,32 @@ export async function applyApprovedDiff(
         }
 
         written.push(doc);
+        writtenIdByKey.set(fact.key, doc._id);
 
         const to: EdgeRef = sessionId ? { kind: "session", id: sessionId } : sourceEdgeRef(fact.source);
         const factRef: EdgeRef = { kind: "fact", id: doc._id };
         const studentRef: EdgeRef = { kind: "student", id: diff.studentId };
         await linkTracked(factRef, to, "sourced_from");
         await linkTracked(studentRef, factRef, "has");
+
+        // T-013 (D-020): a "reasoning" fact is linked to the value fact it explains, in the SAME
+        // edges collection. Resolved first against facts written earlier in THIS call (both approved
+        // together, the common case), else against the student's currently active fact for that key.
+        // No match (the explained fact was never written, e.g. rejected by the counsellor) leaves the
+        // reasoning fact written but unlinked — it still carries its own citation and needsReview.
+        if (fact.kind === "reasoning" && fact.explains) {
+          const explainedId =
+            writtenIdByKey.get(fact.explains) ??
+            (
+              await facts.findOne(
+                { studentId: diff.studentId, key: fact.explains, active: true } as Filter<FactDoc>,
+                deadline.op(),
+              )
+            )?._id;
+          if (explainedId) {
+            await linkTracked(factRef, { kind: "fact", id: explainedId }, "explains");
+          }
+        }
       } catch (err) {
         // ISS-028: earlier iterations of this same call already committed
         // their facts (no cross-document transaction spans the whole diff —

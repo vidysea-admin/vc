@@ -6,7 +6,7 @@
  */
 import type { Db } from "mongodb";
 import { ZodError, type z } from "zod";
-import { FactSchema, isScriptLike, type Fact } from "@vc/schemas";
+import { FactSchema, isScriptLike, type CitationMatch, type Fact } from "@vc/schemas";
 import {
   ConsentRequiredError,
   FactConflictError,
@@ -121,6 +121,204 @@ function collapseWhitespace(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
+// ---------------------------------------------------------------------------
+// T-013 rescope (D-020, gate citation-guarantee-scope): citation location (verbatim/normalised, the
+// existing behaviour restated as two strict tiers so case/punctuation drift is recovered as a real
+// citation instead of a fabricated-citation drop — the T-009 case-drift eval previously dropped
+// 23/24 true facts here) plus the closed auto-verify surface (typed numbers + a fixed country/alias
+// vocabulary, matched as whole words). Every string fact NOT on that surface is kept as
+// `needsReview`, never dropped (the open-ended "is this glued word part of a longer name" judgment
+// that stalled the prior T-013 attempt three cycles running — qa/debug/t-013-citation-robustness-
+// cycle3.md — is not attempted here at all).
+// ---------------------------------------------------------------------------
+
+/**
+ * The fixed punctuation set treated as a token break for the "normalised" tier: the T-009 eval's
+ * list (`.,!?;:"'()-–—।`) plus curly quotes “”‘’. Digits, currency symbols and letters are never in
+ * it.
+ */
+const CITATION_PUNCTUATION = ".,!?;:\"'()\\-–—।“”‘’";
+const CITATION_PUNCTUATION_RE = new RegExp(`[${CITATION_PUNCTUATION}]`, "gu");
+
+/** Tier 1 ("verbatim"): Unicode NFC, then whitespace collapse. Canonically-equivalent text only —
+ *  this alone recovers an NFD-decomposed Devanagari quote against an NFC transcript (or vice versa). */
+function normaliseVerbatim(text: string): string {
+  return collapseWhitespace(text.normalize("NFC"));
+}
+
+/**
+ * Tier 2 ("normalised"): tier 1, then casefold, then every character of the fixed punctuation set
+ * becomes a space (a token BREAK, never a deletion) and whitespace collapses again. Still a STRICT
+ * substring check downstream — never fuzzy/edit-distance.
+ */
+function normaliseLoose(text: string): string {
+  return collapseWhitespace(normaliseVerbatim(text).toLowerCase().replace(CITATION_PUNCTUATION_RE, " "));
+}
+
+/**
+ * Locates `quote` in one of `haystacks` and returns the tier it matched at, or null when neither
+ * tier finds it (the citation is dropped, B2 — a genuine fabrication, not a normalisation gap).
+ */
+function locateCitation(quote: string, haystacks: readonly string[]): CitationMatch | null {
+  const verbatimQuote = normaliseVerbatim(quote);
+  if (verbatimQuote.length > 0 && haystacks.some((h) => normaliseVerbatim(h).includes(verbatimQuote))) {
+    return "verbatim";
+  }
+  const looseQuote = normaliseLoose(quote);
+  if (looseQuote.length > 0 && haystacks.some((h) => normaliseLoose(h).includes(looseQuote))) {
+    return "normalised";
+  }
+  return null;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Whether `word` (already tier-2 normalised) occurs in `haystackNormalised` (already tier-2
+ * normalised) as a WHOLE token — bounded by start/end-of-string or a non-letter/non-digit character
+ * on both sides. This is what stops a digit run like "15" matching inside "115", and a country alias
+ * matching as part of a longer word, WITHOUT any case/name-shape heuristic (the mechanism that
+ * defeated the prior T-013 attempt).
+ */
+function containsWholeWord(haystackNormalised: string, word: string): boolean {
+  if (word.length === 0) return false;
+  const re = new RegExp(`(?:^|[^\\p{L}\\p{Nd}])${escapeRegExp(word)}(?:$|[^\\p{L}\\p{Nd}])`, "u");
+  return re.test(` ${haystackNormalised} `);
+}
+
+/**
+ * T-013 rescope: the ONLY string values that auto-verify at full confidence (B2, D-020) — a small,
+ * closed, hand-curated set (alias, lower-case, NFC -> canonical display value). Deliberately
+ * EXCLUDES ambiguous single-word aliases that are also common nouns or other proper nouns (bare
+ * "Britain", "America", "Georgia", "Turkey", "Jordan", "Chad" ...) so a whole-word match can never
+ * mistake a distractor place/name for a country — this is exactly the sibling-diagnosis hostile
+ * class ("new britain" -> uk, "bank of america" -> USA, "georgia tech" -> Georgia,
+ * qa/debug/t-013-citation-robustness-cycle3.md). [ASSUMPTION 2026-09-26, gate
+ * citation-guarantee-scope follow-up unanswered]: this is today's minimal illustrative list, not a
+ * vetted full ISO-3166 set. Extend carefully, one alias at a time, and never with a bare common-noun
+ * homograph — everything else stays `needsReview` regardless (B3 still gates every write).
+ */
+const COUNTRY_ALIASES: ReadonlyMap<string, string> = new Map(
+  (
+    [
+      ["uk", "UK"],
+      ["u.k", "UK"],
+      ["united kingdom", "UK"],
+      ["great britain", "UK"],
+      ["usa", "USA"],
+      ["u.s.a", "USA"],
+      ["u.s", "USA"],
+      ["united states", "USA"],
+      ["united states of america", "USA"],
+      ["india", "India"],
+      ["bharat", "India"],
+      ["canada", "Canada"],
+      ["australia", "Australia"],
+      ["new zealand", "New Zealand"],
+      ["nz", "New Zealand"],
+      ["germany", "Germany"],
+      ["ireland", "Ireland"],
+      ["singapore", "Singapore"],
+      ["france", "France"],
+    ] as const
+  ).map(([alias, canonical]) => [alias.normalize("NFC"), canonical]),
+);
+
+/**
+ * A small, fixed list of third-party referents. When one appears in the cited span, a fact is never
+ * auto-verified even if its value is otherwise on the closed surface — "my cousin is in the UK" must
+ * not auto-verify a value as the STUDENT's own (D-020, citation-guarantee-scope: "at minimum it must
+ * not be verified"). This is a bounded lexicon check, not a semantic aboutness judgment: it never
+ * decides WHO a fact is about, only downgrades to needsReview when a referent word is present.
+ */
+/**
+ * Deliberately relational NOUNS only, never bare third-person pronouns ("him"/"her"/"them"/"his"/
+ * "their") — those are far too common in ordinary speech about ANYTHING (objects, universities,
+ * documents) to serve as a signal here, and would flag most sessions for no benefit.
+ */
+const THIRD_PARTY_MARKERS = new Set(
+  [
+    "cousin", "cousins", "friend", "friends", "brother", "brothers", "sister", "sisters", "uncle", "aunt", "aunty",
+    "colleague", "colleagues", "neighbour", "neighbor", "neighbours", "neighbors", "someone", "somebody",
+    "acquaintance",
+  ].map((w) => w.normalize("NFC")),
+);
+
+function hasThirdPartyMarker(normalisedText: string): boolean {
+  return normalisedText
+    .split(" ")
+    .filter(Boolean)
+    .some((tok) => THIRD_PARTY_MARKERS.has(tok));
+}
+
+export interface FactReviewOutcome {
+  needsReview: boolean;
+  reviewReasons: string[];
+}
+
+/**
+ * Decides whether a fact auto-verifies (needsReview: false) or is kept flagged for the counsellor
+ * (needsReview: true) — NEVER dropped for this reason (B2, D-020). Only two surfaces auto-verify:
+ * a typed number whose digit string is a whole token in the cited quote, and a string value on the
+ * closed COUNTRY_ALIASES vocabulary whose alias is a whole word/phrase in the cited quote. A
+ * `reasoning` fact is always needsReview, regardless of its value.
+ */
+export function assessFactForReview(
+  candidate: { kind: string; value: unknown },
+  quote: string,
+): FactReviewOutcome {
+  const reasons: string[] = [];
+  const normalisedQuote = normaliseLoose(quote);
+  const thirdParty = hasThirdPartyMarker(normalisedQuote);
+  if (thirdParty) {
+    reasons.push(
+      "a third-party referent (e.g. cousin/friend/his/her/their) appears in the cited span; the value's " +
+        "grounding to the student is not certain (D-020, citation-guarantee-scope)",
+    );
+  }
+
+  if (candidate.kind === "reasoning") {
+    return {
+      needsReview: true,
+      reviewReasons: [...reasons, "reasoning fact: always kept for the counsellor's review (B2/D-020)"],
+    };
+  }
+
+  if (typeof candidate.value === "number" && Number.isFinite(candidate.value)) {
+    const matched = containsWholeWord(normalisedQuote, String(candidate.value));
+    if (matched && !thirdParty) return { needsReview: false, reviewReasons: [] };
+    reasons.push(
+      matched
+        ? "typed number matched the quote, but a third-party referent is present"
+        : "typed number value is not a whole token in the cited quote (B2 auto-verify requires an exact match)",
+    );
+    return { needsReview: true, reviewReasons: reasons };
+  }
+
+  if (typeof candidate.value === "string") {
+    const canonical = COUNTRY_ALIASES.get(candidate.value.trim().toLowerCase().normalize("NFC"));
+    const aliasHit =
+      canonical !== undefined &&
+      [...COUNTRY_ALIASES.entries()].some(
+        ([alias, canon]) => canon === canonical && containsWholeWord(normalisedQuote, alias),
+      );
+    if (canonical !== undefined && aliasHit && !thirdParty) return { needsReview: false, reviewReasons: [] };
+    reasons.push(
+      canonical === undefined
+        ? "string value is not on the fixed country/alias vocabulary (B2 auto-verify surface)"
+        : aliasHit
+          ? "vocabulary value matched the quote, but a third-party referent is present"
+          : "the vocabulary value's alias is not a whole word/phrase in the cited quote",
+    );
+    return { needsReview: true, reviewReasons: reasons };
+  }
+
+  reasons.push(`value type "${typeof candidate.value}" is outside the auto-verify surface (numbers + country/alias vocabulary only)`);
+  return { needsReview: true, reviewReasons: reasons };
+}
+
 /** The model's source as a CardSource-shaped list, so the existing citation guard can judge it. */
 function toCitationSources(source: unknown): { type: string; id: string; quote?: string }[] {
   if (source === null || typeof source !== "object") return [];
@@ -164,15 +362,37 @@ export function verifyCandidateFact(
   if (!turn) {
     return { dropped: { key, reason: `cites turn "${source.id}", which is not in this session's transcript (B2)` } };
   }
-  const quote = collapseWhitespace(source.quote);
-  const inTurn = [turn.text, turn.translatedText].some((text) => collapseWhitespace(text).includes(quote));
-  if (!inTurn) {
-    return { dropped: { key, reason: `quote is not verbatim in turn "${source.id}" (fabricated citation, B2)` } };
+
+  const kind = candidate.kind ?? "value";
+  if (kind === "reasoning" && !candidate.explains) {
+    return {
+      dropped: {
+        key,
+        reason: "a reasoning fact must name `explains` (the key of the value fact it accounts for), B2/D-020",
+      },
+    };
   }
+
+  // T-013 rescope (D-020): two strict tiers, never fuzzy. A quote that matches at NEITHER tier is a
+  // genuine fabrication (dropped); one that matches only at "normalised" is a real citation (kept),
+  // just recorded as weaker evidence — this is what recovers the T-009 case-drift facts that a
+  // single case-sensitive `.includes()` used to drop outright.
+  const matchTier = locateCitation(source.quote, [turn.text, turn.translatedText]);
+  if (!matchTier) {
+    return { dropped: { key, reason: `quote is not found in turn "${source.id}", even after normalisation (fabricated citation, B2)` } };
+  }
+
+  const review = assessFactForReview({ kind, value: candidate.value }, source.quote);
+  const reviewReasons =
+    matchTier === "normalised" && review.needsReview
+      ? ["citation matched only after normalisation (case/punctuation/Unicode-form drift), not verbatim", ...review.reviewReasons]
+      : review.reviewReasons;
 
   const fact = FactSchema.parse({
     key: candidate.key,
     value: candidate.value,
+    kind,
+    ...(candidate.explains ? { explains: candidate.explains } : {}),
     source: { type: "transcript", quote: source.quote, turnId: source.id },
     confidence: candidate.confidence,
     validFrom: sessionEndedAt,
@@ -180,6 +400,9 @@ export function verifyCandidateFact(
     // only, so its facts carry exactly that purpose. Model-supplied tags are discarded, never merged.
     purposeTags: [SCRIBE_PURPOSE],
     sensitivity: candidate.sensitivity,
+    citationMatch: matchTier,
+    needsReview: review.needsReview,
+    ...(reviewReasons.length > 0 ? { reviewReasons } : {}),
   });
   return { fact };
 }

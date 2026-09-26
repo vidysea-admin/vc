@@ -87,6 +87,14 @@ export interface SessionScore {
     citationVerdicts: CitationVerdict[];
     citationPrecision: number | null;
     multiTurn: { goldCount: number; recalledCount: number };
+    /**
+     * T-013 (D-020, citation-guarantee-scope): every fact the graph actually KEPT (never dropped for
+     * a value-support reason — only a genuinely fabricated citation drops a fact), split by whether
+     * it auto-verified or was flagged for the counsellor. `fabricatedVerified` is always 0 by
+     * construction (a fact only reaches this tally after clearing the citation-location check;
+     * kept as an explicit, checkable claim rather than an implicit one).
+     */
+    reviewCounts: { kept: number; verified: number; needsReview: number; reasoning: number; fabricatedVerified: number };
   } | null;
   summary: {
     text: string;
@@ -110,6 +118,8 @@ export interface AggregateScore {
     recalledTotal: number;
     falseDropCounts: { caseMismatch: number; punctuationMismatch: number; caseAndPunctuationMismatch: number };
     multiTurn: { goldCount: number; recalledCount: number; recall: number | null };
+    /** T-013: rolled up across every scored session's SessionScore.extraction.reviewCounts. */
+    reviewCounts: { kept: number; verified: number; needsReview: number; reasoning: number; fabricatedVerified: number };
   };
   summary: { scriptLikeLeaks: number; scored: number; checklistCoverage: number | null };
 }

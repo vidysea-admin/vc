@@ -85,6 +85,19 @@ function scoreExtraction(
   const multiTurnGold = session.goldFacts.filter((f) => f.multiTurn);
   const multiTurnRecalled = multiTurnGold.filter((f) => recalledKeys.has(f.key)).length;
 
+  // T-013 (D-020): every fact the graph actually kept, split by review status. `fabricatedVerified`
+  // stays 0 by construction — verifyCandidateFact only reaches the review check AFTER the citation
+  // has located a real span in the transcript (nodes.ts); a fact whose quote is not found at all is
+  // dropped before it is ever a candidate for `verified` or `needsReview`. Recorded explicitly here
+  // (never assumed) so a future change that broke that ordering would show up as a non-zero count.
+  const reviewCounts = {
+    kept: request.facts.length,
+    verified: request.facts.filter((f) => f.needsReview === false).length,
+    needsReview: request.facts.filter((f) => f.needsReview === true).length,
+    reasoning: request.facts.filter((f) => f.kind === "reasoning").length,
+    fabricatedVerified: request.facts.filter((f) => f.needsReview === false && f.citationMatch === undefined).length,
+  };
+
   return {
     goldFactCount: session.goldFacts.length,
     recalledCount: recalledKeys.size,
@@ -93,6 +106,7 @@ function scoreExtraction(
     citationVerdicts,
     citationPrecision,
     multiTurn: { goldCount: multiTurnGold.length, recalledCount: multiTurnRecalled },
+    reviewCounts,
   };
 }
 
@@ -168,6 +182,7 @@ export async function scoreDataset(
   let falseDropBoth = 0;
   let mtGold = 0;
   let mtRecalled = 0;
+  const reviewCounts = { kept: 0, verified: 0, needsReview: 0, reasoning: 0, fabricatedVerified: 0 };
   let scriptLeaks = 0;
   let summaryScored = 0;
   let checklistCoveredSum = 0;
@@ -192,6 +207,11 @@ export async function scoreDataset(
       }
       mtGold += r.extraction.multiTurn.goldCount;
       mtRecalled += r.extraction.multiTurn.recalledCount;
+      reviewCounts.kept += r.extraction.reviewCounts.kept;
+      reviewCounts.verified += r.extraction.reviewCounts.verified;
+      reviewCounts.needsReview += r.extraction.reviewCounts.needsReview;
+      reviewCounts.reasoning += r.extraction.reviewCounts.reasoning;
+      reviewCounts.fabricatedVerified += r.extraction.reviewCounts.fabricatedVerified;
     }
     if (r.summary) {
       summaryScored++;
@@ -212,6 +232,7 @@ export async function scoreDataset(
       recalledTotal,
       falseDropCounts: { caseMismatch: falseDropCase, punctuationMismatch: falseDropPunct, caseAndPunctuationMismatch: falseDropBoth },
       multiTurn: { goldCount: mtGold, recalledCount: mtRecalled, recall: mtGold > 0 ? mtRecalled / mtGold : null },
+      reviewCounts,
     },
     summary: { scriptLikeLeaks: scriptLeaks, scored: summaryScored, checklistCoverage: checklistTotalSum > 0 ? checklistCoveredSum / checklistTotalSum : null },
   };

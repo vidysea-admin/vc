@@ -1,6 +1,6 @@
 # Scribe eval report
 
-Provider mode: `lazy` · Dataset: `D:\vc\.worktrees\t-009-scribe-eval\qa\evals\scribe\sessions.jsonl` · Sessions: 22 · Generated: 2026-09-25T03:05:09.579Z
+Provider mode: `lazy` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope\qa\evals\scribe\sessions.jsonl` · Sessions: 22 · Generated: 2026-09-26T03:00:24.654Z
 
 | Metric | Value |
 |---|---|
@@ -11,6 +11,7 @@ Provider mode: `lazy` · Dataset: `D:\vc\.worktrees\t-009-scribe-eval\qa\evals\s
 | Multi-turn-span recall | 0/3 (0.0%) |
 | Summary script-like leakage (B1) | 0/19 sessions |
 | Summary checklist coverage | 0.0% |
+| Kept facts: verified / needsReview / reasoning (T-013, D-020) | 0 kept — 0 verified, 0 needsReview, 0 reasoning · fabricated-verified: 0 |
 
 ## Citation classification (raw candidates)
 

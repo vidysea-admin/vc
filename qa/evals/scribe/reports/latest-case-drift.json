@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-25T03:05:06.858Z",
+  "generatedAt": "2026-09-26T02:59:59.525Z",
   "providerMode": "case-drift",
-  "datasetPath": "D:\\vc\\.worktrees\\t-009-scribe-eval\\qa\\evals\\scribe\\sessions.jsonl",
+  "datasetPath": "D:\\vc\\.worktrees\\t-013-citation-rescope\\qa\\evals\\scribe\\sessions.jsonl",
   "aggregate": {
     "sessionCount": 22,
     "crisisRouting": {
@@ -19,18 +19,25 @@
         "fabricated": 0,
         "malformed": 0
       },
-      "recall": 0.041666666666666664,
+      "recall": 1,
       "goldFactTotal": 24,
-      "recalledTotal": 1,
+      "recalledTotal": 24,
       "falseDropCounts": {
-        "caseMismatch": 23,
+        "caseMismatch": 0,
         "punctuationMismatch": 0,
         "caseAndPunctuationMismatch": 0
       },
       "multiTurn": {
         "goldCount": 3,
-        "recalledCount": 0,
-        "recall": 0
+        "recalledCount": 3,
+        "recall": 1
+      },
+      "reviewCounts": {
+        "kept": 24,
+        "verified": 10,
+        "needsReview": 14,
+        "reasoning": 0,
+        "fabricatedVerified": 0
       }
     },
     "summary": {
@@ -53,23 +60,9 @@
       },
       "extraction": {
         "goldFactCount": 2,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "targetCountry",
-          "budget_inr_per_year"
-        ],
-        "falseDrops": [
-          {
-            "key": "targetCountry",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          },
-          {
-            "key": "budget_inr_per_year",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 2,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "targetCountry",
@@ -84,6 +77,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 2,
+          "verified": 1,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -107,23 +107,9 @@
       },
       "extraction": {
         "goldFactCount": 2,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "intendedCourse",
-          "universityOfInterest"
-        ],
-        "falseDrops": [
-          {
-            "key": "intendedCourse",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          },
-          {
-            "key": "universityOfInterest",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 2,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "intendedCourse",
@@ -138,6 +124,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 2,
+          "verified": 0,
+          "needsReview": 2,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -161,35 +154,9 @@
       },
       "extraction": {
         "goldFactCount": 4,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "targetCountry",
-          "intendedCourse",
-          "intake",
-          "budget_inr_per_year"
-        ],
-        "falseDrops": [
-          {
-            "key": "targetCountry",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          },
-          {
-            "key": "intendedCourse",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          },
-          {
-            "key": "intake",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
-          },
-          {
-            "key": "budget_inr_per_year",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 4,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "targetCountry",
@@ -212,6 +179,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 4,
+          "verified": 1,
+          "needsReview": 3,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -236,17 +210,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "targetCountry"
-        ],
-        "falseDrops": [
-          {
-            "key": "targetCountry",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t4\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "targetCountry",
@@ -257,6 +223,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -289,6 +262,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 0,
+          "verified": 0,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -312,17 +292,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "budget_inr_per_year"
-        ],
-        "falseDrops": [
-          {
-            "key": "budget_inr_per_year",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "budget_inr_per_year",
@@ -333,6 +305,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -356,17 +335,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "targetCountry"
-        ],
-        "falseDrops": [
-          {
-            "key": "targetCountry",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "targetCountry",
@@ -377,6 +348,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -400,17 +378,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "intendedCourse"
-        ],
-        "falseDrops": [
-          {
-            "key": "intendedCourse",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "intendedCourse",
@@ -421,6 +391,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -445,17 +422,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "targetCountry"
-        ],
-        "falseDrops": [
-          {
-            "key": "targetCountry",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "targetCountry",
@@ -466,6 +435,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -502,6 +478,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -525,17 +508,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "targetCountry"
-        ],
-        "falseDrops": [
-          {
-            "key": "targetCountry",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "targetCountry",
@@ -546,6 +521,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -569,17 +551,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "intendedCourse"
-        ],
-        "falseDrops": [
-          {
-            "key": "intendedCourse",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "intendedCourse",
@@ -590,6 +564,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -614,17 +595,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "targetCountry"
-        ],
-        "falseDrops": [
-          {
-            "key": "targetCountry",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t2\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "targetCountry",
@@ -635,6 +608,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -658,23 +638,9 @@
       },
       "extraction": {
         "goldFactCount": 2,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "targetCountry",
-          "budget_inr_per_year"
-        ],
-        "falseDrops": [
-          {
-            "key": "targetCountry",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          },
-          {
-            "key": "budget_inr_per_year",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 2,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "targetCountry",
@@ -689,6 +655,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 2,
+          "verified": 1,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -712,17 +685,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "intendedCourse"
-        ],
-        "falseDrops": [
-          {
-            "key": "intendedCourse",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "intendedCourse",
@@ -733,6 +698,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -757,17 +729,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "targetCountry"
-        ],
-        "falseDrops": [
-          {
-            "key": "targetCountry",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t1\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "targetCountry",
@@ -778,6 +742,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -801,17 +772,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "targetCountry"
-        ],
-        "falseDrops": [
-          {
-            "key": "targetCountry",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "targetCountry",
@@ -821,7 +784,14 @@
         "citationPrecision": 1,
         "multiTurn": {
           "goldCount": 1,
-          "recalledCount": 0
+          "recalledCount": 1
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -845,17 +815,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "budget_inr_per_year"
-        ],
-        "falseDrops": [
-          {
-            "key": "budget_inr_per_year",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "budget_inr_per_year",
@@ -865,7 +827,14 @@
         "citationPrecision": 1,
         "multiTurn": {
           "goldCount": 1,
-          "recalledCount": 0
+          "recalledCount": 1
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -889,17 +858,9 @@
       },
       "extraction": {
         "goldFactCount": 1,
-        "recalledCount": 0,
-        "omittedKeys": [
-          "intendedCourse"
-        ],
-        "falseDrops": [
-          {
-            "key": "intendedCourse",
-            "class": "case-mismatch",
-            "reason": "quote is not verbatim in turn \"t3\" (fabricated citation, B2)"
-          }
-        ],
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
         "citationVerdicts": [
           {
             "key": "intendedCourse",
@@ -909,7 +870,14 @@
         "citationPrecision": 1,
         "multiTurn": {
           "goldCount": 1,
-          "recalledCount": 0
+          "recalledCount": 1
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {

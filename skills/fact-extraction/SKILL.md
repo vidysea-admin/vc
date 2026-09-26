@@ -21,6 +21,15 @@ here.
 validFrom, purposeTags, sensitivity}[]`. Every fact's `source.quote` must be a real substring of the
 turn it's drawn from — never a paraphrase presented as a quote.
 
+`kind` (optional, default "value"): set it to `"reasoning"` when the student states WHY a value
+holds — not the value itself. A reasoning fact must also carry `explains`: the `key` of the value
+fact it accounts for. Example: the student says "I want the UK because my sister lives there" — this
+is TWO facts, not one: `{key: "targetCountry", value: "UK", ...}` (kind "value", the default) AND
+`{key: "why_targetCountry", value: "sister lives there", kind: "reasoning", explains:
+"targetCountry", source: {type:"transcript", quote: "because my sister lives there", turnId: ...},
+...}`. Never fold the reasoning into the value fact's own `value`, and never invent a reasoning fact
+the student didn't actually state — it needs its own real, verbatim quote like any other fact.
+
 ## Soft rules
 
 - Extract only what the student (or counsellor, for context) actually said — do not infer a budget from
@@ -31,6 +40,11 @@ turn it's drawn from — never a paraphrase presented as a quote.
 - Low-confidence or ambiguous statements still get extracted, with a correspondingly low `confidence` —
   don't silently drop what you're unsure about; let the Verifier and counsellor judge it.
 - Never write a `Fact` whose `source.quote` cannot be found verbatim in the turn text.
+- Contract B2 (D-020, citation-guarantee-scope): only a typed number and a small fixed country/alias
+  vocabulary auto-verify at full confidence; every other value is kept but flagged for the
+  counsellor's review regardless of your stated `confidence` — so extract everything you're
+  reasonably confident the student said, and let that downstream check (not your own judgment about
+  whether it "seems reliable") decide what gets flagged.
 
 ## Examples
 

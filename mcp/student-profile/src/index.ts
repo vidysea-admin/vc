@@ -68,6 +68,13 @@ function toFact(doc: FactDoc): Fact {
     validTo: doc.validTo,
     purposeTags: doc.purposeTags,
     sensitivity: doc.sensitivity,
+    // T-013 (D-020): carried through unchanged so a profile reader can see a fact's kind and review
+    // state, not just its value.
+    kind: doc.kind,
+    explains: doc.explains,
+    citationMatch: doc.citationMatch,
+    needsReview: doc.needsReview,
+    reviewReasons: doc.reviewReasons,
   };
 }
 

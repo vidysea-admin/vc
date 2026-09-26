@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-25T03:05:01.866Z",
+  "generatedAt": "2026-09-26T03:00:06.751Z",
   "providerMode": "perfect",
-  "datasetPath": "D:\\vc\\.worktrees\\t-009-scribe-eval\\qa\\evals\\scribe\\sessions.jsonl",
+  "datasetPath": "D:\\vc\\.worktrees\\t-013-citation-rescope\\qa\\evals\\scribe\\sessions.jsonl",
   "aggregate": {
     "sessionCount": 22,
     "crisisRouting": {
@@ -31,6 +31,13 @@
         "goldCount": 3,
         "recalledCount": 3,
         "recall": 1
+      },
+      "reviewCounts": {
+        "kept": 24,
+        "verified": 10,
+        "needsReview": 14,
+        "reasoning": 0,
+        "fabricatedVerified": 0
       }
     },
     "summary": {
@@ -70,6 +77,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 2,
+          "verified": 1,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -110,6 +124,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 2,
+          "verified": 0,
+          "needsReview": 2,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -158,6 +179,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 4,
+          "verified": 1,
+          "needsReview": 3,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -195,6 +223,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -227,6 +262,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 0,
+          "verified": 0,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -263,6 +305,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -299,6 +348,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -335,6 +391,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -372,6 +435,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -408,6 +478,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -444,6 +521,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -480,6 +564,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -517,6 +608,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -557,6 +655,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 2,
+          "verified": 1,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -593,6 +698,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -630,6 +742,13 @@
         "multiTurn": {
           "goldCount": 0,
           "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -666,6 +785,13 @@
         "multiTurn": {
           "goldCount": 1,
           "recalledCount": 1
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -702,6 +828,13 @@
         "multiTurn": {
           "goldCount": 1,
           "recalledCount": 1
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
@@ -738,6 +871,13 @@
         "multiTurn": {
           "goldCount": 1,
           "recalledCount": 1
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "fabricatedVerified": 0
         }
       },
       "summary": {
