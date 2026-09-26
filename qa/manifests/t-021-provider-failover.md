@@ -425,4 +425,4 @@ Playwright/Chromium against `next dev` on an ephemeral port, server stopped afte
    this cycle's fix (no budget change; `ZodError` retryable). No longer an open residual; recorded
    here only for traceability.
 
-## Status: ready-for-check
+## Status: checked-PASS (cycle 1, verdict 912a9d3; ai review c1 Warning -> ISS-t-021-rev-3)
