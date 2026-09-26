@@ -3,7 +3,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B9, B16)
 **Goal task:** none
 **Date:** 2026-09-26
-**Fix cycle:** 0 of max 3
+**Fix cycle:** 1 of max 3
 **Dual check:** no
 **Issues addressed:** ISS-022, ISS-023, ISS-024, ISS-040 (disposition below)
 **Executor:** claude-sonnet-subagent (safety guard — never delegated)
@@ -99,4 +99,4 @@ All falsifications were run against throwaway copies in the scratchpad (`crisis-
 
 Not UI-touching. Changed paths: `packages/engine/src/guards/crisis.ts`, `packages/engine/src/skills/loader.ts`, `packages/engine/tests/{guard-crisis,crisis-eval,loader}.test.ts`, `packages/engine/tests/fixtures/skills-malformed/{block-scalar,block-scalar-pipe}/SKILL.md`, `qa/evals/crisis-eval.jsonl`. None are `*.tsx|jsx|vue|svelte|html|css`, `apps/web/**`, `**/routes/**`, `**/pages/**`, or `**/components/**`, and none of `apps/web`'s existing UI tests changed behaviour (still 18/18 pass) — the crisis guard's output only reaches the UI as an `EscalationCard.matched` string array already covered by `guard-crisis.test.ts`/`crisis-eval.test.ts`, not rendered as new UI copy.
 
-## Status: ready-for-check
+## Status: fix-cycle-1 building (checker c0 PASS 274b440 overridden by senior review Block -> ISS-t-005c-rev-1)
