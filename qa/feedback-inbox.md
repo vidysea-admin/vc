@@ -19,4 +19,4 @@
 
 ## 2026-09-26 — Umesh (chat, AskUserQuestion, gate auto-verify-property) — verbatim choice
 "Write the rule down (Recommended)": Auto-verified means: the student said this value, for this fact type, in their own words, in this one turn. Earlier or later turns (a hypothetical, a retraction) are out of scope. A leak counts as high severity, not critical, since the counsellor still approves every fact.
-(Recorded as D-026. For /checker: fold this into B2, and reclassify ISS-071 (cross-turn) accordingly.)
+(Recorded as D-026. For /checker: fold this into B2, and reclassify ISS-071 (cross-turn) accordingly.) · FOLDED: 2026-09-26 into B2 auto-verify property (checker); ISS-071 wontfix (outside the property)
