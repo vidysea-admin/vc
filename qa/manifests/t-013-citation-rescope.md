@@ -331,4 +331,115 @@ The earlier "Requirement 5: NO ISOLATING FALSIFICATION NEEDED" note (above) is s
 - **Marker lists** (negation, kinship, multiplier) are closed, hand-curated sets. A marker outside them fails SAFE only through the first-person requirement, not by recognition; e.g. a third-party sentence that also contains "I/my" and an unlisted kinship word would still auto-verify. The eval hostile rows cover the named classes only.
 - **Fresh-context review** (senior-software-engineer / data-engineer / ai-engineer) of this cycle's code was not dispatched from this build subagent (no nested fan-out); the orchestrator/checker should run it.
 
-## Status: fix-cycle-2 building (checker c1 PASS 4330182 overridden by ai-engineer review BLOCK: ISS-t-013r-rev-4 question, rev-5 conditional, rev-6 allow-list; plus DE rev-8, checker c1-1)
+# FIX CYCLE 2 (answers the ai-engineer review BLOCK that overrides checker c1 PASS @ 4330182, plus DE rev-8 and checker c1-1)
+
+**Persona walk:** skip — no `apps/web/**` path in this cycle's diff (`git diff --name-only b851687..HEAD -- apps/web` is empty, 0 lines); the needsReview chip renders the new reason strings unchanged.
+
+## Findings -> fix (issue titles quoted from qa/issues.jsonl)
+
+| issue (verbatim) | fix (file:line; `packages/engine/src/scribe/nodes.ts` unless named) |
+|---|---|
+| **ISS-t-013r-rev-4 (critical)** "interrogative mood auto-verifies: a question is recorded as a decided fact (needsReview:false)" | `INTERROGATIVE_MARKERS` `:349` (kya/kyaa/whether/kaun/kahan/kyun/kaise/kab…, क्या/कौन/कहाँ/क्यों/कैसे/कब), `QUESTION_MARK_RE` (`?`/`？` anywhere in the RAW cited turn), `INVERSION_RE` (should/shall/could/can/may/might/will/would/do/does/did/am/must/have/was/were/is/are + I/we); `hasInterrogative` `:360`, judged on quote + whole cited turn (text + translatedText). Reason prefix `interrogative:` (`REVIEW_REASONS` `:560`). Both reproductions -> needsReview |
+| **ISS-t-013r-rev-5 (critical)** "conditional/hypothetical phrasing auto-verifies (if/agar/would/maybe/in an ideal world)" | `CONDITIONAL_MARKERS` `:370` (if/unless/would/might/maybe/perhaps/possibly/probably/suppose/assuming/provided/hypothetically/ideally/ideal/hopefully/someday; agar/yadi/kaash/shayad/mumkin/hoga/hogi; अगर/यदि/काश/शायद/संभव/मुमकिन/होगा/होगी); `hasConditional` `:379` (only the fixed polite phrase "would like/love" is exempted). Quote + whole turn. Reason `conditional:` (`:563`). All four reproductions -> needsReview |
+| **ISS-t-013r-rev-6 (high)** "deny-list design keeps leaking: unlisted kinship (devar, saali, saala, nanad, jeth, jethani, sasur, saas, behnoi) and every unlisted risk class auto-verify" | **ALLOW-LIST first layer**: `matchesAllowedTemplate` `:494`, called in `assessFactForReview` `:623`. Auto-verify only when (a) the template-normalised quote (`normaliseTemplate` `:398`) EQUALS one whole clause of the cited turn (`clausesOf` `:412`: split on ? ! ; : । newline, non-decimal . / , and because/kyunki/क्योंकि), (b) the clause matches a declarative first-person template whose slot is exactly the value — `COUNTRY_TEMPLATES` `:429` (9; EN/Hinglish/Devanagari; slot takes only that canonical's COUNTRY_ALIASES) or `NUMBER_TEMPLATES` `:451` (10; budget + exam score over a closed exam list; number group must equal `String(value)`), and (c) no deny marker fires. Else kept + needsReview with `unrecognised-form:` (`:566`). Deny layer kept as second layer; in-law words added to `THIRD_PARTY_MARKERS` `:241` (devar, devrani, saali/sali, saala/sala, nanad, jeth, jethani, sasur, saas, sasural, behnoi/bahnoi, bhatija/bhanja, pati/patni/biwi + देवर … ससुराल, बहनोई, पति, पत्नी) and `IN_LAW_RE` `:338` ("in-law(s)"). Never drops a fact. `FIRST_PERSON_MARKERS` +maine/mene/मैंने |
+| **ISS-t-013r-rev-8 (medium)** "resolveCitationSpan misses a citation whose raw stored text mixes NFC and NFD Devanagari (e.g. KA+NUKTA vs U+0958) in one span" | `packages/db/src/facts.ts:991` `resolveCitationSpan` NFC-normalises the quote and searches a per-field haystack from `nfcWithRawOffsets` `facts.ts:1035` (NFC per grapheme cluster with a raw start/end map per NFC index); match in NFC, offsets mapped back so `turn[field].slice(start,end)` is the RAW stored span. Same two strict tiers, never fuzzy |
+| **ISS-t-013r-c1-1 (low)** "A genuinely first-person … typed number embedded in a date or ordinal context (e.g. '20 September', 'in 2026') auto-verifies …" | stopped by the allow-list: no number template has a date/year/ordinal slot and the slot must equal the value ("I scored 92 in my class 12 boards" verifies 92, NOT 12). Reason `unrecognised-form:` |
+
+Old tests converted in place (none deleted): `scribe-citation-rescope.test.ts` USA positive now the whole clause "I want to move to the USA for my masters" (old cropped quote kept as an `unrecognised-form` negative); number positive now "I scored 42 in the exam" ("I have finished 42 credits so far" kept as an `unrecognised-form` negative).
+
+New tests:
+- `packages/engine/tests/scribe-citation-rescope.test.ts:421`: template POSITIVES (23 cases, EN/Hinglish/Devanagari, country, budget and score).
+- `:456`: rev-4 questions (9 cases, including no "?", a cropped quote, क्या and "whether").
+- `:475`: rev-5 conditionals (11 cases, including a template-shaped clause inside a conditional turn).
+- `:497`: rev-6 in-law kinship. The 11 Hinglish words, ससुराल, बहनोई and English in-laws each sit around a template-matching clause, and each gives `third-party:`.
+- `:513`: rev-6 unrecognised shapes (8 cases). The test asserts the ONLY reason is `unrecognised-form`.
+- `:535`: c1-1 date, year and ordinal (6 cases).
+- `packages/db/tests/facts.test.ts:1154`: rev-8 mixed NFC/NFD fixture. It asserts that raw, NFC-only and NFD-only matching each miss, and that the offsets slice the raw text.
+- `packages/engine/evals/score-perfect.test.ts:65`: the eval test. Every cycle-2 hostile class is present and kept needsReview, fabricatedVerified is 0, and every `d020-template-positive` row verifies.
+
+The golden set `qa/evals/scribe/sessions.jsonl` gains 26 sessions (35 -> 61):
+- Hostile rows h14..h27:
+  - question-english, question-hinglish, question-template-shape
+  - conditional-if, conditional-agar, conditional-would, conditional-maybe, conditional-template-shape
+  - inlaw-hinglish (devar), inlaw-devanagari (ससुराल)
+  - date-day, date-year
+  - unrecognised-past-visit, unrecognised-hearsay
+- Template positives p01..p12: English, Hinglish and Devanagari country, budget and score.
+
+## Verify (commands + REAL outputs, this cycle)
+
+Every test run was gated on free RAM of at least 2.0 GB (it measured 2.5–3.6 GB) and ran one package at a time.
+
+```
+pnpm -r typecheck
+  providers · schemas · observability · db · apps/api · mcp/university-kb · mcp/student-profile · engine · apps/web: Done (exit 0)
+
+pnpm --filter @vc/schemas test              ℹ tests 56   ℹ pass 56   ℹ fail 0
+pnpm --filter @vc/providers test            ℹ tests 31   ℹ pass 31   ℹ fail 0
+pnpm --filter @vc/observability test        ℹ tests 57   ℹ pass 57   ℹ fail 0
+pnpm --filter @vc/db test                   ℹ tests 213  ℹ pass 213  ℹ fail 0
+pnpm --filter @vc/api test                  ℹ tests 8    ℹ pass 8    ℹ fail 0
+pnpm --filter @vc/mcp-student-profile test  ℹ tests 12   ℹ pass 12   ℹ fail 0
+pnpm --filter @vc/mcp-university-kb test    ℹ tests 9    ℹ pass 9    ℹ fail 0
+pnpm --filter @vc/engine test               ℹ tests 310  ℹ pass 310  ℹ fail 0
+pnpm --filter @vc/web test                  ℹ tests 24   ℹ pass 24   ℹ fail 0
+
+python contracts/verify_contracts.py
+  verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity
+```
+
+### Eval: BEFORE vs AFTER on the SAME new 61-session golden set
+
+BEFORE is the cycle-1 code (`git checkout b851687 -- nodes.ts facts.ts` in the throwaway worktree) run on the new dataset.
+
+```
+BEFORE perfect    | 64 kept — 32 verified, 32 needsReview, 1 reasoning · D-020 hostile (mustReview) kept: 27 · fabricated-verified: 14 |
+AFTER  perfect    | 64 kept — 14 verified, 50 needsReview, 1 reasoning · D-020 hostile (mustReview) kept: 27 · fabricated-verified: 0 |  recall 64/64
+AFTER  case-drift | 64 kept — 14 verified, 50 needsReview, 1 reasoning · D-020 hostile (mustReview) kept: 27 · fabricated-verified: 0 |  recall 64/64
+AFTER  fabricator | 0 kept — 0 verified, 0 needsReview, 0 reasoning · hostile kept: 0 · fabricated-verified: 0 |  precision 0.0%
+AFTER  lazy       | 0 kept — 0 verified, 0 needsReview, 0 reasoning · hostile kept: 0 · fabricated-verified: 0 |  precision n/a
+```
+
+The BEFORE fabricated-verified count of 14 is exactly the new hostile rows h14..h27: cycle-1 code auto-verified every one of them. Of the AFTER verified count, 12 of 12 template-positive rows verify, and 1 of the 24 original non-hostile value facts does (s13; it was 6 of 24 in cycle 1). The 14th is the non-mustReview value fact in h13 (reasoning-before-value); its paired reasoning fact stays in review.
+
+## Capability coverage — fix cycle 2
+
+- **Where it ran:** a throwaway worktree, created with `git worktree add C:/Users/Lenovo/AppData/Local/Temp/claude/t013c2-1 HEAD --detach` (at fd7407e) followed by `pnpm install --offline`.
+- **Cleanup:** it was removed afterwards with `worktree remove --force` and `prune`, and the directory was deleted (`Test-Path` = False).
+- **How:** script `scratchpad/falsify2.py`, runner `tsx --test --test-concurrency=1 --test-name-pattern=<id>`, the same test id before and after.
+- The build worktree was never mutated.
+
+| capability | falsifying edit (copy only) | BEFORE (GREEN) | AFTER (RED) |
+|---|---|---|---|
+| rev-4 a question never auto-verifies | `hasInterrogative` -> `return false;` | `✔ ISS-t-013r-rev-4: a question never auto-verifies (reason: interrogative), English / Hinglish / Devanagari` [pass 1 fail 0] | `✖ ISS-t-013r-rev-4: …` [pass 0 fail 1] |
+| rev-5 conditional never auto-verifies | `hasConditional` -> `return false;` | `✔ ISS-t-013r-rev-5: conditional / hypothetical phrasing never auto-verifies (reason: conditional)` [pass 1 fail 0] | `✖ ISS-t-013r-rev-5: …` [pass 0 fail 1] |
+| rev-6 in-law kinship forces review | `hasThirdPartyMarker` -> old list only (in-law words filtered out, `IN_LAW_RE` dropped) | `✔ ISS-t-013r-rev-6: in-law kinship (Hinglish, Devanagari, English in-law) in the turn forces review even when the clause matches a template (reason: third-party)` [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| rev-6 allow-list stops unrecognised shapes | `matchesAllowedTemplate` -> `return true;` (ALWAYS ALLOW) | `✔ ISS-t-013r-rev-6 allow-list: a first-person, un-negated, own, unscaled value in an UNRECOGNISED shape never auto-verifies (reason: unrecognised-form ONLY — no deny marker fires)` [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| c1-1 date/year/ordinal numbers | ALWAYS ALLOW | `✔ ISS-t-013r-c1-1: a first-person number in a date / year / ordinal context never auto-verifies (reason: unrecognised-form)` [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| templates not vacuous (unit) | `matchesAllowedTemplate` -> `return false;` (NEVER ALLOW) | `✔ ISS-t-013r-rev-6 allow-list POSITIVES: every template auto-verifies its own value, English / Hinglish / Devanagari` [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| templates not vacuous (eval) | NEVER ALLOW | `✔ ISS-t-013r-rev-6: cycle-2 hostile classes stay in review, and every template-positive row auto-verifies (verified > 0)` [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| eval hostile rows stay in review | ALWAYS ALLOW | same test id ✔ [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| rev-8 mixed NFC/NFD span | `nfcWithRawOffsets`: `m[0].normalize("NFC")` -> `m[0]` | `✔ ISS-t-013r-rev-8: resolveCitationSpan finds a span whose STORED text mixes NFC and NFD Devanagari, and the offsets slice the raw stored text` [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| ALWAYS ALLOW makes fabricatedVerified > 0 (eval `--provider=perfect`) | ALWAYS ALLOW | `64 kept — 14 verified, 50 needsReview … fabricated-verified: 0` | `64 kept — 23 verified, 41 needsReview … fabricated-verified: 4` |
+
+Those 4 are h24..h27 (date-day, date-year, past-visit, hearsay), the rows only the allow-list stops. The question, conditional and in-law rows are also caught by the deny layer, by design.
+
+## Live browser evidence (fix cycle 2)
+**Not applicable.** No `apps/web` file changed, and `@vc/web` still passes 24/24.
+
+## Open gaps (named, not hidden)
+- **Review load (ISS-t-013r-rev-7, open, and now worse).** Auto-verified on the 24 original non-hostile value facts fell from 6 to 1. The facts that newly go to review:
+  - s07 "I think I should go to the USA". This is correct: it contains `should` and a hedge.
+  - s09 "we have finalised the UK as the target country"
+  - s11 "I am interested in studying in Australia"
+  - s14 "we want to go to Canada"
+  - s16 "I finally decided on the UK as my target country"
+
+  Each is a candidate template. Adding one should come with an eval row and a falsification. How far to widen the list is a product call on the counsellor's review load.
+- **Devanagari country names** (कनाडा, यूके) are not in `COUNTRY_ALIASES`. Only a Latin country name inside a Devanagari sentence verifies; a Devanagari name goes to review, which is fail-safe.
+- **"chahiye" is not a standalone marker.** Without kya or ?, "mujhe UK jana chahiye" goes to review as unrecognised-form, not as interrogative.
+- **The templates are closed lists** (a closed exam list, at most 4 subject words). Any unlisted phrasing fails SAFE into review.
+- **Counsellor read surface:** unchanged from cycle 1. There is still no HTTP or MCP transcript tool.
+- **Fresh-context review** (ai-engineer, data-engineer, senior-software-engineer) was not dispatched from this build subagent. The orchestrator should run it.
+
+## Status: ready-for-check
