@@ -24,7 +24,7 @@ export function toMarkdown(report: EvalReport): string {
   lines.push(`| Summary script-like leakage (B1) | ${a.summary.scriptLikeLeaks}/${a.summary.scored} sessions |`);
   lines.push(`| Summary checklist coverage | ${pct(a.summary.checklistCoverage)} |`);
   lines.push(
-    `| Kept facts: verified / needsReview / reasoning (T-013, D-020) | ${a.extraction.reviewCounts.kept} kept — ${a.extraction.reviewCounts.verified} verified, ${a.extraction.reviewCounts.needsReview} needsReview, ${a.extraction.reviewCounts.reasoning} reasoning · fabricated-verified: ${a.extraction.reviewCounts.fabricatedVerified} |`,
+    `| Kept facts: verified / needsReview / reasoning (T-013, D-020) | ${a.extraction.reviewCounts.kept} kept — ${a.extraction.reviewCounts.verified} verified, ${a.extraction.reviewCounts.needsReview} needsReview, ${a.extraction.reviewCounts.reasoning} reasoning · D-020 hostile (mustReview) kept: ${a.extraction.reviewCounts.mustReview} · fabricated-verified: ${a.extraction.reviewCounts.fabricatedVerified} |`,
   );
   lines.push("");
   lines.push(`## Citation classification (raw candidates)`);

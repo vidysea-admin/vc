@@ -42,7 +42,7 @@ import {
   ERASURE_PURGE_OP_TIMEOUT_MS,
   type ErasureRequestDoc,
 } from "../src/erasure.js";
-import { applyApprovedDiff } from "../src/facts.js";
+import { applyApprovedDiff, recordSessionTranscript, readSessionTranscript, resolveCitationSpan } from "../src/facts.js";
 import { DEFAULT_MONGO_CLIENT_TIMEOUT_MS } from "../src/client.js";
 import { COLLECTION_NAMES, type FactDoc } from "../src/collections.js";
 import { INDEX_PLAN } from "../scripts/db-init.js";
@@ -138,6 +138,18 @@ async function seedStudent(db: import("mongodb").Db, fakeDb: FakeDb, studentId: 
   );
   // Session 2 changes targetCountry: the Canada fact is RETIRED (validTo set, active unset).
   await applyApprovedDiff(db, diff, { approve: true, edits: [fact("targetCountry", `${marker}-Germany`, "t3")] }, sessionIds[1]);
+
+  // T-024 / ISS-t-013r-c0-3: the readable transcript, through the real write path (2 turns per session).
+  for (const sessionId of sessionIds) {
+    await recordSessionTranscript(db, {
+      sessionId,
+      studentId,
+      turns: [
+        { turnId: "t1", speaker: "student", lang: "en", text: `I want Canada ${marker}`, translatedText: `I want Canada ${marker}`, ts: 1 },
+        { turnId: "t2", speaker: "counsellor", lang: "en", text: `Noted ${marker}`, translatedText: `Noted ${marker}`, ts: 2 },
+      ],
+    });
+  }
 
   const threadIds = sessionIds.map((s) => `scribe:${s}`);
   for (const threadId of threadIds) {
@@ -333,6 +345,7 @@ test("B15: the receipt counts match what was actually there (read back, per coll
     [COLLECTION_NAMES.scribe_resolutions]: 2,
     scribe_checkpoints: 4,
     scribe_checkpoint_writes: 4,
+    [COLLECTION_NAMES.session_transcripts]: 4, // T-024: 2 sessions x 2 turns
     [COLLECTION_NAMES.edges]: 6, // 3 facts x (sourced_from + has)
   };
   assert.equal(a.factIds.length, 3);
@@ -590,6 +603,62 @@ test("B15 export: the bundle holds all of A's facts (with history), sessions, de
   assert.deepEqual(bundle.checkpoints, { threads: [...a.threadIds].sort(), checkpointDocs: 4, writeDocs: 4 });
   const json = JSON.stringify(bundle);
   for (const needle of identifiers(b)) assert.ok(!json.includes(needle), `export leaks B identifier ${needle}`);
+});
+
+// ---------------------------------------------------------------------------
+// T-024 / ISS-t-013r-c0-3 (D-020 "puri chat bhi save rehegi"): the transcript is a first-class record.
+// ---------------------------------------------------------------------------
+
+test("ISS-t-013r-c0-3: exportStudent includes the full transcript VERBATIM (every turn, text + translation), and none of B's", async () => {
+  const { db, a, b } = await seedTwo();
+  const bundle = await exportStudent(db, a.studentId);
+  assert.equal(bundle.transcripts.length, 4);
+  assert.deepEqual(
+    bundle.transcripts.map((t) => [t.sessionId, t.turnId, t.speaker, t.text, t.translatedText]),
+    [
+      [a.sessionIds[0], "t1", "student", `I want Canada ${a.marker}`, `I want Canada ${a.marker}`],
+      [a.sessionIds[0], "t2", "counsellor", `Noted ${a.marker}`, `Noted ${a.marker}`],
+      [a.sessionIds[1], "t1", "student", `I want Canada ${a.marker}`, `I want Canada ${a.marker}`],
+      [a.sessionIds[1], "t2", "counsellor", `Noted ${a.marker}`, `Noted ${a.marker}`],
+    ],
+  );
+  for (const t of bundle.transcripts) assert.equal(t.studentId, a.studentId);
+  const json = JSON.stringify(bundle.transcripts);
+  for (const needle of identifiers(b)) assert.ok(!json.includes(needle), `transcript export leaks B identifier ${needle}`);
+  assert.deepEqual((await exportStudent(db, "stu-nobody")).transcripts, []);
+});
+
+test("ISS-t-013r-c0-3: erasure hard-deletes A's transcript with read-back ZERO, and B's transcript is untouched", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const transcripts = coll(fakeDb, COLLECTION_NAMES.session_transcripts);
+  assert.equal(transcripts.all().filter((d) => d.studentId === a.studentId).length, 4);
+  const bBefore = JSON.stringify(transcripts.all().filter((d) => d.studentId === b.studentId));
+  const requestId = await confirmedRequest(db, a.studentId);
+  const outcome = await executeErasure(db, requestId);
+  assert.equal(outcome.status, "completed");
+  const line = outcome.receipt.collections.find((l) => l.collection === COLLECTION_NAMES.session_transcripts);
+  assert.deepEqual([line?.outcome, line?.deleted, line?.remaining], ["purged", 4, 0]);
+  // Read-back through the driver and through the counsellor's reader: zero.
+  assert.equal(await db.collection(COLLECTION_NAMES.session_transcripts).countDocuments({ studentId: a.studentId }), 0);
+  for (const sessionId of a.sessionIds) {
+    assert.deepEqual(await readSessionTranscript(db, { studentId: a.studentId, sessionId }), []);
+  }
+  assert.equal(JSON.stringify(transcripts.all().filter((d) => d.studentId === b.studentId)), bBefore);
+});
+
+test("ISS-t-013r-c0-3: the counsellor reads a session's chat back verbatim, in speaking order, scoped to the student", async () => {
+  const { db, a, b } = await seedTwo();
+  const turns = await readSessionTranscript(db, { studentId: a.studentId, sessionId: a.sessionIds[0]! });
+  assert.deepEqual(turns.map((t) => [t.turnId, t.text]), [["t1", `I want Canada ${a.marker}`], ["t2", `Noted ${a.marker}`]]);
+  // Another student's session id returns nothing, never B's chat.
+  assert.deepEqual(await readSessionTranscript(db, { studentId: a.studentId, sessionId: b.sessionIds[0]! }), []);
+  // A citation {turnId, quote} resolves to a span in the PERSISTED text.
+  const span = resolveCitationSpan(turns, { turnId: "t1", quote: "want Canada" });
+  assert.ok(span);
+  assert.equal(turns[0]!.text.slice(span!.start, span!.end), "want Canada");
+  assert.equal(span!.transcriptTurnId, `${a.sessionIds[0]}:t1`);
+  assert.equal(resolveCitationSpan(turns, { turnId: "t1", quote: "want Germany" }), null, "a quote not in the chat resolves to nothing");
+  assert.equal(resolveCitationSpan(turns, { turnId: "t9", quote: "want Canada" }), null, "a turn not in the chat resolves to nothing");
 });
 
 test("B15 export: an unknown student yields an empty bundle, not someone else's data", async () => {

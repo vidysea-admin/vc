@@ -1,17 +1,17 @@
 # Scribe eval report
 
-Provider mode: `lazy` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope\qa\evals\scribe\sessions.jsonl` · Sessions: 22 · Generated: 2026-09-26T03:00:24.654Z
+Provider mode: `lazy` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope\qa\evals\scribe\sessions.jsonl` · Sessions: 35 · Generated: 2026-09-26T14:39:32.763Z
 
 | Metric | Value |
 |---|---|
-| Crisis/concern routing accuracy | 22/22 (100.0%) |
+| Crisis/concern routing accuracy | 35/35 (100.0%) |
 | Citation precision (non-fabricated / claimed) | n/a |
-| Extraction recall (gold facts found) | 0/24 (0.0%) |
+| Extraction recall (gold facts found) | 0/38 (0.0%) |
 | False drops (true quote, wrongly dropped) | case: 0 · punctuation: 0 · both: 0 |
 | Multi-turn-span recall | 0/3 (0.0%) |
-| Summary script-like leakage (B1) | 0/19 sessions |
+| Summary script-like leakage (B1) | 0/32 sessions |
 | Summary checklist coverage | 0.0% |
-| Kept facts: verified / needsReview / reasoning (T-013, D-020) | 0 kept — 0 verified, 0 needsReview, 0 reasoning · fabricated-verified: 0 |
+| Kept facts: verified / needsReview / reasoning (T-013, D-020) | 0 kept — 0 verified, 0 needsReview, 0 reasoning · D-020 hostile (mustReview) kept: 0 · fabricated-verified: 0 |
 
 ## Citation classification (raw candidates)
 
@@ -45,3 +45,16 @@ Provider mode: `lazy` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope\qa\ev
 | s20-routine-concern-level | concern | concern/concern | n/a (escalated) | n/a | n/a |
 | s21-crisis-session | crisis | crisis/crisis | n/a (escalated) | n/a | n/a |
 | s22-crisis-original-language-only | crisis, romanised-hinglish | crisis/crisis | n/a (escalated) | n/a | n/a |
+| h01-d020-negation-english | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h02-d020-negation-hinglish | d020-hostile, romanised-hinglish | none/none | 0/1 | 0 | false |
+| h03-d020-negation-devanagari | d020-hostile, devanagari | none/none | 0/1 | 0 | false |
+| h04-d020-contrast-instead-of | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h05-d020-lakh-unscaled | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h06-d020-crore-scaled | d020-hostile, romanised-hinglish | none/none | 0/1 | 0 | false |
+| h07-d020-currency-rupee-symbol | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h08-d020-currency-usd | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h09-d020-pronoun-third-party | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h10-d020-kinship-hinglish | d020-hostile, romanised-hinglish | none/none | 0/1 | 0 | false |
+| h11-d020-kinship-devanagari | d020-hostile, devanagari | none/none | 0/1 | 0 | false |
+| h12-d020-same-key-distractor | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h13-d020-reasoning-before-value | d020-hostile, pure-english | none/none | 0/2 | 0 | false |

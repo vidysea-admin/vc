@@ -20,6 +20,18 @@ export const GoldFactSchema = z.object({
   /** True when correctly interpreting this fact needs an earlier turn for context (contextTurnId). */
   multiTurn: z.boolean().default(false),
   contextTurnId: z.string().optional(),
+  /**
+   * ISS-t-013r-rev-3 (D-020 hostile rows): true when this fact must NEVER auto-verify (a negated or
+   * contrasted value, a third-party value, an unconverted lakh/crore/currency amount, a reasoning
+   * fact). It is still a real, cited fact the scribe must KEEP (recall counts it); a kept
+   * mustReview fact that ends `needsReview: false` is counted in `fabricatedVerified`.
+   */
+  mustReview: z.boolean().default(false),
+  /** The hostile class this row exercises (negation, lakh-crore, currency, pronoun, kinship, ...). */
+  hostile: z.string().optional(),
+  /** T-013 fact kind; a "reasoning" gold fact names the key it `explains`. */
+  kind: z.enum(["value", "reasoning"]).optional(),
+  explains: z.string().optional(),
 });
 export type GoldFact = z.infer<typeof GoldFactSchema>;
 
@@ -90,11 +102,13 @@ export interface SessionScore {
     /**
      * T-013 (D-020, citation-guarantee-scope): every fact the graph actually KEPT (never dropped for
      * a value-support reason — only a genuinely fabricated citation drops a fact), split by whether
-     * it auto-verified or was flagged for the counsellor. `fabricatedVerified` is always 0 by
-     * construction (a fact only reaches this tally after clearing the citation-location check;
-     * kept as an explicit, checkable claim rather than an implicit one).
+     * it auto-verified or was flagged for the counsellor. `fabricatedVerified` (ISS-t-013r-rev-3,
+     * no longer 0 by construction) counts every kept fact that auto-verified although it should not
+     * have: its citation was not located, OR it matches a gold fact marked `mustReview` (a D-020
+     * hostile row), OR it matches no gold fact at all (a value the gold set never labelled).
+     * `mustReview` counts the kept facts that matched a mustReview gold fact.
      */
-    reviewCounts: { kept: number; verified: number; needsReview: number; reasoning: number; fabricatedVerified: number };
+    reviewCounts: { kept: number; verified: number; needsReview: number; reasoning: number; mustReview: number; fabricatedVerified: number };
   } | null;
   summary: {
     text: string;
@@ -119,7 +133,7 @@ export interface AggregateScore {
     falseDropCounts: { caseMismatch: number; punctuationMismatch: number; caseAndPunctuationMismatch: number };
     multiTurn: { goldCount: number; recalledCount: number; recall: number | null };
     /** T-013: rolled up across every scored session's SessionScore.extraction.reviewCounts. */
-    reviewCounts: { kept: number; verified: number; needsReview: number; reasoning: number; fabricatedVerified: number };
+    reviewCounts: { kept: number; verified: number; needsReview: number; reasoning: number; mustReview: number; fabricatedVerified: number };
   };
   summary: { scriptLikeLeaks: number; scored: number; checklistCoverage: number | null };
 }

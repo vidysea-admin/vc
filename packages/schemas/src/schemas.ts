@@ -160,6 +160,15 @@ export const TranscriptTurnSchema = z.object({
 });
 export type TranscriptTurn = z.infer<typeof TranscriptTurnSchema>;
 
+/**
+ * T-024 / ISS-t-013r-c0-3 (D-020): one transcript turn as it is PERSISTED for the counsellor to read
+ * (packages/db session_transcripts) — the turn verbatim plus the `turnId` every fact citation names.
+ */
+export const TranscriptTurnRecordSchema = TranscriptTurnSchema.extend({
+  turnId: z.string().min(1),
+});
+export type TranscriptTurnRecord = z.infer<typeof TranscriptTurnRecordSchema>;
+
 // ---------------------------------------------------------------------------
 // AudioChunk metadata (plan.md §3 step 2) — META ONLY. No raw audio field is
 // modelled here on purpose (see UNIT brief): the graph never needs raw PCM to

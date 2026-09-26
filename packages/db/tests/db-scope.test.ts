@@ -156,6 +156,7 @@ const FENCE_AWARE_WRITERS: Record<string, string> = {
   "packages/db/src/facts.ts":
     "applyApprovedDiff: pre-check, writes under FENCED_WRITER_DEADLINE_MS (driver timeoutMS + app deadline), finally post-check + compensation (D-015/D-016). " +
     "T-016 ensureScribeSessionRow: called only from scribe/graph.ts (start under its deadline + fence pre-check, row compensated by invokeFenceAware). " +
+    "T-024 recordSessionTranscript: same discipline as ensureScribeSessionRow — called only from scribe/graph.ts startScribe under its deadline + fence pre-check; the turn documents it CREATED are deleted by invokeFenceAware's compensation. " +
     "ISS-t-016-rev-1: recordApprovedSessionSummary is now fence-aware on its OWN (pre-check + writes under a WriterDeadline + finally post-check that unsets exactly the fields it wrote, matched on its own summaryApprovedAt), mirroring applyApprovedDiff — but that ONLY covers a fence that exists by the time its own post-check runs. " +
     "ISS-t-017-rev-1: a fence confirmed strictly AFTER that post-check, but before or during the applyApprovedDiff call right after it, was invisible to either write alone and left the summary behind for executeErasure to find; exporting `undoApprovedSessionSummary` (same match-key undo) lets the caller (writeApproved, nodes.ts, on the fence-aware allowlist below) close that window too, so the full two-write approval path now leaves zero summary residue on any `fenced` outcome",
   "packages/db/src/erasure.ts": "the erasure purge itself (deletes under the fence) plus the fence and audit rows",
@@ -177,6 +178,7 @@ const STUDENT_DATA_COLLECTIONS = [
   "scribe_resolutions",
   "scribe_checkpoints",
   "scribe_checkpoint_writes",
+  "session_transcripts",
 ];
 const STUDENT_DATA_ACCESSORS = [
   "studentsCollection",
@@ -186,6 +188,7 @@ const STUDENT_DATA_ACCESSORS = [
   "consentsCollection",
   "edgesCollection",
   "scribeResolutionsCollection",
+  "sessionTranscriptsCollection",
 ];
 const WRITE_METHODS = [
   "insertOne",

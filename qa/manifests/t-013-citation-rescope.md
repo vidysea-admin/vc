@@ -240,4 +240,95 @@ this session's `pnpm -r test` run (`apps/web test: tests 18, pass 18, fail 0`). 
 actually populates `needsReview`/`reviewReasons` on real facts (previously always absent), that
 existing, tested UI path is exercised for real by this unit without needing a code change of its own.
 
-## Status: fix-cycle-1 building (checker c0 FAIL 7dda413 + data-engineer Warning + ai-engineer Warning)
+---
+
+# FIX CYCLE 1 (answers verdict c0 FAIL @ 7dda413 + data-engineer / ai-engineer reviews)
+
+Human requirement driving c0-3 (verbatim): "puri chat bhi save rehegi and iske alawa we have to make the knoowledge graph of the user so that we have summarized way, and also like essaa hogaa numbers k alawa sometimes reasoning is also valuble".
+
+**Persona walk:** skip — no `apps/web/**` path in this cycle's diff (`git diff --name-only <c0-head>..HEAD -- apps/web` is empty); the existing needsReview chip (`apps/web/src/components/ApprovalScreen.tsx:288-299`) renders the new `reviewReasons` strings unchanged.
+
+## Findings -> fix
+
+| finding | how it is fixed (file:line) |
+|---|---|
+| **ISS-t-013r-c0-1 (critical)** a negation auto-verifies | `packages/engine/src/scribe/nodes.ts:278` `NEGATION_MARKERS` (not/never/no/nahi/nahin/mat/na/नहीं/मत/न + contrast words instead/rather/than/but/lekin/pehle…) + `NT_CONTRACTION_RE`; `assessFactForReview` (`nodes.ts:401`) checks negation over the quote AND the whole cited turn (text + translatedText), so a Hindi post-position negation ("UK nahi") and a model-cropped quote are both caught. Reason prefix `negation:` |
+| **ISS-t-013r-c0-2 (high)** third-party via pronoun / Hinglish / Devanagari kinship | `nodes.ts:241` `THIRD_PARTY_MARKERS` extended: English relations + he/she/they/his/her/their/him/them; Hinglish bhai/bhaiya/didi/behen/chacha/mama/papa/mummy/dost/uska/uski/unka/woh…; Devanagari भाई/बहन/दीदी/पापा/मम्मी/चाचा/मामा/दोस्त/उसका/उसकी/उनका/वह/वो… Judged on quote + turn context. Reason prefix `third-party:` |
+| **ISS-t-013r-rev-2 (high)** '20 lakh' auto-verifies 20 | `nodes.ts:297` `MULTIPLIER_MARKERS` (lakh/lac/crore/cr/k/thousand/million/billion/hazaar/लाख/करोड़/हज़ार…), `CURRENCY_SYMBOL_RE`, `GLUED_MULTIPLIER_RE` (20k, 20L, ₹20); `containsNumberToken` (`nodes.ts:355`) is a boundary match on the tier-1 text so 20 never matches inside 20,00,000 / 1.20 / 20-25 / 20/40 / $20. Reason prefix `unit-multiplier:` |
+| fail-safe rule (all three) | `assessFactForReview` auto-verifies ONLY when: first-person marker in the quote (`FIRST_PERSON_MARKERS`, `nodes.ts:315`; excludes ambiguous "mein"/"us") AND no negation AND no third-party marker AND no multiplier/currency. Every failing condition is named in `reviewReasons` with a stable prefix (`REVIEW_REASONS`, `nodes.ts:368`). The fact is KEPT (value + citation intact), never dropped. Call site `nodes.ts:520` passes `[turn.text, turn.translatedText]` |
+| **ISS-t-013r-rev-1 (high)** explains edge lost when reasoning comes first | `packages/db/src/facts.ts:464` `pendingExplains` collected in pass 1; pass 2 (`facts.ts:584`) resolves the target from this call's writes first, then the active fact in the DB, and links `explains`. A pass-2 failure throws `PartialApplyError` with the ids written (ISS-028 shape). Both orders tested |
+| **ISS-t-013r-rev-3 (medium)** hostile rows in the golden set | `qa/evals/scribe/sessions.jsonl` +13 sessions `h01..h13` (strata `d020-hostile`: negation EN/Hinglish/Devanagari/instead-of, lakh-unscaled, crore-scaled, ₹, USD, pronoun, kinship Hinglish, kinship Devanagari, same-key distractor, reasoning-before-value). `packages/engine/evals/types.ts:29` `mustReview`/`hostile`/`kind`/`explains` on GoldFact; `evals/score.ts:89-107` `fabricatedVerified` = verified AND (no citationMatch OR matches a `mustReview` gold OR matches no gold) — no longer 0 by construction; `evals/report.ts` prints the hostile count; `evals/score-perfect.test.ts:41` asserts >= 10 hostile rows, every class present, mustReview == hostile count, fabricatedVerified == 0 |
+| **ISS-t-013r-c0-3 (high) + T-024** full transcript as a governed record | `packages/db/src/collections.ts:44` `session_transcripts` in COLLECTION_NAMES, `:99` `TranscriptTurnDoc`, `:112` `transcriptTurnDocId`, `:194` accessor. `packages/schemas/src/schemas.ts:167` `TranscriptTurnRecordSchema`. `packages/db/scripts/db-init.ts:151-156` two INDEX_PLAN entries (studentId; studentId+sessionId+ts), no TTL. `packages/db/src/facts.ts:909` `recordSessionTranscript` (Zod-validated, `$setOnInsert` upsert on `{_id, studentId}` — replay-safe, never overwrites, cross-student 11000, `createdSink` for compensation); `:954` `readSessionTranscript` (the counsellor read, student-scoped, speaking order); `:991` `resolveCitationSpan` (citation {turnId, quote} -> offsets in the PERSISTED field, same two strict tiers, NFC/NFD tolerant, never fuzzy). `packages/db/src/erasure.ts:840` phase-1 ERASURE_PLAN step (hard delete, read-back residue); `:1223/:1239` `StudentExport.transcripts` VERBATIM. `packages/engine/src/scribe/graph.ts:507` startScribe records the chat inside the fence-aware call; `:378` `CreatedByCall.transcriptTurns`; `:433` compensation deletes exactly the turns this call created. `packages/db/tests/db-init.test.ts:314-360` TTL guard: INDEX_PLAN check + repo-wide source scanner (fails on `expireAfterSeconds` / a `ttl:` option anywhere under packages/, apps/, mcp/) + pattern falsification. `db-scope.test.ts` B12 lists updated |
+| **c0-4 (process)** falsify in a throwaway copy | all rows below ran in `C:/Users/Lenovo/AppData/Local/Temp/claude/t013c1-1` (robocopy of the worktree excluding .git/node_modules, `pnpm install --offline --frozen-lockfile`), script `scratchpad/falsify.py`; the worktree was never mutated |
+| **c0-5 (low)** persona walk line | added above |
+
+Tests updated (not deleted): `scribe-citation-rescope.test.ts` — the number positive now uses a first-person fixture ("I scored 92 in my class 12 boards"), the old rupees fixture is kept as a needsReview negative; the 42 positive is "I have finished 42 credits so far", the old "we discussed all 42 of them" kept as a negative. `scribe-per-fact.test.ts:~42` harness quote is first-person. `erasure.test.ts` seedStudent records 2 transcript turns/session through the real write path; the receipt expects `session_transcripts: 4`.
+
+New tests: `scribe-citation-rescope.test.ts:269-385` (positives EN/Hinglish/Devanagari, negation, third-party, no-first-person, multiplier/currency, glued numbers, multi-reason kept fact); `facts.test.ts:1020,1049` (rev-1 both orders, incl. older active fact) and `:1083-1131` (transcript write/replay/no-overwrite/cross-student/invalid/duplicate/span); `erasure.test.ts:612,631,649` (export verbatim, erasure read-back 0, counsellor read + span); `db-init.test.ts:314,352,360` (TTL guards); `scribe-persistence.test.ts:688,710` (startScribe persists chat, every proposed citation resolves to a span in the stored chat; second run adds only new turns, export carries them); `scribe-erasure-fence.test.ts:240` (fenced mid-run removes only this call's turns).
+
+## Verify (commands + REAL outputs, this cycle)
+
+```
+pnpm -r typecheck
+  packages/providers typecheck: Done · packages/schemas: Done · packages/observability: Done · packages/db: Done
+  apps/api: Done · mcp/university-kb: Done · mcp/student-profile: Done · packages/engine: Done · apps/web: Done   (exit 0)
+
+pnpm --filter @vc/schemas test              ℹ tests 56   ℹ pass 56   ℹ fail 0
+pnpm --filter @vc/providers test            ℹ tests 31   ℹ pass 31   ℹ fail 0
+pnpm --filter @vc/observability test        ℹ tests 57   ℹ pass 57   ℹ fail 0
+pnpm --filter @vc/db test                   ℹ tests 212  ℹ pass 212  ℹ fail 0
+pnpm --filter @vc/api test                  ℹ tests 8    ℹ pass 8    ℹ fail 0
+pnpm --filter @vc/mcp-student-profile test  ℹ tests 12   ℹ pass 12   ℹ fail 0
+pnpm --filter @vc/mcp-university-kb test    ℹ tests 9    ℹ pass 9    ℹ fail 0
+pnpm --filter @vc/engine test               ℹ tests 303  ℹ pass 303  ℹ fail 0
+pnpm --filter @vc/web test                  ℹ tests 24   ℹ pass 24   ℹ fail 0
+
+python contracts/verify_contracts.py
+  verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity
+```
+
+Eval (golden set now 35 sessions incl. 13 D-020 hostile rows), `pnpm --filter @vc/engine eval:scribe -- --provider=<mode>`:
+
+```
+perfect    | 38 kept — 7 verified, 31 needsReview, 1 reasoning · D-020 hostile (mustReview) kept: 13 · fabricated-verified: 0 |  recall 38/38
+case-drift | 38 kept — 7 verified, 31 needsReview, 1 reasoning · D-020 hostile (mustReview) kept: 13 · fabricated-verified: 0 |  recall 38/38
+fabricator | 0 kept — 0 verified, 0 needsReview, 0 reasoning · D-020 hostile (mustReview) kept: 0 · fabricated-verified: 0 |  precision 0.0%
+lazy       | 0 kept — 0 verified, 0 needsReview, 0 reasoning · D-020 hostile (mustReview) kept: 0 · fabricated-verified: 0 |  precision n/a
+```
+
+The metric is proven non-vacuous: in the throwaway copy, with the four fail-safe guards disabled (the old wide rule), the SAME eval on the SAME golden set reports **fabricated-verified: 10**:
+
+```
+BEFORE (fail-safe rule): 38 kept — 7 verified, 31 needsReview, 1 reasoning · D-020 hostile (mustReview) kept: 13 · fabricated-verified: 0
+AFTER  (old wide rule):  38 kept — 21 verified, 17 needsReview, 1 reasoning · D-020 hostile (mustReview) kept: 13 · fabricated-verified: 10
+```
+
+## Capability coverage — fix cycle 1 (throwaway copy `t013c1-1`, same test id before/after)
+
+| capability | falsifying edit (copy only) | BEFORE (GREEN) | AFTER (RED) |
+|---|---|---|---|
+| c0-1 negation never auto-verifies | `nodes.ts` `const negated = ...` -> `const negated = false;` | `✔ ISS-t-013r-c0-1: a value the turn NEGATES or contrasts away never auto-verifies (reason: negation)` [pass 1 fail 0] | `✖ ISS-t-013r-c0-1: ...` [pass 0 fail 1] |
+| c0-2 pronoun/kinship third party never auto-verifies | `const thirdParty = ...` -> `false` | `✔ ISS-t-013r-c0-2: a third-party referent (pronoun, English/Hinglish/Devanagari kinship) never auto-verifies (reason: third-party)` [pass 1 fail 0] | `✖ ISS-t-013r-c0-2: ...` [pass 0 fail 1] |
+| first-person required | `const firstPerson = ...` -> `true` | `✔ fail-safe: no first-person marker in the quote -> never auto-verifies (reason: no-first-person)` [pass 1 fail 0] | `✖ fail-safe: no first-person marker ...` [pass 0 fail 1] |
+| rev-2 multiplier/currency never auto-verifies | multiplier guard line removed | `✔ ISS-t-013r-rev-2: a number next to a unit multiplier or currency never auto-verifies, scaled or unscaled (reason: unit-multiplier)` [pass 1 fail 0] | `✖ ISS-t-013r-rev-2: ...` [pass 0 fail 1] |
+| rev-1 two-pass explains | pass-1 push gated on `writtenIdByKey.has(fact.explains)` (= old single-pass semantics) | `✔ ISS-t-013r-rev-1: a reasoning fact listed BEFORE its value fact in the same call still gets an 'explains' edge to it` [pass 1 fail 0] | `✖ ISS-t-013r-rev-1: ...` [pass 0 fail 1] |
+| c0-3 erasure hard-deletes the transcript | ERASURE_PLAN transcript step removed | `✔ ISS-t-013r-c0-3: erasure hard-deletes A's transcript with read-back ZERO, and B's transcript is untouched` [pass 1 fail 0] | `✖ ...` [pass 0 fail 1] |
+| c0-3 export carries the transcript verbatim | `transcripts,` -> `transcripts: [],` | `✔ ISS-t-013r-c0-3: exportStudent includes the full transcript VERBATIM (every turn, text + translation), and none of B's` [pass 1 fail 0] | `✖ ...` [pass 0 fail 1] |
+| c0-3 no TTL ever (scanner) | `expireAfterSeconds: 60` added to the transcript index spec | `✔ ISS-t-013r-c0-3 scanner: no source file under packages/, apps/ or mcp/ declares a TTL ...` [pass 1 fail 0] | `✖ ...` [pass 0 fail 1] |
+| c0-3 no TTL ever (plan guard) | same edit | `✔ ISS-t-013r-c0-3: the transcript is a planned collection with a studentId index, and NO index on the transcript or checkpoint collections carries a TTL` [pass 1 fail 0] | `✖ ...` [pass 0 fail 1] |
+| c0-3 startScribe persists the chat; citations resolve into it | `recordSessionTranscript(...)` call removed from `graph.ts` | `✔ ISS-t-013r-c0-3: startScribe persists every input turn verbatim, and every proposed fact's citation resolves to a span in the stored chat` [pass 1 fail 0] | `✖ ...` [pass 0 fail 1] |
+| c0-3 fence compensation removes this call's turns | transcript branch of `compensate` -> `if (false)` | `✔ ISS-t-013r-c0-3: a fence that appears DURING startScribe removes the transcript turns THIS call created, and keeps turns an earlier run recorded` [pass 1 fail 0] | `✖ ...` [pass 0 fail 1] |
+| rev-3 hostile rows make fabricatedVerified meaningful | four guards disabled, eval `--provider=perfect` | `fabricated-verified: 0` | `fabricated-verified: 10` |
+
+The earlier "Requirement 5: NO ISOLATING FALSIFICATION NEEDED" note (above) is superseded by the c0-3 rows here: the transcript is now code this unit wrote.
+
+## Live browser evidence (fix cycle 1)
+**Not applicable.** No file under `apps/web` changed in this cycle (D-024 browser evidence is required only when apps/web is touched). `@vc/web` tests 24/24 green unchanged.
+
+## Open gaps (named, not hidden)
+- **Counsellor read surface:** the counsellor read is the `@vc/db` reader `readSessionTranscript` (plus the transcript in `exportStudent`). No HTTP route / MCP tool (`get_session_transcript`) and no apps/web screen was added in this unit, to keep apps/web and the MCP tool list out of this diff. A consent-gated MCP tool or API route is the follow-up if the counsellor UI must show the chat.
+- **Real Mongo:** not touched this cycle; every test uses the `@vc/db/testing` fake with the production INDEX_PLAN unique set. `db-init` will create the two new indexes on its next run (not run here).
+- **Marker lists** (negation, kinship, multiplier) are closed, hand-curated sets. A marker outside them fails SAFE only through the first-person requirement, not by recognition; e.g. a third-party sentence that also contains "I/my" and an unlisted kinship word would still auto-verify. The eval hostile rows cover the named classes only.
+- **Fresh-context review** (senior-software-engineer / data-engineer / ai-engineer) of this cycle's code was not dispatched from this build subagent (no nested fan-out); the orchestrator/checker should run it.
+
+## Status: ready-for-check

@@ -39,7 +39,9 @@ function threeFactHarness(): Harness {
     provider: mockProvider({
       "fact-extraction": {
         facts: [
-          citedCandidate("targetCountry", "Canada", "study computer science in Canada", "t1"),
+          // fix cycle 1 (D-020 fail-safe rule): the quote now carries the first-person "I" so the
+          // closed-vocabulary country can still auto-verify.
+          citedCandidate("targetCountry", "Canada", "I want to study computer science in Canada", "t1"),
           citedCandidate("budget_inr_per_year", 2000000, "around 20 lakh rupees a year", "t3"),
           citedCandidate("intendedMajor", "computer science", "study computer science", "t1"),
         ],
@@ -248,8 +250,9 @@ test("T-008: ApprovalRequestSchema keeps an optional needsReview/reviewReasons p
   const paused = await startScribe(h.graph, baseInput(), cfg("pf-review"));
   assert.equal(paused.kind, "awaiting_approval");
   if (paused.kind !== "awaiting_approval") return;
-  // targetCountry="Canada" is quoted from "study computer science in Canada" (t1): a closed-vocabulary
-  // country, whole-word matched, no third-party referent -> auto-verified.
+  // targetCountry="Canada" is quoted from "I want to study computer science in Canada" (t1): a
+  // closed-vocabulary country, whole-word matched, first-person, no negation, no third-party referent
+  // -> auto-verified (fix cycle 1 fail-safe rule).
   assert.equal(paused.request.facts[0]?.key, "targetCountry");
   assert.equal(paused.request.facts[0]?.needsReview, false, "a closed-vocabulary country match auto-verifies (B2, D-020)");
   // The schema itself stays backward-compatible: a Fact object that never mentions the field at all

@@ -112,14 +112,23 @@ test("citation location NEGATIVE: a quote with a genuinely inserted word is fabr
 // ---------------------------------------------------------------------------
 
 test("auto-verify: a typed number present as a whole token in the quote is verified (needsReview: false)", () => {
-  const turns = turnsById(turn({ turnId: "t3", text: "We can manage around 20000 rupees a year." }));
-  const raw = candidate({ key: "budget_inr_per_year", value: 20000, source: { type: "transcript", quote: "around 20000 rupees a year", turnId: "t3" } });
+  // fix cycle 1 (D-020 fail-safe rule): the positive fixture is first-person with no currency or
+  // multiplier. The cycle-0 fixture ("around 20000 rupees a year": no first person in the quote, a
+  // currency word in the turn) is kept below as the matching negative.
+  const turns = turnsById(turn({ turnId: "t3", text: "I scored 92 in my class 12 boards." }));
+  const raw = candidate({ key: "class12_percentage", value: 92, source: { type: "transcript", quote: "I scored 92 in my class 12 boards", turnId: "t3" } });
   const result = verifyCandidateFact(raw, turns, SESSION_ENDED);
   assert.ok("fact" in result);
   if ("fact" in result) {
     assert.equal(result.fact.needsReview, false);
     assert.equal(result.fact.reviewReasons, undefined);
   }
+
+  const oldTurns = turnsById(turn({ turnId: "t3", text: "We can manage around 20000 rupees a year." }));
+  const oldRaw = candidate({ key: "budget_inr_per_year", value: 20000, source: { type: "transcript", quote: "around 20000 rupees a year", turnId: "t3" } });
+  const oldResult = verifyCandidateFact(oldRaw, oldTurns, SESSION_ENDED);
+  assert.ok("fact" in oldResult, "kept, never dropped");
+  if ("fact" in oldResult) assert.equal(oldResult.fact.needsReview, true, "a currency word in the turn now forces review");
 });
 
 test("auto-verify NEGATIVE: a number embedded inside a LARGER digit run never auto-verifies (no false positive from substring matching, e.g. 15 inside 115)", () => {
@@ -231,9 +240,154 @@ test("reasoning fact NEGATIVE: missing `explains` is dropped with a clear reason
 });
 
 test("assessFactForReview: a typed number auto-verifies with empty reasons; a reasoning fact never does, even with a vocabulary-shaped value", () => {
-  const verified = assessFactForReview({ kind: "value", value: 42 }, "we discussed all 42 of them");
+  // fix cycle 1: first-person, no pronoun/negation/currency (the cycle-0 fixture "we discussed all 42
+  // of them" now carries the third-party pronoun "them" and correctly stays in review).
+  const verified = assessFactForReview({ kind: "value", value: 42 }, "I have finished 42 credits so far");
   assert.deepEqual(verified, { needsReview: false, reviewReasons: [] });
+  assert.equal(assessFactForReview({ kind: "value", value: 42 }, "we discussed all 42 of them").needsReview, true);
 
   const reasoning = assessFactForReview({ kind: "reasoning", value: "Canada" }, "because Canada has good universities");
   assert.equal(reasoning.needsReview, true);
+});
+
+// ---------------------------------------------------------------------------
+// Fix cycle 1 (ISS-t-013r-c0-1, -c0-2, -rev-2): the fail-safe auto-verify rule. Auto-verify only when
+// the quote is first-person AND the turn has no negation/contrast, no third-party marker and (numbers)
+// no unit multiplier or currency. Every other case is KEPT with a named reviewReason, never dropped.
+// ---------------------------------------------------------------------------
+
+function verifyOne(text: string, quote: string, value: unknown, key = "targetCountry") {
+  const turns = turnsById(turn({ turnId: "h1", text }));
+  const result = verifyCandidateFact(candidate({ key, value, source: { type: "transcript", quote, turnId: "h1" } }), turns, SESSION_ENDED);
+  assert.ok("fact" in result, `kept, never dropped: ${quote}`);
+  return "fact" in result ? result.fact : undefined;
+}
+
+const reasonsStartWith = (reasons: readonly string[] | undefined, prefix: string) =>
+  (reasons ?? []).some((r) => r.startsWith(prefix));
+
+test("fail-safe POSITIVES: first-person, un-negated, own, unscaled values still auto-verify (English, Hinglish, Devanagari)", () => {
+  const cases: Array<[string, string, unknown]> = [
+    ["I want to go to the UK.", "I want to go to the UK", "UK"],
+    ["Mujhe Canada jaana hai.", "Mujhe Canada jaana hai", "Canada"],
+    ["Main Australia mein padhna chahta hu.", "Main Australia mein padhna chahta hu", "Australia"],
+    ["मुझे Canada जाना है।", "मुझे Canada जाना है", "Canada"],
+    ["My score was 92 in boards.", "My score was 92 in boards", 92],
+    ["I got 7.5 in IELTS.", "I got 7.5 in IELTS", 7.5],
+  ];
+  for (const [text, quote, value] of cases) {
+    const fact = verifyOne(text, quote, value, typeof value === "number" ? "score" : "targetCountry");
+    assert.equal(fact?.needsReview, false, `should auto-verify: ${quote}`);
+  }
+});
+
+test("ISS-t-013r-c0-1: a value the turn NEGATES or contrasts away never auto-verifies (reason: negation)", () => {
+  const cases: Array<[string, string, string]> = [
+    ["UK nahi, Canada jaana hai.", "UK nahi", "UK"],
+    ["Not united states, I want Canada.", "Not united states, I want Canada", "USA"],
+    ["I don't want the UK, I'd rather go to Canada.", "I don't want the UK", "UK"],
+    ["I don’t want the UK.", "I don’t want the UK", "UK"],
+    ["I do not want the UK.", "I do not want the UK", "UK"],
+    ["I never wanted the UK.", "I never wanted the UK", "UK"],
+    ["I want Canada instead of the UK.", "I want Canada instead of the UK", "UK"],
+    ["Main UK nahin jaunga.", "Main UK nahin jaunga", "UK"],
+    ["Mujhe UK mat bhejo.", "Mujhe UK mat bhejo", "UK"],
+    ["मुझे UK नहीं जाना है।", "मुझे UK नहीं जाना है", "UK"],
+    // cropped quote: the model cut the negation off, the turn still carries it
+    ["I dont want to go to the UK at all.", "go to the UK", "UK"],
+    ["Honestly I would not pick it. I want the UK? No.", "I want the UK", "UK"],
+  ];
+  for (const [text, quote, value] of cases) {
+    const fact = verifyOne(text, quote, value);
+    assert.equal(fact?.needsReview, true, `negated value must not auto-verify: ${text}`);
+    assert.ok(reasonsStartWith(fact?.reviewReasons, "negation:"), `named negation reason: ${text}`);
+  }
+});
+
+test("ISS-t-013r-c0-2: a third-party referent (pronoun, English/Hinglish/Devanagari kinship) never auto-verifies (reason: third-party)", () => {
+  const cases: Array<[string, string]> = [
+    ["He is in the UK and I miss him.", "He is in the UK"],
+    ["She wants the UK for my sake.", "She wants the UK"],
+    ["Their plan is the UK, I am fine with it.", "Their plan is the UK"],
+    ["Meri behen UK mein hai abhi.", "Meri behen UK mein hai abhi"],
+    ["Mera bhai UK mein padhta hai.", "Mera bhai UK mein padhta hai"],
+    ["Didi ke saath main UK jaungi.", "Didi ke saath main UK jaungi"],
+    ["Papa chahte hain main UK jaun.", "Papa chahte hain main UK jaun"],
+    ["Mummy bolti hai mujhe UK jaana chahiye.", "Mummy bolti hai mujhe UK jaana chahiye"],
+    ["Chacha ji UK mein rehte hain, main bhi UK jaunga.", "main bhi UK jaunga"],
+    ["मेरी बहन UK में है।", "मेरी बहन UK में है"],
+    ["मेरा भाई UK में पढ़ता है।", "मेरा भाई UK में पढ़ता है"],
+    ["Uska plan UK hai, mera bhi.", "Uska plan UK hai"],
+  ];
+  for (const [text, quote] of cases) {
+    const fact = verifyOne(text, quote, "UK");
+    assert.equal(fact?.needsReview, true, `third-party value must not auto-verify: ${text}`);
+    assert.ok(reasonsStartWith(fact?.reviewReasons, "third-party:"), `named third-party reason: ${text}`);
+  }
+});
+
+test("fail-safe: no first-person marker in the quote -> never auto-verifies (reason: no-first-person)", () => {
+  const cases: Array<[string, string, string]> = [
+    ["The UK is expensive.", "The UK is expensive", "UK"],
+    ["Canada jaana hai.", "Canada jaana hai", "Canada"],
+    ["UK mein bahut scope hai.", "UK mein bahut scope hai", "UK"],
+  ];
+  for (const [text, quote, value] of cases) {
+    const fact = verifyOne(text, quote, value);
+    assert.equal(fact?.needsReview, true, text);
+    assert.ok(reasonsStartWith(fact?.reviewReasons, "no-first-person:"), `named reason: ${text}`);
+  }
+});
+
+test("ISS-t-013r-rev-2: a number next to a unit multiplier or currency never auto-verifies, scaled or unscaled (reason: unit-multiplier)", () => {
+  const cases: Array<[string, string, number]> = [
+    ["My budget is 20 lakh.", "My budget is 20 lakh", 20],
+    ["My budget is 20 lakh.", "My budget is 20 lakh", 2000000],
+    ["My budget is 2 crore.", "My budget is 2 crore", 2],
+    ["My budget is 2 cr.", "My budget is 2 cr", 2],
+    ["My budget is 50k.", "My budget is 50k", 50],
+    ["My budget is 50 k.", "My budget is 50 k", 50],
+    ["My budget is 20 thousand.", "My budget is 20 thousand", 20],
+    ["My budget is 1.5 million.", "My budget is 1.5 million", 1.5],
+    ["My budget is ₹20 per month.", "My budget is ₹20", 20],
+    ["My budget is Rs 20.", "My budget is Rs 20", 20],
+    ["My budget is rs.20 only.", "My budget is rs.20", 20],
+    ["My budget is INR 20.", "My budget is INR 20", 20],
+    ["My budget is $20.", "My budget is $20", 20],
+    ["My budget is 20 USD.", "My budget is 20 USD", 20],
+    ["My budget is £20.", "My budget is £20", 20],
+    ["My budget is €20.", "My budget is €20", 20],
+    ["Mera budget 20 lac hai.", "Mera budget 20 lac hai", 20],
+    ["मेरा बजट 20 लाख है।", "मेरा बजट 20 लाख है", 20],
+    ["My budget is 20 lakh.", "My budget is 20", 20], // cropped quote: the turn still carries "lakh"
+  ];
+  for (const [text, quote, value] of cases) {
+    const fact = verifyOne(text, quote, value, "budget");
+    assert.equal(fact?.needsReview, true, `scaled/currency amount must not auto-verify: ${text} -> ${value}`);
+    assert.ok(reasonsStartWith(fact?.reviewReasons, "unit-multiplier:"), `named multiplier reason: ${text} -> ${value}`);
+  }
+});
+
+test("ISS-t-013r-rev-2: a number glued into a larger numeric form never auto-verifies (Indian grouping, decimals, ranges)", () => {
+  const cases: Array<[string, number]> = [
+    ["My budget is 20,00,000 total", 20],
+    ["I got 1.5 in the test", 1],
+    ["I got 1.5 in the test", 5],
+    ["I scored 20-25 marks", 20],
+    ["I scored 20/40 marks", 20],
+  ];
+  for (const [quote, value] of cases) {
+    const fact = verifyOne(`${quote}.`, quote, value, "score");
+    assert.equal(fact?.needsReview, true, `${value} must not auto-verify from "${quote}"`);
+  }
+});
+
+test("fail-safe: every flagged fact is KEPT with its value and citation intact, all failing conditions named (D-020: nothing is dropped)", () => {
+  const fact = verifyOne("Meri behen UK nahi, Canada gayi, uska budget 20 lakh tha.", "uska budget 20 lakh tha", 20, "budget");
+  assert.equal(fact?.value, 20);
+  assert.equal(fact?.source.quote, "uska budget 20 lakh tha");
+  assert.equal(fact?.needsReview, true);
+  for (const prefix of ["third-party:", "negation:", "no-first-person:", "unit-multiplier:"]) {
+    assert.ok(reasonsStartWith(fact?.reviewReasons, prefix), `every failing condition is named: ${prefix}`);
+  }
 });

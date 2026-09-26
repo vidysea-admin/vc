@@ -147,8 +147,18 @@ import {
   type ProfileDiff,
   type FactChange,
   type CounsellorDecision,
+  TranscriptTurnRecordSchema,
+  type TranscriptTurnRecord,
 } from "@vc/schemas";
-import { factsCollection, edgesCollection, sessionsCollection, type FactDoc } from "./collections.js";
+import {
+  factsCollection,
+  edgesCollection,
+  sessionsCollection,
+  sessionTranscriptsCollection,
+  transcriptTurnDocId,
+  type FactDoc,
+  type TranscriptTurnDoc,
+} from "./collections.js";
 import { deriveEdgeId, link, type EdgeRef, type EdgeDoc } from "./edges.js";
 import {
   assertStudentNotFenced,
@@ -447,6 +457,11 @@ export async function applyApprovedDiff(
   // each fact in THIS call is written, so a reasoning fact approved alongside the value fact it
   // explains (the common case) can link to it without a second read.
   const writtenIdByKey = new Map<string, string>();
+  // ISS-t-013r-rev-1: explains edges are linked in a SECOND pass, after every fact of this call is
+  // written, so the edge no longer depends on the order of `decision.edits` (a reasoning fact listed
+  // BEFORE its value fact used to find nothing in writtenIdByKey, fall back to the old active fact or
+  // nothing, and silently lose the edge).
+  const pendingExplains: { factRef: EdgeRef; key: string; explains: string }[] = [];
 
   const writeAll = async (): Promise<ApplyApprovedDiffResult> => {
     const written: FactDoc[] = [];
@@ -538,23 +553,10 @@ export async function applyApprovedDiff(
         await linkTracked(factRef, to, "sourced_from");
         await linkTracked(studentRef, factRef, "has");
 
-        // T-013 (D-020): a "reasoning" fact is linked to the value fact it explains, in the SAME
-        // edges collection. Resolved first against facts written earlier in THIS call (both approved
-        // together, the common case), else against the student's currently active fact for that key.
-        // No match (the explained fact was never written, e.g. rejected by the counsellor) leaves the
-        // reasoning fact written but unlinked — it still carries its own citation and needsReview.
+        // T-013 (D-020): a "reasoning" fact is linked to the value fact it explains — deferred to the
+        // second pass below (ISS-t-013r-rev-1), so the order of `decision.edits` does not matter.
         if (fact.kind === "reasoning" && fact.explains) {
-          const explainedId =
-            writtenIdByKey.get(fact.explains) ??
-            (
-              await facts.findOne(
-                { studentId: diff.studentId, key: fact.explains, active: true } as Filter<FactDoc>,
-                deadline.op(),
-              )
-            )?._id;
-          if (explainedId) {
-            await linkTracked(factRef, { kind: "fact", id: explainedId }, "explains");
-          }
+          pendingExplains.push({ factRef, key: fact.key, explains: fact.explains });
         }
       } catch (err) {
         // ISS-028: earlier iterations of this same call already committed
@@ -570,6 +572,35 @@ export async function applyApprovedDiff(
           );
         }
         throw err;
+      }
+    }
+
+    // Pass 2 (ISS-t-013r-rev-1): every fact of this call is now written, so `writtenIdByKey` is
+    // complete. Each reasoning fact links, in the SAME edges collection, to the value fact it
+    // explains: first a fact written in THIS call (either order), else the student's currently
+    // active fact for that key. No match (the explained fact was never written, e.g. rejected by the
+    // counsellor) leaves the reasoning fact written but unlinked; it still carries its own citation
+    // and needsReview, and is never dropped (D-020).
+    for (const pending of pendingExplains) {
+      try {
+        const explainedId =
+          writtenIdByKey.get(pending.explains) ??
+          (
+            await facts.findOne(
+              { studentId: diff.studentId, key: pending.explains, active: true } as Filter<FactDoc>,
+              deadline.op(),
+            )
+          )?._id;
+        if (explainedId) {
+          await linkTracked(pending.factRef, { kind: "fact", id: explainedId }, "explains");
+        }
+      } catch (err) {
+        // ISS-028 semantics kept: every fact of this call already landed, so report them.
+        throw new PartialApplyError(
+          written.map((d) => d._id),
+          pending.key,
+          err,
+        );
       }
     }
     return { written, supersededKeys };
@@ -837,4 +868,160 @@ export async function undoApprovedSessionSummary(db: Db, input: UndoApprovedSess
     { _id: input.sessionId, studentId: input.studentId, summaryApprovedAt: input.summaryApprovedAt },
     { $unset: { summary: "", summaryApprovedAt: "", summaryWithheldReason: "" } },
   );
+}
+
+// ---------------------------------------------------------------------------
+// T-024 / ISS-t-013r-c0-3 (D-020 "puri chat bhi save rehegi"): the session transcript as a
+// first-class, readable record. Before this, the chat survived only as LangGraph checkpoint bytes
+// (no reader) and exportStudent only COUNTED checkpoints. Now every turn the scribe was given is
+// persisted verbatim in `session_transcripts`, the counsellor reads it back (readSessionTranscript),
+// exportStudent dumps it, B15 erasure hard-deletes it, and a fact's citation {turnId, quote} resolves
+// to a span inside it (resolveCitationSpan).
+//
+// Fence discipline: recordSessionTranscript is NOT fence-aware on its own, exactly like
+// ensureScribeSessionRow: its one caller is packages/engine scribe/graph.ts startScribe, which runs
+// it under its writer deadline after its fence pre-check and deletes the turn documents it CREATED
+// (never pre-existing ones) when its post-check finds the student fenced (invokeFenceAware).
+// ---------------------------------------------------------------------------
+
+export interface RecordSessionTranscriptInput {
+  sessionId: string;
+  studentId: string;
+  /** The scribe's input turns, verbatim (ScribeTurn shape: TranscriptTurn + turnId). */
+  turns: ReadonlyArray<TranscriptTurnRecord>;
+}
+
+/**
+ * Persists every turn of a session's transcript, one document per turn (`_id` =
+ * transcriptTurnDocId(sessionId, turnId)). Each is an upsert on `{_id, studentId}` with
+ * `$setOnInsert` only, so:
+ *   - a replay (same input, a checkpoint retry, a second scribe run) writes nothing new, and the
+ *     first recorded text is never overwritten (the transcript is the ground truth citations point
+ *     into);
+ *   - a later run with MORE turns adds only the new ones (the full chat accumulates);
+ *   - a turn id owned by ANOTHER student collides on `_id` and the server throws 11000 — the other
+ *     student's turn is never touched or hijacked (same rule as ensureScribeSessionRow).
+ * Returns the `_id`s this call CREATED, so the caller's fence compensation deletes only those.
+ * `createdSink` (optional) receives each created `_id` the moment it is written, so a call that
+ * fails or times out part-way still tells its caller exactly what to compensate.
+ * Every turn is Zod-validated before anything is written (B5).
+ */
+export async function recordSessionTranscript(
+  db: Db,
+  input: RecordSessionTranscriptInput,
+  options: { timeoutMS?: number; createdSink?: string[] } = {},
+): Promise<{ createdIds: string[] }> {
+  requireNonEmpty({ sessionId: input.sessionId, studentId: input.studentId }, "recordSessionTranscript");
+  const turns = input.turns.map((t) => TranscriptTurnRecordSchema.parse(t));
+  const seen = new Set<string>();
+  for (const t of turns) {
+    if (seen.has(t.turnId)) throw new Error(`recordSessionTranscript: duplicate turnId "${t.turnId}" in one transcript`);
+    seen.add(t.turnId);
+  }
+  const coll = sessionTranscriptsCollection(db);
+  const recordedAt = new Date().toISOString();
+  const createdIds: string[] = [];
+  for (const t of turns) {
+    const _id = transcriptTurnDocId(input.sessionId, t.turnId);
+    const res = await coll.updateOne(
+      { _id, studentId: input.studentId },
+      {
+        $setOnInsert: {
+          sessionId: input.sessionId,
+          turnId: t.turnId,
+          speaker: t.speaker,
+          lang: t.lang,
+          text: t.text,
+          translatedText: t.translatedText,
+          ts: t.ts,
+          recordedAt,
+        },
+      },
+      { upsert: true, ...(options.timeoutMS !== undefined ? { timeoutMS: options.timeoutMS } : {}) },
+    );
+    if (res.upsertedCount === 1) {
+      createdIds.push(_id);
+      options.createdSink?.push(_id);
+    }
+  }
+  return { createdIds };
+}
+
+/**
+ * The counsellor's read of one session's full chat, verbatim, in speaking order (ts, then turnId).
+ * Scoped to the student: another student's session id returns nothing. Read-only.
+ */
+export async function readSessionTranscript(
+  db: Db,
+  input: { studentId: string; sessionId: string },
+): Promise<TranscriptTurnDoc[]> {
+  requireNonEmpty({ sessionId: input.sessionId, studentId: input.studentId }, "readSessionTranscript");
+  const docs = await sessionTranscriptsCollection(db)
+    .find({ studentId: input.studentId, sessionId: input.sessionId })
+    .toArray();
+  return docs.sort((a, b) => a.ts - b.ts || a.turnId.localeCompare(b.turnId));
+}
+
+/** The span a fact's citation points at inside the persisted transcript. */
+export interface CitationSpan {
+  /** The persisted turn document (transcriptTurnDocId). */
+  transcriptTurnId: string;
+  sessionId: string;
+  turnId: string;
+  field: "text" | "translatedText";
+  /** UTF-16 offsets into the persisted field: `doc[field].slice(start, end)` is the cited span. */
+  start: number;
+  end: number;
+}
+
+const SPAN_BREAK = "\\s.,!?;:\"'()\\-–—।“”‘’";
+
+function escapeForRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Resolves a fact's citation `{turnId, quote}` to a span in the PERSISTED transcript turns. The
+ * same two strict tiers the scribe's citation check uses (packages/engine scribe/nodes.ts
+ * locateCitation), expressed as offsets: tier 1 the quote's NFC form with whitespace runs matching
+ * any whitespace; tier 2 case-insensitive with the fixed punctuation set treated as a token break.
+ * Never fuzzy. Returns null when the turn is not persisted or the quote is not in it — i.e. the
+ * citation does not point into the stored chat.
+ */
+export function resolveCitationSpan(
+  turns: readonly TranscriptTurnDoc[],
+  citation: { turnId: string; quote: string },
+): CitationSpan | null {
+  const turn = turns.find((t) => t.turnId === citation.turnId);
+  if (!turn) return null;
+  const trimmed = citation.quote.trim();
+  if (trimmed.length === 0) return null;
+  // The persisted field is searched RAW (offsets index the stored text); the quote is tried in both
+  // canonical forms so an NFC quote still finds an NFD-stored turn and vice versa.
+  const forms = [...new Set([trimmed.normalize("NFC"), trimmed.normalize("NFD")])];
+  const tiers: RegExp[] = [];
+  for (const q of forms) tiers.push(new RegExp(q.split(/\s+/u).map(escapeForRegExp).join("\\s+"), "u"));
+  for (const q of forms) {
+    const tokens = q
+      .split(new RegExp(`[${SPAN_BREAK}]+`, "u"))
+      .filter((t) => t.length > 0)
+      .map(escapeForRegExp);
+    if (tokens.length > 0) tiers.push(new RegExp(tokens.join(`[${SPAN_BREAK}]+`), "iu"));
+  }
+  for (const re of tiers) {
+    for (const field of ["text", "translatedText"] as const) {
+      const m = re.exec(turn[field]);
+      if (m) {
+        return {
+          transcriptTurnId: turn._id,
+          sessionId: turn.sessionId,
+          turnId: turn.turnId,
+          field,
+          start: m.index,
+          end: m.index + m[0].length,
+        };
+      }
+    }
+  }
+  return null;
 }

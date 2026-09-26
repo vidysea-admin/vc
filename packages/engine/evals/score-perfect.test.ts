@@ -34,3 +34,27 @@ test("perfect provider: 100% citation precision, 100% recall, zero false drops, 
     assert.equal(s.crisis.providerCalledDespiteEscalation, false, `${s.sessionId}: the provider must not be called on escalation`);
   }
 });
+
+// ISS-t-013r-rev-3: the golden set carries D-020 hostile rows (negation, lakh/crore, currency, pronoun
+// and kinship third party, same-key distractor, reasoning-before-value). With the perfect provider
+// every one of them is KEPT (recall above), and none may auto-verify.
+test("ISS-t-013r-rev-3: every D-020 hostile gold fact is kept and ends needsReview; fabricatedVerified is 0 over a set that can make it non-zero", async () => {
+  const sessions = loadDataset(DATASET_PATH);
+  const hostileGold = sessions.flatMap((s) => s.goldFacts.filter((f) => f.mustReview));
+  assert.ok(hostileGold.length >= 10, `expected >= 10 hostile gold facts, got ${hostileGold.length}`);
+  const classes = new Set(hostileGold.map((f) => f.hostile));
+  for (const c of ["negation", "lakh-unscaled", "crore-scaled", "currency", "pronoun", "kinship", "reasoning-before-value"]) {
+    assert.ok(classes.has(c), `hostile class ${c} is present in the golden set`);
+  }
+
+  const report = await scoreDataset(sessions, "perfect", { datasetPath: DATASET_PATH });
+  assert.equal(report.aggregate.extraction.reviewCounts.mustReview, hostileGold.length, "every hostile gold fact was kept");
+  assert.equal(report.aggregate.extraction.reviewCounts.fabricatedVerified, 0);
+  for (const s of report.sessions) {
+    const session = sessions.find((x) => x.id === s.sessionId)!;
+    for (const gf of session.goldFacts.filter((f) => f.mustReview)) {
+      assert.ok(s.extraction, `${s.sessionId} was scored`);
+      assert.equal(s.extraction?.reviewCounts.fabricatedVerified, 0, `${s.sessionId}: ${gf.key} must not auto-verify`);
+    }
+  }
+});

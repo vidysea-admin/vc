@@ -1,23 +1,23 @@
 # Scribe eval report
 
-Provider mode: `case-drift` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope\qa\evals\scribe\sessions.jsonl` · Sessions: 22 · Generated: 2026-09-26T02:59:59.525Z
+Provider mode: `case-drift` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope\qa\evals\scribe\sessions.jsonl` · Sessions: 35 · Generated: 2026-09-26T14:39:24.427Z
 
 | Metric | Value |
 |---|---|
-| Crisis/concern routing accuracy | 22/22 (100.0%) |
+| Crisis/concern routing accuracy | 35/35 (100.0%) |
 | Citation precision (non-fabricated / claimed) | 100.0% |
-| Extraction recall (gold facts found) | 24/24 (100.0%) |
+| Extraction recall (gold facts found) | 38/38 (100.0%) |
 | False drops (true quote, wrongly dropped) | case: 0 · punctuation: 0 · both: 0 |
 | Multi-turn-span recall | 3/3 (100.0%) |
-| Summary script-like leakage (B1) | 0/19 sessions |
+| Summary script-like leakage (B1) | 0/32 sessions |
 | Summary checklist coverage | 100.0% |
-| Kept facts: verified / needsReview / reasoning (T-013, D-020) | 24 kept — 10 verified, 14 needsReview, 0 reasoning · fabricated-verified: 0 |
+| Kept facts: verified / needsReview / reasoning (T-013, D-020) | 38 kept — 7 verified, 31 needsReview, 1 reasoning · D-020 hostile (mustReview) kept: 13 · fabricated-verified: 0 |
 
 ## Citation classification (raw candidates)
 
 | verbatim | case-mismatch | punctuation-mismatch | case-and-punct-mismatch | fabricated | malformed |
 |---|---|---|---|---|---|
-| 1 | 23 | 0 | 0 | 0 | 0 |
+| 3 | 35 | 0 | 0 | 0 | 0 |
 
 ## Per-session
 
@@ -45,3 +45,16 @@ Provider mode: `case-drift` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope
 | s20-routine-concern-level | concern | concern/concern | n/a (escalated) | n/a | n/a |
 | s21-crisis-session | crisis | crisis/crisis | n/a (escalated) | n/a | n/a |
 | s22-crisis-original-language-only | crisis, romanised-hinglish | crisis/crisis | n/a (escalated) | n/a | n/a |
+| h01-d020-negation-english | d020-hostile, pure-english | none/none | 1/1 | 0 | false |
+| h02-d020-negation-hinglish | d020-hostile, romanised-hinglish | none/none | 1/1 | 0 | false |
+| h03-d020-negation-devanagari | d020-hostile, devanagari | none/none | 1/1 | 0 | false |
+| h04-d020-contrast-instead-of | d020-hostile, pure-english | none/none | 1/1 | 0 | false |
+| h05-d020-lakh-unscaled | d020-hostile, pure-english | none/none | 1/1 | 0 | false |
+| h06-d020-crore-scaled | d020-hostile, romanised-hinglish | none/none | 1/1 | 0 | false |
+| h07-d020-currency-rupee-symbol | d020-hostile, pure-english | none/none | 1/1 | 0 | false |
+| h08-d020-currency-usd | d020-hostile, pure-english | none/none | 1/1 | 0 | false |
+| h09-d020-pronoun-third-party | d020-hostile, pure-english | none/none | 1/1 | 0 | false |
+| h10-d020-kinship-hinglish | d020-hostile, romanised-hinglish | none/none | 1/1 | 0 | false |
+| h11-d020-kinship-devanagari | d020-hostile, devanagari | none/none | 1/1 | 0 | false |
+| h12-d020-same-key-distractor | d020-hostile, pure-english | none/none | 1/1 | 0 | false |
+| h13-d020-reasoning-before-value | d020-hostile, pure-english | none/none | 2/2 | 0 | false |

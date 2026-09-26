@@ -227,30 +227,136 @@ const COUNTRY_ALIASES: ReadonlyMap<string, string> = new Map(
 );
 
 /**
- * A small, fixed list of third-party referents. When one appears in the cited span, a fact is never
+ * A small, fixed list of third-party referents. When one appears in the cited turn, a fact is never
  * auto-verified even if its value is otherwise on the closed surface — "my cousin is in the UK" must
  * not auto-verify a value as the STUDENT's own (D-020, citation-guarantee-scope: "at minimum it must
  * not be verified"). This is a bounded lexicon check, not a semantic aboutness judgment: it never
  * decides WHO a fact is about, only downgrades to needsReview when a referent word is present.
- */
-/**
- * Deliberately relational NOUNS only, never bare third-person pronouns ("him"/"her"/"them"/"his"/
- * "their") — those are far too common in ordinary speech about ANYTHING (objects, universities,
- * documents) to serve as a signal here, and would flag most sessions for no benefit.
+ *
+ * ISS-t-013r-c0-2 (fix cycle 1): the list now also carries bare third-person pronouns (English,
+ * Hinglish, Devanagari) and Hindi/Hinglish kinship words. A pronoun is common in ordinary speech, so
+ * this downgrades more facts to needsReview — that is the fail-safe direction (auto-verify only ever
+ * narrows, qa/feedback-inbox.md ai-engineer line), and nothing is dropped for it.
  */
 const THIRD_PARTY_MARKERS = new Set(
   [
-    "cousin", "cousins", "friend", "friends", "brother", "brothers", "sister", "sisters", "uncle", "aunt", "aunty",
-    "colleague", "colleagues", "neighbour", "neighbor", "neighbours", "neighbors", "someone", "somebody",
-    "acquaintance",
+    // English relational nouns
+    "cousin", "cousins", "friend", "friends", "brother", "brothers", "sister", "sisters", "uncle", "uncles",
+    "aunt", "aunts", "aunty", "auntie", "colleague", "colleagues", "neighbour", "neighbor", "neighbours",
+    "neighbors", "someone", "somebody", "acquaintance", "father", "mother", "dad", "daddy", "mom", "mum",
+    "mommy", "mummy", "mumma", "parent", "parents", "son", "daughter", "wife", "husband", "grandfather",
+    "grandmother", "grandpa", "grandma", "nephew", "niece", "classmate", "classmates", "roommate", "senior",
+    "seniors", "bro", "sis", "relative", "relatives", "family", "boyfriend", "girlfriend",
+    // English third-person pronouns
+    "he", "she", "him", "her", "his", "hers", "himself", "herself", "they", "them", "their", "theirs",
+    "themselves",
+    // Hinglish kinship / relations
+    "bhai", "bhaiya", "bhaiyya", "bhaisaab", "didi", "di", "behen", "behan", "bahen", "bahan", "papa",
+    "maa", "mata", "pita", "pitaji", "chacha", "chachi", "chachu", "mama", "mami", "mamu",
+    "bua", "phupha", "fufa", "mausi", "mausa", "dada", "dadi", "nana", "nani", "jiju", "jija", "bhabhi",
+    "dost", "dosto", "saheli", "rishtedar", "padosi",
+    // Hinglish third-person pronouns
+    "woh", "wo", "vo", "voh", "uska", "uski", "uske", "unka", "unki", "unke", "usko", "unko", "unhe",
+    "unhone", "usne", "inka", "inki", "inke",
+    // Devanagari kinship / relations
+    "भाई", "भैया", "दीदी", "बहन", "पापा", "मम्मी", "माँ", "मां", "माता", "पिता", "पिताजी", "चाचा", "चाची",
+    "मामा", "मामी", "बुआ", "मौसी", "दादा", "दादी", "नाना", "नानी", "जीजा", "भाभी", "दोस्त", "सहेली",
+    "रिश्तेदार", "पड़ोसी",
+    // Devanagari third-person pronouns
+    "वह", "वो", "वे", "उसका", "उसकी", "उसके", "उनका", "उनकी", "उनके", "उसे", "उन्हें", "उसने", "उन्होंने",
   ].map((w) => w.normalize("NFC")),
 );
 
-function hasThirdPartyMarker(normalisedText: string): boolean {
+/**
+ * ISS-t-013r-c0-1 (fix cycle 1): negation AND contrast cues. Any hit anywhere in the cited turn forces
+ * needsReview. "Anywhere in the turn", not "before the value in the clause", on purpose: Hindi puts
+ * the negation AFTER the value ("UK nahi, Canada jaana hai"), and a model-cropped quote ("I want the
+ * UK") can hide a negation that sits just outside it — the whole-turn check is the fail-safe
+ * superset of the clause rule. Contrast words (instead/rather/than/but/lekin …) are included because
+ * "Canada instead of the UK" negates the UK without a negation word.
+ */
+const NEGATION_MARKERS = new Set(
+  [
+    "not", "no", "never", "nor", "neither", "none", "nothing", "nobody", "nowhere", "without", "cannot",
+    "dont", "doesnt", "didnt", "cant", "wont", "isnt", "arent", "wasnt", "werent", "shouldnt", "wouldnt",
+    "couldnt", "havent", "hasnt", "hadnt", "instead", "rather", "than", "except", "unlike", "versus", "vs",
+    "but", "however", "although", "though", "earlier", "previously", "anymore",
+    "nahi", "nahin", "nhi", "nai", "mat", "na", "naa", "bina", "bajay", "bajaye", "bajaaye", "lekin", "magar",
+    "chhodkar", "chodkar", "pehle",
+    "नहीं", "नही", "मत", "न", "ना", "बिना", "बजाय", "बजाए", "लेकिन", "मगर", "छोड़कर", "पहले",
+  ].map((w) => w.normalize("NFC")),
+);
+/** English "n't" contractions, checked on the text BEFORE punctuation is broken into spaces. */
+const NT_CONTRACTION_RE = /n['’]t(?![\p{L}\p{Nd}])/u;
+
+/**
+ * ISS-t-013r-rev-2 (fix cycle 1): unit multipliers and currencies. A typed number never auto-verifies
+ * when one appears anywhere in the cited turn ("20 lakh" must not auto-verify 20, and neither may the
+ * scaled 2000000 — the model's arithmetic is exactly what the counsellor should check).
+ */
+const MULTIPLIER_MARKERS = new Set(
+  [
+    "lakh", "lakhs", "lac", "lacs", "crore", "crores", "cr", "crs", "k", "thousand", "thousands", "million",
+    "millions", "mn", "billion", "billions", "bn", "hazaar", "hazar", "rs", "inr", "usd", "gbp",
+    "eur", "aud", "cad", "nzd", "sgd", "rupee", "rupees", "rupaye", "rupaiye", "dollar", "dollars", "pound",
+    "pounds", "euro", "euros", "लाख", "करोड़", "हज़ार", "हजार", "रुपये", "रुपए", "रुपया",
+  ].map((w) => w.normalize("NFC")),
+);
+const CURRENCY_SYMBOL_RE = /[₹$£€¥]/u;
+/** A digit run glued to a multiplier/currency ("20k", "20lakh", "rs20", "inr20", "rs.20"). */
+const GLUED_MULTIPLIER_RE =
+  /^(?:(?:rs|inr|usd|gbp|eur)\.?\p{Nd}[\p{Nd}.,]*|\p{Nd}[\p{Nd}.,]*(?:k|l|lac|lacs|lakh|lakhs|cr|crs|crore|crores|mn|m|bn|b))$/u;
+
+/**
+ * ISS-t-013r-c0-1/-c0-2 (fix cycle 1): a FIRST-PERSON marker must be present in the cited QUOTE for
+ * any auto-verify — the value must be anchored to the student speaking about themselves. "mein" is
+ * deliberately absent (Hinglish "in": "UK mein"), and so is "us" (collides with the country "US").
+ */
+const FIRST_PERSON_MARKERS = new Set(
+  [
+    "i", "me", "my", "mine", "myself", "we", "our", "ours", "ourselves", "im", "ive",
+    "main", "mai", "mujhe", "mujhko", "mera", "meri", "mere", "hum", "humara", "humari", "humare", "hamara",
+    "hamari", "hamare", "humein", "hamein",
+    "मैं", "मै", "मुझे", "मुझको", "मेरा", "मेरी", "मेरे", "हम", "हमारा", "हमारी", "हमारे", "हमें",
+  ].map((w) => w.normalize("NFC")),
+);
+
+function hasMarker(normalisedText: string, markers: ReadonlySet<string>): boolean {
   return normalisedText
     .split(" ")
     .filter(Boolean)
-    .some((tok) => THIRD_PARTY_MARKERS.has(tok));
+    .some((tok) => markers.has(tok));
+}
+
+function hasThirdPartyMarker(normalisedText: string): boolean {
+  return hasMarker(normalisedText, THIRD_PARTY_MARKERS);
+}
+
+function hasNegation(rawText: string, normalisedText: string): boolean {
+  return NT_CONTRACTION_RE.test(normaliseVerbatim(rawText).toLowerCase()) || hasMarker(normalisedText, NEGATION_MARKERS);
+}
+
+function hasMultiplierOrCurrency(rawText: string, normalisedText: string): boolean {
+  if (CURRENCY_SYMBOL_RE.test(rawText)) return true;
+  // Glued forms are judged on whitespace tokens of the tier-1 text (punctuation kept, so "20,00,000"
+  // and "rs.20" stay one token), with surrounding brackets/quotes/sentence punctuation trimmed.
+  const rawTokens = normaliseVerbatim(rawText).toLowerCase().split(" ");
+  if (rawTokens.some((t) => GLUED_MULTIPLIER_RE.test(t.replace(/^[("'“‘]+|[)"'”’.,;:!?]+$/gu, "")))) return true;
+  return hasMarker(normalisedText, MULTIPLIER_MARKERS);
+}
+
+/**
+ * ISS-t-013r-rev-2 (fix cycle 1): a typed number is a whole token in the tier-1 text (NFC, whitespace
+ * collapsed, punctuation KEPT) — bounded on the left by start/whitespace/an opening bracket or quote,
+ * and on the right by end/whitespace/%/closing punctuation, where a "." or "," is NOT followed by a
+ * digit. So 20 is not found in "20,00,000", "1.20", "20-25", "20/40", "$20" or "20k"; 1.5 is found
+ * in "1.5" but neither 1 nor 5 is.
+ */
+function containsNumberToken(rawText: string, value: number): boolean {
+  const text = ` ${normaliseVerbatim(rawText).toLowerCase()} `;
+  const num = escapeRegExp(String(value));
+  const re = new RegExp(`[\\s("'“‘]${num}(?=\\s|%|[)"'”’;:!?]|[.,](?!\\p{Nd}))`, "u");
+  return re.test(text);
 }
 
 export interface FactReviewOutcome {
@@ -258,43 +364,72 @@ export interface FactReviewOutcome {
   reviewReasons: string[];
 }
 
+/** Named review reasons (B2/D-020): stable prefixes so the counsellor UI and evals can key on them. */
+export const REVIEW_REASONS = {
+  thirdParty:
+    "third-party: a third-party referent (relative/friend/pronoun such as cousin, behen, bhai, he, she, their) " +
+    "appears in the cited turn; the value's grounding to the student is not certain (D-020)",
+  negation:
+    "negation: a negation or contrast cue (not/never/no/instead/than/but/nahi/nahin/mat …) appears in the cited " +
+    "turn, so the value may be denied rather than affirmed (D-020, fail-safe)",
+  noFirstPerson:
+    "no-first-person: the cited quote carries no first-person marker (I/me/my/main/mujhe/mera/meri/hum …), so " +
+    "the value is not anchored to the student speaking about themselves (D-020, fail-safe)",
+  multiplier:
+    "unit-multiplier: a unit multiplier or currency (lakh/crore/k/thousand/million/₹/rs/INR/$/USD/£/€ …) appears " +
+    "in the cited turn; the scaled amount must be checked by the counsellor (D-020, fail-safe)",
+  reasoning: "reasoning: a reasoning fact is always kept for the counsellor's review (B2/D-020)",
+} as const;
+
 /**
  * Decides whether a fact auto-verifies (needsReview: false) or is kept flagged for the counsellor
- * (needsReview: true) — NEVER dropped for this reason (B2, D-020). Only two surfaces auto-verify:
- * a typed number whose digit string is a whole token in the cited quote, and a string value on the
- * closed COUNTRY_ALIASES vocabulary whose alias is a whole word/phrase in the cited quote. A
- * `reasoning` fact is always needsReview, regardless of its value.
+ * (needsReview: true) — NEVER dropped for this reason (B2, D-020). Fail-safe (fix cycle 1): a fact
+ * auto-verifies only when ALL of these hold, otherwise it is needsReview with every failing condition
+ * named in reviewReasons:
+ *   1. its value is on the closed surface — a typed number that is a whole number token in the quote,
+ *      or a string on the closed COUNTRY_ALIASES vocabulary whose alias is a whole word in the quote;
+ *   2. the QUOTE carries a first-person marker;
+ *   3. the cited TURN carries no negation/contrast cue;
+ *   4. the cited TURN carries no third-party marker;
+ *   5. (numbers) the cited TURN carries no unit multiplier or currency.
+ * A `reasoning` fact is always needsReview, regardless of its value.
+ *
+ * `context` is the full text of the cited turn (and its translation, if any). Conditions 3-5 are
+ * judged on the quote PLUS that context, so a model-cropped quote cannot hide a cue that sits just
+ * outside it. When omitted, the quote alone is the context.
  */
 export function assessFactForReview(
   candidate: { kind: string; value: unknown },
   quote: string,
+  context: readonly (string | undefined)[] = [],
 ): FactReviewOutcome {
   const reasons: string[] = [];
   const normalisedQuote = normaliseLoose(quote);
-  const thirdParty = hasThirdPartyMarker(normalisedQuote);
-  if (thirdParty) {
-    reasons.push(
-      "a third-party referent (e.g. cousin/friend/his/her/their) appears in the cited span; the value's " +
-        "grounding to the student is not certain (D-020, citation-guarantee-scope)",
-    );
-  }
+  const contextTexts = [quote, ...context.filter((t): t is string => typeof t === "string" && t.length > 0)];
+  const contextPairs = contextTexts.map((t) => [t, normaliseLoose(t)] as const);
+
+  const thirdParty = contextPairs.some(([, n]) => hasThirdPartyMarker(n));
+  const negated = contextPairs.some(([raw, n]) => hasNegation(raw, n));
+  const firstPerson = hasMarker(normalisedQuote, FIRST_PERSON_MARKERS);
+
+  if (thirdParty) reasons.push(REVIEW_REASONS.thirdParty);
 
   if (candidate.kind === "reasoning") {
-    return {
-      needsReview: true,
-      reviewReasons: [...reasons, "reasoning fact: always kept for the counsellor's review (B2/D-020)"],
-    };
+    return { needsReview: true, reviewReasons: [...reasons, REVIEW_REASONS.reasoning] };
   }
 
+  const guards: string[] = [];
+  if (negated) guards.push(REVIEW_REASONS.negation);
+  if (!firstPerson) guards.push(REVIEW_REASONS.noFirstPerson);
+
   if (typeof candidate.value === "number" && Number.isFinite(candidate.value)) {
-    const matched = containsWholeWord(normalisedQuote, String(candidate.value));
-    if (matched && !thirdParty) return { needsReview: false, reviewReasons: [] };
-    reasons.push(
-      matched
-        ? "typed number matched the quote, but a third-party referent is present"
-        : "typed number value is not a whole token in the cited quote (B2 auto-verify requires an exact match)",
-    );
-    return { needsReview: true, reviewReasons: reasons };
+    const matched = containsNumberToken(quote, candidate.value);
+    if (contextPairs.some(([raw, n]) => hasMultiplierOrCurrency(raw, n))) guards.push(REVIEW_REASONS.multiplier);
+    if (matched && !thirdParty && guards.length === 0) return { needsReview: false, reviewReasons: [] };
+    if (!matched) {
+      reasons.push("typed number value is not a whole number token in the cited quote (B2 auto-verify requires an exact match)");
+    }
+    return { needsReview: true, reviewReasons: [...reasons, ...guards] };
   }
 
   if (typeof candidate.value === "string") {
@@ -304,15 +439,15 @@ export function assessFactForReview(
       [...COUNTRY_ALIASES.entries()].some(
         ([alias, canon]) => canon === canonical && containsWholeWord(normalisedQuote, alias),
       );
-    if (canonical !== undefined && aliasHit && !thirdParty) return { needsReview: false, reviewReasons: [] };
-    reasons.push(
-      canonical === undefined
-        ? "string value is not on the fixed country/alias vocabulary (B2 auto-verify surface)"
-        : aliasHit
-          ? "vocabulary value matched the quote, but a third-party referent is present"
-          : "the vocabulary value's alias is not a whole word/phrase in the cited quote",
-    );
-    return { needsReview: true, reviewReasons: reasons };
+    if (canonical !== undefined && aliasHit && !thirdParty && guards.length === 0) {
+      return { needsReview: false, reviewReasons: [] };
+    }
+    if (canonical === undefined) {
+      reasons.push("string value is not on the fixed country/alias vocabulary (B2 auto-verify surface)");
+      return { needsReview: true, reviewReasons: reasons };
+    }
+    if (!aliasHit) reasons.push("the vocabulary value's alias is not a whole word/phrase in the cited quote");
+    return { needsReview: true, reviewReasons: [...reasons, ...guards] };
   }
 
   reasons.push(`value type "${typeof candidate.value}" is outside the auto-verify surface (numbers + country/alias vocabulary only)`);
@@ -382,7 +517,10 @@ export function verifyCandidateFact(
     return { dropped: { key, reason: `quote is not found in turn "${source.id}", even after normalisation (fabricated citation, B2)` } };
   }
 
-  const review = assessFactForReview({ kind, value: candidate.value }, source.quote);
+  const review = assessFactForReview({ kind, value: candidate.value }, source.quote, [
+    turn.text,
+    turn.translatedText,
+  ]);
   const reviewReasons =
     matchTier === "normalised" && review.needsReview
       ? ["citation matched only after normalisation (case/punctuation/Unicode-form drift), not verbatim", ...review.reviewReasons]

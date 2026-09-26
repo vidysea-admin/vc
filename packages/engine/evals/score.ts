@@ -85,17 +85,26 @@ function scoreExtraction(
   const multiTurnGold = session.goldFacts.filter((f) => f.multiTurn);
   const multiTurnRecalled = multiTurnGold.filter((f) => recalledKeys.has(f.key)).length;
 
-  // T-013 (D-020): every fact the graph actually kept, split by review status. `fabricatedVerified`
-  // stays 0 by construction — verifyCandidateFact only reaches the review check AFTER the citation
-  // has located a real span in the transcript (nodes.ts); a fact whose quote is not found at all is
-  // dropped before it is ever a candidate for `verified` or `needsReview`. Recorded explicitly here
-  // (never assumed) so a future change that broke that ordering would show up as a non-zero count.
+  // T-013 (D-020): every fact the graph actually kept, split by review status.
+  // ISS-t-013r-rev-3: `fabricatedVerified` is no longer 0 by construction. It counts every kept fact
+  // that auto-verified although it should not have: (a) its citation was never located
+  // (citationMatch unset), (b) it matches a gold fact marked `mustReview` (a D-020 hostile row:
+  // negation, lakh/crore, currency, pronoun/kinship third party, reasoning), or (c) it matches no
+  // gold fact at all (a value nobody labelled true).
+  const goldMatch = (f: Fact) => session.goldFacts.find((gf) => gf.key === f.key && valuesEqual(f.value, gf.value));
+  const wronglyVerified = (f: Fact) => {
+    if (f.needsReview !== false) return false;
+    if (f.citationMatch === undefined) return true;
+    const gold = goldMatch(f);
+    return gold === undefined || gold.mustReview;
+  };
   const reviewCounts = {
     kept: request.facts.length,
     verified: request.facts.filter((f) => f.needsReview === false).length,
     needsReview: request.facts.filter((f) => f.needsReview === true).length,
     reasoning: request.facts.filter((f) => f.kind === "reasoning").length,
-    fabricatedVerified: request.facts.filter((f) => f.needsReview === false && f.citationMatch === undefined).length,
+    mustReview: request.facts.filter((f) => goldMatch(f)?.mustReview === true).length,
+    fabricatedVerified: request.facts.filter(wronglyVerified).length,
   };
 
   return {
@@ -182,7 +191,7 @@ export async function scoreDataset(
   let falseDropBoth = 0;
   let mtGold = 0;
   let mtRecalled = 0;
-  const reviewCounts = { kept: 0, verified: 0, needsReview: 0, reasoning: 0, fabricatedVerified: 0 };
+  const reviewCounts = { kept: 0, verified: 0, needsReview: 0, reasoning: 0, mustReview: 0, fabricatedVerified: 0 };
   let scriptLeaks = 0;
   let summaryScored = 0;
   let checklistCoveredSum = 0;
@@ -211,6 +220,7 @@ export async function scoreDataset(
       reviewCounts.verified += r.extraction.reviewCounts.verified;
       reviewCounts.needsReview += r.extraction.reviewCounts.needsReview;
       reviewCounts.reasoning += r.extraction.reviewCounts.reasoning;
+      reviewCounts.mustReview += r.extraction.reviewCounts.mustReview;
       reviewCounts.fabricatedVerified += r.extraction.reviewCounts.fabricatedVerified;
     }
     if (r.summary) {

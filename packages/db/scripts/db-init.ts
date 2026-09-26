@@ -144,6 +144,16 @@ export const INDEX_PLAN: IndexSpec[] = [
   // [_id $in, sessionId $in]} to delete), so sessions_studentId serves them; the _id arm is the
   // built-in _id index. Add {sessionId: 1} only if a query ever filters on sessionId alone.
   // ISS-021: edges had no from/to index.
+  // T-024 / ISS-t-013r-c0-3: the readable transcript. { studentId } serves B15 erasure/export and the
+  // read-back; { studentId, sessionId, ts } serves readSessionTranscript's ordered read. NEVER an auto-expiry
+  // (TTL) index here or on the checkpoint collections — tests/db-init.test.ts fails
+  // if one is ever added (D-020: the full chat is kept until an erasure deletes it).
+  { collection: COLLECTION_NAMES.session_transcripts, keys: { studentId: 1 }, name: "session_transcripts_studentId" },
+  {
+    collection: COLLECTION_NAMES.session_transcripts,
+    keys: { studentId: 1, sessionId: 1, ts: 1 },
+    name: "session_transcripts_student_session_ts",
+  },
   { collection: COLLECTION_NAMES.edges, keys: { "from.kind": 1, "from.id": 1 }, name: "edges_from" },
   { collection: COLLECTION_NAMES.edges, keys: { "to.kind": 1, "to.id": 1 }, name: "edges_to" },
 ];

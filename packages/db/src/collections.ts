@@ -36,6 +36,12 @@ export const COLLECTION_NAMES = {
   // their indexes and B15 erasure covers them (they hold transcripts). Keyed by `thread_id`.
   scribe_checkpoints: "scribe_checkpoints",
   scribe_checkpoint_writes: "scribe_checkpoint_writes",
+  // T-024 / ISS-t-013r-c0-3 (D-020 "puri chat bhi save rehegi"): the session transcript as a
+  // first-class, readable record, one document per turn (facts.ts recordSessionTranscript). The
+  // counsellor reads it (readSessionTranscript), exportStudent dumps it verbatim, B15 erasure
+  // hard-deletes it by studentId. Never TTL-indexed (tests/db-init.test.ts guards that): the chat is
+  // the ground truth every fact's citation points into.
+  session_transcripts: "session_transcripts",
   // T-011 / B15: the erasure audit log (src/erasure.ts). Survives erasure; no personal data
   // once a request completes.
   erasure_requests: "erasure_requests",
@@ -81,6 +87,30 @@ export interface SessionDoc {
   summary?: string;
   summaryWithheldReason?: string;
   summaryApprovedAt?: string;
+}
+
+/**
+ * T-024 / ISS-t-013r-c0-3: one persisted transcript turn (the ScribeTurn the scribe was given,
+ * verbatim). `_id` is `${sessionId}:${turnId}` (transcriptTurnDocId), so a fact's citation
+ * `{turnId, quote}` plus the session it is sourced_from names exactly one document, and the quote is
+ * a span inside its `text` (or `translatedText`) — resolveCitationSpan (facts.ts). Written once,
+ * never overwritten ($setOnInsert): the first recorded text is the ground truth.
+ */
+export interface TranscriptTurnDoc {
+  _id: string;
+  sessionId: string;
+  studentId: string;
+  turnId: string;
+  speaker: "student" | "counsellor";
+  lang: string;
+  text: string;
+  translatedText: string;
+  ts: number;
+  recordedAt: string;
+}
+
+export function transcriptTurnDocId(sessionId: string, turnId: string): string {
+  return `${sessionId}:${turnId}`;
 }
 
 /**
@@ -159,6 +189,10 @@ export function edgesCollection(db: Db): Collection<EdgeDoc> {
 
 export function scribeResolutionsCollection(db: Db): Collection<ScribeResolutionDoc> {
   return db.collection<ScribeResolutionDoc>(COLLECTION_NAMES.scribe_resolutions);
+}
+
+export function sessionTranscriptsCollection(db: Db): Collection<TranscriptTurnDoc> {
+  return db.collection<TranscriptTurnDoc>(COLLECTION_NAMES.session_transcripts);
 }
 
 /** Validates a candidate Fact against the shared Zod schema before any write. */
