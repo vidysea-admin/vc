@@ -1,5 +1,5 @@
 # Gate: How far should the citation check auto-approve? (T-013 stalled)
-**Asked:** 2026-09-25 · **Answered:** (blank) · **Diagnosis:** qa/debug/t-013-citation-robustness-cycle3.md
+**Asked:** 2026-09-25 · **Answered:** 2026-09-26 (see bottom) · **Diagnosis:** qa/debug/t-013-citation-robustness-cycle3.md
 
 **Why you're being asked:** T-013 failed 4 checks in a row. Numbers are now fully protected, and no new
 number exploit was found. For text values (country, university, course), each cycle closes one trick and
@@ -16,3 +16,5 @@ decide whether text is really about the student. The same thing happened with th
 - (d) Merge as-is and rely on counsellor approval (B3). Weakest: the checker has already rejected this.
 
 **Follow-up for (a):** is the fixed vocabulary today's country names plus aliases, or should we write a full list?
+
+Answered: 2026-09-26 — modified (a): numbers + fixed vocabulary auto-verified; all other text AND reasoning facts are kept (never dropped), cited to their span in the persisted full transcript, marked needs-review for counsellor approval — Umesh via AskUserQuestion (maker session 6c22744a), verbatim: "puri chat bhi save rehegi and iske alawa we have to make the knoowledge graph of the user so that we have summarized way, and also like essaa hogaa numbers k alawa sometimes reasoning is also valuble". Follow-up (fixed vocabulary = today's country names + alias list) not separately answered; [ASSUMPTION] today's list. Adds: a `reasoning` fact kind linked in the KG; the full transcript must be persisted (and covered by erasure/export).

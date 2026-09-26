@@ -8,4 +8,4 @@
 - **(C) A narrow 4th patch of the two known bugs.** Not recommended: 3 cycles show narrow patches open new holes.
 **Blocks:** T-005b merge only. Main still runs the T-005 guard. T-007, T-008 and the rest continue.
 
-Answered:
+Answered: 2026-09-26 — (B) recall-only now + later downgrade layer (T-012 classifier may mark "likely benign", never hide) — Umesh via AskUserQuestion in maker session 6c22744a, choice "Recall-only + later layer (Recommended)"

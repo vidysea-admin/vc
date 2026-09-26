@@ -196,3 +196,13 @@ This input contract is provisional until a structured intake form exists. Runtim
 The rules e2e proves that scribe â†’ facts â†’ profile diff â†’ approve completes with zero network.
 **Result:** -- (T-019 cycle 0, checked-PASS; ai-engineer review Approve)
 **Links:** T-019, ISS-t-019-rev-1, ISS-t-019-rev-2, ISS-t-019-rev-3, ISS-t-019-c0-1, ISS-t-019-c0-2, D-005
+
+## D-020 | 2026-09-26 | type: decision | status: ACTIVE
+**What:** Umesh answered four gates. Each answer is recorded verbatim in its qa/gates file.
+- **Crisis guard (crisis-guard-precision):** the keyword guard matches for recall only and suppresses nothing. A later layer (the T-012 classifier) may mark a flag "likely benign" but can never hide it. Unit T-005c supersedes the stalled T-005b.
+- **Citations (citation-guarantee-scope):** the full transcript is persisted as ground truth. Only numbers and the fixed country/alias vocabulary auto-verify. Every other text fact, and a new `reasoning` fact kind, is kept and cited to its transcript span as needs-review for the counsellor (B3). Nothing is dropped. T-013 is rescoped to this.
+- **Concern (scribe-concern-level):** a concern-level turn no longer stops the scribe. The concern is written into the KG with its citation. A gentle check-in becomes a live-card question (T-010), never a script. Escalation to counsellor/admin on rising severity goes through T-012. New unit T-022.
+- **Provider failover (provider-fallback):** a 3-model chain with a total retry budget of about 10 and backoff, with no drop to the rules provider. When every model fails, engineering is alerted and the user gets an apology plus a Retry that keeps their input. One live LiteLLM smoke run on synthetic transcripts is approved. New unit T-021.
+**Why:** T-005b and T-013 each stalled after 3 fix cycles, because rule-only precision kept opening new holes. The North star is "AI assists, the human decides", so uncertain facts go to the counsellor instead of being auto-trusted or dropped. The lead's B6 concern is extended from config-time to runtime.
+**Result:** --
+**Links:** T-005c, T-013, T-021, T-022, T-010, T-012, D-019, qa/gates/crisis-guard-precision.md, qa/gates/citation-guarantee-scope.md, qa/gates/scribe-concern-level.md, qa/gates/provider-fallback.md

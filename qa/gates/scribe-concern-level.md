@@ -7,4 +7,4 @@
 - (c) Concern = continue with no flag.
 **Blocks:** nothing now. T-007 ships as built (option b); switching to (a) is a small follow-up.
 
-Answered:
+Answered: 2026-09-26 — flag and continue, plus KG + gentle check-in + escalate if serious — Umesh via AskUserQuestion (maker session 6c22744a), verbatim: "again knowledgegraph and also it should try to ask for it and console in friendly manner and also it will update the concerned person if things loook more serious like counsellor or admin". Maker reading: concern never stops the scribe; the concern is written into the KG with its citation; a gentle check-in is a live-card QUESTION (T-010, never a script) and a direct console in P3; escalation to counsellor/admin on rising severity goes through the T-012 classifier (B16).
