@@ -148,11 +148,11 @@ function normaliseVerbatim(text: string): string {
 
 /**
  * ISS-t-013r-rev-10 (fix cycle 3): invisible format characters are DELETED (never a token break) before
- * any tokenising, so "n​ot" is the word "not" and cannot hide a cue from a marker set. Closed
+ * any tokenising, so "n\u200Bot" is the word "not" and cannot hide a cue from a marker set. Closed
  * list: soft hyphen U+00AD, zero-width space U+200B, LRM/RLM U+200E/U+200F, word joiner U+2060, BOM
  * U+FEFF. ZWNJ U+200C and ZWJ U+200D are KEPT — they are meaningful inside Devanagari words.
  */
-const INVISIBLE_FORMAT_RE = /[­​‎‏⁠﻿]/gu;
+const INVISIBLE_FORMAT_RE = /[\u00AD\u200B\u200E\u200F\u2060\uFEFF]/gu;
 
 function stripInvisibleFormat(text: string): string {
   return text.replace(INVISIBLE_FORMAT_RE, "");

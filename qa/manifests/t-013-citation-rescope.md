@@ -442,4 +442,112 @@ Those 4 are h24..h27 (date-day, date-year, past-visit, hearsay), the rows only t
 - **Counsellor read surface:** unchanged from cycle 1. There is still no HTTP or MCP transcript tool.
 - **Fresh-context review** (ai-engineer, data-engineer, senior-software-engineer) was not dispatched from this build subagent. The orchestrator should run it.
 
-## Status: fix-cycle-3 building (checker c2 FAIL d94f323 ISS-t-013r-c2-1; ai review BLOCK rev-9, rev-10; DE review BLOCK rev-12; D-023 scope)
+# FIX CYCLE 3 (D-023: one extra cycle, the last; answers checker c2 FAIL @ d94f323 + ai-engineer and data-engineer c2 BLOCKs)
+
+Scope is exactly ISS-t-013r-c2-1, -rev-9, -rev-10 and -rev-12. The templates were NOT widened: ISS-t-013r-rev-11 is parked by Umesh.
+
+**Persona walk:** skip. There is no `apps/web/**` path in this cycle's diff (`git diff --name-only 893789b..HEAD -- apps/web` returns 0 lines).
+
+## Findings -> fix (issue text quoted from qa/issues.jsonl)
+
+| issue (verbatim) | fix (file:line; `packages/engine/src/scribe/nodes.ts` unless named) |
+|---|---|
+| **ISS-t-013r-c2-1 (critical)** "reported-speech attribution auto-verifies: a template-shaped first-person clause reported as ANOTHER person's speech ("X says, I want to study in <country>", "according to X, ...") auto-verifies as the student's own decided fact (needsReview:false) …" **+ ISS-t-013r-rev-9 (high)** "a template clause auto-verifies when another clause of the same cited turn retracts or attributes it. Reproduced needsReview:false for 'I want to study in UK. Scratch that, Canada.', '... Nope, forget it, Canada it is.', 'Rahul said, I want to study in UK', 'Rahul said: I want to study in UK'." | **STRUCTURAL (primary):** `matchesAllowedTemplate` `:549` now returns `"allowed" \| "multi-clause" \| "unrecognised-form"`. It returns `multi-clause` (`:556`) unless EVERY text of the cited turn (text and translatedText) has exactly ONE non-trivial clause per `clausesOf` (`:445`), via `substantiveClauses` `:535`. So no second clause can attribute or retract the fact, whatever words it uses. **The one surviving two-clause shape, named:** a bare acknowledgement clause from the closed `TRIVIAL_CLAUSES` set `:529` (yes/yeah/yep/ok/okay/haan/han/haan ji/ji haan/ji/hmm/sir/maam, हाँ/हां/जी/हाँ जी/जी हाँ). "Scratch that", "nope", "kidding" and "Rahul said" are NOT trivial. The degree suffix ("… for my masters") is inside the template, not a second clause, so it needs no exception. **Second layer:** a closed `REPORTING_MARKERS` set `:402` / `hasReportedSpeech` `:413`, judged on the quote plus the whole cited turn (`:681`). It covers say/says/said/tell/told/ask/asked/wrote/texted/mentioned/according/claims; kaha/kehta/kehte/kehti/bola/boli/bole/bataya/mutabik/anusar; and कहा/कहता/कहते/कहती/बोला/बोली/बोले/बताया/मुताबिक/अनुसार. It catches "Rahul said I want to study in UK" (no clause break) and the checker's "मेरे समधी कहते हैं, …". New reasons `multi-clause:` `:632` and `reported-speech:` `:635`. The fact is always kept, never dropped |
+| **ISS-t-013r-rev-10 (medium)** "Invisible format characters defeat the deny lexicon: 'Kidding, I do n​ot mean it' auto-verifies (hasMarker splits on spaces, nothing strips U+200B/U+2060/U+FEFF)." | `INVISIBLE_FORMAT_RE` `:155` + `stripInvisibleFormat` `:157` DELETE U+00AD, U+200B, U+200E, U+200F, U+2060 and U+FEFF, and never turn them into a token break. The strip is applied in `normaliseVerbatim` `:145` (so it also covers `normaliseLoose` and every deny check), in `normaliseTemplate` `:431` and in `clausesOf` `:445`. ZWNJ U+200C and ZWJ U+200D are kept |
+| **ISS-t-013r-rev-12 (high)** "nfcWithRawOffsets … maps every index of a cluster to the whole-cluster raw span, even for clusters unchanged by NFC; a Devanagari quote cropped mid-syllable gets widened: raw 'मुझे लॉ पढ़ना है', quote 'पढ़न' -> slice(8,13)='पढ़ना' … Regression introduced by the rev-8 fix." | `packages/db/src/facts.ts:1044` implements the ledger's fix. When `cluster.normalize("NFC") === cluster`, each index maps 1:1 (`rawStart = start+i`, `rawEnd = start+i+1`). Only when NFC changed the cluster (the rev-8 mixed case) do the bounds collapse to the whole cluster |
+
+New tests (none deleted, none changed):
+- `packages/engine/tests/scribe-citation-rescope.test.ts:560`: STRUCTURAL multi-clause, 9 cases. It covers both reviewer retraction repros; attribution with NO reporting verb ("Rahul's version: …", "My landlord, …"); Hinglish and Devanagari second sentences; number templates; and "… because …". It asserts `multi-clause`.
+- `:581`: the acknowledgement shape still verifies (English, Hinglish, Devanagari).
+- `:593`: reported speech, 12 cases. It covers all four reviewer repros, "Rahul said I …" with no break, "According to Rahul …", kehta/kaha/ke mutabik, and the checker's समधी कहते हैं, राहुल ने कहा and के मुताबिक. It asserts `reported-speech`.
+- `:615`: rev-10.
+  - Seven single-clause hidden cues (ZWSP, WJ, BOM, soft hyphen, LRM/RLM around "not", "May\u200Bbe", "sa\u200Bid") each get their named reason.
+  - The reviewer's two-clause repro goes to review.
+  - A ZWSP inside a template clause still verifies, because it is a deletion, not a break.
+  - ZWJ is not stripped.
+- `packages/db/tests/facts.test.ts:1182`: rev-12. Four quotes, including the ledger's `पढ़न` (asserting `[8,12]`) and a quote starting on a vowel sign, each satisfy `slice === quote`. The rev-8 fixture at `:1154` is unchanged and green.
+- `packages/engine/evals/score-perfect.test.ts:85`: all cycle-3 hostile sessions are kept with 0 verified, fabricatedVerified is 0, and positives still verify.
+
+Golden set `qa/evals/scribe/sessions.jsonl`: 9 hostile sessions added (61 -> 70 sessions):
+- h28 reported-english-comma
+- h29 reported-english-colon
+- h30 reported-unlisted-subject ("My landlord says, …")
+- h31 reported-hinglish (kehta hai)
+- h32 reported-devanagari (समधी कहते हैं)
+- h33 retraction-scratch
+- h34 retraction-nope
+- h35 zero-width-not-two-clause (the reviewer's repro)
+- h36 zero-width-not-single-clause
+
+## Verify (commands + REAL outputs, this cycle)
+
+Every test run was gated on at least 2.0 GB free RAM, one package at a time. A gate that read 1.8/0.7/1.26 GB was waited out with `sleep 120`.
+
+```
+pnpm -r typecheck   -> schemas · observability · db · providers · apps/api · mcp/student-profile · mcp/university-kb · engine · apps/web: Done
+
+pnpm --filter @vc/db test                   ℹ tests 214  ℹ pass 214  ℹ fail 0
+pnpm --filter @vc/engine test               ℹ tests 315  ℹ pass 315  ℹ fail 0
+pnpm --filter @vc/schemas test              ℹ tests 56   ℹ pass 56   ℹ fail 0
+pnpm --filter @vc/providers test            ℹ tests 47   ℹ pass 47   ℹ fail 0
+pnpm --filter @vc/observability test        ℹ tests 59   ℹ pass 59   ℹ fail 0
+pnpm --filter @vc/api test                  ℹ tests 8    ℹ pass 8    ℹ fail 0
+pnpm --filter @vc/mcp-student-profile test  ℹ tests 12   ℹ pass 12   ℹ fail 0
+pnpm --filter @vc/mcp-university-kb test    ℹ tests 9    ℹ pass 9    ℹ fail 0
+pnpm --filter @vc/web test                  ℹ tests 31   ℹ pass 31   ℹ fail 0
+
+python contracts/verify_contracts.py
+  verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity
+```
+
+The providers, observability and web counts are higher than in cycle 2 because of the main merge (efc08c9), not this unit.
+
+### Eval: BEFORE vs AFTER on the SAME 70-session golden set
+
+BEFORE is the 893789b code (`git checkout 893789b -- nodes.ts facts.ts` in the throwaway worktree) run on the new dataset.
+
+```
+BEFORE perfect    | 73 kept — 22 verified, 51 needsReview, 1 reasoning · D-020 hostile (mustReview) kept: 36 · fabricated-verified: 8 |  recall 73/73
+AFTER  perfect    | 73 kept — 12 verified, 61 needsReview, 1 reasoning · D-020 hostile (mustReview) kept: 36 · fabricated-verified: 0 |  recall 73/73
+AFTER  case-drift | 73 kept — 12 verified, 61 needsReview, 1 reasoning · D-020 hostile (mustReview) kept: 36 · fabricated-verified: 0 |  recall 73/73
+AFTER  fabricator | 0 kept — 0 verified, 0 needsReview, 0 reasoning · hostile kept: 0 · fabricated-verified: 0 |  precision 0.0%
+AFTER  lazy       | 0 kept — 0 verified, 0 needsReview, 0 reasoning · hostile kept: 0 · fabricated-verified: 0 |  precision n/a
+```
+
+- **BEFORE's 8 fabricated-verified** are exactly h28–h35. h36 was already in review via the allow-list.
+- **AFTER, 12 verified** = the 12 of 12 template-positive rows, so positives still auto-verify.
+- **Two facts verified in cycle 2 now go to review, by design:**
+  - s13 "हाँ सही कहा, वैसे मेरा लक्ष्य देश न्यूज़ीलैंड है": two clauses, and "कहा".
+  - the value fact in h13, "I want to go to Canada because the post-study work visa is longer": two clauses.
+
+## Capability coverage — fix cycle 3
+
+- **Setup:** a throwaway worktree, `git worktree add C:/Users/Lenovo/AppData/Local/Temp/claude/t013c3-1 HEAD --detach` at 89539a0, then `pnpm install --offline`.
+- **Cleanup:** removed afterwards with `worktree remove --force` and `prune`; `Test-Path` returns False.
+- **Script:** `scratchpad/falsify3.py`, which RAM-gates each run. The runner is `tsx --test --test-concurrency=1 --test-name-pattern=<id>`, with the same test id before and after.
+- The build worktree was never mutated.
+
+| capability | falsifying edit (copy only) | BEFORE (GREEN) | AFTER (RED) |
+|---|---|---|---|
+| single-clause rule (structural) | `return "multi-clause"` line removed | `✔ ISS-t-013r-c2-1/rev-9 STRUCTURAL: a template clause in a MULTI-CLAUSE turn never auto-verifies (reason: multi-clause), even with no deny word at all` [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| single-clause rule (eval) | same | `✔ ISS-t-013r-c2-1: cycle-3 hostile classes (reported-speech, retraction, zero-width) stay in review; fabricatedVerified 0; positives still verify` [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| REPORTING_MARKERS second layer | `hasReportedSpeech` -> `return false;` | `✔ ISS-t-013r-c2-1/rev-9 second layer: a reporting / attribution cue forces review (reason: reported-speech), English / Hinglish / Devanagari` [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| both layers (eval) | single-clause AND reporting off | same eval test id ✔ [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| acknowledgement shape is the only exception | `substantiveClauses` -> `return clausesOf(text);` | `✔ ISS-t-013r-c2-1/rev-9: the only surviving two-clause shape is a bare acknowledgement (yes / haan ji / हाँ) — it still auto-verifies` [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| rev-10 invisible-format strip | `stripInvisibleFormat` -> `return text;` | `✔ ISS-t-013r-rev-10: invisible format characters (ZWSP, WJ, BOM, soft hyphen, LRM/RLM) cannot hide a cue — stripped before tokenising; ZWJ/ZWNJ kept` [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| rev-12 1:1 offsets | `if (norm === m[0]) {` -> `if (false) {` (the rev-8 always-whole-cluster code) | `✔ ISS-t-013r-rev-12: a Devanagari quote cropped MID-SYLLABLE resolves to exactly its own span (slice === quote), never widened to the whole cluster` [pass 1 fail 0] | `✖ …` [pass 0 fail 1] |
+| control: rev-8 unaffected by the rev-12 split | same revert | `✔ ISS-t-013r-rev-8: …` [pass 1 fail 0] | `✔ ISS-t-013r-rev-8: …` [pass 1 fail 0] (stays green: the whole-cluster path is still taken when NFC changes the cluster) |
+| fabricatedVerified is not vacuous (eval `--provider=perfect`) | single-clause AND reporting off | `73 kept — 12 verified, 61 needsReview … fabricated-verified: 0` | `73 kept — 21 verified, 52 needsReview … fabricated-verified: 7` |
+
+## Live browser evidence (fix cycle 3)
+**Not applicable.** No `apps/web` file changed, and `@vc/web` passes 31/31.
+
+## Open gaps (named, not hidden)
+- **Review load (ISS-t-013r-rev-7 / rev-11, parked):** 12 verified of 73 kept. Every one of the 12 is a template-positive row, and 0 of the original non-hostile value facts verify now. The single-clause rule adds "… because <reason>" turns and any turn with a second sentence to review. Recovering that is a template and shape decision, and Umesh has parked it.
+- **Reporting verbs are a closed list.** Attribution with an unlisted verb inside ONE clause ("Rahul reckons I want to study in UK") does not match a template anchored at `^i …`, so it fails safe as unrecognised-form.
+- **Trivial-clause set** is the only multi-clause exception. It is closed and named above; widening it needs an eval row and a falsification.
+- **rev-12:** a quote cropped mid-cluster inside an NFC-CHANGED cluster (the mixed rev-8 case) is still widened to that cluster. This is inherent: there is no raw index for a point inside a recomposed cluster. The ledger's fix scopes it to that case only.
+- **Counsellor read surface:** unchanged. There is no HTTP or MCP transcript tool.
+- **Fresh-context review:** none was dispatched from this build subagent. The orchestrator should run it.
+
+## Status: ready-for-check
