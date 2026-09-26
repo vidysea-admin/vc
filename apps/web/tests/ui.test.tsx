@@ -5,9 +5,10 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { isScriptLike } from "@vc/schemas";
-import { ApprovalScreen, buildRejectDecision } from "../src/components/ApprovalScreen";
+import { ApprovalScreen, buildRejectDecision, reasonCounter } from "../src/components/ApprovalScreen";
 import { LABELS } from "../src/components/labels";
 import { MAX_REJECT_REASON_LENGTH, type ApprovalView } from "../src/server/contracts";
 
@@ -190,4 +191,99 @@ test("buildRejectDecision: an empty or whitespace-only reason is OMITTED, never 
 test("buildRejectDecision: a reason at exactly MAX_REJECT_REASON_LENGTH is sent as-is (the server, RejectReasonSchema, is the length authority)", () => {
   const atLimit = "x".repeat(MAX_REJECT_REASON_LENGTH);
   assert.deepEqual(buildRejectDecision("k", atLimit), { key: "k", decision: "reject", reason: atLimit });
+});
+
+// ---------------------------------------------------------------------------
+// T-023 / ISS-t-020-c0-1 (B17 persona walk): the reject-reason box used to silently stop accepting
+// keystrokes at MAX_REJECT_REASON_LENGTH with no counter, message or visual cue. `reasonCounter` is
+// the pure arithmetic behind the live, accessible counter — the on-screen rendering and live update
+// while typing is proven against a real browser in demo/browser-evidence.ts (this repo has no
+// jsdom/testing-library, matching the precedent set by T-021's client-timeout coverage).
+// ---------------------------------------------------------------------------
+
+test("reasonCounter: empty text uses 0, remaining equals max, not at limit", () => {
+  assert.deepEqual(reasonCounter("", 500), { used: 0, remaining: 500, atLimit: false });
+});
+
+test("reasonCounter: partial text counts used/remaining correctly", () => {
+  assert.deepEqual(reasonCounter("x".repeat(120), 500), { used: 120, remaining: 380, atLimit: false });
+});
+
+test("reasonCounter: one character below the cap shows remaining 1 and is not yet at limit", () => {
+  assert.deepEqual(reasonCounter("x".repeat(MAX_REJECT_REASON_LENGTH - 1), MAX_REJECT_REASON_LENGTH), {
+    used: MAX_REJECT_REASON_LENGTH - 1,
+    remaining: 1,
+    atLimit: false,
+  });
+});
+
+test("reasonCounter: exactly at the cap is atLimit with 0 remaining", () => {
+  assert.deepEqual(reasonCounter("x".repeat(MAX_REJECT_REASON_LENGTH), MAX_REJECT_REASON_LENGTH), {
+    used: MAX_REJECT_REASON_LENGTH,
+    remaining: 0,
+    atLimit: true,
+  });
+});
+
+test("reasonCounter: a value longer than max (a paste/programmatic set that bypasses the input's maxLength) clamps remaining at 0 and is still atLimit, never negative", () => {
+  assert.deepEqual(reasonCounter("x".repeat(MAX_REJECT_REASON_LENGTH + 10), MAX_REJECT_REASON_LENGTH), {
+    used: MAX_REJECT_REASON_LENGTH + 10,
+    remaining: 0,
+    atLimit: true,
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-023 (T-020 verdict note): wherever a stored reject reason is rendered (today and in any future
+// "past decisions" view), it must render as TEXT, never HTML. Today the client-safe contract
+// (ApprovalView/SubmitResult) carries no rejectedFacts field at all -- the only place a stored
+// reason is rendered is the reason <input>'s own `value` attribute while composing it (an attribute,
+// never markup; proven live with a hostile payload in demo/browser-evidence.ts). These two tests
+// prove the underlying invariant this file relies on: (a) it never uses dangerouslySetInnerHTML
+// anywhere, so no stored string it holds -- today's dropped-fact reason / review reason / quote, or
+// a future rendered reject reason -- can ever be interpreted as real markup; (b) every existing
+// free-text render path already renders a <script>/<img onerror> payload as inert, escaped text.
+// ---------------------------------------------------------------------------
+
+// Strips block (/* ... */) and line (// ...) comments before the scan below, so a doc comment that
+// legitimately DISCUSSES the guarded API by name (as this very file's own header does, and as
+// ApprovalScreen.tsx's T-023 doc comment does) can never make the guard false-positive on itself.
+// This is a plain string/regex pass, not a JS parser, so it does not need to handle `//` or `/*`
+// appearing inside a string literal -- neither source file contains either token inside a string.
+const stripComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+
+test("T-023 (T-020 verdict note): ApprovalScreen.tsx and labels.ts never use dangerouslySetInnerHTML in actual code (comments may discuss it by name)", () => {
+  const approvalSource = stripComments(readFileSync(new URL("../src/components/ApprovalScreen.tsx", import.meta.url), "utf8"));
+  const labelsSource = stripComments(readFileSync(new URL("../src/components/labels.ts", import.meta.url), "utf8"));
+  assert.equal(approvalSource.includes("dangerouslySetInnerHTML"), false, "ApprovalScreen.tsx must not use dangerouslySetInnerHTML");
+  assert.equal(labelsSource.includes("dangerouslySetInnerHTML"), false, "labels.ts must not use dangerouslySetInnerHTML");
+});
+
+test("T-023 (T-020 verdict note): a stored string containing <script> or <img onerror> markup renders inert, as escaped text, on every existing free-text render path (a review reason, a dropped-fact reason)", () => {
+  const scriptPayload = "<script>window.__pwned = true</script>";
+  const imgPayload = '<img src="x" onerror="window.__pwned = true">';
+  const req = (PENDING as Extract<ApprovalView, { state: "awaiting_approval" }>).request;
+  const hostileView: ApprovalView = {
+    ...PENDING,
+    request: {
+      ...req,
+      facts: [req.facts[0]!, { ...req.facts[1]!, reviewReasons: [scriptPayload] }],
+      dropped: [{ key: "scholarshipNeed", reason: imgPayload }],
+    },
+  } as ApprovalView;
+  const html = renderToStaticMarkup(<ApprovalScreen threadId="scribe:s-1" initialView={hostileView} />);
+  // The payloads must still be shown to the counsellor -- as inert, HTML-entity-escaped text -- never
+  // silently dropped. Asserting the FULL escaped payload (not just a substring like "onerror=", which
+  // remains present, unescaped, inside legitimately-escaped text and would false-positive) is what
+  // actually proves the attribute was never constructed as real markup.
+  assert.ok(html.includes("&lt;script&gt;window.__pwned = true&lt;/script&gt;"), "the script payload must render, escaped, as text");
+  assert.ok(
+    html.includes("&lt;img src=&quot;x&quot; onerror=&quot;window.__pwned = true&quot;&gt;"),
+    "the img payload, onerror attribute included, must render fully HTML-entity-escaped as text",
+  );
+  // No real element was ever created from the stored data: a genuine <script>/<img> tag would appear
+  // as an actual `<script` / `<img` substring (React escapes `<` to `&lt;` on every text-child render
+  // path), so this also rules out a real onerror ATTRIBUTE, which can only exist inside a real tag.
+  assert.equal(/<script[\s>]/i.test(html), false, "a real <script> element must never be created from stored data");
+  assert.equal(/<img[\s>]/i.test(html), false, "a real <img> element must never be created from stored data");
 });

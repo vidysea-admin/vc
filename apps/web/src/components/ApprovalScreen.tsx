@@ -9,6 +9,19 @@
  * - T-020 / ISS-t-018-c0-1: rejecting a fact reveals an optional free-text reason box (the
  *   counsellor's own words typed in, never a suggested sentence — B1). The reason is sent with the
  *   per-fact reject decision and recorded as a fence-aware audit record (packages/db decisions.ts).
+ * - T-023 / ISS-t-020-c0-1 (B17 persona walk): the reason box used to stop accepting keystrokes at
+ *   MAX_REJECT_REASON_LENGTH with no visible cue. It now shows a live, accessible character counter
+ *   (aria-live + aria-describedby) plus a "Limit reached" notice, so a counsellor never loses typed
+ *   text without knowing why (`reasonCounter`, below).
+ * - T-023 (T-020 verdict note): a stored reject reason is rendered nowhere on screen today — the
+ *   client-safe contract (`ApprovalView`/`SubmitResult`, apps/web/src/server/contracts.ts) carries
+ *   only `CounsellorDecisionSchema` (`{approve, edits}`), which has no `rejectedFacts` field at all;
+ *   wiring that through is a server/contract change outside this unit's scope (apps/web only). The
+ *   ONE place a stored reason is rendered today is the reason `<input>`'s own controlled `value`
+ *   while the counsellor is composing it (below) — an attribute, never markup, and this file
+ *   contains no `dangerouslySetInnerHTML` anywhere (guarded by a source-scan test). Any future
+ *   "past decisions" view that renders a stored reason must keep it a plain JSX text child for the
+ *   same reason.
  * - B1: every word the UI writes comes from LABELS; all other text is proposal data or the
  *   counsellor's own typed text (the edited value, the reject reason).
  */
@@ -70,6 +83,20 @@ function editedValue(fact: ProposedFact, text: string): { ok: true; value: strin
 export function buildRejectDecision(key: string, reason: string | undefined): DecisionRequest["facts"][number] {
   const trimmed = (reason ?? "").trim();
   return trimmed === "" ? { key, decision: "reject" } : { key, decision: "reject", reason: trimmed };
+}
+
+/**
+ * T-023 / ISS-t-020-c0-1: the reject-reason counter's pure arithmetic — how many characters are
+ * used, how many remain before `max` (never negative, defends against a pasted/programmatic value
+ * longer than the input's `maxLength`), and whether the cap has been reached. Exported so it is
+ * unit-tested directly: this repo has no jsdom/testing-library, so the counter's on-screen
+ * rendering and live updates are proven against a real browser (demo/browser-evidence.ts) — this is
+ * the deterministic logic behind what it displays.
+ */
+export function reasonCounter(text: string, max: number): { used: number; remaining: number; atLimit: boolean } {
+  const used = text.length;
+  const remaining = Math.max(0, max - used);
+  return { used, remaining, atLimit: used >= max };
 }
 
 const apiUrl = (threadId: string) => `/api/approvals/${encodeURIComponent(threadId)}`;
@@ -399,18 +426,38 @@ function PendingForm({
                     {edit !== null && !edit.ok ? <span className="error">{LABELS.invalidNumber}</span> : null}
                   </label>
                 ) : null}
-                {choice?.decision === "reject" ? (
-                  <label className="reject-reason">
-                    <span>{LABELS.rejectReason}</span>
-                    <input
-                      type="text"
-                      value={choice.reason ?? ""}
-                      data-reason-for={fact.key}
-                      maxLength={MAX_REJECT_REASON_LENGTH}
-                      onChange={(e) => setReason(fact, e.target.value)}
-                    />
-                  </label>
-                ) : null}
+                {choice?.decision === "reject" ? (() => {
+                  const count = reasonCounter(choice.reason ?? "", MAX_REJECT_REASON_LENGTH);
+                  const countId = `reason-count-${fact.key}`;
+                  return (
+                    <label className="reject-reason">
+                      <span>{LABELS.rejectReason}</span>
+                      <input
+                        type="text"
+                        value={choice.reason ?? ""}
+                        data-reason-for={fact.key}
+                        maxLength={MAX_REJECT_REASON_LENGTH}
+                        aria-describedby={countId}
+                        onChange={(e) => setReason(fact, e.target.value)}
+                      />
+                      <span
+                        id={countId}
+                        className={`reason-count${count.atLimit ? " reason-count-limit" : ""}`}
+                        aria-live="polite"
+                        data-testid={countId}
+                        data-at-limit={count.atLimit ? "true" : "false"}
+                      >
+                        <span>{LABELS.rejectReasonRemaining}</span> <span className="mono">{`${count.used}/${MAX_REJECT_REASON_LENGTH}`}</span>
+                        {count.atLimit ? (
+                          <>
+                            {" · "}
+                            <span className="reason-limit">{LABELS.rejectReasonLimitReached}</span>
+                          </>
+                        ) : null}
+                      </span>
+                    </label>
+                  );
+                })() : null}
               </article>
             );
           })}
