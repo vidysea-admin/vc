@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B2, B3, B15, B20; B2 as amended 2026-09-26 by D-020)
 **Goal task:** none (this project has no `.goal/`; qa/issues.jsonl is the canonical tracker)
 **Date:** 2026-09-26
-**Fix cycle:** 1 of max 3
+**Fix cycle:** 2 of max 3
 **Dual check:** no
 **Issues addressed:** none open against T-013 in qa/issues.jsonl. ISS-t-007-rev-2 (case-sensitive `.includes()` false-dropping real citations) is fixed as a side effect of this unit — see "Kept facts" numbers below. ISS-t-007-rev-3 is **out of scope**: it is not referenced by the T-013 rescope gate or by qa/debug/t-013-citation-robustness-cycle3.md, and no matching row exists in qa/issues.jsonl for this repo state; not addressed here.
 **Executor:** claude-sonnet-subagent (schema change — never delegated)
@@ -331,4 +331,4 @@ The earlier "Requirement 5: NO ISOLATING FALSIFICATION NEEDED" note (above) is s
 - **Marker lists** (negation, kinship, multiplier) are closed, hand-curated sets. A marker outside them fails SAFE only through the first-person requirement, not by recognition; e.g. a third-party sentence that also contains "I/my" and an unlisted kinship word would still auto-verify. The eval hostile rows cover the named classes only.
 - **Fresh-context review** (senior-software-engineer / data-engineer / ai-engineer) of this cycle's code was not dispatched from this build subagent (no nested fan-out); the orchestrator/checker should run it.
 
-## Status: ready-for-check
+## Status: fix-cycle-2 building (checker c1 PASS 4330182 overridden by ai-engineer review BLOCK: ISS-t-013r-rev-4 question, rev-5 conditional, rev-6 allow-list; plus DE rev-8, checker c1-1)
