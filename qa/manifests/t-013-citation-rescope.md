@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B2, B3, B15, B20; B2 as amended 2026-09-26 by D-020)
 **Goal task:** none (this project has no `.goal/`; qa/issues.jsonl is the canonical tracker)
 **Date:** 2026-09-26
-**Fix cycle:** 2 of max 3
+**Fix cycle:** 3 of max 3 (+1 authorized by D-023)
 **Dual check:** no
 **Issues addressed:** none open against T-013 in qa/issues.jsonl. ISS-t-007-rev-2 (case-sensitive `.includes()` false-dropping real citations) is fixed as a side effect of this unit — see "Kept facts" numbers below. ISS-t-007-rev-3 is **out of scope**: it is not referenced by the T-013 rescope gate or by qa/debug/t-013-citation-robustness-cycle3.md, and no matching row exists in qa/issues.jsonl for this repo state; not addressed here.
 **Executor:** claude-sonnet-subagent (schema change — never delegated)
@@ -442,4 +442,4 @@ Those 4 are h24..h27 (date-day, date-year, past-visit, hearsay), the rows only t
 - **Counsellor read surface:** unchanged from cycle 1. There is still no HTTP or MCP transcript tool.
 - **Fresh-context review** (ai-engineer, data-engineer, senior-software-engineer) was not dispatched from this build subagent. The orchestrator should run it.
 
-## Status: ready-for-check
+## Status: fix-cycle-3 building (checker c2 FAIL d94f323 ISS-t-013r-c2-1; ai review BLOCK rev-9, rev-10; DE review BLOCK rev-12; D-023 scope)
