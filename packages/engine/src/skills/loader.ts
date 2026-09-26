@@ -10,8 +10,8 @@
  * work units are touching pnpm-lock.yaml). It supports exactly what these skill files use — a `---`
  * delimited block of single-line `key: value` pairs, optionally quoted — not the full YAML spec.
  */
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
+import { join, resolve, sep } from "node:path";
 
 export interface SkillMeta {
   name: string;
@@ -25,6 +25,57 @@ interface ParsedSkill {
 }
 
 const FRONTMATTER_DELIM = "---";
+
+// ISS-022: loadSkill's `name` comes from a caller-chosen value (a graph node's own picks, not a
+// fixed enum), so it must be treated as untrusted input. A name outside this shape can never
+// resolve to anything but a single subfolder of `dir`.
+const SAFE_SKILL_NAME = /^[a-z0-9][a-z0-9-]*$/;
+
+// ISS-024: a bare YAML block-scalar indicator (optionally followed by a chomping/indentation
+// modifier — "-", "+", or a digit) as the entire value of a `key: value` line. This hand-written
+// parser only understands single-line values, so `description: >` would otherwise silently store
+// the literal ">" instead of the multi-line body that follows it.
+const BLOCK_SCALAR_VALUE = /^[|>][+-]?\d*$/;
+const BLOCK_SCALAR_KEYS = new Set(["name", "description"]);
+
+/**
+ * Resolves `name` to a subfolder of `dir`, refusing anything that is not a bare, lowercase,
+ * hyphenated skill-folder name (ISS-022). Two independent checks, deliberately redundant: the
+ * regex allowlist rejects every hostile shape outright (no `/`, `\`, `..`, empty string, NUL,
+ * whitespace, uppercase), and the resolved-path containment check is a second, path.sep-aware
+ * line of defence against any future loosening of that regex.
+ */
+function resolveSkillDir(dir: string, name: string): string {
+  if (!SAFE_SKILL_NAME.test(name)) {
+    throw new Error(`Invalid skill name "${name}" — must match ${SAFE_SKILL_NAME}`);
+  }
+
+  const base = resolve(dir);
+  const skillDir = resolve(dir, name);
+  if (skillDir !== base && !skillDir.startsWith(base + sep)) {
+    throw new Error(`Skill name "${name}" resolves outside the skills directory "${dir}"`);
+  }
+
+  assertRealPathContained(dir, join(skillDir, "SKILL.md"));
+  return skillDir;
+}
+
+/**
+ * ISS-t-005c-c0-4: the lexical resolve()/startsWith() check above cannot see a symlink (or a
+ * Windows junction) — a skill folder named "escape-hatch" that is really a link to a directory
+ * outside the skills root passes it, and readFileSync then follows the link. This resolves BOTH
+ * the skills root and the target file through realpathSync (following every link on the way) and
+ * refuses the target unless its real path is still inside the real root. Checking the SKILL.md
+ * file itself, not only its folder, also catches a SKILL.md that is a file symlink to elsewhere.
+ * A missing file surfaces as the usual ENOENT from realpathSync.
+ */
+function assertRealPathContained(dir: string, target: string): void {
+  const realBase = realpathSync(resolve(dir));
+  const realTarget = realpathSync(target);
+  if (!realTarget.startsWith(realBase + sep)) {
+    throw new Error(`Skill path "${target}" resolves (via a link) outside the skills directory "${dir}"`);
+  }
+}
 
 function parseFrontmatter(raw: string, skillPath: string): ParsedSkill {
   const lines = raw.split(/\r?\n/);
@@ -54,6 +105,13 @@ function parseFrontmatter(raw: string, skillPath: string): ParsedSkill {
       (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
     if (isQuoted && value.length >= 2) {
       value = value.slice(1, -1);
+    }
+    if (BLOCK_SCALAR_KEYS.has(key) && BLOCK_SCALAR_VALUE.test(value)) {
+      throw new Error(
+        `${skillPath}: "${key}" uses a YAML block scalar ("${value}") — this hand-written ` +
+          "frontmatter parser only supports single-line \"key: value\" pairs (see the module " +
+          `header comment); rewrite "${key}" as a single-line, optionally quoted string.`,
+      );
     }
     frontmatter[key] = value;
   }
@@ -86,13 +144,16 @@ export function listSkills(dir: string): SkillMeta[] {
   const skills: SkillMeta[] = [];
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    // A symlinked/junctioned subfolder is not skipped silently here: it is checked below and,
+    // if it escapes the skills root, listSkills throws (ISS-t-005c-c0-4) rather than listing it.
+    if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
     const skillPath = join(dir, entry.name, "SKILL.md");
     try {
       if (!statSync(skillPath).isFile()) continue;
     } catch {
       continue; // no SKILL.md in this subfolder — not a skill
     }
+    assertRealPathContained(dir, skillPath);
 
     const { frontmatter } = readAndValidate(skillPath, entry.name);
     skills.push({
@@ -110,7 +171,8 @@ export function listSkills(dir: string): SkillMeta[] {
  * from `listSkills` metadata, that it needs this particular skill's full prompt/soft rules).
  */
 export function loadSkill(dir: string, name: string): string {
-  const skillPath = join(dir, name, "SKILL.md");
+  const skillDir = resolveSkillDir(dir, name);
+  const skillPath = join(skillDir, "SKILL.md");
   const { body } = readAndValidate(skillPath, name);
   return body;
 }
