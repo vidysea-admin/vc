@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (B2, B3, B15, B20; B2 as amended 2026-09-26 by D-020)
 **Goal task:** none (this project has no `.goal/`; qa/issues.jsonl is the canonical tracker)
 **Date:** 2026-09-26
-**Fix cycle:** 0 of max 3
+**Fix cycle:** 1 of max 3
 **Dual check:** no
 **Issues addressed:** none open against T-013 in qa/issues.jsonl. ISS-t-007-rev-2 (case-sensitive `.includes()` false-dropping real citations) is fixed as a side effect of this unit — see "Kept facts" numbers below. ISS-t-007-rev-3 is **out of scope**: it is not referenced by the T-013 rescope gate or by qa/debug/t-013-citation-robustness-cycle3.md, and no matching row exists in qa/issues.jsonl for this repo state; not addressed here.
 **Executor:** claude-sonnet-subagent (schema change — never delegated)
@@ -240,4 +240,4 @@ this session's `pnpm -r test` run (`apps/web test: tests 18, pass 18, fail 0`). 
 actually populates `needsReview`/`reviewReasons` on real facts (previously always absent), that
 existing, tested UI path is exercised for real by this unit without needing a code change of its own.
 
-## Status: ready-for-check
+## Status: fix-cycle-1 building (checker c0 FAIL 7dda413 + data-engineer Warning + ai-engineer Warning)
