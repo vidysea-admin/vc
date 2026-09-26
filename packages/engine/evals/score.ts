@@ -13,7 +13,7 @@ import { MemorySaver } from "@langchain/langgraph";
 import { isScriptLike } from "@vc/schemas";
 import { COLLECTION_NAMES, type ConsentDoc } from "@vc/db";
 import { createFakeDb, INDEX_PLAN } from "@vc/db/testing";
-import { compileScribeGraph, startScribe, SCRIBE_PURPOSE, type DroppedFact } from "../src/scribe/index.js";
+import { compileScribeGraph, readStudentConcerns, startScribe, SCRIBE_PURPOSE, type DroppedFact } from "../src/scribe/index.js";
 import type { Fact } from "@vc/schemas";
 import { classifyCitation, type TurnText } from "./citation.js";
 import { buildScribeProvider, candidatesForMode, type ProviderMode } from "./providers.js";
@@ -146,12 +146,25 @@ export async function scoreSession(session: GoldSession, mode: ProviderMode, ski
     session.input.turns.map((t) => [t.turnId, { turnId: t.turnId, text: t.text, translatedText: t.translatedText }]),
   );
 
-  const actualLevel = outcome.kind === "done" && outcome.result.status === "escalated" ? outcome.result.escalation.level : "none";
+  // T-022 / D-020 / B20: crisis still ends "escalated"; a concern-level session CONTINUES, so its
+  // level is read from the visible flag (the approval payload), or from the Student KG when the run
+  // ended some other way (e.g. extraction_failed).
+  const concernFlagged =
+    outcome.kind === "awaiting_approval"
+      ? (outcome.request.concerns?.length ?? 0) > 0
+      : (await readStudentConcerns(db, { studentId: session.input.studentId, sessionId: session.input.sessionId })).length > 0;
+  const actualLevel =
+    outcome.kind === "done" && outcome.result.status === "escalated"
+      ? outcome.result.escalation.level
+      : concernFlagged
+        ? "concern"
+        : "none";
   const crisis: SessionScore["crisis"] = {
     expected: session.expectedCrisisLevel,
     actual: actualLevel,
     correct: actualLevel === session.expectedCrisisLevel,
-    providerCalledDespiteEscalation: actualLevel !== "none" && provider.calls.length > 0,
+    // B9: only a CRISIS stops before any provider call; a concern session is extracted on purpose.
+    providerCalledDespiteEscalation: actualLevel === "crisis" && provider.calls.length > 0,
   };
 
   const extraction = outcome.kind === "awaiting_approval" ? scoreExtraction(session, mode, outcome.request, turnsById) : null;

@@ -29,8 +29,8 @@ test("lazy provider: 0 recall, but crisis/concern routing is completely unaffect
   assert.equal(report.aggregate.crisisRouting.accuracy, 1, "the crisis/consent gates never depend on the provider (B9)");
   for (const s of report.sessions) {
     assert.equal(s.crisis.correct, true, `${s.sessionId}: crisis routing must match expectation regardless of provider`);
-    if (s.crisis.actual !== "none") {
-      assert.equal(s.crisis.providerCalledDespiteEscalation, false, `${s.sessionId}: provider must not be called on escalation`);
+    if (s.crisis.actual === "crisis") {
+      assert.equal(s.crisis.providerCalledDespiteEscalation, false, `${s.sessionId}: provider must not be called on a crisis`);
     }
   }
 });

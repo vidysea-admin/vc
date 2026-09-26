@@ -27,11 +27,19 @@ test("perfect provider: 100% citation precision, 100% recall, zero false drops, 
   assert.equal(report.aggregate.summary.scriptLikeLeaks, 0, "a plain factual summary must never read as script-like (B1)");
   assert.equal(report.aggregate.summary.checklistCoverage, 1, "the perfect provider's summary must cover every gold checklist item");
 
-  // Escalated sessions never called the provider (B9), even though this run used a "perfect" provider.
-  const escalated = report.sessions.filter((s) => s.crisis.actual !== "none");
-  assert.ok(escalated.length >= 2, "the dataset must contain at least one concern and one crisis session");
-  for (const s of escalated) {
-    assert.equal(s.crisis.providerCalledDespiteEscalation, false, `${s.sessionId}: the provider must not be called on escalation`);
+  // Crisis sessions never called the provider (B9), even though this run used a "perfect" provider.
+  const crisisSessions = report.sessions.filter((s) => s.crisis.actual === "crisis");
+  assert.ok(crisisSessions.length >= 1, "the dataset must contain at least one crisis session");
+  for (const s of crisisSessions) {
+    assert.equal(s.crisis.providerCalledDespiteEscalation, false, `${s.sessionId}: the provider must not be called on a crisis`);
+    assert.equal(s.extraction, null, `${s.sessionId}: a crisis session ends before extraction`);
+  }
+  // T-022 / D-020 / B20: a concern session is FLAGGED and CONTINUES — its facts are still extracted.
+  const concernSessions = report.sessions.filter((s) => s.crisis.actual === "concern");
+  assert.ok(concernSessions.length >= 1, "the dataset must contain at least one concern session");
+  for (const s of concernSessions) {
+    assert.notEqual(s.extraction, null, `${s.sessionId}: a concern session must still be extracted (flag and continue)`);
+    assert.equal(s.extraction?.recalledCount, s.extraction?.goldFactCount, `${s.sessionId}: every gold fact recalled`);
   }
 });
 

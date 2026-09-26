@@ -163,7 +163,8 @@ const FENCE_AWARE_WRITERS: Record<string, string> = {
   "packages/db/src/decisions.ts":
     "T-018 recordRejectReasons: pre-check, a WriterDeadline-bounded insert into `decisions` (a deterministic _id, so a checkpoint replay collides idempotently rather than duplicating), finally post-check + compensation that deletes exactly the document this call inserted (D-015/D-016, mirroring facts.ts's recordApprovedSessionSummary)",
   "packages/engine/src/scribe/graph.ts":
-    "startScribe/resumeScribe: session row, claim insert (+ run lease) and graph.invoke under the writer deadline, finally post-check + compensation (invokeFenceAware)",
+    "startScribe/resumeScribe: session row, claim insert (+ run lease) and graph.invoke under the writer deadline, finally post-check + compensation (invokeFenceAware). " +
+    "T-022 recordSessionConcerns: the concern edges (student --concern_flagged--> transcript_turn) are upserted inside startScribe's invokeFenceAware call under the same deadline, stamped with a per-call writerToken; compensation deletes exactly the ids this call created by {_id, writerToken}",
   "packages/engine/src/scribe/checkpointer.ts":
     "constructs the MongoDBSaver; its checkpoint writes run only inside graph.invoke, which graph.ts wraps fence-aware",
 };

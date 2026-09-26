@@ -7,7 +7,9 @@
  *     -> counsellor_approval (interrupt) -> write_approved
  *
  * - consent refused  -> END with status "refused"   (B4: before anything else)
- * - crisis/concern   -> END with status "escalated" (B9: before any provider call)
+ * - crisis           -> END with status "escalated" (B9: before any provider call)
+ * - concern          -> CONTINUES (T-022 / D-020 / B20): flagged in state and in the approval payload
+ *                       (`concerns`), and written to the Student KG as a cited edge by startScribe
  * - provider output schema-invalid after 1 retry -> END with "extraction_failed" / "summary_failed"
  * - counsellor reject -> END with status "rejected" (B3: nothing written)
  * - approve / edit   -> write_approved              (B3: the only write, after the interrupt)
@@ -16,6 +18,8 @@ import { Annotation, Command, END, START, StateGraph, interrupt, type BaseCheckp
 import type { Callbacks } from "@langchain/core/callbacks/manager";
 import { createHash, randomUUID } from "node:crypto";
 import {
+  deriveEdgeId,
+  edgesCollection,
   ensureScribeSessionRow,
   FENCE_MARGIN_MS,
   FENCE_POSTCHECK_TIMEOUT_MS,
@@ -27,10 +31,14 @@ import {
   sessionsCollection,
   sessionTranscriptsCollection,
   StudentFencedError,
+  transcriptTurnDocId,
   WriterDeadline,
+  type EdgeDoc,
+  type EdgeRef,
   type ScribeResolutionDoc,
 } from "@vc/db";
-import type { CounsellorDecision, Fact, ProfileDiff } from "@vc/schemas";
+import type { Collection } from "mongodb";
+import { ConcernRecordSchema, type ConcernRecord, type CounsellorDecision, type Fact, type ProfileDiff } from "@vc/schemas";
 import { createLangfuseCallbacks, type TracingConfig } from "@vc/observability";
 import {
   boundedDeadlineMs,
@@ -79,6 +87,8 @@ export const ScribeState = Annotation.Root({
   // node outputs
   consent: last<"granted" | "refused" | undefined>(),
   escalation: last<ScribeEscalation | null | undefined>(),
+  /** T-022: concern-level flags (the run continued); surfaced in the approval payload. */
+  concerns: last<ConcernRecord[] | undefined>(),
   facts: last<Fact[] | undefined>(),
   dropped: last<DroppedFact[] | undefined>(),
   summary: last<string | undefined>(),
@@ -101,10 +111,10 @@ export function buildScribeGraph(deps: ScribeDeps) {
         : { consent: out.consent };
     })
     .addNode(SCRIBE_NODES.crisis, (s: State) => {
-      const out = checkCrisis({ turns: s.turns });
+      const out = checkCrisis({ sessionId: s.sessionId, studentId: s.studentId, turns: s.turns });
       return out.escalation
-        ? { escalation: out.escalation, result: ScribeResultSchema.parse({ status: "escalated", escalation: out.escalation }) }
-        : { escalation: null };
+        ? { escalation: out.escalation, concerns: [], result: ScribeResultSchema.parse({ status: "escalated", escalation: out.escalation }) }
+        : { escalation: null, concerns: out.concerns };
     })
     .addNode(SCRIBE_NODES.extract, async (s: State) => {
       const { failedReason, ...out } = await extractFacts({ turns: s.turns, sessionEndedAt: s.sessionEndedAt }, deps);
@@ -133,6 +143,7 @@ export function buildScribeGraph(deps: ScribeDeps) {
         diff: s.diff,
         facts: s.proposedFacts,
         dropped: s.dropped,
+        ...(s.concerns && s.concerns.length > 0 ? { concerns: s.concerns } : {}),
       });
       // B3: the graph suspends here; the counsellor's typed response resumes it.
       const response = ApprovalResponseSchema.parse(interrupt(request));
@@ -376,6 +387,11 @@ interface CreatedByCall {
    * earlier run already recorded), filled as each is written so a part-way failure is covered too.
    */
   transcriptTurns?: { studentId: string; ids: string[] } | null;
+  /**
+   * T-022: the concern edges this call CREATED (upserted), stamped with this call's `writerToken`,
+   * so compensation deletes by {_id, writerToken} and never an edge an earlier run created.
+   */
+  concernEdges?: { writerToken: string; ids: string[] } | null;
 }
 
 /** The post-check's fence read; an unreadable fence state counts as fenced (fail-safe). */
@@ -434,6 +450,12 @@ async function invokeFenceAware(
       await sessionTranscriptsCollection(deps.db).deleteMany({
         _id: { $in: [...created.transcriptTurns.ids] },
         studentId: created.transcriptTurns.studentId,
+      });
+    }
+    if (created.concernEdges && created.concernEdges.ids.length > 0) {
+      await edgesCollection(deps.db).deleteMany({
+        _id: { $in: [...created.concernEdges.ids] },
+        writerToken: created.concernEdges.writerToken,
       });
     }
   };
@@ -497,11 +519,14 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
     // proposes points into a stored turn (resolveCitationSpan). It runs INSIDE the fence-aware call:
     // the post-check covers it, and the compensation deletes exactly the turns this call created.
     const transcriptTurns = { studentId: parsed.studentId, ids: [] as string[] };
+    // T-022 / D-020 / B20: concern flags go into the Student KG right after the transcript they cite,
+    // before any provider call, so a later extraction/summary failure never loses them.
+    const concernEdges = { writerToken: randomUUID(), ids: [] as string[] };
     const fenced = await invokeFenceAware(
       deps,
       parsed.studentId,
       opts.threadId,
-      { sessionRow, transcriptTurns },
+      { sessionRow, transcriptTurns, concernEdges },
       deadline,
       async () => {
         await recordSessionTranscript(
@@ -509,6 +534,11 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
           { sessionId: parsed.sessionId, studentId: parsed.studentId, turns: parsed.turns },
           { ...deadline.op(), createdSink: transcriptTurns.ids },
         );
+        await recordSessionConcerns(deps.db, parsed, {
+          ...deadline.op(),
+          writerToken: concernEdges.writerToken,
+          createdSink: concernEdges.ids,
+        });
         return graph.invoke(parsed, runnableConfig(opts, deadline));
       },
     );
@@ -517,6 +547,79 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
     deadline.dispose();
   }
   return readOutcome(graph, opts.threadId);
+}
+
+/** T-022: the KG relation for a concern flag: student --concern_flagged--> transcript_turn. */
+export const CONCERN_EDGE_REL = "concern_flagged";
+
+/** A concern edge: an ordinary `edges` document that also carries its typed, cited ConcernRecord. */
+export interface ConcernEdgeDoc extends EdgeDoc {
+  concern: ConcernRecord;
+}
+
+function concernEdges(db: GraphDeps["db"]): Collection<ConcernEdgeDoc> {
+  return edgesCollection(db) as unknown as Collection<ConcernEdgeDoc>;
+}
+
+/**
+ * T-022 / D-020 / B20: writes each concern-level flag of a session into the Student KG, using the
+ * EXISTING `edges` collection so erasure and export cover it with no new collection (B15): the edge
+ * is anchored at `{kind: "student"}`, which the erasure's edge selector deletes and the export
+ * returns unconditionally. It points at the stored transcript turn it cites (B2).
+ * - Consent first (B4): a session the consent gate refuses writes no concern.
+ * - Crisis sessions are unchanged: they end escalated and this writes nothing (checkCrisis gives no
+ *   concerns when there is a crisis turn).
+ * - Idempotent: deterministic _id + `$setOnInsert`, so a replay or a retried startScribe writes
+ *   nothing new; only the edges THIS call inserted are reported to `createdSink` (for compensation).
+ */
+async function recordSessionConcerns(
+  db: GraphDeps["db"],
+  input: ScribeInput,
+  options: { timeoutMS: number; writerToken: string; createdSink: string[] },
+): Promise<ConcernRecord[]> {
+  const consent = await checkConsent({ studentId: input.studentId }, { db });
+  if (consent.consent !== "granted") return [];
+  const { escalation, concerns } = checkCrisis({ sessionId: input.sessionId, studentId: input.studentId, turns: input.turns });
+  if (escalation || concerns.length === 0) return [];
+  const edges = concernEdges(db);
+  for (const concern of concerns) {
+    const from: EdgeRef = { kind: "student", id: concern.studentId };
+    const to: EdgeRef = { kind: "transcript_turn", id: transcriptTurnDocId(concern.sessionId, concern.citation.turnId) };
+    const _id = deriveEdgeId(from, to, CONCERN_EDGE_REL);
+    const doc: ConcernEdgeDoc = {
+      _id,
+      from,
+      to,
+      rel: CONCERN_EDGE_REL,
+      createdAt: new Date().toISOString(),
+      writerToken: options.writerToken,
+      concern,
+    };
+    const res = await edges.updateOne({ _id }, { $setOnInsert: doc }, { upsert: true, timeoutMS: options.timeoutMS });
+    if ((res.upsertedCount ?? 0) > 0 || (res.upsertedId !== null && res.upsertedId !== undefined)) options.createdSink.push(_id);
+  }
+  return concerns;
+}
+
+/**
+ * T-022: the typed read surface for T-012 (escalation as severity rises): every concern flagged for
+ * a student (optionally one session), Zod-validated, ordered by concernId.
+ */
+export async function readStudentConcerns(
+  db: GraphDeps["db"],
+  query: { studentId: string; sessionId?: string },
+): Promise<ConcernRecord[]> {
+  const docs = await concernEdges(db)
+    .find({
+      rel: CONCERN_EDGE_REL,
+      "from.kind": "student",
+      "from.id": query.studentId,
+      ...(query.sessionId === undefined ? {} : { "concern.sessionId": query.sessionId }),
+    })
+    .toArray();
+  return docs
+    .map((d) => ConcernRecordSchema.parse(d.concern))
+    .sort((a, b) => a.concernId.localeCompare(b.concernId));
 }
 
 /** Canonical JSON (sorted object keys, recursively), so equal responses hash equally. */
