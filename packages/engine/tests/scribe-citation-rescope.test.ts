@@ -154,11 +154,21 @@ test("auto-verify NEGATIVE: a word-form amount (e.g. spelled-out lakh figure) ne
 });
 
 test("auto-verify: a closed-vocabulary country value, whole-word matched, is verified", () => {
+  // fix cycle 2 (ISS-t-013r-rev-6 allow-list): the positive quote is the WHOLE clause. The cycle-1
+  // fixture (a cropped quote without the "I want to") is kept below as an unrecognised-form negative.
   const turns = turnsById(turn({ turnId: "t1", text: "I want to move to the USA for my masters." }));
-  const raw = candidate({ key: "targetCountry", value: "USA", source: { type: "transcript", quote: "move to the USA for my masters", turnId: "t1" } });
+  const raw = candidate({ key: "targetCountry", value: "USA", source: { type: "transcript", quote: "I want to move to the USA for my masters", turnId: "t1" } });
   const result = verifyCandidateFact(raw, turns, SESSION_ENDED);
   assert.ok("fact" in result);
   if ("fact" in result) assert.equal(result.fact.needsReview, false);
+
+  const cropped = candidate({ key: "targetCountry", value: "USA", source: { type: "transcript", quote: "move to the USA for my masters", turnId: "t1" } });
+  const croppedResult = verifyCandidateFact(cropped, turns, SESSION_ENDED);
+  assert.ok("fact" in croppedResult, "kept, never dropped");
+  if ("fact" in croppedResult) {
+    assert.equal(croppedResult.fact.needsReview, true, "a cropped quote is not a whole clause");
+    assert.ok((croppedResult.fact.reviewReasons ?? []).some((r) => r.startsWith("unrecognised-form:")));
+  }
 });
 
 test("auto-verify NEGATIVE (hostile, sibling of ISS-t-013-c3-1): 'new britain' (a distractor place) never verifies as UK", () => {
@@ -242,8 +252,13 @@ test("reasoning fact NEGATIVE: missing `explains` is dropped with a clear reason
 test("assessFactForReview: a typed number auto-verifies with empty reasons; a reasoning fact never does, even with a vocabulary-shaped value", () => {
   // fix cycle 1: first-person, no pronoun/negation/currency (the cycle-0 fixture "we discussed all 42
   // of them" now carries the third-party pronoun "them" and correctly stays in review).
-  const verified = assessFactForReview({ kind: "value", value: 42 }, "I have finished 42 credits so far");
+  // fix cycle 2 (ISS-t-013r-rev-6 allow-list): a score template is the positive; the cycle-1 fixture
+  // ("I have finished 42 credits so far", no template) now stays in review as unrecognised-form.
+  const verified = assessFactForReview({ kind: "value", value: 42 }, "I scored 42 in the exam");
   assert.deepEqual(verified, { needsReview: false, reviewReasons: [] });
+  const credits = assessFactForReview({ kind: "value", value: 42 }, "I have finished 42 credits so far");
+  assert.equal(credits.needsReview, true);
+  assert.ok(credits.reviewReasons.some((r) => r.startsWith("unrecognised-form:")));
   assert.equal(assessFactForReview({ kind: "value", value: 42 }, "we discussed all 42 of them").needsReview, true);
 
   const reasoning = assessFactForReview({ kind: "reasoning", value: "Canada" }, "because Canada has good universities");
@@ -389,5 +404,146 @@ test("fail-safe: every flagged fact is KEPT with its value and citation intact, 
   assert.equal(fact?.needsReview, true);
   for (const prefix of ["third-party:", "negation:", "no-first-person:", "unit-multiplier:"]) {
     assert.ok(reasonsStartWith(fact?.reviewReasons, prefix), `every failing condition is named: ${prefix}`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Fix cycle 2 (ISS-t-013r-rev-4, -rev-5, -rev-6, -c1-1): the ALLOW-LIST gate. Auto-verify only when the
+// quote is one whole declarative first-person clause matching a template whose slot is the value, AND
+// no deny marker (negation, third-party, multiplier/currency, interrogative, conditional) fires in the
+// cited turn. Every other shape is KEPT with a named reason, never dropped.
+// ---------------------------------------------------------------------------
+
+function verifyIn(text: string, quote: string, value: unknown, key = "targetCountry") {
+  return verifyOne(text, quote, value, key);
+}
+
+test("ISS-t-013r-rev-6 allow-list POSITIVES: every template auto-verifies its own value, English / Hinglish / Devanagari", () => {
+  const cases: Array<[string, string, unknown]> = [
+    // country templates
+    ["I want to study in Canada.", "I want to study in Canada", "Canada"],
+    ["I'd like to go to the UK.", "I'd like to go to the UK", "UK"],
+    ["I would like to study in Germany.", "I would like to study in Germany", "Germany"],
+    ["I am planning to move to Australia for my masters.", "I am planning to move to Australia for my masters", "Australia"],
+    ["I want to study computer science in Canada.", "I want to study computer science in Canada", "Canada"],
+    ["My first choice is the USA.", "My first choice is the USA", "USA"],
+    ["I prefer Ireland.", "I prefer Ireland", "Ireland"],
+    ["Main Canada jaana chahta hoon.", "Main Canada jaana chahta hoon", "Canada"],
+    ["Main UK jaana chahti hoon.", "Main UK jaana chahti hoon", "UK"],
+    ["Mujhe Germany jaana hai.", "Mujhe Germany jaana hai", "Germany"],
+    ["Meri pehli choice Singapore hai.", "Meri pehli choice Singapore hai", "Singapore"],
+    ["मैं Canada जाना चाहता हूँ।", "मैं Canada जाना चाहता हूँ", "Canada"],
+    ["मुझे UK में पढ़ना है।", "मुझे UK में पढ़ना है", "UK"],
+    ["मेरी पहली पसंद France है।", "मेरी पहली पसंद France है", "France"],
+    // number templates
+    ["My budget is 1500000.", "My budget is 1500000", 1500000],
+    ["I scored 92 in my class 12 boards.", "I scored 92 in my class 12 boards", 92],
+    ["I got 7.5 in IELTS.", "I got 7.5 in IELTS", 7.5],
+    ["My IELTS score is 7.5.", "My IELTS score is 7.5", 7.5],
+    ["Mera budget 1500000 hai.", "Mera budget 1500000 hai", 1500000],
+    ["Maine IELTS mein 7.5 score kiya.", "Maine IELTS mein 7.5 score kiya", 7.5],
+    ["Mere boards mein 92 percent aaye.", "Mere boards mein 92 percent aaye", 92],
+    ["मेरा बजट 1500000 है।", "मेरा बजट 1500000 है", 1500000],
+    ["मैंने IELTS में 7.5 स्कोर किया।", "मैंने IELTS में 7.5 स्कोर किया", 7.5],
+  ];
+  for (const [text, quote, value] of cases) {
+    const fact = verifyIn(text, quote, value, typeof value === "number" ? "score" : "targetCountry");
+    assert.equal(fact?.needsReview, false, `template should auto-verify: ${quote} -> ${String(value)}`);
+    assert.equal(fact?.reviewReasons, undefined, `no reasons on a verified fact: ${quote}`);
+  }
+});
+
+test("ISS-t-013r-rev-4: a question never auto-verifies (reason: interrogative), English / Hinglish / Devanagari", () => {
+  const cases: Array<[string, string, string]> = [
+    ["kya mujhe UK jana chahiye?", "kya mujhe UK jana chahiye?", "UK"],
+    ["should I go to the UK?", "should I go to the UK?", "UK"],
+    ["Kya main Canada jaana chahta hoon", "main Canada jaana chahta hoon", "Canada"], // no "?" at all
+    ["Should I study in Canada", "I study in Canada", "Canada"],
+    ["Can I want to go to the UK, or not", "I want to go to the UK", "UK"],
+    ["I want to study in Canada?", "I want to study in Canada", "Canada"],
+    ["Main Canada jaana chahta hoon?", "Main Canada jaana chahta hoon", "Canada"],
+    ["क्या मुझे UK जाना है", "मुझे UK जाना है", "UK"],
+    ["Whether I want to study in Canada is unclear.", "I want to study in Canada", "Canada"],
+  ];
+  for (const [text, quote, value] of cases) {
+    const fact = verifyIn(text, quote, value);
+    assert.equal(fact?.needsReview, true, `a question must not auto-verify: ${text}`);
+    assert.ok(reasonsStartWith(fact?.reviewReasons, "interrogative:"), `named interrogative reason: ${text}`);
+  }
+});
+
+test("ISS-t-013r-rev-5: conditional / hypothetical phrasing never auto-verifies (reason: conditional)", () => {
+  const cases: Array<[string, string, string]> = [
+    ["if I get admission I will go to Canada", "if I get admission I will go to Canada", "Canada"],
+    ["agar mujhe scholarship milti hai to main UK jaunga", "agar mujhe scholarship milti hai to main UK jaunga", "UK"],
+    ["in an ideal world I would study in the UK", "in an ideal world I would study in the UK", "UK"],
+    ["maybe I will go to Canada", "maybe I will go to Canada", "Canada"],
+    // a template-shaped clause inside a conditional turn still goes to review
+    ["If the fees are low, I want to study in Canada.", "I want to study in Canada", "Canada"],
+    ["Agar visa mil gaya, main Canada jaana chahta hoon.", "main Canada jaana chahta hoon", "Canada"],
+    ["Perhaps. I want to study in Germany.", "I want to study in Germany", "Germany"],
+    ["Kaash! Mujhe UK jaana hai.", "Mujhe UK jaana hai", "UK"],
+    ["अगर पैसे हुए तो मुझे UK जाना है।", "मुझे UK जाना है", "UK"],
+    ["शायद मैं Canada जाना चाहता हूँ।", "मैं Canada जाना चाहता हूँ", "Canada"],
+    ["I might want to study in Canada.", "I might want to study in Canada", "Canada"],
+  ];
+  for (const [text, quote, value] of cases) {
+    const fact = verifyIn(text, quote, value);
+    assert.equal(fact?.needsReview, true, `a conditional must not auto-verify: ${text}`);
+    assert.ok(reasonsStartWith(fact?.reviewReasons, "conditional:"), `named conditional reason: ${text}`);
+  }
+});
+
+test("ISS-t-013r-rev-6: in-law kinship (Hinglish, Devanagari, English in-law) in the turn forces review even when the clause matches a template (reason: third-party)", () => {
+  const words = ["devar", "saali", "saala", "nanad", "jeth", "jethani", "sasur", "saas", "sasural", "behnoi", "bahnoi"];
+  const cases: Array<[string, string]> = words.map((w) => [
+    `Mere ${w} Canada mein hain. Main Canada jaana chahta hoon.`,
+    "Main Canada jaana chahta hoon",
+  ]);
+  cases.push(["मेरे ससुराल वाले Canada में हैं। मैं Canada जाना चाहता हूँ।", "मैं Canada जाना चाहता हूँ"]);
+  cases.push(["मेरे बहनोई Canada में हैं। मैं Canada जाना चाहता हूँ।", "मैं Canada जाना चाहता हूँ"]);
+  cases.push(["My in-laws live there. I want to study in Canada.", "I want to study in Canada"]);
+  for (const [text, quote] of cases) {
+    const fact = verifyIn(text, quote, "Canada");
+    assert.equal(fact?.needsReview, true, `in-law referent must not auto-verify: ${text}`);
+    assert.ok(reasonsStartWith(fact?.reviewReasons, "third-party:"), `named third-party reason: ${text}`);
+  }
+});
+
+test("ISS-t-013r-rev-6 allow-list: a first-person, un-negated, own, unscaled value in an UNRECOGNISED shape never auto-verifies (reason: unrecognised-form ONLY — no deny marker fires)", () => {
+  const cases: Array<[string, string, unknown]> = [
+    ["I heard great things about the UK.", "I heard great things about the UK", "UK"],
+    ["I was in Canada last year.", "I was in Canada last year", "Canada"],
+    ["I will go to Canada.", "I will go to Canada", "Canada"],
+    ["I want to study in the UK next year.", "I want to study in the UK", "UK"], // not the whole clause
+    ["My uni is in Canada.", "My uni is in Canada", "Canada"],
+    ["I have finished 42 credits so far.", "I have finished 42 credits so far", 42],
+    ["Mujhe Canada pasand aaya.", "Mujhe Canada pasand aaya", "Canada"],
+    ["मुझे Canada अच्छा लगा।", "मुझे Canada अच्छा लगा", "Canada"],
+  ];
+  for (const [text, quote, value] of cases) {
+    const fact = verifyIn(text, quote, value, typeof value === "number" ? "score" : "targetCountry");
+    assert.equal(fact?.needsReview, true, `unrecognised shape must not auto-verify: ${quote}`);
+    assert.deepEqual(
+      (fact?.reviewReasons ?? []).map((r) => r.split(":")[0]),
+      ["unrecognised-form"],
+      `the allow-list alone keeps it in review: ${quote}`,
+    );
+  }
+});
+
+test("ISS-t-013r-c1-1: a first-person number in a date / year / ordinal context never auto-verifies (reason: unrecognised-form)", () => {
+  const cases: Array<[string, string, number]> = [
+    ["I am flying on 20 September for my visa interview.", "I am flying on 20 September for my visa interview", 20],
+    ["I plan to join in 2026 for my masters.", "I plan to join in 2026 for my masters", 2026],
+    ["I was born in 2007.", "I was born in 2007", 2007],
+    ["My exam is on 12 March.", "My exam is on 12 March", 12],
+    ["I scored 92 in my class 12 boards.", "I scored 92 in my class 12 boards", 12], // the 12 is the class, not the score
+    ["I am in my 3rd year.", "I am in my 3rd year", 3],
+  ];
+  for (const [text, quote, value] of cases) {
+    const fact = verifyIn(text, quote, value, "score");
+    assert.equal(fact?.needsReview, true, `${value} must not auto-verify from "${quote}"`);
+    assert.ok(reasonsStartWith(fact?.reviewReasons, "unrecognised-form:"), `named reason: ${quote}`);
   }
 });

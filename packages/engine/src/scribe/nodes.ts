@@ -262,6 +262,12 @@ const THIRD_PARTY_MARKERS = new Set(
     "भाई", "भैया", "दीदी", "बहन", "पापा", "मम्मी", "माँ", "मां", "माता", "पिता", "पिताजी", "चाचा", "चाची",
     "मामा", "मामी", "बुआ", "मौसी", "दादा", "दादी", "नाना", "नानी", "जीजा", "भाभी", "दोस्त", "सहेली",
     "रिश्तेदार", "पड़ोसी",
+    // ISS-t-013r-rev-6 (fix cycle 2): in-law and extended kinship (Hinglish + Devanagari)
+    "devar", "devrani", "saali", "sali", "saala", "sala", "nanad", "jeth", "jethani", "jethji", "sasur",
+    "sasurji", "saas", "saasu", "sasural", "sasuraal", "behnoi", "bahnoi", "behanoi", "bhatija", "bhatiji",
+    "bhanja", "bhanji", "pati", "patni", "biwi", "inlaw", "inlaws",
+    "देवर", "देवरानी", "साली", "साला", "ननद", "जेठ", "जेठानी", "ससुर", "सास", "ससुराल", "बहनोई", "भतीजा",
+    "भतीजी", "भांजा", "भांजी", "भानजा", "पति", "पत्नी",
     // Devanagari third-person pronouns
     "वह", "वो", "वे", "उसका", "उसकी", "उसके", "उनका", "उनकी", "उनके", "उसे", "उन्हें", "उसने", "उन्होंने",
   ].map((w) => w.normalize("NFC")),
@@ -316,8 +322,8 @@ const FIRST_PERSON_MARKERS = new Set(
   [
     "i", "me", "my", "mine", "myself", "we", "our", "ours", "ourselves", "im", "ive",
     "main", "mai", "mujhe", "mujhko", "mera", "meri", "mere", "hum", "humara", "humari", "humare", "hamara",
-    "hamari", "hamare", "humein", "hamein",
-    "मैं", "मै", "मुझे", "मुझको", "मेरा", "मेरी", "मेरे", "हम", "हमारा", "हमारी", "हमारे", "हमें",
+    "hamari", "hamare", "humein", "hamein", "maine", "mene", "mainey",
+    "मैं", "मै", "मुझे", "मुझको", "मेरा", "मेरी", "मेरे", "हम", "हमारा", "हमारी", "हमारे", "हमें", "मैंने",
   ].map((w) => w.normalize("NFC")),
 );
 
@@ -328,8 +334,180 @@ function hasMarker(normalisedText: string, markers: ReadonlySet<string>): boolea
     .some((tok) => markers.has(tok));
 }
 
+/** "in-law", "in law", "in-laws" (English), judged on the tier-2 text where "-" is a token break. */
+const IN_LAW_RE = /(?:^| )in laws?(?: |$)/u;
+
 function hasThirdPartyMarker(normalisedText: string): boolean {
-  return hasMarker(normalisedText, THIRD_PARTY_MARKERS);
+  return hasMarker(normalisedText, THIRD_PARTY_MARKERS) || IN_LAW_RE.test(normalisedText);
+}
+
+/**
+ * ISS-t-013r-rev-4 (fix cycle 2): interrogative mood. A question is never a decided fact. Fires on a
+ * literal question mark anywhere in the cited turn, on a question word (kya/क्या/whether/kaun/kahan
+ * …), or on an English modal/auxiliary + first person inversion ("should I", "can we", "do I").
+ */
+const INTERROGATIVE_MARKERS = new Set(
+  [
+    "kya", "kyaa", "kyá", "whether", "kaun", "kaunsa", "kaunsi", "kaunse", "kahan", "kahaan", "kidhar", "kyun",
+    "kyon", "kyu", "kaise", "kab",
+    "क्या", "कौन", "कौनसा", "कौनसी", "कहाँ", "कहां", "किधर", "क्यों", "क्यूँ", "कैसे", "कब",
+  ].map((w) => w.normalize("NFC")),
+);
+const QUESTION_MARK_RE = /[?？]/u;
+const INVERSION_RE =
+  /(?:^| )(?:should|shall|could|can|may|might|will|would|do|does|did|am|must|ought|have|was|were|is|are) (?:i|we)(?: |$)/u;
+
+function hasInterrogative(rawText: string, normalisedText: string): boolean {
+  return QUESTION_MARK_RE.test(rawText) || hasMarker(normalisedText, INTERROGATIVE_MARKERS) || INVERSION_RE.test(normalisedText);
+}
+
+/**
+ * ISS-t-013r-rev-5 (fix cycle 2): conditional / hypothetical / uncertain mood. "if I get admission I
+ * will go to Canada", "agar scholarship milti hai to …", "in an ideal world I would …", "maybe …".
+ * "would" is a marker except in the fixed polite-preference phrases "would like" / "would love"
+ * (which the allow-list templates spell as "I'd like" / "I would like").
+ */
+const CONDITIONAL_MARKERS = new Set(
+  [
+    "if", "unless", "would", "might", "maybe", "perhaps", "possibly", "probably", "suppose", "supposing",
+    "assuming", "provided", "hypothetically", "ideally", "ideal", "hopefully", "otherwise", "someday",
+    "agar", "agr", "yadi", "kaash", "kash", "shayad", "shaayad", "sambhav", "mumkin", "hoga", "hogi",
+    "अगर", "यदि", "काश", "शायद", "संभव", "मुमकिन", "होगा", "होगी",
+  ].map((w) => w.normalize("NFC")),
+);
+
+function hasConditional(normalisedText: string): boolean {
+  const withoutPolitePreference = normalisedText.replace(/(?:^| )would (?:like|love)(?= |$)/gu, " ");
+  return hasMarker(withoutPolitePreference, CONDITIONAL_MARKERS);
+}
+
+// ---------------------------------------------------------------------------
+// ISS-t-013r-rev-6 (fix cycle 2): the ALLOW-LIST. A fact auto-verifies only when its cited quote is,
+// on its own, ONE whole clause of the cited turn AND that clause matches one of a small set of
+// declarative first-person templates for the auto-verifiable kinds (country preference/destination,
+// budget number, exam score number) in English, Hinglish and Devanagari — with the template's slot
+// holding exactly the fact's value. Any other shape is `unrecognised-form` (kept, needsReview). The
+// deny sets above stay as a second layer judged on the whole turn. Fail-safe by construction: a new
+// risk class (a mood, a relation, a date) can no longer auto-verify just because nobody listed it.
+// ---------------------------------------------------------------------------
+
+/**
+ * Template normalisation: NFC, lower case, every punctuation mark becomes a space EXCEPT a "." or ","
+ * between two digits (so "7.5" and "20,000" stay one number token), whitespace collapsed.
+ */
+function normaliseTemplate(text: string): string {
+  return collapseWhitespace(
+    text
+      .normalize("NFC")
+      .toLowerCase()
+      .replace(/(?<!\p{Nd})[.,]|[.,](?!\p{Nd})/gu, " ")
+      .replace(/[!?？;:"'()\-–—।“”‘’/]/gu, " "),
+  );
+}
+
+/**
+ * The clauses of a turn: split at sentence/clause punctuation (never inside a decimal or a digit
+ * grouping) and at "because"/"kyunki"/"क्योंकि", each template-normalised.
+ */
+function clausesOf(text: string): string[] {
+  return text
+    .normalize("NFC")
+    .split(/[!?？;:।\n]|(?<!\p{Nd})[.,]|[.,](?!\p{Nd})|(?:^|\s)(?:because|kyunki|kyonki|kyoki|क्योंकि)(?=\s|$)/iu)
+    .map((c) => normaliseTemplate(c ?? ""))
+    .filter((c) => c.length > 0);
+}
+
+const DEGREE = "(?:masters|master s|bachelors|bachelor s|mba|ms|phd|ug|pg|undergrad|undergraduate|postgraduate|degree|higher studies|studies|education|graduation|post graduation)";
+const EXAM =
+  "(?:(?:the|my|apne|mere|meri) )?(?:(?:class|std|standard|grade) \\p{Nd}{1,2} |\\p{Nd}{1,2}th |cbse |icse |hsc |ssc |final |12वीं |10वीं |बारहवीं |दसवीं )?" +
+  "(?:board|boards|board exam|board exams|boards exam|exam|exams|ielts|ielts academic|toefl|pte|gre|gmat|sat|act|duolingo|det|jee|jee main|jee mains|jee advanced|neet|cuet|cat|बोर्ड|परीक्षा|बोर्ड परीक्षा)" +
+  "(?: (?:exam|test|overall|academic))?";
+const NUM = "(?<n>\\p{Nd}+(?:[.,]\\p{Nd}+)*)";
+const SCORE_UNIT = "(?: (?:percent|percentage|marks|points|band|bands|cgpa|gpa|अंक|प्रतिशत|नंबर|number))?";
+
+/** Country templates; `{C}` is replaced by the aliases of the fact's canonical country only. */
+const COUNTRY_TEMPLATES: readonly string[] = [
+  // English: "I want to study in <country>", "I'd like to go to the <country>", "I am planning to move to <country> for my masters"
+  `^i (?:really |definitely |also )?(?:want|wish|plan|intend|hope|aim|d like|would like|d love|would love|am planning|m planning|am going|m going|am hoping|m hoping|am aiming|m aiming|am applying|m applying|have decided|ve decided|decided) to (?:study|go|move|settle|live|work|apply|pursue|do|shift|relocate)(?: [\\p{L}]+){0,4}? (?:in|to) (?:the )?{C}(?: for (?:my |a |an )?${DEGREE})?$`,
+  // English: "my first choice is <country>", "my preferred destination is the <country>"
+  `^my (?:(?:first|top|preferred|dream|target|final|main) )*(?:choice|preference|destination|country|target|option|pick)(?: country| destination)? is (?:the )?{C}$`,
+  // English: "I prefer <country>", "I have chosen the <country> for my masters"
+  `^i (?:prefer|choose|chose|have chosen|ve chosen|have picked|ve picked|picked|have selected|ve selected|selected) (?:the )?{C}(?: for (?:my |a |an )?${DEGREE})?$`,
+  // Hinglish: "main <country> jaana chahta/chahti hoon", "main <country> mein padhna chahta hu"
+  `^(?:main|mai) {C}(?: (?:mein|me|main))? (?:jaana|jana|padhna|padhai karna|study karna|settle hona|settle karna|shift hona|rehna|jaake padhna) (?:chahta|chahti|chahte) (?:hoon|hu|hun|hoo|hai|hain)$`,
+  // Hinglish: "mujhe <country> jaana hai"
+  `^(?:mujhe|mujhko) {C}(?: (?:mein|me))? (?:jaana|jana|padhna|padhai karni|padhai karna|study karna|settle hona|shift hona|rehna|jaake padhna) (?:hai|he)$`,
+  // Hinglish: "meri pehli choice <country> hai"
+  `^(?:meri|mera) (?:(?:pehli|first|top) )?(?:choice|preference|pasand|target|destination) {C} (?:hai|he)$`,
+  // Devanagari: "मैं <country> जाना चाहता हूँ"
+  `^(?:मैं|मै) {C}(?: में)? (?:जाना|पढ़ना|पढ़ाई करना|बसना|रहना) (?:चाहता|चाहती|चाहते) (?:हूँ|हूं|हू|हैं)$`,
+  // Devanagari: "मुझे <country> जाना है"
+  `^मुझे {C}(?: में)? (?:जाना|पढ़ना|पढ़ाई करनी|पढ़ाई करना|रहना) है$`,
+  // Devanagari: "मेरी पहली पसंद <country> है"
+  `^(?:मेरी|मेरा) (?:पहली )?(?:पसंद|लक्ष्य) {C} है$`,
+];
+
+/** Number templates (budget, exam score); the `n` group must spell exactly the fact's value. */
+const NUMBER_TEMPLATES: readonly string[] = [
+  // English budget: "my budget is 1500000", "my annual budget is 25000 per year"
+  `^my (?:total |annual |yearly |overall |maximum |max )?budget is ${NUM}(?: (?:per year|a year|per annum|annually|total|in total))?$`,
+  // English score: "I scored 92 in my class 12 boards", "I got 7.5 in IELTS"
+  `^i (?:scored|got|secured|have scored|ve scored|have got|ve got|received|obtained) ${NUM}${SCORE_UNIT} (?:in|on) ${EXAM}$`,
+  // English score: "my score was 92 in boards", "my IELTS score is 7.5"
+  `^my (?:${EXAM} )?(?:score|marks|percentage|band|result|gpa|cgpa|percent)(?: (?:in|on|for) ${EXAM})? (?:is|was) ${NUM}${SCORE_UNIT}(?: (?:in|on) ${EXAM})?$`,
+  // Hinglish budget: "mera budget 1500000 hai"
+  `^mera (?:total |saalana |salana |annual |yearly |poora )?budget ${NUM}(?: (?:per year|saal ka|salana))? (?:hai|he)$`,
+  // Hinglish score: "maine IELTS mein 7.5 score kiya"
+  `^(?:maine|mene) ${EXAM} (?:mein|me|main) ${NUM}${SCORE_UNIT} (?:score kiya|score kiye|score kiya hai|scored|laaye|laye|liye|nikale|paaye|paye|haasil kiye|hasil kiye|laaye hain|liye hain)$`,
+  // Hinglish score: "mere boards mein 92 percent aaye"
+  `^mere ${EXAM} (?:mein|me) ${NUM}${SCORE_UNIT} (?:aaye|aye|aaye hain|aaye the|hain|the)$`,
+  // Hinglish score: "mera IELTS score 7.5 hai"
+  `^mera ${EXAM} (?:score|result|percentage|band) ${NUM}${SCORE_UNIT} (?:hai|tha|he)$`,
+  // Devanagari budget: "मेरा बजट 1500000 है"
+  `^मेरा (?:कुल |सालाना )?बजट ${NUM} है$`,
+  // Devanagari score: "मैंने IELTS में 7.5 स्कोर किया"
+  `^मैंने ${EXAM} में ${NUM}${SCORE_UNIT} (?:स्कोर किया|स्कोर किए|प्राप्त किए|प्राप्त किया|लाए|हासिल किए)$`,
+  // Devanagari score: "मेरे बोर्ड में 92 प्रतिशत आए"
+  `^मेरे ${EXAM} में ${NUM}${SCORE_UNIT} (?:आए|आये|हैं|थे)$`,
+];
+
+const COMPILED_NUMBER_TEMPLATES: readonly RegExp[] = NUMBER_TEMPLATES.map((t) => new RegExp(t.normalize("NFC"), "u"));
+const countryTemplateCache = new Map<string, readonly RegExp[]>();
+
+function countryTemplatesFor(canonical: string): readonly RegExp[] {
+  const cached = countryTemplateCache.get(canonical);
+  if (cached) return cached;
+  const aliases = [...COUNTRY_ALIASES.entries()]
+    .filter(([, canon]) => canon === canonical)
+    .map(([alias]) => escapeRegExp(normaliseTemplate(alias)))
+    .sort((a, b) => b.length - a.length);
+  const slot = `(?:${aliases.join("|")})`;
+  const compiled = COUNTRY_TEMPLATES.map((t) => new RegExp(t.normalize("NFC").split("{C}").join(slot), "u"));
+  countryTemplateCache.set(canonical, compiled);
+  return compiled;
+}
+
+/**
+ * The allow-list gate: true only when the quote is one whole clause of the cited turn (or of the quote
+ * itself when no turn context is given) AND that clause matches a template whose slot is the value.
+ */
+function matchesAllowedTemplate(value: unknown, quote: string, turnTexts: readonly string[]): boolean {
+  const clause = normaliseTemplate(quote);
+  if (clause.length === 0) return false;
+  const sources = turnTexts.length > 0 ? turnTexts : [quote];
+  if (!sources.some((t) => clausesOf(t).includes(clause))) return false;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return COMPILED_NUMBER_TEMPLATES.some((re) => {
+      const m = re.exec(clause);
+      return m?.groups?.n !== undefined && m.groups.n === String(value);
+    });
+  }
+  if (typeof value === "string") {
+    const canonical = COUNTRY_ALIASES.get(value.trim().toLowerCase().normalize("NFC"));
+    if (canonical === undefined) return false;
+    return countryTemplatesFor(canonical).some((re) => re.test(clause));
+  }
+  return false;
 }
 
 function hasNegation(rawText: string, normalisedText: string): boolean {
@@ -379,6 +557,16 @@ export const REVIEW_REASONS = {
     "unit-multiplier: a unit multiplier or currency (lakh/crore/k/thousand/million/₹/rs/INR/$/USD/£/€ …) appears " +
     "in the cited turn; the scaled amount must be checked by the counsellor (D-020, fail-safe)",
   reasoning: "reasoning: a reasoning fact is always kept for the counsellor's review (B2/D-020)",
+  interrogative:
+    "interrogative: the cited turn is (or contains) a question (?, kya/क्या, should I, can we …); a question is " +
+    "not a decided fact (D-020, fail-safe)",
+  conditional:
+    "conditional: the cited turn is conditional or hypothetical (if/agar/would/might/maybe/perhaps/kaash/in an " +
+    "ideal world …); the value is not a settled fact (D-020, fail-safe)",
+  unrecognisedForm:
+    "unrecognised-form: the cited quote is not one whole declarative first-person clause matching an auto-verify " +
+    "template (I want to study in <country> / my budget is <number> / I scored <number> in <exam> …, English, " +
+    "Hinglish, Devanagari); the counsellor decides (D-020, allow-list)",
 } as const;
 
 /**
@@ -391,7 +579,11 @@ export const REVIEW_REASONS = {
  *   2. the QUOTE carries a first-person marker;
  *   3. the cited TURN carries no negation/contrast cue;
  *   4. the cited TURN carries no third-party marker;
- *   5. (numbers) the cited TURN carries no unit multiplier or currency.
+ *   5. (numbers) the cited TURN carries no unit multiplier or currency;
+ *   6. (fix cycle 2, ISS-t-013r-rev-4/-5) the cited TURN carries no interrogative or conditional cue;
+ *   7. (fix cycle 2, ISS-t-013r-rev-6, the ALLOW-LIST) the quote is one whole clause of the cited turn
+ *      and matches a declarative first-person template whose slot is exactly the value
+ *      (matchesAllowedTemplate); otherwise `unrecognised-form`.
  * A `reasoning` fact is always needsReview, regardless of its value.
  *
  * `context` is the full text of the cited turn (and its translation, if any). Conditions 3-5 are
@@ -411,6 +603,9 @@ export function assessFactForReview(
   const thirdParty = contextPairs.some(([, n]) => hasThirdPartyMarker(n));
   const negated = contextPairs.some(([raw, n]) => hasNegation(raw, n));
   const firstPerson = hasMarker(normalisedQuote, FIRST_PERSON_MARKERS);
+  // ISS-t-013r-rev-4/-rev-5 (fix cycle 2): mood deny layer, judged on the quote plus the whole turn.
+  const interrogative = contextPairs.some(([raw, n]) => hasInterrogative(raw, n));
+  const conditional = contextPairs.some(([, n]) => hasConditional(n));
 
   if (thirdParty) reasons.push(REVIEW_REASONS.thirdParty);
 
@@ -421,6 +616,11 @@ export function assessFactForReview(
   const guards: string[] = [];
   if (negated) guards.push(REVIEW_REASONS.negation);
   if (!firstPerson) guards.push(REVIEW_REASONS.noFirstPerson);
+  if (interrogative) guards.push(REVIEW_REASONS.interrogative);
+  if (conditional) guards.push(REVIEW_REASONS.conditional);
+  // ISS-t-013r-rev-6 (fix cycle 2): the allow-list gate — the first layer; the deny sets are the second.
+  const turnTexts = context.filter((t): t is string => typeof t === "string" && t.length > 0);
+  if (!matchesAllowedTemplate(candidate.value, quote, turnTexts)) guards.push(REVIEW_REASONS.unrecognisedForm);
 
   if (typeof candidate.value === "number" && Number.isFinite(candidate.value)) {
     const matched = containsNumberToken(quote, candidate.value);

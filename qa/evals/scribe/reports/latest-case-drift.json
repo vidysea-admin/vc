@@ -1,27 +1,27 @@
 {
-  "generatedAt": "2026-09-26T14:39:24.427Z",
+  "generatedAt": "2026-09-26T15:19:29.822Z",
   "providerMode": "case-drift",
   "datasetPath": "D:\\vc\\.worktrees\\t-013-citation-rescope\\qa\\evals\\scribe\\sessions.jsonl",
   "aggregate": {
-    "sessionCount": 35,
+    "sessionCount": 61,
     "crisisRouting": {
-      "correct": 35,
-      "total": 35,
+      "correct": 61,
+      "total": 61,
       "accuracy": 1
     },
     "extraction": {
       "citationPrecision": 1,
       "citationCounts": {
-        "verbatim": 3,
-        "case-mismatch": 35,
+        "verbatim": 4,
+        "case-mismatch": 60,
         "punctuation-mismatch": 0,
         "case-and-punctuation-mismatch": 0,
         "fabricated": 0,
         "malformed": 0
       },
       "recall": 1,
-      "goldFactTotal": 38,
-      "recalledTotal": 38,
+      "goldFactTotal": 64,
+      "recalledTotal": 64,
       "falseDropCounts": {
         "caseMismatch": 0,
         "punctuationMismatch": 0,
@@ -33,17 +33,17 @@
         "recall": 1
       },
       "reviewCounts": {
-        "kept": 38,
-        "verified": 7,
-        "needsReview": 31,
+        "kept": 64,
+        "verified": 14,
+        "needsReview": 50,
         "reasoning": 1,
-        "mustReview": 13,
+        "mustReview": 27,
         "fabricatedVerified": 0
       }
     },
     "summary": {
       "scriptLikeLeaks": 0,
-      "scored": 32,
+      "scored": 58,
       "checklistCoverage": 1
     }
   },
@@ -358,8 +358,8 @@
         },
         "reviewCounts": {
           "kept": 1,
-          "verified": 1,
-          "needsReview": 0,
+          "verified": 0,
+          "needsReview": 1,
           "reasoning": 0,
           "mustReview": 0,
           "fabricatedVerified": 0
@@ -447,8 +447,8 @@
         },
         "reviewCounts": {
           "kept": 1,
-          "verified": 1,
-          "needsReview": 0,
+          "verified": 0,
+          "needsReview": 1,
           "reasoning": 0,
           "mustReview": 0,
           "fabricatedVerified": 0
@@ -535,8 +535,8 @@
         },
         "reviewCounts": {
           "kept": 1,
-          "verified": 1,
-          "needsReview": 0,
+          "verified": 0,
+          "needsReview": 1,
           "reasoning": 0,
           "mustReview": 0,
           "fabricatedVerified": 0
@@ -672,8 +672,8 @@
         },
         "reviewCounts": {
           "kept": 2,
-          "verified": 1,
-          "needsReview": 1,
+          "verified": 0,
+          "needsReview": 2,
           "reasoning": 0,
           "mustReview": 0,
           "fabricatedVerified": 0
@@ -761,8 +761,8 @@
         },
         "reviewCounts": {
           "kept": 1,
-          "verified": 1,
-          "needsReview": 0,
+          "verified": 0,
+          "needsReview": 1,
           "reasoning": 0,
           "mustReview": 0,
           "fabricatedVerified": 0
@@ -1572,6 +1572,1176 @@
           "needsReview": 1,
           "reasoning": 1,
           "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h14-d020-question-english",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h15-d020-question-hinglish",
+      "strata": [
+        "d020-hostile",
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h16-d020-question-template-shape",
+      "strata": [
+        "d020-hostile",
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h17-d020-conditional-if",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h18-d020-conditional-agar",
+      "strata": [
+        "d020-hostile",
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h19-d020-conditional-would",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h20-d020-conditional-maybe",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h21-d020-conditional-template-shape",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h22-d020-inlaw-hinglish",
+      "strata": [
+        "d020-hostile",
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h23-d020-inlaw-devanagari",
+      "strata": [
+        "d020-hostile",
+        "devanagari"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h24-d020-date-day",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "visa_interview_day",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h25-d020-date-year",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "intake_year",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h26-d020-unrecognised-past-visit",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "h27-d020-unrecognised-hearsay",
+      "strata": [
+        "d020-hostile",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 0,
+          "needsReview": 1,
+          "reasoning": 0,
+          "mustReview": 1,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "p01-template-en-study-in",
+      "strata": [
+        "d020-template-positive",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "p02-template-en-id-like",
+      "strata": [
+        "d020-template-positive",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "p03-template-en-first-choice",
+      "strata": [
+        "d020-template-positive",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "p04-template-hinglish-chahti",
+      "strata": [
+        "d020-template-positive",
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "p05-template-hinglish-mujhe",
+      "strata": [
+        "d020-template-positive",
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "p06-template-devanagari-country",
+      "strata": [
+        "d020-template-positive",
+        "devanagari"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "targetCountry",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "p07-template-en-budget",
+      "strata": [
+        "d020-template-positive",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "budget_inr_per_year",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "p08-template-en-scored",
+      "strata": [
+        "d020-template-positive",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "class12_percentage",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "p09-template-en-got-ielts",
+      "strata": [
+        "d020-template-positive",
+        "pure-english"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "ielts_overall",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "p10-template-hinglish-budget",
+      "strata": [
+        "d020-template-positive",
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "budget_inr_per_year",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "p11-template-hinglish-score",
+      "strata": [
+        "d020-template-positive",
+        "romanised-hinglish"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "ielts_overall",
+            "class": "case-mismatch"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
+          "fabricatedVerified": 0
+        }
+      },
+      "summary": {
+        "text": "The session covered the student's current thinking; no new profile facts were confirmed.",
+        "scriptLike": false,
+        "checklistTotal": 0,
+        "checklistCovered": 0
+      },
+      "result": null
+    },
+    {
+      "sessionId": "p12-template-devanagari-budget",
+      "strata": [
+        "d020-template-positive",
+        "devanagari"
+      ],
+      "crisis": {
+        "expected": "none",
+        "actual": "none",
+        "correct": true,
+        "providerCalledDespiteEscalation": false
+      },
+      "extraction": {
+        "goldFactCount": 1,
+        "recalledCount": 1,
+        "omittedKeys": [],
+        "falseDrops": [],
+        "citationVerdicts": [
+          {
+            "key": "budget_inr_per_year",
+            "class": "verbatim"
+          }
+        ],
+        "citationPrecision": 1,
+        "multiTurn": {
+          "goldCount": 0,
+          "recalledCount": 0
+        },
+        "reviewCounts": {
+          "kept": 1,
+          "verified": 1,
+          "needsReview": 0,
+          "reasoning": 0,
+          "mustReview": 0,
           "fabricatedVerified": 0
         }
       },

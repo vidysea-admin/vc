@@ -1,15 +1,15 @@
 # Scribe eval report
 
-Provider mode: `lazy` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope\qa\evals\scribe\sessions.jsonl` · Sessions: 35 · Generated: 2026-09-26T14:39:32.763Z
+Provider mode: `lazy` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope\qa\evals\scribe\sessions.jsonl` · Sessions: 61 · Generated: 2026-09-26T15:19:35.155Z
 
 | Metric | Value |
 |---|---|
-| Crisis/concern routing accuracy | 35/35 (100.0%) |
+| Crisis/concern routing accuracy | 61/61 (100.0%) |
 | Citation precision (non-fabricated / claimed) | n/a |
-| Extraction recall (gold facts found) | 0/38 (0.0%) |
+| Extraction recall (gold facts found) | 0/64 (0.0%) |
 | False drops (true quote, wrongly dropped) | case: 0 · punctuation: 0 · both: 0 |
 | Multi-turn-span recall | 0/3 (0.0%) |
-| Summary script-like leakage (B1) | 0/32 sessions |
+| Summary script-like leakage (B1) | 0/58 sessions |
 | Summary checklist coverage | 0.0% |
 | Kept facts: verified / needsReview / reasoning (T-013, D-020) | 0 kept — 0 verified, 0 needsReview, 0 reasoning · D-020 hostile (mustReview) kept: 0 · fabricated-verified: 0 |
 
@@ -58,3 +58,29 @@ Provider mode: `lazy` · Dataset: `D:\vc\.worktrees\t-013-citation-rescope\qa\ev
 | h11-d020-kinship-devanagari | d020-hostile, devanagari | none/none | 0/1 | 0 | false |
 | h12-d020-same-key-distractor | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
 | h13-d020-reasoning-before-value | d020-hostile, pure-english | none/none | 0/2 | 0 | false |
+| h14-d020-question-english | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h15-d020-question-hinglish | d020-hostile, romanised-hinglish | none/none | 0/1 | 0 | false |
+| h16-d020-question-template-shape | d020-hostile, romanised-hinglish | none/none | 0/1 | 0 | false |
+| h17-d020-conditional-if | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h18-d020-conditional-agar | d020-hostile, romanised-hinglish | none/none | 0/1 | 0 | false |
+| h19-d020-conditional-would | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h20-d020-conditional-maybe | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h21-d020-conditional-template-shape | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h22-d020-inlaw-hinglish | d020-hostile, romanised-hinglish | none/none | 0/1 | 0 | false |
+| h23-d020-inlaw-devanagari | d020-hostile, devanagari | none/none | 0/1 | 0 | false |
+| h24-d020-date-day | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h25-d020-date-year | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h26-d020-unrecognised-past-visit | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| h27-d020-unrecognised-hearsay | d020-hostile, pure-english | none/none | 0/1 | 0 | false |
+| p01-template-en-study-in | d020-template-positive, pure-english | none/none | 0/1 | 0 | false |
+| p02-template-en-id-like | d020-template-positive, pure-english | none/none | 0/1 | 0 | false |
+| p03-template-en-first-choice | d020-template-positive, pure-english | none/none | 0/1 | 0 | false |
+| p04-template-hinglish-chahti | d020-template-positive, romanised-hinglish | none/none | 0/1 | 0 | false |
+| p05-template-hinglish-mujhe | d020-template-positive, romanised-hinglish | none/none | 0/1 | 0 | false |
+| p06-template-devanagari-country | d020-template-positive, devanagari | none/none | 0/1 | 0 | false |
+| p07-template-en-budget | d020-template-positive, pure-english | none/none | 0/1 | 0 | false |
+| p08-template-en-scored | d020-template-positive, pure-english | none/none | 0/1 | 0 | false |
+| p09-template-en-got-ielts | d020-template-positive, pure-english | none/none | 0/1 | 0 | false |
+| p10-template-hinglish-budget | d020-template-positive, romanised-hinglish | none/none | 0/1 | 0 | false |
+| p11-template-hinglish-score | d020-template-positive, romanised-hinglish | none/none | 0/1 | 0 | false |
+| p12-template-devanagari-budget | d020-template-positive, devanagari | none/none | 0/1 | 0 | false |

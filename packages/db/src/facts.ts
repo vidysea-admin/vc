@@ -996,32 +996,55 @@ export function resolveCitationSpan(
   if (!turn) return null;
   const trimmed = citation.quote.trim();
   if (trimmed.length === 0) return null;
-  // The persisted field is searched RAW (offsets index the stored text); the quote is tried in both
-  // canonical forms so an NFC quote still finds an NFD-stored turn and vice versa.
-  const forms = [...new Set([trimmed.normalize("NFC"), trimmed.normalize("NFD")])];
-  const tiers: RegExp[] = [];
-  for (const q of forms) tiers.push(new RegExp(q.split(/\s+/u).map(escapeForRegExp).join("\\s+"), "u"));
-  for (const q of forms) {
-    const tokens = q
-      .split(new RegExp(`[${SPAN_BREAK}]+`, "u"))
-      .filter((t) => t.length > 0)
-      .map(escapeForRegExp);
-    if (tokens.length > 0) tiers.push(new RegExp(tokens.join(`[${SPAN_BREAK}]+`), "iu"));
-  }
+  // ISS-t-013r-rev-8 (fix cycle 2): BOTH sides are normalised to NFC, as locateCitation does — the
+  // haystack per field, cluster by cluster (a base character plus its combining marks), so a stored
+  // span that MIXES NFC and NFD Devanagari (e.g. KA+NUKTA next to a precomposed U+0958) is still
+  // found. The match is made in the NFC form and mapped back to RAW offsets through the cluster
+  // map, so `doc[field].slice(start, end)` stays the cited span of the stored text.
+  const q = trimmed.normalize("NFC");
+  const tiers: RegExp[] = [new RegExp(q.split(/\s+/u).map(escapeForRegExp).join("\\s+"), "u")];
+  const tokens = q
+    .split(new RegExp(`[${SPAN_BREAK}]+`, "u"))
+    .filter((t) => t.length > 0)
+    .map(escapeForRegExp);
+  if (tokens.length > 0) tiers.push(new RegExp(tokens.join(`[${SPAN_BREAK}]+`), "iu"));
+  const haystacks = (["text", "translatedText"] as const).map((field) => ({ field, ...nfcWithRawOffsets(turn[field]) }));
   for (const re of tiers) {
-    for (const field of ["text", "translatedText"] as const) {
-      const m = re.exec(turn[field]);
-      if (m) {
+    for (const hay of haystacks) {
+      const m = re.exec(hay.text);
+      if (m && m[0].length > 0) {
         return {
           transcriptTurnId: turn._id,
           sessionId: turn.sessionId,
           turnId: turn.turnId,
-          field,
-          start: m.index,
-          end: m.index + m[0].length,
+          field: hay.field,
+          start: hay.rawStart[m.index]!,
+          end: hay.rawEnd[m.index + m[0].length - 1]!,
         };
       }
     }
   }
   return null;
+}
+
+/**
+ * NFC form of `raw` built cluster by cluster (a non-mark character plus the combining marks after it;
+ * NFC never composes across such a boundary), with, for every UTF-16 index of the NFC text, the raw
+ * start and raw end of the cluster it came from.
+ */
+function nfcWithRawOffsets(raw: string): { text: string; rawStart: number[]; rawEnd: number[] } {
+  let text = "";
+  const rawStart: number[] = [];
+  const rawEnd: number[] = [];
+  for (const m of raw.matchAll(/\P{M}\p{M}*|\p{M}+/gsu)) {
+    const start = m.index;
+    const end = start + m[0].length;
+    const norm = m[0].normalize("NFC");
+    text += norm;
+    for (let i = 0; i < norm.length; i++) {
+      rawStart.push(start);
+      rawEnd.push(end);
+    }
+  }
+  return { text, rawStart, rawEnd };
 }

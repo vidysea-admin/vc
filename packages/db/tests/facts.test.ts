@@ -1150,3 +1150,31 @@ test("ISS-t-013r-c0-3: resolveCitationSpan points a citation at offsets in the p
   assert.equal(resolveCitationSpan(turns, { turnId: "t1", quote: "Mujhe UK jaana hai" }), null);
   assert.equal(resolveCitationSpan(turns, { turnId: "t1", quote: "   " }), null);
 });
+
+test("ISS-t-013r-rev-8: resolveCitationSpan finds a span whose STORED text mixes NFC and NFD Devanagari, and the offsets slice the raw stored text", async () => {
+  const { db } = setup();
+  // "मुझे क़ानून पढ़ना है": the stored text writes QA as ONE precomposed code point (U+0958) and
+  // RHA as the decomposed pair (U+0922 U+093C); the quote does the opposite (QA decomposed, RHA
+  // precomposed U+095D). Neither whole-string NFC nor NFD of the quote equals the raw stored span.
+  const qaPre = String.fromCodePoint(0x0958);
+  const qaDec = String.fromCodePoint(0x0915, 0x093c);
+  const rhaPre = String.fromCodePoint(0x095d);
+  const rhaDec = String.fromCodePoint(0x0922, 0x093c);
+  const stored = `मुझे ${qaPre}ानून प${rhaDec}ना है।`;
+  const quote = `${qaDec}ानून प${rhaPre}ना`;
+  assert.equal(stored.includes(quote), false, "sanity: the raw forms differ");
+  assert.equal(stored.includes(quote.normalize("NFC")), false, "sanity: NFC of the quote alone is not enough");
+  assert.equal(stored.includes(quote.normalize("NFD")), false, "sanity: NFD of the quote alone is not enough");
+  await recordSessionTranscript(db, {
+    sessionId: "sess-mixed",
+    studentId: "stu-1",
+    turns: [{ turnId: "t1", speaker: "student", lang: "hi", text: stored, translatedText: "I want to study law.", ts: 1 }],
+  });
+  const turns = await readSessionTranscript(db, { studentId: "stu-1", sessionId: "sess-mixed" });
+  const span = resolveCitationSpan(turns, { turnId: "t1", quote });
+  assert.ok(span, "a mixed-normalisation span must resolve");
+  assert.equal(span!.field, "text");
+  const slice = turns[0]!.text.slice(span!.start, span!.end);
+  assert.equal(slice, `${qaPre}ानून प${rhaDec}ना`, "offsets index the RAW stored text");
+  assert.equal(slice.normalize("NFC"), quote.normalize("NFC"));
+});

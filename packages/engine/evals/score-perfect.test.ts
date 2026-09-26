@@ -58,3 +58,24 @@ test("ISS-t-013r-rev-3: every D-020 hostile gold fact is kept and ends needsRevi
     }
   }
 });
+
+// ISS-t-013r-rev-4/-5/-6/-c1-1 (fix cycle 2): the golden set also carries question, conditional,
+// in-law-kinship, date-context and unrecognised-form hostile rows (none may auto-verify), and
+// template-positive rows that MUST auto-verify, so the allow-list is proven non-vacuous.
+test("ISS-t-013r-rev-6: cycle-2 hostile classes stay in review, and every template-positive row auto-verifies (verified > 0)", async () => {
+  const sessions = loadDataset(DATASET_PATH);
+  const classes = new Set(sessions.flatMap((s) => s.goldFacts.filter((f) => f.mustReview).map((f) => f.hostile)));
+  for (const c of ["question", "conditional", "in-law-kinship", "date-context", "unrecognised-form"]) {
+    assert.ok(classes.has(c), `hostile class ${c} is present in the golden set`);
+  }
+  const positives = sessions.filter((s) => s.strata.includes("d020-template-positive"));
+  assert.ok(positives.length >= 10, `expected >= 10 template-positive sessions, got ${positives.length}`);
+
+  const report = await scoreDataset(sessions, "perfect", { datasetPath: DATASET_PATH });
+  assert.equal(report.aggregate.extraction.reviewCounts.fabricatedVerified, 0);
+  for (const session of positives) {
+    const s = report.sessions.find((x) => x.sessionId === session.id);
+    assert.equal(s?.extraction?.reviewCounts.verified, session.goldFacts.length, `${session.id}: its template fact must auto-verify`);
+  }
+  assert.ok(report.aggregate.extraction.reviewCounts.verified >= positives.length);
+});
