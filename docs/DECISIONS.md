@@ -227,3 +227,13 @@ The rules e2e proves that scribe â†’ facts â†’ profile diff â†’ a
 **Changes-authorized:** ARCHITECTURE.md Â§3 (hypothesis rows: H-API-first headless engine, JWT/tenant) and Â§6 (open questions: the JWT issuer/key-rotation details from the Pathlynks backend team; the KB `/ask` contract version), at the next /landplane.
 **Result:** --
 **Links:** T-025, T-026, T-027, T-028, qa/gates/counsellor-auth.md, qa/gates/edit-provenance.md, qa/gates/erasure-fencing.md, qa/contracts/counselling-engine.md (B2, B15, B17, B21, B22), D-020
+
+## D-022 | 2026-09-26 | type: decision | status: ACTIVE
+**What:** T-028 adds the B17 persona ladder and the B19 scenario matrix to the maker-checker adapter.
+- `qa/adapter.json` gains a `personas` array with the 10 ids approved in D-021 (sapna-expert, gaurav-pm, gaurav-bhaiya, jaipur-counsellor, school-counsellor, govt-teacher, uk-counsellor, us-counselor, au-agent, ca-consultant), and a `scenarios` pointer.
+- A new `qa/scenarios/counselling-engine.csv` holds at least 50 rows (id,persona,type,preconditions,steps,expected), with happy and negative paths per flow.
+- Nothing else in the adapter changes: verify commands, data_class and isolation stay as they are.
+**Why:** B17 and B19 require checker Mode C/D persona walks and scenario runs, and those read the personas and scenarios from the adapter. The QUEUE sweep flagged this groundwork as not started (top-3 #3). The persona set itself was approved by Umesh on 2026-09-26 (D-021).
+**Changes-authorized:** qa/adapter.json (add `personas` + `scenarios` keys only) Â· qa/scenarios/counselling-engine.csv (new)
+**Result:** --
+**Links:** T-028, D-021, qa/contracts/counselling-engine.md (B17, B19)
