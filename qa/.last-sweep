@@ -3,3 +3,4 @@
 2026-09-25T10:56:15+05:30 FINDINGS: 5-new (ISS-044..048; crisis-guard-precision gate unanswered) 8df46debcafea0f358d7643f63be2ffc79723224
 2026-09-25T16:38:15+05:30 FINDINGS: 4 (T-017 FAIL adjudication; ISS-045+ISS-t-017-c0-1 escalated high; ISS-049; B15 clarified; 2 stale highs closed) 29436583de365d647c9a6013b7a87595965ad007
 2026-09-25T20:14:18+05:30 FINDINGS: 5 (ISS-051, ISS-052 new high; ISS-t-008-c0-1 medium; ISS-044 high; ISS-045 worsening) e02d0ff8514dc5253e4e5008e5e747d349ec539e
+2026-09-26T07:55:39+05:30 FINDINGS: 3 (ISS-056 t-015 manifest duplicate Status line; ISS-057 erasure.ts structural-erosion signal; ISS-045 updated with confirmed data_boundary.py root cause) + contract amendments B2/B6/B9/B16/B20 (4 D-020 gate answers folded); full sweep checks 1-9 38c426edeac048d864cf7bfaaef0c02744c14d13

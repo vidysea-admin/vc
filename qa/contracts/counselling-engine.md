@@ -38,15 +38,26 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - **B1 (no-script):** No card, prompt or skill output may be a full sentence for the counsellor to recite. Cards are
   question / comparison / evidence types only. A code guard enforces this and a test covers it.
 - **B2 (cited facts):** Every fact shown or stored carries a source (KB record id + fetchedAt, profile fact id, or
-  transcript quote + turn). Uncited facts are dropped or labelled `unverified`. A test proves an uncited card is
-  dropped.
+  transcript quote + turn). **Citation scope (D-020, gate `citation-guarantee-scope`):** the full session transcript
+  is persisted as ground truth (covered by DPDP erasure and export, B15). Only two kinds auto-verify at full
+  confidence: typed numbers, and values matching a fixed country/alias vocabulary, matched as whole words. Every
+  other text fact, and a new `reasoning` fact kind (a citable inference, not a literal quote), is **kept — never
+  dropped** — cited to its span in the persisted transcript, and marked `needs-review` for the counsellor's approval
+  (B3). Nothing is silently discarded; a test proves a non-auto-verified fact is marked `needs-review` rather than
+  dropped, and that a number/vocabulary match is accepted without review.
 - **B3 (human approves writes):** A profile change reaches the student graph only after the counsellor approves it,
   through LangGraph `interrupt`. A test proves no write happens before approval.
 - **B4 (consent first):** Every fact carries purposeTags + sensitivity. A session without a recorded consent row cannot
   be processed. A test covers it.
 - **B5 (typed boundaries):** Every graph node's input and output is a Zod schema. No free text passes between nodes.
 - **B6 (portable core):** Prompts and soft rules live in `skills/*/SKILL.md`. Hard rules live in code guards that run
-  before any LLM call. Tools are MCP servers. The model is chosen by config. **Provider independence (lead review, 2026-09-25):** no single AI vendor is load-bearing. At least two real providers sit behind the provider seam: Gemini, and LiteLLM gateway classes. A deterministic `rules` provider, which uses no model, lets the P1 flow scribe -> facts -> profile diff -> counsellor approval complete end to end, with its output clearly marked "AI unavailable". An e2e test passes with `VC_LLM_PROVIDER=rules`.
+  before any LLM call. Tools are MCP servers. The model is chosen by config. **Provider independence (lead review, 2026-09-25):** no single AI vendor is load-bearing. At least two real providers sit behind the provider seam: Gemini, and LiteLLM gateway classes. A deterministic `rules` provider, which uses no model, lets the P1 flow scribe -> facts -> profile diff -> counsellor approval complete end to end, with its output clearly marked "AI unavailable". An e2e test passes with `VC_LLM_PROVIDER=rules`. **Runtime failover (D-020, gate `provider-fallback`):** independence extends from config-time to runtime. A
+  provider failure mid-session fails over across a config-ordered chain of 3 models, within a total retry budget of
+  about 10 attempts with backoff, and never auto-drops to the `rules` provider. If every model in the chain fails,
+  the engine (a) raises a structured engineering alert (error log + Langfuse error trace) and (b) returns an
+  apologetic error state to the user with a Retry action that preserves their input — no retype. A test proves the
+  failover order, the retry budget, that `rules` is never substituted automatically, and the alert-plus-preserved-input
+  path on all-fail.
 - **B7 (tracing, no egress):** Graph runs emit Langfuse traces to a self-hosted endpoint only, with
   `TELEMETRY_ENABLED=false`. **Emit must be proven, not assumed:** a test captures at least one exported span through
   the real export path, using an in-process exporter or collector. A test that only constructs a handler or client does
@@ -55,6 +66,9 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - **B8 (data boundary):** Production Mongo writes only inside `virtual_counsellor` (B12). Nothing else on the
   production server is ever written. No real student data in the tree. Tests run offline with mock providers.
 - **B9 (crisis):** A distress or self-harm signal routes to an escalation card before any generative call.
+  **Recall-only guard (D-020, gate `crisis-guard-precision`):** the deterministic keyword guard matches for recall
+  only. It may over-trigger — a false positive is the safe direction — but it must never suppress, filter or narrow
+  a match in order to cut false alarms. Precision is a later layer's job (B16), never the guard's.
 - **B10 (draft-only, P2):** The application filler never triggers submit, and it stops at login, 2FA, CAPTCHA, payment
   or the declaration.
 - **B11 (secrets):** Keys are read only from `.env`, which git ignores. A tracked `.env.example` lists every key name
@@ -91,7 +105,10 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   concern classifier, which never blocks the live turn, runs on concern-level turns plus a stratified sample of "none"
   turns. An escalation notifies **the admin and the concerned counsellor(s)** at the same moment. Crisis recall is
   measured on an offline golden set (indirect Hinglish, Devanagari, abuse, benign idioms) with a bar of **recall >= 0.95** before any real-student
-  pilot (`qa/gates/crisis-safety-layers.md`; the response-time SLA is not yet set).
+  pilot (`qa/gates/crisis-safety-layers.md`; the response-time SLA is not yet set). **Downgrade, never hide (D-020, gate
+  `crisis-guard-precision`):** this classifier, or any later layer, may re-mark a guard-flagged turn "reviewed, likely
+  benign" for the counsellor's view. It may never hide, suppress or remove the underlying B9 flag itself — the
+  counsellor always still sees it. Escalation severity rises through this same layer as a concern deepens (B20).
 
 - **B17 (persona usability):** Every UI-touching unit, and every release, is judged by user personas, not only login roles. The declared personas are an average counsellor in a tier-2 city such as Jaipur (1-2 years' experience) and a school counsellor. The checker's browser run (Mode D / Mode C) walks each changed flow as each persona and records per-screen findings. A flow the persona cannot finish unaided is a finding, not a pass. A `high` persona finding blocks PASS the same way a failed criterion does.
 
@@ -110,6 +127,15 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   - the AI-down (`rules` provider) path.
 
   Every UI-touching unit check and every release runs every row. Each row is recorded as `pass | fail | skip(<reason>)`. An unrun row is a SKIP, never a PASS, and the verdict states `SCENARIOS: <passed>/<total>`. Until the file exists, a UI verdict records `SCENARIOS: n/a (matrix not yet authored, B19)` rather than blocking.
+
+- **B20 (concern-level continuation, D-020, gate `scribe-concern-level`):** A concern-level turn (below crisis, e.g.
+  "I feel hopeless", "bahut tension hai") never stops or withholds the scribe's output. The scribe still produces its
+  facts, summary and profile diff for the counsellor to approve (B3) and additionally writes a concern node/edge into
+  the knowledge graph, cited to its transcript span (B2), with a visible concern flag on the session. Any check-in
+  offered to the student for a concern-level turn is a live-card **question** (T-010), never a scripted line to
+  recite (B1). As severity rises, escalation to the counsellor and/or admin follows B16's classifier layer. Only a
+  **crisis**-level signal (B9) stops generation and escalates immediately; concern never does. A test proves the
+  scribe completes on a concern-level fixture and that the concern node carries a citation.
 
 ## Non-goals (this contract)
 - The avatar (P3) and the student-facing voice surface.
@@ -140,3 +166,15 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - 2026-09-25 · routine (clarify, no weakening) · B15 now cites the D-015/D-016/D-017 fencing and states that a surviving write in the fence gap is a violation (ISS-t-017-rev-1) and that the fence sweep must not crash its host (ISS-t-017-rev-2) · sweep shard 1 found B15 stale against D-016/D-017.
 - 2026-09-25 · routine (tighten, inbox fold) · B6 gains provider independence (2 real providers + a no-AI `rules` provider that completes the P1 flow, with an e2e in rules mode); new B17 persona usability (Jaipur counsellor + school counsellor walks; a high persona finding blocks PASS) · qa/feedback-inbox.md entries 5-6, the lead's counselor-portal review relayed by Umesh.
 - 2026-09-26 · routine (tighten, inbox fold) · new B18 context relevance (suppress irrelevant and already-known items, e.g. no visa for India-only; outcome-tested) and new B19 scenario matrix (at least 50 persona-tagged rows, run on every UI check and release, an unrun row = SKIP) · the same counselor-portal review transcript Umesh shared on 2026-09-25 (lead: "irrelevant cheezein dikhni hi nahi chahiye", "~50 cases ki sheet"). These were planned in session ef98f055 and never applied. B17 persona-list changes wait on Umesh's answer.
+- 2026-09-26 · routine (tighten, inbox fold, human-answered gates D-020) · four amendments from Umesh's answers to the
+  T-005b/T-013/scribe/T-019 gates: B9 + B16 state the crisis guard is recall-only and never suppresses a match, and
+  that any later layer (the B16 classifier) may downgrade a flag to "reviewed, likely benign" but can never hide it;
+  B2 rescopes citation guarantee so only numbers and the fixed country/alias vocabulary auto-verify, every other text
+  fact and a new `reasoning` fact kind are kept (never dropped) and cited to their transcript span as needs-review,
+  and the full transcript's persistence is confirmed covered by B15 erasure/export; B6 gains runtime provider failover
+  (3-model chain, ~10 total retries with backoff, no auto-drop to `rules`, engineering alert + apologetic
+  input-preserving Retry on all-fail); new B20 concern-level continuation (a concern turn never stops the scribe, is
+  written into the KG with a citation, escalates via B16 as severity rises, and any check-in is a question card, never
+  a script) · qa/feedback-inbox.md 2026-09-26 entries (crisis-guard-precision, citation-guarantee-scope,
+  scribe-concern-level, provider-fallback), D-020, qa/gates/{crisis-guard-precision,citation-guarantee-scope,
+  scribe-concern-level,provider-fallback}.md.
