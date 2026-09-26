@@ -12,6 +12,89 @@
   },
   "data_class": "synthetic",
   "real_data_markers": [],
+  "personas": [
+    {
+      "id": "sapna-expert",
+      "who": "Sapna ma'am, a top Indian counsellor (Mayo College, Ajmer)",
+      "goal": "the benchmark, and the reviewer of VC's suggestions",
+      "blocks_on": "anything script-like; shallow advice",
+      "language": "not-specified",
+      "input_mode": "not-specified"
+    },
+    {
+      "id": "gaurav-pm",
+      "who": "Gaurav, IIT, a product manager with no counselling background",
+      "goal": "run a good session with VC as sounding board",
+      "blocks_on": "jargon; no \"why\" behind a suggestion",
+      "language": "not-specified",
+      "input_mode": "not-specified"
+    },
+    {
+      "id": "gaurav-bhaiya",
+      "who": "office staff, about 12th pass. He understands and speaks Hindi, but does not read English and cannot write",
+      "goal": "finish every flow in Hindi, by voice",
+      "blocks_on": "any typing; English-only screens",
+      "language": "hi",
+      "input_mode": "voice"
+    },
+    {
+      "id": "jaipur-counsellor",
+      "who": "a tier-2-city counsellor with 1-2 years' experience",
+      "goal": "approve the scribe's facts after a session quickly",
+      "blocks_on": "unclear labels; long review lists",
+      "language": "not-specified",
+      "input_mode": "not-specified"
+    },
+    {
+      "id": "school-counsellor",
+      "who": "a school counsellor",
+      "goal": "a student's profile across sessions",
+      "blocks_on": "missing history; nothing to cite",
+      "language": "not-specified",
+      "input_mode": "not-specified"
+    },
+    {
+      "id": "govt-teacher",
+      "who": "a government-school teacher opening a laptop for the first time, Hindi-first (the Haryana 160-school pilot)",
+      "goal": "use it unaided",
+      "blocks_on": "any hidden step",
+      "language": "hi",
+      "input_mode": "not-specified"
+    },
+    {
+      "id": "uk-counsellor",
+      "who": "GDPR, the UCAS flow, UKVI rules",
+      "goal": "VC never breaches their market's rule",
+      "blocks_on": "a suggestion that breaks the rule",
+      "language": "not-specified",
+      "input_mode": "not-specified"
+    },
+    {
+      "id": "us-counselor",
+      "who": "FERPA student-record privacy, the NACAC ethics code",
+      "goal": "VC never breaches their market's rule",
+      "blocks_on": "a suggestion that breaks the rule",
+      "language": "not-specified",
+      "input_mode": "not-specified"
+    },
+    {
+      "id": "au-agent",
+      "who": "ESOS, the PIER agent code, commission disclosure",
+      "goal": "VC never breaches their market's rule",
+      "blocks_on": "a suggestion that breaks the rule",
+      "language": "not-specified",
+      "input_mode": "not-specified"
+    },
+    {
+      "id": "ca-consultant",
+      "who": "Canada, where only licensed consultants may give visa advice",
+      "goal": "VC must never give visa advice there",
+      "blocks_on": "VC giving visa advice",
+      "language": "not-specified",
+      "input_mode": "not-specified"
+    }
+  ],
+  "scenarios": "qa/scenarios/counselling-engine.csv",
   "verify": {
     "kind": "shell",
     "commands": [
