@@ -170,6 +170,43 @@ export const TranscriptTurnRecordSchema = TranscriptTurnSchema.extend({
 export type TranscriptTurnRecord = z.infer<typeof TranscriptTurnRecordSchema>;
 
 // ---------------------------------------------------------------------------
+// ConcernRecord (T-022 / D-020 / B20): a concern-level wellbeing signal the crisis guard found in a
+// session. It is FLAGGED and the session CONTINUES (never a stop, never hidden). It is stored in the
+// Student KG as a cited edge (student --concern_flagged--> transcript_turn), so erasure and export
+// cover it through the existing edges collection (B15). This is also the typed surface T-012
+// (escalation as severity rises) reads. Deterministic: no timestamp, so a replay writes nothing new.
+// ---------------------------------------------------------------------------
+
+export const ConcernLevelSchema = z.enum(["concern", "crisis"]);
+export type ConcernLevel = z.infer<typeof ConcernLevelSchema>;
+
+export const ConcernRecordSchema = z
+  .object({
+    /** `${sessionId}:${turnId}` — one record per flagged turn. */
+    concernId: z.string().min(1),
+    studentId: z.string().min(1),
+    sessionId: z.string().min(1),
+    level: ConcernLevelSchema,
+    /** Fixed descriptive text for the counsellor (what was detected), never a script for the student. */
+    reason: z.string().min(1),
+    /** The guard patterns that fired. */
+    matched: z.array(z.string().min(1)).min(1),
+    detector: z.literal("crisis-guard"),
+    /** B2: the transcript span the flag rests on (resolves into session_transcripts). */
+    citation: z.object({
+      type: z.literal("transcript"),
+      quote: z.string().min(1),
+      turnId: z.string().min(1),
+    }),
+  })
+  .strict()
+  .refine((r) => r.concernId === `${r.sessionId}:${r.citation.turnId}`, {
+    message: "concernId must be `${sessionId}:${citation.turnId}`",
+    path: ["concernId"],
+  });
+export type ConcernRecord = z.infer<typeof ConcernRecordSchema>;
+
+// ---------------------------------------------------------------------------
 // AudioChunk metadata (plan.md §3 step 2) — META ONLY. No raw audio field is
 // modelled here on purpose (see UNIT brief): the graph never needs raw PCM to
 // flow through a Zod-validated boundary, and keeping audio bytes out of this

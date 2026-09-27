@@ -550,4 +550,7 @@ AFTER  lazy       | 0 kept — 0 verified, 0 needsReview, 0 reasoning · hostile
 - **Counsellor read surface:** unchanged. There is no HTTP or MCP transcript tool.
 - **Fresh-context review:** none was dispatched from this build subagent. The orchestrator should run it.
 
-## Status: ready-for-check
+## Close-out
+- Checker cycle 3 PASS (6736ee2). Data-engineer review: Approve. AI-engineer review: Block on ISS-t-013r-rev-14 only, overridden by Umesh (D-024: merge now, T-030 carries the rev-14 fix). rev-14 stays open.
+
+## Status: checked-PASS

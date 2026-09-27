@@ -6,6 +6,7 @@
  */
 import { z } from "zod";
 import {
+  ConcernRecordSchema,
   CounsellorDecisionSchema,
   FactKindSchema,
   FactSchema,
@@ -65,8 +66,23 @@ export const ScribeEscalationSchema = z.object({
 });
 export type ScribeEscalation = z.infer<typeof ScribeEscalationSchema>;
 
-export const CrisisGateInputSchema = z.object({ turns: z.array(ScribeTurnSchema).min(1) });
-export const CrisisGateOutputSchema = z.object({ escalation: ScribeEscalationSchema.nullable() });
+/**
+ * T-022: sessionId/studentId let the gate build the typed, cited concern records (ConcernRecord in
+ * @vc/schemas) for a concern-level session that CONTINUES (D-020 / B20).
+ */
+export const CrisisGateInputSchema = z.object({
+  sessionId: z.string().min(1),
+  studentId: z.string().min(1),
+  turns: z.array(ScribeTurnSchema).min(1),
+});
+/**
+ * `escalation` is set ONLY for a crisis-level turn (B9/B16: the run ends "escalated"). `concerns`
+ * holds one record per concern-level turn when there is no crisis (the run continues, flagged).
+ */
+export const CrisisGateOutputSchema = z.object({
+  escalation: ScribeEscalationSchema.nullable(),
+  concerns: z.array(ConcernRecordSchema),
+});
 export type CrisisGateOutput = z.infer<typeof CrisisGateOutputSchema>;
 
 // --- (c) fact extraction ----------------------------------------------------
@@ -162,6 +178,12 @@ export const ApprovalRequestSchema = z.object({
   diff: ProfileDiffSchema,
   facts: z.array(ApprovalFactSchema),
   dropped: z.array(DroppedFactSchema),
+  /**
+   * T-022 / D-020 / B20: the session's visible concern flag. Present (non-empty) only when a
+   * concern-level signal was flagged; the session was NOT stopped. Optional so older checkpoints and
+   * payloads still parse.
+   */
+  concerns: z.array(ConcernRecordSchema).min(1).optional(),
 });
 export type ApprovalRequest = z.infer<typeof ApprovalRequestSchema>;
 

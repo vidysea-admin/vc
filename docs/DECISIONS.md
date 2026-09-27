@@ -245,3 +245,26 @@ The rules e2e proves that scribe â†’ facts â†’ profile diff â†’ a
 **Approved-by:** Umesh (chat, 2026-09-26, AskUserQuestion "Allow cycle 3")
 **Result:** --
 **Links:** T-013, qa/gates/t013-extra-cycle.md, ISS-t-013r-rev-9, ISS-t-013r-rev-10, ISS-t-013r-rev-11
+
+## D-024 | 2026-09-26 | type: decision | status: ACTIVE
+**What:** T-013 (citation rescope) merges to main at checker cycle-3 PASS (6736ee2) even though the AI-engineer review Blocks it on ISS-t-013r-rev-14. That issue is an open 0 to 4 word gap in COUNTRY_TEMPLATES[0] (nodes.ts:464): "I want to study as agent advised in Australia" still auto-verifies. rev-14 stays open. T-030 fixes it and merges as soon as its own checker passes. This is a one-off human override of the rule that "a review Block overrides a checker PASS", scoped to this one issue on this one unit.
+**Why:** the cycle-3 checker PASSed with 34 hostile variants and no new finding, and the data-engineer review Approved. The Block covers one narrow template gap, and the counsellor still approves every fact (B3), so an auto-verified country is never final. The downstream units (T-025, T-022, T-029, T-012) are built on T-013, so a held merge would stall them. T-030 already carries the fix in parallel.
+**Changes-authorized:** none (process exception for one unit; no ARCHITECTURE or contract change).
+**Approved-by:** Umesh (chat, 2026-09-26, AskUserQuestion "Merge now, T-030 follows")
+**Result:** --
+**Links:** T-013, T-030, ISS-t-013r-rev-14, D-023
+
+## D-025 | 2026-09-26 | type: decision | status: ACTIVE
+**What:** T-030 is widened beyond ISS-t-013r-rev-14 (the COUNTRY_TEMPLATES[0] word gap) to three structural, fail-safe checks on auto-verify (`needsReview:false`): (1) the cited turn's speaker must be the student, so a counsellor turn always needs review; (2) each template declares the fact keys it may verify, and any other key needs review (no more `nationality: UK` from "I want to study in the UK"); (3) the template must match the original text, not only the machine translation. Acceptance adds a property test: single and two-token edits of the finite template language must flip to needsReview unless they are still in the language, random off-grammar sentences need review, and flipping one input at a time (speaker, key, translation-only) flips the result.
+**Why:** the T-013 stall diagnosis (qa/debug/t-013-citation-rescope-cycle3.md) found that at the merged code (7b14a55), 8 probes on 4 dimensions T-030 did not touch still return needsReview:false. The root cause is that B2 names a mechanism and not the property ("the student affirmed this value, for this key, in their own words"). Every added check only moves facts toward review, which matches the fail-safe default Umesh set in D-023, so no new product decision is needed for it. Cross-turn context (a hypothetical framed in an earlier turn, a retraction in a later one) stays OUT of T-030 and goes to Umesh as the gate qa/gates/auto-verify-property.md.
+**Changes-authorized:** none (unit scope change; no ARCHITECTURE or contract change).
+**Result:** --
+**Links:** T-030, T-013, D-023, D-024, ISS-t-013r-rev-14, ISS-t-013r-rev-15, qa/debug/t-013-citation-rescope-cycle3.md
+
+## D-026 | 2026-09-26 | type: decision | status: ACTIVE
+**What:** "Auto-verified" (`needsReview:false`) now has a written property: the student said this value, for this fact type (key), in their own words, in this one turn. Context from other turns (a hypothetical framed earlier, a retraction later) is out of scope for auto-verify. An auto-verify leak is capped at high severity and Blocks only when it breaks this property. B3 still requires the counsellor's approve click on every fact.
+**Why:** the T-013 stall diagnosis (qa/debug/t-013-citation-rescope-cycle3.md) showed that each fix cycle found a new leak class because B2 named a mechanism, not a property. Umesh chose option A of gate auto-verify-property.
+**Changes-authorized:** qa/contracts/counselling-engine.md B2 wording, via /checker only (the maker never edits contracts).
+**Approved-by:** Umesh (chat, 2026-09-26, AskUserQuestion "Write the rule down (Recommended)")
+**Result:** --
+**Links:** T-030, T-013, D-024, D-025, qa/gates/auto-verify-property.md, ISS-069, ISS-070, ISS-071, ISS-072

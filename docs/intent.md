@@ -27,6 +27,9 @@ hand. The CEO is clear that the tool must not become a crib sheet: "sounding boa
   never retypes (B6).
 - **O7: API-first.** VC is a headless intelligence service, and Pathlynks is its first client. The client
   builds the production UI (B21).
+- **O8: personalised, never repetitive.** VC never re-asks what is already known about the student, and
+  its questions change with the child. It skips what is irrelevant (an India-only student gets no visa
+  items), per the CEO north star and B18.
 
 ## Affected users and systems
 
@@ -52,8 +55,14 @@ hand. The CEO is clear that the tool must not become a crib sheet: "sounding boa
 - AI-vendor independence (D-019). Hindi, Hinglish and Devanagari are first-class inputs.
 - Outward-facing actions (the release video to Sapna ma'am and Gaurav bhaiya, any Pathlynks connection) are Umesh's.
 
+## Non-goals
+- Bulk student import (it belongs to the counsellor portal; D-021).
+- A production UI or a login screen of VC's own. The client builds the production UI, and apps/web stays
+  the reference and test UI (B21, D-021).
+- Submitting applications for the student. VC drafts them, and the student submits (P2).
+
 ## Open questions
-- [ ] failover-scope: 10 retries total or per model; does wrong-shape output count as "failed"? (qa/gates/failover-scope.md)
+- [x] failover-scope: answered 2026-09-26: 10 attempts in total across the 3 models, and wrong-shape output counts as failed (qa/gates/failover-scope.md; built in T-021)
 - [ ] JWT issuer and key rotation from the Pathlynks backend team (D-021 §6)
 - [ ] B22 reference: Sapna ma'am's rubric is not yet recorded. PARKED: B22 is reported NOT-YET-MEASURABLE until then.
 - [ ] Response-time SLA for crisis escalation (B16). PARKED: not yet set.
