@@ -207,4 +207,7 @@ Missed held-out crises include plain phrasings in every script, e.g. "I'm so tir
 11. ISS-t-033-rev-1 addressed (true-crisis line); ISS-t-033-rev-2 addressed via the independent
     slice, whose result fails the bar (gap 1). Ledger status left for the checker.
 
-## Status: ready-for-check
+## Close-out
+Checker c0 PASS (verdict 2ad171e; ISS-t-033-rev-1/2 fixed). ai-engineer Approve (3 Warnings) + senior-software-engineer Approve (2 low) → ISS-t-012-rev-1..3 + gate crisis-escalation-consent; the erasure/scanner registration and apps/api wiring go to T-035. Held-out guard recall 10/28 = pilot blocker (ISS-t-012-rev-4).
+
+## Status: checked-PASS
