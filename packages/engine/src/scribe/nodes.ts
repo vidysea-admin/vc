@@ -474,63 +474,187 @@ function clausesOf(text: string): string[] {
 }
 
 const DEGREE = "(?:masters|master s|bachelors|bachelor s|mba|ms|phd|ug|pg|undergrad|undergraduate|postgraduate|degree|higher studies|studies|education|graduation|post graduation)";
-const EXAM =
-  "(?:(?:the|my|apne|mere|meri) )?(?:(?:class|std|standard|grade) \\p{Nd}{1,2} |\\p{Nd}{1,2}th |cbse |icse |hsc |ssc |final |12वीं |10वीं |बारहवीं |दसवीं )?" +
-  "(?:board|boards|board exam|board exams|boards exam|exam|exams|ielts|ielts academic|toefl|pte|gre|gmat|sat|act|duolingo|det|jee|jee main|jee mains|jee advanced|neet|cuet|cat|बोर्ड|परीक्षा|बोर्ड परीक्षा)" +
-  "(?: (?:exam|test|overall|academic))?";
 const NUM = "(?<n>\\p{Nd}+(?:[.,]\\p{Nd}+)*)";
-const SCORE_UNIT = "(?: (?:percent|percentage|marks|points|band|bands|cgpa|gpa|अंक|प्रतिशत|नंबर|number))?";
 
-/** Country templates; `{C}` is replaced by the aliases of the fact's canonical country only. */
-const COUNTRY_TEMPLATES: readonly string[] = [
+/**
+ * T-030 (ISS-t-013r-rev-14): the CLOSED set of words that may stand between the verb and "in/to
+ * <country>" in the first country template. It replaces the former OPEN gap `(?: [\p{L}]+){0,4}?`, which
+ * let any 0-4 letter words through, so a single-clause attribution with an unlisted verb auto-verified
+ * ("I want to study as landlord suggested in the UK", "... as consultant recommended in Canada",
+ * "... as advised in the UK"). At most ONE connector, each a fixed phrase:
+ *   - "computer science": the subject the existing positives use (tests/scribe-fixtures.ts t1,
+ *     scribe-per-fact.test.ts, the scribe-citation-rescope allow-list positives);
+ *   - "abroad", "further", "further studies";
+ *   - an optional my/a/an plus the closed DEGREE set ("do my masters", "pursue an MBA", "pursue
+ *     higher studies"), the same set the " for <degree>" suffix already uses.
+ * Every phrase is 1-3 letter-only words, so the old gap admitted all of them: this only NARROWS the
+ * template, it never widens it (ISS-t-013r-rev-11 stays parked). Any other word there (an unlisted
+ * subject, "as suggested", "per the agent") is `unrecognised-form`: kept, never dropped, needsReview.
+ * Deliberately NOT included: "there" (a deictic that points outside the clause; no positive uses it).
+ */
+const COUNTRY_CONNECTOR_PHRASES: readonly string[] = Object.freeze(["computer science", "abroad", "further", "further studies"]);
+const COUNTRY_CONNECTOR = `(?:${COUNTRY_CONNECTOR_PHRASES.join("|")}|(?:(?:my|a|an) )?${DEGREE})`;
+
+/**
+ * T-030 (D-025): every auto-verify template DECLARES the fact keys it may verify. A clause that matches
+ * a template still needs review when no matching template declares the fact's key
+ * (`key-not-declared`): "I want to study in the UK" verifies `targetCountry: UK`, never
+ * `nationality: UK`; "my budget is 2500000 per year" verifies `budget_inr_per_year`, never
+ * `budget_inr_total`; "I scored 92 in my class 12 boards" verifies `class12_percentage`, never an
+ * IELTS key. The keys are the ones the golden set and the scribe fixtures use; a key that no template
+ * declares can never auto-verify (fail-safe). `{C}` is replaced by the aliases of the fact's canonical
+ * country only.
+ */
+export interface AutoVerifyTemplate {
+  readonly keys: readonly string[];
+  readonly source: string;
+}
+
+const COUNTRY_KEYS: readonly string[] = Object.freeze(["targetCountry"]);
+const countryTemplate = (source: string): AutoVerifyTemplate => Object.freeze({ keys: COUNTRY_KEYS, source });
+
+/**
+ * Country templates. T-030 audit: no template has an open letter class or an unbounded repetition. The
+ * property test (tests/scribe-auto-verify-property.test.ts) checks the accepted language against an
+ * independent spec; the audit test in scribe-citation-rescope.test.ts lints the sources.
+ */
+const COUNTRY_TEMPLATES: readonly AutoVerifyTemplate[] = Object.freeze([
   // English: "I want to study in <country>", "I'd like to go to the <country>", "I am planning to move to <country> for my masters"
-  `^i (?:really |definitely |also )?(?:want|wish|plan|intend|hope|aim|d like|would like|d love|would love|am planning|m planning|am going|m going|am hoping|m hoping|am aiming|m aiming|am applying|m applying|have decided|ve decided|decided) to (?:study|go|move|settle|live|work|apply|pursue|do|shift|relocate)(?: [\\p{L}]+){0,4}? (?:in|to) (?:the )?{C}(?: for (?:my |a |an )?${DEGREE})?$`,
+  // T-030: the verb-to-destination slot is the closed COUNTRY_CONNECTOR, no longer an open 0-4 word gap.
+  countryTemplate(`^i (?:really |definitely |also )?(?:want|wish|plan|intend|hope|aim|d like|would like|d love|would love|am planning|m planning|am going|m going|am hoping|m hoping|am aiming|m aiming|am applying|m applying|have decided|ve decided|decided) to (?:study|go|move|settle|live|work|apply|pursue|do|shift|relocate)(?: ${COUNTRY_CONNECTOR})? (?:in|to) (?:the )?{C}(?: for (?:my |a |an )?${DEGREE})?$`),
   // English: "my first choice is <country>", "my preferred destination is the <country>"
-  `^my (?:(?:first|top|preferred|dream|target|final|main) )*(?:choice|preference|destination|country|target|option|pick)(?: country| destination)? is (?:the )?{C}$`,
+  // T-030: at most two modifiers (was an unbounded `*` run of the same closed words).
+  countryTemplate(`^my (?:(?:first|top|preferred|dream|target|final|main) ){0,2}(?:choice|preference|destination|country|target|option|pick)(?: country| destination)? is (?:the )?{C}$`),
   // English: "I prefer <country>", "I have chosen the <country> for my masters"
-  `^i (?:prefer|choose|chose|have chosen|ve chosen|have picked|ve picked|picked|have selected|ve selected|selected) (?:the )?{C}(?: for (?:my |a |an )?${DEGREE})?$`,
+  countryTemplate(`^i (?:prefer|choose|chose|have chosen|ve chosen|have picked|ve picked|picked|have selected|ve selected|selected) (?:the )?{C}(?: for (?:my |a |an )?${DEGREE})?$`),
   // Hinglish: "main <country> jaana chahta/chahti hoon", "main <country> mein padhna chahta hu"
-  `^(?:main|mai) {C}(?: (?:mein|me|main))? (?:jaana|jana|padhna|padhai karna|study karna|settle hona|settle karna|shift hona|rehna|jaake padhna) (?:chahta|chahti|chahte) (?:hoon|hu|hun|hoo|hai|hain)$`,
+  countryTemplate(`^(?:main|mai) {C}(?: (?:mein|me|main))? (?:jaana|jana|padhna|padhai karna|study karna|settle hona|settle karna|shift hona|rehna|jaake padhna) (?:chahta|chahti|chahte) (?:hoon|hu|hun|hoo|hai|hain)$`),
   // Hinglish: "mujhe <country> jaana hai"
-  `^(?:mujhe|mujhko) {C}(?: (?:mein|me))? (?:jaana|jana|padhna|padhai karni|padhai karna|study karna|settle hona|shift hona|rehna|jaake padhna) (?:hai|he)$`,
+  countryTemplate(`^(?:mujhe|mujhko) {C}(?: (?:mein|me))? (?:jaana|jana|padhna|padhai karni|padhai karna|study karna|settle hona|shift hona|rehna|jaake padhna) (?:hai|he)$`),
   // Hinglish: "meri pehli choice <country> hai"
-  `^(?:meri|mera) (?:(?:pehli|first|top) )?(?:choice|preference|pasand|target|destination) {C} (?:hai|he)$`,
+  countryTemplate(`^(?:meri|mera) (?:(?:pehli|first|top) )?(?:choice|preference|pasand|target|destination) {C} (?:hai|he)$`),
   // Devanagari: "मैं <country> जाना चाहता हूँ"
-  `^(?:मैं|मै) {C}(?: में)? (?:जाना|पढ़ना|पढ़ाई करना|बसना|रहना) (?:चाहता|चाहती|चाहते) (?:हूँ|हूं|हू|हैं)$`,
+  countryTemplate(`^(?:मैं|मै) {C}(?: में)? (?:जाना|पढ़ना|पढ़ाई करना|बसना|रहना) (?:चाहता|चाहती|चाहते) (?:हूँ|हूं|हू|हैं)$`),
   // Devanagari: "मुझे <country> जाना है"
-  `^मुझे {C}(?: में)? (?:जाना|पढ़ना|पढ़ाई करनी|पढ़ाई करना|रहना) है$`,
+  countryTemplate(`^मुझे {C}(?: में)? (?:जाना|पढ़ना|पढ़ाई करनी|पढ़ाई करना|रहना) है$`),
   // Devanagari: "मेरी पहली पसंद <country> है"
-  `^(?:मेरी|मेरा) (?:पहली )?(?:पसंद|लक्ष्य) {C} है$`,
+  countryTemplate(`^(?:मेरी|मेरा) (?:पहली )?(?:पसंद|लक्ष्य) {C} है$`),
+]);
+
+/**
+ * T-030 (D-025): budget templates, split by the period the clause states, so the key is bound to it.
+ * A bare budget ("my budget is 1500000") or a yearly one declares `budget_inr_per_year` (the golden
+ * set's key for it); a total one declares `budget_inr_total`. "max/maximum" left the surface (neither
+ * a plain yearly budget nor a total). A clause that mixes both ("my total budget is N per year")
+ * matches neither. INR is assumed only because any currency word or symbol already forces review.
+ */
+const budgetTemplate = (keys: readonly string[], source: string): AutoVerifyTemplate =>
+  Object.freeze({ keys: Object.freeze([...keys]), source });
+const PER_YEAR = ["budget_inr_per_year"] as const;
+const TOTAL = ["budget_inr_total"] as const;
+const BUDGET_TEMPLATES: readonly AutoVerifyTemplate[] = [
+  // English: "my budget is 1500000", "my annual budget is 25000 per year"
+  budgetTemplate(PER_YEAR, `^my (?:annual |yearly )?budget is ${NUM}(?: (?:per year|a year|per annum|annually))?$`),
+  // English: "my total budget is 4000000", "my budget is 4000000 in total"
+  budgetTemplate(TOTAL, `^my (?:total|overall) budget is ${NUM}$`),
+  budgetTemplate(TOTAL, `^my budget is ${NUM} (?:total|in total)$`),
+  // Hinglish: "mera budget 1500000 hai", "mera saalana budget 1500000 hai"
+  budgetTemplate(PER_YEAR, `^mera (?:saalana |salana |annual |yearly )?budget ${NUM}(?: (?:per year|saal ka|salana))? (?:hai|he)$`),
+  // Hinglish: "mera total budget 4000000 hai"
+  budgetTemplate(TOTAL, `^mera (?:total|poora) budget ${NUM} (?:hai|he)$`),
+  // Devanagari: "मेरा बजट 1500000 है", "मेरा सालाना बजट 1500000 है"
+  budgetTemplate(PER_YEAR, `^मेरा (?:सालाना )?बजट ${NUM} है$`),
+  // Devanagari: "मेरा कुल बजट 4000000 है"
+  budgetTemplate(TOTAL, `^मेरा कुल बजट ${NUM} है$`),
 ];
+
+/**
+ * T-030 (D-025): score templates are instantiated once per EXAM FAMILY, and each instance declares the
+ * one key of the exam its clause names. The exam is named exactly once (the former exam-less
+ * "my score is 92" shape left the surface), and the unit and noun must fit the key (a percentage key
+ * takes no "marks/points/cgpa"). An exam with no family (TOEFL, PTE, GRE, a board with no class, ...)
+ * is `unrecognised-form`: kept, never dropped, needsReview.
+ */
+const EXAM_ARTICLE = "(?:(?:the|my|apne|mere|meri) )?";
+const BOARD = "(?:board|boards|board exam|board exams|boards exam|exam|exams|बोर्ड|परीक्षा|बोर्ड परीक्षा)";
+const PERCENT_UNIT = "(?: (?:percent|percentage|प्रतिशत))?";
+const PERCENT_NOUN = "(?:score|percentage|percent|result)";
+const SCORE_EXAM_FAMILIES = Object.freeze([
+  Object.freeze({ key: "ielts_overall", exam: `${EXAM_ARTICLE}ielts(?: (?:academic|overall|exam|test))?`, unit: "(?: (?:band|bands))?", noun: "(?:score|band|result)" }),
+  Object.freeze({ key: "class12_percentage", exam: `${EXAM_ARTICLE}(?:(?:class|std|standard|grade) 12|12th|hsc|12वीं|बारहवीं) ${BOARD}`, unit: PERCENT_UNIT, noun: PERCENT_NOUN }),
+  Object.freeze({ key: "class10_percentage", exam: `${EXAM_ARTICLE}(?:(?:class|std|standard|grade) 10|10th|ssc|10वीं|दसवीं) ${BOARD}`, unit: PERCENT_UNIT, noun: PERCENT_NOUN }),
+]);
+
+/** Score shapes; `{E}` is the family's exam, `{U}` its optional unit, `{S}` its score noun. */
+const SCORE_SHAPES: readonly string[] = Object.freeze([
+  // English: "I scored 92 in my class 12 boards", "I got 7.5 in IELTS"
+  `^i (?:scored|got|secured|have scored|ve scored|have got|ve got|received|obtained) ${NUM}{U} (?:in|on) {E}$`,
+  // English: "my IELTS score is 7.5"
+  `^my {E} {S} (?:is|was) ${NUM}{U}$`,
+  // English: "my score in IELTS is 7.5"
+  `^my {S} (?:in|on|for) {E} (?:is|was) ${NUM}{U}$`,
+  // English: "my score was 92 in class 12 boards"
+  `^my {S} (?:is|was) ${NUM}{U} (?:in|on) {E}$`,
+  // Hinglish: "maine IELTS mein 7.5 score kiya"
+  `^(?:maine|mene) {E} (?:mein|me|main) ${NUM}{U} (?:score kiya|score kiye|score kiya hai|scored|laaye|laye|liye|nikale|paaye|paye|haasil kiye|hasil kiye|laaye hain|liye hain)$`,
+  // Hinglish: "mere class 12 boards mein 92 percent aaye"
+  `^mere {E} (?:mein|me) ${NUM}{U} (?:aaye|aye|aaye hain|aaye the|hain|the)$`,
+  // Hinglish: "mera IELTS score 7.5 hai"
+  `^mera {E} {S} ${NUM}{U} (?:hai|tha|he)$`,
+  // Devanagari: "मैंने IELTS में 7.5 स्कोर किया"
+  `^मैंने {E} में ${NUM}{U} (?:स्कोर किया|स्कोर किए|प्राप्त किए|प्राप्त किया|लाए|हासिल किए)$`,
+  // Devanagari: "मेरे 12वीं बोर्ड में 92 प्रतिशत आए"
+  `^मेरे {E} में ${NUM}{U} (?:आए|आये|हैं|थे)$`,
+]);
+
+const SCORE_TEMPLATES: readonly AutoVerifyTemplate[] = SCORE_EXAM_FAMILIES.flatMap((family) =>
+  SCORE_SHAPES.map(
+    (shape): AutoVerifyTemplate =>
+      Object.freeze({
+        keys: Object.freeze([family.key]),
+        source: shape.split("{E}").join(family.exam).split("{U}").join(family.unit).split("{S}").join(family.noun),
+      }),
+  ),
+);
 
 /** Number templates (budget, exam score); the `n` group must spell exactly the fact's value. */
-const NUMBER_TEMPLATES: readonly string[] = [
-  // English budget: "my budget is 1500000", "my annual budget is 25000 per year"
-  `^my (?:total |annual |yearly |overall |maximum |max )?budget is ${NUM}(?: (?:per year|a year|per annum|annually|total|in total))?$`,
-  // English score: "I scored 92 in my class 12 boards", "I got 7.5 in IELTS"
-  `^i (?:scored|got|secured|have scored|ve scored|have got|ve got|received|obtained) ${NUM}${SCORE_UNIT} (?:in|on) ${EXAM}$`,
-  // English score: "my score was 92 in boards", "my IELTS score is 7.5"
-  `^my (?:${EXAM} )?(?:score|marks|percentage|band|result|gpa|cgpa|percent)(?: (?:in|on|for) ${EXAM})? (?:is|was) ${NUM}${SCORE_UNIT}(?: (?:in|on) ${EXAM})?$`,
-  // Hinglish budget: "mera budget 1500000 hai"
-  `^mera (?:total |saalana |salana |annual |yearly |poora )?budget ${NUM}(?: (?:per year|saal ka|salana))? (?:hai|he)$`,
-  // Hinglish score: "maine IELTS mein 7.5 score kiya"
-  `^(?:maine|mene) ${EXAM} (?:mein|me|main) ${NUM}${SCORE_UNIT} (?:score kiya|score kiye|score kiya hai|scored|laaye|laye|liye|nikale|paaye|paye|haasil kiye|hasil kiye|laaye hain|liye hain)$`,
-  // Hinglish score: "mere boards mein 92 percent aaye"
-  `^mere ${EXAM} (?:mein|me) ${NUM}${SCORE_UNIT} (?:aaye|aye|aaye hain|aaye the|hain|the)$`,
-  // Hinglish score: "mera IELTS score 7.5 hai"
-  `^mera ${EXAM} (?:score|result|percentage|band) ${NUM}${SCORE_UNIT} (?:hai|tha|he)$`,
-  // Devanagari budget: "मेरा बजट 1500000 है"
-  `^मेरा (?:कुल |सालाना )?बजट ${NUM} है$`,
-  // Devanagari score: "मैंने IELTS में 7.5 स्कोर किया"
-  `^मैंने ${EXAM} में ${NUM}${SCORE_UNIT} (?:स्कोर किया|स्कोर किए|प्राप्त किए|प्राप्त किया|लाए|हासिल किए)$`,
-  // Devanagari score: "मेरे बोर्ड में 92 प्रतिशत आए"
-  `^मेरे ${EXAM} में ${NUM}${SCORE_UNIT} (?:आए|आये|हैं|थे)$`,
-];
+const NUMBER_TEMPLATES: readonly AutoVerifyTemplate[] = Object.freeze([...BUDGET_TEMPLATES, ...SCORE_TEMPLATES]);
 
-const COMPILED_NUMBER_TEMPLATES: readonly RegExp[] = NUMBER_TEMPLATES.map((t) => new RegExp(t.normalize("NFC"), "u"));
-const countryTemplateCache = new Map<string, readonly RegExp[]>();
+/**
+ * T-030: the auto-verify templates, frozen, exported only so the audit and property tests can lint them
+ * (no open letter class, no unbounded repetition outside the number value slot, which is digits-only
+ * and pinned by exact equality to String(value)) and check their language against an independent spec.
+ * Nothing at runtime reads this export.
+ */
+export const AUTO_VERIFY_TEMPLATE_SOURCES = Object.freeze({
+  country: COUNTRY_TEMPLATES,
+  number: NUMBER_TEMPLATES,
+  countryConnectorPhrases: COUNTRY_CONNECTOR_PHRASES,
+  degree: DEGREE,
+  numberSlot: NUM,
+  /** canonical country -> its alias phrases exactly as the `{C}` slot spells them (template-normalised). */
+  countrySlots: Object.freeze(
+    Object.fromEntries(
+      [...new Set(COUNTRY_ALIASES.values())].map((canonical) => [
+        canonical,
+        Object.freeze([...COUNTRY_ALIASES.entries()].filter(([, c]) => c === canonical).map(([alias]) => normaliseTemplate(alias))),
+      ]),
+    ) as Record<string, readonly string[]>,
+  ),
+});
 
-function countryTemplatesFor(canonical: string): readonly RegExp[] {
+interface CompiledTemplate {
+  readonly keys: readonly string[];
+  readonly re: RegExp;
+}
+
+const COMPILED_NUMBER_TEMPLATES: readonly CompiledTemplate[] = NUMBER_TEMPLATES.map((t) => ({
+  keys: t.keys,
+  re: new RegExp(t.source.normalize("NFC"), "u"),
+}));
+const countryTemplateCache = new Map<string, readonly CompiledTemplate[]>();
+
+function countryTemplatesFor(canonical: string): readonly CompiledTemplate[] {
   const cached = countryTemplateCache.get(canonical);
   if (cached) return cached;
   const aliases = [...COUNTRY_ALIASES.entries()]
@@ -538,7 +662,10 @@ function countryTemplatesFor(canonical: string): readonly RegExp[] {
     .map(([alias]) => escapeRegExp(normaliseTemplate(alias)))
     .sort((a, b) => b.length - a.length);
   const slot = `(?:${aliases.join("|")})`;
-  const compiled = COUNTRY_TEMPLATES.map((t) => new RegExp(t.normalize("NFC").split("{C}").join(slot), "u"));
+  const compiled = COUNTRY_TEMPLATES.map((t) => ({
+    keys: t.keys,
+    re: new RegExp(t.source.normalize("NFC").split("{C}").join(slot), "u"),
+  }));
   countryTemplateCache.set(canonical, compiled);
   return compiled;
 }
@@ -559,40 +686,66 @@ function substantiveClauses(text: string): string[] {
   return clausesOf(text).filter((c) => !TRIVIAL_CLAUSES.has(c));
 }
 
-type AllowListVerdict = "allowed" | "multi-clause" | "unrecognised-form";
+type AllowListVerdict = "unrecognised-form" | "key-not-declared" | "translation-only" | "multi-clause";
 
 /**
- * The allow-list gate. "allowed" only when:
+ * The allow-list gate. Returns every failing check; an EMPTY list means "allowed", which needs ALL of:
  *   - the quote is one whole clause of the cited turn (or of the quote itself when no turn context is
- *     given) and that clause matches a template whose slot is the value; otherwise "unrecognised-form";
+ *     given) and that clause matches a template whose slot is the value; otherwise ONLY
+ *     "unrecognised-form" (nothing else is judged for a clause outside the language);
+ *   - (T-030, D-025) the fact's key is declared by a template the clause matches; otherwise
+ *     "key-not-declared";
+ *   - (T-030, D-025) the clause is a clause of the student's ORIGINAL words (`originalText`, the turn's
+ *     `text`), not only of the machine `translatedText`; otherwise "translation-only";
  *   - (fix cycle 3, STRUCTURAL) every text of the cited turn (text and translatedText) has exactly ONE
- *     non-trivial clause — so no other clause of the same turn can attribute ("Rahul said, …"), retract
+ *     non-trivial clause, so no other clause of the same turn can attribute ("Rahul said, …"), retract
  *     ("… Scratch that, Canada.") or otherwise qualify it, whatever words it uses; otherwise "multi-clause".
  */
-function matchesAllowedTemplate(value: unknown, quote: string, turnTexts: readonly string[]): AllowListVerdict {
+function matchesAllowedTemplate(
+  value: unknown,
+  key: string,
+  quote: string,
+  turnTexts: readonly string[],
+  originalText: string | undefined,
+): AllowListVerdict[] {
   const clause = normaliseTemplate(quote);
-  if (clause.length === 0) return "unrecognised-form";
+  if (clause.length === 0) return ["unrecognised-form"];
   const sources = turnTexts.length > 0 ? turnTexts : [quote];
   const clausesPerSource = sources.map(substantiveClauses);
-  if (!clausesPerSource.some((cs) => cs.includes(clause))) return "unrecognised-form";
-  if (!clauseMatchesTemplate(value, clause)) return "unrecognised-form";
-  if (clausesPerSource.some((cs) => cs.length !== 1)) return "multi-clause";
-  return "allowed";
+  if (!clausesPerSource.some((cs) => cs.includes(clause))) return ["unrecognised-form"];
+  const declaredKeys = declaredKeysForClause(value, clause);
+  if (declaredKeys === null) return ["unrecognised-form"];
+  const failed: AllowListVerdict[] = [];
+  if (!declaredKeys.includes(key)) failed.push("key-not-declared");
+  if (originalText !== undefined && !substantiveClauses(originalText).includes(clause)) failed.push("translation-only");
+  if (clausesPerSource.some((cs) => cs.length !== 1)) failed.push("multi-clause");
+  return failed;
 }
 
-function clauseMatchesTemplate(value: unknown, clause: string): boolean {
+/**
+ * The keys declared by every template the clause matches with its slot equal to the value, or null
+ * when no template matches (the clause is outside the auto-verify language).
+ */
+function declaredKeysForClause(value: unknown, clause: string): readonly string[] | null {
+  let templates: readonly CompiledTemplate[] = [];
+  let slotHolds: (m: RegExpExecArray) => boolean = () => true;
   if (typeof value === "number" && Number.isFinite(value)) {
-    return COMPILED_NUMBER_TEMPLATES.some((re) => {
-      const m = re.exec(clause);
-      return m?.groups?.n !== undefined && m.groups.n === String(value);
-    });
-  }
-  if (typeof value === "string") {
+    templates = COMPILED_NUMBER_TEMPLATES;
+    slotHolds = (m) => m.groups?.n !== undefined && m.groups.n === String(value);
+  } else if (typeof value === "string") {
     const canonical = COUNTRY_ALIASES.get(value.trim().toLowerCase().normalize("NFC"));
-    if (canonical === undefined) return false;
-    return countryTemplatesFor(canonical).some((re) => re.test(clause));
+    if (canonical === undefined) return null;
+    templates = countryTemplatesFor(canonical);
   }
-  return false;
+  const keys = new Set<string>();
+  let matched = false;
+  for (const t of templates) {
+    const m = t.re.exec(clause);
+    if (m === null || !slotHolds(m)) continue;
+    matched = true;
+    for (const k of t.keys) keys.add(k);
+  }
+  return matched ? [...keys] : null;
 }
 
 function hasNegation(rawText: string, normalisedText: string): boolean {
@@ -658,7 +811,23 @@ export const REVIEW_REASONS = {
   reportedSpeech:
     "reported-speech: a reporting or attribution cue (said/says/told/according to/kaha/kehta/bola/ke mutabik/" +
     "कहा/बोला/के मुताबिक …) appears in the cited turn; the words may be someone else's (D-020, fail-safe)",
+  speaker:
+    "speaker: the cited turn is not the student's own (the counsellor spoke it, or the speaker is unknown); only " +
+    "the student's words auto-verify (D-025, fail-safe)",
+  keyNotDeclared:
+    "key-not-declared: the clause matches an auto-verify template, but no matching template declares this fact's " +
+    "key (a country template verifies only targetCountry, a budget or score template only the key its clause " +
+    "names); the counsellor decides (D-025, fail-safe)",
+  translationOnly:
+    "translation-only: the template clause is found only in the machine translation, not in the student's " +
+    "original words; the counsellor decides (D-025, fail-safe)",
 } as const;
+
+/** T-030 (D-025): who spoke the cited turn, and the student's ORIGINAL words (the turn's `text`). */
+export interface CitedTurnProvenance {
+  speaker: "student" | "counsellor";
+  originalText: string;
+}
 
 /**
  * Decides whether a fact auto-verifies (needsReview: false) or is kept flagged for the counsellor
@@ -677,17 +846,24 @@ export const REVIEW_REASONS = {
  *      (matchesAllowedTemplate); otherwise `unrecognised-form`;
  *   8. (fix cycle 3, ISS-t-013r-c2-1/-rev-9) every text of the cited turn has exactly ONE non-trivial
  *      clause (a bare "yes/haan ji" acknowledgement is the only trivial one); otherwise `multi-clause`;
- *   9. (fix cycle 3) the cited TURN carries no reporting/attribution cue; otherwise `reported-speech`.
+ *   9. (fix cycle 3) the cited TURN carries no reporting/attribution cue; otherwise `reported-speech`;
+ *  10. (T-030, D-025) the cited turn's speaker is the student; otherwise `speaker` (an absent
+ *      `provenance` counts as an unknown speaker, so it never auto-verifies);
+ *  11. (T-030, D-025) a template the clause matches declares the fact's KEY; otherwise `key-not-declared`;
+ *  12. (T-030, D-025) the clause is in the student's ORIGINAL text, not only in the machine translation;
+ *      otherwise `translation-only`.
  * A `reasoning` fact is always needsReview, regardless of its value.
  *
  * `context` is the full text of the cited turn (and its translation, if any). Conditions 3-5 are
  * judged on the quote PLUS that context, so a model-cropped quote cannot hide a cue that sits just
- * outside it. When omitted, the quote alone is the context.
+ * outside it. When omitted, the quote alone is the context. Every T-030 check only moves a fact TOWARD
+ * review, never away from it.
  */
 export function assessFactForReview(
-  candidate: { kind: string; value: unknown },
+  candidate: { kind: string; value: unknown; key: string },
   quote: string,
   context: readonly (string | undefined)[] = [],
+  provenance?: CitedTurnProvenance,
 ): FactReviewOutcome {
   const reasons: string[] = [];
   const normalisedQuote = normaliseLoose(quote);
@@ -715,12 +891,17 @@ export function assessFactForReview(
   if (interrogative) guards.push(REVIEW_REASONS.interrogative);
   if (conditional) guards.push(REVIEW_REASONS.conditional);
   if (reportedSpeech) guards.push(REVIEW_REASONS.reportedSpeech);
+  // T-030 (D-025): only the student's own turn auto-verifies; an unknown speaker is not the student.
+  if (provenance?.speaker !== "student") guards.push(REVIEW_REASONS.speaker);
   // ISS-t-013r-rev-6 (fix cycle 2): the allow-list gate — the first layer; the deny sets are the second.
-  // Fix cycle 3 (ISS-t-013r-c2-1 / -rev-9): it also requires a single-clause cited turn.
+  // Fix cycle 3 (ISS-t-013r-c2-1 / -rev-9): it also requires a single-clause cited turn. T-030 (D-025): it
+  // also binds the key to the matching template and the clause to the original (untranslated) text.
   const turnTexts = context.filter((t): t is string => typeof t === "string" && t.length > 0);
-  const allowVerdict = matchesAllowedTemplate(candidate.value, quote, turnTexts);
-  if (allowVerdict === "unrecognised-form") guards.push(REVIEW_REASONS.unrecognisedForm);
-  if (allowVerdict === "multi-clause") guards.push(REVIEW_REASONS.multiClause);
+  const allowVerdicts = matchesAllowedTemplate(candidate.value, candidate.key, quote, turnTexts, provenance?.originalText);
+  if (allowVerdicts.includes("unrecognised-form")) guards.push(REVIEW_REASONS.unrecognisedForm);
+  if (allowVerdicts.includes("key-not-declared")) guards.push(REVIEW_REASONS.keyNotDeclared);
+  if (allowVerdicts.includes("translation-only")) guards.push(REVIEW_REASONS.translationOnly);
+  if (allowVerdicts.includes("multi-clause")) guards.push(REVIEW_REASONS.multiClause);
 
   if (typeof candidate.value === "number" && Number.isFinite(candidate.value)) {
     const matched = containsNumberToken(quote, candidate.value);
@@ -817,10 +998,14 @@ export function verifyCandidateFact(
     return { dropped: { key, reason: `quote is not found in turn "${source.id}", even after normalisation (fabricated citation, B2)` } };
   }
 
-  const review = assessFactForReview({ kind, value: candidate.value }, source.quote, [
-    turn.text,
-    turn.translatedText,
-  ]);
+  // T-030 (D-025): the key, the speaker and the original text reach the gate, so each can move the fact
+  // to review (never away from it).
+  const review = assessFactForReview(
+    { kind, value: candidate.value, key: candidate.key },
+    source.quote,
+    [turn.text, turn.translatedText],
+    { speaker: turn.speaker, originalText: turn.text },
+  );
   const reviewReasons =
     matchTier === "normalised" && review.needsReview
       ? ["citation matched only after normalisation (case/punctuation/Unicode-form drift), not verbatim", ...review.reviewReasons]

@@ -10,7 +10,13 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { verifyCandidateFact, assessFactForReview } from "../src/scribe/nodes.js";
+// A namespace import (not a named one) for the T-030 audit export, so a build without it fails only the
+// audit tests (undefined), not the whole file at ESM link time.
+import * as scribeNodes from "../src/scribe/nodes.js";
 import type { ScribeTurn } from "../src/scribe/schemas.js";
 
 function turn(overrides: Partial<ScribeTurn> & { turnId: string; text: string }): ScribeTurn {
@@ -254,14 +260,22 @@ test("assessFactForReview: a typed number auto-verifies with empty reasons; a re
   // of them" now carries the third-party pronoun "them" and correctly stays in review).
   // fix cycle 2 (ISS-t-013r-rev-6 allow-list): a score template is the positive; the cycle-1 fixture
   // ("I have finished 42 credits so far", no template) now stays in review as unrecognised-form.
-  const verified = assessFactForReview({ kind: "value", value: 42 }, "I scored 42 in the exam");
+  // T-030 (D-025): the key and the student provenance are part of the evidence; "in the exam" names no
+  // exam family, so the positive now names its class-12 board and its key.
+  const student = (text: string) => ({ speaker: "student" as const, originalText: text });
+  const quote = "I scored 42 in my class 12 boards";
+  const verified = assessFactForReview({ kind: "value", value: 42, key: "class12_percentage" }, quote, [quote], student(quote));
   assert.deepEqual(verified, { needsReview: false, reviewReasons: [] });
-  const credits = assessFactForReview({ kind: "value", value: 42 }, "I have finished 42 credits so far");
+  const credits = assessFactForReview({ kind: "value", value: 42, key: "class12_percentage" }, "I have finished 42 credits so far", [], student("I have finished 42 credits so far"));
   assert.equal(credits.needsReview, true);
   assert.ok(credits.reviewReasons.some((r) => r.startsWith("unrecognised-form:")));
-  assert.equal(assessFactForReview({ kind: "value", value: 42 }, "we discussed all 42 of them").needsReview, true);
+  assert.equal(assessFactForReview({ kind: "value", value: 42, key: "class12_percentage" }, "we discussed all 42 of them").needsReview, true);
+  // no provenance at all = an unknown speaker: never auto-verified
+  const noProvenance = assessFactForReview({ kind: "value", value: 42, key: "class12_percentage" }, quote, [quote]);
+  assert.equal(noProvenance.needsReview, true);
+  assert.deepEqual(noProvenance.reviewReasons.map((r) => r.split(":")[0]), ["speaker"]);
 
-  const reasoning = assessFactForReview({ kind: "reasoning", value: "Canada" }, "because Canada has good universities");
+  const reasoning = assessFactForReview({ kind: "reasoning", value: "Canada", key: "why_targetCountry" }, "because Canada has good universities");
   assert.equal(reasoning.needsReview, true);
 });
 
@@ -270,6 +284,19 @@ test("assessFactForReview: a typed number auto-verifies with empty reasons; a re
 // the quote is first-person AND the turn has no negation/contrast, no third-party marker and (numbers)
 // no unit multiplier or currency. Every other case is KEPT with a named reviewReason, never dropped.
 // ---------------------------------------------------------------------------
+
+/**
+ * T-030 (D-025): the key a template declares for this quote (country -> targetCountry; a budget ->
+ * budget_inr_per_year; IELTS -> ielts_overall; a class-12 board -> class12_percentage), so a positive is
+ * judged with the key its clause names and a negative is not rescued or condemned by the key alone.
+ */
+function declaredKeyFor(quote: string, value: unknown): string {
+  if (typeof value !== "number") return "targetCountry";
+  const q = quote.toLowerCase();
+  if (q.includes("budget") || q.includes("बजट")) return "budget_inr_per_year";
+  if (q.includes("ielts")) return "ielts_overall";
+  return "class12_percentage";
+}
 
 function verifyOne(text: string, quote: string, value: unknown, key = "targetCountry") {
   const turns = turnsById(turn({ turnId: "h1", text }));
@@ -287,11 +314,11 @@ test("fail-safe POSITIVES: first-person, un-negated, own, unscaled values still 
     ["Mujhe Canada jaana hai.", "Mujhe Canada jaana hai", "Canada"],
     ["Main Australia mein padhna chahta hu.", "Main Australia mein padhna chahta hu", "Australia"],
     ["मुझे Canada जाना है।", "मुझे Canada जाना है", "Canada"],
-    ["My score was 92 in boards.", "My score was 92 in boards", 92],
+    ["My score was 92 in class 12 boards.", "My score was 92 in class 12 boards", 92],
     ["I got 7.5 in IELTS.", "I got 7.5 in IELTS", 7.5],
   ];
   for (const [text, quote, value] of cases) {
-    const fact = verifyOne(text, quote, value, typeof value === "number" ? "score" : "targetCountry");
+    const fact = verifyOne(text, quote, value, declaredKeyFor(quote, value));
     assert.equal(fact?.needsReview, false, `should auto-verify: ${quote}`);
   }
 });
@@ -377,7 +404,7 @@ test("ISS-t-013r-rev-2: a number next to a unit multiplier or currency never aut
     ["My budget is 20 lakh.", "My budget is 20", 20], // cropped quote: the turn still carries "lakh"
   ];
   for (const [text, quote, value] of cases) {
-    const fact = verifyOne(text, quote, value, "budget");
+    const fact = verifyOne(text, quote, value, "budget_inr_per_year");
     assert.equal(fact?.needsReview, true, `scaled/currency amount must not auto-verify: ${text} -> ${value}`);
     assert.ok(reasonsStartWith(fact?.reviewReasons, "unit-multiplier:"), `named multiplier reason: ${text} -> ${value}`);
   }
@@ -392,13 +419,13 @@ test("ISS-t-013r-rev-2: a number glued into a larger numeric form never auto-ver
     ["I scored 20/40 marks", 20],
   ];
   for (const [quote, value] of cases) {
-    const fact = verifyOne(`${quote}.`, quote, value, "score");
+    const fact = verifyOne(`${quote}.`, quote, value, declaredKeyFor(quote, value));
     assert.equal(fact?.needsReview, true, `${value} must not auto-verify from "${quote}"`);
   }
 });
 
 test("fail-safe: every flagged fact is KEPT with its value and citation intact, all failing conditions named (D-020: nothing is dropped)", () => {
-  const fact = verifyOne("Meri behen UK nahi, Canada gayi, uska budget 20 lakh tha.", "uska budget 20 lakh tha", 20, "budget");
+  const fact = verifyOne("Meri behen UK nahi, Canada gayi, uska budget 20 lakh tha.", "uska budget 20 lakh tha", 20, "budget_inr_per_year");
   assert.equal(fact?.value, 20);
   assert.equal(fact?.source.quote, "uska budget 20 lakh tha");
   assert.equal(fact?.needsReview, true);
@@ -442,12 +469,12 @@ test("ISS-t-013r-rev-6 allow-list POSITIVES: every template auto-verifies its ow
     ["My IELTS score is 7.5.", "My IELTS score is 7.5", 7.5],
     ["Mera budget 1500000 hai.", "Mera budget 1500000 hai", 1500000],
     ["Maine IELTS mein 7.5 score kiya.", "Maine IELTS mein 7.5 score kiya", 7.5],
-    ["Mere boards mein 92 percent aaye.", "Mere boards mein 92 percent aaye", 92],
+    ["Mere class 12 boards mein 92 percent aaye.", "Mere class 12 boards mein 92 percent aaye", 92],
     ["मेरा बजट 1500000 है।", "मेरा बजट 1500000 है", 1500000],
     ["मैंने IELTS में 7.5 स्कोर किया।", "मैंने IELTS में 7.5 स्कोर किया", 7.5],
   ];
   for (const [text, quote, value] of cases) {
-    const fact = verifyIn(text, quote, value, typeof value === "number" ? "score" : "targetCountry");
+    const fact = verifyIn(text, quote, value, declaredKeyFor(quote, value));
     assert.equal(fact?.needsReview, false, `template should auto-verify: ${quote} -> ${String(value)}`);
     assert.equal(fact?.reviewReasons, undefined, `no reasons on a verified fact: ${quote}`);
   }
@@ -522,7 +549,7 @@ test("ISS-t-013r-rev-6 allow-list: a first-person, un-negated, own, unscaled val
     ["मुझे Canada अच्छा लगा।", "मुझे Canada अच्छा लगा", "Canada"],
   ];
   for (const [text, quote, value] of cases) {
-    const fact = verifyIn(text, quote, value, typeof value === "number" ? "score" : "targetCountry");
+    const fact = verifyIn(text, quote, value, declaredKeyFor(quote, value));
     assert.equal(fact?.needsReview, true, `unrecognised shape must not auto-verify: ${quote}`);
     assert.deepEqual(
       (fact?.reviewReasons ?? []).map((r) => r.split(":")[0]),
@@ -542,7 +569,7 @@ test("ISS-t-013r-c1-1: a first-person number in a date / year / ordinal context 
     ["I am in my 3rd year.", "I am in my 3rd year", 3],
   ];
   for (const [text, quote, value] of cases) {
-    const fact = verifyIn(text, quote, value, "score");
+    const fact = verifyIn(text, quote, value, declaredKeyFor(quote, value));
     assert.equal(fact?.needsReview, true, `${value} must not auto-verify from "${quote}"`);
     assert.ok(reasonsStartWith(fact?.reviewReasons, "unrecognised-form:"), `named reason: ${quote}`);
   }
@@ -572,7 +599,7 @@ test("ISS-t-013r-c2-1/rev-9 STRUCTURAL: a template clause in a MULTI-CLAUSE turn
     ["I want to go to Canada because the fees are low.", "I want to go to Canada", "Canada"],
   ];
   for (const [text, quote, value] of cases) {
-    const fact = verifyOne(text, quote, value, typeof value === "number" ? "score" : "targetCountry");
+    const fact = verifyOne(text, quote, value, declaredKeyFor(quote, value));
     assert.equal(fact?.needsReview, true, `multi-clause turn must not auto-verify: ${text}`);
     assert.ok(reasonPrefixes(fact).includes("multi-clause"), `named multi-clause reason: ${text}`);
   }
@@ -636,4 +663,249 @@ test("ISS-t-013r-rev-10: invisible format characters (ZWSP, WJ, BOM, soft hyphen
   const zwj = "\u200D";
   assert.equal(verifyOne(`मैं Canada जाना चाहता हूँ${zwj}`, `मैं Canada जाना चाहता हूँ${zwj}`, "Canada")?.needsReview, true,
     "ZWJ is kept, so the clause no longer equals the template (fail-safe), proving it is not stripped");
+});
+
+// ---------------------------------------------------------------------------
+// T-030 (ISS-t-013r-rev-14, the ai-engineer BLOCK on T-013 cycle 3): COUNTRY_TEMPLATES[0] had an OPEN
+// gap `(?: [\p{L}]+){0,4}?` between the verb and "in/to <country>", so a single-clause attribution with
+// an unlisted verb ("as landlord suggested", "as consultant recommended", "as advised") auto-verified.
+// The gap is now a CLOSED connector set; any other word there is `unrecognised-form` (kept, reviewed).
+// ---------------------------------------------------------------------------
+
+/** Every case is first-person, un-negated, own and unscaled, so ONLY the closed template decides. */
+function assertOnlyUnrecognisedForm(cases: ReadonlyArray<readonly [string, string, string]>, label: string) {
+  for (const [text, quote, value] of cases) {
+    const fact = verifyOne(text, quote, value);
+    assert.equal(fact?.needsReview, true, `${label}: must not auto-verify: ${text}`);
+    assert.deepEqual(reasonPrefixes(fact), ["unrecognised-form"], `${label}: the closed template alone keeps it in review: ${text}`);
+  }
+}
+
+test("ISS-t-013r-rev-14 (T-030): an attributed or unlisted filler between the verb and the destination never auto-verifies, English (reason: unrecognised-form ONLY)", () => {
+  assertOnlyUnrecognisedForm(
+    [
+      // the reviewer's five repros
+      ["I want to study as landlord suggested in the UK.", "I want to study as landlord suggested in the UK", "UK"],
+      ["I want to study as consultant recommended in Canada.", "I want to study as consultant recommended in Canada", "Canada"],
+      ["I want to study as agent advised in Australia.", "I want to study as agent advised in Australia", "Australia"],
+      ["I want to study as suggested in the UK.", "I want to study as suggested in the UK", "UK"],
+      ["I want to study as advised in the UK.", "I want to study as advised in the UK", "UK"],
+      // more unlisted attribution / hedge words, 1 to 4 of them (the old gap's whole range)
+      ["I want to study allegedly in the UK.", "I want to study allegedly in the UK", "UK"],
+      ["I want to move per agent to Canada.", "I want to move per agent to Canada", "Canada"],
+      ["I want to apply as recommended to Canada.", "I want to apply as recommended to Canada", "Canada"],
+      ["I want to study as per consultant in the UK.", "I want to study as per consultant in the UK", "UK"],
+      ["I want to study as my agent suggested in the UK.", "I want to study as my agent suggested in the UK", "UK"],
+      ["I want to go as planned to the UK.", "I want to go as planned to the UK", "UK"],
+      // Hinglish filler inside the English template (4 words: the old gap admitted it)
+      ["I want to study agent ke hisaab se in the UK.", "I want to study agent ke hisaab se in the UK", "UK"],
+      // a connector cannot carry a filler with it
+      ["I want to study abroad as suggested in the UK.", "I want to study abroad as suggested in the UK", "UK"],
+      ["I want to do my masters as advised in the UK.", "I want to do my masters as advised in the UK", "UK"],
+      // a legitimate but unlisted subject also stays in review (fail-safe; widening is ISS-t-013r-rev-11's product call)
+      ["I want to study data science in Germany.", "I want to study data science in Germany", "Germany"],
+    ],
+    "English",
+  );
+});
+
+test("ISS-t-013r-rev-14 (T-030): an attributed filler in a Hinglish or Devanagari template clause never auto-verifies (reason: unrecognised-form ONLY)", () => {
+  assertOnlyUnrecognisedForm(
+    [
+      ["Main agent ke suggestion par Canada jaana chahta hoon.", "Main agent ke suggestion par Canada jaana chahta hoon", "Canada"],
+      ["Main as suggested UK jaana chahta hoon.", "Main as suggested UK jaana chahta hoon", "UK"],
+      ["Mujhe consultant ki salah pe UK jaana hai.", "Mujhe consultant ki salah pe UK jaana hai", "UK"],
+      ["Meri consultant wali choice Canada hai.", "Meri consultant wali choice Canada hai", "Canada"],
+      ["मैं एजेंट की सलाह पर UK जाना चाहता हूँ।", "मैं एजेंट की सलाह पर UK जाना चाहता हूँ", "UK"],
+      ["मुझे सलाहकार के कहने पर Canada जाना है।", "मुझे सलाहकार के कहने पर Canada जाना है", "Canada"],
+      ["मेरी सलाहकार वाली पसंद UK है।", "मेरी सलाहकार वाली पसंद UK है", "UK"],
+    ],
+    "Hinglish/Devanagari",
+  );
+});
+
+test("T-030: the closed connector set still auto-verifies (computer science / abroad / further / further studies / [my|a|an] <degree>)", () => {
+  const cases: Array<[string, string, string]> = [
+    ["I want to study computer science in Canada.", "I want to study computer science in Canada", "Canada"],
+    ["I want to study abroad in Australia.", "I want to study abroad in Australia", "Australia"],
+    ["I want to go abroad to Canada.", "I want to go abroad to Canada", "Canada"],
+    ["I want to study further in Ireland.", "I want to study further in Ireland", "Ireland"],
+    ["I want to pursue further studies in Germany.", "I want to pursue further studies in Germany", "Germany"],
+    ["I want to pursue higher studies in Germany.", "I want to pursue higher studies in Germany", "Germany"],
+    ["I want to do my masters in the UK.", "I want to do my masters in the UK", "UK"],
+    ["I want to do my master's in the UK.", "I want to do my master's in the UK", "UK"],
+    ["I want to do an MBA in Canada.", "I want to do an MBA in Canada", "Canada"],
+    ["I want to do masters in Australia.", "I want to do masters in Australia", "Australia"],
+    ["I am planning to study abroad in New Zealand for my masters.", "I am planning to study abroad in New Zealand for my masters", "New Zealand"],
+  ];
+  for (const [text, quote, value] of cases) {
+    const fact = verifyOne(text, quote, value);
+    assert.equal(fact?.needsReview, false, `connector should auto-verify: ${quote}`);
+    assert.equal(fact?.reviewReasons, undefined, `no reasons on a verified fact: ${quote}`);
+  }
+});
+
+test("T-030 no widening: the connector's whole (finite) language was already admitted by the old open gap (1-4 letter-only words), and every phrase of it verifies", () => {
+  const sources = scribeNodes.AUTO_VERIFY_TEMPLATE_SOURCES;
+  assert.ok(sources, "AUTO_VERIFY_TEMPLATE_SOURCES is exported");
+  const { countryConnectorPhrases, degree, country } = sources;
+  const inner = /^\(\?:(.*)\)$/u.exec(degree)?.[1];
+  assert.ok(inner !== undefined && !/[()[\]\\?*+{}.]/u.test(inner), "DEGREE is one flat alternation of literal phrases");
+  const degreeWords = inner.split("|");
+  // Pin the template to exactly this language: the connector slot is these phrases or [my|a|an] + DEGREE, nothing else.
+  assert.ok(
+    country[0]!.source.includes(`(?: (?:${countryConnectorPhrases.join("|")}|(?:(?:my|a|an) )?${degree}))? (?:in|to) `),
+    "COUNTRY_TEMPLATES[0]'s connector slot is exactly the enumerated closed set",
+  );
+  const language = [...countryConnectorPhrases, ...["", "my ", "a ", "an "].flatMap((det) => degreeWords.map((d) => `${det}${d}`))];
+  const OLD_GAP = /^\p{L}+(?: \p{L}+){0,3}$/u; // what the old `(?: [\p{L}]+){0,4}?` admitted there
+  for (const phrase of language) {
+    assert.match(phrase, OLD_GAP, `"${phrase}" is 1-4 letter-only words, so the old gap admitted it too (no widening)`);
+    const clause = `I want to study ${phrase} in Canada`;
+    assert.deepEqual(
+      assessFactForReview({ kind: "value", value: "Canada", key: "targetCountry" }, clause, [clause], { speaker: "student", originalText: clause }),
+      { needsReview: false, reviewReasons: [] },
+      clause,
+    );
+  }
+  assert.ok(countryConnectorPhrases.length <= 8, "the connector set stays small");
+});
+
+test("T-030 audit: none of the 9 country + 34 number templates has an open wildcard or an unbounded repetition (the number value slot is pinned by exact equality); each declares its keys", () => {
+  const sources = scribeNodes.AUTO_VERIFY_TEMPLATE_SOURCES;
+  assert.ok(sources, "AUTO_VERIFY_TEMPLATE_SOURCES is exported");
+  const { numberSlot } = sources;
+  const country = sources.country.map((t) => t.source);
+  const number = sources.number.map((t) => t.source);
+  assert.equal(country.length, 9);
+  assert.equal(number.length, 7 + 3 * 9, "7 budget templates + 9 score shapes x 3 exam families");
+  assert.ok(
+    Object.isFrozen(sources) && Object.isFrozen(sources.country) && Object.isFrozen(sources.number) &&
+      [...sources.country, ...sources.number].every((t) => Object.isFrozen(t) && Object.isFrozen(t.keys)),
+    "the template lists and their key sets cannot be widened at runtime",
+  );
+  // D-025: every template declares a non-empty key set; country templates declare exactly targetCountry.
+  for (const t of sources.country) assert.deepEqual([...t.keys], ["targetCountry"]);
+  const numberKeys = new Set(sources.number.flatMap((t) => [...t.keys]));
+  assert.deepEqual([...numberKeys].sort(), ["budget_inr_per_year", "budget_inr_total", "class10_percentage", "class12_percentage", "ielts_overall"]);
+  for (const t of sources.number) assert.equal(t.keys.length, 1, "each number template declares exactly one key");
+  const OPEN: Array<[RegExp, string]> = [
+    [/\\[pP]\{(?!Nd\})/u, "a Unicode property class other than \\p{Nd} (letters, marks ...)"],
+    [/\\[wWsSdD]/u, "a \\w / \\s / \\S / \\d class"],
+    [/\[\^/u, "a negated character class"],
+    [/(?<!\\)\./u, "an unescaped '.'"],
+    [/(?<!\\)[*+]/u, "an unbounded * or +"],
+    [/\{\d+,\}/u, "an unbounded {n,}"],
+  ];
+  const all: Array<[string, string]> = [
+    ...country.map((t, i): [string, string] => [`country[${i}]`, t]),
+    ...number.map((t, i): [string, string] => [`number[${i}]`, t]),
+  ];
+  for (const [id, source] of all) {
+    const withoutSlot = source.split(numberSlot).join("<N>");
+    for (const [re, what] of OPEN) assert.doesNotMatch(withoutSlot, re, `${id} contains ${what}: ${source}`);
+  }
+  // The one unbounded run left is the number value slot: digits and [.,] only, never a letter, and
+  // clauseMatchesTemplate requires its capture to equal String(value) exactly.
+  assert.equal(numberSlot, "(?<n>\\p{Nd}+(?:[.,]\\p{Nd}+)*)");
+  for (const t of number) assert.ok(t.includes(numberSlot), "every number template's value sits in the pinned slot");
+  for (const t of country) assert.ok(!t.includes(numberSlot), "no country template has a number slot");
+});
+
+test("T-030 audit: the 'my <modifiers> choice is <country>' template takes at most two modifiers (was an unbounded run)", () => {
+  assert.equal(verifyOne("My first preferred choice is the UK.", "My first preferred choice is the UK", "UK")?.needsReview, false);
+  assert.equal(verifyOne("My top dream destination is Canada.", "My top dream destination is Canada", "Canada")?.needsReview, false);
+  const three = verifyOne("My first top preferred choice is the UK.", "My first top preferred choice is the UK", "UK");
+  assert.equal(three?.needsReview, true, "three modifiers is outside the bounded template");
+  assert.deepEqual(reasonPrefixes(three), ["unrecognised-form"]);
+});
+
+const DATASET_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "qa", "evals", "scribe", "sessions.jsonl");
+const ORIGINAL_TEMPLATE_POSITIVE_IDS = [
+  "p01-template-en-study-in",
+  "p02-template-en-id-like",
+  "p03-template-en-first-choice",
+  "p04-template-hinglish-chahti",
+  "p05-template-hinglish-mujhe",
+  "p06-template-devanagari-country",
+  "p07-template-en-budget",
+  "p08-template-en-scored",
+  "p09-template-en-got-ielts",
+  "p10-template-hinglish-budget",
+  "p11-template-hinglish-score",
+  "p12-template-devanagari-budget",
+];
+
+interface GoldRow {
+  id: string;
+  input: { turns: ScribeTurn[] };
+  goldFacts: Array<{ key: string; value: unknown; turnId: string; quote: string }>;
+}
+
+test("T-030: the 12 original template-positive eval rows (p01..p12) still auto-verify, verbatim and case-drifted", () => {
+  const rows = readFileSync(DATASET_PATH, "utf-8")
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line) as GoldRow);
+  const positives = ORIGINAL_TEMPLATE_POSITIVE_IDS.map((id) => rows.find((r) => r.id === id));
+  assert.equal(positives.filter((r) => r !== undefined).length, 12, "all 12 original template-positive rows are present");
+  for (const row of positives) {
+    const turns = turnsById(...row!.input.turns);
+    for (const gf of row!.goldFacts) {
+      for (const quote of [gf.quote, gf.quote.toUpperCase()]) {
+        const raw = candidate({ key: gf.key, value: gf.value, source: { type: "transcript", quote, turnId: gf.turnId } });
+        const result = verifyCandidateFact(raw, turns, SESSION_ENDED);
+        assert.ok("fact" in result, `${row!.id}: kept`);
+        if ("fact" in result) assert.equal(result.fact.needsReview, false, `${row!.id}: must still auto-verify (${quote})`);
+      }
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// T-030 (D-025): key binding narrows the score surface. A score clause must name an exam family whose
+// key it declares; a board with no class, an exam with no family, or a unit that does not fit the key is
+// kept for review (unrecognised-form). These verified under any key before T-030.
+// ---------------------------------------------------------------------------
+
+test("T-030 (D-025): a score whose exam names no family, or whose unit does not fit the key, needs review (reason: unrecognised-form ONLY)", () => {
+  const cases: Array<[string, number, string]> = [
+    ["My score was 92 in boards", 92, "class12_percentage"], // which board? class 10 or 12 is not said
+    ["Mere boards mein 92 percent aaye", 92, "class12_percentage"],
+    ["I got 110 in TOEFL", 110, "toefl_total"],
+    ["I scored 42 in the exam", 42, "class12_percentage"],
+    ["I scored 450 marks in my class 12 boards", 450, "class12_percentage"], // marks are not a percentage
+    ["My score is 92", 92, "class12_percentage"], // no exam named at all
+  ];
+  for (const [quote, value, key] of cases) {
+    const fact = verifyOne(`${quote}.`, quote, value, key);
+    assert.equal(fact?.needsReview, true, `must not auto-verify: ${quote}`);
+    assert.deepEqual(reasonPrefixes(fact), ["unrecognised-form"], quote);
+  }
+  // the same statements with the class named (and its key) still verify
+  assert.equal(verifyOne("My score was 92 in class 12 boards.", "My score was 92 in class 12 boards", 92, "class12_percentage")?.needsReview, false);
+  assert.equal(verifyOne("Mere class 12 boards mein 92 percent aaye.", "Mere class 12 boards mein 92 percent aaye", 92, "class12_percentage")?.needsReview, false);
+});
+
+test("T-030 (D-025): the key is bound to the clause: a budget's period and a score's exam pick the one key that verifies", () => {
+  const cases: Array<[string, number, string, boolean]> = [
+    ["My budget is 1500000", 1500000, "budget_inr_per_year", false],
+    ["My budget is 1500000", 1500000, "budget_inr_total", true],
+    ["My budget is 2500000 per year", 2500000, "budget_inr_per_year", false],
+    ["My budget is 2500000 per year", 2500000, "budget_inr_total", true],
+    ["My total budget is 4000000", 4000000, "budget_inr_total", false],
+    ["My total budget is 4000000", 4000000, "budget_inr_per_year", true],
+    ["My budget is 4000000 in total", 4000000, "budget_inr_total", false],
+    ["My total budget is 4000000 per year", 4000000, "budget_inr_total", true], // mixed period: neither template
+    ["My total budget is 4000000 per year", 4000000, "budget_inr_per_year", true],
+    ["I got 7.5 in IELTS", 7.5, "ielts_overall", false],
+    ["I got 7.5 in IELTS", 7.5, "class12_percentage", true],
+    ["I scored 92 in my class 12 boards", 92, "class12_percentage", false],
+    ["I scored 92 in my class 12 boards", 92, "class10_percentage", true],
+    ["I scored 88 in my class 10 boards", 88, "class10_percentage", false],
+  ];
+  for (const [quote, value, key, review] of cases) {
+    const fact = verifyOne(`${quote}.`, quote, value, key);
+    assert.equal(fact?.needsReview, review, `${quote} -> ${key}`);
+  }
 });

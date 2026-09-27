@@ -109,3 +109,88 @@ test("ISS-t-013r-c2-1: cycle-3 hostile classes (reported-speech, retraction, zer
   const positives = sessions.filter((s) => s.strata.includes("d020-template-positive"));
   assert.ok(report.aggregate.extraction.reviewCounts.verified >= positives.length && positives.length > 0);
 });
+// T-030 (ISS-t-013r-rev-14): "I want to study as <unlisted filler> in <country>" rows (English, a
+// Hinglish filler inside the English template, Hinglish and Devanagari template clauses, and a connector
+// or degree carrying a filler). None may auto-verify, in perfect OR case-drift mode; every
+// template-positive row (the 12 originals plus the closed-connector positives) still does.
+test("ISS-t-013r-rev-14 (T-030): attributed-gap hostile rows stay in review (perfect + case-drift); fabricatedVerified 0; every template positive verifies", async () => {
+  const sessions = loadDataset(DATASET_PATH);
+  const hostile = sessions.filter((s) => s.goldFacts.some((f) => f.mustReview && f.hostile === "attributed-gap"));
+  assert.ok(hostile.length >= 10, `expected >= 10 attributed-gap sessions, got ${hostile.length}`);
+  const strata = new Set(hostile.flatMap((s) => s.strata));
+  for (const st of ["pure-english", "romanised-hinglish", "devanagari"]) assert.ok(strata.has(st), `attributed-gap rows cover ${st}`);
+  const positives = sessions.filter((s) => s.strata.includes("d020-template-positive"));
+  assert.ok(positives.length >= 12, `expected >= 12 template-positive sessions, got ${positives.length}`);
+
+  for (const mode of ["perfect", "case-drift"] as const) {
+    const report = await scoreDataset([...hostile, ...positives], mode, { datasetPath: DATASET_PATH });
+    assert.equal(report.aggregate.extraction.reviewCounts.fabricatedVerified, 0, `${mode}: fabricatedVerified`);
+    for (const session of hostile) {
+      const s = report.sessions.find((x) => x.sessionId === session.id);
+      assert.equal(s?.extraction?.reviewCounts.kept, session.goldFacts.length, `${mode} ${session.id}: kept, never dropped`);
+      assert.equal(s?.extraction?.reviewCounts.verified, 0, `${mode} ${session.id}: must not auto-verify`);
+    }
+    for (const session of positives) {
+      const s = report.sessions.find((x) => x.sessionId === session.id);
+      assert.equal(s?.extraction?.reviewCounts.verified, session.goldFacts.length, `${mode} ${session.id}: its template fact must auto-verify`);
+    }
+  }
+});
+// T-030 (D-025): genuine quotes on the three structural dimensions the gate did not read before: a key
+// no matching template declares (nationality from a study clause, an IELTS key from a class-12 clause,
+// a USD or total budget from a bare or per-year clause), a counsellor-spoken turn, and a template clause
+// found only in the machine translation. None may auto-verify, in perfect OR case-drift mode; the
+// template positives (including the new total-budget and class-10 rows) still do.
+test("D-025 (T-030): key-not-declared, counsellor-speaker and translation-only rows stay in review (perfect + case-drift); fabricatedVerified 0; positives verify", async () => {
+  const sessions = loadDataset(DATASET_PATH);
+  const classes = ["key-not-declared", "counsellor-speaker", "translation-only"];
+  const hostile = sessions.filter((s) => s.goldFacts.some((f) => f.mustReview && classes.includes(f.hostile ?? "")));
+  for (const c of classes) {
+    assert.ok(hostile.filter((s) => s.goldFacts.some((f) => f.hostile === c)).length >= 3, `>= 3 rows of class ${c}`);
+  }
+  const positives = sessions.filter((s) => s.strata.includes("d020-template-positive"));
+  assert.ok(positives.some((s) => s.id === "p18-template-en-budget-total") && positives.some((s) => s.id === "p19-template-en-class10"));
+
+  for (const mode of ["perfect", "case-drift"] as const) {
+    const report = await scoreDataset([...hostile, ...positives], mode, { datasetPath: DATASET_PATH });
+    assert.equal(report.aggregate.extraction.reviewCounts.fabricatedVerified, 0, `${mode}: fabricatedVerified`);
+    for (const session of hostile) {
+      const s = report.sessions.find((x) => x.sessionId === session.id);
+      assert.equal(s?.extraction?.reviewCounts.kept, session.goldFacts.length, `${mode} ${session.id}: kept, never dropped`);
+      assert.equal(s?.extraction?.reviewCounts.verified, 0, `${mode} ${session.id}: must not auto-verify`);
+    }
+    for (const session of positives) {
+      const s = report.sessions.find((x) => x.sessionId === session.id);
+      assert.equal(s?.extraction?.reviewCounts.verified, session.goldFacts.length, `${mode} ${session.id}: its template fact must auto-verify`);
+    }
+  }
+});
+// T-030 (ISS-t-013-c2-rev-4): number RANGES ("15-20 lakh", "1500000 to 2000000", "15 se 20 lakh") and
+// COMPOUND numbers ("1.5 crore", "20 lakh plus 5 lakh", "2000000 plus 500000"), plus marks that are not a
+// percentage. Each quote is genuine and single-clause, and each proposes one end or the sum as the value;
+// none may auto-verify. The percentage and IELTS positives (p20, p21) still do.
+test("ISS-t-013-c2-rev-4 (T-030): numeric-range, numeric-compound and marks rows stay in review (perfect + case-drift); fabricatedVerified 0; p20/p21 verify", async () => {
+  const sessions = loadDataset(DATASET_PATH);
+  const classes = ["numeric-range", "numeric-compound", "marks-not-percentage"];
+  const hostile = sessions.filter((s) => s.goldFacts.some((f) => f.mustReview && classes.includes(f.hostile ?? "")));
+  assert.ok(hostile.filter((s) => s.goldFacts.some((f) => f.hostile === "numeric-range")).length >= 5, ">= 5 range rows");
+  assert.ok(hostile.filter((s) => s.goldFacts.some((f) => f.hostile === "numeric-compound")).length >= 4, ">= 4 compound rows");
+  const strata = new Set(hostile.flatMap((s) => s.strata));
+  for (const st of ["pure-english", "romanised-hinglish", "devanagari"]) assert.ok(strata.has(st), `range/compound rows cover ${st}`);
+  const positives = sessions.filter((s) => s.id === "p20-template-en-class12-percent" || s.id === "p21-template-en-ielts-score");
+  assert.equal(positives.length, 2);
+
+  for (const mode of ["perfect", "case-drift"] as const) {
+    const report = await scoreDataset([...hostile, ...positives], mode, { datasetPath: DATASET_PATH });
+    assert.equal(report.aggregate.extraction.reviewCounts.fabricatedVerified, 0, `${mode}: fabricatedVerified`);
+    for (const session of hostile) {
+      const s = report.sessions.find((x) => x.sessionId === session.id);
+      assert.equal(s?.extraction?.reviewCounts.kept, session.goldFacts.length, `${mode} ${session.id}: kept, never dropped`);
+      assert.equal(s?.extraction?.reviewCounts.verified, 0, `${mode} ${session.id}: must not auto-verify`);
+    }
+    for (const session of positives) {
+      const s = report.sessions.find((x) => x.sessionId === session.id);
+      assert.equal(s?.extraction?.reviewCounts.verified, session.goldFacts.length, `${mode} ${session.id}: its template fact must auto-verify`);
+    }
+  }
+});
