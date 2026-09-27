@@ -2,29 +2,47 @@
  * DPDP erasure and export (contract B15, T-011; design answer in qa/gates/dpdp-erase-design.md:
  * "hard delete with confirmation and verification").
  *
- * Flow: requestErasure (pending) -> confirmErasure by a DIFFERENT actor (confirmed) ->
- * executeErasure: hard-delete every document for the student in every engine collection, read
- * every collection back with the same selectors, and store a counts-only receipt. An
- * unconfirmed request deletes nothing.
+ * Flow (T-029, B15 approver workflow, gate erasure-fencing answered 2026-09-26):
+ *   requestErasure (pending)
+ *   -> confirmErasure: the FIRST confirmation (confirmed). Sets the write fence and returns a fresh,
+ *      single-use confirm token (only its sha256 is stored; it expires after
+ *      ERASURE_CONFIRM_TOKEN_TTL_MS);
+ *   -> reconfirmErasure: the SECOND confirmation, by the same actor, presenting that token. Writes
+ *      the HMAC audit pseudonym and then either
+ *        - (autoDelete false, the default) writes an approval request to the email OUTBOX
+ *          (`email_outbox`, a record only: nothing is sent, no SMTP, no network) addressed to the
+ *          configured approver, and waits (awaiting_approval, expires after ERASURE_APPROVAL_TTL_MS), or
+ *        - (autoDelete true, an operator's explicit opt-in) skips the approver (approved);
+ *   -> approveErasure by the approver (approved) / rejectErasure (rejected: purges nothing);
+ *   -> executeErasure: hard-delete every document for the student in every engine collection, read
+ *      every collection back with the same selectors, and store a counts-only receipt.
+ * No single call purges: executeErasure refuses anything that is not double-confirmed AND approved
+ * (by the approver, or by autoDelete). A rejected or expired request purges nothing, and its fence
+ * is dropped at once (nothing was deleted, so no write needs fencing).
  *
  * ## The audit row (`erasure_requests`) and why it holds no personal data after completion
  * The row is the audit log, so it must survive the erasure. It holds:
  *   - `_id`: an opaque request id (ObjectId hex), not derived from the student;
- *   - `studentHash` + `hashSalt`: sha256 over a domain tag, a random per-request salt and the
- *     studentId. Someone who already knows a studentId can prove a completed row was for that
- *     student (`erasureRequestMatchesStudent`), but the row alone does not reveal it, and two
- *     requests for one student can not be linked to each other without the id. Residual risk:
- *     studentIds are internal, not secret, so an attacker holding a list of candidate ids can
- *     test each against a row (a dictionary check). A keyed hash (HMAC with a secret from .env)
- *     would close that and is a follow-up option, not a requirement of B15;
- *   - `requestedBy` / `confirmedBy`: staff actor ids (the student is never the actor id; a
- *     student's own request is logged by the staff member who took it, reason "student_request");
+ *   - `studentHash` + `hashSalt` (T-029, gate erasure-fencing Q2): HMAC-SHA256 keyed by
+ *     VC_AUDIT_HMAC_KEY (.env; the name only in .env.example) over a domain tag, a random
+ *     per-request salt and the studentId. Written at the second confirmation (or when a request
+ *     that never got that far is closed), so every row that can ever lose its clear studentId
+ *     carries it. Someone holding the key AND a studentId can prove a closed row was for that
+ *     student (`erasureRequestMatchesStudent`); without the key a list of candidate ids proves
+ *     nothing (the salted-sha256 dictionary check of T-011 no longer works), and the per-request
+ *     salt keeps two requests for one student unlinkable. A missing or short key is an
+ *     ErasureConfigError; there is no fallback to an unkeyed hash;
+ *   - `requestedBy` / `confirmedBy` / `secondConfirmedBy` / `approvedBy` / `rejectedBy`: staff
+ *     actor ids (the student is never the actor id; a student's own request is logged by the
+ *     staff member who took it, reason "student_request"). The two confirmations may come from the
+ *     requester (B15: "the requester confirms twice"); the approver must be someone else;
  *   - `reason`: a closed code (ErasureReasonSchema), never free text;
  *   - timestamps, `status`, `attempts`, and the last `receipt` (counts only).
- *   - `studentId` in clear, ONLY while the request is open (pending / confirmed / failed): the
- *     purge needs it, and the student's data still exists at that point anyway. It is `$unset`
- *     in the same update that marks the request completed, together with `studentKey` (the
- *     fence key, which makes at most one request per student open: D-016, ISS-t-011-c2-rev-4).
+ *   - `studentId` in clear, ONLY while the request is open (pending / confirmed /
+ *     awaiting_approval / approved / failed): the purge needs it, and the student's data still
+ *     exists at that point anyway. It is `$unset` in the same update that marks the request
+ *     completed, rejected or expired, together with `studentKey` (the fence key, which makes at
+ *     most one request per student open: D-016, ISS-t-011-c2-rev-4) and the confirm-token hash.
  *
  * ## Ordering, partial failure and idempotent retry
  * Edges and scribe checkpoints carry no studentId: they are found through the student's fact
@@ -77,7 +95,7 @@
  * dropDatabase or drops a collection.
  */
 import { ObjectId, type Db, type Document, type Filter } from "mongodb";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import {
   ErasureCarriedSelectorsSchema,
   ErasureReasonSchema,
@@ -109,9 +127,15 @@ import { TENANT_FIELD, TENANT_ID_PATTERN, stripDocument, tenantIdOf, tenantScope
 
 export interface ErasureRequestDoc {
   _id: string;
-  studentHash: string;
+  /**
+   * T-029: HMAC-SHA256(VC_AUDIT_HMAC_KEY, "vc-erasure-v2|" + hashSalt + "|" + studentId), hex. Absent
+   * while the request is pending / first-confirmed (the clear studentId is still on the row then, and
+   * request + first confirm need no key); written at the second confirmation, or when a request is
+   * closed rejected / expired, i.e. always before the clear studentId is unset.
+   */
+  studentHash?: string;
   hashSalt: string;
-  hashScheme: typeof HASH_SCHEME;
+  hashScheme?: typeof HASH_SCHEME;
   /** Present only while the request is open; unset on completion. */
   studentId?: string;
   /**
@@ -124,8 +148,28 @@ export interface ErasureRequestDoc {
   reason: ErasureReason;
   requestedAt: string;
   status: ErasureStatus;
+  /** First confirmation (T-029 step 1). */
   confirmedBy?: string;
   confirmedAt?: string;
+  /**
+   * T-029: sha256 of the single-use confirm token handed out by the first confirmation (the token
+   * itself is never stored), and when it stops working. Unset by the second confirmation.
+   */
+  confirmTokenHash?: string;
+  confirmTokenExpiresAt?: string;
+  /** Second confirmation (T-029 step 2); same actor as confirmedBy, with the token. */
+  secondConfirmedBy?: string;
+  secondConfirmedAt?: string;
+  /** T-029: the approval request (email_outbox `_id`), and when it expires unanswered. */
+  approvalRequestedAt?: string;
+  approvalExpiresAt?: string;
+  outboxId?: string;
+  /** T-029: the approver's decision, or "system:auto-delete" when autoDelete skipped the approver. */
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedAt?: string;
+  expiredAt?: string;
   attempts: number;
   lastAttemptAt?: string;
   completedAt?: string;
@@ -139,15 +183,153 @@ export interface ErasureRequestDoc {
   carriedSelectors?: CarriedSelectors;
 }
 
-const HASH_SCHEME = "sha256(vc-erasure-v1|salt|studentId)" as const;
+const HASH_SCHEME = "hmac-sha256(VC_AUDIT_HMAC_KEY, vc-erasure-v2|salt|studentId)" as const;
 
-function hashStudentId(studentId: string, salt: string): string {
-  return createHash("sha256").update(`vc-erasure-v1|${salt}|${studentId}`).digest("hex");
+/** T-029: the minimum VC_AUDIT_HMAC_KEY length (characters). A shorter key is a config error. */
+export const MIN_AUDIT_HMAC_KEY_LENGTH = 32;
+
+/**
+ * T-029 (gate erasure-fencing Q2): the keyed audit pseudonym. There is deliberately no unkeyed
+ * variant: a missing or short key throws ErasureConfigError instead of falling back to sha256.
+ */
+export function auditPseudonym(auditHmacKey: string, salt: string, studentId: string): string {
+  assertAuditKey(auditHmacKey);
+  return createHmac("sha256", auditHmacKey).update(`vc-erasure-v2|${salt}|${studentId}`).digest("hex");
 }
 
-/** True if `row` is a request for `studentId` (recomputes the salted hash; the row holds no clear id once done). */
-export function erasureRequestMatchesStudent(row: Pick<ErasureRequestDoc, "studentHash" | "hashSalt">, studentId: string): boolean {
-  return hashStudentId(studentId, row.hashSalt) === row.studentHash;
+function assertAuditKey(key: unknown): asserts key is string {
+  if (typeof key !== "string" || key.length < MIN_AUDIT_HMAC_KEY_LENGTH) {
+    throw new ErasureConfigError(
+      `VC_AUDIT_HMAC_KEY is missing or shorter than ${MIN_AUDIT_HMAC_KEY_LENGTH} characters; the erasure audit pseudonym is an HMAC and has no unkeyed fallback (T-029)`,
+    );
+  }
+}
+
+/**
+ * True if `row` is a request for `studentId`: recomputes the HMAC pseudonym with the audit key (the
+ * row holds no clear id once closed). Without the right key this can not be answered.
+ */
+export function erasureRequestMatchesStudent(
+  row: Pick<ErasureRequestDoc, "studentHash" | "hashSalt">,
+  studentId: string,
+  auditHmacKey: string,
+): boolean {
+  if (typeof row.studentHash !== "string") return false;
+  const candidate = Buffer.from(auditPseudonym(auditHmacKey, row.hashSalt, studentId), "hex");
+  const stored = Buffer.from(row.studentHash, "hex");
+  return candidate.length === stored.length && timingSafeEqual(candidate, stored);
+}
+
+// ---------------------------------------------------------------------------
+// Workflow configuration (T-029)
+// ---------------------------------------------------------------------------
+
+/**
+ * T-029: the approver workflow's configuration, read from the environment by erasureConfigFromEnv.
+ *   - auditHmacKey  (VC_AUDIT_HMAC_KEY): keys the audit pseudonym; required, >= 32 characters;
+ *   - autoDelete    (VC_ERASURE_AUTO_DELETE, default false): true skips the approver after the
+ *                   double confirmation (an operator's explicit opt-in);
+ *   - approverEmail (VC_ERASURE_APPROVER_EMAIL): where the outbox approval request is addressed;
+ *                   required unless autoDelete is true.
+ */
+export interface ErasureWorkflowConfig {
+  auditHmacKey: string;
+  autoDelete: boolean;
+  approverEmail?: string;
+}
+
+export const ERASURE_CONFIG_ENV = {
+  auditHmacKey: "VC_AUDIT_HMAC_KEY",
+  approverEmail: "VC_ERASURE_APPROVER_EMAIL",
+  autoDelete: "VC_ERASURE_AUTO_DELETE",
+} as const;
+
+/** T-029: the erasure workflow is misconfigured. Nothing was written. */
+export class ErasureConfigError extends Error {
+  constructor(message: string) {
+    super(`ErasureConfigError: ${message}`);
+    this.name = "ErasureConfigError";
+  }
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Validates a config object (also used on configs built in code). Throws ErasureConfigError. */
+export function validateErasureConfig(config: ErasureWorkflowConfig): ErasureWorkflowConfig {
+  if (config === null || typeof config !== "object") throw new ErasureConfigError("no erasure workflow config");
+  assertAuditKey(config.auditHmacKey);
+  if (typeof config.autoDelete !== "boolean") throw new ErasureConfigError("autoDelete must be a boolean");
+  if (!config.autoDelete) {
+    if (typeof config.approverEmail !== "string" || !EMAIL_PATTERN.test(config.approverEmail)) {
+      throw new ErasureConfigError(
+        `${ERASURE_CONFIG_ENV.approverEmail} is missing or not an email address; it is required while autoDelete is false (T-029)`,
+      );
+    }
+  }
+  return config;
+}
+
+/** Reads the workflow config from an env map (names only in .env.example). Throws ErasureConfigError. */
+export function erasureConfigFromEnv(env: Record<string, string | undefined>): ErasureWorkflowConfig {
+  const rawAuto = (env[ERASURE_CONFIG_ENV.autoDelete] ?? "").trim().toLowerCase();
+  if (rawAuto !== "" && rawAuto !== "true" && rawAuto !== "false") {
+    throw new ErasureConfigError(`${ERASURE_CONFIG_ENV.autoDelete} must be "true" or "false" (default false)`);
+  }
+  const approverEmail = (env[ERASURE_CONFIG_ENV.approverEmail] ?? "").trim();
+  return validateErasureConfig({
+    auditHmacKey: env[ERASURE_CONFIG_ENV.auditHmacKey] ?? "",
+    autoDelete: rawAuto === "true",
+    ...(approverEmail ? { approverEmail } : {}),
+  });
+}
+
+/** T-029: the single-use confirm token's lifetime (first confirmation -> second). */
+export const ERASURE_CONFIRM_TOKEN_TTL_MS = 15 * 60 * 1000;
+
+/** T-029: how long an approval request waits for the approver before it expires (purging nothing). */
+export const ERASURE_APPROVAL_TTL_MS = 7 * 24 * 3600 * 1000;
+
+/** The actor recorded as approver when autoDelete skipped the approval step. */
+export const AUTO_DELETE_APPROVER = "system:auto-delete";
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(`vc-erasure-confirm-token-v1|${token}`).digest("hex");
+}
+
+function tokenMatches(token: unknown, storedHash: string | undefined): boolean {
+  if (typeof token !== "string" || token.length === 0 || typeof storedHash !== "string") return false;
+  const a = Buffer.from(hashToken(token), "hex");
+  const b = Buffer.from(storedHash, "hex");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+// ---------------------------------------------------------------------------
+// Email outbox (T-029): a record only; nothing in this repo sends it
+// ---------------------------------------------------------------------------
+
+export interface EmailOutboxDoc {
+  _id: string;
+  kind: "erasure_approval_request";
+  to: string;
+  subject: string;
+  body: string;
+  /** The erasure request the approver is asked to approve or reject (opaque id, no student data). */
+  requestId: string;
+  reason: ErasureReason;
+  requestedBy: string;
+  confirmedBy: string;
+  createdAt: string;
+  expiresAt: string;
+  /** "queued": waiting for an out-of-band sender (none exists yet); nothing here ever sends it. */
+  status: "queued";
+}
+
+export function erasureOutboxId(requestId: string): string {
+  return `erasure-approval:${requestId}`;
+}
+
+function emailOutbox(db: Db) {
+  return db.collection<EmailOutboxDoc>(COLLECTION_NAMES.email_outbox);
 }
 
 function erasureRequests(db: Db) {
@@ -173,10 +355,41 @@ export class ErasureNotConfirmedError extends Error {
   }
 }
 
-export class ErasureSelfConfirmError extends Error {
+/**
+ * T-029: the approver must be a different actor from the requester and both confirmers (B15:
+ * the counsellor confirms twice, a separate approver decides).
+ */
+export class ErasureSelfApproveError extends Error {
   constructor() {
-    super("ErasureSelfConfirmError: the confirmer must be a different actor from the requester (B15)");
-    this.name = "ErasureSelfConfirmError";
+    super("ErasureSelfApproveError: the approver must be a different actor from the requester and the confirmer (B15)");
+    this.name = "ErasureSelfApproveError";
+  }
+}
+
+/** T-029: the second confirmation's token is wrong, already used, or presented by another actor. */
+export class ErasureConfirmTokenError extends Error {
+  constructor() {
+    super("ErasureConfirmTokenError: the second confirmation needs the first confirmer and their valid, unused confirm token (T-029)");
+    this.name = "ErasureConfirmTokenError";
+  }
+}
+
+/** T-029: double-confirmed, but the approver has not approved yet; nothing was deleted. */
+export class ErasureNotApprovedError extends Error {
+  constructor() {
+    super("ErasureNotApprovedError: the erasure request is waiting for the approver; nothing was deleted (B15)");
+    this.name = "ErasureNotApprovedError";
+  }
+}
+
+/** T-029: the confirm token or the approval request expired; the request is closed and purged nothing. */
+export class ErasureExpiredError extends Error {
+  constructor(what: "confirm_token" | "approval") {
+    super(
+      `ErasureExpiredError: the ${what === "confirm_token" ? "confirm token" : "approval request"} expired; ` +
+        `the request is closed (expired) and nothing was deleted. Open a new request.`,
+    );
+    this.name = "ErasureExpiredError";
   }
 }
 
@@ -188,7 +401,7 @@ export class ErasureStateError extends Error {
 }
 
 /**
- * D-016 / ISS-t-011-c2-rev-4: the student already has an open (pending / confirmed / failed)
+ * D-016 / ISS-t-011-c2-rev-4: the student already has an open (pending / confirmed / awaiting_approval / approved / failed)
  * erasure request; at most one may be open (unique partial index on `studentKey`). Continue that
  * request instead of opening another.
  */
@@ -269,7 +482,7 @@ export class ErasureIncompleteError extends Error {
 // Residual: an unsalted hash is dictionary-checkable against a list of candidate ids, like the
 // audit row's hash; gate erasure-fencing Q2 (HMAC keyed from .env) covers both.
 //
-// Lifetime: from confirm until BOTH (a) no confirmed/failed request for the student remains (one
+// Lifetime: from confirm until BOTH (a) no fencing (confirmed / awaiting_approval / approved / failed) request for the student remains (one
 // open request per student is enforced by a unique partial index, ISS-t-011-c2-rev-4) and (b)
 // max(createdAt + MINIMUM_FENCE_HOLD_MS, completedAt + ERASURE_FENCE_GRACE_MS) has passed. On
 // completion the fence is deleted if that time has already passed, otherwise stamped with
@@ -279,10 +492,12 @@ export class ErasureIncompleteError extends Error {
 
 /**
  * How long the fence outlives a verified completion, in ms, as RE-ENROLMENT POLICY (gate
- * erasure-fencing Q1; its recommendation: 24h). 0 = no extra policy delay. Correctness does not
- * depend on it: MINIMUM_FENCE_HOLD_MS always applies (D-016).
+ * erasure-fencing Q1, answered 2026-09-26: 24h). T-029: the default is now 24h, so writes for the
+ * student are refused from the first confirmation until completion + 24h; re-enrolment works after.
+ * Correctness does not depend on it: MINIMUM_FENCE_HOLD_MS always applies (D-016). Callers may pass
+ * a different `fenceGraceMs` / `graceMs` explicitly (tests of the technical hold pass 0).
  */
-export const ERASURE_FENCE_GRACE_MS = 0;
+export const ERASURE_FENCE_GRACE_MS = 24 * 3600 * 1000;
 
 /**
  * D-016: the enforced deadline of every fence-aware writer, from its fence pre-check to its last
@@ -317,6 +532,12 @@ export interface ErasureFenceDoc {
   createdAt: string;
   /** Set on completion: the fence stops fencing at this instant, and the sweep may remove it. */
   releaseAfter?: string;
+  /**
+   * T-029: when a new request re-arms a fence that was still counting down a PREVIOUS completion's
+   * hold / 24h re-enrolment grace, that releaseAfter is kept here, so closing the new request
+   * (rejected / expired, or completed with a shorter grace) never ends the earlier grace early.
+   */
+  priorReleaseAfter?: string;
 }
 
 /** Thrown by a fence-aware writer: an erasure is in progress for the student, nothing it wrote remains. */
@@ -417,11 +638,26 @@ function parseTime(iso: string | undefined, fallback: number): number {
 }
 
 /** D-016: the earliest instant a fence may be removed after `completedAt`. */
-function fenceReleaseTime(fence: Pick<ErasureFenceDoc, "createdAt">, completedAt: string, graceMs: number): number {
+function fenceReleaseTime(fence: Pick<ErasureFenceDoc, "createdAt" | "priorReleaseAfter">, completedAt: string, graceMs: number): number {
   const completed = parseTime(completedAt, Date.now());
   // An unreadable createdAt is treated as "created at completion" (the longer hold).
   const created = parseTime(fence.createdAt, completed);
-  return Math.max(created + MINIMUM_FENCE_HOLD_MS, completed + Math.max(0, graceMs));
+  return Math.max(created + MINIMUM_FENCE_HOLD_MS, completed + Math.max(0, graceMs), priorRelease(fence));
+}
+
+/** T-029: a previous completion's release time carried on the fence (0 if none). */
+function priorRelease(fence: Pick<ErasureFenceDoc, "priorReleaseAfter">): number {
+  return fence.priorReleaseAfter === undefined ? 0 : parseTime(fence.priorReleaseAfter, Number.POSITIVE_INFINITY);
+}
+
+/**
+ * T-029: when a request that purged NOTHING (rejected / expired) closes, its fence has nothing to
+ * protect, so it may go at once, unless it inherited an earlier completion's hold / grace
+ * (priorReleaseAfter), which it keeps.
+ */
+function unpurgedReleaseTime(fence: Pick<ErasureFenceDoc, "createdAt" | "priorReleaseAfter">): number {
+  if (fence.priorReleaseAfter === undefined) return 0;
+  return Math.max(priorRelease(fence), parseTime(fence.createdAt, Number.POSITIVE_INFINITY) + MINIMUM_FENCE_HOLD_MS);
 }
 
 /**
@@ -482,10 +718,13 @@ export async function compensateIfFenced(
 /** Sets (or takes over, and re-arms) the student's fence for `requestId`. Idempotent; createdAt is set once. */
 async function setErasureFence(db: Db, studentId: string, requestId: string): Promise<void> {
   const studentKey = erasureFenceKey(studentId);
+  // T-029: keep a previous completion's countdown (see priorReleaseAfter) before clearing it.
+  const existing = await erasureFences(db).findOne({ _id: studentKey });
+  const carried = existing?.releaseAfter === undefined ? undefined : Math.max(priorRelease(existing), parseTime(existing.releaseAfter, 0));
   await erasureFences(db).updateOne(
     { _id: studentKey },
     {
-      $set: { requestId },
+      $set: { requestId, ...(carried !== undefined && carried > 0 ? { priorReleaseAfter: new Date(carried).toISOString() } : {}) },
       $setOnInsert: { _id: studentKey, studentKey, createdAt: new Date().toISOString() } as ErasureFenceDoc,
       // A fence re-set during a previous request's hold / grace must not expire mid-erasure.
       $unset: { releaseAfter: "" },
@@ -494,12 +733,17 @@ async function setErasureFence(db: Db, studentId: string, requestId: string): Pr
   );
 }
 
-/** Statuses of a request that fences (a pending request does not: confirm sets the fence). */
-const FENCING_STATUSES: ErasureStatus[] = ["confirmed", "failed"];
+/**
+ * Statuses of a request that fences (a pending request does not: the first confirmation sets the
+ * fence). T-029: confirmed (first confirmation), awaiting_approval (double-confirmed, waiting for
+ * the approver), approved (about to purge) and failed (retryable) all fence, so writes are refused
+ * from the first confirmation until the purge completes (and then for the grace).
+ */
+const FENCING_STATUSES: ErasureStatus[] = ["confirmed", "awaiting_approval", "approved", "failed"];
 
 /**
- * True if the student (by fence key) still has a confirmed or failed request. Such a request owns
- * (or will re-arm) the fence, so it must not be removed. A PENDING request does not count: it
+ * True if the student (by fence key) still has a fencing request (FENCING_STATUSES). Such a request
+ * owns (or will re-arm) the fence, so it must not be removed. A PENDING request does not count: it
  * never fences until confirmed, and holding a fence for a request nobody confirms would recreate
  * the stuck-fence DoS of ISS-t-011-c2-rev-4.
  */
@@ -534,8 +778,30 @@ async function releaseErasureFence(db: Db, studentId: string, requestId: string,
 }
 
 /**
+ * T-029: releases the fence of a request that closed WITHOUT purging (rejected / expired). Nothing
+ * was deleted, so no write needs fencing any more: the fence goes at once, unless it carries an
+ * earlier completion's countdown (unpurgedReleaseTime). Best effort, like releaseErasureFence; the
+ * sweep covers a failure.
+ */
+async function releaseUnpurgedFence(db: Db, studentKey: string, requestId: string, now: Date): Promise<void> {
+  try {
+    const fence = await erasureFences(db).findOne({ _id: studentKey, requestId });
+    if (!fence) return;
+    if (await hasFencingRequest(db, studentKey)) return;
+    const releaseAt = unpurgedReleaseTime(fence);
+    if (releaseAt <= now.getTime()) {
+      await erasureFences(db).deleteMany({ _id: studentKey, requestId });
+    } else {
+      await erasureFences(db).updateOne({ _id: studentKey, requestId }, { $set: { releaseAfter: new Date(releaseAt).toISOString() } });
+    }
+  } catch {
+    // Left for releaseExpiredErasureFences.
+  }
+}
+
+/**
  * The fence sweep (run from the scheduled job that will own erasure housekeeping). Removes a fence
- * only when no confirmed/failed request for its student remains AND its release time has passed:
+ * only when no fencing request for its student remains AND its release time has passed:
  * `releaseAfter` if stamped (never earlier than createdAt + MINIMUM_FENCE_HOLD_MS), or, for a fence
  * left behind by a completed request whose own release did not happen (crash after the completion
  * CAS), max(createdAt + hold, completedAt + graceMs). Returns the number removed.
@@ -553,9 +819,10 @@ export async function releaseExpiredErasureFences(
   db: Db,
   now: Date = new Date(),
   graceMs: number = ERASURE_FENCE_GRACE_MS,
+  options: ReleaseExpiredOptions = {},
 ): Promise<number> {
   if (tenantIdOf(db) !== undefined) {
-    return releaseExpiredFencesIn(db, {}, await erasureFences(db).find({}).toArray(), now, graceMs);
+    return releaseExpiredFencesIn(db, {}, await erasureFences(db).find({}).toArray(), now, graceMs, options);
   }
   // ONE read of every fence per tick (the in-flight guard's tests count reads per tick), then
   // partitioned in memory: unstamped rows, and each well-formed tenant's rows as that tenant sees them.
@@ -570,11 +837,21 @@ export async function releaseExpiredErasureFences(
       byTenant.set(tenant, list);
     }
   }
-  let released = await releaseExpiredFencesIn(db, { [TENANT_FIELD]: { $exists: false } }, legacy, now, graceMs);
+  let released = await releaseExpiredFencesIn(db, { [TENANT_FIELD]: { $exists: false } }, legacy, now, graceMs, options);
   for (const tenant of [...byTenant.keys()].sort()) {
-    released += await releaseExpiredFencesIn(tenantScopedDb(db, tenant), {}, byTenant.get(tenant)!, now, graceMs);
+    released += await releaseExpiredFencesIn(tenantScopedDb(db, tenant), {}, byTenant.get(tenant)!, now, graceMs, options);
   }
   return released;
+}
+
+export interface ReleaseExpiredOptions {
+  /**
+   * T-029: with the audit key, the sweep also closes (as `expired`, purging nothing) a fence's
+   * request whose confirm token or approval request has expired, so an abandoned request does not
+   * hold the student's fence forever. Without it such a request keeps its fence (fail safe) until
+   * a reconfirm / approve call expires it.
+   */
+  auditHmacKey?: string;
 }
 
 /** One sweep pass over `fences` (already read, all matching `scope`) and the requests they depend on. */
@@ -584,9 +861,20 @@ async function releaseExpiredFencesIn(
   fences: ErasureFenceDoc[],
   now: Date,
   graceMs: number,
+  options: ReleaseExpiredOptions = {},
 ): Promise<number> {
   let released = 0;
   for (const fence of fences) {
+    if (options.auditHmacKey !== undefined) {
+      const owner = await erasureRequests(db).findOne({ _id: fence.requestId, ...scope } as Filter<ErasureRequestDoc>);
+      if (owner && staleness(owner, now) !== undefined) {
+        try {
+          await closeUnpurged(db, owner, "expired", "system:expiry-sweep", options.auditHmacKey, now, scope, false);
+        } catch {
+          // Lost a race with a reconfirm / approve, or the key is unusable: the fence stays (fail safe).
+        }
+      }
+    }
     if (await hasFencingRequest(db, fence.studentKey ?? fence._id, scope)) continue;
     let releaseAt: number;
     const holdEnd = parseTime(fence.createdAt, now.getTime()) + MINIMUM_FENCE_HOLD_MS;
@@ -594,8 +882,14 @@ async function releaseExpiredFencesIn(
       releaseAt = Math.max(parseTime(fence.releaseAfter, Number.POSITIVE_INFINITY), holdEnd);
     } else {
       const row = await erasureRequests(db).findOne({ _id: fence.requestId, ...scope } as Filter<ErasureRequestDoc>);
-      if (row?.status !== "completed" || !row.completedAt) continue;
-      releaseAt = fenceReleaseTime(fence, row.completedAt, graceMs);
+      if (row?.status === "completed" && row.completedAt) {
+        releaseAt = fenceReleaseTime(fence, row.completedAt, graceMs);
+      } else if (row?.status === "rejected" || row?.status === "expired") {
+        // T-029: closed without purging; its own release did not happen (crash / best-effort failure).
+        releaseAt = unpurgedReleaseTime(fence);
+      } else {
+        continue;
+      }
     }
     if (releaseAt > now.getTime()) continue;
     const res = await erasureFences(db).deleteMany({ _id: fence._id, requestId: fence.requestId, ...scope } as Filter<ErasureFenceDoc>);
@@ -614,6 +908,8 @@ export interface ErasureFenceSweepOptions {
   now?: () => Date;
   /** Overrides ERASURE_FENCE_GRACE_MS (tests; the Q1 policy belongs in the constant). */
   graceMs?: number;
+  /** T-029: see ReleaseExpiredOptions.auditHmacKey (startApi passes VC_AUDIT_HMAC_KEY when configured). */
+  auditHmacKey?: string;
   /**
    * Called with a tick's error instead of throwing it. releaseExpiredErasureFences is already
    * best-effort per fence (releaseErasureFence's own try/catch); this covers a failure in the sweep
@@ -677,7 +973,12 @@ export function startErasureFenceSweep(db: Db, options: ErasureFenceSweepOptions
     if (inFlight) return;
     inFlight = true;
     const now = options.now?.() ?? new Date();
-    releaseExpiredErasureFences(db, now, options.graceMs ?? ERASURE_FENCE_GRACE_MS)
+    releaseExpiredErasureFences(
+      db,
+      now,
+      options.graceMs ?? ERASURE_FENCE_GRACE_MS,
+      options.auditHmacKey === undefined ? {} : { auditHmacKey: options.auditHmacKey },
+    )
       .catch((err) => {
         // ISS-t-015-c0-3 / ISS-t-017-rev-2 / ISS-t-017-rev-3: onError is caller-supplied and
         // documented to report, never throw, reject, or hang — but it may do any of the three: a
@@ -751,9 +1052,11 @@ export interface RequestErasureInput {
 }
 
 /**
- * Creates a PENDING erasure request. Deletes nothing. Throws ErasureRequestAlreadyOpenError if the
- * student already has an open (pending / confirmed / failed) request: the unique partial index
+ * Creates a PENDING erasure request. Deletes nothing and fences nothing. Throws
+ * ErasureRequestAlreadyOpenError if the student already has an open (pending / confirmed /
+ * awaiting_approval / approved / failed) request: the unique partial index
  * `erasure_requests_open_tenantId_studentKey_unique` makes that atomic across processes (D-016; per tenant since T-025).
+ * T-029: needs no audit key; the HMAC pseudonym is written at the second confirmation.
  */
 export async function requestErasure(db: Db, input: RequestErasureInput): Promise<{ requestId: string }> {
   if (typeof input.studentId !== "string" || input.studentId.trim() === "") {
@@ -766,9 +1069,7 @@ export async function requestErasure(db: Db, input: RequestErasureInput): Promis
   try {
     await erasureRequests(db).insertOne({
       _id: requestId,
-      studentHash: hashStudentId(input.studentId, hashSalt),
       hashSalt,
-      hashScheme: HASH_SCHEME,
       studentId: input.studentId,
       studentKey: erasureFenceKey(input.studentId),
       requestedBy,
@@ -785,30 +1086,254 @@ export async function requestErasure(db: Db, input: RequestErasureInput): Promis
   return { requestId };
 }
 
+export interface ConfirmErasureResult {
+  /**
+   * T-029: the single-use token the SAME actor must present to reconfirmErasure (the second
+   * confirmation). Only its sha256 is stored. Hand it back to the confirming counsellor only.
+   */
+  confirmToken: string;
+  confirmTokenExpiresAt: string;
+}
+
 /**
- * Confirms a pending request. The confirmer must differ from the requester and must not be the
- * student. A CAS on `status: "pending"` makes a double confirm (or a confirm racing another)
- * resolve to exactly one recorded confirmer.
+ * The FIRST confirmation of a pending request (T-029 step 1). Deletes nothing. Sets the write fence
+ * (so writes for the student are refused from here on) and returns a fresh confirm token for the
+ * second confirmation. The confirmer may be the requester or another staff member, never the
+ * student. A CAS on `status: "pending"` makes a double confirm (or a confirm racing another) resolve
+ * to exactly one recorded confirmer.
  */
-export async function confirmErasure(db: Db, input: { requestId: string; confirmedBy: string }): Promise<void> {
+export async function confirmErasure(
+  db: Db,
+  input: { requestId: string; confirmedBy: string },
+  options: { now?: Date } = {},
+): Promise<ConfirmErasureResult> {
   const row = await erasureRequests(db).findOne({ _id: input.requestId });
   if (!row) throw new ErasureRequestNotFoundError();
   const confirmedBy = requireActor(input.confirmedBy, "confirmedBy", row.studentId);
   if (row.status !== "pending") throw new ErasureStateError(row.status, "confirm");
-  if (normaliseActor(confirmedBy) === normaliseActor(row.requestedBy)) throw new ErasureSelfConfirmError();
   if (!row.studentId) throw new ErasureStateError(row.status, "confirm (studentId missing)");
+  const now = options.now ?? new Date();
+  const confirmToken = randomBytes(32).toString("base64url");
+  const confirmTokenExpiresAt = new Date(now.getTime() + ERASURE_CONFIRM_TOKEN_TTL_MS).toISOString();
   // D-015 order: the fence FIRST, then the confirm CAS. So no request is ever confirmed without a
   // fence. If the CAS then loses, the only way out of "pending" is a concurrent confirm, so the
   // request is confirmed anyway and the fence is correct.
   await setErasureFence(db, row.studentId, input.requestId);
   const updated = await erasureRequests(db).findOneAndUpdate(
     { _id: input.requestId, status: "pending" },
-    { $set: { status: "confirmed", confirmedBy, confirmedAt: new Date().toISOString() } },
+    {
+      $set: {
+        status: "confirmed",
+        confirmedBy,
+        confirmedAt: now.toISOString(),
+        confirmTokenHash: hashToken(confirmToken),
+        confirmTokenExpiresAt,
+      },
+    },
   );
   if (!updated) {
-    const now = await erasureRequests(db).findOne({ _id: input.requestId });
-    throw new ErasureStateError(now?.status ?? "unknown", "confirm");
+    const current = await erasureRequests(db).findOne({ _id: input.requestId });
+    throw new ErasureStateError(current?.status ?? "unknown", "confirm");
   }
+  return { confirmToken, confirmTokenExpiresAt };
+}
+
+export interface ReconfirmErasureInput {
+  requestId: string;
+  /** Must be the actor who made the first confirmation. */
+  confirmedBy: string;
+  /** The token confirmErasure returned. Single use. */
+  confirmToken: string;
+}
+
+export interface ReconfirmErasureResult {
+  /** "awaiting_approval" (the default) or "approved" (autoDelete: the approver step was skipped). */
+  status: "awaiting_approval" | "approved";
+  /** The email_outbox record addressed to the approver (absent under autoDelete). */
+  outboxId?: string;
+  approvalExpiresAt?: string;
+}
+
+/**
+ * The SECOND confirmation (T-029 step 2). Deletes nothing. The first confirmer presents the fresh
+ * token from confirmErasure; a wrong / reused token, or another actor, is ErasureConfirmTokenError
+ * and changes nothing. An expired token closes the request as `expired` (purging nothing, fence
+ * released) and throws ErasureExpiredError. On success writes the HMAC audit pseudonym and then:
+ *   - autoDelete false (default): writes the approval request to the email OUTBOX (a record only,
+ *     nothing is sent) addressed to config.approverEmail, and moves to `awaiting_approval`;
+ *   - autoDelete true: moves straight to `approved` (approvedBy AUTO_DELETE_APPROVER); the caller
+ *     runs executeErasure.
+ * An invalid config is ErasureConfigError before anything is read or written.
+ */
+export async function reconfirmErasure(
+  db: Db,
+  input: ReconfirmErasureInput,
+  config: ErasureWorkflowConfig,
+  options: { now?: Date } = {},
+): Promise<ReconfirmErasureResult> {
+  validateErasureConfig(config);
+  const now = options.now ?? new Date();
+  const row = await erasureRequests(db).findOne({ _id: input.requestId });
+  if (!row) throw new ErasureRequestNotFoundError();
+  const actor = requireActor(input.confirmedBy, "confirmedBy", row.studentId);
+  if (row.status !== "confirmed") throw new ErasureStateError(row.status, "reconfirm");
+  if (
+    row.confirmedBy === undefined ||
+    normaliseActor(actor) !== normaliseActor(row.confirmedBy) ||
+    !tokenMatches(input.confirmToken, row.confirmTokenHash)
+  ) {
+    throw new ErasureConfirmTokenError();
+  }
+  if (parseTime(row.confirmTokenExpiresAt, 0) <= now.getTime()) {
+    await closeUnpurged(db, row, "expired", "system:confirm-token-expired", config.auditHmacKey, now, {}, true);
+    throw new ErasureExpiredError("confirm_token");
+  }
+  if (!row.studentId) throw new ErasureStateError(row.status, "reconfirm (studentId missing)");
+  const common = {
+    studentHash: auditPseudonym(config.auditHmacKey, row.hashSalt, row.studentId),
+    hashScheme: HASH_SCHEME,
+    secondConfirmedBy: actor,
+    secondConfirmedAt: now.toISOString(),
+  };
+  // The CAS includes the token hash: the token is single-use even against a concurrent reconfirm.
+  const casFilter = { _id: input.requestId, status: "confirmed", confirmTokenHash: row.confirmTokenHash } as Filter<ErasureRequestDoc>;
+  const clearToken = { confirmTokenHash: "", confirmTokenExpiresAt: "" } as const;
+
+  if (config.autoDelete) {
+    const updated = await erasureRequests(db).findOneAndUpdate(casFilter, {
+      $set: { ...common, status: "approved", approvedBy: AUTO_DELETE_APPROVER, approvedAt: now.toISOString() },
+      $unset: clearToken,
+    });
+    if (!updated) throw new ErasureConfirmTokenError();
+    return { status: "approved" };
+  }
+
+  const outboxId = erasureOutboxId(input.requestId);
+  const approvalExpiresAt = new Date(now.getTime() + ERASURE_APPROVAL_TTL_MS).toISOString();
+  // The outbox record first (idempotent by _id), then the CAS: an awaiting_approval row always has
+  // its approval request on record. A lost CAS leaves an orphan outbox record for a request that is
+  // not awaiting approval; approving it is refused by the status check.
+  const outboxDoc: EmailOutboxDoc = {
+    _id: outboxId,
+    kind: "erasure_approval_request",
+    to: config.approverEmail!,
+    subject: `Approval needed: data erasure request ${input.requestId}`,
+    body:
+      `A data erasure (B15, DPDP) has been requested and confirmed twice by a counsellor.\n` +
+      `Request id: ${input.requestId}\nReason: ${row.reason}\nRequested by: ${row.requestedBy}\n` +
+      `Confirmed by: ${actor}\nThis request expires unanswered at ${approvalExpiresAt}; nothing is deleted until you approve it.\n` +
+      `Approve: POST /v1/erasure-requests/${input.requestId}/approve   Reject: POST /v1/erasure-requests/${input.requestId}/reject`,
+    requestId: input.requestId,
+    reason: row.reason,
+    requestedBy: row.requestedBy,
+    confirmedBy: actor,
+    createdAt: now.toISOString(),
+    expiresAt: approvalExpiresAt,
+    status: "queued",
+  };
+  await emailOutbox(db).updateOne({ _id: outboxId }, { $setOnInsert: outboxDoc }, { upsert: true });
+  const updated = await erasureRequests(db).findOneAndUpdate(casFilter, {
+    $set: { ...common, status: "awaiting_approval", approvalRequestedAt: now.toISOString(), approvalExpiresAt, outboxId },
+    $unset: clearToken,
+  });
+  if (!updated) throw new ErasureConfirmTokenError();
+  return { status: "awaiting_approval", outboxId, approvalExpiresAt };
+}
+
+/**
+ * The approver approves a double-confirmed request (T-029 step 3). Deletes nothing itself: the
+ * caller then runs executeErasure (apps/api does both in one route). The approver must differ from
+ * the requester and the confirmer (ErasureSelfApproveError). An expired approval request is closed
+ * as `expired` (purging nothing) and throws ErasureExpiredError.
+ */
+export async function approveErasure(
+  db: Db,
+  input: { requestId: string; approvedBy: string },
+  options: { now?: Date } = {},
+): Promise<void> {
+  const now = options.now ?? new Date();
+  const row = await erasureRequests(db).findOne({ _id: input.requestId });
+  if (!row) throw new ErasureRequestNotFoundError();
+  const approvedBy = requireActor(input.approvedBy, "approvedBy", row.studentId);
+  if (row.status !== "awaiting_approval") throw new ErasureStateError(row.status, "approve");
+  const others = [row.requestedBy, row.confirmedBy, row.secondConfirmedBy].filter((a): a is string => typeof a === "string");
+  if (others.some((a) => normaliseActor(a) === normaliseActor(approvedBy))) throw new ErasureSelfApproveError();
+  if (parseTime(row.approvalExpiresAt, 0) <= now.getTime()) {
+    await closeUnpurged(db, row, "expired", "system:approval-expired", undefined, now, {}, true);
+    throw new ErasureExpiredError("approval");
+  }
+  const updated = await erasureRequests(db).findOneAndUpdate(
+    { _id: input.requestId, status: "awaiting_approval" },
+    { $set: { status: "approved", approvedBy, approvedAt: now.toISOString() } },
+  );
+  if (!updated) {
+    const current = await erasureRequests(db).findOne({ _id: input.requestId });
+    throw new ErasureStateError(current?.status ?? "unknown", "approve");
+  }
+}
+
+/**
+ * The approver rejects a double-confirmed request (T-029). Purges nothing: the row is closed as
+ * `rejected`, its clear studentId is unset (the HMAC pseudonym written at the second confirmation
+ * stays for the audit), and the fence is released (nothing was deleted, so nothing needs fencing).
+ */
+export async function rejectErasure(
+  db: Db,
+  input: { requestId: string; rejectedBy: string },
+  options: { now?: Date } = {},
+): Promise<void> {
+  const now = options.now ?? new Date();
+  const row = await erasureRequests(db).findOne({ _id: input.requestId });
+  if (!row) throw new ErasureRequestNotFoundError();
+  const rejectedBy = requireActor(input.rejectedBy, "rejectedBy", row.studentId);
+  if (row.status !== "awaiting_approval") throw new ErasureStateError(row.status, "reject");
+  await closeUnpurged(db, row, "rejected", rejectedBy, undefined, now, {}, true);
+}
+
+/** T-029: why an open request has gone stale, if it has (its token or its approval request expired). */
+function staleness(row: ErasureRequestDoc, now: Date): "confirm_token" | "approval" | undefined {
+  if (row.status === "confirmed" && row.confirmTokenExpiresAt !== undefined && parseTime(row.confirmTokenExpiresAt, 0) <= now.getTime()) {
+    return "confirm_token";
+  }
+  if (row.status === "awaiting_approval" && parseTime(row.approvalExpiresAt, 0) <= now.getTime()) return "approval";
+  return undefined;
+}
+
+/**
+ * T-029: closes a request that purged nothing, as `rejected` or `expired`. One CAS on the row's
+ * current status sets the terminal status, writes the HMAC pseudonym if the row does not carry it
+ * yet (needs the key then; ErasureConfigError otherwise, and nothing changes), and unsets the clear
+ * studentId, the fence key and the token hash. Then (releaseFence) drops the fence.
+ */
+async function closeUnpurged(
+  db: Db,
+  row: ErasureRequestDoc,
+  status: "rejected" | "expired",
+  actor: string,
+  auditHmacKey: string | undefined,
+  now: Date,
+  scope: Filter<Document>,
+  releaseFence: boolean,
+): Promise<void> {
+  const studentKey = row.studentKey ?? (row.studentId ? erasureFenceKey(row.studentId) : undefined);
+  let pseudonym: Record<string, string> = {};
+  if (typeof row.studentHash !== "string") {
+    if (!row.studentId) throw new ErasureStateError(row.status, `close as ${status} (studentId missing)`);
+    pseudonym = { studentHash: auditPseudonym(auditHmacKey as string, row.hashSalt, row.studentId), hashScheme: HASH_SCHEME };
+  }
+  const stamp = status === "rejected" ? { rejectedBy: actor, rejectedAt: now.toISOString() } : { expiredAt: now.toISOString() };
+  const updated = await erasureRequests(db).findOneAndUpdate(
+    { _id: row._id, status: row.status, ...scope } as Filter<ErasureRequestDoc>,
+    {
+      $set: { status, ...stamp, ...pseudonym },
+      $unset: { studentId: "", studentKey: "", confirmTokenHash: "", confirmTokenExpiresAt: "" },
+    },
+  );
+  if (!updated) {
+    const current = await erasureRequests(db).findOne({ _id: row._id, ...scope } as Filter<ErasureRequestDoc>);
+    throw new ErasureStateError(current?.status ?? "unknown", status === "rejected" ? "reject" : "expire");
+  }
+  if (releaseFence && studentKey !== undefined) await releaseUnpurgedFence(db, studentKey, row._id, now);
 }
 
 // ---------------------------------------------------------------------------
@@ -941,6 +1466,8 @@ export const ERASURE_EXEMPT_COLLECTIONS = {
     "the erasure audit log itself; must survive the erasure and holds no personal data once completed",
   [COLLECTION_NAMES.erasure_fences]:
     "the erasure write fence (D-015/D-016): it must outlive the purge it protects; it holds only a hash of the studentId, a request id and timestamps, and is removed after completion once its minimum hold (and grace, if any) has passed",
+  [COLLECTION_NAMES.email_outbox]:
+    "T-029: the approver's approval-request record; it holds the opaque request id, reason code and staff actor ids, never the studentId or any student data, and is kept as part of the erasure audit trail",
 } as const;
 
 /** A resolve read failed; carries WHICH anchor collection, so the receipt labels it accurately (ISS-t-011-c1-rev-3). */
@@ -1036,9 +1563,12 @@ export interface ErasureOutcome {
 }
 
 /**
- * Runs a CONFIRMED (or previously failed) erasure request. Returns the verified receipt, or throws
- * ErasureIncompleteError (request left `failed`, retryable). Throws ErasureNotConfirmedError for a
- * pending request, before touching any student collection.
+ * Runs an APPROVED (or previously failed) erasure request. Returns the verified receipt, or throws
+ * ErasureIncompleteError (request left `failed`, retryable). T-029: before touching any student
+ * collection, throws ErasureNotConfirmedError for a pending or only-once-confirmed request,
+ * ErasureNotApprovedError for one still waiting for the approver, and ErasureStateError for a
+ * rejected / expired one. So no single call, and no confirmation without approval (or the
+ * operator's autoDelete opt-in), ever purges.
  */
 export async function executeErasure(db: Db, requestId: string, options: ExecuteErasureOptions = {}): Promise<ErasureOutcome> {
   const fenceGraceMs = options.fenceGraceMs ?? ERASURE_FENCE_GRACE_MS;
@@ -1048,11 +1578,18 @@ export async function executeErasure(db: Db, requestId: string, options: Execute
   if (row.status === "completed" && row.receipt) {
     return { status: "completed", receipt: row.receipt, alreadyCompleted: true };
   }
-  if (row.status === "pending" || !row.confirmedBy) throw new ErasureNotConfirmedError();
-  if (row.status !== "confirmed" && row.status !== "failed") throw new ErasureStateError(row.status, "execute");
+  if (row.status === "pending" || row.status === "confirmed" || !row.confirmedBy || !row.secondConfirmedBy) {
+    throw new ErasureNotConfirmedError();
+  }
+  if (row.status === "awaiting_approval") throw new ErasureNotApprovedError();
+  if (row.status !== "approved" && row.status !== "failed") throw new ErasureStateError(row.status, "execute");
+  // T-029: a failed row is only ever reached from an approved one; never purge without an approval.
+  if (!row.approvedBy) throw new ErasureNotApprovedError();
   const studentId = row.studentId;
-  if (!studentId || !erasureRequestMatchesStudent(row, studentId)) {
-    throw new ErasureStateError(row.status, "execute (studentId missing or does not match its hash)");
+  // Integrity: the clear id still matches the fence key the request was opened with, and the HMAC
+  // pseudonym that will outlive it is on the row.
+  if (!studentId || row.studentKey !== erasureFenceKey(studentId) || typeof row.studentHash !== "string") {
+    throw new ErasureStateError(row.status, "execute (studentId missing or does not match its key)");
   }
   // ISS-t-011-c1-rev-2: the carried ids are validated (shape + cap) before anything is touched.
   let carriedFromRow: CarriedSelectors | undefined;
@@ -1162,7 +1699,7 @@ export async function executeErasure(db: Db, requestId: string, options: Execute
   // so only one of several concurrent runs records against a given row state. On a miss, re-read:
   //   - completed by a concurrent run -> return ITS stored receipt, alreadyCompleted: true (this
   //     run records nothing, so `attempts` counts recorded attempts only);
-  //   - still confirmed / failed (a concurrent run recorded a failure) -> record this run as the
+  //   - still approved / failed (a concurrent run recorded a failure) -> record this run as the
   //     next attempt against the fresh row.
   let current = readState;
   for (let tries = 0; tries < ERASURE_CAS_TRIES; tries += 1) {
@@ -1193,7 +1730,7 @@ export async function executeErasure(db: Db, requestId: string, options: Execute
       await releaseErasureFence(db, studentId, requestId, fenceGraceMs, now.completedAt ?? verifiedAt);
       return { status: "completed", receipt: now.receipt, alreadyCompleted: true };
     }
-    if (now.status !== "confirmed" && now.status !== "failed") throw new ErasureStateError(now.status, "record");
+    if (now.status !== "approved" && now.status !== "failed") throw new ErasureStateError(now.status, "record");
     // A concurrent failed run may have carried ids this run did not see; keep them for the retry.
     // Only a valid carry that keeps every list within the cap is merged (ISS-t-011-c1-rev-2).
     const theirs = ErasureCarriedSelectorsSchema.safeParse(now.carriedSelectors);
@@ -1209,7 +1746,7 @@ export async function executeErasure(db: Db, requestId: string, options: Execute
   // completed row.
   const attempt = current.attempts + 1;
   await erasureRequests(db).updateOne(
-    { _id: requestId, status: { $in: ["confirmed", "failed"] } },
+    { _id: requestId, status: { $in: ["approved", "failed"] } },
     {
       $set: {
         status: "failed",

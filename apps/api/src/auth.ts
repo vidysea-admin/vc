@@ -16,7 +16,7 @@
  *     default 30 s, at most 300 s);
  *   - `iss` must equal VC_JWT_ISSUER; `aud` must include VC_JWT_AUDIENCE when that is set;
  *   - the claims VC needs: `tenant` (a tenant id, TENANT_ID_PATTERN), `counsellorId` (1-128
- *     characters, no control characters) and `role` ("counsellor" or "admin").
+ *     characters, no control characters) and `role` ("counsellor", "admin" or, T-029, "approver").
  *
  * Keys and issuer come from the environment (B11: names in .env.example, values never in the
  * tree). The real issuer, key distribution and rotation are an open question (D-021 §6), so the
@@ -33,7 +33,8 @@ import { TENANT_ID_PATTERN } from "@vc/db";
 export const JWT_ALGORITHMS = ["RS256", "ES256", "HS256"] as const;
 export type JwtAlgorithm = (typeof JWT_ALGORITHMS)[number];
 
-export const API_ROLES = ["counsellor", "admin"] as const;
+/** T-029: "approver" may only approve or reject B15 erasure requests (server.ts APPROVER). */
+export const API_ROLES = ["counsellor", "admin", "approver"] as const;
 export type ApiRole = (typeof API_ROLES)[number];
 
 /** The verified identity of one request. */

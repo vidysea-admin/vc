@@ -388,8 +388,23 @@ export const ErasureReasonSchema = z.enum([
 ]);
 export type ErasureReason = z.infer<typeof ErasureReasonSchema>;
 
-/** Lifecycle of an erasure request row: pending → confirmed → completed, or failed (retryable). */
-export const ErasureStatusSchema = z.enum(["pending", "confirmed", "completed", "failed"]);
+/**
+ * Lifecycle of an erasure request row (B15 approver workflow, T-029, gate erasure-fencing):
+ * pending → confirmed (first confirmation, fence set) → awaiting_approval (second confirmation, an
+ * approval request in the email outbox) → approved (the approver approved, or `autoDelete` skipped
+ * the approver) → completed, or failed (retryable). `rejected` (by the approver) and `expired` (the
+ * confirm token or the approval request timed out) are terminal and purge nothing.
+ */
+export const ErasureStatusSchema = z.enum([
+  "pending",
+  "confirmed",
+  "awaiting_approval",
+  "approved",
+  "completed",
+  "failed",
+  "rejected",
+  "expired",
+]);
 export type ErasureStatus = z.infer<typeof ErasureStatusSchema>;
 
 /**

@@ -194,7 +194,7 @@ test("T-011: the scribe checkpoint collections carry EXACTLY the indexes MongoDB
   );
 });
 
-test("T-011 / D-016: the erasure_requests audit log has a status index and exactly ONE unique index: studentKey among OPEN requests (pending/confirmed/failed), with a server-supported partial filter", () => {
+test("T-011 / D-016: the erasure_requests audit log has a status index and exactly ONE unique index: studentKey among OPEN requests (pending/confirmed/awaiting_approval/approved/failed), with a server-supported partial filter", () => {
   const specs = INDEX_PLAN.filter((s) => s.collection === COLLECTION_NAMES.erasure_requests);
   assert.ok(specs.some((s) => Object.keys(s.keys)[0] === "status"));
   const unique = specs.filter((s) => s.unique);
@@ -204,7 +204,7 @@ test("T-011 / D-016: the erasure_requests audit log has a status index and exact
       [
         "erasure_requests_open_tenantId_studentKey_unique",
         { tenantId: 1, studentKey: 1 },
-        { status: { $in: ["pending", "confirmed", "failed"] } },
+        { status: { $in: ["pending", "confirmed", "awaiting_approval", "approved", "failed"] } },
       ],
     ],
   );

@@ -27,6 +27,7 @@ import { COLLECTION_NAMES } from "../src/collections.js";
 import { VC_DB_NAME, tenantScopedClient } from "../src/client.js";
 import { INDEX_PLAN } from "../scripts/db-init.js";
 import { createFakeDb, createFakeMongoClient, type FakeDb } from "./fakes.js";
+import { confirmTwiceAndApprove } from "../src/testing.js";
 import type { Fact } from "@vc/schemas";
 
 type AnyDoc = { _id: string } & Record<string, unknown>;
@@ -292,15 +293,21 @@ test("T-025 cross-tenant: tenant A erasing student stu-1 deletes only A's docume
   assert.ok(Object.values(bBefore).flat().length > 10, "sanity: B is seeded across collections");
 
   const { requestId } = await requestErasure(a, { studentId: "stu-1", requestedBy: "counsellor-1", reason: "student_request" });
-  await confirmErasure(a, { requestId, confirmedBy: "admin-1" });
+  await confirmTwiceAndApprove(a, { requestId, confirmedBy: "admin-1" });
   assert.equal(await isStudentFenced(a, "stu-1"), true);
   assert.equal(await isStudentFenced(b, "stu-1"), false, "A's fence never blocks B");
   const outcome = await executeErasure(a, requestId, { fenceGraceMs: 0 });
   assert.equal(outcome.status, "completed");
 
-  // Raw read-back: nothing of A's student remains except the audit row and the fence.
+  // Raw read-back: nothing of A's student remains except the audit row, the fence and (T-029) the
+  // approver's outbox record, none of which holds the clear studentId.
+  for (const name of [COLLECTION_NAMES.erasure_requests, COLLECTION_NAMES.erasure_fences, COLLECTION_NAMES.email_outbox]) {
+    for (const d of raw(fakeDb, name).filter((x) => x.tenantId === "tenantA")) {
+      assert.ok(!JSON.stringify(d).includes("stu-1") && !JSON.stringify(d).includes("MARK-A"), `${name}: no student data`);
+    }
+  }
   for (const name of ALL_COLLECTIONS) {
-    if (name === COLLECTION_NAMES.erasure_requests || name === COLLECTION_NAMES.erasure_fences) continue;
+    if (name === COLLECTION_NAMES.erasure_requests || name === COLLECTION_NAMES.erasure_fences || name === COLLECTION_NAMES.email_outbox) continue;
     const left = raw(fakeDb, name).filter((d) => d.tenantId === "tenantA");
     assert.deepEqual(left, [], `${name}: A's documents are gone`);
   }
@@ -357,7 +364,7 @@ test("T-025 per-tenant uniqueness: one open erasure request per student PER TENA
 async function completedTenantErasure(db: Db, fakeDb: FakeDb, tenant: string, studentId: string) {
   const scoped = tenantScopedDb(db, tenant);
   const { requestId } = await requestErasure(scoped, { studentId, requestedBy: "c-1", reason: "student_request" });
-  await confirmErasure(scoped, { requestId, confirmedBy: "admin-1" });
+  await confirmTwiceAndApprove(scoped, { requestId, confirmedBy: "admin-1" });
   await executeErasure(scoped, requestId, { fenceGraceMs: 0 });
   const fence = raw(fakeDb, COLLECTION_NAMES.erasure_fences).find((f) => f.tenantId === tenant && f.requestId === requestId)!;
   assert.ok(fence, "sanity: the completed erasure left its fence (inside the minimum hold)");
@@ -373,8 +380,8 @@ test("T-025 sweep: the system (unscoped) sweep releases a tenant's expired fence
   const two = await completedTenantErasure(db, fakeDb, "tenantB", "stu-2");
   delete fakeDb.collection<AnyDoc>(COLLECTION_NAMES.erasure_fences).all().find((f) => f._id === two.fence._id)!.releaseAfter;
   const holdEnds = [one, two].map((x) => Date.parse(String(x.fence.createdAt)) + MINIMUM_FENCE_HOLD_MS);
-  assert.equal(await releaseExpiredErasureFences(db, new Date(Math.min(...holdEnds) - 1)), 0, "never inside the hold");
-  assert.equal(await releaseExpiredErasureFences(db, new Date(Math.max(...holdEnds) + 60_000)), 2);
+  assert.equal(await releaseExpiredErasureFences(db, new Date(Math.min(...holdEnds) - 1), 0), 0, "never inside the hold");
+  assert.equal(await releaseExpiredErasureFences(db, new Date(Math.max(...holdEnds) + 60_000), 0), 2);
   assert.deepEqual(raw(fakeDb, COLLECTION_NAMES.erasure_fences), []);
   assert.equal(await isStudentFenced(two.scoped, "stu-2"), false);
 });

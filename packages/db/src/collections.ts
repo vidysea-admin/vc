@@ -49,6 +49,10 @@ export const COLLECTION_NAMES = {
   // Keyed by a hash of the studentId, never the clear id; set at confirm, removed after completion
   // once its D-016 minimum hold (createdAt + MINIMUM_FENCE_HOLD_MS) has passed.
   erasure_fences: "erasure_fences",
+  // T-029 / B15 approver workflow: the email OUTBOX. A record only: nothing in this repo sends it
+  // (no SMTP, no network). Holds the approval request addressed to the configured approver, with the
+  // request id, reason code and staff actor ids, never the studentId (src/erasure.ts).
+  email_outbox: "email_outbox",
   // Name constants only — owned by the university-kb unit (ARCHITECTURE Q1).
   universities: "universities",
   courses: "courses",

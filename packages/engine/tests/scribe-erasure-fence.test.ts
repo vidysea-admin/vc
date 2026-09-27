@@ -20,6 +20,7 @@ import {
   requestErasure,
 } from "@vc/db";
 import { recordSessionTranscript } from "@vc/db";
+import { confirmTwiceAndApprove } from "@vc/db/testing";
 import { resumeScribe, startScribe } from "../src/scribe/index.js";
 import { baseInput, makeHarness, seedConsent, SESSION_ID, STUDENT_ID, type Harness } from "./scribe-fixtures.js";
 
@@ -120,7 +121,9 @@ test("D-015 H4b with the REAL scribe: a resume racing the erasure (released insi
   };
   const resuming = resumeScribe(h.graph, { action: "approve" }, { threadId });
   await reached.opened;
-  const requestId = await fence(h);
+  // T-029: first confirmation (the fence), second confirmation and approval, then the purge below.
+  const { requestId } = await requestErasure(h.db, { studentId: STUDENT_ID, requestedBy: "counsellor-7", reason: "student_request" });
+  await confirmTwiceAndApprove(h.db, { requestId, confirmedBy: "admin-2" });
 
   const claims = h.fakeDb.collection<AnyDoc>(COLLECTION_NAMES.scribe_resolutions);
   const realCount = claims.countDocuments.bind(claims);
@@ -142,7 +145,8 @@ test("D-015 H4b with the REAL scribe: a resume racing the erasure (released insi
     }
     return n;
   };
-  const erased = await executeErasure(h.db, requestId);
+  // Grace 0: this test pins the D-016 technical hold (the 24h re-enrolment grace is T-029's own test).
+  const erased = await executeErasure(h.db, requestId, { fenceGraceMs: 0 });
   assert.ok(raced, "the resume really completed during the erasure's read-back");
   assert.ok(lateWritesSeen > 0, "the resume's facts/edges really landed mid read-back before being compensated");
   assert.deepEqual(resumeOutcome, { kind: "fenced" });
