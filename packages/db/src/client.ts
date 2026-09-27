@@ -13,6 +13,7 @@
  */
 import { MongoClient, type Db, type MongoClientOptions } from "mongodb";
 import { FENCE_MARGIN_MS } from "./erasure.js";
+import { assertTenantId, failClosed, tenantScopedDb } from "./tenant.js";
 
 /** D-008/D-009: the engine's one database on the production Mongo server. */
 export const VC_DB_NAME = "virtual_counsellor";
@@ -146,3 +147,24 @@ export function connectFromEnv(
  */
 export const DROP_DATABASE_GATE_NOTE =
   "dropDatabase on virtual_counsellor is gated by omission: no function in @vc/db calls it (D-009).";
+
+/**
+ * T-025: the MongoClient-shaped facade for a tenant (LangGraph's checkpoint saver opens its
+ * database from the client itself): its database accessor returns the tenant-scoped
+ * `virtual_counsellor` Db (via getVcDb, so any other database name is refused, B12), and
+ * appendMetadata is forwarded (no I/O). Every other client member throws: this facade can not
+ * connect, close, open sessions or run admin commands.
+ */
+export function tenantScopedClient(client: MongoClient, tenantId: string): MongoClient {
+  const t = assertTenantId(tenantId);
+  const facade = {
+    db(name?: string) {
+      return tenantScopedDb(getVcDb(client, name ?? VC_DB_NAME), t);
+    },
+    appendMetadata(metadata: unknown) {
+      // Called ON the client (the real driver method reads its own `this`).
+      (client as unknown as { appendMetadata(m: unknown): void }).appendMetadata(metadata);
+    },
+  };
+  return failClosed(facade, "client") as unknown as MongoClient;
+}

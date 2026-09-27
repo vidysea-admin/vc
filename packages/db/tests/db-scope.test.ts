@@ -167,6 +167,11 @@ const FENCE_AWARE_WRITERS: Record<string, string> = {
     "T-022 recordSessionConcerns: the concern edges (student --concern_flagged--> transcript_turn) are upserted inside startScribe's invokeFenceAware call under the same deadline, stamped with a per-call writerToken; compensation deletes exactly the ids this call created by {_id, writerToken}",
   "packages/engine/src/scribe/checkpointer.ts":
     "constructs the MongoDBSaver; its checkpoint writes run only inside graph.invoke, which graph.ts wraps fence-aware",
+  "packages/db/src/tenant.ts":
+    "T-025 tenant scope (B21): a pass-through wrapper that initiates no write of its own. It only forwards a caller's " +
+    "operation with tenantId stamped / filtered and string _ids tenant-prefixed, so every write through it is the " +
+    "caller's write, and every caller that writes student data (facts.ts, erasure.ts, decisions.ts, scribe/graph.ts, " +
+    "the checkpoint saver) is itself on this allowlist. Unsupported operations throw instead of being forwarded",
 };
 
 const STUDENT_DATA_COLLECTIONS = [

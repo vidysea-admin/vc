@@ -14,7 +14,7 @@
  * it for `INDEX_PLAN` never triggers a connection attempt.
  *
  * The plan creates the engine's collections (if missing) and this index set:
- *   - facts:    UNIQUE partial index on { studentId, key } where
+ *   - facts:    UNIQUE partial index on { tenantId, studentId, key } where
  *               `active: true` — at most one open fact per (studentId, key)
  *               (ISS-019, D-013: an open fact carries `active: true`; retiring
  *               it sets validTo and unsets `active` in one CAS update. A
@@ -37,13 +37,13 @@
  *               (ISS-027) — every studentId-bearing collection gets a lookup
  *               index; consents already had one.
  *   - consents: { studentId } — fast lookup for requireConsent().
- *   - scribe_resolutions: UNIQUE { threadId } (ISS-t-007-rev-8) -- the atomic
+ *   - scribe_resolutions: UNIQUE { tenantId, threadId } (ISS-t-007-rev-8, T-025) -- the atomic
  *               approval claim for a scribe thread; plus a plain { studentId }.
  *   - scribe_checkpoints / scribe_checkpoint_writes: the MongoDBSaver.setup()
  *               indexes, verbatim (T-011: erasure deletes by thread_id).
  *   - erasure_requests: { studentId } (open requests only) and
  *               { status, requestedAt } (T-011 audit log).
- *   - erasure_requests: UNIQUE { studentKey } among open statuses (D-016: one open request).
+ *   - erasure_requests: UNIQUE { tenantId, studentKey } among open statuses (D-016: one open request per tenant+student).
  *   - erasure_fences: no secondary index (its _id is the hashed student key; D-015/D-016).
  *   - edges:    relies on Mongo's built-in unique _id index for idempotent
  *               link() upserts, PLUS { "from.kind", "from.id" } and
@@ -84,10 +84,14 @@ export const INDEX_PLAN: IndexSpec[] = [
   // open fact per (studentId, key). NOT `{validTo: {$exists: false}}`: the
   // server rejects `$exists: false` in a partialFilterExpression (it becomes
   // `$not`), so that index could never be created.
+  // T-025 (B21 tenancy): every UNIQUE index leads with tenantId, so two tenants' documents never
+  // collide (a cross-tenant 11000 would be an existence oracle). The names changed with the keys:
+  // a live database built from the old plan must have the old unique indexes dropped before these
+  // are created. That drop is a human-gated step (not run by any test or by this unit).
   {
     collection: COLLECTION_NAMES.facts,
-    keys: { studentId: 1, key: 1 },
-    name: "facts_studentId_key_active_true_unique",
+    keys: { tenantId: 1, studentId: 1, key: 1 },
+    name: "facts_tenantId_studentId_key_active_true_unique",
     unique: true,
     partialFilterExpression: { active: true },
   },
@@ -103,8 +107,8 @@ export const INDEX_PLAN: IndexSpec[] = [
   // Plus the ISS-027 plain studentId index (B15/T-011 erasure finds a student's claims).
   {
     collection: COLLECTION_NAMES.scribe_resolutions,
-    keys: { threadId: 1 },
-    name: "scribe_resolutions_threadId_unique",
+    keys: { tenantId: 1, threadId: 1 },
+    name: "scribe_resolutions_tenantId_threadId_unique",
     unique: true,
   },
   { collection: COLLECTION_NAMES.scribe_resolutions, keys: { studentId: 1 }, name: "scribe_resolutions_studentId" },
@@ -131,8 +135,8 @@ export const INDEX_PLAN: IndexSpec[] = [
   // partialFilterExpression operator (D-013; MongoDB 6.0+), `$ne`/`$nin`/`$exists:false` are not.
   {
     collection: COLLECTION_NAMES.erasure_requests,
-    keys: { studentKey: 1 },
-    name: "erasure_requests_open_studentKey_unique",
+    keys: { tenantId: 1, studentKey: 1 },
+    name: "erasure_requests_open_tenantId_studentKey_unique",
     unique: true,
     partialFilterExpression: { status: { $in: ["pending", "confirmed", "failed"] } },
   },
@@ -169,7 +173,7 @@ async function ensureCollection(db: import("mongodb").Db, name: string): Promise
 
 /**
  * T-014 / ISS-t-011-c3-rev-4: the lowest server version this plan is known to run on. The
- * `erasure_requests_open_studentKey_unique` index's partial filter uses `$in`, which the MongoDB
+ * `erasure_requests_open_tenantId_studentKey_unique` index's partial filter uses `$in`, which the MongoDB
  * manual (core/index-partial, checked 2026-09-25, D-013) documents as supported only from
  * MongoDB 6.0. Below that, `createIndex` for that one index fails at the bottom of the loop below,
  * after every earlier collection/index in the plan has already been created — a confusing partial
@@ -184,7 +188,7 @@ export class UnsupportedServerVersionError extends Error {
   ) {
     super(
       `db-init: server version "${version}" is below the required ${required} — the ` +
-        `erasure_requests_open_studentKey_unique partial index uses "$in", which MongoDB only ` +
+        `erasure_requests_open_tenantId_studentKey_unique partial index uses "$in", which MongoDB only ` +
         `supports in a partialFilterExpression from 6.0 (D-013). Refusing to run against this server.`,
     );
     this.name = "UnsupportedServerVersionError";

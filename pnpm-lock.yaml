@@ -23,6 +23,21 @@ importers:
       '@vc/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@vc/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@vc/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
+      '@vc/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
+      jose:
+        specifier: 6.2.12
+        version: 6.2.12
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^22.14.0

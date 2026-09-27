@@ -11,20 +11,62 @@
  * sweep ONLY when actually invoked, never on import (contract B8: importing this module performs
  * no I/O and starts no timer).
  */
+import type { AddressInfo } from "node:net";
+import { fileURLToPath } from "node:url";
 import { connectFromEnv, errorLabel, startErasureFenceSweep, type MongoClientFactory, type ErasureFenceSweepOptions } from "@vc/db";
+import { initScribeCheckpointer } from "@vc/engine";
+import { createProvider, loadProviderConfig, type LlmProvider } from "@vc/providers";
+import { createJwtVerifier, jwtConfigFromEnv, type JwtVerifier } from "./auth.js";
+import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
+
+export * from "./auth.js";
+export * from "./server.js";
+export { OPENAPI_DOCUMENT } from "./openapi.js";
 
 export function apiStatus(): string {
-  return "@vc/api: not yet implemented (scaffold only, see T-002)";
+  return "@vc/api: HTTP API over the scribe, profile and erasure (T-025); opt-in via startApi({ http })";
+}
+
+/** The repo's skills/ directory (apps/api/src -> repo root). */
+export const DEFAULT_SKILLS_DIR = fileURLToPath(new URL("../../../skills", import.meta.url));
+export const DEFAULT_API_PORT = 8080;
+
+/**
+ * T-025: the HTTP server, OPT-IN. Without `http`, startApi only runs the fence sweep (as before),
+ * so importing or starting this package never opens a port by accident.
+ */
+export interface StartApiHttpOptions {
+  /** Default: VC_API_PORT, else DEFAULT_API_PORT. 0 picks a free port (tests). */
+  port?: number;
+  /** Default 127.0.0.1: a public bind is a deployment decision, made explicitly. */
+  host?: string;
+  /** Tests inject a verifier over locally generated keys; default: jwtConfigFromEnv(env). */
+  verifier?: JwtVerifier;
+  /** Tests inject a MockProvider; default: createProvider(loadProviderConfig(env)). */
+  provider?: LlmProvider;
+  skillsDir?: string;
+  log?: (line: ApiLogLine) => void;
+  writerDeadlineMs?: number;
 }
 
 export interface Api {
-  /** Stops the fence sweep and closes the Mongo client. Idempotent-safe to await once. */
+  /** Stops the HTTP server (when started), the fence sweep, and closes the Mongo client. Await once. */
   stop: () => Promise<void>;
+  /** The bound port, when `http` was requested. */
+  port?: number;
 }
 
 export interface StartApiOptions extends ErasureFenceSweepOptions {
   /** Tests inject a fake (see @vc/db/testing createFakeMongoClient); omit for the real driver. */
   clientFactory?: MongoClientFactory;
+  /** T-025: also serve the HTTP API. */
+  http?: StartApiHttpOptions;
+}
+
+function resolvePort(env: Record<string, string | undefined>, requested: number | undefined): number {
+  const raw = requested ?? (env.VC_API_PORT !== undefined && env.VC_API_PORT.trim() !== "" ? Number(env.VC_API_PORT) : DEFAULT_API_PORT);
+  if (!Number.isInteger(raw) || raw < 0 || raw > 65535) throw new RangeError("startApi: VC_API_PORT must be a port number (0-65535)");
+  return raw;
 }
 
 /**
@@ -78,18 +120,59 @@ export async function startApi(
   env: Record<string, string | undefined> = process.env,
   options: StartApiOptions = {},
 ): Promise<Api> {
-  const { clientFactory, onError, ...sweepOptions } = options;
+  const { clientFactory, onError, http, ...sweepOptions } = options;
+  // T-025: every configuration error (JWT, provider, port) surfaces BEFORE anything connects.
+  const httpSetup = http
+    ? {
+        port: resolvePort(env, http.port),
+        host: http.host ?? "127.0.0.1",
+        verifier: http.verifier ?? createJwtVerifier(jwtConfigFromEnv(env)),
+        provider: http.provider ?? createProvider(loadProviderConfig(env)),
+        skillsDir: http.skillsDir ?? DEFAULT_SKILLS_DIR,
+      }
+    : undefined;
   const { client, db } = connectFromEnv(env, clientFactory);
   await client.connect();
+  let server: ReturnType<typeof createApiServer> | undefined;
+  let sweep: ReturnType<typeof startErasureFenceSweep> | undefined;
   try {
-    const sweep = startErasureFenceSweep(db, { ...sweepOptions, onError: onError ?? defaultSweepErrorLogger });
+    sweep = startErasureFenceSweep(db, { ...sweepOptions, onError: onError ?? defaultSweepErrorLogger });
+    let port: number | undefined;
+    if (httpSetup) {
+      // The checkpoint indexes (unscoped: index commands only; every checkpoint DOCUMENT goes
+      // through a tenant-scoped saver, createTenantWiring).
+      await initScribeCheckpointer(client);
+      const wiring = createTenantWiring({ client, db, provider: httpSetup.provider, skillsDir: httpSetup.skillsDir });
+      const handler = createApiHandler({
+        verifier: httpSetup.verifier,
+        ...wiring,
+        ...(http?.log ? { log: http.log } : {}),
+        ...(http?.writerDeadlineMs !== undefined ? { writerDeadlineMs: http.writerDeadlineMs } : {}),
+      });
+      const s = createApiServer(handler);
+      server = s;
+      await new Promise<void>((resolve, reject) => {
+        s.once("error", reject);
+        s.listen(httpSetup.port, httpSetup.host, () => {
+          s.off("error", reject);
+          resolve();
+        });
+      });
+      port = (s.address() as AddressInfo).port;
+    }
+    const liveSweep = sweep;
+    const liveServer = server;
     return {
+      ...(port !== undefined ? { port } : {}),
       stop: async () => {
-        sweep.stop();
+        if (liveServer) await new Promise<void>((resolve) => liveServer.close(() => resolve()));
+        liveSweep.stop();
         await client.close();
       },
     };
   } catch (err) {
+    sweep?.stop();
+    if (server?.listening) server.close();
     try {
       await client.close();
     } catch (closeErr) {

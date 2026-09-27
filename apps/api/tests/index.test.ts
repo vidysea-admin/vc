@@ -4,8 +4,8 @@ import { apiStatus, startApi } from "../src/index.js";
 import { createFakeMongoClient } from "@vc/db/testing";
 import { COLLECTION_NAMES, erasureFenceKey, MINIMUM_FENCE_HOLD_MS } from "@vc/db";
 
-test("apiStatus reports the scaffold placeholder", () => {
-  assert.match(apiStatus(), /not yet implemented/);
+test("apiStatus reports the T-025 HTTP API (opt-in)", () => {
+  assert.match(apiStatus(), /HTTP API .*opt-in/);
 });
 
 // ---------------------------------------------------------------------------
