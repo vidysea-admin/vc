@@ -115,7 +115,60 @@
       "kind": "rubric_ref",
       "rubric": "qa/rubrics/plan-doc.md"
     },
-    "reproducible_by_checker": true
+    "reproducible_by_checker": true,
+    "narrowing": {
+      "_why": "T-043/ISS-076: the 3 commands above are the full-verify contract, but a fixed/verified row's regression_check is in practice a single package or test file, not a whole-monorepo run. Until this field existed that per-unit narrowing was unmodeled -- 50/120 fixed/verified rows carried a regression_check none of the 3 commands prefixed verbatim, which structurally blocks the fixed->verified transition (the checker cannot revert-and-reproduce a check the adapter disallows). This makes the narrowed unit conforming BY CONSTRUCTION. Enforced by scripts/vc-regression-check-conformance.sh, which every fixed/verified row's regression_check must satisfy (one of the shapes below, or null per null_bucket).",
+      "reproducible_by_checker": true,
+      "shapes": [
+        {
+          "name": "package-filter",
+          "grammar": "pnpm --filter @vc/<pkg> <script>[ <args...>]",
+          "rule": "regex ^pnpm --filter @vc/[A-Za-z0-9_-]+ [A-Za-z0-9:_-]+(\\s[^()]+)?$ -- trailing args allowed (e.g. \"-- --provider=x\" or a bare \"--provider=x\"), but no parentheses: that is how a narrative annotation like \"(54/54 clean)\" gets smuggled into what must be one literally-executable command ; <pkg> must resolve to a real (apps|packages|mcp)/<dir> whose package.json \"name\" is @vc/<pkg>; <script> must be a key in that package.json's \"scripts\""
+        },
+        {
+          "name": "package-dir",
+          "grammar": "pnpm -C <apps|packages|mcp>/<dir> <script>[ <args...>]",
+          "rule": "regex ^pnpm -C (apps|packages|mcp)/[A-Za-z0-9_-]+ [A-Za-z0-9:_-]+(\\s[^()]+)?$ (trailing args allowed, no parentheses) ; <dir> must be a real workspace directory; <script> must be a key in its package.json's \"scripts\""
+        },
+        {
+          "name": "direct-tsx",
+          "grammar": "npx tsx [--tsconfig <relative/tsconfig/path>] --test <relative/file/path>",
+          "rule": "regex ^npx tsx(?: --tsconfig ([\\w./-]+))? --test ([\\w./-]+\\.test\\.[jt]sx?)$ ; the test path must exist in the repo. If --tsconfig is present, that path must also exist AND must be the SAME workspace's own tsconfig.json as the test file (both resolve under the same (apps|packages|mcp)/<dir> prefix) -- otherwise a checker could point --tsconfig at an unrelated config to launder an unrelated result. --tsconfig exists because bare `npx tsx --test <path>` runs with esbuild's default JSX transform (classic, requires `React` in scope) when invoked from repo root, which throws `ReferenceError: React is not defined` for a workspace using `\"jsx\": \"react-jsx\"` (e.g. apps/web) -- empirically confirmed 2026-09-27 (T-043 fix cycle 1) via `npx tsx --test apps/web/tests/ui.test.tsx` failing and `npx tsx --tsconfig apps/web/tsconfig.json --test apps/web/tests/ui.test.tsx` passing 18/18."
+        },
+        {
+          "name": "doc-grep",
+          "grammar": "grep -n '<literal>' <relative/path>",
+          "rule": "regex ^grep -n '[^']+' [\\w./-]+$ ; the path must exist in the repo. For a doc/config-text fix only -- proves the corrected text is present. NEVER a substitute for a code-level check when production code changed."
+        },
+        {
+          "name": "scenario-ref",
+          "grammar": "scenario:<feature>#<scenario-id>",
+          "rule": "regex ^scenario:[\\w-]+#SC-\\d+$ ; <scenario-id> must be a real row id in the CSV named by this file's own \"scenarios\" key, whose basename (minus extension) matches <feature>"
+        },
+        {
+          "name": "rubric-ref",
+          "grammar": "rubric_ref:<path>",
+          "rule": "<path> must equal verify.doc_units.rubric verbatim -- the same rubric_ref check already declared for doc units, nameable directly as a non-doc-unit row's regression_check when a doc-only fix is verified that way (e.g. docs/plan.md against qa/rubrics/plan-doc.md)"
+        },
+        {
+          "name": "conjunction",
+          "grammar": "<shape> (&&|;) <shape> (&&|;) ...",
+          "rule": "split on literal && or ; ; every conjunct must independently conform to one of the shapes above, or be one of the 3 whole-monorepo commands verbatim"
+        }
+      ],
+      "null_bucket": {
+        "allowed": true,
+        "rule": "regression_check: null conforms ONLY for a row whose fix made no product-code change inside the pnpm workspaces (docs, process/ledger hygiene, qa/adapter.json or qa/gates config text, .claude/hooks enforcement-path scripts). The row's note must say which of those classes it is and why no shape above applies -- a null with no such note is flagged (not failed) by the checker script as weak."
+      },
+      "retired_shapes": [
+        {
+          "name": "repo-file-arg",
+          "was": "pnpm -r (test|typecheck) -- <relative/file/path>",
+          "retired_by": "ISS-092, T-043 fix cycle 1 (2026-09-27)",
+          "why": "Functionally inert. Every workspace's own \"test\"/\"typecheck\" script already expands a shell glob (e.g. `tsx --test tests/*.test.ts`) before pnpm appends the trailing path -- the glob has already matched the package's full file set, so the extra path adds one more (already-matched) file and narrows nothing. Proved empirically (checker cycle 0 + reconfirmed cycle 1): `pnpm -r test -- <any path in that package>` and a plain `pnpm -r test` produce identical per-package test counts. The shape's own validator (the retired RE_REPO_FILE_ARG) checked only that the path existed on disk, never that it changed what ran -- a Goodhart failure (ISS-081 class). The 69 fixed/verified rows that used this shape were remapped to direct-tsx (or, for one JSX file, direct-tsx + --tsconfig) this same cycle, which DOES narrow (empirically verified, strictly fewer tests than the package baseline in every spot-checked case)."
+        }
+      ]
+    }
   },
   "artifact": {
     "kind": "code",

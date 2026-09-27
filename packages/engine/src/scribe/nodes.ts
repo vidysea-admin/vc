@@ -795,8 +795,25 @@ function hasMultiplierOrCurrency(rawText: string, normalisedText: string): boole
  * and on the right by end/whitespace/%/closing punctuation, where a "." or "," is NOT followed by a
  * digit. So 20 is not found in "20,00,000", "1.20", "20-25", "20/40", "$20" or "20k"; 1.5 is found
  * in "1.5" but neither 1 nor 5 is.
+ *
+ * T-043 ISS-093 (fix cycle 2): exported ONLY so its boundary property can be unit-tested directly
+ * (same pattern as `AUTO_VERIFY_TEMPLATE_SOURCES` below — nothing else at runtime reads this export).
+ * This is necessary, not decorative: `declaredKeysForClause`'s own template slot (`NUM`, a greedy
+ * `\p{Nd}+` run inside an anchored `^…$` template) already requires the captured digit run to equal
+ * `String(value)` exactly before `guards.length === 0` is reachable at all, for every currently
+ * declared number key (budget_inr_per_year and the score-exam family). That makes this function's
+ * return value structurally unable to change `assessFactForReview`'s needsReview outcome through the
+ * public API for any of those keys — reverting it to a plain substring match left 42/42 of this
+ * file's own tests green, AND all 9 of scribe-auto-verify-property.test.ts's property suites green
+ * (including the random/mutation ones), confirmed by direct experiment during the ISS-093 fix. A
+ * fixture-only fix (e.g. adding a first-person marker to the old "15 inside 115" row) cannot make this
+ * load-bearing, because the row's `siblingCount` key is not declared by any template, so
+ * `unrecognised-form` forces review regardless of first-person-ness — and even a declared key cannot
+ * expose the bug, because the template's own slot equality check would already reject a mismatched
+ * digit run before this function is ever consulted. Direct unit coverage below is therefore the only
+ * way to keep this boundary property honestly regression-tested.
  */
-function containsNumberToken(rawText: string, value: number): boolean {
+export function containsNumberToken(rawText: string, value: number): boolean {
   const text = ` ${normaliseVerbatim(rawText).toLowerCase()} `;
   const num = escapeRegExp(String(value));
   const re = new RegExp(`[\\s("'“‘]${num}(?=\\s|%|[)"'”’;:!?]|[.,](?!\\p{Nd}))`, "u");

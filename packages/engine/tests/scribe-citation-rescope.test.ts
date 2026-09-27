@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { verifyCandidateFact, assessFactForReview } from "../src/scribe/nodes.js";
+import { verifyCandidateFact, assessFactForReview, containsNumberToken } from "../src/scribe/nodes.js";
 // A namespace import (not a named one) for the T-030 audit export, so a build without it fails only the
 // audit tests (undefined), not the whole file at ESM link time.
 import * as scribeNodes from "../src/scribe/nodes.js";
@@ -138,13 +138,44 @@ test("auto-verify: a typed number present as a whole token in the quote is verif
 });
 
 test("auto-verify NEGATIVE: a number embedded inside a LARGER digit run never auto-verifies (no false positive from substring matching, e.g. 15 inside 115)", () => {
+  // T-043 ISS-093 (fix cycle 2): this row is KEPT as end-to-end coverage that a `siblingCount`
+  // candidate (a key no template declares) is never auto-verified, but it is NOT a proof of the
+  // "15 inside 115" boundary property — `unrecognised-form` (no declared template) and
+  // `no-first-person` (the quote carries no first-person marker) already force needsReview:true
+  // here regardless of what containsNumberToken returns; reverting containsNumberToken to a plain
+  // substring match leaves this assertion (and every other assertion in this file, and the whole of
+  // scribe-auto-verify-property.test.ts) unchanged. The actual boundary property is unit-tested
+  // directly below ("containsNumberToken:" test), which DOES go red on that revert.
   const turns = turnsById(turn({ turnId: "t1", text: "115 students applied from that batch." }));
   const raw = candidate({ key: "siblingCount", value: 15, source: { type: "transcript", quote: "115 students applied from that batch", turnId: "t1" } });
   const result = verifyCandidateFact(raw, turns, SESSION_ENDED);
   assert.ok("fact" in result, "the quote itself is genuine, so the fact is kept");
   if ("fact" in result) {
-    assert.equal(result.fact.needsReview, true, "15 must never auto-verify by matching inside 115");
+    assert.equal(result.fact.needsReview, true, "an undeclared key with no first-person marker is never auto-verified");
   }
+});
+
+test("containsNumberToken: a value embedded inside a LARGER digit run is never a whole-token match (ISS-093 direct unit proof, e.g. 15 inside 115)", () => {
+  // Isolates the boundary regex itself, bypassing assessFactForReview's allow-list gate entirely
+  // (see the ISS-093 comment on containsNumberToken's own definition for why that gate makes the
+  // function unreachable as an outcome-differentiator through the public API for any declared key).
+  assert.equal(
+    containsNumberToken("115 students applied from that batch", 15),
+    false,
+    "15 must not match as a token inside the larger digit run 115",
+  );
+  assert.equal(
+    containsNumberToken("I have 15 rupees left", 15),
+    true,
+    "15 as its own whole token, properly bounded, does match",
+  );
+  assert.equal(
+    containsNumberToken("20,00,000 saved up", 20),
+    false,
+    "20 must not match inside an Indian-grouped larger number",
+  );
+  assert.equal(containsNumberToken("that took 1.5 years", 1.5), true, "a decimal value matches itself whole");
+  assert.equal(containsNumberToken("that took 1.5 years", 1), false, "1 must not match inside 1.5");
 });
 
 test("auto-verify NEGATIVE: a word-form amount (e.g. spelled-out lakh figure) never auto-verifies just because the TYPED value happens to be a number", () => {
