@@ -177,4 +177,7 @@ A second probe, removing only the `none` check, stays GREEN by design: the allow
   `.env` only, covered by the contract test above.
 - No senior-engineer review dispatched by this build (the orchestrator's brief forbids dispatching reviewers here).
 
-## Status: ready-for-check
+## Close-out
+Checker c0 PASS (verdict f195d5d); senior-software-engineer Approve, data-engineer Approve (2 low → ISS-t-025-rev-1/2).
+
+## Status: checked-PASS
