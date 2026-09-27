@@ -439,3 +439,207 @@ should have stated and did not: with a mocked provider and fixture-dictated cont
 B18's required outcome test on synthetic transcripts, so B18's proof clause must not be booked as
 satisfied (ISS-t-039-4).
 ```
+
+---
+---
+
+# CYCLE 1 — fix cycle 1, ruling on ISS-t-039-2 (the merge gate)
+
+**Date:** 2026-09-27
+**Cycle checked:** 1
+**Checker:** fresh Claude subagent (Mode A unit check, fix cycle 1), bound to
+`D:/vc/.worktrees/t-039-suppression-outcome`
+**Head commit checked:** `b59739f` (`dd95c72` fix cycle 1 test change, `b59739f` manifest correction)
+**Predecessor:** cycle 0, `e418f4f`, `VERDICT: PASS` with a hard merge gate (ISS-t-039-2)
+**Scope of this cycle:** rule on whether the KNOWN-GAP tripwire conversion the cycle-0 verdict
+prescribed (§8) was actually delivered, and whether the merge gate lifts. Nothing below is taken
+from the manifest; every number was re-produced independently.
+
+## What I verified, and how
+
+**1. The merge gate — re-derived, not accepted.**
+
+```
+$ pnpm -C packages/engine test > /tmp/t039_full_test.log 2>&1; echo "REAL_EXIT=$?"
+REAL_EXIT=0
+ℹ tests 679 / pass 634 / fail 0 / skipped 45
+$ pnpm -r typecheck > /tmp/t039_typecheck.log 2>&1; echo "REAL_EXIT=$?"
+REAL_EXIT=0   (9/9 workspace projects "Done", no diagnostics)
+```
+(Exit code captured via a redirect-then-`$?`, not through a pipe to `tail`, to avoid reading
+`tail`'s exit status by mistake — the first attempt did exactly that and I caught it before relying
+on it.) Both numbers match the manifest's claim exactly: 679/634/0/45, exit 0; typecheck 9/9, exit 0.
+**The merge gate's own regression_check now passes for real.**
+
+**2. Are the 6 tripwires real assertions, not decoration?**
+
+Read `dd95c72`'s diff directly (`git show dd95c72 -- packages/engine/tests/b18-suppression-outcome.test.ts`).
+The change is a purely additive branch inserted before the existing per-row loop:
+```ts
+if (KNOWN_GAP_IDS.has(row.id)) {
+  await t.test(`${row.id} (...): KNOWN-GAP ISS-t-039-1 -- ...`, async () => {
+    const got = c.kind === "runnable-scribe-fact" ? await runScribeFactRow(row) : await runSummaryLineRow(row);
+    assert.equal(got, "surface", `...`);
+  });
+  continue;
+}
+```
+Each of the 6 genuinely calls `runScribeFactRow`/`runSummaryLineRow` (the same functions the
+non-gap rows use) and asserts on the real return value — not `test.todo`, not `skip`, not
+`assert.ok(true)`, no try/catch swallow anywhere in the file. The non-gap branch below it
+(`assert.equal(got, row.expect, ...)`) is untouched, byte-identical to cycle 0. **Confirmed real.**
+
+**3. Self-revisiting, re-proven independently — on a DIFFERENT row, with a DIFFERENT lever, in my
+own throwaway copy.**
+
+The maker's own falsification lever (manifest "Fix cycle 1" section) simulated B18 landing by
+short-circuiting `summarizeSession` for the exact string of row `b18-f1-02` (summary-line). To
+avoid rubber-stamping the same row and the same code path, I built my own copy and my own lever
+against a **scribe-fact** row instead:
+
+```
+$ git archive b59739f | tar -x -C .../scratchpad/chk039-c1 && cd .../chk039-c1/packages/engine
+$ pnpm install --offline   # Done in 34.6s
+$ npx tsx --test tests/b18-suppression-outcome.test.ts   # BASELINE, unmodified
+ℹ tests 59 / pass 14 / fail 0 / skipped 45
+```
+Single hunk in `src/scribe/nodes.ts`, inside `verifyCandidateFact`, right after
+`const candidate = shape.data;` — drops the candidate when its transcript quote names row
+`b18-f1-01` specifically (a destination-relevance drop, not a bug, and keyed to content the way a
+real filter would be, not to `candidate.key` alone, since `b18-f1-01` and `b18-f1-04` share the key
+`visa_requirement` and I wanted to isolate exactly one row):
+```ts
+if (candidate.source?.type === "transcript" && candidate.source.quote?.includes("b18-f1-01")) {
+  return { dropped: { key: candidate.key, reason: "CHECKER-CYCLE1-INJECTED-LEVER: simulated B18 destination-relevance suppression for row b18-f1-01 only" } };
+}
+```
+**RED after, exactly one named tripwire, nothing else moved:**
+```
+✖ b18-f1-01 (scribe-fact): KNOWN-GAP ISS-t-039-1 -- B18 B18-bullet2 contract expects "suppress", engine currently measures "surface"
+  AssertionError [ERR_ASSERTION]: ... + actual 'suppress' - expected 'surface'
+ℹ tests 59 / pass 12 / fail 2 / skipped 45
+```
+Pass fell by exactly 2 (the named subtest + its parent, node:test's standard extra failure for the
+enclosing suite — same pattern as the maker's own lever), fail rose by exactly 2, skipped unchanged
+at 45, and the only *named per-row* failure anywhere in the output is `b18-f1-01`. `b18-f1-04`
+(same key, different row) did **not** move, confirming the tripwire fires on the row's own content,
+not on a coarser signal that would sweep in its near-duplicate. Reverted; re-ran the unmodified copy
+to confirm `59/14/0/45` restored. **The bound worktree was never touched** — `git status --porcelain`
+on it shows only the pre-existing untracked `.handoffs/` throughout, both before and after this lever.
+Copy deleted after use.
+
+This closes the loophole the brief specifically warned about: the tripwires do not only fire for the
+maker's own string-matched summary line — a differently-shaped lever, on a different surface, on a
+row the maker didn't test, produces the same self-revisiting behavior with the same isolation
+properties (exactly one row moves, KNOWN-GAP + issue id stay in the failing subtest's name).
+
+**4. Fixtures untouched.**
+```
+$ git diff 4154cc7 b59739f -- packages/engine/tests/fixtures/
+(empty)
+```
+Confirmed empty. D-028 blindness survives this cycle too.
+
+**5. The two manifest corrections — checked against source, not just presence.**
+- ISS-t-039-3 (`facts[]`): the adapter-mapping table's `facts[]` row now states `SummaryInputSchema.facts`
+  is a real channel mapped to `[]` (an under-mapping, not a nonexistent channel), and cites the
+  cycle-0 checker's own PROBE 2b as the evidence for outcome-neutrality. Read against
+  `packages/engine/src/scribe/schemas.ts:133` (`SummaryInputSchema = z.object({ turns, facts })`) —
+  accurate.
+- `qa/feedback-inbox.md` scoping: `git diff 4154cc7 b59739f -- qa/feedback-inbox.md` is empty
+  (stage 2 and this cycle genuinely never touched it), and the manifest's "What changed" section now
+  says "not touched **by this stage**" rather than the branch as a whole, with stage 1's 69-line
+  addition acknowledged in the same paragraph. Accurate, not just reworded.
+
+**6. Scope.**
+```
+$ git diff --stat e418f4f b59739f
+ .../engine/tests/b18-suppression-outcome.test.ts   |  46 +++++
+ qa/manifests/t-039-suppression-outcome.md          | 186 ++++++++++++++++++++-
+ 2 files changed, 227 insertions(+), 5 deletions(-)
+```
+Exactly 2 files. `git show --stat` on each of `dd95c72` and `b59739f` individually confirms one file
+each (test file; manifest). Nothing in `qa/contracts/**`, `docs/DECISIONS.md`, `ARCHITECTURE.md`,
+`.claude/**`, `TASKS.md`, or engine source since `e418f4f`. `qa/issues.jsonl`'s 5-line addition
+belongs to the cycle-0 checker's own commit (`e418f4f`), predates this cycle, and this cycle's own
+commits touch it not at all.
+
+**7. Nothing weakened.** Test-count deltas fully accounted for:
+
+| run | cycle 0 | cycle 1 | delta | explanation |
+|---|---|---|---|---|
+| targeted file | 59 / 7 / 7 / 45 | 59 / 14 / 0 / 45 | pass +7, fail −7 | the 6 KNOWN-GAP subtests + their parent test flip fail→pass; nothing else in the file changed |
+| full engine | 679 / 627 / 7 / 45 | 679 / 634 / 0 / 45 | pass +7, fail −7 | same 7, no unrelated suite moved |
+
+No previously-passing assertion was loosened, deleted, or moved to skip — confirmed both by the
+counts and by reading `dd95c72`'s diff directly (the non-gap branch is untouched). Skip count (45)
+is unchanged across every cycle and every one of my own reruns, including inside both falsification
+levers — the KNOWN-GAP conversion touches only rows that were already runnable and failing.
+
+## KNOWN-GAP subtest names/messages — would they tell a stranger what's wrong?
+
+Yes. A representative failing name (captured live during my own lever, not copied from the
+manifest): `b18-f1-01 (scribe-fact): KNOWN-GAP ISS-t-039-1 -- B18 B18-bullet2 contract expects
+"suppress", engine currently measures "surface"`. The assertion message repeats the contract clause,
+the row's own `why`, and an explicit instruction to delete the tripwire and restore the normal
+assertion once it fires for real. Both the marker and the issue id are in the *subtest name itself*,
+so `pnpm test`'s one-line summary and any CI failure list surface them without anyone opening the
+file. 45 skips remains the honest number — unaffected by this cycle, and the skip-classification
+code is untouched in `dd95c72`'s diff.
+
+## Issues ledger
+
+`qa/issues.jsonl` updated in place (I am the checker; this ledger is mine to maintain, distinct from
+`docs/DECISIONS.md`'s append-only rule which does not apply to it):
+- **ISS-t-039-2 → `status: fixed`**, `fixed_date`/`verified_date` 2026-09-27, `checker_verdict` recording
+  the independent re-run (679/634/0/45, exit 0) and the independent self-revisiting re-proof on a
+  different row/lever.
+- **ISS-t-039-3 → `status: fixed`**, verified the manifest correction is accurate against source, not
+  just present.
+- ISS-t-039-1, ISS-t-039-4, ISS-t-039-5 — left open, unaffected by this cycle, correctly so (they are
+  not what this fix cycle was for).
+
+No new issue opened: I found nothing this cycle that isn't already covered by an existing ISS id or
+by the accuracy notes above.
+
+```
+VERDICT: PASS
+CYCLE: 1
+MERGE GATE ISS-t-039-2: LIFTED. `pnpm -C packages/engine test` independently re-run on b59739f:
+EXIT=0 (captured via redirect + $?, not through a tail pipe), 679 tests / 634 pass / 0 fail / 45
+skip — matches the manifest exactly. `pnpm -r typecheck`: exit 0, 9/9 Done.
+SCOREBOARD: all 6 KNOWN-GAP tripwires are real, genuinely-executed assertions (no test.todo/skip/
+swallow) · self-revisiting property re-proven independently on a DIFFERENT row (b18-f1-01,
+scribe-fact) with a DIFFERENT lever (content-matched drop in verifyCandidateFact) than the maker's
+own (b18-f1-02, summary-line, summarizeSession short-circuit) — exactly one named tripwire moved,
+pass 14→12 / fail 0→2 / skip unchanged 45, near-duplicate row b18-f1-04 (same key) did NOT move ·
+fixtures byte-untouched since 4154cc7 · scope exactly 2 files since e418f4f (test + manifest),
+verified per-commit · both manifest corrections (ISS-t-039-3 facts[] channel; feedback-inbox stage
+scoping) checked against source and found accurate, not just present · test-count deltas (+7 pass/
+−7 fail, both runs) fully accounted for by the 6 tripwires + their parent test, nothing else moved,
+nothing weakened · KNOWN-GAP + ISS-t-039-1 present in every converted subtest's own name, so a CI
+failure list alone tells a stranger this is a tracked gap, not a regression · 45 skips unchanged and
+still honest.
+FAILURES: none. Merge to `main` is clear.
+ISSUES-WRITTEN: none new. ISSUES UPDATED: ISS-t-039-2 (open → fixed), ISS-t-039-3 (open → fixed).
+ISS-t-039-1, ISS-t-039-4, ISS-t-039-5 remain open, correctly, as noted above.
+EXECUTOR: claude checker subagent, fix cycle 1, fresh context, bound to
+D:/vc/.worktrees/t-039-suppression-outcome; throwaway copy at scratchpad/chk039-c1 via `git archive
+b59739f` + `pnpm install --offline` (34.6s), deleted after use; shared test lock directory absent =
+free, no wait.
+EXPLANATION: Cycle 0 passed the unit's substance but placed a hard merge gate on the red suite. This
+cycle's only job was to rule whether the prescribed KNOWN-GAP conversion actually closed that gate,
+and it did: I re-ran `pnpm -C packages/engine test` myself and got exit 0, 679/634/0/45, independent
+of the manifest's numbers. I read the diff rather than trusting the description — the conversion is a
+purely additive branch that never touches the pre-existing per-row assertion path, so nothing was
+softened to reach green. The property the whole ruling depends on is that these tripwires actually
+trip when B18 lands, not just when the maker's own test says so, so I built my own lever against a
+row and a code path the maker never touched (scribe-fact b18-f1-01 via a content-matched drop in
+verifyCandidateFact, instead of the maker's summary-line b18-f1-02 via summarizeSession) — exactly one
+named tripwire fired, with the near-duplicate row b18-f1-04 (identical key) correctly staying put,
+which is the specific failure mode ("fires on one artificial hunk but not a real implementation") the
+brief asked me to rule out. Both manifest corrections check out against source. No assertion was
+weakened; the pass/fail deltas across both the targeted file and the full suite are fully explained by
+the 6 tripwires and their parent test, nothing else. The merge gate is lifted; this branch is clear to
+merge to `main`.
+```
