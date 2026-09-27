@@ -20,3 +20,12 @@
   Lever simulated B18 implemented for b18-f1-02 -> exactly that tripwire went RED, no other row moved.
   Fixtures byte-untouched since 4154cc7. ISS-t-039-3 + inbox scoping corrected in the manifest.
   Cycle-1 checker dispatched same turn (brief demands its OWN lever on a DIFFERENT row).
+2026-09-27T16:33:44+05:30 ADVANCED · T-041 cycle 0 PASS (90394c2): abort can never read as "no concern found" -- checker
+  traced every path, guard-crisis branch returns before reading classifier, late-rejection safe by
+  construction. engine 623/623 (+3), providers 54/54, typecheck 9/9. Both levers reproduced.
+  New: ISS-t-041-1 (real-HTTP 50ms test flakes under full-suite load, 3/3 fail concurrent / 3/3 pass
+  isolated -- undisclosed by me), ISS-t-041-2 (no observability on a crisis-adjacent path).
+  ISS-t-037-2 flipped open -> fixed. Neither new issue blocks.
+  MERGE BLOCKED (not by the unit): vc-f5's Mode B sweep is uncommitted on main and touches
+  qa/issues.jsonl. Asked vc-f5 to commit; not committing peer contract/ledger work myself.
+  ISS-087 (lock breaks on age alone, never tests owner PID liveness) -> fold into T-040's checker brief.
