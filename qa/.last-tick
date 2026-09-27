@@ -815,3 +815,44 @@ Standing commitment recorded: if c2 FAILs, it is STALLED + /agent-debugger, NOT 
 
 SERIAL: Mode B sweep waits on T-043 (~8h), releases the moment the c2 verdict lands either way.
 SERIAL: T-035 waits on T-010.
+
+## tick 2026-09-27T23:45:22+05:30
+STATE: ADVANCED (two gate defects fixed in place; T-043 checker c2 still running)
+
+ISS-098 (vc-f5, high) -- MY DEFECT, and a live one. qa/gates/hook-raw-count-fixes.md still offered
+  option (b) "approve only ISS-054", which the Scope correction FOUR SECTIONS LOWER IN THE SAME
+  FILE measures as wrong (the two defects cancel; fixing either alone makes the count wrong in a
+  new direction). And ISS-095 -- the row now carrying the whole reader contract -- appeared in no
+  option, so no answer available to Umesh authorised the fix I had just spent three ticks binding.
+  He answers gates within minutes and a gate is read top-down, so (b) in good faith would have
+  bought an enforcement-path edit approved on a refuted premise, with Approved-by attached to the
+  wrong scope.
+
+  Fixed at 4963b0b by REWRITING THE OPTIONS IN PLACE, not appending a note under (b) -- appending
+  under a stale statement is the defect itself. New options: (a) the co-landing unit
+  ISS-054+ISS-056+ISS-095, (b) that plus ISS-084's raw-count fix (genuinely separable: different
+  counter, no interaction with cycle resolution), (c) not now with both measured costs. Header
+  states the change, the time, the reason, and credits the peer session.
+
+SECOND INSTANCE FOUND BY SWEEPING THE OTHER FOUR GATES rather than fixing only the reported one.
+  qa/gates/t-010-b1-b18-unsatisfiable.md carried TWO COMPETING DECISION SURFACES: the (a)/(b)/(c)
+  options near the top from when the gate opened, and the four decisions D1-D4 near the end added
+  after the stall diagnosis. A reader answering from the top and one answering from the bottom
+  give differently-shaped answers to the same gate -- and I have been telling Umesh "blocked on
+  D1+D2" for hours while the file's FIRST answer surface asks him to pick a letter. Fixed at
+  999fc49: D1-D4 marked authoritative in place, options relabelled as the reasoning that produced
+  them. Worse than ISS-098 in one respect -- ISS-098 offered a wrong answer, this offered a wrong
+  QUESTION, which is harder to see because both surfaces look correct in isolation.
+
+  Clean: b18-unimplemented's appended section explicitly reaffirms "the question, the three
+  options and the recommendation unchanged"; auto-verify-surface and p2-application-drafting-scope
+  each have one options block and no later corrections.
+
+THE CLASS IS NOW THREE DEEP AND HAS LEFT THE TOOLING: ISS-056 in a hook's reader, ISS-098 in a
+  gate's options, this one in a gate's question. Same mechanism each time -- a correction appended,
+  the superseded statement left standing, whoever reads top-down gets the pre-correction answer.
+  In prose NO READER FIX REACHES IT, so the only defence is a human or agent re-reading the whole
+  file rather than the diff. That is worth more than the two fixes: every correction I appended
+  today to a document a human decides from is a candidate instance.
+
+SERIAL: Mode B sweep waits on T-043 (~8h). SERIAL: T-035 waits on T-010.
