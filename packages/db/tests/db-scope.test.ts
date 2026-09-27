@@ -172,6 +172,15 @@ const FENCE_AWARE_WRITERS: Record<string, string> = {
     "operation with tenantId stamped / filtered and string _ids tenant-prefixed, so every write through it is the " +
     "caller's write, and every caller that writes student data (facts.ts, erasure.ts, decisions.ts, scribe/graph.ts, " +
     "the checkpoint saver) is itself on this allowlist. Unsupported operations throw instead of being forwarded",
+  "packages/engine/src/webhooks/outbox.ts":
+    "T-034 MongoWebhookOutbox.enqueue/update: writes to webhook_outbox, whose documents carry a student id nested at " +
+    "event.data.studentId (B15 covers it via ERASURE_PLAN's byEventStudent). Deliberately NOT gated on " +
+    "assertStudentNotFenced like facts.ts/decisions.ts: its two callers (apps/api/src/server.ts) already decide " +
+    "whether an enqueue should happen at all — a fact.approved enqueue only follows a successful, already fence-checked " +
+    "resumeScribe/inspectScribe (a `fenced` outcome is never reached), while an erasure.requested enqueue is exactly " +
+    "the event that MUST fire while the fence is being set, not be blocked by it. A late-arriving webhook_outbox row " +
+    "for a student erased moments later is exactly what ERASURE_PLAN's byEventStudent step cleans up, the same way an " +
+    "in-flight write can outlive facts.ts's own fence window before compensation catches it",
 };
 
 const STUDENT_DATA_COLLECTIONS = [

@@ -12,6 +12,7 @@ import { SignJWT, type JWTPayload } from "jose";
 import { COLLECTION_NAMES, VC_DB_NAME, getVcDb, tenantScopedDb } from "@vc/db";
 import { createFakeMongoClient, INDEX_PLAN, TEST_ERASURE_CONFIG, type FakeDb } from "@vc/db/testing";
 import { MockProvider } from "@vc/providers";
+import { InMemoryWebhookOutbox, type WebhookEvent, type WebhookOutbox } from "@vc/engine";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { API_ROUTES, createApiHandler, createApiServer, createTenantWiring, type ApiDeps, type ApiLogLine, type ApiRequest } from "../src/server.js";
 import { OPENAPI_DOCUMENT } from "../src/openapi.js";
@@ -315,6 +316,78 @@ test("T-025 api: scribe start -> approval diff -> approve -> profile, with every
   assert.deepEqual([...new Set(w.calls.graph)], ["tenant-a"]);
 });
 
+// ---------------------------------------------------------------------------
+// T-034: webhook emission hooks (B21 "Events")
+// ---------------------------------------------------------------------------
+
+test("T-034 api: decideApproval enqueues one fact.approved webhook event per DURABLY WRITTEN fact (read back via getFactsByIds, not re-derived from the response), carrying B2 provenance", async () => {
+  const outbox = new InMemoryWebhookOutbox();
+  const w = world({ webhooks: { outboxForTenant: () => outbox, destinationUrl: "http://client.invalid/hook" } });
+  await scribeToApproval(w, "tenant-a");
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
+
+  const decided = await call(w, "POST", `${base}/approval`, { token: counsellor, body: { action: "approve" } });
+  assert.equal(decided.status, 200, decided.body);
+  assert.equal(decided.json.kind, "done");
+
+  const records = await outbox.list();
+  assert.equal(records.length, 2, "one event per written fact");
+  const events = records.map((r) => r.event as WebhookEvent & { type: "fact.approved" });
+  assert.deepEqual(
+    events.map((e) => e.data.fact.key).sort(),
+    ["budget_inr_per_year", "targetCountry"],
+  );
+  for (const event of events) {
+    assert.equal(event.type, "fact.approved");
+    assert.equal(event.tenantId, "tenant-a");
+    assert.equal(event.data.studentId, STUDENT);
+    assert.equal(event.data.sessionId, SESSION);
+    assert.equal(event.data.fact.source.type, "transcript", "the fact's own persisted citation, unchanged");
+  }
+  assert.ok(records.every((r) => r.destinationUrl === "http://client.invalid/hook"));
+
+  // A retried decision ("already_resolved") is not applied, so it must not enqueue a second time.
+  const again = await call(w, "POST", `${base}/approval`, { token: counsellor, body: { action: "reject" } });
+  assert.equal(again.json.kind, "already_resolved");
+  assert.equal((await outbox.list()).length, 2, "no extra event from the loser's request");
+});
+
+test("T-034 api: with no webhooks configured, an approve decision writes facts exactly as before and enqueues nothing (the emission hook is a pure no-op)", async () => {
+  const w = world();
+  await scribeToApproval(w, "tenant-a");
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
+  const decided = await call(w, "POST", `${base}/approval`, { token: counsellor, body: { action: "approve" } });
+  assert.equal(decided.status, 200, decided.body);
+  assert.equal(w.fakeDb.collection<{ _id: string }>("facts").size(), 2);
+});
+
+test("T-034 api: a webhook enqueue failure is logged (webhook_enqueue_failed) but never turns an already-successful approval into an error response", async () => {
+  const failingOutbox: WebhookOutbox = {
+    enqueue: async () => {
+      throw new Error("boom: destination store unavailable");
+    },
+    get: async () => undefined,
+    update: async () => {
+      throw new Error("unused");
+    },
+    list: async () => [],
+  };
+  const w = world({ webhooks: { outboxForTenant: () => failingOutbox, destinationUrl: "http://client.invalid/hook" } });
+  await scribeToApproval(w, "tenant-a");
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
+  const decided = await call(w, "POST", `${base}/approval`, { token: counsellor, body: { action: "approve" } });
+  assert.equal(decided.status, 200, decided.body);
+  assert.equal(decided.json.kind, "done");
+  assert.equal(w.fakeDb.collection<{ _id: string }>("facts").size(), 2, "the write itself is unaffected by the enqueue failure");
+  assert.ok(
+    w.logs.some((l) => l.event === "api_request_failed" && l.route === "decideApproval" && l.error.startsWith("webhook_enqueue_failed:")),
+    "the failure is logged",
+  );
+});
+
 test("T-025 api: another tenant sees tenant A's student exactly as a student that never existed, and changes nothing of A's", async () => {
   const w = world();
   await scribeToApproval(w, "tenant-a");
@@ -424,6 +497,32 @@ test("T-025 api (T-022 merge): concern_flagged edges are stamped with the token'
   const after = concernEdges();
   assert.deepEqual(after.map((e) => e.tenantId), ["tenant-b"]);
   assert.equal(JSON.stringify(after[0]), bEdgeBefore);
+});
+
+test("T-034 api: the first erasure confirmation enqueues one erasure.requested webhook event, carrying the request's own reason/requestedAt (read back via getErasureRequest, the last point studentId is still clear)", async () => {
+  const outbox = new InMemoryWebhookOutbox();
+  const w = world({ webhooks: { outboxForTenant: () => outbox, destinationUrl: "http://client.invalid/hook" } });
+  await scribeToApproval(w, "tenant-a");
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const opened = await call(w, "POST", `/v1/students/${STUDENT}/erasure-requests`, { token: counsellor, body: { reason: "guardian_request" } });
+  assert.equal(opened.status, 201, opened.body);
+  const requestId = opened.json.requestId as string;
+
+  const before = await outbox.list();
+  assert.equal(before.length, 0, "requestErasure alone does not enqueue -- only the confirm step does");
+
+  const first = await call(w, "POST", `/v1/erasure-requests/${requestId}/confirm`, { token: counsellor });
+  assert.equal(first.status, 200, first.body);
+
+  const records = await outbox.list();
+  assert.equal(records.length, 1);
+  const event = records[0]!.event as WebhookEvent & { type: "erasure.requested" };
+  assert.equal(event.type, "erasure.requested");
+  assert.equal(event.tenantId, "tenant-a");
+  assert.equal(event.data.requestId, requestId);
+  assert.equal(event.data.studentId, STUDENT);
+  assert.equal(event.data.reason, "guardian_request");
+  assert.equal(records[0]!.destinationUrl, "http://client.invalid/hook");
 });
 
 test("T-029 api: request -> confirm -> reconfirm (token) -> approver approves -> purged; no single call purges; self-approval, a wrong token and student-as-actor are refused", async () => {

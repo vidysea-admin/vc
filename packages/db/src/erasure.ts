@@ -1086,6 +1086,18 @@ export async function requestErasure(db: Db, input: RequestErasureInput): Promis
   return { requestId };
 }
 
+/**
+ * T-034 (B21 Events): read-only lookup of one erasure request row, for the confirm call site that
+ * needs the `reason` and `requestedAt` this request was opened with to build the erasure.requested
+ * webhook event (neither confirmErasure nor reconfirmErasure returns them). Never used by the
+ * erasure workflow itself, and never called after the second confirmation: from there on the row's
+ * clear `studentId` is redacted (see ErasureRequestDoc's docstring), so a caller must read this
+ * BEFORE that point or `studentId` on the result may already be gone.
+ */
+export async function getErasureRequest(db: Db, requestId: string): Promise<ErasureRequestDoc | null> {
+  return erasureRequests(db).findOne({ _id: requestId });
+}
+
 export interface ConfirmErasureResult {
   /**
    * T-029: the single-use token the SAME actor must present to reconfirmErasure (the second
@@ -1396,6 +1408,10 @@ const sessionsById = (s: ErasureSelectors): Document =>
     $or: [{ _id: { $in: s.sessionIds } }, { sessionId: { $in: s.sessionIds } }],
   });
 const claimsByThread = (s: ErasureSelectors): Filter<Document> => ({ studentId: s.studentId, threadId: { $in: s.threadIds } });
+// T-034 (B21 Events, ISS-t-027-rev-3): a webhook_outbox document's student lives one level down at
+// `event.data.studentId` (the WebhookEvent envelope), not at the document's own top level, so it
+// needs its own dotted-path filter rather than the plain `byStudent` shape.
+const byEventStudent = (s: ErasureSelectors): Filter<Document> => ({ "event.data.studentId": s.studentId });
 
 /** Ordered: consents first (blocks processing, B4), anchors last (see the module docstring). */
 export const ERASURE_PLAN: readonly ErasureStep[] = [
@@ -1407,6 +1423,11 @@ export const ERASURE_PLAN: readonly ErasureStep[] = [
   // T-024 / ISS-t-013r-c0-3: the readable transcript carries studentId on every turn document, so it
   // is a direct row (like consents/decisions): deleted and read back by studentId.
   { collection: COLLECTION_NAMES.session_transcripts, phase: 1, filter: byStudent, residue: byStudent },
+  // T-034: queued fact-approved / erasure-requested / concern-flagged webhook events. A direct row
+  // (not an anchor: nothing else resolves ids FROM it), deleted and read back by the nested
+  // studentId regardless of delivery status (pending/delivered/failed/dead) — an undelivered event
+  // referencing an erased student is exactly the residue B15 must not leave behind.
+  { collection: COLLECTION_NAMES.webhook_outbox, phase: 1, filter: byEventStudent, residue: byEventStudent },
   { collection: COLLECTION_NAMES.facts, phase: 2, filter: factsById, residue: byStudent }, // active AND retired
   { collection: COLLECTION_NAMES.sessions, phase: 2, filter: sessionsById, residue: byStudent },
   { collection: COLLECTION_NAMES.scribe_resolutions, phase: 2, filter: claimsByThread, residue: byStudent },

@@ -53,6 +53,12 @@ export const COLLECTION_NAMES = {
   // (no SMTP, no network). Holds the approval request addressed to the configured approver, with the
   // request id, reason code and staff actor ids, never the studentId (src/erasure.ts).
   email_outbox: "email_outbox",
+  // T-034 / B21 Events: the signed-webhook delivery queue (packages/engine/src/webhooks/outbox.ts
+  // MongoWebhookOutbox). One document per event (`_id` == the event's own idempotency key, tenant-
+  // qualified by tenantScopedDb); `event.data.studentId` carries the student the event is about, so
+  // B15 erasure covers it as a direct row (ERASURE_PLAN, packages/db/src/erasure.ts) even though the
+  // studentId itself sits one level down, not at the document's top level.
+  webhook_outbox: "webhook_outbox",
   // Name constants only — owned by the university-kb unit (ARCHITECTURE Q1).
   universities: "universities",
   courses: "courses",

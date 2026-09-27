@@ -65,6 +65,37 @@ test("a non-numeric timestamp is rejected as invalid, not crashed on", () => {
   assert.deepEqual(result, { ok: false, reason: "invalid_timestamp" });
 });
 
+test("ISS-t-027-rev-1: a non-canonical timestamp ('123.0', a decimal that Number() still parses as an integer) is rejected as invalid", () => {
+  const result = verifyWebhookSignature({
+    rawBody: RAW_BODY,
+    signature: "deadbeef",
+    timestamp: "123.0",
+    secret: SECRET,
+  });
+  assert.deepEqual(result, { ok: false, reason: "invalid_timestamp" });
+});
+
+test("ISS-t-027-rev-1: exponent notation ('1e12', also Number.isInteger-true) is rejected as invalid", () => {
+  const result = verifyWebhookSignature({
+    rawBody: RAW_BODY,
+    signature: "deadbeef",
+    timestamp: "1e12",
+    secret: SECRET,
+  });
+  assert.deepEqual(result, { ok: false, reason: "invalid_timestamp" });
+});
+
+test("ISS-t-027-rev-1: a leading '+' or whitespace is rejected as invalid (only bare digits are canonical)", () => {
+  assert.deepEqual(
+    verifyWebhookSignature({ rawBody: RAW_BODY, signature: "deadbeef", timestamp: "+123", secret: SECRET }),
+    { ok: false, reason: "invalid_timestamp" },
+  );
+  assert.deepEqual(
+    verifyWebhookSignature({ rawBody: RAW_BODY, signature: "deadbeef", timestamp: " 123", secret: SECRET }),
+    { ok: false, reason: "invalid_timestamp" },
+  );
+});
+
 test("a stale timestamp (older than the replay window) is rejected", () => {
   const now = Date.now();
   const staleTimestamp = now - DEFAULT_REPLAY_TOLERANCE_MS - 1000;

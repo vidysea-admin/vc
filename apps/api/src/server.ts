@@ -44,6 +44,8 @@ import {
   errorLabel,
   executeErasure,
   exportStudent,
+  getErasureRequest,
+  getFactsByIds,
   hasStudentSession,
   readActiveProfile,
   readSessionTranscript,
@@ -55,6 +57,9 @@ import {
   ApprovalResponseError,
   ApprovalResponseSchema,
   ScribeInputSchema,
+  MongoWebhookOutbox,
+  buildErasureRequestedEvent,
+  buildFactApprovedEvent,
   compileScribeGraph,
   createScribeCheckpointer,
   inspectScribe,
@@ -62,6 +67,8 @@ import {
   scribeThreadId,
   startScribe,
   type ScribeGraph,
+  type WebhookEvent,
+  type WebhookOutbox,
 } from "@vc/engine";
 import { AiUnavailableError, type LlmProvider } from "@vc/providers";
 import { ErasureReasonSchema } from "@vc/schemas";
@@ -120,6 +127,20 @@ export interface ApiDeps {
    * throwing = 503 erasure_not_configured and nothing is written.
    */
   erasureConfig?: () => ErasureWorkflowConfig;
+  /**
+   * T-034 (B21 "Events"): where fact.approved / erasure.requested webhook events are enqueued after
+   * their write durably succeeds (@vc/engine webhooks/schemas.ts's buildFactApprovedEvent /
+   * buildErasureRequestedEvent). `outboxForTenant` mirrors `dbForTenant` / `graphForTenant`: a
+   * MongoWebhookOutbox is bound to ONE tenant-scoped Db at construction (packages/db tenant.ts), so
+   * it is built per-request from the verified token's tenant, never held as a single shared
+   * instance. Absent = the emission hook is a no-op: no route's response ever depends on it, and
+   * enqueue is best-effort even when configured — a failure is logged (api_request_failed) but
+   * never turns an already-successful write into an error response (see decideApproval /
+   * confirmErasure below). Delivery (actually POSTing to destinationUrl) is a separate worker
+   * (@vc/engine drainWebhookOutbox), never run inline in a request — this unit ships no network
+   * send.
+   */
+  webhooks?: { outboxForTenant: (tenantId: string) => WebhookOutbox; destinationUrl: string };
 }
 
 export class BodyTooLargeError extends Error {
@@ -156,6 +177,13 @@ interface RouteContext {
   writerDeadlineMs?: number;
   /** T-029: throws ErasureConfigError when the workflow is not configured. */
   erasureConfig: () => ErasureWorkflowConfig;
+  /**
+   * T-034 (B21 "Events"): enqueues 0+ signed-webhook events. A no-op when `deps.webhooks` is not
+   * configured, and best-effort even when it is: an enqueue failure is logged, never thrown — the
+   * route's own write already durably succeeded by the time this runs, and this call must never
+   * turn that success into an error response.
+   */
+  emitWebhookEvents: (events: WebhookEvent[]) => Promise<void>;
 }
 
 export interface ApiRoute {
@@ -277,7 +305,28 @@ const ROUTES: RouteDef[] = [
       // A run that ended before any approval (refused, escalated) has nothing to decide.
       if (seen.kind === "done" && seen.decision === null) return { status: 409, body: { error: "no_pending_approval" } };
       const response = ctx.body as z.infer<typeof ApprovalResponseSchema>;
-      return { status: 200, body: await resumeScribe(graph, response, scribeOpts(ctx)) };
+      const outcome = await resumeScribe(graph, response, scribeOpts(ctx));
+      // T-034 (B21 "Events", B2 provenance): a fresh "written" outcome means applyApprovedDiff just
+      // durably committed these facts. Read back what was ACTUALLY persisted (getFactsByIds) rather
+      // than re-deriving the event from `response` itself — the response is the counsellor's
+      // intent, not necessarily the stored shape (e.g. a superseded key, a schema default). Never
+      // fires for "already_resolved" (this call's own decision was NOT applied, the winner's was;
+      // the winner's own decideApproval call already emitted) or for a null result (a pending write
+      // this call did not complete).
+      if (outcome.kind === "done" && outcome.result.status === "written" && outcome.result.writtenFactIds.length > 0) {
+        const written = await getFactsByIds(ctx.store(), ctx.params.studentId!, outcome.result.writtenFactIds);
+        await ctx.emitWebhookEvents(
+          written.map((fact) =>
+            buildFactApprovedEvent({
+              tenantId: ctx.auth.tenantId,
+              sessionId: ctx.params.sessionId!,
+              studentId: ctx.params.studentId!,
+              fact,
+            }),
+          ),
+        );
+      }
+      return { status: 200, body: outcome };
     },
   },
   {
@@ -335,6 +384,23 @@ const ROUTES: RouteDef[] = [
     roles: ANY_ROLE,
     run: async (ctx) => {
       const out = await confirmErasure(ctx.store(), { requestId: ctx.params.requestId!, confirmedBy: ctx.auth.counsellorId });
+      // T-034 (B21 "Events"): the first confirmation is the emission point for erasure.requested —
+      // the request is now durably fenced (not merely "someone asked"), and this is the LAST moment
+      // the row still carries a clear studentId (the second confirmation redacts it, see
+      // ErasureRequestDoc's docstring / getErasureRequest's). Idempotent by (tenantId, requestId)
+      // alone, so a retried confirm never double-enqueues.
+      const row = await getErasureRequest(ctx.store(), ctx.params.requestId!);
+      if (row?.studentId) {
+        await ctx.emitWebhookEvents([
+          buildErasureRequestedEvent({
+            tenantId: ctx.auth.tenantId,
+            requestId: ctx.params.requestId!,
+            studentId: row.studentId,
+            reason: row.reason,
+            requestedAt: row.requestedAt,
+          }),
+        ]);
+      }
       return {
         status: 200,
         body: { requestId: ctx.params.requestId, status: "confirmed", confirmToken: out.confirmToken, confirmTokenExpiresAt: out.confirmTokenExpiresAt },
@@ -540,6 +606,25 @@ export function createApiHandler(deps: ApiDeps): ApiHandler {
           if (!deps.erasureConfig) throw new ErasureConfigError("the erasure approver workflow is not configured");
           return deps.erasureConfig();
         },
+        emitWebhookEvents: async (events: WebhookEvent[]) => {
+          if (!deps.webhooks || events.length === 0) return;
+          const { outboxForTenant, destinationUrl } = deps.webhooks;
+          const outbox = outboxForTenant(tenantId!);
+          for (const event of events) {
+            try {
+              await outbox.enqueue({ id: event.id, event, destinationUrl });
+            } catch (err) {
+              log({
+                level: "error",
+                event: "api_request_failed",
+                route: route.id,
+                status: 0,
+                error: `webhook_enqueue_failed:${errorLabel(err)}`,
+                ts: new Date().toISOString(),
+              });
+            }
+          }
+        },
       };
       const out = await route.run(ctx);
       return respond(out.status, out.body);
@@ -621,9 +706,17 @@ export interface TenantWiringDeps {
  * tenant-scoped Db (tenantScopedDb) and a scribe graph whose db AND checkpointer are both scoped
  * (the checkpointer is built on tenantScopedClient, so a checkpoint thread `scribe:<sessionId>` in
  * one tenant is invisible to the same thread id in another). Graphs are cached per tenant.
+ *
+ * T-034 also returns `webhookOutboxForTenant`: a MongoWebhookOutbox over that SAME tenant-scoped Db,
+ * cached per tenant like the graph. Not part of `ApiDeps` directly (`ApiDeps.webhooks` additionally
+ * needs a `destinationUrl`, which this scaffold does not own) — the caller (startApi) combines it
+ * with `VC_WEBHOOK_DESTINATION_URL` from env.
  */
-export function createTenantWiring(deps: TenantWiringDeps): Pick<ApiDeps, "dbForTenant" | "graphForTenant"> {
+export function createTenantWiring(
+  deps: TenantWiringDeps,
+): Pick<ApiDeps, "dbForTenant" | "graphForTenant"> & { webhookOutboxForTenant: (tenantId: string) => WebhookOutbox } {
   const graphs = new Map<string, ScribeGraph>();
+  const outboxes = new Map<string, WebhookOutbox>();
   const dbForTenant = (tenantId: string): Db => tenantScopedDb(deps.db, tenantId);
   return {
     dbForTenant,
@@ -637,6 +730,14 @@ export function createTenantWiring(deps: TenantWiringDeps): Pick<ApiDeps, "dbFor
         graphs.set(tenantId, graph);
       }
       return graph;
+    },
+    webhookOutboxForTenant(tenantId: string): WebhookOutbox {
+      let outbox = outboxes.get(tenantId);
+      if (!outbox) {
+        outbox = new MongoWebhookOutbox(dbForTenant(tenantId));
+        outboxes.set(tenantId, outbox);
+      }
+      return outbox;
     },
   };
 }
