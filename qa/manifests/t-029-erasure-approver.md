@@ -123,4 +123,7 @@ GREEN before: `M0 baseline db -> exit 0: tests 79 | pass 79 | fail 0` and `M0 ba
 7. `isStudentFenced` (the write gate) trusts only the fence row. A fence row past its `releaseAfter` does not fence, even if the student has an `awaiting_approval` request. This state is unreachable through the API, because the re-arm at the first confirm unsets `releaseAfter`. T029-A13 pins only the sweep's defence.
 8. The sweep expires stale requests only when `VC_AUDIT_HMAC_KEY` is configured, because the HMAC is needed to close a request. Without the key, abandoned requests keep their fences (fail safe).
 
-## Status: ready-for-check
+## Close-out
+Checker c0 PASS (verdict 382a5fe; ISS-t-029-c0-1 low). senior-software-engineer Approve; data-engineer Approve (2 low → ISS-t-029-rev-1/2).
+
+## Status: checked-PASS
