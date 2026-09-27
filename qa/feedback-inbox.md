@@ -14,7 +14,7 @@
 2026-09-26 · Umesh (chat + AskUserQuestion, personas) · PATTERN: usability is judged across a ladder from the expert benchmark down to a Hindi-speaking non-writer, plus international policy-heavy personas; the target is that a novice with VC reaches 90-95 % of the expert · EVIDENCE: "Sapna mam is the top renowned counsellor of India … Mayo College"; "Gaurav … IIT … product manager … no idea of counselling … Sapna ji level ya 90-95 %"; "Gaurav Bhaiya … English samajh nahi aati … Hindi samajh aati hai bat likhni nahi aati … wow I can also do it"; UK/US/Australia/Canada selected; release video to "Sapna mam and Gaurav Bhaiya" · APPLIES NEXT: qa/adapter.json personas, Hindi i18n, counsellor voice input, golden-session novice-vs-expert eval, release video with Hindi voice-over · FOLDED: 2026-09-26 into B17 + new B22 (checker)
 2026-09-26 · lead's counselor-portal review (second relay by Umesh, "improve VC with whatever is in here") · PATTERN: speak instead of select (audio-first); one history timeline of everything done for a student; a second model tests what the first builds; a 20-minute end-to-end video is the single review artifact; a written pre-release checklist · EVIDENCE: "baccha June bole … audio base"; "history wala tab … line se activity record"; "ek model se banaya … dusre model ko bug karne ke liye"; "20 minute ka video dekh lunga shanti se"; "saat-aath checkpoints checklist" · APPLIES NEXT: counsellor voice-input unit, student activity timeline (read API + reference view), second-opinion tester for UI units, release video + checklist. Out of VC: Excel import, journey map, commission onboarding, subject grouping; seminar capture stays in KnowledgeBase (T-036/T-043), consumed via /ask · FOLDED: 2026-09-26 into B17/B21 + queue rows (checker)
 2026-09-26 · Umesh (chat, CEO north-star transcript) · PATTERN: VC is a sounding board, never a cheating platform: it explores (questions, visuals, alternatives such as "why UK? have you thought of Ireland?"), personalises from what is already known (skip known questions), concludes with the child, then executes by pre-filling the application for the student to review · EVIDENCE: CEO: "we don't want to create a pure verbatim cheating platform … questions, visuals … sounding board … Explore, conclude … in next 15 minutes … prepare your application … That to me is our North Star" · APPLIES NEXT: already ARCHITECTURE §1 + B1/B18; verbatim transcript kept in project memory (not committed: the repo pushes to GitHub) · FOLDED: 2026-09-26 (no new criterion; B1, B18, B22 carry it)
-2026-09-26 · ai-engineer review of T-013 (maker relay) · PATTERN: an auto-verify signal must fail safe: whenever the cited quote carries a negation before the value, or a unit multiplier (lakh/crore/thousand/k) or currency next to a number, the fact drops to needs-review rather than verifying. Auto-verify only narrows toward safety, it never widens · EVIDENCE: assessFactForReview auto-verified value 20 from '20 lakh' (unscaled) and UK from "I don't want the UK, I'd rather go to Canada"; the scaled correct value fell to needs-review · APPLIES NEXT: B2 wording (maker reading of D-020: the conservative direction needs no new gate); T-013 fix cycle 1 adds a bounded negation lexicon and a no-adjacent-multiplier/currency check, plus hostile rows run through the eval providers
+2026-09-26 · ai-engineer review of T-013 (maker relay) · PATTERN: an auto-verify signal must fail safe: whenever the cited quote carries a negation before the value, or a unit multiplier (lakh/crore/thousand/k) or currency next to a number, the fact drops to needs-review rather than verifying. Auto-verify only narrows toward safety, it never widens · EVIDENCE: assessFactForReview auto-verified value 20 from '20 lakh' (unscaled) and UK from "I don't want the UK, I'd rather go to Canada"; the scaled correct value fell to needs-review · APPLIES NEXT: B2 wording (maker reading of D-020: the conservative direction needs no new gate); T-013 fix cycle 1 adds a bounded negation lexicon and a no-adjacent-multiplier/currency check, plus hostile rows run through the eval providers · FOLDED: 2026-09-27 (checker Mode B sweep consolidation) into contract B2 "Fail-safe + scope clarifications" · ISS-082
 2026-09-26 · Umesh (chat, via AIOS brain) · PATTERN: consider calibrated decision routing, a suggestion to EVALUATE and not to switch: a fixed-option decision goes to a small calibrated classifier that returns a probability per option, and confidence routes each item to auto-accept / LLM judge / human (τ = (C_err − C_human)/(C_err − C_auto)); run /rlcd for a full audit · EVIDENCE: T-012 concern classifier (TASKS.md:22, async Flash-Lite on concern turns). Candidate: LAYA self-hosted (student counselling = PII, never a hosted API). HARD CONSTRAINT: the model may only ADD a 'likely benign' hint; it never suppresses or hides a crisis flag (B16) · APPLIES NEXT: benchmark on a labelled set against the current method (accuracy, ECE, p50 latency, cost/1k, share auto-accepted at the target precision) before any change; theory + evidence in D:/ai_os/umesh/operating-brain/wiki/patterns/calibrated-decision-routing.md
 
 ## 2026-09-26 — Umesh (chat, AskUserQuestion, gate auto-verify-property) — verbatim choice
@@ -63,6 +63,8 @@ tuition." is needs-review even though 30000 is typed and matches the value exact
 mention currency. Is the fail-safe intended to apply even when the digits match the stored value exactly,
 or only when a multiplier means the stored value differs from the typed digits (the "20 lakh" -> 2000000
 case)? Note the engine also assumes INR for any bare number, which is unstated in the contract.
+**FOLDED: 2026-09-27 (checker Mode B sweep consolidation)** — the fail-safe applies whenever a
+multiplier/currency word is adjacent, regardless of exact-digit match; folded into contract B2 · ISS-083
 
 **Q4 — is a converted value "said by the student"? (5 rows, corrected — please confirm the reading.)** We
 read B2 ("typed numbers ... matched as whole words") plus D-026 ("the student ... said this value, for
@@ -71,6 +73,8 @@ extractor stores 2000000, the student never said 2000000, so it must be needs-re
 corrected `blind-pos-budget-01/03/05/07/09` from `verify` to `review` in the fixture, each with the
 quoted sentence. If the checker disagrees, these five rows and the correction must be reverted. Consider
 writing the unit-conversion case into B2 explicitly.
+**FOLDED: 2026-09-27 (checker Mode B sweep consolidation)** — reading confirmed, no revert needed;
+folded into contract B2 · ISS-083
 
 **Q5 — which exams are in the auto-verify scope? (2 rows, `blind-pos-score-07` JEE, `blind-pos-score-09`
 NEET).** The engine has key + template families for IELTS, TOEFL, PTE, GRE, GMAT, SAT, Duolingo, class 10
@@ -85,6 +89,8 @@ vocabulary include Devanagari-script aliases (कनाडा, जर्मन�
 but the alias check is what fails here. (b) Does "typed numbers" exclude numbers spelled out in
 Hindi/Hinglish words ("बीस लाख", "saade saat", "sattasi")? Until B2 says, these six rows are passing for
 an unwritten reason.
+**FOLDED: 2026-09-27 (checker Mode B sweep consolidation)** — recorded as Latin-script-only today,
+widening deferred; folded into contract B2 · ISS-083
 
 **Q7 — 36 of 102 blind rows agree with the engine on reasoning the contract does not state.** The blind
 author flagged them AMBIGUOUS itself: hedges (6, "shayad ... sure nahi hai"), in-turn negation (6),
@@ -95,6 +101,8 @@ D-026 carves out only CROSS-turn retraction), and the Devanagari six of Q6. They
 because they agree with the engine, but the agreement is corroboration, not contract backing: if B2 were
 read strictly, several of them could equally be argued the other way. Each of these six behaviours should
 be either written into B2 or explicitly declared out of scope.
+**FOLDED: 2026-09-27 (checker Mode B sweep consolidation)** — all six declared explicitly out of scope
+for auto-verify; folded into contract B2 · ISS-083
 
 **Q8 — the key vocabulary and the budget period binding are not in the contract.** The engine binds facts
 to `targetCountry`, `budget_inr_per_year` / `budget_inr_total`, `ielts_overall`, `class10_percentage`,
@@ -104,6 +112,8 @@ clause is unusable by an independent reviewer who cannot see that list — the b
 names (`budget`, `ieltsScore`, `boardPercentage`) and the test now carries a documented
 concept-preserving alias map to bridge the gap. Should B2 (or a contract appendix) name the key
 vocabulary and the period-binding rule?
+**FOLDED: 2026-09-27 (checker Mode B sweep consolidation)** — the 11-key vocabulary and the per-year/
+total binding rule are now named in contract B2 · ISS-083
 
 **Standing note for future oracle work:** the blind fixture is one-sided after quarantine (1 asserted
 verify row, 77 asserted review rows), so on its own it would also be satisfied by an engine that

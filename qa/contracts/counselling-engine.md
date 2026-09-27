@@ -53,6 +53,25 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   breaks one of the four clauses is an auto-verify leak: severity **high** at most (never critical) and it Blocks the
   unit; a case that satisfies all four is not a leak, whatever other turns say. Tests prove each clause with a hostile
   row (wrong speaker, wrong key, translation-only match, and a quote that is not a whole single-turn clause).
+  **Fail-safe + scope clarifications (folds T-013's implemented fail-safe and T-036 blind-oracle Q3/Q4/Q6/Q7/Q8,
+  checker Mode B sweep 2026-09-27):** the auto-verify path additionally fails safe to needs-review, regardless of an
+  exact digit match, whenever the cited turn carries: a negation before the value; a unit multiplier (lakh/crore/
+  thousand/k) or a currency word adjacent to the number (the engine assumes INR for a bare number, which was itself
+  unstated elsewhere and is recorded here); a value produced by unit conversion rather than one the student typed
+  verbatim (e.g. "20 lakh" stored as 2000000 — the student did not say "2000000", so D-026's own-words clause keeps
+  it needs-review even where the converted figure happens to match elsewhere); a hedge ("shayad", "not sure"), an
+  in-turn negation, third-party attribution ("my father wants...", the value belongs to someone other than the
+  student's own assertion), a within-turn conditional, or a same-turn compound/corrected value ("pehle Canada, but
+  ab Germany"). None of this narrows or answers B2's open SUFFICIENT-vs-necessary question (gate `auto-verify-surface`,
+  still open, unaffected) — it documents behaviour already safety-correct and unanimous between the blind oracle and
+  the engine, so it is written down rather than left as an unstated reason several agreeing test rows depended on.
+  The fixed country/alias vocabulary and the auto-verify template grammar are Latin-script only today; Devanagari-
+  script aliases and Hindi/Hinglish spelled-out numbers (e.g. "बीस लाख") do not match and correctly stay needs-review
+  — widening either is a future amendment, not a defect (the vocabulary's exact country list stays a separate, held
+  question, gate `auto-verify-surface`). The keys D-026's "for this key" clause binds today are: `targetCountry`,
+  `budget_inr_per_year` / `budget_inr_total` (bound per-year vs total from the clause's own wording), `ielts_overall`,
+  `class10_percentage`, `class12_percentage`, `toefl_total`, `pte_overall`, `gre_total`, `gmat_total`, `sat_total`,
+  `duolingo_score`.
   **Edit provenance (gate `edit-provenance`, answered 2026-09-26):** a fact the counsellor edits on approval is
   stored with source `counsellor-edit` (counsellorId, time), and its original transcript quote is kept as
   `editedFrom`. The saved value is never shown with a quote that contradicts it. The same provenance goes out to
@@ -261,3 +280,15 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   rule for every other path. B9 and B16 were checked against D-027 and found not in conflict as written: neither
   criterion conditions the guard match or the escalation notification on consent being present, so nothing in their
   text needed a corresponding edit · D-027, qa/gates/crisis-escalation-consent.md, ISS-t-012-rev-3.
+- 2026-09-27 · routine (tighten, inbox fold, checker Mode B sweep consolidation) · B2 gains a fail-safe +
+  scope clarification block: documents T-013's already-implemented negation/unit-multiplier/currency
+  fail-safe (a value with an adjacent multiplier or currency word stays needs-review even on an exact
+  digit match; bare numbers assume INR); states a unit-converted value is not "said" by the student
+  (D-026 own-words); declares hedges, in-turn negation, third-party attribution, within-turn
+  conditionals and same-turn compound/corrected values out of scope for auto-verify; states the
+  vocabulary and template grammar are Latin-script only (Devanagari aliases/spelled-out numbers stay
+  needs-review); names the 11 keys D-026's "for this key" clause currently binds. None of this touches
+  the held necessary-vs-sufficient question (gate `auto-verify-surface`) or the country-vocabulary /
+  exam-scope questions (Q1/Q2/Q5), which stay open pending Umesh · qa/feedback-inbox.md 2026-09-26
+  (ai-engineer review of T-013) + 2026-09-27T00:00 (T-036 blind oracle Q3/Q4/Q6/Q7/Q8), issues ISS-082/
+  ISS-083.
