@@ -68,6 +68,9 @@ test("T-025 auth: config refuses a missing issuer, 'none', unknown algorithms an
     ["none", { ...base, VC_JWT_ALGORITHMS: "RS256,none" }],
     ["NONE", { ...base, VC_JWT_ALGORITHMS: "NONE" }],
     ["unknown alg", { ...base, VC_JWT_ALGORITHMS: "PS256" }],
+    // With a JWKS there is no PEM narrowing, so only the allow-list itself can refuse these.
+    ["unknown alg with a JWKS", { VC_JWT_ISSUER: ISSUER, VC_JWT_JWKS_URL: "https://issuer.synthetic.test/jwks", VC_JWT_ALGORITHMS: "PS256" }],
+    ["none with a JWKS", { VC_JWT_ISSUER: ISSUER, VC_JWT_JWKS_URL: "https://issuer.synthetic.test/jwks", VC_JWT_ALGORITHMS: "ES256,none" }],
     ["empty list", { ...base, VC_JWT_ALGORITHMS: " , " }],
     ["HS256 mixed with RS256", { VC_JWT_ISSUER: ISSUER, VC_JWT_ALGORITHMS: "HS256,RS256", VC_JWT_HS256_SECRET: HS_SECRET }],
     ["HS256 with a PEM, not a secret", { ...base, VC_JWT_ALGORITHMS: "HS256" }],
