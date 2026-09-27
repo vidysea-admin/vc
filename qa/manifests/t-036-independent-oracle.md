@@ -276,4 +276,47 @@ Not UI-touching — no surface changed. Changed paths:
 
 **Persona walk:** skip (test-only, no UI surface).
 
-## Status: ready-for-check
+## Status: checked-PASS
+
+**Close-out (cycle 1).** /checker Mode A, verdict `qa/verdicts/t-036-independent-oracle.md`
+`Cycle checked: 1` -> **VERDICT: PASS** (commit f4f0a7c; the cycle-0 FAIL verdict is preserved at
+715e836). Scoreboard 6/6 criteria, 3/3 invariants, 2/2 capability rows reproduced, no failures.
+
+Both cycle-0 failures were fixed and **measured, not asserted**:
+- Independence: the checker re-ran the containment test itself — **0 of 102** blind rows are
+  byte-contained in base `nodes.ts`, the pre-existing tests, or the tainted fixture (0 also with the
+  trailing period stripped). Corroborated behaviourally: the blind rows use key names this repo does
+  not have (`budget`, `ieltsScore`, `boardPercentage`), exams with no engine key (JEE/NEET), and a
+  country outside the vocabulary (Netherlands).
+- The false claim is now named as false in four places (file header, block header, test name,
+  `t-030-template-gap.md:40-46`); `auto-verify-oracle.jsonl` is kept as regression coverage only.
+
+The four rulings requested in the dispatch:
+1. **Q4 RATIFIED, no revert.** The five budget corrections stand: B2's "typed numbers ... matched as
+   whole words" and D-026's original-language-text clause both fail for `2000000` against "20 lakh
+   rupees". The triage was proved principled by what it declined to correct — the five quarantined
+   budget rows have exactly-typed values and were left alone, as was `blind-neg-wrongkey-05`, which
+   carries the same unit-converted shape.
+2. **The one-sided block is NOT near-vacuous; ISS-t-030-rev-1 closes.** The leak lever fires
+   *through a review-side row*: removing the `nodes.ts:930` guard reddens the block naming
+   `blind-neg-wrongkey-04`, one of the 77. The 77 are 12 hostile families x 6, with an independently
+   authored family for each of D-026's four clauses. Residual weakness recorded as ISS-t-036-2
+   (medium), not charged against the unit.
+3. **No smuggling in the two harness normalisations.** `BLIND_KEY_ALIASES` is injective (9 -> 9) and
+   all six `wrongkey` pairings stay hostile through it. The numeric coercion is real and necessary —
+   `assessFactForReview` dispatches on `typeof`, so ~50 numeric rows would have been silently
+   defused as string-vocabulary misses. The quote substitution cuts *against* the builder: the
+   author's own span would have tripped `no-first-person` for free. Neither changes any row's
+   `expect`, proved by field-level diff.
+4. **Quarantine legitimate 24/24.** Field-by-field diff against the blind author's original at
+   `7823f91`: 0 missing, 0 added, exactly 5 rows changed (`expect` + `why`), and **0 quarantined rows
+   had any field altered** — nothing was parked *and* reworded.
+
+**Caveat the checker owns, not the maker:** B2 contains a sentence that reads as a *sufficiency*
+claim ("a test proves ... that a number/vocabulary match is accepted without review"). Strictly read,
+that would settle Q1 and make the engine's closed template grammar a safe-direction B2 deviation.
+That is contract maintenance, decided away from a pending verdict — filed as ISS-t-036-3 (medium).
+
+Verify re-run by the checker: targeted 9/9, `pnpm -C packages/engine test` 596/596, `pnpm -r typecheck`
+exit 0 across 9 projects. `nodes.ts` zero diff. `qa/contracts`, `docs/DECISIONS.md`, `ARCHITECTURE.md`,
+`TASKS.md`, `.claude` all untouched.
