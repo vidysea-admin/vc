@@ -24,3 +24,88 @@
 ## 2026-09-26 — Umesh (chat) — JWT issuer placeholder, verbatim
 "abhi umesh k naame se lee lee" (asked why Pathlynks login details are needed: VC needs the issuer, the public key / JWKS URL, and the claim names to verify the client's JWT, B21).
 PATTERN: until the Pathlynks backend team supplies its issuer and keys, VC's JWT verification runs against a placeholder issuer owned by Umesh (issuer `umesh`, a locally generated key pair), set only through config (e.g. `VC_JWT_ISSUER`, `VC_JWT_PUBLIC_KEY` / JWKS URL), never hard-coded · EVIDENCE: chat 2026-09-26 · APPLIES NEXT: T-025 reads issuer + key from .env; swapping to the real Pathlynks issuer is a config change plus a contract test, no code change; no private key is committed · FOLDED: 2026-09-26 into B21 (checker)
+
+## 2026-09-27T00:00:00+05:30 — T-036 blind oracle, fix cycle 1 — open B2/D-026 contract questions (FOR /checker)
+
+SOURCE: T-036 blind oracle, fix cycle 1. An independent oracle
+(`packages/engine/tests/fixtures/auto-verify-oracle-blind.jsonl`, 102 rows) was authored in a separate
+agent context forbidden from reading `packages/engine/src/scribe/nodes.ts`, the property test, or the
+earlier fixture, from the prose of criterion B2 and decision D-026 alone. Running it against the engine
+for the first time produced **0 auto-verify leaks** (every one of the 72 must-need-review rows came back
+needs-review; nodes.ts was not changed) but **29 of 30 expected-auto-verify rows did not auto-verify**.
+All 29 disagreements run in the SAFE direction — the engine is stricter than the contract prose. 5 were
+the blind author's error and were corrected in-file against a quoted contract sentence. The remaining 24
+are quarantined, unasserted, in `auto-verify-oracle-blind-unsettled.jsonl` pending the answers below.
+The maker does not edit qa/contracts/**; these are for /checker to settle and fold in.
+
+**Q1 — the accepted-sentence surface (21 of the 24 quarantined rows).** B2 says only "typed numbers, and
+values matching a fixed country/alias vocabulary, matched as whole words" auto-verify, and D-026 adds
+four clauses (student speaker, key-bound template, own words, one turn). Neither says the *sentence* must
+match a fixed template grammar. The engine additionally requires the cited clause to match one of a
+closed template set (`unrecognised-form`), so clean single-clause student assertions such as "Honestly,
+Australia is the only country I'm seriously considering for my undergrad." or "I scored 7.5 overall in my
+IELTS last month." are needs-review. Is B2's list a NECESSARY condition only (the engine may be as narrow
+as it likes) or also SUFFICIENT (any clean single-clause student assertion with a typed number or a
+vocabulary term must auto-verify)? If necessary-only, B2 should say so, because a reader of the present
+text reasonably concluded the opposite — that is precisely what the blind author did, 21 times.
+
+**Q2 — which countries are in "a fixed country/alias vocabulary" (1 row, `blind-pos-country-08`).** The
+engine's vocabulary is exactly: Australia, Canada, France, Germany, India, Ireland, New Zealand,
+Singapore, UK, USA. The Netherlands is absent, so "I'm only applying to the Netherlands this admission
+cycle." can never auto-verify. B2 does not enumerate the vocabulary. Should the contract name it (or name
+its source), and is the current 10-country list the intended scope for an international counselling
+product?
+
+**Q3 — stated currency / unit multiplier on an exactly-typed number (5 rows,
+`blind-pos-budget-02/04/06/08/10`).** The engine reviews any number whose turn carries a currency word or
+multiplier (`unit-multiplier`, a D-020 fail-safe), so "I've got around 30000 pounds saved up for my
+tuition." is needs-review even though 30000 is typed and matches the value exactly. B2/D-026 do not
+mention currency. Is the fail-safe intended to apply even when the digits match the stored value exactly,
+or only when a multiplier means the stored value differs from the typed digits (the "20 lakh" -> 2000000
+case)? Note the engine also assumes INR for any bare number, which is unstated in the contract.
+
+**Q4 — is a converted value "said by the student"? (5 rows, corrected — please confirm the reading.)** We
+read B2 ("typed numbers ... matched as whole words") plus D-026 ("the student ... said this value, for
+this key, in their own words") as settling this: when the student types "20 lakh rupees" and the
+extractor stores 2000000, the student never said 2000000, so it must be needs-review. On that reading we
+corrected `blind-pos-budget-01/03/05/07/09` from `verify` to `review` in the fixture, each with the
+quoted sentence. If the checker disagrees, these five rows and the correction must be reverted. Consider
+writing the unit-conversion case into B2 explicitly.
+
+**Q5 — which exams are in the auto-verify scope? (2 rows, `blind-pos-score-07` JEE, `blind-pos-score-09`
+NEET).** The engine has key + template families for IELTS, TOEFL, PTE, GRE, GMAT, SAT, Duolingo, class 10
+and class 12 only; JEE, NEET, CAT and CUET have no key and can never auto-verify. B2 says nothing about
+exam scope. Is that deliberate non-coverage (record it in B2) or a gap for an India-first product?
+
+**Q6 — Devanagari aliases and spelled-out numbers (6 rows, currently AGREEING and therefore asserted,
+but on unstated grounds).** `blind-neg-devanagari-01..06` expect needs-review for "मुझे कनाडा जाना है
+पढ़ाई के लिए।" and "मेरा बजट बीस लाख रुपये है।". The engine agrees, so they are asserted — but for reasons
+B2 does not state. Two questions the contract should answer outright: (a) does the fixed country/alias
+vocabulary include Devanagari-script aliases (कनाडा, जर्मनी)? The engine HAS Devanagari sentence templates
+but the alias check is what fails here. (b) Does "typed numbers" exclude numbers spelled out in
+Hindi/Hinglish words ("बीस लाख", "saade saat", "sattasi")? Until B2 says, these six rows are passing for
+an unwritten reason.
+
+**Q7 — 36 of 102 blind rows agree with the engine on reasoning the contract does not state.** The blind
+author flagged them AMBIGUOUS itself: hedges (6, "shayad ... sure nahi hai"), in-turn negation (6),
+third-party attribution inside a student turn (6, "My father wants me to consider Germany" — D-026's four
+clauses are about the turn's SPEAKER, not about whose fact it is), within-turn conditionals (6),
+same-turn compound/corrected values (6, "Pehle maine socha Canada, but ab I'm leaning towards Germany" —
+D-026 carves out only CROSS-turn retraction), and the Devanagari six of Q6. They are asserted in the test
+because they agree with the engine, but the agreement is corroboration, not contract backing: if B2 were
+read strictly, several of them could equally be argued the other way. Each of these six behaviours should
+be either written into B2 or explicitly declared out of scope.
+
+**Q8 — the key vocabulary and the budget period binding are not in the contract.** The engine binds facts
+to `targetCountry`, `budget_inr_per_year` / `budget_inr_total`, `ielts_overall`, `class10_percentage`,
+`class12_percentage`, `toefl_total`, `pte_overall`, `gre_total`, `gmat_total`, `sat_total`,
+`duolingo_score`, and it decides per-year vs total from the clause's own wording. D-026's "for this key"
+clause is unusable by an independent reviewer who cannot see that list — the blind author invented plain
+names (`budget`, `ieltsScore`, `boardPercentage`) and the test now carries a documented
+concept-preserving alias map to bridge the gap. Should B2 (or a contract appendix) name the key
+vocabulary and the period-binding rule?
+
+**Standing note for future oracle work:** the blind fixture is one-sided after quarantine (1 asserted
+verify row, 77 asserted review rows), so on its own it would also be satisfied by an engine that
+auto-verifies almost nothing. Answering Q1 is what would let the verify direction be asserted
+independently.
