@@ -78,3 +78,15 @@
   ISS-045 retry: t-039 dir still "Device or resource busy" (registered=3 dirs=4). Third instance
   unchanged; will retry next tick.
   Nothing dispatched this tick.
+2026-09-27T17:44:00+05:30 ADVANCED · T-040 PASS (e88c1cf), merged 63900b2, closed out 9251f71. Main 1224/1179/0 fail/45
+  skip, typecheck 9/9 -- both runs driven THROUGH the newly committed scripts/vc-testlock.sh.
+  ISS-t-037-1 + ISS-087 closed. New: ISS-088 (medium) -- checker PATH-shadowed a fake tasklist
+  returning "no such process" against a LIVE process and the script BROKE the live lock; no retry
+  or corroboration on the primary liveness instrument while the StartTime probe beside it gets 3.
+  ISS-089 (low): 1 flake in 12 runs; manifest claimed 0 in 5.
+  CORRECTION (mine): the checker logged my vc-f5 relay as an "irregular message styled as the
+  coordinator" and advised reporting it to Umesh as possible injection. It was my own normal
+  cross-session relay -- no incident. And its content was WRONG: tasklist resolves the script's own
+  WINPID correctly; T-040 already uses ps -p $$. I relayed it as something to gate on instead of
+  something to test. It still earned its keep -- it is why the live-owner lever was demanded, and
+  that lever found ISS-088. Recorded in the manifest, not just here.
