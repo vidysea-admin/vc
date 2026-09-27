@@ -25,6 +25,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Collection, Db, Filter } from "mongodb";
 import { z } from "zod";
 import { COLLECTION_NAMES } from "@vc/db";
+import { KbCitationsSchema, type KnowledgeBaseClient } from "./kb-client.js";
 
 // ---------------------------------------------------------------------------
 // Course shape -- local to this unit (ARCHITECTURE Q1 leaves the KB shape
@@ -56,11 +57,18 @@ function coursesCollection(db: Db): Collection<StoredCourseDoc> {
 export interface UniversityKbServerDeps {
   /** An already-scoped `virtual_counsellor` Db; tests inject a fake. */
   db: Db;
+  /**
+   * T-026 (B21 "Knowledge" clause). OPTIONAL -- the two Mongo-backed tools above work with no KB
+   * configured at all (ARCHITECTURE.md §6 Q1 stays open; this file's own docstring guarantee of
+   * "no LLM calls, no web calls" for `search_courses`/`get_course` is unchanged). When present,
+   * `ask_knowledge_base` is additionally registered. Tests inject a fake `KnowledgeBaseClient`.
+   */
+  kb?: KnowledgeBaseClient;
 }
 
 /** Builds the university-kb MCP server. No transport is attached -- the caller connects it. */
 export function createUniversityKbServer(deps: UniversityKbServerDeps): McpServer {
-  const { db } = deps;
+  const { db, kb } = deps;
   const server = new McpServer({ name: "vc-mcp-university-kb", version: "0.1.0" });
 
   server.registerTool(
@@ -145,6 +153,45 @@ export function createUniversityKbServer(deps: UniversityKbServerDeps): McpServe
       };
     },
   );
+
+  if (kb) {
+    const kbClient = kb; // a fresh const so the nested tool handler keeps the non-undefined type
+    server.registerTool(
+      "ask_knowledge_base",
+      {
+        title: "Ask the KnowledgeBase",
+        description:
+          "Calls the sibling KnowledgeBase's live POST /ask endpoint (contract B21) for university/seminar " +
+          "knowledge beyond what is already stored locally. Citations are carried through verbatim (B2). A KB " +
+          "outage (timeout, network error, HTTP 5xx, HTTP 401/403, or a malformed/schema-invalid response) is a " +
+          "tool error, never a fabricated answer -- and an answer with zero citations is treated the same way.",
+        inputSchema: {
+          query: z.string().min(1),
+        },
+        outputSchema: {
+          answer: z.string(),
+          citations: KbCitationsSchema,
+          verdict: z.string(),
+          reason: z.string(),
+        },
+      },
+      async ({ query }) => {
+        const result = await kbClient.ask(query);
+        if (result.status !== "ok") {
+          throw new Error(`ask_knowledge_base: knowledge unavailable (${result.reason}): ${result.detail}`);
+        }
+        return {
+          content: [{ type: "text" as const, text: result.answer }],
+          structuredContent: {
+            answer: result.answer,
+            citations: result.citations,
+            verdict: result.verdict,
+            reason: result.reason,
+          },
+        };
+      },
+    );
+  }
 
   return server;
 }
