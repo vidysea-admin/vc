@@ -214,3 +214,19 @@
   pass unexamined next time.
   Fix cycle 1 dispatched same turn (one try/catch + a regression test asserting 200, not just the
   ledger row).
+2026-09-27T20:17:18+05:30 ADVANCED · T-042 fix cycle 1 built (da5db5c), checker dispatched same turn.
+  isStudentFenced wrapped; on failure it logs and falls through with fenced=false into the existing
+  alert+record path, so a fence-check failure is an unexplained gap, never swallowed or fatal.
+  New regression test asserts the 200 itself (not just the ledger row), plus both alerts and exactly
+  one readback-gap row. 1236/1191/45 skip/0 fail, apps/api 46/46, typecheck 9/9, lever RED on
+  "500 !== 200" with the other 22 tests in the file still green.
+  Manifest's false "baseline was stale" claim is retracted and replaced with the checker's +11.
+  Checker briefed on three things the maker could not check about itself: whether fenced=false is
+  the SAFE fall-through (a legitimate erasure with a working fence check must still not alert);
+  whether throwOnFenceCheckOnly's options-less-call-shape isolation actually holds in source, or
+  the test proves something narrower than claimed; and to grep the unit's whole diff for OTHER
+  unguarded I/O calls -- cycle 0's defect was one unguarded call among several guarded ones, so a
+  second is likely and is cheaper to find now than in a cycle 2.
+  Hygiene: the maker put its throwaway lever copy at .worktrees/checker-lever-t042c1, inside the
+  repo's own worktrees dir, with ISS-045 open about exactly that directory. Verified gone
+  (dirs=4 = 3 live units + the stuck t-039, registered=3); flagged to the checker anyway.
