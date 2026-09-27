@@ -15,3 +15,8 @@
   Checker retracted its own cycle-0 instruction (citedTopics.has breaks CE-054) and UPHELD the
   maker's refusal. B17+B19 newly met; run-scenarios.mjs independently re-run 34/58.
   Fix cycle 2 of 3 dispatched (opus). wave=5 concurrent · peak=5
+2026-09-27T16:30:47+05:30 ADVANCED · T-039 fix cycle 1 built (b59739f): 6 leaks -> KNOWN-GAP tripwires asserting the
+  measured value; engine suite 679 pass 634 fail 0 skip 45, real exit 0 (merge gate candidate).
+  Lever simulated B18 implemented for b18-f1-02 -> exactly that tripwire went RED, no other row moved.
+  Fixtures byte-untouched since 4154cc7. ISS-t-039-3 + inbox scoping corrected in the manifest.
+  Cycle-1 checker dispatched same turn (brief demands its OWN lever on a DIFFERENT row).
