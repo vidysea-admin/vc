@@ -81,3 +81,21 @@ first-wins bug in a tolerant reader it wrote to *replace* the broken one — its
 `head -1` and reported t-010 as "never checked" for a unit checked four times. Prefix tolerance is
 not the fix; **readers must take the last occurrence.** That is the durable lesson, and it is an
 argument for writers emitting a machine-readable header rather than for more careful greps.
+
+### Remedy correction: position is not a readable property at all
+
+The caveat above said "readers must take the last occurrence, except t-017". Verified directly, and
+the exception is fatal to the rule: `qa/verdicts/t-017-residuals.md` is written **newest-first** —
+`Cycle checked` 2 at line 4, 1 at line 246, 0 at line 456, 0 at line 642, strictly descending. So
+last-occurrence returns **0 for a unit checked through cycle 2** — the same "never checked" answer
+first-wins produces, reached from the other end. On that one file, first-wins is the correct reader.
+
+Writers in this project do not agree on append order. **Therefore neither first nor last is
+correct, and position must not be read at all.** The fix is **max-cycle**, or an explicit terminal
+marker the writers emit and the readers trust.
+
+**The measurement that settles it:** three readers were written for this one surface in a single
+day by two sessions — anchored bare-word, prefix-tolerant first-wins, prefix-tolerant last-wins —
+and **all three were wrong, each invisibly from its own output**. That is the argument for writers
+emitting a machine-readable header. No reader-side discipline survived contact, including two
+written by people who had just diagnosed the previous failure.
