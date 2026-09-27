@@ -19,6 +19,43 @@ Umesh answered the prior three plus the lead-review scope in chat; they are fold
 
 **Answered and folded (D-027, 2026-09-27):** crisis-escalation-consent → B4 named exception (a crisis turn escalates even without recorded consent; ids + flag only, never transcript text; nothing else processed without consent). T-035 implements it directly, not behind a config flag, and closes ISS-t-012-rev-3.
 
+## Umesh's decisions — 2026-09-27 ~17:45 IST, six answers, recorded by the checker
+
+Asked directly (AskUserQuestion, two rounds) and written here the same turn so none of it lives
+only in chat (the D-006 failure mode). **The maker still owes each one its `Answered:` line in the
+gate file and its `docs/DECISIONS.md` entry** — this block is the record, not the authorization.
+
+1. **`qa/gates/b18-unimplemented.md` → option (a)+(b) SPLIT, the checker's recommendation.**
+   Build the scribe-side **do-not-ask / already-approved half** (a schema change on
+   `ExtractInputSchema` / `SummaryInputSchema` plus a deterministic filter — D-013 territory).
+   Ship the **destination-relevance half undone and documented**, with the 6 proven leaks listed.
+   Does NOT close B18's proof clause: per ISS-t-039-4 what is proven today is "no relevance layer
+   exists", never the contract's India-only-zero-visa-items test.
+2. **`qa/gates/auto-verify-surface.md` → option (c).** B2's auto-verify list is **necessary AND
+   the closed template grammar must be written into B2 explicitly**, so the 21 rows that hinge on
+   an unstated grammar have a rule to be judged against. Checker-owned amendment; the grammar must
+   be lifted from the actual templates, not paraphrased. Until it lands, the 29-of-30
+   expected-auto-verify rows stay unscoreable in either direction.
+3. **T-010 (STALLED, 3 of 3 cycles used) → SPLIT.** Merge the 11 of 13 criteria that pass; open
+   **one small unit per remaining leak**, each with a fresh cycle budget: ISS-t-010-c0-1 (B1 — a
+   card giving the counsellor an instruction instead of a question) and ISS-t-010-c0-2 (B18 —
+   `relevance.ts:202` `|| citedTopics.size > 0`). Explicitly NOT a 4th cycle on the same unit
+   shape: three cycles already failed on exactly these two.
+4. **O4 / T-038 → IN the first pilot, queue it now.** The 15-minute application draft is in scope.
+   It has **zero code anywhere in the repo today**, so this is a new build track, not a follow-up:
+   it needs its own intent/spec/plan pass (which forms, which fields, where the student submits)
+   before any unit. B10 keeps it draft-only — VC never submits.
+5. **Crisis recall (ISS-t-012-rev-4, 10/28 vs the 0.95 bar) → pilot proceeds WITH A COUNSELLOR
+   PRESENT, fix in parallel.** The live counsellor is the safety net; the guard is a backstop, not
+   the only layer. The bar is **not** lowered — B9/B16 keep 0.95, and the gap is a documented pilot
+   limit plus an active unit on the indirect / Hinglish / Devanagari phrasings
+   (ISS-t-005c-c0-1, high, still open). Supersedes the earlier "record it, decide later".
+6. **ISS-052 (approval screen has no login) → INTERNAL DEMO ONLY.** `apps/web` is a
+   localhost-only reference UI, never network-exposed; the login requirement belongs to Pathlynks'
+   real UI under B21. **This answer is conditional on the premise:** the moment a pilot counsellor
+   opens this screen, or it is served off localhost, ISS-052 reverts to a high-severity blocker.
+   The checker will re-derive which screens a pilot counsellor actually sees before closing it.
+
 ## Top-3 recommended next units (Mode B sweep 2026-09-27T~16:30 IST, sharded consolidation, second sweep of the day)
 
 1. **ISS-085 (high, NEW) — B21 `fact.approved` webhook can silently under-report to Pathlynks.**
