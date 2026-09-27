@@ -498,6 +498,63 @@ test("T-042 api (ISS-085 leak 1, erasure interaction): the SAME short read-back,
   assert.equal((await gapLedger.list()).length, 0, "a fence-explained gap must never be recorded either -- it is not a defect");
 });
 
+/**
+ * Makes the erasure-fence collection's `findOne` throw, but ONLY for the options-less call shape
+ * that checkFactReadbackGap's own isStudentFenced call uses (packages/db/src/erasure.ts:667-671's
+ * `options: {timeoutMS?: number} = {}` default -- checkFactReadbackGap invokes it with no third
+ * argument at all, so `options` is always `{}` there). The engine's own pre/post-write fence checks
+ * (applyApprovedDiff's assertStudentNotFenced pre-check and its post-write check) always pass an
+ * explicit `{timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS}`, so they are left untouched and the write path
+ * itself is provably unaffected by this lever -- isolating the ISS-090 defect to the fence check
+ * `checkFactReadbackGap` itself performs, after the write has already durably succeeded.
+ */
+function throwOnFenceCheckOnly(fakeDb: FakeDb): void {
+  const coll = fakeDb.collection<{ _id: string }>(COLLECTION_NAMES.erasure_fences);
+  const originalFindOne = coll.findOne.bind(coll);
+  coll.findOne = (async (filter: unknown, options?: { timeoutMS?: number }) => {
+    if (!options || Object.keys(options).length === 0) {
+      throw new Error("boom: erasure_fences read unavailable (ISS-090 lever)");
+    }
+    return originalFindOne(filter as never);
+  }) as typeof coll.findOne;
+}
+
+test("T-042 api (ISS-090): a genuine read-back gap whose fence check itself throws is still a 200 (the write already succeeded), alerted twice (the fence-check failure AND the now-unexplained gap) and recorded -- never a 500", async () => {
+  const outbox = new InMemoryWebhookOutbox();
+  const gapLedger = new InMemoryWebhookEmitGapLedger();
+  const w = world({ webhooks: { outboxForTenant: () => outbox, destinationUrl: "http://client.invalid/hook", gapsForTenant: () => gapLedger } });
+  await scribeToApproval(w, "tenant-a");
+  dropOneFromNextIdInRead(w.fakeDb, "facts");
+  throwOnFenceCheckOnly(w.fakeDb);
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
+
+  const decided = await call(w, "POST", `${base}/approval`, { token: counsellor, body: { action: "approve" } });
+  assert.equal(decided.status, 200, decided.body);
+  assert.equal(decided.json.kind, "done");
+  assert.equal(w.fakeDb.collection<{ _id: string }>("facts").size(), 2, "both facts are durably written even though the fence check failed");
+
+  assert.equal((await outbox.list()).length, 1, "the fact that WAS found still gets its webhook");
+
+  assert.ok(
+    w.logs.some(
+      (l) => l.event === "api_request_failed" && l.route === "decideApproval" && l.error.startsWith("webhook_fact_readback_gap_fence_check_failed:"),
+    ),
+    "the fence-check failure itself is alerted, not swallowed",
+  );
+  assert.ok(
+    w.logs.some((l) => l.event === "api_request_failed" && l.route === "decideApproval" && l.error.startsWith("webhook_fact_readback_gap:1_of_2_missing")),
+    "with the fence status unknown, the gap must be treated as unexplained -- alerted, never silently excused",
+  );
+
+  const gaps = await gapLedger.list();
+  assert.equal(gaps.length, 1, "the gap is recorded even though the fence check itself could not be evaluated");
+  assert.equal(gaps[0]!.kind, "readback-gap");
+  assert.equal(gaps[0]!.studentId, STUDENT);
+  assert.equal(gaps[0]!.sessionId, SESSION);
+  assert.equal(gaps[0]!.detail, "missing-on-readback");
+});
+
 test("T-042 api (ISS-085 leak 2): an enqueue failure records a recoverable gap entry carrying the fully built event, so it can be replayed without rebuilding it", async () => {
   const failingOutbox: WebhookOutbox = {
     enqueue: async () => {

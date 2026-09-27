@@ -708,7 +708,25 @@ export function createApiHandler(deps: ApiDeps): ApiHandler {
           const missingFactIds = writtenFactIds.filter((id) => !foundIds.has(id));
           // A fence blocks every further read of this student, not just one fact -- so if it is
           // up, EVERY id missing from this batch is explained by it (correct behaviour, B15).
-          const fenced = await isStudentFenced(deps.dbForTenant(tenantId!), studentId);
+          // ISS-090: this check is itself a Mongo read and can throw (e.g. a transient
+          // erasure_fences failure). We cannot tell whether the gap is fence-explained in that
+          // case, so treat it as an unexplained gap -- alert + record -- rather than letting the
+          // exception propagate and turn an already-successful, already-persisted write into a
+          // 500 (the exact invariant this function exists to protect).
+          let fenced: boolean;
+          try {
+            fenced = await isStudentFenced(deps.dbForTenant(tenantId!), studentId);
+          } catch (err) {
+            log({
+              level: "error",
+              event: "api_request_failed",
+              route: route.id,
+              status: 0,
+              error: `webhook_fact_readback_gap_fence_check_failed:${errorLabel(err)}`,
+              ts: new Date().toISOString(),
+            });
+            fenced = false;
+          }
           if (fenced) return;
           log({
             level: "error",
