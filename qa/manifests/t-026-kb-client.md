@@ -312,4 +312,7 @@ bash vc-testlock.sh python D:/vc/.worktrees/t-026-kb-client/contracts/verify_con
    does not attempt to resolve it, and `ask_knowledge_base` is additive/opt-in specifically so it
    doesn't need to be resolved to land this unit.
 
-## Status: ready-for-check
+## Close-out
+- Checker cycle 0 PASS (qa/verdicts/t-026-kb-client.md, 7ca29ed; 5/5 criteria, 10/10 capability rows reproduced). ai-engineer review: Approve. senior review: Approve.
+
+## Status: checked-PASS
