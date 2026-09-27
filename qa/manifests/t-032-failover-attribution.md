@@ -318,4 +318,7 @@ the new test block added to `failover.test.ts`; `index.ts` unchanged from cycle 
    possible on the touched files, though a full merge/rebase was still not performed. Left for the
    checker or a follow-up merge step.
 
-## Status: ready-for-check
+## Close-out
+Checker cycle 1 PASS (verdict 63fb3f7; ISS-t-021-rev-3 fixed, ISS-t-032-c0-1 + ISS-t-032-rev-1 verified); senior-software-engineer Approve.
+
+## Status: checked-PASS
