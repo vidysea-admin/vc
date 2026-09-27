@@ -413,3 +413,55 @@ DELIVERY-GATE FALSE POSITIVE (new, file as an issue on the next sweep -- deliber
 
 SERIAL: Mode B sweep still waits on T-043 (shared qa/issues.jsonl; checker live on it now).
 SERIAL: T-035 waits on T-010 (STALLED, gate-blocked on D1+D2).
+
+## tick 2026-09-27T22:43:17+05:30
+STATE: ADVANCED
+T-043 checker Mode A cycle 1: **FAIL**, but narrower than cycle 0. Fix cycle 2 dispatched in the
+  same turn (no-dangling). This is the 2nd of 3 permitted fix cycles -- one attempt left before
+  STALLED and the /agent-debugger protocol.
+
+The cycle-1 checker did the work the brief asked for and it paid: three REAL revert-and-restore
+  transitions, not narrowing counts. Two passed (ISS-009 schemas; ISS-t-020-c0-1 apps/web, which
+  also independently reproduced the React ReferenceError, the 18/18 qualified run, and both
+  tsconfig rejections). One FAILED, and it is the finding of the cycle:
+
+  ISS-093 (high, blocking) -- row ISS-t-013-rev-1's regression_check is DECORATIVE. Reverting the
+  real fix (containsNumberToken back to a substring match, reproducing the original "15 inside 115"
+  fabrication bug) left the suite at 42/42, zero failures. Root cause: the guarding test's fixture
+  has no first-person marker, so verifyCandidateFact's UNRELATED noFirstPerson guard already forces
+  needsReview:true no matter what containsNumberToken returns. The assertion is right for the wrong
+  reason -- a confounded guard.
+
+  That is the same disease as ISS-092 one level down: cycle 0 had it at the shape/mechanism level,
+  cycle 1 has it in a single row's test CONTENT. Shape-conforming is not regression-catching. And
+  it means the project has been carrying at least one "fixed" row whose proof proves nothing.
+
+Everything else the checker attacked came back clean and is explicitly preserved in the cycle-2
+  brief so it does not get re-litigated: repo-file-arg genuinely retired; --tsconfig empirically
+  justified and correctly gated; mcp/student-profile 12/12 legitimate (argument provably
+  load-bearing, unlike repo-file-arg); ledger append-only 89/0; and the merge-duplicate hazard
+  empirically ABSENT -- it ran git merge-tree and got a byte-identical blob rather than assuming.
+
+WEAK contradiction RESOLVED, and against the earlier claim: the checker extracted cycle-0's own
+  committed script and ledger snapshot and ran them together -> 0 WEAK, matching cycle 1. The
+  cycle-0 verdict's "4 WEAK" was mistaken, not a silently-changed instrument. Recording it because
+  I had flagged it as a possible instrument defect; it was a measurement error in a verdict.
+
+New: ISS-094 (low, latent, no known instance) -- a .test.ts file with zero test() calls passes both
+  the static check and real execution, because node:test counts an empty file as "1 test, 1 pass".
+  Folded into cycle 2 since it is cheap and in the same file.
+
+Scoping call I made rather than pushing onto the subagent: the checker's extrapolation is that
+  "126/126 shape-conforming" != "126/126 regression-safe", measured on a 3-row sample with 1
+  failure. Hand-verifying all 68 remaining remapped rows does not fit this cycle, and attempting it
+  badly is worse than scoping it. Cycle 2 is therefore briefed to (a) try to detect the
+  confounded-guard class mechanically, even as a flag-for-review heuristic, (b) run a
+  sample chosen by a STATED rule with real revert/restore, and (c) write the remainder up as a
+  successor unit with an explicit sampled estimate and its uncertainty. Also briefed: no
+  100%-style headline this cycle -- two consecutive "100% / empty undetermined set" reports
+  preceded two FAILs.
+
+SERIAL: Mode B sweep still waits on T-043 (shared qa/issues.jsonl; checker just appended ISS-093,
+  ISS-094 and an ISS-076 update). Sweep age ~7h. Held deliberately, and the hold is now itself
+  worth a line: the sweep is overdue mainly because this one unit keeps finding real defects.
+SERIAL: T-035 waits on T-010 (STALLED, gate-blocked on D1+D2).
