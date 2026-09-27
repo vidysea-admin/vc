@@ -937,3 +937,29 @@ AWAITING UMESH (6, unchanged): (1) one-line confirmation of the six relayed deci
   auto-verify-surface; (2) qa/gates/hook-raw-count-fixes.md (needs Approved-by: Umesh);
   (3) qa/gates/p2-application-drafting-scope.md; (4)+(5) the two B18 gates, answered
   together; (6) ISS-052 premise failure.
+
+--- tick 2026-09-28T00:25:55+05:30 ---
+STATE: ADVANCED
+ISS-100 RESCOPED (43d1db1). The merge gate I closed at e95c204 measured the wrong
+thing. Byte-identical dedupe caught 5 rows; entity-resolving 66bad91 (486) against
+HEAD shows 90 rows not present pre-merge and exactly 1 new id (ISS-101), so ~89 are
+near-duplicate re-copies invisible to that check (~15% noise by row count).
+Zero ids regressed closed->open and no pre-merge id is missing - verified, not
+assumed - but that is luck about field content, not a property: merge-order
+resolution can silently revert an id's state.
+REMEDY RECORDED: merge gate compares entity-resolved status before/after and fails
+on any backwards transition. Root cause unchanged (a wave branch never copies
+committed rows from main).
+Found by peer vc-f5; row counts AND the entity-resolved comparison both reproduced
+here before recording.
+MY OWN ERROR: I explained vc-f5's disagreeing 574 as a pre-merge-main measurement
+instead of running git show across the sequence. Same missing ten-second test they
+made, opposite direction - they mis-blamed their reader, I mis-blamed the timeline.
+ISS-101 WITHDRAWN as a counting defect by its author (its counter was correct at
+every commit); survives only as the '"id": ' with-a-space grep defect.
+LEDGER: 486 -> 578 -> 573 -> 576 -> 577 (this tick's update row).
+SWEEP RE-BASELINED: told the running Mode B agent 576 not 573, to re-read at its own
+write time (two writers), and to assess ISS-100 as the entity-resolved gate.
+SERIAL: T-035 waits on T-010 (STALLED, gated on D1+D2).
+SERIAL: T-043 successor waits on the Mode B sweep.
+AWAITING UMESH: 6, unchanged (see previous tick).
