@@ -856,3 +856,29 @@ THE CLASS IS NOW THREE DEEP AND HAS LEFT THE TOOLING: ISS-056 in a hook's reader
   today to a document a human decides from is a candidate instance.
 
 SERIAL: Mode B sweep waits on T-043 (~8h). SERIAL: T-035 waits on T-010.
+
+## tick 2026-09-27T23:48:00+05:30
+STATE: ADVANCED (ISS-098 closed by vc-f5; T-043 checker c2 still running)
+
+vc-f5 verified both gate fixes and closed ISS-098 (991facc), recording my t-010 two-surfaces
+  instance as the worse of the two. One detail of their verification is worth keeping: they
+  checked the PLACEMENT of the corrective note, not just its presence -- it sits above the options
+  it demotes, so a top-down reader meets it first. Placed below, the fix would have had the
+  defect's own shape. That is the right way to check a fix for this class.
+
+They also re-verified my four-gate sweep rather than accepting it, on the grounds that "I swept
+  everything and it is clean" is the claim shape that failed twice tonight. It held.
+
+Their lesson, adopted: a diff shows what was ADDED, and this defect is always what was NOT
+  removed, so review by diff is structurally blind to it. Both instances were found by a session
+  re-reading a whole file it had no unit in.
+
+SELF-CORRECTION, and it is the same class again, one turn after writing about it: I started to
+  save that lesson to memory as a NEW file without checking what was already there -- and an
+  entry for exactly this already existed (appended-corrections-leave-stale-answers), richer than
+  mine, carrying five instances rather than two. I added rather than reconciled with what was
+  already written, which is the adding-instead-of-retiring habit in a different medium. Deleted
+  the duplicate and its index line; the existing entry stands. Recording it because the lesson
+  clearly has not stuck just from having been learned.
+
+SERIAL: Mode B sweep waits on T-043 (~8h). SERIAL: T-035 waits on T-010.
