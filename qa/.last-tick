@@ -1126,3 +1126,37 @@ STOP-HOOK FALSE POSITIVE: delivery-gate-stop.ps1 reported 'THIS TURN made no
   distinction IS the finding, and it waits on disk space.
 Re-armed the wakeup anyway - the cheap action is to satisfy it, not argue.
 AWAITING UMESH (7, unchanged) + now the disk.
+
+--- tick 2026-09-28T01:24:26+05:30 ---
+STATE: BLOCKED (environment) + HUMAN_GATE
+ISS-107 CONFIRMED by a third derivation and a second session. Peer re-derived it
+  independently at 0bfe5a9 by its own method; I re-derived it with NO temp path
+  (git show piped straight to the resolver) after learning my original extract
+  went through $TMPDIR, which sits on the full C: drive. All three agree:
+  fcea4b7 = 577/278/288 raw/137 open/2.102; 8f4464d = 582/283/293/142/2.063.
+EXPOSURE AUDIT (recorded on the ISS-107 row, commit above):
+  UNAFFECTED - gate count 23/5, VERDICT census 151 files/6 shapes, severity
+    variant table 122/0/11. All read directly from disk, no temp path.
+  EXPOSED, NOT re-verified, flagged not cited: (a) ISS-104's 39-file count,
+    captured to a C: background-task file; (b) the post-merge suite result
+    1237/1192/0/45, since pnpm/node write through %TEMP%. (b) is load-bearing -
+    it is the 'main verify green' T-043 closed out on. NOT withdrawing the
+    close-out (two consistent runs matching a predicted baseline is real), but
+    it is recorded as re-runnable rather than settled. Re-run when C: has space.
+PEER'S ISS-109 detail that changes practice: a redirect to a C: temp path can
+  produce a ZERO-LENGTH FILE WITH NO ERROR. An empty extract then reads exactly
+  like an empty measurement - the same failure as the bare-anchor grep and the
+  'verdict NONE': an instrument's silence mistaken for the world's. Stopped
+  routing anything through /tmp or $TMPDIR; direct pipes and git commit -m only.
+INBOX TRIAGE (peer): none of the 14 foldable, but NOT equivalent. 11 T-039 B18
+  items held by agreement. Q2 (country vocabulary) and Q5 (exam scope) are
+  genuine product decisions. Q1 APPEARS ALREADY ANSWERED by Umesh's own
+  auto-verify-surface (c) + the B2 amendment d3244c3. Peer correctly refused to
+  fold on its own reading - that is F1, not caution.
+  => THE ASK TO UMESH SHRINKS: of 14, thirteen need a product decision and ONE
+  needs only his confirmation that his own answer covers it.
+Q2 flagged as substantive beyond process: the engine has exactly 10 countries and
+  the NETHERLANDS IS ABSENT - a customer-visible scope hole for a study-abroad
+  product, not a vocabulary tidy-up.
+SERIAL: nothing dispatchable. Every unit gated on a human decision or on C: space.
+AWAITING UMESH (7 + disk, unchanged otherwise).
