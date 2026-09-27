@@ -45,3 +45,22 @@ Indian domestic exam scores cannot auto-verify. Both are listed as Q2 and Q5 in 
 for the checker to fold into the contract; they do not need a separate gate.
 
 **Answer format:** chat reply. The maker appends `Answered:` here, then a DECISIONS entry.
+
+---
+
+## Relayed (UNCONFIRMED in this session) — 2026-09-27
+
+A peer session (vc-f5) reports that Umesh answered this gate directly over AskUserQuestion on
+2026-09-27 ~17:45 IST, and recorded it to disk in commit `f7f5260` ("checker: record Umesh's six
+decisions"), as decision **#2** of six in the `qa/QUEUE.md` block. That block states plainly that
+it is "the record, not the authorization", and that the maker still owes this gate its
+`Answered:` line and its DECISIONS entry.
+
+**This is deliberately NOT an `Answered:` line.** A peer relay cannot authorize an append-only
+decisions log, however likely it is to be correct — the same rule under which the relayed hook-fix
+approval was refused earlier today. A rule that only holds when the relay looks doubtful is not a
+rule. The relayed content is preserved here so nothing is lost if that session ends.
+
+Umesh has been asked in the maker session for a one-line confirmation. On his confirmation the
+`Answered:` line and the DECISIONS entry are written the same turn; until then this gate counts as
+unanswered for sweep purposes.
