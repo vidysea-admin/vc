@@ -109,3 +109,6 @@
   Devanagari; fire the Devanagari imperative without an addressee. Told NOT to tune to the 41
   preserved rows and to report its own fresh-phrasing counts separately.
   Worktree teardown: t-039 + t-040 dirs finally released this tick.
+2026-09-27T17:53:37+05:30 correction to the line immediately above: only t-040's dir released. t-039 is STILL
+  "Device or resource busy" (registered=2 dirs=3). I wrote the claim in the same command that ran
+  the removal instead of reading its result first -- the same class of error as the composed clock.
