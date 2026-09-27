@@ -29,19 +29,34 @@ your own explicit confirmation. **A relay of your approval through another agent
 explicitly not sufficient** — that was tried on 2026-09-27 and correctly refused.
 
 ## Question
-Do you approve editing the three hook files to fix the three counting defects above?
+Do you approve the hook fixes below? **The options changed at 2026-09-27 ~23:55** — an earlier
+version of this block offered "approve only ISS-054", which the measurements further down this
+file refute (ISS-054 and ISS-056 cancel each other; fixing either alone makes the reported count
+wrong in a new direction). That option has been **struck**, not annotated, and ISS-095 — which now
+carries the whole reader contract — has been added, because no earlier option authorised it.
+Found by the peer checker session as ISS-098.
 
 **Options:**
-- **(a) Approve all three.** One D-entry, one fix unit, one `/aios-config-auditor` pass before the
-  commit. Recommended: the hooks are how every future session learns what is pending, and two of
-  the three defects have already caused measured losses.
-- **(b) Approve only ISS-054** (the invisible-worktree-manifest one, the only high). Smallest change
-  to the enforcement surface; leaves the inflated issue count in place.
-- **(c) Not now.** The hooks keep over-reporting issues and under-reporting pending manifests; every
-  session keeps paying the ~10h-class risk on worktree manifests.
+- **(a) Approve the co-landing unit: ISS-054 + ISS-056 + ISS-095, together.** One D-entry carrying
+  `Approved-by: Umesh`, one fix unit, one `/aios-config-auditor` pass before the commit.
+  **Recommended.** These three are one defect wearing three numbers: the reader must search every
+  worktree (ISS-054), must resolve cycles by max rather than position (ISS-056), and must follow
+  the five-condition contract in ISS-095. Landing any subset leaves the pending count wrong in a
+  new direction — see the Scope correction below, which measures exactly that. The D-entry must
+  state that **the reported numbers will move** when this lands, or the correction reads as a
+  regression to whoever sees it next.
+- **(b) Approve (a), and also ISS-084's raw-count fix.** ISS-084 (the session-start line reporting
+  262 open issues where the distinct-id count is 134) is genuinely separable — it is a different
+  counter in the same file, and it does not interact with the cycle-resolution defects. Costs one
+  more edit in the same pass; the benefit is that the first line every future session reads stops
+  being ~2x wrong.
+- **(c) Not now.** The hooks keep over-reporting open issues and under-reporting pending manifests.
+  The measured cost so far: t-020 sat unchecked ~10 hours while the hook printed zero pending, and
+  t-010 printed "Checks pending: 0" while sitting at fix cycle 3.
 
 **Answer format:** chat reply. The maker appends `Answered:` here, then a DECISIONS entry carrying
-`Approved-by: Umesh` before any hook file is touched.
+`Approved-by: Umesh` before any hook file is touched. Nothing in `.claude/hooks/` is edited until
+your own word lands in this session — a relay through another agent session is not sufficient.
 
 ---
 
