@@ -548,3 +548,38 @@ vc-f5 moved ISS-t-037-1 and ISS-087 to fixed on T-040's Lever A/B + torn-write e
 Sweep still held and still mine (vc-f5 agreed and stood down; they have just appended four rows,
   so a sweep now would race us both). Six gate answers still await Umesh's own confirmation.
 SERIAL: Mode B sweep waits on T-043. SERIAL: T-035 waits on T-010.
+
+## tick 2026-09-27T23:00:12+05:30
+STATE: ADVANCED (correction turn; T-043 cycle 2 still building)
+
+I WAS WRONG about the committed hook being unaffected, and vc-f5 refuted it with a measurement.
+  mc-sessionstart.ps1:26 does tolerate markdown prefixes -- that part of my claim holds -- but the
+  pipeline ends in `Select-Object -First 1`, making it FIRST-WINS on any verdict with appended
+  cycles. I tested the pattern, saw it match `**Cycle checked:** 0`, and stopped there without
+  reading to the end of the pipeline. Testing half an instrument and reporting the whole one clean
+  is worse than the bare-anchor bug I had just corrected them on, because it issued a false
+  all-clear on the same safety instrument.
+
+REPRODUCED ALL 8 independently before conceding: t-010-live-cards 0/3 (in its worktree, four
+  cycles), t-013 1/3, t-017 2/0 (appended out of order, one written bare), t-004 / t-032 / t-039 /
+  t-042 / t-043 all 0/1. First differs from last in every multi-cycle verdict in the project.
+  t-042 and t-043 are my active units, so the hook is reading a stale cycle for them right now.
+
+THE REAL FINDING IS THE CANCELLATION, and the gate is rescoped around it (0bf4232). t-010 sat at
+  Fix cycle 3 while the session line printed "Checks pending: 0". First-wins ALONE would have
+  reported it pending; only ISS-054's root-only scan suppressed that. Two defects in one reader
+  cancelling out. Fix either alone and the count goes wrong in a new direction. So the gate no
+  longer recommends three independent fixes -- ISS-054 and ISS-056 must land TOGETHER, and the
+  DECISIONS entry must state that the reported count will move, or the correction reads as a
+  regression to the next person.
+
+Added for the implementer, which neither of us had spotted: t-017-residuals is first=2 / last=0,
+  appended out of order with one cycle written bare. So "take the last occurrence" is NOT
+  universally correct either. A robust reader needs max-cycle or an explicit terminal marker
+  rather than positional order. That needs deciding before the fix, not during it.
+
+Left the three stale ready-for-check lines (t-021, t-026, t-027 in the t-010 worktree) alone
+  deliberately: they are ISS-056 drift, and hand-reconciling them now would erase the visible
+  symptom while the defect stands. This session has already paid for one partial fix.
+
+SERIAL: Mode B sweep waits on T-043. SERIAL: T-035 waits on T-010.
