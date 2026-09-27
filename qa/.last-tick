@@ -1073,3 +1073,39 @@ SERIAL: T-035 waits on T-010 (STALLED, D1+D2). T-043 successor waits on ISS-107'
   defect just filed.
 AWAITING UMESH: 6, unchanged. ISS-106 sharpens (4)+(5): the 11 B18 blind-fixture
   questions cannot be folded until those two gates are answered.
+
+--- tick 2026-09-28T01:13:53+05:30 ---
+STATE: HUMAN_GATE (7 items now, nothing buildable)
+GATE OPENED: qa/gates/verdict-header-format.md. Three fields have now INDEPENDENTLY
+reached "position is not a readable property" - Cycle checked, severity, VERDICT -
+none predicted from the others. That is an argument about the FILE FORMAT, not
+about careless readers, and mandating a writer-side header edits AIOS-level
+~/.claude/skills/{maker,checker}/SKILL.md => Umesh's call, not the maker's.
+Recommendation (a) with the READER-RAISES clause named as the load-bearing half:
+the header is a convention; "a reader that cannot parse it raises rather than
+returning NONE" is what turns a silent wrong answer into a loud one. Every instance
+tonight survived only because a second party happened to re-run it.
+Gate says explicitly it must NOT jump the queue - nothing is blocked on it.
+VERDICT CENSUS reproduced independently before writing the gate: 151 files (root +
+4 worktrees), VERDICT: PASS x102 | ## VERDICT: PASS x17 | VERDICT: FAIL x15 |
+BARE ## VERDICT x12 | **VERDICT: FAIL x4 | ## VERDICT: FAIL x4. Identical to the
+peer's figures. The 12 bare lines put the value on a DIFFERENT LINE from the word,
+so any reader whose gap matches \s crosses the newline.
+PEER'S ISS-108 (cf4f523): its verdict reader broke 3x in sequence. Middle break is
+the one worth remembering - a shell heredoc ate a backslash level, so \b reached
+the file as a literal backspace (cat -A shows ^H). NOT a logic error: the source
+was right and the file on disk was wrong; reading the code could not find it.
+Third break: it printed "verdict NONE" for t-010 and t-043 AND CARRIED ON -
+reporting an instrument failure as a fact about the project.
+Rewrite's key part: NEGATIVE probes (a title line and a prose sentence must NOT
+read as verdicts). The old script self-tested STATUS only - so a broken STATUS
+reader would have been caught and a broken VERDICT reader could not be. A self-test
+covering only the field that already works is indistinguishable from no self-test.
+ASKED THE PEER to independently re-derive ISS-107 rather than agree with it, and to
+check whether the 3 non-B18 inbox questions are foldable. The 11 T-039 B18 items
+stay held regardless - folding them would pre-empt an unanswered gate.
+SERIAL: every remaining unit waits on a human decision. Nothing dispatchable.
+AWAITING UMESH (7): (1) confirm the six relayed decisions; (2) hook-raw-count-fixes
+  (Approved-by); (3) p2-application-drafting-scope; (4)+(5) the two B18 gates -
+  ISS-106's 11 blind-fixture questions ride on these; (6) ISS-052 premise failure;
+  (7) verdict-header-format (new, explicitly not urgent).
