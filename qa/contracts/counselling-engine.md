@@ -72,6 +72,54 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   `budget_inr_per_year` / `budget_inr_total` (bound per-year vs total from the clause's own wording), `ielts_overall`,
   `class10_percentage`, `class12_percentage`, `toefl_total`, `pte_overall`, `gre_total`, `gmat_total`, `sat_total`,
   `duolingo_score`.
+  **Auto-verify surface: NECESSARY *and* the closed template grammar (gate `auto-verify-surface`,
+  answered by Umesh 2026-09-27, option (c); written by the checker, which owns this file).** The gate asked
+  whether the auto-verify list is necessary-only or also sufficient. The answer is **both**, and the grammar
+  that decides sufficiency is stated here rather than left implicit. It was the absence of this paragraph
+  that made 29 of 30 expected-auto-verify oracle rows unscoreable in either direction: 21 of them turned on
+  a closed-template rule that existed in the code and nowhere in the contract, so neither the oracle nor a
+  reviewer could say whether the engine was right. The grammar below is lifted from
+  `packages/engine/src/scribe/nodes.ts` (T-030 / D-025, the frozen `AUTO_VERIFY_TEMPLATE_SOURCES`), not
+  paraphrased; where the two ever disagree, **the code is the defect and this paragraph is the criterion.**
+  - **NECESSARY.** A fact whose key is not in the bound-key list above can never auto-verify, whatever it
+    matches. A value that is not a typed number or a fixed country/alias vocabulary hit can never
+    auto-verify. This direction is unchanged and is the fail-safe one.
+  - **SUFFICIENT, and the whole of it.** `needsReview:false` is set **only** when all five hold together:
+    (1) the citation is a **single clause** of one turn, matched **anchored end to end** (`^...$`) — clauses
+    are formed by NFC-normalising the turn, stripping invisible-format characters, and splitting at
+    `! ? ？ ; : । ` newline, at `.` or `,` that is not inside a digit run, and at `because` / `kyunki` /
+    `क्योंकि`; anything before or after the matched text in its own clause defeats the match, which is why a
+    prefixed aside ("Honestly, Australia is the only country I'm seriously considering") does not
+    auto-verify — it is a clause the grammar does not contain, not a bug;
+    (2) the clause matches **one of the frozen templates**: 9 country templates (3 English, 3 Hinglish, 3
+    Devanagari), plus the number templates — 7 budget templates and one instance of each of 9 score shapes
+    per exam family;
+    (3) that template **declares the fact's key** (`key-not-declared` otherwise): country templates declare
+    only `targetCountry`; a budget template declares `budget_inr_per_year` **or** `budget_inr_total`
+    according to the clause's own wording, and a clause mixing both ("my total budget is N per year")
+    matches neither; each score template declares the one key of the exam its clause names, and the exam is
+    named exactly once (an exam with no family — JEE, NEET, CAT, CUET, a board with no class — is
+    `unrecognised-form`);
+    (4) the value slot spells the stored value **exactly**: the slot is digits-only
+    (`(?<n>\p{Nd}+(?:[.,]\p{Nd}+)*)`) and is pinned by string equality to `String(value)`, and for a
+    country `{C}` expands to the aliases of that fact's canonical country only;
+    (5) none of the fail-safe conditions in the paragraph above fires, and all four D-026 clauses hold.
+  - **The slots are closed sets, not gaps.** The verb-to-destination slot of the first country template is a
+    closed connector list (at most one connector: a fixed subject phrase, `abroad` / `further` /
+    `further studies`, or optional `my/a/an` plus the closed degree set), not an open 0–4 word gap — the open
+    gap was ISS-t-013r-rev-14, closed by T-030, and it had let a single-clause third-party attribution
+    ("I want to study as landlord suggested in the UK") auto-verify. Modifier runs are bounded (`{0,3}`, not
+    `*`). No template carries an open letter class or an unbounded repetition outside the digits-only value
+    slot; `tests/scribe-auto-verify-property.test.ts` checks the accepted language against an independent
+    spec and the audit test in `scribe-citation-rescope.test.ts` lints the sources.
+  - **Everything else is `unrecognised-form`: kept, never dropped, `needsReview:true`.** A clause the grammar
+    does not contain is not a failure of the student and not a lost fact — it goes to the counsellor (B3).
+  - **What this does NOT do.** It does not widen the surface: the grammar is Latin-script-only for the
+    vocabulary and spelled-out numbers exactly as recorded above, and this amendment adds no template,
+    connector, alias or key. It does not settle the country vocabulary's exact membership, which stays a
+    separate held question. Adding a template, a connector phrase, an alias or a key is a **future
+    amendment with its own reason**, never a quiet code change — the whole point of writing the grammar down
+    is that widening it now has to be argued for in this file first.
   **Edit provenance (gate `edit-provenance`, answered 2026-09-26):** a fact the counsellor edits on approval is
   stored with source `counsellor-edit` (counsellorId, time), and its original transcript quote is kept as
   `editedFrom`. The saved value is never shown with a quote that contradicts it. The same provenance goes out to
@@ -292,3 +340,25 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   exam-scope questions (Q1/Q2/Q5), which stay open pending Umesh · qa/feedback-inbox.md 2026-09-26
   (ai-engineer review of T-013) + 2026-09-27T00:00 (T-036 blind oracle Q3/Q4/Q6/Q7/Q8), issues ISS-082/
   ISS-083.
+
+- **2026-09-27 · routine · B2: the auto-verify surface is NECESSARY *and* the closed template grammar is
+  now stated in the contract.** Gate `auto-verify-surface` answered by Umesh directly, 2026-09-27
+  (AskUserQuestion, option (c) of the gate's three; recorded the same turn in `qa/QUEUE.md` at `f7f5260`
+  with its ledger rows). *Why:* the gate asked whether B2's auto-verify list is necessary-only or also
+  sufficient, and the measurement that opened it was that 72/72 needs-review rows held correctly while 29 of
+  30 expected-auto-verify rows did not — 21 of those turning on a closed-template-grammar rule that lived in
+  `packages/engine/src/scribe/nodes.ts` and appeared nowhere in B2 or D-026. A criterion the oracle cannot
+  read is a criterion that cannot fail, so those rows were unscoreable in either direction rather than
+  passing or failing. The grammar is lifted verbatim from the frozen `AUTO_VERIFY_TEMPLATE_SOURCES` (T-030 /
+  D-025): clause formation and anchoring, the 9 country templates, the 7 budget and 9-shapes-per-family
+  score templates, per-template key declaration, the digits-only value slot pinned by string equality, and
+  the closed connector/modifier sets. *Classified routine, not critical:* it adds no template, connector,
+  alias or key and widens nothing — it writes down behaviour the engine already has, and it makes the
+  necessary direction explicit, which is the fail-safe one. Where code and this paragraph ever disagree, the
+  contract is the criterion and the code is the defect. Still NOT settled, deliberately: the country
+  vocabulary's exact membership and the exam-scope questions (Q1/Q2/Q5 in `qa/feedback-inbox.md`) stay open
+  pending Umesh, and Latin-script-only remains a recorded limit rather than a defect. *Provenance note:* the
+  peer maker session's gate files record this answer as `Relayed (UNCONFIRMED)` because it reached that
+  session only as a relay from this one; Umesh answered this session directly, which is the authority this
+  amendment rests on. The gap is expected until he confirms in either session · issue ISS-t-036 family,
+  gate `qa/gates/auto-verify-surface.md`.
