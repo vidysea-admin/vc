@@ -275,3 +275,28 @@ Stale notification handled: the T-036 build subagent's task-notification re-fire
 
 Gates still unanswered (5, unchanged): hook-fix Approved-by (ISS-056/ISS-054/ISS-084),
   auto-verify-surface, b18-unimplemented, t-010-b1-b18-unsatisfiable (D1-D4), T-038 pilot scope.
+
+## tick 2026-09-27T21:48:02+05:30
+STATE: ADVANCED
+T-043 returned from the build subagent and its checker was dispatched IN THE SAME TURN (no-dangling).
+  Build: 589d57b + manifest 3f3d6ae, ready-for-check cycle 0. Checker: Mode A cycle 0, running.
+
+The claim the checker was pointed at first, because it is the one that decides whether ISS-076 is
+  really closed: the unit reports before 109/125 -> after 125/125, while ISS-076's own re-derived
+  figure is 50/120 non-conforming. The unit's explanation is that its before-number was taken AFTER
+  adding verify.narrowing, so 96 rows conform *by construction*. That may be the right fix -- a
+  convention matching real practice is exactly what ISS-076 asked for -- but it is not the same
+  claim as "50 bad rows were corrected", and closing a measured gap by widening the measure is the
+  ISS-081 Goodhart class this project already tracks. The checker brief makes three demands: (1)
+  reproduce 41.6% independently against e4bfa5b's ledger with the pre-amendment adapter, (2) judge
+  each of the 7 new shapes on whether it can FAIL when the fix is reverted -- a shape that cannot
+  fail is not a regression check and must not conform, (3) actually attempt 2-3 fixed->verified
+  transitions, since unblocking that transition, not the percentage, is what ISS-076 exists for.
+
+Also flagged for the checker: an empty undetermined set is an unusually clean result for a brief
+  that explicitly invited quarantining, so all 16 backfilled values get spot-checked individually;
+  and the unit's own instrument flags 4 pre-existing rows WEAK while the unit reports 100%.
+
+SERIAL: Mode B sweep still waits on T-043 (shared qa/issues.jsonl appends; the sweep re-derives
+  ISS-076's own rate and must measure after the backfill settles). Sweep age now ~310 min.
+SERIAL: T-035 waits on T-010 (STALLED, gate-blocked on D1+D2).
