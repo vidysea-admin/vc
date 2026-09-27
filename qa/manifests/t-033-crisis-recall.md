@@ -188,4 +188,7 @@ EXIT=0
 3. **Accepted residuals are real false alarms that students will see as escalation cards** (for example "I won't be around next week, wedding in Jaipur" and "say goodbye to my friends before I fly"). These are D-020's accepted direction. Downgrading them is the B16 classifier layer's job (T-012), not this guard's.
 4. **The timing budgets are wall-clock** (3000 ms with a ratio below 3.5). On a heavily loaded machine they could flake. The measured headroom is large (under 50 ms against a 3000 ms budget).
 
-## Status: ready-for-check
+## Close-out
+- Checker cycle 0 PASS (qa/verdicts/t-033-crisis-recall.md, 0ece721). ai-engineer review: Approve with 2 Warnings (recall denominator includes 14 accepted_residual rows; same-author golden set). senior review: Approve (same 2 as low). Logged as ISS-t-033-rev-1, rev-2.
+
+## Status: checked-PASS
