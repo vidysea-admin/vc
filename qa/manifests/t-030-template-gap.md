@@ -37,7 +37,19 @@ There are no network calls and no `.env` reads.
   inside the example-based rescope test file. **Correction (T-036, ISS-t-030-rev-1):** that grammar spec
   is transcribed from the same templates it tests, so it is mechanically independent of the JS `RegExp`
   engine but not independent of the production grammar's content -- it can only prove the code equals
-  itself. The real independent check is T-036's hand-authored fixture, added later.
+  itself. **Correction 2 (T-036 fix cycle 1, ISS-t-036-1):** the first replacement offered for it --
+  `tests/fixtures/auto-verify-oracle.jsonl` -- is ALSO not independent. The cycle-0 checker found 23 of
+  its 102 rows are byte-for-byte copies of sentences already in `nodes.ts`'s doc comments
+  (nodes.ts:515-517) and in this same property test's pre-existing T-030 (d) probes and controls, and
+  that all six `neg-speaker-01..06` rows are those controls with `speaker` flipped. Any claim that it was
+  authored from B2/D-026 before the implementation was read is withdrawn as false. It is retained only as
+  REGRESSION coverage of 102 already-known input/output pairs. The independent check is
+  `tests/fixtures/auto-verify-oracle-blind.jsonl` (T-036-blind block), authored in a separate agent
+  context structurally forbidden from opening `nodes.ts`, this test file or the older fixture, from the
+  prose of B2 + D-026 alone (commit 7823f91). Its first run against the engine found **0 auto-verify
+  leaks** and 24 rows the contract does not settle, which are quarantined unasserted in
+  `auto-verify-oracle-blind-unsettled.jsonl` and filed to `qa/feedback-inbox.md` (2026-09-27) as open
+  contract questions -- unsettled questions, not passing tests.
 - `packages/engine/tests/scribe-citation-rescope.test.ts` (extended). The earlier tests that used the free
   keys `score` / `budget` now use the bound keys, since under D-026 those keys correctly need review.
 - `packages/engine/evals/score-perfect.test.ts`: 3 new eval tests.
@@ -111,7 +123,7 @@ Here `<scratchpad>` = `C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-
 
 | Acceptance | Test id (file) | Result |
 |---|---|---|
-| (a) single- and two-token insert / replace / delete edits of the finite template language need review unless still in L | `T-030 property (a1)` and `(a2)` (scribe-auto-verify-property.test.ts) | 134383 single-token and 29345 two-token edits outside L, **0 leaks**. Membership is decided by the test's own interpreter, never by a JS `RegExp` call into the engine -- but the grammar itself is transcribed from the same templates, not independent of them (see T-036, ISS-t-030-rev-1). |
+| (a) single- and two-token insert / replace / delete edits of the finite template language need review unless still in L | `T-030 property (a1)` and `(a2)` (scribe-auto-verify-property.test.ts) | 134383 single-token and 29345 two-token edits outside L, **0 leaks**. Membership is decided by the test's own interpreter, never by a JS `RegExp` call into the engine -- but the grammar itself is transcribed from the same templates, not independent of them (see T-036, ISS-t-030-rev-1). The independent replacement is T-036's blind fixture, not `auto-verify-oracle.jsonl`, which the cycle-0 checker showed is itself code-derived (ISS-t-036-1). |
 | (b) random off-grammar sentences need review | `T-030 property (b)` | 20000 checked, 0 leaks |
 | (c) flipping one input (speaker, key, translation-only) flips to review, with exactly that one reason | `T-030 property (c)` | 23897 flips |
 | (d) the 8 probes of qa/debug/t-013-citation-rescope-cycle3.md (K×4, S×2, P, W) need review, and so does the brief's "…as agent advised in Australia" | `T-030 (d): the 8 debug-report probes…` | all true, each with its named reason; the controls still verify |

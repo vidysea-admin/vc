@@ -11,9 +11,31 @@
  * grammar `nodes.ts` encodes, so on its own it can only prove the code equals itself (senior-software-
  * engineer review, ISS-t-030-rev-1). So if the engine's templates accept anything the spec does not (the
  * rev-14 open gap `(?: [\p{L}]+){0,4}?`), the edit properties go RED -- but a shared blind spot in both
- * would not. The REAL independent check is the T-036 block near the end of this file: a hand-authored
- * fixture (`tests/fixtures/auto-verify-oracle.jsonl`) written from B2/D-026 wording before either the
- * SPEC_* grammar or the engine's templates were read (qa/manifests/t-036-independent-oracle.md).
+ * would not.
+ *
+ * TWO oracle fixtures sit at the end of this file, and they are NOT of equal standing:
+ *
+ *   - `tests/fixtures/auto-verify-oracle.jsonl` (the T-036 block) is **NOT an independent oracle**. An
+ *     earlier claim in this header that it was "written from B2/D-026 wording BEFORE reading the
+ *     SPEC_* grammar or the engine's templates" was false: 23 of its 102 rows are byte-for-byte copies
+ *     of sentences that already existed in `nodes.ts`'s own doc comments (e.g. nodes.ts:515-517) and in
+ *     this same test file's pre-existing T-030 (d) probes and controls, and all six of its
+ *     `neg-speaker-01..06` rows are those controls with the `speaker` field flipped
+ *     (checker verdict qa/verdicts/t-036-independent-oracle.md cycle 0, ISS-t-036-1). It is retained
+ *     ONLY as REGRESSION coverage of behaviour already known and already asserted elsewhere. It cannot
+ *     tell us whether the engine matches the contract, because its rows were selected from what the
+ *     engine already does.
+ *
+ *   - `tests/fixtures/auto-verify-oracle-blind.jsonl` (the T-036-blind block) IS the independent
+ *     oracle, and its independence rests on a mechanism, not on an assurance: its 102 rows were
+ *     authored in a separate agent context (commit 7823f91) that was structurally forbidden from
+ *     opening `packages/engine/src/scribe/nodes.ts`, this test file, or the older fixture, and was
+ *     given only the prose of criterion B2 (qa/contracts/counselling-engine.md) and decision D-026
+ *     (docs/DECISIONS.md). That agent reported its full read list and flagged 36 rows it judged the
+ *     contract did not settle. 24 of the 102 rows have since been moved to
+ *     `auto-verify-oracle-blind-unsettled.jsonl`: those are OPEN CONTRACT QUESTIONS awaiting the
+ *     checker (qa/feedback-inbox.md, 2026-09-27), not passing tests -- the block reports them and
+ *     asserts nothing about them.
  *
  * Evidence tuple the gate decides over: (value, key, quote, the cited turn's text + translatedText,
  * speaker). Cross-turn context is OUT of scope (gate qa/gates/auto-verify-property.md).
@@ -24,7 +46,9 @@
  *   (c) flipping ONE input (speaker, key, translation-only match) flips a verifying fact to review,
  *       with exactly that one reason;
  *   (d) the 8 probes of the debug report all need review;
- *   (T-036) the hand-authored, contract-derived oracle rows all agree with the engine.
+ *   (T-036) regression only: the older, code-derived oracle rows still agree with the engine;
+ *   (T-036-blind) the independent, blind-authored oracle rows agree with the engine, with the
+ *       contract-unsettled rows quarantined and merely reported.
  * Synthetic data only (B13); seeded PRNG, so every run checks the same cases.
  */
 import { test } from "node:test";
@@ -637,15 +661,21 @@ test("T-030 (d): the 8 debug-report probes all need review (key x4, speaker x2, 
 });
 
 // ---------------------------------------------------------------------------
-// T-036 (ISS-t-030-rev-1): the REAL independent oracle. `tests/fixtures/auto-verify-oracle.jsonl` is a
-// hand-authored positive/negative sentence list per auto-verify template (country, budget, score),
-// written from B2/D-026 wording (qa/contracts/counselling-engine.md, docs/DECISIONS.md D-026) and general
-// counselling-conversation reasoning, BEFORE reading the SPEC_* grammar above or the engine's templates
-// in nodes.ts. Unlike the property tests above -- which check the engine against a grammar transcribed
-// from the same source it is testing -- every row's `expect` here was judged only by what the property
-// means (the cited turn's speaker is the student; the template is bound to this fact's key; the match is
-// on the original text, not translatedText alone; within one turn), never by what a regex would accept.
-// See qa/manifests/t-036-independent-oracle.md for how the fixture was authored and reviewed.
+// T-036 REGRESSION BLOCK -- NOT an independent oracle. `tests/fixtures/auto-verify-oracle.jsonl` is a
+// hand-written positive/negative sentence list per auto-verify template (country, budget, score). This
+// block previously claimed the rows were authored from B2/D-026 "BEFORE reading the SPEC_* grammar above
+// or the engine's templates in nodes.ts". That claim was FALSE and is withdrawn: the cycle-0 checker
+// found 23 of the 102 rows are byte-for-byte identical to sentences already present in nodes.ts's doc
+// comments (nodes.ts:515-517) and in this file's own pre-existing T-030 (d) probes and controls, and that
+// all six `neg-speaker-01..06` rows -- the rows the unit's falsification proof used to lean on -- are
+// those same controls with `speaker` flipped to "counsellor"
+// (qa/verdicts/t-036-independent-oracle.md cycle 0; ISS-t-036-1).
+//
+// What this block is worth, stated without inflation: it pins 102 concrete input/output pairs of the
+// gate, so a future refactor that changes any of them goes red. That is REGRESSION coverage of known
+// behaviour. It is NOT evidence that the engine matches B2/D-026, because the rows were chosen from
+// material that already reflects what the engine does. The independent check is the T-036-blind block
+// below. See qa/manifests/t-036-independent-oracle.md.
 // ---------------------------------------------------------------------------
 
 interface OracleRow {
@@ -671,12 +701,12 @@ function loadOracleFixture(): OracleRow[] {
 
 const ORACLE_ROWS = loadOracleFixture();
 
-test("T-036 independent oracle: hand-authored positive/negative sentences (written from B2/D-026, not the regex) agree with the engine", () => {
+test("T-036 regression oracle (NOT independent -- 23/102 rows are copies of nodes.ts comments and pre-existing probes): the 102 known input/output pairs still hold", () => {
   const positives = ORACLE_ROWS.filter((r) => r.expect === "verify");
   const negatives = ORACLE_ROWS.filter((r) => r.expect === "review");
   assert.ok(ORACLE_ROWS.length > 0, "the fixture must not be empty (a vacuous oracle proves nothing)");
-  assert.equal(positives.length, 30, "expected 30 hand-authored SHOULD-verify rows in the fixture");
-  assert.equal(negatives.length, 72, "expected 72 hand-authored MUST-need-review rows in the fixture");
+  assert.equal(positives.length, 30, "expected 30 SHOULD-verify rows in the regression fixture");
+  assert.equal(negatives.length, 72, "expected 72 MUST-need-review rows in the regression fixture");
 
   const failures: string[] = [];
   for (const row of ORACLE_ROWS) {
@@ -695,8 +725,142 @@ test("T-036 independent oracle: hand-authored positive/negative sentences (writt
       );
     }
   }
-  assert.deepEqual(failures, [], `${failures.length} of ${ORACLE_ROWS.length} independent-oracle rows disagree with the engine`);
+  assert.deepEqual(failures, [], `${failures.length} of ${ORACLE_ROWS.length} regression-oracle rows disagree with the engine`);
   console.log(
-    `[t036-oracle] independent oracle rows=${ORACLE_ROWS.length} positive=${positives.length} negative=${negatives.length} failures=${failures.length}`,
+    `[t036-regression] regression (NOT independent) oracle rows=${ORACLE_ROWS.length} positive=${positives.length} negative=${negatives.length} failures=${failures.length}`,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// T-036-blind (ISS-t-030-rev-1, ISS-t-036-1): THE INDEPENDENT ORACLE.
+//
+// HOW the independence was obtained (a blindness claim is worth only its mechanism):
+//   `tests/fixtures/auto-verify-oracle-blind.jsonl` was authored in a SEPARATE agent context
+//   (commit 7823f91) whose brief structurally forbade it from opening
+//   `packages/engine/src/scribe/nodes.ts`, this test file, or the older `auto-verify-oracle.jsonl`.
+//   Its only inputs were the prose of criterion B2 (qa/contracts/counselling-engine.md) and decision
+//   D-026 (docs/DECISIONS.md). It reported its full read list and flagged 36 rows whose correct
+//   answer it judged the contract text did not settle. The rows were then run against the engine for
+//   the first time in T-036 fix cycle 1 and every disagreement was triaged in
+//   qa/manifests/t-036-independent-oracle.md.
+//
+//   That is the whole basis. It is a process claim about a separate context, not a proof: it rules out
+//   the specific failure that sank cycle 0 (rows copied from the implementation), and nothing more.
+//
+// WHAT THE FIRST RUN FOUND (fix cycle 1), stated plainly:
+//   - 0 auto-verify LEAKS. Not one row the contract requires to be needs-review was auto-verified by
+//     the engine; all 72 must-need-review rows came back needs-review. No change was made to nodes.ts.
+//   - 29 of the 30 rows the blind author expected to AUTO-VERIFY did not. Every disagreement ran in
+//     the safe direction (the engine is stricter than the contract prose), so none is a leak -- but
+//     it means the engine's auto-verify surface is markedly narrower than a reader of B2 would expect.
+//   - 5 of those 29 were the blind author's error, corrected in-file with the contract sentence that
+//     makes them wrong (their `value` is a unit conversion of "20 lakh" -> 2000000, which the student
+//     never typed; B2 auto-verifies "typed numbers ... matched as whole words").
+//   - The other 24 are NOT settled by B2/D-026 either way, so they are quarantined in
+//     `auto-verify-oracle-blind-unsettled.jsonl` and merely REPORTED below. They are open contract
+//     questions filed to qa/feedback-inbox.md (2026-09-27) for the checker, not passing tests.
+//
+// HONEST LIMIT OF THIS BLOCK: after quarantine the asserted split is 1 verify / 77 review, so on its
+// own it would also be satisfied by an engine that auto-verifies almost nothing. It is therefore a
+// one-sided (safety-direction) oracle. The verify direction is carried by the T-030 (d) controls and
+// the regression block above, and the block is kept falsifiable by a named nodes.ts edit that flips
+// the blind row `blind-neg-wrongkey-04` (see the manifest's capability-coverage table).
+//
+// HARNESS NORMALISATION (two conversions, applied to every row, chosen before the rows were run and
+// never per-row -- neither one changes any row's `expect`):
+//   1. KEY NAMES. The blind author could not know this repo's key spellings and used plain ones
+//      (`budget`, `ieltsScore`, `boardPercentage`, ...). BLIND_KEY_ALIASES maps each to the engine key
+//      for the SAME fact concept. The map is concept-injective, so the hostile `blind-neg-wrongkey-*`
+//      rows stay hostile after mapping. Keys with no engine concept (`jeePercentile`, `neetScore`) are
+//      passed through unmapped -- that gap is open question Q5.
+//   2. VALUE TYPE + CITED QUOTE. The fixture is JSON, so every `value` is a string; a fully numeric
+//      one is coerced to a number, as the engine's numeric facts are numbers. The fixture's optional
+//      `quote` field is the author's note of the matched SPAN ("Canada", "7.5"), not a citation quote,
+//      so the cited quote is the turn text -- the single clause each row's `why` reasons about.
+// ---------------------------------------------------------------------------
+
+interface BlindOracleRow extends OracleRow {
+  unsettled?: boolean;
+  open_question?: string;
+}
+
+/** Concept-preserving map from the blind author's key names to this engine's keys (see HARNESS NORMALISATION). */
+const BLIND_KEY_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+  targetCountry: "targetCountry",
+  budget: "budget_inr_per_year",
+  ieltsScore: "ielts_overall",
+  toeflScore: "toefl_total",
+  satScore: "sat_total",
+  greScore: "gre_total",
+  gmatScore: "gmat_total",
+  duolingoScore: "duolingo_score",
+  boardPercentage: "class12_percentage",
+});
+
+function loadBlindFixture(name: string): BlindOracleRow[] {
+  const path = join(dirname(fileURLToPath(import.meta.url)), "fixtures", name);
+  return readFileSync(path, "utf-8")
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line) as BlindOracleRow);
+}
+
+const BLIND_ROWS = loadBlindFixture("auto-verify-oracle-blind.jsonl");
+const BLIND_UNSETTLED = loadBlindFixture("auto-verify-oracle-blind-unsettled.jsonl");
+
+function runBlindRow(row: BlindOracleRow): { actual: "verify" | "review"; reasons: string[] } {
+  const numeric = /^\d+(?:\.\d+)?$/.test(String(row.value));
+  const r = run({
+    text: row.text,
+    translatedText: row.translatedText,
+    quote: row.text,
+    speaker: row.speaker ?? "student",
+    key: BLIND_KEY_ALIASES[row.key] ?? row.key,
+    value: numeric ? Number(row.value) : row.value,
+  });
+  return { actual: r.needsReview ? "review" : "verify", reasons: r.reasons };
+}
+
+test("T-036-blind independent oracle: rows authored by an agent forbidden from reading nodes.ts agree with the engine", () => {
+  // Shape guard -- the fixture cannot be emptied, trimmed or quietly re-split into a vacuous pass, and
+  // no row may vanish: the two files must still account for all 102 blind-authored rows, disjointly.
+  assert.equal(BLIND_ROWS.length, 78, "expected 78 asserted rows in auto-verify-oracle-blind.jsonl");
+  assert.equal(BLIND_UNSETTLED.length, 24, "expected 24 quarantined rows in auto-verify-oracle-blind-unsettled.jsonl");
+  assert.equal(
+    BLIND_ROWS.length + BLIND_UNSETTLED.length,
+    102,
+    "all 102 blind-authored rows must be accounted for; a disagreeing row may never be deleted (ISS-t-036-1)",
+  );
+  const ids = new Set([...BLIND_ROWS, ...BLIND_UNSETTLED].map((r) => r.id));
+  assert.equal(ids.size, 102, "blind row ids must be unique across the asserted and quarantined files");
+  const positives = BLIND_ROWS.filter((r) => r.expect === "verify");
+  const negatives = BLIND_ROWS.filter((r) => r.expect === "review");
+  assert.equal(positives.length, 1, "expected 1 asserted SHOULD-verify blind row (see HONEST LIMIT above)");
+  assert.equal(negatives.length, 77, "expected 77 asserted MUST-need-review blind rows");
+  assert.ok(
+    BLIND_UNSETTLED.every((r) => r.unsettled === true && typeof r.open_question === "string" && r.open_question.length > 0),
+    "every quarantined row must carry unsettled:true and the open contract question it is waiting on",
+  );
+
+  const failures: string[] = [];
+  for (const row of BLIND_ROWS) {
+    const { actual, reasons } = runBlindRow(row);
+    if (actual !== row.expect) {
+      failures.push(
+        `${row.id} (${row.category}): expected "${row.expect}", engine said "${actual}" [${reasons.join(",") || "-"}] -- "${row.text}"`,
+      );
+    }
+  }
+  assert.deepEqual(failures, [], `${failures.length} of ${BLIND_ROWS.length} blind-oracle rows disagree with the engine`);
+
+  // No assertion on the quarantined rows -- B2/D-026 do not settle them, so asserting either way would
+  // freeze an answer the contract has not given. They are reported so the disagreement stays visible.
+  const quarantineReport = BLIND_UNSETTLED.map((row) => {
+    const { actual, reasons } = runBlindRow(row);
+    return `    ${row.id}: blind author said "${row.expect}", engine says "${actual}" [${reasons.join(",") || "-"}] -- ${row.open_question}`;
+  });
+  console.log(
+    `[t036-blind] independent oracle asserted=${BLIND_ROWS.length} (verify=${positives.length} review=${negatives.length}) failures=${failures.length}; ` +
+      `QUARANTINED (reported, not asserted) = ${BLIND_UNSETTLED.length} open contract questions:\n${quarantineReport.join("\n")}`,
   );
 });
