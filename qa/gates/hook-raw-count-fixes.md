@@ -42,3 +42,42 @@ Do you approve editing the three hook files to fix the three counting defects ab
 
 **Answer format:** chat reply. The maker appends `Answered:` here, then a DECISIONS entry carrying
 `Approved-by: Umesh` before any hook file is touched.
+
+---
+
+## Scope correction — the two defects CANCEL, so a partial fix looks like a regression
+
+Added after `mc-sessionstart.ps1:26` was tested the rest of the way. **This changes the
+recommendation from "three independent fixes" to "ISS-054 and ISS-056 must be fixed together."**
+
+An earlier reading of mine said the committed hook was unaffected because its patterns tolerate
+leading markdown. That is true and it is not sufficient. Line 26 ends in `Select-Object -First 1`,
+so it is **first-wins** on any verdict that has had cycles appended to it. Measured across the
+tree — 8 verdict files carry more than one `Cycle checked` line, and in **every one** the first
+differs from the last:
+
+| verdict | first | last |
+|---|---|---|
+| `t-010-live-cards` (in its worktree) | 0 | 3 |
+| `t-013-citation-rescope` | 1 | 3 |
+| `t-017-residuals` | 2 | 0 (appended out of order) |
+| `t-004`, `t-032`, `t-039`, `t-042`, `t-043` | 0 | 1 |
+
+So the hook compares a manifest's `Fix cycle: N` against a **stale cycle 0** and concludes "check
+pending" for a unit that has already been checked N times. This is the same first-wins-versus-
+last-wins root cause as ISS-056, on a different line of the same file.
+
+**Why they must land together.** `t-010` sat at `Fix cycle 3` while the session line printed
+`Checks pending: 0`. First-wins alone would have reported it *pending*; it printed *clean* only
+because ISS-054's root-only scan never looked inside the worktree where that verdict lives. **Two
+defects in one reader are cancelling out.** Fix either alone and the reported count becomes wrong
+in a new direction — fix ISS-054 first and previously-invisible units start reporting a stale
+cycle 0; fix ISS-056 first and the root-only blindness remains. Whoever implements this should
+expect the count to move, and the DECISIONS entry should say so, or the correction will read as a
+regression to the next person.
+
+**Credit where due:** this was found by the peer session (vc-f5) after it shipped the same
+first-wins bug in a tolerant reader it wrote to *replace* the broken one — its replacement used
+`head -1` and reported t-010 as "never checked" for a unit checked four times. Prefix tolerance is
+not the fix; **readers must take the last occurrence.** That is the durable lesson, and it is an
+argument for writers emitting a machine-readable header rather than for more careful greps.
