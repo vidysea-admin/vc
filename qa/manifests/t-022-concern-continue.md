@@ -167,4 +167,7 @@ verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity
 7. **`apps/web` typecheck not run.** It was left out to save RAM. The only shared-type change is an OPTIONAL field on `ApprovalRequestSchema`.
 8. **Session-level concern flag not yet visible in the product.** T-012 and T-027 (the concern-flag webhook) consume `readStudentConcerns` and `ConcernRecord`.
 
-## Status: ready-for-check
+## Close-out
+- Checker cycle 0 PASS (qa/verdicts/t-022-concern-continue.md, 6764f59). ai-engineer review: Approve (info + low findings logged). senior review: Approve (low finding logged).
+
+## Status: checked-PASS
