@@ -692,3 +692,55 @@ docs/spec.md DOES NOT EXIST -- the PLAN gate substitutes qa/contracts/counsellin
 Umesh now has SIX items, not five: the three relayed-unconfirmed gates, the two unanswered gates
   (hook-raw-count-fixes, p2-application-drafting-scope), and ISS-052's premise failure.
 SERIAL: Mode B sweep waits on T-043. SERIAL: T-035 waits on T-010.
+
+## tick 2026-09-27T23:38:45+05:30
+STATE: ADVANCED
+T-043 fix cycle 2 built (81436bd) and checker Mode A cycle 2 dispatched in the same turn.
+  THIS IS THE LAST PERMITTED CYCLE -- a FAIL sends the unit to STALLED and the /agent-debugger
+  protocol. The checker brief says so explicitly and requires that a FAIL name the smallest
+  recovery, since that becomes the queue row.
+
+Cycle 2 is the best report of the three, and the reason is what it did NOT do. It led with what
+  remains open instead of a headline: ISS-076 still open, shape-conformance unchanged at 126/126
+  with an explicit statement that the number "was never what ISS-076 measures", 58 of 69 rows
+  still content-unverified, and the 6 heuristic candidates beyond ISS-093 named as unconfirmed
+  rather than cleared. After two cycles where a 100% headline concealed a majority-shape defect
+  and then a decorative check, that is the reporting behaviour the project needs to survive
+  scrutiny -- so the checker brief asks it to say so if the honesty holds up, not only to hunt
+  for what fails.
+
+ISS-093 fixed with a DIRECT UNIT TEST rather than a fixture patch, with an argument that a
+  fixture-only fix was structurally impossible (declaredKeysForClause's template slot already
+  requires exact digit-run equality, making containsNumberToken unreachable as an
+  outcome-differentiator). Revert/restore run twice: 43/43 -> revert -> 42/43 with the named
+  assertion failing -> restore -> 43/43. I flagged the risk that this reasoning could be a
+  rationalisation: if the function is unreachable through the real verification path, a unit test
+  on it is a FOURTH species of decorative check. The checker must answer whether anything now
+  catches that regression through the production path or only through a direct call.
+
+THIRD FAILURE SPECIES FOUND, distinct from ISS-092 (inert shape) and ISS-093 (confounded
+  assertion): ISS-t-013-c2-rev-3 admits NO revert at all, because the original fix's code was
+  superseded by the D-020 rescope. Current behaviour is correct but overdetermined by three
+  independent guards, and ZERO test in the named regression_check file covers the scenario. So
+  that row's regression_check certifies nothing. Whether such a row may count as "conforming" is
+  the core judgment of this cycle and I gave it to the checker rather than deciding it myself --
+  by the reasoning that killed repo-file-arg and ISS-093 it arguably cannot, and if so the
+  instrument has a blind spot it does not model.
+
+Sample: 8 rows by a stated rule (69 in ledger-diff order, minus the checker's 3, remaining[3::8],
+  rule fixed before looking). 7 PASS, 1 the species-three FAIL. Combined with the cycle-1
+  checker's 3, that is 11 of 69 content-verified, 9 PASS / 2 FAIL -> an explicit ~18% estimate
+  with stated wide uncertainty (plausibly 5-45% at n=11), called an estimate and not a census.
+  The checker is told to RE-DERIVE the slice itself: a sampling rule stated after the fact is how
+  a clean result gets manufactured, and it is cheap to falsify either way.
+
+Test count moved 1236 -> 1237 (1192 pass), attributed entirely to this cycle's own new test
+  (engine 689 -> 690). Flagged for verification: an unexplained +1 is how a test gets silently
+  added or a skip silently un-skipped.
+
+Cross-branch ledger copying happened a SECOND time despite being flagged fragile in cycle 1 --
+  3 lines extracted byte-for-byte from main's history. Checker must re-verify counts, JSON
+  validity across all 551 lines, single occurrence of ISS-093/ISS-094, no ISS-092 duplication,
+  the untouched ISS-095/ISS-096 rows, and re-run the merge-tree hazard check since main has moved.
+
+SERIAL: Mode B sweep waits on T-043 (~8h stale now). SERIAL: T-035 waits on T-010.
