@@ -148,3 +148,22 @@
   execution. Gate qa/gates/t-010-b1-b18-unsatisfiable.md opened -- 5 unanswered gates now.
   NOT stopping the loop: backlog is non-empty (ISS-085 B21 silent fact-loss high, T-035, ISS-076).
   ISS-045: t-039 dir still busy.
+2026-09-27T19:09:02+05:30 ADVANCED · T-010 stall diagnosis in (4883bb1): LOOP DESIGN, not execution, unambiguously.
+  Decisive number, in no verdict: on the SAME commit two good-faith authors drew fresh hostile B1
+  rows -- maker 2/67 (3.0%), checker 26/41 (63.4%). A 20x spread = there is no convergent
+  measurement of B1 on this unit; every cycle scored its sampler, not its code. That reframes all
+  three cycles as competent work on an unmeasurable target.
+  Two impossibility proofs verified in the tree: NON_VERB_OPENERS must both keep ellipticals and
+  contain no bare verb (note/plan/open/score/board/right/reference are both -- no assignment works);
+  and the B18 guard must drop "Is the budget still an unknown?" while keeping CE-054, which are
+  IDENTICAL on every feature the code can see, differing only by entailment.
+  Contract finding: B1 as written is NOT satisfiable by any implementation of this shape (universal
+  negative over open-class NL + "a code guard enforces this" are jointly impossible).
+  Corrected my own gate: the semantic verifier is B2's citation judge, default-off, and B1 forbids
+  it as enforcement of record -- so gate option (a) as I wrote it is not available. Real version is
+  the schema change (knownFactId + asks enum), which fails closed by construction.
+  Diagnosis appended to the gate; 4 decisions named (D1 re-scope, D2 pilot bar, D3 LLM on a live
+  safety surface, D4 adversarial corpus). Until D1+D2 are answered nothing useful can be built there.
+  T-010 branch KEPT unmerged, not reverted. TASKS row -> STALLED.
+  Pulled the next unblocked unit: T-042 (ISS-085 high, B21 silent fact-loss) -- worktree created,
+  build dispatched. Backlog was non-empty so the loop does not stop.
