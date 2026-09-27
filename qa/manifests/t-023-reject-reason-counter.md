@@ -83,10 +83,10 @@ the input's *value* attribute, creates no `<script>` element, and never executes
 All test/typecheck commands go through the machine-wide lock:
 
 ```
-bash "C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/vc-testlock.sh" \
+bash "scripts/vc-testlock.sh" \
   pnpm -C D:/vc/.worktrees/t-023-reject-reason-counter --filter @vc/web typecheck
 
-bash "C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/vc-testlock.sh" \
+bash "scripts/vc-testlock.sh" \
   pnpm -C D:/vc/.worktrees/t-023-reject-reason-counter --filter @vc/web test
 
 python D:/vc/.worktrees/t-023-reject-reason-counter/contracts/verify_contracts.py

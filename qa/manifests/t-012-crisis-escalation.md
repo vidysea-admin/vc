@@ -100,10 +100,10 @@ instead of by a test-first run.
 ## How to verify
 
 ```
-bash "<scratchpad>/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-012-crisis-escalation --filter @vc/engine test
-bash "<scratchpad>/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-012-crisis-escalation --filter @vc/engine typecheck
-bash "<scratchpad>/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-012-crisis-escalation --filter @vc/db test
-bash "<scratchpad>/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-012-crisis-escalation --filter @vc/api test
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-012-crisis-escalation --filter @vc/engine test
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-012-crisis-escalation --filter @vc/engine typecheck
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-012-crisis-escalation --filter @vc/db test
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-012-crisis-escalation --filter @vc/api test
 python D:/vc/.worktrees/t-012-crisis-escalation/contracts/verify_contracts.py
 ```
 

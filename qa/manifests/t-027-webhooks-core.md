@@ -129,7 +129,7 @@ value).
 ## How to verify (exact commands, run in the worktree via the shared test lock)
 
 ```
-$ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-027-webhooks-core --filter @vc/engine test
+$ bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-027-webhooks-core --filter @vc/engine test
 ...
 ℹ tests 315
 ℹ suites 0
@@ -146,7 +146,7 @@ across `webhooks-envelope.test.ts` [8], `webhooks-signing.test.ts` [11], `webhoo
 already merged to this worktree's base — 0 regressions, 0 failures)
 
 ```
-$ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-027-webhooks-core --filter @vc/engine typecheck
+$ bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-027-webhooks-core --filter @vc/engine typecheck
 > tsc --noEmit && tsc --noEmit -p evals/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json
 (no output, exit 0)
 ```

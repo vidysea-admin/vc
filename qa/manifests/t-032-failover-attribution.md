@@ -113,7 +113,7 @@ Target: capability #1/#2 above, `packages/providers/src/index.ts:540`.
 
 **Before (GREEN, real run):**
 ```
-$ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers test
+$ bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers test
 ...
 ℹ tests 49
 ℹ pass 49
@@ -141,7 +141,7 @@ the lock):**
 
 **Restored, re-verified GREEN (real run, full package, through the lock):**
 ```
-$ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers test
+$ bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers test
 ...
 ℹ tests 49
 ℹ pass 49
@@ -158,7 +158,7 @@ scratch worktree was created (not needed for this single-line, non-network falsi
 ## Verification (exact commands, run through the lock, real output, this session)
 
 ```
-$ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers test
+$ bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers test
 [testlock] running (free RAM 2.51 GB): pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers test
 > tsx --test tests/*.test.ts
 ... (49 tests, all ✔, listed in full above)
@@ -167,7 +167,7 @@ $ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filt
 ℹ fail 0
 ℹ duration_ms 2775.6472
 
-$ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers typecheck
+$ bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers typecheck
 [testlock] running (free RAM 2.42 GB): pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers typecheck
 > tsc --noEmit
 (no output, exit 0)
@@ -249,7 +249,7 @@ Target: capability 4b, `packages/providers/src/index.ts:753-758` (the new test a
 
 **Before (GREEN, real run):**
 ```
-$ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers test
+$ bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers test
 ...
 ✔ T-032 (ISS-t-032-c0-1 fix cycle 1): the deadline expires the INSTANT attempt 1's own retryable
   failure lands ... (0.4378ms)
@@ -282,14 +282,14 @@ only the NEW test reds, proving it (and only it) is what exercises that branch.
 
 **Restored, re-verified GREEN (real run, full package, through the lock):**
 ```
-$ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers test
+$ bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers test
 ...
 ℹ tests 50
 ℹ pass 50
 ℹ fail 0
 ℹ duration_ms 1827.724
 
-$ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers typecheck
+$ bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers typecheck
 > tsc --noEmit
 (no output, exit 0)
 ```

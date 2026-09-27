@@ -39,8 +39,8 @@
 ## How to verify (exact commands)
 
 ```
-bash "<scratchpad>/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-033-crisis-recall --filter @vc/engine test
-bash "<scratchpad>/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-033-crisis-recall --filter @vc/engine typecheck
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-033-crisis-recall --filter @vc/engine test
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-033-crisis-recall --filter @vc/engine typecheck
 python D:/vc/.worktrees/t-033-crisis-recall/contracts/verify_contracts.py
 ```
 

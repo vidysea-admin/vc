@@ -74,11 +74,11 @@
 Each command runs from any directory, one package per run, under the test lock:
 
 ```
-bash "C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-022-concern-continue --filter @vc/schemas test
-bash ".../vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-022-concern-continue --filter @vc/schemas typecheck
-bash ".../vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-022-concern-continue --filter @vc/engine typecheck
-bash ".../vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-022-concern-continue --filter @vc/engine test
-bash ".../vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-022-concern-continue --filter @vc/db test
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-022-concern-continue --filter @vc/schemas test
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-022-concern-continue --filter @vc/schemas typecheck
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-022-concern-continue --filter @vc/engine typecheck
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-022-concern-continue --filter @vc/engine test
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-022-concern-continue --filter @vc/db test
 python D:/vc/.worktrees/t-022-concern-continue/contracts/verify_contracts.py
 ```
 
