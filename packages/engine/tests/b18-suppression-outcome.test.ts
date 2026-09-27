@@ -179,6 +179,36 @@ test("T-039 structural finding 2: ExtractInputSchema/SummaryInputSchema have no 
 // ---------------------------------------------------------------------------------------------
 const NOT_RUNNABLE_PLACEHOLDER_IDS = new Set(["b18-f4-02", "b18-f8-01"]);
 
+// ---------------------------------------------------------------------------------------------
+// KNOWN-GAP TRIPWIRES (fix cycle 1, ISS-t-039-2 -- the merge gate) -- these 6 rows are the real,
+// reproduced B18 leaks (checker verdict qa/verdicts/t-039-suppression-outcome.md, cycle 0 PASS,
+// section 8 "THE DEFERRED DECISION"). The checker refused both options this file's cycle-0 version
+// offered (a red `main`, or `test.todo`/skip): a red `pnpm -C packages/engine test` destroys the
+// green signal every other unit's checker cites and has no closing condition; `test.todo` is how a
+// proven, reproduced defect quietly disappears with nothing to ever re-surface it.
+//
+// The ruling (verdict section 8): assert the CURRENTLY MEASURED (wrong) value, not the fixture's
+// `expect`, and name the contract expectation in the assertion message so anyone reading a failure
+// -- or this source -- sees both what B18 requires and what the engine actually does. This makes
+// the suite green today AND self-revisiting: the day a relevance layer lands and one of these rows
+// starts returning "suppress" (the contract-correct value), its tripwire assertion below FAILS,
+// because it is pinned to "surface". That failure is not a regression -- it is the signal to delete
+// the tripwire and restore a normal `assert.equal(got, row.expect)` for that row. Falsification lever
+// proving this (B18-implemented simulated in a throwaway copy, tripwire goes RED) is recorded in
+// qa/manifests/t-039-suppression-outcome.md, "Fix cycle 1" section.
+//
+// The fixture's `expect` field for these 6 rows is NEVER changed (still "suppress", still the blind
+// author's ground truth, D-028) -- only this test file's assertion target changes, and only for
+// these 6 named ids.
+const KNOWN_GAP_IDS = new Set([
+  "b18-f1-01",
+  "b18-f1-02",
+  "b18-f1-04",
+  "b18-f4-03",
+  "b18-f6-03",
+  "b18-f8-02",
+]);
+
 type Classification =
   | { kind: "runnable-scribe-fact" }
   | { kind: "runnable-summary-line" }
@@ -280,6 +310,22 @@ test("T-039 B18 blind fixture vs the real engine (55 asserted rows, one subtest 
       continue;
     }
     runnableCount += 1;
+    if (KNOWN_GAP_IDS.has(row.id)) {
+      // KNOWN-GAP TRIPWIRE (ISS-t-039-1, merge-gate fix ISS-t-039-2). Asserts the MEASURED value
+      // ("surface"), not the fixture's `expect` ("suppress") -- see the KNOWN_GAP_IDS comment above.
+      await t.test(
+        `${row.id} (${row.item.surface}): KNOWN-GAP ISS-t-039-1 -- B18 ${row.contract_clause} contract expects "${row.expect}", engine currently measures "surface"`,
+        async () => {
+          const got = c.kind === "runnable-scribe-fact" ? await runScribeFactRow(row) : await runSummaryLineRow(row);
+          assert.equal(
+            got,
+            "surface",
+            `${row.id}: KNOWN-GAP ISS-t-039-1 -- B18 contract (${row.contract_clause}) expects "${row.expect}" (${row.why}); engine has no relevance layer and currently returns "surface". This assertion pins the GAP, not the contract. If it just FAILED, B18 has been implemented for this row -- delete this tripwire and restore \`assert.equal(got, row.expect)\`.`,
+          );
+        },
+      );
+      continue;
+    }
     await t.test(`${row.id} (${row.item.surface}): B18 ${row.contract_clause} says "${row.expect}"`, async () => {
       const got = c.kind === "runnable-scribe-fact" ? await runScribeFactRow(row) : await runSummaryLineRow(row);
       assert.equal(
