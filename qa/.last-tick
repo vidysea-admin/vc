@@ -620,3 +620,32 @@ Divergence flagged, not resolved: vc-f5 is about to amend qa/contracts/ B2 with 
 T-043 cycle 2 is now the longest-running unit of the session. If it stalls: /agent-debugger
   protocol first, and the repo-level shell-script shape gap goes into its smallest-recovery row.
 SERIAL: Mode B sweep waits on T-043. SERIAL: T-035 waits on T-010.
+
+## tick 2026-09-27T23:10:38+05:30
+STATE: ADVANCED (verification only; T-043 cycle 2 still building, ~45 min)
+
+vc-f5 wrote the B2 template-grammar amendment (d3244c3). Verified all three of its claims rather
+  than accepting any: 70 insertions / 0 deletions (additions-only, numstat); the
+  "peer maker session records this as Relayed (UNCONFIRMED), correctly" provenance note is
+  genuinely inside qa/contracts/counselling-engine.md and its amendment log, so a later reader
+  finds the explanation in the same file instead of reconstructing it from tick history; and
+  ISS-t-013r-rev-14 is fixed in the merged ledger with the code backing it -- nodes.ts:505-510,
+  COUNTRY_CONNECTOR_PHRASES frozen, connector = closed list or optional my/a/an + DEGREE, comment
+  at 538 naming the replaced 0-4 word gap. Genuinely closed, not narrowed.
+
+Recording the amendment's own governing line because it is the part that makes option (c) safe:
+  "where the code and the paragraph disagree, the contract is the criterion and the code is the
+  defect." Without that, writing the grammar down would merely document current behaviour, which
+  is the goalpost-moving risk the b18 gate warns about and the same Goodhart class as ISS-092.
+
+vc-f5 also left the Answered: line in qa/gates/auto-verify-surface.md alone unprompted, on the
+  reasoning that receiving Umesh's answer does not make their hand the right one for my gate file.
+  That distinction is correct and I am recording it as the settled convention between the two
+  sessions: the gate file's owner writes its own Answered: line, from a confirmation it can verify.
+
+Divergence status unchanged and now self-documenting: contracts amended for a decision my gates
+  still call unconfirmed, with the reason written into the contract. Resolves when Umesh confirms
+  here. Three gate files still awaiting that; two more (hook-raw-count-fixes,
+  p2-application-drafting-scope) awaiting their first answer.
+
+SERIAL: Mode B sweep waits on T-043. SERIAL: T-035 waits on T-010.
