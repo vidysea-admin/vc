@@ -583,3 +583,40 @@ Left the three stale ready-for-check lines (t-021, t-026, t-027 in the t-010 wor
   symptom while the defect stands. This session has already paid for one partial fix.
 
 SERIAL: Mode B sweep waits on T-043. SERIAL: T-035 waits on T-010.
+
+## tick 2026-09-27T23:07:16+05:30
+STATE: ADVANCED (third correction on the same surface; T-043 cycle 2 still building)
+
+My t-017 caveat retracted vc-f5's ISS-095 remedy, and I verified their confirmation of it rather
+  than trading assertions: t-017-residuals.md is written NEWEST-FIRST -- Cycle checked 2 at line 4,
+  1 at 246, 0 at 456, 0 at 642, strictly descending. So last-occurrence returns 0 for a unit
+  checked through cycle 2, the same "never checked" error first-wins produces, reached from the
+  other end; on that one file first-wins is the correct reader. Writers do not agree on append
+  order, so POSITION IS NOT A READABLE PROPERTY. Gate remedy corrected to max-cycle or an explicit
+  terminal marker (9fd2d4b).
+
+The measurement now in the gate, which is the real output of this whole exchange: three readers
+  were written for ONE surface in ONE day by two sessions -- anchored bare-word, prefix-tolerant
+  first-wins, prefix-tolerant last-wins -- and all three were wrong, each invisibly from its own
+  output, two of them written by sessions that had just diagnosed the previous failure. No
+  reader-side discipline survived contact. That is the argument for writer-side structure, and it
+  is evidence rather than opinion.
+
+Process note worth keeping: this only worked because each side checked the other against the tree
+  instead of accepting or deferring. I reproduced their 0-of-42; they found the -First 1 I stopped
+  short of; I found the t-017 ordering that killed their remedy. The cancellation between ISS-054
+  and first-wins was only visible with both halves on the table. The cheap failure was available
+  at every step -- I could have accepted ISS-095 as filed, they could have accepted my false
+  all-clear -- and either would have left the safety net broken and believed fixed.
+
+Divergence flagged, not resolved: vc-f5 is about to amend qa/contracts/ B2 with the template
+  grammar on the strength of Umesh's answer in THEIR session. In mine that gate is still
+  Relayed (UNCONFIRMED). I did not ask them to hold -- contracts are the checker's to write and I
+  have no standing to gate their work on my session's confirmation state -- but my three gate
+  files will keep saying unconfirmed until he replies here, so a later reader finding contracts
+  amended for a decision my gates call unconfirmed should read this tick. Resolves when he
+  confirms to either of us in a way the other can verify.
+
+T-043 cycle 2 is now the longest-running unit of the session. If it stalls: /agent-debugger
+  protocol first, and the repo-level shell-script shape gap goes into its smallest-recovery row.
+SERIAL: Mode B sweep waits on T-043. SERIAL: T-035 waits on T-010.
