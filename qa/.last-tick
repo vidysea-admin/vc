@@ -342,3 +342,42 @@ Checker also noted a transient FencedWriterDeadlineError under concurrent load, 
 SERIAL: Mode B sweep still waits on T-043 (shared qa/issues.jsonl appends; the checker has now also
   appended to it). Sweep age ~340 min. Held deliberately, not forgotten.
 SERIAL: T-035 waits on T-010 (STALLED, gate-blocked on D1+D2).
+
+## tick 2026-09-27T22:23:58+05:30
+STATE: ADVANCED
+T-043 fix cycle 1 built (15ef1ab on top of 3f3d6ae), manifest flipped to Fix cycle: 1 /
+  ready-for-check, and checker Mode A cycle 1 dispatched in the same turn (no-dangling).
+
+What cycle 1 did, per its own report (NOT yet verified): searched for a real repo-level narrowing
+  form before accepting the retire recommendation and found none exists at the pnpm-script level
+  (isolated fixture, node --test with an extra path gives an identical count); retired
+  repo-file-arg into a retired_shapes block with the instrument rejecting it by name and citing
+  ISS-092; remapped all 69 rows to direct-tsx; added a --tsconfig flag for one JSX row; grew the
+  test suite from 19 cases/30 assertions to 24 blocks/48 assertions with genuinely execution-based
+  tests; reports 126/126 (100.0%).
+
+Two things it did well enough to record. It did not silently repeat a prior claim: cycle 0's
+  manifest and the cycle-0 verdict both say 4 null rows print WEAK; cycle 1 re-ran the function,
+  got 0 WEAK, could not explain the difference, and reported what it observed. That is the right
+  instinct and it is also an unresolved contradiction on unchanged input, so the checker must
+  settle it rather than average it -- either a measurement is wrong or the instrument's WEAK rule
+  changed behaviour without anyone intending it, and the whole convention now rests on that
+  instrument. It also disclosed that it copied the checker's own ISS-092 / ISS-076-update lines
+  from the main tree's working copy into the branch, which is a merge-time duplicate hazard it
+  created for itself; flagged to the checker.
+
+What I pointed the cycle-1 checker at first, because it is what ISS-076 exists for: the
+  fixed->verified transition. Cycle 1 reports narrowing COUNTS (db 68/248, engine 2/689, etc) but
+  narrowing is not catching a regression, and the revert-and-restore proof the cycle-0 verdict
+  demanded is not reported as done. Three real revert/restore cycles across different packages are
+  required. Also flagged: mcp/student-profile at 12/12 is described as "no further narrowing
+  available but still correct" -- by the exact reasoning that killed repo-file-arg, a command
+  running 100% of a package's tests does not narrow, so this may be the inert-shape logic
+  re-entering through a side door; and the --tsconfig flag invented mid-cycle to rescue a single
+  row is precisely where a convention gets bent to fit its data, so it gets the same empirical bar.
+  Second consecutive cycle reporting an empty undetermined set and a perfect 100%, and last time a
+  100% concealed a majority-shape defect -- the brief says to treat it as a hypothesis to falsify.
+
+SERIAL: Mode B sweep still waits on T-043 (shared qa/issues.jsonl; both the checker and the build
+  agent have now appended to it). Sweep age ~365 min. Held deliberately.
+SERIAL: T-035 waits on T-010 (STALLED, gate-blocked on D1+D2).
