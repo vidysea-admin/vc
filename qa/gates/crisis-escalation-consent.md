@@ -18,3 +18,8 @@ disclosure) currently produces **no escalation record at all**. `escalateSession
 **Blocks:** any real-student pilot. It does not block build units: T-035 wires the escalation and implements
 whichever option is chosen, with (a) behind a config flag until this is answered.
 **Answer format:** chat reply. The maker appends `Answered:` here, then a DECISIONS entry.
+
+Answered: 2026-09-27 — (a) escalate always — Umesh in chat to the maker session (AskUserQuestion,
+tick 2026-09-27T13:3x IST); recorded as **D-027** in `docs/DECISIONS.md`. The escalation record
+carries ids and the flag only, never transcript text; no other processing happens without consent.
+T-035 implements it directly, NOT behind a config flag, and closes ISS-t-012-rev-3.

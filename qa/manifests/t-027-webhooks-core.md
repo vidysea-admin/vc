@@ -4,7 +4,7 @@
 boundaries, B11 secrets, B13 no student data to external services/no real network in tests, B14
 outcome-not-construction)
 **Goal task:** T-027 (TASKS.md line 38)
-**Status:** ready-for-check
+**Status:** checked-PASS — see the Close-out at the end of this file (cycle 0, verdict `qa/verdicts/t-027-webhooks-core.md` f4286e3; merged `5374e05`)
 **Fix cycle:** 0 of max 3
 **Design:** implements D-021 (2026-09-26, "Events: approved facts (with provenance, B2), erasure
 requests and concern flags go out as signed webhooks", contract B21 "Events"). No new ACTIVE

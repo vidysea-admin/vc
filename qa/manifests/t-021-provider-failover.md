@@ -2,7 +2,7 @@
 
 **Contract:** qa/contracts/counselling-engine.md (B6 primary; B1, B2, B5, B8, B11, B13, B14, B17)
 **Goal task:** T-021 (TASKS.md line 32)
-**Status:** ready-for-check
+**Status:** checked-PASS — see the Close-out at the end of this file (cycle 1, verdict `qa/verdicts/t-021-provider-failover.md` 912a9d3; merged `0fa58c1`)
 **Fix cycle:** 1 of max 3
 **Design:** implements D-019 ("Runtime failover ... gated separately, in qa/gates/provider-fallback.md")
 and D-020 ("Provider failover: a 3-model chain with a total retry budget of about 10 and backoff,

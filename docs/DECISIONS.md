@@ -268,3 +268,14 @@ The rules e2e proves that scribe â†’ facts â†’ profile diff â†’ a
 **Approved-by:** Umesh (chat, 2026-09-26, AskUserQuestion "Write the rule down (Recommended)")
 **Result:** --
 **Links:** T-030, T-013, D-024, D-025, qa/gates/auto-verify-property.md, ISS-069, ISS-070, ISS-071, ISS-072
+
+## D-027 | 2026-09-27 | type: decision | status: ACTIVE
+**What:** Umesh answered the gate crisis-escalation-consent with option (a), escalate always. A session with no recorded consent that contains a crisis turn (self-harm or abuse disclosure) now produces an escalation anyway.
+- The crisis flag notifies the tenant admin and the concerned counsellors even when no consent is on record.
+- The escalation record carries identifiers and the flag only. It never carries transcript text.
+- Nothing else is processed without consent: no facts, no profile diff, no KB call, no summary.
+- B4 consent-first stays the rule for every other path. This is a named exception for a life-safety signal, not a weakening of B4.
+- T-035 implements it directly rather than behind a config flag, and closes ISS-t-012-rev-3.
+**Why:** DPDP Act 2023 s.7 lists responding to a medical emergency involving a threat to the life of the Data Principal as a legitimate use that needs no consent. The student is a minor, so a missed crisis is the worse harm, and option (b) left no record and no notification at all. Option (c) was rejected because without a stored record the escalation SLA cannot be measured and there is no audit trail of who was told what, which is the accountability the counsellor and the tenant admin need.
+**Result:** --
+**Links:** T-035, T-012, ISS-t-012-rev-3, ISS-t-012-rev-1, qa/gates/crisis-escalation-consent.md, qa/contracts/counselling-engine.md (B4, B9, B16), D-020

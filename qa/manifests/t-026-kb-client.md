@@ -2,7 +2,7 @@
 
 **Contract:** qa/contracts/counselling-engine.md (B21 "Knowledge" clause, primary; B2, B8, B11, B14)
 **Goal task:** T-026 (TASKS.md line 37)
-**Status:** ready-for-check
+**Status:** checked-PASS — see the Close-out at the end of this file (cycle 0, verdict `qa/verdicts/t-026-kb-client.md` 7ca29ed; merged `2c4241d`)
 **Fix cycle:** 0 of max 3
 **Design:** implements B21's Knowledge clause ("university and seminar knowledge comes from the
 KnowledgeBase over its API (`POST /ask`, Bearer key from `.env`, B11). Its citations are carried

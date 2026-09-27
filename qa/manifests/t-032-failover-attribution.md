@@ -4,7 +4,7 @@
 **Goal task:** T-032 (resume — no TASKS.md row exists yet for this unit at the time of this build;
 not added here per the brief's "do not touch TASKS.md" instruction — left for the checker/close-out
 step, same convention as T-021's "left open for the checker" line)
-**Status:** ready-for-check
+**Status:** checked-PASS — see the Close-out at the end of this file (cycle 1, verdict `qa/verdicts/t-032-failover-attribution.md` 63fb3f7; merged)
 **Fix cycle:** 1 of max 3 (this is the RESUME of a unit whose code was already fully written across
 two earlier build attempts that died on the test lock / account session limit, never on the code
 itself — see "Resume note" below. No checker verdict has ever run against this unit, so cycle 0 is
