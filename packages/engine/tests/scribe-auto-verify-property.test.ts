@@ -3,11 +3,17 @@
  * example-by-example hostile rows with a closure check over the whole template language
  * (qa/debug/t-013-citation-rescope-cycle3.md §3, "the proof that would settle it").
  *
- * The oracle is an INDEPENDENT spec of the intended grammar, written out below in a closed regex subset
- * (literals, `(?:…)`, `|`, `?`, bounded `{m,n}`) and interpreted by this file's own parser, enumerator
- * and backtracking matcher. Membership of an edited sentence is decided by that interpreter, never by
- * the engine regex under test. So if the engine's templates accept anything the spec does not (the
- * rev-14 open gap `(?: [\p{L}]+){0,4}?`), the edit properties go RED.
+ * The SPEC_* grammar below (what the templates are MEANT to accept) is written out in a closed regex
+ * subset (literals, `(?:…)`, `|`, `?`, bounded `{m,n}`) and interpreted by this file's own parser,
+ * enumerator and backtracking matcher, so an edit's membership is decided by that interpreter, never by
+ * a JS `RegExp` call into the engine. That buys mechanical independence from the engine's regex ENGINE,
+ * but NOT independence from the engine's regex CONTENT: this spec was authored by transcribing the same
+ * grammar `nodes.ts` encodes, so on its own it can only prove the code equals itself (senior-software-
+ * engineer review, ISS-t-030-rev-1). So if the engine's templates accept anything the spec does not (the
+ * rev-14 open gap `(?: [\p{L}]+){0,4}?`), the edit properties go RED -- but a shared blind spot in both
+ * would not. The REAL independent check is the T-036 block near the end of this file: a hand-authored
+ * fixture (`tests/fixtures/auto-verify-oracle.jsonl`) written from B2/D-026 wording before either the
+ * SPEC_* grammar or the engine's templates were read (qa/manifests/t-036-independent-oracle.md).
  *
  * Evidence tuple the gate decides over: (value, key, quote, the cited turn's text + translatedText,
  * speaker). Cross-turn context is OUT of scope (gate qa/gates/auto-verify-property.md).
@@ -17,7 +23,8 @@
  *   (b) random off-grammar sentences need review;
  *   (c) flipping ONE input (speaker, key, translation-only match) flips a verifying fact to review,
  *       with exactly that one reason;
- *   (d) the 8 probes of the debug report all need review.
+ *   (d) the 8 probes of the debug report all need review;
+ *   (T-036) the hand-authored, contract-derived oracle rows all agree with the engine.
  * Synthetic data only (B13); seeded PRNG, so every run checks the same cases.
  */
 import { test } from "node:test";
@@ -29,8 +36,9 @@ import { verifyCandidateFact, AUTO_VERIFY_TEMPLATE_SOURCES } from "../src/scribe
 import type { ScribeTurn } from "../src/scribe/schemas.js";
 
 // ---------------------------------------------------------------------------
-// The independent spec (what the templates are MEANT to accept). {C} = the country's alias phrases;
-// {N} = the fact's number, spelled exactly.
+// The closure-check grammar (what the templates are MEANT to accept; NOT independent of the production
+// regex -- see the file header). {C} = the country's alias phrases; {N} = the fact's number, spelled
+// exactly.
 // The engine templates also admit the Hinglish copula spelling "he" (for "hai"); the engine's third-party
 // deny lexicon reads "he" as the English pronoun and vetoes those sentences (pre-existing, fail-safe false
 // negative, recorded as a gap in qa/manifests/t-030-template-gap.md). The spec leaves "he" out so that its
@@ -253,7 +261,8 @@ function mulberry32(seed: number): () => number {
 
 const escapeLit = (s: string) => s.replace(/[.\\()|?{}*+^$[\]-]/gu, "\\$&");
 /**
- * The spec's country vocabulary, written out independently. The dotted aliases ("u.k", "u.s.a", "u.s")
+ * The spec's country vocabulary, transcribed from the engine's own alias list (not independent -- see
+ * the file header). The dotted aliases ("u.k", "u.s.a", "u.s")
  * are deliberately absent: the template slot spells them "u k", but the whole-word alias check looks for
  * "u.k", so they never auto-verify (a pre-existing, fail-safe false negative; recorded in the manifest).
  */
@@ -625,4 +634,69 @@ test("T-030 (d): the 8 debug-report probes all need review (key x4, speaker x2, 
   assert.equal(run({ text: "My budget is 2500000 per year", key: "budget_inr_per_year", value: 2500000 }).needsReview, false);
   assert.equal(run({ text: "I scored 92 in my class 12 boards", key: "class12_percentage", value: 92 }).needsReview, false);
   assert.equal(run({ text: "I prefer Canada", key: "targetCountry", value: "Canada" }).needsReview, false);
+});
+
+// ---------------------------------------------------------------------------
+// T-036 (ISS-t-030-rev-1): the REAL independent oracle. `tests/fixtures/auto-verify-oracle.jsonl` is a
+// hand-authored positive/negative sentence list per auto-verify template (country, budget, score),
+// written from B2/D-026 wording (qa/contracts/counselling-engine.md, docs/DECISIONS.md D-026) and general
+// counselling-conversation reasoning, BEFORE reading the SPEC_* grammar above or the engine's templates
+// in nodes.ts. Unlike the property tests above -- which check the engine against a grammar transcribed
+// from the same source it is testing -- every row's `expect` here was judged only by what the property
+// means (the cited turn's speaker is the student; the template is bound to this fact's key; the match is
+// on the original text, not translatedText alone; within one turn), never by what a regex would accept.
+// See qa/manifests/t-036-independent-oracle.md for how the fixture was authored and reviewed.
+// ---------------------------------------------------------------------------
+
+interface OracleRow {
+  id: string;
+  category: string;
+  text: string;
+  translatedText?: string;
+  quote?: string;
+  key: string;
+  value: string | number;
+  speaker?: "student" | "counsellor";
+  expect: "verify" | "review";
+  why: string;
+}
+
+function loadOracleFixture(): OracleRow[] {
+  const path = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "auto-verify-oracle.jsonl");
+  return readFileSync(path, "utf-8")
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line) as OracleRow);
+}
+
+const ORACLE_ROWS = loadOracleFixture();
+
+test("T-036 independent oracle: hand-authored positive/negative sentences (written from B2/D-026, not the regex) agree with the engine", () => {
+  const positives = ORACLE_ROWS.filter((r) => r.expect === "verify");
+  const negatives = ORACLE_ROWS.filter((r) => r.expect === "review");
+  assert.ok(ORACLE_ROWS.length > 0, "the fixture must not be empty (a vacuous oracle proves nothing)");
+  assert.equal(positives.length, 30, "expected 30 hand-authored SHOULD-verify rows in the fixture");
+  assert.equal(negatives.length, 72, "expected 72 hand-authored MUST-need-review rows in the fixture");
+
+  const failures: string[] = [];
+  for (const row of ORACLE_ROWS) {
+    const r = run({
+      text: row.text,
+      translatedText: row.translatedText,
+      quote: row.quote,
+      speaker: row.speaker ?? "student",
+      key: row.key,
+      value: row.value,
+    });
+    const actual = r.needsReview ? "review" : "verify";
+    if (actual !== row.expect) {
+      failures.push(
+        `${row.id} (${row.category}): expected "${row.expect}", engine said "${actual}" [${r.reasons.join(",") || "-"}] -- "${row.text}" (${row.why})`,
+      );
+    }
+  }
+  assert.deepEqual(failures, [], `${failures.length} of ${ORACLE_ROWS.length} independent-oracle rows disagree with the engine`);
+  console.log(
+    `[t036-oracle] independent oracle rows=${ORACLE_ROWS.length} positive=${positives.length} negative=${negatives.length} failures=${failures.length}`,
+  );
 });

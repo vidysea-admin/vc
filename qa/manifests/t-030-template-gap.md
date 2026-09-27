@@ -33,8 +33,11 @@ There are no network calls and no `.env` reads.
   - `assessFactForReview` (:883): it now also takes the `key` and `provenance`.
   - `verifyCandidateFact` (:978): passes the speaker and the original text at :1028.
 - `packages/engine/tests/scribe-auto-verify-property.test.ts`: **new file.** The property test is new
-  functionality: an independent grammar spec with its own parser, enumerator and matcher. It does not fit
-  inside the example-based rescope test file.
+  functionality: a closure-check grammar spec with its own parser, enumerator and matcher. It does not fit
+  inside the example-based rescope test file. **Correction (T-036, ISS-t-030-rev-1):** that grammar spec
+  is transcribed from the same templates it tests, so it is mechanically independent of the JS `RegExp`
+  engine but not independent of the production grammar's content -- it can only prove the code equals
+  itself. The real independent check is T-036's hand-authored fixture, added later.
 - `packages/engine/tests/scribe-citation-rescope.test.ts` (extended). The earlier tests that used the free
   keys `score` / `budget` now use the bound keys, since under D-026 those keys correctly need review.
 - `packages/engine/evals/score-perfect.test.ts`: 3 new eval tests.
@@ -108,7 +111,7 @@ Here `<scratchpad>` = `C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-
 
 | Acceptance | Test id (file) | Result |
 |---|---|---|
-| (a) single- and two-token insert / replace / delete edits of the finite template language need review unless still in L | `T-030 property (a1)` and `(a2)` (scribe-auto-verify-property.test.ts) | 134383 single-token and 29345 two-token edits outside L, **0 leaks**. Membership is decided by the test's own interpreter of an independent spec, never by the engine regex. |
+| (a) single- and two-token insert / replace / delete edits of the finite template language need review unless still in L | `T-030 property (a1)` and `(a2)` (scribe-auto-verify-property.test.ts) | 134383 single-token and 29345 two-token edits outside L, **0 leaks**. Membership is decided by the test's own interpreter, never by a JS `RegExp` call into the engine -- but the grammar itself is transcribed from the same templates, not independent of them (see T-036, ISS-t-030-rev-1). |
 | (b) random off-grammar sentences need review | `T-030 property (b)` | 20000 checked, 0 leaks |
 | (c) flipping one input (speaker, key, translation-only) flips to review, with exactly that one reason | `T-030 property (c)` | 23897 flips |
 | (d) the 8 probes of qa/debug/t-013-citation-rescope-cycle3.md (K×4, S×2, P, W) need review, and so does the brief's "…as agent advised in Australia" | `T-030 (d): the 8 debug-report probes…` | all true, each with its named reason; the controls still verify |
