@@ -60,3 +60,16 @@
   (a) alone passes a lock that is effectively switched off.
   vc-f5 withdrew its own earlier "PID confirmed NOT RUNNING by Get-Process" clause as the same
   namespace error; told the checker to re-measure rather than trust either of us.
+2026-09-27T17:28:10+05:30 ADVANCED · T-010 fix cycle 2 built (6d85bf6), checker dispatched same turn (opus -- two prior
+  cycles got the semantics wrong in opposite directions and cycle 0's instruction was retracted).
+  Maker fixed the PREDICATE not the boolean: per-topic citedTopics.has(topic) + new
+  requestsValueOf(own, topic). 5/5 leaks closed, CE-054 still kept, CARDS-EVAL 62/62, fixture
+  untouched -- so the cycle-0 refusal stands. B1: all 4 named directions done (imperative-mood test
+  whose deciding lexicon is a list of NON-verbs so unknown openers fail closed; fragment-shape hatch;
+  clause-anchored inversion; Devanagari addressee-in-dative). Predecessor probes 33/33 clean (25 leaked).
+  Engine 599/599 (+2), all suites skipped 0, typecheck 9/9, scenarios column-identical to c1.
+  Maker said "narrowed" not FIXED on the residual and self-reported 2 corrections its own probe
+  caught post-commit -- credited, not accepted in place of re-derivation.
+  Checker briefed to attack requestsValueOf's 70-char window and to write FRESH hostile rows: the
+  maker has now tuned against chk-attack*.mts across two cycles, so their passing is weak evidence.
+  Cycle 3 is the last before STALLED.
