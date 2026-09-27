@@ -232,4 +232,36 @@ Not UI-touching — no surface changed. The only changed/added paths are backend
   other unrecognised failure mode) — noted here so a future reader does not mistake the omission for
   an oversight.
 
-## Status: ready-for-check
+## Status: checked-PASS
+
+**Close-out (cycle 0).** /checker Mode A full protocol, verdict `qa/verdicts/t-037-failover-cancellation.md`
+`Cycle checked: 0` -> **VERDICT: PASS** (commit 3799e19). Scoreboard: providers 54/54 (was 50, +4),
+engine 620/620 unchanged, `pnpm -r typecheck` 9/9 clean. No failures.
+
+The checker re-derived the evidence rather than accepting it, and settled the two things this unit
+actually turns on:
+
+- **The abort is not theatre.** Both new tests register `httpReq.on("close", ...)` on a genuine
+  `node:http` server and assert on a variable the SERVER's own handler sets -- a server-side
+  observation, not a client-side inference. The socket really goes away.
+- **Excluding `LiteLlmAbortedError` from `isRetryableProviderError` cannot silently stop the
+  failover chain.** The checker traced the actual `Promise.race` microtask ordering instead of
+  arguing from intent: the deadline callback calls `controller.abort()` and then rejects with
+  `FailoverDeadlineExceededError` synchronously in the same tick, so that rejection's microtask is
+  always queued ahead of the fetch-abort rejection. `LiteLlmAbortedError` therefore never reaches
+  `FailoverProvider.generate()`'s catch via the deadline path at all. No path found where a genuine
+  transient failure surfaces as an abort and exits the chain early.
+
+Both falsification levers were re-run from scratch in the checker's own throwaway copy, RED on the
+same assertion text the manifest quoted (Lever A 52/2, Lever B 53/1), reverted byte-identical and
+re-confirmed green. The bound worktree's HEAD never moved during the check.
+
+Ledger: **ISS-066 closed (fixed)**, with regression-check commands recorded. Three new open rows,
+all correctly outside this unit's scope but now tracked instead of resting in manifest prose:
+- **ISS-t-037-2 (medium)** -- `concern-classifier.ts` shares ISS-066's exact abandon-on-timeout
+  shape. Same bug class, different call site and blast radius. This is the one worth queueing.
+- ISS-t-037-3 (low) -- `FailoverProvider` silently drops an externally supplied `request.signal`
+  through the `{ ...request, signal }` spread order. Inert today: no caller sets one.
+- ISS-t-037-1 (low) -- `vc-testlock.sh` is referenced by **11 committed manifests** (t-012 through
+  t-037) but exists on no branch; `git log --all --diff-filter=A` finds it never added. A prior
+  maker's uncommitted local file that the manifests have been citing as though it were shared.
