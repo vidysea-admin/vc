@@ -71,15 +71,15 @@
 ## How to verify (exact commands)
 
 ```
-bash "C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/db test
-bash ".../vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/db typecheck
-bash ".../vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/api test
-bash ".../vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/api typecheck
-bash ".../vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/engine test
-bash ".../vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/engine typecheck
-bash ".../vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/schemas test
-bash ".../vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/web test
-bash ".../vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/web typecheck
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/db test
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/db typecheck
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/api test
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/api typecheck
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/engine test
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/engine typecheck
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/schemas test
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/web test
+bash "scripts/vc-testlock.sh" pnpm -C D:/vc/.worktrees/t-029-erasure-approver --filter @vc/web typecheck
 python D:/vc/.worktrees/t-029-erasure-approver/contracts/verify_contracts.py
 ```
 

@@ -51,7 +51,7 @@ This attempt (after the merge):
 ## How to verify (exact commands)
 
 ```
-L=C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/vc-testlock.sh
+L=scripts/vc-testlock.sh
 W=D:/vc/.worktrees/t-025-api-jwt-tenant
 bash $L pnpm -C $W --filter @vc/api test
 bash $L pnpm -C $W --filter @vc/api typecheck

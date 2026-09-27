@@ -210,7 +210,7 @@ itself). The throwaway copy was deleted after this run.
 
 **Final confirmation in the live (bound) worktree, after all falsification work:**
 ```
-$ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-026-kb-client --filter @vc/mcp-university-kb test
+$ bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-026-kb-client --filter @vc/mcp-university-kb test
 ℹ tests 29
 ℹ pass 29
 ℹ fail 0
@@ -222,12 +222,12 @@ exit: 0
 
 Per the coordinator's RAM constraint (system-wide contention from ~8 parallel maker units —
 T-013, T-022, T-023, T-025, T-027, T-030, T-032, T-033 — all queued on the same
-`vc-testlock.sh` mutex), each command below queued behind other agents' typecheck/test/eval runs
+`scripts/vc-testlock.sh` mutex), each command below queued behind other agents' typecheck/test/eval runs
 for roughly 20-30 minutes before it actually ran; every run below is nonetheless a real,
 individually-run command (never `pnpm -r test`).
 
 ```
-$ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-026-kb-client --filter @vc/mcp-university-kb test
+$ bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-026-kb-client --filter @vc/mcp-university-kb test
 [testlock] running (free RAM 3.71 GB): pnpm -C D:/vc/.worktrees/t-026-kb-client --filter @vc/mcp-university-kb test
 
 > @vc/mcp-university-kb@0.1.0 test D:\vc\.worktrees\t-026-kb-client\mcp\university-kb
@@ -274,7 +274,7 @@ exit: 0
 ```
 
 ```
-$ bash vc-testlock.sh pnpm -C D:/vc/.worktrees/t-026-kb-client --filter @vc/mcp-university-kb typecheck
+$ bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-026-kb-client --filter @vc/mcp-university-kb typecheck
 [testlock] running (free RAM 3.5 GB): pnpm -C D:/vc/.worktrees/t-026-kb-client --filter @vc/mcp-university-kb typecheck
 
 > @vc/mcp-university-kb@0.1.0 typecheck D:\vc\.worktrees\t-026-kb-client\mcp\university-kb
@@ -285,7 +285,7 @@ exit: 0 (no errors)
 
 _`verify_contracts.py` output appended once its queued lock run completes._
 ```
-bash vc-testlock.sh python D:/vc/.worktrees/t-026-kb-client/contracts/verify_contracts.py --repo-root D:/vc/.worktrees/t-026-kb-client
+bash scripts/vc-testlock.sh python D:/vc/.worktrees/t-026-kb-client/contracts/verify_contracts.py --repo-root D:/vc/.worktrees/t-026-kb-client
 ```
 
 ## Residuals (not fixed here)

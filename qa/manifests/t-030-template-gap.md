@@ -110,8 +110,8 @@ auto-verified on main (under any key), and is now auto-verified under exactly on
 ## How to verify (exact commands; each run under the machine-wide test lock)
 
 ```
-bash <scratchpad>/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-030-template-gap --filter @vc/engine test
-bash <scratchpad>/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-030-template-gap --filter @vc/engine typecheck
+bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-030-template-gap --filter @vc/engine test
+bash scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/t-030-template-gap --filter @vc/engine typecheck
 python D:/vc/.worktrees/t-030-template-gap/contracts/verify_contracts.py
 # (g) true positives before/after (read-only probes; scripts in <scratchpad>/t030-tp-probe.mts, t030-tp-surface.mts)
 pnpm -C <wt>/packages/engine exec tsx <scratchpad>/t030-tp-probe.mts   <root> <wt>/qa/evals/scribe/sessions.jsonl
