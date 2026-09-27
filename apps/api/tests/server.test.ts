@@ -355,6 +355,54 @@ test("T-025 api: another tenant sees tenant A's student exactly as a student tha
   assert.ok(Object.values(onlyA(aBefore)).some((d) => d.length > 0));
 });
 
+test("T-025 api (T-022 merge): concern_flagged edges are stamped with the token's tenant, the same student/session in two tenants coexist, and A's erasure deletes only A's", async () => {
+  const w = world();
+  const CONCERN_TEXT = "Honestly, so much pressure I can't cope, everything feels like too much right now.";
+  const body = {
+    ...START_BODY,
+    turns: [...START_BODY.turns, { turnId: "t4", speaker: "student", lang: "en", text: CONCERN_TEXT, translatedText: CONCERN_TEXT, ts: 4 }],
+  };
+  const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
+  for (const tenant of ["tenant-a", "tenant-b"]) {
+    await seedConsent(w, tenant);
+    const res = await call(w, "POST", `${base}/scribe`, { token: await as(tenant, "counsellor-1", "counsellor"), body });
+    assert.equal(res.status, 200, res.body);
+    assert.equal(res.json.kind, "awaiting_approval", `${tenant}: a concern flags and continues (D-020)`);
+  }
+  const concernEdges = () =>
+    w.fakeDb
+      .collection<{ _id: string }>(COLLECTION_NAMES.edges)
+      .all()
+      .map((d) => d as unknown as AnyDoc)
+      .filter((d) => d.rel === "concern_flagged");
+  const edges = concernEdges();
+  assert.deepEqual(edges.map((e) => e.tenantId).sort(), ["tenant-a", "tenant-b"], "one concern edge per tenant, each stamped");
+  for (const e of edges) assert.ok(String(e._id).startsWith(`${String(e.tenantId)}:`), "edge _id is tenant-qualified (no cross-tenant 11000)");
+
+  // Export: A's own export carries A's concern; a third tenant's export of the same id carries none.
+  const aAdmin = await as("tenant-a", "admin-1", "admin");
+  const aExport = await call(w, "GET", `/v1/students/${STUDENT}/export`, { token: aAdmin });
+  assert.equal(aExport.status, 200, aExport.body);
+  assert.match(aExport.body, /concern_flagged/);
+  assert.doesNotMatch(aExport.body, /tenant-b|tenantId/);
+  const cExport = await call(w, "GET", `/v1/students/${STUDENT}/export`, { token: await as("tenant-c", "admin-3", "admin") });
+  assert.doesNotMatch(cExport.body, /concern_flagged/);
+
+  // Erasure in A removes A's concern edge; B's is byte-for-byte unchanged.
+  const bEdgeBefore = JSON.stringify(concernEdges().find((e) => e.tenantId === "tenant-b"));
+  const opened = await call(w, "POST", `/v1/students/${STUDENT}/erasure-requests`, {
+    token: await as("tenant-a", "counsellor-1", "counsellor"),
+    body: { reason: "student_request" },
+  });
+  assert.equal(opened.status, 201, opened.body);
+  const requestId = opened.json.requestId as string;
+  assert.equal((await call(w, "POST", `/v1/erasure-requests/${requestId}/confirm`, { token: aAdmin })).status, 200);
+  assert.equal((await call(w, "POST", `/v1/erasure-requests/${requestId}/execute`, { token: aAdmin })).status, 200);
+  const after = concernEdges();
+  assert.deepEqual(after.map((e) => e.tenantId), ["tenant-b"]);
+  assert.equal(JSON.stringify(after[0]), bEdgeBefore);
+});
+
 test("T-025 api: erasure request -> confirm by a second person -> execute; self-confirm and student-as-actor are refused", async () => {
   const w = world();
   await scribeToApproval(w, "tenant-a");
