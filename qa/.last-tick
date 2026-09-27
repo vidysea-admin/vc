@@ -129,3 +129,22 @@
   since "I couldn't touch the other file" is not a reason to loosen a guard.
   A FAIL here = STALLED + debugger diagnosis. Said so; also said not to pass it to avoid that.
   ISS-045: t-039 dir still busy (registered=2 dirs=3) -- read from the command's own output this time.
+2026-09-27T19:01:35+05:30 STALLED (t-010-live-cards) · cycle 3 FAIL (fb5959c). Max fix cycles reached.
+  The inversion WORKED structurally -- checker confirmed the deletions, no second gate, clarify
+  branch unconditional, namedInPassing survived 4 directed attacks, all previously-exhibited rows
+  0/x, 3 levers verbatim, engine 602/602, fixture untouched. Then its FRESH rows leaked 26/41 (B1)
+  and 8/10 (B18), including 3 leaks created by additions in that same cycle.
+  Two findings are NOT list-tuning: (1) the B18 branch is unconditional only for type=="clarify" --
+  the same re-ask typed widen/challenge/compare is shown; (2) citing the fact you re-ask disables
+  the guard, and skills/exploration-planner/SKILL.md:47 INSTRUCTS that shape. The system instructs
+  the shape that defeats its own guard.
+  Checker's two deviation judgements: [^s]s$ narrowing ENDORSED (evidence reproduced);
+  TAIL_MEASURE_NOUN widening acceptable on merits but WRONG PROCESS -- "apps/** was out of bounds"
+  would equally justify a real loosening next time; should have been an inbox note. I agree.
+  CARDS-EVAL 62/62 for four consecutive cycles at these leak rates -- blind fixture (D-028) earning
+  its keep as evidence of no over-suppression, NOT as a leak detector.
+  Per THE CONTINUATION RULE a STALLED unit is diagnosed before it stops: /agent-debugger dispatched
+  (opus, phases 1-2, read-only) -> qa/debug/t-010-live-cards-cycle3.md, to settle loop-design vs
+  execution. Gate qa/gates/t-010-b1-b18-unsatisfiable.md opened -- 5 unanswered gates now.
+  NOT stopping the loop: backlog is non-empty (ISS-085 B21 silent fact-loss high, T-035, ISS-076).
+  ISS-045: t-039 dir still busy.
