@@ -181,3 +181,17 @@
   Ceiling note: this session's parallel peak was 5 (t-039-fix-c1, t-010-c1-checker, t-040,
   t-041-checker, + main verify) earlier in the day. The tail was serial by dependency, not by choice:
   a single unit walking three fix cycles is a chain, and every link is the same two source files.
+2026-09-27T19:42:42+05:30 ADVANCED · T-042 built (ba8d3d4 + cb4ea6e), checker dispatched same turn.
+  Fix: checkFactReadbackGap compares read-back count vs writtenFactIds.length after emit; a mismatch
+  NOT explained by a B15 erasure fence is alerted and recorded in a new WebhookEmitGapLedger
+  (tenant-scoped, erasure-covered, D-016 clean); the enqueue-failure catch now records an
+  "enqueue-failed" row carrying the fully built event. Neither path turns a successful write into
+  an error response. apps/api 45/45, both levers RED->GREEN with exact assertion text.
+  UNRESOLVED ARITHMETIC handed to the checker: maker says my 1224 baseline is stale and its own
+  contribution is +12, but reports 1235 -- and 1224+12=1236. I measured 1224 on main myself right
+  after the T-040 merge, and 57b2c70 is TASKS.md-only, so "other ticks landed between" is suspect.
+  One of the three numbers is wrong; an unexplained test-count delta is exactly how a dropped or
+  skipped suite hides, so the checker re-derives the baseline rather than rounding it off.
+  Checker also told the erasure carve-out is the attack surface: a fence-explained mismatch is
+  deliberately never alerted, which is correct AND a perfect silencer -- try to launder a real gap
+  through it.
