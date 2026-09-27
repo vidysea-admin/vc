@@ -109,3 +109,72 @@ vocabulary and the period-binding rule?
 verify row, 77 asserted review rows), so on its own it would also be satisfied by an engine that
 auto-verifies almost nothing. Answering Q1 is what would let the verify direction be asserted
 independently.
+
+## 2026-09-27T00:00:00+05:30 — T-039 B18 suppression blind fixture, stage 1 — open contract questions (FOR /checker)
+
+SOURCE: T-039 stage 1 (build agent, blind fixture authoring). `packages/engine/tests/fixtures/b18-suppression-blind.jsonl`
+(55 rows) and `...-unsettled.jsonl` (11 rows) were authored in an isolated agent context forbidden from opening
+`packages/engine/src/scribe/**`, `packages/engine/src/cards/**`, any existing test, or any existing fixture — from the
+prose of criterion B18 (plus B1, B2, B3, B4/D-027, B9, B16, B20, B21 where a row needed a cross-clause reason) alone.
+Stage 2 (a separate agent, not yet run) wires these rows to the engine and will report where the engine's actual
+behaviour disagrees. The 11 quarantined rows below are genuine textual gaps in B18, not fixture author error, and the
+maker does not edit qa/contracts/** — these are for /checker to settle and fold in.
+
+**Q1 (`b18-u-01`) — does topic-suppression (bullet 2) require an APPROVED fact, or does a needs-review one suffice?**
+Bullet 2 ("a topic the student's own facts make irrelevant is suppressed") never says "approved". Bullet 3
+("an approved fact is never asked again") explicitly does. If a pending, later-rejected "India-only" extraction can
+pre-emptively hide the whole visa topic before the counsellor confirms it, an application draft could miss a needed
+visa step. Should bullet 2 require the same approval gate bullet 3 states explicitly, or is "the student's own facts"
+deliberately broader (any extraction, approved or not)?
+
+**Q2 (`b18-u-02`) — is an approved fact permanently un-askable, or does it go stale?** Bullet 3 states no expiry.
+D-013 gives facts a validFrom/validTo history, but nothing ties that history to when a re-ask becomes legitimate
+(e.g. a career-goal fact approved 8 months ago, before a school change). Should B18 name a staleness window, or state
+explicitly that approval is permanent until superseded by a new approved value for the same key?
+
+**Q3 (`b18-u-03`) — what is a do-not-ask entry's granularity?** F7 assumes both key-level (an entry for
+`family_income` does not also cover `scholarship_need_based_eligibility`) and topic-level (an entry for
+`visa_topic` covers every country's visa card) matching, with no contract text choosing between the two, or saying
+who sets the granularity per entry.
+
+**Q4 (`b18-u-04`) — can a do-not-ask entry be revoked, and by whom?** Bullet 4 only says a listed item is never
+raised. It has no B15-style confirm/audit machinery for adding, editing or revoking an entry. Is the list mutable
+after it's set, and if so what records a revocation (student says "actually you can ask that now")?
+
+**Q5 (`b18-u-05`) — same-turn race: does suppression see the fact state before or after that turn's own update?**
+B18's proof language ("produces zero visa items") is an outcome statement with no evaluation-timing boundary. When
+a destination-changing fact lands in the SAME turn/processing step that also generates an item, which fact state
+governs that item?
+
+**Q6 (`b18-u-06`) — is "topic" matched by a fixed category, or by keyword/lexical overlap?** Bullet 2 gives one
+worked example (visa items, India-only) and no taxonomy or matching mechanism. A paraphrase that never says
+"visa" (e.g. "entry permit") would behave completely differently under a keyword-matching implementation vs a
+fixed-category one, and the contract does not say which is intended.
+
+**Q7 (`b18-u-07`) — what governs an explicitly undecided / deferred-intent signal (a gap year, "maybe abroad")?**
+The suppress/surface model is binary. A fact that is neither a settled India-only reading nor a settled abroad
+destination sits outside both headline cases, and B18 has no concept of partial or lower-priority relevance for it.
+
+**Q8 (`b18-u-08`) — is "already known" scoped to the current session, or the whole longitudinal Student Knowledge
+Graph?** B18's worked example reads within one scribe run, but ARCHITECTURE H3 describes a cross-session KG. Must a
+fact approved months ago in an earlier session still block a re-ask in a brand-new session?
+
+**Q9 (`b18-u-09`) — does bullet 3 cover a comparison card that functionally reopens an already-decided choice?**
+Bullet 3's text restricts "a card or question asking for that fact" — literally an ask. B1 gives card TYPES
+(question/comparison/evidence). A comparison card that invites reconsidering an already-approved choice (e.g.
+"IELTS vs TOEFL, in case you want to switch," when the exam choice is already approved) does not literally ask, but
+functionally does the same thing bullet 3 forbids. Which reading governs?
+
+**Q10 (`b18-u-10`) — does a parent/guardian-voiced fact or do-not-ask instruction in a joint session carry the same
+weight as the student's own?** B18 says only "the student's own facts" / "the student's do-not-ask list". D-026
+ties a DIFFERENT property (auto-verify, B2) specifically to the turn's speaker being the student; B18 does not
+say whether it means the same thing for a joint counselling session.
+
+**Q11 (`b18-u-11`) — must an already-displayed item be retracted when the fact that justified it later changes?**
+B18's proof language is about what the scribe "produces" going forward, not about items already shown before an
+approved fact changed (e.g. a Canada visa card shown, then the Canada application is withdrawn). Does B18 require
+retroactive retraction of prior output, or only that new output stop being produced?
+
+**Standing note:** all 55 asserted rows are derived purely from contract prose (B18 plus the cross-referenced
+clauses named per row); none were checked against the engine before assertion. The 11 quarantined rows above are
+not guesses — each names the exact sentence-level gap in B18 that leaves its expected answer undetermined.
