@@ -195,3 +195,22 @@
   Checker also told the erasure carve-out is the attack surface: a fence-explained mismatch is
   deliberately never alerted, which is correct AND a perfect silencer -- try to launder a real gap
   through it.
+2026-09-27T19:59:21+05:30 ADVANCED · T-042 cycle 0 FAIL (937714b). The guard introduced a new way to break the invariant
+  it was built to protect: checkFactReadbackGap's isStudentFenced call (apps/api/src/server.ts:711)
+  has no try/catch, unlike every other new I/O call in the unit. Checker reproduced end to end over
+  a real HTTP round trip -- both facts durably written, API returns 500 {"error":"internal"} instead
+  of 200, i.e. a persisted approval reported to the counsellor as a failure. ISS-090, high.
+  ISS-085 stays OPEN -- not cleanly closed for either leak, since the mechanism built to close
+  leak 1 carries this failure mode.
+  Cleared by the checker and carried forward untouched: leak 2's enqueue-failed path (row
+  byte-identical + replayable), leak 1's happy path and the fence-lands-after-write carve-out,
+  and WebhookEmitGapLedger's tenant scoping / B15 erasure coverage / no-TTL indexes.
+  ARITHMETIC RESOLVED, and my suspicion was half right: 1224 was NOT stale (checker re-measured at
+  the true fork point in an isolated worktree, plus 3 confirmations in repo history). But the maker's
+  "+12" was the wrong number, off by one -- the db diff is 1 new test + 1 line added to an existing
+  test's hardcoded map (maintenance, not a test). True delta +11; 1224+11=1235, the total already
+  reported. Both endpoints were right; only the explanation was wrong. Fix cycle told to delete the
+  "baseline was stale" claim outright -- that is the kind of explanation that lets a real discrepancy
+  pass unexamined next time.
+  Fix cycle 1 dispatched same turn (one try/catch + a regression test asserting 200, not just the
+  ledger row).
