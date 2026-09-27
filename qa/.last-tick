@@ -506,3 +506,45 @@ Verified both of vc-f5's corrections instead of accepting either:
 SERIAL: Mode B sweep still waits on T-043 (shared qa/issues.jsonl). Told vc-f5 not to dispatch one
   either, and offered them the ownership if they would rather have it.
 SERIAL: T-035 waits on T-010.
+
+## tick 2026-09-27T22:55:23+05:30
+STATE: ADVANCED (verification turn; T-043 cycle 2 still building, nothing new dispatched)
+
+vc-f5 filed ISS-095 (high) after my MC-020 framing: bare-anchored greps cannot read this project's
+  markdown headers, and the cross-worktree takeover-detection scan it ran this turn therefore
+  returned empty -- indistinguishable from a clean scan, on the instrument that decides whether to
+  dispatch a takeover. Same input condition as this morning's near-double-verdict.
+
+REPRODUCED INDEPENDENTLY rather than accepted: `grep -lE '^Cycle checked:' qa/verdicts/*.md` = 0
+  of 42; tolerant `grep -liE 'cycle checked'` = 42 of 42. Manifests: ^Status: = 0 of 40, tolerant
+  = 40 of 40. Their measurement is exactly right.
+
+BUT I ALSO TESTED THE COMMITTED HOOKS, which nobody had, and they are NOT affected --
+  mc-sessionstart.ps1:26 is `(Cycle checked|Fix cycle judged)[:*\s]+(\d+)`, unanchored with * in
+  the class, and it extracts cleanly from t-040 and both of t-042's cycles; line 19's manifest scan
+  is `^[\s\-*#>|]*Status:[\s*]*ready-for-check`, which explicitly tolerates leading markdown.
+  Sent that to vc-f5 to fold in BEFORE ISS-095 reaches Umesh, because as filed it reads as "the
+  pending-detection hook is blind", which is false and would misdirect the fix. True scope: the
+  committed instrument was written carefully once and has held; every hand-rolled per-session
+  reader since has failed the same way. That sharpens their argument for a machine-readable header
+  rather than weakening it -- discipline is exactly what did not hold.
+
+  Revising my own earlier count downward: I told Umesh this class had four instances in three
+  tools. The honest count for the COMMITTED enforcement path is three (ISS-056 any-Status-match,
+  ISS-084 raw issue count, MC-020 as already-fixed precedent) plus the out-of-root Stop hook
+  (ISS-096); the verdict-header failures are ad-hoc readers, not shipped tools. Still one class,
+  still the dominant one, but I overstated where it lives.
+
+vc-f5 moved ISS-t-037-1 and ISS-087 to fixed on T-040's Lever A/B + torn-write evidence, and left
+  regression_check NULL deliberately rather than mint `bash scripts/vc-testlock.test.sh`, which
+  the adapter does not allow. That is correct AND it exposes a gap in T-043 I would otherwise have
+  shipped: none of cycle 1's surviving shapes (package-filter, package-dir, direct-tsx +
+  --tsconfig, doc-grep, null) admits a REPO-LEVEL SHELL TEST SCRIPT, so those rows are
+  unconformable no matter what T-043 lands. Recorded for the successor unit T-043's manifest must
+  define; NOT sent to the cycle-2 agent mid-run -- it is on the last of three cycles with a brief
+  already at capacity, and derailing it into a stall would cost more than the gap. If cycle 2
+  stalls, this goes into the debugger's smallest-recovery row.
+
+Sweep still held and still mine (vc-f5 agreed and stood down; they have just appended four rows,
+  so a sweep now would race us both). Six gate answers still await Umesh's own confirmation.
+SERIAL: Mode B sweep waits on T-043. SERIAL: T-035 waits on T-010.
