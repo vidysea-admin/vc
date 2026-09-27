@@ -30,6 +30,15 @@
  * Fail-open (brief item 3): `classifyConcern` never throws. A timeout or provider error comes back as
  * an `unavailable` annotation, and `escalationDecision` escalates a guard-flagged turn on the flag
  * alone when the classifier could not review it. Never fail-silent.
+ *
+ * T-041 (ISS-t-037-2, same bug class as T-037/ISS-066): `classifyConcern` races `provider.generate()`
+ * against its own `Promise.race` timeout; before this unit, a timeout win only rejected that race,
+ * leaving the real provider request running (and, on `LiteLlmProvider`, billing) unseen. It now binds
+ * an `AbortController` per call and aborts it in the same tick the timeout fires (the seam T-037 added
+ * to `GenerateRequest.signal`), so the abandoned request is actually cancelled. The observable
+ * behaviour on this safety path is unchanged: a timeout still resolves to `unavailable`/`timeout`, and
+ * `escalationDecision` still escalates a guard flag on the flag alone when the review could not
+ * complete.
  */
 import { createHash } from "node:crypto";
 import { z } from "zod";
@@ -239,11 +248,33 @@ export interface ClassifyDeps {
 /**
  * Runs the classifier on one turn. Resolves to a `classified` annotation, or to an `unavailable` one
  * on a timeout, a provider error or a schema-invalid answer. Never rejects.
+ *
+ * T-041 (ISS-t-037-2, same bug class as T-037/ISS-066): this call is off the live path, so it keeps
+ * its own `Promise.race` against `deps.timeoutMs` rather than delegating to `FailoverProvider` (this
+ * classifier is deliberately given a single bare provider, no failover chain — see
+ * `concernClassifierProviderConfig` above). Before T-041, when the timeout won that race, the
+ * `provider.generate()` call it was racing was merely abandoned, not cancelled — a real
+ * `LiteLlmProvider` request kept its socket open and kept running/billing, unseen, until the remote
+ * side finished on its own. This now binds one `AbortController` per call, passed as `request.signal`
+ * (the seam T-037 added to `GenerateRequest`), and aborts it in the SAME synchronous tick the timeout
+ * promise rejects — same ordering guarantee `FailoverProvider.raceDeadline` relies on, so the
+ * abort's own eventual rejection (if the provider throws `LiteLlmAbortedError`) can never win the
+ * race ahead of the timeout and can never surface as anything other than the pre-existing
+ * `unavailable`/`timeout` annotation. `Promise.race` already attaches a rejection handler to the
+ * losing `call` promise, so aborting it here can never produce an unhandled rejection later (same
+ * reasoning as T-037's `raceDeadline`).
+ *
+ * Observable behaviour is UNCHANGED by design (B16 safety): a timed-out classification still resolves
+ * to `{status: "unavailable", reason: "timeout"}` here, and `escalationDecision` still escalates a
+ * guard-flagged turn on the flag alone when the classifier could not review it (fail-open, never
+ * fail-silent) — this unit only stops the abandoned request from running on after that state is
+ * reached, it does not change what the caller sees or does next.
  */
 export async function classifyConcern(rawInput: ConcernClassifierInput, deps: ClassifyDeps): Promise<ClassifierAnnotation> {
   const now = deps.now ?? (() => new Date());
   const model = deps.provider.model;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const controller = new AbortController();
   try {
     const input = ConcernClassifierInputSchema.parse(rawInput);
     const call = deps.provider.generate({
@@ -251,9 +282,15 @@ export async function classifyConcern(rawInput: ConcernClassifierInput, deps: Cl
       skillPrompt: deps.skillPrompt,
       outputSchema: ConcernClassifierOutputSchema,
       input,
+      signal: controller.signal,
     });
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new ConcernClassifierTimeoutError(deps.timeoutMs)), deps.timeoutMs);
+      timer = setTimeout(() => {
+        // T-041 (ISS-t-037-2): tell the abandoned request to stop BEFORE rejecting — same ordering
+        // as FailoverProvider.raceDeadline, so this can never change which branch of the race wins.
+        controller.abort();
+        reject(new ConcernClassifierTimeoutError(deps.timeoutMs));
+      }, deps.timeoutMs);
     });
     const out = ConcernClassifierOutputSchema.parse(await Promise.race([call, timeout]));
     return { status: "classified", model, ...out, classifiedAt: now().toISOString() };
