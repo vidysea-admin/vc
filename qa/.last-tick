@@ -1200,3 +1200,47 @@ NEW ISS-109 GUARD from a live instance: a background task reported EXIT 0 with a
   files live on C:. Treat a zero-length task output tonight as UNKNOWN, not clean.
 SERIAL: nothing dispatchable. Every unit gated on a human decision or on C: space.
 AWAITING UMESH (8): the 7 previous + data-boundary-safe-domains. Plus the disk.
+
+--- tick 2026-09-28T01:44:13+05:30 ---
+STATE: BLOCKED (environment, CRITICAL) + HUMAN_GATE (8)
+MACHINE IS OUT OF MEMORY BECAUSE THE DISK IS FULL. Measured here independently
+  via Win32_OperatingSystem / Win32_PageFileUsage / Win32_LogicalDisk:
+    C: free            0.37 GB
+    physical free      0.46 GB of 23.71
+    virtual free       6.30 GB of 77.93
+    pagefile           C:\pagefile.sys, allocated 55520 MB, in use 9438 MB
+  The pagefile sits on the FULL volume, so it cannot grow. Disk pressure has
+  become memory pressure. Confirms the peer's diagnosis (1dacd1f, ISS-109
+  escalated to CRITICAL).
+PEER'S SUITE RE-RUN DIED - and NOT on any assertion. Typecheck passed clean.
+  pnpm -r stopped at packages/db with ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL, so no
+  aggregate total exists. Four test files aborted mid-flight AFTER their earlier
+  assertions passed: erasure-approver.test.ts and erasure.test.ts both RangeError
+  Array buffer allocation failed in Buffer.alloc during MODULE LOAD;
+  facts.test.ts esbuild 'service was stopped' + a Go-runtime OOM allocating heap
+  arena map; a fourth FATAL ERROR Zone Allocation failed + ERR_WORKER_INIT_FAILED
+  at new Worker().
+DO NOT READ 'packages/db test: Failed' AS A REGRESSION. packages/db is exactly
+  where the D-016 student-data fence scanner and the erasure tests live, so a
+  sweep or hook grepping a failure marker would file a regression against T-043
+  or against the DATA FENCE and be completely wrong. Sharpest form of tonight's
+  theme yet: AN INSTRUMENT THAT CANNOT RUN LOOKS EXACTLY LIKE A PRODUCT THAT IS
+  BROKEN - same shape as an empty grep looking like a clean project and a
+  zero-length extract looking like an empty measurement.
+1237/1192/0/45 IS NEITHER CONFIRMED NOR REFUTED. A run that cannot allocate
+  memory is evidence about the machine, not the code. Environmental denial is
+  BLOCKED, never a verdict. Its state stays exactly as recorded: exposed,
+  re-runnable, not settled. Close-out NOT withdrawn and NOT upgraded.
+EARLIER MITIGATION DISPROVEN: pointing temp paths at D: is NOT sufficient - the
+  peer did exactly that (os.tmpdir() verified as D:\vctmp) and the run still
+  died. The PAGEFILE is the binding constraint, not the temp directory.
+  Freeing C: is now the only path and it stays Umesh's call.
+NOT RE-RUNNING THE SUITE. Each attempt consumes memory the machine lacks and can
+  take other processes down. NOTHING CAN PASS until C: has headroom: Definition
+  of Done requires the stage to run green with re-derived evidence, and the
+  verify step cannot execute at all.
+Temp-tree largest consumers, information only, none of it this project's:
+  opencode 3933 MB, tmp.2IvfpmmvMb 1203 MB, DockerDesktop 963 MB,
+  pytest-of-Lenovo 532 MB, dbtiming_vss5938o 337 MB, DockerDesktopUpdates 307 MB
+  (~7.3 GB in the top six).
+AWAITING UMESH (8 gates) + THE DISK, which now blocks all eight regardless.
