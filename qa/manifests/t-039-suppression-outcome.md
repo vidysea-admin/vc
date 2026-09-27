@@ -8,7 +8,7 @@ function exists does not count").
 graph, cards relevance"). Stage 1 (commit `4154cc7`) authored the blind fixture; this is stage 2,
 wiring it to the real engine.
 **Date:** 2026-09-27
-**Fix cycle:** 0 of max 3
+**Fix cycle:** 1 of max 3
 **Dual check:** no
 **Persona walk:** skip (test-only, no UI surface — `surface: none` in TASKS.md's own T-039 row)
 **Issues addressed:** none yet opened against this unit; this run is first contact between the
@@ -64,7 +64,8 @@ defect in the stage-1 fixture or in this wiring.
 | `item.key` (scribe-fact rows) | `CandidateFact.key` / the resulting `Fact.key` | direct passthrough, 1:1, injective |
 | `item.text` (summary-line rows) | the MockProvider's canned `session-summary` output | direct passthrough, 1:1, injective — the only way to ask "does the merged `summarizeSession` let this exact sentence through" |
 | (scribe-fact rows only) a synthetic sentence `Synthetic transcript sentence for ${row.id} (topic: ${row.item.topic}).` | `ScribeTurn.text` / `.translatedText`, and IS the candidate fact's `source.quote` (quote === the whole turn text, so the citation guard's substring check trivially succeeds) | invented ONLY to satisfy B2's citation guard mechanically (a transcript source needs a turn to cite); derived from the row's OWN `id`/`topic`, never from `student`/`facts`/`do_not_ask`, so it cannot smuggle destination information into the engine |
-| `student.destination_countries`, `student.study_abroad_intent`, `do_not_ask`, `facts[]`, `item.topic` (as a filter key), `item.card_type` | **NOT mapped to anything — deliberately** | there is no engine input channel for any of these (headline finding). Inventing one here would mean this file's adapter, not the engine, decides suppression — the exact smuggling the brief warns against. Leaving them unconsumed is the honest choice, and it is why the runnable rows' real, reproducible answer is always "surface": nothing downstream ever reads them. |
+| `student.destination_countries`, `student.study_abroad_intent`, `do_not_ask`, `item.topic` (as a filter key), `item.card_type` | **NOT mapped to anything — deliberately** | there is no engine input channel for any of these (headline finding). Inventing one here would mean this file's adapter, not the engine, decides suppression — the exact smuggling the brief warns against. Leaving them unconsumed is the honest choice, and it is why the runnable rows' real, reproducible answer is always "surface": nothing downstream ever reads them. |
+| `facts[]` | `SummaryInputSchema.facts` (summary-line rows only) | **Correction, fix cycle 1 (ISS-t-039-3): this row was originally wrong.** The cycle-0 version of this table claimed `facts[]` had "no engine input channel" alongside the three genuinely-unmapped student fields above. That is false — `SummaryInputSchema = { turns, facts }` names `facts` as a real, live channel, and `runSummaryLineRow` maps it to `[]` for all 5 summary rows, which is an *under-mapping of an available channel*, not a nonexistent one. The checker (verdict §5) tested the loophole directly — a real `Fact` built through a genuine `extractFacts` run, passed through the real `SummaryInputSchema.facts` channel, into `summarizeSession` — and found it outcome-neutral: `summarizeSession` does not read `facts` for any relevance purpose, so no row's verdict flips. The mapping choice (`[]`) stands unchanged; only the stated reason for it is corrected here so the next reader doesn't inherit the false claim. |
 | `item.surface === "live-card"` | (none — not-runnable) | no cards module on this branch (finding 1) |
 | `item.id` in `{b18-f4-02, b18-f8-01}` | (none — not-runnable) | both ask whether the scribe re-emits an "unknown"-valued placeholder fact for an already-approved key; no code in `packages/` or `apps/` ever synthesizes a placeholder fact for an absent key (`PreBriefCardSchema.knownFacts`/`openQuestions` in `@vc/schemas` has zero builder-function reference anywhere in the repo — `grep -rn "PreBriefCard" packages apps` returns only the schema declaration and its own type alias) |
 
@@ -252,10 +253,14 @@ belongs in TASKS.md/a follow-up task, not the contract-questions inbox.
   findings + the 55/11/66/28/27 count guard) + 55 per-row subtests (45 skip, 4 pass, 6 fail) + a
   report-only print of the 11 quarantined rows. Full header comment carries the headline finding and
   the mapping table.
-- **Not touched:** `packages/engine/tests/fixtures/b18-suppression-blind.jsonl`,
+- **Not touched by this stage (stage 2):** `packages/engine/tests/fixtures/b18-suppression-blind.jsonl`,
   `...-unsettled.jsonl` (both stage-1 files, zero rows edited/moved), `qa/contracts/**`,
-  `docs/DECISIONS.md`, `ARCHITECTURE.md`, `.claude/**`, `TASKS.md`, `qa/feedback-inbox.md`,
-  `qa/issues.jsonl`, any engine source file in the bound worktree.
+  `docs/DECISIONS.md`, `ARCHITECTURE.md`, `.claude/**`, `TASKS.md`, `qa/issues.jsonl`, any engine
+  source file in the bound worktree. **Correction, fix cycle 1 (checker's "manifest scoping" note):**
+  `qa/feedback-inbox.md` was originally listed here as flatly "not touched", which is true of this
+  stage's own commit but false of the branch as a whole — stage 1 (commit `4154cc7`) legitimately
+  added 69 lines there (the 11 quarantined rows' open questions). The claim is now scoped to what
+  stage 2 itself touched, not the whole branch.
 
 ## How to verify (commands + expected)
 
@@ -282,5 +287,176 @@ named subtests (`b18-f1-01`, `b18-f1-02`, `b18-f1-04`, `b18-f4-03`, `b18-f6-03`,
 with the assertion message shown in the "Agreement / disagreement" table above.
 
 `pnpm -r typecheck` (all 9 workspace projects): every line ends `Done`, no diagnostics.
+
+---
+
+## Fix cycle 1 (2026-09-27) — KNOWN-GAP tripwire conversion, merge gate ISS-t-039-2
+
+**Cycle-0 verdict:** PASS (`qa/verdicts/t-039-suppression-outcome.md`), with a hard merge gate:
+`main` does not take a red `pnpm -C packages/engine test`. This cycle closes that gate and the two
+accuracy findings raised alongside it (ISS-t-039-3, and the "not touched" scoping note).
+
+### The checker's reasoning for the gate (preserved verbatim in substance, from verdict §8)
+
+Cycle 0 left the 6 real, reproduced B18 leaks as genuinely failing named subtests and offered the
+checker two ways out: keep the suite red, or convert the 6 to `test.todo`. **The checker refused
+both:**
+
+- **Keep it red and merge.** A non-zero `pnpm -C packages/engine test` on `main` destroys the one
+  shared green signal every other unit's checker leans on (T-037's own verdict cited "1162 green" as
+  evidence). A `main` that is red for a known reason trains every subsequent agent and human to read
+  "tests fail" as "yes, the usual seven" — and it has no owner, no deadline and no closing condition,
+  so it never ends on its own.
+- **Convert to `test.todo` / bare skip.** This is precisely how a demonstrated, reproduced defect
+  becomes invisible. Nothing ever trips when B18 lands, nobody is prompted to revisit, and the unit's
+  whole achievement — proving the criterion is a stub — evaporates into a silently-skipped line.
+
+The checker's ruling: convert the 6 to **KNOWN-GAP tripwire assertions** — assert the *measured*
+(current, wrong) value rather than the fixture's `expect`, name the contract expectation in the
+assertion message, and carry both the `KNOWN-GAP` marker and the issue id `ISS-t-039-1` in the
+subtest name. This keeps the suite green today while making it **self-revisiting**: the assertion is
+pinned to today's wrong answer, so it FAILS the day a relevance layer actually suppresses that row —
+which is the tripwire firing, not a regression, and the signal to delete it and restore a normal
+`assert.equal(got, row.expect)` for that row.
+
+### What changed in this cycle
+
+`packages/engine/tests/b18-suppression-outcome.test.ts` — added a `KNOWN_GAP_IDS` set (`b18-f1-01`,
+`b18-f1-02`, `b18-f1-04`, `b18-f4-03`, `b18-f6-03`, `b18-f8-02`) and branched the per-row subtest: for
+these 6, the subtest name becomes `${row.id} (${row.item.surface}): KNOWN-GAP ISS-t-039-1 -- B18
+${row.contract_clause} contract expects "${row.expect}", engine currently measures "surface"`, and
+the assertion is `assert.equal(got, "surface", ...)` with a message that repeats the contract
+expectation, the row's own `why`, and an explicit instruction ("If it just FAILED, B18 has been
+implemented for this row -- delete this tripwire and restore `assert.equal(got, row.expect)`."). All
+other rows (including the 4 agreeing runnable rows and the 45 not-runnable rows) are unchanged.
+
+**Fixture untouched:** `git diff 4154cc7 HEAD -- packages/engine/tests/fixtures/` is still empty.
+Every `expect` field is exactly what the blind stage-1 author wrote (D-028); only this test file's
+assertion target changed, and only for the 6 named ids.
+
+**No engine source and no `test.todo`/`skip` was used** for the 6 — both explicitly forbidden by this
+fix cycle's brief and by the checker's ruling.
+
+### Corrections to the two accuracy findings (ISS-t-039-3, manifest scoping)
+
+Both are applied in place above (Adapter mapping table and "What changed" section) rather than only
+noted here:
+
+1. **ISS-t-039-3 (medium):** the mapping table's cycle-0 claim that `facts[]` has "no engine input
+   channel" was false — `SummaryInputSchema.facts` is exactly that channel, and stage 2 mapped it to
+   `[]`. The checker's own probe (a real `Fact`, built through a genuine `extractFacts` run, passed
+   through the real `SummaryInputSchema.facts` channel) proved this outcome-neutral — no row flips —
+   but the stated reason was wrong and is now corrected in the table rather than left standing.
+2. **Manifest scoping:** "Not touched: `qa/feedback-inbox.md`" was true of stage 2's own commit but
+   false of the branch — stage 1 legitimately added 69 lines there. The claim is now scoped to "not
+   touched by this stage."
+
+### Verification (real output, this session)
+
+`npx tsx --test tests/b18-suppression-outcome.test.ts` (from `packages/engine/`):
+```
+ℹ tests 59
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 45
+```
+All 6 KNOWN-GAP subtests pass (pinned to "surface"); the 4 previously-agreeing runnable rows and the
+2 structural findings + shape guard are unaffected.
+
+`pnpm -C packages/engine test`:
+```
+ℹ tests 679
+ℹ suites 0
+ℹ pass 634
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 45
+```
+**Exit code: 0.** This is the merge gate (ISS-t-039-2) and it is now closed.
+
+`pnpm -r typecheck`: exit 0, all 9 workspace projects "Done", no diagnostics — unchanged from
+cycle 0.
+
+### Falsification lever — proving the tripwire is self-revisiting, not permanently green
+
+Per this cycle's brief, this lever was built and run in a **throwaway copy outside the bound root**
+(`git archive HEAD | tar -x` into a scratch directory, then `pnpm install --offline`, done in
+~30s) and the bound worktree was never edited for it — confirmed by `git status --porcelain` on the
+bound root showing only the pre-existing untracked `.handoffs/` throughout.
+
+**The lever simulates B18 actually being implemented**, rather than breaking something that already
+works (that was cycle 0's Lever A). Single-hunk edit in
+`packages/engine/src/scribe/nodes.ts`, inside `summarizeSession`, immediately after
+`const output = generated.output;`:
+
+```ts
+  // LEVER-IMPLEMENTED-B18-INJECTED (throwaway falsification copy ONLY -- never in the bound
+  // worktree). Simulates B18 landing a relevance-suppression filter on the summary surface, for
+  // exactly the one sentence that is T-039's KNOWN-GAP tripwire row b18-f1-02, so this single-hunk
+  // edit flips exactly one tripwire and proves it is self-revisiting rather than permanently green.
+  if (output.summary === `Draft summary sentence: "Still need to confirm her visa timeline."`) {
+    return SummaryOutputSchema.parse({
+      summary: "",
+      summaryWithheldReason:
+        "LEVER-IMPLEMENTED-B18-INJECTED: simulated B18 relevance suppression (India-only destination makes the visa topic irrelevant).",
+    });
+  }
+```
+
+This targets the exact `item.text` string of row `b18-f1-02` (a summary-line row, India-only,
+`B18-bullet2`), so the engine now correctly returns `"suppress"` for that one row and nothing else.
+
+**GREEN before the edit** (unmodified throwaway copy): `tests 59 / pass 14 / fail 0 / skipped 45`.
+
+**RED after the edit** — exactly one tripwire flips, named, with the exact assertion text:
+```
+✖ b18-f1-02 (summary-line): KNOWN-GAP ISS-t-039-1 -- B18 B18-bullet2 contract expects "suppress", engine currently measures "surface"
+  AssertionError [ERR_ASSERTION]: b18-f1-02: KNOWN-GAP ISS-t-039-1 -- B18 contract (B18-bullet2)
+  expects "suppress" (B18 bullet 2 names three surfaces explicitly: "suppressed in scribe output,
+  the summary and (from T-010) live cards." The summary is one of the named surfaces, so an
+  India-only student's summary must not mention visa timelines either.); engine has no relevance
+  layer and currently returns "surface". This assertion pins the GAP, not the contract. If it just
+  FAILED, B18 has been implemented for this row -- delete this tripwire and restore
+  `assert.equal(got, row.expect)`.
+  + actual - expected
+  + 'suppress'
+  - 'surface'
+ℹ tests 59
+ℹ pass 12
+ℹ fail 2
+ℹ skipped 45
+```
+(`fail 2` = the one named subtest above + its parent test, exactly as node:test always reports one
+extra failure for the enclosing suite — no other row moved: pass count fell by exactly 2 including
+the parent, and the only *named per-row* failure anywhere in the output is `b18-f1-02`.)
+
+This proves the tripwire is genuinely self-revisiting: the moment the engine's real behaviour changes
+to match the contract for a KNOWN-GAP row, that row's own assertion — pinned to today's wrong value —
+fails loudly, by name, with `KNOWN-GAP` and `ISS-t-039-1` still in the subtest name so a reader of the
+failure immediately knows this is the "go delete the tripwire" signal and not a new regression.
+
+**Reverted** immediately after capturing the above: the injected hunk was removed from the throwaway
+copy, and a re-run confirmed the copy is green again (`tests 59 / pass 14 / fail 0 / skipped 45`).
+The bound worktree (`D:/vc/.worktrees/t-039-suppression-outcome`) was at no point edited to produce
+this lever.
+
+### Status of the three prior open issues after this cycle
+
+- **ISS-t-039-1** (B18 unimplemented, high) — stays open; it is the gap the tripwires exist to track,
+  not something this cycle closes.
+- **ISS-t-039-2** (red suite / merge gate, high) — **closed by this cycle.**
+  `pnpm -C packages/engine test` now exits 0 with `fail 0`, verified above.
+- **ISS-t-039-3** (`facts[]` false "no channel" claim, medium) — **corrected** in the adapter mapping
+  table above.
+- **ISS-t-039-4** (B18's proof clause not yet satisfied — mocked provider, fixture-dictated content,
+  medium) — unaffected by this cycle; remains open, owed by the future gap-2 implementation task, not
+  this unit.
+- **ISS-t-039-5** (43 live-card rows unexercised, low) — unaffected; re-run once T-010 merges.
+- Manifest scoping note (`qa/feedback-inbox.md` "not touched") — **corrected** in "What changed" above.
+
+Nothing else in this cycle touched `qa/contracts/**`, `docs/DECISIONS.md`, `ARCHITECTURE.md`,
+`.claude/**`, `qa/issues.jsonl`, or `TASKS.md`. `git diff --stat` for this cycle's commit shows
+exactly one file changed: `packages/engine/tests/b18-suppression-outcome.test.ts`.
 
 ## Status: ready-for-check
