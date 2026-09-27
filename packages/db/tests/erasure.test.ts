@@ -344,6 +344,63 @@ test("B15: the full purge leaves ZERO documents for the student in every collect
   }
 });
 
+test("T-034/B15: a queued webhook_outbox event that names the student (event.data.studentId) is purged by the full erasure -- a sibling student's queued event is untouched", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const now = new Date().toISOString();
+  // Realistic MongoWebhookOutbox-persisted shape (packages/engine/src/webhooks/outbox.ts OutboxMongoDoc):
+  // _id/event/destinationUrl/status/attempts/createdAt/updatedAt. The student lives one level down at
+  // event.data.studentId (erasure.ts's byEventStudent filter), never at the document's top level.
+  coll(fakeDb, COLLECTION_NAMES.webhook_outbox).seed({
+    _id: "evt:erasure.requested:a-1",
+    event: {
+      id: "evt:erasure.requested:a-1",
+      type: "erasure.requested",
+      occurredAt: now,
+      tenantId: "tenant-x",
+      data: { requestId: "req-a-1", studentId: a.studentId, reason: "student_request", requestedAt: now },
+    },
+    destinationUrl: "http://client.invalid/hook",
+    status: "pending",
+    attempts: 0,
+    createdAt: now,
+    updatedAt: now,
+  });
+  coll(fakeDb, COLLECTION_NAMES.webhook_outbox).seed({
+    _id: "evt:fact.approved:b-1",
+    event: {
+      id: "evt:fact.approved:b-1",
+      type: "fact.approved",
+      occurredAt: now,
+      tenantId: "tenant-x",
+      data: { sessionId: b.sessionIds[0], studentId: b.studentId, fact: { key: "x", value: "y", source: { type: "self-report" }, confidence: 0.9, purposeTags: ["counselling"], sensitivity: "low" } },
+    },
+    destinationUrl: "http://client.invalid/hook",
+    status: "pending",
+    attempts: 0,
+    createdAt: now,
+    updatedAt: now,
+  });
+  assert.ok(
+    docsMentioning(fakeDb, identifiers(a)).includes(`${COLLECTION_NAMES.webhook_outbox}:evt:erasure.requested:a-1`),
+    "fixture sanity: A's queued event is visible before erasure",
+  );
+
+  const requestId = await confirmedRequest(db, a.studentId);
+  const outcome = await executeErasure(db, requestId);
+  assert.equal(outcome.status, "completed");
+
+  // A's event is gone -- covered by the same generic identifiers() scan the collection-agnostic test above uses.
+  assert.deepEqual(docsMentioning(fakeDb, identifiers(a)), []);
+  const line = outcome.receipt.collections.find((l) => l.collection === COLLECTION_NAMES.webhook_outbox);
+  assert.equal(line?.outcome, "purged");
+  assert.equal(line?.deleted, 1);
+  assert.equal(line?.remaining, 0);
+
+  // B's queued event, naming a different student, survives untouched.
+  const remaining = coll(fakeDb, COLLECTION_NAMES.webhook_outbox).all().map((d) => d._id);
+  assert.deepEqual(remaining, ["evt:fact.approved:b-1"]);
+});
+
 test("B15: the receipt counts match what was actually there (read back, per collection)", async () => {
   const { db, fakeDb, a } = await seedTwo();
   const expected: Record<string, number> = {
@@ -357,6 +414,7 @@ test("B15: the receipt counts match what was actually there (read back, per coll
     scribe_checkpoint_writes: 4,
     [COLLECTION_NAMES.session_transcripts]: 4, // T-024: 2 sessions x 2 turns
     [COLLECTION_NAMES.edges]: 6, // 3 facts x (sourced_from + has)
+    [COLLECTION_NAMES.webhook_outbox]: 0, // T-034: this fixture never enqueues a webhook event
   };
   assert.equal(a.factIds.length, 3);
   const requestId = await confirmedRequest(db, a.studentId);

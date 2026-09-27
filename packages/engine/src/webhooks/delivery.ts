@@ -1,8 +1,9 @@
 /**
- * B21 signed webhooks (D-021), CORE ONLY (T-027): delivery with retry, exponential backoff and
- * full jitter, a maximum attempt count, and a byte-identical idempotency key + body across every
- * retry. No real network in tests (B8/B13) — a local in-process fake receiver stands in for the
- * client endpoint (Pathlynks in production).
+ * B21 signed webhooks (D-021): delivery with retry, exponential backoff and full jitter, a maximum
+ * attempt count, and a byte-identical idempotency key + body across every retry (T-027). T-034 adds
+ * `drainWebhookOutbox`, the worker that drains a WebhookOutbox through this same path. No real
+ * network in tests (B8/B13) — a local in-process fake receiver stands in for the client endpoint
+ * (Pathlynks in production).
  */
 import { buildSignedWebhookHeaders } from "./signing.js";
 import type { WebhookEvent } from "./schemas.js";
@@ -140,4 +141,37 @@ export async function deliverWebhookEvent(
 
   if (outbox) await outbox.update(event.id, { status: "dead", attempts: maxAttempts, lastStatus, lastError });
   return { delivered: false, attempts: maxAttempts, status: lastStatus, error: lastError };
+}
+
+/**
+ * T-034: the delivery worker. Drains every `pending` (and, on an explicit retry sweep, `failed`)
+ * record currently in `outbox` by calling `deliverWebhookEvent` for each one's own event and
+ * `destinationUrl` — the SAME retry/backoff/signing path a fresh call gets, so a record that was
+ * left mid-retry by a crashed process picks up exactly where deliverWebhookEvent's own bookkeeping
+ * left it (its `attempts` counter is per-call, not cumulative across drains — see the Open gaps
+ * note in the unit manifest about a future max-lifetime-attempts cap).
+ *
+ * `options.includeFailed` (default false) also retries records the LAST drain marked `failed` (a
+ * non-retryable status like 400/401/404) — off by default because those are real rejections, not
+ * transient ones, and blindly re-sending them would just burn attempts. `dead` records (exhausted
+ * their own maxAttempts) are never retried by this function; picking them back up is a deliberate,
+ * separate operator action (not built by this unit).
+ *
+ * Never touches the real network in a test: `options.fetchImpl` (threaded straight through to
+ * `deliverWebhookEvent`) is the seam a test replaces with an in-process fake receiver (B8/B13).
+ */
+export async function drainWebhookOutbox(
+  outbox: WebhookOutbox,
+  options: DeliverWebhookOptions & { includeFailed?: boolean },
+): Promise<DeliveryResult[]> {
+  const wanted: ReadonlySet<string> = options.includeFailed ? new Set(["pending", "failed"]) : new Set(["pending"]);
+  const { fetchImpl, sleep, random, nowMs, maxAttempts, baseDelayMs, maxDelayMs, secret } = options;
+  const deliverOptions: DeliverWebhookOptions = { secret, maxAttempts, baseDelayMs, maxDelayMs, fetchImpl, sleep, random, nowMs };
+  const all = await outbox.list();
+  const due = all.filter((record) => wanted.has(record.status));
+  const results: DeliveryResult[] = [];
+  for (const record of due) {
+    results.push(await deliverWebhookEvent(record.event, record.destinationUrl, deliverOptions, outbox));
+  }
+  return results;
 }

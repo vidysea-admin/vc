@@ -160,13 +160,20 @@ export async function startApi(
       // through a tenant-scoped saver, createTenantWiring).
       await initScribeCheckpointer(client);
       const wiring = createTenantWiring({ client, db, provider: httpSetup.provider, skillsDir: httpSetup.skillsDir });
+      // T-034 (B21 "Events"): absent VC_WEBHOOK_DESTINATION_URL keeps the emission hook a no-op
+      // (ApiDeps.webhooks undefined), same as a test that never configures it.
+      const webhookDestinationUrl = env.VC_WEBHOOK_DESTINATION_URL;
       const handler = createApiHandler({
         verifier: httpSetup.verifier,
-        ...wiring,
+        dbForTenant: wiring.dbForTenant,
+        graphForTenant: wiring.graphForTenant,
         ...(http?.log ? { log: http.log } : {}),
         ...(http?.writerDeadlineMs !== undefined ? { writerDeadlineMs: http.writerDeadlineMs } : {}),
         // T-029: read (and validated) per reconfirm call; a config error is a 503, never a fallback.
         erasureConfig: () => erasureConfigFromEnv(env),
+        ...(webhookDestinationUrl
+          ? { webhooks: { outboxForTenant: wiring.webhookOutboxForTenant, destinationUrl: webhookDestinationUrl } }
+          : {}),
       });
       const s = createApiServer(handler);
       server = s;

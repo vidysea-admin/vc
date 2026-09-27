@@ -161,6 +161,24 @@ export const INDEX_PLAN: IndexSpec[] = [
   },
   { collection: COLLECTION_NAMES.edges, keys: { "from.kind": 1, "from.id": 1 }, name: "edges_from" },
   { collection: COLLECTION_NAMES.edges, keys: { "to.kind": 1, "to.id": 1 }, name: "edges_to" },
+  // T-034 (B21 Events, ISS-t-027-rev-3): the webhook delivery queue. `_id` is the event's own
+  // idempotency key (unique via Mongo's built-in _id index, tenant-qualified by tenantScopedDb, so
+  // no extra unique index is needed here). tenantId leads the plain index below because every query
+  // through tenantScopedDb carries it — this serves the delivery worker's per-tenant "drain the
+  // pending/failed rows" scan without a collection scan.
+  {
+    collection: COLLECTION_NAMES.webhook_outbox,
+    keys: { tenantId: 1, status: 1 },
+    name: "webhook_outbox_tenantId_status",
+  },
+  // B15 erasure (ERASURE_PLAN, packages/db/src/erasure.ts): the student is one level down at
+  // `event.data.studentId`, not a top-level field, so the delete/residue filter is a dotted-path
+  // query rather than the plain {studentId} shape most direct rows use; this index serves it.
+  {
+    collection: COLLECTION_NAMES.webhook_outbox,
+    keys: { "event.data.studentId": 1 },
+    name: "webhook_outbox_event_data_studentId",
+  },
 ];
 
 async function ensureCollection(db: import("mongodb").Db, name: string): Promise<void> {

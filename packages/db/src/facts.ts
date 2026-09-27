@@ -988,6 +988,23 @@ export async function readActiveProfile(db: Db, studentId: string, purpose: stri
   return docs.sort((a, b) => a.key.localeCompare(b.key));
 }
 
+/**
+ * T-034 (B21 Events, B2 provenance): looks up exactly the facts `applyApprovedDiff` just wrote, by
+ * their own `_id`s (ScribeResult's `written` status carries only `writtenFactIds`, not the fact
+ * content). The caller (apps/api/src/server.ts decideApproval) uses this to build the fact.approved
+ * webhook event from what was ACTUALLY durably persisted — source and all — never from the
+ * counsellor's raw approval response, which may differ (an edit, a schema default). Deliberately NOT
+ * gated on requireConsent like readActiveProfile: this reads back the engine's OWN just-completed
+ * write for an internal notification, not a disclosure to any external caller. `ids` may be empty
+ * (returns []); unknown ids are silently absent from the result, never an error.
+ */
+export async function getFactsByIds(db: Db, studentId: string, ids: readonly string[]): Promise<FactDoc[]> {
+  requireNonEmpty({ studentId }, "getFactsByIds");
+  if (ids.length === 0) return [];
+  const docs = await factsCollection(db).find({ studentId, _id: { $in: [...ids] } } as Filter<FactDoc>).toArray();
+  return docs;
+}
+
 /** The span a fact's citation points at inside the persisted transcript. */
 export interface CitationSpan {
   /** The persisted turn document (transcriptTurnDocId). */

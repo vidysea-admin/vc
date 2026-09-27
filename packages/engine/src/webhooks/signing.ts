@@ -83,6 +83,13 @@ export function verifyWebhookSignature(params: VerifyWebhookSignatureParams): We
   if (!signature) return { ok: false, reason: "missing_signature" };
   if (!timestamp) return { ok: false, reason: "missing_timestamp" };
 
+  // ISS-t-027-rev-1: `Number("123.0")` and `Number("1e12")` both pass the old finite+integer check
+  // (`Number.isInteger` is true for 123 and for 1e12, since both ARE mathematical integers once
+  // coerced) even though neither is a canonical integer literal. Not exploitable — the HMAC is over
+  // this parsed numeric value either way, so no signature could be forged this way — but a stray
+  // decimal point or exponent should never be treated as a well-formed timestamp header. Requiring
+  // an all-digit string before coercion rejects both, and everything else non-numeric, up front.
+  if (!/^\d+$/.test(timestamp)) return { ok: false, reason: "invalid_timestamp" };
   const timestampMs = Number(timestamp);
   if (!Number.isFinite(timestampMs) || !Number.isInteger(timestampMs)) {
     return { ok: false, reason: "invalid_timestamp" };

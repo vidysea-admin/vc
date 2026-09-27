@@ -1,22 +1,29 @@
 /**
- * B21 signed webhooks (D-021), CORE ONLY (T-027): the event envelope + per-type payload shapes VC
- * emits to a client's HTTP endpoint (Pathlynks first) so the client keeps its own copy of approved
- * facts, erasure requests and concern flags (contract B21 "Events"). No emission wiring lives here
- * yet — the Mongo outbox collection and the approval/erasure/concern flow hooks land after
- * T-025/T-022/T-029 (out of this unit's scope by design).
+ * B21 signed webhooks (D-021): the event envelope + per-type payload shapes VC emits to a client's
+ * HTTP endpoint (Pathlynks first) so the client keeps its own copy of approved facts, erasure
+ * requests and concern flags (contract B21 "Events"). T-027 (core) built the schemas; T-034 adds the
+ * emission-hook builders below (`buildFactApprovedEvent`, `buildErasureRequestedEvent`), called from
+ * apps/api/src/server.ts's decideApproval and confirmErasure routes after the write they describe
+ * has durably succeeded (decideApproval reads back what applyApprovedDiff wrote via
+ * @vc/db getFactsByIds; confirmErasure reads the request row via @vc/db getErasureRequest, the last
+ * point it still carries a clear studentId — see getErasureRequest's own docstring). The
+ * concern.flagged builder remains a TODO — see the note near the bottom of this file and
+ * ISS-t-034-concern-hook.
  *
- * Provenance note (B2, gate qa/gates/edit-provenance.md): @vc/schemas' `FactSourceSchema` does not
- * yet carry a `counsellor-edit` variant — that lands with T-023's edit-provenance work, which is a
- * sibling unit in the same parallel wave and must not be touched here (anti-drift: no editing a file
- * another in-flight unit owns). Until T-023 lands, this module defines its own
- * `WebhookFactSourceSchema` — a superset of `FactSourceSchema` with the counsellor-edit variant
- * added locally — so the wire shape the edit-provenance gate describes ("source counsellor-edit,
- * counsellorId, time, editedFrom") already exists at the webhook boundary. Residual: once T-023
- * extends `FactSourceSchema` itself, prefer that shared schema here and drop this local duplicate
- * (see the manifest's Open gaps).
+ * Provenance note (B2, gate qa/gates/edit-provenance.md): @vc/schemas' `FactSourceSchema` still does
+ * not carry a `counsellor-edit` variant as of T-034 — see ISS-t-027-rev-2 (open). Until it does, this
+ * module keeps its own `WebhookFactSourceSchema` — a superset of `FactSourceSchema` with the
+ * counsellor-edit variant added locally — so the wire shape the edit-provenance gate describes
+ * ("source counsellor-edit, counsellorId, time, editedFrom") already exists at the webhook boundary,
+ * ready for whichever unit lands actual edit detection. `buildFactApprovedEvent` below passes the
+ * approved Fact's own `source` through unchanged (whatever @vc/schemas' FactSchema already carries),
+ * so today every fact.approved event's source is one of FactSourceSchema's four variants — never
+ * `counsellor-edit` yet, since nothing in the engine sets that source on a Fact today (residual,
+ * same as ISS-t-027-rev-2).
  */
+import { createHash } from "node:crypto";
 import { z } from "zod";
-import { ErasureReasonSchema, FactSourceSchema } from "@vc/schemas";
+import { ErasureReasonSchema, FactSourceSchema, type ErasureReason } from "@vc/schemas";
 
 /** Every citation shape a fact can carry today, PLUS the counsellor-edit provenance shape B2 adds
  * at approval time: the original citation is kept verbatim under `editedFrom`, never discarded. */
@@ -88,3 +95,89 @@ export const WebhookEventSchema = z.discriminatedUnion("type", [
   WebhookEnvelopeBaseSchema.extend({ type: z.literal("concern.flagged"), data: ConcernFlaggedDataSchema }),
 ]);
 export type WebhookEvent = z.infer<typeof WebhookEventSchema>;
+
+// ---------------------------------------------------------------------------
+// T-034: emission-hook builders. Pure functions (no I/O, no outbox access) that turn a call site's
+// already-durably-written data into a validated WebhookEvent envelope, with a DETERMINISTIC id
+// (WebhookOutbox.enqueue is idempotent by id, B21) so a caller that retries the same logical write
+// — a replayed approval, a retried erasure request — enqueues the SAME event id and the outbox
+// no-ops the duplicate instead of double-delivering. Callers (apps/api/src/server.ts) are
+// responsible for calling these AFTER the write they describe has durably succeeded, and for never
+// letting an enqueue failure roll that write back (see server.ts's emitFactApprovedEvents /
+// emitErasureRequestedEvent docstrings).
+// ---------------------------------------------------------------------------
+
+/** A stable hex digest over JSON-stable-enough inputs (object key order here is always the same
+ * literal shape at each call site, so JSON.stringify is deterministic in practice). Never used for
+ * anything security-sensitive — only to make a repeat call idempotent. */
+function stableEventId(prefix: string, parts: unknown[]): string {
+  return `${prefix}:${createHash("sha256").update(JSON.stringify(parts)).digest("hex")}`;
+}
+
+export interface BuildFactApprovedEventInput {
+  tenantId: string;
+  sessionId: string;
+  studentId: string;
+  /** The counsellor-approved Fact (packages/schemas FactSchema) as it was durably written. Extra
+   * fields (e.g. `kind`, `explains`) are dropped by WebhookFactSchema.parse — only the wire shape
+   * travels. */
+  fact: unknown;
+  /** Default: now. Tests pass a fixed value. */
+  occurredAt?: string;
+}
+
+/** B21 "Events": approved facts (with provenance, B2). The id is derived from the fact's own
+ * identity (tenant + session + student + key + value + source) rather than a random uuid, so
+ * re-approving the exact same content (a checkpoint replay, a retried request) is a no-op at the
+ * outbox, never a duplicate delivery. A genuinely edited or re-approved value hashes differently
+ * (its value or source differs) and gets its own event, as it should. */
+export function buildFactApprovedEvent(input: BuildFactApprovedEventInput): WebhookEvent {
+  const fact = WebhookFactSchema.parse(input.fact);
+  const id = stableEventId("fact.approved", [input.tenantId, input.sessionId, input.studentId, fact.key, fact.value, fact.source]);
+  return WebhookEventSchema.parse({
+    id,
+    type: "fact.approved",
+    occurredAt: input.occurredAt ?? new Date().toISOString(),
+    tenantId: input.tenantId,
+    data: { sessionId: input.sessionId, studentId: input.studentId, fact },
+  });
+}
+
+export interface BuildErasureRequestedEventInput {
+  tenantId: string;
+  requestId: string;
+  studentId: string;
+  reason: ErasureReason;
+  requestedAt: string;
+}
+
+/** B21 "Events": erasure requests. The id is derived from `requestId` alone (already a unique,
+ * per-request Mongo ObjectId, D-016's one-open-request-per-student index makes it the natural key)
+ * so a defensive double-call at the emission call site (never expected in normal operation —
+ * requestErasure itself refuses a second open request for the same student) still enqueues once. */
+export function buildErasureRequestedEvent(input: BuildErasureRequestedEventInput): WebhookEvent {
+  const id = stableEventId("erasure.requested", [input.tenantId, input.requestId]);
+  return WebhookEventSchema.parse({
+    id,
+    type: "erasure.requested",
+    occurredAt: input.requestedAt,
+    tenantId: input.tenantId,
+    data: {
+      requestId: input.requestId,
+      studentId: input.studentId,
+      reason: input.reason,
+      requestedAt: input.requestedAt,
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// T-034 residual (OUT OF SCOPE, see qa/manifests/t-034-webhook-outbox.md "Open gaps" and
+// ISS-t-034-concern-hook): a concern.flagged emission hook belongs at the concern-detection call
+// site, which is packages/engine/src/scribe/nodes.ts recordSessionConcerns — a file T-012 (crisis
+// escalation, in_progress at this unit's base commit) is actively changing. Touching it here would
+// race T-012's own edits (anti-drift: no editing a file another in-flight unit owns). TODO(after
+// T-012 lands): add a `buildConcernFlaggedEvent` builder here (mirrors the two above) and call it
+// from recordSessionConcerns the same way server.ts calls buildFactApprovedEvent — never a silent
+// drop, never blocking the concern write itself.
+// ---------------------------------------------------------------------------
