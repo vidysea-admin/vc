@@ -52,7 +52,16 @@ bar should move.
 
 T-010 has exhausted its fix cycles with both criteria still open. Which way does it go?
 
-**Options:**
+> **READ THIS FIRST — corrected 2026-09-27 ~23:58.** This file grew TWO decision surfaces: the
+> (a)/(b)/(c) options immediately below, written when the gate opened, and the **four decisions
+> D1-D4** near the end of the file, written after the stall diagnosis landed. A reader answering
+> from the top and a reader answering from the bottom would give different-shaped answers to the
+> same gate. **D1-D4 is the authoritative answer surface**; it is later, more precise, and it is
+> what the maker has been reporting against. The options below are kept as the reasoning that
+> produced D1-D4 — they are context, **not the list to pick from**. Same defect class as ISS-098
+> and ISS-056: a correction appended without retiring the superseded statement.
+
+**Options (context for D1-D2 — not the answer surface):**
 - **(a) Re-scope the unit and move the open-class judgement to the semantic verifier skill.** Most
   likely to actually satisfy B1/B18, since the skill reasons over meaning instead of spelling.
   Cost: a new unit with its own plan gate, latency on the live-card path, and a cost-per-card
