@@ -744,3 +744,40 @@ Cross-branch ledger copying happened a SECOND time despite being flagged fragile
   the untouched ISS-095/ISS-096 rows, and re-run the merge-tree hazard check since main has moved.
 
 SERIAL: Mode B sweep waits on T-043 (~8h stale now). SERIAL: T-035 waits on T-010.
+
+## tick 2026-09-27T23:40:28+05:30
+STATE: ADVANCED (correction; T-043 checker cycle 2 still running -- last permitted cycle)
+
+MY CONVENTION CLAIM WAS WRONG and vc-f5 measured it. I said verdicts are committed straight to
+  main and never to the unit branch. `git ls-tree` refutes it: wave/t-040, wave/t-041 and
+  wave/t-042 each carry their OWN verdict file in-tree; wave/t-043 carries 41 verdict files and
+  not its own. The true mechanism is theirs: verdict commits are AUTHORED on main, and a wave
+  branch created or updated after its verdict landed inherits it through ordinary ancestry.
+  t-043's branch simply predates its own verdict, which was not in git at all until d4af250.
+
+  Same error shape as my -First 1 mistake earlier tonight: I checked the half of the mechanism
+  that confirmed what I expected (git log authorship) and reported the whole thing settled. Right
+  conclusion -- nothing to move -- from a false premise, which is the more dangerous kind of
+  wrong, because the conclusion surviving hides that the reasoning did not. Twice in one session
+  on the same class of check makes it a habit, not a slip. Recorded as such rather than as two
+  separate slips.
+
+vc-f5 withdrew its wrong-tree defect on the same measurement, calling it an ordering artifact.
+  Running total tonight: four claims retracted on evidence between the two sessions -- their
+  bare-anchor remedy, their last-occurrence remedy, their wrong-tree defect, my two hook claims.
+  Every retraction came from somebody re-running the thing rather than arguing about it. That is
+  the only reason the enforcement-path picture is now correct.
+
+THE RESIDUE THAT MUST NOT BE LOST, and it needs to reach one implementer, not two: because
+  verdicts are authored on main, THE ROOT COPY IS AUTHORITATIVE and a worktree copy is inherited
+  or stale. A reader must search root plus every worktree per slug, take max cycle across copies,
+  and PREFER ROOT on disagreement. ISS-095 (max-cycle reader) and ISS-097 (multi-worktree search)
+  are the same instrument and the same decision -- if they are implemented separately, someone
+  builds max-cycle without the authority rule and reintroduces the ambiguity just measured.
+  Flagged to vc-f5 to merge the rows or cross-reference them hard.
+
+vc-f5 also swept all five trees with git status --porcelain -- qa/verdicts/ after finding t-043's
+  untracked file by accident: root and all four worktrees clean, t-043 was the only one. Right
+  instinct -- one untracked file is a defect, an unswept tree is a class.
+
+SERIAL: Mode B sweep waits on T-043 (~8h). SERIAL: T-035 waits on T-010.
