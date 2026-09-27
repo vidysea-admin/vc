@@ -81,3 +81,83 @@ summary surfaces have no B18 code at all on `main` (gate `b18-unimplemented.md`)
 are about the same criterion on different surfaces and should be answered together.
 
 **Answer format:** chat reply. The maker appends `Answered:` here, then a DECISIONS entry.
+
+---
+
+## Stall diagnosis appended (`qa/debug/t-010-live-cards-cycle3.md`, `4883bb1`)
+
+**Verdict on the AIOS split: LOOP DESIGN, not execution. Unambiguously.** The unit was competently
+built against a boundary that cannot hold it.
+
+**The number that settles it, and it is not in any verdict.** On the *same commit*, two independent
+authors each drew fresh hostile B1 rows and self-reported honestly: the **maker's 67 rows leaked 2
+(3.0%)**; the **checker's 41 rows leaked 26 (63.4%)**. A twenty-fold spread between two good-faith
+samples of the same population means **there is no convergent measurement of B1 on this unit.**
+Every cycle's score describes its sampler, not its code. That also reframes the three earlier
+cycles: they were not careless, they were scoring an unmeasurable thing.
+
+**Shown vs fresh, every cycle:** c1 2/2 shown closed, 25/28 fresh leaked · c2 33/33 shown closed,
+fresh leaked and **B18 regressed** · c3 **61/61 shown closed**, 26/41 fresh leaked. Monotone across
+a **polarity inversion** of the mechanism — the same defect class survived default-open →
+default-closed. That is a property of the approach, not of any implementation.
+
+**Two structural impossibility proofs, verified in the tree:**
+1. `NON_VERB_OPENERS` (`verifier.ts:152-202`) must be two contradictory things at once: lever C
+   proves it is load-bearing for *keeping* legitimate elliptical cards, and the leak analysis proves
+   it is the escape hatch for 12/12 imperatives. It must cover counselling nouns and contain no bare
+   verb — but `note/plan/open/score/test/profile/cost/grade/board/right/reference/still` are both.
+   **No assignment of those ~300 words satisfies both sides.**
+2. **B18's primary finding is the citation exemption, not the card-type hole.** The card-type test
+   is a free one-line fix. The other is unfixable inside this boundary: the guard must drop *"Is the
+   budget still an unknown for the family?"* and keep CE-054 *"Is the 20 lakh budget per year or for
+   the whole course?"* — **identical on every feature the code can see** (clarify, cited,
+   interrogative, names the topic), differing only by entailment.
+
+**Contract finding, stated and not decided:** **B1 as written is not satisfiable by any
+implementation of this shape.** It demands a universal negative over open-class natural language
+*and* that a code guard enforce it — jointly impossible. B18's re-ask bullet is satisfiable in
+principle, but not over a bare `prompt: z.string()`.
+
+**Smallest recovery is a boundary change, not a code fix.** Move the judgement out of prose and into
+the schema: `CandidateCardSchema` is `{type, prompt: string, sources, confidence}`, which forces
+both criteria onto free text. For B18, require a declared `knownFactId` plus an `asks` enum
+(`unit|scope|timing|confidence|source|none`) and check the enum — CE-054 declares `scope`, a re-ask
+can declare nothing, so it **fails closed by construction** while still satisfying "a code guard
+enforces this". B1 does not fully yield to that: it needs `NON_VERB_OPENERS` split in two plus a
+real bare-verb signal (verb lexicon or POS tagger) — **a new dependency, i.e. new scope.**
+
+**Correction to this gate's own option (a).** The semantic verifier skill exists and is drop-only,
+but it is **B2's citation-support judge**, it is **default-off** (`nodes.ts:57`,
+`semanticVerifier?: boolean`), and **B1's own text forbids it from being the enforcement of record.**
+So (a) as written above is not available as stated; the schema change is the real version of it.
+
+**Avoidable, judged fairly — three small things, none of them the cause.** Cycle 2's fail-closed
+claim was false and careless (the falsifying allow-list was the return statement of the same
+14-line function, not a hidden gate) — but inverting it, which cycle 3 did, still failed, so it cost
+trust rather than progress. Cycle 2 also never ran the two-column comparison against cycle 1 that
+would have caught its regression before shipping. Cycle 3 added three words to an escape list its
+own comment reasons against — 3 of 26 leaks. Against all that: **the maker refused two wrong
+instructions with reproducible evidence and was right both times.**
+
+**Harness:** CARDS-EVAL 62/62 across four cycles with the fixture byte-identical is real evidence
+that D-028 discipline held under pressure, and **zero** evidence about B1/B18. It contributed by
+omission — there was no standing regression detector for these criteria between cycles, so "fix the
+rows you were shown" was the only measurable strategy available.
+
+**Branch disposition: keep it, unmerged, not reverted.** Cycle 3 is the best version this boundary
+admits, and `namedInPassing` survived four directed attacks.
+
+## The four decisions, all yours
+
+- **D1 — re-scope T-010, or open a successor unit on the schema change?** (the `knownFactId` +
+  `asks` enum above)
+- **D2 — are B1/B18 as written the pilot bar?** If they are not, that is a checker amendment first
+  and then your call. Neither the debugger nor I recommend relaxing them; we are telling you B1 as
+  written cannot be met by this shape.
+- **D3 — is a non-deterministic LLM pass acceptable on a live safety surface?** This is the price of
+  any semantic approach.
+- **D4 — a separate growing adversarial corpus**, checker-owned, which must never touch the blind
+  fixture. This is the missing regression detector.
+
+**Until D1 and D2 are answered, there is nothing a maker can usefully build here.** That is the
+diagnosis's conclusion and I am not working around it.
