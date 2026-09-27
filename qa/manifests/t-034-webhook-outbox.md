@@ -221,4 +221,20 @@ this repo) is untouched by this unit.
   nothing in the engine sets that source on a `Fact` yet (ISS-t-027-rev-2, pre-existing, unchanged) —
   every `fact.approved` event today carries one of `FactSourceSchema`'s four existing variants.
 
-## Status: ready-for-check
+## Status: checked-PASS
+
+**Close-out (cycle 0).** /checker Mode A full protocol, verdict `qa/verdicts/t-034-webhook-outbox.md`
+(commit 845d281), `Cycle checked: 0` -> **VERDICT: PASS**. The checker re-ran every verify command
+itself (packages/db 247/247, packages/engine 587/587, apps/api 42/42, `pnpm -r typecheck` clean 9/9),
+reviewed the whole diff (base 1e040e5, head fb2811b, 21 files +1207/-32) and reproduced all five
+capability-coverage rows in a throwaway `git archive` copy outside the bound root -- green first,
+then the single-hunk edit, then RED on the exact named assertion, then revert. No FAILURES.
+
+Two ledger changes the checker made, not the maker:
+- ISS-t-034-erasure-webhook-race: severity low -> **medium**. Honestly enumerated in "Open gaps", but
+  undersold: on the auto-delete path it fails silently and can leave Pathlynks permanently unaware a
+  student was erased. Not a written-criterion violation (B21 states the goal, not a delivery-ordering
+  guarantee), so it does not FAIL the unit. The independent data-engineer review rated the same race
+  **high** (ISS-t-034-de-2); the higher of the two stands as the row severity.
+- ISS-t-027-rev-3 (tenant stamping): open -> fixed, evidenced by this unit's passing tests, left
+  short of "verified" because the checker did not revert that specific fix itself.
