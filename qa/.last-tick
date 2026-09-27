@@ -230,3 +230,18 @@
   Hygiene: the maker put its throwaway lever copy at .worktrees/checker-lever-t042c1, inside the
   repo's own worktrees dir, with ISS-045 open about exactly that directory. Verified gone
   (dirs=4 = 3 live units + the stuck t-039, registered=3); flagged to the checker anyway.
+2026-09-27T20:32:34+05:30 ADVANCED · T-042 cycle 1 PASS (dd2050c), merged, closed out. Main: typecheck 9/9 exit 0 ·
+  1236 tests / 1191 pass / 0 fail / 45 skip. ISS-085 closed for BOTH leaks, ISS-090 closed.
+  Checker settled what the unit could not settle about itself: fenced=false is the safe direction
+  and did NOT make the correct carve-out noisy (the pre-existing genuinely-fenced test still records
+  zero alerts); and the test-isolation claim was broader than its evidence -- grepping every
+  isStudentFenced call site found a second options-less caller the comment never mentions
+  (packages/db/src/consent.ts:41, pre-existing T-011/ISS-043), off this path, so a documentation
+  gap not a defect. No other unguarded I/O call in the new code.
+  ISS-091 (new, low): engine concern-classifier.test.ts failed 1/689 in TWO of the checker's full
+  runs, passes 16/16 isolated. My post-merge verify did NOT reproduce it (0 fail monorepo-wide) --
+  consistent with a load-dependent flake, which is exactly why one green run does not close it.
+  Same class as ISS-089, different file. Both now point at T-041's real-HTTP timing margins.
+  ISS-045 worsening: t-042's dir ALSO refused teardown ("Directory not empty") right after merge --
+  4th instance today, and now 2 dirs are stuck (dirs=4 registered=2). The handle-leak is not
+  occasional; it is the normal outcome of merging a worktree whose suite just ran.
