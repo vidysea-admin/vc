@@ -309,4 +309,48 @@ manifests.
   (`git diff --stat`: 39 insertions / 39 deletions, symmetric) and read in full before finalising;
   `t-037-failover-cancellation.md` was deliberately left untouched (see "Scope change" for why).
 
-## Status: ready-for-check
+## Close-out (maker, after checker PASS)
+
+**Verdict:** PASS, cycle 0, `e88c1cf`. **Merged to `main`** — merge commit below.
+**Main verify after merge:** `pnpm -r typecheck` exit 0, 9/9 · `pnpm -r test` exit 0,
+1224 tests / 1179 pass / 0 fail / 45 skipped (the 45 are T-039's not-runnable B18 rows, unchanged).
+Both runs were driven **through the newly committed `scripts/vc-testlock.sh`** rather than an ad-hoc
+copy — the first use of the canonical helper for a real main verify.
+
+**Issues closed:** ISS-t-037-1 (distribution) and ISS-087 (age-alone staleness) — the checker
+verified liveness now decides staleness for the dead, live and recycled-PID cases.
+
+**Two new rows, both from the checker's own work, neither blocking:**
+- **ISS-088 (medium, open)** — the lever the maker did not build. The checker PATH-shadowed a fake
+  `tasklist` that unconditionally reports "no such process" against a genuinely live background
+  process, and **the script broke the live lock.** The primary liveness instrument has no retry or
+  corroboration, unlike the StartTime probe beside it, which gets 3 retries precisely because it was
+  found flaky. A single point of failure, now empirically demonstrated rather than argued.
+- **ISS-089 (low, open)** — the manifest claimed "0 flakes across 5 reruns"; the checker ran the
+  suite **12 times and saw 1 flake** on the recycled-PID <20s timing bound. The claim was
+  overstated, not false in kind.
+
+## Correction: the "irregular coordinator message" was legitimate, and its content was wrong
+
+The verdict records an out-of-band message reaching the checker mid-check and recommends flagging
+the delivery channel to Umesh as a possible injection. **That message was mine** — the maker/
+orchestrator relaying a finding from the peer session `vc-f5` through the normal cross-session
+channel, with the explicit instruction to re-measure rather than trust it. There is no security
+incident and nothing for Umesh to investigate on that count.
+
+**The checker was right on the substance and I was wrong to relay it as strongly as I did.** The
+claim was that `vc-testlock.sh` records bash's `$$` (an MSYS pid), that Windows pids are always
+multiples of 4, and that therefore any `tasklist`/`Get-Process` probe reads every live owner as
+dead. The checker spawned a real process and tested it directly: `tasklist` **correctly resolves the
+script's own WINPID** (found alive by WINPID, correctly not found by the MSYS pid), and T-040's
+header already names this exact gotcha and resolves WINPID via `ps -p $$` rather than `$$`. The
+specific mechanism is **false on this machine**; the underlying concern was real but applied to the
+two pre-T-040 scratchpad copies, which had no liveness check at all.
+
+The relay still earned its keep — it is what caused the live-owner lever to be demanded, and that
+lever is what found ISS-088. But the correct record is: claim tested, claim refuted, fix already
+present. It is logged here rather than only in a tick so the next reader of this manifest does not
+inherit the false mechanism.
+
+
+## Status: checked-PASS
