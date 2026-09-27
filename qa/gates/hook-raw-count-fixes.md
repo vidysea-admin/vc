@@ -16,8 +16,12 @@ Three issues share one root cause and one fix window:
   `ready-for-check` manifest inside a wave worktree is invisible. Measured cost: t-020 sat
   unchecked ~10 hours while the hook reported zero pending.
 - **ISS-084** (medium) — the same hook's open-issue count is raw-line, not latest-row-per-id.
-  Measured today: it reports **262**; the correct distinct-id count is **134**. Roughly 2x
-  overstatement, every session, in the first line an agent reads.
+  Re-measured 2026-09-28 against the current ledger by three instruments written differently
+  (two peer-authored, one here; one deliberately avoiding any JSON library so a parse-side quirk
+  would show as divergence) — **all three agree**: 577 rows, 278 distinct ids, **288 raw
+  `status=="open"` lines vs 137 genuinely open**, inflation **2.10x**, every session, in the
+  first line an agent reads. (An earlier version of this gate said 262 vs 134; those were correct
+  when written and the ledger has since grown. The ratio is what is stable.)
 
 All three are the same bug class: **counting occurrences instead of distinct entities.** The same
 class just cost a full fix cycle on T-043 (ISS-092), so it is not theoretical.
@@ -45,11 +49,12 @@ Found by the peer checker session as ISS-098.
   new direction — see the Scope correction below, which measures exactly that. The D-entry must
   state that **the reported numbers will move** when this lands, or the correction reads as a
   regression to whoever sees it next.
-- **(b) Approve (a), and also ISS-084's raw-count fix.** ISS-084 (the session-start line reporting
-  262 open issues where the distinct-id count is 134) is genuinely separable — it is a different
-  counter in the same file, and it does not interact with the cycle-resolution defects. Costs one
-  more edit in the same pass; the benefit is that the first line every future session reads stops
-  being ~2x wrong.
+- **(b) Approve (a), and also ISS-084's raw-count fix.** ISS-084 (the session-start line
+  reporting 288 open issues where the distinct-id count is 137) is genuinely separable — it is a
+  different counter in the same file, and it does not interact with the cycle-resolution defects.
+  Costs one more edit in the same pass; the benefit is that the first line every future session
+  reads stops being ~2x wrong. **Read the narrowing below before implementing it** — the obvious
+  implementation fixes the visible defect and leaves a worse one.
 - **(c) Not now.** The hooks keep over-reporting open issues and under-reporting pending manifests.
   The measured cost so far: t-020 sat unchecked ~10 hours while the hook printed zero pending, and
   t-010 printed "Checks pending: 0" while sitting at fix cycle 3.
@@ -137,3 +142,42 @@ the previous one. That is not carelessness; it is two facts neither session had 
 do not guarantee position, and this repo is never a single checkout.** A reader that models both is
 correct. A reader that fixes one symptom becomes the next row in the ledger, which is exactly what
 happened four times.
+
+
+---
+
+## Narrowing on ISS-084: entity resolution and merge semantics are two requirements, not one
+
+Added 2026-09-28 after the open count was re-derived by three independently-written instruments,
+which agreed on every figure: 577 rows · 278 ids · 288 raw open lines · **137 genuinely open** ·
+2.10x inflation · open by severity 20 high / 49 medium / 67 low / 1 `low-medium`.
+
+**The trap, stated before the fix is written.** `status` is present on **all 577 rows, none
+missing**. So for `status` alone, last-row-wins and merge-in-order give the *same* answer — both
+137, verified here. A last-row-wins implementation therefore **corrects the 2.10x inflation
+completely** and passes the obvious check.
+
+It is still wrong. **`severity` is omitted on 177 rows**, so last-row-wins silently drops the
+severity of **122 of the 278 ids**, reading them as severity-less. The count comes out right and
+the triage order comes out wrong.
+
+- **Entity resolution** (one row per id) fixes the **count**.
+- **Field-level merge in file order** (later non-null fields win, absent fields inherit) fixes the
+  **triage order**.
+- They are **not the same requirement**, and only the first is visible in the session line.
+
+This is precisely the shape this project has been paying for all night: a fix that looks complete,
+passes the check anyone would run, and leaves the part nobody is measuring broken. **The DECISIONS
+entry for option (b) must state both requirements explicitly**, alongside the existing note that
+the reported numbers will move when this lands.
+
+`scripts/vc-regression-check-conformance.py` already implements the field-level merge correctly
+and is the reference, not a new design.
+
+**This corrects a flat claim made in the queue prose** — "never last-row-wins" was written as an
+unconditional rule and overstates it: for `status` on this ledger, last-row-wins is exactly right.
+The rule holds for `severity` and for any field a row may omit. Corrected in place by the peer
+session rather than appended to, per the ISS-098 lesson.
+
+Found by the peer session (vc-f5) at `8bbba6b`; all figures independently re-derived here with a
+third instrument before being recorded. Still gated on `Approved-by: Umesh`.
