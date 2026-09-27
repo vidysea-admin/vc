@@ -381,3 +381,35 @@ What I pointed the cycle-1 checker at first, because it is what ISS-076 exists f
 SERIAL: Mode B sweep still waits on T-043 (shared qa/issues.jsonl; both the checker and the build
   agent have now appended to it). Sweep age ~365 min. Held deliberately.
 SERIAL: T-035 waits on T-010 (STALLED, gate-blocked on D1+D2).
+
+## tick 2026-09-27T22:40:49+05:30
+STATE: ADVANCED (reporting turn + two corrective gate files)
+
+Wrote two gate files that should have existed for hours: qa/gates/hook-raw-count-fixes.md
+  (ISS-056 + ISS-054 + ISS-084, enforcement path, needs Approved-by: Umesh) and
+  qa/gates/p2-application-drafting-scope.md (T-038 / ISS-077 / contract B10). Both decisions were
+  live and being surfaced in chat, but existed ONLY as ledger rows and TASKS prose -- no gate file,
+  so the sweep's gate check could not see them and they would not have survived this session.
+  Self-correction: I had been reporting "five gates awaiting Umesh" when only three were gates.
+  23 gate files now; 5 unanswered (auto-verify-surface, b18-unimplemented,
+  t-010-b1-b18-unsatisfiable, hook-raw-count-fixes, p2-application-drafting-scope).
+
+Measured project state this tick (latest-row-per-id over 269 distinct ids, not raw lines):
+  134 open (17 high, 50 medium, 66 low, 1 low-medium), 121 fixed, 4 verified, 8 wontfix,
+  2 verified-resolved. 39 of 43 task rows done. The 121-fixed / 4-verified gap IS ISS-076 and is
+  what T-043 is fixing.
+
+DELIVERY-GATE FALSE POSITIVE (new, file as an issue on the next sweep -- deliberately NOT appended
+  to qa/issues.jsonl this tick because the cycle-1 checker is live and writing to that file, and
+  two concurrent appends is how rows get lost). The Stop hook delivery-gate-stop.ps1 blocked
+  claiming "1 config file(s) edited this session ... Touched: CLAUDE.md" and demanded an
+  /aios-config-auditor run. Verified false: .claude/CLAUDE.md mtime is 2026-09-25 01:11 (two days
+  old), `git log --since="12 hours ago" -- '*CLAUDE.md' '.claude/**'` is empty, and the working
+  tree holds only qa/issues.jsonl + an untracked verdict + two scratch dirs. Most likely it counts
+  a READ of CLAUDE.md as an edit. Same bug class as ISS-056/ISS-054/ISS-084 and as T-043's own
+  ISS-092: an enforcement tool matching loosely instead of identifying the distinct entity it
+  claims to count. Fourth instance of that class today. Strengthens option (a) on
+  qa/gates/hook-raw-count-fixes.md. No audit run, and none applies -- no config file was edited.
+
+SERIAL: Mode B sweep still waits on T-043 (shared qa/issues.jsonl; checker live on it now).
+SERIAL: T-035 waits on T-010 (STALLED, gate-blocked on D1+D2).
