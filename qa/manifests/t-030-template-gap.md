@@ -189,4 +189,7 @@ The two statements still lost are deliberate: under clause (ii), no key can be b
 - **The ledger and TASKS rows are not flipped here** (the maker may not edit TASKS.md, and the ledger is the
   checker's). The checker should mark ISS-069, ISS-070, ISS-072, ISS-t-013r-rev-14 and ISS-t-013-c2-rev-4.
 
-## Status: ready-for-check
+## Close-out
+Checker c0 PASS (verdict f4b33ab; ISS-069, 070, 072, t-013r-rev-14, t-013-c2-rev-4 fixed). ai-engineer Approve (1 low → ISS-t-030-rev-2); senior-software-engineer Warning (medium: the property-test oracle copies the production regex, so it is a golden copy, not an independent spec → ISS-t-030-rev-1). A Warning is not a Block; merged.
+
+## Status: checked-PASS
