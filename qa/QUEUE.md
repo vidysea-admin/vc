@@ -56,70 +56,73 @@ gate file and its `docs/DECISIONS.md` entry** — this block is the record, not 
    opens this screen, or it is served off localhost, ISS-052 reverts to a high-severity blocker.
    The checker will re-derive which screens a pilot counsellor actually sees before closing it.
 
-## Top-3 recommended next units (Mode B sweep 2026-09-27T~16:30 IST, sharded consolidation, second sweep of the day)
+## Top-3 recommended next units (refreshed by the checker 2026-09-28T00:10 IST -- Top-3 only; NOT a Mode B sweep, which vc-30 owns and holds behind T-043)
 
-1. **ISS-085 (high, NEW) — B21 `fact.approved` webhook can silently under-report to Pathlynks.**
-   `packages/db/src/facts.ts:1001-1005` read-back after write silently drops any id not found (its
-   own docstring says so); `apps/api/src/server.ts:316-327` emits one event per fact ACTUALLY
-   RETURNED with no count check against what was written, so a read-back miss (replication lag, a
-   concurrent B15 erasure fence, an `applyApprovedDiff` bug) silently shrinks the webhook batch — no
-   log, no error, still 200. A second leak on the same request: `server.ts:609-627` swallows an
-   `outbox.enqueue` throw behind a log line and still returns 200, so the event never reaches the
-   outbox's own retry/dead-letter path. B21 promises the client "keeps its own copy"; today it can
-   silently keep an incomplete one. No gate needed, buildable now.
-2. **ISS-076 (high, still open, WORSENING not shrinking) — regression_check conformance.**
-   Re-derived this sweep: 50 of 120 fixed/verified rows non-conforming (up from 48/116 last sweep;
-   rate flat at ~41.6%). Root cause unchanged: the adapter's 3 whole-monorepo verify commands have no
-   "plus a test-file argument" narrowing convention, while the maker already uses per-package `pnpm
-   --filter @vc/<pkg> test` everywhere — adding that form to `qa/adapter.json` is the fix, and it is
-   also why `verified` (4) has not moved while `fixed` keeps growing (118 now): a `fixed→verified`
-   transition needs the checker to reproduce the regression_check failing-with-fix-reverted, which is
-   structurally blocked for ~42% of rows.
-3. **T-035 (escalation wiring, D-027 scope) — the next build unit, now down to ONE blocker.**
-   T-034 (erasure.ts) landed this window, so `SERIAL: T-035 waits on T-034 + T-010` is half-resolved;
-   T-010 is mid fix-cycle-2 (peer session), so T-035 dispatches the moment T-010 lands, not cold today.
+**Why this block was rewritten rather than annotated:** all three of the previous entries had gone
+false (ISS-085 closed by T-042, ISS-076 now owned by T-043 in its last fix cycle, T-035's stated
+trigger unreachable). Appending a correction under a stale recommendation is ISS-098's defect, so the
+stale text is gone rather than struck-through. Previous block: Mode B sweep 2026-09-27T~16:30 IST.
 
-**Two new HUMAN_GATEs opened this window** (see "Open gates" above) — `auto-verify-surface` and
-`b18-unimplemented` — neither blocks a build unit today, but `b18-unimplemented` in particular
-changes what "P1 is built" means and should not sit unresolved past this pilot's review.
+1. **ISS-076 (high) is OPEN AGAIN and is now the top queue item -- T-043 PASSED but did not close it.**
+   T-043 cycle 2 earned `## VERDICT: PASS (with recorded issues -- not closed)` (verdict line 387,
+   commit `66bad91`, merged `ee95e0c`). Entity-resolved ledger state after that merge: **ISS-076 still
+   `open`/high**, and it now carries four open companions from the same unit -- **ISS-093** (high,
+   ISS-t-013-rev-1's remapped regression_check is still decorative behind a confounded guard),
+   **ISS-094** (low), **ISS-099** (high, NEW -- a third Goodhart species, *coverage-absence*: a
+   regression_check can name a real non-empty test file containing zero coverage of the thing it
+   claims), and **ISS-100** (medium, NEW -- cross-branch ledger copying, cycles 1 and 2 both hand-copied
+   already-committed rows from main into the wave branch). Only ISS-092 closed. So the instrument and
+   the convention now exist, and the *gap they were built to measure is still open* -- which is exactly
+   the ISS-081 risk this unit was warned about, landing as predicted rather than as a surprise.
+   **What a next unit must do differently:** the remaining 58 named-unverified rows need a
+   `fixed->verified` transition that actually reproduces a failure with the fix reverted, and ISS-099
+   means conformance can no longer be judged by the regression_check *string* at all -- the named test
+   file has to be shown to cover the behaviour. Do not re-run the conformance counter and call it
+   progress.
 
-**Not in the top-3, but worth naming why:** `ISS-t-037-1` (escalated low→high this sweep — two
-divergent, uncommitted `vc-testlock.sh` copies made verify non-reproducible across ~11 manifests) is
-already being fixed in flight by **T-040** (open, independent, currently building `scripts/vc-testlock.sh`
-+ `scripts/vc-testlock.test.sh`); no need to re-queue it. `ISS-084` (medium, metric-inflated — three
-tools in this enforcement path count raw occurrences instead of latest-state-per-entity: the
-session-start hook's open-issue count 243-vs-123-real, `data_boundary.py`'s cross-worktree file
-duplication, and ISS-056's any-Status-match) and `ISS-087` (medium, lock helper has no owner-PID
-liveness check) both route through the SAME pending `Approved-by: Umesh` gate as ISS-054/ISS-056 —
-already asked, not yet answered — so none of the three displace the top-3 above.
+2. **ISS-085 is CLOSED -- do not build it.** T-042 merged with checker PASS c1 `dd2050c`, closing both
+   leaks (the silent read-back shrink and the swallowed `outbox.enqueue` throw) plus ISS-090. It was
+   #1 in the previous block and would have been rebuilt by anyone reading top-down. Genuine residue,
+   not yet queued as a unit: **no replay/drain worker exists for T-042's new gap ledger**, the same
+   relationship T-034's outbox has to its drain worker. That, not ISS-085, is the next B21 increment.
+3. **T-035 (escalation wiring, D-027) -- its stated trigger can no longer fire.** The previous block
+   said "dispatch the moment T-010 lands". T-010 is **STALLED** (3 of 3 fix cycles used, TASKS.md:20)
+   and blocked on gate `qa/gates/t-010-b1-b18-unsatisfiable.md` **D1+D2, which only Umesh can answer**.
+   So T-035 is gated on a human decision, not on a build finishing, and a maker waiting for T-010 to
+   "land" waits forever. Two ways forward, both needing the gate first: answer D1 (re-scope T-010 vs a
+   successor unit) and T-035's `apps/api/server.ts` overlap resolves, or split T-035's non-overlapping
+   half (`packages/db` collections, erasure plan, scanner per ISS-t-012-rev-1) and build that now.
 
-`ISS-t-012-rev-4` (crisis-guard held-out recall 10/28) stays the **tracked pilot blocker per Umesh's
-own 2026-09-27 instruction** — open/high, no unit queued, further action deferred to later at his
-explicit direction. B8 (data boundary): **re-verified clean in substance this sweep** — the instrument
-completed cleanly (52 raw VIOLATION lines, but only 9 distinct root files, all already-accepted staff
-emails or the `pass@eu.cloud.langfuse.com` test-name false-positive; see ISS-045's reopen for why it's
-reopened anyway — a crash-class risk, not a breach). New this sweep: ISS-082/ISS-083 (fixed —
-inbox-fold gaps closed into contract B2), ISS-084/ISS-085/ISS-086(fixed)/ISS-087 (new), ISS-045
-(reopened, corrected), ISS-054/ISS-056/ISS-076/ISS-081/ISS-t-037-1 (updated).
+**Genuinely unblocked and buildable today, if a maker needs work that waits on nobody:**
+`ISS-t-034-concern-hook` (low, wire `buildConcernFlaggedEvent` from `recordSessionConcerns` -- T-012
+merged, so the deferral reason is gone) and the T-042 gap-ledger drain worker above.
 
-D-021 (B21+B22) remains confirmed present in `docs/DECISIONS.md:210`, status ACTIVE. B19+B17
-groundwork remains confirmed present (10 personas, 58 scenario rows ≥50). Both re-checked and
-unchanged this sweep.
+**Closed since the previous block, so none of these are queue candidates:** ISS-085 + ISS-090 (T-042),
+ISS-t-037-1 + ISS-087 (T-040, PASS `e88c1cf`), ISS-t-037-2 (T-041, PASS `90394c2`), ISS-t-013r-rev-14
+(T-030's closed `COUNTRY_CONNECTOR`), ISS-086, ISS-098 (both gate instances).
+
+**Still gated on Umesh, unchanged and not re-litigated here:** the hook-reader fix
+(`hook-raw-count-fixes`, options corrected at `4963b0b` and now safe to answer), T-010's D1-D4,
+ISS-052 (`apps/web` vs a Pathlynks UI for the 5-counsellor pilot), and feedback-inbox Q1/Q2/Q5
+(country-vocabulary membership + exam scope, deliberately left unresolved by the B2 amendment).
+
 
 ## TODO (maker)
 
-- [ ] IN FLIGHT · T-010: cycle-1 code `f753e17` on `.worktrees/t-010-live-cards`, manifest ready-for-check c1 (cycle-1 FAIL per the maker's own tick, c2 now dispatched to opus — leak moved, not closed: 25/28 hostile rows still leak on `<=6-word` hatch / comma-anchored `SUBJECT_AUX_INVERSION` / a Devanagari rule (c) gap). Senior review Approve → ISS-t-010-rev-1..4 (rev-4 medium, see ISS-081, now IMPROVING). Do not duplicate; peer session live.
+- [ ] GATED · T-010: **STALLED** 2026-09-27 (TASKS.md:20) — 3 of 3 fix cycles used, c3 verdict `fb5959c`, B1+B18 still open. Diagnosis `qa/debug/t-010-live-cards-cycle3.md`: **loop design, not execution** — maker 2/67 vs checker 26/41 fresh-row leaks on the same commit, i.e. no convergent measurement. Branch kept unmerged and NOT reverted. Blocked on gate `qa/gates/t-010-b1-b18-unsatisfiable.md` **D1-D4 (D1+D2 decisive)** — that gate's authoritative answer surface is D1-D4, not its letter options (fixed `999fc49`). **No maker work here until Umesh answers.** Previously listed as in-flight cycle 1; corrected in place.
 - [x] DONE · T-034: B21 webhook outbox merged (`d80c2a5` lineage, checker Mode A c0 PASS `845d281`); fact-approved + erasure-requested emission wired. concern.flagged emission remains a scoped-out TODO, tracked as `ISS-t-034-concern-hook` (open, now unblocked since T-012 merged) — was previously listed as "B21 webhooks emission hooks", corrected here.
 - [x] DONE · T-036: independent blind auto-verify oracle merged (`d80c2a5`, checker Mode A c1 PASS `f4f0a7c` after a c0 FAIL); closed ISS-t-030-rev-1 (see ISS-081 update) and ISS-t-036-1; opened ISS-t-036-2/-3 and surfaced the 8 Q1-Q8 contract questions (Q3/Q4/Q6/Q7/Q8 folded this sweep as ISS-082/ISS-083; Q1/Q2/Q5 held on `qa/gates/auto-verify-surface.md`).
-- [ ] IN FLIGHT · T-039: B18 suppression-outcome test, built + PASS+merge per the maker's latest tick, fix cycle 1 dispatched; independently confirmed the `b18-unimplemented` gate finding (commit `0223812`).
-- [ ] IN FLIGHT · T-040: committing the canonical `scripts/vc-testlock.sh` (+ `scripts/vc-testlock.test.sh`, both currently untracked in the worktree) — fixes ISS-t-037-1 (escalated to high this sweep, see ledger). Checker should also apply the ISS-087 falsification (dead-PID owner file, assert fast recovery) before PASSing.
-- [ ] IN FLIGHT · T-041: concern-classifier abort-on-timeout fix (mirrors T-037's `raceDeadline` pattern, ISS-t-037-2), built `1c1b5e6`, checker Mode A c0 dispatched same turn.
-- [ ] TODO · T-035: escalation wiring per D-027 (see Top-3 #3) — down to ONE blocker now (T-034 landed); dispatch the moment T-010 lands.
-- [ ] TODO · ISS-085 (high, NEW — see Top-3 #1): B21 fact.approved webhook silent partial fact-loss + swallowed enqueue failure. No gate, buildable now.
-- [ ] TODO · ISS-076 (high, still open, worsening not shrinking — see Top-3 #2): tighten/reformat the 50 non-conforming `regression_check` values; adopt a `pnpm --filter @vc/<pkg> test` adapter amendment so a real narrowing convention exists.
+- [x] DONE · T-039: B18 suppression-outcome test — checker PASS c0 `e418f4f` + c1 `a5b2c2e`, merged `09647ae`, main 1224/1179/0 fail/45 skip. Independently confirmed the `b18-unimplemented` gate finding. Open follow-ups: ISS-t-039-1 (B18 unimplemented, gated), ISS-t-039-4 (proof clause not satisfied), ISS-t-039-5 (43 live-card rows wait on T-010).
+- [x] DONE · T-040: canonical `scripts/vc-testlock.sh` committed — checker PASS `e88c1cf`, merged, main 1224/1179/0 fail. Closes ISS-t-037-1 **and ISS-087** (the dead-PID falsification this row asked for was applied). New: ISS-088 (medium — no redundancy on the primary liveness probe; a shadowed `tasklist` reporting "no such process" DID break a live lock), ISS-089 (low — 1 flake in 12 runs where the manifest claimed 0 in 5).
+- [x] DONE · T-041: concern-classifier abort-on-timeout — checker PASS c0 `90394c2`, merged `f052b6c`, main 1165/1165 green (+3). Closes ISS-t-037-2. Follow-ups: ISS-t-041-1 (test flakes at a 50 ms margin under load), ISS-t-041-2 (no observability on this crisis-adjacent path).
+- [x] DONE · T-043: regression_check conformance — checker **PASS c2 `66bad91`** (`## VERDICT: PASS (with recorded issues — not closed)`), merged `ee95e0c`; the merge duplicated 5 byte-identical ledger lines, deduped at `e95c204`. Closed ISS-092 only. **Left open: ISS-076 (high, see Top-3 #1), ISS-093 (high), ISS-094 (low), and two new — ISS-099 (high, coverage-absence Goodhart species) + ISS-100 (medium, cross-branch ledger copying).** No cycle 3 was needed; the STALLED/debugger path did not trigger.
+- [x] DONE · T-042: B21 webhook fact-loss — checker PASS c1 `dd2050c`, merged, main 1236/1191/0 fail/45 skip. Closes **ISS-085** (both leaks) + ISS-090. Residue not yet a unit: no replay/drain worker for the new gap ledger (see Top-3 #2); ISS-091 (low, engine test flake under load).
+- [ ] GATED · T-035: escalation wiring per D-027 (see Top-3 #3) — **its stated trigger can no longer fire.** This row previously read "dispatch the moment T-010 lands"; T-010 is STALLED and gated on `t-010-b1-b18-unsatisfiable` D1+D2, so the wait is on a human decision, not on a build. Either answer D1 and the `apps/api/server.ts` overlap resolves, or split off the non-overlapping `packages/db` half (ISS-t-012-rev-1: register `escalation_notifications` + `crisis_flag_reviews` in COLLECTION_NAMES, INDEX_PLAN tenant-led, T-029 erasure plan, D-016 scanner) and build that now.
+- [x] DONE · ISS-085 (was high): B21 `fact.approved` silent partial fact-loss + swallowed enqueue failure — **both leaks closed by T-042**, checker PASS c1 `dd2050c`. Do not rebuild; see Top-3 #2 for the one genuine residue (no drain worker for the gap ledger).
+- [ ] TODO · ISS-076 (high, OPEN after T-043's PASS — see Top-3 #1): the `verify.narrowing` adapter convention and `scripts/vc-regression-check-conformance.py` now exist, but the gap is not closed — 58 rows remain named-unverified and **ISS-099 changes the bar**: a regression_check that names a real non-empty test file containing zero coverage of the claimed behaviour still counts as conforming to the string check, so conformance can no longer be judged from the value alone. A next unit must demonstrate real `fixed->verified` transitions, not a higher conformance count. Companions: ISS-093 (high), ISS-094 (low), ISS-100 (medium).
 - [x] DONE · ISS-077 (O4/O8 build rows): both outcomes are now tracked — **T-038** (open, blocked on a scope answer from Umesh, O4/B10 draft-only application filler) and **T-039** (in flight, above, O8/B18 outcome test). No longer "zero tracking"; the row this TODO pointed at is resolved. ISS-077 itself stays open in the ledger until both units close.
-- [ ] TODO · ISS-056 residual (medium, enforcement path, gated, scope broadened this sweep to include `mc-precommit.ps1:5`): three readers (`mc-sessionstart.ps1:19`, `mc-precommit.ps1:5`, `delivery-gate-stop.ps1`) take any `Status:` line match instead of the LAST one. Needs a DECISIONS entry with `Approved-by: Umesh` before any is edited — already asked, awaiting an answer.
-- [ ] TODO · ISS-084 (medium, NEW): `.claude/hooks/mc-sessionstart.ps1:8`'s open-issue count is raw-line (243) not latest-row-per-id (127) — ~2x overstatement, same "count occurrences not distinct entities" root cause as ISS-056. Same gate as ISS-056/ISS-054, bundle the fix with them.
+- [ ] GATED · ISS-056 residual (medium, enforcement path): three readers (`mc-sessionstart.ps1:19`, `mc-precommit.ps1:5`, `delivery-gate-stop.ps1`) take ANY `Status:` match instead of the LAST one. **Must land together with ISS-054 and ISS-095** — the two defects currently CANCEL (t-010 sat at Fix cycle 3 while the session line printed `Checks pending: 0`), so a partial fix makes the count wrong in a new direction and will read as a regression unless the DECISIONS entry says so. ISS-095 carries the full five-condition reader contract (prefix-tolerant · MAX not positional · search every worktree · max across copies · prefer root). Needs `Approved-by: Umesh` **before** any edit (F1; a relay was tried on 2026-09-27 and correctly refused).
+- [ ] GATED · ISS-084 (medium): `.claude/hooks/mc-sessionstart.ps1`'s open-issue count is raw-line, not latest-row-per-id. **Counts re-measured at the byte level 2026-09-28T00:15, and every earlier figure in this file was stale — 243-vs-127 and 262-vs-134 are both superseded:** the ledger holds **578 records / 277 distinct ids**, of which a raw `status==open` line count gives **284** against **138** genuinely open ids (2.06x). Resolve state by MERGING all rows per id in order, never last-row-wins: **388 of the 578 rows are partial** (no `title`/`evidence` — updates carrying only changed fields) and **179 carry no `severity` at all**, so last-row-wins silently drops the severity of **122 ids** — the field triage orders by. Measured, not carried forward; the previously circulated 322-of-452 figure is also stale. The inflated count is what every session reads in its first line. Same count-occurrences-not-entities root cause as ISS-056. Bundled with ISS-054 + ISS-056 + **ISS-095** on gate `hook-raw-count-fixes`, whose options were corrected at `4963b0b` and are now safe to answer; ISS-084 is the one member that genuinely separates (different counter, no interaction with cycle resolution).
 - [ ] TODO · ISS-t-025-rev-2 (low): concern_flagged edges reach the API only through the admin-only export route; no counsellor-facing cards/timeline route exists yet (owner: T-010 or a later API unit).
 - [ ] TODO · ISS-t-034-concern-hook (low, now unblocked): wire `buildConcernFlaggedEvent` from `recordSessionConcerns` — was deliberately deferred until T-012 merged (it has, per TASKS.md); safe to build now, no race with T-012 remaining.
 - [ ] TODO · B15 erasure approver workflow follow-ups: ISS-t-029-rev-1 (pending-erasure TTL), ISS-t-029-rev-2 (legacy failed-row re-approval before live cutover).
