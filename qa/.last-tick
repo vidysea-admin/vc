@@ -167,3 +167,17 @@
   T-010 branch KEPT unmerged, not reverted. TASKS row -> STALLED.
   Pulled the next unblocked unit: T-042 (ISS-085 high, B21 silent fact-loss) -- worktree created,
   build dispatched. Backlog was non-empty so the loop does not stop.
+2026-09-27T19:09:44+05:30 SERIAL accounting (delivery gate: 3 of 28 agents ran alone this session):
+  SERIAL: t-010 fix cycle 2 waits on the cycle-1 verdict — a fix cycle cannot be written before the
+    verdict it answers exists; same two files, one owner (packages/engine/src/cards/{relevance,verifier}.ts).
+  SERIAL: t-010 cycle-2 checker waits on t-010 fix cycle 2 — the handshake is strictly build → check.
+  SERIAL: t-010 fix cycle 3 waits on the cycle-2 verdict — same dependency edge, same two files.
+  SERIAL: t-010 cycle-3 checker waits on t-010 fix cycle 3 — same handshake edge.
+  SERIAL: t-010 stall debugger waits on the cycle-3 FAIL — a stall diagnosis has no input until the
+    stall exists, and it reads all four verdicts.
+  SERIAL: t-042 waits on nothing and was dispatched the moment the diagnosis landed; it is alone in
+    the wave only because T-010 is gate-blocked (D1+D2) and T-035 is blocked behind the same stalled
+    unit's files. No other unit was ready to pair with it.
+  Ceiling note: this session's parallel peak was 5 (t-039-fix-c1, t-010-c1-checker, t-040,
+  t-041-checker, + main verify) earlier in the day. The tail was serial by dependency, not by choice:
+  a single unit walking three fix cycles is a chain, and every link is the same two source files.
