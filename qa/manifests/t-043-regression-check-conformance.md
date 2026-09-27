@@ -666,4 +666,16 @@ again just before commit) never showed an uncommitted change to `packages/schema
 `packages/db/tests/fakes.ts`, `packages/db/scripts/db-init.ts`, or `packages/db/src/erasure.ts` after
 each restore step above.
 
-## Status: ready-for-check
+## Status: checked-PASS
+
+**Cycle checked:** 2 · verdict `qa/verdicts/t-043-regression-check-conformance.md` (commit `66bad91`)
+**Verdict:** PASS (with recorded issues — not closed). Closed out 2026-09-28T00:18:35+05:30.
+**Merged:** `ee95e0c` (--no-ff from `wave/t-043-regression-check-conformance`).
+**Merge gate ISS-100 satisfied:** 5 byte-identical ledger lines (ISS-092, ISS-093, ISS-094, two
+ISS-076 update rows) deduped at `e95c204`; 578 -> 573 rows, all parse.
+**Main verify after merge:** `pnpm -r typecheck` 9/9 Done, 0 errors · `bash scripts/vc-testlock.sh
+pnpm -r test` **1237 tests / 1192 pass / 0 fail / 45 skipped** · `bash
+scripts/vc-regression-check-conformance.test.sh` **52 passed, 0 failed**.
+**Left open by this PASS, deliberately:** ISS-076 stays open/high — only ISS-092 closed. ISS-093,
+ISS-094, ISS-099 (coverage-absence species), ISS-100 are open. A successor unit owns the 58
+content-unverified remapped rows and a shape for repo-level shell test scripts.
