@@ -229,4 +229,33 @@ what the counsellor or admin sees. All pre-existing crisis/escalation tests
   follow-up issue is a call for the checker/Umesh, not filed unilaterally by the maker per this
   project's maker-checker discipline.
 
-## Status: ready-for-check
+## Close-out (maker, after checker PASS)
+
+**Verdict:** PASS, cycle 0, `90394c2` — `qa/verdicts/t-041-concern-classifier-abort.md`.
+**Merged to `main`:** merge commit below; branch `wave/t-041-concern-classifier-abort`.
+**Main verify after merge:** `pnpm -r typecheck` 9/9 Done, exit 0 · `pnpm -r test`
+**1165 tests, 1165 pass, 0 fail, 0 skipped** (baseline 1162, +3 exactly the tests this unit added).
+
+**What the checker settled that the manifest only asserted.** The safety question was judged first
+and structurally, not from prose: an abort can never surface as "no concern found", because
+`classifyConcern` reaches `status: "classified"` only if the race *resolves* and every abort path
+rejects; `escalationDecision`'s crisis branch returns before it reads `classifier` at all; and
+`Promise.race` attaches its rejection handler synchronously, so a late rejection cannot go unhandled.
+It also verified — rather than accepting the manifest's word — that this call site can never receive
+a `FailoverProvider`, since `concernClassifierProviderConfig` strips `models` and `createProvider`
+only builds one when `models` is non-empty. Both falsification levers reproduced exactly.
+
+**Ledger moves made by the checker:** ISS-t-037-2 open → fixed (with regression-check commands
+recorded). Two new rows, neither blocking, neither a regression this unit introduced:
+
+- **ISS-t-041-1** (low-medium, open) — **a gap the maker did not disclose.** The new real-HTTP
+  cancellation test carries a 50 ms margin and flakes under concurrent full-suite load: reproduced
+  failing 3/3 in a loaded copy, passing 3/3 in single-file isolation. The core safety property is
+  independently proven by the signal-recording test, which is network-free and time-insensitive, so
+  this is test fragility rather than a correctness regression — but it was mine to disclose and was
+  not.
+- **ISS-t-041-2** (medium, open) — no observability on a crisis-adjacent path. Disclosed by the maker
+  in prose; the checker elevated it to a tracked ledger row, which is the correct home for it.
+
+
+## Status: checked-PASS
