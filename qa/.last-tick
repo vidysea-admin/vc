@@ -73,3 +73,8 @@
   Checker briefed to attack requestsValueOf's 70-char window and to write FRESH hostile rows: the
   maker has now tuned against chk-attack*.mts across two cycles, so their passing is weak evidence.
   Cycle 3 is the last before STALLED.
+2026-09-27T17:32:12+05:30 noop · T-040 checker stopped with its OWN background work still pending -- no verdict yet, not
+  a stall: the shared lock is absent (free), so it is not blocked on lock contention. Waiting.
+  ISS-045 retry: t-039 dir still "Device or resource busy" (registered=3 dirs=4). Third instance
+  unchanged; will retry next tick.
+  Nothing dispatched this tick.
