@@ -371,3 +371,268 @@ existence-only (cycle 0's note, untouched, still accurate). Only `/checker` can 
 All three appended to `D:/vc/qa/issues.jsonl` (main tree), additions-only, confirmed via
 `git diff --numstat` (5 insertions, 0 deletions for this cycle's own appends on top of the
 already-uncommitted cycle-0 appends).
+
+---
+
+# FIX CYCLE 2
+
+**Cycle checked:** 2
+**Date:** 2026-09-28 (checker run started 2026-09-27T23:40 IST, spanned midnight)
+**Branch/commit:** wave/t-043-regression-check-conformance, fix-cycle-2 commit `81436bd` (on top of
+cycle-1's `15ef1ab`)
+**Checker:** fresh-context, Mode A unit check, D:\vc, worktree
+`D:\vc\.worktrees\t-043-regression-check-conformance` (independent of the cycle-0 and cycle-1
+checker sessions)
+
+## VERDICT: PASS (with recorded issues — not closed)
+
+This is the last permitted fix cycle. Both of cycle 1's FAIL reasons (ISS-093, ISS-094) are
+genuinely fixed, independently reproduced by me from scratch, not taken on the manifest's word. This
+cycle also surfaced two new, real findings on its own initiative (a third Goodhart species on a
+pre-existing row, and a merge-hazard that has gone from theoretical to actual since cycle 1) — both
+are disclosed honestly in the manifest or found by my own further digging, neither is something this
+cycle claimed to have fixed, and neither undermines the two specific defects this cycle was
+dispatched to close. Per the brief's own instruction not to FAIL on something a PASS-with-recorded-
+issue handles better: I am passing this unit, filing **ISS-099** and **ISS-100** as new open issues,
+and requiring **ISS-100's dedup as a mandatory pre-merge step** (not a reason to stall the whole
+unit). ISS-076 remains **open**, narrower than before.
+
+## 1. ISS-093 — my own revert-and-restore, and the structural-unreachability claim checked against the code
+
+Reproduced independently, not copied from the manifest. Baseline: `npx tsx --test
+packages/engine/tests/scribe-citation-rescope.test.ts` → 43/43 (2026-09-27T23:40:05+05:30). Edited
+`containsNumberToken` (nodes.ts:816-821) to a plain
+`normaliseVerbatim(rawText).toLowerCase().includes(String(value))` substring match. Re-ran →
+**42/43, 1 named failure**: `containsNumberToken: a value embedded inside a LARGER digit run is
+never a whole-token match (ISS-093 direct unit proof, e.g. 15 inside 115)` (23:40:45). Confirmed the
+*original* confounded test (`auto-verify NEGATIVE: ... e.g. 15 inside 115`, line 158) stayed green
+throughout — exactly the manifest's claim that this test is confounded by `noFirstPerson`, not a
+proof of the boundary property. Also ran `scribe-auto-verify-property.test.ts` on the reverted code:
+9/9 green, matching the manifest's claim that the whole property suite is blind to this revert too.
+Restored (23:42:13) → 43/43, `git diff --stat` empty.
+
+I then read `packages/engine/src/scribe/nodes.ts` myself (not just the comment block) to check
+whether "a fixture-only fix was structurally impossible" is a real structural fact or a
+rationalisation for the easier route. It is real: `declaredKeysForClause` (line 757) requires
+`m.groups.n === String(value)` **exactly** (line 762) before a template's keys are added to the
+matched set, and `assessFactForReview`'s auto-verify branch (line 954) requires **both**
+`containsNumberToken`'s `matched` **and** `guards.length === 0` (which folds in
+`matchesAllowedTemplate`'s verdict, i.e. the template equality check) before it will return
+`needsReview: false`. Since the template's NUM slot is an anchored, exact digit-run equality on the
+same normalised clause, any string for which that equality holds is *by construction* also a
+substring match — so `containsNumberToken`'s stricter token-boundary check can never be the
+differentiator between a correct and an incorrect outcome through the public `verifyCandidateFact`
+path, for any currently-declared numeric key (`budget_inr_per_year` and the score-exam family). This
+is a genuine, checkable structural fact, not spin: the direct unit test on the exported function is
+the only way left to keep this boundary property honestly regression-tested. **ISS-093: confirmed
+fixed.**
+
+**Does anything now catch a containsNumberToken regression through the real verification path?** No
+— by the same structural argument, nothing can, for any key this codebase currently declares. That is
+not a gap in this fix; it is a fact about the codebase's current template design (every declared
+numeric key is guarded by an independent, stricter equality check upstream of this function). If a
+future numeric key is ever declared *without* an anchored exact-equality template, this boundary
+property would become reachable again through the public path, and would need a fixture proving it
+there too — worth a one-line note in the export's comment for the next person who adds a numeric key,
+not a blocker here.
+
+## 2. ISS-094 — reproduced
+
+`bash scripts/vc-regression-check-conformance.test.sh` (own run) → **52 passed, 0 failed**, including
+Test 24 exactly as described: a content-free `.test.ts` fixture is rejected by the static checker
+(naming ISS-094) while `node:test` itself silently reports it as "1 test, 1 pass". **ISS-094:
+confirmed fixed.**
+
+## 3. Species 3 (`ISS-t-013-c2-rev-3`) — my ruling
+
+Confirmed independently: `grep -n -i "five six lakh|600000|CASE3b|approximate range|adjacent
+bare-number" packages/engine/tests/scribe-citation-rescope.test.ts` over the full 957-line file
+returns **zero matches**. No test anywhere in this row's own `regression_check` file exercises the
+scenario the row's title names. This is a real, third species, distinct from both ISS-092 (inert
+shape) and ISS-093 (confounded assertion): a **coverage-absence** row, where the static conformance
+check and ISS-094's own `has_real_test_declaration()` both pass it, because both only check that the
+*file* has real tests somewhere, never that any of them relate to *this row's own claim*.
+
+**Ruling, as the brief asked for explicitly:** by the same reasoning that retired `repo-file-arg` and
+fixed `ISS-093`, this row's regression_check does **not** prove the property ISS-076 exists for, and
+may **not** honestly be counted "regression-safe conforming" even though the instrument correctly
+reports it shape-conforming. The instrument has a genuine third blind spot it does not model — filed
+as **ISS-099**.
+
+**Does this block PASS?** No, and I want to be precise about why not, since the brief calls this the
+core judgment of the cycle. `ISS-t-013-c2-rev-3` is a **pre-existing** row (from before T-043 even
+started — it dates to a "T-013 c2 ai-engineer review" long predating this unit); this cycle's own
+assigned scope, per its manifest and per cycle 1's FAIL, was ISS-093 and ISS-094, both of which are
+genuinely fixed. Cycle 2 found this row **through its own voluntary due diligence** (a systematic
+8-row sample it was not strictly required to run at all — the brief only required fixing 093/094),
+and the manifest **reports it plainly as FAIL-but-not-fixed**, names it as a successor unit, and does
+not fold it into any "100%" claim. That is exactly the honest-disclosure behaviour a maker-checker
+loop should reward, not punish with a FAIL that sends a genuinely-fixed pair of defects to STALLED
+over a pre-existing row the cycle was never asked to fix and did not hide. The right instrument is a
+PASS with the gap named and ledgered (ISS-099), not a FAIL.
+
+## 4. The sample rule — re-derived from scratch, and 2 independent re-reverts
+
+Re-extracted the 69 remapped ids myself, independently of the manifest's own numbers: `git diff
+3f3d6ae 15ef1ab -- qa/issues.jsonl` shows 73 new lines; removing the 2 ids that are checker-status
+rows rather than remapped test rows (`ISS-092`, `ISS-076`, each appearing twice — once copied from
+main, once as a new cycle-1 status update) leaves exactly **69**, in the diff's own order. Removing
+the checker's own 3 cycle-1-tested ids (`ISS-009`, `ISS-t-020-c0-1`, `ISS-t-013-rev-1`) leaves **66**.
+Taking `remaining[3::8]` in Python gives:
+
+```
+['ISS-010', 'ISS-019', 'ISS-027', 'ISS-t-007-rev-1', 'ISS-t-011-rev-1', 'ISS-t-011-c2-rev-1',
+ 'ISS-t-013-c2-rev-3', 'ISS-t-008-c0-1']
+```
+
+**Exactly the 8 ids the manifest reports, in the exact same order.** The sample rule is genuine —
+stated before selection, not reverse-engineered from a clean-looking result.
+
+Independently re-ran revert-and-restore on 2 of the 8, chosen because the manifest did **not**
+emphasise them (it singled out `ISS-t-008-c0-1` and `ISS-t-013-c2-rev-3` for extra discussion; I
+picked the other two least-discussed ones):
+
+- **ISS-027** (`packages/db/scripts/db-init.ts`, `INDEX_PLAN`'s 5 plain `studentId` entries →
+  regression_check `packages/db/tests/db-init.test.ts`). Baseline 25/25 (23:46:22). Removed 4 of the
+  5 plain-`studentId` entries (kept only `consents_studentId`). Re-ran → **24/25, 1 named failure**:
+  `ISS-027: every studentId-bearing collection has a plain (non-partial, non-unique) index led by
+  studentId`, with the assertion naming exactly `"facts"` as the missing collection (23:47:21).
+  Restored → 25/25 (23:47:46), `git diff --stat` empty. **PASS, exactly as claimed.**
+- **ISS-t-011-c2-rev-1** (`packages/db/src/erasure.ts`, `fenceReleaseTime`'s
+  `created + MINIMUM_FENCE_HOLD_MS` floor → regression_check `packages/db/tests/erasure.test.ts`).
+  Baseline 68/68 (23:48:11). Dropped the floor term (`Math.max(completed + Math.max(0, graceMs),
+  priorRelease(fence))` only). Re-ran → **64/68, 4 named failures**, including exactly
+  `D-016 KEY PROBE (ISS-t-011-c2-1): a real writer paused before its insert and released only AFTER
+  completion AND the fence-release call is still fenced -> compensated, zero residue; the sweep
+  removes the fence only after the hold` (23:48:35). Restored → 68/68 (23:49:17), `git diff --stat`
+  empty. **PASS, exactly as claimed.**
+
+Both of my own reverts match the manifest's reported outcome exactly, including the specific named
+failing assertions. Combined with the manifest's own 8 and the checker's earlier 3, this cycle's
+sample now stands at **11 real revert-and-restore results, independently corroborated for 4 of them
+(2 by cycle-1's checker, 2 by me) — none contradicted my own re-check.**
+
+## 5. The heuristic — reproduced, and one undisclosed blind spot found
+
+`bash scripts/vc-confounded-guard-heuristic.test.sh` (own run) → self-test **4/4 passed**. Real-repo
+run (own run): `python3 scripts/vc-confounded-guard-heuristic.py packages/engine/tests/` → **7
+candidates, all in `scribe-citation-rescope.test.ts`** (lines 140, 181, 211, 221, 229, 239, 258), **0
+elsewhere** — matches the manifest exactly.
+
+Checked the docstring's stated blind spots against the tool, per the brief's instruction to confirm
+they are "real and complete." Three of the four stated ones are accurate on inspection. But I found
+**one real blind spot the docstring does not name**: `scribe-auto-verify-property.test.ts` calls
+`verifyCandidateFact` only through a local `run()` wrapper (line 377), never directly inside a
+`test(...)` body — so `CALLS_TARGET_RE` never matches inside that file's test blocks, and the tool's
+"0 elsewhere" finding for this file means **"invisible to the tool,"** not **"confirmed
+well-formed."** By direct inspection, most of that file's `needsReview: true` assertions do pin a
+specific reason immediately (e.g. `assert.deepEqual([r.needsReview, r.reasons], [true, [...]])`), but
+at least one bare assertion (line 655, `assert.equal(run(...).needsReview, true)`, no reason pinned)
+does not — and the heuristic cannot see it either way, because of the wrapper indirection, not
+because it correctly judged the assertion well-formed. This is **low severity**: the tool is
+explicitly advisory-only (`Exit code: always 0`), not a merge gate, and the one unpinned assertion
+sits alongside many pinned ones checking the same probes, so it is not evidence of an active defect —
+but the docstring's "what it cannot catch" list should name test-helper indirection as a real
+limitation, since it is exactly the kind of local convention (like the `reviewReasons` convention it
+already keys on) this codebase actually uses. Not filed as a separate issue — folded into ISS-099's
+"successor unit" note (heuristic scope) rather than opening a fourth ledger row for a documentation
+gap in an advisory-only tool.
+
+## 6. The +1 test count — confirmed fully attributable
+
+`git diff 15ef1ab 81436bd --stat` touches exactly 2 files in `packages/engine`:
+`src/scribe/nodes.ts` (19 lines, the export + comment) and
+`tests/scribe-citation-rescope.test.ts` (35 lines). `git diff ... | grep -c '^\+test('` → exactly
+**1** new `test(...)` block added. Ran the full suite twice via `vc-testlock.sh` (own runs,
+2026-09-27T23:53 and again as part of this review): both times **1237 tests / 1192 pass / 0 fail / 45
+skipped**, `packages/engine` moving from 689→690 / 644→645, every other package's count unchanged, no
+flake of the ISS-089/ISS-091 class in either run. Matches the claimed delta exactly, both times.
+
+## 7. Cross-branch ledger copying — byte-identical, but the merge-hazard check now FAILS against current main
+
+Confirmed byte-identical: the branch's `ISS-093` and `ISS-094` lines are byte-for-byte identical to
+main's own committed copies (`diff` on extracted lines, empty). Internal append-only holds: 551
+lines, all valid JSON (own parse check), `ISS-093`/`ISS-094` each appear exactly once in the branch's
+own file, `ISS-092` appears twice (its original + status-update rows, both legitimate, not a
+duplication artifact), `ISS-095`/`ISS-096` (unrelated, main-only) are correctly absent from the
+branch.
+
+**But re-running the merge-hazard check against CURRENT main, as the brief specifically asked,
+changes the answer from cycle 1's.** Cycle 1's checker ran `git merge-tree --write-tree 4130d0b
+wave/t-043-regression-check-conformance` and found zero duplication. I ran the equivalent check
+against current main (`HEAD` `24dc6b0` at review time): `git merge-tree --write-tree 24dc6b0
+wave/t-043-regression-check-conformance` still resolves with **no conflict markers** — but the
+resulting tree's `qa/issues.jsonl` (575 lines, all valid JSON, own check) contains the `ISS-093` line
+**twice** (positions 462 and 573, byte-identical) and the `ISS-094` line **twice** (positions 463 and
+574, byte-identical). Root cause: the branch/main common ancestor (`e4bfa5b`) predates both main's own
+addition of these lines (by the checker, directly to main) and the branch's later hand-copy of them
+(by the maker, in cycle 1 and reconciled again in cycle 2) — git's line-based 3-way merge cannot
+recognise two independent same-content insertions as one, so it silently keeps both. This is exactly
+the fragility cycle 1's checker flagged as "worth a process note, not a blocker" — now materialised
+into an actual hazard because main moved. **Filed as ISS-100.**
+
+**Does this block PASS?** No — it blocks a **clean merge**, which is a distinct, later step from this
+unit's own correctness. The ISS-093/ISS-094 fixes are sound regardless of how the ledger lines get
+reconciled at merge time. I am making ISS-100's dedup a **named precondition for merging this branch**
+(see the issue's own note for the mechanical fix — drop the duplicate lines as part of the merge,
+don't trust an unattended auto-merge on `qa/issues.jsonl`), not a reason to FAIL a unit whose actual
+code and test changes are correct.
+
+## 8. Full suite + instrument, my own runs
+
+- `bash scripts/vc-testlock.sh pnpm -r typecheck` → 9/9 clean (2026-09-27T23:52:17+05:30).
+- `bash scripts/vc-testlock.sh pnpm -r test` → **1237 tests / 1192 pass / 0 fail / 45 skipped**, run
+  twice, identical both times, no flake of the ISS-089/ISS-091 class observed either time.
+- `bash scripts/vc-regression-check-conformance.sh` → `551 ledger lines, 271 distinct ids, 126
+  fixed/verified rows, conforming: 126/126 (100.0%)`. (271 vs cycle-1's reported 269 is exactly the
+  +2 new ids `ISS-093`/`ISS-094` this cycle's reconciliation added — accounted for, not a
+  discrepancy.)
+- `bash scripts/vc-regression-check-conformance.test.sh` → **52 passed, 0 failed**, including Test 24
+  (ISS-094).
+- `bash scripts/vc-confounded-guard-heuristic.test.sh` → **4 passed, 0 failed**.
+- `python contracts/verify_contracts.py` → PASS by vacuity, unchanged.
+- `qa/feedback-inbox.md` read in full: nothing T-043-specific pending (the only recent entries are
+  T-039 B18 blind-fixture contract questions, already folded, and an unrelated counsellor-portal
+  review note — neither applies to this unit).
+
+## Is ISS-076 closed?
+
+**No — narrower again, not closed, and this cycle's own "no 100%-style headline" framing holds up
+under my checking.** Both cycle-1 FAIL reasons (ISS-093, ISS-094) are genuinely fixed — independently
+reproduced, not taken on trust. The sample-rule and 2 of the 8 claimed row-level PASSes reproduce
+exactly. The heuristic reproduces exactly, with one undisclosed (low-severity, advisory-only) blind
+spot. The +1 test count is fully accounted for. But:
+
+- `ISS-t-013-c2-rev-3` (species 3, coverage-absence) is real, and by this cycle's own stated
+  reasoning cannot be counted regression-safe — filed as **ISS-099**, a genuine new gap the
+  instrument does not and structurally cannot close without a claim-to-test cross-reference.
+- The cross-branch ledger copy, safe at cycle 1, is **no longer merge-safe** against current main —
+  filed as **ISS-100**, blocking a clean merge (not this PASS).
+- `scenario-ref`/`rubric-ref` remain existence-only (unchanged, out of scope again).
+- The 4 pre-existing WEAK-eligible null rows remain unbackfilled by design (unchanged).
+- 58 of the 69 remapped rows remain content-unverified (named as a successor unit by cycle 2, not
+  hidden by it).
+
+**Credit where due:** this cycle's honesty holds up under scrutiny. It did not claim a 100%-style
+headline for content-safety, stated an ~18% (2/11) estimate with an explicitly wide small-n interval,
+named exactly which 58 rows are unverified, and reported its own new species-3 finding as
+FAIL-but-not-fixed rather than folding it into "100% conforming." That reporting discipline is what
+makes a PASS-with-recorded-issues the right call here, rather than either extreme (a clean PASS that
+hides ISS-099/ISS-100, or a FAIL that punishes disclosure).
+
+## New issues filed this cycle
+
+- **ISS-099** (high, open) — the coverage-absence species: `ISS-t-013-c2-rev-3`'s regression_check
+  file has zero test coverage of its own claimed scenario; the instrument cannot detect this without a
+  claim-to-test cross-reference. Not blocking this PASS (pre-existing row, honestly disclosed,
+  outside this cycle's scope).
+- **ISS-100** (medium, open) — the cross-branch ledger hand-copy, safe against the main commit cycle
+  1 checked, now produces an actual duplicate `git merge-tree` result against current main. **Blocks
+  a clean merge** — must be deduped as part of merging this branch, not a reason to FAIL this cycle.
+- **ISS-076** update appended — records this cycle's PASS verdict and the full accounting above.
+
+All three appended to `D:/vc/qa/issues.jsonl` (main tree), additions-only, confirmed via
+`git diff --numstat` (3 insertions, 0 deletions) and a full JSON-parse check (486 lines, 0 invalid).
+
+## Status: PASS — cycle closed. Merge gated on ISS-100's dedup being handled at merge time.
+
