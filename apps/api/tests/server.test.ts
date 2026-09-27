@@ -9,10 +9,10 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { SignJWT, type JWTPayload } from "jose";
-import { COLLECTION_NAMES, VC_DB_NAME, getVcDb, tenantScopedDb } from "@vc/db";
+import { COLLECTION_NAMES, VC_DB_NAME, erasureFenceKey, getVcDb, tenantScopedDb } from "@vc/db";
 import { createFakeMongoClient, INDEX_PLAN, TEST_ERASURE_CONFIG, type FakeDb } from "@vc/db/testing";
 import { MockProvider } from "@vc/providers";
-import { InMemoryWebhookOutbox, type WebhookEvent, type WebhookOutbox } from "@vc/engine";
+import { InMemoryWebhookEmitGapLedger, InMemoryWebhookOutbox, type WebhookEmitGapLedger, type WebhookEvent, type WebhookOutbox } from "@vc/engine";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { API_ROUTES, createApiHandler, createApiServer, createTenantWiring, type ApiDeps, type ApiLogLine, type ApiRequest } from "../src/server.js";
 import { OPENAPI_DOCUMENT } from "../src/openapi.js";
@@ -386,6 +386,148 @@ test("T-034 api: a webhook enqueue failure is logged (webhook_enqueue_failed) bu
     w.logs.some((l) => l.event === "api_request_failed" && l.route === "decideApproval" && l.error.startsWith("webhook_enqueue_failed:")),
     "the failure is logged",
   );
+});
+
+// ---------------------------------------------------------------------------
+// T-042 (ISS-085): the two webhook fact-loss leaks -- a short read-back (leak 1) and a swallowed
+// enqueue failure (leak 2) -- are now detected, alerted and, when a gap ledger is configured,
+// recorded somewhere recoverable, while never turning an already-successful write into an error
+// response and never alerting on a legitimate B15 erasure race.
+// ---------------------------------------------------------------------------
+
+/**
+ * Makes the NEXT `_id: {$in: [...]}` read against `name` return one fewer document than actually
+ * matches -- exactly (and only) getFactsByIds' own query shape (packages/db/src/facts.ts:1004
+ * `find({studentId, _id: {$in: ids}})`); no other caller in this flow queries facts by `_id.$in`,
+ * so every OTHER find() against this collection (readActiveProfile, applyApprovedDiff's own reads,
+ * etc.) is untouched. This simulates ISS-085 leak 1 (an id written but not found on read-back --
+ * replication lag, a concurrent write, an applyApprovedDiff defect) without needing to know the
+ * fact's actual generated _id ahead of time. `onTrigger`, when given, runs (and is awaited) at the
+ * exact moment the short read fires -- used by the erasure-race test below to plant the fence
+ * AFTER the write has already succeeded but BEFORE getFactsByIds' own read-back, which is the only
+ * ordering that is a real race (a fence already up at request start makes applyApprovedDiff itself
+ * refuse the whole approval as `kind: "fenced"` before any write happens, never reaching this path).
+ */
+function dropOneFromNextIdInRead(fakeDb: FakeDb, name: string, onTrigger?: () => Promise<void>): void {
+  const coll = fakeDb.collection<{ _id: string }>(name);
+  const originalFind = coll.find.bind(coll);
+  coll.find = ((...args: Parameters<typeof originalFind>) => {
+    const cursor = originalFind(...args);
+    const filter = args[0] as { _id?: { $in?: unknown[] } } | undefined;
+    if (filter?._id && Array.isArray(filter._id.$in)) {
+      const originalToArray = cursor.toArray.bind(cursor);
+      cursor.toArray = async () => {
+        if (onTrigger) await onTrigger();
+        return (await originalToArray()).slice(0, -1);
+      };
+    }
+    return cursor;
+  }) as typeof coll.find;
+}
+
+test("T-042 api (ISS-085 leak 1): a short read-back NOT explained by an erasure fence is alerted and recorded as a recoverable gap; the facts that WERE found still emit their events", async () => {
+  const outbox = new InMemoryWebhookOutbox();
+  const gapLedgers = new Map<string, WebhookEmitGapLedger>();
+  const gapsForTenant = (tenantId: string): WebhookEmitGapLedger => {
+    let ledger = gapLedgers.get(tenantId);
+    if (!ledger) {
+      ledger = new InMemoryWebhookEmitGapLedger();
+      gapLedgers.set(tenantId, ledger);
+    }
+    return ledger;
+  };
+  const w = world({ webhooks: { outboxForTenant: () => outbox, destinationUrl: "http://client.invalid/hook", gapsForTenant } });
+  await scribeToApproval(w, "tenant-a");
+  dropOneFromNextIdInRead(w.fakeDb, "facts");
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
+
+  const decided = await call(w, "POST", `${base}/approval`, { token: counsellor, body: { action: "approve" } });
+  assert.equal(decided.status, 200, decided.body);
+  assert.equal(decided.json.kind, "done");
+  assert.equal(w.fakeDb.collection<{ _id: string }>("facts").size(), 2, "both facts are durably written regardless of the read-back gap");
+
+  // One of the two facts came back short: exactly one event enqueued, not two.
+  assert.equal((await outbox.list()).length, 1, "the read-back gap must not silently claim both facts were notified");
+
+  assert.ok(
+    w.logs.some((l) => l.event === "api_request_failed" && l.route === "decideApproval" && l.error.startsWith("webhook_fact_readback_gap:1_of_2_missing")),
+    "the gap is alerted, not silent",
+  );
+
+  const gaps = await gapsForTenant("tenant-a").list();
+  assert.equal(gaps.length, 1, "exactly one recoverable gap entry for the one missing fact");
+  assert.equal(gaps[0]!.kind, "readback-gap");
+  assert.equal(gaps[0]!.studentId, STUDENT);
+  assert.equal(gaps[0]!.sessionId, SESSION);
+  assert.equal(gaps[0]!.detail, "missing-on-readback");
+});
+
+test("T-042 api (ISS-085 leak 1, erasure interaction): the SAME short read-back, explained by a concurrent B15 erasure fence that lands AFTER the write, is never alerted or recorded", async () => {
+  const outbox = new InMemoryWebhookOutbox();
+  const gapLedger = new InMemoryWebhookEmitGapLedger();
+  const w = world({ webhooks: { outboxForTenant: () => outbox, destinationUrl: "http://client.invalid/hook", gapsForTenant: () => gapLedger } });
+  await scribeToApproval(w, "tenant-a");
+  // The fence is planted exactly when getFactsByIds' short read fires -- i.e. AFTER applyApprovedDiff's
+  // own pre-write fence check already passed and the facts were durably written. This is the only
+  // realistic ordering for "a concurrent erasure explains the gap": a fence already up at request
+  // start would make applyApprovedDiff itself refuse the whole approval as `kind: "fenced"` first.
+  // Seeded through the tenant-scoped Db (like seedConsent above) so the _id/tenantId are stamped
+  // exactly as isStudentFenced's own tenant-scoped read (checkFactReadbackGap -> dbForTenant) expects
+  // -- a raw, unscoped seed would carry an unprefixed _id the scoped lookup can never match.
+  dropOneFromNextIdInRead(w.fakeDb, "facts", async () => {
+    await tenantScopedDb(w.fakeDb as unknown as Parameters<typeof tenantScopedDb>[0], "tenant-a")
+      .collection(COLLECTION_NAMES.erasure_fences)
+      .insertOne({
+        _id: erasureFenceKey(STUDENT),
+        createdAt: new Date().toISOString(),
+      } as never);
+  });
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
+
+  const decided = await call(w, "POST", `${base}/approval`, { token: counsellor, body: { action: "approve" } });
+  assert.equal(decided.status, 200, decided.body);
+  assert.equal(decided.json.kind, "done");
+
+  assert.equal((await outbox.list()).length, 1, "still emits for the fact that WAS found");
+  assert.ok(
+    !w.logs.some((l) => l.error?.startsWith("webhook_fact_readback_gap")),
+    "a fence-explained gap must never be alerted as a defect",
+  );
+  assert.equal((await gapLedger.list()).length, 0, "a fence-explained gap must never be recorded either -- it is not a defect");
+});
+
+test("T-042 api (ISS-085 leak 2): an enqueue failure records a recoverable gap entry carrying the fully built event, so it can be replayed without rebuilding it", async () => {
+  const failingOutbox: WebhookOutbox = {
+    enqueue: async () => {
+      throw new Error("boom: destination store unavailable");
+    },
+    get: async () => undefined,
+    update: async () => {
+      throw new Error("unused");
+    },
+    list: async () => [],
+  };
+  const gapLedger = new InMemoryWebhookEmitGapLedger();
+  const w = world({ webhooks: { outboxForTenant: () => failingOutbox, destinationUrl: "http://client.invalid/hook", gapsForTenant: () => gapLedger } });
+  await scribeToApproval(w, "tenant-a");
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
+  const decided = await call(w, "POST", `${base}/approval`, { token: counsellor, body: { action: "approve" } });
+  assert.equal(decided.status, 200, decided.body);
+  assert.equal(decided.json.kind, "done");
+
+  const gaps = await gapLedger.list();
+  assert.equal(gaps.length, 2, "one recoverable gap entry per fact.approved event that failed to enqueue");
+  for (const gap of gaps) {
+    assert.equal(gap.kind, "enqueue-failed");
+    assert.equal(gap.studentId, STUDENT);
+    assert.equal(gap.destinationUrl, "http://client.invalid/hook");
+    assert.ok(gap.detail.startsWith("enqueue_failed:"));
+    assert.ok(gap.event, "the fully built event is kept, so it can be replayed without rebuilding it");
+    assert.equal((gap.event as WebhookEvent & { type: "fact.approved" }).type, "fact.approved");
+  }
 });
 
 test("T-025 api: another tenant sees tenant A's student exactly as a student that never existed, and changes nothing of A's", async () => {

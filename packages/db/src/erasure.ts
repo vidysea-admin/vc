@@ -1428,6 +1428,12 @@ export const ERASURE_PLAN: readonly ErasureStep[] = [
   // studentId regardless of delivery status (pending/delivered/failed/dead) — an undelivered event
   // referencing an erased student is exactly the residue B15 must not leave behind.
   { collection: COLLECTION_NAMES.webhook_outbox, phase: 1, filter: byEventStudent, residue: byEventStudent },
+  // T-042 (ISS-085): the recoverable webhook-emit-gap ledger. Unlike webhook_outbox, `studentId` is
+  // a flat top-level field here (packages/engine/src/webhooks/gaps.ts), so the plain `byStudent`
+  // filter applies directly -- a direct row, deleted and read back by studentId regardless of kind
+  // (readback-gap or enqueue-failed): an unresolved gap entry naming an erased student is exactly
+  // the residue B15 must not leave behind.
+  { collection: COLLECTION_NAMES.webhook_emit_gaps, phase: 1, filter: byStudent, residue: byStudent },
   { collection: COLLECTION_NAMES.facts, phase: 2, filter: factsById, residue: byStudent }, // active AND retired
   { collection: COLLECTION_NAMES.sessions, phase: 2, filter: sessionsById, residue: byStudent },
   { collection: COLLECTION_NAMES.scribe_resolutions, phase: 2, filter: claimsByThread, residue: byStudent },

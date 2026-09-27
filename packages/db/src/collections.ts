@@ -59,6 +59,13 @@ export const COLLECTION_NAMES = {
   // B15 erasure covers it as a direct row (ERASURE_PLAN, packages/db/src/erasure.ts) even though the
   // studentId itself sits one level down, not at the document's top level.
   webhook_outbox: "webhook_outbox",
+  // T-042 / ISS-085: a recoverable ledger for a webhook emission gap (packages/engine/src/webhooks
+  // /gaps.ts MongoWebhookEmitGapLedger) -- either a fact.approved read-back discrepancy not
+  // explained by an erasure fence, or an outbox.enqueue() failure that never reached webhook_outbox
+  // at all. Unlike webhook_outbox, `studentId` is a flat, top-level field here (not nested under
+  // event.data), so B15 erasure covers it with the plain `byStudent` filter (ERASURE_PLAN,
+  // packages/db/src/erasure.ts), the same shape consents/decisions use.
+  webhook_emit_gaps: "webhook_emit_gaps",
   // Name constants only — owned by the university-kb unit (ARCHITECTURE Q1).
   universities: "universities",
   courses: "courses",

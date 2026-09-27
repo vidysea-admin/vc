@@ -179,6 +179,13 @@ export const INDEX_PLAN: IndexSpec[] = [
     keys: { "event.data.studentId": 1 },
     name: "webhook_outbox_event_data_studentId",
   },
+  // T-042 (ISS-085): the recoverable webhook-emit-gap ledger. `studentId` is a flat top-level field
+  // here (see collections.ts's comment), so a plain {studentId:1} index serves both B15 erasure's
+  // byStudent filter and an operator's own lookup, mirroring session_transcripts/consents. The
+  // second index serves a reconciliation job's "everything still unresolved for this tenant, by
+  // kind" scan, the same role webhook_outbox_tenantId_status serves for delivery.
+  { collection: COLLECTION_NAMES.webhook_emit_gaps, keys: { studentId: 1 }, name: "webhook_emit_gaps_studentId" },
+  { collection: COLLECTION_NAMES.webhook_emit_gaps, keys: { tenantId: 1, kind: 1 }, name: "webhook_emit_gaps_tenantId_kind" },
 ];
 
 async function ensureCollection(db: import("mongodb").Db, name: string): Promise<void> {
