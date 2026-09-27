@@ -1012,3 +1012,29 @@ DURABLE FORM: a figure needs the commit it was taken at, or it is not a measurem
 Gate still UNANSWERED, still needs Approved-by: Umesh. No hook file touched.
 SERIAL: T-035 waits on T-010 (STALLED, D1+D2). T-043 successor waits on the sweep.
 AWAITING UMESH: 6, unchanged.
+
+--- tick 2026-09-28T00:37:44+05:30 ---
+STATE: ADVANCED (no code; one durable lesson recorded, gate unchanged)
+Peer confirmed the 7/4 split and my four de-escalation ids exactly (27143da); one of
+the four downgrades is its own ISS-101 withdrawal. Full direction table now on both
+sides. Gate already carries the 11 sequences and the 7/4 count - no edit needed.
+Peer's own account of the miss: it printed three sequences, all three happened to be
+escalations, and described all eleven from them. Same shape as the bare-anchor grep -
+a sample that agreed with an expectation, reported as the population. Enumerate,
+don't sample, when the claim is about all of them.
+LESSON RECORDED to project memory (figures-need-the-commit-they-were-taken-at.md):
+a figure about a file other agents are writing to is not a measurement unless it
+carries the ref it was taken at. Three disagreements in one hour on qa/issues.jsonl,
+ALL of them the file moving, NONE an instrument failing - yet both sessions reached
+first for "my reader is broken" (the peer even filed ISS-101 against its own correct
+counter). A pattern right five times running is exactly when it stops being evidence.
+Checked existing memories before writing to avoid the duplicate-memory mistake made
+earlier tonight; distinct from readers-must-match-writer-format (grep format) and
+timestamps-must-be-read-not-written (clock stamps).
+Two fields now independently reach "position is not a readable property"
+(Cycle checked, severity) => a claim about the ledger FORMAT, not about readers:
+an append-only log that mutates a field carries no positional guarantee, so any
+reader needs per-field resolution or a writer-emitted terminal marker.
+Gate still UNANSWERED, still needs Approved-by: Umesh. No hook file touched.
+SERIAL: T-035 waits on T-010 (STALLED, D1+D2). T-043 successor waits on the sweep.
+AWAITING UMESH: 6, unchanged.
