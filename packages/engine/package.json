@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./scribe/schemas": "./src/scribe/schemas.ts"
+    "./scribe/schemas": "./src/scribe/schemas.ts",
+    "./webhooks": "./src/webhooks/index.ts"
   },
   "types": "./src/index.ts",
   "scripts": {
