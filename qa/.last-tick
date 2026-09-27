@@ -1109,3 +1109,20 @@ AWAITING UMESH (7): (1) confirm the six relayed decisions; (2) hook-raw-count-fi
   (Approved-by); (3) p2-application-drafting-scope; (4)+(5) the two B18 gates -
   ISS-106's 11 blind-fixture questions ride on these; (6) ISS-052 premise failure;
   (7) verdict-header-format (new, explicitly not urgent).
+
+--- tick 2026-09-28T01:17:33+05:30 ---
+STATE: BLOCKED (environment) + HUMAN_GATE
+C: DRIVE IS 100% FULL - 0 bytes free (475G/475G). D: has 213G free.
+  Surfaced: a 'head: write error: No space left on device' while reading a hook.
+  C: holds the scratchpad, AppData/Local/Temp, and ~/.claude. Expect background
+  tasks, git temp files, pnpm and any subagent dispatch to fail or half-fail until
+  it is cleared. NOT acting on it - deleting files to reclaim a system drive is
+  destructive and outside the maker's remit. Reported to Umesh.
+STOP-HOOK FALSE POSITIVE: delivery-gate-stop.ps1 reported 'THIS TURN made no
+  ScheduleWakeup call' for a turn that made one (returned 'Next wakeup scheduled
+  for 01:45:00'). Could not inspect its predicate - the grep died on the full disk.
+  Not filed as an issue yet: with C: at zero free I cannot distinguish a hook
+  reader defect from a transcript write that failed for lack of space. That
+  distinction IS the finding, and it waits on disk space.
+Re-armed the wakeup anyway - the cheap action is to satisfy it, not argue.
+AWAITING UMESH (7, unchanged) + now the disk.
