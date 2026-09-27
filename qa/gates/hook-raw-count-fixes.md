@@ -157,9 +157,31 @@ missing**. So for `status` alone, last-row-wins and merge-in-order give the *sam
 137, verified here. A last-row-wins implementation therefore **corrects the 2.10x inflation
 completely** and passes the obvious check.
 
-It is still wrong. **`severity` is omitted on 177 rows**, so last-row-wins silently drops the
-severity of **122 of the 278 ids**, reading them as severity-less. The count comes out right and
-the triage order comes out wrong.
+It is still wrong — but only in one of its two variants, and an implementer needs the distinction,
+not the slogan. `severity` is omitted on 177 rows. Measured three ways against the field-level
+merge, at HEAD:
+
+| reader | disagrees with merge on |
+|---|---|
+| take the final ROW wholesale (naive last-wins) | **122 of 278 ids** — reads them as severity-less |
+| take the last row that CARRIES severity | **0 of 278** — exactly correct |
+| take the FIRST value (what the committed hook does) | **11 of 278** — mis-severities them |
+
+**Every id has a severity somewhere** (0 ids lack one entirely), so no case is irrecoverable.
+**Per-field last-value-wins is a correct implementation here; whole-row last-wins is not.** Those
+two have been written as one phrase — "last-row-wins" — in this gate, in the queue prose and in
+both sessions' messages, and they are not the same thing. The count comes out right under both;
+the triage order comes out wrong under only the first.
+
+The 11 first-wins failures are ids whose severity was revised over the row's life — **7 escalations
+and 4 de-escalations**, so a first-wins reader is not merely conservative, it under-reports real
+highs *and* over-reports resolved ones: `ISS-044` medium→high · `ISS-045` medium→high→high→low→high→high ·
+`ISS-061` medium→low · `ISS-071` high→medium · `ISS-077` medium→high · `ISS-100` medium→medium→high ·
+`ISS-101` medium→low · `ISS-t-007-rev-8` medium→high→high · `ISS-t-008-c0-1` low→medium→medium ·
+`ISS-t-017-c0-1` high→medium→medium · `ISS-t-037-1` low→high→high. ISS-045's excursion to `low` and
+back to `high` means any position-based reader gets a different answer for that id depending which
+row it lands on — the same "position is not a readable property" conclusion this gate already
+reached for `Cycle checked`, now measured on a second field.
 
 - **Entity resolution** (one row per id) fixes the **count**.
 - **Field-level merge in file order** (later non-null fields win, absent fields inherit) fixes the
