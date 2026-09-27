@@ -915,3 +915,25 @@ Verdict-file sweep across all five trees: clean everywhere, t-043's was the only
   So d4af250 closed an incident, not a practice.
 
 SERIAL: Mode B sweep waits on T-043 (~8.5h). SERIAL: T-035 waits on T-010.
+
+--- tick 2026-09-28T00:20:08+05:30 ---
+STATE: ADVANCED
+T-043 CLOSED. checker c2 PASS (with recorded issues) 66bad91 -> merge ee95e0c ->
+ISS-100 merge gate satisfied by ledger dedupe e95c204 (578->573 rows, 5 byte-identical
+repeats: ISS-092, ISS-093, ISS-094, two ISS-076 update rows; all 573 parse) ->
+close-out ff7c512 (manifest checked-PASS, TASKS row done).
+MAIN VERIFY: pnpm -r typecheck 9/9 Done 0 errors; pnpm -r test under lock
+1237/1192/0/45; scripts/vc-regression-check-conformance.test.sh 52/52.
+ISS-076 NOT closed (stays open/high) - only ISS-092 closed by this unit.
+SWEEP RELEASED: Mode B full sweep dispatched (held ~8.5h SERIAL behind T-043's
+ledger writes; that edge is now gone). Report -> qa/sweeps/mode-b-2026-09-28.md.
+QUEUE.md left untouched - owned by peer session vc-f5, landed by them at 533a444.
+SERIAL: T-035 waits on T-010 (STALLED, gated on human decisions D1+D2).
+SERIAL: T-010 successor waits on D1+D2.
+SERIAL: T-043 successor waits on the Mode B sweep, which re-measures the ledger the
+  successor's scope is defined against.
+AWAITING UMESH (6, unchanged): (1) one-line confirmation of the six relayed decisions
+  -> unblocks Answered: lines + D-entries on b18-unimplemented, t-010-b1-b18-unsatisfiable,
+  auto-verify-surface; (2) qa/gates/hook-raw-count-fixes.md (needs Approved-by: Umesh);
+  (3) qa/gates/p2-application-drafting-scope.md; (4)+(5) the two B18 gates, answered
+  together; (6) ISS-052 premise failure.
