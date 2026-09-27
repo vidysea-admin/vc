@@ -485,6 +485,9 @@ const NUM = "(?<n>\\p{Nd}+(?:[.,]\\p{Nd}+)*)";
  *   - "computer science": the subject the existing positives use (tests/scribe-fixtures.ts t1,
  *     scribe-per-fact.test.ts, the scribe-citation-rescope allow-list positives);
  *   - "abroad", "further", "further studies";
+ *   - (T-030 true-positive recovery) a CLOSED list of common subjects ("data science", "engineering",
+ *     "medicine", "business", "management", "finance", "economics", "psychology", "nursing",
+ *     "architecture", "design", "artificial intelligence"), each 1-2 letter-only words;
  *   - an optional my/a/an plus the closed DEGREE set ("do my masters", "pursue an MBA", "pursue
  *     higher studies"), the same set the " for <degree>" suffix already uses.
  * Every phrase is 1-3 letter-only words, so the old gap admitted all of them: this only NARROWS the
@@ -492,7 +495,11 @@ const NUM = "(?<n>\\p{Nd}+(?:[.,]\\p{Nd}+)*)";
  * subject, "as suggested", "per the agent") is `unrecognised-form`: kept, never dropped, needsReview.
  * Deliberately NOT included: "there" (a deictic that points outside the clause; no positive uses it).
  */
-const COUNTRY_CONNECTOR_PHRASES: readonly string[] = Object.freeze(["computer science", "abroad", "further", "further studies"]);
+const COUNTRY_CONNECTOR_PHRASES: readonly string[] = Object.freeze([
+  "computer science", "abroad", "further", "further studies",
+  "data science", "engineering", "medicine", "business", "management", "finance", "economics", "psychology",
+  "nursing", "architecture", "design", "artificial intelligence",
+]);
 const COUNTRY_CONNECTOR = `(?:${COUNTRY_CONNECTOR_PHRASES.join("|")}|(?:(?:my|a|an) )?${DEGREE})`;
 
 /**
@@ -501,7 +508,8 @@ const COUNTRY_CONNECTOR = `(?:${COUNTRY_CONNECTOR_PHRASES.join("|")}|(?:(?:my|a|
  * (`key-not-declared`): "I want to study in the UK" verifies `targetCountry: UK`, never
  * `nationality: UK`; "my budget is 2500000 per year" verifies `budget_inr_per_year`, never
  * `budget_inr_total`; "I scored 92 in my class 12 boards" verifies `class12_percentage`, never an
- * IELTS key. The keys are the ones the golden set and the scribe fixtures use; a key that no template
+ * IELTS key. The keys are the ones the golden set and the scribe fixtures use (plus one key per
+ * standardised test: toefl_total, pte_overall, gre_total, gmat_total, sat_total, duolingo_score); a key that no template
  * declares can never auto-verify (fail-safe). `{C}` is replaced by the aliases of the fact's canonical
  * country only.
  */
@@ -523,8 +531,8 @@ const COUNTRY_TEMPLATES: readonly AutoVerifyTemplate[] = Object.freeze([
   // T-030: the verb-to-destination slot is the closed COUNTRY_CONNECTOR, no longer an open 0-4 word gap.
   countryTemplate(`^i (?:really |definitely |also )?(?:want|wish|plan|intend|hope|aim|d like|would like|d love|would love|am planning|m planning|am going|m going|am hoping|m hoping|am aiming|m aiming|am applying|m applying|have decided|ve decided|decided) to (?:study|go|move|settle|live|work|apply|pursue|do|shift|relocate)(?: ${COUNTRY_CONNECTOR})? (?:in|to) (?:the )?{C}(?: for (?:my |a |an )?${DEGREE})?$`),
   // English: "my first choice is <country>", "my preferred destination is the <country>"
-  // T-030: at most two modifiers (was an unbounded `*` run of the same closed words).
-  countryTemplate(`^my (?:(?:first|top|preferred|dream|target|final|main) ){0,2}(?:choice|preference|destination|country|target|option|pick)(?: country| destination)? is (?:the )?{C}$`),
+  // T-030: at most three modifiers (was an unbounded `*` run of the same closed words).
+  countryTemplate(`^my (?:(?:first|top|preferred|dream|target|final|main) ){0,3}(?:choice|preference|destination|country|target|option|pick)(?: country| destination)? is (?:the )?{C}$`),
   // English: "I prefer <country>", "I have chosen the <country> for my masters"
   countryTemplate(`^i (?:prefer|choose|chose|have chosen|ve chosen|have picked|ve picked|picked|have selected|ve selected|selected) (?:the )?{C}(?: for (?:my |a |an )?${DEGREE})?$`),
   // Hinglish: "main <country> jaana chahta/chahti hoon", "main <country> mein padhna chahta hu"
@@ -544,8 +552,8 @@ const COUNTRY_TEMPLATES: readonly AutoVerifyTemplate[] = Object.freeze([
 /**
  * T-030 (D-025): budget templates, split by the period the clause states, so the key is bound to it.
  * A bare budget ("my budget is 1500000") or a yearly one declares `budget_inr_per_year` (the golden
- * set's key for it); a total one declares `budget_inr_total`. "max/maximum" left the surface (neither
- * a plain yearly budget nor a total). A clause that mixes both ("my total budget is N per year")
+ * set's key for it, which the golden set also uses for an "up to N" ceiling, so "my maximum budget is N"
+ * declares it too); a total one declares `budget_inr_total`. A clause that mixes both ("my total budget is N per year")
  * matches neither. INR is assumed only because any currency word or symbol already forces review.
  */
 const budgetTemplate = (keys: readonly string[], source: string): AutoVerifyTemplate =>
@@ -553,8 +561,8 @@ const budgetTemplate = (keys: readonly string[], source: string): AutoVerifyTemp
 const PER_YEAR = ["budget_inr_per_year"] as const;
 const TOTAL = ["budget_inr_total"] as const;
 const BUDGET_TEMPLATES: readonly AutoVerifyTemplate[] = [
-  // English: "my budget is 1500000", "my annual budget is 25000 per year"
-  budgetTemplate(PER_YEAR, `^my (?:annual |yearly )?budget is ${NUM}(?: (?:per year|a year|per annum|annually))?$`),
+  // English: "my budget is 1500000", "my annual budget is 25000 per year", "my maximum budget is 2000000"
+  budgetTemplate(PER_YEAR, `^my (?:annual |yearly |maximum |max )?budget is ${NUM}(?: (?:per year|a year|per annum|annually))?$`),
   // English: "my total budget is 4000000", "my budget is 4000000 in total"
   budgetTemplate(TOTAL, `^my (?:total|overall) budget is ${NUM}$`),
   budgetTemplate(TOTAL, `^my budget is ${NUM} (?:total|in total)$`),
@@ -572,8 +580,9 @@ const BUDGET_TEMPLATES: readonly AutoVerifyTemplate[] = [
  * T-030 (D-025): score templates are instantiated once per EXAM FAMILY, and each instance declares the
  * one key of the exam its clause names. The exam is named exactly once (the former exam-less
  * "my score is 92" shape left the surface), and the unit and noun must fit the key (a percentage key
- * takes no "marks/points/cgpa"). An exam with no family (TOEFL, PTE, GRE, a board with no class, ...)
- * is `unrecognised-form`: kept, never dropped, needsReview.
+ * takes no "marks/points/cgpa"). The standardised tests keep their own key each (toefl_total,
+ * pte_overall, gre_total, gmat_total, sat_total, duolingo_score). An exam with no family (JEE, NEET, CAT,
+ * CUET, a board with no class, ...) is `unrecognised-form`: kept, never dropped, needsReview.
  */
 const EXAM_ARTICLE = "(?:(?:the|my|apne|mere|meri) )?";
 const BOARD = "(?:board|boards|board exam|board exams|boards exam|exam|exams|बोर्ड|परीक्षा|बोर्ड परीक्षा)";
@@ -583,6 +592,18 @@ const SCORE_EXAM_FAMILIES = Object.freeze([
   Object.freeze({ key: "ielts_overall", exam: `${EXAM_ARTICLE}ielts(?: (?:academic|overall|exam|test))?`, unit: "(?: (?:band|bands))?", noun: "(?:score|band|result)" }),
   Object.freeze({ key: "class12_percentage", exam: `${EXAM_ARTICLE}(?:(?:class|std|standard|grade) 12|12th|hsc|12वीं|बारहवीं) ${BOARD}`, unit: PERCENT_UNIT, noun: PERCENT_NOUN }),
   Object.freeze({ key: "class10_percentage", exam: `${EXAM_ARTICLE}(?:(?:class|std|standard|grade) 10|10th|ssc|10वीं|दसवीं) ${BOARD}`, unit: PERCENT_UNIT, noun: PERCENT_NOUN }),
+  ...(
+    [
+      ["toefl_total", "toefl(?: ibt)?"],
+      ["pte_overall", "pte(?: academic)?"],
+      ["gre_total", "gre"],
+      ["gmat_total", "gmat"],
+      ["sat_total", "sat"],
+      ["duolingo_score", "(?:duolingo|det)"],
+    ] as const
+  ).map(([key, name]) =>
+    Object.freeze({ key, exam: `${EXAM_ARTICLE}${name}(?: (?:exam|test))?`, unit: "", noun: "(?:score|result)" }),
+  ),
 ]);
 
 /** Score shapes; `{E}` is the family's exam, `{U}` its optional unit, `{S}` its score noun. */

@@ -703,7 +703,7 @@ test("ISS-t-013r-rev-14 (T-030): an attributed or unlisted filler between the ve
       ["I want to study abroad as suggested in the UK.", "I want to study abroad as suggested in the UK", "UK"],
       ["I want to do my masters as advised in the UK.", "I want to do my masters as advised in the UK", "UK"],
       // a legitimate but unlisted subject also stays in review (fail-safe; widening is ISS-t-013r-rev-11's product call)
-      ["I want to study data science in Germany.", "I want to study data science in Germany", "Germany"],
+      ["I want to study marine biology in Germany.", "I want to study marine biology in Germany", "Germany"],
     ],
     "English",
   );
@@ -737,6 +737,10 @@ test("T-030: the closed connector set still auto-verifies (computer science / ab
     ["I want to do an MBA in Canada.", "I want to do an MBA in Canada", "Canada"],
     ["I want to do masters in Australia.", "I want to do masters in Australia", "Australia"],
     ["I am planning to study abroad in New Zealand for my masters.", "I am planning to study abroad in New Zealand for my masters", "New Zealand"],
+    // the closed subject list (true-positive recovery; each was admitted by the old open gap)
+    ["I want to study data science in Canada.", "I want to study data science in Canada", "Canada"],
+    ["I want to study artificial intelligence in the UK.", "I want to study artificial intelligence in the UK", "UK"],
+    ["I want to study engineering in Germany.", "I want to study engineering in Germany", "Germany"],
   ];
   for (const [text, quote, value] of cases) {
     const fact = verifyOne(text, quote, value);
@@ -768,17 +772,17 @@ test("T-030 no widening: the connector's whole (finite) language was already adm
       clause,
     );
   }
-  assert.ok(countryConnectorPhrases.length <= 8, "the connector set stays small");
+  assert.ok(countryConnectorPhrases.length <= 16, "the connector set stays small (4 connectors + 12 subjects)");
 });
 
-test("T-030 audit: none of the 9 country + 34 number templates has an open wildcard or an unbounded repetition (the number value slot is pinned by exact equality); each declares its keys", () => {
+test("T-030 audit: none of the 9 country + 88 number templates has an open wildcard or an unbounded repetition (the number value slot is pinned by exact equality); each declares its keys", () => {
   const sources = scribeNodes.AUTO_VERIFY_TEMPLATE_SOURCES;
   assert.ok(sources, "AUTO_VERIFY_TEMPLATE_SOURCES is exported");
   const { numberSlot } = sources;
   const country = sources.country.map((t) => t.source);
   const number = sources.number.map((t) => t.source);
   assert.equal(country.length, 9);
-  assert.equal(number.length, 7 + 3 * 9, "7 budget templates + 9 score shapes x 3 exam families");
+  assert.equal(number.length, 7 + 9 * 9, "7 budget templates + 9 score shapes x 9 exam families");
   assert.ok(
     Object.isFrozen(sources) && Object.isFrozen(sources.country) && Object.isFrozen(sources.number) &&
       [...sources.country, ...sources.number].every((t) => Object.isFrozen(t) && Object.isFrozen(t.keys)),
@@ -787,7 +791,10 @@ test("T-030 audit: none of the 9 country + 34 number templates has an open wildc
   // D-025: every template declares a non-empty key set; country templates declare exactly targetCountry.
   for (const t of sources.country) assert.deepEqual([...t.keys], ["targetCountry"]);
   const numberKeys = new Set(sources.number.flatMap((t) => [...t.keys]));
-  assert.deepEqual([...numberKeys].sort(), ["budget_inr_per_year", "budget_inr_total", "class10_percentage", "class12_percentage", "ielts_overall"]);
+  assert.deepEqual([...numberKeys].sort(), [
+    "budget_inr_per_year", "budget_inr_total", "class10_percentage", "class12_percentage", "duolingo_score", "gmat_total",
+    "gre_total", "ielts_overall", "pte_overall", "sat_total", "toefl_total",
+  ]);
   for (const t of sources.number) assert.equal(t.keys.length, 1, "each number template declares exactly one key");
   const OPEN: Array<[RegExp, string]> = [
     [/\\[pP]\{(?!Nd\})/u, "a Unicode property class other than \\p{Nd} (letters, marks ...)"],
@@ -812,12 +819,13 @@ test("T-030 audit: none of the 9 country + 34 number templates has an open wildc
   for (const t of country) assert.ok(!t.includes(numberSlot), "no country template has a number slot");
 });
 
-test("T-030 audit: the 'my <modifiers> choice is <country>' template takes at most two modifiers (was an unbounded run)", () => {
+test("T-030 audit: the 'my <modifiers> choice is <country>' template takes at most three modifiers (was an unbounded run)", () => {
   assert.equal(verifyOne("My first preferred choice is the UK.", "My first preferred choice is the UK", "UK")?.needsReview, false);
   assert.equal(verifyOne("My top dream destination is Canada.", "My top dream destination is Canada", "Canada")?.needsReview, false);
-  const three = verifyOne("My first top preferred choice is the UK.", "My first top preferred choice is the UK", "UK");
-  assert.equal(three?.needsReview, true, "three modifiers is outside the bounded template");
-  assert.deepEqual(reasonPrefixes(three), ["unrecognised-form"]);
+  assert.equal(verifyOne("My first preferred dream destination is Ireland.", "My first preferred dream destination is Ireland", "Ireland")?.needsReview, false);
+  const four = verifyOne("My first top preferred dream choice is the UK.", "My first top preferred dream choice is the UK", "UK");
+  assert.equal(four?.needsReview, true, "four modifiers is outside the bounded template");
+  assert.deepEqual(reasonPrefixes(four), ["unrecognised-form"]);
 });
 
 const DATASET_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "qa", "evals", "scribe", "sessions.jsonl");
@@ -872,7 +880,7 @@ test("T-030 (D-025): a score whose exam names no family, or whose unit does not 
   const cases: Array<[string, number, string]> = [
     ["My score was 92 in boards", 92, "class12_percentage"], // which board? class 10 or 12 is not said
     ["Mere boards mein 92 percent aaye", 92, "class12_percentage"],
-    ["I got 110 in TOEFL", 110, "toefl_total"],
+    ["I got 95 in JEE", 95, "jee_percentile"], // no JEE family: percentile, rank or marks is not said
     ["I scored 42 in the exam", 42, "class12_percentage"],
     ["I scored 450 marks in my class 12 boards", 450, "class12_percentage"], // marks are not a percentage
     ["My score is 92", 92, "class12_percentage"], // no exam named at all
@@ -903,6 +911,13 @@ test("T-030 (D-025): the key is bound to the clause: a budget's period and a sco
     ["I scored 92 in my class 12 boards", 92, "class12_percentage", false],
     ["I scored 92 in my class 12 boards", 92, "class10_percentage", true],
     ["I scored 88 in my class 10 boards", 88, "class10_percentage", false],
+    ["My maximum budget is 2000000", 2000000, "budget_inr_per_year", false],
+    ["My maximum budget is 2000000", 2000000, "budget_inr_total", true],
+    ["I got 110 in TOEFL", 110, "toefl_total", false],
+    ["I got 110 in TOEFL", 110, "ielts_overall", true],
+    ["I got 320 in GRE", 320, "gre_total", false],
+    ["I got 320 in GRE", 320, "gmat_total", true],
+    ["My PTE score is 65", 65, "pte_overall", false],
   ];
   for (const [quote, value, key, review] of cases) {
     const fact = verifyOne(`${quote}.`, quote, value, key);

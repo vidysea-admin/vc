@@ -39,11 +39,13 @@ import type { ScribeTurn } from "../src/scribe/schemas.js";
 
 const SPEC_DEGREE =
   "(?:masters|master s|bachelors|bachelor s|mba|ms|phd|ug|pg|undergrad|undergraduate|postgraduate|degree|higher studies|studies|education|graduation|post graduation)";
-const SPEC_CONNECTOR = `(?:computer science|abroad|further|further studies|(?:(?:my|a|an) )?${SPEC_DEGREE})`;
+const SPEC_CONNECTOR =
+  "(?:computer science|abroad|further|further studies|data science|engineering|medicine|business|management|finance|economics|" +
+  `psychology|nursing|architecture|design|artificial intelligence|(?:(?:my|a|an) )?${SPEC_DEGREE})`;
 
 const SPEC_COUNTRY: readonly string[] = [
   `^i (?:really |definitely |also )?(?:want|wish|plan|intend|hope|aim|d like|would like|d love|would love|am planning|m planning|am going|m going|am hoping|m hoping|am aiming|m aiming|am applying|m applying|have decided|ve decided|decided) to (?:study|go|move|settle|live|work|apply|pursue|do|shift|relocate)(?: ${SPEC_CONNECTOR})? (?:in|to) (?:the )?{C}(?: for (?:my |a |an )?${SPEC_DEGREE})?$`,
-  `^my (?:(?:first|top|preferred|dream|target|final|main) ){0,2}(?:choice|preference|destination|country|target|option|pick)(?: country| destination)? is (?:the )?{C}$`,
+  `^my (?:(?:first|top|preferred|dream|target|final|main) ){0,3}(?:choice|preference|destination|country|target|option|pick)(?: country| destination)? is (?:the )?{C}$`,
   `^i (?:prefer|choose|chose|have chosen|ve chosen|have picked|ve picked|picked|have selected|ve selected|selected) (?:the )?{C}(?: for (?:my |a |an )?${SPEC_DEGREE})?$`,
   `^(?:main|mai) {C}(?: (?:mein|me|main))? (?:jaana|jana|padhna|padhai karna|study karna|settle hona|settle karna|shift hona|rehna|jaake padhna) (?:chahta|chahti|chahte) (?:hoon|hu|hun|hoo|hai|hain)$`,
   `^(?:mujhe|mujhko) {C}(?: (?:mein|me))? (?:jaana|jana|padhna|padhai karni|padhai karna|study karna|settle hona|shift hona|rehna|jaake padhna) hai$`,
@@ -54,7 +56,7 @@ const SPEC_COUNTRY: readonly string[] = [
 ];
 
 const SPEC_BUDGET: ReadonlyArray<readonly [string, string]> = [
-  ["budget_inr_per_year", `^my (?:annual |yearly )?budget is {N}(?: (?:per year|a year|per annum|annually))?$`],
+  ["budget_inr_per_year", `^my (?:annual |yearly |maximum |max )?budget is {N}(?: (?:per year|a year|per annum|annually))?$`],
   ["budget_inr_total", `^my (?:total|overall) budget is {N}$`],
   ["budget_inr_total", `^my budget is {N} (?:total|in total)$`],
   ["budget_inr_per_year", `^mera (?:saalana |salana |annual |yearly )?budget {N}(?: (?:per year|saal ka|salana))? hai$`],
@@ -69,6 +71,12 @@ const SPEC_FAMILIES: ReadonlyArray<{ key: string; exam: string; unit: string; no
   { key: "ielts_overall", exam: `${SPEC_ARTICLE}ielts(?: (?:academic|overall|exam|test))?`, unit: "(?: (?:band|bands))?", noun: "(?:score|band|result)", value: 7.5 },
   { key: "class12_percentage", exam: `${SPEC_ARTICLE}(?:(?:class|std|standard|grade) 12|12th|hsc|12वीं|बारहवीं) ${SPEC_BOARD}`, unit: "(?: (?:percent|percentage|प्रतिशत))?", noun: "(?:score|percentage|percent|result)", value: 92 },
   { key: "class10_percentage", exam: `${SPEC_ARTICLE}(?:(?:class|std|standard|grade) 10|10th|ssc|10वीं|दसवीं) ${SPEC_BOARD}`, unit: "(?: (?:percent|percentage|प्रतिशत))?", noun: "(?:score|percentage|percent|result)", value: 88 },
+  { key: "toefl_total", exam: `${SPEC_ARTICLE}toefl(?: ibt)?(?: (?:exam|test))?`, unit: "", noun: "(?:score|result)", value: 105 },
+  { key: "pte_overall", exam: `${SPEC_ARTICLE}pte(?: academic)?(?: (?:exam|test))?`, unit: "", noun: "(?:score|result)", value: 65 },
+  { key: "gre_total", exam: `${SPEC_ARTICLE}gre(?: (?:exam|test))?`, unit: "", noun: "(?:score|result)", value: 320 },
+  { key: "gmat_total", exam: `${SPEC_ARTICLE}gmat(?: (?:exam|test))?`, unit: "", noun: "(?:score|result)", value: 680 },
+  { key: "sat_total", exam: `${SPEC_ARTICLE}sat(?: (?:exam|test))?`, unit: "", noun: "(?:score|result)", value: 1400 },
+  { key: "duolingo_score", exam: `${SPEC_ARTICLE}(?:duolingo|det)(?: (?:exam|test))?`, unit: "", noun: "(?:score|result)", value: 120 },
 ];
 const SPEC_SCORE_SHAPES: readonly string[] = [
   `^i (?:scored|got|secured|have scored|ve scored|have got|ve got|received|obtained) {N}{U} (?:in|on) {E}$`,
@@ -417,7 +425,7 @@ function applyEdit(tokens: readonly string[], e: Edit): string[] {
 // ---------------------------------------------------------------------------
 
 test("T-030 property oracle: the spec parses in the closed subset, is finite, and rejects an open gap", () => {
-  assert.equal(CASES.length, 9 * CANONICAL_COUNTRIES.length + 7 + 9 * 3);
+  assert.equal(CASES.length, 9 * CANONICAL_COUNTRIES.length + 7 + 9 * SPEC_FAMILIES.length);
   // the spec's vocabulary sits inside the engine's closed vocabulary (same canonical set, no extra alias)
   assert.deepEqual(Object.keys(AUTO_VERIFY_TEMPLATE_SOURCES.countrySlots).sort(), [...CANONICAL_COUNTRIES].sort());
   for (const [canonical, aliases] of Object.entries(COUNTRY_SLOTS)) {
@@ -555,7 +563,7 @@ test("T-030 property (b): random sentences (over the whole vocabulary, and over 
 
 const OTHER_KEYS = [
   "targetCountry", "budget_inr_per_year", "budget_inr_total", "ielts_overall", "class12_percentage", "class10_percentage",
-  "nationality", "budget_usd", "ieltsBand", "intendedCourse", "universityOfInterest", "why_targetCountry", "k",
+  "toefl_total", "gre_total", "duolingo_score", "nationality", "budget_usd", "ieltsBand", "intendedCourse", "universityOfInterest", "why_targetCountry", "k",
 ];
 /** An innocuous original that holds no template clause and no deny cue (the translation carries the clause). */
 const ORIGINAL_ELSEWHERE = "Soch raha hoon abhi.";
