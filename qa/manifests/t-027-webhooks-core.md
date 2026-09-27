@@ -244,4 +244,7 @@ Contracts: `python contracts/verify_contracts.py` — `PASS by vacuity`, exit 0.
   layer to mutate independently of the schema itself — noted explicitly rather than silently
   skipped.
 
-## Status: ready-for-check
+## Close-out
+- Checker cycle 0 PASS (qa/verdicts/t-027-webhooks-core.md, f4286e3). senior review: Approve (low: ISS-t-027-rev-1). data-engineer review: Approve (low: ISS-t-027-rev-2, rev-3).
+
+## Status: checked-PASS
