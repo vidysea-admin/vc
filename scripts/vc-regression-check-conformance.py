@@ -60,6 +60,23 @@ RE_REPO_FILE_ARG_RETIRED = re.compile(r"^pnpm -r (?:test|typecheck) -- ([\w./-]+
 # AND to belong to the SAME workspace as the test file (see _workspace_dir_of), so this can't be used to
 # launder an unrelated config into the check.
 RE_DIRECT_TSX = re.compile(r"^npx tsx(?: --tsconfig ([\w./-]+))? --test ([\w./-]+\.test\.[jt]sx?)$")
+
+# ISS-094 (T-043 fix cycle 2): direct-tsx's path-exists check alone certifies a real but
+# content-free .test.ts/.tsx file as conforming, and node:test itself exits 0 with "tests 1, pass 1"
+# for such a file (it counts the empty file as one implicit passing test) -- so a regression_check
+# pointed at a file with no actual test() call would be indistinguishable from a genuine one, both
+# statically and under real execution. Heuristic, not a JS/TS parser: strips comments, then looks for
+# a call to test(/it(/describe(. A stray match inside a string literal is an acceptable false
+# negative for this low-severity hardening check; it is not load-bearing for the ledger's correctness.
+RE_TEST_DECL = re.compile(r"(?<![\w.])(?:test|it|describe)\s*\(")
+
+
+def _strip_js_comments(text: str) -> str:
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    text = re.sub(r"//[^\n]*", "", text)
+    return text
+
+
 RE_DOC_GREP = re.compile(r"^grep -n '[^']+' ([\w./-]+)$")
 RE_SCENARIO_REF = re.compile(r"^scenario:([\w-]+)#(SC-\d+)$")
 RE_RUBRIC_REF = re.compile(r"^rubric_ref:(.+)$")
@@ -143,6 +160,14 @@ class Checker:
     def path_exists(self, rel: str) -> bool:
         return (self.repo_root / rel).exists()
 
+    def has_real_test_declaration(self, rel: str) -> bool:
+        """ISS-094: does this test file contain at least one real test()/it()/describe() call?"""
+        try:
+            content = (self.repo_root / rel).read_text(encoding="utf-8")
+        except OSError:
+            return False
+        return bool(RE_TEST_DECL.search(_strip_js_comments(content)))
+
     def _workspace_dir_of(self, rel: str):
         """Return the (apps|packages|mcp)/<dir> workspace prefix that `rel` lives under, or None.
         Used to require that a direct-tsx --tsconfig belongs to the SAME workspace as the test file
@@ -199,6 +224,12 @@ class Checker:
             tsconfig, rel = m.group(1), m.group(2)
             if not self.path_exists(rel):
                 return False, f"path does not exist: {rel}"
+            if not self.has_real_test_declaration(rel):
+                return False, (
+                    f"{rel} contains no real test()/it()/describe() declaration (ISS-094): "
+                    f"node:test counts a content-free file as one implicit passing test, so this "
+                    f"path would otherwise be indistinguishable from a genuine regression check"
+                )
             if tsconfig is not None:
                 if not self.path_exists(tsconfig):
                     return False, f"--tsconfig path does not exist: {tsconfig}"

@@ -2,7 +2,7 @@
 **Contract:** qa/adapter.json `verify` (the whole-verify contract + the new `verify.narrowing` convention this unit adds); qa/issues.jsonl (the append-only ledger)
 **Goal task:** T-043 (ISS-076, severity high)
 **Date:** 2026-09-27
-**Fix cycle:** 1 of max 3
+**Fix cycle:** 2 of max 3
 **Dual check:** no
 **Persona walk:** skip (backend/process-tooling only: qa/adapter.json, scripts/vc-regression-check-conformance.{py,sh,test.sh}, qa/issues.jsonl. No apps/web path touched.)
 **Issues addressed:** ISS-076 (the consolidated, re-derived defect: 50 of 120 -- now 125 -- fixed/verified rows carried a `regression_check` the adapter disallowed; three prior sweeps found it flat at ~41.6-41.7%, not shrinking). No new issue opened by this unit.
@@ -431,5 +431,239 @@ tests) but does not close it:
   scope (this cycle is about the instrument and the remap, not re-running historical verifications).
 
 Only `/checker` can move ISS-076 to verified/closed.
+
+## Fix cycle 2 (2026-09-27) — what cycle 1 got wrong and what changed
+
+**Checker verdict on cycle 1: FAIL.** Cycle 1's own work held up: `repo-file-arg` genuinely
+retired (not repaired), the `--tsconfig` addition empirically justified and correctly gated,
+`mcp/student-profile` 12/12 legitimate (not a repo-file-arg-style side door), the ledger append-only
+(89 insertions/0 deletions across e4bfa5b..HEAD at the time), the merge hazard empirically absent,
+the instrument's 48 assertions genuinely executing commands, and the cycle-0 "4 WEAK" claim
+confirmed mistaken (0 WEAK is correct). But cycle 1 still failed on **ISS-093** (high, blocking):
+the one row the checker's own 3-row sample dug into content-level (not just shape-level), `ISS-
+t-013-rev-1`'s regression_check (`packages/engine/tests/scribe-citation-rescope.test.ts`), does
+**not** fail when the actual fix (`containsNumberToken` boundary anchoring, `nodes.ts:799`) is
+reverted — its only fixture ("115 students applied from that batch", value 15, key `siblingCount`)
+has no first-person marker, so `verifyCandidateFact`'s `noFirstPerson` guard already forces
+`needsReview: true` regardless of `containsNumberToken`'s return value: "the assertion is right for
+the wrong reason, a confounded guard." Plus **ISS-094** (low): a `.test.ts` file with zero `test()`
+calls passes both the static conformance check and real `node:test` execution (which counts an
+empty file as "1 test, 1 pass"). Full verdict: `qa/verdicts/t-043-regression-check-conformance.md`.
+
+### 1. ISS-093 — root cause, fix, and the revert/restore proof required by the brief
+
+Before writing a fixture-only patch (adding a first-person marker to the same row, which the
+checker's own remedy suggestion implied), I checked whether that would actually work — it would
+not, for any declared number key, not just this one. `declaredKeysForClause`'s own template slot
+(`NUM`, a greedy `\p{Nd}+` run inside an anchored `^…$` template) already requires the captured
+digit run to equal `String(value)` exactly before `guards.length === 0` is even reachable, for
+`budget_inr_per_year` and the score-exam family (the only currently-declared number keys). That
+makes `containsNumberToken`'s return value structurally unable to change `assessFactForReview`'s
+outcome through the public API for any declared key — confirmed by two experiments: reverting it to
+a plain substring match left the whole file's 42/42 tests green, AND all 9 of
+`scribe-auto-verify-property.test.ts`'s property suites (including the randomized/mutation ones)
+green. `siblingCount` (the failing row's key) is not declared at all, so it fails for a second,
+independent reason (`unrecognised-form`) on top of `noFirstPerson`. A fixture-only fix therefore
+cannot make this property load-bearing through the existing surface; only a direct unit test on the
+exported function closes the gap honestly.
+
+**Fix:** exported `containsNumberToken` (it was previously unexported — same pattern already used
+for `AUTO_VERIFY_TEMPLATE_SOURCES`, nothing else at runtime reads the export) with a comment block
+explaining the structural-unreachability finding above; added a direct new test, `"containsNumberToken:
+a value embedded inside a LARGER digit run is never a whole-token match (ISS-093 direct unit proof,
+e.g. 15 inside 115)"`, with 5 assertions covering the boundary property directly (embedded-in-larger-
+run, standalone match, thousands-separator false positive, decimal true positive, decimal
+false-positive-on-the-integer-part). The original confounded test (line 140) is kept — deleting it
+would lose real coverage of the `noFirstPerson`-guarded path — but its comment and assertion message
+were corrected to say plainly that it does NOT prove the boundary property and points at the new
+test.
+
+**Revert-and-restore proof, run twice now (once before this compaction, once fresh just now to
+re-confirm nothing regressed in between):**
+
+Earlier in this cycle (2026-09-27):
+```
+$ npx tsx --test packages/engine/tests/scribe-citation-rescope.test.ts   # baseline, 22:50:33+05:30
+tests 43, pass 43, fail 0
+$ # reverted containsNumberToken (nodes.ts:799-804) to a plain text.includes(String(value)) match
+$ npx tsx --test packages/engine/tests/scribe-citation-rescope.test.ts   # reverted, 22:50:50+05:30
+✖ containsNumberToken: a value embedded inside a LARGER digit run is never a whole-token match ...
+  AssertionError [ERR_ASSERTION]: 15 must not match as a token inside the larger digit run 115, true !== false
+tests 43, pass 42, fail 1
+$ # restored the anchored-regex form
+$ npx tsx --test packages/engine/tests/scribe-citation-rescope.test.ts   # restored, 22:51:09+05:30
+tests 43, pass 43, fail 0
+```
+
+Fresh re-confirmation just now (post-reconciliation, post-sampling, before the final full suite run):
+```
+$ npx tsx --test packages/engine/tests/scribe-citation-rescope.test.ts   # 23:33:31+05:30
+tests 43, pass 43, fail 0
+```
+`git diff --stat -- packages/engine/src/scribe/nodes.ts` shows only the intended change (18
+insertions / 1 deletion: the `export` keyword + the comment block) — no revert residue.
+
+### 2. ISS-094 — fix and its own regression test
+
+**Fix:** `scripts/vc-regression-check-conformance.py` gained `RE_TEST_DECL` (a comment-stripped scan
+for `test(`/`it(`/`describe(` calls) and a `has_real_test_declaration()` method; the `direct-tsx`
+conformance branch now rejects a path with zero real test declarations, naming ISS-094 in the reason
+string, instead of certifying it on file-existence alone. Verified this adds no false positives: the
+real 126-row ledger still reports 126/126 conforming after the change. `scripts/
+vc-regression-check-conformance.test.sh` gained **Test 24**: builds a genuinely content-free
+`.test.ts` fixture, asserts the static checker rejects it (exit 1, reason names ISS-094), and
+separately asserts `node:test` itself would silently pass it (exit 0, "tests 1, pass 1") — the
+positive control proving the hazard is real. Full instrument suite is now **52 passed, 0 failed**
+(up from 48 in cycle 1).
+
+### 3. The scale question — a mechanical heuristic, a systematic sample, and an honest successor unit
+
+Per the brief, I did NOT attempt to hand-verify all 69 remapped rows' test CONTENT this cycle. Three
+things instead, exactly as asked:
+
+**(a) A mechanical confounded-guard detector — `scripts/vc-confounded-guard-heuristic.py` (new).**
+Flags a `test()` block that calls `verifyCandidateFact`/`assessFactForReview`, asserts
+`needsReview === true`, and never pins a *specific* `reviewReasons` value/prefix — exactly the
+ISS-093 shape. Self-tested (`vc-confounded-guard-heuristic.test.sh`, 4/4 pass: flags a synthetic
+confounded fixture, does not flag a well-formed one that pins a reason, does not flag an unrelated
+test) and smoke-run against the real repo: **7 candidates**, all in
+`packages/engine/tests/scribe-citation-rescope.test.ts` (lines 140, 181, 211, 221, 229, 239, 258;
+line 140 is the already-confirmed ISS-093 row, now with a corrected comment — the other 6 are
+**unconfirmed candidates**, not verified defects, flagged for human/checker review), and **0**
+elsewhere (`scribe-per-fact.test.ts`, `scribe-auto-verify-property.test.ts`, `scribe.test.ts`,
+`guard-crisis.test.ts`). **What it can catch:** exactly the ISS-093 shape, in this one codebase
+convention. **What it explicitly cannot catch (stated in its own docstring, not oversold):** it is
+not a general confounded-guard detector — a different function with a different multi-cause `true`
+branch and no `reviewReasons`-style convention is invisible to it; it cannot tell whether a present
+`reviewReasons` check pins the *right* reason, only that some specific-reason check exists at all;
+and — directly relevant to finding (b) below — **it cannot catch a claim with NO test block at
+all**, which is a coverage-absence problem, not a confounded-assertion problem, and needs a
+different check entirely (cross-referencing ledger claims against test titles). Brace-matching over
+raw text (not a real parser) is also named as a real, if unobserved, limitation.
+
+**(b) A systematic (not cherry-picked) 8-row sample of the 66 remaining rows, each with a real
+revert-and-restore.** Rule, stated up front: take the 69 rows T-043 remapped from `repo-file-arg` to
+`direct-tsx`/`direct-tsx+tsconfig` (extracted from the cycle-1 commit's own ledger diff, in the
+order they appear there — a stable, inspectable ordering, not chosen by me), remove the 3 the
+checker's own cycle-1 sample already tested (`ISS-009`, `ISS-t-020-c0-1`, `ISS-t-013-rev-1`),
+leaving 66, then take `remaining[3::8]` — a fixed, deterministic slice (start at index 3, every
+8th element), yielding exactly 8 ids. No row was chosen because it looked interesting; the rule was
+fixed before I looked at what it would select.
+
+The 8 sampled ids, the file reverted, and the outcome:
+
+| id | reverted | regression_check | outcome |
+|---|---|---|---|
+| ISS-010 | `packages/schemas/src/schemas.ts`: `validFrom`/`validTo` back to `z.string().min(1)` | `packages/schemas/tests/fact.test.ts` | **PASS** — baseline 12/12 (23:19:13) -> reverted 10/12, 2 named failures (23:19:30) -> restored 12/12 (23:19:45) |
+| ISS-019 | `packages/db/tests/fakes.ts`: `assertNoUniqueConflict` short-circuited to a no-op | `packages/db/tests/facts.test.ts` | **PASS** — baseline 58/58 (23:20:13) -> reverted 54/58, 4 named failures incl. the ISS-019 test itself (23:20:32) -> restored 58/58 (23:20:47) |
+| ISS-027 | `packages/db/scripts/db-init.ts`: removed 4 of 5 `INDEX_PLAN` plain `studentId` entries | `packages/db/tests/db-init.test.ts` | **PASS** — baseline 25/25 (23:20:55) -> reverted 24/25, the named ISS-027 test fails (23:21:15) -> restored 25/25 (23:21:32) |
+| ISS-t-007-rev-1 | `packages/engine/src/scribe/nodes.ts`: `generateWithRetry` collapsed to a single un-retried call | `packages/engine/tests/scribe.test.ts` | **PASS** — baseline 32/32 (23:21:51) -> reverted 29/32, exactly the 3 named ISS-t-007-rev-1 tests fail (23:22:11) -> restored 32/32 (23:22:32) |
+| ISS-t-011-rev-1 | `packages/db/src/erasure.ts`: checked-CAS filter `{_id, status, attempts}` narrowed back to bare `{_id}` | `packages/db/tests/erasure.test.ts` | **PASS** — baseline 68/68 (23:23:05) -> reverted 65/68, 3 named failures (23:23:30) -> restored 68/68 (23:23:45) |
+| ISS-t-011-c2-rev-1 | `packages/db/src/erasure.ts`: `fenceReleaseTime` formula dropped its `created + MINIMUM_FENCE_HOLD_MS` floor | `packages/db/tests/erasure.test.ts` | **PASS** — baseline 68/68 (23:24:04) -> reverted 64/68, 4 named failures incl. the D-016 KEY PROBE (23:24:22) -> restored 68/68 (23:24:38) |
+| ISS-t-008-c0-1 | `packages/engine/src/scribe/nodes.ts`: `perFactDecision`'s scalar-type-match check removed | `packages/engine/tests/scribe-per-fact.test.ts` | **PASS, and notable** — see below |
+| ISS-t-013-c2-rev-3 | *(no revert possible)* | `packages/engine/tests/scribe-citation-rescope.test.ts` | **FAIL — a third species, coverage-absence, not confounded-assertion or inert-shape** |
+
+**ISS-t-008-c0-1 is worth a note, not a defect.** This row looked, on first read, like it might be
+another defense-in-depth confound: the fact-type-match check lives in BOTH `schemas.ts`
+(`EditedValueSchema`, scalar-only refine) and `nodes.ts` (`perFactDecision`'s `scalarTypeOf`
+comparison), so a naive test using only an object/array fixture (lines 331, 355 in the test file)
+would stay green under a `nodes.ts`-only revert, because the schema layer catches it first — exactly
+the same shape of problem as ISS-093. But the test file also has a genuinely isolating fixture at
+line 371 (a STRING value for a NUMERIC fact — schema-valid on its own, since a string is an
+allowed scalar, but a cross-type mismatch only `perFactDecision` can catch) and another at line 398
+(boolean vs numeric). Reverting `perFactDecision`'s check in isolation turned exactly those two named
+tests red (`24 -> 22 pass`, 23:18:08) while (confirmed by inspection, not a separate revert this
+cycle) the schema-level tests do not depend on this code path at all; restoring returned the file to
+24/24 (23:18:36). This is a real instance of the SAME class of risk ISS-093 exposed (defense-in-depth
+can silently collapse to single-layer coverage) turning out, on inspection, to be correctly guarded
+here — the row conforms genuinely, not by luck.
+
+**Sample-size rationale:** 8 is small deliberately — the brief asked for a documented, non-cherry-
+picked sample, not a full hand-verification of the remaining 66 (that is the successor unit, below).
+8 rows across 6 different files/packages (schemas, db x4, engine x2) gives some spread across the
+codebase's different subsystems without claiming more coverage than was actually done.
+
+**(c) Successor unit — the 58 rows still not content-verified.** Combined with the checker's own
+3-row cycle-1 sample, **11 of the 69** remapped rows now have a real revert-and-restore result: 9
+PASS, 2 FAIL (`ISS-093`, `ISS-t-013-c2-rev-3`). That is an **observed failure rate of 2/11 ≈ 18%**,
+stated explicitly as an estimate from a sample of 11, not a census — with a small-n confidence
+interval wide enough that the true rate could plausibly be anywhere from roughly 5% to 45%; nothing
+about this cycle's work narrows that interval further than the arithmetic already shown. The
+remaining **58 rows** (69 − 11) are structurally conforming (`direct-tsx`, file exists, shape valid)
+but their test CONTENT has not been individually revert-verified. A successor unit should: run the
+same revert-and-restore method (or the mechanical heuristic as a first-pass triage, given its stated
+scope) across some or all of the 58, prioritizing the 6 unconfirmed heuristic candidates in
+`scribe-citation-rescope.test.ts` first (already flagged, cheapest to check next) and then a further
+systematic slice of the rest; and separately build the coverage-absence check the heuristic
+explicitly cannot do (cross-referencing every `fixed`/`verified` row's own title/fix text against
+its regression_check file's actual test titles, to catch more `ISS-t-013-c2-rev-3`-shaped rows —
+this cycle found one by manual probing, not by any mechanical check, so there is no reason to believe
+it is the only one).
+
+### 4. Is ISS-076 closed? Still no — narrower than before, not resolved
+
+**No 100%-style headline this cycle.** Two consecutive such headlines (cycle 0's 125/125, cycle 1's
+126/126) each preceded a FAIL, both times because a shape- or row-level Goodhart problem was hiding
+under an otherwise-honest number. This cycle's own honest numbers: instrument re-run still reports
+`126/126 (100.0%)` **shape-conformance** (unchanged by this cycle, since no row's regression_check
+value was itself edited) — that number measures what the instrument checks, not what ISS-076 cares
+about, and cycle 1's own FAIL is the reason that gap now has to be stated on every cycle, not just
+implied. What actually changed this cycle is content-level: 8 more rows revert-verified (up from the
+checker's 3), one of which is a NEW, differently-shaped defect (ISS-t-013-c2-rev-3) that neither
+ISS-092's shape check nor ISS-093's own fix would have caught.
+
+- `ISS-093` is fixed and proven (revert/restore pair above).
+- `ISS-094` is fixed and has its own regression test (Test 24).
+- 9 of 11 sampled rows (82%) are genuinely regression-tested; 2 are not, for two different reasons
+  (a confounded assertion, and a complete coverage absence).
+- 58 of the 69 remapped rows remain content-unverified — named as a successor unit, not hidden.
+- `ISS-076` remains **open**. Only `/checker` can move it toward verified/closed, and per the
+  brief's own instruction this unit does not claim to have done that work.
+
+### 5. Ledger reconciliation and full-suite verification (own runs)
+
+The checker had appended `ISS-093`, `ISS-094` and an `ISS-076` cycle-1 status update to the ledger
+in the **main tree** (`D:/vc/qa/issues.jsonl`), not this branch. Reconciled by extracting those
+exact 3 lines from main's committed history (they had since been committed there, alongside
+unrelated `ISS-095`/`ISS-096` maker-checker-infrastructure entries that do NOT belong to this unit
+and were left untouched) and appending them, byte-for-byte, to this branch's `qa/issues.jsonl`,
+matching its CRLF convention. Verified append-only: `git diff -U0 -- qa/issues.jsonl` shows exactly
+3 added lines and 0 removed; all 551 lines parse as valid JSON; `ISS-093`/`ISS-094` each appear
+exactly once; the pre-existing `ISS-092` rows (from cycle 1) are untouched.
+
+```
+$ bash scripts/vc-testlock.sh pnpm -r typecheck        # 23:28:37+05:30
+Scope: 9 of 10 workspace projects — all 9 Done, 0 errors
+EXIT: 0
+
+$ bash scripts/vc-testlock.sh pnpm -r test             # 23:29:17+05:30
+packages/schemas test:       tests 61   pass 61   fail 0   skipped 0
+packages/observability test: tests 59   pass 59   fail 0   skipped 0
+packages/db test:            tests 248  pass 248  fail 0   skipped 0
+packages/providers test:     tests 54   pass 54   fail 0   skipped 0
+mcp/student-profile test:    tests 12   pass 12   fail 0   skipped 0
+mcp/university-kb test:      tests 29   pass 29   fail 0   skipped 0
+packages/engine test:        tests 690  pass 645  fail 0   skipped 45
+apps/web test:                tests 38   pass 38   fail 0   skipped 0
+apps/api test:                tests 46   pass 46   fail 0   skipped 0
+Grand total: 1237 / 1192 / 0 / 45
+EXIT: 0
+
+$ python contracts/verify_contracts.py                 # 23:33:19+05:30
+verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity
+EXIT: 0
+```
+
+**Grand total is 1237/1192/0/45, not the documented baseline 1236/1191/0/45 — a +1/+1 difference,
+fully accounted for:** `packages/engine` moved from 689 to 690 tests (644 to 645 pass), which is
+exactly the one new `containsNumberToken` direct-unit test this cycle added to
+`scribe-citation-rescope.test.ts` (43 tests in that file now vs. 42 before). No other package's
+count moved. No flake of the known ISS-089/ISS-091 class was observed (0 fail everywhere, one clean
+run, no isolation re-run needed).
+
+No revert/restore residue anywhere: `git status --short` (checked repeatedly through this cycle and
+again just before commit) never showed an uncommitted change to `packages/schemas/src/schemas.ts`,
+`packages/db/tests/fakes.ts`, `packages/db/scripts/db-init.ts`, or `packages/db/src/erasure.ts` after
+each restore step above.
 
 ## Status: ready-for-check

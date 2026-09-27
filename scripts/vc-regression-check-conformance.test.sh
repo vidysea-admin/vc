@@ -52,7 +52,9 @@ EOF
 {"compilerOptions": {"jsx": "preserve"}}
 EOF
   cat > "$root/packages/foo/tests/sample.test.ts" <<'EOF'
-// fixture test file, never executed by these tests
+// fixture test file, never executed by most of these tests (Tests 20/21 run real ones of their own)
+import { test } from "node:test";
+test("fixture placeholder", () => {});
 EOF
   cat > "$root/qa/scenarios/counselling-engine.csv" <<'EOF'
 id,persona,type,preconditions,steps,expected
@@ -347,10 +349,32 @@ EOF
 cat > "$ROOT/apps/web/tsconfig.json" <<'EOF'
 {"compilerOptions": {"jsx": "react-jsx"}}
 EOF
-: > "$ROOT/apps/web/tests/ui.test.tsx"
+cat > "$ROOT/apps/web/tests/ui.test.tsx" <<'EOF'
+import { test } from "node:test";
+test("fixture placeholder", () => {});
+EOF
 write_issues "$ROOT" '{"id":"ISS-23","status":"fixed","regression_check":"npx tsx --tsconfig apps/web/tsconfig.json --test apps/web/tests/ui.test.tsx"}'
 OUT=$(run_checker "$ROOT"); RC=$?
 assert_eq "static checker certifies the real remap command: exit 0" "0" "$RC"
+rm -rf "$ROOT"
+
+echo "== Test 24 (ISS-094, EMPTY TEST FILE): a real .test.ts file with NO test()/it()/describe() call must be REJECTED, not certified conforming (node:test itself would silently pass it as '1 test, 1 pass') =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+cat > "$ROOT/packages/foo/tests/empty.test.ts" <<'EOF'
+// a real file, on disk, with no test declaration at all -- the ISS-094 adversarial shape
+const unused = 1;
+EOF
+write_issues "$ROOT" '{"id":"ISS-24","status":"fixed","regression_check":"npx tsx --test packages/foo/tests/empty.test.ts"}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_eq "content-free test file: exit 1 (nonconform)" "1" "$RC"
+assert_contains "content-free test file: reason names ISS-094 / no test declaration" "$OUT" "no real test()"
+# Sanity: node:test itself really would pass this file silently, confirming the static check is doing
+# real work here rather than guarding against something that couldn't happen anyway.
+if command -v npx >/dev/null 2>&1; then
+  EMPTY_RUN_OUT=$(cd "$ROOT" && npx tsx --test packages/foo/tests/empty.test.ts 2>&1); EMPTY_RUN_RC=$?
+  assert_eq "sanity: node:test exits 0 on the content-free file (the exact ISS-094 hazard)" "0" "$EMPTY_RUN_RC"
+  assert_contains "sanity: node:test reports it as one implicit passing test" "$EMPTY_RUN_OUT" "pass 1"
+fi
 rm -rf "$ROOT"
 
 echo
