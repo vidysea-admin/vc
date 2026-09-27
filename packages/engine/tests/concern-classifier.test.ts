@@ -5,7 +5,8 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MockProvider, type GenerateRequest, type LlmProvider, type ProviderConfig } from "@vc/providers";
+import { createServer, type Server } from "node:http";
+import { MockProvider, LiteLlmProvider, type GenerateRequest, type LlmProvider, type ProviderConfig } from "@vc/providers";
 import {
   CONCERN_CLASSIFIER_DEFAULT_MODEL,
   CONCERN_CLASSIFIER_SKILL,
@@ -37,6 +38,48 @@ class HangingProvider implements LlmProvider {
   generate<T>(_request: GenerateRequest<T>): Promise<T> {
     this.calls++;
     return new Promise<T>(() => {});
+  }
+}
+
+/**
+ * T-041 (ISS-t-037-2): a hung provider that RECORDS the signal it was handed, so a test can prove
+ * classifyConcern actually aborts the abandoned call (not merely its own Promise.race), mirroring
+ * T-037's `hangsForeverButRecordsSignal` fixture in packages/providers/tests/failover.test.ts.
+ */
+class SignalRecordingHangingProvider implements LlmProvider {
+  readonly kind = "mock" as const;
+  readonly model = "flash-lite";
+  observedSignal: AbortSignal | undefined;
+  generate<T>(request: GenerateRequest<T>): Promise<T> {
+    this.observedSignal = request.signal;
+    return new Promise<T>(() => {});
+  }
+}
+
+/**
+ * T-041 (ISS-t-037-2): simulates a REAL provider's own abort behaviour — the call does not resolve
+ * immediately when the signal fires, it rejects asynchronously afterwards (a real `fetch` AbortError
+ * needs a tick), the way `LiteLlmProvider` really behaves. Used to prove the LATE rejection from an
+ * aborted call can never surface as anything other than the pre-existing unavailable/timeout outcome,
+ * and never becomes an unhandled rejection.
+ */
+class AsyncAbortingProvider implements LlmProvider {
+  readonly kind = "mock" as const;
+  readonly model = "flash-lite";
+  generate<T>(request: GenerateRequest<T>): Promise<T> {
+    return new Promise<T>((_, reject) => {
+      request.signal?.addEventListener(
+        "abort",
+        () => {
+          setTimeout(() => {
+            const err = new Error("simulated aborted fetch");
+            err.name = "LiteLlmAbortedError";
+            reject(err);
+          }, 5);
+        },
+        { once: true },
+      );
+    });
   }
 }
 
@@ -148,6 +191,67 @@ test("T-012 classify: a hung provider resolves to unavailable/timeout within the
   assert.equal(out.status, "unavailable");
   assert.equal(out.status === "unavailable" && out.reason, "timeout");
   assert.ok(Date.now() - started < 2000);
+});
+
+// ---------------------------------------------------------------------------
+// T-041 (ISS-t-037-2): the abandoned request is actually cancelled, not merely abandoned
+// (same bug class T-037 fixed for FailoverProvider.raceDeadline, now fixed at this call site)
+// ---------------------------------------------------------------------------
+
+test("T-041 (ISS-t-037-2): a timeout aborts the abandoned provider call's own AbortSignal — not merely classifyConcern's own race", async () => {
+  const provider = new SignalRecordingHangingProvider();
+  const out = await classifyConcern(INPUT, { provider, skillPrompt: "p", timeoutMs: 30, now });
+  assert.equal(out.status, "unavailable");
+  assert.equal(out.status === "unavailable" && out.reason, "timeout");
+  assert.ok(provider.observedSignal !== undefined, "the provider must have been handed a signal");
+  assert.equal(provider.observedSignal?.aborted, true, "the signal must be aborted once the timeout has fired");
+});
+
+test("T-041 (ISS-t-037-2): a real in-flight LiteLLM HTTP request is actually cancelled (the stub server observes the connection close), and the outcome is still unavailable/timeout — unchanged safety behaviour", async () => {
+  let requestedAt: number | null = null;
+  let closedAt: number | null = null;
+  const stub = createServer((req, res) => {
+    requestedAt = Date.now();
+    req.on("close", () => {
+      if (!res.writableEnded) closedAt = Date.now();
+    });
+    // never respond — the provider's own timeoutMs is far longer than classifyConcern's, so ONLY
+    // classifyConcern's own timeout-driven abort can end this call.
+  });
+  await new Promise<void>((resolve) => stub.listen(0, "127.0.0.1", resolve));
+  const address = stub.address();
+  if (address === null || typeof address === "string") throw new Error("stub has no port");
+  const baseUrl = `http://127.0.0.1:${address.port}/v1`;
+  try {
+    const provider = new LiteLlmProvider({ model: "flash-lite", baseUrl, timeoutMs: 5_000 });
+    const out = await classifyConcern(INPUT, { provider, skillPrompt: "p", timeoutMs: 50, now });
+    assert.equal(out.status, "unavailable");
+    assert.equal(out.status === "unavailable" && out.reason, "timeout");
+    assert.ok(requestedAt !== null, "the stub must have received the request before the timeout fires");
+    // The client-side classifyConcern promise settles the instant the abort fires; the server only
+    // learns the socket closed once the FIN actually arrives over the loopback connection.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.ok(closedAt !== null, "the stub server must observe the connection actually close — the request was really cancelled, not merely abandoned client-side");
+  } finally {
+    await new Promise<void>((resolve, reject) => stub.close((err) => (err ? reject(err) : resolve())));
+  }
+});
+
+test("T-041 (ISS-t-037-2): a real provider's LATE rejection after an abort never turns into anything but the pre-existing unavailable/timeout outcome, and never becomes an unhandled rejection", async () => {
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const out = await classifyConcern(INPUT, { provider: new AsyncAbortingProvider(), skillPrompt: "p", timeoutMs: 30, now });
+    assert.equal(out.status, "unavailable");
+    assert.equal(out.status === "unavailable" && out.reason, "timeout", "must never be misread as an 'error' reason, and never as a classified/benign outcome");
+    // Give the provider's own deliberately-late (setTimeout-delayed) rejection time to actually fire
+    // before checking for an unhandled rejection.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.deepEqual(unhandled, [], "the abandoned call's own late rejection must never surface as an unhandled rejection");
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
 });
 
 test("T-012 classify: a provider error resolves to unavailable/error with the class name only (no message leak)", async () => {
