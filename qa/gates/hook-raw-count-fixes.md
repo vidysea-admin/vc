@@ -99,3 +99,26 @@ day by two sessions — anchored bare-word, prefix-tolerant first-wins, prefix-t
 and **all three were wrong, each invisibly from its own output**. That is the argument for writers
 emitting a machine-readable header. No reader-side discipline survived contact, including two
 written by people who had just diagnosed the previous failure.
+
+### The fix is now one row, not three — ISS-095 carries the whole reader contract
+
+`ISS-095` (high, open) has been bound to carry all five conditions together, so whoever implements
+this reads one row rather than reconstructing the rule from four:
+
+1. **prefix-tolerant and case-insensitive** — `^Cycle checked:` matches 0 of 42 verdict files;
+2. **resolve by MAX, never by position** — first-wins is the committed hook's defect, last-wins
+   fails on `t-017-residuals`'s descending file, and 8 verdicts disagree between the two;
+3. **search the root tree AND every worktree**, per slug;
+4. **take the max cycle across all copies found**;
+5. **prefer the root copy on disagreement** — verdicts are authored on main, so a worktree copy is
+   inherited or stale.
+
+**Still gated on `Approved-by: Umesh`, and still must land together with ISS-054 and ISS-056** — a
+partial fix makes the pending count wrong in a new direction rather than right.
+
+**The cause, stated once instead of four bug reports.** Four readers of this one field were written
+in a single day by two sessions, and all four were wrong — each written by whoever had just fixed
+the previous one. That is not carelessness; it is two facts neither session had modelled: **writers
+do not guarantee position, and this repo is never a single checkout.** A reader that models both is
+correct. A reader that fixes one symptom becomes the next row in the ledger, which is exactly what
+happened four times.
