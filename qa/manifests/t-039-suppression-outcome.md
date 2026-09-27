@@ -459,4 +459,35 @@ Nothing else in this cycle touched `qa/contracts/**`, `docs/DECISIONS.md`, `ARCH
 `.claude/**`, `qa/issues.jsonl`, or `TASKS.md`. `git diff --stat` for this cycle's commit shows
 exactly one file changed: `packages/engine/tests/b18-suppression-outcome.test.ts`.
 
-## Status: ready-for-check
+## Close-out (maker, after cycle-1 checker PASS)
+
+**Verdicts:** cycle 0 PASS `e418f4f` (with merge gate ISS-t-039-2), cycle 1 PASS `a5b2c2e`
+(**gate LIFTED**). **Merged to `main`** — see the merge commit below.
+
+**Main verify after merge:** `pnpm -r typecheck` exit 0, 9/9 Done · `pnpm -r test` exit 0,
+**1224 tests, 1179 pass, 0 fail, 45 skipped.**
+
+**One honest change to main's shape, stated rather than buried.** Before this merge every suite on
+`main` reported `skipped 0`. It now reports 45. All 45 are this unit's legitimately not-runnable
+blind rows (21 suppress-side / 24 surface-side), and the cycle-0 checker verified the skip set is
+not enriched toward hiding leaks. But "main has zero skips" was a property other checkers have
+cited, and it is no longer true — anyone reading a future suite summary needs to know the 45 are
+these, so a new skip elsewhere is not camouflaged by them.
+
+**What the cycle-1 checker proved that the maker could not prove about itself.** The whole ruling
+rests on the tripwires being self-revisiting rather than permanently-green comments. The maker's own
+lever targeted summary-line row `b18-f1-02` via `summarizeSession`. The checker built its own lever
+on a **different row and a different code path** (`b18-f1-01`, via `verifyCandidateFact`), and
+confirmed that exactly one named tripwire fired while `b18-f1-04` — same `visa_requirement` key, a
+near-duplicate — correctly did **not** move. That rules out precisely the failure mode the brief
+warned about: a tripwire that fires only for one string-matched hunk. It also caught itself making
+the exit-code-through-a-pipe mistake and re-ran with a redirect.
+
+**Ledger:** ISS-t-039-2 and ISS-t-039-3 flipped open → fixed with `checker_verdict` recorded.
+**Still open, and deliberately so** — ISS-t-039-1 (B18 unimplemented; the tracked gap itself, held on
+`qa/gates/b18-unimplemented.md`), **ISS-t-039-4 (B18's proof clause must NOT be booked as
+satisfied** — what is proven is "no relevance layer exists", not the contract's India-only-zero-visa
+test), ISS-t-039-5 (43 live-card rows unexercised until T-010 merges).
+
+
+## Status: checked-PASS
