@@ -163,3 +163,86 @@ Full report: `qa/sweeps/2026-09-27T13-52-consolidation.md`.
 - **Ledger validated:** all 408 lines of `qa/issues.jsonl` parse as JSON (python, line-by-line) after this sweep's 14 appends.
 
 **Terminal state: FINDINGS: 8** (5 new — ISS-076, ISS-077, ISS-079, ISS-080, ISS-081; 9 updates — ISS-063, ISS-074, ISS-053 superseded, ISS-t-012-rev-4, ISS-056, ISS-065, ISS-045, ISS-060, ISS-057). No BLOCKED, no EXHAUSTED.
+
+## Sweep notes (2026-09-27T~16:30 IST, Mode B sharded sweep — 3 shards + 4 root-session rows, 0 shards failed, this consolidation is the single writer, second full sweep of the day)
+
+Full report: `qa/sweeps/2026-09-27T16-30-consolidation.md` (see there for full detail; this is the summary).
+
+- **CLOCK CORRECTION (governs every age judgement in this sweep):** the maker's tick stamps carried a
+  ~4-4.5h forward wall-clock error for most of 2026-09-27 (composing the time from its own sense of it
+  instead of reading `date`). Every age in this sweep is derived from `date -Iseconds` or
+  `git log --format=%cI`, never from a prose stamp. Filed as ISS-086 (fixed — verified independently
+  against 3 post-16:10 commit timestamps, no skew).
+- **Dedupe against the live ledger:** re-read `qa/issues.jsonl` immediately before writing (432 lines
+  going in, 251 distinct ids). Minted ISS-082..ISS-087 (6 new, 2 immediately folded and closed —
+  ISS-082/ISS-083 — 4 open). Updated ISS-045 (REOPENED, corrected), ISS-054, ISS-056, ISS-076, ISS-081,
+  ISS-t-037-1 (6 updates). 12 lines appended total; max prior plain id was ISS-081.
+- **Check 4b — data boundary, DETERMINATE this run (corrected from the shards' INDETERMINATE):** the
+  WinError3 crash the shards hit (from `.worktrees/t-034-webhook-outbox`'s dangling pnpm symlink) was
+  resolved mid-sweep by the peer maker removing two orphaned worktree dirs. Re-run independently:
+  `data_boundary.py D:/vc` completes cleanly, exit 1, **52 VIOLATION + 5 ADVISORY** (up from 31+5 at
+  13:52 in raw count, but that raw number is itself the finding — see ISS-084). Independently verified
+  file:line: only **9 distinct files breach in the root tree** — `docs/DECISIONS.md:74,109,110` and
+  `qa/gates/config-audit-fixes.md:8,13-14` carry `umeshsugara@vidysea.com`/`himanshu@vidysea.com` (the
+  Approver's own and the operator's work emails, accepted under D-011/ISS-003 since 2026-09-25);
+  `qa/evidence/{t-008-approval-ui,t-018-approval-followups,t-020-reject-reason-ui}/test.txt:109,131`,
+  `qa/sweeps/*.md` and `qa/verdicts/t-028-personas-scenarios.md` all carry the literal test name
+  `pass@eu.cloud.langfuse.com` from `ISS-016`/`ISS-t-004-langfuse-1` (a security test asserting a
+  credential-bearing URL is REFUSED, not a credential). **Zero student/applicant/Pathlynks/V3.3 data.
+  No breach.** The other 43 of 52 are these same 9 files duplicated once per in-flight worktree
+  (5 worktrees × ~8-9 files each) — an artefact of the instrument counting occurrences instead of
+  distinct files, not a widening breach; filed as ISS-084, cross-referenced from ISS-045's reopen.
+  **ISS-045 reopened anyway** (high) because the CRASH CLASS recurred this window and one orphan,
+  `.worktrees/t-037-failover-cancellation`, remains on disk unregistered (6 dirs vs 5 registered — a
+  live process holds its handle); remedy is the maker's own `git worktree prune` retry, not a checker fix.
+- **The count-vs-distinct-entity pattern (ISS-084, NEW, medium) — three instances, one root cause.**
+  `.claude/hooks/mc-sessionstart.ps1:8` counts raw ledger lines: live-verified 243 raw vs **127 real**
+  (latest-row-per-id, post this sweep's appends; was 123 pre-sweep) — a ~2x overstatement of every
+  session's pending-work signal. The identical shape recurs in `data_boundary.py`'s worktree duplication
+  above and in `ISS-056`'s any-`Status:`-line match. One fixable habit across three tools, not three
+  unrelated bugs — every instance so far skews toward a false alarm, never toward hiding a real one.
+  Gated on the same pending `Approved-by: Umesh` DECISIONS entry as ISS-054/ISS-056.
+- **Silent-failure hunt (check 7, NEW, ISS-085, high):** B21 `fact.approved` webhook path
+  (`packages/db/src/facts.ts:1001-1005`, `apps/api/src/server.ts:316-327,609-627`) can silently emit
+  fewer events than facts written and silently swallow an outbox-enqueue failure behind a 200 response.
+  Not a deliberate-fallback exemption (B21 Events is new, T-034, not B6/B20). Filed as one row per the
+  shared root cause (read-back-then-emit with no consistency check).
+- **Root-session findings (C1-C4), filed as ISS-086/ISS-087 + an ISS-t-037-1 update:** C1 (clock defect,
+  see above) → ISS-086, fixed, independently verified. C2 (`vc-testlock.sh` referenced by 11 manifests,
+  never committed, two logically-divergent copies live only in session scratchpads — md5
+  `b6c788b6...` vs `83c0db3f...`) → escalated the existing `ISS-t-037-1` low→high rather than mint a
+  duplicate; T-040 is already building the fix. C3 (neither lock copy checks owner-PID liveness, only
+  age) → ISS-087, new, medium, with a falsification named for T-040's checker. C4 (the checker
+  safety-net takeover rule reads manifest AGE, which is environment not liveness) is a process note on
+  a skill outside this root's writable surface — not filed as a ledger row, recorded here only.
+- **Contract maintenance — the one edit this sweep made:** folded T-013's implemented negation/unit-
+  multiplier/currency fail-safe (ISS-082) and T-036 oracle Q3/Q4/Q6/Q7/Q8 (ISS-083, all independently
+  routine — verified none turn on the held necessary-vs-sufficient question) into contract B2 as one
+  "Fail-safe + scope clarifications" block, plus an amendment-log entry. **Q1, Q2, Q5 deliberately left
+  unfolded**, held on `qa/gates/auto-verify-surface.md` (still open, unaffected). Marked all five
+  `qa/feedback-inbox.md` entries `FOLDED:`.
+- **Two new gates surfaced this window, not by this checker:** `auto-verify-surface.md` (still open from
+  13:52) and **`b18-unimplemented.md`** (new — B18 has no engine surface on `main` outside the unmerged
+  `wave/t-010-live-cards` branch; independently confirmed by the T-039 checker, commit `0223812`).
+  QUEUE.md's stale "no gate is unanswered" line corrected. No `GRILL:` line — neither gate nor any other
+  signal met a check-6 trigger this sweep; none invented.
+- **Check 4 loop-design — Goodhart risk (ISS-081), re-derived = IMPROVING:** instance 1
+  (ISS-t-030-rev-1) RESOLVED (T-036 checker-verified PASS, `f4f0a7c`); instance 2 (ISS-t-010-rev-4)
+  still open, under active widening (27→78 rows, 0/66 contained). Updated, not re-filed.
+- **Regression-check conformance (ISS-076):** re-derived independently — 50/120 non-conforming (up from
+  48/116), rate flat ~41.6%. `verified` (4) has not moved since 13:52 while `fixed` grew to 118 — named
+  as the same structural mechanism, not a new finding.
+- **Token ledger:** appended shard 3's prepared line verbatim (`scanned_at` 16:06:34, real-clock
+  consistent) — `opus_sub_share` 2026-09-27 ≈ 27.5%, over the 25% threshold, judged JUSTIFIED (a
+  genuine 4-parallel-unit wave with T-010 fix-cycle-1 deliberately Opus-executed; no manifest at
+  fix-cycle ≥3 today).
+- **Blast radius:** no `/code-graph` graph exists for this repo — correctly skipped, none built.
+- **Ledger validated:** all 444 lines of `qa/issues.jsonl` parse as JSON (python, line-by-line) after
+  this sweep's 12 appends (432 → 444). Distinct ids 251 → 257. Latest-row-per-id status:
+  open=127, fixed=118, wontfix=8, verified=4.
+
+**Terminal state: FINDINGS: 6** (4 new open — ISS-084, ISS-085, ISS-087, plus ISS-045 reopened; 2 new
+fixed-on-arrival — ISS-082, ISS-083; 6 updates — ISS-054, ISS-056, ISS-076, ISS-081, ISS-t-037-1, plus
+the ISS-045 reopen already counted). No BLOCKED, no EXHAUSTED. High-severity open count moved 9→11
+(ISS-045 reopened, ISS-085 new, ISS-t-037-1 escalated; ISS-086 closed) inside the corrected 127-open
+latest-row-per-id total.
