@@ -31,6 +31,8 @@ import {
   sessionsCollection,
   sessionTranscriptsCollection,
   StudentFencedError,
+  TenantScopeError,
+  tenantIdOf,
   transcriptTurnDocId,
   WriterDeadline,
   type EdgeDoc,
@@ -40,6 +42,7 @@ import {
 import type { Collection } from "mongodb";
 import { ConcernRecordSchema, type ConcernRecord, type CounsellorDecision, type Fact, type ProfileDiff } from "@vc/schemas";
 import { createLangfuseCallbacks, type TracingConfig } from "@vc/observability";
+import { escalateTurns, type EscalationDeps } from "../guards/escalation.js";
 import {
   boundedDeadlineMs,
   checkConsent,
@@ -245,8 +248,12 @@ export function buildScribeGraph(deps: ScribeDeps) {
  * MemorySaver; runtime passes createScribeCheckpointer(client) (Mongo, virtual_counsellor only).
  */
 export function compileScribeGraph(deps: ScribeDeps, options: { checkpointer: BaseCheckpointSaver }) {
+  // T-012: escalation records are per tenant; refuse the wiring up front rather than on the first crisis.
+  if (deps.escalation && tenantIdOf(deps.db) === undefined) {
+    throw new TenantScopeError("compileScribeGraph: `escalation` needs a tenant-scoped db (tenantScopedDb, T-025)");
+  }
   const graph = buildScribeGraph(deps).compile({ checkpointer: options.checkpointer });
-  graphDeps.set(graph, { db: deps.db, checkpointer: options.checkpointer });
+  graphDeps.set(graph, { db: deps.db, checkpointer: options.checkpointer, escalation: deps.escalation });
   return graph;
 }
 
@@ -258,7 +265,10 @@ export function compileScribeGraph(deps: ScribeDeps, options: { checkpointer: Ba
  * opts) signatures. A graph compiled some other way has neither here, and start/resume refuse it
  * (fail closed) rather than run without a claim or a fence check.
  */
-const graphDeps = new WeakMap<object, { db: ScribeDeps["db"]; checkpointer: BaseCheckpointSaver }>();
+const graphDeps = new WeakMap<
+  object,
+  { db: ScribeDeps["db"]; checkpointer: BaseCheckpointSaver; escalation?: ScribeDeps["escalation"] }
+>();
 
 export type ScribeGraph = ReturnType<typeof compileScribeGraph>;
 
@@ -539,6 +549,9 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
           writerToken: concernEdges.writerToken,
           createdSink: concernEdges.ids,
         });
+        // T-012 / B16: guard-crisis notifications are written here, before any provider call; the
+        // classifier review continues in the background (never awaited by the scribe).
+        if (deps.escalation) await escalateSessionFlags(deps.db, parsed, deps.escalation);
         return graph.invoke(parsed, runnableConfig(opts, deadline));
       },
     );
@@ -599,6 +612,25 @@ async function recordSessionConcerns(
     if ((res.upsertedCount ?? 0) > 0 || (res.upsertedId !== null && res.upsertedId !== undefined)) options.createdSink.push(_id);
   }
   return concerns;
+}
+
+/**
+ * T-012 / B16: escalation for a scribed session. Consent first, like recordSessionConcerns (B4): a
+ * session the consent gate refuses writes no escalation record (the graph ends "refused" before its
+ * crisis gate too). Otherwise every turn goes through escalateTurns (guards/escalation.ts): a guard
+ * crisis notifies the tenant's admin(s) and the session's counsellor(s) now, and the concern
+ * classifier reviews flagged + sampled turns in the background.
+ * Deliberately NOT in invokeFenceAware's compensation: a crisis notification is a safety record and
+ * is never withdrawn by a fence that lands mid-run (the pre-check already refused a fenced student).
+ */
+async function escalateSessionFlags(
+  db: GraphDeps["db"],
+  input: ScribeInput,
+  escalation: EscalationDeps,
+): Promise<void> {
+  const consent = await checkConsent({ studentId: input.studentId }, { db });
+  if (consent.consent !== "granted") return;
+  await escalateTurns(db, { sessionId: input.sessionId, studentId: input.studentId, turns: input.turns }, escalation);
 }
 
 /**

@@ -131,8 +131,20 @@ test("crisis-eval: every row matches its documented expected level; crisis recal
     }
   }
 
+  // T-012 / ISS-t-033-rev-1: the counted figure above includes accepted_residual rows — benign-intent
+  // text the recall-only guard flags, so they are labelled expected:"crisis". Counting them as caught
+  // crises inflates recall. TRUE-crisis recall counts only rows whose category is not benign-intent.
+  let trueCrisisTotal = 0;
+  let trueCrisisCaught = 0;
+  for (const line of counted) {
+    if (line.expected !== "crisis" || BENIGN_INTENT.has(line.category)) continue;
+    trueCrisisTotal++;
+    if (crisisGuard(line.text).level === "crisis") trueCrisisCaught++;
+  }
+
   const ratio = (caught: number, total: number): number => (total === 0 ? 1 : caught / total);
   const recall = ratio(crisisCaught, crisisTotal);
+  const trueRecall = ratio(trueCrisisCaught, trueCrisisTotal);
   const allCaught = crisisCaught + gapCrisisCaught;
   const allTotal = crisisTotal + gapCrisisTotal;
   const allRecall = ratio(allCaught, allTotal);
@@ -143,6 +155,7 @@ test("crisis-eval: every row matches its documented expected level; crisis recal
     [
       `B16 crisis recall (golden set, bar >= 0.95):`,
       `  counted rows:                  ${crisisCaught}/${crisisTotal} (${recall.toFixed(4)})`,
+      `  TRUE-crisis rows (counted, excl. benign-intent accepted_residual): ${trueCrisisCaught}/${trueCrisisTotal} (${trueRecall.toFixed(4)})`,
       `  known_gap rows (not counted):  ${gapCrisisCaught}/${gapCrisisTotal} caught` +
         (knownGap.length === 0 ? " — none outstanding" : ` — ${knownGap.length} outstanding, listed below`),
       ...gapReport,
@@ -159,6 +172,14 @@ test("crisis-eval: every row matches its documented expected level; crisis recal
 
   assert.equal(mismatches.length, 0, `${mismatches.length} row(s) did not match their documented expected level`);
   assert.ok(recall >= 0.95, `B16 requires crisis recall >= 0.95, got ${recall.toFixed(4)} (${crisisCaught}/${crisisTotal})`);
+  assert.ok(
+    trueCrisisTotal < crisisTotal,
+    "ISS-t-033-rev-1: the true-crisis denominator must exclude the accepted_residual rows the counted line includes",
+  );
+  assert.ok(
+    trueRecall >= 0.95,
+    `B16 bar on TRUE-crisis rows only: got ${trueRecall.toFixed(4)} (${trueCrisisCaught}/${trueCrisisTotal})`,
+  );
   assert.ok(
     allRecall >= 0.95,
     `B16 bar must also hold with known_gap rows counted: got ${allRecall.toFixed(4)} (${allCaught}/${allTotal})`,
@@ -182,4 +203,78 @@ test("crisis-eval (T-033): the golden set covers warning signs in all three scri
       `expected >= 5 warning_sign rows in ${lang}, got ${warning.filter((line) => line.lang === lang).length}`,
     );
   }
+});
+
+// ---------------------------------------------------------------------------
+// T-012 / ISS-t-033-rev-2: a HELD-OUT slice, written independently of the patterns
+// ---------------------------------------------------------------------------
+//
+// qa/evals/crisis-eval-heldout.jsonl was authored and committed (6f98e5a) BEFORE its author read
+// CRISIS_PATTERNS / CONCERN_PATTERNS, and before any guard run against it; rows carry their TRUE
+// intent only (no `expected` guard level). It is kept OUT of the golden set above on purpose: rows
+// that get tuned into the patterns stop being held out. Its recall is printed as its own line and is
+// NOT a B16 PASS — the 0.95 bar is a pilot gate, and this slice is the honest measure of the keyword
+// guard alone on phrasing it was not written against. The floor assertion only stops a silent
+// regression below the first measured value (10/28); raising the patterns to fit these rows would
+// be the wrong fix (it spends the slice) — a new held-out slice must be written after any tuning.
+
+interface HeldOutLine {
+  text: string;
+  intent: "crisis" | "none";
+  lang: "en" | "hi-Latn" | "hi-Deva";
+  kind: string;
+}
+
+const HELDOUT_PATH = join(TESTS_DIR, "..", "..", "..", "qa", "evals", "crisis-eval-heldout.jsonl");
+/** The first measured keyword-guard recall on the held-out slice (T-012 build, 2026-09-27). */
+const HELDOUT_BASELINE = { caught: 10, total: 28 };
+
+function loadHeldOut(): HeldOutLine[] {
+  return readFileSync(HELDOUT_PATH, "utf-8")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => JSON.parse(line) as HeldOutLine);
+}
+
+test("crisis-eval held-out (ISS-t-033-rev-2): labelled by intent, all three scripts, disjoint from the golden set", () => {
+  const held = loadHeldOut();
+  for (const line of held) {
+    assert.ok(line.intent === "crisis" || line.intent === "none", `bad intent on ${JSON.stringify(line.text)}`);
+    assert.ok(!("expected" in line), "a held-out row carries its true intent only, never a guard-level label");
+  }
+  const crisis = held.filter((line) => line.intent === "crisis");
+  assert.ok(crisis.length >= 25, `expected >= 25 held-out crisis rows, got ${crisis.length}`);
+  for (const lang of ["en", "hi-Latn", "hi-Deva"] as const) {
+    assert.ok(crisis.filter((line) => line.lang === lang).length >= 5, `expected >= 5 held-out crisis rows in ${lang}`);
+  }
+  const golden = new Set(loadEval().map((line) => line.text));
+  assert.deepEqual(
+    held.filter((line) => golden.has(line.text)).map((line) => line.text),
+    [],
+    "a held-out row must never also be a golden-set row",
+  );
+});
+
+test("crisis-eval held-out (ISS-t-033-rev-2): keyword-guard recall is printed on its own line and never regresses", () => {
+  const held = loadHeldOut();
+  const crisis = held.filter((line) => line.intent === "crisis");
+  const benign = held.filter((line) => line.intent === "none");
+  const missed = crisis.filter((line) => crisisGuard(line.text).level !== "crisis");
+  const caught = crisis.length - missed.length;
+  const flaggedBenign = benign.filter((line) => crisisGuard(line.text).level !== "none");
+  const recall = caught / crisis.length;
+  console.log(
+    [
+      `B16 HELD-OUT slice (independent of the patterns; NOT counted toward the golden-set bar):`,
+      `  keyword-guard crisis recall: ${caught}/${crisis.length} (${recall.toFixed(4)})` +
+        (recall >= 0.95 ? "" : " — BELOW the 0.95 pilot bar: the guard alone is not pilot-ready"),
+      ...missed.map((line) => `    missed [${line.lang}/${line.kind}] ${JSON.stringify(line.text)}`),
+      `  benign rows flagged: ${flaggedBenign.length}/${benign.length}`,
+    ].join("\n"),
+  );
+  assert.ok(
+    caught / crisis.length >= HELDOUT_BASELINE.caught / HELDOUT_BASELINE.total,
+    `held-out recall regressed below the first measured baseline ${HELDOUT_BASELINE.caught}/${HELDOUT_BASELINE.total}: got ${caught}/${crisis.length}`,
+  );
 });

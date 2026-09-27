@@ -25,6 +25,7 @@ import {
 import type { LlmProvider } from "@vc/providers";
 import { citationGuard } from "../guards/citation.js";
 import { routeBeforeGeneration } from "../guards/crisis.js";
+import type { EscalationDeps } from "../guards/escalation.js";
 import { loadSkill } from "../skills/loader.js";
 import {
   ApprovalOutputSchema,
@@ -66,6 +67,12 @@ export interface ScribeDeps {
   provider: LlmProvider;
   /** The repo's skills/ directory; prompts come from SKILL.md files (B6). */
   skillsDir: string;
+  /**
+   * T-012 (B16): crisis escalation + the async concern classifier. Optional: when absent the scribe
+   * behaves exactly as before (no notification records, no classifier call). When present, `db` must
+   * be tenant-scoped (tenantScopedDb, T-025); escalateTurns refuses an unscoped Db.
+   */
+  escalation?: EscalationDeps;
 }
 
 // ---------------------------------------------------------------------------
