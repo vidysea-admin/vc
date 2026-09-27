@@ -29,3 +29,13 @@
   MERGE BLOCKED (not by the unit): vc-f5's Mode B sweep is uncommitted on main and touches
   qa/issues.jsonl. Asked vc-f5 to commit; not committing peer contract/ledger work myself.
   ISS-087 (lock breaks on age alone, never tests owner PID liveness) -> fold into T-040's checker brief.
+2026-09-27T16:44:06+05:30 ADVANCED · T-039 cycle 1 PASS (a5b2c2e), ISS-t-039-2 merge gate LIFTED, merged 09647ae,
+  closed out a9691fe. Main: typecheck 9/9 exit 0 · 1224 tests / 1179 pass / 0 fail / 45 skip.
+  NOTE main's skip count moved 0 -> 45 (all T-039 not-runnable blind rows) -- "main has zero skips"
+  is no longer a citable property; future skips elsewhere must not hide behind these 45.
+  Checker re-proved self-revisiting with its OWN lever on a different row + code path (b18-f1-01 via
+  verifyCandidateFact); near-duplicate b18-f1-04 correctly did not move.
+  T-041 also merged f052b6c + closed 6c1be3d (main was 1165 green at that point).
+  ISS-045 3rd instance: t-039 worktree dir held open at teardown (registered=3 dirs=4); t-041 dir
+  cleared on retry. Durable fix is AIOS-level (data_boundary.py OSError-per-entry) -> Umesh, not a vc unit.
+  Running: T-010 fix c2 (opus), T-040. Gates unanswered ×4.
