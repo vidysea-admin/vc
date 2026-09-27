@@ -963,3 +963,26 @@ write time (two writers), and to assess ISS-100 as the entity-resolved gate.
 SERIAL: T-035 waits on T-010 (STALLED, gated on D1+D2).
 SERIAL: T-043 successor waits on the Mode B sweep.
 AWAITING UMESH: 6, unchanged (see previous tick).
+
+--- tick 2026-09-28T00:30:23+05:30 ---
+STATE: ADVANCED
+ISS-084 NARROWED in qa/gates/hook-raw-count-fixes.md (a8d64a0), in place not annotated.
+LEDGER SHAPE settled by THREE independently-written instruments that agree exactly
+(two peer-authored at 8bbba6b incl. one that avoids any JSON library; one written
+here as a third code path): 577 rows | 278 ids | 288 raw status==open vs 137
+genuinely open | 2.10x | 0 missing id | 0 missing status | 177 missing severity |
+122 ids whose severity last-row-wins drops | open by severity 20 high / 49 medium /
+67 low / 1 "low-medium" (non-standard string, noted not filed).
+THE TRAP, now written into the gate: status is on all 577 rows, so last-row-wins and
+field-level merge BOTH give 137. A last-row-wins fix therefore corrects the 2.10x
+inflation completely and passes the obvious check - while silently dropping severity
+for 122 of 278 ids. Entity resolution fixes the COUNT; field-level merge fixes the
+TRIAGE ORDER; they are not the same requirement and only the first is visible in the
+session line. D-entry for option (b) must state both.
+Third instance tonight of "obvious check passes, unmeasured half stays broken"
+(ISS-092 inert shape, ISS-099 zero-coverage regression_check, now this) - and the
+first one located in a REMEDY rather than in a measurement.
+Stale 262/134 figures in the gate corrected in place (ISS-098 lesson).
+Gate remains UNANSWERED and still needs Approved-by: Umesh. No hook file touched.
+SERIAL: T-035 waits on T-010 (STALLED, D1+D2). T-043 successor waits on the sweep.
+AWAITING UMESH: 6, unchanged.
