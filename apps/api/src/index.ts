@@ -172,7 +172,16 @@ export async function startApi(
         // T-029: read (and validated) per reconfirm call; a config error is a 503, never a fallback.
         erasureConfig: () => erasureConfigFromEnv(env),
         ...(webhookDestinationUrl
-          ? { webhooks: { outboxForTenant: wiring.webhookOutboxForTenant, destinationUrl: webhookDestinationUrl } }
+          ? {
+              webhooks: {
+                outboxForTenant: wiring.webhookOutboxForTenant,
+                destinationUrl: webhookDestinationUrl,
+                // T-042 (ISS-085): always wired alongside the outbox itself -- there is no
+                // separate env toggle for the recoverable gap ledger; whenever webhooks are
+                // configured at all, both leaks this unit fixes become recoverable, not just logged.
+                gapsForTenant: wiring.gapsForTenant,
+              },
+            }
           : {}),
       });
       const s = createApiServer(handler);

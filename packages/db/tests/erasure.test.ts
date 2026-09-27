@@ -401,6 +401,51 @@ test("T-034/B15: a queued webhook_outbox event that names the student (event.dat
   assert.deepEqual(remaining, ["evt:fact.approved:b-1"]);
 });
 
+test("T-042/B15: a queued webhook_emit_gaps row naming the student (flat studentId) is purged by the full erasure -- a sibling student's row is untouched", async () => {
+  const { db, fakeDb, a, b } = await seedTwo();
+  const now = new Date().toISOString();
+  // Realistic MongoWebhookEmitGapLedger-persisted shape (packages/engine/src/webhooks/gaps.ts
+  // GapMongoDoc): studentId is a FLAT top-level field here (unlike webhook_outbox's nested
+  // event.data.studentId), so this collection uses the plain byStudent filter (see erasure.ts).
+  coll(fakeDb, COLLECTION_NAMES.webhook_emit_gaps).seed({
+    _id: "readback-gap:a-1:sess-a:fact-a-1",
+    kind: "readback-gap",
+    studentId: a.studentId,
+    sessionId: a.sessionIds[0],
+    factId: "fact-a-1",
+    detail: "missing-on-readback",
+    createdAt: now,
+  });
+  coll(fakeDb, COLLECTION_NAMES.webhook_emit_gaps).seed({
+    _id: "enqueue-failed:evt:fact.approved:b-1",
+    kind: "enqueue-failed",
+    studentId: b.studentId,
+    event: { id: "evt:fact.approved:b-1", type: "fact.approved", occurredAt: now, tenantId: "tenant-x", data: { sessionId: b.sessionIds[0], studentId: b.studentId, fact: { key: "x", value: "y", source: { type: "self-report" }, confidence: 0.9, purposeTags: ["counselling"], sensitivity: "low" } } },
+    destinationUrl: "http://client.invalid/hook",
+    detail: "enqueue_failed:Error",
+    createdAt: now,
+  });
+  assert.ok(
+    docsMentioning(fakeDb, identifiers(a)).includes(`${COLLECTION_NAMES.webhook_emit_gaps}:readback-gap:a-1:sess-a:fact-a-1`),
+    "fixture sanity: A's queued gap row is visible before erasure",
+  );
+
+  const requestId = await confirmedRequest(db, a.studentId);
+  const outcome = await executeErasure(db, requestId);
+  assert.equal(outcome.status, "completed");
+
+  // A's row is gone -- covered by the same generic identifiers() scan the collection-agnostic test above uses.
+  assert.deepEqual(docsMentioning(fakeDb, identifiers(a)), []);
+  const line = outcome.receipt.collections.find((l) => l.collection === COLLECTION_NAMES.webhook_emit_gaps);
+  assert.equal(line?.outcome, "purged");
+  assert.equal(line?.deleted, 1);
+  assert.equal(line?.remaining, 0);
+
+  // B's queued row, naming a different student, survives untouched.
+  const remaining = coll(fakeDb, COLLECTION_NAMES.webhook_emit_gaps).all().map((d) => d._id);
+  assert.deepEqual(remaining, ["enqueue-failed:evt:fact.approved:b-1"]);
+});
+
 test("B15: the receipt counts match what was actually there (read back, per collection)", async () => {
   const { db, fakeDb, a } = await seedTwo();
   const expected: Record<string, number> = {
@@ -415,6 +460,7 @@ test("B15: the receipt counts match what was actually there (read back, per coll
     [COLLECTION_NAMES.session_transcripts]: 4, // T-024: 2 sessions x 2 turns
     [COLLECTION_NAMES.edges]: 6, // 3 facts x (sourced_from + has)
     [COLLECTION_NAMES.webhook_outbox]: 0, // T-034: this fixture never enqueues a webhook event
+    [COLLECTION_NAMES.webhook_emit_gaps]: 0, // T-042: this fixture never records a gap
   };
   assert.equal(a.factIds.length, 3);
   const requestId = await confirmedRequest(db, a.studentId);

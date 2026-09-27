@@ -47,6 +47,7 @@ import {
   getErasureRequest,
   getFactsByIds,
   hasStudentSession,
+  isStudentFenced,
   readActiveProfile,
   readSessionTranscript,
   requestErasure,
@@ -57,6 +58,7 @@ import {
   ApprovalResponseError,
   ApprovalResponseSchema,
   ScribeInputSchema,
+  MongoWebhookEmitGapLedger,
   MongoWebhookOutbox,
   buildErasureRequestedEvent,
   buildFactApprovedEvent,
@@ -67,6 +69,7 @@ import {
   scribeThreadId,
   startScribe,
   type ScribeGraph,
+  type WebhookEmitGapLedger,
   type WebhookEvent,
   type WebhookOutbox,
 } from "@vc/engine";
@@ -139,8 +142,21 @@ export interface ApiDeps {
    * confirmErasure below). Delivery (actually POSTing to destinationUrl) is a separate worker
    * (@vc/engine drainWebhookOutbox), never run inline in a request — this unit ships no network
    * send.
+   *
+   * T-042 (ISS-085): `gapsForTenant`, mirroring `outboxForTenant`, is where a webhook emission GAP
+   * is durably recorded so it is recoverable rather than silently lost — either a fact.approved
+   * read-back discrepancy not explained by a concurrent B15 erasure fence (decideApproval's
+   * checkFactReadbackGap, below), or an outbox.enqueue() failure that never reached webhook_outbox
+   * at all (emitWebhookEvents, below). Optional and independent of `outboxForTenant`: absent keeps
+   * both leaks logged (as before this unit) but not persisted anywhere recoverable — a strictly
+   * more-observable degradation, never a regression, and still never turns an already-successful
+   * write into an error response.
    */
-  webhooks?: { outboxForTenant: (tenantId: string) => WebhookOutbox; destinationUrl: string };
+  webhooks?: {
+    outboxForTenant: (tenantId: string) => WebhookOutbox;
+    destinationUrl: string;
+    gapsForTenant?: (tenantId: string) => WebhookEmitGapLedger;
+  };
 }
 
 export class BodyTooLargeError extends Error {
@@ -184,6 +200,22 @@ interface RouteContext {
    * turn that success into an error response.
    */
   emitWebhookEvents: (events: WebhookEvent[]) => Promise<void>;
+  /**
+   * T-042 (ISS-085 leak 1): call after emitWebhookEvents, for a decideApproval "written" outcome,
+   * with what applyApprovedDiff reported writing (`writtenFactIds`) and what getFactsByIds actually
+   * read back (`written`). getFactsByIds silently omits any id it can't find (its own docstring),
+   * so the two can legitimately differ in length. Equal lengths: no-op. Unequal: a concurrent B15
+   * erasure fence on `studentId` explains EVERY missing id as correct behaviour (never alerted, see
+   * @vc/db isStudentFenced); otherwise a structured alert is logged and one recoverable gap entry
+   * is recorded per missing fact id (@vc/engine webhooks/gaps.ts). A no-op when `deps.webhooks` is
+   * not configured at all — nothing is being promised to a client to fall short of.
+   */
+  checkFactReadbackGap: (input: {
+    studentId: string;
+    sessionId: string;
+    writtenFactIds: readonly string[];
+    written: readonly { _id: string }[];
+  }) => Promise<void>;
 }
 
 export interface ApiRoute {
@@ -325,6 +357,14 @@ const ROUTES: RouteDef[] = [
             }),
           ),
         );
+        // T-042 (ISS-085 leak 1): getFactsByIds silently omits any id it can't find. Without this,
+        // a short read-back silently shrinks the webhook batch with no check, no log, no error.
+        await ctx.checkFactReadbackGap({
+          studentId: ctx.params.studentId!,
+          sessionId: ctx.params.sessionId!,
+          writtenFactIds: outcome.result.writtenFactIds,
+          written,
+        });
       }
       return { status: 200, body: outcome };
     },
@@ -518,6 +558,13 @@ function defaultLog(line: ApiLogLine): void {
   console.error(JSON.stringify(line));
 }
 
+/** T-042 (ISS-085): every WebhookEvent variant's `data` carries `studentId` (schemas.ts
+ * FactApprovedDataSchema / ErasureRequestedDataSchema / ConcernFlaggedDataSchema), so the gap
+ * ledger can always be given a studentId to key its erasure-covered row on. */
+function eventStudentId(event: WebhookEvent): string {
+  return (event.data as { studentId: string }).studentId;
+}
+
 /** Known errors to fixed responses. Returns null for an unexpected error (a logged 500). */
 function mapError(err: unknown): Result | null {
   if (err instanceof BadRequest) return { status: 400, body: { error: err.code, ...(err.issues ? { issues: err.issues } : {}) } };
@@ -608,7 +655,7 @@ export function createApiHandler(deps: ApiDeps): ApiHandler {
         },
         emitWebhookEvents: async (events: WebhookEvent[]) => {
           if (!deps.webhooks || events.length === 0) return;
-          const { outboxForTenant, destinationUrl } = deps.webhooks;
+          const { outboxForTenant, destinationUrl, gapsForTenant } = deps.webhooks;
           const outbox = outboxForTenant(tenantId!);
           for (const event of events) {
             try {
@@ -620,6 +667,95 @@ export function createApiHandler(deps: ApiDeps): ApiHandler {
                 route: route.id,
                 status: 0,
                 error: `webhook_enqueue_failed:${errorLabel(err)}`,
+                ts: new Date().toISOString(),
+              });
+              // T-042 (ISS-085 leak 2): the write this event describes already succeeded --
+              // losing the notification silently (the pre-T-042 behaviour) would violate B21.
+              // Route it somewhere recoverable: the fully built event, so a reconciliation job
+              // can replay it later without rebuilding it.
+              if (gapsForTenant) {
+                try {
+                  await gapsForTenant(tenantId!).record({
+                    id: `enqueue-failed:${event.id}`,
+                    kind: "enqueue-failed",
+                    studentId: eventStudentId(event),
+                    event,
+                    destinationUrl,
+                    detail: `enqueue_failed:${errorLabel(err)}`,
+                  });
+                } catch (gapErr) {
+                  // Last line of defense: even the recovery ledger is unreachable (e.g. a full
+                  // outage of the tenant's Mongo). Nothing more can be persisted without risking
+                  // yet another write failure mode; this structured log is the only remaining
+                  // trace (see qa/manifests/t-042-webhook-fact-loss.md Open gaps).
+                  log({
+                    level: "error",
+                    event: "api_request_failed",
+                    route: route.id,
+                    status: 0,
+                    error: `webhook_emit_gap_record_failed:${errorLabel(gapErr)}`,
+                    ts: new Date().toISOString(),
+                  });
+                }
+              }
+            }
+          }
+        },
+        checkFactReadbackGap: async ({ studentId, sessionId, writtenFactIds, written }) => {
+          if (!deps.webhooks) return;
+          if (written.length === writtenFactIds.length) return;
+          const foundIds = new Set(written.map((f) => f._id));
+          const missingFactIds = writtenFactIds.filter((id) => !foundIds.has(id));
+          // A fence blocks every further read of this student, not just one fact -- so if it is
+          // up, EVERY id missing from this batch is explained by it (correct behaviour, B15).
+          // ISS-090: this check is itself a Mongo read and can throw (e.g. a transient
+          // erasure_fences failure). We cannot tell whether the gap is fence-explained in that
+          // case, so treat it as an unexplained gap -- alert + record -- rather than letting the
+          // exception propagate and turn an already-successful, already-persisted write into a
+          // 500 (the exact invariant this function exists to protect).
+          let fenced: boolean;
+          try {
+            fenced = await isStudentFenced(deps.dbForTenant(tenantId!), studentId);
+          } catch (err) {
+            log({
+              level: "error",
+              event: "api_request_failed",
+              route: route.id,
+              status: 0,
+              error: `webhook_fact_readback_gap_fence_check_failed:${errorLabel(err)}`,
+              ts: new Date().toISOString(),
+            });
+            fenced = false;
+          }
+          if (fenced) return;
+          log({
+            level: "error",
+            event: "api_request_failed",
+            route: route.id,
+            status: 0,
+            error: `webhook_fact_readback_gap:${missingFactIds.length}_of_${writtenFactIds.length}_missing`,
+            ts: new Date().toISOString(),
+          });
+          const gapsForTenant = deps.webhooks.gapsForTenant;
+          if (!gapsForTenant) return;
+          const ledger = gapsForTenant(tenantId!);
+          for (const factId of missingFactIds) {
+            try {
+              await ledger.record({
+                id: `readback-gap:${studentId}:${sessionId}:${factId}`,
+                kind: "readback-gap",
+                studentId,
+                sessionId,
+                factId,
+                detail: "missing-on-readback",
+              });
+            } catch (err) {
+              log({
+                level: "error",
+                event: "api_request_failed",
+                route: route.id,
+                status: 0,
+                error: `webhook_emit_gap_record_failed:${errorLabel(err)}`,
                 ts: new Date().toISOString(),
               });
             }
@@ -711,12 +847,20 @@ export interface TenantWiringDeps {
  * cached per tenant like the graph. Not part of `ApiDeps` directly (`ApiDeps.webhooks` additionally
  * needs a `destinationUrl`, which this scaffold does not own) — the caller (startApi) combines it
  * with `VC_WEBHOOK_DESTINATION_URL` from env.
+ *
+ * T-042 also returns `gapsForTenant`: a MongoWebhookEmitGapLedger over the same tenant-scoped Db,
+ * cached the same way, for the same reason (ApiDeps.webhooks.gapsForTenant is optional and this
+ * scaffold does not decide whether it's wired in — startApi does that).
  */
 export function createTenantWiring(
   deps: TenantWiringDeps,
-): Pick<ApiDeps, "dbForTenant" | "graphForTenant"> & { webhookOutboxForTenant: (tenantId: string) => WebhookOutbox } {
+): Pick<ApiDeps, "dbForTenant" | "graphForTenant"> & {
+  webhookOutboxForTenant: (tenantId: string) => WebhookOutbox;
+  gapsForTenant: (tenantId: string) => WebhookEmitGapLedger;
+} {
   const graphs = new Map<string, ScribeGraph>();
   const outboxes = new Map<string, WebhookOutbox>();
+  const gapLedgers = new Map<string, WebhookEmitGapLedger>();
   const dbForTenant = (tenantId: string): Db => tenantScopedDb(deps.db, tenantId);
   return {
     dbForTenant,
@@ -738,6 +882,14 @@ export function createTenantWiring(
         outboxes.set(tenantId, outbox);
       }
       return outbox;
+    },
+    gapsForTenant(tenantId: string): WebhookEmitGapLedger {
+      let ledger = gapLedgers.get(tenantId);
+      if (!ledger) {
+        ledger = new MongoWebhookEmitGapLedger(dbForTenant(tenantId));
+        gapLedgers.set(tenantId, ledger);
+      }
+      return ledger;
     },
   };
 }

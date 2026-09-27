@@ -181,6 +181,14 @@ const FENCE_AWARE_WRITERS: Record<string, string> = {
     "the event that MUST fire while the fence is being set, not be blocked by it. A late-arriving webhook_outbox row " +
     "for a student erased moments later is exactly what ERASURE_PLAN's byEventStudent step cleans up, the same way an " +
     "in-flight write can outlive facts.ts's own fence window before compensation catches it",
+  "packages/engine/src/webhooks/gaps.ts":
+    "T-042 (ISS-085) MongoWebhookEmitGapLedger.record: writes to webhook_emit_gaps, a flat top-level studentId "
+    + "(B15 covers it via ERASURE_PLAN's byStudent, like consents/decisions). Deliberately NOT gated on "
+    + "assertStudentNotFenced, for the same reason outbox.ts above is not: its two call sites (server.ts's "
+    + "checkFactReadbackGap and emitWebhookEvents) only ever record a gap AFTER the write it describes already "
+    + "durably succeeded (or, for the readback-gap kind, only when isStudentFenced is FALSE -- a fenced student's "
+    + "missing facts are the erasure itself, never recorded here at all). A gap row for a student erased moments "
+    + "later is exactly what ERASURE_PLAN's byStudent step for this collection cleans up",
 };
 
 const STUDENT_DATA_COLLECTIONS = [
