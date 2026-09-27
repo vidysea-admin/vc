@@ -7,3 +7,11 @@
   SERIAL: blind-cards-eval wiring waits on T-010 fix cycle 1 (same file)
   SERIAL: scribe-side B18 unit waits on gate b18-unimplemented (schema change, needs its own plan gate)
   HUMAN_GATE ×4 unanswered: hook-fix approval (ISS-056/054) · auto-verify-surface · b18-unimplemented · T-038 scope
+2026-09-27T16:26:26+05:30 ADVANCED · T-010 cycle 1 FAIL (checker cba8192): 10/13, two high open.
+  ISS-t-010-c1-2 guard leak MOVED not closed (buildsOnCitedTopic is one global bool outside the
+  knownTopics loop; closes 1 of 5); root defect is asksFor's clarify branch = keyword-contains.
+  ISS-t-010-c1-1 B1 narrowed: 25/28 hostile rows still leak (<=6-word hatch is a pure word count,
+  comma-anchored SUBJECT_AUX_INVERSION, Devanagari rule (c) misses statement types).
+  Checker retracted its own cycle-0 instruction (citedTopics.has breaks CE-054) and UPHELD the
+  maker's refusal. B17+B19 newly met; run-scenarios.mjs independently re-run 34/58.
+  Fix cycle 2 of 3 dispatched (opus). wave=5 concurrent · peak=5
