@@ -13,6 +13,7 @@ import {
   FAILOVER_DEFAULT_DEADLINE_MS,
   LiteLlmProvider,
   MockProvider,
+  ModelOutputSchemaError,
   computeBackoffMs,
   createProvider,
   isRetryableProviderError,
@@ -246,6 +247,63 @@ test("T-021 fix cycle 1 (ISS-t-021-rev-1): worst case — every attempt hangs fo
   t.mock.timers.reset();
 });
 
+test("T-032 (ISS-t-021-rev-3): the deadline expires BETWEEN attempts (during backoff) — the reported error is the deadline, not a stale earlier retryable failure", async (t) => {
+  // Attempt 1 fails with an ordinary retryable error (a timeout), which sets `lastError`. The budget
+  // (maxAttempts) is generous — attempt 2 would still be allowed by the attempt counter — but the
+  // wall-clock deadline runs out WHILE waiting for backoff, before attempt 2 ever starts. Before the
+  // fix, `lastError = lastError ?? new FailoverDeadlineExceededError(...)` kept the stale
+  // LiteLlmTimeoutError instead of attributing the stop to the deadline that actually caused it.
+  let calls = 0;
+  const alwaysTimesOut: LlmProvider = {
+    kind: "litellm",
+    model: "m",
+    async generate<T>(_request: GenerateRequest<T>): Promise<T> {
+      calls += 1;
+      throw new LiteLlmTimeoutError("m", 1);
+    },
+  };
+  const alerts: unknown[] = [];
+  const provider = new FailoverProvider({
+    chain: [alwaysTimesOut],
+    maxAttempts: 5, // plenty of budget left — the deadline, not the counter, must be what stops it
+    deadlineMs: 100,
+    baseDelayMs: 50,
+    maxDelayMs: 50,
+    random: () => 1,
+    onExhausted: (info) => alerts.push(info),
+  });
+
+  const flush = async (turns = 6) => {
+    for (let i = 0; i < turns; i += 1) await Promise.resolve();
+  };
+
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+  const pending = assert.rejects(provider.generate(req), (err: unknown) => {
+    assert.ok(err instanceof AiUnavailableError);
+    assert.equal(
+      err.lastErrorName,
+      "FailoverDeadlineExceededError",
+      "the deadline, not the earlier retryable failure that preceded it, must be the reported cause",
+    );
+    return true;
+  });
+
+  await flush(); // attempt 1 runs, fails, and schedules a 50ms backoff wait
+  assert.equal(calls, 1, "attempt 1 ran exactly once before backoff");
+
+  // Advance the fake clock (Date + setTimeout both mocked) well past the 100ms deadline while the
+  // backoff wait is pending — this IS the deadline expiring BETWEEN attempts, during backoff.
+  t.mock.timers.tick(150);
+  await flush();
+
+  assert.equal(calls, 1, "attempt 2 must never start — the deadline was already gone once backoff would have fired");
+  assert.equal(alerts.length, 1, "the exhaustion alert still fires exactly once");
+  assert.equal((alerts[0] as { lastErrorName: string }).lastErrorName, "FailoverDeadlineExceededError");
+
+  await pending;
+  t.mock.timers.reset();
+});
+
 test("T-021 fix cycle 1 (ISS-t-021-rev-1): VC_LLM_DEADLINE_MS / VC_LLM_ATTEMPT_TIMEOUT_MS reach the built FailoverProvider chain (real hung stub server, real small timers)", async () => {
   const hung = await startStub(() => "hang");
   try {
@@ -276,7 +334,7 @@ test("T-021 fix cycle 1 (ISS-t-021-rev-1): VC_LLM_DEADLINE_MS / VC_LLM_ATTEMPT_T
   }
 });
 
-test("isRetryableProviderError: whitelist — timeout/429/5xx/malformed/network/ZodError are retryable, everything else (auth/config) is not", async () => {
+test("isRetryableProviderError: whitelist — timeout/429/5xx/malformed/network/ModelOutputSchemaError are retryable, everything else (auth/config, a bare unrelated ZodError) is not", async () => {
   assert.equal(isRetryableProviderError(new LiteLlmTimeoutError("m", 30_000)), true);
   assert.equal(isRetryableProviderError(new LiteLlmMalformedResponseError("m", "bad json")), true);
   assert.equal(isRetryableProviderError(new LiteLlmNetworkError("m", "ECONNREFUSED")), true);
@@ -287,12 +345,59 @@ test("isRetryableProviderError: whitelist — timeout/429/5xx/malformed/network/
   assert.equal(isRetryableProviderError(new LiteLlmHttpError(401, "m")), false);
   assert.equal(isRetryableProviderError(new LiteLlmHttpError(403, "m")), false);
   assert.equal(isRetryableProviderError(new LiteLlmHttpError(404, "m")), false);
-  // T-021 fix cycle 1 (ISS-t-021-rev-2, gate failover-scope Q2 A): a schema-invalid output (wrong
-  // shape, not an outage) is now retryable at the failover-chain layer, so it fails over to the next
-  // model within the same budget/deadline instead of only being handled by generateWithRetry's own
-  // same-provider retry — this was previously `false`, changed by the gate's answered Q2.
-  assert.equal(isRetryableProviderError(new z.ZodError([])), true);
+  // T-021 fix cycle 1 (ISS-t-021-rev-2, gate failover-scope Q2 A): a schema-invalid MODEL output
+  // (wrong shape, not an outage) is retryable at the failover-chain layer, so it fails over to the
+  // next model within the same budget/deadline instead of only being handled by generateWithRetry's
+  // own same-provider retry.
+  // T-032 (ISS-t-021-rev-3): but that scope is narrowed to the tagged ModelOutputSchemaError raised
+  // specifically where a provider validates the MODEL's output — a bare/unrelated z.ZodError (e.g.
+  // an internal bug inside a chain member's own code, unrelated to the model's answer) is NOT
+  // retryable and must propagate unchanged, so it is never silently retried as if it were an outage.
+  assert.equal(
+    isRetryableProviderError(new z.ZodError([])),
+    false,
+    "a raw/unrelated ZodError is not retryable — only the tagged ModelOutputSchemaError is (T-032, ISS-t-021-rev-3)",
+  );
+  assert.equal(
+    isRetryableProviderError(new ModelOutputSchemaError([])),
+    true,
+    "ModelOutputSchemaError (raised only at the model-output-validation boundary) IS retryable",
+  );
   assert.equal(isRetryableProviderError(new Error("unknown")), false);
+});
+
+test("T-032 (ISS-t-021-rev-3): isRetryableProviderError scopes ZodError to MODEL-OUTPUT validation only — an output-schema failure fails over, an unrelated internal ZodError propagates unchanged", async () => {
+  // Direction 1: a real MockProvider's own output-validation failure (ModelOutputSchemaError, raised
+  // at the exact boundary where a provider checks the model's raw output against outputSchema) fails
+  // over to the next chain member, exactly like any other retryable failure.
+  const wrongShape = new MockProvider({ model: "m1", responses: { s: { nope: 1 } } }); // fails OutSchema
+  const valid = new MockProvider({ model: "m2", responses: { s: { answer: "ok" } } });
+  const failoverProvider = new FailoverProvider({ chain: [wrongShape, valid], sleep: noopSleep });
+  const out = await failoverProvider.generate(req);
+  assert.deepEqual(out, { answer: "ok" }, "the output-schema failure on model 1 failed over to model 2");
+
+  // Direction 2: an UNRELATED internal ZodError raised by a chain member's own bug — NOT at the
+  // model-output-validation boundary — must propagate unchanged: no retry, no failover, no silent
+  // "AI unavailable" masking of what is actually a bug inside that provider's own code.
+  const buggyInternalZod: LlmProvider = {
+    kind: "mock",
+    model: "buggy",
+    async generate<T>(): Promise<T> {
+      throw new z.ZodError([{ code: "custom", path: [], message: "an internal bug, not a model-output mismatch" }]);
+    },
+  };
+  const nextInChain = new MockProvider({ model: "m2", responses: { s: { answer: "should never be reached" } } });
+  const guardedProvider = new FailoverProvider({
+    chain: [buggyInternalZod, nextInChain],
+    sleep: noopSleep,
+    onExhausted: () => assert.fail("must not exhaust — the error propagates immediately, it is never retried"),
+  });
+  await assert.rejects(guardedProvider.generate(req), (err: unknown) => {
+    assert.ok(err instanceof z.ZodError);
+    assert.ok(!(err instanceof ModelOutputSchemaError), "must be the raw internal ZodError, not the tagged output-validation subclass");
+    return true;
+  });
+  assert.equal(nextInChain.calls.length, 0, "no failover to the next model — a non-model-output ZodError is not retryable");
 });
 
 test("computeBackoffMs: full jitter, bounded by baseDelayMs * 2^(attempt-1), capped at maxDelayMs", () => {
@@ -388,7 +493,10 @@ test("T-021 fix cycle 1 (ISS-t-021-rev-2, gate failover-scope Q2 A): all 3 model
   const provider = new FailoverProvider({ chain, maxAttempts: 6, sleep: noopSleep, onExhausted: (info) => alerts.push(info) });
   await assert.rejects(provider.generate(req), (err: unknown) => {
     assert.ok(err instanceof AiUnavailableError);
-    assert.equal(err.lastErrorName, "ZodError");
+    // T-032 (ISS-t-021-rev-3): the failure is now the tagged ModelOutputSchemaError, not a bare
+    // "ZodError" — isRetryableProviderError is scoped to that specific model-output-validation
+    // boundary (same test id as before; the expected name changed with the intentional narrowing).
+    assert.equal(err.lastErrorName, "ModelOutputSchemaError");
     assert.deepEqual(err.modelsAttempted, ["m1", "m2", "m3"]);
     return true;
   });

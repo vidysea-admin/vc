@@ -202,6 +202,43 @@ export function loadProviderConfig(env: ProviderEnv): ProviderConfig {
 }
 
 // ---------------------------------------------------------------------------
+// ModelOutputSchemaError (T-032, ISS-t-021-rev-3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Raised ONLY where a provider validates the MODEL's raw output against the caller's `outputSchema`
+ * (the three `parseModelOutput` call sites below — MockProvider, LiteLlmProvider, RulesProvider) —
+ * never for any other internal Zod use a chain member's own code might have. Extends `z.ZodError`
+ * itself (not a plain wrapper) so `packages/engine/src/scribe/nodes.ts`'s `isSchemaError`
+ * (`err instanceof ZodError || err.name === "ZodError"`) keeps matching it for the un-chained,
+ * single-provider retry path — out of this unit's scope, never touched here, and unaffected because
+ * `instanceof ZodError` still holds for a subclass.
+ *
+ * `isRetryableProviderError` below narrows on `instanceof ModelOutputSchemaError` specifically (not
+ * the base `z.ZodError`), so an unrelated internal `ZodError` bug inside a chain member — anything
+ * NOT raised at this exact output-validation boundary — is never mistaken for a retryable "wrong-shape
+ * model answer" and instead propagates unchanged, exactly like any other unrecognised failure
+ * (D-020's fail-closed whitelist).
+ */
+export class ModelOutputSchemaError extends z.ZodError {
+  constructor(issues: z.ZodIssue[]) {
+    super(issues);
+    this.name = "ModelOutputSchemaError";
+  }
+}
+
+/**
+ * Validates a provider's raw model output against the caller's schema (B5), tagging a mismatch as
+ * `ModelOutputSchemaError` so `isRetryableProviderError` can scope failover eligibility to exactly
+ * this boundary (T-032, ISS-t-021-rev-3) instead of any `z.ZodError` from anywhere in a provider.
+ */
+function parseModelOutput<T>(outputSchema: z.ZodType<T>, raw: unknown): T {
+  const result = outputSchema.safeParse(raw);
+  if (result.success) return result.data;
+  throw new ModelOutputSchemaError(result.error.issues);
+}
+
+// ---------------------------------------------------------------------------
 // MockProvider
 // ---------------------------------------------------------------------------
 
@@ -249,7 +286,7 @@ export class MockProvider implements LlmProvider {
     }
     const response = this.responses.get(request.skillName);
     const raw = typeof response === "function" ? (response as (input: unknown) => unknown)(request.input) : structuredClone(response);
-    return request.outputSchema.parse(raw);
+    return parseModelOutput(request.outputSchema, raw);
   }
 }
 
@@ -438,7 +475,7 @@ export class LiteLlmProvider implements LlmProvider {
       throw new LiteLlmMalformedResponseError(this.model, "choices[0].message.content was not valid JSON");
     }
     // B5: no free text crosses the seam — the caller's Zod schema is the only judge.
-    return request.outputSchema.parse(parsed);
+    return parseModelOutput(request.outputSchema, parsed);
   }
 }
 
@@ -480,24 +517,27 @@ export class AiUnavailableError extends Error {
  * (LiteLlmMalformedResponseError — "invalid/unparseable JSON") or could not be sent at all
  * (LiteLlmNetworkError — DNS/connection-refused/TLS, transient by nature), or — T-021 fix cycle 1,
  * ISS-t-021-rev-2, gate `failover-scope` Q2 A (Umesh, 2026-09-26: "treat wrong-shape like an
- * outage") — a schema-invalid output (a Zod validation error): the model answered, but not in the
- * shape the caller's outputSchema requires. Treating this as retryable here (not only at
- * generateWithRetry's own same-provider layer, packages/engine/src/scribe/nodes.ts) is what fails
- * it over to the NEXT chain member within the SAME attempt budget and wall-clock deadline, instead
- * of generateWithRetry re-asking with a fresh top-level `provider.generate()` call that would
- * otherwise restart FailoverProvider's internal chain position at model 0 and start a brand-new
- * deadline window (ISS-t-021-rev-2's actual bug: "never fails over ... restarts at chain[0]").
+ * outage") — a schema-invalid MODEL OUTPUT (a tagged `ModelOutputSchemaError`, T-032/ISS-t-021-rev-3):
+ * the model answered, but not in the shape the caller's outputSchema requires. Treating this as
+ * retryable here (not only at generateWithRetry's own same-provider layer,
+ * packages/engine/src/scribe/nodes.ts) is what fails it over to the NEXT chain member within the
+ * SAME attempt budget and wall-clock deadline, instead of generateWithRetry re-asking with a fresh
+ * top-level `provider.generate()` call that would otherwise restart FailoverProvider's internal
+ * chain position at model 0 and start a brand-new deadline window (ISS-t-021-rev-2's actual bug:
+ * "never fails over ... restarts at chain[0]").
  * NEVER retryable: any other HTTP status (400/401/403/404/... — auth/config errors, D-020's "never
- * on auth/config errors"), a stub provider's ProviderNotWiredError, or anything unrecognised. This
- * is a WHITELIST on purpose: an unrecognised failure mode fails closed (no retry, no failover)
- * rather than silently retried.
+ * on auth/config errors"), a stub provider's ProviderNotWiredError, a bare/unrelated `z.ZodError`
+ * that is NOT a `ModelOutputSchemaError` (T-032, ISS-t-021-rev-3: an internal bug inside a chain
+ * member's own code, unrelated to validating the model's output, must never be silently retried as
+ * if it were an outage), or anything unrecognised. This is a WHITELIST on purpose: an unrecognised
+ * failure mode fails closed (no retry, no failover) rather than silently retried.
  */
 export function isRetryableProviderError(err: unknown): boolean {
   if (err instanceof LiteLlmTimeoutError) return true;
   if (err instanceof LiteLlmMalformedResponseError) return true;
   if (err instanceof LiteLlmNetworkError) return true;
   if (err instanceof LiteLlmHttpError) return err.status === 429 || err.status >= 500;
-  if (err instanceof z.ZodError) return true;
+  if (err instanceof ModelOutputSchemaError) return true;
   return false;
 }
 
@@ -680,6 +720,12 @@ export class FailoverProvider implements LlmProvider {
    * `FailoverDeadlineExceededError` as the recorded lastErrorName. Each attempt itself is raced
    * against the remaining budget (raceDeadline), so a single hung attempt can never by itself push
    * the total wait past the deadline, whatever its own configured timeout is.
+   *
+   * T-032 (ISS-t-021-rev-3): both deadline-exhaustion exits below assign `lastError` UNCONDITIONALLY
+   * (never `lastError ?? ...`). The deadline is what actually stopped the loop in both cases — even
+   * when an earlier attempt already set `lastError` to some other retryable failure — so reporting
+   * that stale earlier error instead of the deadline would misattribute the exhaustion cause to the
+   * caller and the engineering alert.
    */
   async generate<T>(request: GenerateRequest<T>): Promise<T> {
     const deadlineAt = Date.now() + this.deadlineMs;
@@ -688,7 +734,7 @@ export class FailoverProvider implements LlmProvider {
     while (attempt < this.maxAttempts) {
       const remaining = deadlineAt - Date.now();
       if (remaining <= 0) {
-        lastError = lastError ?? new FailoverDeadlineExceededError(this.deadlineMs);
+        lastError = new FailoverDeadlineExceededError(this.deadlineMs);
         break;
       }
       const provider = this.chain[attempt % this.chain.length]!;
@@ -704,7 +750,13 @@ export class FailoverProvider implements LlmProvider {
         lastError = err;
         if (attempt >= this.maxAttempts) break;
         const remainingForBackoff = deadlineAt - Date.now();
-        if (remainingForBackoff <= 0) break;
+        if (remainingForBackoff <= 0) {
+          // The deadline ran out BETWEEN attempts (during the backoff gap), before backoff could
+          // even begin — the reported cause must be the deadline, not the retryable error that just
+          // preceded it.
+          lastError = new FailoverDeadlineExceededError(this.deadlineMs);
+          break;
+        }
         const backoffMs = Math.min(computeBackoffMs(attempt, this.baseDelayMs, this.maxDelayMs, this.random), remainingForBackoff);
         await this.sleep(backoffMs);
       }
@@ -841,7 +893,7 @@ export class RulesProvider implements LlmProvider {
         throw new RulesProviderUnsupportedSkillError(request.skillName);
     }
     // B5: even a deterministic path returns only what the caller's Zod schema accepts.
-    return request.outputSchema.parse(raw);
+    return parseModelOutput(request.outputSchema, raw);
   }
 }
 
