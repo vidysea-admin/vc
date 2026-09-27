@@ -466,6 +466,29 @@ test("T029-A12: rejecting a NEW request inside an earlier completion's 24h grace
   assert.equal(await releaseExpiredErasureFences(db, new Date(graceEnd)), 1);
 });
 
+test("T029-A13: the sweep never removes a fence while the student has a request AWAITING APPROVAL, even a fence row past its release time (planted: the fence still names an earlier completed request)", async () => {
+  const { a, db } = await world();
+  const r1 = await open(a);
+  const c1 = await confirmErasure(a, { requestId: r1, confirmedBy: "counsellor-7" });
+  await reconfirmErasure(a, { requestId: r1, confirmedBy: "counsellor-7", confirmToken: c1.confirmToken }, CONFIG);
+  await approveErasure(a, { requestId: r1, approvedBy: "approver-1" });
+  await executeErasure(a, r1);
+  const fences = a.collection(COLLECTION_NAMES.erasure_fences);
+  const [r1Fence] = await fences.find({}).toArray();
+  assert.equal(r1Fence!.requestId, r1);
+  assert.equal(typeof r1Fence!.releaseAfter, "string", "the completed request stamped its grace");
+  const past = new Date(Date.parse(r1Fence!.releaseAfter as string) + 60_000);
+  const r2 = await open(a);
+  const c2 = await confirmErasure(a, { requestId: r2, confirmedBy: "counsellor-7" });
+  await reconfirmErasure(a, { requestId: r2, confirmedBy: "counsellor-7", confirmToken: c2.confirmToken }, CONFIG);
+  assert.equal((await row(a, r2)).status, "awaiting_approval");
+  // Plant the state a lost re-arm would leave: the fence still owned by r1, its release time passed.
+  await fences.updateOne({ _id: r1Fence!._id }, { $set: { requestId: r1, releaseAfter: r1Fence!.releaseAfter } });
+  assert.equal(await releaseExpiredErasureFences(db, past), 0, "an awaiting_approval request fences its student");
+  await rejectErasure(a, { requestId: r2, rejectedBy: "approver-1" });
+  assert.equal(await releaseExpiredErasureFences(db, past), 1, "once no fencing request remains, the expired fence goes");
+});
+
 // ---------------------------------------------------------------------------
 // The outbox is a record only
 // ---------------------------------------------------------------------------
