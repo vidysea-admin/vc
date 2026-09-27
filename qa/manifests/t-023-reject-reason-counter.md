@@ -263,4 +263,7 @@ Full `report.json` totals: `interactions` all passed (`failed: 0`), `unexpectedC
   T-020 persona walk); the fix is instead verified directly via unit tests + live browser evidence
   against the same interaction the persona walk exercised.
 
-## Status: ready-for-check
+## Close-out
+- Checker cycle 0 PASS (qa/verdicts/t-023-reject-reason-counter.md, cb2ca2a; Mode D live browser by the checker). senior review: Approve (2 low notes). Ledger normalised back to the compact format (the checker had re-serialised every row), keeping only its 2 changed rows.
+
+## Status: checked-PASS
