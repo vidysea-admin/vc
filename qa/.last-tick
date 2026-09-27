@@ -465,3 +465,44 @@ SERIAL: Mode B sweep still waits on T-043 (shared qa/issues.jsonl; checker just 
   ISS-094 and an ISS-076 update). Sweep age ~7h. Held deliberately, and the hold is now itself
   worth a line: the sweep is overdue mainly because this one unit keeps finding real defects.
 SERIAL: T-035 waits on T-010 (STALLED, gate-blocked on D1+D2).
+
+## tick 2026-09-27T22:50:01+05:30
+STATE: ADVANCED (peer reconciliation; no new dispatch -- T-043 cycle 2 still building)
+
+vc-f5 relayed six decisions it says Umesh answered directly (AskUserQuestion, 2 rounds, ~17:45
+  IST), recorded at f7f5260: (1) b18-unimplemented -> SPLIT (a)+(b), (2) auto-verify-surface -> (c),
+  (3) T-010 -> SPLIT into per-leak units, not a 4th cycle, (4) O4/T-038 -> in the first pilot,
+  new build track through the PLAN gate, (5) crisis recall -> pilot proceeds with a counsellor
+  present, bar NOT lowered, (6) ISS-052 -> internal demo only, kept open pending premise check.
+
+  DECISION: I did NOT write the Answered: lines or the DECISIONS entries. Appended a "Relayed
+  (UNCONFIRMED in this session)" section to all three gate files instead, citing f7f5260, so the
+  content survives that session ending. Reasoning recorded because it will be questioned: a peer
+  relay cannot authorize an append-only log, and that is the same rule under which I refused
+  vc-f5's relay of the hook-fix approval this morning. A rule that only binds when the relay looks
+  doubtful is not a rule. vc-f5's own block agrees -- it says explicitly it is "the record, not the
+  authorization". Umesh asked in-session for a one-line confirmation; on it, all three Answered:
+  lines and the D-entries go in the same turn. Until then the gates count as unanswered.
+
+  Acting regardless, as my own maker judgment and labelled as such: T-010's per-leak successor
+  units are ordinary STALLED protocol (the debugger's smallest recovery becomes queue rows), so
+  they do not need his authorization. Merging 11 of 13 criteria IS a product call and stays held.
+
+Verified both of vc-f5's corrections instead of accepting either:
+  - ISS-087 and ISS-t-037-1 still open: **CORRECT, and I was wrong.** Field-merged across all rows,
+    both status=open, both regression_check=null, two rows each. I had treated merging T-040's code
+    as closing them; the ledger is the only place that counts and vc-f5 writes it. Sent the T-040
+    verdict's evidence anchors (Lever A 14/4, Lever B 16/2, torn-write stress good=1460 bad=0
+    missing_file=540, scope 13 files 824/39) so it can move both to fixed.
+  - t-040 verdict "missing its header block": **WRONG.** The block is there -- line 3
+    `**Cycle checked:** 0`, line 8 `## VERDICT: PASS`. Their pattern ^(VERDICT|SCOREBOARD|Cycle
+    checked) cannot match markdown-prefixed lines. Same writer/reader format mismatch as MC-020
+    (reader counted '| TODO |' cells while the sweep wrote '- [ ] TODO' rows, so the count was 0 by
+    construction) and the same family as ISS-056/ISS-084 and today's Stop-hook false positive.
+    That is now FOUR instances of this one class today, in three different tools, plus ISS-092
+    inside T-043 itself. It is the dominant defect class in this project's enforcement path and
+    deserves to be named as one rather than filed four times.
+
+SERIAL: Mode B sweep still waits on T-043 (shared qa/issues.jsonl). Told vc-f5 not to dispatch one
+  either, and offered them the ownership if they would rather have it.
+SERIAL: T-035 waits on T-010.
