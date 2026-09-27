@@ -300,3 +300,45 @@ Also flagged for the checker: an empty undetermined set is an unusually clean re
 SERIAL: Mode B sweep still waits on T-043 (shared qa/issues.jsonl appends; the sweep re-derives
   ISS-076's own rate and must measure after the backfill settles). Sweep age now ~310 min.
 SERIAL: T-035 waits on T-010 (STALLED, gate-blocked on D1+D2).
+
+## tick 2026-09-27T22:06:09+05:30
+STATE: ADVANCED
+T-043 checker Mode A cycle 0: **FAIL**. Verdict qa/verdicts/t-043-regression-check-conformance.md,
+  Cycle checked: 0. New ISS-092 (high) + an ISS-076 status-update row appended (append-only
+  confirmed by the checker's own git diff: 2 additions, 0 modifications). ISS-076 stays open --
+  the checker explicitly did NOT close it. Fix cycle 1 dispatched in the same turn (no-dangling).
+
+The central question was answered yes, and more precisely than I framed it. The Goodhart pattern is
+  real but confined to ONE of the new shapes -- which happens to be the majority one.
+  Five shapes survive independent check (package-filter, package-dir, direct-tsx, doc-grep,
+  null_bucket; the checker re-ran all 16 backfilled doc-grep commands itself and they matched).
+  The sixth, repo-file-arg (pnpm -r (test|typecheck) -- <path>), is FUNCTIONALLY INERT, proven
+  three ways: byte-identical 1422-line output with and without the path argument; root cause is
+  that each package's "test" script is a shell glob that already captured every file, so pnpm -r
+  just appends an ignored argument; and the cycle-0 instrument only checked that the path EXISTS,
+  so a synthetic row pointing regression_check at ARCHITECTURE.md was scored "conforming 100%"
+  while still running all 689 tests. 69 of 125 rows (55.2%) use that shape -- in substance the
+  same bare-command class ISS-076 flagged in the first place, wearing a decorative path suffix.
+
+Why cycle 0's own 19-case suite missed it, which is the finding that matters most: the
+  repo-file-arg tests asserted the checker's regex and existence logic and NEVER EXECUTED the
+  resulting command. Construction, not outcome (B14 class) -- the same failure mode recorded in
+  the checker-brief memory. A convention was able to pass its own tests while doing nothing.
+  Fix cycle 1's durable requirement is therefore that a shape cannot enter the convention without
+  empirical evidence that it runs strictly fewer tests than the unnarrowed command, with the
+  checker's two falsifications added as regression tests.
+
+Correcting my own earlier report: I relayed the unit's "before 109/125 -> after 125/125" and the
+  historical 41.6% as two numbers needing reconciliation. The checker found neither is reproducible
+  as stated -- strict reading 115/125 (92.0%) non-conforming, charitable 46/125 (36.8%), and
+  ISS-076's 50/120 was an informal manual re-derivation during a sweep, never a machine check.
+  So the baseline I have been citing for three sweeps was never a measurement. The instrument this
+  unit is building becomes the first reproducible one, and must state which reading it implements.
+
+Checker also noted a transient FencedWriterDeadlineError under concurrent load, clean in isolation
+  -- same class as ISS-089/ISS-091. That is now three sightings of load-dependent flakiness from
+  three independent contexts; it is looking less like noise and more like a real contention seam.
+
+SERIAL: Mode B sweep still waits on T-043 (shared qa/issues.jsonl appends; the checker has now also
+  appended to it). Sweep age ~340 min. Held deliberately, not forgotten.
+SERIAL: T-035 waits on T-010 (STALLED, gate-blocked on D1+D2).
