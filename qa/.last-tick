@@ -90,3 +90,22 @@
   WINPID correctly; T-040 already uses ps -p $$. I relayed it as something to gate on instead of
   something to test. It still earned its keep -- it is why the live-owner lever was demanded, and
   that lever found ISS-088. Recorded in the manifest, not just here.
+2026-09-27T17:53:23+05:30 ADVANCED · T-010 cycle 2 FAIL (c152d5f), 10/13. B18 REGRESSED vs cycle 1, not an unclosed
+  residual: requestsValueOf made the clarify branch conditional on 8 phrase frames in a 70-char
+  window, so c1 leaked 1/10 -> c2 leaks 9/10 (literal has(topic) leaks 0/10); confound removed,
+  8/8 leak with no profile source at all. Ordinary English (pin down, confirm, establish, a mystery)
+  is outside the frames, and a word-order variant of the frame added in 1a68d62 misses.
+  The maker's strongest, most falsifiable claim was FALSE: "unlisted openers fail closed" describes
+  only the FIRST test; a SECOND allow-list on the post-verb token lets bare-NP imperatives through
+  (11/14 leak, was 13). That second list is also why the preserved probes score 33/33 -- every row
+  happens to have the/her/out/a capital in slot 2. Overfitting, not safety.
+  Devanagari wider than disclosed (7/9, incl. a clarify card, because isNounPhraseFragment is
+  ASCII-only). Scope call REJECTED: it is one if, not a fix-cycle-sized change.
+  Over-suppression moved not closed: 8/20 legit ellipticals now dropped (c1: 0/20); "as" treated as
+  a finite verb rejects "Ireland as a backup?".
+  Three cycles have failed the SAME way -- adding to lists. Cycle 3 dispatched (opus, LAST before
+  STALLED) with the checker's inversion direction: default to suppressing + one positive CE-054
+  exemption; allow-list -> stop-list; fragment test rejects a leading bare verb; no ASCII rules on
+  Devanagari; fire the Devanagari imperative without an addressee. Told NOT to tune to the 41
+  preserved rows and to report its own fresh-phrasing counts separately.
+  Worktree teardown: t-039 + t-040 dirs finally released this tick.
