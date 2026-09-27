@@ -781,3 +781,37 @@ vc-f5 also swept all five trees with git status --porcelain -- qa/verdicts/ afte
   instinct -- one untracked file is a defect, an unswept tree is a class.
 
 SERIAL: Mode B sweep waits on T-043 (~8h). SERIAL: T-035 waits on T-010.
+
+## tick 2026-09-27T23:42:28+05:30
+STATE: ADVANCED (gate consolidation; T-043 checker c2 still running -- last permitted cycle)
+
+ISS-095 now carries the WHOLE reader contract (vc-f5, 7f71553; verified: open/high, all five
+  conditions plus the ISS-054/ISS-056 co-landing requirement and the Approved-by gate present in
+  the merged row). So the implementer reads one row instead of reconstructing a rule from four
+  bug reports. Restated the five conditions verbatim in qa/gates/hook-raw-count-fixes.md (d8b7afa)
+  because the GATE is what Umesh reads when deciding, and a decision that points at a ledger row
+  he has to go resolve himself is a decision he defers.
+
+The five: prefix-tolerant + case-insensitive; resolve by MAX never by position; search root AND
+  every worktree per slug; max across copies; prefer root on disagreement (verdicts are authored
+  on main, so a worktree copy is inherited or stale).
+
+Adopted vc-f5's causal framing wholesale instead of listing bugs: four readers of one field, one
+  day, two sessions, all four wrong, each written by whoever had just fixed the previous one --
+  and the cause is TWO UNMODELLED FACTS, not four mistakes. Writers do not guarantee position,
+  and this repo is never a single checkout. A reader modelling both is correct; a reader fixing
+  one symptom becomes the next ledger row, which is what happened four times. That framing is now
+  in the gate as the rationale, because it is the difference between a fix and a fifth reader.
+
+vc-f5 also repaired its own reconciler rather than leaving it as the fourth bad reader on the
+  grounds that it was about to be superseded. Worth recording as a good call: "it will be
+  replaced" is how a broken safety net survives. It now resolves t-010 as c3-FAIL from its own
+  worktree and t-043 as PENDING c1 < c2 with a root verdict -- the exact cross-tree case that
+  defeated it an hour earlier, so it is tested by the thing that broke it.
+
+Standing commitment recorded: if c2 FAILs, it is STALLED + /agent-debugger, NOT a cycle 3. The
+  smallest recovery becomes a queue row and the branch stays unmerged and unreverted for Umesh.
+  vc-f5 has confirmed it will not read a c2 FAIL as an invitation to another cycle.
+
+SERIAL: Mode B sweep waits on T-043 (~8h), releases the moment the c2 verdict lands either way.
+SERIAL: T-035 waits on T-010.
