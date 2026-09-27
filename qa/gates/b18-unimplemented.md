@@ -55,3 +55,37 @@ contract to fit the code is the one direction that loses information.
 text is unsettled — several would need answering before (a) could be built precisely.
 
 **Answer format:** chat reply. The maker appends `Answered:` here, then a DECISIONS entry.
+
+---
+
+## Claim CONFIRMED independently (T-039 checker, cycle 0, verdict `e418f4f`)
+
+The gate was opened while the claim was still the maker's. It is no longer. A fresh checker,
+working from the contract and the tree rather than from the manifest, verified it four ways:
+
+1. `packages/engine/src/cards` **does not exist anywhere on `main`** — not moved, not renamed.
+2. The scribe graph has **7 nodes and no relevance node**.
+3. `grep -rn 'destination_countries|study_abroad_intent|do_not_ask' packages apps` → **0 hits**
+   outside this unit's own fixtures.
+4. Behaviourally: an India-only turn emits `visa_requirement` with `dropped: []`, **byte-identical**
+   to the same turn for a Canada-bound student.
+
+The checker's framing, which sharpens option (a): *"This is not a missing filter — it is a missing
+**input channel**. No prompt work could fix it."*
+
+**One correction to the claim above, from the same verdict.** The text at line 13 saying
+`SummaryInputSchema` carries no do-not-ask channel is **wrong in one respect**: `facts[]` *is* a
+channel into the summariser, and this unit passed it `[]`. The checker tested the loophole — a real
+`Fact` through the real channel — and the visa line still returned verbatim, so **no measured row
+changes** and the six leaks stand. But the reason is "the channel exists and is ignored", not "there
+is no channel". Tracked as ISS-t-039-3.
+
+**And one thing the gate must now also decide (ISS-t-039-4, new).** B18's *proof clause* in
+`qa/contracts/counselling-engine.md` is not satisfiable from this evidence and **must not be booked
+as met**. What T-039 measured is "no post-generation relevance filter exists". What the clause asks
+for is "an India-only synthetic transcript produces zero visa items". Those are different claims;
+only the first is proven. Whichever option is chosen, the proof clause stays open.
+
+**Unchanged:** the question, the three options, and the recommendation — (a) for the do-not-ask half,
+(b) documented for the destination half, not (c) first. The confirmation only raises the cost of (b):
+the six leaks are now independently witnessed, not self-reported.
