@@ -279,3 +279,43 @@ The rules e2e proves that scribe â†’ facts â†’ profile diff â†’ a
 **Why:** DPDP Act 2023 s.7 lists responding to a medical emergency involving a threat to the life of the Data Principal as a legitimate use that needs no consent. The student is a minor, so a missed crisis is the worse harm, and option (b) left no record and no notification at all. Option (c) was rejected because without a stored record the escalation SLA cannot be measured and there is no audit trail of who was told what, which is the accountability the counsellor and the tenant admin need.
 **Result:** --
 **Links:** T-035, T-012, ISS-t-012-rev-3, ISS-t-012-rev-1, qa/gates/crisis-escalation-consent.md, qa/contracts/counselling-engine.md (B4, B9, B16), D-020
+
+## D-028 | 2026-09-27 | type: decision | status: ACTIVE
+
+**What:** Any fixture used as an ORACLE -- a test whose job is to judge whether the engine's own
+judgement is correct -- must be authored blind: by an agent structurally forbidden to open the
+implementation, the existing tests, or an earlier fixture, from the contract text alone. Blindness
+is verified mechanically (byte-containment of every row against the source and the prior fixtures)
+before the fixture is trusted, and the check is part of the unit's evidence, not a claim in its
+manifest. Rows the contract does not settle are QUARANTINED into a sibling `*-unsettled.jsonl` with
+`unsettled: true` and an `open_question`, reported but not asserted, and each one is also appended
+verbatim to `qa/feedback-inbox.md`. A large honest quarantine is a good outcome: it is the contract
+gap made visible. This does NOT apply to ordinary unit tests that assert a specified behaviour --
+only to fixtures that grade the engine's discretion.
+
+**Why:** T-036 was raised because T-030's "independent oracle" was nothing of the kind, and the
+first attempt to fix it FAILED its own check for exactly the same reason: the author had read
+`nodes.ts` first, and 23 of 102 rows came back byte-identical to its doc comments. Asking an author
+to be more careful does not work; the author cannot unsee the implementation. Only structural
+blindness does. The cycle-1 rebuild under this rule measured 0 of 102 rows contained in the source,
+and immediately paid for itself: on first contact the blind rows agreed with the engine on only 73
+of 102, every disagreement in the stricter direction, and 21 of the 29 hinged on a closed template
+grammar that appears nowhere in B2 or D-026 -- a large, entirely undocumented gap between what the
+contract promises and what the engine does, which the self-graded 62/62 and 102/102 fixtures had
+scored as perfect. The same defect class is open against T-010's cards eval (ISS-t-010-c0-7), where
+a checker authoring rows from the contract before reading `verifier.ts` found 2 B1 escapes and 1 B18
+escape behind a 62/62 score.
+
+**Result:** T-036 merged at `d80c2a5` with checker Mode A cycle 1 PASS (`f4f0a7c`), after a cycle-0
+FAIL (`715e836`) under the old approach. Main verify green: `pnpm -r typecheck` 0 errors across 9
+projects, 1158 tests pass, 0 skipped. ISS-t-030-rev-1 and ISS-t-036-1 closed. The rule is now
+applied prospectively: T-039's stage-1 brief forbids the fixture author from opening the scribe, the
+cards module, any existing test and any existing fixture, and stage 2 wires it separately.
+
+**Changes-authorized:** none. This entry authorizes no edit to ARCHITECTURE.md or contracts/; it
+records a build-practice decision. The contract-side questions this practice surfaced (Q1-Q8 in
+`qa/feedback-inbox.md`, plus ISS-t-036-3 on B2's sufficiency-sounding sentence) are the checker's to
+fold in, not the maker's.
+
+**Links:** T-030, T-036, T-039, T-010 Â· ISS-t-030-rev-1, ISS-t-036-1, ISS-t-036-2, ISS-t-036-3,
+ISS-t-010-c0-7, ISS-081 Â· contract B2, B18 Â· D-026 Â· gate `qa/gates/auto-verify-surface.md`
