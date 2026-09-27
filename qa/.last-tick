@@ -882,3 +882,36 @@ SELF-CORRECTION, and it is the same class again, one turn after writing about it
   clearly has not stuck just from having been learned.
 
 SERIAL: Mode B sweep waits on T-043 (~8h). SERIAL: T-035 waits on T-010.
+
+## tick 2026-09-28T00:08:14+05:30
+STATE: ADVANCED (liveness confirmation; T-043 checker c2 confirmed RUNNING)
+
+vc-f5 asked for liveness before considering a takeover on T-043 c2 rather than inferring one from
+  manifest age -- explicitly citing this morning's near-double-verdict as the mistake it did not
+  want to repeat. Answered from agent state, not inference: ListAgents shows subagent
+  acdf52a0... status RUNNING, started 29 min ago, no completion notification received. That is the
+  one signal manifest age can never supply, and it is what the takeover rule actually needs.
+
+The ambiguous signal they surfaced is worth recording because I would have misread it too: the
+  test lock file C:/Users/.../claude/vc-testlock DOES NOT EXIST, which is consistent with
+  finished-and-released, not-yet-reached-the-test-phase, OR died -- and a clean worktree fits the
+  first two equally. They asked instead of resolving the ambiguity in the direction that would
+  have justified acting. That is the exact inversion of the morning's failure and the reason no
+  duplicate checker has been dispatched today.
+
+Expected duration recorded so a later reader does not panic at 30 min: c2 is the heaviest brief of
+  the three cycles -- own revert/restore on ISS-093, re-deriving the remaining[3::8] sample slice
+  from scratch, independent revert/restore on >=2 of the 8 sampled rows, a ruling on the third
+  failure species, running the heuristic against known-answer code, verifying the +1 test delta,
+  and a re-run merge-tree check. The suite alone is ~10 min under the lock and it needs several
+  passes. 29 min is unremarkable; concern threshold ~75 min.
+
+Committed to vc-f5: if it dies I say so in one line rather than letting them infer it from
+  silence, and any replacement dispatch re-reads git log on BOTH trees immediately before
+  dispatching -- at dispatch time, not decision time, because that gap is where the near-duplicate
+  came from.
+
+Verdict-file sweep across all five trees: clean everywhere, t-043's was the only untracked one.
+  So d4af250 closed an incident, not a practice.
+
+SERIAL: Mode B sweep waits on T-043 (~8.5h). SERIAL: T-035 waits on T-010.
