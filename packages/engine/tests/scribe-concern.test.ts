@@ -21,6 +21,7 @@ import {
   sessionTranscriptsCollection,
   type EdgeDoc,
 } from "@vc/db";
+import { confirmTwiceAndApprove } from "@vc/db/testing";
 import { ConcernRecordSchema, type ConcernRecord } from "@vc/schemas";
 import { CONCERN_EDGE_REL, readStudentConcerns, resumeScribe, startScribe, type ScribeTurn } from "../src/scribe/index.js";
 import { baseInput, makeHarness, SESSION_ID, STUDENT_ID, type Harness } from "./scribe-fixtures.js";
@@ -221,7 +222,9 @@ test("T-022 concern-erasure: executeErasure removes the concern edge — read-ba
   await resumeScribe(h.graph, { action: "approve" }, { threadId: "thread-concern-erase" });
   assert.equal(concernEdges(h).length, 1);
 
-  const requestId = await fence(h);
+  // T-029: the purge runs only on a double-confirmed, approved request.
+  const { requestId } = await requestErasure(h.db, { studentId: STUDENT_ID, requestedBy: "counsellor-7", reason: "student_request" });
+  await confirmTwiceAndApprove(h.db, { requestId, confirmedBy: "admin-2" });
   const erased = await executeErasure(h.db, requestId);
   assert.equal(erased.status, "completed");
   assert.equal(concernEdges(h).length, 0, "the concern edge is erased");

@@ -24,15 +24,23 @@ import { ZodError, z, type ZodTypeAny } from "zod";
 
 import {
   ConsentRequiredError,
+  ErasureConfigError,
+  ErasureConfirmTokenError,
+  ErasureExpiredError,
   ErasureIncompleteError,
+  ErasureNotApprovedError,
   ErasureNotConfirmedError,
   ErasureRequestAlreadyOpenError,
   ErasureRequestNotFoundError,
-  ErasureSelfConfirmError,
+  ErasureSelfApproveError,
   ErasureStateError,
   FencedWriterDeadlineError,
   StudentFencedError,
+  approveErasure,
   confirmErasure,
+  reconfirmErasure,
+  rejectErasure,
+  type ErasureWorkflowConfig,
   errorLabel,
   executeErasure,
   exportStudent,
@@ -106,6 +114,12 @@ export interface ApiDeps {
   log?: (line: ApiLogLine) => void;
   /** D-016: a writer deadline shorter than @vc/db FENCED_WRITER_DEADLINE_MS, passed to the scribe. */
   writerDeadlineMs?: number;
+  /**
+   * T-029: the B15 approver workflow config (@vc/db erasureConfigFromEnv: VC_AUDIT_HMAC_KEY,
+   * VC_ERASURE_APPROVER_EMAIL, VC_ERASURE_AUTO_DELETE). Read only by the reconfirm route; absent or
+   * throwing = 503 erasure_not_configured and nothing is written.
+   */
+  erasureConfig?: () => ErasureWorkflowConfig;
 }
 
 export class BodyTooLargeError extends Error {
@@ -140,6 +154,8 @@ interface RouteContext {
   store: () => Db;
   graph: () => ScribeGraph;
   writerDeadlineMs?: number;
+  /** T-029: throws ErasureConfigError when the workflow is not configured. */
+  erasureConfig: () => ErasureWorkflowConfig;
 }
 
 export interface ApiRoute {
@@ -159,9 +175,12 @@ interface RouteDef extends ApiRoute {
 
 const ANY_ROLE = ["counsellor", "admin"] as const;
 const ADMIN = ["admin"] as const;
+/** T-029: only the JWT role claim "approver" may approve or reject an erasure request. */
+const APPROVER = ["approver"] as const;
 
 const StartBodySchema = z.object({ sessionEndedAt: z.unknown(), turns: z.unknown() }).strict();
 const ErasureBodySchema = z.object({ reason: ErasureReasonSchema }).strict();
+const ReconfirmBodySchema = z.object({ confirmToken: z.string().min(1).max(256) }).strict();
 
 function parseWith<T extends ZodTypeAny>(schema: T, value: unknown): z.infer<T> {
   const parsed = schema.safeParse(value);
@@ -308,16 +327,67 @@ const ROUTES: RouteDef[] = [
     },
   },
   {
+    // T-029 step 1: the counsellor's FIRST confirmation. Fences the student, deletes nothing, and
+    // returns the single-use token for the second confirmation.
     id: "confirmErasure",
     method: "POST",
     path: "/v1/erasure-requests/{requestId}/confirm",
-    roles: ADMIN,
+    roles: ANY_ROLE,
     run: async (ctx) => {
-      await confirmErasure(ctx.store(), { requestId: ctx.params.requestId!, confirmedBy: ctx.auth.counsellorId });
-      return { status: 200, body: { requestId: ctx.params.requestId, status: "confirmed" } };
+      const out = await confirmErasure(ctx.store(), { requestId: ctx.params.requestId!, confirmedBy: ctx.auth.counsellorId });
+      return {
+        status: 200,
+        body: { requestId: ctx.params.requestId, status: "confirmed", confirmToken: out.confirmToken, confirmTokenExpiresAt: out.confirmTokenExpiresAt },
+      };
     },
   },
   {
+    // T-029 step 2: the SECOND confirmation, same counsellor, with the token. Writes the approval
+    // request to the email outbox (202, deletes nothing), or, under autoDelete, runs the purge.
+    id: "reconfirmErasure",
+    method: "POST",
+    path: "/v1/erasure-requests/{requestId}/reconfirm",
+    roles: ANY_ROLE,
+    body: ReconfirmBodySchema,
+    run: async (ctx) => {
+      const config = ctx.erasureConfig();
+      const { confirmToken } = ctx.body as z.infer<typeof ReconfirmBodySchema>;
+      const out = await reconfirmErasure(
+        ctx.store(),
+        { requestId: ctx.params.requestId!, confirmedBy: ctx.auth.counsellorId, confirmToken },
+        config,
+      );
+      if (out.status === "approved") {
+        return { status: 200, body: { ...(await executeErasure(ctx.store(), ctx.params.requestId!)), autoDeleted: true } };
+      }
+      return { status: 202, body: { requestId: ctx.params.requestId, status: out.status, approvalExpiresAt: out.approvalExpiresAt } };
+    },
+  },
+  {
+    // T-029 step 3: the approver (JWT role "approver") approves; the purge runs right after.
+    id: "approveErasure",
+    method: "POST",
+    path: "/v1/erasure-requests/{requestId}/approve",
+    roles: APPROVER,
+    run: async (ctx) => {
+      await approveErasure(ctx.store(), { requestId: ctx.params.requestId!, approvedBy: ctx.auth.counsellorId });
+      return { status: 200, body: await executeErasure(ctx.store(), ctx.params.requestId!) };
+    },
+  },
+  {
+    // T-029: the approver rejects; nothing is purged and the fence is released.
+    id: "rejectErasure",
+    method: "POST",
+    path: "/v1/erasure-requests/{requestId}/reject",
+    roles: APPROVER,
+    run: async (ctx) => {
+      await rejectErasure(ctx.store(), { requestId: ctx.params.requestId!, rejectedBy: ctx.auth.counsellorId });
+      return { status: 200, body: { requestId: ctx.params.requestId, status: "rejected" } };
+    },
+  },
+  {
+    // Retry of an APPROVED request whose purge failed (or was interrupted). Refuses anything that is
+    // not double-confirmed and approved (T-029).
     id: "executeErasure",
     method: "POST",
     path: "/v1/erasure-requests/{requestId}/execute",
@@ -387,7 +457,11 @@ function mapError(err: unknown): Result | null {
   if (err instanceof BadRequest) return { status: 400, body: { error: err.code, ...(err.issues ? { issues: err.issues } : {}) } };
   if (err instanceof ApprovalResponseError) return { status: 400, body: { error: "invalid_approval" } };
   if (err instanceof ConsentRequiredError) return { status: 403, body: { error: "consent_required" } };
-  if (err instanceof ErasureSelfConfirmError) return { status: 403, body: { error: "self_confirm_refused" } };
+  if (err instanceof ErasureSelfApproveError) return { status: 403, body: { error: "self_approve_refused" } };
+  if (err instanceof ErasureConfirmTokenError) return { status: 403, body: { error: "confirm_token_invalid" } };
+  if (err instanceof ErasureNotApprovedError) return { status: 409, body: { error: "erasure_not_approved" } };
+  if (err instanceof ErasureExpiredError) return { status: 410, body: { error: "erasure_expired" } };
+  if (err instanceof ErasureConfigError) return { status: 503, body: { error: "erasure_not_configured" } };
   if (err instanceof ErasureRequestNotFoundError) return NOT_FOUND;
   if (err instanceof ErasureNotConfirmedError) return { status: 409, body: { error: "erasure_not_confirmed" } };
   if (err instanceof ErasureStateError) return { status: 409, body: { error: "erasure_state" } };
@@ -462,6 +536,10 @@ export function createApiHandler(deps: ApiDeps): ApiHandler {
         store: () => deps.dbForTenant(tenantId!),
         graph: () => deps.graphForTenant(tenantId!),
         ...(deps.writerDeadlineMs !== undefined ? { writerDeadlineMs: deps.writerDeadlineMs } : {}),
+        erasureConfig: () => {
+          if (!deps.erasureConfig) throw new ErasureConfigError("the erasure approver workflow is not configured");
+          return deps.erasureConfig();
+        },
       };
       const out = await route.run(ctx);
       return respond(out.status, out.body);

@@ -13,7 +13,16 @@
  */
 import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
-import { connectFromEnv, errorLabel, startErasureFenceSweep, type MongoClientFactory, type ErasureFenceSweepOptions } from "@vc/db";
+import {
+  ERASURE_CONFIG_ENV,
+  MIN_AUDIT_HMAC_KEY_LENGTH,
+  connectFromEnv,
+  erasureConfigFromEnv,
+  errorLabel,
+  startErasureFenceSweep,
+  type MongoClientFactory,
+  type ErasureFenceSweepOptions,
+} from "@vc/db";
 import { initScribeCheckpointer } from "@vc/engine";
 import { createProvider, loadProviderConfig, type LlmProvider } from "@vc/providers";
 import { createJwtVerifier, jwtConfigFromEnv, type JwtVerifier } from "./auth.js";
@@ -136,7 +145,15 @@ export async function startApi(
   let server: ReturnType<typeof createApiServer> | undefined;
   let sweep: ReturnType<typeof startErasureFenceSweep> | undefined;
   try {
-    sweep = startErasureFenceSweep(db, { ...sweepOptions, onError: onError ?? defaultSweepErrorLogger });
+    // T-029: with a usable audit key the sweep also expires abandoned confirmations / approval
+    // requests (purging nothing). Without one it only releases fences, as before.
+    const envKey = env[ERASURE_CONFIG_ENV.auditHmacKey];
+    const auditHmacKey = sweepOptions.auditHmacKey ?? (envKey !== undefined && envKey.length >= MIN_AUDIT_HMAC_KEY_LENGTH ? envKey : undefined);
+    sweep = startErasureFenceSweep(db, {
+      ...sweepOptions,
+      ...(auditHmacKey !== undefined ? { auditHmacKey } : {}),
+      onError: onError ?? defaultSweepErrorLogger,
+    });
     let port: number | undefined;
     if (httpSetup) {
       // The checkpoint indexes (unscoped: index commands only; every checkpoint DOCUMENT goes
@@ -148,6 +165,8 @@ export async function startApi(
         ...wiring,
         ...(http?.log ? { log: http.log } : {}),
         ...(http?.writerDeadlineMs !== undefined ? { writerDeadlineMs: http.writerDeadlineMs } : {}),
+        // T-029: read (and validated) per reconfirm call; a config error is a 503, never a fallback.
+        erasureConfig: () => erasureConfigFromEnv(env),
       });
       const s = createApiServer(handler);
       server = s;

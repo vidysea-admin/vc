@@ -118,6 +118,8 @@ test("T-025 auth: config narrows a PEM key to its own algorithm and unescapes on
 test("T-025 auth: a valid RS256 token yields {tenantId, counsellorId, role}", async () => {
   const ctx = await rsaVerifier().verify(await sign(GOOD_CLAIMS));
   assert.deepEqual(ctx, { tenantId: "tenant-a", counsellorId: "counsellor-1", role: "counsellor" });
+  // T-029: the approver role claim is accepted (it reaches only approve / reject; server.test.ts).
+  assert.equal((await rsaVerifier().verify(await sign({ ...GOOD_CLAIMS, role: "approver" }))).role, "approver");
 });
 
 test("T-025 auth: a valid ES256 token verifies against an EC P-256 PEM", async () => {

@@ -10,7 +10,7 @@ import { generateKeyPairSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { SignJWT, type JWTPayload } from "jose";
 import { COLLECTION_NAMES, VC_DB_NAME, getVcDb, tenantScopedDb } from "@vc/db";
-import { createFakeMongoClient, INDEX_PLAN, type FakeDb } from "@vc/db/testing";
+import { createFakeMongoClient, INDEX_PLAN, TEST_ERASURE_CONFIG, type FakeDb } from "@vc/db/testing";
 import { MockProvider } from "@vc/providers";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { API_ROUTES, createApiHandler, createApiServer, createTenantWiring, type ApiDeps, type ApiLogLine, type ApiRequest } from "../src/server.js";
@@ -42,7 +42,7 @@ async function token(
     .sign(opts.key ?? keys.privateKey);
 }
 
-const as = (tenant: string, counsellorId: string, role: "counsellor" | "admin") => token({ tenant, counsellorId, role });
+const as = (tenant: string, counsellorId: string, role: "counsellor" | "admin" | "approver") => token({ tenant, counsellorId, role });
 
 function mockProvider(): MockProvider {
   const cite = (key: string, value: unknown, quote: string, turnId: string) => ({
@@ -106,6 +106,8 @@ function world(overrides: Partial<ApiDeps> = {}): World {
       return wiring.graphForTenant(t);
     },
     log: (l) => logs.push(l),
+    // T-029: a synthetic approver-workflow config (synthetic key and address, autoDelete false).
+    erasureConfig: () => TEST_ERASURE_CONFIG,
     ...overrides,
   });
   return { handler, fakeDb, calls, logs };
@@ -199,7 +201,7 @@ test("T-025 api: every auth failure on every protected route is the same 401, an
     ["no role", { token: await token({ tenant: "tenant-a", counsellorId: "c1" }) }],
   ];
   const protectedRoutes = API_ROUTES.filter((r) => r.roles !== "public");
-  assert.equal(protectedRoutes.length, 10);
+  assert.equal(protectedRoutes.length, 13, "T-025's 10 routes + T-029's reconfirm, approve and reject");
   let first: { body: string; headers: Record<string, string> } | undefined;
   for (const route of protectedRoutes) {
     for (const [label, cred] of bad) {
@@ -223,6 +225,18 @@ test("T-025 api: a role outside a route's roles is 403 before any Db access; unk
     const res = await call(w, route.method, concrete(route.path), { token: counsellor });
     assert.equal(res.status, 403, route.id);
     assert.deepEqual(res.json, { error: "forbidden" });
+  }
+  // T-029: the approver role reaches ONLY approve / reject; counsellor and admin never reach those.
+  const approver = await as("tenant-a", "approver-1", "approver");
+  const admin = await as("tenant-a", "admin-1", "admin");
+  for (const route of API_ROUTES.filter((r) => Array.isArray(r.roles) && !r.roles.includes("approver"))) {
+    const res = await call(w, route.method, concrete(route.path), { token: approver });
+    assert.equal(res.status, 403, `approver on ${route.id}`);
+  }
+  for (const id of ["approveErasure", "rejectErasure"]) {
+    const route = API_ROUTES.find((r) => r.id === id)!;
+    assert.deepEqual(route.roles, ["approver"], id);
+    assert.equal((await call(w, route.method, concrete(route.path), { token: admin })).status, 403, `admin on ${id}`);
   }
   assert.deepEqual(w.calls, { db: [], graph: [] });
   assert.equal((await call(w, "GET", "/v1/nothing", { token: counsellor })).status, 404);
@@ -396,19 +410,29 @@ test("T-025 api (T-022 merge): concern_flagged edges are stamped with the token'
   });
   assert.equal(opened.status, 201, opened.body);
   const requestId = opened.json.requestId as string;
-  assert.equal((await call(w, "POST", `/v1/erasure-requests/${requestId}/confirm`, { token: aAdmin })).status, 200);
-  assert.equal((await call(w, "POST", `/v1/erasure-requests/${requestId}/execute`, { token: aAdmin })).status, 200);
+  // T-029: first + second confirmation by the counsellor, then the approver approves (which purges).
+  const aCounsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const first = await call(w, "POST", `/v1/erasure-requests/${requestId}/confirm`, { token: aCounsellor });
+  assert.equal(first.status, 200, first.body);
+  const second = await call(w, "POST", `/v1/erasure-requests/${requestId}/reconfirm`, {
+    token: aCounsellor,
+    body: { confirmToken: first.json.confirmToken },
+  });
+  assert.equal(second.status, 202, second.body);
+  const approved = await call(w, "POST", `/v1/erasure-requests/${requestId}/approve`, { token: await as("tenant-a", "approver-1", "approver") });
+  assert.equal(approved.status, 200, approved.body);
   const after = concernEdges();
   assert.deepEqual(after.map((e) => e.tenantId), ["tenant-b"]);
   assert.equal(JSON.stringify(after[0]), bEdgeBefore);
 });
 
-test("T-025 api: erasure request -> confirm by a second person -> execute; self-confirm and student-as-actor are refused", async () => {
+test("T-029 api: request -> confirm -> reconfirm (token) -> approver approves -> purged; no single call purges; self-approval, a wrong token and student-as-actor are refused", async () => {
   const w = world();
   await scribeToApproval(w, "tenant-a");
   const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
-  const adminSame = await as("tenant-a", "counsellor-1", "admin");
   const admin = await as("tenant-a", "admin-1", "admin");
+  const approverSame = await as("tenant-a", "counsellor-1", "approver");
+  const approver = await as("tenant-a", "approver-1", "approver");
 
   const asStudent = await call(w, "POST", `/v1/students/${STUDENT}/erasure-requests`, {
     token: await as("tenant-a", STUDENT.toUpperCase(), "counsellor"),
@@ -422,17 +446,45 @@ test("T-025 api: erasure request -> confirm by a second person -> execute; self-
   const requestId = opened.json.requestId as string;
   const dup = await call(w, "POST", `/v1/students/${STUDENT}/erasure-requests`, { token: counsellor, body: { reason: "guardian_request" } });
   assert.equal(dup.status, 409);
+  const studentData = () => JSON.stringify(["facts", "sessions", "session_transcripts"].map((n) => w.fakeDb.collection<{ _id: string }>(n).all()));
+  const before = studentData();
 
   const early = await call(w, "POST", `/v1/erasure-requests/${requestId}/execute`, { token: admin });
   assert.equal(early.status, 409);
   assert.deepEqual(early.json, { error: "erasure_not_confirmed" });
 
-  const self = await call(w, "POST", `/v1/erasure-requests/${requestId}/confirm`, { token: adminSame });
-  assert.equal(self.status, 403);
-  assert.deepEqual(self.json, { error: "self_confirm_refused" });
+  // SC-028: one confirmation purges nothing.
+  const first = await call(w, "POST", `/v1/erasure-requests/${requestId}/confirm`, { token: counsellor });
+  assert.equal(first.status, 200, first.body);
+  assert.equal(first.json.status, "confirmed");
+  assert.equal(typeof first.json.confirmToken, "string");
+  assert.deepEqual((await call(w, "POST", `/v1/erasure-requests/${requestId}/execute`, { token: admin })).json, { error: "erasure_not_confirmed" });
+  const wrong = await call(w, "POST", `/v1/erasure-requests/${requestId}/reconfirm`, { token: counsellor, body: { confirmToken: "not-the-token" } });
+  assert.equal(wrong.status, 403);
+  assert.deepEqual(wrong.json, { error: "confirm_token_invalid" });
+  const otherActor = await call(w, "POST", `/v1/erasure-requests/${requestId}/reconfirm`, { token: admin, body: { confirmToken: first.json.confirmToken } });
+  assert.equal(otherActor.status, 403, "only the first confirmer may reconfirm");
 
-  assert.equal((await call(w, "POST", `/v1/erasure-requests/${requestId}/confirm`, { token: admin })).status, 200);
-  const done = await call(w, "POST", `/v1/erasure-requests/${requestId}/execute`, { token: admin });
+  // SC-029: two confirmations, no approver -> nothing purged; the outbox holds the approval request.
+  const second = await call(w, "POST", `/v1/erasure-requests/${requestId}/reconfirm`, { token: counsellor, body: { confirmToken: first.json.confirmToken } });
+  assert.equal(second.status, 202, second.body);
+  assert.equal(second.json.status, "awaiting_approval");
+  const notYet = await call(w, "POST", `/v1/erasure-requests/${requestId}/execute`, { token: admin });
+  assert.equal(notYet.status, 409);
+  assert.deepEqual(notYet.json, { error: "erasure_not_approved" });
+  assert.equal(studentData(), before, "nothing purged before approval");
+  const outbox = w.fakeDb.collection<Record<string, unknown> & { _id: string }>(COLLECTION_NAMES.email_outbox).all();
+  assert.equal(outbox.length, 1);
+  assert.equal(outbox[0]!.to, "approver@synthetic.test");
+  assert.doesNotMatch(JSON.stringify(outbox), new RegExp(STUDENT));
+
+  const self = await call(w, "POST", `/v1/erasure-requests/${requestId}/approve`, { token: approverSame });
+  assert.equal(self.status, 403);
+  assert.deepEqual(self.json, { error: "self_approve_refused" });
+  assert.equal(studentData(), before);
+
+  // SC-030: the approver approves -> the purge runs and returns the counts-only receipt.
+  const done = await call(w, "POST", `/v1/erasure-requests/${requestId}/approve`, { token: approver });
   assert.equal(done.status, 200, done.body);
   assert.equal(done.json.status, "completed");
   assert.doesNotMatch(done.body, new RegExp(STUDENT));
@@ -444,6 +496,57 @@ test("T-025 api: erasure request -> confirm by a second person -> execute; self-
   for (const name of ["facts", "sessions", "session_transcripts", "scribe_checkpoints", "scribe_checkpoint_writes"]) {
     assert.equal(w.fakeDb.collection<{ _id: string }>(name).size(), 0, `${name} not erased`);
   }
+});
+
+test("T-029 api: the approver REJECTS -> 200 rejected, nothing purged; a later approve / execute is refused", async () => {
+  const w = world();
+  await scribeToApproval(w, "tenant-a");
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const approver = await as("tenant-a", "approver-1", "approver");
+  const requestId = (await call(w, "POST", `/v1/students/${STUDENT}/erasure-requests`, { token: counsellor, body: { reason: "student_request" } })).json
+    .requestId as string;
+  const first = await call(w, "POST", `/v1/erasure-requests/${requestId}/confirm`, { token: counsellor });
+  await call(w, "POST", `/v1/erasure-requests/${requestId}/reconfirm`, { token: counsellor, body: { confirmToken: first.json.confirmToken } });
+  const before = JSON.stringify(["facts", "sessions", "session_transcripts"].map((n) => w.fakeDb.collection<{ _id: string }>(n).all()));
+  const rejected = await call(w, "POST", `/v1/erasure-requests/${requestId}/reject`, { token: approver });
+  assert.equal(rejected.status, 200, rejected.body);
+  assert.deepEqual(rejected.json, { requestId, status: "rejected" });
+  assert.equal(JSON.stringify(["facts", "sessions", "session_transcripts"].map((n) => w.fakeDb.collection<{ _id: string }>(n).all())), before);
+  assert.equal((await call(w, "POST", `/v1/erasure-requests/${requestId}/approve`, { token: approver })).status, 409);
+  assert.equal((await call(w, "POST", `/v1/erasure-requests/${requestId}/execute`, { token: await as("tenant-a", "admin-1", "admin") })).status, 409);
+});
+
+test("T-029 api: autoDelete=true -> the reconfirm itself purges (200, autoDeleted); an unconfigured workflow is 503 erasure_not_configured and writes nothing", async () => {
+  const auto = world({ erasureConfig: () => ({ auditHmacKey: TEST_ERASURE_CONFIG.auditHmacKey, autoDelete: true }) });
+  await scribeToApproval(auto, "tenant-a");
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const requestId = (await call(auto, "POST", `/v1/students/${STUDENT}/erasure-requests`, { token: counsellor, body: { reason: "student_request" } })).json
+    .requestId as string;
+  const first = await call(auto, "POST", `/v1/erasure-requests/${requestId}/confirm`, { token: counsellor });
+  const done = await call(auto, "POST", `/v1/erasure-requests/${requestId}/reconfirm`, { token: counsellor, body: { confirmToken: first.json.confirmToken } });
+  assert.equal(done.status, 200, done.body);
+  assert.equal(done.json.status, "completed");
+  assert.equal(done.json.autoDeleted, true);
+  assert.equal(auto.fakeDb.collection<{ _id: string }>(COLLECTION_NAMES.email_outbox).size(), 0);
+  assert.equal(auto.fakeDb.collection<{ _id: string }>("facts").size(), 0);
+
+  const bare = world({ erasureConfig: undefined });
+  await scribeToApproval(bare, "tenant-a");
+  const id2 = (await call(bare, "POST", `/v1/students/${STUDENT}/erasure-requests`, { token: counsellor, body: { reason: "student_request" } })).json
+    .requestId as string;
+  const f2 = await call(bare, "POST", `/v1/erasure-requests/${id2}/confirm`, { token: counsellor });
+  const before = rawAll(bare.fakeDb);
+  const res = await call(bare, "POST", `/v1/erasure-requests/${id2}/reconfirm`, { token: counsellor, body: { confirmToken: f2.json.confirmToken } });
+  assert.equal(res.status, 503);
+  assert.deepEqual(res.json, { error: "erasure_not_configured" });
+  assert.deepEqual(rawAll(bare.fakeDb), before, "nothing written without a config");
+  const keyless = world({ erasureConfig: () => ({ ...TEST_ERASURE_CONFIG, auditHmacKey: "" }) });
+  await scribeToApproval(keyless, "tenant-a");
+  const id3 = (await call(keyless, "POST", `/v1/students/${STUDENT}/erasure-requests`, { token: counsellor, body: { reason: "student_request" } })).json
+    .requestId as string;
+  const f3 = await call(keyless, "POST", `/v1/erasure-requests/${id3}/confirm`, { token: counsellor });
+  const r3 = await call(keyless, "POST", `/v1/erasure-requests/${id3}/reconfirm`, { token: counsellor, body: { confirmToken: f3.json.confirmToken } });
+  assert.equal(r3.status, 503, "a missing audit key is a config error, never an unkeyed fallback");
 });
 
 test("T-025 api: an unexpected error is a 500 with a fixed body, logged by error label only", async () => {

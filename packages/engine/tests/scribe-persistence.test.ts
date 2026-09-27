@@ -25,6 +25,7 @@ import {
   type ScribeResolutionDoc,
   type SessionDoc,
 } from "@vc/db";
+import { confirmTwiceAndApprove } from "@vc/db/testing";
 import { readSessionTranscript, resolveCitationSpan } from "@vc/db";
 import { resumeScribe, startScribe, writeApproved, type ScribeOutcome } from "../src/scribe/index.js";
 import type { Fact } from "@vc/schemas";
@@ -69,7 +70,7 @@ function residue(h: Harness, needles: string[]): string[] {
 
 async function erase(h: Harness) {
   const { requestId } = await requestErasure(h.db, { studentId: STUDENT_ID, requestedBy: "counsellor-7", reason: "student_request" });
-  await confirmErasure(h.db, { requestId, confirmedBy: "admin-2" });
+  await confirmTwiceAndApprove(h.db, { requestId, confirmedBy: "admin-2" });
   return executeErasure(h.db, requestId, { fenceGraceMs: 0 });
 }
 

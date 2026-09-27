@@ -15,6 +15,8 @@ import { fileURLToPath } from "node:url";
 import {
   requestErasure,
   confirmErasure,
+  reconfirmErasure,
+  approveErasure,
   executeErasure,
   exportStudent,
   erasureRequestMatchesStudent,
@@ -22,7 +24,8 @@ import {
   ERASURE_PLAN,
   ERASURE_EXEMPT_COLLECTIONS,
   ErasureNotConfirmedError,
-  ErasureSelfConfirmError,
+  ErasureNotApprovedError,
+  ErasureSelfApproveError,
   ErasureIncompleteError,
   ErasureRequestNotFoundError,
   ErasureStateError,
@@ -42,6 +45,7 @@ import {
   ERASURE_PURGE_OP_TIMEOUT_MS,
   type ErasureRequestDoc,
 } from "../src/erasure.js";
+import { TEST_ERASURE_CONFIG, confirmTwiceAndApprove } from "../src/testing.js";
 import { applyApprovedDiff, recordSessionTranscript, readSessionTranscript, resolveCitationSpan } from "../src/facts.js";
 import { DEFAULT_MONGO_CLIENT_TIMEOUT_MS } from "../src/client.js";
 import { COLLECTION_NAMES, type FactDoc } from "../src/collections.js";
@@ -225,9 +229,13 @@ async function seedTwo() {
   return { db, fakeDb, a, b };
 }
 
+/**
+ * T-029: a request driven through the whole gate (first + second confirmation by "admin-2", approval
+ * by "approver-1"), i.e. ready for executeErasure. Named for its pre-T-029 role (the executable state).
+ */
 async function confirmedRequest(db: import("mongodb").Db, studentId: string) {
   const { requestId } = await requestErasure(db, { studentId, requestedBy: "counsellor-7", reason: "student_request" });
-  await confirmErasure(db, { requestId, confirmedBy: "admin-2" });
+  await confirmTwiceAndApprove(db, { requestId, confirmedBy: "admin-2" });
   return requestId;
 }
 
@@ -264,21 +272,23 @@ test("B15: an unconfirmed request deletes NOTHING (every collection byte-identic
   assert.equal(row.status, "pending");
 });
 
-test("B15: a self-confirm is refused (incl. case/whitespace variants) and the request stays unexecutable", async () => {
+test("B15/T-029: a self-approval (requester or confirmer, incl. case/whitespace variants) is refused and the request stays unexecutable", async () => {
   const { db, fakeDb, a } = await seedTwo();
-  const before = snapshot(fakeDb);
   const { requestId } = await requestErasure(db, {
     studentId: a.studentId,
     requestedBy: "counsellor-7",
     reason: "student_request",
   });
-  for (const confirmedBy of ["counsellor-7", " Counsellor-7 ", "COUNSELLOR-7"]) {
-    await assert.rejects(() => confirmErasure(db, { requestId, confirmedBy }), ErasureSelfConfirmError);
+  const { confirmToken } = await confirmErasure(db, { requestId, confirmedBy: "admin-2" });
+  await reconfirmErasure(db, { requestId, confirmedBy: "admin-2", confirmToken }, TEST_ERASURE_CONFIG);
+  const before = snapshot(fakeDb);
+  for (const approvedBy of ["counsellor-7", " Counsellor-7 ", "COUNSELLOR-7", "admin-2", " ADMIN-2"]) {
+    await assert.rejects(() => approveErasure(db, { requestId, approvedBy }), ErasureSelfApproveError);
   }
   const row = (await coll(fakeDb, COLLECTION_NAMES.erasure_requests).findOne({ _id: requestId })) as unknown as ErasureRequestDoc;
-  assert.equal(row.status, "pending");
-  assert.equal(row.confirmedBy, undefined);
-  await assert.rejects(() => executeErasure(db, requestId), ErasureNotConfirmedError);
+  assert.equal(row.status, "awaiting_approval");
+  assert.equal(row.approvedBy, undefined);
+  await assert.rejects(() => executeErasure(db, requestId), ErasureNotApprovedError);
   assert.equal(snapshot(fakeDb), before);
 });
 
@@ -445,17 +455,19 @@ test("B15: the receipt and the surviving audit row carry NO personal data (searc
   const row = (await coll(fakeDb, COLLECTION_NAMES.erasure_requests).findOne({ _id: requestId })) as unknown as ErasureRequestDoc;
   assert.equal(row.status, "completed");
   assert.equal(row.studentId, undefined);
-  assert.equal(erasureRequestMatchesStudent(row, a.studentId), true);
-  assert.equal(erasureRequestMatchesStudent(row, "stu-B"), false);
+  assert.equal(erasureRequestMatchesStudent(row, a.studentId, TEST_ERASURE_CONFIG.auditHmacKey), true);
+  assert.equal(erasureRequestMatchesStudent(row, "stu-B", TEST_ERASURE_CONFIG.auditHmacKey), false);
 });
 
 test("B15: the audit hash is salted per request (two requests for one student do not share a hash)", async () => {
   const { db, fakeDb, a } = await seedTwo();
   const r1 = await requestErasure(db, { studentId: a.studentId, requestedBy: "c-1", reason: "student_request" });
   // D-016: one OPEN request per student, so the first completes before the second is opened.
-  await confirmErasure(db, { requestId: r1.requestId, confirmedBy: "admin-2" });
+  await confirmTwiceAndApprove(db, { requestId: r1.requestId, confirmedBy: "admin-2" });
   await executeErasure(db, r1.requestId);
   const r2 = await requestErasure(db, { studentId: a.studentId, requestedBy: "c-1", reason: "student_request" });
+  // T-029: the HMAC pseudonym is written at the second confirmation.
+  await confirmTwiceAndApprove(db, { requestId: r2.requestId, confirmedBy: "admin-2" });
   const rows = coll(fakeDb, COLLECTION_NAMES.erasure_requests).all() as unknown as ErasureRequestDoc[];
   const [h1, h2] = [r1, r2].map((r) => rows.find((x) => x._id === r.requestId)?.studentHash);
   assert.ok(h1 && h2 && h1 !== h2);
@@ -1138,9 +1150,11 @@ test("D-015: ANOTHER student is unaffected by A's fence (B writes while A is fen
   assert.deepEqual(residue(fakeDb, a), []);
 });
 
-test("D-016: on completion the fence is HELD until createdAt + MINIMUM_FENCE_HOLD_MS (grace 0 by default); after the hold the sweep removes it and the student can be written again", async () => {
+test("D-016: on completion the fence is HELD until createdAt + MINIMUM_FENCE_HOLD_MS (with grace 0); after the hold the sweep removes it and the student can be written again", async () => {
   const { db, fakeDb, a } = await seedTwo();
-  assert.equal(ERASURE_FENCE_GRACE_MS, 0, "the re-enrolment grace (gate Q1 policy) stays 0; the technical hold is separate");
+  // T-029 (gate Q1 answered): the re-enrolment policy default is 24h; the technical hold is separate
+  // and is what this test pins, so it passes grace 0 explicitly.
+  assert.equal(ERASURE_FENCE_GRACE_MS, 24 * 3600 * 1000, "the re-enrolment grace (gate Q1 policy) is 24h");
   const requestId = await confirmedRequest(db, a.studentId);
   let fencedDuringExecute = false;
   const consents = coll(fakeDb, COLLECTION_NAMES.consents);
@@ -1149,7 +1163,7 @@ test("D-016: on completion the fence is HELD until createdAt + MINIMUM_FENCE_HOL
     fencedDuringExecute ||= await isStudentFenced(db, a.studentId);
     return realDelete(f);
   };
-  await executeErasure(db, requestId);
+  await executeErasure(db, requestId, { fenceGraceMs: 0 });
   assert.ok(fencedDuringExecute, "the fence exists while the purge runs");
   const [fence] = coll(fakeDb, FENCES).all();
   assert.ok(fence, "the fence outlives the completion (minimum hold)");
@@ -1242,9 +1256,9 @@ test("D-015: a failed fence release never fails a verified erasure, and releaseE
   assert.equal(out.receipt.verified, true);
   assert.equal((await requestRow(fakeDb, requestId)).status, "completed");
   assert.equal(fences.size(), 1, "the fence lingered (fail-safe: writes stay refused)");
-  assert.equal(await releaseExpiredErasureFences(db), 0, "not before the hold");
+  assert.equal(await releaseExpiredErasureFences(db, new Date(), 0), 0, "not before the hold");
   const holdEnd = Date.parse(fences.all()[0]!.createdAt as string) + MINIMUM_FENCE_HOLD_MS;
-  assert.equal(await releaseExpiredErasureFences(db, new Date(holdEnd)), 1);
+  assert.equal(await releaseExpiredErasureFences(db, new Date(holdEnd), 0), 1);
   assert.equal(fences.size(), 0);
 });
 
@@ -1366,7 +1380,7 @@ test("D-016 KEY PROBE (ISS-t-011-c2-1): a real writer paused before its insert a
     if (u.$set && "releaseAfter" in u.$set) await releaseWriterAfter();
     return res;
   };
-  const out = await executeErasure(db, requestId);
+  const out = await executeErasure(db, requestId, { fenceGraceMs: 0 });
   fences.deleteMany = realDelete;
   fences.updateOne = realUpdate;
   assert.ok(releaseCalls > 0, "the fence release was attempted");
@@ -1414,7 +1428,7 @@ test("D-016 minimum hold: releaseAfter = max(createdAt + hold, completion + grac
     await new Promise((r) => setTimeout(r, 5));
     await assert.rejects(executeErasure(db, requestId), ErasureIncompleteError);
     edges.deleteMany = realDelete;
-    await executeErasure(db, requestId);
+    await executeErasure(db, requestId, { fenceGraceMs: 0 });
     const [fence] = coll(fakeDb, FENCES).all();
     assert.equal(fence!.createdAt, original, "re-arming never resets createdAt");
     assert.equal(fence!.releaseAfter, new Date(Date.parse(original as string) + MINIMUM_FENCE_HOLD_MS).toISOString());
@@ -1426,7 +1440,7 @@ test("D-016 minimum hold: releaseAfter = max(createdAt + hold, completion + grac
     const fences = coll(fakeDb, FENCES);
     const old = new Date(Date.now() - 2 * MINIMUM_FENCE_HOLD_MS).toISOString();
     await fences.updateOne({ _id: erasureFenceKey(a.studentId) }, { $set: { createdAt: old } });
-    await executeErasure(db, requestId);
+    await executeErasure(db, requestId, { fenceGraceMs: 0 });
     assert.equal(fences.size(), 0, "hold already over: released immediately");
   }
 });
@@ -1610,7 +1624,12 @@ test("D-016 one open request (ISS-t-011-c2-rev-4): a second open request for the
   await requestErasure(db, { ...input, studentId: b.studentId });
   // confirmed stays open: still refused.
   const requestId = (ok[0] as PromiseFulfilledResult<{ requestId: string }>).value.requestId;
-  await confirmErasure(db, { requestId, confirmedBy: "admin-2" });
+  // T-029: every intermediate state (confirmed, awaiting_approval, approved) stays open: still refused.
+  const { confirmToken } = await confirmErasure(db, { requestId, confirmedBy: "admin-2" });
+  await assert.rejects(requestErasure(db, input), ErasureRequestAlreadyOpenError);
+  await reconfirmErasure(db, { requestId, confirmedBy: "admin-2", confirmToken }, TEST_ERASURE_CONFIG);
+  await assert.rejects(requestErasure(db, input), ErasureRequestAlreadyOpenError);
+  await approveErasure(db, { requestId, approvedBy: "approver-1" });
   await assert.rejects(requestErasure(db, input), ErasureRequestAlreadyOpenError);
   await executeErasure(db, requestId);
   const done = await requestRow(fakeDb, requestId);

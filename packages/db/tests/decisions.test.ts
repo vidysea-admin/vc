@@ -11,6 +11,7 @@ import { requestErasure, confirmErasure, executeErasure, exportStudent, StudentF
 import { COLLECTION_NAMES } from "../src/collections.js";
 import { INDEX_PLAN } from "../scripts/db-init.js";
 import { createFakeDb } from "./fakes.js";
+import { confirmTwiceAndApprove } from "../src/testing.js";
 
 function setup() {
   const { db, fakeDb } = createFakeDb();
@@ -188,7 +189,7 @@ test("B15: a reject-reason record is erased (read-back zero) and never re-create
   assert.equal(decisions.all().length, 1);
 
   const { requestId } = await requestErasure(db, { studentId: "stu-erase", requestedBy: "counsellor-9", reason: "student_request" });
-  await confirmErasure(db, { requestId, confirmedBy: "admin-3" });
+  await confirmTwiceAndApprove(db, { requestId, confirmedBy: "admin-3" });
   const outcome = await executeErasure(db, requestId);
   assert.equal(outcome.status, "completed");
   assert.equal(outcome.receipt.totalRemaining, 0);
@@ -216,7 +217,7 @@ test("B15 export: exportStudent's `decisions` array carries a reject-reason reco
   assert.equal(before.decisions.some((d) => d.studentId === "stu-export-other"), false);
 
   const { requestId } = await requestErasure(db, { studentId: "stu-export", requestedBy: "counsellor-10", reason: "student_request" });
-  await confirmErasure(db, { requestId, confirmedBy: "admin-4" });
+  await confirmTwiceAndApprove(db, { requestId, confirmedBy: "admin-4" });
   await executeErasure(db, requestId);
 
   const after = await exportStudent(db, "stu-export");

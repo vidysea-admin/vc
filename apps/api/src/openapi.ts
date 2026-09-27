@@ -152,7 +152,7 @@ export const OPENAPI_DOCUMENT = {
     "/v1/students/{studentId}/erasure-requests": {
       post: {
         operationId: "requestErasure",
-        summary: "Open an erasure request (a second person confirms it)",
+        summary: "Open an erasure request (then: confirm, reconfirm with the token, approver approves)",
         "x-roles": ["counsellor", "admin"],
         parameters: [studentId],
         requestBody: {
@@ -170,16 +170,78 @@ export const OPENAPI_DOCUMENT = {
     "/v1/erasure-requests/{requestId}/confirm": {
       post: {
         operationId: "confirmErasure",
-        summary: "Confirm an erasure request (never by its requester)",
-        "x-roles": ["admin"],
+        summary:
+          "First confirmation (T-029 step 1): fences the student, deletes nothing, returns a single-use token for the second confirmation",
+        "x-roles": ["counsellor", "admin"],
         parameters: [requestId],
-        responses: { "200": ok("Confirmed"), ...errors },
+        responses: {
+          "200": ok("Confirmed once", {
+            type: "object",
+            properties: {
+              requestId: REQUEST_ID,
+              status: { const: "confirmed" },
+              confirmToken: { type: "string" },
+              confirmTokenExpiresAt: { type: "string", format: "date-time" },
+            },
+          }),
+          ...errors,
+        },
+      },
+    },
+    "/v1/erasure-requests/{requestId}/reconfirm": {
+      post: {
+        operationId: "reconfirmErasure",
+        summary:
+          "Second confirmation (T-029 step 2) by the same counsellor with the token: queues the approval request in the email outbox (202, nothing deleted), or under autoDelete runs the erasure (200)",
+        "x-roles": ["counsellor", "admin"],
+        parameters: [requestId],
+        requestBody: {
+          required: true,
+          ...json({
+            type: "object",
+            required: ["confirmToken"],
+            additionalProperties: false,
+            properties: { confirmToken: { type: "string", minLength: 1, maxLength: 256 } },
+          }),
+        },
+        responses: {
+          "200": ok("autoDelete: the erasure outcome (counts-only receipt)"),
+          "202": ok("Waiting for the approver", {
+            type: "object",
+            properties: { requestId: REQUEST_ID, status: { const: "awaiting_approval" }, approvalExpiresAt: { type: "string", format: "date-time" } },
+          }),
+          "410": ok("The confirm token expired; the request is closed and nothing was deleted", { $ref: "#/components/schemas/Error" }),
+          "503": ok("The erasure workflow is not configured (VC_AUDIT_HMAC_KEY / VC_ERASURE_APPROVER_EMAIL)", { $ref: "#/components/schemas/Error" }),
+          ...errors,
+        },
+      },
+    },
+    "/v1/erasure-requests/{requestId}/approve": {
+      post: {
+        operationId: "approveErasure",
+        summary: "The approver approves a double-confirmed request (never the requester or confirmer); the erasure runs and returns its receipt",
+        "x-roles": ["approver"],
+        parameters: [requestId],
+        responses: {
+          "200": ok("The erasure outcome"),
+          "410": ok("The approval request expired; nothing was deleted", { $ref: "#/components/schemas/Error" }),
+          ...errors,
+        },
+      },
+    },
+    "/v1/erasure-requests/{requestId}/reject": {
+      post: {
+        operationId: "rejectErasure",
+        summary: "The approver rejects a double-confirmed request; nothing is deleted and the write fence is released",
+        "x-roles": ["approver"],
+        parameters: [requestId],
+        responses: { "200": ok("Rejected", { type: "object", properties: { requestId: REQUEST_ID, status: { const: "rejected" } } }), ...errors },
       },
     },
     "/v1/erasure-requests/{requestId}/execute": {
       post: {
         operationId: "executeErasure",
-        summary: "Run a confirmed erasure; returns the counts-only receipt",
+        summary: "Retry an approved erasure whose purge failed; returns the counts-only receipt (refuses anything not double-confirmed and approved)",
         "x-roles": ["admin"],
         parameters: [requestId],
         responses: { "200": ok("The erasure outcome"), ...errors },

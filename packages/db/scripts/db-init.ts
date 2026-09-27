@@ -138,7 +138,8 @@ export const INDEX_PLAN: IndexSpec[] = [
     keys: { tenantId: 1, studentKey: 1 },
     name: "erasure_requests_open_tenantId_studentKey_unique",
     unique: true,
-    partialFilterExpression: { status: { $in: ["pending", "confirmed", "failed"] } },
+    // T-029: every OPEN status of the approver workflow (rejected / expired / completed leave it).
+    partialFilterExpression: { status: { $in: ["pending", "confirmed", "awaiting_approval", "approved", "failed"] } },
   },
   // T-011 cycle 2 / D-015: the erasure write fence has NO secondary index: its _id IS the hashed
   // student key, so every fence read is an _id point read (ISS-t-011-c2-rev-3 removed the redundant
