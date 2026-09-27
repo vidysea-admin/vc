@@ -245,3 +245,33 @@
   ISS-045 worsening: t-042's dir ALSO refused teardown ("Directory not empty") right after merge --
   4th instance today, and now 2 dirs are stuck (dirs=4 registered=2). The handle-leak is not
   occasional; it is the normal outcome of merging a worktree whose suite just ran.
+
+## tick 2026-09-27T21:26:33+05:30
+STATE: ADVANCED
+wave=1 · concurrent peak=1 · dispatched: T-043 (ISS-076 regression_check conformance) build subagent
+  on .worktrees/t-043-regression-check-conformance (branch wave/t-043-regression-check-conformance,
+  base main e4bfa5b). Scope: (1) narrowing convention in qa/adapter.json, (2) a conformance
+  instrument script + its test (the durable half), (3) append-only backfill of the ~50 non-conforming
+  rows, with an explicit undetermined set rather than guessed values.
+
+SERIAL: Mode B sweep waits on T-043 -- both append to qa/issues.jsonl, and the sweep is the thing
+  that re-derives ISS-076's own conformance rate, so it must measure AFTER the backfill lands, not
+  concurrently with it. Sweep age at this tick: 288 min (due). This is a named dependency edge on a
+  shared file, not a capacity ceiling.
+SERIAL: T-035 waits on T-010 (T-010 STALLED and gate-blocked on D1+D2 of
+  qa/gates/t-010-b1-b18-unsatisfiable.md; T-034 half of its dependency already landed).
+
+ISS-045 (5th observation, and the first that spans a session): retried teardown of the two stuck
+  worktree dirs. .worktrees/t-042-webhook-fact-loss RELEASED. .worktrees/t-039-suppression-outcome
+  STILL "Device or resource busy" -- so the leaked handle is not a short-lived post-suite artifact
+  that clears in minutes; it survived ~50 min and a context compaction. git worktree prune has
+  already deregistered both, so the registry (2) and the directory count (3, incl. the new T-043)
+  disagree by one stale dir. Durable fix remains AIOS-level (data_boundary.py catching OSError
+  per entry), outside this project.
+
+Stale notification handled: the T-036 build subagent's task-notification re-fired this tick. Its own
+  final turn says the work was handed back long ago and the notification was a superseded background
+  find completing. No action taken -- recorded so a later reader does not re-open T-036.
+
+Gates still unanswered (5, unchanged): hook-fix Approved-by (ISS-056/ISS-054/ISS-084),
+  auto-verify-surface, b18-unimplemented, t-010-b1-b18-unsatisfiable (D1-D4), T-038 pilot scope.
