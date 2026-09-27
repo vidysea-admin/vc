@@ -649,3 +649,46 @@ Divergence status unchanged and now self-documenting: contracts amended for a de
   p2-application-drafting-scope) awaiting their first answer.
 
 SERIAL: Mode B sweep waits on T-043. SERIAL: T-035 waits on T-010.
+
+## tick 2026-09-27T23:35:46+05:30
+STATE: ADVANCED (peer catch reconciled; T-043 cycle 2 ~55 min out, still the only unit in flight)
+
+vc-f5 found T-043's verdict file was COMPLETELY UNTRACKED in git -- `git ls-files
+  --error-unmatch` did not match, `git log` for the path was empty in root and on the branch.
+  That file holds both the cycle-0 and cycle-1 FAIL adjudications, i.e. the entire reason T-043 is
+  on a cycle 2 at all, and it was one `git clean` from gone. Now tracked at d4af250 (content
+  verbatim, nothing authored by them). QA-1445 recurring. Second peer catch today that saved
+  something I could not have detected from my own surface.
+
+BUT I CHECKED THE SECOND HALF AND IT IS NOT A DEFECT. They flagged the verdict living in the root
+  tree while the unit lives on wave/t-043-... as a problem needing a mid-cycle move. Verified
+  against the three most recent units instead of accepting it: verdicts in this project are
+  committed straight to main and never to the unit branch -- dd2050c (t-042 c1), 90394c2 (t-041
+  c0), e88c1cf (t-040 c0), all authored on main. The manifest travels with the branch and merges;
+  the verdict lands on main independently. So "the merging branch carries no verdict" is true of
+  every unit this project has shipped. Nothing to move; cycle 2's verdict belongs in the root tree
+  beside the others.
+
+Their ISS-097 stands regardless and is the useful half: a reader must search root AND every
+  worktree per slug, then take max cycle across copies. Told them to record that the ROOT copy is
+  authoritative and a worktree copy is a stale duplicate, so the fix does not treat them as peers.
+  That is the THIRD reader defect today from the same unmodelled multi-worktree shape, written by
+  the session that had just fixed the first two.
+
+ISS-052 sent back to Umesh rather than closed, and the reasoning is stronger than security:
+  plan.md:224 ends Phase 1 with a 5-counsellor pilot and plan.md:230 makes the P1 exit gate
+  "post-session notes approved with light edits >=80%". Approving notes IS that screen, so it is
+  the instrument one of the four P1 exit criteria is COMPUTED FROM, by five real counsellors, with
+  no identity -- the >=80% is unattributable, the gate cannot be audited, a disputed approval has
+  no owner. Measurement integrity, not just access control. It also resolves the decision-5 vs
+  decision-6 tension in one direction: the plan says the counsellor is present AND approving, so
+  counsellor-present is confirmed and nobody-opens-the-screen is contradicted.
+
+docs/spec.md DOES NOT EXIST -- the PLAN gate substitutes qa/contracts/counselling-engine.md, a
+  deliberate recorded substitution, but the maker skill's step 5bb cites "the flows in
+  docs/spec.md". Any persona-walk brief must name the substitution explicitly rather than let a
+  walker discover an empty path. Recorded here for whoever writes the B17/B19 persona units.
+
+Umesh now has SIX items, not five: the three relayed-unconfirmed gates, the two unanswered gates
+  (hook-raw-count-fixes, p2-application-drafting-scope), and ISS-052's premise failure.
+SERIAL: Mode B sweep waits on T-043. SERIAL: T-035 waits on T-010.
