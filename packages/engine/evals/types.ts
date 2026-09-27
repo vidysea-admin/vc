@@ -90,7 +90,7 @@ export interface SessionScore {
     correct: boolean;
     providerCalledDespiteEscalation: boolean;
   };
-  /** null when the session escalated before extraction ever ran (nothing else to score). */
+  /** null when the session escalated (crisis) before extraction ever ran (nothing else to score). */
   extraction: {
     goldFactCount: number;
     recalledCount: number;

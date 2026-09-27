@@ -6,7 +6,7 @@
  */
 import type { Db } from "mongodb";
 import { ZodError, type z } from "zod";
-import { FactSchema, isScriptLike, type CitationMatch, type Fact } from "@vc/schemas";
+import { FactSchema, isScriptLike, type CitationMatch, type ConcernRecord, type Fact } from "@vc/schemas";
 import {
   ConsentRequiredError,
   FactConflictError,
@@ -91,26 +91,49 @@ export async function checkConsent(rawInput: unknown, deps: Pick<ScribeDeps, "db
 // (b) crisis gate — B9, deterministic, before any provider call
 // ---------------------------------------------------------------------------
 
+/** T-022: the fixed, descriptive reason a concern record carries (for the counsellor; never a script). */
+export const CONCERN_REASON =
+  "Concern-level wellbeing signal detected by the crisis guard in this turn; flagged for counsellor follow-up. The session continued.";
+
 /**
  * Runs the existing crisis guard (guards/crisis.ts, unchanged) over EVERY turn, on both the
  * original-language `text` and the English `translatedText`: a signal that a translation softened
- * must still escalate. The most severe signal wins (crisis over concern), then the earliest turn.
- * A concern-level signal also stops the scribe, because the guard routes it to escalation and false
- * positives are this guard's safe failure mode.
+ * must still count.
+ * - CRISIS (B9/B16): the earliest crisis-level turn becomes `escalation`, and the run ends
+ *   "escalated" before any provider call. Unchanged from T-007.
+ * - CONCERN (T-022 / D-020 / B20): a concern-level turn no longer stops the scribe. Each one becomes
+ *   a typed, cited ConcernRecord in `concerns` (quote = the flagged field's text, so the citation
+ *   resolves into the stored transcript), and the run continues to extract facts. When the session
+ *   also has a crisis turn, the crisis wins and `concerns` is empty (the run ends escalated).
  */
 export function checkCrisis(rawInput: unknown): CrisisGateOutput {
   const input = CrisisGateInputSchema.parse(rawInput);
-  let worst: ScribeEscalation | null = null;
+  let crisis: ScribeEscalation | null = null;
+  const concerns: ConcernRecord[] = [];
   for (const turn of input.turns) {
+    let concernInTurn: ConcernRecord | null = null;
     for (const text of [turn.text, turn.translatedText]) {
       const route = routeBeforeGeneration(text);
       if (route.route !== "escalate") continue;
-      const candidate: ScribeEscalation = { ...route.card, turnId: turn.turnId };
-      if (!worst || (worst.level === "concern" && candidate.level === "crisis")) worst = candidate;
+      if (route.card.level === "crisis") {
+        crisis = { ...route.card, turnId: turn.turnId };
+        break;
+      }
+      concernInTurn ??= {
+        concernId: `${input.sessionId}:${turn.turnId}`,
+        studentId: input.studentId,
+        sessionId: input.sessionId,
+        level: "concern",
+        reason: CONCERN_REASON,
+        matched: route.card.matched,
+        detector: "crisis-guard",
+        citation: { type: "transcript", quote: text.trim(), turnId: turn.turnId },
+      };
     }
-    if (worst?.level === "crisis") break;
+    if (crisis) break;
+    if (concernInTurn) concerns.push(concernInTurn);
   }
-  return CrisisGateOutputSchema.parse({ escalation: worst });
+  return CrisisGateOutputSchema.parse(crisis ? { escalation: crisis, concerns: [] } : { escalation: null, concerns });
 }
 
 // ---------------------------------------------------------------------------
