@@ -304,6 +304,82 @@ test("T-032 (ISS-t-021-rev-3): the deadline expires BETWEEN attempts (during bac
   t.mock.timers.reset();
 });
 
+test("T-032 (ISS-t-032-c0-1 fix cycle 1): the deadline expires the INSTANT attempt 1's own retryable failure lands — before backoff is ever scheduled, one whole loop iteration earlier than the pre-existing top-of-loop check — the reported error is still the deadline, not the retryable failure", async (t) => {
+  // ISS-t-032-c0-1 / the AI review Warning on fix cycle 0: the previous version of this file's
+  // "BETWEEN attempts (during backoff)" test used a provider that rejects SYNCHRONOUSLY, so its
+  // attempt failed at Date.now()==0 while the deadline was still 100ms away — remainingForBackoff
+  // was comfortably positive, the loop took the sleep path, and it was only the tick(150) advancing
+  // time DURING that sleep that ended the call. That is genuinely the pre-existing top-of-loop check
+  // (the SAME unconditional-assignment fix, one line up) catching it on the next iteration — never
+  // the interior `remainingForBackoff <= 0` branch this unit actually added. Reverting just that
+  // interior branch left that older test fully green, which is exactly the gap the checker and the
+  // reviewer both flagged.
+  //
+  // To reach the interior branch specifically, attempt 1's OWN failure must land at (or after)
+  // deadlineAt, in the same tick that raceDeadline's own per-attempt deadline timer is also due —
+  // and it must win that race. `provider.generate()` is called (and so schedules its internal timer)
+  // strictly before `raceDeadline` wraps it in its own competing timeout, so two timers due at the
+  // identical virtual instant fire in that same registration order: the provider's rejection is
+  // delivered as an ordinary retryable LiteLlmTimeoutError, not as raceDeadline's own
+  // FailoverDeadlineExceededError, and Date.now() has already reached deadlineAt by the time the
+  // catch block's `remainingForBackoff = deadlineAt - Date.now()` runs — landing it at exactly 0,
+  // one full loop iteration before the top-of-loop check on a (never-started) attempt 2 would have.
+  // Confirmed empirically this fix cycle (real run, not assumed): with the fix in place this test is
+  // GREEN (calls===1, lastErrorName==="FailoverDeadlineExceededError"); reverting ONLY the :753-759
+  // block back to the old bare `if (remainingForBackoff <= 0) break;` turns it, and only it, RED
+  // (actual lastErrorName "LiteLlmTimeoutError") while every other test — including the older
+  // "BETWEEN attempts (during backoff)" test above — stays green, proving this test (and only this
+  // test) is what exercises that exact block. See the manifest's "Falsification actually run this
+  // session (fix cycle 1)" for the real command output.
+  let calls = 0;
+  const timesOutExactlyAtDeadline: LlmProvider = {
+    kind: "litellm",
+    model: "m",
+    generate<T>(): Promise<T> {
+      calls += 1;
+      return new Promise<T>((_, reject) => {
+        setTimeout(() => reject(new LiteLlmTimeoutError("m", 1)), 100);
+      });
+    },
+  };
+  const alerts: unknown[] = [];
+  const provider = new FailoverProvider({
+    chain: [timesOutExactlyAtDeadline],
+    maxAttempts: 5, // plenty of counter budget left -- only the deadline may stop this
+    deadlineMs: 100,
+    baseDelayMs: 50,
+    maxDelayMs: 50,
+    random: () => 1,
+    onExhausted: (info) => alerts.push(info),
+  });
+
+  const flush = async (turns = 6) => {
+    for (let i = 0; i < turns; i += 1) await Promise.resolve();
+  };
+
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+  const pending = assert.rejects(provider.generate(req), (err: unknown) => {
+    assert.ok(err instanceof AiUnavailableError);
+    assert.equal(
+      err.lastErrorName,
+      "FailoverDeadlineExceededError",
+      "the deadline -- landing in the SAME instant as attempt 1's own retryable failure -- must still be the reported cause, not that retryable failure",
+    );
+    return true;
+  });
+
+  await flush(); // attempt 1 starts: its own 100ms timer is registered, then raceDeadline's own 100ms deadline timer for this same attempt
+  t.mock.timers.tick(100); // both timers are due at the identical instant; the provider's (registered first) fires first
+  await flush();
+
+  assert.equal(calls, 1, "attempt 2 must never start -- the deadline is already exactly spent the instant attempt 1's own failure lands, before backoff is ever scheduled");
+  assert.equal(alerts.length, 1, "the exhaustion alert still fires exactly once");
+  assert.equal((alerts[0] as { lastErrorName: string }).lastErrorName, "FailoverDeadlineExceededError");
+
+  await pending;
+  t.mock.timers.reset();
+});
+
 test("T-021 fix cycle 1 (ISS-t-021-rev-1): VC_LLM_DEADLINE_MS / VC_LLM_ATTEMPT_TIMEOUT_MS reach the built FailoverProvider chain (real hung stub server, real small timers)", async () => {
   const hung = await startStub(() => "hang");
   try {
