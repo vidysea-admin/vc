@@ -39,3 +39,14 @@
   ISS-045 3rd instance: t-039 worktree dir held open at teardown (registered=3 dirs=4); t-041 dir
   cleared on retry. Durable fix is AIOS-level (data_boundary.py OSError-per-entry) -> Umesh, not a vc unit.
   Running: T-010 fix c2 (opus), T-040. Gates unanswered ×4.
+2026-09-27T17:07:45+05:30 ADVANCED · T-040 built (d7212f5), checker dispatched same turn with ISS-087's liveness
+  falsification demanded concretely (owner file naming a nonexistent PID -> waiter proceeds in
+  seconds, not after the staleness window) plus a lever the maker did NOT build: force the liveness
+  probe to misreport and prove a LIVE holder's lock is still not broken (the dangerous direction).
+  Unit: canonical scripts/vc-testlock.sh (liveness-first, tasklist as sole authority for "running",
+  PowerShell never used to prove absence), 18 assertions, 10 manifests repointed path-citation-only.
+  Maker found 3 real bugs during its own testing (torn owner-file write; PowerShell StartTime
+  false-negative on a live PID; timeout check skippable via continue) and disclosed 3 gaps.
+  Root cause was NOT the historical bare rmdir -- both scratchpad copies already used rm -rf; both
+  broke on age alone. Checker told: ISS-t-037-1 (distribution) and ISS-087 (liveness) are different
+  defects; a PASS on one is not a PASS on the other.
