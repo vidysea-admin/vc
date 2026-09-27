@@ -42,8 +42,24 @@ WHOLE_MONOREPO = {"pnpm -r typecheck", "pnpm -r test", "python contracts/verify_
 # command; excluding "()" catches that class without rejecting real flags/paths.
 RE_PACKAGE_FILTER = re.compile(r"^pnpm --filter @vc/([A-Za-z0-9_-]+) ([A-Za-z0-9:_-]+)(?:\s[^()]+)?$")
 RE_PACKAGE_DIR = re.compile(r"^pnpm -C ((?:apps|packages|mcp)/[A-Za-z0-9_-]+) ([A-Za-z0-9:_-]+)(?:\s[^()]+)?$")
-RE_REPO_FILE_ARG = re.compile(r"^pnpm -r (?:test|typecheck) -- ([\w./-]+)$")
-RE_DIRECT_TSX = re.compile(r"^npx tsx --test ([\w./-]+\.test\.[jt]sx?)$")
+
+# RETIRED 2026-09-27 (ISS-092, T-043 fix cycle 1): this shape matched but was functionally inert --
+# every workspace's own "test"/"typecheck" script is a shell glob (e.g. "tsx --test tests/*.test.ts")
+# that has already expanded to the package's full file set before pnpm appends this trailing path, so
+# node's test runner runs (glob matches) + (one more, already-matched, path) -- never fewer. Kept here
+# (not deleted) so conforms_one() can name it explicitly and reject it with a reason, rather than
+# falling through to the generic "matches no allowed shape" message, which would hide *why* a
+# resurrected/copy-pasted use of this exact string is wrong. See qa/adapter.json verify.narrowing
+# .retired_shapes for the full writeup and the empirical proof (checker cycle 0 + maker cycle 1).
+RE_REPO_FILE_ARG_RETIRED = re.compile(r"^pnpm -r (?:test|typecheck) -- ([\w./-]+)$")
+
+# --tsconfig is optional and exists only because bare `npx tsx --test <path>` run from repo root uses
+# esbuild's default (classic) JSX transform, which throws `ReferenceError: React is not defined` for a
+# workspace declaring "jsx": "react-jsx" in its own tsconfig.json (e.g. apps/web) -- empirically
+# confirmed 2026-09-27 (T-043 fix cycle 1). When present, conforms_one() requires the tsconfig to exist
+# AND to belong to the SAME workspace as the test file (see _workspace_dir_of), so this can't be used to
+# launder an unrelated config into the check.
+RE_DIRECT_TSX = re.compile(r"^npx tsx(?: --tsconfig ([\w./-]+))? --test ([\w./-]+\.test\.[jt]sx?)$")
 RE_DOC_GREP = re.compile(r"^grep -n '[^']+' ([\w./-]+)$")
 RE_SCENARIO_REF = re.compile(r"^scenario:([\w-]+)#(SC-\d+)$")
 RE_RUBRIC_REF = re.compile(r"^rubric_ref:(.+)$")
@@ -127,6 +143,18 @@ class Checker:
     def path_exists(self, rel: str) -> bool:
         return (self.repo_root / rel).exists()
 
+    def _workspace_dir_of(self, rel: str):
+        """Return the (apps|packages|mcp)/<dir> workspace prefix that `rel` lives under, or None.
+        Used to require that a direct-tsx --tsconfig belongs to the SAME workspace as the test file
+        it narrows to -- otherwise the flag could point at an unrelated tsconfig."""
+        rel = rel.replace("\\", "/")
+        best = None
+        for d in self.by_dir:
+            if rel == d or rel.startswith(d + "/"):
+                if best is None or len(d) > len(best):
+                    best = d
+        return best
+
     def conforms_one(self, cmd: str):
         """Return (ok: bool, reason: str) for a single (non-conjunction) command string."""
         cmd = cmd.strip()
@@ -155,19 +183,33 @@ class Checker:
                 return False, f"{rel_dir} package.json has no script '{script}'"
             return True, "package-dir"
 
-        m = RE_REPO_FILE_ARG.match(cmd)
+        m = RE_REPO_FILE_ARG_RETIRED.match(cmd)
         if m:
             rel = m.group(1)
-            if not self.path_exists(rel):
-                return False, f"path does not exist: {rel}"
-            return True, "repo-file-arg"
+            return False, (
+                f"shape 'repo-file-arg' was retired 2026-09-27 (ISS-092): the trailing path "
+                f"('{rel}') never narrows what runs -- every workspace's own test/typecheck script "
+                f"already globs its full file set before pnpm appends this argument. Use direct-tsx "
+                f"('npx tsx --test {rel}') or package-filter/package-dir instead. "
+                f"See qa/adapter.json verify.narrowing.retired_shapes."
+            )
 
         m = RE_DIRECT_TSX.match(cmd)
         if m:
-            rel = m.group(1)
+            tsconfig, rel = m.group(1), m.group(2)
             if not self.path_exists(rel):
                 return False, f"path does not exist: {rel}"
-            return True, "direct-tsx"
+            if tsconfig is not None:
+                if not self.path_exists(tsconfig):
+                    return False, f"--tsconfig path does not exist: {tsconfig}"
+                test_ws = self._workspace_dir_of(rel)
+                tsconfig_ws = self._workspace_dir_of(tsconfig)
+                if test_ws is None or tsconfig_ws is None or test_ws != tsconfig_ws:
+                    return False, (
+                        f"--tsconfig {tsconfig} is not the test file's own workspace tsconfig "
+                        f"(test file is under {test_ws!r}, tsconfig is under {tsconfig_ws!r})"
+                    )
+            return True, "direct-tsx" if tsconfig is None else "direct-tsx+tsconfig"
 
         m = RE_DOC_GREP.match(cmd)
         if m:

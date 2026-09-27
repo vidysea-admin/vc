@@ -2,7 +2,7 @@
 **Contract:** qa/adapter.json `verify` (the whole-verify contract + the new `verify.narrowing` convention this unit adds); qa/issues.jsonl (the append-only ledger)
 **Goal task:** T-043 (ISS-076, severity high)
 **Date:** 2026-09-27
-**Fix cycle:** 0 of max 3
+**Fix cycle:** 1 of max 3
 **Dual check:** no
 **Persona walk:** skip (backend/process-tooling only: qa/adapter.json, scripts/vc-regression-check-conformance.{py,sh,test.sh}, qa/issues.jsonl. No apps/web path touched.)
 **Issues addressed:** ISS-076 (the consolidated, re-derived defect: 50 of 120 -- now 125 -- fixed/verified rows carried a `regression_check` the adapter disallowed; three prior sweeps found it flat at ~41.6-41.7%, not shrinking). No new issue opened by this unit.
@@ -264,5 +264,172 @@ files.
   before/after numbers in this manifest are both measured with the same (my own, newly-written)
   instrument, which is the correct apples-to-apples comparison for proving this unit's own effect, but
   is not the same instrument the prior sweeps used.
+
+## Fix cycle 1 (2026-09-27) — what cycle 0 got wrong and what changed
+
+**Checker verdict on cycle 0: FAIL.** Cycle 0 correctly diagnosed the root cause (no per-package/
+per-file narrowing convention existed) and 5 of 6 new shapes hold up (`package-filter`, `package-dir`,
+`direct-tsx`, `doc-grep`, `null_bucket`). But the majority shape, **`repo-file-arg`**
+(`pnpm -r (test|typecheck) -- <path>`), was **functionally inert** — filed as **ISS-092** (high). The
+checker proved this three ways (byte-identical output with/without the path argument; the root cause,
+every workspace's own `"test"`/`"typecheck"` script is a shell glob that has already matched its full
+file set before pnpm appends the trailing path; and a synthetic `pnpm -r test -- ARCHITECTURE.md` row
+— a doc, not a test — was reported "conforming" by cycle 0's own script). 69 of 125 (55.2%) rows used
+this shape, so cycle 0's headline "125/125 (100.0%)" overstated what was actually achieved for the
+majority of the ledger. Full verdict: `qa/verdicts/t-043-regression-check-conformance.md`.
+
+### 1. Resolving `repo-file-arg` — retired, not repaired
+
+I looked for a genuinely-narrowing repo-level form before accepting the checker's retirement
+recommendation, per the brief's instruction not to retire on recommendation alone. There isn't one:
+`pnpm -r <script> -- <path>` and `pnpm -C <dir> <script> -- <path>` both invoke the workspace's own
+`"test"` script unmodified, and that script's glob (`tsx --test tests/*.test.ts[ evals/*.test.ts]`)
+has already expanded to the full file set before pnpm appends the extra argument — node:test then
+dedupes the already-matched path, so nothing narrows (verified this dedup behaviour directly: Test 20
+below). The only way to reach a single file in isolation is to **bypass pnpm's script layer entirely**
+and invoke `tsx`/`node:test` directly on that one path — which is exactly what the already-existing,
+already-legitimate `direct-tsx` shape does. So **`repo-file-arg` is retired** (moved to
+`qa/adapter.json` `verify.narrowing.retired_shapes`, with the reasoning and empirical evidence
+recorded there), not replaced with a new invented syntax.
+
+One real wrinkle surfaced while remapping: `direct-tsx`'s bare form (`npx tsx --test <path>`, run from
+repo root per the adapter's own convention) **fails** for a JSX test file whose workspace declares
+`"jsx": "react-jsx"` (only `apps/web` in this ledger) — `ReferenceError: React is not defined`,
+because tsx/esbuild resolves the nearest tsconfig relative to the process cwd (repo root), not the
+test file's own workspace, and the root has no tsconfig.json setting `jsx`. Empirically confirmed
+(2026-09-27): `npx tsx --test apps/web/tests/ui.test.tsx` from repo root fails;
+`npx tsx --tsconfig apps/web/tsconfig.json --test apps/web/tests/ui.test.tsx` passes 18/18 and
+narrows against the apps/web package baseline (38). So `direct-tsx` gained an **optional**
+`--tsconfig <path>` flag, gated to require the tsconfig be the **same workspace** as the test file
+(`_workspace_dir_of` prefix match) — otherwise the flag could point at an unrelated tsconfig to
+launder an unrelated result into the check. This is the only new syntax this cycle adds; every other
+of the 69 rows needed the existing bare `direct-tsx` form.
+
+### 2. Re-mapping the 69 affected rows
+
+Mechanical, not guessed: every one of the 69 rows already names a specific test-file path (the exact
+narrowing target the maker/checker intended); the fix wraps that same, unchanged path in the working
+vehicle (`direct-tsx`) instead of the inert one (`repo-file-arg`), never substituting a different file.
+68 rows (`.test.ts`) → `npx tsx --test <same path>`; the 1 row whose path is a JSX file
+(`ISS-t-020-c0-1`, `apps/web/tests/ui.test.tsx`) → `npx tsx --tsconfig apps/web/tsconfig.json --test
+apps/web/tests/ui.test.tsx`. Verified every one of the 69 paths exists on disk and matches
+`direct-tsx`'s file-extension grammar before applying the remap (no exceptions found).
+
+**Undetermined set: empty, and I checked hard for a reason not to say that a second time.** Cycle 0's
+own "no undetermined set" was flagged by the checker as one half of a suspiciously-clean-looking
+result, and the OTHER half (repo-file-arg) did not survive contact. So for this remap I independently
+spot-checked narrowing across every affected package, not just trusted the mechanical translation:
+ran the actual `direct-tsx` command for one representative file per package —
+`packages/engine/tests/index.test.ts` (2 vs 689 package baseline), `packages/db/tests/erasure.test.ts`
+(68 vs 248), `packages/schemas/tests/guards.test.ts` (19 vs 61), `packages/observability/tests/config.test.ts`
+(29 vs 59), `mcp/student-profile/tests/index.test.ts` (12, package total is also 12 — this package has
+only one test file, so this row does not narrow further than the existing `package-dir`/`package-filter`
+shapes already would; still strictly correct and re-runnable, just not a case where file-level beats
+package-level), and `apps/web/tests/ui.test.tsx` (18 vs 38, via the tsconfig-qualified form). All ran
+clean, all strictly ≤ their package baseline with 5 of 6 strictly <. Nothing in the 69 needed
+quarantining — every path is real, matches the grammar, and the shape it now lives in is empirically
+narrowing (or, for the one single-file package, at least no worse than the package-level shapes the
+checker already accepted).
+
+Also appended (append-only, `"update": true"`, ledger untouched otherwise): the checker's own
+`ISS-092` and its `ISS-076` cycle-0 status update (copied verbatim from `D:/vc/qa/issues.jsonl`, since
+the checker appended them to the main-tree ledger rather than this branch — this branch's ledger now
+carries them too, so the branch's history is complete); an `ISS-092` status row (`fixed`, pending
+checker verification — the shape is retired and the 69 rows remapped, but only `/checker` can verify);
+and an `ISS-076` status row explaining this cycle's state (see item 5 below — NOT claiming closed).
+
+### 3. Closing the outcome gap — execution-based tests, not just regex/path-exists
+
+Cycle 0's own 19-case/30-assertion suite never executed a candidate command — Tests 3/15 asserted only
+`conforms_one()`'s *return value* against a regex, which is exactly how `repo-file-arg`'s inertness
+escaped detection (the B14 construction-not-outcome gap ISS-092 named). The suite is now 24 blocks /
+48 assertions; the durable additions:
+
+- **Test 3 / 3b** — `repo-file-arg` is now explicitly rejected (not silently "matches no allowed
+  shape" — the checker names the retirement and ISS-092 in the reason string), including the exact
+  ISS-092 falsification (`pnpm -r test -- ARCHITECTURE.md`, a doc that EXISTS, wrapped in the retired
+  grammar) — proving rejection is because the shape is retired, not because some path happens to be
+  missing.
+- **Test 15 / 15b / 15c / 15d** — the new `direct-tsx --tsconfig` form: conforms when the tsconfig is
+  the test file's own workspace, is rejected when pointed at a *different* workspace's tsconfig
+  (guards the exact laundering risk named above), and is rejected when the tsconfig path doesn't
+  exist.
+- **Test 20** — EXECUTION PROOF, generic (not tied to the real repo): builds an isolated `mktemp -d`
+  fixture with two real `node:test` files, actually **runs** `node --test tests/*.test.js` (baseline,
+  3 tests) and `node --test tests/*.test.js tests/a.test.js` (the repo-file-arg *class* of command —
+  glob already expanded, path appended after), and asserts the counts are **identical** — the generic,
+  executing reproduction of the exact bug ISS-092 found, so a future shape with this same structural
+  flaw fails this test automatically instead of passing a path-exists check.
+- **Test 21** — same fixture, actually runs `node --test tests/a.test.js` alone and asserts strictly
+  fewer tests than the baseline — the positive counterpart proving a glob-bypassing shape genuinely
+  narrows.
+- **Test 22** — EXECUTION PROOF against the **real** repo (read-only, no ledger/mutation involved):
+  runs the actual `apps/web/tests/ui.test.tsx` case both ways (bare fails with the exact
+  `React is not defined` symptom; `--tsconfig`-qualified passes and narrows 18 vs 38) — ties the
+  abstract fixture proof back to the one concrete row this cycle needed the new flag for.
+- **Test 23** — the static conformance script certifies the exact remap command from Test 22 as
+  conforming, connecting the execution proof back to the thing that actually gates the ledger.
+
+I deliberately did not make the conformance script re-execute every one of the 126 ledger rows'
+commands on every invocation (which would mean running large chunks of the monorepo suite, sometimes
+repeatedly, on every conformance check) — that would make the fast structural gate slow and
+non-deterministic (load-dependent flakes, per ISS-089/ISS-091). Instead the durable guarantee lives in
+the test suite: any new or edited shape's *definition* must pass an execution-based test proving it
+narrows before it can be added to `verify.narrowing.shapes`, the same way Tests 20-23 gate this cycle's
+change.
+
+### 4. Honest re-derived numbers
+
+```
+$ bash scripts/vc-regression-check-conformance.sh
+vc-regression-check-conformance: 548 ledger lines, 269 distinct ids (field-level merge), 126 fixed/verified rows
+conforming: 126/126 (100.0%)
+
+vc-regression-check-conformance: PASS -- every fixed/verified row conforms
+EXIT: 0
+```
+
+This is **not** the same reading as either of the checker's two ISS-076 historical reproductions
+(115/125, strict verbatim-3-commands; 46/125, charitable including the now-retired repo-file-arg).
+It is the reading this cycle's corrected instrument implements: every fixed/verified row's
+`regression_check` must match one of the 6 remaining shapes (or a conjunction of them), each of which
+is now either (a) empirically demonstrated to narrow at file level (`direct-tsx`, with or without
+`--tsconfig`) or (b) checker-validated as a legitimate package-level narrowing
+(`package-filter`/`package-dir` — genuinely re-runnable against real `package.json` scripts, narrower
+than the previous whole-monorepo baseline even though not file-level) or (c) a narrow, correctly-scoped
+non-code check (`doc-grep`, `scenario-ref`, `rubric-ref`) or (d) the explicit, note-justified
+`null_bucket` for no-code-change fixes. 100.0% is the honest number **under this now execution-tested
+convention** — it is higher than cycle 0's own before-number (87.2%/109-125) mainly because
+cycle 0's convention-plus-backfill work was itself sound for 5 of 6 shapes; this cycle's own
+contribution is closing the one shape that was fake, not inflating the rate further.
+
+**One re-verification worth flagging plainly:** cycle 0's manifest and the checker's cycle-0 verdict
+both describe 4 pre-existing `null` rows (`ISS-t-013r-c0-4`, `ISS-t-013r-c0-5`, `ISS-059`, `ISS-083`)
+as still printing **WEAK** in the instrument's own output. Re-running the current script against the
+current ledger, none of the 4 print WEAK — `note_looks_like_null_class()` matches each of their
+existing `class`/`note`/`checker_note` text against the keyword list (`"process"`, `"reconciled"`,
+`"fold"` respectively) and correctly treats them as already explained. I checked this directly
+(imported the module, called the function on each merged row) rather than repeating the prior claim
+unverified; I cannot explain the discrepancy with the prior cycle's stated observation, but I can say
+what the script actually does right now, on this ledger, which is print 0 WEAK rows, not 4. Not a
+change I made — these 4 rows are untouched by any of this cycle's or cycle 0's edits.
+
+### 5. Is ISS-076 closed?
+
+**No.** This unit narrows ISS-076 further (the shape doing the false-conforming for 55% of rows is
+gone, and the instrument that would let a similar shape back in without proof now has execution-based
+tests) but does not close it:
+
+- `scenario-ref`/`rubric-ref` remain existence-only checks (the checker's own "worth tightening, not
+  blocking" note from cycle 0) — untouched this cycle, out of scope for what ISS-092 required.
+- `package-filter`/`package-dir` narrow to package level, not file level — checker-accepted as
+  legitimate, but still coarser than what a per-fix regression check ideally proves.
+- The 4 WEAK-eligible-by-design null rows from cycle 0 remain unbackfilled by the same reasoning cycle
+  0 gave (outside ISS-076's named scope).
+- `fixed -> verified` transitions for the 69 remapped rows are now structurally possible (the
+  regression_check conforms and is real) but this unit did not itself attempt any, per the brief's
+  scope (this cycle is about the instrument and the remap, not re-running historical verifications).
+
+Only `/checker` can move ISS-076 to verified/closed.
 
 ## Status: ready-for-check
