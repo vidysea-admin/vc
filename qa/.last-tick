@@ -50,3 +50,13 @@
   Root cause was NOT the historical bare rmdir -- both scratchpad copies already used rm -rf; both
   broke on age alone. Checker told: ISS-t-037-1 (distribution) and ISS-087 (liveness) are different
   defects; a PASS on one is not a PASS on the other.
+2026-09-27T17:10:23+05:30 ADVANCED · Relayed a PID-NAMESPACE finding to the live T-040 checker (vc-f5, ISS-087 update
+  20b70c8). vc-testlock.sh records bash $$ = an MSYS pid; Windows pids are always multiples of 4
+  and today's recorded owners (202605, 258793, 263913) are all odd -- so ANY Windows-namespace probe
+  (Get-Process AND tasklist, which is the design the maker shipped as "sole authority") reads every
+  LIVE owner as dead, breaks the lock instantly and permits concurrent suites. Silently WORSE than
+  the age-only behaviour it replaces.
+  Checker now gated on BOTH: (a) dead owner -> proceeds in seconds; (b) live owner -> does NOT break.
+  (a) alone passes a lock that is effectively switched off.
+  vc-f5 withdrew its own earlier "PID confirmed NOT RUNNING by Get-Process" clause as the same
+  namespace error; told the checker to re-measure rather than trust either of us.
