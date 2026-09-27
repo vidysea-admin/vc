@@ -174,3 +174,166 @@ and fall through to alert + record the gap (treating "can't determine fenced sta
 fenced, don't lose the signal") rather than letting the exception propagate and fail the whole request.
 Everything else in this unit (leak 2, the ledger's tenant/erasure/TTL properties, the arithmetic) is
 sound and should carry forward unchanged into the next cycle.
+
+---
+
+**Cycle checked:** 1
+**Unit head checked:** `da5db5c` (fix cycle 1), forked from `main@57b2c70`, responds to cycle-0 FAIL at `937714b`
+**Checker:** Mode A, full protocol
+
+## VERDICT: PASS
+
+## Scope, first
+
+`git diff 937714b da5db5c --stat` (cycle 0's verdict commit to this cycle's head): exactly
+`apps/api/src/server.ts` (+18/-2), `apps/api/tests/server.test.ts` (+57), and
+`qa/manifests/t-042-webhook-fact-loss.md`. Nothing in `qa/contracts/**`, `qa/verdicts/**`,
+`qa/issues.jsonl`, `docs/DECISIONS.md`, `ARCHITECTURE.md`, `TASKS.md`, `.claude/**`, or fixtures.
+Matches the manifest's own claim exactly.
+
+## 1. The invariant, end to end -- reproduced myself
+
+Ran `bash scripts/vc-testlock.sh pnpm -C apps/api test`: 46/46 green, including the committed
+ISS-090 regression test (`server.test.ts:522`), which drives a real HTTP round trip through
+`dropOneFromNextIdInRead` (genuine 1-of-2 readback gap) plus `throwOnFenceCheckOnly` (fence check
+throws). Asserted directly, not just the ledger row: response **status 200**, `facts` collection
+size 2 (both durably written), the found fact's webhook still enqueued (`outbox.list().length ===
+1`), the fence-check failure alerted (`webhook_fact_readback_gap_fence_check_failed:`), the
+now-unexplained gap alerted (`webhook_fact_readback_gap:1_of_2_missing`), and exactly one
+`readback-gap` row in the gap ledger. All confirmed by my own run, not taken from the manifest.
+
+## 2. `fenced = false` is the right fall-through, not the wrong one
+
+Reasoning re-derived: on a fence-check failure the code cannot distinguish "fence-explained" from
+"real gap." Falling through as unexplained means the failure mode is an occasional false alert (a
+legitimate erasure racing a transient Mongo blip on `erasure_fences`) rather than a silently
+swallowed real defect or (the cycle-0 bug) a 500 on a successful write. That is the correct
+direction for a system whose named invariant is "never lose the signal, never fail an
+already-successful write."
+
+Checked the fix didn't turn the correct carve-out into noise: the pre-existing "erasure
+interaction" test (`server.test.ts:466`, a genuinely fenced student with a *working* fence check)
+is untouched by this cycle's diff and still passed in my run -- 0 alerts, 0 recorded rows, the
+found fact's webhook still emitted. A working fence check still correctly excuses a real gap; only
+a *failing* fence check now falls through to alert.
+
+## 3. Test isolation claim -- attacked, holds for the flow it tests
+
+`throwOnFenceCheckOnly` (`server.test.ts:511-520`) throws only when `erasure_fences.findOne` is
+called with no third argument (`options` defaults to `{}`). Grepped every `isStudentFenced` call
+site in the source:
+
+- `packages/engine/src/scribe/graph.ts:411,517,817,844` and `nodes.ts:1430` (the write path's own
+  pre/post-write checks) all pass an explicit `{timeoutMS: ...}` -- confirmed untouched by the
+  lever, exactly as claimed.
+- `apps/api/src/server.ts:718` (`checkFactReadbackGap`'s own call) -- options-less, the one the
+  lever targets.
+- **A third call site the manifest/test comment does not mention:** `packages/db/src/consent.ts:41`
+  (`requireConsent`'s `isStudentFenced(db, studentId)`, pre-existing from T-011/ISS-043) is *also*
+  options-less. Checked whether this widens the lever's blast radius in this test: `decideApproval`'s
+  read-back path (`getFactsByIds`, `packages/db/src/facts.ts:992-999`) is deliberately **not** gated
+  on `requireConsent` by its own docstring ("Deliberately NOT gated on requireConsent like
+  readActiveProfile: this reads back the engine's OWN just-completed write... not a disclosure to
+  any external caller"), and `requireConsent` itself is only called from the scribe write path
+  (`nodes.ts:85`) and `readActiveProfile`/MCP profile reads, none of which run inside this test's
+  `decideApproval` call. So the test's practical isolation claim holds for the flow it actually
+  exercises. The comment's framing ("the engine's own pre/post-write fence checks... are left
+  untouched") is accurate but incomplete -- it doesn't name this third site -- a documentation
+  precision gap, not a test-correctness defect. Noting it here rather than treating it as blocking.
+
+## 4. Missing-guard pattern elsewhere in this unit's new code -- none found
+
+Re-read every new I/O call this unit added (`packages/engine/src/webhooks/gaps.ts`,
+`apps/api/src/server.ts`'s `emitWebhookEvents` and `checkFactReadbackGap`):
+- `gaps.ts`'s `MongoWebhookEmitGapLedger.record` wraps its own `insertOne` (handles the 11000
+  dup-key race, rethrows anything else) -- and every *caller* of `.record(...)` in `server.ts`
+  (lines ~677, ~726, ~744) is itself wrapped in try/catch with a `webhook_emit_gap_record_failed`
+  last-resort log, per cycle 0's already-cleared review.
+- `gaps.ts`'s `.list()` is unguarded but is never called from a request path -- test-only.
+- `checkFactReadbackGap`'s `isStudentFenced` call is now guarded (this cycle's fix); everything
+  else in the function was already guarded at cycle 0.
+No other unguarded new I/O call found.
+
+## 5. Manifest arithmetic correction -- confirmed retracted, not softened
+
+Re-read the "Baseline note" and "Manifest arithmetic correction" sections. The "other maker-checker
+ticks landed in between" explanation is **gone** -- replaced with: 1224 was not stale (cycle-0's
+three independent confirmations), and the maker's own "+12" was off by one in
+`packages/db/tests/erasure.test.ts`. Verified the file diff myself (`git diff 57b2c70 HEAD --
+packages/db/tests/erasure.test.ts`): exactly one new `test(...)` block plus one added line
+(`[COLLECTION_NAMES.webhook_emit_gaps]: 0`) in an existing test's hardcoded `expected` map -- 1 new
++ 1 maintenance line, not 2 new tests, exactly as corrected. `apps/api` +3, `packages/engine` +7,
+`packages/db` +1 = +11; 1224 + 11 = 1235. The false explanation is retracted, not hedged.
+
+## 6. Counts -- re-run myself, with one unrelated discrepancy found and disclosed
+
+- `apps/api` test: **46/46**, confirmed by direct run (twice).
+- `pnpm -r typecheck`: **9/9 exit 0**, confirmed by direct run.
+- `python contracts/verify_contracts.py`: **exit 0** (vacuous PASS), confirmed.
+- `pnpm -r test` (full repo): ran **twice**, independently. Both runs: `packages/schemas` 61/61,
+  `packages/observability` 59/59, `packages/providers` 54/54, `packages/db` 248/248,
+  `mcp/university-kb` 29/29, `mcp/student-profile` 12/12, `apps/web` 38/38, `apps/api` 46/46 --
+  all matching the manifest. **`packages/engine`: 689 tests / 643 pass / 1 fail / 45 skip**, both
+  runs, same test, same assertion -- this does **not** match the manifest's claimed 689/644/0/45.
+
+  Investigated rather than waved off: the failure is
+  `packages/engine/tests/concern-classifier.test.ts:210` ("T-041 (ISS-t-037-2): a real in-flight
+  LiteLLM HTTP request is actually cancelled..."), `AssertionError: the stub must have received the
+  request before the timeout fires`. This file is **untouched** by this unit's diff (`git diff
+  57b2c70 HEAD` touches only db/engine-webhooks/api files, confirmed by stat). Re-ran the file alone,
+  in isolation, three separate times: **16/16 clean every time.** It only fails under full-suite
+  parallel load. This is a machine-load/timing flake, not a regression this unit introduced --
+  same class as the already-filed ISS-089 (testlock timing flake under RAM contention), but a
+  different test/file, so filed separately as **ISS-091** (low severity, test-fragility) rather than
+  folded into ISS-089 or silently ignored. **Grand total across my two reruns: 1236 tests / 1190
+  pass / 1 fail / 45 skip** (not the claimed 1191/0 fail) -- the gap is exactly this one unrelated
+  flake, not a hidden regression. **45 skips confirmed exactly 45**, both runs.
+- Test-file diffs (`erasure.test.ts`, `db-scope.test.ts`, `server.test.ts`) re-checked line by line:
+  the only removed (`-`) lines across all touched test files are two import-statement extensions
+  (adding `erasureFenceKey` / `InMemoryWebhookEmitGapLedger` etc. to an existing import line) --
+  no assertion, test body, or test case was weakened or deleted anywhere.
+
+## 7. Falsification lever -- reproduced myself, in the bound worktree
+
+Edited `apps/api/src/server.ts` directly (not a throwaway copy this time -- a git-tracked, cleanly
+revertible change): replaced the try/catch with the bare pre-fix `const fenced = await
+isStudentFenced(...)`. Ran `bash scripts/vc-testlock.sh pnpm -C apps/api test`:
+
+```
+T-042 api (ISS-090): ... -- never a 500  [FAIL]
+  AssertionError [ERR_ASSERTION]: {"error":"internal"}
+  500 !== 200
+  at tests/server.test.ts:533:10
+tests 46  pass 45  fail 1  skipped 0
+```
+
+Exactly the named assertion, exactly one failure, all 45 other tests in the file green. Reverted
+with `git checkout -- apps/api/src/server.ts`; confirmed `git status` clean and the try/catch
+restored; reran -- 46/46 green again.
+
+## 8. Hygiene: the maker's throwaway worktree
+
+`git worktree list` (both before and after my own verification work) shows no entry for
+`checker-lever-t042c1`, and `D:/vc/.worktrees/` on disk has no such directory -- only
+`t-010-blind-cards-eval`, `t-010-live-cards`, `t-039-suppression-outcome`, and this unit's own
+`t-042-webhook-fact-loss`. The maker's throwaway is genuinely gone. Noting for the record (ISS-045
+is about worktree directories surviving teardown with live handles): placing a throwaway inside
+`.worktrees/` was still a poor choice even though this one cleaned up correctly -- no action needed
+this cycle since nothing was left behind, but a future maker should place throwaways outside the
+repo's own `.worktrees/` as the brief already flagged.
+
+## Issues ledger
+
+- **ISS-090: verified-resolved, closed.** Fix reproduced end-to-end; lever confirms the defect is
+  real and the fix is what closes it.
+- **ISS-085: verified-resolved, closed for BOTH leaks.** Leak 2 was already solid at cycle 0; leak 1
+  was blocked on ISS-090 and is now closed by this cycle's fix.
+- **ISS-091 (new, low, test-fragility):** filed for the unrelated `concern-classifier.test.ts` T-041
+  timing flake found during this cycle's full-suite reruns -- does not block this unit.
+
+## Clear to merge to main?
+
+**Yes.** Both leaks (ISS-085) and the fence-check defect (ISS-090) are closed and independently
+reproduced. The one discrepancy found (packages/engine's 1-test full-suite flake) is demonstrably
+unrelated to this unit's diff -- untouched file, clean in isolation, a pre-existing machine-load
+timing sensitivity (now tracked as ISS-091) -- and does not gate this merge.
