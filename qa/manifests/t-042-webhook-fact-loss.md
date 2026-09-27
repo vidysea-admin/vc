@@ -359,4 +359,39 @@ Performed in a THROWAWAY full copy of the current working tree (tar, including n
   `qa/contracts/**`, `qa/verdicts/**`, `qa/issues.jsonl`, `docs/DECISIONS.md`, `ARCHITECTURE.md`,
   `TASKS.md`, `.claude/**`, or `packages/engine/tests/fixtures/**`.
 
-## Status: ready-for-check
+## Close-out (maker, after cycle-1 checker PASS)
+
+**Verdicts:** cycle 0 FAIL `937714b` (ISS-090), cycle 1 **PASS** `dd2050c`. **Merged to `main`.**
+**Main verify after merge:** `pnpm -r typecheck` exit 0, 9/9 · `pnpm -r test` exit 0,
+**1236 tests / 1191 pass / 0 fail / 45 skipped** (the 45 are T-039's B18 rows, unchanged).
+
+**Issues closed:** **ISS-085 for BOTH leaks** and **ISS-090**. Leak 2 was solid from cycle 0; leak 1
+was blocked on ISS-090 and closed with it.
+
+**What the checker settled that this unit could not settle about itself:**
+- The `fenced = false` fall-through is the **safe** direction, and it did not turn the correct
+  carve-out into noise — the adjacent pre-existing test (genuinely fenced student, working fence
+  check) still records zero alerts.
+- The test-isolation claim holds **for the flow it tests**, but the manifest and test comment were
+  imprecise: the checker grepped every `isStudentFenced` call site and found **one more options-less
+  caller the comment does not mention** — `packages/db/src/consent.ts:41` (`requireConsent`,
+  pre-existing from T-011/ISS-043). It is not on `decideApproval`'s read-back path
+  (`getFactsByIds` is deliberately not gated on `requireConsent`), so this is a documentation gap,
+  not a defect — but the claim as written was broader than the evidence.
+- No other unguarded I/O call in this unit's new code: `gaps.ts`'s `record()` self-catches and
+  `.list()` is test-only.
+
+**ISS-091 (new, low) — disclosed by the checker, unrelated to this unit.** Two independent full
+runs showed `packages/engine` at 643/689 with **1 fail**: `concern-classifier.test.ts` (T-041), a
+file untouched by this diff, which passes 16/16 in isolation and fails only under full-suite
+parallel load. **My own post-merge verify did not reproduce it** — 0 fail across the whole
+monorepo — which is consistent with a load-dependent flake rather than a fixed defect, and is
+exactly why it is tracked rather than treated as resolved by one green run. Same class as ISS-089,
+different file.
+
+**Hygiene:** the throwaway lever copy the maker placed at `.worktrees/checker-lever-t042c1` is
+confirmed gone, on disk and in `git worktree list`. Placing it inside the repo's own `.worktrees/`
+was poor practice given ISS-045; noted for future units.
+
+
+## Status: checked-PASS
