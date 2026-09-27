@@ -67,4 +67,10 @@ export const LABELS = {
   retry: "Retry",
   stateSessionStarted: "Session submitted",
   openApprovalScreen: "Open the approval screen",
+  // T-023 (ISS-t-020-c0-1, B17 persona walk): the reject-reason box silently stopped accepting
+  // keystrokes at the character cap with no counter or message. These two labels back a live,
+  // accessible counter (aria-live/aria-describedby) so a counsellor never loses typed text without
+  // knowing why. Plain language, translatable (jaipur-counsellor / gaurav-bhaiya personas).
+  rejectReasonRemaining: "Characters left",
+  rejectReasonLimitReached: "Limit reached",
 } as const;

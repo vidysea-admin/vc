@@ -18,6 +18,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Page } from "playwright";
+import { MAX_REJECT_REASON_LENGTH } from "../src/server/contracts";
 
 const MODE: "dev" | "build" = process.env.VC_EVIDENCE_MODE === "build" ? "build" : "dev";
 const UNIT = process.env.VC_EVIDENCE_UNIT ?? "t-008-approval-ui";
@@ -249,6 +250,62 @@ async function main() {
       await a.fill('input[data-reason-for="intendedMajor"]', TYPED_REJECT_REASON);
       const typedReason = await a.inputValue('input[data-reason-for="intendedMajor"]');
       record("type a reject reason for intendedMajor", "the reason field holds the typed text", `value="${typedReason}"`, typedReason === TYPED_REJECT_REASON);
+
+      // T-023 / ISS-t-020-c0-1 (B17 persona walk): the live, accessible character counter.
+      const reasonInput = a.locator('input[data-reason-for="intendedMajor"]');
+      const counter = a.locator('[data-testid="reason-count-intendedMajor"]');
+      const counterText = async () => (await counter.textContent())?.replace(/\s+/g, " ").trim() ?? "";
+      record(
+        "reject-reason counter after typing a short reason",
+        `shows ${TYPED_REJECT_REASON.length}/${MAX_REJECT_REASON_LENGTH}, no limit-reached notice`,
+        `text="${await counterText()}"`,
+        (await counterText()).includes(`${TYPED_REJECT_REASON.length}/${MAX_REJECT_REASON_LENGTH}`) && !(await counterText()).includes("Limit reached"),
+      );
+      const describedBy = await reasonInput.getAttribute("aria-describedby");
+      const counterId = await counter.getAttribute("id");
+      const ariaLive = await counter.getAttribute("aria-live");
+      record(
+        "reject-reason counter is wired for accessibility",
+        "the input's aria-describedby points at the counter's id, and the counter is an aria-live region",
+        `aria-describedby="${describedBy}" counter#="${counterId}" aria-live="${ariaLive}"`,
+        describedBy === counterId && ariaLive === "polite",
+      );
+
+      // Reaching the cap must show a clear "limit reached" notice, not silently stop accepting keys.
+      await reasonInput.fill("x".repeat(MAX_REJECT_REASON_LENGTH));
+      record(
+        "reject-reason counter at the character cap",
+        `shows ${MAX_REJECT_REASON_LENGTH}/${MAX_REJECT_REASON_LENGTH} and a limit-reached notice`,
+        `text="${await counterText()}" data-at-limit="${await counter.getAttribute("data-at-limit")}"`,
+        (await counterText()).includes(`${MAX_REJECT_REASON_LENGTH}/${MAX_REJECT_REASON_LENGTH}`) && (await counterText()).includes("Limit reached") && (await counter.getAttribute("data-at-limit")) === "true",
+      );
+      await a.screenshot({ path: join(OUT, "02b-reason-limit-reached.png"), fullPage: true });
+      await reasonInput.fill("x".repeat(MAX_REJECT_REASON_LENGTH - 1));
+      record(
+        "reject-reason counter one character back under the cap",
+        "the limit-reached notice disappears again",
+        `text="${await counterText()}"`,
+        !(await counterText()).includes("Limit reached"),
+      );
+
+      // T-023 (T-020 verdict note): a hostile payload in the reason box must never become real markup
+      // or execute -- it is stored and echoed back as plain text/value only.
+      const hostilePayload = '<script>window.__pwned = true</script><img src=x onerror="window.__pwned = true">';
+      await reasonInput.fill(hostilePayload);
+      const hostileValue = await reasonInput.inputValue();
+      const scriptTagsInArticle = await a.locator('article[data-fact-key="intendedMajor"] script').count();
+      const wasExecuted = await a.evaluate(() => (window as unknown as { __pwned?: boolean }).__pwned === true);
+      record(
+        "typing <script>/<img onerror> into the reject-reason box",
+        "stored verbatim as the input's value; no <script> element created; the payload never executes",
+        `value matches="${hostileValue === hostilePayload}" scriptElementsInArticle=${scriptTagsInArticle} executed=${wasExecuted}`,
+        hostileValue === hostilePayload && scriptTagsInArticle === 0 && wasExecuted === false,
+      );
+
+      // Restore the real reason before the rest of this flow submits and its audit record is read back.
+      await reasonInput.fill(TYPED_REJECT_REASON);
+      record("restore the reject-reason field before submit", "holds the original typed reason again", `value="${await reasonInput.inputValue()}"`, (await reasonInput.inputValue()) === TYPED_REJECT_REASON);
+
       await a.click('button[data-fact="preferredIntake"][data-decision="edit"]');
       await a.fill('input[data-edit-for="preferredIntake"]', "January 2028");
       const edited = await a.inputValue('input[data-edit-for="preferredIntake"]');

@@ -1,0 +1,109 @@
+[testlock] waiting for lock (132243 pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/t022-checker-falsify install --offline)
+[testlock] waiting for lock (126668 pnpm -C D:/vc/.worktrees/t-022-concern-continue --filter @vc/schemas test)
+[testlock] waiting for lock (124553 bash -c pnpm -C D:/vc/.worktrees/t-033-crisis-recall --filter @vc/engine typecheck > C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/t033-engine-tc.log 2>&1; echo engine-typecheck=$?; pnpm -C D:/vc/.worktrees/t-033-crisis-recall --filter @vc/web test > C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/t033-web-test.log 2>&1; echo web-test=$?; python D:/vc/.worktrees/t-033-crisis-recall/contracts/verify_contracts.py > C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/t033-verify.log 2>&1; echo verify=$?)
+[testlock] waiting for lock (124553 bash -c pnpm -C D:/vc/.worktrees/t-033-crisis-recall --filter @vc/engine typecheck > C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/t033-engine-tc.log 2>&1; echo engine-typecheck=$?; pnpm -C D:/vc/.worktrees/t-033-crisis-recall --filter @vc/web test > C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/t033-web-test.log 2>&1; echo web-test=$?; python D:/vc/.worktrees/t-033-crisis-recall/contracts/verify_contracts.py > C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/t033-verify.log 2>&1; echo verify=$?)
+[testlock] waiting for lock (124553 bash -c pnpm -C D:/vc/.worktrees/t-033-crisis-recall --filter @vc/engine typecheck > C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/t033-engine-tc.log 2>&1; echo engine-typecheck=$?; pnpm -C D:/vc/.worktrees/t-033-crisis-recall --filter @vc/web test > C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/t033-web-test.log 2>&1; echo web-test=$?; python D:/vc/.worktrees/t-033-crisis-recall/contracts/verify_contracts.py > C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/t033-verify.log 2>&1; echo verify=$?)
+[testlock] waiting for lock (135882 pnpm -C D:/vc/.worktrees/t-026-kb-client --filter @vc/mcp-university-kb test)
+[testlock] waiting for lock (135882 pnpm -C D:/vc/.worktrees/t-026-kb-client --filter @vc/mcp-university-kb test)
+[testlock] waiting for lock (135882 pnpm -C D:/vc/.worktrees/t-026-kb-client --filter @vc/mcp-university-kb test)
+[testlock] waiting for lock (133863 pnpm -C D:/vc/.worktrees/t-022-concern-continue --filter @vc/engine test)
+[testlock] waiting for lock (139908 bash C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/vc-t027-falsify-all.sh)
+[testlock] waiting for lock (139908 bash C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/vc-t027-falsify-all.sh)
+[testlock] waiting for lock (141242 bash C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/vc-t027-falsify-all.sh)
+[testlock] waiting for lock (141242 bash C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/6c22744a-b397-4515-a226-3516f0a93a31/scratchpad/vc-t027-falsify-all.sh)
+[testlock] waiting for lock (143394 pnpm -C D:/vc/.worktrees/t-032-failover-attribution --filter @vc/providers test)
+[testlock] running (free RAM 2.1 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/vc-t023-falsify --filter @vc/web test
+
+> @vc/web@0.1.0 test C:\Users\Lenovo\AppData\Local\Temp\claude\vc-t023-falsify\apps\web
+> tsx --test tests/*.test.ts tests/*.test.tsx
+
+✔ GET: a paused thread returns the proposal fact by fact, the dropped facts with reasons and the draft summary (356.3987ms)
+✔ B3: reading the pending approval (repeatedly) writes nothing and claims nothing (187.6891ms)
+✔ POST: approve / reject / edit per fact + withhold the summary writes exactly the approved and edited facts (153.46ms)
+✔ POST twice: the second submit is already_resolved (409) and writes nothing new; GET then shows the resolved state (165.6552ms)
+✔ B5: invalid decision bodies are refused (400) and write nothing, claim nothing (219.0743ms)
+✔ T-018 ISS-t-008-c0-1: an edit value that does not match the proposed value's type is refused (400) through the full API, and writes nothing (206.1348ms)
+✔ T-020 ISS-t-018-c0-1: a per-fact reject with a typed reason writes an audit record the demo read-back exposes (decisions collection) (184.3706ms)
+✔ T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH is refused (400), writes nothing and records no audit (179.8096ms)
+✔ fenced: a student with an erasure in progress -> GET and POST both 423 fenced, no student data, nothing written (220.4194ms)
+✔ in_progress: a claimed thread shows in_progress; a new submit is already_resolved with the claimed decision (170.283ms)
+✔ not found and malformed thread ids (158.6114ms)
+✔ route handlers: GET and POST through the Next route module, JSON in and out (173.2246ms)
+✔ runtime mode: demo unless VC_WEB_MODE is exactly 'live' (a typo never reaches the production server) (0.3355ms)
+✔ NewSessionForm: renders the title, the student id and every transcript turn, with a Submit button (23.5967ms)
+✔ NewSessionForm: the apologetic AI-unavailable copy is plain language, not a script, and never mentions a model/vendor name (25.6967ms)
+✔ NewSessionForm: the initial idle render offers no Retry button and no ai_unavailable banner (only Submit) (2.0815ms)
+✔ T-021 fix cycle 1 (ISS-t-021-c0-1, B17): the transcript table has its OWN column label for the spoken text, never the approval screen's colValue ("Proposed value") (2.1817ms)
+✔ T-021: the first submit hits the exhausted failover chain and returns 503 ai_unavailable, with no key/transcript leak (268.7804ms)
+✔ T-021: Retry — resubmitting the SAME body after an ai_unavailable reply succeeds and reaches the normal awaiting_approval flow (253.4191ms)
+✔ T-021: an invalid body (missing turns) is refused 400 before anything runs (172.6435ms)
+✔ pending: every proposed fact renders with key, value, quote, turn, confidence and its controls (24.05ms)
+✔ pending: a needsReview fact is flagged with its reasons; an unflagged fact is not (24.8296ms)
+✔ pending: dropped facts render with their reasons, and the draft summary renders (6.3397ms)
+✔ pending: a model-withheld summary (B1) shows the reason and offers no approve (8.2422ms)
+✔ states: fenced, in_progress, not_found and done each render a distinct labelled state with no fact data (4.755ms)
+✔ B1: every UI label is a short label, never a script-like sentence (2.5757ms)
+✔ B1: the only text on the screen is labels or data from the proposal (nothing the UI composes itself) (10.3206ms)
+✔ pending: no fact is decided yet, so no reject-reason field is rendered (it only appears once a fact is marked reject) (6.4632ms)
+✔ buildRejectDecision: a typed reason is trimmed and sent (0.9031ms)
+✔ buildRejectDecision: an empty or whitespace-only reason is OMITTED, never sent as reason: "" (0.8801ms)
+✔ buildRejectDecision: a reason at exactly MAX_REJECT_REASON_LENGTH is sent as-is (the server, RejectReasonSchema, is the length authority) (0.3049ms)
+✔ reasonCounter: empty text uses 0, remaining equals max, not at limit (0.3893ms)
+✔ reasonCounter: partial text counts used/remaining correctly (0.1633ms)
+✔ reasonCounter: one character below the cap shows remaining 1 and is not yet at limit (0.1897ms)
+✔ reasonCounter: exactly at the cap is atLimit with 0 remaining (0.2313ms)
+✔ reasonCounter: a value longer than max (a paste/programmatic set that bypasses the input's maxLength) clamps remaining at 0 and is still atLimit, never negative (0.2059ms)
+✖ T-023 (T-020 verdict note): ApprovalScreen.tsx and labels.ts never use dangerouslySetInnerHTML in actual code (comments may discuss it by name) (71.6791ms)
+✖ T-023 (T-020 verdict note): a stored string containing <script> or <img onerror> markup renders inert, as escaped text, on every existing free-text render path (a review reason, a dropped-fact reason) (5.8846ms)
+ℹ tests 38
+ℹ suites 0
+ℹ pass 36
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13583.8024
+
+✖ failing tests:
+
+test at tests\ui.test.tsx:255:1
+✖ T-023 (T-020 verdict note): ApprovalScreen.tsx and labels.ts never use dangerouslySetInnerHTML in actual code (comments may discuss it by name) (71.6791ms)
+  AssertionError [ERR_ASSERTION]: ApprovalScreen.tsx must not use dangerouslySetInnerHTML
+  
+  true !== false
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\vc-t023-falsify\apps\web\tests\ui.test.tsx:258:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ui.test.tsx:262:1
+✖ T-023 (T-020 verdict note): a stored string containing <script> or <img onerror> markup renders inert, as escaped text, on every existing free-text render path (a review reason, a dropped-fact reason) (5.8846ms)
+  AssertionError [ERR_ASSERTION]: the script payload must render, escaped, as text
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\vc-t023-falsify\apps\web\tests\ui.test.tsx:279:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+C:\Users\Lenovo\AppData\Local\Temp\claude\vc-t023-falsify\apps\web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @vc/web@0.1.0 test: `tsx --test tests/*.test.ts tests/*.test.tsx`
+Exit status 1

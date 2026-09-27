@@ -1,0 +1,1 @@
+verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity

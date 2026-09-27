@@ -1,0 +1,65 @@
+{
+  "unit": "t-023-reject-reason-counter",
+  "cycle": 0,
+  "run_by": "checker (fresh Claude subagent, own script via Playwright MCP tools, never the maker's demo/browser-evidence.ts)",
+  "date": "2026-09-27",
+  "server": {
+    "mode": "next dev --webpack",
+    "port": 3163,
+    "env": "VC_WEB_MODE=demo (in-process fake db, no MONGODB_URL, no Gemini)",
+    "url": "http://localhost:3163/approvals/scribe:demo-session-1"
+  },
+  "interactions": [
+    {
+      "step": "open the paused approval thread",
+      "expected": "renders 4 proposed facts, 2 dropped facts, draft summary, Submit disabled",
+      "result": "pass",
+      "evidence": "page snapshot: targetCountry/intendedMajor/preferredIntake/budget_inr_per_year articles present; dropped: scholarshipNeed, parentOccupation; Submit disabled"
+    },
+    {
+      "step": "select Reject on intendedMajor",
+      "expected": "reason box + live counter appear",
+      "result": "pass",
+      "evidence": "textbox 'Reason (optional) Characters left 0/500' rendered immediately"
+    },
+    {
+      "step": "type a hostile payload: <img src=x onerror=window.__checkerPwned=true><script>window.__checkerPwned2=true</script> (own payload, distinct from the maker's)",
+      "expected": "stored verbatim as input value; never executes; no real <script>/<img> element created",
+      "result": "pass",
+      "evidence": "window.__checkerPwned=false, window.__checkerPwned2=false, input.value matches the typed payload exactly, article script/img element count = 0"
+    },
+    {
+      "step": "fill the reason to exactly 500 chars (programmatic value set, bypassing maxLength via the native setter, matching the manifest's own clamp-defense claim)",
+      "expected": "counter shows 500/500 and a 'Limit reached' notice, aria-live=polite, aria-describedby wired to the counter id",
+      "result": "pass",
+      "evidence": "counter text 'Characters left 500/500 · Limit reached'; aria-describedby=reason-count-intendedMajor === counter id; aria-live=polite; data-at-limit=true"
+    },
+    {
+      "step": "screenshot at the cap",
+      "result": "pass",
+      "evidence": "01-limit-reached-500.png"
+    },
+    {
+      "step": "step back to 499 chars",
+      "expected": "'Limit reached' disappears, counter shows 499/500",
+      "result": "pass",
+      "evidence": "counter text 'Characters left 499/500'"
+    },
+    {
+      "step": "persona walk: jaipur-counsellor (the persona that raised ISS-t-020-c0-1)",
+      "expected": "no high-severity confusion on the fixed flow",
+      "result": "pass, no findings >= high",
+      "evidence": "persona-walk-jaipur-counsellor.md"
+    }
+  ],
+  "console": {
+    "errors": 0,
+    "warnings": 0,
+    "note": "checked after every interaction (browser_console_messages, all=true) -- zero throughout the session"
+  },
+  "totals": {
+    "interactions": 7,
+    "failed": 0,
+    "unexpectedConsoleErrors": 0
+  }
+}
