@@ -247,6 +247,116 @@ test("T-021 fix cycle 1 (ISS-t-021-rev-1): worst case — every attempt hangs fo
   t.mock.timers.reset();
 });
 
+test("T-037 (ISS-066): the deadline timer aborts the LOSING attempt's own AbortSignal — not merely FailoverProvider's own promise", async (t) => {
+  // A provider whose generate() never settles is the only way to observe the abort purely through
+  // the signal it was handed (nothing else ever tells it the attempt is over): before this unit,
+  // FailoverProvider's raceDeadline only rejected its OWN promise on timeout — the signal it now
+  // threads through request.signal never existed, so a chain member had no way to know it had lost.
+  let observedSignal: AbortSignal | undefined;
+  const hangsForeverButRecordsSignal: LlmProvider = {
+    kind: "litellm",
+    model: "m",
+    generate<T>(request: GenerateRequest<T>): Promise<T> {
+      observedSignal = request.signal;
+      return new Promise<T>(() => {}); // never resolves, never rejects
+    },
+  };
+  const provider = new FailoverProvider({
+    chain: [hangsForeverButRecordsSignal],
+    deadlineMs: 1_000,
+    onExhausted: () => {},
+  });
+
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const pending = assert.rejects(provider.generate(req), AiUnavailableError);
+  await Promise.resolve();
+  assert.ok(observedSignal, "FailoverProvider must pass a per-attempt signal into the chain member's request");
+  assert.equal(observedSignal!.aborted, false, "not aborted yet — the deadline has not fired");
+  t.mock.timers.tick(1_000);
+  await pending;
+  assert.equal(
+    observedSignal!.aborted,
+    true,
+    "the losing attempt's OWN signal must observe aborted === true once the deadline fires — proving the abort actually reaches the attempt (which could now cancel its own in-flight work), not just FailoverProvider's own promise rejecting while the attempt keeps running unseen",
+  );
+  t.mock.timers.reset();
+});
+
+test("T-037 (ISS-066): the wall-clock deadline actually aborts the real in-flight LiteLLM HTTP request (the stub server observes the connection close, not just FailoverProvider giving up) — a concurrent, unrelated request is fully unaffected", async () => {
+  // The hang server's own per-attempt LiteLlmProvider timeout (5s) is deliberately far longer than
+  // FailoverProvider's wall-clock deadline (150ms), so the ONLY thing that can end this attempt is
+  // raceDeadline's own abort — isolating THIS unit's fix from LiteLlmProvider's pre-existing internal
+  // timeout (which already aborted its own fetch, on its own schedule, before this unit ever existed).
+  let hangServerRequestedAt: number | null = null;
+  let hangServerAbortedAt: number | null = null;
+  const hangServer = createServer((httpReq, res) => {
+    hangServerRequestedAt = Date.now();
+    httpReq.on("close", () => {
+      if (!res.writableEnded) hangServerAbortedAt = Date.now();
+    });
+    // never respond
+  });
+  await new Promise<void>((resolve) => hangServer.listen(0, "127.0.0.1", resolve));
+  const hangAddress = hangServer.address();
+  if (hangAddress === null || typeof hangAddress === "string") throw new Error("hang stub has no port");
+  const hangBaseUrl = `http://127.0.0.1:${hangAddress.port}/v1`;
+
+  const winner = await startStub(() => ({ status: 200, body: chatCompletion({ answer: "unaffected" }) }));
+
+  try {
+    const failover = new FailoverProvider({
+      chain: [new LiteLlmProvider({ model: "hangs", baseUrl: hangBaseUrl, timeoutMs: 5_000 })],
+      deadlineMs: 150, // fires long before the chain member's own 5s per-attempt timeout ever would
+      maxAttempts: 10,
+      sleep: noopSleep,
+      onExhausted: () => {},
+    });
+
+    const startedAt = Date.now();
+    const [failoverResult, winnerResult] = await Promise.allSettled([
+      failover.generate(req),
+      new LiteLlmProvider({ model: "winner", baseUrl: winner.baseUrl }).generate({
+        skillName: "s",
+        skillPrompt: "p",
+        outputSchema: OutSchema,
+        input: {},
+      }),
+    ]);
+    const elapsed = Date.now() - startedAt;
+
+    assert.equal(failoverResult.status, "rejected");
+    const failoverReason = (failoverResult as PromiseRejectedResult).reason;
+    assert.ok(failoverReason instanceof AiUnavailableError);
+    assert.equal(failoverReason.lastErrorName, "FailoverDeadlineExceededError");
+    assert.ok(elapsed < 2_000, `expected the 150ms deadline (not the 5s per-attempt timeout) to end this — got ${elapsed}ms`);
+
+    assert.ok(hangServerRequestedAt !== null, "the hang server did receive the request");
+    // The client-side promise settles the instant raceDeadline's own AbortController fires; the
+    // server only learns the socket closed once the FIN actually arrives over the loopback
+    // connection — a real, if tiny, network round trip. Give it a moment before asserting.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    assert.ok(
+      hangServerAbortedAt !== null,
+      "the hang server must observe the connection actually close — proving the request was really aborted, not merely abandoned client-side while its socket stayed open for the full 5s",
+    );
+    assert.ok(
+      hangServerAbortedAt! - hangServerRequestedAt! < 2_000,
+      `the abort must land near the 150ms deadline, not linger toward the 5s per-attempt timeout — got ${hangServerAbortedAt! - hangServerRequestedAt!}ms`,
+    );
+
+    assert.equal(winnerResult.status, "fulfilled");
+    assert.deepEqual(
+      (winnerResult as PromiseFulfilledResult<unknown>).value,
+      { answer: "unaffected" },
+      "a concurrent, unrelated request is fully unaffected by the aborted attempt's own AbortController",
+    );
+    assert.equal(winner.requests.length, 1, "the winner's own stub server received exactly one, uncorrupted request");
+  } finally {
+    await stop(hangServer);
+    await stop(winner.server);
+  }
+});
+
 test("T-032 (ISS-t-021-rev-3): the deadline expires BETWEEN attempts (during backoff) — the reported error is the deadline, not a stale earlier retryable failure", async (t) => {
   // Attempt 1 fails with an ordinary retryable error (a timeout), which sets `lastError`. The budget
   // (maxAttempts) is generous — attempt 2 would still be allowed by the attempt counter — but the

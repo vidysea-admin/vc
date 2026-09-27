@@ -14,6 +14,7 @@ import {
   LiteLlmTimeoutError,
   LiteLlmMalformedResponseError,
   LiteLlmNetworkError,
+  LiteLlmAbortedError,
 } from "../src/index.js";
 
 const OutSchema = z.object({ answer: z.string().min(1) });
@@ -186,6 +187,63 @@ test("a server that never responds times out with a typed LiteLlmTimeoutError, n
     );
   } finally {
     await stop(stub.server);
+  }
+});
+
+test("T-037 (ISS-066): a caller-supplied AbortSignal that is ALREADY aborted rejects immediately with LiteLlmAbortedError, and no request is ever sent", async () => {
+  const stub = await startStub(() => ({ status: 200, body: chatCompletion({ answer: "should never be reached" }) }));
+  try {
+    const provider = new LiteLlmProvider({ model: "balanced", baseUrl: stub.baseUrl });
+    const controller = new AbortController();
+    controller.abort();
+    await assert.rejects(
+      provider.generate({ skillName: "s", skillPrompt: "p", outputSchema: OutSchema, input: {}, signal: controller.signal }),
+      LiteLlmAbortedError,
+    );
+    assert.equal(stub.requests.length, 0, "a request nobody wants any more must never even open a socket");
+  } finally {
+    await stop(stub.server);
+  }
+});
+
+test("T-037 (ISS-066): a caller-supplied AbortSignal that fires MID-FLIGHT actually cancels the real HTTP request (the stub server observes the connection close) with a typed LiteLlmAbortedError — never mistaken for LiteLlmTimeoutError", async () => {
+  let requestedAt: number | null = null;
+  let abortedAt: number | null = null;
+  const stub = createServer((req, res) => {
+    requestedAt = Date.now();
+    req.on("close", () => {
+      if (!res.writableEnded) abortedAt = Date.now();
+    });
+    // never respond — timeoutMs below is set far longer than when we abort, so ONLY the external
+    // signal can end this call.
+  });
+  await new Promise<void>((resolve) => stub.listen(0, "127.0.0.1", resolve));
+  const address = stub.address();
+  if (address === null || typeof address === "string") throw new Error("stub has no port");
+  const baseUrl = `http://127.0.0.1:${address.port}/v1`;
+  try {
+    const provider = new LiteLlmProvider({ model: "balanced", baseUrl, timeoutMs: 5_000 });
+    const controller = new AbortController();
+    const pending = assert.rejects(
+      provider.generate({ skillName: "s", skillPrompt: "p", outputSchema: OutSchema, input: {}, signal: controller.signal }),
+      (err: unknown) => {
+        assert.ok(err instanceof LiteLlmAbortedError, `expected LiteLlmAbortedError, got ${(err as Error)?.name}`);
+        assert.doesNotMatch((err as Error).message, /did not respond within/, "must never be reported as a LiteLlmTimeoutError-shaped message");
+        return true;
+      },
+    );
+    // Give the request time to actually reach the stub before aborting.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.ok(requestedAt !== null, "the stub must have received the request before we abort it");
+    controller.abort();
+    await pending;
+    // The client-side promise settles the instant fetch's own AbortController fires; the server only
+    // learns the socket closed once the FIN actually arrives over the loopback connection — a real,
+    // if tiny, network round trip. Give it a moment before asserting on the server-observed effect.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    assert.ok(abortedAt !== null, "the stub server must observe the connection actually close on external abort");
+  } finally {
+    await stop(stub);
   }
 });
 

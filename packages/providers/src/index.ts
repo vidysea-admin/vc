@@ -35,7 +35,13 @@
  *     (ISS-t-021-rev-1): a wall-clock `deadlineMs` (default 45s, VC_LLM_DEADLINE_MS) bounds the
  *     whole call independent of the attempt counter, and chain members default to a shorter 8s
  *     per-attempt timeout (VC_LLM_ATTEMPT_TIMEOUT_MS) instead of the standalone provider's 30s —
- *     together these replace the old, unbounded ~5.4 minute worst case with a real ceiling.
+ *     together these replace the old, unbounded ~5.4 minute worst case with a real ceiling. T-037
+ *     (ISS-066): that deadline used to only reject `FailoverProvider`'s own promise — the losing
+ *     chain member's real LiteLLM HTTP request kept running (and billing) unseen. `GenerateRequest`
+ *     now carries an optional `signal`; `raceDeadline` binds one per attempt and aborts it the
+ *     instant the deadline timer wins, and `LiteLlmProvider.generate()` wires that signal into the
+ *     same `AbortController` as its own per-attempt timeout, so the underlying fetch is actually
+ *     cancelled, not merely ignored.
  */
 import { z } from "zod";
 import { recordErrorSpan } from "@vc/observability";
@@ -51,6 +57,18 @@ export interface GenerateRequest<T> {
   outputSchema: z.ZodType<T>;
   /** The node's typed input (already Zod-validated by the caller). */
   input: unknown;
+  /**
+   * T-037 (ISS-066): optional. When set and it later fires, an in-flight `generate()` call MUST stop
+   * doing work it can stop (a real HTTP provider aborts its request) rather than run to completion
+   * unobserved. Optional so every existing caller (packages/engine's two `provider.generate()` call
+   * sites) keeps compiling unchanged — neither passes one today. `FailoverProvider` is the first
+   * producer: it binds one per attempt so a losing/timed-out chain member's request is actually
+   * cancelled instead of abandoned (the bug this unit fixes). `MockProvider`/`RulesProvider`/
+   * `GeminiProvider` have nothing in-flight to cancel (synchronous/deterministic, or an unwired stub)
+   * so they accept and ignore it; `LiteLlmProvider` is the one implementation with a real network
+   * request to abort.
+   */
+  signal?: AbortSignal;
 }
 
 export interface LlmProvider {
@@ -366,6 +384,24 @@ export class LiteLlmTimeoutError extends Error {
   }
 }
 
+/**
+ * T-037 (ISS-066): thrown when `generate()` stops because the CALLER's `request.signal` fired —
+ * never because of this provider's own `timeoutMs` (that stays `LiteLlmTimeoutError`, unchanged).
+ * Raised (a) synchronously, before any fetch, when the signal already carries `aborted === true`
+ * (no socket is ever opened for a request nobody wants anymore), or (b) from the fetch's own
+ * AbortError once the signal fires mid-flight. `FailoverProvider` is the one caller that sets a
+ * signal today, to cancel a losing/timed-out attempt it is about to abandon; that rejection is
+ * discarded by its own `Promise.race` (the deadline branch already won), so this error is not meant
+ * to reach `isRetryableProviderError` and is deliberately left off its whitelist (fail closed, same
+ * as any other unrecognised failure mode).
+ */
+export class LiteLlmAbortedError extends Error {
+  constructor(model: string) {
+    super(`LiteLlmAbortedError: the litellm provider (model "${model}") request was aborted by the caller's signal`);
+    this.name = "LiteLlmAbortedError";
+  }
+}
+
 /** The HTTP response came back but was not a usable chat-completion (bad body, no content, non-JSON content). */
 export class LiteLlmMalformedResponseError extends Error {
   constructor(model: string, reason: string) {
@@ -422,10 +458,25 @@ export class LiteLlmProvider implements LlmProvider {
    * this provider makes exactly one HTTP attempt per call). A schema-invalid output's ZodError is
    * thrown as-is (never swallowed or wrapped) so that retry path recognises it, same as MockProvider.
    * Every other failure mode (timeout, non-2xx, malformed body) becomes a typed, key-free error (B11).
+   *
+   * T-037 (ISS-066): `request.signal`, when given, is wired into the SAME underlying
+   * `AbortController` as this provider's own `timeoutMs` timer, so either one aborts the real
+   * in-flight fetch — a losing/timed-out request never keeps running (and billing) after its result
+   * stops mattering. Which one fired is what tells `LiteLlmAbortedError` (external signal) apart from
+   * the unchanged `LiteLlmTimeoutError` (this provider's own timer): the external signal is checked
+   * first, so a signal that fires in the very same tick as the internal timeout still reports as an
+   * abort, not a timeout.
    */
   async generate<T>(request: GenerateRequest<T>): Promise<T> {
+    if (request.signal?.aborted) {
+      // Nobody wants this result any more — never open a socket for it at all.
+      throw new LiteLlmAbortedError(this.model);
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const externalSignal = request.signal;
+    const onExternalAbort = (): void => controller.abort();
+    externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
     let res: Response;
     try {
       res = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -446,11 +497,13 @@ export class LiteLlmProvider implements LlmProvider {
       });
     } catch (err) {
       if ((err as { name?: unknown } | null)?.name === "AbortError") {
+        if (externalSignal?.aborted) throw new LiteLlmAbortedError(this.model);
         throw new LiteLlmTimeoutError(this.model, this.timeoutMs);
       }
       throw new LiteLlmNetworkError(this.model, err instanceof Error ? err.message : String(err));
     } finally {
       clearTimeout(timer);
+      externalSignal?.removeEventListener("abort", onExternalAbort);
     }
 
     if (!res.ok) {
@@ -682,19 +735,30 @@ export class FailoverProvider implements LlmProvider {
   }
 
   /**
-   * Races `promise` against a timer for `remainingMs` — the wall-clock deadline's actual
-   * enforcement mechanism (ISS-t-021-rev-1's "each attempt's timeout is capped at the remaining
-   * budget"): whatever timeout the provider itself is configured with, this attempt can never take
-   * longer than what is left of FailoverProvider's own deadline. Always clears its timer so a
-   * settled attempt never leaves a dangling handle.
+   * Races `run(signal)`'s promise against a timer for `remainingMs` — the wall-clock deadline's
+   * actual enforcement mechanism (ISS-t-021-rev-1's "each attempt's timeout is capped at the
+   * remaining budget"): whatever timeout the provider itself is configured with, this attempt can
+   * never take longer than what is left of FailoverProvider's own deadline. Always clears its timer
+   * so a settled attempt never leaves a dangling handle.
+   *
+   * T-037 (ISS-066): `run` is a factory, not an already-started promise, so this method owns the
+   * `AbortController` behind the signal it hands to the attempt. When the deadline timer wins the
+   * race, it calls `controller.abort()` BEFORE rejecting — the attempt is not just abandoned here,
+   * its own in-flight work (a real LiteLLM HTTP request) is told to stop. `Promise.race` already
+   * attaches a rejection handler to the losing promise, so aborting it here can never produce an
+   * unhandled rejection later.
    */
-  private async raceDeadline<T>(promise: Promise<T>, remainingMs: number): Promise<T> {
+  private async raceDeadline<T>(run: (signal: AbortSignal) => Promise<T>, remainingMs: number): Promise<T> {
+    const controller = new AbortController();
     let timer!: ReturnType<typeof setTimeout>;
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new FailoverDeadlineExceededError(this.deadlineMs)), Math.max(0, remainingMs));
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new FailoverDeadlineExceededError(this.deadlineMs));
+      }, Math.max(0, remainingMs));
     });
     try {
-      return await Promise.race([promise, timeout]);
+      return await Promise.race([run(controller.signal), timeout]);
     } finally {
       clearTimeout(timer);
     }
@@ -740,7 +804,10 @@ export class FailoverProvider implements LlmProvider {
       const provider = this.chain[attempt % this.chain.length]!;
       attempt += 1;
       try {
-        return await this.raceDeadline(provider.generate<T>(request), remaining);
+        // T-037 (ISS-066): the signal is bound fresh per attempt, inside raceDeadline, so a
+        // deadline-timeout on THIS attempt can never reach back and abort a different (earlier,
+        // already-settled, or later) attempt's own request.
+        return await this.raceDeadline((signal) => provider.generate<T>({ ...request, signal }), remaining);
       } catch (err) {
         if (err instanceof FailoverDeadlineExceededError) {
           lastError = err;
