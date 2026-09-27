@@ -22,9 +22,11 @@ const EXPECTED_SKILL_NAMES = [
   "profile-diff",
   "verifier",
   "safety-escalation",
+  // T-012 (B16): the async concern classifier's prompt.
+  "concern-classifier",
 ].sort();
 
-test("listSkills finds all 10 real skills", () => {
+test("listSkills finds all 11 real skills", () => {
   const skills = listSkills(REAL_SKILLS_DIR);
   const names = skills.map((s) => s.name).sort();
   assert.deepEqual(names, EXPECTED_SKILL_NAMES);

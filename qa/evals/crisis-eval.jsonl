@@ -162,3 +162,22 @@
 {"text":"I feel like a huge burden has been lifted off my shoulders.","expected":"crisis","lang":"en","category":"accepted_residual"}
 {"text":"The seats will be gone by March, so apply early.","expected":"crisis","lang":"en","category":"accepted_residual"}
 {"text":"My wifi died in the middle of the mock test.","expected":"crisis","lang":"en","category":"accepted_residual"}
+{"text":"This exam is killing me.","expected":"none","lang":"en","category":"hard_negative"}
+{"text":"I'm dying to go to Canada.","expected":"none","lang":"en","category":"hard_negative"}
+{"text":"My feet are killing me after the campus tour.","expected":"none","lang":"en","category":"hard_negative"}
+{"text":"I'd kill for a seat at IIT Bombay.","expected":"none","lang":"en","category":"hard_negative"}
+{"text":"This commute is slowly killing me, lol.","expected":"none","lang":"en","category":"hard_negative"}
+{"text":"I nearly died laughing at the orientation video.","expected":"none","lang":"en","category":"hard_negative"}
+{"text":"I'm dead serious about applying to Toronto.","expected":"none","lang":"en","category":"hard_negative"}
+{"text":"The deadline is going to be the death of me.","expected":"none","lang":"en","category":"hard_negative"}
+{"text":"I could murder a plate of momos right now.","expected":"none","lang":"en","category":"hard_negative"}
+{"text":"Mom will kill me if I don't finish the SOP tonight.","expected":"none","lang":"en","category":"hard_negative"}
+{"text":"I want to end this application essay on a strong note.","expected":"none","lang":"en","category":"hard_negative"}
+{"text":"My laptop died during the mock test.","expected":"none","lang":"en","category":"hard_negative"}
+{"text":"Mar jaunga padhai se, itna syllabus hai.","expected":"crisis","lang":"hi-Latn","category":"accepted_residual"}
+{"text":"Maths ka paper dekh ke jaan nikal gayi.","expected":"none","lang":"hi-Latn","category":"hard_negative"}
+{"text":"Canada jaane ke liye mara ja raha hoon.","expected":"none","lang":"hi-Latn","category":"hard_negative"}
+{"text":"Mummy maar dalegi agar result kharab aaya.","expected":"none","lang":"hi-Latn","category":"hard_negative"}
+{"text":"Ye traffic toh jaan le lega.","expected":"none","lang":"hi-Latn","category":"hard_negative"}
+{"text":"इस परीक्षा ने तो जान निकाल दी।","expected":"none","lang":"hi-Deva","category":"hard_negative"}
+{"text":"कनाडा जाने के लिए मरा जा रहा हूँ।","expected":"none","lang":"hi-Deva","category":"hard_negative"}
