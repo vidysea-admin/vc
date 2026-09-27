@@ -112,3 +112,20 @@
 2026-09-27T17:53:37+05:30 correction to the line immediately above: only t-040's dir released. t-039 is STILL
   "Device or resource busy" (registered=2 dirs=3). I wrote the claim in the same command that ran
   the removal instead of reading its result first -- the same class of error as the composed clock.
+2026-09-27T18:36:18+05:30 ADVANCED · T-010 fix cycle 3 built (bc87287 + 3afe5e0), checker dispatched same turn (opus).
+  Shape changed, not the lists: requestsValueOf / VALUE_DESCRIPTION_TAIL / UNKNOWN_VALUE_FRAMES /
+  FRAME_WINDOW DELETED; clarify branch unconditional again; one positive exemption namedInPassing
+  with 4 conjunctive conditions. B1: second-token allow-list inverted to a NOT_AN_OBJECT stop-list,
+  fragment test rejects a leading bare verb, ASCII rules refuse Devanagari, Devanagari imperative
+  fires without an addressee.
+  Checker's own rows c2 -> c3: B18 re-asks 9/10 -> 0/10 · no-citation 8/8 -> 0/8 · English
+  imperatives 11/14 -> 0/14 · Devanagari 7/9 -> 0/9 · over-suppression 8/20 -> 0/20. CE-054 kept,
+  CARDS-EVAL 62/62, fixture untouched. engine 602/602 (+3 appended).
+  Maker wrote 67 FRESH rows itself and disclosed 2/16 leaks it chose not to patch (-able / -tion
+  heads), plus two narrowings against my brief with stated evidence ([^s]s$ instead of dropping s$;
+  TAIL_MEASURE_NOUN widened to keep 4 apps/web tests green).
+  Checker told: verifying the default-closed SHAPE is the core, not the counts -- cycle 2's false
+  claim hid a second gate further down; and to scrutinise the apps/web-driven widening hardest,
+  since "I couldn't touch the other file" is not a reason to loosen a guard.
+  A FAIL here = STALLED + debugger diagnosis. Said so; also said not to pass it to avoid that.
+  ISS-045: t-039 dir still busy (registered=2 dirs=3) -- read from the command's own output this time.
