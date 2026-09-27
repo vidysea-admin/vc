@@ -1160,3 +1160,43 @@ Q2 flagged as substantive beyond process: the engine has exactly 10 countries an
   product, not a vocabulary tidy-up.
 SERIAL: nothing dispatchable. Every unit gated on a human decision or on C: space.
 AWAITING UMESH (7 + disk, unchanged otherwise).
+
+--- tick 2026-09-28T01:38:09+05:30 ---
+STATE: HUMAN_GATE (8 items) + BLOCKED (C: disk)
+GATE OPENED: qa/gates/data-boundary-safe-domains.md. ISS-104's 39 files hold
+  EXACTLY THREE VALUES: umeshsugara@vidysea.com (26 files), himanshu@vidysea.com
+  (18), pass@eu.cloud.langfuse.com (28 - a user:pass@host placeholder inside the
+  NAME of a security test asserting such a URL is refused). No student data, no
+  third-party personal data.
+UPGRADED FROM TIDY-UP TO NECESSARY (peer's finding, re-verified here): the count
+  GROWS MONOTONICALLY BY CONSTRUCTION. Breaching set includes qa/issues.jsonl,
+  qa/QUEUE.md, docs/DECISIONS.md and ALL FOUR qa/sweeps/ files - confirmed. So
+  every sweep and every attributed ledger append raises it; 38->39 tonight purely
+  because this pair kept working. Consequence that matters: a future re-run CANNOT
+  reproduce today's number, so the mismatch reads as a regression rather than
+  growth - which trains readers to discount the check. That is how a real breach
+  gets waved through. ISS-107's defect in a second field.
+VERIFIED BEFORE WRITING THE GATE: adapter.json has 0 occurrences of both
+  data_boundary_safe_domains and data_boundary_exclude; the safe-domain mechanism
+  is structurally guarded (plain domain, no wildcard/@, not a mailbox provider,
+  not a bare public suffix, invalid entry = blocking violation) so it CANNOT
+  launder a real address; .ts is genuinely absent from TEXT_SUFFIXES.
+GATE STATES WHAT APPROVAL DOES NOT FIX: a raw no-suffix scan finds 57 files / 6
+  values. The extra 18 are structurally invisible (.ts absent, qa/.last-tick has
+  no suffix). All synthetic, no new breach - but the script's OWN comment records
+  that last time this list was drawn around the previous incident's shape (.md
+  missing), TWO REAL GMAIL ADDRESSES went through the gate into a commit. So exit
+  0 after approval must not be read as 'the data boundary is clean'.
+PRECEDENT NOTED, NOT TREATED AS AUTHORIZATION: data_boundary.py records 'ISS-016
+  residual triage (2026-09-26, approved by Umesh)' - he approved this mechanism
+  for this purpose in ANOTHER project. Different project's declaration => still
+  needs his word. Neither session touched the adapter.
+PEER IS RE-DERIVING the exposed 1237/1192/0/45 suite figure: lock was free (the
+  vc-testlock dir does not exist), it took the lock with a holder file, and is
+  keeping node off the full volume by pointing TMPDIR/TEMP/TMP at D:/vctmp for
+  that run only - no deletion, no config change, reversible.
+NEW ISS-109 GUARD from a live instance: a background task reported EXIT 0 with a
+  ZERO-LENGTH output file, indistinguishable from 'still running'. Task output
+  files live on C:. Treat a zero-length task output tonight as UNKNOWN, not clean.
+SERIAL: nothing dispatchable. Every unit gated on a human decision or on C: space.
+AWAITING UMESH (8): the 7 previous + data-boundary-safe-domains. Plus the disk.
