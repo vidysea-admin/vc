@@ -9,15 +9,23 @@ Updated by /checker sweeps only. Gate lines sit above the TODO table (read first
 - edit-provenance → **B2**: `counsellor-edit` + `editedFrom`, held by both VC and the client.
 - erasure-fencing → **B15**: double confirm, then an email-outbox approver, then the purge; `autoDelete` defaults to false; fence + 24 h; HMAC audit pseudonym.
 - Lead-review scope → **B17**, a 10-persona ladder (Sapna ma'am as the benchmark, Gaurav bhaiya Hindi + voice, UK/US/AU/CA policy personas), and new **B22**, the novice + VC ≥ 90 % of expert metric. Bulk import is a non-goal. The release video goes to Sapna ma'am + Gaurav bhaiya with a Hindi voice-over, and **Umesh sends it** (outward-facing).
-- **Maker, first:** write **D-021** via `scripts/append_decision.ps1` covering B21 + B22 + the persona ladder (a direction change approved by Umesh 2026-09-26), then update ARCHITECTURE H-rows / §4 (apps/api is no longer a placeholder target) in /landplane.
+- ~~**Maker, first:** write **D-021**...~~ **DONE** (checker sweep 2026-09-27 confirmed: `docs/DECISIONS.md:210`, D-021, status ACTIVE, covers B21+B22+persona ladder). Drop this line going forward.
 
 **Answered and folded (D-020, this sweep):** crisis-guard-precision → B9+B16 (recall-only guard, downgrade-never-hide); citation-guarantee-scope → B2 (numbers+vocabulary auto-verify, everything else needs-review, transcript persisted under B15); scribe-concern-level → new B20 (concern never stops the scribe); provider-fallback → B6 (3-model runtime failover, ~10 retries, no drop to rules, alert + input-preserving Retry). T-005c, T-013, T-021, T-022 can now build against these criteria.
 
-## Top-3 recommended next units (Mode B sweep 2026-09-26T23:05 IST, sharded consolidation)
+## Top-3 recommended next units (Mode B sweep 2026-09-27T09:03 IST, scoped sweep)
 
-1. **Tighten the regression_check writer (ISS-063, high).** ISS-045's and ISS-061's `fixed` rows both carry a `regression_check` value in neither allowed form (not a `scenario:<feature>#<row-id>` ref, not a command verbatim from `qa/adapter.json`'s `verify.shell.commands`). Reject/reformat at write time before a third non-conforming row lands — a fix nobody can mechanically re-run is a fix nobody will notice breaking.
+1. **Tighten the regression_check writer (ISS-063 + ISS-074, high).** Now 7 rows total (ISS-045,
+   ISS-061, plus ISS-074's 5: ISS-t-013-c2-rev-4, ISS-t013r-rev-14, ISS-069, ISS-070, ISS-072)
+   carry a `regression_check` in neither allowed form or missing the required test-file argument.
+   Reject/reformat at write time — a fix nobody can mechanically re-run is a fix nobody will
+   notice breaking.
 2. **Cancel the abandoned in-flight request in FailoverProvider (ISS-066, medium).** `packages/providers/src/index.ts:651` races `provider.generate()` against the remaining wall-clock deadline but never cancels the losing promise, and `LlmProvider.generate()` has no `signal` parameter for an outer deadline to reach. Under retries (up to 10 attempts) this can leave several unaborted outbound LLM fetches per failed session — propagate an `AbortSignal` down the interface.
-3. **Fix the manifest close-out script's duplicate Status line at the root (ISS-056, medium — now confirmed recurring).** `t-021-provider-failover.md` shows the same defect ISS-056 first found in `t-015`: close-out appends a new `Status:` line instead of removing the stale `ready-for-check` one. Fix the script once instead of patching each manifest by hand.
+3. **Fix the manifest close-out script's duplicate Status line at the root (ISS-056, medium — confirmed recurring in t-015 and t-021).** Close-out appends a new `Status:` line instead of removing the stale `ready-for-check` one. Fix the script once instead of patching each manifest by hand.
+
+Also: ISS-059 and ISS-045 closed this sweep (reconciled — see `qa/sweeps/2026-09-27T09-03-50+05-30.md`).
+New this sweep: ISS-074 (high, regression-check gap), ISS-075 (low, .env.example gap for
+`VC_EVIDENCE_*`/`VC_SKILLS_DIR`).
 
 Also still open from the prior sweep and unaffected by this one: D-021 (B21+B22, still absent from `docs/DECISIONS.md`) is the next unstarted architecture item once the in-flight wave (T-013, T-021, T-022, T-023, T-025, T-026, T-027, T-030, T-032, T-033 — see `.last-tick`) lands; B19+B17 groundwork (`qa/scenarios/counselling-engine.csv`, adapter `personas`/`scenarios`) has still not started.
 
