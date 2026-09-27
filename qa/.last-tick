@@ -986,3 +986,29 @@ Stale 262/134 figures in the gate corrected in place (ISS-098 lesson).
 Gate remains UNANSWERED and still needs Approved-by: Umesh. No hook file touched.
 SERIAL: T-035 waits on T-010 (STALLED, D1+D2). T-043 successor waits on the sweep.
 AWAITING UMESH: 6, unchanged.
+
+--- tick 2026-09-28T00:33:25+05:30 ---
+STATE: ADVANCED
+ISS-084 SPEC SHARPENED in the gate (ff84694), in place. Whole-row vs per-field
+last-wins are NOT the same reader and had been written as one phrase throughout
+(this gate, queue prose, both sessions' messages). Measured at HEAD, 3 variants vs
+the field-level merge: whole-row last-wins 122/278 wrong (reads them severity-less)
+| last value-carrying row 0/278 wrong (exactly correct) | first-value, which the
+committed hook does, 11/278 wrong. 0 ids lack a severity anywhere, so nothing is
+irrecoverable. PER-FIELD LAST-VALUE-WINS IS CORRECT HERE; WHOLE-ROW IS NOT.
+CORRECTION TO THE PEER'S READING: the 11 are 7 escalations and 4 DE-escalations
+(ISS-061, ISS-071, ISS-101, ISS-t-017-c0-1). So first-wins is not conservative - it
+under-reports real highs and over-reports resolved ones at once, with no consistent
+direction for anything downstream to correct.
+ISS-045 runs medium->high->high->low->high->high: a position-based reader gets a
+different answer per row. Second measured instance of this gate's "position is not
+a readable property" conclusion (first was Cycle checked). Two fields, same answer
+- now an argument about the ledger FORMAT, not about readers.
+20-vs-19 high divergence between the two sessions explained: my ISS-100 row
+escalated that id medium->high between the two measurements. Neither reader wrong;
+the file moved under a comparison run to check each other. Both sessions reached
+first for "someone's instrument is broken" - 20 min after naming that reflex.
+DURABLE FORM: a figure needs the commit it was taken at, or it is not a measurement.
+Gate still UNANSWERED, still needs Approved-by: Umesh. No hook file touched.
+SERIAL: T-035 waits on T-010 (STALLED, D1+D2). T-043 successor waits on the sweep.
+AWAITING UMESH: 6, unchanged.
