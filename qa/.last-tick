@@ -1038,3 +1038,38 @@ reader needs per-field resolution or a writer-emitted terminal marker.
 Gate still UNANSWERED, still needs Approved-by: Umesh. No hook file touched.
 SERIAL: T-035 waits on T-010 (STALLED, D1+D2). T-043 successor waits on the sweep.
 AWAITING UMESH: 6, unchanged.
+
+--- tick 2026-09-28T01:00:27+05:30 ---
+STATE: ADVANCED
+MODE B SWEEP LANDED (8f4464d) after ~35 min. Held ~8.5h, now closed out.
+5 new issues from the sweep: ISS-102 (medium, no lock on issues.jsonl),
+ISS-103 (high, VERDICT field has >=4 incompatible writer shapes - widens ISS-095
+past Cycle checked; sweep self-caught 3 parser bugs, t-017-residuals breaks even
+the corrected parser), ISS-104 (high, data boundary 38 files), ISS-105 (medium,
+delegation ledger never bootstrapped; no actual bypass), ISS-106 (high, 14 unfolded
+feedback-inbox questions incl. all 11 T-039 B18 blind-fixture items).
+VERIFIED RATHER THAN ACCEPTED, and found one defect:
+- ISS-107 FILED (high, 062fdc0): the sweep's OWN verify table marks a refuted
+  figure CONFIRMED. It recorded vc-f5's 284 raw / 138 open / 2.06x as "CONFIRMED
+  ... within rounding" at fcea4b7. Measured at that exact ref: 288 raw / 137 open
+  / 2.102. Counts of discrete entities DO NOT ROUND. Worse, the 2.06 it confirmed
+  is the ratio at 8f4464d - the sweep's OWN post-append commit - so the figure was
+  derived post-append and reported as pre-append. Neither session's number was
+  wrong; each was right at its own commit. The whole defect is comparing figures
+  with no ref attached - the exact failure the sweep was briefed to hunt, inside
+  the instrument hunting it. 4th instance tonight of "obvious check passes,
+  unmeasured half broken"; FIRST one located in a VERIFICATION VERDICT.
+- GATES: 23 total / 5 unanswered reproduced EXACTLY, same five files. Sweep correct.
+- ISS-104: reproduced, 39 files not 38 - the extra is the sweep's own report, which
+  itself carries an email. Checked its "low-risk" reading rather than taking it:
+  exactly 3 flagged strings - two team @vidysea.com addresses in attribution text,
+  and pass@eu.cloud.langfuse.com, a literal placeholder inside the NAME of a
+  security test asserting such a URL is refused by initTracing. Genuine false
+  positive. NO STUDENT DATA. Sweep's characterisation accurate.
+NOT re-verified by me: ISS-103, ISS-105, ISS-106 (flagged to peer).
+LEDGER: 583 rows / 284 ids.
+SERIAL: T-035 waits on T-010 (STALLED, D1+D2). T-043 successor waits on ISS-107's
+  remedy landing first - re-deriving conformance from an unref'd figure is the
+  defect just filed.
+AWAITING UMESH: 6, unchanged. ISS-106 sharpens (4)+(5): the 11 B18 blind-fixture
+  questions cannot be folded until those two gates are answered.
