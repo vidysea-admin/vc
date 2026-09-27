@@ -13,45 +13,75 @@ Updated by /checker sweeps only. Gate lines sit above the TODO table (read first
 
 **Answered and folded (D-020, this sweep):** crisis-guard-precision → B9+B16 (recall-only guard, downgrade-never-hide); citation-guarantee-scope → B2 (numbers+vocabulary auto-verify, everything else needs-review, transcript persisted under B15); scribe-concern-level → new B20 (concern never stops the scribe); provider-fallback → B6 (3-model runtime failover, ~10 retries, no drop to rules, alert + input-preserving Retry). T-005c, T-013, T-021, T-022 can now build against these criteria.
 
-## Top-3 recommended next units (Mode B sweep 2026-09-27T09:03 IST, scoped sweep)
+**Answered and folded (D-027, 2026-09-27):** crisis-escalation-consent → B4 named exception (a crisis turn escalates even without recorded consent; ids + flag only, never transcript text; nothing else processed without consent). T-035 implements it directly, not behind a config flag, and closes ISS-t-012-rev-3.
 
-1. **Tighten the regression_check writer (ISS-063 + ISS-074, high).** Now 7 rows total (ISS-045,
-   ISS-061, plus ISS-074's 5: ISS-t-013-c2-rev-4, ISS-t013r-rev-14, ISS-069, ISS-070, ISS-072)
-   carry a `regression_check` in neither allowed form or missing the required test-file argument.
-   Reject/reformat at write time — a fix nobody can mechanically re-run is a fix nobody will
-   notice breaking.
-2. **Cancel the abandoned in-flight request in FailoverProvider (ISS-066, medium).** `packages/providers/src/index.ts:651` races `provider.generate()` against the remaining wall-clock deadline but never cancels the losing promise, and `LlmProvider.generate()` has no `signal` parameter for an outer deadline to reach. Under retries (up to 10 attempts) this can leave several unaborted outbound LLM fetches per failed session — propagate an `AbortSignal` down the interface.
-3. **Fix the manifest close-out script's duplicate Status line at the root (ISS-056, medium — confirmed recurring in t-015 and t-021).** Close-out appends a new `Status:` line instead of removing the stale `ready-for-check` one. Fix the script once instead of patching each manifest by hand.
+## Top-3 recommended next units (Mode B sweep 2026-09-27T13:52 IST, sharded consolidation)
 
-Also: ISS-059 and ISS-045 closed this sweep (reconciled — see `qa/sweeps/2026-09-27T09-03-50+05-30.md`).
-New this sweep: ISS-074 (high, regression-check gap), ISS-075 (low, .env.example gap for
-`VC_EVIDENCE_*`/`VC_SKILLS_DIR`).
+1. **T-035 (escalation wiring, D-027 scope) — the next build unit once its two blockers land.** Now
+   fully unblocked and scoped: register `escalation_notifications` + `crisis_flag_reviews` in
+   `@vc/db` `COLLECTION_NAMES`/`INDEX_PLAN`/the T-029 erasure plan/D-016 scanner
+   (ISS-t-012-rev-1), wire a recipient resolver into `apps/api` `createTenantWiring`
+   (ISS-t-012-rev-2), and ship the no-consent-still-escalates path directly per D-027 (closes
+   ISS-t-012-rev-3). `.last-tick` (13:47) already flags `SERIAL: T-035 waits on T-034
+   (erasure.ts) + T-010 (apps/api server.ts)` — both are mid-flight (T-034 building, T-010 under
+   check by peer session vc-f5), so this is the next unit to dispatch the moment either lands, not
+   one to start cold today.
+2. **Tighten the regression_check writer — now consolidated under ISS-076 (high, supersedes
+   ISS-063 + ISS-074).** Re-derived scope: 48 of 116 fixed/verified rows (13 with no
+   `regression_check` at all, 10 with a bare allowlisted command and no test-file argument, 25
+   using a command outside the adapter's 3-command allowlist, mostly `pnpm --filter @vc/<pkg>
+   test`). No safe auto-correction exists without inventing an unverified command — the
+   underlying gap is that this monorepo's `-r` recursive adapter commands have no established
+   "plus a test-file argument" convention, which the per-package `pnpm --filter` form the maker
+   already uses everywhere would naturally fix, as an adapter amendment.
+3. **Queue a build row for O4 (ISS-077, medium) — the north-star outcome with zero tracking.**
+   `docs/intent.md`'s O4 ("the application is drafted in 15 minutes and submitted by the
+   student", P2 draft-only, contract B10) has no TASKS.md row and no QUEUE.md TODO row anywhere —
+   the only one of the 8 outcomes with literally nothing queued. O8 (B18, context relevance) at
+   least has a QUEUE.md TODO line (below) even though it also lacks a TASKS.md T-ID.
 
-Also still open from the prior sweep and unaffected by this one: D-021 (B21+B22, still absent from `docs/DECISIONS.md`) is the next unstarted architecture item once the in-flight wave (T-013, T-021, T-022, T-023, T-025, T-026, T-027, T-030, T-032, T-033 — see `.last-tick`) lands; B19+B17 groundwork (`qa/scenarios/counselling-engine.csv`, adapter `personas`/`scenarios`) has still not started.
+Also this sweep: ISS-t-012-rev-4 (crisis-guard held-out recall 10/28) noted as the **tracked pilot
+blocker as of 2026-09-27 per Umesh** — stays open/high, no unit queued for it (Umesh deferred
+further action to later). B4/B9/B16 checked against D-027 and found not in conflict as written;
+B4 gained a named exception recording what D-027 already decided (routine amendment,
+`qa/contracts/counselling-engine.md`). B8 (data boundary) is **verified-clean this sweep**, after
+being unverified (instrument didn't complete) in the two immediately prior sweeps. New this
+sweep: ISS-076 (high, consolidated regression-check scope), ISS-077 (medium, O4 has no build
+row), ISS-079/ISS-080 (medium, structural-erosion signal on `scribe/nodes.ts` 1456 lines and
+`scribe/graph.ts` 964 lines), ISS-081 (medium, loop-design Goodhart-risk class covering
+ISS-t-030-rev-1 + ISS-t-010-rev-4). ISS-063, ISS-074 and ISS-053 marked superseded by ISS-076.
+
+Also still open and unaffected by this sweep: D-021 (B21+B22) is confirmed present in
+`docs/DECISIONS.md:210`, status ACTIVE — no longer an open item; the enforcement-path fix for
+ISS-056's root cause (`.claude/hooks/mc-sessionstart.ps1`, `delivery-gate-stop.ps1` — last-Status-
+wins) is pending Umesh's Approved-by on a DECISIONS entry, already asked per `.last-tick` 13:47.
+**Correction to the prior sweep:** B19+B17 groundwork is NOT still-unstarted — `qa/adapter.json`
+already carries all 10 `personas` and `qa/scenarios/counselling-engine.csv` already has 58
+persona-tagged rows (≥50). Verified this sweep; see the TODO section below.
 
 ## TODO (maker)
 
-- [x] DONE · ISS-056: stale Status line removed on main (confirmed by this sweep's merge test — merging `wave/t-005c-recall-only-guard` into main does NOT reintroduce the duplicate, git's 3-way merge keeps main's single-line fix since that branch never touched the file).
-- [ ] TODO · ISS-061: docs/intent.md — add O8 "personalise: never re-ask what is known; questions change with the child" (CEO north star, B18); tick the answered failover-scope open question (e88f784); add a Non-goals section (bulk import, production UI — D-021). Follow-up to the approved plan, not a blocker.
-- [ ] TODO · ISS-054 + ISS-045: hook counts worktree manifests; close-out removes merged/superseded worktrees (D-entry with Approved-by for the hook change). data_boundary.py's WinError3 crash is now resolved on its own (confirmed this sweep) — this TODO is pure hygiene now, not an enforcement blocker.
-- [ ] IN FLIGHT · T-013: fix-cycle-1 building against amended B2 (checker c0 FAIL + DE/AI Warnings reopened it; T-024 folded in) — queued behind the RAM ceiling per `.last-tick`.
-- [ ] IN FLIGHT · T-021: built `0fa58c1`, ready-for-check, checker c0 (Mode A+D) + ai-engineer review dispatched. T-022 (B20 concern continuation) not yet started.
-- [ ] TODO · D-021 (see gates above), then **B21 API unit**: an HTTP server in `apps/api`, an OpenAPI doc, JWT verification (signature/expiry/issuer; `tenant`/`counsellorId`/`role`), tenant stamping + a cross-tenant refusal test, over the existing engine functions. Test JWT signed locally; no real Pathlynks connection.
-- [ ] TODO · B21 KB client: `POST /ask` to the KnowledgeBase with a Bearer key from `.env`; citations carried through; a KB outage → "knowledge unavailable", never uncited.
-- [ ] TODO · B21 webhooks: signed fact-approved (with B2 provenance), erasure-requested and concern-flag events.
-- [ ] TODO · B2 edit provenance (ISS-051): `counsellor-edit` + `editedFrom` on edited facts.
-- [ ] TODO · B15 erasure approver workflow: two confirmations, an email outbox (logged in dev), approver approval, `autoDelete` default false, fence + 24 h, HMAC `VC_AUDIT_HMAC_KEY`.
-- [ ] TODO · B17/B19: `qa/adapter.json` gains `personas` (the 10 ids in B17) and `scenarios` (D-entry first)
+- [ ] IN FLIGHT · T-010: built `53fbebd`, manifest ready-for-check c0 in `.worktrees/t-010-live-cards`; checker Mode A+D running under peer session vc-f5 (do not duplicate). Senior review Approve → ISS-t-010-rev-1..4 (rev-4 medium, see ISS-081).
+- [ ] IN FLIGHT · T-034: B21 webhook outbox (Mongo-backed, tenant-scoped, idempotent enqueue) building on base `1e040e5`.
+- [ ] IN FLIGHT · T-036: independent auto-verify oracle for ISS-t-030-rev-1, built `2448a15` (102-row hand-authored fixture), checker c0 dispatched — not yet verdicted.
+- [ ] TODO · T-035: escalation wiring per D-027 (see Top-3 #1) — dispatch as soon as T-034 and T-010 both land; `SERIAL` per `.last-tick`.
+- [ ] TODO · ISS-076 (high, consolidated — see Top-3 #2): tighten/reformat the 48 non-conforming `regression_check` values; consider a `pnpm --filter @vc/<pkg> test` adapter amendment so a real narrowing convention exists.
+- [ ] TODO · ISS-077 (medium, O4 build row — see Top-3 #3): add a TASKS.md row for the application-drafting/P2 unit (B10); O8/B18 already has a QUEUE.md line below but still needs a TASKS.md T-ID.
+- [ ] TODO · ISS-056 residual (medium, enforcement path, gated): `.claude/hooks/mc-sessionstart.ps1:19` and `delivery-gate-stop.ps1` take any `Status:` line match instead of the LAST one, which is the actual root cause (there is no close-out script to patch). Needs a DECISIONS entry with `Approved-by: Umesh` before either hook is edited — the question is already asked per `.last-tick` 13:47, awaiting an answer.
+- [ ] TODO · ISS-066 (medium): `packages/providers/src/index.ts:651` `FailoverProvider.raceDeadline` abandons in-flight LiteLLM requests with no cancellation — add a `signal` parameter to `LlmProvider.generate()` and propagate an `AbortSignal`.
+- [ ] TODO · ISS-t-025-rev-2 (low): concern_flagged edges reach the API only through the admin-only export route; no counsellor-facing cards/timeline route exists yet (owner: T-010 or a later API unit).
+- [ ] TODO · B21 webhooks emission hooks (T-034 covers the outbox scaffolding; wiring fact-approved/erasure-requested/concern-flag emission through it is the remaining piece, same unit).
+- [ ] TODO · B15 erasure approver workflow follow-ups: ISS-t-029-rev-1 (pending-erasure TTL), ISS-t-029-rev-2 (legacy failed-row re-approval before live cutover).
+- [x] DONE · B17/B19 groundwork: `qa/adapter.json` already carries all 10 `personas`, and `qa/scenarios/counselling-engine.csv` already has 58 persona-tagged rows (≥50, B19's bar) — this sweep found both already authored; the stale "not started" note in the prior sweep is corrected. Remaining B19 work is wiring these scenarios into a UI-check/release run (Mode D/C), not authoring more rows.
 - [ ] TODO · B17 `gaurav-bhaiya`: Hindi i18n for every counsellor-facing label in apps/web (plain-language copy), plus counsellor voice input for approval edits (Hindi STT → proposed value → counsellor confirms, B3).
 - [ ] TODO · Lead review: a student activity timeline (read API + reference view: sessions, approved facts with provenance, decisions, in order).
 - [ ] TODO · B22: a golden-session "novice + VC vs expert" eval harness (rubric grader); stays NOT-YET-MEASURABLE until Sapna ma'am's reference rubric is recorded (a human step, Umesh arranges it).
-- [ ] TODO · B19: author `qa/scenarios/counselling-engine.csv`, ≥50 persona-tagged rows (India-only, leaving in 2 years, Hinglish, concern turn, erasure mid-session, rules/AI-down path)
-- [ ] TODO · B18: an outcome test proving the scribe suppresses irrelevant and known items (India-only → zero visa facts; a known fact is not re-asked)
-- [ ] TODO · ISS-053: backfill `regression_check` on the remaining fixed high rows (the 6 criticals are done 2026-09-26; 52 rows remain)
-- [ ] TODO · ISS-057 (signal only, not blocking): a human structural read-through of `packages/db/src/erasure.ts` (1249 lines, 7+ units) before the next erasure-path change.
+- [ ] TODO · B18 (O8, ISS-077 companion): an outcome test proving the scribe suppresses irrelevant and known items (India-only → zero visa facts; a known fact is not re-asked) — no TASKS.md T-ID yet.
+- [ ] TODO · ISS-079/ISS-080 (signal only, not blocking): a human structural read-through of `packages/engine/src/scribe/nodes.ts` (1456 lines, 19 commits) and `graph.ts` (964 lines, 15 commits) before the next scribe-graph change.
+- [ ] TODO · ISS-057 (signal only, not blocking): a human structural read-through of `packages/db/src/erasure.ts` (now 1844 lines, 19 commits) before the next erasure-path change.
 - [ ] TODO · ISS-058 (medium): bootstrap `qa/delegation-ledger.jsonl` if external-executor delegation is ever wanted here, or explicitly decide this project stays Claude-only (no ledger needed then, but say so).
-- [ ] TODO · ISS-059 (medium): this project pre-dates the `docs/intent.md` → `qa/gates/plan-approved.md` convention (2026-09-26); no action needed unless a future unit's changed paths add a new user-facing screen/flow, which would then need a backfilled plan artifact.
 - [ ] TODO · ISS-060 (low, informational): widen D-011's accepted-false-positive note to cover `qa/` internal artifacts explicitly, or add a `pass@` URL-credential regex exclusion to data_boundary.py's handling, so real breaches don't hide in this noise.
+- [ ] TODO · ISS-081 (medium, loop-design Goodhart-risk class): do not close ISS-t-030-rev-1 or ISS-t-010-rev-4 until a genuinely independent, hand-authored-before-reading-the-code fixture is checker-verified for each.
 - [ ] TODO · Lead review: enable the maker's second-opinion tester for UI units via LiteLLM, synthetic data only (B13); its findings enter as leads
 - [ ] TODO · Lead review: a recorded release walkthrough video (checker Playwright run of the full counsellor flow) under `qa/evidence/release-<date>/`, with a Hindi voice-over, plus a 7–8 point pre-release checklist the release verdict cites. Umesh sends it to Sapna ma'am + Gaurav bhaiya; the VC never sends it itself.
 
@@ -96,3 +126,25 @@ No new contract/process finding from this correction; it is a liveness/staleness
 - **Check 9 — structural erosion (new, ISS-068, medium, signal only):** the err.name cross-bundled-error-identity idiom now exists independently in two server files with no shared helper — a human-read-through flag, never auto-fixed, never a blocker.
 - **Token ledger:** appended shard 3's `token_scan.py` line (`opus_sub_share` 0.127, 67 sub-agents, still under the 25% flag threshold; T-013 separately reached fix-cycle 3 but that is already D-023 human-approved, not a new spend-without-cause signal).
 - **Ledger validated:** all lines in `qa/issues.jsonl` parse as JSON (python, line-by-line) after this sweep's appends.
+
+## Sweep notes (2026-09-27T13:52 IST, Mode B sharded sweep — 3 shards, 0 failed, this consolidation is the single writer)
+
+Full report: `qa/sweeps/2026-09-27T13-52-consolidation.md`.
+
+- **Dedupe against the live ledger:** re-read `qa/issues.jsonl` immediately before writing (394 lines going in, unchanged from the sweep dispatch). Minted ISS-076, ISS-077, ISS-079, ISS-080, ISS-081 (14 rows total including updates; max prior plain id was ISS-075).
+- **Status-count method correction:** the session-start hook's "209 open" and shard 1's own alternate count both come from counting every raw JSONL line's `status` field without deduping to the latest row per id — the ledger is append-only and later rows supersede earlier ones for the same id. The correct method (latest-row-per-id merge, 223 distinct ids): **open=102 (9 high / 37 medium / 56 low), fixed=112, verified=4, wontfix=5** (now 8 wontfix after this sweep's 3 supersede-marks). No non-standard status values remain in the latest view (`verified-resolved`/`resolved-for-now`/`wontfix-accepted` were already corrected by a prior sweep, confirmed by re-derivation).
+- **Check 1c — regression_check, fixed not just re-filed:** re-derived the full scope independently (48/116 rows, 3 buckets — see ISS-076) and confirmed it matches shard 1's count exactly. Superseded ISS-063 and ISS-074 (their narrower samples) and marked ISS-053 stale (its blanket "all 58" claim no longer true) rather than stacking more partial rows. No auto-correction applied to any of the 48 — none had an obvious already-correct value elsewhere to copy, and inventing a `pnpm --filter`-style value not in the adapter's literal allowlist would itself violate the ledger rule; left named for the maker in ISS-076.
+- **ISS-056:** corroborated shard 1's manifest-side claim independently (`ready-for-check` absent from all four named manifests). Narrowed the row's residual to the real root cause per the maker's own 13:47 tick note: two enforcement-path readers (`mc-sessionstart.ps1`, `delivery-gate-stop.ps1`) match any Status line instead of the last one; no close-out script exists to patch. Left both hooks untouched — Lab Protocol requires a DECISIONS entry with `Approved-by: Umesh` first, already asked, not yet answered.
+- **ISS-t-012-rev-4:** recorded Umesh's direct decision (asked this sweep) — tracked pilot blocker as of 2026-09-27; no unit queued; further action deferred to later per his explicit instruction.
+- **Contract check (the one contract edit this sweep made):** read B4/B9/B16 in full against D-027. B9 and B16 do not mention consent as a precondition for the guard match or the escalation notification, so neither needed a change. B4's literal "cannot be processed" text did conflict with D-027's now-live exception, so applied a routine amendment (criticality-gate table: "record what D-027 already decided" is the ordinary case, not a weakening — B4 consent-first stays the rule for every other path) adding the named exception, plus an amendment-log entry. This is the only edit made to `qa/contracts/counselling-engine.md` this sweep.
+- **Check 4b — data boundary:** completed cleanly for the first time in three sweeps (no crash, no timeout): exit 1, 31 VIOLATION + 5 ADVISORY, all re-derived to the known accepted classes (D-011/ISS-003 staff email, ISS-060 langfuse credential-URL fragment). **B8 recorded as verified-clean this sweep**, explicitly reversing the "unverified" state of the two prior sweeps. ISS-045 and ISS-060 updated with notes, not duplicated.
+- **Check 5 — goal coverage:** refreshed ISS-065's day-stale O-mapping (O2/O5/O7 all moved from partial/missing to covered/partial as T-013/T-029/T-025-027 landed). Filed the more specific ISS-077: O4 (application-drafting/P2, contract B10) has zero build tracking anywhere (TASKS.md or QUEUE.md) — the "already tracked" claim in ISS-065 was accurate for O8 (a QUEUE.md line exists) but wrong for O4. Also found and corrected a second stale claim while verifying: B17/B19 groundwork (adapter `personas`, `qa/scenarios/counselling-engine.csv`) is NOT unstarted as the prior sweep's QUEUE.md said — both already exist (10 personas; 58 scenario rows, over B19's 50-row bar).
+- **Check 6 — goal-drift / re-grill:** confirmed clean independently: `qa/.regrill-due` absent, no re-PASS-twice escalation, all 18 gate files (including the newly-answered `crisis-escalation-consent`) carry a matching on-disk `Answered:` line, all three STALLED stamps have matching `qa/debug/` reports. No `GRILL:` row.
+- **Check 4 loop-design — Goodhart risk:** answers YES, substantiated by two live instances (ISS-t-030-rev-1, ISS-t-010-rev-4) rather than hypothetically. Filed the general finding this sweep-check requires (ISS-081) pointing at both instances rather than re-describing them; do not close either until T-036's (or a follow-up's) independent fixture is checker-verified.
+- **Check 9 — structural erosion (2 new, ISS-079/ISS-080, medium):** verified line counts and commit history myself (`wc -l`, `git log --follow`) rather than trusting shard 3's figures verbatim — `scribe/nodes.ts` 1456 lines/19 commits, `scribe/graph.ts` 964 lines/15 commits. Appended growth notes to ISS-057 (erasure.ts now 1844 lines) and ISS-060 (31 vs 34 files) rather than new rows.
+- **Check 7 — silent-failure hunt:** no new rows; shard 3's CLEAN read accepted (every catch/fallback in the T-012/T-022..T-033 window is explicit and documented, not silent).
+- **Token ledger:** appended a fresh `token_scan.py --days 1 --json` line (not shard 3's pasted one, per the task's own preference) — `opus_sub_share` 0.218 combined; per-day breakdown reproduces shard 3's flag: 2026-09-26 ≈ 17.9% (under), **2026-09-27 ≈ 29.5% (over the 25% threshold)**, consistent with today's Opus-heavy build wave (T-013 fix-cycle 3 already D-023-approved; no new flag beyond noting the day is over threshold with a known cause).
+- **Blast radius:** no `/code-graph` graph exists for this repo — correctly skipped, none built.
+- **Ledger validated:** all 408 lines of `qa/issues.jsonl` parse as JSON (python, line-by-line) after this sweep's 14 appends.
+
+**Terminal state: FINDINGS: 8** (5 new — ISS-076, ISS-077, ISS-079, ISS-080, ISS-081; 9 updates — ISS-063, ISS-074, ISS-053 superseded, ISS-t-012-rev-4, ISS-056, ISS-065, ISS-045, ISS-060, ISS-057). No BLOCKED, no EXHAUSTED.

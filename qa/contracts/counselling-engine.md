@@ -61,7 +61,9 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - **B3 (human approves writes):** A profile change reaches the student graph only after the counsellor approves it,
   through LangGraph `interrupt`. A test proves no write happens before approval.
 - **B4 (consent first):** Every fact carries purposeTags + sensitivity. A session without a recorded consent row cannot
-  be processed. A test covers it.
+  be processed. A test covers it. **Named exception (D-027, 2026-09-27):** a crisis turn (B9) escalates even without a
+  recorded consent row; the escalation record carries identifiers and the flag only, never transcript text, and no
+  other processing (facts, profile diff, KB) happens without consent. This is the only exception to consent-first.
 - **B5 (typed boundaries):** Every graph node's input and output is a Zod schema. No free text passes between nodes.
 - **B6 (portable core):** Prompts and soft rules live in `skills/*/SKILL.md`. Hard rules live in code guards that run
   before any LLM call. Tools are MCP servers. The model is chosen by config. **Provider independence (lead review, 2026-09-25):** no single AI vendor is load-bearing. At least two real providers sit behind the provider seam: Gemini, and LiteLLM gateway classes. A deterministic `rules` provider, which uses no model, lets the P1 flow scribe -> facts -> profile diff -> counsellor approval complete end to end, with its output clearly marked "AI unavailable". An e2e test passes with `VC_LLM_PROVIDER=rules`. **Runtime failover (D-020, gate `provider-fallback`):** independence extends from config-time to runtime. A
@@ -252,3 +254,10 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - 2026-09-26 · **critical (human-approved)** · new B21 API-first headless engine (JWT from the client backend, tenant stamping, KB over `/ask`, webhooks, `apps/web` = reference UI) and new B22 north-star metric (novice + VC ≥ 90 % of the expert benchmark, NOT-YET-MEASURABLE until Sapna ma'am's reference rubric exists) · direction changes approved by Umesh in chat 2026-09-26 ("api based … ui vo log khud bnaa lenge"; "Sapna ji ka 90-95 % level"). The maker records them as D-021 and updates ARCHITECTURE through /landplane.
 - 2026-09-26 · routine (human-answered gate, D-026) · B2 auto-verify property: `needsReview:false` = the student said this value, for this key, in their own words, in this one turn; cross-turn context out of scope; a leak is high at most and Blocks only when it breaks one of the four clauses · gate auto-verify-property answered by Umesh (option A), verbatim in qa/feedback-inbox.md 2026-09-26. Ledger: ISS-069 (key), ISS-070 (speaker), ISS-072 (own words) are breaches, owner T-030; ISS-071 (cross-turn) is outside the property, wontfix.
 - 2026-09-26 · routine (human answer) · B21 auth: issuer + key from config only; placeholder issuer `umesh` until Pathlynks supplies its own (Umesh: "abhi umesh k naame se lee lee"); no private key committed.
+- 2026-09-27 · routine (record what D-027 already decided, checker Mode B sweep consolidation) · B4 gains a named
+  exception: a crisis turn (B9) escalates even without a recorded consent row, with the escalation record carrying
+  identifiers and the flag only, never transcript text, and nothing else processed without consent · this is the
+  criticality-gate's ordinary case ("record what D-027 already decided"), not a weakening — B4 consent-first stays the
+  rule for every other path. B9 and B16 were checked against D-027 and found not in conflict as written: neither
+  criterion conditions the guard match or the escalation notification on consent being present, so nothing in their
+  text needed a corresponding edit · D-027, qa/gates/crisis-escalation-consent.md, ISS-t-012-rev-3.
