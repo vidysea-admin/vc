@@ -1459,3 +1459,41 @@ PENDING-STATE SCAN: 41/41 root manifests checked-PASS, 0 pending. Agrees with th
   that cannot be told apart from a real value.
 LEDGER: 612 rows / 292 ids / 148 open / 0 critical / 24 high (unchanged high set).
 AWAITING UMESH: 7 gates + the pagefile decision. Unchanged, not re-listed.
+
+--- tick 2026-09-28T08:36:42+05:30 ---
+STATE: ADVANCED. T-044 built and CHECKER DISPATCHED IN THE SAME TURN (no dangling
+  ready-for-check).
+T-044 build returned at 1aa7e3f on wave/t-044-lock-acquire-window. Manifest
+  t-044-lock-acquire-window.md at ready-for-check, fix cycle 0/3. Two files
+  edited IN PLACE (vc-testlock.sh, vc-testlock.test.sh), no new files.
+  Mechanism: a TOKEN in the lock dir, compared before the mv (ISS-113) and
+  before the rm -rf (ISS-112); write_owner split so a minimal owner file lands
+  the instant mkdir succeeds, with the slow proc_start_ticks lookup moved to an
+  enrich pass (ISS-111).
+CHECKER BRIEFED FROM THE ISSUE ROWS ONLY - it has no knowledge of the design
+  discussion, by construction. The peer session recused itself as co-designer.
+  Brief demands OUTCOME, not construction, and names the specific traps:
+   - write your own adversarial tests; the maker's before/after harness sources
+     the old script, so it is the maker's instrument measuring the maker's fix
+   - MEASURE the residual non-atomic window yourself (maker disclosed it exists,
+     claims ~grep+mv; a number the maker did not produce is the point)
+   - the opposite hazard: release() now refuses to delete without a token match,
+     so can a lock be permanently ORPHANED? trading a cascade for a deadlock is
+     not a fix
+   - the maker fixed three defects in its OWN test drafts mid-session and
+     replaced two real-race tests with deterministic sourced-function versions.
+     A test repaired until it passes is a different artifact from a test that
+     passed. Mutate the fix; watch each new assertion go red for the right reason.
+   - ISS-088 and ISS-089 are pre-existing and out of scope, but verify neither
+     got worse. The maker's 5 runs (30/29/28/28/28) attribute every failure to
+     ISS-089; re-derive that independently.
+  Weight stated in the brief: vc-testlock.sh is the mutex EVERY unit's test run
+  serialises through, so a defect here corrupts every other unit's evidence.
+ANOMALY THE MAKER DISCLOSED RATHER THAN BURIED (credit): run 5 logged 'PID not
+  running / breaking stale lock' for a process that was genuinely alive but
+  blocked in an 18s shim. Final assertion still passed. It attributes this to
+  the open ISS-088 (tasklist has no retry) and did not widen scope. Checker will
+  judge that attribution independently.
+NO OTHER UNIT DISPATCHED: 41/41 root manifests checked-PASS, 0 pending, and the
+  remaining ready work is behind the 7 human gates or serial behind T-010.
+  SERIAL: none - there is no second independent unit to run.
