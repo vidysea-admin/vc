@@ -1431,3 +1431,31 @@ MY OWN ERROR, AND IT IS THE CONSEQUENTIAL ONE. When Umesh asked what remains, I
 LEDGER: 291 ids / 147 open / 24 open critical+high, all now nameable.
 T-044 still in flight (ISS-111 + 112 + 113).
 AWAITING UMESH (7 gates) + the pagefile decision.
+
+--- tick 2026-09-28T08:34:43+05:30 ---
+STATE: ADVANCED (ledger + a finding about my own tooling). No dispatch: T-044 alive.
+T-044 agent ad28e5b8b274d2736 IS LIVE - output file mtime 08:31:13, 68s before this
+  check. Branch wave/t-044-lock-acquire-window still at 794b864 (the checker commit),
+  so it has not committed yet. Not disturbed, not duplicated.
+TWO STALE TASK-NOTIFICATIONS (T-039 stage 2, t-037 checker) - both re-fires of
+  agents that handed back at 02:57Z. No new work in either. Notification != task.
+PENDING-STATE SCAN: 41/41 root manifests checked-PASS, 0 pending. Agrees with the
+  hook line. But it took THREE readers to get there:
+    1. '^#*[[:space:]]*Status:'  -> 12 blanks (manifests write '**Status:**')
+    2. grep -oP ...              -> 41x 'grep: -P supports only unibyte and UTF-8
+                                    locales'; fallback printed 41x NO-STATUS-LINE
+    3. python re, coverage-asserted -> 41 checked-PASS, 0 other, 0 unparsed
+  Filed ISS-115. Reader #2 is the one that matters: it did not give a wrong
+  answer, it ERRORED ON EVERY INPUT and my own fallback turned that into a
+  uniform claim about the data. '41 manifests have no status line' would have
+  been reported as a finding if stderr had not been in the same stream.
+  Sixth reader of this one field to fail today. Two of the six were written by
+  me in the same minute I finished telling Umesh about the fifth. That is not
+  carelessness - it is the argument that reader-side discipline does not
+  survive contact, and it belongs in qa/gates/verdict-header-format.md as
+  evidence, not as another bug to fix.
+  NEW READER RULE (with ISS-114's name rule): assert coverage - non-empty input
+  set, a parse for every input - and FAIL LOUDLY. Never substitute a sentinel
+  that cannot be told apart from a real value.
+LEDGER: 612 rows / 292 ids / 148 open / 0 critical / 24 high (unchanged high set).
+AWAITING UMESH: 7 gates + the pagefile decision. Unchanged, not re-listed.
