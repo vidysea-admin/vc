@@ -1299,3 +1299,45 @@ AWAITING UMESH (7 gates): (1) confirm the six relayed decisions; (2)+(3) the two
   Plus ISS-052's premise failure, and the pagefile decision from ISS-109.
   NEARLY FREE: inbox Q1 appears already answered by his own auto-verify-surface
   answer - needs only his confirmation that it covers it.
+
+--- tick 2026-09-28T07:22:27+05:30 ---
+STATE: ADVANCED - a buildable unit found and dispatched. The queue is no longer
+  entirely gate-bound.
+ISS-111 FILED (high) and T-044 BUILD DISPATCHED. Found by reading AROUND ISS-110
+  instead of only at it: THE SAME LOCK BREAK HAPPENS WITH NOBODY HAND-ROLLING.
+  acquire() mkdirs the lock dir (line 219) and only THEN calls write_owner (220);
+  write_owner calls proc_start_ticks, a full PowerShell invocation (122). Between
+  those two lines THE DIR EXISTS WITH NO OWNER FILE - exactly what lock_is_stale()
+  declares orphaned after 10s (183-190).
+  MEASURED HERE, quiet machine, 3 runs: 4257 / 2250 / 2909 ms. So 2-4s against a
+  10s threshold - ~2.3x headroom from an UNBOUNDED cold PowerShell start. Under
+  the RAM contention this project keeps documenting (ISS-089's flake; last night
+  the machine could not start a worker thread at all), exceeding 10s is not a
+  stretch.
+  CONSEQUENCE identical to ISS-110: waiter breaks a LIVE, LEGITIMATELY-HELD lock
+  => two concurrent pnpm -r test => the ISS-109 OOM condition => a suite aborting
+  mid-load that reads as a code regression in packages/db, where the
+  student-data fence and erasure tests live.
+  => ISS-110 and ISS-111 are ONE HAZARD WITH TWO ENTRANCES.
+T-044 REMEDY: close the window, do NOT widen the threshold. Minimal owner file
+  (PID + ACQUIRED_AT, both free - self_winpid uses ps) written at mkdir, enriched
+  with STARTED after the probe, both via the existing atomic temp+mv. STARTED=
+  unknown is already handled by design (T-040's disclosed Gap 2, now load-bearing).
+  Widening the 10s rule would trade away fast recovery from genuinely crashed
+  locks to buy margin against an unbounded call.
+  Brief REQUIRES a regression test that fails against current code FIRST, with
+  before/after output recorded, and the true flake ratio over >=5 runs (ISS-089).
+PEER'S HARDENING QUESTION (unrecognised metadata file != empty dir): HELD, and
+  ISS-111 is the reason. That distinction only matters for hand-rolled locks,
+  which the peer has now banned in the memory. ISS-111 is the same fast-break
+  firing on CORRECTLY-FORMED usage and needs no change to break semantics. Fix
+  the real race first; if a hand-rolled lock reappears after that, the ban failed
+  and hardening is the wrong layer.
+PEER'S DISCLOSURE (8d6441d): it hand-rolled the mutex twice (01:35, 07:09) rather
+  than invoking the committed script, naming the file 'holder'. Computed its own
+  exposure: ~110 of 120 seconds breakable, on a night at 0.28 GB free. What
+  licensed it was a head -8 that truncated the root path out of its grep -
+  absence read as absence when it was truncation, the class again.
+SERIAL: T-035 waits on T-010 (gated D1+D2). T-038 gated. T-043 successor waits on
+  ISS-107's remedy. T-044 is the only ungated unit and it is in flight.
+AWAITING UMESH (7 gates, unchanged) + the pagefile decision (ISS-109 mechanism).
