@@ -1391,3 +1391,43 @@ RECUSAL: the peer co-designed this remedy and has recused itself from judging
   evidence helps but is not sufficient alone.
 LEDGER: 598 rows / 290 ids. T-044 in flight, scope = ISS-111 + 112 + 113.
 AWAITING UMESH (7 gates, unchanged) + the pagefile decision.
+
+--- tick 2026-09-28T07:33:49+05:30 ---
+STATE: ADVANCED + a correction I owe Umesh.
+PEER FOUND ISS-114 (90c1887): THE LEDGER IS WRITTEN IN TWO DIALECTS. Verified
+  here: 291 ids = 257 carrying 'title' (+feature/class/evidence) and 34 carrying
+  'summary'/'where'/'created' instead - the review agents (found_by =
+  ai-engineer / data-engineer / senior-software-engineer) write the second.
+  NOTHING IS MALFORMED. Both dialects are internally consistent and complete.
+  The defect exists ONLY in readers that assume one. That is why this is the
+  worst instance of the class so far: no amount of staring at the data reveals
+  it - only asserting the reader's COVERAGE does.
+  Peer already titled the 5 genuinely unnamed rows (ISS-107/110/111/112/113 -
+  MINE INCLUDED: I created 112 and 113 with 'note' only, so they would have
+  printed blank in my own sweeps). All 147 open ids now resolve a name.
+  Reader rule: name = title or summary, location = where or evidence, and a
+  reader that cannot name every row it is about to list must REFUSE, not print
+  blanks. Peer correctly did NOT rewrite the 34 review-agent rows: they are
+  complete, and in an append-only ledger a bulk re-key doubles every one.
+  4th field to reach the same conclusion (with regression_check, severity,
+  VERDICT): fix the reader; guarantee format at the WRITER where it must hold.
+MY OWN ERROR, AND IT IS THE CONSEQUENTIAL ONE. When Umesh asked what remains, I
+  framed the answer around TASK ROWS AND GATES and gave the open-issue count as
+  a bare number ('145 open, 22 high'). I never named a single open high issue.
+  That omitted FOUR CRISIS-DETECTION GAPS from a status report, including the
+  project's stated pilot blocker:
+    ISS-t-012-rev-4 (high) - held-out set: the crisis guard catches 10 of 28
+      crises, 0.357 against a 0.95 bar. THE STATED PILOT BLOCKER.
+    ISS-t-005c-c0-1 (high) - no pattern for indirect English suicidal ideation
+      (the classic warning-sign phrasing).
+    ISS-t-010-c0-4 (high) - a Devanagari self-harm phrase is missed by the
+      SHARED checkCrisis guard (not T-010's diff - it is on main).
+    ISS-t-012-rev-3 (high) - a no-consent session with a crisis turn produces
+      no escalation record at all.
+  Same shape as the peer's blank listing, reached differently: its reader
+  under-described four rows; my REPORT SCOPE excluded them entirely. A count is
+  not a description, and 'what is remaining' means the safety gaps too, not
+  just the unbuilt features. Correcting to Umesh this turn.
+LEDGER: 291 ids / 147 open / 24 open critical+high, all now nameable.
+T-044 still in flight (ISS-111 + 112 + 113).
+AWAITING UMESH (7 gates) + the pagefile decision.
