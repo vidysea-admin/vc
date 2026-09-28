@@ -1341,3 +1341,53 @@ PEER'S DISCLOSURE (8d6441d): it hand-rolled the mutex twice (01:35, 07:09) rathe
 SERIAL: T-035 waits on T-010 (gated D1+D2). T-038 gated. T-043 successor waits on
   ISS-107's remedy. T-044 is the only ungated unit and it is in flight.
 AWAITING UMESH (7 gates, unchanged) + the pagefile decision (ISS-109 mechanism).
+
+--- tick 2026-09-28T07:30:35+05:30 ---
+STATE: ADVANCED. T-044 scope WIDENED from one site to three.
+ROOT CAUSE RESTATED, and this replaces 'the window is the defect':
+  AN OPERATION ASSUMES THE LOCK DIRECTORY IT RESOLVED EARLIER IS STILL THE ONE IT
+  OWNS. $LOCK_DIR is a path re-resolved at every use; nothing binds a holder to
+  the directory it created. Three sites, one fix.
+  Site 1 = ISS-111, the acquire window (already in the brief).
+  Site 2 = ISS-113 (medium, NEW): write_owner ends mv -f "$tmp"
+    "$LOCK_DIR/owner" (line 176), resolving $LOCK_DIR fresh at write time. A
+    slow holder B still inside write_owner when waiter A breaks and re-mkdirs
+    lands its mv in A'S NEW DIRECTORY, overwriting A's owner file with B's PID.
+    A's lock then NAMES THE WRONG PROCESS. The atomic temp+mv prevents torn
+    reads - a real previously-fixed bug - and does nothing about the path being
+    resolved twice.
+  Site 3 = ISS-112 (high, NEW): release() is a bare rm -rf "$LOCK_DIR" under
+    trap release EXIT, NO OWNERSHIP CHECK. After ANY break the broken-from
+    holder is still alive and still trapped and on exit deletes WHOEVER HOLDS
+    THE PATH THEN. A breaks B, acquires; B exits and removes A's LIVE lock; C
+    acquires while A runs. EVERY BREAK CASCADES TO >=2 CONCURRENT HOLDERS AND
+    THE CASCADE OUTLIVES ITS CAUSE.
+WHY THIS CHANGED THE SCOPE CALL: fixing only the window removes one entrance and
+  leaves the amplifier, so the failure that matters (two concurrent pnpm -r test
+  = the ISS-109 OOM condition = a fake packages/db regression) SURVIVES THE FIX.
+  It is also why the remedy is 'close the window', not 'widen the threshold':
+  widening cuts the RATE of breaks and leaves each one just as damaging.
+MECHANISM SENT TO THE BUILDER: mint a token at acquire, write it into the minimal
+  owner file, hold it in a variable, and have BOTH the enrich step and release()
+  verify it before acting. Makes 'is this still my directory' checkable, which it
+  currently is nowhere. Fail-first regression tests required for both new sites.
+  Told the builder NOT to widen further: the RAM gate's advisory nature, the 10s
+  threshold, and the liveness/recycled-PID logic all stay exactly as they are.
+FIGURE CORRECTED (peer, accepted): headroom is ~3x not 2.3x - a waiter re-tests
+  only every POLL_SECS (5s, line 85) and the break needs age to EXCEED 10s.
+  Independent timing: self_winpid 136-530ms, proc_start_ticks 2051-2732ms.
+  Conclusion unchanged - a cold PowerShell start over 10s was ordinary last night.
+CAUSAL LINK TO ISS-109, verified: wait_for_ram gates on MIN_FREE_GB default 2.0
+  (line 86). Free physical was 1.69 GB when the peer ran the suite by hand, so
+  the committed path would have logged the shortfall and waited. PEER'S OWN
+  QUALIFICATION, which makes it credible: the gate is ADVISORY - after 15 retries
+  it returns 0 and runs anyway. So it would have DELAYED AND ANNOUNCED, not
+  refused: the difference between a printed line and an hour of forensics.
+RECUSAL: the peer co-designed this remedy and has recused itself from judging
+  T-044. Sharpened and accepted - the risk is not only agreeing with your own
+  design but READING THE INTENT INTO THE CODE and not noticing the
+  implementation missing it. T-044's checker will be a FRESH agent briefed from
+  the issue rows, with no knowledge of this exchange. Fail-first regression
+  evidence helps but is not sufficient alone.
+LEDGER: 598 rows / 290 ids. T-044 in flight, scope = ISS-111 + 112 + 113.
+AWAITING UMESH (7 gates, unchanged) + the pagefile decision.
