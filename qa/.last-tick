@@ -1244,3 +1244,58 @@ Temp-tree largest consumers, information only, none of it this project's:
   pytest-of-Lenovo 532 MB, dbtiming_vss5938o 337 MB, DockerDesktopUpdates 307 MB
   (~7.3 GB in the top six).
 AWAITING UMESH (8 gates) + THE DISK, which now blocks all eight regardless.
+
+--- tick 2026-09-28T07:16:03+05:30 ---
+STATE: ADVANCED, then HUMAN_GATE (7). MACHINE UNBLOCKED.
+DISK RESOLVED BY UMESH: C: 0.37 -> 67.68 GB free; physical 0.46 -> 2.55 GB;
+  virtual 6.30 -> 14.35. Verified BY OUTCOME, not by the disk number:
+  FULL SUITE RE-RAN TO COMPLETION under the lock, exit 0, log 194428 bytes on D:
+    tests 1237 / pass 1192 / fail 0 / skipped 45
+    - including packages/db, whose four files aborted mid-load last night
+  pnpm -r typecheck: 9/9 Done, 0 errors
+  Peer independently reproduced all four numbers on its own run (0e488e1).
+=> ISS-107's exposure (b) DISCHARGED. The figure T-043's close-out rests on is
+   now confirmed rather than merely consistent. The caveat cost nothing and was
+   right to write: at the time it was two consistent runs through a %TEMP% on a
+   failing volume, which is not the same as evidence.
+ISS-109: I marked it CLOSED, peer kept it fixed/medium, PEER IS RIGHT - CORRECTED.
+  Freeing C: removed the INSTANCE, not the MECHANISM: the pagefile still lives on
+  C: (55520 MB allocated), so when that volume next fills the same disguise
+  returns - an aborted suite reading as a regression in packages/db, where the
+  student-data fence and erasure tests live. 'Symptom gone' != 'cannot recur'.
+  Durable fix (headroom monitoring / move-resize the pagefile) is machine-level,
+  outside the bound root => Umesh.
+ISS-110 FILED (high): THE LOCK LIVENESS CHECK CAN STEAL A LIVE LOCK. Two stacked
+  format mismatches, BOTH failing toward stealing: (1) the metadata file is
+  'owner', not 'holder' (write_owner, vc-testlock.sh:176); (2) the PID inside is
+  a WINPID, so ps|awk '$1==pid' compares it to the MSYS pid column and reads a
+  live process as dead (matches on $4). Either alone misreads; together the
+  misread looks corroborated. Real near-miss: peer hit both at 07:06 against a
+  15-SECOND-OLD LIVE LOCK (mine). NOT merely a race - two concurrent pnpm -r test
+  runs IS the ISS-109 memory condition, so a stolen lock can manufacture exactly
+  the fake packages/db regression we just disproved. Authoritative format
+  recorded. Committed script here is CORRECT; the wrong guidance is in the peer's
+  standing brief, outside both surfaces - filed so it outlives the session.
+ISS-104 PREDICTION CONFIRMED AND SELF-DEMONSTRATED: count 38 -> 39 -> 40. The new
+  root breaching file is qa/gates/data-boundary-safe-domains.md - THE GATE
+  WRITTEN TO DOCUMENT WHY THE COUNT GROWS, breaching because it enumerates the
+  three values to explain them. No new value or breach class.
+PEER INSTRUMENT NOTES: node emits 'i pass N' not '# pass N' - the obvious grep
+  would report ZERO tests; its reader now discovers the reporter's keywords and
+  asserts 9x6 markers. And a /d/ path was FileNotFoundError to Windows Python
+  while wc -c read 194346 bytes on the same string - 'file not found' is also a
+  claim about the instrument. Peer's inbox count correction: STILL 14 UNFOLDED,
+  hold intact, nobody folded anything (its 4th self-caught reader tonight).
+TASKS: 37 of 43 done. Remaining: T-010 STALLED (D1+D2), T-035 serial behind it,
+  T-038 product decision, T-000 deferred, plus B17/B19/B22, Hindi i18n, activity
+  timeline, ISS-051.
+LEDGER: 594 rows / 287 ids / 145 open (0 critical, 22 high).
+SERIAL: every remaining unit waits on a gate answer. The machine is no longer a
+  blocker on any of them.
+AWAITING UMESH (7 gates): (1) confirm the six relayed decisions; (2)+(3) the two
+  B18 gates together (also releases 11 of the 14 inbox questions); (4)
+  hook-raw-count-fixes (Approved-by); (5) data-boundary-safe-domains; (6)
+  p2-application-drafting-scope; (7) verdict-header-format (not urgent).
+  Plus ISS-052's premise failure, and the pagefile decision from ISS-109.
+  NEARLY FREE: inbox Q1 appears already answered by his own auto-verify-surface
+  answer - needs only his confirmation that it covers it.
