@@ -76,6 +76,36 @@
 #
 # Release: a trap on EXIT/INT/TERM always removes the lock directory, so a crashed or killed runner
 # cannot hold the lock forever (the second historical death this script exists to prevent).
+#
+# T-044 (ISS-111) -- ownership token, closing three sites of the SAME root cause: an operation
+#   assumed the lock directory it resolved earlier is still the one it owns, when $LOCK_DIR is
+#   just a path, re-resolved at every use, with nothing binding a holder to the specific directory
+#   it created.
+#   - Site 1 (the acquire window): the original write_owner() ran self_winpid AND the slow
+#     proc_start_ticks PowerShell call BEFORE writing any owner file, so a fresh mkdir sat with no
+#     owner file for the whole PowerShell cold start (measured 2.3-4.3s against the 10s "no owner
+#     file" orphan threshold in lock_is_stale() -- real, but thin headroom under this project's
+#     documented RAM contention). Fixed: write_owner_minimal() writes PID+ACQUIRED_AT+TOKEN
+#     immediately after mkdir, using only self_winpid (no PowerShell) -- lock_is_stale() sees a
+#     real, alive PID from that instant on, however long the enrich step takes.
+#   - Site 2 (write_owner's mv landing in the wrong directory): if a slow enrich's directory was
+#     broken and re-mkdir'd by another acquirer in the meantime, the old single write_owner()'s
+#     final `mv` still landed in the NEW owner's directory, silently overwriting their PID/STARTED
+#     with the old holder's. Fixed: write_owner_enrich() checks the directory still carries the
+#     TOKEN it was given before writing; a mismatch is a no-op (plus a log line), and acquire()
+#     treats that as "lost it, retry" rather than proceeding as if it still held the lock.
+#   - Site 3 (release() had no ownership check): a bare `rm -rf "$LOCK_DIR"` under `trap release
+#     EXIT` deleted whatever was AT that path on exit, regardless of whether it was still this
+#     process's lock -- including a live holder's directory after any break (this session's own,
+#     a mistaken stale judgment, or a hand-rolled lock, ISS-110), or even a lock this process never
+#     acquired at all (e.g. it hit ACQUIRE_TIMEOUT_SECS and exited 75 while someone else legitimately
+#     held it). That turned every break into a cascade of at least two concurrent holders that
+#     outlived the condition that caused the first break. Fixed: release() only removes the
+#     directory when its current TOKEN still matches the one this process wrote when it acquired
+#     the lock; LOCK_TOKEN unset (never acquired) or a token mismatch (broken/superseded) both skip
+#     the removal.
+#   A token is not a Windows PID and is never passed to tasklist/Get-Process -- it exists purely to
+#   answer "is this still the directory I created", which nothing here answered before.
 
 set -uo pipefail
 
@@ -157,20 +187,74 @@ dir_age_secs() {
   echo $(( $(date +%s) - mtime ))
 }
 
-write_owner() {
-  # Written to a temp file and moved into place with `mv` (atomic rename on the same filesystem)
-  # rather than written directly to "$LOCK_DIR/owner" -- a concurrent waiter's lock_is_stale() reads
-  # that file with no synchronisation of its own, and a direct in-place write let a reader observe a
-  # torn/partial write (e.g. a truncated PID) and misjudge a genuinely live owner as dead. Found
-  # while testing this script (Test 2 in vc-testlock.test.sh), not a hypothetical.
-  local winpid started tmp
-  winpid=$(self_winpid)
-  started=$(proc_start_ticks "$winpid")
+# A short, opaque value unique to THIS acquisition of the lock directory -- not to be confused
+# with the owning PID. It identifies the ACQUISITION (this specific mkdir), so later code can tell
+# "my directory" apart from "a directory of the same name that a break-and-recreate cycle replaced
+# it with" (see write_owner_enrich and release, both ISS-111 findings). Uniqueness only needs to
+# hold across concurrent acquirers on this one machine, so wall-clock ns + this process's (MSYS)
+# pid + $RANDOM is enough -- this is never compared against a Windows PID and never fed to
+# tasklist/Get-Process, so the usual WINPID gotcha does not apply to it.
+gen_token() {
+  printf '%s-%s-%s' "$(date +%s%N 2>/dev/null || date +%s)" "$$" "$RANDOM"
+}
+
+# Reads the TOKEN field of the CURRENT owner file at $LOCK_DIR/owner, or empty if there is none /
+# it's unparseable. Used by write_owner_enrich and release to check "do I still own this
+# directory" before acting on it.
+owner_token() {
+  grep -o '^TOKEN=.*' "$LOCK_DIR/owner" 2>/dev/null | cut -d= -f2-
+}
+
+# Writes the MINIMAL owner file -- PID + ACQUIRED_AT + TOKEN + DESC, STARTED left "unknown" for
+# now -- as fast as possible, using only self_winpid (no PowerShell). This closes ISS-111 Site 1:
+# the previous single write_owner() ran self_winpid AND the slow proc_start_ticks PowerShell call
+# BEFORE writing anything, so the directory had no owner file for the whole PowerShell cold start
+# (measured 2.3-4.3s against lock_is_stale()'s 10s "no owner file" orphan threshold -- real but
+# thin headroom). The instant this minimal file lands, lock_is_stale() sees a real, alive PID and
+# will not treat the directory as orphaned, regardless of how long the enrich step below takes.
+# Written via the same atomic temp-file + `mv -f` pattern as before (Test 2's torn-read fix) --
+# both writes in this file go through it, so a reader never sees a partial write.
+# Sets the caller's ACQUIRE_WINPID (consumed by write_owner_enrich) as a side effect.
+write_owner_minimal() {
+  local token="$1"; shift
+  local tmp
+  ACQUIRE_WINPID=$(self_winpid)
   tmp="$LOCK_DIR/.owner.tmp.$$"
   {
-    echo "PID=${winpid:-unknown}"
+    echo "PID=${ACQUIRE_WINPID:-unknown}"
+    echo "STARTED=unknown"
+    echo "ACQUIRED_AT=$LOCK_ACQUIRED_AT"
+    echo "TOKEN=$token"
+    echo "DESC=$*"
+  } > "$tmp"
+  mv -f "$tmp" "$LOCK_DIR/owner"
+}
+
+# Enriches the owner file with STARTED once proc_start_ticks (the slow PowerShell call) returns --
+# but ONLY if the directory still carries OUR token. Without this check (ISS-111 Site 2), a slow
+# enrich whose directory was broken and re-mkdir'd by someone else in the meantime would still `mv`
+# its file into place -- landing silently in the NEW owner's directory and overwriting their
+# PID/STARTED with ours, so a later waiter tests the wrong process's liveness while the real
+# current owner holds the lock. Returns 1 (and writes nothing) on a token mismatch; the caller
+# (acquire) treats that as "lost the lock immediately after taking it" and retries.
+# NOTE: the token check-then-mv is not atomic -- a break landing in the few instructions between
+# the check and the `mv` is still possible in principle. It shrinks the previous multi-second
+# PowerShell-cold-start window to roughly a `grep`+`mv`, not zero; disclosed as a residual gap.
+write_owner_enrich() {
+  local token="$1"; shift
+  local started tmp cur_token
+  started=$(proc_start_ticks "$ACQUIRE_WINPID")
+  cur_token=$(owner_token)
+  if [ "$cur_token" != "$token" ]; then
+    log "write_owner_enrich: lock dir token changed (ours [$token], now [${cur_token:-<none>}]) -- not enriching, this directory is no longer ours"
+    return 1
+  fi
+  tmp="$LOCK_DIR/.owner.tmp.$$"
+  {
+    echo "PID=${ACQUIRE_WINPID:-unknown}"
     echo "STARTED=${started:-unknown}"
-    echo "ACQUIRED_AT=$(date +%s)"
+    echo "ACQUIRED_AT=$LOCK_ACQUIRED_AT"
+    echo "TOKEN=$token"
     echo "DESC=$*"
   } > "$tmp"
   mv -f "$tmp" "$LOCK_DIR/owner"
@@ -212,13 +296,25 @@ lock_is_stale() {
 }
 
 acquire() {
-  local start_ts elapsed announced
+  local start_ts elapsed announced token
   start_ts=$(date +%s)
   announced=0
   while true; do
     if mkdir "$LOCK_DIR" 2>/dev/null; then
-      write_owner "$@"
-      return 0
+      LOCK_ACQUIRED_AT=$(date +%s)
+      token=$(gen_token)
+      LOCK_TOKEN="$token"
+      write_owner_minimal "$token" "$@"
+      if write_owner_enrich "$token" "$@"; then
+        return 0
+      fi
+      # Lost the directory to another acquirer between the minimal write and the enrich (ISS-111
+      # Site 2's mismatch case, caught rather than silently overwritten). We do not hold this lock
+      # -- clear the token so our own EXIT trap (release, Site 3) does not touch whatever directory
+      # exists now, and go back around to compete for it like any other waiter.
+      LOCK_TOKEN=""
+      log "acquire: lost the lock immediately after taking it -- retrying"
+      continue
     fi
 
     # The timeout check MUST run unconditionally on every iteration, before the stale-break
@@ -253,6 +349,27 @@ acquire() {
 }
 
 release() {
+  # Only remove the lock directory if it still carries the token we wrote when we acquired it
+  # (ISS-111 Site 3). The previous bare `rm -rf` got this wrong in two ways:
+  #   (a) we never actually finished acquiring (e.g. acquire() hit ACQUIRE_TIMEOUT_SECS and called
+  #       `exit 75` -- this trap still fires) -- LOCK_TOKEN is unset, so we own nothing at
+  #       LOCK_DIR and must not touch it: it may be a live holder's directory the whole time we
+  #       were waiting for it;
+  #   (b) we DID acquire, but our lock was later broken by a waiter who misjudged it stale (or hand
+  #       -rolled one, ISS-110) and took over -- the directory now carries a DIFFERENT token, and
+  #       removing it on our own exit would delete THEIR live lock. That is the cascade: A breaks
+  #       B and acquires; B's unconditional release() then deletes A's live lock; C acquires while
+  #       A is still running. Every break used to convert into at least two concurrent holders, and
+  #       the cascade outlived the condition that caused the first break.
+  if [ -z "${LOCK_TOKEN:-}" ]; then
+    return 0
+  fi
+  local cur_token
+  cur_token=$(owner_token)
+  if [ "$cur_token" != "$LOCK_TOKEN" ]; then
+    log "release: lock dir token changed (ours [$LOCK_TOKEN], now [${cur_token:-<none>}]) -- not removing, it is no longer ours"
+    return 0
+  fi
   rm -rf "$LOCK_DIR" 2>/dev/null || true
 }
 
@@ -273,13 +390,20 @@ wait_for_ram() {
   return 0
 }
 
-trap release EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+# Only run the wrapper when EXECUTED directly (bash scripts/vc-testlock.sh ...). When SOURCED
+# instead, only the function/variable definitions above load and nothing runs automatically --
+# vc-testlock.test.sh does this to reach write_owner_minimal / write_owner_enrich / release /
+# gen_token directly, so ISS-111 Site 2/3's token-ownership guards can be tested deterministically
+# instead of by trying to win a real, sub-second race window.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  trap release EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
 
-acquire "$@"
-free_gb=$(wait_for_ram)
-log "running (free RAM ${free_gb} GB): $*"
-"$@"
-status=$?
-exit $status
+  acquire "$@"
+  free_gb=$(wait_for_ram)
+  log "running (free RAM ${free_gb} GB): $*"
+  "$@"
+  status=$?
+  exit $status
+fi

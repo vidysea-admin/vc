@@ -69,6 +69,25 @@ pick_dead_pid() {
   echo "$candidate"
 }
 
+# Creates a directory containing a fake `powershell` that sleeps N seconds before delegating to the
+# real one, and prints its path. Used by the T-044/ISS-111 regression tests (8, 9) to make
+# proc_start_ticks -- the slow PowerShell call inside write_owner_enrich (new code) / the single
+# write_owner (old code) -- take an arbitrarily long, DETERMINISTIC time, instead of depending on
+# this machine's actual PowerShell cold-start latency (measured 2.3-4.3s, not reliably reproducible
+# on demand) to exercise the acquire-window race.
+REAL_POWERSHELL=$(command -v powershell)
+make_slow_powershell_shim() {
+  local secs="$1" dir
+  dir=$(mktemp -d)
+  cat > "$dir/powershell" <<SHIMEOF
+#!/usr/bin/env bash
+sleep $secs
+exec "$REAL_POWERSHELL" "\$@"
+SHIMEOF
+  chmod +x "$dir/powershell"
+  echo "$dir"
+}
+
 COMMON_ENV=(VC_TESTLOCK_MIN_FREE_GB=0 VC_TESTLOCK_POLL_SECS=1)
 
 echo "== Test 1: acquire/release round trip =="
@@ -171,13 +190,147 @@ echo "== Test 7: release happens on SIGTERM (interrupted runner) =="
 BASE=$(mktemp -d); LOCK="$BASE/lock"
 env "${COMMON_ENV[@]}" VC_TESTLOCK_DIR="$LOCK" bash "$SCRIPT" sleep 30 &
 WRAPPER_PID=$!
-for i in $(seq 1 30); do [ -d "$LOCK" ] && break; sleep 0.2; done
-[ -d "$LOCK" ]; assert_eq "SIGTERM: the wrapper actually acquired the lock before being killed" "0" "$?"
+# Wait for the OWNER FILE (with a real PID), not just the directory (T-044/ISS-111): mkdir
+# succeeding no longer means the wrapper has finished acquiring -- write_owner_minimal still has to
+# run (self_winpid, then an atomic mv) before LOCK_TOKEN and the on-disk owner file exist. Polling
+# on directory-existence alone raced ahead of that and could SIGTERM the wrapper before it had
+# anything of its own to release, at which point the (correct, post-fix) ownership-aware release()
+# rightly declines to touch a directory it never finished claiming -- this is the same
+# dir-exists-is-not-acquired gap T-044 closes in acquire() itself, surfacing here in the test's own
+# synchronisation once release() stopped deleting unconditionally.
+for i in $(seq 1 50); do grep -q '^PID=' "$LOCK/owner" 2>/dev/null && break; sleep 0.1; done
+grep -q '^PID=' "$LOCK/owner" 2>/dev/null; assert_eq "SIGTERM: the wrapper actually acquired the lock before being killed" "0" "$?"
 kill -TERM "$WRAPPER_PID" 2>/dev/null
 wait "$WRAPPER_PID" 2>/dev/null
 for i in $(seq 1 30); do [ ! -d "$LOCK" ] && break; sleep 0.2; done
 [ ! -d "$LOCK" ]; assert_eq "SIGTERM: lock dir removed after the wrapper is killed (does not hold forever)" "0" "$?"
 rm -rf "$BASE"
+
+echo "== Test 8 (T-044/ISS-111 REGRESSION -- Site 1, the acquire window): a slow write_owner must never open a break window for a live holder =="
+BASE=$(mktemp -d); LOCK="$BASE/lock"
+SHIM_DIR=$(make_slow_powershell_shim 18)
+OVERLAP_LOG="$BASE/overlap.log"
+: > "$OVERLAP_LOG"
+
+# H: PATH-shimmed so its slow PowerShell call takes ~18s -- comfortably past the 10s orphan
+# threshold plus a full default 5s poll interval, so a waiter gets at least 1-2 real chances to
+# judge the directory stale while H is still legitimately working on acquiring/holding it.
+env VC_TESTLOCK_DIR="$LOCK" VC_TESTLOCK_MIN_FREE_GB=0 PATH="$SHIM_DIR:$PATH" \
+  bash "$SCRIPT" bash -c "printf 'H_START %s\n' \"\$(date +%s%N)\" >> '$OVERLAP_LOG'; sleep 4; printf 'H_END %s\n' \"\$(date +%s%N)\" >> '$OVERLAP_LOG'" &
+H_PID=$!
+
+for i in $(seq 1 50); do [ -d "$LOCK" ] && break; sleep 0.1; done
+[ -d "$LOCK" ]; assert_eq "Site 1 setup: H's mkdir succeeded" "0" "$?"
+
+# W: UNSHIMMED PATH, default POLL_SECS (5s) and default 10s orphan threshold -- the actual
+# production values ISS-111 is about, not this suite's usual sped-up COMMON_ENV. Generous timeout
+# (90s) because the property under test is "never breaks a live lock", not "breaks in under Ns" --
+# W timing out having NEVER broken in is just as valid a pass as W succeeding once H legitimately
+# releases; see the three-way check below.
+env VC_TESTLOCK_DIR="$LOCK" VC_TESTLOCK_MIN_FREE_GB=0 VC_TESTLOCK_TIMEOUT_SECS=90 \
+  bash "$SCRIPT" bash -c "printf 'W_START %s\n' \"\$(date +%s%N)\" >> '$OVERLAP_LOG'; sleep 1; printf 'W_END %s\n' \"\$(date +%s%N)\" >> '$OVERLAP_LOG'" &
+W_PID=$!
+
+wait "$H_PID" 2>/dev/null
+wait "$W_PID" 2>/dev/null
+
+H_END_NS=$(grep '^H_END' "$OVERLAP_LOG" | head -1 | awk '{print $2}')
+W_START_NS=$(grep '^W_START' "$OVERLAP_LOG" | head -1 | awk '{print $2}')
+# Three possible honest outcomes, only one of which is a violation:
+#   (a) W never started at all (timed out waiting) -- safe: it never broke H's live lock.
+#   (b) W started, but only at/after H's own legitimate finish -- safe: ordinary mutual exclusion.
+#   (c) W started BEFORE H finished -- a live lock was broken. This is the only failure.
+if [ -z "$W_START_NS" ]; then
+  pass "Site 1: W never broke H's live lock (timed out waiting rather than stealing it)"
+elif [ -n "$H_END_NS" ] && [ "$W_START_NS" -ge "$H_END_NS" ]; then
+  pass "Site 1: W only started after H's own wrapped command legitimately finished (H's live lock was never broken)"
+else
+  fail "Site 1: H's live lock was never broken" "W started at $W_START_NS, before H's legitimate finish (H_END=${H_END_NS:-<H never finished>}) -- W broke a live lock"
+fi
+rm -rf "$BASE" "$SHIM_DIR"
+
+echo "== Test 9 (T-044/ISS-111 REGRESSION -- Site 2): a slow enrich must not silently overwrite a directory that changed hands =="
+# Deterministic, not timing-based: source the script as a LIBRARY (safe -- the wrapper at the
+# bottom only runs when executed directly, see the sourcing guard) to call write_owner_minimal /
+# write_owner_enrich directly. An earlier version of this test tried to win the real race (a
+# concurrent process backed by a shimmed-slow PowerShell) and was itself unreliable: the acquirer
+# under test kept correctly detecting a FIRST, deliberately-injected mismatch, clearing its token,
+# and retrying -- which is exactly Site 1's fix working as intended, but it meant the externally
+# staged "other holder" state didn't reliably survive long enough to sample. Calling the guarded
+# functions directly removes that whole timing dependency and tests the ownership check itself.
+BASE=$(mktemp -d); LOCK="$BASE/lock"
+mkdir "$LOCK"
+export VC_TESTLOCK_DIR="$LOCK"
+export VC_TESTLOCK_MIN_FREE_GB=0
+source "$SCRIPT"
+LOCK_ACQUIRED_AT=$(date +%s)
+MY_TOKEN=$(gen_token)
+write_owner_minimal "$MY_TOKEN" mine
+assert_eq "Site 2 setup: our minimal write landed our own token" "$MY_TOKEN" "$(owner_token)"
+
+# Simulate the interleaving ISS-111 describes: another acquirer broke this directory and took over
+# while our own (real) proc_start_ticks call was still in flight, before we ever got to enrich.
+rm -rf "$LOCK"; mkdir "$LOCK"
+OTHER_TOKEN="site2-other-holder-$(date +%s%N)"
+printf 'PID=999995\nSTARTED=unknown\nACQUIRED_AT=%s\nTOKEN=%s\nDESC=other-holder\n' "$(date +%s)" "$OTHER_TOKEN" > "$LOCK/owner"
+
+write_owner_enrich "$MY_TOKEN" mine
+ENRICH_RC=$?
+assert_eq "Site 2: write_owner_enrich detects the ownership change and refuses to write (rc=1)" "1" "$ENRICH_RC"
+assert_eq "Site 2: the other holder's owner file survives untouched, not ours" "$OTHER_TOKEN" "$(owner_token)"
+rm -rf "$BASE"
+
+echo "== Test 10 (T-044/ISS-111 REGRESSION -- Site 3): release() must not delete a lock that changed hands =="
+# Deterministic too, for the same reason as Test 9 -- and it catches a real bug an earlier,
+# real-process version of this test had: waiting only for B's owner file's PID (not for B to be
+# fully past its OWN enrich) let B's still-running acquire() loop notice the externally-injected
+# "A" state itself, correctly judge A's fake dead PID stale, and re-break it before this test's own
+# assertions ever ran -- a false failure caused by the test, not the script. Calling release()
+# directly sidesteps that: no other code path is running to interfere.
+BASE=$(mktemp -d); LOCK="$BASE/lock"
+mkdir "$LOCK"
+LOCK_DIR="$LOCK"   # repoint at a fresh dir; functions already sourced by Test 9 above
+LOCK_ACQUIRED_AT=$(date +%s)
+B_TOKEN=$(gen_token)
+LOCK_TOKEN="$B_TOKEN"
+write_owner_minimal "$B_TOKEN" b-holder
+write_owner_enrich "$B_TOKEN" b-holder >/dev/null 2>&1 || true
+
+# Someone else (A) broke B's directory and took over -- however that happened (ISS-110's hand-rolled
+# lock is one real way; a mistaken stale judgment is another). Site 3 is about what happens AFTER.
+rm -rf "$LOCK_DIR"; mkdir "$LOCK_DIR"
+A_TOKEN="a-holder-token-$(date +%s%N)"
+printf 'PID=999994\nSTARTED=unknown\nACQUIRED_AT=%s\nTOKEN=%s\nDESC=a-holder\n' "$(date +%s)" "$A_TOKEN" > "$LOCK_DIR/owner"
+
+release   # simulates B's own EXIT trap firing, with B's (now-stale) LOCK_TOKEN still set
+[ -d "$LOCK_DIR" ]; assert_eq "Site 3: A's directory still exists after B's own (unrelated) release fires" "0" "$?"
+assert_eq "Site 3: A's owner file survives B's release() untouched" "$A_TOKEN" "$(owner_token)"
+
+# Sub-case: B never actually finished acquiring at all (e.g. it hit ACQUIRE_TIMEOUT_SECS and exited
+# 75 while someone else legitimately held the lock) -- LOCK_TOKEN must be unset, and release() must
+# still not touch whatever directory is there.
+LOCK_TOKEN=""
+release
+[ -d "$LOCK_DIR" ]; assert_eq "Site 3b: a never-acquired caller's release() does not delete a live holder's dir" "0" "$?"
+assert_eq "Site 3b: that holder's owner file is untouched" "$A_TOKEN" "$(owner_token)"
+rm -rf "$BASE"
+
+echo "== Test 11 (T-044/ISS-111 REGRESSION -- Site 3b): a caller that never acquired must not delete a live holder's lock on its own timeout exit =="
+bash -c 'sleep 20' &
+LIVE2_MSYS_PID=$!
+LIVE2_WINPID=$(winpid_of "$LIVE2_MSYS_PID")
+LIVE2_STARTED=$(start_ticks_of "$LIVE2_WINPID")
+BASE=$(mktemp -d); LOCK="$BASE/lock"
+mkdir "$LOCK"
+printf 'PID=%s\nSTARTED=%s\nACQUIRED_AT=%s\nTOKEN=genuine-live-holder\nDESC=genuine\n' "$LIVE2_WINPID" "$LIVE2_STARTED" "$(date +%s)" > "$LOCK/owner"
+env "${COMMON_ENV[@]}" VC_TESTLOCK_DIR="$LOCK" VC_TESTLOCK_TIMEOUT_SECS=3 bash "$SCRIPT" true
+RC11=$?
+assert_eq "Site 3b: a waiter that times out on a genuinely live lock exits 75" "75" "$RC11"
+[ -d "$LOCK" ]; assert_eq "Site 3b: the live holder's lock survives the timed-out waiter's own exit" "0" "$?"
+SURVIVING2=$(grep -o '^TOKEN=.*' "$LOCK/owner" 2>/dev/null | cut -d= -f2-)
+assert_eq "Site 3b: the live holder's owner file is untouched" "genuine-live-holder" "$SURVIVING2"
+kill "$LIVE2_MSYS_PID" 2>/dev/null; wait "$LIVE2_MSYS_PID" 2>/dev/null
+rm -rf "$LOCK" "$BASE"
 
 echo
 echo "== Summary: $PASS passed, $FAIL failed =="
