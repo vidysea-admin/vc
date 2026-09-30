@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { MemorySaver } from "@langchain/langgraph";
-import { COLLECTION_NAMES, TenantScopeError, tenantScopedDb } from "@vc/db";
+import { COLLECTION_NAMES, TenantScopeError, tenantScopedDb, StudentFencedError, FencedWriterDeadlineError, erasureFenceKey } from "@vc/db";
 import { createFakeDb, INDEX_PLAN, type FakeDb } from "@vc/db/testing";
 import { MockProvider, type GenerateRequest, type LlmProvider } from "@vc/providers";
 import {
@@ -330,7 +330,8 @@ test("T-012 E10: the collection names used at the call sites are the exported co
   const used = [...src.matchAll(/\.collection<[^>]*>\("([^"]+)"\)/g)].map((m) => m[1]).sort();
   assert.deepEqual(used, [CRISIS_FLAG_REVIEWS_COLLECTION, ESCALATION_NOTIFICATIONS_COLLECTION].sort());
   assert.ok(!used.includes("email_outbox"));
-  assert.ok(!(Object.values(COLLECTION_NAMES) as string[]).includes(ESCALATION_NOTIFICATIONS_COLLECTION), "own collection, not a shared one");
+  assert.ok((Object.values(COLLECTION_NAMES) as string[]).includes(ESCALATION_NOTIFICATIONS_COLLECTION), "registered for lifecycle coverage");
+  assert.ok((Object.values(COLLECTION_NAMES) as string[]).includes(CRISIS_FLAG_REVIEWS_COLLECTION), "registered for lifecycle coverage");
 });
 
 // ---------------------------------------------------------------------------
@@ -423,3 +424,318 @@ test("T-012 E14: without `escalation` the scribe writes no escalation record (ba
 // Keep the doc type referenced so a shape change is a compile error here too.
 const _shape: (keyof EscalationNotificationDoc)[] = ["recipient", "notifiedAt", "flaggedAt", "acknowledgedAt"];
 void _shape;
+
+
+async function setSafetyFence(w: World): Promise<void> {
+  await w.db.collection(COLLECTION_NAMES.erasure_fences).insertOne({
+    _id: erasureFenceKey(STUDENT), studentKey: erasureFenceKey(STUDENT),
+    createdAt: new Date().toISOString(), requestId: "synthetic-fence",
+  } as never);
+}
+
+function holdSafetyUpdate(w: World, name: string, predicate: (update: Record<string, unknown>) => boolean) {
+  const c = w.fakeDb.collection<AnyDoc>(name);
+  const original = c.updateOne.bind(c);
+  let release!: () => void;
+  let entered!: () => void;
+  const reached = new Promise<void>((r) => { entered = r; });
+  const held = new Promise<void>((r) => { release = r; });
+  let once = false;
+  c.updateOne = async (...args: Parameters<typeof c.updateOne>) => {
+    if (!once && predicate(args[1] as Record<string, unknown>)) { once = true; entered(); await held; }
+    return original(...args);
+  };
+  return { reached, release };
+}
+
+test("T-035: initial review and notification writes held across a fence leave zero owned insert residue", async () => {
+  for (const name of [CRISIS_FLAG_REVIEWS_COLLECTION, ESCALATION_NOTIFICATIONS_COLLECTION]) {
+    const w = world();
+    const hold = holdSafetyUpdate(w, name, (u) => "$setOnInsert" in u);
+    const pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps);
+    const rejected = assert.rejects(pending, StudentFencedError);
+    await hold.reached;
+    await setSafetyFence(w);
+    hold.release();
+    await rejected;
+    assert.deepEqual(w.fakeDb.collection<AnyDoc>(name).all(), [], name);
+  }
+});
+
+test("T-035: annotation fencing restores only its fields and keeps a pre-existing review row", async () => {
+  const w = world();
+  await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
+  const before = JSON.stringify(w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION).all());
+  const hold = holdSafetyUpdate(w, CRISIS_FLAG_REVIEWS_COLLECTION, (u) => Boolean((u.$set as Record<string, unknown> | undefined)?.classifier));
+  const replay = await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps);
+  await hold.reached;
+  await setSafetyFence(w);
+  hold.release();
+  await replay.review;
+  assert.equal(JSON.stringify(w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION).all()), before);
+});
+
+test("T-035: acknowledgement held across fencing restores its own annotation, never deletes notification", async () => {
+  const w = world();
+  await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
+  const before = JSON.stringify(rawNotifications(w));
+  const [n] = await readEscalations(w.db, { sessionId: SESSION });
+  const hold = holdSafetyUpdate(w, ESCALATION_NOTIFICATIONS_COLLECTION, (u) => Boolean((u.$set as Record<string, unknown> | undefined)?.acknowledgedAt));
+  const pending = acknowledgeEscalation(w.db, { notificationId: n!._id, acknowledgedBy: "admin-1" });
+  const rejected = assert.rejects(pending, StudentFencedError);
+  await hold.reached;
+  await setSafetyFence(w);
+  hold.release();
+  await rejected;
+  assert.equal(JSON.stringify(rawNotifications(w)), before);
+  await assert.rejects(acknowledgeEscalation(w.db, { notificationId: n!._id, acknowledgedBy: "admin-1" }), StudentFencedError);
+});
+
+test("T-035: a notification replay compensation preserves the prior invocation's raw records", async () => {
+  const w = world();
+  await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
+  const before = JSON.stringify(rawNotifications(w));
+  const hold = holdSafetyUpdate(w, ESCALATION_NOTIFICATIONS_COLLECTION, (u) => "$setOnInsert" in u);
+  const pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps);
+  const rejected = assert.rejects(pending, StudentFencedError);
+  await hold.reached;
+  await setSafetyFence(w);
+  hold.release();
+  await rejected;
+  assert.equal(JSON.stringify(rawNotifications(w)), before);
+});
+
+test("T-035: timeout observes late insert settlement and removes only its own records", async () => {
+  const w = world();
+  w.deps.writerDeadlineMs = 50;
+  const hold = holdSafetyUpdate(w, CRISIS_FLAG_REVIEWS_COLLECTION, (u) => "$setOnInsert" in u);
+  let timeout: FencedWriterDeadlineError | undefined;
+  const pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).catch((e: unknown) => {
+    assert.ok(e instanceof FencedWriterDeadlineError);
+    timeout = e;
+  });
+  await hold.reached;
+  await pending;
+  hold.release();
+  await timeout!.settled;
+  assert.deepEqual(w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION).all(), []);
+});
+
+test("T-035: classifier returning after erasure cannot annotate or notify and a fenced replay writes nothing", async () => {
+  let release!: (v: unknown) => void;
+  const provider: LlmProvider = { kind: "mock", model: "flash-lite", generate<T>() { return new Promise<T>((r) => { release = r as (v: unknown) => void; }); } };
+  const w = world({ provider, timeoutMs: 1000 });
+  const result = await escalateTurns(w.db, input([turn("t2", CONCERN_TEXT)]), w.deps);
+  await setSafetyFence(w);
+  await w.db.collection(CRISIS_FLAG_REVIEWS_COLLECTION).deleteMany({ studentId: STUDENT });
+  release({ severity: "high", likelyBenign: false, rationale: "synthetic" });
+  await result.review;
+  assert.deepEqual(rawNotifications(w), []);
+  assert.deepEqual(w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION).all(), []);
+  await assert.rejects(escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps), StudentFencedError);
+  assert.deepEqual(rawNotifications(w), []);
+});
+
+test("T-035: postcheck fence read failure undoes inserted review and compensation failure is visible", async () => {
+  for (const undoFails of [false, true]) {
+    const w = world();
+    const fences = w.fakeDb.collection<AnyDoc>(COLLECTION_NAMES.erasure_fences);
+    const find = fences.findOne.bind(fences);
+    let reads = 0;
+    fences.findOne = async (...args: Parameters<typeof fences.findOne>) => {
+      if (++reads === 2) throw new Error("synthetic fence read failure");
+      return find(...args);
+    };
+    if (undoFails) {
+      w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION).deleteMany = async () => { throw new Error("synthetic undo failure"); };
+    }
+    await assert.rejects(escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps), undoFails ? /synthetic undo failure/ : /synthetic fence read failure/);
+    if (!undoFails) assert.deepEqual(w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION).all(), []);
+  }
+});
+
+
+test("T-035: background late annotation compensation failure emits a text-free alert", async () => {
+  const w = world();
+  w.deps.writerDeadlineMs = 50;
+  const hold = holdSafetyUpdate(w, CRISIS_FLAG_REVIEWS_COLLECTION, (u) => Boolean((u.$set as Record<string, unknown> | undefined)?.classifier));
+  const c = w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION);
+  const original = c.updateOne.bind(c);
+  let released = false;
+  c.updateOne = async (...args: Parameters<typeof c.updateOne>) => {
+    if (released && "$unset" in args[1]) { const err = new Error("secret transcript must not enter alert"); err.name = "SyntheticLateUndoError"; throw err; }
+    return original(...args);
+  };
+  const result = await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps);
+  await hold.reached;
+  await result.review;
+  released = true;
+  hold.release();
+  for (let i = 0; i < 30 && !w.alerts.some((a) => a.errorName === "SyntheticLateUndoError"); i++) await new Promise((r) => setTimeout(r, 5));
+  assert.ok(w.alerts.some((a) => a.event === "concern_review_failed" && a.errorName === "SyntheticLateUndoError"));
+  assert.ok(!JSON.stringify(w.alerts).includes("secret transcript"));
+});
+
+test("T-035: annotation compensation cannot overwrite a newer invocation token", async () => {
+  const w = world();
+  await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
+  const c = w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION);
+  const original = c.updateOne.bind(c);
+  let newerWritten = false;
+  c.updateOne = async (...args: Parameters<typeof c.updateOne>) => {
+    const result = await original(...args);
+    if (!newerWritten && (args[1].$set as Record<string, unknown> | undefined)?.classifierWriteToken) {
+      newerWritten = true;
+      const injection = await original({ _id: args[0]._id }, { $set: { classifierWriteToken: "newer-owner", classifier: { status: "unavailable", reason: "error", model: "mock", errorName: "Newer", attemptedAt: AT } } });
+      assert.equal(injection.matchedCount, 1, "newer invocation reached the raw row");
+      assert.equal(injection.modifiedCount, 1);
+      await setSafetyFence(w);
+    }
+    return result;
+  };
+  const result = await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps);
+  await result.review;
+  const [row] = c.all();
+  assert.equal(row!.classifierWriteToken, "newer-owner");
+  assert.equal((row!.classifier as Record<string, unknown>).errorName, "Newer");
+});
+
+
+test("T-035: late notification/annotation/acknowledgement settlement compensates after deadline", async () => {
+  for (const phase of ["notification", "annotation", "acknowledgement"]) {
+    const w = world();
+    await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
+    const collection = phase === "annotation" ? CRISIS_FLAG_REVIEWS_COLLECTION : ESCALATION_NOTIFICATIONS_COLLECTION;
+    const c = w.fakeDb.collection<AnyDoc>(collection);
+    const before = JSON.stringify(c.all());
+    w.deps.writerDeadlineMs = 50;
+    const hold = holdSafetyUpdate(w, collection, (u) => phase === "notification" ? "$setOnInsert" in u : Boolean((u.$set as Record<string, unknown> | undefined)?.[phase === "annotation" ? "classifier" : "acknowledgedAt"]));
+    let deadline: FencedWriterDeadlineError | undefined;
+    let pending: Promise<unknown>;
+    if (phase === "acknowledgement") {
+      const [n] = await readEscalations(w.db, { sessionId: SESSION });
+      pending = acknowledgeEscalation(w.db, { notificationId: n!._id, acknowledgedBy: "admin-1", writerDeadlineMs: 50 }).catch((e: unknown) => { assert.ok(e instanceof FencedWriterDeadlineError); deadline = e; });
+    } else if (phase === "annotation") {
+      pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
+    } else {
+      pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).catch((e: unknown) => { assert.ok(e instanceof FencedWriterDeadlineError); deadline = e; });
+    }
+    await hold.reached;
+    await pending;
+    hold.release();
+    if (deadline) await deadline.settled;
+    for (let i = 0; i < 30 && JSON.stringify(c.all()) !== before; i++) await new Promise((r) => setTimeout(r, 5));
+    // Allow the released asynchronous operation to reach its late compensator even if unchanged yet.
+    await new Promise((r) => setTimeout(r, 20));
+    assert.equal(JSON.stringify(c.all()), before, phase);
+  }
+});
+
+test("T-035: acknowledgement rollback preserves a newer invocation", async () => {
+  const w = world();
+  await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
+  const [n] = await readEscalations(w.db, { sessionId: SESSION });
+  const c = w.fakeDb.collection<AnyDoc>(ESCALATION_NOTIFICATIONS_COLLECTION);
+  const original = c.updateOne.bind(c);
+  let newer = false;
+  c.updateOne = async (...args: Parameters<typeof c.updateOne>) => {
+    const result = await original(...args);
+    if (!newer && (args[1].$set as Record<string, unknown> | undefined)?.acknowledgementWriteToken) {
+      newer = true;
+      const injection = await original({ _id: args[0]._id }, { $set: { acknowledgementWriteToken: "newer-ack", acknowledgedAt: AT, acknowledgedBy: "newer-staff" } });
+      await setSafetyFence(w);
+    }
+    return result;
+  };
+  await assert.rejects(acknowledgeEscalation(w.db, { notificationId: n!._id, acknowledgedBy: "older-staff" }), StudentFencedError);
+  const row = (await readEscalations(w.db, { sessionId: SESSION })).find((d) => d._id === n!._id)!;
+  assert.equal(row.acknowledgementWriteToken, "newer-ack");
+  assert.equal(row.acknowledgedBy, "newer-staff");
+  assert.equal(await acknowledgeEscalation(w.db, { notificationId: n!._id, acknowledgedBy: "third-staff" }), false);
+});
+
+
+test("T-035: late newly inserted notifications are deleted after the public timeout", async () => {
+  const w = world();
+  w.deps.writerDeadlineMs = 50;
+  const hold = holdSafetyUpdate(w, ESCALATION_NOTIFICATIONS_COLLECTION, (u) => "$setOnInsert" in u);
+  let deadline: FencedWriterDeadlineError | undefined;
+  const pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).catch((e: unknown) => {
+    assert.ok(e instanceof FencedWriterDeadlineError); deadline = e;
+  });
+  await hold.reached;
+  await pending;
+  assert.deepEqual(rawNotifications(w), []);
+  hold.release();
+  await deadline!.settled;
+  assert.deepEqual(rawNotifications(w), []);
+});
+
+
+test("T-035: a fence prevents driver dispatch on every safety mutation phase", async () => {
+  for (const phase of ["review", "notification", "annotation", "acknowledgement"]) {
+    const w = world();
+    const name = phase === "review" || phase === "annotation" ? CRISIS_FLAG_REVIEWS_COLLECTION : ESCALATION_NOTIFICATIONS_COLLECTION;
+    const c = w.fakeDb.collection<AnyDoc>(name);
+    if (phase === "acknowledgement") await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
+    let writes = 0;
+    const original = c.updateOne.bind(c);
+    c.updateOne = async (...args: Parameters<typeof c.updateOne>) => {
+      const u = args[1] as Record<string, unknown>;
+      if (phase === "review" ? "$setOnInsert" in u : phase === "annotation" ? Boolean((u.$set as Record<string, unknown> | undefined)?.classifier) : phase === "acknowledgement" ? Boolean((u.$set as Record<string, unknown> | undefined)?.acknowledgedAt) : "$setOnInsert" in u) writes++;
+      return original(...args);
+    };
+    if (phase === "review") {
+      await setSafetyFence(w);
+      await assert.rejects(escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps), StudentFencedError);
+    } else if (phase === "notification") {
+      w.deps.recipients = async () => { await setSafetyFence(w); return { adminIds: ["admin"], counsellorIds: ["counsellor"] }; };
+      await assert.rejects(escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps), StudentFencedError);
+    } else if (phase === "annotation") {
+      let release!: (v: unknown) => void;
+      w.deps.classifier.provider = { kind: "mock", model: "flash-lite", generate<T>() { return new Promise<T>((r) => { release = r as (v: unknown) => void; }); } };
+      w.deps.classifier.config.timeoutMs = 1000;
+      const result = await escalateTurns(w.db, input([turn("t2", CONCERN_TEXT)]), w.deps);
+      await setSafetyFence(w);
+      release({ severity: "critical", likelyBenign: false, rationale: "synthetic" });
+      await result.review;
+    } else {
+      const [n] = await readEscalations(w.db, { sessionId: SESSION });
+      await setSafetyFence(w);
+      await assert.rejects(acknowledgeEscalation(w.db, { notificationId: n!._id, acknowledgedBy: "admin" }), StudentFencedError);
+    }
+    assert.equal(writes, 0, phase + " must stop before mutation dispatch");
+  }
+});
+
+
+test("T-035: applied-write-then-reject ambiguous inserts clean up own writes and preserve replay bytes", async () => {
+  for (const name of [CRISIS_FLAG_REVIEWS_COLLECTION, ESCALATION_NOTIFICATIONS_COLLECTION]) {
+    for (const replay of [false, true]) {
+      const w = world();
+      if (replay) await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
+      const c = w.fakeDb.collection<AnyDoc>(name);
+      const before = JSON.stringify(c.all());
+      const original = c.updateOne.bind(c);
+      let ambiguous = false;
+      c.updateOne = async (...args: Parameters<typeof c.updateOne>) => {
+        const result = await original(...args);
+        if (!ambiguous && "$setOnInsert" in args[1]) {
+          ambiguous = true;
+          await setSafetyFence(w);
+          const err = new Error("synthetic outcome lost after write");
+          err.name = "SyntheticAmbiguousMongoError";
+          throw err;
+        }
+        return result;
+      };
+      await assert.rejects(escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps), (e: unknown) => {
+        assert.ok(e instanceof StudentFencedError);
+        assert.equal((e.cause as Error).name, "SyntheticAmbiguousMongoError");
+        return true;
+      });
+      assert.equal(ambiguous, true, "driver applied the target upsert before rejection");
+      assert.equal(JSON.stringify(c.all()), before, name + (replay ? " replay" : " new"));
+    }
+  }
+});

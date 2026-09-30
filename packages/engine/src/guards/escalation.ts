@@ -31,8 +31,9 @@
  * PII: a notification carries ids, the level, the matched guard pattern ids and the timestamps. It
  * never carries the transcript text; the recipient opens the session to read it.
  */
+import { randomUUID } from "node:crypto";
 import type { Collection, Db } from "mongodb";
-import { TenantScopeError, tenantIdOf } from "@vc/db";
+import { TenantScopeError, tenantIdOf, WriterDeadline, FencedWriterDeadlineError, assertStudentNotFenced, compensateIfFenced, FENCE_POSTCHECK_TIMEOUT_MS } from "@vc/db";
 import type { LlmProvider } from "@vc/providers";
 import { crisisGuard, type CrisisLevel } from "./crisis.js";
 import {
@@ -50,9 +51,7 @@ import {
   type Severity,
 } from "./concern-classifier.js";
 
-// Literal names at the call sites below match these constants (a test asserts it). They are NOT yet
-// in @vc/db COLLECTION_NAMES, the erasure selectors or the D-016 scanner's student-data list:
-// packages/db/src/erasure.ts is T-029's in-flight file. Reconciliation is an Open gap in the manifest.
+// Registered lifecycle collection names.
 export const ESCALATION_NOTIFICATIONS_COLLECTION = "escalation_notifications";
 export const CRISIS_FLAG_REVIEWS_COLLECTION = "crisis_flag_reviews";
 
@@ -83,6 +82,8 @@ export interface EscalationNotificationDoc {
   notifiedAt: string;
   acknowledgedAt: string | null;
   acknowledgedBy: string | null;
+  writerToken?: string;
+  acknowledgementWriteToken?: string;
 }
 
 export interface CrisisFlagReviewDoc {
@@ -98,6 +99,8 @@ export interface CrisisFlagReviewDoc {
   flaggedAt: string;
   /** Set by the background review; absent until it settles. */
   classifier?: ClassifierAnnotation;
+  writerToken?: string;
+  classifierWriteToken?: string;
 }
 
 export interface EscalationRecipients {
@@ -125,6 +128,8 @@ export interface EscalationDeps {
     config: ConcernClassifierConfig;
   };
   now?: () => Date;
+  /** Bounded write phase; defaults to shared erasure writer limit. */
+  writerDeadlineMs?: number;
   /** Receives the background review. Runtime may ignore it; tests await it. It never rejects. */
   onReview?: (review: Promise<ReviewRunResult>) => void;
   /** Engineering alert sink (default: one structured, text-free console.error line). */
@@ -191,6 +196,41 @@ function defaultAlert(alert: EscalationAlert): void {
   console.error(JSON.stringify(alert));
 }
 
+/** Bounded phase; late driver settlement repeats ownership-qualified compensation. */
+async function fencedWrite<T>(
+  db: Db, studentId: string, ms: number | undefined,
+  write: (deadline: WriterDeadline) => Promise<T>, undo: () => Promise<unknown>,
+): Promise<T> {
+  const deadline = new WriterDeadline(ms);
+  let work: Promise<T> | undefined;
+  let failure: { error: unknown } | undefined;
+  let value!: T;
+  try {
+    await deadline.run(assertStudentNotFenced(db, studentId, deadline.op()));
+    work = Promise.resolve().then(() => write(deadline));
+    value = await deadline.run(work);
+  } catch (error) {
+    failure = { error };
+  } finally {
+    deadline.dispose();
+  }
+  const timedOut = deadline.expired();
+  const settled = timedOut && work
+    ? work.then(() => undo(), () => undo()).then(() => undefined)
+    : Promise.resolve();
+  // Observe rejection without hiding it from deadline-error consumers.
+  void settled.catch(() => undefined);
+  try {
+    await compensateIfFenced(db, studentId, undo, { ...(failure ? { cause: failure.error } : {}), alwaysUndo: timedOut });
+  } catch (error) {
+    if (timedOut) throw new FencedWriterDeadlineError(settled, { cause: error });
+    throw error;
+  }
+  if (timedOut) throw new FencedWriterDeadlineError(settled, { cause: failure?.error });
+  if (failure) throw failure.error;
+  return value;
+}
+
 function uniqueIds(ids: readonly string[]): string[] {
   return [...new Set(ids.filter((id) => typeof id === "string" && id.trim() !== ""))];
 }
@@ -237,8 +277,13 @@ async function notifyAll(
     acknowledgedAt: null,
     acknowledgedBy: null,
   }));
-  await notifications(db).bulkWrite(
-    docs.map((doc) => ({ updateOne: { filter: { _id: doc._id }, update: { $setOnInsert: doc }, upsert: true } })),
+  const writerToken = randomUUID();
+  await fencedWrite(db, base.studentId, deps.writerDeadlineMs,
+    (deadline) => notifications(db).bulkWrite(
+      docs.map((doc) => ({ updateOne: { filter: { _id: doc._id }, update: { $setOnInsert: { ...doc, writerToken } }, upsert: true } })),
+      deadline.op(),
+    ),
+    () => notifications(db).deleteMany({ _id: { $in: docs.map((d) => d._id) }, writerToken }, { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS }),
   );
   return docs;
 }
@@ -282,7 +327,11 @@ export async function escalateTurns(
       guard,
       flaggedAt,
     };
-    await reviews(db).updateOne({ _id: doc._id }, { $setOnInsert: doc }, { upsert: true });
+    const writerToken = randomUUID();
+    await fencedWrite(db, input.studentId, deps.writerDeadlineMs,
+      (deadline) => reviews(db).updateOne({ _id: doc._id }, { $setOnInsert: { ...doc, writerToken } }, { upsert: true, ...deadline.op() }),
+      () => reviews(db).deleteMany({ _id: doc._id, writerToken }, { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS }),
+    );
   }
 
   // 1. Guard crisis: notify now, before (and independent of) any classifier call.
@@ -312,6 +361,11 @@ export async function escalateTurns(
 
   // 2. The classifier, in the background. Never rejects.
   const review = runReview(db, input, reviewTurns, deps, flaggedAt).catch((err: unknown): ReviewRunResult => {
+    if (err instanceof FencedWriterDeadlineError) {
+      void err.settled.catch((lateError: unknown) => {
+        (deps.alert ?? defaultAlert)({ event: "concern_review_failed", sessionId: input.sessionId, errorName: lateError instanceof Error ? lateError.name : typeof lateError });
+      });
+    }
     (deps.alert ?? defaultAlert)({
       event: "concern_review_failed",
       sessionId: input.sessionId,
@@ -338,8 +392,23 @@ async function runReview(
       { provider: deps.classifier.provider, skillPrompt: deps.classifier.skillPrompt, timeoutMs: deps.classifier.config.timeoutMs, now },
     );
     result.reviewed.push({ turnId: turn.turnId, annotation });
-    // Only the annotation field is written; the guard fields are never in this update.
-    await reviews(db).updateOne({ _id: `${input.sessionId}:${turn.turnId}` }, { $set: { classifier: annotation } });
+    // Classification finishes before this fresh bounded precheck.
+    const _id = input.sessionId + ":" + turn.turnId;
+    const classifierWriteToken = randomUUID();
+    let previous: CrisisFlagReviewDoc | null = null;
+    await fencedWrite(db, input.studentId, deps.writerDeadlineMs, async (deadline) => {
+      previous = await reviews(db).findOne({ _id, studentId: input.studentId }, deadline.op());
+      if (!previous) return;
+      await reviews(db).updateOne(
+        { _id, studentId: input.studentId, classifierWriteToken: previous.classifierWriteToken ?? { $exists: false } },
+        { $set: { classifier: annotation, classifierWriteToken } }, deadline.op(),
+      );
+    }, async () => {
+      if (!previous) return;
+      const $set = { ...(previous.classifier === undefined ? {} : { classifier: previous.classifier }), ...(previous.classifierWriteToken === undefined ? {} : { classifierWriteToken: previous.classifierWriteToken }) };
+      const $unset: Record<string, ""> = { ...(previous.classifier === undefined ? { classifier: "" } : {}), ...(previous.classifierWriteToken === undefined ? { classifierWriteToken: "" } : {}) };
+      return reviews(db).updateOne({ _id, studentId: input.studentId, classifierWriteToken }, { $set, $unset }, { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS });
+    });
 
     const decision = escalationDecision(guard, annotation);
     // A guard crisis was already escalated before the review started.
@@ -396,13 +465,24 @@ export async function readFlagReviews(db: Db, query: { sessionId: string }): Pro
  */
 export async function acknowledgeEscalation(
   db: Db,
-  input: { notificationId: string; acknowledgedBy: string; now?: () => Date },
+  input: { notificationId: string; acknowledgedBy: string; now?: () => Date; writerDeadlineMs?: number },
 ): Promise<boolean> {
   requireTenantScope(db, "acknowledgeEscalation");
+  const stored = await notifications(db).findOne({ _id: input.notificationId }, { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS });
+  if (!stored || stored.acknowledgedAt !== null) return false;
   const at = (input.now ?? (() => new Date()))().toISOString();
-  const res = await notifications(db).updateOne(
-    { _id: input.notificationId, acknowledgedAt: null },
-    { $set: { acknowledgedAt: at, acknowledgedBy: input.acknowledgedBy } },
+  const acknowledgementWriteToken = randomUUID();
+  const res = await fencedWrite(db, stored.studentId, input.writerDeadlineMs,
+    (deadline) => notifications(db).updateOne(
+      { _id: stored._id, studentId: stored.studentId, acknowledgedAt: null, acknowledgementWriteToken: stored.acknowledgementWriteToken ?? { $exists: false } },
+      { $set: { acknowledgedAt: at, acknowledgedBy: input.acknowledgedBy, acknowledgementWriteToken } }, deadline.op(),
+    ),
+    () => notifications(db).updateOne(
+      { _id: stored._id, studentId: stored.studentId, acknowledgementWriteToken },
+      { $set: { acknowledgedAt: stored.acknowledgedAt, acknowledgedBy: stored.acknowledgedBy, ...(stored.acknowledgementWriteToken === undefined ? {} : { acknowledgementWriteToken: stored.acknowledgementWriteToken }) },
+        ...(stored.acknowledgementWriteToken === undefined ? { $unset: { acknowledgementWriteToken: "" } } : {}) },
+      { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS },
+    ),
   );
   return res.matchedCount === 1;
 }

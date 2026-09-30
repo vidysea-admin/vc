@@ -253,7 +253,7 @@ export const OPENAPI_DOCUMENT = {
         summary: "Everything VC holds on the student (data-principal access)",
         "x-roles": ["admin"],
         parameters: [studentId],
-        responses: { "200": ok("The student export"), ...errors },
+        responses: { "200": ok("The student export, including projected escalations and crisisReviews in deterministic record order; excludes Mongo IDs, staff recipient/acknowledger identities, provider/debug and write-ownership fields"), ...errors },
       },
     },
   },

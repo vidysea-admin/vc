@@ -1416,6 +1416,8 @@ const byEventStudent = (s: ErasureSelectors): Filter<Document> => ({ "event.data
 /** Ordered: consents first (blocks processing, B4), anchors last (see the module docstring). */
 export const ERASURE_PLAN: readonly ErasureStep[] = [
   { collection: COLLECTION_NAMES.consents, phase: 1, filter: byStudent, residue: byStudent },
+  { collection: COLLECTION_NAMES.escalation_notifications, phase: 1, filter: byStudent, residue: byStudent },
+  { collection: COLLECTION_NAMES.crisis_flag_reviews, phase: 1, filter: byStudent, residue: byStudent },
   { collection: COLLECTION_NAMES.decisions, phase: 1, filter: byStudent, residue: byStudent },
   { collection: COLLECTION_NAMES.edges, phase: 1, filter: edgeFilter, residue: edgeFilter },
   { collection: COLLECTION_NAMES.scribe_checkpoints, phase: 1, filter: byThread, residue: byThread },
@@ -1797,6 +1799,24 @@ const ERASURE_CAS_TRIES = 5;
 // Export
 // ---------------------------------------------------------------------------
 
+/** Student access projection; staff, provider and write ownership fields never leave the service. */
+interface SafetyExportBase {
+  sessionId: string; studentId: string; turnId: string; guardLevel: "none" | "concern" | "crisis"; matched: string[]; flaggedAt: string;
+}
+type SafetySeverity = "none" | "low" | "moderate" | "high" | "critical";
+type SafetyClassifierExport =
+  | { status: "classified"; severity: SafetySeverity; likelyBenign: boolean; rationale: string; classifiedAt: string }
+  | { status: "unavailable"; reason: "timeout" | "error"; attemptedAt: string };
+interface SafetyNotificationExport extends SafetyExportBase {
+  escalationId: string; severity: SafetySeverity; reason: "guard_crisis" | "classifier_severity" | "classifier_unavailable";
+  channel: "record_only"; status: "queued"; notifiedAt: string; acknowledgedAt: string | null;
+}
+interface SafetyReviewExport extends SafetyExportBase { classifier?: SafetyClassifierExport }
+interface SafetyAccessRow extends SafetyNotificationExport {
+  _id: string; guard?: { level: SafetyExportBase["guardLevel"]; matched: string[] };
+  classifier?: SafetyClassifierExport;
+}
+
 export interface StudentExport {
   format: "vc-student-export/v1";
   /**
@@ -1829,6 +1849,8 @@ export interface StudentExport {
    * checkpoints below duplicate as serialized state.
    */
   transcripts: TranscriptTurnDoc[];
+  escalations: SafetyNotificationExport[];
+  crisisReviews: SafetyReviewExport[];
   /**
    * Scribe checkpoints are serialized LangGraph state (they duplicate the transcript and the
    * extracted facts, both of which are exported above in readable form). Counted, not dumped.
@@ -1846,6 +1868,10 @@ export async function exportStudent(db: Db, studentId: string): Promise<StudentE
   facts.sort((a, b) => a.key.localeCompare(b.key) || a.validFrom.localeCompare(b.validFrom) || a._id.localeCompare(b._id));
   const transcripts = await db.collection<TranscriptTurnDoc>(COLLECTION_NAMES.session_transcripts).find({ studentId }).toArray();
   transcripts.sort((a, b) => a.sessionId.localeCompare(b.sessionId) || a.ts - b.ts || a.turnId.localeCompare(b.turnId));
+  const escalations = await db.collection<SafetyAccessRow>(COLLECTION_NAMES.escalation_notifications).find({ studentId }).toArray();
+  escalations.sort((a, b) => a._id.localeCompare(b._id));
+  const crisisReviews = await db.collection<SafetyAccessRow>(COLLECTION_NAMES.crisis_flag_reviews).find({ studentId }).toArray();
+  crisisReviews.sort((a, b) => a._id.localeCompare(b._id));
   return {
     format: "vc-student-export/v1",
     purpose: "data_subject_access",
@@ -1862,6 +1888,18 @@ export async function exportStudent(db: Db, studentId: string): Promise<StudentE
       .find({ studentId })
       .toArray(),
     transcripts,
+    escalations: escalations.map((d) => ({
+      escalationId: d.escalationId, sessionId: d.sessionId, studentId: d.studentId, turnId: d.turnId,
+      guardLevel: d.guardLevel, matched: d.matched, severity: d.severity, reason: d.reason,
+      channel: d.channel, status: d.status, flaggedAt: d.flaggedAt, notifiedAt: d.notifiedAt, acknowledgedAt: d.acknowledgedAt,
+    })),
+    crisisReviews: crisisReviews.map((d) => ({
+      sessionId: d.sessionId, studentId: d.studentId, turnId: d.turnId,
+      guardLevel: d.guard!.level, matched: d.guard!.matched, flaggedAt: d.flaggedAt,
+      ...(d.classifier === undefined ? {} : { classifier: d.classifier.status === "classified"
+        ? { status: d.classifier.status, severity: d.classifier.severity, likelyBenign: d.classifier.likelyBenign, rationale: d.classifier.rationale, classifiedAt: d.classifier.classifiedAt }
+        : { status: d.classifier.status, reason: d.classifier.reason, attemptedAt: d.classifier.attemptedAt } }),
+    })),
     checkpoints: {
       threads: [...s.threadIds].sort(),
       checkpointDocs: await db.collection(COLLECTION_NAMES.scribe_checkpoints).countDocuments(byThread(s)),

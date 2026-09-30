@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
+  getErasureRequest,
   requestErasure,
   confirmErasure,
   reconfirmErasure,
@@ -48,6 +49,7 @@ import {
 import { TEST_ERASURE_CONFIG, confirmTwiceAndApprove } from "../src/testing.js";
 import { applyApprovedDiff, recordSessionTranscript, readSessionTranscript, resolveCitationSpan } from "../src/facts.js";
 import { DEFAULT_MONGO_CLIENT_TIMEOUT_MS } from "../src/client.js";
+import { tenantScopedDb } from "../src/tenant.js";
 import { COLLECTION_NAMES, type FactDoc } from "../src/collections.js";
 import { INDEX_PLAN } from "../scripts/db-init.js";
 import { createFakeDb, type FakeDb, type FakeCollection } from "./fakes.js";
@@ -57,6 +59,8 @@ type AnyDoc = { _id: string } & Record<string, unknown>;
 
 const ALL_FAKE_COLLECTIONS = [
   ...Object.values(COLLECTION_NAMES),
+  "escalation_notifications",
+  "crisis_flag_reviews",
   "scribe_checkpoints",
   "scribe_checkpoint_writes",
 ];
@@ -106,6 +110,9 @@ async function seedStudent(db: import("mongodb").Db, fakeDb: FakeDb, studentId: 
   const marker = `MARK-${studentId}`;
   const sessionIds = [`${studentId}-sess-1`, `${studentId}-sess-2`];
   const now = "2026-09-25T10:00:00.000Z";
+  for (const name of ["escalation_notifications", "crisis_flag_reviews"]) {
+    coll(fakeDb, name).seed({ _id: `${studentId}:safety`, studentId, sessionId: `${studentId}:unanchored`, turnId: "safety-turn", guardLevel: "crisis", guard: { level: "crisis", matched: ["synthetic"] }, matched: ["synthetic"], severity: "critical", reason: "guard_crisis", escalationId: `${studentId}:unanchored:safety-turn`, flaggedAt: now, notifiedAt: now, channel: "record_only", status: "queued", acknowledgedAt: null, recipient: { role: "admin", id: "staff-secret" }, writerToken: "private-token", classifier: { status: "unavailable", reason: "error", attemptedAt: now, model: "private-model", errorName: "private-error" } });
+  }
   coll(fakeDb, COLLECTION_NAMES.students).seed({ _id: studentId, studentId, createdAt: now });
   for (const sessionId of sessionIds) {
     coll(fakeDb, COLLECTION_NAMES.sessions).seed({
@@ -449,6 +456,8 @@ test("T-042/B15: a queued webhook_emit_gaps row naming the student (flat student
 test("B15: the receipt counts match what was actually there (read back, per collection)", async () => {
   const { db, fakeDb, a } = await seedTwo();
   const expected: Record<string, number> = {
+    [COLLECTION_NAMES.escalation_notifications]: 1,
+    [COLLECTION_NAMES.crisis_flag_reviews]: 1,
     [COLLECTION_NAMES.facts]: 3, // 2 active + 1 retired
     [COLLECTION_NAMES.sessions]: 2,
     [COLLECTION_NAMES.consents]: 1,
@@ -2204,4 +2213,74 @@ test("ISS-t-011-rev-5: checkpoints of a thread recorded on the session row (NOT 
   const out = await executeErasure(db, requestId, { fenceGraceMs: 0 });
   assert.equal(out.status, "completed");
   assert.deepEqual(docsMentioning(fakeDb, ["stu-X", "sess-x", thread, "marker-X"]), []);
+});
+
+
+test("T-035: projected safety export and unanchored erasure preserve an identical-ID other tenant", async () => {
+  const { db: raw, fakeDb } = createFakeDb();
+  const a = tenantScopedDb(raw, "safety-A");
+  const b = tenantScopedDb(raw, "safety-B");
+  const at = "2026-09-30T00:00:00.000Z";
+  for (const db of [a, b]) {
+    await db.collection("escalation_notifications").insertOne({
+      _id: "notification", studentId: "same-student", sessionId: "same-session", turnId: "same-turn",
+      escalationId: "same-session:same-turn", guardLevel: "concern", matched: ["synthetic"], severity: "moderate",
+      reason: "classifier_unavailable", flaggedAt: at, notifiedAt: at, acknowledgedAt: null,
+      channel: "record_only", status: "queued", recipient: { role: "admin", id: "private-staff" },
+      acknowledgedBy: "private-staff", writerToken: "private-token",
+    } as never);
+    await db.collection("crisis_flag_reviews").insertOne({
+      _id: "review", studentId: "same-student", sessionId: "same-session", turnId: "same-turn",
+      guard: { level: "concern", matched: ["synthetic"] }, flaggedAt: at, selection: "private-selection",
+      classifier: { status: "unavailable", reason: "error", attemptedAt: at, model: "private-model", errorName: "private-error" },
+      writerToken: "private-token",
+    } as never);
+  }
+  const before = JSON.stringify(["escalation_notifications", "crisis_flag_reviews"].map((name) => coll(fakeDb, name).all().filter((d) => d.tenantId === "safety-B")));
+  const out = await exportStudent(a, "same-student");
+  assert.equal(out.escalations.length, 1);
+  assert.equal(out.crisisReviews.length, 1);
+  assert.equal(out.escalations[0]!.reason, "classifier_unavailable");
+  assert.deepEqual(out.crisisReviews[0]!.classifier, { status: "unavailable", reason: "error", attemptedAt: at });
+  assert.ok(!JSON.stringify([out.escalations, out.crisisReviews]).includes("private-"));
+  assert.ok(!JSON.stringify([out.escalations, out.crisisReviews]).includes('"_id"'));
+  const empty = await exportStudent(a, "absent");
+  assert.deepEqual(empty.escalations, []);
+  assert.deepEqual(empty.crisisReviews, []);
+  const requestId = await confirmedRequest(a, "same-student");
+  assert.equal((await executeErasure(a, requestId)).status, "completed");
+  for (const name of ["escalation_notifications", "crisis_flag_reviews"]) {
+    assert.deepEqual(coll(fakeDb, name).all().filter((d) => d.tenantId === "safety-A"), []);
+  }
+  const after = JSON.stringify(["escalation_notifications", "crisis_flag_reviews"].map((name) => coll(fakeDb, name).all().filter((d) => d.tenantId === "safety-B")));
+  assert.equal(after, before);
+});
+
+test("T-035: either safety purge or residue read failure cannot report completed", async () => {
+  for (const name of ["escalation_notifications", "crisis_flag_reviews"]) {
+    for (const operation of ["deleteMany", "countDocuments"] as const) {
+      const { db, fakeDb, a } = await seedTwo();
+      const requestId = await confirmedRequest(db, a.studentId);
+      const c = coll(fakeDb, name);
+      const original = c[operation];
+      c[operation] = (async () => { throw new Error("synthetic safety failure"); }) as typeof original;
+      await assert.rejects(executeErasure(db, requestId), ErasureIncompleteError);
+      assert.notEqual((await getErasureRequest(db, requestId))!.status, "completed");
+    }
+  }
+});
+
+
+test("T-035: safety export orders each stored row and projects classified annotations", async () => {
+  const { db } = createFakeDb();
+  const base = { studentId: "ordering", sessionId: "s", turnId: "t", escalationId: "s:t", guardLevel: "crisis", matched: ["synthetic"], severity: "critical", reason: "guard_crisis", channel: "record_only", status: "queued", flaggedAt: "f", notifiedAt: "n", acknowledgedAt: null };
+  for (const _id of ["z", "a"]) {
+    await db.collection("escalation_notifications").insertOne({ _id, ...base, turnId: _id, recipient: { id: "private-staff" } } as never);
+    await db.collection("crisis_flag_reviews").insertOne({ _id, studentId: base.studentId, sessionId: base.sessionId, turnId: _id, guard: { level: "crisis", matched: ["synthetic"] }, flaggedAt: "f", classifier: { status: "classified", severity: "critical", likelyBenign: false, rationale: "synthetic rationale", classifiedAt: "c", model: "private-model" }, stratum: "private-sample", classifierWriteToken: "private-token" } as never);
+  }
+  const out = await exportStudent(db, base.studentId);
+  assert.deepEqual(out.escalations.map((r) => r.turnId), ["a", "z"]);
+  assert.deepEqual(out.crisisReviews.map((r) => r.turnId), ["a", "z"]);
+  assert.deepEqual(out.crisisReviews[0]!.classifier, { status: "classified", severity: "critical", likelyBenign: false, rationale: "synthetic rationale", classifiedAt: "c" });
+  assert.ok(!JSON.stringify([out.escalations, out.crisisReviews]).includes("private-"));
 });

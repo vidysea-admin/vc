@@ -22,6 +22,8 @@ import type { EdgeDoc } from "./edges.js";
 export type { EdgeDoc };
 
 export const COLLECTION_NAMES = {
+  escalation_notifications: "escalation_notifications",
+  crisis_flag_reviews: "crisis_flag_reviews",
   students: "students",
   sessions: "sessions",
   facts: "facts",

@@ -80,6 +80,10 @@ export interface IndexSpec {
  * a single source of truth for both.
  */
 export const INDEX_PLAN: IndexSpec[] = [
+  ...[COLLECTION_NAMES.escalation_notifications, COLLECTION_NAMES.crisis_flag_reviews].flatMap((collection) => [
+    { collection, keys: { tenantId: 1, studentId: 1 } as Record<string, 1>, name: collection + "_tenant_student" },
+    { collection, keys: { tenantId: 1, sessionId: 1 } as Record<string, 1>, name: collection + "_tenant_session" },
+  ]),
   // ISS-019 + D-013: unique among docs with `active: true` — at most one
   // open fact per (studentId, key). NOT `{validTo: {$exists: false}}`: the
   // server rejects `$exists: false` in a partialFilterExpression (it becomes

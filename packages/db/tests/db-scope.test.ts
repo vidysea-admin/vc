@@ -153,6 +153,7 @@ const FENCE_SCAN_DIRS = ["packages", "mcp", "apps"];
 
 /** file -> why its writes are fence-aware. Adding a file here is a reviewed decision. */
 const FENCE_AWARE_WRITERS: Record<string, string> = {
+  "packages/engine/src/guards/escalation.ts": "T-035 all four mutation paths use bounded fence precheck/finally postcheck, insertion ownership and CAS annotation rollback; crisis-escalation.test.ts asserts held-write raw outcomes, replay and timeout compensation",
   "packages/db/src/facts.ts":
     "applyApprovedDiff: pre-check, writes under FENCED_WRITER_DEADLINE_MS (driver timeoutMS + app deadline), finally post-check + compensation (D-015/D-016). " +
     "T-016 ensureScribeSessionRow: called only from scribe/graph.ts (start under its deadline + fence pre-check, row compensated by invokeFenceAware). " +
@@ -192,6 +193,8 @@ const FENCE_AWARE_WRITERS: Record<string, string> = {
 };
 
 const STUDENT_DATA_COLLECTIONS = [
+  "escalation_notifications",
+  "crisis_flag_reviews",
   "students",
   "sessions",
   "facts",

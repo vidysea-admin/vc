@@ -37,6 +37,14 @@ const STUDENT_ID_COLLECTIONS = [
   COLLECTION_NAMES.erasure_requests,
 ];
 
+test("T-035: safety collection lookup indexes lead with tenant then student/session", () => {
+  for (const collection of ["escalation_notifications", "crisis_flag_reviews"]) {
+    for (const field of ["studentId", "sessionId"]) {
+      assert.ok(INDEX_PLAN.some((s) => s.collection === collection && JSON.stringify(s.keys) === JSON.stringify({ tenantId: 1, [field]: 1 })), `${collection}/${field}`);
+    }
+  }
+});
+
 test("ISS-027: every studentId-bearing collection has a plain (non-partial, non-unique) index led by studentId", () => {
   for (const name of STUDENT_ID_COLLECTIONS) {
     const plainStudentIdIndex = INDEX_PLAN.find(
