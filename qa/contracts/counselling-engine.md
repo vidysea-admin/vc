@@ -296,14 +296,19 @@ pending human decisions; no timeout duration or receipt acceptance policy is ass
   exact existing generation and never
   upserts. Scribe attachment neither activates a session nor overwrites its live lifecycle metadata.
 - **B23.2 (server grant incarnation and external rejection):** Consent grant authority includes a
-  server-generated internal incarnation, captured by prepare and checked by open, close and lifecycle
-  settlement. Public consent content and consent `_id` are not sufficient grant identity. Initialization
-  is server-only CAS in the existing lifecycle function, with concurrent losers reading the persisted
-  winner rather than treating their generated value as authority. The existing validateConsentForWrite
+  ALREADY persisted valid server-issued internal incarnation, captured once per invocation by prepare
+  and checked by open, close and lifecycle settlement (D-034). Public consent content and consent `_id`
+  are not sufficient grant identity. Missing, malformed or legacy incarnation refuses; prepare/open/
+  close never initialize, repair or refresh consent incarnation. A held old prepare across replacement
+  cannot initialize or adopt the replacement grant. Concurrent capability/session CAS losers read the
+  persisted winner without changing their captured grant. The existing validateConsentForWrite
   explicitly rejects an externally supplied own-property internal authority field, including
   lifecycleIncarnation even when undefined, BEFORE schema parsing; errors are fixed and raw-free.
-  Valid external consent still succeeds. Actual production consent-writer use of this guarded boundary
-  remains unverified until independently traced and evidenced; internal types alone do not prove it.
+  Valid external consent still succeeds; the validator issues no metadata. Properly issued offline test
+  grants prove prerequisite mechanics only. Actual Pathlynks grant-writer use of the guarded boundary
+  and immutable-incarnation creation integrity remain mandatory, pending full-goal integration until
+  independently traced and evidenced; internal types or test grants alone do not prove them. No consent
+  creation route or guardian attestation is authorized or inferred by this prerequisite.
 - **B23.3 (original authority and deadline):** Each invocation preserves its original authority, creation
   attempt and deadline across reads, CAS races, retries and late settlement. Awaited operations are
   followed by current consent-incarnation and erasure-fence checks before publication. No retry or
@@ -348,7 +353,9 @@ pending human decisions; no timeout duration or receipt acceptance policy is ass
 
 **Approval mapping and status:** D-032 authorizes this checker-owned contract amendment before source
 implementation and the existing lifecycle/session/export/API targets. D-033 adds the existing external
-consent validator and tests. The independent final lifecycle plan approval recorded in docs/plan.md
+consent validator and tests. D-034 supersedes lazy initialization with read-only authority from an
+already persisted server-issued grant and missing/malformed/legacy refusal. The independent revised
+final lifecycle plan approval recorded in docs/plan.md
 requires all replay, grant-incarnation, original-deadline, ownership and export conditions above. This
 amendment records that PLAN approval only: no lifecycle implementation, execution evidence, production
 consent writer integrity or completion PASS is certified by it. Feedback policy remains pending.
@@ -362,6 +369,13 @@ consent writer integrity or completion PASS is certified by it. Feedback policy 
 - Joining real Pathlynks data (gated on the DPDP legal review, Q3).
 
 ## Amendment log
+- 2026-10-01 · routine (tighten, D-034) · B23.2 requires already persisted valid server-issued
+  incarnation, captured once; lifecycle never initializes/repairs/refreshes missing, malformed or
+  legacy grant authority. Replaces unsafe lazy CAS initialization after the demonstrated delayed
+  first-CAS/replacement-grant race. Retains all replay, ownership, deadline, capability and export
+  outcomes. Offline issued grants prove mechanics only; actual Pathlynks grant-writer/creation
+  integrity remains mandatory full-goal integration. No consent route, metadata issuance, guardian
+  attestation or feedback policy inferred. Revised plan approval only; no completion PASS.
 - 2026-10-01 · routine (tighten, D-032 / D-033) · added B23.1–B23.7 authenticated prepare/open/close,
   server-only grant incarnation and explicit external rejection, original authority/deadline, erased
   capability and same-public-consent/same-id regrant replay refusal, attempt-owned late compensation,
