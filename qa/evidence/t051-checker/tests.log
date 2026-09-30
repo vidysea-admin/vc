@@ -1,0 +1,31 @@
+[testlock] running (free RAM 0 GB): node /d/vc/node_modules/tsx/dist/cli.mjs --test /d/vc/packages/engine/tests/concern-classifier.test.ts
+✔ T-012 config: defaults are the flash-lite tier, an 8s timeout and the default strata rates (1.2969ms)
+✔ T-012 config: env overrides are read; malformed values throw naming the key (0.4528ms)
+✔ T-012 config: the classifier's provider config swaps in the tier model and drops a litellm failover chain (0.162ms)
+✔ T-012 selection: every guard flag is reviewed (any speaker); an unflagged counsellor turn never is (0.3762ms)
+✔ T-012 selection: the unflagged sample is stratified by script and deterministic (0.7732ms)
+✔ T-012 classify: a valid answer comes back as a classified annotation carrying the model name (2.2227ms)
+✔ T-012 classify: a hung provider resolves to unavailable/timeout within the timeout (never blocks) (38.8185ms)
+✔ T-041 (ISS-t-037-2): a timeout aborts the abandoned provider call's own AbortSignal — not merely classifyConcern's own race (32.4094ms)
+✔ T-041 (ISS-t-037-2): a real in-flight LiteLLM HTTP request is actually cancelled (the stub server observes the connection close), and the outcome is still unavailable/timeout — unchanged safety behaviour (373.9002ms)
+✔ T-041 (ISS-t-037-2): a real provider's LATE rejection after an abort never turns into anything but the pre-existing unavailable/timeout outcome, and never becomes an unhandled rejection (142.7576ms)
+✔ T-012 classify: a provider error resolves to unavailable/error with the class name only (no message leak) (0.6244ms)
+✔ T-012 classify: a schema-invalid answer resolves to unavailable, never to a made-up severity (0.7459ms)
+✔ T-012 never-hide: a 'likely benign / none' answer on a guard CRISIS keeps the flag visible, critical, and escalating (0.2433ms)
+✔ T-012 never-hide: a classifier can not lower a guard CONCERN below its floor, but can raise it (0.2568ms)
+✔ T-012 fail-open: an unreviewable guard flag escalates on the flag alone; an unflagged sampled turn does not (0.065ms)
+✔ T-012 raise: a sampled unflagged turn the classifier rates high becomes visible and escalates (0.0652ms)
+✔ T047 RED: classifier authorization preflight prevents actual model execution (0.3039ms)
+✔ T047 RED: classifier unavailable annotation never exposes arbitrary provider error names (0.2153ms)
+✔ T047 held classifier authority consumes original timeout and executes no late model (30.5084ms)
+✔ T047 repair RED: a classifier leaf authorization refusal is terminal, never unavailable (0.2958ms)
+✔ classifier config: timeout stays inside the Node timer integer range (0.2209ms)
+✔ classifier config: malformed timeout and sample errors never echo synthetic keys or values (0.3493ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1652.4517

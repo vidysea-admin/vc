@@ -1,0 +1,1 @@
+[testlock] running (free RAM 0 GB): node /d/vc/node_modules/typescript/bin/tsc --noEmit -p /d/vc/apps/api/tsconfig.json

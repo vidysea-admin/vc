@@ -1,0 +1,55 @@
+[testlock] running (free RAM 3.28 GB): node D:/vc/node_modules/tsx/dist/cli.mjs --test --test-name-pattern config: D:/vc/packages/engine/tests/concern-classifier.test.ts
+✔ T-012 config: defaults are the flash-lite tier, an 8s timeout and the default strata rates (1.2562ms)
+✔ T-012 config: env overrides are read; malformed values throw naming the key (0.3945ms)
+✔ T-012 config: the classifier's provider config swaps in the tier model and drops a litellm failover chain (0.1549ms)
+✖ classifier config: timeout stays inside the Node timer integer range (0.7045ms)
+✖ classifier config: malformed timeout and sample errors never echo synthetic keys or values (0.6029ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 3
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1142.0078
+
+✖ failing tests:
+
+test at packages\engine\tests\concern-classifier.test.ts:347:1
+✖ classifier config: timeout stays inside the Node timer integer range (0.7045ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (D:\vc\packages\engine\tests\concern-classifier.test.ts:352:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /VC_CONCERN_TIMEOUT_MS/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at packages\engine\tests\concern-classifier.test.ts:356:1
+✖ classifier config: malformed timeout and sample errors never echo synthetic keys or values (0.6029ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at Object.<anonymous> (D:\vc\packages\engine\tests\concern-classifier.test.ts:366:14)
+      at expectedException (node:assert:578:17)
+      at expectsError (node:assert:703:21)
+      at strict.throws (node:assert:759:3)
+      at TestContext.<anonymous> (D:\vc\packages\engine\tests\concern-classifier.test.ts:363:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

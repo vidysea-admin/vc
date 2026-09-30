@@ -343,3 +343,30 @@ test("T047 repair RED: a classifier leaf authorization refusal is terminal, neve
   const provider: LlmProvider = { kind: "mock", model: "flash-lite", generate: async () => { throw new ProviderAuthorizationRefusedError(); } };
   await assert.rejects(classifyConcern(INPUT, { provider, skillPrompt: "synthetic", timeoutMs: 100, now }), ProviderAuthorizationRefusedError);
 });
+
+test("classifier config: timeout stays inside the Node timer integer range", () => {
+  for (const value of ["1", "2147483647"]) {
+    assert.equal(loadConcernClassifierConfig({ VC_CONCERN_TIMEOUT_MS: value }).timeoutMs, Number(value));
+  }
+  for (const value of ["0", "-1", "1.5", "NaN", "Infinity", "2147483648", "9007199254740992"]) {
+    assert.throws(() => loadConcernClassifierConfig({ VC_CONCERN_TIMEOUT_MS: value }), /VC_CONCERN_TIMEOUT_MS/);
+  }
+});
+
+test("classifier config: malformed timeout and sample errors never echo synthetic keys or values", () => {
+  const sentinel = "SYNTHETIC_PRIVATE_CONFIG_SENTINEL";
+  for (const env of [
+    { VC_CONCERN_TIMEOUT_MS: sentinel },
+    { VC_CONCERN_SAMPLE_RATES: `latin=${sentinel}` },
+    { VC_CONCERN_SAMPLE_RATES: `${sentinel}=0.5` },
+  ]) {
+    assert.throws(() => loadConcernClassifierConfig(env), (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /VC_CONCERN_(TIMEOUT_MS|SAMPLE_RATES)/);
+      assert.equal(error.message.includes(sentinel), false);
+      return true;
+    });
+  }
+  assert.deepEqual(loadConcernClassifierConfig({ VC_CONCERN_SAMPLE_RATES: "other=1,latin=0" }).sampleRates,
+    { ...DEFAULT_SAMPLE_RATES, other: 1, latin: 0 });
+});

@@ -1,0 +1,6 @@
+[testlock] running (free RAM 0 GB): node /d/vc/node_modules/tsx/dist/cli.mjs /d/vc/qa/evidence/t051-checker/oracle.ts
+PASS loader controls; 13 real startApi rejections: factories=0 connects=0; fixed exact raw-free errors
+KILLED overflow: Missing expected exception.
+KILLED raw-timeout: The validation function is expected to return "true". Received false
+KILLED raw-sample: The validation function is expected to return "true". Received false
+PASS 3 semantic mutants killed and QA copies restored

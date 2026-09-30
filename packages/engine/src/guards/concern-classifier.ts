@@ -152,8 +152,8 @@ export function loadConcernClassifierConfig(env: ConcernClassifierEnv): ConcernC
   let timeoutMs = CONCERN_CLASSIFIER_DEFAULT_TIMEOUT_MS;
   if (env.VC_CONCERN_TIMEOUT_MS !== undefined && env.VC_CONCERN_TIMEOUT_MS !== "") {
     const n = Number(env.VC_CONCERN_TIMEOUT_MS);
-    if (!Number.isInteger(n) || n <= 0) {
-      throw new Error(`loadConcernClassifierConfig: VC_CONCERN_TIMEOUT_MS must be a positive integer (got ${JSON.stringify(env.VC_CONCERN_TIMEOUT_MS)})`);
+    if (!Number.isSafeInteger(n) || n < 1 || n > 2147483647) {
+      throw new Error("loadConcernClassifierConfig: VC_CONCERN_TIMEOUT_MS must be a safe integer in [1, 2147483647]");
     }
     timeoutMs = n;
   }
@@ -164,7 +164,7 @@ export function loadConcernClassifierConfig(env: ConcernClassifierEnv): ConcernC
       const rate = Number(rawValue);
       if (!(SAMPLE_STRATA as readonly string[]).includes(rawKey ?? "") || !Number.isFinite(rate) || rate < 0 || rate > 1) {
         throw new Error(
-          `loadConcernClassifierConfig: VC_CONCERN_SAMPLE_RATES must look like "latin=0.1,devanagari=0.25,other=0.25" with rates in [0, 1] (bad part ${JSON.stringify(part)})`,
+          'loadConcernClassifierConfig: VC_CONCERN_SAMPLE_RATES must look like "latin=0.1,devanagari=0.25,other=0.25" with rates in [0, 1]',
         );
       }
       sampleRates[rawKey as SampleStratum] = rate;
