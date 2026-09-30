@@ -582,3 +582,14 @@ Read-only /root/b18_quality_gate inspected only H6-named D:/VirtualCounsellor_Av
 SOP ContextObject/ApplicationConstraints provide useful field taxonomy and draft structure, not portal completion. Its source performs direct Bedrock calls, model-reported limits with prompts permitting overflow, direct Mongo profile updates from model JSON, and empty-text provider failure fallback. These conflict with VC typed cited proposals, consent/purpose/tenant, counsellor-approved fenced writes, deterministic constraints and explicit unavailable/Retry behavior. Do not copy those write/failure paths. The first application destination/field limits/review artifact still needs specification. No source license was found in the bounded SOP inventory; the audit grants no new source-file or deployment authority.
 
 Any concrete port plan must name existing VC UI/session/API/provider/schema targets and preserve governed engine authority, voice confirmation and privacy. A production speech worker/avatar module has no current VC owner: propose existing-file seams first and obtain explicit new-file authority if a genuinely new module is needed. Siblings remain read-only perH6. No sibling code/QA/secrets, provider/network/browser/audio/test operations were modified or executed. Source reuse candidates are not live-delivery, Hindi accuracy or student-avatar completion evidence.
+
+### T045 bounded lease/claim deadline extension — independent approval
+
+Fresh quality agent b18_current_quality reviewed actual graph.ts releaseLease/underLease and caller behavior. PLAN APPROVE WITH MANDATORY CONDITIONS (2026-09-30), not implementation PASS:
+- Pass the same invocation WriterDeadline through existing helpers/callers; no replacement deadline or retries.
+- Preserve lease on timeout, cancellation/AbortError or aborted signal. Recheck before cleanup; expired/aborted executions issue zero new cleanup writes.
+- Settled work cleanup preserves token CAS, driver timeout capped by remaining budget and existing backstop, and same deadline.run.
+- Explicit final deadline/signal check before successful resume return is mandatory; cleanup expiry cannot disclose personal results. Cleanup failures preserve an existing work error.
+- Existing claim insertion/acquisition use original deadline; durable winning claims, late compensation and newer-owner protection remain. Already-issued Mongo writes are not claimed cancellable.
+- Existing tests must reach RED then GREEN for held cleanup/acquisition/insertion, cancellation with late work, zero cleanup after expiry, original error preservation and token CAS. Independent mutants/affected checks remain required.
+Actual consolidated run79146 terminated 59 tests / 58 pass / 1 fail / zero cancelled; only the known unapplied inspection fail-safe restoration failed. Existing restoration precedes next verification. No full-unit PASS.
