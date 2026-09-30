@@ -1,0 +1,126 @@
+CHECKER LOAD isolated erasure/escalation: file:///D:/vc/qa/evidence/t035-checker-cycle0/isolated/packages/engine/checker-probe.ts
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: RAW ZERO escalation_notifications
++ actual - expected
+
++ [
++   {
++     _id: 'A:session:turn:admin:admin',
++     acknowledgedAt: null,
++     acknowledgedBy: null,
++     channel: 'record_only',
++     escalationId: 'session:turn',
++     flaggedAt: '2026-09-30T11:48:03.382Z',
++     guardLevel: 'concern',
++     kind: 'crisis_escalation',
++     matched: [
++       '\\bi\\s+feel\\s+(so\\s+)?(hopeless|worthless|empty)\\b',
++       'squeezed:\\bi\\s+feel\\s+(so\\s+)?(hopeless|worthless|empty)\\b'
++     ],
++     notifiedAt: '2026-09-30T11:48:03.900Z',
++     reason: 'classifier_severity',
++     recipient: {
++       id: 'admin',
++       role: 'admin'
++     },
++     sessionId: 'session',
++     severity: 'high',
++     status: 'queued',
++     studentId: 'student',
++     tenantId: 'A',
++     turnId: 'turn',
++     writerToken: '8177d7d6-b33c-4bdb-8e44-bd91c5829e48'
++   },
++   {
++     _id: 'A:session:turn:counsellor:staff',
++     acknowledgedAt: null,
++     acknowledgedBy: null,
++     channel: 'record_only',
++     escalationId: 'session:turn',
++     flaggedAt: '2026-09-30T11:48:03.382Z',
++     guardLevel: 'concern',
++     kind: 'crisis_escalation',
++     matched: [
++       '\\bi\\s+feel\\s+(so\\s+)?(hopeless|worthless|empty)\\b',
++       'squeezed:\\bi\\s+feel\\s+(so\\s+)?(hopeless|worthless|empty)\\b'
++     ],
++     notifiedAt: '2026-09-30T11:48:03.900Z',
++     reason: 'classifier_severity',
++     recipient: {
++       id: 'staff',
++       role: 'counsellor'
++     },
++     sessionId: 'session',
++     severity: 'high',
++     status: 'queued',
++     studentId: 'student',
++     tenantId: 'A',
++     turnId: 'turn',
++     writerToken: '8177d7d6-b33c-4bdb-8e44-bd91c5829e48'
++   }
++ ]
+- []
+
+    at lifecycle (D:\vc\qa\evidence\t035-checker-cycle0\isolated\packages\engine\checker-probe.ts:42:35)
+    at async <anonymous> (D:\vc\qa\evidence\t035-checker-cycle0\isolated\packages\engine\checker-probe.ts:110:38) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: [
+    {
+      _id: 'A:session:turn:admin:admin',
+      tenantId: 'A',
+      sessionId: 'session',
+      studentId: 'student',
+      turnId: 'turn',
+      guardLevel: 'concern',
+      matched: [
+        '\\bi\\s+feel\\s+(so\\s+)?(hopeless|worthless|empty)\\b',
+        'squeezed:\\bi\\s+feel\\s+(so\\s+)?(hopeless|worthless|empty)\\b'
+      ],
+      severity: 'high',
+      reason: 'classifier_severity',
+      flaggedAt: '2026-09-30T11:48:03.382Z',
+      kind: 'crisis_escalation',
+      escalationId: 'session:turn',
+      recipient: { role: 'admin', id: 'admin' },
+      channel: 'record_only',
+      status: 'queued',
+      notifiedAt: '2026-09-30T11:48:03.900Z',
+      acknowledgedAt: null,
+      acknowledgedBy: null,
+      writerToken: '8177d7d6-b33c-4bdb-8e44-bd91c5829e48'
+    },
+    {
+      _id: 'A:session:turn:counsellor:staff',
+      tenantId: 'A',
+      sessionId: 'session',
+      studentId: 'student',
+      turnId: 'turn',
+      guardLevel: 'concern',
+      matched: [
+        '\\bi\\s+feel\\s+(so\\s+)?(hopeless|worthless|empty)\\b',
+        'squeezed:\\bi\\s+feel\\s+(so\\s+)?(hopeless|worthless|empty)\\b'
+      ],
+      severity: 'high',
+      reason: 'classifier_severity',
+      flaggedAt: '2026-09-30T11:48:03.382Z',
+      kind: 'crisis_escalation',
+      escalationId: 'session:turn',
+      recipient: { role: 'counsellor', id: 'staff' },
+      channel: 'record_only',
+      status: 'queued',
+      notifiedAt: '2026-09-30T11:48:03.900Z',
+      acknowledgedAt: null,
+      acknowledgedBy: null,
+      writerToken: '8177d7d6-b33c-4bdb-8e44-bd91c5829e48'
+    }
+  ],
+  expected: [],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.13.1

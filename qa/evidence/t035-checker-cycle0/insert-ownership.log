@@ -1,0 +1,22 @@
+CHECKER LOAD isolated erasure/escalation: file:///D:/vc/qa/evidence/t035-checker-cycle0/isolated/packages/engine/checker-probe.ts
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: RAW OWNERSHIP replay preserves prior notification bytes
++ actual - expected
+
++ '[]'
+- '[{"_id":"A:session:turn:admin:admin","tenantId":"A","sessionId":"session","studentId":"student","turnId":"turn","guardLevel":"crisis","matched":["\\\\b(want|going|gonna|trying|wanna)\\\\s+to\\\\s+(die|kill myself|end (it|my life))\\\\b","\\\\bkill\\\\s+myself\\\\b","squeezed:\\\\b(want|going|gonna|trying|wanna)\\\\s+to\\\\s+(die|kill myself|end (it|my life))\\\\b","squeezed:\\\\bkill\\\\s+myself\\\\b"],"severity":"critical","reason":"guard_crisis","flaggedAt":"2026-09-30T11:48:42.986Z","kind":"crisis_escalation","escalationId":"session:turn","recipient":{"role":"admin","id":"admin"},"channel":"record_only","status":"queued","notifiedAt":"2026-09-30T11:48:43.211Z","acknowledgedAt":null,"acknowledgedBy":null,"writerToken":"eefd9dc0-007d-433c-b899-67da015f6088"},{"_id":"A:session:turn:counsellor:staff","tenantId":"A","sessionId":"session","studentId":"student","turnId":"turn","guardLevel":"crisis","matched":["\\\\b(want|going|gonna|trying|wanna)\\\\s+to\\\\s+(die|kill myself|end (it|my life))\\\\b","\\\\bkill\\\\s+myself\\\\b","squeezed:\\\\b(want|going|gonna|trying|wanna)\\\\s+to\\\\s+(die|kill myself|end (it|my life))\\\\b","squeezed:\\\\bkill\\\\s+myself\\\\b"],"severity":"critical","reason":"guard_crisis","flaggedAt":"2026-09-30T11:48:42.986Z","kind":"crisis_escalation","escalationId":"session:turn","recipient":{"role":"counsellor","id":"staff"},"channel":"record_only","status":"queued","notifiedAt":"2026-09-30T11:48:43.211Z","acknowledgedAt":null,"acknowledgedBy":null,"writerToken":"eefd9dc0-007d-433c-b899-67da015f6088"}]'
+
+    at ownership (D:\vc\qa\evidence\t035-checker-cycle0\isolated\packages\engine\checker-probe.ts:106:10)
+    at async <anonymous> (D:\vc\qa\evidence\t035-checker-cycle0\isolated\packages\engine\checker-probe.ts:113:38) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '[]',
+  expected: '[{"_id":"A:session:turn:admin:admin","tenantId":"A","sessionId":"session","studentId":"student","turnId":"turn","guardLevel":"crisis","matched":["\\\\b(want|going|gonna|trying|wanna)\\\\s+to\\\\s+(die|kill myself|end (it|my life))\\\\b","\\\\bkill\\\\s+myself\\\\b","squeezed:\\\\b(want|going|gonna|trying|wanna)\\\\s+to\\\\s+(die|kill myself|end (it|my life))\\\\b","squeezed:\\\\bkill\\\\s+myself\\\\b"],"severity":"critical","reason":"guard_crisis","flaggedAt":"2026-09-30T11:48:42.986Z","kind":"crisis_escalation","escalationId":"session:turn","recipient":{"role":"admin","id":"admin"},"channel":"record_only","status":"queued","notifiedAt":"2026-09-30T11:48:43.211Z","acknowledgedAt":null,"acknowledgedBy":null,"writerToken":"eefd9dc0-007d-433c-b899-67da015f6088"},{"_id":"A:session:turn:counsellor:staff","tenantId":"A","sessionId":"session","studentId":"student","turnId":"turn","guardLevel":"crisis","matched":["\\\\b(want|going|gonna|trying|wanna)\\\\s+to\\\\s+(die|kill myself|end (it|my life))\\\\b","\\\\bkill\\\\s+myself\\\\b","squeezed:\\\\b(want|going|gonna|trying|wanna)\\\\s+to\\\\s+(die|kill myself|end (it|my life))\\\\b","squeezed:\\\\bkill\\\\s+myself\\\\b"],"severity":"critical","reason":"guard_crisis","flaggedAt":"2026-09-30T11:48:42.986Z","kind":"crisis_escalation","escalationId":"session:turn","recipient":{"role":"counsellor","id":"staff"},"channel":"record_only","status":"queued","notifiedAt":"2026-09-30T11:48:43.211Z","acknowledgedAt":null,"acknowledgedBy":null,"writerToken":"eefd9dc0-007d-433c-b899-67da015f6088"}]',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.13.1

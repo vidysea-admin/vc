@@ -1,0 +1,78 @@
+CHECKER LOAD isolated erasure/escalation: file:///D:/vc/qa/evidence/t035-checker-cycle0/isolated/packages/engine/checker-probe.ts
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: RAW ZERO crisis_flag_reviews
++ actual - expected
+
++ [
++   {
++     _id: 'A:session:turn',
++     classifier: {
++       classifiedAt: '2026-09-30T11:48:21.819Z',
++       likelyBenign: false,
++       model: 'synthetic',
++       rationale: 'Student said: "I feel hopeless"',
++       severity: 'high',
++       status: 'classified'
++     },
++     classifierWriteToken: '790fdb74-c6b4-4076-b34e-12f02589b5d9',
++     flaggedAt: '2026-09-30T11:48:21.514Z',
++     guard: {
++       level: 'concern',
++       matched: [
++         '\\bi\\s+feel\\s+(so\\s+)?(hopeless|worthless|empty)\\b',
++         'squeezed:\\bi\\s+feel\\s+(so\\s+)?(hopeless|worthless|empty)\\b'
++       ]
++     },
++     selection: 'guard_flag',
++     sessionId: 'session',
++     stratum: 'latin',
++     studentId: 'student',
++     tenantId: 'A',
++     turnId: 'turn',
++     writerToken: 'ebf75d19-1377-4dcf-8176-69b08791fbe3'
++   }
++ ]
+- []
+
+    at lifecycle (D:\vc\qa\evidence\t035-checker-cycle0\isolated\packages\engine\checker-probe.ts:42:35)
+    at async <anonymous> (D:\vc\qa\evidence\t035-checker-cycle0\isolated\packages\engine\checker-probe.ts:110:38) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: [
+    {
+      _id: 'A:session:turn',
+      tenantId: 'A',
+      sessionId: 'session',
+      studentId: 'student',
+      turnId: 'turn',
+      selection: 'guard_flag',
+      stratum: 'latin',
+      guard: {
+        level: 'concern',
+        matched: [
+          '\\bi\\s+feel\\s+(so\\s+)?(hopeless|worthless|empty)\\b',
+          'squeezed:\\bi\\s+feel\\s+(so\\s+)?(hopeless|worthless|empty)\\b'
+        ]
+      },
+      flaggedAt: '2026-09-30T11:48:21.514Z',
+      writerToken: 'ebf75d19-1377-4dcf-8176-69b08791fbe3',
+      classifier: {
+        status: 'classified',
+        model: 'synthetic',
+        severity: 'high',
+        likelyBenign: false,
+        rationale: 'Student said: "I feel hopeless"',
+        classifiedAt: '2026-09-30T11:48:21.819Z'
+      },
+      classifierWriteToken: '790fdb74-c6b4-4076-b34e-12f02589b5d9'
+    }
+  ],
+  expected: [],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.13.1

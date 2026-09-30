@@ -1,0 +1,11 @@
+[testlock] waiting for lock held by: PID=49344 STARTED=639263866395176385 ACQUIRED_AT=1790770174 TOKEN=1790770175379360900-124363-7530 DESC=node C:/Users/Lenovo/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs --config.verifyDepsBeforeRun=false --filter @vc/api test 
+[testlock] running (free RAM 1.24 GB): node --import tsx --test --test-name-pattern recordRejectReasons.*short qa/evidence/t035-checker-cycle0/scribe-parent/packages/engine/tests/scribe-per-fact.test.ts
+✔ ISS-t-018-rev-2: recordRejectReasons' own insert is bound to the SAME (short) outer writerDeadlineMs, not the package's full 60s default (2930.7985ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 99007.1586

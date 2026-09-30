@@ -1,0 +1,42 @@
+[testlock] running (free RAM 1.56 GB): node C:/Users/Lenovo/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs --config.verifyDepsBeforeRun=false --filter @vc/mcp-university-kb test
+
+> @vc/mcp-university-kb@0.1.0 test D:\vc\mcp\university-kb
+> tsx --test tests/*.test.ts
+
+✔ tool registered and callable through MCP: both tools appear in tools/list (1340.138ms)
+✔ ask_knowledge_base is NOT registered when no kb client is configured (209.3964ms)
+✔ ask_knowledge_base is registered and returns the answer with citations carried through verbatim when the kb client succeeds (287.8641ms)
+✔ ask_knowledge_base surfaces a KB outage as a tool error, never a fabricated answer (179.7228ms)
+✔ ask_knowledge_base surfaces an uncited KB answer as a tool error too (B2: never served uncited) (98.739ms)
+✔ hostile: ask_knowledge_base rejects an empty query via Zod before ever calling the kb client (97.0226ms)
+✔ uncited course excluded: search_courses drops a stored record missing sourceUrl/fetchedAt and counts it in `dropped` (106.9446ms)
+✔ search_courses filters by country and level and is case-insensitive (40.7818ms)
+✔ get_course returns the record for a known courseId (91.9318ms)
+✔ unknown courseId: get_course returns a not-found tool error, never a fabricated record (150.8861ms)
+✔ get_course on a stored-but-uncited record (missing sourceUrl) is also a tool error, not a partial record (53.9461ms)
+✔ hostile: empty query is rejected by Zod (min length 1) (71.4586ms)
+✔ hostile: a NoSQL-operator object as courseId ({"$ne": null}) is rejected by Zod, not passed to the DB (42.133ms)
+✔ hostile: level not in the enum is rejected by Zod (58.9328ms)
+✔ ok: a valid response with internal citations is carried through verbatim, answer + citations + verdict/reason/scored all present (260.1075ms)
+✔ ok: web-only citations (empty internal, non-empty web) still count as cited (48.1197ms)
+✔ request shape: POST /ask, Bearer <key> header, JSON body { query } (21.7457ms)
+✔ uncited: an answer with zero citations in BOTH sources.internal and sources.web is treated as unavailable, never passed on as an answer (18.3235ms)
+✔ outage: HTTP 401 is unavailable/unauthorized (17.9519ms)
+✔ outage: HTTP 403 is unavailable/unauthorized (18.3859ms)
+✔ outage: HTTP 503 (5xx) is unavailable/http_error (15.7346ms)
+✔ outage: malformed (non-JSON) response body is unavailable/malformed_response (10.4642ms)
+✔ outage: schema-invalid response (valid JSON, wrong shape -- missing required fields) is unavailable/invalid_schema (15.9288ms)
+✔ outage: a real network error (nothing listening) is unavailable/network_error (2.1375ms)
+✔ outage: the server hangs past the client's configured timeout -- unavailable/timeout (61.9435ms)
+✔ default timeout constant is exported and positive (0.2714ms)
+✔ loadKbConfigFromEnv: VC_KB_BASE_URL unset -> null (feature off, no client built) (0.2965ms)
+✔ loadKbConfigFromEnv: VC_KB_BASE_URL set, VC_KB_API_KEY set -> a config object (never real values -- synthetic test strings only) (0.2373ms)
+✔ loadKbConfigFromEnv: VC_KB_BASE_URL set but VC_KB_API_KEY missing -> throws rather than silently defaulting the key (B11) (0.9052ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16892.5675

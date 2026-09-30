@@ -1,0 +1,67 @@
+[testlock] waiting for lock held by: PID=53780 STARTED=639263858939287653 ACQUIRED_AT=1790769294 TOKEN=1790769295413473300-110967-5845 DESC=node C:/Users/Lenovo/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs --config.verifyDepsBeforeRun=false --filter @vc/engine test 
+[testlock] owner PID 38232 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running (free RAM 1.49 GB): node D:/vc/node_modules/tsx/dist/cli.mjs --test tests/failover.test.ts tests/index.test.ts tests/litellm.test.ts tests/rules.test.ts
+✔ first model fails (500), second succeeds — the failover moves to the next chain model in config order (386.9996ms)
+✔ all models fail within the budget: attempt count never exceeds the budget, and backoff+jitter is applied between attempts (212.8517ms)
+✔ backoff is genuinely applied between attempts — proven with the DEFAULT sleep (real global setTimeout) and node:test fake timers (6.0555ms)
+✔ a non-retryable error (HTTP 401, an auth/config error) stops immediately: no retry, no failover to the next model (87.4258ms)
+✔ the exhaustion alert is emitted exactly once and carries no secret value (138.9459ms)
+✔ T-021 fix cycle 1 (ISS-t-021-rev-1): worst case — every attempt hangs forever — still ends in AiUnavailableError within the wall-clock deadline, and the alert fires exactly once (3.7989ms)
+✔ T-037 (ISS-066): the deadline timer aborts the LOSING attempt's own AbortSignal — not merely FailoverProvider's own promise (0.8608ms)
+✔ T-037 (ISS-066): the wall-clock deadline actually aborts the real in-flight LiteLLM HTTP request (the stub server observes the connection close, not just FailoverProvider giving up) — a concurrent, unrelated request is fully unaffected (421.3341ms)
+✔ T-032 (ISS-t-021-rev-3): the deadline expires BETWEEN attempts (during backoff) — the reported error is the deadline, not a stale earlier retryable failure (6.19ms)
+✔ T-032 (ISS-t-032-c0-1 fix cycle 1): the deadline expires the INSTANT attempt 1's own retryable failure lands — before backoff is ever scheduled, one whole loop iteration earlier than the pre-existing top-of-loop check — the reported error is still the deadline, not the retryable failure (3.029ms)
+{"event":"provider_failover_exhausted","models":["m1","m2"],"attempts":2,"lastErrorName":"FailoverDeadlineExceededError"}
+✔ T-021 fix cycle 1 (ISS-t-021-rev-1): VC_LLM_DEADLINE_MS / VC_LLM_ATTEMPT_TIMEOUT_MS reach the built FailoverProvider chain (real hung stub server, real small timers) (197.8107ms)
+✔ isRetryableProviderError: whitelist — timeout/429/5xx/malformed/network/ModelOutputSchemaError are retryable, everything else (auth/config, a bare unrelated ZodError) is not (8.5225ms)
+✔ T-032 (ISS-t-021-rev-3): isRetryableProviderError scopes ZodError to MODEL-OUTPUT validation only — an output-schema failure fails over, an unrelated internal ZodError propagates unchanged (8.1356ms)
+✔ computeBackoffMs: full jitter, bounded by baseDelayMs * 2^(attempt-1), capped at maxDelayMs (0.4717ms)
+✔ T-021: VC_LLM_MODELS absent — loadProviderConfig/createProvider are BYTE-FOR-BYTE unchanged (backward compatibility) (0.7891ms)
+✔ T-021/D-020: VC_LLM_MODELS + VC_LLM_RETRY_BUDGET build a FailoverProvider chain in config order (0.944ms)
+✔ T-021: VC_LLM_RETRY_BUDGET must be a positive integer (0.7409ms)
+✔ T-021: FailoverProvider refuses an empty chain (0.3955ms)
+✔ T-021: MockProvider works as a chain member too (FailoverProvider is provider-agnostic) (1.1929ms)
+✔ T-021 fix cycle 1 (ISS-t-021-rev-2, gate failover-scope Q2 A): a wrong-shape (schema-invalid) response from model 1 fails over to model 2 WITHIN THE SAME call — model 2's valid answer is returned, no exception escapes (2.6926ms)
+✔ T-021 fix cycle 1 (ISS-t-021-rev-2, gate failover-scope Q2 A): all 3 models return wrong-shape output — the SAME single alert fires and AiUnavailableError is thrown (never a silent failedReason) (14.0182ms)
+✔ providersStatus no longer reports a scaffold placeholder (2.2454ms)
+✔ MockProvider returns the canned output parsed by the caller's Zod schema (typed output) (3.6606ms)
+✔ MockProvider records every call (skill name, prompt, input) so tests can prove zero calls (0.9423ms)
+✔ MockProvider refuses an output that does not match the schema (no free text crosses the seam, B5) (3.7977ms)
+✔ MockProvider throws for a skill with no canned response (never invents output) (0.6008ms)
+✔ B6: loadProviderConfig reads the provider and model from config, and requires both for gemini (3.1154ms)
+✔ T-019 B6: loadProviderConfig reads litellm (base URL + optional key) and rules (no model needed) config (1.2466ms)
+✔ T-019 B6: createProvider builds LiteLlmProvider and RulesProvider from config; still no default provider (4.3466ms)
+✔ B6: createProvider selects the implementation by config; the Gemini stub is constructed, never called (0.7948ms)
+✔ B11: the Gemini stub never exposes its key through JSON or string conversion (0.4925ms)
+✔ a real request goes out and a well-formed response is parsed by the caller's schema (452.5566ms)
+✔ no Authorization header is sent when no apiKey is configured (77.888ms)
+✔ a non-2xx HTTP response gives a typed LiteLlmHttpError naming the status, no key value in the message (74.794ms)
+✔ a response whose content is not valid JSON gives a typed LiteLlmMalformedResponseError (36.0837ms)
+✔ a response with no choices[0].message.content gives a typed LiteLlmMalformedResponseError (13.8926ms)
+✔ a response body that is not valid JSON at all gives a typed LiteLlmMalformedResponseError (31.3263ms)
+✔ well-formed JSON that fails the caller's outputSchema throws the underlying schema error (retryable upstream), not a swallowed generic error (20.7563ms)
+✔ a server that never responds times out with a typed LiteLlmTimeoutError, no key value in the message (146.2767ms)
+✔ T-037 (ISS-066): a caller-supplied AbortSignal that is ALREADY aborted rejects immediately with LiteLlmAbortedError, and no request is ever sent (9.3981ms)
+✔ T-037 (ISS-066): a caller-supplied AbortSignal that fires MID-FLIGHT actually cancels the real HTTP request (the stub server observes the connection close) with a typed LiteLlmAbortedError — never mistaken for LiteLlmTimeoutError (315.4721ms)
+✔ no server listening at all (connection refused) gives a typed LiteLlmNetworkError, no key value in the message (3.1561ms)
+✔ B11: the apiKey never appears in JSON.stringify / String() of the provider instance (0.6941ms)
+✔ kind and model are exposed for logging/observability (0.4078ms)
+✔ fact-extraction: a 'key: value' annotation line in a turn's translatedText becomes a cited candidate fact (45.7385ms)
+✔ fact-extraction: multiple annotation lines in one turn all become facts, each cited to that turn (10.3214ms)
+✔ fact-extraction: a turn with no annotation lines produces no facts (never invents one) (0.6167ms)
+✔ fact-extraction: falls back to the original text when translatedText has no annotations (0.6299ms)
+✔ session-summary: a template summary cites every fact's key, value and turn — no model, no free text generation (0.8476ms)
+✔ session-summary: B1 — the template is a record, never an instruction to the counsellor (no recital verbs) (0.6326ms)
+✔ session-summary: zero facts still produces a valid, non-crashing summary (0.4388ms)
+✔ an unsupported skill name throws a typed RulesProviderUnsupportedSkillError (1.1258ms)
+✔ kind is 'rules' and the model defaults to 'rules' (0.3133ms)
+✔ no global fetch call is ever made by the rules provider (no model, B6/B8) (0.6518ms)
+ℹ tests 54
+ℹ suites 0
+ℹ pass 54
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 111023.2144

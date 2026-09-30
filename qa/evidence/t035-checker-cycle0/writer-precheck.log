@@ -1,0 +1,20 @@
+CHECKER LOAD isolated erasure/escalation: file:///D:/vc/qa/evidence/t035-checker-cycle0/isolated/packages/engine/checker-probe.ts
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: RAW PRECHECK forbids driver dispatch
+
+1 !== 0
+
+    at precheck (D:\vc\qa\evidence\t035-checker-cycle0\isolated\packages\engine\checker-probe.ts:91:10)
+    at async <anonymous> (D:\vc\qa\evidence\t035-checker-cycle0\isolated\packages\engine\checker-probe.ts:112:37) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 1,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.13.1

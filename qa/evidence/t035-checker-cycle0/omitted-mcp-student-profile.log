@@ -1,0 +1,25 @@
+[testlock] running (free RAM 2.45 GB): node C:/Users/Lenovo/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs --config.verifyDepsBeforeRun=false --filter @vc/mcp-student-profile test
+
+> @vc/mcp-student-profile@0.1.0 test D:\vc\mcp\student-profile
+> tsx --test tests/*.test.ts
+
+✔ tool registered and callable through MCP: both tools appear in tools/list (1235.5827ms)
+✔ B4 consent required: get_profile_facts with no consent row returns a tool error and zero facts (76.587ms)
+✔ purpose filter: only facts whose purposeTags include the requested purpose come back, superseded facts excluded (56.9273ms)
+✔ B3 propose_profile_diff writes nothing: the facts collection is unchanged after the call, read back directly (84.9785ms)
+✔ hostile: purpose not in the enum is rejected by Zod before any DB read (47.1439ms)
+✔ hostile: a NoSQL-operator object as studentId ({"$ne": null}) is rejected by Zod, not passed to the DB (78.2692ms)
+✔ hostile: an uncited candidate fact in propose_profile_diff is rejected by Zod (FactSchema requires source) (40.1713ms)
+✔ ISS-029: propose_profile_diff with no consent row and a guessed key leaks nothing -- the secret string appears nowhere in the response (21.3652ms)
+✔ ISS-029: consent recorded for a DIFFERENT purpose still leaks nothing (28.7313ms)
+✔ ISS-029: consented purpose, but the stored fact is tagged with a DIFFERENT purpose -- no before leak, diff treats it as unseen (28.1583ms)
+✔ ISS-029: the legitimate path (consented purpose, fact tagged with that purpose) still produces a correct update diff (29.9836ms)
+✔ D-013: a legacy open fact with no `active` field is NOT returned by get_profile_facts and is NOT used as `before` in propose_profile_diff (37.2318ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 66029.6919
