@@ -1,0 +1,20 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: invalid independent envelope must withhold
++ actual - expected
+
++ 'Earlier IELTS results were discussed.'
+- ''
+
+    at <anonymous> (D:\vc\.worktrees\b18-approved-history\qa\evidence\t045-independent-checker\oracle.ts:34:95) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 'Earlier IELTS results were discussed.',
+  expected: '',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.13.1

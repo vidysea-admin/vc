@@ -1,0 +1,18 @@
+D:\vc\.worktrees\b18-approved-history\qa\evidence\t045-independent-checker\mutants\purpose\engine\src\scribe\nodes.ts:121
+    throw new ProviderAuthorizationRefusedError();
+          ^
+
+ProviderAuthorizationRefusedError: Provider execution was refused because authorization could not be verified.
+    at loadApprovedContext (D:\vc\.worktrees\b18-approved-history\qa\evidence\t045-independent-checker\mutants\purpose\engine\src\scribe\nodes.ts:121:11)
+    at async RunnableCallable.func (D:\vc\.worktrees\b18-approved-history\qa\evidence\t045-independent-checker\mutants\purpose\engine\src\scribe\graph.ts:159:31)
+    at async RunnableCallable.invoke (D:\vc\node_modules\.pnpm\@langchain+langgraph@1.4.17_a079c6db7484040957a07acd42e30b64\node_modules\@langchain\langgraph\src\utils.ts:85:21)
+    at async RunnableSequence.invoke (D:\vc\node_modules\.pnpm\@langchain+core@1.2.12_@ope_b53289c12d42498035a13f19a5bbb023\node_modules\@langchain\core\src\runnables\base.ts:1988:25)
+    at async _runWithRetry (D:\vc\node_modules\.pnpm\@langchain+langgraph@1.4.17_a079c6db7484040957a07acd42e30b64\node_modules\@langchain\langgraph\src\pregel\retry.ts:123:18)
+    at async PregelRunner._executeTasksWithRetry (D:\vc\node_modules\.pnpm\@langchain+langgraph@1.4.17_a079c6db7484040957a07acd42e30b64\node_modules\@langchain\langgraph\src\pregel\runner.ts:354:27)
+    at async PregelRunner.tick (D:\vc\node_modules\.pnpm\@langchain+langgraph@1.4.17_a079c6db7484040957a07acd42e30b64\node_modules\@langchain\langgraph\src\pregel\runner.ts:150:37)
+    at async CompiledStateGraph._runLoop (D:\vc\node_modules\.pnpm\@langchain+langgraph@1.4.17_a079c6db7484040957a07acd42e30b64\node_modules\@langchain\langgraph\src\pregel\index.ts:2632:9)
+    at async createAndRunLoop (D:\vc\node_modules\.pnpm\@langchain+langgraph@1.4.17_a079c6db7484040957a07acd42e30b64\node_modules\@langchain\langgraph\src\pregel\index.ts:2456:9) {
+  pregelTaskId: '83e7035c-11f3-5224-8cfd-7e93a3868efd'
+}
+
+Node.js v24.13.1

@@ -1,0 +1,20 @@
+✔ tool registered and callable through MCP: both tools appear in tools/list (24.7164ms)
+✔ B4 consent required: get_profile_facts with no consent row returns a tool error and zero facts (2.8239ms)
+✔ purpose filter: only facts whose purposeTags include the requested purpose come back, superseded facts excluded (2.2729ms)
+✔ B3 propose_profile_diff writes nothing: the facts collection is unchanged after the call, read back directly (2.0528ms)
+✔ hostile: purpose not in the enum is rejected by Zod before any DB read (1.3858ms)
+✔ hostile: a NoSQL-operator object as studentId ({"$ne": null}) is rejected by Zod, not passed to the DB (1.0291ms)
+✔ hostile: an uncited candidate fact in propose_profile_diff is rejected by Zod (FactSchema requires source) (0.9551ms)
+✔ ISS-029: propose_profile_diff with no consent row and a guessed key leaks nothing -- the secret string appears nowhere in the response (0.9566ms)
+✔ ISS-029: consent recorded for a DIFFERENT purpose still leaks nothing (2.4808ms)
+✔ ISS-029: consented purpose, but the stored fact is tagged with a DIFFERENT purpose -- no before leak, diff treats it as unseen (1.2483ms)
+✔ ISS-029: the legitimate path (consented purpose, fact tagged with that purpose) still produces a correct update diff (0.8651ms)
+✔ D-013: a legacy open fact with no `active` field is NOT returned by get_profile_facts and is NOT used as `before` in propose_profile_diff (1.0706ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 840.5594

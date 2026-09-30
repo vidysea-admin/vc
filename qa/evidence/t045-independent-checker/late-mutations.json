@@ -1,0 +1,30 @@
+[
+  {
+    "name": "continuity",
+    "mode": "recreate",
+    "status": 1,
+    "assertionReached": true,
+    "output": "node:internal/modules/run_main:107\r\n    triggerUncaughtException(\r\n    ^\r\n\r\nAssertionError [ERR_ASSERTION]: late own claim must leave no raw residue after lost authority\r\n\r\n1 !== 0\r\n\r\n    at <anonymous> (D:\\vc\\.worktrees\\b18-approved-history\\qa\\evidence\\t045-independent-checker\\late-oracle.ts:22:178) {\r\n  generatedMessage: false,\r\n  code: 'ERR_ASSERTION',\r\n  actual: 1,\r\n  expected: 0,\r\n  operator: 'strictEqual',\r\n  diff: 'simple'\r\n}\r\n\r\nNode.js v24.13.1\r\n"
+  },
+  {
+    "name": "ownership",
+    "mode": "newer",
+    "status": 1,
+    "assertionReached": false,
+    "output": "D:\\vc\\.worktrees\\b18-approved-history\\qa\\evidence\\t045-independent-checker\\late-oracle.ts:22\r\n if(mode==='newer'){assert.equal(claims.all()[0].lease.token,'independent-new-owner');assert.equal(claims.all()[0].response.action,'approve');}else if(mode!=='undofault')assert.equal(claims.all().length,0,'late own claim must leave no raw residue after lost authority');\r\n                                               ^\r\n\r\nTypeError: Cannot read properties of undefined (reading 'lease')\r\n    at <anonymous> (D:\\vc\\.worktrees\\b18-approved-history\\qa\\evidence\\t045-independent-checker\\late-oracle.ts:22:48)\r\n\r\nNode.js v24.13.1\r\n"
+  },
+  {
+    "name": "observable",
+    "mode": "readfault",
+    "status": 1,
+    "assertionReached": true,
+    "output": "node:internal/modules/run_main:107\r\n    triggerUncaughtException(\r\n    ^\r\n\r\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r\n+ actual - expected\r\n\r\n+ undefined\r\n- 'ProviderAuthorizationRefusedError'\r\n\r\n    at <anonymous> (D:\\vc\\.worktrees\\b18-approved-history\\qa\\evidence\\t045-independent-checker\\late-oracle.ts:21:69) {\r\n  generatedMessage: true,\r\n  code: 'ERR_ASSERTION',\r\n  actual: undefined,\r\n  expected: 'ProviderAuthorizationRefusedError',\r\n  operator: 'strictEqual',\r\n  diff: 'simple'\r\n}\r\n\r\nNode.js v24.13.1\r\n"
+  },
+  {
+    "name": "settlement",
+    "mode": "erase",
+    "status": 1,
+    "assertionReached": true,
+    "output": "node:internal/modules/run_main:107\r\n    triggerUncaughtException(\r\n    ^\r\n\r\nAssertionError [ERR_ASSERTION]: settlement cannot precede original driver\r\n\r\ntrue !== false\r\n\r\n    at <anonymous> (D:\\vc\\.worktrees\\b18-approved-history\\qa\\evidence\\t045-independent-checker\\late-oracle.ts:12:413) {\r\n  generatedMessage: false,\r\n  code: 'ERR_ASSERTION',\r\n  actual: true,\r\n  expected: false,\r\n  operator: 'strictEqual',\r\n  diff: 'simple'\r\n}\r\n\r\nNode.js v24.13.1\r\n"
+  }
+]

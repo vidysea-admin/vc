@@ -1,0 +1,116 @@
+{
+  "artifact": "a624f3d06314ef5922be841253639c27b4b3fa4e",
+  "source": "4b49c69c4ff13668234c6d26c89a9f95466bea12",
+  "entries": [
+    {
+      "file": "apps/api/tests/server.test.ts",
+      "expected": "ed6510dbbe93e7c1fb62a1c174d1cf4884d520ede67560bd1b7f158a9b59d7cf",
+      "actual": "ed6510dbbe93e7c1fb62a1c174d1cf4884d520ede67560bd1b7f158a9b59d7cf"
+    },
+    {
+      "file": "apps/web/demo/seed.ts",
+      "expected": "4f99abcb97ca33057bc17b04bdb56fc0f8f3e3b14ea17f867df62ccffad0ea2c",
+      "actual": "4f99abcb97ca33057bc17b04bdb56fc0f8f3e3b14ea17f867df62ccffad0ea2c"
+    },
+    {
+      "file": "packages/engine/evals/score.ts",
+      "expected": "8e2120ee1535d883aa03a45ae215f98b7dfe2064be4c5c490957fea5b5d8788c",
+      "actual": "8e2120ee1535d883aa03a45ae215f98b7dfe2064be4c5c490957fea5b5d8788c"
+    },
+    {
+      "file": "packages/engine/src/scribe/graph.ts",
+      "expected": "b90ce562dd4345b082f1afa2ae6a32b04b1de6182ec9083b1656144b028a8009",
+      "actual": "b90ce562dd4345b082f1afa2ae6a32b04b1de6182ec9083b1656144b028a8009"
+    },
+    {
+      "file": "packages/engine/src/scribe/nodes.ts",
+      "expected": "cd60c386737d9de7006aa9b4b154137871d9478cd50a041638a458f8a852db9d",
+      "actual": "cd60c386737d9de7006aa9b4b154137871d9478cd50a041638a458f8a852db9d"
+    },
+    {
+      "file": "packages/engine/src/scribe/schemas.ts",
+      "expected": "a6f1c96acad886091ee0e6fe373b486e1d654d005c6ed5008da7b55ff38d9178",
+      "actual": "a6f1c96acad886091ee0e6fe373b486e1d654d005c6ed5008da7b55ff38d9178"
+    },
+    {
+      "file": "packages/engine/tests/b18-suppression-outcome.test.ts",
+      "expected": "104b06c42408ee8b65714a335d92c3ab30010b453dc83d9a6573194f2343d6a4",
+      "actual": "104b06c42408ee8b65714a335d92c3ab30010b453dc83d9a6573194f2343d6a4"
+    },
+    {
+      "file": "packages/engine/tests/scribe-checkpointer.test.ts",
+      "expected": "8558b7bab1555be126eec608ca55bfc0456953cfcdc150ed0421db463d551251",
+      "actual": "8558b7bab1555be126eec608ca55bfc0456953cfcdc150ed0421db463d551251"
+    },
+    {
+      "file": "packages/engine/tests/scribe-concern.test.ts",
+      "expected": "f40aa68780450591546d6f5f744c61f3da64442e5e91ef207963a7e09c18a2f7",
+      "actual": "f40aa68780450591546d6f5f744c61f3da64442e5e91ef207963a7e09c18a2f7"
+    },
+    {
+      "file": "packages/engine/tests/scribe-erasure-fence.test.ts",
+      "expected": "033891a9ac8c873920febc453c12adb496339abbbb82039a30d881bc5a5d12e6",
+      "actual": "033891a9ac8c873920febc453c12adb496339abbbb82039a30d881bc5a5d12e6"
+    },
+    {
+      "file": "packages/engine/tests/scribe-fixtures.ts",
+      "expected": "1e8042d90e2521fe3936f244892e152d81cc1e3d5ecd6ed65040ae54b5c60706",
+      "actual": "1e8042d90e2521fe3936f244892e152d81cc1e3d5ecd6ed65040ae54b5c60706"
+    },
+    {
+      "file": "packages/engine/tests/scribe-per-fact.test.ts",
+      "expected": "185e004abb5c5c16ca780302b7e40c821a92395a1d238f713ae25ba266fbc32a",
+      "actual": "185e004abb5c5c16ca780302b7e40c821a92395a1d238f713ae25ba266fbc32a"
+    },
+    {
+      "file": "packages/engine/tests/scribe-persistence.test.ts",
+      "expected": "fd9b2c00171234e2319f3de34b1131c86f08d0502eb497ba6bb0d54ad2b1e99a",
+      "actual": "fd9b2c00171234e2319f3de34b1131c86f08d0502eb497ba6bb0d54ad2b1e99a"
+    },
+    {
+      "file": "packages/engine/tests/scribe-rules-e2e.test.ts",
+      "expected": "db078958895be84accf6c874fa2a0e7f2c7197cd1e0c6f9c42016038b23474f4",
+      "actual": "db078958895be84accf6c874fa2a0e7f2c7197cd1e0c6f9c42016038b23474f4"
+    },
+    {
+      "file": "packages/engine/tests/scribe-tracing.test.ts",
+      "expected": "f442bbc248836318ba12f101e204ffc5b0f41a57520a53ecffea0f0418f6b419",
+      "actual": "f442bbc248836318ba12f101e204ffc5b0f41a57520a53ecffea0f0418f6b419"
+    },
+    {
+      "file": "packages/engine/tests/scribe.test.ts",
+      "expected": "c61cf9264fa2d7604aeb9be91d69775006266b8164e45c4dd8e0ceb8eac0ac90",
+      "actual": "c61cf9264fa2d7604aeb9be91d69775006266b8164e45c4dd8e0ceb8eac0ac90"
+    },
+    {
+      "file": "packages/providers/src/index.ts",
+      "expected": "61384b211e8cd02bc85fa5164cfe4bd325862071945ea0de91ebf04cfbde078b",
+      "actual": "61384b211e8cd02bc85fa5164cfe4bd325862071945ea0de91ebf04cfbde078b"
+    },
+    {
+      "file": "packages/providers/tests/index.test.ts",
+      "expected": "fa3514e5bfd3b3cf691b50eadba82c0ce14b2031f45201c63f5c0124819fa320",
+      "actual": "fa3514e5bfd3b3cf691b50eadba82c0ce14b2031f45201c63f5c0124819fa320"
+    },
+    {
+      "file": "packages/providers/tests/litellm.test.ts",
+      "expected": "fee7d8adce99e65b30ccc5d086a0625fe8d8cfdc6c8b19d6322da4826e57fbff",
+      "actual": "fee7d8adce99e65b30ccc5d086a0625fe8d8cfdc6c8b19d6322da4826e57fbff"
+    },
+    {
+      "file": "packages/providers/tests/rules.test.ts",
+      "expected": "ec0ef663eca9385a5f48307d4a93248bec8f11dea71c20a403a66a785ad4f6f7",
+      "actual": "ec0ef663eca9385a5f48307d4a93248bec8f11dea71c20a403a66a785ad4f6f7"
+    },
+    {
+      "file": "skills/fact-extraction/SKILL.md",
+      "expected": "226ac150452ec061b8efa296eae02d09c0a3bc7db83ac059e9c5d9d8502481ba",
+      "actual": "226ac150452ec061b8efa296eae02d09c0a3bc7db83ac059e9c5d9d8502481ba"
+    },
+    {
+      "file": "skills/session-summary/SKILL.md",
+      "expected": "d75ca9005ce8e1581b94fbb3ce79b26fc50737ba2610b1149b19d9f4d7b7e257",
+      "actual": "d75ca9005ce8e1581b94fbb3ce79b26fc50737ba2610b1149b19d9f4d7b7e257"
+    }
+  ]
+}

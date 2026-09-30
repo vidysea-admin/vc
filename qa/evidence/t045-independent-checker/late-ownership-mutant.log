@@ -1,0 +1,8 @@
+D:\vc\.worktrees\b18-approved-history\qa\evidence\t045-independent-checker\late-oracle.ts:22
+ if(mode==='newer'){assert.equal(claims.all()[0].lease.token,'independent-new-owner');assert.equal(claims.all()[0].response.action,'approve');}else if(mode!=='undofault')assert.equal(claims.all().length,0,'late own claim must leave no raw residue after lost authority');
+                                               ^
+
+TypeError: Cannot read properties of undefined (reading 'lease')
+    at <anonymous> (D:\vc\.worktrees\b18-approved-history\qa\evidence\t045-independent-checker\late-oracle.ts:22:48)
+
+Node.js v24.13.1

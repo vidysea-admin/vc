@@ -1,0 +1,40 @@
+{
+  "studentId": "demo-student-1",
+  "facts": [
+    {
+      "key": "targetCountry",
+      "value": "Canada",
+      "active": true
+    },
+    {
+      "key": "preferredIntake",
+      "value": "September 2027",
+      "active": true
+    },
+    {
+      "key": "budget_inr_per_year",
+      "value": 2800000,
+      "active": true
+    }
+  ],
+  "sessions": [
+    {
+      "sessionId": "demo-session-1",
+      "summary": "Student is weighing computer science in Canada (Toronto or Waterloo) for the September 2027 intake; family budget discussed as about 20 lakh rupees a year.",
+      "summaryApprovedAt": "2026-09-30T16:40:27.224Z"
+    }
+  ],
+  "claims": 1,
+  "decisions": [
+    {
+      "threadId": "scribe:demo-session-1",
+      "rejected": [
+        {
+          "key": "intendedMajor",
+          "reason": "Independent synthetic rejection"
+        }
+      ],
+      "decidedAt": "2026-09-30T16:40:27.215Z"
+    }
+  ]
+}

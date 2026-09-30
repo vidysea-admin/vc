@@ -1,0 +1,163 @@
+[
+  {
+    "unit": "packages/db",
+    "status": 0,
+    "files": 10,
+    "summary": [
+      "✔ ISS-t-003b-c1-3: the facts tests run with the production unique partial index from INDEX_PLAN (0.1449ms)",
+      "ℹ tests 252",
+      "ℹ pass 252",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0",
+      "ℹ duration_ms 6054.2358"
+    ]
+  },
+  {
+    "unit": "packages/schemas",
+    "status": 0,
+    "files": 6,
+    "summary": [
+      "ℹ tests 61",
+      "ℹ pass 61",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0",
+      "ℹ duration_ms 957.3817"
+    ]
+  },
+  {
+    "unit": "packages/observability",
+    "status": 0,
+    "files": 6,
+    "summary": [
+      "ℹ tests 59",
+      "ℹ pass 59",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0",
+      "ℹ duration_ms 3351.7378"
+    ]
+  },
+  {
+    "unit": "packages/providers",
+    "status": 0,
+    "files": 4,
+    "summary": [
+      "✔ MockProvider records every call (skill name, prompt, input) so tests can prove zero calls (0.1841ms)",
+      "ℹ tests 60",
+      "ℹ pass 60",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0",
+      "ℹ duration_ms 3968.4726"
+    ]
+  },
+  {
+    "unit": "mcp/student-profile",
+    "status": 0,
+    "files": 1,
+    "summary": [
+      "ℹ tests 12",
+      "ℹ pass 12",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0",
+      "ℹ duration_ms 840.5594"
+    ]
+  },
+  {
+    "unit": "mcp/university-kb",
+    "status": 0,
+    "files": 2,
+    "summary": [
+      "ℹ tests 29",
+      "ℹ pass 29",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0",
+      "ℹ duration_ms 1186.4123"
+    ]
+  },
+  {
+    "unit": "apps/api",
+    "status": 0,
+    "files": 3,
+    "summary": [
+      "ℹ tests 46",
+      "ℹ pass 46",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0",
+      "ℹ duration_ms 3948.7542"
+    ]
+  },
+  {
+    "unit": "apps/web",
+    "status": 0,
+    "files": 4,
+    "summary": [
+      "ℹ tests 38",
+      "ℹ pass 38",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0",
+      "ℹ duration_ms 3744.1686"
+    ]
+  },
+  {
+    "config": "packages/db/tsconfig.json",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "config": "packages/schemas/tsconfig.json",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "config": "packages/observability/tsconfig.json",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "config": "packages/providers/tsconfig.json",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "config": "mcp/student-profile/tsconfig.json",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "config": "mcp/university-kb/tsconfig.json",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "config": "apps/api/tsconfig.json",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "config": "apps/web/tsconfig.json",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "config": "packages/engine/tsconfig.json",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "config": "packages/engine/evals/tsconfig.json",
+    "status": 0,
+    "output": ""
+  },
+  {
+    "config": "packages/engine/scripts/tsconfig.json",
+    "status": 0,
+    "output": ""
+  }
+]
