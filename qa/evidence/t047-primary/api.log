@@ -1,0 +1,63 @@
+✔ T-025 auth: config refuses a missing issuer, 'none', unknown algorithms and unsafe HS256 setups (9.4064ms)
+✔ T-025 auth: config narrows a PEM key to its own algorithm and unescapes one-line PEMs (0.8736ms)
+✔ T-025 auth: a valid RS256 token yields {tenantId, counsellorId, role} (18.3391ms)
+✔ T-025 auth: a valid ES256 token verifies against an EC P-256 PEM (2.5946ms)
+✔ T-025 auth: signature failures (tampered payload, another key) are refused (4.3566ms)
+✔ T-025 auth: algorithm confusion and 'none' are refused (2.323ms)
+✔ T-025 auth: exp / nbf honour the clock skew, and exp is required (7.7599ms)
+✔ T-025 auth: issuer and audience are enforced (9.6113ms)
+✔ T-025 auth: tenant / counsellorId / role claims are required and validated (16.6104ms)
+✔ T-025 auth: malformed and oversized tokens are refused before parsing (0.6777ms)
+✔ T-025 auth: HS256 only when explicitly configured, and then an RS256 token is refused (2.6541ms)
+✔ T-025 auth: a JWKS key source verifies by kid through an injected (offline) fetch (19.6927ms)
+✔ T-025 auth: bearerToken takes only a single-token Bearer header (0.3386ms)
+✔ T-025 B21 contract: the placeholder issuer 'umesh' (local key pair) and a later real issuer differ ONLY in config; each verifier accepts its own tokens and refuses the other's (55.1047ms)
+✔ T-025 B21 contract: no issuer or key is hard-coded in apps/api/src, .env.example lists the JWT names with no values, and no private key is tracked in git (327.8903ms)
+✔ apiStatus reports the T-025 HTTP API (opt-in) (0.7011ms)
+✔ T-014/ISS-t-011-c3-rev-3: startApi connects via connectFromEnv (B12: virtual_counsellor only) and wires the erasure-fence sweep so a scheduled tick actually releases an expired fence (10.7956ms)
+✔ T-015/ISS-t-014-rev-2: startApi's default onError logs a structured JSON line naming the failure, instead of discarding it (21.1262ms)
+✔ ISS-t-015-c0-1: a Mongo-shaped error whose message embeds a value does not survive in the logged line (28.9145ms)
+✔ T-015/ISS-t-014-rev-2: a caller-supplied onError still wins over the default (not double-logged) (20.8185ms)
+✔ T-015/ISS-t-014-rev-3: startApi closes the client and rethrows when starting the sweep fails after connect (0.65ms)
+✔ ISS-t-015-c0-2: when close() throws too, the ORIGINAL error is preserved (not discarded), with the close failure attached (0.3155ms)
+✔ T-015/ISS-t-014-rev-3 (regression): a SUCCESSFUL startApi does not close the client until stop() is called (0.2051ms)
+✔ T-025 api: every auth failure on every protected route is the same 401, and no Db or graph is touched (111.3006ms)
+✔ T-025 api: a role outside a route's roles is 403 before any Db access; unknown paths 404; wrong method 405 + Allow (5.5643ms)
+✔ T-025 api: bad ids, bad JSON and bad bodies are 400 before any Db access, with issue paths but no values (4.6613ms)
+✔ T-025 api: scribe start -> approval diff -> approve -> profile, with every stored document stamped with the token's tenant (60.6464ms)
+✔ T-034 api: decideApproval enqueues one fact.approved webhook event per DURABLY WRITTEN fact (read back via getFactsByIds, not re-derived from the response), carrying B2 provenance (28.5754ms)
+✔ T-034 api: with no webhooks configured, an approve decision writes facts exactly as before and enqueues nothing (the emission hook is a pure no-op) (24.3471ms)
+✔ T-034 api: a webhook enqueue failure is logged (webhook_enqueue_failed) but never turns an already-successful approval into an error response (26.7623ms)
+✔ T-042 api (ISS-085 leak 1): a short read-back NOT explained by an erasure fence is alerted and recorded as a recoverable gap; the facts that WERE found still emit their events (26.3961ms)
+✔ T-042 api (ISS-085 leak 1, erasure interaction): the SAME short read-back, explained by a concurrent B15 erasure fence that lands AFTER the write, is never alerted or recorded (26.5032ms)
+✔ T-042 api (ISS-090): a genuine read-back gap whose fence check itself throws is still a 200 (the write already succeeded), alerted twice (the fence-check failure AND the now-unexplained gap) and recorded -- never a 500 (39.7158ms)
+✔ T-042 api (ISS-085 leak 2): an enqueue failure records a recoverable gap entry carrying the fully built event, so it can be replayed without rebuilding it (22.626ms)
+✔ T-025 api: another tenant sees tenant A's student exactly as a student that never existed, and changes nothing of A's (23.2955ms)
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+✔ T-025 api (T-022 merge): concern_flagged edges are stamped with the token's tenant, the same student/session in two tenants coexist, and A's erasure deletes only A's (43.2894ms)
+✔ T-034 api: the first erasure confirmation enqueues one erasure.requested webhook event, carrying the request's own reason/requestedAt (read back via getErasureRequest, the last point studentId is still clear) (15.2305ms)
+✔ T-029 api: request -> confirm -> reconfirm (token) -> approver approves -> purged; no single call purges; self-approval, a wrong token and student-as-actor are refused (21.58ms)
+✔ T-029 api: the approver REJECTS -> 200 rejected, nothing purged; a later approve / execute is refused (18.657ms)
+✔ T-029 api: autoDelete=true -> the reconfirm itself purges (200, autoDeleted); an unconfigured workflow is 503 erasure_not_configured and writes nothing (64.6381ms)
+✔ T-025 api: an unexpected error is a 500 with a fixed body, logged by error label only (2.63ms)
+✔ T-025 api: a consent-less profile read is 403 consent_required (1.1336ms)
+✔ T-025 api: the OpenAPI document is public and matches the route table (method, path, roles) in both directions (0.5932ms)
+✔ T-025 api: the node:http adapter serves on loopback, answers 401 and refuses a body over 1 MiB with 413 (36.1908ms)
+✔ T-025 api: startApi serves HTTP only when asked, on virtual_counsellor only, and stop() closes the server (16.3915ms)
+✔ T-025 api: startApi with http refuses a missing JWT configuration before connecting (0.4158ms)
+✔ T046 verified JWT edit provenance is identical in raw KG API profile and approved webhook (28.9916ms)
+✔ T046 forged body actor time and nested provenance refuse before actual claim or write (15.9738ms)
+✔ T047 signed JWT ordinary no-consent start leaves every personal collection empty (2.648ms)
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t1","sessionId":"session-synthetic-1"}
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t1","sessionId":"session-synthetic-1"}
+✔ T047 signed JWT same IDs in two tenants produce only minimal unrouted record-only crisis flags (6.7324ms)
+✔ T047 actual startup trusted recipient factory binds signed JWT tenant and replay keeps raw minimal records (14.2342ms)
+ℹ tests 51
+ℹ suites 0
+ℹ pass 51
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5124.9135

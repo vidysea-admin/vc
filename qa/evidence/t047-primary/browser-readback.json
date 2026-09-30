@@ -1,0 +1,55 @@
+{
+  "studentId": "demo-student-4",
+  "facts": [
+    {
+      "key": "targetCountry",
+      "value": "Canada",
+      "active": true,
+      "source": {
+        "type": "transcript",
+        "quote": "computer science in Canada",
+        "turnId": "t1"
+      }
+    },
+    {
+      "key": "intendedMajor",
+      "value": "computer science",
+      "active": true,
+      "source": {
+        "type": "transcript",
+        "quote": "thinking about computer science",
+        "turnId": "t1"
+      }
+    },
+    {
+      "key": "preferredIntake",
+      "value": "September 2027",
+      "active": true,
+      "source": {
+        "type": "transcript",
+        "quote": "the September 2027 intake",
+        "turnId": "t3"
+      }
+    },
+    {
+      "key": "budget_inr_per_year",
+      "value": 2000000,
+      "active": true,
+      "source": {
+        "type": "transcript",
+        "quote": "around 20 lakh rupees a year",
+        "turnId": "t5"
+      }
+    }
+  ],
+  "sessions": [
+    {
+      "sessionId": "c49807fc-9eb0-4eb7-95b6-116f97365605",
+      "summary": "",
+      "summaryWithheldReason": "withheld by the counsellor at approval",
+      "summaryApprovedAt": "2026-09-30T19:01:42.46Z"
+    }
+  ],
+  "claims": 1,
+  "decisions": []
+}

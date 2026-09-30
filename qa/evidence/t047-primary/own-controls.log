@@ -1,0 +1,11 @@
+✔ primary oracle strict minimal rejects arbitrary personal fields and flag changes (3.6686ms)
+✔ primary fresh no-consent translated multi-crisis ids and zero forbidden collection access (23.168ms)
+✔ primary leaf refusal never publishes even with authority immediately restored (3.6553ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1906.102

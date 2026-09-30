@@ -1,0 +1,11 @@
+packages/engine/tsconfig.json EXIT0
+packages/engine/evals/tsconfig.json EXIT0
+packages/engine/scripts/tsconfig.json EXIT0
+packages/db/tsconfig.json EXIT0
+packages/providers/tsconfig.json EXIT0
+packages/schemas/tsconfig.json EXIT0
+packages/observability/tsconfig.json EXIT0
+apps/api/tsconfig.json EXIT0
+apps/web/tsconfig.json EXIT0
+mcp/student-profile/tsconfig.json EXIT0
+mcp/university-kb/tsconfig.json EXIT0
