@@ -69,7 +69,7 @@ function residue(h: Harness): string[] {
 // ---------------------------------------------------------------------------
 
 test("T-022 concern-continue: a concern-level turn does NOT stop the scribe — facts are still extracted and the run pauses for approval", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const outcome = await startScribe(h.graph, concernInput(), { threadId: "thread-concern-1" });
 
   assert.equal(outcome.kind, "awaiting_approval", "a concern must not end the run (D-020: flag and continue)");
@@ -86,7 +86,7 @@ test("T-022 concern-continue: a concern-level turn does NOT stop the scribe — 
 });
 
 test("T-022 concern-flag: the approval payload carries a visible, typed, cited concern flag", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const outcome = await startScribe(h.graph, concernInput(), { threadId: "thread-concern-2" });
   assert.equal(outcome.kind, "awaiting_approval");
   if (outcome.kind !== "awaiting_approval") return;
@@ -104,7 +104,7 @@ test("T-022 concern-flag: the approval payload carries a visible, typed, cited c
 });
 
 test("T-022 no-concern: an ordinary session carries no concern flag and writes no concern edge", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const outcome = await startScribe(h.graph, baseInput(), { threadId: "thread-concern-none" });
   assert.equal(outcome.kind, "awaiting_approval");
   if (outcome.kind !== "awaiting_approval") return;
@@ -113,7 +113,7 @@ test("T-022 no-concern: an ordinary session carries no concern flag and writes n
 });
 
 test("T-022 original-language: a concern only in the original-language text (benign translation) is still flagged, cited to the original text", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const hinglish = turn("t4", "sach bolun toh bahut tension hai ghar pe", "Honestly things are a bit busy at home.");
   const outcome = await startScribe(h.graph, concernInput([hinglish]), { threadId: "thread-concern-hi" });
   assert.equal(outcome.kind, "awaiting_approval");
@@ -127,7 +127,7 @@ test("T-022 original-language: a concern only in the original-language text (ben
 // ---------------------------------------------------------------------------
 
 test("T-022 concern-kg: the concern is written to the Student KG as a cited edge whose citation resolves into the stored transcript (B2)", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, concernInput(), { threadId: "thread-concern-kg" });
 
   const edges = concernEdges(h);
@@ -149,7 +149,7 @@ test("T-022 concern-kg: the concern is written to the Student KG as a cited edge
 });
 
 test("T-022 concern-kg: approving writes the facts AND keeps the concern edge; a replayed start writes no second edge", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, concernInput(), { threadId: "thread-concern-approve" });
   const outcome = await resumeScribe(h.graph, { action: "approve" }, { threadId: "thread-concern-approve" });
   assert.equal(outcome.kind === "done" && outcome.result.status, "written");
@@ -162,7 +162,7 @@ test("T-022 concern-kg: approving writes the facts AND keeps the concern edge; a
 });
 
 test("T-022 multi-concern: two concern turns give two records, in turn order", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const outcome = await startScribe(
     h.graph,
     concernInput([turn("t4", CONCERN_TEXT), turn("t5", "I feel hopeless about all of this.", undefined, 5)]),
@@ -175,7 +175,7 @@ test("T-022 multi-concern: two concern turns give two records, in turn order", a
 });
 
 test("T-022 consent-first: a session refused by the consent gate writes no concern (B4)", async () => {
-  const h = makeHarness({ consent: false });
+  const h = makeHarness({ tenantId: "scribe-test", consent: false });
   const outcome = await startScribe(h.graph, concernInput(), { threadId: "thread-concern-noconsent" });
   assert.equal(outcome.kind === "done" && outcome.result.status, "refused");
   assert.equal(concernEdges(h).length, 0);
@@ -187,7 +187,7 @@ test("T-022 consent-first: a session refused by the consent gate writes no conce
 // ---------------------------------------------------------------------------
 
 test("T-022 crisis-unchanged: a crisis turn still ends `escalated` with zero provider calls, and a concern elsewhere never downgrades it", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const input = concernInput([turn("t4", CONCERN_TEXT), turn("t5", "Honestly I just want to kill myself.", undefined, 5)]);
   const outcome = await startScribe(h.graph, input, { threadId: "thread-concern-crisis" });
   assert.equal(h.provider.calls.length, 0, "no generative call on a crisis session (B9)");
@@ -207,7 +207,7 @@ test("T-022 crisis-unchanged: a crisis turn still ends `escalated` with zero pro
 // ---------------------------------------------------------------------------
 
 test("T-022 concern-export: exportStudent includes the concern edge with its record", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, concernInput(), { threadId: "thread-concern-export" });
   const bundle = await exportStudent(h.db, STUDENT_ID);
   const exported = (bundle.edges as ConcernEdge[]).filter((e) => e.rel === CONCERN_EDGE_REL);
@@ -217,7 +217,7 @@ test("T-022 concern-export: exportStudent includes the concern edge with its rec
 });
 
 test("T-022 concern-erasure: executeErasure removes the concern edge — read-back finds zero residue anywhere", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, concernInput(), { threadId: "thread-concern-erase" });
   await resumeScribe(h.graph, { action: "approve" }, { threadId: "thread-concern-erase" });
   assert.equal(concernEdges(h).length, 1);
@@ -233,7 +233,7 @@ test("T-022 concern-erasure: executeErasure removes the concern edge — read-ba
 });
 
 test("T-022 concern-fence: a fence during startScribe removes the concern edges THIS call created, and keeps one an earlier run created", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   // An earlier run already flagged t4 (no writerToken of this call).
   const earlier = {
     _id: `student:${STUDENT_ID}->${CONCERN_EDGE_REL}->transcript_turn:${SESSION_ID}:t4`,

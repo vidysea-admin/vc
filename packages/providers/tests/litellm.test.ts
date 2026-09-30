@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import { z } from "zod";
 import {
+  ModelOutputSchemaError,
   LiteLlmProvider,
   LiteLlmHttpError,
   LiteLlmTimeoutError,
@@ -159,13 +160,18 @@ test("a response body that is not valid JSON at all gives a typed LiteLlmMalform
   }
 });
 
-test("well-formed JSON that fails the caller's outputSchema throws the underlying schema error (retryable upstream), not a swallowed generic error", async () => {
+test("well-formed JSON that fails the caller's outputSchema throws a typed sanitized schema error (retryable upstream)", async () => {
   const stub = await startStub(() => ({ status: 200, body: chatCompletion({ answer: "" }) }));
   try {
     const provider = new LiteLlmProvider({ model: "balanced", baseUrl: stub.baseUrl });
     await assert.rejects(
       provider.generate({ skillName: "s", skillPrompt: "p", outputSchema: OutSchema, input: {} }),
-      /answer/,
+      (error: unknown) => {
+        assert.ok(error instanceof z.ZodError && error instanceof ModelOutputSchemaError);
+        assert.deepEqual(error.issues, [{ code: "custom", path: [], message: "Provider output did not match the required schema." }]);
+        for (const value of [String(error), JSON.stringify(error)]) assert.doesNotMatch(value, /answer/);
+        return true;
+      },
     );
   } finally {
     await stop(stub.server);

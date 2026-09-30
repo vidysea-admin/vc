@@ -54,3 +54,7 @@ manage around $20,000 a year", turnId: "t-14"}, confidence: 0.8, ...}` (real quo
 **Bad:** `{key: "budget_usd", value: 20000, source: {type: "transcript", quote: "budget is $20,000",
 turnId: "t-14"}, confidence: 0.95, ...}` when the turn never says that figure — a fabricated quote,
 which defeats the citation requirement even though the schema shape parses.
+
+## Approved history boundary
+
+`approvedContext` is server-loaded, consent/purpose/tenant/student-scoped persisted approval authority with durable fact IDs and original canonical sources. It is separate from this session's evidence. Never invent current transcript citations for historical values, treat an original retained quote as evidence an edited approved value was spoken, or emit unknown placeholders for facts already approved. Genuine changed values and historical discussion remain extractable with their actual current-session quotes and counsellor review; known keys are not a blacklist. Pending/rejected proposals are not history. No durable do-not-ask or destination policy is supplied by this context.

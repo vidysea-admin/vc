@@ -17,6 +17,8 @@
 import { Annotation, Command, END, START, StateGraph, interrupt, type BaseCheckpointSaver } from "@langchain/langgraph";
 import type { Callbacks } from "@langchain/core/callbacks/manager";
 import { createHash, randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
+import { ProviderAuthorizationRefusedError } from "@vc/providers";
 import {
   deriveEdgeId,
   edgesCollection,
@@ -49,6 +51,7 @@ import {
   checkCrisis,
   decisionFromResponse,
   extractFacts,
+  loadApprovedContext,
   proposeDiff,
   summarizeSession,
   writeApproved,
@@ -60,6 +63,7 @@ import {
   ScribeInputSchema,
   ScribeResultSchema,
   type ApprovalRequest,
+  type ApprovedContext,
   type ApprovalResponse,
   type DroppedFact,
   type ScribeEscalation,
@@ -92,6 +96,7 @@ export const ScribeState = Annotation.Root({
   escalation: last<ScribeEscalation | null | undefined>(),
   /** T-022: concern-level flags (the run continued); surfaced in the approval payload. */
   concerns: last<ConcernRecord[] | undefined>(),
+  approvedContext: last<ApprovedContext[] | undefined>(),
   facts: last<Fact[] | undefined>(),
   dropped: last<DroppedFact[] | undefined>(),
   summary: last<string | undefined>(),
@@ -104,6 +109,37 @@ export const ScribeState = Annotation.Root({
   result: last<ScribeResult | undefined>(),
 });
 type State = typeof ScribeState.State;
+
+// Invocation-private authority; pending payloads bind an exact history snapshot, completed
+// own writes bind current consent/fence only. No checkpointed permission is accepted.
+function authorizeSnapshot(deps: Pick<ScribeDeps, "db">, studentId: string, snapshot: ApprovedContext[] | undefined, signal?: AbortSignal) {
+  return async () => {
+    let onAbort: (() => void) | undefined;
+    try {
+      if (!tenantIdOf(deps.db) || !studentId?.trim()) throw new ProviderAuthorizationRefusedError();
+      if (signal?.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+      const cancelled = new Promise<never>((_, reject) => {
+        onAbort = () => reject(new DOMException("Scribe execution cancelled.", "AbortError"));
+        signal?.addEventListener("abort", onAbort, { once: true });
+      });
+      const reading = snapshot === undefined
+        ? checkConsent({ studentId }, deps).then((out) => {
+            if (out.consent !== "granted") throw new ProviderAuthorizationRefusedError();
+          })
+        : loadApprovedContext(studentId, { ...deps, signal }).then((fresh) => {
+            const ordered = (facts: ApprovedContext[]) => [...facts].sort((a, b) => a.factId.localeCompare(b.factId));
+            if (!isDeepStrictEqual(ordered(fresh), ordered(snapshot))) throw new ProviderAuthorizationRefusedError();
+          });
+      await (signal ? Promise.race([reading, cancelled]) : reading);
+      if (signal?.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+    } catch {
+      if (signal?.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+      throw new ProviderAuthorizationRefusedError();
+    } finally {
+      if (onAbort) signal?.removeEventListener("abort", onAbort);
+    }
+  };
+}
 
 export function buildScribeGraph(deps: ScribeDeps) {
   return new StateGraph(ScribeState)
@@ -119,14 +155,17 @@ export function buildScribeGraph(deps: ScribeDeps) {
         ? { escalation: out.escalation, concerns: [], result: ScribeResultSchema.parse({ status: "escalated", escalation: out.escalation }) }
         : { escalation: null, concerns: out.concerns };
     })
-    .addNode(SCRIBE_NODES.extract, async (s: State) => {
-      const { failedReason, ...out } = await extractFacts({ turns: s.turns, sessionEndedAt: s.sessionEndedAt }, deps);
+    .addNode(SCRIBE_NODES.extract, async (s: State, runtime: { signal?: AbortSignal }) => {
+      const approvedContext = await loadApprovedContext(s.studentId, { ...deps, signal: runtime.signal });
+      const preflight = authorizeSnapshot(deps, s.studentId, approvedContext, runtime.signal);
+      const { failedReason, ...out } = await extractFacts({ turns: s.turns, sessionEndedAt: s.sessionEndedAt, approvedContext }, { ...deps, preflight, signal: runtime.signal });
       return failedReason
-        ? { ...out, result: ScribeResultSchema.parse({ status: "extraction_failed", reason: failedReason }) }
-        : out;
+        ? { ...out, approvedContext, result: ScribeResultSchema.parse({ status: "extraction_failed", reason: failedReason }) }
+        : { ...out, approvedContext };
     })
-    .addNode(SCRIBE_NODES.summary, async (s: State) => {
-      const { failedReason, ...out } = await summarizeSession({ turns: s.turns, facts: s.facts }, deps);
+    .addNode(SCRIBE_NODES.summary, async (s: State, runtime: { signal?: AbortSignal }) => {
+      const preflight = authorizeSnapshot(deps, s.studentId, s.approvedContext ?? [], runtime.signal);
+      const { failedReason, ...out } = await summarizeSession({ turns: s.turns, facts: s.facts, approvedContext: s.approvedContext }, { ...deps, preflight, authorizeRelease: preflight, signal: runtime.signal });
       return failedReason
         ? { ...out, result: ScribeResultSchema.parse({ status: "summary_failed", reason: failedReason }) }
         : out;
@@ -136,7 +175,7 @@ export function buildScribeGraph(deps: ScribeDeps) {
     )
     .addNode(SCRIBE_NODES.approval, async (
       s: State,
-      runtime: { configurable?: { thread_id?: string; writerDeadlineExpiresAt?: number } },
+      runtime: { signal?: AbortSignal; configurable?: { thread_id?: string; writerDeadlineExpiresAt?: number } },
     ) => {
       const request: ApprovalRequest = ApprovalRequestSchema.parse({
         sessionId: s.sessionId,
@@ -148,6 +187,7 @@ export function buildScribeGraph(deps: ScribeDeps) {
         dropped: s.dropped,
         ...(s.concerns && s.concerns.length > 0 ? { concerns: s.concerns } : {}),
       });
+      await authorizeSnapshot(deps, s.studentId, s.approvedContext ?? [], runtime.signal)();
       // B3: the graph suspends here; the counsellor's typed response resumes it.
       const response = ApprovalResponseSchema.parse(interrupt(request));
       const { decision, summaryDecision, rejectedFacts } = decisionFromResponse(response, s.proposedFacts ?? []);
@@ -253,7 +293,9 @@ export function compileScribeGraph(deps: ScribeDeps, options: { checkpointer: Ba
     throw new TenantScopeError("compileScribeGraph: `escalation` needs a tenant-scoped db (tenantScopedDb, T-025)");
   }
   const graph = buildScribeGraph(deps).compile({ checkpointer: options.checkpointer });
-  graphDeps.set(graph, { db: deps.db, checkpointer: options.checkpointer, escalation: deps.escalation });
+  graphDeps.set(graph, { db: deps.db, checkpointer: options.checkpointer, escalation: deps.escalation,
+    authorize: (studentId, snapshot, signal) => authorizeSnapshot(deps, studentId, snapshot, signal)(),
+  });
   return graph;
 }
 
@@ -267,7 +309,8 @@ export function compileScribeGraph(deps: ScribeDeps, options: { checkpointer: Ba
  */
 const graphDeps = new WeakMap<
   object,
-  { db: ScribeDeps["db"]; checkpointer: BaseCheckpointSaver; escalation?: ScribeDeps["escalation"] }
+  { db: ScribeDeps["db"]; checkpointer: BaseCheckpointSaver; escalation?: ScribeDeps["escalation"];
+    authorize: (studentId: string, snapshot: ApprovedContext[] | undefined, signal: AbortSignal) => Promise<void> }
 >();
 
 export type ScribeGraph = ReturnType<typeof compileScribeGraph>;
@@ -367,13 +410,28 @@ function runnableConfig(opts: ScribeRunOptions, deadline: WriterDeadline) {
   };
 }
 
-async function readOutcome(graph: ScribeGraph, threadId: string): Promise<ScribeOutcome> {
-  const snapshot = await graph.getState({ configurable: { thread_id: threadId } });
+async function readOutcome(graph: ScribeGraph, threadId: string, deadline: WriterDeadline): Promise<ScribeOutcome> {
+  const deps = depsFor(graph, "readOutcome");
+  const snapshot = await deadline.run(graph.getState({ configurable: { thread_id: threadId } }));
+  deadline.op();
+  const latest = snapshot.values as State;
   const interrupts = snapshot.tasks.flatMap((task) => task.interrupts);
+  if (latest.studentId) {
+    let fenced = true;
+    try { fenced = await deadline.run(isStudentFenced(deps.db, latest.studentId, new Date(), deadline.op())); }
+    catch { deadline.op(); }
+    deadline.op();
+    if (fenced) return { kind: "fenced" };
+  }
   if (interrupts.length > 0) {
+    await deadline.run(deps.authorize(latest.studentId, latest.approvedContext ?? [], deadline.signal));
+    deadline.op();
     return { kind: "awaiting_approval", request: ApprovalRequestSchema.parse(interrupts[0]!.value) };
   }
-  return { kind: "done", result: ScribeResultSchema.parse((snapshot.values as State).result) };
+  const result = ScribeResultSchema.parse(latest.result);
+  if (result.status !== "refused") await deadline.run(deps.authorize(latest.studentId, undefined, deadline.signal));
+  deadline.op();
+  return { kind: "done", result };
 }
 
 function depsFor(graph: ScribeGraph, caller: string) {
@@ -475,8 +533,6 @@ async function invokeFenceAware(
     await deadline.run(work);
   } catch (err) {
     thrown = { err };
-  } finally {
-    deadline.dispose();
   }
   const timedOut = thrown !== null && deadline.expired();
   const noop = () => undefined;
@@ -514,7 +570,7 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
   // D-016: the deadline starts before the pre-check.
   const deadline = new WriterDeadline(opts.writerDeadlineMs);
   try {
-    if (await isStudentFenced(deps.db, parsed.studentId, new Date(), deadline.op())) return { kind: "fenced" };
+    if (await deadline.run(isStudentFenced(deps.db, parsed.studentId, new Date(), deadline.op()))) return { kind: "fenced" };
     // ISS-t-011-rev-5: the session row (with this thread id) is written BEFORE the first checkpoint,
     // so erasure/export find this run's checkpoints even if it ends without an interrupt. A
     // sessionId owned by another student throws 11000 here, before anything is checkpointed.
@@ -556,10 +612,10 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
       },
     );
     if (fenced) return { kind: "fenced" };
+    return await readOutcome(graph, opts.threadId, deadline);
   } finally {
     deadline.dispose();
   }
-  return readOutcome(graph, opts.threadId);
 }
 
 /** T-022: the KG relation for a concern flag: student --concern_flagged--> transcript_turn. */
@@ -684,13 +740,14 @@ function newLease(deadline: WriterDeadline): NonNullable<ScribeResolutionDoc["le
  * Releases `token`'s lease (a CAS on the token: never another holder's). Best effort: a failed
  * release only delays the next recovery until the lease expires, so it never masks the outcome.
  */
-async function releaseLease(deps: GraphDeps, threadId: string, token: string): Promise<void> {
+async function releaseLease(deps: GraphDeps, threadId: string, token: string, deadline: WriterDeadline): Promise<void> {
+  if (deadline.expired() || deadline.signal.aborted) return;
   try {
-    await scribeResolutionsCollection(deps.db).updateOne(
+    await deadline.run(scribeResolutionsCollection(deps.db).updateOne(
       { _id: threadId, "lease.token": token },
       { $unset: { lease: "" } },
-      { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS },
-    );
+      { timeoutMS: Math.min(FENCE_POSTCHECK_TIMEOUT_MS, deadline.op().timeoutMS) },
+    ));
   } catch {
     // The lease expires by itself (see newLease).
   }
@@ -700,15 +757,15 @@ async function releaseLease(deps: GraphDeps, threadId: string, token: string): P
  * Runs `work` as the holder of `token`'s lease and releases it afterwards, EXCEPT after a writer
  * deadline timeout: the aborted invoke may still be settling, so the lease is left to expire.
  */
-async function underLease<T>(deps: GraphDeps, threadId: string, token: string, work: () => Promise<T>): Promise<T> {
+async function underLease<T>(deps: GraphDeps, threadId: string, token: string, deadline: WriterDeadline, work: () => Promise<T>): Promise<T> {
   let release = true;
   try {
     return await work();
   } catch (err) {
-    if (err instanceof FencedWriterDeadlineError) release = false;
+    if (err instanceof FencedWriterDeadlineError || (err instanceof Error && err.name === "AbortError") || deadline.signal.aborted) release = false;
     throw err;
   } finally {
-    if (release) await releaseLease(deps, threadId, token);
+    if (release && !deadline.expired() && !deadline.signal.aborted) await releaseLease(deps, threadId, token, deadline);
   }
 }
 
@@ -795,7 +852,9 @@ export async function resumeScribe(
   // D-016: the deadline starts before the pre-check and covers the claim and the invoke.
   const deadline = new WriterDeadline(opts.writerDeadlineMs);
   try {
-    return await resumeUnderDeadline(graph, deps, response, opts, deadline);
+    const result = await resumeUnderDeadline(graph, deps, response, opts, deadline);
+    deadline.op();
+    return result;
   } finally {
     deadline.dispose();
   }
@@ -812,40 +871,79 @@ async function resumeUnderDeadline(
   const stateConfig = { configurable: { thread_id: opts.threadId } };
 
   if (response === null) {
-    const snapshot = await graph.getState(stateConfig);
+    const snapshot = await deadline.run(graph.getState(stateConfig));
     const latest = snapshot.values as Partial<State>;
-    if (latest.studentId && (await isStudentFenced(deps.db, latest.studentId, new Date(), deadline.op()))) {
+    if (latest.studentId && (await deadline.run(isStudentFenced(deps.db, latest.studentId, new Date(), deadline.op())))) {
       return { kind: "fenced" };
     }
-    const claimDoc = await claims.findOne({ threadId: opts.threadId });
+    const claimDoc = await deadline.run(claims.findOne({ threadId: opts.threadId }, deadline.op()));
     if (!claimDoc) {
       // No claim yet (a pre-approval crash): nothing to lease (see the docstring's residual).
       return recoverUnder(graph, deps, opts, deadline, snapshot, null);
     }
     // ISS-t-007-rev-10: take the claim's run lease atomically, or step aside.
     const lease = newLease(deadline);
-    const took = await claims.findOneAndUpdate(
+    const originalCheckpoint = snapshot.config.configurable?.checkpoint_id;
+    const originalStudent = latest.studentId;
+    const acquisition = claims.findOneAndUpdate(
       { _id: claimDoc._id, $or: [{ lease: { $exists: false } }, { "lease.expiresAt": { $lt: new Date().toISOString() } }] },
       { $set: { lease } },
       { ...deadline.op(), returnDocument: "after" },
     );
+    let took: ScribeResolutionDoc | null;
+    try {
+      took = await deadline.run(acquisition);
+    } catch (err) {
+      if (!deadline.expired()) throw err;
+      const settled = acquisition.then(async (owned) => {
+        if (!owned) return;
+        let valid = false;
+        let unreadable = false;
+        const postSignal = AbortSignal.timeout(FENCE_POSTCHECK_TIMEOUT_MS);
+        const expired = new Promise<never>((_, reject) => postSignal.addEventListener("abort", () => reject(new ProviderAuthorizationRefusedError()), { once: true }));
+        try {
+          valid = await Promise.race([(async () => {
+            if (!originalStudent || !originalCheckpoint) return false;
+            if (await isStudentFenced(deps.db, originalStudent, new Date(), { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS })) return false;
+            const current = await graph.getState(stateConfig);
+            if (current.config.configurable?.checkpoint_id !== originalCheckpoint || (current.values as Partial<State>).studentId !== originalStudent) return false;
+            const consent = await checkConsent({ studentId: originalStudent }, deps);
+            return consent.consent === "granted" && !postSignal.aborted;
+          })(), expired]);
+        } catch { unreadable = true; }
+        if (!valid) {
+          const undoSignal = AbortSignal.timeout(FENCE_POSTCHECK_TIMEOUT_MS);
+          try {
+            await Promise.race([claims.updateOne(
+              { _id: claimDoc._id, studentId: claimDoc.studentId, responseHash: claimDoc.responseHash, "lease.token": lease.token },
+              { $unset: { lease: "" } }, { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS }),
+              new Promise<never>((_, reject) => undoSignal.addEventListener("abort", () => reject(new ProviderAuthorizationRefusedError()), { once: true }))]);
+          } catch { throw new ProviderAuthorizationRefusedError(); }
+        }
+        if (unreadable) throw new ProviderAuthorizationRefusedError();
+      }, () => { throw new ProviderAuthorizationRefusedError(); });
+      void settled.catch(() => undefined); // Observe without altering the caller-visible settlement.
+      throw new FencedWriterDeadlineError(settled);
+    }
     if (!took) return { kind: "in_progress" };
-    return underLease(deps, opts.threadId, lease.token, async () =>
+    return underLease(deps, opts.threadId, lease.token, deadline, async () =>
       // Re-read under the lease: a holder that finished in between has advanced the thread.
-      recoverUnder(graph, deps, opts, deadline, await graph.getState(stateConfig), took),
+      recoverUnder(graph, deps, opts, deadline, await deadline.run(graph.getState(stateConfig)), took),
     );
   }
 
   const parsed = ApprovalResponseSchema.parse(response);
-  const snapshot = await graph.getState(stateConfig);
+  const snapshot = await deadline.run(graph.getState(stateConfig));
   const latest = snapshot.values as Partial<State>;
   // D-015 pre-check: before the claim, so a fenced resume writes nothing at all. It also runs
   // before the already-decided check: fenced over already_resolved (see the docstring).
-  if (latest.studentId && (await isStudentFenced(deps.db, latest.studentId, new Date(), deadline.op()))) {
+  if (latest.studentId && (await deadline.run(isStudentFenced(deps.db, latest.studentId, new Date(), deadline.op())))) {
     return { kind: "fenced" };
   }
   if (latest.decision) {
-    const claim = await claims.findOne({ threadId: opts.threadId });
+    const claim = await deadline.run(claims.findOne({ threadId: opts.threadId }, deadline.op()));
+    await deadline.run(deps.authorize(latest.studentId!, undefined, deadline.signal));
+    deadline.op();
     return alreadyResolved({ decision: latest.decision, responseHash: claim?.responseHash }, latest.result, parsed);
   }
 
@@ -859,6 +957,8 @@ async function resumeUnderDeadline(
     if (typeof latest.studentId !== "string" || latest.studentId.trim() === "") {
       throw new Error(`resumeScribe: the thread's state has no studentId; refusing to claim it (B15 erasure could not find the claim)`);
     }
+    await deadline.run(deps.authorize(latest.studentId, latest.approvedContext ?? [], deadline.signal));
+    deadline.op();
     const claim: ScribeResolutionDoc = {
       _id: opts.threadId,
       threadId: opts.threadId,
@@ -870,14 +970,48 @@ async function resumeUnderDeadline(
       // ISS-t-007-rev-10: the winner holds the run lease from the moment it claims.
       lease: newLease(deadline),
     };
+    const originalCheckpoint = snapshot.config.configurable?.checkpoint_id;
+    const insertion = claims.insertOne(claim, deadline.op());
     try {
-      await claims.insertOne(claim, deadline.op());
+      await deadline.run(insertion);
       createdClaim = claim;
     } catch (err) {
+      if (deadline.expired()) {
+        const settled = insertion.then(async () => {
+          let valid = false;
+          let unreadable = false;
+          const postSignal = AbortSignal.timeout(FENCE_POSTCHECK_TIMEOUT_MS);
+          const expired = new Promise<never>((_, reject) => postSignal.addEventListener("abort", () => reject(new ProviderAuthorizationRefusedError()), { once: true }));
+          try {
+            valid = await Promise.race([(async () => {
+              if (!originalCheckpoint) return false;
+              if (await isStudentFenced(deps.db, claim.studentId, new Date(), { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS })) return false;
+              const current = await graph.getState(stateConfig);
+              if (current.config.configurable?.checkpoint_id !== originalCheckpoint || (current.values as Partial<State>).studentId !== claim.studentId) return false;
+              const consent = await checkConsent({ studentId: claim.studentId }, deps);
+              return consent.consent === "granted" && !postSignal.aborted;
+            })(), expired]);
+          } catch { unreadable = true; }
+          if (!valid) {
+            const undoSignal = AbortSignal.timeout(FENCE_POSTCHECK_TIMEOUT_MS);
+            try {
+              await Promise.race([claims.deleteMany(
+                { _id: claim._id, studentId: claim.studentId, responseHash: claim.responseHash, "lease.token": claim.lease!.token },
+                { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS }),
+                new Promise<never>((_, reject) => undoSignal.addEventListener("abort", () => reject(new ProviderAuthorizationRefusedError()), { once: true }))]);
+            } catch { throw new ProviderAuthorizationRefusedError(); }
+          }
+          if (unreadable) throw new ProviderAuthorizationRefusedError();
+        }, () => { throw new ProviderAuthorizationRefusedError(); });
+        void settled.catch(() => undefined); // Observe without swallowing settlement failure.
+        throw new FencedWriterDeadlineError(settled);
+      }
       if (!isDuplicateKey(err)) throw err;
-      const winner = await claims.findOne({ threadId: opts.threadId });
+      const winner = await deadline.run(claims.findOne({ threadId: opts.threadId }, deadline.op()));
       if (!winner) throw err;
-      const now = (await graph.getState(stateConfig)).values as Partial<State>;
+      const now = (await deadline.run(graph.getState(stateConfig))).values as Partial<State>;
+      await deadline.run(deps.authorize(now.studentId!, now.decision ? undefined : now.approvedContext ?? [], deadline.signal));
+      deadline.op();
       return alreadyResolved(winner, now.result, parsed);
     }
   }
@@ -885,9 +1019,9 @@ async function resumeUnderDeadline(
     const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, { claim: createdClaim }, deadline, () =>
       graph.invoke(new Command({ resume: parsed }), runnableConfig(opts, deadline)),
     );
-    return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId);
+    return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId, deadline);
   };
-  return createdClaim?.lease ? underLease(deps, opts.threadId, createdClaim.lease.token, run) : run();
+  return createdClaim?.lease ? underLease(deps, opts.threadId, createdClaim.lease.token, deadline, run) : run();
 }
 
 /**
@@ -905,7 +1039,12 @@ async function recoverUnder(
   claim: ScribeResolutionDoc | null,
 ): Promise<ScribeOutcome> {
   const latest = snapshot.values as Partial<State>;
-  if (snapshot.next.length === 0) return readOutcome(graph, opts.threadId);
+  deadline.op();
+  if (snapshot.tasks.some((task) => task.interrupts.length > 0)) {
+    await deadline.run(deps.authorize(latest.studentId!, latest.approvedContext ?? [], deadline.signal));
+    deadline.op();
+  }
+  if (snapshot.next.length === 0) return readOutcome(graph, opts.threadId, deadline);
   const pendingInterrupt = snapshot.tasks.some((task) => task.interrupts.length > 0);
   const claimed = claim !== null && !latest.decision && pendingInterrupt ? ApprovalResponseSchema.parse(claim.response) : null;
   const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, {}, deadline, async () => {
@@ -916,7 +1055,7 @@ async function recoverUnder(
       await graph.invoke(null, runnableConfig(opts, deadline));
     }
   });
-  return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId);
+  return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId, deadline);
 }
 
 // ---------------------------------------------------------------------------
@@ -941,24 +1080,57 @@ export type ScribeInspection =
   | { kind: "awaiting_approval"; request: ApprovalRequest }
   | { kind: "done"; result: ScribeResult; decision: CounsellorDecision | null; summaryDecision?: SummaryDecision };
 
-export async function inspectScribe(graph: ScribeGraph, threadId: string): Promise<ScribeInspection> {
+export async function inspectScribe(graph: ScribeGraph, threadId: string, options: { writerDeadlineMs?: number; signal?: AbortSignal } = {}): Promise<ScribeInspection> {
   const deps = depsFor(graph, "inspectScribe");
-  const snapshot = await graph.getState({ configurable: { thread_id: threadId } });
-  const latest = (snapshot.values ?? {}) as Partial<State>;
-  if (!latest.studentId) return { kind: "not_found" };
-  if (await fencedForPostCheck(deps.db, latest.studentId)) return { kind: "fenced" };
-  const interrupts = snapshot.tasks.flatMap((task) => task.interrupts);
-  if (interrupts.length > 0) {
-    if (latest.decision) return { kind: "in_progress" };
-    const claim = await scribeResolutionsCollection(deps.db).findOne({ threadId });
-    if (claim) return { kind: "in_progress" };
-    return { kind: "awaiting_approval", request: ApprovalRequestSchema.parse(interrupts[0]!.value) };
+  const deadline = new WriterDeadline(options.writerDeadlineMs);
+  const signal = options.signal ? AbortSignal.any([deadline.signal, options.signal]) : deadline.signal;
+  let onAbort: (() => void) | undefined;
+  try {
+    if (signal.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+    const cancelled = new Promise<never>((_, reject) => {
+      onAbort = () => reject(new DOMException("Scribe execution cancelled.", "AbortError"));
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
+    const reading = (async (): Promise<ScribeInspection> => {
+      const snapshot = await graph.getState({ configurable: { thread_id: threadId } });
+      deadline.op();
+      if (signal.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+      const latest = (snapshot.values ?? {}) as Partial<State>;
+      if (!latest.studentId) return { kind: "not_found" };
+      let fenced = true;
+      try { fenced = await deadline.run(isStudentFenced(deps.db, latest.studentId, new Date(), deadline.op())); }
+      catch {
+        deadline.op();
+        if (signal.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+      }
+      deadline.op();
+      if (signal.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+      if (fenced) return { kind: "fenced" };
+      const interrupts = snapshot.tasks.flatMap((task) => task.interrupts);
+      if (interrupts.length > 0) {
+        if (latest.decision) return { kind: "in_progress" };
+        const claim = await scribeResolutionsCollection(deps.db).findOne({ threadId }, deadline.op());
+        deadline.op();
+        if (signal.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+        if (claim) return { kind: "in_progress" };
+        await deps.authorize(latest.studentId, latest.approvedContext ?? [], signal);
+        deadline.op();
+        return { kind: "awaiting_approval", request: ApprovalRequestSchema.parse(interrupts[0]!.value) };
+      }
+      if (snapshot.next.length > 0 || latest.result === undefined) return { kind: "in_progress" };
+      const result = ScribeResultSchema.parse(latest.result);
+      if (result.status !== "refused") await deps.authorize(latest.studentId, undefined, signal);
+      deadline.op();
+      if (signal.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+      return { kind: "done", result, decision: latest.decision ?? null,
+        ...(latest.summaryDecision ? { summaryDecision: latest.summaryDecision } : {}) };
+    })();
+    const result = await Promise.race([deadline.run(reading), cancelled]);
+    deadline.op();
+    if (signal.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+    return result;
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+    deadline.dispose();
   }
-  if (snapshot.next.length > 0 || latest.result === undefined) return { kind: "in_progress" };
-  return {
-    kind: "done",
-    result: ScribeResultSchema.parse(latest.result),
-    decision: latest.decision ?? null,
-    ...(latest.summaryDecision ? { summaryDecision: latest.summaryDecision } : {}),
-  };
 }

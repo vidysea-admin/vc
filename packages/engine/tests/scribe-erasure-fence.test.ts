@@ -58,7 +58,7 @@ function gate() {
 }
 
 test("D-015: startScribe for a FENCED student is refused with outcome `fenced` before any node runs (no provider call, no checkpoint, no write)", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await fence(h);
   const outcome = await startScribe(h.graph, baseInput(), { threadId: "thread-f1" });
   assert.deepEqual(outcome, { kind: "fenced" });
@@ -68,7 +68,7 @@ test("D-015: startScribe for a FENCED student is refused with outcome `fenced` b
 });
 
 test("D-015: a fence that appears DURING startScribe -> the run's checkpoints are removed and the outcome is `fenced`", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const realFindOne = h.consents.findOne.bind(h.consents);
   let fencedMidRun = false;
   h.consents.findOne = async (filter) => {
@@ -86,7 +86,7 @@ test("D-015: a fence that appears DURING startScribe -> the run's checkpoints ar
 });
 
 test("D-015: resumeScribe for a FENCED student is refused BEFORE claiming (no claim insert attempted, the thread left as it was)", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const started = await startScribe(h.graph, baseInput(), { threadId: "thread-f3" });
   assert.equal(started.kind, "awaiting_approval");
   await fence(h);
@@ -105,7 +105,7 @@ test("D-015: resumeScribe for a FENCED student is refused BEFORE claiming (no cl
 });
 
 test("D-015 H4b with the REAL scribe: a resume racing the erasure (released inside scribe_resolutions.countDocuments) -> `fenced`, zero residue anywhere, erasure verified", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const threadId = "thread-f4";
   const started = await startScribe(h.graph, baseInput(), { threadId });
   assert.equal(started.kind, "awaiting_approval");
@@ -162,10 +162,10 @@ test("D-015 H4b with the REAL scribe: a resume racing the erasure (released insi
 });
 
 test("D-015: ANOTHER student's scribe runs normally while this student is fenced", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await fence(h);
   const other = "student-synthetic-2";
-  seedConsent(h.consents, { _id: `consent-${other}`, studentId: other });
+  seedConsent(h.consents, { _id: `scribe-test:consent-${other}`, tenantId: "scribe-test", studentId: other } as never);
   const input = baseInput({ studentId: other, sessionId: "session-synthetic-2" });
   const started = await startScribe(h.graph, input, { threadId: "thread-f5" });
   assert.equal(started.kind, "awaiting_approval");
@@ -181,7 +181,7 @@ test("D-015: ANOTHER student's scribe runs normally while this student is fenced
 // ---------------------------------------------------------------------------
 
 test("D-016 (ISS-t-011-c2-rev-5, kept by design): resumeScribe on an ALREADY-RESOLVED thread returns `fenced`, not `already_resolved`, while a fence is up (no student state is disclosed during an erasure)", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const threadId = "thread-f6";
   assert.equal((await startScribe(h.graph, baseInput(), { threadId })).kind, "awaiting_approval");
   const done = await resumeScribe(h.graph, { action: "approve" }, { threadId });
@@ -195,7 +195,7 @@ test("D-016 (ISS-t-011-c2-rev-5, kept by design): resumeScribe on an ALREADY-RES
 });
 
 test("D-016 deadline: a startScribe whose run exceeds the writer deadline is ABORTED; its post-check still runs and, fenced meanwhile, removes the thread -> `fenced`", { timeout: 5000 }, async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const g = gate();
   const realFindOne = h.consents.findOne.bind(h.consents);
   let hung = false;
@@ -219,7 +219,7 @@ test("D-016 deadline: a startScribe whose run exceeds the writer deadline is ABO
 });
 
 test("D-016 deadline: an UNFENCED run that exceeds the deadline throws FencedWriterDeadlineError and is aborted (no later node runs); a deadline above FENCED_WRITER_DEADLINE_MS is refused", { timeout: 5000 }, async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const g = gate();
   const realFindOne = h.consents.findOne.bind(h.consents);
   let hung = false;
@@ -242,7 +242,7 @@ test("D-016 deadline: an UNFENCED run that exceeds the deadline throws FencedWri
 });
 
 test("ISS-t-013r-c0-3: a fence that appears DURING startScribe removes the transcript turns THIS call created, and keeps turns an earlier run recorded", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   // An earlier run already recorded t1 (e.g. a first pass over the start of the chat).
   const earlier = baseInput().turns[0]!;
   await recordSessionTranscript(h.db, { sessionId: SESSION_ID, studentId: STUDENT_ID, turns: [earlier] });
@@ -259,5 +259,5 @@ test("ISS-t-013r-c0-3: a fence that appears DURING startScribe removes the trans
   assert.ok(fencedMidRun);
   assert.deepEqual(outcome, { kind: "fenced" });
   const left = h.fakeDb.collection<AnyDoc>(COLLECTION_NAMES.session_transcripts).all().map((d) => d._id);
-  assert.deepEqual(left, [`${SESSION_ID}:t1`], "t2/t3 (created by the fenced call) are gone; the earlier t1 is not this call's to delete");
+  assert.deepEqual(left, [`scribe-test:${SESSION_ID}:t1`], "t2/t3 (created by the fenced call) are gone; the earlier t1 is not this call's to delete");
 });

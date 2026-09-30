@@ -22,6 +22,7 @@ import { join } from "node:path";
 import {
   COLLECTION_NAMES,
   VC_DB_NAME,
+  tenantScopedDb, tenantScopedClient,
   type FactDoc,
   type ConsentDoc,
 } from "@vc/db";
@@ -63,8 +64,8 @@ function syntheticTurns() {
 
 function buildRulesHarness() {
   const fake = createFakeMongoClient();
-  const checkpointer = createScribeCheckpointer(fake.client); // the REAL LangGraph MongoDBSaver class
-  const db = fake.client.db(VC_DB_NAME);
+  const checkpointer = createScribeCheckpointer(tenantScopedClient(fake.client, "scribe-rules")); // the REAL LangGraph MongoDBSaver class
+  const db = tenantScopedDb(fake.client.db(VC_DB_NAME), "scribe-rules");
   const fakeDb = fake.dbFor(VC_DB_NAME);
   for (const spec of INDEX_PLAN) {
     if (!spec.unique) continue;
@@ -75,13 +76,14 @@ function buildRulesHarness() {
   const facts = fakeDb.collection<FactDoc>(COLLECTION_NAMES.facts);
   const consents = fakeDb.collection<ConsentDoc>(COLLECTION_NAMES.consents);
   consents.seed({
-    _id: `consent-${STUDENT_ID}`,
+    _id: `scribe-rules:consent-${STUDENT_ID}`,
+    tenantId: "scribe-rules",
     studentId: STUDENT_ID,
     guardianConsent: true,
     purposes: [SCRIBE_PURPOSE],
     recordedAt: "2026-09-01T00:00:00.000Z",
     minor: true,
-  });
+  } as ConsentDoc);
 
   // B6/B13: read from an env-like object, never process.env directly; VC_LLM_PROVIDER=rules needs
   // no key, no base URL, no network — this is the whole point of the rules provider.

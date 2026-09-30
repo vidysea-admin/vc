@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { MemorySaver } from "@langchain/langgraph";
 import type { MongoDBSaver } from "@langchain/langgraph-checkpoint-mongodb";
-import { COLLECTION_NAMES, VC_DB_NAME, type FactDoc, type EdgeDoc, type ConsentDoc } from "@vc/db";
+import { COLLECTION_NAMES, VC_DB_NAME, tenantScopedDb, tenantScopedClient, type FactDoc, type EdgeDoc, type ConsentDoc } from "@vc/db";
 import { MockProvider, type MockResponse } from "@vc/providers";
 import { createFakeDb, createFakeMongoClient, INDEX_PLAN, type FakeCollection, type FakeDb } from "@vc/db/testing";
 import { compileScribeGraph, createScribeCheckpointer, SCRIBE_PURPOSE, type ScribeInput } from "../src/scribe/index.js";
@@ -80,11 +80,21 @@ export const DEFAULT_SUMMARY =
   "Student wants to study computer science in Canada; the family budget is around 20 lakh rupees a year.";
 
 export function mockProvider(responses: Record<string, MockResponse> = {}): MockProvider {
+  const summaryResponse = responses["session-summary"] ?? { summary: DEFAULT_SUMMARY };
+  const summary = (input: unknown) => {
+    if (typeof summaryResponse === "function") return (summaryResponse as (value: unknown) => unknown)(input);
+    const request = input as { task?: string; candidate?: string; approvedContext?: { factId: string }[] };
+    if (request.task === "verify-approved-history") return { verdict: "clear", confidence: 1,
+      reviewedFactIds: (request.approvedContext ?? []).map((fact) => fact.factId),
+      reviewedRanges: [{ start: 0, end: request.candidate?.length ?? 0 }], offendingSpans: [] };
+    return structuredClone(summaryResponse);
+  };
   return new MockProvider({
     responses: {
       "fact-extraction": { facts: DEFAULT_FACTS },
       "session-summary": { summary: DEFAULT_SUMMARY },
       ...responses,
+      "session-summary": summary,
     },
   });
 }
@@ -119,14 +129,14 @@ export function seedConsent(consents: FakeCollection<ConsentDoc>, overrides: Par
   });
 }
 
-export function makeHarness(opts: { provider?: MockProvider; consent?: boolean; saver?: "memory" | "mongo" } = {}): Harness {
+export function makeHarness(opts: { provider?: MockProvider; consent?: boolean; saver?: "memory" | "mongo"; tenantId?: string } = {}): Harness {
   let db: import("mongodb").Db;
   let fakeDb: FakeDb;
   let checkpointer: MemorySaver | MongoDBSaver;
   if (opts.saver === "mongo") {
     // The saver opens VC_DB_NAME on the client; the graph's deps get the SAME fake Db (B12).
     const fake = createFakeMongoClient();
-    checkpointer = createScribeCheckpointer(fake.client);
+    checkpointer = createScribeCheckpointer(opts.tenantId ? tenantScopedClient(fake.client, opts.tenantId) : fake.client);
     db = fake.client.db(VC_DB_NAME);
     fakeDb = fake.dbFor(VC_DB_NAME);
   } else {
@@ -142,7 +152,10 @@ export function makeHarness(opts: { provider?: MockProvider; consent?: boolean; 
   const facts = fakeDb.collection<FactDoc>(COLLECTION_NAMES.facts);
   const edges = fakeDb.collection<EdgeDoc>(COLLECTION_NAMES.edges);
   const consents = fakeDb.collection<ConsentDoc>(COLLECTION_NAMES.consents);
-  if (opts.consent !== false) seedConsent(consents);
+  if (opts.consent !== false) {
+    seedConsent(consents, opts.tenantId ? { _id: `${opts.tenantId}:consent-${STUDENT_ID}`, tenantId: opts.tenantId } as Partial<ConsentDoc> : {});
+  }
+  if (opts.tenantId) db = tenantScopedDb(db, opts.tenantId);
 
   const provider = opts.provider ?? mockProvider();
   const graph = compileScribeGraph({ db, provider, skillsDir: SKILLS_DIR }, { checkpointer });

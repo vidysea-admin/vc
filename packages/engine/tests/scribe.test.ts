@@ -24,7 +24,7 @@ const cfg = (threadId: string) => ({ threadId });
 // ---------------------------------------------------------------------------
 
 test("B3: the graph pauses at interrupt() with the diff and NOTHING is written before approval", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const outcome = await startScribe(h.graph, baseInput(), cfg("thread-b3"));
 
   assert.equal(outcome.kind, "awaiting_approval");
@@ -47,7 +47,7 @@ test("B3: the graph pauses at interrupt() with the diff and NOTHING is written b
 });
 
 test("B3: approve writes the facts and their edges (read back)", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-approve"));
   const outcome = await resumeScribe(h.graph, { action: "approve" }, cfg("thread-approve"));
 
@@ -71,21 +71,21 @@ test("B3: approve writes the facts and their edges (read back)", async () => {
   assert.equal(edges.length, 4, "two edges per written fact: sourced_from + has");
   for (const fact of open) {
     assert.ok(
-      edges.some((e) => e.rel === "sourced_from" && e.from.id === fact._id && e.to.kind === "session" && e.to.id === SESSION_ID),
+      edges.some((e) => e.rel === "sourced_from" && `scribe-test:${e.from.id}` === fact._id && e.to.kind === "session" && e.to.id === SESSION_ID),
       `fact ${fact.key} must be sourced_from the input session`,
     );
     assert.ok(
-      edges.some((e) => e.rel === "has" && e.from.kind === "student" && e.from.id === STUDENT_ID && e.to.id === fact._id),
+      edges.some((e) => e.rel === "has" && e.from.kind === "student" && e.from.id === STUDENT_ID && `scribe-test:${e.to.id}` === fact._id),
       `student must have fact ${fact.key}`,
     );
   }
   if (outcome.result.status === "written") {
-    assert.deepEqual([...outcome.result.writtenFactIds].sort(), open.map((f) => f._id).sort());
+    assert.deepEqual(outcome.result.writtenFactIds.map((id) => `scribe-test:${id}`).sort(), open.map((f) => f._id).sort());
   }
 });
 
 test("B3: reject writes nothing", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-reject"));
   const outcome = await resumeScribe(h.graph, { action: "reject", reason: "not accurate" }, cfg("thread-reject"));
 
@@ -97,7 +97,7 @@ test("B3: reject writes nothing", async () => {
 });
 
 test("B3: edit writes the counsellor's edited values, not the model's", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-edit"));
   const edited = {
     ...citedCandidate("budget_inr_per_year", 1800000, "around 20 lakh rupees a year", "t3"),
@@ -115,7 +115,7 @@ test("B3: edit writes the counsellor's edited values, not the model's", async ()
 });
 
 test("B2/B5: an edit carrying an uncited fact is refused and writes nothing", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-edit-uncited"));
   const uncited = { key: "budget_inr_per_year", value: 1, confidence: 1, validFrom: "2026-09-25T10:00:00.000Z", purposeTags: ["x"], sensitivity: "low" };
   await assert.rejects(resumeScribe(h.graph, { action: "edit", facts: [uncited] } as never, cfg("thread-edit-uncited")));
@@ -124,7 +124,7 @@ test("B2/B5: an edit carrying an uncited fact is refused and writes nothing", as
 });
 
 test("B5: an unknown resume action is refused and writes nothing", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-bad-action"));
   await assert.rejects(resumeScribe(h.graph, { action: "maybe" } as never, cfg("thread-bad-action")));
   assert.equal(h.facts.size(), 0);
@@ -135,7 +135,7 @@ test("B5: an unknown resume action is refused and writes nothing", async () => {
 // ---------------------------------------------------------------------------
 
 test("B9: a crisis transcript never calls the provider and returns an escalation", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const input = baseInput();
   input.turns.push({
     turnId: "t4",
@@ -159,7 +159,7 @@ test("B9: a crisis transcript never calls the provider and returns an escalation
 });
 
 test("B9 hostile variant: a crisis signal only in the ORIGINAL-language text (benign translation) still escalates", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const input = baseInput();
   input.turns.push({
     turnId: "t4",
@@ -180,7 +180,7 @@ test("B9 hostile variant: a crisis signal only in the ORIGINAL-language text (be
 // ---------------------------------------------------------------------------
 
 test("B4: no consent row -> refusal with zero provider calls and zero writes", async () => {
-  const h = makeHarness({ consent: false });
+  const h = makeHarness({ tenantId: "scribe-test", consent: false });
   const outcome = await startScribe(h.graph, baseInput(), cfg("thread-no-consent"));
   assert.equal(h.provider.calls.length, 0);
   assert.equal(outcome.kind, "done");
@@ -194,8 +194,8 @@ test("B4 variants: consent for another purpose, or a minor without guardian cons
     ["wrong purpose", { purposes: ["application_filling"] }],
     ["minor without guardian", { guardianConsent: false }],
   ] as const) {
-    const h = makeHarness({ consent: false });
-    seedConsent(h.consents, overrides);
+    const h = makeHarness({ tenantId: "scribe-test", consent: false });
+    seedConsent(h.consents, { ...overrides, _id: `scribe-test:consent-${STUDENT_ID}`, tenantId: "scribe-test" } as never);
     const outcome = await startScribe(h.graph, baseInput(), cfg(`thread-consent-${label}`));
     assert.equal(h.provider.calls.length, 0, label);
     assert.equal(outcome.kind === "done" && outcome.result.status, "refused", label);
@@ -203,7 +203,7 @@ test("B4 variants: consent for another purpose, or a minor without guardian cons
 });
 
 test("B4: consent is checked before the crisis guard and the provider (a refused session produces no escalation either)", async () => {
-  const h = makeHarness({ consent: false });
+  const h = makeHarness({ tenantId: "scribe-test", consent: false });
   const input = baseInput();
   input.turns[0]!.translatedText = "I want to kill myself";
   const outcome = await startScribe(h.graph, input, cfg("thread-consent-first"));
@@ -229,7 +229,7 @@ test("B2: uncited, fabricated-quote and unknown-turn facts from the model are dr
       ],
     },
   });
-  const h = makeHarness({ provider });
+  const h = makeHarness({ tenantId: "scribe-test", provider });
   const outcome = await startScribe(h.graph, baseInput(), cfg("thread-uncited"));
 
   assert.equal(outcome.kind, "awaiting_approval");
@@ -250,7 +250,7 @@ test("B2: uncited, fabricated-quote and unknown-turn facts from the model are dr
 // ---------------------------------------------------------------------------
 
 test("B6: the provider receives the real SKILL.md bodies for fact-extraction and session-summary", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-skills"));
   assert.deepEqual(h.provider.calls.map((c) => c.skillName), ["fact-extraction", "session-summary"]);
   assert.match(h.provider.calls[0]!.skillPrompt, /Turn a batch of transcript turns into typed `Fact\[\]`/);
@@ -259,7 +259,7 @@ test("B6: the provider receives the real SKILL.md bodies for fact-extraction and
 
 test("B1: a script-like summary from the model is withheld, never shown as the summary", async () => {
   const provider = mockProvider({ "session-summary": { summary: "Tell the student that Canada is the best option." } });
-  const h = makeHarness({ provider });
+  const h = makeHarness({ tenantId: "scribe-test", provider });
   const outcome = await startScribe(h.graph, baseInput(), cfg("thread-script-summary"));
   assert.equal(outcome.kind, "awaiting_approval");
   if (outcome.kind !== "awaiting_approval") return;
@@ -272,7 +272,7 @@ test("B1: a script-like summary from the model is withheld, never shown as the s
 // ---------------------------------------------------------------------------
 
 test("B5: an invalid graph input (no sessionId) is refused before any node or provider call", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const bad = { ...baseInput(), sessionId: "" };
   await assert.rejects(startScribe(h.graph, bad, cfg("thread-bad-input")));
   assert.equal(h.provider.calls.length, 0);
@@ -283,7 +283,7 @@ test("B5: an invalid graph input (no sessionId) is refused before any node or pr
 // ---------------------------------------------------------------------------
 
 test("D-012: a crash mid-write, resumed from the checkpoint, re-applies idempotently (one open fact per key, no duplicate history)", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-replay"));
 
   // Inject a one-shot crash inside the write: the first edge upsert throws,
@@ -319,7 +319,7 @@ test("D-012: a crash mid-write, resumed from the checkpoint, re-applies idempote
 });
 
 test("D-012 / ISS-t-007-c0-1: replaying the approval from the pre-approval checkpoint (fork) writes nothing new and is reported as already_resolved", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-fork"));
   await resumeScribe(h.graph, { action: "approve" }, cfg("thread-fork"));
   const factsBefore = h.facts.all().map((f) => f._id).sort();
@@ -345,7 +345,7 @@ test("D-012 / ISS-t-007-c0-1: replaying the approval from the pre-approval check
 });
 
 test("the second session re-confirming a changed value supersedes via the diff (update op) and keeps history", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-s1"));
   await resumeScribe(h.graph, { action: "approve" }, cfg("thread-s1"));
 
@@ -371,7 +371,7 @@ test("the second session re-confirming a changed value supersedes via the diff (
 // ---------------------------------------------------------------------------
 
 test("ISS-t-007-rev-4: a genuine conflict on fact 2 (another writer holds the key with a different value) is a TERMINAL partial_conflict; fact 1 stays committed and is reported", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-partial-conflict"));
 
   // A different writer opens budget_inr_per_year with a different value between our read and our
@@ -398,7 +398,7 @@ test("ISS-t-007-rev-4: a genuine conflict on fact 2 (another writer holds the ke
   const open = h.openFacts();
   const country = open.find((f) => f.key === "targetCountry");
   assert.equal(country?.value, "Canada");
-  assert.deepEqual(outcome.result.writtenFactIds, [country!._id]);
+  assert.deepEqual(outcome.result.writtenFactIds.map((id) => `scribe-test:${id}`), [country!._id]);
   // The rival writer's fact is untouched: no silent overwrite.
   const budget = open.find((f) => f.key === "budget_inr_per_year");
   assert.equal(budget?._id, "rival-budget-fact");
@@ -419,7 +419,7 @@ test("ISS-t-007-rev-5: scribe-extracted facts carry EXACTLY [profile_synthesis];
       ],
     },
   });
-  const h = makeHarness({ provider });
+  const h = makeHarness({ tenantId: "scribe-test", provider });
   const outcome = await startScribe(h.graph, baseInput(), cfg("thread-purpose-extract"));
   assert.equal(outcome.kind, "awaiting_approval");
   if (outcome.kind !== "awaiting_approval") return;
@@ -432,7 +432,7 @@ test("ISS-t-007-rev-5: scribe-extracted facts carry EXACTLY [profile_synthesis];
 });
 
 test("ISS-t-007-rev-5: the counsellor edit path cannot add purposes beyond profile_synthesis", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-purpose-edit"));
   const edited = {
     ...citedCandidate("budget_inr_per_year", 1800000, "around 20 lakh rupees a year", "t3"),
@@ -454,7 +454,7 @@ async function pausedCheckpointOf(h: ReturnType<typeof makeHarness>, threadId: s
 }
 
 test("ISS-t-007-c0-1: approve, then fork-resume the SAME pre-approval checkpoint with reject -> already_resolved carrying the original decision; nothing claims the reject was applied", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-resolved-fork"));
   await resumeScribe(h.graph, { action: "approve" }, cfg("thread-resolved-fork"));
   const factsBefore = h.facts.all().map((f) => f._id).sort();
@@ -474,7 +474,7 @@ test("ISS-t-007-c0-1: approve, then fork-resume the SAME pre-approval checkpoint
 });
 
 test("ISS-t-007-c0-1: resuming an already-completed thread (no checkpointId) with a different decision is also already_resolved", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-resolved-latest"));
   await resumeScribe(h.graph, { action: "reject" }, cfg("thread-resolved-latest"));
   const outcome = await resumeScribe(h.graph, { action: "approve" }, cfg("thread-resolved-latest"));
@@ -489,18 +489,18 @@ test("ISS-t-007-rev-1: a schema-invalid extraction output is retried ONCE with t
     "fact-extraction": () =>
       n++ === 0 ? { notFacts: "oops" } : { facts: [citedCandidate("targetCountry", "Canada", "study computer science in Canada", "t1")] },
   });
-  const h = makeHarness({ provider });
+  const h = makeHarness({ tenantId: "scribe-test", provider });
   const outcome = await startScribe(h.graph, baseInput(), cfg("thread-extract-retry"));
   assert.equal(outcome.kind, "awaiting_approval");
   const extractCalls = h.provider.calls.filter((c) => c.skillName === "fact-extraction");
   assert.equal(extractCalls.length, 2, "exactly one retry");
   const retryInput = extractCalls[1]!.input as { previousAttemptError?: string };
-  assert.match(retryInput.previousAttemptError ?? "", /facts/, "the validation error is appended to the retry input");
+  assert.equal(retryInput.previousAttemptError, "Provider output did not match the required schema.", "fixed schema feedback is appended without raw provider paths");
 });
 
 test("ISS-t-007-rev-1: an always-malformed extraction output ends in a terminal extraction_failed result and writes nothing", async () => {
   const provider = mockProvider({ "fact-extraction": { notFacts: "never valid" } });
-  const h = makeHarness({ provider });
+  const h = makeHarness({ tenantId: "scribe-test", provider });
   const outcome = await startScribe(h.graph, baseInput(), cfg("thread-extract-failed"));
   assert.equal(outcome.kind, "done");
   if (outcome.kind !== "done") return;
@@ -514,15 +514,15 @@ test("ISS-t-007-rev-1: an always-malformed extraction output ends in a terminal 
 test("ISS-t-007-rev-1: a malformed summary is retried once; always-malformed ends in summary_failed and writes nothing", async () => {
   let n = 0;
   const once = mockProvider({ "session-summary": () => (n++ === 0 ? { summary: 12345 } : { summary: "Student wants Canada." }) });
-  const h1 = makeHarness({ provider: once });
+  const h1 = makeHarness({ tenantId: "scribe-test", provider: once });
   const ok = await startScribe(h1.graph, baseInput(), cfg("thread-summary-retry"));
   assert.equal(ok.kind, "awaiting_approval");
   const summaryCalls = h1.provider.calls.filter((c) => c.skillName === "session-summary");
   assert.equal(summaryCalls.length, 2);
-  assert.match((summaryCalls[1]!.input as { previousAttemptError?: string }).previousAttemptError ?? "", /summary/);
+  assert.equal((summaryCalls[1]!.input as { previousAttemptError?: string }).previousAttemptError, "Provider output did not match the required schema.", "retry feedback exposes no raw provider field paths");
 
   const always = mockProvider({ "session-summary": { summary: 12345 } });
-  const h2 = makeHarness({ provider: always });
+  const h2 = makeHarness({ tenantId: "scribe-test", provider: always });
   const failed = await startScribe(h2.graph, baseInput(), cfg("thread-summary-failed"));
   assert.equal(failed.kind === "done" && failed.result.status, "summary_failed");
   assert.equal(h2.provider.calls.filter((c) => c.skillName === "session-summary").length, 2);
@@ -599,7 +599,7 @@ function assertOneWinner(results: Array<{ submitted: Resp; outcome: Outcome }>) 
 }
 
 test("ISS-t-007-rev-8 (a): two DIFFERENT concurrent edits -> exactly one done, the other already_resolved with the winner's decision; persisted = winner", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-race-edits"));
   const results = await raceResumes(h, "thread-race-edits", [editBudget(1800000), editBudget(1500000)]);
   const winner = assertOneWinner(results);
@@ -612,7 +612,7 @@ test("ISS-t-007-rev-8 (b): approve racing reject (both orders) -> exactly one do
     ["approve", "reject"],
     ["reject", "approve"],
   ] as const) {
-    const h = makeHarness();
+    const h = makeHarness({ tenantId: "scribe-test" });
     const thread = `thread-race-ar-${order[0]}`;
     await startScribe(h.graph, baseInput(), cfg(thread));
     const responses = order.map((a) => (a === "approve" ? { action: "approve" } : { action: "reject", reason: "no" })) as Resp[];
@@ -622,7 +622,7 @@ test("ISS-t-007-rev-8 (b): approve racing reject (both orders) -> exactly one do
 });
 
 test("ISS-t-007-rev-8 (c): two IDENTICAL concurrent approves -> one done + one already_resolved(sameAsWinner), no double write", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-race-same"));
   const results = await raceResumes(h, "thread-race-same", [{ action: "approve" }, { action: "approve" }]);
   assert.ok(results.some((r) => r.outcome.kind === "done"), "the identical request succeeds");
@@ -641,7 +641,7 @@ test("ISS-t-007-rev-8 (c): two IDENTICAL concurrent approves -> one done + one a
 });
 
 test("ISS-t-007-rev-8 (d): 5 concurrent mixed resumes -> exactly one winner, every loser carries its decision, persisted = winner", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-race-5"));
   const responses: Resp[] = [
     editBudget(1700000),
@@ -660,7 +660,7 @@ test("ISS-t-007-rev-8 (d): 5 concurrent mixed resumes -> exactly one winner, eve
 });
 
 test("ISS-t-007-rev-8: a crash AFTER the claim but BEFORE graph.invoke -> a rival decision is already_resolved; resumeScribe(null) completes the CLAIMED decision", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-claim-crash"));
   const realInvoke = h.graph.invoke.bind(h.graph);
   let crashes = 1;
@@ -693,7 +693,7 @@ test("ISS-t-007-rev-8: a crash AFTER the claim but BEFORE graph.invoke -> a riva
 });
 
 test("ISS-t-007-c1-1: the scribe's written facts are found by a purpose-filtered find() on the shared fake (profile_synthesis -> 2, application_filling -> 0)", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), cfg("thread-purpose-read"));
   await resumeScribe(h.graph, { action: "approve" }, cfg("thread-purpose-read"));
   const synth = await h.facts.find({ studentId: STUDENT_ID, active: true, purposeTags: SCRIBE_PURPOSE }).toArray();

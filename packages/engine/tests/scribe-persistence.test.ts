@@ -97,12 +97,12 @@ function gate() {
 
 for (const saver of SAVERS) {
   test(`ISS-t-011-rev-5 [${saver}]: the session row (with its thread id) exists BEFORE the first checkpoint is written`, async () => {
-    const h = makeHarness({ saver });
+    const h = makeHarness({ tenantId: "scribe-test", saver });
     const seenAtFirstPut: Array<SessionDoc | null> = [];
     const cp = h.checkpointer as unknown as { put: (...a: unknown[]) => Promise<unknown> };
     const realPut = cp.put.bind(cp);
     cp.put = async (...args: unknown[]) => {
-      if (seenAtFirstPut.length === 0) seenAtFirstPut.push(await sessions(h).findOne({ _id: SESSION_ID }));
+      if (seenAtFirstPut.length === 0) seenAtFirstPut.push(await sessions(h).findOne({ _id: `scribe-test:${SESSION_ID}` }));
       return realPut(...args);
     };
     const outcome = await startScribe(h.graph, baseInput(), { threadId: "thread-order" });
@@ -117,8 +117,8 @@ for (const saver of SAVERS) {
 }
 
 for (const [label, harness] of [
-  ["consent refused", () => makeHarness({ saver: "mongo", consent: false })],
-  ["crisis escalated", () => makeHarness({ saver: "mongo" })],
+  ["consent refused", () => makeHarness({ tenantId: "scribe-test", saver: "mongo", consent: false })],
+  ["crisis escalated", () => makeHarness({ tenantId: "scribe-test", saver: "mongo" })],
 ] as const) {
   test(`ISS-t-011-rev-5 [mongo, ${label}]: a run that ends WITHOUT an interrupt is exported and erased to zero residue (checkpoints included)`, async () => {
     const h = harness();
@@ -152,10 +152,10 @@ for (const [label, harness] of [
 }
 
 test("ISS-t-011-rev-5: a second run of the same session on a NEW thread adds that thread to the row (both erased)", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   await startScribe(h.graph, baseInput(), { threadId: "thread-a" });
   await startScribe(h.graph, baseInput(), { threadId: "thread-b" });
-  const row = await sessions(h).findOne({ _id: SESSION_ID });
+  const row = await sessions(h).findOne({ _id: `scribe-test:${SESSION_ID}` });
   assert.deepEqual(row?.scribeThreadIds, ["thread-a", "thread-b"]);
   assert.equal(sessions(h).size(), 1, "one row per session");
   await erase(h);
@@ -163,11 +163,11 @@ test("ISS-t-011-rev-5: a second run of the same session on a NEW thread adds tha
 });
 
 test("ISS-t-011-rev-5 hostile: a sessionId already owned by ANOTHER student is refused before any checkpoint (no hijack of the row)", async () => {
-  const h = makeHarness({ saver: "mongo" });
-  sessions(h).seed({ _id: SESSION_ID, sessionId: SESSION_ID, studentId: "student-other" } as SessionDoc & AnyDoc);
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
+  sessions(h).seed({ _id: `scribe-test:${SESSION_ID}`, tenantId: "scribe-test", sessionId: SESSION_ID, studentId: "student-other" } as SessionDoc & AnyDoc);
   await assert.rejects(startScribe(h.graph, baseInput(), { threadId: "thread-hijack" }), (err: unknown) => (err as { code?: number }).code === 11000);
   assert.equal(checkpointDocs(h, "thread-hijack"), 0, "no checkpoint written");
-  const row = await sessions(h).findOne({ _id: SESSION_ID });
+  const row = await sessions(h).findOne({ _id: `scribe-test:${SESSION_ID}` });
   assert.equal(row?.studentId, "student-other", "the other student's row is untouched");
   assert.equal(row?.scribeThreadIds, undefined);
 });
@@ -178,13 +178,13 @@ test("ISS-t-011-rev-5 hostile: a sessionId already owned by ANOTHER student is r
 
 for (const saver of SAVERS) {
   test(`ISS-t-007-rev-7 [${saver}]: approve stores the approved summary on the session row; export carries it; erasure removes it`, async () => {
-    const h = makeHarness({ saver });
+    const h = makeHarness({ tenantId: "scribe-test", saver });
     await startScribe(h.graph, baseInput(), { threadId: "thread-sum" });
-    const before = await sessions(h).findOne({ _id: SESSION_ID });
+    const before = await sessions(h).findOne({ _id: `scribe-test:${SESSION_ID}` });
     assert.equal(before?.summary, undefined, "B3: no summary stored before approval");
     const outcome = await resumeScribe(h.graph, { action: "approve" }, { threadId: "thread-sum" });
     assert.equal(outcome.kind === "done" && outcome.result.status, "written");
-    const row = await sessions(h).findOne({ _id: SESSION_ID });
+    const row = await sessions(h).findOne({ _id: `scribe-test:${SESSION_ID}` });
     assert.equal(row?.summary, DEFAULT_SUMMARY);
     assert.equal(typeof row?.summaryApprovedAt, "string");
     const exported = await exportStudent(h.db, STUDENT_ID);
@@ -195,10 +195,10 @@ for (const saver of SAVERS) {
 }
 
 test("ISS-t-007-rev-7: reject stores NO summary (B3: only an approved summary is durable)", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   await startScribe(h.graph, baseInput(), { threadId: "thread-rej" });
   await resumeScribe(h.graph, { action: "reject", reason: "wrong student" }, { threadId: "thread-rej" });
-  const row = await sessions(h).findOne({ _id: SESSION_ID });
+  const row = await sessions(h).findOne({ _id: `scribe-test:${SESSION_ID}` });
   assert.ok(row, "the row exists (written at start)");
   assert.equal(row.summary, undefined);
   assert.equal(row.summaryApprovedAt, undefined);
@@ -206,6 +206,7 @@ test("ISS-t-007-rev-7: reject stores NO summary (B3: only an approved summary is
 
 test("ISS-t-007-rev-7: a withheld (script-like) summary is stored as withheld, never as text", async () => {
   const h = makeHarness({
+    tenantId: "scribe-test",
     saver: "mongo",
     provider: mockProvider({ "session-summary": { summary: "Tell the student that Canada is the best option." } }),
   });
@@ -214,7 +215,7 @@ test("ISS-t-007-rev-7: a withheld (script-like) summary is stored as withheld, n
   if (started.kind !== "awaiting_approval") return;
   assert.ok(started.request.summaryWithheldReason, "the fixture really produces a withheld summary");
   await resumeScribe(h.graph, { action: "approve" }, { threadId: "thread-withheld" });
-  const row = await sessions(h).findOne({ _id: SESSION_ID });
+  const row = await sessions(h).findOne({ _id: `scribe-test:${SESSION_ID}` });
   assert.equal(row?.summary, started.request.summary);
   assert.equal(row?.summaryWithheldReason, started.request.summaryWithheldReason);
   assert.ok(!JSON.stringify(row).includes("Canada is the best option"), "the withheld text is never stored");
@@ -226,7 +227,7 @@ test("ISS-t-007-rev-7: a withheld (script-like) summary is stored as withheld, n
 
 for (const missing of [undefined, "", "  "] as const) {
   test(`ISS-t-007-rev-9: a paused thread whose state has studentId=${JSON.stringify(missing)} -> resume throws and writes NO claim`, async () => {
-    const h = makeHarness();
+    const h = makeHarness({ tenantId: "scribe-test" });
     await startScribe(h.graph, baseInput(), { threadId: "thread-nostudent" });
     const realGetState = h.graph.getState.bind(h.graph);
     (h.graph as unknown as { getState: unknown }).getState = async (...args: Parameters<typeof realGetState>) => {
@@ -263,7 +264,7 @@ function kinds(outcomes: ScribeOutcome[]): string[] {
 
 for (const saver of SAVERS) {
   test(`ISS-t-007-rev-10 [${saver}]: two CONCURRENT recoveries after a crash-after-claim -> exactly one graph.invoke; the other is in_progress`, async () => {
-    const h = makeHarness({ saver });
+    const h = makeHarness({ tenantId: "scribe-test", saver });
     await crashAfterClaim(h, "thread-rec-a");
     const invokes = countInvokes(h);
     const outcomes = await Promise.all([
@@ -274,12 +275,12 @@ for (const saver of SAVERS) {
     assert.deepEqual(kinds(outcomes), ["done:written", "in_progress"]);
     assert.equal(h.openFacts().length, 2);
     assert.equal(h.facts.size(), 2, "no double write");
-    const claim = await claims(h).findOne({ _id: "thread-rec-a" });
+    const claim = await claims(h).findOne({ _id: "scribe-test:thread-rec-a" });
     assert.equal(claim?.lease, undefined, "the winner released its lease");
   });
 
   test(`ISS-t-007-rev-10 [${saver}]: two CONCURRENT recoveries of a crashed write (decision recorded) -> exactly one graph.invoke`, async () => {
-    const h = makeHarness({ saver });
+    const h = makeHarness({ tenantId: "scribe-test", saver });
     const threadId = "thread-rec-b";
     await startScribe(h.graph, baseInput(), { threadId });
     const realUpdate = h.edges.updateOne.bind(h.edges);
@@ -298,7 +299,7 @@ for (const saver of SAVERS) {
 }
 
 test("ISS-t-007-rev-10: a recovery while the WINNER's resume is still in flight -> in_progress, no second invoke", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   const threadId = "thread-rec-c";
   await startScribe(h.graph, baseInput(), { threadId });
   const g = gate();
@@ -322,9 +323,9 @@ test("ISS-t-007-rev-10: a recovery while the WINNER's resume is still in flight 
 });
 
 test("ISS-t-007-rev-10: an EXPIRED lease (a crashed holder) does not block recovery", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   await crashAfterClaim(h, "thread-rec-d");
-  await claims(h).updateOne({ _id: "thread-rec-d" }, { $set: { lease: { token: "dead-process", expiresAt: "2000-01-01T00:00:00.000Z" } } });
+  await claims(h).updateOne({ _id: "scribe-test:thread-rec-d" }, { $set: { lease: { token: "dead-process", expiresAt: "2000-01-01T00:00:00.000Z" } } });
   const invokes = countInvokes(h);
   const out = await resumeScribe(h.graph, null, { threadId: "thread-rec-d" });
   assert.equal(out.kind === "done" && out.result.status, "written");
@@ -332,20 +333,20 @@ test("ISS-t-007-rev-10: an EXPIRED lease (a crashed holder) does not block recov
 });
 
 test("ISS-t-007-rev-10: a LIVE lease held by another process blocks recovery (in_progress, no invoke, lease untouched)", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   await crashAfterClaim(h, "thread-rec-e");
   const live = { token: "other-process", expiresAt: new Date(Date.now() + 60_000).toISOString() };
-  await claims(h).updateOne({ _id: "thread-rec-e" }, { $set: { lease: live } });
+  await claims(h).updateOne({ _id: "scribe-test:thread-rec-e" }, { $set: { lease: live } });
   const invokes = countInvokes(h);
   const out = await resumeScribe(h.graph, null, { threadId: "thread-rec-e" });
   assert.equal(out.kind, "in_progress");
   assert.equal(invokes.count(), 0);
-  assert.deepEqual((await claims(h).findOne({ _id: "thread-rec-e" }))?.lease, live, "a loser never touches the holder's lease");
+  assert.deepEqual((await claims(h).findOne({ _id: "scribe-test:thread-rec-e" }))?.lease, live, "a loser never touches the holder's lease");
   assert.equal(h.facts.size(), 0);
 });
 
 test("ISS-t-011-rev-5 + D-015: a fence that appears DURING startScribe removes the session row THIS call created (zero residue, checkpoints included)", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   const realFindOne = h.consents.findOne.bind(h.consents);
   let fenced = false;
   h.consents.findOne = async (filter) => {
@@ -358,12 +359,12 @@ test("ISS-t-011-rev-5 + D-015: a fence that appears DURING startScribe removes t
   };
   const outcome = await startScribe(h.graph, baseInput(), { threadId: "thread-fenced-start" });
   assert.deepEqual(outcome, { kind: "fenced" });
-  assert.equal(await sessions(h).findOne({ _id: SESSION_ID }), null, "the row this call created is removed");
+  assert.equal(await sessions(h).findOne({ _id: `scribe-test:${SESSION_ID}` }), null, "the row this call created is removed");
   assert.equal(checkpointDocs(h, "thread-fenced-start"), 0);
 });
 
 test("ISS-t-011-rev-5 + D-015: a fenced start does NOT delete a session row that already existed (the erasure purges it)", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   await startScribe(h.graph, baseInput(), { threadId: "thread-first" });
   const realFindOne = h.consents.findOne.bind(h.consents);
   let fenced = false;
@@ -377,7 +378,7 @@ test("ISS-t-011-rev-5 + D-015: a fenced start does NOT delete a session row that
   };
   const outcome = await startScribe(h.graph, baseInput(), { threadId: "thread-second" });
   assert.deepEqual(outcome, { kind: "fenced" });
-  const row = await sessions(h).findOne({ _id: SESSION_ID });
+  const row = await sessions(h).findOne({ _id: `scribe-test:${SESSION_ID}` });
   assert.ok(row, "a pre-existing row is left for the erasure (compensation removes only what this call created)");
   assert.ok(row.scribeThreadIds?.includes("thread-first"));
 });
@@ -388,14 +389,14 @@ test("ISS-t-011-rev-5 + D-015: a fenced start does NOT delete a session row that
 // ---------------------------------------------------------------------------
 
 test("ISS-t-016-c0-2: a student with TWO DISTINCT sessions (each its own thread) is exported and erased to zero residue for BOTH", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   const SESSION_2 = "session-synthetic-2";
   await startScribe(h.graph, baseInput(), { threadId: "thread-multi-a" });
   await startScribe(h.graph, baseInput({ sessionId: SESSION_2 }), { threadId: "thread-multi-b" });
 
   assert.equal(sessions(h).size(), 2, "two distinct session rows, not one row with two threads");
-  const rowA = await sessions(h).findOne({ _id: SESSION_ID });
-  const rowB = await sessions(h).findOne({ _id: SESSION_2 });
+  const rowA = await sessions(h).findOne({ _id: `scribe-test:${SESSION_ID}` });
+  const rowB = await sessions(h).findOne({ _id: `scribe-test:${SESSION_2}` });
   assert.deepEqual(rowA?.scribeThreadIds, ["thread-multi-a"]);
   assert.deepEqual(rowB?.scribeThreadIds, ["thread-multi-b"]);
 
@@ -420,7 +421,7 @@ test("ISS-t-016-c0-2: a student with TWO DISTINCT sessions (each its own thread)
 // ---------------------------------------------------------------------------
 
 test("ISS-t-016-rev-1: a fence that appears BETWEEN the summary write and applyApprovedDiff removes the summary too, IMMEDIATELY (not just facts/checkpoints, and not only once executeErasure runs)", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   await startScribe(h.graph, baseInput(), { threadId: "thread-sum-fence" });
 
   const sessionsColl = sessions(h);
@@ -446,7 +447,7 @@ test("ISS-t-016-rev-1: a fence that appears BETWEEN the summary write and applyA
 
   // IMMEDIATELY after the fenced outcome, BEFORE executeErasure runs: the summary fields this call
   // wrote must already be gone.
-  const row = await sessions(h).findOne({ _id: SESSION_ID });
+  const row = await sessions(h).findOne({ _id: `scribe-test:${SESSION_ID}` });
   assert.equal(row?.summary, undefined, "ISS-t-016-rev-1: the summary this call wrote must be compensated, not left for the purge");
   assert.equal(row?.summaryApprovedAt, undefined);
   assert.equal(row?.summaryWithheldReason, undefined);
@@ -461,7 +462,7 @@ test("ISS-t-016-rev-1: a fence that appears BETWEEN the summary write and applyA
 // ---------------------------------------------------------------------------
 
 test("ISS-t-017-rev-1: a fence that appears DURING applyApprovedDiff (after recordApprovedSessionSummary's own post-check already ran clean) also removes the summary, IMMEDIATELY (not just facts/edges, and not only once executeErasure runs)", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   await startScribe(h.graph, baseInput(), { threadId: "thread-sum-fence-2" });
 
   // Intercept applyApprovedDiff's FIRST fact write. By construction this runs strictly after
@@ -489,7 +490,7 @@ test("ISS-t-017-rev-1: a fence that appears DURING applyApprovedDiff (after reco
   // IMMEDIATELY after the fenced outcome, BEFORE executeErasure runs: the summary
   // recordApprovedSessionSummary wrote (and whose OWN post-check found clean) must already be gone
   // too — undone by writeApproved, not left on the row for the eventual purge.
-  const row = await sessions(h).findOne({ _id: SESSION_ID });
+  const row = await sessions(h).findOne({ _id: `scribe-test:${SESSION_ID}` });
   assert.equal(row?.summary, undefined, "ISS-t-017-rev-1: the summary must be compensated by writeApproved, not left for the purge");
   assert.equal(row?.summaryApprovedAt, undefined);
   assert.equal(row?.summaryWithheldReason, undefined);
@@ -525,7 +526,7 @@ function citedFact(overrides: Partial<Fact> = {}): Fact {
  * is about, isolated from the outer graph's competing timing.
  */
 test("ISS-t-017-c1-2: an erasure confirmed strictly AFTER applyApprovedDiff's own post-check ran clean, surfacing as FencedWriterDeadlineError, still removes the summary IMMEDIATELY", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   await ensureScribeSessionRow(h.db, { sessionId: "sess-c1-2-fenced", studentId: STUDENT_ID, threadId: "thread-c1-2-fenced" });
 
   // Stall applyApprovedDiff's first fact write so its own WriterDeadline (bound to the short
@@ -589,14 +590,14 @@ test("ISS-t-017-c1-2: an erasure confirmed strictly AFTER applyApprovedDiff's ow
   // IMMEDIATELY after the call rejects: the summary recordApprovedSessionSummary wrote (and whose
   // OWN post-check found clean) must already be gone too — undone by writeApproved's own re-check on
   // the FencedWriterDeadlineError, not left on the row for the eventual purge.
-  const row = await sessions(h).findOne({ _id: "sess-c1-2-fenced" });
+  const row = await sessions(h).findOne({ _id: "scribe-test:sess-c1-2-fenced" });
   assert.equal(row?.summary, undefined, "ISS-t-017-c1-2: the summary must be compensated on a FencedWriterDeadlineError too, when the student is genuinely fenced by the time writeApproved re-checks");
   assert.equal(row?.summaryApprovedAt, undefined);
   assert.equal(row?.summaryWithheldReason, undefined);
 });
 
 test("ISS-t-017-c1-2: an UNFENCED FencedWriterDeadlineError (a plain slow write) keeps the summary — legitimate, idempotent under D-012", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   await ensureScribeSessionRow(h.db, { sessionId: "sess-c1-2-clean", studentId: STUDENT_ID, threadId: "thread-c1-2-clean" });
 
   // Stall applyApprovedDiff's first fact write past a short writer deadline; never confirm any
@@ -628,7 +629,7 @@ test("ISS-t-017-c1-2: an UNFENCED FencedWriterDeadlineError (a plain slow write)
   const err = await callPromise.catch((e: unknown) => e);
   assert.ok(err instanceof FencedWriterDeadlineError, `expected FencedWriterDeadlineError, got ${String(err)}`);
 
-  const row = await sessions(h).findOne({ _id: "sess-c1-2-clean" });
+  const row = await sessions(h).findOne({ _id: "scribe-test:sess-c1-2-clean" });
   assert.equal(row?.summary, DEFAULT_SUMMARY, "an UNFENCED deadline error must leave the legitimately-written summary alone (D-012: the retry is idempotent)");
 });
 
@@ -639,7 +640,7 @@ test("ISS-t-017-c1-2: an UNFENCED FencedWriterDeadlineError (a plain slow write)
 // ---------------------------------------------------------------------------
 
 test("ISS-t-016-c0-1: recordApprovedSessionSummary's and applyApprovedDiff's own writes are bound to the SAME (short) outer writerDeadlineMs, not the package's full 60s default", async () => {
-  const h = makeHarness({ saver: "mongo" });
+  const h = makeHarness({ tenantId: "scribe-test", saver: "mongo" });
   await startScribe(h.graph, baseInput(), { threadId: "thread-bound" });
 
   const sessionsColl = sessions(h);
@@ -687,7 +688,7 @@ test("ISS-t-016-c0-1: recordApprovedSessionSummary's and applyApprovedDiff's own
 // ---------------------------------------------------------------------------
 
 test("ISS-t-013r-c0-3: startScribe persists every input turn verbatim, and every proposed fact's citation resolves to a span in the stored chat", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const input = baseInput();
   const outcome = await startScribe(h.graph, input, { threadId: "thread-transcript-1" });
   assert.equal(outcome.kind, "awaiting_approval");
@@ -709,7 +710,7 @@ test("ISS-t-013r-c0-3: startScribe persists every input turn verbatim, and every
 });
 
 test("ISS-t-013r-c0-3: a second scribe run over the same session adds only NEW turns and never rewrites the first record; the export carries them all", async () => {
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   await startScribe(h.graph, baseInput(), { threadId: "thread-transcript-2a" });
   const more = baseInput();
   more.turns = [

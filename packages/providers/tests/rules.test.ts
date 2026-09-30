@@ -180,3 +180,18 @@ test("no global fetch call is ever made by the rules provider (no model, B6/B8)"
     globalThis.fetch = originalFetch;
   }
 });
+
+const HistoryVerificationSchema = z.object({ verdict: z.enum(["clear", "violation", "uncertain"]), confidence: z.number(), reviewedFactIds: z.array(z.string()), reviewedRanges: z.array(z.object({ start: z.number(), end: z.number() })), offendingSpans: z.array(z.unknown()) }).strict();
+
+test("T-045 rules approved-history verification releases only its exact deterministic rendering", async () => {
+  const p = new RulesProvider();
+  const facts = [{ key: "ielts_overall", value: 8, source: { type: "transcript", turnId: "new", quote: "My IELTS score is 8" } }];
+  const generated = await p.generate({ skillName: "session-summary", skillPrompt: "fixture", outputSchema: SummarySkillOutputSchema, input: { task: "generate", facts } });
+  const input = { task: "verify-approved-history", facts, candidate: generated.summary, approvedContext: [{ factId: "approved-7", key: "ielts_overall", value: 7 }] };
+  const clear = await p.generate({ skillName: "session-summary", skillPrompt: "fixture", outputSchema: HistoryVerificationSchema, input });
+  assert.equal(clear.verdict, "clear");
+  assert.deepEqual(clear.reviewedFactIds, ["approved-7"]);
+  assert.deepEqual(clear.reviewedRanges, [{ start: 0, end: generated.summary.length }]);
+  const uncertain = await p.generate({ skillName: "session-summary", skillPrompt: "fixture", outputSchema: HistoryVerificationSchema, input: { ...input, candidate: "Please investigate the IELTS score next time." } });
+  assert.equal(uncertain.verdict, "uncertain");
+});

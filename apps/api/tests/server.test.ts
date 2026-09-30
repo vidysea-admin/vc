@@ -504,7 +504,9 @@ test("T-042 api (ISS-085 leak 1, erasure interaction): the SAME short read-back,
  * `options: {timeoutMS?: number} = {}` default -- checkFactReadbackGap invokes it with no third
  * argument at all, so `options` is always `{}` there). The engine's own pre/post-write fence checks
  * (applyApprovedDiff's assertStudentNotFenced pre-check and its post-write check) always pass an
- * explicit `{timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS}`, so they are left untouched and the write path
+ * explicit `{timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS}`. Current graph consent/history reads may
+ * also use options-less fence calls, so this lever is installed only by the actual post-write
+ * webhook read-back callback, keeping those earlier reads untouched. The write path
  * itself is provably unaffected by this lever -- isolating the ISS-090 defect to the fence check
  * `checkFactReadbackGap` itself performs, after the write has already durably succeeded.
  */
@@ -524,12 +526,16 @@ test("T-042 api (ISS-090): a genuine read-back gap whose fence check itself thro
   const gapLedger = new InMemoryWebhookEmitGapLedger();
   const w = world({ webhooks: { outboxForTenant: () => outbox, destinationUrl: "http://client.invalid/hook", gapsForTenant: () => gapLedger } });
   await scribeToApproval(w, "tenant-a");
-  dropOneFromNextIdInRead(w.fakeDb, "facts");
-  throwOnFenceCheckOnly(w.fakeDb);
+  let actualReadbackReached = false;
+  dropOneFromNextIdInRead(w.fakeDb, "facts", async () => {
+    actualReadbackReached = true;
+    throwOnFenceCheckOnly(w.fakeDb);
+  });
   const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
   const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
 
   const decided = await call(w, "POST", `${base}/approval`, { token: counsellor, body: { action: "approve" } });
+  assert.equal(actualReadbackReached, true, "actual post-write webhook read-back phase was reached");
   assert.equal(decided.status, 200, decided.body);
   assert.equal(decided.json.kind, "done");
   assert.equal(w.fakeDb.collection<{ _id: string }>("facts").size(), 2, "both facts are durably written even though the fence check failed");

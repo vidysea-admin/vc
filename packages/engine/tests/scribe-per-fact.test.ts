@@ -36,6 +36,7 @@ const cfg = (threadId: string) => ({ threadId });
 /** Three proposed facts: targetCountry (t1), budget (t3), intendedMajor (t1). */
 function threeFactHarness(): Harness {
   return makeHarness({
+    tenantId: "scribe-test",
     provider: mockProvider({
       "fact-extraction": {
         facts: [
@@ -61,7 +62,7 @@ const mixed = (summary: "approve" | "withhold" = "approve"): ApprovalResponse =>
 });
 
 function sessionRow(h: Harness): SessionDoc | undefined {
-  return h.fakeDb.collection<SessionDoc>(COLLECTION_NAMES.sessions).all().find((s) => s._id === SESSION_ID);
+  return h.fakeDb.collection<SessionDoc>(COLLECTION_NAMES.sessions).all().find((s) => s._id === `scribe-test:${SESSION_ID}`);
 }
 
 function claims(h: Harness): ScribeResolutionDoc[] {
@@ -448,7 +449,7 @@ test("T-018 residual 3: a per_fact rejection writes an audit record with the thr
   const outcome = await resumeScribe(h.graph, mixed(), cfg("pf-reject-audit"));
   assert.equal(outcome.kind === "done" && outcome.result.status, "written");
 
-  const _id = rejectReasonAuditId("pf-reject-audit");
+  const _id = `scribe-test:${rejectReasonAuditId("pf-reject-audit")}`;
   const doc = decisionsColl(h).all().find((d) => d._id === _id);
   assert.ok(doc, "an audit record was written");
   assert.equal(doc?.kind, "per_fact_reject");
@@ -477,7 +478,7 @@ test("T-018 residual 3: an audit record is written even when EVERY fact is rejec
     cfg("pf-reject-audit-all"),
   );
   assert.equal(outcome.kind === "done" && outcome.result.status, "rejected");
-  const doc = decisionsColl(h).all().find((d) => d._id === rejectReasonAuditId("pf-reject-audit-all"));
+  const doc = decisionsColl(h).all().find((d) => d._id === `scribe-test:${rejectReasonAuditId("pf-reject-audit-all")}`);
   assert.ok(doc, "an audit record was written even though nothing else was");
   assert.deepEqual(
     doc?.rejected.map((r) => r.key).sort(),
@@ -497,14 +498,14 @@ test("T-018 residual 3: the audit write is idempotent under a checkpoint replay 
   await startScribe(h.graph, baseInput(), cfg("pf-reject-replay"));
   const outcome = await resumeScribe(h.graph, mixed(), cfg("pf-reject-replay"));
   assert.equal(outcome.kind === "done" && outcome.result.status, "written");
-  assert.equal(decisionsColl(h).all().filter((d) => d._id === rejectReasonAuditId("pf-reject-replay")).length, 1);
+  assert.equal(decisionsColl(h).all().filter((d) => d._id === `scribe-test:${rejectReasonAuditId("pf-reject-replay")}`).length, 1);
 
   // A resumeScribe(null) recovery re-invokes from the same checkpoint; the approval node already
   // recorded its decision, so this is the recorder-recovery no-op path, and the audit record must
   // still be exactly one document (no duplicate from re-running the node's own logic).
   const recovered = await resumeScribe(h.graph, null, cfg("pf-reject-replay"));
   assert.equal(recovered.kind, "done");
-  assert.equal(decisionsColl(h).all().filter((d) => d._id === rejectReasonAuditId("pf-reject-replay")).length, 1);
+  assert.equal(decisionsColl(h).all().filter((d) => d._id === `scribe-test:${rejectReasonAuditId("pf-reject-replay")}`).length, 1);
 });
 
 // ---------------------------------------------------------------------------
@@ -530,7 +531,7 @@ test("T-020 ISS-t-018-c0-1: a reject reason is trimmed by the schema before it e
     cfg("pf-reject-trim"),
   );
   assert.equal(outcome.kind === "done" && outcome.result.status, "written");
-  const doc = decisionsColl(h).all().find((d) => d._id === rejectReasonAuditId("pf-reject-trim"));
+  const doc = decisionsColl(h).all().find((d) => d._id === `scribe-test:${rejectReasonAuditId("pf-reject-trim")}`);
   assert.deepEqual(doc?.rejected, [{ key: "budget_inr_per_year", reason: "needs a second look" }], "leading/trailing whitespace never reaches the audit record");
 });
 

@@ -115,9 +115,16 @@ export type CandidateFact = z.infer<typeof CandidateFactSchema>;
 export const DroppedFactSchema = z.object({ key: z.string(), reason: z.string().min(1) });
 export type DroppedFact = z.infer<typeof DroppedFactSchema>;
 
+/** Server-loaded persisted approval authority, never accepted through ScribeInput. */
+export const ApprovedContextSchema = FactSchema.extend({
+  factId: z.string().min(1), studentId: z.string().min(1), tenantId: z.string().min(1),
+}).strict();
+export type ApprovedContext = z.infer<typeof ApprovedContextSchema>;
+
 export const ExtractInputSchema = z.object({
   turns: z.array(ScribeTurnSchema).min(1),
   sessionEndedAt: z.string().datetime(),
+  approvedContext: z.array(ApprovedContextSchema).default([]),
 });
 export const ExtractOutputSchema = z.object({
   facts: z.array(FactSchema),
@@ -133,7 +140,18 @@ export const SummarySkillOutputSchema = z.object({ summary: z.string() });
 export const SummaryInputSchema = z.object({
   turns: z.array(ScribeTurnSchema).min(1),
   facts: z.array(FactSchema),
+  approvedContext: z.array(ApprovedContextSchema).default([]),
 });
+const ReviewedRangeSchema = z.object({ start: z.number().int().nonnegative(), end: z.number().int().positive() }).strict()
+  .refine((range) => range.end > range.start);
+export const ApprovedHistoryVerificationSchema = z.object({
+  verdict: z.enum(["clear", "violation", "uncertain"]),
+  confidence: z.number().finite().min(0).max(1),
+  reviewedFactIds: z.array(z.string().min(1)),
+  reviewedRanges: z.array(ReviewedRangeSchema),
+  offendingSpans: z.array(z.object({ factId: z.string().min(1), start: z.number().int().nonnegative(),
+    end: z.number().int().positive(), text: z.string().min(1) }).strict().refine((span) => span.end > span.start)),
+}).strict();
 export const SummaryOutputSchema = z.object({
   summary: z.string(),
   summaryWithheldReason: z.string().optional(),

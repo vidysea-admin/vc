@@ -20,15 +20,19 @@ import {
   recordApprovedSessionSummary,
   proposeFactChanges,
   requireConsent,
+  readActiveProfile,
+  tenantIdOf,
   undoApprovedSessionSummary,
 } from "@vc/db";
-import type { LlmProvider } from "@vc/providers";
+import { ProviderAuthorizationRefusedError, type GenerateRequest, type LlmProvider } from "@vc/providers";
 import { citationGuard } from "../guards/citation.js";
 import { routeBeforeGeneration } from "../guards/crisis.js";
 import type { EscalationDeps } from "../guards/escalation.js";
 import { loadSkill } from "../skills/loader.js";
 import {
   ApprovalOutputSchema,
+  ApprovedContextSchema,
+  ApprovedHistoryVerificationSchema,
   CandidateFactSchema,
   COUNSELLOR_WITHHELD_SUMMARY_REASON,
   ConsentGateInputSchema,
@@ -47,6 +51,7 @@ import {
   SummarySkillOutputSchema,
   WriteInputSchema,
   type ApprovalOutput,
+  type ApprovedContext,
   type ApprovalResponse,
   type ConsentGateOutput,
   type CrisisGateOutput,
@@ -67,12 +72,54 @@ export interface ScribeDeps {
   provider: LlmProvider;
   /** The repo's skills/ directory; prompts come from SKILL.md files (B6). */
   skillsDir: string;
+  /** Private graph closure; checked by every provider leaf, never checkpointed as permission. */
+  preflight?: GenerateRequest<unknown>["preflight"];
+  signal?: AbortSignal;
+  /** Separate private publication gate; not a second leaf execution hook. */
+  authorizeRelease?: () => Promise<void>;
   /**
    * T-012 (B16): crisis escalation + the async concern classifier. Optional: when absent the scribe
    * behaves exactly as before (no notification records, no classifier call). When present, `db` must
    * be tenant-scoped (tenantScopedDb, T-025); escalateTurns refuses an unscoped Db.
    */
   escalation?: EscalationDeps;
+}
+
+/** Re-read authority on every invocation; a read error is a refusal, never an empty profile. */
+export async function loadApprovedContext(studentId: string, deps: Pick<ScribeDeps, "db" | "signal">): Promise<ApprovedContext[]> {
+  try {
+    const tenantId = tenantIdOf(deps.db);
+    if (!tenantId || !studentId.trim()) throw new ProviderAuthorizationRefusedError();
+    if (deps.signal?.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+    let onAbort: (() => void) | undefined;
+    const cancelled = new Promise<never>((_, reject) => {
+      onAbort = () => reject(new DOMException("Scribe execution cancelled.", "AbortError"));
+      deps.signal?.addEventListener("abort", onAbort, { once: true });
+    });
+    let docs;
+    try {
+      const reading = readActiveProfile(deps.db, studentId, SCRIBE_PURPOSE);
+      docs = await (deps.signal ? Promise.race([reading, cancelled]) : reading);
+      if (deps.signal?.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+    } finally {
+      if (onAbort) deps.signal?.removeEventListener("abort", onAbort);
+    }
+    const ids = new Set<string>();
+    return docs.map((doc) => {
+      const fact = FactSchema.parse(doc);
+      if (typeof doc._id !== "string" || !doc._id.trim() || ids.has(doc._id) || doc.studentId !== studentId ||
+          doc.active !== true || doc.validTo !== undefined || !doc.purposeTags.includes(SCRIBE_PURPOSE) ||
+          Object.keys(fact.source).length !== Object.keys(doc.source).length ||
+          Object.keys(doc).some((key) => !Object.hasOwn(FactSchema.shape, key) && !["_id", "studentId", "contentHash", "active"].includes(key))) {
+        throw new ProviderAuthorizationRefusedError();
+      }
+      ids.add(doc._id);
+      return ApprovedContextSchema.parse({ ...fact, factId: doc._id, studentId, tenantId });
+    });
+  } catch {
+    if (deps.signal?.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+    throw new ProviderAuthorizationRefusedError();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1083,7 +1130,7 @@ function isSchemaError(err: unknown): err is ZodError {
 }
 
 function describeSchemaError(err: ZodError): string {
-  return err.issues.map((i) => `${i.path.length > 0 ? i.path.join(".") : "(root)"}: ${i.message}`).join("; ");
+  return "Provider output did not match the required schema.";
 }
 
 /**
@@ -1104,7 +1151,7 @@ function describeSchemaError(err: ZodError): string {
  */
 async function generateWithRetry<T>(
   provider: LlmProvider,
-  request: { skillName: string; skillPrompt: string; outputSchema: z.ZodType<T>; input: Record<string, unknown> },
+  request: GenerateRequest<T> & { input: Record<string, unknown> },
 ): Promise<{ output: T } | { failedReason: string }> {
   let lastError = "";
   for (let attempt = 0; attempt <= PROVIDER_OUTPUT_RETRIES; attempt += 1) {
@@ -1128,7 +1175,8 @@ export async function extractFacts(rawInput: unknown, deps: Omit<ScribeDeps, "db
     skillName: "fact-extraction",
     skillPrompt,
     outputSchema: ExtractionSkillOutputSchema,
-    input: { turns: input.turns },
+    input: { turns: input.turns, approvedContext: input.approvedContext },
+    preflight: deps.preflight, signal: deps.signal,
   });
   if ("failedReason" in generated) {
     return ExtractOutputSchema.parse({ facts: [], dropped: [], failedReason: generated.failedReason });
@@ -1169,7 +1217,8 @@ export async function summarizeSession(rawInput: unknown, deps: Omit<ScribeDeps,
     skillName: "session-summary",
     skillPrompt,
     outputSchema: SummarySkillOutputSchema,
-    input: { turns: input.turns, facts: input.facts },
+    input: { task: "generate", turns: input.turns, facts: input.facts, approvedContext: input.approvedContext },
+    preflight: deps.preflight, signal: deps.signal,
   });
   if ("failedReason" in generated) {
     return SummaryOutputSchema.parse({ summary: "", failedReason: generated.failedReason });
@@ -1184,6 +1233,34 @@ export async function summarizeSession(rawInput: unknown, deps: Omit<ScribeDeps,
         "The generated summary read as a script for the counsellor to recite (contract B1), so it was withheld.",
     });
   }
+  await deps.authorizeRelease?.();
+  if (output.summary.length > 0 && input.approvedContext.length > 0) {
+    const withhold = () => SummaryOutputSchema.parse({ summary: "", summaryWithheldReason:
+      "The generated summary could not be verified against approved history, so it was withheld." });
+    let verification;
+    try {
+      verification = await deps.provider.generate({ skillName: "session-summary", skillPrompt,
+        outputSchema: ApprovedHistoryVerificationSchema, preflight: deps.preflight, signal: deps.signal,
+        input: { task: "verify-approved-history", candidate: output.summary, approvedContext: input.approvedContext,
+          turns: input.turns, facts: input.facts } });
+    } catch (err) {
+      if (isSchemaError(err)) return withhold();
+      throw err;
+    }
+    const ids = new Set(input.approvedContext.map((fact) => fact.factId));
+    if (verification.reviewedFactIds.length !== ids.size || new Set(verification.reviewedFactIds).size !== ids.size ||
+        verification.reviewedFactIds.some((id) => !ids.has(id))) return withhold();
+    let end = 0;
+    for (const range of verification.reviewedRanges) {
+      if (range.start !== end || range.end > output.summary.length) return withhold();
+      end = range.end;
+    }
+    if (end !== output.summary.length) return withhold();
+    if (verification.offendingSpans.some((span) => !ids.has(span.factId) || span.end > output.summary.length ||
+        output.summary.slice(span.start, span.end) !== span.text)) return withhold();
+    if (verification.verdict !== "clear" || verification.confidence < 0.95 || verification.offendingSpans.length !== 0) return withhold();
+  }
+  await deps.authorizeRelease?.();
   return SummaryOutputSchema.parse({ summary: output.summary });
 }
 
@@ -1203,7 +1280,7 @@ export async function summarizeSession(rawInput: unknown, deps: Omit<ScribeDeps,
  */
 export async function proposeDiff(rawInput: unknown, deps: Pick<ScribeDeps, "db">): Promise<DiffOutput> {
   const input = DiffInputSchema.parse(rawInput);
-  const existingFacts = await factsCollection(deps.db).find({ studentId: input.studentId, active: true }).toArray();
+  const existingFacts = await readActiveProfile(deps.db, input.studentId, SCRIBE_PURPOSE);
   const diff = proposeFactChanges({
     studentId: input.studentId,
     summary: input.summary,

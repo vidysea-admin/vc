@@ -69,6 +69,35 @@ export interface GenerateRequest<T> {
    * request to abort.
    */
   signal?: AbortSignal;
+  /** Private per-disclosure authorization, bounded by this attempt's existing cancellation. */
+  preflight?: () => Promise<void>;
+}
+
+export class ProviderAuthorizationRefusedError extends Error {
+  constructor() {
+    super("Provider execution was refused because authorization could not be verified.");
+    this.name = "ProviderAuthorizationRefusedError";
+  }
+}
+
+async function authorizeExecution(request: Pick<GenerateRequest<unknown>, "preflight" | "signal">): Promise<void> {
+  const signal = request.signal;
+  const cancelled = () => new DOMException("Provider execution cancelled.", "AbortError");
+  if (signal?.aborted) throw cancelled();
+  let onAbort: (() => void) | undefined;
+  const abort = new Promise<never>((_, reject) => {
+    onAbort = () => reject(cancelled());
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    const check = Promise.resolve().then(() => request.preflight?.()).catch(() => {
+      throw new ProviderAuthorizationRefusedError();
+    });
+    await (signal ? Promise.race([check, abort]) : check);
+    if (signal?.aborted) throw cancelled();
+  } finally {
+    if (onAbort) signal?.removeEventListener("abort", onAbort);
+  }
 }
 
 export interface LlmProvider {
@@ -240,7 +269,7 @@ export function loadProviderConfig(env: ProviderEnv): ProviderConfig {
  */
 export class ModelOutputSchemaError extends z.ZodError {
   constructor(issues: z.ZodIssue[]) {
-    super(issues);
+    super([{ code: "custom", path: [], message: "Provider output did not match the required schema." }]);
     this.name = "ModelOutputSchemaError";
   }
 }
@@ -293,6 +322,7 @@ export class MockProvider implements LlmProvider {
   }
 
   async generate<T>(request: GenerateRequest<T>): Promise<T> {
+    await authorizeExecution(request);
     this.calls.push({
       skillName: request.skillName,
       skillPrompt: request.skillPrompt,
@@ -341,6 +371,7 @@ export class GeminiProvider implements LlmProvider {
   }
 
   async generate<T>(_request: GenerateRequest<T>): Promise<T> {
+    await authorizeExecution(_request);
     throw new ProviderNotWiredError(this.kind, this.model);
   }
 
@@ -479,6 +510,7 @@ export class LiteLlmProvider implements LlmProvider {
     externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
     let res: Response;
     try {
+      await authorizeExecution({ ...request, signal: controller.signal });
       res = await fetch(`${this.baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
@@ -496,6 +528,7 @@ export class LiteLlmProvider implements LlmProvider {
         signal: controller.signal,
       });
     } catch (err) {
+      if (err instanceof ProviderAuthorizationRefusedError) throw err;
       if ((err as { name?: unknown } | null)?.name === "AbortError") {
         if (externalSignal?.aborted) throw new LiteLlmAbortedError(this.model);
         throw new LiteLlmTimeoutError(this.model, this.timeoutMs);
@@ -748,8 +781,11 @@ export class FailoverProvider implements LlmProvider {
    * attaches a rejection handler to the losing promise, so aborting it here can never produce an
    * unhandled rejection later.
    */
-  private async raceDeadline<T>(run: (signal: AbortSignal) => Promise<T>, remainingMs: number): Promise<T> {
+  private async raceDeadline<T>(run: (signal: AbortSignal) => Promise<T>, remainingMs: number, externalSignal?: AbortSignal): Promise<T> {
     const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    if (externalSignal?.aborted) controller.abort();
+    externalSignal?.addEventListener("abort", onAbort, { once: true });
     let timer!: ReturnType<typeof setTimeout>;
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
@@ -761,6 +797,7 @@ export class FailoverProvider implements LlmProvider {
       return await Promise.race([run(controller.signal), timeout]);
     } finally {
       clearTimeout(timer);
+      externalSignal?.removeEventListener("abort", onAbort);
     }
   }
 
@@ -807,7 +844,7 @@ export class FailoverProvider implements LlmProvider {
         // T-037 (ISS-066): the signal is bound fresh per attempt, inside raceDeadline, so a
         // deadline-timeout on THIS attempt can never reach back and abort a different (earlier,
         // already-settled, or later) attempt's own request.
-        return await this.raceDeadline((signal) => provider.generate<T>({ ...request, signal }), remaining);
+        return await this.raceDeadline((signal) => provider.generate<T>({ ...request, signal }), remaining, request.signal);
       } catch (err) {
         if (err instanceof FailoverDeadlineExceededError) {
           lastError = err;
@@ -830,7 +867,9 @@ export class FailoverProvider implements LlmProvider {
     }
     const models = this.chain.map((p) => p.model);
     const lastErrorName = lastError instanceof Error ? lastError.name : "UnknownError";
-    const lastErrorMessage = lastError instanceof Error ? lastError.message : String(lastError);
+    const lastErrorMessage = lastError instanceof ModelOutputSchemaError
+      ? "Provider output did not match the required schema."
+      : lastError instanceof Error ? lastError.message : String(lastError);
     this.onExhausted({ models, attempts: attempt, lastErrorName, lastErrorMessage });
     throw new AiUnavailableError(models, attempt, lastErrorName);
   }
@@ -948,13 +987,25 @@ export class RulesProvider implements LlmProvider {
 
   /** Dispatches on skillName to a deterministic, template-based handler; never calls a network. */
   async generate<T>(request: GenerateRequest<T>): Promise<T> {
+    await authorizeExecution(request);
     let raw: unknown;
     switch (request.skillName) {
       case "fact-extraction":
         raw = rulesExtractFacts(request.input);
         break;
       case "session-summary":
-        raw = rulesSummarizeSession(request.input);
+        if ((request.input as { task?: unknown } | null)?.task === "verify-approved-history") {
+          const input = z.object({ task: z.literal("verify-approved-history"), candidate: z.string().min(1),
+            facts: z.array(z.object({ key: z.string().min(1), value: z.unknown(),
+              source: z.object({ turnId: z.string().optional() }).passthrough() }).passthrough()),
+            approvedContext: z.array(z.object({ factId: z.string().min(1) }).passthrough()).min(1),
+          }).passthrough().parse(request.input);
+          const reviewedFactIds = input.approvedContext.map((fact) => fact.factId);
+          const exact = rulesSummarizeSession({ facts: input.facts }).summary === input.candidate;
+          raw = { verdict: exact && new Set(reviewedFactIds).size === reviewedFactIds.length ? "clear" : "uncertain",
+            confidence: exact ? 1 : 0, reviewedFactIds,
+            reviewedRanges: [{ start: 0, end: input.candidate.length }], offendingSpans: [] };
+        } else raw = rulesSummarizeSession(request.input);
         break;
       default:
         throw new RulesProviderUnsupportedSkillError(request.skillName);

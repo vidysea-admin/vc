@@ -34,7 +34,7 @@ test("B7/B14: a scribe run with @vc/observability callbacks exports spans for th
   const exporter = new RecordingExporter();
   const handle = initTracing({ ...TRACING }, { exporter });
 
-  const h = makeHarness();
+  const h = makeHarness({ tenantId: "scribe-test" });
   const run = scribeRunConfig({ threadId: "thread-traced", tracing: { ...TRACING } });
   assert.equal(run.callbacks.length, 1, "enabled tracing yields one Langfuse callback handler");
 

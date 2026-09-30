@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { MemorySaver } from "@langchain/langgraph";
 import { isScriptLike } from "@vc/schemas";
-import { COLLECTION_NAMES, type ConsentDoc } from "@vc/db";
+import { COLLECTION_NAMES, tenantScopedDb, type ConsentDoc } from "@vc/db";
 import { createFakeDb, INDEX_PLAN } from "@vc/db/testing";
 import { compileScribeGraph, readStudentConcerns, startScribe, SCRIBE_PURPOSE, type DroppedFact } from "../src/scribe/index.js";
 import type { Fact } from "@vc/schemas";
@@ -23,15 +23,18 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 /** packages/engine/evals -> packages/engine -> packages -> repo root -> skills (same depth as tests/). */
 export const DEFAULT_SKILLS_DIR = join(here, "..", "..", "..", "skills");
 
+const EVAL_TENANT = "scribe-evaluation";
+
 function seedConsent(fakeDb: ReturnType<typeof createFakeDb>["fakeDb"], studentId: string): void {
   fakeDb.collection<ConsentDoc>(COLLECTION_NAMES.consents).seed({
-    _id: `consent-${studentId}`,
+    _id: `${EVAL_TENANT}:consent-${studentId}`,
+    tenantId: EVAL_TENANT,
     studentId,
     guardianConsent: true,
     purposes: [SCRIBE_PURPOSE],
     recordedAt: "2026-01-01T00:00:00.000Z",
     minor: false,
-  });
+  } as ConsentDoc);
 }
 
 function declareIndexes(fakeDb: ReturnType<typeof createFakeDb>["fakeDb"]): void {
@@ -133,7 +136,8 @@ function scoreSummary(session: GoldSession, request: { summary: string; summaryW
 }
 
 export async function scoreSession(session: GoldSession, mode: ProviderMode, skillsDir: string = DEFAULT_SKILLS_DIR): Promise<SessionScore> {
-  const { db, fakeDb } = createFakeDb();
+  const { db: rawDb, fakeDb } = createFakeDb();
+  const db = tenantScopedDb(rawDb, EVAL_TENANT);
   declareIndexes(fakeDb);
   seedConsent(fakeDb, session.input.studentId);
 

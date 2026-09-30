@@ -15,6 +15,8 @@ import {
   COLLECTION_NAMES,
   confirmErasure,
   getVcDb,
+  tenantScopedDb,
+  tenantScopedClient,
   requestErasure,
   VC_DB_NAME,
   type ConsentDoc,
@@ -39,6 +41,8 @@ import {
   type ScribeOutcome,
 } from "@vc/engine";
 import { AiUnavailableError, MockProvider, type GenerateRequest, type LlmProvider } from "@vc/providers";
+import { SummaryInputSchema } from "@vc/engine/scribe/schemas";
+import { z } from "zod";
 import type { ApprovalRuntime } from "../src/server/approval-service";
 import type { SessionRuntime } from "../src/server/session-service";
 
@@ -174,7 +178,8 @@ function resolveSkillsDir(): string {
 
 export async function createDemoRuntime(): Promise<DemoRuntime> {
   const fake = createFakeMongoClient();
-  const db = getVcDb(fake.client);
+  const demoTenant = "vc-synthetic-demo";
+  const db = tenantScopedDb(getVcDb(fake.client), demoTenant);
   const fakeDb = fake.dbFor(VC_DB_NAME);
   for (const spec of INDEX_PLAN) {
     if (!spec.unique) continue;
@@ -182,10 +187,11 @@ export async function createDemoRuntime(): Promise<DemoRuntime> {
       .collection<{ _id: string }>(spec.collection)
       .declareUniqueIndex(Object.keys(spec.keys), { partialFilterExpression: spec.partialFilterExpression });
   }
-  const consents = fakeDb.collection<ConsentDoc>(COLLECTION_NAMES.consents);
+  const consents = fakeDb.collection<ConsentDoc & { tenantId: string }>(COLLECTION_NAMES.consents);
   for (const n of [1, 2, 3]) {
     consents.seed({
-      _id: `consent-demo-student-${n}`,
+      _id: `${demoTenant}:consent-demo-student-${n}`,
+      tenantId: demoTenant,
       studentId: `demo-student-${n}`,
       guardianConsent: true,
       purposes: [SCRIBE_PURPOSE],
@@ -195,7 +201,8 @@ export async function createDemoRuntime(): Promise<DemoRuntime> {
   }
   // T-021: consent for the "start a new session" demo flow's student (see FlakyOnceProvider above).
   consents.seed({
-    _id: `consent-${DEMO_NEW_SESSION_STUDENT_ID}`,
+    _id: `${demoTenant}:consent-${DEMO_NEW_SESSION_STUDENT_ID}`,
+    tenantId: demoTenant,
     studentId: DEMO_NEW_SESSION_STUDENT_ID,
     guardianConsent: true,
     purposes: [SCRIBE_PURPOSE],
@@ -203,15 +210,27 @@ export async function createDemoRuntime(): Promise<DemoRuntime> {
     minor: true,
   });
 
-  const provider = new MockProvider({ responses: { "fact-extraction": DEMO_EXTRACTION, "session-summary": { summary: DEMO_SUMMARY } } });
+  // Canned demo verification for this controlled synthetic summary; no model accuracy claim.
+  const summaryResponse = (raw: unknown) => {
+    const task = z.object({ task: z.enum(["generate", "verify-approved-history"]), candidate: z.string().optional() }).passthrough().parse(raw);
+    const input = SummaryInputSchema.parse(raw);
+    if (input.approvedContext.some((fact) => fact.tenantId !== demoTenant)) throw new Error("demo: invalid history tenant");
+    if (task.task === "generate") return { summary: DEMO_SUMMARY };
+    if (task.candidate !== DEMO_SUMMARY) throw new Error("demo: unexpected synthetic summary");
+    const ids = input.approvedContext.map((fact) => fact.factId);
+    if (new Set(ids).size !== ids.length) throw new Error("demo: duplicate history identity");
+    return { verdict: "clear", confidence: 1, reviewedFactIds: ids,
+      reviewedRanges: [{ start: 0, end: task.candidate.length }], offendingSpans: [] };
+  };
+  const provider = new MockProvider({ responses: { "fact-extraction": DEMO_EXTRACTION, "session-summary": summaryResponse } });
   const skillsDir = resolveSkillsDir();
-  const checkpointer = createScribeCheckpointer(fake.client);
+  const checkpointer = createScribeCheckpointer(tenantScopedClient(fake.client, demoTenant));
   const graph: ScribeGraph = compileScribeGraph({ db, provider, skillsDir }, { checkpointer });
   // T-021: a SEPARATE graph for the "start a new session" flow, sharing the same db/skills/
   // checkpointer but wired to a FlakyOnceProvider — so the 3 preseeded threads above (already
   // extracted through the always-succeeding `provider`) are never affected by the forced failure.
   const sessionProvider = new FlakyOnceProvider(
-    new MockProvider({ responses: { "fact-extraction": DEMO_EXTRACTION, "session-summary": { summary: DEMO_SUMMARY } } }),
+    new MockProvider({ responses: { "fact-extraction": DEMO_EXTRACTION, "session-summary": summaryResponse } }),
   );
   const sessionGraph: ScribeGraph = compileScribeGraph({ db, provider: sessionProvider, skillsDir }, { checkpointer });
 
@@ -229,8 +248,9 @@ export async function createDemoRuntime(): Promise<DemoRuntime> {
   // Thread 3: a claim whose winner "crashed" before the graph recorded the decision (D-014 claim,
   // lease already expired). The UI must show it as in progress, and a new submit must lose.
   const claimed: ApprovalResponse = { action: "approve" };
-  fakeDb.collection<ScribeResolutionDoc>(COLLECTION_NAMES.scribe_resolutions).seed({
-    _id: DEMO_THREADS.inProgress,
+  fakeDb.collection<ScribeResolutionDoc & { tenantId: string }>(COLLECTION_NAMES.scribe_resolutions).seed({
+    _id: `${demoTenant}:${DEMO_THREADS.inProgress}`,
+    tenantId: demoTenant,
     threadId: DEMO_THREADS.inProgress,
     studentId: "demo-student-3",
     decision: { approve: true, edits: [] },
@@ -251,26 +271,28 @@ export async function createDemoRuntime(): Promise<DemoRuntime> {
       const facts = fakeDb
         .collection<FactDoc>(COLLECTION_NAMES.facts)
         .all()
-        .filter((f) => f.studentId === studentId)
+        .filter((f) => (f as FactDoc & { tenantId?: string }).tenantId === demoTenant && f.studentId === studentId)
         .map((f) => ({ key: f.key, value: f.value, active: f.active === true }));
       const sessions = fakeDb
         .collection<SessionDoc>(COLLECTION_NAMES.sessions)
         .all()
-        .filter((s) => s.studentId === studentId)
-        .map((s) => ({
-          sessionId: s._id,
+        .filter((s) => (s as SessionDoc & { tenantId?: string }).tenantId === demoTenant && s.studentId === studentId)
+        .map((s) => {
+          if (s._id !== `${demoTenant}:${s.sessionId}`) throw new Error("demo: invalid stored session identity");
+          return ({
+          sessionId: s.sessionId,
           summary: s.summary,
           summaryWithheldReason: s.summaryWithheldReason,
           summaryApprovedAt: s.summaryApprovedAt,
-        }));
+        }); });
       const claims = fakeDb
         .collection<ScribeResolutionDoc>(COLLECTION_NAMES.scribe_resolutions)
         .all()
-        .filter((c) => c.studentId === studentId).length;
+        .filter((c) => (c as ScribeResolutionDoc & { tenantId?: string }).tenantId === demoTenant && c.studentId === studentId).length;
       const decisions = fakeDb
         .collection<RejectReasonAuditDoc>(COLLECTION_NAMES.decisions)
         .all()
-        .filter((d) => d.kind === "per_fact_reject" && d.studentId === studentId)
+        .filter((d) => (d as RejectReasonAuditDoc & { tenantId?: string }).tenantId === demoTenant && d.kind === "per_fact_reject" && d.studentId === studentId)
         .map((d) => ({ threadId: d.threadId, rejected: d.rejected, decidedAt: d.decidedAt }));
       return { studentId, facts, sessions, claims, decisions };
     },
