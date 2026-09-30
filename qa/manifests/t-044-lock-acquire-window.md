@@ -62,7 +62,7 @@ advisory by design (returns after `RAM_RETRIES` and runs anyway) — not a defec
     `STARTED=unknown` + `ACQUIRED_AT` + `TOKEN` + `DESC`, via the existing atomic
     temp-file-then-`mv -f` pattern (T-040's torn-read fix, reused as-is). Runs immediately after
     `mkdir` succeeds — closes Site 1: the no-owner-file window shrinks from "however long
-    `proc_start_ticks` takes" (2.3-4.3s) to sub-millisecond.
+    `proc_start_ticks` takes" (2.3-4.3s) to an initial owner write before the PowerShell enrichment probe.
   - **`write_owner_enrich(token, ...)`** — calls `proc_start_ticks` (the slow call), then **checks
     `owner_token()` still equals `token` before writing**; on a mismatch it logs and returns 1
     without touching the file — closes Site 2: a slow enrich can no longer silently overwrite a
@@ -187,7 +187,7 @@ FAIL: BEFORE: a legitimately-being-acquired lock is never misjudged stale -- old
 --- AFTER (new/fixed script) ---
 PASS: AFTER: an owner file (PID+ACQUIRED_AT+TOKEN) exists IMMEDIATELY after mkdir --
   write_owner_minimal needs no PowerShell shell-out, so the no-owner-file window is closed to
-  sub-millisecond, not bounded by a 2-4s shell-out
+  before the 2-4s enrichment shell-out; no sub-millisecond timing guarantee is asserted
 
 ############################################
 ## SITE 2 -- write_owner's slow enrich phase: does it blindly overwrite a directory
@@ -331,5 +331,7 @@ Not applicable — no UI-touching or web surface. The only changed paths are
 - **`pnpm -r test` was intentionally not run** by this unit, per the brief (it needs the shared lock
   being modified; the orchestrator runs it on `main` after merge).
 
-## Status: ready-for-check
+## Status: checked-PASS (post-integration, 2026-09-30)
 **Fix cycle:** 0 of max 3
+
+**Independent closeout:** integrated commit 6bb767e; current verdict qa/verdicts/t-044-lock-acquire-window.md records native mutex 30/30 and typecheck 9/9. Default monorepo run remains non-green (one pre-existing load-sensitive concern-classifier timing failure, 45 skipped). Scoped ownership fixes pass; residual non-atomic token check/action and unrelated open issues remain.

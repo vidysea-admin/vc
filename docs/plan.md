@@ -353,3 +353,15 @@ This unit does not establish actual notification delivery, the no-consent API pa
 - Build and verify student voice/avatar through the shared engine and the declared Hindi/voice personas.
 
 No application target, expert reference, new source file, external connection, publication or production action is assumed approved by this appendix.
+### Source reuse evidence (read-only audit, 2026-09-30)
+
+These are source-inspection findings, not live/provider verification:
+- `D:/sop_mvp/backend/app/models/context.py:58` has real ApplicationConstraints/ContextObject; `services/draft_service.py:41` and `services/sop_weaver_service.py:19` provide section/SOP generation. They are SOP context/prose components, not UCAS/Common App field schemas. Reuse approved-fact mapping and prompt flow through VC's provider interface; do not import sibling persistence. Prompt-only word limits and fallback concatenation need deterministic validation and honest labelling.
+- `D:/VirtualCounsellor_Avatar/apps/agent/src/deepinterview_agent/worker.py:95/218/647` provides transcript capture, STT selection and LiveKit AgentSession assembly. It is interview-specific and its language map currently omits Hindi; unknown languages fall back to English. Transport may be reused, but counselling output must remain under VC's authenticated graph and guards.
+- The avatar repo's `apps/web/components/interview/live-room.tsx:636` has connection/reconnect UI; `components/avatar/avatar-stage.tsx` renders idle/speaking states but video-loop URLs are placeholders/404 with gradient fallback. `components/counsellor/counsellor-avatar-preview.tsx:67` resolves stored GLB models. None is proof of an available live avatar service or media asset.
+- `D:/ikigai_counsellor/server/geminiLiveService.ts:129/165` is a real server-side Gemini Live audio/text bridge. Its direct Gemini reply generation bypasses VC's graph/guards; do not reuse that reasoning path unchanged.
+
+External dependencies remain unverified: real client identity and recipients, LiveKit/microphone and STT/TTS configuration, Hindi speech, avatar media/model availability, and the selected application form. No vendor service or real student data was contacted during this audit. The exact application-target question remains pending; SOP generation alone does not satisfy the fifteen-minute application-draft outcome.
+### T-035 measured baseline — 2026-09-30
+
+An independent standalone fake-backed runtime probe (`node --import tsx --input-type=module`, exit 0), without session anchors, verified that student export omits safety records and approved erasure reports `completed` while `escalation_notifications=1` and `crisis_flag_reviews=1` remain for the erased tenant. A second tenant using identical student/session/turn IDs retained both records, with raw-document JSON serialization byte-identical before/after. Assertions verified these outcomes using the existing testing, tenant and erasure helpers. This proves the fake-backed baseline defect, not real-Mongo or live deployment behavior. The combined lifecycle/writer-fencing plan above remains awaiting the required multi-file implementation approval.
