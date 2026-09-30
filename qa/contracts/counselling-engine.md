@@ -273,6 +273,86 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
     `NOT-YET-MEASURABLE`, never as a pass, and it does not block unit PASS.
   - **Once the reference exists:** B22 becomes a release gate.
 
+## B23. Authenticated counselling session lifecycle and feedback prerequisite (D-032 / D-033)
+
+This adds acceptance to B4, B14, B15 and B21; it does not replace or weaken them. Transcript discovery or
+post-session scribe attachment is not evidence of live session authority. The full counselling feedback
+lifecycle remains the goal: this prerequisite cannot by itself PASS feedback receipt expiry, post-close
+receipt handling, personalization or the full goal. Runtime feedback expiry and post-close policy remain
+pending human decisions; no timeout duration or receipt acceptance policy is assumed here.
+
+- **B23.1 (authenticated prepare/open/close):** Existing versioned API routes verify the configured JWT and
+  derive actor and tenant from verified claims. Prepare, open and close bind that actor, tenant, student
+  and session; mismatched identities, missing/invalid JWTs and unsupported or injected authority fields
+  are refused before mutation. Bodies are strict. Prepare creates opaque opening authority as a
+  kind-discriminated row in the existing decisions collection with top-level studentId; it never activates
+  a session. Open requires that PRESENT exact capability and its original binding; it never reconstructs
+  an absent, erased or stale capability. Before final activation/publication, re-read the exact
+  capability's continued existence and original grant binding; a successful earlier lookup is not
+  sufficient. An in-flight prepare invocation cannot refresh its originally captured grant to mint a
+  capability under a later grant. Replaying prepare HTTP bytes as a NEW invocation with fresh current
+  authorization may issue a NEW nonactivating capability; it cannot return the erased old capability
+  or activate a session. Close operates on the
+  exact existing generation and never
+  upserts. Scribe attachment neither activates a session nor overwrites its live lifecycle metadata.
+- **B23.2 (server grant incarnation and external rejection):** Consent grant authority includes a
+  server-generated internal incarnation, captured by prepare and checked by open, close and lifecycle
+  settlement. Public consent content and consent `_id` are not sufficient grant identity. Initialization
+  is server-only CAS in the existing lifecycle function, with concurrent losers reading the persisted
+  winner rather than treating their generated value as authority. The existing validateConsentForWrite
+  explicitly rejects an externally supplied own-property internal authority field, including
+  lifecycleIncarnation even when undefined, BEFORE schema parsing; errors are fixed and raw-free.
+  Valid external consent still succeeds. Actual production consent-writer use of this guarded boundary
+  remains unverified until independently traced and evidenced; internal types alone do not prove it.
+- **B23.3 (original authority and deadline):** Each invocation preserves its original authority, creation
+  attempt and deadline across reads, CAS races, retries and late settlement. Awaited operations are
+  followed by current consent-incarnation and erasure-fence checks before publication. No retry or
+  persisted-winner read renews the original deadline or borrows another invocation's authority. Revoked,
+  changed, expired or fenced authority refuses activation/publication and cannot recreate authority.
+- **B23.4 (erasure/regrant replay):** Confirmed erasure purges capability rows and internal consent
+  incarnation through the existing full purge and residue read-back. After purge and fence release,
+  regrant with byte-identical public consent and the same `_id` establishes a different server grant
+  incarnation. In-flight prepare with the old captured grant, old-capability open, old-generation close
+  and their late settlements remain invalid; a stale captured-grant prepare cannot insert usable
+  authority into the new grant and a stale open cannot recreate its erased capability.
+  Controls cover held reads and held writes on both sides of purge/regrant, not only requests started
+  after erasure. A fresh currently authorized prepare invocation, including replayed request bytes,
+  may issue a new nonactivating capability on the new grant; that and subsequent fresh-capability open
+  remain positive controls. HTTP byte equality alone does not identify an old invocation.
+- **B23.5 (ownership, concurrency and late settlement):** Concurrent legitimate retry observes the
+  persisted session/capability winner and preserves its identity. Compensation, including the existing
+  graph session compensation, matches exact generation AND creation-attempt ownership. Settlement
+  waits for the original driver operation and compensates only its own row; stale close, attachment,
+  receipt settlement or cleanup never overwrites/deletes a newer or recreated winner. No broad
+  student/session-only delete qualifies as ownership proof. Tests assert both owned cleanup and
+  survival of an independently recreated winner, including a late original write.
+- **B23.6 (public export):** Actual per-student API/export serialization projects sessions, consents and
+  ordinary decisions onto public fields. It omits opening-capability rows entirely and hides ALL
+  internal grant incarnation, generation, ownership/attempt and capability authority material at every
+  nesting level. Public decision/session content and ordinary export/erasure behavior remain intact;
+  hiding personal content to make an internal-authority test pass is not acceptable.
+- **B23.7 (independent outcome evidence):** The completion checker derives controls from B23 and
+  independently exercises prepare -> open -> close through the actual API using locally signed JWTs
+  and the real DB functions against an offline/in-process database, then reads persisted rows back.
+  Evidence includes positive retry/attachment/export, invalid JWT and cross-actor/tenant/student/session
+  controls, strict-body injection (including own-property undefined at the validator), current-consent
+  loss, fencing, original-deadline expiry, stale prepare/open/close after erase/regrant, concurrent CAS,
+  original-driver late settlement and recreated-winner preservation. Erasure uses the actual purge and
+  residue verification. No production connection or external model is required or authorized by these
+  tests. Independent semantic mutations in an isolated QA copy must each be killed by the applicable
+  controls: capability reconstruction; consent-id/public-content-only identity; omitted post-read
+  authority/fence check; renewed deadline; generation-only/broad cleanup; close upsert or attachment
+  activation; leaked internal export fields/capability rows. Record actual reached assertions, mutation
+  results and terminal commands; missing execution is a disclosed gap, never PASS. Existing mandatory
+  API/DB/engine type and regression checks and indirect UI validation rules still apply.
+
+**Approval mapping and status:** D-032 authorizes this checker-owned contract amendment before source
+implementation and the existing lifecycle/session/export/API targets. D-033 adds the existing external
+consent validator and tests. The independent final lifecycle plan approval recorded in docs/plan.md
+requires all replay, grant-incarnation, original-deadline, ownership and export conditions above. This
+amendment records that PLAN approval only: no lifecycle implementation, execution evidence, production
+consent writer integrity or completion PASS is certified by it. Feedback policy remains pending.
+
 ## Non-goals (this contract)
 - The avatar (P3) and the student-facing voice surface. (Counsellor-side **voice input**, such as dictating an edit in Hindi, is in scope: B17 `gaurav-bhaiya`.)
 - Bulk student import (Excel with AI column mapping). Umesh 2026-09-26: out of this project's context; it belongs to the counselor portal.
@@ -282,6 +362,12 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 - Joining real Pathlynks data (gated on the DPDP legal review, Q3).
 
 ## Amendment log
+- 2026-10-01 · routine (tighten, D-032 / D-033) · added B23.1–B23.7 authenticated prepare/open/close,
+  server-only grant incarnation and explicit external rejection, original authority/deadline, erased
+  capability and same-public-consent/same-id regrant replay refusal, attempt-owned late compensation,
+  public export projection and independent JWT/DB/read-back semantic mutation evidence. Records the
+  independently approved lifecycle prerequisite before implementation; preserves every earlier
+  criterion/history and pending runtime feedback policy. Plan approval is not completion PASS.
 - 2026-09-25 · routine (tighten) · added B11 secrets, B12 explicit work-DB name + host gate, B13 no student data to
   external models · the keys and `MONGODB_URL` landed in `.env`, and the contract had no invariant covering them. The
   URI points to a remote host with no DB name and no credentials (ISS-012).
