@@ -1,0 +1,19 @@
+▲ Next.js 16.3.6 (webpack)
+- Local:         http://127.0.0.1:3117
+- Network:       http://127.0.0.1:3117
+✓ Ready in 992ms
+✓ Running next.config.ts took 71ms
+
+ GET /sessions/new 200 in 3.7s (next.js: 3.5s, application-code: 202ms)
+ POST /api/sessions 503 in 3.7s (next.js: 2.2s, application-code: 1483ms)
+ POST /api/sessions 200 in 56ms (next.js: 4ms, application-code: 52ms)
+ GET /approvals/scribe%3A9b4c47cc-2c13-49d3-8fb5-c17f4d333e29 200 in 1345ms (next.js: 1202ms, application-code: 143ms)
+ GET /api/approvals/scribe%3A9b4c47cc-2c13-49d3-8fb5-c17f4d333e29 200 in 2.2s (next.js: 1900ms, application-code: 325ms)
+ GET /api/approvals/scribe%3A9b4c47cc-2c13-49d3-8fb5-c17f4d333e29 200 in 2.2s (next.js: 1919ms, application-code: 325ms)
+ POST /api/approvals/scribe%3A9b4c47cc-2c13-49d3-8fb5-c17f4d333e29 200 in 70ms (next.js: 12ms, application-code: 58ms)
+ GET /api/approvals/scribe%3A9b4c47cc-2c13-49d3-8fb5-c17f4d333e29 200 in 18ms (next.js: 7ms, application-code: 11ms)
+ GET /api/demo/readback?studentId=demo-student-4 200 in 680ms (next.js: 486ms, application-code: 194ms)
+ GET /api/demo/readback?studentId=demo-student-4 200 in 7ms (next.js: 2ms, application-code: 5ms)
+ GET /approvals/scribe%3Ademo-session-2 200 in 181ms (next.js: 59ms, application-code: 122ms)
+ GET /api/approvals/scribe%3Ademo-session-2 423 in 31ms (next.js: 19ms, application-code: 12ms)
+ GET /api/approvals/scribe%3Ademo-session-2 423 in 18ms (next.js: 3ms, application-code: 15ms)
