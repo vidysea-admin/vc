@@ -1,4 +1,6 @@
 # Gate: auto-verify-surface
+
+**Current status (D-029):** Historical direct answer reconciled: option (c), necessary plus closed grammar. Checker amendment exists; remaining vocabulary/exam questions are separate. See the historical direct-answer reconciliation at the end; earlier prompt/status text is retained as history.
 **Opened:** 2026-09-27 (T-036 fix cycle 1, blind oracle first contact)
 **Blocks:** nothing today. It does not block a build unit. It is a PRODUCT decision that changes how
 much manual work the counsellor does in every session, so it should be answered before a pilot.
@@ -64,3 +66,8 @@ rule. The relayed content is preserved here so nothing is lost if that session e
 Umesh has been asked in the maker session for a one-line confirmation. On his confirmation the
 `Answered:` line and the DECISIONS entry are written the same turn; until then this gate counts as
 unanswered for sweep purposes.
+
+
+## Historical direct-answer reconciliation (D-029)
+Answered: 2026-09-30T15:29:12+05:30 - option (c): necessary rules AND explicit closed template grammar. Source: direct Umesh answer recorded by checker in qa/QUEUE.md decision 2, commit f7f5260; grammar already incorporated by checker into B2; reconciled by D-029. No vocabulary or grammar widening.
+This records the prior human answer; it does not claim a new answer was supplied in this session.

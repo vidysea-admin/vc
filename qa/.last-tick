@@ -1497,3 +1497,5 @@ ANOMALY THE MAKER DISCLOSED RATHER THAN BURIED (credit): run 5 logged 'PID not
 NO OTHER UNIT DISPATCHED: 41/41 root manifests checked-PASS, 0 pending, and the
   remaining ready work is behind the 7 human gates or serial behind T-010.
   SERIAL: none - there is no second independent unit to run.
+
+2026-09-30T15:24:32+05:30 - RECOVERY - active goal resumed from direct user objective; bound D:/vc, coding adapter; independent pending-closeout, goal-recovery and ledger-truth audits dispatched; no production connections. Previous summary missed six recorded Umesh decisions in QUEUE; reconciling evidence, not re-asking answered scope.

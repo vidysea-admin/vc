@@ -1,4 +1,6 @@
 # Gate: b18-unimplemented
+
+**Current status (D-029):** Historical direct answer reconciled: approved do-not-ask/already-approved build; destination-relevance pilot gap documented; implementation/proof still incomplete. See the historical direct-answer reconciliation at the end; earlier prompt/status text is retained as history.
 **Opened:** 2026-09-27 (T-039 stage 2, blind B18 oracle first contact)
 **Status:** claim under check — the T-039 checker is verifying it independently right now. Opened
 early because if it holds, it changes what "P1 is built" means, and that is not a decision a maker
@@ -108,3 +110,8 @@ rule. The relayed content is preserved here so nothing is lost if that session e
 Umesh has been asked in the maker session for a one-line confirmation. On his confirmation the
 `Answered:` line and the DECISIONS entry are written the same turn; until then this gate counts as
 unanswered for sweep purposes.
+
+
+## Historical direct-answer reconciliation (D-029)
+Answered: 2026-09-30T15:29:12+05:30 - option (a)+(b) SPLIT: implement scribe do-not-ask/already-approved suppression; document destination-relevance pilot gap without claiming B18 proof met. Source: direct Umesh answer recorded by checker in qa/QUEUE.md decision 1, 2026-09-27 ~17:45 IST, commit f7f5260; reconciled by D-029. Full active goal still includes consistent personalization.
+This records the prior human answer; it does not claim a new answer was supplied in this session.

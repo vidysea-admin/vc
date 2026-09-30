@@ -188,3 +188,102 @@ retroactive retraction of prior output, or only that new output stop being produ
 **Standing note:** all 55 asserted rows are derived purely from contract prose (B18 plus the cross-referenced
 clauses named per row); none were checked against the engine before assertion. The 11 quarantined rows above are
 not guesses — each names the exact sentence-level gap in B18 that leaves its expected answer undetermined.
+
+
+## 2026-09-30T15:24:32+05:30 - active Codex goal, direct user objective (verbatim)
+Source: attachments/9681bd8f-2038-44f7-8045-5f36a3045f1a/goal-objective.md. Full completion scope; do not reduce to the first passing unit.
+
+**My exact goal is to make D:\vc deliver the complete counselling journey: Explore → Conclude → Execute.** It should help a less-experienced counsellor approach expert quality, use the student’s history to support decisions, and prepare an application draft—with humans approving decisions and submission.
+
+**Already done, according to code and recorded checker results:**
+
+- Student knowledge graph for cited facts, reasoning, history, and decisions.
+- Post-session transcript → facts → summary → profile changes → counsellor approval.
+- Reference approval UI.
+- Authenticated, tenant-scoped API and KnowledgeBase client.
+- Signed webhooks and durable delivery infrastructure.
+- Consent, export, erasure, and crisis-handling foundations.
+- Model failover, retry handling, self-hosted tracing, and evaluation infrastructure.
+
+**Still remaining:**
+
+- **Live counselling cards:** T-010 is stalled; scripted suggestions and repeated questions remain unresolved.
+- **Consistent personalization:** avoid known questions and irrelevant advice across all surfaces.
+- **Safety integration:** finish crisis-escalation wiring and related coverage.
+- **Real Pathlynks integration:** prove the complete client-to-engine workflow.
+- **Expert-quality measurement:** obtain Sapna ma’am’s reference rubric and test the ≥90% target.
+- **Application drafting:** not built; first-pilot inclusion is undecided.
+- **Student voice/avatar:** later Phase 3.
+- Reconcile stale documentation, pending QA close-outs, and remaining issues.
+
+**Current position: the post-session foundation is substantially built. The complete live counselling and application journey is still unfinished; deployment readiness has not been verified.**
+
+
+
+Now go and dont stop until you achieve your goal
+
+
+
+
+
+
+
+
+
+**D:\vc’s goal is to build Vidysea’s reusable counselling intelligence service: understand the student, help them make a better decision, and turn that decision into action.**
+
+The pasted summary is broadly correct. I rechecked the local contracts and pending tasks; the important distinction is between **implemented foundations** and **completed counselling outcomes**.
+
+**The north star**
+
+**Explore → Conclude → Execute; AI assists, the human decides.**
+
+In practical terms:
+
+1. **Explore:** understand the student’s interests, abilities, constraints, motivations, and history. Challenge assumptions and compare alternatives.
+2. **Conclude:** help the student and counsellor reach an evidence-backed choice, preserving why they chose it.
+3. **Execute:** use that approved choice and existing student information to prepare an application draft for human review.
+
+The measurable quality target is **a novice using VC reaches at least 90% of Sapna ma’am’s expert benchmark on the same case**. Her reference rubric is still missing, so this target cannot yet be scored.
+
+**Everything this directory needs to deliver**
+
+| Capability                    | What it must do                                                                              | Current position                                                     |
+| ----------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Longitudinal student memory   | Preserve full transcripts, cited facts, reasoning, concerns, and decisions across sessions   | Substantially implemented                                            |
+| Post-session scribe           | Produce a summary and proposed profile changes; save approved changes                        | Implemented with recorded checker PASSes                             |
+| Live counsellor assistance    | Show timely questions, comparisons, and evidence; at most three cards                        | **T-010 stalled; branch remains unmerged**                           |
+| Personalization               | Use known history, avoid repeated questions, suppress irrelevant advice                      | Incomplete across live-card and scribe/summary surfaces              |
+| Grounded knowledge            | Retrieve university/course information with citations; handle unavailable knowledge honestly | KB client implemented; live integration not established              |
+| Shared API                    | Serve Pathlynks with JWT authentication, tenant isolation, and signed events                 | Core implemented; real client integration outstanding                |
+| Safety and privacy            | Consent, crisis escalation, export, approved erasure, and audit records                      | Implemented foundations; **T-035 wiring/coverage follow-ups remain** |
+| Reliability and observability | Provider failover, preserved-input retry, self-hosted tracing, outcome evaluation            | Substantially implemented                                            |
+| Application drafting          | Pre-fill available information, identify missing items, leave submission to the student      | **Not built; T-038 awaits pilot-scope decision**                     |
+| Student voice/avatar          | Make the same engine available directly to students                                          | Later Phase 3                                                        |
+
+**What this repo owns**
+
+The approved direction is **API-first**. VC owns the intelligence, student knowledge graph, safety, orchestration, and integration interfaces. Pathlynks owns the production UI and issues authentication tokens. `apps/web` is the reference/test UI.
+
+The chosen foundation is TypeScript + LangGraph.js, MongoDB, provider-independent model access, self-hosted Langfuse, skills, and MCP tools.
+
+**What the selected Google Doc tab adds**
+
+The [tab you linked](https://docs.google.com/document/d/11PEkFEyI9L67Y1tkTClxUNrDZBIpstVExlAgZqfADh4/edit?tab=t.buz2aydrulhr) discusses related Pathlynks requirements:
+
+- A clear career-fit grid with consistent recommendation ordering.
+- Clickable explanations based on specific traits and evidence.
+- Support for different combinations of completed assessments.
+- Counsellor adjustments and remarks.
+- A ₹50-per-student total-cost target by 31 October, covering assessments, reports, infrastructure, and two languages.
+- Delivery of a usable final product.
+
+These inform VC’s integration and evidence needs. **The ₹50 figure describes the broader assessment/report workflow; the document does not establish it as VC’s counselling-session budget.**
+
+**The main work left**
+
+The priority is to complete the actual counselling loop: resolve live-card failures, implement consistent personalization, measure against the expert reference, and prove real Pathlynks integration. Application drafting remains necessary for the full north star, although its inclusion in the first pilot is still undecided.
+
+The local source map is [goal.md](D:/vc/goal.md) for the original brief, [docs/DECISIONS.md](D:/vc/docs/DECISIONS.md) for approved direction changes, [the counselling contract](D:/vc/qa/contracts/counselling-engine.md) for acceptance criteria, and [TASKS.md](D:/vc/TASKS.md) for delivery tracking.
+
+**The complete north star has not been achieved.** The memory-and-approval foundation is substantially built; trustworthy live decision support and the application-execution phase remain incomplete. No files were changed, and this review does not certify a live deployment.

@@ -1,4 +1,4 @@
-# ARCHITECTURE — current ground truth (as of: 2026-09-25, last change: D-009)
+# ARCHITECTURE — current ground truth (as of: 2026-09-30, last reconciliation: D-029)
 
 <!-- Lab Protocol STATE file. Only sections named in an authorizing DECISIONS entry's
      Changes-authorized field may change, and only during /landplane.
@@ -53,6 +53,10 @@ None yet. This is the research phase; `contracts/contracts.json` is empty.
   - `D:/sop_mvp`: ContextObject profile, ApplicationConstraints.
   - `D:/VirtualCounsellor_Avatar`: P3 avatar.
 
+- **H7 (D-019, D-020), provider runtime:** Gemini and the LiteLLM gateway sit behind the provider interface. A configured three-model runtime failover shares ten total attempts; all-fail returns an alert and input-preserving Retry. Rules mode is explicit, never an automatic runtime fallback.
+- **H8 (D-021), API-first service:** VC is a headless intelligence service; Pathlynks is the first client. Versioned HTTP APIs verify client-issued JWTs and stamp the verified tenant on reads/writes. KnowledgeBase is consumed over cited POST /ask; signed events leave through a durable outbox. apps/web is an internal localhost-only reference/test UI, not the production client.
+- **H9 (D-020, D-027), crisis and concern:** concern flags preserve the conversation; crisis escalation must carry identifiers plus a flag even without consent, with no other processing without consent. Core escalation exists, but T-035 lifecycle/fencing and real delivery wiring remain incomplete. A record_only notification is not delivered notification evidence.
+- **H10 (D-029), recovery status:** T-010 remains unmerged after its three-cycle stall; the recorded human split requires separate B1/B18 recovery units and honest criterion mapping. Application drafting is in first-pilot scope and remains unimplemented/spec-pending. The full goal includes personalization and voice/avatar beyond documented pilot gaps.
 ## 4. Directory map & file responsibilities
 | Path | Owns | Must NOT contain |
 |---|---|---|
@@ -60,8 +64,8 @@ None yet. This is the research phase; `contracts/contracts.json` is empty.
 | `compass_artifact_…md` | Research + build plan (source input) | edits; it is a frozen reference |
 | `docs/` | Plan doc (unit 1), ADR-style notes; `DECISIONS.md` (append-only) | code |
 | `contracts/` | Frozen machine-checked contracts (empty) | hypotheses |
-| `qa/` | Maker-checker state (after /maker init) | product code |
-| `apps/api` · `apps/web` · `packages/*` · `skills/` · `mcp/` | [ASSUMPTION] Planned TS pnpm monorepo, not scaffolded yet | — |
+| `qa/` | Active maker-checker contracts, issue ledger, manifests, verdicts and gates | product code |
+| `apps/api` · `apps/web` · `packages/*` · `skills/` · `mcp/` | Implemented TS pnpm monorepo: API, reference UI, engine/db/providers/schemas/observability, skills and student-profile/university-kb tools; completion is tracked in TASKS/QA | Production client UI or claims that unmerged live-card/application/voice behavior is complete |
 
 ## 5. Cross-cutting rules
 - **Mongo (D-008, D-009):** the engine uses only the database `virtual_counsellor` on the production server in `.env`, with full CRUD inside it (documents, bulk ops, its own collections and indexes). Every other database there is off-limits for both reading and writing. One DB helper names it and refuses any other name (B12). Tests run offline. Only `dropDatabase` on `virtual_counsellor` needs a gate.
@@ -72,9 +76,12 @@ None yet. This is the research phase; `contracts/contracts.json` is empty.
 - **DPDP:** all Pathlynks users are minors, so consent and purpose tags are in the data model from day one.
 
 ## 6. OPEN QUESTIONS (deliberately undecided — resolve only through /checkpoint verdicts)
-- **Q1:** Is the University KB built here from scratch, or seeded from D:/KnowledgeBase `/ask` or other Vidysea
-  university data (e.g. global_university_db, read-only)?
+- **Q1 (D-021 resolved direction):** Consume the existing KnowledgeBase over POST /ask. Remaining integration details: deployed contract version, tenant binding and the approved live client connection. No other production Mongo database is accessed.
 - **Q2:** Is live audio Gemini Live transcription or file-based diarised STT (the KB pipeline)? For live cards the
   compass recommends transcription-only streaming plus separate text reasoning calls.
 - **Q3:** DPDP legal review: does psychometric profiling of minors fall under the tracking restriction?
 - **Q4:** Does Langfuse self-hosting (4 backing services) run locally for dev only at first, or on shared infra?
+
+- **Q5:** Pathlynks JWT issuer/key rotation, authenticated client UI and tenant-specific escalation recipient/delivery sources require integration evidence.
+- **Q6:** Sapna ma'am's expert reference rubric is absent; B22 stays NOT-YET-MEASURABLE until supplied, then the >=90% test is required.
+- **Q7:** First application destination/form, field mapping and review artifact are pending specification. Pilot inclusion is already answered by D-029; VC never submits.

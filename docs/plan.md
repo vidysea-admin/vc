@@ -308,3 +308,48 @@ post-session notes are approved with only light edits. Phase 2 and Phase 3 have 
 | Solo-developer bus factor and scope creep | High | Strict phase gates; thin code; buy avatar, transport and STT |
 | Price shocks (Flash doubling Jan 2027) | Medium | Budget at 2027 rates; caching; Flash-Lite routing |
 | Student disengagement with a Socratic AI (Phase 3) | Medium | Balance questions with concrete answers and visuals (Khanmigo lesson) |
+
+## Recovery execution appendix — 2026-09-30 (D-029)
+
+The full Explore -> Conclude -> Execute goal remains active. Application drafting is in the first pilot, per the directly recorded Umesh decision. Pilot exceptions do not constitute full-goal completion. Existing work will be integrated with its original history and independently checked; no new product module is proposed in this unit.
+
+### Next product unit: T-035 safety-data lifecycle (plan pending approval)
+
+**Outcome:** crisis notification/review records are tenant-scoped, discoverable in the student's export, fully erased with independent read-back-zero, and cannot be recreated by a delayed or replayed writer. Registration, export/erasure and fencing ship together; a registration-only or fencing-only slice leaves a known privacy hole.
+
+**Existing files/functions to edit in place:**
+- `packages/db/src/collections.ts:24` — `COLLECTION_NAMES`: register `escalation_notifications` and `crisis_flag_reviews`.
+- `packages/db/scripts/db-init.ts:82` — `INDEX_PLAN`: tenant-leading student/session lookup indexes for both collections, without any other database access.
+- `packages/db/src/erasure.ts:1417` — `ERASURE_PLAN`: phase-1 `byStudent` purge and independent residue checks; `StudentExport:1800` / `exportStudent:1840`: add projected `escalations` and `crisisReviews` arrays, empty for students without records.
+- `packages/engine/src/guards/escalation.ts:203` — `notifyAll`, `escalateTurns:254`, `runReview:326`, `acknowledgeEscalation:397`: bounded writer precheck/postcheck and ownership-qualified compensation on every mutating path, using existing `WriterDeadline`, `assertStudentNotFenced` and `compensateIfFenced`.
+- `packages/db/tests/db-init.test.ts` — verify both index definitions are tenant-led.
+- `packages/db/tests/erasure.test.ts:100` / `:332` — extend existing fixtures and lifecycle/export outcomes.
+- `packages/db/tests/db-scope.test.ts:194` / `:257` / `:285` — register both student-data names in the scanner and require actual fenced-writer coverage; no blanket exemption.
+- `packages/engine/tests/crisis-escalation.test.ts:328` — replace the stale assertion that the collection is absent; add writer/replay/acknowledgement race coverage in the existing test file.
+- `apps/api/src/openapi.ts:250` — describe the additive projected safety export and its staff/provider-field exclusions.
+
+**Export interface:** `escalations` projects escalation/session/student/turn identifiers, guard level and matched flags, student-related severity/reason, existing channel/status, flagged/notified timestamps and nullable acknowledgement timestamp. `crisisReviews` projects session/student/turn identifiers, guard level/matched flags, flagged timestamp, and the classified severity/likelyBenign/rationale/time or the existing unavailable status/reason/time. Use the actual existing enum literals. Omit internal Mongo IDs, staff recipient/acknowledger identities, model/provider/error/debug fields, sampling fields and write-ownership tokens. Preserve one entry per stored notification in deterministic ID order; do not invent aggregation. Keep the export types in existing db code to avoid a db-to-engine dependency cycle.
+
+**Writer protocol:** each bounded write phase observes the student's fence before and after mutation. Insert ownership is recorded atomically through an invocation token on insertion; ambiguous timeouts get a compensator when the operation eventually settles. Compensation may delete only that invocation's inserted records, never a pre-existing deterministic ID. Classifier and acknowledgement annotations use compare-and-set with ownership-qualified rollback; acknowledgement never compensates by deleting the underlying notification. Recheck the fence after classification before any new write, and do not hold one writer deadline across an arbitrarily long classifier run. Dispose deadlines in `finally`.
+
+**Test-first sequence and acceptance:**
+1. Establish red tests in the existing test files for both missing lifecycle collections, then implement the combined behavior.
+2. Seed tenants A/B with identical student/session/turn IDs. A's export includes only A's projected safety information; A's completed erasure has zero independent full-scan residue; B's raw records remain byte-identical.
+3. Hold each writer across fencing: initial review insertion, notification upsert, classifier annotation and acknowledgement. Releasing it cannot recreate erased data; a replay/timeout compensator preserves a previous invocation's legitimate records.
+4. Exercise records with no session anchor, unavailable classifier, already-acknowledged notification and ambiguous Mongo outcomes. Assert raw database state and public export JSON, not only helper return values.
+5. Independent isolated mutations remove either purge-plan entry, writer precheck or ownership qualification and must make the appropriate outcome assertion fail. The checker owns mutation evidence; no shared-tree mutation is permitted.
+6. Run existing db and engine test entrypoints, repository typecheck and the contract validator. Run one post-integration full suite when this unit lands. Tests are offline with fake Mongo and synthetic data.
+
+This unit does not establish actual notification delivery, the no-consent API path, or live Pathlynks integration. Those remain required follow-up units. D-027 still requires identifiers plus a crisis flag only without consent and zero classifier/KB/summary/profile processing in that exception.
+
+### Remaining full-goal tracks
+
+- Resolve and independently test live-card B1/B18 leaks; integrate only with an honest criterion mapping.
+- Implement approved-fact/do-not-ask personalization, then complete destination relevance for the full goal.
+- Wire safety recipient resolution and real delivery; prove the no-consent crisis exception end to end.
+- Establish authenticated Pathlynks integration with real issuer/rotation and webhook-consumer evidence.
+- Obtain Sapna ma'am's reference rubric, then measure novice + VC >=90% on matching cases.
+- Specify the first application target, implement cited draft/review/checklist behavior, and prove the available-data entry timing and zero unintended submits.
+- Build and verify student voice/avatar through the shared engine and the declared Hindi/voice personas.
+
+No application target, expert reference, new source file, external connection, publication or production action is assumed approved by this appendix.

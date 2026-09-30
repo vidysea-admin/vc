@@ -1,5 +1,7 @@
 # Gate: t-010-b1-b18-unsatisfiable
 
+**Current status (D-029):** Historical direct answer reconciled: split recovery authorized; original stall retained, B1/B18 remain unmet and recovery plans/checks are required. See the historical direct-answer reconciliation at the end; earlier prompt/status text is retained as history.
+
 **Opened:** 2026-09-27 (T-010 live cards, STALLED at max fix cycles)
 **Status:** open — stall diagnosis in flight, will be appended here. Opened now rather than after it,
 because the decision this needs is yours regardless of what the diagnosis concludes.
@@ -189,3 +191,8 @@ rule. The relayed content is preserved here so nothing is lost if that session e
 Umesh has been asked in the maker session for a one-line confirmation. On his confirmation the
 `Answered:` line and the DECISIONS entry are written the same turn; until then this gate counts as
 unanswered for sweep purposes.
+
+
+## Historical direct-answer reconciliation (D-029)
+Answered: 2026-09-30T15:29:12+05:30 - SPLIT: passing scope may be integrated after honest criterion mapping; separate fresh units for ISS-t-010-c0-1 and ISS-t-010-c0-2. Source: direct Umesh answer recorded by checker in qa/QUEUE.md decision 3, commit f7f5260; reconciled by D-029. This is not a fourth fix cycle, and B1/B18 remain unmet until independently verified. D3 semantic-verifier design and D4 corpus remain implementation-plan requirements; no arbitrary schema or new dependency is approved by this record.
+This records the prior human answer; it does not claim a new answer was supplied in this session.

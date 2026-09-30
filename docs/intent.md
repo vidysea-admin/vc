@@ -5,7 +5,7 @@
      "Virtual Counsellor", D-002..D-021 and qa/contracts/counselling-engine.md. Nothing new is decided
      here; this file only gathers it. -->
 
-**Originator:** CEO (north star) + Umesh (founding operator) · **Date:** 2026-09-26 · **Status:** draft (backfill, awaiting one approval)
+**Originator:** CEO (north star) + Umesh (founding operator) · **Date:** 2026-09-26 · **Status:** approved 2026-09-26 (qa/gates/plan-approved.md); historical scope/status reconciled by D-029 on 2026-09-30
 
 ## Problem
 Counselling knowledge lives in one expert's head and one conversation at a time. Each session is lost as
