@@ -53,6 +53,24 @@ export const OPENAPI_DOCUMENT = {
         required: ["kind"],
         properties: {
           kind: { enum: ["awaiting_approval", "done", "already_resolved", "fenced", "in_progress"] },
+          result: { oneOf: [
+            { type: "object", required: ["status", "reason"], properties: { status: { const: "refused" }, reason: { type: "string" } } },
+            { type: "object", required: ["status", "escalation"], properties: {
+              status: { const: "escalated" }, escalation: { oneOf: [
+                { type: "object", additionalProperties: false,
+                  required: ["type", "level", "reason", "studentId", "sessionId", "turnIds", "flaggedAt", "channel", "status"],
+                  properties: { type: { const: "guard_only" }, level: { const: "crisis" }, reason: { const: "guard_crisis" },
+                    studentId: { type: "string", minLength: 1 }, sessionId: { type: "string", minLength: 1 },
+                    turnIds: { type: "array", minItems: 1, uniqueItems: true, items: { type: "string", minLength: 1 } },
+                    flaggedAt: { type: "string", format: "date-time" }, channel: { const: "record_only" }, status: { const: "queued" } },
+                },
+                { type: "object", required: ["type", "level", "message", "matched", "turnId"],
+                  properties: { type: { const: "escalation" }, level: { enum: ["concern", "crisis"] },
+                    message: { type: "string" }, matched: { type: "array", items: { type: "string" } }, turnId: { type: "string" } } },
+              ] },
+            } },
+            { type: "object", required: ["status"], properties: { status: { enum: ["rejected", "written", "conflict", "partial_conflict", "extraction_failed", "summary_failed"] } } },
+          ] },
         },
       },
     },
@@ -80,7 +98,7 @@ export const OPENAPI_DOCUMENT = {
     "/v1/students/{studentId}/sessions/{sessionId}/scribe": {
       post: {
         operationId: "startScribe",
-        summary: "Run the post-session scribe on a finished session; pauses for counsellor approval",
+        summary: "Run the post-session scribe; consented sessions pause for approval, absent consent refuses or returns minimal guard-only crisis records (record_only, not delivered)",
         "x-roles": ["counsellor", "admin"],
         parameters: [studentId, sessionId],
         requestBody: {

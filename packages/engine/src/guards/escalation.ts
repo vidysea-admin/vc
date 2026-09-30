@@ -34,7 +34,8 @@
 import { randomUUID } from "node:crypto";
 import type { Collection, Db } from "mongodb";
 import { TenantScopeError, tenantIdOf, WriterDeadline, FencedWriterDeadlineError, assertStudentNotFenced, compensateIfFenced, FENCE_POSTCHECK_TIMEOUT_MS } from "@vc/db";
-import type { LlmProvider } from "@vc/providers";
+import { ProviderAuthorizationRefusedError, type LlmProvider } from "@vc/providers";
+import { checkConsent } from "../scribe/nodes.js";
 import { crisisGuard, type CrisisLevel } from "./crisis.js";
 import {
   classifyConcern,
@@ -130,6 +131,10 @@ export interface EscalationDeps {
   now?: () => Date;
   /** Bounded write phase; defaults to shared erasure writer limit. */
   writerDeadlineMs?: number;
+  /** Explicit host cancellation, distinct from the live start writer budget. */
+  signal?: AbortSignal;
+  /** Private operation budget, captured once by the authoritative caller. */
+  budget?: { expiresAt: number; signal: AbortSignal; run: <T>(work: Promise<T>) => Promise<T>; authorize?: () => Promise<void> };
   /** Receives the background review. Runtime may ignore it; tests await it. It never rejects. */
   onReview?: (review: Promise<ReviewRunResult>) => void;
   /** Engineering alert sink (default: one structured, text-free console.error line). */
@@ -200,37 +205,47 @@ function defaultAlert(alert: EscalationAlert): void {
 async function fencedWrite<T>(
   db: Db, studentId: string, ms: number | undefined,
   write: (deadline: WriterDeadline) => Promise<T>, undo: () => Promise<unknown>,
+  budget?: EscalationDeps["budget"],
 ): Promise<T> {
-  const deadline = new WriterDeadline(ms);
+  if (budget && (budget.signal.aborted || Date.now() >= budget.expiresAt)) throw new FencedWriterDeadlineError();
+  const deadline = new WriterDeadline(budget ? Math.min(ms ?? 60_000, budget.expiresAt - Date.now()) : ms);
   let work: Promise<T> | undefined;
   let failure: { error: unknown } | undefined;
   let value!: T;
   try {
-    await deadline.run(assertStudentNotFenced(db, studentId, deadline.op()));
-    work = Promise.resolve().then(() => write(deadline));
-    value = await deadline.run(work);
-  } catch (error) {
-    failure = { error };
-  } finally {
-    deadline.dispose();
-  }
-  const timedOut = deadline.expired();
-  const settled = timedOut && work
-    ? work.then(() => undo(), () => undo()).then(() => undefined)
-    : Promise.resolve();
-  // Observe rejection without hiding it from deadline-error consumers.
-  void settled.catch(() => undefined);
-  try {
-    await compensateIfFenced(db, studentId, undo, { ...(failure ? { cause: failure.error } : {}), alwaysUndo: timedOut });
-  } catch (error) {
-    if (timedOut) throw new FencedWriterDeadlineError(settled, { cause: error });
-    throw error;
-  }
-  if (timedOut) throw new FencedWriterDeadlineError(settled, { cause: failure?.error });
-  if (failure) throw failure.error;
-  return value;
+    try {
+      const checking = deadline.run(assertStudentNotFenced(db, studentId, deadline.op()));
+      await (budget ? budget.run(checking) : checking);
+      if (budget?.authorize) await budget.run(budget.authorize());
+      work = Promise.resolve().then(() => write(deadline));
+      value = await (budget ? budget.run(deadline.run(work)) : deadline.run(work));
+      if (budget?.authorize) await budget.run(budget.authorize());
+    } catch (error) { failure = { error }; }
+    const timedOut = deadline.expired() || !!budget && (budget.signal.aborted || Date.now() >= budget.expiresAt);
+    const lostAuthority = failure?.error instanceof ProviderAuthorizationRefusedError;
+    const postcheck = compensateIfFenced(db, studentId, undo, { ...(failure ? { cause: failure.error } : {}), alwaysUndo: timedOut || lostAuthority });
+    // The original writer timer remains active through the final fence read.
+    try {
+      await (budget ? budget.run(deadline.run(postcheck)) : deadline.run(postcheck));
+    } catch (error) {
+      if (deadline.expired() || !!budget && (budget.signal.aborted || Date.now() >= budget.expiresAt)) {
+        const settled = work
+          ? work.then(() => undo(), () => undo()).then(() => postcheck).then(() => undefined)
+          : postcheck.then(() => undefined);
+        void settled.catch(() => undefined);
+        throw new FencedWriterDeadlineError(settled, { cause: error });
+      }
+      throw error;
+    }
+    if (deadline.expired() || !!budget && (budget.signal.aborted || Date.now() >= budget.expiresAt)) {
+      const settled = work ? work.then(() => undo(), () => undo()).then(() => undefined) : Promise.resolve();
+      void settled.catch(() => undefined);
+      throw new FencedWriterDeadlineError(settled, { cause: failure?.error });
+    }
+    if (failure) throw failure.error;
+    return value;
+  } finally { deadline.dispose(); }
 }
-
 function uniqueIds(ids: readonly string[]): string[] {
   return [...new Set(ids.filter((id) => typeof id === "string" && id.trim() !== ""))];
 }
@@ -251,10 +266,13 @@ async function notifyAll(
   let recipients: EscalationRecipients = { adminIds: [], counsellorIds: [] };
   let resolverError: string | undefined;
   try {
-    const got = await deps.recipients({ sessionId: base.sessionId, studentId: base.studentId });
+    const resolving = Promise.resolve().then(() => deps.recipients({ sessionId: base.sessionId, studentId: base.studentId }));
+    const got = await (deps.budget ? deps.budget.run(resolving) : resolving);
     recipients = { adminIds: uniqueIds(got.adminIds ?? []), counsellorIds: uniqueIds(got.counsellorIds ?? []) };
   } catch (err) {
-    resolverError = err instanceof Error ? err.name : typeof err;
+    if (deps.budget && (deps.budget.signal.aborted || Date.now() >= deps.budget.expiresAt)) throw new FencedWriterDeadlineError();
+    if (err instanceof ProviderAuthorizationRefusedError) throw err;
+    resolverError = "RecipientResolutionError";
   }
   const targets: { role: RecipientRole; id: string }[] = [
     ...recipients.adminIds.map((id) => ({ role: "admin" as const, id })),
@@ -284,6 +302,7 @@ async function notifyAll(
       deadline.op(),
     ),
     () => notifications(db).deleteMany({ _id: { $in: docs.map((d) => d._id) }, writerToken }, { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS }),
+    deps.budget,
   );
   return docs;
 }
@@ -302,9 +321,43 @@ export async function escalateTurns(
   deps: EscalationDeps,
 ): Promise<EscalateResult> {
   requireTenantScope(db, "escalateTurns");
+  const ownedDeadline = deps.budget ? undefined : new WriterDeadline(deps.writerDeadlineMs);
+  if (ownedDeadline) deps = { ...deps, budget: { expiresAt: ownedDeadline.expiresAt, signal: ownedDeadline.signal, run: work => ownedDeadline.run(work) } };
+  let cancel: (() => void) | undefined;
+  if (deps.signal) {
+    const originalBudget = deps.budget!;
+    const cancelled = new Promise<never>((_, reject) => { cancel = () => reject(new ProviderAuthorizationRefusedError()); });
+    void cancelled.catch(() => undefined);
+    deps.signal.addEventListener("abort", cancel!, { once: true });
+    deps = { ...deps, budget: { ...originalBudget, signal: deps.signal, run: work => Promise.race([originalBudget.run(work), cancelled]) } };
+  }
+  try {
+  if (deps.signal?.aborted) throw new ProviderAuthorizationRefusedError();
   const now = deps.now ?? (() => new Date());
   const flaggedAt = now().toISOString();
 
+  const consent = await deps.budget!.run(checkConsent({ studentId: input.studentId }, { db }));
+  if (consent.consent !== "granted") {
+    const immediate: EscalationNotificationDoc[] = [];
+    for (const turn of input.turns) {
+      if (guardTurn(turn).level !== "crisis") continue;
+      immediate.push(...await notifyAll(db, {
+        sessionId: input.sessionId, studentId: input.studentId, turnId: turn.turnId,
+        guardLevel: "crisis", matched: [], severity: "critical", reason: "guard_crisis", flaggedAt,
+      }, deps, now().toISOString()));
+    }
+    return { immediate, selected: [], review: Promise.resolve({ reviewed: [], escalated: [] }) };
+  }
+  const operationBudget = deps.budget!;
+  deps = { ...deps, budget: { ...operationBudget, authorize: async () => {
+    try {
+      const current = await operationBudget.run(checkConsent({ studentId: input.studentId }, { db }));
+      if (current.consent !== "granted") throw new ProviderAuthorizationRefusedError();
+    } catch (error) {
+      if (error instanceof FencedWriterDeadlineError) throw error;
+      throw new ProviderAuthorizationRefusedError();
+    }
+  } } };
   const selected: EscalateResult["selected"] = [];
   const reviewTurns: { turn: EscalationTurn; guard: GuardFlag }[] = [];
   for (const turn of input.turns) {
@@ -331,6 +384,7 @@ export async function escalateTurns(
     await fencedWrite(db, input.studentId, deps.writerDeadlineMs,
       (deadline) => reviews(db).updateOne({ _id: doc._id }, { $setOnInsert: { ...doc, writerToken } }, { upsert: true, ...deadline.op() }),
       () => reviews(db).deleteMany({ _id: doc._id, writerToken }, { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS }),
+      deps.budget,
     );
   }
 
@@ -363,18 +417,22 @@ export async function escalateTurns(
   const review = runReview(db, input, reviewTurns, deps, flaggedAt).catch((err: unknown): ReviewRunResult => {
     if (err instanceof FencedWriterDeadlineError) {
       void err.settled.catch((lateError: unknown) => {
-        (deps.alert ?? defaultAlert)({ event: "concern_review_failed", sessionId: input.sessionId, errorName: lateError instanceof Error ? lateError.name : typeof lateError });
+        (deps.alert ?? defaultAlert)({ event: "concern_review_failed", sessionId: input.sessionId, errorName: "ConcernReviewSettlementError" });
       });
     }
     (deps.alert ?? defaultAlert)({
       event: "concern_review_failed",
       sessionId: input.sessionId,
-      errorName: err instanceof Error ? err.name : typeof err,
+      errorName: "ConcernReviewError",
     });
     return { reviewed: [], escalated: [] };
   });
   deps.onReview?.(review);
   return { immediate, selected, review };
+  } finally {
+    if (cancel) deps.signal?.removeEventListener("abort", cancel);
+    ownedDeadline?.dispose();
+  }
 }
 
 async function runReview(
@@ -387,12 +445,43 @@ async function runReview(
   const now = deps.now ?? (() => new Date());
   const result: ReviewRunResult = { reviewed: [], escalated: [] };
   for (const { turn, guard } of reviewTurns) {
+    const classifierDeadline = Date.now() + deps.classifier.config.timeoutMs;
+    const reviewDeadline = classifierDeadline + (deps.writerDeadlineMs ?? 60_000);
+    const controller = new AbortController();
+    let expire!: (error: Error) => void;
+    const expiry = new Promise<never>((_, reject) => { expire = reject; });
+    void expiry.catch(() => undefined);
+    const timer = setTimeout(() => { controller.abort(); expire(new FencedWriterDeadlineError()); }, Math.max(1, reviewDeadline - Date.now()));
+    const cancelReview = () => { controller.abort(); expire(new ProviderAuthorizationRefusedError()); };
+    deps.signal?.addEventListener("abort", cancelReview, { once: true });
+    if (deps.signal?.aborted) cancelReview();
+    const budget: NonNullable<EscalationDeps["budget"]> = {
+      expiresAt: reviewDeadline, signal: controller.signal,
+      run: work => {
+        if (controller.signal.aborted || Date.now() >= reviewDeadline) return Promise.reject(new FencedWriterDeadlineError());
+        return Promise.race([work, expiry]);
+      },
+      authorize: async () => {
+        try {
+          const consent = await budget.run(checkConsent({ studentId: input.studentId }, { db }));
+          if (consent.consent !== "granted") throw new ProviderAuthorizationRefusedError();
+          await budget.run(assertStudentNotFenced(db, input.studentId, { timeoutMS: Math.min(60_000, Math.max(1, reviewDeadline - Date.now())) }));
+          if (controller.signal.aborted || Date.now() >= reviewDeadline) throw new FencedWriterDeadlineError();
+        } catch (error) {
+          if (error instanceof FencedWriterDeadlineError) throw error;
+          throw new ProviderAuthorizationRefusedError();
+        }
+      },
+    };
+    const reviewDeps: EscalationDeps = { ...deps, budget };
+    try {
     const annotation = await classifyConcern(
       { text: turn.text, translatedText: turn.translatedText, lang: turn.lang, guardLevel: guard.level, guardMatched: guard.matched },
-      { provider: deps.classifier.provider, skillPrompt: deps.classifier.skillPrompt, timeoutMs: deps.classifier.config.timeoutMs, now },
+      { provider: deps.classifier.provider, skillPrompt: deps.classifier.skillPrompt, timeoutMs: deps.classifier.config.timeoutMs, deadlineAt: classifierDeadline, preflight: budget.authorize, signal: controller.signal, now },
     );
     result.reviewed.push({ turnId: turn.turnId, annotation });
-    // Classification finishes before this fresh bounded precheck.
+    await budget.authorize!();
+    // Publication consumes the original review budget; classification cannot restart it.
     const _id = input.sessionId + ":" + turn.turnId;
     const classifierWriteToken = randomUUID();
     let previous: CrisisFlagReviewDoc | null = null;
@@ -408,7 +497,7 @@ async function runReview(
       const $set = { ...(previous.classifier === undefined ? {} : { classifier: previous.classifier }), ...(previous.classifierWriteToken === undefined ? {} : { classifierWriteToken: previous.classifierWriteToken }) };
       const $unset: Record<string, ""> = { ...(previous.classifier === undefined ? { classifier: "" } : {}), ...(previous.classifierWriteToken === undefined ? { classifierWriteToken: "" } : {}) };
       return reviews(db).updateOne({ _id, studentId: input.studentId, classifierWriteToken }, { $set, $unset }, { timeoutMS: FENCE_POSTCHECK_TIMEOUT_MS });
-    });
+    }, budget);
 
     const decision = escalationDecision(guard, annotation);
     // A guard crisis was already escalated before the review started.
@@ -426,10 +515,14 @@ async function runReview(
           reason: decision.reason,
           flaggedAt,
         },
-        deps,
+        reviewDeps,
         now().toISOString(),
       )),
     );
+    } finally {
+      clearTimeout(timer);
+      deps.signal?.removeEventListener("abort", cancelReview);
+    }
   }
   return result;
 }

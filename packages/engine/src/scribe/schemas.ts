@@ -325,7 +325,15 @@ export const WriteInputSchema = z.object({
 
 export const ScribeResultSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("refused"), reason: z.string().min(1) }),
-  z.object({ status: z.literal("escalated"), escalation: ScribeEscalationSchema }),
+  z.object({ status: z.literal("escalated"), escalation: z.union([
+    ScribeEscalationSchema,
+    z.object({
+      type: z.literal("guard_only"), level: z.literal("crisis"), reason: z.literal("guard_crisis"),
+      studentId: z.string().min(1), sessionId: z.string().min(1),
+      turnIds: z.array(z.string().min(1)).min(1).refine(ids => new Set(ids).size === ids.length),
+      flaggedAt: z.string().datetime(), channel: z.literal("record_only"), status: z.literal("queued"),
+    }).strict(),
+  ]) }),
   z.object({ status: z.literal("rejected"), reason: z.string().optional() }),
   z.object({
     status: z.literal("written"),

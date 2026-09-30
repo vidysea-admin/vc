@@ -202,12 +202,13 @@ test("B4 variants: consent for another purpose, or a minor without guardian cons
   }
 });
 
-test("B4: consent is checked before the crisis guard and the provider (a refused session produces no escalation either)", async () => {
+test("B4/D027: no-consent deterministic crisis returns only minimal guard-only outcome with no provider call", async () => {
   const h = makeHarness({ tenantId: "scribe-test", consent: false });
   const input = baseInput();
   input.turns[0]!.translatedText = "I want to kill myself";
   const outcome = await startScribe(h.graph, input, cfg("thread-consent-first"));
-  assert.equal(outcome.kind === "done" && outcome.result.status, "refused");
+  assert.equal(outcome.kind === "done" && outcome.result.status, "escalated");
+  assert.equal(outcome.kind === "done" && outcome.result.status === "escalated" && outcome.result.escalation.type, "guard_only");
   assert.equal(h.provider.calls.length, 0);
 });
 

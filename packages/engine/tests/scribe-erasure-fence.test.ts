@@ -13,6 +13,7 @@ import {
   confirmErasure,
   executeErasure,
   FENCED_WRITER_DEADLINE_MS,
+  FENCE_POSTCHECK_TIMEOUT_MS,
   FencedWriterDeadlineError,
   isStudentFenced,
   MINIMUM_FENCE_HOLD_MS,
@@ -218,6 +219,44 @@ test("D-016 deadline: a startScribe whose run exceeds the writer deadline is ABO
   assert.equal(h.provider.calls.length, 0, "the aborted run never reached the provider");
 });
 
+for (const postcheck of ["unreadable", "held"] as const) {
+  test(`T047 D016 initial consent expiry: ${postcheck} final fence is bounded and never starts personal work`, { timeout: 15_000 }, async () => {
+    const h = makeHarness({ tenantId: "scribe-test" });
+    const consentGate = gate();
+    const fenceGate = gate();
+    let consentEntered = false;
+    let postcheckEntered = false;
+    const realConsent = h.consents.findOne.bind(h.consents);
+    h.consents.findOne = async (...args) => {
+      consentEntered = true;
+      await consentGate.opened;
+      return realConsent(...args);
+    };
+    const fences = h.fakeDb.collection<AnyDoc>(COLLECTION_NAMES.erasure_fences);
+    const realFence = fences.findOne.bind(fences);
+    fences.findOne = async (...args) => {
+      if ((args[1] as { timeoutMS?: number } | undefined)?.timeoutMS === FENCE_POSTCHECK_TIMEOUT_MS) {
+        postcheckEntered = true;
+        if (postcheck === "unreadable") throw new Error("synthetic private fence failure");
+        await fenceGate.opened;
+      }
+      return realFence(...args);
+    };
+    const started = Date.now();
+    assert.deepEqual(await startScribe(h.graph, baseInput(), { threadId: `t047-${postcheck}`, writerDeadlineMs: 50 }), { kind: "fenced" });
+    assert.equal(consentEntered, true);
+    assert.equal(postcheckEntered, true);
+    assert.ok(Date.now() - started < FENCE_POSTCHECK_TIMEOUT_MS + 2000);
+    consentGate.open();
+    fenceGate.open();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    assert.equal(h.provider.calls.length, 0);
+    assert.equal(threadStored(h, `t047-${postcheck}`), false);
+    for (const name of [COLLECTION_NAMES.sessions, COLLECTION_NAMES.session_transcripts, COLLECTION_NAMES.facts, COLLECTION_NAMES.edges]) {
+      assert.deepEqual(h.fakeDb.collection<AnyDoc>(name).all(), []);
+    }
+  });
+}
 test("D-016 deadline: an UNFENCED run that exceeds the deadline throws FencedWriterDeadlineError and is aborted (no later node runs); a deadline above FENCED_WRITER_DEADLINE_MS is refused", { timeout: 5000 }, async () => {
   const h = makeHarness({ tenantId: "scribe-test" });
   const g = gate();

@@ -58,6 +58,11 @@ import {
   ApprovalResponseError,
   ApprovalResponseSchema,
   ScribeInputSchema,
+  ScribeResultSchema,
+  CONCERN_CLASSIFIER_SKILL,
+  loadConcernClassifierConfig,
+  loadSkill,
+  type EscalationDeps,
   MongoWebhookEmitGapLedger,
   MongoWebhookOutbox,
   buildErasureRequestedEvent,
@@ -296,7 +301,9 @@ const ROUTES: RouteDef[] = [
         sessionEndedAt: body.sessionEndedAt,
         turns: body.turns,
       });
-      return { status: 200, body: await startScribe(ctx.graph(), input, scribeOpts(ctx)) };
+      const outcome = await startScribe(ctx.graph(), input, scribeOpts(ctx));
+      if (outcome.kind === "done") ScribeResultSchema.parse(outcome.result);
+      return { status: 200, body: outcome };
     },
   },
   {
@@ -836,6 +843,8 @@ export interface TenantWiringDeps {
   db: Db;
   provider: LlmProvider;
   skillsDir: string;
+  /** Trusted host factory; tenant identity comes exclusively from verified JWT wiring. */
+  escalationForTenant?: (tenantId: string) => EscalationDeps;
 }
 
 /**
@@ -869,7 +878,12 @@ export function createTenantWiring(
       let graph = graphs.get(tenantId);
       if (!graph) {
         graph = compileScribeGraph(
-          { db: dbForTenant(tenantId), provider: deps.provider, skillsDir: deps.skillsDir },
+          { db: dbForTenant(tenantId), provider: deps.provider, skillsDir: deps.skillsDir,
+            escalation: deps.escalationForTenant?.(tenantId) ?? {
+              recipients: async () => ({ adminIds: [], counsellorIds: [] }),
+              classifier: { provider: deps.provider, skillPrompt: loadSkill(deps.skillsDir, CONCERN_CLASSIFIER_SKILL), config: loadConcernClassifierConfig({}) },
+            },
+          },
           { checkpointer: createScribeCheckpointer(tenantScopedClient(deps.client, tenantId)) },
         );
         graphs.set(tenantId, graph);

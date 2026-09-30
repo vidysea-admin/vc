@@ -42,7 +42,7 @@
  */
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import type { LlmProvider, ProviderConfig } from "@vc/providers";
+import { ProviderAuthorizationRefusedError, type LlmProvider, type ProviderConfig } from "@vc/providers";
 import type { CrisisLevel } from "./crisis.js";
 
 export const CONCERN_CLASSIFIER_SKILL = "concern-classifier";
@@ -242,6 +242,10 @@ export interface ClassifyDeps {
   /** The body of skills/concern-classifier/SKILL.md (loaded by the caller, B6). */
   skillPrompt: string;
   timeoutMs: number;
+  /** Invocation-private authority hook; forwarded to every actual provider attempt. */
+  preflight?: () => Promise<void>;
+  deadlineAt?: number;
+  signal?: AbortSignal;
   now?: () => Date;
 }
 
@@ -275,35 +279,44 @@ export async function classifyConcern(rawInput: ConcernClassifierInput, deps: Cl
   const model = deps.provider.model;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const controller = new AbortController();
+  let cancel: (() => void) | undefined;
   try {
     const input = ConcernClassifierInputSchema.parse(rawInput);
+    const timeout = new Promise<never>((_, reject) => {
+      cancel = () => { controller.abort(); reject(new ProviderAuthorizationRefusedError()); };
+      deps.signal?.addEventListener("abort", cancel, { once: true });
+      if (deps.signal?.aborted) cancel();
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new ConcernClassifierTimeoutError(deps.timeoutMs));
+      }, Math.max(0, (deps.deadlineAt ?? (Date.now() + deps.timeoutMs)) - Date.now()));
+    });
+    void timeout.catch(() => undefined);
+    if (deps.signal?.aborted) throw new ProviderAuthorizationRefusedError();
+    if (deps.deadlineAt !== undefined && Date.now() >= deps.deadlineAt) throw new ConcernClassifierTimeoutError(deps.timeoutMs);
     const call = deps.provider.generate({
       skillName: CONCERN_CLASSIFIER_SKILL,
       skillPrompt: deps.skillPrompt,
       outputSchema: ConcernClassifierOutputSchema,
       input,
       signal: controller.signal,
-    });
-    const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        // T-041 (ISS-t-037-2): tell the abandoned request to stop BEFORE rejecting — same ordering
-        // as FailoverProvider.raceDeadline, so this can never change which branch of the race wins.
-        controller.abort();
-        reject(new ConcernClassifierTimeoutError(deps.timeoutMs));
-      }, deps.timeoutMs);
+      preflight: deps.preflight,
     });
     const out = ConcernClassifierOutputSchema.parse(await Promise.race([call, timeout]));
     return { status: "classified", model, ...out, classifiedAt: now().toISOString() };
   } catch (err) {
+    if (err instanceof ProviderAuthorizationRefusedError) throw err;
     return {
       status: "unavailable",
       model,
       reason: err instanceof ConcernClassifierTimeoutError ? "timeout" : "error",
-      errorName: err instanceof Error ? err.name : typeof err,
+      errorName: err instanceof ConcernClassifierTimeoutError ? "ConcernClassifierTimeoutError"
+        : err instanceof Error && ["LiteLlmHttpError", "LiteLlmNetworkError", "LiteLlmAbortedError", "ProviderAuthorizationRefusedError", "ModelOutputSchemaError", "ZodError"].includes(err.name) ? err.name : "Error",
       attemptedAt: now().toISOString(),
     };
   } finally {
     if (timer !== undefined) clearTimeout(timer);
+    if (cancel) deps.signal?.removeEventListener("abort", cancel);
   }
 }
 

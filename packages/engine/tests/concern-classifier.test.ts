@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
-import { MockProvider, LiteLlmProvider, type GenerateRequest, type LlmProvider, type ProviderConfig } from "@vc/providers";
+import { ProviderAuthorizationRefusedError, MockProvider, LiteLlmProvider, type GenerateRequest, type LlmProvider, type ProviderConfig } from "@vc/providers";
 import {
   CONCERN_CLASSIFIER_DEFAULT_MODEL,
   CONCERN_CLASSIFIER_SKILL,
@@ -306,4 +306,40 @@ test("T-012 raise: a sampled unflagged turn the classifier rates high becomes vi
   assert.equal(reviewedFlagView(guard, classified("critical", false)).visible, true);
   assert.equal(reviewedFlagView(guard, classified("critical", false)).annotation, null);
   assert.deepEqual(escalationDecision(guard, classified("critical", false)), { escalate: true, reason: "classifier_severity", severity: "critical" });
+});
+
+test("T047 RED: classifier authorization preflight prevents actual model execution", async () => {
+  let executions = 0;
+  let authorizations = 0;
+  const provider = new MockProvider({ model: "flash-lite", responses: { [CONCERN_CLASSIFIER_SKILL]: () => { executions++; return { severity: "low", likelyBenign: true, rationale: "synthetic" }; } } });
+  await assert.rejects(classifyConcern(INPUT, { provider, skillPrompt: "synthetic", timeoutMs: 30, now,
+    preflight: async () => { authorizations++; throw new Error("synthetic-authority-refusal"); },
+  }), ProviderAuthorizationRefusedError);
+  assert.deepEqual({ authorizations, executions }, { authorizations: 1, executions: 0 });
+});
+
+test("T047 RED: classifier unavailable annotation never exposes arbitrary provider error names", async () => {
+  const marker = "SYNTHETIC_PRIVATE_CLASSIFIER_ERROR_NAME";
+  const provider: LlmProvider = { kind: "mock", model: "flash-lite", generate: async () => { const error = new Error(marker); error.name = marker; throw error; } };
+  const annotation = await classifyConcern(INPUT, { provider, skillPrompt: "synthetic", timeoutMs: 30, now });
+  assert.equal(annotation.status, "unavailable");
+  assert.equal(JSON.stringify(annotation).includes(marker), false);
+});
+test("T047 held classifier authority consumes original timeout and executes no late model", async () => {
+  let release!: () => void;
+  let entered = false;
+  let executions = 0;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const provider = new MockProvider({ model: "flash-lite", responses: { [CONCERN_CLASSIFIER_SKILL]: () => { executions++; return { severity: "low", likelyBenign: true, rationale: "synthetic" }; } } });
+  const annotation = await classifyConcern(INPUT, { provider, skillPrompt: "synthetic", timeoutMs: 15, now, preflight: async () => { entered = true; await held; } });
+  assert.equal(entered, true);
+  assert.equal(annotation.status, "unavailable");
+  assert.equal(annotation.status === "unavailable" && annotation.reason, "timeout");
+  release();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(executions, 0);
+});
+test("T047 repair RED: a classifier leaf authorization refusal is terminal, never unavailable", async () => {
+  const provider: LlmProvider = { kind: "mock", model: "flash-lite", generate: async () => { throw new ProviderAuthorizationRefusedError(); } };
+  await assert.rejects(classifyConcern(INPUT, { provider, skillPrompt: "synthetic", timeoutMs: 100, now }), ProviderAuthorizationRefusedError);
 });

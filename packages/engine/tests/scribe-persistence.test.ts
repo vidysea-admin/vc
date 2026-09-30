@@ -133,17 +133,22 @@ for (const [label, harness] of [
         : baseInput();
     const outcome = await startScribe(h.graph, input, { threadId });
     assert.equal(outcome.kind, "done", "the run ended without an interrupt");
-    assert.ok(checkpointDocs(h, threadId) > 0, "the real MongoDBSaver wrote checkpoints for the thread");
-
     const exported = await exportStudent(h.db, STUDENT_ID);
-    assert.ok(exported.checkpoints.threads.includes(threadId), "export finds the thread through the session row");
-    assert.equal(
-      exported.checkpoints.checkpointDocs + exported.checkpoints.writeDocs,
-      checkpointDocs(h, threadId),
-      "export counts every checkpoint doc of the thread",
-    );
-    assert.equal(exported.sessions.length, 1);
-
+    if (label === "consent refused") {
+      assert.equal(outcome.kind === "done" && outcome.result.status, "refused");
+      assert.equal(h.provider.calls.length, 0);
+      assert.equal(checkpointDocs(h, threadId), 0);
+      assert.equal(exported.checkpoints.threads.includes(threadId), false);
+      assert.equal(exported.sessions.length, 0);
+      assert.equal(exported.transcripts.length, 0);
+      assert.equal(exported.facts.length, 0);
+      assert.equal(exported.edges.length, 0);
+    } else {
+      assert.ok(checkpointDocs(h, threadId) > 0, "the real MongoDBSaver wrote checkpoints for the thread");
+      assert.ok(exported.checkpoints.threads.includes(threadId), "export finds the thread through the session row");
+      assert.equal(exported.checkpoints.checkpointDocs + exported.checkpoints.writeDocs, checkpointDocs(h, threadId), "export counts every checkpoint doc of the thread");
+      assert.equal(exported.sessions.length, 1);
+    }
     const erased = await erase(h);
     assert.equal(erased.status, "completed");
     assert.deepEqual(residue(h, [STUDENT_ID, SESSION_ID, threadId]), [], "zero residue after erasure");

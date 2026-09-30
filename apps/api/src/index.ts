@@ -23,7 +23,7 @@ import {
   type MongoClientFactory,
   type ErasureFenceSweepOptions,
 } from "@vc/db";
-import { initScribeCheckpointer } from "@vc/engine";
+import { initScribeCheckpointer, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps } from "@vc/engine";
 import { createProvider, loadProviderConfig, type LlmProvider } from "@vc/providers";
 import { createJwtVerifier, jwtConfigFromEnv, type JwtVerifier } from "./auth.js";
 import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
@@ -54,6 +54,8 @@ export interface StartApiHttpOptions {
   /** Tests inject a MockProvider; default: createProvider(loadProviderConfig(env)). */
   provider?: LlmProvider;
   skillsDir?: string;
+  /** Trusted dependency factory, never populated from HTTP request bodies. */
+  escalationForTenant?: (tenantId: string) => EscalationDeps;
   log?: (line: ApiLogLine) => void;
   writerDeadlineMs?: number;
 }
@@ -140,6 +142,15 @@ export async function startApi(
         skillsDir: http.skillsDir ?? DEFAULT_SKILLS_DIR,
       }
     : undefined;
+  const classifierConfig = httpSetup ? loadConcernClassifierConfig(env) : undefined;
+  const classifierProvider = httpSetup && !http?.escalationForTenant
+    ? (http?.provider ?? createProvider(concernClassifierProviderConfig(loadProviderConfig(env), classifierConfig!))) : undefined;
+  const classifierPrompt = httpSetup ? loadSkill(httpSetup.skillsDir, CONCERN_CLASSIFIER_SKILL) : undefined;
+  const escalationForTenant = httpSetup ? (http?.escalationForTenant ?? (() => ({
+    recipients: async () => ({ adminIds: [], counsellorIds: [] }),
+    classifier: { provider: classifierProvider!, skillPrompt: classifierPrompt!, config: classifierConfig! },
+    writerDeadlineMs: http?.writerDeadlineMs,
+  }))) : undefined;
   const { client, db } = connectFromEnv(env, clientFactory);
   await client.connect();
   let server: ReturnType<typeof createApiServer> | undefined;
@@ -159,7 +170,7 @@ export async function startApi(
       // The checkpoint indexes (unscoped: index commands only; every checkpoint DOCUMENT goes
       // through a tenant-scoped saver, createTenantWiring).
       await initScribeCheckpointer(client);
-      const wiring = createTenantWiring({ client, db, provider: httpSetup.provider, skillsDir: httpSetup.skillsDir });
+      const wiring = createTenantWiring({ client, db, provider: httpSetup.provider, skillsDir: httpSetup.skillsDir, escalationForTenant });
       // T-034 (B21 "Events"): absent VC_WEBHOOK_DESTINATION_URL keeps the emission hook a no-op
       // (ApiDeps.webhooks undefined), same as a test that never configures it.
       const webhookDestinationUrl = env.VC_WEBHOOK_DESTINATION_URL;

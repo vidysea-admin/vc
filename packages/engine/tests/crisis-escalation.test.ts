@@ -10,9 +10,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { MemorySaver } from "@langchain/langgraph";
-import { COLLECTION_NAMES, TenantScopeError, tenantScopedDb, StudentFencedError, FencedWriterDeadlineError, erasureFenceKey } from "@vc/db";
-import { createFakeDb, INDEX_PLAN, type FakeDb } from "@vc/db/testing";
-import { MockProvider, type GenerateRequest, type LlmProvider } from "@vc/providers";
+import { COLLECTION_NAMES, TenantScopeError, tenantScopedDb, StudentFencedError, FencedWriterDeadlineError, FENCE_POSTCHECK_TIMEOUT_MS, erasureFenceKey, requestErasure, executeErasure, exportStudent } from "@vc/db";
+import { createFakeDb, INDEX_PLAN, confirmTwiceAndApprove, type FakeDb } from "@vc/db/testing";
+import { ProviderAuthorizationRefusedError, MockProvider, type GenerateRequest, type LlmProvider } from "@vc/providers";
 import {
   CONCERN_CLASSIFIER_SKILL,
   CRISIS_FLAG_REVIEWS_COLLECTION,
@@ -92,8 +92,16 @@ function world(opts: {
   recipients?: EscalationDeps["recipients"];
   timeoutMs?: number;
   tenant?: string;
+  consent?: boolean;
 } = {}): World {
   const { fakeDb, db: raw } = createFakeDb();
+  if (opts.consent !== false) {
+    const tenantId = opts.tenant ?? TENANT;
+    fakeDb.collection<any>(COLLECTION_NAMES.consents).seed({
+      _id: `${tenantId}:consent-${STUDENT}`, tenantId, studentId: STUDENT,
+      guardianConsent: true, purposes: [SCRIBE_PURPOSE], recordedAt: AT, minor: true,
+    });
+  }
   const reviews: Promise<ReviewRunResult>[] = [];
   const alerts: EscalationAlert[] = [];
   const deps: EscalationDeps = {
@@ -279,7 +287,7 @@ test("T-012 E6: a resolver failure never drops an escalation — unrouted record
   await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps);
   const stored = await readEscalations(w.db, { sessionId: SESSION });
   assert.deepEqual(stored.map((n) => [n.recipient.role, n.recipient.id]).sort(), [["unrouted", "admin"], ["unrouted", "counsellor"]]);
-  assert.deepEqual(w.alerts, [{ event: "escalation_unrouted", escalationId: `${SESSION}:t2`, sessionId: SESSION, errorName: "TypeError" }]);
+  assert.deepEqual(w.alerts, [{ event: "escalation_unrouted", escalationId: `${SESSION}:t2`, sessionId: SESSION, errorName: "RecipientResolutionError" }]);
 
   const noAdmin = world({ recipients: async () => ({ adminIds: [], counsellorIds: ["counsellor-7"] }) });
   await escalateTurns(noAdmin.db, input([turn("t2", CRISIS_TEXT)]), noAdmin.deps);
@@ -339,7 +347,7 @@ test("T-012 E10: the collection names used at the call sites are the exported co
 // ---------------------------------------------------------------------------
 
 async function scribeWorld(opts: { provider?: LlmProvider; consent?: boolean } = {}) {
-  const w = world({ provider: opts.provider });
+  const w = world({ provider: opts.provider, consent: false });
   for (const spec of INDEX_PLAN) {
     if (!spec.unique) continue;
     w.fakeDb.collection<{ _id: string }>(spec.collection).declareUniqueIndex(Object.keys(spec.keys), {
@@ -393,11 +401,12 @@ test("T-012 E12: startScribe on a concern session still pauses for approval (B20
   assert.ok(stored.every((n) => n.reason === "classifier_unavailable"));
 });
 
-test("T-012 E13: no consent -> no escalation record (B4 consent first); an unscoped Db with escalation is refused at compile time", async () => {
+test("T-012 E13: no consent crisis -> minimal guard-only escalation; unscoped Db is still refused at compile time", async () => {
   const s = await scribeWorld({ consent: false });
   const outcome = await startScribe(s.graph, scribeInput({ turnId: "t4", text: CRISIS_TEXT }), { threadId: "thread-esc-3" });
-  assert.equal(outcome.kind === "done" && outcome.result.status, "refused");
-  assert.equal(rawNotifications(s).length, 0);
+  assert.equal(outcome.kind === "done" && outcome.result.status, "escalated");
+  assert.equal(rawNotifications(s).length, 3);
+  assert.equal(s.reviews.length, 0);
   assert.throws(
     () => compileScribeGraph({ db: s.raw, provider: mockProvider(), skillsDir: SKILLS_DIR, escalation: s.deps }, { checkpointer: new MemorySaver() }),
     TenantScopeError,
@@ -405,7 +414,7 @@ test("T-012 E13: no consent -> no escalation record (B4 consent first); an unsco
 });
 
 test("T-012 E14: without `escalation` the scribe writes no escalation record (backward compatible)", async () => {
-  const w = world();
+  const w = world({ consent: false });
   const graph = compileScribeGraph({ db: w.db, provider: mockProvider(), skillsDir: SKILLS_DIR }, { checkpointer: new MemorySaver() });
   await w.db.collection(COLLECTION_NAMES.consents).insertOne({
     _id: `consent-${STUDENT}`,
@@ -541,15 +550,26 @@ test("T-035: postcheck fence read failure undoes inserted review and compensatio
     const w = world();
     const fences = w.fakeDb.collection<AnyDoc>(COLLECTION_NAMES.erasure_fences);
     const find = fences.findOne.bind(fences);
-    let reads = 0;
+    let enteredPostcheck = false;
+    let ownedToken: unknown;
+    const reviews = w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION);
     fences.findOne = async (...args: Parameters<typeof fences.findOne>) => {
-      if (++reads === 2) throw new Error("synthetic fence read failure");
+      const owned = reviews.all()[0];
+      if (owned && (args[1] as { timeoutMS?: number } | undefined)?.timeoutMS === FENCE_POSTCHECK_TIMEOUT_MS) {
+        enteredPostcheck = true;
+        ownedToken = owned.writerToken;
+        throw new Error("synthetic fence read failure");
+      }
       return find(...args);
     };
     if (undoFails) {
-      w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION).deleteMany = async () => { throw new Error("synthetic undo failure"); };
+      reviews.deleteMany = async (filter) => {
+        assert.equal((filter as Record<string, unknown>).writerToken, ownedToken);
+        throw new Error("synthetic undo failure");
+      };
     }
     await assert.rejects(escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps), undoFails ? /synthetic undo failure/ : /synthetic fence read failure/);
+    assert.equal(enteredPostcheck, true, "owned review reached canonical postcheck");
     if (!undoFails) assert.deepEqual(w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION).all(), []);
   }
 });
@@ -571,8 +591,8 @@ test("T-035: background late annotation compensation failure emits a text-free a
   await result.review;
   released = true;
   hold.release();
-  for (let i = 0; i < 30 && !w.alerts.some((a) => a.errorName === "SyntheticLateUndoError"); i++) await new Promise((r) => setTimeout(r, 5));
-  assert.ok(w.alerts.some((a) => a.event === "concern_review_failed" && a.errorName === "SyntheticLateUndoError"));
+  for (let i = 0; i < 30 && !w.alerts.some((a) => a.errorName === "ConcernReviewSettlementError"); i++) await new Promise((r) => setTimeout(r, 5));
+  assert.ok(w.alerts.some((a) => a.event === "concern_review_failed" && a.errorName === "ConcernReviewSettlementError"));
   assert.ok(!JSON.stringify(w.alerts).includes("secret transcript"));
 });
 
@@ -738,4 +758,210 @@ test("T-035: applied-write-then-reject ambiguous inserts clean up own writes and
       assert.equal(JSON.stringify(c.all()), before, name + (replay ? " replay" : " new"));
     }
   }
+});
+
+// T047: privacy assertions are independent so a wrong outcome cannot hide persistence.
+test("T047 RED: no-consent deterministic crises return a minimal outcome for every detected turn", async () => {
+  const s = await scribeWorld({ consent: false });
+  const i = scribeInput({ turnId: "privacy-crisis-a", text: CRISIS_TEXT });
+  i.turns.push({ turnId: "privacy-crisis-b", speaker: "student", lang: "en", text: CRISIS_TEXT, translatedText: CRISIS_TEXT, ts: 5 });
+  const outcome = await startScribe(s.graph, i, { threadId: "privacy-crisis-output" });
+  assert.equal(outcome.kind === "done" && outcome.result.status, "escalated");
+  assert.equal(s.scribeProvider.calls.length, 0);
+  assert.equal(s.reviews.length, 0, "guard-only processing must not schedule a classifier review");
+  const notifications = rawNotifications(s);
+  assert.deepEqual([...new Set(notifications.map(n => n.turnId))].sort(), ["privacy-crisis-a", "privacy-crisis-b"]);
+  assert.equal(notifications.length, 6);
+  assert.ok(notifications.every(n => n.channel === "record_only"));
+  const serialized = JSON.stringify({ outcome, notifications });
+  assert.equal(serialized.includes(CRISIS_TEXT), false, "minimal crisis output must contain no transcript text");
+});
+
+test("T047 RED: no-consent crisis processing writes no personal session, transcript, review, fact or checkpoint", async () => {
+  const s = await scribeWorld({ consent: false });
+  await startScribe(s.graph, scribeInput({ turnId: "privacy-crisis", text: CRISIS_TEXT }), { threadId: "privacy-crisis-storage" });
+  const counts = Object.fromEntries(["sessions", "session_transcripts", "concerns", "facts", "edges", "scribe_checkpoints", "scribe_checkpoint_writes", CRISIS_FLAG_REVIEWS_COLLECTION].map(name => [name, s.fakeDb.collection<{ _id: string }>(name).all().length]));
+  assert.deepEqual(counts, Object.fromEntries(Object.keys(counts).map(name => [name, 0])));
+  assert.equal(s.reviews.length, 0);
+  assert.equal(s.scribeProvider.calls.length, 0);
+});
+
+test("T047 RED: ordinary no-consent refusal writes no personal session, transcript, review, fact or checkpoint", async () => {
+  const s = await scribeWorld({ consent: false });
+  const outcome = await startScribe(s.graph, baseInput({ sessionId: SESSION, studentId: STUDENT }), { threadId: "privacy-ordinary-storage" });
+  assert.equal(outcome.kind === "done" && outcome.result.status, "refused");
+  const counts = Object.fromEntries(["sessions", "session_transcripts", "concerns", "facts", "edges", "scribe_checkpoints", "scribe_checkpoint_writes", CRISIS_FLAG_REVIEWS_COLLECTION, ESCALATION_NOTIFICATIONS_COLLECTION].map(name => [name, s.fakeDb.collection<{ _id: string }>(name).all().length]));
+  assert.deepEqual(counts, Object.fromEntries(Object.keys(counts).map(name => [name, 0])));
+  assert.equal(s.reviews.length, 0);
+  assert.equal(s.scribeProvider.calls.length, 0);
+});
+test("T047 repair RED: a refused classifier leaf cannot recover into annotation or fallback publication", async () => {
+  const provider: LlmProvider = { kind: "mock", model: "flash-lite", generate: async () => { throw new ProviderAuthorizationRefusedError(); } };
+  const w = world({ provider });
+  const result = await escalateTurns(w.db, input([turn("terminal-refusal", CONCERN_TEXT)]), w.deps);
+  await result.review;
+  const flags = w.fakeDb.collection<any>(CRISIS_FLAG_REVIEWS_COLLECTION).all();
+  assert.equal(flags.length, 1, "the original guard flag remains");
+  assert.equal(flags[0]!.classifier, undefined, "fresh consent cannot resurrect a previously refused classifier attempt");
+  assert.equal(rawNotifications(w).length, 0);
+});
+
+test("T047 repair RED: final fence postcheck expiry rejects success and removes only owned notifications", async () => {
+  const w = world({ consent: false });
+  w.deps.writerDeadlineMs = 100;
+  const fences = w.fakeDb.collection<any>(COLLECTION_NAMES.erasure_fences);
+  const original = fences.findOne.bind(fences);
+  let reads = 0;
+  let enteredPostcheck = false;
+  fences.findOne = async (...args: Parameters<typeof original>) => {
+    reads++;
+    if (!enteredPostcheck && rawNotifications(w).length === 3) {
+      enteredPostcheck = true;
+      await new Promise(resolve => setTimeout(resolve, 150));
+    }
+    return original(...args);
+  };
+  const observed = await escalateTurns(w.db, input([turn("late-postcheck", CRISIS_TEXT)]), w.deps).then(value => ({ value, error: undefined as unknown }), error => ({ value: undefined, error }));
+  assert.equal(enteredPostcheck, true, "actual final writer fence read reached");
+  assert.ok(observed.error instanceof FencedWriterDeadlineError, "expiry during postcheck cannot return success");
+  await (observed.error as FencedWriterDeadlineError).settled;
+  assert.equal(rawNotifications(w).length, 0);
+});
+test("T047 no-consent processing never enters graph, checkpoints, tracing or personal collections", async () => {
+  for (const text of ["Synthetic ordinary course discussion", CRISIS_TEXT]) {
+    const s = await scribeWorld({ consent: false });
+    let graphInvocations = 0;
+    let checkpointReads = 0;
+    let traces = 0;
+    const invoked = s.graph.invoke.bind(s.graph);
+    const read = s.graph.getState.bind(s.graph);
+    (s.graph as any).invoke = (...args: any[]) => { graphInvocations++; return (invoked as any)(...args); };
+    (s.graph as any).getState = (...args: any[]) => { checkpointReads++; return (read as any)(...args); };
+    const personalAccess: string[] = [];
+    const collection = s.raw.collection.bind(s.raw);
+    (s.raw as any).collection = (name: string, ...args: any[]) => {
+      if (["sessions", "session_transcripts", "facts", "edges", "profiles", "kb_chunks", "kb_entities", "scribe_checkpoints", "scribe_checkpoint_writes", "crisis_flag_reviews"].includes(name)) personalAccess.push(name);
+      return (collection as any)(name, ...args);
+    };
+    await startScribe(s.graph, scribeInput({ turnId: "privacy-spy", text }), { threadId: "privacy-spy", callbacks: [{ name: "synthetic privacy spy", handleChainStart: async () => { traces++; } }] });
+    assert.deepEqual({ graphInvocations, checkpointReads, traces, personalAccess }, { graphInvocations: 0, checkpointReads: 0, traces: 0, personalAccess: [] });
+    assert.equal(s.scribeProvider.calls.length, 0);
+    assert.equal(s.reviews.length, 0);
+  }
+});
+test("T047 publication budget: annotation and delayed recipients share remaining original review budget", async () => {
+  let enteredRecipientPhase = false;
+  let enteredAnnotationPhase = false;
+  const w = world({ timeoutMs: 20, provider: classifierSays({ severity: "high", likelyBenign: false }), recipients: async () => { enteredRecipientPhase = true; await new Promise(resolve => setTimeout(resolve, 100)); return { adminIds: ["admin-1"], counsellorIds: ["counsellor-7"] }; } });
+  w.deps.writerDeadlineMs = 80;
+  const flags = w.fakeDb.collection<any>(CRISIS_FLAG_REVIEWS_COLLECTION);
+  const update = flags.updateOne.bind(flags);
+  flags.updateOne = async (...args: Parameters<typeof update>) => {
+    if ((args[1] as any).$set?.classifier) { enteredAnnotationPhase = true; await new Promise(resolve => setTimeout(resolve, 60)); }
+    return update(...args);
+  };
+  const result = await escalateTurns(w.db, input([turn("original-review-budget", CONCERN_TEXT)]), w.deps);
+  await result.review;
+  assert.equal(enteredAnnotationPhase, true);
+  assert.equal(enteredRecipientPhase, true);
+  assert.equal(rawNotifications(w).length, 0, "recipient resolution cannot start a new full writer budget");
+  assert.equal(flags.all().length, 1, "the original guard flag stays visible");
+});
+
+test("T047 cancellation RED: explicit background cancellation prevents late annotation and fallback", async () => {
+  const controller = new AbortController();
+  let start!: () => void;
+  let release!: () => void;
+  const started = new Promise<void>(resolve => { start = resolve; });
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const provider: LlmProvider = { kind: "mock", model: "flash-lite", generate: async <T>(_request: GenerateRequest<T>): Promise<T> => { start(); await held; return { severity: "high", likelyBenign: false, rationale: "synthetic" } as T; } };
+  const w = world({ provider, timeoutMs: 1000 });
+  (w.deps as EscalationDeps & { signal: AbortSignal }).signal = controller.signal;
+  const result = await escalateTurns(w.db, input([turn("cancelled-review", CONCERN_TEXT)]), w.deps);
+  await started;
+  controller.abort();
+  release();
+  await result.review;
+  const flags = w.fakeDb.collection<any>(CRISIS_FLAG_REVIEWS_COLLECTION).all();
+  assert.equal(flags.length, 1);
+  assert.equal(flags[0]!.classifier, undefined);
+  assert.equal(rawNotifications(w).length, 0);
+});
+test("T047 consent revoked while valid model is held leaves prior guard flag and publishes nothing", async () => {
+  let start!: () => void;
+  let release!: () => void;
+  const started = new Promise<void>(resolve => { start = resolve; });
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const provider: LlmProvider = { kind: "mock", model: "flash-lite", generate: async <T>(_request: GenerateRequest<T>): Promise<T> => { start(); await held; return { severity: "high", likelyBenign: false, rationale: "synthetic" } as T; } };
+  const w = world({ provider, timeoutMs: 1000 });
+  const result = await escalateTurns(w.db, input([turn("revoked-review", CONCERN_TEXT)]), w.deps);
+  await started;
+  const removed = await w.db.collection(COLLECTION_NAMES.consents).deleteMany({ studentId: STUDENT });
+  assert.equal(removed.deletedCount, 1);
+  release();
+  await result.review;
+  const flags = w.fakeDb.collection<any>(CRISIS_FLAG_REVIEWS_COLLECTION).all();
+  assert.equal(flags.length, 1);
+  assert.equal(flags[0]!.classifier, undefined);
+  assert.equal(rawNotifications(w).length, 0);
+});
+
+test("T047 late guard-only notification compensation reaches own token CAS and preserves full newer-owner record", async () => {
+  const w = world({ consent: false });
+  w.deps.writerDeadlineMs = 50;
+  const rows = w.fakeDb.collection<any>(ESCALATION_NOTIFICATIONS_COLLECTION);
+  const update = rows.updateOne.bind(rows);
+  const remove = rows.deleteMany.bind(rows);
+  let start!: () => void;
+  let release!: () => void;
+  const started = new Promise<void>(resolve => { start = resolve; });
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let once = false;
+  let ownToken: string | undefined;
+  let expected: string | undefined;
+  let lateUndoReached = false;
+  rows.updateOne = async (...args: Parameters<typeof update>) => {
+    if (!once && (args[1] as any).$setOnInsert?.writerToken) {
+      once = true; ownToken = (args[1] as any).$setOnInsert.writerToken; start(); await held;
+      const result = await update(...args);
+      await update(args[0], { $set: { writerToken: "newer-notification-owner" } });
+      expected = JSON.stringify(rows.all().find(row => row._id === (args[0] as any)._id));
+      return result;
+    }
+    return update(...args);
+  };
+  rows.deleteMany = async (...args: Parameters<typeof remove>) => {
+    if (expected !== undefined && (args[0] as any).writerToken === ownToken) lateUndoReached = true;
+    return remove(...args);
+  };
+  const pending = escalateTurns(w.db, input([turn("late-cas-notification", CRISIS_TEXT)]), w.deps).then(() => undefined, error => error);
+  await started;
+  const error = await pending;
+  assert.ok(error instanceof FencedWriterDeadlineError);
+  release();
+  await error.settled;
+  assert.equal(lateUndoReached, true);
+  assert.equal(rows.all().length, 1);
+  assert.equal(JSON.stringify(rows.all()[0]), expected);
+  assert.equal(rows.all()[0]!.writerToken, "newer-notification-owner");
+});
+
+test("T047 no-session-anchor guard-only records export and erase through actual confirmed workflow", async () => {
+  const w = world({ consent: false });
+  const other = world({ consent: false, tenant: "tenant-b" });
+  await escalateTurns(w.db, input([turn("no-anchor-crisis", CRISIS_TEXT)]), w.deps);
+  const otherDb = tenantScopedDb(w.raw, "tenant-b");
+  await escalateTurns(otherDb, input([turn("no-anchor-crisis", CRISIS_TEXT)]), other.deps);
+  const beforeOther = JSON.stringify(rawNotifications(w).filter(row => row.tenantId === "tenant-b"));
+  assert.equal(w.fakeDb.collection<any>(COLLECTION_NAMES.sessions).all().length, 0);
+  const exported = await exportStudent(w.db, STUDENT);
+  assert.equal(exported.sessions.length, 0);
+  assert.equal(exported.escalations.length, 3);
+  const { requestId } = await requestErasure(w.db, { studentId: STUDENT, requestedBy: "synthetic-requester", reason: "student_request" });
+  await confirmTwiceAndApprove(w.db, { requestId, confirmedBy: "synthetic-confirmer" });
+  const erased = await executeErasure(w.db, requestId);
+  assert.equal(erased.status, "completed");
+  assert.equal(erased.receipt.totalRemaining, 0);
+  assert.equal(rawNotifications(w).filter(row => row.tenantId === TENANT).length, 0);
+  assert.equal(JSON.stringify(rawNotifications(w).filter(row => row.tenantId === "tenant-b")), beforeOther);
 });

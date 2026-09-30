@@ -988,3 +988,70 @@ test("T046 forged body actor time and nested provenance refuse before actual cla
     assert.equal(w.fakeDb.collection<any>("facts").size(), 0); assert.equal(w.fakeDb.collection<any>("scribe_resolutions").size(), 0);
   }
 });
+test("T047 signed JWT ordinary no-consent start leaves every personal collection empty", async () => {
+  const w = world();
+  const token = await as("tenant-a", "privacy-counsellor", "counsellor");
+  const response = await call(w, "POST", `/v1/students/${STUDENT}/sessions/${SESSION}/scribe`, { token, body: START_BODY });
+  assert.equal(response.status, 200, response.body);
+  assert.equal(response.json.kind, "done");
+  assert.equal(response.json.result.status, "refused");
+  assert.deepEqual(Object.fromEntries(Object.entries(rawAll(w.fakeDb)).map(([key, docs]) => [key, docs.length])), Object.fromEntries(Object.keys(rawAll(w.fakeDb)).map(key => [key, 0])));
+});
+
+test("T047 signed JWT same IDs in two tenants produce only minimal unrouted record-only crisis flags", async () => {
+  const w = world();
+  const text = "I want to kill myself";
+  const body = { ...START_BODY, turns: [{ ...START_BODY.turns[0]!, text, translatedText: text }] };
+  for (const tenantId of ["tenant-a", "tenant-b"]) {
+    const token = await as(tenantId, "privacy-counsellor", "counsellor");
+    const response = await call(w, "POST", `/v1/students/${STUDENT}/sessions/${SESSION}/scribe`, { token, body });
+    assert.equal(response.status, 200, response.body);
+    assert.equal(response.json.result.status, "escalated");
+    assert.equal(response.json.result.escalation.type, "guard_only");
+    assert.deepEqual(response.json.result.escalation.turnIds, ["t1"]);
+    assert.equal(response.body.includes(text), false);
+    assert.equal(response.body.includes("matched"), false);
+    const notifications = w.fakeDb.collection<any>("escalation_notifications").all().filter(doc => doc.tenantId === tenantId);
+    assert.equal(notifications.length, 2);
+    assert.ok(notifications.every(doc => doc.studentId === STUDENT && doc.sessionId === SESSION && doc._id.startsWith(`${tenantId}:`) && doc.recipient.role === "unrouted" && doc.channel === "record_only" && doc.reason === "guard_crisis" && doc.matched.length === 0));
+  }
+  for (const name of ["sessions", "session_transcripts", "facts", "edges", "scribe_checkpoints", "scribe_checkpoint_writes", "crisis_flag_reviews", "scribe_resolutions"]) assert.equal(w.fakeDb.collection<any>(name).all().length, 0, name);
+});
+test("T047 actual startup trusted recipient factory binds signed JWT tenant and replay keeps raw minimal records", async () => {
+  const fake = createFakeMongoClient();
+  const provider = mockProvider();
+  const tenants: string[] = [];
+  const api = await startApi({ MONGODB_URL: "mongodb://fake-host/ignored" }, {
+    clientFactory: () => fake.client, http: { port: 0, verifier, provider, skillsDir: SKILLS_DIR,
+      escalationForTenant: tenantId => {
+        tenants.push(tenantId);
+        return { recipients: async () => ({ adminIds: [`admin-${tenantId}`], counsellorIds: [`counsellor-${tenantId}`] }),
+          classifier: { provider, skillPrompt: "synthetic classifier", config: { model: "synthetic", timeoutMs: 50, sampleRates: { latin: 1, devanagari: 1, other: 1 } } },
+        };
+      },
+    },
+  });
+  try {
+    const endpoint = `http://127.0.0.1:${api.port}/v1/students/${STUDENT}/sessions/${SESSION}/scribe`;
+    const text = "I want to kill myself";
+    const body = { ...START_BODY, turns: [{ ...START_BODY.turns[0]!, text, translatedText: text }] };
+    for (const tenantId of ["tenant-a", "tenant-b", "tenant-a"]) {
+      const response = await fetch(endpoint, { method: "POST", headers: { authorization: `Bearer ${await as(tenantId, "counsellor", "counsellor")}`, "content-type": "application/json" }, body: JSON.stringify(body) });
+      assert.equal(response.status, 200);
+      const outcome = await response.json() as AnyDoc;
+      assert.equal(outcome.result.escalation.type, "guard_only");
+      assert.equal(JSON.stringify(outcome).includes(text), false);
+    }
+    assert.deepEqual(tenants, ["tenant-a", "tenant-b"], "factory sees only verified tenant and graph is cached");
+    const raw = fake.dbFor(VC_DB_NAME);
+    const notifications = raw.collection<any>("escalation_notifications").all();
+    assert.equal(notifications.length, 4, "replay inserts no duplicate notification");
+    for (const tenantId of ["tenant-a", "tenant-b"]) {
+      const rows = notifications.filter(doc => doc.tenantId === tenantId);
+      assert.deepEqual(rows.map(doc => doc.recipient.id).sort(), [`admin-${tenantId}`, `counsellor-${tenantId}`]);
+      assert.ok(rows.every(doc => doc._id.startsWith(`${tenantId}:`) && doc.studentId === STUDENT && doc.sessionId === SESSION && doc.matched.length === 0 && doc.channel === "record_only"));
+    }
+    assert.equal(provider.calls.length, 0);
+    for (const name of ["sessions", "session_transcripts", "facts", "edges", "scribe_checkpoints", "scribe_checkpoint_writes", "crisis_flag_reviews"]) assert.equal(raw.collection<any>(name).all().length, 0, name);
+  } finally { await api.stop(); }
+});

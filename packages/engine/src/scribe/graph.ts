@@ -45,7 +45,7 @@ import {
 import type { Collection } from "mongodb";
 import { ConcernRecordSchema, type ConcernRecord, type CounsellorDecision, type Fact, type ProfileDiff } from "@vc/schemas";
 import { createLangfuseCallbacks, type TracingConfig } from "@vc/observability";
-import { escalateTurns, type EscalationDeps } from "../guards/escalation.js";
+import { escalateTurns, guardTurn, type EscalationDeps } from "../guards/escalation.js";
 import {
   boundedDeadlineMs,
   checkConsent,
@@ -445,7 +445,9 @@ async function readOutcome(graph: ScribeGraph, threadId: string, deadline: Write
     return { kind: "awaiting_approval", request: ApprovalRequestSchema.parse(interrupts[0]!.value) };
   }
   const result = ScribeResultSchema.parse(latest.result);
-  if (result.status !== "refused") await deadline.run(deps.authorize(latest.studentId, undefined, deadline.signal));
+  if (result.status === "escalated" && result.escalation.type === "guard_only") {
+    if (result.escalation.studentId !== latest.studentId || result.escalation.sessionId !== latest.sessionId) throw new ProviderAuthorizationRefusedError();
+  } else if (result.status !== "refused") await deadline.run(deps.authorize(latest.studentId, undefined, deadline.signal));
   deadline.op();
   return { kind: "done", result };
 }
@@ -587,6 +589,35 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
   const deadline = new WriterDeadline(opts.writerDeadlineMs);
   try {
     if (await deadline.run(isStudentFenced(deps.db, parsed.studentId, new Date(), deadline.op()))) return { kind: "fenced" };
+    let consent: Awaited<ReturnType<typeof checkConsent>>;
+    try {
+      consent = await deadline.run(checkConsent({ studentId: parsed.studentId }, { db: deps.db }));
+    } catch (error) {
+      if (!(error instanceof FencedWriterDeadlineError)) throw error;
+      let postcheckTimer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const fenced = await Promise.race([
+          fencedForPostCheck(deps.db, parsed.studentId),
+          new Promise<boolean>(resolve => { postcheckTimer = setTimeout(() => resolve(true), FENCE_POSTCHECK_TIMEOUT_MS); }),
+        ]);
+        if (fenced) return { kind: "fenced" };
+        throw error;
+      } finally {
+        if (postcheckTimer !== undefined) clearTimeout(postcheckTimer);
+      }
+    }
+    if (consent.consent !== "granted") {
+      const turnIds = parsed.turns.filter(turn => guardTurn(turn).level === "crisis").map(turn => turn.turnId);
+      if (turnIds.length === 0) return { kind: "done", result: { status: "refused", reason: "Consent required" } };
+      if (deps.escalation) await deadline.run(escalateTurns(deps.db, parsed, { ...deps.escalation, budget: { expiresAt: deadline.expiresAt, signal: deadline.signal, run: work => deadline.run(work) } }));
+      deadline.op();
+      if (await deadline.run(isStudentFenced(deps.db, parsed.studentId, new Date(), deadline.op()))) return { kind: "fenced" };
+      return { kind: "done", result: ScribeResultSchema.parse({ status: "escalated", escalation: {
+        type: "guard_only", level: "crisis", reason: "guard_crisis", studentId: parsed.studentId,
+        sessionId: parsed.sessionId, turnIds, flaggedAt: (deps.escalation?.now?.() ?? new Date()).toISOString(),
+        channel: "record_only", status: "queued",
+      } }) };
+    }
     // ISS-t-011-rev-5: the session row (with this thread id) is written BEFORE the first checkpoint,
     // so erasure/export find this run's checkpoints even if it ends without an interrupt. A
     // sessionId owned by another student throws 11000 here, before anything is checkpointed.
@@ -623,7 +654,7 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
         });
         // T-012 / B16: guard-crisis notifications are written here, before any provider call; the
         // classifier review continues in the background (never awaited by the scribe).
-        if (deps.escalation) await escalateSessionFlags(deps.db, parsed, deps.escalation);
+        if (deps.escalation) await escalateSessionFlags(deps.db, parsed, { ...deps.escalation, budget: { expiresAt: deadline.expiresAt, signal: deadline.signal, run: work => deadline.run(work) } });
         return approvalInvocation.run(Object.freeze({ graph, tenantId: tenantIdOf(deps.db), studentId: parsed.studentId, threadId: opts.threadId }),
           () => graph.invoke(parsed, runnableConfig(opts, deadline)));
       },
@@ -701,8 +732,9 @@ async function escalateSessionFlags(
   input: ScribeInput,
   escalation: EscalationDeps,
 ): Promise<void> {
-  const consent = await checkConsent({ studentId: input.studentId }, { db });
-  if (consent.consent !== "granted") return;
+  const checking = checkConsent({ studentId: input.studentId }, { db });
+  const consent = await (escalation.budget ? escalation.budget.run(checking) : checking);
+  if (consent.consent !== "granted") throw new ProviderAuthorizationRefusedError();
   await escalateTurns(db, { sessionId: input.sessionId, studentId: input.studentId, turns: input.turns }, escalation);
 }
 
@@ -1148,6 +1180,12 @@ export async function inspectScribe(graph: ScribeGraph, threadId: string, option
       }
       if (snapshot.next.length > 0 || latest.result === undefined) return { kind: "in_progress" };
       const result = ScribeResultSchema.parse(latest.result);
+      if (result.status === "escalated" && result.escalation.type === "guard_only") {
+        if (result.escalation.studentId !== latest.studentId || result.escalation.sessionId !== latest.sessionId) throw new ProviderAuthorizationRefusedError();
+        deadline.op();
+        if (signal.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+        return { kind: "done", result, decision: null };
+      }
       if (result.status !== "refused") await deps.authorize(latest.studentId, undefined, signal);
       deadline.op();
       if (signal.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
