@@ -1,6 +1,6 @@
 # Manifest — t-045-approved-history
 
-**Contract:** qa/contracts/counselling-engine.md; contracts/counsellingcontract.md and ARCHITECTURE.md
+**Contract:** qa/contracts/counselling-engine.md and ARCHITECTURE.md
 **Goal task:** T-045
 **Date:** 2026-09-30
 **Fix cycle:** 0 of max 3 (new recovery unit, distinct from historical stalled cycle)
@@ -45,7 +45,7 @@ Independently re-derive controls/mutants for tenant/student/purpose/consent, sna
 - Correct-package-cwd affected62730: providers60/60/0; API46/46/0; web38/38/0, no cancel/skip. Index C:/Users/Lenovo/AppData/Local/Temp/b18-affected-index-90816a8aaab1405e98b24c7394ffcf88.log. Web type exit2 only three raw seed tenant annotations; existing intersection type-only repair.
 - Affected web type97866f terminal0 after annotation repair; log C:/Users/Lenovo/AppData/Local/Temp/b18-web-type-40206662082b450cbe3603ce87259e5e.log.
 - Contract verifier67c5d1 exit0: verify_contracts: no frozen contracts yet (research phase) -- PASS by vacuity. This certifies no runtime contract semantics.
-- Loader isolation26847 exit0: @vc/db/provider/schema/observability actual local source exports; root-installed third-party sources only. No wholesale root node_modules workspace junction.
+- Refreshed consumer loader0ab9a2 exit0 from packages/engine: @vc/db, @vc/providers, @vc/schemas and @vc/observability dynamically imported actual file:///D:/vc/.worktrees/b18-approved-history/packages/.../src/index.ts, export counts100/29/36/6. A monorepo-root eval probe could not resolve consumer-only links and is not credited. Earlier loader isolation26847 exit0: @vc/db/provider/schema/observability actual local source exports; root-installed third-party sources only. No wholesale root node_modules workspace junction.
 
 ## Live browser evidence
 
