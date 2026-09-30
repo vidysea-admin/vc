@@ -1,0 +1,212 @@
+{
+  "unit": "T-021 fix cycle 1 — client-side timeout (ISS-t-021-rev-1) + transcript column relabel (ISS-t-021-c0-1)",
+  "date": "2026-09-26",
+  "generatedAt": "2026-09-30T19:36:14.855Z",
+  "baseUrl": "http://localhost:3153",
+  "mode": "demo: next dev (webpack), page.clock installed BEFORE navigation and fast-forwarded past CLIENT_TIMEOUT_MS (50s) so the browser's own AbortController timer fires without a real 50s wait; POST /api/sessions intercepted at the Playwright network layer (page.route, never fulfilled) to simulate a true network hang the server's own 45s deadline can never reach; no live LiteLLM gateway, no MONGODB_URL, no real student data (B8/B13)",
+  "browser": "chromium 153.0.8010.12 (playwright, headless)",
+  "pages": [
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "new session (idle) — relabelled column header",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "submit while the request hangs forever, then fast-forward past CLIENT_TIMEOUT_MS",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "input preserved after the client-side timeout",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "retry after a client-side timeout reaches the normal flow",
+      "consoleErrors": 1,
+      "messages": [
+        "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+      ]
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "T-053 response fixture 1",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "T-053 response fixture 2",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "T-053 response fixture 3",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "T-053 response fixture 4",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "T-053 response fixture 5",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "T-053 response fixture 6",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "T-053 response fixture 7",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "T-053 response fixture 8",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "T-053 response fixture 9",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "T-053 response fixture 10",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "T-053 response fixture 11",
+      "consoleErrors": 0,
+      "messages": []
+    },
+    {
+      "url": "http://localhost:3153/sessions/new",
+      "label": "T-053 response fixture 12",
+      "consoleErrors": 0,
+      "messages": []
+    }
+  ],
+  "interactions": [
+    {
+      "did": "read the transcript table's column headers",
+      "expected": "the second column reads \"What was said\" (its own label), never \"Proposed value\" (the approval screen's proposed-fact label)",
+      "observed": "headers=[\"Turn\",\"What was said\"]",
+      "pass": true
+    },
+    {
+      "did": "let the intercepted (hung) request outlive CLIENT_TIMEOUT_MS",
+      "expected": "the SAME apology + Retry banner as a server-reported ai_unavailable — no stack trace, no AbortError/timeout jargon",
+      "observed": "interceptedRequests=1 bannerText=\"AI is unavailable right now\\n\\nSorry for the trouble\\n\\nNothing you typed is lost\\n\\nRetry\" hasStackTrace=false mentionsAbort=false retryButtons=1",
+      "pass": true
+    },
+    {
+      "did": "re-check the transcript/student after the client-side timeout",
+      "expected": "unchanged: still 5 turns, same student",
+      "observed": "turns=5 student=demo-student-4",
+      "pass": true
+    },
+    {
+      "did": "click Retry after a client-side timeout",
+      "expected": "a real request goes out again and reaches a server-decided state",
+      "observed": "state=ai_unavailable",
+      "pass": true
+    },
+    {
+      "did": "T-053 typed response 1",
+      "expected": "done: Written; one POST, no private response details or approval link",
+      "observed": "state=done text=\"Written\" posts=1 links=0 retry=0",
+      "pass": true
+    },
+    {
+      "did": "T-053 typed response 2",
+      "expected": "done: Request refused; one POST, no private response details or approval link",
+      "observed": "state=done text=\"Request refused\" posts=1 links=0 retry=0",
+      "pass": true
+    },
+    {
+      "did": "T-053 typed response 3",
+      "expected": "done: Rejected; one POST, no private response details or approval link",
+      "observed": "state=done text=\"Rejected\" posts=1 links=0 retry=0",
+      "pass": true
+    },
+    {
+      "did": "T-053 typed response 4",
+      "expected": "done: Extraction failed; one POST, no private response details or approval link",
+      "observed": "state=done text=\"Extraction failed\" posts=1 links=0 retry=0",
+      "pass": true
+    },
+    {
+      "did": "T-053 typed response 5",
+      "expected": "done: Summary failed; one POST, no private response details or approval link",
+      "observed": "state=done text=\"Summary failed\" posts=1 links=0 retry=0",
+      "pass": true
+    },
+    {
+      "did": "T-053 typed response 6",
+      "expected": "done: Conflict; one POST, no private response details or approval link",
+      "observed": "state=done text=\"Conflict\" posts=1 links=0 retry=0",
+      "pass": true
+    },
+    {
+      "did": "T-053 typed response 7",
+      "expected": "done: Partial conflict; one POST, no private response details or approval link",
+      "observed": "state=done text=\"Partial conflict\" posts=1 links=0 retry=0",
+      "pass": true
+    },
+    {
+      "did": "T-053 typed response 8",
+      "expected": "done: Escalated; one POST, no private response details or approval link",
+      "observed": "state=done text=\"Escalated\" posts=1 links=0 retry=0",
+      "pass": true
+    },
+    {
+      "did": "T-053 typed response 9",
+      "expected": "fenced: Erasure in progress; one POST, no private response details or approval link",
+      "observed": "state=fenced text=\"Erasure in progress\" posts=1 links=0 retry=0",
+      "pass": true
+    },
+    {
+      "did": "T-053 typed response 10",
+      "expected": "invalid: Request refused; one POST, no private response details or approval link",
+      "observed": "state=invalid text=\"Request refused\" posts=1 links=0 retry=0",
+      "pass": true
+    },
+    {
+      "did": "T-053 typed response 11",
+      "expected": "in_progress: Session processing; one POST, no private response details or approval link",
+      "observed": "state=in_progress text=\"Session processing\" posts=1 links=0 retry=0",
+      "pass": true
+    },
+    {
+      "did": "T-053 typed response 12",
+      "expected": "error: Server error; one POST, no private response details or approval link",
+      "observed": "state=error text=\"Server error\" posts=1 links=0 retry=0",
+      "pass": true
+    }
+  ],
+  "totals": {
+    "interactions": 16,
+    "passed": 16,
+    "failed": 0,
+    "consoleErrors": 1
+  }
+}

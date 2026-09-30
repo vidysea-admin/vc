@@ -56,6 +56,10 @@ type Screen =
   | { kind: "submitting" }
   | { kind: "ai_unavailable"; attempts: number }
   | { kind: "started"; threadId: string }
+  | { kind: "done"; status: Extract<StartSessionResult, { state: "done" }>["result"]["status"] }
+  | { kind: "fenced" }
+  | { kind: "invalid" }
+  | { kind: "in_progress" }
   | { kind: "error" };
 
 const SESSIONS_URL = "/api/sessions";
@@ -79,6 +83,10 @@ export function NewSessionForm() {
       const parsed: StartSessionResult = StartSessionResultSchema.parse(await res.json());
       if (parsed.state === "ai_unavailable") setScreen({ kind: "ai_unavailable", attempts: parsed.attempts });
       else if (parsed.state === "started") setScreen({ kind: "started", threadId: parsed.threadId });
+      else if (parsed.state === "done") setScreen({ kind: "done", status: parsed.result.status });
+      else if (parsed.state === "fenced") setScreen({ kind: "fenced" });
+      else if (parsed.state === "invalid") setScreen({ kind: "invalid" });
+      else if (parsed.state === "in_progress") setScreen({ kind: "in_progress" });
       else setScreen({ kind: "error" });
     } catch (err) {
       // T-021 fix cycle 1 (ISS-t-021-rev-1): an aborted-by-us fetch (our own CLIENT_TIMEOUT_MS
@@ -146,6 +154,27 @@ export function NewSessionForm() {
       ) : null}
 
       {screen.kind === "error" ? <section className="banner banner-warn" data-state="error" role="alert"><strong>{LABELS.stateError}</strong></section> : null}
+
+      {screen.kind === "fenced" || screen.kind === "invalid" || screen.kind === "in_progress" ? (
+        <section className="banner banner-warn" data-state={screen.kind} role="status">
+          <strong>{screen.kind === "fenced" ? LABELS.stateFenced : screen.kind === "invalid" ? LABELS.stateInvalid : "Session processing"}</strong>
+        </section>
+      ) : null}
+
+      {screen.kind === "done" ? (
+        <section className="banner banner-ok" data-state="done" data-result-status={screen.status} role="status">
+          <strong>{({
+            written: "Written",
+            refused: LABELS.stateInvalid,
+            rejected: "Rejected",
+            escalated: "Escalated",
+            conflict: "Conflict",
+            partial_conflict: "Partial conflict",
+            extraction_failed: "Extraction failed",
+            summary_failed: "Summary failed",
+          } satisfies Record<Extract<StartSessionResult, { state: "done" }>["result"]["status"], string>)[screen.status]}</strong>
+        </section>
+      ) : null}
 
       {screen.kind === "started" ? (
         <section className="banner banner-ok" data-state="started" role="status">

@@ -1,0 +1,140 @@
+{
+  "browser": "153.0.8010.12",
+  "serverPid": 43456,
+  "scope": "instrumented loopback client transitions only; no engine/JWT/model/delivery claim",
+  "results": [
+    {
+      "name": "written",
+      "state": "done",
+      "text": "Written",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "refused",
+      "state": "done",
+      "text": "Request refused",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "rejected",
+      "state": "done",
+      "text": "Rejected",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "extraction_failed",
+      "state": "done",
+      "text": "Extraction failed",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "summary_failed",
+      "state": "done",
+      "text": "Summary failed",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "conflict",
+      "state": "done",
+      "text": "Conflict",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "partial_conflict",
+      "state": "done",
+      "text": "Partial conflict",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "guard escalation",
+      "state": "done",
+      "text": "Escalated",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "full escalation",
+      "state": "done",
+      "text": "Escalated",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "fenced",
+      "state": "fenced",
+      "text": "Erasure in progress",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "invalid",
+      "state": "invalid",
+      "text": "Request refused",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "in progress",
+      "state": "in_progress",
+      "text": "Session processing",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "bad done",
+      "state": "error",
+      "text": "Server error",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "missing thread",
+      "state": "error",
+      "text": "Server error",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "bad json",
+      "state": "error",
+      "text": "Server error",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "unknown",
+      "state": "error",
+      "text": "Server error",
+      "posts": 1,
+      "errors": [],
+      "pass": true
+    },
+    {
+      "name": "timeout + unavailable + started byte-identical Retry",
+      "posts": 3,
+      "pass": true
+    }
+  ]
+}

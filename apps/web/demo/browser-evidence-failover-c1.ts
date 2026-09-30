@@ -24,10 +24,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, type Page } from "playwright";
 
-const UNIT = "t-021-provider-failover-c1";
+const UNIT = "t-053-session-outcomes";
 const PORT = Number(process.env.VC_EVIDENCE_PORT ?? 3149);
 const BASE = `http://localhost:${PORT}`;
-const DATE = "2026-09-26";
+const DATE = "2026-10-01";
 const REPO = join(process.cwd(), "..", "..");
 const OUT = join(REPO, "qa", "evidence", `browser-${UNIT}-${DATE}`);
 
@@ -190,13 +190,47 @@ async function main() {
       record("click Retry after a client-side timeout", "a real request goes out again and reaches a server-decided state", `state=${state}`, state === "ai_unavailable" || state === "started");
       await page.screenshot({ path: join(OUT, "03-after-retry.png"), fullPage: true });
     });
+
+    // T-053: instrumented response fixtures prove real client transitions, not provider delivery.
+    // Only fixed status text may reach the outcome; every private fixture field is a sentinel.
+    const privateSentinel = "T053_PRIVATE_RESPONSE_SENTINEL";
+    const outcomes = [
+      { response: { state: "done", threadId: "scribe:private", result: { status: "written", writtenFactIds: [privateSentinel], supersededKeys: [privateSentinel] } }, state: "done", text: "Written" },
+      ...["refused", "rejected", "extraction_failed", "summary_failed"].map(status => ({ response: { state: "done", threadId: "scribe:private", result: { status, reason: privateSentinel } }, state: "done", text: ({ refused: "Request refused", rejected: "Rejected", extraction_failed: "Extraction failed", summary_failed: "Summary failed" } as Record<string, string>)[status] })),
+      { response: { state: "done", threadId: "scribe:private", result: { status: "conflict", key: privateSentinel, message: privateSentinel } }, state: "done", text: "Conflict" },
+      { response: { state: "done", threadId: "scribe:private", result: { status: "partial_conflict", key: privateSentinel, message: privateSentinel, writtenFactIds: [privateSentinel] } }, state: "done", text: "Partial conflict" },
+      { response: { state: "done", threadId: "scribe:private", result: { status: "escalated", escalation: { type: "guard_only", level: "crisis", reason: "guard_crisis", studentId: privateSentinel, sessionId: privateSentinel, turnIds: [privateSentinel], flaggedAt: "2026-10-01T00:00:00.000Z", channel: "record_only", status: "queued" } } }, state: "done", text: "Escalated" },
+      { response: { state: "fenced", threadId: "scribe:private" }, state: "fenced", text: "Erasure in progress" },
+      { response: { state: "invalid", issues: [privateSentinel] }, state: "invalid", text: "Request refused" },
+      { response: { state: "in_progress", threadId: "scribe:private" }, state: "in_progress", text: "Session processing" },
+      { response: { state: "done", result: { status: privateSentinel } }, state: "error", text: "Server error" },
+    ];
+    for (const [index, outcome] of outcomes.entries()) {
+      await track(page, `T-053 response fixture ${index + 1}`, async () => {
+        let posts = 0;
+        await page.route("**/api/sessions", async route => {
+          posts += 1;
+          await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(outcome.response) });
+        });
+        await page.goto(`${BASE}/sessions/new`, { waitUntil: "networkidle" });
+        await page.click('[data-testid="submit-session"]');
+        const banner = page.locator(`[data-state="${outcome.state}"]`);
+        await banner.waitFor();
+        const text = await banner.innerText();
+        const html = await page.locator("main").innerHTML();
+        const links = await page.locator('[data-testid="session-thread-link"]').count();
+        const retry = await page.locator('[data-testid="retry-session"]').count();
+        record(`T-053 typed response ${index + 1}`, `${outcome.state}: ${outcome.text}; one POST, no private response details or approval link`, `state=${outcome.state} text=${JSON.stringify(text)} posts=${posts} links=${links} retry=${retry}`, text === outcome.text && posts === 1 && links === 0 && retry === 0 && !html.includes(privateSentinel) && !html.includes("scribe:private"));
+        await page.unroute("**/api/sessions");
+      });
+    }
   } finally {
     await browser.close();
     stopServer(server);
   }
 
   const report = {
-    unit: "T-021 fix cycle 1 — client-side timeout (ISS-t-021-rev-1) + transcript column relabel (ISS-t-021-c0-1)",
+    unit: "T-053 session outcomes + T-021 timeout/Retry regression smoke",
     date: DATE,
     generatedAt: new Date().toISOString(),
     baseUrl: BASE,
