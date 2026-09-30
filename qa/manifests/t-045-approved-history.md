@@ -79,4 +79,4 @@ No dedicated doNotAsk/destination policy/live cards/voice/avatar/application com
 - skills/fact-extraction/SKILL.md SHA256=226ac150452ec061b8efa296eae02d09c0a3bc7db83ac059e9c5d9d8502481ba
 - skills/session-summary/SKILL.md SHA256=d75ca9005ce8e1581b94fbb3ce79b26fc50737ba2610b1149b19d9f4d7b7e257
 
-## Status: ready-for-check
+## Status: checked-PASS (cycle 0; independent verdict qa/verdicts/t-045-approved-history.md, evidence bcb0ccd; bounded unit only)
