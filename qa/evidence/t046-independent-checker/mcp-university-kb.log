@@ -1,0 +1,37 @@
+✔ tool registered and callable through MCP: both tools appear in tools/list (35.7462ms)
+✔ ask_knowledge_base is NOT registered when no kb client is configured (6.1107ms)
+✔ ask_knowledge_base is registered and returns the answer with citations carried through verbatim when the kb client succeeds (10.3753ms)
+✔ ask_knowledge_base surfaces a KB outage as a tool error, never a fabricated answer (5.919ms)
+✔ ask_knowledge_base surfaces an uncited KB answer as a tool error too (B2: never served uncited) (2.8995ms)
+✔ hostile: ask_knowledge_base rejects an empty query via Zod before ever calling the kb client (1.7157ms)
+✔ uncited course excluded: search_courses drops a stored record missing sourceUrl/fetchedAt and counts it in `dropped` (2.4693ms)
+✔ search_courses filters by country and level and is case-insensitive (1.4402ms)
+✔ get_course returns the record for a known courseId (1.4016ms)
+✔ unknown courseId: get_course returns a not-found tool error, never a fabricated record (1.3368ms)
+✔ get_course on a stored-but-uncited record (missing sourceUrl) is also a tool error, not a partial record (1.0767ms)
+✔ hostile: empty query is rejected by Zod (min length 1) (1.2881ms)
+✔ hostile: a NoSQL-operator object as courseId ({"$ne": null}) is rejected by Zod, not passed to the DB (1.0147ms)
+✔ hostile: level not in the enum is rejected by Zod (1.0479ms)
+✔ ok: a valid response with internal citations is carried through verbatim, answer + citations + verdict/reason/scored all present (41.0138ms)
+✔ ok: web-only citations (empty internal, non-empty web) still count as cited (9.382ms)
+✔ request shape: POST /ask, Bearer <key> header, JSON body { query } (5.8563ms)
+✔ uncited: an answer with zero citations in BOTH sources.internal and sources.web is treated as unavailable, never passed on as an answer (5.4316ms)
+✔ outage: HTTP 401 is unavailable/unauthorized (4.7046ms)
+✔ outage: HTTP 403 is unavailable/unauthorized (4.1212ms)
+✔ outage: HTTP 503 (5xx) is unavailable/http_error (6.7369ms)
+✔ outage: malformed (non-JSON) response body is unavailable/malformed_response (4.3825ms)
+✔ outage: schema-invalid response (valid JSON, wrong shape -- missing required fields) is unavailable/invalid_schema (4.9207ms)
+✔ outage: a real network error (nothing listening) is unavailable/network_error (0.757ms)
+✔ outage: the server hangs past the client's configured timeout -- unavailable/timeout (59.3711ms)
+✔ default timeout constant is exported and positive (0.1497ms)
+✔ loadKbConfigFromEnv: VC_KB_BASE_URL unset -> null (feature off, no client built) (0.0992ms)
+✔ loadKbConfigFromEnv: VC_KB_BASE_URL set, VC_KB_API_KEY set -> a config object (never real values -- synthetic test strings only) (0.1083ms)
+✔ loadKbConfigFromEnv: VC_KB_BASE_URL set but VC_KB_API_KEY missing -> throws rather than silently defaulting the key (B11) (0.498ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1470.1616

@@ -1,0 +1,26 @@
+✔ independent exact actor, value, durable winner and original citation readback (84.636ms)
+✔ independent race metadata follows actual winner (28.7532ms)
+✔ independent interrupted winner recovery preserves exact identity (24.8524ms)
+✔ independent missing actor, graph forwarding and forged metadata rejected (28.2422ms)
+✖ independent structured unchanged requires no actor; changed subset stores canonical source (12.6233ms)
+✔ independent strict provider and canonical bounded schemas (0.4142ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2357.6985
+
+✖ failing tests:
+
+test at qa\evidence\t046-independent-checker\mutant-controls.test.ts:32:1
+✖ independent structured unchanged requires no actor; changed subset stores canonical source (12.6233ms)
+  Error [ApprovalResponseError]: edit: trusted counsellor actor and timestamp metadata are required
+      at <anonymous> (D:\vc\.worktrees\t046-canonical\qa\evidence\t046-independent-checker\mutant\src\scribe\nodes.ts:1410:13)
+      at Array.map (<anonymous>)
+      at decisionFromResponse (D:\vc\.worktrees\t046-canonical\qa\evidence\t046-independent-checker\mutant\src\scribe\nodes.ts:1398:40)
+      at TestContext.<anonymous> (D:\vc\.worktrees\t046-canonical\qa\evidence\t046-independent-checker\mutant-controls.test.ts:34:13)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)

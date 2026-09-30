@@ -1,0 +1,78 @@
+✔ independent exact actor, value, durable winner and original citation readback (87.0185ms)
+✔ independent race metadata follows actual winner (25.1162ms)
+✔ independent interrupted winner recovery preserves exact identity (26.8906ms)
+✖ independent missing actor, graph forwarding and forged metadata rejected (13.8959ms)
+✔ independent structured unchanged requires no actor; changed subset stores canonical source (26.1558ms)
+✖ independent strict provider and canonical bounded schemas (1.4245ms)
+✔ independent event preserves exact source and metadata affects durable event identity (18.9249ms)
+✖ independent rejected raw model metadata preserves clean neighbor (13.0987ms)
+✔ independent unknown duplicate canonical metadata rejected without claim (45.1734ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 6
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1962.843
+
+✖ failing tests:
+
+test at qa\evidence\t046-independent-checker\mutant-controls.test.ts:26:1
+✖ independent missing actor, graph forwarding and forged metadata rejected (13.8959ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\t046-canonical\qa\evidence\t046-independent-checker\mutant-controls.test.ts:29:204)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at qa\evidence\t046-independent-checker\mutant-controls.test.ts:37:1
+✖ independent strict provider and canonical bounded schemas (1.4245ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\t046-canonical\qa\evidence\t046-independent-checker\mutant-controls.test.ts:38:421)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at qa\evidence\t046-independent-checker\mutant-controls.test.ts:44:1
+✖ independent rejected raw model metadata preserves clean neighbor (13.0987ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'bad',
+      'targetCountry'
+    ]
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\t046-canonical\qa\evidence\t046-independent-checker\mutant-controls.test.ts:45:340)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'bad', 'targetCountry' ],
+    expected: [ 'targetCountry' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

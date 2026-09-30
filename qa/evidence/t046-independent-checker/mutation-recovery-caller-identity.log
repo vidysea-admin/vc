@@ -1,0 +1,30 @@
+✔ independent exact actor, value, durable winner and original citation readback (97.2278ms)
+✔ independent race metadata follows actual winner (38.7927ms)
+✖ independent interrupted winner recovery preserves exact identity (36.766ms)
+✔ independent missing actor, graph forwarding and forged metadata rejected (26.1157ms)
+✔ independent structured unchanged requires no actor; changed subset stores canonical source (33.3638ms)
+✔ independent strict provider and canonical bounded schemas (0.3876ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2228.6194
+
+✖ failing tests:
+
+test at qa\evidence\t046-independent-checker\mutant-controls.test.ts:22:1
+✖ independent interrupted winner recovery preserves exact identity (36.766ms)
+  Error [ApprovalResponseError]: approval: winning decision metadata differs from current proposal
+      at RunnableCallable.func (D:\vc\.worktrees\t046-canonical\qa\evidence\t046-independent-checker\mutant\src\scribe\graph.ts:203:97)
+      at async RunnableCallable.invoke (D:\vc\node_modules\.pnpm\@langchain+langgraph@1.4.17_a079c6db7484040957a07acd42e30b64\node_modules\@langchain\langgraph\src\utils.ts:85:21)
+      at async RunnableSequence.invoke (D:\vc\node_modules\.pnpm\@langchain+core@1.2.12_@ope_b53289c12d42498035a13f19a5bbb023\node_modules\@langchain\core\src\runnables\base.ts:1988:25)
+      at async _runWithRetry (D:\vc\node_modules\.pnpm\@langchain+langgraph@1.4.17_a079c6db7484040957a07acd42e30b64\node_modules\@langchain\langgraph\src\pregel\retry.ts:123:18)
+      at async PregelRunner._executeTasksWithRetry (D:\vc\node_modules\.pnpm\@langchain+langgraph@1.4.17_a079c6db7484040957a07acd42e30b64\node_modules\@langchain\langgraph\src\pregel\runner.ts:354:27)
+      at async PregelRunner.tick (D:\vc\node_modules\.pnpm\@langchain+langgraph@1.4.17_a079c6db7484040957a07acd42e30b64\node_modules\@langchain\langgraph\src\pregel\runner.ts:150:37)
+      at async CompiledStateGraph._runLoop (D:\vc\node_modules\.pnpm\@langchain+langgraph@1.4.17_a079c6db7484040957a07acd42e30b64\node_modules\@langchain\langgraph\src\pregel\index.ts:2632:9)
+      at async createAndRunLoop (D:\vc\node_modules\.pnpm\@langchain+langgraph@1.4.17_a079c6db7484040957a07acd42e30b64\node_modules\@langchain\langgraph\src\pregel\index.ts:2456:9) {
+    pregelTaskId: '20ffd759-d7eb-5b57-878b-0b0132dde4a1'
+  }

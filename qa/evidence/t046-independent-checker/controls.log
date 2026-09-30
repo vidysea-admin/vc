@@ -1,0 +1,18 @@
+[testlock] running (free RAM 3.59 GB): node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 qa/evidence/t046-independent-checker/controls.test.ts
+✔ independent exact actor, value, durable winner and original citation readback (103.668ms)
+✔ independent race metadata follows actual winner (30.4337ms)
+✔ independent interrupted winner recovery preserves exact identity (26.9198ms)
+✔ independent missing actor, graph forwarding and forged metadata rejected (34.1401ms)
+✔ independent structured unchanged requires no actor; changed subset stores canonical source (17.8834ms)
+✔ independent strict provider and canonical bounded schemas (0.3509ms)
+✔ independent event preserves exact source and metadata affects durable event identity (21.7383ms)
+✔ independent rejected raw model metadata preserves clean neighbor (10.8918ms)
+✔ independent unknown duplicate canonical metadata rejected without claim (48.7537ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2212.6076

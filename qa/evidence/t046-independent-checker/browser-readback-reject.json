@@ -1,0 +1,1 @@
+{"studentId":"demo-student-4","facts":[],"sessions":[{"sessionId":"b08f7e5f-b0b6-40a1-bc7d-ad4866bc2ac0"}],"claims":1,"decisions":[{"threadId":"scribe:b08f7e5f-b0b6-40a1-bc7d-ad4866bc2ac0","rejected":[{"key":"targetCountry"},{"key":"intendedMajor"},{"key":"preferredIntake"},{"key":"budget_inr_per_year"}],"decidedAt":"2026-09-30T17:40:57.560Z"}]}

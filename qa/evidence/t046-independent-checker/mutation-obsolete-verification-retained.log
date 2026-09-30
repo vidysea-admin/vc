@@ -1,0 +1,33 @@
+✖ independent exact actor, value, durable winner and original citation readback (95.4872ms)
+✔ independent race metadata follows actual winner (35.2655ms)
+✔ independent interrupted winner recovery preserves exact identity (31.2681ms)
+✔ independent missing actor, graph forwarding and forged metadata rejected (30.8362ms)
+✔ independent structured unchanged requires no actor; changed subset stores canonical source (24.7082ms)
+✔ independent strict provider and canonical bounded schemas (0.3484ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2358.8703
+
+✖ failing tests:
+
+test at qa\evidence\t046-independent-checker\mutant-controls.test.ts:11:1
+✖ independent exact actor, value, durable winner and original citation readback (95.4872ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\t046-canonical\qa\evidence\t046-independent-checker\mutant-controls.test.ts:14:238)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

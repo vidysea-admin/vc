@@ -1,0 +1,17 @@
+✔ independent exact actor, value, durable winner and original citation readback (81.0084ms)
+✔ independent race metadata follows actual winner (24.1173ms)
+✔ independent interrupted winner recovery preserves exact identity (21.0103ms)
+✔ independent missing actor, graph forwarding and forged metadata rejected (24.2919ms)
+✔ independent structured unchanged requires no actor; changed subset stores canonical source (14.6369ms)
+✔ independent strict provider and canonical bounded schemas (0.2798ms)
+✔ independent event preserves exact source and metadata affects durable event identity (15.0905ms)
+✔ independent rejected raw model metadata preserves clean neighbor (9.1208ms)
+✔ independent unknown duplicate canonical metadata rejected without claim (41.6333ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1659.957

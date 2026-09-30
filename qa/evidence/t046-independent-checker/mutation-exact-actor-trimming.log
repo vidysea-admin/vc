@@ -1,0 +1,60 @@
+✖ independent exact actor, value, durable winner and original citation readback (97.671ms)
+✔ independent race metadata follows actual winner (33.0893ms)
+✖ independent interrupted winner recovery preserves exact identity (31.9436ms)
+✔ independent missing actor, graph forwarding and forged metadata rejected (35.1407ms)
+✔ independent structured unchanged requires no actor; changed subset stores canonical source (21.6796ms)
+✔ independent strict provider and canonical bounded schemas (0.3461ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 4
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2675.5117
+
+✖ failing tests:
+
+test at qa\evidence\t046-independent-checker\mutant-controls.test.ts:11:1
+✖ independent exact actor, value, durable winner and original citation readback (97.671ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   counsellorId: 'exact-actor',
+  -   counsellorId: '  exact-actor\t',
+      editedAt: '2026-09-30T17:39:33.276Z',
+      editedFrom: {
+        quote: 'study computer science in Canada',
+        turnId: 't1',
+        type: 'transcript'
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\t046-canonical\qa\evidence\t046-independent-checker\mutant-controls.test.ts:14:45)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { type: 'counsellor-edit', counsellorId: 'exact-actor', editedAt: '2026-09-30T17:39:33.276Z', editedFrom: { type: 'transcript', quote: 'study computer science in Canada', turnId: 't1' } },
+    expected: { type: 'counsellor-edit', counsellorId: '  exact-actor\t', editedAt: '2026-09-30T17:39:33.276Z', editedFrom: { type: 'transcript', quote: 'study computer science in Canada', turnId: 't1' } },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at qa\evidence\t046-independent-checker\mutant-controls.test.ts:22:1
+✖ independent interrupted winner recovery preserves exact identity (31.9436ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'original'
+  - ' original '
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\t046-canonical\qa\evidence\t046-independent-checker\mutant-controls.test.ts:24:283)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'original',
+    expected: ' original ',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

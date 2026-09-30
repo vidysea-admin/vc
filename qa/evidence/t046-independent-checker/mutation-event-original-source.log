@@ -1,0 +1,49 @@
+✔ independent exact actor, value, durable winner and original citation readback (80.0882ms)
+✔ independent race metadata follows actual winner (22.4404ms)
+✔ independent interrupted winner recovery preserves exact identity (19.244ms)
+✔ independent missing actor, graph forwarding and forged metadata rejected (24.7901ms)
+✔ independent structured unchanged requires no actor; changed subset stores canonical source (13.7423ms)
+✔ independent strict provider and canonical bounded schemas (0.2819ms)
+✖ independent event preserves exact source and metadata affects durable event identity (13.6822ms)
+✔ independent rejected raw model metadata preserves clean neighbor (8.0924ms)
+✔ independent unknown duplicate canonical metadata rejected without claim (36.7403ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 8
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1630.6157
+
+✖ failing tests:
+
+test at qa\evidence\t046-independent-checker\mutant-controls.test.ts:40:1
+✖ independent event preserves exact source and metadata affects durable event identity (13.6822ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   quote: 'study computer science in Canada',
+  +   turnId: 't1',
+  +   type: 'transcript'
+  -   counsellorId: ' actor ',
+  -   editedAt: '2026-09-30T17:42:19.743Z',
+  -   editedFrom: {
+  -     quote: 'study computer science in Canada',
+  -     turnId: 't1',
+  -     type: 'transcript'
+  -   },
+  -   type: 'counsellor-edit'
+    }
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\t046-canonical\qa\evidence\t046-independent-checker\mutant-controls.test.ts:42:229)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { type: 'transcript', quote: 'study computer science in Canada', turnId: 't1' },
+    expected: { type: 'counsellor-edit', counsellorId: ' actor ', editedAt: '2026-09-30T17:42:19.743Z', editedFrom: { type: 'transcript', quote: 'study computer science in Canada', turnId: 't1' } },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

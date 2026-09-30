@@ -1,0 +1,47 @@
+✔ GET: a paused thread returns the proposal fact by fact, the dropped facts with reasons and the draft summary (137.2086ms)
+✔ B3: reading the pending approval (repeatedly) writes nothing and claims nothing (97.784ms)
+✔ POST: approve / reject / edit per fact + withhold the summary writes exactly the approved and edited facts (124.8913ms)
+✔ POST twice: the second submit is already_resolved (409) and writes nothing new; GET then shows the resolved state (130.5721ms)
+✔ B5: invalid decision bodies are refused (400) and write nothing, claim nothing (82.526ms)
+✔ T-018 ISS-t-008-c0-1: an edit value that does not match the proposed value's type is refused (400) through the full API, and writes nothing (78.7794ms)
+✔ T-020 ISS-t-018-c0-1: a per-fact reject with a typed reason writes an audit record the demo read-back exposes (decisions collection) (89.672ms)
+✔ T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH is refused (400), writes nothing and records no audit (72.2602ms)
+✔ fenced: a student with an erasure in progress -> GET and POST both 423 fenced, no student data, nothing written (66.9097ms)
+✔ in_progress: a claimed thread shows in_progress; a new submit is already_resolved with the claimed decision (65.8975ms)
+✔ not found and malformed thread ids (80.2684ms)
+✔ route handlers: GET and POST through the Next route module, JSON in and out (84.0001ms)
+✔ runtime mode: demo unless VC_WEB_MODE is exactly 'live' (a typo never reaches the production server) (0.2484ms)
+✔ T046 demo persists trusted canonical edit provenance and stable replay (89.1727ms)
+✔ NewSessionForm: renders the title, the student id and every transcript turn, with a Submit button (14.0526ms)
+✔ NewSessionForm: the apologetic AI-unavailable copy is plain language, not a script, and never mentions a model/vendor name (1.6443ms)
+✔ NewSessionForm: the initial idle render offers no Retry button and no ai_unavailable banner (only Submit) (1.486ms)
+✔ T-021 fix cycle 1 (ISS-t-021-c0-1, B17): the transcript table has its OWN column label for the spoken text, never the approval screen's colValue ("Proposed value") (1.8479ms)
+✔ T-021: the first submit hits the exhausted failover chain and returns 503 ai_unavailable, with no key/transcript leak (172.6245ms)
+✔ T-021: Retry — resubmitting the SAME body after an ai_unavailable reply succeeds and reaches the normal awaiting_approval flow (97.45ms)
+✔ T-021: an invalid body (missing turns) is refused 400 before anything runs (56.8162ms)
+✔ pending: every proposed fact renders with key, value, quote, turn, confidence and its controls (9.8464ms)
+✔ pending: a needsReview fact is flagged with its reasons; an unflagged fact is not (3.1056ms)
+✔ pending: dropped facts render with their reasons, and the draft summary renders (2.3207ms)
+✔ pending: a model-withheld summary (B1) shows the reason and offers no approve (2.6898ms)
+✔ states: fenced, in_progress, not_found and done each render a distinct labelled state with no fact data (2.1559ms)
+✔ B1: every UI label is a short label, never a script-like sentence (1.2499ms)
+✔ B1: the only text on the screen is labels or data from the proposal (nothing the UI composes itself) (3.9396ms)
+✔ pending: no fact is decided yet, so no reject-reason field is rendered (it only appears once a fact is marked reject) (2.7994ms)
+✔ buildRejectDecision: a typed reason is trimmed and sent (0.4271ms)
+✔ buildRejectDecision: an empty or whitespace-only reason is OMITTED, never sent as reason: "" (0.1956ms)
+✔ buildRejectDecision: a reason at exactly MAX_REJECT_REASON_LENGTH is sent as-is (the server, RejectReasonSchema, is the length authority) (0.1066ms)
+✔ reasonCounter: empty text uses 0, remaining equals max, not at limit (0.1354ms)
+✔ reasonCounter: partial text counts used/remaining correctly (0.0897ms)
+✔ reasonCounter: one character below the cap shows remaining 1 and is not yet at limit (0.0802ms)
+✔ reasonCounter: exactly at the cap is atLimit with 0 remaining (0.1019ms)
+✔ reasonCounter: a value longer than max (a paste/programmatic set that bypasses the input's maxLength) clamps remaining at 0 and is still atLimit, never negative (0.0685ms)
+✔ T-023 (T-020 verdict note): ApprovalScreen.tsx and labels.ts never use dangerouslySetInnerHTML in actual code (comments may discuss it by name) (0.6106ms)
+✔ T-023 (T-020 verdict note): a stored string containing <script> or <img onerror> markup renders inert, as escaped text, on every existing free-text render path (a review reason, a dropped-fact reason) (2.6964ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7513.3226
