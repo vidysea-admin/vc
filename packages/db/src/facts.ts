@@ -347,6 +347,7 @@ export interface ApplyApprovedDiffResult {
 /** Maps a Fact's own citation into the edge target it was sourced from. */
 function sourceEdgeRef(source: FactSource): EdgeRef {
   switch (source.type) {
+    case "counsellor-edit": return sourceEdgeRef(source.editedFrom);
     case "transcript":
       return { kind: "transcript_turn", id: source.turnId };
     case "kb":

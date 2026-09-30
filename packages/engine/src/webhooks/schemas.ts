@@ -10,38 +10,20 @@
  * concern.flagged builder remains a TODO — see the note near the bottom of this file and
  * ISS-t-034-concern-hook.
  *
- * Provenance note (B2, gate qa/gates/edit-provenance.md): @vc/schemas' `FactSourceSchema` still does
- * not carry a `counsellor-edit` variant as of T-034 — see ISS-t-027-rev-2 (open). Until it does, this
- * module keeps its own `WebhookFactSourceSchema` — a superset of `FactSourceSchema` with the
- * counsellor-edit variant added locally — so the wire shape the edit-provenance gate describes
- * ("source counsellor-edit, counsellorId, time, editedFrom") already exists at the webhook boundary,
- * ready for whichever unit lands actual edit detection. `buildFactApprovedEvent` below passes the
- * approved Fact's own `source` through unchanged (whatever @vc/schemas' FactSchema already carries),
- * so today every fact.approved event's source is one of FactSourceSchema's four variants — never
- * `counsellor-edit` yet, since nothing in the engine sets that source on a Fact today (residual,
- * same as ISS-t-027-rev-2).
+ * B2 provenance is canonical in @vc/schemas: actual persisted counsellor edits carry
+ * trusted actor/time and bounded original editedFrom; builders forward it unchanged.
  */
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { ErasureReasonSchema, FactSourceSchema, type ErasureReason } from "@vc/schemas";
 
-/** Every citation shape a fact can carry today, PLUS the counsellor-edit provenance shape B2 adds
- * at approval time: the original citation is kept verbatim under `editedFrom`, never discarded. */
-export const WebhookFactSourceSchema = z.union([
-  FactSourceSchema,
-  z.object({
-    type: z.literal("counsellor-edit"),
-    counsellorId: z.string().min(1),
-    editedAt: z.string().datetime(),
-    editedFrom: FactSourceSchema,
-  }),
-]);
+/** The shared canonical source, including bounded counsellor-edit provenance. */
+export const WebhookFactSourceSchema = FactSourceSchema;
 export type WebhookFactSource = z.infer<typeof WebhookFactSourceSchema>;
 
 export const WebhookFactSensitivitySchema = z.enum(["low", "medium", "high"]);
 
-/** The fact shape carried on the wire — a subset of @vc/schemas' FactSchema fields plus the wider
- * WebhookFactSourceSchema in place of FactSchema's own `source` (see module docstring). */
+/** The wire fact subset uses the shared canonical source without rebuilding provenance. */
 export const WebhookFactSchema = z.object({
   key: z.string().min(1),
   value: z.unknown(),

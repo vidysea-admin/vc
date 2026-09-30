@@ -171,6 +171,8 @@ export interface ScribeResolutionDoc {
   response: Record<string, unknown>;
   responseHash: string;
   claimedAt: string;
+  /** Winning server-created edit provenance; data, never an authorization grant. */
+  approvalMetadata?: { counsellorId: string; editedAt: string };
   /**
    * T-016 / ISS-t-007-rev-10: the run lease on this thread. Present while a process is invoking the
    * graph for this claim (the winning resume from the moment it inserts the claim, or a

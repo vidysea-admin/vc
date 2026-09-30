@@ -5,8 +5,9 @@
  * survive a framework swap unchanged.
  */
 import type { Db } from "mongodb";
+import { isDeepStrictEqual } from "node:util";
 import { ZodError, type z } from "zod";
-import { FactSchema, isScriptLike, type CitationMatch, type ConcernRecord, type Fact } from "@vc/schemas";
+import { FactSchema, FactSourceSchema, isScriptLike, type CitationMatch, type ConcernRecord, type Fact } from "@vc/schemas";
 import {
   ConsentRequiredError,
   FactConflictError,
@@ -1054,9 +1055,13 @@ export function verifyCandidateFact(
   const shape = CandidateFactSchema.safeParse(raw);
   const key = typeof (raw as { key?: unknown } | null)?.key === "string" ? (raw as { key: string }).key : "";
   if (!shape.success) {
-    return { dropped: { key, reason: `malformed fact: ${shape.error.issues.map((i) => i.message).join("; ")}` } };
+    return { dropped: { key, reason: "malformed fact: provider output did not match the required candidate schema" } };
   }
   const candidate = shape.data;
+  if (candidate.source && typeof candidate.source === "object" &&
+      (candidate.source as { type?: unknown }).type === "transcript" && !FactSourceSchema.safeParse(candidate.source).success) {
+    return { dropped: { key, reason: "a transcript source must match the canonical citation shape (B2)" } };
+  }
 
   const sources = toCitationSources(candidate.source);
   const guard = citationGuard({ sources });
@@ -1376,21 +1381,41 @@ function perFactDecision(
   });
 }
 
-export function decisionFromResponse(response: ApprovalResponse, proposedFacts: Fact[]): ApprovalOutput {
+export function decisionFromResponse(
+  response: ApprovalResponse, proposedFacts: Fact[],
+  approvalMetadata?: { counsellorId: string; editedAt: string },
+): ApprovalOutput {
+  let output: ApprovalOutput;
   switch (response.action) {
-    case "per_fact":
-      return perFactDecision(response, proposedFacts);
-    case "approve":
-      return ApprovalOutputSchema.parse({ decision: { approve: true, edits: proposedFacts } });
-    case "edit":
-      // ISS-t-007-rev-5: a counsellor edit changes values, never the consent purpose. The scribe's
-      // facts are processed under profile_synthesis only, so any other tag in the edit is dropped.
-      return ApprovalOutputSchema.parse({
-        decision: { approve: true, edits: response.facts.map((f) => ({ ...f, purposeTags: [SCRIBE_PURPOSE] })) },
-      });
-    case "reject":
-      return ApprovalOutputSchema.parse({ decision: { approve: false } });
+    case "per_fact": output = perFactDecision(response, proposedFacts); break;
+    case "approve": return ApprovalOutputSchema.parse({ decision: { approve: true, edits: proposedFacts } });
+    case "reject": return ApprovalOutputSchema.parse({ decision: { approve: false } });
+    case "edit": output = ApprovalOutputSchema.parse({ decision: { approve: true, edits: response.facts } }); break;
   }
+  if (!output.decision.approve) return output;
+  const proposedByKey = new Map(proposedFacts.map((fact) => [fact.key, fact]));
+  const seen = new Set<string>();
+  const edits = output.decision.edits?.map((submitted) => {
+    const proposed = proposedByKey.get(submitted.key);
+    if (!proposed || seen.has(submitted.key)) throw new ApprovalResponseError("edit: unknown or duplicate proposal key");
+    seen.add(submitted.key);
+    const { value: submittedValue, purposeTags: ignoredSubmittedPurpose, ...submittedMetadata } = submitted;
+    const { value: originalValue, purposeTags: ignoredOriginalPurpose, ...originalMetadata } = proposed;
+    if (!isDeepStrictEqual(submittedMetadata, originalMetadata)) throw new ApprovalResponseError("edit: source or canonical metadata differs from the proposal");
+    if (isDeepStrictEqual(submittedValue, originalValue)) return { ...proposed, purposeTags: [SCRIBE_PURPOSE] };
+    if (typeof approvalMetadata?.counsellorId !== "string" || !approvalMetadata.counsellorId.trim() ||
+        typeof approvalMetadata.editedAt !== "string" || !Number.isFinite(Date.parse(approvalMetadata.editedAt)) ||
+        !FactSourceSchema.safeParse({ type: "counsellor-edit", ...approvalMetadata,
+          editedFrom: proposed.source.type === "counsellor-edit" ? proposed.source.editedFrom : proposed.source }).success) {
+      throw new ApprovalResponseError("edit: trusted counsellor actor and timestamp metadata are required");
+    }
+    const { citationMatch, ...authoritative } = proposed;
+    return FactSchema.parse({ ...authoritative, value: submittedValue, purposeTags: [SCRIBE_PURPOSE],
+      source: { type: "counsellor-edit", ...approvalMetadata,
+        editedFrom: proposed.source.type === "counsellor-edit" ? proposed.source.editedFrom : proposed.source },
+      needsReview: true, reviewReasons: [...new Set([...(proposed.reviewReasons ?? []), "counsellor-approved edit; the original citation does not verify the edited value"])] });
+  });
+  return ApprovalOutputSchema.parse({ ...output, decision: { approve: true, edits } });
 }
 
 // ---------------------------------------------------------------------------

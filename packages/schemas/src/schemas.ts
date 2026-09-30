@@ -22,27 +22,32 @@ import { isScriptLike } from "./guards.js";
 // fields that make it a real citation — a "transcript" source with no quote/
 // turnId, or a "kb" source with no fetchedAt, is not actually traceable back
 // to anything and now fails to parse instead of silently passing.
-export const FactSourceSchema = z.discriminatedUnion("type", [
+const OriginalFactSourceSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("transcript"),
     quote: z.string().min(1),
     turnId: z.string().min(1),
-  }),
+  }).strict(),
   z.object({
     type: z.literal("kb"),
     id: z.string().min(1),
     fetchedAt: z.string().datetime(),
-  }),
+  }).strict(),
   z.object({
     type: z.literal("profile"),
     id: z.string().min(1),
-  }),
+  }).strict(),
   z.object({
     // The answer record for a fact the student gave directly (e.g. in a form
     // or a direct prompt outside the transcript flow).
     type: z.literal("student-direct"),
     id: z.string().min(1),
-  }),
+  }).strict(),
+]);
+export const FactSourceSchema = z.discriminatedUnion("type", [
+  ...OriginalFactSourceSchema.options,
+  z.object({ type: z.literal("counsellor-edit"), counsellorId: z.string().refine(value => value.trim().length > 0, "counsellor actor must be nonblank"),
+    editedAt: z.string().datetime(), editedFrom: OriginalFactSourceSchema }).strict(),
 ]);
 export type FactSource = z.infer<typeof FactSourceSchema>;
 

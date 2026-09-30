@@ -287,3 +287,18 @@ test("runtime mode: demo unless VC_WEB_MODE is exactly 'live' (a typo never reac
   assert.equal(resolveMode({ VC_WEB_MODE: "live " }), "demo");
   assert.equal(resolveMode({ VC_WEB_MODE: "live" }), "live");
 });
+
+test("T046 demo persists trusted canonical edit provenance and stable replay", async () => {
+  const rt = await fresh();
+  const first = await submitDecision(rt, DEMO_THREADS.paused, MIXED);
+  assert.equal(first.status, 200);
+  const before = rt.readback("demo-student-1");
+  const edited = before.facts.find(f => f.key === "preferredIntake") as unknown as { source: { type: string; counsellorId: string; editedAt: string; editedFrom: { type: string; quote: string } } };
+  assert.equal(edited.source.type, "counsellor-edit");
+  assert.equal(edited.source.counsellorId, "vc-demo-counsellor");
+  assert.ok(Number.isFinite(Date.parse(edited.source.editedAt)));
+  assert.equal(edited.source.editedFrom.type, "transcript");
+  assert.ok(edited.source.editedFrom.quote.length > 0);
+  assert.equal((await submitDecision(rt, DEMO_THREADS.paused, MIXED)).status, 409);
+  assert.deepEqual(rt.readback("demo-student-1"), before);
+});

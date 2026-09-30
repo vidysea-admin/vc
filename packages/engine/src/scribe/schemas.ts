@@ -92,7 +92,7 @@ export type CrisisGateOutput = z.infer<typeof CrisisGateOutputSchema>;
  * (`CandidateFactSchema`) so one malformed or uncited fact is dropped with a reason instead of
  * failing the whole batch.
  */
-export const ExtractionSkillOutputSchema = z.object({ facts: z.array(z.unknown()) });
+export const ExtractionSkillOutputSchema = z.object({ facts: z.array(z.unknown()) }).strict();
 
 /** One model-proposed fact before citation checks. `source` is optional here ON PURPOSE: an
  * uncited fact must reach the citation guard and be dropped there (B2), not crash the parse. */
@@ -109,7 +109,7 @@ export const CandidateFactSchema = z.object({
   // candidate that omits it.
   kind: FactKindSchema.optional(),
   explains: z.string().min(1).optional(),
-});
+}).strict();
 export type CandidateFact = z.infer<typeof CandidateFactSchema>;
 
 export const DroppedFactSchema = z.object({ key: z.string(), reason: z.string().min(1) });
@@ -264,9 +264,9 @@ const RejectReasonSchema = z
  * the fact's cited source, confidence and sensitivity stay those of the proposal (B2).
  */
 export const PerFactDecisionSchema = z.discriminatedUnion("decision", [
-  z.object({ key: z.string().min(1), decision: z.literal("approve") }),
-  z.object({ key: z.string().min(1), decision: z.literal("reject"), reason: RejectReasonSchema }),
-  z.object({ key: z.string().min(1), decision: z.literal("edit"), value: EditedValueSchema }),
+  z.object({ key: z.string().min(1), decision: z.literal("approve") }).strict(),
+  z.object({ key: z.string().min(1), decision: z.literal("reject"), reason: RejectReasonSchema }).strict(),
+  z.object({ key: z.string().min(1), decision: z.literal("edit"), value: EditedValueSchema }).strict(),
 ]);
 export type PerFactDecision = z.infer<typeof PerFactDecisionSchema>;
 
@@ -277,14 +277,14 @@ export type PerFactDecision = z.infer<typeof PerFactDecisionSchema>;
  * against the thread's proposal and throws ApprovalResponseError before anything is claimed.
  */
 export const ApprovalResponseSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("approve") }),
-  z.object({ action: z.literal("edit"), facts: z.array(FactSchema).min(1) }),
-  z.object({ action: z.literal("reject"), reason: z.string().optional() }),
+  z.object({ action: z.literal("approve") }).strict(),
+  z.object({ action: z.literal("edit"), facts: z.array(FactSchema.strict()).min(1) }).strict(),
+  z.object({ action: z.literal("reject"), reason: z.string().optional() }).strict(),
   z.object({
     action: z.literal("per_fact"),
     facts: z.array(PerFactDecisionSchema),
     summary: SummaryDecisionSchema,
-  }),
+  }).strict(),
 ]);
 export type ApprovalResponse = z.infer<typeof ApprovalResponseSchema>;
 

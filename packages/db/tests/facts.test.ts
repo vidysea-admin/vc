@@ -1201,3 +1201,13 @@ test("ISS-t-013r-rev-12: a Devanagari quote cropped MID-SYLLABLE resolves to exa
   const span = resolveCitationSpan(turns, { turnId: "t1", quote: `प${rha}न` });
   assert.deepEqual([span!.start, span!.end], [8, 12]);
 });
+
+test("T046 canonical edit storage preserves bounded citation and source-derived edge", async () => {
+  const { db, factsColl, edgesColl } = setup();
+  const source: Fact["source"] = { type: "counsellor-edit", counsellorId: "synthetic-db-actor", editedAt: "2026-09-30T12:00:00.000Z", editedFrom: { type: "transcript", quote: "I want to study in Canada", turnId: "42" } };
+  const fact = citedFact({ value: "Japan", source, needsReview: true });
+  await applyApprovedDiff(db, emptyDiff(), { approve: true, edits: [fact] });
+  assert.deepEqual(factsColl.all()[0]!.source, source);
+  assert.equal(factsColl.all()[0]!.value, "Japan");
+  assert.deepEqual(edgesColl.all().find(e => e.rel === "sourced_from")!.to, { kind: "transcript_turn", id: "42" });
+});

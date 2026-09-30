@@ -7,8 +7,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ZodError } from "zod";
+import { Command } from "@langchain/langgraph";
 import {
   COLLECTION_NAMES,
+  applyApprovedDiff,
   confirmErasure,
   rejectReasonAuditId,
   requestErasure,
@@ -22,6 +24,8 @@ import {
   ApprovalResponseError,
   ApprovalResponseSchema,
   COUNSELLOR_WITHHELD_SUMMARY_REASON,
+  decisionFromResponse,
+  compileScribeGraph,
   inspectScribe,
   MAX_REJECT_REASON_LENGTH,
   resumeScribe,
@@ -29,9 +33,9 @@ import {
   startScribe,
   type ApprovalResponse,
 } from "../src/scribe/index.js";
-import { baseInput, citedCandidate, DEFAULT_SUMMARY, makeHarness, mockProvider, SESSION_ID, STUDENT_ID, type Harness } from "./scribe-fixtures.js";
+import { baseInput, citedCandidate, DEFAULT_SUMMARY, makeHarness, mockProvider, SESSION_ID, STUDENT_ID, SKILLS_DIR, type Harness } from "./scribe-fixtures.js";
 
-const cfg = (threadId: string) => ({ threadId });
+const cfg = (threadId: string) => ({ threadId, counsellorId: "synthetic-test-counsellor" });
 
 /** Three proposed facts: targetCountry (t1), budget (t3), intendedMajor (t1). */
 function threeFactHarness(): Harness {
@@ -87,7 +91,7 @@ test("T-008 per_fact: approve one, reject one, edit one -> exactly the approved 
   assert.equal(open.get("targetCountry")?.value, "Canada");
   assert.equal(open.get("intendedMajor")?.value, "data science", "the edited value is written as edited");
   assert.deepEqual(open.get("intendedMajor")?.purposeTags, [SCRIBE_PURPOSE]);
-  assert.equal(open.get("intendedMajor")?.source.type, "transcript", "the edit keeps the cited evidence (B2)");
+  assert.deepEqual(open.get("intendedMajor")?.source, { type: "counsellor-edit", counsellorId: "synthetic-test-counsellor", editedAt: (open.get("intendedMajor")!.source as any).editedAt, editedFrom: paused.kind === "awaiting_approval" ? paused.request.facts.find(f => f.key === "intendedMajor")!.source : undefined });
   // A rejected fact is never written, not even as history.
   assert.equal(h.facts.all().filter((f) => f.key === "budget_inr_per_year").length, 0);
   assert.equal(sessionRow(h)?.summary, DEFAULT_SUMMARY, "the approved summary is stored");
@@ -591,4 +595,210 @@ test("ISS-t-018-rev-2: recordRejectReasons' own insert is bound to the SAME (sho
         `a value close to 60000 means it is STILL using the package default, independent of the outer deadline`,
     );
   }
+});
+
+test("T046 authenticated per-fact edit stores actual actor/time and original citation while unchanged approval preserves source", async () => {
+  const h = threeFactHarness();
+  const paused = await startScribe(h.graph, baseInput(), cfg("t046-authenticated"));
+  assert.equal(paused.kind, "awaiting_approval");
+  if (paused.kind !== "awaiting_approval") return;
+  const original = paused.request.facts.find((f) => f.key === "intendedMajor")!;
+  const unchanged = paused.request.facts.find((f) => f.key === "targetCountry")!;
+  assert.equal(h.facts.all().length, 0);
+  const before = Date.now();
+  await resumeScribe(h.graph, mixed(), { threadId: "t046-authenticated", counsellorId: "verified-counsellor" } as never);
+  const written = h.openFacts().find((f) => f.key === "intendedMajor")!;
+  const source = written.source as any;
+  assert.equal(source.type, "counsellor-edit");
+  assert.equal(source.counsellorId, "verified-counsellor");
+  assert.ok(Date.parse(source.editedAt) >= before && Date.parse(source.editedAt) <= Date.now());
+  assert.deepEqual(source.editedFrom, original.source);
+  assert.deepEqual(h.openFacts().find((f) => f.key === "targetCountry")!.source, unchanged.source);
+  assert.equal(written.needsReview, true);
+  assert.equal(written.citationMatch, undefined);
+  assert.deepEqual((claims(h)[0] as any).approvalMetadata, { counsellorId: source.counsellorId, editedAt: source.editedAt });
+});
+
+test("T046 genuine changed-value approval without trusted actor refuses before claim or write", async () => {
+  const h = threeFactHarness();
+  await startScribe(h.graph, baseInput(), cfg("t046-no-actor"));
+  await assert.rejects(resumeScribe(h.graph, mixed(), { threadId: "t046-no-actor" }), (error: unknown) => error instanceof ApprovalResponseError);
+  await assert.rejects(resumeScribe(h.graph, mixed(), { threadId: "t046-no-actor", counsellorId: "   " }), (error: unknown) => error instanceof ApprovalResponseError);
+  assert.equal(claims(h).length, 0);
+  assert.equal(h.facts.all().length, 0);
+});
+
+for (const action of ["approve", "per_fact"] as const) test(`T046 unknown body provenance is rejected before stripping ${action}`, () => {
+  const response = action === "approve" ? { action, counsellorId: "FORGED_ACTOR", editedAt: "2026-09-30T00:00:00.000Z" } : { action, facts: [{ key: "k", decision: "edit", value: "changed", source: { type: "profile", id: "FORGED_SOURCE" } }], summary: "withhold" };
+  assert.equal(ApprovalResponseSchema.safeParse(response).success, false);
+});
+
+test("T046 whole-batch structured edits use authoritative proposal metadata and preserve unchanged structure", async () => {
+  const h = makeHarness({ tenantId: "scribe-test", provider: mockProvider({ "fact-extraction": { facts: [citedCandidate("structured", { first: 1, second: [2, 3] }, "study computer science", "t1")] } }) });
+  const paused = await startScribe(h.graph, baseInput(), cfg("t046-structured"));
+  assert.equal(paused.kind, "awaiting_approval");
+  if (paused.kind !== "awaiting_approval") return;
+  const proposed = paused.request.facts[0]!;
+  const unchanged = (decisionFromResponse as any)({ action: "edit", facts: [{ ...proposed, value: { second: [2, 3], first: 1 } }] }, [proposed], { counsellorId: "structured-actor", editedAt: "2026-09-30T12:00:00.000Z" });
+  assert.deepEqual(unchanged.decision.edits[0].source, proposed.source);
+  const changed = (decisionFromResponse as any)({ action: "edit", facts: [{ ...proposed, value: { first: 2, second: [2, 3] } }] }, [proposed], { counsellorId: "structured-actor", editedAt: "2026-09-30T12:00:00.000Z" });
+  assert.equal(changed.decision.edits[0].source.type, "counsellor-edit");
+  assert.deepEqual(changed.decision.edits[0].source.editedFrom, proposed.source);
+  assert.deepEqual(changed.decision.edits[0].value, { first: 2, second: [2, 3] });
+});
+
+for (const defect of ["source", "unknown", "duplicate", "confidence"] as const) test(`T046 whole-batch rejects replacement canonical fields ${defect}`, async () => {
+  const h = threeFactHarness();
+  const paused = await startScribe(h.graph, baseInput(), cfg(`t046-forged-${defect}`));
+  assert.equal(paused.kind, "awaiting_approval");
+  if (paused.kind !== "awaiting_approval") return;
+  const proposed = paused.request.facts[0]!;
+  const submitted: any = { ...proposed, value: "changed" };
+  if (defect === "source") submitted.source = { type: "profile", id: "FORGED_SOURCE" };
+  if (defect === "unknown") submitted.key = "UNPROPOSED";
+  if (defect === "confidence") submitted.confidence = 0.123;
+  const response: any = { action: "edit", facts: defect === "duplicate" ? [submitted, submitted] : [submitted] };
+  await assert.rejects(resumeScribe(h.graph, response, { threadId: `t046-forged-${defect}`, counsellorId: "verified-counsellor" } as never), (error: unknown) => error instanceof ApprovalResponseError);
+  assert.equal(claims(h).length, 0);
+  assert.equal(h.facts.all().length, 0);
+});
+test("T046 private invocation metadata cannot authorize nested second graph sharing DB student and thread", async () => {
+  const h = threeFactHarness();
+  const threadId = "t046-exact-graph";
+  await startScribe(h.graph, baseInput(), cfg(threadId));
+  const second = compileScribeGraph({ db: h.db, provider: h.provider, skillsDir: SKILLS_DIR }, { checkpointer: h.checkpointer });
+  h.graph.invoke = ((input: unknown, config: unknown) => second.invoke(input as never, config as never)) as typeof h.graph.invoke;
+  await assert.rejects(resumeScribe(h.graph, mixed(), { threadId, counsellorId: "outer-actor" }), (error: unknown) => error instanceof ApprovalResponseError);
+  assert.equal(h.facts.all().length, 0, "nested graph gets no outer actor grant");
+});
+test("T046 concurrent invocation actors do not cross graph boundaries", async () => {
+  const first = threeFactHarness(); const second = threeFactHarness();
+  await Promise.all([startScribe(first.graph, baseInput(), cfg("t046-concurrent-a")), startScribe(second.graph, baseInput(), cfg("t046-concurrent-b"))]);
+  await Promise.all([resumeScribe(first.graph, mixed(), { threadId: "t046-concurrent-a", counsellorId: "actor-A" }), resumeScribe(second.graph, mixed(), { threadId: "t046-concurrent-b", counsellorId: "actor-B" })]);
+  assert.equal((first.openFacts().find((f) => f.key === "intendedMajor")!.source as any).counsellorId, "actor-A");
+  assert.equal((second.openFacts().find((f) => f.key === "intendedMajor")!.source as any).counsellorId, "actor-B");
+});
+
+test("T046 competing callers and checkpoint replay retain winning actor time and content", async () => {
+  const h = threeFactHarness(); const threadId = "t046-winner";
+  await startScribe(h.graph, baseInput(), cfg(threadId));
+  const checkpoint = (await h.graph.getState({ configurable: { thread_id: threadId } })).config.configurable!.checkpoint_id;
+  const responseA = mixed(); const responseB: any = mixed(); responseB.facts[2].value = "mathematics";
+  const results = await Promise.all([resumeScribe(h.graph, responseA, { threadId, counsellorId: "winner-A" }), resumeScribe(h.graph, responseB, { threadId, counsellorId: "winner-B" })]);
+  assert.equal(results.filter((r) => r.kind === "done").length, 1);
+  assert.equal(claims(h).length, 1);
+  const winner = claims(h)[0] as any; const snapshot = JSON.stringify(h.facts.all());
+  const fact = h.openFacts().find((f) => f.key === "intendedMajor")!;
+  assert.deepEqual({ counsellorId: (fact.source as any).counsellorId, editedAt: (fact.source as any).editedAt }, winner.approvalMetadata);
+  const replay = await resumeScribe(h.graph, responseA, { threadId, checkpointId: checkpoint, counsellorId: "replay-other" });
+  assert.equal(replay.kind, "already_resolved");
+  assert.equal(JSON.stringify(h.facts.all()), snapshot);
+  assert.deepEqual((claims(h)[0] as any).approvalMetadata, winner.approvalMetadata);
+});
+
+test("T046 crash after winning claim recovery uses winner metadata rather than recovery caller", async () => {
+  const h = threeFactHarness(); const threadId = "t046-crash";
+  await startScribe(h.graph, baseInput(), cfg(threadId));
+  const invoke = h.graph.invoke.bind(h.graph);
+  h.graph.invoke = (async () => { throw new Error("synthetic-before-approval-invoke"); }) as typeof h.graph.invoke;
+  await assert.rejects(resumeScribe(h.graph, mixed(), { threadId, counsellorId: "claim-winner" }), /synthetic-before-approval-invoke/);
+  assert.equal(h.facts.all().length, 0); const winner = structuredClone(claims(h)[0]) as any;
+  h.graph.invoke = invoke;
+  const recovered = await resumeScribe(h.graph, null, { threadId, counsellorId: "recovery-different" });
+  assert.equal(recovered.kind, "done");
+  const source = h.openFacts().find((f) => f.key === "intendedMajor")!.source as any;
+  assert.deepEqual({ counsellorId: source.counsellorId, editedAt: source.editedAt }, winner.approvalMetadata);
+  assert.equal(claims(h).length, 1);
+});
+
+test("T046 serialized configurable actor fields cannot grant edit authority", async () => {
+  const h = threeFactHarness(); const threadId = "t046-config-forgery";
+  await startScribe(h.graph, baseInput(), cfg(threadId));
+  await assert.rejects(h.graph.invoke(new Command({ resume: mixed() }), { configurable: { thread_id: threadId, counsellorId: "FORGED_CONFIG", approvalMetadata: { counsellorId: "FORGED_CONFIG", editedAt: "2026-09-30T00:00:00.000Z" } } }), (error: unknown) => error instanceof ApprovalResponseError);
+  assert.equal(h.facts.all().length, 0); assert.equal(claims(h).length, 0);
+});
+
+test("T046 structured batch subset genuinely persists changed canonical provenance", async () => {
+  const h = makeHarness({ tenantId: "scribe-test", provider: mockProvider({ "fact-extraction": { facts: [citedCandidate("structured", { first: 1, second: [2, 3] }, "study computer science", "t1"), citedCandidate("untouched", "Canada", "Canada", "t1")] } }) });
+  const threadId = "t046-structured-store"; const paused = await startScribe(h.graph, baseInput(), cfg(threadId));
+  assert.equal(paused.kind, "awaiting_approval"); if (paused.kind !== "awaiting_approval") return;
+  const original = paused.request.facts.find((f) => f.key === "structured")!;
+  await resumeScribe(h.graph, { action: "edit", facts: [{ ...original, value: { first: 2, second: [2, 3] } }] }, { threadId, counsellorId: "structured-writer" });
+  assert.equal(h.openFacts().length, 1);
+  assert.deepEqual(h.openFacts()[0]!.value, { first: 2, second: [2, 3] });
+  assert.equal(h.openFacts()[0]!.source.type, "counsellor-edit");
+  assert.deepEqual((h.openFacts()[0]!.source as any).editedFrom, original.source);
+});
+
+test("T046 repeated edit retains bounded original citation with latest actual metadata", async () => {
+  const h = threeFactHarness(); const paused = await startScribe(h.graph, baseInput(), cfg("t046-repeat"));
+  assert.equal(paused.kind, "awaiting_approval"); if (paused.kind !== "awaiting_approval") return;
+  const original = paused.request.facts[0]!;
+  const first = (decisionFromResponse as any)({ action: "edit", facts: [{ ...original, value: "Germany" }] }, [original], { counsellorId: "first-actor", editedAt: "2026-09-30T12:00:00.000Z" }).decision.edits[0];
+  const second = (decisionFromResponse as any)({ action: "edit", facts: [{ ...first, value: "Japan" }] }, [first], { counsellorId: "second-actor", editedAt: "2026-09-30T12:00:01.000Z" }).decision.edits[0];
+  assert.deepEqual(second.source, { type: "counsellor-edit", counsellorId: "second-actor", editedAt: "2026-09-30T12:00:01.000Z", editedFrom: original.source });
+  assert.equal(second.needsReview, true); assert.equal(second.citationMatch, undefined);
+  await applyApprovedDiff(h.db, paused.request.diff, { approve: true, edits: [first] }, "repeat-first-session");
+  const before = structuredClone(h.openFacts()[0]!);
+  await applyApprovedDiff(h.db, paused.request.diff, { approve: true, edits: [second] }, "repeat-second-session");
+  assert.equal(h.facts.all().length, 2); assert.equal(h.openFacts().length, 1);
+  assert.equal(h.openFacts()[0]!.value, "Japan"); assert.deepEqual(h.openFacts()[0]!.source, second.source);
+  const retired = h.facts.all().find(f => f._id === before._id)!; assert.equal(retired.active, undefined); assert.equal(Object.hasOwn(retired, "active"), false); assert.ok(retired.validTo); assert.equal(retired.value, "Germany"); assert.deepEqual(retired.source, first.source);
+  const snapshot = JSON.stringify(h.facts.all()); await applyApprovedDiff(h.db, paused.request.diff, { approve: true, edits: [second] }, "repeat-second-session"); assert.equal(JSON.stringify(h.facts.all()), snapshot);
+});
+
+test("T046 model-authored counsellor edit remains unextractable", async () => {
+  const candidate: any = citedCandidate("targetCountry", "Canada", "Canada", "t1");
+  candidate.source = { type: "counsellor-edit", counsellorId: "MODEL_FORGED", editedAt: "2026-09-30T00:00:00.000Z", editedFrom: candidate.source };
+  const h = makeHarness({ tenantId: "scribe-test", provider: mockProvider({ "fact-extraction": { facts: [candidate] } }) });
+  const paused = await startScribe(h.graph, baseInput(), cfg("t046-model-forgery"));
+  assert.equal(paused.kind, "awaiting_approval"); if (paused.kind !== "awaiting_approval") return;
+  assert.equal(paused.request.facts.length, 0); assert.equal(paused.request.dropped.length, 1); assert.equal(h.facts.all().length, 0);
+});
+
+test("T046 changed formerly auto-verified value cannot inherit transcript verification", async () => {
+  const h = threeFactHarness(); const threadId = "t046-auto-verified";
+  const paused = await startScribe(h.graph, baseInput(), cfg(threadId)); assert.equal(paused.kind, "awaiting_approval"); if (paused.kind !== "awaiting_approval") return;
+  assert.equal(paused.request.facts.find((f) => f.key === "targetCountry")!.needsReview, false);
+  await resumeScribe(h.graph, { action: "per_fact", facts: [{ key: "targetCountry", decision: "edit", value: "Japan" }, { key: "budget_inr_per_year", decision: "reject" }, { key: "intendedMajor", decision: "reject" }], summary: "withhold" }, { threadId, counsellorId: "verified-edit" });
+  assert.equal(h.openFacts()[0]!.needsReview, true); assert.equal(h.openFacts()[0]!.citationMatch, undefined); assert.equal(h.openFacts()[0]!.source.type, "counsellor-edit");
+});
+for (const seam of ["envelope", "candidate", "transcript source"] as const) test(`T046 model provenance injection refuses before projection ${seam}`, async () => {
+  const candidate: any = citedCandidate("targetCountry", "Canada", "Canada", "t1");
+  const response: any = { facts: [candidate] };
+  if (seam === "envelope") response.counsellorId = "MODEL_PRIVATE_ACTOR";
+  if (seam === "candidate") candidate.editedFrom = { type: "profile", id: "MODEL_PRIVATE_ACTOR" };
+  if (seam === "transcript source") Object.assign(candidate.source, { counsellorId: "MODEL_PRIVATE_ACTOR", editedAt: "2026-09-30T00:00:00.000Z", editedFrom: { type: "profile", id: "MODEL_PRIVATE_ACTOR" } });
+  const h = makeHarness({ tenantId: "scribe-test", provider: mockProvider({ "fact-extraction": response }) });
+  const outcome = await startScribe(h.graph, baseInput(), cfg(`t046-injected-${seam}`));
+  if (seam === "envelope") { assert.equal(outcome.kind, "done"); assert.equal(outcome.kind === "done" && outcome.result.status, "extraction_failed"); }
+  else { assert.equal(outcome.kind, "awaiting_approval"); if (outcome.kind !== "awaiting_approval") return; assert.equal(outcome.request.facts.length, 0); assert.equal(outcome.request.dropped.length, 1); assert.doesNotMatch(JSON.stringify(outcome.request), /MODEL_PRIVATE_ACTOR/); }
+  assert.equal(h.facts.all().length, 0); assert.equal(claims(h).length, 0);
+});
+test("T046 contaminated candidate drops without stripping provenance while clean neighbor survives", async () => {
+  const contaminated: any = citedCandidate("targetCountry", "Canada", "Canada", "t1");
+  contaminated.source.counsellorId = "MODEL_PRIVATE_ACTOR";
+  const clean = citedCandidate("intendedMajor", "computer science", "study computer science", "t1");
+  const h = makeHarness({ tenantId: "scribe-test", provider: mockProvider({ "fact-extraction": { facts: [contaminated, clean] } }) });
+  const outcome = await startScribe(h.graph, baseInput(), cfg("t046-clean-neighbor"));
+  assert.equal(outcome.kind, "awaiting_approval"); if (outcome.kind !== "awaiting_approval") return;
+  assert.deepEqual(outcome.request.facts.map(f => f.key), ["intendedMajor"]);
+  assert.equal(outcome.request.dropped.length, 1);
+  assert.doesNotMatch(JSON.stringify(outcome), /MODEL_PRIVATE_ACTOR/);
+  assert.equal(h.facts.all().length, 0); assert.equal(claims(h).length, 0);
+});
+test("T046 malformed durable winner metadata refuses typed without execution or writes", async () => {
+  const h = threeFactHarness(); const threadId = "t046-malformed-winner";
+  await startScribe(h.graph, baseInput(), cfg(threadId));
+  const invoke = h.graph.invoke.bind(h.graph);
+  h.graph.invoke = (async () => { throw new Error("synthetic-before-invoke"); }) as typeof h.graph.invoke;
+  await assert.rejects(resumeScribe(h.graph, mixed(), { threadId, counsellorId: "actual-winner" }), /synthetic-before-invoke/);
+  h.graph.invoke = invoke;
+  const claim = claims(h)[0]!;
+  let executed = 0; h.graph.invoke = (async (...args: Parameters<typeof invoke>) => { executed++; return invoke(...args); }) as typeof h.graph.invoke;
+  for (const metadata of [{ counsellorId: 42, editedAt: "MALFORMED_PRIVATE_TIME" }, { counsellorId: "actor", editedAt: 42 }, { counsellorId: "actor", editedAt: "MALFORMED_PRIVATE_TIME" }, { counsellorId: "actor", editedAt: "2026-09-30T00:00:00.000Z", MALFORMED_PRIVATE_KEY: "private" }]) {
+    await h.fakeDb.collection<any>(COLLECTION_NAMES.scribe_resolutions).updateOne({ _id: claim._id }, { $set: { approvalMetadata: metadata } });
+    await assert.rejects(resumeScribe(h.graph, null, { threadId, counsellorId: "different-recovery" }), (error: unknown) => error instanceof ApprovalResponseError && !/MALFORMED_PRIVATE/.test(String(error) + JSON.stringify(error)));
+  }
+  assert.equal(executed, 0); assert.equal(h.facts.all().length, 0); assert.equal(claims(h).length, 1);
 });

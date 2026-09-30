@@ -110,7 +110,7 @@ const DEMO_SUMMARY =
 export interface DemoReadback {
   studentId: string;
   /** Every fact document for the student (open and retired). */
-  facts: { key: string; value: unknown; active: boolean }[];
+  facts: { key: string; value: unknown; active: boolean; source: FactDoc["source"] }[];
   sessions: { sessionId: string; summary?: string; summaryWithheldReason?: string; summaryApprovedAt?: string }[];
   claims: number;
   /**
@@ -263,7 +263,7 @@ export async function createDemoRuntime(): Promise<DemoRuntime> {
   return {
     mode: "demo",
     graph,
-    engine: { inspectScribe, resumeScribe },
+    engine: { inspectScribe, resumeScribe: (graph, response, opts) => resumeScribe(graph, response, { ...opts, counsellorId: "vc-demo-counsellor" }) },
     threads: DEMO_THREADS,
     startSession: (input: ScribeInput): Promise<ScribeOutcome> =>
       startScribe(sessionGraph, input, { threadId: scribeThreadId(input.sessionId) }),
@@ -272,7 +272,7 @@ export async function createDemoRuntime(): Promise<DemoRuntime> {
         .collection<FactDoc>(COLLECTION_NAMES.facts)
         .all()
         .filter((f) => (f as FactDoc & { tenantId?: string }).tenantId === demoTenant && f.studentId === studentId)
-        .map((f) => ({ key: f.key, value: f.value, active: f.active === true }));
+        .map((f) => ({ key: f.key, value: f.value, active: f.active === true, source: f.source }));
       const sessions = fakeDb
         .collection<SessionDoc>(COLLECTION_NAMES.sessions)
         .all()

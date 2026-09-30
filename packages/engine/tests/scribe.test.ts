@@ -1,3 +1,4 @@
+import type { Fact } from "@vc/schemas";
 /**
  * T-007 outcome tests for the post-session scribe graph (contract B2, B3, B4,
  * B5, B6, B9, B14; D-012 sessionId-stable idempotency). Every assertion reads
@@ -17,7 +18,7 @@ import {
   SESSION_ID,
 } from "./scribe-fixtures.js";
 
-const cfg = (threadId: string) => ({ threadId });
+const cfg = (threadId: string) => ({ threadId, counsellorId: "synthetic-test-counsellor" });
 
 // ---------------------------------------------------------------------------
 // B3: no write before approval
@@ -98,10 +99,9 @@ test("B3: reject writes nothing", async () => {
 
 test("B3: edit writes the counsellor's edited values, not the model's", async () => {
   const h = makeHarness({ tenantId: "scribe-test" });
-  await startScribe(h.graph, baseInput(), cfg("thread-edit"));
+  const paused = await startScribe(h.graph, baseInput(), cfg("thread-edit")); assert.equal(paused.kind, "awaiting_approval"); if (paused.kind !== "awaiting_approval") return;
   const edited = {
-    ...citedCandidate("budget_inr_per_year", 1800000, "around 20 lakh rupees a year", "t3"),
-    validFrom: "2026-09-25T10:00:00.000Z",
+    ...paused.request.facts.find(f => f.key === "budget_inr_per_year")!, value: 1800000,
   };
   const outcome = await resumeScribe(h.graph, { action: "edit", facts: [edited] }, cfg("thread-edit"));
 
@@ -433,11 +433,10 @@ test("ISS-t-007-rev-5: scribe-extracted facts carry EXACTLY [profile_synthesis];
 
 test("ISS-t-007-rev-5: the counsellor edit path cannot add purposes beyond profile_synthesis", async () => {
   const h = makeHarness({ tenantId: "scribe-test" });
-  await startScribe(h.graph, baseInput(), cfg("thread-purpose-edit"));
+  const paused = await startScribe(h.graph, baseInput(), cfg("thread-purpose-edit")); assert.equal(paused.kind, "awaiting_approval"); if (paused.kind !== "awaiting_approval") return;
   const edited = {
-    ...citedCandidate("budget_inr_per_year", 1800000, "around 20 lakh rupees a year", "t3"),
+    ...paused.request.facts.find(f => f.key === "budget_inr_per_year")!, value: 1800000,
     purposeTags: ["application_filling", "counselling_session"],
-    validFrom: "2026-09-25T10:00:00.000Z",
   };
   const outcome = await resumeScribe(h.graph, { action: "edit", facts: [edited] }, cfg("thread-purpose-edit"));
   assert.equal(outcome.kind === "done" && outcome.result.status, "written");
@@ -540,16 +539,16 @@ test("ISS-t-007-rev-1: a malformed summary is retried once; always-malformed end
 type Outcome = Awaited<ReturnType<typeof resumeScribe>>;
 type Resp = Exclude<Parameters<typeof resumeScribe>[1], null>;
 
-function editBudget(value: number): Resp {
+function editBudget(value: number, proposal: Fact): Resp {
   return {
     action: "edit",
-    facts: [{ ...citedCandidate("budget_inr_per_year", value, "around 20 lakh rupees a year", "t3"), validFrom: "2026-09-25T10:00:00.000Z" }],
+    facts: [{ ...proposal, value }],
   } as Resp;
 }
 
 /** Settles every resume concurrently and pairs each outcome with what that caller submitted. */
 async function raceResumes(h: ReturnType<typeof makeHarness>, threadId: string, responses: Resp[]) {
-  const settled = await Promise.allSettled(responses.map((r) => resumeScribe(h.graph, r, cfg(threadId))));
+  const settled = await Promise.allSettled(responses.map((r, i) => resumeScribe(h.graph, r, { threadId, counsellorId: `race-actor-${i}` })));
   for (const s of settled) assert.equal(s.status, "fulfilled", s.status === "rejected" ? String(s.reason) : "");
   return settled.map((s, i) => ({ submitted: responses[i]!, outcome: (s as PromiseFulfilledResult<Outcome>).value }));
 }
@@ -573,6 +572,8 @@ function assertPersistedMatches(h: ReturnType<typeof makeHarness>, winner: Resp)
   } else {
     assert.deepEqual(open.map((f) => [f.key, f.value]), winner.facts.map((f) => [f.key, f.value]));
     assert.equal(h.facts.size(), winner.facts.length, "no double write");
+    const claim = h.fakeDb.collection<any>("scribe_resolutions").all()[0];
+    for (const f of open) { assert.equal(f.source.type, "counsellor-edit"); assert.deepEqual({ counsellorId: (f.source as any).counsellorId, editedAt: (f.source as any).editedAt }, claim.approvalMetadata); assert.deepEqual((f.source as any).editedFrom, winner.facts.find(p => p.key === f.key)!.source); }
   }
 }
 
@@ -600,8 +601,8 @@ function assertOneWinner(results: Array<{ submitted: Resp; outcome: Outcome }>) 
 
 test("ISS-t-007-rev-8 (a): two DIFFERENT concurrent edits -> exactly one done, the other already_resolved with the winner's decision; persisted = winner", async () => {
   const h = makeHarness({ tenantId: "scribe-test" });
-  await startScribe(h.graph, baseInput(), cfg("thread-race-edits"));
-  const results = await raceResumes(h, "thread-race-edits", [editBudget(1800000), editBudget(1500000)]);
+  const paused = await startScribe(h.graph, baseInput(), cfg("thread-race-edits")); assert.equal(paused.kind, "awaiting_approval"); if (paused.kind !== "awaiting_approval") return; const proposal = paused.request.facts.find(f => f.key === "budget_inr_per_year")!;
+  const results = await raceResumes(h, "thread-race-edits", [editBudget(1800000, proposal), editBudget(1500000, proposal)]);
   const winner = assertOneWinner(results);
   assert.equal(winner.outcome.kind === "done" && winner.outcome.result.status, "written");
   assertPersistedMatches(h, winner.submitted);
@@ -642,12 +643,12 @@ test("ISS-t-007-rev-8 (c): two IDENTICAL concurrent approves -> one done + one a
 
 test("ISS-t-007-rev-8 (d): 5 concurrent mixed resumes -> exactly one winner, every loser carries its decision, persisted = winner", async () => {
   const h = makeHarness({ tenantId: "scribe-test" });
-  await startScribe(h.graph, baseInput(), cfg("thread-race-5"));
+  const paused = await startScribe(h.graph, baseInput(), cfg("thread-race-5")); assert.equal(paused.kind, "awaiting_approval"); if (paused.kind !== "awaiting_approval") return; const proposal = paused.request.facts.find(f => f.key === "budget_inr_per_year")!;
   const responses: Resp[] = [
-    editBudget(1700000),
+    editBudget(1700000, proposal),
     { action: "reject", reason: "no" },
     { action: "approve" },
-    editBudget(1600000),
+    editBudget(1600000, proposal),
     { action: "reject", reason: "second opinion" },
   ];
   const winner = assertOneWinner(await raceResumes(h, "thread-race-5", responses));
@@ -661,7 +662,7 @@ test("ISS-t-007-rev-8 (d): 5 concurrent mixed resumes -> exactly one winner, eve
 
 test("ISS-t-007-rev-8: a crash AFTER the claim but BEFORE graph.invoke -> a rival decision is already_resolved; resumeScribe(null) completes the CLAIMED decision", async () => {
   const h = makeHarness({ tenantId: "scribe-test" });
-  await startScribe(h.graph, baseInput(), cfg("thread-claim-crash"));
+  const paused = await startScribe(h.graph, baseInput(), cfg("thread-claim-crash")); assert.equal(paused.kind, "awaiting_approval"); if (paused.kind !== "awaiting_approval") return; const proposal = paused.request.facts.find(f => f.key === "budget_inr_per_year")!;
   const realInvoke = h.graph.invoke.bind(h.graph);
   let crashes = 1;
   (h.graph as unknown as { invoke: unknown }).invoke = async (...args: Parameters<typeof realInvoke>) => {
@@ -672,7 +673,7 @@ test("ISS-t-007-rev-8: a crash AFTER the claim but BEFORE graph.invoke -> a riva
     return realInvoke(...args);
   };
 
-  await assert.rejects(resumeScribe(h.graph, editBudget(1800000), cfg("thread-claim-crash")), /simulated crash/);
+  await assert.rejects(resumeScribe(h.graph, editBudget(1800000, proposal), cfg("thread-claim-crash")), /simulated crash/);
   assert.equal(h.facts.size(), 0, "nothing written yet");
 
   // A different decision cannot steal the claim.
@@ -686,10 +687,10 @@ test("ISS-t-007-rev-8: a crash AFTER the claim but BEFORE graph.invoke -> a riva
   assert.equal(h.facts.size(), 0);
 
   // Crash recovery: a null resume applies the claimed decision, and only it.
-  const recovered = await resumeScribe(h.graph, null, cfg("thread-claim-crash"));
+  const recovered = await resumeScribe(h.graph, null, { threadId: "thread-claim-crash", counsellorId: "different-recovery-actor" });
   assert.equal(recovered.kind, "done");
   assert.equal(recovered.kind === "done" && recovered.result.status, "written");
-  assertPersistedMatches(h, editBudget(1800000));
+  assertPersistedMatches(h, editBudget(1800000, proposal));
 });
 
 test("ISS-t-007-c1-1: the scribe's written facts are found by a purpose-filtered find() on the shared fake (profile_synthesis -> 2, application_filling -> 0)", async () => {

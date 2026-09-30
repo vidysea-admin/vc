@@ -18,6 +18,7 @@ import { Annotation, Command, END, START, StateGraph, interrupt, type BaseCheckp
 import type { Callbacks } from "@langchain/core/callbacks/manager";
 import { createHash, randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { ProviderAuthorizationRefusedError } from "@vc/providers";
 import {
   deriveEdgeId,
@@ -50,6 +51,7 @@ import {
   checkConsent,
   checkCrisis,
   decisionFromResponse,
+  ApprovalResponseError,
   extractFacts,
   loadApprovedContext,
   proposeDiff,
@@ -72,6 +74,9 @@ import {
   type ScribeTurn,
   type SummaryDecision,
 } from "./schemas.js";
+
+const approvalBindings = new WeakMap<object, object>();
+const approvalInvocation = new AsyncLocalStorage<{ graph: object; tenantId: string | undefined; studentId: string; threadId: string; winner?: ScribeResolutionDoc }>();
 
 export const SCRIBE_NODES = {
   consent: "consent_gate",
@@ -142,7 +147,8 @@ function authorizeSnapshot(deps: Pick<ScribeDeps, "db">, studentId: string, snap
 }
 
 export function buildScribeGraph(deps: ScribeDeps) {
-  return new StateGraph(ScribeState)
+  const binding = Object.freeze({});
+  const builder = new StateGraph(ScribeState)
     .addNode(SCRIBE_NODES.consent, async (s: State) => {
       const out = await checkConsent({ studentId: s.studentId }, deps);
       return out.consent === "refused"
@@ -190,7 +196,11 @@ export function buildScribeGraph(deps: ScribeDeps) {
       await authorizeSnapshot(deps, s.studentId, s.approvedContext ?? [], runtime.signal)();
       // B3: the graph suspends here; the counsellor's typed response resumes it.
       const response = ApprovalResponseSchema.parse(interrupt(request));
-      const { decision, summaryDecision, rejectedFacts } = decisionFromResponse(response, s.proposedFacts ?? []);
+      const invocation = approvalInvocation.getStore();
+      const trusted = invocation && approvalBindings.get(invocation.graph) === binding && graphDeps.get(invocation.graph)?.db === deps.db && invocation.tenantId === tenantIdOf(deps.db) &&
+        invocation.studentId === s.studentId && invocation.threadId === runtime.configurable?.thread_id ? invocation.winner?.approvalMetadata : undefined;
+      const { decision, summaryDecision, rejectedFacts } = decisionFromResponse(response, s.proposedFacts ?? [], trusted);
+      if (invocation?.winner && !isDeepStrictEqual(decision, invocation.winner.decision)) throw new ApprovalResponseError("approval: winning decision metadata differs from current proposal");
       // T-018 / residual 3: a per_fact response that rejected at least one proposed fact gets an
       // audit record of the rejected keys and why (never a transcript quote), written whether or
       // not the overall decision approves anything else — independently fence-aware
@@ -281,6 +291,8 @@ export function buildScribeGraph(deps: ScribeDeps) {
       [SCRIBE_NODES.write, END],
     )
     .addEdge(SCRIBE_NODES.write, END);
+  approvalBindings.set(builder, binding);
+  return builder;
 }
 
 /**
@@ -292,7 +304,9 @@ export function compileScribeGraph(deps: ScribeDeps, options: { checkpointer: Ba
   if (deps.escalation && tenantIdOf(deps.db) === undefined) {
     throw new TenantScopeError("compileScribeGraph: `escalation` needs a tenant-scoped db (tenantScopedDb, T-025)");
   }
-  const graph = buildScribeGraph(deps).compile({ checkpointer: options.checkpointer });
+  const builder = buildScribeGraph(deps);
+  const graph = builder.compile({ checkpointer: options.checkpointer });
+  approvalBindings.set(graph, approvalBindings.get(builder)!);
   graphDeps.set(graph, { db: deps.db, checkpointer: options.checkpointer, escalation: deps.escalation,
     authorize: (studentId, snapshot, signal) => authorizeSnapshot(deps, studentId, snapshot, signal)(),
   });
@@ -336,6 +350,8 @@ export interface ScribeRunOptions {
    * default). A longer one throws RangeError: the erasure fence's minimum hold would not cover it.
    */
   writerDeadlineMs?: number;
+  /** Trusted service invocation actor, never accepted from the approval body or checkpoint config. */
+  counsellorId?: string;
 }
 
 /** One thread per session, derivable from the sessionId (so T-011 erasure can find the checkpoints). */
@@ -608,7 +624,8 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts: 
         // T-012 / B16: guard-crisis notifications are written here, before any provider call; the
         // classifier review continues in the background (never awaited by the scribe).
         if (deps.escalation) await escalateSessionFlags(deps.db, parsed, deps.escalation);
-        return graph.invoke(parsed, runnableConfig(opts, deadline));
+        return approvalInvocation.run(Object.freeze({ graph, tenantId: tenantIdOf(deps.db), studentId: parsed.studentId, threadId: opts.threadId }),
+          () => graph.invoke(parsed, runnableConfig(opts, deadline)));
       },
     );
     if (fenced) return { kind: "fenced" };
@@ -952,7 +969,9 @@ async function resumeUnderDeadline(
     // The decision this response resolves to (the same pure function the approval node runs), so a
     // loser can be told the winner's decision even while the winner's invoke is still in flight.
     // A response that decisionFromResponse refuses throws here, BEFORE any claim is taken.
-    const { decision } = decisionFromResponse(parsed, latest.proposedFacts ?? []);
+    const approvalMetadata = typeof opts.counsellorId === "string" && opts.counsellorId.trim() ?
+      { counsellorId: opts.counsellorId, editedAt: new Date().toISOString() } : undefined;
+    const { decision } = decisionFromResponse(parsed, latest.proposedFacts ?? [], approvalMetadata);
     // ISS-t-007-rev-9: never an empty studentId (the claim holds fact values; B15 finds it by studentId).
     if (typeof latest.studentId !== "string" || latest.studentId.trim() === "") {
       throw new Error(`resumeScribe: the thread's state has no studentId; refusing to claim it (B15 erasure could not find the claim)`);
@@ -967,6 +986,7 @@ async function resumeUnderDeadline(
       response: parsed as unknown as Record<string, unknown>,
       responseHash: approvalResponseHash(parsed),
       claimedAt: new Date().toISOString(),
+      ...(approvalMetadata ? { approvalMetadata } : {}),
       // ISS-t-007-rev-10: the winner holds the run lease from the moment it claims.
       lease: newLease(deadline),
     };
@@ -1017,7 +1037,8 @@ async function resumeUnderDeadline(
   }
   const run = async (): Promise<ScribeOutcome> => {
     const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, { claim: createdClaim }, deadline, () =>
-      graph.invoke(new Command({ resume: parsed }), runnableConfig(opts, deadline)),
+      approvalInvocation.run(Object.freeze({ graph, tenantId: tenantIdOf(deps.db), studentId: latest.studentId!, threadId: opts.threadId, winner: createdClaim ?? undefined }),
+        () => graph.invoke(new Command({ resume: parsed }), runnableConfig(opts, deadline))),
     );
     return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId, deadline);
   };
@@ -1047,12 +1068,20 @@ async function recoverUnder(
   if (snapshot.next.length === 0) return readOutcome(graph, opts.threadId, deadline);
   const pendingInterrupt = snapshot.tasks.some((task) => task.interrupts.length > 0);
   const claimed = claim !== null && !latest.decision && pendingInterrupt ? ApprovalResponseSchema.parse(claim.response) : null;
+  if (claimed && claim) {
+    if (claim.studentId !== latest.studentId || claim.threadId !== opts.threadId || claim.responseHash !== approvalResponseHash(claimed) ||
+        !isDeepStrictEqual(decisionFromResponse(claimed, latest.proposedFacts ?? [], claim.approvalMetadata).decision, claim.decision)) {
+      throw new ApprovalResponseError("recovery: winning approval metadata is invalid");
+    }
+  }
   const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, {}, deadline, async () => {
     if (claimed) {
       // Crash after the claim, before the decision was recorded: apply the CLAIMED response.
-      await graph.invoke(new Command({ resume: claimed }), runnableConfig({ ...opts, checkpointId: undefined }, deadline));
+      await approvalInvocation.run(Object.freeze({ graph, tenantId: tenantIdOf(deps.db), studentId: latest.studentId!, threadId: opts.threadId, winner: claim ?? undefined }),
+        () => graph.invoke(new Command({ resume: claimed }), runnableConfig({ ...opts, checkpointId: undefined }, deadline)));
     } else {
-      await graph.invoke(null, runnableConfig(opts, deadline));
+      await approvalInvocation.run(Object.freeze({ graph, tenantId: tenantIdOf(deps.db), studentId: latest.studentId!, threadId: opts.threadId, winner: claim ?? undefined }),
+        () => graph.invoke(null, runnableConfig(opts, deadline)));
     }
   });
   return fenced ? { kind: "fenced" } : readOutcome(graph, opts.threadId, deadline);

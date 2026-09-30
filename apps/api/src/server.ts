@@ -269,6 +269,7 @@ const NOT_FOUND: Result = { status: 404, body: { error: "not_found" } };
 function scribeOpts(ctx: RouteContext) {
   return {
     threadId: scribeThreadId(ctx.params.sessionId!),
+    counsellorId: ctx.auth.counsellorId,
     ...(ctx.writerDeadlineMs !== undefined ? { writerDeadlineMs: ctx.writerDeadlineMs } : {}),
   };
 }

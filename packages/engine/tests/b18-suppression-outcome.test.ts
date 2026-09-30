@@ -558,15 +558,15 @@ for (const decision of ["pending", "rejected"] as const) {
   });
 }
 
-test("T-045 actual approved edited value is history authority while original canonical source is retained honestly", async () => {
+test("T-045 actual approved edited value and bounded canonical provenance are history authority", async () => {
   const p = historyProvider({ "fact-extraction": { facts: [historyCandidate("ielts_overall", 7, "My IELTS score is 7", "score")] }, "session-summary": { summary: "Reported a score." } });
   const h = historyHarness({ provider: p, tenantId: "history-test" });
   const turns = [{ turnId: "score", speaker: "student" as const, lang: "en", text: "My IELTS score is 7", translatedText: "My IELTS score is 7", ts: 1 }];
   await historyStart(h.graph, historyInput({ turns }), { threadId: "approved-edit" });
-  await historyResume(h.graph, { action: "per_fact", facts: [{ key: "ielts_overall", decision: "edit", value: 8 }], summary: "approve" }, { threadId: "approved-edit" });
+  await historyResume(h.graph, { action: "per_fact", facts: [{ key: "ielts_overall", decision: "edit", value: 8 }], summary: "approve" }, { threadId: "approved-edit", counsellorId: " history-edit-actor " });
   const stored = structuredClone(h.openFacts()[0]!);
   assert.equal(stored.value, 8);
-  assert.deepEqual(stored.source, { type: "transcript", quote: "My IELTS score is 7", turnId: "score" });
+  assert.deepEqual(stored.source, { type: "counsellor-edit", counsellorId: " history-edit-actor ", editedAt: (stored.source as any).editedAt, editedFrom: { type: "transcript", quote: "My IELTS score is 7", turnId: "score" } }); assert.ok(Number.isFinite(Date.parse((stored.source as any).editedAt)));
   p.setResponse("fact-extraction", { facts: [] });
   const candidate = "Establish the IELTS score next time.";
   p.setResponse("session-summary", (input: any) => input.task === "verify-approved-history" ? { ...historyClear(input), verdict: "violation", offendingSpans: [{ factId: input.approvedContext[0].factId, start: 0, end: candidate.length, text: candidate }] } : { summary: candidate });

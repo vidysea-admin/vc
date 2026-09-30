@@ -956,3 +956,35 @@ test("T-025 api: startApi with http refuses a missing JWT configuration before c
   );
   assert.equal(connected, 0);
 });
+
+test("T046 verified JWT edit provenance is identical in raw KG API profile and approved webhook", async () => {
+  const outbox = new InMemoryWebhookOutbox();
+  const w = world({ webhooks: { outboxForTenant: () => outbox, destinationUrl: "http://client.invalid/hook" } });
+  await scribeToApproval(w, "tenant-a");
+  const token = await as("tenant-a", " actual-jwt-counsellor ", "counsellor");
+  const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
+  const seen = await call(w, "GET", `${base}/approval`, { token });
+  const original = seen.json.request.facts.find((f: AnyDoc) => f.key === "targetCountry");
+  const body = { action: "per_fact", facts: [{ key: "targetCountry", decision: "edit", value: "Japan" }, { key: "budget_inr_per_year", decision: "approve" }], summary: "withhold" };
+  const decided = await call(w, "POST", `${base}/approval`, { token, body });
+  assert.equal(decided.status, 200, decided.body);
+  const raw = w.fakeDb.collection<any>("facts").all().find((f) => f.tenantId === "tenant-a" && f.key === "targetCountry" && f.active)!;
+  assert.equal(raw.source.type, "counsellor-edit"); assert.equal(raw.source.counsellorId, " actual-jwt-counsellor "); assert.deepEqual(raw.source.editedFrom, original.source);
+  const claim = w.fakeDb.collection<any>("scribe_resolutions").all()[0]!; assert.deepEqual(claim.approvalMetadata, { counsellorId: " actual-jwt-counsellor ", editedAt: raw.source.editedAt });
+  const profile = await call(w, "GET", `/v1/students/${STUDENT}/profile?purpose=profile_synthesis`, { token });
+  assert.equal(profile.status, 200); assert.ok(profile.body.includes(JSON.stringify(raw.source.counsellorId))); assert.match(profile.body, /counsellor-edit/); assert.match(profile.body, /actual-jwt-counsellor/);
+  const events = await outbox.list(); const event = events.find((r) => (r.event as any).data.fact.key === "targetCountry")!.event as any;
+  assert.deepEqual(event.data.fact.source, raw.source); assert.equal(event.data.fact.value, "Japan");
+  const snapshot = JSON.stringify(w.fakeDb.collection<any>("facts").all());
+  const replay = await call(w, "POST", `${base}/approval`, { token: await as("tenant-a", "different-caller", "counsellor"), body });
+  assert.equal(replay.json.kind, "already_resolved"); assert.equal(JSON.stringify(w.fakeDb.collection<any>("facts").all()), snapshot); assert.equal((await outbox.list()).length, events.length);
+});
+
+test("T046 forged body actor time and nested provenance refuse before actual claim or write", async () => {
+  const w = world(); await scribeToApproval(w, "tenant-a");
+  const token = await as("tenant-a", "verified-not-body", "counsellor"); const base = `/v1/students/${STUDENT}/sessions/${SESSION}`;
+  for (const body of [{ action: "approve", counsellorId: "FORGED_BODY", editedAt: "2026-09-30T00:00:00.000Z" }, { action: "per_fact", facts: [{ key: "targetCountry", decision: "edit", value: "Japan", source: { type: "profile", id: "FORGED_SOURCE" } }, { key: "budget_inr_per_year", decision: "approve" }], summary: "withhold" }]) {
+    assert.equal((await call(w, "POST", `${base}/approval`, { token, body })).status, 400);
+    assert.equal(w.fakeDb.collection<any>("facts").size(), 0); assert.equal(w.fakeDb.collection<any>("scribe_resolutions").size(), 0);
+  }
+});

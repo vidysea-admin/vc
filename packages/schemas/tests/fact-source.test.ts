@@ -52,3 +52,17 @@ test("student-direct: id (the answer record) parses", () => {
 test("student-direct: missing id is rejected", () => {
   assert.throws(() => FactSourceSchema.parse({ type: "student-direct" }));
 });
+
+test("T046 canonical counsellor edit carries bounded original citation and rejects recursive history", () => {
+  const original = { type: "transcript", quote: "September 2027", turnId: "intake-turn" };
+  const edited = { type: "counsellor-edit", counsellorId: "verified-counsellor", editedAt: "2026-09-30T12:00:00.000Z", editedFrom: original };
+  assert.deepEqual(FactSourceSchema.parse(edited), edited);
+  assert.equal(FactSourceSchema.safeParse({ ...edited, editedFrom: edited }).success, false);
+  assert.equal(FactSourceSchema.safeParse({ ...edited, counsellorId: "" }).success, false);
+  assert.equal(FactSourceSchema.safeParse({ ...edited, editedAt: "forged-time" }).success, false);
+});
+test("T046 canonical edit actor preserves exact verified nonblank identity", () => {
+  const source = { type: "counsellor-edit", counsellorId: " actor-A ", editedAt: "2026-09-30T00:00:00.000Z", editedFrom: { type: "profile", id: "profile-original" } };
+  assert.deepEqual(FactSourceSchema.parse(source), source);
+  assert.equal(FactSourceSchema.safeParse({ ...source, counsellorId: "   " }).success, false);
+});
