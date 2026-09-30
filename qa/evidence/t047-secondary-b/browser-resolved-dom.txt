@@ -1,0 +1,31 @@
+- main:
+  - heading "Session approval" [level=1]
+  - term: Thread
+  - definition: scribe:9b4c47cc-2c13-49d3-8fb5-c17f4d333e29
+  - status:
+    - strong: Resolved
+    - button "Reload"
+  - term: Outcome
+  - definition: written
+  - heading "Written facts" [level=2]
+  - table:
+    - rowgroup:
+      - row "Fact Proposed value":
+        - columnheader "Fact"
+        - columnheader "Proposed value"
+    - rowgroup:
+      - row "targetCountry Canada":
+        - cell "targetCountry"
+        - cell "Canada"
+      - row "intendedMajor computer science":
+        - cell "intendedMajor"
+        - cell "computer science"
+      - row "preferredIntake September 2027":
+        - cell "preferredIntake"
+        - cell "September 2027"
+      - row "budget_inr_per_year 2000000":
+        - cell "budget_inr_per_year"
+        - cell "2000000"
+  - paragraph: Summary approved
+- button "Open Next.js Dev Tools":
+- alert

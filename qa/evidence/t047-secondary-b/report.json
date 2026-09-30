@@ -1,0 +1,37 @@
+{
+  "checker": "secondary-b",
+  "unit": "T047",
+  "cycle": 0,
+  "browser": "own real IAB background",
+  "visibleIab": "unsupported in subagent",
+  "chrome": "unavailable",
+  "origin": "http://127.0.0.1:3117",
+  "mockOnly": true,
+  "flows": [
+    "submit unavailable with preserved input",
+    "Retry reaches approval",
+    "approve four facts plus summary",
+    "written result reload remains written",
+    "fenced approval shows erasure in progress"
+  ],
+  "consoleErrors": {
+    "approval": 0,
+    "fenced": 0
+  },
+  "rawReadback": "separate HTTP, not browser; four active cited facts, one approved summary, one claim",
+  "minimalCrisisUi": "unexposed by fixed demo; not browser-verified",
+  "scenarios": {
+    "skip": 58,
+    "total": 58,
+    "pass": 0
+  },
+  "screenshots": [
+    "browser-retry.png",
+    "browser-written.png",
+    "browser-fenced.png"
+  ],
+  "serverHandle": 6530,
+  "shutdown": "owned Ctrl-C terminal exit1 expected",
+  "fullGoal": "OPEN",
+  "delivery": "record_only/queued not real transport"
+}

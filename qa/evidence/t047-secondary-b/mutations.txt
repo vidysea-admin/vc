@@ -1,0 +1,12 @@
+MUTANT strict-extra EXIT=1
+MUTANT all-turns EXIT=1
+MUTANT leaf-preflight EXIT=1
+MUTANT terminal-refusal EXIT=1
+MUTANT review-budget EXIT=1
+MUTANT ownership-token EXIT=1
+MUTANT d016-fail-safe EXIT=1
+RESTORED engine EXIT=0
+CORRECTED api EXIT=0
+MUTANT ownership-token EXIT=1
+RESTORED engine EXIT=0
+CORRECTED api EXIT=0

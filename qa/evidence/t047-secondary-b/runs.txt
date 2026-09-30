@@ -1,0 +1,30 @@
+oracle-engine-original START 2026-10-01T00:34:30.3010412+05:30 CWD=D:\vc\.worktrees\t047-crisis\qa\evidence\t047-secondary-b\engine NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\tsx\dist\cli.mjs --test --test-concurrency=1 tests/oracle.test.ts
+oracle-engine-original EXIT=0 END=2026-10-01T00:34:42.9194722+05:30
+oracle-api-original START 2026-10-01T00:34:42.9339739+05:30 CWD=D:\vc\.worktrees\t047-crisis\qa\evidence\t047-secondary-b\api NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\tsx\dist\cli.mjs --test --test-concurrency=1 tests/oracle.test.ts
+oracle-api-original EXIT=1 END=2026-10-01T00:34:45.2735700+05:30
+manifest-engine START 2026-10-01T00:34:45.2799262+05:30 CWD=D:\vc\.worktrees\t047-crisis\packages\engine NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\tsx\dist\cli.mjs --test --test-concurrency=1 tests/*.test.ts evals/*.test.ts
+manifest-engine EXIT=0 END=2026-10-01T00:36:17.0738819+05:30
+manifest-api START 2026-10-01T00:36:17.0821282+05:30 CWD=D:\vc\.worktrees\t047-crisis\apps\api NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\tsx\dist\cli.mjs --test --test-concurrency=1 tests/*.test.ts
+manifest-api EXIT=0 END=2026-10-01T00:36:21.7102246+05:30
+type-packages-engine-tsconfig.json START 2026-10-01T00:36:21.7149400+05:30 CWD=D:/vc/.worktrees/t047-crisis NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\typescript\bin\tsc --noEmit -p packages/engine/tsconfig.json
+type-packages-engine-tsconfig.json EXIT=0 END=2026-10-01T00:36:24.4536597+05:30
+type-packages-engine-evals-tsconfig.json START 2026-10-01T00:36:24.4551714+05:30 CWD=D:/vc/.worktrees/t047-crisis NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\typescript\bin\tsc --noEmit -p packages/engine/evals/tsconfig.json
+type-packages-engine-evals-tsconfig.json EXIT=0 END=2026-10-01T00:36:26.9525871+05:30
+type-packages-engine-scripts-tsconfig.json START 2026-10-01T00:36:26.9545909+05:30 CWD=D:/vc/.worktrees/t047-crisis NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\typescript\bin\tsc --noEmit -p packages/engine/scripts/tsconfig.json
+type-packages-engine-scripts-tsconfig.json EXIT=0 END=2026-10-01T00:36:29.2063891+05:30
+type-packages-db-tsconfig.json START 2026-10-01T00:36:29.2089975+05:30 CWD=D:/vc/.worktrees/t047-crisis NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\typescript\bin\tsc --noEmit -p packages/db/tsconfig.json
+type-packages-db-tsconfig.json EXIT=0 END=2026-10-01T00:36:30.4530558+05:30
+type-packages-providers-tsconfig.json START 2026-10-01T00:36:30.4801866+05:30 CWD=D:/vc/.worktrees/t047-crisis NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\typescript\bin\tsc --noEmit -p packages/providers/tsconfig.json
+type-packages-providers-tsconfig.json EXIT=0 END=2026-10-01T00:36:31.6866645+05:30
+type-packages-schemas-tsconfig.json START 2026-10-01T00:36:31.6886708+05:30 CWD=D:/vc/.worktrees/t047-crisis NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\typescript\bin\tsc --noEmit -p packages/schemas/tsconfig.json
+type-packages-schemas-tsconfig.json EXIT=0 END=2026-10-01T00:36:32.5361288+05:30
+type-packages-observability-tsconfig.json START 2026-10-01T00:36:32.5386370+05:30 CWD=D:/vc/.worktrees/t047-crisis NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\typescript\bin\tsc --noEmit -p packages/observability/tsconfig.json
+type-packages-observability-tsconfig.json EXIT=0 END=2026-10-01T00:36:33.4547967+05:30
+type-apps-api-tsconfig.json START 2026-10-01T00:36:33.4585382+05:30 CWD=D:/vc/.worktrees/t047-crisis NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\typescript\bin\tsc --noEmit -p apps/api/tsconfig.json
+type-apps-api-tsconfig.json EXIT=0 END=2026-10-01T00:36:35.7784310+05:30
+type-apps-web-tsconfig.json START 2026-10-01T00:36:35.7799804+05:30 CWD=D:/vc/.worktrees/t047-crisis NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\typescript\bin\tsc --noEmit -p apps/web/tsconfig.json
+type-apps-web-tsconfig.json EXIT=0 END=2026-10-01T00:36:38.7160609+05:30
+type-mcp-student-profile-tsconfig.json START 2026-10-01T00:36:38.7176814+05:30 CWD=D:/vc/.worktrees/t047-crisis NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\typescript\bin\tsc --noEmit -p mcp/student-profile/tsconfig.json
+type-mcp-student-profile-tsconfig.json EXIT=0 END=2026-10-01T00:36:40.0621424+05:30
+type-mcp-university-kb-tsconfig.json START 2026-10-01T00:36:40.0639040+05:30 CWD=D:/vc/.worktrees/t047-crisis NODE=C:/Program Files/nodejs/node.exe ARGS=D:\vc\.worktrees\t047-crisis\node_modules\typescript\bin\tsc --noEmit -p mcp/university-kb/tsconfig.json
+type-mcp-university-kb-tsconfig.json EXIT=0 END=2026-10-01T00:36:41.4609779+05:30

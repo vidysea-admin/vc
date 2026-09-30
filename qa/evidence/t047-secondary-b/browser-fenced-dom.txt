@@ -1,0 +1,9 @@
+- main:
+  - heading "Session approval" [level=1]
+  - term: Thread
+  - definition: scribe:demo-session-2
+  - status:
+    - strong: Erasure in progress
+    - button "Reload"
+- button "Open Next.js Dev Tools":
+- alert
