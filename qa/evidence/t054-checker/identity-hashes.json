@@ -1,0 +1,106 @@
+[
+  {
+    "path": "packages/engine/src/webhooks/outbox.ts",
+    "sha256": "9D326EE2FEB9F35DFD3D64A9179ABB6BA64AA4DC4337AA4E7B66F73841E77EE8"
+  },
+  {
+    "path": "packages/engine/src/webhooks/delivery.ts",
+    "sha256": "77AFEBC6CCABC5F47EF0985C18A98D99F1899989AFA1587ECCEA7775C5CD8529"
+  },
+  {
+    "path": "packages/engine/src/webhooks/signing.ts",
+    "sha256": "6D63B9E42E73929DEB01127D22F18D38DCC5C7E4ED4879EF300F551AECF09C42"
+  },
+  {
+    "path": "packages/engine/src/webhooks/schemas.ts",
+    "sha256": "CC81BFB8F24675EC4EA963DFD5E24FA6D4CC5CD5A882865B719F407B999AA89C"
+  },
+  {
+    "path": "packages/engine/src/webhooks/index.ts",
+    "sha256": "45BE9E5965BC486A0FB0542EDB87646E6A657E0C3ADA250EB752D42FF5900437"
+  },
+  {
+    "path": "packages/engine/src/index.ts",
+    "sha256": "3495662F27D1D76F11F068B1228CD832A6BD47604C93F9E6D70320255B88DED6"
+  },
+  {
+    "path": "packages/engine/tests/webhooks-outbox.test.ts",
+    "sha256": "281820DF55538DBF364B234388F14B033E54E56E394B43F259F126142F80F480"
+  },
+  {
+    "path": "packages/engine/tests/webhooks-outbox-mongo.test.ts",
+    "sha256": "28D5728F61ED3D7640A8C699D4342BEC9640455D55C3C3ED8F0671C5BC1D9103"
+  },
+  {
+    "path": "packages/engine/tests/webhooks-delivery-drain.test.ts",
+    "sha256": "E949D5DD9B793C2E242CDA57B4C04286C489090353BDACB169A1395206E510D9"
+  },
+  {
+    "path": "packages/engine/tests/webhooks-delivery.test.ts",
+    "sha256": "BCC7CD111E7307213A236EAB940B01C8B8BE7B1C8B17BF4FA62F82B71EA9F8A2"
+  },
+  {
+    "path": "packages/db/src/tenant.ts",
+    "sha256": "BB21716CA4A42B3595E4C5B12C1B6273F2E82D92641233C581B6B7897FF4AD34"
+  },
+  {
+    "path": "packages/db/src/index.ts",
+    "sha256": "72249BDF55DE48175B099B4626C88E1E5511933B23100D06A2CABB231FAF22FE"
+  },
+  {
+    "path": "packages/db/tests/fakes.ts",
+    "sha256": "9D602AF779BE3AB9009259EFA8AFEAF89515D82AFB317FCBE9DA535EE3FA67EA"
+  },
+  {
+    "path": "apps/api/src/server.ts",
+    "sha256": "D7C82683814BE8B9129407851152071FAEF7E60E880EDCFF8D68CD9A0F91A52E"
+  },
+  {
+    "path": "apps/api/tests/server.test.ts",
+    "sha256": "1717E753256A355CB580D890DF2508578BA7C93C6019E508CF6707D4D6422185"
+  },
+  {
+    "path": "tsconfig.base.json",
+    "sha256": "A4286AF536A20E876A22B625C5B2C630DC4195CD1C9E4DB8B92651090F7916B7"
+  },
+  {
+    "path": "packages/engine/tsconfig.json",
+    "sha256": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73"
+  },
+  {
+    "path": "apps/api/tsconfig.json",
+    "sha256": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73"
+  },
+  {
+    "path": "pnpm-lock.yaml",
+    "sha256": "562F86492B23EAB44F0FBFF444A89E7FF8D053A7E97928A86B9EEE0AA84FCD6C"
+  },
+  {
+    "path": "scripts/vc-testlock.sh",
+    "sha256": "FDD9B039639F6E70141D6C54CA0760375913DA2E5705257A1B6F75C8939DA48B"
+  },
+  {
+    "path": "qa/adapter.json",
+    "sha256": "7D0B12017C5212F985E74976BD23A8152FF1AF62750B0BD3F015D4F564D6D3D2"
+  },
+  {
+    "path": "qa/contracts/counselling-engine.md",
+    "sha256": "B003DB8F02A9C3EBB05BF7635FAA23177F1DC57405DAE9BF5D9A65CE8DB558B0"
+  },
+  {
+    "path": "qa/gates/counsellor-auth.md",
+    "sha256": "879F10079AE35E0C427FD6973D026F0ECC2049FEC0634B82D928CE7F6D793ECE"
+  },
+  {
+    "path": "C:\\Users\\Lenovo\\.agents\\skills\\checker\\SKILL.md",
+    "sha256": "3DE10756092428C100D255677DF06192E6ABEF94CBE61579745DC28B830601FA"
+  },
+  {
+    "path": "C:\\Users\\Lenovo\\.agents\\skills\\maker\\SKILL.md",
+    "sha256": "556316E31B51BBB512AD0EEF6FA713895A387512F79E32EC71C37FE7B0BE7DD4"
+  },
+  {
+    "path": "qa/evidence/t054-checker/acceptance.ts",
+    "sha256": "75C06E4854924AB1171B79D18065271A3BBE7880F53F0B41F42EF074F2FA7FD3"
+  }
+]

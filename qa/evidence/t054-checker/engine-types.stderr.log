@@ -1,0 +1,2 @@
+[testlock] running (free RAM 4.49 GB): node node_modules/typescript/bin/tsc --noEmit -p packages/engine/tsconfig.json
+

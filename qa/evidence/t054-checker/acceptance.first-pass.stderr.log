@@ -1,0 +1,2 @@
+[testlock] running (free RAM 4.37 GB): node --import tsx qa/evidence/t054-checker/acceptance.ts
+

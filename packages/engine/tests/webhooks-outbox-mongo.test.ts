@@ -7,7 +7,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createFakeDb } from "@vc/db/testing";
 import { COLLECTION_NAMES, TenantScopeError, tenantScopedDb } from "@vc/db";
-import { MongoWebhookOutbox, WEBHOOK_OUTBOX_COLLECTION } from "../src/webhooks/outbox.js";
+import { InMemoryWebhookOutbox, MongoWebhookOutbox, WEBHOOK_OUTBOX_COLLECTION } from "../src/webhooks/outbox.js";
+import type { OutboxRecordStatus } from "../src/webhooks/outbox.js";
+import { drainWebhookOutbox } from "../src/webhooks/delivery.js";
 import type { WebhookEvent } from "../src/webhooks/schemas.js";
 
 function makeEvent(id: string, studentId = "student-1"): WebhookEvent {
@@ -126,4 +128,66 @@ test("ISS-t-027-rev-3: every stored document carries a top-level tenantId (not o
     .collection(WEBHOOK_OUTBOX_COLLECTION)
     .findOne({});
   assert.equal(raw?.tenantId, "tenant-a");
+});
+
+test("T054 C2/C4: raw Mongo status and tenant predicate precede materialization; selectors match memory without changing raw rows", async () => {
+  const { db } = createFakeDb();
+  const outbox = new MongoWebhookOutbox(tenantScopedDb(db, "tenant-a"));
+  const other = new MongoWebhookOutbox(tenantScopedDb(db, "tenant-b"));
+  const memory = new InMemoryWebhookOutbox();
+  const statuses = ["pending", "failed", "delivered", "dead"] as const;
+  for (const status of statuses) {
+    const id = `evt-${status}`;
+    const input = { id, event: makeEvent(id), destinationUrl: `http://x/${status}` };
+    for (const adapter of [outbox, memory, other]) {
+      await adapter.enqueue(input);
+      await adapter.update(id, { status, attempts: 3, lastStatus: 400, lastError: "keep" });
+    }
+  }
+  const raw = db.collection(WEBHOOK_OUTBOX_COLLECTION);
+  const originalFind = raw.find.bind(raw);
+  const rawBefore = JSON.stringify(await originalFind({}).toArray());
+  const publicBefore = JSON.stringify(await outbox.list());
+  let expected: readonly OutboxRecordStatus[] | undefined;
+  let materializations = 0;
+  const queries: unknown[] = [];
+  raw.find = ((...args: Parameters<typeof raw.find>) => {
+    queries.push(args[0]);
+    const cursor = originalFind(...args);
+    const originalToArray = cursor.toArray.bind(cursor);
+    cursor.toArray = async () => {
+      const rows = await originalToArray();
+      materializations += 1;
+      const wanted = expected ?? statuses;
+      assert.equal(rows.length, wanted.length, "raw cursor must materialize only the requested tenant/status rows");
+      assert.deepEqual(rows.map((row) => row._id), statuses.filter((status) => wanted.includes(status)).map((status) => `tenant-a:evt-${status}`));
+      assert.ok(rows.every((row) => row.tenantId === "tenant-a" && wanted.includes(row.status as OutboxRecordStatus)));
+      return rows;
+    };
+    return cursor;
+  }) as typeof raw.find;
+  try {
+    for (const selector of [["pending"], ["failed"], ["pending", "failed"], [], statuses, undefined] as const) {
+      expected = selector;
+      const selected = await outbox.list(selector);
+      assert.deepEqual(queries.at(-1), selector === undefined ? { tenantId: "tenant-a" } : { status: { $in: [...selector] }, tenantId: "tenant-a" });
+      const inMemory = await memory.list(selector);
+      assert.deepEqual(selected.map(({ createdAt: _c, updatedAt: _u, ...record }) => record), inMemory.map(({ createdAt: _c, updatedAt: _u, ...record }) => record));
+    }
+    assert.equal(materializations, 6, "one cursor per list, without a second historical read");
+    assert.equal(JSON.stringify(await originalFind({}).toArray()), rawBefore);
+    expected = ["pending"];
+    const result = await drainWebhookOutbox(outbox, { secret: "synthetic-t054", fetchImpl: async () => new Response("ok", { status: 200 }) });
+    assert.deepEqual(queries.at(-1), { status: { $in: ["pending"] }, tenantId: "tenant-a" });
+    assert.equal(materializations, 7, "drain must select once before delivering");
+    assert.equal(result.length, 1);
+    assert.equal((await outbox.get("evt-pending"))!.status, "delivered");
+    for (const status of ["failed", "delivered", "dead"] as const) assert.equal((await outbox.get(`evt-${status}`))!.status, status);
+    assert.equal((await other.get("evt-pending"))!.status, "pending");
+    assert.equal(JSON.stringify((await outbox.get("evt-pending"))!.event), JSON.stringify(makeEvent("evt-pending")));
+  } finally {
+    raw.find = originalFind;
+  }
+  assert.equal(JSON.stringify(await outbox.list()).includes("tenant-b"), false);
+  assert.ok(publicBefore.includes('"status":"pending"'));
 });

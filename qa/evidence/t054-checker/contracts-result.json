@@ -1,0 +1,8 @@
+{
+  "command": "python contracts/verify_contracts.py",
+  "exit": 0,
+  "start": "2026-10-13T16:49:52.7117663Z",
+  "end": "2026-10-13T16:49:53.0219455Z",
+  "ownerPsPid": 45876,
+  "terminal": true
+}

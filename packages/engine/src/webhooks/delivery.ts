@@ -7,7 +7,7 @@
  */
 import { buildSignedWebhookHeaders } from "./signing.js";
 import type { WebhookEvent } from "./schemas.js";
-import type { WebhookOutbox } from "./outbox.js";
+import type { OutboxRecordStatus, WebhookOutbox } from "./outbox.js";
 
 export const DELIVERY_DEFAULT_MAX_ATTEMPTS = 6;
 export const DELIVERY_DEFAULT_BASE_DELAY_MS = 500;
@@ -164,13 +164,14 @@ export async function drainWebhookOutbox(
   outbox: WebhookOutbox,
   options: DeliverWebhookOptions & { includeFailed?: boolean },
 ): Promise<DeliveryResult[]> {
-  const wanted: ReadonlySet<string> = options.includeFailed ? new Set(["pending", "failed"]) : new Set(["pending"]);
+  const wantedStatuses: readonly OutboxRecordStatus[] = options.includeFailed ? ["pending", "failed"] : ["pending"];
+  const wanted: ReadonlySet<OutboxRecordStatus> = new Set(wantedStatuses);
   const { fetchImpl, sleep, random, nowMs, maxAttempts, baseDelayMs, maxDelayMs, secret } = options;
   const deliverOptions: DeliverWebhookOptions = { secret, maxAttempts, baseDelayMs, maxDelayMs, fetchImpl, sleep, random, nowMs };
-  const all = await outbox.list();
-  const due = all.filter((record) => wanted.has(record.status));
+  const due = await outbox.list(wantedStatuses);
   const results: DeliveryResult[] = [];
   for (const record of due) {
+    if (!wanted.has(record.status)) continue;
     results.push(await deliverWebhookEvent(record.event, record.destinationUrl, deliverOptions, outbox));
   }
   return results;

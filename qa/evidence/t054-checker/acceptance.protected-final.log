@@ -1,0 +1,2 @@
+[testlock] running (free RAM 5.07 GB): node --import tsx qa/evidence/t054-checker/acceptance.ts
+{"acceptance":"PASS","criteria":4,"baselineGreen":4,"intendedRed":4,"restoredGreen":4,"ownedNodePid":33976}

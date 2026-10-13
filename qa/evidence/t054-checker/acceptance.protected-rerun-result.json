@@ -1,0 +1,7 @@
+{
+  "utc": "2026-10-13T16:52:25.5304633Z",
+  "command": "bash scripts/vc-testlock.sh node --import tsx qa/evidence/t054-checker/acceptance.ts",
+  "exit": 0,
+  "ownerPsPid": 47308,
+  "terminal": true
+}

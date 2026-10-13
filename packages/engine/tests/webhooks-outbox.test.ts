@@ -4,6 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { InMemoryWebhookOutbox } from "../src/webhooks/outbox.js";
+import type { OutboxRecordStatus } from "../src/webhooks/outbox.js";
 import type { WebhookEvent } from "../src/webhooks/schemas.js";
 
 function makeEvent(id: string): WebhookEvent {
@@ -78,4 +79,22 @@ test("list returns every enqueued record", async () => {
     all.map((r) => r.id).sort(),
     ["evt-a", "evt-b"],
   );
+});
+
+test("T054 C1: explicit status selectors preserve exact records and no-argument listing", async () => {
+  const outbox = new InMemoryWebhookOutbox();
+  const statuses = ["pending", "failed", "delivered", "dead"] as const;
+  for (const status of statuses) {
+    const id = `evt-${status}`;
+    await outbox.enqueue({ id, event: makeEvent(id), destinationUrl: `http://x/${status}` });
+    await outbox.update(id, { status, attempts: status === "pending" ? 0 : 3, lastError: "preserved" });
+  }
+  const before = JSON.stringify(await outbox.list());
+  const records = await outbox.list();
+  for (const selector of [["pending"], ["failed"], ["pending", "failed"], [], statuses] as readonly (readonly OutboxRecordStatus[])[]) {
+    const selected = await outbox.list(selector);
+    assert.deepEqual(selected, records.filter((record) => selector.includes(record.status)));
+    assert.deepEqual(selected.map((record) => record.id), selector.length === 0 ? [] : statuses.filter((status) => selector.includes(status)).map((status) => `evt-${status}`));
+  }
+  assert.equal(JSON.stringify(await outbox.list()), before, "selectors must preserve record/event bytes and bookkeeping");
 });

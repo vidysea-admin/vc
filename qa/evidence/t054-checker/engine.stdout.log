@@ -1,0 +1,46 @@
+✔ drainWebhookOutbox delivers every pending record and leaves it delivered (33.7637ms)
+✔ drainWebhookOutbox never touches an already-delivered or dead record (2.4184ms)
+✔ drainWebhookOutbox retries a `failed` record only when includeFailed is true (8.9239ms)
+✔ RED-proof: a broken destination status (500, never healed) leaves the record NOT delivered after a full drain (6.8884ms)
+✔ T054 C3/C4: pending/explicit-failed selectors and legacy adapter safety retain signing, idempotency and terminal records (14.3285ms)
+✔ computeWebhookBackoffMs: bounded by maxDelayMs and grows with attempt (full jitter) (0.6727ms)
+✔ isRetryableDeliveryStatus: 5xx and 408/429 retryable; every other 4xx is not (0.1251ms)
+✔ a 2xx on the first attempt delivers, no retry, exactly one request received (23.1143ms)
+✔ a 201 response also counts as delivered (any 2xx means delivered) (6.6134ms)
+✔ a 204 response also counts as delivered (any 2xx means delivered) (5.1292ms)
+✔ a non-retryable 4xx (400) stops immediately, no retry (4.1929ms)
+✔ a 429 (retryable 4xx) is retried and a later 2xx succeeds (5.7856ms)
+✔ a 408 (retryable 4xx) is retried and a later 2xx succeeds (5.6836ms)
+✔ repeated 503s are retried until success within the attempt budget (5.9555ms)
+✔ exhausting maxAttempts on persistent 500s ends delivered:false with attempts === maxAttempts, outbox marked dead (6.6094ms)
+✔ a network error (connection refused — no receiver listening) is retried like a 5xx (0.4996ms)
+✔ idempotency: the raw body and X-VC-Event-Id are byte-identical across every retry attempt (6.3367ms)
+✔ the timestamp/signature are refreshed per attempt, and each attempt's headers independently verify against its own timestamp (6.1964ms)
+✔ backoff is genuinely applied between attempts (recorded via an injectable sleep spy, deterministic jitter) (6.9055ms)
+✔ drift guard: the collection name here matches packages/db COLLECTION_NAMES.webhook_outbox (0.5809ms)
+✔ constructor refuses an unscoped Db (0.3069ms)
+✔ enqueue creates a pending record with zero attempts (1.3958ms)
+✔ enqueue is idempotent by id: a second enqueue never creates a second row or resets bookkeeping (0.9274ms)
+✔ get returns undefined for an unknown id (0.1467ms)
+✔ update patches only the given fields and preserves id/event/destinationUrl/createdAt (2.491ms)
+✔ update on an unknown id throws (0.2385ms)
+✔ list returns every enqueued record for the tenant (0.314ms)
+✔ B21 tenancy: tenant A's outbox never sees tenant B's records, on the SAME underlying Db (0.3567ms)
+✔ ISS-t-027-rev-3: every stored document carries a top-level tenantId (not only nested in event.tenantId) (0.2057ms)
+✔ T054 C2/C4: raw Mongo status and tenant predicate precede materialization; selectors match memory without changing raw rows (11.1899ms)
+✔ enqueue creates a pending record with zero attempts (1.2002ms)
+✔ enqueue is idempotent by id: a second enqueue never creates a second row or resets bookkeeping (0.2119ms)
+✔ get returns undefined for an unknown id (0.0887ms)
+✔ update patches only the given fields and preserves id/event/destinationUrl/createdAt (1.9743ms)
+✔ update on an unknown id throws (0.3089ms)
+✔ list returns every enqueued record (0.5359ms)
+✔ T054 C1: explicit status selectors preserve exact records and no-argument listing (0.2769ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2056.414
+

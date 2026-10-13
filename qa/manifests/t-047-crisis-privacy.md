@@ -1,6 +1,6 @@
 # Manifest — t-047-crisis-privacy
 
-**Status:** ready-for-check (maker evidence only; no completion verdict)
+**Status:** integrated (historical bounded checker PASS; current release pending)
 **Goal task:** T-047
 **Contract:** qa/contracts/counselling-engine.md (B13/B16/B21), ARCHITECTURE.md, root docs/plan.md independently approved T047 reconciliation and budget/D016 refinements
 **Fix cycle:** 0 of max 3
@@ -63,3 +63,7 @@ record_only/unrouted records do not establish recipient correctness, transport d
 - packages/engine/tests/scribe-erasure-fence.test.ts SHA256=7955AF7FDA4466DE0EDFE1A3E97EF88787C80864E44D7AAA4BD408E2D7558ED0
 - packages/engine/tests/scribe-persistence.test.ts SHA256=746E5B6C7BDBBE69BD049E1A40F4B2BCFC27ACB31AB24F1C0D3550F7C3D3CB4C
 - packages/engine/tests/scribe.test.ts SHA256=DEC42641BA77EBC30DBAFB8856A00841342BE9A8DC7EC4AB001EC28D47BA4FDF
+
+## Closeout reconciliation — 2026-10-13
+Historical cycle0 blind dual bounded PASS qa/verdicts/t-047-crisis-privacy.md and .b.md on ec48857; actual current git diff ec48857 c781019 across13 product paths returned0 differences, integratedc781019 is ancestorofHEAD. Later T052 changed consumers still require currentrelease acceptance; no actualtransport delivery or broadgoal claim.
+Current full release remains FAIL under qa/verdicts/vc-release-t052-2026-10-13.md and .b.md; no push, deployment or additional acceptance claimed.

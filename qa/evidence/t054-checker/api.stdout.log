@@ -1,0 +1,14 @@
+✔ T-034 api: decideApproval enqueues one fact.approved webhook event per DURABLY WRITTEN fact (read back via getFactsByIds, not re-derived from the response), carrying B2 provenance (92.4085ms)
+✔ T-034 api: with no webhooks configured, an approve decision writes facts exactly as before and enqueues nothing (the emission hook is a pure no-op) (40.8336ms)
+✔ T-034 api: a webhook enqueue failure is logged (webhook_enqueue_failed) but never turns an already-successful approval into an error response (27.711ms)
+✔ T-034 api: the first erasure confirmation enqueues one erasure.requested webhook event, carrying the request's own reason/requestedAt (read back via getErasureRequest, the last point studentId is still clear) (17.9008ms)
+✔ T046 verified JWT edit provenance is identical in raw KG API profile and approved webhook (44.3854ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3075.7677
+

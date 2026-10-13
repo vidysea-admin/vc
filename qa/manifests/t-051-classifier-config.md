@@ -1,6 +1,6 @@
 # T-051 — classifier configuration loader hardening
 
-Status: ready-for-check
+Status: integrated (historical bounded checker PASS; current release pending)
 Fix cycle: 0
 Bound root: D:/vc
 Approval: docs/plan.md loader-only approval from classifier_config_quality_plan (recorded c912705).
@@ -25,3 +25,7 @@ No live process/test handle remains. Installed runtime only; no install.
 
 ## Independent acceptance requested
 Fresh checker independently covers defaults, valid model/timeout overrides, partial/endpoints sample rates, timeout boundaries/rejections (including unsafe integer and overflow), fixed field-name errors without synthetic supplied keys/values, and startup invalid config with counting connection factory proving zero connections. Full startup proof not maker-executed; API source untouched. Type checks and independent mutation controls remain checker-owned. Maker makes no PASS/completion claim.
+
+## Closeout reconciliation — 2026-10-13
+Saved independent bounded cycle0 PASS qa/verdicts/t-051-classifier-config.md. Current two rawSHA256 values match frozenmanifest exactly: source757C876DEA64C702E76218968D75096B53E9A9887BD767A03CDFA8C8375058BD, test07B338A11B557ACB4DF6F069797DD2E84DA1286119063F4BCF468A815C1B4711. Source0e267dc is ancestorofHEAD. No test execution/currentenvironment reuse inferred; releaseintegration remains pending.
+Current full release remains FAIL under qa/verdicts/vc-release-t052-2026-10-13.md and .b.md; no push, deployment or additional acceptance claimed.

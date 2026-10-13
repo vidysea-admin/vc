@@ -1,0 +1,167 @@
+[testlock] running (free RAM 3.43 GB): node --import tsx --test --test-concurrency=1 --test-timeout=30000 packages/engine/tests/webhooks-outbox.test.ts packages/engine/tests/webhooks-outbox-mongo.test.ts packages/engine/tests/webhooks-delivery-drain.test.ts
+✔ drainWebhookOutbox delivers every pending record and leaves it delivered (34.4481ms)
+✔ drainWebhookOutbox never touches an already-delivered or dead record (2.2448ms)
+✔ drainWebhookOutbox retries a `failed` record only when includeFailed is true (7.6506ms)
+✔ RED-proof: a broken destination status (500, never healed) leaves the record NOT delivered after a full drain (6.7964ms)
+✖ T054 C3/C4: pending/explicit-failed selectors and legacy adapter safety retain signing, idempotency and terminal records (8.2873ms)
+✔ drift guard: the collection name here matches packages/db COLLECTION_NAMES.webhook_outbox (0.6053ms)
+✔ constructor refuses an unscoped Db (0.3905ms)
+✔ enqueue creates a pending record with zero attempts (1.6995ms)
+✔ enqueue is idempotent by id: a second enqueue never creates a second row or resets bookkeeping (1.1203ms)
+✔ get returns undefined for an unknown id (0.1589ms)
+✔ update patches only the given fields and preserves id/event/destinationUrl/createdAt (2.5393ms)
+✔ update on an unknown id throws (0.2295ms)
+✔ list returns every enqueued record for the tenant (0.2289ms)
+✔ B21 tenancy: tenant A's outbox never sees tenant B's records, on the SAME underlying Db (0.3206ms)
+✔ ISS-t-027-rev-3: every stored document carries a top-level tenantId (not only nested in event.tenantId) (0.2317ms)
+✖ T054 C2/C4: raw Mongo status and tenant predicate precede materialization; selectors match memory without changing raw rows (3.628ms)
+✔ enqueue creates a pending record with zero attempts (1.2461ms)
+✔ enqueue is idempotent by id: a second enqueue never creates a second row or resets bookkeeping (0.1767ms)
+✔ get returns undefined for an unknown id (0.0858ms)
+✔ update patches only the given fields and preserves id/event/destinationUrl/createdAt (2.2842ms)
+✔ update on an unknown id throws (0.3461ms)
+✔ list returns every enqueued record (0.5977ms)
+✖ T054 C1: explicit status selectors preserve exact records and no-argument listing (2.3031ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 20
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2065.1492
+
+✖ failing tests:
+
+test at packages\engine\tests\webhooks-delivery-drain.test.ts:1:4233
+✖ T054 C3/C4: pending/explicit-failed selectors and legacy adapter safety retain signing, idempotency and terminal records (8.2873ms)
+  AssertionError [ERR_ASSERTION]: drain must make one selected list request
+  + actual - expected
+  
+    [
+  +   undefined
+  -   [
+  -     'pending'
+  -   ]
+    ]
+  
+      at TestContext.<anonymous> (D:\vc\packages\engine\tests\webhooks-delivery-drain.test.ts:149:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ undefined ],
+    expected: [ [ 'pending' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at packages\engine\tests\webhooks-outbox-mongo.test.ts:1:4832
+✖ T054 C2/C4: raw Mongo status and tenant predicate precede materialization; selectors match memory without changing raw rows (3.628ms)
+  AssertionError [ERR_ASSERTION]: raw cursor must materialize only the requested tenant/status rows
+  
+  4 !== 1
+  
+      at FakeCursor.raw.find.cursor.toArray (D:\vc\packages\engine\tests\webhooks-outbox-mongo.test.ts:162:14)
+      at async Proxy.toArray (D:\vc\packages\db\src\tenant.ts:254:15)
+      at async MongoWebhookOutbox.list (D:\vc\packages\engine\src\webhooks\outbox.ts:173:19)
+      at async TestContext.<anonymous> (D:\vc\packages\engine\tests\webhooks-outbox-mongo.test.ts:172:24)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 4,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at packages\engine\tests\webhooks-outbox.test.ts:1:2823
+✖ T054 C1: explicit status selectors preserve exact records and no-argument listing (2.3031ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  ... Skipped lines
+  
+    [
+      {
+        attempts: 0,
+        createdAt: '2026-10-13T16:37:56.640Z',
+        destinationUrl: 'http://x/pending',
+  ...
+      },
+  +   {
+  +     attempts: 3,
+  +     createdAt: '2026-10-13T16:37:56.640Z',
+  +     destinationUrl: 'http://x/failed',
+  +     event: {
+  +       data: {
+  +         reason: 'student_request',
+  +         requestId: 'erase-1',
+  +         requestedAt: '2026-09-26T10:10:00.000Z',
+  +         studentId: 'student-1'
+  +       },
+  +       id: 'evt-failed',
+  +       occurredAt: '2026-09-26T10:00:00.000Z',
+  +       tenantId: 'tenant-pathlynks',
+  +       type: 'erasure.requested'
+  +     },
+  +     id: 'evt-failed',
+  +     lastError: 'preserved',
+  +     status: 'failed',
+  +     updatedAt: '2026-10-13T16:37:56.640Z'
+  +   },
+  +   {
+  +     attempts: 3,
+  +     createdAt: '2026-10-13T16:37:56.640Z',
+  +     destinationUrl: 'http://x/delivered',
+  +     event: {
+  +       data: {
+  +         reason: 'student_request',
+  +         requestId: 'erase-1',
+  +         requestedAt: '2026-09-26T10:10:00.000Z',
+  +         studentId: 'student-1'
+  +       },
+  +       id: 'evt-delivered',
+  +       occurredAt: '2026-09-26T10:00:00.000Z',
+  +       tenantId: 'tenant-pathlynks',
+  +       type: 'erasure.requested'
+  +     },
+  +     id: 'evt-delivered',
+  +     lastError: 'preserved',
+  +     status: 'delivered',
+  +     updatedAt: '2026-10-13T16:37:56.640Z'
+  +   },
+  +   {
+  +     attempts: 3,
+  +     createdAt: '2026-10-13T16:37:56.640Z',
+  +     destinationUrl: 'http://x/dead',
+  +     event: {
+  +       data: {
+  +         reason: 'student_request',
+  +         requestId: 'erase-1',
+  +         requestedAt: '2026-09-26T10:10:00.000Z',
+  +         studentId: 'student-1'
+  +       },
+  +       id: 'evt-dead',
+  +       occurredAt: '2026-09-26T10:00:00.000Z',
+  +       tenantId: 'tenant-pathlynks',
+  +       type: 'erasure.requested'
+  +     },
+  +     id: 'evt-dead',
+  +     lastError: 'preserved',
+  +     status: 'dead',
+  +     updatedAt: '2026-10-13T16:37:56.640Z'
+  +   }
+    ]
+  
+      at TestContext.<anonymous> (D:\vc\packages\engine\tests\webhooks-outbox.test.ts:96:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { id: 'evt-pending', event: [Object], destinationUrl: 'http://x/pending', status: 'pending', attempts: 0, createdAt: '2026-10-13T16:37:56.640Z', updatedAt: '2026-10-13T16:37:56.640Z', lastError: 'preserved' }, { id: 'evt-failed', event: [Object], destinationUrl: 'http://x/failed', status: 'failed', attempts: 3, createdAt: '2026-10-13T16:37:56.640Z', updatedAt: '2026-10-13T16:37:56.640Z', lastError: 'preserved' }, { id: 'evt-delivered', event: [Object], destinationUrl: 'http://x/delivered', status: 'delivered', attempts: 3, createdAt: '2026-10-13T16:37:56.640Z', updatedAt: '2026-10-13T16:37:56.640Z', lastError: 'preserved' }, { id: 'evt-dead', event: [Object], destinationUrl: 'http://x/dead', status: 'dead', attempts: 3, createdAt: '2026-10-13T16:37:56.640Z', updatedAt: '2026-10-13T16:37:56.640Z', lastError: 'preserved' } ],
+    expected: [ { id: 'evt-pending', event: [Object], destinationUrl: 'http://x/pending', status: 'pending', attempts: 0, createdAt: '2026-10-13T16:37:56.640Z', updatedAt: '2026-10-13T16:37:56.640Z', lastError: 'preserved' } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

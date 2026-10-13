@@ -1,0 +1,2 @@
+[testlock] running (free RAM 4.53 GB): node --import tsx --test --test-concurrency=1 --test-timeout=30000 --test-name-pattern=(webhook|outbox) apps/api/tests/server.test.ts
+

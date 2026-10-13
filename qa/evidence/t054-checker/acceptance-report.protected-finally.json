@@ -1,0 +1,82 @@
+{
+  "finished": "2026-10-13T16:52:25.446Z",
+  "ownedNodePid": 14360,
+  "mutants": 4,
+  "controls": 8,
+  "report": [
+    {
+      "id": "C1",
+      "phase": "baseline",
+      "result": "GREEN"
+    },
+    {
+      "id": "C1",
+      "phase": "mutant",
+      "result": "RED",
+      "message": "C1 exact selected public records\n+ actual - expected\n\n+ [\n+   {\n+     attempts: 7,\n+     createdAt: '2026-10-13T16:52:25.338Z',\n+     destinationUrl: 'http://synthetic.invalid/never-used',\n+     event: {\n+       data: {\n+         matched: [\n+           'é'\n+         ],\n+         message: 'Hindi हिन्दी / quoted \"value\"',\n+         sessionId: 's',\n+         studentId: 'synthetic',\n+         turnId: 't'\n+       },\n+       id: 'id-pending',\n+       occurredAt: '2026-10-13T00:00:00.000Z',\n+       tenantId: 'alpha',\n+       type: 'concern.flagged'\n+     },\n+     id: 'id-pending',\n+     lastError: 'preserve',\n+     lastStatus: 418,\n+     status: 'pending',\n+     updatedAt: '2026-10-13T16:52:25.338Z'\n+   },\n+   {\n+     attempts: 7,\n+     createdAt: '2026-10-13T16:52:25.338Z',\n+     destinationUrl: 'http://synthetic.invalid/never-used',\n+     event: {\n+       data: {\n+         matched: [\n+           'é'\n+         ],\n+         message: 'Hindi हिन्दी / quoted \"value\"',\n+         sessionId: 's',\n+         studentId: 'synthetic',\n+         turnId: 't'\n+       },\n+       id: 'id-failed',\n+       occurredAt: '2026-10-13T00:00:00.000Z',\n+       tenantId: 'alpha',\n+       type: 'concern.flagged'\n+     },\n+     id: 'id-failed',\n+     lastError: 'preserve',\n+     lastStatus: 418,\n+     status: 'failed',\n+     updatedAt: '2026-10-13T16:52:25.338Z'\n+   },\n+   {\n+     attempts: 7,\n+     createdAt: '2026-10-13T16:52:25.338Z',\n+     destinationUrl: 'http://synthetic.invalid/never-used',\n+     event: {\n+       data: {\n+         matched: [\n+           'é'\n+         ],\n+         message: 'Hindi हिन्दी / quoted \"value\"',\n+         sessionId: 's',\n+         studentId: 'synthetic',\n+         turnId: 't'\n+       },\n+       id: 'id-delivered',\n+       occurredAt: '2026-10-13T00:00:00.000Z',\n+       tenantId: 'alpha',\n+       type: 'concern.flagged'\n+     },\n+     id: 'id-delivered',\n+     lastError: 'preserve',\n+     lastStatus: 418,\n+     status: 'delivered',\n+     updatedAt: '2026-10-13T16:52:25.338Z'\n+   },\n+   {\n+     attempts: 7,\n+     createdAt: '2026-10-13T16:52:25.338Z',\n+     destinationUrl: 'http://synthetic.invalid/never-used',\n+     event: {\n+       data: {\n+         matched: [\n+           'é'\n+         ],\n+         message: 'Hindi हिन्दी / quoted \"value\"',\n+         sessionId: 's',\n+         studentId: 'synthetic',\n+         turnId: 't'\n+       },\n+       id: 'id-dead',\n+       occurredAt: '2026-10-13T00:00:00.000Z',\n+       tenantId: 'alpha',\n+       type: 'concern.flagged'\n+     },\n+     id: 'id-dead',\n+     lastError: 'preserve',\n+     lastStatus: 418,\n+     status: 'dead',\n+     updatedAt: '2026-10-13T16:52:25.338Z'\n+   }\n+ ]\n- []\n",
+      "stack": "AssertionError [ERR_ASSERTION]: C1 exact selected public records\n+ actual - expected\n\n+ [\n+   {\n+     attempts: 7,\n+     createdAt: '2026-10-13T16:52:25.338Z',\n+     destinationUrl: 'http://synthetic.invalid/never-used',\n+     event: {\n+       data: {\n+         matched: [\n+           'é'\n+         ],\n+         message: 'Hindi हिन्दी / quoted \"value\"',\n+         sessionId: 's',\n+         studentId: 'synthetic',\n+         turnId: 't'\n+       },\n+       id: 'id-pending',\n+       occurredAt: '2026-10-13T00:00:00.000Z',\n+       tenantId: 'alpha',\n+       type: 'concern.flagged'\n+     },\n+     id: 'id-pending',\n+     lastError: 'preserve',\n+     lastStatus: 418,\n+     status: 'pending',\n+     updatedAt: '2026-10-13T16:52:25.338Z'\n+   },\n+   {\n+     attempts: 7,\n+     createdAt: '2026-10-13T16:52:25.338Z',\n+     destinationUrl: 'http://synthetic.invalid/never-used',\n+     event: {\n+       data: {\n+         matched: [\n+           'é'\n+         ],\n+         message: 'Hindi हिन्दी / quoted \"value\"',\n+         sessionId: 's',\n+         studentId: 'synthetic',\n+         turnId: 't'\n+       },\n+       id: 'id-failed',\n+       occurredAt: '2026-10-13T00:00:00.000Z',\n+       tenantId: 'alpha',\n+       type: 'concern.flagged'\n+     },\n+     id: 'id-failed',\n+     lastError: 'preserve',\n+     lastStatus: 418,\n+     status: 'failed',\n+     updatedAt: '2026-10-13T16:52:25.338Z'\n+   },\n+   {\n+     attempts: 7,\n+     createdAt: '2026-10-13T16:52:25.338Z',\n+     destinationUrl: 'http://synthetic.invalid/never-used',\n+     event: {\n+       data: {\n+         matched: [\n+           'é'\n+         ],\n+         message: 'Hindi हिन्दी / quoted \"value\"',\n+         sessionId: 's',\n+         studentId: 'synthetic',\n+         turnId: 't'\n+       },\n+       id: 'id-delivered',\n+       occurredAt: '2026-10-13T00:00:00.000Z',\n+       tenantId: 'alpha',\n+       type: 'concern.flagged'\n+     },\n+     id: 'id-delivered',\n+     lastError: 'preserve',\n+     lastStatus: 418,\n+     status: 'delivered',\n+     updatedAt: '2026-10-13T16:52:25.338Z'\n+   },\n+   {\n+     attempts: 7,\n+     createdAt: '2026-10-13T16:52:25.338Z',\n+     destinationUrl: 'http://synthetic.invalid/never-used',\n+     event: {\n+       data: {\n+         matched: [\n+           'é'\n+         ],\n+         message: 'Hindi हिन्दी / quoted \"value\"',\n+         sessionId: 's',\n+         studentId: 'synthetic',\n+         turnId: 't'\n+       },\n+       id: 'id-dead',\n+       occurredAt: '2026-10-13T00:00:00.000Z',\n+       tenantId: 'alpha',\n+       type: 'concern.flagged'\n+     },\n+     id: 'id-dead',\n+     lastError: 'preserve',\n+     lastStatus: 418,\n+     status: 'dead',\n+     updatedAt: '2026-10-13T16:52:25.338Z'\n+   }\n+ ]\n- []\n\n    at Object.c1 (D:\\vc\\qa\\evidence\\t054-checker\\acceptance.ts:55:14)\n    at async <anonymous> (D:\\vc\\qa\\evidence\\t054-checker\\acceptance.ts:127:10)"
+    },
+    {
+      "id": "C1",
+      "phase": "restored",
+      "result": "GREEN"
+    },
+    {
+      "id": "C2",
+      "phase": "baseline",
+      "result": "GREEN"
+    },
+    {
+      "id": "C2",
+      "phase": "mutant",
+      "result": "RED",
+      "message": "C2 raw driver predicate precedes cursor creation\n+ actual - expected\n\n  {\n-   status: {\n-     '$in': []\n-   },\n    tenantId: 'alpha'\n  }\n",
+      "stack": "AssertionError [ERR_ASSERTION]: C2 raw driver predicate precedes cursor creation\n+ actual - expected\n\n  {\n-   status: {\n-     '$in': []\n-   },\n    tenantId: 'alpha'\n  }\n\n    at Object.find (D:\\vc\\qa\\evidence\\t054-checker\\acceptance.ts:35:42)\n    at Proxy.find (D:\\vc\\packages\\db\\src\\tenant.ts:312:43)\n    at MongoWebhookOutbox.list (D:\\vc\\qa\\evidence\\t054-checker\\copies\\C2-red\\outbox.ts:173:43)\n    at Object.c2 (D:\\vc\\qa\\evidence\\t054-checker\\acceptance.ts:64:126)\n    at async <anonymous> (D:\\vc\\qa\\evidence\\t054-checker\\acceptance.ts:127:10)"
+    },
+    {
+      "id": "C2",
+      "phase": "restored",
+      "result": "GREEN"
+    },
+    {
+      "id": "C3",
+      "phase": "baseline",
+      "result": "GREEN"
+    },
+    {
+      "id": "C3",
+      "phase": "mutant",
+      "result": "RED",
+      "message": "C3 single selected list call\n+ actual - expected\n\n  [\n    [\n      'pending',\n+     'failed'\n    ]\n  ]\n",
+      "stack": "AssertionError [ERR_ASSERTION]: C3 single selected list call\n+ actual - expected\n\n  [\n    [\n      'pending',\n+     'failed'\n    ]\n  ]\n\n    at drainControl (D:\\vc\\qa\\evidence\\t054-checker\\acceptance.ts:79:10)\n    at async Object.c3 (D:\\vc\\qa\\evidence\\t054-checker\\acceptance.ts:92:36)\n    at async <anonymous> (D:\\vc\\qa\\evidence\\t054-checker\\acceptance.ts:127:10)"
+    },
+    {
+      "id": "C3",
+      "phase": "restored",
+      "result": "GREEN"
+    },
+    {
+      "id": "C4",
+      "phase": "baseline",
+      "result": "GREEN"
+    },
+    {
+      "id": "C4",
+      "phase": "mutant",
+      "result": "RED",
+      "message": "C4 legacy adapter cannot deliver unselected records\n+ actual - expected\n\n  [\n    'id-pending',\n+   'id-failed',\n+   'id-delivered',\n+   'id-dead'\n  ]\n",
+      "stack": "AssertionError [ERR_ASSERTION]: C4 legacy adapter cannot deliver unselected records\n+ actual - expected\n\n  [\n    'id-pending',\n+   'id-failed',\n+   'id-delivered',\n+   'id-dead'\n  ]\n\n    at drainControl (D:\\vc\\qa\\evidence\\t054-checker\\acceptance.ts:80:10)\n    at async Object.c4 (D:\\vc\\qa\\evidence\\t054-checker\\acceptance.ts:102:22)\n    at async <anonymous> (D:\\vc\\qa\\evidence\\t054-checker\\acceptance.ts:127:10)"
+    },
+    {
+      "id": "C4",
+      "phase": "restored",
+      "result": "GREEN"
+    }
+  ],
+  "boundSourceHashes": {
+    "outbox": "9d326ee2feb9f35dfd3d64a9179abb6ba64aa4dc4337aa4e7b66f73841e77ee8",
+    "delivery": "77afebc6ccabc5f47ef0985c18a98d99f1899989afa1587eccea7775c5cd8529",
+    "signing": "6d63b9e42e73929deb01127d22f18d38dcc5c7e4ed4879ef300f551aecf09c42"
+  },
+  "importSetup": "Only isolated copies rewrite @vc/db to actual unchanged tenant.ts; no driver/product behavior stubbed."
+}

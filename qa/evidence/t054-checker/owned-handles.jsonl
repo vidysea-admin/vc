@@ -1,0 +1,6 @@
+{"pid":40716,"id":"lane","start":"2026-10-13T16:47:59.3763693Z","command":"node C:/Users/Lenovo/.agents/skills/maker/tools/tick.mjs --lane-check 018ec276ad31f2947a2049504b14051bc2fb2d6d"}
+{"pid":25352,"id":"acceptance","start":"2026-10-13T16:47:59.7291342Z","command":"bash scripts/vc-testlock.sh node --import tsx qa/evidence/t054-checker/acceptance.ts"}
+{"pid":36388,"id":"engine","start":"2026-10-13T16:48:02.1779341Z","command":"bash scripts/vc-testlock.sh node --import tsx --test --test-concurrency=1 --test-timeout=30000 packages/engine/tests/webhooks-outbox.test.ts packages/engine/tests/webhooks-outbox-mongo.test.ts packages/engine/tests/webhooks-delivery-drain.test.ts packages/engine/tests/webhooks-delivery.test.ts"}
+{"pid":45372,"id":"api","start":"2026-10-13T16:48:05.8618551Z","command":"bash scripts/vc-testlock.sh node --import tsx --test --test-concurrency=1 --test-timeout=30000 --test-name-pattern='(webhook|outbox)' apps/api/tests/server.test.ts"}
+{"pid":24000,"id":"engine-types","start":"2026-10-13T16:48:10.5893721Z","command":"bash scripts/vc-testlock.sh node node_modules/typescript/bin/tsc --noEmit -p packages/engine/tsconfig.json"}
+{"pid":24904,"id":"api-types","start":"2026-10-13T16:48:14.9916777Z","command":"bash scripts/vc-testlock.sh node node_modules/typescript/bin/tsc --noEmit -p apps/api/tsconfig.json"}

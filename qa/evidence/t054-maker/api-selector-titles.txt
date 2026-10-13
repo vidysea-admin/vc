@@ -1,0 +1,5 @@
+362:test("T-034 api: decideApproval enqueues one fact.approved webhook event per DURABLY WRITTEN fact (read back via getFactsByIds, not re-derived from the response), carrying B2 provenance", async () => {
+395:test("T-034 api: with no webhooks configured, an approve decision writes facts exactly as before and enqueues nothing (the emission hook is a pure no-op)", async () => {
+405:test("T-034 api: a webhook enqueue failure is logged (webhook_enqueue_failed) but never turns an already-successful approval into an error response", async () => {
+746:test("T-034 api: the first erasure confirmation enqueues one erasure.requested webhook event, carrying the request's own reason/requestedAt (read back via getErasureRequest, the last point studentId is still clear)", async () => {
+999:test("T046 verified JWT edit provenance is identical in raw KG API profile and approved webhook", async () => {

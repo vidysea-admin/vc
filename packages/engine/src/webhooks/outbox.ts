@@ -37,7 +37,7 @@ export interface WebhookOutbox {
   enqueue(record: OutboxRecordInput): Promise<OutboxRecord>;
   get(id: string): Promise<OutboxRecord | undefined>;
   update(id: string, patch: OutboxRecordPatch): Promise<OutboxRecord>;
-  list(): Promise<OutboxRecord[]>;
+  list(statuses?: readonly OutboxRecordStatus[]): Promise<OutboxRecord[]>;
 }
 
 /** In-memory WebhookOutbox for tests (B8/B13 — no real network, no real DB). */
@@ -71,8 +71,8 @@ export class InMemoryWebhookOutbox implements WebhookOutbox {
     return updated;
   }
 
-  async list(): Promise<OutboxRecord[]> {
-    return Array.from(this.records.values());
+  async list(statuses?: readonly OutboxRecordStatus[]): Promise<OutboxRecord[]> {
+    return Array.from(this.records.values()).filter((record) => statuses === undefined || statuses.includes(record.status));
   }
 }
 
@@ -169,8 +169,8 @@ export class MongoWebhookOutbox implements WebhookOutbox {
     return toRecord(doc);
   }
 
-  async list(): Promise<OutboxRecord[]> {
-    const docs = (await this.collection().find({}).toArray()) as OutboxMongoDoc[];
+  async list(statuses?: readonly OutboxRecordStatus[]): Promise<OutboxRecord[]> {
+    const docs = (await this.collection().find(statuses === undefined ? {} : { status: { $in: [...statuses] } }).toArray()) as OutboxMongoDoc[];
     return docs.map(toRecord);
   }
 }
