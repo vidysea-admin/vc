@@ -20,7 +20,8 @@
  */
 import { useState } from "react";
 import { StartSessionResultSchema, type StartSessionRequest, type StartSessionResult } from "../server/contracts";
-import { LABELS } from "./labels";
+import { getDictionary, type UiLocale } from "./labels";
+import { useUiLocale } from "./ApprovalScreen";
 
 /** Slightly above FAILOVER_DEFAULT_DEADLINE_MS (45_000, @vc/providers) — see the module docstring. */
 const CLIENT_TIMEOUT_MS = 50_000;
@@ -64,7 +65,10 @@ type Screen =
 
 const SESSIONS_URL = "/api/sessions";
 
-export function NewSessionForm() {
+export function NewSessionForm({ initialLocale = "en" }: { initialLocale?: UiLocale } = {}) {
+  const [locale] = useUiLocale(initialLocale);
+  const dictionary = getDictionary(locale);
+  const LABELS = dictionary.labels;
   // Built exactly once per mount — the SAME body is sent on the first submit and every Retry.
   const [submission] = useState<StartSessionRequest>(buildDemoSubmission);
   const [screen, setScreen] = useState<Screen>({ kind: "idle" });
@@ -123,7 +127,7 @@ export function NewSessionForm() {
             {submission.turns.map((t) => (
               <tr key={t.turnId} data-turn-id={t.turnId}>
                 <td className="mono">
-                  {t.speaker} · {t.turnId}
+                  {dictionary.enums.speaker[t.speaker]} · {t.turnId}
                 </td>
                 <td>{t.text}</td>
               </tr>
@@ -157,22 +161,13 @@ export function NewSessionForm() {
 
       {screen.kind === "fenced" || screen.kind === "invalid" || screen.kind === "in_progress" ? (
         <section className="banner banner-warn" data-state={screen.kind} role="status">
-          <strong>{screen.kind === "fenced" ? LABELS.stateFenced : screen.kind === "invalid" ? LABELS.stateInvalid : "Session processing"}</strong>
+          <strong>{screen.kind === "fenced" ? LABELS.stateFenced : screen.kind === "invalid" ? LABELS.stateInvalid : LABELS.stateSessionProcessing}</strong>
         </section>
       ) : null}
 
       {screen.kind === "done" ? (
         <section className="banner banner-ok" data-state="done" data-result-status={screen.status} role="status">
-          <strong>{({
-            written: "Written",
-            refused: LABELS.stateInvalid,
-            rejected: "Rejected",
-            escalated: "Escalated",
-            conflict: "Conflict",
-            partial_conflict: "Partial conflict",
-            extraction_failed: "Extraction failed",
-            summary_failed: "Summary failed",
-          } satisfies Record<Extract<StartSessionResult, { state: "done" }>["result"]["status"], string>)[screen.status]}</strong>
+          <strong>{dictionary.enums.outcome[screen.status]}</strong>
         </section>
       ) : null}
 

@@ -15,13 +15,15 @@
  * Run (T-018, prod build): VC_EVIDENCE_MODE=build VC_EVIDENCE_UNIT=t-018-approval-followups VC_EVIDENCE_PORT=3128 npx tsx demo/browser-evidence.ts
  */
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
-import { chromium, type Page } from "playwright";
+import { chromium, type Browser, type Page } from "playwright";
 import { MAX_REJECT_REASON_LENGTH } from "../src/server/contracts";
 
 const MODE: "dev" | "build" = process.env.VC_EVIDENCE_MODE === "build" ? "build" : "dev";
-const UNIT = process.env.VC_EVIDENCE_UNIT ?? "t-008-approval-ui";
+const LOCALIZATION = process.env.VC_EVIDENCE_LOCALE === "hi";
+const UNIT = process.env.VC_EVIDENCE_UNIT ?? (LOCALIZATION ? "t-048-hindi-approval" : "t-008-approval-ui");
 const PORT = Number(process.env.VC_EVIDENCE_PORT ?? (MODE === "build" ? 3128 : 3118));
 const BASE = `http://localhost:${PORT}`;
 const DATE = new Date().toISOString().slice(0, 10);
@@ -47,6 +49,8 @@ interface PageRecord {
   expectedStatusLogs: number;
   unexpectedConsoleErrors: number;
   messages: string[];
+  consoleLocations: string[];
+  observedExpectedResponses: {url:string;status:number;method:string}[];
 }
 
 const interactions: Interaction[] = [];
@@ -97,7 +101,7 @@ function startServer(): Promise<ChildProcess> {
   });
   let log = "";
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`next ${MODE === "build" ? "start" : "dev"} did not become ready:\n${log}`)), 120_000);
+    const timer = setTimeout(() => { stopServer(child); reject(new Error(`next ${MODE === "build" ? "start" : "dev"} did not become ready:\n${log}`)); }, 120_000);
     const onData = (buf: Buffer) => {
       log += buf.toString();
       // "next dev" prints "Ready in <ms>"; "next start" prints "- Local:  http://..." instead.
@@ -108,6 +112,7 @@ function startServer(): Promise<ChildProcess> {
     };
     child.stdout!.on("data", onData);
     child.stderr!.on("data", onData);
+    child.on("error", (err) => { clearTimeout(timer); stopServer(child); reject(err); });
     child.on("exit", (code) => reject(new Error(`next ${MODE === "build" ? "start" : "dev"} exited (${code}):\n${log}`)));
   });
 }
@@ -120,31 +125,29 @@ function stopServer(child: ChildProcess) {
 }
 
 async function track(page: Page, label: string, expectedStatuses: number[], action: () => Promise<void>) {
-  const messages: string[] = [];
-  const onConsole = (msg: { type(): string; text(): string }) => {
-    if (msg.type() === "error") messages.push(msg.text());
+  const messages: string[] = [], locations: string[] = [];
+  const observed: {url:string;status:number;method:string}[] = [];
+  const onResponse = (response: import("playwright").Response) => {
+    if(!expectedStatuses.includes(response.status()))return;
+    const method=response.request().method(), endpoint=new URL(response.url());
+    const allowed = endpoint.origin === BASE && (response.status() === 503
+      ? method === "POST" && endpoint.pathname === "/api/sessions"
+      : ["GET","POST"].includes(method) && endpoint.pathname.startsWith("/api/approvals/"));
+    if(allowed)observed.push({url:response.url(),status:response.status(),method});
   };
-  const onPageError = (err: Error) => messages.push(`pageerror: ${err.message}`);
-  page.on("console", onConsole);
-  page.on("pageerror", onPageError);
-  try {
-    await action();
-    await page.waitForTimeout(300);
-  } finally {
-    page.off("console", onConsole);
-    page.off("pageerror", onPageError);
-  }
-  const isExpected = (m: string) =>
-    expectedStatuses.some((s) => m.includes(`status of ${s}`)) && m.startsWith("Failed to load resource");
-  const expectedStatusLogs = messages.filter(isExpected).length;
-  pages.push({
-    url: page.url(),
-    label,
-    consoleErrors: messages.length,
-    expectedStatusLogs,
-    unexpectedConsoleErrors: messages.length - expectedStatusLogs,
-    messages,
-  });
+  const onConsole = (msg: { type():string; text():string; location():{url:string} }) => {
+    if(msg.type() === "error"){messages.push(msg.text());locations.push(msg.location().url);}
+  };
+  const onPageError = (err: Error) => {messages.push(`pageerror: ${err.message}`);locations.push("");};
+  page.on("console",onConsole);page.on("pageerror",onPageError);page.on("response",onResponse);
+  try { await action(); await page.waitForTimeout(300); }
+  finally {page.off("console",onConsole);page.off("pageerror",onPageError);page.off("response",onResponse);}
+  const remaining=[...observed];
+  const expectedStatusLogs=messages.filter((message,index)=>{
+    const match=remaining.findIndex(response=>locations[index]===response.url && message.startsWith("Failed to load resource:") && message.includes(`status of ${response.status}`));
+    if(match<0)return false;remaining.splice(match,1);return true;
+  }).length;
+  pages.push({url:page.url(),label,consoleErrors:messages.length,expectedStatusLogs,unexpectedConsoleErrors:messages.length-expectedStatusLogs,messages,consoleLocations:locations,observedExpectedResponses:observed});
 }
 
 async function readback(page: Page, studentId: string) {
@@ -161,11 +164,36 @@ async function readback(page: Page, studentId: string) {
 const TYPED_REJECT_REASON = "family wants to re-check this major with the school counsellor first";
 
 async function main() {
+  if (LOCALIZATION && (MODE !== "build" || !/^t-048-hindi-[a-z0-9-]+$/.test(UNIT) || existsSync(OUT))) throw new Error("Localization evidence requires build mode, scoped t-048-hindi unit and fresh output");
   mkdirSync(OUT, { recursive: true });
   const server = await startServer();
-  const browser = await chromium.launch();
+  let browser: Browser | undefined;
+  let browserVersion = "unlaunched";
   try {
+    browser = await chromium.launch();
+    browserVersion = browser.version();
     const context = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+    if (LOCALIZATION) {
+      await context.addCookies([{ name: "vc-ui-locale", value: "hi", url: BASE }]);
+      const ssr = await (await context.request.get(`${BASE}/sessions/new`)).text();
+      record("Hindi SSR and metadata", "Hindi language/title/session before JS", "server response inspected", ssr.includes('<html lang="hi"') && ssr.includes("<title>परामर्श स्वीकृति</title>") && ssr.includes("नया सत्र"));
+      const fallback = await (await context.request.get(`${BASE}/sessions/new`, { headers: { cookie: "vc-ui-locale=HI" } })).text();
+      record("invalid locale fallback", "strict en fallback", "HI cookie response inspected", fallback.includes('<html lang="en"') && fallback.includes("New session"));
+      const session = await context.newPage();
+      await track(session, "Hindi Retry preservation", [503], async () => {
+        const bodies: string[] = [];
+        await session.route("**/api/sessions", async route => { bodies.push(route.request().postData() ?? ""); await route.fulfill({ status:503, contentType:"application/json", body:JSON.stringify({state:"ai_unavailable",sessionId:(route.request().postDataJSON() as {sessionId:string}).sessionId,attempts:2,modelsAttempted:["mock"]}) }); });
+        await session.goto(`${BASE}/sessions/new`,{waitUntil:"networkidle"});
+        await session.click('[data-testid="submit-session"]');await session.waitForSelector('[data-state="ai_unavailable"]');
+        const first=await session.locator('[data-state="ai_unavailable"]').innerText();
+        await session.selectOption('[data-testid="ui-locale"]',"en");await session.selectOption('[data-testid="ui-locale"]',"hi");
+        await session.click('[data-testid="retry-session"]');await session.waitForSelector('[data-state="ai_unavailable"]');
+        const text=await session.locator("main").innerText();
+        record("Hindi Retry bytes", "identical request and original transcript", `posts=${bodies.length} identical=${bodies[0]===bodies[1]}`, bodies.length===2 && bodies[0]===bodies[1] && first.includes("अभी एआई उपलब्ध नहीं") && text.includes("फिर कोशिश करें") && text.includes("20 lakh rupees a year"));
+        await session.screenshot({path:join(OUT,"00-hindi-retry.png"),fullPage:true});
+      });
+      await session.close();
+    }
     // Warm-up: compile every route once before the tabs open. In next dev a route compiled for the
     // first time can hot-reload already-open tabs, which would silently replace tab B's stale form.
     // Read-only requests only: GETs never write (B3).
@@ -179,6 +207,13 @@ async function main() {
       await a.goto(BASE, { waitUntil: "networkidle", timeout: 180_000 });
       const links = await a.locator(".thread-list a").allTextContents();
       record("open the index page", "the 3 seeded demo threads are listed", `links: ${links.join(", ")}`, links.length === 3 && links.includes(PAUSED));
+    });
+
+    if (LOCALIZATION) await track(a,"Hindi navigation preference",[],async()=>{
+      await a.selectOption('[data-testid="ui-locale"]',"en");await a.click('[data-testid="new-session-link"]');await a.waitForSelector('[data-testid="submit-session"]');
+      await a.goBack({waitUntil:"networkidle"});await a.selectOption('[data-testid="ui-locale"]',"hi");await a.goForward({waitUntil:"networkidle"});await a.waitForSelector('[data-testid="submit-session"]');
+      const text=await a.locator("h1").innerText(),lang=await a.locator("html").getAttribute("lang");
+      record("history uses current preference","Hindi on English-mounted route",`h1=${text} lang=${lang}`,text==="नया सत्र"&&lang==="hi");
     });
 
     // 2. The paused thread renders the proposal.
@@ -259,7 +294,7 @@ async function main() {
         "reject-reason counter after typing a short reason",
         `shows ${TYPED_REJECT_REASON.length}/${MAX_REJECT_REASON_LENGTH}, no limit-reached notice`,
         `text="${await counterText()}"`,
-        (await counterText()).includes(`${TYPED_REJECT_REASON.length}/${MAX_REJECT_REASON_LENGTH}`) && !(await counterText()).includes("Limit reached"),
+        (await counterText()).includes(`${TYPED_REJECT_REASON.length}/${MAX_REJECT_REASON_LENGTH}`) && !(await counterText()).includes(LOCALIZATION ? "सीमा पूरी" : "Limit reached"),
       );
       const describedBy = await reasonInput.getAttribute("aria-describedby");
       const counterId = await counter.getAttribute("id");
@@ -277,7 +312,7 @@ async function main() {
         "reject-reason counter at the character cap",
         `shows ${MAX_REJECT_REASON_LENGTH}/${MAX_REJECT_REASON_LENGTH} and a limit-reached notice`,
         `text="${await counterText()}" data-at-limit="${await counter.getAttribute("data-at-limit")}"`,
-        (await counterText()).includes(`${MAX_REJECT_REASON_LENGTH}/${MAX_REJECT_REASON_LENGTH}`) && (await counterText()).includes("Limit reached") && (await counter.getAttribute("data-at-limit")) === "true",
+        (await counterText()).includes(`${MAX_REJECT_REASON_LENGTH}/${MAX_REJECT_REASON_LENGTH}`) && (await counterText()).includes(LOCALIZATION ? "सीमा पूरी" : "Limit reached") && (await counter.getAttribute("data-at-limit")) === "true",
       );
       await a.screenshot({ path: join(OUT, "02b-reason-limit-reached.png"), fullPage: true });
       await reasonInput.fill("x".repeat(MAX_REJECT_REASON_LENGTH - 1));
@@ -285,7 +320,7 @@ async function main() {
         "reject-reason counter one character back under the cap",
         "the limit-reached notice disappears again",
         `text="${await counterText()}"`,
-        !(await counterText()).includes("Limit reached"),
+        !(await counterText()).includes(LOCALIZATION ? "सीमा पूरी" : "Limit reached"),
       );
 
       // T-023 (T-020 verdict note): a hostile payload in the reason box must never become real markup
@@ -321,11 +356,19 @@ async function main() {
       const pre = await readback(a, "demo-student-1");
       record("read back the fake db BEFORE submit (B3)", "0 facts, 0 claims, no stored summary", `facts=${pre.facts.length} claims=${pre.claims} summary=${JSON.stringify(pre.sessions[0]?.summary)}`, pre.facts.length === 0 && pre.claims === 0 && pre.sessions[0]?.summary === undefined);
 
+      if(LOCALIZATION){
+        const form=await a.locator('form[data-state="awaiting_approval"]').elementHandle();
+        const snapshot=()=>a.locator('form[data-state="awaiting_approval"]').evaluate(node=>({values:Array.from(node.querySelectorAll("input")).map(input=>input.value),choices:Array.from(node.querySelectorAll('[aria-checked="true"]')).map(item=>[item.getAttribute("data-fact"),item.getAttribute("data-decision"),item.getAttribute("data-summary")])}));
+        const before=await snapshot();let posts=0;const observe=(request:import("playwright").Request)=>{if(request.method()==="POST")posts++;};a.on("request",observe);
+        await a.selectOption('[data-testid="ui-locale"]',"en");await a.selectOption('[data-testid="ui-locale"]',"hi");
+        const after=await snapshot();a.off("request",observe);const same=await form!.evaluate(node=>node===document.querySelector('form[data-state="awaiting_approval"]'));
+        record("toggle with pending edits","same form/choices/values and zero POST",`sameNode=${same} posts=${posts}`,same&&posts===0&&JSON.stringify(before)===JSON.stringify(after));
+      }
       await a.click('[data-testid="submit"]');
       await a.waitForSelector('[data-state="done"]', { timeout: 60_000 });
       const written = await a.locator("tr[data-written-key]").evaluateAll((els) => els.map((e) => e.getAttribute("data-written-key")));
       const outcome = await a.locator('[data-testid="outcome"]').textContent();
-      record("submit", "resolved: outcome written, written facts = targetCountry, preferredIntake, budget_inr_per_year", `outcome=${outcome} written=[${written.join(", ")}]`, outcome === "written" && [...written].sort().join() === "budget_inr_per_year,preferredIntake,targetCountry");
+      record("submit", "resolved: outcome written, written facts = targetCountry, preferredIntake, budget_inr_per_year", `outcome=${outcome} written=[${written.join(", ")}]`, outcome === (LOCALIZATION ? "दर्ज" : "written") && [...written].sort().join() === "budget_inr_per_year,preferredIntake,targetCountry");
       await a.screenshot({ path: join(OUT, "03-resolved.png"), fullPage: true });
     });
 
@@ -413,21 +456,22 @@ async function main() {
       record("open the resolved thread at 390px width", "no horizontal page scroll", `horizontalOverflowPx=${overflow}`, overflow <= 0);
     });
   } finally {
-    await browser.close();
-    stopServer(server);
+    try { await browser?.close(); } finally { stopServer(server); }
   }
 
   const report = {
     unit: UNIT === "t-008-approval-ui" ? "T-008 counsellor diff-approval UI" : `follow-up evidence run (${UNIT})`,
     date: DATE,
     generatedAt: new Date().toISOString(),
+    runtime: { node:process.version, buildId:MODE==="build"?readFileSync(join(process.cwd(),".next/BUILD_ID"),"utf8").trim():null },
+    sourceInputs: ["src/components/labels.ts","src/components/ApprovalScreen.tsx","src/components/NewSessionForm.tsx","src/app/layout.tsx","src/app/page.tsx","src/app/sessions/new/page.tsx","src/app/approvals/[threadId]/page.tsx","demo/browser-evidence.ts","package.json","tsconfig.json"].map(file=>({path:file,sha256:createHash("sha256").update(readFileSync(join(process.cwd(),file))).digest("hex")})),
     baseUrl: BASE,
     serverMode: MODE,
     mode:
       MODE === "build"
         ? "demo: next build --webpack then next start (PRODUCTION build/server), in-process fake db via @vc/db getVcDb + real MongoDBSaver over the fake, MockProvider, synthetic threads; no MONGODB_URL, no Gemini"
         : "demo: next dev (webpack), in-process fake db via @vc/db getVcDb + real MongoDBSaver over the fake, MockProvider, synthetic threads; no MONGODB_URL, no Gemini",
-    browser: `chromium ${browser.version()} (playwright, headless)`,
+    browser: `chromium ${browserVersion} (playwright, headless)`,
     pages,
     interactions,
     totals: {

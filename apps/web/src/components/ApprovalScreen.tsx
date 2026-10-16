@@ -25,10 +25,55 @@
  * - B1: every word the UI writes comes from LABELS; all other text is proposal data or the
  *   counsellor's own typed text (the edited value, the reject reason).
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useCallback, useEffect, useMemo, useState } from "react";
 import type { ApprovalView, DecisionRequest, SubmitResult } from "../server/contracts";
 import { ApprovalViewSchema, MAX_REJECT_REASON_LENGTH, SubmitResultSchema } from "../server/contracts";
-import { LABELS } from "./labels";
+import { getDictionary, normalizeUiLocale, UI_LOCALE_COOKIE, type UiLocale } from "./labels";
+
+const UiLocaleContext = createContext<UiLocale>("en");
+const LOCALE_EVENT = "vc-ui-locale-change";
+
+/** Cookie is a UI preference, never student consent or an API authorization input. */
+export function useUiLocale(initialLocale: UiLocale = "en") {
+  const [locale, setLocale] = useState<UiLocale>(() => normalizeUiLocale(initialLocale));
+  useEffect(() => {
+    const reconcile = () => {
+      const value = document.cookie.split(";").map(item => item.trim()).find(item => item.startsWith(`${UI_LOCALE_COOKIE}=`))?.slice(UI_LOCALE_COOKIE.length + 1);
+      setLocale(normalizeUiLocale(value));
+    };
+    // A cached/prefetched route may carry an older server prop. Current cookie wins
+    // after hydration, without remounting a pending form or requesting a refresh.
+    reconcile();
+    window.addEventListener(LOCALE_EVENT, reconcile);
+    window.addEventListener("pageshow", reconcile);
+    return () => { window.removeEventListener(LOCALE_EVENT, reconcile); window.removeEventListener("pageshow", reconcile); };
+  }, [initialLocale]);
+  const selectLocale = (value: unknown) => {
+    const next = normalizeUiLocale(value);
+    document.cookie = `${UI_LOCALE_COOKIE}=${next}; Path=/; SameSite=Lax; Max-Age=31536000`;
+    setLocale(next);
+    window.dispatchEvent(new Event(LOCALE_EVENT));
+  };
+  return [locale, selectLocale] as const;
+}
+
+/** Client-selected labels also reconcile cached server navigation without a refresh. */
+export function UiLabel({ name, initialLocale = "en" }: { name: keyof ReturnType<typeof getDictionary>["labels"]; initialLocale?: UiLocale }) {
+  const [locale] = useUiLocale(initialLocale);
+  return <>{getDictionary(locale).labels[name]}</>;
+}
+
+export function LocaleSelector({ initialLocale = "en" }: { initialLocale?: UiLocale }) {
+  const [locale, selectLocale] = useUiLocale(initialLocale);
+  const dictionary = getDictionary(locale);
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.title = dictionary.metadata.title;
+  }, [locale, dictionary.metadata.title]);
+  return <label>{dictionary.labels.language} <select data-testid="ui-locale" value={locale} onChange={event => selectLocale(event.target.value)}>
+    <option value="en">{dictionary.labels.languageEnglish}</option><option value="hi">{dictionary.labels.languageHindi}</option>
+  </select></label>;
+}
 
 type Pending = Extract<ApprovalView, { state: "awaiting_approval" }>;
 type ProposedFact = Pending["request"]["facts"][number];
@@ -44,6 +89,7 @@ export interface ApprovalScreenProps {
   threadId: string;
   /** Server-provided first view (tests, or a pre-fetched page); otherwise fetched on mount. */
   initialView?: ApprovalView;
+  initialLocale?: UiLocale;
 }
 
 function display(value: unknown): string {
@@ -101,7 +147,9 @@ export function reasonCounter(text: string, max: number): { used: number; remain
 
 const apiUrl = (threadId: string) => `/api/approvals/${encodeURIComponent(threadId)}`;
 
-export function ApprovalScreen({ threadId, initialView }: ApprovalScreenProps) {
+export function ApprovalScreen({ threadId, initialView, initialLocale = "en" }: ApprovalScreenProps) {
+  const [locale] = useUiLocale(initialLocale);
+  const LABELS = getDictionary(locale).labels;
   const [screen, setScreen] = useState<Screen>(initialView ? { kind: "view", view: initialView } : { kind: "loading" });
   const [issues, setIssues] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -141,7 +189,7 @@ export function ApprovalScreen({ threadId, initialView }: ApprovalScreenProps) {
   };
 
   return (
-    <main className="shell">
+    <UiLocaleContext.Provider value={locale}><main className="shell">
       <header className="head">
         <h1>{LABELS.title}</h1>
         <dl className="meta">
@@ -158,11 +206,12 @@ export function ApprovalScreen({ threadId, initialView }: ApprovalScreenProps) {
         </dl>
       </header>
       <Body screen={screen} issues={issues} submitting={submitting} onSubmit={submit} onReload={load} />
-    </main>
+    </main></UiLocaleContext.Provider>
   );
 }
 
 function StateBanner({ state, label, tone, onReload }: { state: string; label: string; tone: "info" | "warn" | "ok"; onReload?: () => void }) {
+  const LABELS = getDictionary(useContext(UiLocaleContext)).labels;
   return (
     <section className={`banner banner-${tone}`} data-state={state} role="status">
       <strong>{label}</strong>
@@ -182,6 +231,9 @@ function Body(props: {
   onSubmit: (body: DecisionRequest) => void;
   onReload: () => void;
 }) {
+  const locale = useContext(UiLocaleContext);
+  const dictionary = getDictionary(locale);
+  const LABELS = dictionary.labels;
   const { screen, onReload } = props;
   if (screen.kind === "loading") return <StateBanner state="loading" label={LABELS.stateLoading} tone="info" />;
   if (screen.kind === "error") return <StateBanner state="error" label={LABELS.stateError} tone="warn" onReload={onReload} />;
@@ -218,7 +270,7 @@ function Body(props: {
           <StateBanner state="done" label={LABELS.stateDone} tone="ok" onReload={onReload} />
           <dl className="meta">
             <dt>{LABELS.outcome}</dt>
-            <dd data-testid="outcome">{view.result.status}</dd>
+            <dd data-testid="outcome">{locale === "en" ? view.result.status : dictionary.enums.outcome[view.result.status]}</dd>
           </dl>
           <WrittenFacts facts={view.decision?.approve ? (view.decision.edits ?? []) : []} />
           <p className="tag" data-summary-decision={view.summaryDecision ?? "approve"}>
@@ -232,6 +284,7 @@ function Body(props: {
 }
 
 function IssueList({ issues }: { issues: string[] }) {
+  const LABELS = getDictionary(useContext(UiLocaleContext)).labels;
   if (issues.length === 0) return null;
   return (
     <section className="issues" data-testid="issues">
@@ -246,6 +299,7 @@ function IssueList({ issues }: { issues: string[] }) {
 }
 
 function WrittenFacts({ facts }: { facts: { key: string; value?: unknown }[] }) {
+  const LABELS = getDictionary(useContext(UiLocaleContext)).labels;
   return (
     <section>
       <h2>{LABELS.sectionWritten}</h2>
@@ -284,6 +338,8 @@ function PendingForm({
   submitting: boolean;
   onSubmit: (body: DecisionRequest) => void;
 }) {
+  const dictionary = getDictionary(useContext(UiLocaleContext));
+  const LABELS = dictionary.labels;
   const { request } = view;
   const [choices, setChoices] = useState<Record<string, FactChoice | undefined>>({});
   const summaryBlocked = request.summary === "";
@@ -350,7 +406,7 @@ function PendingForm({
               >
                 <div className="fact-head">
                   <span className="mono fact-key">{fact.key}</span>
-                  {change ? <span className="chip">{change.op}</span> : null}
+                  {change ? <span className="chip">{dictionary.enums.change[change.op]}</span> : null}
                   {flagged ? <span className="chip chip-warn">{LABELS.needsReview}</span> : null}
                 </div>
                 <dl className="fact-body">
@@ -367,7 +423,7 @@ function PendingForm({
                     {fact.source.type === "transcript" ? (
                       <blockquote className="quote">{fact.source.quote}</blockquote>
                     ) : (
-                      <span className="mono">{fact.source.type}</span>
+                      <span className="mono">{dictionary.enums.source[fact.source.type]}</span>
                     )}
                   </dd>
                   {fact.source.type === "transcript" ? (
@@ -383,7 +439,7 @@ function PendingForm({
                     </span>
                   </dd>
                   <dt>{LABELS.colSensitivity}</dt>
-                  <dd>{fact.sensitivity}</dd>
+                  <dd>{dictionary.enums.sensitivity[fact.sensitivity]}</dd>
                   {flagged && fact.reviewReasons && fact.reviewReasons.length > 0 ? (
                     <>
                       <dt>{LABELS.colReason}</dt>

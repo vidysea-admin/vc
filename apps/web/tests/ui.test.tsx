@@ -10,6 +10,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { isScriptLike } from "@vc/schemas";
 import { ApprovalScreen, buildRejectDecision, reasonCounter } from "../src/components/ApprovalScreen";
 import { LABELS } from "../src/components/labels";
+import * as localeLabels from "../src/components/labels";
 import { MAX_REJECT_REASON_LENGTH, type ApprovalView } from "../src/server/contracts";
 
 const quoteSource = (quote: string, turnId: string) => ({ type: "transcript" as const, quote, turnId });
@@ -77,6 +78,81 @@ test("pending: every proposed fact renders with key, value, quote, turn, confide
   // summary controls
   assert.ok(html.includes('data-summary="approve"'));
   assert.ok(html.includes('data-summary="withhold"'));
+});
+
+test("D078 Hindi capability: approval controls localize while proposal data stays verbatim", () => {
+  const req = (PENDING as Extract<ApprovalView, { state: "awaiting_approval" }>).request;
+  const before = JSON.stringify(PENDING);
+  const html = renderToStaticMarkup(<ApprovalScreen threadId="scribe:s-1" initialView={PENDING} {...{ initialLocale: "hi" as const }} />);
+  assert.ok(textNodes(html).includes("स्वीकार करें"), "Hindi approval must show an actual Hindi approve control");
+  assert.equal(textNodes(html).includes(LABELS.approve), false);
+  for (const value of [req.summary, "scribe:s-1", req.sessionId, req.studentId, "Canada", "targetCountry", "budget_inr_per_year", "2000000", "1500000", "t1", "t5", "computer science in Canada", "around 20 lakh rupees a year", "negation marker near the quote", "no source"]) {
+    assert.ok(html.includes(value), `Hindi UI changed proposal data: ${value}`);
+  }
+  assert.equal(JSON.stringify(PENDING), before, "rendering must not rewrite the proposal");
+  for (const decision of ["approve", "edit", "reject"]) assert.equal((html.match(new RegExp(`data-decision="${decision}"`, "g")) ?? []).length, 2);
+  for (const decision of ["approve", "withhold"]) assert.ok(html.includes(`data-summary="${decision}"`));
+  const english = renderToStaticMarkup(<ApprovalScreen threadId="scribe:s-1" initialView={PENDING} />);
+  assert.ok(textNodes(english).includes("Approve"), "English compatibility positive control");
+});
+
+test("D078 dictionaries: strict locale fallback, identical complete keys and short non-script labels", () => {
+  const api = localeLabels as unknown as {
+    normalizeUiLocale(input: unknown): "en" | "hi";
+    getDictionary(locale: "en" | "hi"): { labels: Record<string, string>; enums: Record<string, Record<string, string>>; metadata: unknown };
+  };
+  assert.equal(typeof api.normalizeUiLocale, "function");
+  assert.equal(api.normalizeUiLocale("hi"), "hi");
+  for (const value of ["en", undefined, null, "", "HI", " hi", "hi ", "hi-IN", "fr", true, 1, {}, ["hi"]]) assert.equal(api.normalizeUiLocale(value), "en", String(value));
+  const en = api.getDictionary("en"), hi = api.getDictionary("hi");
+  assert.deepEqual(Object.keys(hi.labels).sort(), Object.keys(en.labels).sort());
+  for (const key of Object.keys(LABELS)) assert.ok(key in hi.labels, `missing original label ${key}`);
+  assert.equal(hi.labels.approve, "स्वीकार करें");
+  for (const [name, label] of Object.entries(hi.labels)) {
+    assert.ok(label.trim().length > 0, name);
+    assert.equal(isScriptLike(label, "evidence"), false, name);
+    assert.ok(label.split(/\s+/).length <= 6, name);
+    assert.equal(/[.!]$/.test(label), false, name);
+  }
+  const census = {
+    outcome: ["written", "refused", "rejected", "escalated", "conflict", "partial_conflict", "extraction_failed", "summary_failed"],
+    change: ["add", "update", "remove"], sensitivity: ["low", "medium", "high"],
+    source: ["kb", "profile", "student-direct", "counsellor-edit"], speaker: ["student", "counsellor"],
+  };
+  for (const [group, keys] of Object.entries(census)) {
+    assert.deepEqual(Object.keys(hi.enums[group]!).sort(), keys.sort(), group);
+    assert.deepEqual(Object.keys(en.enums[group]!).sort(), keys.sort(), group);
+    for (const key of keys) assert.match(hi.enums[group]![key]!, /[\u0900-\u097f]/, `${group}.${key} is untranslated`);
+  }
+});
+
+test("D078 Hindi: every fixed approval enum is localized without translating same-named fact values", () => {
+  const req = (PENDING as Extract<ApprovalView, { state: "awaiting_approval" }>).request;
+  for (const sensitivity of ["low", "medium", "high"] as const) {
+    for (const source of [
+      { type: "kb" as const, id: "kb-1", fetchedAt: "2026-09-24T11:30:00.000Z" },
+      { type: "profile" as const, id: "profile-1" },
+      { type: "student-direct" as const, id: "direct-1" },
+      { type: "counsellor-edit" as const, counsellorId: "counsellor-1", editedAt: "2026-09-24T11:30:00.000Z", editedFrom: quoteSource("unchanged evidence", "t1") },
+    ]) {
+      for (const op of ["add", "update", "remove"] as const) {
+        const view: ApprovalView = { ...PENDING, request: { ...req, facts: [{ ...req.facts[0]!, value: "low update written student", sensitivity, source }], diff: { ...req.diff, changes: [{ op, key: "targetCountry", before: "literal-before", after: "literal-after" }] } } } as ApprovalView;
+        const nodes = textNodes(renderToStaticMarkup(<ApprovalScreen threadId="scribe:s-1" initialView={view} {...{ initialLocale: "hi" as const }} />));
+        for (const raw of [sensitivity, source.type, op]) assert.equal(nodes.includes(raw), false, `raw closed enum ${raw}`);
+        assert.ok(nodes.includes("low update written student"), "source value must remain verbatim even when it resembles enums");
+      }
+    }
+  }
+});
+
+test("D078 Hindi done outcomes: fixed status localizes, outcome privacy remains unchanged", () => {
+  for (const status of ["written", "refused", "rejected", "escalated", "conflict", "partial_conflict", "extraction_failed", "summary_failed"] as const) {
+    const view = { state: "done", threadId: "scribe:s-1", result: { status, reason: "PRIVATE_REASON_SENTINEL", key: "PRIVATE_KEY_SENTINEL", message: "PRIVATE_MESSAGE_SENTINEL", escalation: { reasons: ["PRIVATE_ESCALATION_SENTINEL"] } }, decision: null, summaryDecision: "withhold" } as unknown as ApprovalView;
+    const html = renderToStaticMarkup(<ApprovalScreen threadId="scribe:s-1" initialView={view} {...{ initialLocale: "hi" as const }} />);
+    assert.equal(textNodes(html).includes(status), false, `raw outcome ${status}`);
+    for (const sentinel of ["PRIVATE_REASON_SENTINEL", "PRIVATE_KEY_SENTINEL", "PRIVATE_MESSAGE_SENTINEL", "PRIVATE_ESCALATION_SENTINEL"]) assert.equal(html.includes(sentinel), false, sentinel);
+    assert.ok(html.includes('data-summary-decision="withhold"'));
+  }
 });
 
 test("pending: a needsReview fact is flagged with its reasons; an unflagged fact is not", () => {
@@ -157,6 +233,9 @@ test("B1: the only text on the screen is labels or data from the proposal (nothi
     ...req.dropped.flatMap((d) => [d.key, d.reason]),
   ]);
   const labels = new Set<string>(Object.values(LABELS));
+  // Closed enums are fixed UI labels too; source values remain in the data set above.
+  const dictionaryApi = localeLabels as unknown as { getDictionary?: (locale: "en") => { enums: Record<string, Record<string, string>> } };
+  if (dictionaryApi.getDictionary) for (const group of Object.values(dictionaryApi.getDictionary("en").enums)) for (const label of Object.values(group)) labels.add(label);
   const stray = textNodes(html).filter((t) => !labels.has(t) && !data.has(t) && !/^[\d\s%/→:·()-]+$/.test(t));
   assert.deepEqual(stray, [], "text on screen that is neither a label nor proposal data");
 });

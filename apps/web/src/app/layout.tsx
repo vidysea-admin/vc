@@ -1,12 +1,19 @@
 import type { ReactNode } from "react";
 import "./globals.css";
+import { cookies } from "next/headers";
+import { getDictionary, normalizeUiLocale, UI_LOCALE_COOKIE } from "../components/labels";
+import { LocaleSelector } from "../components/ApprovalScreen";
 
-export const metadata = { title: "Counsellor approval", description: "Vidysea counselling engine: scribe diff approval (T-008)" };
+export async function generateMetadata() {
+  const locale = normalizeUiLocale((await cookies()).get(UI_LOCALE_COOKIE)?.value);
+  return getDictionary(locale).metadata;
+}
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const locale = normalizeUiLocale((await cookies()).get(UI_LOCALE_COOKIE)?.value);
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang={locale}>
+      <body><LocaleSelector initialLocale={locale} />{children}</body>
     </html>
   );
 }
