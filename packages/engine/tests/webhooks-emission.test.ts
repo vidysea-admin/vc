@@ -4,7 +4,48 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildErasureRequestedEvent, buildFactApprovedEvent } from "../src/webhooks/schemas.js";
+import { buildConcernFlaggedEvent, buildErasureRequestedEvent, buildFactApprovedEvent } from "../src/webhooks/schemas.js";
+
+// ISS-t-034-concern-hook: the concern.flagged builder (B20 concern level, B21 "Events").
+function baseConcern() {
+  return {
+    concernId: "session-1:t4",
+    studentId: "student-1",
+    sessionId: "session-1",
+    level: "concern" as const,
+    reason: "A softer distress signal was detected in the student's message.",
+    matched: ["pressure"],
+    detector: "crisis-guard" as const,
+    citation: { type: "transcript" as const, quote: "so much pressure I can't cope", turnId: "t4" },
+  };
+}
+
+test("buildConcernFlaggedEvent produces a valid concern.flagged envelope and carries no transcript quote", () => {
+  const event = buildConcernFlaggedEvent({ tenantId: "tenant-pathlynks", concern: baseConcern(), occurredAt: "2026-09-27T10:00:00.000Z" });
+  assert.equal(event.type, "concern.flagged");
+  if (event.type !== "concern.flagged") throw new Error("unreachable");
+  assert.equal(event.tenantId, "tenant-pathlynks");
+  assert.deepEqual(Object.keys(event.data).sort(), ["matched", "message", "sessionId", "studentId", "turnId"]);
+  assert.equal(event.data.turnId, "t4");
+  assert.equal(event.data.sessionId, "session-1");
+  assert.equal(event.data.studentId, "student-1");
+  assert.deepEqual(event.data.matched, ["pressure"]);
+  assert.equal(JSON.stringify(event).includes("can't cope"), false, "the verbatim quote must not travel");
+});
+
+test("buildConcernFlaggedEvent is idempotent per (tenant, concern) and distinct across tenants and turns", () => {
+  const a = buildConcernFlaggedEvent({ tenantId: "t", concern: baseConcern(), occurredAt: "2026-09-27T10:00:00.000Z" });
+  const b = buildConcernFlaggedEvent({ tenantId: "t", concern: baseConcern(), occurredAt: "2026-09-27T11:00:00.000Z" });
+  assert.equal(a.id, b.id, "occurredAt must not affect the idempotency key");
+  assert.notEqual(a.id, buildConcernFlaggedEvent({ tenantId: "other", concern: baseConcern() }).id);
+  const c = baseConcern();
+  const other = { ...c, concernId: "session-1:t5", citation: { ...c.citation, turnId: "t5" } };
+  assert.notEqual(a.id, buildConcernFlaggedEvent({ tenantId: "t", concern: other }).id);
+});
+
+test("buildConcernFlaggedEvent refuses a crisis-level record (crisis escalates synchronously, not by webhook)", () => {
+  assert.throws(() => buildConcernFlaggedEvent({ tenantId: "t", concern: { ...baseConcern(), level: "crisis" } }));
+});
 
 function baseFact() {
   return {

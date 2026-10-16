@@ -1055,3 +1055,92 @@ test("T047 actual startup trusted recipient factory binds signed JWT tenant and 
     for (const name of ["sessions", "session_transcripts", "facts", "edges", "scribe_checkpoints", "scribe_checkpoint_writes", "crisis_flag_reviews"]) assert.equal(raw.collection<any>(name).all().length, 0, name);
   } finally { await api.stop(); }
 });
+
+// ---------------------------------------------------------------------------
+// ISS-t-034-concern-hook: concern.flagged emission (B20 concern level, B21 "Events")
+// ---------------------------------------------------------------------------
+
+const CONCERN_TEXT = "Honestly, so much pressure I can't cope, everything feels like too much right now.";
+const CONCERN_TURN = { turnId: "t4", speaker: "student", lang: "en", text: CONCERN_TEXT, translatedText: CONCERN_TEXT, ts: 4 };
+const CONCERN_BODY = { ...START_BODY, turns: [...START_BODY.turns, CONCERN_TURN] };
+
+async function startConcernSession(w: World, tenant: string, body: unknown = CONCERN_BODY, consent = true) {
+  if (consent) await seedConsent(w, tenant);
+  return call(w, "POST", `/v1/students/${STUDENT}/sessions/${SESSION}/scribe`, {
+    token: await as(tenant, "counsellor-1", "counsellor"),
+    body,
+  });
+}
+
+const concernEvents = async (outbox: InMemoryWebhookOutbox) =>
+  (await outbox.list()).map((r) => r.event).filter((e) => e.type === "concern.flagged") as (WebhookEvent & { type: "concern.flagged" })[];
+
+test("ISS-t-034-concern-hook api: a recorded session concern enqueues exactly one concern.flagged event (no quote, tenant-stamped); a replay enqueues nothing more", async () => {
+  const outbox = new InMemoryWebhookOutbox();
+  const w = world({ webhooks: { outboxForTenant: () => outbox, destinationUrl: "http://client.invalid/hook" } });
+  const first = await startConcernSession(w, "tenant-a");
+  assert.equal(first.status, 200, first.body);
+  assert.equal(first.json.kind, "awaiting_approval", "a concern does not stop the scribe (D-020)");
+
+  const events = await concernEvents(outbox);
+  assert.equal(events.length, 1, "exactly one concern.flagged for one flagged turn");
+  const [event] = events;
+  assert.equal(event!.tenantId, "tenant-a");
+  assert.deepEqual(Object.keys(event!.data).sort(), ["matched", "message", "sessionId", "studentId", "turnId"]);
+  assert.equal(event!.data.studentId, STUDENT);
+  assert.equal(event!.data.sessionId, SESSION);
+  assert.equal(event!.data.turnId, "t4");
+  assert.equal(JSON.stringify(event).includes("can't cope"), false, "no transcript text in the webhook");
+  assert.ok((await outbox.list()).every((r) => r.destinationUrl === "http://client.invalid/hook"));
+
+  const replay = await call(w, "POST", `/v1/students/${STUDENT}/sessions/${SESSION}/scribe`, {
+    token: await as("tenant-a", "counsellor-1", "counsellor"),
+    body: CONCERN_BODY,
+  });
+  assert.equal(replay.status, 200, replay.body);
+  assert.equal((await concernEvents(outbox)).length, 1, "a replayed start never double-enqueues");
+});
+
+test("ISS-t-034-concern-hook api: a session with no concern, or one the consent gate refuses, enqueues no concern.flagged event", async () => {
+  const outbox = new InMemoryWebhookOutbox();
+  const w = world({ webhooks: { outboxForTenant: () => outbox, destinationUrl: "http://client.invalid/hook" } });
+  const clean = await startConcernSession(w, "tenant-a", START_BODY);
+  assert.equal(clean.status, 200, clean.body);
+  assert.equal((await outbox.list()).length, 0, "nothing at all is enqueued at scribe start when nothing was flagged");
+
+  const w2 = world({ webhooks: { outboxForTenant: () => outbox, destinationUrl: "http://client.invalid/hook" } });
+  const refused = await startConcernSession(w2, "tenant-a", CONCERN_BODY, false);
+  assert.equal(refused.status, 200, refused.body);
+  assert.equal(refused.json.kind, "done", "no consent -> refused");
+  assert.equal((await outbox.list()).length, 0, "B4: a consent-refused session emits nothing");
+});
+
+test("ISS-t-034-concern-hook api: concern events go to the verified tenant's own outbox only", async () => {
+  const outboxes = new Map<string, InMemoryWebhookOutbox>([["tenant-a", new InMemoryWebhookOutbox()], ["tenant-b", new InMemoryWebhookOutbox()]]);
+  const w = world({ webhooks: { outboxForTenant: (t) => outboxes.get(t)!, destinationUrl: "http://client.invalid/hook" } });
+  const res = await startConcernSession(w, "tenant-b");
+  assert.equal(res.status, 200, res.body);
+  assert.equal((await concernEvents(outboxes.get("tenant-a")!)).length, 0, "tenant-a's outbox is untouched");
+  const b = await concernEvents(outboxes.get("tenant-b")!);
+  assert.equal(b.length, 1);
+  assert.equal(b[0]!.tenantId, "tenant-b");
+});
+
+test("ISS-t-034-concern-hook api: with no webhooks configured a concern session runs exactly as before, and an enqueue failure is logged but never fails the start", async () => {
+  const w = world();
+  const plain = await startConcernSession(w, "tenant-a");
+  assert.equal(plain.status, 200, plain.body);
+  assert.equal(plain.json.kind, "awaiting_approval");
+
+  const failingOutbox: WebhookOutbox = {
+    enqueue: async () => { throw new Error("boom: destination store unavailable"); },
+    get: async () => undefined,
+    update: async () => { throw new Error("unused"); },
+    list: async () => [],
+  };
+  const w2 = world({ webhooks: { outboxForTenant: () => failingOutbox, destinationUrl: "http://client.invalid/hook" } });
+  const res = await startConcernSession(w2, "tenant-a");
+  assert.equal(res.status, 200, res.body);
+  assert.equal(res.json.kind, "awaiting_approval", "the concern write itself is unaffected");
+  assert.ok(w2.logs.some((l) => l.event === "api_request_failed" && l.route === "startScribe" && l.error.startsWith("webhook_enqueue_failed:")));
+});

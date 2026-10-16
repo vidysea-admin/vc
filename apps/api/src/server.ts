@@ -65,11 +65,13 @@ import {
   type EscalationDeps,
   MongoWebhookEmitGapLedger,
   MongoWebhookOutbox,
+  buildConcernFlaggedEvent,
   buildErasureRequestedEvent,
   buildFactApprovedEvent,
   compileScribeGraph,
   createScribeCheckpointer,
   inspectScribe,
+  readStudentConcerns,
   resumeScribe,
   scribeThreadId,
   startScribe,
@@ -205,6 +207,9 @@ interface RouteContext {
    * turn that success into an error response.
    */
   emitWebhookEvents: (events: WebhookEvent[]) => Promise<void>;
+  /** ISS-t-034-concern-hook: whether `deps.webhooks` is configured, so a route can skip the read-back
+   * that only feeds emitWebhookEvents when emission is a no-op anyway. */
+  webhooksConfigured: boolean;
   /**
    * T-042 (ISS-085 leak 1): call after emitWebhookEvents, for a decideApproval "written" outcome,
    * with what applyApprovedDiff reported writing (`writtenFactIds`) and what getFactsByIds actually
@@ -303,6 +308,22 @@ const ROUTES: RouteDef[] = [
       });
       const outcome = await startScribe(ctx.graph(), input, scribeOpts(ctx));
       if (outcome.kind === "done") ScribeResultSchema.parse(outcome.result);
+      // ISS-t-034-concern-hook (B20/B21 "Events"): recordSessionConcerns has durably written the
+      // session's concern edges by the time startScribe returns. Read back what is ACTUALLY in the
+      // Student KG (not re-derived from the input), so a consent-refused, crisis, or
+      // fence-compensated session announces nothing. Ids are deterministic per concern, so a
+      // replayed start re-enqueues the same ids and the outbox no-ops them.
+      if (ctx.webhooksConfigured && outcome.kind !== "fenced") {
+        const concerns = await readStudentConcerns(ctx.store(), {
+          studentId: ctx.params.studentId!,
+          sessionId: ctx.params.sessionId!,
+        });
+        await ctx.emitWebhookEvents(
+          concerns
+            .filter((concern) => concern.level === "concern")
+            .map((concern) => buildConcernFlaggedEvent({ tenantId: ctx.auth.tenantId, concern })),
+        );
+      }
       return { status: 200, body: outcome };
     },
   },
@@ -661,6 +682,7 @@ export function createApiHandler(deps: ApiDeps): ApiHandler {
           if (!deps.erasureConfig) throw new ErasureConfigError("the erasure approver workflow is not configured");
           return deps.erasureConfig();
         },
+        webhooksConfigured: deps.webhooks !== undefined,
         emitWebhookEvents: async (events: WebhookEvent[]) => {
           if (!deps.webhooks || events.length === 0) return;
           const { outboxForTenant, destinationUrl, gapsForTenant } = deps.webhooks;
