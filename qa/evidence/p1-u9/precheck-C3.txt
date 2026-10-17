@@ -1,0 +1,17 @@
+[testlock] running (free RAM 0.48 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9/packages/providers exec tsx --test --test-name-pattern=^C3  tests/live.test.ts
+✔ C3 gemini: a deployment with no connector (no key, no SDK) fails loudly instead of pretending to be live (6.7044ms)
+✔ C3 gemini: connecting asks for audio out, both transcripts, the voice, the system prompt and the KB tool declarations (3.5629ms)
+✔ C3 gemini: a full spoken exchange from Gemini-shaped messages becomes normalized transcripts, 24 kHz audio, a tool call and a turn end (4.5205ms)
+✔ C3 gemini: the student's mic audio is sent to Gemini as base64 PCM16 at 16 kHz; text, tool results and close take the SDK's shapes (2.0922ms)
+✔ C3 gemini: the model returns audio at the wrong sample rate; an error is raised and the audio is not played (1.0658ms)
+✔ C3 gemini: Gemini reports the student barged in and then closes the socket; both surface once (0.6309ms)
+✔ C3 gemini: an SDK error callback becomes an error event without closing the session (0.4794ms)
+✔ C3 gemini: junk messages (null, empty serverContent, a function call with no name) are ignored without throwing (0.5038ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 25242.2919

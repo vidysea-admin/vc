@@ -1,0 +1,4 @@
+Pre-check[C3]: e80c9b3 bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test --test-name-pattern="^C3 " tests/live.test.ts -> pass 8 fail 0 rc=0 t=33s
+Pre-check[C4]: e80c9b3 bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test --test-name-pattern="^C4 " tests/live.test.ts -> pass 13 fail 0 rc=0 t=70s
+Pre-check[C5]: e80c9b3 bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test --test-name-pattern="^C5 " tests/live.test.ts -> pass 10 fail 0 rc=0 t=85s
+Pre-check[C6]: e80c9b3 bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test --test-name-pattern="^C6 " tests/live.test.ts -> pass 4 fail 0 rc=0 t=8s

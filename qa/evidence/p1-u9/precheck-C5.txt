@@ -1,0 +1,22 @@
+[testlock] waiting for lock held by: PID=35992 STARTED=unknown ACQUIRED_AT=1792268789 TOKEN=1792268789514577600-7748-9031 DESC=pnpm -C apps/api exec tsx --test --test-timeout=30000 --test-name-pattern=U7 repair 5 tests/anonymous-route.test.ts 
+[testlock] owner PID 14640 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running (free RAM 1.77 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9/packages/providers exec tsx --test --test-name-pattern=^C5  tests/live.test.ts
+✔ C5 audit A9b: the model says a fee figure no tool returned; a flag event reaches the client and an audit record is stored with the thread (9.4965ms)
+✔ C5 audit A9b: the model names a counsellor who is on the do-not-name list; a listed_speaker flag fires (2.2377ms)
+✔ C5 audit A9b: a clean answer (figure came from the KB tool, no names) emits no flag and no audit record (18.3704ms)
+✔ C5 audit A9b: a name that only contains a listed name inside another word is not flagged (Rahulkar vs Rahul) (1.1997ms)
+✔ C5 audit A9b: the Tele-MANAS number the fixed message carries is allow-listed, an unrelated number beside it is still flagged (0.9267ms)
+✔ C5 audit A9b: the audit is after the fact, not before: the spoken audio is already delivered when the flag arrives (0.9193ms)
+✔ C5 audit A9b: the auditor itself crashes; the failure is a visible audit_error flag, never a silent pass (0.7941ms)
+✔ C5 audit A9b: the student cuts the model off mid-sentence; the half sentence is still audited (0.6841ms)
+✔ C5 audit A9b: two findings in one reply give two flags and two audit records (one per finding) (0.5987ms)
+✔ C5 audit A9b: createSimpleOutputAuditor numbers with thousands separators and decimals match the tool text, a different figure does not (0.9027ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2695.7999
