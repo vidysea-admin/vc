@@ -4,7 +4,7 @@
  * through a tenant-scoped Db (T-025) — outcome, not construction. Synthetic text only (B13); no
  * network, no real model: the classifier is a MockProvider or a hand-rolled fake.
  */
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -435,6 +435,33 @@ const _shape: (keyof EscalationNotificationDoc)[] = ["recipient", "notifiedAt", 
 void _shape;
 
 
+// ISS-124: the D-016 fenced-writer deadline is wall-clock (setTimeout + Date.now in WriterDeadline and the
+// review budget), so a real 50/500 ms deadline can expire during the setup writes when the CPU is loaded
+// (FencedWriterDeadlineError in the wrong place), or fire late. The deadline tests mock ONLY setTimeout and
+// Date: nothing expires on its own, and the test fires the deadline explicitly with clock.advance() after the
+// held write has been reached. setImmediate / performance are untouched, so settling waits stay real.
+function useFakeClock(): { advance: (ms: number) => Promise<void>; restore: () => void } {
+  mock.timers.enable({ apis: ["setTimeout", "Date"], now: Date.now() });
+  // 1 ms steps with the microtasks drained between them: timers fire in due order and each expiry is
+  // observed by its waiters before the next timer fires, exactly as on a real event loop (one tick(ms)
+  // would fire every due timer in a single synchronous batch, an ordering production never sees).
+  const advance = async (ms: number): Promise<void> => {
+    for (let i = 0; i < ms; i++) { mock.timers.tick(1); await new Promise<void>((r) => setImmediate(r)); }
+  };
+  return { advance, restore: () => mock.timers.reset() };
+}
+
+/** Wait (real event-loop turns, no timers) until `cond` holds; the cap is a safety net, not the mechanism. */
+async function untilTrue(cond: () => boolean, capMs = 20_000): Promise<void> {
+  const t0 = performance.now();
+  while (!cond() && performance.now() - t0 < capMs) await new Promise<void>((r) => setImmediate(r));
+}
+
+/** Let already-released asynchronous work run to completion (negative checks: nothing more happens). */
+async function drainEventLoop(turns = 200): Promise<void> {
+  for (let i = 0; i < turns; i++) await new Promise<void>((r) => setImmediate(r));
+}
+
 async function setSafetyFence(w: World): Promise<void> {
   await w.db.collection(COLLECTION_NAMES.erasure_fences).insertOne({
     _id: erasureFenceKey(STUDENT), studentKey: erasureFenceKey(STUDENT),
@@ -517,19 +544,24 @@ test("T-035: a notification replay compensation preserves the prior invocation's
 });
 
 test("T-035: timeout observes late insert settlement and removes only its own records", async () => {
-  const w = world();
-  w.deps.writerDeadlineMs = 50;
-  const hold = holdSafetyUpdate(w, CRISIS_FLAG_REVIEWS_COLLECTION, (u) => "$setOnInsert" in u);
-  let timeout: FencedWriterDeadlineError | undefined;
-  const pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).catch((e: unknown) => {
-    assert.ok(e instanceof FencedWriterDeadlineError);
-    timeout = e;
-  });
-  await hold.reached;
-  await pending;
-  hold.release();
-  await timeout!.settled;
-  assert.deepEqual(w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION).all(), []);
+  const clock = useFakeClock();
+  try {
+    const w = world();
+    w.deps.writerDeadlineMs = 50;
+    const hold = holdSafetyUpdate(w, CRISIS_FLAG_REVIEWS_COLLECTION, (u) => "$setOnInsert" in u);
+    let timeout: FencedWriterDeadlineError | undefined;
+    const pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).catch((e: unknown) => {
+      assert.ok(e instanceof FencedWriterDeadlineError);
+      timeout = e;
+    });
+    await hold.reached;
+    await clock.advance(51); // the 50 ms writer deadline passes while the insert is held
+    await pending;
+    assert.ok(timeout, "the public call timed out with FencedWriterDeadlineError");
+    hold.release();
+    await timeout!.settled;
+    assert.deepEqual(w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION).all(), []);
+  } finally { clock.restore(); }
 });
 
 test("T-035: classifier returning after erasure cannot annotate or notify and a fenced replay writes nothing", async () => {
@@ -578,24 +610,28 @@ test("T-035: postcheck fence read failure undoes inserted review and compensatio
 
 
 test("T-035: background late annotation compensation failure emits a text-free alert", async () => {
-  const w = world();
-  w.deps.writerDeadlineMs = 500;
-  const hold = holdSafetyUpdate(w, CRISIS_FLAG_REVIEWS_COLLECTION, (u) => Boolean((u.$set as Record<string, unknown> | undefined)?.classifier));
-  const c = w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION);
-  const original = c.updateOne.bind(c);
-  let released = false;
-  c.updateOne = async (...args: Parameters<typeof c.updateOne>) => {
-    if (released && "$unset" in args[1]) { const err = new Error("secret transcript must not enter alert"); err.name = "SyntheticLateUndoError"; throw err; }
-    return original(...args);
-  };
-  const result = await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps);
-  await hold.reached;
-  await result.review;
-  released = true;
-  hold.release();
-  for (let i = 0; i < 30 && !w.alerts.some((a) => a.errorName === "ConcernReviewSettlementError"); i++) await new Promise((r) => setTimeout(r, 5));
-  assert.ok(w.alerts.some((a) => a.event === "concern_review_failed" && a.errorName === "ConcernReviewSettlementError"));
-  assert.ok(!JSON.stringify(w.alerts).includes("secret transcript"));
+  const clock = useFakeClock();
+  try {
+    const w = world();
+    w.deps.writerDeadlineMs = 500;
+    const hold = holdSafetyUpdate(w, CRISIS_FLAG_REVIEWS_COLLECTION, (u) => Boolean((u.$set as Record<string, unknown> | undefined)?.classifier));
+    const c = w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION);
+    const original = c.updateOne.bind(c);
+    let released = false;
+    c.updateOne = async (...args: Parameters<typeof c.updateOne>) => {
+      if (released && "$unset" in args[1]) { const err = new Error("secret transcript must not enter alert"); err.name = "SyntheticLateUndoError"; throw err; }
+      return original(...args);
+    };
+    const result = await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps);
+    await hold.reached;
+    await clock.advance(1000); // past the review deadline (classifier timeout 50 ms + writer deadline 500 ms)
+    await result.review;
+    released = true;
+    hold.release();
+    await untilTrue(() => w.alerts.some((a) => a.errorName === "ConcernReviewSettlementError"));
+    assert.ok(w.alerts.some((a) => a.event === "concern_review_failed" && a.errorName === "ConcernReviewSettlementError"));
+    assert.ok(!JSON.stringify(w.alerts).includes("secret transcript"));
+  } finally { clock.restore(); }
 });
 
 test("T-035: annotation compensation cannot overwrite a newer invocation token", async () => {
@@ -624,37 +660,42 @@ test("T-035: annotation compensation cannot overwrite a newer invocation token",
 
 
 test("T-035: late notification/annotation/acknowledgement settlement compensates after deadline", async () => {
-  for (const phase of ["notification", "annotation", "acknowledgement"]) {
-    const w = world();
-    await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
-    const collection = phase === "annotation" ? CRISIS_FLAG_REVIEWS_COLLECTION : ESCALATION_NOTIFICATIONS_COLLECTION;
-    const c = w.fakeDb.collection<AnyDoc>(collection);
-    const before = JSON.stringify(c.all());
-    // 500ms (not 50): the writes BEFORE the held one must fit the deadline even when the CPU stalls.
-    w.deps.writerDeadlineMs = 500;
-    const hold = holdSafetyUpdate(w, collection, (u) => phase === "notification" ? "$setOnInsert" in u : Boolean((u.$set as Record<string, unknown> | undefined)?.[phase === "annotation" ? "classifier" : "acknowledgedAt"]));
-    let deadline: FencedWriterDeadlineError | undefined;
-    let pending: Promise<unknown>;
-    if (phase === "acknowledgement") {
-      const [n] = await readEscalations(w.db, { sessionId: SESSION });
-      pending = acknowledgeEscalation(w.db, { notificationId: n!._id, acknowledgedBy: "admin-1", writerDeadlineMs: 500 }).catch((e: unknown) => { assert.ok(e instanceof FencedWriterDeadlineError); deadline = e; });
-    } else if (phase === "annotation") {
-      pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
-    } else {
-      pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).catch((e: unknown) => { assert.ok(e instanceof FencedWriterDeadlineError); deadline = e; });
+  const clock = useFakeClock();
+  try {
+    for (const phase of ["notification", "annotation", "acknowledgement"]) {
+      const w = world();
+      await escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
+      const collection = phase === "annotation" ? CRISIS_FLAG_REVIEWS_COLLECTION : ESCALATION_NOTIFICATIONS_COLLECTION;
+      const c = w.fakeDb.collection<AnyDoc>(collection);
+      const before = JSON.stringify(c.all());
+      // The clock is frozen: the writes BEFORE the held one cannot hit the deadline however loaded the CPU is.
+      w.deps.writerDeadlineMs = 500;
+      const hold = holdSafetyUpdate(w, collection, (u) => phase === "notification" ? "$setOnInsert" in u : Boolean((u.$set as Record<string, unknown> | undefined)?.[phase === "annotation" ? "classifier" : "acknowledgedAt"]));
+      let deadline: FencedWriterDeadlineError | undefined;
+      let pending: Promise<unknown>;
+      if (phase === "acknowledgement") {
+        const [n] = await readEscalations(w.db, { sessionId: SESSION });
+        pending = acknowledgeEscalation(w.db, { notificationId: n!._id, acknowledgedBy: "admin-1", writerDeadlineMs: 500 }).catch((e: unknown) => { assert.ok(e instanceof FencedWriterDeadlineError); deadline = e; });
+      } else if (phase === "annotation") {
+        pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
+      } else {
+        pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).catch((e: unknown) => { assert.ok(e instanceof FencedWriterDeadlineError); deadline = e; });
+      }
+      await hold.reached;
+      await clock.advance(1000); // fires the 500 ms writer deadline (and the 550 ms review deadline) while the write is held
+      await pending;
+      if (phase !== "annotation") assert.ok(deadline, `${phase}: the public call timed out with FencedWriterDeadlineError`);
+      hold.release();
+      if (deadline) await deadline.settled;
+      // The released write is really applied first; only then is "state == before" evidence that the late
+      // compensator undid it.
+      await hold.applied;
+      await untilTrue(() => JSON.stringify(c.all()) === before);
+      // Allow the released asynchronous operation to reach its late compensator even if unchanged yet.
+      await drainEventLoop();
+      assert.equal(JSON.stringify(c.all()), before, phase);
     }
-    await hold.reached;
-    await pending;
-    hold.release();
-    if (deadline) await deadline.settled;
-    // The released write is really applied first; only then is "state == before" evidence that the late
-    // compensator undid it (a fixed 5ms*30 + 20ms poll raced the compensator under load).
-    await hold.applied;
-    for (let i = 0; i < 1000 && JSON.stringify(c.all()) !== before; i++) await new Promise((r) => setTimeout(r, 5));
-    // Allow the released asynchronous operation to reach its late compensator even if unchanged yet.
-    await new Promise((r) => setTimeout(r, 20));
-    assert.equal(JSON.stringify(c.all()), before, phase);
-  }
+  } finally { clock.restore(); }
 });
 
 test("T-035: acknowledgement rollback preserves a newer invocation", async () => {
@@ -682,19 +723,24 @@ test("T-035: acknowledgement rollback preserves a newer invocation", async () =>
 
 
 test("T-035: late newly inserted notifications are deleted after the public timeout", async () => {
-  const w = world();
-  w.deps.writerDeadlineMs = 500;
-  const hold = holdSafetyUpdate(w, ESCALATION_NOTIFICATIONS_COLLECTION, (u) => "$setOnInsert" in u);
-  let deadline: FencedWriterDeadlineError | undefined;
-  const pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).catch((e: unknown) => {
-    assert.ok(e instanceof FencedWriterDeadlineError); deadline = e;
-  });
-  await hold.reached;
-  await pending;
-  assert.deepEqual(rawNotifications(w), []);
-  hold.release();
-  await deadline!.settled;
-  assert.deepEqual(rawNotifications(w), []);
+  const clock = useFakeClock();
+  try {
+    const w = world();
+    w.deps.writerDeadlineMs = 500;
+    const hold = holdSafetyUpdate(w, ESCALATION_NOTIFICATIONS_COLLECTION, (u) => "$setOnInsert" in u);
+    let deadline: FencedWriterDeadlineError | undefined;
+    const pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).catch((e: unknown) => {
+      assert.ok(e instanceof FencedWriterDeadlineError); deadline = e;
+    });
+    await hold.reached;
+    await clock.advance(501);
+    await pending;
+    assert.ok(deadline, "the public call timed out with FencedWriterDeadlineError");
+    assert.deepEqual(rawNotifications(w), []);
+    hold.release();
+    await deadline!.settled;
+    assert.deepEqual(rawNotifications(w), []);
+  } finally { clock.restore(); }
 });
 
 
