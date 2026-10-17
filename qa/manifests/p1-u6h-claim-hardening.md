@@ -85,7 +85,7 @@ Checker verdict `qa/verdicts/p1-u6h-claim-hardening.md` (Cycle checked 0): FAIL 
 Pre-check[M4]: 52cfd26 bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="U6h fix1 M4" tests/student-graph.test.ts tests/claims-guard.test.ts -> pass 5 fail 0 t=7 blobs=packages/engine/tests/student-graph.test.ts:51b86ae,packages/engine/tests/claims-guard.test.ts:6aabf37
 Pre-check[H2]: 52cfd26 bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="U6h fix1 H2|U6h H2" tests/claims-guard.test.ts -> pass 11 fail 0 t=7 blobs=packages/engine/tests/claims-guard.test.ts:6aabf37
 Pre-check[M3]: 52cfd26 bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="U6h fix1 M3" tests/no-quote.test.ts -> pass 2 fail 0 t=5 blobs=packages/engine/tests/no-quote.test.ts:452d267
-Metrics[fix1]: start=2026-10-17T19:05+05:30 end=2026-10-17T19:21:37+05:30 suite_runs=3 mutations=7 survivors_final=0 cycle=1 policy=proportional-verification/2026-10-15.12 tokens=unavailable
+Metrics[fix1]: start=unavailable end=2026-10-17T19:21:37+05:30 suite_runs=3 mutations=7 survivors_final=0 cycle=1 policy=proportional-verification/2026-10-15.12 tokens=unavailable
 
 ### Cycle 1 - how to verify (commands + expected)
 - `bash D:/vc/scripts/vc-testlock.sh pnpm -C <worktree>/packages/engine test` -> tests 1043, pass 998, fail 0, skipped 45 (cycle 0: 1030/985/0/45; +13 new tests). Log `qa/evidence/p1-u6h/fix1/engine-test.txt`.

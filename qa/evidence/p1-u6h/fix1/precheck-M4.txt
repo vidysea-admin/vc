@@ -1,0 +1,14 @@
+[testlock] running (free RAM 5.1 GB): pnpm -C /tmp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6h/packages/engine exec tsx --test --test-name-pattern=U6h fix1 M4 tests/student-graph.test.ts tests/claims-guard.test.ts
+✔ U6h fix1 M4 spelled-out numbers: numberMentions is exported and sees 'five thousand' / 'twenty thousand' (29.7015ms)
+✔ U6h fix1 M4 coach: spelled-out numbers are facts too - 'about five thousand euros a year' and 'twenty thousand euros' never reach the student (157.0682ms)
+✔ U6h fix1 M4 coach: ordinary coaching words ('One thing', 'someone', 'tenacity') are not mistaken for numbers (60.3432ms)
+✔ U6h fix1 M4b: hasPriorFlag is a REQUIRED dep - a graph built or run without it fails loudly, never silently trusts process memory (3.8995ms)
+✔ U6h fix1 M4c followUp: only ONE sentence ending '?', <= 200 chars, passing the no-script and crisis-rule checks is shown (203.4683ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4008.7541

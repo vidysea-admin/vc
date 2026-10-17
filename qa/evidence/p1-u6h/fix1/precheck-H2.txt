@@ -1,0 +1,20 @@
+[testlock] running (free RAM 5.08 GB): pnpm -C /tmp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6h/packages/engine exec tsx --test --test-name-pattern=U6h fix1 H2|U6h H2 tests/claims-guard.test.ts
+✔ U6h H2 supports(): positive controls still verify (paraphrase, number formats, order) (20.478ms)
+✔ U6h H2 supports(): an extra clause the evidence does not carry is rejected (no 50% overlap acceptance) (10.0417ms)
+✔ U6h H2 supports(): unit / rate swap is rejected (semester vs per month, per day, a year, monthly) (11.7455ms)
+✔ U6h H2 supports(): a scope or quantifier swap is rejected (public->private, most->all/every/only, domestic->international) (2.9533ms)
+✔ U6h H2 supports(): an antonym with no negation word is rejected (mandatory vs optional, higher vs lower, allowed vs banned) (2.4743ms)
+✔ U6h fix1 H2a hedges and modals: a claim that drops 'may' / 'usually', or swaps may for must, is rejected; the same hedge verifies (2.2266ms)
+✔ U6h fix1 H2a quantifiers, both directions: dropping or adding some / most / only / all / few is rejected (1.983ms)
+✔ U6h fix1 H2a conditions: a claim that drops if / unless / only-if / provided is rejected; carrying the condition verifies (1.3074ms)
+✔ U6h fix1 H2a scope: a claim that drops public / private / international / postgraduate (scope) is rejected (1.2555ms)
+✔ U6h fix1 H2a caveat sentence: a restrictor in the evidence sentence right after the matched one must be carried by the claim (2.9936ms)
+✔ U6h fix1 H2b number-country binding: a figure belongs to the country it sits next to (2.5088ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2088.2164
