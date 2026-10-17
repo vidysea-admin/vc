@@ -1,0 +1,189 @@
+{
+  "classifiedAt": "2026-10-14T05:25:14.6232507Z",
+  "kind": "independent reached-stage classification of completed runtime; no acceptance verdict",
+  "startPath": "qa/evidence/t052-maker-cycle2/d068-node18-testfirst-20261014T052414616Z-start.json",
+  "startHash": "AFE6047D3A8B8722EA78F2EA99A1D2FFF43CDFA911B395BD66765829683395E3",
+  "endPath": "qa/evidence/t052-maker-cycle2/d068-node18-testfirst-20261014T052414616Z-end.json",
+  "endHash": "FC8440E83FA3FA2269CD79F850D27B32709FD8010CB905924633462EFCD31D93",
+  "logPath": "qa/evidence/t052-maker-cycle2/d068-node18-testfirst-20261014T052414616Z.log",
+  "logHash": "80B0E016535467B4A215A7AE5FC32DF2AE92641D38829B0AE1BBCB3122BE254B",
+  "terminalChunk": "11ce52",
+  "collected": 18,
+  "pass": 0,
+  "fail": 18,
+  "skipped": 0,
+  "cancelled": 0,
+  "genuineNodeBehavioralRedEstablished": 0,
+  "setupUnreached": 18,
+  "reason": "Every actual failure is ProviderAuthorizationRefusedError in preliminary fixture resumeScribe at scribe-per-fact.test.ts1078:25, graph resumeUnderDeadline2298:25. Intended direct writeApproved target not reached.",
+  "controls": [
+    {
+      "name": "D068 writeApproved candidate insert late ordinary original rejects settlement after successful owned undo",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved candidate insert late independent AbortError rejects settlement after successful owned undo",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved candidate insert late foreign deadline original rejects settlement after clean nested drain",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved candidate commit late ordinary original rejects settlement after successful all owned undo",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved candidate commit late independent AbortError rejects settlement after successful all owned undo",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved candidate commit late foreign deadline original rejects settlement after clean nested drain",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved actual node authorize foreign deadline with ordinary cause defeats leaf collector masking",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved actual node authorize foreign deadline with independent AbortError cause preserves first primary",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved exact own node expiry with clean original and undo fulfills exposed settlement",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved positively receipted child expiry requires complete expected causal proof",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved clean direct success closes every actual original without rollback",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved actual originals appended during nested settlement remain joined and observable",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved actual reachable diamond retains distinct roots and deduplicates shared identities",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved actual reachable causal cycle terminates and fails expected-only proof",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    },
+    {
+      "name": "D068 writeApproved distinct same-message failures and later undo failures preserve all required attempts",
+      "result": "FAIL",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "ProviderAuthorizationRefusedError",
+      "firstRelevantSourceLocation": "packages/engine/src/scribe/graph.ts:2298:25",
+      "fixtureLocation": "packages/engine/tests/scribe-per-fact.test.ts:1078:25",
+      "intendedNodeGateReached": false
+    }
+  ],
+  "allExecutablePinsMatched": true,
+  "allPinsMatched": true,
+  "originalNodesUnchanged": true,
+  "mutexPresentAfter": false,
+  "noAcceptanceVerdict": true,
+  "noRerun": true
+}

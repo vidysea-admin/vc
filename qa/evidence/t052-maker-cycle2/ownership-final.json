@@ -1,0 +1,13 @@
+{
+  "finalTestTerminal": "012a65",
+  "childPidAtLaunch": "not exposed by exec tool; exact tool session handles recorded",
+  "candidatePaths": 20,
+  "normalMutexExists": false,
+  "finalTestExit": 0,
+  "allTwelveComputeSessionHandlesTerminal": true,
+  "finalEvidenceWriteSession12072Exit": 0,
+  "matchingNodeChildren": [],
+  "currentCandidateHashFile": "candidate-hashes-final.json",
+  "normalMutexPath": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\vc-testlock",
+  "finalReadOnlyDiffExit": 0
+}

@@ -1,0 +1,176 @@
+{
+  "createdAt": "2026-10-14T10:00:13.344Z",
+  "kind": "T038 cycle1 frozen repaired candidate fresh maker validation only",
+  "evidencePrefix": "D:\\vc\\qa\\evidence\\t052-maker-cycle2\\t038-cycle1-runtime-20261014T095815461Z",
+  "candidate": {
+    "base": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "root": "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc",
+    "files": {
+      "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+      "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+      "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+      "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+    },
+    "sha256": "E4B1031F0AA40D9631D099203020B1E101F293F3C4A33A85104D47EF827C9BE4",
+    "exactCompactSortedASCIIText": "{\"base\":\"13207bd024e6d5e3e01c07843a12d40a9b53c56c\",\"files\":{\"apps/api/src/openapi.ts\":\"023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813\",\"apps/api/src/server.ts\":\"7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72\",\"apps/api/tests/server.test.ts\":\"4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A\",\"packages/schemas/src/schemas.ts\":\"9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882\"},\"root\":\"C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc\"}"
+  },
+  "manifest": {
+    "path": "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/docs/plan.md",
+    "wholeFileSHA256": "0BF9F789817BA9942CFEEC5879901A7E3A76FE00F4F1720ACF984F7CE9925A09",
+    "sectionSHA256": "901F84572CE5929D25BA068E988FEFFC8C93E28666C7158DB9D320154A174A77"
+  },
+  "canonicalD074": {
+    "bytes": 5671,
+    "sha256": "2788955F71249DDB67DD1325388663F63CC9513633B92B9217E6EEFFEA5D871B"
+  },
+  "result": {
+    "schemasDeclaredTypesExit": 0,
+    "apiDeclaredTypesExit": 0,
+    "apiFile": {
+      "collected": 40,
+      "pass": 40,
+      "fail": 0,
+      "cancel": 0,
+      "skip": 0,
+      "newT038OuterCallbacks": 12,
+      "existingOuterRegressions": 28
+    }
+  },
+  "exactActualTestNames": [
+    "T-025 api: every auth failure on every protected route is the same 401, and no Db or graph is touched",
+    "T-025 api: a role outside a route's roles is 403 before any Db access; unknown paths 404; wrong method 405 + Allow",
+    "T-025 api: bad ids, bad JSON and bad bodies are 400 before any Db access, with issue paths but no values",
+    "T-025 api: scribe start -> approval diff -> approve -> profile, with every stored document stamped with the token's tenant",
+    "T-034 api: decideApproval enqueues one fact.approved webhook event per DURABLY WRITTEN fact (read back via getFactsByIds, not re-derived from the response), carrying B2 provenance",
+    "T-034 api: with no webhooks configured, an approve decision writes facts exactly as before and enqueues nothing (the emission hook is a pure no-op)",
+    "T-034 api: a webhook enqueue failure is logged (webhook_enqueue_failed) but never turns an already-successful approval into an error response",
+    "T-042 api (ISS-085 leak 1): a short read-back NOT explained by an erasure fence is alerted and recorded as a recoverable gap; the facts that WERE found still emit their events",
+    "T-042 api (ISS-085 leak 1, erasure interaction): the SAME short read-back, explained by a concurrent B15 erasure fence that lands AFTER the write, is never alerted or recorded",
+    "T-042 api (ISS-090): a genuine read-back gap whose fence check itself throws is still a 200 (the write already succeeded), alerted twice (the fence-check failure AND the now-unexplained gap) and recorded -- never a 500",
+    "T-042 api (ISS-085 leak 2): an enqueue failure records a recoverable gap entry carrying the fully built event, so it can be replayed without rebuilding it",
+    "T-025 api: another tenant sees tenant A's student exactly as a student that never existed, and changes nothing of A's",
+    "T-025 api (T-022 merge): concern_flagged edges are stamped with the token's tenant, the same student/session in two tenants coexist, and A's erasure deletes only A's",
+    "T-034 api: the first erasure confirmation enqueues one erasure.requested webhook event, carrying the request's own reason/requestedAt (read back via getErasureRequest, the last point studentId is still clear)",
+    "T-029 api: request -> confirm -> reconfirm (token) -> approver approves -> purged; no single call purges; self-approval, a wrong token and student-as-actor are refused",
+    "T-029 api: the approver REJECTS -> 200 rejected, nothing purged; a later approve / execute is refused",
+    "T-029 api: autoDelete=true -> the reconfirm itself purges (200, autoDeleted); an unconfigured workflow is 503 erasure_not_configured and writes nothing",
+    "T-025 api: an unexpected error is a 500 with a fixed body, logged by error label only",
+    "T-025 api: a consent-less profile read is 403 consent_required",
+    "T-025 api: the OpenAPI document is public and matches the route table (method, path, roles) in both directions",
+    "T-025 api: the node:http adapter serves on loopback, answers 401 and refuses a body over 1 MiB with 413",
+    "T-025 api: startApi serves HTTP only when asked, on virtual_counsellor only, and stop() closes the server",
+    "T-025 api: startApi with http refuses a missing JWT configuration before connecting",
+    "T046 verified JWT edit provenance is identical in raw KG API profile and approved webhook",
+    "T046 forged body actor time and nested provenance refuse before actual claim or write",
+    "T047 signed JWT ordinary no-consent start leaves every personal collection empty",
+    "T047 signed JWT same IDs in two tenants produce only minimal unrouted record-only crisis flags",
+    "T047 actual startup trusted recipient factory binds signed JWT tenant and replay keeps raw minimal records",
+    "T038 synthetic oracle 1: actual HTTP preserves own false and zero, exact provenance, no observation and every raw synthetic row",
+    "T038 synthetic oracle 2: required missing null and empty stay distinguishable from an optional absent field",
+    "T038 synthetic oracle 3: operational request source quote and response byte bounds fail closed",
+    "T038 synthetic oracle 4: equal and unequal duplicate active source identities both refuse without a packet",
+    "T038 synthetic oracle 5: strict scalar types options and numeric boundary values never coerce",
+    "T038 synthetic oracle 6: condition true false absent duplicate and reasoning resolve without hidden dependency values",
+    "T038 synthetic oracle 7: explicit Unicode code points UTF16 units and whitespace word limits retain boundary text",
+    "T038 synthetic oracle 8: document declared metadata never becomes verified bytes or a packet document",
+    "T038 synthetic oracle 9: body authority injections malformed facts and stored private fields cannot escape",
+    "T038 synthetic oracle 10: signed JWT tenant roles missing malformed minor grants and erasure fences fail closed",
+    "T038 synthetic oracle 11: held initial and final scans reject source retirement replacement appearance and exact grant ABA",
+    "T038 synthetic oracle 12: original 2000ms deadline publishes refusal while a DB read is held and late settlement writes nothing"
+  ],
+  "stageLogs": [
+    {
+      "stage": "schemas-types",
+      "path": "D:\\vc\\qa\\evidence\\t052-maker-cycle2\\t038-cycle1-runtime-20261014T095815461Z-schemas-types.log",
+      "sha256": "76E3EFC4917BB375353C3B3AB9085F5BCD59B339FE6F9AB74E54EECD2343BDA7"
+    },
+    {
+      "stage": "api-types",
+      "path": "D:\\vc\\qa\\evidence\\t052-maker-cycle2\\t038-cycle1-runtime-20261014T095815461Z-api-types.log",
+      "sha256": "47A39C31C8BE24F07E3625CD559FCE8F247170112D3A8348ADA37DC43843BE18"
+    },
+    {
+      "stage": "api-server-tests",
+      "path": "D:\\vc\\qa\\evidence\\t052-maker-cycle2\\t038-cycle1-runtime-20261014T095815461Z-api-server-tests.log",
+      "sha256": "B8E44F29511C8A0CA73FCFA38AD0901774B43DC07AE6811C8C7B083FE7A91D03"
+    }
+  ],
+  "renewedCandidateChanges": [
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\packages\\schemas\\src\\schemas.ts",
+      "previous": "4A2E503B57C843FA8169180FB7F34A7E452EE83A30A00AA6AC08B1A4394BD3DE",
+      "current": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+      "metadata": false
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\apps\\api\\src\\server.ts",
+      "previous": "1F1580BEA5630DF5F264C849525DDB07E761B11D308326EC1740F6561D4C6F2E",
+      "current": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+      "metadata": false
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\apps\\api\\src\\openapi.ts",
+      "previous": "F8731F6C959B92756D3E0514D15443EF080FA69F4DF86C99396B55F22E4E3D9B",
+      "current": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+      "metadata": false
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\apps\\api\\tests\\server.test.ts",
+      "previous": "E0904A2F9A08173DA1BED74C6375925746DCB0863D884388DC4DF597D7A41A0E",
+      "current": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A",
+      "metadata": false
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\docs\\plan.md",
+      "previous": "84B28DA2C288687FAFDF68B615F0EACD4E43F18A69D357DF8B634D10D0B88A65",
+      "current": "0BF9F789817BA9942CFEEC5879901A7E3A76FE00F4F1720ACF984F7CE9925A09",
+      "metadata": true
+    }
+  ],
+  "compilerCounts": {
+    "schemas": 179,
+    "api": 674,
+    "canonicalActualUnion": 674,
+    "workspaceRuntimeSources": 47,
+    "packageRoots": 55
+  },
+  "nativeInputs": [
+    {
+      "path": "C:\\Program Files\\nodejs\\node.exe",
+      "reasons": [
+        "Actual installer/runtime tool"
+      ],
+      "metadata": false,
+      "sha256": "E3BE0545990C90995D7BF3A7AF5D64AF1F2E0FC1BBD9B79C27F7ABC1E9676E50",
+      "bytes": 91406496
+    },
+    {
+      "path": "C:\\Program Files\\Git\\bin\\bash.exe",
+      "reasons": [
+        "Actual installer/runtime tool"
+      ],
+      "metadata": false,
+      "sha256": "748FA9D081C278397347B054B34BC9541EC55F7EE2DE965169CEB0754BB44740",
+      "bytes": 47008
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\.pnpm\\@esbuild+win32-x64@0.28.2\\node_modules\\@esbuild\\win32-x64\\esbuild.exe",
+      "reasons": [
+        "Fresh installed actual-package conservative executable/map/native/JSON asset"
+      ],
+      "metadata": false,
+      "sha256": "C7BEE37877D0AA6A046E52783FA0A2CF1A9CE5579D68BB3083BDA99D4BFF18EF",
+      "bytes": 11694592
+    }
+  ],
+  "provenance": {
+    "pinCount": 5611,
+    "bytes": 195018737,
+    "byteDrift": [],
+    "parentLayoutDrift": [],
+    "noDirtyPrimaryProductImports": true,
+    "mutexReleased": true
+  },
+  "scope": "Fresh exact two declared typechecks and touched API full file once for cycle1. Author declared impact limited to DraftEvidenceSchema capturedAt and DraftMappingOutputSchema presence/provenance composition plus affected API route. No schemas63 suite, broader suite, dependency install, source/test/helper mutation or historical40 reuse.",
+  "noReadinessOrAcceptanceVerdict": true
+}

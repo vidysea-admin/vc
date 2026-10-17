@@ -1,0 +1,74 @@
+[
+  {
+    "Path": "D:\\vc\\packages\\db\\src\\collections.ts",
+    "Hash": "363CBCBDD3B618BCFEF74977C86567042633F4CBFAEBF85DF679B7F980979EF0"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\src\\facts.ts",
+    "Hash": "F507FD64F82BF801FF173AE2765377526663EDEAF8F2CE8BA4A3C970EE4BA2BD"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\src\\erasure.ts",
+    "Hash": "E38D726BF5E41BB1707DB0150E3B5A26F593F49548E1CC614AF62DFBE5964053"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\scripts\\db-init.ts",
+    "Hash": "9C028D5A21AEBD0C28DB13EA489EDDA5CF130B3E65C05B486955C34E44F389E1"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\tests\\fakes.ts",
+    "Hash": "9D602AF779BE3AB9009259EFA8AFEAF89515D82AFB317FCBE9DA535EE3FA67EA"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\tests\\consent.test.ts",
+    "Hash": "012F46EA466C7107BB7EAD5C4AF3A424BA7C0BF9A742C506CD96D01D6F8FC0E4"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\tests\\facts.test.ts",
+    "Hash": "D0EAB7474463F790E55FFCE0FE66878210F1C2A7A4DDFB3DC05EF25BB4A95010"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\tests\\erasure.test.ts",
+    "Hash": "961355EB8176CF7B052FCC3E519F34046ECBCAAC9BAC3A58C5BA2442E4206758"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\tests\\db-init.test.ts",
+    "Hash": "41738977322B677505097D1B45A259FE73F3E3A3C1FACC48D9486BCA62B6AD4F"
+  },
+  {
+    "Path": "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts",
+    "Hash": "BA2AE5738DB5F941A669C53B2DE924A4E9EDFAF8DDFCEFD300B67CDF1673FDD1"
+  },
+  {
+    "Path": "D:\\vc\\packages\\engine\\src\\scribe\\checkpointer.ts",
+    "Hash": "E0171808EFF4028C37826299E7896A7900A8DF023BC4113886BA0C239D230411"
+  },
+  {
+    "Path": "D:\\vc\\packages\\engine\\src\\scribe\\nodes.ts",
+    "Hash": "1E153CB1818D245C9B526D5CA89B91BB08CDAE5A135A0595CC6BF610E51B1371"
+  },
+  {
+    "Path": "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts",
+    "Hash": "106745A85E610D6AC1321D58410F18D2BBFF7793004D9BC34E7CE807366A9A56"
+  },
+  {
+    "Path": "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts",
+    "Hash": "97AD7E177622C9840238E7198A0DDA2ED8EEE140424DD27F7BBAA6A655B05BFB"
+  },
+  {
+    "Path": "D:\\vc\\packages\\engine\\tests\\scribe-erasure-fence.test.ts",
+    "Hash": "80BDF95240D368F2F924299557819AEA0A9BB516F389C8B56FAE5E5F78237721"
+  },
+  {
+    "Path": "D:\\vc\\apps\\api\\src\\server.ts",
+    "Hash": "D7C82683814BE8B9129407851152071FAEF7E60E880EDCFF8D68CD9A0F91A52E"
+  },
+  {
+    "Path": "D:\\vc\\apps\\api\\src\\openapi.ts",
+    "Hash": "39152603B2D6224CF30461365F41DDDC5D05B38985BAB66732EC450D3ACD7863"
+  },
+  {
+    "Path": "D:\\vc\\apps\\api\\tests\\server.test.ts",
+    "Hash": "9DF8DF7D4428C9228F829991E81AA908C225E22EB75336917C9C100BFA5E2DA6"
+  }
+]

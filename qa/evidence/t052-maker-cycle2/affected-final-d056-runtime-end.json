@@ -1,0 +1,232 @@
+{
+  "endedAt": "2026-10-13T22:05:54.8168323Z",
+  "scope": "17 explicit affectedfiles=15core+2web",
+  "coreTerminal": "ecb6a0",
+  "coreSession": 94444,
+  "coreExit": 1,
+  "coreCounts": {
+    "cancelled": 0,
+    "skipped": 45,
+    "tests": 706,
+    "fail": 1,
+    "pass": 660
+  },
+  "webTerminal": "11ed9c",
+  "webExit": 0,
+  "webCounts": {
+    "cancelled": 0,
+    "skipped": 0,
+    "tests": 17,
+    "fail": 0,
+    "pass": 17
+  },
+  "combinedCounts": {
+    "cancelled": 0,
+    "skipped": 45,
+    "tests": 723,
+    "fail": 1,
+    "pass": 677
+  },
+  "sourceTypes": "current sourcegreens reused; no final11/all6c claim",
+  "shortWriterElapsedMs": 29,
+  "shortWriterDeadlineMs": 200,
+  "soleFailure": "APIserver.test63 first open500internal vs200 afterprepare200",
+  "mutexPresent": false,
+  "pins": [
+    {
+      "path": "apps/api/src/openapi.ts",
+      "sha256": "39152603B2D6224CF30461365F41DDDC5D05B38985BAB66732EC450D3ACD7863",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/api/src/server.ts",
+      "sha256": "D7C82683814BE8B9129407851152071FAEF7E60E880EDCFF8D68CD9A0F91A52E",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/api/tests/server.test.ts",
+      "sha256": "FA157885E95456F2E58D5096230603E9321F983B94862FC9F32AB0DFD88EA777",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/demo/seed.ts",
+      "sha256": "ABCF55EAAB452E0DA6FADC65630456ADC5EC9760C941DDC8BD05EB7D4A727026",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/tests/session-api.test.ts",
+      "sha256": "07B008F501314CB40EEAA3C464416D3BE9267B019C2302B2ECACB996FB1ABB0A",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/scripts/db-init.ts",
+      "sha256": "9C028D5A21AEBD0C28DB13EA489EDDA5CF130B3E65C05B486955C34E44F389E1",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/collections.ts",
+      "sha256": "6C66DA00F0DEDFC58442807956F8F3B6F17F51F058CC7802FA75207E3572F1C1",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/decisions.ts",
+      "sha256": "B981898EB0BD6A30003A24E5DA6C4D043E8B2B0EFCF2B380DEA785C778B6ED51",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/erasure.ts",
+      "sha256": "7E31AD7DFB9527D2B5C485D56DA6FDB9D7C16E5AF947F7EB0A61BF1E56AD0129",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/facts.ts",
+      "sha256": "2DAFC0C6C452394E167230F02F8053C943A81AB293C956DED41E26744DDB7AFC",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/consent.test.ts",
+      "sha256": "012F46EA466C7107BB7EAD5C4AF3A424BA7C0BF9A742C506CD96D01D6F8FC0E4",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/db-init.test.ts",
+      "sha256": "41738977322B677505097D1B45A259FE73F3E3A3C1FACC48D9486BCA62B6AD4F",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/decisions.test.ts",
+      "sha256": "103C04790CA550EA892F704961DD9D8331FDBC8666A03F07AC545270E4D5FD91",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/erasure.test.ts",
+      "sha256": "272BA1FBF0FF4436BC6408BB7381AFB8161A1AE13FBE61928845F0265735DA72",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/facts.test.ts",
+      "sha256": "BD75E22EEE42DC2B1CB31EB64EEBA474753A5BD0ABDB04F44D2304FFF2DD3DD7",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/fakes.ts",
+      "sha256": "D4A7BAB922FB83557DA9C45F6D093D64994003530AE7BA92349C8059F82C0CD9",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/scribe/checkpointer.ts",
+      "sha256": "E0171808EFF4028C37826299E7896A7900A8DF023BC4113886BA0C239D230411",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/scribe/graph.ts",
+      "sha256": "4EC6BFE68A979F2548C1D7DDCF17AC3E3567B5138A153BC33AA8F57201C5188E",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/scribe/nodes.ts",
+      "sha256": "ED46B42A36463EFF0DE435EA952D8996EFC8CE8668E1AB5644D53488A5942E2E",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-checkpointer.test.ts",
+      "sha256": "106745A85E610D6AC1321D58410F18D2BBFF7793004D9BC34E7CE807366A9A56",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-erasure-fence.test.ts",
+      "sha256": "D4EBA6717AE899444EC24A03443F56406B9A50529F5BC049BB3FCBA5A9099BB4",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-fixtures.ts",
+      "sha256": "B7EBD80212A61236F9B5282832767E36980606794EF80E04883D22093AF89F90",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-persistence.test.ts",
+      "sha256": "FA65878086A2D93C0A6FA03FCD6FD851B86B376C15A41984E670F00D79E79628",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/b18-suppression-outcome.test.ts",
+      "sha256": "A8D74FB86583D127E44290413F3E8E1CE35A06C3D45680BEBBDDF828CDCC0209",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/crisis-escalation.test.ts",
+      "sha256": "D43EECAE2A7C34260957C9E2C3877C0463A4BA25ECFBDC05CB3B794D62D05E95",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-per-fact.test.ts",
+      "sha256": "864F30899A0631A08E90C55ED2A31CA9424882837C13989A15B0A5C94576328F",
+      "matchedStart": true
+    },
+    {
+      "path": "tsconfig.base.json",
+      "sha256": "A4286AF536A20E876A22B625C5B2C630DC4195CD1C9E4DB8B92651090F7916B7",
+      "matchedStart": true
+    },
+    {
+      "path": "package.json",
+      "sha256": "7663DEE6314BF110330B21E65E61564C88DEA65BAC4F4F65735A03CCFA326D2C",
+      "matchedStart": true
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "562F86492B23EAB44F0FBFF444A89E7FF8D053A7E97928A86B9EEE0AA84FCD6C",
+      "matchedStart": true
+    },
+    {
+      "path": "scripts/vc-testlock.sh",
+      "sha256": "FDD9B039639F6E70141D6C54CA0760375913DA2E5705257A1B6F75C8939DA48B",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tsconfig.json",
+      "sha256": "CF48E2F8CE2694C521356937F4D8FD9A5081C95B3CDF6EB9FC99839B9E827552",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tsconfig.json",
+      "sha256": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/api/tsconfig.json",
+      "sha256": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/tsconfig.json",
+      "sha256": "86B9866AD67848975F2E852A505D7E2CA32F3A48D1BDDDD0E477A858185281FA",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/package.json",
+      "sha256": "251C9BEBC98DF540BD2B7EECDA64A3F418EFDAE7A0F9223C5930610125C689EE",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/package.json",
+      "sha256": "7199A4BA038CFEC763D8E76EF68788F81AB8F2FEDED69A569CAC9442BC52556D",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/api/package.json",
+      "sha256": "A9DE912B88217804A9E8BCC64CEF73C1FB873C5AD9A9A4C4AC6EDBE673E9678B",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/package.json",
+      "sha256": "0F9947DE8CD844E9275670BEA7557F0EDD554941347712B2F542B8E297EC4D47",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/tests/api.test.ts",
+      "sha256": "77E7D9667214AD709F57A347640A5F0E6516091465499556E05DF492143D844A",
+      "matchedStart": true
+    }
+  ]
+}

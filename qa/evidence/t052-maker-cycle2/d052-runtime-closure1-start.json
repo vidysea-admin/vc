@@ -1,0 +1,155 @@
+{
+  "startedAt": "2026-10-13T20:49:58.5793581Z",
+  "candidateHash": "C6C13712125AEE5CAE691A236F6ED644C1F6353C3FB281CF0A66235D6D48EB83",
+  "scope": [
+    "packages/db/tests/facts.test.ts",
+    "packages/engine/tests/scribe-persistence.test.ts"
+  ],
+  "mutexPresent": false,
+  "pins": [
+    {
+      "path": "apps/api/src/openapi.ts",
+      "sha256": "39152603B2D6224CF30461365F41DDDC5D05B38985BAB66732EC450D3ACD7863"
+    },
+    {
+      "path": "apps/api/src/server.ts",
+      "sha256": "D7C82683814BE8B9129407851152071FAEF7E60E880EDCFF8D68CD9A0F91A52E"
+    },
+    {
+      "path": "apps/api/tests/server.test.ts",
+      "sha256": "FA157885E95456F2E58D5096230603E9321F983B94862FC9F32AB0DFD88EA777"
+    },
+    {
+      "path": "apps/web/demo/seed.ts",
+      "sha256": "ABCF55EAAB452E0DA6FADC65630456ADC5EC9760C941DDC8BD05EB7D4A727026"
+    },
+    {
+      "path": "apps/web/tests/session-api.test.ts",
+      "sha256": "07B008F501314CB40EEAA3C464416D3BE9267B019C2302B2ECACB996FB1ABB0A"
+    },
+    {
+      "path": "packages/db/scripts/db-init.ts",
+      "sha256": "9C028D5A21AEBD0C28DB13EA489EDDA5CF130B3E65C05B486955C34E44F389E1"
+    },
+    {
+      "path": "packages/db/src/collections.ts",
+      "sha256": "6C66DA00F0DEDFC58442807956F8F3B6F17F51F058CC7802FA75207E3572F1C1"
+    },
+    {
+      "path": "packages/db/src/decisions.ts",
+      "sha256": "B981898EB0BD6A30003A24E5DA6C4D043E8B2B0EFCF2B380DEA785C778B6ED51"
+    },
+    {
+      "path": "packages/db/src/erasure.ts",
+      "sha256": "09BB0126D0BA39C896545612AFF3803BC0E16F41724A955193E96AC36D85A6C9"
+    },
+    {
+      "path": "packages/db/src/facts.ts",
+      "sha256": "9552950E28E3F29A0F6C52AB0EBE24D5179E7445E9074FDDFFB2E89445E4F96A"
+    },
+    {
+      "path": "packages/db/tests/consent.test.ts",
+      "sha256": "012F46EA466C7107BB7EAD5C4AF3A424BA7C0BF9A742C506CD96D01D6F8FC0E4"
+    },
+    {
+      "path": "packages/db/tests/db-init.test.ts",
+      "sha256": "41738977322B677505097D1B45A259FE73F3E3A3C1FACC48D9486BCA62B6AD4F"
+    },
+    {
+      "path": "packages/db/tests/decisions.test.ts",
+      "sha256": "103C04790CA550EA892F704961DD9D8331FDBC8666A03F07AC545270E4D5FD91"
+    },
+    {
+      "path": "packages/db/tests/erasure.test.ts",
+      "sha256": "B9C76E133EA45F9E12F941AC8FA768B5C7C0C1D9592DCB27628ACD4D3C0E5340"
+    },
+    {
+      "path": "packages/db/tests/facts.test.ts",
+      "sha256": "5DB8EEC51C797A068BAD6C80FD834B3DDEDA4CE8AD9C4CD21A487B8965547549"
+    },
+    {
+      "path": "packages/db/tests/fakes.ts",
+      "sha256": "D4A7BAB922FB83557DA9C45F6D093D64994003530AE7BA92349C8059F82C0CD9"
+    },
+    {
+      "path": "packages/engine/src/scribe/checkpointer.ts",
+      "sha256": "E0171808EFF4028C37826299E7896A7900A8DF023BC4113886BA0C239D230411"
+    },
+    {
+      "path": "packages/engine/src/scribe/graph.ts",
+      "sha256": "2BC9CE281101B1EB5A122EA97EAE7FA6794215BAD86BE6B4CA60FC1B3222E91B"
+    },
+    {
+      "path": "packages/engine/src/scribe/nodes.ts",
+      "sha256": "C66F07E41AF56BCD4BE4BA547061CFC0BDC9D37022190A8F3311C6EAB5030BD7"
+    },
+    {
+      "path": "packages/engine/tests/scribe-checkpointer.test.ts",
+      "sha256": "106745A85E610D6AC1321D58410F18D2BBFF7793004D9BC34E7CE807366A9A56"
+    },
+    {
+      "path": "packages/engine/tests/scribe-erasure-fence.test.ts",
+      "sha256": "D4EBA6717AE899444EC24A03443F56406B9A50529F5BC049BB3FCBA5A9099BB4"
+    },
+    {
+      "path": "packages/engine/tests/scribe-fixtures.ts",
+      "sha256": "B7EBD80212A61236F9B5282832767E36980606794EF80E04883D22093AF89F90"
+    },
+    {
+      "path": "packages/engine/tests/scribe-persistence.test.ts",
+      "sha256": "47C0959740471AFAAE7280BD37DE1E2670A293A2CB835E5C35D3BCD1608DF635"
+    },
+    {
+      "path": "tsconfig.base.json",
+      "sha256": "A4286AF536A20E876A22B625C5B2C630DC4195CD1C9E4DB8B92651090F7916B7"
+    },
+    {
+      "path": "package.json",
+      "sha256": "7663DEE6314BF110330B21E65E61564C88DEA65BAC4F4F65735A03CCFA326D2C"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "562F86492B23EAB44F0FBFF444A89E7FF8D053A7E97928A86B9EEE0AA84FCD6C"
+    },
+    {
+      "path": "scripts/vc-testlock.sh",
+      "sha256": "FDD9B039639F6E70141D6C54CA0760375913DA2E5705257A1B6F75C8939DA48B"
+    },
+    {
+      "path": "packages/db/tsconfig.json",
+      "sha256": "CF48E2F8CE2694C521356937F4D8FD9A5081C95B3CDF6EB9FC99839B9E827552"
+    },
+    {
+      "path": "packages/engine/tsconfig.json",
+      "sha256": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73"
+    },
+    {
+      "path": "apps/api/tsconfig.json",
+      "sha256": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73"
+    },
+    {
+      "path": "apps/web/tsconfig.json",
+      "sha256": "86B9866AD67848975F2E852A505D7E2CA32F3A48D1BDDDD0E477A858185281FA"
+    },
+    {
+      "path": "packages/db/package.json",
+      "sha256": "251C9BEBC98DF540BD2B7EECDA64A3F418EFDAE7A0F9223C5930610125C689EE"
+    },
+    {
+      "path": "packages/engine/package.json",
+      "sha256": "7199A4BA038CFEC763D8E76EF68788F81AB8F2FEDED69A569CAC9442BC52556D"
+    },
+    {
+      "path": "apps/api/package.json",
+      "sha256": "A9DE912B88217804A9E8BCC64CEF73C1FB873C5AD9A9A4C4AC6EDBE673E9678B"
+    },
+    {
+      "path": "apps/web/package.json",
+      "sha256": "0F9947DE8CD844E9275670BEA7557F0EDD554941347712B2F542B8E297EC4D47"
+    },
+    {
+      "path": "apps/web/tests/api.test.ts",
+      "sha256": "77E7D9667214AD709F57A347640A5F0E6516091465499556E05DF492143D844A"
+    }
+  ]
+}

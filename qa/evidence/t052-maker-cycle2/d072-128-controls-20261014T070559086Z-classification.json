@@ -1,0 +1,2206 @@
+{
+  "classifiedAt": "2026-10-14T07:18:23.303Z",
+  "kind": "Exact128 native result/reached-stage maker classification; no acceptance verdict",
+  "terminalChunk": "380d04",
+  "artifactHashes": {
+    "start": "BFEEA736911932FB60E062E6404A13F97CED366FDD3AA17F2F53ABDBF4E20573",
+    "end": "B71B899B6714758CA1BA5217FE42E90D041A83305C52CD24685A12FE602DD899",
+    "log": "A604D8CA9FB973013C5013D051834DCA872CC7D83BDD1A7AD5828FBE96DE2BEF"
+  },
+  "nativeSummaries": {
+    "tests": 128,
+    "pass": 70,
+    "fail": 38,
+    "cancelled": 20,
+    "skipped": 0,
+    "duration_ms": 224141.6953
+  },
+  "classifiedCounts": {
+    "PASS": 70,
+    "FAIL": 38,
+    "CANCELLED": 20
+  },
+  "correctedPerModule": {
+    "decisions": {
+      "collected": 7,
+      "pass": 7,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "facts": {
+      "collected": 26,
+      "pass": 6,
+      "fail": 0,
+      "cancelled": 20,
+      "skipped": 0
+    },
+    "adapter": {
+      "collected": 16,
+      "pass": 0,
+      "fail": 16,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "nodes": {
+      "collected": 18,
+      "pass": 9,
+      "fail": 9,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "persistence": {
+      "collected": 61,
+      "pass": 48,
+      "fail": 13,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "classes": {
+    "FOCUSED_PASS": 70,
+    "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING": 20,
+    "REACHED_HELD_READ_PROMPT_TYPE_MISMATCH": 10,
+    "SETUP_OR_REACHABILITY_GATE": 20,
+    "REACHED_OWNED_CANDIDATE_RESIDUE": 1,
+    "REACHED_CLEAN_PUBLIC_SETTLEMENT_REJECTION": 3,
+    "REACHED_PUBLIC_BOUNDARY_MESSAGE_MISMATCH": 4
+  },
+  "controls": [
+    {
+      "name": "D068 recordRejectReasons actual held expiry: clean observer preserves original cause and observable settlement",
+      "result": "PASS",
+      "module": "decisions",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 recordRejectReasons actual held expiry: timer observer S preserves original cause and observable settlement",
+      "result": "PASS",
+      "module": "decisions",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 recordRejectReasons actual held expiry: timer observer S plus cleanup U preserves original cause and observable settlement",
+      "result": "PASS",
+      "module": "decisions",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 recordRejectReasons actual held expiry: received public FWD observer preserves original cause and observable settlement",
+      "result": "PASS",
+      "module": "decisions",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 recordRejectReasons actual direct-op receipt: precheck observer S preserves own primary aggregate and foreign bytes",
+      "result": "PASS",
+      "module": "decisions",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 recordRejectReasons actual direct-op receipt: insert observer S preserves own primary aggregate and foreign bytes",
+      "result": "PASS",
+      "module": "decisions",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 recordRejectReasons actual direct-op receipt: duplicate-winner observer S preserves own primary aggregate and foreign bytes",
+      "result": "PASS",
+      "module": "decisions",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert clean-own-expiry preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: candidate-insert clean-own-expiry preserves exact failure and owned beforeimage (5006.5754ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert raw-error preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: candidate-insert raw-error preserves exact failure and owned beforeimage (5007.057ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert raw-abort-name preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: candidate-insert raw-abort-name preserves exact failure and owned beforeimage (5009.0511ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert foreign-clean preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: candidate-insert foreign-clean preserves exact failure and owned beforeimage (5001.5674ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert foreign-rejecting preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: candidate-insert foreign-rejecting preserves exact failure and owned beforeimage (5010.3775ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert distinct-cleanup preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: candidate-insert distinct-cleanup preserves exact failure and owned beforeimage (5010.7978ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert shared-cleanup preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: candidate-insert shared-cleanup preserves exact failure and owned beforeimage (5011.254ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas clean-own-expiry preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: summary-cas clean-own-expiry preserves exact failure and owned beforeimage (5014.9361ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas raw-error preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: summary-cas raw-error preserves exact failure and owned beforeimage (5008.2079ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas raw-abort-name preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: summary-cas raw-abort-name preserves exact failure and owned beforeimage (5017.1936ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas foreign-clean preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: summary-cas foreign-clean preserves exact failure and owned beforeimage (5007.9397ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas foreign-rejecting preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: summary-cas foreign-rejecting preserves exact failure and owned beforeimage (5009.8512ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas distinct-cleanup preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: summary-cas distinct-cleanup preserves exact failure and owned beforeimage (5012.5573ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas shared-cleanup preserves exact failure and owned beforeimage",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:1783:5",
+        "✖ D068 summary original receipt: summary-cas shared-cleanup preserves exact failure and owned beforeimage (5010.6792ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 summary authorization original: clean stays observable before candidate creation",
+      "result": "PASS",
+      "module": "facts",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 summary authorization original: rejecting stays observable before candidate creation",
+      "result": "PASS",
+      "module": "facts",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 admission authorization original: ordinary clean drains real A independently of work expiry",
+      "result": "PASS",
+      "module": "facts",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 admission authorization original: ordinary rejecting drains real A independently of work expiry",
+      "result": "PASS",
+      "module": "facts",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 admission authorization original: readonly clean drains real A independently of work expiry",
+      "result": "PASS",
+      "module": "facts",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 admission authorization original: readonly rejecting drains real A independently of work expiry",
+      "result": "PASS",
+      "module": "facts",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 admission post-ownership authorization: clean preserves exact provisional cleanup and original failure",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:2006:3",
+        "✖ D068 admission post-ownership authorization: clean preserves exact provisional cleanup and original failure (5021.6515ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 admission post-ownership authorization: rejecting preserves exact provisional cleanup and original failure",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:2006:3",
+        "✖ D068 admission post-ownership authorization: rejecting preserves exact provisional cleanup and original failure (5021.7423ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D059 applyApprovedDiff dynamic postcheck: successful work then expired budget preserves exact read undo priority",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:2889:5",
+        "✖ D059 applyApprovedDiff dynamic postcheck: successful work then expired budget preserves exact read undo priority (5007.5737ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D059 applyApprovedDiff dynamic postcheck: failed work then expired budget preserves exact read undo priority",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:2889:5",
+        "✖ D059 applyApprovedDiff dynamic postcheck: failed work then expired budget preserves exact read undo priority (5011.616ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D059 applyApprovedDiff actual partial wrapper: clean-own-expiry preserves provenance and immutable primary",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:3050:3",
+        "✖ D059 applyApprovedDiff actual partial wrapper: clean-own-expiry preserves provenance and immutable primary (5004.7193ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D059 applyApprovedDiff actual partial wrapper: unexpected-raw preserves provenance and immutable primary",
+      "result": "CANCELLED",
+      "module": "facts",
+      "classification": "TIMEOUT_CANCELLED_UNREACHED_OR_PENDING",
+      "meaning": "Native runner cancelled at original5000ms ceiling; intended final assertion/cleanup proof not established.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": [
+        "packages\\db\\tests\\facts.test.ts:3050:3",
+        "✖ D059 applyApprovedDiff actual partial wrapper: unexpected-raw preserves provenance and immutable primary (5011.9517ms)",
+        "  'test timed out after 5000ms'",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint primary resolve",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "REACHED_HELD_READ_PROMPT_TYPE_MISMATCH",
+      "meaning": "Initial actual held adapter read gate passed; public outcome was not expected FencedWriterDeadlineError at261. Original drain assertions after261 were not reached; source/fixture diagnosis still required.",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation start checkpoint primary resolve (1424.5068ms)",
+        "  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+        "  ",
+        "    assert.ok(selectedDeadline?.signal.aborted)",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint primary reject",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "REACHED_HELD_READ_PROMPT_TYPE_MISMATCH",
+      "meaning": "Initial actual held adapter read gate passed; public outcome was not expected FencedWriterDeadlineError at261. Original drain assertions after261 were not reached; source/fixture diagnosis still required.",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation start checkpoint primary reject (770.7499ms)",
+        "  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+        "  ",
+        "    assert.ok(selectedDeadline?.signal.aborted)",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint recheck resolve",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "REACHED_HELD_READ_PROMPT_TYPE_MISMATCH",
+      "meaning": "Initial actual held adapter read gate passed; public outcome was not expected FencedWriterDeadlineError at261. Original drain assertions after261 were not reached; source/fixture diagnosis still required.",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation start checkpoint recheck resolve (837.4296ms)",
+        "  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+        "  ",
+        "    assert.ok(selectedDeadline?.signal.aborted)",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint recheck reject",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "REACHED_HELD_READ_PROMPT_TYPE_MISMATCH",
+      "meaning": "Initial actual held adapter read gate passed; public outcome was not expected FencedWriterDeadlineError at261. Original drain assertions after261 were not reached; source/fixture diagnosis still required.",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation start checkpoint recheck reject (814.7669ms)",
+        "  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+        "  ",
+        "    assert.ok(selectedDeadline?.signal.aborted)",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write primary resolve",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual selected native adapter read reached and remains live",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:251:56"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation start pending-write primary resolve (788.4224ms)",
+        "  AssertionError [ERR_ASSERTION]: actual selected native adapter read reached and remains live",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:251:56)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write primary reject",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "REACHED_HELD_READ_PROMPT_TYPE_MISMATCH",
+      "meaning": "Initial actual held adapter read gate passed; public outcome was not expected FencedWriterDeadlineError at261. Original drain assertions after261 were not reached; source/fixture diagnosis still required.",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation start pending-write primary reject (740.9613ms)",
+        "  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+        "  ",
+        "    assert.ok(selectedDeadline?.signal.aborted)",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write recheck resolve",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "REACHED_HELD_READ_PROMPT_TYPE_MISMATCH",
+      "meaning": "Initial actual held adapter read gate passed; public outcome was not expected FencedWriterDeadlineError at261. Original drain assertions after261 were not reached; source/fixture diagnosis still required.",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation start pending-write recheck resolve (748.9628ms)",
+        "  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+        "  ",
+        "    assert.ok(selectedDeadline?.signal.aborted)",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write recheck reject",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "REACHED_HELD_READ_PROMPT_TYPE_MISMATCH",
+      "meaning": "Initial actual held adapter read gate passed; public outcome was not expected FencedWriterDeadlineError at261. Original drain assertions after261 were not reached; source/fixture diagnosis still required.",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation start pending-write recheck reject (645.5273ms)",
+        "  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+        "  ",
+        "    assert.ok(selectedDeadline?.signal.aborted)",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint primary resolve",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual selected native adapter read reached and remains live",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:251:56"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation resume checkpoint primary resolve (690.0353ms)",
+        "  AssertionError [ERR_ASSERTION]: actual selected native adapter read reached and remains live",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:251:56)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint primary reject",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual selected native adapter read reached and remains live",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:251:56"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation resume checkpoint primary reject (856.5837ms)",
+        "  AssertionError [ERR_ASSERTION]: actual selected native adapter read reached and remains live",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:251:56)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint recheck resolve",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual selected native adapter read reached and remains live",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:251:56"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation resume checkpoint recheck resolve (696.2569ms)",
+        "  AssertionError [ERR_ASSERTION]: actual selected native adapter read reached and remains live",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:251:56)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint recheck reject",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual selected native adapter read reached and remains live",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:251:56"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation resume checkpoint recheck reject (811.7918ms)",
+        "  AssertionError [ERR_ASSERTION]: actual selected native adapter read reached and remains live",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:251:56)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write primary resolve",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual selected native adapter read reached and remains live",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:251:56"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation resume pending-write primary resolve (679.3829ms)",
+        "  AssertionError [ERR_ASSERTION]: actual selected native adapter read reached and remains live",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:251:56)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write primary reject",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "REACHED_HELD_READ_PROMPT_TYPE_MISMATCH",
+      "meaning": "Initial actual held adapter read gate passed; public outcome was not expected FencedWriterDeadlineError at261. Original drain assertions after261 were not reached; source/fixture diagnosis still required.",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation resume pending-write primary reject (712.1114ms)",
+        "  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+        "  ",
+        "    assert.ok(selectedDeadline?.signal.aborted)",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write recheck resolve",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "REACHED_HELD_READ_PROMPT_TYPE_MISMATCH",
+      "meaning": "Initial actual held adapter read gate passed; public outcome was not expected FencedWriterDeadlineError at261. Original drain assertions after261 were not reached; source/fixture diagnosis still required.",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation resume pending-write recheck resolve (605.3388ms)",
+        "  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+        "  ",
+        "    assert.ok(selectedDeadline?.signal.aborted)",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write recheck reject",
+      "result": "FAIL",
+      "module": "adapter",
+      "classification": "REACHED_HELD_READ_PROMPT_TYPE_MISMATCH",
+      "meaning": "Initial actual held adapter read gate passed; public outcome was not expected FencedWriterDeadlineError at261. Original drain assertions after261 were not reached; source/fixture diagnosis still required.",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85",
+        "✖ D068 Mongo adapter original observation resume pending-write recheck reject (576.7696ms)",
+        "  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+        "  ",
+        "    assert.ok(selectedDeadline?.signal.aborted)",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts:261:44)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 writeApproved candidate insert late ordinary original rejects settlement after successful owned undo",
+      "result": "FAIL",
+      "module": "nodes",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual held candidate primitive must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1518:16"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14",
+        "✖ D068 writeApproved candidate insert late ordinary original rejects settlement after successful owned undo (2405.9064ms)",
+        "  AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual held candidate primitive must be reached",
+        "  ",
+        "  false !== true",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1518:16)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: 'strictEqual',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 writeApproved candidate insert late independent AbortError rejects settlement after successful owned undo",
+      "result": "FAIL",
+      "module": "nodes",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual held candidate primitive must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1518:16"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14",
+        "✖ D068 writeApproved candidate insert late independent AbortError rejects settlement after successful owned undo (431.7534ms)",
+        "  AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual held candidate primitive must be reached",
+        "  ",
+        "  false !== true",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1518:16)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: 'strictEqual',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 writeApproved candidate insert late foreign deadline original rejects settlement after clean nested drain",
+      "result": "FAIL",
+      "module": "nodes",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual held candidate primitive must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1518:16"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14",
+        "✖ D068 writeApproved candidate insert late foreign deadline original rejects settlement after clean nested drain (749.3117ms)",
+        "  AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual held candidate primitive must be reached",
+        "  ",
+        "  false !== true",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1518:16)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: 'strictEqual',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 writeApproved candidate commit late ordinary original rejects settlement after successful all owned undo",
+      "result": "PASS",
+      "module": "nodes",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 writeApproved candidate commit late independent AbortError rejects settlement after successful all owned undo",
+      "result": "PASS",
+      "module": "nodes",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 writeApproved candidate commit late foreign deadline original rejects settlement after clean nested drain",
+      "result": "PASS",
+      "module": "nodes",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 writeApproved actual node authorize foreign deadline with ordinary cause defeats leaf collector masking",
+      "result": "FAIL",
+      "module": "nodes",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: fault only at actual writeApproved final authority frame",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1569:18"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14",
+        "✖ D068 writeApproved actual node authorize foreign deadline with ordinary cause defeats leaf collector masking (777.6957ms)",
+        "  AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: fault only at actual writeApproved final authority frame",
+        "  ",
+        "  false !== true",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1569:18)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: 'strictEqual',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 writeApproved actual node authorize foreign deadline with independent AbortError cause preserves first primary",
+      "result": "PASS",
+      "module": "nodes",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 writeApproved exact own node expiry with clean original and undo fulfills exposed settlement",
+      "result": "PASS",
+      "module": "nodes",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 writeApproved positively receipted child expiry requires complete expected causal proof",
+      "result": "FAIL",
+      "module": "nodes",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual held candidate primitive must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1518:16"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14",
+        "✖ D068 writeApproved positively receipted child expiry requires complete expected causal proof (501.6294ms)",
+        "  AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual held candidate primitive must be reached",
+        "  ",
+        "  false !== true",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1518:16)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: 'strictEqual',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 writeApproved clean direct success closes every actual original without rollback",
+      "result": "PASS",
+      "module": "nodes",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 writeApproved actual originals appended during nested settlement remain joined and observable",
+      "result": "FAIL",
+      "module": "nodes",
+      "classification": "REACHED_OWNED_CANDIDATE_RESIDUE",
+      "meaning": "Nested appended-original clean companion passed; rejecting companion reached final owned candidate read and found state pending instead of invalid. Prior error/root closure checks passed; remaining BSON checks after1668 did not run.",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1668:18"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14",
+        "✖ D068 writeApproved actual originals appended during nested settlement remain joined and observable (1415.8755ms)",
+        "  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+        "  + actual - expected",
+        "  ",
+        "  + 'pending'",
+        "  - 'invalid'",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1668:18)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: 'pending',",
+        "    expected: 'invalid',",
+        "    operator: 'strictEqual',",
+        "    diff: 'simple'",
+        "  }"
+      ]
+    },
+    {
+      "name": "D068 writeApproved actual reachable diamond retains distinct roots and deduplicates shared identities",
+      "result": "PASS",
+      "module": "nodes",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 writeApproved actual reachable causal cycle terminates and fails expected-only proof",
+      "result": "PASS",
+      "module": "nodes",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array",
+      "result": "FAIL",
+      "module": "nodes",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1536:16"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14",
+        "✖ D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array (536.3833ms)",
+        "  AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached",
+        "  ",
+        "  false !== true",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1536:16)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: 'strictEqual',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities",
+      "result": "FAIL",
+      "module": "nodes",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1536:16"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14",
+        "✖ D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities (482.6741ms)",
+        "  AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached",
+        "  ",
+        "  false !== true",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1536:16)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: 'strictEqual',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append",
+      "result": "FAIL",
+      "module": "nodes",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1536:16"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14",
+        "✖ D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append (495.8033ms)",
+        "  AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached",
+        "  ",
+        "  false !== true",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1536:16)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: 'strictEqual',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 writeApproved distinct same-message failures and later undo failures preserve all required attempts",
+      "result": "PASS",
+      "module": "nodes",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D058 transcript rejected receipt: actual late owned insertion leaves zero residue",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D058 transcript rejected receipt: actual late matched recreated winner preserves full rows",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D058 concern rejected receipt: actual late owned insertion leaves zero residue",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D058 concern rejected receipt: actual late matched recreated winner preserves full rows",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 insert ambiguity: before-mutation rejected receipt within original budget",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 insert ambiguity: before-mutation rejected receipt after original deadline",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 insert ambiguity: actual applied rejected receipt within original budget",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 insert ambiguity: actual applied rejected receipt after original deadline",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 acquire ambiguity: before-mutation rejected receipt within original budget",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 acquire ambiguity: before-mutation rejected receipt after original deadline",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 acquire ambiguity: actual applied rejected receipt within original budget",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 acquire ambiguity: actual applied rejected receipt after original deadline",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 insert cleanup handoff: actual DELETE admits new claim incarnation preserves completed public winner",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 acquire cleanup handoff: actual UNSET admits same durable claim ABA preserves completed public winner",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 acquire-awaiting cleanup handoff: actual UNSET admits same durable claim ABA preserves awaiting public winner",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 erased admission insert-before: actual rejected old receipt preserves all recreated winner BSON",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 erased admission insert-after: actual rejected old receipt preserves all recreated winner BSON",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 erased admission acquire-after: actual rejected old receipt preserves all recreated winner BSON",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 labelled raw competing ownership CAS: absent foreign lease marker protects complete claim from prospective delete",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 labelled raw competing ownership CAS: live foreign lease marker protects complete claim from prospective delete",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 immutable admission insert-cleanup: changed decision with same hash/token preserves complete foreign BSON",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 immutable admission insert-cleanup: changed response with same hash/token preserves complete foreign BSON",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 immutable admission insert-cleanup: changed approvalMetadata with same hash/token preserves complete foreign BSON",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 immutable admission acquire-preimage: changed decision with same hash/token preserves complete foreign BSON",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 immutable admission acquire-preimage: changed response with same hash/token preserves complete foreign BSON",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 immutable admission acquire-preimage: changed approvalMetadata with same hash/token preserves complete foreign BSON",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 immutable admission acquire-cleanup: changed decision with same hash/token preserves complete foreign BSON",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 immutable admission acquire-cleanup: changed response with same hash/token preserves complete foreign BSON",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 immutable admission acquire-cleanup: changed approvalMetadata with same hash/token preserves complete foreign BSON",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 actual acquisition matched0: ordinary in_progress cannot borrow or release real B lease",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 actual acquisition matched0: late rejected null receipt cannot borrow or release real B lease",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 actual indexed duplicate claim preserves acknowledged A winner and never grants B execution",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 transcript multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 concern multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 insert multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 acquire multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 preowner session original: late successful read drains without ACK or disclosure",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: exact initial session read not reached: {\"value\":{\"kind\":\"done\",\"result\":{\"status\":\"rejected\"}}}",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:661:126"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:644:5",
+        "✖ D068 preowner session original: late successful read drains without ACK or disclosure (362.8111ms)",
+        "  AssertionError [ERR_ASSERTION]: exact initial session read not reached: {\"value\":{\"kind\":\"done\",\"result\":{\"status\":\"rejected\"}}}",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:661:126)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 preowner session original: late unexpected read rejects without ACK or disclosure",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: exact initial session read not reached: {\"value\":{\"kind\":\"done\",\"result\":{\"status\":\"rejected\"}}}",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:661:126"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:644:5",
+        "✖ D068 preowner session original: late unexpected read rejects without ACK or disclosure (316.4451ms)",
+        "  AssertionError [ERR_ASSERTION]: exact initial session read not reached: {\"value\":{\"kind\":\"done\",\"result\":{\"status\":\"rejected\"}}}",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:661:126)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 preowner grant original: late successful read drains without ACK or disclosure",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: exact initial grant read not reached: {\"value\":{\"kind\":\"done\",\"result\":{\"status\":\"rejected\"}}}",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:661:126"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:644:5",
+        "✖ D068 preowner grant original: late successful read drains without ACK or disclosure (433.998ms)",
+        "  AssertionError [ERR_ASSERTION]: exact initial grant read not reached: {\"value\":{\"kind\":\"done\",\"result\":{\"status\":\"rejected\"}}}",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:661:126)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 preowner grant original: late unexpected read rejects without ACK or disclosure",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: exact initial grant read not reached: {\"value\":{\"kind\":\"done\",\"result\":{\"status\":\"rejected\"}}}",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:661:126"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:644:5",
+        "✖ D068 preowner grant original: late unexpected read rejects without ACK or disclosure (199.0526ms)",
+        "  AssertionError [ERR_ASSERTION]: exact initial grant read not reached: {\"value\":{\"kind\":\"done\",\"result\":{\"status\":\"rejected\"}}}",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:661:126)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 preowner fence original: late successful read drains without ACK or disclosure",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: exact initial fence read not reached: {\"value\":{\"kind\":\"done\",\"result\":{\"status\":\"rejected\"}}}",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:661:126"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:644:5",
+        "✖ D068 preowner fence original: late successful read drains without ACK or disclosure (244.3865ms)",
+        "  AssertionError [ERR_ASSERTION]: exact initial fence read not reached: {\"value\":{\"kind\":\"done\",\"result\":{\"status\":\"rejected\"}}}",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:661:126)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 preowner fence original: late unexpected read rejects without ACK or disclosure",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "SETUP_OR_REACHABILITY_GATE",
+      "meaning": "The intended primitive/authorization/chronology gate did not establish required reachability; not product RED.",
+      "firstError": "AssertionError [ERR_ASSERTION]: exact initial fence read not reached: {\"value\":{\"kind\":\"done\",\"result\":{\"status\":\"rejected\"}}}",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:661:126"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:644:5",
+        "✖ D068 preowner fence original: late unexpected read rejects without ACK or disclosure (247.5306ms)",
+        "  AssertionError [ERR_ASSERTION]: exact initial fence read not reached: {\"value\":{\"kind\":\"done\",\"result\":{\"status\":\"rejected\"}}}",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:661:126)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: false,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: false,",
+        "    expected: true,",
+        "    operator: '==',",
+        "    diff: 'simple'",
+        "  }",
+        ""
+      ]
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw plain survives work/raw dedup and successful cleanup",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw abort-name survives work/raw dedup and successful cleanup",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw provider-refusal survives work/raw dedup and successful cleanup",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw foreign-fwd survives work/raw dedup and successful cleanup",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw diamond survives work/raw dedup and successful cleanup",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw cycle survives work/raw dedup and successful cleanup",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "REACHED_CLEAN_PUBLIC_SETTLEMENT_REJECTION",
+      "meaning": "Clean-positive fixture reached held real work/drain and rejected settlement with admission aggregate; exact own-provenance/full expected-only closure diagnosis required; no blanket product RED.",
+      "firstError": "Error [AggregateError]: Scribe admission original settlement failed.",
+      "locations": [
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2477:28",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1675:20",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2388:10",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2003:20",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1670:28",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1031:24",
+        "D:\\vc\\packages\\db\\src\\facts.ts:1938:23",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2404:19"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:730:3",
+        "✖ D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes (686.1646ms)",
+        "  Error [AggregateError]: Scribe admission original settlement failed.",
+        "      at <anonymous> (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2477:28)",
+        "      at runNextTicks (node:internal/process/task_queues:64:5)",
+        "      at process.processTimers (node:internal/timers:538:9) {",
+        "    [errors]: [",
+        "      FencedWriterDeadlineError: FencedWriterDeadlineError: the write did not finish within the fenced-writer deadline (D-016); it was aborted and nothing it wrote was kept",
+        "          at underLease (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1675:20)",
+        "          at runNextTicks (node:internal/process/task_queues:64:5)",
+        "          at process.processTimers (node:internal/timers:538:9)",
+        "          at async resumeUnderDeadline (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2388:10)",
+        "          at async resumeScribe (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2003:20) {",
+        "        [cause]: [Error]",
+        "      },",
+        "      AggregateError: Scribe original settlement and owned cleanup failed.",
+        "          at <anonymous> (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1670:28)",
+        "          at runNextTicks (node:internal/process/task_queues:64:5)"
+      ]
+    },
+    {
+      "name": "D068 PUBLIC nested summary settlement: actual late undo registers new raw rejected read before graph closes",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "REACHED_PUBLIC_BOUNDARY_MESSAGE_MISMATCH",
+      "meaning": "Actual unexpected settlement rejected, but admission aggregate label differs expected invoke cleanup/compensation label; later causal-root/BSON checks after this assertion were not reached.",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:761:62"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:730:3",
+        "✖ D068 PUBLIC nested summary settlement: actual late undo registers new raw rejected read before graph closes (650.0594ms)",
+        "  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+        "  + actual - expected",
+        "  ",
+        "  + 'Scribe admission original settlement failed.'",
+        "  - 'Scribe original settlement and owned cleanup failed.'",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:761:62)",
+        "      at runNextTicks (node:internal/process/task_queues:64:5)",
+        "      at process.processTimers (node:internal/timers:538:9)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: 'Scribe admission original settlement failed.',",
+        "    expected: 'Scribe original settlement and owned cleanup failed.',",
+        "    operator: 'strictEqual',"
+      ]
+    },
+    {
+      "name": "D068 PUBLIC nested summary settlement: actual late undo registers new raw two-error read before graph closes",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "REACHED_PUBLIC_BOUNDARY_MESSAGE_MISMATCH",
+      "meaning": "Actual unexpected settlement rejected, but admission aggregate label differs expected invoke cleanup/compensation label; later causal-root/BSON checks after this assertion were not reached.",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:761:62"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:730:3",
+        "✖ D068 PUBLIC nested summary settlement: actual late undo registers new raw two-error read before graph closes (674.5075ms)",
+        "  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+        "  + actual - expected",
+        "  ",
+        "  + 'Scribe admission original settlement failed.'",
+        "  - 'Scribe original settlement and owned cleanup failed.'",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:761:62)",
+        "      at runNextTicks (node:internal/process/task_queues:64:5)",
+        "      at process.processTimers (node:internal/timers:538:9)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: 'Scribe admission original settlement failed.',",
+        "    expected: 'Scribe original settlement and owned cleanup failed.',",
+        "    operator: 'strictEqual',"
+      ]
+    },
+    {
+      "name": "D068 PUBLIC reject-audit producer forwarding: actual clean own expiry fulfills after source-issued deadline",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "REACHED_CLEAN_PUBLIC_SETTLEMENT_REJECTION",
+      "meaning": "Clean-positive fixture reached held real work/drain and rejected settlement with admission aggregate; exact own-provenance/full expected-only closure diagnosis required; no blanket product RED.",
+      "firstError": "Error [AggregateError]: Scribe admission original settlement failed.",
+      "locations": [
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2477:28",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1675:20",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2388:10",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2003:20",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1670:28",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1031:24"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:769:3",
+        "✖ D068 PUBLIC reject-audit producer forwarding: actual clean own expiry fulfills after source-issued deadline (670.2516ms)",
+        "  Error [AggregateError]: Scribe admission original settlement failed.",
+        "      at <anonymous> (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2477:28)",
+        "      at runNextTicks (node:internal/process/task_queues:64:5)",
+        "      at process.processTimers (node:internal/timers:538:9) {",
+        "    [errors]: [",
+        "      FencedWriterDeadlineError: FencedWriterDeadlineError: the write did not finish within the fenced-writer deadline (D-016); it was aborted and nothing it wrote was kept",
+        "          at underLease (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1675:20)",
+        "          at runNextTicks (node:internal/process/task_queues:64:5)",
+        "          at process.processTimers (node:internal/timers:538:9)",
+        "          at async resumeUnderDeadline (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2388:10)",
+        "          at async resumeScribe (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2003:20) {",
+        "        [cause]: [Error]",
+        "      },",
+        "      AggregateError: Scribe original settlement and owned cleanup failed.",
+        "          at <anonymous> (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1670:28)",
+        "          at runNextTicks (node:internal/process/task_queues:64:5)"
+      ]
+    },
+    {
+      "name": "D068 PUBLIC reject-audit producer forwarding: actual unexpected receipt rejects after source-issued deadline",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "REACHED_PUBLIC_BOUNDARY_MESSAGE_MISMATCH",
+      "meaning": "Actual unexpected settlement rejected, but admission aggregate label differs expected invoke cleanup/compensation label; later causal-root/BSON checks after this assertion were not reached.",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:788:62"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:769:3",
+        "✖ D068 PUBLIC reject-audit producer forwarding: actual unexpected receipt rejects after source-issued deadline (664.7126ms)",
+        "  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+        "  + actual - expected",
+        "  ",
+        "  + 'Scribe admission original settlement failed.'",
+        "  - 'Scribe original settlement and owned compensation failed.'",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:788:62)",
+        "      at runNextTicks (node:internal/process/task_queues:64:5)",
+        "      at process.processTimers (node:internal/timers:538:9)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: 'Scribe admission original settlement failed.',",
+        "    expected: 'Scribe original settlement and owned compensation failed.',",
+        "    operator: 'strictEqual',"
+      ]
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition closed-plain: only actual live closed clean terminal may be safely handled",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition late-plain: only actual live closed clean terminal may be safely handled",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition cause: only actual live closed clean terminal may be safely handled",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition cycle: only actual live closed clean terminal may be safely handled",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition nested: only actual live closed clean terminal may be safely handled",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition cleanup: only actual live closed clean terminal may be safely handled",
+      "result": "PASS",
+      "module": "persistence",
+      "classification": "FOCUSED_PASS",
+      "meaning": "Whole selected callback passed; no full-goal acceptance.",
+      "firstError": null,
+      "locations": [],
+      "rawFailureExcerpt": []
+    },
+    {
+      "name": "D068 PUBLIC own helper FWD: clean original fact expiry fulfills after actual late cleanup",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "REACHED_CLEAN_PUBLIC_SETTLEMENT_REJECTION",
+      "meaning": "Clean-positive fixture reached held real work/drain and rejected settlement with admission aggregate; exact own-provenance/full expected-only closure diagnosis required; no blanket product RED.",
+      "firstError": "Error [AggregateError]: Scribe admission original settlement failed.",
+      "locations": [
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2477:28",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1675:20",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2388:10",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2003:20",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1670:28",
+        "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1031:24",
+        "D:\\vc\\packages\\engine\\src\\scribe\\nodes.ts:1714:15",
+        "D:\\vc\\packages\\db\\src\\facts.ts:1000:34"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:835:1",
+        "✖ D068 PUBLIC own helper FWD: clean original fact expiry fulfills after actual late cleanup (723.2996ms)",
+        "  Error [AggregateError]: Scribe admission original settlement failed.",
+        "      at <anonymous> (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2477:28)",
+        "      at runNextTicks (node:internal/process/task_queues:64:5)",
+        "      at process.processTimers (node:internal/timers:538:9) {",
+        "    [errors]: [",
+        "      FencedWriterDeadlineError: FencedWriterDeadlineError: the write did not finish within the fenced-writer deadline (D-016); it was aborted and nothing it wrote was kept",
+        "          at underLease (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1675:20)",
+        "          at runNextTicks (node:internal/process/task_queues:64:5)",
+        "          at process.processTimers (node:internal/timers:538:9)",
+        "          at async resumeUnderDeadline (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2388:10)",
+        "          at async resumeScribe (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:2003:20) {",
+        "        [cause]: [Error]",
+        "      },",
+        "      AggregateError: Scribe original settlement and owned cleanup failed.",
+        "          at <anonymous> (D:\\vc\\packages\\engine\\src\\scribe\\graph.ts:1670:28)",
+        "          at runNextTicks (node:internal/process/task_queues:64:5)"
+      ]
+    },
+    {
+      "name": "D068 PUBLIC own helper FWD: unexpected postcheck descendant retains real produced ROOT and exact raw leaf",
+      "result": "FAIL",
+      "module": "persistence",
+      "classification": "REACHED_PUBLIC_BOUNDARY_MESSAGE_MISMATCH",
+      "meaning": "Actual unexpected settlement rejected, but admission aggregate label differs expected invoke cleanup/compensation label; later causal-root/BSON checks after this assertion were not reached.",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:858:60"
+      ],
+      "rawFailureExcerpt": [
+        "packages\\engine\\tests\\scribe-persistence.test.ts:835:1",
+        "✖ D068 PUBLIC own helper FWD: unexpected postcheck descendant retains real produced ROOT and exact raw leaf (731.6801ms)",
+        "  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+        "  + actual - expected",
+        "  ",
+        "  + 'Scribe admission original settlement failed.'",
+        "  - 'Scribe original settlement and owned cleanup failed.'",
+        "  ",
+        "      at TestContext.<anonymous> (D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts:858:60)",
+        "      at async Test.run (node:internal/test_runner/test:1110:7)",
+        "      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {",
+        "    generatedMessage: true,",
+        "    code: 'ERR_ASSERTION',",
+        "    actual: 'Scribe admission original settlement failed.',",
+        "    expected: 'Scribe original settlement and owned cleanup failed.',",
+        "    operator: 'strictEqual',",
+        "    diff: 'simple'",
+        "  }"
+      ]
+    }
+  ],
+  "caveat": "Sealed end actualPerModule used raw spec FAIL icons for cancelled controls; this immutable supplement distinguishes20 native cancellations. No raw artifact was changed.",
+  "runtimePinsMatched": true,
+  "noRerun": true,
+  "noAcceptanceVerdict": true
+}

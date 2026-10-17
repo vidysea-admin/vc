@@ -1,0 +1,14 @@
+[
+  {
+    "Path": "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts",
+    "Hash": "951E5C20D54889FEF015540E8BAFD46E1FFB8599EC9D0E3053881251B3354784"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\src\\facts.ts",
+    "Hash": "F507FD64F82BF801FF173AE2765377526663EDEAF8F2CE8BA4A3C970EE4BA2BD"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\tests\\fakes.ts",
+    "Hash": "D7996F5DED4C1BEE5641EE8D1B21B5A72FB51DE03CB6270B0194033463B2D56F"
+  }
+]

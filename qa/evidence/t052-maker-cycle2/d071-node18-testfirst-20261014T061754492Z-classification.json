@@ -1,0 +1,241 @@
+{
+  "classifiedAt": "2026-10-14T06:22:36.4872569Z",
+  "kind": "Completed D071 NODE18 maker test-first reached-stage assessment, no acceptance verdict",
+  "terminalChunk": "e436a0",
+  "sourceTestPin": "6B04E347FB8CEE1FA636C7611128DA7EB137DA25949C8C2696AF584A79FF0041",
+  "startHash": "F1EE02DDC9D31DBEE68ED93250284293C213353B942C35B8A931780C8EF5E7D7",
+  "endHash": "A69058F63910148025FC649749889A45D468C70B8A6D4719799C11C09F4FCFF6",
+  "logHash": "93D4FF6D45B76B482E9142374525741694C49B630E74B9A33B00586C172478B7",
+  "expected": 18,
+  "collected": 18,
+  "pass": 5,
+  "fail": 13,
+  "cancelled": 0,
+  "skipped": 0,
+  "reachedBehavioralRed": 4,
+  "setupUnreached": 9,
+  "redCases": [
+    8,
+    12,
+    13,
+    14
+  ],
+  "setupCases": [
+    1,
+    2,
+    3,
+    7,
+    9,
+    10,
+    15,
+    16,
+    17
+  ],
+  "passCases": [
+    4,
+    5,
+    6,
+    11,
+    18
+  ],
+  "controls": [
+    {
+      "case": 1,
+      "name": "D068 writeApproved candidate insert late ordinary original rejects settlement after successful owned undo",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual held candidate primitive must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1507:16"
+      ],
+      "reachedEvidence": "First failure explicitly marks intended fixture/constructor/chronology reachability gate.",
+      "remainingLimit": "Intended behavioral assertion not reached; no product RED."
+    },
+    {
+      "case": 2,
+      "name": "D068 writeApproved candidate insert late independent AbortError rejects settlement after successful owned undo",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual held candidate primitive must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1507:16"
+      ],
+      "reachedEvidence": "First failure explicitly marks intended fixture/constructor/chronology reachability gate.",
+      "remainingLimit": "Intended behavioral assertion not reached; no product RED."
+    },
+    {
+      "case": 3,
+      "name": "D068 writeApproved candidate insert late foreign deadline original rejects settlement after clean nested drain",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual held candidate primitive must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1507:16"
+      ],
+      "reachedEvidence": "First failure explicitly marks intended fixture/constructor/chronology reachability gate.",
+      "remainingLimit": "Intended behavioral assertion not reached; no product RED."
+    },
+    {
+      "case": 4,
+      "name": "D068 writeApproved candidate commit late ordinary original rejects settlement after successful all owned undo",
+      "classification": "PASS",
+      "firstError": null,
+      "locations": null,
+      "reachedEvidence": "Whole bounded callback passed; actual terminal diagnostics retained in sealed log.",
+      "remainingLimit": "Focused bounded PASS only; no full-suite acceptance."
+    },
+    {
+      "case": 5,
+      "name": "D068 writeApproved candidate commit late independent AbortError rejects settlement after successful all owned undo",
+      "classification": "PASS",
+      "firstError": null,
+      "locations": null,
+      "reachedEvidence": "Whole bounded callback passed; actual terminal diagnostics retained in sealed log.",
+      "remainingLimit": "Focused bounded PASS only; no full-suite acceptance."
+    },
+    {
+      "case": 6,
+      "name": "D068 writeApproved candidate commit late foreign deadline original rejects settlement after clean nested drain",
+      "classification": "PASS",
+      "firstError": null,
+      "locations": null,
+      "reachedEvidence": "Whole bounded callback passed; actual terminal diagnostics retained in sealed log.",
+      "remainingLimit": "Focused bounded PASS only; no full-suite acceptance."
+    },
+    {
+      "case": 7,
+      "name": "D068 writeApproved actual node authorize foreign deadline with ordinary cause defeats leaf collector masking",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: fault only at actual writeApproved final authority frame",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1542:18"
+      ],
+      "reachedEvidence": "First failure explicitly marks intended fixture/constructor/chronology reachability gate.",
+      "remainingLimit": "Intended behavioral assertion not reached; no product RED."
+    },
+    {
+      "case": 8,
+      "name": "D068 writeApproved actual node authorize foreign deadline with independent AbortError cause preserves first primary",
+      "classification": "REACHED_BEHAVIORAL_RED",
+      "firstError": "AssertionError [ERR_ASSERTION]: unexpected real originals/authorization roots must remain observable after successful cleanup",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1591:18"
+      ],
+      "reachedEvidence": "Actual direct writeApproved invocation1503; required final node authority injection and exact prompt cause identity1542-1549 passed; prompt settled drain completed1581; immutable cause/descriptor1582-1583 passed; expected rejected settlement instead fulfilled at1591.",
+      "remainingLimit": "Later aggregate cause/reachability and final BSON/owned/foreign assertions after1591 were not reached; no whole-control PASS or acceptance verdict."
+    },
+    {
+      "case": 9,
+      "name": "D068 writeApproved exact own node expiry with clean original and undo fulfills exposed settlement",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual own node/leaf cause receipt required",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1588:18"
+      ],
+      "reachedEvidence": "First failure explicitly marks intended fixture/constructor/chronology reachability gate.",
+      "remainingLimit": "Intended behavioral assertion not reached; no product RED."
+    },
+    {
+      "case": 10,
+      "name": "D068 writeApproved positively receipted child expiry requires complete expected causal proof",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual held candidate primitive must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1507:16"
+      ],
+      "reachedEvidence": "First failure explicitly marks intended fixture/constructor/chronology reachability gate.",
+      "remainingLimit": "Intended behavioral assertion not reached; no product RED."
+    },
+    {
+      "case": 11,
+      "name": "D068 writeApproved clean direct success closes every actual original without rollback",
+      "classification": "PASS",
+      "firstError": null,
+      "locations": null,
+      "reachedEvidence": "Whole bounded callback passed; actual terminal diagnostics retained in sealed log.",
+      "remainingLimit": "Focused bounded PASS only; no full-suite acceptance."
+    },
+    {
+      "case": 12,
+      "name": "D068 writeApproved actual originals appended during nested settlement remain joined and observable",
+      "classification": "REACHED_BEHAVIORAL_RED",
+      "firstError": "AssertionError [ERR_ASSERTION]: unexpected real originals/authorization roots must remain observable after successful cleanup",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1591:18"
+      ],
+      "reachedEvidence": "Actual direct writeApproved invocation1503; required final node authority injection and exact prompt cause identity1542-1549 passed; prompt settled drain completed1581; immutable cause/descriptor1582-1583 passed; expected rejected settlement instead fulfilled at1591.",
+      "remainingLimit": "Later aggregate cause/reachability and final BSON/owned/foreign assertions after1591 were not reached; no whole-control PASS or acceptance verdict."
+    },
+    {
+      "case": 13,
+      "name": "D068 writeApproved actual reachable diamond retains distinct roots and deduplicates shared identities",
+      "classification": "REACHED_BEHAVIORAL_RED",
+      "firstError": "AssertionError [ERR_ASSERTION]: unexpected real originals/authorization roots must remain observable after successful cleanup",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1591:18"
+      ],
+      "reachedEvidence": "Actual direct writeApproved invocation1503; required final node authority injection and exact prompt cause identity1542-1549 passed; prompt settled drain completed1581; immutable cause/descriptor1582-1583 passed; expected rejected settlement instead fulfilled at1591.",
+      "remainingLimit": "Later aggregate cause/reachability and final BSON/owned/foreign assertions after1591 were not reached; no whole-control PASS or acceptance verdict."
+    },
+    {
+      "case": 14,
+      "name": "D068 writeApproved actual reachable causal cycle terminates and fails expected-only proof",
+      "classification": "REACHED_BEHAVIORAL_RED",
+      "firstError": "AssertionError [ERR_ASSERTION]: unexpected real originals/authorization roots must remain observable after successful cleanup",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1591:18"
+      ],
+      "reachedEvidence": "Actual direct writeApproved invocation1503; required final node authority injection and exact prompt cause identity1542-1549 passed; prompt settled drain completed1581; immutable cause/descriptor1582-1583 passed; expected rejected settlement instead fulfilled at1591.",
+      "remainingLimit": "Later aggregate cause/reachability and final BSON/owned/foreign assertions after1591 were not reached; no whole-control PASS or acceptance verdict."
+    },
+    {
+      "case": 15,
+      "name": "D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1515:16"
+      ],
+      "reachedEvidence": "First failure explicitly marks intended fixture/constructor/chronology reachability gate.",
+      "remainingLimit": "Intended behavioral assertion not reached; no product RED."
+    },
+    {
+      "case": 16,
+      "name": "D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1515:16"
+      ],
+      "reachedEvidence": "First failure explicitly marks intended fixture/constructor/chronology reachability gate.",
+      "remainingLimit": "Intended behavioral assertion not reached; no product RED."
+    },
+    {
+      "case": 17,
+      "name": "D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append",
+      "classification": "SETUP_UNREACHED",
+      "firstError": "AssertionError [ERR_ASSERTION]: SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached",
+      "locations": [
+        "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts:1515:16"
+      ],
+      "reachedEvidence": "First failure explicitly marks intended fixture/constructor/chronology reachability gate.",
+      "remainingLimit": "Intended behavioral assertion not reached; no product RED."
+    },
+    {
+      "case": 18,
+      "name": "D068 writeApproved distinct same-message failures and later undo failures preserve all required attempts",
+      "classification": "PASS",
+      "firstError": null,
+      "locations": null,
+      "reachedEvidence": "Whole bounded callback passed; actual terminal diagnostics retained in sealed log.",
+      "remainingLimit": "Focused bounded PASS only; no full-suite acceptance."
+    }
+  ],
+  "preflightMs": 146944.631,
+  "beforeHashMs": 119811.24859999999,
+  "runtimeWallMs": 38597.03470000002,
+  "testRuntimeMs": 27952.045,
+  "afterHashMs": 18410.238799999992,
+  "allPinsMatched": true,
+  "originalNodesUnchanged": true,
+  "mutexPresentAfter": false,
+  "noRerun": true,
+  "noAcceptanceVerdict": true
+}

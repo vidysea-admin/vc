@@ -1,0 +1,1995 @@
+{
+  "endedAt": "2026-10-14T02:50:42.9780429Z",
+  "candidateHash": "0948C0EE933A62D8FC7B2323A0329305C12F74C5C834BD64D7150B4DC4330901",
+  "candidateCount": 27,
+  "sourceBaseline": "Original D067 source unchanged; only five approved test blobs changed",
+  "session": 52931,
+  "initialChunk": "2199f6",
+  "terminalChunk": "e21409",
+  "testTerminalAt": "2026-10-14T02:47:19.2167112Z",
+  "exit": 1,
+  "expected": 128,
+  "collected": 128,
+  "pass": 12,
+  "fail": 116,
+  "cancelled": 0,
+  "skipped": 0,
+  "duration_ms": 35120.0231,
+  "expandedControlResults": [
+    {
+      "name": "D068 recordRejectReasons actual held expiry: clean observer preserves original cause and observable settlement",
+      "result": "failed",
+      "duration_ms": 38.2277
+    },
+    {
+      "name": "D068 recordRejectReasons actual held expiry: timer observer S preserves original cause and observable settlement",
+      "result": "failed",
+      "duration_ms": 39.8877
+    },
+    {
+      "name": "D068 recordRejectReasons actual held expiry: timer observer S plus cleanup U preserves original cause and observable settlement",
+      "result": "failed",
+      "duration_ms": 34.1599
+    },
+    {
+      "name": "D068 recordRejectReasons actual held expiry: received public FWD observer preserves original cause and observable settlement",
+      "result": "failed",
+      "duration_ms": 43.4554
+    },
+    {
+      "name": "D068 recordRejectReasons actual direct-op receipt: precheck observer S preserves own primary aggregate and foreign bytes",
+      "result": "failed",
+      "duration_ms": 36.2589
+    },
+    {
+      "name": "D068 recordRejectReasons actual direct-op receipt: insert observer S preserves own primary aggregate and foreign bytes",
+      "result": "failed",
+      "duration_ms": 35.7241
+    },
+    {
+      "name": "D068 recordRejectReasons actual direct-op receipt: duplicate-winner observer S preserves own primary aggregate and foreign bytes",
+      "result": "failed",
+      "duration_ms": 35.7442
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert clean-own-expiry preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 63.4467
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert raw-error preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 51.636
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert raw-abort-name preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 55.4237
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert foreign-clean preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 138.9673
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert foreign-rejecting preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 132.6031
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert distinct-cleanup preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 52.6941
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert shared-cleanup preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 51.5881
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas clean-own-expiry preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 49.5091
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas raw-error preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 48.7167
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas raw-abort-name preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 53.6072
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas foreign-clean preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 138.6916
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas foreign-rejecting preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 131.6879
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas distinct-cleanup preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 57.8817
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas shared-cleanup preserves exact failure and owned beforeimage",
+      "result": "failed",
+      "duration_ms": 48.1367
+    },
+    {
+      "name": "D068 summary authorization original: clean stays observable before candidate creation",
+      "result": "failed",
+      "duration_ms": 0.6803
+    },
+    {
+      "name": "D068 summary authorization original: rejecting stays observable before candidate creation",
+      "result": "failed",
+      "duration_ms": 0.1156
+    },
+    {
+      "name": "D068 admission authorization original: ordinary clean drains real A independently of work expiry",
+      "result": "failed",
+      "duration_ms": 0.2925
+    },
+    {
+      "name": "D068 admission authorization original: ordinary rejecting drains real A independently of work expiry",
+      "result": "failed",
+      "duration_ms": 0.0745
+    },
+    {
+      "name": "D068 admission authorization original: readonly clean drains real A independently of work expiry",
+      "result": "failed",
+      "duration_ms": 0.0565
+    },
+    {
+      "name": "D068 admission authorization original: readonly rejecting drains real A independently of work expiry",
+      "result": "failed",
+      "duration_ms": 0.0562
+    },
+    {
+      "name": "D068 admission post-ownership authorization: clean preserves exact provisional cleanup and original failure",
+      "result": "failed",
+      "duration_ms": 0.3018
+    },
+    {
+      "name": "D068 admission post-ownership authorization: rejecting preserves exact provisional cleanup and original failure",
+      "result": "failed",
+      "duration_ms": 0.0675
+    },
+    {
+      "name": "D059 applyApprovedDiff dynamic postcheck: successful work then expired budget preserves exact read undo priority",
+      "result": "failed",
+      "duration_ms": 52.5261
+    },
+    {
+      "name": "D059 applyApprovedDiff dynamic postcheck: failed work then expired budget preserves exact read undo priority",
+      "result": "failed",
+      "duration_ms": 47.0613
+    },
+    {
+      "name": "D059 applyApprovedDiff actual partial wrapper: clean-own-expiry preserves provenance and immutable primary",
+      "result": "failed",
+      "duration_ms": 43.8758
+    },
+    {
+      "name": "D059 applyApprovedDiff actual partial wrapper: unexpected-raw preserves provenance and immutable primary",
+      "result": "failed",
+      "duration_ms": 41.2699
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint primary resolve",
+      "result": "failed",
+      "duration_ms": 350.5573
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint primary reject",
+      "result": "failed",
+      "duration_ms": 302.0601
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint recheck resolve",
+      "result": "failed",
+      "duration_ms": 292.8689
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint recheck reject",
+      "result": "failed",
+      "duration_ms": 271.2953
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write primary resolve",
+      "result": "failed",
+      "duration_ms": 282.4949
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write primary reject",
+      "result": "failed",
+      "duration_ms": 295.0072
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write recheck resolve",
+      "result": "failed",
+      "duration_ms": 282.2168
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write recheck reject",
+      "result": "failed",
+      "duration_ms": 284.2938
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint primary resolve",
+      "result": "failed",
+      "duration_ms": 272.2297
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint primary reject",
+      "result": "failed",
+      "duration_ms": 269.5148
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint recheck resolve",
+      "result": "failed",
+      "duration_ms": 272.8421
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint recheck reject",
+      "result": "failed",
+      "duration_ms": 289.032
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write primary resolve",
+      "result": "failed",
+      "duration_ms": 268.6994
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write primary reject",
+      "result": "failed",
+      "duration_ms": 259.4549
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write recheck resolve",
+      "result": "failed",
+      "duration_ms": 269.8662
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write recheck reject",
+      "result": "failed",
+      "duration_ms": 271.1763
+    },
+    {
+      "name": "D068 writeApproved candidate insert late ordinary original rejects settlement after successful owned undo",
+      "result": "failed",
+      "duration_ms": 55.5959
+    },
+    {
+      "name": "D068 writeApproved candidate insert late independent AbortError rejects settlement after successful owned undo",
+      "result": "failed",
+      "duration_ms": 11.6234
+    },
+    {
+      "name": "D068 writeApproved candidate insert late foreign deadline original rejects settlement after clean nested drain",
+      "result": "failed",
+      "duration_ms": 11.2856
+    },
+    {
+      "name": "D068 writeApproved candidate commit late ordinary original rejects settlement after successful all owned undo",
+      "result": "failed",
+      "duration_ms": 10.6296
+    },
+    {
+      "name": "D068 writeApproved candidate commit late independent AbortError rejects settlement after successful all owned undo",
+      "result": "failed",
+      "duration_ms": 11.7205
+    },
+    {
+      "name": "D068 writeApproved candidate commit late foreign deadline original rejects settlement after clean nested drain",
+      "result": "failed",
+      "duration_ms": 10.879
+    },
+    {
+      "name": "D068 writeApproved actual node authorize foreign deadline with ordinary cause defeats leaf collector masking",
+      "result": "failed",
+      "duration_ms": 9.1491
+    },
+    {
+      "name": "D068 writeApproved actual node authorize foreign deadline with independent AbortError cause preserves first primary",
+      "result": "failed",
+      "duration_ms": 16.8809
+    },
+    {
+      "name": "D068 writeApproved exact own node expiry with clean original and undo fulfills exposed settlement",
+      "result": "failed",
+      "duration_ms": 8.6176
+    },
+    {
+      "name": "D068 writeApproved positively receipted child expiry requires complete expected causal proof",
+      "result": "failed",
+      "duration_ms": 7.2947
+    },
+    {
+      "name": "D068 writeApproved clean direct success closes every actual original without rollback",
+      "result": "failed",
+      "duration_ms": 6.897
+    },
+    {
+      "name": "D068 writeApproved actual originals appended during nested settlement remain joined and observable",
+      "result": "failed",
+      "duration_ms": 6.943
+    },
+    {
+      "name": "D068 writeApproved actual reachable diamond retains distinct roots and deduplicates shared identities",
+      "result": "failed",
+      "duration_ms": 7.7766
+    },
+    {
+      "name": "D068 writeApproved actual reachable causal cycle terminates and fails expected-only proof",
+      "result": "failed",
+      "duration_ms": 9.634
+    },
+    {
+      "name": "D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array",
+      "result": "failed",
+      "duration_ms": 7.0901
+    },
+    {
+      "name": "D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities",
+      "result": "failed",
+      "duration_ms": 7.3418
+    },
+    {
+      "name": "D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append",
+      "result": "failed",
+      "duration_ms": 8.5458
+    },
+    {
+      "name": "D068 writeApproved distinct same-message failures and later undo failures preserve all required attempts",
+      "result": "failed",
+      "duration_ms": 7.5867
+    },
+    {
+      "name": "D058 transcript rejected receipt: actual late owned insertion leaves zero residue",
+      "result": "failed",
+      "duration_ms": 614.1369
+    },
+    {
+      "name": "D058 transcript rejected receipt: actual late matched recreated winner preserves full rows",
+      "result": "failed",
+      "duration_ms": 547.4322
+    },
+    {
+      "name": "D058 concern rejected receipt: actual late owned insertion leaves zero residue",
+      "result": "failed",
+      "duration_ms": 615.9583
+    },
+    {
+      "name": "D058 concern rejected receipt: actual late matched recreated winner preserves full rows",
+      "result": "failed",
+      "duration_ms": 550.6253
+    },
+    {
+      "name": "D068 insert ambiguity: before-mutation rejected receipt within original budget",
+      "result": "passed",
+      "duration_ms": 62.8047
+    },
+    {
+      "name": "D068 insert ambiguity: before-mutation rejected receipt after original deadline",
+      "result": "failed",
+      "duration_ms": 598.0733
+    },
+    {
+      "name": "D068 insert ambiguity: actual applied rejected receipt within original budget",
+      "result": "failed",
+      "duration_ms": 45.1552
+    },
+    {
+      "name": "D068 insert ambiguity: actual applied rejected receipt after original deadline",
+      "result": "failed",
+      "duration_ms": 57.0691
+    },
+    {
+      "name": "D068 acquire ambiguity: before-mutation rejected receipt within original budget",
+      "result": "failed",
+      "duration_ms": 63.2008
+    },
+    {
+      "name": "D068 acquire ambiguity: before-mutation rejected receipt after original deadline",
+      "result": "failed",
+      "duration_ms": 45.3054
+    },
+    {
+      "name": "D068 acquire ambiguity: actual applied rejected receipt within original budget",
+      "result": "failed",
+      "duration_ms": 43.3932
+    },
+    {
+      "name": "D068 acquire ambiguity: actual applied rejected receipt after original deadline",
+      "result": "failed",
+      "duration_ms": 62.3849
+    },
+    {
+      "name": "D068 insert cleanup handoff: actual DELETE admits new claim incarnation preserves completed public winner",
+      "result": "failed",
+      "duration_ms": 527.1705
+    },
+    {
+      "name": "D068 acquire cleanup handoff: actual UNSET admits same durable claim ABA preserves completed public winner",
+      "result": "failed",
+      "duration_ms": 526.9168
+    },
+    {
+      "name": "D068 acquire-awaiting cleanup handoff: actual UNSET admits same durable claim ABA preserves awaiting public winner",
+      "result": "failed",
+      "duration_ms": 555.392
+    },
+    {
+      "name": "D068 erased admission insert-before: actual rejected old receipt preserves all recreated winner BSON",
+      "result": "failed",
+      "duration_ms": 551.3167
+    },
+    {
+      "name": "D068 erased admission insert-after: actual rejected old receipt preserves all recreated winner BSON",
+      "result": "failed",
+      "duration_ms": 561.6594
+    },
+    {
+      "name": "D068 erased admission acquire-after: actual rejected old receipt preserves all recreated winner BSON",
+      "result": "failed",
+      "duration_ms": 556.0335
+    },
+    {
+      "name": "D068 labelled raw competing ownership CAS: absent foreign lease marker protects complete claim from prospective delete",
+      "result": "passed",
+      "duration_ms": 23.6672
+    },
+    {
+      "name": "D068 labelled raw competing ownership CAS: live foreign lease marker protects complete claim from prospective delete",
+      "result": "passed",
+      "duration_ms": 21.1106
+    },
+    {
+      "name": "D068 immutable admission insert-cleanup: changed decision with same hash/token preserves complete foreign BSON",
+      "result": "passed",
+      "duration_ms": 22.4267
+    },
+    {
+      "name": "D068 immutable admission insert-cleanup: changed response with same hash/token preserves complete foreign BSON",
+      "result": "passed",
+      "duration_ms": 30.2437
+    },
+    {
+      "name": "D068 immutable admission insert-cleanup: changed approvalMetadata with same hash/token preserves complete foreign BSON",
+      "result": "passed",
+      "duration_ms": 39.7461
+    },
+    {
+      "name": "D068 immutable admission acquire-preimage: changed decision with same hash/token preserves complete foreign BSON",
+      "result": "failed",
+      "duration_ms": 21.7889
+    },
+    {
+      "name": "D068 immutable admission acquire-preimage: changed response with same hash/token preserves complete foreign BSON",
+      "result": "failed",
+      "duration_ms": 20.6188
+    },
+    {
+      "name": "D068 immutable admission acquire-preimage: changed approvalMetadata with same hash/token preserves complete foreign BSON",
+      "result": "failed",
+      "duration_ms": 22.3872
+    },
+    {
+      "name": "D068 immutable admission acquire-cleanup: changed decision with same hash/token preserves complete foreign BSON",
+      "result": "passed",
+      "duration_ms": 21.7311
+    },
+    {
+      "name": "D068 immutable admission acquire-cleanup: changed response with same hash/token preserves complete foreign BSON",
+      "result": "passed",
+      "duration_ms": 22.0042
+    },
+    {
+      "name": "D068 immutable admission acquire-cleanup: changed approvalMetadata with same hash/token preserves complete foreign BSON",
+      "result": "passed",
+      "duration_ms": 40.3083
+    },
+    {
+      "name": "D068 actual acquisition matched0: ordinary in_progress cannot borrow or release real B lease",
+      "result": "passed",
+      "duration_ms": 40.6079
+    },
+    {
+      "name": "D068 actual acquisition matched0: late rejected null receipt cannot borrow or release real B lease",
+      "result": "failed",
+      "duration_ms": 536.9511
+    },
+    {
+      "name": "D068 actual indexed duplicate claim preserves acknowledged A winner and never grants B execution",
+      "result": "passed",
+      "duration_ms": 28.4632
+    },
+    {
+      "name": "D068 transcript multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts",
+      "result": "failed",
+      "duration_ms": 524.588
+    },
+    {
+      "name": "D068 concern multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts",
+      "result": "failed",
+      "duration_ms": 542.6225
+    },
+    {
+      "name": "D068 insert multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts",
+      "result": "failed",
+      "duration_ms": 599.4737
+    },
+    {
+      "name": "D068 acquire multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts",
+      "result": "failed",
+      "duration_ms": 591.6115
+    },
+    {
+      "name": "D068 preowner session original: late successful read drains without ACK or disclosure",
+      "result": "failed",
+      "duration_ms": 540.3757
+    },
+    {
+      "name": "D068 preowner session original: late unexpected read rejects without ACK or disclosure",
+      "result": "failed",
+      "duration_ms": 540.3134
+    },
+    {
+      "name": "D068 preowner grant original: late successful read drains without ACK or disclosure",
+      "result": "failed",
+      "duration_ms": 522.4447
+    },
+    {
+      "name": "D068 preowner grant original: late unexpected read rejects without ACK or disclosure",
+      "result": "failed",
+      "duration_ms": 537.3359
+    },
+    {
+      "name": "D068 preowner fence original: late successful read drains without ACK or disclosure",
+      "result": "failed",
+      "duration_ms": 543.6463
+    },
+    {
+      "name": "D068 preowner fence original: late unexpected read rejects without ACK or disclosure",
+      "result": "failed",
+      "duration_ms": 520.8634
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw plain survives work/raw dedup and successful cleanup",
+      "result": "failed",
+      "duration_ms": 501.9405
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw abort-name survives work/raw dedup and successful cleanup",
+      "result": "failed",
+      "duration_ms": 505.6763
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw provider-refusal survives work/raw dedup and successful cleanup",
+      "result": "failed",
+      "duration_ms": 501.2558
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw foreign-fwd survives work/raw dedup and successful cleanup",
+      "result": "failed",
+      "duration_ms": 505.1978
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw diamond survives work/raw dedup and successful cleanup",
+      "result": "failed",
+      "duration_ms": 507.0765
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw cycle survives work/raw dedup and successful cleanup",
+      "result": "failed",
+      "duration_ms": 515.4193
+    },
+    {
+      "name": "D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes",
+      "result": "passed",
+      "duration_ms": 541.6404
+    },
+    {
+      "name": "D068 PUBLIC nested summary settlement: actual late undo registers new raw rejected read before graph closes",
+      "result": "failed",
+      "duration_ms": 545.0008
+    },
+    {
+      "name": "D068 PUBLIC nested summary settlement: actual late undo registers new raw two-error read before graph closes",
+      "result": "failed",
+      "duration_ms": 540.0543
+    },
+    {
+      "name": "D068 PUBLIC reject-audit producer forwarding: actual clean own expiry fulfills after source-issued deadline",
+      "result": "failed",
+      "duration_ms": 16.7142
+    },
+    {
+      "name": "D068 PUBLIC reject-audit producer forwarding: actual unexpected receipt rejects after source-issued deadline",
+      "result": "failed",
+      "duration_ms": 14.8037
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition closed-plain: only actual live closed clean terminal may be safely handled",
+      "result": "failed",
+      "duration_ms": 7.3578
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition late-plain: only actual live closed clean terminal may be safely handled",
+      "result": "failed",
+      "duration_ms": 505.8091
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition cause: only actual live closed clean terminal may be safely handled",
+      "result": "failed",
+      "duration_ms": 5.9845
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition cycle: only actual live closed clean terminal may be safely handled",
+      "result": "failed",
+      "duration_ms": 5.6427
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition nested: only actual live closed clean terminal may be safely handled",
+      "result": "failed",
+      "duration_ms": 5.696
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition cleanup: only actual live closed clean terminal may be safely handled",
+      "result": "failed",
+      "duration_ms": 5.938
+    },
+    {
+      "name": "D068 PUBLIC own helper FWD: clean original fact expiry fulfills after actual late cleanup",
+      "result": "failed",
+      "duration_ms": 536.1103
+    },
+    {
+      "name": "D068 PUBLIC own helper FWD: unexpected postcheck descendant retains real produced ROOT and exact raw leaf",
+      "result": "failed",
+      "duration_ms": 520.7164
+    }
+  ],
+  "failureFirstErrors": [
+    {
+      "name": "D068 recordRejectReasons actual held expiry: clean observer preserves original cause and observable settlement",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual own leaf expiry reached the real private recorder",
+      "firstLocation": "packages\\db\\tests\\decisions.test.ts:659",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 recordRejectReasons actual held expiry: timer observer S preserves original cause and observable settlement",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual own leaf expiry reached the real private recorder",
+      "firstLocation": "packages\\db\\tests\\decisions.test.ts:659",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 recordRejectReasons actual held expiry: timer observer S plus cleanup U preserves original cause and observable settlement",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual own leaf expiry reached the real private recorder",
+      "firstLocation": "packages\\db\\tests\\decisions.test.ts:659",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 recordRejectReasons actual held expiry: received public FWD observer preserves original cause and observable settlement",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual own leaf expiry reached the real private recorder",
+      "firstLocation": "packages\\db\\tests\\decisions.test.ts:659",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 recordRejectReasons actual direct-op receipt: precheck observer S preserves own primary aggregate and foreign bytes",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\db\\tests\\decisions.test.ts:739",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 recordRejectReasons actual direct-op receipt: insert observer S preserves own primary aggregate and foreign bytes",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\db\\tests\\decisions.test.ts:739",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 recordRejectReasons actual direct-op receipt: duplicate-winner observer S preserves own primary aggregate and foreign bytes",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\db\\tests\\decisions.test.ts:739",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert clean-own-expiry preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1899",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert raw-error preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: Missing expected rejection.",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1887",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert raw-abort-name preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: Missing expected rejection.",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1887",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert foreign-clean preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: Missing expected rejection.",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1887",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert foreign-rejecting preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: Missing expected rejection.",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1887",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert distinct-cleanup preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1888",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: candidate-insert shared-cleanup preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1888",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas clean-own-expiry preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1899",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas raw-error preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: Missing expected rejection.",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1887",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas raw-abort-name preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: Missing expected rejection.",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1887",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas foreign-clean preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: Missing expected rejection.",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1887",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas foreign-rejecting preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: Missing expected rejection.",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1887",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas distinct-cleanup preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1888",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary original receipt: summary-cas shared-cleanup preserves exact failure and owned beforeimage",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:1888",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary authorization original: clean stays observable before candidate creation",
+      "firstError": "Error: ensureScribeSessionRow: threadId must be a non-empty string (a row without it is invisible to B15 erasure)",
+      "firstLocation": "packages\\db\\src\\facts.ts:1010",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 summary authorization original: rejecting stays observable before candidate creation",
+      "firstError": "Error: ensureScribeSessionRow: threadId must be a non-empty string (a row without it is invisible to B15 erasure)",
+      "firstLocation": "packages\\db\\src\\facts.ts:1010",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 admission authorization original: ordinary clean drains real A independently of work expiry",
+      "firstError": "Error: ensureScribeSessionRow: threadId must be a non-empty string (a row without it is invisible to B15 erasure)",
+      "firstLocation": "packages\\db\\src\\facts.ts:1010",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 admission authorization original: ordinary rejecting drains real A independently of work expiry",
+      "firstError": "Error: ensureScribeSessionRow: threadId must be a non-empty string (a row without it is invisible to B15 erasure)",
+      "firstLocation": "packages\\db\\src\\facts.ts:1010",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 admission authorization original: readonly clean drains real A independently of work expiry",
+      "firstError": "Error: ensureScribeSessionRow: threadId must be a non-empty string (a row without it is invisible to B15 erasure)",
+      "firstLocation": "packages\\db\\src\\facts.ts:1010",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 admission authorization original: readonly rejecting drains real A independently of work expiry",
+      "firstError": "Error: ensureScribeSessionRow: threadId must be a non-empty string (a row without it is invisible to B15 erasure)",
+      "firstLocation": "packages\\db\\src\\facts.ts:1010",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 admission post-ownership authorization: clean preserves exact provisional cleanup and original failure",
+      "firstError": "Error: ensureScribeSessionRow: threadId must be a non-empty string (a row without it is invisible to B15 erasure)",
+      "firstLocation": "packages\\db\\src\\facts.ts:1010",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 admission post-ownership authorization: rejecting preserves exact provisional cleanup and original failure",
+      "firstError": "Error: ensureScribeSessionRow: threadId must be a non-empty string (a row without it is invisible to B15 erasure)",
+      "firstLocation": "packages\\db\\src\\facts.ts:1010",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D059 applyApprovedDiff dynamic postcheck: successful work then expired budget preserves exact read undo priority",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:2943",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D059 applyApprovedDiff dynamic postcheck: failed work then expired budget preserves exact read undo priority",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:2943",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D059 applyApprovedDiff actual partial wrapper: clean-own-expiry preserves provenance and immutable primary",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:3086",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D059 applyApprovedDiff actual partial wrapper: unexpected-raw preserves provenance and immutable primary",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\db\\tests\\facts.test.ts:3098",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint primary resolve",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint primary reject",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint recheck resolve",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint recheck reject",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write primary resolve",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write primary reject",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write recheck resolve",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write recheck reject",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint primary resolve",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint primary reject",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint recheck resolve",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint recheck reject",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write primary resolve",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write primary reject",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write recheck resolve",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write recheck reject",
+      "firstError": "AssertionError [ERR_ASSERTION]: public settlement must wait actual F through held I",
+      "firstLocation": "packages\\engine\\tests\\scribe-checkpointer.test.ts:268",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved candidate insert late ordinary original rejects settlement after successful owned undo",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved candidate insert late independent AbortError rejects settlement after successful owned undo",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved candidate insert late foreign deadline original rejects settlement after clean nested drain",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved candidate commit late ordinary original rejects settlement after successful all owned undo",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved candidate commit late independent AbortError rejects settlement after successful all owned undo",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved candidate commit late foreign deadline original rejects settlement after clean nested drain",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved actual node authorize foreign deadline with ordinary cause defeats leaf collector masking",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved actual node authorize foreign deadline with independent AbortError cause preserves first primary",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved exact own node expiry with clean original and undo fulfills exposed settlement",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved positively receipted child expiry requires complete expected causal proof",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved clean direct success closes every actual original without rollback",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved actual originals appended during nested settlement remain joined and observable",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved actual reachable diamond retains distinct roots and deduplicates shared identities",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved actual reachable causal cycle terminates and fails expected-only proof",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 writeApproved distinct same-message failures and later undo failures preserve all required attempts",
+      "firstError": "Error [ProviderAuthorizationRefusedError]: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\src\\scribe\\nodes.ts:125",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D058 transcript rejected receipt: actual late owned insertion leaves zero residue",
+      "firstError": "AssertionError [ERR_ASSERTION]: unexpected actual receipt rejection MUST reject exposed settlement even when cleanup succeeds",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:246",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D058 transcript rejected receipt: actual late matched recreated winner preserves full rows",
+      "firstError": "AssertionError [ERR_ASSERTION]: unexpected actual receipt rejection MUST reject exposed settlement even when cleanup succeeds",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:246",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D058 concern rejected receipt: actual late owned insertion leaves zero residue",
+      "firstError": "AssertionError [ERR_ASSERTION]: unexpected actual receipt rejection MUST reject exposed settlement even when cleanup succeeds",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:246",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D058 concern rejected receipt: actual late matched recreated winner preserves full rows",
+      "firstError": "AssertionError [ERR_ASSERTION]: unexpected actual receipt rejection MUST reject exposed settlement even when cleanup succeeds",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:246",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 insert ambiguity: before-mutation rejected receipt after original deadline",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:332",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 insert ambiguity: actual applied rejected receipt within original budget",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual insert driver not reached: AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:320",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 insert ambiguity: actual applied rejected receipt after original deadline",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual insert driver not reached: AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:320",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 acquire ambiguity: before-mutation rejected receipt within original budget",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:1490",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 acquire ambiguity: before-mutation rejected receipt after original deadline",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:1490",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 acquire ambiguity: actual applied rejected receipt within original budget",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:1490",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 acquire ambiguity: actual applied rejected receipt after original deadline",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:1490",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 insert cleanup handoff: actual DELETE admits new claim incarnation preserves completed public winner",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual insert prospective cleanup did not dispatch: ProviderAuthorizationRefusedError: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:398",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 acquire cleanup handoff: actual UNSET admits same durable claim ABA preserves completed public winner",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual acquire prospective cleanup did not dispatch: ProviderAuthorizationRefusedError: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:398",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 acquire-awaiting cleanup handoff: actual UNSET admits same durable claim ABA preserves awaiting public winner",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual acquire prospective cleanup did not dispatch: ProviderAuthorizationRefusedError: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:398",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 erased admission insert-before: actual rejected old receipt preserves all recreated winner BSON",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:464",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 erased admission insert-after: actual rejected old receipt preserves all recreated winner BSON",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:464",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 erased admission acquire-after: actual rejected old receipt preserves all recreated winner BSON",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:464",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 immutable admission acquire-preimage: changed decision with same hash/token preserves complete foreign BSON",
+      "firstError": "AssertionError [ERR_ASSERTION]: full preimage CAS refuses changed body despite unchanged hash",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:522",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 immutable admission acquire-preimage: changed response with same hash/token preserves complete foreign BSON",
+      "firstError": "AssertionError [ERR_ASSERTION]: full preimage CAS refuses changed body despite unchanged hash",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:522",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 immutable admission acquire-preimage: changed approvalMetadata with same hash/token preserves complete foreign BSON",
+      "firstError": "AssertionError [ERR_ASSERTION]: full preimage CAS refuses changed body despite unchanged hash",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:522",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 actual acquisition matched0: late rejected null receipt cannot borrow or release real B lease",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:550",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 transcript multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:618",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 concern multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts",
+      "firstError": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:618",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 insert multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts",
+      "firstError": "AssertionError [ERR_ASSERTION]: required cleanup driver was not attempted: ProviderAuthorizationRefusedError: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:613",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 acquire multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts",
+      "firstError": "AssertionError [ERR_ASSERTION]: required cleanup driver was not attempted: ProviderAuthorizationRefusedError: Provider execution was refused because authorization could not be verified.",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:613",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 preowner session original: late successful read drains without ACK or disclosure",
+      "firstError": "AssertionError [ERR_ASSERTION]: initial raw original is registered before any owner/catch race",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:651",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 preowner session original: late unexpected read rejects without ACK or disclosure",
+      "firstError": "AssertionError [ERR_ASSERTION]: initial raw original is registered before any owner/catch race",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:651",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 preowner grant original: late successful read drains without ACK or disclosure",
+      "firstError": "AssertionError [ERR_ASSERTION]: initial raw original is registered before any owner/catch race",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:651",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 preowner grant original: late unexpected read rejects without ACK or disclosure",
+      "firstError": "AssertionError [ERR_ASSERTION]: initial raw original is registered before any owner/catch race",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:651",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 preowner fence original: late successful read drains without ACK or disclosure",
+      "firstError": "AssertionError [ERR_ASSERTION]: initial raw original is registered before any owner/catch race",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:651",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 preowner fence original: late unexpected read rejects without ACK or disclosure",
+      "firstError": "AssertionError [ERR_ASSERTION]: initial raw original is registered before any owner/catch race",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:651",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw plain survives work/raw dedup and successful cleanup",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual unexpected raw ROOT must reject public settlement even when every cleanup succeeds",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:694",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw abort-name survives work/raw dedup and successful cleanup",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual unexpected raw ROOT must reject public settlement even when every cleanup succeeds",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:694",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw provider-refusal survives work/raw dedup and successful cleanup",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual unexpected raw ROOT must reject public settlement even when every cleanup succeeds",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:694",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw foreign-fwd survives work/raw dedup and successful cleanup",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual unexpected raw ROOT must reject public settlement even when every cleanup succeeds",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:694",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw diamond survives work/raw dedup and successful cleanup",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual unexpected raw ROOT must reject public settlement even when every cleanup succeeds",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:694",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC graph unexpected ROOT/DAG: actual raw cycle survives work/raw dedup and successful cleanup",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual unexpected raw ROOT must reject public settlement even when every cleanup succeeds",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:694",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC nested summary settlement: actual late undo registers new raw rejected read before graph closes",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual newly registered nested original rejection MUST remain observable",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:748",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC nested summary settlement: actual late undo registers new raw two-error read before graph closes",
+      "firstError": "AssertionError [ERR_ASSERTION]: actual newly registered nested original rejection MUST remain observable",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:748",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC reject-audit producer forwarding: actual clean own expiry fulfills after source-issued deadline",
+      "firstError": "TypeError: Cannot read properties of undefined (reading 'map')",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:765",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC reject-audit producer forwarding: actual unexpected receipt rejects after source-issued deadline",
+      "firstError": "TypeError: Cannot read properties of undefined (reading 'map')",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:765",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition closed-plain: only actual live closed clean terminal may be safely handled",
+      "firstError": "AssertionError [ERR_ASSERTION]: exact immediate owner authorization fence site not reached: Error: requestErasure: studentId must be a non-empty string",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:804",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition late-plain: only actual live closed clean terminal may be safely handled",
+      "firstError": "AssertionError [ERR_ASSERTION]: expired raw fence disposition cannot certify a successful minimal terminal",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:807",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition cause: only actual live closed clean terminal may be safely handled",
+      "firstError": "AssertionError [ERR_ASSERTION]: exact immediate owner authorization fence site not reached: Error: requestErasure: studentId must be a non-empty string",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:804",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition cycle: only actual live closed clean terminal may be safely handled",
+      "firstError": "AssertionError [ERR_ASSERTION]: exact immediate owner authorization fence site not reached: Error: requestErasure: studentId must be a non-empty string",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:804",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition nested: only actual live closed clean terminal may be safely handled",
+      "firstError": "AssertionError [ERR_ASSERTION]: exact immediate owner authorization fence site not reached: Error: requestErasure: studentId must be a non-empty string",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:804",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC known fence disposition cleanup: only actual live closed clean terminal may be safely handled",
+      "firstError": "AssertionError [ERR_ASSERTION]: exact immediate owner authorization fence site not reached: AggregateError: Scribe authority loss and owned compensation failed.",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:804",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC own helper FWD: clean original fact expiry fulfills after actual late cleanup",
+      "firstError": "AssertionError [ERR_ASSERTION]: clean positive executes the same genuine helper expiry producer path",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:848",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    },
+    {
+      "name": "D068 PUBLIC own helper FWD: unexpected postcheck descendant retains real produced ROOT and exact raw leaf",
+      "firstError": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:",
+      "firstLocation": "packages\\engine\\tests\\scribe-persistence.test.ts:845",
+      "classification": "Not automatically behavioral RED; per-file reached-stage diagnosis follows"
+    }
+  ],
+  "classificationCaution": "116fail includesreachedsemanticassertions andSETUP_UNREACHED/producer/receiptgates; neverall116productRED",
+  "initialEstablishedBehavioralRed": "16Mongoobservations settled prematurely withactual F/I held;4strengthenedD058 actualoriginal rejection notsurfaced",
+  "initialEstablishedSetupUnreached": "8factsauthorization requirethread beforeactualtarget;18nodes ProviderAuthorizationRefused beforetarget;2graphrejectaudit undefinedmap;4knownfence empty student plusotherobservedgatemisses",
+  "runtimePinCount": 125,
+  "allPinsMatched": true,
+  "mutexPresent": false,
+  "rootSourceGORequiresSeparateAttribution": true,
+  "noRerun": true,
+  "noAcceptanceVerdict": true,
+  "logHash": "0C9B59FE58C8D586CAD5F032D902DF2DCB78469B2E38269267BA3980179D8002",
+  "pins": [
+    {
+      "path": "apps/api/package.json",
+      "sha256": "A9DE912B88217804A9E8BCC64CEF73C1FB873C5AD9A9A4C4AC6EDBE673E9678B",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/api/src/auth.ts",
+      "sha256": "48911E6A874FF8FE6FF88E17EB48641614386C775869768F726E079BE4F3F39A",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/api/src/index.ts",
+      "sha256": "79ADB1CFF76506B2C6B37659A9F7F313D20888584E33FE42900BE79AB5527A34",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/api/src/openapi.ts",
+      "sha256": "81CA377BCBED1F0F6E6D5B52BAC0D710CBA00039C44B2FECB87EB45AAE1AD651",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/api/src/server.ts",
+      "sha256": "D7C82683814BE8B9129407851152071FAEF7E60E880EDCFF8D68CD9A0F91A52E",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/api/tests/server.test.ts",
+      "sha256": "EB9031E164A52BA8D75ECBB839F2A9319A3A45FBE590EE3EF2B4DB44262F1481",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/api/tsconfig.json",
+      "sha256": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/demo/seed.ts",
+      "sha256": "ABCF55EAAB452E0DA6FADC65630456ADC5EC9760C941DDC8BD05EB7D4A727026",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/package.json",
+      "sha256": "0F9947DE8CD844E9275670BEA7557F0EDD554941347712B2F542B8E297EC4D47",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/app/api/approvals/[threadId]/route.ts",
+      "sha256": "0C2E816229AA84172E24D85518B9D7388B553CC3205C317F2230321A66798F10",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/app/api/demo/readback/route.ts",
+      "sha256": "B011FCC9CA1175A4FEA2E9A36B68519B510E86B8837EAA24B407888381C7FEA3",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/app/api/sessions/route.ts",
+      "sha256": "4C625F371076061C971146E132028AB2C8B00BAAFCACC8EA66A5B40124D0CC83",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/app/approvals/[threadId]/page.tsx",
+      "sha256": "88F7328C50DFF0458D3B19996982552A4C7D3FD107009A89AEFAF754D8E89ECA",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/app/globals.css",
+      "sha256": "92ABEA01054C5AC2DBC73A7262484DE2D4203614AB38AC4BE7D5292CDE448A54",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/app/icon.svg",
+      "sha256": "C4EB8CA40C9C754EA7A89B44384A70BDFB7D1457AF99AE09FCCF45E87666EA71",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/app/layout.tsx",
+      "sha256": "EFA7C866893DD135053A3A4C3AEE3630337C8059214EBCAC618AC16BE26C469B",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/app/page.tsx",
+      "sha256": "86AA17AC97C494FA6EB7AE8BEDC0477410C55B822AB69CC1698F027D3C77D485",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/app/sessions/new/page.tsx",
+      "sha256": "F96038E80F7F20B892CA44696A4E35C23E1089E8C8F41C15DCF06AA73759A0FC",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/components/ApprovalScreen.tsx",
+      "sha256": "E7918C66099C5A5A4B228DC37E2B977C02363C514D7EE7B7BBF73F4B13B25AC0",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/components/labels.ts",
+      "sha256": "33314BDAC30C10280D3690CECCED25CB162EAEFA1C92C98801B8E8E3CBBC9100",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/components/NewSessionForm.tsx",
+      "sha256": "4DE064106317012FE05F569A34C86B7FC2D3AFE40EAC3E696445F314DADCAE65",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/server/approval-service.ts",
+      "sha256": "F5D8A024DDF26A33CD1D274045BD615B401171E82F8A8EE817E1255D97F37A30",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/server/contracts.ts",
+      "sha256": "159BC0E0E0FD36CF1D235127CC591C5C35D8BE182FF053710F0760429F74C78D",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/server/runtime.ts",
+      "sha256": "E9E6202817B324F4BC51B757F758F0107C772AD887A5D9C7FDB3572FD00D8744",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/src/server/session-service.ts",
+      "sha256": "52A4B435A670AB096F6FEEA1C841F19AB2EB9956E0D0898F8C2645C708BE9B26",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/tests/api.test.ts",
+      "sha256": "77E7D9667214AD709F57A347640A5F0E6516091465499556E05DF492143D844A",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/tests/session-api.test.ts",
+      "sha256": "07B008F501314CB40EEAA3C464416D3BE9267B019C2302B2ECACB996FB1ABB0A",
+      "matchedStart": true
+    },
+    {
+      "path": "apps/web/tsconfig.json",
+      "sha256": "86B9866AD67848975F2E852A505D7E2CA32F3A48D1BDDDD0E477A858185281FA",
+      "matchedStart": true
+    },
+    {
+      "path": "C:/Program Files/nodejs/node.exe",
+      "sha256": "E3BE0545990C90995D7BF3A7AF5D64AF1F2E0FC1BBD9B79C27F7ABC1E9676E50",
+      "matchedStart": true
+    },
+    {
+      "path": "docs/DECISIONS.md",
+      "sha256": "0713A3B06DE5EB88BC5EE8AB46EE6AFB2512B9181219D167C48B3B53D85B3C8C",
+      "matchedStart": true
+    },
+    {
+      "path": "node_modules/tsx/dist/cli.mjs",
+      "sha256": "8690135061BC49D187143493B82D26A09B7FB71D6DD817D2242CC9DC52506DE9",
+      "matchedStart": true
+    },
+    {
+      "path": "node_modules/typescript/bin/tsc",
+      "sha256": "8D5FA5BD883FEC0979FC2004F1FE1D99AEF40570155D550EADC0B03B55513BF0",
+      "matchedStart": true
+    },
+    {
+      "path": "package.json",
+      "sha256": "7663DEE6314BF110330B21E65E61564C88DEA65BAC4F4F65735A03CCFA326D2C",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/package.json",
+      "sha256": "251C9BEBC98DF540BD2B7EECDA64A3F418EFDAE7A0F9223C5930610125C689EE",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/scripts/db-init.ts",
+      "sha256": "9C028D5A21AEBD0C28DB13EA489EDDA5CF130B3E65C05B486955C34E44F389E1",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/client.ts",
+      "sha256": "BE51224CE1E204ED014A7F225F2431DA3860FFD9794B5A6353B5010F68F9D90A",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/collections.ts",
+      "sha256": "984C3CFC4EF3F3ADCFF1541872A0986EBE7556A165A0C77CE5498C43D6ECF480",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/consent.ts",
+      "sha256": "C1A17E4CDC29B6A390B19E508EA9AC2D28C53DBDE7711F7914F550D4308EEDE8",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/decisions.ts",
+      "sha256": "22BA5180DEF3AEFEA89FAF69AE5481E2914324D9C337CBC67418D92114571C86",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/edges.ts",
+      "sha256": "83182BAE4B94C1D545A57793BF0D440D6A1F10CB504E5D9EF54D407FF75DDE81",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/erasure.ts",
+      "sha256": "33B6B5946443B1EB3439CE520B7316F3161CBFA75762797759945D3350823CAD",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/facts.ts",
+      "sha256": "726C38A26BEC907E9E581250764F9439FE77D55EDA385DA60C379613AFF390CF",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/index.ts",
+      "sha256": "72249BDF55DE48175B099B4626C88E1E5511933B23100D06A2CABB231FAF22FE",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/tenant.ts",
+      "sha256": "BB21716CA4A42B3595E4C5B12C1B6273F2E82D92641233C581B6B7897FF4AD34",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/src/testing.ts",
+      "sha256": "FD31237042BDDDE2B46A6E7B0E95A275A0EE958DB105AB9A49317012DC8F1573",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/consent.test.ts",
+      "sha256": "012F46EA466C7107BB7EAD5C4AF3A424BA7C0BF9A742C506CD96D01D6F8FC0E4",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/db-init.test.ts",
+      "sha256": "41738977322B677505097D1B45A259FE73F3E3A3C1FACC48D9486BCA62B6AD4F",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/db-scope.test.ts",
+      "sha256": "AC195DA191FFAA85ABB6FDF80A33D6CFE14C6251E687AB4E39ACBCF5F0AA9761",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/decisions.test.ts",
+      "sha256": "DFC1E25F93AB28F3093FBA1BD587A08B1FC919F8A3FAA2DB226F63ECBAC72C96",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/erasure-approver.test.ts",
+      "sha256": "632D84CCE94E9E8EB95BA17936989AA02E42E596499D9BB57A9A6856A3AD675E",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/erasure.test.ts",
+      "sha256": "4D204921455BCB4B2464C2A6652BF6D22175FA7FBC88659F77B0C9698368F683",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/facts.test.ts",
+      "sha256": "DE27DB9ECB3E04A6776C62F7920A5285DD91DACBCA1D09EC9C52394962C71436",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/fakes.ts",
+      "sha256": "D4A7BAB922FB83557DA9C45F6D093D64994003530AE7BA92349C8059F82C0CD9",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tests/tenant.test.ts",
+      "sha256": "35003EBCE43FD3290678BF5AEFF7B39B0612A3E2966883CE10A8A82D95E5725D",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/db/tsconfig.json",
+      "sha256": "CF48E2F8CE2694C521356937F4D8FD9A5081C95B3CDF6EB9FC99839B9E827552",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/package.json",
+      "sha256": "7199A4BA038CFEC763D8E76EF68788F81AB8F2FEDED69A569CAC9442BC52556D",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/guards/citation.ts",
+      "sha256": "2CB88B879BF4BEFE7B57E6C92C7720AFBC57908F23E7D85E006C9C2E7697A1B0",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/guards/concern-classifier.ts",
+      "sha256": "757C876DEA64C702E76218968D75096B53E9A9887BD767A03CDFA8C8375058BD",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/guards/crisis.ts",
+      "sha256": "CAC2019858C7571B7ADA59D84995C184CC47B1ED797A0613FB6A4490F1653EBF",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/guards/escalation.ts",
+      "sha256": "152CD057E0A8263C6F228E52095E9F4D198AEA1C2C155BB567E18C6C77566E9A",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/guards/hard-rules.ts",
+      "sha256": "0196AF02B9C345C43E30ED11BD549D209042320A33D6E624773C54A579F7DBD2",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/guards/index.ts",
+      "sha256": "FB1F5EE26AF784E3877A74A41D7F0A1A652F2A424FC3B81D0DC7497B81968373",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/guards/no-script.ts",
+      "sha256": "CDE5E87D64CBECE661D357AE75BA53D378D0DF8F88F20A2CFDD1376E720E383C",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/guards/types.ts",
+      "sha256": "E5AA07BED18616949EC1070D9D2B513E86D67785655C6CE4C6073DA286E50071",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/index.ts",
+      "sha256": "3495662F27D1D76F11F068B1228CD832A6BD47604C93F9E6D70320255B88DED6",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/scribe/checkpointer.ts",
+      "sha256": "E0171808EFF4028C37826299E7896A7900A8DF023BC4113886BA0C239D230411",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/scribe/graph.ts",
+      "sha256": "19F12D1688D66351E166768E284D6816F8BE853DD048B178A7EE1C3CF3041700",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/scribe/index.ts",
+      "sha256": "2023F5280F5F42F8D9BA523E6879B7A2101B2B1F918F54A76DE2859568CCC047",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/scribe/nodes.ts",
+      "sha256": "ED46B42A36463EFF0DE435EA952D8996EFC8CE8668E1AB5644D53488A5942E2E",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/scribe/schemas.ts",
+      "sha256": "C41E1863B42A2AFE39145C00E2131613BD47CDBE11BFB8317813B01468F7ACB6",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/skills/loader.ts",
+      "sha256": "C7D6D7D44FEF140F6B2CFB6AE09CA229111FDF10B0F378B54BD8AA7D82EAAF4A",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/webhooks/delivery.ts",
+      "sha256": "77AFEBC6CCABC5F47EF0985C18A98D99F1899989AFA1587ECCEA7775C5CD8529",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/webhooks/gaps.ts",
+      "sha256": "FC76927418A6751C0F782F11C010C30E690E63CA4DB1A14AE44EBC454E510C4E",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/webhooks/index.ts",
+      "sha256": "45BE9E5965BC486A0FB0542EDB87646E6A657E0C3ADA250EB752D42FF5900437",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/webhooks/outbox.ts",
+      "sha256": "9D326EE2FEB9F35DFD3D64A9179ABB6BA64AA4DC4337AA4E7B66F73841E77EE8",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/webhooks/schemas.ts",
+      "sha256": "CC81BFB8F24675EC4EA963DFD5E24FA6D4CC5CD5A882865B719F407B999AA89C",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/src/webhooks/signing.ts",
+      "sha256": "6D63B9E42E73929DEB01127D22F18D38DCC5C7E4ED4879EF300F551AECF09C42",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/b18-suppression-outcome.test.ts",
+      "sha256": "6FDFBA042C84D62DA6B2B5EC359965547068267EEDFD51F04D492D6E16CC08DC",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/crisis-escalation.test.ts",
+      "sha256": "D43EECAE2A7C34260957C9E2C3877C0463A4BA25ECFBDC05CB3B794D62D05E95",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-checkpointer.test.ts",
+      "sha256": "112809E78D38F7D930A3D8BFE5D6EE5A7437E4C51625EFC6659EACB4DF00CCAE",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-concern.test.ts",
+      "sha256": "F40AA68780450591546D6F5F744C61F3DA64442E5E91EF207963A7E09C18A2F7",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-erasure-fence.test.ts",
+      "sha256": "F57B8B6E35AC13148FDB86D2776F6EAB22624C3D3D2C99938F5AA8D4531F6327",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-fixtures.ts",
+      "sha256": "B7EBD80212A61236F9B5282832767E36980606794EF80E04883D22093AF89F90",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-per-fact.test.ts",
+      "sha256": "8D4B673C71B96A5273736FD0DE6B41B8912BA4AB92E37D342057B98942F6803E",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-persistence.test.ts",
+      "sha256": "F697E77C514362E1F598E8C7A0381B4A0A38CB0286B0E1BFAACBAEF456245B1C",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-rules-e2e.test.ts",
+      "sha256": "73CF6CB8BCC29BA541BB72F0D6B7D4BCF59B5C455ED362AFA3AE3DF55FA36308",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe-tracing.test.ts",
+      "sha256": "F442BBC248836318BA12F101E204FFC5B0F41A57520A53ECFFEA0F0418F6B419",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tests/scribe.test.ts",
+      "sha256": "DEC42641BA77EBC30DBAFB8856A00841342BE9A8DC7EC4AB001EC28D47BA4FDF",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/engine/tsconfig.json",
+      "sha256": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/observability/src/callbacks.ts",
+      "sha256": "36FDC6F2F52C84F0B16DAF605C3BE5985D1F2153151B3E0EB959C107AF4AA00B",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/observability/src/config.ts",
+      "sha256": "0349DAED64A5B5CE9E94B44F1E823B6628F6875272C48FDF51BF7D9254E3D043",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/observability/src/errorSpan.ts",
+      "sha256": "C5690BDF4F55395FAF59E4EE2D7C0583948253378551F4C2F4809B14574AF0A6",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/observability/src/index.ts",
+      "sha256": "B83A5EFEECD50A2F833CEE3F6AA0D15FF214F229E637FDE4701FEB38315BB242",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/observability/src/tracing.ts",
+      "sha256": "13832A037D67895E86DE5B3759A7A55FA3240FBF5C35B7E9742658B89E632358",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/providers/src/index.ts",
+      "sha256": "61384B211E8CD02BC85FA5164CFE4BD325862071945EA0DE91EBF04CFBDE078B",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/schemas/src/guards.ts",
+      "sha256": "1005AC06252477F73EA0E60D3C7224E1D9A81FB31A7CD108AC440641B38986D0",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/schemas/src/index.ts",
+      "sha256": "D31FFB59F891F216CA3952AFC36F6A2B9814B4896386C9A362E1A3D5F90848D8",
+      "matchedStart": true
+    },
+    {
+      "path": "packages/schemas/src/schemas.ts",
+      "sha256": "7D1598CCD58576387C76E1EA83128A00D76D3EEB7C749F0ABC0ED201DA620437",
+      "matchedStart": true
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "562F86492B23EAB44F0FBFF444A89E7FF8D053A7E97928A86B9EEE0AA84FCD6C",
+      "matchedStart": true
+    },
+    {
+      "path": "qa/evidence/t052-maker-cycle2/d068-baseline-candidate.json",
+      "sha256": "0948C0EE933A62D8FC7B2323A0329305C12F74C5C834BD64D7150B4DC4330901",
+      "matchedStart": true
+    },
+    {
+      "path": "qa/evidence/t052-maker-cycle2/immediate-summary-compensation-proposed.md",
+      "sha256": "DA68F11C206617D81D28DCC7894EB961764C6DB725BDD914DBE912F3D99417B4",
+      "matchedStart": true
+    },
+    {
+      "path": "qa/evidence/t052-maker-cycle2/initial-db-closure-proposed.md",
+      "sha256": "07785AA1683645DB3DAA9044678BB1A16DDD838C91FBA78233163AC3A24639AE",
+      "matchedStart": true
+    },
+    {
+      "path": "qa/evidence/t052-maker-cycle2/initial-db-concurrency-tests-proposed.md",
+      "sha256": "DE65316CFB4CA20D64FFCE06652D53FDEFFE4E733264B1067279E86922BEC13D",
+      "matchedStart": true
+    },
+    {
+      "path": "qa/evidence/t052-maker-cycle2/initial-facts-oracle-proposed.md",
+      "sha256": "63CF13BFBCCB459B0AB949B8B1C7E90CA9E0B1661EE93D9ADBA092D7CB6B87DB",
+      "matchedStart": true
+    },
+    {
+      "path": "qa/evidence/t052-maker-cycle2/initial-graph-closure-proposed.md",
+      "sha256": "AB4292B754329CD66EFFB9F33D67AFC24D9751E26328A85C64AADFDEE26AFDBE",
+      "matchedStart": true
+    },
+    {
+      "path": "qa/evidence/t052-maker-cycle2/initial-importer-oracles-proposed.md",
+      "sha256": "07D2024D5600587DD324935A85BE7E31A56FE0471A739118925F5ACEF9A6BFC1",
+      "matchedStart": true
+    },
+    {
+      "path": "qa/evidence/t052-maker-cycle2/initial-persistence-oracles-proposed.md",
+      "sha256": "039AF5A3BC15BBB01A968D1F576DFA528076EAD048DEC2990AD72B70BC9B37C2",
+      "matchedStart": true
+    },
+    {
+      "path": "qa/evidence/t052-maker-cycle2/initial-persistence-plan-approval.md",
+      "sha256": "7FF45C1D69419C3EFC443057F547677612C4108ED46A8CD66D3A99AA65796BA7",
+      "matchedStart": true
+    },
+    {
+      "path": "qa/evidence/t052-maker-cycle2/summary-graph-publication-plan.md",
+      "sha256": "FFB4813E9ADD0D57FBA8EA3F454F5EE4160BC8A01BD1BE5E79E389808F12E262",
+      "matchedStart": true
+    },
+    {
+      "path": "qa/evidence/t052-maker-cycle2/summary-public-history-plan.md",
+      "sha256": "2312B33C8CFD6231A3E33C26F30B4CBDEB322426CD80E1310B5E065D7F768C60",
+      "matchedStart": true
+    },
+    {
+      "path": "scripts/append_decision.ps1",
+      "sha256": "EE1FD137F8BA476E51694BD43BDEA1CAC8897EBF9F11210CFE6CAE63657627F2",
+      "matchedStart": true
+    },
+    {
+      "path": "scripts/vc-testlock.sh",
+      "sha256": "FDD9B039639F6E70141D6C54CA0760375913DA2E5705257A1B6F75C8939DA48B",
+      "matchedStart": true
+    },
+    {
+      "path": "skills/challenge-card/SKILL.md",
+      "sha256": "25C390683B8A2B89EA8D19C4A62E33043128F1825534800562C6CC0567281A36",
+      "matchedStart": true
+    },
+    {
+      "path": "skills/clarify-card/SKILL.md",
+      "sha256": "F23E35BAFA9444BBC48BD4DBB8F84AFF661C975A6EA12F94253D54C1DF2985A2",
+      "matchedStart": true
+    },
+    {
+      "path": "skills/compare-card/SKILL.md",
+      "sha256": "B6F74FD8B39FBA635AB076DAED079B6C905ACCA0FCB902B4B31D92400C846043",
+      "matchedStart": true
+    },
+    {
+      "path": "skills/concern-classifier/SKILL.md",
+      "sha256": "36840F08DD7FC46A10A7B31453BF6D0AAED2F261CA3523B4C876937E5405275E",
+      "matchedStart": true
+    },
+    {
+      "path": "skills/evidence-card/SKILL.md",
+      "sha256": "87523F94227585F9A7311A760D8A9D33FB360940E36ECF9D430615896F980DDF",
+      "matchedStart": true
+    },
+    {
+      "path": "skills/fact-extraction/SKILL.md",
+      "sha256": "02E9DBC927754B3FF8EC4044F9010E29DE8641069C1368DE3A5A6A8748824C79",
+      "matchedStart": true
+    },
+    {
+      "path": "skills/profile-diff/SKILL.md",
+      "sha256": "7578628C3F5FBC86C3781EF5220FFB680FF1CA3543304C285A2AFFC0627906FA",
+      "matchedStart": true
+    },
+    {
+      "path": "skills/README.md",
+      "sha256": "E5A3B7857B2B2774D7379F8469FB92DB82FD35B5D062F93671437164BCA24893",
+      "matchedStart": true
+    },
+    {
+      "path": "skills/safety-escalation/SKILL.md",
+      "sha256": "EC1867251DE7A6CED1FBBE7DC2191F5D5B1FF31BE89C80B5D58B1B571222FD6E",
+      "matchedStart": true
+    },
+    {
+      "path": "skills/session-summary/SKILL.md",
+      "sha256": "E01476920CD8BC9ECBBD81AF8397F7422DBF0ACAE963F91836095E1552DEB151",
+      "matchedStart": true
+    },
+    {
+      "path": "skills/verifier/SKILL.md",
+      "sha256": "2CBD99EE7E87B1CD02D4966C3EBDB61C06E85AFAC63A36055BFEC40B21064C25",
+      "matchedStart": true
+    },
+    {
+      "path": "skills/widen-card/SKILL.md",
+      "sha256": "1B79B4397BB962BF04BB0CA698A54BD1173B3442C95AECA1C28293C3BAFAF20E",
+      "matchedStart": true
+    },
+    {
+      "path": "tsconfig.base.json",
+      "sha256": "A4286AF536A20E876A22B625C5B2C630DC4195CD1C9E4DB8B92651090F7916B7",
+      "matchedStart": true
+    }
+  ]
+}

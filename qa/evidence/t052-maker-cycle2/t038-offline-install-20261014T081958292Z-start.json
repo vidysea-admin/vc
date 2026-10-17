@@ -1,0 +1,1043 @@
+{
+  "startedAt": "2026-10-14T08:19:58.293Z",
+  "kind": "Authorized T038 isolated offline frozen-lock ignore-scripts dependency install only",
+  "cwd": "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc",
+  "base": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+  "retainedRelease": "C:/Users/Lenovo/.codex/worktrees/vc-release-check/vc",
+  "retainedReleaseInstalledDirectoryCount": 177,
+  "isolatedManifestLockIdentities": [
+    {
+      "path": "package.json",
+      "retainedReleaseSHA256": "7663DEE6314BF110330B21E65E61564C88DEA65BAC4F4F65735A03CCFA326D2C",
+      "isolatedSHA256": "7663DEE6314BF110330B21E65E61564C88DEA65BAC4F4F65735A03CCFA326D2C",
+      "matched": true
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "retainedReleaseSHA256": "562F86492B23EAB44F0FBFF444A89E7FF8D053A7E97928A86B9EEE0AA84FCD6C",
+      "isolatedSHA256": "562F86492B23EAB44F0FBFF444A89E7FF8D053A7E97928A86B9EEE0AA84FCD6C",
+      "matched": true
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "retainedReleaseSHA256": "1DB29957D5DE1053CD3F5EDD13928E100AA02ECE041AD8F6B52E3B7906C8F6D9",
+      "isolatedSHA256": "1DB29957D5DE1053CD3F5EDD13928E100AA02ECE041AD8F6B52E3B7906C8F6D9",
+      "matched": true
+    },
+    {
+      "path": "tsconfig.base.json",
+      "retainedReleaseSHA256": "A4286AF536A20E876A22B625C5B2C630DC4195CD1C9E4DB8B92651090F7916B7",
+      "isolatedSHA256": "A4286AF536A20E876A22B625C5B2C630DC4195CD1C9E4DB8B92651090F7916B7",
+      "matched": true
+    },
+    {
+      "path": ".npmrc",
+      "retainedReleaseSHA256": "3640145B97F60EBE403E2052F80584846CE4E7EB834A99B7FCC7CC5BDD7EEB04",
+      "isolatedSHA256": "3640145B97F60EBE403E2052F80584846CE4E7EB834A99B7FCC7CC5BDD7EEB04",
+      "matched": true
+    },
+    {
+      "path": "apps/api/package.json",
+      "retainedReleaseSHA256": "A9DE912B88217804A9E8BCC64CEF73C1FB873C5AD9A9A4C4AC6EDBE673E9678B",
+      "isolatedSHA256": "A9DE912B88217804A9E8BCC64CEF73C1FB873C5AD9A9A4C4AC6EDBE673E9678B",
+      "matched": true
+    },
+    {
+      "path": "apps/web/package.json",
+      "retainedReleaseSHA256": "0F9947DE8CD844E9275670BEA7557F0EDD554941347712B2F542B8E297EC4D47",
+      "isolatedSHA256": "0F9947DE8CD844E9275670BEA7557F0EDD554941347712B2F542B8E297EC4D47",
+      "matched": true
+    },
+    {
+      "path": "packages/db/package.json",
+      "retainedReleaseSHA256": "251C9BEBC98DF540BD2B7EECDA64A3F418EFDAE7A0F9223C5930610125C689EE",
+      "isolatedSHA256": "251C9BEBC98DF540BD2B7EECDA64A3F418EFDAE7A0F9223C5930610125C689EE",
+      "matched": true
+    },
+    {
+      "path": "packages/engine/package.json",
+      "retainedReleaseSHA256": "7199A4BA038CFEC763D8E76EF68788F81AB8F2FEDED69A569CAC9442BC52556D",
+      "isolatedSHA256": "7199A4BA038CFEC763D8E76EF68788F81AB8F2FEDED69A569CAC9442BC52556D",
+      "matched": true
+    },
+    {
+      "path": "packages/observability/package.json",
+      "retainedReleaseSHA256": "664E43F2944934361B609637F70CF223D79F78BBC870CA81B004A424A437C4C9",
+      "isolatedSHA256": "664E43F2944934361B609637F70CF223D79F78BBC870CA81B004A424A437C4C9",
+      "matched": true
+    },
+    {
+      "path": "packages/providers/package.json",
+      "retainedReleaseSHA256": "C9128078370F1FB072B5661325221B59E9282C333F8AA3F118968922BEAE3BF9",
+      "isolatedSHA256": "C9128078370F1FB072B5661325221B59E9282C333F8AA3F118968922BEAE3BF9",
+      "matched": true
+    },
+    {
+      "path": "packages/schemas/package.json",
+      "retainedReleaseSHA256": "22E9B12B523559434067D0CCA9D0FAB0C3FDF45049B2F225FD5FCF330C05C673",
+      "isolatedSHA256": "22E9B12B523559434067D0CCA9D0FAB0C3FDF45049B2F225FD5FCF330C05C673",
+      "matched": true
+    },
+    {
+      "path": "mcp/student-profile/package.json",
+      "retainedReleaseSHA256": "A45E987D85F4ADD0E4B0D2F813A4D76E0811D0C306700D02FB0E1D9B67A10F84",
+      "isolatedSHA256": "A45E987D85F4ADD0E4B0D2F813A4D76E0811D0C306700D02FB0E1D9B67A10F84",
+      "matched": true
+    },
+    {
+      "path": "mcp/university-kb/package.json",
+      "retainedReleaseSHA256": "0BFEB643B12BA9B459FD7440131BD79C107C1DCA7329C814B3B9AC7EA3265830",
+      "isolatedSHA256": "0BFEB643B12BA9B459FD7440131BD79C107C1DCA7329C814B3B9AC7EA3265830",
+      "matched": true
+    }
+  ],
+  "executable": "C:/Program Files/Git/bin/bash.exe",
+  "arguments": [
+    "D:/vc/scripts/vc-testlock.sh",
+    "node",
+    "C:/Users/Lenovo/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs",
+    "install",
+    "--offline",
+    "--frozen-lockfile",
+    "--ignore-scripts",
+    "--store-dir",
+    "C:/Users/Lenovo/AppData/Local/pnpm/store"
+  ],
+  "pnpmVersion": "10.33.0",
+  "effectiveAuthorizedStore": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10",
+  "storeBaseArgument": "C:/Users/Lenovo/AppData/Local/pnpm/store",
+  "cacheLayout": {
+    "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10",
+    "topLevelEntries": [
+      "files",
+      "index",
+      "projects"
+    ]
+  },
+  "selectedRetainedPackageCacheIndexPins": [
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\00\\aa5a6251e7f2de1255b3870b2f9be7e28a82f478bebb03f2f6efadb890269b-base64-js@1.5.1.json",
+      "sha256": "03C0B23E1A2E999F26459120D125A7025166490D330A4E873BA2A3FADBA0F536",
+      "package": "base64-js@1.5.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\04\\b2374e5d535b73ef97bd25df2ab763ae22f9ac29c17aac181616924a8cb676-which@2.0.2.json",
+      "sha256": "85A4C6E6324D87C765482B3C1502120218AC92D0E87F18C47CDF65F01CEFD808",
+      "package": "which@2.0.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\04\\d19b58b7ddd1e50f69b8645d4566d23f2ebaf444c93879a2f45afddca8c3f0-vary@1.1.2.json",
+      "sha256": "26BE4C8774BFCD26FACD75100E668D17170E578E71DA088FBD41CE6A7B0892D6",
+      "package": "vary@1.1.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\06\\d8f604e38ef37a375b21f9f5ef0c817b3111055c6ab9143a9118aee6c1d2ea-detect-libc@2.1.2.json",
+      "sha256": "DC6AEBE98892B752C0387F8C885558333738EC589FF95C2C9592B1F8B540C66B",
+      "package": "detect-libc@2.1.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\07\\00f097955e4ce87a095ba220f82c5207cae75bd32433126c57120947e3256b-@langchain+langgraph-checkpoint@1.1.5.json",
+      "sha256": "C72D164EFC1BBE0C2601946EBD5449C6114344D473A2BD34E05DD5A18C768AEB",
+      "package": "@langchain/langgraph-checkpoint@1.1.5"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\09\\14f5593cae4280fbef5196e7a5c464543f66849f5a27756a52860d832692dd-eventsource@3.0.7.json",
+      "sha256": "B0E1FDEDE9C6223D93128812069EF859A605BAC857A8A12FA31E23F907F6AD28",
+      "package": "eventsource@3.0.7"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\0a\\2249bdc46d220cda7470985f0edda849cc3518e11999582b4e4c8fd3b292da-@types+webidl-conversions@7.0.3.json",
+      "sha256": "33E389C945CAEFB4AC824DB31412765B4223485FAAE3112D00655D0D53566DC9",
+      "package": "@types/webidl-conversions@7.0.3"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\0a\\2c9e3b1153fc96723799b4cfd3df5f0e1208127a4b2833d43a65d30aa39610-parseurl@1.3.3.json",
+      "sha256": "0572D9EB7929EC6728829D72B0FE3CF4FF65C71AD722BC59314FAB8D8E053CD6",
+      "package": "parseurl@1.3.3"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\0a\\ebc2309999c6cc2134b94cd8b7ee2ce5b78777d9ba303886c1b807e4b3e1d5-@opentelemetry+sdk-trace-node@2.11.0.json",
+      "sha256": "833017313BD4DA0D875C6DC609A8D00F9D202EF094E8AA45112E0CE265996317",
+      "package": "@opentelemetry/sdk-trace-node@2.11.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\0d\\eef619d419ccd4d40410a1b17b9e4149cf283920ff9039ce9ee9143b90023e-whatwg-url@14.2.0.json",
+      "sha256": "C96E60D81842A0FA7CF17CA2A2A6D0ED1B1A2CF9559A37BC4B5FA698EDE3BDA7",
+      "package": "whatwg-url@14.2.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\0e\\f132e795770c1eee927468fb888e193e5f3f5b2547cc10a2155d9278a064f3-statuses@2.0.2.json",
+      "sha256": "BDFF670BB3B6CA18B0271D0EFABAA8E427D7D8998E5542EA009BE2CC1526CBBD",
+      "package": "statuses@2.0.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\0e\\f36cacde46cfe6e0132fc1fe42b502fc7172bc1dadf948f21649c6aa3f0ed0-@langchain+core@1.2.12.json",
+      "sha256": "14378E938A9542EC0C2A5674B1C79DC2427BE980A04B31E522083CEA6B0B02B5",
+      "package": "@langchain/core@1.2.12"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\0f\\beae53bdee9525eb0f5517178284d93331555c21b270a07c0c9383d93c3fa2-cookie-signature@1.2.2.json",
+      "sha256": "EFF0CB66F0B9E60D1CC1AC87CBB4C8F43D8A2D41BE49B4EC05F348B537E8DFD4",
+      "package": "cookie-signature@1.2.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\10\\a375bca00c719f0c95832968dbb137a47dc9a9331fab9a8c7707553a96273b-eventsource-parser@3.1.1.json",
+      "sha256": "EF637A3EB16C5BBFD0042AFFDF15B9C843B941994411CC4A649344E6D46184E6",
+      "package": "eventsource-parser@3.1.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\10\\bb9e8648f954205d804c3dcecfa2be42b0cb3cd409242e13de989a23ef9f51-@hono+node-server@2.1.1.json",
+      "sha256": "E06E24E1FA39B10CE09BFBDF74BF3B7F617FE1DCDC0DCE2BFA9794E2C1C0AE06",
+      "package": "@hono/node-server@2.1.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\13\\92c35fb5aba7ce4a8a5e5b859bf8ea3f2339e6e82aae4932660cde05467461-setprototypeof@1.2.0.json",
+      "sha256": "6093DC6F334B8607F3D49748EC3FFF417995036236A8476BB235C84638C0B4C9",
+      "package": "setprototypeof@1.2.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\13\\c2d471bb415addb46db9766281dfc7864305dc554df38ab42667f5c0d22789-react@19.3.0.json",
+      "sha256": "8653A34CBE76B3D2B0AD39A39D2E2F2FB10047A9F1FCBB59B98ED4F6BA879D6C",
+      "package": "react@19.3.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\18\\b41d0f7cba505f2256e3099797c7804e23767fee6bb9feb6829f2e03658370-baseline-browser-mapping@2.11.26.json",
+      "sha256": "E4052CF599044D19E352FD02998CD96D948EAD1703805A2DDB4CA167ACCD88FF",
+      "package": "baseline-browser-mapping@2.11.26"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\19\\932d6544cd4693952040a85f02cd652e7150613e99535b4c1f21ffb4708764-fast-uri@3.1.8.json",
+      "sha256": "A17930EC523B352AB74B1FEF0AB0E3E9EAF61D2A6302A8C14F10D5C50FE5C81E",
+      "package": "fast-uri@3.1.8"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\1c\\a54b4bc76f208fb1a0a5bd926ab16d12ab9d61177c926bfc56618499a2a880-esbuild@0.28.2.json",
+      "sha256": "B9705972CF7743346844597B790605907947A8977F1E8914928089FA4E378200",
+      "package": "esbuild@0.28.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\1d\\6701a0de8d8a57aab52c9d2b616a1db4bf2e80ddda9aab9d01cbc89cc18f89-es-object-atoms@1.1.2.json",
+      "sha256": "6AF3DC544A3C21E46C8AC097780B043D3D4FF7690C5BBCD083E5763758340594",
+      "package": "es-object-atoms@1.1.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\1f\\5f71fd35ff2d976a8983a333b7eab52c70969942e6981e95abea6d07476e17-@opentelemetry+sdk-trace-base@2.11.0.json",
+      "sha256": "E5236787314980212F1050CB6EC92D9AB30D0F09911BCDD60C202791AC471C07",
+      "package": "@opentelemetry/sdk-trace-base@2.11.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\1f\\61f12ef0b71c33726de3c968b752ad4d618542b9890c3e5af5756f4d66c85c-@modelcontextprotocol+sdk@1.30.1.json",
+      "sha256": "2D5746FF5FE0A8D935A053A0A5FE0409B9A4DDD2C61E1CB1A1822DD81A179773",
+      "package": "@modelcontextprotocol/sdk@1.30.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\20\\a5e9bc8ce39c2f574c051b54170c7c64b410f6885ed5babfecebf91469fa1a-iconv-lite@0.7.3.json",
+      "sha256": "2C32F51AF46660BC385215BA5FDB71F99C4C8B3B14ABFE89D1873D8E58346A67",
+      "package": "iconv-lite@0.7.3"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\21\\5dcebb48d233366b777a59e3c9cb913f4303b020d699cfcda8908695bb7374-client-only@0.0.1.json",
+      "sha256": "871630FC4015DC2361815154A6A3A3726DD8A2335E64C9140D32565BBC4F8222",
+      "package": "client-only@0.0.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\21\\eefef2af0c0c5e05004402295313c7745e52fc622008088a25b773d25d98ff-@opentelemetry+resources@2.11.0.json",
+      "sha256": "5A68E241D69BC10D480B3ECDE07BAE312053E831B976563B14D0957B1B054441",
+      "package": "@opentelemetry/resources@2.11.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\24\\393c76089fe753a31680c4ef4f8e4fd202c98afeebd1e59a284dc29d7e36c7-react-dom@19.3.0.json",
+      "sha256": "7BCDD8B720D56169E5A7080356749ED7589041374B9A4C67CFDB64DC3F5C4B52",
+      "package": "react-dom@19.3.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\27\\9029ce3c919247fad351e911eca4a220afcc74235b13c01e1ca315c1143f64-p-retry@7.1.1.json",
+      "sha256": "C9559FB69097D163A53CA6F88670319EF467B28E7035C9C03ABE90D53F0666DA",
+      "package": "p-retry@7.1.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\28\\837f9c3241411717c3430b561644f62407986ebca80548060f42aa65188e64-dunder-proto@1.0.1.json",
+      "sha256": "CE56C03070F1BD84A48211B20BA3C1D541177BFB695D02BA3C1199F3A8840FE4",
+      "package": "dunder-proto@1.0.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\2b\\9cd08c3965c5691fed9e7125d574fc1d164cdab1eafc46ef4cc9138374901b-raw-body@3.0.2.json",
+      "sha256": "E665707BFC81FA1B1B52C87D89DA0DAE4AB82B984F9CC5BBC88732D4938370F9",
+      "package": "raw-body@3.0.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\2c\\809bda9f4207b152fb4791d68a969c7869d0596318b64258113d6a2c745327-p-finally@1.0.0.json",
+      "sha256": "7928E0B0C9A5D67FCD13BCF22437818C0C7A8DF9208CDE50BF075298A365BB25",
+      "package": "p-finally@1.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\2d\\b833764d21e23ba843d7c22975b86f2d1426a8fe9ce3ab23d309d6c4a3e272-mime-types@3.0.2.json",
+      "sha256": "3001CA22135C063AD8A33BD5C79AB49703F93FE940854A0DA01D00264A7D8349",
+      "package": "mime-types@3.0.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\2f\\ea2d58cfda41b613c7df1a661804a0c6f86d9017c756155b850c03fbee0b20-next@16.3.6.json",
+      "sha256": "F9B06C9F3F439EB968321D90E561543D511DE7B5C4C78B68F773C3CF6F66C5D0",
+      "package": "next@16.3.6"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\34\\c3c144c2608901e36ddf29846dd579b771e246751f5db5adb97922432a78eb-negotiator@1.1.0.json",
+      "sha256": "E4354B3C0853DB9AC0541098A002C02C288125AFE730991B53C172C3C2BCDCBB",
+      "package": "negotiator@1.1.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\34\\cf3f3fd9f75e35e12199f594b86415a0024ce5114178d6855e0103f4673aff-json-schema-traverse@1.0.0.json",
+      "sha256": "14331BE61A75565A6E5F5F72E87DD95A179364B4A3D3734D13D9F9FD362E706F",
+      "package": "json-schema-traverse@1.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\35\\700e76711ee45b1925f4f8a0af38944d58e5c145756951b8ea39b70c3c0f23-p-queue@9.3.3.json",
+      "sha256": "1AAD764DF9FCE121D09BCF4643524ABAF4CF7C8000BA584D7AAF17D42D4F471E",
+      "package": "p-queue@9.3.3"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\36\\24aea59e0e7ae1b0afaf251887b29bf92c219309a1d506392099fc54a74f17-escape-html@1.0.3.json",
+      "sha256": "7299FC78A5F65D331DF7EA397C33856F6ADAC7FAC694276EB4AA9327E107221D",
+      "package": "escape-html@1.0.3"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\37\\4ac50ae1fd628c46f7f9bad65f4c7e924a7e62ce554d1e9bb8a9233e934604-@types+react@19.3.0.json",
+      "sha256": "33F4B1A96792A2A52D4A7D19A24FEF6FFD8F36074747FF79EA7A3027C402C330",
+      "package": "@types/react@19.3.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\3a\\8af5cf8065808e51694ad161829fde28f2080c74b621825ac001cdf9ba6430-@langfuse+core@5.11.1.json",
+      "sha256": "B137C588BEF3C51DF3E1E782F87B1D49BABCA33A48AC2EBF3D50019E8FEAE093",
+      "package": "@langfuse/core@5.11.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\3b\\f3e07e7a53d712920de4184827d12391b2de13dff7598a543b982d41d924c8-zod-to-json-schema@3.25.2.json",
+      "sha256": "529D953C38C2D4D00CB284101055403BBC85079ACD37C6D556287616D5037221",
+      "package": "zod-to-json-schema@3.25.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\3e\\1058f3acdac4d654b963fa875dd5bb9a057b45d8ebf5252b342760510bcc65-is-network-error@1.3.2.json",
+      "sha256": "94C0C91D102D50CE7C515EFE20A53658E83DA89A32FD916EA468E1AE5C067905",
+      "package": "is-network-error@1.3.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\43\\49fd1d18b89ba26e188575785966bc907b644571bbddc8accca232c182d25a-encodeurl@2.0.0.json",
+      "sha256": "E054A2721FF19B4E3256A5767CF45CE18679608F55648B8D10300DF30039FA28",
+      "package": "encodeurl@2.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\44\\29cf59c1e9a708aab90f9c5779d6bcdc1d7f4306d70dba7b98dec16d93f379-@opentelemetry+exporter-trace-otlp-http@0.222.0.json",
+      "sha256": "9C16D8739FFC8E147DDE397D2F4D0EBC4F88FC0C8AF7906BA9178D295BBE9938",
+      "package": "@opentelemetry/exporter-trace-otlp-http@0.222.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\44\\6c305a7c10be455f6af295b76d8518bc3ec5849dcc04709b4aeee83853540d-debug@4.4.3.json",
+      "sha256": "ECD05050C6E7AAEB39632A0A2AB9C3627CE8E93A8D9986FB7207F8DC8444D04E",
+      "package": "debug@4.4.3"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\44\\7c4c2e9f659ca1c61d19e0f5016144231b600715a67ebdb2648672addfdfac-isexe@2.0.0.json",
+      "sha256": "2F2E382DFF01A7F7CDB1E2516C91A3DD2F52B4B4A54CBA577F290EBAA07677A4",
+      "package": "isexe@2.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\47\\01696fbd9cfc18502c45c86792b67be02180d56621e8c695382207d3336747-p-queue@6.6.2.json",
+      "sha256": "958FF4ED6FA8648661DA76700E60E91037C9D69108600FBAF7FB365AAC49BCEF",
+      "package": "p-queue@6.6.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\47\\1fd6c9c67ad0739aa8b2808ba70744a288ef3c566c9df53219ed9adc0ca1a4-fresh@2.0.0.json",
+      "sha256": "0B583F082138FC42B26D003BCB99E8A5FE3FAFEBD62AF537BB321AF1B4B45CA9",
+      "package": "fresh@2.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\4a\\7937d785796b214b869ddf914444b9be96b6305f3dd08f6352e7f3ff26ba7b-merge-descriptors@2.0.0.json",
+      "sha256": "8E437F6224B0221CE7AD3462BBA44BA464435B59A790063C18BE986753F29BE8",
+      "package": "merge-descriptors@2.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\4a\\9d5a6e52748af0e44b38dc68977112e9cde7f5ef92c149dac30115fabac74a-call-bind-apply-helpers@1.0.2.json",
+      "sha256": "B92259599D7B9E46FD0F8C0EFD6F59E4DD2F183F6FA5BF47E599FD3DF9FB5530",
+      "package": "call-bind-apply-helpers@1.0.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\4b\\c2a866045937e6b9acdc2a4f195965e3e34ffe1c9e6d11395ef42de7511d9d-finalhandler@2.1.1.json",
+      "sha256": "3E4D26F800E2ECF18F0967F3FE101D4EB921DA5AF9B0DC1DB6B14A88BC86FA19",
+      "package": "finalhandler@2.1.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\4d\\defaabb8f9ee8fed2d57604bbe3a7180117d2cb193c8847d1c5ec0bf61e0e3-@img+colour@1.1.0.json",
+      "sha256": "0846A498523315B7B0AAD18DC5CA3C5B4D042882D1D65C684BB7483BB0A55835",
+      "package": "@img/colour@1.1.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\4e\\16e58be3a53a3fa230f60505505f2773a60809da4b2367e0cd6fcfd4fa1a46-ajv@8.20.0.json",
+      "sha256": "2D3414FE95DDFC7F4DB37A2604564E0C0EF69B442D503C78B3C2C03C0E634225",
+      "package": "ajv@8.20.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\4e\\befd0f2588f22b6c05d83e8c7fa8a637ebc0bcd7f9eae4d7f131908c215a80-@opentelemetry+context-async-hooks@2.11.0.json",
+      "sha256": "D3DCD1ABEEA3F11DACA9E018B4064064FB5EE73168415B4C6BDB9C8B1F3A72D5",
+      "package": "@opentelemetry/context-async-hooks@2.11.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\4f\\651b7db044177db089ea5722c3254d6f7e743602eb0321fedfef600e2db8e3-hasown@2.0.4.json",
+      "sha256": "7B47BB992497A034729549323CFD8518B4B9219FE01CA6AAADD8AD8FAF7A985A",
+      "package": "hasown@2.0.4"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\51\\1c9bfd55cc8c9e1d6b8e8e7925e0fa9b8edfd5c7f43790a560ac9627eb467f-mongodb@6.21.0.json",
+      "sha256": "B043F594B3F771D1E0F6118DFCACA9DFA50AFA6425CDAC60550437A71FE03794",
+      "package": "mongodb@6.21.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\51\\758c2a12cec1529bef6f0852d40f5f17d853ebac7726ed52b2bff2e184f024-source-map-js@1.2.1.json",
+      "sha256": "707D6EAAAD703A6A282AD1A08378C16ECD0A6286E94A4DD7843BF9B84B59DE15",
+      "package": "source-map-js@1.2.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\52\\b9f658cbce20d87bb4d093aeaeeabc3bcdb80d559319c9b2d2c01d98210dea-@langfuse+otel@5.11.1.json",
+      "sha256": "51790246BC872D8FC4A948F7B8D4A7E04F928D7962F2BF5DA77B2E690614D5E1",
+      "package": "@langfuse/otel@5.11.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\54\\28c235f80cb1bcb7b53768d369db8ed33f7b0adaea33c79a94e17a7913621f-side-channel-map@1.0.1.json",
+      "sha256": "D1AA78890635F72477D9AC9B1023D7EC15D5D19CFFA816A335E1A9EA95D10499",
+      "package": "side-channel-map@1.0.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\55\\487a2d06066fec2398ccf95256b3ab1d6b5072db5a2d9766f5644877f10e3c-langsmith@0.10.5.json",
+      "sha256": "9EADA104F4AC19EFAF14F36BE4A06045C73FCD53FD614B364BA98FF4AEFE4CCF",
+      "package": "langsmith@0.10.5"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\57\\075d06e903ceeef5a1f7c0411f7be6e9c1206a9f299a4cfbc657eb24a4f276-webidl-conversions@7.0.0.json",
+      "sha256": "DC894A234478BAE9FB34CCDF0DB9AC5B919A30EEC6F24C80B82E93EB4929325F",
+      "package": "webidl-conversions@7.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\58\\8b0aaa4482d00068049b93d4b117fb61c4bcd98d28a8274c0c9dd1f2fcab32-bson@6.10.4.json",
+      "sha256": "C9464020D17E3934FB4702B89F2F8DBC8AFD315A8D8615F02B7C0C356139D089",
+      "package": "bson@6.10.4"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\58\\cc26f4b851528f9651a44dfaf46e113a86f3d22066985548d91d16079beac4-ee-first@1.1.1.json",
+      "sha256": "536F3F3345066756C642B07E3538D23DE82EBA12C9E65A192F5AF23D4E4E8465",
+      "package": "ee-first@1.1.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\58\\f4bf1ef1d04d89c78ac2e8f4c72a0473899361641cefed969be5772ae77a6e-side-channel-weakmap@1.0.2.json",
+      "sha256": "935667F5F0B83CACDD1B7DE76E2A70E1CA6A9509F83EFE3E891287B695E224FD",
+      "package": "side-channel-weakmap@1.0.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\5b\\aee22e5e09d845c41936df78709f7eb8c37e2b6f2c0360d14957df01545124-object-inspect@1.13.4.json",
+      "sha256": "C55B3AA7B4168AC0C1A47F86CD3EE6319FCB1380EBFE4DAD3F8BAC308A473D82",
+      "package": "object-inspect@1.13.4"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\5d\\fd2759ee91b1ece214cbbe029f5b8a251b9a996ae92f7fa7eef0ed85cffc90-require-from-string@2.0.2.json",
+      "sha256": "79EFE85AD5C56A779631F356AB4237C412E374972EFB5FF9A92FBE53FE5FCB4D",
+      "package": "require-from-string@2.0.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\5e\\d9a762105cace46c2785c99e0cb3aff1163f485164b019445680a5d2aebe2c-@img+sharp-win32-x64@0.35.4.json",
+      "sha256": "92864A1613BB72721BCE62F89ECE0B26E98995228DD189396E9BA99D23AEE49D",
+      "package": "@img/sharp-win32-x64@0.35.4"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\61\\9a372bcd920fb462ca2d04d4440fa232f3ee4a5ea6749023d2323db1c78355-safer-buffer@2.1.2.json",
+      "sha256": "ADB474FD984432CA586D378A15F4D3880531540C0D96847A2C71D8A5B07299C5",
+      "package": "safer-buffer@2.1.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\61\\bcb01b7bde126d856fa4db771464baab96a1be9e5565ee03cfc16b5b57cfd8-@opentelemetry+otlp-exporter-base@0.222.0.json",
+      "sha256": "4078046DA5C49AE13D1C046B4716BE47FA3FF8D1BCD8E68172CFE7BCBBE86576",
+      "package": "@opentelemetry/otlp-exporter-base@0.222.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\62\\27b1d4ebe7f33db13e9396724222cac575492c91318f4190b17efaad322a20-tsx@4.23.15.json",
+      "sha256": "7932A2503AF8D108570C7CCCDB59B8845C39B16FC3C5836CBEBD45D07B83A7F2",
+      "package": "tsx@4.23.15"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\63\\6b54372e28bb0eadab9a0348a7906063b286450184d39c195ff4d8a0beea47-nanoid@3.3.19.json",
+      "sha256": "7190B783DA92EFEED2F817D154A89FB8BAA6B1FF206A4DB1C6D707894ECE6B52",
+      "package": "nanoid@3.3.19"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\63\\bfca0ec6fc2e3a28669c1aa86cae94ee8342592c8029dc7211c693eb19218e-semver@7.8.5.json",
+      "sha256": "54B30FE4CF12FF8A676D2A26AB00F5536E7875C2B5171B7638785EB09FADE6BD",
+      "package": "semver@7.8.5"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\64\\8edb538da66575ca1e7fea34b130d88adb888354ed7e7ebdf81d8b10479023-@types+react-dom@19.3.0.json",
+      "sha256": "C1F91B20AC9103533D93C2FE8125BD24CB6BA085D114D9172C5964987F30E55D",
+      "package": "@types/react-dom@19.3.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\65\\2e01a78aff6687aaebe34b2693fed19ce6d2947cc21b463dfd5713128b2410-memory-pager@1.5.0.json",
+      "sha256": "78C554EE828310BA30D2A1A6233BCFEE5C5A172E06C3EF4F395E0DCD11690606",
+      "package": "memory-pager@1.5.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\65\\429187afe4505a0089302d4d83d9277870f70371c7e04804e8a39e51bd3e7a-gopd@1.2.0.json",
+      "sha256": "2DB67DDA5EC0536FCDCBE699B6635F64C9C68F0243D35F00C2F609CE2FB8460E",
+      "package": "gopd@1.2.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\65\\fe47d8ac6ddb18d3bdb26f3f66562c4202c40ea3fa1026333225ca9cb8c5c0-es-errors@1.3.0.json",
+      "sha256": "F52705E1E2C81FAE1261813FCA003D9C2965368B2E2C9C20DF4431FC8A693B23",
+      "package": "es-errors@1.3.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\68\\82f9171ee66b055adf4d1a976067104e2236fa35a844f12eb3c8fe8d392fbc-etag@1.8.1.json",
+      "sha256": "A4157CC8C7C2FBE1586CE39A9BC275D2F6F7FD535AE09F351F42BC6875A015EA",
+      "package": "etag@1.8.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\69\\4e4426e20dd960de982700a76bc505fa7f9b810085626750d492c348b1b3bf-mime-db@1.54.0.json",
+      "sha256": "8E40119758CE698208762325675F5AD384189E7139493A88804754B53503969E",
+      "package": "mime-db@1.54.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\6c\\08ce8a3784456d1d295d31e3701bb983bd1d48f03368b525016e285d8799a6-@langchain+langgraph-checkpoint-mongodb@1.4.1.json",
+      "sha256": "F7173E7FB876C30E3853F7523CD038F7CD9D1E28D57FF971E62B133F672CBC49",
+      "package": "@langchain/langgraph-checkpoint-mongodb@1.4.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\6e\\23a3ffa339a9d831e532a30e7153d72992a4ce6d6dddf29700edad0bc5412b-js-tiktoken@1.0.21.json",
+      "sha256": "23EEA47157ED253ECD1F3D71365C685565E886DD5B06CDC7C2209A2A0CF5408A",
+      "package": "js-tiktoken@1.0.21"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\6e\\e446d1fa41b511d24c238049eea10f6e7cb44b9b16844b6f864d03a3713151-forwarded@0.2.0.json",
+      "sha256": "98EED6FD05D002DAF0D4841288034C3DD9EBA29F688C0F46EE0D7930E17B7A49",
+      "package": "forwarded@0.2.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\6f\\6b38a9d14a78f819b9d3c965f0c2b503a655f1e888a09381249d3b15ed3186-@langchain+langgraph-sdk@1.11.2.json",
+      "sha256": "F835E40E261DF0560F74F30CB164F9C2CB4E19261B7DC95AA316E90F4AF4B150",
+      "package": "@langchain/langgraph-sdk@1.11.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\72\\8611d3bd4945a1dafb1a04bef62abe7207695a9a62b2cf6ecb9f33d045eb71-@types+whatwg-url@11.0.5.json",
+      "sha256": "76B9EE1D81596972105DEC3E78BCD195D3D4B96CA25650DEFE533DDBC74A0201",
+      "package": "@types/whatwg-url@11.0.5"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\79\\26164e6eb6d2d4e4e3910a49e75a50bf0c15823c856d7ae21217b20207cb1b-@opentelemetry+semantic-conventions@1.43.0.json",
+      "sha256": "C40D1B03ECF463407EE9C0025FC164E103BAB6FCA7979C47FD93277D1FE416A8",
+      "package": "@opentelemetry/semantic-conventions@1.43.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\7b\\79d17e07d4678acd18bdb7da05205f4e90372c9ecf4e0a76316b17e2d34683-es-define-property@1.0.1.json",
+      "sha256": "5D0470AE3BAC21CEB61525635D5CE6C032CECCF731C5A859B92B96555EDE8668",
+      "package": "es-define-property@1.0.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\7c\\59d3a869bcfc6ef7190567c588bb2d76b565560452f80be972352e9bd5d1b3-@opentelemetry+sdk-trace@2.11.0.json",
+      "sha256": "0EBC8026AB754A96D6E3D1C054C8E6CB79B18AFEC2F3C47EA707476C49820C99",
+      "package": "@opentelemetry/sdk-trace@2.11.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\7d\\08685dd72f737576f31ec2ec132ce0fe7e90d96051445eda39944f54fffe80-json-schema-typed@8.0.2.json",
+      "sha256": "88A7DDF9B16000ADF9C9233513C2B07F340BEE6AE3AB574C4242B9DE4FDAC59D",
+      "package": "json-schema-typed@8.0.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\7d\\a607c346a705b73f916177cc54c49f14853801945fd1856ce06d86f0dd2ec2-type-is@2.1.0.json",
+      "sha256": "B0655EFCF60668DFC13FD682C507F786EE059FE18C06E6ED357D18F982882186",
+      "package": "type-is@2.1.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\7f\\7a90f68432f63d808417bf1fd542f75c0b98a042094fe00ce9ca340606e61b-fast-deep-equal@3.1.3.json",
+      "sha256": "DBFAF245B777C59AC578AAA401565F899D785E4A5999CE4C095532ED91B8534D",
+      "package": "fast-deep-equal@3.1.3"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\80\\09ab519486b4a73702204bef588d5b10ecc940b9b8c68a28676fcd8b01a135-@cfworker+json-schema@4.1.1.json",
+      "sha256": "9D8362A2F581514F2C1B655C629A51FD49A9E13B81DE795AB85C705D81C7FB1D",
+      "package": "@cfworker/json-schema@4.1.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\80\\bc8994f1cf658740935244340f4b7877a365ed538bbeffa537859bf9cc5e64-@opentelemetry+api@1.9.1.json",
+      "sha256": "341E57685C79F07A03CE3D453241890DE488B851433A257BD71D18D91315BDFD",
+      "package": "@opentelemetry/api@1.9.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\82\\4777e0ce360f949d45a6874ba3520fecd3b99060984a9e72577705e9d596a9-@langchain+langgraph@1.4.17.json",
+      "sha256": "6676AFC29FA2856A09C7BFD1B25C3FA2254AB016B992FCABB044773C89B00DC2",
+      "package": "@langchain/langgraph@1.4.17"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\83\\352dfeab7cd675ec14628815c0b76277c4031e4d92e9c27e70e5bee0524854-zod@3.25.76.json",
+      "sha256": "48A0F35A2E86C4D57EE91C5E26F3700F508E9F27B1D52146D1BFBFD4C311724D",
+      "package": "zod@3.25.76"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\83\\9d39f3acebe1b666c0589395f94cbbc1346c34dbe48e607abb60c002a6b1d5-postcss@8.5.23.json",
+      "sha256": "374D495B3DF668C7249FE84E564156C66FD4CC7A5DB7AC6B8AB20FF1A6EBB98D",
+      "package": "postcss@8.5.23"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\83\\b9c7e8fe9dc838a8268800006a6b1a90ad5489898693e4feba02cdd6f77c88-depd@2.0.0.json",
+      "sha256": "404A88C233AF33C1E14918D6FDBAC816A642E0F0694EDC35FECFB722692F80F1",
+      "package": "depd@2.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\84\\84b889d5966a2ebd35ecc8751b76c455687da1788fee8834ea4995538b0cef-express@5.2.1.json",
+      "sha256": "D9F061DDEA7093F11DBF77F023700162ADA218D169F00C55118860A377AAE38C",
+      "package": "express@5.2.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\84\\ec15ed63b15df8d1a403350d22566435f1dc68699700fc21fc2ec2fa200fc8-express-rate-limit@8.7.0.json",
+      "sha256": "FCD34D95B7E3A1146029489424CDA1BC0C2D0C17CB388702C2EEA35C7A5EA17D",
+      "package": "express-rate-limit@8.7.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\85\\d1796608d3aa0027b4a924958c34474dcc1b6c7f6d2cd3b64c66211c3fb133-tr46@5.1.1.json",
+      "sha256": "7107CA9DCF33E26D47A06414559A0E5F08F857BBE4B803C4BCC6B586FE38A504",
+      "package": "tr46@5.1.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\85\\e9369854293ee2381350412ab4ada3e054ddedf1e31b9aaec6e2c2bdfe95fe-range-parser@1.3.0.json",
+      "sha256": "454632173AD4E961951B09CBB611F82590B1927C75470696A569B0D6331931D9",
+      "package": "range-parser@1.3.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\86\\fa6823a928ae124c9de8f6f3975283a9eed7e7babb1b3bcc6dc16009b96f2a-is-promise@4.0.0.json",
+      "sha256": "8EB1F4A5C0A5605EE990FBB458B94E648BE20C4A7A7E8DC0E0359F7167DC8CFF",
+      "package": "is-promise@4.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\87\\a7e1388691ac80f609b118d9faacfbbb7e517668f8c2c09d4e60448abce6e1-qs@6.16.0.json",
+      "sha256": "5AA2DB235D0C68DDEC7D89FD4A58A1AA0DAFBB4D6BC142AACA62FC0FA1FE2A28",
+      "package": "qs@6.16.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\8b\\00d9aa0d10006ae0f516afe47e27d0ceb87379a4479f5c27ac10a7eec2e272-undici-types@6.21.0.json",
+      "sha256": "1F4E8EAA78F62A76D8A7115D1496117ADF72F3D097B97ECB82531576AE00FD7E",
+      "package": "undici-types@6.21.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\8e\\ea2b7c2988908c3cb53fa9e415d29ba3c98d017fc9c11898acb3511088b7f4-scheduler@0.28.0.json",
+      "sha256": "A6C93F9E70CEA18E21C0D713D6B010A09561A0B2DA904632A9AAEAC1F511F21C",
+      "package": "scheduler@0.28.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\90\\7c6bdb366962d766acdd6a0e3aeb5ff675ad1d641bc0f1fa09292b51b87979-shebang-command@2.0.0.json",
+      "sha256": "FAD6D4F778A7BD07F8DBCDF1D9919B52AC4645A87A9D179A2514C43C1F553948",
+      "package": "shebang-command@2.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\90\\ef210b3eabc6249464f10d0a3aea0cbfd1816157909ff062ba5b0c721109dc-@langfuse+langchain@5.11.1.json",
+      "sha256": "BE912E55E23D7883EA3A67A5ABAE7760A32E19D8812474D7969047615AC74278",
+      "package": "@langfuse/langchain@5.11.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\92\\fce18bbbea2937e48743d953ed83d8f225970db29aa24aba351cc8f31df58e-sparse-bitfield@3.0.3.json",
+      "sha256": "FF99FB5EFFFD57701E9911ECF65DC0F2684D7672498CE874086E4E765B3614D3",
+      "package": "sparse-bitfield@3.0.3"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\93\\fbc6697e3f6256b75b3c8c0af4d039761e207bea38ab67a8176ecd31e9ce94-inherits@2.0.4.json",
+      "sha256": "38171BF083280EEEA83B6E6025E635E6B349EF2EA424BFB90D0042A568836E7D",
+      "package": "inherits@2.0.4"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\94\\d689808fb643951140191c7042874d038f697754c67659125413658d0c1540-once@1.4.0.json",
+      "sha256": "A26324CD6CCDB8D125DBFB30C4D762085D0CC07ABD312C2987C9C848DDBA0E80",
+      "package": "once@1.4.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\97\\6685cb98c02e19e21b91e0aab0fa8d72e2feb516acabea37fa89c7aca826c8-@standard-schema+spec@1.1.0.json",
+      "sha256": "971E59DAA565D9692FE428CA1FCDA2FA4611465DBA079E8D9FEBC330305E8BDA",
+      "package": "@standard-schema/spec@1.1.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\97\\84a9fc346c7a8afdc0be84bd5dbe4ee427eb774c90f8d9feca7d5e48214c46-wrappy@1.0.2.json",
+      "sha256": "5FFE7E3EFE8CCF360A3C33B8AB4C841992A618325865F24B6836F50C0404C49A",
+      "package": "wrappy@1.0.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\9a\\39ffd1b8bfa145118dce5797b21a5a2fce24926e9aea0915025f0c3c8ee3af-side-channel-list@1.0.1.json",
+      "sha256": "9193A619055D79994AD49B605A808E269F9486F23C262E12B3CFF765C2E860F5",
+      "package": "side-channel-list@1.0.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\9a\\3ed43d71348daa9a3acba435945411f122d8070bec2fefc26c1c1d5d0ef7b7-content-type@2.1.0.json",
+      "sha256": "9509EDA6517353261BC0BED2E3C60EA3F26164A9A41834370D27A072DC16F802",
+      "package": "content-type@2.1.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\9a\\5b1347219a3c18cf79d93a06fc3e6aa6ec5c3b680320339b930eec9814fb25-eventemitter3@5.0.4.json",
+      "sha256": "C97E2E30655F96173AAABBF49A93F967027B9BC616A8C3EF7E2F95883F01493B",
+      "package": "eventemitter3@5.0.4"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\9c\\b4eb50a9b653288beeb9616a9bbf665e3917036091919a0a965b2076a30d88-router@2.2.0.json",
+      "sha256": "F0C52A03D15450D6927A279EB60B1D826363203266888C8CB5CA896FAC487C8F",
+      "package": "router@2.2.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\9d\\38ea7dc045122a4a7570afe180d05827e670b64a9bcd65745d29028a53bf2a-content-type@1.0.5.json",
+      "sha256": "8D3E41ABEC264E677794A1E192946BE13FB0148DBD6235C09DD926D68E0E6567",
+      "package": "content-type@1.0.5"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\9f\\efbc5d6723fa308eaf620e97b87c2db2a71810d8e1a3db9a9acc38d04d15d9-sharp@0.35.4.json",
+      "sha256": "49B15C15786C6E4CB563A7E049B4230623691FA4D9B39C61A4CC212CB1E9CAD1",
+      "package": "sharp@0.35.4"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\a0\\916ef781d06fe29576e49440bef09e99aa9df98bb0e03f9c087a6fa107d300-tslib@2.8.1.json",
+      "sha256": "A63C9A435451D9665E367ED14FD644B88CCA070F04C8A9901AD5FDC350BC5792",
+      "package": "tslib@2.8.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\a1\\5973920dc4340842936cddbfb209c1dfd0503e33d91c51c2991c198f29b025-on-finished@2.4.1.json",
+      "sha256": "917AD14C47F6111A2D606A9C47E072CFAE255C6A6DDAF9BD26E04728C4954FBD",
+      "package": "on-finished@2.4.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\a2\\399e374a9dfb2d23b3312da18e3caf43deab97703049089423aee90e5fe359-path-key@3.1.1.json",
+      "sha256": "494D06A457B2F0A3074308F64CDBDC652D88ABD304B2CAE2A69CF212F8081886",
+      "package": "path-key@3.1.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\a3\\9b123ca12483f0c840d987e37574fee7ab2eba7355e764521f2d18dbda797a-toidentifier@1.0.1.json",
+      "sha256": "833A99AA505D83C2F13ED19C23B11D8C56727173DF4B54CD60A66C06FB99A27F",
+      "package": "toidentifier@1.0.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\a6\\3cb66d8852b2e7f05a52b03dcfa5ddc37bfb0b8994aeaecf461d2443a54036-unpipe@1.0.0.json",
+      "sha256": "9B81BFC135FFAB27F84C37540425F0BC47C809B6823BD36B6D562E94E3C43C16",
+      "package": "unpipe@1.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\a6\\b6d7e19dd8b33ac53601fe316e59a1eab76da5eb32d3ff3109c57844fdd140-p-timeout@7.0.2.json",
+      "sha256": "B4E2E06BCF50282B1B92A5E06096E2AC2BD64D4A181908327F56D8CA659D8155",
+      "package": "p-timeout@7.0.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\a7\\57625ba4ea2fd2f4ee7371bd130cee130cc387395cea3fd626cbe1a0081a64-typescript@5.8.3.json",
+      "sha256": "3BCB447BC7DB6E35AF68103450CB5AC10FA537BB851FAEBB8B38FD39BE455F9A",
+      "package": "typescript@5.8.3"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\a8\\df9034d06bf774c2985ae6b5ed1b0428d20ccb91bedefc5651d3f7da8818fb-caniuse-lite@1.0.30001812.json",
+      "sha256": "6406E34FE74137C0C8ECB7A512DCBCA9F69F9594453280F9A85EAED92B676151",
+      "package": "caniuse-lite@1.0.30001812"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\a9\\172e21d3faf4d3e6e2a6c008af9a0e8808e42043322d6329ed2bcb9ad2409c-path-to-regexp@8.4.2.json",
+      "sha256": "4790D1EF7F1673A97F3EE05D0C2CD4F20849BC1B7908F55A069A0183BCE459EA",
+      "package": "path-to-regexp@8.4.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\a9\\25720d378ca2d76f418a0758b346c111491c2fa2f99bdd051628b0e1600be5-styled-jsx@5.1.6.json",
+      "sha256": "3B076C7EDCBF749CAAFE52566A5DD731AD8B4A20446BA7613FED8A5894D40A7B",
+      "package": "styled-jsx@5.1.6"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\ac\\98134279149c7d6c170f324fa552537cc3dec5a6bbab19848b1e63c557f864-object-assign@4.1.1.json",
+      "sha256": "31B865B5935CC4DA451649E97307FD4435CA7D5D02423B545ADFFB4B35910873",
+      "package": "object-assign@4.1.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\ac\\c3bb086a3ff41170c9900170a0162fc509c07fca736c7483bdae8435b31b8f-mongodb-connection-string-url@3.0.2.json",
+      "sha256": "B0253E8BC89563EDDCF015CDE4993B25057CC0D9D661F180DACEFD8C4F43ED2F",
+      "package": "mongodb-connection-string-url@3.0.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\ad\\80ac045fcce478d4721e766dbb5538d1058efe97bbcb26f21ef674d951e5bc-playwright-core@1.63.0.json",
+      "sha256": "C6340EDB8D751C673D9AABC74C1460CC870E155E40F548E8CD6FEDED603473E8",
+      "package": "playwright-core@1.63.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\ae\\1230532720c3029c3fdc9338e14afc02ac028a638c26a456a2c778f3b7082e-p-timeout@3.2.0.json",
+      "sha256": "904FA82777CE0412DF8BEADA9A4676115B66568F6EA0B906A05C709DF1E9A451",
+      "package": "p-timeout@3.2.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\b1\\349f063a17069f3d26f20a21e7eac3b53608279bb1cef892263a6b0886a202-get-proto@1.0.1.json",
+      "sha256": "0B37166BC097266699B3DC61B1F0025C2CB1C92F61F69753B60527FAC2F8BD14",
+      "package": "get-proto@1.0.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\b4\\9b590411c0eaf8c801a17a12721aaba95a0413fd6aafd8de8b9526311fa076-cors@2.8.6.json",
+      "sha256": "A0AF254BC50CB9633E3DBBE65464DD05B38156EAA6CC8B8F95BAFA7A2B9407ED",
+      "package": "cors@2.8.6"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\b9\\5d903963f69d6ceccb668ca7c69189b862f5d9731791e0879487681f4e8931-cross-spawn@7.0.6.json",
+      "sha256": "B7822478214D1983E49B28B75936AD6120EB99F18B6E15FD54356BAF30C936EA",
+      "package": "cross-spawn@7.0.6"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\bd\\8b7b503d54f5683ad77f2c84bb4b3af740bbef03b02fe2945b44547707fb0c-punycode@2.3.1.json",
+      "sha256": "9E1BDBE8E216F4C1795DE26A55390A53097FD76963236F2C6EE77EF6AAD45E06",
+      "package": "punycode@2.3.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\c1\\0d1bfd6e05af4d6ab691e5a92aaca5c8f712106f8a6b1d8742a51e11fc1d16-pkce-challenge@5.0.1.json",
+      "sha256": "E28F9B7CD40099BB7DD5D66780798D00BF69F60631239F4ADB7C7805E7702C19",
+      "package": "pkce-challenge@5.0.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\c5\\15c19f4a4fa904d54220bcc3242b2acd8c3a55f6e334343ce19a8f492e96db-serve-static@2.2.1.json",
+      "sha256": "0B5C5630D34CE69482968ACACD50BF9D4AEFED6E12B1E616EAAF291D9391ED27",
+      "package": "serve-static@2.2.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\c5\\c787dac9e1b5be4cf658aa0ec984c39ea57b7efa993664117fe311bfd1c4d1-picocolors@1.1.1.json",
+      "sha256": "2A8EBC67529E6EFD6F7194261D32E3E4B71848CABD1EC0E5BE3ED83BA6D214E7",
+      "package": "picocolors@1.1.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\c7\\d55b9737b511bb65b50627347dfcc423d65374d57c1775797a80dfec3df814-@next+env@16.3.6.json",
+      "sha256": "766E27E72139FA9A2847B59DA9E4CF74EBD00EC864E305A206B620A6CFE00975",
+      "package": "@next/env@16.3.6"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\ca\\48b95e72ae7fbe74979d2e193965b7a90a20b6389d0d5e34841ab685c40726-cookie@0.7.2.json",
+      "sha256": "F9B9D85EA202B261365DD5C5DEA48E9C36FC9359978172F80F280F432CA6113F",
+      "package": "cookie@0.7.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\cb\\3df145a1b6d1cebf04ecef6280da1ad3e61ac72ced88af22d64412a7ba19bc-media-typer@1.1.1.json",
+      "sha256": "F15050BDF6CD15064D0982027AAED4E0E6839B841C3722584D9E4E5B12A07079",
+      "package": "media-typer@1.1.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\cc\\9444e348e91ed2aa13f0b87e01eb00a40b26e4a9cc49cff5f7fd63b62da11d-@types+node@22.20.4.json",
+      "sha256": "464FA92C6820E635941626E068E2D52495F2CA3A0DB3D2DF383ABA48F10B0FF2",
+      "package": "@types/node@22.20.4"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\cf\\51c629c632db103c00641fc2b9f43c0cbe3c1ed7fc64a3dd45495bda8aca7e-csstype@3.2.3.json",
+      "sha256": "D11AE605AF46964043C985C46E0B12C5099EDDDB055CF315B88D3FB6169795CA",
+      "package": "csstype@3.2.3"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\d0\\a23feb4ef1a31493a07ec68cdd457d26cba14d3e6ed4e2723b1049642587f8-ipaddr.js@1.9.1.json",
+      "sha256": "25D60850CC0EC74A1572B87552B453B4EBFF6C95AD6BEDA8805980A70492938E",
+      "package": "ipaddr.js@1.9.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\d3\\9502d2342c8ca00eb974341fd51df6f51326964883e9ff1629e9477d2d2392-@mongodb-js+saslprep@1.5.4.json",
+      "sha256": "9B157E2D125C47943E4090FFC556215C263CF0F56B9FF1328B42B8996858201D",
+      "package": "@mongodb-js/saslprep@1.5.4"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\d5\\c0cd77027625aa2199bdec8383a629a301c2e0b8f2c6278b91d4c360efb02f-has-symbols@1.1.0.json",
+      "sha256": "4E0E33C4C9A25C14A43F041DF6679218B757128F2F15017F113C4521956F5B69",
+      "package": "has-symbols@1.1.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\d6\\09d97fb0c572821c6a34e34f08f0b838f3bb3e0f3dc6364ad28f96c180435f-send@1.2.1.json",
+      "sha256": "2DDDA2825838D7E59CC4BEB90D44F359E0654096F6376315D51C73C3DD6D3661",
+      "package": "send@1.2.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\d9\\c1a626ea5a36083e414c152c0b9c0ee5aea0c67a117f621c346cc19e65b0d6-body-parser@2.3.0.json",
+      "sha256": "E2B015AECC026D5A1BF8339057395128C688B98066E7597B1CB5E75E1C924229",
+      "package": "body-parser@2.3.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\dc\\dc4df3eefc39dcdb4fb0bf5a31acc9f3c0b4968ddc5343b16c6fed8ee6703b-yaml@2.9.1.json",
+      "sha256": "807FAE625D4FD6C9250D75E96517A5361A45A8D4F9DA9CC98D066FB8735F9D9D",
+      "package": "yaml@2.9.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\e0\\56d17405fe6d2766a3801416e4b458d88fcfc36016dfabf138603569a5ae34-http-errors@2.0.1.json",
+      "sha256": "659672B7FA111706A1F40BF665801378FC692852708DDA022E666AA939852940",
+      "package": "http-errors@2.0.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\e5\\cbe0e82b4ac1f81d995a98d562225ca7374356e446a18b8bed96ffa6a8fba6-accepts@2.0.0.json",
+      "sha256": "897B0F499CD5FEC1B4FB9B80C2744AC9A82E605805E793795D924880C7233AA2",
+      "package": "accepts@2.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\e5\\e6e9c6bde758cceb2ffae7508ef9e4992e79ed1b1cbfc6ab459317d96f729b-@esbuild+win32-x64@0.28.2.json",
+      "sha256": "626D43882F68B66F52457551AA7CAA9145E3964EE1D56CB4057B5B4C5425223B",
+      "package": "@esbuild/win32-x64@0.28.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\e6\\34421fd67ff8344feeb92f63cdc1fb2188197f7a3987499b39e0aa7c364814-content-disposition@1.1.0.json",
+      "sha256": "87B2918C0C3B67CA0BC1F54FB885B85AB3DCCB756660A346B5C2E95D7839FB34",
+      "package": "content-disposition@1.1.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\e6\\54ac30e4d751178f8250dfbee01052a9067a4f47836924b0e61acb69b4f974-@swc+helpers@0.5.23.json",
+      "sha256": "9D016FD74DF8BD2BA13C7E128E231109763DDBC6A343C638DE75098BBB5E6169",
+      "package": "@swc/helpers@0.5.23"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\e6\\54f45612922373f9cf78f294013b41ff95e8627a213d13661bc041d5396cfd-@langfuse+tracing@5.11.1.json",
+      "sha256": "284B545F63C295A3654722189ACBB73334122A2D7B9B158917B7E56BE8A30C3B",
+      "package": "@langfuse/tracing@5.11.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\e6\\79f1d321b2554718eadf519d6700456b704fd1750fc3bdaedd3c86d3ef9dde-proxy-addr@2.0.8.json",
+      "sha256": "6F9544B6ECAA376A0976A8902731428799537308A3E6850130B115669D117600",
+      "package": "proxy-addr@2.0.8"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\e7\\e7cff0ff0c14d0be0326420f1ac1da991914f1b3a90594ce949ebae54bbe6f-@types+json-schema@7.0.15.json",
+      "sha256": "447FFD6499C9A407AF9940DC2BDA01F0B8151FCF385DE58932B780CCED0E38C6",
+      "package": "@types/json-schema@7.0.15"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\e8\\5973b9b4cb646dc9d9afcd542025784863ceae68c601f268253dc985ef70bb-ms@2.1.3.json",
+      "sha256": "0D6D2673B7D4DC14050FD3C91CF06E385E2567F3E92C3AC6D2197CF7800ADD42",
+      "package": "ms@2.1.3"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\eb\\1e9d2bacc97694f3178b1078d631c2dbc1cdfe848381ad95eb12f781cebd3b-side-channel@1.1.1.json",
+      "sha256": "40952576960DF50D3FC1D0E0E389E5F9F512FDFA7584506FC3274CF6B1DB5EF1",
+      "package": "side-channel@1.1.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\ec\\65d770e6f21f20d45121be2fe909a2abadcb4d5bce6ee2bc4efe4928175c97-@opentelemetry+sdk-metrics@2.11.0.json",
+      "sha256": "D891B28C104D7191F756E48DD0E566F286B6E38A56DD3784842736CDA723F31F",
+      "package": "@opentelemetry/sdk-metrics@2.11.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\ec\\7ff68054888adc5cd211b79ce2358254bc40ba3f10704514b93cbc45235d8f-ip-address@10.7.2.json",
+      "sha256": "4D0E239D93F852CACB2992B6D28AA9252AD2B3B30835561533C8B399DF756BE2",
+      "package": "ip-address@10.7.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\ed\\71cdc47eea5fdc46e66230c6486e993a31fcc21135c3a00ebc56b0cb76a40a-function-bind@1.1.2.json",
+      "sha256": "A633CB05B4E2AF326F87124CDD160D01E454683A60E4B4D3EE1B5D6530543A20",
+      "package": "function-bind@1.1.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\ed\\83f8e171f4b55ebe31be78c766067fce22ef28bedf530166513c270be8ce4c-@opentelemetry+core@2.11.0.json",
+      "sha256": "3EEF28887520BDF81BCD1DC0F5B1A2E56B31A9D21953A3F02DE8AA03F628FDD2",
+      "package": "@opentelemetry/core@2.11.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\ed\\d3244266680b813a17b02d69048f86558076706d8be8fbaeb78c665f100788-hono@4.13.9.json",
+      "sha256": "143FD4A793B9ADCE0F3D4E6F0A99C61079A9405143C28A02CAA0CAAC16D18802",
+      "package": "hono@4.13.9"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\ef\\58a9a52cb0ab961beffb5563219b9018206d4f07deee51cf9e9f1fad231858-mustache@4.2.0.json",
+      "sha256": "CA86B8AC974D89ECDAAB6A49C154336E29C3425AB04011CE5CE1BB6D881A7641",
+      "package": "mustache@4.2.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\ef\\ef9d161b5cc77df9dee05aabc0c347836ec417ad0730bb6503a19934089c71-shebang-regex@3.0.0.json",
+      "sha256": "56D6CE622F7CC5A6E4900658A6A68940847039C99E781A7123C95A16EA68443D",
+      "package": "shebang-regex@3.0.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\f2\\0b870590b02a716161d1ebdb2b2e45612b4f08683765fc5c42d196b470a667-eventemitter3@4.0.7.json",
+      "sha256": "DA0969F66D763F11F22F0260C37EF6A9F6F3B55BE6E46919E7BCAECAC2A7C042",
+      "package": "eventemitter3@4.0.7"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\f2\\252a979d04511fae51c7514371c3a9ae84572a3776870bf20e5627714d7169-ajv-formats@3.0.1.json",
+      "sha256": "A9C09525F1806A0D8DAB3C5DC3BC69F6D7874053D56A3207B62643B32E87CAA1",
+      "package": "ajv-formats@3.0.1"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\f4\\d88598911ec74b32d83939f23d94181487814b36ca917d7994aee0beaf8ce5-jose@6.2.12.json",
+      "sha256": "510E7E0D982A9CD72DA119BECD32314B778E24B342C75E0312E6233D677D31DB",
+      "package": "jose@6.2.12"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\f5\\f4a349aa2cfdf448548a7ec5226513a95fc21112ecb36d29a08121a987b23a-get-intrinsic@1.3.0.json",
+      "sha256": "8FD3617ADC96FE3255BC0FF98B8BDC0B502E848249157E4C1925D1B1100E6FBC",
+      "package": "get-intrinsic@1.3.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\f6\\129c46b1fb7015fa81fbad75f5cfa1fb753827211dee0512900ba0324c9794-@langchain+protocol@0.0.19.json",
+      "sha256": "685D0071FF876F0B2FEE9D875C4E6AE9F433D516E43211C83F6C8008AF99A081",
+      "package": "@langchain/protocol@0.0.19"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\f6\\66f521ff8817abb46555e41d0ea880469ee47c00e9a8c85548294834324404-@opentelemetry+api-logs@0.222.0.json",
+      "sha256": "C219F532880C96128E9B8FF9394E32102131F87B7DE96108F310B698FA4D0AB8",
+      "package": "@opentelemetry/api-logs@0.222.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\fb\\2b3df7b53dea9a382b1fc0069042aa103d12ec49690583420ef6f791f8841a-call-bound@1.0.4.json",
+      "sha256": "3AB0CB9C01ADAA0C49936DF71076E1AC4440D89FD72224B10D49B5D28B0FCCF6",
+      "package": "call-bound@1.0.4"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\fb\\5f581ce0c88da50202bc6579a26dbae7c5655a73ff1bef2be565950a84f96f-@opentelemetry+sdk-logs@0.222.0.json",
+      "sha256": "26CFD8D77B3EB8AE836C9ABBDAFFF3BF5EAF90CF81C413CA724F792FDF0FA3AA",
+      "package": "@opentelemetry/sdk-logs@0.222.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\fb\\bce204b89d4b835a34276de7b4940d3fb062699de5f9a241e8d489cfe46fe6-playwright@1.63.0.json",
+      "sha256": "FFDBB543F04BEEAE51D835C55D3B1137078614F3165CCB92DCF8FD6272C1F0B4",
+      "package": "playwright@1.63.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\fc\\5dc167cf7e089427664321dad0abb5c741f974f60f1863e05144f963d0fffe-@opentelemetry+otlp-transformer@0.222.0.json",
+      "sha256": "331B4E585B2CD9B9A23B7B3B34F207D7F33D81B1B998CE7F238C4076D5297CF1",
+      "package": "@opentelemetry/otlp-transformer@0.222.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\fc\\85ed6f0124e474cfc84c32297ea11a4617c4cf676e3eb807e8a55499c2fd1e-math-intrinsics@1.1.0.json",
+      "sha256": "84FE89F4C295FABD22E1C199544946E65A17440AE73F280EB94CB6919C92D7E3",
+      "package": "math-intrinsics@1.1.0"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\fc\\d7fb4f2cd3c7a4b7c9124e6ce015efde7aafc72bdbe3a3f000b976df3048fd-bytes@3.1.2.json",
+      "sha256": "E3BAA85563BE9048924C6487A22253EE29568B8E46258E9D9435168FD82B6109",
+      "package": "bytes@3.1.2"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Local\\pnpm\\store\\v10\\index\\fd\\85e32357b9397719ed8a7147080fff58c057f481293cde54aa8dda693b98ba-@next+swc-win32-x64-msvc@16.3.6.json",
+      "sha256": "B531758347B42414E18CA821E30D4682B5C4B0708A74CDB0F28AFB8A8D8E2755",
+      "package": "@next/swc-win32-x64-msvc@16.3.6"
+    }
+  ],
+  "selectedCacheIndexCount": 177,
+  "tools": [
+    {
+      "path": "C:\\Program Files\\nodejs\\node.exe",
+      "sha256": "E3BE0545990C90995D7BF3A7AF5D64AF1F2E0FC1BBD9B79C27F7ABC1E9676E50",
+      "bytes": 91406496
+    },
+    {
+      "path": "C:\\Program Files\\Git\\bin\\bash.exe",
+      "sha256": "748FA9D081C278397347B054B34BC9541EC55F7EE2DE965169CEB0754BB44740",
+      "bytes": 47008
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Roaming\\npm\\node_modules\\pnpm\\bin\\pnpm.cjs",
+      "sha256": "B276DA51DC8CA5B0D3EE3371695B50FC8B3244B281B091C63A3F082A88DADEB9",
+      "bytes": 1102
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Roaming\\npm\\node_modules\\pnpm\\dist\\pnpm.cjs",
+      "sha256": "CDD88C62C16ACCC702DCF6A6103B4C5CA61E1F0D3883ED24A8941423248F8DCA",
+      "bytes": 7825035
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\AppData\\Roaming\\npm\\node_modules\\pnpm\\package.json",
+      "sha256": "93C546F5767C5B13BCA1A73100FDCD1A7ECCD783CEE3FB60F71D6C8430A246CA",
+      "bytes": 6125
+    },
+    {
+      "path": "D:\\vc\\scripts\\vc-testlock.sh",
+      "sha256": "FDD9B039639F6E70141D6C54CA0760375913DA2E5705257A1B6F75C8939DA48B",
+      "bytes": 23562
+    }
+  ],
+  "preflightMs": 4319.197,
+  "sourceBuilderActive": "Source/doc edits excluded from installer verification; no source files modified by this lane",
+  "noNetworkFallback": true,
+  "ignoreScripts": true,
+  "noTestsOrBuild": true,
+  "noPrimaryReinstallOrNodeModulesCopy": true
+}

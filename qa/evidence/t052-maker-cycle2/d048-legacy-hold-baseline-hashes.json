@@ -1,0 +1,22 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "26278ED822895CB13A20D377580393037E104F2134727B1FACC7A4217560F36F",
+    "Path": "D:\\vc\\packages\\db\\src\\facts.ts"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "A16103A0EE5DB94BDAC2650D0D0EEDB397701E0804828FD303E619FDF2571FB6",
+    "Path": "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "D4A7BAB922FB83557DA9C45F6D093D64994003530AE7BA92349C8059F82C0CD9",
+    "Path": "D:\\vc\\packages\\db\\tests\\fakes.ts"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "04B53EC5D2ED8DD93D74D707303677217AF2F850D572B91F5F1A66F4EBEEEE1D",
+    "Path": "D:\\vc\\packages\\db\\tests\\facts.test.ts"
+  }
+]

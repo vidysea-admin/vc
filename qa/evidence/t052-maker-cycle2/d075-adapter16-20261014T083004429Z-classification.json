@@ -1,0 +1,1964 @@
+{
+  "createdAt": "2026-10-14T08:32:17.289Z",
+  "evidencePrefix": "qa/evidence/t052-maker-cycle2/d075-adapter16-20261014T083004429Z",
+  "logSHA256": "1AA158484786D9C9CC6D1A18F5323210C5D7316069DD6576FD0322AF91CC9E73",
+  "counts": {
+    "collected": 16,
+    "pass": 0,
+    "fail": 16,
+    "cancel": 0,
+    "skip": 0,
+    "setupFailure": 0,
+    "loaderFailure": 0
+  },
+  "classCounts": {
+    "reachedProviderCallCountMismatch": 8,
+    "reachedCleanPublicSettlementRejected": 4,
+    "reachedPublicMessageMismatch": 4
+  },
+  "eventsConclusions": {
+    "all16SelectedNativeReadReached": true,
+    "all16IndependentRawFacade": true,
+    "all16SelectedRunExpiredWhileRawFacadeLive": true,
+    "all16PublicCauseRetainsExactSelectedExpiry": true,
+    "all16SettlementRetainsDOMException": true,
+    "all8LateSentinelsRetained": true
+  },
+  "producerAttribution": {
+    "selectedRun": "Timer-generated FencedWriterDeadlineError independently witnessed with aborted signal and F/I live; no selected-op throw was recorded. Exact same object is retained through public cause.",
+    "compensationAbort": "DAG records a distinct DOMException in all settlement roots. Runtime failure stacks show AbortController.abort at packages/db/src/erasure.ts:600:23 and compensation at packages/engine/src/scribe/graph.ts:995:30; no selected-op reject event proves this was selected-deadline.op(). This does not authorize AbortError-by-name sanitization.",
+    "provider": "Start cases fail provider.calls count4 versus held2 at test:308. This proves the mock call count grew after release; whether each is a native provider execution versus refused authorization attempt requires caller/source attribution."
+  },
+  "passiveCollection": "Diagnostic records only emit in finally after descriptor restoration and Promise.allSettled drain; no future instrumentation/source changes or rerun.",
+  "cases": [
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint primary resolve",
+      "classification": "reached-provider-call-count-mismatch",
+      "firstFailedLine": 308,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966613486,
+        "expiresAt": 1791966613640,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966613646,
+        "expiresAt": 1791966613640,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966613646,
+        "expiresAt": 1791966613640,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 480,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "sentinel",
+          "id": 3
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        2,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "domExceptionIds": [
+        12
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 3,
+      "rawRejectionSameSentinel": null,
+      "facadeRejectionSameSentinel": null,
+      "sentinelRetainedInSettlement": null,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "fulfilled",
+        "fulfilled",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint primary reject",
+      "classification": "reached-provider-call-count-mismatch",
+      "firstFailedLine": 308,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966613784,
+        "expiresAt": 1791966613946,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966613956,
+        "expiresAt": 1791966613946,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966613956,
+        "expiresAt": 1791966613946,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 480,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "finally-raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "sentinel",
+          "id": 2
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        3,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        2
+      ],
+      "domExceptionIds": [
+        13
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 2,
+      "rawRejectionSameSentinel": true,
+      "facadeRejectionSameSentinel": true,
+      "sentinelRetainedInSettlement": true,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "rejected",
+        "rejected",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint recheck resolve",
+      "classification": "reached-provider-call-count-mismatch",
+      "firstFailedLine": 308,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966614205,
+        "expiresAt": 1791966614359,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966614366,
+        "expiresAt": 1791966614359,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966614366,
+        "expiresAt": 1791966614359,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 480,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "sentinel",
+          "id": 3
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        2,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "domExceptionIds": [
+        12
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 3,
+      "rawRejectionSameSentinel": null,
+      "facadeRejectionSameSentinel": null,
+      "sentinelRetainedInSettlement": null,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "fulfilled",
+        "fulfilled",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start checkpoint recheck reject",
+      "classification": "reached-provider-call-count-mismatch",
+      "firstFailedLine": 308,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966614620,
+        "expiresAt": 1791966614771,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966614775,
+        "expiresAt": 1791966614771,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966614775,
+        "expiresAt": 1791966614771,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 480,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "finally-raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "sentinel",
+          "id": 2
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        3,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        2
+      ],
+      "domExceptionIds": [
+        13
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 2,
+      "rawRejectionSameSentinel": true,
+      "facadeRejectionSameSentinel": true,
+      "sentinelRetainedInSettlement": true,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "rejected",
+        "rejected",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write primary resolve",
+      "classification": "reached-provider-call-count-mismatch",
+      "firstFailedLine": 308,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966614988,
+        "expiresAt": 1791966615121,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966615125,
+        "expiresAt": 1791966615121,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966615125,
+        "expiresAt": 1791966615121,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 499,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "sentinel",
+          "id": 3
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        2,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "domExceptionIds": [
+        12
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 3,
+      "rawRejectionSameSentinel": null,
+      "facadeRejectionSameSentinel": null,
+      "sentinelRetainedInSettlement": null,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "fulfilled",
+        "fulfilled",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write primary reject",
+      "classification": "reached-provider-call-count-mismatch",
+      "firstFailedLine": 308,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966615317,
+        "expiresAt": 1791966615463,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966615465,
+        "expiresAt": 1791966615463,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966615466,
+        "expiresAt": 1791966615463,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 499,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "finally-raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "sentinel",
+          "id": 2
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        3,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        2
+      ],
+      "domExceptionIds": [
+        13
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 2,
+      "rawRejectionSameSentinel": true,
+      "facadeRejectionSameSentinel": true,
+      "sentinelRetainedInSettlement": true,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "rejected",
+        "rejected",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write recheck resolve",
+      "classification": "reached-provider-call-count-mismatch",
+      "firstFailedLine": 308,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966615637,
+        "expiresAt": 1791966615779,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966615785,
+        "expiresAt": 1791966615779,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966615785,
+        "expiresAt": 1791966615779,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 492,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "sentinel",
+          "id": 3
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        2,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "domExceptionIds": [
+        12
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 3,
+      "rawRejectionSameSentinel": null,
+      "facadeRejectionSameSentinel": null,
+      "sentinelRetainedInSettlement": null,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "fulfilled",
+        "fulfilled",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation start pending-write recheck reject",
+      "classification": "reached-provider-call-count-mismatch",
+      "firstFailedLine": 308,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966615988,
+        "expiresAt": 1791966616105,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966616106,
+        "expiresAt": 1791966616105,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966616106,
+        "expiresAt": 1791966616105,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 492,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "finally-raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "sentinel",
+          "id": 2
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        3,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        2
+      ],
+      "domExceptionIds": [
+        13
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 2,
+      "rawRejectionSameSentinel": true,
+      "facadeRejectionSameSentinel": true,
+      "sentinelRetainedInSettlement": true,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "rejected",
+        "rejected",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint primary resolve",
+      "classification": "reached-clean-public-settlement-rejected",
+      "firstFailedLine": 309,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966616341,
+        "expiresAt": 1791966616453,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966616456,
+        "expiresAt": 1791966616453,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966616457,
+        "expiresAt": 1791966616453,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 474,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "sentinel",
+          "id": 3
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        2,
+        9,
+        11,
+        7,
+        12,
+        13,
+        0,
+        14,
+        15,
+        16,
+        17
+      ],
+      "domExceptionIds": [
+        17
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 3,
+      "rawRejectionSameSentinel": null,
+      "facadeRejectionSameSentinel": null,
+      "sentinelRetainedInSettlement": null,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "fulfilled",
+        "fulfilled",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint primary reject",
+      "classification": "reached-public-rejection-message-mismatch",
+      "firstFailedLine": 314,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966616671,
+        "expiresAt": 1791966616795,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966616796,
+        "expiresAt": 1791966616795,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966616796,
+        "expiresAt": 1791966616795,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 474,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "finally-raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "sentinel",
+          "id": 2
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        3,
+        9,
+        11,
+        7,
+        2,
+        12,
+        13,
+        0,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "domExceptionIds": [
+        18
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 2,
+      "rawRejectionSameSentinel": true,
+      "facadeRejectionSameSentinel": true,
+      "sentinelRetainedInSettlement": true,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "rejected",
+        "rejected",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint recheck resolve",
+      "classification": "reached-clean-public-settlement-rejected",
+      "firstFailedLine": 309,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966617003,
+        "expiresAt": 1791966617119,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966617126,
+        "expiresAt": 1791966617119,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966617127,
+        "expiresAt": 1791966617119,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 457,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "sentinel",
+          "id": 3
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        2,
+        9,
+        11,
+        7,
+        12,
+        13,
+        0,
+        14,
+        15,
+        16,
+        17
+      ],
+      "domExceptionIds": [
+        17
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 3,
+      "rawRejectionSameSentinel": null,
+      "facadeRejectionSameSentinel": null,
+      "sentinelRetainedInSettlement": null,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "fulfilled",
+        "fulfilled",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume checkpoint recheck reject",
+      "classification": "reached-public-rejection-message-mismatch",
+      "firstFailedLine": 314,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966617336,
+        "expiresAt": 1791966617453,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966617455,
+        "expiresAt": 1791966617453,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966617456,
+        "expiresAt": 1791966617453,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 457,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "finally-raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "sentinel",
+          "id": 2
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        3,
+        9,
+        11,
+        7,
+        2,
+        12,
+        13,
+        0,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "domExceptionIds": [
+        18
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 2,
+      "rawRejectionSameSentinel": true,
+      "facadeRejectionSameSentinel": true,
+      "sentinelRetainedInSettlement": true,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "rejected",
+        "rejected",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write primary resolve",
+      "classification": "reached-clean-public-settlement-rejected",
+      "firstFailedLine": 309,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966617623,
+        "expiresAt": 1791966617783,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966617785,
+        "expiresAt": 1791966617783,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966617786,
+        "expiresAt": 1791966617783,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 663,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "sentinel",
+          "id": 3
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        2,
+        9,
+        11,
+        7,
+        12,
+        13,
+        0,
+        14,
+        15,
+        16,
+        17
+      ],
+      "domExceptionIds": [
+        17
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 3,
+      "rawRejectionSameSentinel": null,
+      "facadeRejectionSameSentinel": null,
+      "sentinelRetainedInSettlement": null,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "fulfilled",
+        "fulfilled",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write primary reject",
+      "classification": "reached-public-rejection-message-mismatch",
+      "firstFailedLine": 314,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966617952,
+        "expiresAt": 1791966618102,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966618103,
+        "expiresAt": 1791966618102,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966618104,
+        "expiresAt": 1791966618102,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 663,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "finally-raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "sentinel",
+          "id": 2
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        3,
+        9,
+        11,
+        7,
+        2,
+        12,
+        13,
+        0,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "domExceptionIds": [
+        18
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 2,
+      "rawRejectionSameSentinel": true,
+      "facadeRejectionSameSentinel": true,
+      "sentinelRetainedInSettlement": true,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "rejected",
+        "rejected",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write recheck resolve",
+      "classification": "reached-clean-public-settlement-rejected",
+      "firstFailedLine": 309,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966618280,
+        "expiresAt": 1791966618436,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966618441,
+        "expiresAt": 1791966618436,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966618443,
+        "expiresAt": 1791966618436,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 659,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 2
+        },
+        {
+          "phase": "sentinel",
+          "id": 3
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        2,
+        9,
+        11,
+        7,
+        12,
+        13,
+        0,
+        14,
+        15,
+        16,
+        17
+      ],
+      "domExceptionIds": [
+        17
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 3,
+      "rawRejectionSameSentinel": null,
+      "facadeRejectionSameSentinel": null,
+      "sentinelRetainedInSettlement": null,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "fulfilled",
+        "fulfilled",
+        "fulfilled",
+        "rejected"
+      ]
+    },
+    {
+      "name": "D068 Mongo adapter original observation resume pending-write recheck reject",
+      "classification": "reached-public-rejection-message-mismatch",
+      "firstFailedLine": 314,
+      "selectedRunEnter": {
+        "phase": "selected-run-enter",
+        "deadline": 0,
+        "now": 1791966618567,
+        "expiresAt": 1791966618723,
+        "aborted": false,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "selectedRunReject": {
+        "phase": "selected-run-reject",
+        "deadline": 0,
+        "now": 1791966618726,
+        "expiresAt": 1791966618723,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "publicReject": {
+        "phase": "public-reject",
+        "deadline": 0,
+        "now": 1791966618726,
+        "expiresAt": 1791966618723,
+        "aborted": true,
+        "rawFinished": false,
+        "facadeFinished": false,
+        "entered": true,
+        "runHits": 1,
+        "selected": true
+      },
+      "opReturnCount": 659,
+      "opRejectCount": 0,
+      "actualNullReads": [
+        true
+      ],
+      "entries": [],
+      "rootIdentities": [
+        {
+          "phase": "selected-run-reject",
+          "id": 0
+        },
+        {
+          "phase": "public-reject",
+          "id": 1
+        },
+        {
+          "phase": "raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "finally-raw-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-facade-reject",
+          "id": 2
+        },
+        {
+          "phase": "finally-public-settlement-reject",
+          "id": 3
+        },
+        {
+          "phase": "sentinel",
+          "id": 2
+        },
+        {
+          "phase": "raw-promise",
+          "id": 4
+        },
+        {
+          "phase": "facade-promise",
+          "id": 5
+        },
+        {
+          "phase": "exposed-public",
+          "id": 1
+        },
+        {
+          "phase": "selected-expiry",
+          "id": 0
+        }
+      ],
+      "settlementReachableIds": [
+        3,
+        9,
+        11,
+        7,
+        2,
+        12,
+        13,
+        0,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "domExceptionIds": [
+        18
+      ],
+      "domExceptionInSettlement": true,
+      "rawFacadeDistinct": true,
+      "sentinelId": 2,
+      "rawRejectionSameSentinel": true,
+      "facadeRejectionSameSentinel": true,
+      "sentinelRetainedInSettlement": true,
+      "publicCauseRetainsSelectedExpiry": true,
+      "drainStatuses": [
+        "rejected",
+        "rejected",
+        "fulfilled",
+        "rejected"
+      ]
+    }
+  ],
+  "noAcceptanceVerdict": true
+}

@@ -1,0 +1,117 @@
+[
+  {
+    "path": "apps/api/src/openapi.ts",
+    "sha256": "39152603B2D6224CF30461365F41DDDC5D05B38985BAB66732EC450D3ACD7863",
+    "gitBlob": "adfdf7d0305dab9f345d5a8fcbafc2ad1cadb077"
+  },
+  {
+    "path": "apps/api/src/server.ts",
+    "sha256": "D7C82683814BE8B9129407851152071FAEF7E60E880EDCFF8D68CD9A0F91A52E",
+    "gitBlob": "f22bdfcf162a5510647f00f04e3f86dab9c607b5"
+  },
+  {
+    "path": "apps/api/tests/server.test.ts",
+    "sha256": "CE584E9259054BDE3EDFC4C1332A3053C208E24019877F86DF531754CBAB21E5",
+    "gitBlob": "e1d750182adb3ee72cf223c40e4f0a17d59fe78d"
+  },
+  {
+    "path": "apps/web/demo/seed.ts",
+    "sha256": "ABCF55EAAB452E0DA6FADC65630456ADC5EC9760C941DDC8BD05EB7D4A727026",
+    "gitBlob": "af0dafe1c2dbe90d8d6e1e8185b67ae16ca67589"
+  },
+  {
+    "path": "apps/web/tests/session-api.test.ts",
+    "sha256": "07B008F501314CB40EEAA3C464416D3BE9267B019C2302B2ECACB996FB1ABB0A",
+    "gitBlob": "54875077aebf496bd510ccb14f61d549bdfd3b1f"
+  },
+  {
+    "path": "packages/db/scripts/db-init.ts",
+    "sha256": "9C028D5A21AEBD0C28DB13EA489EDDA5CF130B3E65C05B486955C34E44F389E1",
+    "gitBlob": "0a278bf707ee894c3efdd9716612232a437df70c"
+  },
+  {
+    "path": "packages/db/src/collections.ts",
+    "sha256": "6C66DA00F0DEDFC58442807956F8F3B6F17F51F058CC7802FA75207E3572F1C1",
+    "gitBlob": "5e428cec3644080f12344416c982b6a1cf4b1335"
+  },
+  {
+    "path": "packages/db/src/decisions.ts",
+    "sha256": "B981898EB0BD6A30003A24E5DA6C4D043E8B2B0EFCF2B380DEA785C778B6ED51",
+    "gitBlob": "22f8de1dd2cdf2774097ed60f57990b1cd0f00c9"
+  },
+  {
+    "path": "packages/db/src/erasure.ts",
+    "sha256": "09BB0126D0BA39C896545612AFF3803BC0E16F41724A955193E96AC36D85A6C9",
+    "gitBlob": "9527c78b7e966debc45df70648ced1f70ec08895"
+  },
+  {
+    "path": "packages/db/src/facts.ts",
+    "sha256": "9A721C47357B971E0633896B659EFE3753F8B478FC71EDBFBED966AF0015A8DC",
+    "gitBlob": "1a0bb25e9726fd6e3f85dae8e50ec8167f465ac8"
+  },
+  {
+    "path": "packages/db/tests/consent.test.ts",
+    "sha256": "012F46EA466C7107BB7EAD5C4AF3A424BA7C0BF9A742C506CD96D01D6F8FC0E4",
+    "gitBlob": "6bef7afea3672d07de5486883b682fb74b6ed7de"
+  },
+  {
+    "path": "packages/db/tests/db-init.test.ts",
+    "sha256": "41738977322B677505097D1B45A259FE73F3E3A3C1FACC48D9486BCA62B6AD4F",
+    "gitBlob": "9c6f4a7f77e8fcfd5f6f6cb2d47e2e1d5c27fd6d"
+  },
+  {
+    "path": "packages/db/tests/decisions.test.ts",
+    "sha256": "103C04790CA550EA892F704961DD9D8331FDBC8666A03F07AC545270E4D5FD91",
+    "gitBlob": "a254d1a20b33990bcc92f25027f5d455f427935a"
+  },
+  {
+    "path": "packages/db/tests/erasure.test.ts",
+    "sha256": "B9C76E133EA45F9E12F941AC8FA768B5C7C0C1D9592DCB27628ACD4D3C0E5340",
+    "gitBlob": "0b014c8f2a9f29f5de7f6675338d7235a776ab3c"
+  },
+  {
+    "path": "packages/db/tests/facts.test.ts",
+    "sha256": "6CF6A45C44F4385527330FDB11C86F16DEE25EF6F370F022101834C50CCE0B94",
+    "gitBlob": "b237747a39ae61d93b0d993d5b9a65d3edb339a5"
+  },
+  {
+    "path": "packages/db/tests/fakes.ts",
+    "sha256": "D4A7BAB922FB83557DA9C45F6D093D64994003530AE7BA92349C8059F82C0CD9",
+    "gitBlob": "d837765b710030a70dcdc488b734df51edd6c8c8"
+  },
+  {
+    "path": "packages/engine/src/scribe/checkpointer.ts",
+    "sha256": "E0171808EFF4028C37826299E7896A7900A8DF023BC4113886BA0C239D230411",
+    "gitBlob": "21ba776496ecef26dfbc455222210f11bdc58434"
+  },
+  {
+    "path": "packages/engine/src/scribe/graph.ts",
+    "sha256": "5B3385608B0F3A484AF50079174D76BF7D8C4FC26306DC0C620ADE9F136368F5",
+    "gitBlob": "c83a21a0acb0ab447948d130dc309a12e998101e"
+  },
+  {
+    "path": "packages/engine/src/scribe/nodes.ts",
+    "sha256": "C66F07E41AF56BCD4BE4BA547061CFC0BDC9D37022190A8F3311C6EAB5030BD7",
+    "gitBlob": "0377424c02eefe8f609cf4f7ea190aaff3376b61"
+  },
+  {
+    "path": "packages/engine/tests/scribe-checkpointer.test.ts",
+    "sha256": "106745A85E610D6AC1321D58410F18D2BBFF7793004D9BC34E7CE807366A9A56",
+    "gitBlob": "458451d17091ee25f82b7caebd0b48fabfa93ab7"
+  },
+  {
+    "path": "packages/engine/tests/scribe-erasure-fence.test.ts",
+    "sha256": "D4EBA6717AE899444EC24A03443F56406B9A50529F5BC049BB3FCBA5A9099BB4",
+    "gitBlob": "cbff8925d04ccecb26b8c4feb58248b38b8059d5"
+  },
+  {
+    "path": "packages/engine/tests/scribe-fixtures.ts",
+    "sha256": "B7EBD80212A61236F9B5282832767E36980606794EF80E04883D22093AF89F90",
+    "gitBlob": "8cf9b8f825bb2097edab73be1382d64e565f6299"
+  },
+  {
+    "path": "packages/engine/tests/scribe-persistence.test.ts",
+    "sha256": "3FE36C9DD9B515A352EEA37117DE4A0FD6D850C4630A9AB1EEB566FAABC9ABB9",
+    "gitBlob": "d4426c034c126909a0ec19b4978f4746d7a6f52b"
+  }
+]

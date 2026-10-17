@@ -1,0 +1,22 @@
+[
+  {
+    "Path": "D:\\vc\\packages\\engine\\src\\scribe\\graph.ts",
+    "Hash": "10471233294C72732DBC3EB6408CDB4E86288862A7A1AB20716816DB5A1C9D52"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\src\\facts.ts",
+    "Hash": "26278ED822895CB13A20D377580393037E104F2134727B1FACC7A4217560F36F"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\tests\\fakes.ts",
+    "Hash": "D4A7BAB922FB83557DA9C45F6D093D64994003530AE7BA92349C8059F82C0CD9"
+  },
+  {
+    "Path": "D:\\vc\\packages\\db\\tests\\facts.test.ts",
+    "Hash": "4BF79B6117C2F9303ED802C0029B6516EEC0E2BDC5337250190B0D2E80AB6DE4"
+  },
+  {
+    "Path": "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts",
+    "Hash": "482281D8A0D5E75FD2D9EF48E4FD874381682CC18239D756ADE997D471B09205"
+  }
+]

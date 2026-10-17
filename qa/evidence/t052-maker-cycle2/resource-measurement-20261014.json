@@ -1,0 +1,48 @@
+{
+  "measuredAt": "2026-10-13T20:47:37.3954525Z",
+  "totalGB": 23.71,
+  "freeGB": 2.11,
+  "processPrivateWorkingSets": [
+    {
+      "name": "Code",
+      "processes": 44,
+      "privateWorkingSetGB": 2.71
+    },
+    {
+      "name": "node",
+      "processes": 203,
+      "privateWorkingSetGB": 2.53
+    },
+    {
+      "name": "ChatGPT",
+      "processes": 14,
+      "privateWorkingSetGB": 1.95
+    },
+    {
+      "name": "codex",
+      "processes": 9,
+      "privateWorkingSetGB": 1.7
+    },
+    {
+      "name": "claude",
+      "processes": 6,
+      "privateWorkingSetGB": 1.18
+    },
+    {
+      "name": "vmmemWSL",
+      "processes": 1,
+      "privateWorkingSetGB": 0.66
+    },
+    {
+      "name": "MsMpEng",
+      "processes": 1,
+      "privateWorkingSetGB": 0.62
+    },
+    {
+      "name": "svchost",
+      "processes": 93,
+      "privateWorkingSetGB": 0.36
+    }
+  ],
+  "changes": "none"
+}
