@@ -1,7 +1,7 @@
 # Manifest — p1-u6h-claim-hardening
 **Contract:** none yet for P1 (checker-owned). Criteria from the source brief `qa/evidence/p1-briefs/p1-u6h-build.md`; hardens U6 (`qa/manifests/p1-u6-student-graph.md`, checked-PASS, verdict aa06ab0).
 **Date:** 2026-10-17
-**Fix cycle:** 0 of max 2
+**Fix cycle:** 1 of max 2
 **Dual check:** no
 **Persona walk:** skip (engine-only, no screen)
 **Executor:** claude-sonnet-subagent (maker/builder p1-u6h)
@@ -74,6 +74,44 @@ Driver: scratch `falsify.py` (exact find/replace on one file, restored from the 
 - "pressure bahut hai" stays unflagged by design; a softer distress route is an open product decision for Umesh.
 - No `senior-software-engineer` / `ai-engineer` review dispatched (brief: orchestrator owns it).
 - `qa/contracts/` untouched; the B2/B24 wording may need a checker amendment for H1 (unsupported `/ask` fact is now `unverified`).
+
+## Repair (cycle 1)
+Checker verdict `qa/verdicts/p1-u6h-claim-hardening.md` (Cycle checked 0): FAIL on M4 only (coach `factFree` ignores spelled-out numbers), plus PROPOSED-ISSUEs P2 (dropped quantifier/qualifier) and P3 (phone shapes) and the AI review items 1-4. Repair base d59c745, code commit `52cfd26`. Choices and trade-offs: `qa/evidence/p1-u6h/fix1-decisions.md`.
+- **M4** (failed criterion) - `numberMentions` exported from `claims.ts`; coach `factFree` (graph.ts) uses it, so "about five thousand euros a year" / "twenty thousand euros" are dropped. M4b: `hasPriorFlag` is a REQUIRED dep (type + `buildStudentGraph` throws); the in-process flag memory stays only as an additive OR; the in-memory stand-in is test-only (`NO_PRIOR_FLAG`). M4c: `safeFollowUp` = one sentence ending "?", <= 200 chars, passes `noScriptGuard` and the crisis-rule list.
+- **H2** - `clauseSupports` requires the same quantifier, hedge/modal, condition and scope sets in claim and evidence clause (dropped OR added fails), a following caveat sentence ("This applies only to ...") is merged into the evidence clause and must be carried, and figures bind to the country in their own segment ("300 euros for Germany and 500 euros for France" no longer verifies "500 euros for Germany").
+- **M3** - `PHONE` (no-quote.ts) also catches "(98765) 43210", "+91 (98765) 43210", "(415) 555-0132", "98765.43210", "98765/43210", "415.555.0132" and Devanagari digits; years, "5000 euros", dates and "3.11.4" still do not match.
+- Existing assertions changed (stricter claims, not weaker): claims-guard R5 negation-parity (`Germany has no tuition fees` vs a "Public universities" source now false), claims-guard A1 /ask and U6h H2 positive controls and the student-graph answer_from_kb claim (the claim must now carry "for most students"), crisis-defaults A11b (the secrecy phrase now also rides in a second claim, because the follow-up is dropped earlier by M4c). 11 test files touched in place; no new src module, no `.claude`, `qa/contracts`, DECISIONS or ARCHITECTURE edit.
+
+Pre-check[M4]: 52cfd26 bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="U6h fix1 M4" tests/student-graph.test.ts tests/claims-guard.test.ts -> pass 5 fail 0 t=7 blobs=packages/engine/tests/student-graph.test.ts:51b86ae,packages/engine/tests/claims-guard.test.ts:6aabf37
+Pre-check[H2]: 52cfd26 bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="U6h fix1 H2|U6h H2" tests/claims-guard.test.ts -> pass 11 fail 0 t=7 blobs=packages/engine/tests/claims-guard.test.ts:6aabf37
+Pre-check[M3]: 52cfd26 bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="U6h fix1 M3" tests/no-quote.test.ts -> pass 2 fail 0 t=5 blobs=packages/engine/tests/no-quote.test.ts:452d267
+Metrics[fix1]: start=2026-10-17T19:05+05:30 end=2026-10-17T19:21:37+05:30 suite_runs=3 mutations=7 survivors_final=0 cycle=1 policy=proportional-verification/2026-10-15.12 tokens=unavailable
+
+### Cycle 1 - how to verify (commands + expected)
+- `bash D:/vc/scripts/vc-testlock.sh pnpm -C <worktree>/packages/engine test` -> tests 1043, pass 998, fail 0, skipped 45 (cycle 0: 1030/985/0/45; +13 new tests). Log `qa/evidence/p1-u6h/fix1/engine-test.txt`.
+- `pnpm -C <worktree>/packages/engine typecheck` -> exit 0 (`fix1/typecheck.txt`).
+- Red first (TDD): `qa/evidence/p1-u6h/fix1/red-run.log` (11 new tests failed before the change).
+- Pre-check logs: `fix1/precheck-M4.txt`, `precheck-H2.txt`, `precheck-M3.txt`.
+
+### Cycle 1 - falsification (COPY `fals`, never the worktree; green before, red after, restored green)
+Driver scratch `falsify_fix1.py`; logs `qa/evidence/p1-u6h/fix1/falsify-<id>.log`, summary `fix1/falsification-summary.txt`.
+| Criterion | mutation | before | after | restored |
+|---|---|---|---|---|
+| M4 | `factFree` without `numberMentions` (graph.ts) | 59/59 | 1 fail | 59/59 |
+| H2a | quantifier / hedge / condition / scope equality back to the old one-way quantifier rule (claims.ts) | 31/31 | 6 fail | 31/31 |
+| H2a (caveat) | caveat `mustCarry` check removed (claims.ts) | 31/31 | 1 fail | 31/31 |
+| H2b | figure-country binding check always true (claims.ts) | 31/31 | 1 fail | 31/31 |
+| M3 | three new PHONE shapes disabled (no-quote.ts) | 16/16 | 1 fail | 16/16 |
+| M4b | `hasPriorFlag` required-check disabled (graph.ts) | 59/59 | 1 fail | 59/59 |
+| M4c | single-sentence follow-up check removed (graph.ts) | 59/59 | 1 fail | 59/59 |
+
+### Cycle 1 - stated limits / open risks
+- H2a is stricter again; honest summaries that drop a qualifier are `unverified` (anonymous mode drops them). On the checker's 12 honest paraphrase rows the verified count is unchanged at 6/12 (script `honest.mts`, same rows as `chk-hostile` H2HONEST). The 5% unverified-share target is still unmeasured on the golden set.
+- The qualifier lists (hedges, conditions, scope words, caveat openers) are finite lexicons; a restrictor outside them is only caught when it is a content word the claim lacks. English only; Hindi evidence fails closed.
+- Figure binding is by segment split; "Germany and France charge 300 euros" binds the figure to both, and a figure in a no-country segment of a multi-country clause binds to none (claim must then name no country for it).
+- `hasPriorFlag` is now required, but no non-test caller exists yet: the API/db unit must wire the stored flag-log reader.
+- Out of scope as briefed: crisis recall phrases (pending Umesh), minor/age rule, non-numeric coach assertions and the coach Polish/English/Indian/Georgia over-drop (product decision), unredacted student text/SOP to the model.
+- Caveat detection is a regex on the sentence right after the matched clause; a caveat two sentences later or a "however" that is really new information is treated per the opener rule (extra false-unverified, never extra verified).
 
 ## Live browser evidence
 Not UI-touching.
