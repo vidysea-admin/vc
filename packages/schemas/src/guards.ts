@@ -73,7 +73,7 @@ const DEFINITIVE_TAG_QUESTION =
 
 const COMPARISON_MARKERS = ["Compare", "vs", "Evidence:"] as const;
 
-const QUESTION_TYPES: ReadonlySet<CardType> = new Set(["widen", "clarify"]);
+const QUESTION_TYPES: ReadonlySet<CardType> = new Set(["widen", "clarify", "check-in"]);
 const STATEMENT_TYPES: ReadonlySet<CardType> = new Set(["compare", "challenge", "evidence"]);
 
 export function isScriptLike(prompt: string, type?: CardType): boolean {

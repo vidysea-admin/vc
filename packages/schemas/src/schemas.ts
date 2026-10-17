@@ -114,7 +114,7 @@ export type Fact = z.infer<typeof FactSchema>;
 // a non-empty array — a card with sources: [] fails parse.
 // ---------------------------------------------------------------------------
 
-export const CardTypeSchema = z.enum(["widen", "challenge", "clarify", "compare", "evidence"]);
+export const CardTypeSchema = z.enum(["widen", "challenge", "clarify", "compare", "evidence", "check-in"]);
 export type CardType = z.infer<typeof CardTypeSchema>;
 
 export const CardSourceSchema = z.object({

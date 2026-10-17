@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./scribe/schemas": "./src/scribe/schemas.ts",
+    "./cards/schemas": "./src/cards/schemas.ts",
     "./webhooks": "./src/webhooks/index.ts"
   },
   "types": "./src/index.ts",

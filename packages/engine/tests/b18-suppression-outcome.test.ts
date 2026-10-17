@@ -3,7 +3,8 @@
  * T-045 now adds graph-owned approved-history input and independent summary verification.
  * The legacy row adapter below deliberately supplies no durable approvedContext; its
  * outcomes do not measure the new authoritative history path, exercised by T-045 tests.
- * Dedicated destination-policy/do-not-ask inputs and live-card implementation remain gaps.
+ * Dedicated destination-policy/do-not-ask inputs remain gaps in this legacy adapter.
+ * Retained live-card source exists; this adapter does not invoke its authorized graph.
  * Facts may contain destination information; absence of a dedicated policy field does
  * not mean the engine cannot consume such information. Preserve ground-truth expectations,
  * skips and count boundaries, without certifying full B18 or live semantic quality.
@@ -106,8 +107,8 @@ test("T-039 shape guard: fixture counts, unique ids and the asserted/quarantined
 // ---------------------------------------------------------------------------------------------
 const CARDS_DIR = join(here, "..", "src", "cards");
 
-test("T-039 structural finding 1: packages/engine/src/cards (B18's live-card surface) does not exist on this branch", () => {
-  assert.equal(existsSync(CARDS_DIR), false, "src/cards exists — the live-card rows may no longer be not-runnable; re-read the header before trusting this file's not-runnable count");
+test("T-039 structural inventory: retained live-card source is present, without measuring B18 outcomes", () => {
+  assert.equal(existsSync(CARDS_DIR), true, "retained src/cards must be present; source presence does not make this legacy row adapter runnable or certify B18 outcomes");
 });
 
 test("T-039 structural finding 2: ExtractInputSchema/SummaryInputSchema have no destination/do-not-ask channel", () => {
@@ -170,7 +171,7 @@ function classify(row: AssertedRow): Classification {
   if (row.item.surface === "live-card") {
     return {
       kind: "not-runnable",
-      reason: "no cards/relevance module exists on this branch (finding 1); it is unmerged work on wave/t-010-live-cards, whose own checker already found a B18 leak in it",
+      reason: "this legacy adapter does not invoke the retained live-cards graph or translate these rows into its authorized inputs; these live-card outcomes remain unmeasured here",
     };
   }
   if (row.item.surface === "scribe-fact") {
