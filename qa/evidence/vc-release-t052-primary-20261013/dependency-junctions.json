@@ -1,0 +1,17 @@
+[
+  {
+    "FullName": "D:\\vc\\qa\\evidence\\vc-release-t052-primary-20261013\\isolation\\packages\\engine\\node_modules",
+    "LinkType": "Junction",
+    "Target": "D:\\vc\\packages\\engine\\node_modules"
+  },
+  {
+    "FullName": "D:\\vc\\qa\\evidence\\vc-release-t052-primary-20261013\\isolation\\packages\\db\\node_modules",
+    "LinkType": "Junction",
+    "Target": "D:\\vc\\packages\\db\\node_modules"
+  },
+  {
+    "FullName": "D:\\vc\\qa\\evidence\\vc-release-t052-primary-20261013\\isolation\\skills",
+    "LinkType": "Junction",
+    "Target": "D:\\vc\\skills"
+  }
+]

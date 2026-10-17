@@ -1,0 +1,20 @@
+{
+  "url": "http://localhost:3157",
+  "limitations": [
+    "Initial 127 origin Next devassets blocked, corrected to permitted localhost without source edits",
+    "Raw demo readback navigation ERR_BLOCKED_BY_CLIENT; no bypass; UI Reload verified server persisted outcome",
+    "English reference flow does not certify Hindi/voice or all persona scenarios",
+    "No production/client UI/provider/Pathlynks consent writer or full counselling goal completion"
+  ],
+  "steps": [
+    "Actual five-turn synthetic transcript visible",
+    "Submit -> AI unavailable + unchanged visible transcript + Retry",
+    "Retry -> Session submitted -> approval link",
+    "Four cited proposals -> approve each -> Withhold summary -> Submit",
+    "Resolved written four values -> Reload same written values and summary withheld"
+  ],
+  "consoleWarnErrorCount": 0,
+  "sessionId": "75d433c4-9463-45d2-a7c9-8394ed108c04",
+  "operator": "fresh independent checker own CUA",
+  "scope": "Indirect reference UI demo synthetic offline Mongo+mockprovider; signed JWT real DB mechanics independently tested in separate oracle"
+}

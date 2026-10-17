@@ -1,0 +1,970 @@
+diff --git a/apps/api/src/openapi.ts b/apps/api/src/openapi.ts
+index a1f5563..adfdf7d 100644
+--- a/apps/api/src/openapi.ts
++++ b/apps/api/src/openapi.ts
+@@ -86,6 +86,19 @@ export const OPENAPI_DOCUMENT = {
+     },
+   },
+   paths: {
++    ...Object.fromEntries((["prepare", "open", "close"] as const).map(operation => [
++      `/v1/students/{studentId}/sessions/{sessionId}/${operation}`, { post: {
++        operationId: `session${operation}`, summary: operation === "prepare" ? "Prepare nonactivating opening authority from an already issued consent grant"
++          : operation === "open" ? "Open using a present bound opening capability" : "Close the exact existing session generation",
++        "x-roles": ["counsellor", "admin"], parameters: [studentId, sessionId],
++        requestBody: { required: true, ...json({ type: "object", additionalProperties: false,
++          properties: operation === "prepare" ? {} : operation === "open" ? { capability: { type: "string", format: "uuid" } }
++            : { capability: { type: "string", format: "uuid" }, generation: { type: "string", format: "uuid" } },
++          required: operation === "prepare" ? [] : operation === "open" ? ["capability"] : ["capability", "generation"],
++        }) }, responses: { "200": ok("Validated lifecycle result; prepare does not activate a session"), "400": { $ref: "#/components/responses/BadRequest" },
++          "401": { $ref: "#/components/responses/Unauthorized" }, "403": { $ref: "#/components/responses/Forbidden" } },
++      } },
++    ])),
+     "/v1/openapi.json": {
+       get: {
+         operationId: "getOpenApi",
+diff --git a/apps/api/src/server.ts b/apps/api/src/server.ts
+index e4ec09f..f22bdfc 100644
+--- a/apps/api/src/server.ts
++++ b/apps/api/src/server.ts
+@@ -44,6 +44,7 @@ import {
+   errorLabel,
+   executeErasure,
+   exportStudent,
++  ensureScribeSessionRow,
+   getErasureRequest,
+   getFactsByIds,
+   hasStudentSession,
+@@ -280,6 +281,18 @@ function scribeOpts(ctx: RouteContext) {
+ }
+ 
+ const ROUTES: RouteDef[] = [
++  ...(["prepare", "open", "close"] as const).map(operation => ({
++    id: `session${operation}`, method: "POST" as const,
++    path: `/v1/students/{studentId}/sessions/{sessionId}/${operation}`, roles: ANY_ROLE,
++    body: operation === "prepare" ? z.object({}).strict() : operation === "open"
++      ? z.object({ capability: z.string().uuid() }).strict()
++      : z.object({ capability: z.string().uuid(), generation: z.string().uuid() }).strict(),
++    run: async (ctx: RouteContext) => ({ status: 200, body: await ensureScribeSessionRow(ctx.store(), {
++      sessionId: ctx.params.sessionId!, studentId: ctx.params.studentId!, operation,
++      tenantId: ctx.auth.tenantId, actorId: ctx.auth.counsellorId,
++      ...(ctx.body as { capability?: string; generation?: string }),
++    }, ctx.writerDeadlineMs === undefined ? {} : { timeoutMS: ctx.writerDeadlineMs }) }),
++  })),
+   {
+     id: "getOpenApi",
+     method: "GET",
+diff --git a/packages/db/scripts/db-init.ts b/packages/db/scripts/db-init.ts
+index 55e3870..0a278bf 100644
+--- a/packages/db/scripts/db-init.ts
++++ b/packages/db/scripts/db-init.ts
+@@ -125,11 +125,17 @@ export const INDEX_PLAN: IndexSpec[] = [
+     keys: { thread_id: 1, checkpoint_ns: 1, checkpoint_id: -1 },
+     name: "thread_ns_checkpoint_idx",
+   },
++  { collection: COLLECTION_NAMES.scribe_checkpoints,
++    keys: { tenantId: 1, thread_id: 1, checkpoint_ns: 1, checkpoint_id: -1 },
++    name: "vc_checkpoint_tenantId_logical_unique", unique: true },
+   {
+     collection: COLLECTION_NAMES.scribe_checkpoint_writes,
+     keys: { thread_id: 1, checkpoint_ns: 1, checkpoint_id: 1, task_id: 1, idx: 1 },
+     name: "thread_ns_checkpoint_task_idx",
+   },
++  { collection: COLLECTION_NAMES.scribe_checkpoint_writes,
++    keys: { tenantId: 1, thread_id: 1, checkpoint_ns: 1, checkpoint_id: -1, task_id: 1, idx: 1 },
++    name: "vc_checkpoint_write_tenantId_logical_unique", unique: true },
+   // T-011 / B15: the erasure audit log. studentId is present only while a request is open
+   // (unset on verified completion), so this index only ever holds open requests' ids.
+   { collection: COLLECTION_NAMES.erasure_requests, keys: { studentId: 1 }, name: "erasure_requests_studentId" },
+diff --git a/packages/db/src/collections.ts b/packages/db/src/collections.ts
+index 394f5c6..706e6a8 100644
+--- a/packages/db/src/collections.ts
++++ b/packages/db/src/collections.ts
+@@ -106,6 +106,13 @@ export interface SessionDoc {
+   summary?: string;
+   summaryWithheldReason?: string;
+   summaryApprovedAt?: string;
++  lifecycleGeneration?: string;
++  creationAttempt?: string;
++  lifecycleState?: "active" | "closed";
++  lifecycleIncarnation?: string;
++  lifecycleActor?: string;
++  lifecycleTenant?: string;
++  openingCapabilityHash?: string;
+ }
+ 
+ /**
+@@ -116,6 +123,7 @@ export interface SessionDoc {
+  * never overwritten ($setOnInsert): the first recorded text is the ground truth.
+  */
+ export interface TranscriptTurnDoc {
++  writerToken?: string;
+   _id: string;
+   sessionId: string;
+   studentId: string;
+@@ -146,10 +154,14 @@ export function transcriptTurnDocId(sessionId: string, turnId: string): string {
+ export type FactDoc = Fact & { _id: string; studentId: string; contentHash?: string; active?: true };
+ 
+ /** A stored Consent row: the Zod-validated shape plus its Mongo identity field. */
+-export type ConsentDoc = Consent & { _id: string };
++export type ConsentDoc = Consent & { _id: string; lifecycleIncarnation?: string };
+ 
+ /** A stored Decision (plan.md §4 step 1): the Zod-validated shape plus identity + timestamp. */
+-export type DecisionDoc = Decision & { _id: string; decidedAt: string };
++export type DecisionDoc = (Decision & { _id: string; decidedAt: string }) | {
++  _id: string; kind: "session_opening_capability"; studentId: string; sessionId: string;
++  tenantId: string; actorId: string; consentId: string; lifecycleIncarnation: string;
++  capabilityHash: string; lifecycleGeneration: string; creationAttempt: string; decidedAt: string;
++};
+ 
+ /**
+  * ISS-t-007-rev-8: the atomic, cross-process claim on a scribe thread's approval interrupt.
+@@ -223,6 +235,11 @@ export function validateFactForWrite(fact: unknown): Fact {
+ 
+ /** Validates a candidate Consent row against the shared Zod schema before any write. */
+ export function validateConsentForWrite(consent: unknown): Consent {
++  if (consent !== null && typeof consent === "object" &&
++      ["lifecycleIncarnation", "lifecycleGeneration", "creationAttempt", "openingCapability", "capabilityHash", "openingCapabilityHash", "lifecycleActor", "lifecycleTenant"]
++        .some(key => Object.prototype.hasOwnProperty.call(consent, key))) {
++    throw new Error("Consent internal authority must not be supplied.");
++  }
+   return ConsentSchema.parse(consent);
+ }
+ 
+diff --git a/packages/db/src/erasure.ts b/packages/db/src/erasure.ts
+index 55ba7c2..87f65c4 100644
+--- a/packages/db/src/erasure.ts
++++ b/packages/db/src/erasure.ts
+@@ -105,6 +105,7 @@ import {
+   type ErasureReason,
+   type ErasureReceipt,
+   type ErasureStatus,
++  type Fact,
+ } from "@vc/schemas";
+ import {
+   COLLECTION_NAMES,
+@@ -1842,7 +1843,7 @@ export interface StudentExport {
+   consents: ConsentDoc[];
+   edges: EdgeDoc[];
+   /** Scribe approval claims (they hold the approved fact values). */
+-  approvalClaims: ScribeResolutionDoc[];
++  approvalClaims: Array<Pick<ScribeResolutionDoc, "_id" | "threadId" | "studentId"> & Partial<Omit<ScribeResolutionDoc, "_id" | "threadId" | "studentId" | "lease">>>;
+   /**
+    * T-024 / ISS-t-013r-c0-3 (D-020): the full chat, VERBATIM — every persisted transcript turn of
+    * every session, in speaking order (sessionId, ts, turnId). This is the readable copy the
+@@ -1879,15 +1880,71 @@ export async function exportStudent(db: Db, studentId: string): Promise<StudentE
+     studentId,
+     student: await db.collection<StudentDoc>(COLLECTION_NAMES.students).findOne({ studentId }),
+     facts,
+-    sessions: await db.collection<SessionDoc>(COLLECTION_NAMES.sessions).find({ studentId }).toArray(),
+-    decisions: await db.collection<DecisionDoc | RejectReasonAuditDoc>(COLLECTION_NAMES.decisions).find({ studentId }).toArray(),
+-    consents: await db.collection<ConsentDoc>(COLLECTION_NAMES.consents).find({ studentId }).toArray(),
++    sessions: (await db.collection<SessionDoc>(COLLECTION_NAMES.sessions).find({ studentId }).toArray()).map(row => ({
++      _id: row._id, sessionId: row.sessionId, studentId: row.studentId,
++      ...(row.consentId === undefined ? {} : { consentId: row.consentId }),
++      ...(row.startedAt === undefined ? {} : { startedAt: row.startedAt }),
++      ...(row.endedAt === undefined ? {} : { endedAt: row.endedAt }),
++      ...(row.scribeThreadIds === undefined ? {} : { scribeThreadIds: row.scribeThreadIds }),
++      ...(row.summary === undefined ? {} : { summary: row.summary }),
++      ...(row.summaryApprovedAt === undefined ? {} : { summaryApprovedAt: row.summaryApprovedAt }),
++      ...(row.summaryWithheldReason === undefined ? {} : { summaryWithheldReason: row.summaryWithheldReason }),
++    })),
++    decisions: (await db.collection<DecisionDoc | RejectReasonAuditDoc>(COLLECTION_NAMES.decisions).find({ studentId }).toArray())
++      .filter(row => !("kind" in row) || row.kind !== "session_opening_capability")
++      .map(row => "kind" in row && row.kind === "per_fact_reject" ? {
++        _id: row._id, kind: row.kind, threadId: row.threadId, studentId: row.studentId, decidedAt: row.decidedAt,
++        rejected: row.rejected.map(item => ({ key: item.key, ...(item.reason === undefined ? {} : { reason: item.reason }) })),
++      } : (() => {
++        const decision = row as Exclude<DecisionDoc, { kind: string }>;
++        return { _id: decision._id, studentId: decision.studentId, universityId: decision.universityId,
++          courseId: decision.courseId, rationale: decision.rationale, alternativesConsidered: decision.alternativesConsidered,
++          decidedAt: decision.decidedAt };
++      })()),
++    consents: (await db.collection<ConsentDoc>(COLLECTION_NAMES.consents).find({ studentId }).toArray()).map(row => ({
++      _id: row._id, studentId: row.studentId, guardianConsent: row.guardianConsent, purposes: row.purposes,
++      recordedAt: row.recordedAt, minor: row.minor,
++    })),
+     edges: (await db.collection(COLLECTION_NAMES.edges).find(edgeFilter(s)).toArray()) as unknown as EdgeDoc[],
+-    approvalClaims: await db
++    approvalClaims: (await db
+       .collection<ScribeResolutionDoc>(COLLECTION_NAMES.scribe_resolutions)
+       .find({ studentId })
+-      .toArray(),
+-    transcripts,
++      .toArray()).map(row => {
++        // Project typed public containers; opaque fact values remain personal data, not authority.
++        const [decisionEdits, responseFacts] = [row.decision?.edits, row.response?.action === "edit" && Array.isArray(row.response.facts) ? row.response.facts as Fact[] : undefined]
++          .map(facts => facts?.map((fact): Fact => {
++            const original = fact.source.type === "counsellor-edit" ? fact.source.editedFrom : fact.source;
++            const source = original.type === "transcript" ? { type: original.type, quote: original.quote, turnId: original.turnId }
++              : original.type === "kb" ? { type: original.type, id: original.id, fetchedAt: original.fetchedAt }
++              : { type: original.type, id: original.id };
++            return { key: fact.key, value: fact.value, source: fact.source.type === "counsellor-edit"
++              ? { type: fact.source.type, counsellorId: fact.source.counsellorId, editedAt: fact.source.editedAt, editedFrom: source } : source,
++              confidence: fact.confidence, validFrom: fact.validFrom, purposeTags: fact.purposeTags, sensitivity: fact.sensitivity,
++              ...(fact.validTo === undefined ? {} : { validTo: fact.validTo }),
++              ...(fact.kind === undefined ? {} : { kind: fact.kind }),
++              ...(fact.explains === undefined ? {} : { explains: fact.explains }),
++              ...(fact.citationMatch === undefined ? {} : { citationMatch: fact.citationMatch }),
++              ...(fact.needsReview === undefined ? {} : { needsReview: fact.needsReview }),
++              ...(fact.reviewReasons === undefined ? {} : { reviewReasons: fact.reviewReasons }) };
++          }));
++        const response = row.response?.action === "approve" ? { action: "approve" }
++          : row.response?.action === "reject" ? { action: "reject", ...(row.response.reason === undefined ? {} : { reason: row.response.reason }) }
++          : row.response?.action === "edit" ? { action: "edit", facts: responseFacts }
++          : row.response?.action === "per_fact" ? { action: "per_fact", summary: row.response.summary,
++            facts: (Array.isArray(row.response.facts) ? row.response.facts as { key: string; decision: string; reason?: string; value?: unknown }[] : [])
++              .map(item => ({ key: item.key, decision: item.decision,
++                ...(item.decision === "reject" && item.reason !== undefined ? { reason: item.reason } : {}),
++                ...(item.decision === "edit" ? { value: item.value } : {}) })) }
++          : typeof row.response?.action === "string" ? { action: row.response.action } : {};
++        return { _id: row._id, threadId: row.threadId, studentId: row.studentId,
++          ...(row.decision === undefined ? {} : { decision: { approve: row.decision.approve, ...(decisionEdits === undefined ? {} : { edits: decisionEdits }) } }),
++          ...(row.response === undefined ? {} : { response }),
++          ...(row.responseHash === undefined ? {} : { responseHash: row.responseHash }),
++          ...(row.claimedAt === undefined ? {} : { claimedAt: row.claimedAt }),
++          ...(row.approvalMetadata === undefined ? {} : { approvalMetadata: { counsellorId: row.approvalMetadata.counsellorId, editedAt: row.approvalMetadata.editedAt } }) };
++      }),
++    transcripts: transcripts.map(turn => ({ _id: turn._id, sessionId: turn.sessionId, studentId: turn.studentId, turnId: turn.turnId,
++      speaker: turn.speaker, lang: turn.lang, text: turn.text, translatedText: turn.translatedText, ts: turn.ts, recordedAt: turn.recordedAt })),
+     escalations: escalations.map((d) => ({
+       escalationId: d.escalationId, sessionId: d.sessionId, studentId: d.studentId, turnId: d.turnId,
+       guardLevel: d.guardLevel, matched: d.matched, severity: d.severity, reason: d.reason,
+diff --git a/packages/db/src/facts.ts b/packages/db/src/facts.ts
+index 69a98e1..b5498b2 100644
+--- a/packages/db/src/facts.ts
++++ b/packages/db/src/facts.ts
+@@ -154,13 +154,15 @@ import {
+   factsCollection,
+   edgesCollection,
+   sessionsCollection,
++  consentsCollection,
++  decisionsCollection,
+   sessionTranscriptsCollection,
+   transcriptTurnDocId,
+   type FactDoc,
+   type TranscriptTurnDoc,
+ } from "./collections.js";
+ import { deriveEdgeId, link, type EdgeRef, type EdgeDoc } from "./edges.js";
+-import { requireConsent } from "./consent.js";
++import { requireConsent, ConsentRequiredError } from "./consent.js";
+ import {
+   assertStudentNotFenced,
+   compensateIfFenced,
+@@ -661,9 +663,14 @@ export interface ScribeSessionRowInput {
+   sessionId: string;
+   studentId: string;
+   /** The LangGraph thread this scribe run checkpoints under (any id, recorded so erasure finds it). */
+-  threadId: string;
++  threadId?: string;
+   /** When the counselling session ended (the scribe input's sessionEndedAt). */
+   endedAt?: string;
++  operation?: "prepare" | "open" | "close";
++  tenantId?: string;
++  actorId?: string;
++  capability?: string;
++  generation?: string;
+ }
+ 
+ function requireNonEmpty(fields: Record<string, unknown>, caller: string): void {
+@@ -689,20 +696,143 @@ export async function ensureScribeSessionRow(
+   db: Db,
+   input: ScribeSessionRowInput,
+   options: { timeoutMS?: number } = {},
+-): Promise<{ created: boolean }> {
++): Promise<{ created: boolean; generation?: string; creationAttempt?: string; capability?: string; state?: "active" | "closed" }> {
++  if (input.operation) {
++    requireNonEmpty({ sessionId: input.sessionId, studentId: input.studentId, tenantId: input.tenantId, actorId: input.actorId }, "ensureScribeSessionRow");
++    const deadline = new WriterDeadline(options.timeoutMS);
++    const creationAttempt = randomUUID();
++    const pending: Promise<unknown>[] = [];
++    let captured: { _id: string; lifecycleIncarnation: string } | undefined;
++    let ownedCapability: string | undefined;
++    let ownedGeneration: string | undefined;
++    const run = <T>(work: Promise<T>) => { pending.push(work); return deadline.run(work); };
++    const authority = async () => {
++      deadline.op();
++      await run(assertStudentNotFenced(db, input.studentId, deadline.op()));
++      const grant = await run(consentsCollection(db).findOne({ studentId: input.studentId }, deadline.op()));
++      if (!grant || !grant.purposes.includes("counselling") || (grant.minor && !grant.guardianConsent) ||
++          typeof grant.lifecycleIncarnation !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(grant.lifecycleIncarnation) ||
++          (captured && (captured._id !== grant._id || captured.lifecycleIncarnation !== grant.lifecycleIncarnation))) throw new ConsentRequiredError();
++      if (!captured) captured = { _id: grant._id, lifecycleIncarnation: grant.lifecycleIncarnation };
++      await run(assertStudentNotFenced(db, input.studentId, deadline.op()));
++      deadline.op();
++      return captured;
++    };
++    const cleanup = async () => {
++      await Promise.allSettled(pending);
++      if (ownedCapability) await decisionsCollection(db).deleteMany({ _id: ownedCapability, kind: "session_opening_capability", creationAttempt });
++      if (ownedGeneration) await sessionsCollection(db).deleteMany({ _id: input.sessionId, studentId: input.studentId, lifecycleGeneration: ownedGeneration, creationAttempt });
++    };
++    try {
++      const grant = await authority();
++      if (input.operation === "prepare") {
++        const capability = randomUUID();
++        const capabilityHash = createHash("sha256").update(capability).digest("hex");
++        ownedCapability = capabilityHash;
++        const generation = randomUUID();
++        await run(decisionsCollection(db).insertOne({ _id: capabilityHash, kind: "session_opening_capability", studentId: input.studentId,
++          sessionId: input.sessionId, tenantId: input.tenantId!, actorId: input.actorId!, consentId: grant._id,
++          lifecycleIncarnation: grant.lifecycleIncarnation, capabilityHash, lifecycleGeneration: generation, creationAttempt,
++          decidedAt: new Date().toISOString() }, deadline.op()));
++        await authority();
++        const present = await run(decisionsCollection(db).findOne({ _id: capabilityHash, kind: "session_opening_capability", creationAttempt, lifecycleIncarnation: grant.lifecycleIncarnation }, deadline.op()));
++        await authority();
++        if (!present) throw new ConsentRequiredError();
++        return { created: false, capability };
++      }
++      if (typeof input.capability !== "string" || !/^[0-9a-f-]{36}$/i.test(input.capability)) throw new ConsentRequiredError();
++      const capabilityHash = createHash("sha256").update(input.capability).digest("hex");
++      const binding = { _id: capabilityHash, kind: "session_opening_capability" as const, studentId: input.studentId, sessionId: input.sessionId,
++        tenantId: input.tenantId!, actorId: input.actorId!, consentId: grant._id, lifecycleIncarnation: grant.lifecycleIncarnation };
++      const capability = await run(decisionsCollection(db).findOne(binding, deadline.op()));
++      await authority();
++      if (!capability || !("kind" in capability) || capability.kind !== "session_opening_capability") throw new ConsentRequiredError();
++      const generation = capability.lifecycleGeneration;
++      if (typeof generation !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(generation) ||
++          capability.capabilityHash !== capabilityHash || typeof capability.creationAttempt !== "string") throw new ConsentRequiredError();
++      const sessionBinding = { _id: input.sessionId, studentId: input.studentId, lifecycleGeneration: generation,
++        lifecycleIncarnation: grant.lifecycleIncarnation, lifecycleActor: input.actorId!, lifecycleTenant: input.tenantId!, openingCapabilityHash: capabilityHash };
++      let created = false;
++      let closingAttempt: string | undefined;
++      if (input.operation === "open") {
++        ownedGeneration = generation;
++        try {
++          const result = await run(sessionsCollection(db).updateOne(sessionBinding,
++            { $setOnInsert: { sessionId: input.sessionId, consentId: grant._id, lifecycleState: "active", startedAt: new Date().toISOString(), creationAttempt } },
++            { upsert: true, ...deadline.op() }));
++          created = result.upsertedCount === 1;
++        } catch (error) {
++          if ((error as { code?: unknown })?.code !== 11000) throw error;
++        }
++      } else {
++        if (input.generation !== generation) throw new ConsentRequiredError();
++        const owner = await run(sessionsCollection(db).findOne(sessionBinding, deadline.op()));
++        await authority();
++        if (!owner?.creationAttempt) throw new ConsentRequiredError();
++        closingAttempt = owner.creationAttempt;
++        await run(sessionsCollection(db).updateOne({ ...sessionBinding, creationAttempt: owner.creationAttempt, lifecycleState: "active" },
++          { $set: { lifecycleState: "closed", endedAt: new Date().toISOString() } }, deadline.op()));
++      }
++      await authority();
++      const session = await run(sessionsCollection(db).findOne({ ...sessionBinding, ...(closingAttempt ? { creationAttempt: closingAttempt } : {}) }, deadline.op()));
++      await authority();
++      const present = await run(decisionsCollection(db).findOne(binding, deadline.op()));
++      await authority();
++      if (!present || !session || (input.operation === "open" && session.lifecycleState !== "active") ||
++          (input.operation === "close" && session.lifecycleState !== "closed")) throw new ConsentRequiredError();
++      return { created, generation, state: session.lifecycleState };
++    } catch (error) {
++      const settled = cleanup();
++      settled.catch(() => undefined);
++      if (deadline.expired()) throw new FencedWriterDeadlineError(settled, { cause: error });
++      await settled;
++      throw error;
++    } finally { deadline.dispose(); }
++  }
+   requireNonEmpty({ sessionId: input.sessionId, studentId: input.studentId, threadId: input.threadId }, "ensureScribeSessionRow");
+-  const res = await sessionsCollection(db).updateOne(
+-    { _id: input.sessionId, studentId: input.studentId },
++  const generation = randomUUID();
++  const creationAttempt = randomUUID();
++  const deadline = new WriterDeadline(options.timeoutMS);
++  let work: Promise<unknown> = Promise.resolve();
++  try {
++  await deadline.run(assertStudentNotFenced(db, input.studentId, deadline.op()));
++  const grant = await deadline.run(consentsCollection(db).findOne({ studentId: input.studentId }, deadline.op()));
++  const existing = await deadline.run(sessionsCollection(db).findOne({ _id: input.sessionId, studentId: input.studentId }, deadline.op()));
++  await deadline.run(assertStudentNotFenced(db, input.studentId, deadline.op()));
++  work = sessionsCollection(db).updateOne(
++    { _id: input.sessionId, studentId: input.studentId,
++      ...(existing ? { lifecycleGeneration: existing.lifecycleGeneration ?? { $exists: false }, creationAttempt: existing.creationAttempt ?? { $exists: false } }
++        : { lifecycleGeneration: generation, creationAttempt }) },
+     {
+       $setOnInsert: {
+         sessionId: input.sessionId,
++        lifecycleGeneration: generation,
++        creationAttempt,
+         ...(input.endedAt ? { endedAt: input.endedAt } : {}),
+       },
+       $addToSet: { scribeThreadIds: input.threadId },
+     },
+-    { upsert: true, ...options },
++    { upsert: !existing, ...deadline.op() },
+   );
+-  return { created: res.upsertedCount === 1 };
++  const res = await deadline.run(work) as { upsertedCount: number; matchedCount: number };
++  await deadline.run(assertStudentNotFenced(db, input.studentId, deadline.op()));
++  if (grant?.lifecycleIncarnation !== undefined) {
++    const currentGrant = await deadline.run(consentsCollection(db).findOne({ studentId: input.studentId }, deadline.op()));
++    if (!currentGrant || currentGrant._id !== grant._id || currentGrant.lifecycleIncarnation !== grant.lifecycleIncarnation) throw new ConsentRequiredError();
++    await deadline.run(assertStudentNotFenced(db, input.studentId, deadline.op()));
++  }
++  deadline.op();
++  if (res.upsertedCount !== 1 && res.matchedCount !== 1) throw new ConsentRequiredError();
++  return { created: res.upsertedCount === 1, ...(res.upsertedCount === 1 ? { generation, creationAttempt } : {}) };
++  } catch (error) {
++    const settled = work.then(() => undefined, () => undefined).then(() => sessionsCollection(db).deleteMany({
++      _id: input.sessionId, studentId: input.studentId, lifecycleGeneration: generation, creationAttempt,
++    })).then(() => undefined);
++    settled.catch(() => undefined);
++    if (deadline.expired()) throw new FencedWriterDeadlineError(settled, { cause: error });
++    await settled;
++    throw error;
++  } finally { deadline.dispose(); }
+ }
+ 
+ /** ISS-t-007-rev-7: the approved summary's session row does not exist (never written, or erased). */
+@@ -911,7 +1041,7 @@ export interface RecordSessionTranscriptInput {
+ export async function recordSessionTranscript(
+   db: Db,
+   input: RecordSessionTranscriptInput,
+-  options: { timeoutMS?: number; createdSink?: string[] } = {},
++  options: { timeoutMS?: number; createdSink?: string[]; writerToken?: string } = {},
+ ): Promise<{ createdIds: string[] }> {
+   requireNonEmpty({ sessionId: input.sessionId, studentId: input.studentId }, "recordSessionTranscript");
+   const turns = input.turns.map((t) => TranscriptTurnRecordSchema.parse(t));
+@@ -922,6 +1052,7 @@ export async function recordSessionTranscript(
+   }
+   const coll = sessionTranscriptsCollection(db);
+   const recordedAt = new Date().toISOString();
++  const writerToken = options.writerToken ?? randomUUID();
+   const createdIds: string[] = [];
+   for (const t of turns) {
+     const _id = transcriptTurnDocId(input.sessionId, t.turnId);
+@@ -937,6 +1068,7 @@ export async function recordSessionTranscript(
+           translatedText: t.translatedText,
+           ts: t.ts,
+           recordedAt,
++          writerToken,
+         },
+       },
+       { upsert: true, ...(options.timeoutMS !== undefined ? { timeoutMS: options.timeoutMS } : {}) },
+@@ -961,7 +1093,10 @@ export async function readSessionTranscript(
+   const docs = await sessionTranscriptsCollection(db)
+     .find({ studentId: input.studentId, sessionId: input.sessionId })
+     .toArray();
+-  return docs.sort((a, b) => a.ts - b.ts || a.turnId.localeCompare(b.turnId));
++  return docs.sort((a, b) => a.ts - b.ts || a.turnId.localeCompare(b.turnId)).map(turn => ({
++    _id: turn._id, sessionId: turn.sessionId, studentId: turn.studentId, turnId: turn.turnId, speaker: turn.speaker,
++    lang: turn.lang, text: turn.text, translatedText: turn.translatedText, ts: turn.ts, recordedAt: turn.recordedAt,
++  }));
+ }
+ 
+ /**
+diff --git a/packages/engine/src/scribe/checkpointer.ts b/packages/engine/src/scribe/checkpointer.ts
+index aab8244..21ba776 100644
+--- a/packages/engine/src/scribe/checkpointer.ts
++++ b/packages/engine/src/scribe/checkpointer.ts
+@@ -15,7 +15,7 @@
+  */
+ import type { MongoClient } from "mongodb";
+ import { MongoDBSaver } from "@langchain/langgraph-checkpoint-mongodb";
+-import { VC_DB_NAME } from "@vc/db";
++import { VC_DB_NAME, getVcDb } from "@vc/db";
+ 
+ export const SCRIBE_CHECKPOINT_COLLECTIONS = {
+   checkpoints: "scribe_checkpoints",
+@@ -45,5 +45,14 @@ export async function initScribeCheckpointer(client: MongoClient): Promise<Mongo
+     const detail = errors.map((e) => (e instanceof Error ? e.message : String(e))).join("; ");
+     throw new AggregateError(errors, `initScribeCheckpointer: MongoDBSaver.setup() failed: ${detail}`);
+   }
++  const db = getVcDb(client);
++  await db.collection(SCRIBE_CHECKPOINT_COLLECTIONS.checkpoints).createIndex(
++    { tenantId: 1, thread_id: 1, checkpoint_ns: 1, checkpoint_id: -1 },
++    { name: "vc_checkpoint_tenantId_logical_unique", unique: true },
++  );
++  await db.collection(SCRIBE_CHECKPOINT_COLLECTIONS.writes).createIndex(
++    { tenantId: 1, thread_id: 1, checkpoint_ns: 1, checkpoint_id: -1, task_id: 1, idx: 1 },
++    { name: "vc_checkpoint_write_tenantId_logical_unique", unique: true },
++  );
+   return saver;
+ }
+diff --git a/packages/engine/src/scribe/graph.ts b/packages/engine/src/scribe/graph.ts
+index b519819..06448fc 100644
+--- a/packages/engine/src/scribe/graph.ts
++++ b/packages/engine/src/scribe/graph.ts
+@@ -14,7 +14,8 @@
+  * - counsellor reject -> END with status "rejected" (B3: nothing written)
+  * - approve / edit   -> write_approved              (B3: the only write, after the interrupt)
+  */
+-import { Annotation, Command, END, START, StateGraph, interrupt, type BaseCheckpointSaver } from "@langchain/langgraph";
++import { Annotation, Command, END, START, StateGraph, interrupt, MemorySaver, copyCheckpoint, type BaseCheckpointSaver } from "@langchain/langgraph";
++import { MongoDBSaver } from "@langchain/langgraph-checkpoint-mongodb";
+ import type { Callbacks } from "@langchain/core/callbacks/manager";
+ import { createHash, randomUUID } from "node:crypto";
+ import { isDeepStrictEqual } from "node:util";
+@@ -24,6 +25,7 @@ import {
+   deriveEdgeId,
+   edgesCollection,
+   ensureScribeSessionRow,
++  consentsCollection,
+   FENCE_MARGIN_MS,
+   FENCE_POSTCHECK_TIMEOUT_MS,
+   FencedWriterDeadlineError,
+@@ -41,6 +43,8 @@ import {
+   type EdgeDoc,
+   type EdgeRef,
+   type ScribeResolutionDoc,
++  type ConsentDoc,
++  type SessionDoc,
+ } from "@vc/db";
+ import type { Collection } from "mongodb";
+ import { ConcernRecordSchema, type ConcernRecord, type CounsellorDecision, type Fact, type ProfileDiff } from "@vc/schemas";
+@@ -122,6 +126,8 @@ function authorizeSnapshot(deps: Pick<ScribeDeps, "db">, studentId: string, snap
+     let onAbort: (() => void) | undefined;
+     try {
+       if (!tenantIdOf(deps.db) || !studentId?.trim()) throw new ProviderAuthorizationRefusedError();
++      const owner = checkpointInvocation.getStore();
++      if (owner) { if (owner.db !== deps.db) throw new ProviderAuthorizationRefusedError(); await owner.authorize(); }
+       if (signal?.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+       const cancelled = new Promise<never>((_, reject) => {
+         onAbort = () => reject(new DOMException("Scribe execution cancelled.", "AbortError"));
+@@ -136,6 +142,7 @@ function authorizeSnapshot(deps: Pick<ScribeDeps, "db">, studentId: string, snap
+             if (!isDeepStrictEqual(ordered(fresh), ordered(snapshot))) throw new ProviderAuthorizationRefusedError();
+           });
+       await (signal ? Promise.race([reading, cancelled]) : reading);
++      if (owner) await owner.authorize();
+       if (signal?.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+     } catch {
+       if (signal?.aborted) throw new DOMException("Scribe execution cancelled.", "AbortError");
+@@ -246,11 +253,17 @@ export function buildScribeGraph(deps: ScribeDeps) {
+             }),
+           };
+     })
+-    .addNode(SCRIBE_NODES.write, async (s: State, runtime: { configurable?: { writerDeadlineExpiresAt?: number } }) => ({
++    .addNode(SCRIBE_NODES.write, async (s: State, runtime: { configurable?: { writerDeadlineExpiresAt?: number } }) => {
++      const owner = checkpointInvocation.getStore();
++      const invocation = approvalInvocation.getStore();
++      if (!owner || !invocation || graphDeps.get(invocation.graph)?.checkpointer !== owner.checkpointer ||
++          approvalBindings.get(invocation.graph) !== binding || owner.db !== deps.db) throw new ProviderAuthorizationRefusedError();
++      await owner.authorize();
++      const result =
+       // ISS-t-007-rev-7: the approved summary goes to the session row along with the facts.
+       // ISS-t-016-c0-1: writeApproved binds its own inner writes to the SAME absolute deadline this
+       // run's writer deadline (and therefore its lease) was derived from — see runnableConfig below.
+-      result: await writeApproved(
++      await writeApproved(
+         {
+           sessionId: s.sessionId,
+           studentId: s.studentId,
+@@ -262,8 +275,10 @@ export function buildScribeGraph(deps: ScribeDeps) {
+         },
+         deps,
+         { writerDeadlineExpiresAt: runtime.configurable?.writerDeadlineExpiresAt },
+-      ),
+-    }))
++      );
++      await owner.authorize();
++      return { result };
++    })
+     .addEdge(START, SCRIBE_NODES.consent)
+     .addConditionalEdges(SCRIBE_NODES.consent, (s: State) => (s.consent === "granted" ? SCRIBE_NODES.crisis : END), [
+       SCRIBE_NODES.crisis,
+@@ -305,14 +320,115 @@ export function compileScribeGraph(deps: ScribeDeps, options: { checkpointer: Ba
+     throw new TenantScopeError("compileScribeGraph: `escalation` needs a tenant-scoped db (tenantScopedDb, T-025)");
+   }
+   const builder = buildScribeGraph(deps);
+-  const graph = builder.compile({ checkpointer: options.checkpointer });
++  const saver = options.checkpointer;
++  const adapter = Object.create(saver) as BaseCheckpointSaver;
++  const special: Record<string, number> = { __error__: -1, __scheduled__: -2, __interrupt__: -3, __resume__: -4 };
++  adapter.put = async (config, checkpoint, metadata, versions) => {
++    const owner = checkpointInvocation.getStore();
++    if (!owner || owner.checkpointer !== adapter) throw new ApprovalResponseError("Scribe checkpoint invocation requires private authority.");
++    const thread = config.configurable?.thread_id, ns = config.configurable?.checkpoint_ns ?? "", id = checkpoint.id;
++    for (const key of [thread, ns, id]) if (typeof key !== "string" || ["__proto__", "constructor", "prototype"].includes(key)) throw new ProviderAuthorizationRefusedError();
++    if (!thread || !id) throw new ProviderAuthorizationRefusedError();
++    await owner.authorize();
++    if (saver instanceof MongoDBSaver) {
++      const collection = deps.db.collection<OwnedCheckpointRow>(saver.checkpointCollectionName);
++      const logical = { thread_id: thread, checkpoint_ns: ns, checkpoint_id: id };
++      const existing = await owner.deadline.run(collection.findOne(logical, owner.deadline.op()));
++      const rowId = existing?._id ?? createHash("sha256").update(JSON.stringify(["checkpoint", thread, ns, id])).digest("hex");
++      const expectedOwner = existing?.vcWriterAttempt;
++      const [[type, bytes], [metaType, metaBytes]] = await Promise.all([saver.serde.dumpsTyped(checkpoint), saver.serde.dumpsTyped(metadata)]);
++      if (type !== metaType) throw new ProviderAuthorizationRefusedError();
++      await owner.authorize();
++      if (!existing && await owner.deadline.run(collection.findOne(logical, owner.deadline.op()))) throw new ProviderAuthorizationRefusedError();
++      owner.cleanup.push(async () => { await collection.deleteMany({ _id: rowId, vcWriterAttempt: owner.token }); });
++      const fields = { parent_checkpoint_id: config.configurable?.checkpoint_id, type, checkpoint: bytes, metadata: metaBytes, metadata_search: metadata, vcWriterAttempt: owner.token };
++      const timestamp = (saver as unknown as { enableTimestamps?: boolean }).enableTimestamps ? { $currentDate: { upserted_at: true as const } } : {};
++      const work = existing
++        ? collection.updateOne({ _id: rowId, vcWriterAttempt: expectedOwner ?? { $exists: false } }, { $set: fields, ...timestamp }, { ...owner.deadline.op() })
++        : collection.updateOne(logical, { $setOnInsert: { _id: rowId, ...logical, ...fields, ...(Object.keys(timestamp).length ? { upserted_at: new Date() } : {}) } }, { upsert: true, ...owner.deadline.op() });
++      owner.pending.push(work);
++      const result = await owner.deadline.run(work);
++      if (existing ? result.matchedCount !== 1 : result.upsertedCount !== 1) throw new ProviderAuthorizationRefusedError();
++    } else if (saver instanceof MemorySaver) {
++      const prepared = copyCheckpoint(checkpoint);
++      const before = saver.storage[thread]?.[ns]?.[id];
++      const expectedOwner = before ? checkpointOwners.get(before) : undefined;
++      const [[, bytes], [, metaBytes]] = await Promise.all([saver.serde.dumpsTyped(prepared), saver.serde.dumpsTyped(metadata)]);
++      await owner.authorize();
++      if (saver.storage[thread]?.[ns]?.[id] !== before || (before && checkpointOwners.get(before) !== expectedOwner)) throw new ProviderAuthorizationRefusedError();
++      const tuple: [Uint8Array, Uint8Array, string | undefined] = [bytes, metaBytes, config.configurable?.checkpoint_id];
++      saver.storage[thread] ??= Object.create(null); saver.storage[thread]![ns] ??= Object.create(null);
++      saver.storage[thread]![ns]![id] = tuple; checkpointOwners.set(tuple, owner.token);
++      owner.cleanup.push(async () => { if (saver.storage[thread]?.[ns]?.[id] === tuple && checkpointOwners.get(tuple) === owner.token) {
++        delete saver.storage[thread]![ns]![id];
++        if (Object.keys(saver.storage[thread]![ns]!).length === 0) delete saver.storage[thread]![ns];
++        if (Object.keys(saver.storage[thread]!).length === 0) delete saver.storage[thread];
++      } });
++    } else throw new ProviderAuthorizationRefusedError();
++    await owner.authorize();
++    return { configurable: { thread_id: thread, checkpoint_ns: ns, checkpoint_id: id } };
++  };
++  adapter.putWrites = async (config, writes, taskId) => {
++    const owner = checkpointInvocation.getStore();
++    if (!owner || owner.checkpointer !== adapter) throw new ApprovalResponseError("Scribe checkpoint invocation requires private authority.");
++    const thread = config.configurable?.thread_id, ns = config.configurable?.checkpoint_ns, id = config.configurable?.checkpoint_id;
++    for (const key of [thread, ns, id, taskId]) if (typeof key !== "string" || ["__proto__", "constructor", "prototype"].includes(key)) throw new ProviderAuthorizationRefusedError();
++    if (!thread || !id || !taskId) throw new ProviderAuthorizationRefusedError();
++    const allSpecial = writes.every(([channel]) => channel in special);
++    for (const [index, [channel, value]] of writes.entries()) {
++      await owner.authorize();
++      if (saver instanceof MongoDBSaver) {
++        const collection = deps.db.collection<OwnedCheckpointRow>(saver.checkpointWritesCollectionName);
++        const logical = { thread_id: thread, checkpoint_ns: ns, checkpoint_id: id, task_id: taskId, idx: special[channel] ?? index };
++        const existing = await owner.deadline.run(collection.findOne(logical, owner.deadline.op()));
++        const expectedOwner = existing?.vcWriterAttempt;
++        const rowId = existing?._id ?? createHash("sha256").update(JSON.stringify(["write", thread, ns, id, taskId, logical.idx])).digest("hex");
++        const [type, bytes] = await saver.serde.dumpsTyped(value);
++        await owner.authorize();
++        if (existing && !allSpecial) continue;
++        if (!existing && await owner.deadline.run(collection.findOne(logical, owner.deadline.op()))) throw new ProviderAuthorizationRefusedError();
++        owner.cleanup.push(async () => { await collection.deleteMany({ _id: rowId, vcWriterAttempt: owner.token }); });
++        const fields = { channel, type, value: bytes, vcWriterAttempt: owner.token };
++        const timestamps = (saver as unknown as { enableTimestamps?: boolean }).enableTimestamps;
++        const work = existing
++          ? collection.updateOne({ _id: rowId, vcWriterAttempt: expectedOwner ?? { $exists: false } }, { $set: fields, ...(timestamps ? { $currentDate: { upserted_at: true as const } } : {}) }, { ...owner.deadline.op() })
++          : collection.updateOne(logical, { $setOnInsert: { _id: rowId, ...logical, ...fields, ...(timestamps ? { upserted_at: new Date() } : {}) } }, { upsert: true, ...owner.deadline.op() });
++        owner.pending.push(work); const result = await owner.deadline.run(work);
++        if (existing ? result.matchedCount !== 1 : result.upsertedCount !== 1) throw new ProviderAuthorizationRefusedError();
++      } else if (saver instanceof MemorySaver) {
++        const outer = JSON.stringify([thread, ns, id]); const inner = `${taskId},${special[channel] || index}`;
++        const before = saver.writes[outer]?.[inner]; const expectedOwner = before ? checkpointOwners.get(before) : undefined;
++        const [, bytes] = await saver.serde.dumpsTyped(value);
++        await owner.authorize();
++        if (saver.writes[outer]?.[inner] !== before || (before && checkpointOwners.get(before) !== expectedOwner)) throw new ProviderAuthorizationRefusedError();
++        if ((special[channel] || index) >= 0 && before) continue;
++        const tuple: [string, string, Uint8Array] = [taskId, channel, bytes];
++        saver.writes[outer] ??= Object.create(null); saver.writes[outer]![inner] = tuple; checkpointOwners.set(tuple, owner.token);
++        owner.cleanup.push(async () => { if (saver.writes[outer]?.[inner] === tuple && checkpointOwners.get(tuple) === owner.token) {
++          delete saver.writes[outer]![inner]; if (Object.keys(saver.writes[outer]!).length === 0) delete saver.writes[outer];
++        } });
++      } else throw new ProviderAuthorizationRefusedError();
++      await owner.authorize();
++    }
++  };
++  const graph = builder.compile({ checkpointer: adapter });
+   approvalBindings.set(graph, approvalBindings.get(builder)!);
+-  graphDeps.set(graph, { db: deps.db, checkpointer: options.checkpointer, escalation: deps.escalation,
++  graphDeps.set(graph, { db: deps.db, checkpointer: adapter, escalation: deps.escalation,
+     authorize: (studentId, snapshot, signal) => authorizeSnapshot(deps, studentId, snapshot, signal)(),
+   });
+   return graph;
+ }
+ 
++const checkpointOwners = new WeakMap<object, string>();
++interface OwnedCheckpointRow {
++  _id: string | import("mongodb").ObjectId; upserted_at?: Date; vcWriterAttempt?: string;
++  thread_id: string; checkpoint_ns: string; checkpoint_id: string; task_id?: string; idx?: number;
++  parent_checkpoint_id?: string; type?: string; checkpoint?: Uint8Array; metadata?: Uint8Array;
++  metadata_search?: unknown; channel?: string; value?: Uint8Array;
++}
++const checkpointInvocation = new AsyncLocalStorage<{ token: string; db: ScribeDeps["db"]; deadline: WriterDeadline; checkpointer: BaseCheckpointSaver; authorize: () => Promise<void>;
++  cleanup: Array<() => Promise<void>>; pending: Promise<unknown>[] }>();
++
+ /**
+  * ISS-t-007-rev-8: resumeScribe claims the approval in the graph's own `virtual_counsellor` Db
+  * (B12), so it needs the Db the graph was compiled with. T-011 cycle 2 (D-015): start and resume
+@@ -464,15 +580,17 @@ type GraphDeps = NonNullable<ReturnType<typeof graphDeps.get>>;
+ 
+ /** What one fence-aware call created, so its compensation removes exactly that and nothing else. */
+ interface CreatedByCall {
++  claimAuthority?: { id: string; studentId: string; responseHash: string; leaseToken: string };
++  authority?: { grant: ConsentDoc | null; session: { _id: string; lifecycleGeneration?: string; creationAttempt?: string } | null };
+   /** The approval claim this call inserted (deleted by its _id + responseHash, never another caller's). */
+   claim?: ScribeResolutionDoc | null;
+   /** T-016 / ISS-t-011-rev-5: the session row this call inserted (not one that already existed). */
+-  sessionRow?: { sessionId: string; studentId: string } | null;
++  sessionRow?: { sessionId: string; studentId: string; generation: string; creationAttempt: string } | null;
+   /**
+    * T-024 / ISS-t-013r-c0-3: the transcript turn documents this call CREATED (never turns an
+    * earlier run already recorded), filled as each is written so a part-way failure is covered too.
+    */
+-  transcriptTurns?: { studentId: string; ids: string[] } | null;
++  transcriptTurns?: { studentId: string; ids: string[]; writerToken: string } | null;
+   /**
+    * T-022: the concern edges this call CREATED (upserted), stamped with this call's `writerToken`,
+    * so compensation deletes by {_id, writerToken} and never an edge an earlier run created.
+@@ -498,8 +616,8 @@ async function fencedForPostCheck(db: GraphDeps["db"], studentId: string | undef
+  *   own driver-level timeoutMS and deadline).
+  * - The post-check ALWAYS runs afterwards (success, error, or deadline). If the student is fenced
+  *   (or applyApprovedDiff already reported StudentFencedError, or the fence can not be read), this
+- *   call's writes are removed: the thread's checkpoints and checkpoint writes (deleteThread on the
+- *   graph's own checkpointer), the approval claim this call inserted (by its _id + responseHash,
++ *   call's writes are removed: exact attempt-owned checkpoints and pending writes through the
++ *   graph-bound adapter (never a whole-thread deletion), the claim inserted (by _id + responseHash,
+  *   never another caller's) and the session row this call inserted (T-016; never a row that already
+  *   existed, which the erasure purges). The facts and edges were removed by applyApprovedDiff's own
+  *   post-check. The approved summary is NOT this function's job: ISS-t-017-rev-1 / ISS-t-017-c1-2 — a
+@@ -524,18 +642,44 @@ async function invokeFenceAware(
+   deadline: WriterDeadline,
+   invoke: (signal: AbortSignal) => Promise<unknown>,
+ ): Promise<boolean> {
++  const owner: NonNullable<ReturnType<typeof checkpointInvocation.getStore>> = { token: randomUUID(), db: deps.db, deadline, checkpointer: deps.checkpointer, cleanup: [] as Array<() => Promise<void>>, pending: [] as Promise<unknown>[],
++    authorize: async () => undefined };
++  let grant: ConsentDoc | null | undefined = created.authority?.grant;
++  let session: { _id: string; lifecycleGeneration?: string; creationAttempt?: string } | null | undefined = created.authority?.session;
++  const claimAuthority = created.claimAuthority ?? (created.claim?.lease ? { id: created.claim._id, studentId: created.claim.studentId, responseHash: created.claim.responseHash, leaseToken: created.claim.lease.token } : undefined);
++  owner.authorize = async () => {
++    deadline.op();
++    if (grant === null || session === null) throw new ProviderAuthorizationRefusedError();
++    if (!studentId || await deadline.run(isStudentFenced(deps.db, studentId, new Date(), deadline.op()))) throw new ProviderAuthorizationRefusedError();
++    const currentGrant = await deadline.run(consentsCollection(deps.db).findOne({ studentId }, deadline.op()));
++    const currentSession = await deadline.run(sessionsCollection(deps.db).findOne({ studentId, scribeThreadIds: threadId }, deadline.op()));
++    if (grant === undefined) grant = currentGrant;
++    if (session === undefined) session = currentSession;
++    if (claimAuthority) {
++      const claim = await deadline.run(scribeResolutionsCollection(deps.db).findOne({ _id: claimAuthority.id, studentId: claimAuthority.studentId, responseHash: claimAuthority.responseHash, "lease.token": claimAuthority.leaseToken }, deadline.op()));
++      if (!claim) throw new ProviderAuthorizationRefusedError();
++    }
++    if (grant?.lifecycleIncarnation !== undefined && (!currentGrant || currentGrant._id !== grant._id || currentGrant.lifecycleIncarnation !== grant.lifecycleIncarnation)) throw new ProviderAuthorizationRefusedError();
++    if (session?.lifecycleGeneration !== undefined && (!currentSession || currentSession._id !== session._id || currentSession.lifecycleGeneration !== session.lifecycleGeneration || currentSession.creationAttempt !== session.creationAttempt)) throw new ProviderAuthorizationRefusedError();
++    if (!currentGrant || !currentGrant.purposes.includes("profile_synthesis") || (currentGrant.minor && !currentGrant.guardianConsent)) throw new ProviderAuthorizationRefusedError();
++    if (await deadline.run(isStudentFenced(deps.db, studentId, new Date(), deadline.op()))) throw new ProviderAuthorizationRefusedError();
++    deadline.op();
++  };
+   const compensate = async () => {
+-    await deps.checkpointer.deleteThread(threadId);
++    await Promise.allSettled(owner.pending);
++    for (const cleanup of owner.cleanup) await cleanup();
+     if (created.claim) {
+-      await scribeResolutionsCollection(deps.db).deleteMany({ _id: created.claim._id, responseHash: created.claim.responseHash });
++      await scribeResolutionsCollection(deps.db).deleteMany({ _id: created.claim._id, responseHash: created.claim.responseHash, "lease.token": created.claim.lease!.token });
+     }
+     if (created.sessionRow) {
+-      await sessionsCollection(deps.db).deleteMany({ _id: created.sessionRow.sessionId, studentId: created.sessionRow.studentId });
++      await sessionsCollection(deps.db).deleteMany({ _id: created.sessionRow.sessionId, studentId: created.sessionRow.studentId,
++        lifecycleGeneration: created.sessionRow.generation, creationAttempt: created.sessionRow.creationAttempt });
+     }
+     if (created.transcriptTurns && created.transcriptTurns.ids.length > 0) {
+       await sessionTranscriptsCollection(deps.db).deleteMany({
+         _id: { $in: [...created.transcriptTurns.ids] },
+         studentId: created.transcriptTurns.studentId,
++        writerToken: created.transcriptTurns.writerToken,
+       });
+     }
+     if (created.concernEdges && created.concernEdges.ids.length > 0) {
+@@ -545,7 +689,7 @@ async function invokeFenceAware(
+       });
+     }
+   };
+-  const work = invoke(deadline.signal);
++  const work = checkpointInvocation.run(owner, async () => { await owner.authorize(); return invoke(deadline.signal); });
+   let thrown: { err: unknown } | null = null;
+   try {
+     await deadline.run(work);
+@@ -558,7 +702,9 @@ async function invokeFenceAware(
+     ? work
+         .then(noop, noop)
+         .then(async () => {
+-          if (await fencedForPostCheck(deps.db, studentId)) await compensate();
++          let invalid = true;
++          try { await owner.authorize(); invalid = false; } catch { /* Original expired/revoked ownership must be compensated. */ }
++          if (invalid) await compensate();
+         })
+         .then(noop, noop)
+     : Promise.resolve();
+@@ -566,9 +712,12 @@ async function invokeFenceAware(
+   // released since.
+   const fenced =
+     (thrown !== null && thrown.err instanceof StudentFencedError) || (await fencedForPostCheck(deps.db, studentId));
+-  if (fenced) {
++  let authorityLost = false;
++  if (!timedOut) { try { await owner.authorize(); } catch { authorityLost = true; } }
++  if (fenced || authorityLost) {
+     await compensate();
+-    return true;
++    if (fenced) return true;
++    throw thrown?.err ?? new ProviderAuthorizationRefusedError();
+   }
+   if (thrown) {
+     if (timedOut) throw new FencedWriterDeadlineError(settled, { cause: thrown.err });
+@@ -589,8 +738,10 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts:
+   const deadline = new WriterDeadline(opts.writerDeadlineMs);
+   try {
+     if (await deadline.run(isStudentFenced(deps.db, parsed.studentId, new Date(), deadline.op()))) return { kind: "fenced" };
++    let originalGrant: ConsentDoc | null = null;
+     let consent: Awaited<ReturnType<typeof checkConsent>>;
+     try {
++      originalGrant = await deadline.run(consentsCollection(deps.db).findOne({ studentId: parsed.studentId }, deadline.op()));
+       consent = await deadline.run(checkConsent({ studentId: parsed.studentId }, { db: deps.db }));
+     } catch (error) {
+       if (!(error instanceof FencedWriterDeadlineError)) throw error;
+@@ -606,7 +757,8 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts:
+         if (postcheckTimer !== undefined) clearTimeout(postcheckTimer);
+       }
+     }
+-    if (consent.consent !== "granted") {
++    if (await deadline.run(isStudentFenced(deps.db, parsed.studentId, new Date(), deadline.op()))) return { kind: "fenced" };
++    if (consent.consent !== "granted" || originalGrant === null) {
+       const turnIds = parsed.turns.filter(turn => guardTurn(turn).level === "crisis").map(turn => turn.turnId);
+       if (turnIds.length === 0) return { kind: "done", result: { status: "refused", reason: "Consent required" } };
+       if (deps.escalation) await deadline.run(escalateTurns(deps.db, parsed, { ...deps.escalation, budget: { expiresAt: deadline.expiresAt, signal: deadline.signal, run: work => deadline.run(work) } }));
+@@ -621,17 +773,18 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts:
+     // ISS-t-011-rev-5: the session row (with this thread id) is written BEFORE the first checkpoint,
+     // so erasure/export find this run's checkpoints even if it ends without an interrupt. A
+     // sessionId owned by another student throws 11000 here, before anything is checkpointed.
+-    const { created } = await ensureScribeSessionRow(
++    const originalSession = await deadline.run(sessionsCollection(deps.db).findOne({ _id: parsed.sessionId, studentId: parsed.studentId }, deadline.op()));
++    const { created, generation, creationAttempt } = await ensureScribeSessionRow(
+       deps.db,
+       { sessionId: parsed.sessionId, studentId: parsed.studentId, threadId: opts.threadId, endedAt: parsed.sessionEndedAt },
+       deadline.op(),
+     );
+-    const sessionRow = created ? { sessionId: parsed.sessionId, studentId: parsed.studentId } : null;
++    const sessionRow = created && generation && creationAttempt ? { sessionId: parsed.sessionId, studentId: parsed.studentId, generation, creationAttempt } : null;
+     // T-024 / ISS-t-013r-c0-3 (D-020 "puri chat bhi save rehegi"): the full chat is persisted verbatim
+     // in session_transcripts before the graph runs, so every citation {turnId, quote} the scribe
+     // proposes points into a stored turn (resolveCitationSpan). It runs INSIDE the fence-aware call:
+     // the post-check covers it, and the compensation deletes exactly the turns this call created.
+-    const transcriptTurns = { studentId: parsed.studentId, ids: [] as string[] };
++    const transcriptTurns = { studentId: parsed.studentId, ids: [] as string[], writerToken: randomUUID() };
+     // T-022 / D-020 / B20: concern flags go into the Student KG right after the transcript they cite,
+     // before any provider call, so a later extraction/summary failure never loses them.
+     const concernEdges = { writerToken: randomUUID(), ids: [] as string[] };
+@@ -639,13 +792,14 @@ export async function startScribe(graph: ScribeGraph, input: ScribeInput, opts:
+       deps,
+       parsed.studentId,
+       opts.threadId,
+-      { sessionRow, transcriptTurns, concernEdges },
++      { sessionRow, transcriptTurns, concernEdges, authority: { grant: originalGrant,
++        session: created && generation && creationAttempt ? { _id: parsed.sessionId, lifecycleGeneration: generation, creationAttempt } : originalSession } },
+       deadline,
+       async () => {
+         await recordSessionTranscript(
+           deps.db,
+           { sessionId: parsed.sessionId, studentId: parsed.studentId, turns: parsed.turns },
+-          { ...deadline.op(), createdSink: transcriptTurns.ids },
++          { ...deadline.op(), createdSink: transcriptTurns.ids, writerToken: transcriptTurns.writerToken },
+         );
+         await recordSessionConcerns(deps.db, parsed, {
+           ...deadline.op(),
+@@ -918,17 +1072,44 @@ async function resumeUnderDeadline(
+ ): Promise<ScribeOutcome> {
+   const claims = scribeResolutionsCollection(deps.db);
+   const stateConfig = { configurable: { thread_id: opts.threadId } };
++  const originalSession = await deadline.run(sessionsCollection(deps.db).findOne({ scribeThreadIds: opts.threadId }, deadline.op()));
++  if (!originalSession) throw new ApprovalResponseError("resumeScribe: recorded session authority is required.");
++  if (await deadline.run(isStudentFenced(deps.db, originalSession.studentId, new Date(), deadline.op()))) return { kind: "fenced" };
++  const originalGrant = await deadline.run(consentsCollection(deps.db).findOne({ studentId: originalSession.studentId }, deadline.op()));
++  const originalAuthority: CreatedByCall["authority"] = { grant: originalGrant, session: originalSession };
++  let capturedCheckpoint: string | undefined;
++  const currentAuthority = async (latest: Partial<State>, requireOriginalCheckpoint = false) => {
++    deadline.op();
++    if (typeof latest.studentId !== "string" || !latest.studentId.trim()) throw new Error("resumeScribe: the thread's state has no studentId; refusing to claim it (B15 erasure could not find the claim)");
++    if (latest.studentId !== originalSession.studentId || latest.sessionId !== originalSession.sessionId || !originalGrant) throw new ProviderAuthorizationRefusedError();
++    const grant = await deadline.run(consentsCollection(deps.db).findOne({ studentId: originalSession.studentId }, deadline.op()));
++    const session = await deadline.run(sessionsCollection(deps.db).findOne({ _id: originalSession._id, studentId: originalSession.studentId }, deadline.op()));
++    if (!grant || grant._id !== originalGrant._id || grant.lifecycleIncarnation !== originalGrant.lifecycleIncarnation || !grant.purposes.includes("profile_synthesis") || (grant.minor && !grant.guardianConsent) ||
++        !session || session.lifecycleGeneration !== originalSession.lifecycleGeneration || session.creationAttempt !== originalSession.creationAttempt) throw new ProviderAuthorizationRefusedError();
++    if (await deadline.run(isStudentFenced(deps.db, originalSession.studentId, new Date(), deadline.op()))) throw new ProviderAuthorizationRefusedError();
++    if (requireOriginalCheckpoint) {
++      const currentSnapshot = await deadline.run(graph.getState(stateConfig));
++      if (currentSnapshot.config.configurable?.checkpoint_id !== capturedCheckpoint ||
++        (currentSnapshot.values as Partial<State>).studentId !== originalSession.studentId ||
++        (currentSnapshot.values as Partial<State>).sessionId !== originalSession.sessionId) throw new ProviderAuthorizationRefusedError();
++    }
++    deadline.op();
++  };
+ 
+   if (response === null) {
+     const snapshot = await deadline.run(graph.getState(stateConfig));
++    capturedCheckpoint = snapshot.config.configurable?.checkpoint_id;
+     const latest = snapshot.values as Partial<State>;
+     if (latest.studentId && (await deadline.run(isStudentFenced(deps.db, latest.studentId, new Date(), deadline.op())))) {
+       return { kind: "fenced" };
+     }
++    await currentAuthority(latest);
+     const claimDoc = await deadline.run(claims.findOne({ threadId: opts.threadId }, deadline.op()));
++    await currentAuthority(latest);
+     if (!claimDoc) {
++      await currentAuthority(latest, true);
+       // No claim yet (a pre-approval crash): nothing to lease (see the docstring's residual).
+-      return recoverUnder(graph, deps, opts, deadline, snapshot, null);
++      return recoverUnder(graph, deps, opts, deadline, snapshot, null, originalAuthority);
+     }
+     // ISS-t-007-rev-10: take the claim's run lease atomically, or step aside.
+     const lease = newLease(deadline);
+@@ -975,15 +1156,18 @@ async function resumeUnderDeadline(
+       throw new FencedWriterDeadlineError(settled);
+     }
+     if (!took) return { kind: "in_progress" };
++    await currentAuthority(latest, true);
+     return underLease(deps, opts.threadId, lease.token, deadline, async () =>
+       // Re-read under the lease: a holder that finished in between has advanced the thread.
+-      recoverUnder(graph, deps, opts, deadline, await deadline.run(graph.getState(stateConfig)), took),
++      recoverUnder(graph, deps, opts, deadline, await deadline.run(graph.getState(stateConfig)), took, originalAuthority),
+     );
+   }
+ 
+   const parsed = ApprovalResponseSchema.parse(response);
+   const snapshot = await deadline.run(graph.getState(stateConfig));
++  capturedCheckpoint = snapshot.config.configurable?.checkpoint_id;
+   const latest = snapshot.values as Partial<State>;
++  await currentAuthority(latest);
+   // D-015 pre-check: before the claim, so a fenced resume writes nothing at all. It also runs
+   // before the already-decided check: fenced over already_resolved (see the docstring).
+   if (latest.studentId && (await deadline.run(isStudentFenced(deps.db, latest.studentId, new Date(), deadline.op())))) {
+@@ -992,6 +1176,7 @@ async function resumeUnderDeadline(
+   if (latest.decision) {
+     const claim = await deadline.run(claims.findOne({ threadId: opts.threadId }, deadline.op()));
+     await deadline.run(deps.authorize(latest.studentId!, undefined, deadline.signal));
++    await currentAuthority(latest, true);
+     deadline.op();
+     return alreadyResolved({ decision: latest.decision, responseHash: claim?.responseHash }, latest.result, parsed);
+   }
+@@ -1009,6 +1194,7 @@ async function resumeUnderDeadline(
+       throw new Error(`resumeScribe: the thread's state has no studentId; refusing to claim it (B15 erasure could not find the claim)`);
+     }
+     await deadline.run(deps.authorize(latest.studentId, latest.approvedContext ?? [], deadline.signal));
++    await currentAuthority(latest);
+     deadline.op();
+     const claim: ScribeResolutionDoc = {
+       _id: opts.threadId,
+@@ -1063,12 +1249,13 @@ async function resumeUnderDeadline(
+       if (!winner) throw err;
+       const now = (await deadline.run(graph.getState(stateConfig))).values as Partial<State>;
+       await deadline.run(deps.authorize(now.studentId!, now.decision ? undefined : now.approvedContext ?? [], deadline.signal));
++      await currentAuthority(now);
+       deadline.op();
+       return alreadyResolved(winner, now.result, parsed);
+     }
+   }
+   const run = async (): Promise<ScribeOutcome> => {
+-    const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, { claim: createdClaim }, deadline, () =>
++    const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, { claim: createdClaim, authority: originalAuthority }, deadline, () =>
+       approvalInvocation.run(Object.freeze({ graph, tenantId: tenantIdOf(deps.db), studentId: latest.studentId!, threadId: opts.threadId, winner: createdClaim ?? undefined }),
+         () => graph.invoke(new Command({ resume: parsed }), runnableConfig(opts, deadline))),
+     );
+@@ -1090,6 +1277,7 @@ async function recoverUnder(
+   deadline: WriterDeadline,
+   snapshot: Awaited<ReturnType<ScribeGraph["getState"]>>,
+   claim: ScribeResolutionDoc | null,
++  originalAuthority: CreatedByCall["authority"],
+ ): Promise<ScribeOutcome> {
+   const latest = snapshot.values as Partial<State>;
+   deadline.op();
+@@ -1106,7 +1294,8 @@ async function recoverUnder(
+       throw new ApprovalResponseError("recovery: winning approval metadata is invalid");
+     }
+   }
+-  const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, {}, deadline, async () => {
++  const fenced = await invokeFenceAware(deps, latest.studentId, opts.threadId, { authority: originalAuthority,
++    ...(claim?.lease ? { claimAuthority: { id: claim._id, studentId: claim.studentId, responseHash: claim.responseHash, leaseToken: claim.lease.token } } : {}) }, deadline, async () => {
+     if (claimed) {
+       // Crash after the claim, before the decision was recorded: apply the CLAIMED response.
+       await approvalInvocation.run(Object.freeze({ graph, tenantId: tenantIdOf(deps.db), studentId: latest.studentId!, threadId: opts.threadId, winner: claim ?? undefined }),

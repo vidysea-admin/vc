@@ -1,0 +1,17 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "E3BE0545990C90995D7BF3A7AF5D64AF1F2E0FC1BBD9B79C27F7ABC1E9676E50",
+    "Path": "C:\\Program Files\\nodejs\\node.exe"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "8690135061BC49D187143493B82D26A09B7FB71D6DD817D2242CC9DC52506DE9",
+    "Path": "D:\\vc\\node_modules\\tsx\\dist\\cli.mjs"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "8D5FA5BD883FEC0979FC2004F1FE1D99AEF40570155D550EADC0B03B55513BF0",
+    "Path": "D:\\vc\\node_modules\\typescript\\bin\\tsc"
+  }
+]

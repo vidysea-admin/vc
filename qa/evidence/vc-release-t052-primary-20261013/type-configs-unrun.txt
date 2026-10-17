@@ -1,0 +1,11 @@
+D:\vc\apps\api\tsconfig.json
+D:\vc\apps\web\tsconfig.json
+D:\vc\packages\db\tsconfig.json
+D:\vc\packages\engine\tsconfig.json
+D:\vc\packages\engine\evals\tsconfig.json
+D:\vc\packages\engine\scripts\tsconfig.json
+D:\vc\packages\observability\tsconfig.json
+D:\vc\packages\providers\tsconfig.json
+D:\vc\packages\schemas\tsconfig.json
+D:\vc\mcp\student-profile\tsconfig.json
+D:\vc\mcp\university-kb\tsconfig.json

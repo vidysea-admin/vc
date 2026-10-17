@@ -1,0 +1,22 @@
+[
+  {
+    "slug": "checkpoint-cas-only",
+    "pattern": "actual existing-row checkpoint CAS",
+    "green": 0,
+    "red": 1,
+    "redSignal": null,
+    "restored": true,
+    "killed": true,
+    "boundSourceUnchanged": true
+  },
+  {
+    "slug": "special-write-cas-only",
+    "pattern": "actual existing-row special-write CAS",
+    "green": 0,
+    "red": 1,
+    "redSignal": null,
+    "restored": true,
+    "killed": true,
+    "boundSourceUnchanged": true
+  }
+]

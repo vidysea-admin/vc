@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { createFakeDb } from '../../../packages/db/tests/fakes.js';
+import { exportStudent } from '../../../packages/db/src/erasure.js';
+import { COLLECTION_NAMES } from '../../../packages/db/src/collections.js';
+const { db, fakeDb } = createFakeDb();
+const token = 'checker-private-recovery-lease';
+fakeDb.collection(COLLECTION_NAMES.scribe_resolutions).seed({ _id:'thread-checker',threadId:'thread-checker',studentId:'student-checker',decision:{approve:true,edits:[]}, response:{action:'approve_all'},responseHash:'public-hash',claimedAt:'2026-10-01',lease:{token,expiresAt:'2099-01-01T00:00:00Z'} });
+const output = await exportStudent(db,'student-checker');
+console.log(JSON.stringify({publicDecisionPreserved:output.approvalClaims[0]?.decision, privateLeaseLeaked:JSON.stringify(output).includes(token), claim:output.approvalClaims[0]}));
+assert.equal(JSON.stringify(output).includes(token), false, 'B23.6 must omit internal recovery lease ownership authority at every nesting level');

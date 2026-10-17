@@ -1,0 +1,14 @@
+{
+  "observedAt": "2026-10-13T21:40:44.3817112+05:30",
+  "os": "Microsoft Windows NT 10.0.26300.0",
+  "node": "v24.13.1",
+  "protocolChecker": "3DE10756092428C100D255677DF06192E6ABEF94CBE61579745DC28B830601FA",
+  "lockfile": "562F86492B23EAB44F0FBFF444A89E7FF8D053A7E97928A86B9EEE0AA84FCD6C",
+  "deps": {
+    "jose": "6.2.12",
+    "mongoSaver": "1.4.1",
+    "mongodb": "6.21.0",
+    "tsx": "4.23.15",
+    "langgraph": "1.4.17"
+  }
+}

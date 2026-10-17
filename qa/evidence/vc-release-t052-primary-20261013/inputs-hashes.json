@@ -1,0 +1,32 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "562F86492B23EAB44F0FBFF444A89E7FF8D053A7E97928A86B9EEE0AA84FCD6C",
+    "Path": "D:\\vc\\pnpm-lock.yaml"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "A4286AF536A20E876A22B625C5B2C630DC4195CD1C9E4DB8B92651090F7916B7",
+    "Path": "D:\\vc\\tsconfig.base.json"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "7D0B12017C5212F985E74976BD23A8152FF1AF62750B0BD3F015D4F564D6D3D2",
+    "Path": "D:\\vc\\qa\\adapter.json"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "FDD9B039639F6E70141D6C54CA0760375913DA2E5705257A1B6F75C8939DA48B",
+    "Path": "D:\\vc\\scripts\\vc-testlock.sh"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "1E8042D90E2521FE3936F244892E152D81CC1E3D5ECD6ED65040AE54B5C60706",
+    "Path": "D:\\vc\\packages\\engine\\tests\\scribe-fixtures.ts"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "9D602AF779BE3AB9009259EFA8AFEAF89515D82AFB317FCBE9DA535EE3FA67EA",
+    "Path": "D:\\vc\\packages\\db\\tests\\fakes.ts"
+  }
+]

@@ -1,0 +1,6 @@
+Actual observed failure excerpt; not the complete original log.
+Command: trusted vc-testlock node tsx --test all enumerated packages/db/tests/*.test.ts.
+Tool terminal 9b9513 exit 1: 263 tests,262pass,1fail,0cancelled/skipped.
+Failing existing test: T-025 cross-tenant: tenant A erasing student stu-1 deletes only A's documents; tenant B's same-id student is byte-for-byte unchanged and not fenced.
+TypeError: Cannot read properties of undefined (reading 'edits') at packages/db/src/erasure.ts:1914:62, exportStudent:1912:19, tenant.test.ts:317:19.
+Complete original db-cycle1.log was overwritten during corrected run. The original tool transcript retains this observed result. Do not treat this excerpt as recovered complete output.

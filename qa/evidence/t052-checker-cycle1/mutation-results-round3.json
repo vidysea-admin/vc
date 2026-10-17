@@ -1,0 +1,38 @@
+[
+  {
+    "name": "generation-only-cleanup",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "checkpoint-unconditional-CAS",
+    "status": 13,
+    "killed": false,
+    "qaResolution": true
+  },
+  {
+    "name": "missing-unique-index",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "missing-null-comparator",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "external-undefined-authority",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "close-upsert",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  }
+]

@@ -1,0 +1,137 @@
+[
+  {
+    "workspace": "apps/api",
+    "testScript": "tsx --test tests/*.test.ts",
+    "files": [
+      "D:\\vc\\apps\\api\\tests\\auth.test.ts",
+      "D:\\vc\\apps\\api\\tests\\index.test.ts",
+      "D:\\vc\\apps\\api\\tests\\server.test.ts"
+    ],
+    "count": 3
+  },
+  {
+    "workspace": "apps/web",
+    "testScript": "tsx --test tests/*.test.ts tests/*.test.tsx",
+    "files": [
+      "D:\\vc\\apps\\web\\tests\\api.test.ts",
+      "D:\\vc\\apps\\web\\tests\\new-session-ui.test.tsx",
+      "D:\\vc\\apps\\web\\tests\\session-api.test.ts",
+      "D:\\vc\\apps\\web\\tests\\ui.test.tsx"
+    ],
+    "count": 4
+  },
+  {
+    "workspace": "packages/db",
+    "testScript": "tsx --test tests/*.test.ts",
+    "files": [
+      "D:\\vc\\packages\\db\\tests\\client.test.ts",
+      "D:\\vc\\packages\\db\\tests\\consent.test.ts",
+      "D:\\vc\\packages\\db\\tests\\db-init.test.ts",
+      "D:\\vc\\packages\\db\\tests\\db-scope.test.ts",
+      "D:\\vc\\packages\\db\\tests\\decisions.test.ts",
+      "D:\\vc\\packages\\db\\tests\\edges.test.ts",
+      "D:\\vc\\packages\\db\\tests\\erasure-approver.test.ts",
+      "D:\\vc\\packages\\db\\tests\\erasure.test.ts",
+      "D:\\vc\\packages\\db\\tests\\facts.test.ts",
+      "D:\\vc\\packages\\db\\tests\\tenant.test.ts"
+    ],
+    "count": 10
+  },
+  {
+    "workspace": "packages/engine",
+    "testScript": "tsx --test tests/*.test.ts evals/*.test.ts",
+    "files": [
+      "D:\\vc\\packages\\engine\\tests\\b18-suppression-outcome.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\concern-classifier.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\crisis-escalation.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\crisis-eval.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\guard-citation.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\guard-crisis.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\guard-hard-rules.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\guard-no-script.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\index.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\loader.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\scribe-auto-verify-property.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\scribe-checkpointer.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\scribe-citation-rescope.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\scribe-concern.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\scribe-erasure-fence.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\scribe-per-fact.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\scribe-persistence.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\scribe-rules-e2e.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\scribe-tracing.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\scribe.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\webhooks-delivery-drain.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\webhooks-delivery.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\webhooks-emission.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\webhooks-envelope.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\webhooks-gaps-mongo.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\webhooks-outbox-mongo.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\webhooks-outbox.test.ts",
+      "D:\\vc\\packages\\engine\\tests\\webhooks-signing.test.ts",
+      "D:\\vc\\packages\\engine\\evals\\citation.test.ts",
+      "D:\\vc\\packages\\engine\\evals\\dataset.test.ts",
+      "D:\\vc\\packages\\engine\\evals\\providers.test.ts",
+      "D:\\vc\\packages\\engine\\evals\\run-eval.test.ts",
+      "D:\\vc\\packages\\engine\\evals\\score-case-drift.test.ts",
+      "D:\\vc\\packages\\engine\\evals\\score-fabricator.test.ts",
+      "D:\\vc\\packages\\engine\\evals\\score-lazy.test.ts",
+      "D:\\vc\\packages\\engine\\evals\\score-perfect.test.ts"
+    ],
+    "count": 36
+  },
+  {
+    "workspace": "packages/observability",
+    "testScript": "tsx --test tests/*.test.ts",
+    "files": [
+      "D:\\vc\\packages\\observability\\tests\\callbacks.test.ts",
+      "D:\\vc\\packages\\observability\\tests\\config.test.ts",
+      "D:\\vc\\packages\\observability\\tests\\docker-compose.test.ts",
+      "D:\\vc\\packages\\observability\\tests\\error-span.test.ts",
+      "D:\\vc\\packages\\observability\\tests\\outcome.test.ts",
+      "D:\\vc\\packages\\observability\\tests\\tracing.test.ts"
+    ],
+    "count": 6
+  },
+  {
+    "workspace": "packages/providers",
+    "testScript": "tsx --test tests/*.test.ts",
+    "files": [
+      "D:\\vc\\packages\\providers\\tests\\failover.test.ts",
+      "D:\\vc\\packages\\providers\\tests\\index.test.ts",
+      "D:\\vc\\packages\\providers\\tests\\litellm.test.ts",
+      "D:\\vc\\packages\\providers\\tests\\rules.test.ts"
+    ],
+    "count": 4
+  },
+  {
+    "workspace": "packages/schemas",
+    "testScript": "tsx --test tests/*.test.ts",
+    "files": [
+      "D:\\vc\\packages\\schemas\\tests\\card.test.ts",
+      "D:\\vc\\packages\\schemas\\tests\\concern-record.test.ts",
+      "D:\\vc\\packages\\schemas\\tests\\consent.test.ts",
+      "D:\\vc\\packages\\schemas\\tests\\fact-source.test.ts",
+      "D:\\vc\\packages\\schemas\\tests\\fact.test.ts",
+      "D:\\vc\\packages\\schemas\\tests\\guards.test.ts"
+    ],
+    "count": 6
+  },
+  {
+    "workspace": "mcp/student-profile",
+    "testScript": "tsx --test tests/*.test.ts",
+    "files": [
+      "D:\\vc\\mcp\\student-profile\\tests\\index.test.ts"
+    ],
+    "count": 1
+  },
+  {
+    "workspace": "mcp/university-kb",
+    "testScript": "tsx --test tests/*.test.ts",
+    "files": [
+      "D:\\vc\\mcp\\university-kb\\tests\\index.test.ts",
+      "D:\\vc\\mcp\\university-kb\\tests\\kb-client.test.ts"
+    ],
+    "count": 2
+  }
+]

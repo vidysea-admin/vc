@@ -1,0 +1,27 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "D28B33F553D492B820E28D465450F6C1B611726BCCAF47832B415F0D9BFFEB2E",
+    "Path": "D:\\vc\\qa\\evidence\\vc-release-t052-primary-20261013\\isolation\\primary-driver.ts"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "C8FE20E9A1F8C05FB3D9610F879F9CFFCC17F5AF6649A8456977AC7B502A233A",
+    "Path": "D:\\vc\\qa\\evidence\\vc-release-t052-primary-20261013\\isolation\\primary-authority.ts"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "EFA2EDCAB644730346071D636DBF6CA60CE372CC3BE10C5B487663AA285DC9E7",
+    "Path": "D:\\vc\\qa\\evidence\\vc-release-t052-primary-20261013\\run-mutations.mjs"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "9A655A4E74DF78555DBD6E8CF6089286EF7CC2DF1EACC163DB89F3A588C924F3",
+    "Path": "D:\\vc\\qa\\evidence\\vc-release-t052-primary-20261013\\run-authority.mjs"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "7EFCA634072E7B8F1FE539B9C3CFAEEAC5D0EE187A313491358DA75E5834580D",
+    "Path": "D:\\vc\\qa\\evidence\\vc-release-t052-primary-20261013\\isolation\\tsconfig.json"
+  }
+]

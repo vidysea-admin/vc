@@ -1,0 +1,62 @@
+[
+  {
+    "name": "identity-only",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "omit-postread-authority",
+    "status": 1,
+    "killed": false,
+    "qaResolution": false
+  },
+  {
+    "name": "renewed-deadline",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "broad-capability-cleanup",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "capability-reconstruction",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "attachment-activation",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "leaked-lease",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "capability-row-export",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "missing-original-leaseguard",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "transcript-broad-cleanup",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  }
+]

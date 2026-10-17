@@ -1,0 +1,19 @@
+import {readFileSync,writeFileSync} from 'node:fs';import {spawnSync} from 'node:child_process';import assert from 'node:assert/strict';
+const root='D:/vc/qa/evidence/t052-checker-cycle1/isolation', logs='D:/vc/qa/evidence/t052-checker-cycle1';
+const paths={facts:`${root}/packages/db/src/facts.ts`,export:`${root}/packages/db/src/erasure.ts`,graph:`${root}/packages/engine/src/scribe/graph.ts`};const originals=Object.fromEntries(Object.entries(paths).map(([k,p])=>[k,readFileSync(p,'utf8')]));
+const edits=[
+ ['identity-only','facts','erasure-lifecycle-oracle.ts',(s)=>s.replace('captured.lifecycleIncarnation !== grant.lifecycleIncarnation','false')],
+ ['omit-postread-authority','facts','erasure-lifecycle-oracle.ts',(s)=>s.replaceAll('        await authority();','        /* mutant omitted current grant/fence */').replaceAll('      await authority();','      /* mutant omitted current grant/fence */')],
+ ['renewed-deadline','facts','erasure-lifecycle-oracle.ts',(s)=>s.replace('const deadline = new WriterDeadline(options.timeoutMS);','const deadline = new WriterDeadline(600);')],
+ ['broad-capability-cleanup','facts','erasure-lifecycle-oracle.ts',(s)=>s.replace('{ _id: ownedCapability, kind: "session_opening_capability", creationAttempt }','{ studentId: input.studentId }')],
+ ['capability-reconstruction','facts','erasure-lifecycle-oracle.ts',(s)=>s.replace('const capability = await run(decisionsCollection(db).findOne(binding, deadline.op()));','const capability = await run(decisionsCollection(db).findOne(binding, deadline.op())) ?? { ...binding, kind: "session_opening_capability", lifecycleGeneration: randomUUID(), capabilityHash, creationAttempt };').replace('if (!present || !session ||','if (!session ||')],
+ ['attachment-activation','facts','public-jwt-oracle.ts',(s)=>s.replace('$addToSet: { scribeThreadIds: input.threadId },','$set: { lifecycleState: "active" }, $addToSet: { scribeThreadIds: input.threadId },')],
+ ['leaked-lease','export','public-jwt-oracle.ts',(s)=>s.replace('return { _id: row._id, threadId: row.threadId, studentId: row.studentId,','return { lease: row.lease, _id: row._id, threadId: row.threadId, studentId: row.studentId,')],
+ ['capability-row-export','export','public-jwt-oracle.ts',(s)=>s.replace('.filter(row => !("kind" in row) || row.kind !== "session_opening_capability")','')],
+ ['missing-original-leaseguard','graph','graph-oracle.ts',(s)=>s.replace('if (!claim) throw new ProviderAuthorizationRefusedError();','/* mutant accepts lost lease */')],
+ ['transcript-broad-cleanup','graph','graph-oracle.ts',(s)=>s.replace('writerToken: created.transcriptTurns.writerToken,','/* mutant omits original token */')],
+];
+let results=[];
+for(const [name,kind,oracle,edit] of edits.filter(e=>e[0] === "omit-postread-authority")){const changed=edit(originals[kind]);assert.notEqual(changed,originals[kind],name+' must reach source');writeFileSync(paths[kind],changed);try{const r=spawnSync('C:/Program Files/Git/bin/bash.exe',['-l','D:/vc/scripts/vc-testlock.sh','node','D:/vc/node_modules/tsx/dist/cli.mjs','--tsconfig',`${root}/tsconfig.json`,`${root}/${oracle}`],{encoding:'utf8',env:{...process.env,PATH:'C:/Program Files/Git/usr/bin;C:/Program Files/nodejs;'+process.env.PATH},timeout:60000});const output=(r.stdout??'')+(r.stderr??'');writeFileSync(`${logs}/mutation-${name}.log`,output);const killed=r.status!==0&&/AssertionError/.test(output)&&!r.error;results.push({name,status:r.status,killed,qaResolution:output.includes('/isolation/packages/')});console.log(JSON.stringify(results.at(-1)));}finally{writeFileSync(paths[kind],originals[kind]);}}
+writeFileSync(`${logs}/mutation-results.json`,JSON.stringify(results,null,2));assert.ok(results.every(r=>r.killed),'Every mutant must be killed by actual outcome assertion, no instrumentation failure credit');
+

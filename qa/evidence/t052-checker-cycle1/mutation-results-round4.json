@@ -1,0 +1,26 @@
+[
+  {
+    "name": "checkpoint-existing-owner-CAS",
+    "status": 0,
+    "killed": false,
+    "qaResolution": true
+  },
+  {
+    "name": "missing-write-unique-index",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "missing-checkpoint-unique-index",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  },
+  {
+    "name": "both-null-comparator",
+    "status": 1,
+    "killed": true,
+    "qaResolution": true
+  }
+]
