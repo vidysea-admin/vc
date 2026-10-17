@@ -1,0 +1,26 @@
+{
+  "_fixture": "synthetic contract-shaped fixture derived from D:/KnowledgeBase route code and generated types on 2026-10-17 (apps/api/src/routes/{search,brain,ask}.ts, packages/core/src/generated/*.ts); NOT a recording of the live KB and NOT KB content",
+  "gaps": [
+    {
+      "_id": "gap-1",
+      "tenantId": "fixture",
+      "kind": "source-pending",
+      "description": "Japan scholarship webinar recording not received",
+      "requestedFrom": "org:fixture-partner",
+      "requestedAt": "2026-09-01T00:00:00Z",
+      "status": "open",
+      "sla": {
+        "dueAt": "2026-10-01T00:00:00Z"
+      }
+    },
+    {
+      "_id": "gap-2",
+      "tenantId": "fixture",
+      "kind": "vector-pending",
+      "status": "open"
+    },
+    {
+      "kind": "recording-pending"
+    }
+  ]
+}

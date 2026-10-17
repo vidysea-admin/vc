@@ -82,7 +82,7 @@ test("ask_knowledge_base is registered and returns the answer with citations car
     status: "ok",
     answer: "Testland U offers a BSc in CS.",
     citations: { internal: [{ node_id: "course:testland-cs" }], web: [] },
-    verdict: "answered",
+    verdict: "correct",
     reason: "matched",
     scored: [],
     webUsed: false,
@@ -90,7 +90,7 @@ test("ask_knowledge_base is registered and returns the answer with citations car
     auditLog: [],
     raw: {
       answer: "Testland U offers a BSc in CS.",
-      verdict: "answered",
+      verdict: "correct",
       reason: "matched",
       scored: [],
       web_used: false,
@@ -117,28 +117,32 @@ test("ask_knowledge_base is registered and returns the answer with citations car
   }
 });
 
-test("ask_knowledge_base surfaces a KB outage as a tool error, never a fabricated answer", async () => {
+test("ask_knowledge_base surfaces a KB outage as the fixed no-answer text typed unavailable (A18), never a fabricated answer", async () => {
   const { db } = createFakeDb();
   const kb = fakeKbClient({ status: "unavailable", reason: "http_error", detail: "KbHttpError: HTTP 503" });
   const server = createUniversityKbServer({ db, kb });
   const { client, cleanup } = await connectedClient(server);
   try {
     const result = await client.callTool({ name: "ask_knowledge_base", arguments: { query: "cs courses?" } });
-    assert.equal(result.isError, true);
-    assert.equal(result.structuredContent, undefined);
+    assert.notEqual(result.isError, true);
+    const out = result.structuredContent as { status: string; answer: string; citations: unknown };
+    assert.equal(out.status, "unavailable");
+    assert.equal(out.answer, "I don't have a sourced answer for this yet.");
+    assert.deepEqual(out.citations, { internal: [], web: [] });
   } finally {
     await cleanup();
   }
 });
 
-test("ask_knowledge_base surfaces an uncited KB answer as a tool error too (B2: never served uncited)", async () => {
+test("ask_knowledge_base treats an uncited KB answer as unavailable too (B2: never served uncited)", async () => {
   const { db } = createFakeDb();
   const kb = fakeKbClient({ status: "unavailable", reason: "uncited", detail: "zero citations" });
   const server = createUniversityKbServer({ db, kb });
   const { client, cleanup } = await connectedClient(server);
   try {
     const result = await client.callTool({ name: "ask_knowledge_base", arguments: { query: "cs courses?" } });
-    assert.equal(result.isError, true);
+    assert.equal((result.structuredContent as { status: string }).status, "unavailable");
+    assert.equal((result.structuredContent as { answer: string }).answer, "I don't have a sourced answer for this yet.");
   } finally {
     await cleanup();
   }

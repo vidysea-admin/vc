@@ -1,0 +1,252 @@
+[testlock] running (free RAM 4.58 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u2/mcp/university-kb test
+
+> @vc/mcp-university-kb@0.1.0 test C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb
+> tsx --test tests/*.test.ts
+
+✔ tool registered and callable through MCP: both tools appear in tools/list (26.9177ms)
+✔ ask_knowledge_base is NOT registered when no kb client is configured (5.1901ms)
+✔ ask_knowledge_base is registered and returns the answer with citations carried through verbatim when the kb client succeeds (9.0234ms)
+✔ ask_knowledge_base surfaces a KB outage as the fixed no-answer text typed unavailable (A18), never a fabricated answer (2.1929ms)
+✔ ask_knowledge_base treats an uncited KB answer as unavailable too (B2: never served uncited) (1.7126ms)
+✔ hostile: ask_knowledge_base rejects an empty query via Zod before ever calling the kb client (1.4982ms)
+✔ uncited course excluded: search_courses drops a stored record missing sourceUrl/fetchedAt and counts it in `dropped` (2.7375ms)
+✔ search_courses filters by country and level and is case-insensitive (1.3072ms)
+✔ get_course returns the record for a known courseId (1.3635ms)
+✔ unknown courseId: get_course returns a not-found tool error, never a fabricated record (1.2241ms)
+✔ get_course on a stored-but-uncited record (missing sourceUrl) is also a tool error, not a partial record (1.0293ms)
+✔ hostile: empty query is rejected by Zod (min length 1) (1.1404ms)
+✔ hostile: a NoSQL-operator object as courseId ({"$ne": null}) is rejected by Zod, not passed to the DB (0.8499ms)
+✔ hostile: level not in the enum is rejected by Zod (0.8984ms)
+✔ ok: a valid response with internal citations is carried through verbatim, answer + citations + verdict/reason/scored all present (57.5785ms)
+✔ ok: web-only citations (empty internal, non-empty web) still count as cited (11.1424ms)
+✔ request shape: POST /ask, Bearer <key> header, JSON body { query } (7.9721ms)
+✔ uncited: a verdict-correct answer with zero citations in BOTH sources.internal and sources.web is treated as unavailable, never passed on as an answer (8.4198ms)
+✔ outage: HTTP 401 is unavailable/unauthorized (8.9732ms)
+✔ outage: HTTP 403 is unavailable/unauthorized (5.8647ms)
+✔ outage: HTTP 503 (5xx) is unavailable/http_error (7.785ms)
+✔ outage: malformed (non-JSON) response body is unavailable/malformed_response (7.1672ms)
+✔ outage: schema-invalid response (valid JSON, wrong shape -- missing required fields) is unavailable/invalid_schema (7.7628ms)
+✔ outage: a real network error (nothing listening) is unavailable/network_error (0.7973ms)
+✔ outage: the server hangs past the client's configured timeout -- unavailable/timeout (66.7441ms)
+✔ default timeout constant is exported and positive (0.1634ms)
+✔ loadKbConfigFromEnv: VC_KB_BASE_URL unset -> null (feature off, no client built) (0.1019ms)
+✔ loadKbConfigFromEnv: VC_KB_BASE_URL set, VC_KB_API_KEY set -> a config object (never real values -- synthetic test strings only) (0.1263ms)
+✔ loadKbConfigFromEnv: VC_KB_BASE_URL set but VC_KB_API_KEY missing -> throws rather than silently defaulting the key (B11) (0.404ms)
+✖ A4 serve rule over the real client + MCP tool: ask-correct.json -> served (49.0975ms)
+✔ A4 serve rule over the real client + MCP tool: ask-web-used.json -> no_sourced_answer (13.3687ms)
+✔ A4 serve rule over the real client + MCP tool: ask-web-only.json -> no_sourced_answer (8.3203ms)
+✖ A4 serve rule over the real client + MCP tool: ask-fallback-failed.json -> no_sourced_answer (13.6625ms)
+✔ A4 serve rule over the real client + MCP tool: ask-ambiguous.json -> no_sourced_answer (7.8267ms)
+✔ A18: sources.web never reaches a served response (stray web source on an otherwise correct answer is dropped) (7.9643ms)
+✖ G6: a realistic no-coverage /ask (verdict incorrect, zero internal and web sources) is no_sourced_answer, not unavailable/uncited (5.4518ms)
+✖ G6: verdict correct with zero internal AND zero web sources is still withheld (typed unavailable/uncited); any other verdict with zero sources is ok (11.7737ms)
+✖ U2b fix 4: ask_knowledge_base query is capped at 1000 characters, like search_kb (1.9463ms)
+✔ A4 applyServeRule matrix: only (correct, coverage ok, no web, >=1 internal source) is served (0.2355ms)
+✔ A18: a KB outage yields the fixed no-answer text, typed unavailable, never an error payload with an answer (1.2332ms)
+✔ A18: no KB content copies in the repo -- every file under kb-fixture/ is a declared synthetic fixture (4.0223ms)
+✖ search_kb: GET /search?q&k with Bearer; hits with null turn/session are dropped and counted; each hit is source-kind tagged; unknown = restricted (12.2982ms)
+✖ U2b: speakerLabel passes only for seminar/toc (search_kb, both profiles; get_session) (48.1378ms)
+✖ U2b: a search hit whose turn._id != turnId or session._id != sessionId (or with no turn._id) is dropped and counted (6.5257ms)
+✔ search_kb: /sources is fetched once across calls; its path/hash/consent never appear in any tool output (14.2913ms)
+✔ search_kb: with /sources down, every hit is unknown (restricted), not an error (9.3188ms)
+✔ typed unavailable: search_kb on HTTP 500 -> status unavailable (http_error), not a thrown tool error (5.6079ms)
+✔ typed unavailable: search_kb on HTTP 401 -> status unavailable (unauthorized), not a thrown tool error (4.8824ms)
+✔ typed unavailable: search_kb on HTTP 403 -> status unavailable (unauthorized), not a thrown tool error (5.1393ms)
+✔ typed unavailable: search_kb on non-JSON body -> status unavailable (malformed_response), not a thrown tool error (4.4783ms)
+✔ typed unavailable: search_kb on schema-invalid body -> status unavailable (invalid_schema), not a thrown tool error (4.4132ms)
+✔ typed unavailable: timeout and network error on every read method; the network detail never echoes the query text (4152.4396ms)
+✔ get_session: GET /sessions/:id, tagged, bad turns dropped; 404 -> typed not_found (cannot be re-read, never served as sourced) (9.5414ms)
+✔ hostile: get_session rejects path-traversal and query-injection ids via Zod, and never calls the KB (4.2638ms)
+✔ client: a session whose returned id differs from the requested id is invalid_schema, never passed on as the requested one (7.339ms)
+✔ kb_gaps: GET /gaps, rows reduced to id/kind/status/description/requestedAt/dueAt (no requestedFrom), malformed row dropped (5.6435ms)
+✔ tools/list: the read tools register only when the client has them; an ask-only client keeps the old three tools (59.3207ms)
+✔ A15c: anonymous profile exposes ONLY search_kb and kb_sources, needs no Db, and the anonymous client has no ask/getSession/gaps (9.6792ms)
+✔ A15c: even handed a FULL client, the anonymous profile registers only search_kb and kb_sources (profile guard, not client shape) (5.3309ms)
+✔ A15c: 12 anonymous turns (hostile text included) put only GET /search?q and GET /sources on the wire; no identity headers; no /ask, no /sessions; nothing logged (49.7928ms)
+✔ A15c: anonymous config uses its own key and never falls back to the authenticated key (0.5214ms)
+✔ a full-profile server refuses to start without a Db (only the anonymous profile may omit it) (0.1845ms)
+✔ A22 fixtures: whatsapp-batch -> whatsapp, listed seminar -> internal-seminar, listed toc -> toc, unlisted recording -> unknown, no determinable kind -> unknown (1.5444ms)
+✔ hostile: a WhatsApp source listed as seminar by mistake is STILL whatsapp (whatsapp wins) (0.4988ms)
+✔ hostile: a source listed in BOTH seminar and toc is ambiguous -> unknown (fail closed) (0.2609ms)
+✔ title list applies only to a known, non-whatsapp source; an unlisted title never upgrades (0.1659ms)
+✔ hostile: /sources unavailable (null map) makes even a listed seminar unknown (0.1308ms)
+✔ default (empty) config: nothing is quotable except by an explicit list; whatsapp is still recognised (0.1548ms)
+✔ config schema is strict: an unknown key is rejected rather than ignored (1.0603ms)
+✔ resolver fetches /sources ONCE across many tags and keeps only {id, kind} (rows hold path, hash, consent) (55.7569ms)
+✔ resolver: an unavailable /sources is NOT cached; everything is unknown meanwhile, and a later success is used (17.3748ms)
+✔ resolver tolerates a client that returns unavailable without throwing (0.3606ms)
+ℹ tests 72
+ℹ suites 0
+ℹ pass 64
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5399.8225
+
+✖ failing tests:
+
+test at tests\kb-tools.test.ts:82:3
+✖ A4 serve rule over the real client + MCP tool: ask-correct.json -> served (49.0975ms)
+  AssertionError [ERR_ASSERTION]: a served ask answer is restricted (unknown) by default
+  + actual - expected
+  
+  + undefined
+  - 'unknown'
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\tests\kb-tools.test.ts:99:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'unknown',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\kb-tools.test.ts:82:3
+✖ A4 serve rule over the real client + MCP tool: ask-fallback-failed.json -> no_sourced_answer (13.6625ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'unavailable'
+  - 'no_sourced_answer'
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\tests\kb-tools.test.ts:102:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'unavailable',
+    expected: 'no_sourced_answer',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\kb-tools.test.ts:141:1
+✖ G6: a realistic no-coverage /ask (verdict incorrect, zero internal and web sources) is no_sourced_answer, not unavailable/uncited (5.4518ms)
+  AssertionError [ERR_ASSERTION]: the client must hand the response to the serve rule, not turn it into an outage
+  + actual - expected
+  
+  + 'unavailable'
+  - 'ok'
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\tests\kb-tools.test.ts:147:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'unavailable',
+    expected: 'ok',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\kb-tools.test.ts:163:1
+✖ G6: verdict correct with zero internal AND zero web sources is still withheld (typed unavailable/uncited); any other verdict with zero sources is ok (11.7737ms)
+  AssertionError [ERR_ASSERTION]: ambiguous
+  + actual - expected
+  
+  + 'unavailable'
+  - 'ok'
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\tests\kb-tools.test.ts:170:14)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'unavailable',
+    expected: 'ok',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\kb-tools.test.ts:179:1
+✖ U2b fix 4: ask_knowledge_base query is capped at 1000 characters, like search_kb (1.9463ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\tests\kb-tools.test.ts:191:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\kb-tools.test.ts:269:1
+✖ search_kb: GET /search?q&k with Bearer; hits with null turn/session are dropped and counted; each hit is source-kind tagged; unknown = restricted (12.2982ms)
+  AssertionError [ERR_ASSERTION]: a WhatsApp speaker label is never passed on
+  + actual - expected
+  
+  + 'Fixture Person A'
+  - undefined
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\tests\kb-tools.test.ts:291:14)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'Fixture Person A',
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\kb-tools.test.ts:312:1
+✖ U2b: speakerLabel passes only for seminar/toc (search_kb, both profiles; get_session) (48.1378ms)
+  AssertionError [ERR_ASSERTION]: full search_kb src-wa-1
+  + actual - expected
+  
+  + 'Fixture Speaker S'
+  - undefined
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\tests\kb-tools.test.ts:347:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'Fixture Speaker S',
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\kb-tools.test.ts:365:1
+✖ U2b: a search hit whose turn._id != turnId or session._id != sessionId (or with no turn._id) is dropped and counted (6.5257ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      't-sem-1',
+  +   't-sem-1',
+  +   't-sem-1',
+  +   't-sem-1'
+    ]
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\tests\kb-tools.test.ts:381:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 't-sem-1', 't-sem-1', 't-sem-1', 't-sem-1' ],
+    expected: [ 't-sem-1' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+ ELIFECYCLE  Test failed. See above for more details.

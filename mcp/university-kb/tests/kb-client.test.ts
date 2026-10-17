@@ -76,10 +76,10 @@ test("request shape: POST /ask, Bearer <key> header, JSON body { query }", async
   }
 });
 
-test("uncited: an answer with zero citations in BOTH sources.internal and sources.web is treated as unavailable, never passed on as an answer", async () => {
+test("uncited: a verdict-correct answer with zero citations in BOTH sources.internal and sources.web is treated as unavailable, never passed on as an answer", async () => {
   const server = await startFakeKb(() => ({
     status: 200,
-    body: JSON.stringify(validAskResponseWithoutCitations()),
+    body: JSON.stringify(validAskResponseWithoutCitations({ verdict: "correct" })),
   }));
   try {
     const client = createKnowledgeBaseClient({ baseUrl: server.url, apiKey: "test-key-1" });

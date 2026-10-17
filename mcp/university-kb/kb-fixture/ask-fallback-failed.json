@@ -1,0 +1,21 @@
+{
+  "_fixture": "synthetic contract-shaped fixture derived from D:/KnowledgeBase route code and generated types on 2026-10-17 (apps/api/src/routes/{search,brain,ask}.ts, packages/core/src/generated/*.ts); NOT a recording of the live KB and NOT KB content",
+  "answer": "A confident-sounding generated answer over weak context.",
+  "verdict": "incorrect",
+  "reason": "top node scored above the upper threshold",
+  "scored": [],
+  "web_used": false,
+  "insufficient_coverage": true,
+  "sources": {
+    "internal": [],
+    "web": []
+  },
+  "auditLog": [
+    {
+      "step": "select_nodes",
+      "provider": "fixture",
+      "model": "fixture",
+      "costUsd": 0
+    }
+  ]
+}
