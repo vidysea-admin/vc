@@ -91,4 +91,4 @@ Not UI-touching — no surface changed (changed paths are packages/engine/evals/
 - Pre-existing spec figures USD 50/200, `VC_G_REAL` env name and the `syn-`-style choices are [ASSUMPTION]s I made where the spec left them open (flag name `VC_G_REAL=1`; ledger path `qa/evals/p1/spend-ledger.jsonl`, not created in mock mode).
 - Dependencies for the worktree came from an offline frozen install; `pnpm-lock.yaml` unchanged.
 
-## Status: ready-for-check
+## Status: checked-PASS (qa/verdicts/p1-u4-eval-harness.md, cycle 0)
