@@ -173,7 +173,7 @@ test("startApi: flag on with the gate open but no student JWT configuration is a
   try {
     await assert.rejects(
       startApi(
-        { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", VC_JWT_ISSUER: "https://issuer.synthetic.test" },
+        { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", VC_JWT_ISSUER: "https://issuer.synthetic.test", VC_JWT_AUDIENCE: "vc-api", VC_JWT_ALGORITHMS: "HS256", VC_JWT_HS256_SECRET: "synthetic-counsellor-secret-0123456789abcdef" },
         { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates } }) },
       ),
       JwtConfigError,
