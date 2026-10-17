@@ -1,0 +1,21 @@
+[testlock] waiting for lock held by: PID=42696 STARTED=unknown ACQUIRED_AT=1792263192 TOKEN=1792263192173395900-231531-27129 DESC=pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9 -r typecheck 
+[testlock] owner PID 24708 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running (free RAM 4.08 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern=crisis tests/anonymous-zero-persistence.test.ts
+✔ A15a: 50 text turns through the real route (crisis, PII, borderline, generic) write nothing but increments of the text-free counter (903.7456ms)
+✔ A15a: a counter outage never fails the turn and never writes elsewhere (crisis still gets the fixed message) (53.8595ms)
+✔ crisis (B24.7): English and Hinglish get the fixed message with Tele-MANAS 14416, no model, no KB, only the crisis counter, nothing logged (43.5596ms)
+✔ crisis (B24.7, U6h L5): a crisis phrase beyond the 4000-character limit is still the fixed message, not a 400 (34.9032ms)
+✔ validation: malformed bodies are a bare 400, over-long non-crisis text is 400, an oversized body is 413; no input is echoed (37.778ms)
+✔ validation: a near-limit body (about 190 KB of text) is scanned for crisis in bounded time and then refused as over-long (75.3541ms)
+✔ U7 repair 1/B: a counter that never answers does not delay any reply - crisis, sign-in and answered turns all return within the deadline (283.0901ms)
+✔ U7 repair 1: the default counter deadline is under one second, so a hung database delays the crisis message by less than that, not by the driver's 30 s (782.6516ms)
+✔ U7 repair A: a crisis message is answered with the fixed message and Tele-MANAS even at request 11 (rate limited) and with a full limiter table (241.279ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8069.8757

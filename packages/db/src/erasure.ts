@@ -1495,6 +1495,8 @@ export const ERASURE_EXEMPT_COLLECTIONS = {
     "the erasure audit log itself; must survive the erasure and holds no personal data once completed",
   [COLLECTION_NAMES.erasure_fences]:
     "the erasure write fence (D-015/D-016): it must outlive the purge it protects; it holds only a hash of the studentId, a request id and timestamps, and is removed after completion once its minimum hold (and grace, if any) has passed",
+  [COLLECTION_NAMES.anonymous_counters]:
+    "P1 U7: the anonymous-mode aggregate counter; one document per (UTC date, kind) holding only the date, the kind and a count, with no text, IP, tenant, student or thread identifier, so there is nothing to erase for a student",
   [COLLECTION_NAMES.email_outbox]:
     "T-029: the approver's approval-request record; it holds the opaque request id, reason code and staff actor ids, never the studentId or any student data, and is kept as part of the erasure audit trail",
 } as const;

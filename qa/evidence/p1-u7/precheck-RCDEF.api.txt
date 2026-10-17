@@ -1,0 +1,11 @@
+[testlock] running (free RAM 0.11 GB): pnpm -C apps/api exec tsx --test --test-timeout=30000 --test-name-pattern=U7 repair D \(API\)|U7 repair C/E/F tests/anonymous-zero-persistence.test.ts
+✔ U7 repair D (API): the sign-in and no-answer replies over the real route carry the helpline line too (487.4988ms)
+✔ U7 repair C/E/F over the route: no follow-up question, opaque source ids and an email address is sign-in-required (327.1584ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10615.0112

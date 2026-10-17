@@ -32,6 +32,8 @@ const PERSONAL_DEVANAGARI = /(?<![ऀ-ॿ])(मैं|मै|मेरा|मे
 const ADVICE = /\b(should|recommend|suggest|advise|chances?|eligible|eligibility|suits?|suitable for|better for|best for|someone like|in my case|review|evaluate|assess|help me|choose|decide|pick)\b/i;
 const ADVICE_HINGLISH = /\b(chahiye|batao|bataiye|suggest karo|sahi rahega|milegi|milega|mil jayega|mil jaegi|kahan jaun|kya karu|kya karun)\b/i;
 const PHONE = /(?:\+\d{1,3}[\s-]?)?(?:\d[\s-]?){9,13}\d/;
+// U7 repair F: an email address is personal data exactly like a phone number.
+const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 
 // Generic question / topic shape. A bare noun ("Germany", "UK?") has neither and stays personal.
 const QUESTION_EN = /^\s*(what|how|which|when|where|who|why|is|are|do|does|can|could|will|would|list|explain|tell)\b/i;
@@ -48,6 +50,7 @@ export function classifyQuestion(text: string): QuestionClassification {
   if (PERSONAL_DEVANAGARI.test(t)) reasons.push("first_person_devanagari");
   if (ADVICE.test(t) || ADVICE_HINGLISH.test(t)) reasons.push("advice_request");
   if (PHONE.test(t)) reasons.push("phone_number");
+  if (EMAIL.test(t)) reasons.push("email_address");
   if (reasons.length > 0) return { class: "personal", reasons };
   const looksLikeQuestion = QUESTION_EN.test(t) || QUESTION_HINGLISH.test(t) || QUESTION_DEVANAGARI.test(t);
   const words = t.split(/\s+/).filter(Boolean).length;

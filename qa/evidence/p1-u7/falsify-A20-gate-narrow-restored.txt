@@ -1,0 +1,11 @@
+[testlock] running (free RAM 6.24 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7-fals/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern=A20 state ON but gate closed|every gate record is required tests/anonymous-route.test.ts
+✔ A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route (35.4275ms)
+✔ A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed (184.2541ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8877.8832

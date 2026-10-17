@@ -1,0 +1,13 @@
+[testlock] waiting for lock held by: PID=47600 STARTED=unknown ACQUIRED_AT=1792263453 TOKEN=1792263453916628200-238943-1898 DESC=bash C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/collect.sh C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/int-docs 
+[testlock] owner PID 47600 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running (free RAM 4.66 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern=U7 repair 4 tests/anonymous-zero-persistence.test.ts
+✔ U7 repair 4: with a full table the O(n) sweep runs at most once a second, however many new keys arrive (14.501ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5477.9435

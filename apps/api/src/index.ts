@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import {
   ERASURE_CONFIG_ENV,
   MIN_AUDIT_HMAC_KEY_LENGTH,
+  anonymousCountersCollection,
   connectFromEnv,
   erasureConfigFromEnv,
   errorLabel,
@@ -23,15 +24,26 @@ import {
   type MongoClientFactory,
   type ErasureFenceSweepOptions,
 } from "@vc/db";
-import { initScribeCheckpointer, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps } from "@vc/engine";
+import { initScribeCheckpointer, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentKbPort } from "@vc/engine";
 import { createProvider, loadProviderConfig, type LlmProvider } from "@vc/providers";
 import { createJwtVerifier, jwtConfigFromEnv, type JwtVerifier } from "./auth.js";
 import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
+import {
+  AnonymousConfigError,
+  DEFAULT_GATES_DIR,
+  anonymousEnabledFromEnv,
+  createAnonymousApi,
+  createMongoAnonymousCounter,
+  withAnonymousRoutes,
+  type AnonymousApiDeps,
+  type AnonymousCounterWriter,
+} from "./anonymous.js";
 
 export * from "./auth.js";
 export * from "./server.js";
 export { OPENAPI_DOCUMENT, STUDENT_API_DRAFT } from "./openapi.js";
 export * from "./go-live-gate.js";
+export * from "./anonymous.js";
 
 export function apiStatus(): string {
   return "@vc/api: HTTP API over the scribe, profile and erasure (T-025); opt-in via startApi({ http })";
@@ -59,6 +71,36 @@ export interface StartApiHttpOptions {
   escalationForTenant?: (tenantId: string) => EscalationDeps;
   log?: (line: ApiLogLine) => void;
   writerDeadlineMs?: number;
+  /**
+   * P1 U7: the public anonymous text route. Whether it is served is decided ONLY by the explicit flag
+   * VC_ANONYMOUS_ENABLED (default off) AND the A20 go-live gate; supplying this object never turns it on. The
+   * production KB port is injected by the deployment (apps/api does not depend on mcp/university-kb).
+   */
+  anonymous?: StartApiAnonymousOptions;
+}
+
+export interface StartApiAnonymousOptions {
+  /** Search-only knowledge-base port. Required when the flag is on. */
+  kb?: Pick<StudentKbPort, "searchKb">;
+  /** Speakers file for the no-quote guard. Required when the flag is on. */
+  speakers?: SpeakersFile;
+  /** Default: the repo's qa/gates. */
+  gatesDir?: string;
+  /**
+   * How clients are told apart for the 10-per-minute limit. REQUIRED when the flag is on (one of the two), because the safe default
+   * depends on the deployment: `clientKey` extracts the real client from a trusted proxy's header; `trustSocketAddress: true` states the
+   * server is reached directly, so the socket peer address (normalised) is the client. Behind a load balancer without `clientKey`
+   * every user would share one bucket, so neither being set is a startup error.
+   */
+  trustSocketAddress?: boolean;
+  /** Default: the Mongo `anonymous_counters` aggregate counter (text-free). */
+  counter?: AnonymousCounterWriter;
+  limiter?: AnonymousApiDeps["limiter"];
+  clientKey?: AnonymousApiDeps["clientKey"];
+  config?: AnonymousApiDeps["config"];
+  now?: AnonymousApiDeps["now"];
+  nowMs?: AnonymousApiDeps["nowMs"];
+  log?: AnonymousApiDeps["log"];
 }
 
 export interface Api {
@@ -152,7 +194,43 @@ export async function startApi(
     classifier: { provider: classifierProvider!, skillPrompt: classifierPrompt!, config: classifierConfig! },
     writerDeadlineMs: http?.writerDeadlineMs,
   }))) : undefined;
+  // P1 U7: the anonymous route. The flag, the config and the A20 go-live gate are all checked BEFORE anything connects; the
+  // default counter writer is bound to the Db only after connect (it is not called before the first request).
+  const anonymousFlag = httpSetup ? anonymousEnabledFromEnv(env) : false;
+  const counterRef: { writer?: AnonymousCounterWriter } = {};
+  let anonymousHandler: ReturnType<typeof createAnonymousApi>;
+  if (httpSetup && anonymousFlag) {
+    const a = http?.anonymous;
+    if (!a?.kb || !a.speakers) throw new AnonymousConfigError("VC_ANONYMOUS_ENABLED is true but no search-only knowledge-base port and speakers file were supplied");
+    if (!a.clientKey && a.trustSocketAddress !== true) {
+      throw new AnonymousConfigError("VC_ANONYMOUS_ENABLED is true but neither a clientKey nor trustSocketAddress: true was supplied; the per-client limit needs one of them");
+    }
+    anonymousHandler = createAnonymousApi(
+      {
+        kb: a.kb,
+        provider: httpSetup.provider,
+        skillsDir: httpSetup.skillsDir,
+        speakers: a.speakers,
+        counter:
+          a.counter ??
+          {
+            increment: (kind) => {
+              if (!counterRef.writer) throw new AnonymousConfigError("anonymous counter used before the database connected");
+              return counterRef.writer.increment(kind);
+            },
+          },
+        ...(a.limiter ? { limiter: a.limiter } : {}),
+        ...(a.clientKey ? { clientKey: a.clientKey } : {}),
+        ...(a.config ? { config: a.config } : {}),
+        ...(a.now ? { now: a.now } : {}),
+        ...(a.nowMs ? { nowMs: a.nowMs } : {}),
+        ...(a.log ? { log: a.log } : {}),
+      },
+      { enabled: true, gatesDir: a.gatesDir ?? DEFAULT_GATES_DIR, env },
+    );
+  }
   const { client, db } = connectFromEnv(env, clientFactory);
+  counterRef.writer = createMongoAnonymousCounter(anonymousCountersCollection(db), http?.anonymous?.now);
   await client.connect();
   let server: ReturnType<typeof createApiServer> | undefined;
   let sweep: ReturnType<typeof startErasureFenceSweep> | undefined;
@@ -196,7 +274,7 @@ export async function startApi(
             }
           : {}),
       });
-      const s = createApiServer(handler);
+      const s = createApiServer(withAnonymousRoutes(handler, anonymousHandler));
       server = s;
       await new Promise<void>((resolve, reject) => {
         s.once("error", reject);

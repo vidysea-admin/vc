@@ -1,0 +1,21 @@
+[testlock] owner PID 24648 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running (free RAM 3.75 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/apps/api exec tsx --test --test-timeout=15000 tests/anonymous-zero-persistence.test.ts tests/anonymous-route.test.ts
+✔ A20: the anonymous route is OFF by default - unset, empty and 'false' all read as disabled; only the exact word 'true' enables (3.5001ms)
+✔ A20 state OFF: with the flag off nothing is built and the path answers exactly like an unknown path (404), for every method (15.602ms)
+✔ A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route (11.3557ms)
+✔ A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed (176.4339ms)
+✔ A20 state ON and gate open: the route is served (185.9757ms)
+✔ no student text is traced: an env that switches LangChain/LangSmith tracing on refuses to build the route (57.7548ms)
+✔ B21 exception: the closed list is exactly one text route, equals the draft's security:[] operations, and contains no voice route (1.3454ms)
+✔ B21 exception: with the anonymous route ON, every other registered route still answers 401 with no token, and the main handler touches no Db (22.1712ms)
+✔ B21 exception: the anonymous route ignores identity - a valid-looking Authorization header changes nothing and no tenant or student id is read (103.1389ms)
+✔ startApi: flag off -> the anonymous path is a 404 over real HTTP and no gate file is read (102.4221ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (10.5656ms)
+✔ startApi: flag on without a KB or speakers supplied is a config error, before connecting (12.9761ms)
+✔ startApi: flag on and gate open -> a real HTTP POST is answered and ONLY the text-free counter is written to virtual_counsellor; other routes still 401 (133.7047ms)
+✔ the node:http adapter hands the socket address to the limiter (10 per minute per real client) (407.1083ms)
+✖ U7 repair 2: with the flag on, startApi refuses to start unless the deployment states how clients are told apart - an explicit clientKey or trustSocketAddress: true (29.8476ms)
+✖ U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 the route can return, and the AnonymousError schema carries the helpline field (0.7927ms)
+
+[maker] 2026-10-17T22:53+05:30 anonymous-zero-persistence.test.ts did not finish after 16 minutes on the pre-repair code (a never-resolving counter has no deadline, so the crisis and generic turns wait forever); run killed by the maker. anonymous-route.test.ts: 2 of its new tests failed (U7 repair 2, U7 repair 5).

@@ -102,8 +102,10 @@ export interface ApiRequest {
   /** Path plus optional query, as sent (`/v1/...?...`). */
   url: string;
   headers: Record<string, string | string[] | undefined>;
-  /** Reads the body; rejects with BodyTooLargeError past MAX_BODY_BYTES. */
-  readBody(): Promise<string>;
+  /** P1 U7: the socket's peer address, when the adapter knows it (the anonymous limiter's key source). Never logged. */
+  remoteAddress?: string;
+  /** Reads the body; rejects with BodyTooLargeError past `maxBytes` (default and ceiling MAX_BODY_BYTES). */
+  readBody(maxBytes?: number): Promise<string>;
 }
 
 export interface ApiResponse {
@@ -585,13 +587,13 @@ function matchPath(template: string, path: string): Record<string, string> | nul
   return params;
 }
 
-const BASE_HEADERS = {
+export const BASE_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store",
   "x-content-type-options": "nosniff",
 } as const;
 
-function respond(status: number, body: unknown, extra: Record<string, string> = {}): ApiResponse {
+export function respond(status: number, body: unknown, extra: Record<string, string> = {}): ApiResponse {
   return { status, headers: { ...BASE_HEADERS, ...extra }, body: JSON.stringify(body) };
 }
 
@@ -848,7 +850,8 @@ export function createApiHandler(deps: ApiDeps): ApiHandler {
   };
 }
 
-function readLimited(req: IncomingMessage): Promise<string> {
+function readLimited(req: IncomingMessage, maxBytes: number = MAX_BODY_BYTES): Promise<string> {
+  const limit = Math.min(maxBytes, MAX_BODY_BYTES);
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let size = 0;
@@ -856,7 +859,7 @@ function readLimited(req: IncomingMessage): Promise<string> {
     req.on("data", (chunk: Buffer) => {
       if (done) return;
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
+      if (size > limit) {
         done = true;
         req.resume();
         reject(new BodyTooLargeError());
@@ -886,7 +889,8 @@ export function createApiServer(handler: ApiHandler): Server {
       method: req.method ?? "GET",
       url: req.url ?? "/",
       headers: req.headers,
-      readBody: () => readLimited(req),
+      ...(req.socket.remoteAddress !== undefined ? { remoteAddress: req.socket.remoteAddress } : {}),
+      readBody: (maxBytes) => readLimited(req, maxBytes),
     };
     handler(apiReq).then(
       (out) => {

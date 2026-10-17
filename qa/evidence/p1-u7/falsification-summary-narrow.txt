@@ -1,0 +1,2 @@
+A20-gate-narrow | green ('2', '2', '0') | red tests=2 pass=0 fail=2 A20 state ON but gate closed: the real repo qa/gates; A20: every gate record is required - an unsigned B13, an open g-publis; A20 state ON but gate closed: the real repo qa/gates | restored ('2', '2', '0')
+R2-clientkey-narrow | green ('1', '1', '0') | red tests=? pass=? fail=?  | restored ('1', '1', '0')
