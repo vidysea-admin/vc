@@ -172,4 +172,6 @@ Metrics: start=2026-10-17T16:35:05+05:30 end=2026-10-17T17:10:00+05:30 builder_m
 Policy-Version: proportional-verification/2026-10-15.12
 **Fix cycle:** 0 of max 2
 
-Status: ready-for-check
+Status: checked-PASS
+
+Close-out: checked-PASS 2026-10-17T17:41+05:30, verdict aa06ab0 (Cycle checked: 0). Follow-up hardening (AI review H1/H2/M3/M4 + checker PROPOSED 3/4/5, L5 crisis >4000) -> unit p1-u6h.
