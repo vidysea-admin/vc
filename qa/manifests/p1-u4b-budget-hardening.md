@@ -45,4 +45,4 @@ Metrics: start=2026-10-17T14:25:28+05:30 end=2026-10-17T14:34:06+05:30 wall_min=
 - Fix 5 treats any fixture source other than `recorded` as non-proving.
 - Files in the worktree are CRLF/LF mixed by the checkout's autocrlf; git normalises on commit.
 
-## Status: ready-for-check
+## Status: checked-PASS (verdict 00f00d1, closed 2026-10-17T14:46:44+05:30)
