@@ -1,5 +1,6 @@
 # Contract: Vidysea AI Counselling Engine
 **Status:** DRAFT, awaiting Umesh's START approval (qa/gates/maker-start.md)
+**P1 Student-VC amendments (2026-10-17, unit U0, plan approved by D-089, basis D-086..D-088):** B1, B2, B4, B6, B9, B13, B16, B21 and B22 are amended in place, the non-goals are edited and section B24 is new. Each amendment is tagged in the Amendment log: `APPLIED` (inside approved meaning, in force), `CRITICAL` (approved direction, Umesh's recorded signature in `qa/gates/p1-u0-amendment-signatures.md`; the text governs build and tests now, and any production effect is blocked by the go-live gate B24.9) or `PROPOSED` (goes beyond D-086..D-089; **not in force until Umesh signs**). Paragraphs marked **[PROPOSED]** below carry that status.
 **Owner of this file:** /checker. The maker reads it and never edits it; feedback goes to qa/feedback-inbox.md.
 **North star:** Explore → Conclude → Execute. AI assists, the human decides. Never a script.
 **Sources:** goal.md · compass research report (repo root) · Google Doc "Virtual Counsellor" · DECISIONS D-001..D-005
@@ -37,6 +38,16 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
 ## B. Engine (T-002+). Criteria each code unit must hold
 - **B1 (no-script):** No card, prompt or skill output may be a full sentence for the counsellor to recite. Cards are
   question / comparison / evidence types only. A code guard enforces this and a test covers it.
+  **Student-surface scope (U0-1, APPLIED, D-087 Q2):** the card rule above governs counsellor-facing cards. On the
+  P1 student surface the VC speaks to the student directly, so its replies are not cards, but B1's intent binds as
+  **coach first, tool-aware**: (a) it coaches first: it asks, structures, compares and gives feedback on the
+  student's own draft; (b) it knows every VC tool and feature and uses them to help the student (KB answers and
+  sources, ranking, profile view/correct/confirm, coverage and "not covered yet" answers, export/erasure, text/voice
+  switch); (c) a request to write an essay, SOP or application text for the student is turned into coaching.
+  **Drafting is not granted**, and the existing `no-script` guard stays; (d) one capability-manifest skill
+  (`skills/vc-capabilities/SKILL.md`) is the only list of tools and features given to the model, and a test fails when
+  it drifts from the tools registered in the student graph. Proof: spec A21 (>= 20 SOP/essay requests incl. Hinglish
+  never yield a full draft; >= 15 intents select the matching tool; the drift check).
 - **B2 (cited facts):** Every fact shown or stored carries a source (KB record id + fetchedAt, profile fact id, or
   transcript quote + turn). **Citation scope (D-020, gate `citation-guarantee-scope`):** the full session transcript
   is persisted as ground truth (covered by DPDP erasure and export, B15). Only two kinds auto-verify at full
@@ -125,21 +136,62 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   `editedFrom`. The saved value is never shown with a quote that contradicts it. The same provenance goes out to
   the client (API response and the fact-approved event, B21), so both VC and the Pathlynks side hold it. A test proves
   an edited fact carries `counsellor-edit` + `editedFrom` and that an unedited fact keeps its transcript source.
+  **Student-surface claims (U0-2, CRITICAL, approved direction D-087 Q17 and spec scope item 4; signature pending):**
+  every answer on the P1 student surface is structured as `claims[]`, each `{text, kind: number|country|fact,
+  sourceIds[], status}`, plus `sources[]` and `profileFactsUsed[]`, where `status` is `verified` | `attributed` |
+  `unverified`. A `sourceId` is exactly one of: the KB `node_id` of a `sources.internal[]` entry returned by **that
+  same turn's** `/ask` call, or the `turnId` (with `sessionId`) of a `/search` hit. The KB returns no claim ids, so
+  nothing else is a sourceId. Verification rules:
+  - (a) `/ask`: `verified` requires the `node_id` to be present in this response **and** a session resolved from
+    `evidence.sessionRef(s)` (or from `/session:<id>` in a session-level `node_id`; topic/org/year nodes need
+    `evidence.sessionRefs`) fetched with `GET /sessions/:id`, whose turn text supports the claim or number.
+    Otherwise a `kind:fact` claim is `attributed` (source present, text not proven), never `verified`.
+  - (b) `/search`: `turnId`, `sessionId`, `turn.text`, `session.date` and `session.sourceId` come inline in the hit,
+    so no session fetch is needed. `verified` when `turn.text` supports the claim.
+  - Numbers and country names are checked against the fetched or inline text.
+  - A claim with no resolvable source is dropped or returned `unverified` and shown flagged, **never presented as
+    sourced**. This is the one named exception to "every fact shown carries a source": an `unverified` claim is
+    visibly flagged and counted, and share of `unverified` claims on the golden set must stay <= 5% [ASSUMPTION].
+  - The umbrella claim "every sentence is cited" is **not** made. `/ask` attribution is answer-level, not
+    claim-level: the VC LLM assigns per-claim sourceIds, and the guard can prove only that the `node_id` was
+    returned in this response plus the number/country match.
+  - Voice cannot enforce this pre-send; it is audited after the fact (B6 voice exception). Proof: spec A1, A13.
 - **B3 (human approves writes):** A profile change reaches the student graph only after the counsellor approves it,
   through LangGraph `interrupt`. A test proves no write happens before approval.
 - **B4 (consent first):** Every fact carries purposeTags + sensitivity. A session without a recorded consent row cannot
-  be processed. A test covers it. **Named exception (D-027, 2026-09-27):** a crisis turn (B9) escalates even without a
-  recorded consent row; the escalation record carries identifiers and the flag only, never transcript text, and no
-  other processing (facts, profile diff, KB) happens without consent. This is the only exception to consent-first.
+  be processed on the counsellor-session path. A test covers it. **Student-surface consent (U0-3, CRITICAL, D-086 Q1;
+  signature pending):** on the P1 student routes (B24) a valid student JWT from the configured issuer (B21 student
+  identity) **is** the consent: Pathlynks-authenticated = consented. Consent is handled by the partner outside VC. VC
+  performs no consent-claim verification, and the student routes neither read nor write a consent row. Anonymous mode
+  (B24.6) processes no personal data and needs no consent. Recorded risk: a wrong assumption at Pathlynks is not caught
+  by VC. **Clause map:** B4 is amended as stated here; B23.1-B23.7 (consent grant incarnation, lifecycle) are unchanged
+  and govern only the counsellor-session path; B15 is extended to the student-surface data (B24.5); the existing
+  `packages/db/src/consent.ts` records stay for the counsellor path. **[PROPOSED]** student routes use no consent row at
+  all (not even a write-only audit row derived from the JWT); Umesh may instead ask for an audit row. Profile facts keep
+  `purposeTags` + `sensitivity` as stated above. **Named exception (D-027, 2026-09-27):** a crisis turn (B9) escalates
+  even without a recorded consent row; the escalation record carries identifiers and the flag only, never transcript
+  text, and no other processing (facts, profile diff, KB) happens without consent. This is the only exception to
+  consent-first on the counsellor-session path; the student-surface rule above is the separate, scoped one for B24.
 - **B5 (typed boundaries):** Every graph node's input and output is a Zod schema. No free text passes between nodes.
 - **B6 (portable core):** Prompts and soft rules live in `skills/*/SKILL.md`. Hard rules live in code guards that run
-  before any LLM call. Tools are MCP servers. The model is chosen by config. **Provider independence (lead review, 2026-09-25):** no single AI vendor is load-bearing. At least two real providers sit behind the provider seam: Gemini, and LiteLLM gateway classes. A deterministic `rules` provider, which uses no model, lets the P1 flow scribe -> facts -> profile diff -> counsellor approval complete end to end, with its output clearly marked "AI unavailable". An e2e test passes with `VC_LLM_PROVIDER=rules`. **Runtime failover (D-020, gate `provider-fallback`):** independence extends from config-time to runtime. A
+  before any LLM call (text channel; the **voice exception** at the end of this clause is the only carve-out). Tools are MCP servers. The model is chosen by config. **Provider independence (lead review, 2026-09-25):** no single AI vendor is load-bearing. At least two real providers sit behind the provider seam: Gemini, and LiteLLM gateway classes. A deterministic `rules` provider, which uses no model, lets the P1 flow scribe -> facts -> profile diff -> counsellor approval complete end to end, with its output clearly marked "AI unavailable". An e2e test passes with `VC_LLM_PROVIDER=rules`. **Runtime failover (D-020, gate `provider-fallback`):** independence extends from config-time to runtime. A
   provider failure mid-session fails over across a config-ordered chain of 3 models, within a total retry budget of
   about 10 attempts with backoff, and never auto-drops to the `rules` provider. If every model in the chain fails,
   the engine (a) raises a structured engineering alert (error log + Langfuse error trace) and (b) returns an
   apologetic error state to the user with a Retry action that preserves their input — no retype. A test proves the
   failover order, the retry budget, that `rules` is never substituted automatically, and the alert-plus-preserved-input
   path on all-fail.
+  **Voice exception (U0-4, CRITICAL, D-085/D-086; signature pending):** "hard rules run before any LLM call" cannot hold
+  for live voice. Gemini Live is native speech-to-speech and speaks before a text guard can run. For the **voice
+  channel only**, B2 citations, the no-quote guard (B24.3) and crisis are **monitored, not enforced, before the words
+  are spoken**; a spoken breach cannot be unsaid, and no report may claim pre-send enforcement for voice. Required
+  compensating controls, all of them: (a) crisis detection on the input transcript interrupts the model and plays the
+  fixed message, with at most 2 s of model audio after the trigger (D-088 Q5); (b) output transcripts are audited after
+  the fact: each breach writes an audit event stored with the thread and sends a `flag` event to the client (spec
+  A9b); (c) voice stays **disabled for real students** until the REAL voice gate passes (spec A10, including 100% of a
+  20-phrase crisis set reaching the fixed message) and the go-live gate (B24.9) passes; (d) the A10 report states that
+  B2 and B1/no-quote are audited, not enforced, in voice. The Live interface sits behind the provider seam with Gemini
+  and Mock implementations. The text channel keeps B6 exactly as written. Proof: spec A9, A9b, A10, A12.
 - **B7 (tracing, no egress):** Graph runs emit Langfuse traces to a self-hosted endpoint only, with
   `TELEMETRY_ENABLED=false`. **Emit must be proven, not assumed:** a test captures at least one exported span through
   the real export path, using an in-process exporter or collector. A test that only constructs a handler or client does
@@ -151,6 +203,8 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   **Recall-only guard (D-020, gate `crisis-guard-precision`):** the deterministic keyword guard matches for recall
   only. It may over-trigger — a false positive is the safe direction — but it must never suppress, filter or narrow
   a match in order to cut false alarms. Precision is a later layer's job (B16), never the guard's.
+  **Student surface (U0-10):** on the P1 student routes the crisis turn gets the fixed safe message and the defaults
+  in B24.7; the recall-only rule above applies unchanged.
 - **B10 (draft-only, P2):** The application filler never triggers submit, and it stops at login, 2FA, CAPTCHA, payment
   or the declaration.
 - **B11 (secrets):** Keys are read only from `.env`, which git ignores. A tracked `.env.example` lists every key name
@@ -166,11 +220,28 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   Only `dropDatabase` on `virtual_counsellor` needs a gate. Automated tests never connect to it (B8: offline, mocks or
   in-memory). Live CRUD runs through the app or an explicit script.
 - **B13 (no student data to external models):** Only synthetic or anonymised text reaches Gemini or any other external
-  API. Using real transcripts, even the ikigai fixtures, needs Umesh's per-use approval recorded in `qa/gates/`, and
+  API, except the P1 production exception at the end of this clause. Using real transcripts, even the ikigai fixtures, needs Umesh's per-use approval recorded in `qa/gates/`, and
   the approval names the files. Automated tests run offline with mock providers (B8); live-provider runs use synthetic
   fixtures only. **Approval on record** (`qa/gates/real-transcripts-gemini.md`): anonymise first by default. Raw
   `D:/ikigai_counsellor/transcripts/` files may go to Gemini as a fallback, with the files listed in the manifest.
   Raw transcripts are never committed.
+  **P1 production exception (U0-5, CRITICAL; approved by Umesh in D-086 Q16; Umesh signs; signature pending, record
+  `B13-signed:` in `qa/gates/p1-u0-amendment-signatures.md`):** once that signed line exists **and** the go-live gate
+  (B24.9, spec A20) passes, the text and voice of **Pathlynks-authenticated students, who may be minors,** may be
+  processed in production by these external processors: (1) Gemini (text LLM and Gemini Live voice); (2) the
+  KnowledgeBase's own LLM provider and (3) Tavily web search, both only through authenticated `/ask` calls, so query
+  text may reach them; (4) any other provider in the configured B6 failover chain that handles production student text.
+  Anonymous-mode text (B24.6) reaches (1) and the KB search endpoint only, never `/ask`. Conditions:
+  - (a) A **processor register** is part of the signed record. Per processor: legal name, what data it sees, its
+    terms, retention and training-use position, region and cross-border basis, and the DPDP basis. A processor that is
+    not in the register receives no production student text. This clause asserts no provider's terms; Umesh fills the
+    register at signature [ASSUMPTION: none of this is recorded today].
+  - (b) Everything else in B13 stands: automated tests, evals and CI use synthetic or anonymised text only (B8); real
+    transcripts still need the per-use approval above; REAL-model evaluation runs use synthetic inputs and need G-REAL
+    and the budget cap (B24.9). No student text enters the tree, logs or traces (B11, B24.6).
+  - (c) Voice reaches Gemini Live only after the voice conditions of B6 and B24.9 are met.
+  - (d) Minors' consent is the partner's (B4 student-surface consent). Whether minors are served before counsel clears
+    DPDP is not decided here; it is a go-live decision recorded in G-PROD (`qa/gates/g-prod.md`).
 
 - **B14 (outcome, not construction):** Every integration unit (tracing, Mongo, model provider, MCP, STT) proves its
   claimed effect end to end against a real or in-process fake: data written and read back, a span exported, a request
@@ -199,6 +270,8 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   `crisis-guard-precision`):** this classifier, or any later layer, may re-mark a guard-flagged turn "reviewed, likely
   benign" for the counsellor's view. It may never hide, suppress or remove the underlying B9 flag itself — the
   counsellor always still sees it. Escalation severity rises through this same layer as a concern deepens (B20).
+  **Student surface (U0-10):** the admin-and-counsellor notification above applies when the student has a connected
+  counsellor. A student with none gets the defaults in B24.7, and B16's "downgrade, never hide" rule still binds.
 
 - **B17 (persona usability):** Every UI-touching unit, and every release, is judged by user personas, not only login roles. The declared personas (Umesh, 2026-09-26; the ids go into `qa/adapter.json` `personas`) are:
   - `sapna-expert`: Sapna ma'am, a top Indian counsellor (Mayo College, Ajmer). She is **the benchmark** (B22), not a walker who needs help.
@@ -243,8 +316,10 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   service, and Pathlynks is its first client, not its host.
   - Every capability (scribe, approval, profile, cards, timeline, erasure, export) is reachable through a versioned
     HTTP API described by an OpenAPI document in the repo.
-  - **Auth:** every request carries a JWT issued by the client backend (for Pathlynks, its backend). VC verifies
-    signature, expiry and issuer, and reads the `tenant`, `counsellorId` and `role` claims. VC has no login screen
+  - **Auth:** every request, except the anonymous routes of the **anonymous-route exception** below, carries a JWT
+    issued by the client backend (for Pathlynks, its backend). VC verifies
+    signature, expiry and issuer, and reads the `tenant`, `counsellorId` and `role` claims (student routes: see
+    **Student identity** below). VC has no login screen
     and no password store. A missing, expired, wrong-issuer or tampered token gets 401, and nothing is read or written.
     Issuer and verification key come only from config (`.env`); until the Pathlynks team supplies theirs, a
     placeholder issuer owned by Umesh (`umesh`, local key pair) is used (Umesh, 2026-09-26). Moving to the real issuer
@@ -260,6 +335,22 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
     persona walks (B17), scenario runs (B19) and the release video run on.
   - Tests use a locally signed test JWT and a fake KB. Nothing connects to the real Pathlynks backend until an
     integration unit is approved.
+  - **Anonymous-route exception (U0-6, CRITICAL, D-085 / D-088 Q7; signature pending):** the only requests that may
+    be served without a JWT are the **text-only anonymous routes** that the OpenAPI document lists explicitly as
+    anonymous. The list is closed. Every other route, including every student, counsellor and admin route and the
+    voice routes, still gets 401 without a valid JWT, and a test enumerates the registered routes to prove it. An
+    anonymous route carries no tenant, student or thread identity, writes only what B24.6 allows, and is enabled in a
+    deployment only through the go-live gate (B24.9). There is no anonymous voice route.
+  - **Student identity (U0-7; the principle is APPLIED from D-086, the claim names are PROPOSED):** student routes
+    identify the student **only** from a verified JWT: signature, expiry and issuer checked as above, `role` =
+    `student`, plus the tenant and the student id from the token. The student id is never taken from a body, query or
+    path value: a path or body id that differs from the token's is refused (403/404) and nothing is read or written.
+    A counsellor or admin token on a student route is rejected, and a student token on a counsellor or admin route is
+    rejected. The verified `tenantId` is stamped on every student document and filters every query (tenancy above); the
+    synthetic sandbox tenant holds only synthetic data. **[PROPOSED]** claim names (`sub` = student id, `tenant`,
+    `role`), who mints (the client backend, for Pathlynks its backend, using the same configured issuer and key as the
+    counsellor tokens, with the placeholder issuer `umesh` until Pathlynks supplies theirs), an `aud` check, and a
+    short-lived VC-minted WebSocket session token for the voice route. Spec A6 and A23 are the proof.
 
 - **B22 (novice + VC ≈ expert; north-star metric, Umesh 2026-09-26):**
   - **Goal:** a person with no counselling background, working with VC, reaches **at least 90 %** of the expert
@@ -272,6 +363,17 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   - **Before the reference exists:** until Sapna ma'am's reference rubric is recorded, B22 is reported as
     `NOT-YET-MEASURABLE`, never as a pass, and it does not block unit PASS.
   - **Once the reference exists:** B22 becomes a release gate.
+  - **B22-S, student head-to-head (U0-8, APPLIED, D-088 Q6, spec A14):** a separate release gate for the P1 student
+    surface; the 90% novice-plus-VC metric above is unchanged and stays the counsellor-surface metric. Method: 60
+    questions drawn from anonymised real question logs (B13), at least 10 countries, 20 profile-personalised on
+    synthetic profiles, 20 Hindi/Hinglish. Vidysea counsellors (Sapna ma'am's team) write the expert answers
+    independently and never see VC output. **Two** counsellors judge blind in randomised order on accuracy,
+    completeness, source quality, profile fit and safety. An LLM judge may pre-screen and never decides. **Pass = VC
+    rated equal or better on >= 60% of the questions with zero safety failures**, with spec **A1 (claims verified) and
+    A3 (no unpermitted speaker names) as required companions**, so a 60% pass cannot hide uncited or named-speaker
+    answers. Recorded plainly: this bar is weaker than the earlier 85% draft. A judge never scores an answer they
+    wrote [ASSUMPTION: the counsellors are split into authors and judges]. The public "challenge" event is out of P1.
+    Until it has run, B22-S is reported as `NOT-YET-MEASURED`, never as a pass.
 
 ## B23. Authenticated counselling session lifecycle and feedback prerequisite (D-032 / D-033)
 
@@ -360,15 +462,160 @@ requires all replay, grant-incarnation, original-deadline, ownership and export 
 amendment records that PLAN approval only: no lifecycle implementation, execution evidence, production
 consent writer integrity or completion PASS is certified by it. Feedback policy remains pending.
 
+## B24. Student Virtual Counsellor (P1): API-only student surface (U0-10; D-083..D-089)
+
+This section adds acceptance for the P1 student surface. It does not replace or weaken B1-B23 except where B1, B2, B4,
+B6, B13 and B21 say so above. Detailed source: `qa/evidence/p1-plan-draft-20261017/{intent,spec,plan}.md` (v8, approved
+by D-089; spec sha256 e183ee9a, plan sha256 3ab92f77). The spec's acceptance table A1-A24 is the proof list. If the
+spec and this contract ever differ, this contract is the criterion and the difference is reported. Items tagged
+[ASSUMPTION] are proposals from the spec, adjustable by Umesh.
+
+- **B24.1 (surface):** The P1 student surface is an API only: a text chat endpoint (threads) and a live voice endpoint
+  (Gemini Live over WebSocket) for Pathlynks-authenticated students, plus the anonymous text mode (B24.6). VC owns no UI,
+  login or chat page. It is OpenAPI 3 under `/v1` with strict Zod bodies, an error model and idempotent turns (B21 stands
+  for everything it does not amend). The student graph is a new module beside `guards/` and `scribe/`; no live
+  student-turn graph exists today. Tested languages: English and Hindi/Hinglish only; others are best effort and
+  explicitly untested.
+- **B24.2 (knowledge: the KnowledgeBase as the RAG, as-is; D-087 Q17):** VC reads `GET /search`, `POST /ask`,
+  `GET /sessions/:id`, `GET /gaps` and `GET /sources` of the KnowledgeBase through `mcp/university-kb`, with a scoped
+  key from `.env` (B11). VC keeps no copy of KB content, writes no pages and runs no authoring programme (a KB change
+  follows the KB repo's own Lab Protocol and is optional, gate G-KB). **Serve rule:** an `/ask` answer is served only
+  when `verdict == "correct"` AND `insufficient_coverage == false` AND `web_used == false`. Every other combination,
+  including a failed or unconfigured web fallback that leaves `web_used:false` with a generated answer over weak
+  context, is the fixed "no sourced answer yet" text (`no_sourced_answer`); `sources.web` never reaches a response;
+  authenticated mode writes one gap count. Authenticated turns call `/search` first and `/ask` only when search is
+  insufficient (0 hits with `score` >= the configured threshold [ASSUMPTION; set from the recorded fixtures at U2]).
+  A KB outage returns the fixed no-answer text, never an uncited one (B21). A cited item whose session cannot be
+  re-read is never served as sourced; a session older than the staleness threshold is flagged `stale` and one with no
+  date `date_unknown` (default threshold in the signature sheet [PROPOSED]). Proof: spec A4, A13, A17, A18.
+- **B24.3 (no-quote guard, written permission; D-088 Q8):** a deterministic guard keyed on a VC-side `speakers.json`
+  (name, transliterated and Devanagari aliases, and a **written-permission record**) is **default-deny**: a speaker is
+  named only when a permission record exists. External seminar speakers follow the same rule. Otherwise the answer is
+  unnamed paraphrase. `speakers.json` holds only aliases and permission records, no KB content; the aliases are
+  supplied by Vidysea [ASSUMPTION]. Proof: spec A3 (exhaustive over the fixture).
+- **B24.4 (source kind; D-088 Q9):** every claim carries a source kind: `internal-seminar`, `toc`, `whatsapp` or
+  `unknown`. Internal Vidysea seminar and TOC material may be cited as paraphrase. WhatsApp-derived material is
+  **paraphrase only, anonymised, never verbatim**. Mapping: the KB `/sources` `kind` `whatsapp-batch` = `whatsapp`;
+  seminar and TOC come from a named `sourceId`/title list in VC config (`source-kinds.json`, maintained by Vidysea);
+  anything unlisted or undeterminable is treated as `whatsapp`/`unknown` = non-quotable paraphrase. For `whatsapp` and
+  `unknown` the answer contains no verbatim run of >= 8 consecutive words from the source text [ASSUMPTION; a weak
+  proxy, stated as such] and no personal identifiers. Detector: a phone-number regex, the `speakers.json` names and
+  aliases, and the `speakerLabel`s of the WhatsApp hits in that turn; Hindi and transliterated names are covered by the
+  alias list only. Disputes go to Umesh. Proof: spec A22.
+- **B24.5 (API, persistence, limits, tenancy):**
+  - Identity per B21 student identity; authenticated = consented per B4.
+  - Threads are persisted verbatim in `virtual_counsellor`, tenant-stamped. **Voice transcripts persist to the thread:**
+    the final user and assistant transcripts of a voice turn are appended to the same thread with `channel:"voice"`, in
+    order with text turns, surviving reconnect, so the student sees one history (D-086 Q4). Audio itself is not stored
+    [ASSUMPTION]. This covers authenticated students only.
+  - Gap counts and the crisis flag log are stored in `virtual_counsellor`.
+  - Limits (D-088 Q5, per-tenant configurable defaults, a tenant override affects only that tenant): 30 requests per
+    minute per student (429 with `Retry-After`), 60 voice minutes per student per month (text continues when
+    exhausted), a 20-minute voice session cap, native audio PCM16 16 kHz in and 24 kHz out.
+  - Tenancy (D-088 Q12): one tenant per partner plus one synthetic-data sandbox tenant that holds no real data and has no
+    read path to another tenant; the sandbox refuses a student id without the synthetic prefix `syn-` [ASSUMPTION:
+    prefix value set at U5a].
+  - Erasure and export (B15) cover threads, voice turns, profile facts, usage counters and gap counts; erased students
+    read back zero. Proof: spec A5, A6, A7, A9, A19, A23.
+- **B24.6 (anonymous mode: writes only a text-free counter; D-085, D-088 Q7):** text only, no public voice route. It
+  answers generic KB questions only, using `GET /search` for content and `GET /sources` for source-kind tagging
+  (fetched once, only `{id, kind}` kept in memory, never logged). It never calls `/ask` (so no KB web fallback and no
+  Tavily egress) and never calls `GET /sessions/:id`; outgoing requests carry no tenant, student or thread identifier
+  and no user text except `q`; it should use its own search-only KB key [ASSUMPTION]. **VC persists no profile,
+  transcript, thread, trace or log text and no user text.** The one permitted write is a **text-free aggregate counter**:
+  date, `kind` (`answered` | `no_answer` | `sign_in_required` | `crisis`) and count, with no text, no IP, no identifier.
+  Handler construction gets no Db, checkpointer, outbox or tracer except that single counter writer (throwing proxies
+  for the rest). The personal-vs-generic classifier is rule-based (no LLM sees the text to classify) and fails closed:
+  ambiguous = personal = `sign_in_required`. The limiter is in-memory, text-free, TTL-based, 10 requests per minute per
+  client, and its key is never logged or persisted. Crisis gets the fixed message plus Tele-MANAS. Recorded extension:
+  the counter's `kind` field goes beyond D-088 Q7's "count, date"; it is text-free, and Umesh may veto it [PROPOSED].
+  The claim is about VC storage only: provider and KB handling are disclosed separately (B13 exception). The route is
+  enabled only through the go-live gate (B24.9). Proof: spec A15a-c.
+- **B24.7 (crisis defaults, students with no connected counsellor; D-087 Q11, evidence
+  `qa/evidence/crisis-research-20261017/proposal.md`):**
+  - The crisis turn gets a fixed safe message with Tele-MANAS 14416 (free, 24x7). For authenticated students it also asks
+    who their safe adult is. It never promises secrecy, never gives method or lethality information, never claims
+    therapy, never says "nothing will happen to you".
+  - **Keep talking:** the turn after a flag is still answered and risk is re-checked on every message of the session.
+    The B9 stop-and-escalate applies to the flagged turn; it is not a session lock.
+  - Unsure, indirect, Hinglish and voice cases count as the higher level.
+  - Every flag is logged: who, when, level and action (authenticated), ids and the flag only, never transcript text
+    (B4 D-027). Anonymous mode keeps only the text-free counter.
+  - The **human-alert route is not enabled until the CEO "Nights" decision** (`qa/gates/nights.md`). Until then the
+    mode is `tele-manas-disclosed`: the message discloses the Tele-MANAS hand-off and promises no counsellor. Delivery
+    of any escalation stays record-only (H9).
+  - **[PROPOSED]** how the continuation replies are produced: the flagged turn is the fixed message; later turns may be
+    generated only under a crisis-safe skill with the forbidden-phrase list enforced as a guard.
+  - B16's recall >= 0.95 bar before any real-student pilot stands. "Zero liability" is not achievable; this minimises
+    exposure. Open outside P1: the Nights decision, whether minors are served before counsel clears DPDP, who owns the
+    clinical-safety policy, and unverified Tele-MANAS adolescent and language coverage (test-call before launch).
+    Proof: spec A11, A11b.
+- **B24.8 (profile facts and ranking; D-086 Q3, D-087 Q15):** profile facts come from two sources only: a profile
+  supplied by Pathlynks for the authenticated student (`source: pathlynks`, trusted as supplied), and facts extracted
+  from the chat that the student **confirms** (`source: student-confirmed`). A chat-extracted fact is proposed back to
+  the student and is used only after `confirm`; an unconfirmed fact never reaches ranking or `profileFactsUsed[]`; the
+  student can correct or erase a fact. B3 is unchanged: a write into the counsellor-approved student graph still needs
+  the counsellor's approval. **[PROPOSED]** student-surface facts live in their own `profile-facts` collection and never
+  enter the counsellor-approved graph. Ranking uses configurable weights; the default goal is student success, reported
+  as `rankingProfile`; numbers come from KB data, not the LLM; an unauthenticated request gets no ranking. The default
+  weight vector is **[PROPOSED]** in the signature sheet. Proof: spec A16, A16b.
+- **B24.9 (release gates, budget, honesty):**
+  - **Go-live gate (spec A20):** a script, delivered before any route is exposed, refuses to enable the voice flag, the
+    public anonymous route or partner publication of the contract unless `qa/gates/` holds (a) the signed
+    `B13-signed:` line, (b) a passing A10 report for voice, (c) G-PUBLISH answered, (d) a recorded Nights mode
+    (`funded` or `tele-manas-disclosed`).
+  - **Paid-run budget (spec A24, G-REAL):** every REAL-model runner needs the per-use approval of
+    `qa/gates/g-real.md` and hard-stops and reports when a run would pass USD 50 or the month's recorded spend would pass
+    USD 200 [ASSUMPTION, adjustable]; spend is recorded per run.
+  - **Mock vs real:** mock tests prove plumbing only; model behaviour is proved only by REAL runs. A criterion not run
+    is NOT PROVEN, never "done". Text P1 needs A2b, the A4 probes, A8 and A14 (REAL) to pass; voice may ship disabled
+    (an A10 failure keeps it off and does not block text P1).
+  - No push, deploy, partner exposure or paid run happens without Umesh's gate.
+
 ## Non-goals (this contract)
-- The avatar (P3) and the student-facing voice surface. (Counsellor-side **voice input**, such as dictating an edit in Hindi, is in scope: B17 `gaurav-bhaiya`.)
+- The avatar (P3). (Counsellor-side **voice input**, such as dictating an edit in Hindi, is in scope: B17 `gaurav-bhaiya`. The student-facing voice **API** (Gemini Live over WebSocket, no VC-owned voice UI) is in scope from P1 under B24, disabled until its gate passes; amended 2026-10-17, D-085/D-086, U0-9.)
+- P1 (U0-9): any VC-owned student UI, chat page, login or Hindi labels; ghost-writing essays or SOPs; a KnowledgeBase page store, page endpoints or page authoring; web or training-data answers; claiming pre-send enforcement for voice; a Counsellor Assist roadmap (a label rename only, owner Umesh); the public head-to-head challenge event.
 - Bulk student import (Excel with AI column mapping). Umesh 2026-09-26: out of this project's context; it belongs to the counselor portal.
 - The production counsellor UI. It is built by the client's team (B21).
 - Journey map, test tracker, commission and supplier onboarding, school subject grouping (these belong to the counselor portal or Pathlynks).
 - Production deploy.
-- Joining real Pathlynks data (gated on the DPDP legal review, Q3).
+- Joining real Pathlynks data (gated on the DPDP legal review, Q3). **[PROPOSED, U0-9]** The P1 student surface receives a Pathlynks-supplied profile for an authenticated student only after the signed B13 amendment and the go-live gate (B24.9). Whether the Q3 DPDP legal review must also be complete before that is Umesh's call, recorded in `qa/gates/g-prod.md`; this line is otherwise unchanged.
 
 ## Amendment log
+- 2026-10-17 · mixed, tagged per item · **P1 Student Virtual Counsellor, unit U0** (plan v8 approved by Umesh, D-089;
+  inputs D-086 Q1/Q3/Q4/Q16, D-087 Q2/Q11/Q15/Q17, D-088 Q5-Q9/Q12/Q13/Q18; written by /checker as the single writer of
+  this file; branch `p1/u0`, nothing pushed). Why: the approved P1 plan needs a student-facing API surface that B1-B23
+  never covered and that, in places, contradicts them (B13 synthetic-only, B4 consent row, B21 JWT-on-every-request,
+  B6 guards before any LLM call, B2 every fact sourced, the non-goal that excluded student voice). Per item:
+  - **U0-1 B1 scope** · APPLIED · coach-first and tool-aware on the student surface, drafting not granted, capability
+    manifest drift test (D-087 Q2).
+  - **U0-2 B2 `claims[]`** · CRITICAL, signature pending · sourceId = `/ask` `node_id` or `/search` `turnId`; status
+    verified|attributed|unverified; one named exception to "every fact sourced" (flagged `unverified`); no "every sentence"
+    claim; voice audited post-hoc.
+  - **U0-3 B4 consent** · CRITICAL, signature pending · Pathlynks-authenticated = consented on student routes, no
+    consent-claim verification, clause map (B4 amended, B23.x unchanged, B15 extended); audit-row choice **[PROPOSED]**.
+  - **U0-4 B6 voice** · CRITICAL, signature pending · hard rules cannot run pre-send in live voice; four compensating
+    controls; voice off until A10 and the go-live gate.
+  - **U0-5 B13 production exception** · CRITICAL, **Umesh signs** (D-086 Q16) · minors' text and voice to Gemini, the KB's
+    LLM provider and Tavily (authenticated `/ask`), plus failover-chain providers, with a processor register; effective
+    only after the `B13-signed:` line and the go-live gate; tests and evals stay synthetic.
+  - **U0-6 B21 anonymous exception** · CRITICAL, signature pending · closed list of text-only anonymous routes, all other
+    routes 401 (route-enumeration test), enabled only via the go-live gate.
+  - **U0-7 B21 student identity** · principle APPLIED (D-086), claim names / minting / `aud` / WS token **[PROPOSED]** ·
+    student id only from the verified token; counsellor, admin and student tokens isolated by route class.
+  - **U0-8 B22-S head-to-head** · APPLIED · 60% equal-or-better by two blind judges, zero safety failures, A1 and A3
+    required companions; the 90% novice-plus-VC metric is untouched.
+  - **U0-9 Non-goals** · APPLIED, one line **[PROPOSED]** · student-facing voice API moves in scope (disabled until its
+    gate); P1 non-goals added; the "real Pathlynks data" non-goal gains a pointer to the B13 signature and go-live gate,
+    and whether the Q3 DPDP legal review must also finish is left to Umesh.
+  - **U0-10 B24.1-B24.9 and the B9/B16 pointers** · KB-as-RAG serve rule, no-quote with written-permission records,
+    source kinds, API/persistence/limits/tenancy, anonymous mode (text-free counter; the counter `kind` field **[PROPOSED]**),
+    crisis defaults (CRITICAL, signature pending; continuation-reply mode **[PROPOSED]**), profile facts and ranking
+    (separate collection **[PROPOSED]**), release gates and budget (CRITICAL for the gate, G-REAL numbers are
+    [ASSUMPTION]).
+  Signatures: `qa/gates/p1-u0-amendment-signatures.md`. Gates opened by this unit: `g-kb`, `g-real`, `g-publish`, `g-prod`,
+  `nights`. Left as they were, on purpose: B3 (human approves writes), B9 recall-only, B16 downgrade-never-hide and the
+  recall bar, B15 mechanics, B12, B23.1-B23.7, and the 90% B22 metric. Plan approval is not completion PASS.
 - 2026-10-01 · routine (tighten, D-034) · B23.2 requires already persisted valid server-issued
   incarnation, captured once; lifecycle never initializes/repairs/refreshes missing, malformed or
   legacy grant authority. Replaces unsafe lazy CAS initialization after the demonstrated delayed
