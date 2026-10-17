@@ -31,11 +31,14 @@
  * and is not scanned.
  */
 import { createHash, randomBytes } from "node:crypto";
+import { isIP } from "node:net";
 import { fileURLToPath } from "node:url";
 import { AnonymousTurnResponseSchema, ANONYMOUS_COUNTER_KINDS, resolveLimits } from "@vc/schemas";
 import type { AnonymousCounterDoc } from "@vc/db";
 import {
   StudentInputInvalidError,
+  TELE_MANAS_LINE,
+  crisisGuard,
   runStudentTurn,
   compileStudentGraph,
   type AnonymousCounterKind,
@@ -60,6 +63,10 @@ export const DEFAULT_GATES_DIR = fileURLToPath(new URL("../../../qa/gates", impo
 export const MAX_ANONYMOUS_BODY_BYTES = 256 * 1024;
 export const ANONYMOUS_WINDOW_MS = 60_000;
 export const ANONYMOUS_MAX_LIMITER_KEYS = 50_000;
+/** U7 repair 1: a counter write not finished by then counts as failed; the reply (a crisis message included) never waits longer. */
+export const DEFAULT_COUNTER_DEADLINE_MS = 750;
+/** U7 repair 4: the full-table sweep is O(n); it runs at most this often. */
+export const MIN_SWEEP_INTERVAL_MS = 1_000;
 
 export class AnonymousConfigError extends Error {
   constructor(message: string) {
@@ -143,6 +150,7 @@ export class AnonymousRateLimiter {
   private readonly salt = randomBytes(16);
   private readonly buckets = new Map<string, number[]>();
   private checks = 0;
+  private lastSweepMs = Number.NEGATIVE_INFINITY;
 
   constructor(private readonly opts: AnonymousLimiterOptions) {
     if (![opts.limit, opts.windowMs, opts.maxKeys].every((n) => Number.isInteger(n) && n >= 1)) throw new RangeError("AnonymousRateLimiter: limit, windowMs and maxKeys must be positive integers");
@@ -154,7 +162,7 @@ export class AnonymousRateLimiter {
 
   check(rawKey: string | undefined): LimiterVerdict {
     const now = this.opts.nowMs();
-    if (++this.checks % 256 === 0) this.sweep();
+    if (++this.checks % 256 === 0) this.maybeSweep();
     const key = this.digest(rawKey);
     let stamps = this.buckets.get(key);
     if (stamps) {
@@ -167,7 +175,7 @@ export class AnonymousRateLimiter {
     }
     if (!stamps) {
       if (this.buckets.size >= this.opts.maxKeys) {
-        this.sweep();
+        this.maybeSweep();
         if (this.buckets.size >= this.opts.maxKeys) return { allowed: false, retryAfterSec: Math.ceil(this.opts.windowMs / 1000) };
       }
       stamps = [];
@@ -178,6 +186,14 @@ export class AnonymousRateLimiter {
     }
     stamps.push(now);
     return { allowed: true };
+  }
+
+  /** Rate-limited sweep (U7 repair 4): a flood of new keys against a full table cannot make every request O(n). */
+  private maybeSweep(): void {
+    const now = this.opts.nowMs();
+    if (now - this.lastSweepMs < MIN_SWEEP_INTERVAL_MS) return;
+    this.lastSweepMs = now;
+    this.sweep();
   }
 
   /** Drops every key whose newest request is outside the window (TTL). */
@@ -214,11 +230,13 @@ export interface AnonymousApiDeps {
   config?: Partial<StudentGraphConfig>;
   /** Per-deployment override of the D-088 limits (only `anonymousRequestsPerMinute` is read). */
   limits?: Parameters<typeof resolveLimits>[0];
+  /** A counter write not finished by this deadline counts as failed (default DEFAULT_COUNTER_DEADLINE_MS). */
+  counterDeadlineMs?: number;
   /** Tests inject a limiter; default: 10 requests per minute per client. */
   limiter?: AnonymousRateLimiter;
   now?: () => Date;
   nowMs?: () => number;
-  /** The limiter key source. Default: the socket peer address. Behind a trusted proxy the deployment supplies its own. */
+  /** The limiter key source. Default: the socket peer address through `normalizeClientAddress`. Behind a proxy the deployment supplies its own. */
   clientKey?: (req: ApiRequest) => string | undefined;
   /** Text-free server-side failure log. Default: one JSON line on stderr. */
   log?: (line: AnonymousLogLine) => void;
@@ -245,6 +263,65 @@ function assertNoTracing(env: Record<string, string | undefined>): void {
   }
 }
 
+/** Rejects when `p` has not settled within `ms`. The late result (or rejection) of `p` is ignored, never unhandled. */
+function withDeadline(p: Promise<void>, ms: number): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("AnonymousCounterTimeout")), ms);
+    p.then(
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
+/**
+ * U7 repair 3: the limiter key source. IPv4-mapped IPv6 (::ffff:a.b.c.d, and its hex form) is the IPv4 address; any other IPv6
+ * address is reduced to its /64 prefix (a client controls the low 64 bits, so rotating them must not buy a fresh budget or fill
+ * the table); a zone id is dropped. An unparseable value is kept verbatim (one shared bucket; never throws).
+ */
+export function normalizeClientAddress(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  let a = raw.trim();
+  const zone = a.indexOf("%");
+  if (zone >= 0) a = a.slice(0, zone);
+  if (isIP(a) === 4) return a;
+  if (isIP(a) !== 6) return raw;
+  const groups = expandIpv6(a);
+  if (!groups) return raw;
+  if (groups.slice(0, 5).every((g) => g === 0) && groups[5] === 0xffff) {
+    return `${groups[6]! >> 8}.${groups[6]! & 255}.${groups[7]! >> 8}.${groups[7]! & 255}`;
+  }
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g.toString(16))
+    .join(":")}::/64`;
+}
+
+function expandIpv6(a: string): number[] | undefined {
+  let text = a;
+  if (text.includes(".")) {
+    const colon = text.lastIndexOf(":");
+    const v4 = text.slice(colon + 1).split(".").map(Number);
+    if (v4.length !== 4 || v4.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return undefined;
+    text = `${text.slice(0, colon + 1)}${((v4[0]! << 8) | v4[1]!).toString(16)}:${((v4[2]! << 8) | v4[3]!).toString(16)}`;
+  }
+  const halves = text.split("::");
+  if (halves.length > 2) return undefined;
+  const part = (s: string) => (s === "" ? [] : s.split(":"));
+  const head = part(halves[0]!);
+  const tail = halves.length === 2 ? part(halves[1]!) : [];
+  const fill = 8 - head.length - tail.length;
+  if (halves.length === 1 ? fill !== 0 : fill < 0) return undefined;
+  const all = [...head, ...Array<string>(fill).fill("0"), ...tail].map((h) => parseInt(h, 16));
+  return all.length === 8 && all.every((n) => Number.isInteger(n) && n >= 0 && n <= 0xffff) ? all : undefined;
+}
+
 function defaultLog(line: AnonymousLogLine): void {
   // eslint-disable-next-line no-console
   console.error(JSON.stringify(line));
@@ -268,7 +345,8 @@ export function buildAnonymousGraphDeps(deps: AnonymousApiDeps, onForbidden?: (p
     recordGap: forbidden("recordGap"),
     logFlag: forbidden("logFlag"),
     escalate: forbidden("escalate"),
-    countAnonymous: (kind) => deps.counter.increment(kind),
+    // U7 repair 1/B: EVERY counter await (crisis, sign-in, answered, no-answer) is bounded; a timeout is a failed write (safeWrite in the graph).
+    countAnonymous: (kind) => withDeadline(Promise.resolve().then(() => deps.counter.increment(kind)), deps.counterDeadlineMs ?? DEFAULT_COUNTER_DEADLINE_MS),
     hasPriorFlag: async () => false,
     onWriteError: (write) => {
       const ts = new Date().toISOString();
@@ -302,7 +380,9 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
       maxKeys: ANONYMOUS_MAX_LIMITER_KEYS,
       nowMs: deps.nowMs ?? Date.now,
     });
-  const clientKey = deps.clientKey ?? ((req: ApiRequest) => req.remoteAddress);
+  const clientKey = deps.clientKey ?? ((req: ApiRequest) => normalizeClientAddress(req.remoteAddress));
+  // Every non-200 body carries the static helpline (AI review A): a student in distress who meets any refusal still sees it.
+  const fail = (status: number, error: string, headers?: Record<string, string>) => respond(status, { error, helpline: TELE_MANAS_LINE }, headers);
 
   return async (req) => {
     try {
@@ -310,41 +390,45 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
       try {
         pathname = new URL(req.url, "http://vc-api.invalid").pathname;
       } catch {
-        return respond(400, { error: "invalid_request" });
+        return fail(400, "invalid_request");
       }
       if (pathname !== ANONYMOUS_PATH) return respond(404, { error: "not_found" });
-      if (req.method.toUpperCase() !== "POST") return respond(405, { error: "method_not_allowed" }, { allow: "POST" });
-
-      const verdict = limiter.check(clientKey(req));
-      if (!verdict.allowed) return respond(429, { error: "rate_limited" }, { "retry-after": String(verdict.retryAfterSec) });
+      if (req.method.toUpperCase() !== "POST") return fail(405, "method_not_allowed", { allow: "POST" });
 
       let raw: string;
       try {
         raw = await req.readBody(MAX_ANONYMOUS_BODY_BYTES);
       } catch (err) {
-        if (err instanceof BodyTooLargeError) return respond(413, { error: "body_too_large" });
+        if (err instanceof BodyTooLargeError) return fail(413, "body_too_large");
         throw err;
       }
-      if (Buffer.byteLength(raw, "utf8") > MAX_ANONYMOUS_BODY_BYTES) return respond(413, { error: "body_too_large" });
+      if (Buffer.byteLength(raw, "utf8") > MAX_ANONYMOUS_BODY_BYTES) return fail(413, "body_too_large");
 
       let json: unknown;
       try {
         json = JSON.parse(raw);
       } catch {
-        return respond(400, { error: "invalid_request" });
+        return fail(400, "invalid_request");
       }
       // The body is exactly {"text": <string>}. Length is the graph's call (an over-long crisis message must still be
       // scanned before it is refused, U6h L5), so it is not checked here. Any other field, including a tenant or student id, is refused.
-      if (typeof json !== "object" || json === null || Array.isArray(json)) return respond(400, { error: "invalid_request" });
+      if (typeof json !== "object" || json === null || Array.isArray(json)) return fail(400, "invalid_request");
       const keys = Object.keys(json);
       const text = (json as { text?: unknown }).text;
-      if (keys.length !== 1 || keys[0] !== "text" || typeof text !== "string") return respond(400, { error: "invalid_request" });
+      if (keys.length !== 1 || keys[0] !== "text" || typeof text !== "string") return fail(400, "invalid_request");
+
+      // AI review A: a crisis message is never rate limited. The scan runs on the FULL text before the limiter is consulted; the graph
+      // then answers it with the fixed message (no model, no KB, one text-free counter write), so it costs nothing worth limiting.
+      if (crisisGuard(text).level === "none") {
+        const verdict = limiter.check(clientKey(req));
+        if (!verdict.allowed) return fail(429, "rate_limited", { "retry-after": String(verdict.retryAfterSec) });
+      }
 
       let result;
       try {
         result = await runStudentTurn(graphDeps, { mode: "anonymous", text });
       } catch (err) {
-        if (err instanceof StudentInputInvalidError) return respond(400, { error: "invalid_request" });
+        if (err instanceof StudentInputInvalidError) return fail(400, "invalid_request");
         throw err;
       }
       const r = result.response;
@@ -357,7 +441,7 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
       } catch {
         // never fail the response because the logger failed
       }
-      return respond(500, { error: "internal" });
+      return fail(500, "internal");
     }
   };
 }

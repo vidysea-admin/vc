@@ -72,6 +72,13 @@ export const PROVIDER_APOLOGY_TEXT = "Sorry, I couldn't put an answer together j
 export const SIGN_IN_REQUIRED_TEXT =
   "This sounds like a question about your own situation. Please sign in through Pathlynks so I can help with it properly.";
 export const TELE_MANAS_LINE = "If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.";
+/**
+ * U7 repair D: the crisis phrase list is recall-only and misses indirect phrasing ("thinking about ending things"), and an anonymous
+ * turn that falls through to a non-answer would otherwise leave the student with nothing. Every anonymous non-answer reply therefore
+ * carries the helpline line. Authenticated texts are unchanged.
+ */
+export const ANONYMOUS_SIGN_IN_TEXT = `${SIGN_IN_REQUIRED_TEXT} ${TELE_MANAS_LINE}`;
+export const ANONYMOUS_NO_ANSWER_TEXT = `${NO_SOURCED_ANSWER_TEXT} ${TELE_MANAS_LINE}`;
 
 const CRISIS_CORE =
   "I'm really glad you told me. What you're going through matters, and you deserve support right now. " +
@@ -515,7 +522,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       if (input.mode === "anonymous") {
         if (classifyQuestion(input.text).class !== "generic") {
           await count("sign_in_required");
-          return { result: { response: emptyResponse(input, "sign_in_required", SIGN_IN_REQUIRED_TEXT), claimSourceKinds: [] } };
+          return { result: { response: emptyResponse(input, "sign_in_required", ANONYMOUS_SIGN_IN_TEXT), claimSourceKinds: [] } };
         }
         return { tool: "search_kb" as const };
       }
@@ -551,7 +558,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     } else {
       await count("no_answer");
     }
-    return { response: emptyResponse(input, "no_sourced_answer", NO_SOURCED_ANSWER_TEXT), selectedTool: "search_kb", claimSourceKinds: [] };
+    return { response: emptyResponse(input, "no_sourced_answer", input.mode === "authenticated" ? NO_SOURCED_ANSWER_TEXT : ANONYMOUS_NO_ANSWER_TEXT), selectedTool: "search_kb", claimSourceKinds: [] };
   }
 
   /**
@@ -637,7 +644,8 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     const shown = authenticated ? guarded.claims : guarded.claims.filter((c) => c.status !== "unverified");
     if (!shown.some((c) => c.status !== "unverified")) return noAnswer(input);
 
-    const followUp = safeFollowUp(draft.followUp, guarded.restricted);
+    // U7 repair C: an anonymous reply never carries a model-written follow-up (it could solicit marks, a school or a link).
+    const followUp = authenticated ? safeFollowUp(draft.followUp, guarded.restricted) : undefined;
     let message = [...shown.map((c) => (c.status === "unverified" ? `${c.text} (unverified)` : c.text)), ...(followUp ? [followUp] : [])].join(" ");
     // Repair R2a: the FINAL message is checked against every restricted text of the turn (fail closed).
     if (guarded.restricted.texts.some((t) => hasVerbatimRun(message, t))) return noAnswer(input);
@@ -646,10 +654,17 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       return { response: emptyResponse(input, "ok", STUDENT_CRISIS_MESSAGE), selectedTool: "search_kb", claimSourceKinds: [] };
     }
     if (!authenticated) await count("answered");
-    const claims: Claim[] = shown.map(({ text, kind, sourceIds, status }: GuardedClaim) => ({ text, kind, sourceIds, status }));
+    let claims: Claim[] = shown.map(({ text, kind, sourceIds, status }: GuardedClaim) => ({ text, kind, sourceIds, status }));
     const cited = new Set(shown.flatMap((c) => c.sourceIds));
+    let sources = guarded.sources.filter((s) => cited.has(s.id));
+    if (!authenticated) {
+      // U7 repair E: an anonymous caller gets opaque ordinal ids (the KB turn id is internal) and no title for restricted kinds.
+      const opaque = new Map<string, string>(sources.map((s, i) => [s.id, `s${i + 1}`]));
+      sources = sources.map(({ id, title, ...rest }) => ({ id: opaque.get(id)!, ...rest, ...(title && rest.kind !== "whatsapp" && rest.kind !== "unknown" ? { title } : {}) }));
+      claims = claims.map((c) => ({ ...c, sourceIds: c.sourceIds.map((id) => opaque.get(id)).filter((id): id is string => id !== undefined) }));
+    }
     return {
-      response: { ...(authenticated ? { turnId: input.turnId } : {}), state: "ok", message, claims, sources: guarded.sources.filter((s) => cited.has(s.id)), profileFactsUsed: [] },
+      response: { ...(authenticated ? { turnId: input.turnId } : {}), state: "ok", message, claims, sources, profileFactsUsed: [] },
       selectedTool: ask ? "ask_knowledge_base" : "search_kb",
       claimSourceKinds: shown.map((c) => c.sourceKind),
     };

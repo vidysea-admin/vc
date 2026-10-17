@@ -9,11 +9,12 @@ import assert from "node:assert/strict";
 import { inspect } from "node:util";
 import { ANONYMOUS_COUNTER_KINDS, DEFAULT_LIMITS } from "@vc/schemas";
 import { ANONYMOUS_COUNTER_FIELDS, COLLECTION_NAMES } from "@vc/db";
-import { ANONYMOUS_CRISIS_MESSAGE, NO_SOURCED_ANSWER_TEXT, SIGN_IN_REQUIRED_TEXT } from "@vc/engine";
+import { ANONYMOUS_CRISIS_MESSAGE, ANONYMOUS_NO_ANSWER_TEXT, ANONYMOUS_SIGN_IN_TEXT, TELE_MANAS_LINE } from "@vc/engine";
 import {
   AnonymousForbiddenWriteError,
   AnonymousRateLimiter,
   buildAnonymousGraphDeps,
+  normalizeClientAddress,
   MAX_ANONYMOUS_BODY_BYTES,
 } from "../src/anonymous.js";
 import { SEARCH_EMPTY, SPEAKERS, GOOD_CLAIM, SKILLS_DIR, anonWorld, ask, anonRequest, captureOutput, kbAnswerProvider, nonEmptyCollections, recordingKb, tooLargeBody } from "./anonymous-fixtures.js";
@@ -238,7 +239,7 @@ test("A15b: >= 40 borderline cases (English, Hinglish, Hindi) through the route:
       const res = await ask(w, text, { ip: `192.0.2.${(n++ % 200) + 1}` });
       assert.equal(res.status, 200, text);
       assert.equal(res.json.state, "sign_in_required", text);
-      assert.equal(res.json.message, SIGN_IN_REQUIRED_TEXT);
+      assert.equal(res.json.message, ANONYMOUS_SIGN_IN_TEXT);
     }
     assert.equal(w.provider.calls.length, 0, "no model call decides or answers a personal question");
     assert.equal(w.kb.calls.length, 0, "no KB call for a personal question");
@@ -268,7 +269,7 @@ test("A15b: the limiter allows 10 requests per minute per client, the 11th is 42
     for (let i = 0; i < 10; i++) assert.equal((await ask(w, GENERIC, { ip: "198.51.100.9" })).status, 200, `request ${i + 1}`);
     const limited = await ask(w, GENERIC, { ip: "198.51.100.9" });
     assert.equal(limited.status, 429);
-    assert.deepEqual(limited.json, { error: "rate_limited" });
+    assert.deepEqual(limited.json, { error: "rate_limited", helpline: TELE_MANAS_LINE });
     assert.ok(Number(limited.headers["retry-after"]) >= 1 && Number(limited.headers["retry-after"]) <= 60);
     assert.equal((await ask(w, GENERIC, { ip: "198.51.100.10" })).status, 200, "another client has its own budget");
     const callsBefore = w.provider.calls.length;
@@ -340,7 +341,7 @@ test("A15c: when search finds nothing the route answers no_sourced_answer and ST
   try {
     const res = await ask(w, GENERIC);
     assert.equal(res.json.state, "no_sourced_answer");
-    assert.equal(res.json.message, NO_SOURCED_ANSWER_TEXT);
+    assert.equal(res.json.message, ANONYMOUS_NO_ANSWER_TEXT);
     assert.deepEqual(w.kb.calls.map((c) => c.tool), ["search_kb"]);
     assert.deepEqual(w.counterCalls, ["no_answer"]);
   } finally {
@@ -382,7 +383,7 @@ test("D-092: an unverified claim is dropped in anonymous mode and never shown wi
   try {
     const res = await ask(w2, GENERIC);
     assert.equal(res.json.state, "no_sourced_answer");
-    assert.equal(res.json.message, NO_SOURCED_ANSWER_TEXT);
+    assert.equal(res.json.message, ANONYMOUS_NO_ANSWER_TEXT);
     assert.deepEqual(res.json.claims, []);
     assert.deepEqual(w2.counterCalls, ["no_answer"]);
   } finally {
@@ -455,9 +456,11 @@ test("validation: malformed bodies are a bare 400, over-long non-crisis text is 
       assert.equal(res.status, 400, label);
       assert.equal(res.body.includes("SENTINEL-X"), false, `${label}: input echoed`);
       assert.equal(JSON.parse(res.body).error, "invalid_request");
+      assert.equal(JSON.parse(res.body).helpline, TELE_MANAS_LINE, `${label}: every non-200 body carries the helpline`);
     }
     const big = await w.handler(anonRequest("", { readBody: tooLargeBody, ip: "192.0.2.250" }));
     assert.equal(big.status, 413);
+    assert.equal(JSON.parse(big.body).helpline, TELE_MANAS_LINE);
     assert.equal(w.provider.calls.length, 0);
     assert.deepEqual(w.counterCalls, []);
   } finally {
@@ -492,7 +495,7 @@ test("errors: an unexpected failure is a bare 500 {error: internal}; the log lin
     const { output } = await captureOutput(async () => {
       const res = await ask(w, `${GENERIC} SENTINEL-TEXT-Y`);
       assert.equal(res.status, 500);
-      assert.deepEqual(res.json, { error: "internal" });
+      assert.deepEqual(res.json, { error: "internal", helpline: TELE_MANAS_LINE });
     });
     const everything = output + JSON.stringify(w.logs);
     assert.equal(everything.includes("SENTINEL-TEXT-Y"), false);
@@ -516,4 +519,172 @@ test("provider failure is the apology text (A12), not an error and not an unsour
   } finally {
     w.cleanup();
   }
+});
+
+// ---------------------------------------------------------------------------
+// U7 pre-ready review repair (senior review 1-4; AI review A, B)
+// ---------------------------------------------------------------------------
+
+const NEVER = { increment: () => new Promise<void>(() => {}) };
+
+test("U7 repair 1/B: a counter that never answers does not delay any reply - crisis, sign-in and answered turns all return within the deadline", async () => {
+  const w = anonWorld({ counter: NEVER, deps: { counterDeadlineMs: 50 } });
+  try {
+    for (const [text, state] of [[CRISIS_EN, "escalated"], [CRISIS_HINGLISH, "escalated"], ["Should I choose Canada or Australia?", "sign_in_required"], [GENERIC, "ok"]] as const) {
+      const t0 = Date.now();
+      const res = await ask(w, text, { ip: "198.51.100.77" });
+      assert.ok(Date.now() - t0 < 1500, `${state}: took ${Date.now() - t0}ms`);
+      assert.equal(res.status, 200);
+      assert.equal(res.json.state, state);
+    }
+    const reported = w.logs.filter((l) => (l as { event?: string }).event === "anonymous_counter_failed");
+    assert.ok(reported.length >= 4, "a timed-out counter write is reported (text-free) as a failed write");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("U7 repair 1: the default counter deadline is under one second, so a hung database delays the crisis message by less than that, not by the driver's 30 s", async () => {
+  const w = anonWorld({ counter: NEVER });
+  try {
+    const t0 = Date.now();
+    const res = await ask(w, CRISIS_EN, { ip: "198.51.100.78" });
+    const took = Date.now() - t0;
+    assert.equal(res.json.state, "escalated");
+    assert.match(res.json.message, /14416/);
+    assert.ok(took >= 500 && took < 2500, `default deadline ${took}ms`);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("U7 repair A: a crisis message is answered with the fixed message and Tele-MANAS even at request 11 (rate limited) and with a full limiter table", async () => {
+  const w = anonWorld();
+  try {
+    for (let i = 0; i < 10; i++) assert.equal((await ask(w, GENERIC, { ip: "198.51.100.30" })).status, 200);
+    assert.equal((await ask(w, GENERIC, { ip: "198.51.100.30" })).status, 429, "the 11th generic request is limited");
+    for (const text of [CRISIS_EN, CRISIS_HINGLISH]) {
+      const res = await ask(w, text, { ip: "198.51.100.30" });
+      assert.equal(res.status, 200, text);
+      assert.equal(res.json.state, "escalated");
+      assert.equal(res.json.message, ANONYMOUS_CRISIS_MESSAGE);
+      assert.match(res.json.message, /14416/);
+    }
+    assert.equal(w.provider.calls.length, 10, "crisis turns call no model");
+    assert.equal(w.counterCalls.filter((k) => k === "crisis").length, 2);
+  } finally {
+    w.cleanup();
+  }
+  const full = anonWorld({
+    deps: { limiter: new AnonymousRateLimiter({ limit: 10, windowMs: 60_000, maxKeys: 1, nowMs: () => 1_000 }) },
+  });
+  try {
+    assert.equal((await ask(full, GENERIC, { ip: "198.51.100.40" })).status, 200);
+    const refused = await ask(full, GENERIC, { ip: "198.51.100.41" });
+    assert.equal(refused.status, 429, "a new key on a full table is refused");
+    const crisis = await ask(full, CRISIS_EN, { ip: "198.51.100.42" });
+    assert.equal(crisis.status, 200);
+    assert.equal(crisis.json.state, "escalated");
+  } finally {
+    full.cleanup();
+  }
+});
+
+test("U7 repair A: every non-200 anonymous body (400, 405, 413, 429, 500) carries the static Tele-MANAS helpline", async () => {
+  const w = anonWorld({ deps: { limiter: new AnonymousRateLimiter({ limit: 1, windowMs: 60_000, maxKeys: 100, nowMs: () => 5_000 }) } });
+  try {
+    await ask(w, GENERIC, { ip: "203.0.113.50" });
+    const limited = await ask(w, GENERIC, { ip: "203.0.113.50" });
+    const bad = await w.handler(anonRequest("{nope", { ip: "203.0.113.51" }));
+    const big = await w.handler(anonRequest("", { readBody: tooLargeBody, ip: "203.0.113.52" }));
+    const wrongMethod = await w.handler(anonRequest({ text: GENERIC }, { method: "GET", ip: "203.0.113.53" }));
+    for (const [label, res, status] of [["429", limited, 429], ["400", bad, 400], ["413", big, 413], ["405", wrongMethod, 405]] as const) {
+      assert.equal(res.status, status, label);
+      assert.equal(JSON.parse(res.body).helpline, TELE_MANAS_LINE, label);
+    }
+  } finally {
+    w.cleanup();
+  }
+  const boom = anonWorld({ deps: { clientKey: () => { throw new TypeError("x"); } } });
+  try {
+    const res = await ask(boom, GENERIC);
+    assert.equal(res.status, 500);
+    assert.equal(res.json.helpline, TELE_MANAS_LINE);
+  } finally {
+    boom.cleanup();
+  }
+});
+
+test("U7 repair D (API): the sign-in and no-answer replies over the real route carry the helpline line too", async () => {
+  const w = anonWorld({ kb: recordingKb(SEARCH_EMPTY) });
+  try {
+    const signIn = await ask(w, "I am thinking about ending things, what should I study?", { ip: "198.51.100.60" });
+    assert.equal(signIn.json.state, "sign_in_required");
+    assert.equal(signIn.json.message, ANONYMOUS_SIGN_IN_TEXT);
+    const none = await ask(w, GENERIC, { ip: "198.51.100.61" });
+    assert.equal(none.json.state, "no_sourced_answer");
+    assert.equal(none.json.message, ANONYMOUS_NO_ANSWER_TEXT);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("U7 repair C/E/F over the route: no follow-up question, opaque source ids and an email address is sign-in-required", async () => {
+  const w = anonWorld({ provider: kbAnswerProvider([GOOD_CLAIM], "Which marks did you score and which school do you attend? http://collect.example.test") });
+  try {
+    const res = await ask(w, GENERIC, { ip: "198.51.100.70" });
+    assert.equal(res.json.state, "ok");
+    assert.doesNotMatch(res.json.message, /marks|school|http|\?/);
+    assert.deepEqual(res.json.sources.map((s: { id: string }) => s.id), ["s1"]);
+    assert.deepEqual(res.json.claims[0].sourceIds, ["s1"]);
+    assert.ok(!JSON.stringify(res.json).includes("t-sem-1"));
+    const mail = await ask(w, "What are the fees in Germany? mail me at priya.nair@example.test", { ip: "198.51.100.71" });
+    assert.equal(mail.json.state, "sign_in_required");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("U7 repair 3: client addresses are normalised before hashing - IPv4-mapped IPv6 shares the IPv4 bucket and every address in one IPv6 /64 shares one bucket", async () => {
+  assert.equal(normalizeClientAddress("::ffff:203.0.113.7"), "203.0.113.7");
+  assert.equal(normalizeClientAddress("::ffff:cb00:7107"), "203.0.113.7");
+  assert.equal(normalizeClientAddress("203.0.113.7"), "203.0.113.7");
+  assert.equal(normalizeClientAddress("2001:db8:abcd:12::1"), normalizeClientAddress("2001:0db8:abcd:0012:ffff:ffff:ffff:ffff"));
+  assert.notEqual(normalizeClientAddress("2001:db8:abcd:12::1"), normalizeClientAddress("2001:db8:abcd:13::1"));
+  assert.equal(normalizeClientAddress("fe80::1%eth0"), normalizeClientAddress("fe80::2"));
+  assert.equal(normalizeClientAddress(undefined), undefined);
+  assert.equal(normalizeClientAddress("not an address"), "not an address", "an unparseable value is kept verbatim (one shared bucket, never throws)");
+  const w = anonWorld();
+  try {
+    // rotating the low 64 bits of one IPv6 address does not buy a fresh budget
+    for (let i = 0; i < 10; i++) assert.equal((await ask(w, GENERIC, { ip: `2001:db8:abcd:12::${i + 1}` })).status, 200, `request ${i + 1}`);
+    assert.equal((await ask(w, GENERIC, { ip: "2001:db8:abcd:12:aaaa:bbbb:cccc:dddd" })).status, 429);
+    assert.equal((await ask(w, GENERIC, { ip: "2001:db8:abcd:99::1" })).status, 200, "a different /64 has its own budget");
+    // the IPv4-mapped form of a client shares the plain IPv4 client's bucket
+    for (let i = 0; i < 5; i++) await ask(w, GENERIC, { ip: "203.0.113.200" });
+    for (let i = 0; i < 5; i++) assert.equal((await ask(w, GENERIC, { ip: "::ffff:203.0.113.200" })).status, 200);
+    assert.equal((await ask(w, GENERIC, { ip: "203.0.113.200" })).status, 429);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("U7 repair 4: with a full table the O(n) sweep runs at most once a second, however many new keys arrive", () => {
+  class Spy extends AnonymousRateLimiter {
+    sweeps = 0;
+    override sweep(): void {
+      this.sweeps += 1;
+      super.sweep();
+    }
+  }
+  let now = 1_000_000;
+  const lim = new Spy({ limit: 10, windowMs: 60_000, maxKeys: 3, nowMs: () => now });
+  for (const k of ["a", "b", "c"]) assert.equal(lim.check(k).allowed, true);
+  for (let i = 0; i < 1000; i++) assert.equal(lim.check(`new-${i}`).allowed, false, "a full table of live keys refuses a new key");
+  assert.ok(lim.sweeps <= 1, `${lim.sweeps} sweeps in one instant`);
+  now += 1_100;
+  for (let i = 0; i < 1000; i++) lim.check(`later-${i}`);
+  assert.ok(lim.sweeps <= 2, `${lim.sweeps} sweeps after 1.1 s`);
+  now += 61_000;
+  assert.equal(lim.check("fresh").allowed, true, "expired keys are purged by a later sweep and the table reopens");
 });

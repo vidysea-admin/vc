@@ -86,6 +86,13 @@ export interface StartApiAnonymousOptions {
   speakers?: SpeakersFile;
   /** Default: the repo's qa/gates. */
   gatesDir?: string;
+  /**
+   * How clients are told apart for the 10-per-minute limit. REQUIRED when the flag is on (one of the two), because the safe default
+   * depends on the deployment: `clientKey` extracts the real client from a trusted proxy's header; `trustSocketAddress: true` states the
+   * server is reached directly, so the socket peer address (normalised) is the client. Behind a load balancer without `clientKey`
+   * every user would share one bucket, so neither being set is a startup error.
+   */
+  trustSocketAddress?: boolean;
   /** Default: the Mongo `anonymous_counters` aggregate counter (text-free). */
   counter?: AnonymousCounterWriter;
   limiter?: AnonymousApiDeps["limiter"];
@@ -195,6 +202,9 @@ export async function startApi(
   if (httpSetup && anonymousFlag) {
     const a = http?.anonymous;
     if (!a?.kb || !a.speakers) throw new AnonymousConfigError("VC_ANONYMOUS_ENABLED is true but no search-only knowledge-base port and speakers file were supplied");
+    if (!a.clientKey && a.trustSocketAddress !== true) {
+      throw new AnonymousConfigError("VC_ANONYMOUS_ENABLED is true but neither a clientKey nor trustSocketAddress: true was supplied; the per-client limit needs one of them");
+    }
     anonymousHandler = createAnonymousApi(
       {
         kb: a.kb,

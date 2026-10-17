@@ -86,3 +86,11 @@ test("A15b: rule-based - classify.ts imports no provider and makes no model call
   const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "src", "student", "classify.ts"), "utf8");
   assert.doesNotMatch(src, /@vc\/providers|generate\(|fetch\(/);
 });
+
+test("U7 repair F: an email address is personal data like a phone number - personal -> sign_in_required, never generic", () => {
+  for (const t of ["What are the fees in Germany? mail me at priya.nair@example.test", "Which universities in Canada accept IELTS? write to a_b+c@mail.example.co.in", "मुझे यह बताओ: क्या फीस है? riya@example.test"]) {
+    const c = classifyQuestion(t);
+    assert.equal(c.class, "personal", t);
+  }
+  assert.equal(classifyQuestion("What are the tuition fees at public universities in Germany?").class, "generic");
+});

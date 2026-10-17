@@ -11,6 +11,8 @@ import { FailoverProvider, MockProvider, LiteLlmHttpError, type GenerateRequest,
 import {
   DEFAULT_SEARCH_SCORE_THRESHOLD,
   NO_SOURCED_ANSWER_TEXT,
+  ANONYMOUS_SIGN_IN_TEXT,
+  ANONYMOUS_NO_ANSWER_TEXT,
   PROVIDER_APOLOGY_TEXT,
   ANONYMOUS_CRISIS_MESSAGE,
   STUDENT_CRISIS_MESSAGE,
@@ -672,4 +674,62 @@ test("U6h fix1 M4c followUp: only ONE sentence ending '?', <= 200 chars, passing
   const { d } = deps({ hasPriorFlag: async () => true });
   const ok = await runStudentTurn(d, turn("Is tuition free in Germany?"));
   assert.match(ok.response.message ?? "", /Which cities are you considering\?/);
+});
+
+// ---------------------------------------------------------------------------
+// U7 pre-ready review repair (AI review C, D, E): anonymous-only output hardening
+// ---------------------------------------------------------------------------
+
+const ANON_CLAIM = { text: "Public universities in Germany charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] };
+
+test("U7 repair C: in anonymous mode a model follow-up is never shown (hostile mock soliciting marks and school with a URL); authenticated keeps the checked follow-up", async () => {
+  for (const followUp of ["Which cities are you considering?", "Which marks did you score and which school do you attend? Reply at http://collect.example.test?", "What is your phone number?"]) {
+    const provider = studentProvider({ kbAnswer: { claims: [ANON_CLAIM], followUp } });
+    const anon = deps({ kb: fakeKb(), provider });
+    const a = await runStudentTurn(anon.d, { mode: "anonymous", text: Q });
+    assert.equal(a.response.state, "ok");
+    assert.equal(a.response.message, ANON_CLAIM.text, followUp);
+    assert.doesNotMatch(a.response.message ?? "", /\?|http|marks|school|phone/i, followUp);
+  }
+  const { d } = deps();
+  const auth = await runStudentTurn(d, turn(Q));
+  assert.match(auth.response.message ?? "", /Which cities are you considering\?/);
+});
+
+test("U7 repair D: the anonymous sign-in-required and no-answer replies also carry the Tele-MANAS line (recall fallback); authenticated texts are unchanged", async () => {
+  const signIn = deps({ kb: fakeKb({ anonymous: true }) });
+  const s = await runStudentTurn(signIn.d, { mode: "anonymous", text: "I am thinking about ending things, what should I study?" });
+  assert.equal(s.response.state, "sign_in_required");
+  assert.equal(s.response.message, ANONYMOUS_SIGN_IN_TEXT);
+  assert.ok((s.response.message ?? "").includes("14416"));
+  const none = deps({ kb: fakeKb({ search: { status: "ok" as const, hits: [], dropped: 0 } }) });
+  const n = await runStudentTurn(none.d, { mode: "anonymous", text: Q });
+  assert.equal(n.response.state, "no_sourced_answer");
+  assert.equal(n.response.message, ANONYMOUS_NO_ANSWER_TEXT);
+  assert.ok((n.response.message ?? "").includes("14416"));
+  const authNone = deps({ kb: fakeKb({ search: { status: "ok" as const, hits: [], dropped: 0 } }) });
+  const an = await runStudentTurn(authNone.d, turn(Q));
+  assert.ok(!(an.response.message ?? "").includes("14416"));
+});
+
+test("U7 repair E: the anonymous response carries opaque source ids (s1, s2) used consistently by claims and sources, and no title for whatsapp or unknown sources; authenticated output keeps the turn ids", async () => {
+  const claims = [
+    ANON_CLAIM,
+    { text: "German public universities expect a semester contribution of about 300 euros.", kind: "fact", sourceIds: ["t-sem-1"] },
+  ];
+  const kb = fakeKb({ search: { status: "ok" as const, hits: [HIT_SEMINAR, HIT_UNLISTED_RECORDING], dropped: 0 } });
+  const withUnknown = [...claims, { text: "Blocked accounts of about 11,904 euros are required for the German student visa.", kind: "fact", sourceIds: ["t-rec-9"] }];
+  const anon = deps({ kb, provider: studentProvider({ kbAnswer: { claims: withUnknown } }) });
+  const a = await runStudentTurn(anon.d, { mode: "anonymous", text: Q });
+  assert.equal(a.response.state, "ok");
+  const ids = a.response.sources.map((s) => s.id);
+  assert.ok(ids.length >= 1);
+  for (const id of ids) assert.match(id, /^s\d+$/);
+  assert.ok(!JSON.stringify(a.response).match(/t-sem-1|t-rec-9|sess-|src-/), "no internal turn, session or source id");
+  for (const c of a.response.claims) for (const id of c.sourceIds) assert.ok(ids.includes(id), "claim source ids resolve to listed sources");
+  for (const s of a.response.sources) if (s.kind === "unknown" || s.kind === "whatsapp") assert.equal(s.title, undefined);
+  assert.ok(a.response.sources.some((s) => s.kind === "internal-seminar" && s.title === "Study in Germany seminar"));
+  const auth = deps({ kb, provider: studentProvider({ kbAnswer: { claims: withUnknown } }) });
+  const u = await runStudentTurn(auth.d, turn(Q));
+  assert.ok(u.response.sources.some((s) => s.id === "t-sem-1"), "authenticated output keeps turn ids");
 });

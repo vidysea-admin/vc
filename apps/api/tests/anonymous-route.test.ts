@@ -222,7 +222,7 @@ test("startApi: flag on with the real repo gates refuses to start, BEFORE connec
   await assert.rejects(
     startApi(
       { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
-      { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS } } },
+      { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, trustSocketAddress: true } } },
     ),
     GoLiveRefusedError,
   );
@@ -236,7 +236,7 @@ test("startApi: flag on without a KB or speakers supplied is a config error, bef
     await assert.rejects(
       startApi(
         { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
-        { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: f.gates } } },
+        { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: f.gates, trustSocketAddress: true } } },
       ),
       AnonymousConfigError,
     );
@@ -250,7 +250,7 @@ test("startApi: flag on and gate open -> a real HTTP POST is answered and ONLY t
   const f = gatesFixture();
   const api = await startApi(
     { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
-    { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates } } },
+    { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, trustSocketAddress: true } } },
   );
   try {
     const base = `http://127.0.0.1:${api.port}`;
@@ -292,4 +292,44 @@ test("the node:http adapter hands the socket address to the limiter (10 per minu
     await new Promise<void>((resolve) => server.close(() => resolve()));
     w.cleanup();
   }
+});
+
+test("U7 repair 2: with the flag on, startApi refuses to start unless the deployment states how clients are told apart - an explicit clientKey or trustSocketAddress: true", async () => {
+  const fake = createFakeMongoClient();
+  let connected = 0;
+  (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => {
+    connected += 1;
+  };
+  const f = gatesFixture();
+  try {
+    for (const anonymous of [{ kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates }, { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, trustSocketAddress: false }]) {
+      await assert.rejects(
+        startApi(
+          { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
+          { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous } },
+        ),
+        (err: unknown) => err instanceof AnonymousConfigError && /clientKey|trustSocketAddress/.test((err as Error).message),
+      );
+    }
+    assert.equal(connected, 0, "refused before connecting to Mongo");
+    const ok1 = await startApi(
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
+      { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, clientKey: () => "lb-forwarded-client" } } },
+    );
+    await ok1.stop();
+    const ok2 = await startApi(
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
+      { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, trustSocketAddress: true } } },
+    );
+    await ok2.stop();
+  } finally {
+    cleanupGates(f);
+  }
+});
+
+test("U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 the route can return, and the AnonymousError schema carries the helpline field", () => {
+  const op = (STUDENT_API_DRAFT.paths as Record<string, { post: { responses: Record<string, unknown> } }>)["/v1/public/chat/turns"]!.post;
+  for (const code of ["200", "400", "405", "413", "429", "500"]) assert.ok(code in op.responses, `response ${code} documented`);
+  const err = (STUDENT_API_DRAFT.components.schemas.AnonymousError as { properties: Record<string, unknown> });
+  assert.ok("helpline" in err.properties);
 });
