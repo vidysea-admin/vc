@@ -8,15 +8,18 @@
  *  - `/ask`: `verified` only when the node is in this response AND a session resolved from
  *    `evidence.sessionRef(s)` (or `session:<id>` / `/session:<id>` in the node_id) is fetched with
  *    `get_session` and one of its turns supports the claim. Otherwise a `kind:fact` claim is
- *    `attributed` (source present, text not proven); a number/country claim is `unverified`.
+ *    `attributed` (source present, text not proven) ONLY when the served /ask answer itself supports the fact (U6h H1);
+ *    otherwise, and for every number/country claim, it is `unverified`. Only a served /ask counts (`isServedAsk`).
  *  - No resolvable source (empty or unresolvable sourceIds): the claim is DROPPED, never shown (repair
  *    R2a; the graph additionally hides `unverified` claims in anonymous mode, D-092).
- * "Supports" (stated heuristic, repair R5): every number in the claim appears in the text (thousands
- * separators ignored) with the same currency/unit when the claim gives one; negation parity (no / not /
- * never / without / free / n't / nahi / nahin / mat on both sides or neither); every country named in
- * the claim appears in the text (exact token or demonym, so "Germany" ~ "German" but "India" !~
- * "individual"); for fact/country claims every capitalised proper noun (incl. off-list countries and
- * acronyms) appears in the text; and at least half of the claim's content words appear (5-letter stems).
+ * "Supports" (stated heuristic, repair R5, tightened by U6h H2 - fail closed): the claim is cut into sentence-sized
+ * clauses and each one must be fully carried by ONE evidence clause: the same negation (no / not / never / without /
+ * free / n't / nahi / nahin / mat); every content word present (light stem + a tiny synonym table, no 50% overlap, so
+ * an extra clause, an antonym such as mandatory/optional or higher/lower, or a swapped word fails); no quantifier the
+ * evidence lacks (most -> all / every / only); the same comparators (at least / at most); every number with the same value, currency/unit
+ * and rate (per month != per semester != a year; "two" = 2); every country named in the claim in that clause (exact
+ * token or demonym, so "India" !~ "individual"); for fact/country claims every capitalised proper noun in the evidence.
+ * Wording the heuristic does not know is unverified, never verified.
  *
  * Source kind (B24.4): each claim takes the MOST restrictive kind of its resolved sources (whatsapp >
  * unknown > toc > internal-seminar); a claim sourced from a served `/ask` answer is `unknown`. EVERY
@@ -63,9 +66,27 @@ export interface AskToolOutput {
   verdict: string;
   reason: string;
   sourceKind?: "unknown";
+  /** U2 serve rule: true when the retrieved nodes do not fully cover the question. Absent = cannot be confirmed. */
+  insufficient_coverage?: boolean;
   withheld?: string[];
   unavailableReason?: string;
   detail?: string;
+}
+
+/**
+ * U6h P4: the /ask serve rule, checked on the engine side. Served only when answered, verdict "correct",
+ * `insufficient_coverage` explicitly false, at least one internal source and no web source. A result the
+ * engine cannot confirm (a missing field counts) is never served: callers return the fixed no-answer.
+ */
+export function isServedAsk(ask: AskToolOutput | undefined): ask is AskToolOutput {
+  return (
+    !!ask &&
+    ask.status === "answered" &&
+    ask.verdict === "correct" &&
+    ask.insufficient_coverage === false &&
+    ask.citations.internal.length > 0 &&
+    ask.citations.web.length === 0
+  );
 }
 
 export type SessionToolOutput =
@@ -169,26 +190,85 @@ const NOT_PROPER = new Set([
   "his", "her", "per", "an", "after", "before", "during", "since", "until", "under", "within", "without", "how", "why", "who",
 ]);
 
-const stem = (w: string) => w.slice(0, 5);
+/**
+ * Light English stemmer (U6h H2): plural, -ed, -ing, trailing -e and a doubled final consonant, so
+ * "programmes" ~ "program" and "charged" ~ "charge" but "optional" !~ "option". It replaces the old
+ * 5-letter prefix, which let "mandatory"-style near-collisions through.
+ */
+function lightStem(word: string): string {
+  let s = word;
+  if (s.length > 4 && s.endsWith("ies")) s = `${s.slice(0, -3)}y`;
+  else if (!/(?:ss|us|is)$/.test(s)) {
+    if (s.length > 3 && /(?:ch|sh|x|z|ss|o)es$/.test(s)) s = s.slice(0, -2);
+    else if (s.length > 3 && s.endsWith("s")) s = s.slice(0, -1);
+  }
+  if (s.length > 5 && s.endsWith("ing")) s = s.slice(0, -3);
+  else if (s.length > 4 && s.endsWith("ed")) s = s.slice(0, -2);
+  if (s.length > 3 && s.endsWith("e")) s = s.slice(0, -1);
+  if (s.length > 3 && /([^aeiou])\1$/.test(s)) s = s.slice(0, -1);
+  return s;
+}
 function tokens(text: string): string[] {
   return text.normalize("NFC").toLowerCase().split(/[^\p{L}\p{M}\p{N}]+/u).filter(Boolean);
 }
 
+// Synonym groups collapsed to one concept (the first member). Kept tiny on purpose: every entry widens what
+// "supports" accepts. Antonyms are NOT listed, so "optional" never covers "mandatory" (H2).
+const SYNONYM_GROUPS: string[][] = [
+  ["required", "need", "mandatory", "compulsory", "necessary", "must", "obligatory", "essential"],
+  ["allowed", "permitted", "permissible"],
+];
+const CANON = new Map<string, string>();
+for (const group of SYNONYM_GROUPS) for (const w of group) CANON.set(lightStem(w), lightStem(group[0]!));
+const conceptOf = (token: string): string => {
+  const s = lightStem(token);
+  return CANON.get(s) ?? s;
+};
+
+// Quantifiers: a claim may not carry one the matched evidence clause lacks ("most" -> "all" / "every" / "only").
+const QUANTIFIERS: Record<string, string> = {
+  all: "all", every: "all", each: "all", everyone: "all", entire: "all", whole: "all",
+  any: "any", only: "only", most: "most", mostly: "most", majority: "most", many: "many", some: "some", several: "some",
+  few: "few", both: "both", none: "none", always: "always", never: "never", sometimes: "sometimes",
+};
+// Number comparators must match exactly in both directions ("at least 300" is not "300", "300" is not "at most 300").
+const COMPARATORS = new Set(["more", "less", "fewer", "least", "minimum", "maximum", "below", "above"]);
+// Words that carry no checkable content: articles, auxiliaries, pronouns, hedges and filler, and currency / percent
+// words (the number check already compares the currency). "Only" and the other quantifiers are NOT here.
+const FUNCTION_WORDS = new Set([
+  "the", "and", "for", "are", "was", "were", "has", "had", "have", "been", "being", "can", "could", "may", "might", "will", "would", "shall",
+  "should", "does", "did", "done", "doing", "its", "you", "your", "yours", "our", "who", "whom", "how", "why", "off", "out", "own", "get",
+  "gets", "got", "his", "her", "she", "him", "now", "yes", "via", "etc", "also", "just", "even", "still", "already", "yet", "very", "too",
+  "quite", "rather", "really", "actually", "simply", "basically", "usually", "generally", "typically", "commonly", "normally", "often",
+  "currently", "approximately", "approx", "roughly", "nearly", "almost", "around", "about", "that", "this", "these", "those", "there", "here",
+  "their", "them", "they", "then", "than", "what", "which", "while", "when", "where", "with", "from", "into", "because", "make", "made",
+  "like", "same", "said", "such", "other", "per", "but", "nor", "don", "doesn", "didn", "isn", "aren", "wasn", "weren", "won", "couldn",
+  "wouldn", "shouldn", "hasn", "haven", "hadn", "ones", "thing", "things", "hai", "hain", "ki", "ka", "ke", "mein", "par", "aur", "toh",
+  "bhi", "se", "ko", "yeh", "woh", "tha", "thi", "kya",
+  // Reporting verbs carry no checkable fact of their own ("X notes that ..." ~ "..., says X"); the fact is what follows.
+  "say", "says", "said", "note", "notes", "noted", "state", "states", "stated", "mention", "mentions", "mentioned", "according",
+  "explain", "explains", "explained", "tell", "tells", "told", "add", "adds", "added", "report", "reports", "reported",
+  "euro", "euros", "eur", "dollar", "dollars", "usd", "pound", "pounds", "gbp", "rupee", "rupees", "inr", "rs", "lakh", "lakhs", "lac",
+  "lacs", "crore", "crores", "percent",
+]);
+const quantOf = (token: string): string | undefined => (Object.hasOwn(QUANTIFIERS, token) ? QUANTIFIERS[token] : undefined);
+const COUNTRY_WORDS = new Set<string>([...COUNTRIES.filter((c) => !c.includes(" ")), ...Object.values(DEMONYMS).flat()]);
+
 // Units/currencies a number can carry (canonical names). Repair R5: "300 dollars" != "300 euros".
 const UNIT_AFTER: [RegExp, string][] = [
-  [/^\s*(?:euros?|eur|€)(?![\p{L}])/iu, "eur"],
-  [/^\s*(?:dollars?|usd|us\$|\$)(?![\p{L}])/iu, "usd"],
-  [/^\s*(?:pounds?|gbp|£)(?![\p{L}])/iu, "gbp"],
-  [/^\s*(?:rupees?|inr|rs\.?|₹)(?![\p{L}])/iu, "inr"],
-  [/^\s*(?:lakhs?|lacs?)(?![\p{L}])/iu, "lakh"],
-  [/^\s*(?:crores?)(?![\p{L}])/iu, "crore"],
-  [/^\s*(?:%|percent|per cent)/iu, "pct"],
-  [/^\s*(?:months?)(?![\p{L}])/iu, "month"],
-  [/^\s*(?:years?|yrs?)(?![\p{L}])/iu, "year"],
-  [/^\s*(?:weeks?)(?![\p{L}])/iu, "week"],
-  [/^\s*(?:days?)(?![\p{L}])/iu, "day"],
-  [/^\s*(?:hours?|hrs?)(?![\p{L}])/iu, "hour"],
-  [/^\s*(?:credits?|ects)(?![\p{L}])/iu, "credit"],
+  [/^[\s-]*(?:euros?|eur|€)(?![\p{L}])/iu, "eur"],
+  [/^[\s-]*(?:dollars?|usd|us\$|\$)(?![\p{L}])/iu, "usd"],
+  [/^[\s-]*(?:pounds?|gbp|£)(?![\p{L}])/iu, "gbp"],
+  [/^[\s-]*(?:rupees?|inr|rs\.?|₹)(?![\p{L}])/iu, "inr"],
+  [/^[\s-]*(?:lakhs?|lacs?)(?![\p{L}])/iu, "lakh"],
+  [/^[\s-]*(?:crores?)(?![\p{L}])/iu, "crore"],
+  [/^[\s-]*(?:%|percent|per cent)/iu, "pct"],
+  [/^[\s-]*(?:months?)(?![\p{L}])/iu, "month"],
+  [/^[\s-]*(?:years?|yrs?)(?![\p{L}])/iu, "year"],
+  [/^[\s-]*(?:weeks?)(?![\p{L}])/iu, "week"],
+  [/^[\s-]*(?:days?)(?![\p{L}])/iu, "day"],
+  [/^[\s-]*(?:hours?|hrs?)(?![\p{L}])/iu, "hour"],
+  [/^[\s-]*(?:credits?|ects)(?![\p{L}])/iu, "credit"],
 ];
 const UNIT_BEFORE: [RegExp, string][] = [
   [/(?<![\p{L}])(?:€|eur|euros?)\s*$/iu, "eur"],
@@ -196,18 +276,55 @@ const UNIT_BEFORE: [RegExp, string][] = [
   [/(?<![\p{L}])(?:£|gbp)\s*$/iu, "gbp"],
   [/(?<![\p{L}])(?:₹|inr|rs\.?)\s*$/iu, "inr"],
 ];
+// Rate qualifier after a number ("300 euros per semester", "a year", "each term", "/month", "monthly"). U6h H2.
+const RATE_PER_RE = /^\s*(?:(?:per|a|an|each|every)\s+|\/\s*)(month|year|week|day|hour|semester|term|annum)(?![\p{L}])/iu;
+const RATE_ADV_RE = /^\s*(monthly|yearly|annually|annual|weekly|daily|hourly)(?![\p{L}])/iu;
+const RATE_CANON: Record<string, string> = {
+  month: "month", monthly: "month", year: "year", yearly: "year", annually: "year", annual: "year", annum: "year",
+  week: "week", weekly: "week", day: "day", daily: "day", hour: "hour", hourly: "hour", semester: "semester", term: "semester",
+};
+// Spelled-out numbers equal digits ("two weeks" = "2 weeks"); "one" only before a unit, so the pronoun is not a number.
+const NUMBER_WORDS: Record<string, string> = {
+  two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9", ten: "10", eleven: "11", twelve: "12",
+  fifteen: "15", twenty: "20", thirty: "30", forty: "40", fifty: "50", sixty: "60", hundred: "100", thousand: "1000",
+};
+const NUMBER_RE = new RegExp(
+  String.raw`\d(?:[\d,]*\d)?(?:\.\d+)?|(?<![\p{L}\p{N}])(?:${Object.keys(NUMBER_WORDS).join("|")}|one(?=\s+(?:months?|years?|weeks?|days?|hours?|semesters?|terms?|credits?|euros?|dollars?|pounds?)))(?![\p{L}\p{N}])`,
+  "giu",
+);
 interface NumberMention {
   n: string;
   unit: string | null;
+  rate: string | null;
+  start: number;
+  end: number;
 }
 function numberMentions(text: string): NumberMention[] {
   const out: NumberMention[] = [];
-  for (const m of text.matchAll(/\d[\d,]*(?:\.\d+)?/g)) {
-    const n = m[0].replace(/,/g, "").replace(/\.0+$/, "");
-    const after = text.slice(m.index! + m[0].length, m.index! + m[0].length + 12);
-    const before = text.slice(Math.max(0, m.index! - 6), m.index!);
-    const unit = UNIT_AFTER.find(([re]) => re.test(after))?.[1] ?? UNIT_BEFORE.find(([re]) => re.test(before))?.[1] ?? null;
-    out.push({ n, unit });
+  for (const m of text.matchAll(NUMBER_RE)) {
+    const raw = m[0];
+    const low = raw.toLowerCase();
+    const n = /^\d/.test(raw) ? raw.replace(/,/g, "").replace(/\.0+$/, "") : (NUMBER_WORDS[low] ?? "1");
+    let end = m.index! + raw.length;
+    const after = text.slice(end, end + 40);
+    let unit: string | null = null;
+    for (const [re, name] of UNIT_AFTER) {
+      const um = re.exec(after);
+      if (um) {
+        unit = name;
+        end += um[0].length;
+        break;
+      }
+    }
+    if (!unit) {
+      const before = text.slice(Math.max(0, m.index! - 6), m.index!);
+      unit = UNIT_BEFORE.find(([re]) => re.test(before))?.[1] ?? null;
+    }
+    const tail = text.slice(end, end + 30);
+    const rm = RATE_PER_RE.exec(tail) ?? RATE_ADV_RE.exec(tail);
+    const rate = rm ? (RATE_CANON[rm[1]!.toLowerCase()] ?? null) : null;
+    if (rm) end += rm[0].length;
+    out.push({ n, unit, rate, start: m.index!, end });
   }
   return out;
 }
@@ -232,54 +349,88 @@ function properNouns(text: string): string[] {
   return out;
 }
 
-/**
- * Negation parity, per evidence clause: the claim's negation (yes/no) must equal that of at least one
- * evidence clause (sentence, or a ", but" / ";" part) that carries >= half of the claim's content words,
- * so "no tuition, but a 300-euro contribution" supports both halves and "fees of 500 euros" never
- * supports "no fees".
- */
-function negationParity(claim: string, evidence: string): boolean {
-  const neg = hasNegation(claim);
-  const content = tokens(claim).filter((w) => w.length >= 4 && !STOP.has(w) && !NEGATIONS.has(w) && !/^\d/.test(w));
-  const clauses = evidence.split(/(?<=[.!?।])\s+|;\s*|,?\s+\bbut\b\s+|,?\s+\bwhile\b\s+|,?\s+\bwhereas\b\s+|,?\s+\blekin\b\s+/i).filter((c) => c.trim());
-  const relevant = clauses.filter((c) => {
-    if (content.length === 0) return true;
-    const stems = new Set(tokens(c).map(stem));
-    return content.filter((w) => stems.has(stem(w))).length / content.length >= 0.5;
-  });
-  return relevant.some((c) => hasNegation(c) === neg);
+/** One sentence-sized piece of a claim or of the evidence, reduced to the things "supports" compares. */
+interface Clause {
+  neg: boolean;
+  words: Set<string>;
+  quant: Set<string>;
+  comp: Set<string>;
+  nums: NumberMention[];
+  countries: Set<string>;
+}
+function analyse(text: string): Clause {
+  const nums = numberMentions(text);
+  let rest = text;
+  for (const m of [...nums].sort((a, b) => b.start - a.start)) rest = `${rest.slice(0, m.start)} ${rest.slice(m.end)}`;
+  const words = new Set<string>();
+  const quant = new Set<string>();
+  const comp = new Set<string>();
+  for (const t of tokens(rest)) {
+    const q = quantOf(t);
+    if (q) quant.add(q);
+    if (COMPARATORS.has(t)) comp.add(t);
+    if (t.length < 3 || /^\d/.test(t) || NEGATIONS.has(t) || FUNCTION_WORDS.has(t) || COUNTRY_WORDS.has(t) || q || COMPARATORS.has(t)) continue;
+    words.add(conceptOf(t));
+  }
+  return { neg: hasNegation(text), words, quant, comp, nums, countries: new Set(countriesIn(text)) };
+}
+const isEmptyClause = (c: Clause) => c.words.size === 0 && c.nums.length === 0 && c.countries.size === 0 && c.quant.size === 0;
+
+/** The claim's numbers: each must be in the evidence clause with the same value, unit (when given) and rate. */
+function numbersSupported(claim: NumberMention[], evidence: NumberMention[]): boolean {
+  return claim.every((c) => evidence.some((e) => e.n === c.n && (c.unit === null || e.unit === c.unit) && e.rate === c.rate));
 }
 
-/** The stated support heuristic (see the file header). */
+/**
+ * A claim clause is supported by an evidence clause only when ALL of the following hold (U6h H2, fail closed):
+ * same negation; every content word of the claim is in the clause (no 50% overlap); no quantifier the clause
+ * lacks; the same comparators; every number with the same unit and rate; and the
+ * claim's countries are the clause's countries (or, when the clause names none, the only ones the evidence names).
+ */
+function clauseSupports(c: Clause, e: Clause, evidenceCountries: Set<string>): boolean {
+  if (c.neg !== e.neg) return false;
+  for (const w of c.words) if (!e.words.has(w)) return false;
+  for (const q of c.quant) if (!e.quant.has(q)) return false;
+  if (c.comp.size !== e.comp.size || [...c.comp].some((w) => !e.comp.has(w))) return false;
+  if (!numbersSupported(c.nums, e.nums)) return false;
+  if (c.countries.size > 0) {
+    if (e.countries.size > 0) {
+      for (const x of c.countries) if (!e.countries.has(x)) return false;
+    } else {
+      for (const x of evidenceCountries) if (!c.countries.has(x)) return false;
+    }
+  }
+  return true;
+}
+
+const CLAUSE_BREAK_CLAIM = /(?<=[.!?।])\s+|;\s*|,?\s+\bbut\b\s+|,?\s+\bhowever\b,?\s+/i;
+const CLAUSE_BREAK_EVIDENCE = /(?<=[.!?।])\s+|;\s*|,?\s+\bbut\b\s+|,?\s+\bwhile\b\s+|,?\s+\bwhereas\b\s+|,?\s+\blekin\b\s+/i;
+
+/**
+ * The stated support heuristic (see the file header). U6h H2: no partial-overlap acceptance. The claim is cut
+ * into sentence-sized clauses; each one must be fully carried by one evidence clause. Unknown wording, a
+ * paraphrase outside the small synonym table, or Hindi text therefore fails closed (unverified), never open.
+ */
 export function supports(claim: { text: string; kind: ClaimKind }, evidence: string): boolean {
   if (!evidence.trim()) return false;
   const claimNums = numberMentions(claim.text);
   if (claim.kind === "number" && claimNums.length === 0) return false;
-  const evNums = numberMentions(evidence);
-  for (const c of claimNums) {
-    const same = evNums.filter((e) => e.n === c.n);
-    if (same.length === 0) return false;
-    if (c.unit && !same.some((e) => e.unit === c.unit)) return false;
-  }
-  if (!negationParity(claim.text, evidence)) return false;
   const claimCountries = countriesIn(claim.text);
   if (claim.kind === "country" && claimCountries.length === 0) return false;
-  const evTokens = tokens(evidence);
-  const evStems = new Set(evTokens.map(stem));
-  const evJoined = ` ${evTokens.join(" ")} `;
-  for (const c of claimCountries) if (!mentions(evTokens, evJoined, c)) return false;
+  const evidenceCountries = new Set(countriesIn(evidence));
+  for (const c of claimCountries) if (!evidenceCountries.has(c)) return false;
   if (claim.kind !== "number") {
-    const evCountries = new Set(countriesIn(evidence));
+    const evStems = new Set(tokens(evidence).map(lightStem));
     for (const p of properNouns(claim.text)) {
       const asCountry = COUNTRIES.find((c) => mentions([p], ` ${p} `, c));
-      if (asCountry ? evCountries.has(asCountry) : evStems.has(stem(p))) continue;
+      if (asCountry ? evidenceCountries.has(asCountry) : evStems.has(lightStem(p))) continue;
       return false;
     }
   }
-  const content = tokens(claim.text).filter((w) => w.length >= 4 && !STOP.has(w) && !/^\d/.test(w));
-  if (content.length === 0) return claimNums.length > 0 || claimCountries.length > 0;
-  const present = content.filter((w) => evStems.has(stem(w))).length;
-  return present / content.length >= 0.5;
+  const evidenceClauses = evidence.split(CLAUSE_BREAK_EVIDENCE).filter((c) => c.trim()).map(analyse);
+  const claimClauses = claim.text.split(CLAUSE_BREAK_CLAIM).filter((c) => c.trim()).map(analyse).filter((c) => !isEmptyClause(c));
+  if (claimClauses.length === 0) return false;
+  return claimClauses.every((c) => evidenceClauses.some((e) => clauseSupports(c, e, evidenceCountries)));
 }
 
 /** Session ids a served /ask node points at (spec scope item 4(a)). */
@@ -306,9 +457,8 @@ export async function guardClaims(drafts: DraftClaim[], ctx: ClaimsGuardContext)
   const staleAfter = ctx.staleAfterMonths ?? DEFAULT_STALE_AFTER_MONTHS;
   const hitById = new Map(ctx.hits.map((h) => [h.turnId, h]));
   const askNodes = new Map<string, AskInternalSource>();
-  if (ctx.ask && ctx.ask.status === "answered" && ctx.ask.citations.web.length === 0) {
-    for (const n of ctx.ask.citations.internal) askNodes.set(n.node_id, n);
-  }
+  const servedAsk = isServedAsk(ctx.ask) ? ctx.ask : undefined;
+  if (servedAsk) for (const n of servedAsk.citations.internal) askNodes.set(n.node_id, n);
   // One get_session per session per turn, shared by every claim citing it.
   const sessionCache = new Map<string, Promise<SessionToolOutput | null>>();
   const fetchSession = (id: string) => {
@@ -348,6 +498,8 @@ export async function guardClaims(drafts: DraftClaim[], ctx: ClaimsGuardContext)
     const kinds: SourceKind[] = [];
     let supported = false;
     let attributedNode = false;
+    // U6h H1: "attributed" means the served /ask answer itself carries the fact; it is not enough that a node is present.
+    const askCarriesIt = !!servedAsk && supports(draft, servedAsk.answer);
     for (const id of ids) {
       const hit = hitById.get(id);
       if (hit) {
@@ -374,7 +526,7 @@ export async function guardClaims(drafts: DraftClaim[], ctx: ClaimsGuardContext)
       }
       if (!sources.has(id)) sources.set(id, { id, kind: "unknown", ...dateFlags(date, ctx.now, staleAfter) });
     }
-    const status: Claim["status"] = supported ? "verified" : attributedNode && draft.kind === "fact" ? "attributed" : "unverified";
+    const status: Claim["status"] = supported ? "verified" : attributedNode && draft.kind === "fact" && askCarriesIt ? "attributed" : "unverified";
     resolved.push({ draft, ids, status, sourceKind: mostRestrictive(kinds) });
   }
 

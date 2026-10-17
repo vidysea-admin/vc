@@ -107,8 +107,11 @@ test("A1 /ask: a session-level node_id (session:<id> or /session:<id>) resolves 
 test("A1 /ask: kind:fact whose fetched text does not support it is attributed; a number/country with no supporting text is unverified", async () => {
   const kb = fakeKb();
   const ctx = { hits: [], ask: ASK_ANSWERED, getSession: kb.getSession, now: NOW };
+  // U6h H1: "attributed" now needs the served /ask answer itself to support the fact; this one is not in it.
   const fact = await guardClaims([{ text: "Scholarships cover flights for every applicant.", kind: "fact", sourceIds: ["session:sess-sem-2"] }], ctx);
-  assert.equal(fact.claims[0]!.status, "attributed");
+  assert.equal(fact.claims[0]!.status, "unverified");
+  const inAnswer = await guardClaims([{ text: "Public universities there mostly charge no tuition.", kind: "fact", sourceIds: ["topic:germany-costs"] }], { ...ctx, getSession: undefined });
+  assert.equal(inAnswer.claims[0]!.status, "attributed");
   const num = await guardClaims([{ text: "Living costs are about 15,000 euros a year.", kind: "number", sourceIds: ["session:sess-sem-2"] }], ctx);
   assert.equal(num.claims[0]!.status, "unverified");
 });
@@ -163,4 +166,93 @@ test("A13: with no override the staleness threshold is the 24-month default [ASS
   );
   assert.equal(out.sources.find((s) => s.id === "t-toc-1")!.stale, true);
   assert.equal(out.sources.find((s) => s.id === "t-recent")!.stale, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// U6h (post-PASS hardening of U6; review findings H1, H2). Each test below was recorded RED first.
+// ---------------------------------------------------------------------------
+
+test("U6h H1 /ask: a fact whose fetched text AND the served /ask answer both fail to support it is unverified (never attributed-unmarked)", async () => {
+  const ask = { ...ASK_ANSWERED, answer: "Germany is cheap.", citations: { internal: [{ node_id: "topic:germany-costs" }], web: [] } };
+  const out = await guardClaims([{ text: "Germany guarantees a visa within two weeks.", kind: "fact", sourceIds: ["topic:germany-costs"] }], { hits: [], ask, now: NOW });
+  assert.equal(out.claims[0]!.status, "unverified");
+  assert.equal(out.unverifiedCount, 1);
+  // The same claim stays attributed when the served answer itself carries it (spec A1: a present node, no fetched text).
+  const same = await guardClaims([{ text: "Germany is cheap.", kind: "fact", sourceIds: ["topic:germany-costs"] }], { hits: [], ask, now: NOW });
+  assert.equal(same.claims[0]!.status, "attributed");
+});
+
+test("U6h H1 /ask: attributed is only for kind:fact; a number or country backed only by the served answer is unverified", async () => {
+  const out = await guardClaims([{ text: "Living costs are about 11,000 euros a year.", kind: "number", sourceIds: ["topic:germany-costs"] }], { hits: [], ask: ASK_ANSWERED, now: NOW });
+  assert.equal(out.claims[0]!.status, "unverified");
+});
+
+test("U6h H1 /ask: a non-serveable ask (verdict not correct, or insufficient_coverage not false) contributes no node at all", async () => {
+  for (const bad of [{ verdict: "ambiguous" }, { verdict: "incorrect" }, { insufficient_coverage: true }]) {
+    const ask = { ...ASK_ANSWERED, ...bad };
+    const out = await guardClaims([{ text: "Public universities there mostly charge no tuition.", kind: "fact", sourceIds: ["topic:germany-costs"] }], { hits: [], ask, now: NOW });
+    assert.deepEqual(out.claims, [], JSON.stringify(bad));
+  }
+});
+
+const E_SEM = HIT_SEMINAR.text; // "German public universities charge no tuition for most programmes, but expect a semester contribution of about 300 euros."
+
+test("U6h H2 supports(): positive controls still verify (paraphrase, number formats, order)", () => {
+  assert.equal(supports({ text: "Public universities in Germany charge no tuition for most programmes.", kind: "fact" }, E_SEM), true);
+  assert.equal(supports({ text: "The semester contribution is about 300 euros.", kind: "number" }, E_SEM), true);
+  assert.equal(supports({ text: "Living costs in Germany are about 11,000 euros a year.", kind: "number" }, "Living costs in Germany come to about 11,000 euros a year for most students."), true);
+  assert.equal(supports({ text: "A blocked account needs about 11904 euros.", kind: "number" }, "Blocked accounts of about 11,904 euros are required for the German student visa."), true);
+  assert.equal(supports({ text: "The fee is 300 euros each semester.", kind: "number" }, "The fee is 300 euros per semester."), true);
+});
+
+test("U6h H2 supports(): an extra clause the evidence does not carry is rejected (no 50% overlap acceptance)", () => {
+  for (const claim of [
+    "German public universities charge no tuition for most programmes, and a visa is guaranteed within two weeks.",
+    "German public universities charge no tuition for most programmes and hostel rooms are guaranteed.",
+    "German public universities charge no tuition for most programmes; fees are low.",
+    "Public universities charge no tuition and offer guaranteed hostel rooms to every applicant.",
+    "A visa is guaranteed within two weeks and the semester contribution is about 300 euros.",
+  ]) assert.equal(supports({ text: claim, kind: "fact" }, E_SEM), false, claim);
+  // half of the words match, half do not: the old rule accepted this.
+  assert.equal(supports({ text: "German public universities offer scholarships housing flights.", kind: "fact" }, E_SEM), false);
+});
+
+test("U6h H2 supports(): unit / rate swap is rejected (semester vs per month, per day, a year, monthly)", () => {
+  assert.equal(supports({ text: "The semester contribution is about 300 euros per month.", kind: "number" }, E_SEM), false);
+  assert.equal(supports({ text: "The fee is 300 euros per day.", kind: "number" }, "The fee is 300 euros."), false);
+  assert.equal(supports({ text: "The fee is 300 euros.", kind: "number" }, "The fee is 300 euros per day."), false);
+  assert.equal(supports({ text: "The fee is 300 euros per month.", kind: "number" }, "The fee is 300 euros per semester."), false);
+  assert.equal(supports({ text: "The fee is 300 euros a month.", kind: "number" }, "The fee is 300 euros a year."), false);
+  assert.equal(supports({ text: "The fee is 300 euros monthly.", kind: "number" }, "The fee is 300 euros yearly."), false);
+  assert.equal(supports({ text: "The fee is 300 euros per month.", kind: "number" }, "The fee is 300 euros per month."), true);
+  assert.equal(supports({ text: "The wait is 2 weeks.", kind: "number" }, "The wait is two weeks."), true, "number words equal digits");
+  assert.equal(supports({ text: "A visa takes three weeks.", kind: "fact" }, "A visa takes two weeks."), false, "spelled-out numbers are checked too");
+});
+
+test("U6h H2 supports(): a scope or quantifier swap is rejected (public->private, most->all/every/only, domestic->international)", () => {
+  for (const claim of [
+    "In Germany, private universities charge no tuition for most programmes.",
+    "In Germany, all public universities charge no tuition for most programmes.",
+    "Every German public university charges no tuition for most programmes.",
+    "German public universities charge no tuition for all programmes.",
+    "German public universities charge no tuition for only a few programmes.",
+  ]) assert.equal(supports({ text: claim, kind: "fact" }, E_SEM), false, claim);
+  assert.equal(supports({ text: "International students pay a 300 euro contribution.", kind: "fact" }, "Domestic students pay a 300 euro contribution."), false);
+  assert.equal(supports({ text: "Postgraduate programmes need an IELTS score.", kind: "fact" }, "Undergraduate programmes need an IELTS score."), false);
+  // Known limit (open risk in the U6h manifest): dropping a scope word ("Public universities ..." -> "Germany has no tuition fees") is
+  // still accepted - the R5 test above pins it. Swapping a scope word is what is rejected.
+});
+
+test("U6h H2 supports(): an antonym with no negation word is rejected (mandatory vs optional, higher vs lower, allowed vs banned)", () => {
+  const pairs: [string, string][] = [
+    ["IELTS is optional for the master's programme.", "IELTS is mandatory for the master's programme."],
+    ["IELTS is mandatory for the master's programme.", "IELTS is optional for the master's programme."],
+    ["Tuition is lower than in Austria.", "Tuition is higher than in Austria."],
+    ["Part-time work is banned during the first semester.", "Part-time work is allowed during the first semester."],
+    ["The application opens earlier than last year.", "The application opens later than last year."],
+    ["The visa process is easy for Indian applicants.", "The visa process is difficult for Indian applicants."],
+  ];
+  for (const [claim, evidence] of pairs) assert.equal(supports({ text: claim, kind: "fact" }, evidence), false, `${claim} vs ${evidence}`);
+  assert.equal(supports({ text: "IELTS is mandatory for the master's programme.", kind: "fact" }, "IELTS is mandatory for the master's programme."), true);
+  assert.equal(supports({ text: "IELTS is required for the master's programme.", kind: "fact" }, "IELTS is mandatory for the master's programme."), true, "required ~ mandatory");
 });

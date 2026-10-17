@@ -73,6 +73,7 @@ export const ASK_ANSWERED: AskToolOutput = {
   answer: "Most German public universities charge no tuition; budget about 11,000 euros a year for living costs.",
   citations: { internal: [{ node_id: "session:sess-sem-2", evidence: { sessionRef: "sess-sem-2" } }, { node_id: "topic:germany-costs" }], web: [] },
   verdict: "correct",
+  insufficient_coverage: false,
   reason: "top node scored above the upper threshold",
   sourceKind: "unknown",
 };

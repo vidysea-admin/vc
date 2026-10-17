@@ -110,6 +110,16 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   // (D-020). "mar gaye yaar" (past tense, a common idiom) still does not match.
   /\bmar\s+(ja+[ou]+n?g[ai]|ja+na?\s+(hai|chaht[ai]))\b/i,
 
+  // --- U6h L5: phrases the U6 review found missed (recall-only, D-020; see the L5 table below) ----
+  // "jaan de dunga / jaan le lunga" - a first-person intent to give up / take one's own life.
+  /\bjaan\s+(de|le)\s+((de|le)\s+)?(dunga|dungi|doonga|doongi|lunga|lungi|loonga|loongi)\b/i,
+  // "khatam kar lunga khud ko" - "end myself" with the object last (the object-first order is matched above).
+  /\bkhatam\s+kar\s+(lunga|lungi|loonga|loongi|dunga|dungi|doonga|doongi)\s+(khud\s+ko|apne\s+aap\s+ko|apni\s+jaan)\b/i,
+  // "in case I'm not here / around" - preparing to be gone. Needs "not" and a presence word, so
+  // "in case I'm not able to get a visa" and "in case I'm here early" stay clear.
+  /\bin\s+case\s+(i'?m|i\s+am)\s+not\s+(here|around|there|alive)\b/i,
+  /\bin\s+case\s+i\s+(won'?t|will\s+not)\s+be\s+(here|around|there|alive)\b/i,
+
   // --- ISS-023: Devanagari -----------------------------------------------------------------------
   // \b is not used here — JS's default \b is defined over ASCII word chars ([A-Za-z0-9_]) and does
   // not treat Devanagari code points as word characters, so it would silently fail to match at
@@ -119,6 +129,7 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /आत्महत्या/, // "aatmahatya" — suicide
   /खुद\s+को\s+खत्म/, // "khud ko khatam" — end oneself
   /जीना\s+नहीं\s+चाहत[ाी]/, // "jeena nahi chahta/chahti" — don't want to live
+  /जान\s+(दे|ले)\s+((दे|ले)\s+)?(दू[ंँ]?ग[ाी]|लू[ंँ]?ग[ाी])/, // U6h L5: "jaan de dunga" - (I will) give up my life
 
   // --- T-033 / ISS-t-005c-c0-1: indirect suicidal-ideation WARNING SIGNS -------------------------
   // The classic warning-sign statements a keyword list used to miss entirely ("everyone would be
@@ -254,6 +265,15 @@ export const CONCERN_PATTERNS: readonly RegExp[] = [
 // | खुद को खत्म (khud ko khatam)                  | Devanagari | crisis  | explicit "end myself", mirrors existing Hinglish pattern |
 // | जीना नहीं चाहता/चाहती (jeena nahi chahta/chahti) | Devanagari | crisis  | explicit "don't want to live"                |
 // | बहुत टेंशन (bahut tension)                    | Devanagari | concern | academic-stress language, mirrors Hinglish "bahut tension" — no death assertion |
+//
+// U6h L5 (post-PASS recall fix, review 743d78b). The same deciding question, per phrase:
+//
+// | phrase                                      | script     | level      | why |
+// |---------------------------------------------|------------|------------|-----|
+// | in case I'm not here / I won't be around     | English    | crisis     | preparing to be gone; a recognised warning sign |
+// | jaan de/le dunga/dungi, जान दे दूंगा          | Hinglish / Devanagari | crisis | first-person intent to end one's life |
+// | khatam kar lunga khud ko / apne aap ko       | Hinglish   | crisis     | "end myself", object-last word order |
+// | pressure bahut hai                           | Hinglish   | NOT FLAGGED | ordinary academic-pressure talk, no death or self-harm assertion. A CONCERN flag would show the full crisis message (B24.7 maps every flag to it) on routine study talk, so it stays unflagged: the student gets a normal brief answer plus one coaching question (coach-first). A softer distress route is a product decision (open risk in the U6h manifest). |
 //
 // T-033 (ISS-t-005c-c0-1) warning-sign families — every one is CRISIS, in all three scripts:
 //

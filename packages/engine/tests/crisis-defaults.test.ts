@@ -172,7 +172,7 @@ test("A11b keep talking: over a 30-turn Mock session risk is re-checked on every
   let answered = 0;
   let priorFlag = false;
   for (const [i, text] of script.entries()) {
-    const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "th-30", turnId: `tu-${i}`, text, priorFlagInThread: priorFlag });
+    const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "th-30", turnId: `tu-${i}`, text });
     if (text === CRISIS_EN) {
       assert.equal(out.response.state, "escalated", `turn ${i}`);
       escalated++;
@@ -196,9 +196,68 @@ test("A11b: a generated reply that contains a forbidden phrase is never shown; t
       followUp: "Can we keep this a secret between us?",
     },
   });
-  const d = deps({ provider });
-  const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "th-1", turnId: "tu-f", text: "What is the tuition at German public universities?", priorFlagInThread: true });
+  const d = deps({ provider, hasPriorFlag: async () => true });
+  const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "th-1", turnId: "tu-f", text: "What is the tuition at German public universities?" });
   assert.doesNotMatch(out.response.message ?? "", /secret|between us/);
   assert.match(out.response.message ?? "", /safe adult/, "the fixed safe message replaced the reply");
   assert.match(out.response.message ?? "", /14416/);
+});
+
+// ---------------------------------------------------------------------------
+// U6h L5 (post-PASS hardening of U6, verdict PROPOSED-ISSUE 1): the recall phrases the guard missed.
+// DECISION (documented here and in qa/evidence/p1-u6h/L5-decision.md): "in case I'm not here",
+// "jaan de dunga" and "khatam kar lunga khud ko" are first-person statements of intent to die or of
+// preparing to be gone, the same families T-033 already treats as crisis -> CRISIS patterns.
+// "pressure bahut hai" is ordinary academic-pressure talk with no death or self-harm assertion; it is NOT
+// a crisis signal and is deliberately left unflagged. Filing it as concern would be the wrong direction on
+// this surface, because B24.7 maps every flag (concern included) to the full crisis message, which would
+// fire on routine study talk. It stays coach-first: a normal brief answer plus one follow-up question.
+// ---------------------------------------------------------------------------
+
+const L5_CRISIS: string[] = [
+  "I wrote letters to my parents in case I'm not here next week.",
+  "Just in case I am not around, my laptop password is in the drawer.",
+  "main apni jaan de dunga",
+  "Ab bas, main apni jaan de dungi.",
+  "jaan de dunga main",
+  "main apni jaan le lunga",
+  "मैं अपनी जान दे दूंगा",
+  "sab khatam kar lunga khud ko",
+  "ab khud ko khatam kar lunga",
+  "khatam kar lungi apne aap ko",
+];
+const L5_NOT_CRISIS: string[] = [
+  "pressure bahut hai",
+  "In case I'm not able to get a visa, what are my options?",
+  "yeh exam toh jaan hi le lega mera",
+  "In case I'm here early, can I visit the campus?",
+];
+
+test("U6h L5: the missed recall phrases are crisis for the guard, and the student turn gets the fixed message with Tele-MANAS 14416 (authenticated and anonymous)", async () => {
+  const { crisisGuard } = await import("../src/guards/crisis.js");
+  for (const text of L5_CRISIS) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+    const d = deps();
+    const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "th-l5", turnId: "tu-l5", text });
+    assert.equal(out.response.state, "escalated", text);
+    assert.equal(out.response.message, STUDENT_CRISIS_MESSAGE, text);
+    assert.match(out.response.message ?? "", /14416/);
+    assert.equal(d.flags.length, 1, text);
+    assert.equal((d.kb as ReturnType<typeof fakeKb>).calls.length, 0);
+    assert.equal((d.provider as MockProvider).calls.length, 0);
+    const a = deps({ kb: fakeKb({ anonymous: true }) });
+    const anon = await runStudentTurn(a, { mode: "anonymous", text });
+    assert.equal(anon.response.message, ANONYMOUS_CRISIS_MESSAGE, text);
+  }
+});
+
+test("U6h L5: 'pressure bahut hai' and look-alike benign phrases are NOT crisis; the student surface stays coach-first (a normal answer, no escalation, no flag)", async () => {
+  const { crisisGuard } = await import("../src/guards/crisis.js");
+  for (const text of L5_NOT_CRISIS) assert.equal(crisisGuard(text).level, "none", text);
+  const d = deps();
+  const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "th-l5", turnId: "tu-p", text: "pressure bahut hai, what is the tuition at German public universities?" });
+  assert.equal(out.response.state, "ok");
+  assert.doesNotMatch(out.response.message ?? "", /14416/);
+  assert.equal(d.flags.length, 0);
+  assert.equal(d.escalations.length, 0);
 });

@@ -4,14 +4,15 @@
  *
  *   gate -> crisis -> route -> { answer | coach | tool } -> finish -> END
  *
- *  - gate: takes the RAW input. The crisis guard scans the raw text (first 4000 chars) BEFORE schema
- *    validation, so an over-long or malformed crisis message still gets the fixed safe message (repair
- *    R7). Otherwise authenticated mode needs a verified student identity (role `student`, studentId,
+ *  - gate: takes the RAW input. The crisis guard scans the FULL raw text BEFORE schema validation, so an
+ *    over-long or malformed crisis message still gets the fixed safe message (repair R7; U6h L5: a crisis
+ *    phrase anywhere in an over-long text counts, and the escalated excerpt is the window that carries it). Otherwise authenticated mode needs a verified student identity (role `student`, studentId,
  *    tenantId; the JWT itself is verified by the API layer, U8/B21): a bad identity throws
  *    StudentAuthRequiredError, any other invalid input StudentInputInvalidError, before any KB or model
  *    call. Pathlynks-authenticated = consented (B4, D-086): no consent row.
  *  - finish: the prior-flag Tele-MANAS suffix and the TurnResponse schema parse, inside the compiled
- *    graph (repair R9). `compileStudentGraph` caches one compiled graph per deps object.
+ *    graph (repair R9). U6h M4: "prior flag in this thread" is derived server-side (the `hasPriorFlag` port
+ *    plus the flags this graph raised itself); the caller-supplied `priorFlagInThread` is ignored. `compileStudentGraph` caches one compiled graph per deps object.
  *  - Store writes (flag log, escalation, gap count, anonymous counter) never fail a turn: each is caught
  *    and reported to `onWriteError` (text-free); a crisis turn sets `flagWriteFailed` and still shows the
  *    fixed message + Tele-MANAS 14416 (repair R1).
@@ -25,11 +26,14 @@
  *    authenticated -> rule-based intent -> a tool/feature from the capability manifest (A21(b)).
  *  - answer (answer_from_kb): `search_kb` first; `ask_knowledge_base` only when search is insufficient
  *    (0 hits with score >= threshold [ASSUMPTION]) and never in anonymous mode; the /ask serve rule is
- *    re-checked here (answered + internal sources + no web); the model writes claims over the evidence;
- *    the claims guard, the source-kind rules and the default-deny no-quote guard run on them. No sourced
+ *    re-checked here (`isServedAsk`: answered, verdict correct, insufficient_coverage false, internal
+ *    sources, no web - U6h P4); WhatsApp/unknown hit text and the /ask answer are redacted of names and
+ *    phones BEFORE they go to the model (U6h M3); the model writes claims over the evidence; the claims
+ *    guard, the source-kind rules and the default-deny no-quote guard run on them. No sourced
  *    claim left -> the fixed no-answer + one gap count (authenticated) / counter (anonymous).
  *  - coach: SOP/essay requests become coaching (B1 student scope); a draft-shaped model reply is never
- *    shown (deterministic coaching fallback); coaching questions pass the existing no-script guard.
+ *    shown (deterministic coaching fallback); coaching questions pass the existing no-script guard; a
+ *    sentence or question that carries a number or a country is dropped from the reply (U6h M4).
  *  - tool: a non-KB feature (profile, ranking, export/erasure, coverage, freshness, channel switch) is
  *    returned as `selectedTool` for the API layer (U6b/U8) to execute; the graph does not do it itself.
  *
@@ -42,13 +46,14 @@ import type { LlmProvider } from "@vc/providers";
 import { TurnResponseSchema, type Claim, type TurnResponse } from "@vc/schemas";
 import { crisisGuard, type CrisisLevel } from "../guards/crisis.js";
 import { noScriptGuard } from "../guards/no-script.js";
-import { findPersonalIdentifiers, hasVerbatimRun, noQuoteGuard, type SpeakersFile } from "../guards/no-quote.js";
+import { findPersonalIdentifiers, hasVerbatimRun, noQuoteGuard, redactPersonalIdentifiers, type SpeakersFile } from "../guards/no-quote.js";
 import { loadSkill } from "../skills/loader.js";
 import { classifyIntent, classifyQuestion, type StudentIntentTool } from "./classify.js";
 import {
   DEFAULT_STALE_AFTER_MONTHS,
   countriesIn,
   guardClaims,
+  isServedAsk,
   type AskToolOutput,
   type GuardedClaim,
   type SearchHit,
@@ -235,11 +240,17 @@ export interface StudentGraphDeps {
   escalate?: (input: { sessionId: string; studentId: string; turns: { turnId: string; speaker: string; lang: string; text: string; translatedText: string }[] }) => Promise<unknown>;
   /** The anonymous text-free aggregate counter (B24.6); U7 wires the single counter writer. */
   countAnonymous?: (kind: AnonymousCounterKind) => Promise<void>;
-  /** A store write failed (never transcript text: only which write). Default: a text-free console.warn. */
+  /**
+   * U6h M4: has this thread already been flagged? Production reads the stored flag log. The graph derives the
+   * prior-flag state from this (OR the flags it raised itself), never from the caller-supplied input. A read
+   * that throws fails toward disclosure: the helpline line is shown.
+   */
+  hasPriorFlag?: (thread: { tenantId: string; studentId: string; threadId: string }) => Promise<boolean>;
+  /** A store write/read failed (never transcript text: only which one). Default: a text-free console.warn. */
   onWriteError?: (write: StudentWriteKind, error: unknown) => void;
 }
 
-export type StudentWriteKind = "flag_log" | "escalate" | "gap" | `counter:${AnonymousCounterKind}`;
+export type StudentWriteKind = "flag_log" | "flag_read" | "escalate" | "gap" | `counter:${AnonymousCounterKind}`;
 
 const StudentAuthSchema = z
   .object({
@@ -260,6 +271,7 @@ const StudentTurnInputSchema = z.discriminatedUnion("mode", [
       threadId: z.string().min(1).max(128),
       turnId: z.string().min(1).max(128),
       text: TextSchema,
+      /** Accepted for compatibility and IGNORED (U6h M4): the prior-flag state is derived server-side. */
       priorFlagInThread: z.boolean().optional(),
     })
     .strict(),
@@ -282,16 +294,33 @@ export class StudentInputInvalidError extends Error {
   }
 }
 
-/** A crisis phrase in the raw text (first MAX chars) of an input that fails validation: the input to
- *  run the crisis path with (the authenticated one when only the text was wrong, else anonymous). */
-function salvageCrisisInput(raw: unknown): StudentTurnInput | undefined {
+/**
+ * U6h L5: the text to run the crisis path with when a crisis phrase is anywhere in an over-long text: the
+ * first MAX-char window (windows overlap by half) that the guard flags, so the escalated excerpt carries the
+ * phrase and still fits the schema bound.
+ */
+function crisisWindow(text: string): string {
+  if (text.length <= MAX_STUDENT_TEXT) return text;
+  const step = MAX_STUDENT_TEXT / 2;
+  for (let at = 0; at < text.length; at += step) {
+    const w = text.slice(at, at + MAX_STUDENT_TEXT);
+    if (crisisGuard(w).level !== "none") return w;
+    if (at + MAX_STUDENT_TEXT >= text.length) break;
+  }
+  return text.slice(0, MAX_STUDENT_TEXT);
+}
+
+/** A crisis phrase anywhere in the FULL raw text of an input that fails validation (repair R7, U6h L5): the
+ *  input to run the crisis path with (the authenticated one when only the text was wrong, else anonymous). */
+function salvageCrisisInput(raw: unknown): { input: StudentTurnInput; level: CrisisLevel } | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Record<string, unknown>;
   if (typeof r.text !== "string" || !r.text) return undefined;
-  const scan = r.text.slice(0, MAX_STUDENT_TEXT);
-  if (crisisGuard(scan).level === "none") return undefined;
+  const level = crisisGuard(r.text).level;
+  if (level === "none") return undefined;
+  const scan = crisisWindow(r.text);
   const same = StudentTurnInputSchema.safeParse({ ...r, text: scan });
-  return same.success ? same.data : { mode: "anonymous", text: scan };
+  return { input: same.success ? same.data : { mode: "anonymous", text: scan }, level };
 }
 
 function invalidInputError(raw: unknown): Error {
@@ -331,6 +360,10 @@ export const StudentTurnState = Annotation.Root({
   input: last<StudentTurnInput>(),
   tool: last<StudentToolName | undefined>(),
   result: last<StudentTurnResult | undefined>(),
+  /** Set by the gate when the crisis phrase was found in an over-long input (the excerpt is already crisis). */
+  salvagedLevel: last<CrisisLevel | undefined>(),
+  /** U6h M4: derived server-side by the route node (authenticated mode only). */
+  priorFlag: last<boolean>(),
 });
 type State = typeof StudentTurnState.State;
 
@@ -357,6 +390,14 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
   const onWriteError =
     deps.onWriteError ?? ((write: StudentWriteKind, error: unknown) => console.warn(`[student-graph] ${write} write failed (${error instanceof Error ? error.name : typeof error})`));
 
+  const report = (write: StudentWriteKind, err: unknown) => {
+    try {
+      onWriteError(write, err);
+    } catch {
+      // the error reporter itself must not fail the turn either
+    }
+  };
+
   /** Repair R1: a store write never fails the turn. Returns false when the write threw. */
   const safeWrite = async (write: StudentWriteKind, fn: (() => Promise<unknown>) | undefined): Promise<boolean> => {
     if (!fn) return true;
@@ -364,19 +405,37 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       await fn();
       return true;
     } catch (err) {
-      try {
-        onWriteError(write, err);
-      } catch {
-        // the error reporter itself must not fail the turn either
-      }
+      report(write, err);
       return false;
+    }
+  };
+
+  // U6h M4: threads this graph has flagged itself (bounded; oldest evicted), so the suffix works with no store wired.
+  const MAX_REMEMBERED_FLAGS = 10_000;
+  const flaggedThreads = new Set<string>();
+  const threadKey = (a: { tenantId: string; studentId: string }, threadId: string) => JSON.stringify([a.tenantId, a.studentId, threadId]);
+  const rememberFlag = (a: { tenantId: string; studentId: string }, threadId: string) => {
+    flaggedThreads.add(threadKey(a, threadId));
+    if (flaggedThreads.size > MAX_REMEMBERED_FLAGS) flaggedThreads.delete(flaggedThreads.values().next().value as string);
+  };
+  /** Server-side "was this thread flagged before?". A caller-supplied value is never consulted. */
+  const readPriorFlag = async (input: StudentTurnInput): Promise<boolean> => {
+    if (input.mode !== "authenticated") return false;
+    const thread = { tenantId: input.auth.tenantId, studentId: input.auth.studentId, threadId: input.threadId };
+    if (flaggedThreads.has(threadKey(input.auth, input.threadId))) return true;
+    if (!deps.hasPriorFlag) return false;
+    try {
+      return await deps.hasPriorFlag(thread);
+    } catch (err) {
+      report("flag_read", err);
+      return true; // fail toward disclosure: showing the helpline line is the safe error
     }
   };
   const count = (kind: AnonymousCounterKind) => safeWrite(`counter:${kind}`, deps.countAnonymous ? () => deps.countAnonymous!(kind) : undefined);
 
-  const finish = (input: StudentTurnInput, result: StudentTurnResult): StudentTurnResult => {
+  const finish = (input: StudentTurnInput, result: StudentTurnResult, priorFlag: boolean): StudentTurnResult => {
     let response = result.response;
-    if (input.mode === "authenticated" && input.priorFlagInThread && response.state === "ok") {
+    if (input.mode === "authenticated" && priorFlag && response.state === "ok") {
       response = { ...response, message: `${response.message ?? ""} ${TELE_MANAS_LINE}`.trim() };
     }
     return { ...result, response: TurnResponseSchema.parse(response) };
@@ -389,12 +448,12 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       if (parsed.success) return { input: parsed.data };
       // Repair R7: crisis first, before validation (an over-long crisis message is still a crisis).
       const salvaged = salvageCrisisInput(raw);
-      if (salvaged) return { input: salvaged };
+      if (salvaged) return { input: salvaged.input, salvagedLevel: salvaged.level };
       throw invalidInputError(raw);
     })
     .addNode(STUDENT_NODES.crisis, async (s: State) => {
       const input = s.input;
-      const guard = crisisGuard(input.text);
+      const guard = { level: s.salvagedLevel ?? crisisGuard(input.text).level };
       if (guard.level === "none") return {};
       // B24.7: unsure / indirect / Hinglish count as the higher level; with no connected counsellor on
       // the student surface every flag is handled as crisis.
@@ -409,6 +468,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
           },
         };
       }
+      rememberFlag(input.auth, input.threadId);
       const logged = await safeWrite(
         "flag_log",
         deps.logFlag
@@ -453,17 +513,17 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
         }
         return { tool: "search_kb" as const };
       }
-      return { tool: classifyIntent(input.text) };
+      return { tool: classifyIntent(input.text), priorFlag: await readPriorFlag(input) };
     })
-    .addNode(STUDENT_NODES.answer, async (s: State) => ({ result: await answerFromKb(s.input) }))
-    .addNode(STUDENT_NODES.coach, async (s: State) => ({ result: await coach(s.input) }))
+    .addNode(STUDENT_NODES.answer, async (s: State) => ({ result: await answerFromKb(s.input, Boolean(s.priorFlag)) }))
+    .addNode(STUDENT_NODES.coach, async (s: State) => ({ result: await coach(s.input, Boolean(s.priorFlag)) }))
     .addNode(STUDENT_NODES.tool, (s: State) => {
       const tool = s.tool as keyof typeof TOOL_MESSAGES;
       return { result: { response: emptyResponse(s.input, "ok", TOOL_MESSAGES[tool]), selectedTool: tool, claimSourceKinds: [] } };
     })
     .addNode(STUDENT_NODES.finish, (s: State) => {
       if (!s.result) throw new Error("student graph reached finish without a result");
-      return { result: finish(s.input, s.result) };
+      return { result: finish(s.input, s.result, Boolean(s.priorFlag)) };
     })
     .addEdge(START, STUDENT_NODES.gate)
     .addEdge(STUDENT_NODES.gate, STUDENT_NODES.crisis)
@@ -499,7 +559,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     return noQuoteGuard(f, deps.speakers, restricted.labels).text;
   }
 
-  async function answerFromKb(input: StudentTurnInput): Promise<StudentTurnResult> {
+  async function answerFromKb(input: StudentTurnInput, priorFlag: boolean): Promise<StudentTurnResult> {
     const authenticated = input.mode === "authenticated";
     // Anonymous: structurally search-only, whatever the port offers (A15c, B24.6).
     const searchKb = deps.kb.searchKb.bind(deps.kb);
@@ -527,14 +587,19 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       } catch {
         return noAnswer(input);
       }
-      // Serve rule re-checked on the engine side: only an answered /ask with internal sources and no web.
-      if (ask.status !== "answered" || ask.citations.internal.length === 0 || ask.citations.web.length > 0) return noAnswer(input);
+      // Serve rule re-checked on the engine side (U6h P4): answered, verdict "correct", insufficient_coverage
+      // false, internal sources, no web. Anything the engine cannot confirm is the fixed no-answer.
+      if (!isServedAsk(ask)) return noAnswer(input);
     }
 
+    // U6h M3: names and phones are redacted from WhatsApp/unknown hit text and from the /ask answer BEFORE they are
+    // model input; the claim check below still sees the raw evidence. Seminar / ToC text passes through unchanged.
+    const hitLabels = hits.filter((h) => h.sourceKind === "whatsapp" || h.sourceKind === "unknown").flatMap((h) => (h.speakerLabel?.trim() ? [h.speakerLabel] : []));
+    const modelText = (h: SearchHit) => (h.sourceKind === "whatsapp" || h.sourceKind === "unknown" ? redactPersonalIdentifiers(h.text, deps.speakers, hitLabels) : h.text);
     const evidence =
       hits.length > 0
-        ? hits.map((h) => ({ id: h.turnId, kind: "search" as const, text: h.text, sourceKind: h.sourceKind, sessionDate: h.sessionDate }))
-        : ask!.citations.internal.map((n) => ({ id: n.node_id, kind: "ask" as const, text: ask!.answer, sourceKind: "unknown" as const }));
+        ? hits.map((h) => ({ id: h.turnId, kind: "search" as const, text: modelText(h), sourceKind: h.sourceKind, sessionDate: h.sessionDate }))
+        : ask!.citations.internal.map((n) => ({ id: n.node_id, kind: "ask" as const, text: redactPersonalIdentifiers(ask!.answer, deps.speakers, []), sourceKind: "unknown" as const }));
 
     let draft: z.infer<typeof KbAnswerOutputSchema>;
     try {
@@ -542,7 +607,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
         skillName: KB_ANSWER_SKILL,
         skillPrompt: kbAnswerPrompt,
         outputSchema: KbAnswerOutputSchema,
-        input: { question: input.text, evidence, priorFlag: authenticated ? Boolean(input.priorFlagInThread) : false },
+        input: { question: input.text, evidence, priorFlag: authenticated ? priorFlag : false },
       });
     } catch {
       return { response: emptyResponse(input, "ok", PROVIDER_APOLOGY_TEXT), selectedTool: "search_kb", retryable: true, claimSourceKinds: [] };
@@ -565,7 +630,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     // Repair R2a: the FINAL message is checked against every restricted text of the turn (fail closed).
     if (guarded.restricted.texts.some((t) => hasVerbatimRun(message, t))) return noAnswer(input);
     message = noQuoteGuard(message, deps.speakers, guarded.restricted.labels).text;
-    if (authenticated && input.priorFlagInThread && violatesCrisisRules(message)) {
+    if (authenticated && priorFlag && violatesCrisisRules(message)) {
       return { response: emptyResponse(input, "ok", STUDENT_CRISIS_MESSAGE), selectedTool: "search_kb", claimSourceKinds: [] };
     }
     if (!authenticated) await count("answered");
@@ -578,7 +643,10 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     };
   }
 
-  async function coach(input: StudentTurnInput): Promise<StudentTurnResult> {
+  /** U6h M4: a coaching sentence or question that carries a number or a country is a factual claim; coaching has no sources. */
+  const factFree = (s: string) => !/\p{N}/u.test(s) && countriesIn(s).length === 0;
+
+  async function coach(input: StudentTurnInput, priorFlag: boolean): Promise<StudentTurnResult> {
     let message = COACH_FALLBACK;
     try {
       const out = await deps.provider.generate({
@@ -588,14 +656,15 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
         input: { request: input.text, mode: "coach_draft_feedback" },
       });
       // Existing B1 no-script guard: each coaching question must be a genuine question.
-      const questions = out.questions.map((q) => q.trim()).filter((q) => q && noScriptGuard({ type: "clarify", prompt: q }).ok);
-      const candidate = [out.reply.trim(), ...questions].filter(Boolean).join(" ");
+      const questions = out.questions.map((q) => q.trim()).filter((q) => q && factFree(q) && noScriptGuard({ type: "clarify", prompt: q }).ok);
+      const reply = out.reply.split(/(?<=[.!?।])\s+/).filter((sentence) => factFree(sentence)).join(" ").trim();
+      const candidate = [reply, ...questions].filter(Boolean).join(" ");
       if (!isDraftLike(out.reply) && !isDraftLike(candidate) && questions.length >= 2) message = candidate;
     } catch {
       message = COACH_FALLBACK;
     }
     message = noQuoteGuard(message, deps.speakers).text;
-    if (input.mode === "authenticated" && input.priorFlagInThread && violatesCrisisRules(message)) message = COACH_FALLBACK;
+    if (input.mode === "authenticated" && priorFlag && violatesCrisisRules(message)) message = COACH_FALLBACK;
     return { response: emptyResponse(input, "ok", message), selectedTool: "coach_draft_feedback", claimSourceKinds: [] };
   }
 

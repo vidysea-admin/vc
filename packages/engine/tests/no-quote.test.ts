@@ -128,3 +128,61 @@ test(`A22 detector: a verbatim run of >= ${VERBATIM_RUN_WORDS} consecutive sourc
   assert.equal(hasVerbatimRun("my cousin got the DAAD one last", source), false, "7 words is under the bar");
   assert.equal(hasVerbatimRun("Past applicants report that DAAD applications are due around October.", source), false);
 });
+
+// ---------------------------------------------------------------------------
+// U6h P5 (post-PASS hardening of U6): a WhatsApp / unknown speakerLabel is redacted in every variant
+// the evidence may carry - first name, last name, reversed order, initials, diacritic-folded forms.
+// Each test below was recorded RED first.
+// ---------------------------------------------------------------------------
+
+const LABEL = "Sanjay Kulkarni";
+const LABEL_VARIANTS = [
+  "Sanjay",
+  "Kulkarni",
+  "SANJAY KULKARNI",
+  "kulkarni sanjay",
+  "Kulkarni Sanjay",
+  "Kulkarni, Sanjay",
+  "S. Kulkarni",
+  "S Kulkarni",
+  "Sanjay K.",
+  "Sanjay K",
+  "S. K.",
+  "S.K.",
+  "Sanjáy Kulkarni",
+  "Sanjay Kulkárni",
+  "Sánjay",
+  "Dr. Sanjay Kulkarni",
+  "Sanjay​Kulkarni",
+  "Sanjay Kulkarni",
+];
+const LEFTOVER = /sanjay|sanj[aá]y|kulkarni|kulk[aá]rni|\bS\.\s*K\b|\bS\.K\b|\bS\.\s*(?:a speaker|Kulkarni)|\bK\.(?!\w)/i;
+
+test("U6h P5: redactPersonalIdentifiers removes every variant of a speakerLabel (first, last, reversed, initials, diacritic-folded)", () => {
+  for (const v of LABEL_VARIANTS) {
+    const out = redactPersonalIdentifiers(`As ${v} said, apply early. Then ${v} added the deadline.`, speakers, [LABEL]);
+    assert.doesNotMatch(out, LEFTOVER, `${JSON.stringify(v)} -> ${JSON.stringify(out)}`);
+    assert.match(out, /apply early/, "the rest of the sentence survives");
+  }
+});
+
+test("U6h P5: noQuoteGuard (extraNames) and the A22 detector cover the same variants", () => {
+  for (const v of LABEL_VARIANTS) {
+    const text = `As ${v} said, apply early.`;
+    assert.doesNotMatch(noQuoteGuard(text, speakers, [LABEL]).text, LEFTOVER, v);
+    assert.ok(findPersonalIdentifiers(text, speakers, [LABEL]).some((f) => f.kind === "speaker-label"), `detector: ${v}`);
+  }
+});
+
+test("U6h P5: a label with a diacritic matches its plain spelling too, and non-label look-alikes are not mangled", () => {
+  assert.doesNotMatch(redactPersonalIdentifiers("Sanjay Kulkarni said apply early.", speakers, ["Sanjáy Kulkárni"]), /Sanjay|Kulkarni/);
+  const keep = "Sanjayan Rao and Kulkarnia Road are unrelated, and so is a student called Sanj.";
+  assert.equal(redactPersonalIdentifiers(keep, speakers, [LABEL]), keep);
+  assert.equal(findPersonalIdentifiers("Apply early, the deadline is in October.", speakers, [LABEL]).length, 0);
+});
+
+test("U6h P5: a common word used as a name token ('Will') does not blank ordinary sentences", () => {
+  const out = redactPersonalIdentifiers("The visa will be issued in two weeks. Will Mehra said so.", speakers, ["Will Mehra"]);
+  assert.match(out, /The visa will be issued in two weeks\./);
+  assert.doesNotMatch(out, /Mehra|Will Mehra/);
+});
