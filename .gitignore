@@ -8,3 +8,30 @@ dist/
 .claude/scheduled_tasks.lock
 !.env.example
 !**/.env.example
+
+# --- landplane 2026-10-17: local caches, hook output, evidence scratch (never evidence) ---
+.pnpm-store/
+.playwright-mcp/
+.handoffs/
+# compact-handoff context cache (content-addressed, regenerable)
+qa/.delivery/context/
+__pycache__/
+*.pyc
+# evidence: archives of trees that also exist expanded
+qa/evidence/**/*.zip
+# evidence: pytest tmp_path / scratch runs
+qa/evidence/checker-ratio-20261016/scratch/
+qa/evidence/checker-ratio-20261016/pytest-*/
+qa/evidence/checker-ratio-20261016/independent/*/pytest-own-*/
+qa/evidence/checker-ratio-20261016/independent/*/tmp[0-9]*/
+qa/evidence/checker-ratio-20261016/independent/*/*-tmp/
+# evidence: full source-tree clones used for mutation / isolation runs
+qa/evidence/checker-ratio-20261016/isolated/
+qa/evidence/checker-ratio-20261016/independent/report-cycle1/R[0-9]/
+qa/evidence/checker-ratio-20261016/independent/report-final/clip/
+qa/evidence/t038-a/copy-*/
+qa/evidence/t038-cycle1-a/copies/
+qa/evidence/t038-cycle1-b-runtime/copy/
+qa/evidence/t052-checker-cycle1/isolation/
+qa/evidence/vc-release-t052-primary-20261013/isolation/
+qa/evidence/vc-release-t052-2026-10-13.b/isolated/
