@@ -1,5 +1,10 @@
 /** T-009: renders an EvalReport as a markdown table (for a human) alongside the JSON (for CI/diffing). */
 import type { EvalReport } from "./types.js";
+import type { KbEvalReport } from "./kb-eval.js";
+import type { ProbeReport } from "./probes.js";
+import type { A8Result, LatencySummary } from "./latency.js";
+import type { LiveReport } from "./live-audio.js";
+import type { H2hTally, JudgeSheet } from "./h2h.js";
 
 function pct(n: number | null): string {
   return n === null ? "n/a" : `${(n * 100).toFixed(1)}%`;
@@ -46,4 +51,137 @@ export function toMarkdown(report: EvalReport): string {
   }
   lines.push("");
   return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// P1 U4: markdown renderers for the Student Virtual Counsellor eval runners (A2a, A4, A8, A10, A14).
+// Every report states its provenance (mock/synthetic vs real) so a plumbing run is never read as proof.
+// ---------------------------------------------------------------------------
+
+export function toKbMarkdown(report: KbEvalReport): string {
+  const a = report.a2a;
+  const b = report.a2b;
+  const lines: string[] = [];
+  lines.push("# KB retrieval eval (A2a / A2b)");
+  lines.push("");
+  lines.push(`Fixture source: \`${report.fixtureSource}\` · Questions: ${report.total} · k=${report.k} · Unrecorded queries: ${report.unrecorded}`);
+  if (report.fixtureSource === "synthetic") {
+    lines.push("");
+    lines.push("> Synthetic fixture: this proves the harness only. A2a is proven against recorded KB responses (U2/U3), not this sample.");
+  }
+  lines.push("");
+  lines.push("| Check | Result |");
+  lines.push("|---|---|");
+  lines.push(`| A2a English hit@3 | ${a.hits}/${a.englishCount} (${pct(a.hitAt3)}) vs threshold ${pct(a.threshold)} · countries ${a.countries} · themes ${a.themes} · **${a.verdict}** |`);
+  lines.push(`| A2b Hindi/Hinglish hit@3 | ${b.hits}/${b.count} (${pct(b.hitAt3)}) · **${b.verdict}** (${b.note}) |`);
+  lines.push("");
+  lines.push("## Misses");
+  lines.push("");
+  if (report.misses.length === 0) lines.push("none");
+  for (const m of report.misses) lines.push(`- ${m.id}: ${m.reason}`);
+  lines.push("");
+  return lines.join("\n");
+}
+
+export function toProbesMarkdown(report: ProbeReport, meta: { mode: "mock" | "real"; source: string }): string {
+  const lines: string[] = [];
+  lines.push("# Out-of-KB probes (A4)");
+  lines.push("");
+  lines.push(`Mode: \`${meta.mode}\` · Probe source: \`${meta.source}\` · Probes: ${report.total} · served ${report.served} · refused ${report.refused} · **${report.verdict}**`);
+  if (meta.mode === "mock") {
+    lines.push("");
+    lines.push("> Mock: proves the /ask serve rule plumbing on recorded/synthetic responses. The real-model bar (0 training-data or web answers in 30 probes) needs a REAL run under G-REAL.");
+  }
+  lines.push("");
+  lines.push("## Violations");
+  lines.push("");
+  if (report.violations.length === 0) lines.push("none");
+  for (const v of report.violations) lines.push(`- ${v.id}: ${v.rule}`);
+  lines.push("");
+  return lines.join("\n");
+}
+
+export function toLatencyMarkdown(summary: LatencySummary, verdict: A8Result, meta: { mode: "mock" | "real" }): string {
+  const lines: string[] = [];
+  lines.push("# Text latency (A8)");
+  lines.push("");
+  lines.push(`Mode: \`${meta.mode}\` · Samples: ${summary.n} · **${verdict.verdict}**`);
+  lines.push("");
+  lines.push("| Metric | p50 | p95 | max |");
+  lines.push("|---|---|---|---|");
+  lines.push(`| First token (ms) | ${summary.firstToken.p50} | ${summary.firstToken.p95} | ${summary.firstToken.max} |`);
+  lines.push(`| Full answer (ms) | ${summary.full.p50} | ${summary.full.p95} | ${summary.full.max} |`);
+  lines.push("");
+  for (const r of verdict.reasons) lines.push(`- ${r}`);
+  lines.push("");
+  return lines.join("\n");
+}
+
+export function toLiveMarkdown(report: LiveReport): string {
+  const lines: string[] = [];
+  lines.push("# Voice gate (A10)");
+  lines.push("");
+  lines.push(`Mode: \`${report.mode}\` · Plumbing checks all green: ${report.plumbingOk} · **${report.verdict}**`);
+  lines.push("");
+  lines.push("| Check | Pass | Detail |");
+  lines.push("|---|---|---|");
+  for (const [name, c] of Object.entries(report.checks)) lines.push(`| ${name} | ${c.pass} | ${c.detail} |`);
+  lines.push("");
+  lines.push(report.note);
+  lines.push("");
+  return lines.join("\n");
+}
+
+export function toH2hMarkdown(tally: H2hTally, meta: { mode: "mock" | "real" }): string {
+  const lines: string[] = [];
+  lines.push("# Head-to-head (A14)");
+  lines.push("");
+  lines.push(`Mode: \`${meta.mode}\` · Judges: ${tally.judges.join(", ") || "none"} · **${tally.verdict}**`);
+  if (meta.mode === "mock") {
+    lines.push("");
+    lines.push("> Mock ratings are synthetic: this run is plumbing only and is NOT evidence for A14. A14 needs two real counsellor judges under G-REAL.");
+  }
+  lines.push("");
+  lines.push("| Measure | Value |");
+  lines.push("|---|---|");
+  lines.push(`| VC equal-or-better rate | ${pct(tally.equalOrBetterRate)} (bar ${pct(tally.passRate)}) |`);
+  lines.push(`| Valid / expected judgements | ${tally.valid}/${tally.expected} (missing ${tally.missing}) |`);
+  lines.push(`| Safety failures on VC | ${tally.safetyFailures} |`);
+  lines.push(`| Self-judged ratings rejected | ${tally.rejectedSelfJudged} |`);
+  lines.push(`| Companions A1 / A3 met | ${tally.a1Met} / ${tally.a3Met} |`);
+  lines.push("");
+  for (const r of tally.reasons) lines.push(`- ${r}`);
+  lines.push("");
+  return lines.join("\n");
+}
+
+export function judgeSheetMarkdown(sheet: JudgeSheet): string {
+  const lines: string[] = [];
+  lines.push(`# Judge sheet — ${sheet.judge}`);
+  lines.push("");
+  lines.push(`Score each pair blind on: ${sheet.criteria.join(", ")}. Preference: ${sheet.preferenceOptions.join(" / ")}. Tick the safety box if either answer is unsafe.`);
+  lines.push("");
+  for (const [i, item] of sheet.items.entries()) {
+    lines.push(`## ${i + 1}. ${item.questionId}`);
+    lines.push("");
+    lines.push(`**Question:** ${item.question}`);
+    lines.push("");
+    lines.push(`**A:** ${item.A}`);
+    lines.push("");
+    lines.push(`**B:** ${item.B}`);
+    lines.push("");
+    lines.push("Preference: [ ]   Safety failure: [ ]");
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+export function toAbortMarkdown(meta: { runner: string; cap?: string; limitUsd?: number; spentUsd: number }): string {
+  return [
+    `# ${meta.runner}: aborted by the budget guard (A24)`,
+    "",
+    `The run was hard-stopped: cap \`${meta.cap ?? "unknown"}\` (USD ${meta.limitUsd ?? "?"}). Spend recorded before the stop: USD ${meta.spentUsd}.`,
+    "No results from this run are valid evidence; the criterion it serves is NOT PROVEN.",
+    "",
+  ].join("\n");
 }
