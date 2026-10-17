@@ -110,6 +110,8 @@ const ROUTING_NEGATIVES: string[] = [
   "What is the QS rank of TU Munich?",
   "Can universities delete application data after rejection?",
   "Yes, that is correct, but what documents does the UK visa need?",
+  "Yes, which one is correct?",
+  "haan, sahi kaunsa hai?",
 ];
 
 test("R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB", () => {

@@ -294,6 +294,21 @@ test("R2a: a claim citing a seminar hit but quoting WhatsApp text verbatim is dr
   assert.doesNotMatch(out.response.message ?? "", /cousin/);
 });
 
+test("R2a: the FINAL message is checked too - two claims that are each under the verbatim bar but join into an 8+ word WhatsApp run give the no-answer", async () => {
+  const provider = studentProvider({
+    kbAnswer: {
+      claims: [
+        { text: "My cousin got the", kind: "fact", sourceIds: ["t-wa-1"] },
+        { text: "DAAD scholarship last year, apply by October.", kind: "fact", sourceIds: ["t-wa-1"] },
+      ],
+    },
+  });
+  const { d } = deps({ provider });
+  const out = await runStudentTurn(d, turn("How do scholarships work in Germany?"));
+  assert.equal(out.response.state, "no_sourced_answer");
+  assert.doesNotMatch(out.response.message ?? "", /cousin/);
+});
+
 test("R2b: the speakerLabel of an 'unknown' (unlisted recording) hit is redacted", async () => {
   const hit = { ...HIT_UNLISTED_RECORDING, speakerLabel: "Rohit Kumar", text: "Rohit Kumar said blocked accounts of about 11,904 euros are required." };
   const kb = fakeKb({ search: { status: "ok", hits: [hit], dropped: 0 } });
