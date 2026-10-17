@@ -1,6 +1,6 @@
-# T049 retained main additions — awaiting explicit authorization
+# T049 exact additions — approved; restoration pending
 
-Status: pending-user-answer
+Status: answered — exact restoration authorized by current-chat approved plan, D-079
 Asked once: 2026-10-01, current chat asynchronous question.
 Authority: C:/Users/Lenovo/.codex/AGENTS.md:57 requires explicit creation authorization; routine quality-plan approval is already satisfied.
 
@@ -26,4 +26,4 @@ Exactly twelve absent paths:
 
 Scope: restore/create these exact reviewed files, plus the seven already reviewed existing-file seams in the nineteen-path patch. No whole failed branch merge, production write, deployment or provider call. Live delivery, model efficacy and T050 actual feedback remain open.
 
-Answer pending; do not infer authorization from elapsed time. Continue T047 and other independently available goal work. Do not ask this gate again.
+Answered: 2026-10-16 — Umesh explicitly approved the combined plan, including creation/restoration of these exact twelve reviewed paths and their reviewed existing-file seams, and instructed goal execution. Authority: current chat01a13e75-26ed-7893-ad85-abc47efe2502, D-079. Validate current patch/base identity and complete independent acceptance before integration; full failed-branch merge, production writes and deployment are not authorized by this gate.
