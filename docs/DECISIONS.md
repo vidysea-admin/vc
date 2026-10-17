@@ -888,3 +888,10 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Supersedes:** D-094 -- D-094 assumed the repo hooks were older than ai_os; origin/main shows they are newer and already fix the issues D-094 targeted, so D-094's copy would regress them.
 **Links:** D-081, D-093, D-094, ISS-054, ISS-056, ISS-084, ISS-095
 **Changes-authorized:** none
+
+## D-096 | 2026-10-18 | type: decision | status: ACTIVE
+**What:** Three P1 answers from Umesh. (1) scripts/vc-testlock.sh gets 2 test slots instead of 1. Slot 0 keeps the current lock path. When free RAM is below 3 GB, only slot 0 is used. (2) Standing push approval: each P1 unit (U7, eng3, U8, U9 and later units) is pushed to origin/main as soon as its checker PASS verdict(s) exist, the 6c pre-push check is green and tick.mjs --push-gate exits 0. The maker does not ask before each push; it reports each push with its sha and reflog time. (3) U9 crisis mute: after a crisis is detected, the model's audio stays muted until the student speaks again. Only the Tele-MANAS helpline audio plays. A tool call or the model's end-of-turn signal never lifts the mute (U9 repair review R1/R2).
+**Why:** Umesh, chat 2026-10-18T03:43:39+05:30: "go in the recommended manner and jo jo validate hota jayega usko push krr do". He chose the recommended option on all 3 questions. Tests were queueing behind a single lock across 4 worktrees. Asking before every push left validated units waiting. R1/R2 are model-audio leaks during a minor's crisis.
+**Result:** the testlock change goes through maker-checker as its own unit (tier L, concurrency, one checker). The U9 mute rule is folded into the U9 repair brief (qa/feedback-inbox.md). Pushes still need a green --push-gate; nothing is pushed without one. Go-live gates (G-PROD, G-REAL, B13, A20) are unchanged.
+**Links:** D-089, D-093, qa/gates/p1-standing-push.md
+**Changes-authorized:** none
