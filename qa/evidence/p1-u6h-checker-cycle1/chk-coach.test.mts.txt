@@ -1,0 +1,23 @@
+import test from "node:test";
+const W = "file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6h/packages/engine";
+const graph = await import(`${W}/src/student/graph.ts`);
+const fx = await import(`${W}/tests/student-fixtures.ts`);
+const { SKILLS_DIR, SPEAKERS, NOW, fakeKb, studentProvider, NO_PRIOR_FLAG } = fx;
+const AUTH = { role: "student" as const, studentId: "s", tenantId: "sandbox" };
+const Qs = ["What moment made you choose this field?", "Which project are you proudest of, and why?"];
+async function coachMsg(reply: string) {
+  const provider = studentProvider({ coach: { reply: `${reply} Let's build this from your own story.`, questions: Qs } });
+  const d = { kb: fakeKb(), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG };
+  const out = await graph.runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "t", turnId: "u", text: "Write my SOP for MS in Computer Science at TU Munich" });
+  return out.response.message ?? "";
+}
+test("coach number probes", async () => {
+  const leaks = ["Tuition there is about five thousand euros a year.", "You will pay twenty thousand euros.", "It costs twenty-five thousand euros.", "It costs a thousand euros.", "Fees run to one hundred euros.", "Fees are ten percent higher.", "You need three years of experience.", "It takes two semesters.", "Costs are around eleven thousand a year.", "Fees are fifty euros.", "Roughly 5 lakh per year.", "Costs are five lakh a year.", "It is a few thousand euros.", "A couple of thousand euros.", "Fees are one thousand five hundred euros.", "Fee of one hundred and twenty euros.", "Fees are nineteen hundred euros.", "The fee is a hundred euros.", "Fees are half a million rupees.", "It costs ek lakh rupees.", "Fees are paanch hazaar rupees.", "You must score six and a half in IELTS."];
+  const shown: string[] = [];
+  for (const r of leaks) { const m = await coachMsg(r); if (m.includes(r.slice(0, 18))) shown.push(r); }
+  console.log("PROBE coach leaks (sentence reaches student):", shown.length + "/" + leaks.length, JSON.stringify(shown));
+  const benign = ["One thing at a time: tell me about someone who shaped your tenacity.", "Think about the weekend project you were proudest of.", "Your first draft needs a clear opening.", "Start with a single story, not a list.", "Which two projects mattered most to you?", "Begin with the moment you knew."];
+  const dropped: string[] = [];
+  for (const r of benign) { const m = await coachMsg(r); if (!m.includes(r.slice(0, 18))) dropped.push(r); }
+  console.log("PROBE coach benign dropped:", dropped.length + "/" + benign.length, JSON.stringify(dropped));
+});

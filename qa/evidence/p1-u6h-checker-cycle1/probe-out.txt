@@ -1,0 +1,23 @@
+PROBE A listed-qualifier leaks: 0/14 []
+PROBE A2 extra-variant leaks: 6/14 ["Universities charge no tuition. <- Universities charge no tuition for the first year.","Universities charge no tuition. <- Universities charge no tuition until 2027.","Applicants need IELTS. <- Applicants need IELTS from 2027.","Students pay a contribution. <- Students pay a contribution of up to 300 euros.","Fees are waived. <- Fees are waived in certain cases.","Fees are waived. <- Fees are waived at selected universities."]
+PROBE B binding leaks: 0/10 []
+PROBE C honest-paraphrase verified 20/20 (100%) misses=[]
+PROBE D1 phone formats not fully redacted: 1/21 ["(+91) 98765 43210 -> Call me on (+91) [number removed] tonight"]
+PROBE D2 false positives: 0/11 []
+[student-graph] flag_read write failed (Error)
+PROBE E msg(storeTrue,callerFalse)="Public universities in Germany charge no tuition for most programmes. If things feel heavy, Tele-MANAS on 14416 is free and open 24x7." | msg(storeFalse,callerTrue)="Public universities in Germany charge no tuition for most programmes." | msg(storeThrows)="Public universities in Germany charge no tuition for most programmes. If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."
+PROBE F followUp shown map: {"shown200":true,"shown201":false,"oneOk":true,"twoSent":false,"twoQ":false,"newlineAdvice":true,"semicolonAdvice":true,"spelledNumber":true,"spelledNumber2":true,"exclam":false,"crisisPhrase":false,"devanagariDanda":false,"noteQ":true}
+✔ A. dropped qualifiers do not verify (outcome via runStudentTurn) (923.5137ms)
+✔ B. number-country binding (outcome) (263.0105ms)
+✔ C. honest paraphrase verified rate (outcome) (409.6134ms)
+✔ D. phones: redacted before model input; no false hit (244.8756ms)
+✔ E. hasPriorFlag required; store is authoritative (41.4608ms)
+✔ F. followUp limited to one checked sentence <= 200 chars (152.8712ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5216.4472

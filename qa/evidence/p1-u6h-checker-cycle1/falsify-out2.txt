@@ -1,0 +1,7 @@
+M4-coach-spelled before {"exit":0,"pass":null,"fail":null,"tests":null} after {"exit":1,"pass":null,"fail":null,"tests":null} restored {"exit":0,"pass":null,"fail":null,"tests":null}
+H2a-qualifier-sets before {"exit":0,"pass":null,"fail":null,"tests":null} after {"exit":1,"pass":null,"fail":null,"tests":null} restored {"exit":0,"pass":null,"fail":null,"tests":null}
+H2a-caveat before {"exit":0,"pass":null,"fail":null,"tests":null} after {"exit":1,"pass":null,"fail":null,"tests":null} restored {"exit":0,"pass":null,"fail":null,"tests":null}
+H2b-binding before {"exit":0,"pass":null,"fail":null,"tests":null} after {"exit":1,"pass":null,"fail":null,"tests":null} restored {"exit":0,"pass":null,"fail":null,"tests":null}
+M4b-required-dep before {"exit":0,"pass":null,"fail":null,"tests":null} after {"exit":1,"pass":null,"fail":null,"tests":null} restored {"exit":0,"pass":null,"fail":null,"tests":null}
+M3b-phone-paren before {"exit":0,"pass":null,"fail":null,"tests":null} after {"exit":1,"pass":null,"fail":null,"tests":null} restored {"exit":0,"pass":null,"fail":null,"tests":null}
+M4c-followup-shape before {"exit":0,"pass":null,"fail":null,"tests":null} after {"exit":1,"pass":null,"fail":null,"tests":null} restored {"exit":0,"pass":null,"fail":null,"tests":null}

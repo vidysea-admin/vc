@@ -1,0 +1,191 @@
+// Checker cycle-1 hostile probes for p1-u6h (outside the bound tree; imports the worktree src read-only).
+import test from "node:test";
+import assert from "node:assert/strict";
+import type { MockProvider } from "@vc/providers";
+const W = "file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6h/packages/engine";
+const graph = await import(`${W}/src/student/graph.ts`);
+const nq = await import(`${W}/src/guards/no-quote.ts`);
+const fx = await import(`${W}/tests/student-fixtures.ts`);
+const { runStudentTurn, buildStudentGraph } = graph;
+const { SKILLS_DIR, SPEAKERS, NOW, fakeKb, studentProvider, NO_PRIOR_FLAG } = fx;
+const AUTH = { role: "student" as const, studentId: "syn-stu-3", tenantId: "sandbox" };
+const turn = (text: string, extra: object = {}) => ({ mode: "authenticated" as const, auth: AUTH, threadId: "th-g", turnId: "tu-g", text, ...extra });
+const hit = (text: string, kind = "internal-seminar") => ({ turnId: "t-x", sessionId: "s-x", score: 3.2, text, sessionDate: "2026-03-04", sessionTitle: "T", sourceId: "src-x", sourceKind: kind });
+
+async function served(claim: string, evidence: string, kindc: "fact" | "number" = "fact"): Promise<boolean> {
+  const provider = studentProvider({ kbAnswer: { claims: [{ text: claim, kind: kindc, sourceIds: ["t-x"] }] } });
+  const d = { kb: fakeKb({ search: { status: "ok", hits: [hit(evidence)], dropped: 0 } }), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG };
+  const out = await runStudentTurn(d, turn("Tell me about the fees and rules for studying abroad please"));
+  return out.response.claims.some((c: { status: string }) => c.status === "verified");
+}
+
+const REPORT: string[] = [];
+const note = (s: string) => { REPORT.push(s); console.log("PROBE " + s); };
+
+test("A. dropped qualifiers do not verify (outcome via runStudentTurn)", async () => {
+  const pairs: [string, string][] = [
+    ["Universities charge a tuition fee.", "Some universities charge a tuition fee."],
+    ["German universities charge no tuition.", "Most German universities charge no tuition."],
+    ["Students can apply.", "Only EU students can apply."],
+    ["Students can apply.", "All students can apply."],
+    ["Applicants submit a portfolio.", "Applicants may submit a portfolio."],
+    ["Applicants must submit a portfolio.", "Applicants may submit a portfolio."],
+    ["Applicants need an IELTS score.", "Applicants usually need an IELTS score."],
+    ["Fees are waived.", "Fees are waived if you hold a scholarship."],
+    ["Fees are charged.", "Fees are charged unless you hold a scholarship."],
+    ["Universities charge no tuition.", "Public universities charge no tuition."],
+    ["Colleges charge fees.", "Private colleges charge fees."],
+    ["German public universities charge no tuition.", "German public universities charge no tuition. This applies only to EU citizens."],
+    ["German public universities charge no tuition.", "German public universities charge no tuition. Note that this applies only to EU citizens."],
+    ["The visa fee is waived.", "The visa fee is waived. It applies to scholarship holders only."],
+  ];
+  const leaks: string[] = [];
+  for (const [c, e] of pairs) if (await served(c, e)) leaks.push(`${c} <- ${e}`);
+  note(`A listed-qualifier leaks: ${leaks.length}/${pairs.length} ${JSON.stringify(leaks)}`);
+  // extra hostile variants (not named by repair)
+  const extra: [string, string][] = [
+    ["Students must pay the fee.", "Students need not pay the fee."],
+    ["The fee is charged to students.", "The fee is charged to students, excluding postgraduate students."],
+    ["Universities charge no tuition.", "Universities charge no tuition except for medicine."],
+    ["Universities charge no tuition.", "Universities charge no tuition for the first year."],
+    ["Universities charge no tuition.", "Universities charge no tuition until 2027."],
+    ["Applicants need IELTS.", "Applicants need IELTS from 2027."],
+    ["IELTS is required.", "IELTS is recommended."],
+    ["Applicants need work experience.", "Applicants need work experience in some cases."],
+    ["Applicants need a visa.", "Applicants need a visa depending on nationality."],
+    ["Universities charge no tuition.", "Universities charge no tuition for EU students."],
+    ["Students pay a contribution.", "Students pay a contribution of up to 300 euros."],
+    ["Fees are waived.", "Fees are waived in certain cases."],
+    ["Fees are waived.", "Fees are waived at selected universities."],
+    ["Universities require a blocked account.", "Universities do not require a blocked account."],
+  ];
+  const l2: string[] = [];
+  for (const [c, e] of extra) if (await served(c, e)) l2.push(`${c} <- ${e}`);
+  note(`A2 extra-variant leaks: ${l2.length}/${extra.length} ${JSON.stringify(l2)}`);
+  assert.deepEqual(leaks, []);
+});
+
+test("B. number-country binding (outcome)", async () => {
+  const ev = "The contribution is 300 euros for Germany and 500 euros for France.";
+  const bad: [string, string][] = [
+    ["The contribution is 500 euros for Germany.", ev],
+    ["The contribution in Germany is 500 euros.", ev],
+    ["Germany charges 500 euros.", "Germany charges 300 euros and France charges 500 euros."],
+    ["France charges 300 euros.", "Germany: 300 euros; France: 500 euros."],
+    ["France charges 300 euros.", "Germany (300 euros) and France (500 euros)."],
+    ["Germany charges 500 euros.", "Germany - 300 euros, France - 500 euros."],
+    ["Germany charges 500 euros.", "300 euros in Germany, 500 in France."],
+    ["Germany charges 500 euros.", "In Germany it is 300 euros, while in France it is 500 euros."],
+    ["Germany charges 500 euros.", "France 500 euros, Germany 300 euros."],
+    ["Germany charges 500 euros.", "Fees: Germany 300 euros / France 500 euros."],
+  ];
+  const leaks: string[] = [];
+  for (const [c, e] of bad) if (await served(c, e, "number")) leaks.push(`${c} <- ${e}`);
+  note(`B binding leaks: ${leaks.length}/${bad.length} ${JSON.stringify(leaks)}`);
+  assert.equal(await served("The contribution is 300 euros for Germany.", ev, "number"), true);
+  assert.equal(await served("The contribution is 500 euros for France.", ev, "number"), true);
+  // first 3 are named by the repair
+  assert.equal(await served("The contribution is 500 euros for Germany.", ev, "number"), false);
+});
+
+test("C. honest paraphrase verified rate (outcome)", async () => {
+  const honest: [string, string, "fact" | "number"][] = [
+    ["Public universities in Germany charge no tuition for most programmes.", "German public universities charge no tuition for most programmes, but expect a semester contribution of about 300 euros.", "fact"],
+    ["The semester contribution is about 300 euros.", "German public universities charge no tuition for most programmes, but expect a semester contribution of about 300 euros.", "number"],
+    ["Living costs in Germany are about 11,000 euros a year for most students.", "Living costs in Germany come to about 11,000 euros a year for most students.", "number"],
+    ["A blocked account needs about 11,904 euros.", "Blocked accounts of about 11,904 euros are required for the German student visa.", "number"],
+    ["The fee is 300 euros each semester.", "The fee is 300 euros per semester.", "number"],
+    ["Canada requires proof of funds for a study permit.", "Canada requires proof of funds for the study permit.", "fact"],
+    ["IELTS is required for the master's programme.", "IELTS is mandatory for the master's programme.", "fact"],
+    ["Applications close in July.", "Applications close in July.", "fact"],
+    ["Germany has no tuition fees at public universities.", "Public universities in Germany have no tuition fees.", "fact"],
+    ["Students need a blocked account for the German visa.", "A blocked account is needed by students for the German visa.", "fact"],
+    ["Most programmes in the Netherlands are taught in English.", "Most programmes in the Netherlands are taught in English.", "fact"],
+    ["The application deadline for the winter intake is 15 July.", "The application deadline for the winter intake is 15 July.", "number"],
+    ["You need an IELTS score of 6.5.", "Applicants need an IELTS score of 6.5.", "number"],
+    ["Visa processing takes about two weeks.", "Visa processing takes about two weeks.", "fact"],
+    ["Living costs in France are around 10,000 euros a year.", "Living costs in France are about 10,000 euros a year.", "number"],
+    ["The tuition fee is 5000 euros per year.", "The tuition fee is 5000 euros per year.", "number"],
+    ["Students can work part time during their studies.", "Students can work part time during their studies.", "fact"],
+    ["Scholarships are available for international students.", "Scholarships are available for international students.", "fact"],
+    ["The scholarship covers 1.5 lakh per year.", "The scholarship covers 1.5 lakh per year.", "number"],
+    ["Germany has no tuition fees.", "Germany has no tuition fees.", "fact"],
+  ];
+  let ok = 0; const miss: string[] = [];
+  for (const [c, e, k] of honest) { if (await served(c, e, k)) ok++; else miss.push(c); }
+  note(`C honest-paraphrase verified ${ok}/${honest.length} (${(100 * ok / honest.length).toFixed(0)}%) misses=${JSON.stringify(miss)}`);
+});
+
+test("D. phones: redacted before model input; no false hit", async () => {
+  const phones = ["(98765) 43210", "(415) 555-0132", "98765.43210", "९८७६५ ४३२१०", "९८७६५४३२१०", "+91 98765 43210", "+91-98765-43210", "98765-43210", "+91 98765-43210", "(+91) 98765 43210", "9876543210", "415-555-0132", "415 555 0132", "+44 20 7946 0958", "020 7946 0958", "98 76 54 32 10", "०९८७६५ ४३२१०", "+९१ (९८७६५) ४३२१०", "98765 43210", "९८७६५-४३२१०", "९८७६५.४३२१०"];
+  const miss: string[] = [];
+  for (const p of phones) {
+    const out = nq.redactPersonalIdentifiers(`Call me on ${p} tonight`, SPEAKERS, []);
+    if (/\d|[०-९]/.test(out)) miss.push(`${p} -> ${out}`);
+  }
+  note(`D1 phone formats not fully redacted: ${miss.length}/${phones.length} ${JSON.stringify(miss)}`);
+  const benign = ["The intake is in 2026.", "Fees are 5000 euros.", "About 1.5 lakh per year", "12.5 lakh", "Deadline 10.12.2026", "Fees 300-500 euros", "intake 2026 2027", "Scores 95 98 100 and 5000 euros", "Version 3.11.4", "रुपये १.५ लाख", "२०२६ और ५००० यूरो"];
+  const fp: string[] = [];
+  for (const b of benign) if (nq.findPersonalIdentifiers(b, SPEAKERS, []).length) fp.push(b);
+  note(`D2 false positives: ${fp.length}/${benign.length} ${JSON.stringify(fp)}`);
+  assert.deepEqual(fp, []);
+  // outcome: model input for whatsapp/unknown hits carries no phone
+  for (const p of ["(98765) 43210", "(415) 555-0132", "98765.43210", "९८७६५ ४३२१०"]) {
+    for (const kind of ["whatsapp", "unknown"]) {
+      const provider = studentProvider();
+      const d = { kb: fakeKb({ search: { status: "ok", hits: [hit(`Apply by October and call ${p} for the agent`, kind)], dropped: 0 } }), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG };
+      const out = await runStudentTurn(d, turn("Tell me about the agent to apply for scholarships"));
+      const sent = JSON.stringify((provider as MockProvider).calls);
+      assert.ok(!sent.includes(p), `model input leaked ${p} (${kind})`);
+      assert.ok(!(out.response.message ?? "").includes(p));
+    }
+  }
+});
+
+test("E. hasPriorFlag required; store is authoritative", async () => {
+  const base = { kb: fakeKb(), provider: studentProvider(), skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW };
+  assert.throws(() => buildStudentGraph(base as never), /hasPriorFlag/);
+  await assert.rejects(runStudentTurn(base as never, turn("hello there")), /hasPriorFlag/);
+  assert.throws(() => buildStudentGraph({ ...base, hasPriorFlag: "yes" } as never), /hasPriorFlag/);
+  assert.throws(() => buildStudentGraph({ ...base, hasPriorFlag: undefined } as never), /hasPriorFlag/);
+  assert.throws(() => buildStudentGraph({ ...base, hasPriorFlag: null } as never), /hasPriorFlag/);
+  // caller-supplied false cannot hide a stored flag; caller true cannot add one
+  const fu = { claims: [{ text: "Public universities in Germany charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] }] };
+  const a = await runStudentTurn({ ...base, provider: studentProvider({ kbAnswer: fu }), hasPriorFlag: async () => true } as never, turn("Is tuition free in Germany?", { priorFlagInThread: false }));
+  const b = await runStudentTurn({ ...base, provider: studentProvider({ kbAnswer: fu }), hasPriorFlag: async () => false } as never, turn("Is tuition free in Germany?", { priorFlagInThread: true }));
+  const c = await runStudentTurn({ ...base, provider: studentProvider({ kbAnswer: fu }), hasPriorFlag: async () => { throw new Error("db down"); } } as never, turn("Is tuition free in Germany?", { priorFlagInThread: false }));
+  note(`E msg(storeTrue,callerFalse)=${JSON.stringify(a.response.message)} | msg(storeFalse,callerTrue)=${JSON.stringify(b.response.message)} | msg(storeThrows)=${JSON.stringify(c.response.message)}`);
+  assert.notEqual(a.response.message, b.response.message);
+  assert.equal(c.response.message, a.response.message);
+});
+
+test("F. followUp limited to one checked sentence <= 200 chars", async () => {
+  const run = async (followUp: string, prior = true) => {
+    const provider = studentProvider({ kbAnswer: { claims: [{ text: "Public universities in Germany charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] }], followUp } });
+    const d = { kb: fakeKb(), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: async () => prior };
+    const out = await runStudentTurn(d, turn("Is tuition free in Germany?"));
+    return (out.response.message ?? "").includes(followUp.trim());
+  };
+  const pad = (n: number) => "Which of the cities that you like is your first choice" + " x".repeat(0) + "?";
+  const base = "Which cities do you like";
+  const mk = (len: number) => (base + " ".repeat(1) + "a".repeat(Math.max(0, len - base.length - 2)) + "?").slice(0, len);
+  const f200 = mk(200), f201 = mk(201);
+  assert.equal(f200.length, 200); assert.equal(f201.length, 201);
+  const res = {
+    shown200: await run(f200), shown201: await run(f201),
+    oneOk: await run("Which cities are you considering?"),
+    twoSent: await run("Visit the DAAD site first and apply early. Which cities are you considering?"),
+    twoQ: await run("Which cities are you considering? Which courses?"),
+    newlineAdvice: await run("Apply early to every university\nWhich cities are you considering?"),
+    semicolonAdvice: await run("Apply early to every university; which cities are you considering?"),
+    spelledNumber: await run("Did you know it costs five thousand euros a year?"),
+    spelledNumber2: await run("Would a fee of twenty thousand euros worry you?"),
+    exclam: await run("Wow great! Which cities are you considering?"),
+    crisisPhrase: await run("Can we keep this a secret between us?"),
+    devanagariDanda: await run("आप कौन से शहर देख रहे हैं। आप कौन सा कोर्स चाहते हैं?"),
+    noteQ: pad(0) && await run("Which cities are you considering?   "),
+  };
+  note(`F followUp shown map: ${JSON.stringify(res)}`);
+  assert.equal(res.shown200, true); assert.equal(res.shown201, false);
+  assert.equal(res.twoSent, false); assert.equal(res.twoQ, false); assert.equal(res.oneOk, true);
+});

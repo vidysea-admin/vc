@@ -1,0 +1,31 @@
+import { readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+const F = process.argv[2];
+const eng = `${F}/packages/engine`;
+const B=String.fromCharCode(92);
+const muts = [
+  ["M4-coach-spelled", "src/student/graph.ts", "numberMentions(s).length === 0 && ", "", "student-graph.test.ts", "U6h fix1 M4 coach: spelled-out"],
+  ["H2a-qualifier-sets", "src/student/claims.ts", "if (!sameSet(c.quant, e.quant) || !sameSet(c.hedge, e.hedge) || !sameSet(c.cond, e.cond) || !sameSet(c.scope, e.scope)) return false;", "for (const q of c.quant) if (!e.quant.has(q)) return false;", "claims-guard.test.ts", "U6h fix1 H2a"],
+  ["H2a-caveat", "src/student/claims.ts", "for (const w of e.mustCarry) if (!c.words.has(w)) return false;", "", "claims-guard.test.ts", "U6h fix1 H2a caveat"],
+  ["H2b-binding", "src/student/claims.ts", "(!c.bound || c.bound.length === 0 || !e.bound || c.bound.every((x) => e.bound!.includes(x))),", "true,", "claims-guard.test.ts", "U6h fix1 H2b"],
+  ["M4b-required-dep", "src/student/graph.ts", "if (typeof deps.hasPriorFlag !== \"function\") throw new Error(\"StudentGraphDeps.hasPriorFlag is required (the durable crisis-flag read)\");", "", "student-graph.test.ts", "U6h fix1 M4b"],
+  ["M3b-phone-paren","src/guards/no-quote.ts","String.raw`|"+B+"("+B+"p{Nd}{3}"+B+")["+B+"s.-]?"+B+"p{Nd}{3}["+B+"s.-]?"+B+"p{Nd}{4}` +","","no-quote.test.ts","U6h fix1 M3b: phone shapes"],
+  ["M4c-followup-shape","src/student/graph.ts","if (/[?!"+B+"u0964]/.test(body) || /"+B+"."+B+"s/.test(body)) return undefined;","","student-graph.test.ts","U6h fix1 M4c"],
+];
+const run = (file, pat) => {
+  const r = spawnSync("bash", ["D:/vc/scripts/vc-testlock.sh", "bash", "-c", `cd "${eng}" && npx tsx --test --test-name-pattern="${pat}" tests/${file}`], { encoding: "utf8", timeout: 600000 });
+  const out = r.stdout + r.stderr;
+  const g = (k) => Number((out.replace(/[[0-9;]*m/g,"").match(new RegExp("(?:ℹ )?"+k+" (\d+)")) || [])[1] ?? NaN);
+  return { exit: r.status, pass: g("pass"), fail: g("fail"), tests: g("tests") };
+};
+for (const [id, file, find, rep, tf, pat] of muts) {
+  const p = `${eng}/${file}`;
+  const orig = readFileSync(p, "utf8");
+  if (!orig.includes(find)) { console.log(id, "FIND-NOT-FOUND"); continue; }
+  const before = run(tf, pat);
+  writeFileSync(p, orig.replace(find, rep));
+  const after = run(tf, pat);
+  writeFileSync(p, orig);
+  const restored = run(tf, pat);
+  console.log(id, "before", JSON.stringify(before), "after", JSON.stringify(after), "restored", JSON.stringify(restored));
+}
