@@ -210,10 +210,12 @@ test("T-041 (ISS-t-037-2): a timeout aborts the abandoned provider call's own Ab
 test("T-041 (ISS-t-037-2): a real in-flight LiteLLM HTTP request is actually cancelled (the stub server observes the connection close), and the outcome is still unavailable/timeout — unchanged safety behaviour", async () => {
   let requestedAt: number | null = null;
   let closedAt: number | null = null;
+  let closeObserved!: () => void;
+  const stubClosed = new Promise<void>((resolve) => { closeObserved = resolve; });
   const stub = createServer((req, res) => {
     requestedAt = Date.now();
     req.on("close", () => {
-      if (!res.writableEnded) closedAt = Date.now();
+      if (!res.writableEnded) { closedAt = Date.now(); closeObserved(); }
     });
     // never respond — the provider's own timeoutMs is far longer than classifyConcern's, so ONLY
     // classifyConcern's own timeout-driven abort can end this call.
@@ -223,14 +225,18 @@ test("T-041 (ISS-t-037-2): a real in-flight LiteLLM HTTP request is actually can
   if (address === null || typeof address === "string") throw new Error("stub has no port");
   const baseUrl = `http://127.0.0.1:${address.port}/v1`;
   try {
-    const provider = new LiteLlmProvider({ model: "flash-lite", baseUrl, timeoutMs: 5_000 });
-    const out = await classifyConcern(INPUT, { provider, skillPrompt: "p", timeoutMs: 50, now });
+    // The timeout is armed inside classifyConcern before the first connect, so it must be far longer than a
+    // cold loopback connect under CPU load (a 50ms value raced the connect: measured 10/10 failures under
+    // load). It stays far shorter than the provider's own timeout, so ONLY classifyConcern's abort ends the call.
+    const provider = new LiteLlmProvider({ model: "flash-lite", baseUrl, timeoutMs: 20_000 });
+    const out = await classifyConcern(INPUT, { provider, skillPrompt: "p", timeoutMs: 1_500, now });
     assert.equal(out.status, "unavailable");
     assert.equal(out.status === "unavailable" && out.reason, "timeout");
     assert.ok(requestedAt !== null, "the stub must have received the request before the timeout fires");
     // The client-side classifyConcern promise settles the instant the abort fires; the server only
     // learns the socket closed once the FIN actually arrives over the loopback connection.
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // Wait for the stub's own close event (bounded) instead of a fixed sleep.
+    await Promise.race([stubClosed, new Promise((resolve) => setTimeout(resolve, 10_000))]);
     assert.ok(closedAt !== null, "the stub server must observe the connection actually close — the request was really cancelled, not merely abandoned client-side");
   } finally {
     await new Promise<void>((resolve, reject) => stub.close((err) => (err ? reject(err) : resolve())));

@@ -449,12 +449,14 @@ function holdSafetyUpdate(w: World, name: string, predicate: (update: Record<str
   let entered!: () => void;
   const reached = new Promise<void>((r) => { entered = r; });
   const held = new Promise<void>((r) => { release = r; });
+  let markApplied!: () => void;
+  const applied = new Promise<void>((r) => { markApplied = r; });
   let once = false;
   c.updateOne = async (...args: Parameters<typeof c.updateOne>) => {
-    if (!once && predicate(args[1] as Record<string, unknown>)) { once = true; entered(); await held; }
+    if (!once && predicate(args[1] as Record<string, unknown>)) { once = true; entered(); await held; const result = await original(...args); markApplied(); return result; }
     return original(...args);
   };
-  return { reached, release };
+  return { reached, release, applied };
 }
 
 test("T-035: initial review and notification writes held across a fence leave zero owned insert residue", async () => {
@@ -577,7 +579,7 @@ test("T-035: postcheck fence read failure undoes inserted review and compensatio
 
 test("T-035: background late annotation compensation failure emits a text-free alert", async () => {
   const w = world();
-  w.deps.writerDeadlineMs = 50;
+  w.deps.writerDeadlineMs = 500;
   const hold = holdSafetyUpdate(w, CRISIS_FLAG_REVIEWS_COLLECTION, (u) => Boolean((u.$set as Record<string, unknown> | undefined)?.classifier));
   const c = w.fakeDb.collection<AnyDoc>(CRISIS_FLAG_REVIEWS_COLLECTION);
   const original = c.updateOne.bind(c);
@@ -628,13 +630,14 @@ test("T-035: late notification/annotation/acknowledgement settlement compensates
     const collection = phase === "annotation" ? CRISIS_FLAG_REVIEWS_COLLECTION : ESCALATION_NOTIFICATIONS_COLLECTION;
     const c = w.fakeDb.collection<AnyDoc>(collection);
     const before = JSON.stringify(c.all());
-    w.deps.writerDeadlineMs = 50;
+    // 500ms (not 50): the writes BEFORE the held one must fit the deadline even when the CPU stalls.
+    w.deps.writerDeadlineMs = 500;
     const hold = holdSafetyUpdate(w, collection, (u) => phase === "notification" ? "$setOnInsert" in u : Boolean((u.$set as Record<string, unknown> | undefined)?.[phase === "annotation" ? "classifier" : "acknowledgedAt"]));
     let deadline: FencedWriterDeadlineError | undefined;
     let pending: Promise<unknown>;
     if (phase === "acknowledgement") {
       const [n] = await readEscalations(w.db, { sessionId: SESSION });
-      pending = acknowledgeEscalation(w.db, { notificationId: n!._id, acknowledgedBy: "admin-1", writerDeadlineMs: 50 }).catch((e: unknown) => { assert.ok(e instanceof FencedWriterDeadlineError); deadline = e; });
+      pending = acknowledgeEscalation(w.db, { notificationId: n!._id, acknowledgedBy: "admin-1", writerDeadlineMs: 500 }).catch((e: unknown) => { assert.ok(e instanceof FencedWriterDeadlineError); deadline = e; });
     } else if (phase === "annotation") {
       pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).then((r) => r.review);
     } else {
@@ -644,7 +647,10 @@ test("T-035: late notification/annotation/acknowledgement settlement compensates
     await pending;
     hold.release();
     if (deadline) await deadline.settled;
-    for (let i = 0; i < 30 && JSON.stringify(c.all()) !== before; i++) await new Promise((r) => setTimeout(r, 5));
+    // The released write is really applied first; only then is "state == before" evidence that the late
+    // compensator undid it (a fixed 5ms*30 + 20ms poll raced the compensator under load).
+    await hold.applied;
+    for (let i = 0; i < 1000 && JSON.stringify(c.all()) !== before; i++) await new Promise((r) => setTimeout(r, 5));
     // Allow the released asynchronous operation to reach its late compensator even if unchanged yet.
     await new Promise((r) => setTimeout(r, 20));
     assert.equal(JSON.stringify(c.all()), before, phase);
@@ -677,7 +683,7 @@ test("T-035: acknowledgement rollback preserves a newer invocation", async () =>
 
 test("T-035: late newly inserted notifications are deleted after the public timeout", async () => {
   const w = world();
-  w.deps.writerDeadlineMs = 50;
+  w.deps.writerDeadlineMs = 500;
   const hold = holdSafetyUpdate(w, ESCALATION_NOTIFICATIONS_COLLECTION, (u) => "$setOnInsert" in u);
   let deadline: FencedWriterDeadlineError | undefined;
   const pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).catch((e: unknown) => {
@@ -852,12 +858,14 @@ test("T047 no-consent processing never enters graph, checkpoints, tracing or per
 test("T047 publication budget: annotation and delayed recipients share remaining original review budget", async () => {
   let enteredRecipientPhase = false;
   let enteredAnnotationPhase = false;
-  const w = world({ timeoutMs: 20, provider: classifierSays({ severity: "high", likelyBenign: false }), recipients: async () => { enteredRecipientPhase = true; await new Promise(resolve => setTimeout(resolve, 100)); return { adminIds: ["admin-1"], counsellorIds: ["counsellor-7"] }; } });
-  w.deps.writerDeadlineMs = 80;
+  // Same structure as the original 20/80/60/100ms timings (recipient delay > the full writer budget AND > what is left after the annotation),
+  // but with 700ms of slack between the annotation delay and the writer budget so a CPU stall cannot expire the budget before the recipient phase starts.
+  const w = world({ timeoutMs: 100, provider: classifierSays({ severity: "high", likelyBenign: false }), recipients: async () => { enteredRecipientPhase = true; await new Promise(resolve => setTimeout(resolve, 1200)); return { adminIds: ["admin-1"], counsellorIds: ["counsellor-7"] }; } });
+  w.deps.writerDeadlineMs = 1000;
   const flags = w.fakeDb.collection<any>(CRISIS_FLAG_REVIEWS_COLLECTION);
   const update = flags.updateOne.bind(flags);
   flags.updateOne = async (...args: Parameters<typeof update>) => {
-    if ((args[1] as any).$set?.classifier) { enteredAnnotationPhase = true; await new Promise(resolve => setTimeout(resolve, 60)); }
+    if ((args[1] as any).$set?.classifier) { enteredAnnotationPhase = true; await new Promise(resolve => setTimeout(resolve, 300)); }
     return update(...args);
   };
   const result = await escalateTurns(w.db, input([turn("original-review-budget", CONCERN_TEXT)]), w.deps);
