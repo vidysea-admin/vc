@@ -1,0 +1,40 @@
+{
+  "_fixture": "synthetic contract-shaped fixture derived from D:/KnowledgeBase route code and generated types on 2026-10-17 (apps/api/src/routes/{search,brain,ask}.ts, packages/core/src/generated/*.ts); NOT a recording of the live KB and NOT KB content",
+  "session": {
+    "_id": "sess-sem-1",
+    "tenantId": "fixture",
+    "sourceId": "src-sem-1",
+    "title": "Study in Germany seminar",
+    "date": "2026-03-04",
+    "status": {
+      "transcribe": "done",
+      "index": "done"
+    }
+  },
+  "page": null,
+  "claims": [],
+  "turns": [
+    {
+      "_id": "t-sem-1",
+      "tenantId": "fixture",
+      "sessionId": "sess-sem-1",
+      "speakerRef": "spk:0",
+      "tStart": 0,
+      "tEnd": 5,
+      "text": "German public universities charge no tuition for most programmes, but expect a semester contribution.",
+      "speakerLabel": "Fixture Speaker S"
+    },
+    {
+      "_id": "t-sem-2",
+      "tenantId": "fixture",
+      "sessionId": "sess-sem-1",
+      "speakerRef": "spk:0",
+      "tStart": 5,
+      "tEnd": 11,
+      "text": "Budget around 11,000 euros per year for living costs."
+    },
+    {
+      "bad": "turn without text"
+    }
+  ]
+}

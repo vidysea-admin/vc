@@ -1,0 +1,27 @@
+Junction created for C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\u2b-mut\mcp\university-kb\node_modules <<===>> C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\node_modules
+BASELINE (copy, unmutated): 62 pass 0 fail []
+M1 fix1 uncited applies to every verdict (drop the verdict==correct guard)
+   AFTER: pass 59 fail 3 first-failed: ['A4 serve rule over the real client + MCP tool: ask-fallback-failed.json -> no_sourced_answer', 'G6: a realistic no-coverage /ask (verdict incorrect, zero internal and web sources) is no_sourced_answer, not unavailable/uncited', 'G6: verdict correct with zero internal AND zero web sources is still withheld (typed unavailable/uncited); any other verdict with zero sources is ok']
+   restored identical: True
+M2a fix2 search_kb passes speakerLabel for every source kind
+   AFTER: pass 60 fail 2 first-failed: ['search_kb: GET /search?q&k with Bearer; hits with null turn/session are dropped and counted; each hit is source-kind tagged; unknown = restricted', 'U2b: speakerLabel passes only for seminar/toc (search_kb, both profiles; get_session)']
+   restored identical: True
+M2b fix2 get_session passes speakerLabel for every source kind
+   AFTER: pass 61 fail 1 first-failed: ['U2b: speakerLabel passes only for seminar/toc (search_kb, both profiles; get_session)']
+   restored identical: True
+M2c fix2 whatsapp is allowed to carry a label
+   AFTER: pass 60 fail 2 first-failed: ['search_kb: GET /search?q&k with Bearer; hits with null turn/session are dropped and counted; each hit is source-kind tagged; unknown = restricted', 'U2b: speakerLabel passes only for seminar/toc (search_kb, both profiles; get_session)']
+   restored identical: True
+M3 fix3 served answer drops sourceKind
+   AFTER: pass 61 fail 1 first-failed: ['A4 serve rule over the real client + MCP tool: ask-correct.json -> served']
+   restored identical: True
+M4 fix4 ask query has no max length
+   AFTER: pass 61 fail 1 first-failed: ['U2b fix 4: ask_knowledge_base query is capped at 1000 characters, like search_kb']
+   restored identical: True
+M5a fix5 no turn._id cross-check
+   AFTER: pass 61 fail 1 first-failed: ['U2b: a search hit whose turn._id != turnId or session._id != sessionId (or with no turn._id) is dropped and counted']
+   restored identical: True
+M5b fix5 no session._id cross-check
+   AFTER: pass 61 fail 1 first-failed: ['U2b: a search hit whose turn._id != turnId or session._id != sessionId (or with no turn._id) is dropped and counted']
+   restored identical: True
+RESTORED: 62 pass 0 fail []

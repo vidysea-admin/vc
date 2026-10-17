@@ -1,0 +1,116 @@
+[testlock] running (free RAM 4.25 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u2/mcp/university-kb test
+
+> @vc/mcp-university-kb@0.1.0 test C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb
+> tsx --test tests/*.test.ts
+
+✔ tool registered and callable through MCP: both tools appear in tools/list (36.8064ms)
+✔ ask_knowledge_base is NOT registered when no kb client is configured (12.4101ms)
+✔ ask_knowledge_base is registered and returns the answer with citations carried through verbatim when the kb client succeeds (11.613ms)
+✖ ask_knowledge_base surfaces a KB outage as the fixed no-answer text typed unavailable (A18), never a fabricated answer (3.3622ms)
+✖ ask_knowledge_base treats an uncited KB answer as unavailable too (B2: never served uncited) (2.5802ms)
+✔ hostile: ask_knowledge_base rejects an empty query via Zod before ever calling the kb client (2.1512ms)
+✔ uncited course excluded: search_courses drops a stored record missing sourceUrl/fetchedAt and counts it in `dropped` (2.9363ms)
+✔ search_courses filters by country and level and is case-insensitive (2.0294ms)
+✔ get_course returns the record for a known courseId (1.8851ms)
+✔ unknown courseId: get_course returns a not-found tool error, never a fabricated record (1.6108ms)
+✔ get_course on a stored-but-uncited record (missing sourceUrl) is also a tool error, not a partial record (1.2817ms)
+✔ hostile: empty query is rejected by Zod (min length 1) (1.3441ms)
+✔ hostile: a NoSQL-operator object as courseId ({"$ne": null}) is rejected by Zod, not passed to the DB (1.0504ms)
+✔ hostile: level not in the enum is rejected by Zod (1.1581ms)
+✔ ok: a valid response with internal citations is carried through verbatim, answer + citations + verdict/reason/scored all present (65.3107ms)
+✔ ok: web-only citations (empty internal, non-empty web) still count as cited (16.1904ms)
+✔ request shape: POST /ask, Bearer <key> header, JSON body { query } (14.7156ms)
+✔ uncited: an answer with zero citations in BOTH sources.internal and sources.web is treated as unavailable, never passed on as an answer (11.0927ms)
+✔ outage: HTTP 401 is unavailable/unauthorized (13.3607ms)
+✔ outage: HTTP 403 is unavailable/unauthorized (10.5674ms)
+✔ outage: HTTP 503 (5xx) is unavailable/http_error (8.9137ms)
+✔ outage: malformed (non-JSON) response body is unavailable/malformed_response (8.4166ms)
+✔ outage: schema-invalid response (valid JSON, wrong shape -- missing required fields) is unavailable/invalid_schema (11.0454ms)
+✔ outage: a real network error (nothing listening) is unavailable/network_error (0.8146ms)
+✔ outage: the server hangs past the client's configured timeout -- unavailable/timeout (67.7534ms)
+✔ default timeout constant is exported and positive (0.2408ms)
+✔ loadKbConfigFromEnv: VC_KB_BASE_URL unset -> null (feature off, no client built) (0.1795ms)
+✔ loadKbConfigFromEnv: VC_KB_BASE_URL set, VC_KB_API_KEY set -> a config object (never real values -- synthetic test strings only) (0.1269ms)
+✔ loadKbConfigFromEnv: VC_KB_BASE_URL set but VC_KB_API_KEY missing -> throws rather than silently defaulting the key (B11) (0.5978ms)
+node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\src\source-kind.js' imported from C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\tests\kb-tools.test.ts
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:866:10)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:719:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:736:38)
+    at nextStep (node:internal/modules/customization_hooks:189:26)
+    at resolveBaseSync (file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u2/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:11092)
+    at resolveDirectorySync (file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u2/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:12398)
+    at resolveTsPathsSync (file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u2/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:13605)
+    at resolve (file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u2/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:16832) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u2/mcp/university-kb/src/source-kind.js'
+}
+
+Node.js v24.13.1
+✖ tests\kb-tools.test.ts (639.3809ms)
+node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\src\source-kind.js' imported from C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\tests\source-kind.test.ts
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:866:10)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:719:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:736:38)
+    at nextStep (node:internal/modules/customization_hooks:189:26)
+    at resolveBaseSync (file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u2/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:11092)
+    at resolveDirectorySync (file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u2/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:12398)
+    at resolveTsPathsSync (file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u2/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:13605)
+    at resolve (file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u2/node_modules/.pnpm/tsx@4.23.15/node_modules/tsx/dist/register-nyXW-TH3.mjs:2:16832) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u2/mcp/university-kb/src/source-kind.js'
+}
+
+Node.js v24.13.1
+✖ tests\source-kind.test.ts (280.9558ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 27
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1272.018
+
+✖ failing tests:
+
+test at tests\index.test.ts:120:1
+✖ ask_knowledge_base surfaces a KB outage as the fixed no-answer text typed unavailable (A18), never a fabricated answer (3.3622ms)
+  AssertionError [ERR_ASSERTION]: Expected "actual" to be strictly unequal to: true
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\tests\index.test.ts:127:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: true,
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\index.test.ts:137:1
+✖ ask_knowledge_base treats an uncited KB answer as unavailable too (B2: never served uncited) (2.5802ms)
+  TypeError: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u2\mcp\university-kb\tests\index.test.ts:144:67)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at tests\kb-tools.test.ts:1:1
+✖ tests\kb-tools.test.ts (639.3809ms)
+  'test failed'
+
+test at tests\source-kind.test.ts:1:1
+✖ tests\source-kind.test.ts (280.9558ms)
+  'test failed'
+ ELIFECYCLE  Test failed. See above for more details.
