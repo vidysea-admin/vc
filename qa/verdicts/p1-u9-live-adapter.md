@@ -34,4 +34,4 @@ NON-BLOCKING / LIMITS:
 - Process: lock wait ~14 min (blocked_min) behind other units' suites; my probe file was first smoke-run once without the lock (4 tiny tests).
 
 ISSUES-WRITTEN: none (checker ledger not touched; F1/F2 are FAIL findings for the maker's fix cycle 1).
-Metrics: start=2026-10-18T02:01:19+05:30 end=2026-10-18T02:24:00+05:30 wall_min=9 agent_min=unavailable blocked_min=14 suite_runs=1 repeat_runs=0 mutations=6 cycle=0 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-17.14 lane=normal check_s=1360 mutants=6 defects_unit=2 defects_6c=0
+Metrics: start=2026-10-18T02:01:19+05:30 end=2026-10-18T02:23:23+05:30 wall_min=9 agent_min=unavailable blocked_min=14 suite_runs=1 repeat_runs=0 mutations=6 cycle=0 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-17.14 lane=normal check_s=1360 mutants=6 defects_unit=2 defects_6c=0
