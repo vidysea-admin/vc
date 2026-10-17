@@ -1,7 +1,7 @@
 # Manifest — p1-u5a-api-contract
 **Contract:** qa/contracts/counselling-engine.md (B21 student-JWT and anonymous amendments, B24.x as written by U0 on p1/u0; spec v8 A20, A23 config part, A6 prefix)
 **Goal task:** P1 plan v8 U5a (D-089)
-**Status:** ready-for-check
+**Status:** checked-PASS (verdict 1774a4e, closed 2026-10-17T14:35:06+05:30)
 **Date:** 2026-10-17
 **Fix cycle:** 0 of max 2
 **Hold fix cycles:** 0 of 2
