@@ -118,6 +118,9 @@ import {
 } from "./collections.js";
 import type { RejectReasonAuditDoc } from "./decisions.js";
 import type { EdgeDoc } from "./edges.js";
+import type { ChatThreadDoc, ChatTurnDoc, StudentUsageDoc } from "./chat-threads.js";
+import type { ProfileFactDoc } from "./profile-facts.js";
+import type { StudentFlagDoc } from "./student-logs.js";
 // T-025: the fence sweep runs per tenant. tenant.ts imports nothing at runtime, so this adds no cycle.
 import { TENANT_FIELD, TENANT_ID_PATTERN, stripDocument, tenantIdOf, tenantScopedDb } from "./tenant.js";
 
@@ -1436,6 +1439,14 @@ export const ERASURE_PLAN: readonly ErasureStep[] = [
   // (readback-gap or enqueue-failed): an unresolved gap entry naming an erased student is exactly
   // the residue B15 must not leave behind.
   { collection: COLLECTION_NAMES.webhook_emit_gaps, phase: 1, filter: byStudent, residue: byStudent },
+  // P1 U8 (D-093 4A/6A, B15): the student chat. Every row carries a flat top-level studentId, so each is a direct row deleted
+  // and read back by studentId: threads (the text-free marker), turns (the redacted history), chat-proposed profile facts,
+  // the per-month usage counters and the text-free flag log. The gap counts hold no student (see ERASURE_EXEMPT_COLLECTIONS).
+  { collection: COLLECTION_NAMES.chat_turns, phase: 1, filter: byStudent, residue: byStudent },
+  { collection: COLLECTION_NAMES.chat_threads, phase: 1, filter: byStudent, residue: byStudent },
+  { collection: COLLECTION_NAMES.profile_facts, phase: 1, filter: byStudent, residue: byStudent },
+  { collection: COLLECTION_NAMES.student_usage, phase: 1, filter: byStudent, residue: byStudent },
+  { collection: COLLECTION_NAMES.student_flags, phase: 1, filter: byStudent, residue: byStudent },
   { collection: COLLECTION_NAMES.facts, phase: 2, filter: factsById, residue: byStudent }, // active AND retired
   { collection: COLLECTION_NAMES.sessions, phase: 2, filter: sessionsById, residue: byStudent },
   { collection: COLLECTION_NAMES.scribe_resolutions, phase: 2, filter: claimsByThread, residue: byStudent },
@@ -1497,6 +1508,8 @@ export const ERASURE_EXEMPT_COLLECTIONS = {
     "the erasure write fence (D-015/D-016): it must outlive the purge it protects; it holds only a hash of the studentId, a request id and timestamps, and is removed after completion once its minimum hold (and grace, if any) has passed",
   [COLLECTION_NAMES.anonymous_counters]:
     "P1 U7: the anonymous-mode aggregate counter; one document per (UTC date, kind) holding only the date, the kind and a count, with no text, IP, tenant, student or thread identifier, so there is nothing to erase for a student",
+  [COLLECTION_NAMES.chat_gap_counts]:
+    "P1 U8: per-day, per-kind counts of turns the engine could not answer from a source; the row holds only the date, the kind, a count and the tenant, with no student, thread, text or topic, so there is nothing to erase for a student",
   [COLLECTION_NAMES.email_outbox]:
     "T-029: the approver's approval-request record; it holds the opaque request id, reason code and staff actor ids, never the studentId or any student data, and is kept as part of the erasure audit trail",
 } as const;
@@ -1858,6 +1871,16 @@ export interface StudentExport {
    * extracted facts, both of which are exported above in readable form). Counted, not dumped.
    */
   checkpoints: { threads: string[]; checkpointDocs: number; writeDocs: number };
+  /**
+   * P1 U8 (D-093 6A): the student's self-serve chat. `chatTurns` is the REDACTED history (names, phones and emails were replaced
+   * before storage), in history order; a thread of an under-18 student without guardian consent has no turns. `profileFacts` are
+   * the chat-proposed facts and the student's decisions on them; `usage` the per-month counters; `flags` the text-free safety log.
+   */
+  chatThreads: ChatThreadDoc[];
+  chatTurns: ChatTurnDoc[];
+  profileFacts: ProfileFactDoc[];
+  usage: StudentUsageDoc[];
+  flags: StudentFlagDoc[];
 }
 
 /** Read-only per-student JSON bundle. Uses the same selectors as the erasure, so it covers what erasure deletes. */
@@ -1874,6 +1897,12 @@ export async function exportStudent(db: Db, studentId: string): Promise<StudentE
   escalations.sort((a, b) => a._id.localeCompare(b._id));
   const crisisReviews = await db.collection<SafetyAccessRow>(COLLECTION_NAMES.crisis_flag_reviews).find({ studentId }).toArray();
   crisisReviews.sort((a, b) => a._id.localeCompare(b._id));
+  const chatThreads = await db.collection<ChatThreadDoc>(COLLECTION_NAMES.chat_threads).find({ studentId }).toArray();
+  const chatTurns = await db.collection<ChatTurnDoc>(COLLECTION_NAMES.chat_turns).find({ studentId }).toArray();
+  chatTurns.sort((x, y) => x.threadId.localeCompare(y.threadId) || x.at.localeCompare(y.at) || x.turnId.localeCompare(y.turnId) || x.order - y.order);
+  const profileFacts = await db.collection<ProfileFactDoc>(COLLECTION_NAMES.profile_facts).find({ studentId }).toArray();
+  const usage = await db.collection<StudentUsageDoc>(COLLECTION_NAMES.student_usage).find({ studentId }).toArray();
+  const flags = await db.collection<StudentFlagDoc>(COLLECTION_NAMES.student_flags).find({ studentId }).toArray();
   return {
     format: "vc-student-export/v1",
     purpose: "data_subject_access",
@@ -1902,6 +1931,11 @@ export async function exportStudent(db: Db, studentId: string): Promise<StudentE
         ? { status: d.classifier.status, severity: d.classifier.severity, likelyBenign: d.classifier.likelyBenign, rationale: d.classifier.rationale, classifiedAt: d.classifier.classifiedAt }
         : { status: d.classifier.status, reason: d.classifier.reason, attemptedAt: d.classifier.attemptedAt } }),
     })),
+    chatThreads: chatThreads.sort((x, y) => x.threadId.localeCompare(y.threadId)),
+    chatTurns,
+    profileFacts: profileFacts.sort((x, y) => x.key.localeCompare(y.key)),
+    usage: usage.sort((x, y) => x.month.localeCompare(y.month)),
+    flags: flags.sort((x, y) => x.at.localeCompare(y.at) || x._id.localeCompare(y._id)),
     checkpoints: {
       threads: [...s.threadIds].sort(),
       checkpointDocs: await db.collection(COLLECTION_NAMES.scribe_checkpoints).countDocuments(byThread(s)),

@@ -190,6 +190,15 @@ export const INDEX_PLAN: IndexSpec[] = [
   // kind" scan, the same role webhook_outbox_tenantId_status serves for delivery.
   { collection: COLLECTION_NAMES.webhook_emit_gaps, keys: { studentId: 1 }, name: "webhook_emit_gaps_studentId" },
   { collection: COLLECTION_NAMES.webhook_emit_gaps, keys: { tenantId: 1, kind: 1 }, name: "webhook_emit_gaps_tenantId_kind" },
+  // P1 U8 (D-093 4A/6A): the student chat. A plain studentId-led index on every student-bearing collection (B15 erasure and
+  // export find a student's rows by it, ISS-027), plus the thread-history lookup for chat_turns.
+  { collection: COLLECTION_NAMES.chat_threads, keys: { studentId: 1 }, name: "chat_threads_studentId" },
+  { collection: COLLECTION_NAMES.chat_turns, keys: { studentId: 1 }, name: "chat_turns_studentId" },
+  { collection: COLLECTION_NAMES.chat_turns, keys: { tenantId: 1, studentId: 1, threadId: 1 }, name: "chat_turns_tenantId_studentId_threadId" },
+  { collection: COLLECTION_NAMES.profile_facts, keys: { studentId: 1 }, name: "profile_facts_studentId" },
+  { collection: COLLECTION_NAMES.student_usage, keys: { studentId: 1 }, name: "student_usage_studentId" },
+  { collection: COLLECTION_NAMES.student_flags, keys: { studentId: 1 }, name: "student_flags_studentId" },
+  { collection: COLLECTION_NAMES.chat_gap_counts, keys: { tenantId: 1, date: 1 }, name: "chat_gap_counts_tenantId_date" },
 ];
 
 async function ensureCollection(db: import("mongodb").Db, name: string): Promise<void> {

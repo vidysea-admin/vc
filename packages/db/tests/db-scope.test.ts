@@ -168,6 +168,14 @@ const FENCE_AWARE_WRITERS: Record<string, string> = {
     "T-022 recordSessionConcerns: the concern edges (student --concern_flagged--> transcript_turn) are upserted inside startScribe's invokeFenceAware call under the same deadline, stamped with a per-call writerToken; compensation deletes exactly the ids this call created by {_id, writerToken}",
   "packages/engine/src/scribe/checkpointer.ts":
     "constructs the MongoDBSaver; its checkpoint writes run only inside graph.invoke, which graph.ts wraps fence-aware",
+  "packages/db/src/chat-threads.ts":
+    "P1 U8 (D-093 4A/6A) the student chat store: createChatThread, claimChatTurn, completeChatTurn, markChatThreadTextNotStored and recordStudentUsage " +
+    "each run through fencedStudentWrite (assertStudentNotFenced pre-check, a WriterDeadline-bounded write, finally compensateIfFenced that deletes exactly the ids this call created); " +
+    "abandonChatTurn only deletes the caller's own unfinished claim. chat-threads.test.ts asserts the pre-check refusal and the post-write compensation",
+  "packages/db/src/profile-facts.ts":
+    "P1 U8 proposeProfileFact and decideProfileFact run through fencedStudentWrite (same pre-check, deadline and compensation as chat-threads.ts); student-store.test.ts asserts a fenced student gets no fact",
+  "packages/db/src/student-logs.ts":
+    "P1 U8 recordStudentFlag runs through fencedStudentWrite; incrementGapCount writes chat_gap_counts, which names no student (ERASURE_EXEMPT_COLLECTIONS) so there is nothing to fence",
   "packages/db/src/tenant.ts":
     "T-025 tenant scope (B21): a pass-through wrapper that initiates no write of its own. It only forwards a caller's " +
     "operation with tenantId stamped / filtered and string _ids tenant-prefixed, so every write through it is the " +
@@ -193,6 +201,12 @@ const FENCE_AWARE_WRITERS: Record<string, string> = {
 };
 
 const STUDENT_DATA_COLLECTIONS = [
+  // P1 U8: the student chat collections (a file that writes them outside the allowlist below fails this test).
+  "chat_threads",
+  "chat_turns",
+  "profile_facts",
+  "student_usage",
+  "student_flags",
   "escalation_notifications",
   "crisis_flag_reviews",
   "students",

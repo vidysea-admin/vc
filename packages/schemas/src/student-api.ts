@@ -135,7 +135,15 @@ export const ThreadTurnSchema = z
 
 /** One history of text and voice turns in order (A19). */
 export const ThreadSchema = z
-  .object({ threadId: z.string().min(1).max(128), turns: z.array(ThreadTurnSchema) })
+  .object({
+    threadId: z.string().min(1).max(128),
+    turns: z.array(ThreadTurnSchema),
+    /**
+     * P1 U8 (D-093 4A): false when any turn was answered without storing its text (an under-18 student with no guardian-consent
+     * signal). Those turns come back with empty `text`; absent means every turn's (redacted) text is stored.
+     */
+    textStored: z.boolean().optional(),
+  })
   .strict();
 
 // ---------------------------------------------------------------------------
