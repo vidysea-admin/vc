@@ -6,7 +6,7 @@
 **Persona walk:** skip (engine-only, no screen)
 **Executor:** claude-sonnet-subagent (maker/builder p1-u6h)
 
-Status: ready-for-check
+Status: checked-PASS
 
 ## Criteria
 - **H1** — `/ask` path runs `supports()` against `ask.answer`; an unsupported fact is `unverified`, never an unmarked `attributed`.
@@ -115,3 +115,5 @@ Driver scratch `falsify_fix1.py`; logs `qa/evidence/p1-u6h/fix1/falsify-<id>.log
 
 ## Live browser evidence
 Not UI-touching.
+
+Close-out: checked-PASS 2026-10-17T19:47:09+05:30, verdict cb93500 (Cycle checked: 1). PROPOSED-ISSUEs 1-5 in verdict go to Candidates; AI review e2fd6fc items 5-7 + sensitive-data questions pending Umesh.
