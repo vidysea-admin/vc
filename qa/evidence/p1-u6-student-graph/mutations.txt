@@ -1,0 +1,25 @@
+A1-numbers	KILLED	pass=9 fail=3	tests/claims-guard.test.ts	first=A1 /search: a number that does not match the inline text is unverified, never verified
+A1-attributed	KILLED	pass=9 fail=3	tests/claims-guard.test.ts	first=A1 /ask: a session-level node_id (session:<id> or /session:<id>) resolves without evidence; a topic node without sessionRefs cannot be verif
+A13-stale	KILLED	pass=11 fail=1	tests/claims-guard.test.ts	first=A13: with no override the staleness threshold is the 24-month default [ASSUMPTION P-7]: 45 months old is stale, 16 months is not
+A3-permission	KILLED	pass=7 fail=1	tests/no-quote.test.ts	first=A3: a speaker WITH a written-permission record may be named (default-deny is per speaker, not blanket)
+A3-denied	KILLED	pass=5 fail=3	tests/no-quote.test.ts	first=A3: exhaustive - no alias of a speaker without a written-permission record survives the guard in any surface form
+A3-zerowidth	KILLED	pass=7 fail=1	tests/no-quote.test.ts	first=A3: zero-width characters and NBSP inside a denied name do not let it through
+A4-web	KILLED	pass=20 fail=1	tests/student-graph.test.ts	first=A4/A18 (answered with internal AND web): a non-served /ask result is the fixed no-answer, no model call, one gap count
+A4-gap	KILLED	pass=13 fail=8	tests/student-graph.test.ts	first=A4/A18 (web_used): a non-served /ask result is the fixed no-answer, no model call, one gap count
+U6-search-first	KILLED	pass=19 fail=2	tests/student-graph.test.ts	first=answer_from_kb: search_kb first; with >= 1 hit at or above the threshold, /ask is never called; reply is built from guarded claims
+U6-threshold	KILLED	pass=20 fail=1	tests/student-graph.test.ts	first=answer_from_kb: insufficient = 0 hits with score >= threshold -> ask_knowledge_base; low-score hits are not used as evidence
+B21-gate	KILLED	pass=20 fail=1	tests/student-graph.test.ts	first=gate: a missing, non-student or incomplete identity is refused before any KB or model call (counsellor/admin tokens rejected)
+A11-escalate	KILLED	pass=7 fail=2	tests/crisis-defaults.test.ts	first=A11/A11b: crisis phrases (English, Hinglish, Hindi) on an authenticated turn get the fixed message, no model/KB call, a flag log record and 
+A11b-14416	KILLED	pass=6 fail=3	tests/crisis-defaults.test.ts	first=A11b: the authenticated fixed message has Tele-MANAS 14416, the safe-adult question, discloses the hand-off and promises no counsellor
+A11b-higher-level	KILLED	pass=8 fail=1	tests/crisis-defaults.test.ts	first=A11b: unsure / indirect / concern-level / Hinglish cases map to the higher level
+A11b-forbidden	KILLED	pass=8 fail=1	tests/crisis-defaults.test.ts	first=A11b: a generated reply that contains a forbidden phrase is never shown; the fixed safe message replaces it
+A11b-flaglog	KILLED	pass=6 fail=3	tests/crisis-defaults.test.ts	first=A11/A11b: crisis phrases (English, Hinglish, Hindi) on an authenticated turn get the fixed message, no model/KB call, a flag log record and 
+A12-retry	KILLED	pass=20 fail=1	tests/student-graph.test.ts	first=A12: every model failing gives the apology + Retry, never a guessed answer
+A15b-failclosed	KILLED	pass=3 fail=1	tests/student-classify.test.ts	first=A15b: the personal fixture has >= 40 borderline cases incl. Hindi/Hinglish, and 0 of them are classified generic
+A15c-anon-ask	KILLED	pass=20 fail=1	tests/student-graph.test.ts	first=anonymous: a generic question uses search_kb only (never /ask, never get_session), even when search finds nothing
+A21a-draftguard	KILLED	pass=3 fail=1	tests/coach-first.test.ts	first=A21(a): every drafting request yields coaching (questions, structure) and never a full draft - even when the model returns one
+A21b-intents	KILLED	pass=3 fail=1	tests/coach-first.test.ts	first=A21(b): >= 15 fixture intents select the matching tool/feature, and every selected tool is a registered student tool
+A21c-manifest	KILLED	pass=2 fail=1	tests/capability-manifest.test.ts	first=A21(c): building the graph against a drifted manifest fails loudly (a missing or an extra tool)
+A22-verbatim	KILLED	pass=5 fail=2	tests/source-kind.test.ts	first=A22: a WhatsApp or unknown claim quoting >= 8 consecutive source words is removed from the answer (never verbatim)
+A22-pii	KILLED	pass=6 fail=1	tests/source-kind.test.ts	first=A22: personal identifiers (phone, listed names, WhatsApp speakerLabels of the turn) never survive in a restricted claim
+A22-ask-unknown	KILLED	pass=6 fail=1	tests/source-kind.test.ts	first=A22: a claim with no determinable kind (served /ask, unresolvable source) is restricted 'unknown'

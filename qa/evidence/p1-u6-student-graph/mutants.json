@@ -1,0 +1,177 @@
+[
+ [
+  "A1-numbers",
+  "src/student/claims.ts",
+  "  if (!claimNums.every((n) => evNums.has(n))) return false;\n",
+  "",
+  "tests/claims-guard.test.ts"
+ ],
+ [
+  "A1-attributed",
+  "src/student/claims.ts",
+  "\"verified\" : attributedNode && draft.kind === \"fact\" ? \"attributed\"",
+  "\"verified\" : attributedNode ? \"verified\"",
+  "tests/claims-guard.test.ts"
+ ],
+ [
+  "A13-stale",
+  "src/student/claims.ts",
+  "export const DEFAULT_STALE_AFTER_MONTHS = 24;",
+  "export const DEFAULT_STALE_AFTER_MONTHS = 2400;",
+  "tests/claims-guard.test.ts"
+ ],
+ [
+  "A3-permission",
+  "src/guards/no-quote.ts",
+  "    if (s.permission) continue;\n",
+  "",
+  "tests/no-quote.test.ts"
+ ],
+ [
+  "A3-denied",
+  "src/guards/no-quote.ts",
+  "for (const alias of s.aliases) targets.push({ speakerId: s.id, alias });",
+  "for (const alias of s.aliases.slice(0, 1)) targets.push({ speakerId: s.id, alias });",
+  "tests/no-quote.test.ts"
+ ],
+ [
+  "A3-zerowidth",
+  "src/guards/no-quote.ts",
+  ".join(\"\\\\s*\");",
+  ".join(\"\\\\s+\");",
+  "tests/no-quote.test.ts"
+ ],
+ [
+  "A4-web",
+  "src/student/graph.ts",
+  " || ask.citations.web.length > 0) return noAnswer(input);",
+  ") return noAnswer(input);",
+  "tests/student-graph.test.ts"
+ ],
+ [
+  "A4-gap",
+  "src/student/graph.ts",
+  "await deps.recordGap?.({",
+  "if (0) await deps.recordGap?.({",
+  "tests/student-graph.test.ts"
+ ],
+ [
+  "U6-search-first",
+  "src/student/graph.ts",
+  "    if (hits.length === 0) {",
+  "    if (true) {",
+  "tests/student-graph.test.ts"
+ ],
+ [
+  "U6-threshold",
+  "src/student/graph.ts",
+  ".filter((h) => h.score >= config.searchScoreThreshold)",
+  ".filter((h) => h.score >= 0)",
+  "tests/student-graph.test.ts"
+ ],
+ [
+  "B21-gate",
+  "src/student/graph.ts",
+  "role: z.literal(\"student\"),",
+  "role: z.string(),",
+  "tests/student-graph.test.ts"
+ ],
+ [
+  "A11-escalate",
+  "src/student/graph.ts",
+  "await deps.escalate?.({",
+  "if (0) await deps.escalate?.({",
+  "tests/crisis-defaults.test.ts"
+ ],
+ [
+  "A11b-14416",
+  "src/student/graph.ts",
+  "14416",
+  "112",
+  "tests/crisis-defaults.test.ts"
+ ],
+ [
+  "A11b-higher-level",
+  "src/student/graph.ts",
+  "if (guard.level === \"none\") return {};",
+  "if (guard.level !== \"crisis\") return {};",
+  "tests/crisis-defaults.test.ts"
+ ],
+ [
+  "A11b-forbidden",
+  "src/student/graph.ts",
+  "if (authenticated && input.priorFlagInThread && violatesCrisisRules(message)) {",
+  "if (false) {",
+  "tests/crisis-defaults.test.ts"
+ ],
+ [
+  "A11b-flaglog",
+  "src/student/graph.ts",
+  "await deps.logFlag?.({",
+  "if (0) await deps.logFlag?.({",
+  "tests/crisis-defaults.test.ts"
+ ],
+ [
+  "A12-retry",
+  "src/student/graph.ts",
+  "retryable: true",
+  "retryable: false",
+  "tests/student-graph.test.ts"
+ ],
+ [
+  "A15b-failclosed",
+  "src/student/classify.ts",
+  "  if (reasons.length > 0) return { class: \"personal\", reasons };\n",
+  "",
+  "tests/student-classify.test.ts"
+ ],
+ [
+  "A15c-anon-ask",
+  "src/student/graph.ts",
+  "const askKb = authenticated ? deps.kb.askKnowledgeBase?.bind(deps.kb) : undefined;",
+  "const askKb = deps.kb.askKnowledgeBase?.bind(deps.kb);",
+  "tests/student-graph.test.ts"
+ ],
+ [
+  "A21a-draftguard",
+  "src/student/graph.ts",
+  "if (!isDraftLike(out.reply) && !isDraftLike(candidate) && questions.length >= 2) message = candidate;",
+  "message = candidate;",
+  "tests/coach-first.test.ts"
+ ],
+ [
+  "A21b-intents",
+  "src/student/classify.ts",
+  "  for (const [tool, re] of INTENT_RULES) if (re.test(t)) return tool;\n",
+  "",
+  "tests/coach-first.test.ts"
+ ],
+ [
+  "A21c-manifest",
+  "src/student/graph.ts",
+  "  assertManifestMatches(manifestPrompt);\n",
+  "",
+  "tests/capability-manifest.test.ts"
+ ],
+ [
+  "A22-verbatim",
+  "src/student/claims.ts",
+  "if (restrictedTexts.some((src) => hasVerbatimRun(text, src))) {",
+  "if (false) {",
+  "tests/source-kind.test.ts"
+ ],
+ [
+  "A22-pii",
+  "src/student/claims.ts",
+  "        text = redactPersonalIdentifiers(text, ctx.speakers, labels);\n",
+  "",
+  "tests/source-kind.test.ts"
+ ],
+ [
+  "A22-ask-unknown",
+  "src/student/claims.ts",
+  "kinds.push(\"unknown\"); // a served",
+  "kinds.push(\"internal-seminar\"); // a served",
+  "tests/source-kind.test.ts"
+ ]
+]

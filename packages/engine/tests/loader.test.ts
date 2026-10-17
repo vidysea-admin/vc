@@ -25,9 +25,12 @@ const EXPECTED_SKILL_NAMES = [
   // T-012 (B16): the async concern classifier's prompt.
   "concern-classifier",
   "exploration-planner",
+  // P1 U6: the student turn graph's KB-answer prompt and capability manifest (spec A21).
+  "kb-answer",
+  "vc-capabilities",
 ].sort();
 
-test("listSkills finds all 12 real skills", () => {
+test("listSkills finds all 14 real skills", () => {
   const skills = listSkills(REAL_SKILLS_DIR);
   const names = skills.map((s) => s.name).sort();
   assert.deepEqual(names, EXPECTED_SKILL_NAMES);
