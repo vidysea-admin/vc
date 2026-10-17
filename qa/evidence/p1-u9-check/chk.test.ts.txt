@@ -1,0 +1,50 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { MockLiveProvider, GeminiLiveProvider, createSimpleOutputAuditor, translateGeminiMessage, type LiveEvent, type LiveFinalTranscript } from "../src/index.js";
+const pcm = (n: number) => new Uint8Array(n * 2).fill(1);
+const CRISIS = /kill myself/i;
+const FIXED = { text: "fixed msg 14416", audio: pcm(8) };
+async function mk(extra: any = {}) {
+  const events: LiveEvent[] = []; const finals: LiveFinalTranscript[] = [];
+  const p = new MockLiveProvider();
+  const s = await p.connect({ onEvent: (e) => events.push(e), sink: { onFinalTranscript: (t) => void finals.push(t) }, detectCrisis: (t) => CRISIS.test(t), crisisMessage: FIXED, ...extra });
+  return { p, s, events, finals, b: p.last };
+}
+const modelAudio = (ev: LiveEvent[]) => ev.filter((e) => e.type === "audio" && !(e as any).fixed).length;
+
+test("CHK-P0 trigger chunk: model audio before is forwarded, audio right after the trigger chunk is dropped", async () => {
+  const r = await mk();
+  r.b.emitOutputAudio(pcm(3));
+  assert.equal(modelAudio(r.events), 1);
+  r.b.emitInputTranscript("I will kill myself", false);
+  r.b.emitOutputAudio(pcm(3)); r.b.emitOutputAudio(pcm(3));
+  assert.equal(modelAudio(r.events), 1);
+  assert.equal(r.events.filter((e) => e.type === "crisis").length, 1);
+});
+
+test("CHK-P1 backend 'interrupted' arriving after the trigger must not reopen model audio", async () => {
+  const r = await mk();
+  r.b.emitInputTranscript("I will kill myself", false);
+  r.b.emitInterrupted(); // Gemini reports the barge-in AFTER the transcript chunk
+  r.b.emitOutputAudio(pcm(3));
+  assert.equal(modelAudio(r.events), 0, "model audio leaked after crisis trigger + interrupted");
+});
+
+test("CHK-P2 half reply already spoken when the student's crisis arrives is audited and stored", async () => {
+  const r = await mk({ auditOutput: createSimpleOutputAuditor() });
+  r.b.emitOutputTranscript("The fee is 99999 rupees");
+  r.b.emitInputTranscript("I will kill myself", false);
+  await r.s.drain();
+  assert.ok(r.events.some((e) => e.type === "flag"), "spoken uncited number in the half reply was never audited");
+  assert.ok(r.finals.some((t) => t.role === "assistant" && t.text.includes("99999")), "spoken half reply never stored");
+});
+
+test("CHK-P3 one Gemini message carrying crisis transcript + model audio: audio dropped", async () => {
+  const events: LiveEvent[] = [];
+  let cb: any;
+  const prov = new GeminiLiveProvider({ model: "m", connector: { connect: async (x: any) => { cb = x.callbacks; return { sendRealtimeInput() {}, sendToolResponse() {}, close() {} }; } } });
+  await prov.connect({ onEvent: (e) => events.push(e), detectCrisis: (t) => CRISIS.test(t), crisisMessage: FIXED });
+  cb.onmessage({ serverContent: { inputTranscription: { text: "I will kill myself" }, modelTurn: { parts: [{ inlineData: { mimeType: "audio/pcm;rate=24000", data: Buffer.from(pcm(4)).toString("base64") } }] } } });
+  assert.equal(modelAudio(events), 0);
+  assert.equal(events.filter((e) => e.type === "crisis").length, 1);
+});
