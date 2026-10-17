@@ -1,0 +1,56 @@
+✔ serve: correct served; web[] stripped; sourceKind unknown (24.0509ms)
+✔ withheld: Correct (4.3096ms)
+✔ withheld: correct  (2.4067ms)
+✔ withheld: CORRECT (1.6626ms)
+✔ withheld: incorrect (1.8443ms)
+✔ withheld: insufficient (1.4984ms)
+✔ withheld: web_used (1.3148ms)
+✔ withheld: noInternal (1.1979ms)
+✔ withheld: webUsedStray (1.2681ms)
+✔ withheld: realistic no coverage -> no_sourced_answer not unavailable (1.7433ms)
+✔ correct but zero citations -> unavailable, no leak (1.2019ms)
+✔ missing flags -> fixed text no leak (4.6849ms)
+✔ 5xx / 401 / non-json / array / null -> unavailable (8.0366ms)
+✔ network error -> unavailable (1.186ms)
+✔ ask query cap (1.5104ms)
+✔ labels only seminar/toc (full) (2.3036ms)
+✔ labels absent when /sources down (full) (1.3617ms)
+✔ labels only seminar/toc (anonymous) (1.208ms)
+✔ labels absent when /sources down (anonymous) (1.2176ms)
+✔ whatsapp listed in seminar config is still whatsapp and no label (1.2688ms)
+✔ get_session label: seminar yes; unknown no (3.8352ms)
+✔ mismatched ids dropped (1.5066ms)
+✔ get_session mismatched session id -> unavailable; 404 -> not_found (1.9079ms)
+✔ anonymous: only 2 tools even with full client; wire identity-free; own key (14.4516ms)
+✔ anonymous network error does not echo query (1.2411ms)
+✔ kb_sources only id/kind (1.4521ms)
+✖ resolver: client.sources throwing synchronously must not cache failure forever (1.081ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 26
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 634.9614
+
+✖ failing tests:
+
+test at tests\chk.test.ts:216:1
+✖ resolver: client.sources throwing synchronously must not cache failure forever (1.081ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'unknown'
+  - 'whatsapp'
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\u2chk\tests\chk.test.ts:221:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'unknown',
+    expected: 'whatsapp',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
