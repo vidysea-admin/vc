@@ -10,7 +10,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "go-live-gate": "tsx scripts/go-live-gate.ts"
   },
   "dependencies": {
     "@vc/db": "workspace:*",
