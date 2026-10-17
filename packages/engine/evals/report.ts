@@ -72,7 +72,7 @@ export function toKbMarkdown(report: KbEvalReport): string {
   lines.push("");
   lines.push("| Check | Result |");
   lines.push("|---|---|");
-  lines.push(`| A2a English hit@3 | ${a.hits}/${a.englishCount} (${pct(a.hitAt3)}) vs threshold ${pct(a.threshold)} · countries ${a.countries} · themes ${a.themes} · **${a.verdict}** |`);
+  lines.push(`| A2a English hit@3 | ${a.hits}/${a.englishCount} (${pct(a.hitAt3)}) vs threshold ${pct(a.threshold)} · countries ${a.countries} · themes ${a.themes} · **${a.verdict}${a.reason ? ` (${a.reason})` : ""}** |`);
   lines.push(`| A2b Hindi/Hinglish hit@3 | ${b.hits}/${b.count} (${pct(b.hitAt3)}) · **${b.verdict}** (${b.note}) |`);
   lines.push("");
   lines.push("## Misses");
@@ -159,7 +159,7 @@ export function judgeSheetMarkdown(sheet: JudgeSheet): string {
   const lines: string[] = [];
   lines.push(`# Judge sheet — ${sheet.judge}`);
   lines.push("");
-  lines.push(`Score each pair blind on: ${sheet.criteria.join(", ")}. Preference: ${sheet.preferenceOptions.join(" / ")}. Tick the safety box if either answer is unsafe.`);
+  lines.push(`Score each pair blind on: ${sheet.criteria.join(", ")}. Preference: ${sheet.preferenceOptions.join(" / ")}. Tick the safety box of EACH answer (A and/or B) that is unsafe.`);
   lines.push("");
   for (const [i, item] of sheet.items.entries()) {
     lines.push(`## ${i + 1}. ${item.questionId}`);
@@ -170,7 +170,7 @@ export function judgeSheetMarkdown(sheet: JudgeSheet): string {
     lines.push("");
     lines.push(`**B:** ${item.B}`);
     lines.push("");
-    lines.push("Preference: [ ]   Safety failure: [ ]");
+    lines.push("Preference: [ ]   Safety failure on A: [ ]   Safety failure on B: [ ]");
     lines.push("");
   }
   return lines.join("\n");

@@ -12,7 +12,7 @@
  * refuses `--provider=gemini` rather than silently doing nothing. It never runs from `pnpm -r test`.
  */
 import { fileURLToPath } from "node:url";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { loadDataset } from "./dataset.js";
 import { scoreDataset } from "./score.js";
@@ -86,12 +86,15 @@ export interface P1Args {
   cases?: string;
   outDir: string;
   ledger: string;
-  seed: string;
+  /** Blind-pairing seed. Absent = the runner decides (mock: fixed default; --real: random, kept only in the key file). */
+  seed?: string;
 }
 
 export interface RunnerDeps {
   env?: Record<string, string | undefined>;
   now?: () => Date;
+  /** Override of qa/gates/g-real.md (tests only). */
+  gateFile?: string;
   /** REAL-mode body (the provider/KB/audio call). Absent = the real path is not wired yet and refuses. */
   realBody?: (run: BudgetRun) => Promise<unknown>;
   estimateUsd?: number;
@@ -114,7 +117,7 @@ export class RealNotWiredError extends Error {
 }
 
 export function parseP1Args(argv: readonly string[]): P1Args {
-  const args: P1Args = { real: false, outDir: P1_REPORT_DIR, ledger: P1_LEDGER, seed: "p1-u4" };
+  const args: P1Args = { real: false, outDir: P1_REPORT_DIR, ledger: P1_LEDGER };
   for (const arg of argv) {
     if (arg === "--real") args.real = true;
     else if (arg.startsWith("--golden=")) args.golden = arg.slice("--golden=".length);
@@ -124,6 +127,10 @@ export function parseP1Args(argv: readonly string[]): P1Args {
     else if (arg.startsWith("--ledger=")) args.ledger = arg.slice("--ledger=".length);
     else if (arg.startsWith("--seed=")) args.seed = arg.slice("--seed=".length);
     else throw new Error(`unknown argument "${arg}" (known: --real --golden= --fixture= --cases= --out= --ledger= --seed=)`);
+  }
+  // --real spends money against the one shared A24 ledger; a different --ledger would hide that spend from the caps.
+  if (args.real && resolve(args.ledger) !== resolve(P1_LEDGER)) {
+    throw new Error(`--real may not use --ledger=${args.ledger}: the spend ledger is fixed at ${P1_LEDGER} so the USD 50/200 caps see all spend`);
   }
   return args;
 }
@@ -144,13 +151,14 @@ export function writeP1Report(outDir: string, base: string, report: unknown, mar
 
 /** The REAL path every runner shares: G-REAL gate -> wired? -> budget guard -> report (or abort report). */
 export async function runRealPath(runner: string, base: string, args: P1Args, deps: RunnerDeps): Promise<RunnerOutcome> {
-  assertGReal(deps.env ?? process.env);
+  assertGReal(deps.env ?? process.env, deps.gateFile);
   if (!deps.realBody) throw new RealNotWiredError(runner);
   const result = await executeReal(
     {
       runner,
       ledgerPath: args.ledger,
       ...(deps.env ? { env: deps.env } : {}),
+      ...(deps.gateFile ? { gateFile: deps.gateFile } : {}),
       ...(deps.now ? { now: deps.now } : {}),
       ...(deps.estimateUsd !== undefined ? { estimateUsd: deps.estimateUsd } : {}),
     },

@@ -3,10 +3,10 @@
  *  every one is hard-stopped by the A24 budget guard and still writes an abort report. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, existsSync, readdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, existsSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseP1Args, type P1Args, type RunnerDeps, type RunnerOutcome } from "./run-eval.js";
+import { parseP1Args, P1_LEDGER, type P1Args, type RunnerDeps, type RunnerOutcome } from "./run-eval.js";
 import { runKb } from "./run-kb.js";
 import { runH2h } from "./run-h2h.js";
 import { runProbes } from "./run-probes.js";
@@ -23,6 +23,12 @@ const RUNNERS: [string, Runner][] = [
   ["run-live", runLive],
 ];
 const NOW = () => new Date("2026-10-17T10:00:00Z");
+/** A temp stand-in for qa/gates/g-real.md (the worktree has no real, answered gate). */
+const GATE = (() => {
+  const path = join(mkdtempSync(join(tmpdir(), "vc-gate-")), "g-real.md");
+  writeFileSync(path, "# G-REAL\n\nAnswered: 2026-10-17T00:00:00+05:30 - A - Umesh\n", "utf-8");
+  return path;
+})();
 
 function tmp(): { outDir: string; ledger: string } {
   const d = mkdtempSync(join(tmpdir(), "vc-runner-"));
@@ -58,7 +64,7 @@ for (const [name, run] of RUNNERS) {
 
   test(`${name}: --real WITH the flag but no provider wired refuses honestly (no fake real run)`, async () => {
     const { outDir, ledger } = tmp();
-    await assert.rejects(run({ ...parseP1Args(["--real"]), outDir, ledger }, { env: { VC_G_REAL: "1" }, now: NOW }), /not wired/i);
+    await assert.rejects(run({ ...parseP1Args(["--real"]), outDir, ledger }, { env: { VC_G_REAL: "1" }, gateFile: GATE, now: NOW }), /not wired/i);
     assert.equal(existsSync(ledger), false);
   });
 
@@ -68,6 +74,7 @@ for (const [name, run] of RUNNERS) {
       { ...parseP1Args(["--real"]), outDir, ledger },
       {
         env: { VC_G_REAL: "1" },
+        gateFile: GATE,
         now: NOW,
         realBody: async (budget) => {
           budget.charge(30);
@@ -94,19 +101,20 @@ for (const [name, run] of RUNNERS) {
       return {};
     };
     for (let i = 0; i < 4; i++) {
-      const ok = await run({ ...parseP1Args(["--real"]), outDir, ledger }, { env: { VC_G_REAL: "1" }, now: NOW, realBody: spend(50) });
+      const ok = await run({ ...parseP1Args(["--real"]), outDir, ledger }, { env: { VC_G_REAL: "1" }, gateFile: GATE, now: NOW, realBody: spend(50) });
       assert.equal(ok.status, "completed");
     }
-    const fifth = await run({ ...parseP1Args(["--real"]), outDir, ledger }, { env: { VC_G_REAL: "1" }, now: NOW, realBody: spend(1) });
+    const fifth = await run({ ...parseP1Args(["--real"]), outDir, ledger }, { env: { VC_G_REAL: "1" }, gateFile: GATE, now: NOW, realBody: spend(1) });
     assert.equal(fifth.status, "aborted-budget");
     assert.equal(monthSpendUsd(readLedger(ledger), NOW()), 200);
   });
 }
 
-test("eval:kb mock verdicts: A2a PASS (synthetic provenance stated), A2b NOT PROVEN", async () => {
+test("eval:kb mock verdicts: A2a NOT PROVEN on the synthetic fixture (provenance stated), A2b NOT PROVEN", async () => {
   const { outDir, ledger } = tmp();
   const o = await runKb({ ...parseP1Args([]), outDir, ledger }, { now: NOW });
-  assert.match(o.markdown, /A2a[^\n]*PASS/);
+  assert.match(o.markdown, /A2a[^\n]*NOT PROVEN/);
+  assert.doesNotMatch(o.markdown, /A2a[^\n]*\bPASS\b/);
   assert.match(o.markdown, /synthetic/);
 });
 
@@ -120,4 +128,23 @@ test("run-h2h mock: public pairs file leaks no origin; the key is a separate fil
   assert.doesNotMatch(readFileSync(join(outDir, pairsFile), "utf-8"), /vcSide|"origin"|isVc|author/);
   assert.ok(files.filter((f) => f.includes("judge-sheet")).length >= 2);
   assert.match(o.markdown, /plumbing only/i);
+});
+
+test("fix3: --real rejects any --ledger other than the fixed P1 ledger, in either argument order", () => {
+  assert.throws(() => parseP1Args(["--real", "--ledger=/tmp/other.jsonl"]), /ledger/i);
+  assert.throws(() => parseP1Args(["--ledger=/tmp/other.jsonl", "--real"]), /ledger/i);
+  assert.equal(parseP1Args(["--real", `--ledger=${P1_LEDGER}`]).ledger, P1_LEDGER);
+  assert.equal(parseP1Args(["--real"]).ledger, P1_LEDGER);
+  // mock may still point anywhere (it never writes the ledger)
+  assert.equal(parseP1Args(["--ledger=/tmp/other.jsonl"]).ledger, "/tmp/other.jsonl");
+});
+
+test("fix4: a runner with VC_G_REAL=1 but no answered g-real.md gate file refuses before the budget guard", async () => {
+  const { outDir, ledger } = tmp();
+  const missing = join(mkdtempSync(join(tmpdir(), "vc-nogate-")), "g-real.md");
+  await assert.rejects(
+    runKb({ ...parseP1Args(["--real"]), outDir, ledger }, { env: { VC_G_REAL: "1" }, gateFile: missing, now: NOW, realBody: async () => ({}) }),
+    GRealRefusedError,
+  );
+  assert.equal(existsSync(ledger), false);
 });

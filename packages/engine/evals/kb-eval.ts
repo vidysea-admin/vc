@@ -7,6 +7,8 @@
  * questions, or fewer than 10 countries / 5 themes among them, a good rate is NOT PROVEN (the
  * achieved number is still reported). A2b (Hindi/Hinglish) depends on an engine query-rewrite a
  * frozen fixture cannot exercise, so it is always NOT PROVEN here and only measurable with --real.
+ * A SYNTHETIC fixture can never prove A2a either: a good rate on it shows the harness works, not
+ * retrieval quality, so it reports NOT PROVEN (synthetic fixture). A shortfall is still a FAIL.
  */
 import type { GoldenQuestion, KbHit } from "./dataset.js";
 
@@ -37,6 +39,8 @@ export interface KbEvalReport {
     themes: number;
     breadthProven: boolean;
     verdict: "PASS" | "FAIL" | "NOT PROVEN";
+    /** Why the verdict is NOT PROVEN despite a good rate (synthetic fixture, too few questions, thin breadth). */
+    reason?: string;
   };
   a2b: {
     count: number;
@@ -91,7 +95,12 @@ export async function scoreKbEval(
   let verdict: KbEvalReport["a2a"]["verdict"];
   if (english.length === 0) verdict = "NOT PROVEN";
   else if (hitAt3 < A2A_THRESHOLD) verdict = "FAIL";
+  else if (options.fixtureSource !== "recorded") verdict = "NOT PROVEN";
   else verdict = english.length >= A2A_MIN_ENGLISH && breadthProven ? "PASS" : "NOT PROVEN";
+  const reason =
+    verdict === "NOT PROVEN" && english.length > 0 && hitAt3 >= A2A_THRESHOLD && options.fixtureSource !== "recorded"
+      ? "synthetic fixture"
+      : undefined;
 
   return {
     k,
@@ -99,7 +108,7 @@ export async function scoreKbEval(
     total: questions.length,
     unrecorded,
     misses,
-    a2a: { englishCount: english.length, hits: enHits, hitAt3, threshold: A2A_THRESHOLD, countries, themes, breadthProven, verdict },
+    a2a: { englishCount: english.length, hits: enHits, hitAt3, threshold: A2A_THRESHOLD, countries, themes, breadthProven, verdict, ...(reason ? { reason } : {}) },
     a2b: {
       count: other.length,
       hits: otherHits,

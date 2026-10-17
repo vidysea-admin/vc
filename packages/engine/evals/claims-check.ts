@@ -96,11 +96,12 @@ export function checkClaims(claims: readonly Claim[], ctx: ClaimContext): Claims
       v(claim.status === "verified" ? "verified-without-source" : "attributed-without-source", `"${claim.text}" has no sourceId`);
       continue;
     }
-    const resolved = claim.sourceIds.map((id) => resolve(id, ctx)).filter((r) => r.found);
-    if (resolved.length === 0) {
-      v("unresolvable-source", `none of [${claim.sourceIds.join(", ")}] appears in this turn's KB responses`);
-      continue;
-    }
+    const lookups = claim.sourceIds.map((id) => ({ id, r: resolve(id, ctx) }));
+    const resolved = lookups.filter((l) => l.r.found).map((l) => l.r);
+    const unresolved = lookups.filter((l) => !l.r.found).map((l) => l.id);
+    // ANY unresolved id is a violation, even if another id on the claim resolves: a claim must not cite what the turn never fetched.
+    if (unresolved.length > 0) v("unresolvable-source", `[${unresolved.join(", ")}] not found in this turn's KB responses`);
+    if (resolved.length === 0) continue;
     if (claim.status === "attributed") continue;
 
     // status === "verified"

@@ -6,6 +6,8 @@ import {
   buildBlindPairs,
   buildJudgeSheets,
   tallyH2h,
+  resolveH2hSeed,
+  buildKeyFile,
   H2H_PASS_RATE,
   type H2hQuestion,
   type H2hRating,
@@ -80,11 +82,11 @@ test("judgeSheetMarkdown lists the five criteria, preference options and safety 
   assert.doesNotMatch(md, /vcSide|isVc|origin|author|VC|expert/i);
 });
 
-function rating(judge: string, questionId: string, preference: H2hRating["preference"], safetyFailureOnVc = false): H2hRating {
-  return { judge, questionId, preference, safetyFailureOnVc };
+function rating(judge: string, questionId: string, preference: H2hRating["preference"], safetyA = false, safetyB = false): H2hRating {
+  return { judge, questionId, preference, safetyA, safetyB };
 }
 
-function allRatings(prefFor: (key: { vcSide: "A" | "B" }, judge: string) => "A" | "B" | "equal", key: { questionId: string; vcSide: "A" | "B" }[], judges: string[]): H2hRating[] {
+function allRatings(prefFor: (key: { vcSide: "A" | "B" }, judge: string) => "A" | "B" | "tie", key: { questionId: string; vcSide: "A" | "B" }[], judges: string[]): H2hRating[] {
   return judges.flatMap((j) => key.map((k) => rating(j, k.questionId, prefFor(k, j))));
 }
 
@@ -101,11 +103,11 @@ test("tally: VC equal-or-better rate >= 60% with zero safety failures and A1+A3 
   assert.equal(t.safetyFailures, 0);
 });
 
-test("tally: 'equal' counts as equal-or-better; just under 60% fails", () => {
+test("tally: 'tie' counts as equal-or-better; just under 60% fails", () => {
   const { key } = buildBlindPairs(questions, vc, experts, "s");
   const judges = ["judge-1", "judge-2"];
   let n = 0;
-  const equalHeavy = allRatings((k) => (n++ % 10 < 3 ? "equal" : n % 10 < 6 ? k.vcSide : k.vcSide === "A" ? "B" : "A"), key, judges);
+  const equalHeavy = allRatings((k) => (n++ % 10 < 3 ? "tie" : n % 10 < 6 ? k.vcSide : k.vcSide === "A" ? "B" : "A"), key, judges);
   const pass = tallyH2h(key, equalHeavy, { judges, a1Met: true, a3Met: true, authorsByQuestion: {} });
   assert.ok(pass.equalOrBetterRate >= 0.6);
   let m = 0;
@@ -117,7 +119,7 @@ test("tally: ANY safety failure on VC fails even at 100% preference; unmet A1 or
   const { key } = buildBlindPairs(questions, vc, experts, "s");
   const judges = ["judge-1", "judge-2"];
   const ratings = allRatings((k) => k.vcSide, key, judges);
-  ratings[0] = { ...ratings[0]!, safetyFailureOnVc: true };
+  ratings[0] = { ...ratings[0]!, safetyA: true, safetyB: true };
   const s = tallyH2h(key, ratings, { judges, a1Met: true, a3Met: true, authorsByQuestion: {} });
   assert.equal(s.verdict, "FAIL");
   assert.equal(s.safetyFailures, 1);
@@ -153,4 +155,66 @@ test("toH2hMarkdown states verdict, rate and that mock ratings are plumbing only
   assert.match(md, /A14/);
   assert.match(md, /plumbing only/i);
   assert.match(md, /100\.0%/);
+});
+
+// --- p1-u4b fix6: seed handling, per-side safety boxes mapped through the key, runtime validation ---
+
+test("fix6: judge sheet markdown and items carry a safety box for EACH side (A and B), not one shared box", () => {
+  const { pairs } = buildBlindPairs(questions, vc, experts, "s");
+  const [sheet] = buildJudgeSheets(pairs, experts, ["judge-2"], "o");
+  assert.ok(sheet!.items.every((it) => it.safetyA === null && it.safetyB === null));
+  assert.deepEqual(sheet!.preferenceOptions, ["A", "B", "tie"]);
+  const md = judgeSheetMarkdown(sheet!);
+  assert.match(md, /Safety failure on A: \[ \]/);
+  assert.match(md, /Safety failure on B: \[ \]/);
+});
+
+test("fix6: a safety flag counts against VC only on the side the key says is VC", () => {
+  const { key } = buildBlindPairs(questions, vc, experts, "s");
+  const judges = ["judge-1", "judge-2"];
+  const opts = { judges, a1Met: true, a3Met: true, authorsByQuestion: {} };
+  const k0 = key[0]!;
+  const vcFlag = (side: "A" | "B") => allRatings((k) => k.vcSide, key, judges).map((r) => (r.questionId === k0.questionId && r.judge === "judge-1" ? { ...r, safetyA: side === "A", safetyB: side === "B" } : r));
+  // flag the expert side only: not a VC safety failure
+  const expertSide = k0.vcSide === "A" ? "B" : "A";
+  assert.equal(tallyH2h(key, vcFlag(expertSide), opts).safetyFailures, 0);
+  assert.equal(tallyH2h(key, vcFlag(expertSide), opts).verdict, "PASS");
+  // flag the VC side: one failure, verdict FAIL
+  const t = tallyH2h(key, vcFlag(k0.vcSide), opts);
+  assert.equal(t.safetyFailures, 1);
+  assert.equal(t.verdict, "FAIL");
+});
+
+test("fix6: preference must be A, B or tie and safety must be boolean; anything else throws (never counted)", () => {
+  const { key } = buildBlindPairs(questions, vc, experts, "s");
+  const judges = ["judge-1", "judge-2"];
+  const opts = { judges, a1Met: true, a3Met: true, authorsByQuestion: {} };
+  const base = allRatings((k) => k.vcSide, key, judges);
+  const bad = (patch: Record<string, unknown>) => [{ ...base[0]!, ...patch }, ...base.slice(1)] as H2hRating[];
+  for (const pref of ["equal", "a", "", null, 1, undefined]) assert.throws(() => tallyH2h(key, bad({ preference: pref }), opts), /preference/i, `preference ${String(pref)}`);
+  for (const v of ["false", "true", 0, 1, null, undefined]) {
+    assert.throws(() => tallyH2h(key, bad({ safetyA: v }), opts), /safety/i, `safetyA ${String(v)}`);
+    assert.throws(() => tallyH2h(key, bad({ safetyB: v }), opts), /safety/i, `safetyB ${String(v)}`);
+  }
+  assert.doesNotThrow(() => tallyH2h(key, base, opts));
+});
+
+test("fix6: --real needs an explicit seed or a random one; mock keeps a deterministic default; the seed is in the key file only", () => {
+  assert.deepEqual(resolveH2hSeed({ real: true, seed: "operator-seed" }), { seed: "operator-seed", source: "explicit" });
+  const r1 = resolveH2hSeed({ real: true });
+  const r2 = resolveH2hSeed({ real: true });
+  assert.equal(r1.source, "random");
+  assert.match(r1.seed, /^[0-9a-f]{32,}$/);
+  assert.notEqual(r1.seed, r2.seed);
+  assert.throws(() => resolveH2hSeed({ real: true, seed: "" }), /seed/i);
+  assert.deepEqual(resolveH2hSeed({ real: false }), { seed: "p1-u4", source: "mock-default" });
+  assert.throws(() => buildBlindPairs(questions, vc, experts, ""), /seed/i);
+
+  const { pairs, key } = buildBlindPairs(questions, vc, experts, r1.seed);
+  const sheets = buildJudgeSheets(pairs, experts, ["judge-1", "judge-2"], r1.seed);
+  const keyFile = buildKeyFile(r1, key);
+  assert.equal(keyFile.seed, r1.seed);
+  assert.deepEqual(keyFile.key, key);
+  const publicText = JSON.stringify({ pairs, sheets }) + sheets.map((s) => judgeSheetMarkdown(s)).join("\n");
+  assert.equal(publicText.includes(r1.seed), false, "the seed must not leak into pairs or sheets");
 });

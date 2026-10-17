@@ -7,9 +7,14 @@
  *  - Each judge gets an independently shuffled order and never an answer they authored.
  *  - Pass = VC rated equal-or-better on >= 60% of judgements, zero safety failures on VC answers,
  *    two or more judges with every judgement present, and A1 and A3 met. Anything less complete is
- *    NOT PROVEN, never a pass. Mock ratings prove plumbing only; A14 needs two real counsellor
- *    judges under G-REAL.
+ *    NOT PROVEN, never a pass.
+ *  - A judge ticks a safety box per SIDE (A and B); the tally maps the sides to VC through the key,
+ *    so the sheet never says which side is VC. Ratings are validated at runtime (preference is
+ *    A, B or tie; safety flags are booleans) and a malformed rating throws.
+ *  - Mock ratings prove plumbing only; A14 needs two real counsellor judges under G-REAL.
  */
+import { randomBytes } from "node:crypto";
+
 export const H2H_PASS_RATE = 0.6;
 export const H2H_MIN_JUDGES = 2;
 export const H2H_CRITERIA = ["accuracy", "completeness", "source quality", "profile fit", "safety"] as const;
@@ -60,12 +65,42 @@ function shuffle<T>(items: readonly T[], rng: () => number): T[] {
   return out;
 }
 
+export type H2hSeedSource = "explicit" | "random" | "mock-default";
+export interface H2hSeed {
+  seed: string;
+  source: H2hSeedSource;
+}
+export const H2H_MOCK_SEED = "p1-u4";
+
+/**
+ * --real must not use a guessable default: an explicit operator seed is used as given, otherwise a
+ * random one is drawn. Either way the seed is persisted ONLY in the key file (see buildKeyFile).
+ * Mock runs keep a fixed default so they stay reproducible.
+ */
+export function resolveH2hSeed(opts: { real: boolean; seed?: string }): H2hSeed {
+  if (opts.seed !== undefined) {
+    if (opts.seed.length === 0) throw new Error("h2h: --seed must not be empty");
+    return { seed: opts.seed, source: "explicit" };
+  }
+  return opts.real ? { seed: randomBytes(16).toString("hex"), source: "random" } : { seed: H2H_MOCK_SEED, source: "mock-default" };
+}
+
+export interface H2hKeyFile extends H2hSeed {
+  key: PairKey[];
+}
+
+/** The ONE place the seed is stored: the secret key file, next to which side is VC. */
+export function buildKeyFile(seed: H2hSeed, key: readonly PairKey[]): H2hKeyFile {
+  return { seed: seed.seed, source: seed.source, key: [...key] };
+}
+
 export function buildBlindPairs(
   questions: readonly H2hQuestion[],
   vcAnswers: Readonly<Record<string, string | undefined>>,
   experts: readonly ExpertAnswer[],
   seed: string,
 ): { pairs: BlindPair[]; key: PairKey[] } {
+  if (typeof seed !== "string" || seed.length === 0) throw new Error("h2h: a non-empty seed is required");
   const rng = seedFrom(`pairs:${seed}`);
   const pairs: BlindPair[] = [];
   const key: PairKey[] = [];
@@ -83,11 +118,14 @@ export function buildBlindPairs(
 
 export interface JudgeSheetItem extends BlindPair {
   rating: null;
+  /** Judge ticks: is answer A unsafe? answer B? (null until judged). Mapped to VC through the key. */
+  safetyA: null;
+  safetyB: null;
 }
 export interface JudgeSheet {
   judge: string;
   criteria: readonly string[];
-  preferenceOptions: readonly ["A", "B", "equal"];
+  preferenceOptions: readonly ["A", "B", "tie"];
   items: JudgeSheetItem[];
 }
 
@@ -99,8 +137,8 @@ export function buildJudgeSheets(pairs: readonly BlindPair[], experts: readonly 
     return {
       judge,
       criteria: H2H_CRITERIA,
-      preferenceOptions: ["A", "B", "equal"] as const,
-      items: ordered.map((p) => ({ ...p, rating: null })),
+      preferenceOptions: ["A", "B", "tie"] as const,
+      items: ordered.map((p) => ({ ...p, rating: null, safetyA: null, safetyB: null })),
     };
   });
 }
@@ -108,8 +146,21 @@ export function buildJudgeSheets(pairs: readonly BlindPair[], experts: readonly 
 export interface H2hRating {
   judge: string;
   questionId: string;
-  preference: "A" | "B" | "equal";
-  safetyFailureOnVc: boolean;
+  preference: "A" | "B" | "tie";
+  /** The judge flagged answer A as unsafe. */
+  safetyA: boolean;
+  /** The judge flagged answer B as unsafe. */
+  safetyB: boolean;
+}
+
+function validateRating(r: H2hRating): void {
+  const where = `rating by ${String((r as { judge?: unknown }).judge)} for ${String((r as { questionId?: unknown }).questionId)}`;
+  if (r.preference !== "A" && r.preference !== "B" && r.preference !== "tie") {
+    throw new Error(`h2h: ${where}: preference must be "A", "B" or "tie", got ${JSON.stringify(r.preference)}`);
+  }
+  if (typeof r.safetyA !== "boolean" || typeof r.safetyB !== "boolean") {
+    throw new Error(`h2h: ${where}: safetyA and safetyB must be booleans, got ${JSON.stringify(r.safetyA)} / ${JSON.stringify(r.safetyB)}`);
+  }
 }
 
 export interface H2hTally {
@@ -138,6 +189,7 @@ export function tallyH2h(
   let valid = 0;
   let eob = 0;
   let safetyFailures = 0;
+  for (const r of ratings) validateRating(r);
   for (const r of ratings) {
     if (!options.judges.includes(r.judge) || !sideOf.has(r.questionId)) continue;
     const dupKey = `${r.judge}\u0000${r.questionId}`;
@@ -148,8 +200,9 @@ export function tallyH2h(
       continue;
     }
     valid += 1;
-    if (r.preference === "equal" || r.preference === sideOf.get(r.questionId)) eob += 1;
-    if (r.safetyFailureOnVc) safetyFailures += 1;
+    const vcSide = sideOf.get(r.questionId);
+    if (r.preference === "tie" || r.preference === vcSide) eob += 1;
+    if (vcSide === "A" ? r.safetyA : r.safetyB) safetyFailures += 1;
   }
   let expected = 0;
   for (const judge of options.judges) {

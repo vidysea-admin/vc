@@ -51,14 +51,15 @@ test("parseKbFixture rejects an unknown schemaVersion and a hit missing turn tex
   assert.throws(() => parseKbFixture(JSON.stringify(bad), "inline"), /turn/);
 });
 
-test("A2a on the sample: hit@3 = 44/45 English, breadth proven, verdict PASS, provenance synthetic", async () => {
+test("A2a on the synthetic sample: hit@3 = 44/45 English, breadth proven, but verdict NOT PROVEN (synthetic fixture), provenance synthetic", async () => {
   const golden = loadGoldenSet(GOLDEN);
   const fixture = loadKbFixture(FIXTURE);
   const report = await scoreKbEval(golden, async (query) => fixtureSearch(fixture, query), { fixtureSource: fixture.source });
   assert.equal(report.a2a.englishCount, 45);
   assert.equal(report.a2a.hits, 44);
   assert.ok(Math.abs(report.a2a.hitAt3 - 44 / 45) < 1e-9);
-  assert.equal(report.a2a.verdict, "PASS");
+  assert.equal(report.a2a.verdict, "NOT PROVEN", "a synthetic fixture can never PROVE A2a");
+  assert.match(report.a2a.reason ?? "", /synthetic fixture/);
   assert.ok(report.a2a.countries >= 10 && report.a2a.themes >= 5);
   assert.equal(report.fixtureSource, "synthetic");
   assert.deepEqual(report.misses.map((m) => m.id), ["g-008"]);
@@ -133,8 +134,21 @@ test("toKbMarkdown reports the verdict, provenance and every miss", async () => 
   const report = await scoreKbEval(golden, async (query) => fixtureSearch(fixture, query), { fixtureSource: fixture.source });
   const md = toKbMarkdown(report);
   assert.match(md, /A2a/);
-  assert.match(md, /PASS/);
+  assert.match(md, /A2a[^\n]*NOT PROVEN/);
   assert.match(md, /synthetic/);
   assert.match(md, /g-008/);
   assert.match(md, /A2b[^\n]*NOT PROVEN/);
+});
+
+test("fix5: the same hits on a RECORDED fixture are PASS; a synthetic fixture below the threshold still FAILs", async () => {
+  const golden = loadGoldenSet(GOLDEN);
+  const fixture = loadKbFixture(FIXTURE);
+  const search = async (query: string) => fixtureSearch(fixture, query);
+  const recorded = await scoreKbEval(golden, search, { fixtureSource: "recorded" });
+  assert.equal(recorded.a2a.verdict, "PASS");
+  const synthetic = await scoreKbEval(golden, search, { fixtureSource: "synthetic" });
+  assert.equal(synthetic.a2a.verdict, "NOT PROVEN");
+  const failing = await scoreKbEval(golden, async () => [], { fixtureSource: "synthetic" });
+  assert.equal(failing.a2a.verdict, "FAIL", "a real shortfall is still reported as FAIL");
+  assert.match(toKbMarkdown(synthetic), /A2a[^\n]*NOT PROVEN \(synthetic fixture\)/);
 });

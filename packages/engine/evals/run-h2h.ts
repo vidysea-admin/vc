@@ -9,7 +9,7 @@
 import { fileURLToPath } from "node:url";
 import { DEFAULT_GOLDEN_SET, DEFAULT_KB_FIXTURE, p1Main, runRealPath, writeP1File, writeP1Report, type P1Args, type RunnerDeps, type RunnerOutcome } from "./run-eval.js";
 import { fixtureSearch, loadGoldenSet, loadKbFixture } from "./dataset.js";
-import { buildBlindPairs, buildJudgeSheets, tallyH2h, type ExpertAnswer, type H2hRating } from "./h2h.js";
+import { buildBlindPairs, buildJudgeSheets, buildKeyFile, resolveH2hSeed, tallyH2h, type ExpertAnswer, type H2hRating } from "./h2h.js";
 import { judgeSheetMarkdown, toH2hMarkdown } from "./report.js";
 
 const MOCK_AUTHORS = ["author-1", "author-2"];
@@ -26,12 +26,13 @@ export async function runH2h(args: P1Args, deps: RunnerDeps = {}): Promise<Runne
     vcAnswers[g.id] = top ? `[mock answer] ${top.turn.text}` : "[mock answer] no sourced answer yet";
   }
   const experts: ExpertAnswer[] = golden.map((g, i) => ({ questionId: g.id, text: `[mock answer] reference for ${g.id}`, author: MOCK_AUTHORS[i % MOCK_AUTHORS.length]! }));
-  const { pairs, key } = buildBlindPairs(questions, vcAnswers, experts, args.seed);
-  const sheets = buildJudgeSheets(pairs, experts, MOCK_JUDGES, args.seed);
+  const resolved = resolveH2hSeed({ real: false, ...(args.seed !== undefined ? { seed: args.seed } : {}) });
+  const { pairs, key } = buildBlindPairs(questions, vcAnswers, experts, resolved.seed);
+  const sheets = buildJudgeSheets(pairs, experts, MOCK_JUDGES, resolved.seed);
 
   const files: string[] = [];
   files.push(writeP1File(args.outDir, "h2h-pairs.json", `${JSON.stringify(pairs, null, 2)}\n`));
-  files.push(writeP1File(args.outDir, "h2h-key.json", `${JSON.stringify(key, null, 2)}\n`));
+  files.push(writeP1File(args.outDir, "h2h-key.json", `${JSON.stringify(buildKeyFile(resolved, key), null, 2)}\n`));
   for (const sheet of sheets) {
     files.push(writeP1File(args.outDir, `h2h-judge-sheet-${sheet.judge}.json`, `${JSON.stringify(sheet, null, 2)}\n`));
     files.push(writeP1File(args.outDir, `h2h-judge-sheet-${sheet.judge}.md`, judgeSheetMarkdown(sheet)));
@@ -42,7 +43,7 @@ export async function runH2h(args: P1Args, deps: RunnerDeps = {}): Promise<Runne
   for (const judge of MOCK_JUDGES) {
     for (const [i, k] of key.entries()) {
       const prefersVc = i % 20 < 13;
-      ratings.push({ judge, questionId: k.questionId, preference: prefersVc ? k.vcSide : k.vcSide === "A" ? "B" : "A", safetyFailureOnVc: false });
+      ratings.push({ judge, questionId: k.questionId, preference: prefersVc ? k.vcSide : k.vcSide === "A" ? "B" : "A", safetyA: false, safetyB: false });
     }
   }
   const tally = tallyH2h(key, ratings, {

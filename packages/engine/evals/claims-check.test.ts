@@ -91,3 +91,15 @@ test("aggregateUnverified enforces the <= 5% bar across answers (spec A1, ASSUMP
   assert.equal(aggregateUnverified([]).pass, false, "no claims at all is NOT a pass");
   assert.equal(aggregateUnverified([mk(19, 1), mk(19, 1)]).share, 0.05);
 });
+
+test("fix7: any unresolved sourceId is flagged, even when another id on the same claim resolves", () => {
+  for (const status of ["verified", "attributed"] as const) {
+    const r = checkClaims([claim({ text: "Tuition in Canada is about 20,000 CAD", kind: "number", status, sourceIds: ["t-1", "t-999"] })], ctx);
+    const unresolved = r.violations.filter((v) => v.rule === "unresolvable-source");
+    assert.equal(unresolved.length, 1, `${status}: expected one unresolvable-source violation`);
+    assert.match(unresolved[0]!.detail, /t-999/);
+    assert.doesNotMatch(unresolved[0]!.detail, /t-1(?![0-9])/, "only the unresolved ids are listed");
+  }
+  // all ids resolving stays clean
+  assert.deepEqual(checkClaims([claim({ text: "Tuition in Canada is about 20,000 CAD", kind: "number", sourceIds: ["t-1", "t-1"] })], ctx).violations, []);
+});

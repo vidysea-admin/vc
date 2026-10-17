@@ -3,9 +3,11 @@
  *  temp ledger only (never the repo's real spend ledger). */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, existsSync, appendFileSync } from "node:fs";
+import { mkdtempSync, existsSync, appendFileSync, writeFileSync, rmSync, mkdirSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import {
   BudgetGuard,
   BudgetExceededError,
@@ -21,6 +23,13 @@ import {
 function tmpLedger(): string {
   return join(mkdtempSync(join(tmpdir(), "vc-budget-")), "ledger.jsonl");
 }
+/** A temp stand-in for qa/gates/g-real.md; tests never read the repo's real gate file. */
+function tmpGate(content: string | null = "# G-REAL\n\nAnswered: 2026-10-17T00:00:00+05:30 - A - Umesh in chat\n"): string {
+  const path = join(mkdtempSync(join(tmpdir(), "vc-gate-")), "g-real.md");
+  if (content !== null) writeFileSync(path, content, "utf-8");
+  return path;
+}
+const GATE_OK = tmpGate();
 const JULY = () => new Date("2026-07-15T10:00:00Z");
 const AUG = () => new Date("2026-08-02T10:00:00Z");
 
@@ -33,7 +42,7 @@ test("assertGReal refuses without the explicit VC_G_REAL flag, in every non-appr
   for (const env of [{}, { VC_G_REAL: "" }, { VC_G_REAL: "0" }, { VC_G_REAL: "true" }, { VC_G_REAL: "yes" }]) {
     assert.throws(() => assertGReal(env), GRealRefusedError);
   }
-  assert.doesNotThrow(() => assertGReal({ VC_G_REAL: "1" }));
+  assert.doesNotThrow(() => assertGReal({ VC_G_REAL: "1" }, GATE_OK));
 });
 
 test("a charge under both caps is recorded to the ledger before it returns", () => {
@@ -131,7 +140,7 @@ test("executeReal refuses without G-REAL: body never runs and no ledger file is 
 
 test("executeReal returns an aborted-budget result (not a throw) when the body overspends, and keeps the recorded spend", async () => {
   const ledgerPath = tmpLedger();
-  const result = await executeReal({ runner: "run-live", ledgerPath, env: { VC_G_REAL: "1" }, now: JULY }, async (run) => {
+  const result = await executeReal({ runner: "run-live", ledgerPath, env: { VC_G_REAL: "1" }, gateFile: GATE_OK, now: JULY }, async (run) => {
     run.charge(30);
     run.charge(30);
     return "never";
@@ -145,7 +154,7 @@ test("executeReal returns an aborted-budget result (not a throw) when the body o
 
 test("executeReal completes, records an end entry and returns the body value", async () => {
   const ledgerPath = tmpLedger();
-  const result = await executeReal({ runner: "run-probes", ledgerPath, env: { VC_G_REAL: "1" }, now: JULY }, async (run) => {
+  const result = await executeReal({ runner: "run-probes", ledgerPath, env: { VC_G_REAL: "1" }, gateFile: GATE_OK, now: JULY }, async (run) => {
     run.charge(1.25);
     return 42;
   });
@@ -161,7 +170,7 @@ test("executeReal completes, records an end entry and returns the body value", a
 test("a body that throws a non-budget error still records an end entry and rethrows", async () => {
   const ledgerPath = tmpLedger();
   await assert.rejects(
-    executeReal({ runner: "run-probes", ledgerPath, env: { VC_G_REAL: "1" }, now: JULY }, async (run) => {
+    executeReal({ runner: "run-probes", ledgerPath, env: { VC_G_REAL: "1" }, gateFile: GATE_OK, now: JULY }, async (run) => {
       run.charge(2);
       throw new Error("provider exploded");
     }),
@@ -178,4 +187,116 @@ test("a corrupt ledger line fails closed (refuses to run) rather than undercount
   new BudgetGuard({ ledgerPath, now: JULY }).startRun({ runner: "x" }).charge(1);
   appendFileSync(ledgerPath, "{not json\n", "utf-8");
   assert.throws(() => new BudgetGuard({ ledgerPath, now: JULY }).startRun({ runner: "y" }), /ledger/i);
+});
+
+// ---------------------------------------------------------------------------
+// p1-u4b hardening (senior review of U4)
+// ---------------------------------------------------------------------------
+
+test("fix1: a charge entry with a non-numeric, null, missing or negative usd fails closed", () => {
+  for (const bad of ['"abc"', "null", "-500", "{}", "1e999"]) {
+    const ledgerPath = tmpLedger();
+    mkdirSync(dirname(ledgerPath), { recursive: true });
+    const usdPart = bad === "{}" ? "" : `,"usd":${bad}`;
+    appendFileSync(ledgerPath, `{"ts":"2026-07-15T10:00:00.000Z","runId":"r","runner":"x","kind":"charge"${usdPart}}\n`, "utf-8");
+    assert.throws(() => readLedger(ledgerPath), /ledger/i, `usd=${bad} must fail closed`);
+    assert.throws(() => new BudgetGuard({ ledgerPath, now: JULY }).startRun({ runner: "y" }), /ledger/i, `guard must refuse on usd=${bad}`);
+  }
+  // a valid zero and a positive charge still read fine
+  const ok = tmpLedger();
+  appendFileSync(
+    ok,
+    '{"ts":"2026-07-15T10:00:00.000Z","runId":"r","runner":"x","kind":"charge","usd":0}\n{"ts":"2026-07-15T10:00:00.000Z","runId":"r","runner":"x","kind":"charge","usd":2.5}\n',
+    "utf-8",
+  );
+  assert.equal(monthSpendUsd(readLedger(ok), JULY()), 2.5);
+});
+
+const here = fileURLToPath(new URL(".", import.meta.url));
+
+function runWorker(ledgerPath: string, attempts: number, capUsd: number, startAtMs: number): Promise<{ code: number | null; out: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ["--import", "tsx", join(here, "budget-worker.ts"), ledgerPath, String(attempts), String(capUsd), String(startAtMs)], {
+      cwd: join(here, ".."),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let out = "";
+    child.stdout.on("data", (d) => (out += String(d)));
+    child.stderr.on("data", (d) => (out += String(d)));
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code, out }));
+  });
+}
+
+test("fix2: 6 concurrent processes each charging USD 1 against a shared month cap record at most the cap (400 here; 900 attempts)", { timeout: 180_000 }, async () => {
+  const ledgerPath = tmpLedger();
+  const startAt = Date.now() + 5_000; // all six release together after their (slow) tsx start-up
+  const results = await Promise.all(Array.from({ length: 6 }, () => runWorker(ledgerPath, 150, 400, startAt)));
+  for (const r of results) assert.equal(r.code, 0, `worker failed: ${r.out}`);
+  const charges = readLedger(ledgerPath).filter((e) => e.kind === "charge");
+  assert.ok(charges.length <= 400, `cap breached across processes: ${charges.length} charges recorded`);
+  assert.equal(charges.length, 400, "900 attempts against a 400 cap must fill the cap exactly");
+  assert.equal(existsSync(`${ledgerPath}.lock`), false, "the lock is released");
+});
+
+test("fix2: a stale lock file (dead owner) is broken after the stale timeout instead of starving the run", () => {
+  const ledgerPath = tmpLedger();
+  mkdirSync(dirname(ledgerPath), { recursive: true });
+  const lock = `${ledgerPath}.lock`;
+  writeFileSync(lock, "99999999", "utf-8");
+  const old = new Date(Date.now() - 10 * 60_000);
+  utimesSync(lock, old, old);
+  const guard = new BudgetGuard({ ledgerPath, now: JULY });
+  guard.startRun({ runner: "x" }).charge(1);
+  assert.equal(monthSpendUsd(readLedger(ledgerPath), JULY()), 1);
+  assert.equal(existsSync(lock), false);
+});
+
+test("fix2: a live lock that never frees fails closed after the bounded wait (no unlocked write)", () => {
+  const ledgerPath = tmpLedger();
+  mkdirSync(dirname(ledgerPath), { recursive: true });
+  const lock = `${ledgerPath}.lock`;
+  writeFileSync(lock, String(process.pid), "utf-8"); // fresh mtime: not stale
+  const guard = new BudgetGuard({ ledgerPath, now: JULY, lockWaitMs: 200, lockStaleMs: 60_000 });
+  assert.throws(() => guard.startRun({ runner: "x" }), /lock/i);
+  assert.equal(existsSync(ledgerPath), false, "nothing was appended without the lock");
+  rmSync(lock);
+});
+
+test("fix4: assertGReal also needs qa/gates/g-real.md with an Answered: line; refuses when absent or unanswered", () => {
+  const env = { VC_G_REAL: "1" };
+  assert.throws(() => assertGReal(env, tmpGate(null)), (e: unknown) => e instanceof GRealRefusedError && /g-real\.md/.test((e as Error).message));
+  assert.throws(() => assertGReal(env, tmpGate("# G-REAL\n\nAnswer format: `Answered: <ISO>` (pending)\n")), GRealRefusedError);
+  assert.throws(() => assertGReal(env, tmpGate("# G-REAL\n\nAnswered:\n")), GRealRefusedError);
+  assert.doesNotThrow(() => assertGReal(env, tmpGate("# G-REAL\n\nAnswered: 2026-10-17T10:00:00+05:30 - A - Umesh\n")));
+  // the env flag alone is not enough, and the gate file alone is not enough
+  assert.throws(() => assertGReal({}, GATE_OK), GRealRefusedError);
+});
+
+test("fix4: executeReal refuses with the env flag but no gate file; the body never runs and no ledger is created", async () => {
+  const ledgerPath = tmpLedger();
+  let ran = false;
+  await assert.rejects(
+    executeReal({ runner: "run-h2h", ledgerPath, env: { VC_G_REAL: "1" }, gateFile: tmpGate(null), now: JULY }, async () => {
+      ran = true;
+      return 1;
+    }),
+    GRealRefusedError,
+  );
+  assert.equal(ran, false);
+  assert.equal(existsSync(ledgerPath), false);
+});
+
+test("fix8: if guard.end throws after the body threw, the original body error is kept", async () => {
+  const ledgerPath = tmpLedger();
+  await assert.rejects(
+    executeReal({ runner: "run-probes", ledgerPath, env: { VC_G_REAL: "1" }, gateFile: GATE_OK, now: JULY }, async (run) => {
+      run.charge(1);
+      // make the end() append fail: replace the ledger file with a directory
+      rmSync(ledgerPath);
+      mkdirSync(ledgerPath);
+      throw new Error("body boom");
+    }),
+    /body boom/,
+  );
 });
