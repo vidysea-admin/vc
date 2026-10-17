@@ -16,8 +16,8 @@
 | # | Fact the text states | Source | Grounding |
 |---|---|---|---|
 | F1 | VC is an AI counsellor on Gemini. Real student text and voice go to Gemini in production. | plan.md section 2 and 4 (Gemini stack); p1-plan-draft intent.md line 43; D-086, D-093 | Grounded |
-| F2 | For signed-in students, a question that VC cannot answer from search alone goes to the KnowledgeBase `/ask`. That service uses its own LLM provider and a web search provider, Tavily. The Tavily fallback cannot be switched off per request or key. | p1-plan-draft spec.md G6; plan.md line 17 and 45 (B13 amendment names both) | Grounded. The name of the KB's LLM provider is **not** in the sources: [FILL] |
-| F3 | VC never shows a web-only or weak answer. | spec.md scope item 3, G6 | Grounded. This does not stop the question reaching Tavily, so the text says it may. |
+| F2 | For signed-in students, a question that VC cannot answer from search alone goes to the KnowledgeBase `/ask`. That service uses its own LLM provider. Tavily is removed from P1 (D-090: TAVILY_API_KEY stays unset for every KB deployment VC calls; Tavily is not a B13 processor). | p1-plan-draft spec.md G6; D-090 | Grounded. The name of the KB's LLM provider is **not** in the sources: [FILL] |
+| F3 | VC never shows a web-only or weak answer. | spec.md scope item 3, G6 | Grounded. With Tavily removed (D-090), no question reaches a web-search service. |
 | F4 | Speech to text: Gemini Live, with Sarvam as the Indic fallback. | plan.md lines 68 and 176 | Grounded in the plan. Whether Sarvam is live in production is not stated: [FILL] |
 | F5 | VC stores redacted turns. Names, phone numbers and emails are removed from questions and essays before storage. Other details (school, city, marks, health) are not covered by that redaction. | D-093 (6A) | Grounded. The text must not claim "no personal data". |
 | F6 | Voice turns are saved as text in the same history. Audio itself is not stored. | spec.md scope item 1 | [ASSUMPTION] in the spec |
@@ -46,7 +46,7 @@
 >
 > **Who sees your messages.** To answer you, VC sends your messages to outside services:
 > - **Google Gemini**, the AI model that reads your question and writes the reply. If you use voice, Gemini also turns your speech into text. [FILL: confirm whether Sarvam is used as a backup for speech.]
-> - **Our knowledge-base service.** It looks up facts from Vidysea's own material. If it cannot answer from that material, it may send your question to **its own AI provider [FILL: provider name]** and to **Tavily**, a web-search service. VC will not show you an answer that came only from the web.
+> - **Our knowledge-base service.** It looks up facts from Vidysea's own material. If it cannot answer from that material, it may send your question to **its own AI provider [FILL: provider name]**.
 >
 > These services are run by other companies, and they handle your text under their own terms. [LEGAL-REVIEW: provider terms, retention at each provider, and whether data leaves India.]
 >
@@ -79,7 +79,7 @@
 >
 > **आपके संदेश कौन देखता है।** जवाब देने के लिए VC आपके संदेश बाहर की कुछ सेवाओं को भेजता है:
 > - **Google Gemini**: यह AI मॉडल है जो आपका सवाल पढ़कर जवाब लिखता है। अगर आप बोलकर पूछते हैं, तो Gemini आपकी आवाज़ को लिखे हुए शब्दों में बदलता है। [FILL: पक्का करें कि आवाज़ के लिए Sarvam बैकअप के रूप में इस्तेमाल होता है या नहीं।]
-> - **हमारी नॉलेज-बेस सेवा।** यह Vidysea की अपनी सामग्री से तथ्य खोजती है। अगर उस सामग्री से जवाब नहीं मिलता, तो वह आपका सवाल **अपने AI प्रदाता [FILL: नाम]** और **Tavily** (वेब-सर्च सेवा) को भेज सकती है। जो जवाब सिर्फ़ वेब से आया हो, VC वह आपको नहीं दिखाता।
+> - **हमारी नॉलेज-बेस सेवा।** यह Vidysea की अपनी सामग्री से तथ्य खोजती है। अगर उस सामग्री से जवाब नहीं मिलता, तो वह आपका सवाल **अपने AI प्रदाता [FILL: नाम]** को भेज सकती है।
 >
 > ये सेवाएँ दूसरी कंपनियाँ चलाती हैं और आपका लिखा हुआ अपनी शर्तों के हिसाब से संभालती हैं। [LEGAL-REVIEW: प्रदाताओं की शर्तें, हर प्रदाता के पास रखने की अवधि, और डेटा भारत से बाहर जाता है या नहीं।]
 >
@@ -158,7 +158,7 @@ Legal basis: DPDP Act 2023 s.9 (verifiable parental consent before a child's per
 3. Whether recording identifiers plus a crisis flag, with no consent signal for a minor, is lawful (F15). This is the B4 and D-027 exception, narrowed by D-093 (4A).
 4. Parent verification method and Rule 10 adult check, who holds the proof, and whether Pathlynks or Vidysea is the Data Fiduciary (F17, F18). The entity name is [FILL] throughout.
 5. Commencement date of the DPDP Rules (about 13 May 2027, unconfirmed against the Gazette), and the Fourth Schedule text (read from a third-party site; the MeitY PDF returned 403) (F18, F19).
-6. Provider terms and data location for Gemini, the KB's LLM provider, Tavily and the speech-to-text service; cross-border transfer; processor agreements (F1, F2, F4).
+6. Provider terms and data location for Gemini, the KB's LLM provider and the speech-to-text service; cross-border transfer; processor agreements (F1, F2, F4).
 7. Withdrawal route, grievance officer and the rights wording (access, correction, erasure, grievance) required by the Act.
 8. Who is told when a crisis flag is raised, how fast, and whether a guardian is told over the student's wishes (proposal "Three decisions" 1 to 3; the CEO Nights decision is still open).
 9. The helpline set: 112 is not verified by the research; Tele-MANAS language coverage is unverified; the official Tele-MANAS portal could not be read.
