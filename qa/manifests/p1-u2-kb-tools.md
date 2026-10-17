@@ -2,7 +2,7 @@
 **Contract:** none yet for P1 (U0 contract amendments are checker-owned and pending). Criteria are taken from the approved spec v8, `qa/evidence/p1-plan-draft-20261017/spec.md` (D-089): **A4** (/ask serve-rule fixtures), **A15c** (anonymous egress is search-only and identity-free), **A18** (no web answer; outage = fixed no-answer text; no KB content copies), **A22 tagger part** (source-kind mapping). Plan row: `plan.md` U2.
 **Goal task:** none
 **Date:** 2026-10-17
-**Fix cycle:** 0 of max 2
+**Fix cycle:** 1 of max 2
 **Hold fix cycles:** 0 of 2
 **Hold-reopens:** 0
 **Resume-reset:** unused
@@ -74,5 +74,46 @@ Observed column: PASS = the node in `package-test.txt` (67/67 green); FAIL = the
 
 ## Live browser evidence
 Not UI-touching — no surface changed (changed paths: `mcp/university-kb/**`, `.env.example`, `qa/`).
+
+## Cycle-0 status (superseded by the Fix-cycle: 1 section below): ready-for-check
+
+## Fix-cycle: 1
+**Fix cycle:** 1 of max 2 (this section supersedes the cycle-0 header counts and the "67 tests" figures above; package now has 72 tests)
+Repair base: ac67455
+Repair SHA: 61dabdc (branch p1/u2; code and tests only under `mcp/university-kb/`; evidence added under `qa/evidence/p1-u2-kb-tools/*-cycle1.txt` in the manifest commit)
+Policy-Version: proportional-verification/2026-10-15.12
+Source: fresh ai-engineer review (Warning), six fixes. TDD: tests and fixtures were changed first and run red against the unchanged src (`red-before-impl-cycle1.txt`: 72 tests, 64 pass, 8 fail), then src was fixed (`package-test-cycle1.txt`: 72 tests, 72 pass, 0 fail; `typecheck-cycle1.txt`: exit 0).
+
+### What changed
+1. **No coverage is `no_sourced_answer`, not `unavailable`** (`src/kb-client.ts`, `ask()`): the zero-citation check now applies only when `verdict == "correct"` (a correct answer with zero internal and zero web sources is still withheld, as typed `unavailable`/`uncited`). Any other verdict with zero sources is returned `ok` and the serve rule maps it to `no_sourced_answer`. Outages (timeout, network, 5xx, 401/403, non-JSON, schema-invalid) are unchanged and stay `unavailable`. `kb-fixture/ask-fallback-failed.json` is now realistic (verdict incorrect, insufficient_coverage true, internal [], web []); its withheld list is now `verdict_not_correct, insufficient_coverage, no_internal_sources`. The T-026 test `uncited: ...` in `kb-client.test.ts` was changed on purpose to feed verdict `"correct"` (its fixture used verdict `"answered"`, which is now correctly a no-coverage case, not an outage).
+2. **`speakerLabel` only for seminar or toc** (`src/index.ts`, `search_kb` and `get_session`, both profiles): the label is dropped (absent) unless the source kind is `internal-seminar` or `toc`; whatsapp and unknown never carry it. The old assertion at `kb-tools.test.ts` (WhatsApp label passes) was changed on purpose; fixtures gained labels on `t-sem-1` and `t-rec-9` (search) and `t-sem-1` (session) so the seminar-passes and unknown-drops cases are observable.
+3. **Served `ask_knowledge_base` carries `sourceKind: "unknown"`** at the answer level (`applyServeRule` answered variant + tool `outputSchema`); withheld and unavailable results carry none.
+4. **`ask_knowledge_base` `query` is `max(1000)`**, same as `search_kb` (test: 1001 chars rejected before the client is called; 1000 accepted).
+5. **Search hit cross-check** (`src/kb-client.ts`, `search()`): a hit whose `turn._id != turnId`, whose `session._id != sessionId`, or which has no `turn._id` is dropped and counted in `dropped`, like a null hit.
+6. **Deliberate strictness vs the spec (documentation):** the 4th serve clause (>= 1 *internal* source) is stricter than spec G6 on purpose. Spec G6 would serve a `correct`, full-coverage, no-web answer on any source; this unit also requires an internal source, so a `correct` answer backed only by `sources.web` (fixture `ask-web-only.json`) is withheld as `no_internal_sources`. Reason: A18 forbids a web answer reaching the student and web sources never leave this module, so an answer with no internal citation has nothing citable to serve. Stated in the `applyServeRule` docstring too. The checker may overrule this by amending the spec; the change would be one line in `applyServeRule` plus the `ask-web-only` expectation.
+
+### Verification scope (cycle 1)
+Tier: M (same as cycle 0). Affected tests: `@vc/mcp-university-kb` only (72 tests; the only other consumer is a comment in `packages/engine/src/cards/nodes.ts`, no import). No full-repo suite run by the builder. No KB call, no paid provider, no production DB, no push.
+Pre-check[G6]: 61dabdc bash scripts/vc-testlock.sh pnpm -C mcp/university-kb exec tsx --test --test-name-pattern="G6" tests/kb-tools.test.ts -> pass 2 fail 0 t=19 blobs=mcp/university-kb/tests/kb-tools.test.ts:eebb882
+Pre-check[G6-uncited]: 61dabdc bash scripts/vc-testlock.sh pnpm -C mcp/university-kb exec tsx --test --test-name-pattern="^uncited" tests/kb-client.test.ts -> pass 1 fail 0 t=2 blobs=mcp/university-kb/tests/kb-client.test.ts:f7d1148
+Pre-check[A4]: 61dabdc bash scripts/vc-testlock.sh pnpm -C mcp/university-kb exec tsx --test --test-name-pattern="^A4" tests/kb-tools.test.ts -> pass 6 fail 0 t=3 blobs=mcp/university-kb/tests/kb-tools.test.ts:eebb882
+Pre-check[U2-label]: 61dabdc bash scripts/vc-testlock.sh pnpm -C mcp/university-kb exec tsx --test --test-name-pattern="speakerLabel passes only|search_kb: GET /search" tests/kb-tools.test.ts -> pass 2 fail 0 t=3 blobs=mcp/university-kb/tests/kb-tools.test.ts:eebb882
+Pre-check[U2-crosscheck]: 61dabdc bash scripts/vc-testlock.sh pnpm -C mcp/university-kb exec tsx --test --test-name-pattern="a search hit whose turn" tests/kb-tools.test.ts -> pass 1 fail 0 t=2 blobs=mcp/university-kb/tests/kb-tools.test.ts:eebb882
+Pre-check[U2-askcap]: 61dabdc bash scripts/vc-testlock.sh pnpm -C mcp/university-kb exec tsx --test --test-name-pattern="U2b fix 4" tests/kb-tools.test.ts -> pass 1 fail 0 t=3 blobs=mcp/university-kb/tests/kb-tools.test.ts:eebb882
+Full package: `bash D:/vc/scripts/vc-testlock.sh pnpm -C <worktree>/mcp/university-kb test` -> 72 pass, 0 fail; `... typecheck` -> exit 0.
+
+### Falsification table (one named falsification per changed criterion; each run in a COPY of the package at `scratchpad/u2b-mut` with `node_modules` junctioned, the repair worktree never mutated; green before, red after, restored identical and green again). Run over `kb-tools`, `kb-client` and `index` test files (62 tests; baseline 62 pass 0 fail, restored 62 pass 0 fail). Full output: `qa/evidence/p1-u2-kb-tools/mutations-cycle1.txt`.
+| Criterion | Falsifying edit (single, in the copy) | After: first failed node(s) |
+|---|---|---|
+| G6 no coverage | M1: drop `data.verdict === "correct" &&` so uncited applies to every verdict | 3 fail: `G6: a realistic no-coverage /ask ...`, `G6: verdict correct with zero ...`, `A4 ... ask-fallback-failed.json` |
+| U2-label (search_kb) | M2a: pass `speakerLabel` for every source kind | 2 fail: `search_kb: GET /search ...`, `U2b: speakerLabel passes only for seminar/toc` |
+| U2-label (get_session) | M2b: same in `get_session` | 1 fail: `U2b: speakerLabel passes only ...` |
+| U2-label (whatsapp) | M2c: add `kind === "whatsapp"` to the allow list | 2 fail: same two as M2a |
+| A4 / sourceKind | M3: served answer without `sourceKind` | 1 fail: `A4 serve rule ... ask-correct.json -> served` |
+| U2-askcap | M4: remove `.max(1000)` from the ask `query` | 1 fail: `U2b fix 4: ask_knowledge_base query is capped ...` |
+| U2-crosscheck (turn) | M5a: remove the `turn._id === turnId` clause | 1 fail: `U2b: a search hit whose turn._id != turnId ...` |
+| U2-crosscheck (session) | M5b: remove the `session._id === sessionId` clause | 1 fail: same test |
+
+Metrics: start=2026-10-17T14:28:56+05:30 end=2026-10-17T14:33:55+05:30 cycle=1 mutations=8 suite_runs=3 policy=proportional-verification/2026-10-15.12 lane=normal
 
 ## Status: ready-for-check
