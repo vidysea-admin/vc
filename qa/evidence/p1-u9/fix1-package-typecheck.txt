@@ -1,0 +1,23 @@
+[testlock] waiting for lock held by: PID=26740 STARTED=639278878419010024 ACQUIRED_AT=1792271598 TOKEN=1792271598347207100-48419-16951 DESC=python -I ../u7b-ev/fals.py 
+[testlock] owner PID 39308 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running (free RAM 4.65 GB): bash C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9-batch.sh
+== package test
+ℹ tests 117
+ℹ pass 117
+ℹ fail 0
+pkgrc=0
+== typecheck
+tcrc=0
+> @vc/providers@0.1.0 typecheck C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers
+> tsc --noEmit
+
+== falsification
+F1-interrupted-unmutes-after-crisis: rc=1 tests=? pass=? fail=?
+F2-half-reply-dropped-on-crisis: rc=1 tests=? pass=? fail=?
+M1a-crisis-interrupt-not-queued: rc=1 tests=? pass=? fail=?
+M1b-toolcall-not-queued: rc=1 tests=? pass=? fail=?
+M2-typed-text-skips-scan-after-crisis: rc=1 tests=? pass=? fail=?
+M3-silent-crisis-allowed: rc=1 tests=? pass=? fail=?
+C5-F2-flush-without-audit: rc=1 tests=? pass=? fail=?
+RESTORED: rc=0 tests=? pass=? fail=?

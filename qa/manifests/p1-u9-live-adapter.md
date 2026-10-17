@@ -4,7 +4,7 @@
 **Goal task:** none
 **Date:** 2026-10-18
 **Status:** ready-for-check
-**Fix cycle:** 0 of max 2
+**Fix cycle:** 1 of max 2
 **Dual check:** no (no auth, tenancy or prod-write trigger: provider seam, mock only, no network)
 **Persona walk:** skip (no human screen; the voice UI is U8/U10)
 **Issues addressed:** none
@@ -30,25 +30,28 @@ Code commit `e80c9b3` on branch `p1/u9` (base origin/main 47ab62a). Owned path `
 ## Verification scope
 Policy-Version: proportional-verification/2026-10-17.14
 Tier: M (provider seam, mock only; no auth, tenancy, student-data write or paid call)
-Round: 3 files, 6 criteria, est 25 min — one new module with its test file and a 4-line index re-export; resumed after a restart to run the per-criterion pre-checks and write this manifest
-Base / checked state: base 47ab62a, code e80c9b3, worktree clean except the evidence files and this manifest
-Affected tests / full-suite trigger: `@vc/providers` only (the new files sit in that package; nothing outside imports them yet). Package run `qa/evidence/p1-u9/providers-test.txt`: tests 108, pass 108, fail 0. No whole-repo suite.
+Round: fix cycle 1, 2 files (packages/providers/src/live.ts, tests/live.test.ts), 5 repairs on the C4 crisis-interrupt path, est 40 min; cycle 0 verdict FAIL (F1 interrupted() unmutes after a crisis, F2 half reply dropped on crisis) plus the checker's Candidates M1, M2, M3
+slow-plan: five independent repairs on one path, each with a failing test first, plus one falsification each, all serialised behind the shared machine-wide test lock (cannot be split below this without leaving the crisis path half repaired).
+Base / checked state: repair base a4864f8 (head the checker judged, code e80c9b3), code commit dea624f (this manifest + evidence are a second qa-only commit on top), worktree clean at the code commit
+Affected tests / full-suite trigger: `@vc/providers` only (live.ts and its test file; no other package imports live.ts). Package run `qa/evidence/p1-u9/fix1-package-typecheck.txt` at dea624f: tests 117, pass 117, fail 0 (108 before + 9 new); typecheck exit 0. No whole-repo suite.
 Tests[C1]: tests/live.test.ts nodes named "C1 ..." (13) — audio format, audio out, transcripts, tool call (3), interrupt (3), close (3), listener isolation; they exercise every part of the C1 interface through the Mock.
 Tests[C2]: tests/live.test.ts nodes "C1|C4|C5|C6 ..." (40) — all of them drive MockLiveProvider/MockLiveBackend, so a Mock that mis-records or mis-scripts fails them.
 Tests[C3]: tests/live.test.ts nodes named "C3 ..." (8) — loud failure with no connector, connect config, Gemini-shaped exchange, mic mime/base64, wrong sample rate, barge-in then close, SDK error, junk messages.
-Tests[C4]: tests/live.test.ts nodes named "C4 ..." (13) — split-chunk phrase, mute after trigger, thread order, no refire, recovery, detector error, typed text, and the Gemini-shaped crisis case.
+Tests[C4]: tests/live.test.ts nodes named "C4 ..." (22 = 13 existing + 9 new) — existing: split-chunk phrase, mute after trigger, thread order, no refire, recovery, detector error, typed text, Gemini-shaped crisis. New (fix cycle 1): F1 x3 (interrupted after a non-final crisis chunk, after a FINAL crisis chunk, and the mute ends at turnComplete), F2 x1 (half reply audited + stored interrupted before the student words), M1 x2 (crisis and tool call before attach, replayed on attach), M2 x2 (typed crisis after a spoken one, harmless typed text after one), M3 x1 (no audio / empty / odd-length audio refused at construction).
 Tests[C5]: tests/live.test.ts nodes named "C5 ..." (10) — uncited number, listed speaker, clean answer (no flag), word boundary, allow-listed 14416, after-the-fact timing, auditor crash, interrupted reply, two findings.
 Tests[C6]: tests/live.test.ts nodes named "C6 ..." (4) — slow sink keeps order, sink failure contained, injected-clock ISO timestamps, source-text import guard (no apps/api, ws or vendor SDK).
-Pre-check[C1]: e80c9b3 bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test --test-name-pattern="^C1 " tests/live.test.ts -> green: 13 passed, 0 failed rc=0 t=291s blobs=packages/providers/tests/live.test.ts:5226e99,packages/providers/src/live.ts:3cea3c1
-Pre-check[C2]: e80c9b3 bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test --test-name-pattern="^C[1456] " tests/live.test.ts -> green: 40 passed, 0 failed rc=0 t=6s blobs=packages/providers/tests/live.test.ts:5226e99,packages/providers/src/live.ts:3cea3c1
-Pre-check[C3]: e80c9b3 bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test --test-name-pattern="^C3 " tests/live.test.ts -> green: 8 passed, 0 failed rc=0 t=33s blobs=packages/providers/tests/live.test.ts:5226e99,packages/providers/src/live.ts:3cea3c1
-Pre-check[C4]: e80c9b3 bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test --test-name-pattern="^C4 " tests/live.test.ts -> green: 13 passed, 0 failed rc=0 t=70s blobs=packages/providers/tests/live.test.ts:5226e99,packages/providers/src/live.ts:3cea3c1
-Pre-check[C5]: e80c9b3 bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test --test-name-pattern="^C5 " tests/live.test.ts -> green: 10 passed, 0 failed rc=0 t=85s blobs=packages/providers/tests/live.test.ts:5226e99,packages/providers/src/live.ts:3cea3c1
-Pre-check[C6]: e80c9b3 bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test --test-name-pattern="^C6 " tests/live.test.ts -> green: 4 passed, 0 failed rc=0 t=8s blobs=packages/providers/tests/live.test.ts:5226e99,packages/providers/src/live.ts:3cea3c1
-Pre-check[typecheck]: e80c9b3 pnpm -r typecheck (qa/evidence/p1-u9/typecheck.txt) -> exit 0, all 9 workspace projects Done
-Metrics: start=2026-10-17T23:41:44+05:30 end=2026-10-18T01:59:00+05:30 builder_min=unavailable wall_min=137 agent_min=unavailable blocked_min=unavailable suite_runs=0 repeat_runs=0 mutations=23 cycle=0 resumes=1 tokens=unavailable policy=proportional-verification/2026-10-17.14 lane=normal check_s=unavailable mutants=23 defects_unit=unavailable defects_6c=0
-mutant-cap-raise: the brief asks for one falsification per criterion and C1, C4 and C5 each name several independent behaviours (interface of 5 parts, crisis hook of 7 cases, audit of 5 cases); the 23 edits were run in a throwaway copy, one per behaviour, each killed by one named test.
-(suite_runs=0: only per-criterion filters and the one providers package run, no whole-repo suite.) (start = the `.start` file in qa/evidence/p1-u9; the session restarted once after the commit; the per-criterion pre-checks were re-run on resume. Lock waits dominate the times.)
+Pre-check[C1]: dea624f bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test tests/live.test.ts -> green: 57 passed, 0 failed (whole file; this criterion: 13 "C1 " nodes) rc=0 t=775s blobs=packages/providers/tests/live.test.ts:9e8e842,packages/providers/src/live.ts:b246dfe
+Pre-check[C2]: dea624f bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test tests/live.test.ts -> green: 57 passed, 0 failed (the 49 C1/C4/C5/C6 nodes all drive the Mock) rc=0 t=775s blobs=packages/providers/tests/live.test.ts:9e8e842,packages/providers/src/live.ts:b246dfe
+Pre-check[C3]: dea624f bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test tests/live.test.ts -> green: 57 passed, 0 failed (whole file; this criterion: 8 "C3 " nodes) rc=0 t=775s blobs=packages/providers/tests/live.test.ts:9e8e842,packages/providers/src/live.ts:b246dfe
+Pre-check[C4]: dea624f bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test tests/live.test.ts -> green: 57 passed, 0 failed (whole file; this criterion: 22 "C4 " nodes) rc=0 t=775s blobs=packages/providers/tests/live.test.ts:9e8e842,packages/providers/src/live.ts:b246dfe
+Pre-check[C5]: dea624f bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test tests/live.test.ts -> green: 57 passed, 0 failed (whole file; this criterion: 10 "C5 " nodes) rc=0 t=775s blobs=packages/providers/tests/live.test.ts:9e8e842,packages/providers/src/live.ts:b246dfe
+Pre-check[C6]: dea624f bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test tests/live.test.ts -> green: 57 passed, 0 failed (whole file; this criterion: 4 "C6 " nodes) rc=0 t=775s blobs=packages/providers/tests/live.test.ts:9e8e842,packages/providers/src/live.ts:b246dfe
+Pre-check[typecheck]: dea624f pnpm -C packages/providers typecheck (tsc --noEmit) -> exit 0, no output (qa/evidence/p1-u9/fix1-package-typecheck.txt); whole-repo `pnpm -r typecheck` not re-run (only live.ts changed, nothing else imports it)
+Pre-check[package]: dea624f bash scripts/vc-testlock.sh pnpm -C packages/providers test -> green: tests 117, pass 117, fail 0 rc=0 (qa/evidence/p1-u9/fix1-package-typecheck.txt)
+Pre-check[red-first]: a4864f8 + the 9 new tests only (live.ts unrepaired) -> RED: 9 run, 1 pass (the "mute ends at turnComplete" guard test), 8 fail, one per defect variant (qa/evidence/p1-u9/fix1-red.txt); the repair turned them green: tests/live.test.ts 57/57 (qa/evidence/p1-u9/fix1-live-test-green.txt)
+Metrics: start=2026-10-18T02:24:26+05:30 end=2026-10-18T03:02:50+05:30 builder_min=unavailable wall_min=39 agent_min=unavailable blocked_min=unavailable suite_runs=0 repeat_runs=1 mutations=7 cycle=1 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-17.14 lane=normal check_s=unavailable mutants=7 defects_unit=2 defects_6c=0
+mutant-cap-raise: cycle 1 repairs five independent behaviours on one path (F1, F2, M1 with two sub-paths, M2, M3), so one falsification per repair, plus a C5 mutant because F2 changes audit behaviour: 7 edits in a throwaway copy, each killed by named C4 tests.
+(suite_runs=0: no whole-repo suite; repeat_runs=1: the falsification script was re-run once after a Windows console-encoding crash in its own print, not a product failure. blocked_min is the testlock wait. Cycle 0 figures are in the verdict, not repeated here.)
 
 ## Capability coverage (each criterion -> a named falsification, run in a throwaway copy, never the bound tree; observed in `qa/evidence/p1-u9/falsification-summary.txt`, restored run 48/48 pass)
 | Criterion | falsifying edit (src/live.ts) | observed (live.test.ts, 48 tests) |
@@ -74,6 +77,24 @@ mutant-cap-raise: the brief asks for one falsification per criterion and C1, C4 
 | C5 | C5e: audit record not handed to sink | 2 fail |
 | C6 | C6a: sink failure not contained | 1 fail |
 | C6 | C6b: sink writes not serialised | 1 fail |
+| C4 (fix cycle 1) | F1: `interrupted()` clears `muted` unconditionally again | 2 fail (both F1 leak tests, named in qa/evidence/p1-u9/fix1-falsification.txt) |
+| C4 (fix cycle 1) | F2: `fireCrisis` drops the half reply (`assistantBuf = ""`) instead of `flushAssistant(true)` | 1 fail |
+| C4 (fix cycle 1) | M1a: crisis backend interrupt not queued before attach | 1 fail |
+| C4 (fix cycle 1) | M1b: tool call before attach not queued | 1 fail |
+| C4 (fix cycle 1) | M2: typed text skips the scan once a crisis fired for the utterance | 2 fail |
+| C4 (fix cycle 1) | M3: constructor no longer requires crisis audio | 1 fail |
+| C5 (fix cycle 1) | F2 variant: `flushAssistant(true)` stops auditing interrupted half replies | 1 fail (the F2 test) |
+(Every cycle-1 mutant failed on named assertions, not an import error; restored copy rc=0. Run in `scratchpad/p1-u9-fals`, a copy; the bound tree was never mutated. Script: `qa/evidence/p1-u9/fix1-falsify.py`.)
+
+## Fix cycle 1 (what changed, decisions)
+Code commit `dea624f` on `p1/u9`, `packages/providers/src/live.ts` (+97/-26) and `tests/live.test.ts` (+116, no existing test edited or weakened).
+- **F1** `interrupted()` (live.ts, was 365-370): now keeps the mute while a new `crisisMute` flag is set. I used a separate flag, not only `!crisisFiredForUtterance` as the brief suggested, because `crisisFiredForUtterance` is reset by a FINAL transcript chunk (`flushUser(true)`), so a crisis on a final chunk followed by `interrupted` would still have reopened the audio (test F1 #2). `crisisMute` is set in `fireCrisis`, cleared by `turnComplete` and by the next non-crisis student speech (the existing un-mute path at inputTranscript).
+- **turnComplete decision** (brief asked me to say what I chose): I KEPT the `turnComplete` clear, as a test pins it (the recovery test) and it is the only end-of-generation signal this seam receives; there is no playback-finished signal from the client, so "until the crisis message has fully played" cannot be measured here. Residual risk: if Gemini answers the crisis utterance as a NEW turn after `turnComplete`, that reply would be audible. That is a G-REAL / A10 live-gate question and is not provable offline (the cycle-0 verdict says the same).
+- **F2** `fireCrisis`: `assistantBuf = ""` replaced by `flushAssistant(true)` before the mute, so the half reply is audited and stored as `interrupted: true`, ordered before the student words and the fixed reply (seq 1, 2, 3 in the test).
+- **M1** `toolCall` and `fireCrisis` queue their backend-dependent part in `pendingBackendEvents` when no backend is attached yet; `attach` replays them (each in try/catch). The fixed crisis message still plays immediately; only the backend interrupt waits.
+- **M2** `sendText` scans with `force`, bypassing the "already fired for this utterance" short-circuit (that rule is for later chunks of the same spoken utterance). A typed crisis after a spoken one fires the fixed message again and is not forwarded; harmless typed text is scanned and forwarded.
+- **M3** the `LiveSession` constructor throws `LiveConfigError` if a detector is wired without non-empty, even-length `crisisMessage.audio`. The type stays optional (text-channel use). Any other caller that builds a Live session with a detector and a text-only message (U8, not in this worktree) must now supply the audio; grep found no other user of `crisisMessage` in this tree.
+- Not touched (Candidates): heard partial dropped on crisis beyond F2, `interrupt()` throw, `latencyMs`, auditor comment wording.
 
 ## Not done / stated limits (for the checker)
 - **Gemini is compile-only.** The `GeminiLiveConnector` message shapes follow the read-only reference `D:/ikigai_counsellor/server/geminiLiveService.ts`; no real socket, SDK or key was used. A10 (real voice gate: latency, 300 ms interrupt, 20-phrase crisis set with at most 2 s of model audio) is REAL and waits for G-REAL.
