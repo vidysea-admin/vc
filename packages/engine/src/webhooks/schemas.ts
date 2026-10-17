@@ -2,20 +2,21 @@
  * B21 signed webhooks (D-021): the event envelope + per-type payload shapes VC emits to a client's
  * HTTP endpoint (Pathlynks first) so the client keeps its own copy of approved facts, erasure
  * requests and concern flags (contract B21 "Events"). T-027 (core) built the schemas; T-034 adds the
- * emission-hook builders below (`buildFactApprovedEvent`, `buildErasureRequestedEvent`), called from
- * apps/api/src/server.ts's decideApproval and confirmErasure routes after the write they describe
- * has durably succeeded (decideApproval reads back what applyApprovedDiff wrote via
- * @vc/db getFactsByIds; confirmErasure reads the request row via @vc/db getErasureRequest, the last
- * point it still carries a clear studentId — see getErasureRequest's own docstring). The
- * concern.flagged builder remains a TODO — see the note near the bottom of this file and
- * ISS-t-034-concern-hook.
+ * emission-hook builders below (`buildFactApprovedEvent`, `buildErasureRequestedEvent`,
+ * `buildConcernFlaggedEvent`), called from apps/api/src/server.ts's decideApproval, confirmErasure
+ * and startScribe routes after the write they describe has durably succeeded (decideApproval reads
+ * back what applyApprovedDiff wrote via @vc/db getFactsByIds; confirmErasure reads the request row
+ * via @vc/db getErasureRequest, the last point it still carries a clear studentId — see
+ * getErasureRequest's own docstring; startScribe reads back the concern edges recordSessionConcerns
+ * wrote via readStudentConcerns, so a fence-compensated concern is never announced).
+ * ISS-t-034-concern-hook wired the concern.flagged builder.
  *
  * B2 provenance is canonical in @vc/schemas: actual persisted counsellor edits carry
  * trusted actor/time and bounded original editedFrom; builders forward it unchanged.
  */
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { ErasureReasonSchema, FactSourceSchema, type ErasureReason } from "@vc/schemas";
+import { ConcernRecordSchema, ErasureReasonSchema, FactSourceSchema, type ConcernRecord, type ErasureReason } from "@vc/schemas";
 
 /** The shared canonical source, including bounded counsellor-edit provenance. */
 export const WebhookFactSourceSchema = FactSourceSchema;
@@ -153,13 +154,38 @@ export function buildErasureRequestedEvent(input: BuildErasureRequestedEventInpu
   });
 }
 
-// ---------------------------------------------------------------------------
-// T-034 residual (OUT OF SCOPE, see qa/manifests/t-034-webhook-outbox.md "Open gaps" and
-// ISS-t-034-concern-hook): a concern.flagged emission hook belongs at the concern-detection call
-// site, which is packages/engine/src/scribe/nodes.ts recordSessionConcerns — a file T-012 (crisis
-// escalation, in_progress at this unit's base commit) is actively changing. Touching it here would
-// race T-012's own edits (anti-drift: no editing a file another in-flight unit owns). TODO(after
-// T-012 lands): add a `buildConcernFlaggedEvent` builder here (mirrors the two above) and call it
-// from recordSessionConcerns the same way server.ts calls buildFactApprovedEvent — never a silent
-// drop, never blocking the concern write itself.
-// ---------------------------------------------------------------------------
+export interface BuildConcernFlaggedEventInput {
+  tenantId: string;
+  /** A ConcernRecord (packages/schemas) exactly as recordSessionConcerns durably wrote it to the
+   * Student KG (read back via readStudentConcerns). */
+  concern: ConcernRecord;
+  /** Default: now. Tests pass a fixed value. */
+  occurredAt?: string;
+}
+
+/** B20/B21 "Events": a concern-level flag (ISS-t-034-concern-hook). Wire shape only: the student and
+ * session ids, the flagged turn's id, the guard patterns that fired and the fixed descriptive
+ * `reason` as `message` — NOT the cited transcript quote (the client reads the turn through the
+ * authenticated transcript API; the webhook is a signal, not a copy of what the student said).
+ * Crisis-level records are refused: they escalate synchronously (B9/B16), never through this
+ * event. The id is derived from (tenant, student, concernId) — concernId is already
+ * `${sessionId}:${turnId}` — so a replayed scribe start, which re-derives the same concern edges,
+ * enqueues the SAME id and the outbox no-ops it. */
+export function buildConcernFlaggedEvent(input: BuildConcernFlaggedEventInput): WebhookEvent {
+  const concern = ConcernRecordSchema.parse(input.concern);
+  if (concern.level !== "concern") throw new Error("buildConcernFlaggedEvent: only concern-level records are webhook events");
+  const id = stableEventId("concern.flagged", [input.tenantId, concern.studentId, concern.concernId]);
+  return WebhookEventSchema.parse({
+    id,
+    type: "concern.flagged",
+    occurredAt: input.occurredAt ?? new Date().toISOString(),
+    tenantId: input.tenantId,
+    data: {
+      sessionId: concern.sessionId,
+      studentId: concern.studentId,
+      turnId: concern.citation.turnId,
+      matched: concern.matched,
+      message: concern.reason,
+    },
+  });
+}
