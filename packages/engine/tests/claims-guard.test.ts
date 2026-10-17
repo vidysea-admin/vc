@@ -81,6 +81,8 @@ test("R5 supports(): numbers must match with the same currency/unit when one is 
   assert.equal(supports({ text: "The fee is about €300.", kind: "number" }, "The fee is about 300 euros."), true);
   assert.equal(supports({ text: "It takes about 12 months.", kind: "number" }, "It takes about 12 weeks."), false);
   assert.equal(supports({ text: "A blocked account needs about 11904 euros.", kind: "number" }, "Blocked accounts of about 11,904 euros are required."), true);
+  // A unit-less number that is absent from the evidence is never supported.
+  assert.equal(supports({ text: "Applicants need 3 reference letters.", kind: "number" }, "Applicants need 2 reference letters."), false);
 });
 
 test("A1 /ask: verified only when the node_id is in this response AND get_session on evidence.sessionRef returns supporting text", async () => {

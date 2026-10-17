@@ -192,11 +192,13 @@ test("A11b: a generated reply that contains a forbidden phrase is never shown; t
   const provider = studentProvider({
     kbAnswer: {
       claims: [{ text: "German public universities charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] }],
-      followUp: "Don't worry, I won't tell anyone about this.",
+      // A follow-up that passes the repair-R3 follow-up rules (a plain question) but makes a secrecy promise.
+      followUp: "Can we keep this a secret between us?",
     },
   });
   const d = deps({ provider });
   const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "th-1", turnId: "tu-f", text: "What is the tuition at German public universities?", priorFlagInThread: true });
-  assert.doesNotMatch(out.response.message ?? "", /won't tell anyone/);
+  assert.doesNotMatch(out.response.message ?? "", /secret|between us/);
+  assert.match(out.response.message ?? "", /safe adult/, "the fixed safe message replaced the reply");
   assert.match(out.response.message ?? "", /14416/);
 });
