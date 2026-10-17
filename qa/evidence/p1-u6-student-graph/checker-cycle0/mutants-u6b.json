@@ -1,0 +1,56 @@
+[
+ {
+  "id": "M14b-tele-manas-number-both",
+  "crit": "A11b 14416",
+  "edits": [
+   [
+    "src/student/graph.ts",
+    "Please call Tele-MANAS on 14416.",
+    "Please call Tele-MANAS on 112."
+   ],
+   [
+    "src/student/graph.ts",
+    "(Tele-MANAS: 14416,",
+    "(Tele-MANAS: 112,"
+   ]
+  ]
+ },
+ {
+  "id": "M16b-crisis-writes-uncaught",
+  "crit": "A11/A11b writes",
+  "edits": [
+   [
+    "src/student/graph.ts",
+    "const logged = await safeWrite(",
+    "const logged = await ((_k: StudentWriteKind, f?: () => Promise<unknown>) => (f ? f().then(() => true) : true))("
+   ],
+   [
+    "src/student/graph.ts",
+    "const escalated = await safeWrite(",
+    "const escalated = await ((_k: StudentWriteKind, f?: () => Promise<unknown>) => (f ? f().then(() => true) : true))("
+   ]
+  ]
+ },
+ {
+  "id": "M33-count-uncaught",
+  "crit": "A11 anon counter",
+  "edits": [
+   [
+    "src/student/graph.ts",
+    "const count = (kind: AnonymousCounterKind) => safeWrite(`counter:${kind}`, deps.countAnonymous ? () => deps.countAnonymous!(kind) : undefined);",
+    "const count = async (kind: AnonymousCounterKind) => { if (deps.countAnonymous) await deps.countAnonymous(kind); return true; };"
+   ]
+  ]
+ },
+ {
+  "id": "M34-gap-uncaught",
+  "crit": "A4 gap write non-fatal",
+  "edits": [
+   [
+    "src/student/graph.ts",
+    "await safeWrite(\"gap\", deps.recordGap ? () => deps.recordGap!(gap) : undefined);",
+    "if (deps.recordGap) await deps.recordGap(gap);"
+   ]
+  ]
+ }
+]

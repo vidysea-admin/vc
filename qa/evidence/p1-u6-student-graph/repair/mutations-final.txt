@@ -1,0 +1,56 @@
+A1-numbers	NOT-APPLIED	src/student/claims.ts
+A1-attributed	KILLED	pass=13 fail=3	tests/claims-guard.test.ts	first=A1 /ask: a session-level node_id (session:<id> or /session:<id>) resolves without evidence; a topic node without sessionRefs cannot be verif
+A13-stale	KILLED	pass=15 fail=1	tests/claims-guard.test.ts	first=A13: with no override the staleness threshold is the 24-month default [ASSUMPTION P-7]: 45 months old is stale, 16 months is not
+A3-permission	KILLED	pass=9 fail=1	tests/no-quote.test.ts	first=A3: a speaker WITH a written-permission record may be named (default-deny is per speaker, not blanket)
+A3-denied	KILLED	pass=6 fail=4	tests/no-quote.test.ts	first=A3: exhaustive - no alias of a speaker without a written-permission record survives the guard in any surface form
+A3-zerowidth	KILLED	pass=8 fail=2	tests/no-quote.test.ts	first=A3: zero-width characters and NBSP inside a denied name do not let it through
+A4-web	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=A4/A18 (answered with internal AND web): a non-served /ask result is the fixed no-answer, no model call, one gap count
+A4-gap	NOT-APPLIED	src/student/graph.ts
+U6-search-first	KILLED	pass=32 fail=4	tests/student-graph.test.ts	first=answer_from_kb: search_kb first; with >= 1 hit at or above the threshold, /ask is never called; reply is built from guarded claims
+U6-threshold	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=answer_from_kb: insufficient = 0 hits with score >= threshold -> ask_knowledge_base; low-score hits are not used as evidence
+B21-gate	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=gate: a missing, non-student or incomplete identity is refused before any KB or model call (counsellor/admin tokens rejected)
+A11-escalate	NOT-APPLIED	src/student/graph.ts
+A11b-14416	KILLED	pass=6 fail=3	tests/crisis-defaults.test.ts	first=A11b: the authenticated fixed message has Tele-MANAS 14416, the safe-adult question, discloses the hand-off and promises no counsellor
+A11b-higher-level	KILLED	pass=8 fail=1	tests/crisis-defaults.test.ts	first=A11b: unsure / indirect / concern-level / Hinglish cases map to the higher level
+A11b-forbidden	KILLED	pass=8 fail=1	tests/crisis-defaults.test.ts	first=A11b: a generated reply that contains a forbidden phrase is never shown; the fixed safe message replaces it
+A11b-flaglog	NOT-APPLIED	src/student/graph.ts
+A12-retry	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=A12: every model failing gives the apology + Retry, never a guessed answer
+A15b-failclosed	KILLED	pass=3 fail=1	tests/student-classify.test.ts	first=A15b: the personal fixture has >= 40 borderline cases incl. Hindi/Hinglish, and 0 of them are classified generic
+A15c-anon-ask	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=anonymous: a generic question uses search_kb only (never /ask, never get_session), even when search finds nothing
+A21a-draftguard	KILLED	pass=4 fail=1	tests/coach-first.test.ts	first=A21(a): every drafting request yields coaching (questions, structure) and never a full draft - even when the model returns one
+A21b-intents	NOT-APPLIED	src/student/classify.ts
+A21c-manifest	KILLED	pass=2 fail=1	tests/capability-manifest.test.ts	first=A21(c): building the graph against a drifted manifest fails loudly (a missing or an extra tool)
+A22-verbatim	KILLED	pass=5 fail=2	tests/source-kind.test.ts	first=A22: a WhatsApp or unknown claim quoting >= 8 consecutive source words is removed from the answer (never verbatim)
+A22-pii	NOT-APPLIED	src/student/claims.ts
+A22-ask-unknown	KILLED	pass=6 fail=1	tests/source-kind.test.ts	first=A22: a claim with no determinable kind (served /ask, unresolvable source) is restricted 'unknown'
+A1-numbers(adapted)	SURVIVED	pass=16 fail=0	tests/claims-guard.test.ts	first=
+A4-gap(adapted)	KILLED	pass=27 fail=9	tests/student-graph.test.ts	first=A4/A18 (web_used): a non-served /ask result is the fixed no-answer, no model call, one gap count
+A11-escalate(adapted)	KILLED	pass=7 fail=2	tests/crisis-defaults.test.ts	first=A11/A11b: crisis phrases (English, Hinglish, Hindi) on an authenticated turn get the fixed message, no model/KB call, a flag log record and 
+A11b-flaglog(adapted)	KILLED	pass=6 fail=3	tests/crisis-defaults.test.ts	first=A11/A11b: crisis phrases (English, Hinglish, Hindi) on an authenticated turn get the fixed message, no model/KB call, a flag log record and 
+A11b-forbidden	KILLED	pass=8 fail=1	tests/crisis-defaults.test.ts	first=A11b: a generated reply that contains a forbidden phrase is never shown; the fixed safe message replaces it
+A21b-intents(adapted)	KILLED	pass=3 fail=2	tests/coach-first.test.ts	first=R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB
+A22-pii(adapted)	KILLED	pass=6 fail=1	tests/source-kind.test.ts	first=A22: personal identifiers (phone, listed names, WhatsApp speakerLabels of the turn) never survive in a restricted claim
+R1-counter-uncaught	KILLED	pass=34 fail=2	tests/student-graph.test.ts	first=R1 crisis-first: an anonymous crisis with the counter store down still returns the fixed message + Tele-MANAS 14416 (flagWriteFailed)
+R1-gap-uncaught	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R1: recordGap throwing on an authenticated no-answer still returns the fixed no-answer (logged, not thrown)
+R2a-keep-unresolvable	KILLED	pass=14 fail=2	tests/claims-guard.test.ts	first=A1 (repair R2a): a sourceId not returned in THIS turn (invented, or another turn's id) is stripped; with none left the claim is DROPPED, nev
+R2a-turnwide-hits-off	KILLED	pass=33 fail=3	tests/student-graph.test.ts	first=R2a: a claim citing a seminar hit but quoting WhatsApp text verbatim is dropped (check over ALL restricted texts of the turn)
+R2a-final-message-check-off	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R2a: the FINAL message is checked too - two claims that are each under the verbatim bar but join into an 8+ word WhatsApp run give the no-an
+R2b-unknown-label-off	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R2b: the speakerLabel of an 'unknown' (unlisted recording) hit is redacted
+R2b-session-label-off	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R2b: the speakerLabel of a get_session turn fetched on the /ask path is redacted
+R3-digits-allowed	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R3 followUp: kept only when it ends with '?', has no digits, no country, no personal identifier and no verbatim restricted run
+R3-question-mark-not-required	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R3 followUp: kept only when it ends with '?', has no digits, no country, no personal identifier and no verbatim restricted run
+R4-anon-shows-unverified	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R4 (D-092): anonymous mode never shows unverified claims; authenticated mode flags them '(unverified)' next to a sourced claim
+R5-negation-off	KILLED	pass=15 fail=1	tests/claims-guard.test.ts	first=R5 supports(): negation parity - 'no tuition' is not supported by 'tuition fees of 500 euros' (and vice versa)
+R5-country-prefix	KILLED	pass=15 fail=1	tests/claims-guard.test.ts	first=R5 supports(): country match is exact token or demonym, never a prefix ('India' must not match 'individual')
+R5-proper-nouns-off	KILLED	pass=15 fail=1	tests/claims-guard.test.ts	first=R5 supports(): a capitalised proper noun in a fact/country claim must appear in the evidence (off-list countries like Turkey)
+R5-units-off	KILLED	pass=15 fail=1	tests/claims-guard.test.ts	first=R5 supports(): numbers must match with the same currency/unit when one is present
+R6-confirm-allows-questions	KILLED	pass=4 fail=1	tests/coach-first.test.ts	first=R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB
+R6-erasure-without-my	KILLED	pass=4 fail=1	tests/coach-first.test.ts	first=R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB
+R6-lor-requirements-drafting	KILLED	pass=4 fail=1	tests/coach-first.test.ts	first=R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB
+R7-no-raw-crisis-scan	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R7: the crisis guard runs on the raw text before schema validation: 4001 chars with a crisis phrase -> the crisis message
+R7-auth-error-for-bad-text	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R7: an over-long text without a crisis phrase is StudentInputInvalidError, not StudentAuthRequiredError
+R8-output-normalised	KILLED	pass=9 fail=1	tests/no-quote.test.ts	first=R8: normalisation is for matching only - ZWJ/ZWNJ in Hindi text survive the guard unchanged; a removed name loses its zero-width chars
+R8-title-left-behind	KILLED	pass=9 fail=1	tests/no-quote.test.ts	first=R8: a title before a removed name goes with it (no 'Dr. a speaker' / 'Prof. a speaker')
+R9-no-cache	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R9: the compiled graph is cached per deps and itself enforces the TurnResponse schema + the prior-flag Tele-MANAS suffix
+R9-finish-outside-graph	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R9: the compiled graph is cached per deps and itself enforces the TurnResponse schema + the prior-flag Tele-MANAS suffix
+R9-no-reexport	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R9: the student module is re-exported from the @vc/engine entry point

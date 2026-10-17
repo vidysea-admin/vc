@@ -1,0 +1,16 @@
+[
+ [
+  "R2a-final-message-check-off",
+  "src/student/graph.ts",
+  "    if (guarded.restricted.texts.some((t) => hasVerbatimRun(message, t))) return noAnswer(input);",
+  "",
+  "tests/student-graph.test.ts"
+ ],
+ [
+  "R6-confirm-allows-questions",
+  "src/student/classify.ts",
+  "  if (t.includes(\"?\")) return false;",
+  "",
+  "tests/coach-first.test.ts"
+ ]
+]

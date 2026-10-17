@@ -1,0 +1,49 @@
+{
+  "_fixture": "SYNTHETIC. Invented speaker names, aliases and written-permission records for the P1 U6 no-quote guard tests (spec A3, contract B24.3). No real person, no KB content. The production file is supplied by Vidysea [ASSUMPTION].",
+  "speakers": [
+    {
+      "id": "spk-arjun",
+      "name": "Arjun Mehrotra",
+      "aliases": ["Arjun Mehrotra", "Arjun", "Mehrotra", "Mr. Mehrotra", "Arjun sir", "अर्जुन मेहरोत्रा", "अर्जुन", "Arjoon Mehrotra"]
+    },
+    {
+      "id": "spk-kavya",
+      "name": "Kavya Raghunathan",
+      "aliases": ["Kavya Raghunathan", "Kavya", "Raghunathan", "Dr. Raghunathan", "Kavya ma'am", "काव्या", "काव्या रघुनाथन"]
+    },
+    {
+      "id": "spk-guest-ext",
+      "name": "Helena Fairbrook",
+      "external": true,
+      "aliases": ["Helena Fairbrook", "Fairbrook", "Prof. Fairbrook", "हेलेना फेयरब्रुक"]
+    },
+    {
+      "id": "spk-wa-person",
+      "name": "Fixture Person A",
+      "aliases": ["Fixture Person A", "Person A", "फिक्स्चर पर्सन ए"]
+    },
+    {
+      "id": "spk-nisha",
+      "name": "Nisha Varadkar",
+      "aliases": ["Nisha Varadkar", "Nisha", "Varadkar", "Nisha ma'am", "निशा वारडकर", "निशा"],
+      "permission": {
+        "grantedBy": "Nisha Varadkar",
+        "grantedAt": "2026-09-01",
+        "documentRef": "synthetic-permission-0001",
+        "scope": "may be named as the speaker of her own seminar material"
+      }
+    },
+    {
+      "id": "spk-guest-perm",
+      "name": "Tomas Lindqvist",
+      "external": true,
+      "aliases": ["Tomas Lindqvist", "Lindqvist", "Prof. Lindqvist"],
+      "permission": {
+        "grantedBy": "Tomas Lindqvist",
+        "grantedAt": "2026-08-15",
+        "documentRef": "synthetic-permission-0002",
+        "scope": "may be named as the speaker of his guest seminar"
+      }
+    }
+  ]
+}

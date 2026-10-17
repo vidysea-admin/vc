@@ -152,6 +152,9 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   - A claim with no resolvable source is dropped or returned `unverified` and shown flagged, **never presented as
     sourced**. This is the one named exception to "every fact shown carries a source": an `unverified` claim is
     visibly flagged and counted, and share of `unverified` claims on the golden set must stay <= 5% [ASSUMPTION].
+    **Anonymous mode (D-092, 2026-10-17, tightening):** an `unverified` claim is dropped, never shown, and if no
+    verified or attributed claim is left the answer is the fixed no-answer text; only authenticated mode shows
+    `(unverified)` flags, and only beside at least one sourced claim.
   - The umbrella claim "every sentence is cited" is **not** made. `/ask` attribution is answer-level, not
     claim-level: the VC LLM assigns per-claim sourceIds, and the guard can prove only that the `node_id` was
     returned in this response plus the number/country match.
@@ -582,6 +585,7 @@ spec and this contract ever differ, this contract is the criterion and the diffe
 - Joining real Pathlynks data (gated on the DPDP legal review, Q3). **[PROPOSED, U0-9]** The P1 student surface receives a Pathlynks-supplied profile for an authenticated student only after the signed B13 amendment and the go-live gate (B24.9). Whether the Q3 DPDP legal review must also be complete before that is Umesh's call, recorded in `qa/gates/g-prod.md`; this line is otherwise unchanged.
 
 ## Amendment log
+- 2026-10-17 · routine (tighten, D-092) · B2 student-surface claims: anonymous mode drops `unverified` claims instead of showing them flagged; authenticated mode unchanged. Why: senior review of p1/u6 showed the flagged-unverified path lets training-data claims reach anonymous users (no profile, no counsellor, possibly minors), against A4 "0 training-data answers"; Umesh delegated P1 product questions to the maker and D-092 chose the fail-closed reading. It removes a display path and adds none, so routine. Found by the p1-u6 cycle-0 check, which judged U6 against D-092 plus this contract: no mismatch, because B2 already allowed "dropped" for claims with no resolvable source and the repair also drops those (R2a). Written by /checker as the single writer.
 - 2026-10-17 · mixed, tagged per item · **P1 Student Virtual Counsellor, unit U0** (plan v8 approved by Umesh, D-089;
   inputs D-086 Q1/Q3/Q4/Q16, D-087 Q2/Q11/Q15/Q17, D-088 Q5-Q9/Q12/Q13/Q18; written by /checker as the single writer of
   this file; branch `p1/u0`, nothing pushed). Why: the approved P1 plan needs a student-facing API surface that B1-B23

@@ -18,3 +18,8 @@ export * from "./scribe/index.js";
 export * from "./webhooks/index.js";
 
 export * from "./cards/index.js";
+
+// P1 U6 student turn graph (repair R9: re-exported for the API layer, U8).
+export * from "./student/graph.js";
+export * from "./student/claims.js";
+export * from "./student/classify.js";

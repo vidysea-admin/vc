@@ -1,0 +1,7 @@
+A1-numbers(adapted)	KILLED	pass=15 fail=1	tests/claims-guard.test.ts	first=R5 supports(): numbers must match with the same currency/unit when one is present
+A4-gap(adapted)	KILLED	pass=27 fail=9	tests/student-graph.test.ts	first=A4/A18 (web_used): a non-served /ask result is the fixed no-answer, no model call, one gap count
+A11-escalate(adapted)	KILLED	pass=7 fail=2	tests/crisis-defaults.test.ts	first=A11/A11b: crisis phrases (English, Hinglish, Hindi) on an authenticated turn get the fixed message, no model/KB call, a flag log record and 
+A11b-flaglog(adapted)	KILLED	pass=6 fail=3	tests/crisis-defaults.test.ts	first=A11/A11b: crisis phrases (English, Hinglish, Hindi) on an authenticated turn get the fixed message, no model/KB call, a flag log record and 
+A11b-forbidden	KILLED	pass=8 fail=1	tests/crisis-defaults.test.ts	first=A11b: a generated reply that contains a forbidden phrase is never shown; the fixed safe message replaces it
+A21b-intents(adapted)	KILLED	pass=3 fail=2	tests/coach-first.test.ts	first=R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB
+A22-pii(adapted)	KILLED	pass=6 fail=1	tests/source-kind.test.ts	first=A22: personal identifiers (phone, listed names, WhatsApp speakerLabels of the turn) never survive in a restricted claim
