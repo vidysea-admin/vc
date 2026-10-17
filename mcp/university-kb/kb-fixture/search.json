@@ -13,7 +13,8 @@
         "speakerRef": "spk:0",
         "tStart": 0,
         "tEnd": 5,
-        "text": "German public universities charge no tuition for most programmes, but expect a semester contribution."
+        "text": "German public universities charge no tuition for most programmes, but expect a semester contribution.",
+        "speakerLabel": "Fixture Speaker S"
       },
       "session": {
         "_id": "sess-sem-1",
@@ -65,7 +66,8 @@
         "speakerRef": "spk:0",
         "tStart": 0,
         "tEnd": 5,
-        "text": "Blocked accounts are required for the visa."
+        "text": "Blocked accounts are required for the visa.",
+        "speakerLabel": "Fixture Person B"
       },
       "session": {
         "_id": "sess-rec-9",

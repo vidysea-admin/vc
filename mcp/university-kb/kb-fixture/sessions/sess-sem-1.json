@@ -21,7 +21,8 @@
       "speakerRef": "spk:0",
       "tStart": 0,
       "tEnd": 5,
-      "text": "German public universities charge no tuition for most programmes, but expect a semester contribution."
+      "text": "German public universities charge no tuition for most programmes, but expect a semester contribution.",
+      "speakerLabel": "Fixture Speaker S"
     },
     {
       "_id": "t-sem-2",

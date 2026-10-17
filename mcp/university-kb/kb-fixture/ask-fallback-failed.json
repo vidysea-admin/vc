@@ -3,21 +3,11 @@
   "answer": "A confident-sounding generated answer over weak context.",
   "verdict": "incorrect",
   "reason": "top node scored above the upper threshold",
-  "scored": [
-    {
-      "node_id": "session:sess-sem-1",
-      "score": 0.93,
-      "reason": "direct match"
-    }
-  ],
+  "scored": [],
   "web_used": false,
   "insufficient_coverage": true,
   "sources": {
-    "internal": [
-      {
-        "node_id": "topic:weak"
-      }
-    ],
+    "internal": [],
     "web": []
   },
   "auditLog": [

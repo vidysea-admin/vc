@@ -74,7 +74,7 @@ const SERVE_CASES: Array<{ fixture: string; served: boolean; withheld?: string[]
   { fixture: "ask-correct.json", served: true },
   { fixture: "ask-web-used.json", served: false, withheld: ["verdict_not_correct", "web_used"] },
   { fixture: "ask-web-only.json", served: false, withheld: ["no_internal_sources"] },
-  { fixture: "ask-fallback-failed.json", served: false, withheld: ["verdict_not_correct", "insufficient_coverage"] },
+  { fixture: "ask-fallback-failed.json", served: false, withheld: ["verdict_not_correct", "insufficient_coverage", "no_internal_sources"] },
   { fixture: "ask-ambiguous.json", served: false, withheld: ["verdict_not_correct"] },
 ];
 
@@ -96,7 +96,9 @@ for (const c of SERVE_CASES) {
           assert.equal(out.answer, raw.answer);
           assert.deepEqual(out.citations.web, []);
           assert.ok(out.citations.internal.length > 0);
+          assert.equal(out.sourceKind, "unknown", "a served ask answer is restricted (unknown) by default");
         } else {
+          assert.equal(out.sourceKind, undefined);
           assert.equal(out.status, "no_sourced_answer");
           assert.equal(out.answer, NO_SOURCED_ANSWER_TEXT);
           assert.deepEqual(out.withheld, c.withheld);
@@ -131,6 +133,68 @@ test("A18: sources.web never reaches a served response (stray web source on an o
     }
   } finally {
     await server.close();
+  }
+});
+
+// U2b fix 1 (review, G6): "no coverage" is no_sourced_answer, NOT unavailable. The real KB answers a
+// no-coverage question with verdict "incorrect" + insufficient_coverage true + internal [] + web [].
+test("G6: a realistic no-coverage /ask (verdict incorrect, zero internal and web sources) is no_sourced_answer, not unavailable/uncited", async () => {
+  const { handler } = kbRouter("ask-fallback-failed.json");
+  const server = await startFakeKb(handler);
+  try {
+    const kb = createKnowledgeBaseClient({ baseUrl: server.url, apiKey: "k" });
+    const raw = await kb.ask("q");
+    assert.equal(raw.status, "ok", "the client must hand the response to the serve rule, not turn it into an outage");
+    const mcp = createUniversityKbServer({ db: createFakeDb().db, kb });
+    const { client, cleanup } = await connectedClient(mcp);
+    try {
+      const out = structured(await client.callTool({ name: "ask_knowledge_base", arguments: { query: "q" } }));
+      assert.equal(out.status, "no_sourced_answer");
+      assert.equal(out.unavailableReason, undefined);
+      assert.equal(out.answer, NO_SOURCED_ANSWER_TEXT);
+    } finally {
+      await cleanup();
+    }
+  } finally {
+    await server.close();
+  }
+});
+
+test("G6: verdict correct with zero internal AND zero web sources is still withheld (typed unavailable/uncited); any other verdict with zero sources is ok", async () => {
+  const body = (verdict: string) => ({ ...readFixture("ask-fallback-failed.json"), verdict, insufficient_coverage: false });
+  for (const [verdict, expected] of [["correct", "unavailable"], ["ambiguous", "ok"], ["incorrect", "ok"]] as const) {
+    const server = await startFakeKb(() => ({ status: 200, body: JSON.stringify(body(verdict)) }));
+    try {
+      const kb = createKnowledgeBaseClient({ baseUrl: server.url, apiKey: "k" });
+      const r = await kb.ask("q");
+      assert.equal(r.status, expected, verdict);
+      assert.notEqual(applyServeRule(r).status, "answered", verdict);
+      if (r.status === "unavailable") assert.equal(r.reason, "uncited");
+    } finally {
+      await server.close();
+    }
+  }
+});
+
+test("U2b fix 4: ask_knowledge_base query is capped at 1000 characters, like search_kb", async () => {
+  let calls = 0;
+  const kb = {
+    ask: async (): Promise<KbAskResult> => {
+      calls += 1;
+      return { status: "unavailable", reason: "timeout", detail: "x" };
+    },
+  };
+  const mcp = createUniversityKbServer({ db: createFakeDb().db, kb });
+  const { client, cleanup } = await connectedClient(mcp);
+  try {
+    const over = await client.callTool({ name: "ask_knowledge_base", arguments: { query: "x".repeat(1001) } });
+    assert.equal(over.isError, true);
+    assert.equal(calls, 0);
+    const at = await client.callTool({ name: "ask_knowledge_base", arguments: { query: "x".repeat(1000) } });
+    assert.notEqual(at.isError, true);
+    assert.equal(calls, 1);
+  } finally {
+    await cleanup();
   }
 });
 
@@ -224,7 +288,9 @@ test("search_kb: GET /search?q&k with Bearer; hits with null turn/session are dr
         ],
       );
       const wa = out.hits[1];
-      assert.equal(wa.speakerLabel, "Fixture Person A");
+      assert.equal(wa.speakerLabel, undefined, "a WhatsApp speaker label is never passed on");
+      assert.equal(out.hits[0].speakerLabel, "Fixture Speaker S", "a seminar label passes");
+      assert.equal(out.hits[2].speakerLabel, undefined, "an unknown (restricted) source label is never passed on");
       assert.equal(wa.sourceId, "src-wa-1");
       assert.equal(typeof wa.text, "string");
       assert.equal(wa.sessionDate, "2026-02-01");
@@ -237,6 +303,83 @@ test("search_kb: GET /search?q&k with Bearer; hits with null turn/session are dr
     } finally {
       await cleanup();
     }
+  } finally {
+    await server.close();
+  }
+});
+
+// U2b fix 2: speakerLabel passes ONLY for seminar or toc sources, in both profiles.
+test("U2b: speakerLabel passes only for seminar/toc (search_kb, both profiles; get_session)", async () => {
+  const cases: Array<[string, string, boolean]> = [
+    ["src-sem-1", "internal-seminar", true],
+    ["src-toc-1", "toc", true],
+    ["src-wa-1", "whatsapp", false],
+    ["src-rec-9", "unknown", false],
+    ["src-not-in-sources", "unknown", false],
+  ];
+  for (const [sourceId, kind, keeps] of cases) {
+    const handler = (req: FakeKbRequest): FakeKbResponse => {
+      const url = new URL(req.url ?? "/", "http://kb.local");
+      if (url.pathname === "/sources") return { status: 200, body: JSON.stringify(readFixture("sources.json")) };
+      if (url.pathname === "/search") {
+        const s = readFixture("search.json") as any;
+        const hit = s.hits[0];
+        hit.session.sourceId = sourceId;
+        return { status: 200, body: JSON.stringify({ ...s, hits: [hit] }) };
+      }
+      const d = readFixture("sessions/sess-sem-1.json") as any;
+      d.session.sourceId = sourceId;
+      return { status: 200, body: JSON.stringify(d) };
+    };
+    const server = await startFakeKb(handler);
+    try {
+      const full = createKnowledgeBaseClient({ baseUrl: server.url, apiKey: "k" });
+      const anon = createAnonymousKbClient({ baseUrl: server.url, apiKey: "a" });
+      const variants: Array<[string, ReturnType<typeof createUniversityKbServer>]> = [
+        ["full", createUniversityKbServer({ db: createFakeDb().db, kb: full, sourceKinds: SOURCE_KINDS })],
+        ["anonymous", createUniversityKbServer({ kb: anon, profile: "anonymous", sourceKinds: SOURCE_KINDS })],
+      ];
+      for (const [profile, mcp] of variants) {
+        const { client, cleanup } = await connectedClient(mcp);
+        try {
+          const hit = structured(await client.callTool({ name: "search_kb", arguments: { query: "q" } })).hits[0];
+          assert.equal(hit.sourceKind, kind, `${profile} ${sourceId}`);
+          assert.equal(hit.speakerLabel, keeps ? "Fixture Speaker S" : undefined, `${profile} search_kb ${sourceId}`);
+          if (profile === "full") {
+            const sess = structured(await client.callTool({ name: "get_session", arguments: { sessionId: "sess-sem-1" } }));
+            assert.equal(sess.sourceKind, kind);
+            assert.equal(sess.turns[0].speakerLabel, keeps ? "Fixture Speaker S" : undefined, `get_session ${sourceId}`);
+            assert.equal(JSON.stringify(sess).includes("Fixture Speaker S"), keeps, `label text in whole payload ${sourceId}`);
+          }
+        } finally {
+          await cleanup();
+        }
+      }
+    } finally {
+      await server.close();
+    }
+  }
+});
+
+// U2b fix 5: cross-check the hit ids against the inline turn/session.
+test("U2b: a search hit whose turn._id != turnId or session._id != sessionId (or with no turn._id) is dropped and counted", async () => {
+  const s = readFixture("search.json") as any;
+  const good = s.hits[0];
+  const clone = () => JSON.parse(JSON.stringify(good));
+  const badTurn = clone();
+  badTurn.turn._id = "t-someone-else";
+  const badSession = clone();
+  badSession.session._id = "sess-someone-else";
+  const noTurnId = clone();
+  delete noTurnId.turn._id;
+  const server = await startFakeKb(() => ({ status: 200, body: JSON.stringify({ hits: [good, badTurn, badSession, noTurnId] }) }));
+  try {
+    const kb = createKnowledgeBaseClient({ baseUrl: server.url, apiKey: "k" });
+    const r = await kb.search("q");
+    assert.equal(r.status, "ok");
+    if (r.status !== "ok") throw new Error("unreachable");
+    assert.deepEqual(r.hits.map((h) => h.turnId), ["t-sem-1"]);
+    assert.equal(r.dropped, 3);
   } finally {
     await server.close();
   }

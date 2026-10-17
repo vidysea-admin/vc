@@ -14,7 +14,7 @@
  * uncited answer" + B14 "outcome, not construction"): `ask()` never throws for an outage. It
  * returns a typed `KbAskResult` — `{status:"ok", ...}` or `{status:"unavailable", reason, detail}`
  * — covering timeout, network error, HTTP 5xx, HTTP 401/403, a non-JSON body, a JSON body that
- * fails schema validation, AND an otherwise-valid answer that carries zero citations in both
+ * fails schema validation, AND a verdict-"correct" answer that carries zero citations in both
  * `sources.internal` and `sources.web` (B2: an uncited answer is never passed on as an answer).
  * Citations that DO exist are carried through completely verbatim (untouched) as `citations`.
  *
@@ -225,7 +225,7 @@ export interface KbSearchOk {
   status: "ok";
   /** Hits with an inline turn AND session (the only ones a claim can be verified against). */
   hits: KbSearchHit[];
-  /** Hits dropped because the turn or session was null/missing/malformed (B2/A13: never served as sourced). */
+  /** Hits dropped because the turn or session was null/missing/malformed or did not match the hit's ids (B2/A13). */
   dropped: number;
 }
 export type KbSearchResult = KbSearchOk | KbAskUnavailable;
@@ -307,7 +307,15 @@ export const NO_SOURCED_ANSWER_TEXT = "I don't have a sourced answer for this ye
 export type AskWithheldCause = "verdict_not_correct" | "insufficient_coverage" | "web_used" | "no_internal_sources";
 
 export type ServedAsk =
-  | { status: "answered"; answer: string; citations: KbCitations; verdict: string; reason: string }
+  | {
+      status: "answered";
+      answer: string;
+      citations: KbCitations;
+      verdict: string;
+      reason: string;
+      /** A served /ask answer is restricted (non-quotable paraphrase) by default: its source kind is not tagged here. */
+      sourceKind: "unknown";
+    }
   | {
       status: "no_sourced_answer";
       answer: typeof NO_SOURCED_ANSWER_TEXT;
@@ -330,7 +338,8 @@ const EMPTY_CITATIONS: KbCitations = { internal: [], web: [] };
 
 /**
  * Serve an `/ask` answer ONLY when verdict == "correct" AND insufficient_coverage == false AND
- * web_used == false AND at least one internal source exists. Anything else is the fixed
+ * web_used == false AND at least one internal source exists (this 4th clause is deliberately stricter
+ * than spec G6: a "correct" answer backed only by web sources is withheld). Anything else is the fixed
  * no-answer text with NO generated answer, NO reason text and NO citations leaking through
  * (`ask-v2.ts` returns a generated `answer` over weak context when web fallback is off or failed,
  * `web_used:false`, `insufficient_coverage:true`). `sources.web` never reaches the result, even on
@@ -369,6 +378,7 @@ export function applyServeRule(result: KbAskResult): ServedAsk {
     citations: { internal: result.citations.internal, web: [] },
     verdict: result.verdict,
     reason: result.reason,
+    sourceKind: "unknown",
   };
 }
 
@@ -469,8 +479,13 @@ function makeReadClient(options: KnowledgeBaseClientOptions): KnowledgeBaseReadC
       for (const raw of parsed.data.hits) {
         const hit = KbSearchHitSchema.safeParse(raw);
         // A hit with no inline turn/session (null in the KB response) cannot be checked against its text (A13).
-        if (hit.success) hits.push(hit.data);
-        else dropped += 1;
+        // A hit whose inline turn/session is a different record than the ids it claims (or has no turn id to
+        // compare) is likewise dropped and counted: its text cannot be vouched for as that turn's text.
+        if (hit.success && hit.data.turn._id === hit.data.turnId && hit.data.session._id === hit.data.sessionId) {
+          hits.push(hit.data);
+        } else {
+          dropped += 1;
+        }
       }
       return { status: "ok", hits, dropped };
     },
@@ -575,13 +590,17 @@ export function createKnowledgeBaseClient(
       if (!parsed.success) return invalidSchema(options, parsed.error.message);
 
       const data = parsed.data;
+      // G6: "no coverage" (verdict incorrect/ambiguous, insufficient_coverage, internal [] and web []) is a
+      // legitimate KB answer and goes to the serve rule, which maps it to no_sourced_answer. Only a verdict
+      // "correct" answer that carries no citation at all is the contract-violating uncited case (B2/B21):
+      // it is an unavailable outage-class result, never passed on as an answer.
       const hasCitations = data.sources.internal.length > 0 || data.sources.web.length > 0;
-      if (!hasCitations) {
+      if (data.verdict === "correct" && !hasCitations) {
         return {
           status: "unavailable",
           reason: "uncited",
           detail:
-            "the KnowledgeBase returned an answer with zero citations in both sources.internal and " +
+            "the KnowledgeBase returned a verdict-correct answer with zero citations in both sources.internal and " +
             "sources.web -- contract B2/B21 forbids passing an uncited answer through as an answer",
         };
       }

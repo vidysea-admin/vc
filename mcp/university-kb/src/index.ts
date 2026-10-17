@@ -40,7 +40,7 @@ import {
   type KnowledgeBaseClient,
   type KnowledgeBaseReadClient,
 } from "./kb-client.js";
-import { createSourceKindResolver, type SourceKindConfig } from "./source-kind.js";
+import { createSourceKindResolver, type SourceKind, type SourceKindConfig } from "./source-kind.js";
 
 // ---------------------------------------------------------------------------
 // Course shape -- local to this unit (ARCHITECTURE Q1 leaves the KB shape
@@ -200,11 +200,13 @@ export function createUniversityKbServer(deps: UniversityKbServerDeps): McpServe
             "web_used is false and at least one internal source exists; anything else is status " +
             "\"no_sourced_answer\" with the fixed no-answer text and no generated answer, no reason text and " +
             "no citations. Web sources never reach the response. A KB outage (timeout, network error, HTTP " +
-            "5xx, HTTP 401/403, a malformed/schema-invalid response, or an answer with zero citations) is " +
-            "status \"unavailable\" with the same fixed text -- never a fabricated answer. Internal citations " +
-            "of a served answer are carried through verbatim (B2).",
+            "5xx, HTTP 401/403, a malformed/schema-invalid response, or a verdict-correct answer with zero " +
+            "citations) is status \"unavailable\" with the same fixed text -- never a fabricated answer. " +
+            "\"No coverage\" (any other verdict with no sources) is no_sourced_answer, not unavailable. " +
+            "Internal citations of a served answer are carried through verbatim (B2); a served answer carries " +
+            "sourceKind \"unknown\" (restricted, non-quotable) by default.",
           inputSchema: {
-            query: z.string().min(1),
+            query: z.string().min(1).max(1000),
           },
           outputSchema: {
             status: z.enum(["answered", "no_sourced_answer", "unavailable"]),
@@ -212,6 +214,7 @@ export function createUniversityKbServer(deps: UniversityKbServerDeps): McpServe
             citations: KbCitationsSchema,
             verdict: z.string(),
             reason: z.string(),
+            sourceKind: z.literal("unknown").optional(),
             withheld: z.array(z.string()).optional(),
             unavailableReason: z.string().optional(),
             detail: z.string().optional(),
@@ -244,8 +247,9 @@ export function createUniversityKbServer(deps: UniversityKbServerDeps): McpServe
     const resolver = readSources
       ? createSourceKindResolver({ client: { sources: readSources }, config: deps.sourceKinds })
       : null;
-    const kindOf = async (subject: { sourceId: string; title?: string }) =>
-      resolver ? resolver.tag(subject) : ("unknown" as const);
+    const kindOf = async (subject: { sourceId: string; title?: string }): Promise<SourceKind> =>
+      resolver ? resolver.tag(subject) : "unknown";
+    const labelAllowed = (kind: SourceKind): boolean => kind === "internal-seminar" || kind === "toc";
 
     if (kbClient.search) {
       const search = kbClient.search.bind(kbClient);
@@ -289,18 +293,22 @@ export function createUniversityKbServer(deps: UniversityKbServerDeps): McpServe
           const result = await search(query, k);
           if (result.status !== "ok") return unavailable(result, "search_kb");
           const hits = await Promise.all(
-            result.hits.map(async (h) => ({
-              turnId: h.turnId,
-              sessionId: h.sessionId,
-              score: h.score,
-              text: h.turn.text,
-              ...(h.turn.speakerLabel !== undefined ? { speakerLabel: h.turn.speakerLabel } : {}),
-              ...(h.turn.occurredAt !== undefined ? { occurredAt: h.turn.occurredAt } : {}),
-              sessionDate: h.session.date,
-              ...(h.session.title !== undefined ? { sessionTitle: h.session.title } : {}),
-              sourceId: h.session.sourceId,
-              sourceKind: await kindOf({ sourceId: h.session.sourceId, title: h.session.title }),
-            })),
+            result.hits.map(async (h) => {
+              const sourceKind = await kindOf({ sourceId: h.session.sourceId, title: h.session.title });
+              return {
+                turnId: h.turnId,
+                sessionId: h.sessionId,
+                score: h.score,
+                text: h.turn.text,
+                // A speaker label is a person's name: only seminar/toc material may carry it (WhatsApp / unknown never).
+                ...(h.turn.speakerLabel !== undefined && labelAllowed(sourceKind) ? { speakerLabel: h.turn.speakerLabel } : {}),
+                ...(h.turn.occurredAt !== undefined ? { occurredAt: h.turn.occurredAt } : {}),
+                sessionDate: h.session.date,
+                ...(h.session.title !== undefined ? { sessionTitle: h.session.title } : {}),
+                sourceId: h.session.sourceId,
+                sourceKind,
+              };
+            }),
           );
           return {
             content: [{ type: "text" as const, text: `search_kb: ${hits.length} hit(s) (${result.dropped} dropped).` }],
@@ -348,10 +356,11 @@ export function createUniversityKbServer(deps: UniversityKbServerDeps): McpServe
         async ({ sessionId }) => {
           const result = await getSession(sessionId);
           if (result.status !== "ok") return unavailable(result, "get_session");
+          const sourceKind = await kindOf({ sourceId: result.session.sourceId, title: result.session.title });
           const turns = result.turns.map((t) => ({
             turnId: t._id,
             text: t.text,
-            ...(t.speakerLabel !== undefined ? { speakerLabel: t.speakerLabel } : {}),
+            ...(t.speakerLabel !== undefined && labelAllowed(sourceKind) ? { speakerLabel: t.speakerLabel } : {}),
             ...(t.tStart !== undefined ? { tStart: t.tStart } : {}),
             ...(t.tEnd !== undefined ? { tEnd: t.tEnd } : {}),
             ...(t.occurredAt !== undefined ? { occurredAt: t.occurredAt } : {}),
@@ -361,7 +370,7 @@ export function createUniversityKbServer(deps: UniversityKbServerDeps): McpServe
             structuredContent: {
               status: "ok" as const,
               session: result.session,
-              sourceKind: await kindOf({ sourceId: result.session.sourceId, title: result.session.title }),
+              sourceKind,
               turns,
               dropped: result.dropped,
             },
