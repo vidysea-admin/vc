@@ -212,13 +212,26 @@ test("T-037 (ISS-066): a caller-supplied AbortSignal that is ALREADY aborted rej
   }
 });
 
-test("T-037 (ISS-066): a caller-supplied AbortSignal that fires MID-FLIGHT actually cancels the real HTTP request (the stub server observes the connection close) with a typed LiteLlmAbortedError — never mistaken for LiteLlmTimeoutError", async () => {
-  let requestedAt: number | null = null;
-  let abortedAt: number | null = null;
+test("T-037 (ISS-066): a caller-supplied AbortSignal that fires MID-FLIGHT actually cancels the real HTTP request (the stub server observes the connection close) with a typed LiteLlmAbortedError — never mistaken for LiteLlmTimeoutError", { timeout: 20_000 }, async () => {
+  // ISS-123: no fixed timers. The abort is fired only after the stub signals the request has really
+  // arrived (so it is genuinely MID-FLIGHT, even on a loaded machine), and the close assertion waits
+  // on the stub's own close event instead of sleeping.
+  let signalRequestArrived!: () => void;
+  const requestArrived = new Promise<void>((resolve) => {
+    signalRequestArrived = resolve;
+  });
+  let signalConnectionClosed!: () => void;
+  const connectionClosed = new Promise<void>((resolve) => {
+    signalConnectionClosed = resolve;
+  });
+  let abortedObserved = false;
   const stub = createServer((req, res) => {
-    requestedAt = Date.now();
+    signalRequestArrived();
     req.on("close", () => {
-      if (!res.writableEnded) abortedAt = Date.now();
+      if (!res.writableEnded) {
+        abortedObserved = true;
+        signalConnectionClosed();
+      }
     });
     // never respond — timeoutMs below is set far longer than when we abort, so ONLY the external
     // signal can end this call.
@@ -238,16 +251,15 @@ test("T-037 (ISS-066): a caller-supplied AbortSignal that fires MID-FLIGHT actua
         return true;
       },
     );
-    // Give the request time to actually reach the stub before aborting.
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    assert.ok(requestedAt !== null, "the stub must have received the request before we abort it");
+    // Abort only once the stub has actually received the request (event-driven, not a sleep).
+    await requestArrived;
     controller.abort();
     await pending;
     // The client-side promise settles the instant fetch's own AbortController fires; the server only
-    // learns the socket closed once the FIN actually arrives over the loopback connection — a real,
-    // if tiny, network round trip. Give it a moment before asserting on the server-observed effect.
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    assert.ok(abortedAt !== null, "the stub server must observe the connection actually close on external abort");
+    // learns the socket closed once the FIN arrives over loopback. Wait for that close event itself;
+    // if it never comes, the test runner's own timeout fails the test.
+    await connectionClosed;
+    assert.ok(abortedObserved, "the stub server must observe the connection actually close on external abort");
   } finally {
     await stop(stub);
   }
