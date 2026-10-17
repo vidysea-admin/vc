@@ -68,6 +68,11 @@ export const COLLECTION_NAMES = {
   // event.data), so B15 erasure covers it with the plain `byStudent` filter (ERASURE_PLAN,
   // packages/db/src/erasure.ts), the same shape consents/decisions use.
   webhook_emit_gaps: "webhook_emit_gaps",
+  // P1 U7 / contract B24.6: the anonymous-mode aggregate counter. One document per (UTC date, kind) holding only
+  // the date, the kind (answered | no_answer | sign_in_required | crisis) and a count: no text, IP, tenant, student
+  // or thread identifier. NOT tenant-scoped (an anonymous request has no tenant) and holds no student data, so it is
+  // in ERASURE_EXEMPT_COLLECTIONS with that reason.
+  anonymous_counters: "anonymous_counters",
   // Name constants only — owned by the university-kb unit (ARCHITECTURE Q1).
   universities: "universities",
   courses: "courses",
@@ -182,6 +187,23 @@ export interface ScribeResolutionDoc {
    * (D-016), so a holder that crashed releases it by expiry. ISO-8601 UTC, compared as a string.
    */
   lease?: { token: string; expiresAt: string };
+}
+
+/**
+ * P1 U7 (contract B24.6): the ONLY thing anonymous mode may persist. `_id` is `${date}:${kind}`; the field set is
+ * exactly ANONYMOUS_COUNTER_FIELDS (a test asserts no other field is ever written).
+ */
+export interface AnonymousCounterDoc {
+  _id: string;
+  /** UTC calendar day, YYYY-MM-DD. */
+  date: string;
+  kind: "answered" | "no_answer" | "sign_in_required" | "crisis";
+  count: number;
+}
+export const ANONYMOUS_COUNTER_FIELDS = ["_id", "date", "kind", "count"] as const;
+
+export function anonymousCountersCollection(db: Db): Collection<AnonymousCounterDoc> {
+  return db.collection<AnonymousCounterDoc>(COLLECTION_NAMES.anonymous_counters);
 }
 
 export function studentsCollection(db: Db): Collection<StudentDoc> {

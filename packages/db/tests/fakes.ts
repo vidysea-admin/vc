@@ -171,9 +171,15 @@ function equalityFields(filter: Filter): Record<string, unknown> {
 /** Applies $set / $unset / $addToSet (top-level fields; $addToSet with a scalar or `$each`). */
 function applyUpdate(
   doc: Record<string, unknown>,
-  update: { $set?: unknown; $unset?: Record<string, unknown>; $addToSet?: Record<string, unknown> },
+  update: { $set?: unknown; $unset?: Record<string, unknown>; $addToSet?: Record<string, unknown>; $inc?: Record<string, number> },
 ): void {
   if (update.$set) Object.assign(doc, toStored(update.$set));
+  // P1 U7: `$inc` adds to a numeric field (a missing field starts at 0), as the driver does.
+  for (const [field, by] of Object.entries(update.$inc ?? {})) {
+    const current = doc[field];
+    if (current !== undefined && typeof current !== "number") throw new Error(`FakeCollection: $inc on non-numeric field ${field}`);
+    doc[field] = ((current as number | undefined) ?? 0) + by;
+  }
   // T-011 cycle 2: `$unset` removes the field (re-setting an erasure fence clears releaseAfter).
   for (const field of Object.keys(update.$unset ?? {})) delete doc[field];
   for (const [field, arg] of Object.entries(update.$addToSet ?? {})) {
@@ -372,11 +378,12 @@ export class FakeCollection<T extends { _id: string }> {
       $setOnInsert?: Partial<T> | Record<string, unknown>;
       $unset?: Record<string, unknown>;
       $addToSet?: Record<string, unknown>;
+      $inc?: Record<string, number>;
     },
     options: { upsert?: boolean } & Record<string, unknown> = {},
   ): Promise<{ matchedCount: number; upsertedCount: number; upsertedId: string | null }> {
     for (const op of Object.keys(update)) {
-      if (!["$set", "$setOnInsert", "$unset", "$addToSet"].includes(op)) {
+      if (!["$set", "$setOnInsert", "$unset", "$addToSet", "$inc"].includes(op)) {
         throw new Error(`FakeCollection.updateOne: unsupported update operator ${op}`);
       }
     }
@@ -394,7 +401,7 @@ export class FakeCollection<T extends { _id: string }> {
     const seed: Record<string, unknown> = { ...equalityFields(filter), ...(update.$setOnInsert ?? {}) };
     const _id = (seed._id as string | undefined) ?? new ObjectId().toHexString();
     const created = { ...seed, _id } as Record<string, unknown>;
-    applyUpdate(created, { $set: update.$set, $addToSet: update.$addToSet });
+    applyUpdate(created, { $set: update.$set, $addToSet: update.$addToSet, $inc: update.$inc });
     const doc = created as unknown as T;
     // T-016: an upsert that inserts is an insert: a duplicate _id or unique key is 11000, as on the server.
     if (this.docs.has(_id)) {
