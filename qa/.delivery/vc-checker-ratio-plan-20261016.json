@@ -1,0 +1,154 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-checker-ratio-plan-20261016",
+  "root_run_id": "vc-checker-ratio-plan-20261016",
+  "feature": "checker-ratio-p0-plan",
+  "cycle": 0,
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Bounded read-only prospective source review, not measured efficiency; historical maker/token baseline unavailable",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T20:54:24.9914043Z",
+    "estimate_ms": 90000,
+    "no_progress_ms": 90000
+  },
+  "resource_caps": {
+    "agent": 2
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "plan_hash": "0ec792a2a4f5e59311fd443d064fe21a02d94959d1be46828b6db716e4b52902",
+  "started_at": 1792097485816,
+  "last_acceptance_at": 1792097485816,
+  "closure": false,
+  "attempts": [
+    {
+      "key": "plancheck:a1",
+      "task_id": "plancheck",
+      "attempt_id": "a1",
+      "run_id": "ratio-plancheck",
+      "parent_run_id": null,
+      "root_run_id": "vc-checker-ratio-plan-20261016",
+      "feature": "checker-ratio-p0-plan",
+      "cycle": 0,
+      "session": "vc-01a13e75",
+      "retry_of": null,
+      "owner": "p0-quality",
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/plan-quality-result.md"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "admitted_at": 1792097485816,
+      "expires_at": 1792097575816,
+      "actual_tokens": null,
+      "token_status": "UNKNOWN",
+      "status": "incomplete",
+      "coverage": "managed-cli",
+      "execution_identity": {
+        "schema_version": 1,
+        "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "exec",
+          "--sandbox",
+          "read-only",
+          "--json",
+          "-"
+        ],
+        "selection": [
+          "plancheck"
+        ],
+        "input_blobs": [
+          {
+            "path": "docs/plan.md",
+            "blob": "a3d0226ed149068c54c397d1ef3d5aa140a226e632507e8dd61f01a67c4d9993"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/tick-source.txt",
+            "blob": "c6d25f7bc2f1e7eb120f2e1140bbceb97760eef0749c1cd92541aa9aee16df43"
+          }
+        ],
+        "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+        "runtime_id": "v24.13.1-win32-x64",
+        "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+        "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+        "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+        "context_id": "1b9adc79d3cd3719891b58c8fc49ef2ed95b7d4aa1ebc52111ee9032b36d6172"
+      },
+      "receipt_sha256": "168b701bc77736301abafd10842a2ffc7a242a56af01490cb308bf3e11aad627",
+      "elapsed_ms": 1090
+    },
+    {
+      "key": "plancheck:a2",
+      "task_id": "plancheck",
+      "attempt_id": "a2",
+      "run_id": "ratio-plancheck-a2",
+      "parent_run_id": null,
+      "root_run_id": "vc-checker-ratio-plan-20261016",
+      "feature": "checker-ratio-p0-plan",
+      "cycle": 0,
+      "session": "vc-01a13e75",
+      "retry_of": null,
+      "owner": "p0-quality",
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/plan-quality-result.md"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "admitted_at": 1792097503464,
+      "expires_at": 1792097593464,
+      "actual_tokens": null,
+      "token_status": "UNKNOWN",
+      "status": "success",
+      "coverage": "managed-cli",
+      "execution_identity": {
+        "schema_version": 1,
+        "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "exec",
+          "--sandbox",
+          "read-only",
+          "--json",
+          "-"
+        ],
+        "selection": [
+          "plancheck"
+        ],
+        "input_blobs": [
+          {
+            "path": "docs/plan.md",
+            "blob": "a3d0226ed149068c54c397d1ef3d5aa140a226e632507e8dd61f01a67c4d9993"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/tick-source.txt",
+            "blob": "c6d25f7bc2f1e7eb120f2e1140bbceb97760eef0749c1cd92541aa9aee16df43"
+          }
+        ],
+        "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+        "runtime_id": "v24.13.1-win32-x64",
+        "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+        "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+        "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+        "context_id": "1b9adc79d3cd3719891b58c8fc49ef2ed95b7d4aa1ebc52111ee9032b36d6172"
+      },
+      "receipt_sha256": "3ba1d9456ad33fbaa0d063985d0ff8532f92d4a28c7210a5d8f10f470d3eaed6",
+      "elapsed_ms": 62838
+    }
+  ],
+  "accepted": [],
+  "actual_tokens": null,
+  "token_status": "UNKNOWN",
+  "cumulative": {
+    "attempts": 2,
+    "elapsed_ms": 63928,
+    "output_bytes": 4417
+  }
+}

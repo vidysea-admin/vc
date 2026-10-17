@@ -1,0 +1,72 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-report-final-20261016",
+  "task_id": "final",
+  "attempt_id": "a1",
+  "owner": "p0-report-final",
+  "status": "incomplete",
+  "outputs": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py",
+      "sha256": "2c07f5ec35b50806a9cd5b734b1a25a17ef42216ec030a2175df87950b214046"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py",
+      "sha256": "0680f065493759e047f8d496eaa6f1cf19b3b2affa30f870e2efabe9b89299ec"
+    }
+  ],
+  "reason": "output-exhausted",
+  "exit_code": null,
+  "elapsed_ms": 49247,
+  "output_bytes": 180199,
+  "cleanup_complete": true,
+  "context_verification": {
+    "source_read_calls": 12,
+    "source_read_bytes": 174006,
+    "bundle_read_calls": 3,
+    "bundle_read_bytes": 83058
+  },
+  "evidence": {
+    "schema_version": 1,
+    "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "command": [
+      "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+      "-c",
+      "windows.sandbox=mxc",
+      "-c",
+      "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+      "-c",
+      "mcp_servers.n8n-mcp.enabled=false",
+      "exec",
+      "--sandbox",
+      "workspace-write",
+      "--json",
+      "--output-last-message",
+      "qa/evidence/checker-ratio-20261016/report-final-message.md",
+      "-"
+    ],
+    "selection": [
+      "final"
+    ],
+    "input_blobs": [
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py",
+        "blob": "2c07f5ec35b50806a9cd5b734b1a25a17ef42216ec030a2175df87950b214046"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py",
+        "blob": "0680f065493759e047f8d496eaa6f1cf19b3b2affa30f870e2efabe9b89299ec"
+      }
+    ],
+    "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+    "runtime_id": "v24.13.1-win32-x64",
+    "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+    "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+    "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+    "context_id": "5d45dd1010c8d7e711e817091a71e47a1845336a6fd0c516a4aedd4d2e1d6f87",
+    "status": "incomplete",
+    "exit_code": null,
+    "log_file": "qa/.delivery/37b6f22f9da161c2efd4ed8c62815e211fcbd0b8c9cf7e0a8474b5eec9b969bb.log",
+    "log_sha256": "37b6f22f9da161c2efd4ed8c62815e211fcbd0b8c9cf7e0a8474b5eec9b969bb"
+  }
+}

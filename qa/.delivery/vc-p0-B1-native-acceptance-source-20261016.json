@@ -1,0 +1,549 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-B1-native-acceptance-source-20261016",
+  "root_run_id": "vc-p0-B1-native-acceptance-source-20261016",
+  "feature": "T056-B1-native-acceptance-source",
+  "cycle": 0,
+  "budget": {
+    "deadline": "2026-10-16T04:13:54.618634Z",
+    "closeout_ms": 20000,
+    "no_progress_ms": 170000,
+    "estimate_ms": 100000,
+    "estimate_tokens": 150000,
+    "token_cap": null,
+    "estimate_provenance": "B1 new prospective source change independently planned/approved; one fresh completed-feature source checker,59.7KBselected source and67valid maker controls reused. At most one scoped floor batch; coldstart observed36kraw plus uncertain review. OriginalT056 old source/C1-C6 exhausted workflows/costs remain untouched; no bootstrap/reset/global/pilot completion, actualaggregate10UNKNOWN. Do not rerun old failedreview as this new B1scope."
+  },
+  "resource_caps": {
+    "agent": 3
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "plan_hash": "d211cf81114de674ca9ece1dd5f5c726a626fde085b7754be50233b601d873a1",
+  "started_at": 1792123605662,
+  "last_acceptance_at": 1792123605662,
+  "closure": true,
+  "attempts": [
+    {
+      "key": "check:a1",
+      "task_id": "check",
+      "attempt_id": "a1",
+      "run_id": "B1-source-final1",
+      "parent_run_id": "vc-p0-native-acceptance-plan-20261016",
+      "root_run_id": "vc-p0-B1-native-acceptance-source-20261016",
+      "feature": "T056-B1-native-acceptance-source",
+      "cycle": 0,
+      "session": "vc-01a13e75",
+      "retry_of": null,
+      "owner": "p0-B1-independent-final-sse",
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/b1-source-verdict.md"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "admitted_at": 1792123605662,
+      "expires_at": 1792123725662,
+      "actual_tokens": null,
+      "token_status": "UNKNOWN",
+      "status": "incomplete",
+      "coverage": "managed-cli",
+      "execution_identity": {
+        "schema_version": 1,
+        "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "-c",
+          "windows.sandbox=mxc",
+          "-c",
+          "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+          "-c",
+          "mcp_servers.n8n-mcp.enabled=false",
+          "exec",
+          "--sandbox",
+          "workspace-write",
+          "--json",
+          "--output-last-message",
+          "qa/evidence/checker-ratio-20261016/B1-source-verdict.md",
+          "-"
+        ],
+        "selection": [
+          "check"
+        ],
+        "input_blobs": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "blob": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+            "blob": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+            "blob": "50338fc97d20517a8c37f3bf3d5221c08a0d373c7b5c8f996062028dd94939de"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/B1-final-affected.log",
+            "blob": "6964579003e7855540e62685594073aefa7b1b0b30b56d4f45c22a2dcbcf337d"
+          }
+        ],
+        "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+        "runtime_id": "v24.13.1-win32-x64",
+        "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+        "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+        "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+        "context_id": "42474c9c6962c6ce1a07c1862cbae969e6b65cf4217b2489a44593d974dfaa77"
+      },
+      "receipt_sha256": "6c7d34e8bbefc7d92159601a05d722169b862b44099b8304f9d5bff79d8005d8",
+      "elapsed_ms": 120019
+    },
+    {
+      "key": "check:closeout1",
+      "task_id": "check",
+      "attempt_id": "closeout1",
+      "run_id": "B1-source-final2",
+      "parent_run_id": "vc-p0-native-acceptance-plan-20261016",
+      "root_run_id": "vc-p0-B1-native-acceptance-source-20261016",
+      "feature": "T056-B1-native-acceptance-source",
+      "cycle": 0,
+      "session": "vc-01a13e75",
+      "retry_of": null,
+      "owner": "p0-B1-independent-final-sse",
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/b1-source-verdict.md"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "admitted_at": 1792123814860,
+      "expires_at": 1792123904860,
+      "actual_tokens": null,
+      "token_status": "UNKNOWN",
+      "status": "success",
+      "coverage": "managed-cli",
+      "execution_identity": {
+        "schema_version": 1,
+        "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "-c",
+          "windows.sandbox=mxc",
+          "-c",
+          "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+          "-c",
+          "mcp_servers.n8n-mcp.enabled=false",
+          "exec",
+          "resume",
+          "01a142e4-166f-7d12-889a-41e97bf245ba",
+          "--json",
+          "--output-last-message",
+          "qa/evidence/checker-ratio-20261016/B1-source-verdict.md",
+          "-"
+        ],
+        "selection": [
+          "check"
+        ],
+        "input_blobs": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "blob": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+            "blob": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+            "blob": "50338fc97d20517a8c37f3bf3d5221c08a0d373c7b5c8f996062028dd94939de"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/B1-final-affected.log",
+            "blob": "6964579003e7855540e62685594073aefa7b1b0b30b56d4f45c22a2dcbcf337d"
+          }
+        ],
+        "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+        "runtime_id": "v24.13.1-win32-x64",
+        "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+        "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+        "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+        "context_id": "32237381e04e7903f01008446b495be99464ec2328781d6b807929145968efb8"
+      },
+      "receipt_sha256": "0761399298af1bc994cb77ddd610a88f6406bd7206df5b7ec3435df32af24534",
+      "elapsed_ms": 29522
+    },
+    {
+      "key": "check:closeout2",
+      "task_id": "check",
+      "attempt_id": "closeout2",
+      "run_id": "B1-source-final3",
+      "parent_run_id": "vc-p0-native-acceptance-plan-20261016",
+      "root_run_id": "vc-p0-B1-native-acceptance-source-20261016",
+      "feature": "T056-B1-native-acceptance-source",
+      "cycle": 0,
+      "session": "vc-01a13e75",
+      "retry_of": null,
+      "owner": "p0-B1-independent-final-sse",
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/b1-source-verdict.md"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "admitted_at": 1792123935148,
+      "expires_at": 1792124025148,
+      "actual_tokens": null,
+      "token_status": "UNKNOWN",
+      "status": "success",
+      "coverage": "managed-cli",
+      "execution_identity": {
+        "schema_version": 1,
+        "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "-c",
+          "windows.sandbox=mxc",
+          "-c",
+          "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+          "-c",
+          "mcp_servers.n8n-mcp.enabled=false",
+          "exec",
+          "resume",
+          "01a142e4-166f-7d12-889a-41e97bf245ba",
+          "--json",
+          "--output-last-message",
+          "qa/evidence/checker-ratio-20261016/B1-source-verdict.md",
+          "-"
+        ],
+        "selection": [
+          "check"
+        ],
+        "input_blobs": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "blob": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+            "blob": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+            "blob": "50338fc97d20517a8c37f3bf3d5221c08a0d373c7b5c8f996062028dd94939de"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/B1-final-affected.log",
+            "blob": "6964579003e7855540e62685594073aefa7b1b0b30b56d4f45c22a2dcbcf337d"
+          }
+        ],
+        "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+        "runtime_id": "v24.13.1-win32-x64",
+        "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+        "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+        "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+        "context_id": "17a1d64da43791fb003176196312fe7667f39648db6663dc6cf4c67717fe15b2"
+      },
+      "receipt_sha256": "03fd83dbbdb22cce541a7502401015728dfe2fe5d04a3a087f724069e8dd062b",
+      "elapsed_ms": 14146
+    }
+  ],
+  "accepted": [],
+  "actual_tokens": null,
+  "token_status": "UNKNOWN",
+  "cumulative": {
+    "attempts": 3,
+    "elapsed_ms": 163687,
+    "output_bytes": 242399
+  },
+  "recoveries": [
+    {
+      "id": "B1-source-evidence-closeout1",
+      "authorized_by": "Umesh",
+      "authorization_ref": "current-chat-approved-goal-D079-native-full12-continuation-B1-1",
+      "reason": "Same native reviewer completed source examination but deadline before required scoped floor execution; exact unchanged source, no further scans, one9second control batch then verdict. Original attempt/cost/counters preserved.",
+      "expected_state_sha256": "afb6e2b63d95c086b6d3df392444bc660c2ec2fc48ad6138501b6f53b7a348bb",
+      "max_elapsed_ms": 100000,
+      "resumed_at": 1792123814406,
+      "snapshot_file": "qa/.delivery/afb6e2b63d95c086b6d3df392444bc660c2ec2fc48ad6138501b6f53b7a348bb.snapshot.json",
+      "previous_budget": {
+        "deadline": "2026-10-16T04:10:15.177822Z",
+        "closeout_ms": 20000,
+        "no_progress_ms": 170000,
+        "estimate_ms": 180000,
+        "estimate_tokens": 150000,
+        "token_cap": null,
+        "estimate_provenance": "B1 new prospective source change independently planned/approved; one fresh completed-feature source checker,59.7KBselected source and67valid maker controls reused. At most one scoped floor batch; coldstart observed36kraw plus uncertain review. OriginalT056 old source/C1-C6 exhausted workflows/costs remain untouched; no bootstrap/reset/global/pilot completion, actualaggregate10UNKNOWN. Do not rerun old failedreview as this new B1scope."
+      },
+      "next_budget": {
+        "deadline": "2026-10-16T04:11:54.275238Z",
+        "closeout_ms": 20000,
+        "no_progress_ms": 170000,
+        "estimate_ms": 100000,
+        "estimate_tokens": 150000,
+        "token_cap": null,
+        "estimate_provenance": "B1 new prospective source change independently planned/approved; one fresh completed-feature source checker,59.7KBselected source and67valid maker controls reused. At most one scoped floor batch; coldstart observed36kraw plus uncertain review. OriginalT056 old source/C1-C6 exhausted workflows/costs remain untouched; no bootstrap/reset/global/pilot completion, actualaggregate10UNKNOWN. Do not rerun old failedreview as this new B1scope."
+      },
+      "previous_plan_hash": "65467f92a65cac7b5ea30fad8822704eabde0782f1292b1d21fbe9e90be4f542",
+      "next_plan_hash": "e4330987cd3aea2eecdc05b5f30dcd6365a296e8a775d84fb39f1a92d20abfab",
+      "previous_candidate": {
+        "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "files": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "sha256": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+            "sha256": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+            "sha256": "50338fc97d20517a8c37f3bf3d5221c08a0d373c7b5c8f996062028dd94939de"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/B1-final-affected.log",
+            "sha256": "6964579003e7855540e62685594073aefa7b1b0b30b56d4f45c22a2dcbcf337d"
+          }
+        ],
+        "dirty_inputs": [
+          "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+          "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+          "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md"
+        ]
+      },
+      "next_candidate": {
+        "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "files": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "sha256": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+            "sha256": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+            "sha256": "50338fc97d20517a8c37f3bf3d5221c08a0d373c7b5c8f996062028dd94939de"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/B1-final-affected.log",
+            "sha256": "6964579003e7855540e62685594073aefa7b1b0b30b56d4f45c22a2dcbcf337d"
+          }
+        ],
+        "dirty_inputs": [
+          "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+          "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+          "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md"
+        ]
+      }
+    },
+    {
+      "id": "B1-source-escalated-floor2",
+      "authorized_by": "Umesh",
+      "authorization_ref": "current-chat-approved-goal-D079-native-full12-continuation-B1-2",
+      "reason": "Prior explicitBLOCK setup-only; changed execution hypothesis permitted per-command fixture-write escalation, same native reviewer and same4controls/source. No default repeat or global sandbox change; original historical counters/costs retained.",
+      "expected_state_sha256": "7ef957325c95cf39c350d3459ddd4b1f41b32a2e302751f144e7e4b4622dd348",
+      "max_elapsed_ms": 100000,
+      "resumed_at": 1792123934717,
+      "snapshot_file": "qa/.delivery/7ef957325c95cf39c350d3459ddd4b1f41b32a2e302751f144e7e4b4622dd348.snapshot.json",
+      "previous_budget": {
+        "deadline": "2026-10-16T04:11:54.275238Z",
+        "closeout_ms": 20000,
+        "no_progress_ms": 170000,
+        "estimate_ms": 100000,
+        "estimate_tokens": 150000,
+        "token_cap": null,
+        "estimate_provenance": "B1 new prospective source change independently planned/approved; one fresh completed-feature source checker,59.7KBselected source and67valid maker controls reused. At most one scoped floor batch; coldstart observed36kraw plus uncertain review. OriginalT056 old source/C1-C6 exhausted workflows/costs remain untouched; no bootstrap/reset/global/pilot completion, actualaggregate10UNKNOWN. Do not rerun old failedreview as this new B1scope."
+      },
+      "next_budget": {
+        "deadline": "2026-10-16T04:13:54.618634Z",
+        "closeout_ms": 20000,
+        "no_progress_ms": 170000,
+        "estimate_ms": 100000,
+        "estimate_tokens": 150000,
+        "token_cap": null,
+        "estimate_provenance": "B1 new prospective source change independently planned/approved; one fresh completed-feature source checker,59.7KBselected source and67valid maker controls reused. At most one scoped floor batch; coldstart observed36kraw plus uncertain review. OriginalT056 old source/C1-C6 exhausted workflows/costs remain untouched; no bootstrap/reset/global/pilot completion, actualaggregate10UNKNOWN. Do not rerun old failedreview as this new B1scope."
+      },
+      "previous_plan_hash": "e4330987cd3aea2eecdc05b5f30dcd6365a296e8a775d84fb39f1a92d20abfab",
+      "next_plan_hash": "d211cf81114de674ca9ece1dd5f5c726a626fde085b7754be50233b601d873a1",
+      "previous_candidate": {
+        "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "files": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "sha256": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+            "sha256": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+            "sha256": "50338fc97d20517a8c37f3bf3d5221c08a0d373c7b5c8f996062028dd94939de"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/B1-final-affected.log",
+            "sha256": "6964579003e7855540e62685594073aefa7b1b0b30b56d4f45c22a2dcbcf337d"
+          }
+        ],
+        "dirty_inputs": [
+          "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+          "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+          "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md"
+        ]
+      },
+      "next_candidate": {
+        "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "files": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "sha256": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+            "sha256": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+            "sha256": "50338fc97d20517a8c37f3bf3d5221c08a0d373c7b5c8f996062028dd94939de"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/B1-final-affected.log",
+            "sha256": "6964579003e7855540e62685594073aefa7b1b0b30b56d4f45c22a2dcbcf337d"
+          }
+        ],
+        "dirty_inputs": [
+          "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+          "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+          "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md"
+        ]
+      }
+    }
+  ],
+  "invalidated_acceptances": [],
+  "current_packet": {
+    "schema_version": "reliable-delivery/1",
+    "workflow_id": "vc-p0-B1-native-acceptance-source-20261016",
+    "root_run_id": "vc-p0-B1-native-acceptance-source-20261016",
+    "feature": "T056-B1-native-acceptance-source",
+    "cycle": 0,
+    "parent_run_id": "vc-p0-native-acceptance-plan-20261016",
+    "run_id": "B1-source-final3",
+    "session": "vc-01a13e75",
+    "retry_of": null,
+    "candidate": {
+      "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+      "files": [
+        {
+          "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+          "sha256": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9"
+        },
+        {
+          "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+          "sha256": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42"
+        },
+        {
+          "path": "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+          "sha256": "50338fc97d20517a8c37f3bf3d5221c08a0d373c7b5c8f996062028dd94939de"
+        },
+        {
+          "path": "qa/evidence/checker-ratio-20261016/B1-final-affected.log",
+          "sha256": "6964579003e7855540e62685594073aefa7b1b0b30b56d4f45c22a2dcbcf337d"
+        }
+      ],
+      "dirty_inputs": [
+        "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+        "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+        "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md"
+      ]
+    },
+    "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+    "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+    "identity_files": {
+      "policy_id": {
+        "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md",
+        "sha256": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48"
+      },
+      "protocol_id": {
+        "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md",
+        "sha256": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730"
+      },
+      "config_id": {
+        "path": "qa/adapter.json",
+        "sha256": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2"
+      },
+      "dependency_id": {
+        "path": "pnpm-lock.yaml",
+        "sha256": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c"
+      }
+    },
+    "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+    "runtime_id": "v24.13.1-win32-x64",
+    "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+    "budget": {
+      "deadline": "2026-10-16T04:13:54.618634Z",
+      "closeout_ms": 20000,
+      "no_progress_ms": 170000,
+      "estimate_ms": 100000,
+      "estimate_tokens": 150000,
+      "token_cap": null,
+      "estimate_provenance": "B1 new prospective source change independently planned/approved; one fresh completed-feature source checker,59.7KBselected source and67valid maker controls reused. At most one scoped floor batch; coldstart observed36kraw plus uncertain review. OriginalT056 old source/C1-C6 exhausted workflows/costs remain untouched; no bootstrap/reset/global/pilot completion, actualaggregate10UNKNOWN. Do not rerun old failedreview as this new B1scope."
+    },
+    "resource_caps": {
+      "agent": 3
+    },
+    "closeout_resources": {
+      "agent": 1
+    },
+    "criteria": [
+      {
+        "id": "B1-source",
+        "description": "Independent B1 source acceptance only; no old broadsource/reset/bootstrap/P0/pilot/global acceptance",
+        "check_task_id": "check"
+      }
+    ],
+    "tasks": [
+      {
+        "id": "check",
+        "owner": "p0-B1-independent-final-sse",
+        "kind": "check",
+        "depends_on": [],
+        "owns": [
+          "qa/evidence/checker-ratio-20261016/B1-source-verdict.md"
+        ],
+        "resources": {
+          "agent": 1
+        },
+        "timeout_ms": 90000,
+        "max_output_bytes": 500000,
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "-c",
+          "windows.sandbox=mxc",
+          "-c",
+          "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+          "-c",
+          "mcp_servers.n8n-mcp.enabled=false",
+          "exec",
+          "resume",
+          "01a142e4-166f-7d12-889a-41e97bf245ba",
+          "--json",
+          "--output-last-message",
+          "qa/evidence/checker-ratio-20261016/B1-source-verdict.md",
+          "-"
+        ],
+        "handoff": {
+          "path": "qa/.delivery/context/17a1d64da43791fb003176196312fe7667f39648db6663dc6cf4c67717fe15b2.handoff.json",
+          "sha256": "17a1d64da43791fb003176196312fe7667f39648db6663dc6cf4c67717fe15b2"
+        }
+      }
+    ],
+    "dispatch": {
+      "task_id": "check",
+      "attempt_id": "closeout2"
+    }
+  }
+}

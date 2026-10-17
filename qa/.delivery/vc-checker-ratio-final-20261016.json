@@ -1,0 +1,162 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-checker-ratio-final-20261016",
+  "root_run_id": "vc-checker-ratio-final-20261016",
+  "feature": "checker-ratio-p0-final",
+  "cycle": 0,
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Bounded read-only prospective source review, not measured efficiency; historical maker/token baseline unavailable",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T21:05:57.5549676Z",
+    "estimate_ms": 70000,
+    "no_progress_ms": 90000
+  },
+  "resource_caps": {
+    "agent": 2
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "plan_hash": "bdad950b99e33cd65f22a719c46fe20db9d7352deb48ca4c940a18e19ceac21c",
+  "started_at": 1792098189151,
+  "last_acceptance_at": 1792098189151,
+  "closure": true,
+  "attempts": [
+    {
+      "key": "finalcheck:a1",
+      "task_id": "finalcheck",
+      "attempt_id": "a1",
+      "run_id": "ratio-finalcheck",
+      "parent_run_id": null,
+      "root_run_id": "vc-checker-ratio-final-20261016",
+      "feature": "checker-ratio-p0-final",
+      "cycle": 0,
+      "session": "vc-01a13e75",
+      "retry_of": null,
+      "owner": "p0-independent",
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/independent"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "admitted_at": 1792098189151,
+      "expires_at": 1792098259151,
+      "actual_tokens": null,
+      "token_status": "UNKNOWN",
+      "status": "success",
+      "coverage": "managed-cli",
+      "execution_identity": {
+        "schema_version": 1,
+        "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "exec",
+          "--sandbox",
+          "workspace-write",
+          "--json",
+          "-"
+        ],
+        "selection": [
+          "finalcheck"
+        ],
+        "input_blobs": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+            "blob": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "blob": "c87d3887ee425ad85f6a5089191305efe918350c4523c2555e2c06f68f040afb"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+            "blob": "1b55a14b30feb5050133a0e53e38e4cc607e9acdd807d4e1752ce38ab4756f13"
+          }
+        ],
+        "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+        "runtime_id": "v24.13.1-win32-x64",
+        "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+        "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+        "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+        "context_id": "cd4c1aed36dca09506cc3917c23c1fcac0b13c3b8bd1ec183086c614aca8fa43"
+      },
+      "receipt_sha256": "5f946dfc54bf69b66a58421efe33f9b960d8b47a783725111d71d43619f1833c",
+      "elapsed_ms": 33657
+    },
+    {
+      "key": "finalcheck:a2",
+      "task_id": "finalcheck",
+      "attempt_id": "a2",
+      "run_id": "ratio-finalcheck-a2",
+      "parent_run_id": null,
+      "root_run_id": "vc-checker-ratio-final-20261016",
+      "feature": "checker-ratio-p0-final",
+      "cycle": 0,
+      "session": "vc-01a13e75",
+      "retry_of": null,
+      "owner": "p0-independent",
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/independent"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "admitted_at": 1792098310332,
+      "expires_at": 1792098357554,
+      "actual_tokens": null,
+      "token_status": "UNKNOWN",
+      "status": "success",
+      "coverage": "managed-cli",
+      "execution_identity": {
+        "schema_version": 1,
+        "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "exec",
+          "--sandbox",
+          "workspace-write",
+          "--json",
+          "-"
+        ],
+        "selection": [
+          "finalcheck"
+        ],
+        "input_blobs": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+            "blob": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "blob": "c87d3887ee425ad85f6a5089191305efe918350c4523c2555e2c06f68f040afb"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+            "blob": "1b55a14b30feb5050133a0e53e38e4cc607e9acdd807d4e1752ce38ab4756f13"
+          }
+        ],
+        "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+        "runtime_id": "v24.13.1-win32-x64",
+        "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+        "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+        "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+        "context_id": "cd4c1aed36dca09506cc3917c23c1fcac0b13c3b8bd1ec183086c614aca8fa43"
+      },
+      "receipt_sha256": "07e144e44405454edb05e7b078de8b0de611cdf9e2e38f313ec895a203129057",
+      "elapsed_ms": 19591
+    }
+  ],
+  "accepted": [],
+  "actual_tokens": null,
+  "token_status": "UNKNOWN",
+  "cumulative": {
+    "attempts": 2,
+    "elapsed_ms": 53248,
+    "output_bytes": 7248
+  }
+}

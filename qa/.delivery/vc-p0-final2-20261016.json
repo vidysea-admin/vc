@@ -1,0 +1,362 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-final2-20261016",
+  "root_run_id": "vc-p0-final2-20261016",
+  "feature": "T056-final-after-QA-repair",
+  "cycle": 0,
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Same checker evidence-only closeout, original90s and all T056 costs retained",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T22:00:19.486Z",
+    "estimate_ms": 60000,
+    "no_progress_ms": 90000
+  },
+  "resource_caps": {
+    "agent": 3
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "plan_hash": "bbd07f0fc7a52ec8cfe10e53791ad63c35816ebabe7dead948ab65ee646d2ae8",
+  "started_at": 1792101391859,
+  "last_acceptance_at": 1792101391859,
+  "closure": true,
+  "attempts": [
+    {
+      "key": "final:a1",
+      "task_id": "final",
+      "attempt_id": "a1",
+      "run_id": "p0-final2",
+      "parent_run_id": "vc-p0-checker-rewrite1-20261016",
+      "root_run_id": "vc-p0-final2-20261016",
+      "feature": "T056-final-after-QA-repair",
+      "cycle": 0,
+      "session": "vc-01a13e75",
+      "retry_of": null,
+      "owner": "p0-final-independent",
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/independent/final2",
+        ".worktrees/b1-recovery/qa/evidence/checker-ratio-20261016",
+        ".worktrees/b1-recovery/qa/.delivery"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "admitted_at": 1792101391859,
+      "expires_at": 1792101481859,
+      "actual_tokens": null,
+      "token_status": "UNKNOWN",
+      "status": "incomplete",
+      "coverage": "managed-cli",
+      "execution_identity": {
+        "schema_version": 1,
+        "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "-c",
+          "windows.sandbox=mxc",
+          "-c",
+          "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+          "-c",
+          "mcp_servers.n8n-mcp.enabled=false",
+          "exec",
+          "--sandbox",
+          "workspace-write",
+          "--json",
+          "--output-last-message",
+          "qa/evidence/checker-ratio-20261016/independent/final2-verdict.md",
+          "-"
+        ],
+        "selection": [
+          "final"
+        ],
+        "input_blobs": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "blob": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs",
+            "blob": "ea72c17e019e70b20e3199644d30905f93e6721682abf083f4817a9b9f1a7937"
+          }
+        ],
+        "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+        "runtime_id": "v24.13.1-win32-x64",
+        "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+        "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+        "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+        "context_id": "cc82eca019749e3762f798ef3a809d579e195c6ca08c316cba51bef2a1e0f502"
+      },
+      "receipt_sha256": "5072b2411a5caf0ca9de096848517ddb2a3471fac69cec1822927f3d16115860",
+      "elapsed_ms": 90042
+    },
+    {
+      "key": "final:closeout1",
+      "task_id": "final",
+      "attempt_id": "closeout1",
+      "run_id": "p0-final2-closeout",
+      "parent_run_id": "vc-p0-checker-rewrite1-20261016",
+      "root_run_id": "vc-p0-final2-20261016",
+      "feature": "T056-final-after-QA-repair",
+      "cycle": 0,
+      "session": "vc-01a13e75",
+      "retry_of": null,
+      "owner": "p0-final-independent",
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/independent/final2",
+        ".worktrees/b1-recovery/qa/evidence/checker-ratio-20261016",
+        ".worktrees/b1-recovery/qa/.delivery"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "admitted_at": 1792101562240,
+      "expires_at": 1792101617240,
+      "actual_tokens": null,
+      "token_status": "UNKNOWN",
+      "status": "success",
+      "coverage": "managed-cli",
+      "execution_identity": {
+        "schema_version": 1,
+        "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "-c",
+          "windows.sandbox=mxc",
+          "-c",
+          "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+          "-c",
+          "mcp_servers.n8n-mcp.enabled=false",
+          "exec",
+          "resume",
+          "01a14191-2164-7c41-9bd0-fed417dbe713",
+          "--json",
+          "-"
+        ],
+        "selection": [
+          "final"
+        ],
+        "input_blobs": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "blob": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs",
+            "blob": "ea72c17e019e70b20e3199644d30905f93e6721682abf083f4817a9b9f1a7937"
+          }
+        ],
+        "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+        "runtime_id": "v24.13.1-win32-x64",
+        "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+        "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+        "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+        "context_id": "2f7b6e9f17a84c7ec62c1bd9e73c10d6c47dbe84a324ceaf63d539284bbca905"
+      },
+      "receipt_sha256": "2b9122aceec816ca4bdf3626d5db3c023e0a0022be399757f028465476c9e044",
+      "elapsed_ms": 36728
+    }
+  ],
+  "accepted": [],
+  "actual_tokens": null,
+  "token_status": "UNKNOWN",
+  "cumulative": {
+    "attempts": 2,
+    "elapsed_ms": 126770,
+    "output_bytes": 99918
+  },
+  "recoveries": [
+    {
+      "id": "evidence-closeout1",
+      "authorized_by": "Umesh",
+      "authorization_ref": "chat01a13e75-approved-goal-20261016-final2-closeout",
+      "reason": "Prior actual independent controls completed; same checker final verdict persistence only, no rerun or history reset",
+      "expected_state_sha256": "f7128ee9b05a1b996cc0591eeececa0273979fd60b874c13e69a72db836de39a",
+      "max_elapsed_ms": 60000,
+      "resumed_at": 1792101561892,
+      "snapshot_file": "qa/.delivery/f7128ee9b05a1b996cc0591eeececa0273979fd60b874c13e69a72db836de39a.snapshot.json",
+      "previous_budget": {
+        "estimate_tokens": null,
+        "token_cap": null,
+        "estimate_provenance": "Fresh completed-feature check after maker QA fixture repair; every prior T056 checking/probe expense retained, no new maker denominator or efficiency claim",
+        "closeout_ms": 10000,
+        "deadline": "2026-10-15T21:58:24.9013608Z",
+        "estimate_ms": 90000,
+        "no_progress_ms": 90000
+      },
+      "next_budget": {
+        "estimate_tokens": null,
+        "token_cap": null,
+        "estimate_provenance": "Same checker evidence-only closeout, original90s and all T056 costs retained",
+        "closeout_ms": 10000,
+        "deadline": "2026-10-15T22:00:19.486Z",
+        "estimate_ms": 60000,
+        "no_progress_ms": 90000
+      },
+      "previous_plan_hash": "1dbb035dd2d5c9de09f9cc025bfb67c6ab07937262fa0acf0eeabb023bed3fd0",
+      "next_plan_hash": "bbd07f0fc7a52ec8cfe10e53791ad63c35816ebabe7dead948ab65ee646d2ae8",
+      "previous_candidate": {
+        "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "files": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "sha256": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs",
+            "sha256": "ea72c17e019e70b20e3199644d30905f93e6721682abf083f4817a9b9f1a7937"
+          }
+        ],
+        "dirty_inputs": [
+          "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+          "qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs"
+        ]
+      },
+      "next_candidate": {
+        "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "files": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "sha256": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs",
+            "sha256": "ea72c17e019e70b20e3199644d30905f93e6721682abf083f4817a9b9f1a7937"
+          }
+        ],
+        "dirty_inputs": [
+          "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+          "qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs"
+        ]
+      }
+    }
+  ],
+  "invalidated_acceptances": [],
+  "current_packet": {
+    "schema_version": "reliable-delivery/1",
+    "workflow_id": "vc-p0-final2-20261016",
+    "root_run_id": "vc-p0-final2-20261016",
+    "feature": "T056-final-after-QA-repair",
+    "cycle": 0,
+    "parent_run_id": "vc-p0-checker-rewrite1-20261016",
+    "run_id": "p0-final2-closeout",
+    "session": "vc-01a13e75",
+    "retry_of": null,
+    "candidate": {
+      "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+      "files": [
+        {
+          "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+          "sha256": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3"
+        },
+        {
+          "path": "qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs",
+          "sha256": "ea72c17e019e70b20e3199644d30905f93e6721682abf083f4817a9b9f1a7937"
+        }
+      ],
+      "dirty_inputs": [
+        "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+        "qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs"
+      ]
+    },
+    "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+    "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+    "identity_files": {
+      "policy_id": {
+        "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md",
+        "sha256": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48"
+      },
+      "protocol_id": {
+        "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md",
+        "sha256": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730"
+      },
+      "config_id": {
+        "path": "qa/adapter.json",
+        "sha256": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2"
+      },
+      "dependency_id": {
+        "path": "pnpm-lock.yaml",
+        "sha256": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c"
+      }
+    },
+    "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+    "runtime_id": "v24.13.1-win32-x64",
+    "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+    "budget": {
+      "estimate_tokens": null,
+      "token_cap": null,
+      "estimate_provenance": "Same checker evidence-only closeout, original90s and all T056 costs retained",
+      "closeout_ms": 10000,
+      "deadline": "2026-10-15T22:00:19.486Z",
+      "estimate_ms": 60000,
+      "no_progress_ms": 90000
+    },
+    "resource_caps": {
+      "agent": 3
+    },
+    "closeout_resources": {
+      "agent": 1
+    },
+    "criteria": [
+      {
+        "check_task_id": "final",
+        "description": "Scoped hash-bound original baseline admission and unknown refusal",
+        "id": "C1"
+      },
+      {
+        "check_task_id": "final",
+        "description": "Aggregate10percent reservation and no reset mechanics",
+        "id": "C2"
+      },
+      {
+        "check_task_id": "final",
+        "description": "Recovery/actual execution debit and compatible independent falsification",
+        "id": "C3"
+      }
+    ],
+    "tasks": [
+      {
+        "resources": {
+          "agent": 1
+        },
+        "depends_on": [],
+        "id": "final",
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "-c",
+          "windows.sandbox=mxc",
+          "-c",
+          "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+          "-c",
+          "mcp_servers.n8n-mcp.enabled=false",
+          "exec",
+          "resume",
+          "01a14191-2164-7c41-9bd0-fed417dbe713",
+          "--json",
+          "-"
+        ],
+        "kind": "check",
+        "max_output_bytes": 180000,
+        "owner": "p0-final-independent",
+        "handoff": {
+          "path": "qa/.delivery/context/2f7b6e9f17a84c7ec62c1bd9e73c10d6c47dbe84a324ceaf63d539284bbca905.handoff.json",
+          "sha256": "2f7b6e9f17a84c7ec62c1bd9e73c10d6c47dbe84a324ceaf63d539284bbca905"
+        },
+        "owns": [
+          "qa/evidence/checker-ratio-20261016/independent/final2",
+          ".worktrees/b1-recovery/qa/evidence/checker-ratio-20261016",
+          ".worktrees/b1-recovery/qa/.delivery"
+        ],
+        "timeout_ms": 55000
+      }
+    ],
+    "dispatch": {
+      "attempt_id": "closeout1",
+      "task_id": "final"
+    }
+  }
+}

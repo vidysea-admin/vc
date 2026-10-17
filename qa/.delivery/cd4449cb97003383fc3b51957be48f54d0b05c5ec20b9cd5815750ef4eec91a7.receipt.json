@@ -1,0 +1,70 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-checker-rewrite1-20261016",
+  "task_id": "check",
+  "attempt_id": "own-harness-repair",
+  "owner": "p0-rewrite-checker",
+  "status": "incomplete",
+  "outputs": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "sha256": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+      "sha256": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98"
+    }
+  ],
+  "reason": "deadline-exhausted",
+  "exit_code": null,
+  "elapsed_ms": 54655,
+  "output_bytes": 6023,
+  "cleanup_complete": true,
+  "context_verification": {
+    "source_read_calls": 6,
+    "source_read_bytes": 29886,
+    "bundle_read_calls": 3,
+    "bundle_read_bytes": 44481
+  },
+  "evidence": {
+    "schema_version": 1,
+    "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "command": [
+      "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+      "-c",
+      "windows.sandbox=mxc",
+      "-c",
+      "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+      "-c",
+      "mcp_servers.n8n-mcp.enabled=false",
+      "exec",
+      "resume",
+      "01a1417d-3e62-7ca2-8107-31fa6a24bef9",
+      "--json",
+      "-"
+    ],
+    "selection": [
+      "check"
+    ],
+    "input_blobs": [
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+        "blob": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+        "blob": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98"
+      }
+    ],
+    "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+    "runtime_id": "v24.13.1-win32-x64",
+    "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+    "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+    "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+    "context_id": "a5ffb0f58b3a0fa0ccaedf900856c88f731cab0d702fe4407123dc1905485312",
+    "status": "incomplete",
+    "exit_code": null,
+    "log_file": "qa/.delivery/2a0a2b6f2e101ec8514e79b129ee80eb94010bef7497f3623c4e61ed8ef81773.log",
+    "log_sha256": "2a0a2b6f2e101ec8514e79b129ee80eb94010bef7497f3623c4e61ed8ef81773"
+  }
+}

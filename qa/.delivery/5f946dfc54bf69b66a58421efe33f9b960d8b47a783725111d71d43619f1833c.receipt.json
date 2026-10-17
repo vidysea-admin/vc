@@ -1,0 +1,72 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-checker-ratio-final-20261016",
+  "task_id": "finalcheck",
+  "attempt_id": "a1",
+  "owner": "p0-independent",
+  "status": "success",
+  "outputs": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+      "sha256": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "sha256": "c87d3887ee425ad85f6a5089191305efe918350c4523c2555e2c06f68f040afb"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+      "sha256": "1b55a14b30feb5050133a0e53e38e4cc607e9acdd807d4e1752ce38ab4756f13"
+    }
+  ],
+  "reason": null,
+  "exit_code": 0,
+  "elapsed_ms": 33657,
+  "output_bytes": 3979,
+  "cleanup_complete": true,
+  "context_verification": {
+    "source_read_calls": 9,
+    "source_read_bytes": 972276,
+    "bundle_read_calls": 3,
+    "bundle_read_bytes": 87222
+  },
+  "evidence": {
+    "schema_version": 1,
+    "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "command": [
+      "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+      "exec",
+      "--sandbox",
+      "workspace-write",
+      "--json",
+      "-"
+    ],
+    "selection": [
+      "finalcheck"
+    ],
+    "input_blobs": [
+      {
+        "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+        "blob": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+        "blob": "c87d3887ee425ad85f6a5089191305efe918350c4523c2555e2c06f68f040afb"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+        "blob": "1b55a14b30feb5050133a0e53e38e4cc607e9acdd807d4e1752ce38ab4756f13"
+      }
+    ],
+    "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+    "runtime_id": "v24.13.1-win32-x64",
+    "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+    "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+    "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+    "context_id": "cd4c1aed36dca09506cc3917c23c1fcac0b13c3b8bd1ec183086c614aca8fa43",
+    "status": "success",
+    "exit_code": 0,
+    "log_file": "qa/.delivery/5000af7b0d8effb621f6599ad33d34bd5667b47152a467286fb50780f58dd22f.log",
+    "log_sha256": "5000af7b0d8effb621f6599ad33d34bd5667b47152a467286fb50780f58dd22f"
+  }
+}

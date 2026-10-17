@@ -1,0 +1,102 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-independent-instrument-20261016",
+  "root_run_id": "vc-p0-independent-instrument-20261016",
+  "feature": "T056-independent-oracle",
+  "cycle": 0,
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Backend-independent fresh checker oracle authoring; all prior T056 reviews/probes retained in aggregate accounting, not a reset of original acceptance history",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T21:22:37.6314690Z",
+    "estimate_ms": 90000,
+    "no_progress_ms": 90000
+  },
+  "resource_caps": {
+    "agent": 2
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "plan_hash": "81ac5ecbb0321aef950c51478381af67d5d7347c55fb08cdb6ed553fa9a4a041",
+  "started_at": 1792099182850,
+  "last_acceptance_at": 1792099182850,
+  "closure": false,
+  "attempts": [
+    {
+      "key": "instrument:a1",
+      "task_id": "instrument",
+      "attempt_id": "a1",
+      "run_id": "independent-oracle",
+      "parent_run_id": null,
+      "root_run_id": "vc-p0-independent-instrument-20261016",
+      "feature": "T056-independent-oracle",
+      "cycle": 0,
+      "session": "vc-01a13e75",
+      "retry_of": null,
+      "owner": "p0-independent-oracle",
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/independent/checker-instrument.mjs"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "admitted_at": 1792099182850,
+      "expires_at": 1792099272850,
+      "actual_tokens": null,
+      "token_status": "UNKNOWN",
+      "status": "success",
+      "coverage": "managed-cli",
+      "execution_identity": {
+        "schema_version": 1,
+        "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "exec",
+          "--sandbox",
+          "read-only",
+          "--json",
+          "--output-last-message",
+          "qa/evidence/checker-ratio-20261016/independent/checker-instrument.mjs",
+          "-"
+        ],
+        "selection": [
+          "instrument"
+        ],
+        "input_blobs": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+            "blob": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "blob": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/independent/checker-instrument.mjs",
+            "blob": "fc6e545ce8579e599ba76181327a441969826dc0ce8c7ecda1546ab7608eb929"
+          }
+        ],
+        "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+        "runtime_id": "v24.13.1-win32-x64",
+        "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+        "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+        "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+        "context_id": "09a677abad47384019497568df87b3237eac7198d1ef912e2314e21a555d643d"
+      },
+      "receipt_sha256": "0ae80098ee89b290fb6165875991d4edacb631890ba94b9181c42bec1a2f4706",
+      "elapsed_ms": 43517
+    }
+  ],
+  "accepted": [],
+  "actual_tokens": null,
+  "token_status": "UNKNOWN",
+  "cumulative": {
+    "attempts": 1,
+    "elapsed_ms": 43517,
+    "output_bytes": 1347
+  }
+}

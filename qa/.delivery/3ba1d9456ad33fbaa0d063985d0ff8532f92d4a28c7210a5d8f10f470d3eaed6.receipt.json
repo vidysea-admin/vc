@@ -1,0 +1,64 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-checker-ratio-plan-20261016",
+  "task_id": "plancheck",
+  "attempt_id": "a2",
+  "owner": "p0-quality",
+  "status": "success",
+  "outputs": [
+    {
+      "path": "docs/plan.md",
+      "sha256": "a3d0226ed149068c54c397d1ef3d5aa140a226e632507e8dd61f01a67c4d9993"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/tick-source.txt",
+      "sha256": "c6d25f7bc2f1e7eb120f2e1140bbceb97760eef0749c1cd92541aa9aee16df43"
+    }
+  ],
+  "reason": null,
+  "exit_code": 0,
+  "elapsed_ms": 62838,
+  "output_bytes": 4084,
+  "cleanup_complete": true,
+  "context_verification": {
+    "source_read_calls": 6,
+    "source_read_bytes": 1238742,
+    "bundle_read_calls": 3,
+    "bundle_read_bytes": 78372
+  },
+  "evidence": {
+    "schema_version": 1,
+    "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "command": [
+      "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+      "exec",
+      "--sandbox",
+      "read-only",
+      "--json",
+      "-"
+    ],
+    "selection": [
+      "plancheck"
+    ],
+    "input_blobs": [
+      {
+        "path": "docs/plan.md",
+        "blob": "a3d0226ed149068c54c397d1ef3d5aa140a226e632507e8dd61f01a67c4d9993"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/tick-source.txt",
+        "blob": "c6d25f7bc2f1e7eb120f2e1140bbceb97760eef0749c1cd92541aa9aee16df43"
+      }
+    ],
+    "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+    "runtime_id": "v24.13.1-win32-x64",
+    "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+    "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+    "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+    "context_id": "1b9adc79d3cd3719891b58c8fc49ef2ed95b7d4aa1ebc52111ee9032b36d6172",
+    "status": "success",
+    "exit_code": 0,
+    "log_file": "qa/.delivery/9f3b7e27497ef0f8ec20c55d37773afcefb7a48d594ef68a4d67fa5f9279505b.log",
+    "log_sha256": "9f3b7e27497ef0f8ec20c55d37773afcefb7a48d594ef68a4d67fa5f9279505b"
+  }
+}

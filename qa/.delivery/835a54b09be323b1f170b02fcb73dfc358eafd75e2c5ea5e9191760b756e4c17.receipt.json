@@ -1,0 +1,128 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-rollout-final-20261016",
+  "task_id": "final",
+  "attempt_id": "a1",
+  "owner": "p0-rollout-final",
+  "status": "incomplete",
+  "outputs": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "sha256": "a5146aa94f54d8b6af544004a4a16de2bf17755c07238672b0a99e9de89c54d8"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py",
+      "sha256": "c71ce627b444fc32a6911e25fd73bc3313116832086bf09cec8b8f25ba63fb13"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/codex/maker/SKILL.md",
+      "sha256": "fd9b86c33cc7b64092fb738bf1300c2897c50c9556f6a9523b1d9cdd11d768b5"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/codex/checker/SKILL.md",
+      "sha256": "ca05aa09e6f5287ec1b8d444fee9a4d2ba6816dc57017b138e1927a863294834"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/shared/maker/SKILL.md",
+      "sha256": "f3eb29fd8b9d0bf28eff082c61b12dd9f36f82107194d7764b4e688d155944c0"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/shared/checker/SKILL.md",
+      "sha256": "2ae1e0030d987883fc4a6db33dd2aa23f6c9483cadcbb432e18bb4c64c5af2cf"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/canonical.md",
+      "sha256": "67971ae625da3b88d92b0d09d786558313a3a077e29762b6cf3af1cf0b0e000a"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py",
+      "sha256": "0747c159bb8db324d3d217c1c82eab6182e013b7a30ac612972f303368598a0a"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+      "sha256": "16f0807e1d443da7f2818454bbdaa6a4b0f83ec18ed85458e9fc46e174e0ebfd"
+    }
+  ],
+  "reason": "deadline-exhausted",
+  "exit_code": null,
+  "elapsed_ms": 180045,
+  "output_bytes": 172491,
+  "cleanup_complete": true,
+  "context_verification": {
+    "source_read_calls": 21,
+    "source_read_bytes": 258945,
+    "bundle_read_calls": 3,
+    "bundle_read_bytes": 159495
+  },
+  "evidence": {
+    "schema_version": 1,
+    "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "command": [
+      "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+      "-c",
+      "windows.sandbox=mxc",
+      "-c",
+      "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+      "-c",
+      "mcp_servers.n8n-mcp.enabled=false",
+      "exec",
+      "--sandbox",
+      "workspace-write",
+      "--json",
+      "--output-last-message",
+      "qa/evidence/checker-ratio-20261016/rollout-final-message.md",
+      "-"
+    ],
+    "selection": [
+      "final"
+    ],
+    "input_blobs": [
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+        "blob": "a5146aa94f54d8b6af544004a4a16de2bf17755c07238672b0a99e9de89c54d8"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py",
+        "blob": "c71ce627b444fc32a6911e25fd73bc3313116832086bf09cec8b8f25ba63fb13"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/codex/maker/SKILL.md",
+        "blob": "fd9b86c33cc7b64092fb738bf1300c2897c50c9556f6a9523b1d9cdd11d768b5"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/codex/checker/SKILL.md",
+        "blob": "ca05aa09e6f5287ec1b8d444fee9a4d2ba6816dc57017b138e1927a863294834"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/shared/maker/SKILL.md",
+        "blob": "f3eb29fd8b9d0bf28eff082c61b12dd9f36f82107194d7764b4e688d155944c0"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/shared/checker/SKILL.md",
+        "blob": "2ae1e0030d987883fc4a6db33dd2aa23f6c9483cadcbb432e18bb4c64c5af2cf"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/canonical.md",
+        "blob": "67971ae625da3b88d92b0d09d786558313a3a077e29762b6cf3af1cf0b0e000a"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py",
+        "blob": "0747c159bb8db324d3d217c1c82eab6182e013b7a30ac612972f303368598a0a"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+        "blob": "16f0807e1d443da7f2818454bbdaa6a4b0f83ec18ed85458e9fc46e174e0ebfd"
+      }
+    ],
+    "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+    "runtime_id": "v24.13.1-win32-x64",
+    "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+    "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+    "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+    "context_id": "42add0cdb68234954fc6d36c5a92d234e75f3f39934e0ef77337d491450643e5",
+    "status": "incomplete",
+    "exit_code": null,
+    "log_file": "qa/.delivery/1cb05ecadae6877931460a2e9dff64f4ec2254d489ec078b85860701b9136fd2.log",
+    "log_sha256": "1cb05ecadae6877931460a2e9dff64f4ec2254d489ec078b85860701b9136fd2"
+  }
+}

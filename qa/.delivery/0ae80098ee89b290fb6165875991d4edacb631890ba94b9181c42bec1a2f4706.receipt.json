@@ -1,0 +1,74 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-independent-instrument-20261016",
+  "task_id": "instrument",
+  "attempt_id": "a1",
+  "owner": "p0-independent-oracle",
+  "status": "success",
+  "outputs": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+      "sha256": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "sha256": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/independent/checker-instrument.mjs",
+      "sha256": "63b75a5499e739f1ba0dfc4c37436381780c320cead05c17cac694453a94460f"
+    }
+  ],
+  "reason": null,
+  "exit_code": 0,
+  "elapsed_ms": 43517,
+  "output_bytes": 1347,
+  "cleanup_complete": true,
+  "context_verification": {
+    "source_read_calls": 6,
+    "source_read_bytes": 518325,
+    "bundle_read_calls": 3,
+    "bundle_read_bytes": 130593
+  },
+  "evidence": {
+    "schema_version": 1,
+    "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "command": [
+      "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+      "exec",
+      "--sandbox",
+      "read-only",
+      "--json",
+      "--output-last-message",
+      "qa/evidence/checker-ratio-20261016/independent/checker-instrument.mjs",
+      "-"
+    ],
+    "selection": [
+      "instrument"
+    ],
+    "input_blobs": [
+      {
+        "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+        "blob": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+        "blob": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/independent/checker-instrument.mjs",
+        "blob": "fc6e545ce8579e599ba76181327a441969826dc0ce8c7ecda1546ab7608eb929"
+      }
+    ],
+    "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+    "runtime_id": "v24.13.1-win32-x64",
+    "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+    "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+    "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+    "context_id": "09a677abad47384019497568df87b3237eac7198d1ef912e2314e21a555d643d",
+    "status": "success",
+    "exit_code": 0,
+    "log_file": "qa/.delivery/16718facf543eaaec158724961e1d34f14ab037d9b6f9fc7ec7b4fb566274cdc.log",
+    "log_sha256": "16718facf543eaaec158724961e1d34f14ab037d9b6f9fc7ec7b4fb566274cdc"
+  }
+}

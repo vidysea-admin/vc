@@ -1,0 +1,99 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-checker-runtime-probe-20261016",
+  "root_run_id": "vc-checker-runtime-probe-20261016",
+  "feature": "checker-ratio-environment",
+  "cycle": 0,
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Single existing test, supported alternate installed client. All prior failed checking cost retained in original T056 goal accounting; this probe is not acceptance.",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T21:16:07.5040160Z",
+    "estimate_ms": 30000,
+    "no_progress_ms": 90000
+  },
+  "resource_caps": {
+    "agent": 2
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "plan_hash": "f0b381db2007ed290295414d9c9ec9ddb101ee2a068875d1363cf0217848e0bd",
+  "started_at": 1792098913908,
+  "last_acceptance_at": 1792098913908,
+  "closure": false,
+  "attempts": [
+    {
+      "key": "probe:a1",
+      "task_id": "probe",
+      "attempt_id": "a1",
+      "run_id": "runtime-probe",
+      "parent_run_id": null,
+      "root_run_id": "vc-checker-runtime-probe-20261016",
+      "feature": "checker-ratio-environment",
+      "cycle": 0,
+      "session": "vc-01a13e75",
+      "retry_of": null,
+      "owner": "p0-runtime",
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/runtime-probe-evidence"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "admitted_at": 1792098913908,
+      "expires_at": 1792098943908,
+      "actual_tokens": null,
+      "token_status": "UNKNOWN",
+      "status": "incomplete",
+      "coverage": "managed-cli",
+      "execution_identity": {
+        "schema_version": 1,
+        "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "command": [
+          "C:/Users/Lenovo/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+          "--exclude-dynamic-system-prompt-sections",
+          "--print",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--max-turns",
+          "2",
+          "--tools",
+          "Read,Bash",
+          "--strict-mcp-config",
+          "--no-session-persistence",
+          "--no-chrome"
+        ],
+        "selection": [
+          "probe"
+        ],
+        "input_blobs": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+            "blob": "fa2c4162c922dacd5dd2c9be11030f7d35958ce31403ecae5a9973c753ebfe0f"
+          }
+        ],
+        "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+        "runtime_id": "v24.13.1-win32-x64",
+        "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+        "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+        "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+        "context_id": "425e97fabda75347fae111bd62a033bb77fdf2ca6d43becadd9b0433a9061c63"
+      },
+      "receipt_sha256": "65dafe8ebe3194a2e6fc001f4a5c7f0cd7e508b3a1e31ea32cf6973fda903410",
+      "elapsed_ms": 30010
+    }
+  ],
+  "accepted": [],
+  "actual_tokens": null,
+  "token_status": "UNKNOWN",
+  "cumulative": {
+    "attempts": 1,
+    "elapsed_ms": 30010,
+    "output_bytes": 60180
+  }
+}

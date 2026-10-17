@@ -1,0 +1,104 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-checker-rewrite1-20261016",
+  "root_run_id": "vc-p0-checker-rewrite1-20261016",
+  "feature": "T056-checker-rewrite1",
+  "cycle": 0,
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "ONE brief rewrite with actual supported sandbox/readonly-Git capability; original T056125490ms authoring plus other failures retained, no new original-maker allowance or measured-efficiency claim",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T21:36:43.5809265Z",
+    "estimate_ms": 90000,
+    "no_progress_ms": 90000
+  },
+  "resource_caps": {
+    "agent": 3
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "plan_hash": "651f602899761d016871ce1403b76a4e9c5d3ee215c1409571b1c0e29d5a4deb",
+  "started_at": 1792100088574,
+  "last_acceptance_at": 1792100088574,
+  "closure": true,
+  "attempts": [
+    {
+      "key": "check:a1",
+      "task_id": "check",
+      "attempt_id": "a1",
+      "run_id": "checker-rewrite1",
+      "parent_run_id": "vc-p0-independent-instrument-20261016",
+      "root_run_id": "vc-p0-checker-rewrite1-20261016",
+      "feature": "T056-checker-rewrite1",
+      "cycle": 0,
+      "session": "vc-01a13e75",
+      "retry_of": null,
+      "owner": "p0-rewrite-checker",
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/independent/rewrite1"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "admitted_at": 1792100088574,
+      "expires_at": 1792100178574,
+      "actual_tokens": null,
+      "token_status": "UNKNOWN",
+      "status": "incomplete",
+      "coverage": "managed-cli",
+      "execution_identity": {
+        "schema_version": 1,
+        "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+        "command": [
+          "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+          "-c",
+          "windows.sandbox=mxc",
+          "-c",
+          "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+          "-c",
+          "mcp_servers.n8n-mcp.enabled=false",
+          "exec",
+          "--sandbox",
+          "workspace-write",
+          "--json",
+          "--output-last-message",
+          "qa/evidence/checker-ratio-20261016/independent/rewrite1-verdict.md",
+          "-"
+        ],
+        "selection": [
+          "check"
+        ],
+        "input_blobs": [
+          {
+            "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+            "blob": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3"
+          },
+          {
+            "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+            "blob": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98"
+          }
+        ],
+        "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+        "runtime_id": "v24.13.1-win32-x64",
+        "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+        "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+        "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+        "context_id": "9cf7b38d0108ba7534e0d0fe3fc94a1782104fd7c21eb40a90f16f1e83945b3d"
+      },
+      "receipt_sha256": "49fa74471747bea66ad0262619a9a0ee1d0034b671e827ce4f38a063c205ad5c",
+      "elapsed_ms": 90049
+    }
+  ],
+  "accepted": [],
+  "actual_tokens": null,
+  "token_status": "UNKNOWN",
+  "cumulative": {
+    "attempts": 1,
+    "elapsed_ms": 90049,
+    "output_bytes": 96596
+  }
+}

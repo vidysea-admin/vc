@@ -1,0 +1,64 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-checker-ratio-amend-20261016",
+  "task_id": "amendcheck",
+  "attempt_id": "a1",
+  "owner": "p0-quality",
+  "status": "success",
+  "outputs": [
+    {
+      "path": "docs/plan.md",
+      "sha256": "41945cc0d6824077ee05c21fc7f38ff26432e1e1df1d76ff282fccaf81d2575e"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/tick-source.txt",
+      "sha256": "c6d25f7bc2f1e7eb120f2e1140bbceb97760eef0749c1cd92541aa9aee16df43"
+    }
+  ],
+  "reason": null,
+  "exit_code": 0,
+  "elapsed_ms": 15348,
+  "output_bytes": 845,
+  "cleanup_complete": true,
+  "context_verification": {
+    "source_read_calls": 3,
+    "source_read_bytes": 749646,
+    "bundle_read_calls": 3,
+    "bundle_read_bytes": 18063
+  },
+  "evidence": {
+    "schema_version": 1,
+    "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "command": [
+      "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+      "exec",
+      "resume",
+      "01a14155-cc5a-7190-9db6-d44d2601e4ec",
+      "--json",
+      "-"
+    ],
+    "selection": [
+      "amendcheck"
+    ],
+    "input_blobs": [
+      {
+        "path": "docs/plan.md",
+        "blob": "41945cc0d6824077ee05c21fc7f38ff26432e1e1df1d76ff282fccaf81d2575e"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/tick-source.txt",
+        "blob": "c6d25f7bc2f1e7eb120f2e1140bbceb97760eef0749c1cd92541aa9aee16df43"
+      }
+    ],
+    "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+    "runtime_id": "v24.13.1-win32-x64",
+    "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+    "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+    "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+    "context_id": "d2385daf0e42d0801fa254a1e771eaf4909fa041d11459c5bdff14d457e0d3a3",
+    "status": "success",
+    "exit_code": 0,
+    "log_file": "qa/.delivery/37bd22ee52e0b9173fa932ef088c2c18cd9f9b93c0c8855b2d9ce7978235dfe5.log",
+    "log_sha256": "37bd22ee52e0b9173fa932ef088c2c18cd9f9b93c0c8855b2d9ce7978235dfe5"
+  }
+}
