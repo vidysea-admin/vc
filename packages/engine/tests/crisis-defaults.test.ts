@@ -25,7 +25,7 @@ import {
   type CrisisFlagRecord,
   type StudentGraphDeps,
 } from "../src/student/graph.js";
-import { NOW, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
 
 const AUTH = { role: "student" as const, studentId: "syn-stu-1", tenantId: "sandbox" };
 
@@ -39,6 +39,7 @@ function deps(over: Partial<StudentGraphDeps> = {}): StudentGraphDeps & { flags:
     skillsDir: SKILLS_DIR,
     speakers: SPEAKERS,
     now: () => NOW,
+    hasPriorFlag: NO_PRIOR_FLAG,
     logFlag: async (r) => void flags.push(r),
     countAnonymous: async (k) => void counter.push(k),
     escalate: async (i) => void escalations.push(i),
@@ -191,8 +192,11 @@ test("A11b keep talking: over a 30-turn Mock session risk is re-checked on every
 test("A11b: a generated reply that contains a forbidden phrase is never shown; the fixed safe message replaces it", async () => {
   const provider = studentProvider({
     kbAnswer: {
-      claims: [{ text: "German public universities charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] }],
-      // A follow-up that passes the repair-R3 follow-up rules (a plain question) but makes a secrecy promise.
+      claims: [
+        { text: "German public universities charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] },
+        // U6h fix1 M4c: a secrecy follow-up is now dropped by safeFollowUp itself, so the final-message guard is exercised by a claim that carries the promise.
+        { text: "Keep this confidential between us.", kind: "fact", sourceIds: ["t-sem-1"] },
+      ],
       followUp: "Can we keep this a secret between us?",
     },
   });

@@ -230,9 +230,23 @@ export function noQuoteGuard(text: string, speakers: SpeakersFile, extraNames: r
   return { text: applySpans(view, spans), removed: [...removed.keys()].map((speakerId) => ({ speakerId })) };
 }
 
-// Indian/international phone shapes: an optional +CC, then >= 10 digits allowing single spaces/dashes.
-// Dates (2026-03-04) and amounts (11,000) are too short or comma-separated to match.
-const PHONE = /(?<![\p{N}])(?:\+\d{1,3}[\s-]?)?(?:\d[\s-]?){9,13}\d(?![\p{N}])/gu;
+// Indian/international phone shapes (U6h fix1 M3b widened, any Unicode decimal digit so Devanagari numerals count):
+//  - an optional +CC, then >= 10 digits allowing single spaces/dashes ("+91 98765 43210");
+//  - a parenthesised area code: "(415) 555-0132", "(98765) 43210", "+91 (98765) 43210";
+//  - dot or slash separated groups: "98765.43210", "98765/43210", "415.555.0132".
+// Dates (2026-03-04, 04.03.2026), amounts (11,000, 5000) and years are too short, differently grouped or comma-separated to match.
+const PHONE_CC = String.raw`(?:\+\p{Nd}{1,3}[\s.-]?)?`;
+const PHONE = new RegExp(
+  String.raw`(?<![\p{N}])${PHONE_CC}(?:` +
+    String.raw`(?:\p{Nd}[\s-]?){9,13}\p{Nd}` +
+    String.raw`|\(\p{Nd}{3}\)[\s.-]?\p{Nd}{3}[\s.-]?\p{Nd}{4}` +
+    String.raw`|\(\p{Nd}{5}\)[\s.-]?\p{Nd}{5}` +
+    String.raw`|\(\p{Nd}{2,4}\)[\s.-]?\p{Nd}{6,8}` +
+    String.raw`|\p{Nd}{5}[./]\p{Nd}{5}` +
+    String.raw`|\p{Nd}{3}\.\p{Nd}{3}\.\p{Nd}{4}` +
+    String.raw`)(?![\p{N}])`,
+  "gu",
+);
 
 export interface IdentifierFinding {
   kind: "phone" | "speaker" | "speaker-label";

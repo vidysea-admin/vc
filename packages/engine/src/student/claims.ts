@@ -16,8 +16,11 @@
  * clauses and each one must be fully carried by ONE evidence clause: the same negation (no / not / never / without /
  * free / n't / nahi / nahin / mat); every content word present (light stem + a tiny synonym table, no 50% overlap, so
  * an extra clause, an antonym such as mandatory/optional or higher/lower, or a swapped word fails); no quantifier the
- * evidence lacks (most -> all / every / only); the same comparators (at least / at most); every number with the same value, currency/unit
- * and rate (per month != per semester != a year; "two" = 2); every country named in the claim in that clause (exact
+ * evidence lacks AND none it drops (most / all / every / only / some / few, U6h fix1); the same hedges and modals (may / usually /
+ * should), conditions (if / unless / provided) and scope words (public / private / international / postgraduate); a caveat
+ * sentence right after the evidence clause ("This applies only to ...") must be carried too; the same comparators (at least /
+ * at most); every number with the same value, currency/unit, rate (per month != per semester != a year; "two" = 2) and
+ * country (a figure stays with the country it sits next to); every country named in the claim in that clause (exact
  * token or demonym, so "India" !~ "individual"); for fact/country claims every capitalised proper noun in the evidence.
  * Wording the heuristic does not know is unverified, never verified.
  *
@@ -230,7 +233,26 @@ const QUANTIFIERS: Record<string, string> = {
   all: "all", every: "all", each: "all", everyone: "all", entire: "all", whole: "all",
   any: "any", only: "only", most: "most", mostly: "most", majority: "most", many: "many", some: "some", several: "some",
   few: "few", both: "both", none: "none", always: "always", never: "never", sometimes: "sometimes",
+  solely: "only", exclusively: "only", merely: "only",
 };
+// U6h fix1 H2a: restrictors a claim may neither drop nor add. Each class must be the SAME set in the claim clause and the
+// evidence clause (both directions): a hedge or modal (may / usually / should), a condition (if / unless / provided) and a
+// scope word (public / private / international / postgraduate). Wording outside these lists is caught by the content-word rule.
+const HEDGES: Record<string, string> = {
+  may: "possible", might: "possible", could: "possible", can: "possible", perhaps: "possible", possibly: "possible",
+  should: "advice", ought: "advice",
+  usually: "usual", generally: "usual", typically: "usual", normally: "usual", commonly: "usual", often: "usual",
+  sometimes: "sometimes", occasionally: "sometimes", rarely: "rare", seldom: "rare",
+  likely: "likely", probably: "likely", probable: "likely", unlikely: "unlikely",
+};
+const CONDITIONS: Record<string, string> = {
+  if: "if", unless: "unless", provided: "if", providing: "if", once: "once", whenever: "if", otherwise: "unless", except: "except",
+  depending: "depending", depends: "depending", subject: "depending",
+};
+const SCOPE_WORDS = new Set(
+  ["public", "private", "international", "domestic", "foreign", "overseas", "local", "undergraduate", "postgraduate", "graduate",
+    "bachelor", "master", "doctoral", "phd", "eu", "part", "online", "residential"].map((w) => lightStem(w)),
+);
 // Number comparators must match exactly in both directions ("at least 300" is not "300", "300" is not "at most 300").
 const COMPARATORS = new Set(["more", "less", "fewer", "least", "minimum", "maximum", "below", "above"]);
 // Words that carry no checkable content: articles, auxiliaries, pronouns, hedges and filler, and currency / percent
@@ -292,14 +314,17 @@ const NUMBER_RE = new RegExp(
   String.raw`\d(?:[\d,]*\d)?(?:\.\d+)?|(?<![\p{L}\p{N}])(?:${Object.keys(NUMBER_WORDS).join("|")}|one(?=\s+(?:months?|years?|weeks?|days?|hours?|semesters?|terms?|credits?|euros?|dollars?|pounds?)))(?![\p{L}\p{N}])`,
   "giu",
 );
-interface NumberMention {
+export interface NumberMention {
   n: string;
   unit: string | null;
   rate: string | null;
   start: number;
   end: number;
+  /** U6h fix1 H2b: the countries this figure sits next to in its clause. null = the clause names no country. */
+  bound?: string[] | null;
 }
-function numberMentions(text: string): NumberMention[] {
+/** Every figure in `text`, digits or spelled out ("five thousand"), with unit and rate (U6h fix1 M4: the coach filter uses it too). */
+export function numberMentions(text: string): NumberMention[] {
   const out: NumberMention[] = [];
   for (const m of text.matchAll(NUMBER_RE)) {
     const raw = m[0];
@@ -355,42 +380,98 @@ interface Clause {
   words: Set<string>;
   quant: Set<string>;
   comp: Set<string>;
+  hedge: Set<string>;
+  cond: Set<string>;
+  scope: Set<string>;
   nums: NumberMention[];
   countries: Set<string>;
+  /** Evidence only: content words of a caveat sentence that followed this clause; the claim must carry them (U6h fix1 H2a). */
+  mustCarry: Set<string>;
 }
+
+// Delimiters inside a clause that separate one country's figure from another's ("300 euros for Germany and 500 euros for France").
+// A comma counts only before whitespace, so "11,000" stays whole.
+const FIGURE_BREAK = /,\s+|;\s*|\s+(?:and|while|whereas|versus|vs\.?|but|compared (?:to|with))\s+|\s+[-–—]\s+/gi;
+/** U6h fix1 H2b: bind each figure to the country (or countries) in its own segment, so a figure cannot move to its neighbour. */
+function bindFigures(text: string, nums: NumberMention[]): void {
+  const clauseCountries = countriesIn(text);
+  if (clauseCountries.length === 0) {
+    for (const n of nums) n.bound = null;
+    return;
+  }
+  const segs: { start: number; end: number }[] = [];
+  let at = 0;
+  for (const m of text.matchAll(FIGURE_BREAK)) {
+    segs.push({ start: at, end: m.index! });
+    at = m.index! + m[0].length;
+  }
+  segs.push({ start: at, end: text.length });
+  let pending: string[] = [];
+  for (const seg of segs) {
+    const here = nums.filter((n) => n.start >= seg.start && n.start < seg.end);
+    const segCountries = countriesIn(text.slice(seg.start, seg.end));
+    if (here.length === 0) {
+      pending = [...pending, ...segCountries];
+      continue;
+    }
+    const bound = segCountries.length > 0 || pending.length > 0 ? [...new Set([...segCountries, ...pending])] : clauseCountries.length === 1 ? clauseCountries : [];
+    for (const n of here) n.bound = bound;
+    pending = [];
+  }
+}
+
 function analyse(text: string): Clause {
   const nums = numberMentions(text);
+  bindFigures(text, nums);
   let rest = text;
   for (const m of [...nums].sort((a, b) => b.start - a.start)) rest = `${rest.slice(0, m.start)} ${rest.slice(m.end)}`;
   const words = new Set<string>();
   const quant = new Set<string>();
   const comp = new Set<string>();
+  const hedge = new Set<string>();
+  const cond = new Set<string>();
+  const scope = new Set<string>();
   for (const t of tokens(rest)) {
     const q = quantOf(t);
     if (q) quant.add(q);
     if (COMPARATORS.has(t)) comp.add(t);
+    if (Object.hasOwn(HEDGES, t)) hedge.add(HEDGES[t]!);
+    if (Object.hasOwn(CONDITIONS, t)) cond.add(CONDITIONS[t]!);
+    if (SCOPE_WORDS.has(lightStem(t))) scope.add(lightStem(t));
     if (t.length < 3 || /^\d/.test(t) || NEGATIONS.has(t) || FUNCTION_WORDS.has(t) || COUNTRY_WORDS.has(t) || q || COMPARATORS.has(t)) continue;
     words.add(conceptOf(t));
   }
-  return { neg: hasNegation(text), words, quant, comp, nums, countries: new Set(countriesIn(text)) };
+  return { neg: hasNegation(text), words, quant, comp, hedge, cond, scope, nums, countries: new Set(countriesIn(text)), mustCarry: new Set() };
 }
 const isEmptyClause = (c: Clause) => c.words.size === 0 && c.nums.length === 0 && c.countries.size === 0 && c.quant.size === 0;
 
-/** The claim's numbers: each must be in the evidence clause with the same value, unit (when given) and rate. */
+const sameSet = (a: Set<string>, b: Set<string>) => a.size === b.size && [...a].every((x) => b.has(x));
+
+/** The claim's numbers: each must be in the evidence clause with the same value, unit (when given), rate and country binding. */
 function numbersSupported(claim: NumberMention[], evidence: NumberMention[]): boolean {
-  return claim.every((c) => evidence.some((e) => e.n === c.n && (c.unit === null || e.unit === c.unit) && e.rate === c.rate));
+  return claim.every((c) =>
+    evidence.some(
+      (e) =>
+        e.n === c.n &&
+        (c.unit === null || e.unit === c.unit) &&
+        e.rate === c.rate &&
+        (!c.bound || c.bound.length === 0 || !e.bound || c.bound.every((x) => e.bound!.includes(x))),
+    ),
+  );
 }
 
 /**
  * A claim clause is supported by an evidence clause only when ALL of the following hold (U6h H2, fail closed):
- * same negation; every content word of the claim is in the clause (no 50% overlap); no quantifier the clause
- * lacks; the same comparators; every number with the same unit and rate; and the
- * claim's countries are the clause's countries (or, when the clause names none, the only ones the evidence names).
+ * same negation; every content word of the claim is in the clause (no 50% overlap); the SAME quantifiers, hedges /
+ * modals, conditions and scope words (U6h fix1: a dropped "some", "may", "if" or "public" fails, as does an added one);
+ * the same comparators; every number with the same unit, rate and country; and the claim's countries are the clause's
+ * countries (or, when the clause names none, the only ones the evidence names).
  */
 function clauseSupports(c: Clause, e: Clause, evidenceCountries: Set<string>): boolean {
   if (c.neg !== e.neg) return false;
   for (const w of c.words) if (!e.words.has(w)) return false;
-  for (const q of c.quant) if (!e.quant.has(q)) return false;
+  for (const w of e.mustCarry) if (!c.words.has(w)) return false;
+  if (!sameSet(c.quant, e.quant) || !sameSet(c.hedge, e.hedge) || !sameSet(c.cond, e.cond) || !sameSet(c.scope, e.scope)) return false;
   if (c.comp.size !== e.comp.size || [...c.comp].some((w) => !e.comp.has(w))) return false;
   if (!numbersSupported(c.nums, e.nums)) return false;
   if (c.countries.size > 0) {
@@ -404,7 +485,43 @@ function clauseSupports(c: Clause, e: Clause, evidenceCountries: Set<string>): b
 }
 
 const CLAUSE_BREAK_CLAIM = /(?<=[.!?।])\s+|;\s*|,?\s+\bbut\b\s+|,?\s+\bhowever\b,?\s+/i;
-const CLAUSE_BREAK_EVIDENCE = /(?<=[.!?।])\s+|;\s*|,?\s+\bbut\b\s+|,?\s+\bwhile\b\s+|,?\s+\bwhereas\b\s+|,?\s+\blekin\b\s+/i;
+const SENTENCE_BREAK = /(?<=[.!?।])\s+/;
+const SUBCLAUSE_BREAK_EVIDENCE = /;\s*|,?\s+\bbut\b\s+|,?\s+\bwhile\b\s+|,?\s+\bwhereas\b\s+|,?\s+\blekin\b\s+/i;
+
+// U6h fix1 H2a: an evidence sentence that restricts the one before it ("This applies only to EU citizens.", "Exceptions apply ...").
+const CAVEAT_SENTENCE =
+  /^\W*(?:(?:this|that|these|those|it|they|the (?:above|same|rule|fee|waiver|offer|exemption))\b[^.!?।]*\b(?:appl(?:y|ies|icable)|holds?|valid|only|except\w*|exclud\w*|limited|restricted|subject|not|n['’]t)\b|(?:exceptions?|except|unless|provided|subject to|only|however|note that|conditions?|caveats?|restrictions?)\b)/i;
+const CAVEAT_FILLER = new Set(
+  ["this", "that", "these", "those", "they", "apply", "applies", "applied", "applicable", "hold", "holds", "valid", "except", "exception",
+    "exceptions", "however", "note", "unless", "provided", "subject", "condition", "conditions", "caveat", "caveats", "restriction",
+    "restrictions", "above", "same", "rule"].map((w) => lightStem(w)),
+);
+function withCaveat(main: Clause, caveat: Clause): Clause {
+  const carry = new Set([...caveat.words].filter((w) => !CAVEAT_FILLER.has(w)));
+  return {
+    ...main,
+    words: new Set([...main.words, ...carry]),
+    quant: new Set([...main.quant, ...caveat.quant]),
+    hedge: new Set([...main.hedge, ...caveat.hedge]),
+    cond: new Set([...main.cond, ...caveat.cond]),
+    scope: new Set([...main.scope, ...caveat.scope]),
+    nums: [...main.nums, ...caveat.nums],
+    countries: new Set([...main.countries, ...caveat.countries]),
+    mustCarry: new Set([...main.mustCarry, ...carry]),
+  };
+}
+/** Evidence clauses; a caveat sentence is merged into the clause(s) before it (so a claim must carry it) and also kept on its own. */
+function evidenceClausesOf(evidence: string): Clause[] {
+  const sentences = evidence.split(SENTENCE_BREAK).filter((x) => x.trim());
+  const out: Clause[] = [];
+  sentences.forEach((sentence, i) => {
+    const parts = sentence.split(SUBCLAUSE_BREAK_EVIDENCE).filter((x) => x.trim()).map(analyse);
+    const next = sentences[i + 1];
+    const caveat = next !== undefined && CAVEAT_SENTENCE.test(next) ? analyse(next) : undefined;
+    for (const part of parts) out.push(caveat ? withCaveat(part, caveat) : part);
+  });
+  return out;
+}
 
 /**
  * The stated support heuristic (see the file header). U6h H2: no partial-overlap acceptance. The claim is cut
@@ -427,10 +544,10 @@ export function supports(claim: { text: string; kind: ClaimKind }, evidence: str
       return false;
     }
   }
-  const evidenceClauses = evidence.split(CLAUSE_BREAK_EVIDENCE).filter((c) => c.trim()).map(analyse);
+  const evClauses = evidenceClausesOf(evidence);
   const claimClauses = claim.text.split(CLAUSE_BREAK_CLAIM).filter((c) => c.trim()).map(analyse).filter((c) => !isEmptyClause(c));
   if (claimClauses.length === 0) return false;
-  return claimClauses.every((c) => evidenceClauses.some((e) => clauseSupports(c, e, evidenceCountries)));
+  return claimClauses.every((c) => evClauses.some((e) => clauseSupports(c, e, evidenceCountries)));
 }
 
 /** Session ids a served /ask node points at (spec scope item 4(a)). */

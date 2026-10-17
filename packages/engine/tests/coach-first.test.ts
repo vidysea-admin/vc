@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { MockProvider } from "@vc/providers";
 import { classifyIntent, isDraftingRequest } from "../src/student/classify.js";
 import { isDraftLike, runStudentTurn, STUDENT_TOOLS, type StudentGraphDeps } from "../src/student/graph.js";
-import { NOW, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
 
 const AUTH = { role: "student" as const, studentId: "syn-stu-2", tenantId: "sandbox" };
 
@@ -62,7 +62,7 @@ test("A21(a): every drafting request yields coaching (questions, structure) and 
   const honest = studentProvider();
   for (const provider of [cheating, honest]) {
     for (const text of DRAFTING) {
-      const deps: StudentGraphDeps = { kb: fakeKb(), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW };
+      const deps: StudentGraphDeps = { kb: fakeKb(), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG };
       const out = await runStudentTurn(deps, { mode: "authenticated", auth: AUTH, threadId: "th-c", turnId: "tu-c", text });
       assert.equal(out.selectedTool, "coach_draft_feedback", text);
       const msg = out.response.message ?? "";
@@ -129,7 +129,7 @@ test("A21(b): >= 15 fixture intents select the matching tool/feature, and every 
   for (const [text, tool] of INTENTS) {
     assert.equal(classifyIntent(text), tool, text);
     assert.ok(registered.has(tool), `${tool} is registered`);
-    const deps: StudentGraphDeps = { kb: fakeKb(), provider: studentProvider(), skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW };
+    const deps: StudentGraphDeps = { kb: fakeKb(), provider: studentProvider(), skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG };
     const out = await runStudentTurn(deps, { mode: "authenticated", auth: AUTH, threadId: "th-i", turnId: "tu-i", text });
     assert.equal(out.selectedTool, tool, `graph selected ${out.selectedTool} for: ${text}`);
   }

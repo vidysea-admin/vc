@@ -186,3 +186,46 @@ test("U6h P5: a common word used as a name token ('Will') does not blank ordinar
   assert.match(out, /The visa will be issued in two weeks\./);
   assert.doesNotMatch(out, /Mehra|Will Mehra/);
 });
+
+// U6h fix cycle 1 M3b. Scenario: a WhatsApp / unknown hit (restricted) carries a phone number in a shape the old detector
+// missed; redactPersonalIdentifiers runs on it BEFORE the model sees it (graph.ts modelText) and on every shown claim.
+test("U6h fix1 M3b: phone shapes the old detector missed are found and redacted (parenthesised area code, dots, Devanagari digits)", () => {
+  const phones = [
+    "(98765) 43210",
+    "+91 (98765) 43210",
+    "(415) 555-0132",
+    "(415)555-0132",
+    "+1 (415) 555-0132",
+    "98765.43210",
+    "98765/43210",
+    "415.555.0132",
+    "९८७६५ ४३२१०",
+    "९८७६५४३२१०",
+    "+९१ ९८७६५ ४३२१०",
+  ];
+  for (const p of phones) {
+    const text = `Call me on ${p} tonight`;
+    assert.deepEqual(findPersonalIdentifiers(text, speakers, []).map((f) => f.kind), ["phone"], `detect ${p}`);
+    const out = redactPersonalIdentifiers(text, speakers, []);
+    assert.doesNotMatch(out, /\d|[०-९]/, `redact ${p} -> ${out}`);
+    assert.match(out, /\[number removed\]/, p);
+  }
+});
+
+test("U6h fix1 M3b: years, fees, dates and ordinary numbers are not phone numbers", () => {
+  const benign = [
+    "The intake is in 2026.",
+    "Fees are 5000 euros.",
+    "Fees are 5,000 euros and living costs 11,000 euros.",
+    "Seminar date 2026-03-04 and 11,000 euros",
+    "Deadline 04.03.2026.",
+    "Deadline 04/03/2026 for the 2026-27 intake.",
+    "Version 3.11.4 of the guide.",
+    "About 1.5 lakh per year or 120 ECTS credits.",
+    "Call the office (open 9 to 5) for 2 weeks.",
+    "Scores: IELTS 6.5, GRE 320.",
+    "In (2026) the fee is 5000 euros.",
+    "१०१० रुपये और २०२६ का सत्र",
+  ];
+  for (const t of benign) assert.deepEqual(findPersonalIdentifiers(t, speakers, []), [], t);
+});

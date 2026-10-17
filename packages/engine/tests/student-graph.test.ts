@@ -16,13 +16,14 @@ import {
   STUDENT_CRISIS_MESSAGE,
   StudentAuthRequiredError,
   StudentInputInvalidError,
+  buildStudentGraph,
   compileStudentGraph,
   runStudentTurn,
   type GapRecord,
   type StudentGraphDeps,
 } from "../src/student/graph.js";
 import type { AskToolOutput } from "../src/student/claims.js";
-import { ASK_ANSWERED, HIT_LOW_SCORE, HIT_UNLISTED_RECORDING, NOW, SEARCH_OK, SESSION_SEM_2, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+import { ASK_ANSWERED, HIT_LOW_SCORE, HIT_UNLISTED_RECORDING, NOW, SEARCH_OK, SESSION_SEM_2, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
 
 const AUTH = { role: "student" as const, studentId: "syn-stu-3", tenantId: "sandbox" };
 const Q = "What is the tuition at German public universities?";
@@ -36,6 +37,7 @@ function deps(over: Partial<StudentGraphDeps> = {}) {
     skillsDir: SKILLS_DIR,
     speakers: SPEAKERS,
     now: () => NOW,
+    hasPriorFlag: NO_PRIOR_FLAG,
     recordGap: async (g) => void gaps.push(g),
     countAnonymous: async (k) => void counter.push(k),
     ...over,
@@ -65,7 +67,7 @@ test("answer_from_kb: search_kb first; with >= 1 hit at or above the threshold, 
 
 test("answer_from_kb: insufficient = 0 hits with score >= threshold -> ask_knowledge_base; low-score hits are not used as evidence", async () => {
   assert.ok(DEFAULT_SEARCH_SCORE_THRESHOLD > HIT_LOW_SCORE.score);
-  const provider = studentProvider({ kbAnswer: { claims: [{ text: "Living costs in Germany are about 11,000 euros a year.", kind: "number", sourceIds: ["session:sess-sem-2"] }] } });
+  const provider = studentProvider({ kbAnswer: { claims: [{ text: "For most students, living costs in Germany are roughly 11,000 euros a year.", kind: "number", sourceIds: ["session:sess-sem-2"] }] } });
   const { d, kb } = deps({ kb: fakeKb({ search: { status: "ok", hits: [HIT_LOW_SCORE], dropped: 0 } }), provider });
   const out = await runStudentTurn(d, turn());
   assert.deepEqual(kb.calls.map((c) => c.tool), ["search_kb", "ask_knowledge_base", "get_session"]);
@@ -548,8 +550,8 @@ test("U6h M4: an unreadable flag store fails toward disclosure (the helpline lin
   assert.deepEqual(errors, ["flag_read"]);
 });
 
-test("U6h M4: with no store wired, a flag this graph raised earlier in the same thread still counts; another thread is unaffected", async () => {
-  const { d } = deps();
+test("U6h M4: with a store that has no earlier flag, a flag this graph raised earlier in the same thread still counts (e.g. the flag write failed); another thread is unaffected", async () => {
+  const { d } = deps({ hasPriorFlag: NO_PRIOR_FLAG });
   const crisis = await runStudentTurn(d, turn(CRISIS_TEXT));
   assert.equal(crisis.response.state, "escalated");
   const same = await runStudentTurn(d, { ...turn(), turnId: "tu-next", priorFlagInThread: false });
@@ -611,4 +613,63 @@ test("U6h L5: an over-long text with no crisis phrase anywhere is StudentInputIn
     await assert.rejects(runStudentTurn(d, turn(LONG_FILLER.repeat(n))), StudentInputInvalidError);
     assert.equal(kb.calls.length, 0);
   }
+});
+
+// ---------------------------------------------------------------------------
+// U6h fix cycle 1. Each test below was recorded RED first. Scenarios are the real student turns that reach the code.
+// ---------------------------------------------------------------------------
+
+test("U6h fix1 M4 coach: spelled-out numbers are facts too - 'about five thousand euros a year' and 'twenty thousand euros' never reach the student", async () => {
+  const provider = coachProvider("Tuition there is about five thousand euros a year. Let's build this from your own story. You will pay twenty thousand euros.", [
+    "What moment made you choose this field?",
+    "Which project are you proudest of, and why?",
+    "Did you know it costs thirty thousand euros?",
+  ]);
+  const { d } = deps({ provider });
+  const out = await runStudentTurn(d, turn(SOP_ASK));
+  assert.equal(out.selectedTool, "coach_draft_feedback");
+  const msg = out.response.message ?? "";
+  assert.doesNotMatch(msg, /thousand|five|twenty|thirty|euros/i);
+  assert.match(msg, /own story/);
+  assert.ok((msg.match(/\?/g) ?? []).length >= 2);
+});
+
+test("U6h fix1 M4 coach: ordinary coaching words ('One thing', 'someone', 'tenacity') are not mistaken for numbers", async () => {
+  const provider = coachProvider("One thing at a time: tell me about someone who shaped your tenacity. Let's build this from your own story.", [
+    "What moment made you choose this field?",
+    "Which project are you proudest of, and why?",
+  ]);
+  const { d } = deps({ provider });
+  const out = await runStudentTurn(d, turn(SOP_ASK));
+  assert.match(out.response.message ?? "", /One thing at a time/);
+  assert.match(out.response.message ?? "", /tenacity/);
+});
+
+test("U6h fix1 M4b: hasPriorFlag is a REQUIRED dep - a graph built or run without it fails loudly, never silently trusts process memory", async () => {
+  const { d } = deps();
+  const { hasPriorFlag: _omit, ...without } = d;
+  assert.throws(() => buildStudentGraph(without as unknown as StudentGraphDeps), /hasPriorFlag/);
+  await assert.rejects(runStudentTurn(without as unknown as StudentGraphDeps, turn()), /hasPriorFlag/);
+  assert.doesNotThrow(() => buildStudentGraph(d));
+});
+
+const FOLLOW_UP_BAD: [string, string][] = [
+  ["multi-sentence advice that ends in a question", "Visit the DAAD site first and apply early. Which cities are you considering?"],
+  ["two questions", "Which cities are you considering? Which courses?"],
+  ["over 200 characters", `Which of the many cities that you might be considering for your studies abroad would you like us to compare first${" and why".repeat(20)}?`],
+  ["a recital cue (script for the counsellor)", "Would you like me to convince your parents to let you go?"],
+  ["a forbidden crisis phrase after a flag", "Can we keep this a secret between us?"],
+];
+
+test("U6h fix1 M4c followUp: only ONE sentence ending '?', <= 200 chars, passing the no-script and crisis-rule checks is shown", async () => {
+  for (const [name, followUp] of FOLLOW_UP_BAD) {
+    const provider = studentProvider({ kbAnswer: { claims: [{ text: "Public universities in Germany charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] }], followUp } });
+    const { d } = deps({ provider, hasPriorFlag: async () => true });
+    const out = await runStudentTurn(d, turn("Is tuition free in Germany?"));
+    assert.ok(!(out.response.message ?? "").includes(followUp.trim()), `${name}: ${followUp}`);
+    assert.doesNotMatch(out.response.message ?? "", /Which cities are you considering\?|Which courses\?|secret/, name);
+  }
+  const { d } = deps({ hasPriorFlag: async () => true });
+  const ok = await runStudentTurn(d, turn("Is tuition free in Germany?"));
+  assert.match(ok.response.message ?? "", /Which cities are you considering\?/);
 });

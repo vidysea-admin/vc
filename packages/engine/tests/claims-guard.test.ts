@@ -61,7 +61,9 @@ test("R5 supports(): negation parity - 'no tuition' is not supported by 'tuition
   assert.equal(supports({ text: "Germany has no tuition fees.", kind: "fact" }, "Germany has tuition fees of 500 euros per semester."), false);
   assert.equal(supports({ text: "Germany has tuition fees.", kind: "fact" }, "Germany has no tuition fees at public universities."), false);
   assert.equal(supports({ text: "Germany ki public university mein fees nahi hai.", kind: "fact" }, "Germany public university fees hai."), false);
-  assert.equal(supports({ text: "Germany has no tuition fees.", kind: "fact" }, "Public universities in Germany have no tuition fees."), true);
+  // U6h fix1 H2a: a scope word the evidence carries (public) may not be dropped; carrying it verifies.
+  assert.equal(supports({ text: "Germany has no tuition fees.", kind: "fact" }, "Public universities in Germany have no tuition fees."), false);
+  assert.equal(supports({ text: "Public universities in Germany have no tuition fees.", kind: "fact" }, "Public universities in Germany have no tuition fees."), true);
 });
 
 test("R5 supports(): country match is exact token or demonym, never a prefix ('India' must not match 'individual')", () => {
@@ -88,7 +90,7 @@ test("R5 supports(): numbers must match with the same currency/unit when one is 
 test("A1 /ask: verified only when the node_id is in this response AND get_session on evidence.sessionRef returns supporting text", async () => {
   const kb = fakeKb();
   const out = await guardClaims(
-    [{ text: "Living costs in Germany are about 11,000 euros a year.", kind: "number", sourceIds: ["session:sess-sem-2"] }],
+    [{ text: "Living costs in Germany are about 11,000 euros a year for most students.", kind: "number", sourceIds: ["session:sess-sem-2"] }],
     { hits: [], ask: ASK_ANSWERED, getSession: kb.getSession, now: NOW },
   );
   assert.equal(out.claims[0]!.status, "verified");
@@ -200,7 +202,9 @@ const E_SEM = HIT_SEMINAR.text; // "German public universities charge no tuition
 test("U6h H2 supports(): positive controls still verify (paraphrase, number formats, order)", () => {
   assert.equal(supports({ text: "Public universities in Germany charge no tuition for most programmes.", kind: "fact" }, E_SEM), true);
   assert.equal(supports({ text: "The semester contribution is about 300 euros.", kind: "number" }, E_SEM), true);
-  assert.equal(supports({ text: "Living costs in Germany are about 11,000 euros a year.", kind: "number" }, "Living costs in Germany come to about 11,000 euros a year for most students."), true);
+  // U6h fix1 H2a: the evidence says "for most students"; the claim must carry it (dropping it was verified before).
+  assert.equal(supports({ text: "Living costs in Germany are about 11,000 euros a year for most students.", kind: "number" }, "Living costs in Germany come to about 11,000 euros a year for most students."), true);
+  assert.equal(supports({ text: "Living costs in Germany are about 11,000 euros a year.", kind: "number" }, "Living costs in Germany come to about 11,000 euros a year for most students."), false);
   assert.equal(supports({ text: "A blocked account needs about 11904 euros.", kind: "number" }, "Blocked accounts of about 11,904 euros are required for the German student visa."), true);
   assert.equal(supports({ text: "The fee is 300 euros each semester.", kind: "number" }, "The fee is 300 euros per semester."), true);
 });
@@ -255,4 +259,103 @@ test("U6h H2 supports(): an antonym with no negation word is rejected (mandatory
   for (const [claim, evidence] of pairs) assert.equal(supports({ text: claim, kind: "fact" }, evidence), false, `${claim} vs ${evidence}`);
   assert.equal(supports({ text: "IELTS is mandatory for the master's programme.", kind: "fact" }, "IELTS is mandatory for the master's programme."), true);
   assert.equal(supports({ text: "IELTS is required for the master's programme.", kind: "fact" }, "IELTS is mandatory for the master's programme."), true, "required ~ mandatory");
+});
+
+// ---------------------------------------------------------------------------
+// U6h fix cycle 1 (checker verdict FAIL on M4; AI review items 1 and 2). Each test below was recorded RED first.
+// Scenario: the model writes a /ask or /search claim that drops a qualifier the evidence carries, or binds a
+// figure to the wrong country; the claim guard must leave it `unverified` (graph path: guardClaims).
+// ---------------------------------------------------------------------------
+
+const verifies = (claim: string, evidence: string, kind: "fact" | "number" = "fact") => supports({ text: claim, kind }, evidence);
+
+test("U6h fix1 H2a hedges and modals: a claim that drops 'may' / 'usually', or swaps may for must, is rejected; the same hedge verifies", () => {
+  const pairs: [string, string][] = [
+    ["Universities charge a tuition fee.", "Universities may charge a tuition fee."],
+    ["Applicants need an IELTS score.", "Applicants usually need an IELTS score."],
+    ["Applicants must submit a portfolio.", "Applicants may submit a portfolio."],
+    ["Applicants may submit a portfolio.", "Applicants must submit a portfolio."],
+    ["Visa processing takes about two weeks.", "Visa processing typically takes about two weeks."],
+    ["Students can work part time.", "Students can sometimes work part time."],
+    ["Offers arrive within a month.", "Offers might arrive within a month."],
+  ];
+  for (const [claim, evidence] of pairs) assert.equal(verifies(claim, evidence), false, `${claim} <- ${evidence}`);
+  assert.equal(verifies("Applicants may submit a portfolio.", "Applicants may submit a portfolio."), true);
+  assert.equal(verifies("Applicants usually need an IELTS score.", "Applicants typically need an IELTS score."), true, "usually ~ typically");
+});
+
+test("U6h fix1 H2a quantifiers, both directions: dropping or adding some / most / only / all / few is rejected", () => {
+  const pairs: [string, string][] = [
+    ["Universities charge tuition fees.", "Some universities charge tuition fees."],
+    ["Some universities charge tuition fees.", "Universities charge tuition fees."],
+    ["German public universities charge no tuition.", "Most German public universities charge no tuition."],
+    ["Students can apply.", "Only EU students can apply."],
+    ["Only students can apply.", "Students can apply."],
+    ["Programmes are taught in English.", "Few programmes are taught in English."],
+    ["Programmes are taught in English.", "Many programmes are taught in English."],
+    ["Most programmes are taught in English.", "All programmes are taught in English."],
+  ];
+  for (const [claim, evidence] of pairs) assert.equal(verifies(claim, evidence), false, `${claim} <- ${evidence}`);
+  assert.equal(verifies("Most German public universities charge no tuition.", "Most German public universities charge no tuition."), true);
+});
+
+test("U6h fix1 H2a conditions: a claim that drops if / unless / only-if / provided is rejected; carrying the condition verifies", () => {
+  const pairs: [string, string][] = [
+    ["Fees are waived.", "Fees are waived if you hold a scholarship."],
+    ["Fees are charged.", "Fees are charged unless you hold a scholarship."],
+    ["Applicants get a visa.", "Applicants get a visa only if they show proof of funds."],
+    ["The offer stands.", "The offer stands provided that the transcript arrives."],
+    ["Fees are waived if you hold a scholarship.", "Fees are waived."],
+  ];
+  for (const [claim, evidence] of pairs) assert.equal(verifies(claim, evidence), false, `${claim} <- ${evidence}`);
+  assert.equal(verifies("Fees are waived if you hold a scholarship.", "Fees are waived if you hold a scholarship."), true);
+});
+
+test("U6h fix1 H2a scope: a claim that drops public / private / international / postgraduate (scope) is rejected", () => {
+  const pairs: [string, string][] = [
+    ["Universities charge no tuition.", "Public universities charge no tuition."],
+    ["Colleges charge fees.", "Private colleges charge fees."],
+    ["Students pay a 300 euro contribution.", "International students pay a 300 euro contribution."],
+    ["Programmes need an IELTS score.", "Postgraduate programmes need an IELTS score."],
+  ];
+  for (const [claim, evidence] of pairs) assert.equal(verifies(claim, evidence), false, `${claim} <- ${evidence}`);
+  assert.equal(verifies("Public universities charge no tuition.", "Public universities charge no tuition."), true);
+});
+
+test("U6h fix1 H2a caveat sentence: a restrictor in the evidence sentence right after the matched one must be carried by the claim", () => {
+  const ev = "German public universities charge no tuition. This applies only to EU citizens.";
+  assert.equal(verifies("German public universities charge no tuition.", ev), false, "caveat dropped");
+  assert.equal(verifies("German public universities charge no tuition for EU citizens only.", ev), true, "caveat carried");
+  const ev2 = "Blocked accounts are required for the visa. Exceptions apply for scholarship holders.";
+  assert.equal(verifies("Blocked accounts are required for the visa.", ev2), false);
+  // A later, unrelated sentence is not a caveat of the first one.
+  assert.equal(verifies("German public universities charge no tuition.", "German public universities charge no tuition. Applications close in July."), true);
+});
+
+test("U6h fix1 H2b number-country binding: a figure belongs to the country it sits next to", () => {
+  const ev = "The contribution is 300 euros for Germany and 500 euros for France.";
+  assert.equal(verifies("The contribution is 500 euros for Germany.", ev, "number"), false);
+  assert.equal(verifies("The contribution is 300 euros for France.", ev, "number"), false);
+  assert.equal(verifies("The contribution is 300 euros for Germany.", ev, "number"), true);
+  assert.equal(verifies("The contribution is 500 euros for France.", ev, "number"), true);
+  assert.equal(verifies("The contribution is 300 euros for Germany and 500 euros for France.", ev, "number"), true);
+  assert.equal(verifies("The contribution is 500 euros for Germany and 300 euros for France.", ev, "number"), false);
+  const ev2 = "Germany charges 300 euros, France charges 500 euros.";
+  assert.equal(verifies("France charges 300 euros.", ev2, "number"), false);
+  assert.equal(verifies("Germany charges 300 euros.", ev2, "number"), true);
+  // Thousands separators are not clause breaks.
+  assert.equal(verifies("Living costs in Germany are 11,000 euros a year.", "Living costs are 11,000 euros a year in Germany and 9,000 euros a year in Poland.", "number"), true);
+  assert.equal(verifies("Living costs in Poland are 11,000 euros a year.", "Living costs are 11,000 euros a year in Germany and 9,000 euros a year in Poland.", "number"), false);
+  // Honest single-country evidence still verifies.
+  assert.equal(verifies("The fee in Germany is 300 euros.", "Germany has a fee of 300 euros.", "number"), true);
+});
+
+test("U6h fix1 M4 spelled-out numbers: numberMentions is exported and sees 'five thousand' / 'twenty thousand'", async () => {
+  const mod = await import("../src/student/claims.js");
+  assert.equal(typeof (mod as Record<string, unknown>).numberMentions, "function");
+  const n = (s: string) => (mod as unknown as { numberMentions: (t: string) => unknown[] }).numberMentions(s).length;
+  assert.ok(n("about five thousand euros a year") >= 1);
+  assert.ok(n("You will pay twenty thousand euros") >= 1);
+  assert.equal(n("Tell me about your own story and what you built"), 0);
+  assert.equal(n("One thing is clear to me"), 0, "the pronoun 'one' is not a number");
 });

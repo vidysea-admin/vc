@@ -52,6 +52,7 @@ import { classifyIntent, classifyQuestion, type StudentIntentTool } from "./clas
 import {
   DEFAULT_STALE_AFTER_MONTHS,
   countriesIn,
+  numberMentions,
   guardClaims,
   isServedAsk,
   type AskToolOutput,
@@ -99,6 +100,8 @@ export const CRISIS_FORBIDDEN_PATTERNS: readonly RegExp[] = [
   /\b(a|our|the|your) counsellor (will|is going to) (call|contact|reach|join|be with)\b/i,
   /\bcounsellor (is|will be) (on the way|coming|calling)\b/i,
 ];
+
+const FOLLOW_UP_MAX_CHARS = 200;
 
 const violatesCrisisRules = (text: string) => CRISIS_FORBIDDEN_PATTERNS.some((p) => p.test(text));
 
@@ -241,11 +244,12 @@ export interface StudentGraphDeps {
   /** The anonymous text-free aggregate counter (B24.6); U7 wires the single counter writer. */
   countAnonymous?: (kind: AnonymousCounterKind) => Promise<void>;
   /**
-   * U6h M4: has this thread already been flagged? Production reads the stored flag log. The graph derives the
-   * prior-flag state from this (OR the flags it raised itself), never from the caller-supplied input. A read
-   * that throws fails toward disclosure: the helpline line is shown.
+   * U6h M4 / fix1 M4b: has this thread already been flagged? REQUIRED. Production reads the stored (durable) flag log, so a
+   * restart, a second replica or a fresh deps object cannot forget a flag. The graph derives the prior-flag state from this
+   * (OR the flags it raised itself in this process, which can only add to it), never from the caller-supplied input. A read
+   * that throws fails toward disclosure: the helpline line is shown. `buildStudentGraph` throws when it is missing.
    */
-  hasPriorFlag?: (thread: { tenantId: string; studentId: string; threadId: string }) => Promise<boolean>;
+  hasPriorFlag: (thread: { tenantId: string; studentId: string; threadId: string }) => Promise<boolean>;
   /** A store write/read failed (never transcript text: only which one). Default: a text-free console.warn. */
   onWriteError?: (write: StudentWriteKind, error: unknown) => void;
 }
@@ -381,6 +385,9 @@ const emptyResponse = (input: StudentTurnInput, state: TurnResponse["state"], me
 const isDevanagari = (t: string) => /[ऀ-ॿ]/.test(t);
 
 export function buildStudentGraph(deps: StudentGraphDeps) {
+  // U6h fix1 M4b: the durable prior-flag read is not optional. A JS caller or a cast that leaves it out gets a loud failure here,
+  // not a graph that quietly trusts process memory.
+  if (typeof deps.hasPriorFlag !== "function") throw new Error("StudentGraphDeps.hasPriorFlag is required (the durable crisis-flag read)");
   const config: StudentGraphConfig = { ...DEFAULT_CONFIG, ...deps.config };
   const now = deps.now ?? (() => new Date());
   const manifestPrompt = loadSkill(deps.skillsDir, CAPABILITY_MANIFEST_SKILL);
@@ -423,7 +430,6 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     if (input.mode !== "authenticated") return false;
     const thread = { tenantId: input.auth.tenantId, studentId: input.auth.studentId, threadId: input.threadId };
     if (flaggedThreads.has(threadKey(input.auth, input.threadId))) return true;
-    if (!deps.hasPriorFlag) return false;
     try {
       return await deps.hasPriorFlag(thread);
     } catch (err) {
@@ -548,10 +554,16 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     return { response: emptyResponse(input, "no_sourced_answer", NO_SOURCED_ANSWER_TEXT), selectedTool: "search_kb", claimSourceKinds: [] };
   }
 
-  /** Repair R3: a follow-up question is shown only when it is plainly a question with no facts in it. */
+  /**
+   * Repair R3 / U6h fix1 M4c: a follow-up question is shown only when it is ONE sentence ending in "?", at most
+   * FOLLOW_UP_MAX_CHARS long, plainly a question (no-script guard), free of the forbidden crisis phrases and with no facts in it.
+   */
   function safeFollowUp(raw: string | undefined, restricted: { texts: string[]; labels: string[] }): string | undefined {
     const f = raw?.trim();
-    if (!f || !f.endsWith("?")) return undefined;
+    if (!f || !f.endsWith("?") || f.length > FOLLOW_UP_MAX_CHARS) return undefined;
+    const body = f.slice(0, -1);
+    if (/[?!\u0964]/.test(body) || /\.\s/.test(body)) return undefined; // a second sentence (or question) is advice, not a follow-up
+    if (!noScriptGuard({ type: "clarify", prompt: f }).ok || violatesCrisisRules(f)) return undefined;
     if (/\p{N}/u.test(f)) return undefined;
     if (countriesIn(f).length > 0) return undefined;
     if (findPersonalIdentifiers(f, deps.speakers, restricted.labels).length > 0) return undefined;
@@ -644,7 +656,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
   }
 
   /** U6h M4: a coaching sentence or question that carries a number or a country is a factual claim; coaching has no sources. */
-  const factFree = (s: string) => !/\p{N}/u.test(s) && countriesIn(s).length === 0;
+  const factFree = (s: string) => !/\p{N}/u.test(s) && numberMentions(s).length === 0 && countriesIn(s).length === 0;
 
   async function coach(input: StudentTurnInput, priorFlag: boolean): Promise<StudentTurnResult> {
     let message = COACH_FALLBACK;

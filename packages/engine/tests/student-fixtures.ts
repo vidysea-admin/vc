@@ -133,3 +133,9 @@ export function studentProvider(responses: { kbAnswer?: unknown; coach?: unknown
     },
   });
 }
+
+/**
+ * U6h fix1 M4b: `hasPriorFlag` is a REQUIRED dep of the student graph. This is the test-only stand-in: a store that has
+ * no earlier flag for any thread. Production wires the stored flag log instead (never this).
+ */
+export const NO_PRIOR_FLAG = async (): Promise<boolean> => false;
