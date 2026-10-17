@@ -1,0 +1,26 @@
+{
+  "name": "@vc/db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mongo access layer for the single virtual_counsellor database (T-003): DB-name guard (B12), consent gate (B4), counsellor-approval fact write path with supersede-not-delete history (B3, D-003/H3)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "db:init": "tsx scripts/db-init.ts"
+  },
+  "dependencies": {
+    "@vc/schemas": "workspace:*",
+    "mongodb": "^6.21.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2",
+    "tsx": "^4.21.0",
+    "@types/node": "^22.14.0"
+  }
+}
