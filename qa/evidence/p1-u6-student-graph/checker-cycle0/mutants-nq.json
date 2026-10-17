@@ -1,0 +1,84 @@
+[
+ {
+  "id": "M08-unknown-label-off",
+  "crit": "A22 unknown label",
+  "edits": [
+   [
+    "src/student/claims.ts",
+    "if (h.sourceKind !== \"whatsapp\" && h.sourceKind !== \"unknown\") continue;",
+    "if (h.sourceKind !== \"whatsapp\") continue;"
+   ]
+  ]
+ },
+ {
+  "id": "M09-invisible-chars-off",
+  "crit": "A3 ZWSP/NBSP/SHY/BOM",
+  "edits": [
+   [
+    "src/guards/no-quote.ts",
+    "return text.normalize(\"NFC\").replace(INVISIBLE, \"\").replace(ODD_SPACE, \" \");",
+    "return text.normalize(\"NFC\");"
+   ],
+   [
+    "src/guards/no-quote.ts",
+    "if (IS_INVISIBLE.test(ch)) continue;",
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "M27-session-label-off",
+  "crit": "A22 session turn label",
+  "edits": [
+   [
+    "src/student/claims.ts",
+    "if (t.speakerLabel?.trim() && !labels.includes(t.speakerLabel)) labels.push(t.speakerLabel);",
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "M28-phone-redaction-off",
+  "crit": "A22 phone",
+  "edits": [
+   [
+    "src/guards/no-quote.ts",
+    "claimMatches(view, spans, PHONE, PHONE_PLACEHOLDER, false);",
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "M29-permission-ignored",
+  "crit": "A3 permission",
+  "edits": [
+   [
+    "src/guards/no-quote.ts",
+    "if (s.permission) continue;",
+    ""
+   ]
+  ]
+ },
+ {
+  "id": "M31-default-allow-unlisted-alias",
+  "crit": "A3 aliases",
+  "edits": [
+   [
+    "src/guards/no-quote.ts",
+    "for (const alias of s.aliases) targets.push({ speakerId: s.id, alias });",
+    "targets.push({ speakerId: s.id, alias: s.aliases[0] });"
+   ]
+  ]
+ },
+ {
+  "id": "M32-devanagari-boundary",
+  "crit": "A3 hindi",
+  "edits": [
+   [
+    "src/guards/no-quote.ts",
+    "(?<![\\p{L}\\p{M}\\p{N}])${body}(?![\\p{L}\\p{M}\\p{N}])",
+    "\\b${body}\\b"
+   ]
+  ]
+ }
+]
