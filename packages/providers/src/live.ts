@@ -221,6 +221,9 @@ export interface LiveBackendSink {
 // LiveSession: all the behaviour
 // ---------------------------------------------------------------------------
 
+/** Most backend events a session queues before `attach`; beyond it the oldest are dropped (logged). */
+export const PENDING_BACKEND_EVENTS_MAX = 256;
+
 export class LiveSession implements LiveBackendSink {
   private closedFlag = false;
   private seq = 0;
@@ -230,14 +233,14 @@ export class LiveSession implements LiveBackendSink {
   /**
    * While true, model audio and transcript are dropped: after a crisis trigger the fixed message
    * owns the floor, and after a client interrupt() the student has asked the model to stop. Cleared
-   * when the backend reports `turnComplete` (the generation is over), when it reports `interrupted`
-   * (unless a crisis mute is on, see below), and when the next student speech is recognised.
+   * when the backend reports `turnComplete` or `interrupted` (both only when no crisis mute is on,
+   * see below), and when the next student speech is recognised.
    */
   private muted = false;
   /**
-   * Set by a crisis trigger, cleared only by `turnComplete` or by the next non-crisis student
-   * speech. While set, a backend `interrupted` event must NOT reopen model audio (F1): the backend
-   * confirms the interrupt we asked for, it does not mean the crisis message is done.
+   * Set by a crisis trigger, cleared ONLY by new student speech after the crisis utterance has ended
+   * (D-096). While set, no backend signal reopens model audio: not `interrupted` (F1, the backend
+   * confirms the interrupt we asked for), not `toolCall` (R1) and not `turnComplete` (R2).
    */
   private crisisMute = false;
   private droppedModelAudioChunks = 0;
@@ -246,7 +249,10 @@ export class LiveSession implements LiveBackendSink {
   private backend: LiveBackend | undefined;
   /** Serialises sink writes so the thread keeps turn order even when a sink is async. */
   private sinkChain: Promise<void> = Promise.resolve();
+  /** Backend work that arrived before `attach` (tool calls), capped at PENDING_BACKEND_EVENTS_MAX. */
   private readonly pendingBackendEvents: (() => void)[] = [];
+  /** A crisis backend interrupt owed from before `attach`; kept apart so a flood can never drop it. */
+  private pendingCrisisInterrupt = false;
 
   constructor(private readonly config: LiveSessionConfig) {
     if (config.detectCrisis && !config.crisisMessage) {
@@ -261,7 +267,12 @@ export class LiveSession implements LiveBackendSink {
 
   /** Called once by the provider after the transport is open. Replays anything that arrived earlier. */
   attach(backend: LiveBackend): this {
+    if (this.backend) throw new LiveConfigError("Live session already has a backend attached");
     this.backend = backend;
+    if (this.pendingCrisisInterrupt) {
+      this.pendingCrisisInterrupt = false;
+      this.interruptBackendForCrisis();
+    }
     for (const run of this.pendingBackendEvents.splice(0)) {
       try {
         run();
@@ -364,7 +375,9 @@ export class LiveSession implements LiveBackendSink {
 
   toolCall(call: LiveToolCall): void {
     if (this.closedFlag) return;
-    this.flushUser(true);
+    // During a crisis mute a tool call does not end the student's utterance: the next chunk of the
+    // same utterance must not lift the mute or refire the fixed message (R1, D-096).
+    this.flushUser(!this.crisisMute);
     this.emit({ type: "tool_call", call });
     const handler = this.config.toolHandler;
     if (!handler) return;
@@ -381,22 +394,23 @@ export class LiveSession implements LiveBackendSink {
     // A call that beats `attach` (the transport's onmessage is live before the session has a backend)
     // is queued and answered on attach, not turned into an error (M1).
     if (this.backend) run();
-    else this.pendingBackendEvents.push(run);
+    else this.queueBeforeAttach(run);
   }
 
   turnComplete(): void {
     if (this.closedFlag) return;
     this.flushUser(true);
     this.flushAssistant(false);
-    this.muted = false;
-    this.crisisMute = false;
+    // The end of the model's turn lifts a client-interrupt mute, never a crisis mute (R2, D-096):
+    // after a crisis only new student speech reopens the model's audio.
+    if (!this.crisisMute) this.muted = false;
     this.emit({ type: "turn_complete" });
   }
 
   interrupted(): void {
     if (this.closedFlag) return;
     this.flushAssistant(true);
-    if (!this.crisisMute) this.muted = false; // after a crisis the mute lasts until turnComplete (F1, D-088 Q5)
+    if (!this.crisisMute) this.muted = false; // after a crisis the mute lasts until the student speaks again (F1, D-096)
     this.emit({ type: "interrupted" });
   }
 
@@ -454,31 +468,29 @@ export class LiveSession implements LiveBackendSink {
     const hit = typeof result === "boolean" ? { crisis: result } : result;
     if (!hit.crisis) return false;
     if (typed !== undefined) this.userBuf = this.userBuf ? `${this.userBuf} ${typed}` : typed;
-    this.fireCrisis(hit.level, started);
+    this.fireCrisis(hit.level, started, typed === undefined);
     return true;
   }
 
-  private fireCrisis(level: string | undefined, started: number): void {
-    this.crisisFiredForUtterance = true;
+  /**
+   * `spoken` false for a typed crisis: the no-refire flag belongs to the spoken utterance, so a typed
+   * crisis must not stop a later spoken crisis from playing the helpline audio again.
+   */
+  private fireCrisis(level: string | undefined, started: number, spoken: boolean): void {
+    if (spoken) this.crisisFiredForUtterance = true;
     // What the model already said is real: audit it and store it as an interrupted turn, exactly as
     // a barge-in does, BEFORE the mute (F2).
     this.flushAssistant(true);
     this.muted = true;
     this.crisisMute = true;
-    const interruptBackend = (): void => {
-      try {
-        this.backend!.interrupt();
-      } catch (err) {
-        this.emit({ type: "error", message: `interrupt failed: ${errMsg(err)}` });
-      }
-    };
     // Before `attach` there is no backend yet: the student still hears the fixed message now, and
     // the backend interrupt is replayed on attach (M1).
-    if (this.backend) interruptBackend();
-    else this.pendingBackendEvents.push(interruptBackend);
+    if (this.backend) this.interruptBackendForCrisis();
+    else this.pendingCrisisInterrupt = true;
     const message = this.config.crisisMessage!;
     // `audio` is guaranteed by the constructor (M3): the fixed message is never silent.
-    this.emit({ type: "audio", data: message.audio!, mimeType: LIVE_OUTPUT_MIME, fixed: true });
+    // A copy: a client that mutates its buffer must not corrupt the next crisis playback.
+    this.emit({ type: "audio", data: message.audio!.slice(), mimeType: LIVE_OUTPUT_MIME, fixed: true });
     this.emit({ type: "transcript", role: "assistant", text: message.text, final: true, fixed: true });
     const latencyMs = Math.max(0, this.now() - started);
     this.emit({ type: "crisis", ...(level !== undefined ? { level } : {}), message: message.text, latencyMs });
@@ -491,6 +503,22 @@ export class LiveSession implements LiveBackendSink {
     this.writeSink((sink) =>
       sink.onCrisis?.({ ts, ...(level !== undefined ? { level } : {}), latencyMs }),
     );
+  }
+
+  private interruptBackendForCrisis(): void {
+    try {
+      this.backend!.interrupt();
+    } catch (err) {
+      this.emit({ type: "error", message: `interrupt failed: ${errMsg(err)}` });
+    }
+  }
+
+  private queueBeforeAttach(run: () => void): void {
+    if (this.pendingBackendEvents.length >= PENDING_BACKEND_EVENTS_MAX) {
+      this.pendingBackendEvents.shift();
+      this.emit({ type: "error", message: `backend not attached: queue full (${PENDING_BACKEND_EVENTS_MAX}), dropped the oldest queued event` });
+    }
+    this.pendingBackendEvents.push(run);
   }
 
   /**
