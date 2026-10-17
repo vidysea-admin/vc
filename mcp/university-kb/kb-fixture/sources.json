@@ -1,0 +1,74 @@
+{
+  "_fixture": "synthetic contract-shaped fixture derived from D:/KnowledgeBase route code and generated types on 2026-10-17 (apps/api/src/routes/{search,brain,ask}.ts, packages/core/src/generated/*.ts); NOT a recording of the live KB and NOT KB content",
+  "sources": [
+    {
+      "_id": "src-sem-1",
+      "tenantId": "fixture",
+      "kind": "recording",
+      "captureMode": "provided",
+      "path": "/private/data/seminar-1.mp4",
+      "hash": "h-sem-1",
+      "consent": {
+        "given": true,
+        "recordedBy": "fixture-admin"
+      },
+      "createdAt": "2026-03-04T00:00:00Z"
+    },
+    {
+      "_id": "src-toc-1",
+      "tenantId": "fixture",
+      "kind": "document",
+      "captureMode": "provided",
+      "path": "/private/data/toc-1.pdf",
+      "hash": "h-toc-1",
+      "consent": {
+        "given": true,
+        "recordedBy": "fixture-admin"
+      },
+      "createdAt": "2026-03-05T00:00:00Z"
+    },
+    {
+      "_id": "src-wa-1",
+      "tenantId": "fixture",
+      "kind": "whatsapp-batch",
+      "captureMode": "provided",
+      "path": "/private/data/wa-1.txt",
+      "hash": "h-wa-1",
+      "consent": {
+        "given": true,
+        "recordedBy": "fixture-admin"
+      },
+      "createdAt": "2026-02-01T00:00:00Z"
+    },
+    {
+      "_id": "src-rec-9",
+      "tenantId": "fixture",
+      "kind": "recording",
+      "captureMode": "silent",
+      "path": "/private/data/rec-9.mp4",
+      "hash": "h-rec-9",
+      "consent": {
+        "given": true,
+        "recordedBy": "fixture-admin"
+      },
+      "createdAt": "2025-11-20T00:00:00Z"
+    },
+    {
+      "_id": "src-sheet-1",
+      "tenantId": "fixture",
+      "kind": "spreadsheet",
+      "captureMode": "provided",
+      "path": "/private/data/sheet-1.xlsx",
+      "hash": "h-sheet-1",
+      "consent": {
+        "given": true,
+        "recordedBy": "fixture-admin"
+      },
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "tenantId": "fixture",
+      "kind": "url"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "_fixture": "synthetic contract-shaped fixture derived from D:/KnowledgeBase route code and generated types on 2026-10-17 (apps/api/src/routes/{search,brain,ask}.ts, packages/core/src/generated/*.ts); NOT a recording of the live KB and NOT KB content",
+  "answer": "Most German public universities charge no tuition; budget about 11,000 euros a year for living costs.",
+  "verdict": "correct",
+  "reason": "top node scored above the upper threshold",
+  "scored": [
+    {
+      "node_id": "session:sess-sem-1",
+      "score": 0.93,
+      "reason": "direct match"
+    }
+  ],
+  "web_used": false,
+  "insufficient_coverage": false,
+  "sources": {
+    "internal": [
+      {
+        "node_id": "session:sess-sem-1",
+        "evidence": {
+          "sessionRef": "sess-sem-1"
+        }
+      }
+    ],
+    "web": []
+  },
+  "auditLog": [
+    {
+      "step": "select_nodes",
+      "provider": "fixture",
+      "model": "fixture",
+      "costUsd": 0
+    }
+  ]
+}
