@@ -1,0 +1,101 @@
+OK   P1 11th request has helpline and retry-after :: {"error":"rate_limited","helpline":"If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."}
+OK   P1 spoofed XFF/Forwarded/X-Real-IP does not buy a fresh bucket over real HTTP :: 200,200,200,200,200,200,200,200,200,200,429,429,429
+OK   P1b crisis with garbage Authorization header still served anonymously (200 escalated) :: 200 escalated
+OK   P1c other route still 401 :: 401
+OK   P1d trailing-slash path is NOT served anonymously :: 404
+OK   P1e dot-segment path to another route is not anonymous :: 404
+OK   P1f no anonymous voice route :: 404
+OK   P2 generic #11 is 429 with helpline :: 429
+OK   P2 crisis at #12 on a limited client is 200 escalated + Tele-MANAS :: 200 escalated
+OK   P2b Hinglish crisis on limited client 200 :: 200 escalated
+OK   P2c 30 more crisis messages did not reset the budget (generic still 429)
+OK   P2d crisis never reaches KB
+OK   P2e 25 crisis then 10 generic allowed, 11th 429 :: 200,200,200,200,200,200,200,200,200,200,429
+OK   P2f concern/crisis-prefixed generic question (limiter skipped) does not reach the KB or the model :: 200 escalated kbcalls=0
+OK   P3 gate refuses: B13 PENDING
+OK   P3 gate refuses: B13 signed by role word
+OK   P3 gate refuses: B13 signer not approver
+OK   P3 gate refuses: B13 file missing
+OK   P3 gate refuses: g-prod option a (no anonymous)
+OK   P3 gate refuses: g-prod option d (hold)
+OK   P3 gate refuses: g-prod no Answered
+OK   P3 gate refuses: g-publish missing
+OK   P3 gate refuses: nights missing
+OK   P3 gate refuses: nights bogus
+OK   P3 gate refuses: g-prod answered in the future
+OK   P3 gate refuses: g-prod commented-out answer
+OK   P3 control: good gates + flag on serves
+OK   P3 tracing LANGSMITH_TRACING=true refuses
+OK   P3 tracing LANGCHAIN_TRACING_V2=true refuses
+OK   P3 tracing LANGSMITH_TRACING_V2=true refuses
+OK   P3 tracing LANGCHAIN_TRACING=true refuses
+OK   P3 flag undefined off
+OK   P3 flag "" off
+OK   P3 flag "false" off
+OK   P3 real repo gates today refuse anonymous :: p1-u0-amendment-signatures.md: B13-signed is not "SIGNED <ISO instant> by <approver name>" (found "PENDING") | g-publish.md: no Answered line (gate still open) | g-prod.md: no Answered line (gate still open)
+OK   P4 only anonymous_counters non-empty :: {"anonymous_counters":3}
+OK   P4 counter docs have only _id,date,kind,count and no marker :: [{"_id":"2026-11-01:answered","date":"2026-11-01","kind":"answered","count":1},{"_id":"2026-11-01:sign_in_required","date":"2026-11-01","kind":"sign_in_required","count":3},{"_id":"2026-11-01:crisis","date":"2026-11-01","kind":"crisis","count":1}]
+OK   P4 captured console/stderr has no marker
+OK   P4 logs array has no marker
+OK   P4b provider/KB error text never reaches response, logs or console :: 200 {"state":"sign_in_required","message":"This sounds like a question about your own situation. Please sign in through Pathlynks so I can help with it properly. If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.","claims":[],"sources":[]} | [] | 200 {"state":"sign_in_required","message":"This sounds like a question about your own situation. Please sign in through Pathlynks so I can 
+OK   P5 personal -> sign_in_required: I scored 72% in 12th, which college shou :: 200 sign_in_required
+OK   P5 personal -> sign_in_required: mera percentile 90 hai kaunsa college mi :: 200 sign_in_required
+OK   P5 personal -> sign_in_required: मेरे 12वीं में 80 प्रतिशत हैं, मुझे कौन  :: 200 sign_in_required
+OK   P5 personal -> sign_in_required: my phone is 9876543210, call me about fe :: 200 sign_in_required
+OK   P5 personal -> sign_in_required: email me at a@b.co the fee details :: 200 sign_in_required
+OK   P5 personal -> sign_in_required: Germany :: 200 sign_in_required
+OK   P5 personal -> sign_in_required: should I study in Germany :: 200 sign_in_required
+OK   P5 personal -> sign_in_required: Can you review my SOP? :: 200 sign_in_required
+OK   P5 personal -> sign_in_required: which is better for someone like me, UK  :: 200 sign_in_required
+OK   P5 personal -> sign_in_required: What are the chances for a student with  :: 200 sign_in_required
+OK   P5 KB and model untouched for all personal questions
+INFO P6 letterspaced: 250 KiB -> 400 in 175 ms
+OK   P6 letterspaced handled < 3000 ms :: 175
+INFO P6 killspaced: 250 KiB -> 200 in 136 ms
+OK   P6 killspaced handled < 3000 ms :: 136
+INFO P6 aaaa: 250 KiB -> 400 in 142 ms
+OK   P6 aaaa handled < 3000 ms :: 142
+INFO P6 spaces: 250 KiB -> 400 in 14 ms
+OK   P6 spaces handled < 3000 ms :: 14
+INFO P6 punct: 250 KiB -> 400 in 8 ms
+OK   P6 punct handled < 3000 ms :: 8
+INFO P6 devanagari: 83 KiB -> 400 in 91 ms
+OK   P6 devanagari handled < 3000 ms :: 91
+INFO P6 mixedcase: 250 KiB -> 400 in 122 ms
+OK   P6 mixedcase handled < 3000 ms :: 122
+INFO P6 digits: 250 KiB -> 400 in 107 ms
+OK   P6 digits handled < 3000 ms :: 107
+INFO P6 zwj: 250 KiB -> 413 in 2 ms
+OK   P6 zwj handled < 3000 ms :: 2
+INFO P6 nonascii: 125 KiB -> 400 in 213 ms
+OK   P6 nonascii handled < 3000 ms :: 213
+INFO P6 longword_then_text: 250 KiB -> 400 in 97 ms
+OK   P6 longword_then_text handled < 3000 ms :: 97
+OK   P7 never-answering counter, crisis: reply 200 in 779 ms (< 1500)
+OK   P7 never-answering counter, generic: reply 200 in 788 ms (< 1500)
+OK   P7 never-answering counter, personal: reply 200 in 764 ms (< 1500)
+OK   P7b throwing counter, crisis still 200 with Tele-MANAS
+OK   P7c counter failure logged text-free :: [{"level":"error","event":"anonymous_counter_failed","kind":"crisis","ts":"2026-10-17T20:57:02.659Z"}]
+OK   P8 not json -> 400 bare + helpline :: 400 {"error":"invalid_request","helpline":"If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."}
+OK   P8 array -> 400 bare + helpline :: 400 {"error":"invalid_request","helpline":"If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."}
+OK   P8 extra key tenantId -> 400 bare + helpline :: 400 {"error":"invalid_request","helpline":"If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."}
+OK   P8 extra key studentId -> 400 bare + helpline :: 400 {"error":"invalid_request","helpline":"If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."}
+OK   P8 text number -> 400 bare + helpline :: 400 {"error":"invalid_request","helpline":"If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."}
+OK   P8 empty text -> 400 bare + helpline :: 400 {"error":"invalid_request","helpline":"If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."}
+OK   P8 over-long non-crisis -> 400 bare + helpline :: 400 {"error":"invalid_request","helpline":"If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."}
+OK   P8 null -> 400 bare + helpline :: 400 {"error":"invalid_request","helpline":"If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."}
+OK   P8 GET -> 405 + allow
+OK   P8 PUT -> 405 + allow
+OK   P8 DELETE -> 405 + allow
+OK   P8 PATCH -> 405 + allow
+OK   P8 over-long crisis message answered with crisis message, not 400 :: 200
+OK   P9 ipv4-mapped == ipv4 :: 203.0.113.7 203.0.113.7
+OK   P9 same /64 shares, different /64 differs :: 2001:db8:1:2::/64 2001:db8:1:2::/64 2001:db8:1:3::/64
+OK   P9 garbage never throws
+OK   P9 full table of live keys refuses a NEW key (fail closed) but serves existing
+OK   P9 after TTL a new key is admitted
+OK   P10 whatsapp-kind: state ok/no_answer, no title/Priya, no raw turn id, no follow-up solicitation :: {"state":"ok","message":"Public universities in Germany charge no tuition for most programmes.","claims":[{"text":"Public universities in Germany charge no tuition for most programmes.","kind":"fact","sourceIds":["s1"],"status":"verified"}],"sources":[{"id":"s1","kind":"whatsapp"}]}
+OK   P10b normal answer: opaque ids and no internal fields :: {"state":"ok","message":"Public universities in Germany charge no tuition for most programmes.","claims":[{"text":"Public universities in Germany charge no tuition for most programmes.","kind":"fact","sourceIds":["s1"],"status":"verified"}],"sources":[{"id":"s1","kind":"internal-seminar","title":"Study in Germany seminar"}]}
+OK   P10c uncited/unverified claim dropped -> no_sourced_answer with helpline :: {"state":"no_sourced_answer","message":"I don't have a sourced answer for this yet. If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.","claims":[],"sources":[]}
+
+PROBE SUMMARY: 88 ok, 0 FAIL
