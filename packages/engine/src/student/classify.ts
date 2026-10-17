@@ -65,11 +65,20 @@ const WRITE_HINGLISH = /\b(likh|likho|likhdo|likh do|likhke|likh ke|bana do|bana
 const WRITE_HI = /(लिख|बना दो|तैयार कर)/;
 const FEEDBACK = /\b(feedback|review|check|improve|comments?|look at)\b.*\b(my|this)\b|\bhere is my\b|\bmy (sop|essay|draft)\b.*\b(feedback|review|check)/i;
 
+// "How do I prepare for the LOR requirements?" asks about requirements, not for a draft (repair R6).
+const REQUIREMENTS_Q = /\b(requirements?|required|needed|how many|eligib\w*|accepted|deadlines?|format|word limit)\b/i;
+const WRITE_EN_STRONG = /\b(write|writes|draft|generate|compose|make me|rewrite|give me a full)\b/i;
+const FOR_ME = /\b(my|me|mine|for me)\b/i;
+
 export function isDraftingRequest(text: string): boolean {
   const t = (text ?? "").normalize("NFC");
   const doc = DOC_EN.test(t) || DOC_HI.test(t);
   const write = WRITE_EN.test(t) || WRITE_HINGLISH.test(t) || WRITE_HI.test(t);
-  return doc && write;
+  if (!doc || !write) return false;
+  const strong = WRITE_EN_STRONG.test(t) || WRITE_HINGLISH.test(t) || WRITE_HI.test(t);
+  // Only the weak verbs (prepare/create) plus a requirements question, with no "my/me": a KB question.
+  if (!strong && REQUIREMENTS_Q.test(t) && !(FOR_ME.test(t) && !/\bhow\b/i.test(t))) return false;
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -89,22 +98,36 @@ export type StudentIntentTool =
   | "channel_switch"
   | "search_kb";
 
+// Repair R6: each rule needs the student's own reference ("my" data, "this/that" answer, "these"
+// options) or a short confirmation utterance; a KB question that merely contains a trigger word
+// ("latest", "compare", "remove", "yes ... correct", "rank") goes to search_kb.
+const PREVIOUS = String.raw`(this|that|it|these|those|your|the) (answer|info|information|sources?|data|reply)|\b(this|that|it|these|those)`;
 const INTENT_RULES: [StudentIntentTool, RegExp][] = [
-  ["data_erasure", /\b(delete|erase|remove|forget|wipe)\b.*\b(my )?(data|information|account|history|everything)\b|\bdata\b.*\b(delete|hata)\b|(डेटा|जानकारी).*(हटा|डिलीट)/i],
-  ["data_export", /\b(export|download|copy of)\b.*\b(data|information|history)\b/i],
+  ["data_erasure", /\b(delete|erase|remove|forget|wipe)\b.*\bmy\b.*\b(data|information|account|history|details|profile|everything)\b|\b(delete|erase|remove|wipe)\b\s+my\b|\b(mera|meri|mere)\b.*\b(data|account|jankari)\b.*\b(delete|hata|mita)|(मेरा|मेरी|मेरे).*(डेटा|जानकारी).*(हटा|डिलीट|मिटा)/i],
+  ["data_export", /\b(export|download|copy of)\b.*\bmy\b.*\b(data|information|history)\b|\bexport my\b/i],
   ["profile_correct", /\b(that'?s|this is|it'?s)\s+(wrong|incorrect|not right)\b|\bcorrect (it|that|my)\b|\bnot \d+\b.*\b(budget|score|percentage|marks)\b|\b(budget|score|percentage|marks) is\b.*\bnot\b/i],
-  ["profile_confirm", /\b(yes|haan|ha)\b.*\b(right|correct|sahi|confirm)\b|\bconfirm (it|that|this)\b/i],
   ["profile_view", /\bwhat do you know about me\b|\b(show|see|view)\b.*\bmy (profile|details|facts)\b|\bmy profile\b\s*\??$|मेरे बारे में क्या/i],
-  ["rank_options", /\bcompare\b|\b(vs\.?|versus)\b|\bwhich of these\b|\brank\b|\bbest (one|option) for me\b|\bshortlist\b/i],
-  ["source_freshness", /\b(stale|outdated|out of date|up to date|how old|how recent|latest)\b/i],
+  ["rank_options", new RegExp(String.raw`\bcompare\b.*\b(these|those|them|both|the two|my (options|choices|shortlist|universities)|the options|options)\b|\b(vs\.?|versus)\b|\bwhich of (these|those|them)\b|\brank (these|them|those|my)\b|\bbest (one|option) for me\b|\bmy shortlist\b|\bshortlist (these|them|those)\b`, "i")],
+  ["source_freshness", new RegExp(String.raw`\b(is|are|was|were)\s+(${PREVIOUS})\b.*\b(stale|outdated|out of date|up to date|old|recent|latest|current)\b|\bhow (old|recent|current) (is|are) (${PREVIOUS})\b|\b(${PREVIOUS})\b.*\b(stale|outdated|out of date)\b`, "i")],
   ["kb_source_detail", /\bwhere did (that|this) come from\b|\b(show|see)\b.*\bsources?\b|\bwhat is your source\b|\bsource\b\?/i],
   ["coverage", /\bwhich countries\b.*\bcover\b|\bwhat (do|can) you cover\b|\bcoverage\b|\bnot covered\b/i],
   ["channel_switch", /\b(switch|change|move)\b.*\b(voice|text|call|typing|chat)\b|\btype instead\b|\btalk instead\b|\binstead of (talking|typing)\b|\bvoice (mode|chat)\b/i],
 ];
 
+// profile_confirm only for a short confirmation utterance (<= 6 words, no question mark).
+const CONFIRM = /\b(yes|haan|ha|yep|yeah)\b.*\b(right|correct|sahi|confirm)\b|\bconfirm (it|that|this)\b|^\s*(yes|haan|ha)\s*[,.!]?\s*(that'?s|it'?s|thats)?\s*(right|correct|sahi)\b/i;
+function isConfirmation(t: string): boolean {
+  if (t.includes("?")) return false;
+  if (t.split(/\s+/).filter(Boolean).length > 6) return false;
+  return CONFIRM.test(t);
+}
+
 export function classifyIntent(text: string): StudentIntentTool {
   const t = (text ?? "").normalize("NFC");
   if (isDraftingRequest(t) || FEEDBACK.test(t) && (DOC_EN.test(t) || /\bdraft\b/i.test(t))) return "coach_draft_feedback";
-  for (const [tool, re] of INTENT_RULES) if (re.test(t)) return tool;
+  for (const [tool, re] of INTENT_RULES) {
+    if (tool === "profile_view" && isConfirmation(t)) return "profile_confirm";
+    if (re.test(t)) return tool;
+  }
   return "search_kb";
 }

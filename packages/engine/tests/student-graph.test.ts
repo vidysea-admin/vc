@@ -12,13 +12,17 @@ import {
   DEFAULT_SEARCH_SCORE_THRESHOLD,
   NO_SOURCED_ANSWER_TEXT,
   PROVIDER_APOLOGY_TEXT,
+  ANONYMOUS_CRISIS_MESSAGE,
+  STUDENT_CRISIS_MESSAGE,
   StudentAuthRequiredError,
+  StudentInputInvalidError,
+  compileStudentGraph,
   runStudentTurn,
   type GapRecord,
   type StudentGraphDeps,
 } from "../src/student/graph.js";
 import type { AskToolOutput } from "../src/student/claims.js";
-import { ASK_ANSWERED, HIT_LOW_SCORE, NOW, SEARCH_OK, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+import { ASK_ANSWERED, HIT_LOW_SCORE, HIT_UNLISTED_RECORDING, NOW, SEARCH_OK, SESSION_SEM_2, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
 
 const AUTH = { role: "student" as const, studentId: "syn-stu-3", tenantId: "sandbox" };
 const Q = "What is the tuition at German public universities?";
@@ -136,7 +140,7 @@ test("B2: an unverified claim next to a verified one is returned flagged, and th
     kbAnswer: {
       claims: [
         { text: "German public universities charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] },
-        { text: "Everyone gets a full scholarship.", kind: "fact", sourceIds: [] },
+        { text: "The semester contribution is about 900 euros.", kind: "number", sourceIds: ["t-sem-1"] },
       ],
     },
   });
@@ -208,4 +212,173 @@ test("B24.2: the engine no-answer text equals the U2 MCP NO_SOURCED_ANSWER_TEXT 
   const m = src.match(/export const NO_SOURCED_ANSWER_TEXT = "([^"]+)";/);
   assert.ok(m, "U2 constant not found");
   assert.equal(NO_SOURCED_ANSWER_TEXT, m![1]);
+});
+
+// ---------------------------------------------------------------------------
+// Pre-check repair (review-driven, probe S/probe-u6-swe P1-P9). Each test failed on e6f64a1.
+// ---------------------------------------------------------------------------
+
+const CRISIS_TEXT = "I want to kill myself";
+const throwing = async () => {
+  throw new Error("store down");
+};
+
+test("R1 crisis-first: an anonymous crisis with the counter store down still returns the fixed message + Tele-MANAS 14416 (flagWriteFailed)", async () => {
+  const { d } = deps({ kb: fakeKb({ anonymous: true }), countAnonymous: throwing });
+  const out = await runStudentTurn(d, { mode: "anonymous", text: CRISIS_TEXT });
+  assert.equal(out.response.state, "escalated");
+  assert.equal(out.response.message, ANONYMOUS_CRISIS_MESSAGE);
+  assert.match(out.response.message ?? "", /14416/);
+  assert.equal(out.flagWriteFailed, true);
+});
+
+test("R1 crisis-first: an authenticated crisis with flag log AND escalation down still returns the fixed message + 14416", async () => {
+  const { d } = deps({ logFlag: throwing, escalate: throwing, countAnonymous: throwing, recordGap: throwing });
+  const out = await runStudentTurn(d, turn(CRISIS_TEXT));
+  assert.equal(out.response.message, STUDENT_CRISIS_MESSAGE);
+  assert.equal(out.flagWriteFailed, true);
+});
+
+test("R1: recordGap throwing on an authenticated no-answer still returns the fixed no-answer (logged, not thrown)", async () => {
+  const errors: string[] = [];
+  const { d } = deps({ kb: fakeKb({ search: { status: "ok", hits: [], dropped: 0 }, ask: NOT_SERVED[1]![1] }), recordGap: throwing, onWriteError: (w) => void errors.push(w) });
+  const out = await runStudentTurn(d, turn("Is tuition free in Narnia?"));
+  assert.equal(out.response.state, "no_sourced_answer");
+  assert.equal(out.response.message, NO_SOURCED_ANSWER_TEXT);
+  assert.deepEqual(errors, ["gap"]);
+});
+
+test("R1: the anonymous counter throwing on answered / no_answer / sign_in_required turns never fails the turn", async () => {
+  const cases = [
+    [Q, SEARCH_OK, "ok"],
+    [Q, { status: "ok" as const, hits: [], dropped: 0 }, "no_sourced_answer"],
+    ["Can I get into TU Munich with 72%?", SEARCH_OK, "sign_in_required"],
+  ] as const;
+  for (const [text, search, state] of cases) {
+    const errors: string[] = [];
+    const { d } = deps({ kb: fakeKb({ anonymous: true, search }), countAnonymous: throwing, onWriteError: (w) => void errors.push(w) });
+    const out = await runStudentTurn(d, { mode: "anonymous", text });
+    assert.equal(out.response.state, state, text);
+    assert.equal(errors.length, 1, `${state}: one logged write error`);
+  }
+});
+
+test("R2a: a claim with no resolvable sourceId is dropped (never shown), even when it carries WhatsApp text and a phone number", async () => {
+  const provider = studentProvider({
+    kbAnswer: {
+      claims: [
+        { text: "Public universities in Germany charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] },
+        { text: "my cousin got the DAAD scholarship last year, apply by October and call 98765 43210 for the agent", kind: "fact", sourceIds: [] },
+        { text: "Everyone gets a full scholarship.", kind: "fact", sourceIds: ["invented-id"] },
+      ],
+    },
+  });
+  const { d } = deps({ provider });
+  const out = await runStudentTurn(d, turn("How do scholarships work in Germany?"));
+  assert.equal(out.response.claims.length, 1);
+  assert.doesNotMatch(out.response.message ?? "", /cousin|98765|43210|scholarship|unverified/i);
+});
+
+test("R2a: a claim citing a seminar hit but quoting WhatsApp text verbatim is dropped (check over ALL restricted texts of the turn)", async () => {
+  const provider = studentProvider({
+    kbAnswer: {
+      claims: [
+        { text: "Public universities in Germany charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] },
+        { text: "Germany: my cousin got the DAAD scholarship last year, apply by October.", kind: "fact", sourceIds: ["t-sem-1"] },
+      ],
+    },
+  });
+  const { d } = deps({ provider });
+  const out = await runStudentTurn(d, turn("How do scholarships work in Germany?"));
+  assert.equal(out.response.state, "ok");
+  assert.doesNotMatch(out.response.message ?? "", /cousin/);
+});
+
+test("R2b: the speakerLabel of an 'unknown' (unlisted recording) hit is redacted", async () => {
+  const hit = { ...HIT_UNLISTED_RECORDING, speakerLabel: "Rohit Kumar", text: "Rohit Kumar said blocked accounts of about 11,904 euros are required." };
+  const kb = fakeKb({ search: { status: "ok", hits: [hit], dropped: 0 } });
+  const provider = studentProvider({ kbAnswer: { claims: [{ text: "Rohit Kumar says blocked accounts of 11,904 euros are required for the visa.", kind: "number", sourceIds: [hit.turnId] }] } });
+  const { d } = deps({ kb, provider });
+  const out = await runStudentTurn(d, turn("How much is the blocked account for the German visa?"));
+  assert.doesNotMatch(out.response.message ?? "", /Rohit|Kumar/);
+});
+
+test("R2b: the speakerLabel of a get_session turn fetched on the /ask path is redacted", async () => {
+  const session = { ...SESSION_SEM_2, turns: [{ turnId: "t-x", text: "Living costs in Germany come to about 11,000 euros a year, says Meera Pillai.", speakerLabel: "Meera Pillai" }] };
+  const kb = fakeKb({ search: { status: "ok", hits: [], dropped: 0 }, sessions: { "sess-sem-2": session } });
+  const provider = studentProvider({ kbAnswer: { claims: [{ text: "Meera Pillai notes living costs in Germany are about 11,000 euros a year.", kind: "number", sourceIds: ["session:sess-sem-2"] }] } });
+  const { d } = deps({ kb, provider });
+  const out = await runStudentTurn(d, turn());
+  assert.equal(out.response.state, "ok");
+  assert.doesNotMatch(out.response.message ?? "", /Meera|Pillai/);
+});
+
+test("R3 followUp: kept only when it ends with '?', has no digits, no country, no personal identifier and no verbatim restricted run", async () => {
+  const bad = [
+    "Did you know the Berlin visa fee is 9999 euros?",
+    "Which cities are you considering",
+    "Are you also looking at Canada?",
+    "Would you like to call our helper on the number from the group?".replace("the number", "98765 43210"),
+    "Shall I ask Arjun sir about it?",
+    "my cousin got the DAAD scholarship last year, apply by October and call?",
+  ];
+  for (const followUp of bad) {
+    const provider = studentProvider({ kbAnswer: { claims: [{ text: "Public universities in Germany charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] }], followUp } });
+    const { d } = deps({ provider });
+    const out = await runStudentTurn(d, turn("Is tuition free in Germany?"));
+    assert.equal(out.response.message, "Public universities in Germany charge no tuition for most programmes.", followUp);
+  }
+  const { d } = deps();
+  const ok = await runStudentTurn(d, turn("Is tuition free in Germany?"));
+  assert.match(ok.response.message ?? "", /Which cities are you considering\?$/);
+});
+
+test("R4 (D-092): anonymous mode never shows unverified claims; authenticated mode flags them '(unverified)' next to a sourced claim", async () => {
+  const claims = [
+    { text: "German public universities charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] },
+    { text: "The semester contribution is about 900 euros.", kind: "number", sourceIds: ["t-sem-1"] },
+  ];
+  const anon = deps({ kb: fakeKb({ anonymous: true }), provider: studentProvider({ kbAnswer: { claims } }) });
+  const a = await runStudentTurn(anon.d, { mode: "anonymous", text: Q });
+  assert.deepEqual(a.response.claims.map((c) => c.status), ["verified"]);
+  assert.doesNotMatch(a.response.message ?? "", /900|unverified/);
+  const auth = deps({ provider: studentProvider({ kbAnswer: { claims } }) });
+  const b = await runStudentTurn(auth.d, turn());
+  assert.deepEqual(b.response.claims.map((c) => c.status), ["verified", "unverified"]);
+  assert.match(b.response.message ?? "", /900 euros\. \(unverified\)/);
+});
+
+test("R7: the crisis guard runs on the raw text before schema validation: 4001 chars with a crisis phrase -> the crisis message", async () => {
+  const long = `${CRISIS_TEXT} ${"x".repeat(4001)}`;
+  const { d, kb } = deps();
+  const out = await runStudentTurn(d, turn(long));
+  assert.equal(out.response.message, STUDENT_CRISIS_MESSAGE);
+  assert.equal(kb.calls.length, 0);
+  const anon = deps({ kb: fakeKb({ anonymous: true }) });
+  const a = await runStudentTurn(anon.d, { mode: "anonymous", text: long });
+  assert.equal(a.response.message, ANONYMOUS_CRISIS_MESSAGE);
+});
+
+test("R7: an over-long text without a crisis phrase is StudentInputInvalidError, not StudentAuthRequiredError", async () => {
+  const { d, kb } = deps();
+  await assert.rejects(runStudentTurn(d, turn("x".repeat(4001))), StudentInputInvalidError);
+  await assert.rejects(runStudentTurn(d, { mode: "anonymous", text: "" }), StudentInputInvalidError);
+  assert.equal(kb.calls.length, 0);
+});
+
+test("R9: the compiled graph is cached per deps and itself enforces the TurnResponse schema + the prior-flag Tele-MANAS suffix", async () => {
+  const { d } = deps();
+  const g1 = compileStudentGraph(d);
+  assert.equal(compileStudentGraph(d), g1, "one compiled graph per deps object");
+  const out = await g1.invoke({ raw: { ...turn(), priorFlagInThread: true } });
+  assert.ok(TurnResponseSchema.safeParse(out.result!.response).success);
+  assert.match(out.result!.response.message ?? "", /14416/);
+});
+
+test("R9: the student module is re-exported from the @vc/engine entry point", async () => {
+  const engine = await import("../src/index.js");
+  assert.equal(typeof engine.runStudentTurn, "function");
+  assert.equal(typeof engine.compileStudentGraph, "function");
+  assert.equal(typeof engine.guardClaims, "function");
+  assert.equal(typeof engine.classifyIntent, "function");
 });

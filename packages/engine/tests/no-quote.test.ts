@@ -14,6 +14,7 @@ import {
   noQuoteGuard,
   findPersonalIdentifiers,
   hasVerbatimRun,
+  redactPersonalIdentifiers,
   VERBATIM_RUN_WORDS,
   type SpeakersFile,
 } from "../src/guards/no-quote.js";
@@ -88,6 +89,21 @@ test("A3: zero-width characters and NBSP inside a denied name do not let it thro
     const out = noQuoteGuard(text, speakers);
     assert.doesNotMatch(out.text.replace(/[​-‍⁠﻿]/g, ""), /Arjun|Mehrotra|Kavya/i, JSON.stringify(out.text));
   }
+});
+
+test("R8: normalisation is for matching only - ZWJ/ZWNJ in Hindi text survive the guard unchanged; a removed name loses its zero-width chars", () => {
+  const hindi = "क्‍ष और ‌में";
+  assert.equal(noQuoteGuard(hindi, speakers).text, hindi);
+  assert.equal(redactPersonalIdentifiers(hindi, speakers, []), hindi);
+  assert.equal(noQuoteGuard("क्‍ष: Arjun​Mehrotra ने कहा", speakers).text, "क्‍ष: a speaker ने कहा");
+});
+
+test("R8: a title before a removed name goes with it (no 'Dr. a speaker' / 'Prof. a speaker')", () => {
+  for (const text of ["Dr. Kavya said apply early.", "Prof Arjun said apply early.", "Mr. Arjun Mehrotra said apply early.", "Shri Arjun said apply early."]) {
+    const out = noQuoteGuard(text, speakers).text;
+    assert.equal(out, "a speaker said apply early.", text);
+  }
+  assert.equal(redactPersonalIdentifiers("Dr. Rohit Q. said so.", speakers, ["Rohit Q."]), "a speaker said so.");
 });
 
 test("A3: extra names (e.g. WhatsApp speakerLabels of this turn's hits) are removed too", () => {

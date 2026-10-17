@@ -54,6 +54,76 @@ function normaliseForMatch(text: string): string {
   return text.normalize("NFC").replace(INVISIBLE, "").replace(ODD_SPACE, " ");
 }
 
+const IS_INVISIBLE = new RegExp(INVISIBLE.source);
+const IS_ODD_SPACE = new RegExp(ODD_SPACE.source);
+
+/**
+ * Normalised text for MATCHING ONLY, plus a map from each normalised UTF-16 index to its index in the
+ * NFC original. Replacements are applied to the original, so zero-width joiners that carry meaning in
+ * Hindi (U+200C/U+200D) survive in output that has no name in it (repair R8).
+ */
+interface MatchView {
+  orig: string;
+  text: string;
+  map: number[];
+}
+function matchView(text: string): MatchView {
+  const orig = text.normalize("NFC");
+  let out = "";
+  const map: number[] = [];
+  for (let i = 0; i < orig.length; i++) {
+    const ch = orig[i]!;
+    if (IS_INVISIBLE.test(ch)) continue;
+    out += IS_ODD_SPACE.test(ch) ? " " : ch;
+    map.push(i);
+  }
+  return { orig, text: out, map };
+}
+
+interface Span {
+  start: number;
+  end: number;
+  replacement: string;
+}
+
+// A title or honorific directly before a removed name goes with it ("Dr. Kavya" -> "a speaker").
+const TITLE_BEFORE = /(?<![\p{L}\p{M}\p{N}])(?:dr|mr|mrs|ms|miss|prof|professor|sir|shri|sri|smt|mx)\.?\s*$/iu;
+
+function claim(spans: Span[], start: number, end: number, replacement: string): boolean {
+  if (spans.some((s) => start < s.end && s.start < end)) return false;
+  spans.push({ start, end, replacement });
+  return true;
+}
+
+/** Claims every match of `re` in the view (longest-first callers pass longer names first). */
+function claimMatches(view: MatchView, spans: Span[], re: RegExp, replacement: string, withTitle: boolean): boolean {
+  let any = false;
+  re.lastIndex = 0;
+  for (const m of view.text.matchAll(re)) {
+    let start = m.index!;
+    if (withTitle) {
+      const t = TITLE_BEFORE.exec(view.text.slice(Math.max(0, start - 12), start));
+      if (t) start -= t[0].length;
+    }
+    if (claim(spans, start, m.index! + m[0].length, replacement)) any = true;
+  }
+  return any;
+}
+
+/** Rebuilds the ORIGINAL text with each claimed (normalised-coordinate) span replaced. */
+function applySpans(view: MatchView, spans: Span[]): string {
+  if (spans.length === 0) return view.orig;
+  let out = "";
+  let cursor = 0;
+  for (const s of [...spans].sort((a, b) => a.start - b.start)) {
+    const from = view.map[s.start]!;
+    const to = view.map[s.end - 1]! + 1;
+    out += view.orig.slice(cursor, from) + s.replacement;
+    cursor = to;
+  }
+  return out + view.orig.slice(cursor);
+}
+
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -80,7 +150,8 @@ export interface NoQuoteResult {
  * "Arjun Mehrotra" is removed whole rather than leaving "Mehrotra".
  */
 export function noQuoteGuard(text: string, speakers: SpeakersFile, extraNames: readonly string[] = []): NoQuoteResult {
-  let out = normaliseForMatch(text);
+  const view = matchView(text);
+  const spans: Span[] = [];
   const removed = new Map<string, true>();
   const targets: { speakerId: string; alias: string }[] = [];
   for (const s of speakers.speakers) {
@@ -90,14 +161,9 @@ export function noQuoteGuard(text: string, speakers: SpeakersFile, extraNames: r
   for (const name of extraNames) if (name.trim()) targets.push({ speakerId: "extra", alias: name });
   targets.sort((a, b) => b.alias.length - a.alias.length);
   for (const { speakerId, alias } of targets) {
-    const re = namePattern(alias);
-    if (re.test(out)) {
-      re.lastIndex = 0;
-      out = out.replace(re, SPEAKER_PLACEHOLDER);
-      removed.set(speakerId, true);
-    }
+    if (claimMatches(view, spans, namePattern(alias), SPEAKER_PLACEHOLDER, true)) removed.set(speakerId, true);
   }
-  return { text: out, removed: [...removed.keys()].map((speakerId) => ({ speakerId })) };
+  return { text: applySpans(view, spans), removed: [...removed.keys()].map((speakerId) => ({ speakerId })) };
 }
 
 // Indian/international phone shapes: an optional +CC, then >= 10 digits allowing single spaces/dashes.
@@ -129,10 +195,12 @@ export function findPersonalIdentifiers(text: string, speakers: SpeakersFile, sp
  * speaker name (permission records do not apply to restricted material) and the given speakerLabels.
  */
 export function redactPersonalIdentifiers(text: string, speakers: SpeakersFile, speakerLabels: readonly string[]): string {
-  let out = normaliseForMatch(text).replace(PHONE, PHONE_PLACEHOLDER);
+  const view = matchView(text);
+  const spans: Span[] = [];
+  claimMatches(view, spans, PHONE, PHONE_PLACEHOLDER, false);
   const names = [...speakers.speakers.flatMap((s) => s.aliases), ...speakerLabels.filter((l) => l.trim())].sort((a, b) => b.length - a.length);
-  for (const name of names) out = out.replace(namePattern(name), SPEAKER_PLACEHOLDER);
-  return out;
+  for (const name of names) claimMatches(view, spans, namePattern(name), SPEAKER_PLACEHOLDER, true);
+  return applySpans(view, spans);
 }
 
 /** spec A22 [ASSUMPTION]: the verbatim bar. */

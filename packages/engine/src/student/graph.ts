@@ -2,11 +2,19 @@
  * P1 U6: the live student turn graph (LangGraph.js 1.x StateGraph, H1/D-002), contract B24 / spec v8
  * plan row U6. One invocation = one student turn. Nodes:
  *
- *   gate -> crisis -> route -> { answer | coach | tool } -> END
+ *   gate -> crisis -> route -> { answer | coach | tool } -> finish -> END
  *
- *  - gate: authenticated mode needs a verified student identity (role `student`, studentId, tenantId;
- *    the JWT itself is verified by the API layer, U8/B21). Anything else throws StudentAuthRequiredError
- *    before any KB or model call. Pathlynks-authenticated = consented (B4, D-086): no consent row.
+ *  - gate: takes the RAW input. The crisis guard scans the raw text (first 4000 chars) BEFORE schema
+ *    validation, so an over-long or malformed crisis message still gets the fixed safe message (repair
+ *    R7). Otherwise authenticated mode needs a verified student identity (role `student`, studentId,
+ *    tenantId; the JWT itself is verified by the API layer, U8/B21): a bad identity throws
+ *    StudentAuthRequiredError, any other invalid input StudentInputInvalidError, before any KB or model
+ *    call. Pathlynks-authenticated = consented (B4, D-086): no consent row.
+ *  - finish: the prior-flag Tele-MANAS suffix and the TurnResponse schema parse, inside the compiled
+ *    graph (repair R9). `compileStudentGraph` caches one compiled graph per deps object.
+ *  - Store writes (flag log, escalation, gap count, anonymous counter) never fail a turn: each is caught
+ *    and reported to `onWriteError` (text-free); a crisis turn sets `flagWriteFailed` and still shows the
+ *    fixed message + Tele-MANAS 14416 (repair R1).
  *  - crisis: the existing recall-only guard (`crisisGuard`, B9) runs on EVERY message (B24.7 "keep
  *    talking": no session lock). Any flag is treated as the higher level on the student surface
  *    (unsure/indirect/Hinglish count high, B24.7). The flagged turn gets the fixed safe message
@@ -34,11 +42,12 @@ import type { LlmProvider } from "@vc/providers";
 import { TurnResponseSchema, type Claim, type TurnResponse } from "@vc/schemas";
 import { crisisGuard, type CrisisLevel } from "../guards/crisis.js";
 import { noScriptGuard } from "../guards/no-script.js";
-import { noQuoteGuard, type SpeakersFile } from "../guards/no-quote.js";
+import { findPersonalIdentifiers, hasVerbatimRun, noQuoteGuard, type SpeakersFile } from "../guards/no-quote.js";
 import { loadSkill } from "../skills/loader.js";
 import { classifyIntent, classifyQuestion, type StudentIntentTool } from "./classify.js";
 import {
   DEFAULT_STALE_AFTER_MONTHS,
+  countriesIn,
   guardClaims,
   type AskToolOutput,
   type GuardedClaim,
@@ -226,7 +235,11 @@ export interface StudentGraphDeps {
   escalate?: (input: { sessionId: string; studentId: string; turns: { turnId: string; speaker: string; lang: string; text: string; translatedText: string }[] }) => Promise<unknown>;
   /** The anonymous text-free aggregate counter (B24.6); U7 wires the single counter writer. */
   countAnonymous?: (kind: AnonymousCounterKind) => Promise<void>;
+  /** A store write failed (never transcript text: only which write). Default: a text-free console.warn. */
+  onWriteError?: (write: StudentWriteKind, error: unknown) => void;
 }
+
+export type StudentWriteKind = "flag_log" | "escalate" | "gap" | `counter:${AnonymousCounterKind}`;
 
 const StudentAuthSchema = z
   .object({
@@ -237,7 +250,8 @@ const StudentAuthSchema = z
   .strict();
 export type StudentAuth = z.infer<typeof StudentAuthSchema>;
 
-const TextSchema = z.string().min(1).max(4000);
+export const MAX_STUDENT_TEXT = 4000;
+const TextSchema = z.string().min(1).max(MAX_STUDENT_TEXT);
 const StudentTurnInputSchema = z.discriminatedUnion("mode", [
   z
     .object({
@@ -258,6 +272,31 @@ export class StudentAuthRequiredError extends Error {
     super("A verified student identity (role student, studentId, tenantId) is required on the student surface (B21, B24.5).");
     this.name = "StudentAuthRequiredError";
   }
+}
+
+/** The identity is fine but the turn input is not (empty / over-long text, unknown fields). Repair R7. */
+export class StudentInputInvalidError extends Error {
+  constructor() {
+    super(`The student turn input is invalid (text must be 1..${MAX_STUDENT_TEXT} characters).`);
+    this.name = "StudentInputInvalidError";
+  }
+}
+
+/** A crisis phrase in the raw text (first MAX chars) of an input that fails validation: the input to
+ *  run the crisis path with (the authenticated one when only the text was wrong, else anonymous). */
+function salvageCrisisInput(raw: unknown): StudentTurnInput | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.text !== "string" || !r.text) return undefined;
+  const scan = r.text.slice(0, MAX_STUDENT_TEXT);
+  if (crisisGuard(scan).level === "none") return undefined;
+  const same = StudentTurnInputSchema.safeParse({ ...r, text: scan });
+  return same.success ? same.data : { mode: "anonymous", text: scan };
+}
+
+function invalidInputError(raw: unknown): Error {
+  if (raw && typeof raw === "object" && StudentTurnInputSchema.safeParse({ ...(raw as object), text: "x" }).success) return new StudentInputInvalidError();
+  return new StudentAuthRequiredError();
 }
 
 export interface StudentTurnResult {
@@ -287,13 +326,15 @@ const CoachOutputSchema = z.object({ reply: z.string().max(8000), questions: z.a
 const last = <T>() => Annotation<T>({ reducer: (_prev: T, next: T) => next, default: () => undefined as T });
 
 export const StudentTurnState = Annotation.Root({
+  /** The unvalidated turn input; the gate validates it into `input`. */
+  raw: last<unknown>(),
   input: last<StudentTurnInput>(),
   tool: last<StudentToolName | undefined>(),
   result: last<StudentTurnResult | undefined>(),
 });
 type State = typeof StudentTurnState.State;
 
-export const STUDENT_NODES = { gate: "gate", crisis: "crisis", route: "route", answer: "answer_from_kb", coach: "coach", tool: "feature_tool" } as const;
+export const STUDENT_NODES = { gate: "gate", crisis: "crisis", route: "route", answer: "answer_from_kb", coach: "coach", tool: "feature_tool", finish: "finish" } as const;
 
 const emptyResponse = (input: StudentTurnInput, state: TurnResponse["state"], message: string): TurnResponse => ({
   ...(input.mode === "authenticated" ? { turnId: input.turnId } : {}),
@@ -313,9 +354,25 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
   assertManifestMatches(manifestPrompt);
   const kbAnswerPrompt = loadSkill(deps.skillsDir, KB_ANSWER_SKILL);
 
-  const count = async (kind: AnonymousCounterKind) => {
-    await deps.countAnonymous?.(kind);
+  const onWriteError =
+    deps.onWriteError ?? ((write: StudentWriteKind, error: unknown) => console.warn(`[student-graph] ${write} write failed (${error instanceof Error ? error.name : typeof error})`));
+
+  /** Repair R1: a store write never fails the turn. Returns false when the write threw. */
+  const safeWrite = async (write: StudentWriteKind, fn: (() => Promise<unknown>) | undefined): Promise<boolean> => {
+    if (!fn) return true;
+    try {
+      await fn();
+      return true;
+    } catch (err) {
+      try {
+        onWriteError(write, err);
+      } catch {
+        // the error reporter itself must not fail the turn either
+      }
+      return false;
+    }
   };
+  const count = (kind: AnonymousCounterKind) => safeWrite(`counter:${kind}`, deps.countAnonymous ? () => deps.countAnonymous!(kind) : undefined);
 
   const finish = (input: StudentTurnInput, result: StudentTurnResult): StudentTurnResult => {
     let response = result.response;
@@ -327,9 +384,13 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
 
   const builder = new StateGraph(StudentTurnState)
     .addNode(STUDENT_NODES.gate, (s: State) => {
-      const parsed = StudentTurnInputSchema.safeParse(s.input);
-      if (!parsed.success) throw new StudentAuthRequiredError();
-      return {};
+      const raw = s.raw !== undefined ? s.raw : s.input;
+      const parsed = StudentTurnInputSchema.safeParse(raw);
+      if (parsed.success) return { input: parsed.data };
+      // Repair R7: crisis first, before validation (an over-long crisis message is still a crisis).
+      const salvaged = salvageCrisisInput(raw);
+      if (salvaged) return { input: salvaged };
+      throw invalidInputError(raw);
     })
     .addNode(STUDENT_NODES.crisis, async (s: State) => {
       const input = s.input;
@@ -338,38 +399,48 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       // B24.7: unsure / indirect / Hinglish count as the higher level; with no connected counsellor on
       // the student surface every flag is handled as crisis.
       if (input.mode === "anonymous") {
-        await count("crisis");
-        return { result: { response: emptyResponse(input, "escalated", ANONYMOUS_CRISIS_MESSAGE), guardLevel: guard.level, claimSourceKinds: [] } };
+        const counted = await count("crisis");
+        return {
+          result: {
+            response: emptyResponse(input, "escalated", ANONYMOUS_CRISIS_MESSAGE),
+            guardLevel: guard.level,
+            claimSourceKinds: [],
+            ...(counted ? {} : { flagWriteFailed: true }),
+          },
+        };
       }
-      let flagWriteFailed = false;
-      try {
-        await deps.logFlag?.({
-          tenantId: input.auth.tenantId,
-          studentId: input.auth.studentId,
-          threadId: input.threadId,
-          turnId: input.turnId,
-          at: now().toISOString(),
-          level: "crisis",
-          action: "fixed_message_tele_manas_disclosed",
-        });
-      } catch {
-        flagWriteFailed = true;
-      }
-      try {
-        await deps.escalate?.({
-          sessionId: input.threadId,
-          studentId: input.auth.studentId,
-          turns: [{ turnId: input.turnId, speaker: "student", lang: isDevanagari(input.text) ? "hi" : "en", text: input.text, translatedText: input.text }],
-        });
-      } catch {
-        flagWriteFailed = true;
-      }
+      const logged = await safeWrite(
+        "flag_log",
+        deps.logFlag
+          ? () =>
+              deps.logFlag!({
+                tenantId: input.auth.tenantId,
+                studentId: input.auth.studentId,
+                threadId: input.threadId,
+                turnId: input.turnId,
+                at: now().toISOString(),
+                level: "crisis",
+                action: "fixed_message_tele_manas_disclosed",
+              })
+          : undefined,
+      );
+      const escalated = await safeWrite(
+        "escalate",
+        deps.escalate
+          ? () =>
+              deps.escalate!({
+                sessionId: input.threadId,
+                studentId: input.auth.studentId,
+                turns: [{ turnId: input.turnId, speaker: "student", lang: isDevanagari(input.text) ? "hi" : "en", text: input.text, translatedText: input.text }],
+              })
+          : undefined,
+      );
       return {
         result: {
           response: emptyResponse(input, "escalated", STUDENT_CRISIS_MESSAGE),
           guardLevel: guard.level,
           claimSourceKinds: [],
-          ...(flagWriteFailed ? { flagWriteFailed } : {}),
+          ...(logged && escalated ? {} : { flagWriteFailed: true }),
         },
       };
     })
@@ -390,25 +461,42 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       const tool = s.tool as keyof typeof TOOL_MESSAGES;
       return { result: { response: emptyResponse(s.input, "ok", TOOL_MESSAGES[tool]), selectedTool: tool, claimSourceKinds: [] } };
     })
+    .addNode(STUDENT_NODES.finish, (s: State) => {
+      if (!s.result) throw new Error("student graph reached finish without a result");
+      return { result: finish(s.input, s.result) };
+    })
     .addEdge(START, STUDENT_NODES.gate)
     .addEdge(STUDENT_NODES.gate, STUDENT_NODES.crisis)
-    .addConditionalEdges(STUDENT_NODES.crisis, (s: State) => (s.result ? END : STUDENT_NODES.route), [STUDENT_NODES.route, END])
+    .addConditionalEdges(STUDENT_NODES.crisis, (s: State) => (s.result ? STUDENT_NODES.finish : STUDENT_NODES.route), [STUDENT_NODES.route, STUDENT_NODES.finish])
     .addConditionalEdges(
       STUDENT_NODES.route,
-      (s: State) => (s.result ? END : s.tool === "search_kb" ? STUDENT_NODES.answer : s.tool === "coach_draft_feedback" ? STUDENT_NODES.coach : STUDENT_NODES.tool),
-      [STUDENT_NODES.answer, STUDENT_NODES.coach, STUDENT_NODES.tool, END],
+      (s: State) => (s.result ? STUDENT_NODES.finish : s.tool === "search_kb" ? STUDENT_NODES.answer : s.tool === "coach_draft_feedback" ? STUDENT_NODES.coach : STUDENT_NODES.tool),
+      [STUDENT_NODES.answer, STUDENT_NODES.coach, STUDENT_NODES.tool, STUDENT_NODES.finish],
     )
-    .addEdge(STUDENT_NODES.answer, END)
-    .addEdge(STUDENT_NODES.coach, END)
-    .addEdge(STUDENT_NODES.tool, END);
+    .addEdge(STUDENT_NODES.answer, STUDENT_NODES.finish)
+    .addEdge(STUDENT_NODES.coach, STUDENT_NODES.finish)
+    .addEdge(STUDENT_NODES.tool, STUDENT_NODES.finish)
+    .addEdge(STUDENT_NODES.finish, END);
 
   async function noAnswer(input: StudentTurnInput): Promise<StudentTurnResult> {
     if (input.mode === "authenticated") {
-      await deps.recordGap?.({ tenantId: input.auth.tenantId, studentId: input.auth.studentId, threadId: input.threadId, turnId: input.turnId, at: now().toISOString() });
+      const gap: GapRecord = { tenantId: input.auth.tenantId, studentId: input.auth.studentId, threadId: input.threadId, turnId: input.turnId, at: now().toISOString() };
+      await safeWrite("gap", deps.recordGap ? () => deps.recordGap!(gap) : undefined);
     } else {
       await count("no_answer");
     }
     return { response: emptyResponse(input, "no_sourced_answer", NO_SOURCED_ANSWER_TEXT), selectedTool: "search_kb", claimSourceKinds: [] };
+  }
+
+  /** Repair R3: a follow-up question is shown only when it is plainly a question with no facts in it. */
+  function safeFollowUp(raw: string | undefined, restricted: { texts: string[]; labels: string[] }): string | undefined {
+    const f = raw?.trim();
+    if (!f || !f.endsWith("?")) return undefined;
+    if (/\p{N}/u.test(f)) return undefined;
+    if (countriesIn(f).length > 0) return undefined;
+    if (findPersonalIdentifiers(f, deps.speakers, restricted.labels).length > 0) return undefined;
+    if (restricted.texts.some((t) => hasVerbatimRun(f, t))) return undefined;
+    return noQuoteGuard(f, deps.speakers, restricted.labels).text;
   }
 
   async function answerFromKb(input: StudentTurnInput): Promise<StudentTurnResult> {
@@ -468,20 +556,25 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       staleAfterMonths: config.staleAfterMonths,
       speakers: deps.speakers,
     });
-    const sourced = guarded.claims.filter((c) => c.status !== "unverified");
-    if (sourced.length === 0) return noAnswer(input);
+    // D-092: anonymous mode never shows an unverified claim; authenticated mode flags it (spec item 4).
+    const shown = authenticated ? guarded.claims : guarded.claims.filter((c) => c.status !== "unverified");
+    if (!shown.some((c) => c.status !== "unverified")) return noAnswer(input);
 
-    const followUp = draft.followUp ? noQuoteGuard(draft.followUp, deps.speakers).text : undefined;
-    const message = [...guarded.claims.map((c) => (c.status === "unverified" ? `${c.text} (unverified)` : c.text)), ...(followUp ? [followUp] : [])].join(" ");
+    const followUp = safeFollowUp(draft.followUp, guarded.restricted);
+    let message = [...shown.map((c) => (c.status === "unverified" ? `${c.text} (unverified)` : c.text)), ...(followUp ? [followUp] : [])].join(" ");
+    // Repair R2a: the FINAL message is checked against every restricted text of the turn (fail closed).
+    if (guarded.restricted.texts.some((t) => hasVerbatimRun(message, t))) return noAnswer(input);
+    message = noQuoteGuard(message, deps.speakers, guarded.restricted.labels).text;
     if (authenticated && input.priorFlagInThread && violatesCrisisRules(message)) {
       return { response: emptyResponse(input, "ok", STUDENT_CRISIS_MESSAGE), selectedTool: "search_kb", claimSourceKinds: [] };
     }
     if (!authenticated) await count("answered");
-    const claims: Claim[] = guarded.claims.map(({ text, kind, sourceIds, status }: GuardedClaim) => ({ text, kind, sourceIds, status }));
+    const claims: Claim[] = shown.map(({ text, kind, sourceIds, status }: GuardedClaim) => ({ text, kind, sourceIds, status }));
+    const cited = new Set(shown.flatMap((c) => c.sourceIds));
     return {
-      response: { ...(authenticated ? { turnId: input.turnId } : {}), state: "ok", message, claims, sources: guarded.sources, profileFactsUsed: [] },
+      response: { ...(authenticated ? { turnId: input.turnId } : {}), state: "ok", message, claims, sources: guarded.sources.filter((s) => cited.has(s.id)), profileFactsUsed: [] },
       selectedTool: ask ? "ask_knowledge_base" : "search_kb",
-      claimSourceKinds: guarded.claims.map((c) => c.sourceKind),
+      claimSourceKinds: shown.map((c) => c.sourceKind),
     };
   }
 
@@ -506,17 +599,29 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     return { response: emptyResponse(input, "ok", message), selectedTool: "coach_draft_feedback", claimSourceKinds: [] };
   }
 
-  const compiledFinish = finish;
-  return Object.assign(builder, { finishTurn: compiledFinish });
+  return builder;
 }
 
-/** Runs one student turn end to end. Input is validated BEFORE the graph runs (gate), output on the way out. */
+export type CompiledStudentGraph = ReturnType<ReturnType<typeof buildStudentGraph>["compile"]>;
+const compiledByDeps = new WeakMap<StudentGraphDeps, CompiledStudentGraph>();
+
+/**
+ * The compiled student graph for these deps, compiled once and cached per deps object (repair R9).
+ * Invoke with `{ raw: <unvalidated turn input> }`; the gate validates it and the finish node applies
+ * the prior-flag suffix and the TurnResponse schema. Deps are treated as immutable once compiled.
+ */
+export function compileStudentGraph(deps: StudentGraphDeps): CompiledStudentGraph {
+  let graph = compiledByDeps.get(deps);
+  if (!graph) {
+    graph = buildStudentGraph(deps).compile();
+    compiledByDeps.set(deps, graph);
+  }
+  return graph;
+}
+
+/** Runs one student turn end to end through the compiled graph (gate validation -> ... -> finish). */
 export async function runStudentTurn(deps: StudentGraphDeps, rawInput: unknown): Promise<StudentTurnResult> {
-  const parsed = StudentTurnInputSchema.safeParse(rawInput);
-  if (!parsed.success) throw new StudentAuthRequiredError();
-  const builder = buildStudentGraph(deps);
-  const graph = builder.compile();
-  const out = await graph.invoke({ input: parsed.data });
+  const out = await compileStudentGraph(deps).invoke({ raw: rawInput });
   if (!out.result) throw new Error("student graph ended without a result");
-  return builder.finishTurn(parsed.data, out.result);
+  return out.result;
 }

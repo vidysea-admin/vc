@@ -38,7 +38,8 @@ test("A22: a claim with no determinable kind (served /ask, unresolvable source) 
     ],
     { hits: [], ask: ASK_ANSWERED, getSession: kb.getSession, now: NOW, speakers: SPEAKERS },
   );
-  assert.deepEqual(out.claims.map((c) => c.sourceKind), ["unknown", "unknown"]);
+  assert.deepEqual(out.claims.map((c) => c.sourceKind), ["unknown"], "a served /ask claim is 'unknown'");
+  assert.deepEqual(out.dropped.map((d) => d.reason), ["no_resolvable_source"], "an unresolvable claim is dropped (repair R2a), never shown");
 });
 
 test("A22: a WhatsApp or unknown claim quoting >= 8 consecutive source words is removed from the answer (never verbatim)", async () => {

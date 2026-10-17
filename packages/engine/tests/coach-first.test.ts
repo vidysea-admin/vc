@@ -99,6 +99,28 @@ const INTENTS: [string, string][] = [
   ["Where did that come from? show me the source", "kb_source_detail"],
 ];
 
+// Repair R6 (review probe P4): KB questions that merely contain a trigger word go to search_kb.
+const ROUTING_NEGATIVES: string[] = [
+  "What is the latest tuition fee in Germany?",
+  "Yes, what is the right visa type for Germany?",
+  "How do I prepare for the LOR requirements in Canada?",
+  "What are the best universities to compare for engineering in Germany?",
+  "Does Germany remove tuition information soon?",
+  "Ha, which is the correct deadline for TU Munich?",
+  "What is the QS rank of TU Munich?",
+  "Can universities delete application data after rejection?",
+  "Yes, that is correct, but what documents does the UK visa need?",
+];
+
+test("R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB", () => {
+  assert.deepEqual(ROUTING_NEGATIVES.filter((q) => classifyIntent(q) !== "search_kb"), []);
+  assert.equal(isDraftingRequest("How do I prepare for the LOR requirements in Canada?"), false);
+  assert.equal(isDraftingRequest("Prepare my LOR for me"), true);
+  for (const [text, tool] of [["yes that's right", "profile_confirm"], ["Erase my account", "data_erasure"], ["Is this information the latest?", "source_freshness"], ["compare them for me", "rank_options"]] as const) {
+    assert.equal(classifyIntent(text), tool, text);
+  }
+});
+
 test("A21(b): >= 15 fixture intents select the matching tool/feature, and every selected tool is a registered student tool", async () => {
   assert.ok(INTENTS.length >= 15);
   const registered = new Set(STUDENT_TOOLS.map((t) => t.name));
