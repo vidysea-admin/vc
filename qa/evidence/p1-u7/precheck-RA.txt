@@ -1,0 +1,11 @@
+[testlock] running (free RAM 0.96 GB): pnpm -C apps/api exec tsx --test --test-timeout=30000 --test-name-pattern=U7 repair A tests/anonymous-zero-persistence.test.ts
+✔ U7 repair A: a crisis message is answered with the fixed message and Tele-MANAS even at request 11 (rate limited) and with a full limiter table (1119.4946ms)
+✔ U7 repair A: every non-200 anonymous body (400, 405, 413, 429, 500) carries the static Tele-MANAS helpline (441.3611ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15225.6836

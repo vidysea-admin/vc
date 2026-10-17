@@ -1,0 +1,13 @@
+[testlock] write_owner_enrich: lock dir token changed (ours [1792268866608665600-9886-13510], now [1792268866894250800-8650-16613]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] waiting for lock held by: PID=29800 STARTED=639278853897506703 ACQUIRED_AT=1792268866 TOKEN=1792268866894250800-8650-16613 DESC=pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9/packages/providers exec tsx --test --test-name-pattern=^C5  tests/live.test.ts 
+[testlock] running (free RAM 2.58 GB): pnpm -C packages/engine exec tsx --test --test-timeout=30000 --test-name-pattern=U7 repair F tests/student-classify.test.ts
+✔ U7 repair F: an email address is personal data like a phone number - personal -> sign_in_required, never generic (4.7417ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 409.5342

@@ -1,0 +1,11 @@
+[testlock] waiting for lock held by: 
+[testlock] running (free RAM 3.57 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/packages/engine exec tsx --test --test-timeout=30000 --test-name-pattern=R4 \(D-092\) tests/student-graph.test.ts
+✔ R4 (D-092): anonymous mode never shows unverified claims; authenticated mode flags them '(unverified)' next to a sourced claim (296.8375ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4793.702

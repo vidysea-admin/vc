@@ -1,0 +1,13 @@
+[testlock] running (free RAM 2.48 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern=validation|errors:|provider failure tests/anonymous-zero-persistence.test.ts
+✔ validation: malformed bodies are a bare 400, over-long non-crisis text is 400, an oversized body is 413; no input is echoed (401.6468ms)
+✔ validation: a near-limit body (about 190 KB of text) is scanned for crisis in bounded time and then refused as over-long (160.34ms)
+✔ errors: an unexpected failure is a bare 500 {error: internal}; the log line carries the error NAME only, never its message or the text (32.5886ms)
+✔ provider failure is the apology text (A12), not an error and not an unsourced answer (76.301ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20455.998
