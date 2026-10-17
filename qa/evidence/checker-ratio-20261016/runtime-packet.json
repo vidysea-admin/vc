@@ -1,0 +1,107 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-checker-runtime-probe-20261016",
+  "root_run_id": "vc-checker-runtime-probe-20261016",
+  "feature": "checker-ratio-environment",
+  "cycle": 0,
+  "parent_run_id": null,
+  "run_id": "runtime-probe",
+  "session": "vc-01a13e75",
+  "retry_of": null,
+  "candidate": {
+    "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "files": [
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+        "sha256": "fa2c4162c922dacd5dd2c9be11030f7d35958ce31403ecae5a9973c753ebfe0f"
+      }
+    ],
+    "dirty_inputs": [
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs"
+    ]
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "identity_files": {
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md",
+      "sha256": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md",
+      "sha256": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730"
+    },
+    "config_id": {
+      "path": "qa/adapter.json",
+      "sha256": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2"
+    },
+    "dependency_id": {
+      "path": "pnpm-lock.yaml",
+      "sha256": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c"
+    }
+  },
+  "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+  "runtime_id": "v24.13.1-win32-x64",
+  "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Single existing test, supported alternate installed client. All prior failed checking cost retained in original T056 goal accounting; this probe is not acceptance.",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T21:16:07.5040160Z",
+    "estimate_ms": 30000,
+    "no_progress_ms": 90000
+  },
+  "resource_caps": {
+    "agent": 2
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "check_task_id": "probe",
+      "id": "C1",
+      "description": "Independent prospective approval of ratio envelope amendment"
+    }
+  ],
+  "tasks": [
+    {
+      "resources": {
+        "agent": 1
+      },
+      "depends_on": [],
+      "id": "probe",
+      "command": [
+        "C:/Users/Lenovo/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+        "--exclude-dynamic-system-prompt-sections",
+        "--print",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--max-turns",
+        "2",
+        "--tools",
+        "Read,Bash",
+        "--strict-mcp-config",
+        "--no-session-persistence",
+        "--no-chrome"
+      ],
+      "kind": "check",
+      "max_output_bytes": 180000,
+      "owner": "p0-runtime",
+      "handoff": {
+        "path": "qa/.delivery/context/425e97fabda75347fae111bd62a033bb77fdf2ca6d43becadd9b0433a9061c63.handoff.json",
+        "sha256": "425e97fabda75347fae111bd62a033bb77fdf2ca6d43becadd9b0433a9061c63"
+      },
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/runtime-probe-evidence"
+      ],
+      "timeout_ms": 30000
+    }
+  ],
+  "dispatch": {
+    "attempt_id": "a1",
+    "task_id": "probe"
+  }
+}

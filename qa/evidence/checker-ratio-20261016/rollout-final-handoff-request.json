@@ -1,0 +1,92 @@
+{
+  "schema_version": "compact-handoff/1",
+  "shared_instructions": "FRESH independent completed-feature checker coordinator, source/SSE+data-accounting+AIOS-config-auditor lenses. Do not delegate; do not change configuredmodels/auth/settings/permissions, Gitmetadata, .env, realdata, providers/web or shared files. Own QA experiments only. Read supplied bounded source first; missing concrete fact only motivates more reads. No whole catalogues/trackers/transcripts. Keep evidence logs on disk and emit concise summaries. Actual aggregate ratioUNKNOWN, originalT056 costsretained. Scope rollout own changes, not blanketapproval of peer .12 runtime or allAIOSsecurity. Default sandbox helperbroken; mxc invocationalreadyselected, normal restrictionspreserved. KnownchildGitwritesforbidden; use existing readonlyB1 Gitmetadata for JSfixturecases, do not retry gitinit. Required code tests applicableonly, never fullproject/product suites.",
+  "sources": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/rollout-final-manifest.md",
+      "sha256": "077aa7ebffb29b9b6a19996fb76c342d20318bfcd7661e51cda4a70961ef3e25",
+      "ranges": [
+        [
+          1,
+          10
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/rollout-guard.diff",
+      "sha256": "3a5413158a62f502754df8b48698d0709cfbe9f99de63a948c4deedf81c132d0",
+      "ranges": [
+        [
+          1,
+          105
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/rollout-opening.diff",
+      "sha256": "6a3d00f5f55551d18bf9367eb20974c03d2a4f3e2c81d78daf57e896a289b08b",
+      "ranges": [
+        [
+          1,
+          87
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/rollout-policy.diff",
+      "sha256": "edfb91c5af25a28751441faf1cc619e7b29ba84666d2ac37fb1b1624f4eaeb72",
+      "ranges": [
+        [
+          1,
+          24
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/inventory.json",
+      "sha256": "652b82b46e445811f1b1257ee50dfb47fc1780899247a4f86c31ecc944f897bd",
+      "ranges": [
+        [
+          1,
+          44
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py",
+      "sha256": "0747c159bb8db324d3d217c1c82eab6182e013b7a30ac612972f303368598a0a",
+      "ranges": [
+        [
+          442,
+          536
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/rollout-config-before.json",
+      "sha256": "caeb014f1cade5fa7b8396ffc59615b62e1683044f2fe8401343d8f563daaebc",
+      "ranges": [
+        [
+          1,
+          27
+        ]
+      ]
+    }
+  ],
+  "task": {
+    "id": "final",
+    "owner": "p0-rollout-final",
+    "purpose": "Perform final own scoped source/data/config acceptance. Revalidate proposed23:00UTC cutover is future now and source/test/stagedcanonical/fourskills agree; explicit acceptance of updatedfuturetime within approved semantics required. Run Python46affectedtests once using owned unique basetemp existingparent; use own JS readonlyexistingB1 Gitfixture to independently probe nulltemplatehints, zerovalidopening admission, incompleteopening refusal, freshnoenvelope refusal, exactpersistedlegacy before/at23:00, aggregatebudget and existingowner-closeout compatibility by source/affected evidence. Maker31 preseal includes unchanged peerownercloseout; no Gitwrite workaround or .git testfixture rewrites. Old independentlyauthored oracle at qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs may be used as fixture builder/source reference, but its old hash/cutoff assertions are historical; review and adapt only owncopy. Own experiments storeB1 QA under rollout-fixture, clean/close only your identified synthetic claims and preserve oldoracles/stores. Three distinct meaningful GREEN/RED/restoredGREEN falsifiers: openingstructuralguard (invalidroot/missingchild stillUNKNOWN); cutoff/newworkflowreportadmission; incompleteopeningmetadata rejection. No weakened/removed assertions, setupfailure notRED. Apply selected aiOS-config-auditor skill bounded to changedpolicy/skills and actual supporting configinventory/hash; models/auth/MCP/settings/hook bytesunchanged (missingoldjson isnotmissingactualtoml runtime). Verify exact full4archivecandidatebytes vs current4protocols and no unrelated bodychanges beyondapprovedpolicy/defaultversion/openingdoc. Explicit scoped PASS/FAIL/BLOCKED <=60lines at qa/evidence/checker-ratio-20261016/independent/rollout-final/verdict.md; detailed audit/control logs in sameownedfolder. If actualtokencontrol unsupported say UNKNOWN, never sourceclaimoverrunautosafe. No sharedinstallation or actualglobal10percentproof. Stop on concrete sourcegap; prior .13planapproval alone isnotacceptance.",
+    "dependencies": [],
+    "acceptance": [
+      "Independent own runtime/source/data/skill security evidence and minimum3intendedfalsifiers; futurecutover23:00 revalidation; actual/archive/modelboundaries explicit"
+    ],
+    "checks": [
+      "AffectedPython46 once; own minimal readonlyGit JScontrols and3criteriafalsifiers; stagedpolicycheck; diff-scoped configaudit only"
+    ]
+  },
+  "bounds": {
+    "max_source_bytes": 43000,
+    "max_prompt_bytes": 52000
+  }
+}

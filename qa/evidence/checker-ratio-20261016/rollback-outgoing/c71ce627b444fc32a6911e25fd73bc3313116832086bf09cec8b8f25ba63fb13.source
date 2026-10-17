@@ -1,0 +1,854 @@
+"""Local token ledger from Claude Code transcripts (no network, no npm).
+
+Sums usage per day, main-session vs subagent, per model, from ~/.claude/projects/*.jsonl.
+Used by the /checker sweep (qa/token-ledger.jsonl) and for ad-hoc "where did the limit go" checks.
+
+    python scripts/token_scan.py                      # all projects, last 14 days, table
+    python scripts/token_scan.py --project D:/erp --days 1 --json
+"""
+import argparse
+import collections
+import glob
+import json
+import math
+import os
+import re
+import time
+
+PROJECTS = os.path.join(os.path.expanduser("~"), ".claude", "projects")
+
+
+def project_slug(path):
+    # Claude Code names the transcript dir by replacing every non-alphanumeric char with '-'
+    return re.sub(r"[^A-Za-z0-9]", "-", os.path.abspath(path)).lower()
+
+
+def _transcripts(project, days):
+    """Yield (path, since_day) for transcript files touched within the window."""
+    cutoff = time.time() - days * 86400
+    since = time.strftime("%Y-%m-%d", time.gmtime(cutoff))
+    dirs = [d for d in glob.glob(os.path.join(PROJECTS, "*")) if os.path.isdir(d)]
+    if project:
+        slug = project_slug(project)
+        dirs = [d for d in dirs if os.path.basename(d).lower() == slug]
+    for d in dirs:
+        for p in glob.glob(os.path.join(d, "**", "*.jsonl"), recursive=True):
+            try:
+                if os.path.getmtime(p) < cutoff:
+                    continue
+            except OSError:
+                continue
+            yield p, since
+
+
+def compactions(project=None, days=14):
+    """Compaction events: lets you check CLAUDE_AUTOCOMPACT_PCT_OVERRIDE actually fires
+    (auto compactions on a 1M-context session at ~50% should show pre_tokens near 500k)."""
+    out = []
+    for p, since in _transcripts(project, days):
+        with open(p, encoding="utf-8", errors="ignore") as fh:
+            for line in fh:
+                if '"compact_boundary"' not in line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                if rec.get("subtype") != "compact_boundary":
+                    continue
+                day = (rec.get("timestamp") or "")[:10]
+                if not day or day < since:
+                    continue
+                meta = rec.get("compactMetadata") or {}
+                out.append({"day": day, "trigger": meta.get("trigger", "?"),
+                            "pre_tokens": meta.get("preTokens") or 0,
+                            "session": os.path.basename(p)})
+    return sorted(out, key=lambda c: (c["day"], c["pre_tokens"]))
+
+
+OUTAGE_MARK = "so auto mode cannot determine the safety"
+OUTAGE_RE = re.compile(r"([\w.:\[\]-]+) is temporarily unavailable(?: \(([^)]*)\))?, " + OUTAGE_MARK)
+# Tools whose block silently stops a /maker loop (no second path wakes the session).
+LOOP_TOOLS = ("ScheduleWakeup", "SendMessage", "Agent")
+
+
+def classifier_outages(project=None, days=14):
+    """Tool calls that auto mode refused because its classifier model was unavailable.
+    Such a block fails closed: during an outage only narrow allow rules still run
+    (measured 2026-09-22), so a blocked ScheduleWakeup kills the loop silently."""
+    out = []
+    for p, since in _transcripts(project, days):
+        names = {}
+        with open(p, encoding="utf-8", errors="ignore") as fh:
+            for line in fh:
+                if '"tool_use"' not in line and OUTAGE_MARK not in line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                msg = rec.get("message")
+                if not isinstance(msg, dict) or not isinstance(msg.get("content"), list):
+                    continue
+                day = (rec.get("timestamp") or "")[:10]
+                for b in msg["content"]:
+                    if not isinstance(b, dict):
+                        continue
+                    if b.get("type") == "tool_use":
+                        names[b.get("id")] = b.get("name", "?")
+                    elif b.get("type") == "tool_result" and day and day >= since:
+                        c = b.get("content")
+                        text = c if isinstance(c, str) else " ".join(
+                            x.get("text", "") for x in (c or []) if isinstance(x, dict))
+                        # A real refusal is an error result that STARTS with the notice; a
+                        # grep or report that merely quotes it is not an outage.
+                        m = OUTAGE_RE.match(text.lstrip())
+                        if not (b.get("is_error") and m):
+                            continue
+                        out.append({"day": day, "model": m.group(1),
+                                    "reason": m.group(2) or "unknown",
+                                    "tool": names.get(b.get("tool_use_id"), "?"),
+                                    "session": os.path.basename(p)})
+    return sorted(out, key=lambda o: o["day"])
+
+
+def scan(project=None, days=14, bindings=None, feature=None, codex_root=None, delivery=False, opening=False):
+    """Legacy daily rows, or an explicit-binding feature report.
+
+    JSON ledger: {"coverage_complete": true, "bindings": [...]}; JSONL accepts
+    binding rows and {"type":"coverage","feature_id":...,"complete":true}.
+    Binding keys: feature_id, cycle, role, run_id, parent_run_id, session_id,
+    transcript (optional explicit path), start/end (optional ISO boundaries),
+    blocks (optional [{start,end}]). Coverage is an operator assertion, not
+    inferred from role names or the existence of transcript files. Opt-in delivery
+    adds a separate v2 summary; ledger.delivery supplies root_run_id,
+    child_manifest_complete, and optional acceptance milestone records. Delivery
+    reads only explicitly bound transcripts and requires a feature filter.
+    """
+    import datetime
+    def stamp(value):
+        try:
+            return datetime.datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+        except (ValueError, TypeError, OverflowError):
+            return None
+
+    if opening and (not delivery or not bindings or not feature):
+        raise ValueError("opening requires explicit delivery, bindings and feature")
+    channels = ("input", "output", "cache_read", "cache_write")
+    def amounts(usage, codex=False):
+        if codex:
+            # Codex input_tokens includes cached_input_tokens.
+            cached = usage.get("cached_input_tokens", 0)
+            return dict(input=usage.get("input_tokens", 0) - cached,
+                        output=usage.get("output_tokens", 0),
+                        cache_read=cached, cache_write=usage.get("cache_write_input_tokens", usage.get("cache_creation_input_tokens", 0)))
+        return dict(input=usage.get("input_tokens", 0),
+                    output=usage.get("output_tokens", 0),
+                    cache_read=usage.get("cache_read_input_tokens", 0),
+                    cache_write=usage.get("cache_creation_input_tokens", 0))
+
+    requested = delivery or bindings is not None or feature is not None or codex_root is not None
+    reasons, ledger, coverage, delivery_meta = set(), [], False, {}
+    delivery_names = ("planning", "orchestration", "maker", "build", "checker", "integration", "repair", "unknown")
+    if delivery and (not bindings or not feature):
+        raise ValueError("delivery accounting requires --bindings and --feature")
+    if bindings:
+        try:
+            with open(bindings, encoding="utf-8-sig") as fh:
+                raw = fh.read()
+            try:
+                loaded = json.loads(raw)
+            except ValueError:
+                loaded = [json.loads(line) for line in raw.splitlines() if line.strip()]
+            if isinstance(loaded, dict) and "bindings" in loaded:
+                coverage = loaded.get("coverage_complete") is True
+                delivery_meta = loaded.get("delivery", {})
+                ledger = loaded["bindings"]
+            else:
+                ledger = loaded if isinstance(loaded, list) else [loaded]
+                coverage = any(b.get("type") == "coverage" and b.get("complete") is True
+                               and b.get("feature_id") == feature for b in ledger)
+            if not isinstance(ledger, list) or any(not isinstance(b, dict) for b in ledger):
+                raise ValueError("bindings must be objects")
+            ledger = [b for b in ledger if b.get("type") != "coverage"
+                      and (feature is None or b.get("feature_id") == feature)]
+        except (OSError, ValueError, TypeError, AttributeError):
+            reasons.add("invalid_or_unreadable_bindings")
+            ledger = []
+    if requested and not coverage:
+        reasons.add("coverage_not_declared_complete")
+    valid = []
+    for b in ledger:
+        if (all(k in b for k in ("feature_id", "cycle", "role", "run_id", "parent_run_id", "session_id"))
+                and b["role"] in (delivery_names[:-1] if delivery else ("maker", "checker", "integration"))
+                and b["session_id"] and b["run_id"]):
+            if b not in valid:
+                valid.append(b)
+        else:
+            reasons.add("invalid_binding")
+    by_session = collections.defaultdict(list)
+    for b in valid:
+        by_session[str(b["session_id"])].append(b)
+    paths = {} if delivery else dict(_transcripts(project, days))
+    # Never discover Codex sessions implicitly. Only the explicitly selected root
+    # or transcript paths are read, and feature files are not truncated by --days.
+    explicit = set()
+    if codex_root:
+        if os.path.isfile(codex_root):
+            explicit.add(os.path.abspath(codex_root))
+        else:
+            if delivery:
+                raise ValueError("delivery requires explicit transcript files, not a directory sweep")
+            explicit.update(os.path.abspath(p) for p in
+                            glob.glob(os.path.join(codex_root, "**", "*.jsonl"), recursive=True))
+    for b in valid:
+        if b.get("transcript"):
+            p = b["transcript"]
+            if not os.path.isabs(p):
+                p = os.path.join(os.path.dirname(os.path.abspath(bindings)), p)
+            explicit.add(os.path.abspath(p))
+    for p in explicit:
+        paths[p] = ""
+    stats, agents = collections.defaultdict(collections.Counter), collections.defaultdict(set)
+    roles = {r: dict(tokens=0, input=0, output=0, cache_read=0, cache_write=0,
+                     active_seconds=0, wait_seconds=0, runs=0) for r in ("maker", "checker", "integration", "unknown")}
+    delivery_roles = {r: dict(tokens=0, input=0, output=0, cache_read=0, cache_write=0,
+                             active_seconds=0, wait_seconds=0, runs=0) for r in delivery_names}
+    reasoning_usage, reasoning_known = collections.Counter(), set()
+    provider_events, duplicate_events, providers = collections.Counter(), 0, set()
+    transcript_milestones, cumulative_runs, cumulative_evidence = [], set(), {}
+    usage_runs = set()
+    run_usage = collections.defaultdict(collections.Counter)
+    seen, cumulative, observed, run_events, intervals = set(), {}, set(), collections.defaultdict(list), collections.defaultdict(list)
+    for p, since in paths.items():
+        kind = "sub" if "subagents" in p.replace("\\", "/").split("/") else "main"
+        transcript_session = os.path.splitext(os.path.basename(p))[0]
+        pending = {}
+        try:
+            records = []
+            with open(p, encoding="utf-8", errors="ignore") as fh:
+                for line in fh:
+                    if not line.strip():
+                        continue
+                    try:
+                        record = json.loads(line)
+                        if not isinstance(record, dict):
+                            raise ValueError()
+                        records.append(record)
+                    except ValueError:
+                        if requested:
+                            reasons.add("unreadable_or_malformed_transcript")
+        except OSError:
+            if requested:
+                reasons.add("unreadable_or_malformed_transcript")
+            continue
+        native_usage = any(r.get("type") == "token_usage_record" for r in records)
+        native_pending, ambiguous_tasks = {}, set()
+        turn_metadata = {r["payload"].get("turn_id"): r["payload"].get("turn_attribution", {})
+                         for r in records if r.get("type") == "event_msg"
+                         and isinstance(r.get("payload"), dict)
+                         and r["payload"].get("type") == "task_started"}
+        for rec in records:
+            payload = rec.get("payload") or {}
+            if not isinstance(payload, dict) or not isinstance(rec.get("message") or {}, dict):
+                if requested:
+                    reasons.add("unreadable_or_malformed_transcript")
+                continue
+            if rec.get("type") == "session_meta":
+                transcript_session = str(payload.get("id") or transcript_session)
+            # Native response session_id can name the root while thread_id names
+            # its actual child. Never let one response change later task ownership.
+            native_thread = (payload.get("thread_id") or payload.get("session_id")) if rec.get("type") == "token_usage_record" else None
+            session = str(native_thread or rec.get("sessionId") or rec.get("session_id") or transcript_session)
+            ts = stamp(rec.get("timestamp"))
+            actual_turn = payload.get("turn_id") or rec.get("turn_id")
+            attribution = turn_metadata.get(actual_turn) or {}
+            identity_candidates = [b for b in by_session.get(session, [])
+                          if (not b.get("turn_id") or b["turn_id"] == actual_turn)
+                          and (not b.get("root_turn_id") or b["root_turn_id"] ==
+                               (payload.get("root_turn_id") or attribution.get("root_turn_id")))
+                          and (not b.get("agent_path") or b["agent_path"] == attribution.get("initiating_agent_path"))]
+            candidates = [b for b in identity_candidates
+                          if (not b.get("start") or (ts is not None and stamp(b["start"]) is not None and ts >= stamp(b["start"])))
+                          and (not b.get("end") or (ts is not None and stamp(b["end"]) is not None and ts <= stamp(b["end"])))]
+            binding = candidates[0] if len(candidates) == 1 else None
+            if delivery and binding and payload.get("type") in ("feature_accepted", "milestone_accepted"):
+                transcript_milestones.append((binding["run_id"], ts, payload.get("milestone_id")))
+            if len(candidates) > 1:
+                reasons.add("overlapping_bindings")
+            if binding and ts is not None:
+                observed.add(binding["run_id"])
+                run_events[binding["run_id"]].append(ts)
+            if native_usage and rec.get("type") == "event_msg" and payload.get("type") in ("task_started", "task_complete"):
+                task_key = (session, actual_turn)
+                if not isinstance(actual_turn, str) or not actual_turn.strip():
+                    if by_session.get(session):
+                        reasons.add("missing_task_identity")
+                elif payload["type"] == "task_started":
+                    if task_key in native_pending:
+                        ambiguous_tasks.add(task_key)
+                        reasons.add("ambiguous_task_interval")
+                    started = stamp(payload.get("started_at")) or ts
+                    possible_owners = [b for b in identity_candidates
+                                       if started is None or not b.get("end") or stamp(b["end"]) is None
+                                       or started < stamp(b["end"])]
+                    native_pending[task_key] = (started, possible_owners)
+                elif task_key in native_pending:
+                    start, owners = native_pending.pop(task_key)
+                    completed = stamp(payload.get("completed_at")) or ts
+                    if task_key not in ambiguous_tasks and start is not None and completed is not None and completed > start:
+                        attributed = []
+                        for owner in owners:
+                            lower, upper = stamp(owner.get("start")), stamp(owner.get("end"))
+                            if ((owner.get("start") and lower is None) or (owner.get("end") and upper is None)):
+                                continue
+                            left = max(start, lower) if lower is not None else start
+                            right = min(completed, upper) if upper is not None else completed
+                            if right > left:
+                                if any(max(left, a) < min(right, b) for a, b in attributed):
+                                    reasons.add("overlapping_bindings")
+                                attributed.append((left, right))
+                                intervals[owner["run_id"]].append((left, right))
+            elif rec.get("type") == "event_msg" and payload.get("type") == "task_started":
+                pending[payload.get("turn_id")] = (stamp(payload.get("started_at")) or ts, binding)
+            if not native_usage and rec.get("type") == "event_msg" and payload.get("type") == "task_complete" and payload.get("turn_id") in pending:
+                start, owner = pending.pop(payload.get("turn_id"))
+                completed = stamp(payload.get("completed_at")) or ts
+                if owner and binding == owner and start is not None and completed is not None and completed > start:
+                    intervals[owner["run_id"]].append((start, completed))
+            duration = rec.get("duration_ms")
+            start, end = stamp(rec.get("start_timestamp")), stamp(rec.get("end_timestamp"))
+            if binding and start is not None and end is not None and end > start:
+                intervals[binding["run_id"]].append((start, end))
+            elif binding and isinstance(duration, (int, float)) and not isinstance(duration, bool) and duration > 0 and ts is not None:
+                intervals[binding["run_id"]].append((ts - duration / 1000, ts))
+            msg = rec.get("message") or {}
+            info = payload.get("info") or {}
+            if not isinstance(info, dict):
+                reasons.add("unreadable_or_malformed_transcript")
+                continue
+            is_native = rec.get("type") == "token_usage_record"
+            is_cumulative = rec.get("type") == "event_msg" and payload.get("type") == "token_count"
+            # Only per-response native usage has a point-in-time scope. Cumulative
+            # deltas may span a window boundary and retain the existing UNKNOWN path.
+            mapped = by_session.get(session, [])
+            outside_scope = bool(is_native and mapped and ts is not None
+                                 and isinstance(actual_turn, str) and actual_turn.strip()
+                                 and all(stamp(b.get("start")) is not None and stamp(b.get("end")) is not None
+                                         and stamp(b["start"]) < stamp(b["end"])
+                                         and (ts < stamp(b["start"]) or ts > stamp(b["end"])) for b in mapped))
+            if is_cumulative and native_usage:
+                continue
+            is_codex = is_native or is_cumulative
+            usage = payload.get("usage") if is_native else (info.get("total_token_usage") if is_cumulative else msg.get("usage"))
+            if not usage:
+                if delivery and is_native:
+                    reasons.add("missing_native_usage_counter")
+                continue
+            if not isinstance(usage, dict):
+                reasons.add("invalid_usage_counter")
+                continue
+            model = msg.get("model", payload.get("model", "?"))
+            if model == "<synthetic>":
+                continue
+            event_id = (payload.get("response_id") if is_native else None) or rec.get("requestId") or rec.get("request_id") or msg.get("id") or rec.get("event_id")
+            provider = "codex" if is_codex else "claude"
+            identity = (provider, event_id) if delivery and event_id else ((session, event_id) if event_id else None)
+            if identity and identity in seen:
+                duplicate_events += 1
+                continue
+            if identity:
+                seen.add(identity)
+            elif requested and not is_cumulative:
+                reasons.add("usage_event_without_provider_id")
+            try:
+                values = amounts(usage, is_codex)
+                if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0 for v in values.values()):
+                    raise ValueError()
+                details = usage.get("output_tokens_details") or {}
+                reasoning = usage.get("reasoning_output_tokens", details.get("reasoning_tokens") if isinstance(details, dict) else None)
+                if reasoning is not None and (isinstance(reasoning, bool) or not isinstance(reasoning, (int, float))
+                                               or not math.isfinite(reasoning) or reasoning < 0 or reasoning > values["output"]):
+                    raise ValueError()
+            except (TypeError, ValueError):
+                reasons.add("invalid_usage_counter")
+                continue
+            if delivery and not all(k in usage for k in ("input_tokens", "output_tokens")):
+                reasons.add("missing_native_usage_counter")
+            if is_cumulative:
+                if binding:
+                    cumulative_runs.add(binding["run_id"])
+                if delivery:
+                    cumulative_evidence[binding["run_id"] if binding else session] = dict(
+                        session_id=session, run_id=binding["run_id"] if binding else None,
+                        usage=dict(usage), usage_scope=binding.get("usage_scope") if binding else None,
+                        additive=False)
+                if delivery and (not binding or binding.get("usage_scope") != "session"):
+                    # A cumulative parent counter can include children. Without an
+                    # explicit session-only contract, keep response costs elsewhere
+                    # but never add this ambiguous aggregate to their total.
+                    reasons.add("cumulative_usage_scope_unknown")
+                    continue
+                previous = cumulative.get(session)
+                cumulative[session] = values
+                if previous is None:
+                    # First cumulative total may include unseen earlier requests.
+                    if requested and any(values.values()):
+                        reasons.add("cumulative_baseline_unknown")
+                    continue
+                delta = {k: values[k] - previous[k] for k in channels}
+                if any(v < 0 for v in delta.values()):
+                    reasons.add("cumulative_counter_reset")
+                    continue
+                values = delta
+                reasoning = None  # cumulative reasoning is not a response delta
+            if delivery and not outside_scope:
+                providers.add(provider)
+                delivery_role = binding["role"] if binding else "unknown"
+                delivery_roles[delivery_role]["tokens"] += sum(values.values())
+                for k in channels:
+                    delivery_roles[delivery_role][k] += values[k]
+                if binding:
+                    provider_events[binding["run_id"]] += 1
+                    if reasoning is not None:
+                        reasoning_usage[binding["run_id"]] += reasoning
+                        reasoning_known.add(binding["run_id"])
+            day = (rec.get("timestamp") or "")[:10]
+            if day and day >= since:
+                c = stats[(day, kind, model)]
+                c["calls"] += 1
+                c.update(values)
+                if kind == "sub":
+                    agents[(day, model)].add(p)
+            if requested and not outside_scope:
+                if binding:
+                    usage_runs.add(binding["run_id"])
+                    run_usage[binding["run_id"]].update(values)
+                role = binding["role"] if binding and binding["role"] in roles else "unknown"
+                if not binding:
+                    reasons.add("unbound_usage")
+                roles[role]["tokens"] += sum(values.values())
+                for k in channels:
+                    roles[role][k] += values[k]
+        if requested and any(owner is not None for _, owner in pending.values()):
+            reasons.add("incomplete_active_task")
+        if requested and any(owners for _, owners in native_pending.values()):
+            reasons.add("incomplete_active_task")
+    rows = []
+    for (day, kind, model), c in sorted(stats.items()):
+        row = {"day": day, "kind": kind, "model": model, **c}
+        if kind == "sub":
+            row["agents"] = len(agents[(day, model)])
+        rows.append(row)
+    if not requested:
+        return rows
+
+    def union(parts):
+        merged = []
+        for start, end in sorted(parts):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
+            else:
+                merged.append((start, end))
+        return merged
+
+    all_intervals, runs, delivery_run_intervals = [], [], {}
+    unique_runs = {}
+    for b in valid:
+        rid = b["run_id"]
+        if rid in unique_runs and unique_runs[rid] != b:
+            reasons.add("conflicting_run_binding")
+        unique_runs[rid] = b
+    for rid, b in unique_runs.items():
+        parts = union(intervals[rid])
+        lower, upper = stamp(b.get("start")), stamp(b.get("end"))
+        if (b.get("start") and lower is None) or (b.get("end") and upper is None):
+            reasons.add("invalid_binding_interval")
+        parts = [(max(s, lower) if lower is not None else s,
+                  min(e, upper) if upper is not None else e) for s, e in parts]
+        parts = [(s, e) for s, e in parts if e > s]
+        if rid not in observed:
+            reasons.add("missing_run_transcript")
+        if rid not in usage_runs:
+            reasons.add("missing_run_usage")
+        if not parts:
+            reasons.add("missing_active_time_evidence")
+        waits = []
+        for block in b.get("blocks", []):
+            start, end = stamp(block.get("start")), stamp(block.get("end"))
+            # Ledger intervals must be corroborated by actual event boundaries.
+            if start not in run_events[rid] or end not in run_events[rid] or end <= start:
+                reasons.add("uncorroborated_block_interval")
+                continue
+            waits.extend((max(start, s), min(end, e)) for s, e in parts if max(start, s) < min(end, e))
+        wait = sum(e - s for s, e in union(waits))
+        elapsed = sum(e - s for s, e in parts)
+        legacy_role = b["role"] if b["role"] in roles else "unknown"
+        roles[legacy_role]["active_seconds"] += elapsed - wait
+        roles[legacy_role]["wait_seconds"] += wait
+        roles[legacy_role]["runs"] += 1
+        if delivery:
+            delivery_roles[b["role"]]["active_seconds"] += elapsed - wait
+            delivery_roles[b["role"]]["wait_seconds"] += wait
+            delivery_roles[b["role"]]["runs"] += 1
+            delivery_run_intervals[rid] = parts
+        all_intervals.extend(parts)
+        runs.append(dict(feature_id=b["feature_id"], cycle=b["cycle"], role=b["role"],
+                         run_id=rid, parent_run_id=b["parent_run_id"], session_id=b["session_id"],
+                         turn_id=b.get("turn_id"), root_turn_id=b.get("root_turn_id"),
+                         agent_path=b.get("agent_path"), active_seconds=elapsed - wait, wait_seconds=wait,
+                         tokens=sum(run_usage[rid].values()), usage=dict(run_usage[rid])))
+    if not valid:
+        reasons.add("no_bindings")
+    delivery_reasons = set(reasons)
+    if delivery and any(b["role"] not in ("maker", "checker", "integration") for b in valid):
+        reasons.add("delivery_roles_outside_v1")
+    maker = roles["maker"]
+    # Integration verifies/releases the feature and is verification overhead too.
+    checker = {k: roles["checker"][k] + roles["integration"][k] for k in roles["checker"]}
+    if not maker["tokens"] or not maker["active_seconds"]:
+        reasons.add("zero_or_missing_maker_denominator")
+    if not checker["runs"] or not checker["tokens"] or not checker["active_seconds"]:
+        reasons.add("missing_checker_usage_or_time")
+    complete = not reasons
+    efficiency = dict(maker_minutes=maker["active_seconds"] / 60,
+                      checker_minutes=checker["active_seconds"] / 60,
+                      maker_tokens=maker["tokens"], checker_tokens=checker["tokens"],
+                      complete=complete, time_ratio=checker["active_seconds"] / maker["active_seconds"] if complete else None,
+                      token_ratio=checker["tokens"] / maker["tokens"] if complete else None,
+                      unknown_reasons=sorted(reasons), target=0.1,
+                      status="UNKNOWN" if not complete else
+                      ("WITHIN_TARGET" if checker["active_seconds"] <= maker["active_seconds"] * 0.1
+                       and checker["tokens"] <= maker["tokens"] * 0.1 else "OVER_TARGET"))
+    result = dict(schema_version=1, rows=rows, efficiency=efficiency, roles=roles, runs=runs,
+                agent_active_seconds=sum(r["active_seconds"] for r in roles.values()),
+                wall_seconds=sum(e - s for s, e in union(all_intervals)),
+                wait_seconds=sum(r["wait_seconds"] for r in roles.values()),
+                overall_tokens=sum(r["tokens"] for r in roles.values()),
+                timing_basis="transcript activity intervals minus corroborated blocks")
+    if delivery:
+        if not isinstance(delivery_meta, dict):
+            raise ValueError("delivery metadata must be an object")
+        root = delivery_meta.get("root_run_id")
+        if not root or root not in unique_runs:
+            delivery_reasons.add("missing_root_run_binding")
+        elif unique_runs[root]["parent_run_id"] is not None:
+            delivery_reasons.add("root_has_parent")
+        if delivery_meta.get("child_manifest_complete") is not True:
+            delivery_reasons.add("child_manifest_not_declared_complete")
+        for rid, b in unique_runs.items():
+            parent = b["parent_run_id"]
+            if rid != root and (not parent or parent not in unique_runs):
+                delivery_reasons.add("missing_parent_run_binding")
+            if parent in unique_runs and unique_runs[parent]["feature_id"] != b["feature_id"]:
+                delivery_reasons.add("parent_feature_mismatch")
+            ancestors, cursor = set(), rid
+            while cursor in unique_runs:
+                if cursor in ancestors:
+                    delivery_reasons.add("parent_cycle")
+                    break
+                ancestors.add(cursor)
+                cursor = unique_runs[cursor]["parent_run_id"]
+            if root and root not in ancestors:
+                delivery_reasons.add("run_not_descended_from_root")
+            if not b["feature_id"] or isinstance(b["cycle"], bool) or not isinstance(b["cycle"], (str, int)) or not str(b["cycle"]):
+                delivery_reasons.add("invalid_delivery_binding")
+            expected = b.get("child_run_ids", [])
+            if not isinstance(expected, list):
+                raise ValueError("child_run_ids must be an array")
+            if any(child not in unique_runs or unique_runs[child]["parent_run_id"] != rid for child in expected):
+                delivery_reasons.add("missing_child_run_binding")
+            if b.get("retry_of") and b["retry_of"] not in unique_runs:
+                delivery_reasons.add("missing_retry_run_binding")
+        milestones, milestone_ids = [], set()
+        declared = delivery_meta.get("acceptance", [])
+        if not isinstance(declared, list) or any(not isinstance(m, dict) for m in declared):
+            raise ValueError("delivery acceptance must be an array of milestone objects")
+        for m in declared:
+            when, rid, mid = stamp(m.get("timestamp")), m.get("run_id"), m.get("id")
+            if m.get("status") != "accepted":
+                continue
+            if not mid or rid not in unique_runs or when is None:
+                delivery_reasons.add("invalid_acceptance_milestone")
+                continue
+            if (rid, when, mid) not in transcript_milestones:
+                delivery_reasons.add("uncorroborated_acceptance_milestone")
+                continue
+            if mid not in milestone_ids:
+                milestone_ids.add(mid)
+                milestones.append(dict(m, evidence="transcript milestone_accepted/feature_accepted"))
+        if not milestones:
+            delivery_reasons.add("missing_acceptance_evidence")
+        starts = [s for s, _ in all_intervals]
+        ends = [e for _, e in all_intervals]
+        acceptance_times = [stamp(m["timestamp"]) for m in milestones]
+        first_start = min(starts) if starts else None
+        accepted_at = min(acceptance_times) if acceptance_times else None
+        root_parts = delivery_run_intervals.get(root, [])
+        root_start = min((s for s, _ in root_parts), default=None)
+        time_to_accepted = (accepted_at - root_start if accepted_at is not None and root_start is not None
+                            and accepted_at >= root_start else None)
+        enriched_runs = []
+        for run in runs:
+            rid, b = run["run_id"], unique_runs[run["run_id"]]
+            enriched_runs.append(dict(run, attempt=b.get("attempt"), retry_of=b.get("retry_of"),
+                                      status=b.get("status", "unknown"), provider_events=provider_events[rid],
+                                      reasoning_output_subset=reasoning_usage[rid] if rid in reasoning_known else None,
+                                      usage_basis="cumulative_session_delta" if rid in cumulative_runs else "provider_response"))
+        maker_effort = delivery_roles["maker"]["active_seconds"] + delivery_roles["build"]["active_seconds"]
+        checker_effort = delivery_roles["checker"]["active_seconds"] + delivery_roles["integration"]["active_seconds"]
+        maker_tokens = delivery_roles["maker"]["tokens"] + delivery_roles["build"]["tokens"]
+        checker_tokens = delivery_roles["checker"]["tokens"] + delivery_roles["integration"]["tokens"]
+        token_ratio = checker_tokens / maker_tokens if maker_tokens else None
+        time_ratio = checker_effort / maker_effort if maker_effort else None
+        result["delivery_summary"] = dict(
+            schema_version=2, feature_id=feature, root_run_id=root,
+            status="UNKNOWN" if delivery_reasons else "COMPLETE", complete=not delivery_reasons,
+            unknown_reasons=sorted(delivery_reasons), roles=delivery_roles, runs=enriched_runs,
+            overall_tokens=sum(r["tokens"] for r in delivery_roles.values()),
+            token_channels={k: sum(r[k] for r in delivery_roles.values()) for k in channels},
+            reasoning_output_subset=sum(reasoning_usage.values()) if reasoning_known else None,
+            reasoning_coverage="COMPLETE" if usage_runs and reasoning_known == usage_runs else "PARTIAL_OR_UNAVAILABLE",
+            providers=sorted(providers), provider_events=sum(provider_events.values()), duplicate_events_ignored=duplicate_events,
+            cumulative_counter_evidence=list(cumulative_evidence.values()),
+            agent_active_seconds=sum(r["active_seconds"] for r in delivery_roles.values()),
+            wall_elapsed_seconds=max(ends) - first_start if ends else None,
+            occupied_wall_seconds=sum(e - s for s, e in union(all_intervals)),
+            corroborated_wait_seconds=sum(r["wait_seconds"] for r in delivery_roles.values()),
+            accepted_feature_count=1 if any(m.get("kind") == "feature" for m in milestones) else 0,
+            accepted_milestone_count=len(milestones), acceptance_milestones=milestones,
+            time_to_first_accepted_seconds=time_to_accepted,
+            attempts=dict(total=len(unique_runs), failed=sum(b.get("status") == "failed" for b in unique_runs.values()),
+                          retried=sum(bool(b.get("retry_of")) for b in unique_runs.values()),
+                          children=sum(b["parent_run_id"] is not None for b in unique_runs.values())),
+            checker_diagnostic=dict(target=0.1, token_ratio=token_ratio, time_ratio=time_ratio,
+                                    status="UNKNOWN" if delivery_reasons or token_ratio is None or time_ratio is None else
+                                    ("OVER_TARGET" if token_ratio > 0.1 or time_ratio > 0.1 else "WITHIN_TARGET"),
+                                    gating=False),
+            token_basis="Codex cached input is a subset of input; Claude cache read/write are additional input; reasoning is an output subset and is never added twice",
+            timing_basis="sum of evidenced run intervals minus corroborated blocks; elapsed is makespan, not active sum",
+            scope="explicit feature/session transcripts, all bound cycles and failed/retried runs; no hard token cap")
+    if opening:
+        # This is accounting readiness for the first/next check, never acceptance.
+        # Preserve every structural/native telemetry gap; only the expected lack
+        # of final acceptance and genuinely absent prior checking are distinct.
+        opening_reasons = reasons | (delivery_reasons - {"missing_acceptance_evidence"})
+        actual_checks = sorted(b["run_id"] for b in unique_runs.values()
+                               if b["role"] in ("checker", "integration"))
+        declared_checks = delivery_meta.get("prior_checking_run_ids")
+        inventory_valid = (delivery_meta.get("prior_checking_complete") is True
+                           and isinstance(declared_checks, list)
+                           and all(isinstance(rid, str) for rid in declared_checks)
+                           and len(set(declared_checks)) == len(declared_checks)
+                           and sorted(declared_checks) == actual_checks)
+        if not inventory_valid:
+            opening_reasons.add("prior_checking_inventory_incomplete")
+        if inventory_valid and not actual_checks and not checker["runs"] and not checker["tokens"] and not checker["active_seconds"]:
+            opening_reasons.discard("missing_checker_usage_or_time")
+        complete = not opening_reasons
+        efficiency.update(complete=complete, unknown_reasons=sorted(opening_reasons),
+                          time_ratio=checker["active_seconds"] / maker["active_seconds"] if complete else None,
+                          token_ratio=checker["tokens"] / maker["tokens"] if complete else None,
+                          status="UNKNOWN" if not complete else
+                          ("WITHIN_TARGET" if checker["active_seconds"] <= maker["active_seconds"] * 0.1
+                           and checker["tokens"] <= maker["tokens"] * 0.1 else "OVER_TARGET"))
+        result["phase"] = "maker-ready-opening"
+        result["opening"] = dict(schema_version="opening-readiness/1", complete=complete,
+                                 acceptance_ready=False, prior_checking_run_ids=actual_checks,
+                                 coverage_basis="explicit full source/child/prior-checking inventories and native telemetry; operator attribution, not authenticated absence")
+    return result
+
+
+def _tokens(rs):
+    return sum(r["cache_read"] + r["cache_write"] + r["input"] + r["output"] for r in rs)
+
+
+def opus_share_line(rows, target=0.05):
+    """Summary line: share of subagent tokens spent on opus models (same measure as the JSON output)."""
+    sub = [r for r in rows if r["kind"] == "sub"]
+    sub_total = _tokens(sub)
+    if not sub_total:
+        return "Opus share of subagent tokens: n/a (target <= 5%)"
+    share = _tokens([r for r in sub if "opus" in r["model"]]) / sub_total
+    line = f"Opus share of subagent tokens: {share * 100:.1f}% (target <= 5%)"
+    return line + " -- OVER TARGET" if share > target else line
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--project", help="project root; default = all projects")
+    ap.add_argument("--days", type=int, default=14)
+    ap.add_argument("--json", action="store_true", help="one JSON summary line (for ledgers)")
+    ap.add_argument("--bindings", help="explicit JSON/JSONL feature role ledger")
+    ap.add_argument("--feature", help="feature_id filter for explicit bindings")
+    ap.add_argument("--codex-root", help="explicit Codex transcript file or directory; never implicit")
+    ap.add_argument("--delivery", action="store_true", help="opt-in v2 full delivery accounting; requires --bindings/--feature and explicit transcript files; all roles/attempts included, 10%% ratio is diagnostic, no hard token cap")
+    ap.add_argument("--opening", action="store_true", help="explicit maker-ready accounting; requires delivery, complete source/child/prior-checking inventories; never acceptance")
+    ap.add_argument("--context-compare", metavar="BENCHMARK.json", help="compare one accepted baseline/compact pair per client; JSON only, no transcript sweep or inferred pricing")
+    a = ap.parse_args()
+    if a.opening and (not a.delivery or not a.bindings or not a.feature or a.context_compare):
+        ap.error("opening requires explicit delivery, bindings and feature without context comparison")
+    if a.context_compare:
+        # This opt-in path reads operator-supplied observations only. It must not
+        # change scan()'s historical schema, telemetry, or token accounting.
+        def number(obj, key, integer=False):
+            value = obj.get(key)
+            if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))
+                                      or not math.isfinite(value) or value < 0
+                                      or (integer and not isinstance(value, int))):
+                raise ValueError(f"{key} must be finite and nonnegative" + (" integer" if integer else ""))
+            return value
+
+        def difference(before, after):
+            known = before is not None and after is not None
+            delta = before - after if known else None
+            return dict(baseline=before, compact=after, saved=delta,
+                        saved_percent=100 * delta / before if known and before else None,
+                        status="UNKNOWN" if not known else ("SAVING" if delta > 0 else "REGRESSION" if delta < 0 else "UNCHANGED"))
+
+        try:
+            with open(a.context_compare, encoding="utf-8-sig") as fh:
+                benchmark = json.load(fh)
+            if not isinstance(benchmark, dict) or benchmark.get("schema_version") != "context-benchmark/1":
+                raise ValueError("requires schema_version context-benchmark/1")
+            runs, setup = benchmark.get("runs"), benchmark.get("setup", {})
+            limitations = benchmark.get("limitations", [])
+            if not isinstance(runs, list) or not runs or not isinstance(setup, dict):
+                raise ValueError("runs must be a nonempty array and setup an object")
+            if not isinstance(limitations, list) or any(not isinstance(item, str) for item in limitations):
+                raise ValueError("limitations must be an array of strings")
+            setup_time, setup_cost = number(setup, "elapsed_ms"), number(setup, "reported_cost_usd")
+            grouped = collections.defaultdict(dict)
+            for run in runs:
+                if not isinstance(run, dict) or run.get("client") not in ("codex", "claude"):
+                    raise ValueError("each run requires client codex or claude")
+                client, variant = run["client"], run.get("variant")
+                if variant not in ("baseline", "compact") or variant in grouped[client]:
+                    raise ValueError("exactly one baseline and compact run per client required")
+                if run.get("accepted") is not True:
+                    raise ValueError("each run must be accepted by its declared oracle")
+                if any(not isinstance(run.get(key), str) or not run[key].strip()
+                       for key in ("task_id", "model_id", "settings_id", "oracle_id")):
+                    raise ValueError("task_id/model_id/settings_id/oracle_id must be nonempty strings")
+                basis = run.get("cost_basis")
+                if basis is not None and (not isinstance(basis, str) or not basis.strip()):
+                    raise ValueError("cost_basis must be a nonempty string or null")
+                usage = run.get("usage", {})
+                if not isinstance(usage, dict):
+                    raise ValueError("usage must be an object")
+                read_key, write_key = (("cached_input_tokens", "cache_write_input_tokens") if client == "codex"
+                                       else ("cache_read_input_tokens", "cache_creation_input_tokens"))
+                other_keys = (("cache_read_input_tokens", "cache_creation_input_tokens") if client == "codex"
+                              else ("cached_input_tokens", "cache_write_input_tokens"))
+                if any(key in usage for key in other_keys):
+                    raise ValueError("usage counters do not match client")
+                inp, read, write, output = (number(usage, key, integer=True)
+                                           for key in ("input_tokens", read_key, write_key, "output_tokens"))
+                if client == "codex":
+                    if inp is not None and any(value is not None and value > inp for value in (read, write)):
+                        raise ValueError("Codex cache counters must be input subsets")
+                    if all(value is not None for value in (inp, read, write)) and read + write > inp:
+                        raise ValueError("Codex cache subsets cannot exceed input together")
+                    total_input = inp
+                    noncached = inp - read - write if all(value is not None for value in (inp, read, write)) else None
+                else:
+                    total_input = inp + read + write if all(value is not None for value in (inp, read, write)) else None
+                    noncached = inp
+                metrics = {key: number(run, key, integer=key in ("prompt_bytes", "agent_read_calls", "source_verification_read_bytes"))
+                           for key in ("elapsed_ms", "first_response_ms", "prompt_bytes", "agent_read_calls",
+                                       "source_verification_read_bytes", "reported_cost_usd")}
+                if metrics["first_response_ms"] is not None and metrics["elapsed_ms"] is not None and metrics["first_response_ms"] > metrics["elapsed_ms"]:
+                    raise ValueError("first_response_ms cannot exceed elapsed_ms")
+                metrics.update(input_total_tokens=total_input, noncached_input_tokens=noncached,
+                               cache_read_input_tokens=read, cache_write_input_tokens=write, output_tokens=output)
+                grouped[client][variant] = (run, metrics)
+            comparisons = {}
+            for client, pair in grouped.items():
+                if set(pair) != {"baseline", "compact"}:
+                    raise ValueError("exactly one baseline and compact run per client required")
+                baseline, compact = pair["baseline"], pair["compact"]
+                if any(baseline[0][key] != compact[0][key] for key in ("task_id", "model_id", "settings_id", "oracle_id")):
+                    raise ValueError("pair task/model/settings/oracle must match")
+                deltas = {key: difference(baseline[1][key], compact[1][key]) for key in baseline[1]}
+                same_basis = baseline[0].get("cost_basis") is not None and baseline[0].get("cost_basis") == compact[0].get("cost_basis")
+                if not same_basis:
+                    deltas["reported_cost_usd"].update(saved=None, saved_percent=None, status="UNKNOWN")
+                saving = deltas["reported_cost_usd"]["saved"]
+                cost_values = [baseline[1]["reported_cost_usd"], compact[1]["reported_cost_usd"]]
+                elapsed = deltas["elapsed_ms"]
+                speedup = (elapsed["baseline"] / elapsed["compact"] if elapsed["status"] == "SAVING" and elapsed["compact"] else None)
+                comparisons[client] = dict(
+                    task_id=baseline[0]["task_id"], model_id=baseline[0]["model_id"],
+                    settings_id=baseline[0]["settings_id"], oracle_id=baseline[0]["oracle_id"],
+                    metrics=deltas, speedup=speedup,
+                    cost_basis=baseline[0].get("cost_basis") if same_basis else None,
+                    experiment_cost_usd=sum(cost_values) if same_basis and all(value is not None for value in cost_values) else None,
+                    account_bill_savings_usd=saving if same_basis and baseline[0].get("cost_basis") == "account-bill" else None,
+                    break_even_runs=math.ceil(setup_cost / saving) if setup_cost is not None and saving is not None and saving > 0 else None)
+            print(json.dumps({"contextComparison": {
+                "schema_version": "context-comparison/1", "clients": comparisons,
+                "setup": {"elapsed_ms": setup_time, "reported_cost_usd": setup_cost},
+                "limitations": limitations + ["One accepted pair per client is illustrative observational evidence, not a causal estimate.",
+                    "Missing counters and incomparable USD bases remain UNKNOWN; cache tokens alone do not establish bill savings.",
+                    "settings_id identifies fixed model/security controls; context/cache intervention flags may differ.",
+                    "Codex input includes cache read/write; uncached input subtracts both. Claude cache read/creation are additional input. Cache writes are never added twice."]}}, allow_nan=False))
+        except (OSError, ValueError, TypeError, OverflowError) as exc:
+            ap.error(str(exc))
+        return
+    try:
+        result = scan(a.project, a.days, a.bindings, a.feature, a.codex_root, delivery=a.delivery, opening=a.opening)
+    except ValueError as exc:
+        ap.error(str(exc))
+    report = result if isinstance(result, dict) else None
+    rows = report["rows"] if report else result
+    # Delivery mode is scoped to the explicit feature manifest, so do not run
+    # unrelated project-wide telemetry scans as a side effect.
+    comps = [] if a.delivery else compactions(a.project, a.days)
+    outages = [] if a.delivery else classifier_outages(a.project, a.days)
+    outage_summary = {
+        "total": len(outages),
+        "by_model_reason": collections.Counter(f"{o['model']} | {o['reason']}" for o in outages),
+        "loop_tools_blocked": collections.Counter(o["tool"] for o in outages if o["tool"] in LOOP_TOOLS),
+    }
+    if a.json:
+        sub = [r for r in rows if r["kind"] == "sub"]
+        total = _tokens
+        sub_total = total(sub)
+        opus_sub = total([r for r in sub if "opus" in r["model"]])
+        print(json.dumps({
+            "scanned_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "project": a.project, "days": a.days,
+            "main_tokens": total([r for r in rows if r["kind"] == "main"]),
+            "sub_tokens": sub_total,
+            "opus_sub_share": round(opus_sub / sub_total, 3) if sub_total else 0.0,
+            "sub_agents": sum(r.get("agents", 0) for r in sub),
+            "compactions": comps,
+            "classifier_outages": outage_summary,
+            "rows": rows,
+            **({"schema_version": 1, "feature_report": report, "efficiency": report["efficiency"]} if report else {}),
+            **({"delivery_summary": report["delivery_summary"]} if a.delivery else {}),
+            **({"phase": report["phase"], "opening": report["opening"]} if a.opening else {}),
+        }))
+        return
+    if report:
+        print(json.dumps({"feature_report": report}))
+    for r in rows:
+        print(f"{r['day']} {r['kind']:4} {r['model'][:24]:24} calls={r['calls']:6} "
+              f"agents={str(r.get('agents', '')):4} cache_read={r['cache_read']/1e6:8.1f}M "
+              f"cache_write={r['cache_write']/1e6:6.2f}M out={r['output']/1e6:5.2f}M")
+    print("\n" + opus_share_line(rows))
+    print("\ncompactions (auto at ~500k on a 1M session = CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=50 is firing):")
+    for c in comps:
+        print(f"{c['day']} {c['trigger']:6} pre_tokens={c['pre_tokens']:>9,} {c['session']}")
+    if not comps:
+        print("  none in window")
+    print(f"\nauto-mode classifier outages (tool calls refused, fail-closed): {outage_summary['total']}")
+    for k, n in outage_summary["by_model_reason"].most_common():
+        print(f"  {n:5} {k}")
+    if outage_summary["loop_tools_blocked"]:
+        print("  loop tools blocked (a /maker loop dies on these):",
+              dict(outage_summary["loop_tools_blocked"]))
+
+
+if __name__ == "__main__":
+    main()

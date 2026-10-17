@@ -1,0 +1,55 @@
+{
+  "schema_version": "compact-handoff/1",
+  "bounds": {
+    "max_source_bytes": 28000,
+    "max_prompt_bytes": 35000
+  },
+  "shared_instructions": "Read-only independent prospective plan review. Preserve installed project/security instructions. No subagents, external calls, edits or full-suite. Read bounded supplied sources first. User explicitly approved 10% aggregate time/tokens as a ceiling on 2026-10-16, overriding older diagnostic-only preference for this requested amendment. You are not alone; preserve peer work.",
+  "sources": [
+    {
+      "sha256": "a3d0226ed149068c54c397d1ef3d5aa140a226e632507e8dd61f01a67c4d9993",
+      "ranges": [
+        [
+          974,
+          982
+        ]
+      ],
+      "path": "docs/plan.md"
+    },
+    {
+      "sha256": "c6d25f7bc2f1e7eb120f2e1140bbceb97760eef0749c1cd92541aa9aee16df43",
+      "ranges": [
+        [
+          1328,
+          1364
+        ],
+        [
+          1705,
+          1740
+        ],
+        [
+          1865,
+          1923
+        ],
+        [
+          1967,
+          2015
+        ]
+      ],
+      "path": "qa/evidence/checker-ratio-20261016/tick-source.txt"
+    }
+  ],
+  "task": {
+    "dependencies": [],
+    "owner": "p0-quality",
+    "id": "plancheck",
+    "purpose": "Independently APPROVE or BLOCK the concrete P0 checker_budget plan for correctness, aggregate accounting, compatibility, scope and quality preservation. Return concise verdict and concrete missing decisions. Do not implement.",
+    "checks": [
+      "Source inspection only, bounded 90 seconds; no product tests needed before build. Return APPROVE or BLOCK with file:line evidence and minimal corrections."
+    ],
+    "acceptance": [
+      "Review C1-C3 against supplied actual delivery source; no own code edits.",
+      "Check no reset, concurrent aggregate reservations, report integrity and unknown token honesty."
+    ]
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-independent-instrument-20261016",
+  "root_run_id": "vc-p0-independent-instrument-20261016",
+  "feature": "T056-independent-oracle",
+  "cycle": 0,
+  "parent_run_id": null,
+  "run_id": "independent-oracle",
+  "session": "vc-01a13e75",
+  "retry_of": null,
+  "candidate": {
+    "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "files": [
+      {
+        "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+        "sha256": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+        "sha256": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/independent/checker-instrument.mjs",
+        "sha256": "fc6e545ce8579e599ba76181327a441969826dc0ce8c7ecda1546ab7608eb929"
+      }
+    ],
+    "dirty_inputs": [
+      "qa/evidence/checker-ratio-20261016/manifest.md",
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "qa/evidence/checker-ratio-20261016/independent/checker-instrument.mjs"
+    ]
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "identity_files": {
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md",
+      "sha256": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md",
+      "sha256": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730"
+    },
+    "config_id": {
+      "path": "qa/adapter.json",
+      "sha256": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2"
+    },
+    "dependency_id": {
+      "path": "pnpm-lock.yaml",
+      "sha256": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c"
+    }
+  },
+  "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+  "runtime_id": "v24.13.1-win32-x64",
+  "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Backend-independent fresh checker oracle authoring; all prior T056 reviews/probes retained in aggregate accounting, not a reset of original acceptance history",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T21:22:37.6314690Z",
+    "estimate_ms": 90000,
+    "no_progress_ms": 90000
+  },
+  "resource_caps": {
+    "agent": 2
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "check_task_id": "instrument",
+      "id": "C1",
+      "description": "Independent prospective approval of ratio envelope amendment"
+    }
+  ],
+  "tasks": [
+    {
+      "resources": {
+        "agent": 1
+      },
+      "depends_on": [],
+      "id": "instrument",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "exec",
+        "--sandbox",
+        "read-only",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/independent/checker-instrument.mjs",
+        "-"
+      ],
+      "kind": "check",
+      "max_output_bytes": 180000,
+      "owner": "p0-independent-oracle",
+      "handoff": {
+        "path": "qa/.delivery/context/09a677abad47384019497568df87b3237eac7198d1ef912e2314e21a555d643d.handoff.json",
+        "sha256": "09a677abad47384019497568df87b3237eac7198d1ef912e2314e21a555d643d"
+      },
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/independent/checker-instrument.mjs"
+      ],
+      "timeout_ms": 90000
+    }
+  ],
+  "dispatch": {
+    "attempt_id": "a1",
+    "task_id": "instrument"
+  }
+}

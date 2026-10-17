@@ -1,0 +1,102 @@
+{
+  "identity_files": {
+    "dependency_id": {
+      "path": "pnpm-lock.yaml"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md"
+    },
+    "config_id": {
+      "path": "qa/adapter.json"
+    },
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md"
+    }
+  },
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "T056 final report-producer subphase; prior guard/review/probe effort retained and actual10percent UNKNOWN",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T22:11:14.771Z",
+    "estimate_ms": 90000,
+    "no_progress_ms": 90000
+  },
+  "dispatch": {
+    "task_id": "final",
+    "attempt_id": "a1"
+  },
+  "tasks": [
+    {
+      "resources": {
+        "agent": 1
+      },
+      "depends_on": [],
+      "id": "final",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+        "-c",
+        "mcp_servers.n8n-mcp.enabled=false",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/report-final-message.md",
+        "{{HANDOFF}}"
+      ],
+      "kind": "check",
+      "max_output_bytes": 180000,
+      "owner": "p0-report-final",
+      "handoff": {
+        "path": "qa/.delivery/context/5d45dd1010c8d7e711e817091a71e47a1845336a6fd0c516a4aedd4d2e1d6f87.handoff.json",
+        "sha256": "5d45dd1010c8d7e711e817091a71e47a1845336a6fd0c516a4aedd4d2e1d6f87"
+      },
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/independent/report-final"
+      ],
+      "timeout_ms": 90000
+    }
+  ],
+  "parent_run_id": "vc-p0-report-plan-20261016",
+  "feature": "T056-report-readiness-final",
+  "session": "vc-01a13e75",
+  "cycle": 0,
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "id": "R1",
+      "description": "Actual native interval scoped intersection",
+      "check_task_id": "final"
+    },
+    {
+      "id": "R2",
+      "description": "Native scoped costs and fail-closed unknowns",
+      "check_task_id": "final"
+    },
+    {
+      "id": "R3",
+      "description": "Session/turn and existing accounting regressions",
+      "check_task_id": "final"
+    }
+  ],
+  "candidate": {
+    "files": [
+      "qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py",
+      "qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py"
+    ]
+  },
+  "workflow_id": "vc-p0-report-final-20261016",
+  "root_run_id": "vc-p0-report-final-20261016",
+  "retry_of": null,
+  "run_id": "report-final",
+  "resource_caps": {
+    "agent": 3
+  }
+}

@@ -1,0 +1,445 @@
+{
+  "schema_version": 1,
+  "feature_report": {
+    "schema_version": 1,
+    "rows": [
+      {
+        "day": "2026-10-15",
+        "kind": "main",
+        "model": "?",
+        "calls": 1,
+        "input": 100000,
+        "output": 1000,
+        "cache_read": 0,
+        "cache_write": 0
+      }
+    ],
+    "efficiency": {
+      "maker_minutes": 1.6666666666666667,
+      "checker_minutes": 0.0,
+      "maker_tokens": 101000,
+      "checker_tokens": 0,
+      "complete": true,
+      "time_ratio": 0.0,
+      "token_ratio": 0.0,
+      "unknown_reasons": [],
+      "target": 0.1,
+      "status": "WITHIN_TARGET"
+    },
+    "roles": {
+      "maker": {
+        "tokens": 101000,
+        "input": 100000,
+        "output": 1000,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 100.0,
+        "wait_seconds": 0,
+        "runs": 1
+      },
+      "checker": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "integration": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "unknown": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      }
+    },
+    "runs": [
+      {
+        "feature_id": "P0",
+        "cycle": 1,
+        "role": "maker",
+        "run_id": "root",
+        "parent_run_id": null,
+        "session_id": "root",
+        "turn_id": null,
+        "root_turn_id": null,
+        "agent_path": null,
+        "active_seconds": 100.0,
+        "wait_seconds": 0,
+        "tokens": 101000,
+        "usage": {
+          "input": 100000,
+          "output": 1000,
+          "cache_read": 0,
+          "cache_write": 0
+        }
+      }
+    ],
+    "agent_active_seconds": 100.0,
+    "wall_seconds": 100.0,
+    "wait_seconds": 0,
+    "overall_tokens": 101000,
+    "timing_basis": "transcript activity intervals minus corroborated blocks",
+    "delivery_summary": {
+      "schema_version": 2,
+      "feature_id": "P0",
+      "root_run_id": "root",
+      "status": "UNKNOWN",
+      "complete": false,
+      "unknown_reasons": [
+        "missing_acceptance_evidence"
+      ],
+      "roles": {
+        "planning": {
+          "tokens": 0,
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "active_seconds": 0,
+          "wait_seconds": 0,
+          "runs": 0
+        },
+        "orchestration": {
+          "tokens": 0,
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "active_seconds": 0,
+          "wait_seconds": 0,
+          "runs": 0
+        },
+        "maker": {
+          "tokens": 101000,
+          "input": 100000,
+          "output": 1000,
+          "cache_read": 0,
+          "cache_write": 0,
+          "active_seconds": 100.0,
+          "wait_seconds": 0,
+          "runs": 1
+        },
+        "build": {
+          "tokens": 0,
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "active_seconds": 0,
+          "wait_seconds": 0,
+          "runs": 0
+        },
+        "checker": {
+          "tokens": 0,
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "active_seconds": 0,
+          "wait_seconds": 0,
+          "runs": 0
+        },
+        "integration": {
+          "tokens": 0,
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "active_seconds": 0,
+          "wait_seconds": 0,
+          "runs": 0
+        },
+        "repair": {
+          "tokens": 0,
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "active_seconds": 0,
+          "wait_seconds": 0,
+          "runs": 0
+        },
+        "unknown": {
+          "tokens": 0,
+          "input": 0,
+          "output": 0,
+          "cache_read": 0,
+          "cache_write": 0,
+          "active_seconds": 0,
+          "wait_seconds": 0,
+          "runs": 0
+        }
+      },
+      "runs": [
+        {
+          "feature_id": "P0",
+          "cycle": 1,
+          "role": "maker",
+          "run_id": "root",
+          "parent_run_id": null,
+          "session_id": "root",
+          "turn_id": null,
+          "root_turn_id": null,
+          "agent_path": null,
+          "active_seconds": 100.0,
+          "wait_seconds": 0,
+          "tokens": 101000,
+          "usage": {
+            "input": 100000,
+            "output": 1000,
+            "cache_read": 0,
+            "cache_write": 0
+          },
+          "attempt": null,
+          "retry_of": null,
+          "status": "unknown",
+          "provider_events": 1,
+          "reasoning_output_subset": null,
+          "usage_basis": "provider_response"
+        }
+      ],
+      "overall_tokens": 101000,
+      "token_channels": {
+        "input": 100000,
+        "output": 1000,
+        "cache_read": 0,
+        "cache_write": 0
+      },
+      "reasoning_output_subset": null,
+      "reasoning_coverage": "PARTIAL_OR_UNAVAILABLE",
+      "providers": [
+        "codex"
+      ],
+      "provider_events": 1,
+      "duplicate_events_ignored": 0,
+      "cumulative_counter_evidence": [],
+      "agent_active_seconds": 100.0,
+      "wall_elapsed_seconds": 100.0,
+      "occupied_wall_seconds": 100.0,
+      "corroborated_wait_seconds": 0,
+      "accepted_feature_count": 0,
+      "accepted_milestone_count": 0,
+      "acceptance_milestones": [],
+      "time_to_first_accepted_seconds": null,
+      "attempts": {
+        "total": 1,
+        "failed": 0,
+        "retried": 0,
+        "children": 0
+      },
+      "checker_diagnostic": {
+        "target": 0.1,
+        "token_ratio": 0.0,
+        "time_ratio": 0.0,
+        "status": "UNKNOWN",
+        "gating": false
+      },
+      "token_basis": "Codex cached input is a subset of input; Claude cache read/write are additional input; reasoning is an output subset and is never added twice",
+      "timing_basis": "sum of evidenced run intervals minus corroborated blocks; elapsed is makespan, not active sum",
+      "scope": "explicit feature/session transcripts, all bound cycles and failed/retried runs; no hard token cap"
+    },
+    "phase": "maker-ready-opening",
+    "opening": {
+      "schema_version": "opening-readiness/1",
+      "complete": true,
+      "acceptance_ready": false,
+      "prior_checking_run_ids": [],
+      "coverage_basis": "explicit full source/child/prior-checking inventories and native telemetry; operator attribution, not authenticated absence"
+    }
+  },
+  "efficiency": {
+    "maker_minutes": 1.6666666666666667,
+    "checker_minutes": 0.0,
+    "maker_tokens": 101000,
+    "checker_tokens": 0,
+    "complete": true,
+    "time_ratio": 0.0,
+    "token_ratio": 0.0,
+    "unknown_reasons": [],
+    "target": 0.1,
+    "status": "WITHIN_TARGET"
+  },
+  "phase": "maker-ready-opening",
+  "opening": {
+    "schema_version": "opening-readiness/1",
+    "complete": true,
+    "acceptance_ready": false,
+    "prior_checking_run_ids": [],
+    "coverage_basis": "explicit full source/child/prior-checking inventories and native telemetry; operator attribution, not authenticated absence"
+  },
+  "delivery_summary": {
+    "schema_version": 2,
+    "feature_id": "P0",
+    "root_run_id": "root",
+    "status": "UNKNOWN",
+    "complete": false,
+    "unknown_reasons": [
+      "missing_acceptance_evidence"
+    ],
+    "roles": {
+      "planning": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "orchestration": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "maker": {
+        "tokens": 101000,
+        "input": 100000,
+        "output": 1000,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 100.0,
+        "wait_seconds": 0,
+        "runs": 1
+      },
+      "build": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "checker": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "integration": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "repair": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "unknown": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      }
+    },
+    "runs": [
+      {
+        "feature_id": "P0",
+        "cycle": 1,
+        "role": "maker",
+        "run_id": "root",
+        "parent_run_id": null,
+        "session_id": "root",
+        "turn_id": null,
+        "root_turn_id": null,
+        "agent_path": null,
+        "active_seconds": 100.0,
+        "wait_seconds": 0,
+        "tokens": 101000,
+        "usage": {
+          "input": 100000,
+          "output": 1000,
+          "cache_read": 0,
+          "cache_write": 0
+        },
+        "attempt": null,
+        "retry_of": null,
+        "status": "unknown",
+        "provider_events": 1,
+        "reasoning_output_subset": null,
+        "usage_basis": "provider_response"
+      }
+    ],
+    "overall_tokens": 101000,
+    "token_channels": {
+      "input": 100000,
+      "output": 1000,
+      "cache_read": 0,
+      "cache_write": 0
+    },
+    "reasoning_output_subset": null,
+    "reasoning_coverage": "PARTIAL_OR_UNAVAILABLE",
+    "providers": [
+      "codex"
+    ],
+    "provider_events": 1,
+    "duplicate_events_ignored": 0,
+    "cumulative_counter_evidence": [],
+    "agent_active_seconds": 100.0,
+    "wall_elapsed_seconds": 100.0,
+    "occupied_wall_seconds": 100.0,
+    "corroborated_wait_seconds": 0,
+    "accepted_feature_count": 0,
+    "accepted_milestone_count": 0,
+    "acceptance_milestones": [],
+    "time_to_first_accepted_seconds": null,
+    "attempts": {
+      "total": 1,
+      "failed": 0,
+      "retried": 0,
+      "children": 0
+    },
+    "checker_diagnostic": {
+      "target": 0.1,
+      "token_ratio": 0.0,
+      "time_ratio": 0.0,
+      "status": "UNKNOWN",
+      "gating": false
+    },
+    "token_basis": "Codex cached input is a subset of input; Claude cache read/write are additional input; reasoning is an output subset and is never added twice",
+    "timing_basis": "sum of evidenced run intervals minus corroborated blocks; elapsed is makespan, not active sum",
+    "scope": "explicit feature/session transcripts, all bound cycles and failed/retried runs; no hard token cap"
+  }
+}

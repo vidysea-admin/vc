@@ -1,0 +1,111 @@
+{
+  "identity_files": {
+    "dependency_id": {
+      "path": "pnpm-lock.yaml"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md"
+    },
+    "config_id": {
+      "path": "qa/adapter.json"
+    },
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md"
+    }
+  },
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "T056 actual composedrollout3criteria with ownPython/readonlyJS/sourceandconfigfloor, allpriorcostsretainedandno newmakerallowance",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T22:41:02.009Z",
+    "estimate_ms": 180000,
+    "no_progress_ms": 180000
+  },
+  "dispatch": {
+    "task_id": "final",
+    "attempt_id": "a1"
+  },
+  "tasks": [
+    {
+      "resources": {
+        "agent": 1
+      },
+      "depends_on": [],
+      "id": "final",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+        "-c",
+        "mcp_servers.n8n-mcp.enabled=false",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/rollout-final-message.md",
+        "{{HANDOFF}}"
+      ],
+      "kind": "check",
+      "max_output_bytes": 240000,
+      "owner": "p0-rollout-final",
+      "handoff": {
+        "path": "qa/.delivery/context/42add0cdb68234954fc6d36c5a92d234e75f3f39934e0ef77337d491450643e5.handoff.json",
+        "sha256": "42add0cdb68234954fc6d36c5a92d234e75f3f39934e0ef77337d491450643e5"
+      },
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/independent/rollout-final",
+        ".worktrees/b1-recovery/qa/evidence/checker-ratio-20261016/rollout-fixture",
+        ".worktrees/b1-recovery/qa/.delivery"
+      ],
+      "timeout_ms": 180000
+    }
+  ],
+  "parent_run_id": "vc-p0-rollout-plan-20261016",
+  "feature": "T056-rollout-final",
+  "session": "vc-01a13e75",
+  "cycle": 0,
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "id": "B1",
+      "description": "Honest opening readiness, true zero vs missing prior costs",
+      "check_task_id": "final"
+    },
+    {
+      "id": "B2",
+      "description": "Compatiblecutoverandreportreservationadmission",
+      "check_task_id": "final"
+    },
+    {
+      "id": "B3",
+      "description": "Scopedpolicy/archive/config/modelguardpreservation",
+      "check_task_id": "final"
+    }
+  ],
+  "candidate": {
+    "files": [
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py",
+      "qa/evidence/checker-ratio-20261016/rollout-policy-stage/codex/maker/SKILL.md",
+      "qa/evidence/checker-ratio-20261016/rollout-policy-stage/codex/checker/SKILL.md",
+      "qa/evidence/checker-ratio-20261016/rollout-policy-stage/shared/maker/SKILL.md",
+      "qa/evidence/checker-ratio-20261016/rollout-policy-stage/shared/checker/SKILL.md",
+      "qa/evidence/checker-ratio-20261016/rollout-policy-stage/canonical.md",
+      "qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py",
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs"
+    ]
+  },
+  "workflow_id": "vc-p0-rollout-final-20261016",
+  "root_run_id": "vc-p0-rollout-final-20261016",
+  "retry_of": null,
+  "run_id": "rollout-final",
+  "resource_caps": {
+    "agent": 3
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "at": "2026-10-16T04:06:02.904958+00:00",
+  "phase": "B1 FEATURE-READY: maker affected67/67 PASS; fresh independent completed-feature review pending. Original P0 overall remains unresolved.",
+  "plan_verdict": "qa/evidence/checker-ratio-20261016/lifecycle-plan-verdict.md",
+  "plan_receipt": "e26549ad4c56245bb05792e40aeae41f24128f3bbb0ddfe67bf5ab61ee03f7ed",
+  "source_sha256": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9",
+  "tests_sha256": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42",
+  "maker_checks": {
+    "prior_ready_node": "40/40 PASS, lifecycle-maker-portable-final.log; immutable failed-source snapshot retained",
+    "collector": "47/47 PASS; unchanged by current repair",
+    "repair_targeted": "3/3 PASS, lifecycle-repair-targeted.log; same controls fail on frozen reviewed source in lifecycle-repair-independent-counterexample-red.log",
+    "repair_affected": "42/42 PASS; lifecycle-repair-affected.log;77155.94ms",
+    "current_B1": "SyntaxPASS;2focused observation/capture controls PASS, native capture7scenarios+6schemafalsifiers. No full candidate/source PASS."
+  },
+  "remaining": [
+    "Rewrite the incomplete-evidence execution brief at the permitted safe boundary, preserving original feature/cycle/cost history; do not blindly relaunch exhausted review workflow",
+    "Independent final runtime falsification and complete C1-C6 verdict; source fixes42/42 and unchanged collector47/47 are prechecks, not source acceptance",
+    "Genuine native plan/build/check lifecycle using authorized product work, with complete native joins; actual10percent and universal running-session adoption not proven",
+    "Then global activation and remaining feature batches/push, subject to original release/prod/provider gates"
+  ],
+  "deployment": "shared .12 restored; accepted42-test collector installed; no push",
+  "actual_ratio": "UNKNOWN",
+  "usage_inventory": {
+    "attempts": 33,
+    "known_native_token_lower_bound": 6784880,
+    "managed_elapsed_lower_bound_ms": 1877768,
+    "complete": false,
+    "actual_ratio": "UNKNOWN"
+  },
+  "candidate_files": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "sha256": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+      "sha256": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py",
+      "sha256": "162176561aded251ad2b6337d0f7847b114bd81cef7c852b66480078cd45173d"
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py",
+      "sha256": "59298cce29838f4c1ce5ed10dc7d6336764fc4562d9bb0d563363e06f14ba646"
+    }
+  ],
+  "implemented": [
+    "Explicit estimated planning admission and independent plan approval before exact original maker attempt",
+    "Native receipt/log/transcript/task/turn integrity joins; resumed session-cumulative usage separated from turn costs",
+    "One late measured seal with pinned collector reproduction and exact prior-attempt inventory",
+    "Frozen original denominator and stable in-state checker reservations retained through failure/retry",
+    "Explicit native settlement required before final acceptance; omitted costs and rebinding refused",
+    "Original plan authorization retained across actual file changes; only unstarted final-check context refresh at first readiness"
+  ],
+  "owned_handles": "Both prospective review processes and all focused Node controls terminal; no intermediate implementation checker/provider/browser running.",
+  "shared_readback": {
+    "runner_sha256": "88bc3e758c1bfb8cb2d95b695edfd5877e8deed6772a908d1c665267fcc9fe33",
+    "collector_sha256": "4189ebe7eedc3013171a44f40f38263ede8216d68034a2a37e49300a49e4119c",
+    "policy": ".12 restored",
+    "isolated_install": false,
+    "push": false
+  },
+  "independent_source_status": "Last persisted SOURCE_VERDICT BLOCK; initial absent-data reason superseded by later actual DATA_GATE Warning report, but final required runtime execution and complete C1-C6 source conclusion not reached. No PASS inferred.",
+  "shared_install": false,
+  "push": false,
+  "findings": [
+    {
+      "id": "resume-plan-inflation",
+      "status": "source repaired; final independent acceptance pending",
+      "reviewer_session": "01a14262-a97d-7d61-95a7-7f5cdf8395c5",
+      "quote": "The owned synthetic probe confirmed the gap: recovery accepted a planning-budget increase from 100 ms/10 tokens to 1,000 ms/100 tokens, then admitted a second check after the original allowance was exhausted. This blocks source approval.",
+      "probe": "C:/Users/Lenovo/.codex/worktrees/p0-lifecycle-check/vc/qa/evidence/checker-lifecycle-review/sse/recovery-probe.mjs"
+    },
+    {
+      "id": "settlement-lock-evidence-loss",
+      "status": "source repaired; final independent acceptance pending",
+      "observed": "Data CLI handle60687 terminal exit1, lock-busy settlement lost in-memory receipt/log; attempt remains running. Native session identified; costs retained as observed lower bound, no zero or fabricated receipt.",
+      "native_session": "01a14263-6dd1-7783-883e-b074b69f223f",
+      "ledger": "C:/Users/Lenovo/.codex/worktrees/p0-lifecycle-check/vc/qa/.delivery/vc-p0-complete-source-review-20261016.json",
+      "ledger_recovery": "Actual parent terminal/no matching Codex child verified; immutable pre-recovery ledger snapshot and explicit operator-terminal-reconciliation appended. Attempt incomplete with no fabricated receipt/time/tokens, original counters untouched, exact usage remains UNKNOWN."
+    }
+  ],
+  "independent_reports": {
+    "sse": "C:\\Users\\Lenovo\\.codex\\worktrees\\p0-lifecycle-check\\vc\\qa\\evidence\\checker-lifecycle-review\\sse-verdict.md",
+    "data": "C:\\Users\\Lenovo\\.codex\\worktrees\\p0-lifecycle-check\\vc\\qa\\evidence\\checker-lifecycle-review\\data-verdict.md",
+    "ai": "C:\\Users\\Lenovo\\.codex\\worktrees\\p0-lifecycle-check\\vc\\qa\\evidence\\checker-lifecycle-review\\ai-verdict.md"
+  },
+  "independent_data_controls": "Own identity_probe.py exit0: valid native join VERIFIED; wrong-session and omitted-prior-cost UNKNOWN preserving1005/10tokens; cache counted once; synthetic not actual10proof",
+  "policy_wording": "Four staged .14 active examples corrected; archives unchanged; independent coordinator verified old_policy_ambiguity_hits0 and snapshot13/13match. Staged policycheck4targets drift0/stale0. Global .12 unchanged.",
+  "prior_complete_source_review_status": "Last persisted SOURCE_VERDICT BLOCK; initial absent-data reason superseded by later actual DATA_GATE Warning report, but final required runtime execution and complete C1-C6 source conclusion not reached. No PASS inferred.",
+  "B1": {
+    "plan_verdict": "qa\\evidence\\checker-ratio-20261016\\amendmentB-plan-verdict.md",
+    "plan_verdict_sha256": "50338fc97d20517a8c37f3bf3d5221c08a0d373c7b5c8f996062028dd94939de",
+    "scope": "APPROVE revisedB1 prospective isolated source plan only; amendmentB overall/B2 remain BLOCKED",
+    "implemented": [
+      "Existing deliveryValidate explicit nativeVerdict mode with bounded flat wire schema; ordinary packet validation unchanged",
+      "Existing deliveryRun captures bounded explicitly owned output matching actual successful native final message and immutable execution identity; CAPTURED is not verified actor/acceptance",
+      "Shared deliveryState native reproduction admits planning without fake maker baseline, exact historical joins and finite actual planning debits; native planning overrun records real debt and closure without acceptance",
+      "deliveryClaim requires fresh native-approved original exec; reproduced plan-session identities, not mutable cache alone, exclude original maker session reuse",
+      "deliveryRecord derives native proof only from successful actual artifact/native joins, exact actor/phase/candidate/criterion identities; prevents generic proof injection and real Codex alias fallback; final maker session self-review refused",
+      "Five staged policy blocks document exact native wire, ownership, bounds, phase, identity and accounting semantics; archive/installed policy unchanged"
+    ],
+    "checks": {
+      "syntax": "node --check PASS",
+      "capture": "1test PASS with7artifact scenarios +6schema falsifiers +ordinary-packet isolation assertion; genuine RED before implementation and hash-coercion RED retained",
+      "observation_regression": "2/2 affected observation/capture tests PASS4.80s; B1-capture-observation-regression.log",
+      "full_affected_set": "67/67 PASS,0fail/skip/cancel,120129.957ms; B1-final-affected.log. Synthetic native-schema end-to-end controls, not real pilot/10percent proof.",
+      "negatives": "14wire/artifact cases PASS; missing-cache and caller-proof RED then3targetedGREEN; actual maker/final session reuse refusal; original4full positive repair/multimaker flows PASS in final batch.",
+      "staged_policy": "proportional-verification/2026-10-16.14 targets4 drift0 stale0; installed .12 retained."
+    },
+    "remaining": [
+      "Fresh completed-B1 independent source acceptance; old broader P0 source C1-C6 gate remains separate",
+      "B2 recovery/bootstrap/orphan/reset independently approved source capability, preserving old histories",
+      "Real prospective native product pilot and actual aggregate10percent attribution; then safe global activation and verified remaining product batches"
+    ]
+  }
+}

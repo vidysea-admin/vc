@@ -1,0 +1,109 @@
+diff --git a/qa/evidence/checker-ratio-20261016/report-source.txt b/qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py
+index c5d5475..90a5448 100644
+--- a/qa/evidence/checker-ratio-20261016/report-source.txt
++++ b/qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py
+@@ -241,6 +241,7 @@ def scan(project=None, days=14, bindings=None, feature=None, codex_root=None, de
+                 reasons.add("unreadable_or_malformed_transcript")
+             continue
+         native_usage = any(r.get("type") == "token_usage_record" for r in records)
++        native_pending, ambiguous_tasks = {}, set()
+         turn_metadata = {r["payload"].get("turn_id"): r["payload"].get("turn_attribution", {})
+                          for r in records if r.get("type") == "event_msg"
+                          and isinstance(r.get("payload"), dict)
+@@ -260,12 +261,13 @@ def scan(project=None, days=14, bindings=None, feature=None, codex_root=None, de
+             ts = stamp(rec.get("timestamp"))
+             actual_turn = payload.get("turn_id") or rec.get("turn_id")
+             attribution = turn_metadata.get(actual_turn) or {}
+-            candidates = [b for b in by_session.get(session, [])
++            identity_candidates = [b for b in by_session.get(session, [])
+                           if (not b.get("turn_id") or b["turn_id"] == actual_turn)
+                           and (not b.get("root_turn_id") or b["root_turn_id"] ==
+                                (payload.get("root_turn_id") or attribution.get("root_turn_id")))
+-                          and (not b.get("agent_path") or b["agent_path"] == attribution.get("initiating_agent_path"))
+-                          and (not b.get("start") or (ts is not None and stamp(b["start"]) is not None and ts >= stamp(b["start"])))
++                          and (not b.get("agent_path") or b["agent_path"] == attribution.get("initiating_agent_path"))]
++            candidates = [b for b in identity_candidates
++                          if (not b.get("start") or (ts is not None and stamp(b["start"]) is not None and ts >= stamp(b["start"])))
+                           and (not b.get("end") or (ts is not None and stamp(b["end"]) is not None and ts <= stamp(b["end"])))]
+             binding = candidates[0] if len(candidates) == 1 else None
+             if delivery and binding and payload.get("type") in ("feature_accepted", "milestone_accepted"):
+@@ -275,9 +277,35 @@ def scan(project=None, days=14, bindings=None, feature=None, codex_root=None, de
+             if binding and ts is not None:
+                 observed.add(binding["run_id"])
+                 run_events[binding["run_id"]].append(ts)
+-            if rec.get("type") == "event_msg" and payload.get("type") == "task_started":
++            if native_usage and rec.get("type") == "event_msg" and payload.get("type") in ("task_started", "task_complete"):
++                task_key = (session, actual_turn)
++                if not isinstance(actual_turn, str) or not actual_turn.strip():
++                    if by_session.get(session):
++                        reasons.add("missing_task_identity")
++                elif payload["type"] == "task_started":
++                    if task_key in native_pending:
++                        ambiguous_tasks.add(task_key)
++                        reasons.add("ambiguous_task_interval")
++                    native_pending[task_key] = (stamp(payload.get("started_at")) or ts, identity_candidates)
++                elif task_key in native_pending:
++                    start, owners = native_pending.pop(task_key)
++                    completed = stamp(payload.get("completed_at")) or ts
++                    if task_key not in ambiguous_tasks and start is not None and completed is not None and completed > start:
++                        attributed = []
++                        for owner in owners:
++                            lower, upper = stamp(owner.get("start")), stamp(owner.get("end"))
++                            if ((owner.get("start") and lower is None) or (owner.get("end") and upper is None)):
++                                continue
++                            left = max(start, lower) if lower is not None else start
++                            right = min(completed, upper) if upper is not None else completed
++                            if right > left:
++                                if any(max(left, a) < min(right, b) for a, b in attributed):
++                                    reasons.add("overlapping_bindings")
++                                attributed.append((left, right))
++                                intervals[owner["run_id"]].append((left, right))
++            elif rec.get("type") == "event_msg" and payload.get("type") == "task_started":
+                 pending[payload.get("turn_id")] = (stamp(payload.get("started_at")) or ts, binding)
+-            if rec.get("type") == "event_msg" and payload.get("type") == "task_complete" and payload.get("turn_id") in pending:
++            if not native_usage and rec.get("type") == "event_msg" and payload.get("type") == "task_complete" and payload.get("turn_id") in pending:
+                 start, owner = pending.pop(payload.get("turn_id"))
+                 completed = stamp(payload.get("completed_at")) or ts
+                 if owner and binding == owner and start is not None and completed is not None and completed > start:
+@@ -295,6 +323,14 @@ def scan(project=None, days=14, bindings=None, feature=None, codex_root=None, de
+                 continue
+             is_native = rec.get("type") == "token_usage_record"
+             is_cumulative = rec.get("type") == "event_msg" and payload.get("type") == "token_count"
++            # Only per-response native usage has a point-in-time scope. Cumulative
++            # deltas may span a window boundary and retain the existing UNKNOWN path.
++            mapped = by_session.get(session, [])
++            outside_scope = bool(is_native and mapped and ts is not None
++                                 and isinstance(actual_turn, str) and actual_turn.strip()
++                                 and all(stamp(b.get("start")) is not None and stamp(b.get("end")) is not None
++                                         and stamp(b["start"]) < stamp(b["end"])
++                                         and (ts < stamp(b["start"]) or ts > stamp(b["end"])) for b in mapped))
+             if is_cumulative and native_usage:
+                 continue
+             is_codex = is_native or is_cumulative
+@@ -360,7 +396,7 @@ def scan(project=None, days=14, bindings=None, feature=None, codex_root=None, de
+                     continue
+                 values = delta
+                 reasoning = None  # cumulative reasoning is not a response delta
+-            if delivery:
++            if delivery and not outside_scope:
+                 providers.add(provider)
+                 delivery_role = binding["role"] if binding else "unknown"
+                 delivery_roles[delivery_role]["tokens"] += sum(values.values())
+@@ -378,7 +414,7 @@ def scan(project=None, days=14, bindings=None, feature=None, codex_root=None, de
+                 c.update(values)
+                 if kind == "sub":
+                     agents[(day, model)].add(p)
+-            if requested:
++            if requested and not outside_scope:
+                 if binding:
+                     usage_runs.add(binding["run_id"])
+                     run_usage[binding["run_id"]].update(values)
+@@ -390,6 +426,8 @@ def scan(project=None, days=14, bindings=None, feature=None, codex_root=None, de
+                     roles[role][k] += values[k]
+         if requested and any(owner is not None for _, owner in pending.values()):
+             reasons.add("incomplete_active_task")
++        if requested and any(owners for _, owners in native_pending.values()):
++            reasons.add("incomplete_active_task")
+     rows = []
+     for (day, kind, model), c in sorted(stats.items()):
+         row = {"day": day, "kind": kind, "model": model, **c}

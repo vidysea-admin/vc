@@ -1,0 +1,184 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-native-transport-20261016",
+  "root_run_id": "vc-p0-native-transport-20261016",
+  "feature": "T056-native-transport",
+  "cycle": 0,
+  "parent_run_id": "vc-p0-report-cycle1-20261016",
+  "run_id": "native-transport1",
+  "session": "vc-01a13e75",
+  "retry_of": null,
+  "candidate": {
+    "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "files": [
+      {
+        "path": "HANDOFF.md",
+        "sha256": "50a5c26199d9ffbdeed07b8319361735b297598a445dace2e13363ad7caca125"
+      },
+      {
+        "path": "qa/adapter.json",
+        "sha256": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2"
+      }
+    ],
+    "dirty_inputs": [
+      "HANDOFF.md"
+    ]
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "identity_files": {
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md",
+      "sha256": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md",
+      "sha256": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730"
+    },
+    "config_id": {
+      "path": "qa/adapter.json",
+      "sha256": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2"
+    },
+    "dependency_id": {
+      "path": "pnpm-lock.yaml",
+      "sha256": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c"
+    }
+  },
+  "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+  "runtime_id": "v24.13.1-win32-x64",
+  "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+  "budget": {
+    "deadline": "2026-10-16T00:34:59.505477Z",
+    "closeout_ms": 10000,
+    "no_progress_ms": 90000,
+    "estimate_ms": 90000,
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Literal no-tool first-roundtrip native transport instrument; prior real first request38647input94output; allow100000estimated upper bound, actual UNKNOWN until native join; originalT056 checking cost retained",
+    "checker_plan": {
+      "schema_version": "checker-plan/1",
+      "provenance": "Estimated transport checking allowance only; no maker use or efficiency ratio produced",
+      "time_ms": 45000,
+      "tokens": 100000,
+      "plan_task_ids": [
+        "transport"
+      ],
+      "plan_criterion_ids": [
+        "transport-only"
+      ],
+      "original_makers": [
+        {
+          "task_id": "not-run-build",
+          "attempt_id": "not-run",
+          "run_id": "not-run-maker"
+        }
+      ],
+      "collector": {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py",
+        "sha256": "162176561aded251ad2b6337d0f7847b114bd81cef7c852b66480078cd45173d"
+      }
+    }
+  },
+  "resource_caps": {
+    "agent": 2
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "id": "transport-only",
+      "description": "Literal transport result only, not feature approval",
+      "check_task_id": "transport"
+    },
+    {
+      "id": "never-run-final",
+      "description": "Not dispatched; full lifecycle and maker denominator intentionally absent in this transport instrument",
+      "check_task_id": "not-run-final"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "transport",
+      "owner": "native-transport-observer",
+      "kind": "check",
+      "depends_on": [],
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/native-transport-message.txt"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "timeout_ms": 45000,
+      "max_output_bytes": 120000,
+      "checker_tokens": 100000,
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+        "-c",
+        "mcp_servers.n8n-mcp.enabled=false",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/native-transport-message.txt",
+        "-"
+      ],
+      "handoff": {
+        "path": "qa/.delivery/context/b3a23a8bdbdcef166f63e87ca7db8353431daeae662df686ea3bdc821a670db8.handoff.json",
+        "sha256": "b3a23a8bdbdcef166f63e87ca7db8353431daeae662df686ea3bdc821a670db8"
+      }
+    },
+    {
+      "id": "not-run-build",
+      "owner": "maker-not-dispatched",
+      "kind": "build",
+      "depends_on": [
+        "transport"
+      ],
+      "owns": [
+        "HANDOFF.md"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "timeout_ms": 1000,
+      "max_output_bytes": 10000,
+      "command": [
+        "node",
+        "-e",
+        "console.log(\"NOT DISPATCHED\")"
+      ]
+    },
+    {
+      "id": "not-run-final",
+      "owner": "checker-not-dispatched",
+      "kind": "check",
+      "depends_on": [
+        "not-run-build"
+      ],
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/not-dispatched-final.txt"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "timeout_ms": 1000,
+      "max_output_bytes": 10000,
+      "checker_tokens": 1000,
+      "command": [
+        "node",
+        "-e",
+        "console.log(\"NOT DISPATCHED\")"
+      ]
+    }
+  ],
+  "dispatch": {
+    "task_id": "transport",
+    "attempt_id": "a1"
+  }
+}

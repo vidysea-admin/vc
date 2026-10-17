@@ -1,0 +1,647 @@
+{
+  "schema_version": "p0-managed-attempt-inventory/1",
+  "observed_at": "2026-10-16T02:20:05.444865+00:00",
+  "scope": "All main-store schema1 workflows whose feature isT056/checker-ratio or whose input blobs name this evidence root; current receipts counted once, excluding immutable snapshots and receipt duplicates.",
+  "attempts": 24,
+  "known_tokens_from_completed_cli_turns": 4116523,
+  "managed_elapsed_ms": 1355977,
+  "attempts_without_complete_cli_usage": 11,
+  "coverage_complete": false,
+  "active_agent_time_status": "UNKNOWN; managed elapsed includes startup/waits",
+  "actual_aggregate_efficiency": "UNKNOWN",
+  "limitations": [
+    "All earlier names vc-checker-ratio-* and runtime-probe retained; no counter reset.",
+    "Missing turn-completed usage is UNKNOWN, not zero; native partial usage and root orchestration still need full attribution.",
+    "Cached Codex tokens are input subsets; no account-bill saving inferred.",
+    "No maker denominator changed; no actual10percent proof.",
+    "Corrected native Codex resumed CLI usage is session cumulative: deduplicate by thread cumulative maxima. Increments across incomplete attempts remain unallocated, never claim precise turn costs or active-time ratio. Real proof native-attribution-event-probe.json."
+  ],
+  "records": [
+    {
+      "workflow": "vc-checker-ratio-plan-20261016",
+      "feature": "checker-ratio-p0-plan",
+      "cycle": 0,
+      "task": "plancheck",
+      "attempt": "a1",
+      "status": "incomplete",
+      "receipt": "168b701bc77736301abafd10842a2ffc7a242a56af01490cb308bf3e11aad627",
+      "elapsed_ms": 1090,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [],
+      "admitted_at": 1792097485816,
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-checker-ratio-plan-20261016",
+      "feature": "checker-ratio-p0-plan",
+      "cycle": 0,
+      "task": "plancheck",
+      "attempt": "a2",
+      "status": "success",
+      "receipt": "3ba1d9456ad33fbaa0d063985d0ff8532f92d4a28c7210a5d8f10f470d3eaed6",
+      "elapsed_ms": 62838,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a14155-cc5a-7190-9db6-d44d2601e4ec"
+      ],
+      "admitted_at": 1792097503464,
+      "usage_events": [
+        {
+          "input_tokens": 83589,
+          "cached_input_tokens": 41216,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 2191,
+          "reasoning_output_tokens": 1734
+        }
+      ],
+      "tokens": 85780,
+      "reported_session_tokens": 85780,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    },
+    {
+      "workflow": "vc-checker-ratio-amend-20261016",
+      "feature": "checker-ratio-p0-plan-amend",
+      "cycle": 0,
+      "task": "amendcheck",
+      "attempt": "a1",
+      "status": "success",
+      "receipt": "7612a6556d795329efa6177749a9786719356fc5dd9bdebbcbd55cdf714e58b6",
+      "elapsed_ms": 15348,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a14155-cc5a-7190-9db6-d44d2601e4ec"
+      ],
+      "admitted_at": 1792097680719,
+      "usage_events": [
+        {
+          "input_tokens": 140818,
+          "cached_input_tokens": 83200,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 2424,
+          "reasoning_output_tokens": 1958
+        }
+      ],
+      "tokens": 57462,
+      "reported_session_tokens": 143242,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    },
+    {
+      "workflow": "vc-checker-ratio-final-20261016",
+      "feature": "checker-ratio-p0-final",
+      "cycle": 0,
+      "task": "finalcheck",
+      "attempt": "a1",
+      "status": "success",
+      "receipt": "5f946dfc54bf69b66a58421efe33f9b960d8b47a783725111d71d43619f1833c",
+      "elapsed_ms": 33657,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a14160-42f3-72f3-a748-98909e701bf9"
+      ],
+      "admitted_at": 1792098189151,
+      "usage_events": [
+        {
+          "input_tokens": 128436,
+          "cached_input_tokens": 84736,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 932,
+          "reasoning_output_tokens": 197
+        }
+      ],
+      "tokens": 129368,
+      "reported_session_tokens": 129368,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    },
+    {
+      "workflow": "vc-checker-ratio-final-20261016",
+      "feature": "checker-ratio-p0-final",
+      "cycle": 0,
+      "task": "finalcheck",
+      "attempt": "a2",
+      "status": "success",
+      "receipt": "07e144e44405454edb05e7b078de8b0de611cdf9e2e38f313ec895a203129057",
+      "elapsed_ms": 19591,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a14162-1c52-7821-946a-6e0047c6bfdf"
+      ],
+      "admitted_at": 1792098310332,
+      "usage_events": [
+        {
+          "input_tokens": 85059,
+          "cached_input_tokens": 49536,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 411,
+          "reasoning_output_tokens": 128
+        }
+      ],
+      "tokens": 85470,
+      "reported_session_tokens": 85470,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    },
+    {
+      "workflow": "vc-checker-runtime-probe-20261016",
+      "feature": "checker-ratio-environment",
+      "cycle": 0,
+      "task": "probe",
+      "attempt": "a1",
+      "status": "incomplete",
+      "receipt": "65dafe8ebe3194a2e6fc001f4a5c7f0cd7e508b3a1e31ea32cf6973fda903410",
+      "elapsed_ms": 30010,
+      "cleanup_complete": true,
+      "client": "other",
+      "thread_ids": [],
+      "admitted_at": 1792098913908,
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-independent-instrument-20261016",
+      "feature": "T056-independent-oracle",
+      "cycle": 0,
+      "task": "instrument",
+      "attempt": "a1",
+      "status": "success",
+      "receipt": "0ae80098ee89b290fb6165875991d4edacb631890ba94b9181c42bec1a2f4706",
+      "elapsed_ms": 43517,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1416f-6c3e-70d0-a613-4600446aba0e"
+      ],
+      "admitted_at": 1792099182850,
+      "usage_events": [
+        {
+          "input_tokens": 45492,
+          "cached_input_tokens": 7296,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 1358,
+          "reasoning_output_tokens": 1261
+        }
+      ],
+      "tokens": 46850,
+      "reported_session_tokens": 46850,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    },
+    {
+      "workflow": "vc-p0-independent-instrument-20261016",
+      "feature": "T056-independent-oracle",
+      "cycle": 0,
+      "task": "instrument",
+      "attempt": "format-fixup",
+      "status": "incomplete",
+      "receipt": "89df3b0a06b7e751187a62fc4db3099ca7b5a5e9775b99014bf979c48d70b5d0",
+      "elapsed_ms": 41316,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1416f-6c3e-70d0-a613-4600446aba0e"
+      ],
+      "admitted_at": 1792099355628,
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-independent-instrument-20261016",
+      "feature": "T056-independent-oracle",
+      "cycle": 0,
+      "task": "instrument",
+      "attempt": "capability-fixed",
+      "status": "incomplete",
+      "receipt": "d1e75545c33e411c6871f0af3bc7910a1d4a61e08eda2f6816d6c994df9f930c",
+      "elapsed_ms": 40657,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1416f-6c3e-70d0-a613-4600446aba0e"
+      ],
+      "admitted_at": 1792099593939,
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-checker-rewrite1-20261016",
+      "feature": "T056-checker-rewrite1",
+      "cycle": 0,
+      "task": "check",
+      "attempt": "a1",
+      "status": "incomplete",
+      "receipt": "49fa74471747bea66ad0262619a9a0ee1d0034b671e827ce4f38a063c205ad5c",
+      "elapsed_ms": 90049,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1417d-3e62-7ca2-8107-31fa6a24bef9"
+      ],
+      "admitted_at": 1792100088574,
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-checker-rewrite1-20261016",
+      "feature": "T056-checker-rewrite1",
+      "cycle": 0,
+      "task": "check",
+      "attempt": "own-harness-repair",
+      "status": "incomplete",
+      "receipt": "cd4449cb97003383fc3b51957be48f54d0b05c5ec20b9cd5815750ef4eec91a7",
+      "elapsed_ms": 54655,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1417d-3e62-7ca2-8107-31fa6a24bef9"
+      ],
+      "admitted_at": 1792100701263,
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-final2-20261016",
+      "feature": "T056-final-after-QA-repair",
+      "cycle": 0,
+      "task": "final",
+      "attempt": "a1",
+      "status": "incomplete",
+      "receipt": "5072b2411a5caf0ca9de096848517ddb2a3471fac69cec1822927f3d16115860",
+      "elapsed_ms": 90042,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a14191-2164-7c41-9bd0-fed417dbe713"
+      ],
+      "admitted_at": 1792101391859,
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-final2-20261016",
+      "feature": "T056-final-after-QA-repair",
+      "cycle": 0,
+      "task": "final",
+      "attempt": "closeout1",
+      "status": "success",
+      "receipt": "2b9122aceec816ca4bdf3626d5db3c023e0a0022be399757f028465476c9e044",
+      "elapsed_ms": 36728,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a14191-2164-7c41-9bd0-fed417dbe713"
+      ],
+      "admitted_at": 1792101562240,
+      "usage_events": [
+        {
+          "input_tokens": 396907,
+          "cached_input_tokens": 333440,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 2839,
+          "reasoning_output_tokens": 431
+        }
+      ],
+      "tokens": 399746,
+      "reported_session_tokens": 399746,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    },
+    {
+      "workflow": "vc-p0-report-plan-20261016",
+      "feature": "T056-report-readiness",
+      "cycle": 0,
+      "task": "plan",
+      "attempt": "a1",
+      "status": "success",
+      "receipt": "7224833ebebd98b0605b1672e45c943631da8cb72baa2df9e946523f9b0c5b37",
+      "elapsed_ms": 59066,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a14197-cbb8-7890-a0f2-032fdb917178"
+      ],
+      "admitted_at": 1792101828683,
+      "usage_events": [
+        {
+          "input_tokens": 230516,
+          "cached_input_tokens": 177920,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 1886,
+          "reasoning_output_tokens": 490
+        }
+      ],
+      "tokens": 232402,
+      "reported_session_tokens": 232402,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    },
+    {
+      "workflow": "vc-p0-report-final-20261016",
+      "feature": "T056-report-readiness-final",
+      "cycle": 0,
+      "task": "final",
+      "attempt": "a1",
+      "status": "incomplete",
+      "receipt": "dd5c7841e70526c9564b364708d41b20fb6c8d3d67ee009f6b9d848637af68b4",
+      "elapsed_ms": 49247,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1419d-0189-7f92-8b3e-a47ae3c604fd"
+      ],
+      "admitted_at": 1792102170146,
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-report-final-20261016",
+      "feature": "T056-report-readiness-final",
+      "cycle": 0,
+      "task": "final",
+      "attempt": "continue1",
+      "status": "incomplete",
+      "receipt": "ba6cde34b16bcf2fbf16b376840b343e9edc4aac1f81ca81ece4be4c9cec398f",
+      "elapsed_ms": 38286,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1419d-0189-7f92-8b3e-a47ae3c604fd"
+      ],
+      "admitted_at": 1792102282168,
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-report-cycle1-20261016",
+      "feature": "T056-report-readiness-cycle1",
+      "cycle": 1,
+      "task": "final",
+      "attempt": "a1",
+      "status": "success",
+      "receipt": "220c18cb76603c2eaed0675fc27b711d602ad2ff4ac8a932067321c4496a8d81",
+      "elapsed_ms": 82021,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1419d-0189-7f92-8b3e-a47ae3c604fd"
+      ],
+      "admitted_at": 1792102420090,
+      "usage_events": [
+        {
+          "input_tokens": 525327,
+          "cached_input_tokens": 468352,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 4948,
+          "reasoning_output_tokens": 686
+        }
+      ],
+      "tokens": 530275,
+      "reported_session_tokens": 530275,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    },
+    {
+      "workflow": "vc-p0-rollout-plan-20261016",
+      "feature": "T056-rollout-plan",
+      "cycle": 0,
+      "task": "plan",
+      "attempt": "a1",
+      "status": "success",
+      "receipt": "874690d256a93635c31eb5a1dfe5cc26dd4e2ef0d3c468cdaf7b26ccae5ac5a6",
+      "elapsed_ms": 76919,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a141ab-3fdf-7081-a97d-5b047f999ff1"
+      ],
+      "admitted_at": 1792103103581,
+      "usage_events": [
+        {
+          "input_tokens": 303638,
+          "cached_input_tokens": 252672,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 2586,
+          "reasoning_output_tokens": 590
+        }
+      ],
+      "tokens": 306224,
+      "reported_session_tokens": 306224,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    },
+    {
+      "workflow": "vc-p0-rollout-final-20261016",
+      "feature": "T056-rollout-final",
+      "cycle": 0,
+      "task": "final",
+      "attempt": "a1",
+      "status": "incomplete",
+      "receipt": "835a54b09be323b1f170b02fcb73dfc358eafd75e2c5ea5e9191760b756e4c17",
+      "elapsed_ms": 180045,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a141b6-e820-7be1-b888-a0ad103bfd26"
+      ],
+      "admitted_at": 1792103867456,
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-rollout-final-20261016",
+      "feature": "T056-rollout-final",
+      "cycle": 0,
+      "task": "final",
+      "attempt": "closeout1",
+      "status": "success",
+      "receipt": "d2b2411b2f9cdc61bf032a9214f008d1d67281b0ed608c29c1af7e837967f818",
+      "elapsed_ms": 47869,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a141b6-e820-7be1-b888-a0ad103bfd26"
+      ],
+      "admitted_at": 1792104127748,
+      "usage_events": [
+        {
+          "input_tokens": 1050382,
+          "cached_input_tokens": 955648,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 9906,
+          "reasoning_output_tokens": 875
+        }
+      ],
+      "tokens": 1060288,
+      "reported_session_tokens": 1060288,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    },
+    {
+      "workflow": "vc-p0-lifecycle-design-20261016",
+      "feature": "T056-lifecycle-design",
+      "cycle": 0,
+      "task": "plan",
+      "attempt": "a1",
+      "status": "incomplete",
+      "receipt": "e155f452712ac7a1f8e6e87746c0df74786b31ae573393d69e6a55d7a637aae4",
+      "elapsed_ms": 90042,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a141ec-2bd4-74b3-bad0-c7de795a8c24"
+      ],
+      "admitted_at": 1792107358285,
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-lifecycle-design-20261016",
+      "feature": "T056-lifecycle-design",
+      "cycle": 0,
+      "task": "plan",
+      "attempt": "closeout1",
+      "status": "success",
+      "receipt": "b706a0a1275c23d45da85c95b57c1a67245a21d21948836b4fb4159f8ebbabff",
+      "elapsed_ms": 54246,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a141ec-2bd4-74b3-bad0-c7de795a8c24"
+      ],
+      "admitted_at": 1792107486962,
+      "usage_events": [
+        {
+          "input_tokens": 455803,
+          "cached_input_tokens": 389376,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 3678,
+          "reasoning_output_tokens": 770
+        }
+      ],
+      "tokens": 459481,
+      "reported_session_tokens": 459481,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    },
+    {
+      "workflow": "vc-p0-lifecycle-plan-20261016",
+      "feature": "T056-lifecycle-plan",
+      "cycle": 0,
+      "task": "plan",
+      "attempt": "a1",
+      "status": "success",
+      "receipt": "0d1dd6f3401f4bd6a3addfb0d97781976ae9f29bff2b8b0dc091b3b68cc40548",
+      "elapsed_ms": 75558,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a141f0-2bd2-7802-9ffa-b7b43c39ce59"
+      ],
+      "admitted_at": 1792107620362,
+      "usage_events": [
+        {
+          "input_tokens": 487267,
+          "cached_input_tokens": 413056,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 2445,
+          "reasoning_output_tokens": 339
+        }
+      ],
+      "tokens": 489712,
+      "reported_session_tokens": 489712,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    },
+    {
+      "workflow": "vc-p0-lifecycle-plan-20261016",
+      "feature": "T056-lifecycle-plan",
+      "cycle": 0,
+      "task": "plan",
+      "attempt": "amend1",
+      "status": "success",
+      "receipt": "e26549ad4c56245bb05792e40aeae41f24128f3bbb0ddfe67bf5ab61ee03f7ed",
+      "elapsed_ms": 43180,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a141f0-2bd2-7802-9ffa-b7b43c39ce59"
+      ],
+      "admitted_at": 1792107773130,
+      "usage_events": [
+        {
+          "input_tokens": 719155,
+          "cached_input_tokens": 638592,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 4022,
+          "reasoning_output_tokens": 434
+        }
+      ],
+      "tokens": 233465,
+      "reported_session_tokens": 723177,
+      "allocation": "increment over previous completed-CLI cumulative observation; intervening incomplete attempts are not separately attributed"
+    }
+  ],
+  "previous_reported_summary": {
+    "attempts": 20,
+    "known_tokens_from_completed_cli_turns": 3019645,
+    "managed_elapsed_ms": 1092951,
+    "attempts_without_complete_cli_usage": 10
+  },
+  "cli_usage_basis": "Deduplicated completed Codex session cumulative observations; raw input+output, cached input subset not added. UNKNOWN attempt/native/root coverage retained.",
+  "additional_observations": {
+    "native_transport": {
+      "attempts": 1,
+      "completed_cli_tokens": 36022,
+      "managed_elapsed_ms": 11982,
+      "session": "01a14220-635a-7b42-bbbf-f4d077364100"
+    },
+    "independent_source_review": {
+      "attempts": 3,
+      "known_partial_native_cumulative_tokens": 1300561,
+      "sessions": {
+        "01a14262-a97d-7d61-95a7-7f5cdf8395c5": 660716,
+        "01a14262-ab55-78d0-85ec-3340a28a8130": 248701,
+        "01a14263-6dd1-7783-883e-b074b69f223f": 391144
+      },
+      "all_terminal": true,
+      "complete_cli_usage": false,
+      "data_settlement": "orphaned running ledger; parent terminal, no fabricated receipt",
+      "managed_elapsed_known_ms": 211628,
+      "data_elapsed_ms": null
+    }
+  },
+  "total_observed_attempts_including_additions": 33,
+  "known_completed_cli_tokens_including_additions": 4152545,
+  "known_native_token_lower_bound_including_new_partial_sessions": 5453106,
+  "latest_independent_review_session_cumulative_lower_bounds": {
+    "01a14262-a97d-7d61-95a7-7f5cdf8395c5": 1347137,
+    "01a14262-ab55-78d0-85ec-3340a28a8130": 314719,
+    "01a14263-6dd1-7783-883e-b074b69f223f": 970479
+  },
+  "latest_known_native_token_lower_bound_total": 6784880,
+  "latest_review_status": "All managed parents terminal; two ordinary recovery epochs exhausted. AI/Data Warning reports persisted, source final remains BLOCK/incomplete. No further retry dispatched. Operator-reconciled data original elapsed/exact final usage remains UNKNOWN. Native session cumulative maxima deduplicated, never added twice.",
+  "review_managed_elapsed_known_ms": 509809,
+  "managed_elapsed_lower_bound_including_additions": 1877768,
+  "other_goal_checking": [
+    {
+      "feature": "T048-D078-hindi-ui",
+      "workflow": "vc-t048-hindi-ui-c0-20261016",
+      "root": "C:\\Users\\Lenovo\\.codex\\worktrees\\hindi-reference-ui\\vc",
+      "status": "terminal: initialFAIL retained, fix1independentPASS, managedprocesssuccess",
+      "native_session": "01a14299-d1eb-7fe2-afd9-bae4cfd8323a",
+      "session_cumulative_known_token_lower_bound": 498571,
+      "managed_elapsed_ms": 195351,
+      "attempts": 2,
+      "managed_acceptance": "unrecorded: true checker is also task owner; no alias fabricated",
+      "actual_ratio": "UNKNOWN"
+    }
+  ],
+  "goal_known_token_lower_bound_including_other_features": 7382544,
+  "total_goal_observed_managed_attempts": 37,
+  "B1_prospective_review": {
+    "workflow": "vc-p0-native-acceptance-plan-20261016",
+    "parent": "vc-p0-complete-source-review-20261016",
+    "attempts": 2,
+    "native_session": "01a142ad-eb64-76a0-8a21-9b6c6137dc6f",
+    "session_cumulative_known_token_lower_bound": 99093,
+    "managed_elapsed_ms": 108774,
+    "status": "original amendmentB BLOCK retained; revisedB1 isolated plan APPROVE; both processsuccess",
+    "original_quality_workflow_unchanged": true,
+    "maker_denominator_credit": 0
+  }
+}

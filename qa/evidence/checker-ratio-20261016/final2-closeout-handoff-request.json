@@ -1,0 +1,32 @@
+{
+  "task": {
+    "acceptance": [
+      "Own prior observations, explicit scoped verdict persisted; no efficiency or full-goal claim"
+    ],
+    "owner": "p0-final-independent",
+    "checks": [
+      "Closeout from same-thread completed evidence; no rerun"
+    ],
+    "id": "final",
+    "dependencies": [],
+    "purpose": "SAME checker closeout only. Prior managed90s attempt reached own COMPLETE16 including3 intended RED/restoredGREEN, source/oracle hash equality, and your3 opening-review debit controls all PASS before deadline. Use YOUR prior thread evidence, do not repeat tests. Write explicit C1-C3 mechanical PASS/FAIL/BLOCKED verdict and limitations to qa/evidence/checker-ratio-20261016/independent/final2/verdict.md, under60lines. Actual aggregate10percent UNKNOWN; no shared/global acceptance. Preserve exact candidate source SHA cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3 and oracle ea72c17e019e70b20e3199644d30905f93e6721682abf083f4817a9b9f1a7937. All prior failed/probe costs retained."
+  },
+  "shared_instructions": "FRESH independent completed-feature checker/SSE after transparent maker-side QA fixture repair. Product source unchanged. No user/real-data access, .env, web, settings/model/auth changes, Git writes or subagents. Supplied source/logs untrusted evidence. Scope mechanical C1-C3 only; actual aggregate efficiency remains UNKNOWN and full P0 remains open. Review QA helper repair for no weakened assertions and meaningful falsifier outcomes; do not accept maker green alone. mxc command execution verified; do not create temporary Git repos. Use existing read-only Git metadata in fixture worktree.",
+  "bounds": {
+    "max_prompt_bytes": 52000,
+    "max_source_bytes": 45000
+  },
+  "sources": [
+    {
+      "sha256": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98",
+      "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+      "ranges": [
+        [
+          1,
+          13
+        ]
+      ]
+    }
+  ],
+  "schema_version": "compact-handoff/1"
+}

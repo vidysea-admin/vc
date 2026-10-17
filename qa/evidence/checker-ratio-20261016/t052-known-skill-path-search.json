@@ -1,0 +1,35 @@
+{
+  "checked": [
+    {
+      "path": "C:\\Users\\Lenovo\\.claude\\skills\\maker\\SKILL.md",
+      "sha256": "f3eb29fd8b9d0bf28eff082c61b12dd9f36f82107194d7764b4e688d155944c0",
+      "match": false
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.claude\\skills\\checker\\SKILL.md",
+      "sha256": "2ae1e0030d987883fc4a6db33dd2aa23f6c9483cadcbb432e18bb4c64c5af2cf",
+      "match": false
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.agents\\skills\\maker\\SKILL.md",
+      "sha256": "fd9b86c33cc7b64092fb738bf1300c2897c50c9556f6a9523b1d9cdd11d768b5",
+      "match": false
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.agents\\skills\\checker\\SKILL.md",
+      "sha256": "ca05aa09e6f5287ec1b8d444fee9a4d2ba6816dc57017b138e1927a863294834",
+      "match": false
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\skills\\maker\\SKILL.md",
+      "sha256": "f3eb29fd8b9d0bf28eff082c61b12dd9f36f82107194d7764b4e688d155944c0",
+      "match": false
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\skills\\checker\\SKILL.md",
+      "sha256": "2ae1e0030d987883fc4a6db33dd2aa23f6c9483cadcbb432e18bb4c64c5af2cf",
+      "match": false
+    }
+  ],
+  "matches": []
+}

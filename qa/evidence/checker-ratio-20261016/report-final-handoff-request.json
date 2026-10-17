@@ -1,0 +1,62 @@
+{
+  "schema_version": "compact-handoff/1",
+  "shared_instructions": "FRESH independent completed-feature SSE plus data-accounting lens for existing T056 report-production repair. Not the author/plan approver. Read supplied bounded source/diff first; fetch extra source only for concrete missing fact. Relevant tests/falsifiers only, no VC/product/full-repo suites. No .env/real data/providers/web/settings/model/Git writes/subagents or shared-file edits. Main source read-only; owned isolated QA instrumentation allowed. All T056 checking/probes retained, actual aggregate ratio UNKNOWN. Use explicit --basetemp in your own unique QA directory (sandbox TEMP cannot write); shell login:false. Do not let missing fixture setup masquerade as product evidence. Max90s; write checkpoint/verdict as soon as mandatory evidence ready; no polish/probing campaign.",
+  "sources": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/report-plan-authored-verdict.txt",
+      "sha256": "a4c2329582936d515006c140bd1490c55848e5e8181bb617198bf3313402eb0c",
+      "ranges": [
+        [
+          1,
+          22
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/report-source.diff",
+      "sha256": "e65e785f589113751e1680355b6da1ca3e70d392c2836c26687d02a37797ce92",
+      "ranges": [
+        [
+          1,
+          109
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py",
+      "sha256": "0680f065493759e047f8d496eaa6f1cf19b3b2affa30f870e2efabe9b89299ec",
+      "ranges": [
+        [
+          196,
+          306
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/report-green.log",
+      "sha256": "a4b66837f4c0aeae6503a7647a5343b8d468c1bb60805a55034c9b1608c5b18c",
+      "ranges": [
+        [
+          1,
+          2
+        ]
+      ]
+    }
+  ],
+  "task": {
+    "id": "final",
+    "owner": "p0-report-final",
+    "purpose": "Own source review and rerun python -m pytest qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py -q --tb=short --basetemp=qa/evidence/checker-ratio-20261016/independent/report-final/tmp1 . Inspect scan consumers and baseline unchanged37 tests. Perform three distinct criterion falsifiers in own QA copies: completed-interval clipping; native outside-window attribution; session/turn safety (negative control). Each baseline GREEN, mutant reaches intended assertion RED, original restored GREEN; no weakened/removed assertions. Review R1-R3 plan safe acceptance and unknown child/cumulative/default accounting preserved. Record explicit scoped PASS/FAIL/BLOCKED at qa/evidence/checker-ratio-20261016/independent/report-final/verdict.md under60lines, concrete own commands/assertions/source hashes. This is report-readiness code only, not system-wide install/adoption or actual10percent. If concrete failure stop with minimal proof; no maker green substitute.",
+    "dependencies": [],
+    "acceptance": [
+      "Own affected tests and three distinct intended falsifiers, relevant source/data lens, explicit scoped verdict"
+    ],
+    "checks": [
+      "python affected single test module, own focused mutation controls and source inspection"
+    ]
+  },
+  "bounds": {
+    "max_source_bytes": 25000,
+    "max_prompt_bytes": 34000
+  }
+}

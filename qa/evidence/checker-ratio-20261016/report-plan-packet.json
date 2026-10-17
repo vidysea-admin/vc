@@ -1,0 +1,118 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-report-plan-20261016",
+  "root_run_id": "vc-p0-report-plan-20261016",
+  "feature": "T056-report-readiness",
+  "cycle": 0,
+  "parent_run_id": "vc-p0-final2-20261016",
+  "run_id": "report-plan",
+  "session": "vc-01a13e75",
+  "retry_of": null,
+  "candidate": {
+    "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "files": [
+      {
+        "path": "docs/plan.md",
+        "sha256": "e4ab9a14e56e33c3f3d941e3ea75f5ade55d1836730d98fe843ef6a5d4d7fad1"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/report-source.txt",
+        "sha256": "1325ba3ee0236286e77992680f49351ecb63556a2c0a15475913a41df762c95f"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/report-tests.txt",
+        "sha256": "9ba300f7a44c2833791aed288a407189b914a30c7d67c3d11eae1a8b57b6432f"
+      }
+    ],
+    "dirty_inputs": [
+      "docs/plan.md",
+      "qa/evidence/checker-ratio-20261016/report-source.txt",
+      "qa/evidence/checker-ratio-20261016/report-tests.txt"
+    ]
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "identity_files": {
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md",
+      "sha256": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md",
+      "sha256": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730"
+    },
+    "config_id": {
+      "path": "qa/adapter.json",
+      "sha256": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2"
+    },
+    "dependency_id": {
+      "path": "pnpm-lock.yaml",
+      "sha256": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c"
+    }
+  },
+  "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+  "runtime_id": "v24.13.1-win32-x64",
+  "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "T056 report-production subphase, all prior P0 effort preserved and actual efficiency UNKNOWN",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T22:05:28.205Z",
+    "estimate_ms": 90000,
+    "no_progress_ms": 90000
+  },
+  "resource_caps": {
+    "agent": 3
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "id": "R-plan",
+      "description": "Prospective report readiness plan approval",
+      "check_task_id": "plan"
+    }
+  ],
+  "tasks": [
+    {
+      "resources": {
+        "agent": 1
+      },
+      "depends_on": [],
+      "id": "plan",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+        "-c",
+        "mcp_servers.n8n-mcp.enabled=false",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/report-plan-verdict.md",
+        "-"
+      ],
+      "kind": "check",
+      "max_output_bytes": 180000,
+      "owner": "p0-report-plan-review",
+      "handoff": {
+        "path": "qa/.delivery/context/a55dde3f829b4050186962c1c5f5dd27f243944788581f3be3b85f0558fec552.handoff.json",
+        "sha256": "a55dde3f829b4050186962c1c5f5dd27f243944788581f3be3b85f0558fec552"
+      },
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/report-plan-verdict.md"
+      ],
+      "timeout_ms": 90000
+    }
+  ],
+  "dispatch": {
+    "task_id": "plan",
+    "attempt_id": "a1"
+  }
+}

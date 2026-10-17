@@ -1,0 +1,900 @@
+"""Tests for scripts/token_scan.py — run: python -m pytest scripts/tests/test_token_scan.py -q"""
+import json
+import os
+import sys
+import time
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+import token_scan  # noqa: E402
+
+TODAY = time.strftime("%Y-%m-%d", time.gmtime())
+
+
+def _write(path, records):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        for r in records:
+            fh.write(json.dumps(r) + "\n")
+
+
+def _usage(model, cache_read):
+    return {"timestamp": TODAY + "T10:00:00Z", "message": {"model": model, "usage": {
+        "input_tokens": 1, "cache_creation_input_tokens": 2, "cache_read_input_tokens": cache_read,
+        "output_tokens": 3}}}
+
+
+def _compact(trigger, pre):
+    return {"type": "system", "subtype": "compact_boundary", "timestamp": TODAY + "T11:00:00Z",
+            "compactMetadata": {"trigger": trigger, "preTokens": pre}}
+
+
+def test_usage_and_subagents_split(tmp_path, monkeypatch):
+    monkeypatch.setattr(token_scan, "PROJECTS", str(tmp_path))
+    proj = tmp_path / "d--x"
+    _write(str(proj / "s1.jsonl"), [_usage("claude-opus-5", 100)])
+    _write(str(proj / "s1" / "subagents" / "agent-1.jsonl"), [_usage("claude-sonnet-5", 50)])
+    rows = token_scan.scan("D:/x", days=1)
+    kinds = {(r["kind"], r["model"]): r for r in rows}
+    assert kinds[("main", "claude-opus-5")]["cache_read"] == 100
+    assert kinds[("sub", "claude-sonnet-5")]["agents"] == 1
+
+
+def test_compactions_reported_with_trigger_and_pretokens(tmp_path, monkeypatch):
+    monkeypatch.setattr(token_scan, "PROJECTS", str(tmp_path))
+    _write(str(tmp_path / "d--x" / "s1.jsonl"),
+           [_usage("claude-opus-5", 10), _compact("auto", 503211), _compact("manual", 615936)])
+    comps = token_scan.compactions("D:/x", days=1)
+    assert [(c["trigger"], c["pre_tokens"]) for c in comps] == [("auto", 503211), ("manual", 615936)]
+    assert all(c["day"] == TODAY for c in comps)
+
+
+def test_compactions_ignore_old_and_other_projects(tmp_path, monkeypatch):
+    monkeypatch.setattr(token_scan, "PROJECTS", str(tmp_path))
+    old = dict(_compact("auto", 1), timestamp="2000-01-01T00:00:00Z")
+    _write(str(tmp_path / "d--x" / "s1.jsonl"), [old])
+    _write(str(tmp_path / "d--other" / "s2.jsonl"), [_compact("auto", 2)])
+    assert token_scan.compactions("D:/x", days=1) == []
+
+
+def _tool_use(tid, name):
+    return {"type": "assistant", "timestamp": TODAY + "T12:00:00Z", "message": {
+        "model": "glm-5.3:cloud", "content": [{"type": "tool_use", "id": tid, "name": name, "input": {}}]}}
+
+
+def _blocked(tid, text):
+    return {"type": "user", "timestamp": TODAY + "T12:01:00Z", "message": {
+        "role": "user", "content": [{"type": "tool_result", "tool_use_id": tid, "is_error": True,
+                                     "content": text}]}}
+
+
+def test_classifier_outages_name_model_reason_and_tool(tmp_path, monkeypatch):
+    monkeypatch.setattr(token_scan, "PROJECTS", str(tmp_path))
+    _write(str(tmp_path / "d--x" / "s1.jsonl"), [
+        _tool_use("t1", "ScheduleWakeup"),
+        _blocked("t1", "glm-5.3:cloud is temporarily unavailable (timed out), so auto mode cannot "
+                       "determine the safety of ScheduleWakeup right now."),
+        _tool_use("t2", "Bash"),
+        # older wording carries no reason in parentheses
+        _blocked("t2", "claude-opus-4-7 is temporarily unavailable, so auto mode cannot determine "
+                       "the safety of Bash right now."),
+        _tool_use("t3", "Bash"),
+        _blocked("t3", "Exit code 1 ordinary failure"),
+        # a report that QUOTES the notice (e.g. this very scan's output) is not an outage
+        _tool_use("t4", "Bash"),
+        {"type": "user", "timestamp": TODAY + "T12:02:00Z", "message": {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "t4", "content": [{"type": "text", "text":
+             "  37 glm-5.3:cloud is temporarily unavailable (timed out), so auto mode cannot "
+             "determine the safety of Bash"}]}]}},
+    ])
+    out = token_scan.classifier_outages("D:/x", days=1)
+    assert [(o["model"], o["reason"], o["tool"]) for o in out] == [
+        ("glm-5.3:cloud", "timed out", "ScheduleWakeup"), ("claude-opus-4-7", "unknown", "Bash")]
+    assert all(o["day"] == TODAY for o in out)
+
+
+def _sub(model, tokens):
+    return {"kind": "sub", "model": model, "cache_read": tokens, "cache_write": 0, "input": 0, "output": 0}
+
+
+def test_opus_share_line_under_target():
+    rows = [_sub("claude-opus-5-5", 4), _sub("claude-sonnet-5-5", 96),
+            {"kind": "main", "model": "claude-opus-5-5", "cache_read": 999, "cache_write": 0, "input": 0, "output": 0}]
+    assert token_scan.opus_share_line(rows) == "Opus share of subagent tokens: 4.0% (target <= 5%)"
+
+
+def test_opus_share_line_over_target():
+    rows = [_sub("claude-opus-5-5", 10), _sub("claude-sonnet-5-5", 90)]
+    assert token_scan.opus_share_line(rows) == \
+        "Opus share of subagent tokens: 10.0% (target <= 5%) -- OVER TARGET"
+
+
+def test_opus_share_line_no_subagent_tokens():
+    assert token_scan.opus_share_line([]) == "Opus share of subagent tokens: n/a (target <= 5%)"
+
+
+def _binding(session, role, transcript, run=None, **extra):
+    return dict(feature_id="P0", cycle=1, role=role, run_id=run or session,
+                parent_run_id=None, session_id=session, transcript=str(transcript), **extra)
+
+
+def _event(session, event, seconds, tokens=10, duration=1000):
+    return {"session_id": session, "event_id": event,
+            "timestamp": TODAY + "T10:00:%02dZ" % seconds, "duration_ms": duration,
+            "message": {"model": "test", "usage": {"input_tokens": tokens,
+            "output_tokens": 1, "cache_read_input_tokens": 2,
+            "cache_creation_input_tokens": 3}}}
+
+
+def _report(tmp_path, monkeypatch, bindings, coverage=True):
+    monkeypatch.setattr(token_scan, "PROJECTS", str(tmp_path / "claude-empty"))
+    ledger = tmp_path / "bindings.json"
+    ledger.write_text(json.dumps({"coverage_complete": coverage, "bindings": bindings}), encoding="utf-8")
+    return token_scan.scan(bindings=str(ledger), feature="P0")
+
+
+def test_feature_includes_coordinators_helpers_retries_integration_once(tmp_path, monkeypatch):
+    bindings = []
+    for session, role, count in [("maker-main", "maker", 2), ("maker-helper", "maker", 1),
+                                 ("checker-main", "checker", 1), ("checker-retry", "checker", 1),
+                                 ("release", "integration", 1)]:
+        path = tmp_path / (session + ".jsonl")
+        records = [_event(session, session + str(i), i + 1) for i in range(count)]
+        _write(str(path), records + records)
+        bindings.append(_binding(session, role, path))
+    # Same binding repeated is harmless; each provider event counted once.
+    result = _report(tmp_path, monkeypatch, bindings + [bindings[0]])
+    e = result["efficiency"]
+    assert e["complete"] is True
+    assert e["maker_tokens"] == 48
+    assert e["checker_tokens"] == 48
+    assert e["time_ratio"] == e["token_ratio"] == 1
+    assert result["roles"]["integration"]["tokens"] == 16
+    assert result["overall_tokens"] == 96
+    assert result["agent_active_seconds"] == 6
+    assert result["wall_seconds"] == 2
+
+
+def test_missing_coverage_time_binding_and_zero_denominator_are_unknown(tmp_path, monkeypatch):
+    path = tmp_path / "unknown.jsonl"
+    record = _event("unbound", "id", 1)
+    record.pop("duration_ms")
+    _write(str(path), [record])
+    result = _report(tmp_path, monkeypatch, [_binding("other", "maker", path)], coverage=False)
+    e = result["efficiency"]
+    assert not e["complete"] and e["status"] == "UNKNOWN"
+    assert e["time_ratio"] is None and e["token_ratio"] is None
+    assert {"coverage_not_declared_complete", "unbound_usage", "missing_run_transcript",
+            "missing_active_time_evidence", "zero_or_missing_maker_denominator"} <= set(e["unknown_reasons"])
+    assert result["roles"]["unknown"]["tokens"] == 16
+
+
+def test_codex_cumulative_deltas_and_counter_reset(tmp_path, monkeypatch):
+    path = tmp_path / "codex.jsonl"
+    def counter(second, inp, cached, out):
+        return {"timestamp": TODAY + "T10:00:%02dZ" % second,
+                "session_id": "codex", "duration_ms": 1000, "type": "event_msg",
+                "payload": {"type": "token_count", "info": {"total_token_usage":
+                    {"input_tokens": inp, "cached_input_tokens": cached, "output_tokens": out}}}}
+    _write(str(path), [counter(0, 0, 0, 0), counter(1, 100, 20, 10),
+                       counter(2, 100, 20, 10), counter(3, 150, 30, 15),
+                       counter(4, 2, 0, 0)])
+    result = _report(tmp_path, monkeypatch, [_binding("codex", "maker", path)])
+    assert result["roles"]["maker"]["tokens"] == 165
+    assert result["roles"]["maker"]["input"] == 120
+    assert result["roles"]["maker"]["cache_read"] == 30
+    assert "cumulative_counter_reset" in result["efficiency"]["unknown_reasons"]
+    assert "cumulative_baseline_unknown" not in result["efficiency"]["unknown_reasons"]
+
+
+def test_ledger_timestamps_do_not_fabricate_time(tmp_path, monkeypatch):
+    path = tmp_path / "s.jsonl"
+    event = _event("s", "id", 2)
+    event.pop("duration_ms")
+    _write(str(path), [event])
+    result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path,
+                     start=TODAY + "T10:00:00Z", end=TODAY + "T11:00:00Z")])
+    assert result["roles"]["maker"]["active_seconds"] == 0
+    assert "missing_active_time_evidence" in result["efficiency"]["unknown_reasons"]
+
+
+def test_native_scope_closed_turn_clips_outside_endpoints_and_old_usage(tmp_path, monkeypatch):
+    path = tmp_path / "s.jsonl"
+    records = [{"type": "session_meta", "payload": {"id": "s"}}]
+    for kind, second in [("task_started", 0), ("usage", 1), ("usage", 3), ("task_complete", 10)]:
+        record = {"timestamp": TODAY + "T10:00:%02dZ" % second,
+                  "type": "event_msg", "payload": {"type": kind, "turn_id": "turn"}}
+        if kind == "usage":
+            record.update(type="token_usage_record", payload={"session_id": "s", "turn_id": "turn",
+                          "response_id": str(second), "usage": {"input_tokens": 10, "output_tokens": 1}})
+        records.append(record)
+    _write(str(path), records)
+    checker = tmp_path / "checker.jsonl"
+    _write(str(checker), [_event("checker", "review", 1)])
+    result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path,
+                     start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:08Z"),
+                     _binding("checker", "checker", checker)])
+    assert result["roles"]["maker"]["active_seconds"] == 6
+    assert result["roles"]["maker"]["tokens"] == 11
+    assert result["roles"]["unknown"]["tokens"] == 0
+    assert result["efficiency"]["complete"] is True
+    assert sum(r["input"] + r["output"] for r in result["rows"]) == 33
+    records.append({"type": "event_msg", "timestamp": TODAY + "T10:00:20Z",
+                    "payload": {"type": "task_started", "turn_id": "later-open"}})
+    _write(str(path), records)
+    later = _report(tmp_path, monkeypatch, [_binding("s", "maker", path,
+                    start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:08Z"),
+                    _binding("checker", "checker", checker)])
+    assert later["efficiency"] == result["efficiency"]
+    assert later["roles"] == result["roles"]
+    records[-1]["timestamp"] = TODAY + "T10:00:07Z"
+    _write(str(path), records)
+    overlapping = _report(tmp_path, monkeypatch, [_binding("s", "maker", path,
+                          start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:08Z"),
+                          _binding("checker", "checker", checker)])
+    assert "incomplete_active_task" in overlapping["efficiency"]["unknown_reasons"]
+
+
+def test_native_scope_adjacent_and_overlapping_role_windows(tmp_path, monkeypatch):
+    path = tmp_path / "s.jsonl"
+    records = [{"type": "session_meta", "payload": {"id": "s"}},
+               {"type": "event_msg", "timestamp": TODAY + "T10:00:00Z",
+                "payload": {"type": "task_started", "turn_id": "t"}},
+               {"type": "event_msg", "timestamp": TODAY + "T10:00:10Z",
+                "payload": {"type": "task_complete", "turn_id": "t"}}]
+    for second in [3, 7]:
+        records.insert(-1, {"type": "token_usage_record", "timestamp": TODAY + "T10:00:%02dZ" % second,
+                            "payload": {"session_id": "s", "turn_id": "t", "response_id": str(second),
+                                        "usage": {"input_tokens": 10, "output_tokens": 1}}})
+    _write(str(path), records)
+    bindings = [_binding("s", "maker", path, run="m", start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:05Z"),
+                _binding("s", "checker", path, run="c", start=TODAY + "T10:00:05Z", end=TODAY + "T10:00:08Z")]
+    result = _report(tmp_path, monkeypatch, bindings)
+    assert result["roles"]["maker"]["active_seconds"] == 3
+    assert result["roles"]["checker"]["active_seconds"] == 3
+    assert result["efficiency"]["complete"] is True
+    bindings[1]["start"] = TODAY + "T10:00:04Z"
+    result = _report(tmp_path, monkeypatch, bindings)
+    assert "overlapping_bindings" in result["efficiency"]["unknown_reasons"]
+
+
+def test_native_scope_missing_or_wrong_pair_never_supplies_time(tmp_path, monkeypatch):
+    path = tmp_path / "s.jsonl"
+    for fault in ["missing-end", "wrong-turn", "wrong-session", "missing-turn"]:
+        records = [{"type": "session_meta", "payload": {"id": "s"}},
+                   {"type": "event_msg", "timestamp": TODAY + "T10:00:00Z",
+                    "payload": {"type": "task_started", "turn_id": "t"}},
+                   {"type": "token_usage_record", "timestamp": TODAY + "T10:00:03Z",
+                    "payload": {"session_id": "s", "turn_id": "t", "response_id": fault,
+                                "usage": {"input_tokens": 10, "output_tokens": 1}}}]
+        if fault != "missing-end":
+            records.append({"type": "event_msg", "timestamp": TODAY + "T10:00:10Z", "session_id": "other" if fault == "wrong-session" else "s",
+                            "payload": {"type": "task_complete", "turn_id": "other" if fault == "wrong-turn" else "t"}})
+        if fault == "missing-turn":
+            records[1]["payload"].pop("turn_id")
+            records[-1]["payload"].pop("turn_id")
+        _write(str(path), records)
+        result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path,
+                         start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:08Z")])
+        assert result["roles"]["maker"]["active_seconds"] == 0, fault
+        assert not result["efficiency"]["complete"], fault
+
+
+def test_native_scope_exclusion_does_not_hide_unknown_identity_or_child(tmp_path, monkeypatch):
+    path = tmp_path / "s.jsonl"
+    for fault in ["child", "missing-time", "missing-turn", "selected-wrong-turn"]:
+        record = {"type": "token_usage_record", "timestamp": TODAY + ("T10:00:03Z" if fault == "selected-wrong-turn" else "T10:00:01Z"),
+                  "payload": {"session_id": "child" if fault == "child" else "s", "turn_id": "wrong" if fault == "selected-wrong-turn" else "t",
+                              "response_id": fault, "usage": {"input_tokens": 10, "output_tokens": 1}}}
+        if fault == "missing-time":
+            record.pop("timestamp")
+        if fault == "missing-turn":
+            record["payload"].pop("turn_id")
+        _write(str(path), [{"type": "session_meta", "payload": {"id": "s"}}, record])
+        result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path, turn_id="t",
+                         start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:08Z")])
+        assert not result["efficiency"]["complete"], fault
+        assert result["overall_tokens"] == 11, fault
+
+
+def test_native_scope_cumulative_boundary_and_reset_remain_unknown(tmp_path, monkeypatch):
+    path = tmp_path / "s.jsonl"
+    records = [{"type": "session_meta", "payload": {"id": "s"}}]
+    for second, inp in [(0, 0), (1, 10), (3, 30), (9, 40), (10, 2)]:
+        records.append({"type": "event_msg", "timestamp": TODAY + "T10:00:%02dZ" % second,
+                        "payload": {"type": "token_count", "turn_id": "t", "info": {"total_token_usage":
+                                    {"input_tokens": inp, "output_tokens": 0}}}})
+    _write(str(path), records)
+    result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path,
+                     start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:08Z")])
+    assert result["roles"]["maker"]["tokens"] == 20
+    assert {"unbound_usage", "cumulative_counter_reset"} <= set(result["efficiency"]["unknown_reasons"])
+    assert not result["efficiency"]["complete"]
+
+
+def test_task_intervals_waits_and_unknown_block(tmp_path, monkeypatch):
+    path = tmp_path / "s.jsonl"
+    records = [{"session_id": "s", "type": "event_msg", "timestamp": TODAY + "T10:00:00Z",
+                "payload": {"type": "task_started"}},
+               _event("s", "a", 2, duration=0),
+               _event("s", "b", 4, duration=0),
+               {"session_id": "s", "type": "event_msg", "timestamp": TODAY + "T10:00:10Z",
+                "payload": {"type": "task_complete"}}]
+    _write(str(path), records)
+    result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path, blocks=[
+        {"start": TODAY + "T10:00:02Z", "end": TODAY + "T10:00:04Z"},
+        {"start": TODAY + "T10:00:03Z", "end": TODAY + "T10:00:04Z"}])])
+    assert result["roles"]["maker"]["active_seconds"] == 8
+    assert result["wait_seconds"] == 2 and result["wall_seconds"] == 10
+    assert "uncorroborated_block_interval" in result["efficiency"]["unknown_reasons"]
+
+
+def test_ambiguous_bindings_and_missing_event_id_fail_closed(tmp_path, monkeypatch):
+    path = tmp_path / "s.jsonl"
+    record = _event("s", "a", 1)
+    record.pop("event_id")
+    _write(str(path), [record])
+    result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path),
+                                            _binding("s", "checker", path, run="other")])
+    assert not result["efficiency"]["complete"]
+    assert {"overlapping_bindings", "usage_event_without_provider_id"} <= set(result["efficiency"]["unknown_reasons"])
+
+
+def test_feature_json_cli_preserves_legacy_keys(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "s.jsonl"
+    _write(str(path), [_event("s", "id", 1)])
+    ledger = tmp_path / "ledger.json"
+    ledger.write_text(json.dumps({"bindings": [_binding("s", "maker", path)]}), encoding="utf-8")
+    monkeypatch.setattr(token_scan, "PROJECTS", str(tmp_path / "empty"))
+    monkeypatch.setattr(sys, "argv", ["token_scan.py", "--json", "--bindings", str(ledger), "--feature", "P0"])
+    token_scan.main()
+    out = json.loads(capsys.readouterr().out)
+    assert {"main_tokens", "sub_tokens", "rows", "compactions", "classifier_outages", "efficiency"} <= out.keys()
+    assert out["efficiency"]["status"] == "UNKNOWN"
+
+
+def test_jsonl_feature_filter_all_cycles_and_parent_runs(tmp_path, monkeypatch):
+    monkeypatch.setattr(token_scan, "PROJECTS", str(tmp_path / "empty"))
+    path = tmp_path / "events.jsonl"
+    _write(str(path), [_event("s", "first", 1), _event("s", "second", 3)])
+    first = _binding("s", "maker", path, run="c1", end=TODAY + "T10:00:02Z")
+    second = _binding("s", "checker", path, run="c2", start=TODAY + "T10:00:02Z")
+    second.update(cycle=2, parent_run_id="c1")
+    ignored = dict(second, feature_id="other", run_id="other")
+    ledger = tmp_path / "ledger.jsonl"
+    _write(str(ledger), [{"type": "coverage", "feature_id": "P0", "complete": True},
+                          first, second, ignored])
+    result = token_scan.scan(bindings=str(ledger), feature="P0")
+    assert result["efficiency"]["complete"]
+    assert result["efficiency"]["maker_tokens"] == result["efficiency"]["checker_tokens"] == 16
+    assert [r["cycle"] for r in result["runs"]] == [1, 2]
+    assert result["runs"][1]["parent_run_id"] == "c1"
+
+
+def test_partial_malformed_transcript_retains_known_cost(tmp_path, monkeypatch):
+    path = tmp_path / "s.jsonl"
+    _write(str(path), [_event("s", "a", 1)])
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write("broken json\\n")
+    result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path)])
+    assert result["roles"]["maker"]["tokens"] == 16
+    assert "unreadable_or_malformed_transcript" in result["efficiency"]["unknown_reasons"]
+
+
+def test_nonzero_codex_baseline_is_not_claimed_complete(tmp_path, monkeypatch):
+    path = tmp_path / "codex.jsonl"
+    _write(str(path), [{"type": "event_msg", "session_id": "s", "timestamp": TODAY + "T10:00:01Z",
+                        "duration_ms": 1000, "payload": {"type": "token_count", "info":
+                        {"total_token_usage": {"input_tokens": 100, "output_tokens": 10}}}}])
+    result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path)])
+    assert not result["efficiency"]["complete"]
+    assert "cumulative_baseline_unknown" in result["efficiency"]["unknown_reasons"]
+
+
+def test_native_response_usage_preferred_over_cumulative_mirror(tmp_path, monkeypatch):
+    path = tmp_path / "native.jsonl"
+    usage = {"input_tokens": 100, "cached_input_tokens": 20,
+             "cache_write_input_tokens": 5, "output_tokens": 10}
+    native = {"type": "token_usage_record", "timestamp": TODAY + "T10:00:02Z",
+              "duration_ms": 1000, "payload": {"session_id": "s", "response_id": "response1",
+              "turn_id": "turn1", "usage": usage}}
+    mirror = {"type": "event_msg", "timestamp": TODAY + "T10:00:02Z",
+              "payload": {"type": "token_count", "info": {"total_token_usage": usage}}}
+    _write(str(path), [native, native, mirror])
+    result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path)])
+    assert result["roles"]["maker"]["tokens"] == 115
+    assert result["roles"]["maker"]["cache_write"] == 5
+    assert result["roles"]["maker"]["cache_read"] == 20
+    assert "cumulative_baseline_unknown" not in result["efficiency"]["unknown_reasons"]
+
+
+def test_native_same_session_turn_bindings_and_unfinished_turn(tmp_path, monkeypatch):
+    path = tmp_path / "turns.jsonl"
+    records = []
+    for turn, role, start, end in [("m", "maker", 0, 10), ("c", "checker", 10, 11)]:
+        records.append({"type": "event_msg", "timestamp": TODAY + "T10:00:%02dZ" % start,
+                        "payload": {"type": "task_started", "turn_id": turn, "root_turn_id": "root",
+                                    "turn_attribution": {"initiating_agent_path": "/" + role}}})
+        records.append({"type": "token_usage_record", "timestamp": TODAY + "T10:00:%02dZ" % end,
+                        "payload": {"session_id": "s", "response_id": turn, "turn_id": turn,
+                                    "root_turn_id": "root", "usage": {"input_tokens": 10, "output_tokens": 1}}})
+        records.append({"type": "event_msg", "timestamp": TODAY + "T10:00:%02dZ" % end,
+                        "payload": {"type": "task_complete", "turn_id": turn, "root_turn_id": "root"}})
+    _write(str(path), records)
+    bindings = [_binding("s", role, path, run=turn, turn_id=turn, root_turn_id="root",
+                         agent_path="/" + role) for turn, role in [("m", "maker"), ("c", "checker")]]
+    # Native transcript session_meta supplies identity before token records.
+    records.insert(0, {"type": "session_meta", "payload": {"id": "s"}})
+    _write(str(path), records)
+    result = _report(tmp_path, monkeypatch, bindings)
+    assert result["efficiency"]["complete"]
+    assert result["efficiency"]["time_ratio"] == 0.1
+    records.pop()  # checker started but has not completed
+    _write(str(path), records)
+    result = _report(tmp_path, monkeypatch, bindings)
+    assert not result["efficiency"]["complete"]
+    assert "incomplete_active_task" in result["efficiency"]["unknown_reasons"]
+
+
+def _delivery(tmp_path, monkeypatch, bindings, opening=False, **metadata):
+    monkeypatch.setattr(token_scan, "PROJECTS", str(tmp_path / "must-not-scan"))
+    ledger = tmp_path / "delivery.json"
+    ledger.write_text(json.dumps({"coverage_complete": True, "bindings": bindings,
+                                 "delivery": {"root_run_id": "root", "child_manifest_complete": True,
+                                              **metadata}}), encoding="utf-8")
+    return token_scan.scan(bindings=str(ledger), feature="P0", delivery=True, opening=opening)
+
+
+def test_opening_zero_prior_checker_is_readiness_not_acceptance(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "root.jsonl"
+    _write(str(path), [{"type": "session_meta", "payload": {"id": "root"}},
+                      {"type": "event_msg", "timestamp": TODAY + "T10:00:00Z", "payload": {"type": "task_started", "turn_id": "t"}},
+                      {"type": "token_usage_record", "timestamp": TODAY + "T10:00:05Z", "payload": {"session_id": "root", "turn_id": "t", "response_id": "m", "usage": {"input_tokens": 100, "output_tokens": 10}}},
+                      {"type": "event_msg", "timestamp": TODAY + "T10:00:10Z", "payload": {"type": "task_complete", "turn_id": "t"}}])
+    bindings = [_binding("root", "maker", path)]
+    default = _delivery(tmp_path, monkeypatch, bindings)
+    assert "missing_checker_usage_or_time" in default["efficiency"]["unknown_reasons"]
+    actual = _delivery(tmp_path, monkeypatch, bindings, opening=True,
+                       prior_checking_complete=True, prior_checking_run_ids=[])
+    assert actual["efficiency"]["complete"] is True
+    assert actual["efficiency"]["maker_tokens"] == 110
+    assert actual["efficiency"]["checker_tokens"] == 0
+    assert actual["efficiency"]["maker_minutes"] == 10 / 60
+    assert actual["phase"] == "maker-ready-opening"
+    assert actual["opening"]["complete"] is True
+    assert actual["opening"]["acceptance_ready"] is False
+    assert actual["delivery_summary"]["unknown_reasons"] == ["missing_acceptance_evidence"]
+    assert "phase" not in default and "opening" not in default
+    monkeypatch.setattr(sys, "argv", ["token_scan.py", "--opening", "--delivery", "--bindings",
+                                    str(tmp_path / "delivery.json"), "--feature", "P0", "--json"])
+    token_scan.main()
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["phase"] == actual["phase"]
+    assert printed["opening"] == actual["opening"]
+    assert printed["efficiency"]["complete"] is True
+
+
+def test_opening_never_clears_missing_inventory_root_children_or_checking(tmp_path, monkeypatch):
+    path = tmp_path / "root.jsonl"
+    _write(str(path), [_event("root", "maker", 1)])
+    root = _binding("root", "maker", path)
+    for fault in ["inventory", "inventory-mismatch", "root", "children", "missing-child", "missing-checker", "orphan", "unknown-child"]:
+        bindings = [dict(root)]
+        meta = dict(prior_checking_complete=True, prior_checking_run_ids=[])
+        if fault == "inventory":
+            meta.pop("prior_checking_complete")
+        elif fault == "inventory-mismatch":
+            meta["prior_checking_run_ids"] = ["hidden-check"]
+        elif fault == "root":
+            meta["root_run_id"] = "absent"
+        elif fault == "children":
+            meta["child_manifest_complete"] = False
+        elif fault == "missing-child":
+            bindings[0]["child_run_ids"] = ["absent"]
+        elif fault == "missing-checker":
+            bindings.append(dict(_binding("check", "checker", tmp_path / "absent.jsonl"), parent_run_id="root"))
+            meta["prior_checking_run_ids"] = ["check"]
+        elif fault == "orphan":
+            bindings.append(dict(_binding("orphan", "maker", path), parent_run_id="missing"))
+        elif fault == "unknown-child":
+            _write(str(path), [_event("root", "maker", 1), _event("unbound-child", "unknown", 2)])
+        result = _delivery(tmp_path, monkeypatch, bindings, opening=True, **meta)
+        assert not result["efficiency"]["complete"], fault
+        assert not result["opening"]["complete"], fault
+        assert result["opening"]["acceptance_ready"] is False
+
+
+def test_opening_prior_checking_is_accounted_and_never_zeroed(tmp_path, monkeypatch):
+    maker, checker = tmp_path / "root.jsonl", tmp_path / "check.jsonl"
+    _write(str(maker), [_event("root", "maker", 1, tokens=100, duration=10000)])
+    _write(str(checker), [_event("check", "review", 2, tokens=10)])
+    bindings = [_binding("root", "maker", maker), dict(_binding("check", "checker", checker), parent_run_id="root")]
+    actual = _delivery(tmp_path, monkeypatch, bindings, opening=True,
+                       prior_checking_complete=True, prior_checking_run_ids=["check"])
+    assert actual["efficiency"]["complete"] is True
+    assert actual["efficiency"]["checker_tokens"] == 16
+    assert actual["efficiency"]["checker_minutes"] == 1 / 60
+    hidden = _delivery(tmp_path, monkeypatch, bindings, opening=True,
+                       prior_checking_complete=True, prior_checking_run_ids=[])
+    assert not hidden["efficiency"]["complete"]
+    assert hidden["efficiency"]["checker_tokens"] == 16
+
+
+def test_opening_requires_explicit_delivery_scope(tmp_path, monkeypatch):
+    import pytest
+    with pytest.raises(ValueError, match="opening.*delivery"):
+        token_scan.scan(opening=True)
+    monkeypatch.setattr(sys, "argv", ["token_scan.py", "--opening", "--json"])
+    with pytest.raises(SystemExit) as exc:
+        token_scan.main()
+    assert exc.value.code == 2
+
+
+def test_delivery_whole_workflow_native_channels_attempts_and_acceptance(tmp_path, monkeypatch):
+    bindings = []
+    roles = ["orchestration", "planning", "maker", "build", "checker", "integration", "repair"]
+    for i, role in enumerate(roles):
+        rid = "root" if i == 0 else role
+        path = tmp_path / (rid + ".jsonl")
+        start, end = i, i + 10
+        native = {"type": "token_usage_record", "timestamp": TODAY + "T10:00:%02dZ" % end,
+                  "payload": {"session_id": rid, "response_id": "provider-" + rid,
+                              "turn_id": rid, "usage": {"input_tokens": 100, "cached_input_tokens": 20,
+                              "output_tokens": 10, "reasoning_output_tokens": 4}}}
+        records = [
+            {"type": "session_meta", "payload": {"id": rid}},
+            {"type": "event_msg", "timestamp": TODAY + "T10:00:%02dZ" % start,
+             "payload": {"type": "task_started", "turn_id": rid}},
+            native, native,
+            {"type": "event_msg", "timestamp": TODAY + "T10:00:%02dZ" % end,
+             "payload": {"type": "task_complete", "turn_id": rid}}]
+        if role == "integration":
+            records.append({"type": "event_msg", "timestamp": TODAY + "T10:00:15Z",
+                            "payload": {"type": "feature_accepted", "milestone_id": "release"}})
+        _write(str(path), records)
+        b = _binding(rid, role, path, run=rid)
+        b.update(parent_run_id=None if rid == "root" else "root", status="failed" if role == "checker" else "completed")
+        if role == "repair":
+            b.update(attempt=2, retry_of="checker")
+        bindings.append(b)
+    bindings[0]["child_run_ids"] = roles[1:]
+    result = _delivery(tmp_path, monkeypatch, bindings, acceptance=[
+        {"id": "release", "kind": "feature", "run_id": "integration", "timestamp": TODAY + "T10:00:15Z", "status": "accepted"}])
+    summary = result["delivery_summary"]
+    assert summary["complete"] and summary["status"] == "COMPLETE"
+    assert summary["overall_tokens"] == 770  # cache/reasoning are inclusive subsets
+    assert summary["token_channels"] == {"input": 560, "output": 70, "cache_read": 140, "cache_write": 0}
+    assert summary["reasoning_output_subset"] == 28
+    assert summary["reasoning_coverage"] == "COMPLETE"
+    assert summary["agent_active_seconds"] == 70
+    assert summary["wall_elapsed_seconds"] == summary["occupied_wall_seconds"] == 16
+    assert summary["attempts"] == {"total": 7, "failed": 1, "retried": 1, "children": 6}
+    assert summary["accepted_feature_count"] == summary["accepted_milestone_count"] == 1
+    assert summary["time_to_first_accepted_seconds"] == 15
+    assert summary["duplicate_events_ignored"] == 7
+    assert summary["checker_diagnostic"]["status"] == "OVER_TARGET"
+    assert summary["checker_diagnostic"]["gating"] is False
+    assert all(summary["roles"][role]["tokens"] == 110 for role in roles)
+    assert result["efficiency"]["complete"] is False
+    assert "delivery_roles_outside_v1" in result["efficiency"]["unknown_reasons"]
+
+
+def test_delivery_claude_real_shape_cross_transcript_event_dedup(tmp_path, monkeypatch):
+    path = tmp_path / "claude.jsonl"
+    record = {"type": "assistant", "sessionId": "root", "uuid": "transcript-record-id",
+              "requestId": "req-provider-1", "timestamp": TODAY + "T10:00:02Z", "duration_ms": 1000,
+              "message": {"id": "msg-provider-1", "type": "message", "role": "assistant",
+                          "model": "claude-sonnet-4-6", "usage": {"input_tokens": 10, "output_tokens": 5,
+                          "cache_creation_input_tokens": 20, "cache_read_input_tokens": 30,
+                          "cache_creation": {"ephemeral_5m_input_tokens": 20, "ephemeral_1h_input_tokens": 0}}}}
+    _write(str(path), [record])
+    copy = tmp_path / "copy.jsonl"
+    _write(str(copy), [dict(record, sessionId="child")])
+    root = _binding("root", "orchestration", path)
+    child = dict(_binding("child", "maker", copy), parent_run_id="root")
+    summary = _delivery(tmp_path, monkeypatch, [root, child])["delivery_summary"]
+    assert summary["overall_tokens"] == 65
+    assert summary["token_channels"]["cache_write"] == 20  # nested breakdown is not additional spend
+    assert summary["duplicate_events_ignored"] == 1
+    assert summary["status"] == "UNKNOWN"  # copied request is not a child's native usage proof
+    assert "missing_run_usage" in summary["unknown_reasons"]
+
+
+def test_delivery_missing_root_parent_children_and_acceptance_keeps_partial(tmp_path, monkeypatch):
+    path = tmp_path / "child.jsonl"
+    _write(str(path), [_event("child", "known", 1)])
+    child = dict(_binding("child", "repair", path), parent_run_id="missing-parent", child_run_ids=["absent-child"])
+    result = _delivery(tmp_path, monkeypatch, [child], child_manifest_complete=False)
+    summary = result["delivery_summary"]
+    assert summary["overall_tokens"] == 16 and summary["agent_active_seconds"] == 1
+    assert summary["status"] == "UNKNOWN" and summary["time_to_first_accepted_seconds"] is None
+    assert {"missing_root_run_binding", "missing_parent_run_binding", "missing_child_run_binding",
+            "child_manifest_not_declared_complete", "missing_acceptance_evidence"} <= set(summary["unknown_reasons"])
+
+
+def test_delivery_parent_cumulative_not_added_to_native_child(tmp_path, monkeypatch):
+    path = tmp_path / "parent.jsonl"
+    _write(str(path), [{"type": "event_msg", "session_id": "root", "timestamp": TODAY + "T10:00:01Z",
+                        "duration_ms": 1000, "payload": {"type": "token_count", "info": {
+                        "total_token_usage": {"input_tokens": 1000, "output_tokens": 100}}}}])
+    child_path = tmp_path / "child.jsonl"
+    _write(str(child_path), [{"type": "token_usage_record", "timestamp": TODAY + "T10:00:02Z", "duration_ms": 1000,
+                             "payload": {"session_id": "child", "response_id": "native-1", "usage": {
+                             "input_tokens": 100, "cached_input_tokens": 30, "output_tokens": 20,
+                             "output_tokens_details": {"reasoning_tokens": 5}}}}])
+    bindings = [_binding("root", "orchestration", path),
+                dict(_binding("child", "maker", child_path), parent_run_id="root")]
+    summary = _delivery(tmp_path, monkeypatch, bindings)["delivery_summary"]
+    assert summary["overall_tokens"] == 120
+    assert summary["reasoning_output_subset"] == 5
+    assert "cumulative_usage_scope_unknown" in summary["unknown_reasons"]
+    assert "missing_run_usage" in summary["unknown_reasons"]
+    assert summary["cumulative_counter_evidence"] == [{"session_id": "root", "run_id": "root",
+        "usage": {"input_tokens": 1000, "output_tokens": 100}, "usage_scope": None, "additive": False}]
+
+
+def test_delivery_malformed_partial_and_missing_native_counters(tmp_path, monkeypatch):
+    path = tmp_path / "root.jsonl"
+    good = _event("root", "good", 1)
+    partial = _event("root", "partial", 2)
+    partial["message"]["usage"].pop("output_tokens")
+    _write(str(path), [good, partial, {"payload": ["broken-shape"]}, {"message": {"usage": "bad"}}])
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write("{truncated\n")
+    summary = _delivery(tmp_path, monkeypatch, [_binding("root", "maker", path)])["delivery_summary"]
+    assert summary["overall_tokens"] == 31
+    assert summary["status"] == "UNKNOWN"
+    assert {"unreadable_or_malformed_transcript", "invalid_usage_counter", "missing_native_usage_counter"} <= set(summary["unknown_reasons"])
+
+
+def test_delivery_empty_or_absent_native_usage_cannot_hide_unknown_cost(tmp_path, monkeypatch):
+    path = tmp_path / "root.jsonl"
+    native = {"type": "token_usage_record", "timestamp": TODAY + "T10:00:01Z", "duration_ms": 1000,
+              "payload": {"session_id": "root", "response_id": "native-known", "usage": {
+                  "input_tokens": 100, "cached_input_tokens": 20, "output_tokens": 10}}}
+    claude = {"type": "assistant", "sessionId": "root", "requestId": "claude-known",
+              "timestamp": TODAY + "T10:00:02Z", "duration_ms": 1000,
+              "message": {"id": "claude-message", "model": "claude-sonnet-4-6", "usage": {
+                  "input_tokens": 10, "output_tokens": 5, "cache_creation_input_tokens": 20,
+                  "cache_read_input_tokens": 30}}}
+    accepted = {"type": "event_msg", "session_id": "root", "timestamp": TODAY + "T10:00:02Z",
+                "payload": {"type": "feature_accepted", "milestone_id": "release"}}
+    bindings = [_binding("root", "maker", path)]
+    acceptance = [{"id": "release", "kind": "feature", "run_id": "root", "status": "accepted",
+                   "timestamp": TODAY + "T10:00:02Z"}]
+    _write(str(path), [native, claude, accepted])
+    baseline = _delivery(tmp_path, monkeypatch, bindings, acceptance=acceptance)["delivery_summary"]
+    assert baseline["complete"] and baseline["overall_tokens"] == 175
+    for variant in ({"usage": {}}, {}, {"usage": None}):
+        missing = {"type": "token_usage_record", "timestamp": TODAY + "T10:00:03Z", "duration_ms": 1000,
+                   "payload": {"session_id": "root", "response_id": "native-missing", **variant}}
+        _write(str(path), [native, claude, accepted, missing])
+        summary = _delivery(tmp_path, monkeypatch, bindings, acceptance=acceptance)["delivery_summary"]
+        assert summary["overall_tokens"] == 175
+        assert summary["status"] == "UNKNOWN" and not summary["complete"]
+        assert "missing_native_usage_counter" in summary["unknown_reasons"]
+
+
+def test_delivery_wait_and_elapsed_gaps_are_distinct(tmp_path, monkeypatch):
+    path = tmp_path / "root.jsonl"
+    _write(str(path), [_event("root", "a", 1), _event("root", "b", 10)])
+    summary = _delivery(tmp_path, monkeypatch, [_binding("root", "maker", path, blocks=[
+        {"start": TODAY + "T10:00:01Z", "end": TODAY + "T10:00:10Z"}])])["delivery_summary"]
+    assert summary["wall_elapsed_seconds"] == 10
+    assert summary["occupied_wall_seconds"] == 2
+    assert summary["corroborated_wait_seconds"] == 1
+    assert summary["agent_active_seconds"] == 1
+
+
+def test_delivery_cli_opt_in_preserves_default_shape_and_scopes_queries(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "root.jsonl"
+    _write(str(path), [_event("root", "a", 1)])
+    ledger = tmp_path / "bindings.json"
+    ledger.write_text(json.dumps({"coverage_complete": True, "bindings": [_binding("root", "maker", path)],
+                                 "delivery": {"root_run_id": "root", "child_manifest_complete": True}}), encoding="utf-8")
+    monkeypatch.setattr(token_scan, "PROJECTS", str(tmp_path / "empty"))
+    argv = ["token_scan.py", "--bindings", str(ledger), "--feature", "P0", "--json"]
+    monkeypatch.setattr(sys, "argv", argv)
+    token_scan.main()
+    legacy = json.loads(capsys.readouterr().out)
+    assert "delivery_summary" not in legacy and "delivery_summary" not in legacy["feature_report"]
+    assert set(legacy["feature_report"]) == {"schema_version", "rows", "efficiency", "roles", "runs",
+                                            "agent_active_seconds", "wall_seconds", "wait_seconds", "overall_tokens", "timing_basis"}
+    def no_sweep(*args, **kwargs):
+        raise AssertionError("delivery must not sweep global sessions")
+    monkeypatch.setattr(token_scan, "_transcripts", no_sweep)
+    monkeypatch.setattr(token_scan, "compactions", no_sweep)
+    monkeypatch.setattr(token_scan, "classifier_outages", no_sweep)
+    monkeypatch.setattr(sys, "argv", argv + ["--delivery"])
+    token_scan.main()
+    opted = json.loads(capsys.readouterr().out)
+    assert opted["delivery_summary"]["schema_version"] == 2
+    assert opted["delivery_summary"]["checker_diagnostic"]["gating"] is False
+    for key in ("main_tokens", "sub_tokens", "rows", "schema_version", "efficiency"):
+        assert opted[key] == legacy[key]
+
+
+def test_delivery_requires_finite_explicit_scope_and_valid_metadata(tmp_path, monkeypatch):
+    import pytest
+    with pytest.raises(ValueError, match="requires --bindings and --feature"):
+        token_scan.scan(delivery=True)
+    path = tmp_path / "root.jsonl"
+    _write(str(path), [_event("root", "a", 1)])
+    binding = _binding("root", "maker", path)
+    with pytest.raises(ValueError, match="acceptance must be an array"):
+        _delivery(tmp_path, monkeypatch, [binding], acceptance="broken report")
+    ledger = tmp_path / "delivery.json"
+    with pytest.raises(ValueError, match="not a directory sweep"):
+        token_scan.scan(bindings=str(ledger), feature="P0", codex_root=str(tmp_path), delivery=True)
+
+
+def _context_benchmark(client="codex"):
+    baseline_usage = {"input_tokens": 100, "cached_input_tokens": 20,
+                      "cache_write_input_tokens": 10, "output_tokens": 10}
+    compact_usage = {"input_tokens": 60, "cached_input_tokens": 30,
+                     "cache_write_input_tokens": 5, "output_tokens": 12}
+    if client == "claude":
+        baseline_usage = {"input_tokens": 10, "cache_read_input_tokens": 60,
+                          "cache_creation_input_tokens": 30, "output_tokens": 10}
+        compact_usage = {"input_tokens": 8, "cache_read_input_tokens": 40,
+                         "cache_creation_input_tokens": 12, "output_tokens": 12}
+    common = dict(client=client, task_id="fixed-task", model_id="fixed-model",
+                  settings_id="fixed-security-and-model", oracle_id="same-acceptance-v1", accepted=True,
+                  cost_basis="cli-list-estimate", agent_read_calls=4, source_verification_read_bytes=100)
+    return {"schema_version": "context-benchmark/1", "setup": {"elapsed_ms": 500, "reported_cost_usd": 0.5},
+            "limitations": ["Recorded fixture; not live evidence."], "runs": [
+                dict(common, variant="baseline", elapsed_ms=2000, first_response_ms=200,
+                     prompt_bytes=1000, reported_cost_usd=0.3, usage=baseline_usage),
+                dict(common, variant="compact", elapsed_ms=1000, first_response_ms=100,
+                     prompt_bytes=500, reported_cost_usd=0.1, usage=compact_usage)]}
+
+
+def _context_report(tmp_path, monkeypatch, capsys, benchmark):
+    path = tmp_path / "context-benchmark.json"
+    path.write_text(json.dumps(benchmark), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["token_scan.py", "--context-compare", str(path)])
+    def no_sweep(*args, **kwargs):
+        raise AssertionError("comparison must not scan transcripts")
+    for name in ("scan", "compactions", "classifier_outages"):
+        monkeypatch.setattr(token_scan, name, no_sweep)
+    token_scan.main()
+    return json.loads(capsys.readouterr().out)["contextComparison"]
+
+
+def test_context_comparison_codex_subsets_cost_and_cli_scope(tmp_path, monkeypatch, capsys):
+    report = _context_report(tmp_path, monkeypatch, capsys, _context_benchmark())
+    codex = report["clients"]["codex"]
+    metrics = codex["metrics"]
+    assert metrics["input_total_tokens"]["baseline"] == 100  # inclusive, not 130
+    assert metrics["input_total_tokens"]["saved"] == 40
+    assert metrics["noncached_input_tokens"]["saved"] == 45
+    assert metrics["cache_read_input_tokens"]["saved"] == -10
+    assert metrics["output_tokens"]["status"] == "REGRESSION"
+    assert metrics["prompt_bytes"]["saved_percent"] == 50
+    assert codex["speedup"] == 2 and codex["break_even_runs"] == 3
+    assert abs(codex["experiment_cost_usd"] - 0.4) < 1e-9
+    assert codex["account_bill_savings_usd"] is None
+    assert report["setup"]["reported_cost_usd"] == 0.5
+    assert any("not a causal estimate" in text for text in report["limitations"])
+
+
+def test_context_comparison_claude_additional_cache_channels(tmp_path, monkeypatch, capsys):
+    report = _context_report(tmp_path, monkeypatch, capsys, _context_benchmark("claude"))
+    metrics = report["clients"]["claude"]["metrics"]
+    assert metrics["input_total_tokens"]["baseline"] == 100
+    assert metrics["input_total_tokens"]["compact"] == 60
+    assert metrics["noncached_input_tokens"]["baseline"] == 10
+    assert metrics["cache_write_input_tokens"]["saved"] == 18
+
+
+def test_context_comparison_missing_metrics_are_unknown(tmp_path, monkeypatch, capsys):
+    benchmark = _context_benchmark("claude")
+    benchmark["runs"][1]["usage"].pop("cache_creation_input_tokens")
+    for key in ("reported_cost_usd", "agent_read_calls", "source_verification_read_bytes", "first_response_ms"):
+        benchmark["runs"][1].pop(key)
+    benchmark["setup"] = {}
+    report = _context_report(tmp_path, monkeypatch, capsys, benchmark)
+    client = report["clients"]["claude"]
+    for key in ("input_total_tokens", "cache_write_input_tokens", "reported_cost_usd", "agent_read_calls",
+                "source_verification_read_bytes", "first_response_ms"):
+        assert client["metrics"][key]["compact"] is None
+        assert client["metrics"][key]["status"] == "UNKNOWN"
+        assert client["metrics"][key]["saved"] is None
+    assert client["break_even_runs"] is client["experiment_cost_usd"] is None
+    assert report["setup"] == {"elapsed_ms": None, "reported_cost_usd": None}
+
+
+def test_context_comparison_mismatched_oracle_rejected(tmp_path, monkeypatch, capsys):
+    import pytest
+    benchmark = _context_benchmark()
+    benchmark["runs"][1]["oracle_id"] = "easier-oracle"
+    with pytest.raises(SystemExit) as error:
+        _context_report(tmp_path, monkeypatch, capsys, benchmark)
+    assert error.value.code == 2
+    assert "pair task/model/settings/oracle must match" in capsys.readouterr().err
+
+
+def test_context_comparison_nonaccepted_and_duplicate_runs_rejected(tmp_path, monkeypatch, capsys):
+    import pytest
+    for invalid in ("nonaccepted", "duplicate", "missing-pair"):
+        benchmark = _context_benchmark()
+        if invalid == "nonaccepted":
+            benchmark["runs"][1]["accepted"] = False
+        elif invalid == "duplicate":
+            benchmark["runs"].append(dict(benchmark["runs"][0]))
+        else:
+            benchmark["runs"].pop()
+        with pytest.raises(SystemExit) as error:
+            _context_report(tmp_path, monkeypatch, capsys, benchmark)
+        assert error.value.code == 2
+
+
+def test_context_comparison_invalid_numbers_and_provider_channels_rejected(tmp_path, monkeypatch, capsys):
+    import pytest
+    for key, value in (("input_tokens", True), ("cached_input_tokens", 101),
+                       ("cache_write_input_tokens", 101), ("output_tokens", -1),
+                       ("cache_creation_input_tokens", 0), ("input_tokens", float("nan"))):
+        benchmark = _context_benchmark()
+        benchmark["runs"][0]["usage"][key] = value
+        with pytest.raises(SystemExit) as error:
+            _context_report(tmp_path, monkeypatch, capsys, benchmark)
+        assert error.value.code == 2
+    benchmark = _context_benchmark()
+    benchmark["runs"][0]["prompt_bytes"] = 1.5
+    with pytest.raises(SystemExit):
+        _context_report(tmp_path, monkeypatch, capsys, benchmark)
+    benchmark = _context_benchmark()
+    benchmark["runs"][0]["usage"].update(cached_input_tokens=60, cache_write_input_tokens=50)
+    with pytest.raises(SystemExit):
+        _context_report(tmp_path, monkeypatch, capsys, benchmark)
+
+
+def test_context_comparison_mixed_cost_bases_never_claim_bill_savings(tmp_path, monkeypatch, capsys):
+    benchmark = _context_benchmark()
+    benchmark["runs"][1]["cost_basis"] = "account-bill"
+    client = _context_report(tmp_path, monkeypatch, capsys, benchmark)["clients"]["codex"]
+    cost = client["metrics"]["reported_cost_usd"]
+    assert cost["baseline"] == 0.3 and cost["compact"] == 0.1
+    assert cost["status"] == "UNKNOWN" and cost["saved"] is None
+    assert client["account_bill_savings_usd"] is client["experiment_cost_usd"] is client["break_even_runs"] is None
+
+
+def test_context_comparison_both_clients_and_regression_no_speedup(tmp_path, monkeypatch, capsys):
+    benchmark = _context_benchmark()
+    benchmark["runs"][1].update(elapsed_ms=3000, reported_cost_usd=0.4)
+    benchmark["runs"] += _context_benchmark("claude")["runs"]
+    for run in benchmark["runs"]:
+        run["cost_basis"] = "account-bill"
+    clients = _context_report(tmp_path, monkeypatch, capsys, benchmark)["clients"]
+    assert set(clients) == {"codex", "claude"}
+    assert clients["codex"]["metrics"]["elapsed_ms"]["saved"] == -1000
+    assert clients["codex"]["metrics"]["elapsed_ms"]["status"] == "REGRESSION"
+    assert clients["codex"]["speedup"] is clients["codex"]["break_even_runs"] is None
+    assert abs(clients["claude"]["account_bill_savings_usd"] - 0.2) < 1e-9
+
+
+def test_native_thread_identity_survives_parent_session_and_duplicate_mirror(tmp_path, monkeypatch):
+    parent, child = tmp_path / "parent.jsonl", tmp_path / "child.jsonl"
+    def task(kind, turn, second):
+        return {"type": "event_msg", "timestamp": TODAY + "T10:00:%02dZ" % second,
+                "payload": {"type": kind, "turn_id": turn}}
+    def usage(thread, turn, response, second, tokens):
+        return {"type": "token_usage_record", "timestamp": TODAY + "T10:00:%02dZ" % second,
+                "payload": {"session_id": "parent", "thread_id": thread, "turn_id": turn,
+                            "response_id": response, "usage": {"input_tokens": tokens, "output_tokens": 0}}}
+    mirrored = usage("child", "ct", "child-response", 6, 10)
+    _write(str(parent), [{"type": "session_meta", "payload": {"id": "parent"}},
+                         task("task_started", "pt", 0), mirrored,
+                         usage("parent", "pt", "parent-response", 10, 100),
+                         task("task_complete", "pt", 20)])
+    _write(str(child), [{"type": "session_meta", "payload": {"id": "child"}},
+                        task("task_started", "ct", 5), mirrored,
+                        task("task_complete", "ct", 7)])
+    result = _report(tmp_path, monkeypatch, [_binding("parent", "maker", parent, turn_id="pt"),
+                                           _binding("child", "checker", child, turn_id="ct")])
+    actual = {x["run_id"]: x for x in result["runs"]}
+    assert actual["parent"]["active_seconds"] == 20
+    assert actual["child"]["active_seconds"] == 2
+    assert actual["parent"]["tokens"] == 100
+    assert actual["child"]["tokens"] == 10  # mirrored native response counts once
+    assert result["efficiency"]["complete"]
+    assert result["efficiency"]["time_ratio"] == result["efficiency"]["token_ratio"] == 0.1

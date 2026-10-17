@@ -1,0 +1,2176 @@
+// node --test .claude/skills/maker/tools/tests/
+// Covers tick.mjs --lane-check, --push-gate/--stamp-6c-green, --ceilings, --agent/--wave, ADVANCED evidence,
+// --streak and --lint-queue. Every repo is a throwaway git repo under os.tmpdir().
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import url from "node:url";
+import { spawnSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import vm from "node:vm";
+import { laneCheck, ceilings, DELIVERY_VERSION, deliveryTemplate, deliveryPrepare, deliveryValidate, deliveryClaim, deliveryRun, deliveryRecord, deliveryStatus, deliveryResume, deliveryHandoff, deliveryAgentHook, deliveryReloadHooks, deliveryHookReloadScript, reuseCheck } from "../tick.mjs";
+
+const TOOL = path.join(path.dirname(url.fileURLToPath(import.meta.url)), "..", "tick.mjs");
+
+const git = (repo, ...args) => {
+  const r = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr}`);
+  return r.stdout.trim();
+};
+const tick = (repo, args, env = {}) => {
+  const r = spawnSync(process.execPath, [TOOL, ...args], { encoding: "utf8", cwd: repo, env: { ...process.env, ...env } });
+  return { out: r.stdout, err: r.stderr, all: r.stdout + r.stderr, status: r.status };
+};
+
+function newRepo() {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "tickmode-"));
+  git(repo, "init", "-q");
+  git(repo, "config", "user.email", "t@t");
+  git(repo, "config", "user.name", "t");
+  git(repo, "config", "core.autocrlf", "false");
+  git(repo, "config", "commit.gpgsign", "false");
+  return repo;
+}
+// files: { relpath: content | null (delete) }; stages only those paths.
+function commit(repo, files, msg = "c") {
+  for (const [rel, content] of Object.entries(files)) {
+    const p = path.join(repo, rel);
+    if (content === null) { fs.rmSync(p, { force: true }); git(repo, "add", "-A", "--", rel); continue; }
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, content);
+    git(repo, "add", "--", rel);
+  }
+  git(repo, "commit", "-q", "--allow-empty", "-m", msg);
+  return git(repo, "rev-parse", "HEAD");
+}
+const numbered = (n, f = (i) => `x${i} = ${i}`) => Array.from({ length: n }, (_, i) => f(i + 1)).join("\n") + "\n";
+
+// Base repo: src/util.py (40 lines), tests/test_util.py, src/a.py importing util. Returns {repo, base}.
+// The quick lane ships OFF: `lane.enabled === true` must be in qa/adapter.json at base AND at the main checkout's HEAD.
+// baseRepo therefore turns it on in the fixture adapter (merging into one the caller supplies when that is a JSON object
+// whose `lane` is absent or an object), unless { enable: false } asks for the raw fixture.
+function enableLane(text) {
+  let d;
+  try { d = JSON.parse(text); } catch { return text; }
+  if (!d || typeof d !== "object" || Array.isArray(d)) return text;
+  if (d.lane !== undefined && (!d.lane || typeof d.lane !== "object" || Array.isArray(d.lane))) return text;
+  if (d.lane && d.lane.enabled !== undefined) return text;
+  return JSON.stringify({ ...d, lane: { enabled: true, ...(d.lane || {}) } });
+}
+const ENABLED = JSON.stringify({ lane: { enabled: true } });
+function baseRepo(extra = {}, { enable = true } = {}) {
+  const repo = newRepo();
+  const files = {
+    "src/util.py": numbered(40),
+    "src/a.py": "from src import util\n",
+    "tests/test_util.py": "def test_x():\n    assert 1 == 1\n    assert 2 == 2\n",
+    "README.md": "# r\n",
+    ...extra,
+  };
+  if (enable) files["qa/adapter.json"] = typeof files["qa/adapter.json"] === "string" ? enableLane(files["qa/adapter.json"]) : ENABLED;
+  const base = commit(repo, files, "base");
+  return { repo, base };
+}
+const edit = (repo, rel, fn) => fs.writeFileSync(path.join(repo, rel), fn(fs.readFileSync(path.join(repo, rel), "utf8")));
+const ruleIds = (r) => r.failures.map((f) => f.rule);
+
+function deliveryFixture() {
+  const { repo } = baseRepo();
+  const p = deliveryTemplate(repo);
+  const skill = path.resolve(path.dirname(TOOL), "../SKILL.md");
+  const identity = { policy_id: skill, protocol_id: skill, config_id: "qa/adapter.json", dependency_id: "README.md" };
+  for (const [k, file] of Object.entries(identity)) {
+    const hash = createHash("sha256").update(fs.readFileSync(path.resolve(repo, file))).digest("hex");
+    p[k] = hash; p.identity_files[k] = { path: file, sha256: hash };
+  }
+  p.workflow_id = "workflow"; p.root_run_id = "workflow"; p.feature = "feature";
+  p.budget.deadline = new Date(Date.now() + 120000).toISOString();
+  p.budget.closeout_ms = 10000; p.budget.no_progress_ms = 60000; p.budget.estimate_ms = 30000;
+  p.budget.estimate_provenance = "synthetic test fixture covers bounded node invocations";
+  p.resource_caps = { cpu: 2 }; p.closeout_resources = { cpu: 1 };
+  p.criteria[0].description = "Synthetic independent command succeeds with hash-bound evidence";
+  p.candidate.files = ["src/util.py", "src/a.py"].map((f) => ({ path: f, sha256: createHash("sha256").update(fs.readFileSync(path.join(repo, f))).digest("hex") }));
+  p.tasks[0].owns = ["src/util.py"]; p.tasks[1].owns = ["src/util.py"];
+  p.tasks.forEach((t) => { t.command = [process.execPath, "-e", "console.log('completed')"]; t.timeout_ms = 30000; t.max_output_bytes = 65536; t.resources = { cpu: 1 }; });
+  return { repo, p };
+}
+const cloneDelivery = (p) => JSON.parse(JSON.stringify(p));
+
+function handoffFixture() {
+  const { repo, p } = deliveryFixture();
+  const request = { schema_version: "compact-handoff/1", shared_instructions: "Keep checks and security gates intact.", sources: [{ path: "src/util.py", sha256: p.candidate.files[0].sha256, ranges: [[1, 3]] }], task: { id: "build", owner: "maker", purpose: "Inspect the supplied source facts", dependencies: [], acceptance: ["Return correct facts"], checks: ["Compare expected values"] }, bounds: { max_source_bytes: 4096, max_prompt_bytes: 8192 } };
+  return { repo, p, request };
+}
+
+function hookReloadFixture() {
+  const ids = ["01a13fae-5d88-7d32-a066-698b9f30ead5", "01a0f357-474f-75a1-a327-16279b7a88c9"];
+  const request = { schema_version: "loaded-hook-reload/1", root_thread_id: ids[0], expected_thread_ids: ids, timeout_ms: 3000 };
+  const calls = [];
+  const rpc = async (method, params) => {
+    calls.push({ method, params });
+    if (method === "thread/loaded/list") return { data: ids, nextCursor: null };
+    if (method === "thread/read") return { thread: { id: params.threadId, sessionId: params.threadId, cwd: "D:/owned-project", model: "configured-model", modelProvider: "configured-provider", reasoningEffort: "high", status: { type: params.threadId === ids[0] ? "active" : "idle" }, preview: "DO_NOT_COPY_PROMPTS" } };
+    if (method === "config/batchWrite") return { status: "ok" };
+    if (method === "fs/writeFile") return {};
+    throw Error("unexpected RPC");
+  };
+  return { ids, request, calls, rpc };
+}
+
+test("hook-reload: whole loaded set preserved with a single no-edit mutation and no turns", async () => {
+  const f = hookReloadFixture(), result = await deliveryReloadHooks(f.request, f.rpc);
+  assert.equal(result.status, "metadata-preserved");
+  assert.deepEqual(result.before, result.after);
+  assert.equal(result.native_hook_acceptance, "PENDING_NATIVE_PROBE");
+  assert.equal(result.counters, "UNKNOWN; compare existing ledgers separately");
+  assert.deepEqual(f.calls.filter(c => c.method === "config/batchWrite"), [{ method: "config/batchWrite", params: { edits: [], reloadUserConfig: true } }]);
+  assert.ok(f.calls.every(c => ["thread/loaded/list", "thread/read", "config/batchWrite"].includes(c.method)));
+  assert.ok(!JSON.stringify(result).includes("DO_NOT_COPY_PROMPTS"));
+});
+
+test("hook-reload: wrong owner, hidden pagination, changed set and unknown models refuse before mutation", async () => {
+  for (const variant of ["wrong-owner", "pagination", "missing-model", "preflight-race"]) {
+    const f = hookReloadFixture(); let lists = 0;
+    const result = await deliveryReloadHooks(f.request, async (method, params) => {
+      if (method === "thread/loaded/list") {
+        lists++;
+        if (variant === "wrong-owner" || (variant === "preflight-race" && lists === 2)) return { data: [], nextCursor: null };
+        if (variant === "pagination") return { data: f.ids, nextCursor: "more" };
+      }
+      const r = await f.rpc(method, params);
+      if (method === "thread/read" && variant === "missing-model") r.thread.model = null;
+      return r;
+    });
+    assert.equal(result.status, "refused", variant);
+    assert.equal(result.mutation_sent, false);
+    assert.ok(!f.calls.some(c => c.method === "config/batchWrite"));
+  }
+});
+
+test("hook-reload: changed post-state and failed native acknowledgement never become preservation PASS", async () => {
+  for (const variant of ["model", "membership", "ack-error"]) {
+    const f = hookReloadFixture(); let sent = false;
+    const result = await deliveryReloadHooks(f.request, async (method, params) => {
+      const r = await f.rpc(method, params);
+      if (method === "config/batchWrite") { sent = true; if (variant === "ack-error") throw Error("native reload unavailable"); }
+      if (sent && method === "thread/read" && variant === "model") r.thread.model = "unexpected-change";
+      if (sent && method === "thread/loaded/list" && variant === "membership") r.data = [f.ids[0]];
+      return r;
+    });
+    assert.equal(result.status, "UNKNOWN", variant);
+    assert.equal(result.mutation_sent, true);
+    assert.equal(f.calls.filter(c => c.method === "config/batchWrite").length, 1);
+  }
+});
+
+test("hook-reload: timeout is bounded UNKNOWN without retry or claimed cancellation", async () => {
+  const f = hookReloadFixture(); f.request.timeout_ms = 100;
+  const result = await deliveryReloadHooks(f.request, (method, params) => method === "config/batchWrite" ? new Promise(() => {}) : f.rpc(method, params));
+  assert.equal(result.status, "UNKNOWN"); assert.equal(result.mutation_sent, true);
+  assert.ok(result.elapsed_ms < 1000); assert.match(result.cancellation, /not claimed/);
+  assert.equal(result.calls.filter(x => x === "config/batchWrite").length, 1);
+});
+
+test("hook-reload: late final metadata cannot PASS when a blocked event loop delays timers", async () => {
+  const f = hookReloadFixture(); f.request.timeout_ms = 100; let reads = 0;
+  const result = await deliveryReloadHooks(f.request, (method, params) => {
+    if (method === "thread/read" && ++reads === 4) {
+      const until = performance.now() + 115;
+      while (performance.now() < until) { /* deterministic late resolution */ }
+    }
+    return f.rpc(method, params);
+  });
+  assert.equal(result.status, "UNKNOWN"); assert.equal(result.mutation_sent, true);
+});
+
+test("hook-reload: malformed/oversized contracts and arbitrary settings cannot launch RPC", async () => {
+  const f = hookReloadFixture(); let invoked = false;
+  for (const bad of [{ ...f.request, model: "new-model" }, { ...f.request, expected_thread_ids: [f.ids[0]] .concat(Array(16).fill(f.ids[1])) }, { ...f.request, expected_thread_ids: [] }, { ...f.request, timeout_ms: 30001 }]) {
+    await assert.rejects(deliveryReloadHooks(bad, () => { invoked = true; }));
+  }
+  assert.equal(invoked, false);
+  assert.throws(() => deliveryHookReloadScript({ schema_version: "loaded-hook-reload/1", root_thread_id: "injected-code" }));
+});
+
+test("hook-reload: CLI producer prepares only and rejects mixed mode or extra request fields", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "loaded-hooks-"));
+  try {
+    const request = { schema_version: "loaded-hook-reload/1", root_thread_id: hookReloadFixture().ids[0] };
+    const file = path.join(dir, "request.json"); fs.writeFileSync(file, JSON.stringify(request));
+    const prepared = tick(process.cwd(), ["--delivery", "reload-hooks", file]);
+    assert.equal(prepared.status, 0, prepared.err);
+    const output = JSON.parse(prepared.out);
+    assert.equal(output.status, "prepared-only; execute in existing desktop renderer");
+    assert.equal(output.script, deliveryHookReloadScript(request));
+    assert.equal(tick(process.cwd(), ["--delivery", "reload-hooks", file, "--wave"]).status, 2);
+    fs.writeFileSync(file, JSON.stringify({ ...request, method: "turn/start" }));
+    assert.notEqual(tick(process.cwd(), ["--delivery", "reload-hooks", file]).status, 0);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("hook-reload: actual renderer packet/response contract executes the same consumer and writes minimal evidence", async () => {
+  const f = hookReloadFixture(), listeners = new Set(); let saved, messages = [];
+  const window = { addEventListener: (_, fn) => listeners.add(fn), removeEventListener: (_, fn) => listeners.delete(fn), electronBridge: { sendMessageFromView: async message => {
+    messages.push(message);
+    assert.equal(message.type, "mcp-request"); assert.equal(message.hostId, "local");
+    const { id, method, params } = message.request;
+    const result = await f.rpc(method, params);
+    if (method === "fs/writeFile") saved = JSON.parse(Buffer.from(params.dataBase64, "base64").toString("utf8"));
+    queueMicrotask(() => { for (const fn of [...listeners]) fn({ data: { type: "mcp-response", hostId: "local", message: { id, result } } }); });
+  } } };
+  const script = deliveryHookReloadScript({ schema_version: f.request.schema_version, root_thread_id: f.ids[0] });
+  const result = await vm.runInNewContext(`(async () => ${script})()`, { window, crypto: { randomUUID: () => "owned-runtime-probe" }, performance, setTimeout, clearTimeout, TextEncoder, btoa, console: { log: () => {} } });
+  assert.equal(result.status, "metadata-preserved"); assert.equal(saved.status, "metadata-preserved");
+  // Admission scans top-level delivery JSON as workflow state; keep observations
+  // in the existing context namespace so a reload cannot poison future launches.
+  assert.match(saved.evidence_path.replace(/\\/g, "/"), /qa\/\.delivery\/context\/loaded-hook-reload-owned-runtime-probe\.json$/);
+  assert.ok(!JSON.stringify(saved).includes("DO_NOT_COPY_PROMPTS")); assert.equal(listeners.size, 0);
+  assert.equal(messages.filter(m => m.request.method === "config/batchWrite").length, 1);
+});
+
+test("agent-hook: verified V1/V2 spawn is fresh, preserves configured model/role, and audits no bodies", () => {
+  const { repo, request } = handoffFixture(); request.task.purpose = "हिंदी source inspection";
+  const h = deliveryHandoff(repo, request), message = `COMPACT_HANDOFF ${JSON.stringify(h.handoff)}`;
+  for (const [tool, input, fork] of [
+    ["spawn_agent", { message, agent_type: "worker", model: "configured", reasoning_effort: "high", fork_context: true }, { fork_context: false }],
+    ["collaboration.spawn_agent", { message, task_name: "owned", fork_turns: "all", agent_type: "worker", model: "configured" }, { fork_turns: "none" }],
+    ["collaborationspawn_agent", { message, task_name: "owned", fork_turns: "all", agent_type: "worker", model: "configured" }, { fork_turns: "none" }],
+  ]) {
+    const out = deliveryAgentHook({ hook_event_name: "PreToolUse", tool_name: tool, cwd: repo, tool_input: input }).hookSpecificOutput;
+    assert.equal(out.permissionDecision, "allow");
+    assert.deepEqual(out.updatedInput, { ...input, ...fork, message: h.bundle.prompt });
+  }
+  const audit = fs.readFileSync(path.join(repo, "qa/.delivery/context/agent-dispatch.jsonl"), "utf8");
+  assert.equal(audit.split("\n").filter(Boolean).length, 3);
+  assert.ok(!audit.includes(request.task.purpose) && !audit.includes("x1 ="));
+});
+
+test("agent-hook: Claude rewrite preserves model, mode and isolation without permission allow", () => {
+  const { repo, request } = handoffFixture(), h = deliveryHandoff(repo, request);
+  const input = { prompt: `COMPACT_HANDOFF ${JSON.stringify(h.handoff)}`, description: "Inspect", subagent_type: "general-purpose", model: "sonnet", mode: "default", isolation: "worktree", run_in_background: false };
+  for (const tool of ["Agent", "Task"]) {
+    const out = deliveryAgentHook({ hook_event_name: "PreToolUse", tool_name: tool, cwd: repo, tool_input: input }).hookSpecificOutput;
+    assert.equal(out.permissionDecision, undefined); assert.deepEqual(out.updatedInput, { ...input, prompt: h.bundle.prompt });
+  }
+});
+
+test("agent-hook: followups preserve target/interrupt and cannot clear already inherited history", () => {
+  const { repo, request } = handoffFixture(), h = deliveryHandoff(repo, request);
+  const message = `COMPACT_HANDOFF ${JSON.stringify(h.handoff)}`;
+  for (const [tool, input] of [["send_input", { id: "existing-agent", interrupt: false, message }], ["collaborationsend_input", { id: "existing-agent", interrupt: false, message }], ["multi_agent_v1send_input", { id: "existing-agent", interrupt: false, message }], ["collaboration.followup_task", { target: "maker", message }], ["collaborationfollowup_task", { target: "maker", message }], ["collaboration.send_message", { target: "maker", message }], ["collaborationsend_message", { target: "maker", message }]]) {
+    const out = deliveryAgentHook({ hook_event_name: "PreToolUse", tool_name: tool, cwd: repo, tool_input: input }).hookSpecificOutput;
+    assert.deepEqual(out.updatedInput, { ...input, message: h.bundle.prompt });
+    assert.equal(out.updatedInput.fork_turns, undefined);
+  }
+});
+
+test("agent-hook: raw history, mixed/unknown schemas, multimodal items, resume and missing cwd deny", () => {
+  const { repo, request } = handoffFixture(), h = deliveryHandoff(repo, request);
+  const message = `COMPACT_HANDOFF ${JSON.stringify(h.handoff)}`;
+  const base = { hook_event_name: "PreToolUse", tool_name: "spawn_agent", cwd: repo, tool_input: { message } };
+  const cases = [
+    { tool_input: { message: "Copied parent conversation and full logs" } },
+    { tool_name: "collaborationspawn_agent", tool_input: { message: "opaque-encrypted-test-value", task_name: "owned" } },
+    { tool_name: "collaborationfollowup_task", tool_input: { message: "opaque-encrypted-test-value", target: "maker" } },
+    { tool_name: "collaborationsend_message", tool_input: { message: "opaque-encrypted-test-value", target: "maker" } },
+    { tool_input: { message: message + "\nparent transcript" } },
+    { tool_input: { message, task_name: "v2", fork_context: false } },
+    { tool_input: { message, fork_turns: "all" } },
+    { tool_input: { message, unknown: true } },
+    { tool_input: { message, items: [{ type: "text", text: "more history" }] } },
+    { tool_input: { message: "COMPACT_HANDOFF {broken}" } },
+    { tool_input: { message: "x".repeat(1025) } },
+    { cwd: undefined }, { cwd: "relative" },
+    { tool_name: "Agent", tool_input: { prompt: message, description: "resume", subagent_type: "general-purpose", resume: "old" } },
+  ];
+  for (const change of cases) assert.equal(deliveryAgentHook({ ...base, ...change }).hookSpecificOutput.permissionDecision, "deny");
+  assert.deepEqual(deliveryAgentHook({ ...base, tool_name: "mcp__slack__send_message" }), {});
+  assert.deepEqual(deliveryAgentHook({ ...base, tool_name: "othercollaborationspawn_agent" }), {});
+});
+
+test("agent-hook: stale/tampered/wrong-workspace bundles deny before dispatch", () => {
+  const { repo, request } = handoffFixture(), h = deliveryHandoff(repo, request);
+  const event = { hook_event_name: "PreToolUse", tool_name: "spawn_agent", cwd: repo, tool_input: { message: `COMPACT_HANDOFF ${JSON.stringify(h.handoff)}` } };
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), "other-context-"));
+  fs.mkdirSync(path.dirname(path.join(other, h.handoff.path)), { recursive: true });
+  fs.copyFileSync(path.join(repo, h.handoff.path), path.join(other, h.handoff.path));
+  assert.equal(deliveryAgentHook({ ...event, cwd: other }).hookSpecificOutput.permissionDecision, "deny");
+  fs.appendFileSync(path.join(repo, "src/util.py"), "changed\n");
+  assert.equal(deliveryAgentHook(event).hookSpecificOutput.permissionDecision, "deny");
+  fs.appendFileSync(path.join(repo, h.handoff.path), "tampered");
+  assert.equal(deliveryAgentHook(event).hookSpecificOutput.permissionDecision, "deny");
+});
+
+test("agent-hook: CLI malformed/oversize stdin emits valid native denial, never raw content", () => {
+  for (const input of ["{bad JSON secret", "x".repeat(131073)]) {
+    const r = spawnSync(process.execPath, [TOOL, "--delivery", "agent-hook"], { input, encoding: "utf8" });
+    assert.equal(r.status, 0); assert.equal(JSON.parse(r.stdout).hookSpecificOutput.permissionDecision, "deny");
+    assert.ok(!r.stdout.includes("secret"));
+  }
+});
+
+test("handoff: stable shared prefix, task delta, immutable local cache and honest read accounting", () => {
+  const { repo, request } = handoffFixture();
+  const first = deliveryHandoff(repo, request), next = deliveryHandoff(repo, request);
+  assert.equal(first.metrics.cache_hit, false); assert.equal(next.metrics.cache_hit, true);
+  assert.deepEqual(first.handoff, next.handoff); assert.equal(first.bundle.prompt, next.bundle.prompt);
+  assert.ok(next.metrics.source_verification_read_bytes > next.metrics.selected_source_bytes);
+  const changed = cloneDelivery(request); changed.task.purpose = "Different specialized task";
+  const delta = deliveryHandoff(repo, changed);
+  assert.equal(delta.bundle.prefix_sha256, first.bundle.prefix_sha256); assert.notEqual(delta.handoff.sha256, first.handoff.sha256);
+  assert.match(first.bundle.prompt, /UNTRUSTED DATA/); assert.ok(first.bundle.prompt.indexOf("<source_data>") < first.bundle.prompt.indexOf("<task>"));
+});
+
+for (const [name, mutate] of [
+  ["wrong source hash", q => q.sources[0].sha256 = "0".repeat(64)],
+  ["path escape", q => q.sources[0].path = "../elsewhere.py"],
+  ["duplicate source alias", q => q.sources.push(cloneDelivery(q.sources[0]))],
+  ["overlapping ranges", q => q.sources[0].ranges = [[1, 3], [3, 4]]],
+  ["out of range", q => q.sources[0].ranges = [[1, 99999]]],
+  ["source byte budget", q => q.bounds.max_source_bytes = 1],
+  ["prompt byte budget", q => q.bounds.max_prompt_bytes = 10],
+  ["copied conversation", q => q.history = "copied parent history"],
+  ["task transcript", q => q.task.transcript = "maker reasoning"],
+]) test(`handoff: ${name} rejects before cache writes`, () => {
+  const { repo, request } = handoffFixture(); mutate(request);
+  assert.throws(() => deliveryHandoff(repo, request));
+  assert.equal(fs.existsSync(path.join(repo, "qa/.delivery/context")), false);
+});
+
+test("handoff: same size and mtime cannot conceal source changes", () => {
+  const { repo, request } = handoffFixture(); deliveryHandoff(repo, request);
+  const file = path.join(repo, request.sources[0].path), stat = fs.statSync(file);
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("x1", "y1")); fs.utimesSync(file, stat.atime, stat.mtime);
+  assert.throws(() => deliveryHandoff(repo, request), /stale handoff source/);
+});
+
+test("handoff: reparse sources refused", () => {
+  const { repo, request } = handoffFixture();
+  fs.symlinkSync(path.join(repo, "src"), path.join(repo, "linked"), process.platform === "win32" ? "junction" : "dir");
+  request.sources[0].path = "linked/util.py";
+  assert.throws(() => deliveryHandoff(repo, request), /symlink\/reparse/);
+});
+
+test("handoff: native adapters preserve model/security argv and bind input identity", () => {
+  const { repo, p, request } = handoffFixture(); const result = deliveryHandoff(repo, request);
+  p.tasks[0].handoff = result.handoff;
+  p.tasks[0].command = ["C:/installed/codex.exe", "exec", "--json", "--model", "unchanged", "--permission-profile", ":workspace", "{{HANDOFF}}"];
+  const prepared = deliveryPrepare(repo, p);
+  assert.deepEqual(prepared.tasks[0].command, [...p.tasks[0].command.slice(0, -1), "-"]);
+  const second = cloneDelivery(prepared.tasks[0]); second.id = "other"; second.owner = "other"; second.owns = ["src/a.py"];
+  const alternate = cloneDelivery(request); alternate.task.id = second.id; alternate.task.owner = second.owner;
+  second.handoff = deliveryHandoff(repo, alternate).handoff;
+  const multi = cloneDelivery(prepared); multi.tasks.push(second);
+  const metrics = { source_read_calls: 0, source_read_bytes: 0, bundle_read_calls: 0, bundle_read_bytes: 0 };
+  deliveryValidate(repo, multi, { contextMetrics: metrics });
+  assert.equal(metrics.source_read_calls, 1, "same file verified once per phase, not once per owned task");
+  assert.equal(metrics.bundle_read_calls, 2);
+  assert.equal(deliveryClaim(repo, prepared, { managed: true }).status, "running");
+  const state = deliveryStatus(repo, p.workflow_id);
+  assert.equal(state.attempts[0].execution_identity.context_id, result.handoff.sha256);
+  const check = reuseCheck({ root: repo, sha: p.candidate.head, evidence: { context_id: "old" }, current: { context_id: "new" } });
+  assert.equal(check.reuse, false); assert.match(check.offending[0], /context identity/);
+});
+
+test("handoff: Claude retains default prompt/hooks; unknown clients and replacement flags refuse", () => {
+  const { repo, p, request } = handoffFixture(); p.tasks[0].handoff = deliveryHandoff(repo, request).handoff;
+  p.tasks[0].command = ["C:/installed/claude.exe", "--print", "--model", "unchanged", "{{HANDOFF}}"];
+  const prepared = deliveryPrepare(repo, p);
+  assert.ok(prepared.tasks[0].command.includes("--exclude-dynamic-system-prompt-sections"));
+  assert.ok(prepared.tasks[0].command.includes("unchanged"));
+  for (const flag of ["--bare", "--system-prompt=replace", "--system-prompt-file=replace"]) {
+    const q = cloneDelivery(prepared); q.tasks[0].command.push(flag); assert.throws(() => deliveryValidate(repo, q), /replaced default prompt/);
+  }
+  const q = cloneDelivery(p); q.tasks[0].command[0] = "C:/installed/other.exe";
+  assert.throws(() => deliveryPrepare(repo, q), /unsupported handoff client/);
+  const wrong = cloneDelivery(prepared); wrong.tasks[0].owner = "different"; assert.throws(() => deliveryValidate(repo, wrong), /ownership mismatch/);
+});
+
+test("handoff: tampered or stale bound bundle cannot dispatch", () => {
+  const { repo, p, request } = handoffFixture(); const h = deliveryHandoff(repo, request).handoff;
+  p.tasks[0].handoff = h; p.tasks[0].command = ["C:/installed/codex.exe", "exec", "-"];
+  const prepared = deliveryPrepare(repo, p); const file = path.join(repo, h.path), raw = fs.readFileSync(file);
+  fs.appendFileSync(file, " "); assert.throws(() => deliveryValidate(repo, prepared), /bundle hash mismatch/);
+  fs.writeFileSync(file, raw); fs.appendFileSync(path.join(repo, "src/util.py"), "# stale\n");
+  // Bound candidate and source hashes are separately checked before admission.
+  assert.throws(() => deliveryClaim(repo, prepared), /stale input|stale handoff source/);
+});
+
+test("handoff: concurrent producers publish one identical immutable bundle", async () => {
+  const { repo, request } = handoffFixture(); const file = path.join(repo, "handoff.json"); fs.writeFileSync(file, JSON.stringify(request));
+  const launch = () => new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [TOOL, "--delivery", "handoff", file, "--root", repo], { encoding: "utf8" }); let out = "", err = "";
+    child.stdout.on("data", d => out += d); child.stderr.on("data", d => err += d); child.once("error", reject);
+    child.once("close", code => code === 0 ? resolve(JSON.parse(out)) : reject(new Error(err)));
+  });
+  const results = await Promise.all([launch(), launch()]);
+  assert.deepEqual(results[0].handoff, results[1].handoff);
+  assert.equal(fs.readdirSync(path.join(repo, "qa/.delivery/context")).length, 1);
+});
+
+function recoveryRequest(repo, previous, now = Date.now()) {
+  const packet = cloneDelivery(previous);
+  packet.budget.deadline = new Date(now + 30000).toISOString();
+  packet.budget.estimate_ms = 30000;
+  packet.budget.estimate_provenance = "Explicit authorized bounded recovery of outstanding acceptance";
+  packet.dispatch = { task_id: "check", attempt_id: "recovery-check" };
+  return { previous_packet: cloneDelivery(previous), packet, recovery: {
+    id: "recover1", authorized_by: "Umesh", authorization_ref: "test-human-request-1",
+    reason: "Verified capability changed; finish outstanding acceptance without resetting history",
+    max_elapsed_ms: 30000,
+    expected_state_sha256: createHash("sha256").update(fs.readFileSync(path.join(repo, "qa/.delivery", `${previous.workflow_id}.json`))).digest("hex")
+  } };
+}
+
+test("delivery recovery: same-lineage resume preserves history, invalidates stale acceptance and executes bounded check", async () => {
+  const { repo, p } = deliveryFixture();
+  p.tasks[1].depends_on = [];
+  p.dispatch = { task_id: "check", attempt_id: "before" };
+  const run = await deliveryRun(repo, p);
+  assert.equal(run.status, "success");
+  deliveryRecord(repo, { packet: p, acceptance: { criterion_id: "C1", reviewer: "independent", role: "checker", receipt_sha256: run.receipt_sha256 } });
+  const file = path.join(repo, "qa/.delivery/workflow.json"), before = fs.readFileSync(file), prior = JSON.parse(before);
+  const receiptFile = path.join(repo, "qa/.delivery", `${run.receipt_sha256}.receipt.json`), receipt = fs.readFileSync(receiptFile);
+  const now = Date.parse(p.budget.deadline) + 1;
+  const request = recoveryRequest(repo, p, now);
+  fs.appendFileSync(path.join(repo, "src/util.py"), "# recovered candidate\n");
+  request.packet = deliveryPrepare(repo, request.packet);
+  assert.throws(() => deliveryClaim(repo, request.packet, { now }), /cannot reset\/expand budget/);
+  const recovered = deliveryResume(repo, request, { now });
+  assert.equal(recovered.status, "resumed");
+  let state = deliveryStatus(repo, p.workflow_id, { now });
+  assert.deepEqual(state.cumulative, prior.cumulative); assert.deepEqual(state.attempts, prior.attempts);
+  assert.deepEqual(state.accepted, prior.accepted); assert.equal(state.current_accepted.length, 0);
+  assert.equal(state.started_at, prior.started_at); assert.equal(state.last_acceptance_at, prior.last_acceptance_at);
+  assert.equal(state.closure, true); assert.deepEqual(fs.readFileSync(receiptFile), receipt);
+  assert.deepEqual(fs.readFileSync(path.join(repo, state.recoveries[0].snapshot_file)), before);
+  assert.throws(() => deliveryRecord(repo, { packet: request.packet, acceptance: prior.accepted[0] }), /identity invalidated/);
+  assert.throws(() => deliveryResume(repo, request, { now }), /stale recovery state|duplicate recovery/);
+  const build = cloneDelivery(request.packet); build.dispatch = { task_id: "build", attempt_id: "b2" };
+  assert.throws(() => deliveryClaim(repo, build, { now }), /closure mode denies expansion/);
+  // Use a current wall deadline for actual execution after simulated exhaustion.
+  assert.ok(Date.parse(request.packet.budget.deadline) - now <= request.recovery.max_elapsed_ms);
+  const next = await deliveryRun(repo, request.packet); assert.equal(next.status, "success");
+  deliveryRecord(repo, { packet: request.packet, acceptance: { criterion_id: "C1", reviewer: "independent", role: "checker", receipt_sha256: next.receipt_sha256 } });
+  state = deliveryStatus(repo, p.workflow_id);
+  assert.equal(state.current_accepted.length, 1); assert.equal(state.accepted.length, 2);
+  assert.equal(state.cumulative.attempts, prior.cumulative.attempts + 1);
+  fs.appendFileSync(path.join(repo, "src/util.py"), "# drift after acceptance\n");
+  assert.equal(deliveryStatus(repo, p.workflow_id).current_accepted.length, 0);
+  assert.equal(deliveryStatus(repo, p.workflow_id).acceptance_identity_status, "INVALIDATED");
+});
+
+test("delivery recovery: malformed, stale, active, expansion and replay requests never mutate ledger", async () => {
+  const { repo, p } = deliveryFixture(); p.tasks[1].depends_on = []; p.dispatch.task_id = "check";
+  assert.equal((await deliveryRun(repo, p)).status, "success");
+  const file = path.join(repo, "qa/.delivery/workflow.json"), raw = fs.readFileSync(file);
+  const now = Date.parse(p.budget.deadline) + 1, request = recoveryRequest(repo, p, now);
+  const beforeFiles = fs.readdirSync(path.dirname(file)).sort();
+  for (const mutate of [
+    q => q.recovery.expected_state_sha256 = "0".repeat(64), q => delete q.recovery.authorization_ref,
+    q => q.recovery.max_elapsed_ms = 60000, q => q.packet.criteria[0].description = "weakened",
+    q => q.packet.tasks[1].owns = ["elsewhere"], q => q.packet.tasks[0].command = [process.execPath, "-e", ""],
+    q => q.packet.workflow_id = q.packet.root_run_id = "renamed", q => q.packet.budget.token_cap = 999999,
+    q => q.packet.dispatch.task_id = "build", q => q.previous_packet.tasks[0].owner = "forged"
+  ]) {
+    const bad = cloneDelivery(request); mutate(bad); assert.throws(() => deliveryResume(repo, bad, { now }));
+    assert.deepEqual(fs.readFileSync(file), raw); assert.deepEqual(fs.readdirSync(path.dirname(file)).sort(), beforeFiles);
+  }
+  deliveryClaim(repo, { ...p, dispatch: { task_id: "check", attempt_id: "live" } });
+  const activeRaw = fs.readFileSync(file); request.recovery.expected_state_sha256 = createHash("sha256").update(activeRaw).digest("hex");
+  assert.throws(() => deliveryResume(repo, request, { now }), /active attempts/);
+  assert.deepEqual(fs.readFileSync(file), activeRaw);
+});
+
+test("delivery recovery: CLI resumes legacy ledger once, reused authorization and third epoch refuse", async () => {
+  const { repo, p } = deliveryFixture(); p.tasks[1].depends_on = []; p.dispatch.task_id = "check";
+  assert.equal((await deliveryRun(repo, p)).status, "success");
+  const file = path.join(repo, "qa/.delivery/workflow.json"), state = JSON.parse(fs.readFileSync(file));
+  state.closure = true; fs.writeFileSync(file, JSON.stringify(state));
+  const q = recoveryRequest(repo, p), requestFile = path.join(repo, "recovery.json");
+  fs.writeFileSync(requestFile, JSON.stringify(q));
+  const cli = tick(repo, ["--delivery", "resume", requestFile, "--root", repo]);
+  assert.equal(cli.status, 0, cli.all); assert.equal(JSON.parse(cli.out).status, "resumed");
+  const second = recoveryRequest(repo, q.packet); second.recovery.id = "recover2";
+  assert.throws(() => deliveryResume(repo, second), /duplicate recovery/);
+  second.recovery.authorization_ref = "test-human-request-2";
+  deliveryResume(repo, second);
+  const third = recoveryRequest(repo, second.packet); third.recovery.id = "recover3"; third.recovery.authorization_ref = "test-human-request-3";
+  const before = fs.readFileSync(file); assert.throws(() => deliveryResume(repo, third), /epoch limit/);
+  assert.deepEqual(fs.readFileSync(file), before);
+});
+
+test("delivery recovery: exact input revert can reaccept reusable receipt as a new visible event", async () => {
+  const { repo, p } = deliveryFixture(); p.tasks[1].depends_on = []; p.dispatch.task_id = "check";
+  const input = path.join(repo, "src/util.py"), original = fs.readFileSync(input);
+  const run = await deliveryRun(repo, p); assert.equal(run.status, "success");
+  const acceptance = { criterion_id: "C1", reviewer: "independent", role: "checker", receipt_sha256: run.receipt_sha256 };
+  deliveryRecord(repo, { packet: p, acceptance });
+  const now = Date.parse(p.budget.deadline) + 1, first = recoveryRequest(repo, p, now);
+  fs.appendFileSync(input, "# invalidate\n"); first.packet = deliveryPrepare(repo, first.packet);
+  deliveryResume(repo, first, { now }); assert.equal(deliveryStatus(repo, p.workflow_id).current_accepted.length, 0);
+  const file = path.join(repo, "qa/.delivery/workflow.json"), legacy = JSON.parse(fs.readFileSync(file));
+  delete legacy.invalidated_acceptances[0].acceptance_index; fs.writeFileSync(file, JSON.stringify(legacy));
+  const second = recoveryRequest(repo, first.packet, now + 1);
+  second.recovery.id = "recover2"; second.recovery.authorization_ref = "test-human-request-2";
+  fs.writeFileSync(input, original); second.packet = deliveryPrepare(repo, second.packet);
+  deliveryResume(repo, second, { now: now + 1 });
+  assert.equal(deliveryRecord(repo, { packet: second.packet, acceptance }).status, "criterion-accepted");
+  const state = deliveryStatus(repo, p.workflow_id);
+  assert.equal(state.current_accepted.length, 1); assert.equal(state.accepted.length, 2);
+  assert.equal(state.cumulative.attempts, 1, "same valid evidence reused without another product check");
+  assert.throws(() => deliveryRecord(repo, { packet: second.packet, acceptance }), /duplicate/);
+});
+
+test("delivery: producer template roundtrip and CLI contract", () => {
+  const { repo, p } = deliveryFixture();
+  assert.equal(p.schema_version, DELIVERY_VERSION);
+  assert.equal(deliveryValidate(repo, p), p);
+  const generated = tick(repo, ["--delivery", "template", "--root", repo]);
+  assert.equal(generated.status, 0, generated.all);
+  assert.equal(JSON.parse(generated.out).schema_version, DELIVERY_VERSION);
+  assert.deepEqual(JSON.parse(generated.out).candidate.files, []);
+  assert.equal(JSON.parse(generated.out).budget.estimate_tokens, null);
+  assert.throws(() => deliveryValidate(repo, JSON.parse(generated.out)), /pin policy/);
+  const file = path.join(repo, "packet.json"); fs.writeFileSync(file, JSON.stringify(p));
+  assert.equal(tick(repo, ["--delivery", "validate", file, "--root", repo]).status, 0);
+  assert.equal(fs.existsSync(path.join(repo, "qa/.delivery")), false);
+});
+
+test("delivery: prepare computes hashes/runtime/dirty identity from explicit plan without writes", () => {
+  const { repo, p } = deliveryFixture();
+  const plan = cloneDelivery(p);
+  plan.candidate = { files: ["src/util.py", "src/a.py"] };
+  for (const k of ["policy_id", "protocol_id", "config_id", "dependency_id"]) { delete plan[k]; delete plan.identity_files[k].sha256; }
+  fs.appendFileSync(path.join(repo, "src/a.py"), "# peer dirty\n");
+  const prepared = deliveryPrepare(repo, plan);
+  assert.deepEqual(prepared.candidate.dirty_inputs, ["src/a.py"]);
+  assert.equal(prepared.policy_id.length, 64); assert.equal(prepared.budget.estimate_tokens, null);
+  assert.equal(deliveryValidate(repo, prepared), prepared);
+  const file = path.join(repo, "plan.json"); fs.writeFileSync(file, JSON.stringify(plan));
+  const result = tick(repo, ["--delivery", "prepare", file, "--root", repo]);
+  assert.equal(result.status, 0, result.all); assert.deepEqual(JSON.parse(result.out), prepared);
+  assert.equal(fs.existsSync(path.join(repo, "qa/.delivery")), false);
+});
+
+test("delivery: required fields, candidate hash and Windows path aliases fail before writes", () => {
+  const { repo, p } = deliveryFixture();
+  for (const mutate of [
+    (q) => delete q.budget.estimate_provenance, (q) => q.schema_version = "other/1",
+    (q) => q.candidate.head = "f".repeat(40), (q) => q.candidate.files[0].sha256 = "0".repeat(64),
+    ...["../escape", "SRC/../src", "src/CON.txt", "src/util.py.", "src/util.py:stream", "D:\\escape", "src//a", "src/"].map((f) => (q) => q.tasks[0].owns = [f]),
+    (q) => q.tasks[0].owns = ["src", "SRC/util.py"], (q) => q.tasks[0].command = ["node", "bad\0value"],
+    (q) => q.tasks[0].max_output_bytes = Infinity, (q) => q.resource_caps.cpu = 0,
+  ]) { const q = cloneDelivery(p); mutate(q); assert.throws(() => deliveryClaim(repo, q)); }
+  assert.equal(fs.existsSync(path.join(repo, "qa/.delivery")), false);
+});
+
+test("delivery: explicitly bound dirty inputs are valid; unrelated dirt does not invalidate", () => {
+  const { repo, p } = deliveryFixture();
+  fs.writeFileSync(path.join(repo, "unrelated.txt"), "peer");
+  assert.doesNotThrow(() => deliveryValidate(repo, p));
+  fs.appendFileSync(path.join(repo, "src/util.py"), "# peer\n");
+  p.candidate.files[0].sha256 = createHash("sha256").update(fs.readFileSync(path.join(repo, "src/util.py"))).digest("hex");
+  assert.throws(() => deliveryValidate(repo, p), /dirty input must be explicit/);
+  p.candidate.dirty_inputs = ["src/util.py"];
+  assert.doesNotThrow(() => deliveryValidate(repo, p));
+});
+
+test("delivery: cyclic/missing DAG producer and pending producer cannot be admitted", () => {
+  const { repo, p } = deliveryFixture();
+  const q = cloneDelivery(p); q.tasks[0].depends_on = ["check"];
+  assert.throws(() => deliveryClaim(repo, q), /DAG cycle/);
+  q.tasks[0].depends_on = ["missing"];
+  assert.throws(() => deliveryClaim(repo, q), /missing DAG producer/);
+  p.dispatch.task_id = "check";
+  assert.throws(() => deliveryClaim(repo, p), /missing successful producer/);
+});
+
+test("delivery: duplicate attempt, parent ownership and capacity reject; disjoint jobs coexist", () => {
+  const { repo, p } = deliveryFixture();
+  p.resource_caps.cpu = 3;
+  p.tasks.push({ ...cloneDelivery(p.tasks[0]), id: "second", owns: ["src/a.py"] });
+  deliveryClaim(repo, p);
+  assert.throws(() => deliveryClaim(repo, p), /duplicate task\/attempt/);
+  p.dispatch = { task_id: "second", attempt_id: "a2" };
+  assert.equal(deliveryClaim(repo, p).status, "claimed");
+  assert.equal(deliveryStatus(repo, p.workflow_id).attempts.filter((a) => a.status === "claimed").length, 2);
+  const { repo: r2, p: p2 } = deliveryFixture();
+  p2.tasks.push({ ...cloneDelivery(p2.tasks[0]), id: "parent", owns: ["SRC"] });
+  deliveryClaim(r2, p2); p2.dispatch = { task_id: "parent", attempt_id: "a2" };
+  assert.throws(() => deliveryClaim(r2, p2), /ownership overlap/);
+  const { repo: r3, p: p3 } = deliveryFixture();
+  p3.tasks.push({ ...cloneDelivery(p3.tasks[0]), id: "second", owns: ["src/a.py"] });
+  deliveryClaim(r3, p3); p3.dispatch = { task_id: "second", attempt_id: "a2" };
+  assert.throws(() => deliveryClaim(r3, p3), /capacity/);
+});
+
+test("delivery: simultaneous duplicate admission is atomic", async () => {
+  const { repo, p } = deliveryFixture();
+  const file = path.join(repo, "p.json"); fs.writeFileSync(file, JSON.stringify(p));
+  const invoke = () => new Promise((resolve) => {
+    const c = spawn(process.execPath, [TOOL, "--delivery", "claim", file, "--root", repo], { stdio: "ignore" });
+    c.on("close", resolve);
+  });
+  const codes = await Promise.all([invoke(), invoke()]);
+  assert.deepEqual(codes.sort(), [0, 1]);
+  assert.equal(deliveryStatus(repo, p.workflow_id).cumulative.attempts, 1);
+});
+
+test("delivery: busy-agent closure survives restart/relabel and allows planned repair", () => {
+  const { repo, p } = deliveryFixture();
+  p.tasks.push({ ...cloneDelivery(p.tasks[0]), id: "repair", kind: "repair", owns: ["src/a.py"] });
+  const now = Date.now(); deliveryClaim(repo, p, { now });
+  assert.equal(deliveryStatus(repo, p.workflow_id, { now: now + 60001 }).closure, true);
+  p.dispatch = { task_id: "repair", attempt_id: "r1" };
+  assert.equal(deliveryClaim(repo, p, { now: now + 60001 }).closure, true);
+  assert.equal(deliveryStatus(repo, p.workflow_id).last_acceptance_at, now);
+  const q = cloneDelivery(p); q.budget.deadline = new Date(now + 999999).toISOString();
+  assert.throws(() => deliveryClaim(repo, q), /cannot reset\/expand budget/);
+  q.budget = p.budget; q.tasks[0].id = "relabeled"; q.tasks[1].depends_on = ["relabeled"];
+  assert.throws(() => deliveryClaim(repo, q), /cannot be relabeled/);
+  q.tasks = p.tasks; q.workflow_id = "newlineage"; q.root_run_id = q.workflow_id;
+  assert.throws(() => deliveryClaim(repo, q), /feature lineage already exists/);
+});
+
+test("delivery: real execution receipts bind acceptance; duplicate/invalid acceptance rejected", async () => {
+  const { repo, p } = deliveryFixture();
+  const built = await deliveryRun(repo, p); assert.equal(built.status, "success", JSON.stringify(built));
+  assert.equal(deliveryStatus(repo, p.workflow_id).accepted.length, 0);
+  p.dispatch = { task_id: "check", attempt_id: "c1" };
+  const checked = await deliveryRun(repo, p); assert.equal(checked.status, "success", JSON.stringify(checked));
+  // Bookkeeping HEAD changes keep execution inputs identical and do not launch another command.
+  commit(repo, { "qa/manifests/receipt-note.md": "receipt metadata only\n" });
+  p.candidate.head = git(repo, "rev-parse", "HEAD");
+  const request = { packet: p, acceptance: { criterion_id: "C1", reviewer: "independent", role: "checker", receipt_sha256: checked.receipt_sha256 } };
+  const invalid = cloneDelivery(request); invalid.acceptance.receipt_sha256 = built.receipt_sha256;
+  assert.throws(() => deliveryRecord(repo, invalid), /criterion check/);
+  invalid.acceptance = { ...request.acceptance, reviewer: "checker" };
+  assert.throws(() => deliveryRecord(repo, invalid), /independent/);
+  assert.equal(deliveryRecord(repo, request).status, "criterion-accepted");
+  assert.equal(deliveryStatus(repo, p.workflow_id).cumulative.attempts, 2);
+  assert.throws(() => deliveryRecord(repo, request), /duplicate/);
+  assert.equal(deliveryStatus(repo, p.workflow_id).token_status, "UNKNOWN");
+  const receiptFile = path.join(repo, "qa/.delivery", `${checked.receipt_sha256}.receipt.json`);
+  fs.appendFileSync(receiptFile, " ");
+  const { repo: r2, p: p2 } = deliveryFixture();
+  const run = await deliveryRun(r2, p2);
+  fs.appendFileSync(path.join(r2, "qa/.delivery", `${run.receipt_sha256}.receipt.json`), " ");
+  p2.dispatch = { task_id: "check", attempt_id: "c1" };
+  assert.throws(() => deliveryClaim(r2, p2), /receipt hash mismatch/);
+});
+
+test("delivery: bounded timeout/output kill descendants while unrelated process remains alive", async () => {
+  const { repo, p } = deliveryFixture();
+  const unrelated = spawn(process.execPath, ["-e", "setInterval(()=>{},1000)"], { stdio: "ignore" });
+  try {
+    p.tasks[0].timeout_ms = process.platform === "win32" ? 5000 : 500;
+    p.tasks[0].command = [process.execPath, "-e", "const {spawn}=require('child_process'); const c=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'inherit'}); console.log(c.pid); setInterval(()=>{},1000)"];
+    const r = await deliveryRun(repo, p);
+    assert.equal(r.status, "incomplete"); assert.equal(r.receipt.reason, "deadline-exhausted");
+    assert.ok(r.receipt.elapsed_ms < p.tasks[0].timeout_ms + 4000);
+    const log = fs.readFileSync(path.join(repo, r.receipt.evidence.log_file), "utf8").trim();
+    assert.match(log, /^\d+$/);
+    const descendant = Number(log); assert.throws(() => process.kill(descendant, 0), /ESRCH|no such process/);
+    assert.doesNotThrow(() => process.kill(unrelated.pid, 0));
+  } finally { unrelated.kill("SIGKILL"); }
+  const { repo: r2, p: p2 } = deliveryFixture();
+  p2.tasks[0].max_output_bytes = 128;
+  p2.tasks[0].command = [process.execPath, "-e", "process.stdout.write('x'.repeat(200000));setInterval(()=>{},1000)"];
+  const output = await deliveryRun(r2, p2);
+  assert.equal(output.status, "incomplete"); assert.equal(output.receipt.reason, "output-exhausted");
+  assert.equal(fs.statSync(path.join(r2, output.receipt.evidence.log_file)).size, 128);
+});
+
+test("delivery: stale policy/runtime identity cannot launch; null token measurements stay UNKNOWN", () => {
+  const { repo, p } = deliveryFixture();
+  for (const k of ["policy_id", "protocol_id", "config_id", "dependency_id", "runtime_id"]) {
+    const q = cloneDelivery(p); q[k] = "0".repeat(64);
+    assert.throws(() => deliveryClaim(repo, q), /identity|source/);
+  }
+  assert.equal(p.budget.token_cap, null); assert.equal(deliveryClaim(repo, p).token_status, "UNKNOWN");
+});
+
+test("delivery: build output changes feed DAG completion; stale check inputs reject acceptance", async () => {
+  const { repo, p } = deliveryFixture();
+  p.tasks[0].command = [process.execPath, "-e", "require('fs').appendFileSync('src/util.py','# result\\n');console.log('built')"];
+  const built = await deliveryRun(repo, p); assert.equal(built.status, "success");
+  p.candidate.files[0].sha256 = createHash("sha256").update(fs.readFileSync(path.join(repo, "src/util.py"))).digest("hex");
+  p.candidate.dirty_inputs = ["src/util.py"]; p.dispatch = { task_id: "check", attempt_id: "c1" };
+  const checked = await deliveryRun(repo, p); assert.equal(checked.status, "success");
+  fs.appendFileSync(path.join(repo, "src/util.py"), "# invalidated\n");
+  p.candidate.files[0].sha256 = createHash("sha256").update(fs.readFileSync(path.join(repo, "src/util.py"))).digest("hex");
+  assert.throws(() => deliveryRecord(repo, { packet: p, acceptance: { criterion_id: "C1", reviewer: "independent", role: "checker", receipt_sha256: checked.receipt_sha256 } }), /identity invalidated/);
+});
+
+test("delivery: independent simultaneous ownership/resource claims have one winner", async () => {
+  for (const overlap of [true, false]) {
+    const { repo, p } = deliveryFixture();
+    p.tasks.push({ ...cloneDelivery(p.tasks[0]), id: "second", owns: overlap ? ["src"] : ["src/a.py"] });
+    const q = cloneDelivery(p); q.dispatch = { task_id: "second", attempt_id: "a2" };
+    const invoke = (packet, file) => new Promise((resolve) => {
+      fs.writeFileSync(path.join(repo, file), JSON.stringify(packet));
+      const c = spawn(process.execPath, [TOOL, "--delivery", "claim", file, "--root", repo], { stdio: "ignore" }); c.on("close", resolve);
+    });
+    const results = await Promise.all([invoke(p, "first.json"), invoke(q, "second.json")]);
+    assert.deepEqual(results.sort(), [0, 1], overlap ? "ownership" : "capacity");
+    assert.equal(deliveryStatus(repo, p.workflow_id).cumulative.attempts, 1);
+  }
+});
+
+test("delivery: lock contention never evicts even an old owner; closure rejects planned expansion", () => {
+  const { repo, p } = deliveryFixture();
+  p.tasks.push({ ...cloneDelivery(p.tasks[0]), id: "second", owns: ["src/a.py"] });
+  const now = Date.now(); deliveryClaim(repo, p, { now });
+  const lock = path.join(repo, "qa/.delivery/admission.lock"); fs.writeFileSync(lock, JSON.stringify({ pid: process.pid, started: "2000-01-01" }));
+  p.dispatch = { task_id: "second", attempt_id: "a2" };
+  assert.throws(() => deliveryClaim(repo, p), /admission busy/); assert.equal(fs.existsSync(lock), true); fs.unlinkSync(lock);
+  assert.throws(() => deliveryClaim(repo, p, { now: now + 60001 }), /closure mode denies expansion/);
+});
+
+test("delivery: closeout wall reserve bounds builds and claim-to-run cannot reset timeout", () => {
+  const { repo, p } = deliveryFixture();
+  const now = Date.now(); p.budget.deadline = new Date(now + 25000).toISOString(); p.budget.closeout_ms = 10000;
+  const admitted = deliveryClaim(repo, p, { now });
+  assert.equal(admitted.expires_at, now + 15000);
+  assert.throws(() => deliveryClaim(repo, p, { now: now + 15001, managed: true }), /closure|deadline exhausted/);
+  assert.equal(deliveryStatus(repo, p.workflow_id).cumulative.attempts, 1);
+});
+
+test("delivery: managed argv preserves quotes/metacharacters without shell interpretation", async () => {
+  const { repo, p } = deliveryFixture();
+  const argument = "quoted \"x\" ; $value & | trailing\\";
+  p.tasks[0].command = [process.execPath, "-e", "process.stdout.write(JSON.stringify(process.argv.slice(1)))", argument];
+  const run = await deliveryRun(repo, p); assert.equal(run.status, "success", JSON.stringify(run));
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(repo, run.receipt.evidence.log_file), "utf8")), [argument]);
+});
+
+// ---------------------------------------------------------------------------------------------- lane-check
+test("lane: one-line product change is eligible (function and CLI)", () => {
+  const { repo, base } = baseRepo();
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55") });
+  const r = laneCheck({ root: repo, base });
+  assert.deepEqual(ruleIds(r), []);
+  assert.equal(r.eligible, true);
+  const c = tick(repo, ["--lane-check", base, "--root", repo]);
+  assert.equal(c.status, 0);
+  assert.equal(c.out.trim(), "LANE: quick");
+});
+
+test("lane: one product file plus one test file plus docs is eligible; a new test file is allowed", () => {
+  const { repo, base } = baseRepo();
+  commit(repo, {
+    "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55"),
+    "tests/test_new.py": "def test_y():\n    assert 3 == 3\n",
+    "README.md": "# changed\n", "docs/new.md": "x\n",
+  });
+  assert.deepEqual(ruleIds(laneCheck({ root: repo, base })), []);
+});
+
+test("lane [files]: two product files, two hunks, or two test files each fail", () => {
+  let { repo, base } = baseRepo();
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55"), "src/a.py": "from src import util\nY = 1\n" });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("files"));
+
+  ({ repo, base } = baseRepo());
+  commit(repo, { "src/util.py": numbered(40).replace("x2 = 2", "x2 = 22").replace("x38 = 38", "x38 = 99") });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("files"));
+
+  ({ repo, base } = baseRepo());
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55"), "tests/test_n1.py": "def test_a():\n    pass\n", "tests/test_n2.py": "def test_b():\n    pass\n" });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("files"));
+
+  ({ repo, base } = baseRepo());
+  commit(repo, { "README.md": "only docs\n" });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("files"), "zero product files is not a quick-lane diff");
+});
+
+test("lane [size]: more than 30 changed lines fails; 30 passes", () => {
+  let { repo, base } = baseRepo({ "src/big.py": numbered(60) });
+  const swap = (n) => numbered(60).split("\n").map((l, i) => (i >= 10 && i < 10 + n ? `y${i}` : l)).join("\n");
+  commit(repo, { "src/big.py": swap(15) });                  // 15 removed + 15 added = 30
+  assert.deepEqual(ruleIds(laneCheck({ root: repo, base })), []);
+  ({ repo, base } = baseRepo({ "src/big.py": numbered(60) }));
+  commit(repo, { "src/big.py": swap(16) });                  // 32
+  const ids = ruleIds(laneCheck({ root: repo, base }));
+  assert.ok(ids.includes("size"));
+  assert.ok(!ids.includes("files"), "still exactly one hunk");
+});
+
+test("lane [no-add-del-rename]: added, deleted and renamed product files fail", () => {
+  let { repo, base } = baseRepo();
+  commit(repo, { "src/new.py": "A = 1\n" });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("no-add-del-rename"));
+
+  ({ repo, base } = baseRepo());
+  commit(repo, { "src/util.py": null });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("no-add-del-rename"));
+
+  ({ repo, base } = baseRepo());
+  const body = fs.readFileSync(path.join(repo, "src/util.py"), "utf8");
+  commit(repo, { "src/util.py": null, "src/util2.py": body });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("no-add-del-rename"));
+
+  ({ repo, base } = baseRepo());
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55"), "tests/test_util.py": null });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("no-add-del-rename"), "a deleted test fails");
+});
+
+test("lane [no-removed-def]: a removed def/class/function/export line fails", () => {
+  for (const [orig, next] of [["def foo(a):", "def foo(a, b):"], ["class K:", "class K2:"], ["async def go():", "async def go(x):"]]) {
+    const { repo, base } = baseRepo({ "src/m.py": `${orig}\n    return 1\n` });
+    commit(repo, { "src/m.py": `${next}\n    return 1\n` });
+    assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("no-removed-def"), orig);
+  }
+  const js = baseRepo({ "src/m.js": "export function f() {\n  return 1;\n}\n" });
+  commit(js.repo, { "src/m.js": "export function f(a) {\n  return 1;\n}\n" });
+  assert.ok(ruleIds(laneCheck({ root: js.repo, base: js.base })).includes("no-removed-def"));
+});
+
+test("lane [no-assert-change]: removed assert/expect in a test, added skip/xfail fail", () => {
+  let { repo, base } = baseRepo();
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55"), "tests/test_util.py": "def test_x():\n    assert 1 == 1\n" });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("no-assert-change"));
+
+  ({ repo, base } = baseRepo());
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55"), "tests/test_util.py": "@pytest.mark.skip\ndef test_x():\n    assert 1 == 1\n    assert 2 == 2\n" });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("no-assert-change"));
+
+  ({ repo, base } = baseRepo({ "web/a.test.js": "it('a', () => {\n  expect(1).toBe(1);\n});\n" }));
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55"), "web/a.test.js": "it('a', () => {\n  expect(2).toBe(2);\n});\n" });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("no-assert-change"));
+
+  ({ repo, base } = baseRepo());   // adding asserts is fine
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55"), "tests/test_util.py": "def test_x():\n    assert 1 == 1\n    assert 2 == 2\n    assert 3 == 3\n" });
+  assert.deepEqual(ruleIds(laneCheck({ root: repo, base })), []);
+});
+
+test("lane [importers]: more than 3 importers among tracked non-test files fails (python and JS)", () => {
+  const imp = (n) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`src/u${i}.py`, "from src import util\n"]));
+  let { repo, base } = baseRepo(imp(2));        // a.py + 2 = 3 importers
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55") });
+  assert.deepEqual(ruleIds(laneCheck({ root: repo, base })), []);
+  ({ repo, base } = baseRepo(imp(3)));          // 4 importers
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55") });
+  const r = laneCheck({ root: repo, base });
+  assert.ok(ruleIds(r).includes("importers"));
+  assert.match(r.failures.find((f) => f.rule === "importers").detail, /4/);
+
+  // an importer that is a test file does not count
+  ({ repo, base } = baseRepo({ ...imp(2), "tests/test_imp.py": "from src import util\n" }));
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55") });
+  assert.deepEqual(ruleIds(laneCheck({ root: repo, base })), []);
+
+  const jsFiles = { "lib/core.js": numbered(10, (i) => `const v${i} = ${i};`) };
+  for (let i = 0; i < 4; i++) jsFiles[`lib/c${i}.js`] = i % 2 ? "const c = require('./core');\n" : "import x from './core.js';\n";
+  ({ repo, base } = baseRepo(jsFiles));
+  commit(repo, { "lib/core.js": jsFiles["lib/core.js"].replace("v3 = 3", "v3 = 33") });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("importers"));
+});
+
+test("lane [exclude-globs]: adapter lane.public_api/schema/shared/quick_lane_exclude match the product path", () => {
+  for (const key of ["public_api", "schema", "shared", "quick_lane_exclude"]) {
+    const { repo, base } = baseRepo({
+      "src/shared/x.py": numbered(10),
+      "qa/adapter.json": JSON.stringify({ lane: { [key]: ["src/shared/**"] } }),
+    });
+    commit(repo, { "src/shared/x.py": numbered(10).replace("x3 = 3", "x3 = 33") });
+    const r = laneCheck({ root: repo, base });
+    assert.ok(ruleIds(r).includes("exclude-globs"), key);
+  }
+  const { repo, base } = baseRepo({ "qa/adapter.json": JSON.stringify({ lane: { shared: ["other/**"] } }) });
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55") });
+  assert.deepEqual(ruleIds(laneCheck({ root: repo, base })), []);
+});
+
+test("lane [l-paths]: config, CI, dependency, fixture and migration paths fail", () => {
+  const cases = {
+    "cfg/app.yml": "a: 1\nb: 2\n", "pyproject.toml": "[a]\nb=1\nc=2\n", ".github/w.py": numbered(6),
+    "Dockerfile": "FROM x\nRUN a\n", "requirements-dev.txt": "a\nb\n", "package.json": "{\n\"a\": 1,\n\"b\": 2\n}\n",
+    "conftest.py": numbered(6), "data/fixtures/data.py": numbered(6), "db/migrations/0001.py": numbered(6), "settings.py": numbered(6),
+    "package-lock.json": "{\n\"a\": 1,\n\"b\": 2\n}\n",
+  };
+  for (const [rel, body] of Object.entries(cases)) {
+    const { repo, base } = baseRepo({ [rel]: body });
+    commit(repo, { [rel]: body.replace(/\n([^\n]*)\n$/, "\nCHANGED\n") });
+    assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("l-paths"), rel);
+  }
+});
+
+test("lane [l-keywords]: built-in and adapter regexes on added/removed product lines fail", () => {
+  for (const bad of ["time.sleep(1)", "x = os.environ['A']", "db.commit()", "tok = token", "UPDATE t SET a=1", "import asyncio"]) {
+    const { repo, base } = baseRepo();
+    commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", bad) });
+    assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("l-keywords"), bad);
+  }
+  // a removed line counts too
+  let { repo, base } = baseRepo({ "src/k.py": "a = 1\nlock = 2\nb = 3\n" });
+  commit(repo, { "src/k.py": "a = 1\nlk = 2\nb = 3\n" });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("l-keywords"));
+
+  ({ repo, base } = baseRepo({ "qa/adapter.json": JSON.stringify({ lane: { exclude_diff_regex: ["FOO_\\d+"] } }) }));
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = FOO_12") });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("l-keywords"));
+  ({ repo, base } = baseRepo({ "qa/adapter.json": JSON.stringify({ lane: { exclude_diff_regex: ["FOO_\\d+"] } }) }));
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = BAR") });
+  assert.deepEqual(ruleIds(laneCheck({ root: repo, base })), []);
+});
+
+test("lane: adapter keys are read from lane.<key> first and fall back to the top-level <key> (both forms)", () => {
+  for (const key of ["public_api", "schema", "shared", "quick_lane_exclude"]) {
+    for (const form of ["nested", "top"]) {
+      const adapter = form === "nested" ? { lane: { [key]: ["src/shared/**"] } } : { [key]: ["src/shared/**"] };
+      const { repo, base } = baseRepo({ "src/shared/x.py": numbered(10), "qa/adapter.json": JSON.stringify(adapter) });
+      commit(repo, { "src/shared/x.py": numbered(10).replace("x3 = 3", "x3 = 33") });
+      assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("exclude-globs"), `${key} ${form}`);
+    }
+  }
+  // nested wins over top-level when both are arrays
+  const both = baseRepo({ "src/shared/x.py": numbered(10), "qa/adapter.json": JSON.stringify({ lane: { shared: ["nomatch/**"] }, shared: ["src/shared/**"] }) });
+  commit(both.repo, { "src/shared/x.py": numbered(10).replace("x3 = 3", "x3 = 33") });
+  assert.ok(!ruleIds(laneCheck({ root: both.repo, base: both.base })).includes("exclude-globs"));
+  const fooRe = "FOO_\\d+";
+  for (const adapter of [{ lane: { exclude_diff_regex: [fooRe] } }, { exclude_diff_regex: [fooRe] }]) {
+    const { repo, base } = baseRepo({ "qa/adapter.json": JSON.stringify(adapter) });
+    commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = FOO_12") });
+    assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("l-keywords"), JSON.stringify(adapter));
+  }
+});
+
+test("lane: qa/.lane-off fails every unit with lane-off <first line>, exit 1", () => {
+  const { repo, base } = baseRepo();
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55") });
+  fs.mkdirSync(path.join(repo, "qa"), { recursive: true });
+  fs.writeFileSync(path.join(repo, "qa", ".lane-off"), "paused after bad merge 2026-10-10\nsecond line\n");
+  const r = laneCheck({ root: repo, base });
+  assert.equal(r.eligible, false);
+  assert.deepEqual(ruleIds(r), ["lane-off"]);
+  const c = tick(repo, ["--lane-check", base, "--root", repo]);
+  assert.equal(c.status, 1);
+  assert.deepEqual(c.out.trim().split(/\r?\n/), ["LANE: none", "lane-ineligible: lane-off paused after bad merge 2026-10-10"]);
+  fs.writeFileSync(path.join(repo, "qa", ".lane-off"), "");
+  assert.equal(tick(repo, ["--lane-check", base, "--root", repo]).status, 1, "an empty file still turns the lane off");
+  fs.rmSync(path.join(repo, "qa", ".lane-off"));
+  assert.equal(tick(repo, ["--lane-check", base, "--root", repo]).status, 0);
+});
+
+test("lane: adapter test_globs make a non-standard path a test file", () => {
+  const { repo, base } = baseRepo({ "spec/helper_x.rb": "a\nb\n", "qa/adapter.json": JSON.stringify({ test_globs: ["spec/**"] }) });
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55"), "spec/helper_x.rb": "a\nb\nc\n" });
+  assert.deepEqual(ruleIds(laneCheck({ root: repo, base })), []);
+  // without test_globs it would be a second product file
+  const g = baseRepo({ "spec/helper_x.rb": "a\nb\n" });
+  commit(g.repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55"), "spec/helper_x.rb": "a\nb\nc\n" });
+  assert.ok(ruleIds(laneCheck({ root: g.repo, base: g.base })).includes("files"));
+});
+
+test("lane CLI: ineligible prints LANE: none plus one lane-ineligible line per rule, exit 1; --head and unresolved base", () => {
+  const { repo, base } = baseRepo();
+  const mid = commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55") });
+  commit(repo, { "src/new.py": "time = sleep(1)\n" });
+  const ok = tick(repo, ["--lane-check", base, "--head", mid, "--root", repo]);
+  assert.equal(ok.status, 0);
+  assert.equal(ok.out.trim(), "LANE: quick");
+  const bad = tick(repo, ["--lane-check", base, "--root", repo]);
+  assert.equal(bad.status, 1);
+  const lines = bad.out.trim().split(/\r?\n/);
+  assert.equal(lines[0], "LANE: none");
+  assert.ok(lines.length >= 3);
+  for (const l of lines.slice(1)) assert.match(l, /^lane-ineligible: [a-z-]+ \S/);
+  const un = tick(repo, ["--lane-check", "deadbeefdeadbeef", "--root", repo]);
+  assert.equal(un.status, 1);
+  assert.match(un.out, /^LANE: none/);
+  assert.match(un.out, /lane-ineligible: unresolved/);
+});
+
+// ------------------------------------------------------------------------------------------------ push-gate
+test("push-gate: no stamp fails; stamp of HEAD tree passes; code commit after fails; md-only commit after passes", () => {
+  const { repo } = baseRepo();
+  const tree0 = git(repo, "rev-parse", "HEAD^{tree}");
+  let g = tick(repo, ["--push-gate", "--root", repo]);
+  assert.equal(g.status, 1);
+  assert.equal(g.out.trim(), `push-gate: no green stamp for ${tree0}`);
+
+  const s = tick(repo, ["--stamp-6c-green", "--root", repo]);
+  assert.equal(s.status, 0);
+  assert.equal(fs.readFileSync(path.join(repo, "qa", ".6c-green"), "utf8").trim(), tree0);
+  assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 0);
+
+  commit(repo, { "README.md": "# docs only\n", "docs/x.md": "x\n" });
+  assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 0, "md-only commits after the stamp");
+
+  const codeSha = commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55") });
+  g = tick(repo, ["--push-gate", "--root", repo]);
+  assert.equal(g.status, 1);
+  assert.match(g.out, /^push-gate: no green stamp for [0-9a-f]{40}/);
+  assert.equal(g.out.trim().split(" ").pop(), git(repo, "rev-parse", `${codeSha}^{tree}`));
+
+  commit(repo, { "README.md": "# more docs\n" });
+  assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 1, "a code commit between stamp and HEAD still fails");
+});
+
+test("push-gate: a stamped tree that is not in history fails; a code commit then revert still fails", () => {
+  const { repo } = baseRepo();
+  fs.mkdirSync(path.join(repo, "qa"), { recursive: true });
+  fs.writeFileSync(path.join(repo, "qa", ".6c-green"), "0".repeat(40) + "\n");
+  assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 1);
+  tick(repo, ["--stamp-6c-green", "--root", repo]);
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55") });
+  commit(repo, { "src/util.py": numbered(40) });   // tree equals the stamped one again -> exact match
+  assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 0);
+});
+
+// ------------------------------------------------------------------------------------------------ ceilings
+test("ceilings: floor((free-1.5)/ram_gb) bounded by max, and by cpus; unbounded and no-lanes cases", () => {
+  const lanes = { build: { max: 3, ram_gb: 2 }, probe: { ram_gb: 3 }, doc: {}, wide: { max: 20 }, tight: { ram_gb: 5 } };
+  const rows = ceilings(lanes, 9.5, 8);
+  const by = Object.fromEntries(rows.map((r) => [r.lane, r]));
+  assert.deepEqual([by.build.cap, by.build.binding], [3, "max"]);
+  assert.deepEqual([by.probe.cap, by.probe.binding], [2, "ram"]);
+  assert.deepEqual([by.doc.cap, by.doc.binding], ["unbounded", "none"]);
+  assert.deepEqual([by.wide.cap, by.wide.binding], [20, "max"], "cpu caps only lanes with cpu:true");
+  assert.deepEqual([by.tight.cap, by.tight.binding], [1, "ram"]);
+  assert.equal(ceilings({ x: { ram_gb: 4 } }, 1.0, 8)[0].cap, 0, "never negative");
+
+  const repo = newRepo();
+  fs.mkdirSync(path.join(repo, "qa"));
+  fs.writeFileSync(path.join(repo, "qa", "adapter.json"), JSON.stringify({ parallel: { lanes } }));
+  const c = tick(repo, ["--ceilings", "--root", repo], { TICK_FREEMEM_GB: "9.5", TICK_CPUS: "8" });
+  assert.equal(c.status, 0);
+  assert.deepEqual(c.out.trim().split(/\r?\n/), [
+    "lane=build cap=3 binding=max", "lane=probe cap=2 binding=ram", "lane=doc cap=unbounded binding=none",
+    "lane=wide cap=20 binding=max", "lane=tight cap=1 binding=ram"]);
+
+  fs.writeFileSync(path.join(repo, "qa", "adapter.json"), "{}");
+  const n = tick(repo, ["--ceilings", "--root", repo]);
+  assert.equal(n.status, 0);
+  assert.equal(n.out.trim(), "lanes: none (adapter has no parallel.lanes)");
+});
+
+// ---------------------------------------------------------------------------------------------- agent/wave
+test("agent/wave: in-flight count and peak since the last --wave call", () => {
+  const repo = newRepo();
+  fs.mkdirSync(path.join(repo, "qa"));
+  const ag = (...a) => tick(repo, ["--agent", ...a, "--root", repo]);
+  assert.equal(ag("start", "u1", "build").status, 0);
+  assert.equal(ag("start", "u2", "build").status, 0);
+  const lines = fs.readFileSync(path.join(repo, "qa", ".wave.json"), "utf8").trim().split(/\r?\n/).map((l) => JSON.parse(l));
+  assert.deepEqual(lines.map((l) => [l.slug, l.lane, l.event]), [["u1", "build", "start"], ["u2", "build", "start"]]);
+  assert.ok(lines[0].ts);
+  const wave = () => tick(repo, ["--wave", "--root", repo]);
+  assert.equal(wave().out.trim(), "wave=2 peak=2");
+  ag("end", "u1", "build"); ag("start", "u3", "probe");
+  assert.equal(wave().out.trim(), "wave=2 peak=2");
+  ag("end", "u2", "build"); ag("end", "u3", "probe");
+  assert.equal(wave().out.trim(), "wave=0 peak=2");
+  assert.equal(wave().out.trim(), "wave=0 peak=0");
+  assert.equal(ag("pause", "u1", "build").status, 2);
+  assert.equal(ag("start", "u1").status, 2);
+});
+
+// -------------------------------------------------------------------------------------------- tick stamping
+function tickRepo(lines) {
+  const repo = newRepo();
+  commit(repo, { "qa/.last-tick": lines.join("\n") + "\n", "a.txt": "a\n" }, "init");
+  return repo;
+}
+const TS = (n) => `2026-10-10T0${n}:00:00+05:30`;
+
+test("tick: ADVANCED needs --evidence (commit or file); other status words do not", () => {
+  const repo = tickRepo([`${TS(1)} first`]);
+  const sha = git(repo, "rev-parse", "HEAD");
+  const no = tick(repo, ["ADVANCED unit shipped"]);
+  assert.equal(no.status, 1);
+  assert.match(no.all, /tick: ADVANCED needs --evidence \(commit sha or verdict file\)/);
+  assert.ok(!fs.readFileSync(path.join(repo, "qa", ".last-tick"), "utf8").includes("shipped"));
+
+  const bogus = tick(repo, ["ADVANCED unit shipped", "--evidence", "deadbeefdeadbeef"]);
+  assert.equal(bogus.status, 1);
+  assert.match(bogus.all, /tick: ADVANCED needs --evidence/);
+
+  const ok = tick(repo, ["ADVANCED unit shipped", "--evidence", sha.slice(0, 10)]);
+  assert.equal(ok.status, 0, ok.all);
+  assert.match(ok.out, /ADVANCED unit shipped/);
+  const last = fs.readFileSync(path.join(repo, "qa", ".last-tick"), "utf8").trim().split(/\r?\n/).pop();
+  assert.match(last, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d ADVANCED unit shipped/);
+
+  fs.mkdirSync(path.join(repo, "qa", "verdicts"));
+  fs.writeFileSync(path.join(repo, "qa", "verdicts", "x.md"), "PASS\n");
+  assert.equal(tick(repo, ["--evidence", "qa/verdicts/x.md", "ADVANCED", "via", "verdict"]).status, 0);
+  assert.equal(tick(repo, ["PASS-ish note without a status gate"]).status, 0);
+  assert.equal(tick(repo, ["STALLED waiting on gate"]).status, 0);
+});
+
+test("streak: counts the most recent consecutive non-ADVANCED/PASS tick lines; exit 2 at >= 3", () => {
+  const repo = tickRepo([
+    `${TS(1)} ADVANCED a`, `${TS(2)} PASS b`, `${TS(3)} STALLED c`, `${TS(4)} just a note`,
+    "2026-10-10T07:12:48.000Z maker continue bound=x",
+  ]);
+  const s = tick(repo, ["--streak", "--root", repo]);
+  assert.equal(s.out.trim(), "no-close-streak=3");
+  assert.equal(s.status, 2);
+
+  const r2 = tickRepo([`${TS(1)} STALLED a`, `${TS(2)} ADVANCED b`, `${TS(3)} x`, `${TS(4)} y`]);
+  const s2 = tick(r2, ["--streak", "--root", r2]);
+  assert.equal(s2.out.trim(), "no-close-streak=2");
+  assert.equal(s2.status, 0);
+
+  const r3 = tickRepo([`${TS(1)} x`, `${TS(2)} y`, `${TS(3)} PASS closed`]);
+  assert.equal(tick(r3, ["--streak", "--root", r3]).out.trim(), "no-close-streak=0");
+  const r4 = tickRepo([`${TS(1)} x`]);
+  fs.rmSync(path.join(r4, "qa", ".last-tick"));
+  assert.equal(tick(r4, ["--streak", "--root", r4]).out.trim(), "no-close-streak=0");
+});
+
+// ------------------------------------------------------------------------------------------------ lint-queue
+test("lint-queue: counts open rows and fact keys on the row and its indented continuation lines", () => {
+  const repo = newRepo();
+  fs.mkdirSync(path.join(repo, "qa"));
+  fs.writeFileSync(path.join(repo, "qa", "QUEUE.md"), [
+    "# Queue", "",
+    "- [x] done one files: a.py",
+    "- [ ] row one files: a.py schema: none owner: maker lanes: build",
+    "  surface: api consumes: web",
+    "  after: row-zero",
+    "- [ ] row two lanes: build",
+    "- [ ] row three runtime: 5min", "  files: z.py",
+    "- [ ] row four no facts at all", "  just prose", "",
+    "## Notes", "files: stray text not in a row",
+  ].join("\n"));
+  const r = tick(repo, ["--lint-queue", "--root", repo]);
+  assert.equal(r.status, 0);
+  assert.match(r.out, /open-rows=4/);
+  assert.match(r.out, /files=2/);
+  assert.match(r.out, /schema=1/);
+  assert.match(r.out, /surface=1/);
+  assert.match(r.out, /consumes=1/);
+  assert.match(r.out, /lanes\|runtime=3/);
+  assert.match(r.out, /after=1/);
+  assert.match(r.out, /owner=1/);
+  assert.match(r.out, /rows-missing-facts=3/);
+  fs.rmSync(path.join(repo, "qa", "QUEUE.md"));
+  assert.equal(tick(repo, ["--lint-queue", "--root", repo]).status, 0);
+});
+
+// =============================================================================================
+// Repair round (independent review, 16 findings). Fail closed: undecidable means ineligible / non-zero.
+// =============================================================================================
+const lastTick = (repo) => fs.readFileSync(path.join(repo, "qa", ".last-tick"), "utf8");
+const oneLine = (n = 40) => numbered(n).replace("x5 = 5", "x5 = 55");
+
+// ---- 1. flag dispatch anywhere; unknown flags exit 2 and write nothing
+test("repair 1: a mode flag is dispatched wherever it appears; --root first no longer stamps a tick line", () => {
+  const repo = tickRepo([`${TS(1)} first`]);
+  const before = lastTick(repo);
+  const g = tick(repo, ["--root", repo, "--push-gate"]);
+  assert.equal(g.status, 1);
+  assert.match(g.out, /^push-gate: no green stamp for /);
+  assert.equal(lastTick(repo), before, "no tick line was written");
+  tick(repo, ["--stamp-6c-green", "--root", repo]);
+  assert.equal(tick(repo, ["--root", repo, "--push-gate"]).status, 0);
+  const s = tick(repo, ["--root", repo, "--streak"]);
+  assert.match(s.out, /no-close-streak=/);
+  assert.equal(tick(repo, ["--root", repo, "--lint-queue"]).status, 0);
+  assert.match(tick(repo, ["--root", repo, "--ceilings"]).out, /^lanes: none/);
+});
+
+test("repair 1: unknown flags and messages starting with -- exit 2 and write nothing", () => {
+  const repo = tickRepo([`${TS(1)} first`]);
+  const before = lastTick(repo);
+  for (const a of [["--lane-chek", "HEAD"], ["--help"], ["--bogus", "note"], ["note", "--bogus"], ["-- note"], ["--push-gat", "--root", repo]]) {
+    const r = tick(repo, a);
+    assert.equal(r.status, 2, a.join(" "));
+    assert.equal(lastTick(repo), before, a.join(" "));
+  }
+  assert.equal(tick(repo, ["--lane-check", "HEAD", "--root", repo, "--bogus"]).status, 2);
+  assert.equal(tick(repo, ["--streak", "--bogus"]).status, 2);
+  assert.equal(tick(repo, ["--agent", "start", "u1", "build", "extra", "--root", repo]).status, 2);
+});
+
+test("repair 1: --policy-check and --policy-sync still dispatch (also with --root first)", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tickpol-"));
+  const block = "<!-- BEGIN AIOS PROPORTIONAL POLICY -->\nPolicy-Version: proportional-verification/2099-01-01.1\nbody\n<!-- END AIOS PROPORTIONAL POLICY -->";
+  fs.writeFileSync(path.join(dir, "page.md"), `# p\n${block}\n`);
+  for (const n of ["maker", "checker"]) { fs.mkdirSync(path.join(dir, "r", n), { recursive: true }); fs.writeFileSync(path.join(dir, "r", n, "SKILL.md"), `# ${n}\n${block}\n`); }
+  const env = { AIOS_POLICY_PAGE: path.join(dir, "page.md"), AIOS_POLICY_ROOTS: JSON.stringify([path.join(dir, "r")]) };
+  const ok = tick(dir, ["--policy-check"], env);
+  assert.equal(ok.status, 0, ok.all);
+  assert.match(ok.out, /drift=0 .*mode=--policy-check/);
+  fs.writeFileSync(path.join(dir, "r", "maker", "SKILL.md"), `# maker\n${block.replace("body", "old")}\n`);
+  assert.equal(tick(dir, ["--policy-check"], env).status, 1);
+  const sync = tick(dir, ["--root", dir, "--policy-sync"], env);
+  assert.equal(sync.status, 0, sync.all);
+  assert.equal(tick(dir, ["--policy-check"], env).status, 0);
+});
+
+// ---- 2. rename/delete before the md filter
+test("repair 2: renaming a product file to .md, deleting it, or touching md under qa/.claude is ineligible", () => {
+  let { repo, base } = baseRepo();
+  git(repo, "mv", "src/util.py", "src/util.md");
+  git(repo, "commit", "-q", "-m", "mv");
+  const r = laneCheck({ root: repo, base });
+  assert.equal(r.eligible, false);
+  assert.ok(ruleIds(r).includes("no-add-del-rename"));
+  assert.equal(tick(repo, ["--lane-check", base, "--root", repo]).status, 1);
+
+  ({ repo, base } = baseRepo({ "notes.md": "n\n" }));
+  commit(repo, { "notes.md": null, "src/util.py": oneLine() });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("no-add-del-rename"), "a deleted md is still a delete");
+
+  for (const md of ["qa/notes.md", ".claude/rules.md"]) {
+    ({ repo, base } = baseRepo({ [md]: "a\n" }));
+    commit(repo, { [md]: "b\n", "src/util.py": oneLine() });
+    assert.equal(laneCheck({ root: repo, base }).eligible, false, md);
+  }
+  ({ repo, base } = baseRepo());
+  commit(repo, { "src/util.py": oneLine(), "docs/new.md": "x\n", "README.md": "changed\n" });
+  assert.equal(laneCheck({ root: repo, base }).eligible, true, "plain md add/modify stays ignored");
+});
+
+// ---- 3. adapter handling
+test("repair 3: an unparseable adapter is lane-ineligible adapter-invalid; the adapter is read from BASE", () => {
+  let { repo, base } = baseRepo({ "qa/adapter.json": "{ not json" });
+  commit(repo, { "src/util.py": oneLine() });
+  const r = laneCheck({ root: repo, base });
+  assert.deepEqual(ruleIds(r), ["lane-disabled"], "an unparseable adapter cannot say lane.enabled === true, so the lane is disabled");
+  assert.match(tick(repo, ["--lane-check", base, "--root", repo]).out, /lane-ineligible: lane-disabled/);
+
+  ({ repo, base } = baseRepo({ "qa/adapter.json": JSON.stringify({ lane: { shared: ["src/**"] } }) }));
+  commit(repo, { "src/util.py": oneLine() });
+  fs.writeFileSync(path.join(repo, "qa", "adapter.json"), "{}");     // working tree edited after the fact
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("exclude-globs"), "base adapter governs, not the working tree");
+
+  ({ repo, base } = baseRepo({ "qa/adapter.json": "{}" }));
+  commit(repo, { "src/util.py": oneLine(), "qa/adapter.json": JSON.stringify({ lane: { enabled: true, shared: [] } }) });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("adapter-changed"));
+});
+
+// ---- 4. importers
+test("repair 4: importers see package re-exports, multi-line from-imports, TS .js/alias specifiers; unknown types are unscanned", () => {
+  const importersOf = (extra, modPath = "pkg/mod.py") => {
+    const { repo, base } = baseRepo({ [modPath]: "def f():\n    return 1\n", ...extra });
+    commit(repo, { [modPath]: "def f():\n    return 2\n" });
+    return laneCheck({ root: repo, base });
+  };
+  const many = (n, body, ext = "py", dir = "app") => Object.fromEntries(Array.from({ length: n }, (_, i) => [`${dir}/c${i}.${ext}`, body]));
+
+  const reexp = importersOf({ "pkg/__init__.py": "from .mod import f\n", ...many(4, "from pkg import f\n") });
+  assert.ok(ruleIds(reexp).includes("importers"), "re-export through __init__");
+  assert.deepEqual(ruleIds(importersOf({ ...many(2, "from pkg import f\n") })), [], "no re-export: package importers are not importers of the module");
+
+  assert.ok(ruleIds(importersOf({ ...many(4, "from pkg import (\n    other,\n    mod,\n)\n") })).includes("importers"), "multi-line from-import");
+  assert.ok(ruleIds(importersOf({ ...many(4, "from pkg.mod import (\n    f,\n)\n") })).includes("importers"));
+  assert.ok(ruleIds(importersOf({ ...many(4, "from . import mod\n", "py", "pkg") })).includes("importers"), "relative import");
+  assert.ok(ruleIds(importersOf({ ...many(4, "import pkg.mod as m\n") })).includes("importers"));
+
+  const ts = (extra) => importersOf(extra, "web/mod.ts");
+  assert.ok(ruleIds(ts(many(4, "import { f } from './mod.js';\n", "ts", "web"))).includes("importers"), "TS ./mod.js");
+  assert.ok(ruleIds(ts(many(4, "import { f } from '@/mod';\n", "tsx", "app"))).includes("importers"), "alias @/mod");
+  assert.ok(ruleIds(ts({ "web/index.ts": "export * from './mod';\n", ...many(4, "import { f } from '../web';\n", "ts", "app") })).includes("importers"), "index re-export");
+  assert.deepEqual(ruleIds(ts(many(3, "import { f } from './mod.js';\n", "ts", "web"))), []);
+
+  const go = baseRepo({ "svc/main.go": "package main\n" });
+  commit(go.repo, { "svc/main.go": "package main\n// x\n" });
+  const g = laneCheck({ root: go.repo, base: go.base });
+  assert.ok(g.failures.some((f) => f.rule === "importers" && /unscanned/.test(f.detail)));
+  assert.ok(ruleIds(g).includes("product-type"));
+});
+
+// ---- 5. stamp / push-gate hygiene
+test("repair 5: --stamp-6c-green refuses a dirty tree; qa bookkeeping files are allowed", () => {
+  const { repo } = baseRepo();
+  fs.writeFileSync(path.join(repo, "src", "util.py"), oneLine());
+  let s = tick(repo, ["--stamp-6c-green", "--root", repo]);
+  assert.equal(s.status, 1);
+  assert.match(s.all, /dirty/);
+  assert.ok(!fs.existsSync(path.join(repo, "qa", ".6c-green")));
+  git(repo, "checkout", "--", "src/util.py");
+  fs.writeFileSync(path.join(repo, "stray.py"), "x = 1\n");
+  assert.equal(tick(repo, ["--stamp-6c-green", "--root", repo]).status, 1, "untracked file counts");
+  fs.rmSync(path.join(repo, "stray.py"));
+  fs.mkdirSync(path.join(repo, "qa"), { recursive: true });
+  fs.writeFileSync(path.join(repo, "qa", ".last-tick"), `${TS(1)} x\n`);
+  fs.writeFileSync(path.join(repo, "qa", ".wave.json"), "");
+  s = tick(repo, ["--stamp-6c-green", "--root", repo]);
+  assert.equal(s.status, 0, s.all);
+});
+
+test("repair 5: push-gate trims CRLF/whitespace in the stamp and needs the stamped tree in HEAD's ancestry", () => {
+  const { repo } = baseRepo();
+  const tree = git(repo, "rev-parse", "HEAD^{tree}");
+  fs.mkdirSync(path.join(repo, "qa"), { recursive: true });
+  fs.writeFileSync(path.join(repo, "qa", ".6c-green"), `  ${tree}  \r\n`);
+  assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 0);
+  // stamp a tree that only exists on a side branch that is not an ancestor of HEAD
+  const main = git(repo, "rev-parse", "--abbrev-ref", "HEAD");
+  git(repo, "checkout", "-q", "-b", "side");
+  commit(repo, { "src/side.py": "S = 1\n" });
+  const sideTree = git(repo, "rev-parse", "HEAD^{tree}");
+  git(repo, "checkout", "-q", main);
+  commit(repo, { "README.md": "docs only\n" });
+  fs.writeFileSync(path.join(repo, "qa", ".6c-green"), sideTree + "\n");
+  assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 1);
+  // md-only after stamp passes; a merge that brings code does not
+  fs.writeFileSync(path.join(repo, "qa", ".6c-green"), tree + "\n");
+  assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 0);
+  git(repo, "merge", "-q", "--no-edit", "side");
+  assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 1, "a code-bearing merge after the stamp");
+});
+
+// ---- 6. test-file rules
+test("repair 6: skip/only/focus markers and bare return added to a test file are ineligible; removing a non-comment line too", () => {
+  const prodChange = { "src/util.py": oneLine() };
+  const addTo = (body) => `def test_x():\n    assert 1 == 1\n    assert 2 == 2\n${body}`;
+  const bad = ["    it.only('a')\n", "    xit('a')\n", "    fit('a')\n", "fdescribe('a')\n", "xdescribe('a')\n", "it.skip('a')\n", "test.skip('a')\n", "describe.skip('a')\n",
+    "@unittest.skip('x')\n", "    pytest.skip('x')\n", "@pytest.mark.skip\n", "@pytest.mark.xfail\n", "    return\n", "    describe.only('a')\n"];
+  for (const line of bad) {
+    const { repo, base } = baseRepo();
+    commit(repo, { ...prodChange, "tests/test_util.py": addTo(line) });
+    assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("no-assert-change"), JSON.stringify(line));
+  }
+  // an edited (not just added) line is a removal
+  let { repo, base } = baseRepo();
+  commit(repo, { ...prodChange, "tests/test_util.py": "def test_x():\n    assert 1 == 1\n    assert 2 == 3\n" });
+  assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("no-assert-change"));
+  ({ repo, base } = baseRepo({ "tests/test_c.py": "# note\n\ndef test_c():\n    assert True\n" }));
+  commit(repo, { ...prodChange, "tests/test_c.py": "\ndef test_c():\n    assert True\n    assert 2\n" });
+  assert.deepEqual(ruleIds(laneCheck({ root: repo, base })), [], "removing a comment/blank line and adding an assert is fine");
+  // helpers are product files, not tests
+  for (const helper of ["tests/conftest.py", "tests/helpers.py", "tests/fixtures/data.py", "web/__mocks__/api.js"]) {
+    ({ repo, base } = baseRepo({ [helper]: "a = 1\nb = 2\n" }));
+    commit(repo, { ...prodChange, [helper]: "a = 1\nb = 2\nc = 3\n" });
+    assert.ok(ruleIds(laneCheck({ root: repo, base })).includes("files"), `${helper} counts as a second product file`);
+  }
+});
+
+// ---- 7. product allowlist
+test("repair 7: only py/js/mjs/cjs/ts/tsx/jsx under non-protected dirs can be the product file", () => {
+  const files = { "tox.ini": "[a]\nb=1\n", "setup.cfg": "[a]\nb=1\n", "data/x.json": "{\n\"a\":1\n}\n", "db/q.sql": "select 1;\nselect 2;\n",
+    "run.sh": "echo a\necho b\n", "svc/main.go": "package main\n", ".gitmodules": "[submodule \"a\"]\n\tpath = a\n", "qa/tool.py": "a = 1\nb = 2\n",
+    ".claude/hook.py": "a = 1\nb = 2\n", "Makefile": "a:\n\techo\n" };
+  for (const [rel, body] of Object.entries(files)) {
+    const { repo, base } = baseRepo({ [rel]: body });
+    commit(repo, { [rel]: body + "# x\n" });
+    const r = laneCheck({ root: repo, base });
+    assert.equal(r.eligible, false, rel);
+    assert.ok(ruleIds(r).includes("product-type"), rel);
+  }
+  for (const rel of ["a/m.mjs", "a/m.cjs", "a/m.jsx", "a/m.tsx", "a/m.ts"]) {
+    const { repo, base } = baseRepo({ [rel]: "const a = 1;\nconst b = 2;\n" });
+    commit(repo, { [rel]: "const a = 1;\nconst b = 3;\n" });
+    assert.deepEqual(ruleIds(laneCheck({ root: repo, base })), [], rel);
+  }
+});
+
+test("repair 7: a submodule pointer bump is ineligible", () => {
+  const repo = newRepo();
+  const sub1 = "1".repeat(40), sub2 = "2".repeat(40);
+  fs.mkdirSync(path.join(repo, "src")); fs.writeFileSync(path.join(repo, "src", "util.py"), numbered(40));
+  fs.mkdirSync(path.join(repo, "qa")); fs.writeFileSync(path.join(repo, "qa", "adapter.json"), ENABLED);
+  git(repo, "add", "src/util.py", "qa/adapter.json");
+  git(repo, "update-index", "--add", "--cacheinfo", `160000,${sub1},vendor/lib`);
+  git(repo, "commit", "-q", "-m", "base");
+  const base = git(repo, "rev-parse", "HEAD");
+  git(repo, "update-index", "--cacheinfo", `160000,${sub2},vendor/lib`);
+  git(repo, "commit", "-q", "-m", "bump");
+  const r = laneCheck({ root: repo, base });
+  assert.equal(r.eligible, false);
+  assert.ok(ruleIds(r).includes("submodule"));
+  assert.equal(tick(repo, ["--lane-check", base, "--root", repo]).status, 1);
+});
+
+test("repair 7: a mode (exec bit) change is ineligible", () => {
+  const { repo, base } = baseRepo();
+  git(repo, "update-index", "--chmod=+x", "src/util.py");
+  git(repo, "commit", "-q", "-m", "chmod");
+  assert.equal(laneCheck({ root: repo, base }).eligible, false);
+});
+
+// ---- 12. streak parsing of both line shapes
+test("repair 12: streak parses '<ISO> STATUS text' and '<ISO> · STATUS · text', with evidence= and bracketed words", () => {
+  const r = tickRepo([
+    `${TS(1)} ADVANCED unit a evidence=abc1234`,
+    `${TS(2)} · STALLED · waiting on gate`,
+    `${TS(3)} · maker continue · note`,
+    `${TS(4)} [BLOCKED] thing`,
+  ]);
+  assert.equal(tick(r, ["--streak", "--root", r]).out.trim(), "no-close-streak=3");
+  const r2 = tickRepo([`${TS(1)} x`, `${TS(2)} · ADVANCED · closed evidence=deadbee`, `${TS(3)} · STALLED · a`]);
+  assert.equal(tick(r2, ["--streak", "--root", r2]).out.trim(), "no-close-streak=1");
+  const r3 = tickRepo([`${TS(1)} · x · a`, `${TS(2)} · y · b`, `${TS(3)} · z · c`, `${TS(4)} · PASS · closed evidence=abc1234`]);
+  assert.equal(tick(r3, ["--streak", "--root", r3]).out.trim(), "no-close-streak=0");
+  const r4 = tickRepo([`${TS(1)} · a · a`, `${TS(2)} · b · b`, `${TS(3)} · c · c`]);
+  const s4 = tick(r4, ["--streak", "--root", r4]);
+  assert.equal(s4.out.trim(), "no-close-streak=3");
+  assert.equal(s4.status, 2);
+});
+
+// ---- 13. ADVANCED evidence
+test("repair 13: ADVANCED is detected case-insensitively and after a middle dot; evidence rules", () => {
+  const repo = tickRepo([`${TS(1)} first`]);
+  const before = lastTick(repo);
+  for (const msg of ["advanced thing", "Advanced thing", "· ADVANCED · thing", "[ADVANCED] thing", "x · advanced · thing"]) {
+    const r = tick(repo, [msg]);
+    assert.equal(r.status, 1, msg);
+    assert.match(r.all, /tick: ADVANCED needs --evidence/, msg);
+  }
+  assert.equal(lastTick(repo), before);
+  // file evidence must live under qa/verdicts
+  fs.writeFileSync(path.join(repo, "notes.txt"), "x\n");
+  assert.equal(tick(repo, ["ADVANCED a", "--evidence", "notes.txt"]).status, 1);
+  assert.equal(tick(repo, ["ADVANCED a", "--evidence", "../outside.md"]).status, 1);
+  fs.mkdirSync(path.join(repo, "qa", "verdicts"), { recursive: true });
+  fs.writeFileSync(path.join(repo, "qa", "verdicts", "v.md"), "PASS\n");
+  assert.equal(tick(repo, ["ADVANCED a", "--evidence", "qa/verdicts"]).status, 1, "a directory is not a verdict file");
+  assert.equal(tick(repo, ["ADVANCED a", "--evidence", "qa/verdicts/v.md"]).status, 0);
+});
+
+test("repair 13: a commit sha can be cited once; HEAD is resolved first; unreachable commits are rejected", () => {
+  const repo = tickRepo([`${TS(1)} first`]);
+  const sha = git(repo, "rev-parse", "HEAD");
+  const ok = tick(repo, ["ADVANCED unit one", "--evidence", "HEAD"]);
+  assert.equal(ok.status, 0, ok.all);
+  assert.ok(lastTick(repo).includes(`evidence=${sha}`), "the resolved sha is recorded");
+  const again = tick(repo, ["ADVANCED unit two", "--evidence", sha.slice(0, 9)]);
+  assert.equal(again.status, 1);
+  assert.match(again.all, /already cited/);
+  assert.equal(tick(repo, ["ADVANCED unit two", "--evidence", "HEAD"]).status, 1, "bare HEAD is the same sha");
+  // a dangling commit that no ref reaches
+  const tree = git(repo, "rev-parse", "HEAD^{tree}");
+  const dangling = git(repo, "commit-tree", tree, "-m", "orphan");
+  const d = tick(repo, ["ADVANCED unit three", "--evidence", dangling]);
+  assert.equal(d.status, 1);
+  assert.match(d.all, /not reachable/);
+  const next = commit(repo, { "b.txt": "b\n" }, "next");
+  assert.equal(tick(repo, ["ADVANCED unit four", "--evidence", next]).status, 0);
+});
+
+// ---- 14. ceilings
+test("repair 14: cpu caps only lanes with cpu:true; ram_gb/max are coerced; invalid values are an error, exit 1", () => {
+  const rows = Object.fromEntries(ceilings({ a: { max: 20, cpu: true }, b: { max: "5", ram_gb: "2" }, c: { cpu: true } }, 9.5, 8).map((r) => [r.lane, r]));
+  assert.deepEqual([rows.a.cap, rows.a.binding], [8, "cpu"]);
+  assert.deepEqual([rows.b.cap, rows.b.binding], [4, "ram"]);
+  assert.deepEqual([rows.c.cap, rows.c.binding], [8, "cpu"], "cpu:true alone bounds the lane");
+  const repo = newRepo();
+  fs.mkdirSync(path.join(repo, "qa"));
+  const run = (lanes) => { fs.writeFileSync(path.join(repo, "qa", "adapter.json"), JSON.stringify({ parallel: { lanes } })); return tick(repo, ["--ceilings", "--root", repo], { TICK_FREEMEM_GB: "9.5", TICK_CPUS: "8" }); };
+  for (const bad of [{ x: { ram_gb: "lots" } }, { x: { max: -1 } }, { x: { ram_gb: 0 } }, { x: { max: "" } }, { x: { max: {} } }]) {
+    const r = run(bad);
+    assert.equal(r.status, 1, JSON.stringify(bad));
+    assert.match(r.out, /lane=x error=invalid /);
+  }
+  const good = run({ x: { max: "5", ram_gb: "2" }, y: { max: 2 } });
+  assert.equal(good.status, 0);
+  assert.deepEqual(good.out.trim().split(/\r?\n/), ["lane=x cap=4 binding=ram", "lane=y cap=2 binding=max"]);
+  fs.writeFileSync(path.join(repo, "qa", "adapter.json"), "{ nope");
+  assert.equal(tick(repo, ["--ceilings", "--root", repo]).status, 1, "unparseable adapter");
+});
+
+// ---- 15. lint-queue
+test("repair 15: rows-missing-facts counts rows lacking ANY required key (schema optional) and lists their titles", () => {
+  const repo = newRepo();
+  fs.mkdirSync(path.join(repo, "qa"));
+  fs.writeFileSync(path.join(repo, "qa", "QUEUE.md"), [
+    "- [ ] complete files: a surface: api consumes: web lanes: build after: none owner: maker",
+    "- [ ] complete-with-runtime files: a", "  surface: api consumes: web runtime: 5m after: x owner: me",
+    "- [ ] no-owner files: a surface: api consumes: web lanes: b after: none",
+    `- [ ] ${"very long title ".repeat(8)} files: a`,
+    "- [x] done row files: a",
+  ].join("\n"));
+  const r = tick(repo, ["--lint-queue", "--root", repo]);
+  assert.equal(r.status, 0);
+  assert.match(r.out, /open-rows=4/);
+  assert.match(r.out, /rows-missing-facts=2/);
+  const missing = r.out.split(/\r?\n/).filter((l) => l.startsWith("missing-facts:"));
+  assert.equal(missing.length, 2);
+  assert.match(missing[0], /no-owner/);
+  assert.ok(missing[1].replace("missing-facts: ", "").length <= 60);
+  assert.ok(!/complete/.test(missing.join("\n")));
+});
+
+// ---- 16. wave keyed on slug+lane, stale starts
+test("repair 16: a start older than 6h with no end is reported as stale=<n> and not counted in flight", () => {
+  const repo = newRepo();
+  fs.mkdirSync(path.join(repo, "qa"));
+  const old = new Date(Date.now() - 7 * 3600 * 1000).toISOString();
+  fs.writeFileSync(path.join(repo, "qa", ".wave.json"), [
+    { slug: "old1", lane: "build", event: "start", ts: old }, { slug: "old2", lane: "probe", event: "start", ts: old },
+  ].map((e) => JSON.stringify(e)).join("\n") + "\n");
+  tick(repo, ["--agent", "start", "fresh", "build", "--root", repo]);
+  assert.equal(tick(repo, ["--wave", "--root", repo]).out.trim(), "wave=1 peak=1 stale=2");
+  assert.equal(tick(repo, ["--wave", "--root", repo]).out.trim(), "wave=1 peak=1 stale=2");
+});
+
+test("repair 16: agents are keyed on slug+lane; the same slug in another lane is a different agent", () => {
+  const repo = newRepo();
+  fs.mkdirSync(path.join(repo, "qa"));
+  const ag = (...a) => tick(repo, ["--agent", ...a, "--root", repo]);
+  ag("start", "u1", "build"); ag("start", "u1", "probe");
+  assert.equal(tick(repo, ["--wave", "--root", repo]).out.trim(), "wave=2 peak=2");
+  ag("end", "u1", "build");
+  assert.equal(tick(repo, ["--wave", "--root", repo]).out.trim(), "wave=1 peak=2");
+  ag("end", "u1", "build");   // ending an agent that is not running changes nothing
+  assert.equal(tick(repo, ["--wave", "--root", repo]).out.trim(), "wave=1 peak=1");
+});
+
+// =============================================================================================
+// Second repair round (2026-10-10, second independent review + coordinator items 11-13).
+// =============================================================================================
+const PROD = "LIMIT = 3\n\n\ndef clamp(n):\n    if n > 5:\n        return 5\n    return n\n";
+const PROD_FIX = PROD.replace("n > 5", "n > 10");
+const TST = "from src.calc import clamp\n\n\nclass TestClamp:\n    def test_low(self):\n        assert clamp(1) == 1\n\n    def test_mid(self):\n        assert clamp(4) == 4\n\n\ndef test_small():\n    assert clamp(2) == 2\n\n\ndef test_big():\n    assert clamp(9) == 5\n";
+const NEW_TEST = "\n\ndef test_boundary():\n    assert clamp(7) == 7\n";
+const JS_TST = "import { f } from '../src/f.js';\n\ndescribe('f', () => {\n  it('a', () => {\n    expect(f(1)).toBe(1);\n  });\n\n  it('b', () => {\n    expect(f(2)).toBe(2);\n  });\n});\n";
+// One product fix (src/calc.py unless overridden) plus optional test-file / extra changes; returns the laneCheck result.
+function shape({ prod = PROD_FIX, tst, js, baseExtra = {}, extra = {} } = {}) {
+  const { repo, base } = baseRepo({ "src/calc.py": PROD, "src/b.py": "from src.calc import clamp\n", "tests/test_calc.py": TST, "web/a.test.js": JS_TST, ...baseExtra });
+  commit(repo, { "src/calc.py": prod, ...(tst !== undefined ? { "tests/test_calc.py": tst } : {}), ...(js !== undefined ? { "web/a.test.js": js } : {}), ...extra });
+  return laneCheck({ root: repo, base });
+}
+const fails = (r, rule) => ruleIds(r).includes(rule);
+
+test("round 2 POSITIVE: a one-hunk condition-constant change in a plain .py module plus one new asserting test in an existing test file is quick", () => {
+  const { repo, base } = baseRepo({ "src/calc.py": PROD, "src/b.py": "from src.calc import clamp\n", "tests/test_calc.py": TST });
+  commit(repo, { "src/calc.py": PROD_FIX, "tests/test_calc.py": TST + NEW_TEST });
+  assert.deepEqual(laneCheck({ root: repo, base }).failures, []);
+  const c = tick(repo, ["--lane-check", base, "--root", repo]);
+  assert.equal(c.out.trim(), "LANE: quick");
+  assert.equal(c.status, 0);
+  // also a new method inside the existing class, and the JS equivalent
+  assert.deepEqual(shape({ tst: TST.replace("\n\n\ndef test_small", "\n\n    def test_edge(self):\n        assert clamp(7) == 7\n\n\ndef test_small") }).failures, []);
+  assert.deepEqual(shape({ js: JS_TST.replace("});\n});\n", "});\n\n  it('c', () => {\n    expect(f(3)).toBe(3);\n  });\n});\n") }).failures, []);
+});
+
+test("round 2 item 3: test additions that shadow or neutralise existing tests are ineligible", () => {
+  const cases = {
+    "shadow def": TST + "\n\ndef test_small():\n    assert True\n",
+    "shadow class": TST + "\n\nclass TestClamp:\n    pass\n",
+    "autouse fixture": TST + "\n\n@pytest.fixture(autouse=True)\ndef _quiet():\n    pass\n",
+    "monkeypatch": TST + "\n\ndef test_n(monkeypatch):\n    monkeypatch.setattr('src.calc.clamp', len)\n    assert clamp(7) == 7\n",
+    "mock.patch": TST + "\n\ndef test_n():\n    with mock.patch('src.calc.clamp'):\n        assert clamp(7)\n",
+    "patch(": TST + "\n\n@patch('src.calc.clamp')\ndef test_n(m):\n    assert m\n",
+    "sys.exit": TST + "\n\ndef test_n():\n    sys.exit(0)\n",
+    "os._exit": TST + "\n\ndef test_n():\n    os._exit(0)\n",
+    "pytest.exit": TST + "\n\ndef test_n():\n    pytest.exit('done')\n",
+  };
+  for (const [name, tst] of Object.entries(cases)) assert.ok(fails(shape({ tst }), "no-assert-change"), name);
+  const jsAdds = { "jest.mock": "jest.mock('../src/f.js');\n", "vi.mock": "vi.mock('../src/f.js');\n", "dup title": "it('a', () => {\n  expect(1).toBe(1);\n});\n" };
+  for (const [name, add] of Object.entries(jsAdds)) assert.ok(fails(shape({ js: JS_TST + add }), "no-assert-change"), name);
+  // a NEW test file is allowed, gets the same added-line checks, and a name may not appear twice in it
+  assert.deepEqual(shape({ extra: { "tests/test_new.py": "from src.calc import clamp\n\n\ndef test_a():\n    assert clamp(7) == 7\n" } }).failures, []);
+  assert.ok(fails(shape({ extra: { "tests/test_new.py": "def test_a(monkeypatch):\n    assert 1\n" } }), "no-assert-change"));
+  assert.ok(fails(shape({ extra: { "tests/test_new.py": "def test_a():\n    assert 0\n\n\ndef test_a():\n    assert 1\n" } }), "no-assert-change"));
+});
+
+test("round 2 item 4: L keywords are case-insensitive and cover SQL, Mongo, file/process, network, secrets and concurrency", () => {
+  const py = ["cur.EXECUTE(q)", "q = 'insert into t values (1)'", "q = 'Delete From t'", "q = 'update t set a=1'", "q = 'TRUNCATE t'", "q = 'alter table t add c'", "q = 'drop table t'",
+    "cur.executemany(q, rows)", "conn.Commit()", "db.users.insert_one(d)", "c.update_many(a, b)", "c.replace_one(a, b)", "c.delete_many(a)", "c.bulk_write(ops)", "c.find_one_and_update(a, b)",
+    "coll.drop()", "c.create_index('a')", "c.drop_index('a')", "f = open(p, 'w')", "f = open(p, mode='ab')", "fh.write(s)", "os.unlink(p)", "shutil.rmtree(p)", "os.remove(p)",
+    "subprocess.run(c)", "os.system(c)", "run(c, shell=True)", "v = eval(s)", "exec(s)", "requests.post(u)", "requests.DELETE(u)", "x = PASSWORD", "k = Secret", "a = api_key", "c = Cookie",
+    "is_auth = 1", "perm = Permission", "v = os.getenv('A')", "t = Thread()", "import multiprocessing", "await go()", "s = Session()", "tok = Token", "rl = RLock()"];
+  for (const line of py) assert.ok(fails(shape({ prod: PROD.replace("LIMIT = 3", line) }), "l-keywords"), line);
+  const js = ["const cp = require('child_process');", "fetch(u, { method: 'POST' });", "axios.put(u);", "const e = process.env.A;", "await Promise.all(ps);"];
+  for (const line of js) {
+    const { repo, base } = baseRepo({ "lib/m.js": "const a = 1;\nconst b = 2;\n" });
+    commit(repo, { "lib/m.js": `const a = 1;\n${line}\n` });
+    assert.ok(fails(laneCheck({ root: repo, base }), "l-keywords"), line);
+  }
+  // a removed line counts as well; a plain read and a plain constant do not match
+  const rem = baseRepo({ "src/k.py": "a = 1\nb = PassWord\nc = 3\n" });
+  commit(rem.repo, { "src/k.py": "a = 1\nb = 2\nc = 3\n" });
+  assert.ok(fails(laneCheck({ root: rem.repo, base: rem.base }), "l-keywords"));
+  for (const line of ["f = open(p)", "f = open(p, 'rb')", "LIMIT = 4"]) assert.ok(!fails(shape({ prod: PROD.replace("LIMIT = 3", line) }), "l-keywords"), line);
+});
+
+test("round 2 items 5 + 12 + 13: wrong-typed adapter values are adapter-invalid; (?i) regexes compile; _keys are comments", () => {
+  const withAdapter = (adapter, prod = PROD_FIX) => shape({ prod, baseExtra: { "qa/adapter.json": JSON.stringify(adapter) } });
+  const bads = [{ public_api: "src/*" }, { test_globs: "tests/**" }, { lane: { shared: "src" } }, { lane: { exclude_diff_regex: "FOO" } }, { lane: { exclude_diff_regex: ["("] } },
+    { lane: { schema: [1] } }, { shared: null }, { quick_lane_exclude: {} }, { exclude_diff_regex: [["a"]] }];
+  for (const bad of bads) {
+    const r = withAdapter(bad);
+    assert.ok(fails(r, "adapter-invalid"), JSON.stringify(bad));
+    assert.equal(r.eligible, false);
+  }
+  // a `lane` that is not an object cannot carry lane.enabled, so the lane is simply disabled
+  for (const bad of [{ lane: "x" }, { lane: [] }]) assert.deepEqual(ruleIds(withAdapter(bad)), ["lane-disabled"], JSON.stringify(bad));
+  // item 12: a PCRE-style (?i) prefix is accepted and adapter regexes match case-insensitively
+  const ci = withAdapter({ lane: { exclude_diff_regex: ["(?i)threshold"] } }, PROD.replace("LIMIT = 3", "THRESHOLD = 3"));
+  assert.ok(fails(ci, "l-keywords"));
+  assert.ok(!fails(ci, "adapter-invalid"));
+  assert.ok(fails(withAdapter({ lane: { exclude_diff_regex: ["limit"] } }, PROD.replace("LIMIT = 3", "LIMIT = 4")), "l-keywords"), "plain patterns are case-insensitive too");
+  assert.deepEqual(withAdapter({ lane: { exclude_diff_regex: ["(?i)threshold"] } }).failures, []);
+  assert.ok(fails(withAdapter({ lane: { exclude_diff_regex: ["(?i)("] } }), "adapter-invalid"));
+  // item 13: _keys in the adapter and in its lane object are comments, whatever their type
+  assert.deepEqual(withAdapter({ lane: { _note: "text", _shared: 5, shared: ["other/**"] }, _comment: "x" }).failures, []);
+
+  const repo = newRepo();
+  fs.mkdirSync(path.join(repo, "qa"));
+  const run = (adapter) => { fs.writeFileSync(path.join(repo, "qa", "adapter.json"), JSON.stringify(adapter)); return tick(repo, ["--ceilings", "--root", repo], { TICK_FREEMEM_GB: "9.5", TICK_CPUS: "8" }); };
+  const badCeil = [{ parallel: "x" }, { parallel: [] }, { parallel: { lanes: "x" } }, { parallel: { lanes: [] } }, { parallel: { lanes: null } }, { parallel: { lanes: { a: { cpu: "yes" } } } },
+    { parallel: { lanes: { a: "a note without the underscore" } } }];
+  for (const bad of badCeil) assert.equal(run(bad).status, 1, JSON.stringify(bad));
+  const ok = run({ parallel: { note: "n", lanes: { code: { ram_gb: 1, cpu: true }, mongo_read: { max: 8 }, _mongo_write_note: "each unit ...", _browser_note: "x", _search_note: "y" } } });
+  assert.equal(ok.status, 0, ok.all);
+  assert.deepEqual(ok.out.trim().split(/\r?\n/), ["lane=code cap=8 binding=ram", "lane=mongo_read cap=8 binding=max"]);
+  assert.equal(run({ parallel: { lanes: { _only_note: "x" } } }).out.trim(), "lanes: none (adapter has no parallel.lanes)");
+});
+
+test("round 2 item 6: a removed decorator, or a removed guard / control-flow line with no replacement, is ineligible; a changed condition is not", () => {
+  const G = "import os\n\n\n@cache\ndef f(x):\n    if x is None:\n        return 0\n    assert x > 0\n    return x + 1\n";
+  const run = (next, from = G, rel = "src/g.py") => { const { repo, base } = baseRepo({ [rel]: from }); commit(repo, { [rel]: next }); return laneCheck({ root: repo, base }); };
+  const dec = run(G.replace("@cache\n", ""));
+  assert.ok(dec.failures.some((f) => f.rule === "no-removed-def" && /decorator/.test(f.detail)));
+  assert.ok(fails(run(G.replace("    if x is None:\n        return 0\n", "")), "no-removed-control"), "removed if guard");
+  assert.ok(fails(run(G.replace("    assert x > 0\n", "")), "no-removed-control"), "removed assert");
+  assert.ok(fails(run(G.replace("import os\n", "")), "no-removed-control"), "removed import");
+  assert.ok(fails(run(G.replace("        return 0\n", "        pass\n")), "no-removed-control"), "return replaced by pass");
+  assert.ok(fails(run("def f(x):\n    x = 1\n", "def f(x):\n    raise ValueError(x)\n"), "no-removed-control"), "removed raise");
+  assert.ok(!fails(run("def f(x):\n    y = 2\n    return x\n", "def f(x):\n    y = 1\n    return x\n"), "no-removed-control"), "a plain statement is not this rule");
+  assert.deepEqual(run(G.replace("if x is None:", "if x is None or x < 0:")).failures, [], "changed condition");
+  const J = "const a = require('./a');\nfunction g(x) {\n  if (!x) {\n    throw new Error('x');\n  }\n  return a(x);\n}\n";
+  assert.ok(fails(run(J.replace("    throw new Error('x');\n", "    x = 1;\n"), J, "lib/g.js"), "no-removed-control"), "removed throw");
+  assert.ok(fails(run(J.replace("const a = require('./a');\n", "const a = (x) => x;\n"), J, "lib/g.js"), "no-removed-control"), "removed require");
+  assert.deepEqual(run(J.replace("if (!x) {", "if (x == null) {"), J, "lib/g.js").failures, []);
+});
+
+test("round 2 items 7 + 11: one bookkeeping path list serves the push gate and the lane check", () => {
+  const BOOK = { "qa/.last-tick": "t\n", "qa/issues.jsonl": "{}\n", "qa/.wave.json": "{}\n", "qa/.wave.mark": "1\n", "qa/lane-ledger.jsonl": "{}\n", "qa/token-ledger.jsonl": "{}\n",
+    "qa/manifests/u.md": "# m\n", "qa/verdicts/u.md": "PASS\n", "qa/QUEUE.md": "- [ ] x\n" };
+  const bump = (files) => Object.fromEntries(Object.entries(files).map(([k, v]) => [k, v + "more\n"]));
+  // push gate: bookkeeping-only and md-only commits after the stamp pass (new and modified files)
+  let { repo } = baseRepo({ "qa/.last-tick": "t\n", "qa/QUEUE.md": "q\n" });
+  assert.equal(tick(repo, ["--stamp-6c-green", "--root", repo]).status, 0);
+  commit(repo, BOOK, "close-out 1");
+  commit(repo, { ...bump(BOOK), "qa/gates/approved.md": "ok\n", "docs/x.md": "x\n" }, "close-out 2");
+  const g = tick(repo, ["--push-gate", "--root", repo]);
+  assert.equal(g.status, 0, g.all);
+  for (const blocked of ["qa/contracts/c.md", "qa/Contracts/c.md", "qa/adapter.json", "qa/gates/g.json", "qa/tools/x.mjs", "qa/other.jsonl", "qa/manifests/u.json", "qa/hooks/h.ps1", "src/util.py"]) {
+    ({ repo } = baseRepo());
+    tick(repo, ["--stamp-6c-green", "--root", repo]);
+    commit(repo, { ...BOOK, [blocked]: "changed\n" });
+    assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 1, blocked);
+  }
+  // lane check: the unit's own bookkeeping (added or modified) is ignored
+  assert.deepEqual(shape({ tst: TST + NEW_TEST, extra: BOOK }).failures, [], "added bookkeeping");
+  assert.deepEqual(shape({ tst: TST + NEW_TEST, baseExtra: BOOK, extra: bump(BOOK) }).failures, [], "modified bookkeeping");
+  for (const blocked of ["qa/contracts/c.md", "qa/adapter.json", "qa/gates/g.md", "qa/hooks/h.ps1", "qa/notes.md", "qa/manifests/u.json", "qa/manifests/sub/u.md", "qa/evidence/e.md", "qa/.lane-off-note"])
+    assert.equal(shape({ extra: { ...BOOK, [blocked]: "changed\n" } }).eligible, false, blocked);
+  for (const gone of ["qa/manifests/u.md", "qa/verdicts/u.md", "qa/issues.jsonl", "qa/.last-tick"])
+    assert.ok(fails(shape({ baseExtra: BOOK, extra: { [gone]: null } }), "no-add-del-rename"), `deleted ${gone}`);
+  const mv = baseRepo({ "src/calc.py": PROD, ...BOOK });
+  git(mv.repo, "mv", "qa/manifests/u.md", "qa/manifests/v.md");
+  commit(mv.repo, { "src/calc.py": PROD_FIX });
+  assert.ok(fails(laneCheck({ root: mv.repo, base: mv.base }), "no-add-del-rename"), "renamed manifest");
+});
+
+test("round 2 item 14: after the stamp only bookkeeping and real docs markdown pass; instruction markdown blocks and is named", () => {
+  const after = (file) => {
+    const { repo } = baseRepo();
+    tick(repo, ["--stamp-6c-green", "--root", repo]);
+    commit(repo, { "qa/.last-tick": "t\n", [file]: "changed\n" });
+    return tick(repo, ["--push-gate", "--root", repo]);
+  };
+  for (const ok of ["README.md", "docs/x.md", "qa/manifests/u.md", "qa/issues.jsonl"]) { const r = after(ok); assert.equal(r.status, 0, `${ok}: ${r.all}`); }
+  for (const bad of ["CLAUDE.md", "sub/AGENTS.md", ".claude/skills/x/SKILL.md", ".agents/a.md", ".codex/a.md", "hei_sweep/prompts/judge.md", "qa/contracts/c.md", "qa/hooks/h.md",
+    "lib/agents/a.md", "docs/rules/r.md", "x/skills/s.md", "x/templates/t.md", "docs/judge_prompt.md", "src/util.py"]) {
+    const r = after(bad);
+    assert.equal(r.status, 1, bad);
+    assert.ok(r.all.includes(`changed since the stamp: ${bad}`), `${bad} must be named: ${r.all}`);
+    assert.match(r.out.trim().split(/\s+/).pop(), /^[0-9a-f]{40}$/, "the tree stays the last token");
+  }
+  // lane check: the same markdown test; docs are ignored, instruction markdown makes the diff ineligible
+  for (const ok of ["README.md", "docs/x.md"]) assert.deepEqual(shape({ tst: TST + NEW_TEST, extra: { [ok]: "x\n" } }).failures, [], ok);
+  for (const bad of ["CLAUDE.md", ".claude/skills/x/SKILL.md", "src/prompts/judge.md", "docs/rules/r.md", "docs/judge_prompt.md"])
+    assert.equal(shape({ tst: TST + NEW_TEST, extra: { [bad]: "x\n" } }).eligible, false, bad);
+});
+
+test("round 2 item 15: lane exclude globs and exclude_diff_regex apply to every changed path, test files included", () => {
+  const adapter = (lane) => ({ "qa/adapter.json": JSON.stringify({ lane }) });
+  const dedupTest = "from src.calc import clamp\n\n\ndef test_a():\n    assert clamp(1) == 1\n";
+  const run = (lane, { baseExtra = {}, extra = {}, tst } = {}) => shape({ tst, baseExtra: { ...adapter(lane), ...baseExtra }, extra });
+  for (const key of ["public_api", "schema", "shared", "quick_lane_exclude"]) {
+    // product eligible + a test file on an exclude glob -> ineligible, and the reason names the path
+    const r = run({ [key]: ["tests/**/conftest.py", "tests/**/test_*dedup*.py"] }, { baseExtra: { "tests/unit/test_x_dedup_y.py": dedupTest }, extra: { "tests/unit/test_x_dedup_y.py": dedupTest + NEW_TEST } });
+    const f = r.failures.find((x) => x.rule === "exclude-globs");
+    assert.ok(f && f.detail.includes("tests/unit/test_x_dedup_y.py") && f.detail.includes(key), `${key}: ${JSON.stringify(r.failures)}`);
+    // product eligible + an ordinary test -> eligible
+    assert.deepEqual(run({ [key]: ["tests/**/conftest.py", "tests/**/test_*dedup*.py"] }, { tst: TST + NEW_TEST }).failures, [], key);
+  }
+  const c = run({ quick_lane_exclude: ["tests/**/conftest.py"] }, { baseExtra: { "tests/unit/conftest.py": "A = 1\n" }, extra: { "tests/unit/conftest.py": "A = 2\n" } });
+  assert.ok(c.failures.some((x) => x.rule === "exclude-globs" && x.detail.includes("tests/unit/conftest.py")));
+  // exclude_diff_regex on an added test line
+  const rx = run({ exclude_diff_regex: ["(?i)threshold"] }, { tst: TST + "\n\ndef test_boundary():\n    THRESHOLD = 7\n    assert clamp(THRESHOLD) == 7\n" });
+  const k = rx.failures.find((x) => x.rule === "l-keywords");
+  assert.ok(k && k.detail.includes("tests/test_calc.py"), JSON.stringify(rx.failures));
+  assert.deepEqual(run({ exclude_diff_regex: ["(?i)threshold"] }, { tst: TST + NEW_TEST }).failures, []);
+  // bookkeeping paths stay ignored even when a glob would match them
+  assert.deepEqual(run({ quick_lane_exclude: ["qa/**"] }, { tst: TST + NEW_TEST, extra: { "qa/.last-tick": "t\n", "qa/manifests/u.md": "# m\n" } }).failures, []);
+});
+
+test("round 2 item 8: push-gate and stamp need a 40-hex tree on both sides; a repo with no commits fails closed", () => {
+  const empty = newRepo();
+  fs.mkdirSync(path.join(empty, "qa"));
+  for (const stamp of ["HEAD^{tree}", "", "0".repeat(40)]) {
+    fs.writeFileSync(path.join(empty, "qa", ".6c-green"), stamp + "\n");
+    assert.equal(tick(empty, ["--push-gate", "--root", empty]).status, 1, JSON.stringify(stamp));
+  }
+  fs.rmSync(path.join(empty, "qa", ".6c-green"));
+  assert.equal(tick(empty, ["--stamp-6c-green", "--root", empty]).status, 2);
+  assert.ok(!fs.existsSync(path.join(empty, "qa", ".6c-green")));
+  const { repo } = baseRepo();
+  const tree = git(repo, "rev-parse", "HEAD^{tree}");
+  fs.mkdirSync(path.join(repo, "qa"), { recursive: true });
+  for (const stamp of [tree.slice(0, 12), tree.slice(0, 39), tree + "0", "HEAD^{tree}", "HEAD"]) {
+    fs.writeFileSync(path.join(repo, "qa", ".6c-green"), stamp + "\n");
+    assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 1, stamp);
+  }
+  fs.writeFileSync(path.join(repo, "qa", ".6c-green"), tree + "\n");
+  assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 0);
+});
+
+test("round 2 item 9: a verdict file cited as ADVANCED evidence must be non-empty and may be cited only once", () => {
+  const repo = tickRepo([`${TS(1)} first`]);
+  fs.mkdirSync(path.join(repo, "qa", "verdicts"), { recursive: true });
+  fs.writeFileSync(path.join(repo, "qa", "verdicts", "empty.md"), "  \n");
+  const e = tick(repo, ["ADVANCED a", "--evidence", "qa/verdicts/empty.md"]);
+  assert.equal(e.status, 1);
+  assert.match(e.all, /empty/);
+  fs.writeFileSync(path.join(repo, "qa", "verdicts", "v.md"), "PASS\n");
+  assert.equal(tick(repo, ["ADVANCED a", "--evidence", "qa/verdicts/v.md"]).status, 0);
+  for (const again of ["qa/verdicts/v.md", "./qa/verdicts/v.md", "qa\\verdicts\\v.md", path.join(repo, "qa", "verdicts", "v.md")]) {
+    const r = tick(repo, ["ADVANCED b", "--evidence", again]);
+    assert.equal(r.status, 1, again);
+    assert.match(r.all, /already cited/, again);
+  }
+  fs.writeFileSync(path.join(repo, "qa", "verdicts", "w.md"), "PASS\n");
+  assert.equal(tick(repo, ["ADVANCED b", "--evidence", "qa/verdicts/w.md"]).status, 0);
+});
+
+// Self-attack: diff shapes no earlier list named. Every one must be ineligible.
+const inClass = (ins) => TST.replace("    def test_mid(self):", ins + "    def test_mid(self):");
+const JS_PROD = "function g(x) {\n  if (!x) {\n    return 0;\n  }\n  return x + 1;\n}\n";
+const ATTACKS = {
+  "01 py test: two added triple-quote lines comment out an existing test": { tst: TST.replace("def test_small():", '"""\ndef test_small():').replace("\n\n\ndef test_big", '\n"""\n\n\ndef test_big') },
+  "02 js test: added /* and */ lines comment out an existing test": { js: JS_TST.replace("  it('a'", "  /*\n  it('a'").replace("  it('b'", "  */\n  it('b'") },
+  "03 js test: `}); function unused() {` captures the remaining tests": { js: JS_TST.replace("  it('b'", "});\nfunction unused() {\n  it('b'") },
+  "04 py test: `class Helper:` inserted mid-class captures the following methods": { tst: inClass("class Helper:\n") },
+  "05 py test: a top-level def inserted mid-class captures the following methods": { tst: inClass("def test_new():\n    assert clamp(7) == 7\n\n") },
+  "06 py test: rebinding an existing test name at module level": { tst: TST + "\n\ntest_big = len\n" },
+  "07 py test: __test__ = False": { tst: TST.replace("class TestClamp:\n", "class TestClamp:\n    __test__ = False\n") },
+  "08 py test: `return 0` added at the top of an existing test": { tst: TST.replace("def test_big():\n", "def test_big():\n    return 0\n") },
+  "09 py test: `yield` added to an existing test": { tst: TST.replace("def test_big():\n", "def test_big():\n    yield\n") },
+  "10 py test: empty parametrize decorator added above an existing test": { tst: TST.replace("def test_big():", "@pytest.mark.parametrize('n', [])\ndef test_big():") },
+  "11 py test: an import that shadows the product import": { tst: TST + "\n\nfrom tests.fake import clamp\n" },
+  "12 py test: del of an existing test": { tst: TST + "\n\ndel test_big\n" },
+  "13 py test: attribute assignment patches the product module": { tst: TST + "\n\nimport src.calc\nsrc.calc.clamp = len\n" },
+  "14 py test: sys.modules swap": { tst: TST + "\n\nsys.modules['src.calc'] = None\n" },
+  "15 js test: try/catch added around an existing expect": { js: JS_TST.replace("    expect(f(1)).toBe(1);\n", "    try {\n    expect(f(1)).toBe(1);\n    } catch (e) {}\n") },
+  "16 js test: test.failing": { js: JS_TST + "test.failing('c', () => {\n  expect(1).toBe(2);\n});\n" },
+  "17 py test: setup_function added": { tst: TST + "\n\ndef setup_function(fn):\n    raise RuntimeError\n" },
+  "18 py test: unittest expectedFailure on a new test": { tst: TST + "\n\n@unittest.expectedFailure\ndef test_n():\n    assert clamp(7) == 0\n" },
+  "19 py product: two added triple-quote lines comment out the guard": { prod: PROD.replace("    if n > 5:", '    """\n    if n > 5:').replace("    return n\n", '    """\n    return n\n') },
+  "20 py product: unconditional early return added above existing code": { prod: PROD.replace("    if n > 5:", "    return n\n    if n > 5:") },
+  "21 py product: a line dedented out of its guard": { prod: PROD.replace("        return 5", "    return 5") },
+  "22 md the harness loads (CLAUDE.md) riding along": { extra: { "CLAUDE.md": "# new rules\n" } },
+  "23 md under prompts/ riding along": { extra: { "prompts/system.md": "new prompt\n" } },
+  "24 md that product code reads riding along": { baseExtra: { "src/loader.py": "T = open('docs/tmpl.md').read()\n", "docs/tmpl.md": "a\n" }, extra: { "docs/tmpl.md": "b\n" } },
+  "25 test-named file that product code imports": { baseExtra: { "src/test_mode.py": "ENABLED = True\n", "src/c.py": "from src import test_mode\n" }, extra: { "src/test_mode.py": "ENABLED = True\nENABLED = False\n" } },
+  "26 py product: guard and its return replaced by a plain line": { prod: PROD.replace("    if n > 5:\n        return 5\n", "    n = 5\n") },
+  "27 js test: beforeEach added": { js: JS_TST + "beforeEach(() => {\n  globalThis.f = () => 1;\n});\n" },
+  "28 py test: pytestmark usefixtures": { tst: TST + "\n\npytestmark = pytest.mark.usefixtures('fake_clamp')\n" },
+  "29 py test: a new fixture overriding a conftest fixture": { tst: TST + "\n\n@pytest.fixture\ndef client():\n    return None\n" },
+  "30 js product: added /* and */ lines comment out the guard": { prod: PROD, baseExtra: { "lib/g.js": JS_PROD }, extra: { "lib/g.js": JS_PROD.replace("  if (!x) {", "  /*\n  if (!x) {").replace("  return x + 1;", "  */\n  return x + 1;") } },
+  "31 js product: unconditional early return added": { prod: PROD, baseExtra: { "lib/g.js": JS_PROD }, extra: { "lib/g.js": JS_PROD.replace("  if (!x) {", "  return 1;\n  if (!x) {") } },
+};
+test("round 2 self-attack: additions-only and structural tricks are ineligible", () => {
+  for (const [name, a] of Object.entries(ATTACKS)) assert.equal(shape(a).eligible, false, `${name} returned quick`);
+});
+
+// ---- round 3 (2026-10-10): the quick lane ships OFF; the denylist stops being patched
+const CHANGE = { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55") };
+const adapterWith = (enabled) => JSON.stringify(enabled === undefined ? {} : { lane: { enabled } });
+
+test("round 3 item 1: lane is disabled unless lane.enabled === true at BOTH base and the main checkout's HEAD; the result is lane-disabled, exit 1", () => {
+  const expectOff = (repo, base, why) => {
+    const r = laneCheck({ root: repo, base });
+    assert.equal(r.eligible, false, why);
+    assert.deepEqual(ruleIds(r), ["lane-disabled"], why);
+    const c = tick(repo, ["--lane-check", base, "--root", repo]);
+    assert.equal(c.status, 1, why);
+    const lines = c.out.trim().split(/\r?\n/);
+    assert.equal(lines[0], "LANE: none", why);
+    assert.equal(lines.length, 2, why);
+    assert.match(lines[1], /^lane-ineligible: lane-disabled \S/, why);
+  };
+  let t = baseRepo({}, { enable: false });                                    // no adapter at all
+  commit(t.repo, CHANGE);
+  expectOff(t.repo, t.base, "missing adapter");
+  for (const [why, ad] of [["no key", adapterWith()], ["lane without enabled", JSON.stringify({ lane: {} })], ["false", adapterWith(false)],
+    ['"true" string', adapterWith("true")], ["1", adapterWith(1)], ["null", adapterWith(null)], ["[true]", adapterWith([true])], ["top-level enabled", JSON.stringify({ enabled: true })]]) {
+    t = baseRepo({ "qa/adapter.json": ad }, { enable: false });
+    commit(t.repo, CHANGE);
+    expectOff(t.repo, t.base, why);
+  }
+  // true at base only: the head commit turns it off again
+  t = baseRepo({ "qa/adapter.json": adapterWith(true) }, { enable: false });
+  commit(t.repo, { ...CHANGE, "qa/adapter.json": adapterWith(false) });
+  expectOff(t.repo, t.base, "true at base only");
+  // true at head only: base had it off, the head commit turns it on
+  t = baseRepo({ "qa/adapter.json": adapterWith(false) }, { enable: false });
+  commit(t.repo, { ...CHANGE, "qa/adapter.json": adapterWith(true) });
+  expectOff(t.repo, t.base, "true at head only");
+  // true at both, strict boolean: the other rules decide (this diff is eligible)
+  t = baseRepo({ "qa/adapter.json": adapterWith(true) }, { enable: false });
+  commit(t.repo, CHANGE);
+  assert.deepEqual(ruleIds(laneCheck({ root: t.repo, base: t.base })), []);
+  assert.equal(tick(t.repo, ["--lane-check", t.base, "--root", t.repo]).out.trim(), "LANE: quick");
+  // lane-disabled runs before every other rule: an otherwise ineligible diff reports only lane-disabled
+  t = baseRepo({}, { enable: false });
+  commit(t.repo, { "src/new.py": "time = sleep(1)\n", "src/util.py": numbered(40).replace("x5 = 5", "x5 = 55") });
+  expectOff(t.repo, t.base, "disabled beats other rules");
+});
+
+test("round 3 item 2: qa/.lane-off is resolved against the main checkout, so a git worktree passed as --root sees it", () => {
+  const { repo, base } = baseRepo();
+  const wt = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "tickwt-")), "wt");
+  git(repo, "worktree", "add", "-q", "-b", "wt-branch", wt, base);
+  commit(wt, CHANGE);
+  const check = () => tick(wt, ["--lane-check", base, "--root", wt]);
+  let c = check();
+  assert.equal(c.status, 0, c.all);
+  assert.equal(c.out.trim(), "LANE: quick");
+  assert.equal(fs.existsSync(path.join(wt, "qa", ".lane-off")), false);
+  // the file exists only in the main checkout (untracked, so the worktree does not have it)
+  fs.writeFileSync(path.join(repo, "qa", ".lane-off"), "paused in main 2026-10-10\n");
+  assert.equal(fs.existsSync(path.join(wt, "qa", ".lane-off")), false, "premise: not visible from the worktree");
+  c = check();
+  assert.equal(c.status, 1);
+  assert.deepEqual(c.out.trim().split(/\r?\n/), ["LANE: none", "lane-ineligible: lane-off paused in main 2026-10-10"]);
+  assert.deepEqual(ruleIds(laneCheck({ root: wt, base })), ["lane-off"]);
+  fs.rmSync(path.join(repo, "qa", ".lane-off"));
+  assert.equal(check().status, 0);
+  // and the worktree's own copy still counts
+  fs.mkdirSync(path.join(wt, "qa"), { recursive: true });
+  fs.writeFileSync(path.join(wt, "qa", ".lane-off"), "paused in worktree\n");
+  assert.deepEqual(check().out.trim().split(/\r?\n/), ["LANE: none", "lane-ineligible: lane-off paused in worktree"]);
+});
+
+test("round 3 item 4: after the stamp a changed .md keeps the stamp only if lane-check would call it docs (read by product or test code, .github)", () => {
+  const after = (file, baseExtra = {}) => {
+    const { repo } = baseRepo(baseExtra);
+    tick(repo, ["--stamp-6c-green", "--root", repo]);
+    commit(repo, { "qa/.last-tick": "t\n", [file]: "changed\n" });
+    return tick(repo, ["--push-gate", "--root", repo]);
+  };
+  const app = { "app.py": "SYSTEM = open('config/system.md').read()\n", "config/system.md": "be nice\n" };
+  const golden = { "tests/test_golden.py": "def test_g():\n    assert open('tests/golden/expected.md').read()\n", "tests/golden/expected.md": "ok\n" };
+  for (const [file, extra] of [["config/system.md", app], ["tests/golden/expected.md", golden], [".github/copilot-instructions.md", {}], [".github/PULL_REQUEST_TEMPLATE.md", {}]]) {
+    const r = after(file, extra);
+    assert.equal(r.status, 1, `${file}: ${r.all}`);
+    assert.ok(r.err.includes(`changed since the stamp: ${file}`), `${file} must be named: ${r.all}`);
+  }
+  for (const [file, extra] of [["README.md", {}], ["docs/x.md", {}], ["config/other.md", app]]) {
+    const r = after(file, extra);
+    assert.equal(r.status, 0, `${file}: ${r.all}`);
+  }
+  // the same markdown test as --lane-check: product code naming the file makes it non-docs there too
+  const { repo, base } = baseRepo(app);
+  commit(repo, { ...CHANGE, "config/system.md": "changed\n" });
+  assert.equal(laneCheck({ root: repo, base }).eligible, false);
+});
+
+test("round 4 docs gaps: script readers, dynamic compound-suffix names and data directories are never docs", () => {
+  const after = (file, baseExtra = {}) => {
+    const { repo } = baseRepo(baseExtra);
+    tick(repo, ["--stamp-6c-green", "--root", repo]);
+    commit(repo, { "qa/.last-tick": "t\n", [file]: "changed\n" });
+    return { repo, ...tick(repo, ["--push-gate", "--root", repo]) };
+  };
+  const cases = [
+    ["config/greeting.md", { "run.ps1": "Get-Content config/greeting.md\n", "config/greeting.md": "hi\n" }],
+    ["config/greeting.md", { "run.sh": "cat config/greeting.md\n", "config/greeting.md": "hi\n" }],
+    ["references/portals/ind-x.knowledge.md", { "loader.py": "def load(pid):\n    return open(f\"{pid}.knowledge.md\").read()\n", "references/portals/ind-x.knowledge.md": "k\n" }],
+    ["data/notes.md", { "data/notes.md": "n\n" }],
+    ["notes/fixtures/a.md", { "notes/fixtures/a.md": "n\n" }],
+    ["notes/golden/a.md", { "notes/golden/a.md": "n\n" }],
+    ["notes/snapshots/a.md", { "notes/snapshots/a.md": "n\n" }],
+  ];
+  for (const [file, extra] of cases) {
+    const r = after(file, extra);
+    assert.equal(r.status, 1, `${file}: ${r.all}`);
+    assert.ok(r.err.includes(`changed since the stamp: ${file}`), `${file} must be named: ${r.all}`);
+  }
+  for (const [file, extra] of [["README.md", {}], ["docs/guide.md", {}]]) {
+    const r = after(file, extra);
+    assert.equal(r.status, 0, `${file}: ${r.all}`);
+  }
+});
+
+test("round 4 fail closed: an unreadable tracked source file means markdown is not docs (push-gate and lane-check)", () => {
+  // push-gate: a docs commit after the stamp keeps it while sources are readable, fails once one cannot be read
+  let { repo } = baseRepo();
+  tick(repo, ["--stamp-6c-green", "--root", repo]);
+  commit(repo, { "qa/.last-tick": "t\n", "docs/x.md": "changed\n" });
+  assert.equal(tick(repo, ["--push-gate", "--root", repo]).status, 0, "control");
+  fs.rmSync(path.join(repo, "src", "a.py"));                      // tracked, now unreadable
+  const g = tick(repo, ["--push-gate", "--root", repo]);
+  assert.equal(g.status, 1, g.all);
+  // lane-check
+  const mk = () => {
+    const r = baseRepo({ "src/calc.py": PROD, "tests/test_calc.py": TST, "src/keep.py": "K = 1\n" });
+    commit(r.repo, { "src/calc.py": PROD_FIX, "tests/test_calc.py": TST + NEW_TEST, "README.md": "changed\n" });
+    return r;
+  };
+  let m = mk();
+  assert.deepEqual(laneCheck({ root: m.repo, base: m.base }).failures, [], "control");
+  m = mk();
+  fs.rmSync(path.join(m.repo, "src", "keep.py"));
+  assert.equal(laneCheck({ root: m.repo, base: m.base }).eligible, false);
+});
+
+// ------------------------------------------------------------------------------------------ reuse-check (policy .10)
+test("reuse-check: only manifests/*.md and QUEUE.md changed since the pre-check sha prints REUSE, exit 0", () => {
+  const { repo, base } = baseRepo({ "qa/QUEUE.md": "- [ ] row\n", "qa/manifests/m.md": "a\n" });
+  commit(repo, { "qa/manifests/m.md": "b\n", "qa/QUEUE.md": "- [ ] row2\n", "qa/manifests/new.md": "n\n" });
+  const r = tick(repo, ["--reuse-check", base, "--root", repo]);
+  assert.equal(r.out.trim(), "REUSE", r.all);
+  assert.equal(r.status, 0);
+});
+
+test("reuse-check: a product change prints RERUN with the offending path, exit 1", () => {
+  const { repo, base } = baseRepo({ "qa/QUEUE.md": "- [ ] row\n" });
+  commit(repo, { "src/x.py": "X = 1\n", "qa/QUEUE.md": "- [ ] row2\n" });
+  const r = tick(repo, ["--reuse-check", base, "--root", repo]);
+  assert.equal(r.out.trim(), "RERUN src/x.py", r.all);
+  assert.equal(r.status, 1);
+});
+
+test("reuse-check: several offenders are space-separated; bookkeeping paths are not listed", () => {
+  const { repo, base } = baseRepo({ "qa/QUEUE.md": "q\n" });
+  commit(repo, { "src/x.py": "X = 1\n", "src/y.py": "Y = 1\n", "qa/QUEUE.md": "q2\n", "qa/contracts/c.md": "c\n" });
+  const r = tick(repo, ["--reuse-check", base, "--root", repo]);
+  assert.equal(r.status, 1);
+  const [word, ...paths] = r.out.trim().split(" ");
+  assert.equal(word, "RERUN");
+  assert.deepEqual([...paths].sort(), ["qa/contracts/c.md", "src/x.py", "src/y.py"]);
+});
+
+test("reuse-check: only the conservative bookkeeping allowlist is reused; every other file (docs, README, config md, issues.jsonl) is RERUN", () => {
+  const { repo, base } = baseRepo({ "src/load.py": "import glob\nglob.glob('docs/*.md')\n", "qa/issues.jsonl": "{}\n" });
+  const ok = commit(repo, {
+    "qa/manifests/m.md": "m\n", "qa/verdicts/v.md": "v\n", "qa/checkpoints/c.md": "c\n", "qa/handshakes/h.md": "h\n",
+    "qa/evidence/deep/e.md": "e\n", "qa/QUEUE.md": "q\n", "qa/.last-tick": "t\n", "qa/.last-tick-stamp": "s\n", "qa/.handoffs/h.json": "{}\n",
+  });
+  assert.equal(tick(repo, ["--reuse-check", base, "--root", repo]).out.trim(), "REUSE");
+  for (const f of ["docs/dyn.md", "README.md", "config/other.md", "qa/issues.jsonl", "qa/manifests/CLAUDE.md", "qa/contracts/c.md", "qa/evidence/x.json", "qa/manifests/m.json"]) {
+    const before = git(repo, "rev-parse", "HEAD");
+    commit(repo, { [f]: "changed\n" });
+    const r = tick(repo, ["--reuse-check", before, "--root", repo]);
+    assert.equal(r.status, 1, `${f}: ${r.all}`);
+    assert.equal(r.out.trim(), `RERUN ${f}`, f);
+  }
+});
+
+test("reuse-check: instruction markdown and markdown named by code are RERUN", () => {
+  const { repo, base } = baseRepo({ "src/load.py": "open('templates_data.md')\n" });
+  commit(repo, { "CLAUDE.md": "rules\n", ".claude/skills/s/SKILL.md": "s\n", "templates_data.md": "t\n" });
+  const r = tick(repo, ["--reuse-check", base, "--root", repo]);
+  assert.equal(r.status, 1, r.all);
+  assert.deepEqual(r.out.trim().split(" ").slice(1).sort(), [".claude/skills/s/SKILL.md", "CLAUDE.md", "templates_data.md"]);
+});
+
+test("reuse-check: acceptance shape - two test files changed is RERUN from before, REUSE from after when only manifests/QUEUE moved", () => {
+  const { repo, base } = baseRepo({ "qa/QUEUE.md": "q\n" });
+  const c1 = commit(repo, { "tests/test_a.py": "def test_a():\n    assert 1\n", "tests/test_b.py": "def test_b():\n    assert 1\n" });
+  const r = tick(repo, ["--reuse-check", base, "--root", repo]);
+  assert.equal(r.status, 1);
+  assert.deepEqual(r.out.trim().split(" ").slice(1).sort(), ["tests/test_a.py", "tests/test_b.py"]);
+  commit(repo, { "qa/manifests/m.md": "m\n", "qa/QUEUE.md": "q2\n" });
+  const ok = tick(repo, ["--reuse-check", c1, "--root", repo]);
+  assert.equal(ok.out.trim(), "REUSE", ok.all);
+  assert.equal(ok.status, 0);
+});
+
+test("reuse-check: an empty diff is REUSE; --head bounds the diff", () => {
+  const { repo, base } = baseRepo();
+  assert.equal(tick(repo, ["--reuse-check", base, "--root", repo]).out.trim(), "REUSE");
+  const c1 = commit(repo, { "qa/manifests/a.md": "a\n" });
+  commit(repo, { "src/late.py": "L = 1\n" });
+  assert.equal(tick(repo, ["--reuse-check", base, "--head", c1, "--root", repo]).out.trim(), "REUSE");
+  assert.equal(tick(repo, ["--reuse-check", base, "--root", repo]).out.trim(), "RERUN src/late.py");
+});
+
+test("reuse-check: --inputs reuses when no changed path matches any glob, even for code changes", () => {
+  const { repo, base } = baseRepo();
+  commit(repo, { "src/other.py": "O = 1\n", "scripts/z.js": "z\n" });
+  const r = tick(repo, ["--reuse-check", base, "--inputs", "src/util.py", "tests/**", "--root", repo]);
+  assert.equal(r.out.trim(), "REUSE", r.all);
+  assert.equal(r.status, 0);
+});
+
+test("reuse-check: --inputs with a matching changed path is RERUN naming the matching paths", () => {
+  const { repo, base } = baseRepo();
+  commit(repo, { "src/util.py": numbered(40).replace("x5 = 5", "x5 = 6"), "src/other.py": "O = 1\n" });
+  const r = tick(repo, ["--reuse-check", base, "--inputs", "src/*.py", "--root", repo]);
+  assert.equal(r.status, 1);
+  assert.deepEqual(r.out.trim().split(" ").slice(1).sort(), ["src/other.py", "src/util.py"]);
+  const r2 = tick(repo, ["--reuse-check", base, "--inputs", "src/util.py", "--root", repo]);
+  assert.equal(r2.out.trim(), "RERUN src/util.py");
+});
+
+test("reuse-check: an unresolvable ref exits 2; usage errors exit 2 and print nothing on stdout", () => {
+  const { repo, base } = baseRepo();
+  const bad = tick(repo, ["--reuse-check", "deadbeefdeadbeefdeadbeef", "--root", repo]);
+  assert.equal(bad.status, 2, bad.all);
+  assert.equal(bad.out.trim(), "");
+  assert.equal(tick(repo, ["--reuse-check", base, "--head", "no-such-ref", "--root", repo]).status, 2);
+  assert.equal(tick(repo, ["--reuse-check", "--root", repo]).status, 2, "missing sha");
+  assert.equal(tick(repo, ["--reuse-check", base, "--bogus", "--root", repo]).status, 2, "unknown flag");
+  assert.equal(tick(repo, ["--reuse-check", base, "extra", "--root", repo]).status, 2, "stray argument");
+  assert.equal(tick(repo, ["--reuse-check", base, "--inputs", "--root", repo]).status, 2, "--inputs without a glob");
+});
+
+test("reuse-check --inputs: config, contract and instruction files force RERUN even when no input glob matches", () => {
+  const { repo, base } = baseRepo({ "qa/contracts/c.md": "c\n" });
+  let from = base;
+  for (const f of ["tests/conftest.py", "conftest.py", "pytest.ini", "setup.cfg", "pyproject.toml", "tox.ini", "requirements-dev.txt", "requirements.txt",
+    "qa/contracts/c.md", "qa/contracts/new.md", "CLAUDE.md", ".claude/skills/x/SKILL.md", "templates/p.md"]) {
+    commit(repo, { [f]: "changed\n" });
+    const r = tick(repo, ["--reuse-check", from, "--inputs", "src/util.py", "--root", repo]);
+    assert.equal(r.status, 1, `${f}: ${r.all}`);
+    assert.equal(r.out.trim(), `RERUN ${f}`, f);
+    from = git(repo, "rev-parse", "HEAD");
+  }
+});
+
+test("reuse-check --inputs: REUSE reports the changed paths it did not check on stderr; allowlisted changes report none", () => {
+  const { repo, base } = baseRepo();
+  commit(repo, { "src/a.py": "A = 1\n", "qa/QUEUE.md": "q\n" });
+  const r = tick(repo, ["--reuse-check", base, "--inputs", "src/util.py", "--root", repo]);
+  assert.equal(r.status, 0);
+  assert.equal(r.out.trim(), "REUSE");
+  assert.equal(r.err.trim(), "eligibility-only: no execution evidence validated\nREUSE (inputs-only; unchecked: src/a.py)");
+  const c1 = git(repo, "rev-parse", "HEAD");
+  commit(repo, { "qa/manifests/m.md": "m\n" });
+  const q = tick(repo, ["--reuse-check", c1, "--inputs", "src/util.py", "--root", repo]);
+  assert.equal(q.out.trim(), "REUSE");
+  assert.equal(q.err.trim(), "eligibility-only: no execution evidence validated");
+});
+
+
+test("efficiency-check actual CLI requires complete finite actual accounting and never mutates ticks", () => {
+  const repo = newRepo();
+  fs.mkdirSync(path.join(repo, "qa")); fs.writeFileSync(path.join(repo, "qa/.last-tick"), "original\n");
+  const report = { schema_version: 1, efficiency: { complete: true, unknown_reasons: [], target: 0.1, maker_minutes: 100, checker_minutes: 10, maker_tokens: 1000, checker_tokens: 100, time_ratio: 0.1, token_ratio: 0.1 } };
+  const role = (tokens, active_seconds, runs) => ({ tokens, input: tokens, output: 0, cache_read: 0, cache_write: 0, active_seconds, wait_seconds: 0, runs });
+  const accountingRun = (run_id, role, tokens, active_seconds) => ({ run_id, role, tokens, active_seconds, wait_seconds: 0, usage: { input: tokens, output: 0, cache_read: 0, cache_write: 0 } });
+  report.feature_report = { schema_version: 1, roles: { maker: role(1000, 6000, 1), checker: role(100, 600, 1), integration: role(0, 0, 0), unknown: role(0, 0, 0) }, runs: [accountingRun("m", "maker", 1000, 6000), accountingRun("c", "checker", 100, 600)] };
+  const file = path.join(os.tmpdir(), `eff-${path.basename(repo)}.json`);
+  const run = (value, extra = []) => { fs.writeFileSync(file, JSON.stringify(value)); return tick(repo, ["--efficiency-check", file, ...extra]); };
+  assert.equal(run(report).status, 0);
+  assert.match(run(report).out, /^WITHIN-TARGET/m);
+  for (const change of [{ complete: false }, { maker_minutes: 0 }, { maker_tokens: 0 }, { maker_tokens: "1000" }, { checker_tokens: null }, { time_ratio: 0.09 }, { unknown_reasons: ["missing provider"] }]) {
+    const r = run({ ...report, efficiency: { ...report.efficiency, ...change } });
+    assert.equal(r.status, 2, r.all); assert.match(r.out, /^UNKNOWN/m);
+  }
+  for (const feature_report of [undefined, { ...report.feature_report, runs: [...report.feature_report.runs, report.feature_report.runs[0]] }, { ...report.feature_report, roles: { ...report.feature_report.roles, unknown: role(1, 0, 0) } }]) assert.equal(run({ ...report, feature_report }).status, 2);
+  const over = run({ ...report, efficiency: { ...report.efficiency, checker_tokens: 150, token_ratio: 0.15 }, feature_report: { ...report.feature_report, roles: { ...report.feature_report.roles, checker: role(150, 600, 1) }, runs: [accountingRun("m", "maker", 1000, 6000), accountingRun("c", "checker", 150, 600)] } });
+  assert.equal(over.status, 1); assert.match(over.out, /OVER-TARGET/); assert.match(over.out, /excess_tokens=50/);
+  assert.equal(run(report, ["--bogus"]).status, 2);
+  assert.equal(tick(repo, ["--bogus", "message"]).status, 2);
+  assert.equal(fs.readFileSync(path.join(repo, "qa/.last-tick"), "utf8"), "original\n");
+});
+
+test("reuse evidence actual CLI validates success, identities, blobs, logs, dirty paths and unchecked changes", () => {
+  const { repo, base } = baseRepo();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "reuse-proof-"));
+  const log = path.join(outside, "run.log"); fs.writeFileSync(log, "test passed\n");
+  const identity = { schema_version: 1, command: ["node", "--test", "tests/test_util.py"], selection: ["tests/test_util.py"], input_blobs: [{ path: "src/util.py", blob: git(repo, "rev-parse", `${base}:src/util.py`) }], config_id: "config1", runtime_id: "node1", dependency_id: "lock1", policy_id: "policy1", protocol_id: "protocol1" };
+  const proof = { ...identity, sha: base, status: "success", exit_code: 0, log_file: log, log_sha256: createHash("sha256").update(fs.readFileSync(log)).digest("hex") };
+  const evidenceFile = path.join(outside, "e.json"), currentFile = path.join(outside, "c.json");
+  const run = (e = proof, c = identity, extras = []) => {
+    fs.writeFileSync(evidenceFile, JSON.stringify(e)); fs.writeFileSync(currentFile, JSON.stringify(c));
+    return tick(repo, ["--reuse-check", base, "--evidence", evidenceFile, "--current", currentFile, ...extras]);
+  };
+  assert.equal(run().status, 0);
+  for (const key of ["command", "selection", "input_blobs", "config_id", "runtime_id", "dependency_id", "policy_id", "protocol_id"])
+    assert.notEqual(run(proof, { ...identity, [key]: key === "command" || key === "selection" ? ["different"] : key === "input_blobs" ? [] : "different" }).status, 0, key);
+  for (const change of [{ status: "failed" }, { exit_code: 1 }, { exit_code: "0" }, { sha: "bad-ref" }, { log_sha256: "0".repeat(64) }, { input_blobs: [...identity.input_blobs, ...identity.input_blobs] }]) assert.notEqual(run({ ...proof, ...change }).status, 0);
+  const wrong = { ...identity, input_blobs: [{ path: "src/util.py", blob: "0".repeat(40) }] };
+  assert.match(run({ ...proof, ...wrong }, wrong).out, /input-blob-mismatch/);
+  fs.writeFileSync(path.join(repo, "untracked.txt"), "dirty"); assert.match(run().out, /dirty-or-untracked/); fs.unlinkSync(path.join(repo, "untracked.txt"));
+  commit(repo, { "src/unchecked.py": "changed\n" });
+  assert.match(run(proof, identity, ["--inputs", "src/util.py"]).out, /unchecked:src\/unchecked.py/);
+  assert.equal(tick(repo, ["--reuse-check", base, "--evidence", evidenceFile]).status, 2);
+});
+
+
+test("handoff: completed producer preserves historical context while checker admission stays fresh", () => {
+  // Synthetic receipts exercise admission invariants; this is not native execution or efficiency evidence.
+  const { repo, p, request } = handoffFixture();
+  const hash = raw => createHash("sha256").update(raw).digest("hex");
+  p.tasks[0].handoff = deliveryHandoff(repo, request).handoff;
+  p.tasks[0].command = ["C:/installed/codex.exe", "exec", "-"];
+  const checkRequest = cloneDelivery(request);
+  checkRequest.task.id = "check"; checkRequest.task.owner = "checker";
+  fs.writeFileSync(path.join(repo, "qa/check-context.md"), "current checker context\n");
+  checkRequest.sources = [{ path: "qa/check-context.md", sha256: hash(fs.readFileSync(path.join(repo, "qa/check-context.md"))), ranges: [[1, 1]] }];
+  p.tasks[1].handoff = deliveryHandoff(repo, checkRequest).handoff;
+  p.tasks[1].command = ["C:/installed/codex.exe", "exec", "-"];
+  const initial = deliveryPrepare(repo, p);
+  deliveryClaim(repo, initial, { managed: true });
+  const stateFile = path.join(repo, "qa/.delivery/workflow.json"), state = JSON.parse(fs.readFileSync(stateFile));
+  fs.appendFileSync(path.join(repo, "src/util.py"), "# legitimate builder output\n");
+  const logFile = path.join(repo, "qa/.delivery/producer.log"); fs.writeFileSync(logFile, "synthetic successful producer\n");
+  const receipt = { workflow_id: p.workflow_id, task_id: "build", attempt_id: "attempt1", status: "success", exit_code: 0,
+    outputs: initial.candidate.files.map(f => ({ path: f.path, sha256: hash(fs.readFileSync(path.join(repo, f.path))) })),
+    evidence: { ...state.attempts[0].execution_identity, log_file: "qa/.delivery/producer.log", log_sha256: hash(fs.readFileSync(logFile)) } };
+  const receiptRaw = JSON.stringify(receipt), receiptHash = hash(receiptRaw);
+  const receiptFile = path.join(repo, "qa/.delivery", `${receiptHash}.receipt.json`);
+  fs.writeFileSync(receiptFile, receiptRaw);
+  state.attempts[0].status = "success"; state.attempts[0].receipt_sha256 = receiptHash;
+  fs.writeFileSync(stateFile, JSON.stringify(state));
+  const plan = cloneDelivery(initial); plan.dispatch = { task_id: "check", attempt_id: "c1" };
+  const stateRaw = fs.readFileSync(stateFile), source = fs.readFileSync(path.join(repo, "src/util.py"));
+  const bundleFile = path.join(repo, p.tasks[0].handoff.path), bundleRaw = fs.readFileSync(bundleFile);
+  const ready = deliveryPrepare(repo, plan); // RED before repair: stale handoff source hash.
+  assert.deepEqual(fs.readFileSync(stateFile), stateRaw, "validation must not rewrite lineage");
+  assert.equal(fs.readFileSync(receiptFile, "utf8"), receiptRaw);
+  assert.deepEqual(ready.budget, initial.budget); assert.deepEqual(ready.tasks, initial.tasks);
+  for (const mode of ["pending", "failed", "missing", "foreign-state", "foreign-root", "wrong-plan", "foreign-receipt", "wrong-command", "wrong-context", "wrong-policy", "wrong-protocol", "receipt-tampered", "log-tampered", "bundle-tampered", "changed-output", "stale-dispatch", "stale-checker", "changed-after-prepare", "duplicate-output", "duplicate-output-admission"]) {
+    const q = cloneDelivery(plan), st = cloneDelivery(state), r = cloneDelivery(receipt);
+    if (["pending", "failed"].includes(mode)) st.attempts[0].status = mode;
+    if (mode === "missing") st.attempts = [];
+    if (mode === "foreign-state") st.workflow_id = "foreign";
+    if (mode === "foreign-root") st.root_run_id = "foreign";
+    if (mode === "wrong-plan") st.plan_hash = "0".repeat(64);
+    if (mode === "foreign-receipt") r.workflow_id = "foreign";
+    if (mode === "wrong-command") r.evidence.command = ["other"];
+    if (mode === "wrong-context") r.evidence.context_id = "0".repeat(64);
+    if (mode === "wrong-policy") r.evidence.policy_id = "0".repeat(64);
+    if (mode === "wrong-protocol") r.evidence.protocol_id = "0".repeat(64);
+    if (mode.startsWith("duplicate-output")) r.outputs = [r.outputs[0], r.outputs[0]];
+    if (["foreign-receipt", "wrong-command", "wrong-context", "wrong-policy", "wrong-protocol", "duplicate-output", "duplicate-output-admission"].includes(mode)) {
+      const raw = JSON.stringify(r), sha = hash(raw); fs.writeFileSync(path.join(repo, "qa/.delivery", `${sha}.receipt.json`), raw); st.attempts[0].receipt_sha256 = sha;
+    }
+    if (mode === "receipt-tampered") fs.appendFileSync(receiptFile, " ");
+    if (mode === "log-tampered") fs.appendFileSync(logFile, "tampered");
+    if (mode === "bundle-tampered") fs.appendFileSync(bundleFile, " ");
+    if (["changed-output", "changed-after-prepare"].includes(mode)) fs.appendFileSync(path.join(repo, "src/util.py"), "# changed again\n");
+    if (mode === "stale-dispatch") q.dispatch.task_id = "build";
+    if (mode === "stale-checker") fs.appendFileSync(path.join(repo, "qa/check-context.md"), "changed\n");
+    fs.writeFileSync(stateFile, JSON.stringify(st));
+    if (["changed-after-prepare", "duplicate-output-admission"].includes(mode)) assert.throws(() => deliveryClaim(repo, ready), undefined, mode);
+    else assert.throws(() => deliveryPrepare(repo, q), undefined, mode);
+    fs.writeFileSync(stateFile, stateRaw); fs.writeFileSync(receiptFile, receiptRaw);
+    fs.writeFileSync(logFile, "synthetic successful producer\n"); fs.writeFileSync(bundleFile, bundleRaw);
+    fs.writeFileSync(path.join(repo, "src/util.py"), source); fs.writeFileSync(path.join(repo, "qa/check-context.md"), "current checker context\n");
+  }
+  assert.throws(() => deliveryClaim(repo, ready, { now: Date.parse(ready.budget.deadline) + 1 }), /deadline exhausted/);
+  assert.equal(deliveryClaim(repo, ready).status, "claimed");
+  const after = JSON.parse(fs.readFileSync(stateFile));
+  assert.deepEqual(after.attempts[0], state.attempts[0]); assert.equal(after.attempts.length, 2);
+  assert.deepEqual(after.budget, initial.budget);
+});

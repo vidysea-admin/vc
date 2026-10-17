@@ -1,0 +1,20 @@
+{
+  "status": "actual-native-join-PASS",
+  "instrument_only": true,
+  "full_lifecycle_pilot": false,
+  "feature_compliance": "UNKNOWN",
+  "receipt_sha256": "2f96c5705b562f38b826341c6720a06646fc1995067feb643e116286dd73e9a9",
+  "session_id": "01a14220-635a-7b42-bbbf-f4d077364100",
+  "turn_id": "01a14220-6712-7ea0-bad9-f7d57735ba6f",
+  "actual_raw_tokens": 36022,
+  "active_seconds": 7.878999948501587,
+  "managed_wall_ms": 11982,
+  "native_response_records": 1,
+  "native_tool_calls": 0,
+  "maker_denominator": 0,
+  "wrong_session": "UNKNOWN with all36022observedtokens retained",
+  "limitations": [
+    "Transport only, not feature quality approval or full lifecycle positive10percent proof",
+    "All costs retained in original T056 checking inventory; no maker work claimed"
+  ]
+}

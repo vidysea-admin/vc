@@ -1,0 +1,18 @@
+[
+  {
+    "role": "maker",
+    "exit": 2,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "expected": "556316e31b51bbb512ad0eef6fa713895a387512f79e32ec71c37fe7b0be7dd4",
+    "exact_match": false,
+    "error": "POLICY BLOCKED: ENOENT: no such file or directory, open 'C:\\Users\\Lenovo\\.codex\\visualizations\\2026\\10\\05\\01a10bd6-fbfe-71e2-959b-3cb1a90012e6\\codex-policy-rollout\\proportional-verification-2026-10-10.9\\identity.json'\n"
+  },
+  {
+    "role": "checker",
+    "exit": 2,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "expected": "3de10756092428c100d255677df06192e6abef94cbe61579745dc28b830601fa",
+    "exact_match": false,
+    "error": "POLICY BLOCKED: ENOENT: no such file or directory, open 'C:\\Users\\Lenovo\\.codex\\visualizations\\2026\\10\\05\\01a10bd6-fbfe-71e2-959b-3cb1a90012e6\\codex-policy-rollout\\proportional-verification-2026-10-10.9\\identity.json'\n"
+  }
+]

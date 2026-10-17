@@ -1,0 +1,84 @@
+{
+  "identity_files": {
+    "dependency_id": {
+      "path": "pnpm-lock.yaml"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md"
+    },
+    "config_id": {
+      "path": "qa/adapter.json"
+    },
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md"
+    }
+  },
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Bounded read-only prospective source review, not measured efficiency; historical maker/token baseline unavailable",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T20:56:30.0069804Z",
+    "estimate_ms": 45000,
+    "no_progress_ms": 90000
+  },
+  "dispatch": {
+    "attempt_id": "a1",
+    "task_id": "amendcheck"
+  },
+  "tasks": [
+    {
+      "resources": {
+        "agent": 1
+      },
+      "depends_on": [],
+      "id": "amendcheck",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "exec",
+        "resume",
+        "01a14155-cc5a-7190-9db6-d44d2601e4ec",
+        "--json",
+        "{{HANDOFF}}"
+      ],
+      "kind": "check",
+      "max_output_bytes": 180000,
+      "owner": "p0-quality",
+      "handoff": {
+        "path": "qa/.delivery/context/d2385daf0e42d0801fa254a1e771eaf4909fa041d11459c5bdff14d457e0d3a3.handoff.json",
+        "sha256": "d2385daf0e42d0801fa254a1e771eaf4909fa041d11459c5bdff14d457e0d3a3"
+      },
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/plan-quality-result.md"
+      ],
+      "timeout_ms": 45000
+    }
+  ],
+  "parent_run_id": null,
+  "feature": "checker-ratio-p0-plan-amend",
+  "session": "vc-01a13e75",
+  "cycle": 0,
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "check_task_id": "amendcheck",
+      "id": "C1",
+      "description": "Independent prospective approval of ratio envelope amendment"
+    }
+  ],
+  "candidate": {
+    "files": [
+      "docs/plan.md",
+      "qa/evidence/checker-ratio-20261016/tick-source.txt"
+    ]
+  },
+  "workflow_id": "vc-checker-ratio-amend-20261016",
+  "root_run_id": "vc-checker-ratio-amend-20261016",
+  "retry_of": null,
+  "run_id": "ratio-amendcheck",
+  "resource_caps": {
+    "agent": 2
+  }
+}

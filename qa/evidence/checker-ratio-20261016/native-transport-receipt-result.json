@@ -1,0 +1,100 @@
+{
+  "status": "success",
+  "receipt_sha256": "2f96c5705b562f38b826341c6720a06646fc1995067feb643e116286dd73e9a9",
+  "receipt": {
+    "schema_version": "reliable-delivery/1",
+    "workflow_id": "vc-p0-native-transport-20261016",
+    "root_run_id": "vc-p0-native-transport-20261016",
+    "feature": "T056-native-transport",
+    "cycle": 0,
+    "run_id": "native-transport1",
+    "admitted_at": 1792110779997,
+    "completed_at": 1792110792022,
+    "task_id": "transport",
+    "attempt_id": "a1",
+    "owner": "native-transport-observer",
+    "status": "success",
+    "outputs": [
+      {
+        "path": "HANDOFF.md",
+        "sha256": "50a5c26199d9ffbdeed07b8319361735b297598a445dace2e13363ad7caca125"
+      },
+      {
+        "path": "qa/adapter.json",
+        "sha256": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2"
+      }
+    ],
+    "native_observation": {
+      "schema_version": "native-cli-observation/1",
+      "provider_format": "codex-jsonl",
+      "usage_basis": "session-cumulative",
+      "execution_identity_sha256": "ac9161719a57a3c23b08d5d69389764726a33144e66a4b2801601ef60c5f58b2",
+      "log_sha256": "99e3b9c6a4853e1ddef3e1753447e22c5eb53b5d5168e5cb15c6371d941d7a23",
+      "session_id": "01a14220-635a-7b42-bbbf-f4d077364100",
+      "usage": {
+        "input_tokens": 36017,
+        "output_tokens": 5,
+        "cached_input_tokens": 14720,
+        "cache_write_input_tokens": 0
+      },
+      "total_tokens": 36022,
+      "complete_observation": true,
+      "attempt_cost_status": "UNKNOWN; explicit native closed-turn/receipt join required"
+    },
+    "reason": null,
+    "exit_code": 0,
+    "elapsed_ms": 11982,
+    "output_bytes": 504,
+    "cleanup_complete": true,
+    "context_verification": {
+      "source_read_calls": 3,
+      "source_read_bytes": 8211,
+      "bundle_read_calls": 3,
+      "bundle_read_bytes": 8046
+    },
+    "evidence": {
+      "schema_version": 1,
+      "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+        "-c",
+        "mcp_servers.n8n-mcp.enabled=false",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/native-transport-message.txt",
+        "-"
+      ],
+      "selection": [
+        "transport"
+      ],
+      "input_blobs": [
+        {
+          "path": "HANDOFF.md",
+          "blob": "50a5c26199d9ffbdeed07b8319361735b297598a445dace2e13363ad7caca125"
+        },
+        {
+          "path": "qa/adapter.json",
+          "blob": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2"
+        }
+      ],
+      "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+      "runtime_id": "v24.13.1-win32-x64",
+      "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+      "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+      "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+      "context_id": "b3a23a8bdbdcef166f63e87ca7db8353431daeae662df686ea3bdc821a670db8",
+      "status": "success",
+      "exit_code": 0,
+      "log_file": "qa/.delivery/99e3b9c6a4853e1ddef3e1753447e22c5eb53b5d5168e5cb15c6371d941d7a23.log",
+      "log_sha256": "99e3b9c6a4853e1ddef3e1753447e22c5eb53b5d5168e5cb15c6371d941d7a23"
+    }
+  },
+  "token_status": "UNKNOWN"
+}

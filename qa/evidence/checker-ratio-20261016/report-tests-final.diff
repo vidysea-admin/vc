@@ -1,0 +1,125 @@
+diff --git a/qa/evidence/checker-ratio-20261016/report-tests.txt b/qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py
+index 41c48a8..a809729 100644
+--- a/qa/evidence/checker-ratio-20261016/report-tests.txt
++++ b/qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py
+@@ -197,6 +197,120 @@ def test_ledger_timestamps_do_not_fabricate_time(tmp_path, monkeypatch):
+     assert "missing_active_time_evidence" in result["efficiency"]["unknown_reasons"]
+ 
+ 
++def test_native_scope_closed_turn_clips_outside_endpoints_and_old_usage(tmp_path, monkeypatch):
++    path = tmp_path / "s.jsonl"
++    records = [{"type": "session_meta", "payload": {"id": "s"}}]
++    for kind, second in [("task_started", 0), ("usage", 1), ("usage", 3), ("task_complete", 10)]:
++        record = {"timestamp": TODAY + "T10:00:%02dZ" % second,
++                  "type": "event_msg", "payload": {"type": kind, "turn_id": "turn"}}
++        if kind == "usage":
++            record.update(type="token_usage_record", payload={"session_id": "s", "turn_id": "turn",
++                          "response_id": str(second), "usage": {"input_tokens": 10, "output_tokens": 1}})
++        records.append(record)
++    _write(str(path), records)
++    checker = tmp_path / "checker.jsonl"
++    _write(str(checker), [_event("checker", "review", 1)])
++    result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path,
++                     start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:08Z"),
++                     _binding("checker", "checker", checker)])
++    assert result["roles"]["maker"]["active_seconds"] == 6
++    assert result["roles"]["maker"]["tokens"] == 11
++    assert result["roles"]["unknown"]["tokens"] == 0
++    assert result["efficiency"]["complete"] is True
++    assert sum(r["input"] + r["output"] for r in result["rows"]) == 33
++    records.append({"type": "event_msg", "timestamp": TODAY + "T10:00:20Z",
++                    "payload": {"type": "task_started", "turn_id": "later-open"}})
++    _write(str(path), records)
++    later = _report(tmp_path, monkeypatch, [_binding("s", "maker", path,
++                    start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:08Z"),
++                    _binding("checker", "checker", checker)])
++    assert later["efficiency"] == result["efficiency"]
++    assert later["roles"] == result["roles"]
++    records[-1]["timestamp"] = TODAY + "T10:00:07Z"
++    _write(str(path), records)
++    overlapping = _report(tmp_path, monkeypatch, [_binding("s", "maker", path,
++                          start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:08Z"),
++                          _binding("checker", "checker", checker)])
++    assert "incomplete_active_task" in overlapping["efficiency"]["unknown_reasons"]
++
++
++def test_native_scope_adjacent_and_overlapping_role_windows(tmp_path, monkeypatch):
++    path = tmp_path / "s.jsonl"
++    records = [{"type": "session_meta", "payload": {"id": "s"}},
++               {"type": "event_msg", "timestamp": TODAY + "T10:00:00Z",
++                "payload": {"type": "task_started", "turn_id": "t"}},
++               {"type": "event_msg", "timestamp": TODAY + "T10:00:10Z",
++                "payload": {"type": "task_complete", "turn_id": "t"}}]
++    for second in [3, 7]:
++        records.insert(-1, {"type": "token_usage_record", "timestamp": TODAY + "T10:00:%02dZ" % second,
++                            "payload": {"session_id": "s", "turn_id": "t", "response_id": str(second),
++                                        "usage": {"input_tokens": 10, "output_tokens": 1}}})
++    _write(str(path), records)
++    bindings = [_binding("s", "maker", path, run="m", start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:05Z"),
++                _binding("s", "checker", path, run="c", start=TODAY + "T10:00:05Z", end=TODAY + "T10:00:08Z")]
++    result = _report(tmp_path, monkeypatch, bindings)
++    assert result["roles"]["maker"]["active_seconds"] == 3
++    assert result["roles"]["checker"]["active_seconds"] == 3
++    assert result["efficiency"]["complete"] is True
++    bindings[1]["start"] = TODAY + "T10:00:04Z"
++    result = _report(tmp_path, monkeypatch, bindings)
++    assert "overlapping_bindings" in result["efficiency"]["unknown_reasons"]
++
++
++def test_native_scope_missing_or_wrong_pair_never_supplies_time(tmp_path, monkeypatch):
++    path = tmp_path / "s.jsonl"
++    for fault in ["missing-end", "wrong-turn", "wrong-session", "missing-turn"]:
++        records = [{"type": "session_meta", "payload": {"id": "s"}},
++                   {"type": "event_msg", "timestamp": TODAY + "T10:00:00Z",
++                    "payload": {"type": "task_started", "turn_id": "t"}},
++                   {"type": "token_usage_record", "timestamp": TODAY + "T10:00:03Z",
++                    "payload": {"session_id": "s", "turn_id": "t", "response_id": fault,
++                                "usage": {"input_tokens": 10, "output_tokens": 1}}}]
++        if fault != "missing-end":
++            records.append({"type": "event_msg", "timestamp": TODAY + "T10:00:10Z", "session_id": "other" if fault == "wrong-session" else "s",
++                            "payload": {"type": "task_complete", "turn_id": "other" if fault == "wrong-turn" else "t"}})
++        if fault == "missing-turn":
++            records[1]["payload"].pop("turn_id")
++            records[-1]["payload"].pop("turn_id")
++        _write(str(path), records)
++        result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path,
++                         start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:08Z")])
++        assert result["roles"]["maker"]["active_seconds"] == 0, fault
++        assert not result["efficiency"]["complete"], fault
++
++
++def test_native_scope_exclusion_does_not_hide_unknown_identity_or_child(tmp_path, monkeypatch):
++    path = tmp_path / "s.jsonl"
++    for fault in ["child", "missing-time", "missing-turn", "selected-wrong-turn"]:
++        record = {"type": "token_usage_record", "timestamp": TODAY + ("T10:00:03Z" if fault == "selected-wrong-turn" else "T10:00:01Z"),
++                  "payload": {"session_id": "child" if fault == "child" else "s", "turn_id": "wrong" if fault == "selected-wrong-turn" else "t",
++                              "response_id": fault, "usage": {"input_tokens": 10, "output_tokens": 1}}}
++        if fault == "missing-time":
++            record.pop("timestamp")
++        if fault == "missing-turn":
++            record["payload"].pop("turn_id")
++        _write(str(path), [{"type": "session_meta", "payload": {"id": "s"}}, record])
++        result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path, turn_id="t",
++                         start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:08Z")])
++        assert not result["efficiency"]["complete"], fault
++        assert result["overall_tokens"] == 11, fault
++
++
++def test_native_scope_cumulative_boundary_and_reset_remain_unknown(tmp_path, monkeypatch):
++    path = tmp_path / "s.jsonl"
++    records = [{"type": "session_meta", "payload": {"id": "s"}}]
++    for second, inp in [(0, 0), (1, 10), (3, 30), (9, 40), (10, 2)]:
++        records.append({"type": "event_msg", "timestamp": TODAY + "T10:00:%02dZ" % second,
++                        "payload": {"type": "token_count", "turn_id": "t", "info": {"total_token_usage":
++                                    {"input_tokens": inp, "output_tokens": 0}}}})
++    _write(str(path), records)
++    result = _report(tmp_path, monkeypatch, [_binding("s", "maker", path,
++                     start=TODAY + "T10:00:02Z", end=TODAY + "T10:00:08Z")])
++    assert result["roles"]["maker"]["tokens"] == 20
++    assert {"unbound_usage", "cumulative_counter_reset"} <= set(result["efficiency"]["unknown_reasons"])
++    assert not result["efficiency"]["complete"]
++
++
+ def test_task_intervals_waits_and_unknown_block(tmp_path, monkeypatch):
+     path = tmp_path / "s.jsonl"
+     records = [{"session_id": "s", "type": "event_msg", "timestamp": TODAY + "T10:00:00Z",

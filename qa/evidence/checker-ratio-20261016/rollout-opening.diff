@@ -1,0 +1,86 @@
+diff --git a/qa/evidence/checker-ratio-20261016/report-installed-source.txt b/qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py
+index 74d07f2..ecc0c38 100644
+--- a/qa/evidence/checker-ratio-20261016/report-installed-source.txt
++++ b/qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py
+@@ -112,7 +112,7 @@ def classifier_outages(project=None, days=14):
+     return sorted(out, key=lambda o: o["day"])
+ 
+ 
+-def scan(project=None, days=14, bindings=None, feature=None, codex_root=None, delivery=False):
++def scan(project=None, days=14, bindings=None, feature=None, codex_root=None, delivery=False, opening=False):
+     """Legacy daily rows, or an explicit-binding feature report.
+ 
+     JSON ledger: {"coverage_complete": true, "bindings": [...]}; JSONL accepts
+@@ -132,6 +132,8 @@ def scan(project=None, days=14, bindings=None, feature=None, codex_root=None, de
+         except (ValueError, TypeError, OverflowError):
+             return None
+ 
++    if opening and (not delivery or not bindings or not feature):
++        raise ValueError("opening requires explicit delivery, bindings and feature")
+     channels = ("input", "output", "cache_read", "cache_write")
+     def amounts(usage, codex=False):
+         if codex:
+@@ -626,6 +628,34 @@ def scan(project=None, days=14, bindings=None, feature=None, codex_root=None, de
+             token_basis="Codex cached input is a subset of input; Claude cache read/write are additional input; reasoning is an output subset and is never added twice",
+             timing_basis="sum of evidenced run intervals minus corroborated blocks; elapsed is makespan, not active sum",
+             scope="explicit feature/session transcripts, all bound cycles and failed/retried runs; no hard token cap")
++    if opening:
++        # This is accounting readiness for the first/next check, never acceptance.
++        # Preserve every structural/native telemetry gap; only the expected lack
++        # of final acceptance and genuinely absent prior checking are distinct.
++        opening_reasons = reasons | (delivery_reasons - {"missing_acceptance_evidence"})
++        actual_checks = sorted(b["run_id"] for b in unique_runs.values()
++                               if b["role"] in ("checker", "integration"))
++        declared_checks = delivery_meta.get("prior_checking_run_ids")
++        inventory_valid = (delivery_meta.get("prior_checking_complete") is True
++                           and isinstance(declared_checks, list)
++                           and all(isinstance(rid, str) for rid in declared_checks)
++                           and len(set(declared_checks)) == len(declared_checks)
++                           and sorted(declared_checks) == actual_checks)
++        if not inventory_valid:
++            opening_reasons.add("prior_checking_inventory_incomplete")
++        if inventory_valid and not actual_checks and not checker["runs"] and not checker["tokens"] and not checker["active_seconds"]:
++            opening_reasons.discard("missing_checker_usage_or_time")
++        complete = not opening_reasons
++        efficiency.update(complete=complete, unknown_reasons=sorted(opening_reasons),
++                          time_ratio=checker["active_seconds"] / maker["active_seconds"] if complete else None,
++                          token_ratio=checker["tokens"] / maker["tokens"] if complete else None,
++                          status="UNKNOWN" if not complete else
++                          ("WITHIN_TARGET" if checker["active_seconds"] <= maker["active_seconds"] * 0.1
++                           and checker["tokens"] <= maker["tokens"] * 0.1 else "OVER_TARGET"))
++        result["phase"] = "maker-ready-opening"
++        result["opening"] = dict(schema_version="opening-readiness/1", complete=complete,
++                                 acceptance_ready=False, prior_checking_run_ids=actual_checks,
++                                 coverage_basis="explicit full source/child/prior-checking inventories and native telemetry; operator attribution, not authenticated absence")
+     return result
+ 
+ 
+@@ -653,8 +683,11 @@ def main():
+     ap.add_argument("--feature", help="feature_id filter for explicit bindings")
+     ap.add_argument("--codex-root", help="explicit Codex transcript file or directory; never implicit")
+     ap.add_argument("--delivery", action="store_true", help="opt-in v2 full delivery accounting; requires --bindings/--feature and explicit transcript files; all roles/attempts included, 10%% ratio is diagnostic, no hard token cap")
++    ap.add_argument("--opening", action="store_true", help="explicit maker-ready accounting; requires delivery, complete source/child/prior-checking inventories; never acceptance")
+     ap.add_argument("--context-compare", metavar="BENCHMARK.json", help="compare one accepted baseline/compact pair per client; JSON only, no transcript sweep or inferred pricing")
+     a = ap.parse_args()
++    if a.opening and (not a.delivery or not a.bindings or not a.feature or a.context_compare):
++        ap.error("opening requires explicit delivery, bindings and feature without context comparison")
+     if a.context_compare:
+         # This opt-in path reads operator-supplied observations only. It must not
+         # change scan()'s historical schema, telemetry, or token accounting.
+@@ -763,7 +796,7 @@ def main():
+             ap.error(str(exc))
+         return
+     try:
+-        result = scan(a.project, a.days, a.bindings, a.feature, a.codex_root, delivery=a.delivery)
++        result = scan(a.project, a.days, a.bindings, a.feature, a.codex_root, delivery=a.delivery, opening=a.opening)
+     except ValueError as exc:
+         ap.error(str(exc))
+     report = result if isinstance(result, dict) else None
+@@ -794,6 +827,7 @@ def main():
+             "rows": rows,
+             **({"schema_version": 1, "feature_report": report, "efficiency": report["efficiency"]} if report else {}),
+             **({"delivery_summary": report["delivery_summary"]} if a.delivery else {}),
++            **({"phase": report["phase"], "opening": report["opening"]} if a.opening else {}),
+         }))
+         return
+     if report:

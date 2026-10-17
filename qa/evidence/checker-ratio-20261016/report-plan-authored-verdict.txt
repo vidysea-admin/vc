@@ -1,0 +1,22 @@
+Provenance: exact checker command output in qa/.delivery/4a469ae2bebe70f584ef9d04d10c82aecd887297e4eca8791ed3ae936387be32.log; output-last-message later overwrote the original file.
+Lines: 20
+# T056 P0 measured-report repair — prospective review
+Verdict: APPROVE — plan only; no implementation or runtime acceptance.
+Owner: p0-report-plan-review
+Scope: existing D:/ai_os/scripts/token_scan.py scan:115 and scripts/tests/test_token_scan.py only; isolated byte copies are review artifacts.
+Evidence: docs/plan.md:990-996; report-source.txt:244-289,290-392,414-441; report-tests.txt:157-170,189-232,478-489.
+Verified SHA256 docs/plan.md: e4ab9a14e56e33c3f3d941e3ea75f5ade55d1836730d98fe843ef6a5d4d7fad1
+Verified SHA256 report-source.txt: 1325ba3ee0236286e77992680f49351ecb63556a2c0a15475913a41df762c95f
+Verified SHA256 report-tests.txt: 9ba300f7a44c2833791aed288a407189b914a30c7d67c3d11eae1a8b57b6432f
+R1 safe acceptance: collect genuine completed task pairs independently of endpoint window membership, keyed by known same session and turn; missing identities must not match each other.
+Require valid ordered start/end evidence before intersecting with validated finite selected windows. Ledger timestamps alone cannot supply task endpoints or make an ongoing task complete.
+Missing, mismatched or ambiguous pairs remain UNKNOWN. Adjacent role windows receive disjoint intersections; overlapping attribution remains UNKNOWN, including when endpoints lie outside both windows.
+R2 safe acceptance: exclude only native usage proven outside every explicit bounded window of its known mapped session; an unmatched selected binding is not proof of exclusion.
+Unknown session/child, timestamp/turn identity, malformed records and selected-window misses remain UNKNOWN; retain known partial costs and delivery-v2 descendant completeness checks.
+Filtering must not bypass counter validation, baseline updates or reset detection (source:322-360), or alter default/daily accounting. A cumulative delta spanning a boundary is not proven outside from its ending timestamp alone.
+R3 safe acceptance: run relevant existing timing/binding/native/cumulative/delivery/default-schema tests and focused cutoff-spanning, adjacent/overlapping, missing-end, wrong-session/turn, unknown-child and outside-window cases.
+Include outside-window baseline/reset and boundary-spanning cumulative cases; independently falsify each changed criterion in isolated source, with unchanged legacy output shape asserted.
+Freeze peer hashes and stop shared overwrite on drift. Final independent source/data review and execution evidence remain required after implementation.
+All original T056 planning/review/probe/repair costs remain cumulative; no fresh maker denominator or fabricated completeness.
+Prior C1-C3 admission evidence does not establish report readiness or authorize global rollout. No actual ten-percent result is claimed.
+Method: bounded prospective source/plan comparison and file-hash verification only; no tests, production changes, web, settings/model changes or subagents.

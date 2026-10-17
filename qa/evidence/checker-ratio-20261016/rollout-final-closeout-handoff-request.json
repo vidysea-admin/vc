@@ -1,0 +1,32 @@
+{
+  "schema_version": "compact-handoff/1",
+  "shared_instructions": "FRESH independent completed-feature checker coordinator, source/SSE+data-accounting+AIOS-config-auditor lenses. Do not delegate; do not change configuredmodels/auth/settings/permissions, Gitmetadata, .env, realdata, providers/web or shared files. Own QA experiments only. Read supplied bounded source first; missing concrete fact only motivates more reads. No whole catalogues/trackers/transcripts. Keep evidence logs on disk and emit concise summaries. Actual aggregate ratioUNKNOWN, originalT056 costsretained. Scope rollout own changes, not blanketapproval of peer .12 runtime or allAIOSsecurity. Default sandbox helperbroken; mxc invocationalreadyselected, normal restrictionspreserved. KnownchildGitwritesforbidden; use existing readonlyB1 Gitmetadata for JSfixturecases, do not retry gitinit. Required code tests applicableonly, never fullproject/product suites.",
+  "sources": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/independent/rollout-final/js-results.json",
+      "sha256": "bd923abb5c8a3106c23374d649c259af310b99022bc2013a58753db17dbbcc9c",
+      "ranges": [
+        [
+          1,
+          8
+        ]
+      ]
+    }
+  ],
+  "task": {
+    "id": "final",
+    "owner": "p0-rollout-final",
+    "purpose": "SAME checker evidence-only closeout, no test/source-review repetition. Your prior180s reached own46PASS, C1/C2/C3 intendedGREEN-RED-restoredGREEN, owncollectorzeroopeningadmission, priorchecker106tokens retained, stagedpolicy4sync/fullarchives/confighashesandfuture23:00 proof. Persist YOUR scoped final verdict and bounded configaudit summary immediately at independent/rollout-final/verdict.md and audit.md <=60lines each. Distinguish code/policymechanics from actual systemwide10percent and automaticadoption. Actual tokensnotreconciledbyguard; cold-startfirst-planreviewstillneedsrealcompletedmakerplanningheadroomandmaycheckpointifinsufficient, not a guarantee any smallplan canfit. FullT056attribution/realcanaries remainOPEN; no hardmidturncap. Thiscloseout may approve rollout source/config underexplicitlimits but cannot certify fullgoal. Retainall original180045ms/costs; currentrootwillcheckhashes/futuretimeagainbeforeanyinstall. Do notrerun completed probes or mutatecandidate. Stop afterdurableverdict.",
+    "dependencies": [],
+    "acceptance": [
+      "Explicit scoped verdict and audit limitations persisted"
+    ],
+    "checks": [
+      "Persist own completed evidence; no new probes"
+    ]
+  },
+  "bounds": {
+    "max_source_bytes": 43000,
+    "max_prompt_bytes": 52000
+  }
+}

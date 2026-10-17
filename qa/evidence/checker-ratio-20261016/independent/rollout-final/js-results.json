@@ -1,0 +1,30 @@
+{
+  "source_sha256": "a5146aa94f54d8b6af544004a4a16de2bf17755c07238672b0a99e9de89c54d8",
+  "cutover": "2026-10-15T23:00:00.000Z",
+  "C2": "GREEN/RED/restoredGREEN",
+  "C3": "GREEN/RED/restoredGREEN",
+  "actual_token_control": "UNKNOWN",
+  "original_costs_retained": true,
+  "synthetic_workflows": [
+    "own-rollout-1792104033506-1-zero",
+    "own-rollout-1792104033506-2-hash",
+    "own-rollout-1792104033506-3-incomplete",
+    "own-rollout-1792104033506-4-scope",
+    "own-rollout-1792104033506-5-fresh",
+    "own-rollout-1792104033506-6-boundary",
+    "own-rollout-1792104033506-7-boundary",
+    "own-rollout-1792104033506-8-metadata",
+    "own-rollout-1792104033506-9-metadata",
+    "own-rollout-1792104033506-10-metadata",
+    "own-rollout-1792104033506-11-boundary",
+    "own-rollout-1792104033506-12-boundary",
+    "own-rollout-1792104033506-13-boundary",
+    "own-rollout-1792104033506-14-boundary",
+    "own-rollout-1792104033506-15-metadata",
+    "own-rollout-1792104033506-16-metadata",
+    "own-rollout-1792104033506-17-metadata",
+    "own-rollout-1792104033506-18-metadata",
+    "own-rollout-1792104033506-19-aggregate",
+    "own-rollout-1792104033506-19-aggregaterename"
+  ]
+}

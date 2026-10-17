@@ -1,0 +1,841 @@
+# 15 oct 3
+
+Here is the end-to-end transcript with timestamps and speaker identification:
+00:17 - 00:25
+Umesh: Virtual counsellor ka jo humara discuss hua tha ki ek blueprint ready ho
+gaya hai, aur sabhi hain to I guess... isme wo discuss ho jayega.
+00:28 - 01:14
+Umesh: To virtual counsellor mein sabse pehle toh consent wala hi humara cover
+hoga, aur consent ke baad hum log kitna context AI ko dena chah rahe hain. Once
+that is done, yeh do tareeqe se help karega. First stage mein counsellor jo
+session le rahe hain, wahan par un sessions mein help karega. Aur counsellor ko
+wo karega enhance karega ki kis tareeqe se wo cheezein provide kar sakta hai
+student ko real time pe. Aur jab humara counsellor wala poori tareeqe se
+validate ho jayega and counsellor are confident ki cheezein fix hain, toh hum
+usko private usme wo karenge next step mein, ki bachhe ko directly hum virtual
+counsellor as a session ki tarah provide karenge. Toh wo bachhe ke liye poora
+plan aur draft wo karega.
+01:15 - 01:21
+Speaker 1: Yeh kya hua, yeh beech mein physical counsellor aa gaya?
+01:22 - 01:26
+Umesh: Yeh? Yeh wala?
+01:27 - 01:30
+Speaker 1: Virtual counsellor mein physical counsellor kahan aa gaya? Virtual
+counsellor ke humne do cheez plan kari hain.
+01:45 - 02:07
+Umesh: Ki let's suppose counsellor ka session chal raha hai, toh Radhika ne
+jaise abhi ek hi bachhi ka bataya naam Aanya, aur usne bataya ki okay mujhe
+jaana hai kaun si university? Harvard University, aur mere ko wahan se maths
+honours karna hai. Toh ek cheez toh isko Radhika ko direct screen mein lagayega
+ki Aanya se is tareeqe se yeh next kya question poochh sakti hain.
+02:07 - 02:30
+Speaker 1: Woh toh counsellor assist ho gaya. Woh alag alag cheezein hain. Let's
+call it counsellor assist, for now. Uska naamkaran jo karna hai baad mein
+karenge. Theek hai? Woh toh assistance tool ho gaya to the counsellor. Theek
+hai? Virtual counsellor is not counsellor assist. Virtual counsellor is the
+full-on virtual counsellor, where you are like interacting with the system as if
+you are interacting with the counsellor.
+02:31 - 02:55
+Umesh: Toh first phase mein humne iska yahi plan kara hai ki hum counsellor
+assist banayenge jismein ek woh next kya kya woh poochh sakte hain woh dega,
+plus Aanya ka jo humare paas abhi tak ka saara data hai, us data ke backed mein
+ki agar Aanya keh rahi hai ki mere ko maths honours karna hai, toh yeh first
+phase rahega. Jab counsellor are pretty much confident ki haan, jo yeh
+recommended deta hai aur hum usi ko choose kar rahe hain...
+02:55 - 03:03
+Speaker 1: Kyun aaisa? Na humare paas utne counsellors hain abhi, na woh sab yeh
+sun rahe hain. We need a virtual counsellor pretty much immediately.
+03:03 - 03:04
+Umesh: Theek hai.
+03:04 - 03:51
+Speaker 1: Aur humare paas knowledge base bohot hota hai. Jaise aaj hi maine
+Pathlinks group pe share kiya tha, Netherlands mein how do you apply for
+scholarships and all. Aap isko kaise synthesize kar sakte hain, aap us pe dimaag
+lagao. Usko synthesize karke jo is tarah ki information humare paas aati hai,
+bohot highly reliable hai. Jo seminars humare paas aate hain, woh highly
+reliable hain. 90%, 95% janta isse khatam ho jayegi. Kyunki jo seminars ho rahe
+hain ya jo is tarah ke humare paas inputs aa rahe hain ki Netherlands mein
+scholarship kaise milti hai, Japan mein kahan se scholarship... kya kya sources
+hain, sab kuchh hai, yeh unhi pe kaam ho raha hai jo ki sabse zyada demand mein
+hain. Toh 90-95% of the work can be easily done through our knowledge base that
+we create out of these things. Usko khatam karo virtual counsellor ko.
+03:52 - 04:26
+Umesh: Theek hai.
+Speaker 1: Matlab it's very difficult to reach a level jahan Radhika will be
+able to say ki now it is perfect. Radhika ko kahin {comma}, full stop milega,
+but yeh kaun check kar raha hai ki jo usne recommendation di hai, woh jo Radhika
+apne paas se recommendation laati thi usse teen guna better hai? Main toh aapko
+judge kar raha hoon, but aap mere ko judge nahi kar sakte, toh yeh toh unfair ho
+gaya. Virtual counsellor ko toh hum judge kar rahe hain, ya counsellor assist ko
+toh hum judge kar rahe hain, but counsellor assist yeh judge kar pa rahi hai ki
+Radhika ki knowledge kitni hai? Aap samjhe main kya keh raha hoon? Nahi samjhe
+toh dobara batata hoon.
+04:27 - 04:46
+Speaker 1: Counsellor assist ka kya matlab hai? Woh Radhika ko yeh bata raha hai
+ki next kya kya poochhna hai. Theek hai? Ab Radhika ko 10 cheezein batayi usne,
+usme se ek-do Radhika ne bola yeh theek nahi hain. Par agar counsellor assist
+nahi hota, toh kya Radhika woh 10 cheezein poochh paati? Kaun zyada smart hai?
+04:49 - 04:51
+Umesh: AI...
+04:51 - 05:20
+Speaker 1: Aap kabhi beat hi nahi kar paoge. Agar aap jis loop mein aap phans
+gaye, us loop mein chale gaye agar aap, toh aap kabhi release hi nahi kar paoge
+virtual counsellor. Kyunki yeh unfair ho gaya na. Virtual counsellor ko toh
+mauka nahi de rahe ki Radhika ko bhi zara number do 10 mein se paanch, do,
+chaar, pachhees, ki kitna achha Radhika kar pa rahi hai counselling. Radhika
+usko number de rahi hai bechare ko kyunki woh machine hai, woh kuchh keh nahi
+sakta, complain nahi kar sakta.
+05:21 - 05:43
+Speaker 1: That is a challenge. We have to just run the model ourselves and we
+have to then come to a conclusion ki yes, this is good to go. Yeh kar raha hai
+answer. Main toh keh raha hoon challenge, we should do a debate. Jis din hum
+launch karein, us din hum debate karein ki we are challenging Viral Doshi to
+come and compete with our virtual counsellor and see who has better answers.
+05:43 - 06:06
+Speaker 1: Aur yeh poori tarah se possible hai jo knowledge base hum leke aa
+rahe hain. Uss knowledge base ko agar aap theek se synthesize kar loge na Umesh,
+again it's not a long job. It is not very hard thing. We should be able to do it
+very, very easily. We put all of that together and we build our virtual
+counsellor based on that and other data sources and then we are good to go.
+06:07 - 06:14
+Umesh: Bas ek yahan pe phir hume woh chahiye, ki virtual counsellor will be chat
+or meeting or both, kis tareeqe se...
+06:15 - 06:27
+Speaker 1: Chat aur mee... matlab aapko toh chat aur voice pe dimaag lagana
+chahiye. Meeting ka kya matlab hai? Meeting agar hai bhi virtual counsellor ke
+saath mein, toh woh toh chat aur voice hi hai. Koi dekhne ke liye toh koi hai
+nahi.
+06:27 - 06:33
+Himanshu: Avatar hi toh hoga.
+Umesh: Phir woh avatar side pe chal jayega. First version mein ya toh hum yeh
+kar lete hain jo humara chatbot wale mein usme integrate...
+06:33 - 06:45
+Speaker 1: Last naya avatar... aapne... thoda sa hum yeh dekhein duniya mein kya
+ho raha hai. Last naya avatar aapne kis tech company ka dekha tha?
+06:48 - 07:27
+Umesh: Waise...
+Speaker 1: 2027-28 uss minus 5-7 saal kar do. Koi naya avatar release nahi kiya
+unhone. That era is gone. Now it's all about virtual counselling. This has come
+up now. Ab woh avatar avatar bhool jao aap. Theek hai ek naam de diya aapne apne
+counsellor ko toh baat hi alag hai. Bas that's it. Uske alawa woh cheezein hi
+khatam ho gayi hain. Jahan tak meri understanding hai. 3 saal 4 saal pehle tak
+ki companyon ke avatar mere ko yaad aate hain. Ab jo bhi koi retail mein company
+aayi hai ya jo bhi aayi hai kisi ka avatar mujhe toh yaad nahi ki koi avatar
+laya hai ya kya laya hai.
+07:27 - 07:41
+Umesh: Nahi, jo main keh raha hoon, this will be something like that. Ki bachha
+meeting book kar raha hai. Humari taraf se ek AI avatar is tareeqe se meeting
+join kar raha hai, jaise humne ek version pehle dikhaya tha na...
+07:41 - 08:06
+Speaker 1: Bhai main bhi aapse poochh raha hoon, ki last aapne kab dekha hai ki
+is tareeqe ke meeting ki booking ki... aap samjho. Hum us samay as a society
+immature the. Hum usko normal course mein dekhte the ki main jab miloonga tab
+problem solve karunga. Ab mere paas jab virtual counsellor hai, mere ko meeting
+ki kahan zaroorat aayegi? I will speak to my counsellor whenever I want.
+08:08 - 09:03
+Speaker 1: Wahi cheez main aapko bhi keh raha hoon, avatar se mera matlab hi
+wahi tha, ki ab aapko mere AI se baat karne ke liye meeting book karne ki kahan
+zaroorat aa gayi? Woh mera personal assistant hai. Pehle main kuch aapse
+competition research karata tha, mere ko aapko dhoondhna padta tha, batana padta
+tha, yeh karna padta tha, woh karna padta tha. Main Germany, Netherlands ja raha
+hoon abhi, aapse ek rupaye ki research karayi hai maine? Kyun? Kyunki ab jo mere
+ko aapse us particular domain mein assistance milti thi, mere ko 24/7 available
+hai. Mere jab dimaag mein aa rahi hai main kar raha hoon aur aage badh raha
+hoon. So that user behaviour itself has changed. You don't need to book a time
+anymore. You need to book a time only when there is a person involved. If it's
+virtual, then it is 24/7. That whole logic is gone. "I am your virtual
+counsellor. I am available to you 24/7. You let me know what do you want and
+I'll help you fix it and get it done."
+09:03 - 09:03
+Umesh: Theek.
+09:03 - 09:32
+Speaker 1: Bhai I imagine this to be the Claude of helping students in tracing.
+Ki aap bachha bolta ja raha hai aap uski help karte ja rahe ho. "Achha mere ko
+university dhoondh ke de, mere ko college dhoondh ke de. Tu mere ko bata kaunsa
+compare karne mein isse better rahega." Voice ke through, iske through,
+everything. That intelligence that we are building is our own data and curation
+from that versus just Claude pe depend hona and all.
+09:32 - 10:04
+Umesh: Ek yeh rahega, isme bas ek yeh hai ki let's suppose USA wala hi example
+le lete hain. Jaise ek counsellor the jinhone aapko bataya ki USA mein profile
+building ka naam matra ka woh hai. Ab humne bachhe ko yeh bata diya, and the
+student cross questions the system ki nahi mere ko toh mere counsellor ne yeh
+bataya hai. If you are saying that and I am believing you, what is the source of
+your data? Toh kya hume us counsellor ko quote karna hai ya direct is tareeqe se
+batana hai?
+10:04 - 10:35
+Speaker 1: Nahi, quote nahi kar sakte. Without the permission of a counsellor,
+you can't quote the counsellor. Ab aapke paas woh information hai, toh aap jaake
+research karoge ki bachhe tune yeh teen university di hain? Yeh teen university
+ki maine achhe se research ki hai, yeh source hai, yeh source hai, yeh source
+hai. Inke admission criteria mein yeh 60% hota hai, 20% hota hai, 10% hota hai.
+Phir usme kahin if we are going to be corrected in the system, we will correct
+ourselves.
+10:36 - 11:13
+Speaker 1: Uska answer kya banta hai, agar main samajh lo virtual counsellor
+hoon, aapne yeh cheez mujhse poochhi. Main bolunga, "Oh, you are applying to
+Harvard, this, this university, or in general I looked up these 5-6
+universities, I looked up their admission criteria, I looked up the data that
+was shared by 200 students who have been to this, this university, and this is
+my summary: 70% weightage to academics, 20% weightage to your LOR/SOP, 10%
+weightage to your profile, to prove it, etc. Do you want me to look at this
+specifically for one university?"
+11:14 - 11:46
+Speaker 1: Ab jawaab do. Main virtual counsellor hoon, maine aapko yeh jawaab
+diya, ab aap jawaab do. Yes, no, yahi bologe aap? Yes, toh kaunsi university?
+Aap university ka naam bataoge. Wo bolega ki, "Yes, for this particular
+university, profile building helps, NGO helps, this helps, that helps. But in
+general, this is... I would still recommend you not to waste your time in NGO,
+NGO, NGO because only 1 out of 20 universities look at it unless you want to go,
+specifically want to go to these three type of colleges."
+11:47 - 12:02
+Speaker 1: Yeh saari knowledge maine kahan se build kari? Cue point tha mera
+Viral Doshi. Viral Doshi. Aur wahan se maine phir yeh meri knowledge base build
+kari. Yeh bade aaraam se AI se build ho sakti hai. Aur batao?
+12:03 - 12:23
+Umesh: Bas ek yeh. Aur ek yeh situation humari remaining hai ki counselling ke
+waqt if student raise something jo concerning hai, ki bachha yeh bol raha hai ki
+main bohot zyada pressure mein hoon ya I am having negative thoughts. Toh us
+case mein humari taraf se kya action...
+12:24 - 12:29
+Speaker 1: Woh aapko rules banane padenge. Mujhe nahi pata woh rules kya hone
+chahiye. Rules banane padenge.
+(Phone rings)
+Speaker 1: Hello? Yes, good evening.
+12:33 - 12:39
+Automated Voice/Caller: Hi, I am... (call audio)
+12:39 - 13:17
+(Speaker 1 takes a quick personal phone call aside: "21-20 hazar..." / "Theek
+hai, theek hai... Hello? Hello, yes...")
+13:24 - 13:54
+Umesh: Haan, toh jo rules abhi banaye huye hain maine, woh yahi hain ki agar
+kuchh bhi aisa negative usko feel hota hai, agar it's less than threshold ki not
+that critical hai, toh woh janne ka try karega ki reasoning kya hai, aur jo uska
+connected counsellor hai, ya toh us pe woh ek notification bhej dega, notify kar
+dega system. Agar nahi hai toh Vidhyasi ke internal counsellor jo admin hain,
+unko ek notify kar dega ki is student ke saath...
+13:54 - 14:18
+Speaker 1: Do we want to take that liability? You have to understand. Aur again,
+you ask the system, you ask Claude, you ask that, "Bhai humara yeh kaam hai. 1
+out of 10 students come with this kind of complaint, 1 out of 50 students come
+with severe complaint. How should we handle, and I as Vidhyasi don't want to
+take any liability on this? What is the safest role possible?" Mere counsellor
+ke paas aaya, meri liability ban gayi.
+14:20 - 15:15
+Speaker 1: Aur liability se mera matlab kabhi bhi financial ya legal liability
+nahi hai. Mere liye liability banne ka matlab yeh hai ki kal ko bachhe ne humari
+counsellor ko reach out kiya, aur humari counsellor so rahi hain. Unka pta nahi
+notification nahi kaam kiya, dekha nahi, aaya nahi, usne mujhe bataya nahi.
+Kisine ignore kar diya na us time pe. Toh us case mein woh bachha bechara kuchh
+kar lega toh? So, can I avoid this completely that it doesn't come to me at all?
+I rather recommend them that, "Look, I am not an expert. I would have tried to
+help you. You can look at these three-four experts. Or shall I call the
+emergency number that you have provided to me? Shall I do this, shall I do
+that?" Aisa kuchh poochhe. Mujhe nahi pata, I am not an expert in it. Ask the
+expert, build the system around that. I want our liability to be zero in this
+kind of...
+15:17 - 15:53
+Speaker 1: Na mere internal counsellor, na unke external counsellor, main kisi
+pe bhi nahi aane dena chahta. External counsellor ki bhi same kahani hai.
+Platform toh apna hai. External counsellor nahi mila us samay, bachhe ne kuchh
+ulta-seedha kar diya, kal ko nahi bhi kiya bachhe ki state aur kharaab ho gayi,
+kuchh bhi ho sakta hai. We don't know. So we want to avoid that completely. That
+is not our domain. So we should be able to shake our hands off it. Yes, zyada se
+zyada humein kya minimum karna chahiye bachhe ke benefit ke liye without getting
+into any trouble is what we should look at and clear.
+15:55 - 16:22
+Umesh: Theek hai.
+Speaker 1: ChatGPT wagera bhi matlab isi tareeqe se...
+Umesh: Nahi nahi, main us point of view se bol raha hoon, like agar humare
+system ne let's suppose use bata diya we are not the expert, yeh yeh recommended
+woh hain, aur phir humare end se system ki conversation wahan pe close ho gayi.
+Woh aage badhne nahi dega bachhe ko ki usme. Phir bachha kuchh kar leta hai
+worst case scenario mein...
+16:23 - 16:38
+Speaker 1: Haan, isiliye maine bola mujhe nahi pata na. Main... am I the right
+person to...? I don't know the solution. You have to find a solution. My strong
+recommendation is that it should not come to us at all.
+16:39 - 16:47
+Mamta: Yeh baat aage jaani hi nahi chahiye na. Pehle hi, initially jaise hi
+bachha aata hai wahin pe hum check kar lein ki uska intention kya hai, kidhar
+jaana hai.
+16:47 - 17:12
+Speaker 1: Nahi nahi nahi, woh toh aap kaise check kar loge kis samay jaake...
+Aapko jab lage is taraf ja raha hai, aap usko band karein, aur phir bhi humein
+lage toh mujhe nahi pata kya iski remedy hai. I want you to find that out. You
+are right, aap kisi bhi track pe jaoge toh kuchh bhi ho sakta hai. Aap mere
+counsellor ke paas laoge toh bhi ho sakta hai, doosre counsellor ke paas laoge
+toh bhi ho sakta hai, humne conversation band kar di toh bhi kuchh bhi ho sakta
+hai. Right? I want to minimize our...
+17:13 - 17:28
+Umesh: Nahi, humari liability ke liye toh minimum jo maine research karke laya,
+woh yahi hai ki hum apne end se bata dein we are not the expert aur
+high-priority...
+Speaker 1: Main duniya bhar ki tension apne sar pe kaise le sakta hoon? Ab main
+mere hisse ki tension chala loon... chala loon woh bohot hai.
+17:29 - 18:17
+Umesh: Toh isi ke upar mera bas yeh take tha ki kyunki most of the chances hain
+ki humare paas back end mein uske teacher kya pata connected rahenge...
+Speaker 1: Iska pata lagayein. Mujhe nahi pata. Can I call their teacher or not?
+Mujhe nahi pata, main baar-baar ek hi baat keh raha hoon. Can we call their
+parent or not? Is that... woh mujhe nahi pata ki legally am I allowed to do that
+or not. Kyunki in sab mein bohot saare angle aate hain. Parents says... bachha
+kehta hai ki sahab kisi ko nahi batana hai. Ab bata do toh mar gaya. Kyunki it's
+a one-to-one conversation, confidential conversation. That is why I am asking
+you, you need to find the answer, I don't know the answer. My guideline to you
+is, my liability should be minimized. And then find an answer.
+18:18 - 18:39
+Umesh: Theek hai. Isme itna hi tha virtual counsellor mein kaise rahega. Ab
+chatbot ke through woh rakhenge toh functionality kis tareeqe se rahegi...
+Speaker 1: Voice-based important rahega. Matlab the child should be able to
+interact with the system in the language, in the voice, in the text
+conversation, whichever way he wants.
+18:40 - 19:02
+Himanshu: Jaise ek baar dikhaya tha maine virtual counsellor jo Vidhyasi ke liye
+banaya tha, usme yahi hai ki bachha voice on karke...
+Umesh: Either chat aur voice toggle ho jayega na?
+Himanshu: Kuch matlab bolta rahega, bolega mere academics ke base pe kuch
+university shortlist kar do, toh woh kuch university suggestion dega. Aur woh
+bolega ki main aapke liye shortlist kar doon, toh shortlist bhi kar dega saari
+aage ki...
+19:03 - 19:46
+Umesh: Theek hai. Ek career library mein hum kis tareeqe se future woh growth
+wale points dikhane wale hain... Toh abhi is tareeqe se humare career cards aate
+hain. Toh hum kuch cards is tareeqe se particular dikhayenge ki jisse particular
+woh filter out hoke growing kya hai, emerging kya hai, stable hai ya kaunse
+decline wale hain. Yeh system mein kuch nahi rahega, basically har career card
+mein properly jo humare pre-decided labels hain yeh aa jayenge, aur kuch hum
+filters bhi iske around hi yeh de denge jo back end mein bachha chahe toh filter
+se kar le ya humare corresponding cards ko dikha de. Toh isse jo humara us din
+wala woh tha, woh clear ho jayega.
+19:47 - 20:35
+Umesh: If they want particular career mein, toh decline ke liye jo humare paas
+data hai usse andar show bhi kar sakte hain bachhe ko. Toh isse jo us din humara
+discuss hua tha yeh cover ho jayega. Aur ek career category/sub-category wale pe
+kyunki abhi hum jo bol rahe hain 59,000 careers, toh cards ke through utna zyada
+scope dikhana aur jis tareeqe se hum fit, non-fit ya moderate fit bata rahe hain
+woh uske liye alternate dekh rahe the. Is kind of main ek aadh approach try kar
+raha tha dikhane ki ki hum bachhe ko is tareeqe se dikha dein ki career cluster
+kis tareeqe se overall 59,000 ka data uski profile ke hisaab se match ho raha
+hai, but yeh user-friendly abhi tak UI crack nahi ho pa raha hai. Humne kal try
+bhi kiya tha ek-aadh do, but bachhe ke hisaab se bohot zyada user-heavy ho ja
+raha hai. The approach was something like this ki bachha agar center pe hai, toh
+kaunsa career overall paas hai, kaunsa door hai, aur career category is tareeqe
+se ban rahi hai.
+21:03 - 21:13
+Speaker 1: Question different tha, Umesh. Aapko dhyan aa raha hai kya question
+solve karna chah rahe the category se? Category mein saari cheezein cover nahi
+ho rahi hain.
+21:13 - 21:26
+Umesh: Yeh yeh wala hai jo subject recommendation ke liye hum kya career
+category use kar rahe hain. Yeh doosri cheez hai, iska document baad mein... Yeh
+bhi ek point tha ki humein yeh show karna hai. Yeh bhi maine doc...
+21:26 - 21:45
+Speaker 1: Yeh wala point toh bilkul dhyan hai, bilkul sahi hai, jo woh aap woh
+clusters bana rahe the. Woh clusters wagera toh matlab yeh bachhon ko filhaal
+toh kar degi confuse... Chalo aapko jo dhyan hai pehle woh question solve karte
+hain, phir ispe aayenge. Agar woh solve ho raha hai toh pehle uski baat kar lete
+hain.
+21:45 - 22:30
+Umesh: Theek hai. Ek toh yahi tha label wala cheez, yeh ho gaya. Ab ek jo aap
+bol rahe ho, woh yeh tha ki subject recommendation ke liye kya career category
+is the right fit for us? Toh usme 22 categories thi humari, 152 sub-categories
+hain aur 59,000 careers hain. Toh jo analysis nikal ke aayi hai woh yahi hai ki
+abhi humein sub-category ke through woh kar le... jaana chahiye. Sub-categories
+ke through kyunki career jo coverage hai, woh multiple jo approaches thi usme
+best solution yeh aaya tha ki either hum sub-category career categories ke count
+thoda badha lein ya names rename kar lein, either sub-categories ke through
+chale jaayein. Toh jis tareeqe se career mapped hain humare...
+22:44 - 22:55
+Umesh: Toh is tareeqe se humare career sab saari various sub-categories ke saath
+mapping hain, toh sub-categories will be a better representation yeh conclusion
+aaya hai jo maine discuss...
+22:55 - 23:30
+Speaker 1: Iska question ka mere ko thoda sa context... Evidence produce nahi
+kar rahe. Humein yeh dekhna hai ki subject ka, aur yeh grade-wise cheezein thodi
+si differ karengi, toh humein ho sakta hai do approach leni pade. Ek school
+student hai 10th tak ka, who is deciding what subjects to take and then which
+career to move on, aur ek baad wala bachha hai jo specialization dekh raha hai.
+In these two things, the orientation of the entire engine might change. Toh yeh
+dhyan rakhna hai apne ko ki there could be a solution where you need two
+different types of orientation.
+23:30 - 24:48
+Speaker 1: Jo yeh 10th tak ka bachha hai, fundamentally problem kya hai? Ki
+bachhe ko humne science-maths diya. Category teen dikha raha hai, par
+science-maths ho sakta hai doosri category ke andar bhi kisi sub-category mein
+fit baith raha ho, aur us sub-category ke andar 10 particular careers mein fit
+baith raha ho. So, how do we group these? Right? Toh meri recommendation yeh hai
+ki hum subject group se jo careers aa rahe hain, un careers ko nikaal ke unki
+sub-categories banayein. Woh sub-categories level pe woh samajh lo detailed
+subject map hone lage. Jaise science, maths... physics, maths engineering ki
+taraf map ho raha hai, chemistry aaya toh 100% map ho gaya, chemistry nahi aaya
+toh thoda sa kam map hua ek sub-category mein. Ab us category ke andar ya us
+sub-category ke andar saare woh careers hone chahiye jismein ki physics aur
+maths is kind of must. Kyunki 10th ke level pe is tarah ka alignment zyada
+zaroori hai compared to ki aapke agriculture mein career ban raha hai, ki isme
+career ban raha hai, ki usme career ban raha hai. Yeh stream-based zyada ho
+gaya. Haan, jab aap 11th-12th mein aa jaoge tab aap ek thoda sa interest...
+24:48 - 25:43
+Speaker 1: Ab isme kya hoga, jo mera maanna hai, and again I could be wrong, ki
+aapko teen, chaar-paanch sub-category hui, paanchon engineering se related hain.
+Ab aapke interest ke hisaab se ho sakta hai koi sub-category kam ho, koi
+sub-category zyada ho, but aptitude aur aapki strength ke hisaab se shayad saari
+barabar hon. Main ek parameter bol raha hoon. Ho sakta hai kisi aur parameter
+mein interest ke hisaab se saari barabar hon, aptitude ke hisaab se kam hon. Toh
+yahan pe us tarah se phir apne aap alignment hone lagega bajaye ki hum abhi usko
+poora chhitra hua jaise duniya use karti hai waise system use karein. Toh
+correlation mera regroup karke shayad aur strong hoga sub-category aur category
+mein to the subject level versus the way we are doing it. And that is what we
+need to achieve. Samajh aa raha hai Himanshu main kya keh raha hoon?
+25:44 - 26:20
+Speaker 1: Agar science se related samajh lo teen-chaar tarah ke major subject
+combination bante hain, toh teen-chaar category bani, aur uske andar ek-ek
+subject change hota hai toh ek-ek sub-category bani. Ab woh jo paanch-paanch
+chheh-chheh subject ke set hone lage, un paanch-paanch chheh-chheh subject ke
+set ke saath mein kya kya careers bante hain, woh banne lage. Toh that will be
+far better. Usme phir interest ke hisaab se alignment, personality ke hisaab se
+alignment apne aap alag alag hone lagega for up to 10th. And this could be an
+innovation we can bring in maybe by the year-end or so. We have to overhaul this
+system. Right? Mamta ji, batayiye?
+26:21 - 26:48
+Mamta: Isme jo hum 10... abhi jaise mapping hoti hai, woh 10 categories dikhate
+hain, uske basis pe subject aata hai. Woh bhi mujhe bohot confusing lagta hai, I
+don't feel ki iska koi sense nikalta hai. Woh scattered lagta hai. Toh woh bhi
+address ho usse ya hum categories top 3 ya top 5 consider karein instead of 10,
+kyunki kai baar low wale bhi aa jaate hain. Low, moderate...
+26:48 - 27:35
+Speaker 1: Woh toh dekho agar hum system se chalenge toh apne aap khatam ho
+jaana chahiye. Abhi maine nayi report dekhi nahi hai kaisi aa rahi hai, but agar
+report mein humne 1 to 10 ki ranking karke chalte hain, aur ho sakta hai report
+mein aapko top 3, top 4, top 5 se aap... jo apna idea woh rule change nahi hua.
+Do distinct subjects usko dikhane hain bachhe ko. Aur kis distinct... yeh nahi
+hona chahiye physics, chemistry, maths, bio; physics, chemistry, maths,
+economics. Yeh nahi hona chahiye. Do distinct...
+Mamta: Do priority group abhi aa rahe hain.
+Speaker 1: Haan, do alag alag priority group aa rahi hain. Ab is priority group
+mein ho sakta hai koi paanch career match ho rahe hon, is priority group mein ho
+sakta hai koi do-paanch career match kar rahe hon, isme kuch low ho sakta hai,
+koi medium ho sakta hai, which is okay. Kyunki hume bachhe ko genuine choice
+deni hai bajaye ki ek chhoti si change karke humne same hi choice de di usko.
+Woh toh rule as I hope aise hi chal raha ho abhi tak, toh baat khatam ho gayi.
+27:36 - 27:49
+Mamta: Usme kisi kisi mein perfect aa jaata hai, kisi kisi mein thoda gap rehta
+hai woh nahi theek ho paata hai.
+Speaker 1: Woh do-chaar cheezein aap mere ko example do, then play with engine
+again and we make it better.
+Mamta: Theek hai, nikaalna padega usko phir se.
+27:49 - 28:48
+Speaker 1: Woh ek hua. Ab doosri approach yeh hai ki humne upar ke jo 20-25-30
+category banayein, woh subject group ke hisaab se hi banayein. Toh automatically
+aapko agar ek-ek subject change karte jaoge ya do-do subject change karte jaoge
+toh aapke waise hi system sahi hota chala jayega. I don't know, matlab again we
+have to deliberate on it and see what is the right answer. Aap current system
+mein usko fit karne ki koshish karoge na Umesh, we might not get the best
+answer. You first have to understand what could be the best system to come here,
+and then see if current system will fit into it or do we need to design a new
+system. And new system is nothing but regrouping of careers, that's it. Mujhe
+naya thodi banana hai. I don't have to follow... kal humne woh career clusters
+hi nahi follow kiya, toh abhi yeh bhi follow karne ki zaroorat nahi hai.
+28:48 - 29:30
+Mamta: Abhi toh it's very open. Kisi bhi subject se kuchh bhi career ho sakta
+hai. Kisi bhi direction mein bachha ja sakta hai.
+Umesh: Toh abhi jo linking hai, woh mostly skills ke usme hi hai. Jo matlab
+similar skill wale career hain, woh aapas mein ek cluster mein ya ek usme aate
+hain.
+Speaker 1: Aisa nahi hai. Aisa nahi hai, kyunki agar aisa hota, toh aap ek
+category ke andar zyadatar sub-category let's say very high hai agar mera fit,
+toh zyadatar sub-category meri maximum moderate se leke very high tak hoti. Par
+abhi humare system mein aisa nahi hai. Aur phir jab main very high mein jaata,
+toh uske andar mere ko saare career moderate se leke very high tak milte. Waisa
+nahi hai. Mera jo litmus test hai, matlab dipstick hai, woh mera yeh kehta hai.
+29:30 - 30:04
+Umesh: Theek hai. Toh isi cheez ke liye wahi representation ke through... lekin
+woh user woh nahi ban raha tha, simple nahi ban raha tha.
+Speaker 1: Back end ko check karna padega pehle aapko. Visualization is not that
+big a deal, woh fix ho jayega, but pehle aapko back end ko fix karna padega.
+Dynamic categorization ho sakta hai kya, dynamic sub-categorization ho sakta hai
+kya, bohot saari cheezein ho sakti hain. Aur batao?
+30:37 - 31:05
+Speaker 1: Yeh safe... security wale issue ko bilkul highest priority pe...
+Pehle bhi humne ek mail share apna karaya hua tha, aur ek doosra kya hua jo apne
+cloud ke uses hain Amazon wale, usko hume minimize karna tha? Ab kyunki Amazon
+ka bill aane lag jayega next...
+31:07 - 31:51
+Umesh: Cloud ke bill ke liye abhi jo plan hai, woh yeh hai ki jo UAT system hai
+humara, usko pehle hum GCP pe migrate ka plan kar rahe hain. Toh costing kitni
+rahegi kyunki UAT ka architecture very similar to production ke hai. Toh jo yeh
+costing aur iska hai, tab hume wahan se better estimation ke open numbers
+milenge. Aur agar woh properly sahi chalta hai aur numbers humare hisaab se hi
+rehte hain, toh tab hum production move karenge. Aur isse yeh benefit hoga jab
+chaar mahine baad hum wapas AWS mein aane ka plan karte hain, toh AWS ka server
+hum bas stop kar rahe hain, toh hum yahin se continue kar payenge aur GCP wale
+ko stop kar denge. Toh jaise hi stop karenge...
+31:51 - 32:05
+Speaker 1: Yeh kab tak ho jayega? Kab se pehle?
+Umesh: Iske liye DevOps team ko again mail daala hua hai. Woh kis cheez mein
+lage huye hain...
+Himanshu: Woh white-labelling...
+Umesh: Yeh jo endpoint yeh fix karwa rahe hain, woh isi mein abhi majorly
+engaged hain.
+32:12 - 32:38
+Speaker 1: Aur uska kya hua jo apne student code roadmap dobara likha hua tha?
+Aur university database wala kuch time pehle dikhaya nahi...
+Himanshu: University database... server transfer wala...
+Speaker 1: Aap kar lo apna jo kaam hai. Aur kuch hai Mamta ji se?
+32:42 - 33:06
+Umesh: Ek Mamta ma'am ka yeh hai jismein Mamta ma'am ke yahan se dependency hai.
+Assessment tune to every age. Toh jo undergraduate, masters wale bachhe hain ya
+working professionals hain, unke jo assessments rahenge, woh assessments rahenge
+tab woh dikha payenge theek hum system pe.
+33:07 - 33:23
+Speaker 1: Bhai, Eklavya se pull kar lo yaar filhaal. Eklavya pe sabka same hi
+hai abhi. Grade-wise... Check karo aap meanwhile hum usko kaise use kar sakte
+hain.
+Mamta: Mujhe nahi samajh mein aaya, kya karna chah rahe ho aap isme?
+33:25 - 33:50
+Umesh: Abhi tak humare jo assessment hain, woh grade 6 to 12th tak tuned hain.
+Ab humein undergraduate, masters and working professional ke assessment aur woh
+chahiye, toh woh provide ek chahiye aap se na. Kaunse assessment aur kya
+batteries ya groups banengi.
+33:55 - 34:36
+Mamta: Aur yeh report mein bhi provide karni hai ya kya rahega?
+Umesh: Reports jo abhi humari hai, snapshot reports, woh complicated hai bachhe
+ke... matlab woh abhi counsellor ke point of view se derive kari hui hai. Toh
+abhi toh usme yeh rahega ki ek version hum inko hi provide karenge, phir woh
+aapko validate karna padega ki kya hai. Easy banana usko. Hum format aapko
+provide karenge. I guess ek version maine pehle dikhaya tha aapko theme-based
+design wala. Main share kar dunga. Bas yahi tha.
+Mamta: Theek hai. Thank you.
+36:48 - 37:15
+Umesh: Vidhyasi mein ek toh yeh automation wala in progress hai. Yeh
+white-labelling wala kal Abhinav wala jo dependency hai... Ongoing optimization
+aur jo yeh feature building hai yeh chal raha hai. Curated marketplace ka yeh
+abhi discuss humein karna hai ki yeh hai kya. Phase 1 jo... Yeh kisi ko bhi idea
+nahi hai.
+37:16 - 37:37
+Speaker 1: Kya discuss karna hai aapne?
+Himanshu: Yeh point samajh nahi aaya tha. Yeh wala point aaya nahi ya hua hoga
+discuss...
+Speaker 1: Supplier, demand aapke badhiya se chal rahe hon, bachha woh
+transactions kar pa raha ho aapke system pe.
+Himanshu: End-to-end supply-demand actually market place.
+37:37 - 38:09
+Umesh: Toh phir isme Pathlinks ka kya kaam rahega?
+Speaker 1: Yeh bhi humne discuss kiya tha. Jo Pathlinks mein agar bachhe ko
+profile building se related services chahiye, uske supplier kaun hain humare
+paas? Demand partner bachha hai. Kisi ko painting workshop chahiye, kisi ko kuch
+chahiye, toh woh supplier hum onboard kar paayein, bachha woh service le paaye,
+online courses karna chahta hai kisi ne, coding seekhna chahta hai kisi ne, kuch
+karna chahta hai kisi ne...
+38:11 - 39:35
+Speaker 1: Mujhe toh bohot bada disconnect lagta hai bohot saari cheezon mein.
+Lagta nahi kahin pe kuch cheezein alag hain. Usable mein sab mein hi issues hain
+humare, chahe woh application ka automation ho, chahe supplier side ho, chahe
+demand side ho. Jitti-jitti baar main usko touch karta hoon, mere ko nayi nayi
+cheezein milti hain. Jabki main toh zyada dimaag nahi laga raha. Khaali prompt
+se main samajh-samajh ke testing kar raha hoon, lekin mere ko bohot bada
+disconnect lagta hai. Virtual counsellor aur assisted counsellor dono mein hi
+abhi aas-paas bhi nahi pahuche hain apan. Dikkat kahan aa rahi hai? Humara time
+kis mein waste ho raha hai zyada? Kis cheez mein lag raha hai humein, kis wajah
+se nahi ho pa raha? Kis wajah se nahi ho pa rahi cheezein deliver time pe,
+picture perfect? Kya reason hai?
+39:41 - 40:35
+Himanshu: Sir, matlab ek point tak maine woh banaya, unhone revert nahi kiya yeh
+kehne ke liye ki wapas isko theek kar do. Usne yeh nahi bola tha ki wapas isko 1
+se hata do. Mere dimaag mein bhi nahi aayi thi...
+Speaker 1: Main toh overall ki baat kar raha hoon. Overall wala matlab
+application filing wala part... Har baar apne saath yahi cheez chalti hai, har
+baar yeh issue aata hai. How do we fix that? Aur abhi bhi jo dekhna aap kitne
+saare issues nikal ke aayenge jabhi main testing kar raha hoon. Admin, school,
+counsellor jo humara last month ka tha. Aur jitna mere ko samajh mein aaya aur
+jis silsile se issue nikal ke aayenge, usi silsile se system fix kar sakte hain
+aap.
+40:36 - 41:40
+Speaker 1: Aur matlab uske liye toh aapko coding ke bhi tokens use karne ki
+zaroorat nahi hai. Matlab aap coding ke token use kar rahe ho toh theek hai, but
+woh use karne ki bhi zaroorat nahi hai aapko. Matlab jo general mere usage
+Claude ka mere paas account hai, uske token se kar raha hoon. Abhi bhi activity
+log, audit trail se related usne kuch kuch inputs chhode hain, main share
+karunga pura ho jaane do aaj late night tak. Mujhe lagta hai kal subah tak
+baithna padega uske saath.
+Himanshu: Last time to sir isliye thi ki video mein nahi tha audit trail aur
+activity log. Isliye pata nahi lag paya.
+Speaker 1: Main ab toh system check kar raha hoon. Isliye mujhe samajh mein aa
+raha tha ki video mein ho sakta hai kuch kuch cheezein disconnected hon, toh
+isliye ab main system se pura ka pura login kara ke, pura system mein usko
+credentials deke yahan se woh kabhi kabhi mujhe login karne ko bolta hai main
+karta hoon, woh sab check kar raha hai system.
+41:40 - 42:15
+Himanshu: Abhi koi problem aati hai Mamta ma'am ko ya kisi ko, main toh seedhe
+usi se poochhta hoon...
+Speaker 1: Toh mujhe yahi samajh nahi aa raha ki humara yeh kyun nahi ho pa raha
+deliver? Ho payega, nahi ho payega? Yeh kab ka software tha, humne September
+mein banaya, usse pehle do-chaar baar humne attempt kiya ek mahine ki pipeline,
+do mahine ki pipeline, phir har baar hum fail hote hain, toh yeh matlab kyun ho
+raha hai?
+42:19 - 42:47
+Himanshu: School communication ka ek document prepare hua aur uske hisaab se
+pura testing wagera chal raha hai, phir woh poori stages redefine hui hain...
+42:47 - 43:47
+Speaker 1: Dekho Himanshu, when you are the product head, I am expecting you to
+lead all of those discussions. Unse pehle ek baar approval, do baar approval,
+aur ek cycle toh aap kuch bhi product bana lo, uske baad jab woh ban ke aayega,
+saamne aayega tab woh cycle banegi. Hum jo documentation bhi bana rahe hain,
+again aap, Mamta ji, Pushpinder in sab ki ya meri bhi for that matter bohot
+limited experience hai, limited knowledge hai. Main toh iski power ko ab jaan
+raha hoon ki matlab actual kya hai. Jab maine thoda sa aapke alawa time lagaya
+samjha ki isme achha yeh connector ban sakte hain, isme yeh skill ban sakte
+hain, yeh sab kaam ho pa raha hai. You can... I am sure aapne skills kuch bana
+rakhe honge, aap skill bana ke usko bolo ki you are working as a counsellor, yeh
+yeh yeh communication ho sakte hain so that I never lose a child, it shouldn't
+look overwhelming, I'm not over-communicating, yeh woh, uske hisaab se pura
+check kar, check karke mere ko bata. Woh aapko pura system bana ke de dega, phir
+inse ek baar check kara lo.
+43:47 - 44:48
+Speaker 1: Par woh overwhelming nahi hona chahiye. Jab woh 17-18 page, 20 page
+ka document aa jaata hai na, toh koi human bhi check nahi kar sakta. Concept
+explain karo ek page mein ki yeh concept hai, yeh rule ya yeh concept rules yeh
+hain ki is is case mein yeh yeh is is tarah ka communication trigger hoga. Yeh
+ek sample hai iska, aap yeh check kar lo isme hum kuch miss kar rahe hain kya.
+Phir detail dekhni hai toh page by page by page detail hai. But kisi ko bhi
+review ke liye bhejo, do page se zyada nahi hona chahiye, chahe main hi kyun na
+hoon. Kyunki mere ko main yeh aapse do point uthane hain. Main har baar jo aap
+logon ko bhejta hoon, usko bolta hoon mere ko question poochh jo mere ko as a
+business owner define karne pad sakte hain. Woh questions ko main manually jaake
+ek-ek answer karta hoon properly. Aapko bhi jo bheja usme bhi maine woh answer
+kiye huye hain kyunki woh decision woh nahi le sakte hain. Woh wahi nikaal ke de
+rahe hain aakhri mein. Usse pehle main usse suggestion le lu, aapse sab
+theek-thaak kara karu ke aur usme aapko jitta hota tha nikaal ke bhejta tha.
+44:49 - 45:53
+Speaker 1: Aur uska wahi ek tareeqa hai, aur koi tareeqa nahi hai. Yeh apne paas
+mein best quality resources hain aap yeh maan lo. Aur yeh best quality resource
+aapko jo input de rahe hain, usse bhi aapko aur jo Claude bhi input de raha hai
+usse better result nikaal ke laana hai. Ab mere ko chaar baar inhone push back
+kiya, par jo mujhe nahi pata woh nahi pata mujhe, but I know where to find the
+answer. Ab yeh dhoondh ke laana ek bohot badi detail ghanta, sitam mujhe lagega
+main dhoondh ke nikaal ke de dunga what is the best way to find an answer. Ab
+woh aapka kaam hai as owning the product to find the best answer, protect the
+company also, protect the child also, to the best extent that we can. Perfect
+duniya nahi hai, aur hum perfect duniya mein jeete bhi nahi hain, humein jaana
+bhi nahi hai. Bhagwan na kare phir bhi... humari wajah se nahi, bachhe ki state
+ki wajah se kal ko koi ho, bhagwan na kare but we can't control it, we can't do
+anything about it. We have to just design the system which is best, and I am
+sure system will be able to tell you the right answer, better than... Woh aapko
+dhoondhna hai, and then you should be confident ki jo main solution de raha hoon
+ab yeh jo soch rahe hain usse 10 guna hai. And then you are good to go.
+45:54 - 47:04
+Speaker 1: Matlab abhi tak bhi agar humein lag raha hai ki humein inpe dependent
+hain hum log, toh woh humari shortcoming hai. Vidhyasi ke alawa koi doosre
+product pe toh hum kaam kar hi nahi rahe. Toh ab aapki expertise itni zabardast
+develop ho jaani chahiye Vidhyasi mein that you can challenge me. Fir karein
+layout review. Dono baat karein, dangal karein, samjhein kaun better hai
+Vidhyasi mein. Chaliye ab wahan pe dekhte hain kya chahiye counsellor ko, kya
+nahi chahiye, kaise market place, kya supplier hai uska, kya demand hai uski,
+kaisa hai, tab maza aayega. Thoda sa aap logon ko dimaag lagane ka kaam zyada
+phans raha hai, bajaye ki woh lage huye hain, lage huye hain. Uski jagah thoda
+sa aapko set aside apne us root ke saath sochna padega ki time woh hai jab AI se
+better aap soch paoge, ya jahan tak woh laake diya uske upar decision making
+karke kar paoge, tab...
+47:08 - 48:42
+Speaker 1: Maine aisi aisi meetings set ki hain is baar jo main... meri life
+mein pehle kabhi nahi... Jo matlab main achhe-achhe contact ke through gaya hoon
+kabhi-kabhi toh, aur matlab main achhe-achhe logon ke through gaya hoon ki jo
+jaante the, jo usme prominent the woh sab, aur kisi se nahi. "Find the right
+person, who is the right person, his email, his d-mail." "Okay, so typically in
+this type of university, they use first name dot second name @ this. Try this,
+if this doesn't work then I send another email on your behalf of this." Top
+structure, top structure kaam hua. Ek bhi aisa contact nahi hai jo meri list
+mein bana tha jis tak main nahi pahuncha hoon. Kahin pe do-do teen-teen attempt
+lage hain uski wajah se, combination mil gaya. Tarun hoga, Tarun.kandoi hoga,
+Tarun.kandoi hoga, Kandoi hoga... 10-20 combination usne standard official
+combination nikaal ke diye. Woh dhoondhta hai pattern. Woh jaata hai
+chaar-paanch saal purani website dhoondhta hai, bole inka shayad yeh type ka
+pattern hoga. Maine ek mail daala hai, aap daal ke dekho, bounce hoga toh doosra
+pattern try karenge. Jab yeh is tarah ki cheezein ho sakti hain toh product mein
+toh aur relatively easier hona chahiye.
+48:56 - 50:35
+Speaker 1: Main aapki jagah hota toh main yeh bolta ki aaj ke din mein yeh... is
+topic pe dimaag lagaoonga, raat tak code ya half-day lagaunga jab tak ki mere ko
+poori clarity nahi mil jaayegi ki yeh kaise hoga. Mera jitne jaise user
+experience hai, main saara Diwali ki safai ki tarah pehle main dimaag mein
+ghusaunga, sab laake saara code yahan pe rakh dunga uske baad mein saare
+experience use karunga, tu check karta reh. Matlab jab main kuch aur kar raha
+hoon, system ko bol diya tu check karta reh, maar-behen sab nikaal de is system
+ki jo nikal sakta hai, ek-ek comma, full stop, ek-ek cheez nikaal ke de de.
+Colour ka, iska, uska, kahan kahan alignment kharaab hai, kahan line chhoot gayi
+hai, sab nikaal ke de de. Ab mere ko tu suggestion de ki isme se extra step
+kaunse hain jin ko main uda sakta hoon, kya nayi cheezein hain jo main add kar
+sakta hoon, kahan main kya cheez daal sakta hoon, kis-kis cheezon ko mere ko
+optimize karna chahiye, kahan colour scheme pe dhyan dena chahiye, kya hai uska
+mujhe vistaar se bata. Aadhi... ab usko code ke standpoint se run karke
+kahan-kahan kya cheezein break ho sakti hain, sab kar doonga. Pehle din audit,
+doosre din usko plan karaya, shaam ko aapke baith ke decide kiya ki yeh sahi
+bata raha hai ki nahi bata raha hai, agle din aap... Yeh loop aapka chalega. Jab
+tak aap teesri coding kar rahe ho...
+50:35 - 51:40
+Speaker 1: Isko poori tarah fix kiye bina aage nahi badhenge. Yeh do cheez, do
+item hain, teen item hain, but yeh ispe itna fool-proof ban jaayega ki koi
+duniya mein nahi hila sakta isko, koi issue nahi aayega. Quick and short aayega.
+User experience ho gaya beta, overall flow ho gaya, yeh feature ho gaye, baat
+khatam. Ab aage koi coding hogi, pehla prompt yeh user experience hoga. Systemic
+approach mere khayal se missing hai, hum jaldi-bazi mein kuch karne ki koshish
+kar rahe hain. Humein lagta hai yaar yeh lamba cycle hai, kyun itni cheezein
+karni hain, chaar cheezein hain, bas isko niptao aur yeh... Woh Diwali safai
+wali cheez baar-baar aayegi, pata hi nahi padega. Phir aapko dhyan nahi hoga
+kahan kaunsa belan lagaya tha, kahan kaunsa chhota chamach chhupa tha, system
+mein kya le rakha hoga, kaunsa part bol rahe baad mein karne ke liye. Aapko
+dhyan hi nahi rahega. Aaj toh aapke paas opportunity hi opportunity hai.
+52:13 - 52:35
+(Phone rings)
+Speaker 1: Haan ji. Plan ban gaya kya? Mohit ne aur inhone bana liya plan kal
+ka?
+52:47 - 53:30
+Caller (via phone): ...woh branch open hone ki deadline main nahi kar paunga...
+Speaker 1: Kaun keh raha main nahi kar paunga?
+Caller: Woh branch manager, Ashoka... unhone bola ki yeh particular format mein
+bhar ke de do, toh main nahi kar paunga, either I will get it assigned to
+somebody else...
+Speaker 1: Aap jis format mein humare paas data aaya hai, woh jaldi se ek baar
+check kara lo Mamta ji se ya Himanshu se ki data poora hai kya humare paas.
+53:37 - 54:32
+Caller: Yeh maine mail kiya hai Mamta ji ko...
+Speaker 1: Haan, toh woh aap check kara lo. Uski formatting main kar dunga, 10
+minute lagenge mujhe. Main ek Claude ka agent chala ke melt kar dunga poora.
+Theek hai? Aap khaali bas yeh check kara lo usme data poora hai kya.
+Caller: Theek hai, toh main Himanshu se karwaati hoon... 2:00 to 3:00 ke beech
+mein kabhi bhi aap...
+Speaker 1: 3:00-3:30 kar lo.
+Caller: 2:45 bol doon?
+Speaker 1: Haan, bol do.
+54:33 - 55:25
+Speaker 1: Ek screen bana lo jiska data theek nahi aaya, woh convert karke aapko
+data de de jis format mein chahiye, aur jin students ka missing ho uski list
+bana ke ek mail prepare karke de de aapko unhe send karne ke liye. Onboarding
+basis pe? Haan, jab school onboarding ka aayega, marks ka aayega, attendance ka
+aayega, jo bhi unhone diya, jis bhi format mein diya. Ab hum usme se simple si
+baat hai, unki dikkat kya hai, school keh raha hai aapka format typical hai,
+main nahi kar paunga. Ek simple sa scale banayein. Jo bhi data hai usko is
+format mein daal, daal ke mujhe bata de ki bhai 80% data theek hai, yeh 20% data
+mein teen-teen chaar-chaar cheezein missing hain, school ko mail bhej ke poochh
+le ki yeh sahi hai kya, main isko approve kar doon kya? Aur jo 10-20 bachhon ka
+poora data missing hai woh bata de school ko.
+55:25 - 55:34
+Himanshu: Agar woh line se student ID hum onboarding mein dete hain, wahi
+student ID agar hum marks list mein bhi de dein, toh bhi humein koi problem nahi
+aayegi.
+55:34 - 56:40
+Speaker 1: Ek baar data dekh ke dekho, ho sakta hai aapko bina uske nikaalna
+pade. Jo mismatch bhi ho, aap usme yeh bolo ki bhaiya yeh double-double naam aa
+rahe hain, isme mere ko student ID match kar ke de do. Aap kisi ko bologe mere
+ko itna kaam karna hai, toh woh apni aafat hi maanta hai. Jaise hi aap usko
+bologe ki yeh itna tune diya tha, maine itna resolve kar diya, tere ko khaali
+itne se batana hai. Yahi humare upload function mein bhi hona chahiye. Yeh data
+perfect match mil gaye, yeh maine kar diye. Ab yahan confusion hai aur is-is
+tareeqe ka confusion hai. Yahi user experience hai. 80% bachhon ke toh naam
+unique honge class-wise? Unko toh hatao, bolo bhaiya yeh toh maine match kar
+diya. Ab bache 20%, in 20 bachhon mein double-double naam aa rahe hain, can you
+put the student ID? Ek section, ek class, naam match, aise kitne case honge? 10%
+cases. Theek hai? Aur batao?
+56:53 - 57:30
+Umesh: Ek jo all world wala hai, uska timeline aapki jo requirement hai woh
+mujhe clear hai, jo aap us din mere se maang rahe the ek proper tracker
+visualizer ki. Lekin woh is week nahi dunga, main agle week ke end tak aapko
+proper dunga ki timeline kaise chalegi, kyunki...
+Speaker 1: Abhinav ko bulao. Taareekh dene ki taareekh de rahe ho aap mujhe.
+Umesh: Are nahi, main aapki jo requirement hai woh theek hai lekin research wale
+mein usme woh progress wali jo cheezein hain na...
+(Abhinav enters the room around 57:39)
+57:40 - 57:56
+Speaker 1: Ban gaya sir? Dekh lein demo?
+Abhinav: Haan sir, lagbhag ban hi gaya hai.
+Speaker 1: Lagbhag ya bhag? Haan? Lag ya bhag? Kaunsa?
+Abhinav: Mostly ban gaya, matlab laga lo aap 20% bacha hai.
+Speaker 1: Kab dekhein demo? Kal subah 10:00 baje dekhein? 11:00 baje? Toh kab?
+57:57 - 58:40
+Abhinav: Abhi main jitna bana hai utna dikha... matlab mostly poora ban gaya
+hai, mere ko ek din ka aur time chahiye, main poora bana dunga isko. Ek se dedh
+din mein poora ban jaayega, poora end-to-end.
+Speaker 1: Kabhi lagbhag bol rahe ho, kabhi 20% bol rahe ho, kabhi ek din bol
+rahe ho, kabhi dedh din bol rahe ho. Sir ji, aise kaise hoga? Yeh toh aapke liye
+doosra project lagane mein lage huye hain, aur aapka pehla wala hi nahi khatam
+hua abhi tak. Aap inke bharose kahan ho bhai sahab apne project mein?
+Abhinav: Nahi nahi, mat leke aao aapko matlab nahi hai jab bana hi nahi hai toh
+main kya karunga abhi dekh ke? Ban jaane do na, banne ke baad hi dekhenge phir
+isko.
+58:41 - 59:13
+Speaker 1: Kis part mein time zyada lag raha hai aapko?
+Abhinav: Sir kuch AI ne jaise bana ke toh de diya, lekin usne na bohot
+hodge-podge kar diya hai. Ab main usko ek-ek role ko baith ke andar-andar theek
+kar raha hoon. Usne banaya sab kuch hai, lekin bohot zyada hi over bana diya
+usne. Jis cheez ki need bhi nahi thi, woh cheezein bhi daal rakhi hain usme.
+Speaker 1: Theek hai.
+59:14 - 60:04
+Abhinav: Aur haan sir, mere ko ek-do doubts aur the...
+Speaker 1: Beta usme roll number tak hai bachhe ka. Sab hai isme, koi aisi cheez
+nahi hai jo ki additional deni pad sakti hai isme. Ab isme ho sakta hai yeh
+subject jis bachhe ne jo le rakha ho uske hisaab se marks hain. Jaise abhi ek
+bachha hai jiske Hindi ke subject hain, toh iska ek subject ka marks nahi
+chadhana hoga. Yeh optional subject ka marks... Abhi aayi hai mail. Isme
+subject-wise bhi marks de rakhe hain, bohot hi badhiya hai yeh toh. Iske baad
+mere khayal se agar aap inse additional data maang rahe hain toh galat hai. Yeh
+perfect hai. Matlab isme jo chahiye ho sakti hai aapko as a system, sab kuch hai
+isme. Bolo kya keh rahe ho aap?
+60:05 - 60:49
+Abhinav: Sir ek kaam karta hoon, main na kal ko aapko second half mein ek baar
+meeting schedule karke aapko dikhata hoon, aur jo mere ko doubts bhi honge woh
+main usi meeting mein poochh...
+Speaker 1: Doubts aabaad nahi... mere ko kal picture perfect model chahiye,
+simple si baat hai.
+Abhinav: Kal toh shayad nahi ho payega, parso main aapko poora poora dikha sakta
+hoon.
+Speaker 1: Parso bhi phir aap lagbhag hi dikhaoge...
+Abhinav: Kal ko main second half mein aapke saath meeting schedule karta hoon,
+usme main aapko...
+Speaker 1: Kal aap doubts bhi solve kar loge, parso tak fix bhi kar loge? Tab
+toh ab tak ban jaana chahiye tha itni speed mein kaam hota toh. Saturday ko sab
+clear kar diya tha, Monday ko ban jaana chahiye tha, Tuesday ko doubt poochhne
+chahiye the, aaj release kar dena chahiye tha.
+60:50 - 61:45
+Abhinav: Sir AI wagera mein bohot time lag...
+Speaker 1: Humein AI use nahi karna aata iska matlab yeh hai. Humein AI use nahi
+karna aata. Humein training leni chahiye uski ki kaise usko hum best use karein,
+pakka yeh hai. Mere ko yeh feel ho raha hai. Humare paise bhi waste ho rahe
+hain, time bhi waste ho raha hai. Main seriously bol raha hoon yeh baat.
+Repeatedly agar hum logon ko itna time bhi lag raha hai apna khud ka bhi, itne
+token bhi kharch ho rahe hain, phir bhi humare product time pe nahi nikal rahe
+toh we need to actually learn how to use AI tool for... like what is the best
+way to use for coding and other... Kyunki aap incremental-incremental kar rahe
+ho na, thoda idhar chal le, thoda udhar chal le, thoda yeh kar liya... Aise
+thodi banta hai product. Aur jab ki maine pehle hi bola tha scratch se theek
+tarah karo usko. Yeh bohot serious introspection ki zaroorat hai na aap logon
+ko.
+62:03 - 62:38
+Speaker 1: Kyunki jitni humne us din clarity ki thi, usko systematic dhang se
+kiya jaaye, toh mujhe lagta hai yeh vastav mein ek hi din ka kaam tha. Aur jitne
+aapke paas token hain uske hisaab se kaam ho sakta tha. Kaunsa model... kya use
+kar rahe ho aap?
+Abhinav: Claude.
+Speaker 1: Theek hai, chalo dikhao parso dikhao, kal ki planning karo iski.
+Himanshu: Aur option mein to hamare pass... kabhi poochh sakte ho.
+Abhinav: Kuch nahi, abhi aaj to kaam chalu karenge theek se.
+63:05 - 63:53
+Speaker 1: Sota kyun rehta hai yeh din bhar? Haan? Teen-chaar janon ne bol diya
+mujhe... Raat ko party zyada kar raha hai, doosri job kar raha hai, kya kar raha
+hai?
+Umesh: Job ki nahi pata, party toh nahi karta woh.
+Speaker 1: Din mein sone ka kya kaam hai yaar? Abhi devcon usme toh main bhi
+japti le leta hoon par aise thodi poore time sote hi rahenge. Aate hi
+subah-subah sota rehta hai. Do-teen baar toh maine dekha hai yaar.
+63:55 - 64:37
+Speaker 1: Chalo yeh report dekho aap, isme saare answer hain aapke question ke.
+Aapko iske baad kisi cheez ki zaroorat nahi padegi. Jo maine do-teen report abhi
+khol ke dekhi, inhone grade-wise marks diye huye hain, bachhon ke jo bachhe ne
+subject le rakha hai woh diye huye hain baki, phir subject-wise bhi unhone ek-ek
+bachhe ke marks diye hain aur roll number sabke hain.
+Himanshu: Phir dekh lenge roll number na ho toh bhi issue nahi hai.
+Speaker 1: System toh yahi hai yaar, aapne upload kar diya, kuch bhi upload kar
+diya, toh system ko 90, 70, 80% jo mil gaya clean data woh toh utha liya,
+confirmation le liya, jo bach gaya uske liye poochh le bhai kya karna hai. Theek
+hai?
+
+

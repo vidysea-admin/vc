@@ -1,0 +1,5 @@
+{"type": "session_meta", "payload": {"id": "s"}}
+{"timestamp": "2026-10-15T10:00:00Z", "type": "event_msg", "payload": {"type": "task_started", "turn_id": "turn"}}
+{"timestamp": "2026-10-15T10:00:01Z", "type": "token_usage_record", "payload": {"session_id": "s", "turn_id": "turn", "response_id": "1", "usage": {"input_tokens": 10, "output_tokens": 1}}}
+{"timestamp": "2026-10-15T10:00:03Z", "type": "token_usage_record", "payload": {"session_id": "s", "turn_id": "turn", "response_id": "3", "usage": {"input_tokens": 10, "output_tokens": 1}}}
+{"timestamp": "2026-10-15T10:00:10Z", "type": "event_msg", "payload": {"type": "task_complete", "turn_id": "turn"}}

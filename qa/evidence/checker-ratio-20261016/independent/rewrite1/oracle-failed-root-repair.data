@@ -1,0 +1,47 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {pathToFileURL} from 'node:url';
+const root=process.cwd(), base='qa/evidence/checker-ratio-20261016/independent/rewrite1', src='qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs';
+const raw=fs.readFileSync(src,'utf8'), hash=x=>createHash('sha256').update(x).digest('hex'), clone=x=>structuredClone(x);
+assert.equal(hash(fs.readFileSync(src)),'cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3');
+const api=await import(pathToFileURL(path.resolve(src))); const stamp=Date.now(); let count=0;
+function write(name,x){const rel=base+'/'+name;fs.writeFileSync(rel,typeof x==='string'?x:JSON.stringify(x));return {path:rel,sha256:hash(fs.readFileSync(rel))};}
+const identity=write('identity.txt','synthetic checker identity'), input=write('input.txt','synthetic input');
+function report(id){const keys=['tokens','input','output','cache_read','cache_write','active_seconds','wait_seconds','runs'];const roles=Object.fromEntries(['maker','checker','integration','unknown'].map(r=>[r,Object.fromEntries(keys.map(k=>[k,0]))]));Object.assign(roles.maker,{tokens:10000,input:10000,active_seconds:100,runs:1}); return {schema_version:1,efficiency:{complete:true,unknown_reasons:[],maker_minutes:100/60,checker_minutes:0,maker_tokens:10000,checker_tokens:0,time_ratio:0,token_ratio:0,target:0.1},feature_report:{schema_version:1,roles,runs:[{run_id:'maker-'+id,session_id:'synthetic-session',feature_id:id,cycle:0,role:'maker',tokens:10000,active_seconds:100,wait_seconds:0,usage:{input:10000,output:0,cache_read:0,cache_write:0}}]}};}
+function packet(label){const id='p0-oracle-'+stamp+'-'+label;const p=api.deliveryTemplate(root);Object.assign(p,{workflow_id:id,root_run_id:id,feature:id,run_id:id,session:'synthetic',policy_id:identity.sha256,protocol_id:identity.sha256,config_id:identity.sha256,dependency_id:identity.sha256,identity_files:Object.fromEntries(['policy_id','protocol_id','config_id','dependency_id'].map(k=>[k,identity])),candidate:{head:p.candidate.head,files:[input],dirty_inputs:[input.path]},resource_caps:{agent:3},closeout_resources:{agent:1},criteria:[{id:'C1',description:'Synthetic independent control',check_task_id:'check'}],tasks:[{id:'check',owner:'synthetic-checker',kind:'check',depends_on:[],owns:[base+'/'+id],resources:{agent:1},timeout_ms:10000,max_output_bytes:4096,checker_tokens:1000,command:[process.execPath,'-e','process.exit(7)']}],dispatch:{task_id:'check',attempt_id:'a1'},budget:{deadline:new Date(Date.now()+60000).toISOString(),closeout_ms:1000,no_progress_ms:50000,estimate_ms:60000,estimate_tokens:null,token_cap:null,estimate_provenance:'synthetic mechanics only',checker_budget:{schema_version:'checker-budget/1',report:write(id+'-report.json',report(id))}}});return p;}
+function ok(name,fn){fn();console.log('PASS '+name);count++;}
+function deny(name,fn,re){ok(name,()=>assert.throws(fn,re));}
+const p=packet('baseline');ok('C1 complete valid baseline',()=>api.deliveryValidate(root,p));
+const missing=clone(p);delete missing.budget.checker_budget;deny('C1 missing baseline',()=>api.deliveryClaim(root,missing),/checker budget required/);
+const tamper=clone(p);tamper.budget.checker_budget.report.sha256='0'.repeat(64);deny('C1 tampered baseline',()=>api.deliveryValidate(root,tamper),/report hash mismatch/);
+const unknown=clone(p),ur=report(p.feature);ur.efficiency.complete=false;unknown.budget.checker_budget.report=write('unknown.json',ur);deny('C1 unknown baseline',()=>api.deliveryValidate(root,unknown),/complete measured/);
+const scope=clone(p),sr=report('different-feature');scope.budget.checker_budget.report=write('scope.json',sr);deny('C1 scope baseline',()=>api.deliveryValidate(root,scope),/scope mismatch/);
+const exact=packet('exact');ok('C2 exact 10 percent admission',()=>assert.equal(api.deliveryClaim(root,exact).status,'claimed'));
+const over=packet('over');over.tasks[0].checker_tokens=1001;deny('C2 one token over',()=>api.deliveryClaim(root,over),/aggregate 10%/);
+const agg=packet('aggregate');agg.tasks[0].timeout_ms=5000;agg.tasks[0].checker_tokens=500;
+const run=await api.deliveryRun(root,agg);assert.equal(run.status,'incomplete');assert.equal(run.receipt.exit_code,7);console.log('PASS C3 actual nonzero invocation incomplete');count++;
+const ledger=JSON.parse(fs.readFileSync('qa/.delivery/'+agg.workflow_id+'.json'));const budgetPath=ledger.attempts[0].checker_reservation.path;const accounting=JSON.parse(fs.readFileSync(budgetPath));ok('C3 failure debit and unknown tokens retained',()=>{assert.equal(accounting.reservations[0].tokens,500);assert.equal(accounting.reservations[0].actual_tokens,null);assert(accounting.reservations[0].elapsed_ms>0);});
+agg.dispatch.attempt_id='retry';ok('C2 aggregate retry exact boundary',()=>assert.equal(api.deliveryClaim(root,agg).status,'claimed'));
+const helper=clone(agg);helper.tasks[0].owner='renamed-helper';helper.dispatch.attempt_id='helper';deny('C2 helper rename cannot reset plan',()=>api.deliveryClaim(root,helper),/plan cannot be relabeled/);
+const reset=clone(agg);reset.budget.checker_budget.report=write('reset.json',report(agg.feature));deny('C2 baseline reissue cannot reset',()=>api.deliveryClaim(root,reset),/lineage cannot reset/);
+const mutantSpecs=[['C1','deliveryNeed(result.status !== "UNKNOWN", "checker budget requires complete measured opening usage");','deliveryNeed(true, "checker budget requires complete measured opening usage");',m=>assert.throws(()=>m.deliveryValidate(root,unknown),/complete measured/)],['C2','spentTokens + t.checker_tokens <= accounting.token_limit','true',m=>assert.throws(()=>m.deliveryClaim(root,over),/aggregate 10%/)],['C3','deliveryNeed(JSON.stringify(state.budget.checker_budget ?? null) === JSON.stringify(p.budget.checker_budget ?? null) && JSON.stringify(state.budget.checker_budget ?? null) === JSON.stringify(previous.budget.checker_budget ?? null), "recovery cannot reset checker budget");','deliveryNeed(true, "recovery cannot reset checker budget");',null]];
+// Root fixture-mechanics repair: finish only our claimed fake invocations before recovery.
+// Assertion values and product source remain unchanged; fresh independent acceptance required.
+await api.deliveryRun(root, exact); await api.deliveryRun(root, agg);
+// Recovery refusal must precede archived-plan matching; use the actual completed synthetic workflow.
+const prev=clone(agg),next=clone(agg); const enlarged=report(agg.feature);
+enlarged.efficiency.maker_tokens=20000; enlarged.feature_report.roles.maker.tokens=20000; enlarged.feature_report.roles.maker.input=20000; enlarged.feature_report.runs[0].tokens=20000; enlarged.feature_report.runs[0].usage.input=20000;
+next.budget.checker_budget.report=write('recovery-reset.json',enlarged);
+const recoveryNow=Date.parse(prev.budget.deadline)+1;next.budget.deadline=new Date(recoveryNow+60000).toISOString();const stateFile='qa/.delivery/'+agg.workflow_id+'.json';const recovery={packet:next,previous_packet:prev,recovery:{id:'recovery1',authorized_by:'Umesh',authorization_ref:'synthetic-not-human-authorization',reason:'synthetic refusal only',expected_state_sha256:hash(fs.readFileSync(stateFile)),max_elapsed_ms:60000}};
+mutantSpecs[2][3]=m=>assert.throws(()=>m.deliveryResume(root,recovery,{now:recoveryNow}),/recovery cannot reset checker budget/);
+ok('C3 recovery no reset source consumer',()=>mutantSpecs[2][3](api));
+// Snapshot every file in this isolated fixture's test-owned delivery store. Preserve all mutated
+// bytes in QA archives before restoration; no files are deleted and no real workflow is touched.
+const store=path.resolve(root,'qa/.delivery');
+function files(dir,rel=''){const out=[];for(const e of fs.readdirSync(dir,{withFileTypes:true})){const k=path.join(rel,e.name);if(e.isDirectory())out.push(...files(dir,k));else out.push(k);}return out;}
+function snapshot(){return new Map(files(store).map(k=>[k,fs.readFileSync(path.join(store,k))]));}
+function restore(before,name){const dest=path.resolve(root,base,'mutant-state-archive',name);for(const k of files(store)){const f=path.resolve(store,k);assert(f.startsWith(store+path.sep));const old=before.get(k),now=fs.readFileSync(f);if(!old||!old.equals(now)){const to=path.resolve(dest,k);assert(to.startsWith(dest+path.sep));fs.mkdirSync(path.dirname(to),{recursive:true});fs.renameSync(f,to);}}for(const [k,bytes]of before){const f=path.resolve(store,k);assert(f.startsWith(store+path.sep));fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,bytes);}}
+for(const [name,from,to,test] of mutantSpecs){assert.equal(raw.split(from).length,2,'unique mutant anchor');const f=base+'/'+name+'-mutant.mjs';const fixtureBefore=snapshot(); fs.writeFileSync(f,raw.replace(from,to));try{const mod=await import(pathToFileURL(path.resolve(f)));assert.throws(()=>test(mod),assert.AssertionError);console.log('RED intended assertion '+name);count++;}finally{fs.writeFileSync(f,raw);assert.equal(hash(fs.readFileSync(f)),hash(fs.readFileSync(src)));restore(fixtureBefore,name);}test(api);console.log('GREEN restored '+name);}
+assert.equal(hash(fs.readFileSync(src)),'cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3');write('results.json',{status:'scoped-controls-green',count,actual_aggregate_efficiency:'UNKNOWN',source_sha256:hash(fs.readFileSync(src))});console.log('COMPLETE '+count);

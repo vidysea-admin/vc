@@ -1,0 +1,49 @@
+{
+  "canonical": {
+    "target": "D:/ai_os/umesh/operating-brain/wiki/patterns/proportional-verification-pattern.md",
+    "before_sha256": "dfcbc3bb91e2f6d9f1abbcf96a7b5bcb4b27dedfe2c4349d10698af9d6b65ec1",
+    "staged": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/canonical.md",
+    "after_sha256": "430b0dc785d8df929a7f7d57145ef45f2295f878ff7e8175dafaac4678b54d18"
+  },
+  "entries": [
+    {
+      "target": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md",
+      "before_sha256": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+      "staged": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/codex/maker/SKILL.md",
+      "after_sha256": "ea13c38f14046769b2101481067aae47421dee95a8e4b8d02d70bd7ea8b5a2a0",
+      "archive": "C:/Users/Lenovo/.agents/skills/maker/references/protocol-2026-10-15.12.md",
+      "archive_candidate": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/codex/maker/protocol-2026-10-15.12.md"
+    },
+    {
+      "target": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md",
+      "before_sha256": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+      "staged": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/codex/checker/SKILL.md",
+      "after_sha256": "d162cc742866fb3f30338349e7720c632f5568588523fa6f609291dbcb405a39",
+      "archive": "C:/Users/Lenovo/.agents/skills/checker/references/protocol-2026-10-15.12.md",
+      "archive_candidate": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/codex/checker/protocol-2026-10-15.12.md"
+    },
+    {
+      "target": "D:/ai_os/.claude/skills/maker/SKILL.md",
+      "before_sha256": "ecd5718b619997546ac50fbc75d4067ec751cfb0625b1d75d159f261c3cc5df8",
+      "staged": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/shared/maker/SKILL.md",
+      "after_sha256": "f08b8fd0b328e9a82e78f023f81fbf4ee1c2e73f0d709e21d0188fea4fd7c9f9",
+      "archive": "D:/ai_os/.claude/skills/maker/references/protocol-2026-10-15.12.md",
+      "archive_candidate": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/shared/maker/protocol-2026-10-15.12.md"
+    },
+    {
+      "target": "D:/ai_os/.claude/skills/checker/SKILL.md",
+      "before_sha256": "8aa593a295ddc8941052a3427bb8e43fbb363e7d4b0c0721e64234ded02ba8d5",
+      "staged": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/shared/checker/SKILL.md",
+      "after_sha256": "270a97ec11a7b89bef00b87ed6f1cf7f7c9174efe432217f8795a7e82691703a",
+      "archive": "D:/ai_os/.claude/skills/checker/references/protocol-2026-10-15.12.md",
+      "archive_candidate": "qa/evidence/checker-ratio-20261016/rollout-policy-stage/shared/checker/protocol-2026-10-15.12.md"
+    }
+  ],
+  "cutover": "2026-10-15T23:00:00Z",
+  "models_settings_auth_changed": false,
+  "shared_install": false,
+  "schema_version": "p0-staged-policy/2",
+  "policy_version": "proportional-verification/2026-10-16.14",
+  "status": "PROPOSED-STAGED-NOT-INSTALLED",
+  "wording_repair": "AI warning fixed in active .14 example wording only; full12 archives byte-unchanged. Not globally installed; source-review snapshot preserves earlier wording and closure awaits acknowledgement."
+}

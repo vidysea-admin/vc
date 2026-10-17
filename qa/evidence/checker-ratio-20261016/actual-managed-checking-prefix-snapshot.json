@@ -1,0 +1,286 @@
+{
+  "schema_version": "p0-managed-attempt-inventory/1",
+  "observed_at": "2026-10-15T22:39:57.293Z",
+  "scope": "All current main-store vc-p0-* workflows; each content-addressed attempt receipt counted once, including failures/recoveries. No superseded receipt snapshots counted twice.",
+  "attempts": 13,
+  "known_tokens_from_completed_cli_turns": 1515497,
+  "managed_elapsed_ms": 702503,
+  "attempts_without_complete_cli_usage": 8,
+  "active_agent_time_status": "UNKNOWN; managed elapsed is not classified active-time telemetry",
+  "actual_aggregate_efficiency": "UNKNOWN",
+  "coverage_complete": false,
+  "limitations": [
+    "Root orchestration/maker activity not completely classified; original root baseline never reset.",
+    "Incomplete or timeout CLI attempts may still have native partial spend; absent turn-completed usage is UNKNOWN, not zero.",
+    "Managed owner process elapsed includes startup/waits; no active-time ratio asserted.",
+    "Node/tool-only attempts without LLM events are retained, not silently assigned zero.",
+    "Current in-flight attempt metadata is inventory only, not a liveness claim.",
+    "Cached Codex tokens are input subsets and never added twice; Claude cache fields are additional."
+  ],
+  "records": [
+    {
+      "workflow": "vc-p0-checker-rewrite1-20261016",
+      "feature": "T056-checker-rewrite1",
+      "cycle": 0,
+      "task": "check",
+      "attempt": "a1",
+      "status": "incomplete",
+      "receipt": "49fa74471747bea66ad0262619a9a0ee1d0034b671e827ce4f38a063c205ad5c",
+      "elapsed_ms": 90049,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1417d-3e62-7ca2-8107-31fa6a24bef9"
+      ],
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-checker-rewrite1-20261016",
+      "feature": "T056-checker-rewrite1",
+      "cycle": 0,
+      "task": "check",
+      "attempt": "own-harness-repair",
+      "status": "incomplete",
+      "receipt": "cd4449cb97003383fc3b51957be48f54d0b05c5ec20b9cd5815750ef4eec91a7",
+      "elapsed_ms": 54655,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1417d-3e62-7ca2-8107-31fa6a24bef9"
+      ],
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-final2-20261016",
+      "feature": "T056-final-after-QA-repair",
+      "cycle": 0,
+      "task": "final",
+      "attempt": "a1",
+      "status": "incomplete",
+      "receipt": "5072b2411a5caf0ca9de096848517ddb2a3471fac69cec1822927f3d16115860",
+      "elapsed_ms": 90042,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a14191-2164-7c41-9bd0-fed417dbe713"
+      ],
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-final2-20261016",
+      "feature": "T056-final-after-QA-repair",
+      "cycle": 0,
+      "task": "final",
+      "attempt": "closeout1",
+      "status": "success",
+      "receipt": "2b9122aceec816ca4bdf3626d5db3c023e0a0022be399757f028465476c9e044",
+      "elapsed_ms": 36728,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a14191-2164-7c41-9bd0-fed417dbe713"
+      ],
+      "usage_events": [
+        {
+          "provider": "codex",
+          "input_total": 396907,
+          "output": 2839,
+          "cache_read_subset": 333440,
+          "cache_write_subset": 0,
+          "total": 399746
+        }
+      ],
+      "tokens": 399746
+    },
+    {
+      "workflow": "vc-p0-independent-instrument-20261016",
+      "feature": "T056-independent-oracle",
+      "cycle": 0,
+      "task": "instrument",
+      "attempt": "a1",
+      "status": "success",
+      "receipt": "0ae80098ee89b290fb6165875991d4edacb631890ba94b9181c42bec1a2f4706",
+      "elapsed_ms": 43517,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1416f-6c3e-70d0-a613-4600446aba0e"
+      ],
+      "usage_events": [
+        {
+          "provider": "codex",
+          "input_total": 45492,
+          "output": 1358,
+          "cache_read_subset": 7296,
+          "cache_write_subset": 0,
+          "total": 46850
+        }
+      ],
+      "tokens": 46850
+    },
+    {
+      "workflow": "vc-p0-independent-instrument-20261016",
+      "feature": "T056-independent-oracle",
+      "cycle": 0,
+      "task": "instrument",
+      "attempt": "format-fixup",
+      "status": "incomplete",
+      "receipt": "89df3b0a06b7e751187a62fc4db3099ca7b5a5e9775b99014bf979c48d70b5d0",
+      "elapsed_ms": 41316,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1416f-6c3e-70d0-a613-4600446aba0e"
+      ],
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-independent-instrument-20261016",
+      "feature": "T056-independent-oracle",
+      "cycle": 0,
+      "task": "instrument",
+      "attempt": "capability-fixed",
+      "status": "incomplete",
+      "receipt": "d1e75545c33e411c6871f0af3bc7910a1d4a61e08eda2f6816d6c994df9f930c",
+      "elapsed_ms": 40657,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1416f-6c3e-70d0-a613-4600446aba0e"
+      ],
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-report-cycle1-20261016",
+      "feature": "T056-report-readiness-cycle1",
+      "cycle": 1,
+      "task": "final",
+      "attempt": "a1",
+      "status": "success",
+      "receipt": "220c18cb76603c2eaed0675fc27b711d602ad2ff4ac8a932067321c4496a8d81",
+      "elapsed_ms": 82021,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1419d-0189-7f92-8b3e-a47ae3c604fd"
+      ],
+      "usage_events": [
+        {
+          "provider": "codex",
+          "input_total": 525327,
+          "output": 4948,
+          "cache_read_subset": 468352,
+          "cache_write_subset": 0,
+          "total": 530275
+        }
+      ],
+      "tokens": 530275
+    },
+    {
+      "workflow": "vc-p0-report-final-20261016",
+      "feature": "T056-report-readiness-final",
+      "cycle": 0,
+      "task": "final",
+      "attempt": "a1",
+      "status": "incomplete",
+      "receipt": "dd5c7841e70526c9564b364708d41b20fb6c8d3d67ee009f6b9d848637af68b4",
+      "elapsed_ms": 49247,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1419d-0189-7f92-8b3e-a47ae3c604fd"
+      ],
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-report-final-20261016",
+      "feature": "T056-report-readiness-final",
+      "cycle": 0,
+      "task": "final",
+      "attempt": "continue1",
+      "status": "incomplete",
+      "receipt": "ba6cde34b16bcf2fbf16b376840b343e9edc4aac1f81ca81ece4be4c9cec398f",
+      "elapsed_ms": 38286,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a1419d-0189-7f92-8b3e-a47ae3c604fd"
+      ],
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-report-plan-20261016",
+      "feature": "T056-report-readiness",
+      "cycle": 0,
+      "task": "plan",
+      "attempt": "a1",
+      "status": "success",
+      "receipt": "7224833ebebd98b0605b1672e45c943631da8cb72baa2df9e946523f9b0c5b37",
+      "elapsed_ms": 59066,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a14197-cbb8-7890-a0f2-032fdb917178"
+      ],
+      "usage_events": [
+        {
+          "provider": "codex",
+          "input_total": 230516,
+          "output": 1886,
+          "cache_read_subset": 177920,
+          "cache_write_subset": 0,
+          "total": 232402
+        }
+      ],
+      "tokens": 232402
+    },
+    {
+      "workflow": "vc-p0-rollout-final-20261016",
+      "feature": "T056-rollout-final",
+      "cycle": 0,
+      "task": "final",
+      "attempt": "a1",
+      "status": "running",
+      "receipt": null,
+      "elapsed_ms": null,
+      "cleanup_complete": null,
+      "client": "unknown",
+      "thread_ids": [],
+      "usage_events": [],
+      "tokens": null
+    },
+    {
+      "workflow": "vc-p0-rollout-plan-20261016",
+      "feature": "T056-rollout-plan",
+      "cycle": 0,
+      "task": "plan",
+      "attempt": "a1",
+      "status": "success",
+      "receipt": "874690d256a93635c31eb5a1dfe5cc26dd4e2ef0d3c468cdaf7b26ccae5ac5a6",
+      "elapsed_ms": 76919,
+      "cleanup_complete": true,
+      "client": "codex.exe",
+      "thread_ids": [
+        "01a141ab-3fdf-7081-a97d-5b047f999ff1"
+      ],
+      "usage_events": [
+        {
+          "provider": "codex",
+          "input_total": 303638,
+          "output": 2586,
+          "cache_read_subset": 252672,
+          "cache_write_subset": 0,
+          "total": 306224
+        }
+      ],
+      "tokens": 306224
+    }
+  ]
+}

@@ -1,0 +1,382 @@
+{
+  "schema_version": 1,
+  "rows": [
+    {
+      "day": "2026-10-16",
+      "kind": "main",
+      "model": "?",
+      "calls": 1,
+      "input": 21297,
+      "output": 5,
+      "cache_read": 14720,
+      "cache_write": 0
+    }
+  ],
+  "efficiency": {
+    "maker_minutes": 0.0,
+    "checker_minutes": 0.1313166658083598,
+    "maker_tokens": 0,
+    "checker_tokens": 36022,
+    "complete": false,
+    "time_ratio": null,
+    "token_ratio": null,
+    "unknown_reasons": [
+      "zero_or_missing_maker_denominator"
+    ],
+    "target": 0.1,
+    "status": "UNKNOWN"
+  },
+  "roles": {
+    "maker": {
+      "tokens": 0,
+      "input": 0,
+      "output": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "active_seconds": 0,
+      "wait_seconds": 0,
+      "runs": 0
+    },
+    "checker": {
+      "tokens": 36022,
+      "input": 21297,
+      "output": 5,
+      "cache_read": 14720,
+      "cache_write": 0,
+      "active_seconds": 7.878999948501587,
+      "wait_seconds": 0,
+      "runs": 1
+    },
+    "integration": {
+      "tokens": 0,
+      "input": 0,
+      "output": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "active_seconds": 0,
+      "wait_seconds": 0,
+      "runs": 0
+    },
+    "unknown": {
+      "tokens": 0,
+      "input": 0,
+      "output": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "active_seconds": 0,
+      "wait_seconds": 0,
+      "runs": 0
+    },
+    "planning": {
+      "tokens": 0,
+      "input": 0,
+      "output": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "active_seconds": 0,
+      "wait_seconds": 0,
+      "runs": 0
+    },
+    "orchestration": {
+      "tokens": 0,
+      "input": 0,
+      "output": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "active_seconds": 0,
+      "wait_seconds": 0,
+      "runs": 0
+    },
+    "repair": {
+      "tokens": 0,
+      "input": 0,
+      "output": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "active_seconds": 0,
+      "wait_seconds": 0,
+      "runs": 0
+    },
+    "build": {
+      "tokens": 0,
+      "input": 0,
+      "output": 0,
+      "cache_read": 0,
+      "cache_write": 0,
+      "active_seconds": 0,
+      "wait_seconds": 0,
+      "runs": 0
+    }
+  },
+  "runs": [
+    {
+      "feature_id": "T056-native-transport",
+      "cycle": 0,
+      "role": "checker",
+      "run_id": "native-transport1",
+      "parent_run_id": null,
+      "session_id": "01a14220-635a-7b42-bbbf-f4d077364100",
+      "turn_id": "01a14220-6712-7ea0-bad9-f7d57735ba6f",
+      "root_turn_id": null,
+      "agent_path": null,
+      "active_seconds": 7.878999948501587,
+      "wait_seconds": 0,
+      "tokens": 36022,
+      "usage": {
+        "input": 21297,
+        "output": 5,
+        "cache_read": 14720,
+        "cache_write": 0
+      },
+      "managed_join": {
+        "status": "VERIFIED",
+        "delivery_ref": {
+          "workflow_id": "vc-p0-native-transport-20261016",
+          "root_run_id": "vc-p0-native-transport-20261016",
+          "task_id": "transport",
+          "attempt_id": "a1",
+          "run_id": "native-transport1",
+          "receipt": {
+            "path": "qa/.delivery/2f96c5705b562f38b826341c6720a06646fc1995067feb643e116286dd73e9a9.receipt.json",
+            "sha256": "2f96c5705b562f38b826341c6720a06646fc1995067feb643e116286dd73e9a9"
+          },
+          "log": {
+            "path": "qa/.delivery/99e3b9c6a4853e1ddef3e1753447e22c5eb53b5d5168e5cb15c6371d941d7a23.log",
+            "sha256": "99e3b9c6a4853e1ddef3e1753447e22c5eb53b5d5168e5cb15c6371d941d7a23"
+          },
+          "native": {
+            "provider": "codex",
+            "session_id": "01a14220-635a-7b42-bbbf-f4d077364100",
+            "turn_ids": [
+              "01a14220-6712-7ea0-bad9-f7d57735ba6f"
+            ],
+            "transcript": {
+              "path": "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\16\\rollout-2026-10-16T06-03-01-01a14220-635a-7b42-bbbf-f4d077364100.jsonl",
+              "sha256": "48b6700852f4cd4646ff33a79ef825fad99ab66c0a692802d76306c3ae03791e"
+            }
+          }
+        },
+        "turn_tokens": 36022,
+        "native_active_boundary_seconds": 7.878999948501587,
+        "basis": "explicit hash-bound local receipt/log/native closed-turn join; operator attribution"
+      }
+    }
+  ],
+  "agent_active_seconds": 7.878999948501587,
+  "wall_seconds": 7.878999948501587,
+  "wait_seconds": 0,
+  "overall_tokens": 36022,
+  "timing_basis": "transcript activity intervals minus corroborated blocks",
+  "delivery_summary": {
+    "schema_version": 2,
+    "feature_id": "T056-native-transport",
+    "root_run_id": "native-transport1",
+    "status": "UNKNOWN",
+    "complete": false,
+    "unknown_reasons": [
+      "missing_acceptance_evidence"
+    ],
+    "roles": {
+      "planning": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "orchestration": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "maker": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "build": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "checker": {
+        "tokens": 36022,
+        "input": 21297,
+        "output": 5,
+        "cache_read": 14720,
+        "cache_write": 0,
+        "active_seconds": 7.878999948501587,
+        "wait_seconds": 0,
+        "runs": 1
+      },
+      "integration": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "repair": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "unknown": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      }
+    },
+    "runs": [
+      {
+        "feature_id": "T056-native-transport",
+        "cycle": 0,
+        "role": "checker",
+        "run_id": "native-transport1",
+        "parent_run_id": null,
+        "session_id": "01a14220-635a-7b42-bbbf-f4d077364100",
+        "turn_id": "01a14220-6712-7ea0-bad9-f7d57735ba6f",
+        "root_turn_id": null,
+        "agent_path": null,
+        "active_seconds": 7.878999948501587,
+        "wait_seconds": 0,
+        "tokens": 36022,
+        "usage": {
+          "input": 21297,
+          "output": 5,
+          "cache_read": 14720,
+          "cache_write": 0
+        },
+        "managed_join": {
+          "status": "VERIFIED",
+          "delivery_ref": {
+            "workflow_id": "vc-p0-native-transport-20261016",
+            "root_run_id": "vc-p0-native-transport-20261016",
+            "task_id": "transport",
+            "attempt_id": "a1",
+            "run_id": "native-transport1",
+            "receipt": {
+              "path": "qa/.delivery/2f96c5705b562f38b826341c6720a06646fc1995067feb643e116286dd73e9a9.receipt.json",
+              "sha256": "2f96c5705b562f38b826341c6720a06646fc1995067feb643e116286dd73e9a9"
+            },
+            "log": {
+              "path": "qa/.delivery/99e3b9c6a4853e1ddef3e1753447e22c5eb53b5d5168e5cb15c6371d941d7a23.log",
+              "sha256": "99e3b9c6a4853e1ddef3e1753447e22c5eb53b5d5168e5cb15c6371d941d7a23"
+            },
+            "native": {
+              "provider": "codex",
+              "session_id": "01a14220-635a-7b42-bbbf-f4d077364100",
+              "turn_ids": [
+                "01a14220-6712-7ea0-bad9-f7d57735ba6f"
+              ],
+              "transcript": {
+                "path": "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\16\\rollout-2026-10-16T06-03-01-01a14220-635a-7b42-bbbf-f4d077364100.jsonl",
+                "sha256": "48b6700852f4cd4646ff33a79ef825fad99ab66c0a692802d76306c3ae03791e"
+              }
+            }
+          },
+          "turn_tokens": 36022,
+          "native_active_boundary_seconds": 7.878999948501587,
+          "basis": "explicit hash-bound local receipt/log/native closed-turn join; operator attribution"
+        },
+        "attempt": null,
+        "retry_of": null,
+        "status": "unknown",
+        "provider_events": 1,
+        "reasoning_output_subset": 0,
+        "usage_basis": "provider_response"
+      }
+    ],
+    "overall_tokens": 36022,
+    "token_channels": {
+      "input": 21297,
+      "output": 5,
+      "cache_read": 14720,
+      "cache_write": 0
+    },
+    "reasoning_output_subset": 0,
+    "reasoning_coverage": "COMPLETE",
+    "providers": [
+      "codex"
+    ],
+    "provider_events": 1,
+    "duplicate_events_ignored": 0,
+    "cumulative_counter_evidence": [],
+    "agent_active_seconds": 7.878999948501587,
+    "wall_elapsed_seconds": 7.878999948501587,
+    "occupied_wall_seconds": 7.878999948501587,
+    "corroborated_wait_seconds": 0,
+    "accepted_feature_count": 0,
+    "accepted_milestone_count": 0,
+    "acceptance_milestones": [],
+    "time_to_first_accepted_seconds": null,
+    "attempts": {
+      "total": 1,
+      "failed": 0,
+      "retried": 0,
+      "children": 0
+    },
+    "checker_diagnostic": {
+      "target": 0.1,
+      "token_ratio": null,
+      "time_ratio": null,
+      "status": "UNKNOWN",
+      "gating": false
+    },
+    "token_basis": "Codex cached input is a subset of input; Claude cache read/write are additional input; reasoning is an output subset and is never added twice",
+    "timing_basis": "sum of evidenced run intervals minus corroborated blocks; elapsed is makespan, not active sum",
+    "scope": "explicit feature/session transcripts, all bound cycles and failed/retried runs; no hard token cap"
+  },
+  "phase": "maker-ready-opening",
+  "opening": {
+    "schema_version": "opening-readiness/1",
+    "complete": false,
+    "acceptance_ready": false,
+    "prior_checking_run_ids": [
+      "native-transport1"
+    ],
+    "coverage_basis": "explicit full source/child/prior-checking inventories and native telemetry; operator attribution, not authenticated absence"
+  },
+  "managed_provenance": {
+    "schema_version": "managed-report/1",
+    "collector": {
+      "path": "D:\\vc\\qa\\evidence\\checker-ratio-20261016\\isolated\\scripts\\token_scan.py",
+      "sha256": "162176561aded251ad2b6337d0f7847b114bd81cef7c852b66480078cd45173d"
+    },
+    "bindings": {
+      "path": "D:\\vc\\qa\\evidence\\checker-ratio-20261016\\native-transport-bindings.json",
+      "sha256": "940d65660e27f3430349fc104db382a31227bad5deed154251ac810785751722"
+    }
+  }
+}

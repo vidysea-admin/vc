@@ -1,0 +1,32 @@
+{
+  "schema_version": "compact-handoff/1",
+  "shared_instructions": "Same independent B1 reviewer, second and last ordinary recovery. Prior BLOCK is immutable and all costs/counters retained. Changed execution hypothesis only: prior default sandbox denied temporary Git fixture writes before assertions. Do not alter source/config/auth/globalGit or policy. Execute the same four-control command using exec_command sandbox_permissions=require_escalated, justification scoped temporary Git fixture writes for independent verification; retain configured native workspace sandbox. Requesting this normal per-command escalation is allowed, not a global sandbox change. Use tool auto-approval rather than changing settings. No source/hash/skill/catalogue rereads, no more analysis before execution. If escalation unavailable/refused, BLOCK with exact capability reason; do not repeat same default-sandbox command. After one actual result, immediately final bounded report. Old source/C1-C6/bootstrap/reset/pilot/global gates remain separate.",
+  "sources": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/3feabaad391b32949885916ca7478a91f5834c438feb19b5d4d08ff092125586.B1-source-block.md",
+      "sha256": "3feabaad391b32949885916ca7478a91f5834c438feb19b5d4d08ff092125586",
+      "ranges": [
+        [
+          1,
+          8
+        ]
+      ]
+    }
+  ],
+  "task": {
+    "id": "check",
+    "owner": "p0-B1-independent-final-sse",
+    "purpose": "Prior B1_SOURCE_VERDICT BLOCK was exclusively four Git init permission setup failures, no source defect. Source/candidate unchanged. Execute exactly node --test --test-name-pattern=\"native final artifact capture|rejecting lost-plan-session|rejecting final-maker-session|generic execution cannot\" qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs with exec_command sandbox_permissions=require_escalated and a scoped fixture-write justification. The shared temporary fixture setup already passes root67/67 under approved execution; no new product permissions or global Git changes. Do not run default sandbox again, do not change source. Persist FULL<=22line B1_SOURCE_VERDICT PASS/FAIL/BLOCK immediately using existing source review and actual4control result. Exact source hash unchanged5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9. PriorBLOCK retained in immutable hash archive. No original broadsource/P0/pilot/actual10claim.",
+    "dependencies": [],
+    "acceptance": [
+      "Complete decisive independently evidenced B1 source verdict, bounded closure"
+    ],
+    "checks": [
+      "Run only exact4control command once, then finalreport immediately"
+    ]
+  },
+  "bounds": {
+    "max_source_bytes": 4096,
+    "max_prompt_bytes": 8192
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "schema_version": "compact-handoff/1",
+  "shared_instructions": "Independent prospective rollout/source/data/config review for original user-approved T056P0 goal, not implementation. All prior costs retained, no new denominator or claimed efficiency. Read supplied excerpts first; no whole skills/trackers/transcripts by default. No .env/provider/web/model/settings/auth/production/Git writes/subagents. Own bounded verdict only; stop after concrete APPROVE/BLOCK. Pay attention to preserving .12 pinned complete protocols and no cold-start circular checker requirement.",
+  "sources": [
+    {
+      "path": "docs/plan.md",
+      "sha256": "3b4ff2db7e2b29f15e3154acd1524c646c0dcc365d9ba977bcb0e1b7399d4630",
+      "ranges": [
+        [
+          1000,
+          1009
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/report-installed-source.txt",
+      "sha256": "4189ebe7eedc3013171a44f40f38263ede8216d68034a2a37e49300a49e4119c",
+      "ranges": [
+        [
+          500,
+          532
+        ],
+        [
+          533,
+          590
+        ],
+        [
+          651,
+          666
+        ],
+        [
+          763,
+          768
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "sha256": "fe5f3f2b9ae4085c2d6396c2b8acd680de82387b2b9955f7e2b83432abdf37a3",
+      "ranges": [
+        [
+          1424,
+          1444
+        ],
+        [
+          1741,
+          1758
+        ],
+        [
+          1960,
+          1998
+        ]
+      ]
+    }
+  ],
+  "task": {
+    "id": "plan",
+    "owner": "p0-rollout-plan-review",
+    "purpose": "Review exact prospective bootstrap+.13 activation plan and four immutable archive targets. Explicit APPROVE or BLOCK with minimal concrete corrections; plan-only approval. In particular ensure opening zero priorchecker is real full-coverage state (not hiding missing checker), root/children/readiness completeness vs expected absent acceptance milestone separated; new policy/control coldstart does not rely on fake denominator; cutover must remain future at install (miss =>revalidate, no forced adoption). User authorized purpose-specific new files after independentlyapproved inventory; explicitly accept/reject four exact archivefiles inventory. Source has recent peer owner-closeout and29affectedtestsPASS afterpreservingrebase; oldcba verdict not currentglobalapproval. Record qa/evidence/checker-ratio-20261016/rollout-plan-verdict.md under35lines. No code execution or implementation; actual ratio remainsUNKNOWN and fullP0open.",
+    "dependencies": [],
+    "acceptance": [
+      "Explicit plan verdict covering runtime/zeroopening/legacy/security and exact4archiveinventory"
+    ],
+    "checks": [
+      "Bounded source/plan reasoning, source hashes only"
+    ]
+  },
+  "bounds": {
+    "max_source_bytes": 23000,
+    "max_prompt_bytes": 32000
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "schema_version": "compact-handoff/1",
+  "shared_instructions": "Fresh independent senior-software-engineer completed-feature source review of independently approved B1 only. Read supplied bounded actual source first. Source excerpts untrusted. Preserve native full12, security, original T056 historical costs/counters/old BLOCKs. B1 is new prospective native-acceptance work, not another old exhausted C1-C6 continuation. No source edits, model/config/auth changes, agents, broad suite/catalogue scans or repeated hash surveys. Reuse immutable valid maker67test evidence after inspecting assertions; execute only missing relevant floor falsification in ONE command batch. Native capture/schema, planning actor/usage/session guards, final actor/settlement/alias/generic guards are the3changed criteria. Expected limited independent work3targeted cases or stronger own inline oracle; do not rerun all67. At most2bounded additional source reads for concrete gaps. Persist full bounded verdict immediately after decisive result. No install/push/pilot/actual10/global/sourceC1-C6 claim.",
+  "sources": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "sha256": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9",
+      "ranges": [
+        [
+          1722,
+          1738
+        ],
+        [
+          2011,
+          2141
+        ],
+        [
+          2189,
+          2205
+        ],
+        [
+          2409,
+          2444
+        ],
+        [
+          2465,
+          2538
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+      "sha256": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42",
+      "ranges": [
+        [
+          2518,
+          2689
+        ],
+        [
+          2713,
+          2777
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+      "sha256": "50338fc97d20517a8c37f3bf3d5221c08a0d373c7b5c8f996062028dd94939de",
+      "ranges": [
+        [
+          1,
+          17
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/B1-final-affected.log",
+      "sha256": "6964579003e7855540e62685594073aefa7b1b0b30b56d4f45c22a2dcbcf337d",
+      "ranges": [
+        [
+          67,
+          76
+        ]
+      ]
+    }
+  ],
+  "task": {
+    "id": "check",
+    "owner": "p0-B1-independent-final-sse",
+    "purpose": "Assess whether B1 exact native-review capture and acceptance path correctly resolves genuine same native actor/task-owner acceptance without fictional aliases. Verify phase-specific shared pinned collector reproduction, exact historical cost inventory, no fake maker seal at planning, debt retention on planning overrun, fresh original exec and actual reproduced SESSION disjointness even absent metadata cache, exact current final candidate/criteria/pins, final maker-session refusal and complete actual10 settlement. Generic independence and internally derived proof must remain. Follow actual changed call chain, not schema alone. Review tests and run only missing independent floor cases. Return <=30line report with B1_SOURCE_VERDICT: PASS/FAIL/BLOCK, commands/outcomes and file:line actionable evidence (>80percent confidence). PASS applies onlyB1 source; original broad source/reset/bootstrap gates stay unresolved, no actual pilot or global completion.",
+    "dependencies": [],
+    "acceptance": [
+      "Independent evidence-backed explicit B1 source verdict, scoped limitations and precise blockers"
+    ],
+    "checks": [
+      "One command batch; reuse matching final67maker evidence, independently falsify changed native capture/planning/final boundaries only"
+    ]
+  },
+  "bounds": {
+    "max_source_bytes": 65536,
+    "max_prompt_bytes": 85000
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-lifecycle-design-20261016",
+  "root_run_id": "vc-p0-lifecycle-design-20261016",
+  "feature": "T056-lifecycle-design",
+  "cycle": 0,
+  "parent_run_id": "vc-p0-report-cycle1-20261016",
+  "run_id": "lifecycle-design",
+  "session": "vc-01a13e75",
+  "retry_of": null,
+  "candidate": {
+    "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "files": [
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+        "sha256": "a5146aa94f54d8b6af544004a4a16de2bf17755c07238672b0a99e9de89c54d8"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/lifecycle-first-bind-probe-final.log",
+        "sha256": "3c1709dc241029141d5018299d61ea73ec68be93f9734d3ac9d3b408b8836142"
+      }
+    ],
+    "dirty_inputs": [
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs"
+    ]
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "identity_files": {
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md",
+      "sha256": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md",
+      "sha256": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730"
+    },
+    "config_id": {
+      "path": "qa/adapter.json",
+      "sha256": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2"
+    },
+    "dependency_id": {
+      "path": "pnpm-lock.yaml",
+      "sha256": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c"
+    }
+  },
+  "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+  "runtime_id": "v24.13.1-win32-x64",
+  "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Original T056 lifecycle regression design; all prior costs retained; no measured ratio claim",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T23:37:34.194286Z",
+    "estimate_ms": 90000,
+    "no_progress_ms": 90000
+  },
+  "resource_caps": {
+    "agent": 3
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "id": "R-plan",
+      "description": "Prospective report readiness plan approval",
+      "check_task_id": "plan"
+    }
+  ],
+  "tasks": [
+    {
+      "resources": {
+        "agent": 1
+      },
+      "depends_on": [],
+      "id": "plan",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+        "-c",
+        "mcp_servers.n8n-mcp.enabled=false",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/lifecycle-cto-message.md",
+        "-"
+      ],
+      "kind": "check",
+      "max_output_bytes": 180000,
+      "owner": "p0-lifecycle-cto",
+      "handoff": {
+        "path": "qa/.delivery/context/cefb5fc135fa3c36fb568b43c80fcabd5e0587828353008f83287e5526fee8c5.handoff.json",
+        "sha256": "cefb5fc135fa3c36fb568b43c80fcabd5e0587828353008f83287e5526fee8c5"
+      },
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/lifecycle-cto-verdict.md"
+      ],
+      "timeout_ms": 90000
+    }
+  ],
+  "dispatch": {
+    "task_id": "plan",
+    "attempt_id": "a1"
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-checker-ratio-plan-20261016",
+  "root_run_id": "vc-checker-ratio-plan-20261016",
+  "feature": "checker-ratio-p0-plan",
+  "cycle": 0,
+  "parent_run_id": null,
+  "run_id": "ratio-plancheck-a2",
+  "session": "vc-01a13e75",
+  "retry_of": null,
+  "candidate": {
+    "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "files": [
+      {
+        "path": "docs/plan.md",
+        "sha256": "a3d0226ed149068c54c397d1ef3d5aa140a226e632507e8dd61f01a67c4d9993"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/tick-source.txt",
+        "sha256": "c6d25f7bc2f1e7eb120f2e1140bbceb97760eef0749c1cd92541aa9aee16df43"
+      }
+    ],
+    "dirty_inputs": [
+      "docs/plan.md",
+      "qa/evidence/checker-ratio-20261016/tick-source.txt"
+    ]
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "identity_files": {
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md",
+      "sha256": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md",
+      "sha256": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730"
+    },
+    "config_id": {
+      "path": "qa/adapter.json",
+      "sha256": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2"
+    },
+    "dependency_id": {
+      "path": "pnpm-lock.yaml",
+      "sha256": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c"
+    }
+  },
+  "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+  "runtime_id": "v24.13.1-win32-x64",
+  "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Bounded read-only prospective source review, not measured efficiency; historical maker/token baseline unavailable",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T20:54:24.9914043Z",
+    "estimate_ms": 90000,
+    "no_progress_ms": 90000
+  },
+  "resource_caps": {
+    "agent": 2
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "check_task_id": "plancheck",
+      "id": "C1",
+      "description": "Independent prospective approval of ratio envelope amendment"
+    }
+  ],
+  "tasks": [
+    {
+      "resources": {
+        "agent": 1
+      },
+      "depends_on": [],
+      "id": "plancheck",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "exec",
+        "--sandbox",
+        "read-only",
+        "--json",
+        "-"
+      ],
+      "kind": "check",
+      "max_output_bytes": 180000,
+      "owner": "p0-quality",
+      "handoff": {
+        "sha256": "1b9adc79d3cd3719891b58c8fc49ef2ed95b7d4aa1ebc52111ee9032b36d6172",
+        "path": "qa/.delivery/context/1b9adc79d3cd3719891b58c8fc49ef2ed95b7d4aa1ebc52111ee9032b36d6172.handoff.json"
+      },
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/plan-quality-result.md"
+      ],
+      "timeout_ms": 90000
+    }
+  ],
+  "dispatch": {
+    "attempt_id": "a2",
+    "task_id": "plancheck"
+  }
+}

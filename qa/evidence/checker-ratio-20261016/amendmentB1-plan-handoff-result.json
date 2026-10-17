@@ -1,0 +1,15 @@
+{
+  "schema_version": "compact-handoff/1",
+  "handoff": {
+    "path": "qa/.delivery/context/6479fcc6952099d730d4b60cf091f55f39ada01a7467646f2893d6aa34e30d96.handoff.json",
+    "sha256": "6479fcc6952099d730d4b60cf091f55f39ada01a7467646f2893d6aa34e30d96"
+  },
+  "prefix_sha256": "b019fdb1be228e6182b9f8f339fe63136dc524c91e5b6004482a1dce0a077dc6",
+  "metrics": {
+    "cache_hit": false,
+    "source_verification_read_bytes": 503268,
+    "selected_source_bytes": 19316,
+    "prompt_bytes": 22506,
+    "provider_cache_control": "native-client; not guaranteed"
+  }
+}

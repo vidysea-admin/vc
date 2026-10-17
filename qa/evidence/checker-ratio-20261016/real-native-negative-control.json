@@ -1,0 +1,10 @@
+{
+  "at": "2026-10-15T22:50:11.132Z",
+  "kind": "installed-runtime-actual-native-negative-canary",
+  "feature": "checker-ratio-p0",
+  "report": "qa/evidence/checker-ratio-20261016/real-opening-negative-canary.json",
+  "error": "delivery: incomplete opening readiness report",
+  "marker_exists": false,
+  "workflow_state_exists": false,
+  "actual_10_percent_proved": false
+}

@@ -1,0 +1,85 @@
+{
+  "identity_files": {
+    "dependency_id": {
+      "path": "pnpm-lock.yaml"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md"
+    },
+    "config_id": {
+      "path": "qa/adapter.json"
+    },
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md"
+    }
+  },
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Bounded read-only prospective source review, not measured efficiency; historical maker/token baseline unavailable",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T21:05:57.5549676Z",
+    "estimate_ms": 70000,
+    "no_progress_ms": 90000
+  },
+  "dispatch": {
+    "attempt_id": "a1",
+    "task_id": "finalcheck"
+  },
+  "tasks": [
+    {
+      "resources": {
+        "agent": 1
+      },
+      "depends_on": [],
+      "id": "finalcheck",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "{{HANDOFF}}"
+      ],
+      "kind": "check",
+      "max_output_bytes": 180000,
+      "owner": "p0-independent",
+      "handoff": {
+        "path": "qa/.delivery/context/cd4c1aed36dca09506cc3917c23c1fcac0b13c3b8bd1ec183086c614aca8fa43.handoff.json",
+        "sha256": "cd4c1aed36dca09506cc3917c23c1fcac0b13c3b8bd1ec183086c614aca8fa43"
+      },
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/independent"
+      ],
+      "timeout_ms": 70000
+    }
+  ],
+  "parent_run_id": null,
+  "feature": "checker-ratio-p0-final",
+  "session": "vc-01a13e75",
+  "cycle": 0,
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "check_task_id": "finalcheck",
+      "id": "C1",
+      "description": "Independent prospective approval of ratio envelope amendment"
+    }
+  ],
+  "candidate": {
+    "files": [
+      "qa/evidence/checker-ratio-20261016/manifest.md",
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs"
+    ]
+  },
+  "workflow_id": "vc-checker-ratio-final-20261016",
+  "root_run_id": "vc-checker-ratio-final-20261016",
+  "retry_of": null,
+  "run_id": "ratio-finalcheck",
+  "resource_caps": {
+    "agent": 2
+  }
+}

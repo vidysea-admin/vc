@@ -1,0 +1,4 @@
+{
+  "exit": 0,
+  "output": "proportional-verification/2026-10-16.13 targets=2 drift=0 mode=--policy-check\n"
+}

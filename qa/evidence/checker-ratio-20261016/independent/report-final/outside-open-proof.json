@@ -1,0 +1,258 @@
+{
+  "baseline": {
+    "schema_version": 1,
+    "rows": [
+      {
+        "day": "2026-10-15",
+        "kind": "main",
+        "model": "?",
+        "calls": 1,
+        "input": 10,
+        "output": 1,
+        "cache_read": 0,
+        "cache_write": 0
+      },
+      {
+        "day": "2026-10-15",
+        "kind": "main",
+        "model": "test",
+        "calls": 1,
+        "input": 10,
+        "output": 1,
+        "cache_read": 2,
+        "cache_write": 3
+      }
+    ],
+    "efficiency": {
+      "maker_minutes": 0.1,
+      "checker_minutes": 0.016666666666666666,
+      "maker_tokens": 11,
+      "checker_tokens": 16,
+      "complete": true,
+      "time_ratio": 0.16666666666666666,
+      "token_ratio": 1.4545454545454546,
+      "unknown_reasons": [],
+      "target": 0.1,
+      "status": "OVER_TARGET"
+    },
+    "roles": {
+      "maker": {
+        "tokens": 11,
+        "input": 10,
+        "output": 1,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 6.0,
+        "wait_seconds": 0,
+        "runs": 1
+      },
+      "checker": {
+        "tokens": 16,
+        "input": 10,
+        "output": 1,
+        "cache_read": 2,
+        "cache_write": 3,
+        "active_seconds": 1.0,
+        "wait_seconds": 0,
+        "runs": 1
+      },
+      "integration": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "unknown": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      }
+    },
+    "runs": [
+      {
+        "feature_id": "P0",
+        "cycle": 1,
+        "role": "maker",
+        "run_id": "s",
+        "parent_run_id": null,
+        "session_id": "s",
+        "turn_id": null,
+        "root_turn_id": null,
+        "agent_path": null,
+        "active_seconds": 6.0,
+        "wait_seconds": 0,
+        "tokens": 11,
+        "usage": {
+          "input": 10,
+          "output": 1,
+          "cache_read": 0,
+          "cache_write": 0
+        }
+      },
+      {
+        "feature_id": "P0",
+        "cycle": 1,
+        "role": "checker",
+        "run_id": "checker",
+        "parent_run_id": null,
+        "session_id": "checker",
+        "turn_id": null,
+        "root_turn_id": null,
+        "agent_path": null,
+        "active_seconds": 1.0,
+        "wait_seconds": 0,
+        "tokens": 16,
+        "usage": {
+          "input": 10,
+          "output": 1,
+          "cache_read": 2,
+          "cache_write": 3
+        }
+      }
+    ],
+    "agent_active_seconds": 7.0,
+    "wall_seconds": 7.0,
+    "wait_seconds": 0,
+    "overall_tokens": 27,
+    "timing_basis": "transcript activity intervals minus corroborated blocks"
+  },
+  "with_after_window_open_task": {
+    "schema_version": 1,
+    "rows": [
+      {
+        "day": "2026-10-15",
+        "kind": "main",
+        "model": "?",
+        "calls": 1,
+        "input": 10,
+        "output": 1,
+        "cache_read": 0,
+        "cache_write": 0
+      },
+      {
+        "day": "2026-10-15",
+        "kind": "main",
+        "model": "test",
+        "calls": 1,
+        "input": 10,
+        "output": 1,
+        "cache_read": 2,
+        "cache_write": 3
+      }
+    ],
+    "efficiency": {
+      "maker_minutes": 0.1,
+      "checker_minutes": 0.016666666666666666,
+      "maker_tokens": 11,
+      "checker_tokens": 16,
+      "complete": false,
+      "time_ratio": null,
+      "token_ratio": null,
+      "unknown_reasons": [
+        "incomplete_active_task"
+      ],
+      "target": 0.1,
+      "status": "UNKNOWN"
+    },
+    "roles": {
+      "maker": {
+        "tokens": 11,
+        "input": 10,
+        "output": 1,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 6.0,
+        "wait_seconds": 0,
+        "runs": 1
+      },
+      "checker": {
+        "tokens": 16,
+        "input": 10,
+        "output": 1,
+        "cache_read": 2,
+        "cache_write": 3,
+        "active_seconds": 1.0,
+        "wait_seconds": 0,
+        "runs": 1
+      },
+      "integration": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      },
+      "unknown": {
+        "tokens": 0,
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_write": 0,
+        "active_seconds": 0,
+        "wait_seconds": 0,
+        "runs": 0
+      }
+    },
+    "runs": [
+      {
+        "feature_id": "P0",
+        "cycle": 1,
+        "role": "maker",
+        "run_id": "s",
+        "parent_run_id": null,
+        "session_id": "s",
+        "turn_id": null,
+        "root_turn_id": null,
+        "agent_path": null,
+        "active_seconds": 6.0,
+        "wait_seconds": 0,
+        "tokens": 11,
+        "usage": {
+          "input": 10,
+          "output": 1,
+          "cache_read": 0,
+          "cache_write": 0
+        }
+      },
+      {
+        "feature_id": "P0",
+        "cycle": 1,
+        "role": "checker",
+        "run_id": "checker",
+        "parent_run_id": null,
+        "session_id": "checker",
+        "turn_id": null,
+        "root_turn_id": null,
+        "agent_path": null,
+        "active_seconds": 1.0,
+        "wait_seconds": 0,
+        "tokens": 16,
+        "usage": {
+          "input": 10,
+          "output": 1,
+          "cache_read": 2,
+          "cache_write": 3
+        }
+      }
+    ],
+    "agent_active_seconds": 7.0,
+    "wall_seconds": 7.0,
+    "wait_seconds": 0,
+    "overall_tokens": 27,
+    "timing_basis": "transcript activity intervals minus corroborated blocks"
+  },
+  "source_sha256": "2c07f5ec35b50806a9cd5b734b1a25a17ef42216ec030a2175df87950b214046",
+  "tests_sha256": "0680f065493759e047f8d496eaa6f1cf19b3b2affa30f870e2efabe9b89299ec"
+}

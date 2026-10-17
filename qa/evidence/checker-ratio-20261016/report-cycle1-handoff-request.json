@@ -1,0 +1,60 @@
+{
+  "schema_version": "compact-handoff/1",
+  "shared_instructions": "Same independently authored checker repair cycle1, not original feature reset. All prior T056 maker/checker/probe expenses retained, actual ratio UNKNOWN. Code source now changed only by witnessed failure repair; do not use prior FAIL as PASS. Own QA artifacts under independent/report-cycle1 only; source read-only. No models/settings/real data/web/Git/shared edits/subagents. Preserve own prior code/source-review knowledge; do not reread whole skills/files. Relevant complete42-test module cheap, no broader suites. Current hashes supplied; previous source2c07f5 superseded by new repaired hash. Save full logs and emit concise summaries to prevent output exhaustion. QA parent exists. Read supplied relevant excerpts first.",
+  "sources": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/report-cycle0-fail.md",
+      "sha256": "6a06c830ec9e89c3d45454b8ceafac279fd88a027626a27d7c53361958d5c0c8",
+      "ranges": [
+        [
+          1,
+          19
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py",
+      "sha256": "4189ebe7eedc3013171a44f40f38263ede8216d68034a2a37e49300a49e4119c",
+      "ranges": [
+        [
+          278,
+          321
+        ],
+        [
+          346,
+          359
+        ],
+        [
+          426,
+          440
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/tests/test_token_scan.py",
+      "sha256": "365e269ed9801afb0cd45fdf5786638ee1e5eccbfd62af883eddc368cc9d228a",
+      "ranges": [
+        [
+          211,
+          238
+        ]
+      ]
+    }
+  ],
+  "task": {
+    "id": "final",
+    "owner": "p0-report-final",
+    "purpose": "Repair check after YOUR recorded FAIL. Existing scan:289 now filters pending owners by genuine start<finite windowend. Tests add later-open no-effect and overlapping-open UNKNOWN to original closed-window regression, before source change RED then42/42 GREEN. Own run full affected single module once --tb=line --maxfail=1 with new owned basetemp. Finish3 distinct GREEN/RED/restoredGREEN falsifiers in own QA copies: R1 remove possible_owners after-window filter (later-open equality assertion mustfail); R2 native outside_scope False (attribution assertionmustfail); R3 unsafe session/turn key (wrong-pair negative mustfail). Existing run_controls.py initialassertion checks literal AssertionError, but pytest --tbshort prints E assert instead; adjust YOUR harness detection to specific reached failed assertion +exit1, not setup error; no test assertion changes/weakening. Originals37 AST equality confirm. Your unchanged old probe asserts presence of defect and would fail whenfixed; reuse same input in own adapted positive check without overwriting old FAIL evidence. Explicit scoped PASS/FAIL in independent/report-cycle1/verdict.md under60lines. Earlier fullP0 integration, actual10percent and shared rollout remainopen. Stop at concrete productdefect. This is authorized repair effort90s after actual recordedcycle0FAIL, no new denominator/reset; all prior87.5s/otherchecksretained.",
+    "dependencies": [],
+    "acceptance": [
+      "Reproduced failed case now safe; actual42test affected baseline;3distinct intendedfalsifiers and restored originals; own relevant source/data review"
+    ],
+    "checks": [
+      "Affected42tests and3namedfalsifiers only"
+    ]
+  },
+  "bounds": {
+    "max_source_bytes": 25000,
+    "max_prompt_bytes": 34000
+  }
+}

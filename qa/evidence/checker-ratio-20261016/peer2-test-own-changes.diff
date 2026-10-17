@@ -1,0 +1,95 @@
+diff --git a/qa/evidence/checker-ratio-20261016/rebase-current-tests.txt b/qa/evidence/checker-ratio-20261016/admission-before-peer2-tests.txt
+index 0775dea..aece4f0 100644
+--- a/qa/evidence/checker-ratio-20261016/rebase-current-tests.txt
++++ b/qa/evidence/checker-ratio-20261016/admission-before-peer2-tests.txt
+@@ -94,6 +94,13 @@ function deliveryFixture() {
+   p.candidate.files = ["src/util.py", "src/a.py"].map((f) => ({ path: f, sha256: createHash("sha256").update(fs.readFileSync(path.join(repo, f))).digest("hex") }));
+   p.tasks[0].owns = ["src/util.py"]; p.tasks[1].owns = ["src/util.py"];
+   p.tasks.forEach((t) => { t.command = [process.execPath, "-e", "console.log('completed')"]; t.timeout_ms = 30000; t.max_output_bytes = 65536; t.resources = { cpu: 1 }; });
++  // Synthetic, deliberately roomy accounting for unrelated delivery-mechanics fixtures.
++  // This is not measured efficiency evidence.
++  const fixtureRole = (tokens, seconds, runs) => ({ tokens, input: tokens, output: 0, cache_read: 0, cache_write: 0, active_seconds: seconds, wait_seconds: 0, runs });
++  const fixtureReport = { schema_version: 1, efficiency: { complete: true, unknown_reasons: [], target: 0.1, maker_minutes: 10000, checker_minutes: 0, maker_tokens: 10000000, checker_tokens: 0, time_ratio: 0, token_ratio: 0 }, feature_report: { schema_version: 1, coverage_complete: true, roles: { maker: fixtureRole(10000000,600000,1), checker: fixtureRole(0,0,0), integration: fixtureRole(0,0,0), unknown: fixtureRole(0,0,0) }, runs: [{ run_id:'fixture-maker',feature_id:p.feature,cycle:p.cycle,session_id:'synthetic-'+path.basename(repo),role:'maker',tokens:10000000,active_seconds:600000,wait_seconds:0,usage:{input:10000000,output:0,cache_read:0,cache_write:0} }] } };
++  const fixtureReportPath = 'qa/maker-report.json'; fs.writeFileSync(path.join(repo,fixtureReportPath),JSON.stringify(fixtureReport));
++  p.budget.checker_budget = { schema_version:'checker-budget/1', report:{path:fixtureReportPath,sha256:createHash('sha256').update(fs.readFileSync(path.join(repo,fixtureReportPath))).digest('hex')} };
++  p.tasks.forEach((t)=>{ t.checker_tokens=1000; });
+   return { repo, p };
+ }
+ const cloneDelivery = (p) => JSON.parse(JSON.stringify(p));
+@@ -2174,3 +2181,76 @@ test("handoff: completed producer preserves historical context while checker adm
+   assert.deepEqual(after.attempts[0], state.attempts[0]); assert.equal(after.attempts.length, 2);
+   assert.deepEqual(after.budget, initial.budget);
+ });
++
++
++function ratioFixture() {
++  const f = deliveryFixture(), { repo, p } = f;
++  const role = (tokens, seconds, runs) => ({ tokens, input: tokens, output: 0, cache_read: 0, cache_write: 0, active_seconds: seconds, wait_seconds: 0, runs });
++  const run = (id, kind, tokens, seconds) => ({ run_id: id, feature_id: p.feature, cycle: p.cycle, session_id: 'synthetic-'+path.basename(repo), role: kind, tokens, active_seconds: seconds, wait_seconds: 0, usage: { input: tokens, output: 0, cache_read: 0, cache_write: 0 } });
++  const report = { schema_version: 1, efficiency: { complete: true, unknown_reasons: [], target: 0.1, maker_minutes: 10, checker_minutes: 1/60, maker_tokens: 1000, checker_tokens: 10, time_ratio: 1/600, token_ratio: 0.01 }, feature_report: { schema_version: 1, coverage_complete: true, roles: { maker: role(1000,600,1), checker: role(10,1,1), integration: role(0,0,0), unknown: role(0,0,0) }, runs: [run('maker','maker',1000,600),run('prior-review','checker',10,1)] } };
++  const reportPath = 'qa/maker-report.json'; fs.writeFileSync(path.join(repo,reportPath),JSON.stringify(report));
++  p.budget.checker_budget={schema_version:'checker-budget/1',report:{path:reportPath,sha256:createHash('sha256').update(fs.readFileSync(path.join(repo,reportPath))).digest('hex')}};
++  p.tasks[1].depends_on=[];p.tasks[1].checker_tokens=60;p.tasks[1].timeout_ms=20000;p.dispatch.task_id='check';
++  return {...f,report,reportPath};
++}
++
++test('checker-ratio: fresh missing envelope and unknown/tampered baseline refuse before state writes',()=>{
++  const {repo,p,reportPath}=ratioFixture(); const missing=cloneDelivery(p);delete missing.budget.checker_budget;
++  assert.throws(()=>deliveryClaim(repo,missing),/checker budget required/);
++  fs.appendFileSync(path.join(repo,reportPath),' ');
++  assert.throws(()=>deliveryClaim(repo,p),/checker budget report hash/);
++  assert.equal(fs.existsSync(path.join(repo,'qa/.delivery/workflow.json')),false);
++});
++test('checker-ratio: exact ceiling includes opening reviews; dual and renamed workflows share reservations',()=>{
++  const {repo,p}=ratioFixture();
++  const exact=cloneDelivery(p);exact.tasks[1].checker_tokens=90;exact.tasks[1].timeout_ms=59000;
++  exact.tasks.push({...exact.tasks[1],id:'check2',owns:['src/a.py'],checker_tokens:1,timeout_ms:1});
++  assert.equal(deliveryClaim(repo,exact).status,'claimed');
++  const helper=cloneDelivery(exact);helper.dispatch={task_id:'check2',attempt_id:'helper'};
++  assert.throws(()=>deliveryClaim(repo,helper),/checker budget exhausted/);
++  const other=cloneDelivery(exact);other.workflow_id=other.root_run_id='renamed';other.run_id='other';other.tasks[1].owns=['src/a.py'];other.dispatch.attempt_id='second';
++  assert.throws(()=>deliveryClaim(repo,other),/feature lineage already exists/);
++  const noEnvelope=cloneDelivery(exact);delete noEnvelope.budget.checker_budget;noEnvelope.dispatch.attempt_id='remove';
++  assert.throws(()=>deliveryClaim(repo,noEnvelope),/lineage cannot reset\/expand budget/);
++});
++test('checker-ratio: incomplete owned run retains tokens and baseline cannot be reissued',async()=>{
++  const {repo,p}=ratioFixture();p.tasks[1].command=[process.execPath,'-e','process.exit(1)'];
++  assert.equal((await deliveryRun(repo,p)).status,'incomplete');
++  const retry=cloneDelivery(p);retry.dispatch.attempt_id='retry';
++  assert.throws(()=>deliveryClaim(repo,retry),/checker budget exhausted/);
++  const changed=cloneDelivery(p);changed.budget.checker_budget.report.sha256='0'.repeat(64);
++  assert.throws(()=>deliveryClaim(repo,changed),/checker budget report hash/);
++});
++
++test('checker-ratio: complete arithmetic cannot authorize unknown coverage, wrong feature, or relabeled maker baseline',()=>{
++  for(const change of ['unknown','scope']) {
++    const {repo,p,report,reportPath}=ratioFixture();
++    if(change==='unknown') report.efficiency.complete=false; else report.feature_report.runs[0].feature_id='other';
++    fs.writeFileSync(path.join(repo,reportPath),JSON.stringify(report));p.budget.checker_budget.report.sha256=createHash('sha256').update(fs.readFileSync(path.join(repo,reportPath))).digest('hex');
++    assert.throws(()=>deliveryClaim(repo,p),change==='unknown'?/complete measured opening usage/:/report scope mismatch/);
++  }
++  const {repo,p,report}=ratioFixture();deliveryClaim(repo,p);
++  const renamed=cloneDelivery(p);renamed.feature='renamed-feature';renamed.workflow_id=renamed.root_run_id='renamed-root';renamed.tasks[1].owns=['src/a.py'];
++  for(const run of report.feature_report.runs)run.feature_id=renamed.feature;
++  fs.writeFileSync(path.join(repo,'qa/renamed-report.json'),JSON.stringify(report));
++  renamed.budget.checker_budget.report={path:'qa/renamed-report.json',sha256:createHash('sha256').update(fs.readFileSync(path.join(repo,'qa/renamed-report.json'))).digest('hex')};
++  assert.throws(()=>deliveryClaim(repo,renamed),/baseline cannot be reissued or relabeled/);
++});
++
++test('checker-ratio: only persisted historical legacy state may omit envelope',()=>{
++  const {repo,p}=ratioFixture(); deliveryClaim(repo,p);
++  const file=path.join(repo,'qa/.delivery/workflow.json'), state=JSON.parse(fs.readFileSync(file));
++  delete state.budget.checker_budget;state.started_at=Date.parse('2020-01-01T00:00:00Z');state.attempts=[];
++  fs.writeFileSync(file,JSON.stringify(state));delete p.budget.checker_budget;p.dispatch.attempt_id='historical';
++  assert.equal(deliveryClaim(repo,p).status,'claimed');
++  const newer=ratioFixture();delete newer.p.budget.checker_budget;
++  assert.throws(()=>deliveryClaim(newer.repo,newer.p),/checker budget required/);
++});
++
++test('checker-ratio: either resource alone rejects above its ceiling, even with spare other resource',()=>{
++  for(const kind of ['time','tokens']){
++    const {repo,p}=ratioFixture();p.tasks[1].timeout_ms=kind==='time'?59001:1;p.tasks[1].checker_tokens=kind==='tokens'?91:1;
++    assert.throws(()=>deliveryClaim(repo,p),/checker budget exhausted/);
++    assert.equal(fs.existsSync(path.join(repo,'qa/.delivery/workflow.json')),false);
++  }
++});

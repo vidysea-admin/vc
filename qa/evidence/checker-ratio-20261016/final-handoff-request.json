@@ -1,0 +1,74 @@
+{
+  "task": {
+    "checks": [
+      "Use tools/tests/tick-modes.test.mjs checker-ratio tests in isolated candidate; no full suite. You may create QA-owned independent tests/probes. Return remaining unverified obligations honestly."
+    ],
+    "purpose": "Independently verify C1-C3 admission mechanics, compatibility and honest limits; return PASS/FAIL with file:line plus own command evidence. Full measured efficiency is explicitly UNKNOWN, so do not certify it. Candidate not installed.",
+    "id": "finalcheck",
+    "dependencies": [],
+    "owner": "p0-independent",
+    "acceptance": [
+      "Own relevant targeted execution; source review entire changed functions/consumers as needed.",
+      "Own three distinct criterion falsifiers in QA copies with intended assertion RED, restored GREEN; no setup-error credit.",
+      "No implicit relaxation of missing-baseline,new-workflow or reset prevention."
+    ]
+  },
+  "bounds": {
+    "max_prompt_bytes": 33000,
+    "max_source_bytes": 27000
+  },
+  "schema_version": "compact-handoff/1",
+  "sources": [
+    {
+      "sha256": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98",
+      "ranges": [
+        [
+          1,
+          13
+        ]
+      ],
+      "path": "qa/evidence/checker-ratio-20261016/manifest.md"
+    },
+    {
+      "sha256": "c87d3887ee425ad85f6a5089191305efe918350c4523c2555e2c06f68f040afb",
+      "ranges": [
+        [
+          1718,
+          1741
+        ],
+        [
+          1758,
+          1769
+        ],
+        [
+          1823,
+          1834
+        ],
+        [
+          1920,
+          1959
+        ],
+        [
+          2040,
+          2058
+        ]
+      ],
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs"
+    },
+    {
+      "sha256": "1b55a14b30feb5050133a0e53e38e4cc607e9acdd807d4e1752ce38ab4756f13",
+      "ranges": [
+        [
+          79,
+          109
+        ],
+        [
+          2116,
+          2186
+        ]
+      ],
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs"
+    }
+  ],
+  "shared_instructions": "Fresh independent completed-feature checker and senior engineering source review. Preserve installed instructions and security. You are not alone; own QA evidence only under qa/evidence/checker-ratio-20261016/independent. No subagents or shared source edits. Full parent context and maker reasoning intentionally excluded. Baseline contracts and expected behavior are in manifest; derive own tests/falsifiers. Budget70seconds; stop at first concrete blocker."
+}

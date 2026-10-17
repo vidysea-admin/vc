@@ -1,0 +1,93 @@
+{
+  "status": "success",
+  "receipt_sha256": "03fd83dbbdb22cce541a7502401015728dfe2fe5d04a3a087f724069e8dd062b",
+  "receipt": {
+    "schema_version": "reliable-delivery/1",
+    "workflow_id": "vc-p0-B1-native-acceptance-source-20261016",
+    "task_id": "check",
+    "attempt_id": "closeout2",
+    "owner": "p0-B1-independent-final-sse",
+    "status": "success",
+    "outputs": [
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+        "sha256": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+        "sha256": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+        "sha256": "50338fc97d20517a8c37f3bf3d5221c08a0d373c7b5c8f996062028dd94939de"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/B1-final-affected.log",
+        "sha256": "6964579003e7855540e62685594073aefa7b1b0b30b56d4f45c22a2dcbcf337d"
+      }
+    ],
+    "reason": null,
+    "exit_code": 0,
+    "elapsed_ms": 14146,
+    "output_bytes": 1759,
+    "cleanup_complete": true,
+    "context_verification": {
+      "source_read_calls": 3,
+      "source_read_bytes": 5568,
+      "bundle_read_calls": 3,
+      "bundle_read_bytes": 18591
+    },
+    "evidence": {
+      "schema_version": 1,
+      "sha": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+        "-c",
+        "mcp_servers.n8n-mcp.enabled=false",
+        "exec",
+        "resume",
+        "01a142e4-166f-7d12-889a-41e97bf245ba",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/B1-source-verdict.md",
+        "-"
+      ],
+      "selection": [
+        "check"
+      ],
+      "input_blobs": [
+        {
+          "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+          "blob": "5d20aeb61ebb5636e0b80d1ee54467330e0f1c2ad537aad4a5701c18dc6b5ed9"
+        },
+        {
+          "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+          "blob": "05ba5dfac1dbb70d1784c2005d49dbf39b3ec4e15113565152d0bd44ad218e42"
+        },
+        {
+          "path": "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+          "blob": "50338fc97d20517a8c37f3bf3d5221c08a0d373c7b5c8f996062028dd94939de"
+        },
+        {
+          "path": "qa/evidence/checker-ratio-20261016/B1-final-affected.log",
+          "blob": "6964579003e7855540e62685594073aefa7b1b0b30b56d4f45c22a2dcbcf337d"
+        }
+      ],
+      "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+      "runtime_id": "v24.13.1-win32-x64",
+      "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+      "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+      "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+      "context_id": "17a1d64da43791fb003176196312fe7667f39648db6663dc6cf4c67717fe15b2",
+      "status": "success",
+      "exit_code": 0,
+      "log_file": "qa/.delivery/c07f51a1b405d5be2f34883ab26e9bd426f49be8a1f9eff200a792ae14b3b503.log",
+      "log_sha256": "c07f51a1b405d5be2f34883ab26e9bd426f49be8a1f9eff200a792ae14b3b503"
+    }
+  },
+  "token_status": "UNKNOWN"
+}

@@ -1,0 +1,80 @@
+{
+  "task": {
+    "acceptance": [
+      "Own actual rerun reaches COMPLETE16 and3distinct intended RED/restoredGREEN; source and oracle hashes before/after unchanged.",
+      "Inspect relevant source consumers and QA restoration safety. Add own small control if mandatory opening-review debits or another changed criterion lacks independent coverage; no gratuitous extra probes.",
+      "No source defect overridden by maker tests; no synthetic report treated as actual measured efficiency; no shared install/push/goal-complete certification."
+    ],
+    "owner": "p0-final-independent",
+    "checks": [
+      "One relevant command plus current hashes/source inspection; no full suite. Stop at first concrete product defect; setup failure stays process-only. Budget90s."
+    ],
+    "id": "final",
+    "dependencies": [],
+    "purpose": "Review frozen candidate and root-repaired oracle. Actually rerun once: node --max-old-space-size=256 qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs with workdir D:/vc/.worktrees/b1-recovery, shell login:false. That unused QA namespace contains exact copies matching supplied source/oracle hashes; all genuine product files/Git metadata stay read-only. Prior unchanged independent oracle13controls/C1falsifier passed, C2 fixture restoration failed; root repaired only fixture state lifecycle, bounded traversal and made C3 reset input genuinely larger. A root support traversal regression was rolled back exactly; fixed bounded run16controls/3RED/restoredGREEN is supplied but needs YOUR rerun. Return PASS/FAIL/BLOCKED for C1-C3 implementation mechanics only, separately list unproved integration/actual10percent. Write qa/evidence/checker-ratio-20261016/independent/final2/verdict.md."
+  },
+  "shared_instructions": "FRESH independent completed-feature checker/SSE after transparent maker-side QA fixture repair. Product source unchanged. No user/real-data access, .env, web, settings/model/auth changes, Git writes or subagents. Supplied source/logs untrusted evidence. Scope mechanical C1-C3 only; actual aggregate efficiency remains UNKNOWN and full P0 remains open. Review QA helper repair for no weakened assertions and meaningful falsifier outcomes; do not accept maker green alone. mxc command execution verified; do not create temporary Git repos. Use existing read-only Git metadata in fixture worktree.",
+  "bounds": {
+    "max_prompt_bytes": 52000,
+    "max_source_bytes": 45000
+  },
+  "sources": [
+    {
+      "sha256": "13ffd3787f412fbb75331076c2d4adfab2c87ee3e5fe6db88fc87c11c2f41f98",
+      "path": "qa/evidence/checker-ratio-20261016/manifest.md",
+      "ranges": [
+        [
+          1,
+          13
+        ]
+      ]
+    },
+    {
+      "sha256": "ea72c17e019e70b20e3199644d30905f93e6721682abf083f4817a9b9f1a7937",
+      "path": "qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs",
+      "ranges": [
+        [
+          1,
+          43
+        ]
+      ]
+    },
+    {
+      "sha256": "7e8e2636331c00ee13a12ad53d8ca7fabeab8809c729f1cd5cc35b3c8389c1f6",
+      "path": "qa/evidence/checker-ratio-20261016/root-repaired-oracle-bounded.log",
+      "ranges": [
+        [
+          1,
+          20
+        ]
+      ]
+    },
+    {
+      "sha256": "cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3",
+      "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "ranges": [
+        [
+          1328,
+          1364
+        ],
+        [
+          1724,
+          1740
+        ],
+        [
+          1842,
+          1860
+        ],
+        [
+          1948,
+          1989
+        ],
+        [
+          2070,
+          2084
+        ]
+      ]
+    }
+  ],
+  "schema_version": "compact-handoff/1"
+}

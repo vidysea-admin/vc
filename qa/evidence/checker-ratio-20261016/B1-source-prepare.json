@@ -1,0 +1,94 @@
+{
+  "identity_files": {
+    "dependency_id": {
+      "path": "pnpm-lock.yaml"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md"
+    },
+    "config_id": {
+      "path": "qa/adapter.json"
+    },
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md"
+    }
+  },
+  "budget": {
+    "deadline": "2026-10-16T04:10:15.177822Z",
+    "closeout_ms": 20000,
+    "no_progress_ms": 170000,
+    "estimate_ms": 180000,
+    "estimate_tokens": 150000,
+    "token_cap": null,
+    "estimate_provenance": "B1 new prospective source change independently planned/approved; one fresh completed-feature source checker,59.7KBselected source and67valid maker controls reused. At most one scoped floor batch; coldstart observed36kraw plus uncertain review. OriginalT056 old source/C1-C6 exhausted workflows/costs remain untouched; no bootstrap/reset/global/pilot completion, actualaggregate10UNKNOWN. Do not rerun old failedreview as this new B1scope."
+  },
+  "dispatch": {
+    "task_id": "check",
+    "attempt_id": "a1"
+  },
+  "tasks": [
+    {
+      "id": "check",
+      "owner": "p0-B1-independent-final-sse",
+      "kind": "check",
+      "depends_on": [],
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/B1-source-verdict.md"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "timeout_ms": 120000,
+      "max_output_bytes": 500000,
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+        "-c",
+        "mcp_servers.n8n-mcp.enabled=false",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/B1-source-verdict.md",
+        "{{HANDOFF}}"
+      ],
+      "handoff": {
+        "path": "qa/.delivery/context/42474c9c6962c6ce1a07c1862cbae969e6b65cf4217b2489a44593d974dfaa77.handoff.json",
+        "sha256": "42474c9c6962c6ce1a07c1862cbae969e6b65cf4217b2489a44593d974dfaa77"
+      }
+    }
+  ],
+  "parent_run_id": "vc-p0-native-acceptance-plan-20261016",
+  "feature": "T056-B1-native-acceptance-source",
+  "session": "vc-01a13e75",
+  "cycle": 0,
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "id": "B1-source",
+      "description": "Independent B1 source acceptance only; no old broadsource/reset/bootstrap/P0/pilot/global acceptance",
+      "check_task_id": "check"
+    }
+  ],
+  "candidate": {
+    "files": [
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs",
+      "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+      "qa/evidence/checker-ratio-20261016/B1-final-affected.log"
+    ]
+  },
+  "workflow_id": "vc-p0-B1-native-acceptance-source-20261016",
+  "root_run_id": "vc-p0-B1-native-acceptance-source-20261016",
+  "retry_of": null,
+  "run_id": "B1-source-final1",
+  "resource_caps": {
+    "agent": 3
+  }
+}

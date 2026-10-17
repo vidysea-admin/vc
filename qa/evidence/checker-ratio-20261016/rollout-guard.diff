@@ -1,0 +1,104 @@
+diff --git a/qa/evidence/checker-ratio-20261016/peer2-source.txt b/qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs
+index c7603ca..4e3028e 100644
+--- a/qa/evidence/checker-ratio-20261016/peer2-source.txt
++++ b/qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs
+@@ -1431,12 +1431,12 @@ export function deliveryTemplate(root) {
+     policy_id: "REPLACE-WITH-PINNED-POLICY-HASH", protocol_id: "REPLACE-WITH-PINNED-PROTOCOL-HASH",
+     identity_files: { policy_id: { path: null, sha256: null }, protocol_id: { path: null, sha256: null }, config_id: { path: null, sha256: null }, dependency_id: { path: null, sha256: null } },
+     config_id: null, runtime_id: `${process.version}-${process.platform}-${process.arch}`, dependency_id: null,
+-    budget: { deadline: null, closeout_ms: null, no_progress_ms: null, estimate_ms: null, estimate_tokens: null, estimate_provenance: null, token_cap: null },
++    budget: { deadline: null, closeout_ms: null, no_progress_ms: null, estimate_ms: null, estimate_tokens: null, estimate_provenance: null, token_cap: null, checker_budget: null },
+     resource_caps: {}, closeout_resources: {},
+     criteria: [{ id: "C1", description: null, check_task_id: "check" }],
+     tasks: [
+       { id: "build", owner: "maker", kind: "build", depends_on: [], owns: [], resources: {}, timeout_ms: null, max_output_bytes: null, command: [] },
+-      { id: "check", owner: "checker", kind: "check", depends_on: ["build"], owns: [], resources: {}, timeout_ms: null, max_output_bytes: null, command: [] }
++      { id: "check", owner: "checker", kind: "check", depends_on: ["build"], owns: [], resources: {}, timeout_ms: null, max_output_bytes: null, checker_tokens: null, command: [] }
+     ], dispatch: { task_id: "build", attempt_id: "attempt1" }
+   };
+ }
+@@ -1725,6 +1725,17 @@ export function deliveryValidate(root, packet, { contextMetrics = null } = {}) {
+   for (const k of ["closeout_ms", "no_progress_ms", "estimate_ms"]) deliveryNeed(deliveryPositive(b[k]), `finite positive budget.${k} required`);
+   for (const k of ["estimate_tokens", "token_cap"]) deliveryNeed(b[k] === null || deliveryPositive(b[k]), `budget.${k} must be positive or null UNKNOWN`);
+   deliveryNeed(deliveryText(b.estimate_provenance), "truthful estimate provenance required");
++  if (b.checker_budget != null) {
++    const cb = b.checker_budget;
++    deliveryNeed(deliveryObject(cb) && cb.schema_version === "checker-budget/1" && deliveryObject(cb.report), "invalid checker budget envelope");
++    const reportFile = deliveryPath(root, cb.report.path).abs;
++    deliveryNeed(/^[0-9a-f]{64}$/.test(cb.report.sha256) && deliveryHash(fs.readFileSync(reportFile)) === cb.report.sha256, "checker budget report hash mismatch");
++    const report = deliveryRead(reportFile), result = efficiencyCheck(report);
++    if (report.phase === "maker-ready-opening") deliveryNeed(report.opening?.schema_version === "opening-readiness/1" && report.opening.complete === true && report.opening.acceptance_ready === false, "incomplete opening readiness report");
++    deliveryNeed(result.status !== "UNKNOWN", "checker budget requires complete measured opening usage");
++    deliveryNeed(report.feature_report.runs.every((r) => r.feature_id === p.feature && r.cycle === p.cycle && deliveryText(r.session_id)), "checker budget report scope mismatch");
++    deliveryNeed(Number.isSafeInteger(report.efficiency.maker_tokens) && report.efficiency.maker_tokens > 0, "checker budget maker token baseline invalid");
++  }
+   deliveryNeed(deliveryObject(p.candidate) && /^[0-9a-f]{40,64}$/.test(p.candidate.head), "candidate HEAD required");
+   const head = gitRun(root, ["rev-parse", "HEAD"]);
+   deliveryNeed(head.ok && head.out.trim() === p.candidate.head, "stale candidate HEAD");
+@@ -1754,6 +1765,7 @@ export function deliveryValidate(root, packet, { contextMetrics = null } = {}) {
+     deliveryNeed(!owns.some((a, i) => owns.some((b, j) => j < i && deliveryOverlap(a, b))), "overlapping ownership aliases");
+     deliveryNeed(resourceMap(t.resources) && Object.entries(t.resources).every(([k, n]) => n <= p.resource_caps[k]), "invalid task resources");
+     deliveryNeed(deliveryPositive(t.timeout_ms) && Number.isInteger(t.max_output_bytes) && t.max_output_bytes > 0 && t.max_output_bytes <= 1048576, "bounded task timeout/output required");
++    if (b.checker_budget != null && ["check", "integration"].includes(t.kind)) deliveryNeed(Number.isSafeInteger(t.checker_tokens) && t.checker_tokens > 0, "checker budget needs finite per-task token reservation");
+     deliveryNeed(Array.isArray(t.command) && t.command.length > 0 && t.command.every(deliveryText), "shell=false command argv required");
+     deliveryNeed(process.platform !== "win32" || !/\.(cmd|bat)$/i.test(t.command[0]), "Windows batch commands need an explicit managed executable");
+     if (t.handoff) {
+@@ -1842,6 +1854,7 @@ export function deliveryResume(root, request, { now = Date.now() } = {}) {
+     const raw = fs.readFileSync(file), state = JSON.parse(raw);
+     deliveryNeed(deliveryHash(raw) === r.expected_state_sha256, "stale recovery state");
+     deliveryNeed(state.schema_version === DELIVERY_VERSION && Array.isArray(state.attempts) && Array.isArray(state.accepted), "invalid recovery ledger");
++    deliveryNeed(JSON.stringify(state.budget.checker_budget ?? null) === JSON.stringify(p.budget.checker_budget ?? null) && JSON.stringify(state.budget.checker_budget ?? null) === JSON.stringify(previous.budget.checker_budget ?? null), "recovery cannot reset checker budget");
+     for (const k of ["workflow_id", "root_run_id", "feature", "cycle", "policy_id", "protocol_id", "resource_caps", "closeout_resources"]) {
+       deliveryNeed(JSON.stringify(state[k]) === JSON.stringify(p[k]) && JSON.stringify(state[k]) === JSON.stringify(previous[k]), `recovery cannot change ${k}`);
+     }
+@@ -1955,8 +1968,36 @@ export function deliveryClaim(root, packet, { now = Date.now(), managed = false,
+       const reserve = t.kind === "build" ? (p.closeout_resources[k] || 0) : 0;
+       deliveryNeed(used + (t.resources[k] || 0) + reserve <= cap, `resource/closeout capacity: ${k}`);
+     }
++    let checkerReservation = prior?.checker_reservation ?? null;
++    if (["check", "integration"].includes(t.kind)) {
++      // Only already persisted pre-activation workflows retain their old protocol.
++      const legacy = fs.existsSync(file) && state.started_at < Date.parse("2026-10-15T23:00:00Z");
++      deliveryNeed(p.budget.checker_budget != null || legacy, "checker budget required for new workflow");
++      if (p.budget.checker_budget != null && !prior) {
++        const cb = p.budget.checker_budget, report = deliveryRead(deliveryPath(root, cb.report.path).abs), e = report.efficiency;
++        const makerIds = report.feature_report.runs.filter((r) => r.role === "maker").map((r) => `${r.session_id}:${r.run_id}`).sort();
++        deliveryNeed(makerIds.length > 0, "checker budget maker run attribution missing");
++        const context = deliveryPath(root, "qa/.delivery/context").abs;
++        const budgetFile = path.join(context, `checker-budget-${deliveryHash(makerIds)}.json`);
++        const accounting = fs.existsSync(budgetFile) ? deliveryRead(budgetFile) : {
++          schema_version: "checker-budget/1", feature: p.feature, cycle: p.cycle, report_sha256: cb.report.sha256,
++          maker_ids: makerIds, time_limit_ms: e.maker_minutes * 6000, token_limit: e.maker_tokens * 0.1,
++          opening_ms: e.checker_minutes * 60000, opening_tokens: e.checker_tokens, reservations: []
++        };
++        deliveryNeed(accounting.schema_version === "checker-budget/1" && accounting.feature === p.feature && accounting.cycle === p.cycle && accounting.report_sha256 === cb.report.sha256 && JSON.stringify(accounting.maker_ids) === JSON.stringify(makerIds), "checker budget baseline cannot be reissued or relabeled");
++        const spentMs = accounting.opening_ms + accounting.reservations.reduce((sum, r) => sum + Math.max(r.time_ms, r.elapsed_ms ?? 0), 0);
++        const spentTokens = accounting.opening_tokens + accounting.reservations.reduce((sum, r) => sum + r.tokens, 0);
++        deliveryNeed(spentMs + t.timeout_ms <= accounting.time_limit_ms && spentTokens + t.checker_tokens <= accounting.token_limit, "checker budget exhausted: aggregate 10% admission ceiling");
++        const reservationId = `${p.workflow_id}:${key}`;
++        deliveryNeed(!accounting.reservations.some((r) => r.id === reservationId), "duplicate checker budget reservation");
++        accounting.reservations.push({ id: reservationId, time_ms: t.timeout_ms, tokens: t.checker_tokens, elapsed_ms: null, actual_tokens: null });
++        fs.mkdirSync(context, { recursive: true }); deliveryWrite(budgetFile, accounting);
++        checkerReservation = { path: path.relative(root, budgetFile).replace(/\\/g, "/"), id: reservationId, coverage: "admission-only; actual tokens UNKNOWN until attributable telemetry" };
++      }
++    }
+     const a = prior || { key, task_id: t.id, attempt_id: p.dispatch.attempt_id, run_id: p.run_id, parent_run_id: p.parent_run_id, root_run_id: p.root_run_id, feature: p.feature, cycle: p.cycle, session: p.session, retry_of: p.retry_of, owner: t.owner, owns, resources: t.resources, admitted_at: now, expires_at: Math.min(now + t.timeout_ms, Date.parse(state.budget.deadline) - (t.kind === "build" ? state.budget.closeout_ms : 0)), actual_tokens: null, token_status: "UNKNOWN" };
+     if (!prior) { state.attempts.push(a); state.cumulative.attempts++; }
++    if (checkerReservation) a.checker_reservation = checkerReservation;
+     a.status = managed ? "running" : "claimed"; a.coverage = managed ? "managed-cli" : "admission-only; native collaboration is not intercepted";
+     if (managed) a.execution_identity = deliveryIdentity(p, t);
+     deliveryWrite(file, state);
+@@ -2048,6 +2089,13 @@ export async function deliveryRun(root, p) {
+     const file = path.join(store, `${p.workflow_id}.json`), state = deliveryWatch(deliveryRead(file), Date.now());
+     const a = state.attempts.find((x) => x.key === `${t.id}:${p.dispatch.attempt_id}`);
+     deliveryNeed(a?.status === "running", "managed attempt state changed");
++    if (a.checker_reservation) {
++      const budgetFile = deliveryPath(root, a.checker_reservation.path).abs, accounting = deliveryRead(budgetFile);
++      const reservation = accounting.reservations.find((r) => r.id === a.checker_reservation.id);
++      deliveryNeed(reservation, "checker budget reservation missing");
++      reservation.elapsed_ms = elapsed; // Unknown actual token spend never refunds a reservation.
++      deliveryWrite(budgetFile, accounting);
++    }
+     const log = Buffer.concat(chunks), logHash = deliveryHash(log.length ? log : "[empty output]\n");
+     const logFile = path.join(store, `${logHash}.log`);
+     if (!fs.existsSync(logFile)) fs.writeFileSync(logFile, log.length ? log : "[empty output]\n", { flag: "wx" });

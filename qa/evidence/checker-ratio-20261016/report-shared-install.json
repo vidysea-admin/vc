@@ -1,0 +1,21 @@
+{
+  "time": "2026-10-15T22:16:26.698Z",
+  "kind": "shared-report-producer-install",
+  "independent_receipt": "220c18cb76603c2eaed0675fc27b711d602ad2ff4ac8a932067321c4496a8d81",
+  "files": [
+    {
+      "target": "D:/ai_os/scripts/token_scan.py",
+      "before": "1325ba3ee0236286e77992680f49351ecb63556a2c0a15475913a41df762c95f",
+      "after": "4189ebe7eedc3013171a44f40f38263ede8216d68034a2a37e49300a49e4119c"
+    },
+    {
+      "target": "D:/ai_os/scripts/tests/test_token_scan.py",
+      "before": "9ba300f7a44c2833791aed288a407189b914a30c7d67c3d11eae1a8b57b6432f",
+      "after": "365e269ed9801afb0cd45fdf5786638ee1e5eccbfd62af883eddc368cc9d228a"
+    }
+  ],
+  "admission_guard_installed": false,
+  "policy_changed": false,
+  "actual_efficiency": "UNKNOWN",
+  "git_commit_or_push": false
+}

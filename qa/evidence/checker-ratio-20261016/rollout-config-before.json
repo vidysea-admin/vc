@@ -1,0 +1,27 @@
+[
+  {
+    "path": "C:/Users/Lenovo/.codex/config.toml",
+    "exists": true,
+    "sha256": "16bd3b2b70c2717fc6809fec9b007f73cc6161ff950681f180f04b459592b4c8"
+  },
+  {
+    "path": "C:/Users/Lenovo/.claude/settings.json",
+    "exists": true,
+    "sha256": "746540951fb8ad2b02b3cd7b5c831bd5d882ec2a3de15d0b5441938d40403108"
+  },
+  {
+    "path": "D:/ai_os/.claude/settings.json",
+    "exists": true,
+    "sha256": "c92b32a4cf6dd6048fb10fd647fc677940f25bf5bb7887da5f6d2e05905a1511"
+  },
+  {
+    "path": "D:/ai_os/.claude/settings.local.json",
+    "exists": true,
+    "sha256": "a601b2639e259fc3f0cab62174f905d885ede368094c0623b4dcadbe35ebd62e"
+  },
+  {
+    "path": "D:/ai_os/.mcp.json",
+    "exists": false,
+    "sha256": null
+  }
+]

@@ -1,0 +1,32 @@
+{
+  "schema_version": "compact-handoff/1",
+  "shared_instructions": "Same B1 checker evidence-only closeout, within original history and finite protocol recovery. All actual source identities were verified by managed admission; the earlier plan hash typo was your command, not a source change. Do not rerun identity/catalogue/skill/source scans or deliberate again before tests. Existing supplied source and your analysis remain. Execute the exact one command immediately, then persist complete decisive report as final message; no more tool calls except that command. Do not spawn agents, change model/config/source or broaden checking. No original P0/global/actual10percent claim.",
+  "sources": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/B1-final-affected.log",
+      "sha256": "6964579003e7855540e62685594073aefa7b1b0b30b56d4f45c22a2dcbcf337d",
+      "ranges": [
+        [
+          69,
+          76
+        ]
+      ]
+    }
+  ],
+  "task": {
+    "id": "check",
+    "owner": "p0-B1-independent-final-sse",
+    "purpose": "Your previous B1 source attempt timed out before executing tests or writing final verdict. Same candidate unchanged. Exact required immediate command: node --test --test-name-pattern=\"native final artifact capture|rejecting lost-plan-session|rejecting final-maker-session|generic execution cannot\" qa/evidence/checker-ratio-20261016/isolated/tools/tests/tick-modes.test.mjs . Four relevant controls cover three criteria, approximately9seconds. Unknown planning proof is already fail-closed by reproduced scan plus every run managed_join.status VERIFIED and exact state.attempts inventory; do not scan more to rediscover this. Use your completed source review and valid67/67 maker evidence. After this ONE command, return full<=22line B1_SOURCE_VERDICT: PASS/FAIL/BLOCK with actual results, precise unresolved source findings if any, and scope limits. If concern cannot be resolved from current evidence, report BLOCK now rather than more investigation. Final report auto-saved. Original old broader C1-C6/reset/bootstrap/actualpilot gates remain unresolved.",
+    "dependencies": [],
+    "acceptance": [
+      "Complete decisive independently evidenced B1 source verdict, bounded closure"
+    ],
+    "checks": [
+      "Run only exact4control command once, then finalreport immediately"
+    ]
+  },
+  "bounds": {
+    "max_source_bytes": 4096,
+    "max_prompt_bytes": 8192
+  }
+}

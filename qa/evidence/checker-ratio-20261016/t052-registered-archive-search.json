@@ -1,0 +1,46 @@
+{
+  "root": "C:/Users/Lenovo/.codex/visualizations/2026/10/05/01a10bd6-fbfe-71e2-959b-3cb1a90012e6/codex-policy-rollout",
+  "checked": [
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\visualizations\\2026\\10\\05\\01a10bd6-fbfe-71e2-959b-3cb1a90012e6\\codex-policy-rollout\\.11\\checker\\SKILL.md",
+      "sha256": "3592439f0eb94923a7bbae1f791a1f805cd609453a111ea3f3d50211065bdb73"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\visualizations\\2026\\10\\05\\01a10bd6-fbfe-71e2-959b-3cb1a90012e6\\codex-policy-rollout\\.11\\claude\\checker\\SKILL.md",
+      "sha256": "b9e5492ab2a4fbc1e1daa74312d765db3df03c106cdb710a092bc028f9639958"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\visualizations\\2026\\10\\05\\01a10bd6-fbfe-71e2-959b-3cb1a90012e6\\codex-policy-rollout\\.11\\claude\\maker\\SKILL.md",
+      "sha256": "445b825793bdd7c343194d2bdb11b161c1fa6176ee6b80a974e806e205555399"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\visualizations\\2026\\10\\05\\01a10bd6-fbfe-71e2-959b-3cb1a90012e6\\codex-policy-rollout\\.11\\maker\\SKILL.md",
+      "sha256": "879a894011d15e017c02989a8a9ade7ab140c1e86d3f2c8cdcddfaf502a19180"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\visualizations\\2026\\10\\05\\01a10bd6-fbfe-71e2-959b-3cb1a90012e6\\codex-policy-rollout\\.2\\checker\\SKILL.md",
+      "sha256": "25762401f6330e31d3b5a0148e058c5ed0a09d140d30abb0b87a10cd57f09b2c"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\visualizations\\2026\\10\\05\\01a10bd6-fbfe-71e2-959b-3cb1a90012e6\\codex-policy-rollout\\.2\\grill\\SKILL.md",
+      "sha256": "09fb5bdaad6022cec3fff69353f47947c82c7942148f9ebc4c2f4f38c0ef531d"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\visualizations\\2026\\10\\05\\01a10bd6-fbfe-71e2-959b-3cb1a90012e6\\codex-policy-rollout\\.2\\maker\\SKILL.md",
+      "sha256": "7b5b73406bc16f674bad117337eff46d709f069eee9073790332c2a23b4deb86"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\visualizations\\2026\\10\\05\\01a10bd6-fbfe-71e2-959b-3cb1a90012e6\\codex-policy-rollout\\staging\\checker\\SKILL.md",
+      "sha256": "8a2133ac3cc1df86c71c5145765a2055e607aff93bbd0e1276a9e8c4012e33c5"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\visualizations\\2026\\10\\05\\01a10bd6-fbfe-71e2-959b-3cb1a90012e6\\codex-policy-rollout\\staging\\grill\\SKILL.md",
+      "sha256": "aebecada37504776719480be113292bf4c3ba17d9476eee258dd7f5f4bbba221"
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\visualizations\\2026\\10\\05\\01a10bd6-fbfe-71e2-959b-3cb1a90012e6\\codex-policy-rollout\\staging\\maker\\SKILL.md",
+      "sha256": "3e3e1fd91940d49a61aa58c2b28cc81c8343cd1241ae38631d70225d07420f1b"
+    }
+  ],
+  "matches": []
+}

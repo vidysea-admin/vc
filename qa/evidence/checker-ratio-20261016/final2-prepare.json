@@ -1,0 +1,104 @@
+{
+  "identity_files": {
+    "dependency_id": {
+      "path": "pnpm-lock.yaml"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md"
+    },
+    "config_id": {
+      "path": "qa/adapter.json"
+    },
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md"
+    }
+  },
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Fresh completed-feature check after maker QA fixture repair; every prior T056 checking/probe expense retained, no new maker denominator or efficiency claim",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T21:58:24.9013608Z",
+    "estimate_ms": 90000,
+    "no_progress_ms": 90000
+  },
+  "dispatch": {
+    "attempt_id": "a1",
+    "task_id": "final"
+  },
+  "tasks": [
+    {
+      "resources": {
+        "agent": 1
+      },
+      "depends_on": [],
+      "id": "final",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+        "-c",
+        "mcp_servers.n8n-mcp.enabled=false",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/independent/final2-verdict.md",
+        "{{HANDOFF}}"
+      ],
+      "kind": "check",
+      "max_output_bytes": 180000,
+      "owner": "p0-final-independent",
+      "handoff": {
+        "path": "qa/.delivery/context/cc82eca019749e3762f798ef3a809d579e195c6ca08c316cba51bef2a1e0f502.handoff.json",
+        "sha256": "cc82eca019749e3762f798ef3a809d579e195c6ca08c316cba51bef2a1e0f502"
+      },
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/independent/final2",
+        ".worktrees/b1-recovery/qa/evidence/checker-ratio-20261016",
+        ".worktrees/b1-recovery/qa/.delivery"
+      ],
+      "timeout_ms": 90000
+    }
+  ],
+  "parent_run_id": "vc-p0-checker-rewrite1-20261016",
+  "feature": "T056-final-after-QA-repair",
+  "session": "vc-01a13e75",
+  "cycle": 0,
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "check_task_id": "final",
+      "description": "Scoped hash-bound original baseline admission and unknown refusal",
+      "id": "C1"
+    },
+    {
+      "check_task_id": "final",
+      "description": "Aggregate10percent reservation and no reset mechanics",
+      "id": "C2"
+    },
+    {
+      "check_task_id": "final",
+      "description": "Recovery/actual execution debit and compatible independent falsification",
+      "id": "C3"
+    }
+  ],
+  "candidate": {
+    "files": [
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+      "qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs"
+    ]
+  },
+  "workflow_id": "vc-p0-final2-20261016",
+  "root_run_id": "vc-p0-final2-20261016",
+  "retry_of": null,
+  "run_id": "p0-final2",
+  "resource_caps": {
+    "agent": 3
+  }
+}

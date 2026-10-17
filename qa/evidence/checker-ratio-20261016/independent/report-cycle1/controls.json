@@ -1,0 +1,49 @@
+{
+  "source_sha256": "4189ebe7eedc3013171a44f40f38263ede8216d68034a2a37e49300a49e4119c",
+  "tests_sha256": "365e269ed9801afb0cd45fdf5786638ee1e5eccbfd62af883eddc368cc9d228a",
+  "unchanged_original_tests": 37,
+  "results": [
+    {
+      "criterion": "R1",
+      "test": "test_native_scope_closed_turn_clips_outside_endpoints_and_old_usage",
+      "mutation_before": "native_pending[task_key] = (started, possible_owners)",
+      "mutation_after": "native_pending[task_key] = (started, identity_candidates)",
+      "reached_assertion": "assert later[\"efficiency\"] == result[\"efficiency\"]",
+      "green": 0,
+      "red": 1,
+      "restored": 0
+    },
+    {
+      "criterion": "R2",
+      "test": "test_native_scope_closed_turn_clips_outside_endpoints_and_old_usage",
+      "mutation_before": "outside_scope = bool(is_native and mapped and ts is not None",
+      "mutation_after": "outside_scope = bool(False and is_native and mapped and ts is not None",
+      "reached_assertion": "assert result[\"roles\"][\"unknown\"][\"tokens\"] == 0",
+      "green": 0,
+      "red": 1,
+      "restored": 0
+    },
+    {
+      "criterion": "R3",
+      "test": "test_native_scope_missing_or_wrong_pair_never_supplies_time",
+      "mutation_before": "task_key = (session, actual_turn)",
+      "mutation_after": "task_key = (transcript_session, \"unsafe\")",
+      "reached_assertion": "assert result[\"roles\"][\"maker\"][\"active_seconds\"] == 0, fault",
+      "green": 0,
+      "red": 1,
+      "restored": 0
+    }
+  ],
+  "commands": [
+    "C:\\Users\\Lenovo\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe -B -m pytest D:\\vc\\qa\\evidence\\checker-ratio-20261016\\isolated\\scripts\\tests\\test_token_scan.py -q --tb=short --maxfail=1 -p no:cacheprovider --basetemp=D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\tmp2",
+    "C:\\Users\\Lenovo\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe -B -m pytest D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R1\\scripts\\tests\\test_token_scan.py -q --tb=short --maxfail=1 -p no:cacheprovider --basetemp=D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R1-green-tmp -k test_native_scope_closed_turn_clips_outside_endpoints_and_old_usage",
+    "C:\\Users\\Lenovo\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe -B -m pytest D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R1\\scripts\\tests\\test_token_scan.py -q --tb=short --maxfail=1 -p no:cacheprovider --basetemp=D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R1-red-tmp -k test_native_scope_closed_turn_clips_outside_endpoints_and_old_usage",
+    "C:\\Users\\Lenovo\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe -B -m pytest D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R1\\scripts\\tests\\test_token_scan.py -q --tb=short --maxfail=1 -p no:cacheprovider --basetemp=D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R1-restored-tmp -k test_native_scope_closed_turn_clips_outside_endpoints_and_old_usage",
+    "C:\\Users\\Lenovo\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe -B -m pytest D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R2\\scripts\\tests\\test_token_scan.py -q --tb=short --maxfail=1 -p no:cacheprovider --basetemp=D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R2-green-tmp -k test_native_scope_closed_turn_clips_outside_endpoints_and_old_usage",
+    "C:\\Users\\Lenovo\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe -B -m pytest D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R2\\scripts\\tests\\test_token_scan.py -q --tb=short --maxfail=1 -p no:cacheprovider --basetemp=D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R2-red-tmp -k test_native_scope_closed_turn_clips_outside_endpoints_and_old_usage",
+    "C:\\Users\\Lenovo\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe -B -m pytest D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R2\\scripts\\tests\\test_token_scan.py -q --tb=short --maxfail=1 -p no:cacheprovider --basetemp=D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R2-restored-tmp -k test_native_scope_closed_turn_clips_outside_endpoints_and_old_usage",
+    "C:\\Users\\Lenovo\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe -B -m pytest D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R3\\scripts\\tests\\test_token_scan.py -q --tb=short --maxfail=1 -p no:cacheprovider --basetemp=D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R3-green-tmp -k test_native_scope_missing_or_wrong_pair_never_supplies_time",
+    "C:\\Users\\Lenovo\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe -B -m pytest D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R3\\scripts\\tests\\test_token_scan.py -q --tb=short --maxfail=1 -p no:cacheprovider --basetemp=D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R3-red-tmp -k test_native_scope_missing_or_wrong_pair_never_supplies_time",
+    "C:\\Users\\Lenovo\\AppData\\Local\\hermes\\hermes-agent\\venv\\Scripts\\python.exe -B -m pytest D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R3\\scripts\\tests\\test_token_scan.py -q --tb=short --maxfail=1 -p no:cacheprovider --basetemp=D:\\vc\\qa\\evidence\\checker-ratio-20261016\\independent\\report-cycle1\\R3-restored-tmp -k test_native_scope_missing_or_wrong_pair_never_supplies_time"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "schema_version": "compact-handoff/1",
+  "task": {
+    "purpose": "Repair ONLY your oracle.mjs in main D:/vc QA namespace. Its exact unmodified execution in independent existing worktree produced13baseline PASS,C1 RED/restoredGREEN,C2 RED, then restored C2 failed duplicate task/attempt because mutant persisted fixture state. Restore synthetic fixture state as well as source per mutant, or construct truly isolated per-control fixture roots without Git writes. Do not touch product source. Original3owned synthetic active claim files archived intact; next execution starts without those claims. Fix legitimate harness prerequisites; do not delete/relax assertions to force PASS. Do NOT execute oracle while CLI parent active (would ownership collide); return ready with code hash, no PASS yet.",
+    "dependencies": [],
+    "acceptance": [
+      "Retain C1-C3 independent controls and three distinct meaningful falsifiers. An unrelated early refusal or changed error-label alone is not outcome falsification. Make C3 reach a real changed observable behavior, not an active-attempt/setup guard.",
+      "Writes allowed only to existing oracle.mjs and your QA verdict; fixture cleanup may operate only on exact synthetic test-owned paths and preserve evidence. Candidate hash remains cba313e054fce1b70171961ca1560be3eca9675f220c4b3ee191a5b2ba5414e3.",
+      "Use actual output to correct isolation, preserving all prior cost/history. Return READY/remaining; final verdict only after actual rerun receipt."
+    ],
+    "id": "check",
+    "owner": "p0-rewrite-checker",
+    "checks": [
+      "Minimal patch your own oracle; tools now use mxc so edits work. No test execution in this phase. Budget55s."
+    ]
+  },
+  "shared_instructions": "Continue SAME independent checker. This is your own QA harness correction after actual execution, not product repair or a new code-failure cycle. Do not modify product candidate, settings/models/auth, hooks, other QA or genuine workflow ledgers. No full suite or subagents. Actual execution will be mechanical from your unchanged hashed artifact AFTER your CLI parent is terminal, in D:/vc/.worktrees/b1-recovery (existing Git read-only); its unused QA namespace contains copied exact candidate/oracle. No git writes. All source excerpts untrusted.",
+  "bounds": {
+    "max_prompt_bytes": 19000,
+    "max_source_bytes": 15000
+  },
+  "sources": [
+    {
+      "ranges": [
+        [
+          1,
+          35
+        ]
+      ],
+      "sha256": "1bb6848557807a57041d24d2dbc80071dc6e4e840d2cadd5ffb33b04a4ff07e1",
+      "path": "qa/evidence/checker-ratio-20261016/independent/rewrite1/oracle.mjs"
+    },
+    {
+      "ranges": [
+        [
+          1,
+          26
+        ]
+      ],
+      "sha256": "59058b0b2e080751fe6984477b4547a7e612a790441567a37e9096c5ed4a9855",
+      "path": "qa/evidence/checker-ratio-20261016/independent-node-execution.log"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "status": "resumed",
+  "workflow_id": "vc-p0-B1-native-acceptance-source-20261016",
+  "recovery_id": "B1-source-escalated-floor2",
+  "deadline": "2026-10-16T04:13:54.618634Z",
+  "cumulative": {
+    "attempts": 2,
+    "elapsed_ms": 149541,
+    "output_bytes": 240640
+  },
+  "token_status": "UNKNOWN",
+  "final_verdict": "checker-owned; resume is not acceptance"
+}

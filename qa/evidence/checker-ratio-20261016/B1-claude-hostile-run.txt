@@ -1,0 +1,48 @@
+✖ checker-ratio: synthetic full plan-build-seal-check accounting retains earlier costs exactly once rejecting lost-plan-session (25823.7723ms)
+✖ checker-ratio: synthetic full plan-build-seal-check accounting retains earlier costs exactly once rejecting final-maker-session (33678.1673ms)
+✔ checker-ratio: native final artifact capture is owned bounded and matches actual final message (31882.0978ms)
+✔ checker-ratio: generic execution cannot inject native proof or approve itself (13324.3665ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 107424.3174
+
+✖ failing tests:
+
+test at tools\tests\tick-modes.test.mjs:2518:497
+✖ checker-ratio: synthetic full plan-build-seal-check accounting retains earlier costs exactly once rejecting lost-plan-session (25823.7723ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/hostile/tools/tests/tick-modes.test.mjs:2621:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.start (node:internal/test_runner/test:1000:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /maker session must be independent/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tools\tests\tick-modes.test.mjs:2518:497
+✖ checker-ratio: synthetic full plan-build-seal-check accounting retains earlier costs exactly once rejecting final-maker-session (33678.1673ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/hostile/tools/tests/tick-modes.test.mjs:2656:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /native final reviewer cannot be original maker session/,
+    operator: 'throws',
+    diff: 'simple'
+  }

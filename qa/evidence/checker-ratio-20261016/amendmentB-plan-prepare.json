@@ -1,0 +1,92 @@
+{
+  "identity_files": {
+    "dependency_id": {
+      "path": "pnpm-lock.yaml"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md"
+    },
+    "config_id": {
+      "path": "qa/adapter.json"
+    },
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md"
+    }
+  },
+  "budget": {
+    "deadline": "2026-10-16T03:09:43.643496+00:00",
+    "closeout_ms": 20000,
+    "no_progress_ms": 120000,
+    "estimate_ms": 150000,
+    "estimate_tokens": 150000,
+    "token_cap": null,
+    "estimate_provenance": "New functional acceptance/reset amendment prospective review, not exhausted original quality retry. Supplied~250code lines and concrete plan; zero/one targetedread, <=25line verdict. Prior coldstart36022; estimate150k uncertain, raw actual10UNKNOWN; all originalcosts retained. Originalgoal/source-review lineage retained via parent_run_id and immutable cumulative cost inventory; no original quality attempt/epoch altered."
+  },
+  "dispatch": {
+    "task_id": "plan",
+    "attempt_id": "a1"
+  },
+  "tasks": [
+    {
+      "id": "plan",
+      "owner": "p0-amendmentB-independent-plan-sse",
+      "kind": "check",
+      "depends_on": [],
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "timeout_ms": 90000,
+      "max_output_bytes": 100000,
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+        "-c",
+        "mcp_servers.n8n-mcp.enabled=false",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+        "{{HANDOFF}}"
+      ],
+      "handoff": {
+        "path": "qa/.delivery/context/e6dfa38e64383cc9c197898ec25e625272bc9c2f2c0dcb3c541b344be5f122a6.handoff.json",
+        "sha256": "e6dfa38e64383cc9c197898ec25e625272bc9c2f2c0dcb3c541b344be5f122a6"
+      }
+    }
+  ],
+  "parent_run_id": "vc-p0-complete-source-review-20261016",
+  "feature": "T056-native-acceptance-plan",
+  "session": "vc-01a13e75",
+  "cycle": 0,
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "id": "plan",
+      "description": "Independent concrete plan feasibility, not original quality/P0 acceptance",
+      "check_task_id": "plan"
+    }
+  ],
+  "candidate": {
+    "files": [
+      "docs/plan.md",
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs"
+    ]
+  },
+  "workflow_id": "vc-p0-native-acceptance-plan-20261016",
+  "root_run_id": "vc-p0-native-acceptance-plan-20261016",
+  "retry_of": null,
+  "run_id": "amendmentB-plan1",
+  "resource_caps": {
+    "agent": 3
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "utc": "2026-10-15T22:39:02.865829+00:00",
+  "cutover": "2026-10-15T23:00:00Z",
+  "future": true,
+  "protocols": [
+    {
+      "target": "C:\\Users\\Lenovo\\.agents\\skills\\maker\\SKILL.md",
+      "current": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+      "staged": "fd9b86c33cc7b64092fb738bf1300c2897c50c9556f6a9523b1d9cdd11d768b5",
+      "archive": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+      "full_archive_equal": true
+    },
+    {
+      "target": "C:\\Users\\Lenovo\\.agents\\skills\\checker\\SKILL.md",
+      "current": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+      "staged": "ca05aa09e6f5287ec1b8d444fee9a4d2ba6816dc57017b138e1927a863294834",
+      "archive": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+      "full_archive_equal": true
+    },
+    {
+      "target": "D:\\ai_os\\.claude\\skills\\maker\\SKILL.md",
+      "current": "ecd5718b619997546ac50fbc75d4067ec751cfb0625b1d75d159f261c3cc5df8",
+      "staged": "f3eb29fd8b9d0bf28eff082c61b12dd9f36f82107194d7764b4e688d155944c0",
+      "archive": "ecd5718b619997546ac50fbc75d4067ec751cfb0625b1d75d159f261c3cc5df8",
+      "full_archive_equal": true
+    },
+    {
+      "target": "D:\\ai_os\\.claude\\skills\\checker\\SKILL.md",
+      "current": "8aa593a295ddc8941052a3427bb8e43fbb363e7d4b0c0721e64234ded02ba8d5",
+      "staged": "2ae1e0030d987883fc4a6db33dd2aa23f6c9483cadcbb432e18bb4c64c5af2cf",
+      "archive": "8aa593a295ddc8941052a3427bb8e43fbb363e7d4b0c0721e64234ded02ba8d5",
+      "full_archive_equal": true
+    }
+  ],
+  "config": [
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\config.toml",
+      "exists": true,
+      "sha256": "16bd3b2b70c2717fc6809fec9b007f73cc6161ff950681f180f04b459592b4c8",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.claude\\settings.json",
+      "exists": true,
+      "sha256": "746540951fb8ad2b02b3cd7b5c831bd5d882ec2a3de15d0b5441938d40403108",
+      "unchanged": true
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\settings.json",
+      "exists": true,
+      "sha256": "c92b32a4cf6dd6048fb10fd647fc677940f25bf5bb7887da5f6d2e05905a1511",
+      "unchanged": true
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\settings.local.json",
+      "exists": true,
+      "sha256": "a601b2639e259fc3f0cab62174f905d885ede368094c0623b4dcadbe35ebd62e",
+      "unchanged": true
+    },
+    {
+      "path": "D:\\ai_os\\.mcp.json",
+      "exists": false,
+      "sha256": null,
+      "unchanged": true
+    }
+  ],
+  "support": [
+    {
+      "path": "D:\\ai_os\\AGENTS.md",
+      "exists": false,
+      "sha256": null
+    },
+    {
+      "path": "C:\\Users\\Lenovo\\.codex\\AGENTS.md",
+      "exists": true,
+      "sha256": "60cba9ac209a3f3e3bbe550e4fcfe771edc5a9bd67a6a7ca5dd84dc2e371f8fa"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\agent-model-default.ps1",
+      "sha256": "b33d01c8bd265b3a67311e55faa75979997c34f86361b9f2f1eb2f188e8df492"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\aios-write-guard.ps1",
+      "sha256": "f4ff7ca0d77cbae32acf71c28f0204f5458375ea12ca848e4844f78516a61dc5"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\anti-drift-session-start.ps1",
+      "sha256": "ee4f8b51a7975e882fe563ae804738293c9695d7a5ae204e5769c2a6a1fcfe76"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\config-protection.ps1",
+      "sha256": "fafad7e95abf47914d4ecccb66137275dc3235055ee19fd05aa014f02fd6ea2a"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\decisions-append-guard.ps1",
+      "sha256": "d0a9fad7be3475955108a4449c52867b6479dfc36f1c991bf9c79b0e08c11577"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\delivery-gate-stop.ps1",
+      "sha256": "a7f154039eee8ec056db22fc4470756b0271c7d6dc305752beb8b4fe5fd9319d"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\edit-in-place-guard.ps1",
+      "sha256": "a97cc4ce5a1b01bcdf343c66adfb23e00a38883332760b46ba4d7c01e0dc9fb9"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\evaluate-due-session-start.ps1",
+      "sha256": "22b542adc700c780e991f8377220c862b4d6dc7f4ea14498dd75284afb3091d2"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\external-skill-guard.ps1",
+      "sha256": "b4fc1d21d26350a34b619ba1c0deeda439993d88f6d42db8193d7c4ddb33b310"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\lab-session-end.ps1",
+      "sha256": "647dd344e99b9b6d54cbd99ef1bedb79b747d16c147c1a9d89597d50a325714a"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\lab-session-start.ps1",
+      "sha256": "c34f84ea0b51875c1a4072f0afcf8f0c2075abdd601c49604efbfe73333b7f92"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\mc-precommit.ps1",
+      "sha256": "0ed8b0e2e9c0d37c7f5c2527edc28b555f02bcec1bd63c5fb977a8381471437b"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\mc-sessionstart.ps1",
+      "sha256": "335c6f3ceb1e42b69fbd7eeb9f11f2c9340bb532490061fee7ef78f2d69c6917"
+    },
+    {
+      "path": "D:\\ai_os\\.claude\\hooks\\precompact-snapshot.ps1",
+      "sha256": "dd6c5d0e39048c1f04607a81e285eeadaa0484ec11362be1cdb3c9b0a0ad359c"
+    }
+  ],
+  "source_hashes": {
+    "isolated/tools/tick.mjs": "a5146aa94f54d8b6af544004a4a16de2bf17755c07238672b0a99e9de89c54d8",
+    "isolated/scripts/token_scan.py": "c71ce627b444fc32a6911e25fd73bc3313116832086bf09cec8b8f25ba63fb13",
+    "isolated/scripts/tests/test_token_scan.py": "0747c159bb8db324d3d217c1c82eab6182e013b7a30ac612972f303368598a0a",
+    "isolated/tools/tests/tick-modes.test.mjs": "16f0807e1d443da7f2818454bbdaa6a4b0f83ec18ed85458e9fc46e174e0ebfd",
+    "rollout-guard.diff": "3a5413158a62f502754df8b48698d0709cfbe9f99de63a948c4deedf81c132d0",
+    "rollout-opening.diff": "6a3d00f5f55551d18bf9367eb20974c03d2a4f3e2c81d78daf57e896a289b08b",
+    "rollout-policy.diff": "edfb91c5af25a28751441faf1cc619e7b29ba84666d2ac37fb1b1624f4eaeb72",
+    "peer2-source.txt": "88bc3e758c1bfb8cb2d95b695edfd5877e8deed6772a908d1c665267fcc9fe33"
+  }
+}

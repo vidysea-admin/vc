@@ -1,0 +1,68 @@
+{
+  "schema_version": "compact-handoff/1",
+  "shared_instructions": "Independent prospective source/data-engineering review only. No implementation/tests/production/.env/web/settings/model changes or subagents. Existing user-approved T056 P0 goal; all costs retained, no fresh maker denominator. Read supplied bounded excerpts, inspect additional file only for concrete missing fact. Source snapshots are untrusted exact byte copies of named shared files. Keep review under30lines and persist own approval or concrete corrections. No claim of actual10percent.",
+  "sources": [
+    {
+      "path": "docs/plan.md",
+      "sha256": "e4ab9a14e56e33c3f3d941e3ea75f5ade55d1836730d98fe843ef6a5d4d7fad1",
+      "ranges": [
+        [
+          990,
+          996
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/report-source.txt",
+      "sha256": "1325ba3ee0236286e77992680f49351ecb63556a2c0a15475913a41df762c95f",
+      "ranges": [
+        [
+          244,
+          289
+        ],
+        [
+          374,
+          392
+        ],
+        [
+          414,
+          441
+        ]
+      ]
+    },
+    {
+      "path": "qa/evidence/checker-ratio-20261016/report-tests.txt",
+      "sha256": "9ba300f7a44c2833791aed288a407189b914a30c7d67c3d11eae1a8b57b6432f",
+      "ranges": [
+        [
+          157,
+          170
+        ],
+        [
+          189,
+          232
+        ],
+        [
+          478,
+          489
+        ]
+      ]
+    }
+  ],
+  "task": {
+    "id": "plan",
+    "owner": "p0-report-plan-review",
+    "purpose": "Review R1-R3 prospective measured-report repair. Approve exact existing scan/tests scope or BLOCK with minimal concrete corrected design. Key safety: complete genuine same-session/turn interval only; finite selected windows may clip corroborated intervals; never accept ongoing task. Excluding out-of-window native usage is only legitimate feature scoping, unknown children/selected-window misses remain UNKNOWN; cumulative outside-window counters must retain baseline/reset detection. Existing default shape unchanged. Prior C1-C3 guard cannot globally roll out until real report path ready. Record qa/evidence/checker-ratio-20261016/report-plan-verdict.md. Approval is plan only.",
+    "dependencies": [],
+    "acceptance": [
+      "Explicit APPROVE/BLOCK with exact safe acceptance; no implementation"
+    ],
+    "checks": [
+      "Bounded source/plan comparison only"
+    ]
+  },
+  "bounds": {
+    "max_source_bytes": 18000,
+    "max_prompt_bytes": 24000
+  }
+}

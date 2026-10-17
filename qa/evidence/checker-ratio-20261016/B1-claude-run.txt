@@ -1,0 +1,12 @@
+✔ checker-ratio: synthetic full plan-build-seal-check accounting retains earlier costs exactly once rejecting lost-plan-session (4292.888ms)
+✔ checker-ratio: synthetic full plan-build-seal-check accounting retains earlier costs exactly once rejecting final-maker-session (9830.0648ms)
+✔ checker-ratio: native final artifact capture is owned bounded and matches actual final message (23466.7607ms)
+✔ checker-ratio: generic execution cannot inject native proof or approve itself (6313.9622ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 44180.2089

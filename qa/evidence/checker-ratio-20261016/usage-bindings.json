@@ -1,0 +1,25 @@
+{
+  "bindings": [
+    {
+      "feature_id": "checker-ratio-p0",
+      "transcript": "C:/Users/Lenovo/.codex/sessions/2026/10/15/rollout-2026-10-15T12-57-09-01a13e75-26ed-7893-ad85-abc47efe2502.jsonl",
+      "run_id": "root-maker",
+      "parent_run_id": null,
+      "cycle": 0,
+      "role": "maker",
+      "end": "2026-10-15T21:00:04.2330493Z",
+      "start": "2026-10-15T20:48:50.095Z",
+      "session_id": "01a13e75-26ed-7893-ad85-abc47efe2502"
+    },
+    {
+      "feature_id": "checker-ratio-p0",
+      "role": "checker",
+      "cycle": 0,
+      "parent_run_id": "root-maker",
+      "session_id": "01a14155-cc5a-7190-9db6-d44d2601e4ec",
+      "transcript": "C:/Users/Lenovo/.codex/sessions/2026/10/16/rollout-2026-10-16T02-21-44-01a14155-cc5a-7190-9db6-d44d2601e4ec.jsonl",
+      "run_id": "plan-review"
+    }
+  ],
+  "coverage_complete": true
+}

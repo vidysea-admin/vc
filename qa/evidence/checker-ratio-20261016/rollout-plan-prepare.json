@@ -1,0 +1,93 @@
+{
+  "identity_files": {
+    "dependency_id": {
+      "path": "pnpm-lock.yaml"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md"
+    },
+    "config_id": {
+      "path": "qa/adapter.json"
+    },
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md"
+    }
+  },
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "OriginalT056 rollout prospective review; no efficiency allowance reset; all prior costsretained",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T22:26:48.205Z",
+    "estimate_ms": 90000,
+    "no_progress_ms": 90000
+  },
+  "dispatch": {
+    "task_id": "plan",
+    "attempt_id": "a1"
+  },
+  "tasks": [
+    {
+      "resources": {
+        "agent": 1
+      },
+      "depends_on": [],
+      "id": "plan",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+        "-c",
+        "mcp_servers.n8n-mcp.enabled=false",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/rollout-plan-message.md",
+        "{{HANDOFF}}"
+      ],
+      "kind": "check",
+      "max_output_bytes": 180000,
+      "owner": "p0-rollout-plan-review",
+      "handoff": {
+        "path": "qa/.delivery/context/f765554689c0b2d385ed1eb63c04b86632b20dd62aeb38becb8ccd43cddbeff8.handoff.json",
+        "sha256": "f765554689c0b2d385ed1eb63c04b86632b20dd62aeb38becb8ccd43cddbeff8"
+      },
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/rollout-plan-verdict.md"
+      ],
+      "timeout_ms": 90000
+    }
+  ],
+  "parent_run_id": "vc-p0-report-cycle1-20261016",
+  "feature": "T056-rollout-plan",
+  "session": "vc-01a13e75",
+  "cycle": 0,
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "id": "R-plan",
+      "description": "Prospective report readiness plan approval",
+      "check_task_id": "plan"
+    }
+  ],
+  "candidate": {
+    "files": [
+      "docs/plan.md",
+      "qa/evidence/checker-ratio-20261016/report-installed-source.txt",
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs"
+    ]
+  },
+  "workflow_id": "vc-p0-rollout-plan-20261016",
+  "root_run_id": "vc-p0-rollout-plan-20261016",
+  "retry_of": null,
+  "run_id": "rollout-plan",
+  "resource_caps": {
+    "agent": 3
+  }
+}

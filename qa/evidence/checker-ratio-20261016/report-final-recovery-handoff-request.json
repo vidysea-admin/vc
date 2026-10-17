@@ -1,0 +1,32 @@
+{
+  "schema_version": "compact-handoff/1",
+  "shared_instructions": "FRESH independent completed-feature SSE plus data-accounting lens for existing T056 report-production repair. Not the author/plan approver. Read supplied bounded source/diff first; fetch extra source only for concrete missing fact. Relevant tests/falsifiers only, no VC/product/full-repo suites. No .env/real data/providers/web/settings/model/Git writes/subagents or shared-file edits. Main source read-only; owned isolated QA instrumentation allowed. All T056 checking/probes retained, actual aggregate ratio UNKNOWN. Use explicit --basetemp in your own unique QA directory (sandbox TEMP cannot write); shell login:false. Do not let missing fixture setup masquerade as product evidence. Max90s; write checkpoint/verdict as soon as mandatory evidence ready; no polish/probing campaign.",
+  "sources": [
+    {
+      "path": "qa/evidence/checker-ratio-20261016/isolated/scripts/token_scan.py",
+      "sha256": "2c07f5ec35b50806a9cd5b734b1a25a17ef42216ec030a2175df87950b214046",
+      "ranges": [
+        [
+          244,
+          325
+        ]
+      ]
+    }
+  ],
+  "task": {
+    "id": "final",
+    "owner": "p0-report-final",
+    "purpose": "SAME checker continuation. Prior49247ms stopped by output bytes from pytest39setup errors: basetemp PARENT directory absent, not permissions/product. Root now created only owned independent/report-final parent. Source unchanged. Do not reread whole files/skills. First independently reproduce suspected relevant defect: closed native task spanning selected bounded window followed by another OPEN task beginning AFTER the window end; does native_pending still mark report incomplete even though later task cannot intersect? If confirmed source bug, write concise FAIL and STOP, no unnecessary mutants. Otherwise rerun affected module with --tb=line --maxfail=1 using tmp2, save full output to owned log and emit concise tail; complete only pending required3falsifiers if feasible. Own verdict at independent/report-final/verdict.md, preserved UNKNOWN efficiency. No repeated changed-scope checks, no product edits. This is40000ms remaining of original90000ms after49247ms, all costs retained.",
+    "dependencies": [],
+    "acceptance": [
+      "Explicit own verified defect FAIL or full required evidence before PASS"
+    ],
+    "checks": [
+      "Own minimal counterexample first; stop at concrete FAIL; concise log output"
+    ]
+  },
+  "bounds": {
+    "max_source_bytes": 25000,
+    "max_prompt_bytes": 34000
+  }
+}

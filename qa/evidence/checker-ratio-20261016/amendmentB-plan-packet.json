@@ -1,0 +1,113 @@
+{
+  "schema_version": "reliable-delivery/1",
+  "workflow_id": "vc-p0-native-acceptance-plan-20261016",
+  "root_run_id": "vc-p0-native-acceptance-plan-20261016",
+  "feature": "T056-native-acceptance-plan",
+  "cycle": 0,
+  "parent_run_id": "vc-p0-complete-source-review-20261016",
+  "run_id": "amendmentB-plan1",
+  "session": "vc-01a13e75",
+  "retry_of": null,
+  "candidate": {
+    "head": "13207bd024e6d5e3e01c07843a12d40a9b53c56c",
+    "files": [
+      {
+        "path": "docs/plan.md",
+        "sha256": "fa94300edafa8e0b81fc22a417586087e6c91feb30262fd659bc619e27074d3e"
+      },
+      {
+        "path": "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs",
+        "sha256": "038099d93dae5371efcae044c0d932139f1425fe7a1d6c70258e97780b472f17"
+      }
+    ],
+    "dirty_inputs": [
+      "docs/plan.md",
+      "qa/evidence/checker-ratio-20261016/isolated/tools/tick.mjs"
+    ]
+  },
+  "policy_id": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48",
+  "protocol_id": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730",
+  "identity_files": {
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md",
+      "sha256": "686533117df163453e6146cd38d942662b9a4ec9b16e6418a630abd4c789ad48"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md",
+      "sha256": "93f5f001dce56058b5f24207e6c6a464f9048c7856817f3627c23ffbc5912730"
+    },
+    "config_id": {
+      "path": "qa/adapter.json",
+      "sha256": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2"
+    },
+    "dependency_id": {
+      "path": "pnpm-lock.yaml",
+      "sha256": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c"
+    }
+  },
+  "config_id": "7d0b12017c5212f985e74976bd23a8152ff1af62750b0bd3f015d4f564d6d3d2",
+  "runtime_id": "v24.13.1-win32-x64",
+  "dependency_id": "562f86492b23eab44f0fbff444a89e7ff8d053a7e97928a86b9eee0aa84fcd6c",
+  "budget": {
+    "deadline": "2026-10-16T03:09:43.643496+00:00",
+    "closeout_ms": 20000,
+    "no_progress_ms": 120000,
+    "estimate_ms": 150000,
+    "estimate_tokens": 150000,
+    "token_cap": null,
+    "estimate_provenance": "New functional acceptance/reset amendment prospective review, not exhausted original quality retry. Supplied~250code lines and concrete plan; zero/one targetedread, <=25line verdict. Prior coldstart36022; estimate150k uncertain, raw actual10UNKNOWN; all originalcosts retained. Originalgoal/source-review lineage retained via parent_run_id and immutable cumulative cost inventory; no original quality attempt/epoch altered."
+  },
+  "resource_caps": {
+    "agent": 3
+  },
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "id": "plan",
+      "description": "Independent concrete plan feasibility, not original quality/P0 acceptance",
+      "check_task_id": "plan"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "plan",
+      "owner": "p0-amendmentB-independent-plan-sse",
+      "kind": "check",
+      "depends_on": [],
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md"
+      ],
+      "resources": {
+        "agent": 1
+      },
+      "timeout_ms": 90000,
+      "max_output_bytes": 100000,
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "-c",
+        "windows.sandbox=mxc",
+        "-c",
+        "mcp_servers.n8n-mcp.url=\"https://api.n8n-mcp.com/mcp\"",
+        "-c",
+        "mcp_servers.n8n-mcp.enabled=false",
+        "exec",
+        "--sandbox",
+        "workspace-write",
+        "--json",
+        "--output-last-message",
+        "qa/evidence/checker-ratio-20261016/amendmentB-plan-verdict.md",
+        "-"
+      ],
+      "handoff": {
+        "path": "qa/.delivery/context/e6dfa38e64383cc9c197898ec25e625272bc9c2f2c0dcb3c541b344be5f122a6.handoff.json",
+        "sha256": "e6dfa38e64383cc9c197898ec25e625272bc9c2f2c0dcb3c541b344be5f122a6"
+      }
+    }
+  ],
+  "dispatch": {
+    "task_id": "plan",
+    "attempt_id": "a1"
+  }
+}

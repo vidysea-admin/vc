@@ -1,0 +1,5 @@
+{
+  "exit": 2,
+  "output": "UNKNOWN\nincomplete-telemetry:child_manifest_not_declared_complete,coverage_not_declared_complete,prior_checking_inventory_incomplete\n",
+  "actual_efficiency": "UNKNOWN"
+}

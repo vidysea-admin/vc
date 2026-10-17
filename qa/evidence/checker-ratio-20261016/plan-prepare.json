@@ -1,0 +1,84 @@
+{
+  "identity_files": {
+    "dependency_id": {
+      "path": "pnpm-lock.yaml"
+    },
+    "protocol_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/checker/SKILL.md"
+    },
+    "config_id": {
+      "path": "qa/adapter.json"
+    },
+    "policy_id": {
+      "path": "C:/Users/Lenovo/.agents/skills/maker/SKILL.md"
+    }
+  },
+  "budget": {
+    "estimate_tokens": null,
+    "token_cap": null,
+    "estimate_provenance": "Bounded read-only prospective source review, not measured efficiency; historical maker/token baseline unavailable",
+    "closeout_ms": 10000,
+    "deadline": "2026-10-15T20:54:24.9914043Z",
+    "estimate_ms": 90000,
+    "no_progress_ms": 90000
+  },
+  "dispatch": {
+    "attempt_id": "a1",
+    "task_id": "plancheck"
+  },
+  "tasks": [
+    {
+      "resources": {
+        "agent": 1
+      },
+      "depends_on": [],
+      "id": "plancheck",
+      "command": [
+        "C:/Users/Lenovo/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+        "exec",
+        "--sandbox",
+        "read-only",
+        "--json",
+        "{{HANDOFF}}"
+      ],
+      "kind": "check",
+      "max_output_bytes": 180000,
+      "owner": "p0-quality",
+      "handoff": {
+        "sha256": "1b9adc79d3cd3719891b58c8fc49ef2ed95b7d4aa1ebc52111ee9032b36d6172",
+        "path": "qa/.delivery/context/1b9adc79d3cd3719891b58c8fc49ef2ed95b7d4aa1ebc52111ee9032b36d6172.handoff.json"
+      },
+      "owns": [
+        "qa/evidence/checker-ratio-20261016/plan-quality-result.md"
+      ],
+      "timeout_ms": 90000
+    }
+  ],
+  "parent_run_id": null,
+  "feature": "checker-ratio-p0-plan",
+  "session": "vc-01a13e75",
+  "cycle": 0,
+  "closeout_resources": {
+    "agent": 1
+  },
+  "criteria": [
+    {
+      "check_task_id": "plancheck",
+      "id": "C1",
+      "description": "Independent prospective approval of ratio envelope amendment"
+    }
+  ],
+  "candidate": {
+    "files": [
+      "docs/plan.md",
+      "qa/evidence/checker-ratio-20261016/tick-source.txt"
+    ]
+  },
+  "workflow_id": "vc-checker-ratio-plan-20261016",
+  "root_run_id": "vc-checker-ratio-plan-20261016",
+  "retry_of": null,
+  "run_id": "ratio-plancheck",
+  "resource_caps": {
+    "agent": 2
+  }
+}

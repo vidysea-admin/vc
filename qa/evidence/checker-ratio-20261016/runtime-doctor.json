@@ -1,0 +1,535 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "1792099790s since unix epoch",
+  "overallStatus": "fail",
+  "codexVersion": "0.162.1",
+  "checks": {
+    "app_server.status": {
+      "id": "app_server.status",
+      "category": "app-server",
+      "status": "ok",
+      "summary": "background server is running",
+      "details": {
+        "app-server version": "0.162.1",
+        "control socket": "C:\\Users\\Lenovo\\.codex\\app-server-control\\app-server-control.sock",
+        "daemon state dir": "C:\\Users\\Lenovo\\.codex\\app-server-daemon",
+        "dedicated pid file": "C:\\Users\\Lenovo\\.codex\\app-server-daemon\\daemon.pid (file)",
+        "dedicated update-loop pid file": "C:\\Users\\Lenovo\\.codex\\app-server-daemon\\daemon-updater.pid (file)",
+        "mode": "ephemeral",
+        "pid file": "C:\\Users\\Lenovo\\.codex\\app-server-daemon\\app-server.pid (missing)",
+        "settings": "C:\\Users\\Lenovo\\.codex\\app-server-daemon\\settings.json (missing)",
+        "status": "running",
+        "update-loop pid file": "C:\\Users\\Lenovo\\.codex\\app-server-daemon\\app-server-updater.pid (missing)"
+      },
+      "remediation": null,
+      "durationMs": 11
+    },
+    "auth.credentials": {
+      "id": "auth.credentials",
+      "category": "auth",
+      "status": "ok",
+      "summary": "auth is configured",
+      "details": {
+        "auth file": "C:\\Users\\Lenovo\\.codex\\auth.json",
+        "auth storage mode": "File",
+        "stored API key": "false",
+        "stored ChatGPT tokens": "true",
+        "stored agent identity": "false",
+        "stored auth mode": "chatgpt"
+      },
+      "remediation": null,
+      "durationMs": 0
+    },
+    "config.load": {
+      "id": "config.load",
+      "category": "config",
+      "status": "ok",
+      "summary": "config loaded",
+      "details": {
+        "CODEX_HOME": "C:\\Users\\Lenovo\\.codex",
+        "active thread overrides": "not inspected",
+        "config.toml": "C:\\Users\\Lenovo\\.codex\\config.toml",
+        "config.toml parse": "ok",
+        "configuration load ms": "11",
+        "configuration scope": "invocation config, including cloud-managed policy",
+        "configured TUI mode": "fullscreen",
+        "cwd": "D:\\vc",
+        "enabled feature flags": "<redacted>",
+        "feature flag overrides": "memories=true",
+        "feature flags enabled": "59",
+        "log dir": "C:\\Users\\Lenovo\\.codex\\log",
+        "mcp servers": "3",
+        "model": "gpt-6.1-sol",
+        "model provider": "openai",
+        "sqlite home": "C:\\Users\\Lenovo\\.codex"
+      },
+      "remediation": null,
+      "durationMs": 0
+    },
+    "desktop.app.version": {
+      "id": "desktop.app.version",
+      "category": "desktop",
+      "status": "ok",
+      "summary": "the desktop application is installed",
+      "details": {
+        "log directory": "$HOME\\AppData\\Local\\Codex/Logs",
+        "running": "true",
+        "version": "26.1007.9446.0"
+      },
+      "remediation": null,
+      "durationMs": 0
+    },
+    "desktop.app_server.handshake": {
+      "id": "desktop.app_server.handshake",
+      "category": "desktop",
+      "status": "ok",
+      "summary": "the desktop app-server initialized successfully",
+      "details": {},
+      "remediation": null,
+      "durationMs": 0
+    },
+    "desktop.security.enforcement": {
+      "id": "desktop.security.enforcement",
+      "category": "desktop",
+      "status": "ok",
+      "summary": "no locally visible recent Codex security enforcement was found",
+      "details": {},
+      "remediation": null,
+      "durationMs": 0
+    },
+    "git.environment": {
+      "id": "git.environment",
+      "category": "git",
+      "status": "ok",
+      "summary": "git executable found; execution not verified",
+      "details": {
+        ".git entry": "directory",
+        "PATH git #1": "C:\\Program Files\\Git\\cmd\\git.exe",
+        "PATH git #2": "C:\\Users\\Lenovo\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\git\\cmd\\git.exe",
+        "PATH git entries": "2",
+        "git execution": "not inspected (PATH helpers are not executed)",
+        "repo detected": "true",
+        "repo root": "D:\\vc",
+        "selected git": "C:\\Program Files\\Git\\cmd\\git.exe"
+      },
+      "remediation": null,
+      "durationMs": 27
+    },
+    "git.worktree.dev_drive": {
+      "id": "git.worktree.dev_drive",
+      "category": "git",
+      "status": "warning",
+      "summary": "this worktree is not on a Windows Dev Drive; moving it to a trusted Dev Drive can significantly improve repository and filesystem performance",
+      "details": {},
+      "remediation": "create a trusted Windows Dev Drive for source repositories: https://learn.microsoft.com/en-us/<redacted>",
+      "durationMs": 0
+    },
+    "installation": {
+      "id": "installation",
+      "category": "install",
+      "status": "ok",
+      "summary": "installation looks consistent",
+      "details": {
+        "PATH codex #1": "C:\\Users\\Lenovo\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe",
+        "PATH codex #2": "C:\\Users\\Lenovo\\AppData\\Roaming\\npm\\codex.cmd",
+        "PATH codex #3": "C:\\Users\\Lenovo\\AppData\\Local\\OpenAI\\Codex\\bin\\9614f1d9b40d9c4f\\codex.exe",
+        "PATH codex entries": "3",
+        "current executable": "C:\\Users\\Lenovo\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe",
+        "install context": "standalone (windows, package C:\\Users\\Lenovo\\.codex\\packages\\standalone\\releases\\0.162.1-x86_64-pc-windows-msvc, bin C:\\Users\\Lenovo\\.codex\\packages\\standalone\\releases\\0.162.1-x86_64-pc-windows-msvc\\bin, resources C:\\Users\\Lenovo\\.codex\\packages\\standalone\\releases\\0.162.1-x86_64-pc-windows-msvc\\codex-resources, path C:\\Users\\Lenovo\\.codex\\packages\\standalone\\releases\\0.162.1-x86_64-pc-windows-msvc\\codex-path)",
+        "managed by Vite+": "false",
+        "managed by bun": "false",
+        "managed by npm": "false",
+        "managed by pnpm": "false",
+        "managed package root": "not set"
+      },
+      "remediation": null,
+      "durationMs": 38
+    },
+    "mcp.config": {
+      "id": "mcp.config",
+      "category": "mcp",
+      "status": "warning",
+      "summary": "MCP configuration has optional issues",
+      "details": {
+        "configured servers": "3",
+        "disabled servers": "0",
+        "node_repl": "env var CODEX_WINDOWS_REGISTERED_CORE is not set",
+        "stdio servers": "3"
+      },
+      "remediation": "Set the missing MCP env vars or disable the affected server.",
+      "durationMs": 5
+    },
+    "network.env": {
+      "id": "network.env",
+      "category": "network",
+      "status": "ok",
+      "summary": "network-related environment looks readable",
+      "details": {
+        "managed proxy": "not configured",
+        "proxy env vars": "none",
+        "respect system proxy": "disabled"
+      },
+      "remediation": null,
+      "durationMs": 0
+    },
+    "network.provider_reachability": {
+      "id": "network.provider_reachability",
+      "category": "reachability",
+      "status": "ok",
+      "summary": "active provider endpoints are reachable over HTTP",
+      "details": {
+        "ChatGPT inference URL": "https://chatgpt.com/backend-api/<redacted> reachable (HTTP 405)",
+        "desktop assets CDN": "https://persistent.oaistatic.com/codex-app-prod/<redacted> reachable (HTTP 200)",
+        "reachability mode": "ChatGPT auth"
+      },
+      "remediation": null,
+      "durationMs": 151
+    },
+    "network.websocket_reachability": {
+      "id": "network.websocket_reachability",
+      "category": "websocket",
+      "status": "ok",
+      "summary": "Responses WebSocket handshake succeeded",
+      "details": {
+        "DNS": "2 IPv4, 1 IPv6, first IPv6",
+        "auth mode": "chatgpt",
+        "connect timeout": "15000 ms",
+        "endpoint": "wss://chatgpt.com/backend-api/<redacted>",
+        "handshake result": "HTTP 101 Switching Protocols",
+        "model provider": "openai",
+        "provider name": "OpenAI",
+        "proxy env vars": "none",
+        "reasoning header": "false",
+        "server model present": "false",
+        "supports websockets": "true",
+        "wire API": "responses"
+      },
+      "remediation": null,
+      "durationMs": 632
+    },
+    "runtime.provenance": {
+      "id": "runtime.provenance",
+      "category": "runtime",
+      "status": "ok",
+      "summary": "running standalone on windows-x86_64",
+      "details": {
+        "commit": "unknown",
+        "current executable": "C:\\Users\\Lenovo\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe",
+        "install method": "standalone (windows, package C:\\Users\\Lenovo\\.codex\\packages\\standalone\\releases\\0.162.1-x86_64-pc-windows-msvc, bin C:\\Users\\Lenovo\\.codex\\packages\\standalone\\releases\\0.162.1-x86_64-pc-windows-msvc\\bin, resources C:\\Users\\Lenovo\\.codex\\packages\\standalone\\releases\\0.162.1-x86_64-pc-windows-msvc\\codex-resources, path C:\\Users\\Lenovo\\.codex\\packages\\standalone\\releases\\0.162.1-x86_64-pc-windows-msvc\\codex-path)",
+        "platform": "windows-x86_64",
+        "version": "0.162.1"
+      },
+      "remediation": null,
+      "durationMs": 0
+    },
+    "runtime.search": {
+      "id": "runtime.search",
+      "category": "search",
+      "status": "ok",
+      "summary": "search command found (bundled); execution not verified",
+      "details": {
+        "search command": "C:\\Users\\Lenovo\\.codex\\packages\\standalone\\releases\\0.162.1-x86_64-pc-windows-msvc\\codex-path\\rg.exe",
+        "search command readiness": "file exists",
+        "search provider": "bundled"
+      },
+      "remediation": null,
+      "durationMs": 0
+    },
+    "sandbox.filesystem_paths": {
+      "id": "sandbox.filesystem_paths",
+      "category": "sandbox",
+      "status": "ok",
+      "summary": "no explicit filesystem paths to probe",
+      "details": {},
+      "remediation": null,
+      "durationMs": 0
+    },
+    "sandbox.helpers": {
+      "id": "sandbox.helpers",
+      "category": "sandbox",
+      "status": "fail",
+      "summary": "elevated Windows sandbox provisioning recorded a structured failure",
+      "details": {
+        "approval policy": "OnRequest",
+        "codex-linux-sandbox helper": "none",
+        "denied-read glob rules": "0",
+        "denied-read restrictions": "false",
+        "denied-read rules": "0",
+        "error code": "helper_unknown_error",
+        "execve wrapper helper": "none",
+        "filesystem sandbox": "restricted",
+        "glob scan max depth": "unbounded",
+        "managed filesystem source": "none",
+        "network sandbox": "restricted",
+        "sandbox backend": "elevated",
+        "sandbox provisioning": "failed"
+      },
+      "issues": [
+        {
+          "severity": "fail",
+          "cause": "elevated Windows sandbox provisioning recorded a structured failure",
+          "measured": "helper_unknown_error",
+          "expected": null,
+          "remedy": "repair or reinstall the Codex CLI from an approved distribution",
+          "fields": [
+            "error code"
+          ]
+        }
+      ],
+      "remediation": "repair or reinstall the Codex CLI from an approved distribution",
+      "durationMs": 7
+    },
+    "security.endpoint": {
+      "id": "security.endpoint",
+      "category": "security",
+      "status": "warning",
+      "summary": "endpoint protection detected; Codex exclusions are unverified",
+      "details": {
+        "Codex exclusions": "not verified",
+        "endpoint products": "Microsoft Defender",
+        "exclusion targets": "signed Codex app; codex.exe; codex-windows-sandbox-setup.exe; codex-command-runner.exe; codex-code-mode-host.exe"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "cause": "Microsoft Defender can interfere with Codex. Verify Codex exclusions.",
+          "measured": "not verified",
+          "expected": "Codex application and helper exclusions",
+          "remedy": "Microsoft Defender: Add a certificate or executable-path exclusion for Codex and its helpers. If Attack Surface Reduction blocks Codex, add a rule exclusion. If Controlled Folder Access blocks Codex, allow the app.",
+          "fields": [
+            "Codex exclusions"
+          ]
+        }
+      ],
+      "remediation": "ask your security administrator to verify Codex exclusions and required helper allowances",
+      "durationMs": 36
+    },
+    "state.paths": {
+      "id": "state.paths",
+      "category": "state",
+      "status": "ok",
+      "summary": "state paths and databases are inspectable",
+      "details": {
+        "CODEX_HOME": "C:\\Users\\Lenovo\\.codex (dir)",
+        "active rollout files": "2549 files, 4308099642 total bytes, 1690113 average bytes",
+        "archived rollout files": "28 files, 50820719 total bytes, 1815025 average bytes",
+        "goals DB": "C:\\Users\\Lenovo\\.codex\\goals_1.sqlite (file)",
+        "goals DB integrity": "ok",
+        "log DB": "C:\\Users\\Lenovo\\.codex\\logs_2.sqlite (file)",
+        "log DB integrity": "ok",
+        "log dir": "C:\\Users\\Lenovo\\.codex\\log (missing)",
+        "memories DB": "C:\\Users\\Lenovo\\.codex\\memories_1.sqlite (file)",
+        "memories DB integrity": "ok",
+        "memories v2 DB": "C:\\Users\\Lenovo\\.codex\\memories_v2_1.sqlite (missing)",
+        "memories v2 DB integrity": "skipped (missing)",
+        "queue DB": "C:\\Users\\Lenovo\\.codex\\queue_1.sqlite (file)",
+        "queue DB integrity": "ok",
+        "sqlite home": "C:\\Users\\Lenovo\\.codex (dir)",
+        "standalone release cache": "3 entries in C:\\Users\\Lenovo\\.codex\\packages\\standalone\\releases",
+        "state DB": "C:\\Users\\Lenovo\\.codex\\state_5.sqlite (file)",
+        "state DB integrity": "ok",
+        "thread history DB": "C:\\Users\\Lenovo\\.codex\\thread_history_1.sqlite (file)",
+        "thread history DB integrity": "ok"
+      },
+      "remediation": null,
+      "durationMs": 39133
+    },
+    "state.rollout_db_parity": {
+      "id": "state.rollout_db_parity",
+      "category": "threads",
+      "status": "warning",
+      "summary": "rollout files and state DB thread inventory differ",
+      "details": {
+        "default model provider": "openai",
+        "rollout DB active files": "4966",
+        "rollout DB active rows": "5266",
+        "rollout DB archive mismatches": "0",
+        "rollout DB archived files": "29",
+        "rollout DB archived rows": "29",
+        "rollout DB duplicate DB paths": "0",
+        "rollout DB duplicate rollout thread id sample": "01a134d2-de6d-7b41-9bcf-24c7f9420d13",
+        "rollout DB duplicate rollout thread ids": "1",
+        "rollout DB malformed file names": "0",
+        "rollout DB missing active rows": "46",
+        "rollout DB missing active sample": [
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\13\\rollout-2026-10-13T16-03-17-01a134d2-de6d-7b41-9bcf-24c7f9420d13.jsonl",
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\08\\rollout-2026-10-08T01-25-28-01a117ef-686a-7c83-bd99-3cf0e3f4f63c.jsonl.zst",
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\08\\rollout-2026-10-08T08-57-07-01a1198c-e9b9-7e81-9969-6290f8ecf370.jsonl.zst",
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\08\\rollout-2026-10-08T09-34-44-01a119af-55e3-7113-814d-a5c10f2802ee.jsonl.zst",
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\08\\rollout-2026-10-08T11-06-20-01a11a03-3417-7721-a9a8-629e61a39df5.jsonl.zst"
+        ],
+        "rollout DB missing archived rows": "0",
+        "rollout DB model providers": "openai=5295",
+        "rollout DB rows": "5295",
+        "rollout DB scan cap reached": "false",
+        "rollout DB scan error sample": [
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\08\\rollout-2026-10-08T18-24-31-01a11b94-5d53-7593-ba52-487151bf9e63.jsonl (rollout at C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\08\\rollout-2026-10-08T18-24-31-01a11b94-5d53-7593-ba52-487151bf9e63.jsonl has no usable header record)",
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\06\\rollout-2026-10-06T04-12-46-01a10e3b-ccec-7f33-903f-251462f11881.jsonl (rollout at C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\06\\rollout-2026-10-06T04-12-46-01a10e3b-ccec-7f33-903f-251462f11881.jsonl has no usable header record)",
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\06\\rollout-2026-10-06T15-53-25-01a110bd-502d-7142-801e-3f652a768ac1.jsonl (rollout at C:\\Users\\Lenovo\\.codex\\sessions\\2026\\10\\06\\rollout-2026-10-06T15-53-25-01a110bd-502d-7142-801e-3f652a768ac1.jsonl has no usable header record)"
+        ],
+        "rollout DB scan errors": "3",
+        "rollout DB sources": "subagent:other=2350, subagent:thread_spawn=2210, vscode=719, exec=14, cli=2",
+        "rollout DB stale row sample": [
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\05\\01\\rollout-2026-05-01T07-36-38-019de149-b8d4-7b23-bc61-b8aea3a59957.jsonl",
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\05\\01\\rollout-2026-05-01T18-03-39-019de387-c52a-7cb1-b435-113598d8021f.jsonl",
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\05\\02\\rollout-2026-05-02T05-44-32-019de609-72b6-74a0-afe9-b59e82be00b3.jsonl",
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\05\\28\\rollout-2026-05-28T14-50-50-019e6de2-dfbe-7540-91e4-fd028e452a85.jsonl",
+          "C:\\Users\\Lenovo\\.codex\\sessions\\2026\\05\\28\\rollout-2026-05-28T14-51-00-019e6de3-059b-7c91-8abc-f4066699720b.jsonl"
+        ],
+        "rollout DB stale rows": "346"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "cause": "rollout files are missing from the state DB",
+          "measured": "46 active, 0 archived",
+          "expected": "every rollout file has a matching threads row",
+          "remedy": null,
+          "fields": []
+        },
+        {
+          "severity": "warning",
+          "cause": "state DB rows point at missing or unusable rollout files",
+          "measured": "346 stale rows",
+          "expected": "every state DB rollout path is a file on disk",
+          "remedy": null,
+          "fields": []
+        },
+        {
+          "severity": "warning",
+          "cause": "duplicate thread inventory entries found",
+          "measured": "1 duplicate rollout thread ids, 0 duplicate DB paths",
+          "expected": "one rollout path and thread id per thread",
+          "remedy": "Attach the doctor report to a bug report so support can inspect samples.",
+          "fields": []
+        },
+        {
+          "severity": "warning",
+          "cause": "rollout scan was incomplete or found bad files",
+          "measured": "3 scan errors, 0 malformed names, scan cap reached: false",
+          "expected": "rollout directories are fully scannable",
+          "remedy": "Check file permissions and unexpected files under CODEX_HOME sessions.",
+          "fields": []
+        }
+      ],
+      "remediation": null,
+      "durationMs": 38193
+    },
+    "system.disk": {
+      "id": "system.disk",
+      "category": "disk",
+      "status": "warning",
+      "summary": "low disk space (2.7 GiB)",
+      "details": {
+        "CODEX_HOME available": "2.7 GiB",
+        "failure threshold": "1.0 GiB",
+        "warning threshold": "5.0 GiB",
+        "worktree available": "141.7 GiB"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "cause": "CODEX_HOME has insufficient disk space",
+          "measured": "2.7 GiB",
+          "expected": "at least 5.0 GiB",
+          "remedy": "Free disk space or move the worktree to a larger volume.",
+          "fields": [
+            "CODEX_HOME available"
+          ]
+        }
+      ],
+      "remediation": null,
+      "durationMs": 0
+    },
+    "system.environment": {
+      "id": "system.environment",
+      "category": "system",
+      "status": "ok",
+      "summary": "OS language en-US",
+      "details": {
+        "EDITOR": "not set",
+        "GH_PAGER": "set",
+        "GIT_PAGER": "set",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "LC_CTYPE": "C.UTF-8",
+        "PAGER": "set",
+        "VISUAL": "not set",
+        "os": "Windows 10.0.26300 (Windows 11 CoreSingleLanguage) [64-bit]",
+        "os language": "en-US",
+        "os type": "Windows",
+        "os version": "10.0.26300"
+      },
+      "remediation": null,
+      "durationMs": 0
+    },
+    "terminal.env": {
+      "id": "terminal.env",
+      "category": "terminal",
+      "status": "warning",
+      "summary": "TERM=dumb - colors and cursor control are disabled in this non-interactive run",
+      "details": {
+        "COLORTERM": "present",
+        "NO_COLOR": "1",
+        "TERM": "dumb",
+        "color output": "disabled (NO_COLOR)",
+        "console input code page": "437",
+        "console output code page": "65001",
+        "effective locale": "C.UTF-8",
+        "stderr console mode": "unavailable",
+        "stderr is terminal": "false",
+        "stdin is terminal": "false",
+        "stdout console mode": "unavailable",
+        "stdout is terminal": "false",
+        "terminal": "dumb",
+        "terminal size": "120x30"
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "cause": "TERM=dumb - colors and cursor control are disabled in this non-interactive run",
+          "measured": "TERM=dumb",
+          "expected": null,
+          "remedy": null,
+          "fields": [
+            "TERM"
+          ]
+        }
+      ],
+      "remediation": null,
+      "durationMs": 0
+    },
+    "terminal.title": {
+      "id": "terminal.title",
+      "category": "title",
+      "status": "ok",
+      "summary": "terminal title default",
+      "details": {
+        "terminal title activity": "true",
+        "terminal title items": "activity, project-name",
+        "terminal title project source": "git repo root",
+        "terminal title project value": "vc",
+        "terminal title source": "default"
+      },
+      "remediation": null,
+      "durationMs": 0
+    },
+    "updates.status": {
+      "id": "updates.status",
+      "category": "updates",
+      "status": "ok",
+      "summary": "update configuration is locally consistent",
+      "details": {
+        "cached latest version": "0.162.1",
+        "check for update on startup": "true",
+        "last checked at": "2026-10-15T17:49:46.250427200Z",
+        "latest version": "0.162.1",
+        "latest version status": "current version is not older",
+        "update action": "standalone installer",
+        "version cache": "C:\\Users\\Lenovo\\.codex\\version.json"
+      },
+      "remediation": null,
+      "durationMs": 891
+    }
+  }
+}

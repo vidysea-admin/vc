@@ -1,0 +1,33 @@
+{
+  "schema_version": "compact-handoff/1",
+  "bounds": {
+    "max_source_bytes": 28000,
+    "max_prompt_bytes": 35000
+  },
+  "shared_instructions": "Read-only independent prospective plan review. Preserve installed project/security instructions. No subagents, external calls, edits or full-suite. Read bounded supplied sources first. User explicitly approved 10% aggregate time/tokens as a ceiling on 2026-10-16, overriding older diagnostic-only preference for this requested amendment. You are not alone; preserve peer work.",
+  "sources": [
+    {
+      "ranges": [
+        [
+          983,
+          989
+        ]
+      ],
+      "sha256": "41945cc0d6824077ee05c21fc7f38ff26432e1e1df1d76ff282fccaf81d2575e",
+      "path": "docs/plan.md"
+    }
+  ],
+  "task": {
+    "dependencies": [],
+    "owner": "p0-quality",
+    "id": "amendcheck",
+    "purpose": "Continue your original prospective plan review using amended contract. Your original BLOCK is preserved. Inspect this delta and return APPROVE/BLOCK only; no implementation, tests, tools or extra research. The source snapshot is unchanged; the amendment explicitly narrows admission-vs-actual claims and closes prior-debit/legacy gaps.",
+    "checks": [
+      "Source/contract reasoning only, <=45seconds. Existing peer source preserved. Return one concise verdict."
+    ],
+    "acceptance": [
+      "Review C1-C3 against supplied actual delivery source; no own code edits.",
+      "Check no reset, concurrent aggregate reservations, report integrity and unknown token honesty."
+    ]
+  }
+}
