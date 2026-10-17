@@ -53,6 +53,18 @@ test("a chat-store call on an unscoped Db is refused (tenant isolation fails clo
   const { db } = setup();
   await assert.rejects(createChatThread(db, { studentId: "stu-1", textStored: true }), TenantScopeError);
   await assert.rejects(claimChatTurn(db, claimInput()), TenantScopeError);
+  // every other exported chat-store call refuses an unscoped Db too, one by one
+  const ids = { studentId: "stu-1", threadId: "th-1" };
+  await assert.rejects(getChatThread(db, ids), TenantScopeError);
+  await assert.rejects(markChatThreadTextNotStored(db, ids), TenantScopeError);
+  await assert.rejects(listChatTurns(db, ids), TenantScopeError);
+  await assert.rejects(abandonChatTurn(db, { ...ids, turnId: "turn-1", leaseToken: "l" }), TenantScopeError);
+  await assert.rejects(
+    completeChatTurn(db, { ...ids, turnId: "turn-1", leaseToken: "l", channel: "text", assistantText: "x", response: RESPONSE }),
+    TenantScopeError,
+  );
+  await assert.rejects(recordStudentUsage(db, { studentId: "stu-1", textTurns: 1 }), TenantScopeError);
+  await assert.rejects(getStudentUsage(db, { studentId: "stu-1", month: "2026-10" }), TenantScopeError);
 });
 
 test("a first turn is claimed, completed, and a retry with the same turn id replays the stored answer without a second claim", async () => {

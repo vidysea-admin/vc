@@ -17,6 +17,19 @@ import { generateKeyPairSync } from "node:crypto";
 const PATHLYNKS = [{ key: "grade", value: "Grade 12, CBSE", source: "pathlynks" as const }];
 const proposeGermany = () => [{ key: "target_country", value: "Germany" }];
 
+/** Like assert.rejects for startApi, but if it wrongly starts, stop the server first so the failure is a clean red and not a hung process. */
+async function mustRefuse(p: Promise<{ stop(): Promise<void> }>, err: new (...a: never[]) => Error): Promise<void> {
+  let api: { stop(): Promise<void> } | undefined;
+  try {
+    api = await p;
+  } catch (e) {
+    assert.ok(e instanceof err, `expected ${err.name}`);
+    return;
+  }
+  await api.stop();
+  assert.fail("startApi started, but it must have refused");
+}
+
 async function askOnce(w: ReturnType<typeof chatWorld>, token: string, threadId: string, id: string) {
   const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: id } });
   assert.equal(res.status, 200);
@@ -171,7 +184,7 @@ test("startApi: flag on with the gate open but no student JWT configuration is a
     connected += 1;
   };
   try {
-    await assert.rejects(
+    await mustRefuse(
       startApi(
         { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", VC_JWT_ISSUER: "https://issuer.synthetic.test", VC_JWT_AUDIENCE: "vc-api", VC_JWT_ALGORITHMS: "HS256", VC_JWT_HS256_SECRET: "synthetic-counsellor-secret-0123456789abcdef" },
         { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates } }) },

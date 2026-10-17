@@ -95,6 +95,22 @@ test("D-093 4A: an under-18 student with no guardian-consent claim still gets th
   }
 });
 
+test("D-093 4A: an under-18 student without consent who opens the chat and leaves before asking anything has a thread already marked text-free", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(minor());
+    const threadId = await newThread(w, token);
+    const rows = w.fakeDb.collection<Record<string, unknown>>(COLLECTION_NAMES.chat_threads).all();
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]!.textStored, false);
+    const hist = await call(w, "GET", `${threadsPath("stu-1")}/${threadId}`, { token });
+    assert.equal(hist.json.textStored, false);
+    assert.deepEqual(hist.json.turns, []);
+  } finally {
+    w.cleanup();
+  }
+});
+
 test("D-093 4A: a token with no age and no minor claim is treated as under 18 (fail closed), so its text is not stored either", async () => {
   const w = chatWorld();
   try {
