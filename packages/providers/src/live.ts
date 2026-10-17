@@ -63,7 +63,11 @@ export interface LiveAuditFinding {
   detail: string;
 }
 
-/** The fixed crisis message (text always; pre-rendered 24 kHz PCM16 when the caller has it). */
+/**
+ * The fixed crisis message. `audio` is pre-rendered 24 kHz PCM16. It is optional in the type (the
+ * text channel needs none) but REQUIRED by `LiveSession` whenever a detector is wired: a voice
+ * student must never get silence after a crisis (fix cycle 1, M3).
+ */
 export interface LiveCrisisMessage {
   text: string;
   audio?: Uint8Array;
@@ -226,10 +230,16 @@ export class LiveSession implements LiveBackendSink {
   /**
    * While true, model audio and transcript are dropped: after a crisis trigger the fixed message
    * owns the floor, and after a client interrupt() the student has asked the model to stop. Cleared
-   * when the backend reports `interrupted` or `turnComplete` (the cancelled/finished generation is
-   * over), and, for a client interrupt only, when the next student speech is recognised.
+   * when the backend reports `turnComplete` (the generation is over), when it reports `interrupted`
+   * (unless a crisis mute is on, see below), and when the next student speech is recognised.
    */
   private muted = false;
+  /**
+   * Set by a crisis trigger, cleared only by `turnComplete` or by the next non-crisis student
+   * speech. While set, a backend `interrupted` event must NOT reopen model audio (F1): the backend
+   * confirms the interrupt we asked for, it does not mean the crisis message is done.
+   */
+  private crisisMute = false;
   private droppedModelAudioChunks = 0;
   private readonly sourced: string[] = [];
   private readonly now: () => number;
@@ -242,13 +252,23 @@ export class LiveSession implements LiveBackendSink {
     if (config.detectCrisis && !config.crisisMessage) {
       throw new LiveConfigError("detectCrisis requires crisisMessage: a detector with no fixed message to play is a silent no-op");
     }
+    const audio = config.crisisMessage?.audio;
+    if (config.detectCrisis && (!audio || audio.byteLength === 0 || audio.byteLength % 2 !== 0)) {
+      throw new LiveConfigError("detectCrisis requires crisisMessage.audio (non-empty 24 kHz PCM16): a voice student must never hear silence after a crisis");
+    }
     this.now = config.now ?? Date.now;
   }
 
   /** Called once by the provider after the transport is open. Replays anything that arrived earlier. */
   attach(backend: LiveBackend): this {
     this.backend = backend;
-    for (const run of this.pendingBackendEvents.splice(0)) run();
+    for (const run of this.pendingBackendEvents.splice(0)) {
+      try {
+        run();
+      } catch (err) {
+        this.emit({ type: "error", message: `replay after attach failed: ${errMsg(err)}` });
+      }
+    }
     return this;
   }
 
@@ -268,10 +288,11 @@ export class LiveSession implements LiveBackendSink {
 
   sendText(text: string): void {
     this.assertOpen();
-    // A typed message is as much student input as speech: it goes through the same crisis hook.
+    // A typed message is as much student input as speech: it goes through the same crisis hook,
+    // every time (also when a spoken crisis already fired for this utterance: M2).
     // Typed text is persisted by the text channel (U10), so it only reaches the voice thread here
     // when it triggers the crisis path (the fixed reply must follow the words that caused it).
-    if (this.scanForCrisis(text, text)) return; // the fixed message owns the floor; do not also prompt the model
+    if (this.scanForCrisis(text, text, true)) return; // the fixed message owns the floor; do not also prompt the model
     this.backend!.sendText(text);
   }
 
@@ -313,7 +334,10 @@ export class LiveSession implements LiveBackendSink {
 
   inputTranscript(text: string, final: boolean): void {
     if (this.closedFlag || !text) return;
-    if (this.muted && !this.crisisFiredForUtterance) this.muted = false; // student spoke again after a client interrupt
+    if (this.muted && !this.crisisFiredForUtterance) {
+      this.muted = false; // student spoke again after a client interrupt or an earlier crisis
+      this.crisisMute = false;
+    }
     this.userBuf = this.userBuf ? `${this.userBuf} ${text}`.trim() : text.trim();
     this.emit({ type: "transcript", role: "user", text, final });
     this.scanForCrisis(this.userBuf);
@@ -344,14 +368,20 @@ export class LiveSession implements LiveBackendSink {
     this.emit({ type: "tool_call", call });
     const handler = this.config.toolHandler;
     if (!handler) return;
-    void (async () => {
-      try {
-        const result = await handler(call);
-        if (!this.closedFlag) await this.sendToolResult(call, result);
-      } catch (err) {
-        this.emit({ type: "error", message: `tool ${call.name} failed: ${errMsg(err)}` });
-      }
-    })();
+    const run = (): void => {
+      void (async () => {
+        try {
+          const result = await handler(call);
+          if (!this.closedFlag) await this.sendToolResult(call, result);
+        } catch (err) {
+          this.emit({ type: "error", message: `tool ${call.name} failed: ${errMsg(err)}` });
+        }
+      })();
+    };
+    // A call that beats `attach` (the transport's onmessage is live before the session has a backend)
+    // is queued and answered on attach, not turned into an error (M1).
+    if (this.backend) run();
+    else this.pendingBackendEvents.push(run);
   }
 
   turnComplete(): void {
@@ -359,13 +389,14 @@ export class LiveSession implements LiveBackendSink {
     this.flushUser(true);
     this.flushAssistant(false);
     this.muted = false;
+    this.crisisMute = false;
     this.emit({ type: "turn_complete" });
   }
 
   interrupted(): void {
     if (this.closedFlag) return;
     this.flushAssistant(true);
-    this.muted = false;
+    if (!this.crisisMute) this.muted = false; // after a crisis the mute lasts until turnComplete (F1, D-088 Q5)
     this.emit({ type: "interrupted" });
   }
 
@@ -403,10 +434,14 @@ export class LiveSession implements LiveBackendSink {
     }
   }
 
-  /** Returns true when the crisis path fired. `typed` is the text to record when it came from sendText. */
-  private scanForCrisis(text: string, typed?: string): boolean {
+  /**
+   * Returns true when the crisis path fired. `typed` is the text to record when it came from sendText.
+   * `force` (typed text) scans even when a crisis already fired for the current spoken utterance:
+   * the no-refire rule is for later chunks of the SAME utterance, not for a separate typed message.
+   */
+  private scanForCrisis(text: string, typed?: string, force = false): boolean {
     const detect = this.config.detectCrisis;
-    if (!detect || this.crisisFiredForUtterance) return false;
+    if (!detect || (this.crisisFiredForUtterance && !force)) return false;
     const started = this.now();
     let result: boolean | LiveCrisisDetection;
     try {
@@ -425,15 +460,25 @@ export class LiveSession implements LiveBackendSink {
 
   private fireCrisis(level: string | undefined, started: number): void {
     this.crisisFiredForUtterance = true;
+    // What the model already said is real: audit it and store it as an interrupted turn, exactly as
+    // a barge-in does, BEFORE the mute (F2).
+    this.flushAssistant(true);
     this.muted = true;
-    this.assistantBuf = ""; // whatever the model was mid-way through saying never reaches the thread as a finished turn
-    try {
-      this.backend!.interrupt();
-    } catch (err) {
-      this.emit({ type: "error", message: `interrupt failed: ${errMsg(err)}` });
-    }
+    this.crisisMute = true;
+    const interruptBackend = (): void => {
+      try {
+        this.backend!.interrupt();
+      } catch (err) {
+        this.emit({ type: "error", message: `interrupt failed: ${errMsg(err)}` });
+      }
+    };
+    // Before `attach` there is no backend yet: the student still hears the fixed message now, and
+    // the backend interrupt is replayed on attach (M1).
+    if (this.backend) interruptBackend();
+    else this.pendingBackendEvents.push(interruptBackend);
     const message = this.config.crisisMessage!;
-    if (message.audio) this.emit({ type: "audio", data: message.audio, mimeType: LIVE_OUTPUT_MIME, fixed: true });
+    // `audio` is guaranteed by the constructor (M3): the fixed message is never silent.
+    this.emit({ type: "audio", data: message.audio!, mimeType: LIVE_OUTPUT_MIME, fixed: true });
     this.emit({ type: "transcript", role: "assistant", text: message.text, final: true, fixed: true });
     const latencyMs = Math.max(0, this.now() - started);
     this.emit({ type: "crisis", ...(level !== undefined ? { level } : {}), message: message.text, latencyMs });

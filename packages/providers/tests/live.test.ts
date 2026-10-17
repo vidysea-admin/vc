@@ -23,7 +23,9 @@ import {
   LiveAudioFormatError,
   LiveConfigError,
   LiveNotWiredError,
+  LiveSession,
   LiveSessionClosedError,
+  MockLiveBackend,
   MockLiveProvider,
   buildGeminiLiveConfig,
   createSimpleOutputAuditor,
@@ -694,4 +696,118 @@ test("C5 audit A9b: createSimpleOutputAuditor numbers with thousands separators 
   const a = createSimpleOutputAuditor();
   assert.deepEqual(a({ text: "Fee is 12,000 euros and 3.5 percent.", sourcedText: ["12000 EUR; rate 3.5%"] }), []);
   assert.deepEqual(a({ text: "Fee is 13,000.", sourcedText: ["12000"] }).map((f) => f.detail), ["13000"]);
+});
+
+// =================================================================================================
+// C4 fix cycle 1: crisis interrupt path (F1, F2, M1, M2, M3)
+// =================================================================================================
+test("C4 crisis F1: the backend reports `interrupted` after the crisis trigger chunk; the model's audio and words stay silenced", async () => {
+  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED });
+  r.backend.emitInputTranscript("I will kill myself", false);
+  r.backend.emitInterrupted();
+  r.backend.emitOutputAudio(pcm(50));
+  r.backend.emitOutputTranscript("Have you thought about universities in");
+  await r.session.drain();
+  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "model audio leaked after crisis + interrupted");
+  assert.equal(r.session.droppedAudioChunks, 1);
+  assert.ok(!r.transcripts.some((t) => t.text.includes("universities")));
+});
+
+test("C4 crisis F1: the crisis arrives on a FINAL transcript chunk and `interrupted` follows; the mute still holds", async () => {
+  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED });
+  r.backend.emitInputTranscript("I will kill myself", true);
+  r.backend.emitInterrupted();
+  r.backend.emitOutputAudio(pcm(50));
+  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "model audio leaked after final crisis chunk + interrupted");
+});
+
+test("C4 crisis F1: after crisis + interrupted the model's turn ends; the next reply is audible again (the mute is not permanent)", async () => {
+  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED });
+  r.backend.emitInputTranscript("I will kill myself", false);
+  r.backend.emitInterrupted();
+  r.backend.emitTurnComplete();
+  r.backend.emitOutputAudio(pcm(3));
+  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 1);
+});
+
+test("C4 crisis F2: the model was mid-sentence with a figure when the student's crisis phrase arrived; the half reply is audited and stored as interrupted, before the student's words", async () => {
+  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED, auditOutput: AUDIT });
+  r.backend.emitOutputTranscript("The fee is 99999 rupees");
+  r.backend.emitInputTranscript("I will kill myself", false);
+  await r.session.drain();
+  assert.deepEqual(of(r.events, "flag").map((f) => f.detail), ["99999"], "spoken uncited number in the half reply was never audited");
+  assert.equal(r.audits.length, 1);
+  assert.deepEqual(
+    r.transcripts.map((t) => [t.seq, t.role, t.text, t.interrupted ?? false, t.fixed ?? false]),
+    [
+      [1, "assistant", "The fee is 99999 rupees", true, false],
+      [2, "user", "I will kill myself", false, false],
+      [3, "assistant", FIXED.text, false, true],
+    ],
+  );
+});
+
+test("C4 crisis M1: a crisis arrives from the transport before the session is attached; the fixed message plays now and the backend interrupt is replayed on attach", async () => {
+  const events: LiveEvent[] = [];
+  const session = new LiveSession({ onEvent: (e) => events.push(e), detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED });
+  const backend = new MockLiveBackend();
+  backend.bind(session);
+  backend.emitInputTranscript("I will kill myself", false);
+  assert.equal(of(events, "crisis").length, 1);
+  assert.equal(of(events, "audio").filter((a) => a.fixed).length, 1);
+  assert.equal(of(events, "error").length, 0, "a crisis before attach must not become an error");
+  assert.equal(backend.calls.filter((c) => c.type === "interrupt").length, 0, "nothing to interrupt yet");
+  session.attach(backend);
+  assert.equal(backend.calls.filter((c) => c.type === "interrupt").length, 1, "the skipped backend interrupt is replayed on attach");
+  assert.equal(of(events, "error").length, 0);
+});
+
+test("C4 crisis M1: the model asks for a KB tool before the session is attached; the call is answered after attach, not turned into an error", async () => {
+  const events: LiveEvent[] = [];
+  const session = new LiveSession({ onEvent: (e) => events.push(e), toolHandler: (c) => ({ ok: c.name }) });
+  const backend = new MockLiveBackend();
+  backend.bind(session);
+  backend.emitToolCall({ id: "t1", name: "search_kb", args: {} });
+  await new Promise((r) => setImmediate(r));
+  assert.equal(of(events, "error").length, 0, "a tool call before attach must not become an error");
+  session.attach(backend);
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(backend.calls.filter((c) => c.type === "tool_response"), [{ type: "tool_response", id: "t1", name: "search_kb", result: { ok: "search_kb" } }]);
+  assert.equal(of(events, "error").length, 0);
+});
+
+test("C4 crisis M2: the student speaks a crisis phrase and then types another distress message in the same utterance; the typed text is scanned, not forwarded, and answered", async () => {
+  const seen: string[] = [];
+  const r = await rig({ detectCrisis: (t) => (seen.push(t), CRISIS_RE.test(t)), crisisMessage: FIXED });
+  r.backend.emitInputTranscript("I will kill myself", false);
+  r.session.sendText("please help i want to end my life");
+  await r.session.drain();
+  assert.ok(seen.includes("please help i want to end my life"), "the typed text never reached the detector");
+  assert.equal(r.backend.calls.filter((c) => c.type === "text").length, 0, "crisis text was forwarded to the model");
+  assert.equal(of(r.events, "crisis").length, 2);
+  assert.ok(r.transcripts.some((t) => t.role === "user" && t.text.includes("end my life")), "the typed words are in the thread");
+});
+
+test("C4 crisis M2: a harmless typed message after a spoken crisis in the same utterance is still scanned and forwarded", async () => {
+  const seen: string[] = [];
+  const r = await rig({ detectCrisis: (t) => (seen.push(t), CRISIS_RE.test(t)), crisisMessage: FIXED });
+  r.backend.emitInputTranscript("I will kill myself", false);
+  r.session.sendText("what is the deadline");
+  assert.ok(seen.includes("what is the deadline"));
+  assert.deepEqual(r.backend.calls.filter((c) => c.type === "text"), [{ type: "text", text: "what is the deadline" }]);
+});
+
+test("C4 crisis M3: a voice deployment wires a detector and a fixed message with text only (no audio); the session refuses to start rather than leave the student with silence", async () => {
+  await assert.rejects(
+    () => new MockLiveProvider().connect({ onEvent: () => {}, detectCrisis: () => true, crisisMessage: { text: "call 14416" } }),
+    LiveConfigError,
+  );
+  await assert.rejects(
+    () => new MockLiveProvider().connect({ onEvent: () => {}, detectCrisis: () => true, crisisMessage: { text: "call 14416", audio: new Uint8Array(0) } }),
+    LiveConfigError,
+  );
+  await assert.rejects(
+    () => new MockLiveProvider().connect({ onEvent: () => {}, detectCrisis: () => true, crisisMessage: { text: "call 14416", audio: new Uint8Array(3) } }),
+    LiveConfigError,
+  );
 });
