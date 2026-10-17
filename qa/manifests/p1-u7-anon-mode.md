@@ -7,7 +7,8 @@ dual-trigger: security apps/api/src/anonymous.ts:54 (public unauthenticated rout
 **Persona walk:** skip (API-only, no screen)
 **Executor:** claude-sonnet-subagent (maker/builder p1-u7, resumed after a session restart)
 
-Status: ready-for-check
+Status: checked-PASS
+Checked: cycle 0 dual PASS. Checker A qa/verdicts/p1-u7-anon-mode.md (975ccac); checker B qa/verdicts/p1-u7-anon-mode.b.md (ede16bb). Proposed issues minted as ISS-125..ISS-135 in qa/issues.jsonl.
 
 ## Criteria
 Tags are the ids used on the Pre-check, Tests and Falsify lines below.
@@ -76,7 +77,7 @@ Pre-check[RCDEF.api]: 38f32a4 bash scripts/vc-testlock.sh pnpm -C apps/api exec 
 Pre-check[RCDE.eng]: 38f32a4 bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="U7 repair C|U7 repair D|U7 repair E" tests/student-graph.test.ts -> pass 3 (0 failed) t=6 blobs=packages/engine/tests/student-graph.test.ts:499c591
 Pre-check[RF.eng]: 38f32a4 bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="U7 repair F" tests/student-classify.test.ts -> pass 1 (0 failed) t=0 blobs=packages/engine/tests/student-classify.test.ts:624cebf
 mutant-cap-raise: 19 criteria in one unit (public route, limiter, counter, crisis, claims), 31 single-line mutations = one to two per criterion; each mutation has a named test that kills it, the one survivor is equivalent
-Metrics: start=2026-10-17T19:58+05:30 end=2026-10-18T02:15+05:30 suite_runs=0 mutations=31 survivors_final=1 cycle=0 policy=proportional-verification/2026-10-17.14 tokens=unavailable
+Metrics: start=2026-10-17T19:58+05:30 end=2026-10-18T02:15+05:30 suite_runs=0 mutations=31 survivors_final=1 defects_unit=0 cycle=0 policy=proportional-verification/2026-10-17.14 tokens=unavailable
 
 ## How to verify (commands + expected)
 - Per criterion: the Pre-check lines above (cwd = worktree root, through `scripts/vc-testlock.sh`); each line's `pass N fail 0` is the expected result. Logs `qa/evidence/p1-u7/precheck-<id>.txt`.

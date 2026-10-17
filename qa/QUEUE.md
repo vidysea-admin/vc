@@ -104,6 +104,22 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 - [ ] TODO · Lead review: enable the maker's second-opinion tester for UI units via LiteLLM, synthetic data only (B13); its findings enter as leads
 - [ ] TODO · Lead review: a recorded release walkthrough video (checker Playwright run of the full counsellor flow) under `qa/evidence/release-<date>/`, with a Hindi voice-over, plus a 7–8 point pre-release checklist the release verdict cites. Umesh sends it to Sapna ma'am + Gaurav bhaiya; the VC never sends it itself.
 
+## Candidates (human picks)
+
+Raised by the U7 anonymous-mode dual check (2026-10-18); none is a TODO row, the human picks. Sources: qa/verdicts/p1-u7-anon-mode.md, qa/verdicts/p1-u7-anon-mode.b.md, qa/evidence/p1-briefs/p1-u7-review-result.md.
+
+- [ ] CANDIDATE · priority: security · ISS-125 (medium): the anonymous route crisis exemption has no CPU budget; crisisGuard scans up to 256 KiB per request before the limiter (about 40-210 ms CPU each, unlimited per client). Fix: body byte cap or byte budget before the scan, a larger per-client crisis budget, or scan off the request path.
+- [ ] CANDIDATE · ISS-126 (low): crisis flood inflates the ${date}:crisis counter ($inc upsert per bypassed request).
+- [ ] CANDIDATE · ISS-127 (low): test gap, mutant RE-restricted-source-listed survives; manifest wrongly calls it equivalent.
+- [ ] CANDIDATE · ISS-128 (low): anonymousEnabledFromEnv trims, so " true " enables the route.
+- [ ] CANDIDATE · ISS-129 (low): test gap, X1 mutant (key reads X-Forwarded-For) survives; deployment must supply clientKey behind a proxy.
+- [ ] CANDIDATE · ISS-130 (low, info): limiter is per process (10 x N per minute with N instances).
+- [ ] CANDIDATE · ISS-131 (low): test gap, anonymous generic question matching an intent rule still going to search_kb is unpinned.
+- [ ] CANDIDATE · ISS-132 (low): limiter table at 50,000 keys refuses every new client (fail closed).
+- [ ] CANDIDATE · ISS-133 (low): scripts/vc-testlock.sh stale-lock age computed from a nonsense epoch difference.
+- [ ] CANDIDATE · ISS-134 (low): manifest template lacks a Test selection section and Sibling lines.
+- [ ] CANDIDATE · ISS-135 (low): EMAIL regex cost on 4000 chars and the trailing-slash 405 path are unmeasured/untested.
+
 ## Sweep notes (2026-09-26T19:44 IST, Mode B single-agent sweep — only qa/ + TASKS commits landed since the last sweep 38c426e, so sharding buys nothing)
 
 - **Bypass / pair-state (1):** no uncommitted or unmanifested code changes on main (`git status` shows only `qa/.last-tick` + `.handoffs/`). `t-021-provider-failover`'s worktree, snapshotted mid-sweep with ~15 uncommitted files, was committed (`0fa58c1`) by the live maker session between this sweep's first and second look — confirms the maker is active, not a bypass.
