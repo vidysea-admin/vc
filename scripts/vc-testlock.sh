@@ -106,10 +106,33 @@
 #     the removal.
 #   A token is not a Windows PID and is never passed to tasklist/Get-Process -- it exists purely to
 #   answer "is this still the directory I created", which nothing here answered before.
+#
+# D-096 item 1 -- TWO SLOTS (VC_TESTLOCK_SLOTS, default 2):
+#   - Slot 0 is the ORIGINAL path (LOCK_DIR, unchanged), so old copies still contend on it. Slot 1 is
+#     "${LOCK_DIR}.slot-1". Every slot uses the same mkdir + owner/token + liveness stale-break logic
+#     (claim_dir); release() frees only the slot(s) this process holds.
+#   - A holder tries slot 0 first, then slot 1, but slot 1 is only tried when free RAM at acquire time
+#     is >= VC_TESTLOCK_TWO_SLOT_MIN_GB (default 3.0). Tests drive that with the test-only
+#     VC_TESTLOCK_FREE_GB_OVERRIDE; unmeasurable free RAM counts as "too low" (slot 0 only).
+#   - VC_TESTLOCK_SLOTS=1 behaves exactly as before (single lock at LOCK_DIR).
+#   - VC_TESTLOCK_EXCLUSIVE=1 (a full suite) holds ALL slots: slot 0, then waits for slot 1, under one
+#     acquire timeout. Its slot-0 owner file carries EXCLUSIVE=1 so ordinary waiters do not keep
+#     refilling slot 1 and starve it. Everyone takes slot 0 before slot 1, so there is no deadlock.
 
 set -uo pipefail
 
-LOCK_DIR="${VC_TESTLOCK_DIR:-/c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock}"
+BASE_LOCK_DIR="${VC_TESTLOCK_DIR:-/c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock}"
+# LOCK_DIR is the directory of the slot THIS process holds (the helpers below all act on it); until
+# a slot is taken it points at slot 0, i.e. the original path.
+LOCK_DIR="$BASE_LOCK_DIR"
+SLOTS="${VC_TESTLOCK_SLOTS:-2}"
+EXCLUSIVE="${VC_TESTLOCK_EXCLUSIVE:-0}"
+TWO_SLOT_MIN_GB="${VC_TESTLOCK_TWO_SLOT_MIN_GB:-3.0}"
+EXCLUSIVE_FLAG=0      # 1 while this process takes the slots in exclusive mode (owner-file marker)
+SLOT_LABEL=0          # slot shown in the "running" log line
+EXTRA_DIRS=()         # exclusive mode: the further slot dirs held besides LOCK_DIR
+EXTRA_TOKENS=()
+ACQUIRE_START_TS=0
 STALE_FALLBACK_SECS="${VC_TESTLOCK_STALE_FALLBACK_SECS:-600}"
 ACQUIRE_TIMEOUT_SECS="${VC_TESTLOCK_TIMEOUT_SECS:-1800}"
 POLL_SECS="${VC_TESTLOCK_POLL_SECS:-5}"
@@ -202,7 +225,7 @@ gen_token() {
 # it's unparseable. Used by write_owner_enrich and release to check "do I still own this
 # directory" before acting on it.
 owner_token() {
-  grep -o '^TOKEN=.*' "$LOCK_DIR/owner" 2>/dev/null | cut -d= -f2-
+  grep -o '^TOKEN=.*' "${1:-$LOCK_DIR}/owner" 2>/dev/null | cut -d= -f2-
 }
 
 # Writes the MINIMAL owner file -- PID + ACQUIRED_AT + TOKEN + DESC, STARTED left "unknown" for
@@ -225,6 +248,7 @@ write_owner_minimal() {
     echo "STARTED=unknown"
     echo "ACQUIRED_AT=$LOCK_ACQUIRED_AT"
     echo "TOKEN=$token"
+    [ "$EXCLUSIVE_FLAG" = "1" ] && echo "EXCLUSIVE=1"
     echo "DESC=$*"
   } > "$tmp"
   mv -f "$tmp" "$LOCK_DIR/owner"
@@ -255,6 +279,7 @@ write_owner_enrich() {
     echo "STARTED=${started:-unknown}"
     echo "ACQUIRED_AT=$LOCK_ACQUIRED_AT"
     echo "TOKEN=$token"
+    [ "$EXCLUSIVE_FLAG" = "1" ] && echo "EXCLUSIVE=1"
     echo "DESC=$*"
   } > "$tmp"
   mv -f "$tmp" "$LOCK_DIR/owner"
@@ -295,24 +320,38 @@ lock_is_stale() {
   return 0
 }
 
-acquire() {
-  local start_ts elapsed announced token
-  start_ts=$(date +%s)
-  announced=0
+# slot_dir <n>: slot 0 is the original path (old copies contend on it), slot n>0 is "<path>.slot-n".
+slot_dir() {
+  if [ "$1" -eq 0 ]; then echo "$BASE_LOCK_DIR"; else echo "${BASE_LOCK_DIR}.slot-$1"; fi
+}
+
+# claim_dir <dir> <primary|extra> <cmd...>: compete for ONE slot directory. Returns 0 when taken,
+# 1 when it is held by a live owner (the caller decides whether to try another slot or sleep).
+# primary: LOCK_DIR/LOCK_TOKEN become this slot. extra (exclusive mode): recorded in EXTRA_*, LOCK_DIR
+# is left pointing at the primary slot. Stale handling is the original logic, per directory.
+claim_dir() {
+  local dir="$1" role="$2" token elapsed saved="$LOCK_DIR"
+  shift 2
   while true; do
-    if mkdir "$LOCK_DIR" 2>/dev/null; then
+    LOCK_DIR="$dir"
+    if mkdir "$dir" 2>/dev/null; then
       LOCK_ACQUIRED_AT=$(date +%s)
       token=$(gen_token)
-      LOCK_TOKEN="$token"
+      [ "$role" = "primary" ] && LOCK_TOKEN="$token"
       write_owner_minimal "$token" "$@"
       if write_owner_enrich "$token" "$@"; then
+        if [ "$role" = "primary" ]; then
+          LOCK_DIR="$dir"
+        else
+          EXTRA_DIRS+=("$dir"); EXTRA_TOKENS+=("$token"); LOCK_DIR="$saved"
+        fi
         return 0
       fi
       # Lost the directory to another acquirer between the minimal write and the enrich (ISS-111
       # Site 2's mismatch case, caught rather than silently overwritten). We do not hold this lock
       # -- clear the token so our own EXIT trap (release, Site 3) does not touch whatever directory
       # exists now, and go back around to compete for it like any other waiter.
-      LOCK_TOKEN=""
+      [ "$role" = "primary" ] && LOCK_TOKEN=""
       log "acquire: lost the lock immediately after taking it -- retrying"
       continue
     fi
@@ -326,28 +365,97 @@ acquire() {
     # Lever A falsification (bare `rmdir` reintroduced): it did not just fail the stale-break
     # assertion, it hung the whole test run past its 30s VC_TESTLOCK_TIMEOUT_SECS, proving the
     # timeout guard itself was reachable-only, not actually unconditional.
-    elapsed=$(( $(date +%s) - start_ts ))
+    elapsed=$(( $(date +%s) - ACQUIRE_START_TS ))
     if [ "$elapsed" -ge "$ACQUIRE_TIMEOUT_SECS" ]; then
-      log "FATAL: timed out after ${elapsed}s waiting for $LOCK_DIR (held by: $(cat "$LOCK_DIR/owner" 2>/dev/null | tr '\n' ' '))"
+      log "FATAL: timed out after ${elapsed}s waiting for $dir (held by: $(cat "$dir/owner" 2>/dev/null | tr '\n' ' '))"
       log "refusing to proceed unlocked -- retry, or investigate the holder above"
+      LOCK_DIR="$saved"   # exclusive mode: our EXIT trap must see the slot we DO hold, not this one
       exit 75
     fi
 
     if lock_is_stale; then
-      log "breaking stale lock at $LOCK_DIR"
-      rm -rf "$LOCK_DIR" 2>/dev/null   # rm -rf, NEVER bare rmdir -- see header. rmdir cannot
-                                       # remove a non-empty dir and would spin forever here.
+      log "breaking stale lock at $dir"
+      rm -rf "$dir" 2>/dev/null   # rm -rf, NEVER bare rmdir -- see header. rmdir cannot
+                                  # remove a non-empty dir and would spin forever here.
       continue   # retry mkdir right away; the timeout check above still runs next iteration either way
+    fi
+    LOCK_DIR="$saved"
+    return 1
+  done
+}
+
+# Free RAM in GB (empty when it cannot be measured).
+probe_free_gb() {
+  powershell -NoProfile -NonInteractive -Command \
+    "[math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1MB,2)" 2>/dev/null | tr -d '\r'
+}
+
+# True iff a SECOND concurrent holder is affordable right now (free RAM >= TWO_SLOT_MIN_GB).
+# VC_TESTLOCK_FREE_GB_OVERRIDE is test-only; unmeasurable RAM counts as "not enough".
+two_slot_ram_ok() {
+  local free="${VC_TESTLOCK_FREE_GB_OVERRIDE:-}"
+  [ -z "$free" ] && free=$(probe_free_gb)
+  [ -z "$free" ] && return 1
+  awk -v f="$free" -v m="$TWO_SLOT_MIN_GB" 'BEGIN{exit !(f+0>=m+0)}'
+}
+
+# True iff slot 0's holder is an exclusive (whole-suite) run: nobody else may start on slot 1 then.
+slot0_is_exclusive() {
+  grep -q '^EXCLUSIVE=1' "$BASE_LOCK_DIR/owner" 2>/dev/null
+}
+
+acquire() {
+  local announced=0 n
+  ACQUIRE_START_TS=$(date +%s)
+
+  if [ "$EXCLUSIVE" = "1" ]; then
+    # Hold every slot: slot 0 first, then each further slot, all under the one acquire timeout.
+    EXCLUSIVE_FLAG=1
+    until claim_dir "$(slot_dir 0)" primary "$@"; do
+      if [ "$announced" -eq 0 ]; then
+        log "waiting (exclusive) for lock held by: $(cat "$BASE_LOCK_DIR/owner" 2>/dev/null | tr '\n' ' ')"
+        announced=1
+      fi
+      sleep "$POLL_SECS"
+    done
+    announced=0
+    for (( n=1; n<SLOTS; n++ )); do
+      until claim_dir "$(slot_dir "$n")" extra "$@"; do
+        if [ "$announced" -eq 0 ]; then
+          log "holding slot 0, waiting (exclusive) for slot $n held by: $(cat "$(slot_dir "$n")/owner" 2>/dev/null | tr '\n' ' ')"
+          announced=1
+        fi
+        sleep "$POLL_SECS"
+      done
+      announced=0
+    done
+    EXCLUSIVE_FLAG=0
+    SLOT_LABEL=0
+    for (( n=1; n<SLOTS; n++ )); do SLOT_LABEL="${SLOT_LABEL}+${n}"; done
+    return 0
+  fi
+
+  while true; do
+    if claim_dir "$(slot_dir 0)" primary "$@"; then
+      SLOT_LABEL=0
+      return 0
+    fi
+    if [ "$SLOTS" -gt 1 ] && ! slot0_is_exclusive && two_slot_ram_ok; then
+      for (( n=1; n<SLOTS; n++ )); do
+        if claim_dir "$(slot_dir "$n")" primary "$@"; then
+          SLOT_LABEL="$n"
+          return 0
+        fi
+      done
     fi
 
     if [ "$announced" -eq 0 ]; then
-      log "waiting for lock held by: $(cat "$LOCK_DIR/owner" 2>/dev/null | tr '\n' ' ')"
+      log "waiting for lock held by: $(cat "$BASE_LOCK_DIR/owner" 2>/dev/null | tr '\n' ' ')"
       announced=1
     fi
     sleep "$POLL_SECS"
   done
 }
-
 release() {
   # Only remove the lock directory if it still carries the token we wrote when we acquired it
   # (ISS-111 Site 3). The previous bare `rm -rf` got this wrong in two ways:
@@ -373,11 +481,23 @@ release() {
   rm -rf "$LOCK_DIR" 2>/dev/null || true
 }
 
+# Exclusive mode also holds the extra slots; free each one only if it still carries our token.
+release_extras() {
+  local i cur
+  for (( i=0; i<${#EXTRA_DIRS[@]}; i++ )); do
+    cur=$(owner_token "${EXTRA_DIRS[$i]}")
+    if [ "$cur" = "${EXTRA_TOKENS[$i]}" ]; then
+      rm -rf "${EXTRA_DIRS[$i]}" 2>/dev/null || true
+    else
+      log "release: ${EXTRA_DIRS[$i]} token changed -- not removing, it is no longer ours"
+    fi
+  done
+}
+
 wait_for_ram() {
   local i free
   for i in $(seq 1 "$RAM_RETRIES"); do
-    free=$(powershell -NoProfile -NonInteractive -Command \
-      "[math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1MB,2)" 2>/dev/null | tr -d '\r')
+    free=$(probe_free_gb)
     [ -z "$free" ] && break   # can't measure -- don't block on it
     if awk -v f="$free" 'BEGIN{exit !(f>=ENVIRON["MIN_FREE_GB"])}' MIN_FREE_GB="$MIN_FREE_GB" 2>/dev/null; then
       echo "$free"
@@ -396,13 +516,13 @@ wait_for_ram() {
 # gen_token directly, so ISS-111 Site 2/3's token-ownership guards can be tested deterministically
 # instead of by trying to win a real, sub-second race window.
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  trap release EXIT
+  trap 'release; release_extras' EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
 
   acquire "$@"
   free_gb=$(wait_for_ram)
-  log "running (free RAM ${free_gb} GB): $*"
+  log "running slot ${SLOT_LABEL} (free RAM ${free_gb} GB): $*"
   "$@"
   status=$?
   exit $status
