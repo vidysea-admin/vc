@@ -1144,3 +1144,47 @@ test("ISS-t-034-concern-hook api: with no webhooks configured a concern session 
   assert.equal(res.json.kind, "awaiting_approval", "the concern write itself is unaffected");
   assert.ok(w2.logs.some((l) => l.event === "api_request_failed" && l.route === "startScribe" && l.error.startsWith("webhook_enqueue_failed:")));
 });
+
+test("ISS-t-034-concern-hook api: a concern read-back that throws is logged (webhook_readback_failed) and recorded as a recoverable gap, and the start still answers 200", async () => {
+  const outbox = new InMemoryWebhookOutbox();
+  const gapLedger = new InMemoryWebhookEmitGapLedger();
+  const w = world({ webhooks: { outboxForTenant: () => outbox, destinationUrl: "http://client.invalid/hook", gapsForTenant: () => gapLedger } });
+  // Fail ONLY readStudentConcerns' own query (rel: concern_flagged); the concern write is upsert-only.
+  const edges = w.fakeDb.collection<{ _id: string }>("edges");
+  const originalFind = edges.find.bind(edges);
+  edges.find = ((...args: Parameters<typeof originalFind>) => {
+    if ((args[0] as { rel?: string } | undefined)?.rel === "concern_flagged") throw new Error("boom: edges read unavailable");
+    return originalFind(...args);
+  }) as typeof edges.find;
+
+  const res = await startConcernSession(w, "tenant-a");
+  assert.equal(res.status, 200, res.body);
+  assert.equal(res.json.kind, "awaiting_approval", "the scribe run itself already succeeded");
+  assert.equal((await outbox.list()).length, 0, "nothing could be built from a failed read");
+  assert.ok(w.logs.some((l) => l.event === "api_request_failed" && l.route === "startScribe" && l.error.startsWith("webhook_readback_failed:")));
+  const gaps = await gapLedger.list();
+  assert.equal(gaps.length, 1, "one recoverable gap row for the session");
+  assert.equal(gaps[0]!.kind, "readback-gap");
+  assert.equal(gaps[0]!.studentId, STUDENT);
+  assert.equal(gaps[0]!.sessionId, SESSION);
+  assert.ok(gaps[0]!.detail.startsWith("concern-readback-failed:"));
+});
+
+test("ISS-t-034-concern-hook api: a fenced student's start announces nothing, even when concern edges from an earlier run are still stored", async () => {
+  let outbox = new InMemoryWebhookOutbox();
+  const w = world({ webhooks: { outboxForTenant: () => outbox, destinationUrl: "http://client.invalid/hook" } });
+  const first = await startConcernSession(w, "tenant-a");
+  assert.equal(first.json.kind, "awaiting_approval", first.body);
+  assert.equal((await concernEvents(outbox)).length, 1, "precondition: the concern edge is stored and was announced once");
+
+  // A B15 erasure fence goes up before the (replayed) start; the stored concern edge is still there.
+  await tenantScopedDb(w.fakeDb as unknown as Parameters<typeof tenantScopedDb>[0], "tenant-a")
+    .collection(COLLECTION_NAMES.erasure_fences)
+    .insertOne({ _id: erasureFenceKey(STUDENT), createdAt: new Date().toISOString() } as never);
+  outbox = new InMemoryWebhookOutbox();
+
+  const fenced = await startConcernSession(w, "tenant-a", CONCERN_BODY, false);
+  assert.equal(fenced.status, 200, fenced.body);
+  assert.equal(fenced.json.kind, "fenced", fenced.body);
+  assert.equal((await outbox.list()).length, 0, "a fenced start emits no webhook event (B15)");
+});

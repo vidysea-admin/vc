@@ -210,6 +210,16 @@ interface RouteContext {
   /** ISS-t-034-concern-hook: whether `deps.webhooks` is configured, so a route can skip the read-back
    * that only feeds emitWebhookEvents when emission is a no-op anyway. */
   webhooksConfigured: boolean;
+  /** ISS-t-034-concern-hook: a read-back needed to BUILD an event failed after the write it
+   * describes succeeded. Logs `error` and, when `gapsForTenant` is configured, records a
+   * "readback-gap" row (idempotent by `gapId`). Never throws. */
+  recordWebhookReadbackFailure: (input: {
+    studentId: string;
+    sessionId: string;
+    gapId: string;
+    detail: string;
+    error: string;
+  }) => Promise<void>;
   /**
    * T-042 (ISS-085 leak 1): call after emitWebhookEvents, for a decideApproval "written" outcome,
    * with what applyApprovedDiff reported writing (`writtenFactIds`) and what getFactsByIds actually
@@ -314,15 +324,31 @@ const ROUTES: RouteDef[] = [
       // fence-compensated session announces nothing. Ids are deterministic per concern, so a
       // replayed start re-enqueues the same ids and the outbox no-ops them.
       if (ctx.webhooksConfigured && outcome.kind !== "fenced") {
-        const concerns = await readStudentConcerns(ctx.store(), {
-          studentId: ctx.params.studentId!,
-          sessionId: ctx.params.sessionId!,
-        });
-        await ctx.emitWebhookEvents(
-          concerns
-            .filter((concern) => concern.level === "concern")
-            .map((concern) => buildConcernFlaggedEvent({ tenantId: ctx.auth.tenantId, concern })),
-        );
+        // The scribe run already succeeded, so a failed read-back must never turn it into a 500: it
+        // is logged and recorded as a recoverable gap instead (T-042 ledger), and a replayed start
+        // re-derives the same ids.
+        let concerns: Awaited<ReturnType<typeof readStudentConcerns>> | null = null;
+        try {
+          concerns = await readStudentConcerns(ctx.store(), {
+            studentId: ctx.params.studentId!,
+            sessionId: ctx.params.sessionId!,
+          });
+        } catch (err) {
+          await ctx.recordWebhookReadbackFailure({
+            studentId: ctx.params.studentId!,
+            sessionId: ctx.params.sessionId!,
+            gapId: `readback-gap:${ctx.params.studentId!}:${ctx.params.sessionId!}:concerns`,
+            detail: `concern-readback-failed:${errorLabel(err)}`,
+            error: `webhook_readback_failed:${errorLabel(err)}`,
+          });
+        }
+        if (concerns) {
+          await ctx.emitWebhookEvents(
+            concerns
+              .filter((concern) => concern.level === "concern")
+              .map((concern) => buildConcernFlaggedEvent({ tenantId: ctx.auth.tenantId, concern })),
+          );
+        }
       }
       return { status: 200, body: outcome };
     },
@@ -683,6 +709,23 @@ export function createApiHandler(deps: ApiDeps): ApiHandler {
           return deps.erasureConfig();
         },
         webhooksConfigured: deps.webhooks !== undefined,
+        recordWebhookReadbackFailure: async ({ studentId, sessionId, gapId, detail, error }) => {
+          log({ level: "error", event: "api_request_failed", route: route.id, status: 0, error, ts: new Date().toISOString() });
+          const gapsForTenant = deps.webhooks?.gapsForTenant;
+          if (!gapsForTenant) return;
+          try {
+            await gapsForTenant(tenantId!).record({ id: gapId, kind: "readback-gap", studentId, sessionId, detail });
+          } catch (gapErr) {
+            log({
+              level: "error",
+              event: "api_request_failed",
+              route: route.id,
+              status: 0,
+              error: `webhook_emit_gap_record_failed:${errorLabel(gapErr)}`,
+              ts: new Date().toISOString(),
+            });
+          }
+        },
         emitWebhookEvents: async (events: WebhookEvent[]) => {
           if (!deps.webhooks || events.length === 0) return;
           const { outboxForTenant, destinationUrl, gapsForTenant } = deps.webhooks;
