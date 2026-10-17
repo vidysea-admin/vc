@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { listSkills } from "../src/index.js";
 import { STUDENT_TOOLS, buildStudentGraph, parseCapabilityManifest } from "../src/student/graph.js";
-import { NOW, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
 
 test("A21(c): manifest tools == registered student-graph tools (drift check, both directions)", () => {
   const body = readFileSync(join(SKILLS_DIR, "vc-capabilities", "SKILL.md"), "utf8");
@@ -33,7 +33,7 @@ test("A21(c): building the graph against a drifted manifest fails loudly (a miss
     writeFileSync(join(dir, "vc-capabilities", "SKILL.md"), mutate(original));
     return dir;
   };
-  const deps = (skillsDir: string) => ({ kb: fakeKb(), provider: studentProvider(), skillsDir, speakers: SPEAKERS, now: () => NOW });
+  const deps = (skillsDir: string) => ({ kb: fakeKb(), provider: studentProvider(), skillsDir, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG });
   const missing = mk((s) => s.replace(/^\| `data_export` .*$/m, ""));
   assert.throws(() => buildStudentGraph(deps(missing)), /capability manifest/i);
   const extra = mk((s) => s.replace(/^\| `coverage` (.*)$/m, "| `coverage` $1\n| `send_whatsapp` | invented | nope |"));

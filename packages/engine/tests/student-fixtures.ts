@@ -73,6 +73,7 @@ export const ASK_ANSWERED: AskToolOutput = {
   answer: "Most German public universities charge no tuition; budget about 11,000 euros a year for living costs.",
   citations: { internal: [{ node_id: "session:sess-sem-2", evidence: { sessionRef: "sess-sem-2" } }, { node_id: "topic:germany-costs" }], web: [] },
   verdict: "correct",
+  insufficient_coverage: false,
   reason: "top node scored above the upper threshold",
   sourceKind: "unknown",
 };
@@ -132,3 +133,9 @@ export function studentProvider(responses: { kbAnswer?: unknown; coach?: unknown
     },
   });
 }
+
+/**
+ * U6h fix1 M4b: `hasPriorFlag` is a REQUIRED dep of the student graph. This is the test-only stand-in: a store that has
+ * no earlier flag for any thread. Production wires the stored flag log instead (never this).
+ */
+export const NO_PRIOR_FLAG = async (): Promise<boolean> => false;

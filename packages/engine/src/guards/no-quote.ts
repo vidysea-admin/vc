@@ -10,6 +10,10 @@
  * Honest scope: names that are not in the alias list (and not passed as `extraNames`, e.g. the
  * speakerLabels of this turn's WhatsApp hits) are not detected; Hindi/transliterated names are covered
  * only by the alias list (spec A22). The verbatim check is a weak proxy for "anonymised paraphrase".
+ *
+ * U6h P5: a speakerLabel / extra name is expanded to the forms the evidence may carry - first name alone,
+ * last name alone, reversed order ("Kulkarni, Sanjay"), initials ("S. Kulkarni", "Sanjay K.", "S. K.") - and
+ * matching folds Latin diacritics ("Sanjáy" ~ "Sanjay"), on both the name and the text.
  */
 import { z } from "zod";
 
@@ -50,8 +54,15 @@ export const PHONE_PLACEHOLDER = "[number removed]";
 const INVISIBLE = /[­​-‏⁠﻿]/g;
 const ODD_SPACE = /[   -   　]/g;
 
+/** Latin letter with its diacritics removed ("á" -> "a"); one UTF-16 unit in, one out, so match maps stay valid. */
+function foldChar(ch: string): string {
+  if (ch < "\u00c0" || !/\p{Script=Latin}/u.test(ch)) return ch;
+  const base = ch.normalize("NFD")[0];
+  return base && base.length === 1 ? base : ch;
+}
+
 function normaliseForMatch(text: string): string {
-  return text.normalize("NFC").replace(INVISIBLE, "").replace(ODD_SPACE, " ");
+  return Array.from(text.normalize("NFC").replace(INVISIBLE, "").replace(ODD_SPACE, " "), foldChar).join("");
 }
 
 const IS_INVISIBLE = new RegExp(INVISIBLE.source);
@@ -74,7 +85,7 @@ function matchView(text: string): MatchView {
   for (let i = 0; i < orig.length; i++) {
     const ch = orig[i]!;
     if (IS_INVISIBLE.test(ch)) continue;
-    out += IS_ODD_SPACE.test(ch) ? " " : ch;
+    out += IS_ODD_SPACE.test(ch) ? " " : foldChar(ch);
     map.push(i);
   }
   return { orig, text: out, map };
@@ -139,6 +150,59 @@ function namePattern(alias: string): RegExp {
   return new RegExp(`(?<![\\p{L}\\p{M}\\p{N}])${body}(?![\\p{L}\\p{M}\\p{N}])`, "giu");
 }
 
+const BOUND_BEFORE = "(?<![\\p{L}\\p{M}\\p{N}])";
+const BOUND_AFTER = "(?![\\p{L}\\p{M}\\p{N}])";
+const NAME_TITLES = new Set(["dr", "mr", "mrs", "ms", "miss", "prof", "professor", "sir", "shri", "sri", "smt", "mx"]);
+// Name tokens that are also ordinary English words: alone they match only when capitalised, so "will" in a
+// sentence is not blanked because a speaker is called Will. The full name still matches in any case.
+const COMMON_WORD_NAMES = new Set([
+  "will", "may", "mark", "rose", "grace", "hope", "bill", "dean", "chase", "joy", "faith", "dawn", "rich", "king", "young", "long",
+  "brown", "white", "black", "green", "gold", "stone", "hall", "wood", "hill", "lake", "bank", "case", "page", "bond",
+]);
+
+interface NamePattern {
+  /** Longest-first claiming: a longer form is claimed before the shorter forms it contains. */
+  len: number;
+  re: RegExp;
+}
+
+/**
+ * A name/label and the other forms it appears in (U6h P5): first name, last name, reversed, initials. A label
+ * of one token has only itself. Only labels and extra names are expanded; speakers.json aliases are already
+ * enumerated by hand and stay exact.
+ */
+function labelPatterns(label: string): NamePattern[] {
+  const full: NamePattern = { len: label.length, re: namePattern(label) };
+  const parts = normaliseForMatch(label)
+    .split(/[\s,]+/)
+    .filter(Boolean)
+    .filter((p, i) => !(i === 0 && NAME_TITLES.has(p.replace(/\.$/, "").toLowerCase())));
+  if (parts.length < 2) return [full];
+  const first = parts[0]!;
+  const last = parts[parts.length - 1]!;
+  const fi = Array.from(first)[0]!;
+  const li = Array.from(last)[0]!;
+  const q = escapeRegex;
+  const wrap = (body: string, flags: string): RegExp => new RegExp(`${BOUND_BEFORE}(?:${body})${BOUND_AFTER}`, flags);
+  const out: NamePattern[] = [
+    full,
+    { len: label.length + 1, re: wrap(`${q(last)}\\s*,?\\s*${q(first)}`, "giu") },
+    { len: label.length, re: wrap(`${q(fi)}\\.?\\s*${q(last)}`, "giu") },
+    { len: label.length, re: wrap(`${q(first)}\\s+${q(li)}\\.?`, "giu") },
+    { len: 4, re: wrap(`${q(fi)}\\.\\s*${q(li)}\\.?`, "gu") },
+  ];
+  for (const part of new Set(parts)) {
+    if (Array.from(part).length < 3 || /^\p{Lu}\.?$/u.test(part)) continue;
+    if (COMMON_WORD_NAMES.has(part.toLowerCase())) {
+      const cap = part[0]!.toUpperCase() + part.slice(1).toLowerCase();
+      out.push({ len: part.length, re: wrap(`${q(cap)}|${q(part.toUpperCase())}`, "gu") });
+    } else {
+      out.push({ len: part.length, re: namePattern(part) });
+    }
+  }
+  return out;
+}
+
 export interface NoQuoteResult {
   text: string;
   removed: { speakerId: string }[];
@@ -153,22 +217,36 @@ export function noQuoteGuard(text: string, speakers: SpeakersFile, extraNames: r
   const view = matchView(text);
   const spans: Span[] = [];
   const removed = new Map<string, true>();
-  const targets: { speakerId: string; alias: string }[] = [];
+  const targets: { speakerId: string; len: number; re: RegExp }[] = [];
   for (const s of speakers.speakers) {
     if (s.permission) continue;
-    for (const alias of s.aliases) targets.push({ speakerId: s.id, alias });
+    for (const alias of s.aliases) targets.push({ speakerId: s.id, len: alias.length, re: namePattern(alias) });
   }
-  for (const name of extraNames) if (name.trim()) targets.push({ speakerId: "extra", alias: name });
-  targets.sort((a, b) => b.alias.length - a.alias.length);
-  for (const { speakerId, alias } of targets) {
-    if (claimMatches(view, spans, namePattern(alias), SPEAKER_PLACEHOLDER, true)) removed.set(speakerId, true);
+  for (const name of extraNames) if (name.trim()) for (const p of labelPatterns(name)) targets.push({ speakerId: "extra", ...p });
+  targets.sort((a, b) => b.len - a.len);
+  for (const { speakerId, re } of targets) {
+    if (claimMatches(view, spans, re, SPEAKER_PLACEHOLDER, true)) removed.set(speakerId, true);
   }
   return { text: applySpans(view, spans), removed: [...removed.keys()].map((speakerId) => ({ speakerId })) };
 }
 
-// Indian/international phone shapes: an optional +CC, then >= 10 digits allowing single spaces/dashes.
-// Dates (2026-03-04) and amounts (11,000) are too short or comma-separated to match.
-const PHONE = /(?<![\p{N}])(?:\+\d{1,3}[\s-]?)?(?:\d[\s-]?){9,13}\d(?![\p{N}])/gu;
+// Indian/international phone shapes (U6h fix1 M3b widened, any Unicode decimal digit so Devanagari numerals count):
+//  - an optional +CC, then >= 10 digits allowing single spaces/dashes ("+91 98765 43210");
+//  - a parenthesised area code: "(415) 555-0132", "(98765) 43210", "+91 (98765) 43210";
+//  - dot or slash separated groups: "98765.43210", "98765/43210", "415.555.0132".
+// Dates (2026-03-04, 04.03.2026), amounts (11,000, 5000) and years are too short, differently grouped or comma-separated to match.
+const PHONE_CC = String.raw`(?:\+\p{Nd}{1,3}[\s.-]?)?`;
+const PHONE = new RegExp(
+  String.raw`(?<![\p{N}])${PHONE_CC}(?:` +
+    String.raw`(?:\p{Nd}[\s-]?){9,13}\p{Nd}` +
+    String.raw`|\(\p{Nd}{3}\)[\s.-]?\p{Nd}{3}[\s.-]?\p{Nd}{4}` +
+    String.raw`|\(\p{Nd}{5}\)[\s.-]?\p{Nd}{5}` +
+    String.raw`|\(\p{Nd}{2,4}\)[\s.-]?\p{Nd}{6,8}` +
+    String.raw`|\p{Nd}{5}[./]\p{Nd}{5}` +
+    String.raw`|\p{Nd}{3}\.\p{Nd}{3}\.\p{Nd}{4}` +
+    String.raw`)(?![\p{N}])`,
+  "gu",
+);
 
 export interface IdentifierFinding {
   kind: "phone" | "speaker" | "speaker-label";
@@ -185,7 +263,7 @@ export function findPersonalIdentifiers(text: string, speakers: SpeakersFile, sp
     if (hit) found.push({ kind: "speaker", match: hit });
   }
   for (const label of speakerLabels) {
-    if (label.trim() && namePattern(label).test(t)) found.push({ kind: "speaker-label", match: label });
+    if (label.trim() && labelPatterns(label).some((p) => p.re.test(t))) found.push({ kind: "speaker-label", match: label });
   }
   return found;
 }
@@ -198,8 +276,11 @@ export function redactPersonalIdentifiers(text: string, speakers: SpeakersFile, 
   const view = matchView(text);
   const spans: Span[] = [];
   claimMatches(view, spans, PHONE, PHONE_PLACEHOLDER, false);
-  const names = [...speakers.speakers.flatMap((s) => s.aliases), ...speakerLabels.filter((l) => l.trim())].sort((a, b) => b.length - a.length);
-  for (const name of names) claimMatches(view, spans, namePattern(name), SPEAKER_PLACEHOLDER, true);
+  const names: NamePattern[] = [
+    ...speakers.speakers.flatMap((s) => s.aliases).map((alias) => ({ len: alias.length, re: namePattern(alias) })),
+    ...speakerLabels.filter((l) => l.trim()).flatMap((l) => labelPatterns(l)),
+  ].sort((a, b) => b.len - a.len);
+  for (const { re } of names) claimMatches(view, spans, re, SPEAKER_PLACEHOLDER, true);
   return applySpans(view, spans);
 }
 

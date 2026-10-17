@@ -1,0 +1,202 @@
+[
+ {
+  "id": "H1",
+  "before": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  },
+  "after": {
+   "tests": "158",
+   "pass": "152",
+   "fail": "6"
+  },
+  "failedAfter": [
+   "H1 hostile: /ask fact absent from every turn never ships unmarked/verified",
+   "H1 hostile: session path - get_session turns do not carry the fact",
+   "A1 /ask: kind:fact whose fetched text does not support it is attributed; a number/country with no supporting text is unverified",
+   "U6h H1 /ask: a fact whose fetched text AND the served /ask answer both fail to support it is unverified",
+   "U6h H1: the /ask path runs supports() against the served answer - an unsupported fact is never shown as sourced",
+   "U6h H1: next to a supported claim, an unsupported /ask fact is flagged"
+  ],
+  "restored": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  }
+ }
+][
+ {
+  "id": "H2",
+  "before": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  },
+  "after": {
+   "tests": "158",
+   "pass": "154",
+   "fail": "4"
+  },
+  "failedAfter": [
+   "H2 hostile: supports() rejects",
+   "U6h H2 supports(): an extra clause the evidence does not carry is rejected",
+   "U6h H2 supports(): a scope or quantifier swap is rejected",
+   "U6h H2 supports(): an antonym with no negation word is rejected"
+  ],
+  "restored": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  }
+ }
+][
+ {
+  "id": "L5",
+  "before": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  },
+  "after": {
+   "tests": "158",
+   "pass": "155",
+   "fail": "3"
+  },
+  "failedAfter": [
+   "L5 hostile: crisis phrase after char 4000",
+   "L5 hostile: perf of very long input",
+   "U6h L5: a crisis phrase that occurs only after character 4000 still gets the fixed crisis message"
+  ],
+  "restored": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  }
+ }
+][
+ {
+  "id": "L5b",
+  "before": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  },
+  "after": {
+   "tests": "158",
+   "pass": "155",
+   "fail": "3"
+  },
+  "failedAfter": [
+   "L5 hostile: crisis phrase after char 4000",
+   "L5 hostile: recall phrases + benign",
+   "U6h L5: the missed recall phrases are crisis for the guard, and the student turn gets the fixed message with Tele-MANAS 14416"
+  ],
+  "restored": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  }
+ }
+][
+ {
+  "id": "M3",
+  "before": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  },
+  "after": {
+   "tests": "158",
+   "pass": "155",
+   "fail": "3"
+  },
+  "failedAfter": [
+   "M3 hostile: names/phones in whatsapp/unknown hit text never reach the model input",
+   "U6h M3: WhatsApp hit text is redacted BEFORE it reaches the model",
+   "U6h M3: the same pre-model redaction holds for an unknown-kind hit and for the /ask answer text; the claim check still sees the raw evidence"
+  ],
+  "restored": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  }
+ }
+][
+ {
+  "id": "M4",
+  "before": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  },
+  "after": {
+   "tests": "158",
+   "pass": "150",
+   "fail": "8"
+  },
+  "failedAfter": [
+   "M4 hostile: priorFlag server-side",
+   "A11b keep talking: over a 30-turn Mock session risk is re-checked on every message; the turn after a flag is still answered",
+   "A11b: a generated reply that contains a forbidden phrase is never shown; the fixed safe message replaces it",
+   "R9: the compiled graph is cached per deps and itself enforces the TurnResponse schema + the prior-flag Tele-MANAS suffix",
+   "U6h M4: priorFlagInThread is derived server-side - a caller-supplied true is ignored when the stored thread has no flag",
+   "U6h M4: a caller-supplied false cannot hide a flag that is in the stored thread",
+   "U6h M4: an unreadable flag store fails toward disclosure",
+   "U6h M4: with no store wired, a flag this graph raised earlier in the same thread still counts; another thread is unaffected"
+  ],
+  "restored": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  }
+ }
+][
+ {
+  "id": "P4",
+  "before": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  },
+  "after": {
+   "tests": "158",
+   "pass": "152",
+   "fail": "6"
+  },
+  "failedAfter": [
+   "P4 hostile: port returns answered with bad verdict / coverage -> fixed no-answer",
+   "U6h H1 /ask: a non-serveable ask",
+   "U6h P4"
+  ],
+  "restored": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  }
+ }
+][
+ {
+  "id": "P5",
+  "before": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  },
+  "after": {
+   "tests": "158",
+   "pass": "155",
+   "fail": "3"
+  },
+  "failedAfter": [
+   "M3 hostile: names/phones in whatsapp/unknown hit text never reach the model input",
+   "U6h P5: redactPersonalIdentifiers removes every variant of a speakerLabel",
+   "U6h P5: noQuoteGuard"
+  ],
+  "restored": {
+   "tests": "158",
+   "pass": "158",
+   "fail": "0"
+  }
+ }
+]

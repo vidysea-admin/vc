@@ -1,0 +1,11 @@
+[testlock] running (free RAM 5.21 GB): pnpm -C /tmp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6h/packages/engine exec tsx --test --test-name-pattern=U6h fix1 M3 tests/no-quote.test.ts
+✔ U6h fix1 M3b: phone shapes the old detector missed are found and redacted (parenthesised area code, dots, Devanagari digits) (124.2526ms)
+✔ U6h fix1 M3b: years, fees, dates and ordinary numbers are not phone numbers (3.666ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 447.088

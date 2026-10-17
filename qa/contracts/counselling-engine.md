@@ -145,7 +145,7 @@ Checked by /outcome-grader against `qa/rubrics/plan-doc.md`.
   - (a) `/ask`: `verified` requires the `node_id` to be present in this response **and** a session resolved from
     `evidence.sessionRef(s)` (or from `/session:<id>` in a session-level `node_id`; topic/org/year nodes need
     `evidence.sessionRefs`) fetched with `GET /sessions/:id`, whose turn text supports the claim or number.
-    Otherwise a `kind:fact` claim is `attributed` (source present, text not proven), never `verified`.
+    Otherwise a `kind:fact` claim is `attributed` (source present, text not proven) **only when the served `/ask` answer text itself carries the fact** (same `supports()` rule; U6h H1, 2026-10-17); a fact the answer text does not carry, and any number or country the fetched text does not support, is `unverified`, never `attributed`.
   - (b) `/search`: `turnId`, `sessionId`, `turn.text`, `session.date` and `session.sourceId` come inline in the hit,
     so no session fetch is needed. `verified` when `turn.text` supports the claim.
   - Numbers and country names are checked against the fetched or inline text.
@@ -586,6 +586,7 @@ spec and this contract ever differ, this contract is the criterion and the diffe
 
 ## Amendment log
 - 2026-10-17 · routine (tighten, D-092) · B2 student-surface claims: anonymous mode drops `unverified` claims instead of showing them flagged; authenticated mode unchanged. Why: senior review of p1/u6 showed the flagged-unverified path lets training-data claims reach anonymous users (no profile, no counsellor, possibly minors), against A4 "0 training-data answers"; Umesh delegated P1 product questions to the maker and D-092 chose the fail-closed reading. It removes a display path and adds none, so routine. Found by the p1-u6 cycle-0 check, which judged U6 against D-092 plus this contract: no mismatch, because B2 already allowed "dropped" for claims with no resolvable source and the repair also drops those (R2a). Written by /checker as the single writer.
+- 2026-10-17 · routine (tighten) · B2 student-surface claims, rule (a): a `kind:fact` claim sourced only from a served `/ask` answer is `attributed` only when that answer's text carries the fact; otherwise `unverified` (it was `attributed` on node presence alone) · p1-u6h H1 (U6 post-PASS hardening, review 743d78b); the `supports()` rule it uses was tightened to fail closed (no 50% overlap) in the same unit. Tightening only, so no gate. Written by /checker as the single writer.
 - 2026-10-17 · mixed, tagged per item · **P1 Student Virtual Counsellor, unit U0** (plan v8 approved by Umesh, D-089;
   inputs D-086 Q1/Q3/Q4/Q16, D-087 Q2/Q11/Q15/Q17, D-088 Q5-Q9/Q12/Q13/Q18; written by /checker as the single writer of
   this file; branch `p1/u0`, nothing pushed). Why: the approved P1 plan needs a student-facing API surface that B1-B23

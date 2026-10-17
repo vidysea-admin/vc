@@ -44,8 +44,12 @@ const CRISIS_TEXT = "I just want to kill myself, nothing matters anymore.";
 /** Golden-set accepted_residual row: an exam idiom the recall-only guard flags as crisis. */
 const IDIOM_CRISIS_TEXT = "Mar jaunga padhai se, itna syllabus hai.";
 const CONCERN_TEXT = "Honestly, so much pressure I can't cope, everything feels like too much right now.";
-/** Held-out row the keyword guard misses (qa/evals/crisis-eval-heldout.jsonl). */
-const MISSED_CRISIS_TEXT = "I wrote letters to my parents in case I'm not here next week.";
+/**
+ * A row the keyword guard misses. U6h: the former held-out row ("... in case I'm not here next week.") is now
+ * caught by the guard (L5), so this is a different phrasing the guard still misses and that is NOT in the
+ * held-out file.
+ */
+const MISSED_CRISIS_TEXT = "I keep wondering whether it would matter to anyone if I stopped showing up.";
 
 function turn(turnId: string, text: string, speaker = "student"): EscalationTurn {
   return { turnId, speaker, lang: "en", text, translatedText: text };

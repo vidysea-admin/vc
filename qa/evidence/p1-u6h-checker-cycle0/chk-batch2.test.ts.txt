@@ -1,0 +1,41 @@
+import { test } from "node:test";
+import { supports } from "../src/student/claims.js";
+import { redactPersonalIdentifiers } from "../src/guards/no-quote.js";
+import { SPEAKERS } from "./student-fixtures.js";
+const pairs: [string, string][] = [
+  ["Most German public universities charge no tuition.", "German public universities charge no tuition."],
+  ["Only EU students can apply for the grant.", "Students can apply for the grant."],
+  ["Some programmes are taught in English.", "Programmes are taught in English."],
+  ["Few scholarships cover living costs.", "Scholarships cover living costs."],
+  ["Many applicants are rejected.", "Applicants are rejected."],
+  ["The scholarship is available for students with a GPA above 3.5.", "The scholarship is available for students."],
+  ["Housing is usually expensive.", "Housing is expensive."],
+  ["Admission is sometimes granted without IELTS.", "Admission is granted without IELTS."],
+  ["The programme lasts 2 weeks.", "The programme lasts 2 months."],
+  ["The fee is 50 euros.", "The fee is 50%."],
+  ["The fee is 300 euros a year.", "The fee is 300 euros per month."],
+  ["The fee is 300 euros", "The fee is 300 dollars"],
+  ["Visa processing takes 2 years.", "Visa processing takes 2 semesters."],
+  ["Studying abroad is allowed for undergraduates.", "Studying abroad is prohibited for undergraduates."],
+  ["Candidates are eligible for the grant.", "Candidates are ineligible for the grant."],
+  ["Interviews are recommended.", "Interviews are discouraged."],
+  ["The package includes housing.", "The package excludes housing."],
+  ["Offers are accepted by June.", "Offers are rejected by June."],
+  ["Tuition is cheaper in Germany.", "Tuition is costlier in Germany."],
+  ["The test is easy.", "The test is difficult."],
+  ["The deadline is before June.", "The deadline is after June."],
+  ["The course is free.", "The course is paid."],
+  ["The application is open.", "The application is shut."],
+  ["The programme is full-time.", "The programme is part-time."],
+  ["Scholarships cover tuition but not housing.", "Scholarships cover housing but not tuition."],
+  ["Scholarships cover tuition but not housing.", "Scholarships cover tuition and housing."],
+  ["Students can work 20 hours per week.", "Students can work 20 hours per month."],
+  ["Students can work 20 hours per week during term.", "Students can work 20 hours per week during holidays."],
+];
+test("batch2 supports()", () => {
+  for (const [e, c] of pairs) console.log("B2", supports({ text: c, kind: "fact" }, e) ? "ACCEPT" : "reject", "|", e, "=>", c);
+});
+const phones = ["+91-98765-43210","9876543210","(98765) 43210","98765 43210","98765-43210","+91 98765 43210","+91 (98765) 43210","919876543210","0 98765 43210","98 76 54 32 10","9876 543 210","09876543210","+919876543210","०९८७६५४३२१०","९८७६५ ४३२१०","Call 98765.43210","98765/43210","+1 415 555 0132","(415) 555-0132","415-555-0132","+44 7700 900123"];
+test("phones", () => {
+  for (const p of phones) { const o = redactPersonalIdentifiers(`call ${p} now`, SPEAKERS, []); console.log("PH", o.includes("[number removed]") ? "redacted" : "LEAK", JSON.stringify(p), "->", o); }
+});

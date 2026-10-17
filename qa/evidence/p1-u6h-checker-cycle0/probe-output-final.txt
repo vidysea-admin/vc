@@ -1,0 +1,116 @@
+[testlock] running (free RAM 5.09 GB): pnpm -C /tmp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6h-chk/packages/engine exec tsx --test tests/chk-hostile.test.ts tests/chk-batch2.test.ts
+B2 ACCEPT | Most German public universities charge no tuition. => German public universities charge no tuition.
+B2 ACCEPT | Only EU students can apply for the grant. => Students can apply for the grant.
+B2 ACCEPT | Some programmes are taught in English. => Programmes are taught in English.
+B2 ACCEPT | Few scholarships cover living costs. => Scholarships cover living costs.
+B2 ACCEPT | Many applicants are rejected. => Applicants are rejected.
+B2 reject | The scholarship is available for students with a GPA above 3.5. => The scholarship is available for students.
+B2 ACCEPT | Housing is usually expensive. => Housing is expensive.
+B2 ACCEPT | Admission is sometimes granted without IELTS. => Admission is granted without IELTS.
+B2 reject | The programme lasts 2 weeks. => The programme lasts 2 months.
+B2 reject | The fee is 50 euros. => The fee is 50%.
+B2 reject | The fee is 300 euros a year. => The fee is 300 euros per month.
+B2 reject | The fee is 300 euros => The fee is 300 dollars
+B2 reject | Visa processing takes 2 years. => Visa processing takes 2 semesters.
+B2 reject | Studying abroad is allowed for undergraduates. => Studying abroad is prohibited for undergraduates.
+B2 reject | Candidates are eligible for the grant. => Candidates are ineligible for the grant.
+B2 reject | Interviews are recommended. => Interviews are discouraged.
+B2 reject | The package includes housing. => The package excludes housing.
+B2 reject | Offers are accepted by June. => Offers are rejected by June.
+B2 reject | Tuition is cheaper in Germany. => Tuition is costlier in Germany.
+B2 reject | The test is easy. => The test is difficult.
+B2 reject | The deadline is before June. => The deadline is after June.
+B2 reject | The course is free. => The course is paid.
+B2 reject | The application is open. => The application is shut.
+B2 reject | The programme is full-time. => The programme is part-time.
+B2 reject | Scholarships cover tuition but not housing. => Scholarships cover housing but not tuition.
+B2 reject | Scholarships cover tuition but not housing. => Scholarships cover tuition and housing.
+B2 reject | Students can work 20 hours per week. => Students can work 20 hours per month.
+B2 reject | Students can work 20 hours per week during term. => Students can work 20 hours per week during holidays.
+PH redacted "+91-98765-43210" -> call [number removed] now
+PH redacted "9876543210" -> call [number removed] now
+PH LEAK "(98765) 43210" -> call (98765) 43210 now
+PH redacted "98765 43210" -> call [number removed] now
+PH redacted "98765-43210" -> call [number removed] now
+PH redacted "+91 98765 43210" -> call [number removed] now
+PH LEAK "+91 (98765) 43210" -> call +91 (98765) 43210 now
+PH redacted "919876543210" -> call [number removed] now
+PH redacted "0 98765 43210" -> call [number removed] now
+PH redacted "98 76 54 32 10" -> call [number removed] now
+PH redacted "9876 543 210" -> call [number removed] now
+PH redacted "09876543210" -> call [number removed] now
+PH redacted "+919876543210" -> call [number removed] now
+PH LEAK "०९८७६५४३२१०" -> call ०९८७६५४३२१० now
+PH LEAK "९८७६५ ४३२१०" -> call ९८७६५ ४३२१० now
+PH LEAK "Call 98765.43210" -> call Call 98765.43210 now
+PH LEAK "98765/43210" -> call 98765/43210 now
+PH redacted "+1 415 555 0132" -> call [number removed] now
+PH LEAK "(415) 555-0132" -> call (415) 555-0132 now
+PH redacted "415-555-0132" -> call [number removed] now
+PH redacted "+44 7700 900123" -> call [number removed] now
+✔ batch2 supports() (17.3842ms)
+✔ phones (82.5979ms)
+H1ROWS
+fabricated fee: unverified | msg=Most German public universities charge no tuition. Germany requires a compulsory 2,500 euro admission fee at public univ
+fabricated visa: unverified | msg=Most German public universities charge no tuition. Public universities in Germany guarantee a visa within two weeks. (un
+rate swap: unverified | msg=Most German public universities charge no tuition. Living costs are about 11,000 euros a month. (unverified)
+number swap: unverified | msg=Most German public universities charge no tuition. Living costs are about 21,000 euros a year. (unverified)
+genuine (control): attributed,attributed | msg=Most German public universities charge no tuition. Most German public universities charge no tuition.
+all-fabricated: no_sourced_answer I don't have a sourced answer for this yet.
+H1SESSION Most German public universitie=attributed | Germany offers a free flat to =unverified Most German public universities charge no tuition. Germany offers a free flat to every student. (unverified)
+H2REJECT_MISSES none
+H2HONEST verified 6/12
+H1 standard: graph=verified direct=true
+verbatim part: graph=verified direct=true
+passive: graph=verified direct=true
+fees paraphrase: graph=unverified direct=false
+pay paraphrase: graph=unverified direct=false
+cross-split: graph=unverified direct=false
+blocked acct: graph=verified direct=true
+need synonym: graph=verified direct=true
+winter apps: graph=verified direct=true
+ielts at least: graph=unverified direct=false
+living costs: graph=unverified direct=false
+canada: graph=unverified direct=false
+M3LEAK whatsapp  {"question":"How do scholarships work in Germany?","evidence":[{"id":"t-w","kind":"search","text":"a speaker here. Call [number removed] or [number removed] or [number removed]. Ask a speaker; a speaker; a speaker; a speaker; a speaker; a speaker. DAAD scholarship opens in October.","sourceKind":"whatsapp","sessionDate":"2026-03-04"}],"priorFlag":false}
+M3LEAK unknown  {"question":"How do scholarships work in Germany?","evidence":[{"id":"t-w","kind":"search","text":"a speaker here. Call [number removed] or [number removed] or [number removed]. Ask a speaker; a speaker; a speaker; a speaker; a speaker; a speaker. DAAD scholarship opens in October.","sourceKind":"unknown","sessionDate":"2026-03-04"}],"priorFlag":false}
+M3INJ no_sourced_answer I don't have a sourced answer for this yet.
+M3ECHO no_sourced_answer I don't have a sourced answer for this yet.
+M4ANON throws StudentAuthRequiredError
+M4COACH
+digit: coach_draft_feedback | Let's build your story. What moment made you choose this field? Which project are you proudest of, and why?
+country-only: coach_draft_feedback | Let's build your story. What moment made you choose this field? Which project are you proudest of, and why?
+number-word: coach_draft_feedback | Tuition there is about five thousand euros a year. Let's build your story. What moment made you choose this field? Which project are you proudest of, and why?
+spelled big: coach_draft_feedback | You will pay twenty thousand euros. Let's build your story. What moment made you choose this field? Which project are you proudest of, and why?
+institution fact: coach_draft_feedback | TU Munich guarantees admission to every applicant. Let's build your story. What moment made you choose this field? Which project are you proudest of, and why?
+guarantee: coach_draft_feedback | A visa is guaranteed if you apply early. Let's build your story. What moment made you choose this field? Which project are you proudest of, and why?
+P5
+Sanjay Kulkarni: leaks="SK"→"Thanks to SK for the tip." ; "संजय कुलकर्णी"→"Thanks to संजय कुलकर्णी for the tip."
+José Álvarez: leaks=none
+Anita Rao Desai: leaks="A.R.D."→"Thanks to A.R.D. for the tip."
+Priya: leaks=none
+L5LONG all 14416
+L5PERF_NONCRISIS_ms 250
+L5PERF_CRISIS_ms 881 true
+L5RECALL missed: [] benign-flagged: []
+✔ H1 hostile: /ask fact absent from every turn never ships unmarked/verified (264.2742ms)
+✔ H1 hostile: session path - get_session turns do not carry the fact (15.5773ms)
+✔ H2 hostile: supports() rejects (via graph + direct) (269.1407ms)
+✔ H2 honest paraphrases: false-unverified rate (report) (104.1125ms)
+✔ M3 hostile: names/phones in whatsapp/unknown hit text never reach the model input (47.8261ms)
+✔ M3: kb-answer skill file carries evidence-is-data line (0.7933ms)
+✔ M4 hostile: priorFlag server-side (94.5553ms)
+✔ M4 hostile: coach reply carrying unsupported facts (122.6462ms)
+✔ P4 hostile: port returns answered with bad verdict / coverage -> fixed no-answer (79.5891ms)
+✔ P5 hostile: speaker label variants redacted (redactPersonalIdentifiers + graph model input) (107.2902ms)
+✔ L5 hostile: crisis phrase after char 4000 (962.8388ms)
+✔ L5 hostile: perf of very long input (1131.8157ms)
+✔ L5 hostile: recall phrases + benign (3.5366ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5656.5306

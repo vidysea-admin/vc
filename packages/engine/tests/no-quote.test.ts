@@ -128,3 +128,104 @@ test(`A22 detector: a verbatim run of >= ${VERBATIM_RUN_WORDS} consecutive sourc
   assert.equal(hasVerbatimRun("my cousin got the DAAD one last", source), false, "7 words is under the bar");
   assert.equal(hasVerbatimRun("Past applicants report that DAAD applications are due around October.", source), false);
 });
+
+// ---------------------------------------------------------------------------
+// U6h P5 (post-PASS hardening of U6): a WhatsApp / unknown speakerLabel is redacted in every variant
+// the evidence may carry - first name, last name, reversed order, initials, diacritic-folded forms.
+// Each test below was recorded RED first.
+// ---------------------------------------------------------------------------
+
+const LABEL = "Sanjay Kulkarni";
+const LABEL_VARIANTS = [
+  "Sanjay",
+  "Kulkarni",
+  "SANJAY KULKARNI",
+  "kulkarni sanjay",
+  "Kulkarni Sanjay",
+  "Kulkarni, Sanjay",
+  "S. Kulkarni",
+  "S Kulkarni",
+  "Sanjay K.",
+  "Sanjay K",
+  "S. K.",
+  "S.K.",
+  "Sanjáy Kulkarni",
+  "Sanjay Kulkárni",
+  "Sánjay",
+  "Dr. Sanjay Kulkarni",
+  "Sanjay​Kulkarni",
+  "Sanjay Kulkarni",
+];
+const LEFTOVER = /sanjay|sanj[aá]y|kulkarni|kulk[aá]rni|\bS\.\s*K\b|\bS\.K\b|\bS\.\s*(?:a speaker|Kulkarni)|\bK\.(?!\w)/i;
+
+test("U6h P5: redactPersonalIdentifiers removes every variant of a speakerLabel (first, last, reversed, initials, diacritic-folded)", () => {
+  for (const v of LABEL_VARIANTS) {
+    const out = redactPersonalIdentifiers(`As ${v} said, apply early. Then ${v} added the deadline.`, speakers, [LABEL]);
+    assert.doesNotMatch(out, LEFTOVER, `${JSON.stringify(v)} -> ${JSON.stringify(out)}`);
+    assert.match(out, /apply early/, "the rest of the sentence survives");
+  }
+});
+
+test("U6h P5: noQuoteGuard (extraNames) and the A22 detector cover the same variants", () => {
+  for (const v of LABEL_VARIANTS) {
+    const text = `As ${v} said, apply early.`;
+    assert.doesNotMatch(noQuoteGuard(text, speakers, [LABEL]).text, LEFTOVER, v);
+    assert.ok(findPersonalIdentifiers(text, speakers, [LABEL]).some((f) => f.kind === "speaker-label"), `detector: ${v}`);
+  }
+});
+
+test("U6h P5: a label with a diacritic matches its plain spelling too, and non-label look-alikes are not mangled", () => {
+  assert.doesNotMatch(redactPersonalIdentifiers("Sanjay Kulkarni said apply early.", speakers, ["Sanjáy Kulkárni"]), /Sanjay|Kulkarni/);
+  const keep = "Sanjayan Rao and Kulkarnia Road are unrelated, and so is a student called Sanj.";
+  assert.equal(redactPersonalIdentifiers(keep, speakers, [LABEL]), keep);
+  assert.equal(findPersonalIdentifiers("Apply early, the deadline is in October.", speakers, [LABEL]).length, 0);
+});
+
+test("U6h P5: a common word used as a name token ('Will') does not blank ordinary sentences", () => {
+  const out = redactPersonalIdentifiers("The visa will be issued in two weeks. Will Mehra said so.", speakers, ["Will Mehra"]);
+  assert.match(out, /The visa will be issued in two weeks\./);
+  assert.doesNotMatch(out, /Mehra|Will Mehra/);
+});
+
+// U6h fix cycle 1 M3b. Scenario: a WhatsApp / unknown hit (restricted) carries a phone number in a shape the old detector
+// missed; redactPersonalIdentifiers runs on it BEFORE the model sees it (graph.ts modelText) and on every shown claim.
+test("U6h fix1 M3b: phone shapes the old detector missed are found and redacted (parenthesised area code, dots, Devanagari digits)", () => {
+  const phones = [
+    "(98765) 43210",
+    "+91 (98765) 43210",
+    "(415) 555-0132",
+    "(415)555-0132",
+    "+1 (415) 555-0132",
+    "98765.43210",
+    "98765/43210",
+    "415.555.0132",
+    "९८७६५ ४३२१०",
+    "९८७६५४३२१०",
+    "+९१ ९८७६५ ४३२१०",
+  ];
+  for (const p of phones) {
+    const text = `Call me on ${p} tonight`;
+    assert.deepEqual(findPersonalIdentifiers(text, speakers, []).map((f) => f.kind), ["phone"], `detect ${p}`);
+    const out = redactPersonalIdentifiers(text, speakers, []);
+    assert.doesNotMatch(out, /\d|[०-९]/, `redact ${p} -> ${out}`);
+    assert.match(out, /\[number removed\]/, p);
+  }
+});
+
+test("U6h fix1 M3b: years, fees, dates and ordinary numbers are not phone numbers", () => {
+  const benign = [
+    "The intake is in 2026.",
+    "Fees are 5000 euros.",
+    "Fees are 5,000 euros and living costs 11,000 euros.",
+    "Seminar date 2026-03-04 and 11,000 euros",
+    "Deadline 04.03.2026.",
+    "Deadline 04/03/2026 for the 2026-27 intake.",
+    "Version 3.11.4 of the guide.",
+    "About 1.5 lakh per year or 120 ECTS credits.",
+    "Call the office (open 9 to 5) for 2 weeks.",
+    "Scores: IELTS 6.5, GRE 320.",
+    "In (2026) the fee is 5000 euros.",
+    "१०१० रुपये और २०२६ का सत्र",
+  ];
+  for (const t of benign) assert.deepEqual(findPersonalIdentifiers(t, speakers, []), [], t);
+});
