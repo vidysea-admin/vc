@@ -1,0 +1,162 @@
+P10 observed: backend calls after close-then-attach = [{"type":"interrupt"}] events: transcript,audio,transcript,crisis,closed
+✔ P1 crisis then THREE interrupted events: still silent (2.8077ms)
+✔ P2 crisis, client interrupt(), then backend interrupted: silent (0.4794ms)
+✔ P3 crisis then later non-final chunk of same utterance then interrupted: silent, one crisis (0.292ms)
+✔ P4 crisis on FINAL chunk, two interrupted: silent; then next speech unmutes (0.2165ms)
+✔ P5 crisis, interrupted, second crisis utterance re-fires and stays muted through interrupted (0.2269ms)
+✖ P6 half reply flushed once, audited once, no duplicate on turnComplete; order 1,2,3 (1.3008ms)
+✖ P7 auditor throws during the crisis flush: audit_error flag, crisis still plays, still muted, backend interrupted (1.1416ms)
+✔ P8 sink throws on every write: crisis still plays and mutes (0.432ms)
+✔ P9 a listener that always throws cannot break the crisis path (0.5444ms)
+✔ P10 pre-attach crisis, then close() before attach, then attach: nothing throws (0.9501ms)
+✔ P11 pre-attach: backend.interrupt throws on replay; a queued tool call after it is still replayed; attach does not throw (13.9942ms)
+P15 observed: model audio audible after typed harmless text post-crisis = 0
+✔ P12 pre-attach tool call whose handler throws -> error event, once (2.4366ms)
+✔ P13 sendText: detector throws -> crisis (fail closed), not forwarded; typed crisis twice fires twice; harmless text scanned once and forwarded (0.6277ms)
+✔ P14 M3 boundaries (4.4363ms)
+✔ P15 OBSERVE: harmless typed text after a crisis (no speech, no turnComplete): is the model reply audible? (0.4475ms)
+✔ P16 flags do not go stale: crisis -> turnComplete -> client interrupt -> backend interrupted -> audible; crisis -> speech -> interrupt -> interrupted -> audible (0.2635ms)
+✖ P17 close right after crisis: no throw, interrupted turn stored once (0.4086ms)
+✔ C1 audio format: a student's 16 kHz PCM16 mic chunk reaches the backend byte for byte; the constants are 16000/24000 (2.3995ms)
+✔ C1 audio format: a browser that sends a half-sample (odd byte length) or an empty frame is refused, nothing reaches the backend (1.0339ms)
+✔ C1 audio out: the model speaks and the client receives 24 kHz PCM16 audio events with the 24 kHz mime (1.0922ms)
+✔ C1 transcripts: a student speaks in two chunks and the model answers; both transcripts stream and finish in thread order (2.0538ms)
+✔ C1 tool call: the model asks for search_kb mid-answer; the call is surfaced, the handler's result goes back to the model (14.2285ms)
+✔ C1 tool call: with no handler the caller answers through sendToolResult (the API layer owns KB access) (0.3916ms)
+✔ C1 tool call: the KB tool throws during a live answer; an error event is raised and the session stays usable (2.3425ms)
+✔ C1 interrupt: the student talks over the model; backend is told, event fires, the rest of that reply is dropped and the partial reply is stored as interrupted (0.4584ms)
+✔ C1 interrupt: after the barge-in the student's next words un-mute the model for its new answer (0.3385ms)
+✔ C1 interrupt: the backend itself reports the student barged in; the half reply is stored interrupted and the next reply flows (5.7439ms)
+✔ C1 close: the student hangs up twice (double tap); the backend closes once, one closed event, and every send afterwards throws (0.7475ms)
+✔ C1 close: the network drops mid-reply; the half reply is saved, one closed event, and late backend events are ignored (0.4232ms)
+✔ C1 close: a UI listener that throws never breaks the voice session (0.2884ms)
+✔ C4 crisis: the phrase arrives split across two transcript chunks; the detector sees the accumulated utterance and the fixed message plays once (0.8173ms)
+✔ C4 crisis: after the trigger, the model's own audio and words for that answer are dropped (none reaches the student) (0.4137ms)
+✔ C4 crisis: the student's words are written to the thread before the fixed reply, and the crisis record is handed to the sink (0.2604ms)
+✔ C4 crisis: the rest of the same sentence keeps streaming in after the trigger; the fixed message is not played a second time (0.2198ms)
+✔ C4 crisis: the student recovers and later says it again in a new turn; the fixed message plays again and the model speaks normally in between (0.2129ms)
+✔ C4 crisis: an ordinary question about fees never triggers the hook (0.1998ms)
+✔ C4 crisis: the student types the phrase during a voice session; it is NOT forwarded to the model and the fixed message plays (0.1855ms)
+✔ C4 crisis: a harmless typed message in a voice session is forwarded to the model and not duplicated into the voice thread (0.1464ms)
+✔ C4 crisis: the detector crashes on a weird transcript; unsure counts as crisis (D-087), with an error event for the engineers (0.2637ms)
+✔ C4 crisis: the detector can return a level and it travels on the crisis event and record (0.3583ms)
+✔ C4 crisis: the trigger-to-fixed-message latency is measured on the injected clock and stays inside the 2 s bound (D-088 Q5) (0.3606ms)
+✔ C4 crisis: a deployment wires a detector but forgets the fixed message; the session refuses to start (no silent no-op) (0.2604ms)
+✔ C5 audit A9b: the model says a fee figure no tool returned; a flag event reaches the client and an audit record is stored with the thread (2.5088ms)
+✔ C5 audit A9b: the model names a counsellor who is on the do-not-name list; a listed_speaker flag fires (1.115ms)
+✔ C5 audit A9b: a clean answer (figure came from the KB tool, no names) emits no flag and no audit record (4.4228ms)
+✔ C5 audit A9b: a name that only contains a listed name inside another word is not flagged (Rahulkar vs Rahul) (0.2877ms)
+✔ C5 audit A9b: the Tele-MANAS number the fixed message carries is allow-listed, an unrelated number beside it is still flagged (0.2298ms)
+✔ C5 audit A9b: the audit is after the fact, not before: the spoken audio is already delivered when the flag arrives (0.2468ms)
+✔ C5 audit A9b: the auditor itself crashes; the failure is a visible audit_error flag, never a silent pass (0.1839ms)
+✔ C5 audit A9b: the student cuts the model off mid-sentence; the half sentence is still audited (0.2088ms)
+✔ C5 audit A9b: two findings in one reply give two flags and two audit records (one per finding) (0.1704ms)
+✔ C6 sink: U8's async persistence is slow for the first turn; thread order is still user, assistant, user (22.4943ms)
+✔ C6 sink: U8's database write fails once; an error event is raised, later turns are still delivered, the session survives (0.7456ms)
+✔ C6 sink: the timestamps come from the injected clock as ISO strings (no real time in tests) (0.1732ms)
+✔ C6 sink: the live module imports nothing from apps/api, a websocket library or a vendor SDK (layering and offline guarantee) (1.4224ms)
+✔ C3 gemini: a deployment with no connector (no key, no SDK) fails loudly instead of pretending to be live (0.3069ms)
+✔ C3 gemini: connecting asks for audio out, both transcripts, the voice, the system prompt and the KB tool declarations (0.3671ms)
+✔ C3 gemini: a full spoken exchange from Gemini-shaped messages becomes normalized transcripts, 24 kHz audio, a tool call and a turn end (0.6442ms)
+✔ C3 gemini: the student's mic audio is sent to Gemini as base64 PCM16 at 16 kHz; text, tool results and close take the SDK's shapes (0.3773ms)
+✔ C3 gemini: the model returns audio at the wrong sample rate; an error is raised and the audio is not played (0.2785ms)
+✔ C3 gemini: Gemini reports the student barged in and then closes the socket; both surface once (0.209ms)
+✔ C3 gemini: an SDK error callback becomes an error event without closing the session (0.1524ms)
+✔ C3 gemini: junk messages (null, empty serverContent, a function call with no name) are ignored without throwing (0.2356ms)
+✔ C4 crisis via gemini: a Hindi-English crisis phrase arrives as Gemini input transcription; Gemini is interrupted, the fixed message plays, Gemini's own reply is silenced (0.3152ms)
+✔ C5 audit A9b: createSimpleOutputAuditor numbers with thousands separators and decimals match the tool text, a different figure does not (0.1473ms)
+✔ C4 crisis F1: the backend reports `interrupted` after the crisis trigger chunk; the model's audio and words stay silenced (0.2246ms)
+✔ C4 crisis F1: the crisis arrives on a FINAL transcript chunk and `interrupted` follows; the mute still holds (0.1755ms)
+✔ C4 crisis F1: after crisis + interrupted the model's turn ends; the next reply is audible again (the mute is not permanent) (0.1379ms)
+✖ C4 crisis F2: the model was mid-sentence with a figure when the student's crisis phrase arrived; the half reply is audited and stored as interrupted, before the student's words (1.2044ms)
+✔ C4 crisis M1: a crisis arrives from the transport before the session is attached; the fixed message plays now and the backend interrupt is replayed on attach (0.2003ms)
+✔ C4 crisis M1: the model asks for a KB tool before the session is attached; the call is answered after attach, not turned into an error (3.6651ms)
+✔ C4 crisis M2: the student speaks a crisis phrase and then types another distress message in the same utterance; the typed text is scanned, not forwarded, and answered (0.3392ms)
+✔ C4 crisis M2: a harmless typed message after a spoken crisis in the same utterance is still scanned and forwarded (0.2422ms)
+✔ C4 crisis M3: a voice deployment wires a detector and a fixed message with text only (no audio); the session refuses to start rather than leave the student with silence (0.2654ms)
+ℹ tests 74
+ℹ suites 0
+ℹ pass 70
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1868.9127
+
+✖ failing tests:
+
+test at tests\chk1.test.ts:69:1
+✖ P6 half reply flushed once, audited once, no duplicate on turnComplete; order 1,2,3 (1.3008ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\chk-u9c1\mut-F2\packages\providers\tests\chk1.test.ts:77:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chk1.test.ts:84:1
+✖ P7 auditor throws during the crisis flush: audit_error flag, crisis still plays, still muted, backend interrupted (1.1416ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'audit_error'
+  - ]
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\chk-u9c1\mut-F2\packages\providers\tests\chk1.test.ts:90:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'audit_error' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chk1.test.ts:197:1
+✖ P17 close right after crisis: no throw, interrupted turn stored once (0.4086ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\chk-u9c1\mut-F2\packages\providers\tests\chk1.test.ts:203:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:733:1
+✖ C4 crisis F2: the model was mid-sentence with a figure when the student's crisis phrase arrived; the half reply is audited and stored as interrupted, before the student's words (1.2044ms)
+  AssertionError [ERR_ASSERTION]: spoken uncited number in the half reply was never audited
+  + actual - expected
+  
+  + []
+  - [
+  -   '99999'
+  - ]
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\chk-u9c1\mut-F2\packages\providers\tests\live.test.ts:738:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ '99999' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

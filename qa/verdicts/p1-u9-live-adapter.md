@@ -1,37 +1,37 @@
-# p1-u9-live-adapter independent check (Mode A)
+# Verdict p1-u9-live-adapter (repair check)
+Cycle checked: 1
+Date: 2026-10-18 · Checker: /checker Mode A repair subagent · Policy: proportional-verification/2026-10-17.14 (+.15 rules at dispatch)
+Base 47ab62a · Repair base a4864f8 (verified with git) · Head ebbb41f (git rev-parse; worktree clean) · Integration branch main
 
-Cycle checked: 0
-Policy-Version: proportional-verification/2026-10-17.14
-VERDICT: FAIL
+VERDICT: PASS
+SCOREBOARD: 6/6 criteria met (C4 re-proved; C5 re-run because live.ts changed; C1, C2, C3, C6 keep results, whole file re-run green)
+TIER: M (provider seam, mock only; no auth, tenancy or prod-write trigger found in the repair diff)
+FAILURES: none
 
-CHECK-PLAN: tier M floor (provider seam, mock only; no auth/tenancy/prod-write, so one checker, no dual). Whole-unit diff 47ab62a..aeca9c8 read in full (step 4c). Re-ran the full `@vc/providers` suite once, wrote 4 independent crisis/audit probes, ran 1 falsification per criterion (6) in throwaway copies. No full-repo suite, no network, no paid call.
-TIER: M. Lane: normal (quick lane off; cycle 0 but multi-file/6 criteria).
-CHECKED-STATE: worktree p1/u9 HEAD aeca9c8; code identical to e80c9b3 (diff e80c9b3..HEAD touches only qa/). Bound tree never mutated; copies under scratchpad/u9chk.
+## Plan
+Failed criterion C4 (cycle 0: F1 interrupted unmutes after a crisis, F2 half reply dropped on crisis). live.ts changed, so C4 and C5 (flushAssistant audit path) re-run. Read repair diff a4864f8..ebbb41f in full (live.ts +97/-26, tests +116, qa evidence). Whole-unit diff 47ab62a..ebbb41f scanned: files are packages/providers/src/{index.ts,live.ts}, packages/providers/tests/live.test.ts and qa/** only; nothing outside the declared scope, no existing test edited or weakened.
 
-SCOPE READ: changed files = packages/providers/src/live.ts (new), src/index.ts (+4 re-export lines), tests/live.test.ts (new), qa/ evidence + manifest. Nothing outside the U9 seam. live.ts has no `import` statement at all (no apps/api, ws, SDK, fetch); the test file booby-traps fetch/WebSocket in every test and asserts 0 touches.
+## Evidence (all in a throwaway copy outside the bound tree, via `bash D:/vc/scripts/vc-testlock.sh python chk-u9c1/run.py`; files under qa/evidence/p1-u9-check/cycle1/)
+- Clean copy, `tsx --test tests/live.test.ts`: tests 57, pass 57, fail 0 (out-live-clean.txt). `tsc --noEmit`: rc 0, no output.
+- My own hostile probes `chk1.test.ts` (17 tests, written by me, not the maker's): pass 17, fail 0 (out-probes-clean.txt). They prove outcomes, not construction:
+  - P1-P5 F1: crisis then 3x `interrupted` stays silent (audio, words, dropped counter 1, backend interrupted once); crisis then client interrupt() then backend `interrupted` silent; later non-final chunk of the same utterance; crisis on a FINAL chunk then 2x interrupted silent, then the next student speech unmutes; a second crisis utterance re-fires and stays muted through `interrupted`.
+  - P6-P9 F2: half reply with an uncited figure is audited once, stored `interrupted: true` as seq 1, then student words seq 2, fixed reply seq 3, no duplicate on repeated turnComplete, pre-crisis audio forwarded exactly once; a throwing auditor yields an `audit_error` flag and the crisis still plays and mutes; a sink that throws on every write and a listener that always throws do not break the crisis path.
+  - P10-P12 M1: crisis and tool call before attach are replayed on attach; a throwing backend.interrupt on replay becomes an `error` event, attach does not throw and the queued tool call is still answered; a throwing pre-attach tool handler runs once, after attach, as one `error` event.
+  - P13 M2: a throwing detector on typed text fails closed (crisis, not forwarded); typed crisis twice fires twice; harmless typed text is scanned once and forwarded.
+  - P14 M3: Uint8Array(2) accepted; no detector with text-only message accepted; detector without message rejected; GeminiLiveProvider with a text-only crisis message rejects with LiveConfigError and the connector is never opened (opened=0).
+  - P16 flags do not go stale (crisis, turnComplete, client interrupt, backend interrupted leaves audio audible; crisis, speech, interrupt, interrupted audible). P17 close right after a crisis stores the half reply once.
+- Falsification, one isolated copy per mutant, whole live.test.ts + probes run against each (clean copy green first, above):
+  - F1 `if (!this.crisisMute) this.muted = false;` -> `this.muted = false;`: 10 fail, including the two named cycle-1 tests "C4 crisis F1: the backend reports `interrupted`..." and "...FINAL transcript chunk..." plus P1-P5, P7-P9.
+  - F1-naive (the brief's `!crisisFiredForUtterance` variant): 3 fail (the FINAL-chunk C4 F1 test, P4, P5), so the separate `crisisMute` flag is necessary and the test discriminates it.
+  - F2 `flushAssistant(true)` -> `assistantBuf = ""` in fireCrisis: 4 fail ("C4 crisis F2", P6, P7, P17); this is also the C5 falsification (the half reply is no longer audited).
+  All failed on named assertions, not import errors (out-mut-*.txt).
+- C5 crisis audit: F2 test and P6/P7 show the interrupted half reply is audited, flagged and handed to the sink once. C1/C2/C3/C6: whole-file run green 57/57; their inputs in the repair diff are untouched.
+- Downstream (M3): `git grep` of the bound worktree, the main tree D:/vc and the sibling p1-u8 worktree for `new LiveSession`, MockLiveProvider, GeminiLiveProvider, detectCrisis, crisisMessage outside packages/providers: no other caller. Nothing throws today. The future U8 caller must supply non-empty even-length 24 kHz PCM16 `crisisMessage.audio` whenever it wires a detector, or `connect()` rejects with LiveConfigError (intended).
 
-SCOREBOARD:
-- `bash D:/vc/scripts/vc-testlock.sh bash u9chk/batch.sh` -> base `@vc/providers` all tests except my probe file: tests 108, pass 108, fail 0 (matches the manifest). Typecheck evidence (`qa/evidence/p1-u9/typecheck.txt`, exit 0, sha e80c9b3) reused: code tree unchanged since that sha.
-- Independent probes `qa/evidence/p1-u9-check/chk.test.ts.txt` (4): 2 pass, 2 FAIL (findings F1, F2). Output `qa/evidence/p1-u9-check/batch-out.txt`.
+## Non-blocking observations (low, no FAIL; wording/hardening, not units)
+- L1: after a crisis, a harmless typed message gets no audible reply until `turnComplete` or the next student speech (P15 observed: 0 audible chunks). Consistent with D-088 Q5 as built; whether the live Gemini sequence leaves the student without an answer is an A10 / G-REAL live-gate question, not provable offline (the maker states the same residual risk for a reply sent as a new turn).
+- L2: a pre-attach crisis followed by `close()` and then `attach()` still replays the backend interrupt on the closed session's backend (P10 observed `[{"type":"interrupt"}]`); harmless, but the queued tool handler would also run after close. Only reachable by closing before attach.
+- L3: the M3 check tests `byteLength`, so a non-Uint8Array with an even byteLength (type-level misuse) passes; text-only `crisisMessage.text` empty string is not rejected.
 
-CRITERIA:
-- C1 interface: PASS. 16 kHz in / 24 kHz out, both transcripts, tool call, interrupt, close covered by 13 tests; Falsify[C1] constant LIVE_OUTPUT_SAMPLE_RATE_HZ 24000->16000 -> RED 4 (audio-format constants, Gemini exchange, wrong-rate).
-- C2 mock: PASS. Falsify[C2] MockLiveBackend.sendText stops recording -> RED 1 (typed-message test).
-- C3 gemini: PASS (compile-only confirmed: no import, injected connector, no connector -> LiveNotWiredError, no network reachable). Falsify[C3] drop `inputAudioTranscription: {}` from buildGeminiLiveConfig -> RED 1.
-- C4 crisis: FAIL, see F1 (and F2). Trigger chunk itself is correct: probe CHK-P0 (audio before trigger forwarded, audio after the trigger chunk dropped, one crisis event) and CHK-P3 (one Gemini message carrying crisis transcript + model audio -> audio dropped) PASS. Falsify[C4] remove `this.muted = true` in fireCrisis -> RED 2.
-- C5 audit (A9b): PASS as written (flag + audit record on a finding, clean answer none). Falsify[C5] auditor ignores sourced numbers -> RED 2. Cross-criterion defect F2 below.
-- C6 sink: PASS (order, failure contained, injected-clock ISO, source-text import guard). Falsify[C6] `this.now = Date.now` ignoring the injected clock -> RED 1.
-All six falsifications: green before (108/108 base), red after on assertion failures (not import errors), copies discarded (bound tree untouched).
-
-FINDINGS (blocking, each reproduced by a command I ran):
-F1 (C4, safety, CRITICAL control per contract B6 voice exception U0-4): `LiveSession.interrupted()` (live.ts:365-370, read in this check) sets `this.muted = false` unconditionally, so a backend `interrupted` event arriving after the crisis trigger reopens model audio. `inputTranscript` guards the same flag with `!crisisFiredForUtterance` (live.ts:316) and the module header (live.ts:10-11) promises "after the trigger NO model audio is forwarded at all"; the contract allows at most 2 s. Repro: probe CHK-P1 (`I will kill myself` -> `emitInterrupted()` -> `emitOutputAudio`) -> `AssertionError: model audio leaked after crisis trigger + interrupted`. Real Gemini reports `interrupted` as the server-side confirmation of a barge-in, and ordering against transcription chunks is not guaranteed. Fix: do not clear `muted` in `interrupted()` while `crisisFiredForUtterance` is true (keep the clear on `turnComplete`, which the existing recovery test pins), plus a test.
-F2 (C4/C5 seam, A9b): `fireCrisis` does `this.assistantBuf = ""` (live.ts:429) so words the model had already spoken when the crisis arrived are never audited and never stored. The barge-in path (`interrupt()`/`interrupted()`) audits and stores the half reply as `interrupted:true` (pinned by a C5 test); the crisis path, which is also a student talking over the model, drops it. Contract B6 (b): output transcripts are audited after the fact, each breach writes an audit event. Repro: probe CHK-P2 (model says "The fee is 99999 rupees", then crisis chunk, auditor installed) -> `AssertionError: spoken uncited number in the half reply was never audited`. Fix: call `flushAssistant(true)` in `fireCrisis` before muting (audit + store as interrupted), plus a test.
-
-NON-BLOCKING / LIMITS:
-- Open risks the builder named, verified: Gemini compile-only with no reachable network call (yes); crisis hook stops audio on the trigger chunk (yes for that chunk, see F1 for a later event); nothing calls a paid provider (yes).
-- `turnComplete` unmutes after a crisis by design (existing test); whether Gemini answers the crisis utterance before `turnComplete` is a G-REAL / A10 live-gate question, not provable offline.
-- Gemini `interrupt()` sends only `audioStreamEnd` (stated ASSUMPTION in code); verified under G-REAL.
-- Process: lock wait ~14 min (blocked_min) behind other units' suites; my probe file was first smoke-run once without the lock (4 tiny tests).
-
-ISSUES-WRITTEN: none (checker ledger not touched; F1/F2 are FAIL findings for the maker's fix cycle 1).
-Metrics: start=2026-10-18T02:01:19+05:30 end=2026-10-18T02:23:23+05:30 wall_min=9 agent_min=unavailable blocked_min=14 suite_runs=1 repeat_runs=0 mutations=6 cycle=0 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-17.14 lane=normal check_s=1360 mutants=6 defects_unit=2 defects_6c=0
+Metrics: start=2026-10-18T03:04:30+05:30 end=2026-10-18T04:13:22+05:30 wall_min=27 agent_min=unavailable blocked_min=42 suite_runs=0 repeat_runs=0 mutations=3 cycle=1 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-17.14 lane=normal check_s=unavailable mutants=3 defects_unit=0 defects_6c=0
+slow: shared test lock wait ~42 min (first attempt timed out at 1806 s, held by other checkers' runs; retried once with VC_TESTLOCK_TIMEOUT_SECS=7200); wall_min also spans an API network outage and a resume, so it is an upper bound. The tests themselves ran in 2 s per invocation. Retry: 1.
