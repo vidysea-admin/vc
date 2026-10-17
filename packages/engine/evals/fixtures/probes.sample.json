@@ -1,0 +1,650 @@
+{
+ "schemaVersion": 1,
+ "source": "synthetic",
+ "cases": [
+  {
+   "id": "p-01",
+   "question": "SYNTHETIC servable probe",
+   "expectServed": true,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "correct",
+    "insufficient_coverage": false,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-02",
+   "question": "SYNTHETIC out-of-KB probe 2",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [],
+     "web": [
+      {
+       "url": "https://example.invalid"
+      }
+     ]
+    },
+    "verdict": "correct",
+    "insufficient_coverage": false,
+    "web_used": true
+   }
+  },
+  {
+   "id": "p-03",
+   "question": "SYNTHETIC out-of-KB probe 3",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "correct",
+    "insufficient_coverage": true,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-04",
+   "question": "SYNTHETIC out-of-KB probe 4",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "incorrect",
+    "insufficient_coverage": true,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-05",
+   "question": "SYNTHETIC out-of-KB probe 5",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "ambiguous",
+    "insufficient_coverage": false,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-06",
+   "question": "SYNTHETIC out-of-KB probe 6",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "incorrect",
+    "insufficient_coverage": false,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-07",
+   "question": "SYNTHETIC out-of-KB probe 7",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "correct",
+    "insufficient_coverage": true,
+    "web_used": true
+   }
+  },
+  {
+   "id": "p-08",
+   "question": "SYNTHETIC out-of-KB probe 8",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [],
+     "web": [
+      {
+       "url": "https://example.invalid"
+      }
+     ]
+    },
+    "verdict": "correct",
+    "insufficient_coverage": false,
+    "web_used": true
+   }
+  },
+  {
+   "id": "p-09",
+   "question": "SYNTHETIC out-of-KB probe 9",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "correct",
+    "insufficient_coverage": true,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-10",
+   "question": "SYNTHETIC out-of-KB probe 10",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "incorrect",
+    "insufficient_coverage": true,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-11",
+   "question": "SYNTHETIC out-of-KB probe 11",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "ambiguous",
+    "insufficient_coverage": false,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-12",
+   "question": "SYNTHETIC out-of-KB probe 12",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "incorrect",
+    "insufficient_coverage": false,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-13",
+   "question": "SYNTHETIC out-of-KB probe 13",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "correct",
+    "insufficient_coverage": true,
+    "web_used": true
+   }
+  },
+  {
+   "id": "p-14",
+   "question": "SYNTHETIC out-of-KB probe 14",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [],
+     "web": [
+      {
+       "url": "https://example.invalid"
+      }
+     ]
+    },
+    "verdict": "correct",
+    "insufficient_coverage": false,
+    "web_used": true
+   }
+  },
+  {
+   "id": "p-15",
+   "question": "SYNTHETIC out-of-KB probe 15",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "correct",
+    "insufficient_coverage": true,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-16",
+   "question": "SYNTHETIC out-of-KB probe 16",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "incorrect",
+    "insufficient_coverage": true,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-17",
+   "question": "SYNTHETIC out-of-KB probe 17",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "ambiguous",
+    "insufficient_coverage": false,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-18",
+   "question": "SYNTHETIC out-of-KB probe 18",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "incorrect",
+    "insufficient_coverage": false,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-19",
+   "question": "SYNTHETIC out-of-KB probe 19",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "correct",
+    "insufficient_coverage": true,
+    "web_used": true
+   }
+  },
+  {
+   "id": "p-20",
+   "question": "SYNTHETIC out-of-KB probe 20",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [],
+     "web": [
+      {
+       "url": "https://example.invalid"
+      }
+     ]
+    },
+    "verdict": "correct",
+    "insufficient_coverage": false,
+    "web_used": true
+   }
+  },
+  {
+   "id": "p-21",
+   "question": "SYNTHETIC out-of-KB probe 21",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "correct",
+    "insufficient_coverage": true,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-22",
+   "question": "SYNTHETIC out-of-KB probe 22",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "incorrect",
+    "insufficient_coverage": true,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-23",
+   "question": "SYNTHETIC out-of-KB probe 23",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "ambiguous",
+    "insufficient_coverage": false,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-24",
+   "question": "SYNTHETIC out-of-KB probe 24",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "incorrect",
+    "insufficient_coverage": false,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-25",
+   "question": "SYNTHETIC out-of-KB probe 25",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "correct",
+    "insufficient_coverage": true,
+    "web_used": true
+   }
+  },
+  {
+   "id": "p-26",
+   "question": "SYNTHETIC out-of-KB probe 26",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [],
+     "web": [
+      {
+       "url": "https://example.invalid"
+      }
+     ]
+    },
+    "verdict": "correct",
+    "insufficient_coverage": false,
+    "web_used": true
+   }
+  },
+  {
+   "id": "p-27",
+   "question": "SYNTHETIC out-of-KB probe 27",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "correct",
+    "insufficient_coverage": true,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-28",
+   "question": "SYNTHETIC out-of-KB probe 28",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "incorrect",
+    "insufficient_coverage": true,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-29",
+   "question": "SYNTHETIC out-of-KB probe 29",
+   "expectServed": false,
+   "ask": {
+    "answer": "synthetic answer",
+    "reason": "r",
+    "scored": [],
+    "auditLog": [],
+    "sources": {
+     "internal": [
+      {
+       "node_id": "session:s-1"
+      }
+     ],
+     "web": []
+    },
+    "verdict": "ambiguous",
+    "insufficient_coverage": false,
+    "web_used": false
+   }
+  },
+  {
+   "id": "p-30",
+   "question": "SYNTHETIC KB outage probe",
+   "expectServed": false,
+   "ask": "unavailable"
+  }
+ ]
+}

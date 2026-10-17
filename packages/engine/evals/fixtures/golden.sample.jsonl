@@ -1,0 +1,60 @@
+{"id":"g-001","lang":"en","country":"USA","theme":"tuition","question":"SYNTHETIC: what should a student know about tuition in USA? (q1)","expectedTurnIds":["t-1-X"],"expectedSessionIds":[]}
+{"id":"g-002","lang":"en","country":"UK","theme":"scholarships","question":"SYNTHETIC: what should a student know about scholarships in UK? (q2)","expectedTurnIds":["t-2-X"],"expectedSessionIds":[]}
+{"id":"g-003","lang":"en","country":"Canada","theme":"visa","question":"SYNTHETIC: what should a student know about visa in Canada? (q3)","expectedTurnIds":["t-3-X"],"expectedSessionIds":[]}
+{"id":"g-004","lang":"en","country":"Australia","theme":"intakes","question":"SYNTHETIC: what should a student know about intakes in Australia? (q4)","expectedTurnIds":["t-4-X"],"expectedSessionIds":[]}
+{"id":"g-005","lang":"en","country":"Germany","theme":"work-rights","question":"SYNTHETIC: what should a student know about work-rights in Germany? (q5)","expectedTurnIds":["t-5-X"],"expectedSessionIds":[]}
+{"id":"g-006","lang":"en","country":"Ireland","theme":"accommodation","question":"SYNTHETIC: what should a student know about accommodation in Ireland? (q6)","expectedTurnIds":["t-6-X"],"expectedSessionIds":[]}
+{"id":"g-007","lang":"en","country":"NewZealand","theme":"tuition","question":"SYNTHETIC: what should a student know about tuition in NewZealand? (q7)","expectedTurnIds":["t-7-X"],"expectedSessionIds":[]}
+{"id":"g-008","lang":"en","country":"Singapore","theme":"scholarships","question":"SYNTHETIC: what should a student know about scholarships in Singapore? (q8)","expectedTurnIds":["t-8-X"],"expectedSessionIds":[]}
+{"id":"g-009","lang":"en","country":"France","theme":"visa","question":"SYNTHETIC: what should a student know about visa in France? (q9)","expectedTurnIds":["t-9-X"],"expectedSessionIds":[]}
+{"id":"g-010","lang":"en","country":"Netherlands","theme":"intakes","question":"SYNTHETIC: what should a student know about intakes in Netherlands? (q10)","expectedTurnIds":["t-10-X"],"expectedSessionIds":[]}
+{"id":"g-011","lang":"en","country":"Japan","theme":"work-rights","question":"SYNTHETIC: what should a student know about work-rights in Japan? (q11)","expectedTurnIds":["t-11-X"],"expectedSessionIds":[]}
+{"id":"g-012","lang":"en","country":"UAE","theme":"accommodation","question":"SYNTHETIC: what should a student know about accommodation in UAE? (q12)","expectedTurnIds":["t-12-X"],"expectedSessionIds":[]}
+{"id":"g-013","lang":"en","country":"USA","theme":"tuition","question":"SYNTHETIC: what should a student know about tuition in USA? (q13)","expectedTurnIds":["t-13-X"],"expectedSessionIds":[]}
+{"id":"g-014","lang":"en","country":"UK","theme":"scholarships","question":"SYNTHETIC: what should a student know about scholarships in UK? (q14)","expectedTurnIds":["t-14-X"],"expectedSessionIds":[]}
+{"id":"g-015","lang":"en","country":"Canada","theme":"visa","question":"SYNTHETIC: what should a student know about visa in Canada? (q15)","expectedTurnIds":["t-15-X"],"expectedSessionIds":[]}
+{"id":"g-016","lang":"en","country":"Australia","theme":"intakes","question":"SYNTHETIC: what should a student know about intakes in Australia? (q16)","expectedTurnIds":["t-16-X"],"expectedSessionIds":[]}
+{"id":"g-017","lang":"en","country":"Germany","theme":"work-rights","question":"SYNTHETIC: what should a student know about work-rights in Germany? (q17)","expectedTurnIds":["t-17-X"],"expectedSessionIds":[]}
+{"id":"g-018","lang":"en","country":"Ireland","theme":"accommodation","question":"SYNTHETIC: what should a student know about accommodation in Ireland? (q18)","expectedTurnIds":["t-18-X"],"expectedSessionIds":[]}
+{"id":"g-019","lang":"en","country":"NewZealand","theme":"tuition","question":"SYNTHETIC: what should a student know about tuition in NewZealand? (q19)","expectedTurnIds":["t-19-X"],"expectedSessionIds":[]}
+{"id":"g-020","lang":"en","country":"Singapore","theme":"scholarships","question":"SYNTHETIC: what should a student know about scholarships in Singapore? (q20)","expectedTurnIds":["t-20-X"],"expectedSessionIds":[]}
+{"id":"g-021","lang":"en","country":"France","theme":"visa","question":"SYNTHETIC: what should a student know about visa in France? (q21)","expectedTurnIds":["t-21-X"],"expectedSessionIds":[]}
+{"id":"g-022","lang":"en","country":"Netherlands","theme":"intakes","question":"SYNTHETIC: what should a student know about intakes in Netherlands? (q22)","expectedTurnIds":["t-22-X"],"expectedSessionIds":[]}
+{"id":"g-023","lang":"en","country":"Japan","theme":"work-rights","question":"SYNTHETIC: what should a student know about work-rights in Japan? (q23)","expectedTurnIds":["t-23-X"],"expectedSessionIds":[]}
+{"id":"g-024","lang":"en","country":"UAE","theme":"accommodation","question":"SYNTHETIC: what should a student know about accommodation in UAE? (q24)","expectedTurnIds":["t-24-X"],"expectedSessionIds":[]}
+{"id":"g-025","lang":"en","country":"USA","theme":"tuition","question":"SYNTHETIC: what should a student know about tuition in USA? (q25)","expectedTurnIds":["t-25-X"],"expectedSessionIds":[]}
+{"id":"g-026","lang":"en","country":"UK","theme":"scholarships","question":"SYNTHETIC: what should a student know about scholarships in UK? (q26)","expectedTurnIds":["t-26-X"],"expectedSessionIds":[]}
+{"id":"g-027","lang":"en","country":"Canada","theme":"visa","question":"SYNTHETIC: what should a student know about visa in Canada? (q27)","expectedTurnIds":["t-27-X"],"expectedSessionIds":[]}
+{"id":"g-028","lang":"en","country":"Australia","theme":"intakes","question":"SYNTHETIC: what should a student know about intakes in Australia? (q28)","expectedTurnIds":["t-28-X"],"expectedSessionIds":[]}
+{"id":"g-029","lang":"en","country":"Germany","theme":"work-rights","question":"SYNTHETIC: what should a student know about work-rights in Germany? (q29)","expectedTurnIds":["t-29-X"],"expectedSessionIds":[]}
+{"id":"g-030","lang":"en","country":"Ireland","theme":"accommodation","question":"SYNTHETIC: what should a student know about accommodation in Ireland? (q30)","expectedTurnIds":["t-30-X"],"expectedSessionIds":[]}
+{"id":"g-031","lang":"en","country":"NewZealand","theme":"tuition","question":"SYNTHETIC: what should a student know about tuition in NewZealand? (q31)","expectedTurnIds":["t-31-X"],"expectedSessionIds":[]}
+{"id":"g-032","lang":"en","country":"Singapore","theme":"scholarships","question":"SYNTHETIC: what should a student know about scholarships in Singapore? (q32)","expectedTurnIds":["t-32-X"],"expectedSessionIds":[]}
+{"id":"g-033","lang":"en","country":"France","theme":"visa","question":"SYNTHETIC: what should a student know about visa in France? (q33)","expectedTurnIds":["t-33-X"],"expectedSessionIds":[]}
+{"id":"g-034","lang":"en","country":"Netherlands","theme":"intakes","question":"SYNTHETIC: what should a student know about intakes in Netherlands? (q34)","expectedTurnIds":["t-34-X"],"expectedSessionIds":[]}
+{"id":"g-035","lang":"en","country":"Japan","theme":"work-rights","question":"SYNTHETIC: what should a student know about work-rights in Japan? (q35)","expectedTurnIds":["t-35-X"],"expectedSessionIds":[]}
+{"id":"g-036","lang":"en","country":"UAE","theme":"accommodation","question":"SYNTHETIC: what should a student know about accommodation in UAE? (q36)","expectedTurnIds":["t-36-X"],"expectedSessionIds":[]}
+{"id":"g-037","lang":"en","country":"USA","theme":"tuition","question":"SYNTHETIC: what should a student know about tuition in USA? (q37)","expectedTurnIds":["t-37-X"],"expectedSessionIds":[]}
+{"id":"g-038","lang":"en","country":"UK","theme":"scholarships","question":"SYNTHETIC: what should a student know about scholarships in UK? (q38)","expectedTurnIds":["t-38-X"],"expectedSessionIds":[]}
+{"id":"g-039","lang":"en","country":"Canada","theme":"visa","question":"SYNTHETIC: what should a student know about visa in Canada? (q39)","expectedTurnIds":["t-39-X"],"expectedSessionIds":[]}
+{"id":"g-040","lang":"en","country":"Australia","theme":"intakes","question":"SYNTHETIC: what should a student know about intakes in Australia? (q40)","expectedTurnIds":["t-40-X"],"expectedSessionIds":[]}
+{"id":"g-041","lang":"en","country":"Germany","theme":"work-rights","question":"SYNTHETIC: what should a student know about work-rights in Germany? (q41)","expectedTurnIds":["t-41-X"],"expectedSessionIds":[]}
+{"id":"g-042","lang":"en","country":"Ireland","theme":"accommodation","question":"SYNTHETIC: what should a student know about accommodation in Ireland? (q42)","expectedTurnIds":["t-42-X"],"expectedSessionIds":[]}
+{"id":"g-043","lang":"en","country":"NewZealand","theme":"tuition","question":"SYNTHETIC: what should a student know about tuition in NewZealand? (q43)","expectedTurnIds":["t-43-X"],"expectedSessionIds":[]}
+{"id":"g-044","lang":"en","country":"Singapore","theme":"scholarships","question":"SYNTHETIC: what should a student know about scholarships in Singapore? (q44)","expectedTurnIds":["t-44-X"],"expectedSessionIds":[]}
+{"id":"g-045","lang":"en","country":"France","theme":"visa","question":"SYNTHETIC: what should a student know about visa in France? (q45)","expectedTurnIds":["t-45-X"],"expectedSessionIds":[]}
+{"id":"g-046","lang":"hinglish","country":"Australia","theme":"scholarships","question":"SYNTHETIC-HI: Australia mein scholarships ke baare mein batao (q1)","expectedTurnIds":["t-46-X"],"expectedSessionIds":[]}
+{"id":"g-047","lang":"hi","country":"Germany","theme":"visa","question":"SYNTHETIC-HI: Germany mein visa ke baare mein batao (q2)","expectedTurnIds":["t-47-X"],"expectedSessionIds":[]}
+{"id":"g-048","lang":"hinglish","country":"Ireland","theme":"intakes","question":"SYNTHETIC-HI: Ireland mein intakes ke baare mein batao (q3)","expectedTurnIds":["t-48-X"],"expectedSessionIds":[]}
+{"id":"g-049","lang":"hi","country":"NewZealand","theme":"work-rights","question":"SYNTHETIC-HI: NewZealand mein work-rights ke baare mein batao (q4)","expectedTurnIds":["t-49-X"],"expectedSessionIds":[]}
+{"id":"g-050","lang":"hinglish","country":"Singapore","theme":"accommodation","question":"SYNTHETIC-HI: Singapore mein accommodation ke baare mein batao (q5)","expectedTurnIds":["t-50-X"],"expectedSessionIds":[]}
+{"id":"g-051","lang":"hi","country":"France","theme":"tuition","question":"SYNTHETIC-HI: France mein tuition ke baare mein batao (q6)","expectedTurnIds":["t-51-X"],"expectedSessionIds":[]}
+{"id":"g-052","lang":"hinglish","country":"Netherlands","theme":"scholarships","question":"SYNTHETIC-HI: Netherlands mein scholarships ke baare mein batao (q7)","expectedTurnIds":["t-52-X"],"expectedSessionIds":[]}
+{"id":"g-053","lang":"hi","country":"Japan","theme":"visa","question":"SYNTHETIC-HI: Japan mein visa ke baare mein batao (q8)","expectedTurnIds":["t-53-X"],"expectedSessionIds":[]}
+{"id":"g-054","lang":"hinglish","country":"UAE","theme":"intakes","question":"SYNTHETIC-HI: UAE mein intakes ke baare mein batao (q9)","expectedTurnIds":["t-54-X"],"expectedSessionIds":[]}
+{"id":"g-055","lang":"hi","country":"USA","theme":"work-rights","question":"SYNTHETIC-HI: USA mein work-rights ke baare mein batao (q10)","expectedTurnIds":["t-55-X"],"expectedSessionIds":[]}
+{"id":"g-056","lang":"hinglish","country":"UK","theme":"accommodation","question":"SYNTHETIC-HI: UK mein accommodation ke baare mein batao (q11)","expectedTurnIds":["t-56-X"],"expectedSessionIds":[]}
+{"id":"g-057","lang":"hi","country":"Canada","theme":"tuition","question":"SYNTHETIC-HI: Canada mein tuition ke baare mein batao (q12)","expectedTurnIds":["t-57-X"],"expectedSessionIds":[]}
+{"id":"g-058","lang":"hinglish","country":"Australia","theme":"scholarships","question":"SYNTHETIC-HI: Australia mein scholarships ke baare mein batao (q13)","expectedTurnIds":["t-58-X"],"expectedSessionIds":[]}
+{"id":"g-059","lang":"hi","country":"Germany","theme":"visa","question":"SYNTHETIC-HI: Germany mein visa ke baare mein batao (q14)","expectedTurnIds":["t-59-X"],"expectedSessionIds":[]}
+{"id":"g-060","lang":"hinglish","country":"Ireland","theme":"intakes","question":"SYNTHETIC-HI: Ireland mein intakes ke baare mein batao (q15)","expectedTurnIds":["t-60-X"],"expectedSessionIds":[]}
