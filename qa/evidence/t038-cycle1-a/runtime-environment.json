@@ -1,0 +1,19 @@
+{
+  "firstObservedClock": "2026-10-14T10:21:35.7141031Z",
+  "clockMeaning": "First actual tool clock after protocol read. Dispatch precedes this by unavailable duration.",
+  "capture": "2026-10-14T10:33:36.3099749Z",
+  "OS": "Microsoft Windows NT 10.0.26300.0",
+  "assets": [
+    {
+      "path": "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+      "hash": "8690135061BC49D187143493B82D26A09B7FB71D6DD817D2242CC9DC52506DE9"
+    },
+    {
+      "path": "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/typescript/lib/typescript.js",
+      "hash": "DD17428736A07E1DB1A138D8A14295DDB2699BA780EE15038ACDD2C6DA5373A0"
+    }
+  ],
+  "runnerHash": "24451EBFFF79250DDD862089062000860902066A4DD3C3D91E30E596CA6732D6",
+  "pnpmHash": "B276DA51DC8CA5B0D3EE3371695B50FC8B3244B281B091C63A3F082A88DADEB9",
+  "bashHash": "748FA9D081C278397347B054B34BC9541EC55F7EE2DE965169CEB0754BB44740"
+}

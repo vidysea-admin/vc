@@ -1,0 +1,6 @@
+{
+  "@vc/schemas": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\schemas\\src\\index.ts",
+  "@vc/db": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\db\\src\\index.ts",
+  "@vc/engine": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\engine\\src\\index.ts",
+  "@vc/providers": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\providers\\src\\index.ts"
+}

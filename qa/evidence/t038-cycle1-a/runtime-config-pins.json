@@ -1,0 +1,38 @@
+[
+  {
+    "path": "pnpm-lock.yaml",
+    "hash": "562F86492B23EAB44F0FBFF444A89E7FF8D053A7E97928A86B9EEE0AA84FCD6C"
+  },
+  {
+    "path": "pnpm-workspace.yaml",
+    "hash": "1DB29957D5DE1053CD3F5EDD13928E100AA02ECE041AD8F6B52E3B7906C8F6D9"
+  },
+  {
+    "path": "package.json",
+    "hash": "7663DEE6314BF110330B21E65E61564C88DEA65BAC4F4F65735A03CCFA326D2C"
+  },
+  {
+    "path": "tsconfig.base.json",
+    "hash": "A4286AF536A20E876A22B625C5B2C630DC4195CD1C9E4DB8B92651090F7916B7"
+  },
+  {
+    "path": "packages/schemas/package.json",
+    "hash": "22E9B12B523559434067D0CCA9D0FAB0C3FDF45049B2F225FD5FCF330C05C673"
+  },
+  {
+    "path": "packages/schemas/tsconfig.json",
+    "hash": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73"
+  },
+  {
+    "path": "apps/api/package.json",
+    "hash": "A9DE912B88217804A9E8BCC64CEF73C1FB873C5AD9A9A4C4AC6EDBE673E9678B"
+  },
+  {
+    "path": "apps/api/tsconfig.json",
+    "hash": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73"
+  },
+  {
+    "path": "qa/adapter.json",
+    "hash": "7D0B12017C5212F985E74976BD23A8152FF1AF62750B0BD3F015D4F564D6D3D2"
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "@vc/schemas": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\schemas\\src\\index.ts",
+  "@vc/db": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\db\\src\\index.ts",
+  "@vc/engine": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\engine\\src\\index.ts",
+  "@vc/providers": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\providers\\src\\index.ts"
+}

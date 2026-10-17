@@ -1,0 +1,112 @@
+{
+  "agent": "/root/t038_cycle1_blind_a/runtime_floor",
+  "start": "2026-10-14T10:40:58.583Z",
+  "pid": 28004,
+  "root": "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc",
+  "pins": {
+    "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+    "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+    "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+    "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+  },
+  "commands": [
+    {
+      "name": "F-report-citation-exact-green",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 1:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact",
+      "start": "2026-10-14T10:40:59.578Z",
+      "end": "2026-10-14T10:41:31.747Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "DA762C8C8847B0765795CC772490C09B5342CC468D0B5BCA7F9D06E84BA4D8CE"
+    },
+    {
+      "name": "F-report-citation-exact-red",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 1:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact",
+      "start": "2026-10-14T10:41:31.769Z",
+      "end": "2026-10-14T10:42:10.961Z",
+      "status": 1,
+      "signal": null,
+      "logHash": "1E09190F4DEA807A526DDA15B34D0A13D4D2E8A9D6C257510F862C65EB3CFBDD"
+    },
+    {
+      "name": "F-report-citation-exact-restored",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 1:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact",
+      "start": "2026-10-14T10:42:11.021Z",
+      "end": "2026-10-14T10:42:46.476Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "71412FA334B092EA407B616A9649F46AD0FF069B653193F300822739A012BADD"
+    }
+  ],
+  "floors": [
+    {
+      "id": "F-report-citation-exact",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact",
+      "pattern": "T038 synthetic oracle 1:",
+      "start": "2026-10-14T10:40:59.576Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "A5E9A37A96E404A2AE50F0D766B34687172135D61A2B9D58C33CA54141F761DD",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "mutant-valid-citation",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:42:46.477Z"
+    }
+  ],
+  "environment": {
+    "node": "v24.13.1",
+    "platform": "win32",
+    "arch": "x64",
+    "nodeHash": "E3BE0545990C90995D7BF3A7AF5D64AF1F2E0FC1BBD9B79C27F7ABC1E9676E50",
+    "lockHash": "FDD9B039639F6E70141D6C54CA0760375913DA2E5705257A1B6F75C8939DA48B"
+  },
+  "end": "2026-10-14T10:42:46.477Z",
+  "finalPins": {
+    "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+    "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+    "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+    "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+  },
+  "sourceUnchanged": true
+}

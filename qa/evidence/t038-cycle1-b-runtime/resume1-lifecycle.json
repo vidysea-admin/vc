@@ -1,0 +1,37 @@
+{
+  "observedAt": "2026-10-14T16:39:38.5699418+05:30",
+  "beforeAnyTests": true,
+  "sourceCopy": [
+    {
+      "path": "packages/schemas/src/schemas.ts",
+      "source": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+      "copy": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+      "equal": true
+    },
+    {
+      "path": "apps/api/src/server.ts",
+      "source": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+      "copy": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+      "equal": true
+    },
+    {
+      "path": "apps/api/src/openapi.ts",
+      "source": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+      "copy": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+      "equal": true
+    },
+    {
+      "path": "apps/api/tests/server.test.ts",
+      "source": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A",
+      "copy": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A",
+      "equal": true
+    }
+  ],
+  "session": 24147,
+  "ownedRunnerPid": 72112,
+  "mutexOwnerPid": 39512,
+  "mutexAcquiredAtUnix": 1791975341,
+  "runnerCreationDate": "2026-10-14T16:26:26.070195+05:30",
+  "stage": "initial dependency seal; no types/tests/floors launched",
+  "policyCheck": "exit0 .9 targets2 drift0"
+}

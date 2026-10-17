@@ -1,0 +1,87 @@
+[
+  {
+    "restoredByteEqual": true,
+    "green": 0,
+    "restoreExit": 0,
+    "name": "input-bound",
+    "pattern": "T038 synthetic oracle 3:",
+    "red": 1,
+    "copy": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\t038-blind-b-20261014\\input-bound",
+    "changes": [
+      {
+        "new": "options: z.array(DraftScalarSchema).nullable()",
+        "path": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\t038-blind-b-20261014\\input-bound/packages/schemas/src/schemas.ts",
+        "old": "options: z.array(DraftScalarSchema).max(DRAFT_MAPPING_LIMITS.options).nullable()"
+      }
+    ]
+  },
+  {
+    "restoredByteEqual": true,
+    "green": 0,
+    "restoreExit": 0,
+    "name": "original-authority",
+    "pattern": "T038 synthetic oracle 11:",
+    "red": 1,
+    "copy": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\t038-blind-b-20261014\\original-authority",
+    "changes": [
+      {
+        "new": "false",
+        "path": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\t038-blind-b-20261014\\original-authority/apps/api/src/server.ts",
+        "old": "JSON.stringify({ ...grant.data, purposes: [...grant.data.purposes].sort() }) !== grantSnapshot"
+      }
+    ]
+  },
+  {
+    "restoredByteEqual": true,
+    "green": 0,
+    "restoreExit": 0,
+    "name": "false-zero",
+    "pattern": "T038 synthetic oracle 1:",
+    "red": 1,
+    "copy": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\t038-blind-b-20261014\\false-zero",
+    "changes": [
+      {
+        "new": "if (entry.expected) fields[field.name] = entry.expected;",
+        "path": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\t038-blind-b-20261014\\false-zero/apps/api/src/server.ts",
+        "old": "fields[field.name] = entry.expected;"
+      }
+    ]
+  },
+  {
+    "restoredByteEqual": true,
+    "green": 0,
+    "restoreExit": 0,
+    "name": "public-claim",
+    "pattern": "T038 synthetic oracle 1:",
+    "red": 1,
+    "copy": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\t038-blind-b-20261014\\public-claim",
+    "changes": [
+      {
+        "new": "requirementsVerified: z.literal(true)",
+        "path": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\t038-blind-b-20261014\\public-claim/packages/schemas/src/schemas.ts",
+        "old": "requirementsVerified: z.literal(false)"
+      },
+      {
+        "new": "schemaVersion: 1, status: \"draft\", requirementsVerified: true",
+        "path": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\t038-blind-b-20261014\\public-claim/apps/api/src/server.ts",
+        "old": "schemaVersion: 1, status: \"draft\", requirementsVerified: false"
+      }
+    ]
+  },
+  {
+    "restoredByteEqual": true,
+    "green": 0,
+    "restoreExit": 0,
+    "name": "capturedAt-128",
+    "pattern": "T038 synthetic oracle 3:",
+    "red": 1,
+    "copy": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\t038-blind-b-20261014\\capturedAt-128",
+    "changes": [
+      {
+        "new": "capturedAt: z.string().datetime()",
+        "path": "C:\\Users\\Lenovo\\AppData\\Local\\Temp\\t038-blind-b-20261014\\capturedAt-128/packages/schemas/src/schemas.ts",
+        "old": "capturedAt: z.string().datetime().max(128)"
+      }
+    ]
+  }
+]

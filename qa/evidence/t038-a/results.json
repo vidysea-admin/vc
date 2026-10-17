@@ -1,0 +1,357 @@
+[
+  {
+    "name": "schemas-types",
+    "cwd": "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:/Users/Lenovo/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs",
+      "--filter",
+      "@vc/schemas",
+      "typecheck"
+    ],
+    "exit": 0,
+    "seconds": 22.669968366622925,
+    "log": "schemas-types.log"
+  },
+  {
+    "name": "api-types",
+    "cwd": "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:/Users/Lenovo/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs",
+      "--filter",
+      "@vc/api",
+      "typecheck"
+    ],
+    "exit": 0,
+    "seconds": 20.369713068008423,
+    "log": "api-types.log"
+  },
+  {
+    "name": "affected-api-http",
+    "cwd": "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 0,
+    "seconds": 21.83364176750183,
+    "log": "affected-api-http.log"
+  },
+  {
+    "name": "C1-options-green",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C1-options",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 3:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 0,
+    "seconds": 8.64542293548584,
+    "log": "C1-options-green.log"
+  },
+  {
+    "name": "C1-options-red",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C1-options",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 3:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 1,
+    "seconds": 5.289706468582153,
+    "log": "C1-options-red.log"
+  },
+  {
+    "name": "C1-options-restore",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C1-options",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 3:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 0,
+    "seconds": 5.232021808624268,
+    "log": "C1-options-restore.log"
+  },
+  {
+    "name": "C1-options-restoration",
+    "exactBytes": true,
+    "hashes": {
+      "D:\\vc\\qa\\evidence\\t038-a\\copy-C1-options\\packages\\schemas\\src\\schemas.ts": "4A2E503B57C843FA8169180FB7F34A7E452EE83A30A00AA6AC08B1A4394BD3DE"
+    }
+  },
+  {
+    "name": "C2-original-grant-green",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C2-original-grant",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 11:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 0,
+    "seconds": 8.082087278366089,
+    "log": "C2-original-grant-green.log"
+  },
+  {
+    "name": "C2-original-grant-red",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C2-original-grant",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 11:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 1,
+    "seconds": 6.646620750427246,
+    "log": "C2-original-grant-red.log"
+  },
+  {
+    "name": "C2-original-grant-restore",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C2-original-grant",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 11:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 0,
+    "seconds": 5.159194469451904,
+    "log": "C2-original-grant-restore.log"
+  },
+  {
+    "name": "C2-original-grant-restoration",
+    "exactBytes": true,
+    "hashes": {
+      "D:\\vc\\qa\\evidence\\t038-a\\copy-C2-original-grant\\apps\\api\\src\\server.ts": "1F1580BEA5630DF5F264C849525DDB07E761B11D308326EC1740F6561D4C6F2E"
+    }
+  },
+  {
+    "name": "C3-false-zero-green",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C3-false-zero",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 1:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 0,
+    "seconds": 5.385524749755859,
+    "log": "C3-false-zero-green.log"
+  },
+  {
+    "name": "C3-false-zero-red",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C3-false-zero",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 1:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 1,
+    "seconds": 5.104361295700073,
+    "log": "C3-false-zero-red.log"
+  },
+  {
+    "name": "C3-false-zero-restore",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C3-false-zero",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 1:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 0,
+    "seconds": 4.730682134628296,
+    "log": "C3-false-zero-restore.log"
+  },
+  {
+    "name": "C3-false-zero-restoration",
+    "exactBytes": true,
+    "hashes": {
+      "D:\\vc\\qa\\evidence\\t038-a\\copy-C3-false-zero\\apps\\api\\src\\server.ts": "1F1580BEA5630DF5F264C849525DDB07E761B11D308326EC1740F6561D4C6F2E"
+    }
+  },
+  {
+    "name": "C4-public-claim-green",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C4-public-claim",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 1:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 0,
+    "seconds": 5.414219379425049,
+    "log": "C4-public-claim-green.log"
+  },
+  {
+    "name": "C4-public-claim-red",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C4-public-claim",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 1:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 1,
+    "seconds": 8.899175643920898,
+    "log": "C4-public-claim-red.log"
+  },
+  {
+    "name": "C4-public-claim-restore",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C4-public-claim",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 1:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 0,
+    "seconds": 4.607468843460083,
+    "log": "C4-public-claim-restore.log"
+  },
+  {
+    "name": "C4-public-claim-restoration",
+    "exactBytes": true,
+    "hashes": {
+      "D:\\vc\\qa\\evidence\\t038-a\\copy-C4-public-claim\\apps\\api\\src\\server.ts": "1F1580BEA5630DF5F264C849525DDB07E761B11D308326EC1740F6561D4C6F2E",
+      "D:\\vc\\qa\\evidence\\t038-a\\copy-C4-public-claim\\packages\\schemas\\src\\schemas.ts": "4A2E503B57C843FA8169180FB7F34A7E452EE83A30A00AA6AC08B1A4394BD3DE"
+    }
+  },
+  {
+    "name": "C1-capturedAt-green",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C1-capturedAt",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 3:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 0,
+    "seconds": 5.207211971282959,
+    "log": "C1-capturedAt-green.log"
+  },
+  {
+    "name": "C1-capturedAt-red",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C1-capturedAt",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 3:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 1,
+    "seconds": 5.253619909286499,
+    "log": "C1-capturedAt-red.log"
+  },
+  {
+    "name": "C1-capturedAt-restore",
+    "cwd": "D:\\vc\\qa\\evidence\\t038-a\\copy-C1-capturedAt",
+    "command": [
+      "C:/Program Files/Git/bin/bash.exe",
+      "D:/vc/scripts/vc-testlock.sh",
+      "C:/Program Files/nodejs/node.exe",
+      "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+      "--test",
+      "--test-concurrency=1",
+      "--test-timeout=120000",
+      "--test-name-pattern=T038 synthetic oracle 3:",
+      "apps/api/tests/server.test.ts"
+    ],
+    "exit": 0,
+    "seconds": 5.447297811508179,
+    "log": "C1-capturedAt-restore.log"
+  },
+  {
+    "name": "C1-capturedAt-restoration",
+    "exactBytes": true,
+    "hashes": {
+      "D:\\vc\\qa\\evidence\\t038-a\\copy-C1-capturedAt\\packages\\schemas\\src\\schemas.ts": "4A2E503B57C843FA8169180FB7F34A7E452EE83A30A00AA6AC08B1A4394BD3DE"
+    }
+  }
+]

@@ -1,0 +1,93 @@
+[testlock] running (free RAM 7.1 GB): bash C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/driver.sh
+2026-10-16T19:24:00+05:30
+PIN-OK  packages/schemas/src/schemas.ts 9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882
+PIN-OK  apps/api/src/server.ts 7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72
+PIN-OK  apps/api/src/openapi.ts 023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813
+PIN-OK  apps/api/tests/server.test.ts 4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A
+base-api exit=0 ℹ tests 40 ℹ pass 40 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 
+base-schemas exit=0 ℹ tests 63 ℹ pass 63 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 
+=== M1_options_bound
+applied M1_options_bound in packages/schemas/src/schemas.ts
+M1_options_bound-red exit=1 ℹ tests 40 ℹ pass 39 ℹ fail 1 ℹ cancelled 0 ℹ skipped 0 
+✖ T038 synthetic oracle 3: operational request source quote and response byte bounds fail closed (48.6916ms)
+✖ failing tests:
+✖ T038 synthetic oracle 3: operational request source quote and response byte bounds fail closed (48.6916ms)
+4
+M1_options_bound-green exit=0 ℹ tests 40 ℹ pass 40 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 
+=== M2a_original_grant
+applied M2a_original_grant in apps/api/src/server.ts
+M2a_original_grant-red exit=1 ℹ tests 40 ℹ pass 39 ℹ fail 1 ℹ cancelled 0 ℹ skipped 0 
+✖ T038 synthetic oracle 11: held initial and final scans reject source retirement replacement appearance and exact grant ABA (194.4354ms)
+✖ failing tests:
+✖ T038 synthetic oracle 11: held initial and final scans reject source retirement replacement appearance and exact grant ABA (194.4354ms)
+4
+M2a_original_grant-green exit=0 ℹ tests 40 ℹ pass 40 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 
+=== M2b_original_source
+applied M2b_original_source in apps/api/src/server.ts
+M2b_original_source-red exit=1 ℹ tests 40 ℹ pass 39 ℹ fail 1 ℹ cancelled 0 ℹ skipped 0 
+✖ T038 synthetic oracle 11: held initial and final scans reject source retirement replacement appearance and exact grant ABA (174.4163ms)
+✖ failing tests:
+✖ T038 synthetic oracle 11: held initial and final scans reject source retirement replacement appearance and exact grant ABA (174.4163ms)
+4
+M2b_original_source-green exit=0 ℹ tests 40 ℹ pass 40 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 
+=== M3_false_zero
+applied M3_false_zero in apps/api/src/server.ts
+applied M3_false_zero in apps/api/src/server.ts
+M3_false_zero-red exit=1 ℹ tests 40 ℹ pass 36 ℹ fail 4 ℹ cancelled 0 ℹ skipped 0 
+✖ T038 synthetic oracle 1: actual HTTP preserves own false and zero, exact provenance, no observation and every raw synthetic row (93.3362ms)
+✖ T038 synthetic oracle 2: required missing null and empty stay distinguishable from an optional absent field (42.1682ms)
+✖ T038 synthetic oracle 5: strict scalar types options and numeric boundary values never coerce (344.9225ms)
+✖ T038 synthetic oracle 7: explicit Unicode code points UTF16 units and whitespace word limits retain boundary text (333.4969ms)
+✖ failing tests:
+✖ T038 synthetic oracle 1: actual HTTP preserves own false and zero, exact provenance, no observation and every raw synthetic row (93.3362ms)
+✖ T038 synthetic oracle 2: required missing null and empty stay distinguishable from an optional absent field (42.1682ms)
+✖ T038 synthetic oracle 5: strict scalar types options and numeric boundary values never coerce (344.9225ms)
+4
+M3_false_zero-green exit=0 ℹ tests 40 ℹ pass 40 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 
+=== M4_public_claim
+applied M4_public_claim in apps/api/src/server.ts
+applied M4_public_claim in packages/schemas/src/schemas.ts
+M4_public_claim-red exit=1 ℹ tests 40 ℹ pass 37 ℹ fail 3 ℹ cancelled 0 ℹ skipped 0 
+✖ T038 synthetic oracle 1: actual HTTP preserves own false and zero, exact provenance, no observation and every raw synthetic row (85.2877ms)
+✖ T038 synthetic oracle 3: operational request source quote and response byte bounds fail closed (41.5488ms)
+✖ T038 synthetic oracle 9: body authority injections malformed facts and stored private fields cannot escape (84.6712ms)
+✖ failing tests:
+✖ T038 synthetic oracle 1: actual HTTP preserves own false and zero, exact provenance, no observation and every raw synthetic row (85.2877ms)
+✖ T038 synthetic oracle 3: operational request source quote and response byte bounds fail closed (41.5488ms)
+✖ T038 synthetic oracle 9: body authority injections malformed facts and stored private fields cannot escape (84.6712ms)
+4
+M4_public_claim-green exit=0 ℹ tests 40 ℹ pass 40 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 
+=== M5_capturedAt_128
+applied M5_capturedAt_128 in packages/schemas/src/schemas.ts
+M5_capturedAt_128-red exit=1 ℹ tests 40 ℹ pass 39 ℹ fail 1 ℹ cancelled 0 ℹ skipped 0 
+✖ T038 synthetic oracle 3: operational request source quote and response byte bounds fail closed (79.1417ms)
+✖ failing tests:
+✖ T038 synthetic oracle 3: operational request source quote and response byte bounds fail closed (79.1417ms)
+4
+M5_capturedAt_128-green exit=0 ℹ tests 40 ℹ pass 40 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 
+=== M6_unicode_ws
+applied M6_unicode_ws in apps/api/src/server.ts
+M6_unicode_ws-red exit=1 ℹ tests 40 ℹ pass 39 ℹ fail 1 ℹ cancelled 0 ℹ skipped 0 
+✖ T038 synthetic oracle 7: explicit Unicode code points UTF16 units and whitespace word limits retain boundary text (66.6864ms)
+✖ failing tests:
+✖ T038 synthetic oracle 7: explicit Unicode code points UTF16 units and whitespace word limits retain boundary text (66.6864ms)
+4
+M6_unicode_ws-green exit=0 ℹ tests 40 ℹ pass 40 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 
+=== M7_report_citation
+applied M7_report_citation in apps/api/src/server.ts
+M7_report_citation-red exit=1 ℹ tests 40 ℹ pass 34 ℹ fail 6 ℹ cancelled 0 ℹ skipped 0 
+✖ T038 synthetic oracle 1: actual HTTP preserves own false and zero, exact provenance, no observation and every raw synthetic row (47.1543ms)
+✖ T038 synthetic oracle 2: required missing null and empty stay distinguishable from an optional absent field (26.0891ms)
+✖ T038 synthetic oracle 5: strict scalar types options and numeric boundary values never coerce (349.8047ms)
+✖ T038 synthetic oracle 6: condition true false absent duplicate and reasoning resolve without hidden dependency values (121.0691ms)
+✖ T038 synthetic oracle 7: explicit Unicode code points UTF16 units and whitespace word limits retain boundary text (62.5372ms)
+✖ T038 synthetic oracle 9: body authority injections malformed facts and stored private fields cannot escape (42.1506ms)
+✖ failing tests:
+✖ T038 synthetic oracle 1: actual HTTP preserves own false and zero, exact provenance, no observation and every raw synthetic row (47.1543ms)
+4
+M7_report_citation-green exit=0 ℹ tests 40 ℹ pass 40 ℹ fail 0 ℹ cancelled 0 ℹ skipped 0 
+PIN-OK  packages/schemas/src/schemas.ts 9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882
+PIN-OK  apps/api/src/server.ts 7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72
+PIN-OK  apps/api/src/openapi.ts 023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813
+PIN-OK  apps/api/tests/server.test.ts 4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A
+2026-10-16T19:35:35+05:30

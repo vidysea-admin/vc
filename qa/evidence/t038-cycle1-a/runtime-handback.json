@@ -1,0 +1,210 @@
+{
+  "agent": "/root/t038_cycle1_blind_a/runtime_floor",
+  "firstObservedClock": "2026-10-14T10:21:35.7141031Z",
+  "end": "2026-10-14T10:44:13.1547311Z",
+  "elapsedSinceFirstObservedMin": 22.624010466666668,
+  "dispatchBeforeFirstClock": "unavailable",
+  "conservativeAgentSliceMin": 25,
+  "blockedMin": "unavailable",
+  "citationQueuedAcquireUnix": 1791974431,
+  "queuedLogCreationUtc": "2026-10-14T10:34:32.8989772Z",
+  "queueWaitOverlapsOwnedRuntime": true,
+  "terminalHandles": [
+    {
+      "id": 55907,
+      "exit": 0
+    },
+    {
+      "id": 42987,
+      "exit": 0
+    }
+  ],
+  "mutexOwnerExistsAtFinal": false,
+  "freshTypes": {
+    "api": 0,
+    "schemas": 0
+  },
+  "freshAffected": {
+    "skip": 0,
+    "fail": 0,
+    "apiPass": 40,
+    "schemaPass": 63
+  },
+  "mandatoryFloors": 7,
+  "ordinaryExtra": 1,
+  "mutationEvents": 8,
+  "atomicSourceReplacementSites": 10,
+  "childCommands": 28,
+  "fullSuiteRuns": 0,
+  "actualSourceFailure": false,
+  "allSourcePinsMatch": true,
+  "allCopiesFourPinsMatch": true,
+  "allCopiesWorkspaceLinksIsolated": true,
+  "workspaceLinkCount": 136.0,
+  "redAssertions": {
+    "unicode": "1493 NEL expectedpacketvalue",
+    "falseZero": "1094 packet.fields{} expected ownfalsezero",
+    "citation": "1120 rejectedzero report literal validshape factId corruption afterHTTP200/schema validation",
+    "publicClaim": "1094 requirementsVerifiedtrue expectedfalse",
+    "authority": "1778 initial/grant-content actual200 expected403",
+    "capturedAt": "1212 pairedmax+earlylength removed actual200 expected400",
+    "options": "1200 actual200 expected400"
+  },
+  "evidenceLogs": [
+    {
+      "name": "api-server-40.log",
+      "hash": "B46EB514B234B1ADB3CF29B87B7F1B915DC30D4C6CFE0943AC2B1AFC6BE3266A",
+      "bytes": 6121
+    },
+    {
+      "name": "api-types.log",
+      "hash": "BB2CCB7B13BB7AF00D850EEEC9F667073AAA1D4EBAA9F7949B71CB35A94E0848",
+      "bytes": 111
+    },
+    {
+      "name": "citation-exact-mutex.log",
+      "hash": "74D4AF1F3D8E0A548E7BB40939616FADAD65E8EE40396D834C95D5CB42642D8D",
+      "bytes": 657
+    },
+    {
+      "name": "F-capturedAt-128-green.log",
+      "hash": "86E0775E639D1F77FAED90179930A35D34A35C2AE67EE033E9C2B6948F868E42",
+      "bytes": 227
+    },
+    {
+      "name": "F-capturedAt-128-red.log",
+      "hash": "28AD2C3F7225C2442CC52A40BE2EC859A9C7BED40AAF50D036FFA9E1DF9B8B50",
+      "bytes": 915
+    },
+    {
+      "name": "F-capturedAt-128-restored.log",
+      "hash": "A602B2E93A7B4F494AC182B7BBEE5828B2D86CAE0E8001D0811A8E7798B3E67F",
+      "bytes": 226
+    },
+    {
+      "name": "F-false-zero-green.log",
+      "hash": "94677B4FF2E134C5B35EB05CCCB05678B5AFEFB6DB2F86DC9B6A92A278AE0711",
+      "bytes": 261
+    },
+    {
+      "name": "F-false-zero-red.log",
+      "hash": "9AC3DF5F3BDE8FBEE00B3AB8BF8397C40B0363E248F0E517BEEC38AF82A42BE4",
+      "bytes": 2280
+    },
+    {
+      "name": "F-false-zero-restored.log",
+      "hash": "27750D21321C81BE9586A47351F2C2E0FE67BA1FBEB24C0935910B780521A6DE",
+      "bytes": 260
+    },
+    {
+      "name": "F-input-bound-green.log",
+      "hash": "F14F341E1E63DB9D5F391311386CB66E2772FE5AD0AED12EF4BD152781BDF244",
+      "bytes": 228
+    },
+    {
+      "name": "F-input-bound-red.log",
+      "hash": "B67BD200493F46079EB5FC12351C7A36230B0A0EF425F4687B559E39446644FD",
+      "bytes": 914
+    },
+    {
+      "name": "F-input-bound-restored.log",
+      "hash": "EAC73148CE48209E0985A6E142E2217F6BC7B00CB4D885F1E25708976ABD14FE",
+      "bytes": 227
+    },
+    {
+      "name": "F-original-authority-green.log",
+      "hash": "B6A5A94B58AAED57BC60062E34CA001F45573980724D6313302A8B5A8FFC0DB2",
+      "bytes": 255
+    },
+    {
+      "name": "F-original-authority-red.log",
+      "hash": "CAFD9AA55CD620C8B969E51B151606F8CCB4F67609241F48C691C064ABB4C04E",
+      "bytes": 1767
+    },
+    {
+      "name": "F-original-authority-restored.log",
+      "hash": "082BA8F3965FCA332B55AAB51C8B941049404713B4251FE2F4C54D30449C1A17",
+      "bytes": 255
+    },
+    {
+      "name": "F-public-claim-green.log",
+      "hash": "B0A7CC3273C8DB80918DE09CBDDA86117AF6E53C286B9E35A3C2A55F9D3D71A0",
+      "bytes": 260
+    },
+    {
+      "name": "F-public-claim-red.log",
+      "hash": "22E30CD11ED7618A833ED961633554C0F61405E5296ED23FD334E56AB9BDDB46",
+      "bytes": 2188
+    },
+    {
+      "name": "F-public-claim-restored.log",
+      "hash": "39EC32EE1F02E39917083BA2290B89E2406DBF19D15016C678B361843C25E1FD",
+      "bytes": 260
+    },
+    {
+      "name": "F-report-citation-exact-green.log",
+      "hash": "DA762C8C8847B0765795CC772490C09B5342CC468D0B5BCA7F9D06E84BA4D8CE",
+      "bytes": 260
+    },
+    {
+      "name": "F-report-citation-exact-red.log",
+      "hash": "1E09190F4DEA807A526DDA15B34D0A13D4D2E8A9D6C257510F862C65EB3CFBDD",
+      "bytes": 1814
+    },
+    {
+      "name": "F-report-citation-exact-restored.log",
+      "hash": "71412FA334B092EA407B616A9649F46AD0FF069B653193F300822739A012BADD",
+      "bytes": 259
+    },
+    {
+      "name": "F-report-citation-green.log",
+      "hash": "AF6A37CB4F7901205C5F19CFDBCF3383936642FCDF0CD5FA3D7670E45CBE87BA",
+      "bytes": 260
+    },
+    {
+      "name": "F-report-citation-red.log",
+      "hash": "F9F9C16078483032AEB0044BBDE7BD58B7F3EFE465FF6DB70D0498217D06D790",
+      "bytes": 3100
+    },
+    {
+      "name": "F-report-citation-restored.log",
+      "hash": "FF82882CB676AD3326B7258249BBC87A93659909B614BB944F78B33DE20790CD",
+      "bytes": 260
+    },
+    {
+      "name": "F-unicode-counter-green.log",
+      "hash": "4FF62C0C62908F8C5204C056234F2FDE02715B34B5720D779CAC754323E893E7",
+      "bytes": 245
+    },
+    {
+      "name": "F-unicode-counter-red.log",
+      "hash": "E2DA90C3E1BA13AFFBDF754CBC4FAA0B7AFECD86B4CF6DA4430B6CF4BE7B1791",
+      "bytes": 1047
+    },
+    {
+      "name": "F-unicode-counter-restored.log",
+      "hash": "92EA127968B19BEBB6C2BF49FCA1C7479E1D4F9907004D494C21E8F18A57EA34",
+      "bytes": 246
+    },
+    {
+      "name": "mutex-run.log",
+      "hash": "7E643E9CC9CCEE64AF4A401CCF7FE05CA140EC32F1AAB7B15348DF2C3809FB39",
+      "bytes": 2195
+    },
+    {
+      "name": "runtime-audit.log",
+      "hash": "346FFC4D02787DF0FE54F4948BEB1D986F9752FCE79683DA46F075CF99F0B5B8",
+      "bytes": 129
+    },
+    {
+      "name": "schemas-affected.log",
+      "hash": "C491CB275DF81B3FBB8B015B53EE41E62424EBD4F73E23728E597FA977A99ACA",
+      "bytes": 4629
+    },
+    {
+      "name": "schemas-types.log",
+      "hash": "C8F0A93BF05366D1D131C3F031F193055851EC4436E266DAD7A324DA205AF511",
+      "bytes": 123
+    }
+  ]
+}

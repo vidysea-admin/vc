@@ -1,0 +1,19 @@
+{
+  "copiedSourceDrift": [],
+  "judgedSourceDrift": [],
+  "closure": {
+    "files": 23207,
+    "scope": "Conservative after-run source/config/dependency snapshot, not instrumented loader trace",
+    "bytes": 475900958,
+    "sha": "B56E41510B1E8E6DFB29B18F2E1A28CBE723858996C8AEF0F882600387DCA06C"
+  },
+  "checkpointSha": "047720EF5971FC2F747B5E20BD37BE4D44E3B55808B690BCBB83097D0DE2E55A",
+  "utc": "2026-10-14T09:42:51.5456093Z",
+  "ownedSessions": {
+    "56109": "completedexit0",
+    "5504": "completedexit0",
+    "88459": "completedexit0",
+    "6789": "completedexit0"
+  },
+  "verdictSha": "64A52848405803C5807E2D4E4C852736C042ACE9ED9CDBDB97D7D14E1E7CC2BF"
+}

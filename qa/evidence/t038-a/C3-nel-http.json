@@ -1,0 +1,17 @@
+{
+  "command": [
+    "C:/Program Files/Git/bin/bash.exe",
+    "D:/vc/scripts/vc-testlock.sh",
+    "C:/Program Files/nodejs/node.exe",
+    "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+    "--test",
+    "--test-concurrency=1",
+    "--test-timeout=120000",
+    "--test-name-pattern=T038 synthetic oracle 7:",
+    "apps/api/tests/server.test.ts"
+  ],
+  "exit": 1,
+  "productSourceUnchanged": true,
+  "input": "a U+0085 b",
+  "expectedWordCount": 2
+}

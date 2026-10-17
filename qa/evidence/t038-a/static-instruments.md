@@ -1,0 +1,11 @@
+# Blind A fresh static instruments
+
+Original attribution: /root/t038_blind_a/security and /root/t038_blind_a/mapping. Fresh-context native collaboration agents; separate 15-active-minute budget slices; neither read coordinator B. Findings are raw instruments, not subagent feature verdicts. Coordinator A executed the resulting counterexample independently.
+
+Security coverage: JWT/role before store server.ts:831-863, auth.ts:263-280; counsellor/admin role server.ts:245,291; production tenant wiring index.ts:173-180 and tenant.ts:139-140,183-190,308-312; original unknown stored grant server.ts:299-325,376-381; bounded key snapshots/duplicates/absence server.ts:328-373; trusted approved-fact writer graph.ts:197-203,233-265, nodes.ts:1499-1517, db/facts.ts:392-398,522-532; absolute WriterDeadline db/erasure.ts:593-618; four fences/final grant/dispose server.ts:297,319,326,381-384,483-484; strict public construction server.ts:385-479 and schemas.ts:25-50,459-482. No concrete security contradiction found. This is static coverage, not execution or issuer provenance proof.
+
+Mapping independently found C3 word counting violation at server.ts:429: JavaScript /\S+/gu keeps U+0085 within a word, while Unicode White_Space splits a U+0085 b into two segments. Existing oracle7 covers ASCII whitespace only. Coordinator A reproduced the actual API packet/gap failure in C3-nel-http.log using unchanged product bytes and a checker-supplied synthetic input in an isolated copied existing oracle; copied test bytes restored finally.
+
+Other source coverage: additive strict schemas.ts:369-455 and original legacy declarations unchanged; false/zero/null/absence/option/condition/doc logic server.ts:392-466; actual serialized public schema server.ts:468-479 and schemas.ts:459-482. Independent baseline diff read from base13207bd024e6d5e3e01c07843a12d40a9b53c56c. Importer closure schemas/index.ts -> server.ts -> api/index.ts -> server.test.ts and index.test.ts; no other new DraftMapping consumer. Coordinator own runtime includes both test files.
+
+No maker evidence or another blind coordinator was accepted as evidence. Reading governing manifest included attributed maker summary prose, but no supporting runtime files were opened/reused.

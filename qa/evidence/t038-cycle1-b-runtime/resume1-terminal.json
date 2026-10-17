@@ -1,0 +1,68 @@
+{
+  "instrumentOutcome": "BLOCKED-PROCESS",
+  "observedAt": "2026-10-14T16:45:24.491704+05:30",
+  "session": 24147,
+  "terminalExit": 1,
+  "ownedRunnerPid": 72112,
+  "ownedRunnerAbsent": true,
+  "ownedMutexReleased": true,
+  "currentMutexOwnerRaw": null,
+  "cause": "Infrastructure preflight ENOENT during complete input seal: copied internal workspace mcp-student-profile junction target absent",
+  "rawError": "Error: ENOENT: no such file or directory, stat 'D:\\vc\\qa\\evidence\\t038-cycle1-b-runtime\\copy\\node_modules\\.pnpm\\node_modules\\@vc\\mcp-student-profile'; sealTree runtime.mjs:26:148; Node.js v24.13.1",
+  "initialSealCompleted": false,
+  "fullConfigDependencyIdentityPending": true,
+  "sourceCopy": [
+    {
+      "path": "packages/schemas/src/schemas.ts",
+      "source": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+      "copy": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+      "equal": true
+    },
+    {
+      "path": "apps/api/src/server.ts",
+      "source": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+      "copy": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+      "equal": true
+    },
+    {
+      "path": "apps/api/src/openapi.ts",
+      "source": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+      "copy": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+      "equal": true
+    },
+    {
+      "path": "apps/api/tests/server.test.ts",
+      "source": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A",
+      "copy": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A",
+      "equal": true
+    }
+  ],
+  "runtimeCommandsExecuted": 0,
+  "testsExecuted": 0,
+  "mutations": 0,
+  "restorationFloorEvents": 0,
+  "fullSuiteRuns": 0,
+  "sourceEdits": 0,
+  "mandatoryUnrun": [
+    "schemas typecheck",
+    "API typecheck",
+    "API40",
+    "schemas63",
+    "options GREEN/RED/restored",
+    "originalauthority GREEN/RED/restored",
+    "falsezero GREEN/RED/restored",
+    "publicclaim GREEN/RED/restored",
+    "capturedAt128 paired GREEN/RED/restored",
+    "Unicode GREEN/RED/restored",
+    "validshape exact rejectedzero HTTP reportcitation GREEN/RED/restored"
+  ],
+  "requiredSetupCorrection": "Existing QA runner/copy must include existing isolated mcp workspace directories required by internal installed junctions; then complete closure seal before runtime. Not executed in this resume.",
+  "noFeatureVerdict": true,
+  "noProductFail": true,
+  "metricLimits": "Exact active aggregate unavailable; resume wall anchor policy-check16:23:46.652044 to terminal observed16:43:45.045340; runner creation16:26:26.070195; acquisition Unix1791975341, output observed16:26:42. Setup I/O476MB written/~890MB read; no successful sealed count.",
+  "priorArtifactHashes": {
+    "blockedRuntime": "E0BE77F2CA82BA1A674E7A4D369E331403D061C602B2B1918C4FE99FF58B4BF7",
+    "launchLifecycle": "ED023706B20E3757A4D3C55D61D6D3596070DA3F0F9EAD096DFD80591AAA788E"
+  },
+  "remainingEstimate": "Approximate35-45active minutes after explicitly authorized QA mcp-copy correction: full complete input/native/config/dependency closure seal15-20m, types/API40/schema63/seven floors2-5m, complete postidentity15-20m. Unknown disk/AV variability; not a guaranteed runtime. No relaunch."
+}

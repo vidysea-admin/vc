@@ -1,0 +1,56 @@
+{
+  "observedAt": "2026-10-14T17:05:46.9369041+05:30",
+  "sourceCopy": [
+    {
+      "path": "packages/schemas/src/schemas.ts",
+      "source": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+      "copy": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+      "rawEqual": true
+    },
+    {
+      "path": "apps/api/src/server.ts",
+      "source": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+      "copy": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+      "rawEqual": true
+    },
+    {
+      "path": "apps/api/src/openapi.ts",
+      "source": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+      "copy": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+      "rawEqual": true
+    },
+    {
+      "path": "apps/api/tests/server.test.ts",
+      "source": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A",
+      "copy": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A",
+      "rawEqual": true
+    }
+  ],
+  "stopReason": "Authorized runtime stop reserve11:34:36UTC reached; only owned runner35576/descendants stopped",
+  "initialCanonicalFiles": 23234,
+  "initialCanonicalBytes": 476063809,
+  "initialLayoutEntries": 26416,
+  "remaining": [
+    "seven complete GREEN intendedRED exactrestore floors: optionsREDinterrupted/restoredGREENunrun; other six entirelyunrun",
+    "complete post seal/layout/native identity"
+  ],
+  "sourceEdits": 0,
+  "mutationsObserved": 1,
+  "noFeatureVerdict": true,
+  "completedFloors": 0,
+  "completedRuntime": [
+    "schemas typesEXIT0",
+    "APItypesEXIT0",
+    "API40collected40pass40fail0skip0cancel0",
+    "schemas63collected63pass63fail0skip0cancel0",
+    "optionsGREEN1/1PASS"
+  ],
+  "terminalSession": "93923exit1 after ownedcutoffprocess cleanup",
+  "timingLimitation": "Owncleanup actually observed17:05:46.936904IST, laterthan11:34:36UTC reserve; requestedexecution clock/toollatency notsubtracted. No claim cutoffmet. Native/fullpostseal unverified.",
+  "ownedRecordedPidsAbsent": false,
+  "ownMutexReleased": true,
+  "currentMutexOwnerRaw": null,
+  "finalizedAt": "2026-10-14T17:08:23.7529684+05:30",
+  "ownedProcessesAbsent": true,
+  "pidReuseObservation": "Recorded numericPID32088 now belongs to an unrelated Bash created2026-10-14T17:07:27.038751+05:30 after owncleanup17:05:46; preserved. Other recordedPIDs absent. Raw numericabsencefalse is retained; identity-aware ownedprocessabsence true."
+}

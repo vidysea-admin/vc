@@ -1,0 +1,13 @@
+{
+  "command": [
+    "C:/Program Files/Git/bin/bash.exe",
+    "D:/vc/scripts/vc-testlock.sh",
+    "C:/Program Files/nodejs/node.exe",
+    "C:\\Users\\Lenovo\\.codex\\worktrees\\application-draft-core\\vc\\node_modules\\tsx\\dist\\cli.mjs",
+    "--test",
+    "--test-concurrency=1",
+    "--test-timeout=120000",
+    "apps/api/tests/index.test.ts"
+  ],
+  "exit": 0
+}

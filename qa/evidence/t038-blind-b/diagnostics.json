@@ -1,0 +1,12 @@
+[
+  {
+    "restoredByteEqual": true,
+    "exit": 1,
+    "probe": "uncited-invalid-value"
+  },
+  {
+    "restoredByteEqual": true,
+    "exit": 1,
+    "probe": "offset-contract"
+  }
+]

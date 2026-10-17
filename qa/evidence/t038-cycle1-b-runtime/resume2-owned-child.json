@@ -1,0 +1,14 @@
+{
+  "name": "options-red",
+  "pid": 62480,
+  "start": "2026-10-14T11:35:36.246Z",
+  "args": [
+    "D:/vc/qa/evidence/t038-cycle1-b-runtime/copy/node_modules/tsx/dist/cli.mjs",
+    "--test",
+    "--test-concurrency=1",
+    "--test-timeout=120000",
+    "--test-name-pattern",
+    "T038 synthetic oracle 3",
+    "apps/api/tests/server.test.ts"
+  ]
+}

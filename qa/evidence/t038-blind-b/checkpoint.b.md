@@ -1,0 +1,33 @@
+# T038 blind B cycle0 checkpoint
+Attribution: /root/t038_blind_b. Terminal FAIL, cycle0, resumes0; two contract failures in own persisted verdict. No A findings/verdict/evidence read.
+Bound root: C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc; git HEAD/base13207bd024e6d5e3e01c07843a12d40a9b53c56c. Frozen candidate CABE9D89F5072A0DF6F22A7A8F0FB2EDED4B5BBD080DA6CCB8258CBCF2199309; dirty four declared sourcefiles plus existingdocs manifest.
+Policy .9/current Codex native .3; checker SHA3DE10756092428C100D255677DF06192E6ABEF94CBE61579745DC28B830601FA; canonicalpolicy1CE2EE3E7FEC0157514571D27B07F15D256A920703AF05A2AB9C04E2FBEAB9AD; own tick --policy-check exit0 targets2 drift0.
+Local DECISIONS hash7A9E8556802FE3976DEF2B6690BB90A28F7E0BBB04DFB74A9B131E6A8C1EF7D6 preserved; canonicalD074 excerpt authority read in frozen manifest, no local history repair.
+Source/input pin records: D:/vc/qa/evidence/t038-blind-b/initial-pins.json and final-state.json, own source/config/contract/adapter/lock hashes. Initial source pins verified exact frozen candidate; final drift[]. Nodev24.13.1 WindowsNT10.0.26300 64bit, pnpm declared scripts, installedtsx4.23.15, synthetic FakeMongo only. No deployment/data snapshot: ephemeral explicit synthetic fixtures and loopback listener build candidate.
+Evidence files under D:/vc/qa/evidence/t038-blind-b are same-project own checker evidence, judged contract/source stays bound-root. Parent installer/precheck logs not counted as acceptance.
+
+## Exact command matrix
+Each heavy invocation cwd bound root or named isolated copy, through C:/Program Files/Git/bin/bash.exe D:/vc/scripts/vc-testlock.sh normal mutex, VC_TESTLOCK_TIMEOUT_SECS900; no holder killed and logs show no lock wait.
+- node C:/Users/Lenovo/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs --filter @vc/schemas typecheck -> exit0 schema-types.log.
+- same pnpm --filter @vc/api typecheck -> exit0 api-types.log.
+- node C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 apps/api/tests/server.test.ts -> exit0 collected40/pass40/fail0/skip0 green-affected.log; includes actualHTTP oracle1 and12 added/28existing.
+- pnpm --filter @vc/schemas test -> exit0 collected63/pass63/fail0/skip0 schema-tests.log; legacy boundary regression closure.
+- Each of five names input-bound/original-authority/false-zero/public-claim/capturedAt-128 uses own C:/Users/Lenovo/AppData/Local/Temp/t038-blind-b-20261014/<name>, same tsx command with --test-name-pattern=T038 synthetic oracle 3: for C1bounds, oracle11: authority, oracle1: false0/publicclaim. Exactly one named test ran per targeted invocation; remaining test names not selected. Each green0/red1/restored0 log named <name>-green/red/restored.log. Named intended assertions and edits in falsifiers.json. Source schema/server hunks6 across5floor events; all exact restored hashes compare originals. No live source mutants; no simultaneous two-mutant tree.
+- Supplemental diagnostic invocations use owned original-authority copy existing server.test.ts, oracle1 filter. Request options[1] with source0 prints actualHTTP200 fullresponse then fails existing literal expectedresponse; offset2026-10-01T00:00:00+00:00 prints actualHTTP400/error path then fails expected200. Both restored test bytes verified true in diagnostics.json; logs uncited-invalid-value.log/offset-contract.log. Mutations metric8 means6floor source hunks+2supplemental copied-test request probes; ordinary extra productmutants0, mandatory events5.
+No setup/import failure counts as falsification. All own owned command sessions completed except conservative inputseal process noted below if still running; no spawned runtime helper files.
+
+## Independent instruments
+b_security fresh read-only12minute slice traced API role→JWT verification→tenant-scoped Mongo→original persistedgrant/minor/purpose→initial/final snapshots/absence→final grant/fence/deadline disposal; traced approval-only writer invariant through approvediff and engine; C4 strict projection/publicshape/no-writer/provider/graph. Found uncitedinvalidreport value; coordinator actuallyHTTPconfirmed.
+b_schema fresh read-only12minute slice reviewed stricttyped/bounds/options/condition/doc/public components and handwritten oracle independence; found advertiseddate-time offsets rejected; coordinator actuallyHTTPconfirmed. No feature verdict delegated. Combined precise activeagentminutes unavailable, not0; budget upper slices24 plus coordinator below45.
+Own source reads server.ts293-510, schemas.ts370-467, oracle1body/HTTP/literalexpected; changed source/staticdiff instrument coverage and own gitdiff --stat/name/status/check verify scope. Constructor/sourcehistory/constraints preserved.
+
+## Concrete failed acceptance
+C4/B2: server.ts420 assigns expected before option validation;434 invalid excludes assignment437provenance. Actual response publishes zeroField expected0,statusinvalid,option_not_allowed with no factsourcecitation; packetprovenance only answer. Repair every displayed sourcevalue's citation or suppress uncitedvalue.
+C1/C4: openapi.ts39 formatdate-time versus schemas.ts430 UTC-only datetime. ActualoffsetHTTP400 disagrees with advertised grammar. Primary publicstandard checked read-only https://spec.openapis.org/registry/format/date-time and RFC3339; this was a public standards lookup only, no application/provider/DB runtime network action.
+No ledger/queue/goal writes, source editing, issueID allocation, commit/merge/push or release stamp. Two proposed issue lines in verdict for root reconciliation after dual terminal results.
+
+## Remaining and reuse limits
+Terminal FAIL means repair acceptance required. No extra probing after required finite diagnostics/floor. Originalcandidate input identity on disk makes no wholegoal/productionclaim.
+Root separatelyowns one coalesced auth/releaseintegration: pnpm -r typecheck; pnpm -r test; python contracts/verify_contracts.py (root planned11type/25CORE+2WEB scope; exact coalesced runner unresolved here). This coordinator has no fullsuite run; no6c stamp or unsupported nativepushgate claim.
+FullP2 stillpending realform/fields/limits/reviewartifact/client+studentauthority, portalwrite/re-read/screenshots, FIVE realportal>=90%accuracy, zero unintendedsubmission,15minoutcome. Browser notapplicable to statelessAPI; loopbackHTTP not portal proof.
+Metrics in verdict measure actual own runtime/evidence window only; dispatchUTC/upfront read duration unavailable rootconfirmed. Totalcoordinator/aggregateagent usage cannot be reconstructed exactly; no fabricated start/stamp. No lockwait lines; copydependencytarget preflight errors never executed tests/countasRED.

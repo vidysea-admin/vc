@@ -1,0 +1,25 @@
+{
+  "agent": "/root/t038_cycle1_blind_b/b_runtime_floors",
+  "protocolHash": "3DE10756092428C100D255677DF06192E6ABEF94CBE61579745DC28B830601FA",
+  "policyCheck": "exit0 proportional-verification/2026-10-10.9 targets2 drift0",
+  "preflightShellFailures": 2,
+  "firstMutexSession": 53372,
+  "firstWaitStart": "2026-10-14T15:57:00+05:30",
+  "firstOwnedWaitPids": [
+    72136,
+    60228
+  ],
+  "ownPidCleanup": "Stopped only recorded own waiting Bash PIDs60228/72136; foreign holder47676 preserved",
+  "retryMutexSession": 78790,
+  "retryTimeoutSeconds": 900,
+  "aggregateWaitDeadline": "2026-10-14T16:12:00+05:30",
+  "sourceCredentialScan": "only .env.example files; excluded all .env* from QA copy",
+  "suiteRuns": 0,
+  "noAcceptanceVerdict": true,
+  "clockAttribution": "firstWaitStart15:57:00 is conservative host wrapper creation second, not instrumented lock acquisition-attempt. Actual observed own GitBash creationDate15:57:01 via CIM. deadline16:12:00 is explicit conservative safety deadline one second earlier than15minutes from observed Bash creation. Exact blocked duration unavailable until own acquisition clock exists.",
+  "retryOwnedWaitPids": [
+    508,
+    14480
+  ],
+  "retryCreationDate": "2026-10-14T16:01:57.544575+05:30"
+}

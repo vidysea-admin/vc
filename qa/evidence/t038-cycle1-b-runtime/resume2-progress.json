@@ -1,0 +1,80 @@
+{
+  "start": "2026-10-14T11:28:13.834Z",
+  "pid": 35576,
+  "results": [
+    {
+      "name": "schemas-types",
+      "args": [
+        "D:/vc/qa/evidence/t038-cycle1-b-runtime/copy/node_modules/typescript/bin/tsc",
+        "--noEmit",
+        "-p",
+        "packages/schemas/tsconfig.json"
+      ],
+      "pid": 83108,
+      "status": 0,
+      "signal": null,
+      "ms": 8624
+    },
+    {
+      "name": "api-types",
+      "args": [
+        "D:/vc/qa/evidence/t038-cycle1-b-runtime/copy/node_modules/typescript/bin/tsc",
+        "--noEmit",
+        "-p",
+        "apps/api/tsconfig.json"
+      ],
+      "pid": 81180,
+      "status": 0,
+      "signal": null,
+      "ms": 27946
+    },
+    {
+      "name": "api40",
+      "args": [
+        "D:/vc/qa/evidence/t038-cycle1-b-runtime/copy/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "apps/api/tests/server.test.ts"
+      ],
+      "pid": 83168,
+      "status": 0,
+      "signal": null,
+      "ms": 95335
+    },
+    {
+      "name": "schemas63",
+      "args": [
+        "D:/vc/qa/evidence/t038-cycle1-b-runtime/copy/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "packages/schemas/tests/card.test.ts",
+        "packages/schemas/tests/concern-record.test.ts",
+        "packages/schemas/tests/consent.test.ts",
+        "packages/schemas/tests/fact-source.test.ts",
+        "packages/schemas/tests/fact.test.ts",
+        "packages/schemas/tests/guards.test.ts"
+      ],
+      "pid": 63008,
+      "status": 0,
+      "signal": null,
+      "ms": 20702
+    },
+    {
+      "name": "options-green",
+      "args": [
+        "D:/vc/qa/evidence/t038-cycle1-b-runtime/copy/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 3",
+        "apps/api/tests/server.test.ts"
+      ],
+      "pid": 63164,
+      "status": 0,
+      "signal": null,
+      "ms": 36423
+    }
+  ]
+}

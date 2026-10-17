@@ -1,0 +1,1223 @@
+{
+  "attribution": "/root/t038_cycle1_blind_a/runtime_floor",
+  "firstObservedClock": "2026-10-14T10:21:35.7141031Z",
+  "end": "2026-10-14T10:43:27.932Z",
+  "baseline": {
+    "schemasTypes": 0,
+    "apiTypes": 0,
+    "API40": 0,
+    "schemas63": 0
+  },
+  "sourceUnchanged": true,
+  "mandatoryEvents": [
+    {
+      "id": "F-input-bound",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound",
+      "pattern": "T038 synthetic oracle 3:",
+      "start": "2026-10-14T10:29:03.066Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "AFE2CFF50A989F994F982B7DF3822C18920943ACC595EBC7A18A216CF016AD83",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "200 !== 400",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:30:42.454Z"
+    },
+    {
+      "id": "F-original-authority",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority",
+      "pattern": "T038 synthetic oracle 11:",
+      "start": "2026-10-14T10:30:44.290Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "E1F498CD2401E379F53D90370C06420490A2AA4411FF547D2FEEA867254C35FE",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "initial/grant-content",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:32:19.341Z"
+    },
+    {
+      "id": "F-false-zero",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero",
+      "pattern": "T038 synthetic oracle 1:",
+      "start": "2026-10-14T10:32:21.559Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "88247DFF7F32EB00C76F5A72D8722C848CF63D96F9FBA57B76AFFA441D534FDE",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "answer: false",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:33:47.275Z"
+    },
+    {
+      "id": "F-public-claim",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim",
+      "pattern": "T038 synthetic oracle 1:",
+      "start": "2026-10-14T10:33:49.621Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "F6037A885EEAFADBE1F9B30E0C60043119FA832B10060598B9F091D2C3A923F9",
+        "apps/api/src/server.ts": "0B0B5D3670F1B51C3CF70D506EA49FACBF438571C65E2A04A33C000476B67D5F",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "requirementsVerified: true",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:35:16.210Z"
+    },
+    {
+      "id": "F-capturedAt-128",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128",
+      "pattern": "T038 synthetic oracle 3:",
+      "start": "2026-10-14T10:35:18.398Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "CDA83256F68BA440133FEDE0FFF4568A4F67CD0582FDDA28E749AE2D4746EDF2",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "200 !== 400",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:36:47.296Z"
+    },
+    {
+      "id": "F-unicode-counter",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter",
+      "pattern": "T038 synthetic oracle 7:",
+      "start": "2026-10-14T10:36:49.531Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "B468EBB9AFEEC6D7A15BEE935FD5369BFF183A45B0091A5CEB76B19F4A24494A",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "left",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:38:11.477Z"
+    },
+    {
+      "id": "F-report-citation-exact",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact",
+      "pattern": "T038 synthetic oracle 1:",
+      "start": "2026-10-14T10:40:59.576Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "A5E9A37A96E404A2AE50F0D766B34687172135D61A2B9D58C33CA54141F761DD",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "mutant-valid-citation",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:42:46.477Z"
+    }
+  ],
+  "ordinaryExtras": [
+    {
+      "id": "F-report-citation",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation",
+      "pattern": "T038 synthetic oracle 1:",
+      "start": "2026-10-14T10:38:15.187Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "CC086F571F2FC8085FB922ED6E5991D98C26830ECAFC1E9FB2A30F88E2072061",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "mutant-valid-citation",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:40:00.572Z"
+    }
+  ],
+  "configAfter": [
+    {
+      "path": "pnpm-lock.yaml",
+      "hash": "562F86492B23EAB44F0FBFF444A89E7FF8D053A7E97928A86B9EEE0AA84FCD6C",
+      "finalHash": "562F86492B23EAB44F0FBFF444A89E7FF8D053A7E97928A86B9EEE0AA84FCD6C",
+      "same": true
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "hash": "1DB29957D5DE1053CD3F5EDD13928E100AA02ECE041AD8F6B52E3B7906C8F6D9",
+      "finalHash": "1DB29957D5DE1053CD3F5EDD13928E100AA02ECE041AD8F6B52E3B7906C8F6D9",
+      "same": true
+    },
+    {
+      "path": "package.json",
+      "hash": "7663DEE6314BF110330B21E65E61564C88DEA65BAC4F4F65735A03CCFA326D2C",
+      "finalHash": "7663DEE6314BF110330B21E65E61564C88DEA65BAC4F4F65735A03CCFA326D2C",
+      "same": true
+    },
+    {
+      "path": "tsconfig.base.json",
+      "hash": "A4286AF536A20E876A22B625C5B2C630DC4195CD1C9E4DB8B92651090F7916B7",
+      "finalHash": "A4286AF536A20E876A22B625C5B2C630DC4195CD1C9E4DB8B92651090F7916B7",
+      "same": true
+    },
+    {
+      "path": "packages/schemas/package.json",
+      "hash": "22E9B12B523559434067D0CCA9D0FAB0C3FDF45049B2F225FD5FCF330C05C673",
+      "finalHash": "22E9B12B523559434067D0CCA9D0FAB0C3FDF45049B2F225FD5FCF330C05C673",
+      "same": true
+    },
+    {
+      "path": "packages/schemas/tsconfig.json",
+      "hash": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73",
+      "finalHash": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73",
+      "same": true
+    },
+    {
+      "path": "apps/api/package.json",
+      "hash": "A9DE912B88217804A9E8BCC64CEF73C1FB873C5AD9A9A4C4AC6EDBE673E9678B",
+      "finalHash": "A9DE912B88217804A9E8BCC64CEF73C1FB873C5AD9A9A4C4AC6EDBE673E9678B",
+      "same": true
+    },
+    {
+      "path": "apps/api/tsconfig.json",
+      "hash": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73",
+      "finalHash": "9AA58DE8B9F9CD31E529BBBFB107052321C231A5275DD960A49E2F00BA4F7E73",
+      "same": true
+    },
+    {
+      "path": "qa/adapter.json",
+      "hash": "7D0B12017C5212F985E74976BD23A8152FF1AF62750B0BD3F015D4F564D6D3D2",
+      "finalHash": "7D0B12017C5212F985E74976BD23A8152FF1AF62750B0BD3F015D4F564D6D3D2",
+      "same": true
+    }
+  ],
+  "copies": [
+    {
+      "id": "F-input-bound",
+      "restored": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "allFourMatch": true,
+      "workspaceLinks": [
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/packages/db/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/packages/providers/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound/mcp/university-kb/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-input-bound\\packages\\db",
+          "insideCopy": true
+        }
+      ],
+      "allWorkspaceLinksIsolated": true
+    },
+    {
+      "id": "F-original-authority",
+      "restored": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "allFourMatch": true,
+      "workspaceLinks": [
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/packages/db/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/packages/providers/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority/mcp/university-kb/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-original-authority\\packages\\db",
+          "insideCopy": true
+        }
+      ],
+      "allWorkspaceLinksIsolated": true
+    },
+    {
+      "id": "F-false-zero",
+      "restored": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "allFourMatch": true,
+      "workspaceLinks": [
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/packages/db/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/packages/providers/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero/mcp/university-kb/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-false-zero\\packages\\db",
+          "insideCopy": true
+        }
+      ],
+      "allWorkspaceLinksIsolated": true
+    },
+    {
+      "id": "F-public-claim",
+      "restored": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "allFourMatch": true,
+      "workspaceLinks": [
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/packages/db/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/packages/providers/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim/mcp/university-kb/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-public-claim\\packages\\db",
+          "insideCopy": true
+        }
+      ],
+      "allWorkspaceLinksIsolated": true
+    },
+    {
+      "id": "F-capturedAt-128",
+      "restored": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "allFourMatch": true,
+      "workspaceLinks": [
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/packages/db/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/packages/providers/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128/mcp/university-kb/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-capturedAt-128\\packages\\db",
+          "insideCopy": true
+        }
+      ],
+      "allWorkspaceLinksIsolated": true
+    },
+    {
+      "id": "F-unicode-counter",
+      "restored": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "allFourMatch": true,
+      "workspaceLinks": [
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/packages/db/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/packages/providers/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter/mcp/university-kb/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-unicode-counter\\packages\\db",
+          "insideCopy": true
+        }
+      ],
+      "allWorkspaceLinksIsolated": true
+    },
+    {
+      "id": "F-report-citation",
+      "restored": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "allFourMatch": true,
+      "workspaceLinks": [
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/packages/db/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/packages/providers/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation/mcp/university-kb/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation\\packages\\db",
+          "insideCopy": true
+        }
+      ],
+      "allWorkspaceLinksIsolated": true
+    },
+    {
+      "id": "F-report-citation-exact",
+      "restored": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "allFourMatch": true,
+      "workspaceLinks": [
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/packages/db/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/packages/engine/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "observability",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/packages/providers/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\observability",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/apps/api/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "engine",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\engine",
+          "insideCopy": true
+        },
+        {
+          "name": "providers",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\providers",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/apps/web/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\db",
+          "insideCopy": true
+        },
+        {
+          "name": "schemas",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/mcp/student-profile/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\schemas",
+          "insideCopy": true
+        },
+        {
+          "name": "db",
+          "from": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation-exact/mcp/university-kb/node_modules/@vc",
+          "target": "D:\\vc\\qa\\evidence\\t038-cycle1-a\\copies\\F-report-citation-exact\\packages\\db",
+          "insideCopy": true
+        }
+      ],
+      "allWorkspaceLinksIsolated": true
+    }
+  ],
+  "commandCount": 28,
+  "limitations": [
+    "First own config hash capture after baseline runtime; coordinator start state can supply earlier identity.",
+    "Workspace dependency link realpaths sealed; not an instrumented module-load trace.",
+    "Queued citation lock wait overlaps original owned runtime and is not subtracted twice.",
+    "Initial sandbox Git Bash DLL initialization failed; identical escalated mutex execution succeeded."
+  ],
+  "sourcePins": {
+    "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+    "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+    "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+    "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+  }
+}

@@ -1,0 +1,664 @@
+{
+  "agent": "/root/t038_cycle1_blind_a/runtime_floor",
+  "start": "2026-10-14T10:27:08.983Z",
+  "pid": 77416,
+  "root": "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc",
+  "pins": {
+    "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+    "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+    "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+    "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+  },
+  "commands": [
+    {
+      "name": "schemas-types",
+      "args": [
+        "C:/Users/Lenovo/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs",
+        "--filter",
+        "@vc/schemas",
+        "typecheck"
+      ],
+      "cwd": "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc",
+      "start": "2026-10-14T10:27:09.293Z",
+      "end": "2026-10-14T10:27:20.564Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "C8F0A93BF05366D1D131C3F031F193055851EC4436E266DAD7A324DA205AF511"
+    },
+    {
+      "name": "api-types",
+      "args": [
+        "C:/Users/Lenovo/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs",
+        "--filter",
+        "@vc/api",
+        "typecheck"
+      ],
+      "cwd": "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc",
+      "start": "2026-10-14T10:27:20.565Z",
+      "end": "2026-10-14T10:27:48.611Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "BB2CCB7B13BB7AF00D850EEEC9F667073AAA1D4EBAA9F7949B71CB35A94E0848"
+    },
+    {
+      "name": "api-server-40",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc",
+      "start": "2026-10-14T10:27:48.612Z",
+      "end": "2026-10-14T10:28:48.125Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "B46EB514B234B1ADB3CF29B87B7F1B915DC30D4C6CFE0943AC2B1AFC6BE3266A"
+    },
+    {
+      "name": "schemas-affected",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "packages/schemas/tests/card.test.ts",
+        "packages/schemas/tests/concern-record.test.ts",
+        "packages/schemas/tests/consent.test.ts",
+        "packages/schemas/tests/fact-source.test.ts",
+        "packages/schemas/tests/fact.test.ts",
+        "packages/schemas/tests/guards.test.ts"
+      ],
+      "cwd": "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc",
+      "start": "2026-10-14T10:28:48.143Z",
+      "end": "2026-10-14T10:28:58.686Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "C491CB275DF81B3FBB8B015B53EE41E62424EBD4F73E23728E597FA977A99ACA"
+    },
+    {
+      "name": "F-input-bound-green",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 3:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound",
+      "start": "2026-10-14T10:29:03.078Z",
+      "end": "2026-10-14T10:29:38.432Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "F14F341E1E63DB9D5F391311386CB66E2772FE5AD0AED12EF4BD152781BDF244"
+    },
+    {
+      "name": "F-input-bound-red",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 3:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound",
+      "start": "2026-10-14T10:29:38.518Z",
+      "end": "2026-10-14T10:30:14.568Z",
+      "status": 1,
+      "signal": null,
+      "logHash": "B67BD200493F46079EB5FC12351C7A36230B0A0EF425F4687B559E39446644FD"
+    },
+    {
+      "name": "F-input-bound-restored",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 3:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound",
+      "start": "2026-10-14T10:30:14.605Z",
+      "end": "2026-10-14T10:30:42.452Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "EAC73148CE48209E0985A6E142E2217F6BC7B00CB4D885F1E25708976ABD14FE"
+    },
+    {
+      "name": "F-original-authority-green",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 11:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority",
+      "start": "2026-10-14T10:30:44.291Z",
+      "end": "2026-10-14T10:31:18.119Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "B6A5A94B58AAED57BC60062E34CA001F45573980724D6313302A8B5A8FFC0DB2"
+    },
+    {
+      "name": "F-original-authority-red",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 11:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority",
+      "start": "2026-10-14T10:31:18.183Z",
+      "end": "2026-10-14T10:31:53.425Z",
+      "status": 1,
+      "signal": null,
+      "logHash": "CAFD9AA55CD620C8B969E51B151606F8CCB4F67609241F48C691C064ABB4C04E"
+    },
+    {
+      "name": "F-original-authority-restored",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 11:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority",
+      "start": "2026-10-14T10:31:53.453Z",
+      "end": "2026-10-14T10:32:19.333Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "082BA8F3965FCA332B55AAB51C8B941049404713B4251FE2F4C54D30449C1A17"
+    },
+    {
+      "name": "F-false-zero-green",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 1:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero",
+      "start": "2026-10-14T10:32:21.560Z",
+      "end": "2026-10-14T10:32:58.809Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "94677B4FF2E134C5B35EB05CCCB05678B5AFEFB6DB2F86DC9B6A92A278AE0711"
+    },
+    {
+      "name": "F-false-zero-red",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 1:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero",
+      "start": "2026-10-14T10:32:58.829Z",
+      "end": "2026-10-14T10:33:25.091Z",
+      "status": 1,
+      "signal": null,
+      "logHash": "9AC3DF5F3BDE8FBEE00B3AB8BF8397C40B0363E248F0E517BEEC38AF82A42BE4"
+    },
+    {
+      "name": "F-false-zero-restored",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 1:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero",
+      "start": "2026-10-14T10:33:25.098Z",
+      "end": "2026-10-14T10:33:47.275Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "27750D21321C81BE9586A47351F2C2E0FE67BA1FBEB24C0935910B780521A6DE"
+    },
+    {
+      "name": "F-public-claim-green",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 1:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim",
+      "start": "2026-10-14T10:33:49.622Z",
+      "end": "2026-10-14T10:34:17.073Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "B0A7CC3273C8DB80918DE09CBDDA86117AF6E53C286B9E35A3C2A55F9D3D71A0"
+    },
+    {
+      "name": "F-public-claim-red",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 1:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim",
+      "start": "2026-10-14T10:34:17.128Z",
+      "end": "2026-10-14T10:34:50.230Z",
+      "status": 1,
+      "signal": null,
+      "logHash": "22E30CD11ED7618A833ED961633554C0F61405E5296ED23FD334E56AB9BDDB46"
+    },
+    {
+      "name": "F-public-claim-restored",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 1:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim",
+      "start": "2026-10-14T10:34:50.247Z",
+      "end": "2026-10-14T10:35:16.209Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "39EC32EE1F02E39917083BA2290B89E2406DBF19D15016C678B361843C25E1FD"
+    },
+    {
+      "name": "F-capturedAt-128-green",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 3:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128",
+      "start": "2026-10-14T10:35:18.400Z",
+      "end": "2026-10-14T10:36:03.373Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "86E0775E639D1F77FAED90179930A35D34A35C2AE67EE033E9C2B6948F868E42"
+    },
+    {
+      "name": "F-capturedAt-128-red",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 3:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128",
+      "start": "2026-10-14T10:36:03.466Z",
+      "end": "2026-10-14T10:36:25.525Z",
+      "status": 1,
+      "signal": null,
+      "logHash": "28AD2C3F7225C2442CC52A40BE2EC859A9C7BED40AAF50D036FFA9E1DF9B8B50"
+    },
+    {
+      "name": "F-capturedAt-128-restored",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 3:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128",
+      "start": "2026-10-14T10:36:25.571Z",
+      "end": "2026-10-14T10:36:47.295Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "A602B2E93A7B4F494AC182B7BBEE5828B2D86CAE0E8001D0811A8E7798B3E67F"
+    },
+    {
+      "name": "F-unicode-counter-green",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 7:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter",
+      "start": "2026-10-14T10:36:49.532Z",
+      "end": "2026-10-14T10:37:22.346Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "4FF62C0C62908F8C5204C056234F2FDE02715B34B5720D779CAC754323E893E7"
+    },
+    {
+      "name": "F-unicode-counter-red",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 7:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter",
+      "start": "2026-10-14T10:37:22.365Z",
+      "end": "2026-10-14T10:37:45.921Z",
+      "status": 1,
+      "signal": null,
+      "logHash": "E2DA90C3E1BA13AFFBDF754CBC4FAA0B7AFECD86B4CF6DA4430B6CF4BE7B1791"
+    },
+    {
+      "name": "F-unicode-counter-restored",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 7:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter",
+      "start": "2026-10-14T10:37:45.941Z",
+      "end": "2026-10-14T10:38:11.476Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "92EA127968B19BEBB6C2BF49FCA1C7479E1D4F9907004D494C21E8F18A57EA34"
+    },
+    {
+      "name": "F-report-citation-green",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 1:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation",
+      "start": "2026-10-14T10:38:15.189Z",
+      "end": "2026-10-14T10:39:01.819Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "AF6A37CB4F7901205C5F19CFDBCF3383936642FCDF0CD5FA3D7670E45CBE87BA"
+    },
+    {
+      "name": "F-report-citation-red",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 1:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation",
+      "start": "2026-10-14T10:39:01.870Z",
+      "end": "2026-10-14T10:39:32.458Z",
+      "status": 1,
+      "signal": null,
+      "logHash": "F9F9C16078483032AEB0044BBDE7BD58B7F3EFE465FF6DB70D0498217D06D790"
+    },
+    {
+      "name": "F-report-citation-restored",
+      "args": [
+        "C:/Users/Lenovo/.codex/worktrees/application-draft-core/vc/node_modules/tsx/dist/cli.mjs",
+        "--test",
+        "--test-concurrency=1",
+        "--test-timeout=120000",
+        "--test-name-pattern",
+        "T038 synthetic oracle 1:",
+        "apps/api/tests/server.test.ts"
+      ],
+      "cwd": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation",
+      "start": "2026-10-14T10:39:32.466Z",
+      "end": "2026-10-14T10:40:00.571Z",
+      "status": 0,
+      "signal": null,
+      "logHash": "FF82882CB676AD3326B7258249BBC87A93659909B614BB944F78B33DE20790CD"
+    }
+  ],
+  "floors": [
+    {
+      "id": "F-input-bound",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-input-bound",
+      "pattern": "T038 synthetic oracle 3:",
+      "start": "2026-10-14T10:29:03.066Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "AFE2CFF50A989F994F982B7DF3822C18920943ACC595EBC7A18A216CF016AD83",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "200 !== 400",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:30:42.454Z"
+    },
+    {
+      "id": "F-original-authority",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-original-authority",
+      "pattern": "T038 synthetic oracle 11:",
+      "start": "2026-10-14T10:30:44.290Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "E1F498CD2401E379F53D90370C06420490A2AA4411FF547D2FEEA867254C35FE",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "initial/grant-content",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:32:19.341Z"
+    },
+    {
+      "id": "F-false-zero",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-false-zero",
+      "pattern": "T038 synthetic oracle 1:",
+      "start": "2026-10-14T10:32:21.559Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "88247DFF7F32EB00C76F5A72D8722C848CF63D96F9FBA57B76AFFA441D534FDE",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "answer: false",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:33:47.275Z"
+    },
+    {
+      "id": "F-public-claim",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-public-claim",
+      "pattern": "T038 synthetic oracle 1:",
+      "start": "2026-10-14T10:33:49.621Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "F6037A885EEAFADBE1F9B30E0C60043119FA832B10060598B9F091D2C3A923F9",
+        "apps/api/src/server.ts": "0B0B5D3670F1B51C3CF70D506EA49FACBF438571C65E2A04A33C000476B67D5F",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "requirementsVerified: true",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:35:16.210Z"
+    },
+    {
+      "id": "F-capturedAt-128",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-capturedAt-128",
+      "pattern": "T038 synthetic oracle 3:",
+      "start": "2026-10-14T10:35:18.398Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "CDA83256F68BA440133FEDE0FFF4568A4F67CD0582FDDA28E749AE2D4746EDF2",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "200 !== 400",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:36:47.296Z"
+    },
+    {
+      "id": "F-unicode-counter",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-unicode-counter",
+      "pattern": "T038 synthetic oracle 7:",
+      "start": "2026-10-14T10:36:49.531Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "B468EBB9AFEEC6D7A15BEE935FD5369BFF183A45B0091A5CEB76B19F4A24494A",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "left",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:38:11.477Z"
+    },
+    {
+      "id": "F-report-citation",
+      "copy": "D:/vc/qa/evidence/t038-cycle1-a/copies/F-report-citation",
+      "pattern": "T038 synthetic oracle 1:",
+      "start": "2026-10-14T10:38:15.187Z",
+      "originalHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "green": 0,
+      "mutatedHashes": {
+        "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+        "apps/api/src/server.ts": "CC086F571F2FC8085FB922ED6E5991D98C26830ECAFC1E9FB2A30F88E2072061",
+        "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+        "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+      },
+      "red": 1,
+      "intendedText": "mutant-valid-citation",
+      "intendedObserved": true,
+      "assertionFailure": true,
+      "noSetupFailure": true,
+      "restoredBytes": true,
+      "restored": 0,
+      "end": "2026-10-14T10:40:00.572Z"
+    }
+  ],
+  "environment": {
+    "node": "v24.13.1",
+    "platform": "win32",
+    "arch": "x64",
+    "nodeHash": "E3BE0545990C90995D7BF3A7AF5D64AF1F2E0FC1BBD9B79C27F7ABC1E9676E50",
+    "lockHash": "FDD9B039639F6E70141D6C54CA0760375913DA2E5705257A1B6F75C8939DA48B"
+  },
+  "end": "2026-10-14T10:40:00.572Z",
+  "finalPins": {
+    "packages/schemas/src/schemas.ts": "9ED93DDE0CCB545112482B0778218D935645FE1F80A57B5EE69E426B05563882",
+    "apps/api/src/server.ts": "7B5EB8BB8F8B3C43013BAF8EED79B498DD541DAFF635F9579AE5E39328989F72",
+    "apps/api/src/openapi.ts": "023F25837518C7AB26EA6E044B792ED4BAA99AFB25BF9D9C2851BDCE5FDCF813",
+    "apps/api/tests/server.test.ts": "4A81A832F6893A7A5112FD9FBDFF41C6B9440F8E6E9881E86D8CA17E330C186A"
+  },
+  "sourceUnchanged": true
+}
