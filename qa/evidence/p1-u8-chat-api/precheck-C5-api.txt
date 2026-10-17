@@ -1,0 +1,45 @@
+✔ D-093 6A: a student who types their name, phone and email in a question gets an answer, and none of the three is in anything stored (128.5582ms)
+✔ D-093 6A: a name the Pathlynks profile supplies is redacted from stored text even when the student never said 'my name is' (27.3192ms)
+✔ D-093 6A: a model answer that carries an email address is stored and replayed redacted, while the first live answer is unchanged (25.2707ms)
+✔ D-093 4A: an under-18 student with no guardian-consent claim still gets the answer, and no turn text, answer or redacted copy is stored anywhere (18.059ms)
+✔ D-093 4A: an under-18 student without consent who opens the chat and leaves before asking anything has a thread already marked text-free (8.8592ms)
+✔ D-093 4A: a token with no age and no minor claim is treated as under 18 (fail closed), so its text is not stored either (24.6285ms)
+✔ D-093 4A: an under-18 student WITH the guardian-consent claim is stored like an adult; a consent claim that is the string 'true' is not consent (36.3973ms)
+✔ D-093 4A: a thread opened with consent that later turns come without it is marked textStored false, and the earlier stored turns stay readable (36.3867ms)
+✔ D-093 4A: a crisis message from an under-18 student without consent gets the fixed message, keeps only an ids-and-time flag row, and does not hand the text to escalation (20.6012ms)
+✔ a crisis message from an adult is answered with the fixed message, flagged in the safety log, and escalated through the tenant's escalation path (24.6076ms)
+✔ a student who raised a crisis flag earlier in the thread still sees the helpline on a later turn after the server restarts (the flag is read from the store) (38.4351ms)
+✔ two tenants with the same student id never see each other's threads, and every stored row carries its own tenant (24.371ms)
+✔ A6: the sandbox tenant accepts only syn- student ids (403 for a real-looking id on every route), other tenants are unaffected (13.0564ms)
+✔ D-015: a student whose erasure is in progress is told 409 student_fenced, the model is not called, and nothing new is kept (13.4373ms)
+✔ a 500 from an unexpected failure carries no cause and the log line carries no student text (7.9535ms)
+✔ A16b: the profile shows the Pathlynks-supplied facts as in use and nothing else when the student has said nothing storable (31.3733ms)
+✔ A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it (95.7127ms)
+✔ A16b: a student corrects a wrongly heard fact (the corrected value is redacted and confirmed) and erases another (42.5534ms)
+✔ A16b: a decision on a fact that does not exist, or on another student's fact, is 404; a bad decision body is 400 (32.902ms)
+✔ D-093 4A: for an under-18 student without consent nothing is extracted or proposed, so no fact row is created (20.9786ms)
+✔ a Pathlynks profile outage is a 503 profile_unavailable (never an empty profile that hides what is in use), with no cause in the body (13.1078ms)
+✔ startApi: flag off -> a chat path answers exactly like an unknown /v1 path over real HTTP, and no gate file is read (32.5023ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (5.7021ms)
+✔ startApi: flag on with the gate open but no student JWT configuration is a config error before connecting (no silent fall-back to the counsellor key) (13.828ms)
+✔ startApi: flag on and gate open -> a student creates a thread and asks a question over real HTTP; the rows land in virtual_counsellor under the student's tenant; a counsellor-key token is refused (48.8909ms)
+✔ student config comes from its own env names: issuer, audience and ONE key source, with the audience mandatory (3.8845ms)
+✔ a student whose adult token verifies gets their tenant, student id and a persist-text context (11.5819ms)
+✔ a Pathlynks student whose claim names differ is accepted once the claim names are configured (6.5872ms)
+✔ an under-18 student with no age or minor claim is treated as a minor (fail closed); a stated adult is not (7.0259ms)
+✔ guardian consent counts only as the boolean true, and a non-boolean value is not consent (6.8077ms)
+✔ a counsellor, admin or approver token is refused on the student verifier with the role reason, even when signed by the same key (4.7304ms)
+✔ a student token is refused by the counsellor verifier (not a counsellor claim set), so a student cannot reach counsellor routes (1.713ms)
+✔ invalid student tokens are refused: wrong key, wrong issuer, wrong audience, expired, none-alg, malformed, empty (6.6758ms)
+✔ an HS256 student secret is accepted alone and an RS256 token is not accepted under it (no algorithm confusion) (3.2398ms)
+✔ a JWKS-configured student verifier resolves the signing key by kid from a local fetch (19.9114ms)
+✔ a student id with control characters or over 128 characters is refused (3.9129ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2651.7111
+[testlock] running (free RAM 8 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/apps/api exec tsx --test --test-timeout=30000 tests/chat-privacy.test.ts tests/student-auth.test.ts tests/chat-profile.test.ts

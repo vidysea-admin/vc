@@ -1,0 +1,43 @@
+✔ A20: chat is OFF by default - unset, empty and 'false' read as disabled, only the exact word 'true' enables, anything else is a config error (1.4458ms)
+✔ A20 flag off: nothing is built and every chat path answers exactly like an unknown path (404), for every method, without touching the main handler (38.7077ms)
+✔ A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes (6.7307ms)
+✔ A20: each missing gate record refuses; voice's A10 and anonymous option b are NOT needed for authenticated chat (29.7578ms)
+✔ no student text is traced: an environment that switches LangChain/LangSmith tracing on refuses to build the chat routes (11.6073ms)
+✔ the chat route list equals the draft student paths (without voice) and none of them is in the counsellor route table (0.9835ms)
+✔ a request with no token, a garbage token or a token signed by a stranger is refused 401 with one identical body, and nothing is read or written (33.0395ms)
+✔ a counsellor, admin or approver token, validly signed with the student key, is refused 403 on every student route (17.3445ms)
+✔ a student whose token names a different student than the path gets 404 (not 403) and nothing is created (8.5265ms)
+✔ a student starts a thread, asks a sourced question, and reads the exchange back in order (115.7644ms)
+✔ a student whose phone retries the same clientTurnId after a dropped response gets the same answer, one model call, one stored exchange and one usage count (26.5996ms)
+✔ the same clientTurnId reused with different text is refused 409, and the first answer is kept (23.8916ms)
+✔ a second tab sending the same clientTurnId while the first is still being answered gets 409 turn_in_progress and no second model call (10.9472ms)
+✔ a turn without a clientTurnId gets a server-made turn id, and two such turns are two exchanges (27.7605ms)
+✔ a model outage gives the apology answer, keeps nothing, and the student's retry with the same clientTurnId runs again (26.9386ms)
+✔ a body that carries identity or unknown fields, bad JSON, an empty or over-long text, or an oversized body is refused before anything runs (12.3481ms)
+✔ an unknown thread, or one that belongs to another student of the same tenant, is a 404 that does not say which (11.1293ms)
+✔ a path id with odd characters is refused 404 (path ids are letters, digits, dot, dash, underscore only) (9.974ms)
+✔ a wrong method on a chat path is 405 with Allow, and a non-chat path is left to the main handler (8.8454ms)
+✔ A23: the 31st request in a minute from one student is 429 with Retry-After, another student is not affected, and the window reopens (21.0816ms)
+✔ A23: a tenant override of requestsPerMinute applies to that tenant only (12.9687ms)
+✔ A23: a crisis message is never rate limited, even from a student already over the limit (44.2867ms)
+✔ a question the knowledge base cannot answer says so, and adds one text-free count to the day's gap total (no student, thread or text) (23.446ms)
+✔ student config comes from its own env names: issuer, audience and ONE key source, with the audience mandatory (3.9306ms)
+✔ a student whose adult token verifies gets their tenant, student id and a persist-text context (11.5127ms)
+✔ a Pathlynks student whose claim names differ is accepted once the claim names are configured (4.1162ms)
+✔ an under-18 student with no age or minor claim is treated as a minor (fail closed); a stated adult is not (6.3319ms)
+✔ guardian consent counts only as the boolean true, and a non-boolean value is not consent (7.0514ms)
+✔ a counsellor, admin or approver token is refused on the student verifier with the role reason, even when signed by the same key (5.9628ms)
+✔ a student token is refused by the counsellor verifier (not a counsellor claim set), so a student cannot reach counsellor routes (2.0611ms)
+✔ invalid student tokens are refused: wrong key, wrong issuer, wrong audience, expired, none-alg, malformed, empty (8.5782ms)
+✔ an HS256 student secret is accepted alone and an RS256 token is not accepted under it (no algorithm confusion) (3.9882ms)
+✔ a JWKS-configured student verifier resolves the signing key by kid from a local fetch (23.0962ms)
+✔ a student id with control characters or over 128 characters is refused (6.0644ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2759.7453
+[testlock] running (free RAM 8.19 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/apps/api exec tsx --test --test-timeout=30000 tests/student-auth.test.ts tests/chat.test.ts

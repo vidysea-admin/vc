@@ -1,0 +1,10 @@
+[testlock] write_owner_enrich: lock dir token changed (ours [1792268772179082500-8290-4288], now [1792268772606819100-7487-10788]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] waiting for lock held by: PID=36296 STARTED=639278853189504595 ACQUIRED_AT=1792268772 TOKEN=1792268772606819100-7487-10788 DESC=pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9/packages/providers exec tsx --test --test-name-pattern=^C4  tests/live.test.ts 
+[testlock] owner PID 34856 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running (free RAM 2.49 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/packages/schemas typecheck
+
+> @vc/schemas@0.1.0 typecheck C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u8\packages\schemas
+> tsc --noEmit
+

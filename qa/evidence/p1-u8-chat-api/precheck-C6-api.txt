@@ -1,0 +1,19 @@
+✔ A16b: the profile shows the Pathlynks-supplied facts as in use and nothing else when the student has said nothing storable (24.8324ms)
+✔ A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it (90.173ms)
+✔ A16b: a student corrects a wrongly heard fact (the corrected value is redacted and confirmed) and erases another (35.4759ms)
+✔ A16b: a decision on a fact that does not exist, or on another student's fact, is 404; a bad decision body is 400 (23.9423ms)
+✔ D-093 4A: for an under-18 student without consent nothing is extracted or proposed, so no fact row is created (20.9688ms)
+✔ a Pathlynks profile outage is a 503 profile_unavailable (never an empty profile that hides what is in use), with no cause in the body (11.0784ms)
+✔ startApi: flag off -> a chat path answers exactly like an unknown /v1 path over real HTTP, and no gate file is read (31.0571ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (5.058ms)
+✔ startApi: flag on with the gate open but no student JWT configuration is a config error before connecting (no silent fall-back to the counsellor key) (11.7586ms)
+✔ startApi: flag on and gate open -> a student creates a thread and asks a question over real HTTP; the rows land in virtual_counsellor under the student's tenant; a counsellor-key token is refused (40.5893ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2364.2907
+[testlock] running (free RAM 7.96 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/apps/api exec tsx --test --test-timeout=30000 tests/chat-profile.test.ts
