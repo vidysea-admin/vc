@@ -1,0 +1,26 @@
+R1-counter-uncaught	KILLED	pass=33 fail=2	tests/student-graph.test.ts	first=R1 crisis-first: an anonymous crisis with the counter store down still returns the fixed message + Tele-MANAS 14416 (flagWriteFailed)
+R1-gap-uncaught	KILLED	pass=34 fail=1	tests/student-graph.test.ts	first=R1: recordGap throwing on an authenticated no-answer still returns the fixed no-answer (logged, not thrown)
+R2a-keep-unresolvable	KILLED	pass=14 fail=2	tests/claims-guard.test.ts	first=A1 (repair R2a): a sourceId not returned in THIS turn (invented, or another turn's id) is stripped; with none left the claim is DROPPED, nev
+R2a-turnwide-hits-off	KILLED	pass=33 fail=2	tests/student-graph.test.ts	first=R2a: a claim citing a seminar hit but quoting WhatsApp text verbatim is dropped (check over ALL restricted texts of the turn)
+R2a-final-message-check-off	SURVIVED	pass=35 fail=0	tests/student-graph.test.ts	first=Error)
+R2b-unknown-label-off	KILLED	pass=34 fail=1	tests/student-graph.test.ts	first=R2b: the speakerLabel of an 'unknown' (unlisted recording) hit is redacted
+R2b-session-label-off	KILLED	pass=34 fail=1	tests/student-graph.test.ts	first=R2b: the speakerLabel of a get_session turn fetched on the /ask path is redacted
+R3-digits-allowed	KILLED	pass=34 fail=1	tests/student-graph.test.ts	first=R3 followUp: kept only when it ends with '?', has no digits, no country, no personal identifier and no verbatim restricted run
+R3-question-mark-not-required	KILLED	pass=34 fail=1	tests/student-graph.test.ts	first=R3 followUp: kept only when it ends with '?', has no digits, no country, no personal identifier and no verbatim restricted run
+R4-anon-shows-unverified	KILLED	pass=34 fail=1	tests/student-graph.test.ts	first=R4 (D-092): anonymous mode never shows unverified claims; authenticated mode flags them '(unverified)' next to a sourced claim
+R5-negation-off	KILLED	pass=15 fail=1	tests/claims-guard.test.ts	first=R5 supports(): negation parity - 'no tuition' is not supported by 'tuition fees of 500 euros' (and vice versa)
+R5-country-prefix	KILLED	pass=15 fail=1	tests/claims-guard.test.ts	first=R5 supports(): country match is exact token or demonym, never a prefix ('India' must not match 'individual')
+R5-proper-nouns-off	KILLED	pass=15 fail=1	tests/claims-guard.test.ts	first=R5 supports(): a capitalised proper noun in a fact/country claim must appear in the evidence (off-list countries like Turkey)
+R5-units-off	KILLED	pass=15 fail=1	tests/claims-guard.test.ts	first=R5 supports(): numbers must match with the same currency/unit when one is present
+R6-confirm-allows-questions	SURVIVED	pass=5 fail=0	tests/coach-first.test.ts	first=
+R6-erasure-without-my	KILLED	pass=4 fail=1	tests/coach-first.test.ts	first=R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB
+R6-lor-requirements-drafting	KILLED	pass=4 fail=1	tests/coach-first.test.ts	first=R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB
+R7-no-raw-crisis-scan	KILLED	pass=34 fail=1	tests/student-graph.test.ts	first=R7: the crisis guard runs on the raw text before schema validation: 4001 chars with a crisis phrase -> the crisis message
+R7-auth-error-for-bad-text	KILLED	pass=34 fail=1	tests/student-graph.test.ts	first=R7: an over-long text without a crisis phrase is StudentInputInvalidError, not StudentAuthRequiredError
+R8-output-normalised	KILLED	pass=9 fail=1	tests/no-quote.test.ts	first=R8: normalisation is for matching only - ZWJ/ZWNJ in Hindi text survive the guard unchanged; a removed name loses its zero-width chars
+R8-title-left-behind	KILLED	pass=9 fail=1	tests/no-quote.test.ts	first=R8: a title before a removed name goes with it (no 'Dr. a speaker' / 'Prof. a speaker')
+R9-no-cache	KILLED	pass=34 fail=1	tests/student-graph.test.ts	first=R9: the compiled graph is cached per deps and itself enforces the TurnResponse schema + the prior-flag Tele-MANAS suffix
+R9-finish-outside-graph	KILLED	pass=34 fail=1	tests/student-graph.test.ts	first=R9: the compiled graph is cached per deps and itself enforces the TurnResponse schema + the prior-flag Tele-MANAS suffix
+R9-no-reexport	KILLED	pass=34 fail=1	tests/student-graph.test.ts	first=R9: the student module is re-exported from the @vc/engine entry point
+(node:19104) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)

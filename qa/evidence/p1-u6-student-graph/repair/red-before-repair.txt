@@ -1,0 +1,266 @@
+[testlock] running (free RAM 0.71 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6/packages/engine exec tsx --test tests/student-graph.test.ts tests/claims-guard.test.ts tests/source-kind.test.ts tests/coach-first.test.ts tests/no-quote.test.ts
+✔ A1 /search: a claim supported by the inline turn.text is verified, with no session fetch (8.3645ms)
+✔ A1 /search: a number that does not match the inline text is unverified, never verified (1.189ms)
+✔ A1: number formats are normalised (11,904 == 11904) but a different number is not (2.7612ms)
+✔ A1: a country the source text does not name is unverified (0.7239ms)
+✖ A1 (repair R2a): a sourceId not returned in THIS turn (invented, or another turn's id) is stripped; with none left the claim is DROPPED, never shown or sourced (2.1391ms)
+✖ R5 supports(): negation parity - 'no tuition' is not supported by 'tuition fees of 500 euros' (and vice versa) (0.6519ms)
+✖ R5 supports(): country match is exact token or demonym, never a prefix ('India' must not match 'individual') (0.5207ms)
+✖ R5 supports(): a capitalised proper noun in a fact/country claim must appear in the evidence (off-list countries like Turkey) (0.4257ms)
+✖ R5 supports(): numbers must match with the same currency/unit when one is present (1.4675ms)
+✔ A1 /ask: verified only when the node_id is in this response AND get_session on evidence.sessionRef returns supporting text (1.1957ms)
+✔ A1 /ask: a session-level node_id (session:<id> or /session:<id>) resolves without evidence; a topic node without sessionRefs cannot be verified (0.7015ms)
+✔ A1 /ask: kind:fact whose fetched text does not support it is attributed; a number/country with no supporting text is unverified (0.6137ms)
+✔ A1/A13 /ask: a cited session that cannot be re-read (get_session unavailable) is never verified (0.3026ms)
+✔ A1 /ask: a node_id not in this response's sources.internal is not a sourceId (web sources never count) (0.2394ms)
+✔ A1/A13: sources[] lists each cited source once, schema-valid, with stale (older than the threshold) and dateUnknown flags (1.1282ms)
+✔ A13: with no override the staleness threshold is the 24-month default [ASSUMPTION P-7]: 45 months old is stale, 16 months is not (0.4896ms)
+✔ A21(a): the fixture has >= 20 drafting requests incl. Hinglish/Hindi, and every one is detected (3.3868ms)
+✔ A21(a): every drafting request yields coaching (questions, structure) and never a full draft - even when the model returns one (746.6664ms)
+✔ A21(a): isDraftLike flags essay-shaped text and not a coaching reply (0.2461ms)
+✖ R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB (4.763ms)
+✔ A21(b): >= 15 fixture intents select the matching tool/feature, and every selected tool is a registered student tool (197.2044ms)
+✔ A3: the fixture has both denied and permitted speakers, including external seminar speakers on both sides (1.9009ms)
+✔ A3: exhaustive - no alias of a speaker without a written-permission record survives the guard in any surface form (137.7697ms)
+✔ A3: a speaker WITH a written-permission record may be named (default-deny is per speaker, not blanket) (2.1079ms)
+✔ A3: a denied name embedded inside a longer word is not mangled, but a standalone one is removed (0.6895ms)
+✔ A3: zero-width characters and NBSP inside a denied name do not let it through (0.7294ms)
+✖ R8: normalisation is for matching only - ZWJ/ZWNJ in Hindi text survive the guard unchanged; a removed name loses its zero-width chars (2.2577ms)
+✖ R8: a title before a removed name goes with it (no 'Dr. a speaker' / 'Prof. a speaker') (0.7272ms)
+✔ A3: extra names (e.g. WhatsApp speakerLabels of this turn's hits) are removed too (3.3784ms)
+✔ A22 detector: phone numbers, listed names/aliases and speakerLabels are personal identifiers; plain advice is not (25.4899ms)
+✔ A22 detector: a verbatim run of >= 8 consecutive source words is detected; 7 words or a paraphrase is not (3.3883ms)
+✔ A22: every claim is tagged with the source kind of its source (seminar, toc, whatsapp, unlisted recording = unknown) (109.2967ms)
+✖ A22: a claim with no determinable kind (served /ask, unresolvable source) is restricted 'unknown' (4.0224ms)
+✔ A22: a WhatsApp or unknown claim quoting >= 8 consecutive source words is removed from the answer (never verbatim) (0.9067ms)
+✔ A22: a WhatsApp claim mixing a seminar source still counts as restricted (most restrictive kind wins) (0.7022ms)
+✔ A22: seminar and TOC material may be cited as a close paraphrase (no verbatim drop) (0.8133ms)
+✔ A22: personal identifiers (phone, listed names, WhatsApp speakerLabels of the turn) never survive in a restricted claim (5.5656ms)
+✔ A3 at the claim layer: a denied speaker name is removed even from a seminar claim; a permitted one stays (1.8185ms)
+C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u6\packages\engine\tests\student-graph.test.ts:18
+  StudentInputInvalidError,
+  ^
+SyntaxError: The requested module '../src/student/graph.js' does not provide an export named 'StudentInputInvalidError'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:319:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:422:5)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.13.1
+✖ tests\student-graph.test.ts (3591.3194ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 29
+ℹ fail 10
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6556.2615
+
+✖ failing tests:
+
+test at tests\claims-guard.test.ts:47:1
+✖ A1 (repair R2a): a sourceId not returned in THIS turn (invented, or another turn's id) is stripped; with none left the claim is DROPPED, never shown or sourced (2.1391ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  3 !== 1
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u6\packages\engine\tests\claims-guard.test.ts:53:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\claims-guard.test.ts:60:1
+✖ R5 supports(): negation parity - 'no tuition' is not supported by 'tuition fees of 500 euros' (and vice versa) (0.6519ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u6\packages\engine\tests\claims-guard.test.ts:61:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\claims-guard.test.ts:67:1
+✖ R5 supports(): country match is exact token or demonym, never a prefix ('India' must not match 'individual') (0.5207ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u6\packages\engine\tests\claims-guard.test.ts:68:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\claims-guard.test.ts:73:1
+✖ R5 supports(): a capitalised proper noun in a fact/country claim must appear in the evidence (off-list countries like Turkey) (0.4257ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u6\packages\engine\tests\claims-guard.test.ts:74:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\claims-guard.test.ts:79:1
+✖ R5 supports(): numbers must match with the same currency/unit when one is present (1.4675ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u6\packages\engine\tests\claims-guard.test.ts:82:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\coach-first.test.ts:115:1
+✖ R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB (4.763ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'What is the latest tuition fee in Germany?',
+  +   'Yes, what is the right visa type for Germany?',
+  +   'How do I prepare for the LOR requirements in Canada?',
+  +   'What are the best universities to compare for engineering in Germany?',
+  +   'Does Germany remove tuition information soon?',
+  +   'Ha, which is the correct deadline for TU Munich?',
+  +   'What is the QS rank of TU Munich?',
+  +   'Can universities delete application data after rejection?',
+  +   'Yes, that is correct, but what documents does the UK visa need?'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u6\packages\engine\tests\coach-first.test.ts:116:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'What is the latest tuition fee in Germany?', 'Yes, what is the right visa type for Germany?', 'How do I prepare for the LOR requirements in Canada?', 'What are the best universities to compare for engineering in Germany?', 'Does Germany remove tuition information soon?', 'Ha, which is the correct deadline for TU Munich?', 'What is the QS rank of TU Munich?', 'Can universities delete application data after rejection?', 'Yes, that is correct, but what documents does the UK visa need?' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\no-quote.test.ts:94:1
+✖ R8: normalisation is for matching only - ZWJ/ZWNJ in Hindi text survive the guard unchanged; a removed name loses its zero-width chars (2.2577ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'क्ष और में'
+  - 'क्‍ष और ‌में'
+       ^
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u6\packages\engine\tests\no-quote.test.ts:96:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'क्ष और में',
+    expected: 'क्‍ष और ‌में',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\no-quote.test.ts:101:1
+✖ R8: a title before a removed name goes with it (no 'Dr. a speaker' / 'Prof. a speaker') (0.7272ms)
+  AssertionError [ERR_ASSERTION]: Dr. Kavya said apply early.
+  + actual - expected
+  
+  + 'Dr. a speaker said apply early.'
+  - 'a speaker said apply early.'
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u6\packages\engine\tests\no-quote.test.ts:104:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'Dr. a speaker said apply early.',
+    expected: 'a speaker said apply early.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\source-kind.test.ts:32:1
+✖ A22: a claim with no determinable kind (served /ask, unresolvable source) is restricted 'unknown' (4.0224ms)
+  AssertionError [ERR_ASSERTION]: a served /ask claim is 'unknown'
+  + actual - expected
+  
+    [
+      'unknown',
+  +   'unknown'
+    ]
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u6\packages\engine\tests\source-kind.test.ts:41:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'unknown', 'unknown' ],
+    expected: [ 'unknown' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\student-graph.test.ts:1:1
+✖ tests\student-graph.test.ts (3591.3194ms)
+  'test failed'

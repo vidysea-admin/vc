@@ -1,0 +1,2 @@
+R2a-final-message-check-off	KILLED	pass=35 fail=1	tests/student-graph.test.ts	first=R2a: the FINAL message is checked too - two claims that are each under the verbatim bar but join into an 8+ word WhatsApp run give the no-an
+R6-confirm-allows-questions	KILLED	pass=4 fail=1	tests/coach-first.test.ts	first=R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB

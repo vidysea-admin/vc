@@ -111,10 +111,65 @@ Metrics: start=2026-10-17T14:39:39+05:30 end=2026-10-17T15:09:36+05:30 builder_m
 - Threshold 1.0 and the staleness 24 months are [ASSUMPTION]s from synthetic U2 fixtures; recalibrate on recorded live-KB scores.
 - `crisisGuard` residuals (e.g. "I wrote letters to my parents...", "pressure bahut hai") are not flagged — recall gaps of the existing guard, not changed here.
 - Escalate input uses `lang: "hi"` only when Devanagari is present; Hinglish goes as `en` (translatedText = text).
-- `src/index.ts` does not yet re-export the student module (U8 wiring decides the import path).
+- ~~`src/index.ts` does not yet re-export the student module~~ - done in the repair (R9).
 - No `senior-software-engineer` / `ai-engineer` review dispatched (brief: dispatch no checker); orchestrator owns it.
 
 ## Live browser evidence
 Not UI-touching — changed paths are `packages/engine/**`, `skills/**`, `qa/`.
+
+## Pre-check repair (review-driven)
+Trigger: fresh senior review BLOCK (probes `probe-u6-swe/probe.test.ts`, P1-P9). Repair base: e6f64a1. Repair commits: ddc0389 (code + tests), 84a222c (2 survivor-killing tests), 743d78b (restored A11b-forbidden + unit-less number falsifications). Final SHA for every line below: 743d78b. Red first: `repair/red-before-repair.txt` (39 tests, 29 pass, 10 fail + module import error before the code change).
+
+| Criterion | Repair | Changed behaviour |
+|---|---|---|
+| A11 / A11b | R1 | every counter/gap/flag/escalate write is try/caught (`safeWrite`, `onWriteError`); crisis still returns the fixed message + 14416 and sets `flagWriteFailed` |
+| A1 / A22 | R2a | claims with empty/unresolvable sourceIds are DROPPED (`no_resolvable_source`); verbatim + speaker checks run against ALL whatsapp/unknown hit texts and the /ask answer, and the final joined message |
+| A22 | R2b | speakerLabel collected from unknown hits and get_session turns |
+| A22 / A3 | R3 | followUp must end with "?", no digits, no country, no personal identifier, no verbatim run; else dropped |
+| A1 / D-092 | R4 | anonymous mode drops unverified claims; authenticated keeps "(unverified)" next to >=1 sourced claim |
+| A1 | R5 | supports(): negation parity per clause, exact-token/demonym country match, proper nouns in evidence, number unit/currency match |
+| A21(b) | R6 | erasure/export need "my"; rank/freshness need a reference; confirm = short, no "?"; LOR-requirements questions are not drafting; 11 negative fixtures |
+| A11 / B21 gate | R7 | crisis guard on the raw text (first 4000 chars) before validation; `StudentInputInvalidError` distinct from auth |
+| A3 | R8 | no-quote matches on a normalised view, outputs original text (ZWJ/ZWNJ kept); titles removed with the name |
+| plan U6 | R9 | compiled graph cached per deps (WeakMap); schema parse + prior-flag suffix in the `finish` node; student module re-exported from `src/index.ts` |
+
+Pre-check[A1]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="A1|R5" tests/claims-guard.test.ts -> pass 16 fail 0 t=7 blobs=packages/engine/tests/claims-guard.test.ts:9c61704
+Pre-check[A3]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="A3|R8" tests/no-quote.test.ts tests/source-kind.test.ts -> pass 9 fail 0 t=7 blobs=packages/engine/tests/no-quote.test.ts:94b8bde,packages/engine/tests/source-kind.test.ts:3624878
+Pre-check[A4]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="A4|answer_from_kb|B2" tests/student-graph.test.ts -> pass 14 fail 0 t=7 blobs=packages/engine/tests/student-graph.test.ts:a092ee2
+Pre-check[A11]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="A11|R1|R7" tests/crisis-defaults.test.ts tests/crisis-escalation.test.ts tests/student-graph.test.ts -> pass 16 fail 0 t=10 blobs=packages/engine/tests/crisis-defaults.test.ts:6f38a40,packages/engine/tests/crisis-escalation.test.ts:17d4f39,packages/engine/tests/student-graph.test.ts:a092ee2
+Pre-check[A11b]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="A11b" tests/crisis-defaults.test.ts -> pass 8 fail 0 t=11 blobs=packages/engine/tests/crisis-defaults.test.ts:6f38a40
+Pre-check[A12]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="A12" tests/student-graph.test.ts -> pass 2 fail 0 t=17 blobs=packages/engine/tests/student-graph.test.ts:a092ee2
+Pre-check[A13]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="A13" tests/claims-guard.test.ts -> pass 3 fail 0 t=14 blobs=packages/engine/tests/claims-guard.test.ts:9c61704
+Pre-check[A15b]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="A15b" tests/student-classify.test.ts -> pass 4 fail 0 t=9 blobs=packages/engine/tests/student-classify.test.ts:9ee49ab
+Pre-check[A15c]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="anonymous|R4" tests/student-graph.test.ts -> pass 6 fail 0 t=15 blobs=packages/engine/tests/student-graph.test.ts:a092ee2
+Pre-check[A18]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="A18|B24.2" tests/student-graph.test.ts -> pass 9 fail 0 t=20 blobs=packages/engine/tests/student-graph.test.ts:a092ee2
+Pre-check[A21]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="A21|R6" tests/coach-first.test.ts tests/capability-manifest.test.ts -> pass 8 fail 0 t=13 blobs=packages/engine/tests/coach-first.test.ts:b4992c3,packages/engine/tests/capability-manifest.test.ts:9c4c476
+Pre-check[A22]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="A22|R2|R3" tests/source-kind.test.ts tests/no-quote.test.ts tests/student-graph.test.ts -> pass 14 fail 0 t=12 blobs=packages/engine/tests/source-kind.test.ts:3624878,packages/engine/tests/no-quote.test.ts:94b8bde,packages/engine/tests/student-graph.test.ts:a092ee2
+Pre-check[B21-gate]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="gate|R7" tests/student-graph.test.ts -> pass 4 fail 0 t=9 blobs=packages/engine/tests/student-graph.test.ts:a092ee2
+Pre-check[R9]: 743d78b bash scripts/vc-testlock.sh pnpm -C packages/engine exec tsx --test --test-name-pattern="R9" tests/student-graph.test.ts -> pass 2 fail 0 t=33 blobs=packages/engine/tests/student-graph.test.ts:a092ee2
+
+Full suite (743d78b): `bash D:/vc/scripts/vc-testlock.sh pnpm -C packages/engine test` -> tests 992 pass 947 fail 0 skipped 45 (`repair/engine-test.txt`). Typecheck: `pnpm -C packages/engine typecheck` -> exit 0 (`repair/typecheck.txt`).
+
+Falsification (copy `p1-u6-mut`, LF-normalised, src/tests diff-equal to the worktree; never the worktree). Final run `repair/mutations-final.txt` + `repair/mutations-adapted-rerun.txt`: 24/24 repair mutants KILLED, 19/19 applicable original mutants KILLED, 7/7 adapted originals KILLED (the 6 NOT-APPLIED originals target code the repair rewrote and are replaced by their `(adapted)` twins).
+
+| Changed criterion | Named mutant(s) | Result |
+|---|---|---|
+| A11/A11b R1 | R1-counter-uncaught, R1-gap-uncaught, A11-escalate(adapted), A11b-flaglog(adapted), A11b-forbidden | KILLED |
+| A1/A22 R2a | R2a-keep-unresolvable, R2a-turnwide-hits-off, R2a-final-message-check-off | KILLED |
+| A22 R2b | R2b-unknown-label-off, R2b-session-label-off | KILLED |
+| A22/A3 R3 | R3-digits-allowed, R3-question-mark-not-required, A22-pii(adapted) | KILLED |
+| A1 R4 (D-092) | R4-anon-shows-unverified | KILLED |
+| A1 R5 | R5-negation-off, R5-country-prefix, R5-proper-nouns-off, R5-units-off, A1-numbers(adapted) | KILLED |
+| A21(b) R6 | R6-confirm-allows-questions, R6-erasure-without-my, R6-lor-requirements-drafting, A21b-intents(adapted) | KILLED |
+| A11/gate R7 | R7-no-raw-crisis-scan, R7-auth-error-for-bad-text | KILLED |
+| A3 R8 | R8-output-normalised, R8-title-left-behind | KILLED |
+| U6 R9 | R9-no-cache, R9-finish-outside-graph, R9-no-reexport | KILLED |
+| A4 | A4-gap(adapted) | KILLED |
+
+Open risks for the checker: (1) R2a drop of unresolvable claims changes the earlier "shown flagged" B2 wording - the qa/contracts amendment must reflect it; (2) proper-noun check may mark sentence-initial common words unverified (fails safe); (3) the final-message verbatim check falls back to no-answer and depends on the claim join format; (4) the deps cache assumes deps objects are not mutated after first use; (5) default `onWriteError` is a text-free console.warn; (6) an invalid identity with crisis text falls back to the anonymous crisis path (no flag log).
+
+Metrics: start=2026-10-17T16:35:05+05:30 end=2026-10-17T17:10:00+05:30 builder_min=35 suite_runs=2 mutations=56 survivors_final=0 cycle=0 policy=proportional-verification/2026-10-15.12
+Policy-Version: proportional-verification/2026-10-15.12
+**Fix cycle:** 0 of max 2
 
 Status: ready-for-check

@@ -1,0 +1,9 @@
+[
+ ["A1-numbers(adapted)", "src/student/claims.ts", "    if (same.length === 0) return false;\n", "", "tests/claims-guard.test.ts"],
+ ["A4-gap(adapted)", "src/student/graph.ts", "      await safeWrite(\"gap\", deps.recordGap ? () => deps.recordGap!(gap) : undefined);\n", "", "tests/student-graph.test.ts"],
+ ["A11-escalate(adapted)", "src/student/graph.ts", "        \"escalate\",\n        deps.escalate\n", "        \"escalate\",\n        false && deps.escalate\n", "tests/crisis-defaults.test.ts"],
+ ["A11b-flaglog(adapted)", "src/student/graph.ts", "        \"flag_log\",\n        deps.logFlag\n", "        \"flag_log\",\n        false && deps.logFlag\n", "tests/crisis-defaults.test.ts"],
+ ["A11b-forbidden", "src/student/graph.ts", "if (authenticated && input.priorFlagInThread && violatesCrisisRules(message)) {", "if (false) {", "tests/crisis-defaults.test.ts"],
+ ["A21b-intents(adapted)", "src/student/classify.ts", "    if (re.test(t)) return tool;\n", "", "tests/coach-first.test.ts"],
+ ["A22-pii(adapted)", "src/student/claims.ts", "          ? redactPersonalIdentifiers(text, ctx.speakers, labels)\n", "          ? text\n", "tests/source-kind.test.ts"]
+]
