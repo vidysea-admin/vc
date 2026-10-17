@@ -1,0 +1,16 @@
+# P1 U6h checker — /checker Mode A, fresh, independent, writes a verdict file
+Unit: qa/manifests/p1-u6h-claim-hardening.md in worktree S/p1-u6h (branch p1/u6h, HEAD e2fd6fc, code 898709f, base 41c2252 = U6 checked-PASS, on origin/main via 38fd98d). S = C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad.
+Follow ~/.claude/skills/checker/SKILL.md, Policy-Version proportional-verification/2026-10-15.12. Tier L (safety guard: crisis + claim verification), one checker (no security/auth/tenancy/prod-write). Budget L 45 min. Never touch the D:\vc working tree; never edit .claude/** or product code. Mock only, no network, no real model.
+Criteria H1 H2 M3 M4 P4 P5 L5 are defined in the build brief D:/vc/qa/evidence/p1-briefs/p1-u6h-build.md (lines 6-13) and trace to contract <wt>/qa/contracts/counselling-engine.md A1/A15/B2/B16 (read them yourself). Diff scope: `git -C S/p1-u6h diff 41c2252..e2fd6fc`.
+Prove OUTCOME through the runStudentTurn entry point with your own hostile stubs (not helper-only):
+- H1: /ask answer with a fact absent from every get_session turn never ships unmarked/verified.
+- H2: supports() rejects unit/rate swap ("300 euros" vs "300 euros per day", semester vs per month), extra clause, scope/quantifier swap, antonym without negation (mandatory/optional), partial 50% overlap; and still verifies a genuine restatement (report false-unverified rate on 5+ honest paraphrases you write).
+- M3: names/phones in WhatsApp/unknown hit text never reach the model input (inspect what the mock provider receives); an instruction embedded in hit text is not obeyed/echoed; kb-answer skill carries the evidence-is-data line.
+- M4: caller-supplied priorFlagInThread is ignored; coach reply with an unsupported fact is checked.
+- P4: port returning answered with verdict ambiguous or insufficient_coverage true -> fixed no-answer.
+- P5: first name, last name, reversed, initials, diacritic variants of a speaker label are redacted.
+- L5: crisis phrase after char 4000 of a long message -> crisis message + Tele-MANAS 14416, never StudentInputInvalidError; the 4 recall phrases ("letters to my parents in case I'm not here", "main apni jaan de dunga", "sab khatam kar lunga khud ko", plus the builder's list) trigger crisis; "pressure bahut hai" alone is coach-first (builder's documented choice in qa/evidence/p1-u6h/L5-decision.md: judge only that it is consistent with contract/spec; if the spec lists it as crisis, FAIL).
+- No regression: U6 criteria still hold (existing engine tests 0 fail; crisis-escalation tests green).
+Reuse builder runs only after identity checks; tests via `bash D:/vc/scripts/vc-testlock.sh pnpm -C <S>/p1-u6h/packages/engine test` (lock waits normal). No full suite. One falsification per criterion in a copy.
+If the B2/B24 contract wording conflicts with "unsupported /ask fact is unverified", amend the contract per checker SKILL contract maintenance or return CONTRACT_MISMATCH.
+Write <wt>/qa/verdicts/p1-u6h-claim-hardening.md (Cycle checked: 0, PASS/FAIL per criterion, Metrics, PROPOSED-ISSUE lines), commit on p1/u6h with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Report verdict + SHA under 20 lines.

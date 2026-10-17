@@ -1,0 +1,11 @@
+You are a /maker build subagent. Unit p1-u4b-budget-hardening on top of U4 (checker PASS dad6865). Worktree C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u4, branch p1/u4 (continue on it; HEAD dad6865). First commit: in qa/manifests/p1-u4-eval-harness.md flip Status to checked-PASS citing qa/verdicts/p1-u4-eval-harness.md (bookkeeping only). Then fix, failing test first for each, in packages/engine/evals only:
+1. budget.ts readLedger: a charge entry must have a finite usd that is not negative, else fail closed (throw). Tests: valid-JSON usd "abc", null, -500.
+2. budget.ts charge and startRun: cross-process exclusive lock around read-check-append (openSync(path + ".lock", "wx") with bounded retry and a stale-lock timeout; release in finally). Add a test where 6 concurrent processes each charge 1 USD with cap 50 and the ledger ends with at most 50 charges.
+3. run-eval.ts: with --real, reject any --ledger other than the fixed P1_LEDGER.
+4. assertGReal also requires qa/gates/g-real.md to exist with an Answered: line (contract B24.9 at commit a06c150). Test: refuses when absent.
+5. kb-eval: on a synthetic fixture, report A2a as NOT PROVEN (synthetic fixture), not PASS.
+6. h2h: for --real require an explicit seed or a randomBytes seed stored only in the key file; per-side safety boxes A and B on the judge sheet, mapped to VC through the key in the tally; runtime-validate preference (A, B or tie) and boolean safety, throw otherwise.
+7. claims-check: flag any unresolved sourceId (rule unresolvable-source), even if another id resolves.
+8. budget.ts executeReal: if guard.end throws after the body threw, keep the original error.
+Findings source (senior review): budget.ts:61-76,86,138-140,171-173,228-234; run-eval.ts:117,124,152; h2h.ts:69,112,151-152; report.ts:162; claims-check.ts:99-103.
+Policy proportional-verification/2026-10-15.12. Run only touched tests via bash D:/vc/scripts/vc-testlock.sh (long lock waits are normal), and typecheck the evals project. Never touch the D:/vc working tree; no network; no push. Write qa/manifests/p1-u4b-budget-hardening.md (one Pre-check[<id>] line per fix, Metrics line, Status: ready-for-check) and commit; commit messages end with Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>. Return ONE line: <slug> <sha> ready. Do NOT dispatch a checker.

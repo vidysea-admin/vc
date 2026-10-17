@@ -1,0 +1,5 @@
+# P1 U7 senior code review (fresh, read-only, returns findings only)
+Worktree S/p1-u7 (S = C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad), branch p1/u7, review `git -C <S>/p1-u7 diff 0e62084..d42335a` (anonymous text route).
+Scope: anonymous (signed-out) student mode for an AI counsellor serving Indian students, many minors. Plan: text only; no Db/checkpointer/outbox/tracer except a text-free aggregate counter; search_kb only; 10 rpm in-memory TTL limiter; personal question -> sign_in_required; crisis -> fixed message + Tele-MANAS 14416 before any KB/model call; route behind A20 flag default off.
+Look for: correctness, error handling (500 paths echoing input), flag default and gate wiring, limiter TTL/eviction and concurrency, request size/method/body-shape validation, OpenAPI drift, tests that prove outcome not construction, files outside declared scope.
+Read-only: never edit, never run network or real models. Return Approve / Warning / Block with file:line evidence, under 30 lines.
