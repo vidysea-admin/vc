@@ -1,0 +1,13 @@
+2026-10-18T04:19:51+05:30
+(re-run: first attempt crashed in the script's own print, cp1252 console, before any result; now -X utf8)
+[testlock] waiting for lock held by: PID=34332 STARTED=639278939865252092 ACQUIRED_AT=1792277386 TOKEN=1792277386677592400-119856-3998 DESC=pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/packages/db test 
+[testlock] running (free RAM 4.19 GB): python -I -X utf8 C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9/qa/evidence/p1-u9/fix2-falsify.py
+R1-toolcall-ends-crisis-utterance: rc=1 tests=? pass=? fail=? first_failing=['✖ C4 crisis R1: the model makes a tool call right after the crisis chunk and the student keeps talking in the ', '✖ C4 crisis R1: the model makes a tool call right after the crisis chunk and the student keeps talking in the ']
+R2-turncomplete-clears-crisis-mute: rc=1 tests=? pass=? fail=? first_failing=["✖ C4 crisis F1: after crisis + interrupted the model's turn ends; the next reply is audible again once the stu", '✖ C4 crisis R2: after crisis + interrupted the model ends its turn; its next reply stays muted until the stude', "✖ C4 crisis F1: after crisis + interrupted the model's turn ends; the next reply is audible again once the stu", '✖ C4 crisis R2: after crisis + interrupted the model ends its turn; its next reply stays muted until the stude']
+L1a-queue-uncapped: rc=1 tests=? pass=? fail=? first_failing=['✖ C4 crisis low: the transport floods events before attach; the queue is capped, the oldest are dropped with a', '✖ C4 crisis low: the transport floods events before attach; the queue is capped, the oldest are dropped with a']
+L1b-double-attach-allowed: rc=1 tests=? pass=? fail=? first_failing=['✖ C4 crisis low: a transport tries to attach a second backend; it is refused and the first stays wired (5.4539', '✖ C4 crisis low: a transport tries to attach a second backend; it is refused and the first stays wired (5.4539']
+L2-typed-crisis-blocks-spoken: rc=1 tests=? pass=? fail=? first_failing=['✖ C4 crisis low: the student types a crisis message, then says one aloud; the helpline audio plays again for t', '✖ C4 crisis low: the student types a crisis message, then says one aloud; the helpline audio plays again for t']
+L3-shared-audio-reference: rc=1 tests=? pass=? fail=? first_failing=['✖ C4 crisis low: a client that mutates the helpline audio buffer it received cannot corrupt the next crisis pl', '✖ C4 crisis low: a client that mutates the helpline audio buffer it received cannot corrupt the next crisis pl']
+RESTORED: rc=0 tests=? pass=? fail=?
+rc=0
+2026-10-18T04:21:46+05:30
