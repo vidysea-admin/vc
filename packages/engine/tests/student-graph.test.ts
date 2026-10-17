@@ -698,7 +698,7 @@ test("U7 repair C: in anonymous mode a model follow-up is never shown (hostile m
 
 test("U7 repair D: the anonymous sign-in-required and no-answer replies also carry the Tele-MANAS line (recall fallback); authenticated texts are unchanged", async () => {
   const signIn = deps({ kb: fakeKb({ anonymous: true }) });
-  const s = await runStudentTurn(signIn.d, { mode: "anonymous", text: "I am thinking about ending things, what should I study?" });
+  const s = await runStudentTurn(signIn.d, { mode: "anonymous", text: "I am thinking about my future, what should I study?" }); // D-093 2A: "thinking about ending things" is now a crisis phrase (covered in crisis-defaults.test.ts); this test is about the personal-question sign-in reply
   assert.equal(s.response.state, "sign_in_required");
   assert.equal(s.response.message, ANONYMOUS_SIGN_IN_TEXT);
   assert.ok((s.response.message ?? "").includes("14416"));
@@ -732,4 +732,41 @@ test("U7 repair E: the anonymous response carries opaque source ids (s1, s2) use
   const auth = deps({ kb, provider: studentProvider({ kbAnswer: { claims: withUnknown } }) });
   const u = await runStudentTurn(auth.d, turn(Q));
   assert.ok(u.response.sources.some((s) => s.id === "t-sem-1"), "authenticated output keeps turn ids");
+});
+
+// ---------------------------------------------------------------------------
+// P1 W3 (C4): U6h PROPOSED-ISSUE leftovers 1 and 3 (answer-path followUp) and 2 (coach path, Hindi / large figures).
+// ---------------------------------------------------------------------------
+
+const FOLLOW_UP_BAD_W3: [string, string][] = [
+  ["a spelled-out figure", "Did you know it costs five thousand euros a year?"],
+  ["a spelled-out figure in a fee question", "Would a fee of twenty thousand euros worry you?"],
+  ["a transliterated Hindi figure", "Kya ek lakh rupaye ka kharcha theek hai?"],
+  ["a second sentence after a newline", "Apply early to every university\nWhich cities?"],
+  ["a second sentence after a semicolon", "Apply early to every university; which cities?"],
+  ["a second sentence after a carriage return", "Apply early to every university\rWhich cities?"],
+];
+
+test("P1 W3 U6h leftovers 1 and 3: a followUp with a spelled-out figure, or a second sentence after a newline / semicolon, is never shown", async () => {
+  for (const [name, followUp] of FOLLOW_UP_BAD_W3) {
+    const provider = studentProvider({ kbAnswer: { claims: [{ text: "Public universities in Germany charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] }], followUp } });
+    const { d } = deps({ provider });
+    const out = await runStudentTurn(d, turn("Is tuition free in Germany?"));
+    assert.equal(out.response.message, "Public universities in Germany charge no tuition for most programmes.", `${name}: ${JSON.stringify(followUp)}`);
+  }
+  const { d } = deps();
+  const ok = await runStudentTurn(d, turn("Is tuition free in Germany?"));
+  assert.match(ok.response.message ?? "", /Which cities are you considering\?/);
+});
+
+test("P1 W3 U6h leftover 2 coach: 'half a million' and 'ek lakh' never reach the student", async () => {
+  const provider = coachProvider("Tuition there is about half a million rupees. Let's build this from your own story. Kharcha ek lakh rupaye hoga.", [
+    "What moment made you choose this field?",
+    "Which project are you proudest of, and why?",
+  ]);
+  const { d } = deps({ provider });
+  const out = await runStudentTurn(d, turn(SOP_ASK));
+  const msg = out.response.message ?? "";
+  assert.doesNotMatch(msg, /million|lakh|rupee|rupaye/i);
+  assert.match(msg, /own story/);
 });

@@ -1023,3 +1023,31 @@ test("T047 no-session-anchor guard-only records export and erase through actual 
   assert.equal(rawNotifications(w).filter(row => row.tenantId === TENANT).length, 0);
   assert.equal(JSON.stringify(rawNotifications(w).filter(row => row.tenantId === "tenant-b")), beforeOther);
 });
+test("ISS-126: a budget that refuses early after the writer deadline passed leaves no unhandled rejection from the postcheck race (reached by a held review insert that outlives a 50 ms writer deadline while the host budget has the same expiry)", async () => {
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => { unhandled.push(reason); };
+  process.on("unhandledRejection", onUnhandled);
+  const clock = useFakeClock();
+  try {
+    const w = world();
+    w.deps.writerDeadlineMs = 50;
+    const expiresAt = Date.now() + 50;
+    const controller = new AbortController();
+    // Same contract as the review budget in escalateTurns: an aborted/expired budget rejects at once and never attaches to the work it was handed.
+    w.deps.budget = { expiresAt, signal: controller.signal, run: (work) => (controller.signal.aborted || Date.now() >= expiresAt ? Promise.reject(new FencedWriterDeadlineError()) : work) };
+    const hold = holdSafetyUpdate(w, CRISIS_FLAG_REVIEWS_COLLECTION, (u) => "$setOnInsert" in u);
+    let timeout: unknown;
+    const pending = escalateTurns(w.db, input([turn("t2", CRISIS_TEXT)]), w.deps).catch((e: unknown) => { timeout = e; });
+    await hold.reached;
+    await clock.advance(51);
+    await pending;
+    assert.ok(timeout instanceof FencedWriterDeadlineError, "the public call timed out with FencedWriterDeadlineError");
+    hold.release();
+    await (timeout as FencedWriterDeadlineError).settled;
+    await drainEventLoop(50);
+    assert.deepEqual(unhandled, [], "no promise was left rejected with nobody attached");
+  } finally {
+    clock.restore();
+    process.off("unhandledRejection", onUnhandled);
+  }
+});

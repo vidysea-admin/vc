@@ -120,6 +120,33 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /\bin\s+case\s+(i'?m|i\s+am)\s+not\s+(here|around|there|alive)\b/i,
   /\bin\s+case\s+i\s+(won'?t|will\s+not)\s+be\s+(here|around|there|alive)\b/i,
 
+  // --- P1 W3 / D-093 2A (Umesh, 2026-10-17): every proposed Hindi/Hinglish recall phrase ---------
+  // Source: the U6h AI review (e2fd6fc, item 6) and the U7 review. Recall-only (D-020): a phrase that
+  // also appears in ordinary talk ("end things with my agent") is an accepted false alarm. "kms" is a
+  // whole-token check (TOKEN_CRISIS_PHRASES below), not a pattern: its separator-free twin would match
+  // inside "work ms" / "think ms".
+  // "mujhe marna hai / marna hi hai" - a stated wish to die, the verb "marna" with no "chahta" (the
+  // "marna chahta" family is matched above).
+  /\bmarna\s+(hi\s+)?(hai|hain)\b/i,
+  // "mai khatam ho jana chahta hu / khatam ho jaunga" - "I want to cease to exist", distinct from
+  // "sab kuch khatam" (a bare hopelessness statement).
+  /\bkhatam\s+ho\s+(jana|jaana|jaun|jaaun|jaunga|jaungi|jaaunga|jaaungi)\b/i,
+  // "marne ki iccha / marne ka khayal" - a stated wish or thought of dying.
+  /\bmarne\s+(ki|ka)\s+(iccha|ichha|ichchha|khwahish|khayal)\b/i,
+  // "jeena nahi hai" - "I don't want to live" without "chahta".
+  /\bjeena\s+nahi[n]?\s+hai\b/i,
+  // "jaan dena hai / jaan dena chahta" - intent to give up one's life ("jaan lena" is left out: it also means "to find out").
+  /\bjaan\s+dena\s+(hai|chahta|chahti)\b/i,
+  // English - "I don't see the point anymore", "what's the point of living". Needs "anymore" or a life word, so
+  // "I don't see the point of this course" stays clear.
+  /\b(don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(the|any)\s+point\s+(anymore|any\s+more|in\s+(living|life|going\s+on|continuing|anything|being\s+alive))\b/i,
+  /\bsee\s+no\s+point\s+(anymore|any\s+more|in\s+(living|life|going\s+on|continuing|anything|being\s+alive))\b/i,
+  /\b(what'?s|what\s+is)\s+the\s+point\s+(of\s+(living|life|going\s+on|anything)|anymore|any\s+more)\b/i,
+  // English - "thinking about ending things", "I'm ending things tonight".
+  /\b(thinking|thought|thoughts|think|planning|plan|plans|want|wanna|going|gonna|decided|ready|trying)\s+((about|of|to)\s+)?end(ing)?\s+(things|everything)\b/i,
+  /\bend(ing)?\s+(things|everything)\s+(for\s+good|tonight|today|right\s+now|soon)\b/i,
+  /\bend(ing)?\s+it\s+(tonight|today|soon|for\s+good|right\s+now)\b/i,
+
   // --- ISS-023: Devanagari -----------------------------------------------------------------------
   // \b is not used here — JS's default \b is defined over ASCII word chars ([A-Za-z0-9_]) and does
   // not treat Devanagari code points as word characters, so it would silently fail to match at
@@ -130,6 +157,12 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /खुद\s+को\s+खत्म/, // "khud ko khatam" — end oneself
   /जीना\s+नहीं\s+चाहत[ाी]/, // "jeena nahi chahta/chahti" — don't want to live
   /जान\s+(दे|ले)\s+((दे|ले)\s+)?(दू[ंँ]?ग[ाी]|लू[ंँ]?ग[ाी])/, // U6h L5: "jaan de dunga" - (I will) give up my life
+  // P1 W3 / D-093 2A: the Devanagari forms of the new Hinglish phrases above.
+  /मरना\s+(ही\s+)?(है|हैं)/, // "marna hai" - (I) have to / want to die
+  /खत्म\s+हो\s+(जाना|जाऊ[ंँ]?(ग[ाी])?)/, // "khatam ho jana / jaunga" - cease to exist
+  /मरने\s+(की|का)\s+(इच्छा|ख्याल|मन)/, // "marne ki iccha / ka khayal" - a wish or thought of dying
+  /जीना\s+नहीं\s+है/, // "jeena nahi hai" - don't want to live
+  /जान\s+देना\s+(है|चाहत[ाी])/, // "jaan dena hai / chahta" - give up my life
 
   // --- T-033 / ISS-t-005c-c0-1: indirect suicidal-ideation WARNING SIGNS -------------------------
   // The classic warning-sign statements a keyword list used to miss entirely ("everyone would be
@@ -511,16 +544,33 @@ function stripForeignMarks(text: string): string {
  * ordinary "kill myself": sentence punctuation is folded away exactly like any other separator,
  * never treated as a boundary a pattern cannot cross (D-020).
  */
-function normalise(text: string): string {
+function normalise(text: string, leet = false): string {
   const capped = text.replace(INVISIBLE_FORMAT_CHARS, "").replace(LONG_MARK_RUN, capMarkRun);
   const stripped = stripForeignMarks(stripForeignMarks(capped).normalize("NFKD"));
-  return stripped
+  const folded = stripped
     .normalize("NFKC")
     .replace(INVISIBLE_FORMAT_CHARS, "")
     .toLowerCase()
     .replace(HOMOGLYPH_CHAR, (ch) => HOMOGLYPHS[ch] ?? ch)
-    .replace(NON_WORD_RUN, " ")
-    .trim();
+    // P1 W3: a phone keyboard types a typographic apostrophe ("don’t"); the patterns' `'?` expects the ASCII one.
+    .replace(TYPOGRAPHIC_APOSTROPHE, "'");
+  return (leet ? foldLeet(folded) : folded).replace(NON_WORD_RUN, " ").trim();
+}
+
+/** U+2019 right single quote, U+2018 left, U+02BC modifier letter apostrophe, U+2032 prime, U+FF07 fullwidth. */
+const TYPOGRAPHIC_APOSTROPHE = /[‘’ʼ′＇]/g;
+
+/**
+ * P1 W3 / D-093 2A: "i w4nt to d1e", "su1c1de", "k!ll myself", "d@ie". A digit or symbol standing beside a letter is read
+ * as the letter it imitates (0 o, 1 i, 3 e, 4 a, 5 s, 7 t, @ a, $ s; "!" only before a letter, so "die!" keeps its stop).
+ * This is a SECOND VIEW tried in addition to the plain one (never instead of it), so it can only add a match. A bare
+ * number ("5 lakh", "2026") has no letter beside it and is untouched.
+ */
+const LEET_MAP: Readonly<Record<string, string>> = { "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i" };
+const LEET_BEFORE_LETTER = /[013457@$!](?=\p{L})/gu;
+const LEET_AFTER_LETTER = /(?<=\p{L})[013457@$]/gu;
+function foldLeet(text: string): string {
+  return text.replace(LEET_BEFORE_LETTER, (ch) => LEET_MAP[ch] ?? ch).replace(LEET_AFTER_LETTER, (ch) => LEET_MAP[ch] ?? ch);
 }
 
 /**
@@ -565,6 +615,33 @@ function squeeze(normalised: string): string {
   return normalised.replace(NON_SQUEEZE_RUN, "");
 }
 
+/**
+ * P1 W3 / D-093 2A: crisis shorthand that is only safe to match as a WHOLE TOKEN. "kms" ("kill myself") is the one: its
+ * separator-free twin would match inside ordinary text ("work ms" -> "workms", "think ms in cs"), so it is deliberately not a
+ * CRISIS_PATTERNS entry (no squeezed twin). The only suppression is a unit-of-distance reading ("50 kms from the campus",
+ * "a few kms away"): a number or quantity word before it, or a distance word after it. Anything else is a flag (recall-only, D-020).
+ */
+export const TOKEN_CRISIS_PHRASES: readonly string[] = ["kms"];
+const DISTANCE_BEFORE = new Set(["few", "many", "some", "several", "couple", "hundred", "hundreds", "thousand", "about", "around", "nearly", "almost", "x"]);
+const DISTANCE_AFTER = new Set(["away", "from", "far", "radius", "distance", "per", "apart", "drive", "walk", "travel", "commute", "north", "south", "east", "west", "range"]);
+function matchTokens(view: string): string[] {
+  const tokens = view.split(" ");
+  const found: string[] = [];
+  for (const phrase of TOKEN_CRISIS_PHRASES) {
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i] !== phrase) continue;
+      const before = tokens[i - 1];
+      const after = tokens[i + 1];
+      const distance = (before !== undefined && (/^\p{N}+$/u.test(before) || DISTANCE_BEFORE.has(before))) || (after !== undefined && DISTANCE_AFTER.has(after));
+      if (!distance) {
+        found.push(phrase);
+        break;
+      }
+    }
+  }
+  return found;
+}
+
 function matchAll(text: string, patterns: readonly RegExp[]): string[] {
   return patterns.filter((pattern) => pattern.test(text)).map((pattern) => pattern.source);
 }
@@ -588,20 +665,27 @@ export function crisisGuard(text: string): CrisisCheckResult {
   }
   const collapsed = collapseLetterSpacedRuns(normalised);
   const squeezed = squeeze(normalised);
+  // P1 W3 / D-093 2A: the leet-folded second view ("w4nt", "d1e"). Tried in addition to the plain views, so it only adds.
+  const leeted = normalise(text, true);
+  const leetCollapsed = collapseLetterSpacedRuns(leeted);
+  const leetSqueezed = squeeze(leeted);
 
   const crisisMatched = new Set<string>();
   const concernMatched = new Set<string>();
 
-  const views = collapsed === normalised ? [normalised] : [normalised, collapsed];
+  const views = [...new Set([normalised, collapsed, leeted, leetCollapsed])];
   for (const view of views) {
     for (const source of matchAll(view, CRISIS_PATTERNS)) crisisMatched.add(source);
     for (const source of matchAll(view, CONCERN_PATTERNS)) concernMatched.add(source);
+    for (const token of matchTokens(view)) crisisMatched.add(`token:${token}`);
   }
-  for (const { source, regex } of SQUEEZED_CRISIS_PATTERNS) {
-    if (regex.test(squeezed)) crisisMatched.add(`squeezed:${source}`);
-  }
-  for (const { source, regex } of SQUEEZED_CONCERN_PATTERNS) {
-    if (regex.test(squeezed)) concernMatched.add(`squeezed:${source}`);
+  for (const twin of leetSqueezed === squeezed ? [squeezed] : [squeezed, leetSqueezed]) {
+    for (const { source, regex } of SQUEEZED_CRISIS_PATTERNS) {
+      if (regex.test(twin)) crisisMatched.add(`squeezed:${source}`);
+    }
+    for (const { source, regex } of SQUEEZED_CONCERN_PATTERNS) {
+      if (regex.test(twin)) concernMatched.add(`squeezed:${source}`);
+    }
   }
 
   if (crisisMatched.size > 0) {
@@ -635,4 +719,42 @@ export function routeBeforeGeneration(text: string): RouteResult {
       matched: result.matched,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// P1 W3 / D-093 3A (Umesh, 2026-10-17): the SOFT stress tier
+// ---------------------------------------------------------------------------
+
+/**
+ * Ordinary exam / study-abroad stress talk: "pressure bahut hai", "bahut stress", "I am so stressed", "can't handle the
+ * pressure". It asserts no death or self-harm, so it is NOT a crisis or concern flag (crisisGuard returns "none" for all of
+ * these; B24.7 would otherwise show the full crisis message on routine study talk). The student surface answers the turn as
+ * usual and appends a soft check-in plus Tele-MANAS 14416 (`stressSignal`, student graph `finish`). The counsellor path
+ * (`routeBeforeGeneration`) is unchanged. Star-height 1, no `{n,m}`, so matching stays linear.
+ */
+export const STRESS_PATTERNS: readonly RegExp[] = [
+  // Hinglish
+  /\bpressure\s+(bahut|bohot|bahot|zyada|jyada|kaafi|kafi)\s+(hai|hota|ho|badh)\b/i,
+  /\b(bahut|bohot|bahot|zyada|jyada|kaafi|kafi)\s+(stress|pressure)\b/i,
+  /\bstress\s+(bahut|bohot|bahot|zyada|jyada)\b/i,
+  // English
+  /\b(i\s+am|i'?m|im|feeling|feel|so|really|very|too)\s+(so\s+|really\s+|very\s+|too\s+|extremely\s+|super\s+)?(stressed|overwhelmed)\b/i,
+  /\b(can'?t|cannot|couldn'?t|unable\s+to)\s+(handle|take|cope\s+with|deal\s+with|bear)\s+(the|this|all\s+this|so\s+much|all\s+the|any\s+more\s+of\s+the)\s+(pressure|stress)\b/i,
+  /\b(too|so)\s+much\s+(pressure|stress)\b/i,
+  /\bunder\s+(so\s+|a\s+lot\s+of\s+|too\s+much\s+|immense\s+|a\s+lot\s+of\s+)?(pressure|stress)\b/i,
+  // Devanagari
+  /बहुत\s+(स्ट्रेस|प्रेशर|दबाव)/,
+  /(स्ट्रेस|प्रेशर|दबाव)\s+बहुत/,
+];
+
+/** The soft check-in line, then the helpline line (kept in sync with the student graph's TELE_MANAS_LINE). */
+export const STRESS_CHECK_IN = "That sounds like a lot of pressure, and it's okay to say so.";
+
+/** True when the turn carries ordinary stress language. Independent of `crisisGuard`: callers run the crisis path first. */
+export function stressSignal(text: string): boolean {
+  if (!text || text.trim().length === 0) return false;
+  const normalised = normalise(text);
+  if (normalised.length === 0) return false;
+  const collapsed = collapseLetterSpacedRuns(normalised);
+  return STRESS_PATTERNS.some((p) => p.test(normalised) || (collapsed !== normalised && p.test(collapsed)));
 }
