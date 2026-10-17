@@ -108,17 +108,17 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 
 Raised by the U7 anonymous-mode dual check (2026-10-18); none is a TODO row, the human picks. Sources: qa/verdicts/p1-u7-anon-mode.md, qa/verdicts/p1-u7-anon-mode.b.md, qa/evidence/p1-briefs/p1-u7-review-result.md.
 
-- [ ] CANDIDATE · priority: security · ISS-125 (medium): the anonymous route crisis exemption has no CPU budget; crisisGuard scans up to 256 KiB per request before the limiter (about 40-210 ms CPU each, unlimited per client). Fix: body byte cap or byte budget before the scan, a larger per-client crisis budget, or scan off the request path.
-- [ ] CANDIDATE · ISS-126 (low): crisis flood inflates the ${date}:crisis counter ($inc upsert per bypassed request).
-- [ ] CANDIDATE · ISS-127 (low): test gap, mutant RE-restricted-source-listed survives; manifest wrongly calls it equivalent.
-- [ ] CANDIDATE · ISS-128 (low): anonymousEnabledFromEnv trims, so " true " enables the route.
-- [ ] CANDIDATE · ISS-129 (low): test gap, X1 mutant (key reads X-Forwarded-For) survives; deployment must supply clientKey behind a proxy.
-- [ ] CANDIDATE · ISS-130 (low, info): limiter is per process (10 x N per minute with N instances).
-- [ ] CANDIDATE · ISS-131 (low): test gap, anonymous generic question matching an intent rule still going to search_kb is unpinned.
-- [ ] CANDIDATE · ISS-132 (low): limiter table at 50,000 keys refuses every new client (fail closed).
-- [ ] CANDIDATE · ISS-133 (low): scripts/vc-testlock.sh stale-lock age computed from a nonsense epoch difference.
-- [ ] CANDIDATE · ISS-134 (low): manifest template lacks a Test selection section and Sibling lines.
-- [ ] CANDIDATE · ISS-135 (low): EMAIL regex cost on 4000 chars and the trailing-slash 405 path are unmeasured/untested.
+- [ ] CANDIDATE · priority: security · ISS-135 (medium): the anonymous route crisis exemption has no CPU budget; crisisGuard scans up to 256 KiB per request before the limiter (about 40-210 ms CPU each, unlimited per client). Fix: body byte cap or byte budget before the scan, a larger per-client crisis budget, or scan off the request path.
+- [ ] CANDIDATE · ISS-136 (low): crisis flood inflates the ${date}:crisis counter ($inc upsert per bypassed request).
+- [ ] CANDIDATE · ISS-137 (low): test gap, mutant RE-restricted-source-listed survives; manifest wrongly calls it equivalent.
+- [ ] CANDIDATE · ISS-138 (low): anonymousEnabledFromEnv trims, so " true " enables the route.
+- [ ] CANDIDATE · ISS-139 (low): test gap, X1 mutant (key reads X-Forwarded-For) survives; deployment must supply clientKey behind a proxy.
+- [ ] CANDIDATE · ISS-140 (low, info): limiter is per process (10 x N per minute with N instances).
+- [ ] CANDIDATE · ISS-141 (low): test gap, anonymous generic question matching an intent rule still going to search_kb is unpinned.
+- [ ] CANDIDATE · ISS-142 (low): limiter table at 50,000 keys refuses every new client (fail closed).
+- [ ] CANDIDATE · ISS-143 (low): scripts/vc-testlock.sh stale-lock age computed from a nonsense epoch difference.
+- [ ] CANDIDATE · ISS-144 (low): manifest template lacks a Test selection section and Sibling lines.
+- [ ] CANDIDATE · ISS-145 (low): EMAIL regex cost on 4000 chars and the trailing-slash 405 path are unmeasured/untested.
 
 ## Sweep notes (2026-09-26T19:44 IST, Mode B single-agent sweep — only qa/ + TASKS commits landed since the last sweep 38c426e, so sharding buys nothing)
 

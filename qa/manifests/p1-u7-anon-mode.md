@@ -8,7 +8,7 @@ dual-trigger: security apps/api/src/anonymous.ts:54 (public unauthenticated rout
 **Executor:** claude-sonnet-subagent (maker/builder p1-u7, resumed after a session restart)
 
 Status: checked-PASS
-Checked: cycle 0 dual PASS. Checker A qa/verdicts/p1-u7-anon-mode.md (975ccac); checker B qa/verdicts/p1-u7-anon-mode.b.md (ede16bb). Proposed issues minted as ISS-125..ISS-135 in qa/issues.jsonl.
+Checked: cycle 0 dual PASS. Checker A qa/verdicts/p1-u7-anon-mode.md (975ccac); checker B qa/verdicts/p1-u7-anon-mode.b.md (ede16bb). Proposed issues minted as ISS-135..ISS-145 in qa/issues.jsonl.
 
 ## Criteria
 Tags are the ids used on the Pre-check, Tests and Falsify lines below.
