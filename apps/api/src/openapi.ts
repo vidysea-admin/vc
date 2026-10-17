@@ -9,6 +9,21 @@
  * tenant comes from the token's `tenant` claim, never from the path, the query or the body.
  */
 
+import {
+  ANONYMOUS_STATES,
+  CLAIM_KINDS,
+  CLAIM_STATUSES,
+  DEFAULT_LIMITS,
+  FACT_DECISION_ACTIONS,
+  MAX_TURN_TEXT_LENGTH,
+  PROFILE_FACT_SOURCES,
+  SOURCE_KINDS,
+  SYNTHETIC_STUDENT_ID_PREFIX,
+  TURN_CHANNELS,
+  TURN_STATES,
+  VOICE_FLAG_REASONS,
+} from "@vc/schemas";
+
 const ID = { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" } as const;
 const REQUEST_ID = { type: "string", pattern: "^[0-9a-f]{24}$" } as const;
 
@@ -273,6 +288,315 @@ export const OPENAPI_DOCUMENT = {
         parameters: [studentId],
         responses: { "200": ok("The student export, including projected escalations and crisisReviews in deterministic record order; excludes Mongo IDs, staff recipient/acknowledger identities, provider/debug and write-ownership fields"), ...errors },
       },
+    },
+  },
+} as const;
+
+/**
+ * P1 U5a: the DRAFT student-facing contract (spec v8 scope items 1-4, 10-12). Deliberately NOT part of
+ * OPENAPI_DOCUMENT: no route below is implemented or enabled, and the served document must keep matching
+ * API_ROUTES exactly. It moves into the served document only when the routes exist AND the A20 go-live gate
+ * (go-live-gate.ts) passes. Enum values come from @vc/schemas so they cannot drift; tests/student-openapi.test.ts
+ * keeps property names, required lists and strictness in step with the Zod schemas.
+ *
+ * Identity is the JWT (student claim per the B21 student-JWT amendment, U0): no body carries a tenant or
+ * student id. `POST /v1/public/chat/turns` is the anonymous exception to B21 (text only, search-only, no
+ * persistence beyond a text-free counter). The voice WebSocket is described under `x-websocket`; audio frames
+ * are binary PCM16 and are not JSON events.
+ */
+const factId = { name: "factId", in: "path", required: true, schema: ID } as const;
+const threadId = { name: "threadId", in: "path", required: true, schema: ID } as const;
+const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
+const str = (extra: object = {}) => ({ type: "string", ...extra });
+const idStr = { type: "string", minLength: 1, maxLength: 128 } as const;
+const dateTime = { type: "string", format: "date-time" } as const;
+
+const studentErrors = { ...errors, "429": { $ref: "#/components/responses/TooManyRequests" } } as const;
+const draftOp = (roles: readonly string[], op: object) => ({ "x-roles": roles, "x-enabled": false, ...op });
+
+const eventId = { type: "string", minLength: 1, maxLength: 128 } as const;
+const role = { enum: ["user", "assistant"] } as const;
+const eventDoc = (required: string[], properties: Record<string, object>) => ({
+  type: "object",
+  additionalProperties: false,
+  required: ["type", ...required],
+  properties: { type: { type: "string" }, ...properties },
+});
+
+export const STUDENT_API_DRAFT = {
+  openapi: "3.1.0",
+  "x-status": "draft-not-enabled",
+  "x-gate": "A20 go-live gate (apps/api/src/go-live-gate.ts): signed B13 amendment, G-PUBLISH, G-PROD, Nights mode; voice also A10",
+  "x-syntheticStudentIdPrefix": SYNTHETIC_STUDENT_ID_PREFIX,
+  info: {
+    title: "Virtual Counsellor student API (draft, not enabled)",
+    version: "0.0.1-draft",
+    description:
+      "Student-facing text chat, live voice, anonymous mode, profile and fact confirmation (P1, D-089). " +
+      "Internal contract only until the A20 gate passes. Authenticated routes need a Pathlynks-issued student JWT.",
+  },
+  servers: [{ url: "/" }],
+  security: [{ bearerAuth: [] }],
+  components: {
+    securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" } },
+    responses: {
+      ...OPENAPI_DOCUMENT.components.responses,
+      TooManyRequests: {
+        description: "Rate or voice-minute limit reached (limits are per tenant, defaults in LimitsConfig)",
+        headers: { "Retry-After": { description: "Seconds until the next request is accepted", schema: { type: "integer", minimum: 1 } } },
+        ...json({ $ref: "#/components/schemas/Error" }),
+      },
+    },
+    schemas: {
+      Error: OPENAPI_DOCUMENT.components.schemas.Error,
+      Claim: {
+        type: "object",
+        additionalProperties: false,
+        required: ["text", "kind", "sourceIds", "status"],
+        description: "verified: source text supports it. attributed: source present, text not proven. unverified: shown flagged. verified and attributed need at least one sourceId.",
+        properties: {
+          text: str({ minLength: 1, maxLength: 2000 }),
+          kind: { enum: [...CLAIM_KINDS] },
+          sourceIds: { type: "array", maxItems: 20, items: str({ minLength: 1, maxLength: 256 }) },
+          status: { enum: [...CLAIM_STATUSES] },
+        },
+      },
+      Source: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "kind"],
+        properties: {
+          id: str({ minLength: 1, maxLength: 256 }),
+          kind: { enum: [...SOURCE_KINDS] },
+          title: str({ maxLength: 500 }),
+          stale: { type: "boolean" },
+          dateUnknown: { type: "boolean" },
+        },
+      },
+      ProfileFact: {
+        type: "object",
+        additionalProperties: false,
+        required: ["key", "value", "source"],
+        properties: {
+          key: str({ minLength: 1, maxLength: 128 }),
+          value: str({ minLength: 1, maxLength: 1000 }),
+          source: { enum: [...PROFILE_FACT_SOURCES] },
+        },
+      },
+      ProposedFact: {
+        type: "object",
+        additionalProperties: false,
+        required: ["factId", "key", "value", "status"],
+        properties: {
+          factId: idStr,
+          key: str({ minLength: 1, maxLength: 128 }),
+          value: str({ minLength: 1, maxLength: 1000 }),
+          status: { enum: ["proposed", "confirmed"] },
+        },
+      },
+      ProfileResponse: {
+        type: "object",
+        additionalProperties: false,
+        required: ["facts", "proposed"],
+        properties: { facts: { type: "array", items: ref("ProfileFact") }, proposed: { type: "array", items: ref("ProposedFact") } },
+      },
+      FactDecisionRequest: {
+        type: "object",
+        additionalProperties: false,
+        required: ["action"],
+        properties: { action: { enum: [...FACT_DECISION_ACTIONS] }, value: str({ minLength: 1, maxLength: 1000, description: "Required for correct" }) },
+      },
+      TurnRequest: {
+        type: "object",
+        additionalProperties: false,
+        required: ["text"],
+        properties: {
+          text: str({ minLength: 1, maxLength: MAX_TURN_TEXT_LENGTH }),
+          clientTurnId: str({ minLength: 1, maxLength: 128, description: "Idempotency key: a retry returns the same turn" }),
+        },
+      },
+      TurnResponse: {
+        type: "object",
+        additionalProperties: false,
+        required: ["state", "claims", "sources", "profileFactsUsed"],
+        properties: {
+          turnId: idStr,
+          state: { enum: [...TURN_STATES] },
+          message: str({ maxLength: 8000 }),
+          claims: { type: "array", items: ref("Claim") },
+          sources: { type: "array", items: ref("Source") },
+          profileFactsUsed: { type: "array", items: ref("ProfileFact") },
+          rankingProfile: str({ minLength: 1, maxLength: 64 }),
+        },
+      },
+      ThreadCreated: { type: "object", additionalProperties: false, required: ["threadId"], properties: { threadId: idStr } },
+      ThreadTurn: {
+        type: "object",
+        additionalProperties: false,
+        required: ["turnId", "role", "channel", "text", "at"],
+        properties: {
+          turnId: idStr,
+          role,
+          channel: { enum: [...TURN_CHANNELS] },
+          text: str({ maxLength: 8000 }),
+          at: dateTime,
+          claims: { type: "array", items: ref("Claim") },
+          sources: { type: "array", items: ref("Source") },
+        },
+      },
+      Thread: {
+        type: "object",
+        additionalProperties: false,
+        required: ["threadId", "turns"],
+        description: "One history of text and voice turns in order",
+        properties: { threadId: idStr, turns: { type: "array", items: ref("ThreadTurn") } },
+      },
+      AnonymousTurnRequest: {
+        type: "object",
+        additionalProperties: false,
+        required: ["text"],
+        properties: { text: str({ minLength: 1, maxLength: MAX_TURN_TEXT_LENGTH }) },
+      },
+      AnonymousTurnResponse: {
+        type: "object",
+        additionalProperties: false,
+        required: ["state", "claims", "sources"],
+        properties: {
+          state: { enum: [...ANONYMOUS_STATES] },
+          message: str({ maxLength: 8000 }),
+          claims: { type: "array", items: ref("Claim") },
+          sources: { type: "array", items: ref("Source") },
+        },
+      },
+      AudioFormat: {
+        type: "object",
+        additionalProperties: false,
+        required: ["format", "inputSampleRateHz", "outputSampleRateHz"],
+        properties: { format: { const: "pcm16" }, inputSampleRateHz: { const: 16000 }, outputSampleRateHz: { const: 24000 } },
+      },
+      LimitsConfig: {
+        type: "object",
+        additionalProperties: false,
+        description: "Per-tenant configurable; the defaults are the D-088 numbers",
+        default: DEFAULT_LIMITS,
+        required: ["requestsPerMinute", "anonymousRequestsPerMinute", "voiceMinutesPerMonth", "voiceSessionMaxMinutes", "crisisMaxAudioMsAfterTrigger", "audio"],
+        properties: {
+          requestsPerMinute: { type: "integer", minimum: 1 },
+          anonymousRequestsPerMinute: { type: "integer", minimum: 1 },
+          voiceMinutesPerMonth: { type: "integer", minimum: 1 },
+          voiceSessionMaxMinutes: { type: "integer", minimum: 1 },
+          crisisMaxAudioMsAfterTrigger: { type: "integer", minimum: 1 },
+          audio: ref("AudioFormat"),
+        },
+      },
+      VoiceSessionResponse: {
+        type: "object",
+        additionalProperties: false,
+        required: ["token", "wsUrl", "expiresAt", "sessionMaxMinutes", "audio"],
+        properties: {
+          token: str({ minLength: 1, maxLength: 4096 }),
+          wsUrl: str({ pattern: "^wss?://\\S+$" }),
+          expiresAt: dateTime,
+          sessionMaxMinutes: { type: "integer", minimum: 1 },
+          audio: ref("AudioFormat"),
+        },
+      },
+      VoiceFlagReason: { enum: [...VOICE_FLAG_REASONS] },
+    },
+  },
+  "x-websocket": {
+    description:
+      "Connect to wsUrl with the voice-session token. Client sends JSON control messages and binary PCM16 frames; server sends JSON events " +
+      "and binary PCM16 frames. Every server event has an eventId; reconnect with start.lastEventId to resume. Spoken output is audited after the fact (A9b), not enforced pre-send.",
+    audio: { format: "pcm16", inputSampleRateHz: 16000, outputSampleRateHz: 24000, framing: "binary" },
+    clientEvents: {
+      start: eventDoc(["threadId"], { threadId: idStr, lastEventId: eventId }),
+      interrupt: eventDoc([], {}),
+      end: eventDoc([], {}),
+      confirm: eventDoc(["key", "accepted"], { key: str({ minLength: 1, maxLength: 128 }), accepted: { type: "boolean" } }),
+    },
+    serverEvents: {
+      "transcript.partial": eventDoc(["eventId", "role", "text"], { eventId, role, text: str({ maxLength: 8000 }) }),
+      "transcript.final": eventDoc(["eventId", "role", "text"], { eventId, role, text: str({ maxLength: 8000 }), turnId: idStr }),
+      "answer.sources": eventDoc(["eventId", "sources", "claims"], {
+        eventId,
+        sources: { type: "array", items: ref("Source") },
+        claims: { type: "array", items: ref("Claim") },
+      }),
+      state: eventDoc(["eventId", "state"], { eventId, state: { enum: [...TURN_STATES] } }),
+      flag: eventDoc(["eventId", "reason"], { eventId, reason: ref("VoiceFlagReason"), detail: str({ maxLength: 500 }) }),
+      confirm: eventDoc(["eventId", "fact"], {
+        eventId,
+        fact: {
+          type: "object",
+          additionalProperties: false,
+          required: ["key", "value"],
+          properties: { key: str({ minLength: 1, maxLength: 128 }), value: str({ minLength: 1, maxLength: 1000 }) },
+        },
+      }),
+      error: eventDoc(["eventId", "code", "message"], { eventId, code: str({ minLength: 1, maxLength: 64 }), message: str({ maxLength: 500 }) }),
+    },
+  },
+  paths: {
+    "/v1/students/{studentId}/chat/threads": {
+      post: draftOp(["student"], {
+        operationId: "createChatThread",
+        summary: "Start a thread for the authenticated student (the JWT student must equal studentId)",
+        parameters: [studentId],
+        responses: { "201": ok("The new thread", ref("ThreadCreated")), ...studentErrors },
+      }),
+    },
+    "/v1/students/{studentId}/chat/threads/{threadId}": {
+      get: draftOp(["student"], {
+        operationId: "getChatThread",
+        summary: "One history of text and voice turns, in order",
+        parameters: [studentId, threadId],
+        responses: { "200": ok("The thread", ref("Thread")), ...studentErrors },
+      }),
+    },
+    "/v1/students/{studentId}/chat/threads/{threadId}/turns": {
+      post: draftOp(["student"], {
+        operationId: "postChatTurn",
+        summary: "Send a text turn; idempotent on clientTurnId. Answers come only from the knowledge base, else state no_sourced_answer",
+        parameters: [studentId, threadId],
+        requestBody: { required: true, ...json(ref("TurnRequest")) },
+        responses: { "200": ok("The answer", ref("TurnResponse")), ...studentErrors },
+      }),
+    },
+    "/v1/students/{studentId}/chat/threads/{threadId}/voice/sessions": {
+      post: draftOp(["student"], {
+        operationId: "createVoiceSession",
+        summary: "Open a live voice session; returns a short-lived token and the WebSocket URL (see x-websocket). Disabled until A10 passes",
+        parameters: [studentId, threadId],
+        responses: { "201": ok("The voice session", ref("VoiceSessionResponse")), ...studentErrors },
+      }),
+    },
+    "/v1/students/{studentId}/chat/profile": {
+      get: draftOp(["student"], {
+        operationId: "getChatProfile",
+        summary: "Facts in use (Pathlynks-supplied or student-confirmed) and chat-extracted facts proposed for confirmation",
+        parameters: [studentId],
+        responses: { "200": ok("The profile", ref("ProfileResponse")), ...studentErrors },
+      }),
+    },
+    "/v1/students/{studentId}/chat/profile/facts/{factId}/decision": {
+      post: draftOp(["student"], {
+        operationId: "decideProfileFact",
+        summary: "Confirm, correct or erase a proposed or stored fact; an unconfirmed chat-extracted fact is never used",
+        parameters: [studentId, factId],
+        requestBody: { required: true, ...json(ref("FactDecisionRequest")) },
+        responses: { "200": ok("The updated profile", ref("ProfileResponse")), ...studentErrors },
+      }),
+    },
+    "/v1/public/chat/turns": {
+      post: draftOp([], {
+        operationId: "postAnonymousTurn",
+        summary:
+          "Anonymous text turn (B21 exception): generic knowledge-base questions only; personal or ambiguous questions return sign_in_required; crisis returns the fixed message with Tele-MANAS. Nothing is stored except a text-free daily counter",
+        security: [],
+        requestBody: { required: true, ...json(ref("AnonymousTurnRequest")) },
+        responses: { "200": ok("The answer", ref("AnonymousTurnResponse")), "400": errors["400"], "429": studentErrors["429"] },
+      }),
     },
   },
 } as const;

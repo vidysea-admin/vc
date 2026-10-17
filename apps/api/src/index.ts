@@ -30,7 +30,8 @@ import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine 
 
 export * from "./auth.js";
 export * from "./server.js";
-export { OPENAPI_DOCUMENT } from "./openapi.js";
+export { OPENAPI_DOCUMENT, STUDENT_API_DRAFT } from "./openapi.js";
+export * from "./go-live-gate.js";
 
 export function apiStatus(): string {
   return "@vc/api: HTTP API over the scribe, profile and erasure (T-025); opt-in via startApi({ http })";
