@@ -1,0 +1,45 @@
+import { readFileSync, writeFileSync, cpSync, rmSync, mkdirSync, symlinkSync } from "node:fs";
+import { execSync } from "node:child_process";
+const ROOT = "C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6h-chk";
+const FL = `${ROOT}/fals`;
+const T = "tests/claims-guard.test.ts tests/student-graph.test.ts tests/no-quote.test.ts tests/crisis-defaults.test.ts tests/crisis-escalation.test.ts tests/chk-hostile.test.ts";
+const M = [
+ {id:"H1", file:"src/student/claims.ts", from:'attributedNode && draft.kind === "fact" && askCarriesIt ? "attributed"', to:'attributedNode && draft.kind === "fact" ? "attributed"'},
+ {id:"H2", file:"src/student/claims.ts", from:"for (const w of c.words) if (!e.words.has(w)) return false;", to:"{ let m = 0; for (const w of c.words) if (e.words.has(w)) m++; if (c.words.size > 0 && m / c.words.size < 0.5) return false; }"},
+ {id:"M3", file:"src/student/graph.ts", from:'const modelText = (h: SearchHit) => (h.sourceKind === "whatsapp" || h.sourceKind === "unknown" ? redactPersonalIdentifiers(h.text, deps.speakers, hitLabels) : h.text);', to:'const modelText = (h: SearchHit) => h.text;'},
+ {id:"M4", file:"src/student/graph.ts", from:"priorFlag: await readPriorFlag(input) }", to:'priorFlag: input.mode === "authenticated" ? Boolean(input.priorFlagInThread) : false }'},
+ {id:"P4", file:"src/student/claims.ts", from:'    ask.verdict === "correct" &&\n    ask.insufficient_coverage === false &&\n', to:''},
+ {id:"P5", file:"src/guards/no-quote.ts", from:"if (parts.length < 2) return [full];", to:"return [full];"},
+ {id:"L5", file:"src/student/graph.ts", from:"const level = crisisGuard(r.text).level;", to:"const level = crisisGuard(r.text.slice(0, MAX_STUDENT_TEXT)).level;"},
+ {id:"L5b", file:"src/guards/crisis.ts", from:String.raw`/\bjaan\s+(de|le)\s+((de|le)\s+)?(dunga|dungi|doonga|doongi|lunga|lungi|loonga|loongi)\b/i,`, to:""},
+];
+const only = process.argv[2];
+function run(dir) {
+  try {
+    const out = execSync(`bash D:/vc/scripts/vc-testlock.sh pnpm -C ${dir}/packages/engine exec tsx --test ${T}`, { encoding: "utf8", maxBuffer: 1<<28, stdio: ["ignore","pipe","pipe"] });
+    writeFileSync(`${FL}/last-ok.txt`, out); return out;
+  } catch (e) { return (e.stdout ?? "") + (e.stderr ?? ""); }
+}
+const sum = (o) => { const g = (k) => (o.match(new RegExp(`ℹ ${k} ([0-9]+)`)) ?? [])[1]; return { tests: g("tests"), pass: g("pass"), fail: g("fail") }; };
+const fails = (o) => [...o.matchAll(/^✖ (.+?) \(/gm)].map((m) => m[1]).filter((x, i, a) => a.indexOf(x) === i && !/\.test\.ts$/.test(x));
+const results = [];
+for (const m of M) {
+  if (only && only !== m.id) continue;
+  const dir = `${FL}/${m.id}`;
+  rmSync(dir, { recursive: true, force: true }); mkdirSync(`${dir}/packages/engine`, { recursive: true });
+  for (const x of ["src","tests","evals","package.json","tsconfig.json"]) cpSync(`${ROOT}/packages/engine/${x}`, `${dir}/packages/engine/${x}`, { recursive: true });
+  cpSync(`${ROOT}/skills`, `${dir}/skills`, { recursive: true }); cpSync(`${ROOT}/package.json`, `${dir}/package.json`); cpSync(`${ROOT}/tsconfig.base.json`, `${dir}/tsconfig.base.json`);
+  symlinkSync(`${ROOT}/packages/engine/node_modules`, `${dir}/packages/engine/node_modules`, "junction");
+  symlinkSync(`C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6h/mcp`, `${dir}/mcp`, "junction");
+  const fp = `${dir}/packages/engine/${m.file}`;
+  const src = readFileSync(fp, "utf8").replace(/\r\n/g, "\n");
+  const before = run(dir);
+  if (!src.includes(m.from)) { results.push({ id: m.id, error: "pattern not found (CRLF?)" }); continue; }
+  writeFileSync(fp, src.replace(m.from, m.to));
+  const after = run(dir);
+  writeFileSync(fp, src);
+  const restored = run(dir);
+  const r = { id: m.id, before: sum(before), after: sum(after), failedAfter: fails(after), restored: sum(restored) };
+  results.push(r); console.log(JSON.stringify(r));
+}
+writeFileSync(`${FL}/results${only ? "-" + only : ""}.json`, JSON.stringify(results, null, 1));
