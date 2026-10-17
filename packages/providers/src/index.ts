@@ -1057,3 +1057,7 @@ export function createProvider(config: ProviderConfig, deps: CreateProviderDeps 
 export function providersStatus(): string {
   return "@vc/providers: provider seam (mock, gemini stub, litellm, rules), model chosen by config (B6)";
 }
+
+// P1 U9: Live (voice) session seam: Mock + Gemini (compile-only) implementations, crisis interrupt
+// hook, post-hoc output audit and the transcript sink for U8. Lives in its own module.
+export * from "./live.js";
