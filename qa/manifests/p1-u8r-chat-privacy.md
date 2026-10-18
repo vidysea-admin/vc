@@ -1,12 +1,12 @@
 # Manifest — p1-u8r-chat-privacy
 **Contract:** C1, C2, C3, C4, C5, C6 (unit-local ids, below). Parent: unit `p1-u8-chat-api` (checker A PASS with findings `qa/verdicts/p1-u8-chat-api.md`, checker B `qa/verdicts/p1-u8-chat-api.b.md`), senior review `qa/evidence/p1-briefs/p1-u8-review-result.md`. Gates: D-093 6A (persist redacted), 4A (unconsented minor: no text), D-096/D-097. Brief `qa/evidence/p1-briefs/p1-u8r-build.md`.
-**Criteria:** C1 profile outage fails closed (M1), C2 crisis write cap (M2), C3 lower-case self-introductions (A1), C4 stated names redacted in the model reply (A2), C5 escalation path gets redacted text (B medium), C6 fact key redacted (low)
+**Criteria:** C7 ranked crisis slot (cycle-1 H1), C8 no unrecorded crisis turn + replay of a completed crisis turn (cycle-1 race), C9 titles do not end a name, C10 linear email scan; earlier: C1 profile outage fails closed (M1), C2 crisis write cap (M2), C3 lower-case self-introductions (A1), C4 stated names redacted in the model reply (A2), C5 escalation path gets redacted text (B medium), C6 fact key redacted (low)
 **Goal task:** none
 **Date:** 2026-10-19
 **Status:** ready-for-check
-**Fix cycle:** 0 of max 2
+**Fix cycle:** 1 of max 2
 **Dual check:** required
-dual-trigger: security apps/api/src/chat.ts:464 (the redaction/persistence decision: `persistText` now also refuses to store while the Pathlynks profile name cannot be redacted; `chat.ts:455` 503; `chat.ts:469` stated names; `chat.ts:337` escalation text)
+dual-trigger: security apps/api/src/chat.ts:487 (the redaction/persistence decision: `persistText` refuses to store while the Pathlynks profile name cannot be redacted or the turn is quiet; `chat.ts:477` 503; `chat.ts:358` escalation text; cycle 1: `chat.ts:336` ranked `takeCrisisSlot`, `chat.ts:498` replay of a completed turn, `chat.ts:564` quiet flag-only record)
 **Persona walk:** skip (no human screen: JSON API only)
 **Issues addressed:** none (repairs the p1-u8 PROPOSED-ISSUEs: lower-case names, echoed names, crisis rationale, plus the senior review M1/M2)
 **Executor:** claude-sonnet-subagent (maker/builder p1-u8r-build)
@@ -20,6 +20,11 @@ dual-trigger: security apps/api/src/chat.ts:464 (the redaction/persistence decis
 - **C5 escalation input redacted (B medium)** — the escalation path (and so the classifier rationale it stores, up to 500 chars) is handed redacted text, never name, phone or email; the crisis is still escalated; when redacting would hide the crisis wording from the guard ("i am unalive"), the least-redacted text that still shows it is used.
 - **C6 fact key redacted (low)** — a phone number or email inside a model-proposed fact key is stored redacted, like the value.
 
+- **C7 ranked crisis slot (cycle-1 H1, HIGH)** — the crisis slot remembers the level of its holder. A turn of a higher level than the holder (concern, then crisis 60 s later) always runs the full path (stored, flagged, escalated, counted) and takes the slot over (2 escalations); crisis then crisis gives 1; crisis then concern gives 1. If the upgrading turn fails, the previous holder's slot is put back.
+- **C8 no unrecorded crisis turn, and replay (cycle-1 race, MEDIUM)** — a quiet turn that finds the holder not yet confirmed (still in flight, or failed and released) writes a flag-only row (thread, turn id, kind `crisis`, time; no student text), so the holder failing afterwards cannot leave a crisis turn unrecorded; once the holder is confirmed a quiet turn writes nothing (the 40-turn flood still gives 1 flag). A retry of a completed crisis turn with the same clientTurnId and text is replayed from the stored answer (no graph run, no write), even when the retry is quiet.
+- **C9 titles do not end a name (cycle-1, MEDIUM)** — "My name is Dr. Anita Verma", "I am Mr. Rao from Pune", "my name is prof. sharma" (and Mrs, Ms, Shri, Smt, Sri, Kumari, Km, any case) redact the whole name; the place after it survives.
+- **C10 linear email scan (cycle-1, MEDIUM)** — the email pass is skipped when the text has no "@" and the local part is bounded to 64; 200k characters of "a." redact in under 200 ms (measured ~5 ms; 2M characters under 100 ms).
+
 ## What changed
 Code commit `b018254` on branch `p1/u8r` (base `b1aadea` = `p1/u8` at the coordinator-A verdict). 6 files.
 - `apps/api/src/chat.ts` — `handleTurn`, edited in place. M1: `profileDown` instead of a swallowed error, 503 for ordinary turns, no stored text for crisis (`:446-464`). M2: `takeCrisisSlot` / `releaseCrisisSlot` (in-memory, bounded 100k, oldest evicted) and a `quiet` graph variant with no flag, escalation or gap writes (`:321`, `:459`). A2: `redactPii(text).names` added to the names used for the reply (`:467-471`). Item 5: `escalationText` + an AsyncLocalStorage scope so the cached per-tenant `escalate` wrapper redacts the turn in flight (`:326-360`). The per-turn body moved into an inner `runTurn` so the slot is released on any failure; no logic outside this was changed. `createChatApi` signature, routes and `ChatApiDeps` are unchanged.
@@ -27,6 +32,13 @@ Code commit `b018254` on branch `p1/u8r` (base `b1aadea` = `p1/u8` at the coordi
 - `packages/db/src/profile-facts.ts` — `proposeProfileFact` redacts the key.
 - Tests: `apps/api/tests/chat-privacy.test.ts` (+11), `packages/schemas/tests/redact.test.ts` (+5), `packages/db/tests/student-store.test.ts` (+1). Nothing deleted; no existing assertion changed.
 - Not touched: `packages/engine/**`, `qa/contracts`, `.claude/**`, `docs/DECISIONS.md`, `TASKS.md`, `qa/QUEUE.md`. CORE-REQUEST: none. Every test uses the fake client; no network, no model call, no Mongo.
+
+## Cycle 1 changes
+Fix commit `c3d3069` on `p1/u8r` (on top of manifest `a76bf38`). 4 files, tests first (red before, green after; red runs on the cycle-0 code: 3 of 30 api tests and 2 of 18 redact tests failed).
+- `apps/api/src/chat.ts` — `createChatApi`: `takeCrisisSlot` / `releaseCrisisSlot` now take the level rank and a `CrisisSlot {until, rank, confirmed}`; `handleTurn`: `level` computed once, `LEVEL_RANK` moved to module scope, quiet replay lookup before the persistence branch, quiet flag-only `recordStudentFlag` while the holder is unconfirmed (a failing flag write is logged `chat_write_failed`/`quiet_flag`, a fence error propagates), slot `confirmed` set on success. Header comment: "Redaction never fails open" corrected to "Stored text never fails open" plus the profile-outage escalation gap (item 5, open risk below).
+- `packages/schemas/src/redact.ts` — `redactPii`: `TITLES` set exempt from the sentence-final full stop rule; email pass skipped without "@"; `EMAIL` local part `{1,64}`.
+- Tests: `apps/api/tests/chat-privacy.test.ts` (+4), `packages/schemas/tests/redact.test.ts` (+2). No existing assertion changed or deleted (the 40-turn flood test still asserts exactly 1 flag, 1 escalation, 2 turn rows).
+- Item 5 (accepted, no code): in the profile-outage crisis path the escalation text is redacted without the Pathlynks name. Documented in the `chat.ts` header comment and listed in the open risks.
 
 ## Verification scope
 Policy-Version: proportional-verification/2026-10-18.15
@@ -39,6 +51,10 @@ Tests[C2]: apps/api tests/chat-privacy.test.ts — "p1-u8r M2" x3: 40 crisis tur
 Tests[C3]: packages/schemas tests/redact.test.ts and apps/api tests/chat-privacy.test.ts — lower-case intros redacted, 17 negative sentences survive, trailing full stop, end-to-end "my name is devika nair" in nothing stored or read back, "i am tired and i am from delhi" kept.
 Tests[C4]: apps/api tests/chat-privacy.test.ts and packages/schemas tests/redact.test.ts — echoed name (capitalised and lower case) absent from stored rows, replay and history while the live answer keeps it; `names` output; sentence-final name.
 Tests[C5]: apps/api tests/chat-privacy.test.ts — "p1-u8r item 5" x2: escalation port input has no name, phone, email or profile name but still has the crisis wording; "i am unalive" still reaches escalation.
+Tests[C7]: apps/api tests/chat-privacy.test.ts — "cycle 1 H1" x2: concern then crisis 60 s later gives 2 escalations and 2 flags, then crisis and concern in the same window stay quiet (still 2); crisis then crisis gives 1; crisis then concern gives 1 (second thread).
+Tests[C8]: apps/api tests/chat-privacy.test.ts — "cycle 1 M-race" x2: a quiet crisis turn answered while the holder's escalation is still pending leaves a `crisis` flag row for its turn id with no student text, after the holder fails; a retry of a completed crisis turn returns the stored (marked) answer with no new escalation or flag.
+Tests[C9]: packages/schemas tests/redact.test.ts — titles test (7 sentences, Dr/Mr/Prof/Mrs/Smt/Shri/Km, upper and lower case).
+Tests[C10]: packages/schemas tests/redact.test.ts — 200k "a." / "a" / "a.…@" / "a.@…" each under 200 ms, 2M characters without "@" under 100 ms, a real address still redacted.
 Tests[C6]: packages/db tests/student-store.test.ts — fact key with phone and email stored redacted.
 Falsification[C1]: golden "p1-u8r M1 ... refused 503" red-before (old tree failed open) / green-after, plus the two single-line edits in the table.
 Pre-check[C1]: b018254 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts -> green: 26 passed, 0 failed t=8s blobs=apps/api/tests/chat-privacy.test.ts:e140af6
@@ -47,7 +63,12 @@ Pre-check[C3]: b018254 bash scripts/vc-testlock.sh pnpm -C packages/schemas exec
 Pre-check[C4]: b018254 bash scripts/vc-testlock.sh pnpm -C packages/schemas exec tsx --test tests/redact.test.ts; bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts -> green: 42 passed, 0 failed (16 + 26) t=11s blobs=packages/schemas/tests/redact.test.ts:6e5ef02,apps/api/tests/chat-privacy.test.ts:e140af6
 Pre-check[C5]: b018254 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts -> green: 26 passed, 0 failed t=8s blobs=apps/api/tests/chat-privacy.test.ts:e140af6
 Pre-check[C6]: b018254 bash scripts/vc-testlock.sh pnpm -C packages/db exec tsx --test tests/student-store.test.ts -> green: 14 passed, 0 failed t=4s blobs=packages/db/tests/student-store.test.ts:96aa120
-Pre-check[packages]: b018254 pnpm --filter test, whole: packages/schemas 95/95 (t=4s), packages/db 279/279 (t=10s), apps/api 194/194 (t=20s); typecheck exit 0 for packages/schemas (t=31s), packages/db (t=13s), apps/api (t=35s)
+Pre-check[C7]: c3d3069 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts tests/chat.test.ts tests/chat-profile.test.ts -> green: 63 passed, 0 failed (30 + 23 + 10, three runs) t=19s blobs=apps/api/tests/chat-privacy.test.ts:d3f45a1,apps/api/tests/chat.test.ts:a4a5f48,apps/api/tests/chat-profile.test.ts:d9e63b5
+Pre-check[C8]: c3d3069 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts -> green: 30 passed, 0 failed t=6s blobs=apps/api/tests/chat-privacy.test.ts:d3f45a1
+Pre-check[C9]: c3d3069 bash scripts/vc-testlock.sh pnpm -C packages/schemas exec tsx --test tests/redact.test.ts -> green: 18 passed, 0 failed t=4s blobs=packages/schemas/tests/redact.test.ts:fee7971
+Pre-check[C10]: c3d3069 bash scripts/vc-testlock.sh pnpm -C packages/schemas exec tsx --test tests/redact.test.ts -> green: 18 passed, 0 failed t=4s blobs=packages/schemas/tests/redact.test.ts:fee7971
+Pre-check[C6-recheck]: c3d3069 bash scripts/vc-testlock.sh pnpm -C packages/db exec tsx --test tests/student-store.test.ts -> green: 14 passed, 0 failed t=4s blobs=packages/db/tests/student-store.test.ts:96aa120
+Pre-check[packages]: c3d3069 bash scripts/vc-testlock.sh pnpm -C <pkg> test, whole: packages/schemas 97/97 (t=5s), packages/db 279/279 (t=6s), apps/api 198/198 (t=11s); typecheck exit 0 for packages/schemas (t=2s), packages/db (t=3s), apps/api (t=4s) (the cycle-0 line on b018254 was 95/95, 279/279, 194/194)
 Metrics: start=2026-10-19T00:22:08+05:30 end=2026-10-19T00:51:29+05:30 builder_min=unavailable wall_min=unavailable agent_min=unavailable blocked_min=unavailable suite_runs=0 repeat_runs=0 mutations=10 survivors_final=0 cycle=0 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-18.15 lane=normal check_s=unavailable mutants=10 defects_unit=unavailable defects_6c=0
 (suite_runs=0: no whole-repo suite; only per-criterion file runs and the three affected packages run whole. Lock waits were short: the 2-slot lock was free for most runs.)
 mutant-cap-raise: the brief asks for one falsification per fixed item; C1 and C2 each name two independent behaviours (refuse vs store text; cap vs slot release) and C3 two (catch lower case vs do not over-redact), C5 two (redact vs keep the guard able to see the crisis), so 10 single-line edits were run, one per behaviour.
@@ -68,12 +89,26 @@ mutant-cap-raise: the brief asks for one falsification per fixed item; C1 and C2
 | C5b | no guard-preserving fallback (always the fully redacted text) | 1 fail of 26 | p1-u8r item 5: redacting an introduction never hides the crisis wording ('i am unalive' ...) |
 | C6 | fact key stored as given | 1 fail of 14 | p1-u8r low: a fact key a model proposed with a phone number or email in it is stored redacted |
 
+### Cycle 1 falsification (one edit per behaviour, applied to the single file in the p1/u8r worktree after a byte copy to scratch; the file's sha256 prefix was identical before and after every row, restored)
+| id | falsifying edit | after | first failing test |
+|---|---|---|---|
+| C7 | `rank <= active.rank` replaced by `true` (any active slot makes a turn quiet again) | 1 fail of 30 | cycle 1 H1: a concern turn does not hide a crisis turn that follows it |
+| C8a | `if (!taken!.slot.confirmed)` replaced by `if (false)` (no flag-only record) | 1 fail of 30 | cycle 1 M-race: a quiet crisis turn answered while the slot holder is still in flight leaves a text-free flag |
+| C8b | replay lookup disabled (`if (false && quiet && ...)`) | 1 fail of 30 | cycle 1 M-race: a retry with the same clientTurnId of a completed crisis turn replays |
+| C9 | title exemption removed from the sentence-final rule | 1 fail of 18 | cycle 1: a title before a name does not end the name |
+| C10a | `!input.includes("@")` replaced by `false` (email pass always runs) | 1 fail of 18 | cycle 1: the email pass is skipped without an at-sign (2M-character case) |
+| C10b | `{1,64}@` replaced by `+@` (unbounded local part) | 1 fail of 18 | cycle 1: the email pass is skipped ... and the local part is bounded |
+One first-pass survivor: C10a was green because the bounded scan alone is fast enough for 200k characters (~36 ms); a 2M-character no-"@" case under 100 ms was added and the edit re-run red.
+
 Survivors: 0. One first-pass survivor: C5b was green because the stoplist already contained "suicidal"; the test was changed to "i am unalive" (a crisis phrase the intro rule would mangle, checked by hand: crisis -> none) and the edit re-run red.
 
 ## Live browser evidence
 Not UI-touching — changed paths are `apps/api/src/**`, `packages/db/**`, `packages/schemas/**` and `qa/`.
 
 ## Not done / stated limits (for the checker)
+- **Cycle 1, item 5 (accepted, no code change):** in the profile-outage crisis path the escalation text lacks the Pathlynks name redaction, because the name is unknown while the profile is down. A profile-only name in that text can reach the escalation path and the classifier rationale (up to 500 chars). Stored turn text is not written in that case. The header comment in `chat.ts` now says so instead of "redaction never fails open".
+- **Cycle 1:** a bounded email local part leaves the characters before the last 64 in an address whose local part is longer than 64 (an invalid address); the address is still replaced from there. The upgrade-failure restore of the previous slot (`releaseCrisisSlot(..., prev)`) has no dedicated test.
+- **Cycle 1:** the quiet flag-only row is written only while the holder is unconfirmed; after the holder's flag is confirmed, later quiet crisis turns of equal or lower level leave nothing (the accepted M2 trade-off). Row ids are `thread:turn:kind`, so the same turn id upserts once.
 - **`profileFactsUsed` redaction (low) not done.** The graph always returns `profileFactsUsed: []` (`packages/engine/src/student/graph.ts:389`, `:667`), so no honest test can reach a non-empty value without editing the engine; left as the brief allows ("only if trivial, each with a test").
 - **Crisis during a profile outage is escalated with heuristic-only redaction.** The Pathlynks name is unknown then, so a profile-only name in that crisis text can reach the classifier and its stored rationale. The alternative (dropping the escalation) was judged worse. The stored turn text is not written in that case.
 - **Last-resort raw text.** If neither the fully redacted nor the intro-free redacted text keeps the guard at the original level, the escalation gets the original text (an escalation is never lost for privacy). Not reached by any test; the intro-free text differs from the input only by email, phone and known-name replacement.
