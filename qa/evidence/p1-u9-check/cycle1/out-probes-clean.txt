@@ -1,0 +1,27 @@
+P10 observed: backend calls after close-then-attach = [{"type":"interrupt"}] events: transcript,audio,transcript,crisis,closed
+✔ P1 crisis then THREE interrupted events: still silent (1.8136ms)
+✔ P2 crisis, client interrupt(), then backend interrupted: silent (0.3135ms)
+✔ P3 crisis then later non-final chunk of same utterance then interrupted: silent, one crisis (0.1838ms)
+✔ P4 crisis on FINAL chunk, two interrupted: silent; then next speech unmutes (0.183ms)
+✔ P5 crisis, interrupted, second crisis utterance re-fires and stays muted through interrupted (0.1974ms)
+✔ P6 half reply flushed once, audited once, no duplicate on turnComplete; order 1,2,3 (1.1444ms)
+✔ P7 auditor throws during the crisis flush: audit_error flag, crisis still plays, still muted, backend interrupted (0.3231ms)
+✔ P8 sink throws on every write: crisis still plays and mutes (0.3313ms)
+✔ P9 a listener that always throws cannot break the crisis path (0.2762ms)
+✔ P10 pre-attach crisis, then close() before attach, then attach: nothing throws (3.7844ms)
+✔ P11 pre-attach: backend.interrupt throws on replay; a queued tool call after it is still replayed; attach does not throw (7.9559ms)
+P15 observed: model audio audible after typed harmless text post-crisis = 0
+✔ P12 pre-attach tool call whose handler throws -> error event, once (0.6138ms)
+✔ P13 sendText: detector throws -> crisis (fail closed), not forwarded; typed crisis twice fires twice; harmless text scanned once and forwarded (0.3175ms)
+✔ P14 M3 boundaries (0.5673ms)
+✔ P15 OBSERVE: harmless typed text after a crisis (no speech, no turnComplete): is the model reply audible? (0.229ms)
+✔ P16 flags do not go stale: crisis -> turnComplete -> client interrupt -> backend interrupted -> audible; crisis -> speech -> interrupt -> interrupted -> audible (0.1636ms)
+✔ P17 close right after crisis: no throw, interrupted turn stored once (0.1834ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 991.3752

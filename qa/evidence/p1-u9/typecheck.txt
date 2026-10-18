@@ -1,0 +1,24 @@
+[testlock] write_owner_enrich: lock dir token changed (ours [1792262974779496900-231531-11669], now [1792262975108642800-231501-4451]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] waiting for lock held by: PID=11996 STARTED=639278795731517177 ACQUIRED_AT=1792262974 TOKEN=1792262975108642800-231501-4451 DESC=pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern=A15a tests/anonymous-zero-persistence.test.ts 
+[testlock] running (free RAM 1.19 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9 -r typecheck
+Scope: 9 of 10 workspace projects
+packages/observability typecheck$ tsc --noEmit
+packages/schemas typecheck$ tsc --noEmit
+packages/schemas typecheck: Done
+packages/observability typecheck: Done
+packages/providers typecheck$ tsc --noEmit
+packages/db typecheck$ tsc --noEmit
+packages/db typecheck: Done
+packages/providers typecheck: Done
+mcp/student-profile typecheck$ tsc --noEmit
+mcp/university-kb typecheck$ tsc --noEmit
+packages/engine typecheck$ tsc --noEmit && tsc --noEmit -p evals/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json
+mcp/student-profile typecheck: Done
+mcp/university-kb typecheck: Done
+packages/engine typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/api typecheck: Done
+apps/web typecheck: Done
+exit=0

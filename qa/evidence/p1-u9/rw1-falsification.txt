@@ -1,0 +1,15 @@
+2026-10-18T23:58:57+05:30
+[testlock] waiting for lock held by: PID=11700 STARTED=639279646577216211 ACQUIRED_AT=1792348133 TOKEN=1792348133404891100-33976-20902 DESC=pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/apps/api exec tsx --test /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/chk-a/h2/probe3.test.ts 
+[testlock] running slot 1 (free RAM 2.68 GB): python -I -X utf8 C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9/qa/evidence/p1-u9/rw1-falsify.py
+BASELINE: rc=0 tests=70 pass=70 fail=0
+H1-gap-condition-dropped: rc=1 tests=70 pass=66 fail=4
+    ✖ C4 crisis H1: Gemini order, crisis -> turnComplete -> the same sentence goes on a moment later; the model's audio stay
+    ✖ C4 crisis H1: the pause is measured from the LAST student chunk, not the crisis chunk; continuous speech never lifts t
+    ✖ C4 crisis H1: the resume gap is a constructor option; a longer gap keeps a 2 s pause muted (1.3955ms)
+    ✖ C4 crisis Low: a second spoken crisis in a NEW utterance plays the helpline again; a duplicate in that utterance does 
+Low-lift-keeps-crisis-state: rc=1 tests=70 pass=68 fail=2
+    ✖ C4 crisis Low: a second spoken crisis in a NEW utterance plays the helpline again; a duplicate in that utterance does 
+    ✖ C4 crisis low: a client that mutates the helpline audio buffer it received cannot corrupt the next crisis playback (0.
+RESTORED: rc=0 tests=70 pass=70 fail=0
+rc=0
+2026-10-19T00:00:37+05:30

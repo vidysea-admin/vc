@@ -1,0 +1,134 @@
+✔ a: crisis -> turnComplete -> same-utterance chunk 300ms -> model audio: 0 emitted (also with final=true chunk) (8.2672ms)
+✔ a2: dense chunks every 100ms for 5s after turnComplete never lift (1.6953ms)
+✔ b: crisis -> interrupted -> chunk 1300ms later -> heard; boundary 1200 exact heard; 1199 muted (0.9827ms)
+✔ b2: crisis -> NO turnComplete/interrupted -> chunk after long gap -> still muted (0.4598ms)
+✔ c: crisis -> toolCall -> turnComplete -> chunk 100ms later -> 0 model audio (0.8763ms)
+✔ c2: crisis -> toolCall only (no turn end) -> chunk after long gap -> muted (0.428ms)
+✖ d: second crisis in a NEW utterance refires once; duplicate in same utterance does not; also when the lift chunk itself is the crisis (2.2992ms)
+✔ d2: new utterance starts harmless, crisis words arrive in a later chunk of that utterance -> refires once (0.5224ms)
+✔ e: typed message after a crisis does not lift the mute (harmless and with turn end + long time) (0.6427ms)
+✔ e2: typed crisis during spoken-crisis mute fires again, does not lift (0.6172ms)
+✔ f: no regression: client interrupt() mute (no crisis) lifts at turnComplete; no detector -> audio passes (0.4945ms)
+✔ g: crisisResumeGapMs validation (1.7554ms)
+✔ h: default clock (performance.now) works: crisis -> turnComplete -> immediate chunk stays muted in real time (0.6444ms)
+✔ C1 audio format: a student's 16 kHz PCM16 mic chunk reaches the backend byte for byte; the constants are 16000/24000 (6.2778ms)
+✔ C1 audio format: a browser that sends a half-sample (odd byte length) or an empty frame is refused, nothing reaches the backend (1.7945ms)
+✔ C1 audio out: the model speaks and the client receives 24 kHz PCM16 audio events with the 24 kHz mime (2.1034ms)
+✔ C1 transcripts: a student speaks in two chunks and the model answers; both transcripts stream and finish in thread order (4.9567ms)
+✔ C1 tool call: the model asks for search_kb mid-answer; the call is surfaced, the handler's result goes back to the model (64.914ms)
+✔ C1 tool call: with no handler the caller answers through sendToolResult (the API layer owns KB access) (1.6578ms)
+✔ C1 tool call: the KB tool throws during a live answer; an error event is raised and the session stays usable (29.4679ms)
+✔ C1 interrupt: the student talks over the model; backend is told, event fires, the rest of that reply is dropped and the partial reply is stored as interrupted (9.2589ms)
+✔ C1 interrupt: after the barge-in the student's next words un-mute the model for its new answer (0.5443ms)
+✔ C1 interrupt: the backend itself reports the student barged in; the half reply is stored interrupted and the next reply flows (0.9118ms)
+✔ C1 close: the student hangs up twice (double tap); the backend closes once, one closed event, and every send afterwards throws (0.8434ms)
+✔ C1 close: the network drops mid-reply; the half reply is saved, one closed event, and late backend events are ignored (0.427ms)
+✔ C1 close: a UI listener that throws never breaks the voice session (0.3728ms)
+✔ C4 crisis: the phrase arrives split across two transcript chunks; the detector sees the accumulated utterance and the fixed message plays once (1.7421ms)
+✔ C4 crisis: after the trigger, the model's own audio and words for that answer are dropped (none reaches the student) (0.4546ms)
+✔ C4 crisis: the student's words are written to the thread before the fixed reply, and the crisis record is handed to the sink (0.6582ms)
+✔ C4 crisis: the rest of the same sentence keeps streaming in after the trigger; the fixed message is not played a second time (0.5605ms)
+✔ C4 crisis: the student recovers and later says it again in a new turn; the fixed message plays again and the model speaks normally in between (0.5763ms)
+✔ C4 crisis: an ordinary question about fees never triggers the hook (0.3694ms)
+✔ C4 crisis: the student types the phrase during a voice session; it is NOT forwarded to the model and the fixed message plays (0.6377ms)
+✔ C4 crisis: a harmless typed message in a voice session is forwarded to the model and not duplicated into the voice thread (0.4719ms)
+✔ C4 crisis: the detector crashes on a weird transcript; unsure counts as crisis (D-087), with an error event for the engineers (0.5428ms)
+✔ C4 crisis: the detector can return a level and it travels on the crisis event and record (1.2459ms)
+✔ C4 crisis: the trigger-to-fixed-message latency is measured on the injected clock and stays inside the 2 s bound (D-088 Q5) (0.5745ms)
+✔ C4 crisis: a deployment wires a detector but forgets the fixed message; the session refuses to start (no silent no-op) (0.6322ms)
+✔ C5 audit A9b: the model says a fee figure no tool returned; a flag event reaches the client and an audit record is stored with the thread (3.9897ms)
+✔ C5 audit A9b: the model names a counsellor who is on the do-not-name list; a listed_speaker flag fires (2.8214ms)
+✔ C5 audit A9b: a clean answer (figure came from the KB tool, no names) emits no flag and no audit record (18.1643ms)
+✔ C5 audit A9b: a name that only contains a listed name inside another word is not flagged (Rahulkar vs Rahul) (1.0572ms)
+✔ C5 audit A9b: the Tele-MANAS number the fixed message carries is allow-listed, an unrelated number beside it is still flagged (0.8098ms)
+✔ C5 audit A9b: the audit is after the fact, not before: the spoken audio is already delivered when the flag arrives (3.6073ms)
+✔ C5 audit A9b: the auditor itself crashes; the failure is a visible audit_error flag, never a silent pass (0.5618ms)
+✔ C5 audit A9b: the student cuts the model off mid-sentence; the half sentence is still audited (0.409ms)
+✔ C5 audit A9b: two findings in one reply give two flags and two audit records (one per finding) (0.3897ms)
+✔ C6 sink: U8's async persistence is slow for the first turn; thread order is still user, assistant, user (36.4055ms)
+✔ C6 sink: U8's database write fails once; an error event is raised, later turns are still delivered, the session survives (1.2964ms)
+✔ C6 sink: the timestamps come from the injected clock as ISO strings (no real time in tests) (0.4253ms)
+✔ C6 sink: the live module imports nothing from apps/api, a websocket library or a vendor SDK (layering and offline guarantee) (16.3613ms)
+✔ C3 gemini: a deployment with no connector (no key, no SDK) fails loudly instead of pretending to be live (1.1059ms)
+✔ C3 gemini: connecting asks for audio out, both transcripts, the voice, the system prompt and the KB tool declarations (0.8316ms)
+✔ C3 gemini: a full spoken exchange from Gemini-shaped messages becomes normalized transcripts, 24 kHz audio, a tool call and a turn end (1.749ms)
+✔ C3 gemini: the student's mic audio is sent to Gemini as base64 PCM16 at 16 kHz; text, tool results and close take the SDK's shapes (0.927ms)
+✔ C3 gemini: the model returns audio at the wrong sample rate; an error is raised and the audio is not played (0.7652ms)
+✔ C3 gemini: Gemini reports the student barged in and then closes the socket; both surface once (1.868ms)
+✔ C3 gemini: an SDK error callback becomes an error event without closing the session (0.6528ms)
+✔ C3 gemini: junk messages (null, empty serverContent, a function call with no name) are ignored without throwing (0.4359ms)
+✔ C4 crisis via gemini: a Hindi-English crisis phrase arrives as Gemini input transcription; Gemini is interrupted, the fixed message plays, Gemini's own reply is silenced (1.1011ms)
+✔ C5 audit A9b: createSimpleOutputAuditor numbers with thousands separators and decimals match the tool text, a different figure does not (0.4776ms)
+✔ C4 crisis F1: the backend reports `interrupted` after the crisis trigger chunk; the model's audio and words stay silenced (0.5676ms)
+✔ C4 crisis F1: the crisis arrives on a FINAL transcript chunk and `interrupted` follows; the mute still holds (0.4299ms)
+✔ C4 crisis F1: after crisis + interrupted the model's turn ends; the next reply is audible again once the student speaks (the mute is not permanent) (0.4787ms)
+✔ C4 crisis F2: the model was mid-sentence with a figure when the student's crisis phrase arrived; the half reply is audited and stored as interrupted, before the student's words (0.7103ms)
+✔ C4 crisis M1: a crisis arrives from the transport before the session is attached; the fixed message plays now and the backend interrupt is replayed on attach (0.3443ms)
+✔ C4 crisis M1: the model asks for a KB tool before the session is attached; the call is answered after attach, not turned into an error (9.1719ms)
+✔ C4 crisis M2: the student speaks a crisis phrase and then types another distress message in the same utterance; the typed text is scanned, not forwarded, and answered (0.865ms)
+✔ C4 crisis M2: a harmless typed message after a spoken crisis in the same utterance is still scanned and forwarded (0.5614ms)
+✔ C4 crisis M3: a voice deployment wires a detector and a fixed message with text only (no audio); the session refuses to start rather than leave the student with silence (0.9458ms)
+✔ C4 crisis R1: the model makes a tool call right after the crisis chunk and the student keeps talking in the same utterance; no model audio is heard (0.8292ms)
+✔ C4 crisis R2: after crisis + interrupted the model ends its turn; its next reply stays muted until the student speaks again, then is heard (0.4973ms)
+✔ C4 crisis low: the transport floods events before attach; the queue is capped, the oldest are dropped with a warning, and the crisis interrupt is never dropped (8.1957ms)
+✔ C4 crisis low: a transport tries to attach a second backend; it is refused and the first stays wired (0.7301ms)
+✔ C4 crisis low: the student types a crisis message, then says one aloud; the helpline audio plays again for the spoken one (0.5903ms)
+✖ C4 crisis low: a client that mutates the helpline audio buffer it received cannot corrupt the next crisis playback (1.0242ms)
+✔ C4 crisis H1: Gemini order, crisis -> turnComplete -> the same sentence goes on a moment later; the model's audio stays muted (0.7579ms)
+✔ C4 crisis H1: crisis -> turnComplete -> the student speaks again after a real pause; the model's next reply is heard (0.4127ms)
+✔ C4 crisis H1: the pause is measured from the LAST student chunk, not the crisis chunk; continuous speech never lifts the mute (0.6015ms)
+✔ C4 crisis H1: crisis -> the student speaks after a pause but the backend never ended its turn; still muted (0.4663ms)
+✔ C4 crisis H1: the resume gap is a constructor option; a longer gap keeps a 2 s pause muted (0.4635ms)
+✖ C4 crisis Low: a second spoken crisis in a NEW utterance plays the helpline again; a duplicate in that utterance does not (3.365ms)
+✔ C4 crisis Low: after a crisis the student starts a new, harmless utterance; the old crisis words are not re-scanned into a false refire (0.6395ms)
+ℹ tests 83
+ℹ suites 0
+ℹ pass 80
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6002.5111
+
+✖ failing tests:
+
+test at tests\chkrw1.test.ts:85:1
+✖ d: second crisis in a NEW utterance refires once; duplicate in same utterance does not; also when the lift chunk itself is the crisis (2.2992ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\chk-u9rw1\mut-Low\packages\providers\tests\chkrw1.test.ts:91:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:897:1
+✖ C4 crisis low: a client that mutates the helpline audio buffer it received cannot corrupt the next crisis playback (1.0242ms)
+  TypeError: Cannot read properties of undefined (reading 'data')
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\chk-u9rw1\mut-Low\packages\providers\tests\live.test.ts:909:38)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at tests\live.test.ts:988:1
+✖ C4 crisis Low: a second spoken crisis in a NEW utterance plays the helpline again; a duplicate in that utterance does not (3.365ms)
+  AssertionError [ERR_ASSERTION]: a new spoken crisis must refire
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\chk-u9rw1\mut-Low\packages\providers\tests\live.test.ts:995:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

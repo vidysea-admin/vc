@@ -1,0 +1,13 @@
+[testlock] running (free RAM 1.95 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9/packages/providers exec tsx --test --test-name-pattern=^C6  tests/live.test.ts
+✔ C6 sink: U8's async persistence is slow for the first turn; thread order is still user, assistant, user (56.3159ms)
+✔ C6 sink: U8's database write fails once; an error event is raised, later turns are still delivered, the session survives (1.903ms)
+✔ C6 sink: the timestamps come from the injected clock as ISO strings (no real time in tests) (16.9025ms)
+✔ C6 sink: the live module imports nothing from apps/api, a websocket library or a vendor SDK (layering and offline guarantee) (2.204ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3553.4915

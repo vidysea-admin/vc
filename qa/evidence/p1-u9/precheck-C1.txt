@@ -1,0 +1,25 @@
+[testlock] waiting for lock held by: PID=30608 STARTED=639278799101550273 ACQUIRED_AT=1792263310 TOKEN=1792263310440847700-235918-6104 DESC=pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-eng3/packages/engine exec tsx --test tests/crisis-defaults.test.ts tests/guard-crisis.test.ts 
+[testlock] write_owner_enrich: lock dir token changed (ours [1792263341483052300-236082-2621], now [1792263342021758900-234511-22317]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] running (free RAM 5.14 GB): pnpm -C packages/providers exec tsx --test --test-name-pattern=^C1  tests/live.test.ts
+✔ C1 audio format: a student's 16 kHz PCM16 mic chunk reaches the backend byte for byte; the constants are 16000/24000 (4.4495ms)
+✔ C1 audio format: a browser that sends a half-sample (odd byte length) or an empty frame is refused, nothing reaches the backend (1.7953ms)
+✔ C1 audio out: the model speaks and the client receives 24 kHz PCM16 audio events with the 24 kHz mime (1.4148ms)
+✔ C1 transcripts: a student speaks in two chunks and the model answers; both transcripts stream and finish in thread order (3.5349ms)
+✔ C1 tool call: the model asks for search_kb mid-answer; the call is surfaced, the handler's result goes back to the model (15.7582ms)
+✔ C1 tool call: with no handler the caller answers through sendToolResult (the API layer owns KB access) (0.448ms)
+✔ C1 tool call: the KB tool throws during a live answer; an error event is raised and the session stays usable (2.4276ms)
+✔ C1 interrupt: the student talks over the model; backend is told, event fires, the rest of that reply is dropped and the partial reply is stored as interrupted (0.5871ms)
+✔ C1 interrupt: after the barge-in the student's next words un-mute the model for its new answer (0.3119ms)
+✔ C1 interrupt: the backend itself reports the student barged in; the half reply is stored interrupted and the next reply flows (0.5828ms)
+✔ C1 close: the student hangs up twice (double tap); the backend closes once, one closed event, and every send afterwards throws (0.7151ms)
+✔ C1 close: the network drops mid-reply; the half reply is saved, one closed event, and late backend events are ignored (0.4118ms)
+✔ C1 close: a UI listener that throws never breaks the voice session (0.3032ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2511.218

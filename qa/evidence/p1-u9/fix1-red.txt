@@ -1,0 +1,155 @@
+[testlock] waiting for lock held by: PID=33800 STARTED=639278871724248034 ACQUIRED_AT=1792270572 TOKEN=1792270572722603600-36624-1211 DESC=pnpm -C packages/engine exec tsx --test tests/student-graph.test.ts tests/student-classify.test.ts 
+[testlock] running (free RAM 4.17 GB): pnpm -C packages/providers exec tsx --test --test-name-pattern=C4 crisis (F1|F2|M1|M2|M3) tests/live.test.ts
+✖ C4 crisis F1: the backend reports `interrupted` after the crisis trigger chunk; the model's audio and words stay silenced (16.225ms)
+✖ C4 crisis F1: the crisis arrives on a FINAL transcript chunk and `interrupted` follows; the mute still holds (2.8712ms)
+✔ C4 crisis F1: after crisis + interrupted the model's turn ends; the next reply is audible again (the mute is not permanent) (1.0537ms)
+✖ C4 crisis F2: the model was mid-sentence with a figure when the student's crisis phrase arrived; the half reply is audited and stored as interrupted, before the student's words (3.6115ms)
+✖ C4 crisis M1: a crisis arrives from the transport before the session is attached; the fixed message plays now and the backend interrupt is replayed on attach (1.8973ms)
+✖ C4 crisis M1: the model asks for a KB tool before the session is attached; the call is answered after attach, not turned into an error (43.5761ms)
+✖ C4 crisis M2: the student speaks a crisis phrase and then types another distress message in the same utterance; the typed text is scanned, not forwarded, and answered (19.6664ms)
+✖ C4 crisis M2: a harmless typed message after a spoken crisis in the same utterance is still scanned and forwarded (26.3392ms)
+✖ C4 crisis M3: a voice deployment wires a detector and a fixed message with text only (no audio); the session refuses to start rather than leave the student with silence (1.1221ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 1
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4428.9649
+
+✖ failing tests:
+
+test at tests\live.test.ts:704:1
+✖ C4 crisis F1: the backend reports `interrupted` after the crisis trigger chunk; the model's audio and words stay silenced (16.225ms)
+  AssertionError [ERR_ASSERTION]: model audio leaked after crisis + interrupted
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:711:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:716:1
+✖ C4 crisis F1: the crisis arrives on a FINAL transcript chunk and `interrupted` follows; the mute still holds (2.8712ms)
+  AssertionError [ERR_ASSERTION]: model audio leaked after final crisis chunk + interrupted
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:721:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:733:1
+✖ C4 crisis F2: the model was mid-sentence with a figure when the student's crisis phrase arrived; the half reply is audited and stored as interrupted, before the student's words (3.6115ms)
+  AssertionError [ERR_ASSERTION]: spoken uncited number in the half reply was never audited
+  + actual - expected
+  
+  + []
+  - [
+  -   '99999'
+  - ]
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:738:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ '99999' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:750:1
+✖ C4 crisis M1: a crisis arrives from the transport before the session is attached; the fixed message plays now and the backend interrupt is replayed on attach (1.8973ms)
+  AssertionError [ERR_ASSERTION]: a crisis before attach must not become an error
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:758:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:765:1
+✖ C4 crisis M1: the model asks for a KB tool before the session is attached; the call is answered after attach, not turned into an error (43.5761ms)
+  AssertionError [ERR_ASSERTION]: a tool call before attach must not become an error
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:772:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:779:1
+✖ C4 crisis M2: the student speaks a crisis phrase and then types another distress message in the same utterance; the typed text is scanned, not forwarded, and answered (19.6664ms)
+  AssertionError [ERR_ASSERTION]: the typed text never reached the detector
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:785:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:791:1
+✖ C4 crisis M2: a harmless typed message after a spoken crisis in the same utterance is still scanned and forwarded (26.3392ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(seen.includes("what is the deadline"))
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:796:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:800:1
+✖ C4 crisis M3: a voice deployment wires a detector and a fixed message with text only (no audio); the session refuses to start rather than leave the student with silence (1.1221ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection (LiveConfigError).
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:801:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

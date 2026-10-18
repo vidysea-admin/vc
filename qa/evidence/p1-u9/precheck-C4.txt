@@ -1,0 +1,25 @@
+[testlock] waiting for lock held by: PID=30372 STARTED=unknown ACQUIRED_AT=1792268718 TOKEN=1792268718786444200-7339-24726 DESC=pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-eng3/packages/engine exec tsx --test tests/guard-crisis.test.ts tests/crisis-defaults.test.ts tests/crisis-escalation.test.ts tests/crisis-eval.test.ts tests/claims-guard.test.ts tests/no-quote.test.ts tests/student-graph.test.ts tests/scribe-erasure-fence.test.ts tests/student-classify.test.ts 
+[testlock] owner PID unknown/unparseable and lock age 1792268772s > fallback 600s -- treating as stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running (free RAM 0.25 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9/packages/providers exec tsx --test --test-name-pattern=^C4  tests/live.test.ts
+✔ C4 crisis: the phrase arrives split across two transcript chunks; the detector sees the accumulated utterance and the fixed message plays once (25.3927ms)
+✔ C4 crisis: after the trigger, the model's own audio and words for that answer are dropped (none reaches the student) (4.1632ms)
+✔ C4 crisis: the student's words are written to the thread before the fixed reply, and the crisis record is handed to the sink (5.1972ms)
+✔ C4 crisis: the rest of the same sentence keeps streaming in after the trigger; the fixed message is not played a second time (1.0649ms)
+✔ C4 crisis: the student recovers and later says it again in a new turn; the fixed message plays again and the model speaks normally in between (1.0612ms)
+✔ C4 crisis: an ordinary question about fees never triggers the hook (0.5658ms)
+✔ C4 crisis: the student types the phrase during a voice session; it is NOT forwarded to the model and the fixed message plays (0.767ms)
+✔ C4 crisis: a harmless typed message in a voice session is forwarded to the model and not duplicated into the voice thread (0.535ms)
+✔ C4 crisis: the detector crashes on a weird transcript; unsure counts as crisis (D-087), with an error event for the engineers (1.2937ms)
+✔ C4 crisis: the detector can return a level and it travels on the crisis event and record (1.0541ms)
+✔ C4 crisis: the trigger-to-fixed-message latency is measured on the injected clock and stays inside the 2 s bound (D-088 Q5) (2.5226ms)
+✔ C4 crisis: a deployment wires a detector but forgets the fixed message; the session refuses to start (no silent no-op) (1.6547ms)
+✔ C4 crisis via gemini: a Hindi-English crisis phrase arrives as Gemini input transcription; Gemini is interrupted, the fixed message plays, Gemini's own reply is silenced (5.6272ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7581.6959

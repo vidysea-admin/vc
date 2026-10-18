@@ -1,0 +1,15 @@
+✔ H1 BRIEF: crisis, toolCall, turnComplete, model audio, typed harmless -> no model audio (9.9481ms)
+✔ H2 order variant: crisis, interrupted, toolCall, turnComplete, toolCall, turnComplete, audio -> silent, then new speech lifts (0.7272ms)
+✔ H3 crisis partial, toolCall, student continues same utterance (non-crisis words), audio -> silent, single fixed (0.4452ms)
+✔ H4 toolCall BEFORE any crisis still ends the utterance normally (no regression) (0.6573ms)
+✔ H5 typed crisis then model audio/turnComplete/toolCall: silent until speech (0.6191ms)
+✔ H6 non-crisis client interrupt mute still lifts on turnComplete (no over-reach) (0.4484ms)
+✔ H7 second crisis after recovery re-arms the mute and the helpline (0.622ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3433.3178
