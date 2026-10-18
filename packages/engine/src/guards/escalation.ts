@@ -212,13 +212,21 @@ async function fencedWrite<T>(
   let work: Promise<T> | undefined;
   let failure: { error: unknown } | undefined;
   let value!: T;
+  // ISS-126: `budget.run` may reject at once (budget aborted or expired) without ever attaching to the promise it was handed. The
+  // deadline race handed to it can then reject later (or already be rejected, when the writer deadline passed first) with nobody
+  // listening: an unhandledRejection. Every race is observed here, so the caller's budget cannot leave one dangling.
+  const bounded = <V>(p: Promise<V>): Promise<V> => {
+    const raced = deadline.run(p);
+    raced.catch(() => undefined);
+    return raced;
+  };
   try {
     try {
-      const checking = deadline.run(assertStudentNotFenced(db, studentId, deadline.op()));
+      const checking = bounded(assertStudentNotFenced(db, studentId, deadline.op()));
       await (budget ? budget.run(checking) : checking);
       if (budget?.authorize) await budget.run(budget.authorize());
       work = Promise.resolve().then(() => write(deadline));
-      value = await (budget ? budget.run(deadline.run(work)) : deadline.run(work));
+      value = await (budget ? budget.run(bounded(work)) : bounded(work));
       if (budget?.authorize) await budget.run(budget.authorize());
     } catch (error) { failure = { error }; }
     const timedOut = deadline.expired() || !!budget && (budget.signal.aborted || Date.now() >= budget.expiresAt);
@@ -226,7 +234,7 @@ async function fencedWrite<T>(
     const postcheck = compensateIfFenced(db, studentId, undo, { ...(failure ? { cause: failure.error } : {}), alwaysUndo: timedOut || lostAuthority });
     // The original writer timer remains active through the final fence read.
     try {
-      await (budget ? budget.run(deadline.run(postcheck)) : deadline.run(postcheck));
+      await (budget ? budget.run(bounded(postcheck)) : bounded(postcheck));
     } catch (error) {
       if (deadline.expired() || !!budget && (budget.signal.aborted || Date.now() >= budget.expiresAt)) {
         const settled = work

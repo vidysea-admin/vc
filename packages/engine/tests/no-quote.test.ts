@@ -229,3 +229,15 @@ test("U6h fix1 M3b: years, fees, dates and ordinary numbers are not phone number
   ];
   for (const t of benign) assert.deepEqual(findPersonalIdentifiers(t, speakers, []), [], t);
 });
+
+// P1 W3 (C4, U6h leftover 4): a parenthesised country code, "(+91) 98765 43210", is one phone number: no prefix is left behind.
+test("P1 W3 U6h leftover 4: a parenthesised country code is redacted with its number, leaving no digit", () => {
+  for (const p of ["(+91) 98765 43210", "(+91)98765 43210", "(+1) 415 555 0132", "(+44) 7911 123456"]) {
+    const text = `Call me on ${p} tonight`;
+    assert.deepEqual(findPersonalIdentifiers(text, speakers, []).map((f) => f.kind), ["phone"], `detect ${p}`);
+    const out = redactPersonalIdentifiers(text, speakers, []);
+    assert.doesNotMatch(out, /\d|\+/, `redact ${p} -> ${out}`);
+    assert.equal(out, "Call me on [number removed] tonight", p);
+  }
+  assert.deepEqual(findPersonalIdentifiers("In (+5) points the fee is 5000 euros.", speakers, []), []);
+});

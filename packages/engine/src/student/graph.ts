@@ -44,7 +44,7 @@ import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { z } from "zod";
 import type { LlmProvider } from "@vc/providers";
 import { TurnResponseSchema, type Claim, type TurnResponse } from "@vc/schemas";
-import { crisisGuard, type CrisisLevel } from "../guards/crisis.js";
+import { STRESS_CHECK_IN, crisisGuard, stressSignal, type CrisisLevel } from "../guards/crisis.js";
 import { noScriptGuard } from "../guards/no-script.js";
 import { findPersonalIdentifiers, hasVerbatimRun, noQuoteGuard, redactPersonalIdentifiers, type SpeakersFile } from "../guards/no-quote.js";
 import { loadSkill } from "../skills/loader.js";
@@ -109,6 +109,8 @@ export const CRISIS_FORBIDDEN_PATTERNS: readonly RegExp[] = [
 ];
 
 const FOLLOW_UP_MAX_CHARS = 200;
+/** TurnResponse.message is bounded at 8000 characters (schemas/student-api.ts); the soft stress note is skipped rather than overflow it. */
+const STUDENT_MESSAGE_MAX = 8000;
 
 const violatesCrisisRules = (text: string) => CRISIS_FORBIDDEN_PATTERNS.some((p) => p.test(text));
 
@@ -448,7 +450,20 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
 
   const finish = (input: StudentTurnInput, result: StudentTurnResult, priorFlag: boolean): StudentTurnResult => {
     let response = result.response;
-    if (input.mode === "authenticated" && priorFlag && response.state === "ok") {
+    // P1 W3 / D-093 3A: ordinary stress language ("pressure bahut hai") is not a crisis flag. The turn is answered as usual and
+    // a soft check-in plus Tele-MANAS 14416 is appended. An anonymous non-answer already carries the helpline line, so only the
+    // check-in is added there. The fixed crisis message (state "escalated") is never touched.
+    let softNote = false;
+    if (response.state !== "escalated" && stressSignal(input.text)) {
+      const message = response.message ?? "";
+      const note = message.includes("14416") ? STRESS_CHECK_IN : `${STRESS_CHECK_IN} ${TELE_MANAS_LINE}`;
+      const withNote = `${message} ${note}`.trim();
+      if (withNote.length <= STUDENT_MESSAGE_MAX) {
+        response = { ...response, message: withNote };
+        softNote = true;
+      }
+    }
+    if (input.mode === "authenticated" && priorFlag && response.state === "ok" && !softNote) {
       response = { ...response, message: `${response.message ?? ""} ${TELE_MANAS_LINE}`.trim() };
     }
     return { ...result, response: TurnResponseSchema.parse(response) };
@@ -570,8 +585,11 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     if (!f || !f.endsWith("?") || f.length > FOLLOW_UP_MAX_CHARS) return undefined;
     const body = f.slice(0, -1);
     if (/[?!\u0964]/.test(body) || /\.\s/.test(body)) return undefined; // a second sentence (or question) is advice, not a follow-up
+    // P1 W3 (U6h leftover 3): a second sentence with no terminal punctuation to split on ("...university\nWhich cities?", "...; which cities?").
+    if (/[\n\r\u2028\u2029;]/.test(body)) return undefined;
     if (!noScriptGuard({ type: "clarify", prompt: f }).ok || violatesCrisisRules(f)) return undefined;
-    if (/\p{N}/u.test(f)) return undefined;
+    // P1 W3 (U6h leftover 1): the answer path drops a spelled-out figure ("five thousand euros") exactly as the coach filter does.
+    if (/\p{N}/u.test(f) || numberMentions(f).length > 0) return undefined;
     if (countriesIn(f).length > 0) return undefined;
     if (findPersonalIdentifiers(f, deps.speakers, restricted.labels).length > 0) return undefined;
     if (restricted.texts.some((t) => hasVerbatimRun(f, t))) return undefined;

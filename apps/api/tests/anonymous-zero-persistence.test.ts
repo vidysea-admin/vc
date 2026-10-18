@@ -618,7 +618,7 @@ test("U7 repair A: every non-200 anonymous body (400, 405, 413, 429, 500) carrie
 test("U7 repair D (API): the sign-in and no-answer replies over the real route carry the helpline line too", async () => {
   const w = anonWorld({ kb: recordingKb(SEARCH_EMPTY) });
   try {
-    const signIn = await ask(w, "I am thinking about ending things, what should I study?", { ip: "198.51.100.60" });
+    const signIn = await ask(w, "I am thinking about my future, what should I study?", { ip: "198.51.100.60" }); // D-093 2A: "thinking about ending things" is now a crisis phrase (engine crisis-defaults.test.ts); this test is about the personal-question sign-in reply
     assert.equal(signIn.json.state, "sign_in_required");
     assert.equal(signIn.json.message, ANONYMOUS_SIGN_IN_TEXT);
     const none = await ask(w, GENERIC, { ip: "198.51.100.61" });
