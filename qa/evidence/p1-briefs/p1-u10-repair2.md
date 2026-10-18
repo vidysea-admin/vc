@@ -1,0 +1,19 @@
+# You are a /maker build subagent: U10 fix cycle 2 (LAST, cap 2), p1-u10-voice-ws, tier L, dual check
+- Worktree C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10 (branch p1/u10, code f71f387, manifest 0fb8b41, cycle-0 code 7227385). Use `git -C <wt>`, never `cd X && cmd`. Never `git add -A`. Never touch .claude/**. Do NOT push. C: is nearly full: falsify on a scratch copy of voice.ts only (the scratch worktree p1-u10-fals may be reset and reused).
+- Do NOT read qa/verdicts/p1-u10-voice-ws.B.md or qa/evidence/p1-u10-check-b/ beyond the probe file named below (it stays blind-safe for the re-check). The findings are restated here.
+- The invariant: a crisis on voice must ALWAYS reach escalateForTenant (when text may be stored) or leave a server log line saying why not, including when the socket drops. Paid sessions must never start past the monthly cap.
+
+## Fix (TDD: a failing test first for each item)
+1. HIGH (checker B F1), voice.ts ~741-742 onCrisisRecord: it returns early when c.state is closing or closed, and finalize sets closing BEFORE it drains the crisis sink. So a socket drop while a crisis flag write is in flight stores the flag but never escalates and logs nothing. Fix: the crisis record and escalation must run to completion regardless of socket state (closing only stops sending to the client). Only an erased/fenced student (endIfFenced) skips escalation, and that skip is logged. Test: crisis sentence, then the socket drops while the flag write is gated, then release: 1 flag and 1 escalation. A graceful end still escalates.
+2. MEDIUM (review F1, A23/D-088), voice.ts ~960-993: the month's usage is read before the supersede loop, so the predecessor's minutes are not counted. After the loop, before activeByStudent.set, re-read getStudentUsage, recompute remainingMs, and refuse with voice_quota_exceeded (finalize(c, 1008)) if <= 0. Test: usage 50 min, A runs 10 min, B supersedes A, and B is refused with no provider session.
+3. MEDIUM (review F2 and checker B F2), voice.ts ~987: step aside only if `newest !== undefined && newest !== c`. Test: A active (gated drain), B starts, C starts, C aborts, release: B is live (liveSessions 1, B not superseded). Add a test that needs the loop's second iteration, so mutant C10c is no longer equivalent.
+4. LOW (review and checker B F3), voice.ts ~743: build the escalateForTenant port inside the crisisWrite thunk/try, so a synchronous factory throw is retried and logged (voice_crisis_escalate_failed) and does not surface as persist_failed. Test it.
+5. LOW (review), voice.ts ~733-748: if userBuf is empty at crisis time, escalate with the current crisis utterance's redacted text if available. Otherwise escalate with a fixed, text-free marker rather than skipping or using an earlier turn's words. Test it.
+6. Open question from the review, to check and record: do recordStudentFlag, appendVoiceTurn and recordStudentUsage have write deadlines? Grep packages/db. If any can hang, bound finalize's drain wait (for example 10 s, then log and release the slot), with a test using a never-settling sink write.
+- Do not weaken or delete any existing assertion.
+
+## Pre-check + manifest
+- Via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...` (long waits are normal; never quit on a busy lock): the 7 apps/api files in the manifest, db chat-threads + erasure, providers live.test.ts, `pnpm -r typecheck`.
+- One falsification per changed criterion, on a scratch copy.
+- Manifest: `Fix cycle: 2`, add the criteria, Pre-check[<id>] lines on the final sha, keep/update the dual-trigger lines, `Status: ready-for-check`. Run `tick.mjs --lint-manifest` and fix any ERROR. Commit with narrow pathspecs.
+- Return ONE line: `p1-u10-voice-ws <sha> ready` or `BLOCKED <reason>`.
