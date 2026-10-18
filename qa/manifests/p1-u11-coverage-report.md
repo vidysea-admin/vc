@@ -3,7 +3,8 @@
 **Criteria:** C1 per-probe counts, C2 gap rows never missing, C3 KB /gaps rows, C4 VC gap counts via port, C5 reproducible, C6 text-free
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
+**Close-out:** PASS at cycle 0, verdict qa/verdicts/p1-u11-coverage-report.md at d6688d9. Findings and limits filed as ISS-169..ISS-174 in qa/issues.jsonl (all low).
 **Fix cycle:** 0 of max 2
 **Dual check:** not required (tier S; mock-only eval script, no auth, no student data path, no outward action)
 **Persona walk:** skip (no human screen: a CLI report)
