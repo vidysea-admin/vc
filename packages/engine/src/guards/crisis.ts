@@ -127,7 +127,7 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   // inside "work ms" / "think ms".
   // "mujhe marna hai / marna hi hai" - a stated wish to die, the verb "marna" with no "chahta" (the
   // "marna chahta" family is matched above).
-  /\bmarna\s+(hi\s+)?(hai|hain)\b/i,
+  /\bmarna+\s+(hi\s+)?(hai|hain|h)\b/i,
   // "mai khatam ho jana chahta hu / khatam ho jaunga" - "I want to cease to exist", distinct from
   // "sab kuch khatam" (a bare hopelessness statement).
   /\bkhatam\s+ho\s+(jana|jaana|jaun|jaaun|jaunga|jaungi|jaaunga|jaaungi)\b/i,
@@ -139,8 +139,12 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /\bjaan\s+dena\s+(hai|chahta|chahti)\b/i,
   // English - "I don't see the point anymore", "what's the point of living". Needs "anymore" or a life word, so
   // "I don't see the point of this course" stays clear.
-  /\b(don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(the|any)\s+point\s+(anymore|any\s+more|in\s+(living|life|going\s+on|continuing|anything|being\s+alive))\b/i,
-  /\bsee\s+no\s+point\s+(anymore|any\s+more|in\s+(living|life|going\s+on|continuing|anything|being\s+alive))\b/i,
+  /\b(don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(the|any)\s+point\s+(anymore|any\s+more|in\s+(living|life|anything|being\s+alive))\b/i,
+  /\bsee\s+no\s+point\s+(anymore|any\s+more|in\s+(living|life|anything|being\s+alive))\b/i,
+  // "...point in going on / continuing with (my) life": the self-referential life form. The bare "in going on" / "in continuing"
+  // is a code check (matchPointContinuing): "continuing with MBA" is study talk, so it cannot be a plain pattern.
+  /\b(don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(the|any)\s+point\s+in\s+(going\s+on|continuing)\s+(with\s+)?(my\s+|this\s+)?(life|living)\b/i,
+  /\bsee\s+no\s+point\s+in\s+(going\s+on|continuing)\s+(with\s+)?(my\s+|this\s+)?(life|living)\b/i,
   /\b(what'?s|what\s+is)\s+the\s+point\s+(of\s+(living|life|going\s+on|anything)|anymore|any\s+more)\b/i,
   // English - "thinking about ending things", "I'm ending things tonight".
   /\b(thinking|thought|thoughts|think|planning|plan|plans|want|wanna|going|gonna|decided|ready|trying)\s+((about|of|to)\s+)?end(ing)?\s+(things|everything)\b/i,
@@ -544,7 +548,7 @@ function stripForeignMarks(text: string): string {
  * ordinary "kill myself": sentence punctuation is folded away exactly like any other separator,
  * never treated as a boundary a pattern cannot cross (D-020).
  */
-function normalise(text: string, leet = false): string {
+function normalise(text: string, leet: false | "i" | "l" = false): string {
   const capped = text.replace(INVISIBLE_FORMAT_CHARS, "").replace(LONG_MARK_RUN, capMarkRun);
   const stripped = stripForeignMarks(stripForeignMarks(capped).normalize("NFKD"));
   const folded = stripped
@@ -554,7 +558,7 @@ function normalise(text: string, leet = false): string {
     .replace(HOMOGLYPH_CHAR, (ch) => HOMOGLYPHS[ch] ?? ch)
     // P1 W3: a phone keyboard types a typographic apostrophe ("don’t"); the patterns' `'?` expects the ASCII one.
     .replace(TYPOGRAPHIC_APOSTROPHE, "'");
-  return (leet ? foldLeet(folded) : folded).replace(NON_WORD_RUN, " ").trim();
+  return (leet ? foldLeet(folded, leet) : folded).replace(NON_WORD_RUN, " ").trim();
 }
 
 /** U+2019 right single quote, U+2018 left, U+02BC modifier letter apostrophe, U+2032 prime, U+FF07 fullwidth. */
@@ -567,10 +571,15 @@ const TYPOGRAPHIC_APOSTROPHE = /[‘’ʼ′＇]/g;
  * number ("5 lakh", "2026") has no letter beside it and is untouched.
  */
 const LEET_MAP: Readonly<Record<string, string>> = { "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i" };
-const LEET_BEFORE_LETTER = /[013457@$!](?=\p{L})/gu;
-const LEET_AFTER_LETTER = /(?<=\p{L})[013457@$]/gu;
-function foldLeet(text: string): string {
-  return text.replace(LEET_BEFORE_LETTER, (ch) => LEET_MAP[ch] ?? ch).replace(LEET_AFTER_LETTER, (ch) => LEET_MAP[ch] ?? ch);
+const LEET_BEFORE_LETTER = /[013457@$!]+(?=\p{L})/gu;
+const LEET_AFTER_LETTER = /(?<=\p{L})[013457@$]+/gu;
+/**
+ * A whole run of look-alike characters is folded ("ki11" -> "kiii" or, with `oneAs` "l", "kill"). "1" is ambiguous: i ("d1e",
+ * "su1c1de") or l ("ki11 myself", "k1ll"), so the caller tries both readings as separate views.
+ */
+function foldLeet(text: string, oneAs: "i" | "l" = "i"): string {
+  const map = (run: string): string => [...run].map((ch) => (ch === "1" ? oneAs : (LEET_MAP[ch] ?? ch))).join("");
+  return text.replace(LEET_BEFORE_LETTER, map).replace(LEET_AFTER_LETTER, map);
 }
 
 /**
@@ -618,21 +627,25 @@ function squeeze(normalised: string): string {
 /**
  * P1 W3 / D-093 2A: crisis shorthand that is only safe to match as a WHOLE TOKEN. "kms" ("kill myself") is the one: its
  * separator-free twin would match inside ordinary text ("work ms" -> "workms", "think ms in cs"), so it is deliberately not a
- * CRISIS_PATTERNS entry (no squeezed twin). The only suppression is a unit-of-distance reading ("50 kms from the campus",
- * "a few kms away"): a number or quantity word before it, or a distance word after it. Anything else is a flag (recall-only, D-020).
+ * CRISIS_PATTERNS entry (no squeezed twin). An elongated "kmss" / "kmsss" is the same token. The ONLY suppression is a unit-of-
+ * distance reading, and only from the word BEFORE it: a number or a plain quantity word ("50 kms", "a few kms", "thousands of
+ * kms"). Nothing after it suppresses ("kms away from here", "kms from the stress" are crisis statements, fix cycle 1 of
+ * p1-eng3), and neither does a vague word before it ("thinking about kms", "almost kms"). Anything else is a flag (recall-only, D-020).
  */
 export const TOKEN_CRISIS_PHRASES: readonly string[] = ["kms"];
-const DISTANCE_BEFORE = new Set(["few", "many", "some", "several", "couple", "hundred", "hundreds", "thousand", "about", "around", "nearly", "almost", "x"]);
-const DISTANCE_AFTER = new Set(["away", "from", "far", "radius", "distance", "per", "apart", "drive", "walk", "travel", "commute", "north", "south", "east", "west", "range"]);
+const QUANTITY_BEFORE = new Set(["few", "several", "couple", "many", "hundred", "hundreds", "thousand", "thousands"]);
+function isDistanceQuantity(token: string | undefined): boolean {
+  return token !== undefined && (/^\p{N}+$/u.test(token) || QUANTITY_BEFORE.has(token));
+}
 function matchTokens(view: string): string[] {
   const tokens = view.split(" ");
   const found: string[] = [];
   for (const phrase of TOKEN_CRISIS_PHRASES) {
     for (let i = 0; i < tokens.length; i++) {
-      if (tokens[i] !== phrase) continue;
+      if (tokens[i] !== phrase && !(tokens[i].length > phrase.length && tokens[i].startsWith(phrase) && /^s+$/.test(tokens[i].slice(phrase.length)))) continue;
       const before = tokens[i - 1];
-      const after = tokens[i + 1];
-      const distance = (before !== undefined && (/^\p{N}+$/u.test(before) || DISTANCE_BEFORE.has(before))) || (after !== undefined && DISTANCE_AFTER.has(after));
+      // "thousands of kms", "a couple of kms": the quantity word sits one token further back.
+      const distance = isDistanceQuantity(before) || (before === "of" && isDistanceQuantity(tokens[i - 2]));
       if (!distance) {
         found.push(phrase);
         break;
@@ -641,6 +654,24 @@ function matchTokens(view: string): string[] {
   }
   return found;
 }
+
+/**
+ * Review W1 (P1 W3 eng3): "I don't see the point in continuing / going on" is a crisis statement when it stands alone or runs on
+ * as a clause ("... going on, I am so tired", "... going on anymore"), but study talk when an object follows
+ * ("... continuing with MBA", "... going on with this course", "... continuing my IELTS prep"). The life form ("... with my life")
+ * is a plain CRISIS_PATTERNS entry. So this check fires only for a bare end of turn or a clause connector right after the phrase.
+ */
+const POINT_IN_CONTINUING = /\b(?:(?:don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(?:the|any)|see\s+no)\s+point\s+in\s+(?:going\s*on|continuing)(?:\s+(\p{L}+))?/gu;
+const POINT_CLAUSE_WORDS = new Set(["anymore", "any", "because", "but", "and", "so", "since", "i", "im", "it", "what", "why", "honestly", "really", "now", "tbh", "just", "like"]);
+function matchPointContinuing(view: string): boolean {
+  for (const m of view.matchAll(POINT_IN_CONTINUING)) {
+    const next = m[1];
+    if (next === undefined || POINT_CLAUSE_WORDS.has(next)) return true;
+  }
+  return false;
+}
+/** The same bare form with every separator gone (fully letter- or punctuation-spaced evasion): only when it ends the turn. */
+const SQUEEZED_POINT_IN_CONTINUING = /(?:dontseethepoint|donotseethepoint|cantseethepoint|cannotseethepoint|nolongerseethepoint|seenopoint)in(?:goingon|continuing)$/;
 
 function matchAll(text: string, patterns: readonly RegExp[]): string[] {
   return patterns.filter((pattern) => pattern.test(text)).map((pattern) => pattern.source);
@@ -666,20 +697,26 @@ export function crisisGuard(text: string): CrisisCheckResult {
   const collapsed = collapseLetterSpacedRuns(normalised);
   const squeezed = squeeze(normalised);
   // P1 W3 / D-093 2A: the leet-folded second view ("w4nt", "d1e"). Tried in addition to the plain views, so it only adds.
-  const leeted = normalise(text, true);
+  const leeted = normalise(text, "i");
   const leetCollapsed = collapseLetterSpacedRuns(leeted);
   const leetSqueezed = squeeze(leeted);
+  // Review I1: "1" is also an "l" ("ki11 myself", "k1ll"), so the l-reading is a third view (again, only ever an addition).
+  const leetedL = normalise(text, "l");
+  const leetLCollapsed = collapseLetterSpacedRuns(leetedL);
+  const leetLSqueezed = squeeze(leetedL);
 
   const crisisMatched = new Set<string>();
   const concernMatched = new Set<string>();
 
-  const views = [...new Set([normalised, collapsed, leeted, leetCollapsed])];
+  const views = [...new Set([normalised, collapsed, leeted, leetCollapsed, leetedL, leetLCollapsed])];
   for (const view of views) {
     for (const source of matchAll(view, CRISIS_PATTERNS)) crisisMatched.add(source);
     for (const source of matchAll(view, CONCERN_PATTERNS)) concernMatched.add(source);
     for (const token of matchTokens(view)) crisisMatched.add(`token:${token}`);
+    if (matchPointContinuing(view)) crisisMatched.add("token:point-in-continuing");
   }
-  for (const twin of leetSqueezed === squeezed ? [squeezed] : [squeezed, leetSqueezed]) {
+  for (const twin of new Set([squeezed, leetSqueezed, leetLSqueezed])) {
+    if (SQUEEZED_POINT_IN_CONTINUING.test(twin)) crisisMatched.add("squeezed:point-in-continuing");
     for (const { source, regex } of SQUEEZED_CRISIS_PATTERNS) {
       if (regex.test(twin)) crisisMatched.add(`squeezed:${source}`);
     }

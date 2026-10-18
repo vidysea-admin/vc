@@ -887,6 +887,87 @@ for (const text of D093_NOT_CRISIS) {
   });
 }
 
+// P1 W3 eng3 fix cycle 1 (checker FAIL ISS-p1eng3-1, review W2): "kms" is a unit of distance ONLY right after a number or a plain
+// quantity word. A distance word after it ("kms from the stress", "kms away from here") or a vague word before it ("about", "almost")
+// must NOT hide a crisis statement.
+test("D-093 2A repair: 'kms' next to about/almost/from/away words is still a crisis statement", () => {
+  for (const text of [
+    "i keep thinking about kms",
+    "thinking about kms every day",
+    "i was almost kms tonight",
+    "i wanna kms from the stress",
+    "kms from this exam pressure",
+    "i want to kms away from here",
+    "kms away from here",
+    "i am around kms levels of tired",
+    "some days i just want to kms",
+  ]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+    assert.equal(routeBeforeGeneration(text).route, "escalate", text);
+  }
+});
+
+test("D-093 2A repair: 'kms' as a distance after a number or a quantity word stays 'none'", () => {
+  for (const text of [
+    "50 kms",
+    "a few kms from campus",
+    "the flat is several kms from the university",
+    "thousands of kms from home",
+    "it is a couple of kms away",
+    "the airport is 12 kms from the city centre",
+    "I want to kill this exam",
+  ]) {
+    assert.equal(crisisGuard(text).level, "none", text);
+  }
+});
+
+test("D-093 2A repair: elongated 'kms' spellings are flagged (ISS-p1eng3-3)", () => {
+  for (const text of ["kmss", "wanna kmsss", "KMSS!!"]) assert.equal(crisisGuard(text).level, "crisis", text);
+  // A distance with an elongated unit after a number is still a distance.
+  assert.equal(crisisGuard("it is 50 kmss from here").level, "none");
+});
+
+test("D-093 2A repair: Hinglish spelling variants of 'mujhe marna hai' are flagged (ISS-p1eng3-3)", () => {
+  for (const text of ["mujhe marna h", "mujhe marnaa hai", "marnaa hi hai", "mujhe marna h ab"]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+});
+
+test("D-093 2A repair: '1' read as 'l' in leet spellings ('ki11 myself') is flagged (review I1)", () => {
+  for (const text of ["ki11 myself", "kil1 myself", "i want to ki11 myself", "k1ll myself"]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+  // The existing 1 -> i reading and bare numbers are unchanged.
+  assert.equal(crisisGuard("su1c1de").level, "crisis");
+  assert.equal(crisisGuard("I scored 11 out of 20 in 2026").level, "none");
+});
+
+// Review W1: "I don't see the point in continuing/going on with MBA" is study talk; the self-referential life form
+// ("with my life", a bare "going on") still fires.
+test("D-093 2A repair: 'see the point in going on / continuing' fires only for the life form or a bare statement (review W1)", () => {
+  for (const text of [
+    "I don't see the point in going on",
+    "I don't see the point in continuing with my life",
+    "i dont see the point in going on anymore",
+    "I can't see the point in continuing, I am so tired",
+    "I see no point in going on",
+    "i see no point in continuing with life",
+    "I do not see any point in going on because nothing works",
+    "I don't see the point in going on. what should I do",
+  ]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+  for (const text of [
+    "I don't see the point in continuing with MBA",
+    "I don't see the point in going on with this course",
+    "I don't see the point in continuing my IELTS prep",
+    "I don't see the point in continuing with the course",
+    "I see no point in continuing with an MS in CS",
+  ]) {
+    assert.equal(crisisGuard(text).level, "none", text);
+  }
+});
+
 test("D-093 2A: every new Hinglish/English phrase has its spaced / doubled / punctuated evasion forms flagged", () => {
   const failures: string[] = [];
   // Not generated: leet phrases (letter-spacing a leet phrase is a second evasion on top of the first) and "kms" sentences (a
