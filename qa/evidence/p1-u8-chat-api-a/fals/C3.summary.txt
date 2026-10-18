@@ -1,0 +1,10 @@
+start 2026-10-18T23:50:27+05:30
+before group1 (packages/db: tests/chat-threads.test.ts) tests=12 pass=12 fail=0 first_fail=[]
+before group2 (apps/api: tests/chat.test.ts) tests=23 pass=23 fail=0 first_fail=[]
+edited packages/db/src/chat-threads.ts
+after group1 (packages/db: tests/chat-threads.test.ts) tests=12 pass=11 fail=1 first_fail=[✖ the same turn id sent again with different text is a conflict, not a silent replay of the old answer]
+after group2 (apps/api: tests/chat.test.ts) tests=23 pass=22 fail=1 first_fail=[✖ the same clientTurnId reused with different text is refused 409, and the first answer is kept]
+restored byte-identical to HEAD: packages/db/src/chat-threads.ts
+restored group1 (packages/db: tests/chat-threads.test.ts) tests=12 pass=12 fail=0 first_fail=[]
+restored group2 (apps/api: tests/chat.test.ts) tests=23 pass=23 fail=0 first_fail=[]
+end 2026-10-18T23:50:57+05:30

@@ -1,0 +1,29 @@
+[testlock] waiting for lock held by: PID=5352 STARTED=639279630895039365 ACQUIRED_AT=1792346490 TOKEN=1792346490174055500-3912-28630 DESC=node C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/u8b-out/falsify.mjs B1,B2,B8,B10 
+[testlock] owner PID 5352 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running (free RAM 1.62 GB): pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/mcp/student-profile test
+
+> @vc/mcp-student-profile@0.1.0 test C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u8\mcp\student-profile
+> tsx --test tests/*.test.ts
+
+✔ tool registered and callable through MCP: both tools appear in tools/list (105.1194ms)
+✔ B4 consent required: get_profile_facts with no consent row returns a tool error and zero facts (15.8726ms)
+✔ purpose filter: only facts whose purposeTags include the requested purpose come back, superseded facts excluded (8.6913ms)
+✔ B3 propose_profile_diff writes nothing: the facts collection is unchanged after the call, read back directly (8.332ms)
+✔ hostile: purpose not in the enum is rejected by Zod before any DB read (5.0244ms)
+✔ hostile: a NoSQL-operator object as studentId ({"$ne": null}) is rejected by Zod, not passed to the DB (4.419ms)
+✔ hostile: an uncited candidate fact in propose_profile_diff is rejected by Zod (FactSchema requires source) (4.258ms)
+✔ ISS-029: propose_profile_diff with no consent row and a guessed key leaks nothing -- the secret string appears nowhere in the response (5.2866ms)
+✔ ISS-029: consent recorded for a DIFFERENT purpose still leaks nothing (4.6767ms)
+✔ ISS-029: consented purpose, but the stored fact is tagged with a DIFFERENT purpose -- no before leak, diff treats it as unseen (5.5452ms)
+✔ ISS-029: the legitimate path (consented purpose, fact tagged with that purpose) still produces a correct update diff (4.3452ms)
+✔ D-013: a legacy open fact with no `active` field is NOT returned by get_profile_facts and is NOT used as `before` in propose_profile_diff (5.2904ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 28142.2361
+exit=0

@@ -1,0 +1,7 @@
+start 2026-10-18T23:56:18+05:30
+before group1 (packages/db: tests/student-store.test.ts tests/erasure.test.ts tests/db-scope.test.ts) tests=95 pass=95 fail=0 first_fail=[]
+edited packages/db/src/erasure.ts
+after group1 (packages/db: tests/student-store.test.ts tests/erasure.test.ts tests/db-scope.test.ts) tests=95 pass=91 fail=4 first_fail=[✖ B15: the receipt counts match what was actually there (read back, per collection)]
+restored byte-identical to HEAD: packages/db/src/erasure.ts
+restored group1 (packages/db: tests/student-store.test.ts tests/erasure.test.ts tests/db-scope.test.ts) tests=95 pass=95 fail=0 first_fail=[]
+end 2026-10-18T23:56:37+05:30

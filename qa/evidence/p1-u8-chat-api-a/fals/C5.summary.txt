@@ -1,0 +1,7 @@
+start 2026-10-18T23:51:25+05:30
+before group1 (apps/api: tests/student-auth.test.ts tests/chat-privacy.test.ts) tests=26 pass=26 fail=0 first_fail=[]
+edited apps/api/src/auth.ts
+after group1 (apps/api: tests/student-auth.test.ts tests/chat-privacy.test.ts) tests=26 pass=24 fail=2 first_fail=[✖ D-093 4A: a token with no age and no minor claim is treated as under 18 (fail closed), so its text is not stored either]
+restored byte-identical to HEAD: apps/api/src/auth.ts
+restored group1 (apps/api: tests/student-auth.test.ts tests/chat-privacy.test.ts) tests=26 pass=26 fail=0 first_fail=[]
+end 2026-10-18T23:51:48+05:30
