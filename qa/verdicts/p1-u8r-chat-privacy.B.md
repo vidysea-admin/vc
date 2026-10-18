@@ -1,0 +1,50 @@
+# Verdict B - p1-u8r-chat-privacy (coordinator B, blind dual check)
+
+Cycle checked: 2
+Policy-Version: proportional-verification/2026-10-18.15
+
+CHECK-PLAN: Mode A, tier L, dual trigger security chat.ts:487. Own plan: (1) identity: code 585f6dc, HEAD e3bec20 differs from it by the manifest only; (2) rerun the maker's three-package suites and typechecks; (3) hostile probes per the brief (cycle-0, cycle-1 and cycle-2 lists) in synthetic fake-DB worlds, with gated escalate ports for the in-flight races; (4) one falsification per criterion C1..C14 in a copy; (5) timing and linear-scan checks.
+
+VERDICT: PASS
+SCOREBOARD: C1..C14 14/14 pass; 14/14 criteria falsified red (21 mutant runs; 4 partial C11 mutants survive alone by design, see NOTES b); 34 hostile probes pass (26 + 6 + 2 record-only); suites api 69/69, schemas 19/19, db 14/14; typecheck schemas, db, api exit 0 x3.
+TIER: L (dual check; this is the B half).
+CHECKED-STATE: code 585f6dc, HEAD e3bec20 (manifest only). All runs were made in a pristine `git archive e3bec20` export (scratchpad `p1-u8r-B-clean`, node_modules junctioned), because the bound worktree was mutated by the other coordinator while I ran (NOTES a). B did not modify the bound tree.
+
+CRITERIA (outcome proof, then the falsification that went red):
+- C1 profile outage: ordinary turn 503, zero writes, provider not called, retry of the same turn id 200, no profile name stored; crisis during the outage gets the helpline, 1 escalation, no text stored. Falsify: 503 line removed -> 2 red. PASS.
+- C2 crisis cap: 5 crisis turns in 10 min on one thread = 2 turn rows, 1 flag, 1 escalation, 5 of 5 helpline; other thread, other student, other tenant each escalate; a failed flag write gives the slot back; 9 min later quiet, 11 min later escalates. Falsify: cap off -> 15 red. PASS.
+- C3 lower-case names: "my name is devika nair", "i am kabir", "call me aarav", "MY NAME IS ROHAN", "i'm kabir singh" redacted; "i am tired / from delhi / a student / going to apply / 17 years old" survive. "naam hai priya" is UNSUPPORTED (unchanged, recorded); "mera naam priya hai" is redacted. Falsify: lower-case off -> 6 red. PASS.
+- C4 echoed name: a reply that greets the stated name (Devika Nair, Kabir, Aarav, Rohan, Anita Verma, Rao, Abdul Kalam) is absent from stored rows, replay and history; the live answer keeps it. Falsify: stated names dropped -> 4 red. PASS.
+- C5 escalation input: no name, phone or email in it; "i am unalive" still escalates; a titled-initial name is [NAME] in the input. Falsify: raw text to escalation -> 2 red. PASS.
+- C6 fact key: phone, email, "my name is priya sharma", "i am kabir", "call me aarav" redacted in the key. Falsify: key stored as given -> red. PASS (a bare "Priya Sharma" key is unchanged, PROPOSED-ISSUE 2).
+- C7 ranked slot: concern then crisis 60 s = 2 escalations and 2 flags; crisis then concern = 1; crisis then crisis = 1; a failed upgrade puts the confirmed concern holder back. Falsify: rank ignored -> 3 red. PASS.
+- C8 replay: a same-clientTurnId retry of a completed crisis turn returns the stored answer inside the window and after expiry with no new escalation or flag; a new crisis after it escalates. Falsify: replay branch off -> 2 red. PASS (the flag-only half is superseded by C13).
+- C9 titles: Dr, Mr, Prof, Mrs, Ms, Shri, Smt, Sri, Kumari, Km in upper and lower case are fully redacted; "from Pune" kept. Falsify: title exemption off -> 2 red. PASS.
+- C10 linear scan: 2M chars without "@" in 5 ms; 200k "a." in 0 ms; 250k adversarials with "@" under 50 ms; a real address still redacted. Falsify: skip off -> 2 red (375 ms); local part unbounded -> 2 red (22 s); both off -> 2 red (33 min). PASS.
+- C11 only a real escalation confirms: an over-long crisis then "I want to kill myself" 60 s later = 1 escalation, a third is quiet; over-long crisis then a concern = 1; unconsented-minor crisis then a consented crisis = 1; two unconsented crisis turns in one window are both flagged and leave no turn rows. Falsify: confirm and variant checks removed -> 3 red; plus rank 0 removed -> 5 red. PASS.
+- C12 failed slot never restored: concern A in flight, crisis B takes over, A and B fail (both orders), concern C escalates, concern D is quiet. Falsify: released checks removed -> 2 red. PASS.
+- C13 bounded wait: a quiet turn behind an in-flight holder that fails escalates itself in 262 ms (<5 s) and records its own flag; behind a holder that succeeds it writes no row and no flag; behind a hung holder (wait 150 ms) it runs the full path and is recorded; a crisis phrase at the end of an over-long message still gets the helpline; a concern behind a crisis holder is quiet on success and escalates on failure; no live ref'd timer after 5 waiters. Falsify: no wait -> 5 red. PASS.
+- C14 titles and initials outside the cap: "I'm Dr. A. P. J. Abdul Kalam", "Prof. Dr. Anita Rao Verma", "dr. anita rao verma from pune", "Shri Ram Prasad Bismil Sharma", "Mr. R. K. Narayan from Mysore", "Dr. Dr. Dr. Anita Verma" redacted and places kept; 50k to 100k chains in 17-39 ms; e2e Kalam echoed in the reply is in nothing stored. Falsify: prefix group removed -> 1 red. PASS.
+
+FAILURES: none.
+
+FINDINGS (all non-blocking; PROPOSED-ISSUE lines for the maker to mint):
+PROPOSED-ISSUE: {"severity":"low","title":"the crisis write cap only binds when an escalate port is wired: with no escalateForTenant every crisis turn in the window is stored and flagged (5 of 5 in the probe), because only a real escalation confirms the slot","where":"apps/api/src/chat.ts handleTurn slot confirmation","unit":"p1-u8r-chat-privacy"}
+PROPOSED-ISSUE: {"severity":"low","title":"a model-proposed profile fact is stored with the Pathlynks profile name unredacted (key 'note about Meera Kulkarni', value 'Meera Kulkarni likes Germany'); proposeProfileFact redacts without knownNames and a bare-name key is unchanged","where":"packages/db/src/profile-facts.ts proposeProfileFact; apps/api/src/chat.ts extractFacts call","unit":"p1-u8r-chat-privacy"}
+PROPOSED-ISSUE: {"severity":"low","title":"a crisis turn behind an in-flight unconfirmed holder waits up to quietWaitMs (5 s) before its helpline answer is returned; owner to confirm a bounded 5 s delay on a second crisis message is acceptable, or answer first and settle the slot after","where":"apps/api/src/chat.ts awaitHolder / handleTurn","unit":"p1-u8r-chat-privacy"}
+PROPOSED-ISSUE: {"severity":"low","title":"a turn that ran loose after the wait escalates but never confirms the slot, so the next crisis turn escalates again (3 escalations for 3 turns in the hung-then-failed probe); bounded over-escalation in the safe direction","where":"apps/api/src/chat.ts loose path","unit":"p1-u8r-chat-privacy"}
+PROPOSED-ISSUE: {"severity":"low","title":"name redaction limits recorded: 'naam hai priya' (no 'mera') is not redacted; 'I am Dr. what is the fee' becomes 'I am [NAME]. what is the fee' (harmless over-redaction)","where":"packages/schemas/src/redact.ts","unit":"p1-u8r-chat-privacy"}
+
+BUILDER OPEN RISKS: item 5 (profile-outage escalation text lacks the Pathlynks name) and the limiter charge before the 503 are as the maker stated; not re-opened. Unconsented-minor and over-long crisis turns never escalate by design (D-093 4A); they are flagged.
+NOTES: (a) Shared-worktree contamination: at 04:07 `apps/api/src/chat.ts` in the bound worktree carried an uncommitted one-line change (`if (active !== undefined && rank <= active.rank)` replaced by `if (false)`) and untracked `_probeA-*` test files, made by the other coordinator. My first baseline and probe runs (04:05-04:08) were green, but I rebuilt a pristine export and reran everything there; the numbers above are from the export (content equal to e3bec20 after CRLF normalisation, four files hashed). At 05:17 the bound tree was clean and HEAD was 8d0c2e3 (qa only; `git diff 585f6dc HEAD -- apps packages` is empty). The maker should still confirm `git status` is clean at close-out. (b) Mutants ran in a copy (`apps/api/.b-mut` inside the export, removed after). C11 partials that survive alone: confirm check only, rank 0 only, both, and the variant check only; the layers are redundant by construction (a textless variant has no escalate port, so `escalated` stays false and the slot is released at once). Removing the variant and confirm checks together is red (3), and with rank 0 removed too (5). (c) Two cycle-1 expectations in my own probes were updated to cycle-2 semantics: a hung-holder test now accepts that k2 ran loose and k3 escalated again, and a concern after an over-long crisis is state `escalated` because a prior flag exists. Neither is a defect. (d) My cycle-1 evidence `qa/evidence/p1-u8r-B/` is left untouched. (e) ENVIRONMENTAL: C: at 100% (4-5 GB free); one accidental node_modules copy (1.1 GB) was deleted at once; no OOM.
+LIVE-BROWSER: not-applicable (JSON API only)
+ISSUES-WRITTEN: none (dual check)
+EXECUTOR: claude-sonnet-subagent (checker coordinator B)
+
+COMMANDS (all through `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh`, in the pristine export):
+- pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts tests/chat.test.ts tests/chat-profile.test.ts: exit 0, 69/69. packages/schemas tests/redact.test.ts: 19/19. packages/db tests/student-store.test.ts: 14/14. pnpm typecheck for schemas, db, api: exit 0 x3.
+- tsx --test probe-b.test.ts probe-c2.test.ts: 26/26. probe-c2b.test.ts: 6/6. probe-c6b.test.ts: 2/2 (record only).
+- mut-run.sh red counts: C1 2, C2 15, C4 4, C5 2, C7 3, C8 2, C11a/b/ab 0 (survive), C11d 3, C11e 5, C11f 0, C12 2, C13 5, C3 6, C9 2, C10a 2, C10b 2, C10ab 2, C14 1, C6 1.
+Evidence: qa/evidence/p1-u8r-B-c2/ (SHA256SUMS.txt, logs, probes, scripts).
+
+Metrics: start=2026-10-19T04:01:32+05:30 end=2026-10-19T05:20:00+05:30 wall_min=78 agent_min=unavailable blocked_min=0 suite_runs=2 repeat_runs=1 mutations=21 cycle=2 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-18.15 lane=normal check_s=unavailable mutants=21 defects_unit=0 defects_6c=unavailable
