@@ -106,6 +106,7 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 
 ## Candidates (human picks)
 
+- [ ] CANDIDATE · priority: privacy · ISS-198 (medium): a lower-case one-letter initial before a name leaves the name unredacted ('my name is s. kumar', 'i am j. r. d. tata', 'my name is a. p. j. abdul kalam'; 'my name is dr. s. kumar' keeps the surname); packages/schemas/src/redact.ts:152-160 (isLowerNameToken length < 2 ends the run). Found by U8r checker A (cycle 2). Source: qa/verdicts/p1-u8r-chat-privacy.A.md P2.
 - [ ] CANDIDATE · priority: safety · ISS-194 (medium): the crisis guard's study-then-distress rescue depends on detector vocabulary; "I don't see the point in continuing college, <tail>" is none for tails such as "I feel so lost", "nothing is worth it", "I feel trapped", "everyone would be better off", "i just want it all to stop", "I cant breathe" (each tail is also none alone; a general vocabulary gap, crisis at base 559a421). Human approval needed (product call under D-020). Fix: extend POINT_DISTRESS/CONCERN, or let a study object suppress only when the rest is study-only. Source: qa/evidence/p1-briefs/p1-eng3-c3-review-result.md.
 
 Raised by the p1-eng3 crisis-leftovers check and reviews (2026-10-19, ISS-183..ISS-197; PASS f81a995, senior reviews cycle 2 and 3 Warning); none is a TODO row, the human picks. Sources: qa/verdicts/p1-eng3-crisis-leftovers.md, qa/evidence/p1-briefs/p1-eng3-c2-review-result.md, qa/evidence/p1-briefs/p1-eng3-c3-review-result.md. ISS-183, 184, 189 and 191 are closed.
@@ -171,6 +172,18 @@ Raised by the U6b + U11 + U9 checks (2026-10-19, ISS-163..ISS-182); none is a TO
 - [ ] CANDIDATE · ISS-180 (low): U9 residual risk (G-REAL / A10): silence after a crisis keeps the model muted indefinitely (fails closed).
 - [ ] CANDIDATE · ISS-181 (low): U9 residual risk (G-REAL / A10): a mid-sentence pause of 1.2 s or more after a turn end lifts the mute (D-097 trade-off).
 - [ ] CANDIDATE · ISS-182 (low): U9: a typed message never lifts the crisis mute or updates the resume-gap clock (D-096 as worded); carried cycle-1 lows (close-before-attach replay, M3 byteLength).
+
+Raised by the U8r chat privacy dual check (2026-10-19, ISS-198..ISS-207; PASS A 8d0c2e3, B b4aa502; senior review cycle 2 Approve); none is a TODO row, the human picks. Sources: qa/verdicts/p1-u8r-chat-privacy.A.md, qa/verdicts/p1-u8r-chat-privacy.B.md, qa/evidence/p1-briefs/p1-u8r-c2-review-result.md. ISS-163 (U6b chat source mapping) stays open under the earlier row.
+
+- [ ] CANDIDATE · ISS-199 (low): crisis flood cap does not apply to textless turns (40 over-long or unconsented-minor crisis turns wrote 40 flag rows); the crisis route is not rate limited. apps/api/src/chat.ts:518,609.
+- [ ] CANDIDATE · ISS-200 (low): the crisis write cap binds only when an escalate port is wired; with no escalateForTenant every crisis turn is stored and flagged (production wiring at apps/api/src/index.ts:332 always supplies one).
+- [ ] CANDIDATE · ISS-201 (low): concurrent crisis waiters or the loose path can escalate more than once (1 failing holder + 6 waiters gave 6 escalations); safe direction. Fix: wait once more on the new holder. apps/api/src/chat.ts:592-598.
+- [ ] CANDIDATE · ISS-202 (low): a crisis helpline answer behind a slow or hung unconfirmed holder is delayed up to 5 s (quietWaitMs); owner to confirm or answer first and settle after.
+- [ ] CANDIDATE · ISS-203 (low): a model-proposed profile fact is stored with the Pathlynks profile name unredacted (proposeProfileFact redacts without knownNames). Overlaps ISS-153.
+- [ ] CANDIDATE · ISS-204 (low): Hinglish 'naam hai X' without 'mera' is not redacted (recorded as unsupported).
+- [ ] CANDIDATE · ISS-205 (low): name over-redaction ('I am Dr. what is the fee' becomes 'I am [NAME]. what is the fee'; 'sri'/'kumari' and initials); precision only.
+- [ ] CANDIDATE · ISS-206 (low): the quiet-turn replay branch calls listChatTurns on every quiet turn (predates cycle 2).
+- [ ] CANDIDATE · ISS-207 (low, umesh-confirm): pending questions: more than one API instance (the crisis window is per process)? crisis escalation without Pathlynks name redaction during a profile outage accepted? D-093 4A unconsented-minor escalation and same-id retry re-escalation? 5 s helpline delay bound?
 
 ## Sweep notes (2026-09-26T19:44 IST, Mode B single-agent sweep — only qa/ + TASKS commits landed since the last sweep 38c426e, so sharding buys nothing)
 
