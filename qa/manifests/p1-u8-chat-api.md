@@ -3,7 +3,8 @@
 **Criteria:** C1 flag+gate, C2 student JWT, C3 idempotent threads and turns, C4 redacted persistence, C5 under-18, C6 profile routes, C7 limits, C8 tenants, C9 logs, C10 erasure+export
 **Goal task:** none
 **Date:** 2026-10-18
-**Status:** ready-for-check
+**Status:** checked-PASS
+**Close-out:** dual PASS at cycle 0. Verdict A qa/verdicts/p1-u8-chat-api.md at b1aadea, verdict B qa/verdicts/p1-u8-chat-api.b.md at 86c04db. Findings filed as ISS-147..ISS-162 in qa/issues.jsonl; the five medium ones (ISS-147, 148, 152, 156, 157) are repaired by p1-u8r.
 **Fix cycle:** 0 of max 2
 **Dual check:** required
 dual-trigger: auth apps/api/src/auth.ts:406 (student role gate: a validly signed non-student token is refused; also `auth.ts:415` guardian consent = boolean true only, `chat.ts:519` path student must equal token student)
