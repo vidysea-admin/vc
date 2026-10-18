@@ -1,0 +1,17 @@
+[testlock] running slot 0 (free RAM 4.82 GB): pnpm -C apps/api exec tsx --test --test-name-pattern ^C4[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (1581.4445ms)
+✔ tests\voice-history.test.ts (1644.0528ms)
+✔ tests\voice-limits.test.ts (1669.2463ms)
+✔ C4: resume with lastEventId replays the events the client missed, with their original ids, for the same student and thread only (122.2672ms)
+✔ C4: resume of an expired, unknown or someone else's session id replays nothing (189.4314ms)
+✔ C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable (216.844ms)
+✔ C4/D-088: a session ends at the 20-minute cap with a fixed message, and exactly 20 minutes are recorded (47.5643ms)
+✔ C4: text fallback: after a voice failure, a cap or a silence end, text chat continues in the same thread (84.2356ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2288.8332

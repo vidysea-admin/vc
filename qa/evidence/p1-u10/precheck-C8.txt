@@ -1,0 +1,16 @@
+[testlock] running slot 0 (free RAM 4.84 GB): pnpm -C apps/api exec tsx --test --test-name-pattern ^C8[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (1655.0124ms)
+✔ tests\voice-history.test.ts (1704.8868ms)
+✔ tests\voice-limits.test.ts (1697.5434ms)
+✔ C8/A12: LiveConfigError is its own fixed error event (live_config), the socket closes, and no provider detail leaks (89.5068ms)
+✔ C8/A12: a provider error mid-session is an error event and the session continues; a backend close ends the session with live_closed (72.9093ms)
+✔ C8/A20: default off: no flag builds nothing, no route is mounted, and the upgrade path does not exist (24.4526ms)
+✔ C8/A20: enabled without the go-live records (or the passing A10 record) is refused, and tracing on is refused (58.908ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1923.3809

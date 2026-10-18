@@ -1,0 +1,16 @@
+[testlock] running slot 0 (free RAM 5.78 GB): pnpm -C apps/api exec tsx --test --test-name-pattern ^(C1[:/]|A6:) tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (1549.866ms)
+✔ tests\voice-history.test.ts (1509.1985ms)
+✔ tests\voice-limits.test.ts (1535.3264ms)
+✔ C1: POST voice/sessions mints a short-lived token with the D-088 audio format and no token in the URL (34.7537ms)
+✔ C1: session route refusals: no token, wrong role, other student's path, unknown thread, other tenant's thread, bad body, bad method, fenced (19.2696ms)
+✔ C1: a fenced (erasure in progress) student gets 409 student_fenced and no token (14.6551ms)
+✔ A6: the sandbox tenant accepts only syn- student ids at the voice session route (12.7286ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1640.7447
