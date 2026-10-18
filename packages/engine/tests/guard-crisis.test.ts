@@ -1071,7 +1071,7 @@ test("D-093 2A cycle 3: 'see the point in continuing' scanning is linear on a lo
       crisisGuard(text);
       best = Math.min(best, performance.now() - started);
     }
-    assert.ok(best < 500, `${JSON.stringify(unit)} x repeated took ${best.toFixed(0)} ms`);
+    assert.ok(best < 120, `${JSON.stringify(unit)} x repeated took ${best.toFixed(0)} ms`);
   }
   // More than a handful of study-suppressed repeats is not plain study talk: it is flagged (fail closed, D-020).
   assert.equal(crisisGuard("i dont see the point in continuing mba ".repeat(30)).level, "crisis");
