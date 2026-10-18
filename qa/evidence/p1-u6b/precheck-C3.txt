@@ -1,0 +1,10 @@
+✔ C3 P-8: a student who sets no weights is ranked with 0.40 / 0.25 / 0.20 / 0.15 and told rankingProfile is student-success (7.4962ms)
+✔ C3 P-8: explicitly passing the default vector, or a multiple of it, is still student-success (the name follows the numbers) (1.5441ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6636.6713

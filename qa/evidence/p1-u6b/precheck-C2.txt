@@ -1,0 +1,11 @@
+✔ C2 A16: every ranked option names its KB source ids and the profile facts that moved its score (5.7562ms)
+✔ C2 A16: the claims, sources and profileFactsUsed it returns fit the TurnResponse schema, one claim per option in rank order (4.9364ms)
+✔ C2 A16: the top-level profileFactsUsed lists each fact once, with the exact source label it came with (0.7763ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7426.7438
