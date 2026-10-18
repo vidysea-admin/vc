@@ -1,0 +1,2685 @@
+{
+ "schemaVersion": 1,
+ "source": "synthetic",
+ "recordedAt": "2026-10-17T00:00:00Z",
+ "_note": "SYNTHETIC coverage-probe fixture (P1 U11, A17): countries, themes, probe ids and hits are invented to exercise every report state; NOT a recording of the live KB. The real country x theme probe list is open (Q-U11-2).",
+ "countries": [
+  "Australia",
+  "Canada",
+  "France",
+  "Germany",
+  "Ireland",
+  "Japan",
+  "Netherlands",
+  "New Zealand",
+  "Singapore",
+  "UAE",
+  "UK",
+  "USA"
+ ],
+ "themes": [
+  "accommodation",
+  "admissions",
+  "scholarships",
+  "tuition",
+  "visa",
+  "work-rights"
+ ],
+ "probes": [
+  {
+   "id": "cov-australia-accommodation",
+   "country": "Australia",
+   "theme": "accommodation",
+   "query": "SYNTHETIC probe: accommodation in Australia"
+  },
+  {
+   "id": "cov-australia-admissions",
+   "country": "Australia",
+   "theme": "admissions",
+   "query": "SYNTHETIC probe: admissions in Australia"
+  },
+  {
+   "id": "cov-australia-scholarships",
+   "country": "Australia",
+   "theme": "scholarships",
+   "query": "SYNTHETIC probe: scholarships in Australia"
+  },
+  {
+   "id": "cov-australia-tuition",
+   "country": "Australia",
+   "theme": "tuition",
+   "query": "SYNTHETIC probe: tuition in Australia"
+  },
+  {
+   "id": "cov-australia-visa",
+   "country": "Australia",
+   "theme": "visa",
+   "query": "SYNTHETIC probe: visa in Australia"
+  },
+  {
+   "id": "cov-australia-work-rights",
+   "country": "Australia",
+   "theme": "work-rights",
+   "query": "SYNTHETIC probe: work-rights in Australia"
+  },
+  {
+   "id": "cov-canada-accommodation",
+   "country": "Canada",
+   "theme": "accommodation",
+   "query": "SYNTHETIC probe: accommodation in Canada"
+  },
+  {
+   "id": "cov-canada-admissions",
+   "country": "Canada",
+   "theme": "admissions",
+   "query": "SYNTHETIC probe: admissions in Canada"
+  },
+  {
+   "id": "cov-canada-scholarships",
+   "country": "Canada",
+   "theme": "scholarships",
+   "query": "SYNTHETIC probe: scholarships in Canada"
+  },
+  {
+   "id": "cov-canada-tuition",
+   "country": "Canada",
+   "theme": "tuition",
+   "query": "SYNTHETIC probe: tuition in Canada"
+  },
+  {
+   "id": "cov-canada-visa",
+   "country": "Canada",
+   "theme": "visa",
+   "query": "SYNTHETIC probe: visa in Canada"
+  },
+  {
+   "id": "cov-canada-work-rights",
+   "country": "Canada",
+   "theme": "work-rights",
+   "query": "SYNTHETIC probe: work-rights in Canada"
+  },
+  {
+   "id": "cov-france-accommodation",
+   "country": "France",
+   "theme": "accommodation",
+   "query": "SYNTHETIC probe: accommodation in France"
+  },
+  {
+   "id": "cov-france-admissions",
+   "country": "France",
+   "theme": "admissions",
+   "query": "SYNTHETIC probe: admissions in France"
+  },
+  {
+   "id": "cov-france-scholarships",
+   "country": "France",
+   "theme": "scholarships",
+   "query": "SYNTHETIC probe: scholarships in France"
+  },
+  {
+   "id": "cov-france-tuition",
+   "country": "France",
+   "theme": "tuition",
+   "query": "SYNTHETIC probe: tuition in France"
+  },
+  {
+   "id": "cov-france-visa",
+   "country": "France",
+   "theme": "visa",
+   "query": "SYNTHETIC probe: visa in France"
+  },
+  {
+   "id": "cov-france-work-rights",
+   "country": "France",
+   "theme": "work-rights",
+   "query": "SYNTHETIC probe: work-rights in France"
+  },
+  {
+   "id": "cov-germany-accommodation",
+   "country": "Germany",
+   "theme": "accommodation",
+   "query": "SYNTHETIC probe: accommodation in Germany"
+  },
+  {
+   "id": "cov-germany-admissions",
+   "country": "Germany",
+   "theme": "admissions",
+   "query": "SYNTHETIC probe: admissions in Germany"
+  },
+  {
+   "id": "cov-germany-scholarships",
+   "country": "Germany",
+   "theme": "scholarships",
+   "query": "SYNTHETIC probe: scholarships in Germany"
+  },
+  {
+   "id": "cov-germany-tuition",
+   "country": "Germany",
+   "theme": "tuition",
+   "query": "SYNTHETIC probe: tuition in Germany"
+  },
+  {
+   "id": "cov-germany-visa",
+   "country": "Germany",
+   "theme": "visa",
+   "query": "SYNTHETIC probe: visa in Germany"
+  },
+  {
+   "id": "cov-germany-work-rights",
+   "country": "Germany",
+   "theme": "work-rights",
+   "query": "SYNTHETIC probe: work-rights in Germany"
+  },
+  {
+   "id": "cov-ireland-accommodation",
+   "country": "Ireland",
+   "theme": "accommodation",
+   "query": "SYNTHETIC probe: accommodation in Ireland"
+  },
+  {
+   "id": "cov-ireland-admissions",
+   "country": "Ireland",
+   "theme": "admissions",
+   "query": "SYNTHETIC probe: admissions in Ireland"
+  },
+  {
+   "id": "cov-ireland-scholarships",
+   "country": "Ireland",
+   "theme": "scholarships",
+   "query": "SYNTHETIC probe: scholarships in Ireland"
+  },
+  {
+   "id": "cov-ireland-tuition",
+   "country": "Ireland",
+   "theme": "tuition",
+   "query": "SYNTHETIC probe: tuition in Ireland"
+  },
+  {
+   "id": "cov-ireland-visa",
+   "country": "Ireland",
+   "theme": "visa",
+   "query": "SYNTHETIC probe: visa in Ireland"
+  },
+  {
+   "id": "cov-ireland-work-rights",
+   "country": "Ireland",
+   "theme": "work-rights",
+   "query": "SYNTHETIC probe: work-rights in Ireland"
+  },
+  {
+   "id": "cov-japan-accommodation",
+   "country": "Japan",
+   "theme": "accommodation",
+   "query": "SYNTHETIC probe: accommodation in Japan"
+  },
+  {
+   "id": "cov-japan-admissions",
+   "country": "Japan",
+   "theme": "admissions",
+   "query": "SYNTHETIC probe: admissions in Japan"
+  },
+  {
+   "id": "cov-japan-scholarships",
+   "country": "Japan",
+   "theme": "scholarships",
+   "query": "SYNTHETIC probe: scholarships in Japan"
+  },
+  {
+   "id": "cov-japan-tuition",
+   "country": "Japan",
+   "theme": "tuition",
+   "query": "SYNTHETIC probe: tuition in Japan"
+  },
+  {
+   "id": "cov-japan-visa",
+   "country": "Japan",
+   "theme": "visa",
+   "query": "SYNTHETIC probe: visa in Japan"
+  },
+  {
+   "id": "cov-japan-work-rights",
+   "country": "Japan",
+   "theme": "work-rights",
+   "query": "SYNTHETIC probe: work-rights in Japan"
+  },
+  {
+   "id": "cov-netherlands-accommodation",
+   "country": "Netherlands",
+   "theme": "accommodation",
+   "query": "SYNTHETIC probe: accommodation in Netherlands"
+  },
+  {
+   "id": "cov-netherlands-admissions",
+   "country": "Netherlands",
+   "theme": "admissions",
+   "query": "SYNTHETIC probe: admissions in Netherlands"
+  },
+  {
+   "id": "cov-netherlands-scholarships",
+   "country": "Netherlands",
+   "theme": "scholarships",
+   "query": "SYNTHETIC probe: scholarships in Netherlands"
+  },
+  {
+   "id": "cov-netherlands-tuition",
+   "country": "Netherlands",
+   "theme": "tuition",
+   "query": "SYNTHETIC probe: tuition in Netherlands"
+  },
+  {
+   "id": "cov-netherlands-visa",
+   "country": "Netherlands",
+   "theme": "visa",
+   "query": "SYNTHETIC probe: visa in Netherlands"
+  },
+  {
+   "id": "cov-netherlands-work-rights",
+   "country": "Netherlands",
+   "theme": "work-rights",
+   "query": "SYNTHETIC probe: work-rights in Netherlands"
+  },
+  {
+   "id": "cov-new-zealand-accommodation",
+   "country": "New Zealand",
+   "theme": "accommodation",
+   "query": "SYNTHETIC probe: accommodation in New Zealand"
+  },
+  {
+   "id": "cov-new-zealand-admissions",
+   "country": "New Zealand",
+   "theme": "admissions",
+   "query": "SYNTHETIC probe: admissions in New Zealand"
+  },
+  {
+   "id": "cov-new-zealand-scholarships",
+   "country": "New Zealand",
+   "theme": "scholarships",
+   "query": "SYNTHETIC probe: scholarships in New Zealand"
+  },
+  {
+   "id": "cov-new-zealand-tuition",
+   "country": "New Zealand",
+   "theme": "tuition",
+   "query": "SYNTHETIC probe: tuition in New Zealand"
+  },
+  {
+   "id": "cov-new-zealand-visa",
+   "country": "New Zealand",
+   "theme": "visa",
+   "query": "SYNTHETIC probe: visa in New Zealand"
+  },
+  {
+   "id": "cov-new-zealand-work-rights",
+   "country": "New Zealand",
+   "theme": "work-rights",
+   "query": "SYNTHETIC probe: work-rights in New Zealand"
+  },
+  {
+   "id": "cov-singapore-accommodation",
+   "country": "Singapore",
+   "theme": "accommodation",
+   "query": "SYNTHETIC probe: accommodation in Singapore"
+  },
+  {
+   "id": "cov-singapore-admissions",
+   "country": "Singapore",
+   "theme": "admissions",
+   "query": "SYNTHETIC probe: admissions in Singapore"
+  },
+  {
+   "id": "cov-singapore-scholarships",
+   "country": "Singapore",
+   "theme": "scholarships",
+   "query": "SYNTHETIC probe: scholarships in Singapore"
+  },
+  {
+   "id": "cov-singapore-tuition",
+   "country": "Singapore",
+   "theme": "tuition",
+   "query": "SYNTHETIC probe: tuition in Singapore"
+  },
+  {
+   "id": "cov-singapore-visa",
+   "country": "Singapore",
+   "theme": "visa",
+   "query": "SYNTHETIC probe: visa in Singapore"
+  },
+  {
+   "id": "cov-singapore-work-rights",
+   "country": "Singapore",
+   "theme": "work-rights",
+   "query": "SYNTHETIC probe: work-rights in Singapore"
+  },
+  {
+   "id": "cov-uae-accommodation",
+   "country": "UAE",
+   "theme": "accommodation",
+   "query": "SYNTHETIC probe: accommodation in UAE"
+  },
+  {
+   "id": "cov-uae-admissions",
+   "country": "UAE",
+   "theme": "admissions",
+   "query": "SYNTHETIC probe: admissions in UAE"
+  },
+  {
+   "id": "cov-uae-scholarships",
+   "country": "UAE",
+   "theme": "scholarships",
+   "query": "SYNTHETIC probe: scholarships in UAE"
+  },
+  {
+   "id": "cov-uae-tuition",
+   "country": "UAE",
+   "theme": "tuition",
+   "query": "SYNTHETIC probe: tuition in UAE"
+  },
+  {
+   "id": "cov-uk-accommodation",
+   "country": "UK",
+   "theme": "accommodation",
+   "query": "SYNTHETIC probe: accommodation in UK"
+  },
+  {
+   "id": "cov-uk-admissions",
+   "country": "UK",
+   "theme": "admissions",
+   "query": "SYNTHETIC probe: admissions in UK"
+  },
+  {
+   "id": "cov-uk-scholarships",
+   "country": "UK",
+   "theme": "scholarships",
+   "query": "SYNTHETIC probe: scholarships in UK"
+  },
+  {
+   "id": "cov-uk-tuition",
+   "country": "UK",
+   "theme": "tuition",
+   "query": "SYNTHETIC probe: tuition in UK"
+  },
+  {
+   "id": "cov-uk-visa",
+   "country": "UK",
+   "theme": "visa",
+   "query": "SYNTHETIC probe: visa in UK"
+  },
+  {
+   "id": "cov-uk-work-rights",
+   "country": "UK",
+   "theme": "work-rights",
+   "query": "SYNTHETIC probe: work-rights in UK"
+  },
+  {
+   "id": "cov-usa-accommodation",
+   "country": "USA",
+   "theme": "accommodation",
+   "query": "SYNTHETIC probe: accommodation in USA"
+  },
+  {
+   "id": "cov-usa-admissions",
+   "country": "USA",
+   "theme": "admissions",
+   "query": "SYNTHETIC probe: admissions in USA"
+  },
+  {
+   "id": "cov-usa-scholarships",
+   "country": "USA",
+   "theme": "scholarships",
+   "query": "SYNTHETIC probe: scholarships in USA"
+  },
+  {
+   "id": "cov-usa-tuition",
+   "country": "USA",
+   "theme": "tuition",
+   "query": "SYNTHETIC probe: tuition in USA"
+  },
+  {
+   "id": "cov-usa-visa",
+   "country": "USA",
+   "theme": "visa",
+   "query": "SYNTHETIC probe: visa in USA"
+  },
+  {
+   "id": "cov-usa-work-rights",
+   "country": "USA",
+   "theme": "work-rights",
+   "query": "SYNTHETIC probe: work-rights in USA"
+  }
+ ],
+ "search": [
+  {
+   "query": "SYNTHETIC probe: accommodation in Australia",
+   "hits": [
+    {
+     "turnId": "cov-australia-accommodation-t1",
+     "sessionId": "cov-australia-accommodation-s1",
+     "score": 1.6,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-accommodation 1"
+     },
+     "session": {
+      "date": "2022-05-10"
+     }
+    },
+    {
+     "turnId": "cov-australia-accommodation-t2",
+     "sessionId": "cov-australia-accommodation-s2",
+     "score": 1.3,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-accommodation 2"
+     },
+     "session": {
+      "date": "2022-06-11"
+     }
+    },
+    {
+     "turnId": "cov-australia-accommodation-t3",
+     "sessionId": "cov-australia-accommodation-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-accommodation 3"
+     },
+     "session": {
+      "date": "2025-12-01"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: admissions in Australia",
+   "hits": [
+    {
+     "turnId": "cov-australia-admissions-t1",
+     "sessionId": "cov-australia-admissions-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-admissions 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-australia-admissions-t2",
+     "sessionId": "cov-australia-admissions-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-admissions 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-australia-admissions-t3",
+     "sessionId": "cov-australia-admissions-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-admissions 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: scholarships in Australia",
+   "hits": [
+    {
+     "turnId": "cov-australia-scholarships-t1",
+     "sessionId": "cov-australia-scholarships-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-scholarships 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-australia-scholarships-t2",
+     "sessionId": "cov-australia-scholarships-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-scholarships 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-australia-scholarships-t3",
+     "sessionId": "cov-australia-scholarships-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-scholarships 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: tuition in Australia",
+   "hits": [
+    {
+     "turnId": "cov-australia-tuition-t1",
+     "sessionId": "cov-australia-tuition-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-tuition 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-australia-tuition-t2",
+     "sessionId": "cov-australia-tuition-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-tuition 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-australia-tuition-t3",
+     "sessionId": "cov-australia-tuition-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-tuition 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: visa in Australia",
+   "hits": [
+    {
+     "turnId": "cov-australia-visa-t1",
+     "sessionId": "cov-australia-visa-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-visa 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-australia-visa-t2",
+     "sessionId": "cov-australia-visa-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-visa 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-australia-visa-t3",
+     "sessionId": "cov-australia-visa-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-visa 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: work-rights in Australia",
+   "hits": [
+    {
+     "turnId": "cov-australia-work-rights-t1",
+     "sessionId": "cov-australia-work-rights-s1",
+     "score": 1.6,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-work-rights 1"
+     },
+     "session": {
+      "date": "2022-05-10"
+     }
+    },
+    {
+     "turnId": "cov-australia-work-rights-t2",
+     "sessionId": "cov-australia-work-rights-s2",
+     "score": 1.3,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-work-rights 2"
+     },
+     "session": {
+      "date": "2022-06-11"
+     }
+    },
+    {
+     "turnId": "cov-australia-work-rights-t3",
+     "sessionId": "cov-australia-work-rights-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-australia-work-rights 3"
+     },
+     "session": {
+      "date": "2025-12-01"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: accommodation in Canada",
+   "hits": [
+    {
+     "turnId": "cov-canada-accommodation-t1",
+     "sessionId": "cov-canada-accommodation-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-accommodation 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-canada-accommodation-t2",
+     "sessionId": "cov-canada-accommodation-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-accommodation 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-canada-accommodation-t3",
+     "sessionId": "cov-canada-accommodation-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-accommodation 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: admissions in Canada",
+   "hits": [
+    {
+     "turnId": "cov-canada-admissions-t1",
+     "sessionId": "cov-canada-admissions-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-admissions 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-canada-admissions-t2",
+     "sessionId": "cov-canada-admissions-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-admissions 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-canada-admissions-t3",
+     "sessionId": "cov-canada-admissions-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-admissions 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: scholarships in Canada",
+   "hits": [
+    {
+     "turnId": "cov-canada-scholarships-t1",
+     "sessionId": "cov-canada-scholarships-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-scholarships 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-canada-scholarships-t2",
+     "sessionId": "cov-canada-scholarships-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-scholarships 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-canada-scholarships-t3",
+     "sessionId": "cov-canada-scholarships-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-scholarships 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: tuition in Canada",
+   "hits": [
+    {
+     "turnId": "cov-canada-tuition-t1",
+     "sessionId": "cov-canada-tuition-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-tuition 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-canada-tuition-t2",
+     "sessionId": "cov-canada-tuition-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-tuition 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-canada-tuition-t3",
+     "sessionId": "cov-canada-tuition-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-tuition 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: visa in Canada",
+   "hits": [
+    {
+     "turnId": "cov-canada-visa-t1",
+     "sessionId": "cov-canada-visa-s1",
+     "score": 1.6,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-visa 1"
+     },
+     "session": {
+      "date": "2022-05-10"
+     }
+    },
+    {
+     "turnId": "cov-canada-visa-t2",
+     "sessionId": "cov-canada-visa-s2",
+     "score": 1.3,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-visa 2"
+     },
+     "session": {
+      "date": "2022-06-11"
+     }
+    },
+    {
+     "turnId": "cov-canada-visa-t3",
+     "sessionId": "cov-canada-visa-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-visa 3"
+     },
+     "session": {
+      "date": "2025-12-01"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: work-rights in Canada",
+   "hits": [
+    {
+     "turnId": "cov-canada-work-rights-t1",
+     "sessionId": "cov-canada-work-rights-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-work-rights 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-canada-work-rights-t2",
+     "sessionId": "cov-canada-work-rights-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-work-rights 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-canada-work-rights-t3",
+     "sessionId": "cov-canada-work-rights-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-canada-work-rights 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: accommodation in France",
+   "hits": [
+    {
+     "turnId": "cov-france-accommodation-t1",
+     "sessionId": "cov-france-accommodation-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-accommodation 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-france-accommodation-t2",
+     "sessionId": "cov-france-accommodation-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-accommodation 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-france-accommodation-t3",
+     "sessionId": "cov-france-accommodation-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-accommodation 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: admissions in France",
+   "hits": [
+    {
+     "turnId": "cov-france-admissions-t1",
+     "sessionId": "cov-france-admissions-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-admissions 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-france-admissions-t2",
+     "sessionId": "cov-france-admissions-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-admissions 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-france-admissions-t3",
+     "sessionId": "cov-france-admissions-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-admissions 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: scholarships in France",
+   "hits": [
+    {
+     "turnId": "cov-france-scholarships-t1",
+     "sessionId": "cov-france-scholarships-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-scholarships 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-france-scholarships-t2",
+     "sessionId": "cov-france-scholarships-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-scholarships 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-france-scholarships-t3",
+     "sessionId": "cov-france-scholarships-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-scholarships 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: tuition in France",
+   "hits": [
+    {
+     "turnId": "cov-france-tuition-t1",
+     "sessionId": "cov-france-tuition-s1",
+     "score": 1.6,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-tuition 1"
+     },
+     "session": {
+      "date": "2022-05-10"
+     }
+    },
+    {
+     "turnId": "cov-france-tuition-t2",
+     "sessionId": "cov-france-tuition-s2",
+     "score": 1.3,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-tuition 2"
+     },
+     "session": {
+      "date": "2022-06-11"
+     }
+    },
+    {
+     "turnId": "cov-france-tuition-t3",
+     "sessionId": "cov-france-tuition-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-tuition 3"
+     },
+     "session": {
+      "date": "2025-12-01"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: visa in France",
+   "hits": [
+    {
+     "turnId": "cov-france-visa-t1",
+     "sessionId": "cov-france-visa-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-visa 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-france-visa-t2",
+     "sessionId": "cov-france-visa-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-visa 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-france-visa-t3",
+     "sessionId": "cov-france-visa-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-visa 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: work-rights in France",
+   "hits": [
+    {
+     "turnId": "cov-france-work-rights-t1",
+     "sessionId": "cov-france-work-rights-s1",
+     "score": 1.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-work-rights 1"
+     },
+     "session": {
+      "date": "2026-04-04"
+     }
+    },
+    {
+     "turnId": "cov-france-work-rights-t2",
+     "sessionId": "cov-france-work-rights-s2",
+     "score": 1.2,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-work-rights 2"
+     },
+     "session": {}
+    },
+    {
+     "turnId": "cov-france-work-rights-t3",
+     "sessionId": "cov-france-work-rights-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-france-work-rights 3"
+     },
+     "session": {
+      "date": "sometime in spring"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: accommodation in Germany",
+   "hits": [
+    {
+     "turnId": "cov-germany-accommodation-t1",
+     "sessionId": "cov-germany-accommodation-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-accommodation 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-germany-accommodation-t2",
+     "sessionId": "cov-germany-accommodation-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-accommodation 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-germany-accommodation-t3",
+     "sessionId": "cov-germany-accommodation-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-accommodation 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: admissions in Germany",
+   "hits": [
+    {
+     "turnId": "cov-germany-admissions-t1",
+     "sessionId": "cov-germany-admissions-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-admissions 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-germany-admissions-t2",
+     "sessionId": "cov-germany-admissions-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-admissions 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-germany-admissions-t3",
+     "sessionId": "cov-germany-admissions-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-admissions 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: scholarships in Germany",
+   "hits": [
+    {
+     "turnId": "cov-germany-scholarships-t1",
+     "sessionId": "cov-germany-scholarships-s1",
+     "score": 1.6,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-scholarships 1"
+     },
+     "session": {
+      "date": "2022-05-10"
+     }
+    },
+    {
+     "turnId": "cov-germany-scholarships-t2",
+     "sessionId": "cov-germany-scholarships-s2",
+     "score": 1.3,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-scholarships 2"
+     },
+     "session": {
+      "date": "2022-06-11"
+     }
+    },
+    {
+     "turnId": "cov-germany-scholarships-t3",
+     "sessionId": "cov-germany-scholarships-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-scholarships 3"
+     },
+     "session": {
+      "date": "2025-12-01"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: tuition in Germany",
+   "hits": [
+    {
+     "turnId": "cov-germany-tuition-t1",
+     "sessionId": "cov-germany-tuition-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-tuition 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-germany-tuition-t2",
+     "sessionId": "cov-germany-tuition-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-tuition 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-germany-tuition-t3",
+     "sessionId": "cov-germany-tuition-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-tuition 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: visa in Germany",
+   "hits": [
+    {
+     "turnId": "cov-germany-visa-t1",
+     "sessionId": "cov-germany-visa-s1",
+     "score": 1.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-visa 1"
+     },
+     "session": {
+      "date": "2026-04-04"
+     }
+    },
+    {
+     "turnId": "cov-germany-visa-t2",
+     "sessionId": "cov-germany-visa-s2",
+     "score": 1.2,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-visa 2"
+     },
+     "session": {}
+    },
+    {
+     "turnId": "cov-germany-visa-t3",
+     "sessionId": "cov-germany-visa-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-visa 3"
+     },
+     "session": {
+      "date": "sometime in spring"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: work-rights in Germany",
+   "hits": [
+    {
+     "turnId": "cov-germany-work-rights-t1",
+     "sessionId": "cov-germany-work-rights-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-work-rights 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-germany-work-rights-t2",
+     "sessionId": "cov-germany-work-rights-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-work-rights 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-germany-work-rights-t3",
+     "sessionId": "cov-germany-work-rights-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-germany-work-rights 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: accommodation in Ireland",
+   "hits": [
+    {
+     "turnId": "cov-ireland-accommodation-t1",
+     "sessionId": "cov-ireland-accommodation-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-accommodation 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-ireland-accommodation-t2",
+     "sessionId": "cov-ireland-accommodation-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-accommodation 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-ireland-accommodation-t3",
+     "sessionId": "cov-ireland-accommodation-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-accommodation 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: admissions in Ireland",
+   "hits": [
+    {
+     "turnId": "cov-ireland-admissions-t1",
+     "sessionId": "cov-ireland-admissions-s1",
+     "score": 1.6,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-admissions 1"
+     },
+     "session": {
+      "date": "2022-05-10"
+     }
+    },
+    {
+     "turnId": "cov-ireland-admissions-t2",
+     "sessionId": "cov-ireland-admissions-s2",
+     "score": 1.3,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-admissions 2"
+     },
+     "session": {
+      "date": "2022-06-11"
+     }
+    },
+    {
+     "turnId": "cov-ireland-admissions-t3",
+     "sessionId": "cov-ireland-admissions-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-admissions 3"
+     },
+     "session": {
+      "date": "2025-12-01"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: scholarships in Ireland",
+   "hits": [
+    {
+     "turnId": "cov-ireland-scholarships-t1",
+     "sessionId": "cov-ireland-scholarships-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-scholarships 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-ireland-scholarships-t2",
+     "sessionId": "cov-ireland-scholarships-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-scholarships 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-ireland-scholarships-t3",
+     "sessionId": "cov-ireland-scholarships-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-scholarships 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: tuition in Ireland",
+   "hits": [
+    {
+     "turnId": "cov-ireland-tuition-t1",
+     "sessionId": "cov-ireland-tuition-s1",
+     "score": 1.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-tuition 1"
+     },
+     "session": {
+      "date": "2026-04-04"
+     }
+    },
+    {
+     "turnId": "cov-ireland-tuition-t2",
+     "sessionId": "cov-ireland-tuition-s2",
+     "score": 1.2,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-tuition 2"
+     },
+     "session": {}
+    },
+    {
+     "turnId": "cov-ireland-tuition-t3",
+     "sessionId": "cov-ireland-tuition-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-tuition 3"
+     },
+     "session": {
+      "date": "sometime in spring"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: visa in Ireland",
+   "hits": [
+    {
+     "turnId": "cov-ireland-visa-t1",
+     "sessionId": "cov-ireland-visa-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-visa 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-ireland-visa-t2",
+     "sessionId": "cov-ireland-visa-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-visa 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-ireland-visa-t3",
+     "sessionId": "cov-ireland-visa-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-visa 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: work-rights in Ireland",
+   "hits": [
+    {
+     "turnId": "cov-ireland-work-rights-t1",
+     "sessionId": "cov-ireland-work-rights-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-work-rights 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-ireland-work-rights-t2",
+     "sessionId": "cov-ireland-work-rights-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-work-rights 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-ireland-work-rights-t3",
+     "sessionId": "cov-ireland-work-rights-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-ireland-work-rights 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: accommodation in Japan",
+   "hits": [
+    {
+     "turnId": "cov-japan-accommodation-t1",
+     "sessionId": "cov-japan-accommodation-s1",
+     "score": 0.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-japan-accommodation 1"
+     },
+     "session": {
+      "date": "2026-03-01"
+     }
+    },
+    {
+     "turnId": "cov-japan-accommodation-t2",
+     "sessionId": "cov-japan-accommodation-s2",
+     "score": 0.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-japan-accommodation 2"
+     },
+     "session": {
+      "date": "2026-03-02"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: admissions in Japan",
+   "hits": [
+    {
+     "turnId": "cov-japan-admissions-t1",
+     "sessionId": "cov-japan-admissions-s1",
+     "score": 0.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-japan-admissions 1"
+     },
+     "session": {
+      "date": "2026-03-01"
+     }
+    },
+    {
+     "turnId": "cov-japan-admissions-t2",
+     "sessionId": "cov-japan-admissions-s2",
+     "score": 0.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-japan-admissions 2"
+     },
+     "session": {
+      "date": "2026-03-02"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: scholarships in Japan",
+   "hits": [
+    {
+     "turnId": "cov-japan-scholarships-t1",
+     "sessionId": "cov-japan-scholarships-s1",
+     "score": 0.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-japan-scholarships 1"
+     },
+     "session": {
+      "date": "2026-03-01"
+     }
+    },
+    {
+     "turnId": "cov-japan-scholarships-t2",
+     "sessionId": "cov-japan-scholarships-s2",
+     "score": 0.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-japan-scholarships 2"
+     },
+     "session": {
+      "date": "2026-03-02"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: tuition in Japan",
+   "hits": [
+    {
+     "turnId": "cov-japan-tuition-t1",
+     "sessionId": "cov-japan-tuition-s1",
+     "score": 0.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-japan-tuition 1"
+     },
+     "session": {
+      "date": "2026-03-01"
+     }
+    },
+    {
+     "turnId": "cov-japan-tuition-t2",
+     "sessionId": "cov-japan-tuition-s2",
+     "score": 0.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-japan-tuition 2"
+     },
+     "session": {
+      "date": "2026-03-02"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: visa in Japan",
+   "hits": [
+    {
+     "turnId": "cov-japan-visa-t1",
+     "sessionId": "cov-japan-visa-s1",
+     "score": 0.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-japan-visa 1"
+     },
+     "session": {
+      "date": "2026-03-01"
+     }
+    },
+    {
+     "turnId": "cov-japan-visa-t2",
+     "sessionId": "cov-japan-visa-s2",
+     "score": 0.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-japan-visa 2"
+     },
+     "session": {
+      "date": "2026-03-02"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: work-rights in Japan",
+   "hits": [
+    {
+     "turnId": "cov-japan-work-rights-t1",
+     "sessionId": "cov-japan-work-rights-s1",
+     "score": 0.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-japan-work-rights 1"
+     },
+     "session": {
+      "date": "2026-03-01"
+     }
+    },
+    {
+     "turnId": "cov-japan-work-rights-t2",
+     "sessionId": "cov-japan-work-rights-s2",
+     "score": 0.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-japan-work-rights 2"
+     },
+     "session": {
+      "date": "2026-03-02"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: accommodation in Netherlands",
+   "hits": [
+    {
+     "turnId": "cov-netherlands-accommodation-t1",
+     "sessionId": "cov-netherlands-accommodation-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-netherlands-accommodation 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-netherlands-accommodation-t2",
+     "sessionId": "cov-netherlands-accommodation-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-netherlands-accommodation 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-netherlands-accommodation-t3",
+     "sessionId": "cov-netherlands-accommodation-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-netherlands-accommodation 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: admissions in Netherlands",
+   "hits": [
+    {
+     "turnId": "cov-netherlands-admissions-t1",
+     "sessionId": "cov-netherlands-admissions-s1",
+     "score": 1.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-netherlands-admissions 1"
+     },
+     "session": {
+      "date": "2026-04-04"
+     }
+    },
+    {
+     "turnId": "cov-netherlands-admissions-t2",
+     "sessionId": "cov-netherlands-admissions-s2",
+     "score": 1.2,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-netherlands-admissions 2"
+     },
+     "session": {}
+    },
+    {
+     "turnId": "cov-netherlands-admissions-t3",
+     "sessionId": "cov-netherlands-admissions-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-netherlands-admissions 3"
+     },
+     "session": {
+      "date": "sometime in spring"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: scholarships in Netherlands",
+   "hits": [
+    {
+     "turnId": "cov-netherlands-scholarships-t1",
+     "sessionId": "cov-netherlands-scholarships-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-netherlands-scholarships 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-netherlands-scholarships-t2",
+     "sessionId": "cov-netherlands-scholarships-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-netherlands-scholarships 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-netherlands-scholarships-t3",
+     "sessionId": "cov-netherlands-scholarships-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-netherlands-scholarships 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: accommodation in New Zealand",
+   "hits": [
+    {
+     "turnId": "cov-new-zealand-accommodation-t1",
+     "sessionId": "cov-new-zealand-accommodation-s1",
+     "score": 1.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-accommodation 1"
+     },
+     "session": {
+      "date": "2026-04-04"
+     }
+    },
+    {
+     "turnId": "cov-new-zealand-accommodation-t2",
+     "sessionId": "cov-new-zealand-accommodation-s2",
+     "score": 1.2,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-accommodation 2"
+     },
+     "session": {}
+    },
+    {
+     "turnId": "cov-new-zealand-accommodation-t3",
+     "sessionId": "cov-new-zealand-accommodation-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-accommodation 3"
+     },
+     "session": {
+      "date": "sometime in spring"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: admissions in New Zealand",
+   "hits": [
+    {
+     "turnId": "cov-new-zealand-admissions-t1",
+     "sessionId": "cov-new-zealand-admissions-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-admissions 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-new-zealand-admissions-t2",
+     "sessionId": "cov-new-zealand-admissions-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-admissions 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-new-zealand-admissions-t3",
+     "sessionId": "cov-new-zealand-admissions-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-admissions 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: scholarships in New Zealand",
+   "hits": [
+    {
+     "turnId": "cov-new-zealand-scholarships-t1",
+     "sessionId": "cov-new-zealand-scholarships-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-scholarships 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-new-zealand-scholarships-t2",
+     "sessionId": "cov-new-zealand-scholarships-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-scholarships 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-new-zealand-scholarships-t3",
+     "sessionId": "cov-new-zealand-scholarships-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-scholarships 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: tuition in New Zealand",
+   "hits": [
+    {
+     "turnId": "cov-new-zealand-tuition-t1",
+     "sessionId": "cov-new-zealand-tuition-s1",
+     "score": 1.6,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-tuition 1"
+     },
+     "session": {
+      "date": "2022-05-10"
+     }
+    },
+    {
+     "turnId": "cov-new-zealand-tuition-t2",
+     "sessionId": "cov-new-zealand-tuition-s2",
+     "score": 1.3,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-tuition 2"
+     },
+     "session": {
+      "date": "2022-06-11"
+     }
+    },
+    {
+     "turnId": "cov-new-zealand-tuition-t3",
+     "sessionId": "cov-new-zealand-tuition-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-tuition 3"
+     },
+     "session": {
+      "date": "2025-12-01"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: visa in New Zealand",
+   "hits": [
+    {
+     "turnId": "cov-new-zealand-visa-t1",
+     "sessionId": "cov-new-zealand-visa-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-visa 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-new-zealand-visa-t2",
+     "sessionId": "cov-new-zealand-visa-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-visa 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-new-zealand-visa-t3",
+     "sessionId": "cov-new-zealand-visa-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-visa 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: work-rights in New Zealand",
+   "hits": [
+    {
+     "turnId": "cov-new-zealand-work-rights-t1",
+     "sessionId": "cov-new-zealand-work-rights-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-work-rights 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-new-zealand-work-rights-t2",
+     "sessionId": "cov-new-zealand-work-rights-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-work-rights 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-new-zealand-work-rights-t3",
+     "sessionId": "cov-new-zealand-work-rights-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-new-zealand-work-rights 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: accommodation in Singapore",
+   "hits": []
+  },
+  {
+   "query": "SYNTHETIC probe: admissions in Singapore",
+   "hits": []
+  },
+  {
+   "query": "SYNTHETIC probe: scholarships in Singapore",
+   "hits": []
+  },
+  {
+   "query": "SYNTHETIC probe: tuition in Singapore",
+   "hits": []
+  },
+  {
+   "query": "SYNTHETIC probe: visa in Singapore",
+   "hits": []
+  },
+  {
+   "query": "SYNTHETIC probe: work-rights in Singapore",
+   "hits": []
+  },
+  {
+   "query": "SYNTHETIC probe: accommodation in UAE",
+   "hits": [
+    {
+     "turnId": "cov-uae-accommodation-t1",
+     "sessionId": "cov-uae-accommodation-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uae-accommodation 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-uae-accommodation-t2",
+     "sessionId": "cov-uae-accommodation-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uae-accommodation 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-uae-accommodation-t3",
+     "sessionId": "cov-uae-accommodation-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uae-accommodation 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: admissions in UAE",
+   "hits": [
+    {
+     "turnId": "cov-uae-admissions-t1",
+     "sessionId": "cov-uae-admissions-s1",
+     "score": 1.6,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uae-admissions 1"
+     },
+     "session": {
+      "date": "2022-05-10"
+     }
+    },
+    {
+     "turnId": "cov-uae-admissions-t2",
+     "sessionId": "cov-uae-admissions-s2",
+     "score": 1.3,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uae-admissions 2"
+     },
+     "session": {
+      "date": "2022-06-11"
+     }
+    },
+    {
+     "turnId": "cov-uae-admissions-t3",
+     "sessionId": "cov-uae-admissions-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uae-admissions 3"
+     },
+     "session": {
+      "date": "2025-12-01"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: scholarships in UAE",
+   "hits": [
+    {
+     "turnId": "cov-uae-scholarships-t1",
+     "sessionId": "cov-uae-scholarships-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uae-scholarships 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-uae-scholarships-t2",
+     "sessionId": "cov-uae-scholarships-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uae-scholarships 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-uae-scholarships-t3",
+     "sessionId": "cov-uae-scholarships-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uae-scholarships 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: tuition in UAE",
+   "hits": [
+    {
+     "turnId": "cov-uae-tuition-t1",
+     "sessionId": "cov-uae-tuition-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uae-tuition 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-uae-tuition-t2",
+     "sessionId": "cov-uae-tuition-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uae-tuition 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-uae-tuition-t3",
+     "sessionId": "cov-uae-tuition-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uae-tuition 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: accommodation in UK",
+   "hits": [
+    {
+     "turnId": "cov-uk-accommodation-t1",
+     "sessionId": "cov-uk-accommodation-s1",
+     "score": 1.6,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-accommodation 1"
+     },
+     "session": {
+      "date": "2022-05-10"
+     }
+    },
+    {
+     "turnId": "cov-uk-accommodation-t2",
+     "sessionId": "cov-uk-accommodation-s2",
+     "score": 1.3,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-accommodation 2"
+     },
+     "session": {
+      "date": "2022-06-11"
+     }
+    },
+    {
+     "turnId": "cov-uk-accommodation-t3",
+     "sessionId": "cov-uk-accommodation-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-accommodation 3"
+     },
+     "session": {
+      "date": "2025-12-01"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: admissions in UK",
+   "hits": [
+    {
+     "turnId": "cov-uk-admissions-t1",
+     "sessionId": "cov-uk-admissions-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-admissions 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-uk-admissions-t2",
+     "sessionId": "cov-uk-admissions-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-admissions 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-uk-admissions-t3",
+     "sessionId": "cov-uk-admissions-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-admissions 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: scholarships in UK",
+   "hits": [
+    {
+     "turnId": "cov-uk-scholarships-t1",
+     "sessionId": "cov-uk-scholarships-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-scholarships 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-uk-scholarships-t2",
+     "sessionId": "cov-uk-scholarships-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-scholarships 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-uk-scholarships-t3",
+     "sessionId": "cov-uk-scholarships-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-scholarships 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: tuition in UK",
+   "hits": [
+    {
+     "turnId": "cov-uk-tuition-t1",
+     "sessionId": "cov-uk-tuition-s1",
+     "score": 0.9,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-tuition 1"
+     },
+     "session": {
+      "date": "2026-02-02"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: visa in UK",
+   "hits": [
+    {
+     "turnId": "cov-uk-visa-t1",
+     "sessionId": "cov-uk-visa-s1",
+     "score": 1.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-visa 1"
+     },
+     "session": {
+      "date": "2026-04-04"
+     }
+    },
+    {
+     "turnId": "cov-uk-visa-t2",
+     "sessionId": "cov-uk-visa-s2",
+     "score": 1.2,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-visa 2"
+     },
+     "session": {}
+    },
+    {
+     "turnId": "cov-uk-visa-t3",
+     "sessionId": "cov-uk-visa-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-visa 3"
+     },
+     "session": {
+      "date": "sometime in spring"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: work-rights in UK",
+   "hits": [
+    {
+     "turnId": "cov-uk-work-rights-t1",
+     "sessionId": "cov-uk-work-rights-s1",
+     "score": 1.6,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-work-rights 1"
+     },
+     "session": {
+      "date": "2022-05-10"
+     }
+    },
+    {
+     "turnId": "cov-uk-work-rights-t2",
+     "sessionId": "cov-uk-work-rights-s2",
+     "score": 1.3,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-work-rights 2"
+     },
+     "session": {
+      "date": "2022-06-11"
+     }
+    },
+    {
+     "turnId": "cov-uk-work-rights-t3",
+     "sessionId": "cov-uk-work-rights-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-uk-work-rights 3"
+     },
+     "session": {
+      "date": "2025-12-01"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: accommodation in USA",
+   "hits": [
+    {
+     "turnId": "cov-usa-accommodation-t1",
+     "sessionId": "cov-usa-accommodation-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-accommodation 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-usa-accommodation-t2",
+     "sessionId": "cov-usa-accommodation-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-accommodation 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-usa-accommodation-t3",
+     "sessionId": "cov-usa-accommodation-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-accommodation 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: admissions in USA",
+   "hits": [
+    {
+     "turnId": "cov-usa-admissions-t1",
+     "sessionId": "cov-usa-admissions-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-admissions 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-usa-admissions-t2",
+     "sessionId": "cov-usa-admissions-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-admissions 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-usa-admissions-t3",
+     "sessionId": "cov-usa-admissions-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-admissions 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: scholarships in USA",
+   "hits": [
+    {
+     "turnId": "cov-usa-scholarships-t1",
+     "sessionId": "cov-usa-scholarships-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-scholarships 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-usa-scholarships-t2",
+     "sessionId": "cov-usa-scholarships-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-scholarships 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-usa-scholarships-t3",
+     "sessionId": "cov-usa-scholarships-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-scholarships 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: tuition in USA",
+   "hits": [
+    {
+     "turnId": "cov-usa-tuition-t1",
+     "sessionId": "cov-usa-tuition-s1",
+     "score": 1.5,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-tuition 1"
+     },
+     "session": {
+      "date": "2026-04-04"
+     }
+    },
+    {
+     "turnId": "cov-usa-tuition-t2",
+     "sessionId": "cov-usa-tuition-s2",
+     "score": 1.2,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-tuition 2"
+     },
+     "session": {}
+    },
+    {
+     "turnId": "cov-usa-tuition-t3",
+     "sessionId": "cov-usa-tuition-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-tuition 3"
+     },
+     "session": {
+      "date": "sometime in spring"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC probe: visa in USA",
+   "hits": []
+  },
+  {
+   "query": "SYNTHETIC probe: work-rights in USA",
+   "hits": [
+    {
+     "turnId": "cov-usa-work-rights-t1",
+     "sessionId": "cov-usa-work-rights-s1",
+     "score": 1.7,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-work-rights 1"
+     },
+     "session": {
+      "date": "2026-05-05"
+     }
+    },
+    {
+     "turnId": "cov-usa-work-rights-t2",
+     "sessionId": "cov-usa-work-rights-s2",
+     "score": 1.4,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-work-rights 2"
+     },
+     "session": {
+      "date": "2026-01-15"
+     }
+    },
+    {
+     "turnId": "cov-usa-work-rights-t3",
+     "sessionId": "cov-usa-work-rights-s3",
+     "score": 1.1,
+     "turn": {
+      "text": "SYNTHETIC-TURN-TEXT-SENTINEL cov-usa-work-rights 3"
+     },
+     "session": {
+      "date": "2025-11-20"
+     }
+    }
+   ]
+  }
+ ],
+ "vcGapCounts": [
+  {
+   "date": "2026-10-15",
+   "kind": "no_sourced_answer",
+   "count": 4
+  },
+  {
+   "date": "2026-10-15",
+   "kind": "unverified_claim",
+   "count": 1
+  },
+  {
+   "date": "2026-10-16",
+   "kind": "no_sourced_answer",
+   "count": 7
+  },
+  {
+   "date": "2026-10-17",
+   "kind": "no_sourced_answer",
+   "count": 2
+  },
+  {
+   "date": "2026-10-17",
+   "kind": "unverified_claim",
+   "count": 3
+  }
+ ]
+}
