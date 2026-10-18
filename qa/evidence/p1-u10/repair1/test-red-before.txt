@@ -1,0 +1,218 @@
+[testlock] running slot 0 (free RAM 4.29 GB): pnpm -C /tmp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10-fals/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^(C10|C11|C12|C13) tests/voice.test.ts tests/voice-limits.test.ts
+✖ C11: the session route is limited per student (requestsPerMinute, D-088 Q5): the next mint is 429 rate_limited with Retry-After, another student is unaffected, and the window reopens (56.644ms)
+✔ C11: a refused (not-yours) session request does not spend the student's budget (38.1526ms)
+✖ C11: one student can hold only 2 sockets that have not started; a third is refused 429 at the upgrade, another student still connects, and a slot reopens when one closes (37.8787ms)
+✖ C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded (4218.552ms)
+✖ C10: a connection closed while it waits to supersede the old session never takes the student's slot (activeSessions returns to 0) (185.1647ms)
+✖ C10: a start whose provider connect never returns is closed by the start timer, and the socket slot and the student's lock are freed (4036.0823ms)
+✔ C10: a start that arrived late gets its own budget: a slow but finishing connect is not cut short by the connection's first timer (78.9225ms)
+✔ C10: the start timer still closes a socket that never sent start (30.9745ms)
+✖ C12: a crisis flag write that fails once is retried once and stored; nothing is logged and the session continues (4045.9554ms)
+✖ C12: a crisis flag write that keeps failing is tried twice, logged as voice_crisis_flag_failed (text-free) and never ends the session (4050.6062ms)
+✖ C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED words, like the text path (4033.6082ms)
+✔ C12: no escalation port -> behaviour is exactly as before (the flag only) (46.5608ms)
+✔ C12: an under-18 student without guardian consent is flagged (ids and time) but never escalated: no text is kept for them (108.5032ms)
+✖ C12: a minor WITH guardian consent is escalated, like the text path (4034.5351ms)
+✖ C12: an escalation that keeps failing is tried twice and logged as voice_crisis_escalate_failed (text-free); the flag does not depend on it (4045.9115ms)
+✖ C12: an escalation that fails once is retried once and delivered, with nothing logged (4039.9396ms)
+✖ C13: an expired resume log is dropped when a reconnect asks for it (read), and replays nothing (155.0478ms)
+✖ C13: the prune timer drops an expired resume log although nobody reads it, and is not counted in the per-connection timers (60.6688ms)
+✖ C13: shutdown drops every retained resume log (no transcript events are kept after close) (62.621ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 5
+ℹ fail 14
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35408.3814
+
+✖ failing tests:
+
+test at tests\voice-limits.test.ts:153:1
+✖ C11: the session route is limited per student (requestsPerMinute, D-088 Q5): the next mint is 429 rate_limited with Retry-After, another student is unaffected, and the window reopens (56.644ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  201 !== 429
+  
+      at withWorld.deps.limitsForTenant.__name.requestsPerMinute (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-limits.test.ts:158:14)
+      at async withWorld (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-limits.test.ts:17:5)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-limits.test.ts:154:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 201,
+    expected: 429,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\voice-limits.test.ts:185:1
+✖ C11: one student can hold only 2 sockets that have not started; a third is refused 429 at the upgrade, another student still connects, and a slot reopens when one closes (37.8787ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-limits.test.ts:192:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async withWorld (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-limits.test.ts:17:5)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-limits.test.ts:186:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\voice.test.ts:956:1
+✖ C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded (4218.552ms)
+  Error: timed out waiting for: one of B and C was closed
+      at until (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-fixtures.ts:75:38)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:982:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+
+test at tests\voice.test.ts:1003:1
+✖ C10: a connection closed while it waits to supersede the old session never takes the student's slot (activeSessions returns to 0) (185.1647ms)
+  AssertionError [ERR_ASSERTION]: a closed connection must not stay in the per-student map
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1031:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\voice.test.ts:1059:1
+✖ C10: a start whose provider connect never returns is closed by the start timer, and the socket slot and the student's lock are freed (4036.0823ms)
+  Error: timed out waiting for: closed by the start timer while starting
+      at until (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-fixtures.ts:75:38)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1071:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at tests\voice.test.ts:1142:1
+✖ C12: a crisis flag write that fails once is retried once and stored; nothing is logged and the session continues (4045.9554ms)
+  Error: timed out waiting for: the flag was stored by the retry
+      at until (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-fixtures.ts:75:38)
+      at async <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1147:5)
+      at async withWorld (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:48:5)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1143:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at tests\voice.test.ts:1155:1
+✖ C12: a crisis flag write that keeps failing is tried twice, logged as voice_crisis_flag_failed (text-free) and never ends the session (4050.6062ms)
+  Error: timed out waiting for: the failure is logged
+      at until (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-fixtures.ts:75:38)
+      at async <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1160:5)
+      at async withWorld (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:48:5)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1156:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at tests\voice.test.ts:1171:1
+✖ C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED words, like the text path (4033.6082ms)
+  Error: timed out waiting for: escalated
+      at until (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-fixtures.ts:75:38)
+      at async <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1177:7)
+      at async withWorld (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:48:5)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1173:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at tests\voice.test.ts:1219:1
+✖ C12: a minor WITH guardian consent is escalated, like the text path (4034.5351ms)
+  Error: timed out waiting for: escalated
+      at until (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-fixtures.ts:75:38)
+      at async <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1225:7)
+      at async withWorld (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:48:5)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1221:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at tests\voice.test.ts:1231:1
+✖ C12: an escalation that keeps failing is tried twice and logged as voice_crisis_escalate_failed (text-free); the flag does not depend on it (4045.9115ms)
+  Error: timed out waiting for: failure logged
+      at until (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-fixtures.ts:75:38)
+      at async withWorld.deps.escalateForTenant (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1237:7)
+      at async withWorld (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:48:5)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1233:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at tests\voice.test.ts:1254:1
+✖ C12: an escalation that fails once is retried once and delivered, with nothing logged (4039.9396ms)
+  Error: timed out waiting for: the retry delivered
+      at until (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-fixtures.ts:75:38)
+      at async <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1261:7)
+      at async withWorld (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:48:5)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1257:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at tests\voice.test.ts:1279:1
+✖ C13: an expired resume log is dropped when a reconnect asks for it (read), and replays nothing (155.0478ms)
+  AssertionError [ERR_ASSERTION]: the read dropped the expired log
+  
+  1 !== 0
+  
+      at <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1293:12)
+      at async withWorld (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:48:5)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1280:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\voice.test.ts:1297:1
+✖ C13: the prune timer drops an expired resume log although nobody reads it, and is not counted in the per-connection timers (60.6688ms)
+  AssertionError [ERR_ASSERTION]: one prune timer is armed while a log is retained
+  
+  0 !== 1
+  
+      at <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1307:12)
+      at async withWorld (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:48:5)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1298:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\voice.test.ts:1316:1
+✖ C13: shutdown drops every retained resume log (no transcript events are kept after close) (62.621ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:1328:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

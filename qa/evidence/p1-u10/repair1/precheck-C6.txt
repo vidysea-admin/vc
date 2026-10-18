@@ -1,0 +1,20 @@
+[testlock] running slot 0 (free RAM 7.02 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-name-pattern ^C6[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2067.3013ms)
+✔ C6/A19: voice turns interleave in order with text turns in one thread, survive a reconnect, and carry channel voice (219.5744ms)
+✔ C6: an assistant answer that was cut off (user spoke twice, no reply) is stored on its own and ordering stays stable (61.2564ms)
+✔ C6/D-086 Q4: transcripts are stored but audio is not: no collection holds any PCM bytes (45.3125ms)
+✔ C6/A19: the student export contains the voice turns (channel voice) and erasure removes them, leaving another student's voice history alone (113.5286ms)
+✔ C6/D-093 6A: the stored transcript is redacted (email, phone, self-stated and profile names); the live transcript to the owner is not (32.054ms)
+✔ C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay (87.7236ms)
+✔ C6/D-093 4A: a guardianConsent claim that is not the boolean true (the string 'true') is not consent; a boolean true stores the turns (93.9539ms)
+✔ C6: a failure to store a transcript is reported as a fixed persist_failed event and the session keeps going (61.8052ms)
+✔ tests\voice-limits.test.ts (2027.5365ms)
+✔ tests\voice.test.ts (2027.7928ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2769.8269

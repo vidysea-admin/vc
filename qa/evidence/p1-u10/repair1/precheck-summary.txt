@@ -1,0 +1,11 @@
+C10 exit=0
+C11 exit=0
+C12 exit=0
+C13 exit=0
+api-set exit=0
+api-set-run2 exit=0
+db exit=0
+providers exit=0
+typecheck exit=0
+ALLDONE
+FALSDONE

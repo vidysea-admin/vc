@@ -1,0 +1,5 @@
+BASELINE ('19', '19', '0')
+C10f before ('19', '19', '0') after ('19', '17', '2') | no guard keeps a closed or older waiter out of the slot (pre-fix behaviour for item 2) | ["C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded", "C10: a connection closed while
+C10g before ('19', '19', '0') after ('19', '18', '1') | the supersede step looks only once and the newest waiter does not win (pre-fix behaviour for item 1) | ["C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded", "C10: B and C sta
+C10h before ('19', '19', '0') after ('19', '19', '0') | only the final state guard before taking the slot is removed | []
+DONE
