@@ -147,3 +147,63 @@ test("C7: a student under erasure is not charged: the minutes write is refused b
     assert.equal(w.voice.stats().liveSessions, 0);
   });
 });
+
+// -- U10 repair 1, C11: one student cannot fill the shared socket cap or the provider budget ------------------------------
+
+test("C11: the session route is limited per student (requestsPerMinute, D-088 Q5): the next mint is 429 rate_limited with Retry-After, another student is unaffected, and the window reopens", async () => {
+  await withWorld(
+    async (w, threadId) => {
+      for (let i = 0; i < 3; i++) assert.equal((await w.session(adult(), threadId)).status, 201, `mint ${i + 1}`);
+      const limited = await w.session(adult(), threadId);
+      assert.equal(limited.status, 429);
+      assert.equal(limited.json.error, "rate_limited");
+      assert.ok(Number(limited.headers["retry-after"]) >= 1);
+      assert.equal(limited.json.token, undefined);
+      const t2 = await newThread(w.chat, await studentToken(adult("stu-2")), "stu-2");
+      assert.equal((await w.session(adult("stu-2"), t2, "stu-2")).status, 201, "another student is not limited by stu-1");
+      // The same student id in another tenant has its own budget.
+      const t3 = await newThread(w.chat, await studentToken(adult("stu-1", "tenant-b")));
+      assert.equal((await w.session(adult("stu-1", "tenant-b"), t3)).status, 201);
+      w.clock.ms += 61_000;
+      assert.equal((await w.session(adult(), threadId)).status, 201, "the window reopens after a minute");
+    },
+    { deps: { limitsForTenant: () => ({ requestsPerMinute: 3 }) } },
+  );
+});
+
+test("C11: a refused (not-yours) session request does not spend the student's budget", async () => {
+  await withWorld(
+    async (w, threadId) => {
+      for (let i = 0; i < 5; i++) assert.equal((await w.session(adult("stu-2"), threadId, "stu-1")).status, 404);
+      assert.equal((await w.session(adult(), threadId)).status, 201);
+      assert.equal((await w.session(adult(), threadId)).status, 201);
+    },
+    { deps: { limitsForTenant: () => ({ requestsPerMinute: 2 }) } },
+  );
+});
+
+test("C11: one student can hold only 2 sockets that have not started; a third is refused 429 at the upgrade, another student still connects, and a slot reopens when one closes", async () => {
+  await withWorld(async (w, threadId) => {
+    const tokens = [await w.mint(adult(), threadId), await w.mint(adult(), threadId), await w.mint(adult(), threadId), await w.mint(adult(), threadId)];
+    const a = await w.connect(tokens[0]!, { threadId });
+    const b = await w.connect(tokens[1]!, { threadId });
+    assert.ok(a.ok && b.ok);
+    const c = await w.connect(tokens[2]!, { threadId });
+    assert.equal(c.ok, false);
+    if (!c.ok) assert.equal(c.status, 429);
+    assert.equal(w.voice.stats().sockets, 2);
+    // The refused token was not burned: it works once a slot is free.
+    const t2 = await newThread(w.chat, await studentToken(adult("stu-2")), "stu-2");
+    const other = await w.connect(await w.mint(adult("stu-2"), t2, "stu-2"), { studentId: "stu-2", threadId: t2 });
+    assert.ok(other.ok, "another student still connects");
+    if (a.ok) a.client.abort();
+    await until(() => w.voice.stats().sockets === 2, "one of stu-1's sockets closed");
+    const retry = await w.connect(tokens[2]!, { threadId });
+    assert.ok(retry.ok, "the refused token was not consumed, and the freed slot is usable");
+    // A started (active) session no longer counts as pre-start.
+    if (retry.ok) retry.client.send({ type: "start", threadId });
+    await until(() => w.provider.backends.length === 1, "started");
+    const again = await w.connect(tokens[3]!, { threadId });
+    assert.ok(again.ok, "an active session does not count against the pre-start limit");
+  });
+});

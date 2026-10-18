@@ -6,13 +6,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { SignJWT } from "jose";
 import { WebSocket } from "ws";
-import { LiveConfigError, MockLiveProvider, type LiveProvider } from "@vc/providers";
+import { LiveConfigError, LiveSession, MockLiveProvider, type LiveProvider } from "@vc/providers";
 import { createChatThread, getStudentUsage, listChatTurns, usageMonth } from "@vc/db";
 import { VoiceSessionResponseSchema } from "@vc/schemas";
 import { GoLiveRefusedError } from "../src/go-live-gate.js";
 import { createApiServer } from "../src/server.js";
 import {
   VOICE_FLAG_ENV,
+  VOICE_RESUME_WINDOW_MS,
+  VOICE_START_TIMEOUT_MS,
   VOICE_WS_AUDIENCE,
   VoiceConfigError,
   createVoiceApi,
@@ -27,6 +29,8 @@ import {
   call,
   cleanupGates,
   gatesFixture,
+  minorConsent,
+  minorNoConsent,
   newThread,
   studentToken,
   turnsPath,
@@ -944,4 +948,386 @@ test("C9: closing the API closes every open connection and its provider session 
   }
 });
 
+// ---------------------------------------------------------------------------
+// U10 repair 1 (senior review Block on 7227385): C10 one live session per student under concurrency, C12 crisis durability and
+// escalation parity, C13 resume-log expiry. The per-student limits (C11) are in voice-limits.test.ts.
+// ---------------------------------------------------------------------------
+
+test("C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded", async () => {
+  let release!: () => void;
+  const gated = new Promise<void>((r) => (release = r));
+  const w = await voiceWorld();
+  const origDrain = LiveSession.prototype.drain;
+  try {
+    const threadId = await newThread(w.chat, await studentToken(adult()));
+    const first = await w.open(adult(), threadId);
+    let firstCall = true;
+    LiveSession.prototype.drain = async function (this: LiveSession) {
+      if (firstCall) {
+        firstCall = false;
+        await gated; // A's finalize stays in flight while B and C both reach the supersede step
+      }
+      return origDrain.call(this);
+    };
+    const rB = await w.connect(await w.mint(adult(), threadId), { threadId });
+    const rC = await w.connect(await w.mint(adult(), threadId), { threadId });
+    assert.ok(rB.ok && rC.ok);
+    if (!rB.ok || !rC.ok) return;
+    rB.client.send({ type: "start", threadId });
+    rC.client.send({ type: "start", threadId });
+    await until(() => first.client.of("error").some((e) => e.code === "superseded"), "A superseded");
+    await new Promise((r) => setTimeout(r, 100));
+    release();
+    await until(() => first.client.closed, "A closed");
+    await until(() => [rB.client, rC.client].some((c) => c.closed), "one of B and C was closed");
+    await new Promise((r) => setTimeout(r, 100));
+    await w.voice.settled();
+    const open = [rB.client, rC.client].filter((c) => !c.closed);
+    const lost = [rB.client, rC.client].filter((c) => c.closed);
+    assert.equal(open.length, 1, "exactly one of the two concurrent starts survives");
+    assert.ok(lost[0]!.of("error").some((e) => e.code === "superseded"), "the loser was told it was superseded");
+    const s = w.voice.stats();
+    assert.equal(s.liveSessions, 1, "exactly one live provider session for the student");
+    assert.equal(s.activeSessions, 1);
+    assert.equal(s.sockets, 1);
+    const openBackends = w.provider.backends.filter((b) => !b.calls.some((c) => c.type === "close"));
+    assert.equal(openBackends.length, 1, "exactly one provider backend is still open");
+    assert.equal(w.provider.backends.length, 2, "A and the winner only: the older waiter stepped aside and never opened a paid provider session");
+  } finally {
+    LiveSession.prototype.drain = origDrain;
+    release();
+    await w.cleanup();
+  }
+});
+
+test("C10: a connection closed while it waits to supersede the old session never takes the student's slot (activeSessions returns to 0)", async () => {
+  let release!: () => void;
+  const gated = new Promise<void>((r) => (release = r));
+  const w = await voiceWorld();
+  const origDrain = LiveSession.prototype.drain;
+  try {
+    const threadId = await newThread(w.chat, await studentToken(adult()));
+    const first = await w.open(adult(), threadId);
+    let firstCall = true;
+    LiveSession.prototype.drain = async function (this: LiveSession) {
+      if (firstCall) {
+        firstCall = false;
+        await gated;
+      }
+      return origDrain.call(this);
+    };
+    const res = await w.connect(await w.mint(adult(), threadId), { threadId });
+    assert.ok(res.ok);
+    if (!res.ok) return;
+    res.client.send({ type: "start", threadId });
+    await until(() => first.client.of("error").some((e) => e.code === "superseded"), "A told superseded");
+    res.client.abort();
+    await until(() => w.voice.stats().sockets === 1, "B finalized (only A left)");
+    release();
+    await until(() => w.voice.stats().sockets === 0, "A finalized");
+    await w.voice.settled();
+    await new Promise((r) => setTimeout(r, 100));
+    const s = w.voice.stats();
+    assert.equal(s.activeSessions, 0, "a closed connection must not stay in the per-student map");
+    assert.equal(s.liveSessions, 0);
+    assert.equal(w.provider.backends.length, 1, "the closed connection never opened a provider session");
+  } finally {
+    LiveSession.prototype.drain = origDrain;
+    release();
+    await w.cleanup();
+  }
+});
+
+/** A Live provider whose first `hangFirst` connects never resolve; later connects (after `gate`, if any) are served by the mock. */
+function hangingLive(hangFirst: number, gate?: Promise<void>): { live: LiveProvider; mock: MockLiveProvider; calls: () => number } {
+  const mock = new MockLiveProvider();
+  let n = 0;
+  return {
+    mock,
+    calls: () => n,
+    live: {
+      connect: async (config) => {
+        n++;
+        if (n <= hangFirst) return new Promise<never>(() => undefined);
+        if (gate) await gate;
+        return mock.connect(config);
+      },
+    },
+  };
+}
+
+test("C10: a start whose provider connect never returns is closed by the start timer, and the socket slot and the student's lock are freed", async () => {
+  const h = hangingLive(1);
+  const w = await voiceWorld({ live: h.live });
+  try {
+    const threadId = await newThread(w.chat, await studentToken(adult()));
+    const res = await w.connect(await w.mint(adult(), threadId), { threadId });
+    assert.ok(res.ok);
+    if (!res.ok) return;
+    res.client.send({ type: "start", threadId });
+    await until(() => h.calls() === 1, "the provider connect was called and is hanging");
+    assert.equal(w.voice.stats().activeSessions, 1, "the starting connection holds the student's slot");
+    w.timers.advance(VOICE_START_TIMEOUT_MS);
+    await until(() => res.client.closed, "closed by the start timer while starting");
+    await w.voice.settled();
+    const s = w.voice.stats();
+    assert.equal(s.sockets, 0);
+    assert.equal(s.activeSessions, 0, "the student's lock was freed");
+    assert.equal(s.timers, 0);
+    // The student can start again.
+    const again = await w.connect(await w.mint(adult(), threadId), { threadId });
+    assert.ok(again.ok);
+    if (!again.ok) return;
+    again.client.send({ type: "start", threadId });
+    await until(() => h.mock.backends.length === 1, "the second start reached the provider");
+  } finally {
+    await w.cleanup();
+  }
+});
+
+test("C10: a start that arrived late gets its own budget: a slow but finishing connect is not cut short by the connection's first timer", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  const h = hangingLive(0, gate);
+  const w = await voiceWorld({ live: h.live });
+  try {
+    const threadId = await newThread(w.chat, await studentToken(adult()));
+    const res = await w.connect(await w.mint(adult(), threadId), { threadId });
+    assert.ok(res.ok);
+    if (!res.ok) return;
+    w.timers.advance(VOICE_START_TIMEOUT_MS - 1_000); // the client sends `start` 14 s after it connected
+    res.client.send({ type: "start", threadId });
+    await until(() => h.calls() === 1, "connect called");
+    w.timers.advance(VOICE_START_TIMEOUT_MS - 1_000); // 28 s after connect, but only 14 s into the start
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(res.client.closed, false, "a start inside its own budget is not killed by the connection's first timer");
+    release();
+    await until(() => w.voice.stats().liveSessions === 1, "the session went live");
+    assert.equal(res.client.closed, false);
+  } finally {
+    release();
+    await w.cleanup();
+  }
+});
+
+test("C10: the start timer still closes a socket that never sent start", async () => {
+  const w = await voiceWorld();
+  try {
+    const threadId = await newThread(w.chat, await studentToken(adult()));
+    const res = await w.connect(await w.mint(adult(), threadId), { threadId });
+    assert.ok(res.ok);
+    if (!res.ok) return;
+    w.timers.advance(VOICE_START_TIMEOUT_MS);
+    await until(() => res.client.closed, "closed: never started");
+    assert.equal(res.client.closeCode, 1008);
+  } finally {
+    await w.cleanup();
+  }
+});
+
+// -- C12: crisis flag durability and escalation parity ------------------------
+
+const failingFlagWrites = (w: VoiceWorld, failures: number): { attempts: () => number } => {
+  const flags = w.fakeDb.collection<any>("student_flags");
+  const real = flags.updateOne.bind(flags);
+  let n = 0;
+  flags.updateOne = (async (...args: Parameters<typeof real>) => {
+    n++;
+    if (n <= failures) throw new Error("flag store down secret-detail-xyz");
+    return real(...args);
+  }) as typeof flags.updateOne;
+  return { attempts: () => n };
+};
+
+test("C12: a crisis flag write that fails once is retried once and stored; nothing is logged and the session continues", async () => {
+  await withWorld(async (w, threadId) => {
+    const { client } = await w.open(adult(), threadId);
+    const probe = failingFlagWrites(w, 1);
+    speak(w, 0, CRISIS_PHRASE);
+    await until(() => w.fakeDb.collection<any>("student_flags").all().length === 1, "the flag was stored by the retry");
+    assert.equal(probe.attempts(), 2);
+    assert.equal(w.fakeDb.collection<any>("student_flags").all()[0].kind, "crisis");
+    assert.ok(!w.logs.some((l) => l.event === "voice_crisis_flag_failed"));
+    assert.equal(client.closed, false);
+  });
+});
+
+test("C12: a crisis flag write that keeps failing is tried twice, logged as voice_crisis_flag_failed (text-free) and never ends the session", async () => {
+  await withWorld(async (w, threadId) => {
+    const { client } = await w.open(adult(), threadId);
+    const probe = failingFlagWrites(w, 100);
+    speak(w, 0, CRISIS_PHRASE);
+    await until(() => w.logs.some((l) => l.event === "voice_crisis_flag_failed"), "the failure is logged");
+    assert.equal(probe.attempts(), 2, "one retry, no more");
+    const line = w.logs.find((l) => l.event === "voice_crisis_flag_failed")!;
+    assert.equal(line.level, "error");
+    assert.ok(!JSON.stringify(w.logs).includes("secret-detail-xyz"));
+    assert.ok(!JSON.stringify(w.logs).includes("kill"));
+    assert.equal(client.closed, false);
+    assert.ok(client.of("flag").some((f) => f.reason === "crisis_detected"), "the student still got the crisis reply");
+  });
+});
+
+test("C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED words, like the text path", async () => {
+  const escalations: any[] = [];
+  await withWorld(
+    async (w, threadId) => {
+      const { client } = await w.open(adult(), threadId);
+      speak(w, 0, `${CRISIS_PHRASE}, mail me at pri.ya@example.com`);
+      await until(() => escalations.length === 1, "escalated");
+      await w.voice.settled().catch(() => undefined);
+      const e = escalations[0];
+      assert.equal(e.sessionId, threadId);
+      assert.equal(e.studentId, "stu-1");
+      assert.equal(e.turns.length, 1);
+      assert.equal(e.turns[0].speaker, "student");
+      assert.match(e.turns[0].text, /kill myself/);
+      assert.ok(!e.turns[0].text.includes("pri.ya@example.com"), "the email is redacted before it reaches the port");
+      assert.equal(e.turns[0].translatedText, e.turns[0].text);
+      assert.equal(w.fakeDb.collection<any>("student_flags").all().length, 1, "the flag is still written");
+      assert.equal(client.closed, false);
+    },
+    { deps: { escalateForTenant: () => async (input) => void escalations.push(input) } },
+  );
+});
+
+test("C12: no escalation port -> behaviour is exactly as before (the flag only)", async () => {
+  await withWorld(async (w, threadId) => {
+    await w.open(adult(), threadId);
+    speak(w, 0, CRISIS_PHRASE);
+    await until(() => w.fakeDb.collection<any>("student_flags").all().length === 1, "flag stored");
+    await w.voice.settled().catch(() => undefined);
+    assert.deepEqual(w.logs, []);
+  });
+});
+
+test("C12: an under-18 student without guardian consent is flagged (ids and time) but never escalated: no text is kept for them", async () => {
+  const escalations: unknown[] = [];
+  await withWorld(
+    async (w, threadId) => {
+      await w.open(minorNoConsent(), threadId);
+      speak(w, 0, CRISIS_PHRASE);
+      await until(() => w.fakeDb.collection<any>("student_flags").all().length === 1, "flag stored");
+      await w.voice.settled().catch(() => undefined);
+      await new Promise((r) => setTimeout(r, 50));
+      assert.equal(escalations.length, 0);
+    },
+    { deps: { escalateForTenant: () => async (input) => void escalations.push(input) } },
+  );
+});
+
+test("C12: a minor WITH guardian consent is escalated, like the text path", async () => {
+  const escalations: any[] = [];
+  await withWorld(
+    async (w, threadId) => {
+      await w.open(minorConsent(), threadId);
+      speak(w, 0, CRISIS_PHRASE);
+      await until(() => escalations.length === 1, "escalated");
+    },
+    { deps: { escalateForTenant: () => async (input) => void escalations.push(input) } },
+  );
+});
+
+test("C12: an escalation that keeps failing is tried twice and logged as voice_crisis_escalate_failed (text-free); the flag does not depend on it", async () => {
+  let calls = 0;
+  await withWorld(
+    async (w, threadId) => {
+      const { client } = await w.open(adult(), threadId);
+      speak(w, 0, CRISIS_PHRASE);
+      await until(() => w.logs.some((l) => l.event === "voice_crisis_escalate_failed"), "failure logged");
+      assert.equal(calls, 2, "one retry, no more");
+      assert.equal(w.fakeDb.collection<any>("student_flags").all().length, 1);
+      assert.ok(!JSON.stringify(w.logs).includes("secret-detail-xyz"));
+      assert.equal(client.closed, false);
+    },
+    {
+      deps: {
+        escalateForTenant: () => async () => {
+          calls++;
+          throw new Error("escalation down secret-detail-xyz");
+        },
+      },
+    },
+  );
+});
+
+test("C12: an escalation that fails once is retried once and delivered, with nothing logged", async () => {
+  let attempts = 0;
+  const seen: unknown[] = [];
+  await withWorld(
+    async (w, threadId) => {
+      await w.open(adult(), threadId);
+      speak(w, 0, CRISIS_PHRASE);
+      await until(() => seen.length === 1, "the retry delivered");
+      assert.equal(attempts, 2);
+      assert.ok(!w.logs.some((l) => l.event === "voice_crisis_escalate_failed"));
+    },
+    {
+      deps: {
+        escalateForTenant: () => async (input) => {
+          attempts++;
+          if (attempts === 1) throw new Error("blip");
+          seen.push(input);
+        },
+      },
+    },
+  );
+});
+
+// -- C13: the resume log expires ----------------------------------------------
+
+test("C13: an expired resume log is dropped when a reconnect asks for it (read), and replays nothing", async () => {
+  await withWorld(async (w, threadId) => {
+    const a = await w.open(adult(), threadId);
+    speak(w, 0, "words the retained log will hold");
+    await until(() => a.client.of("transcript.final").length === 1, "event");
+    const lastId = a.client.events[a.client.events.length - 1].eventId as string;
+    a.client.send({ type: "end" });
+    await until(() => a.client.closed, "closed");
+    await w.voice.settled();
+    assert.equal(w.voice.stats().retainedLogs, 1);
+    w.clock.ms += VOICE_RESUME_WINDOW_MS + 1_000;
+    const b = await w.open(adult(), threadId, { lastEventId: lastId });
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(b.client.of("transcript.final").length, 0, "nothing replays after the window");
+    assert.equal(w.voice.stats().retainedLogs, 0, "the read dropped the expired log");
+  });
+});
+
+test("C13: the prune timer drops an expired resume log although nobody reads it, and is not counted in the per-connection timers", async () => {
+  await withWorld(async (w, threadId) => {
+    const a = await w.open(adult(), threadId);
+    speak(w, 0, "words the retained log will hold");
+    await until(() => a.client.of("transcript.final").length === 1, "event");
+    a.client.send({ type: "end" });
+    await until(() => a.client.closed, "closed");
+    await w.voice.settled();
+    assert.equal(w.voice.stats().retainedLogs, 1);
+    assert.equal(w.voice.stats().timers, 0);
+    assert.equal(w.pruneTimers.pending, 1, "one prune timer is armed while a log is retained");
+    w.pruneTimers.advance(VOICE_RESUME_WINDOW_MS + 2_000);
+    assert.equal(w.voice.stats().retainedLogs, 0);
+    assert.equal(w.pruneTimers.pending, 0, "no timer is left once nothing is retained");
+  });
+});
+
 void minor;
+
+test("C13: shutdown drops every retained resume log (no transcript events are kept after close)", async () => {
+  const w = await voiceWorld();
+  try {
+    const threadId = await newThread(w.chat, await studentToken(adult()));
+    const a = await w.open(adult(), threadId);
+    speak(w, 0, "words the retained log will hold");
+    await until(() => a.client.of("transcript.final").length === 1, "event");
+    a.client.send({ type: "end" });
+    await until(() => a.client.closed, "closed");
+    await w.voice.settled();
+    assert.equal(w.voice.stats().retainedLogs, 1);
+    await w.voice.close();
+    assert.equal(w.voice.stats().retainedLogs, 0);
+    assert.equal(w.pruneTimers.pending, 0);
+  } finally {
+    await w.cleanup();
+  }
+});

@@ -124,6 +124,8 @@ export interface VoiceWorld {
   port: number;
   provider: MockLiveProvider;
   timers: FakeTimers;
+  /** The resume-log prune timer source (separate from `timers`, so the per-connection timer count is unchanged). */
+  pruneTimers: FakeTimers;
   clock: { ms: number };
   logs: VoiceLogLine[];
   wsSecret: Uint8Array;
@@ -151,6 +153,7 @@ export async function voiceWorld(opts: VoiceWorldOptions = {}): Promise<VoiceWor
   const { db, fakeDb } = createFakeDb();
   const clock = { ms: Date.parse("2026-11-01T10:00:00.000Z") };
   const timers = new FakeTimers(clock);
+  const pruneTimers = new FakeTimers(clock);
   const logs: VoiceLogLine[] = [];
   const gates = gatesFixture({ gProd: opts.gProd ?? "Answered: 2026-10-16T10:10:00+05:30 - c - all three including voice\n" });
   const provider = new MockLiveProvider();
@@ -174,6 +177,7 @@ export async function voiceWorld(opts: VoiceWorldOptions = {}): Promise<VoiceWor
     now: () => new Date(clock.ms),
     nowMs: () => clock.ms,
     timers,
+    pruneTimers,
     log: (line) => logs.push(line),
     ...opts.deps,
   };
@@ -193,6 +197,7 @@ export async function voiceWorld(opts: VoiceWorldOptions = {}): Promise<VoiceWor
     port,
     provider,
     timers,
+    pruneTimers,
     clock,
     logs,
     wsSecret,

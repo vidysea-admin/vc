@@ -62,7 +62,7 @@ import {
   type Source,
   type VoiceServerEvent,
 } from "@vc/schemas";
-import { crisisGuard, type SpeakersFile } from "@vc/engine";
+import { crisisGuard, type SpeakersFile, type StudentGraphDeps } from "@vc/engine";
 import {
   LiveConfigError,
   createSimpleOutputAuditor,
@@ -81,6 +81,7 @@ import {
   type LiveTranscriptSink,
 } from "@vc/providers";
 import { AuthError, bearerToken, type StudentAuthContext, type StudentJwtVerifier } from "./auth.js";
+import { AnonymousRateLimiter } from "./anonymous.js";
 import { assertGoLive } from "./go-live-gate.js";
 import { BodyTooLargeError, PATH_ID_PATTERN, respond, type ApiHandler, type ApiRequest, type ApiResponse, type ApiRoute } from "./server.js";
 
@@ -113,6 +114,13 @@ export const VOICE_MAX_USED_TOKENS = 100_000;
 /** Non-fixed model audio is dropped, not queued, once a socket has this much unsent data. The fixed crisis audio is never dropped. */
 export const VOICE_MAX_BUFFERED_AUDIO_BYTES = 1024 * 1024;
 export const VOICE_MAX_PROPOSED_FACTS_PER_TURN = 5;
+/** U10 repair 1 (D-088 Q5): the per-student session-route limiter, the same window and key bound as the text route (chat.ts). */
+export const VOICE_RATE_WINDOW_MS = 60_000;
+export const VOICE_MAX_LIMITER_KEYS = 100_000;
+/** U10 repair 1: sockets one student may hold that have not yet started (a student must not fill the global socket cap). */
+export const VOICE_MAX_PRESTART_SOCKETS_PER_STUDENT = 2;
+/** U10 repair 1: a crisis flag / escalation write is tried this many times in all (one retry). */
+export const VOICE_CRISIS_WRITE_ATTEMPTS = 2;
 const MAX_INVALID_CLIENT_MESSAGES = 10;
 const MAX_PENDING_CONFIRMS = 20;
 
@@ -202,9 +210,15 @@ export interface VoiceApiDeps {
   /** Names known from the Pathlynks profile, so a stored transcript can redact them (D-093 6A). Failure is tolerated. */
   profileNames?(who: { tenantId: string; studentId: string }): Promise<readonly string[]>;
   extractFacts?: VoiceFactExtractor;
+  /**
+   * The tenant's escalation path, the same optional port as the text path (chat.ts `escalateForTenant`; production:
+   * `(i) => escalateTurns(db, i, escalationDeps)`). Called on a crisis with the redacted student words, and never for an unconsented
+   * minor (no text is kept for them). Absent: a crisis writes the flag exactly as before.
+   */
+  escalateForTenant?(tenantId: string, db: Db): StudentGraphDeps["escalate"];
   /** A6: this tenant accepts only `syn-` student ids. */
   sandboxTenantId?: string;
-  /** Per-tenant override of the D-088 limits (voiceMinutesPerMonth, voiceSessionMaxMinutes are read). */
+  /** Per-tenant override of the D-088 limits (voiceMinutesPerMonth, voiceSessionMaxMinutes, requestsPerMinute are read). */
   limitsForTenant?(tenantId: string): Parameters<typeof resolveLimits>[0];
   /** Per-tenant silence timeout; undefined falls back to `silenceTimeoutMs`. */
   silenceTimeoutMsForTenant?(tenantId: string): number | undefined;
@@ -216,6 +230,8 @@ export interface VoiceApiDeps {
   nowMs?: () => number;
   /** Injectable for tests; the default uses unref'd real timers. */
   timers?: VoiceTimers;
+  /** The timer that drops expired resume logs (kept apart from `timers` so the armed-timer count stays per connection). Default: unref'd real timers. */
+  pruneTimers?: VoiceTimers;
   /** Text-free server-side failure log. Default: one JSON line on stderr. */
   log?: (line: VoiceLogLine) => void;
 }
@@ -423,7 +439,9 @@ interface Conn {
   invalid: number;
   notStartedWarned: boolean;
   lastAtMs: number;
-  lastUser?: { turnId: string; at: string; answered: boolean };
+  /** `text` is the REDACTED words of the turn, kept only while the student's text may be stored; the crisis escalation reads it. */
+  lastUser?: { turnId: string; at: string; answered: boolean; text?: string };
+  startTimer?: unknown;
   turnBySeq: Map<number, string>;
   /** `${seq}|${reason}|${detail}` of the flags already sent: one listed speaker named under three aliases is one flag, not three. */
   flagsSent: Set<string>;
@@ -487,8 +505,30 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   const usedTokens = new Map<string, number>();
   const allTimers = new Set<unknown>();
   const pendingFinalizers = new Set<Promise<void>>();
+  /** The newest connection that is waiting its turn to take a student's slot: an older waiter steps aside for it. */
+  const latestStart = new Map<string, Conn>();
   let liveOpen = 0;
   let shuttingDown = false;
+
+  // One session-route limiter per distinct limit value (a tenant override makes a new one); the key is tenant + student, hashed inside.
+  const limiters = new Map<number, AnonymousRateLimiter>();
+  const limiterFor = (limit: number): AnonymousRateLimiter => {
+    let l = limiters.get(limit);
+    if (!l) {
+      l = new AnonymousRateLimiter({ limit, windowMs: VOICE_RATE_WINDOW_MS, maxKeys: VOICE_MAX_LIMITER_KEYS, nowMs });
+      limiters.set(limit, l);
+    }
+    return l;
+  };
+  const pruneTimerApi: VoiceTimers = deps.pruneTimers ?? {
+    setTimeout: (fn, ms) => {
+      const t = setTimeout(fn, ms);
+      t.unref?.();
+      return t;
+    },
+    clearTimeout: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+  };
+  let pruneTimer: unknown;
 
   // -- timers ---------------------------------------------------------------
 
@@ -515,11 +555,24 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     }
     c.timers.clear();
     c.silenceTimer = undefined;
+    c.startTimer = undefined;
   }
   const silenceMsFor = (tenantId: string): number => {
     const v = deps.silenceTimeoutMsForTenant?.(tenantId) ?? deps.silenceTimeoutMs ?? VOICE_SILENCE_TIMEOUT_MS_DEFAULT;
     return Number.isFinite(v) && v > 0 ? v : VOICE_SILENCE_TIMEOUT_MS_DEFAULT;
   };
+  /**
+   * An accepted socket must send `start` within VOICE_START_TIMEOUT_MS, and a start must finish connecting within the same budget:
+   * a provider connect that never returns must not hold a socket slot and the student's lock for ever (U10 repair 1, item 4).
+   * Armed again when the state moves to "starting", so a start that arrived late still gets its whole budget.
+   */
+  function armStartTimer(c: Conn): void {
+    cancel(c, c.startTimer);
+    c.startTimer = schedule(c, VOICE_START_TIMEOUT_MS, () => {
+      c.startTimer = undefined;
+      if (c.state === "awaiting_start" || c.state === "starting") void finalize(c, 1008);
+    });
+  }
   /** Student speech, model output or a control message restarts the silence clock (raw audio frames do not: an open microphone is not speech). */
   function armSilence(c: Conn): void {
     if (c.state !== "active") return;
@@ -601,8 +654,11 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     if (t.role === "user") armSilence(c);
     sendEvent(c, { type: "transcript.final", role: t.role, text: clamp(t.text), turnId });
     if (!c.persistText) return; // D-093 4A: the student is answered, nothing personal is stored
+    const stored = redact(c, t.text);
+    // The crisis escalation reads the words of the latest student turn; they are kept redacted and only while text may be stored.
+    if (t.role === "user" && c.lastUser?.turnId === turnId) c.lastUser.text = clamp(stored, 2000);
     try {
-      await appendVoiceTurn(c.db, { studentId: c.claims.studentId, threadId: c.claims.threadId, turnId, role: t.role, text: redact(c, t.text), at });
+      await appendVoiceTurn(c.db, { studentId: c.claims.studentId, threadId: c.claims.threadId, turnId, role: t.role, text: stored, at });
     } catch (err) {
       if (endIfFenced(c, err)) return;
       throw err; // LiveSession reports a sink failure as an error event
@@ -655,15 +711,44 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     }
   }
 
+  /**
+   * A crisis write is never lost to one blip: it is tried VOICE_CRISIS_WRITE_ATTEMPTS times in all (one retry, mirroring the text path's
+   * safeWrite) and a final failure is logged text-free under `failEvent`; it never throws, so the later sink writes and the session go on.
+   * A student fenced for erasure is not retried: the session ends, exactly as for every other write.
+   */
+  async function crisisWrite(c: Conn, failEvent: string, write: () => Promise<unknown>): Promise<void> {
+    let last: unknown;
+    for (let attempt = 1; attempt <= VOICE_CRISIS_WRITE_ATTEMPTS; attempt++) {
+      try {
+        await write();
+        return;
+      } catch (err) {
+        if (endIfFenced(c, err)) return;
+        last = err;
+      }
+    }
+    logEvent(failEvent, last);
+  }
+
   async function onCrisisRecord(c: Conn, r: LiveCrisisRecord): Promise<void> {
     // Ids and time only: kept even for an unconsented minor, exactly like the text path's crisis flag.
     const turnId = c.lastUser?.turnId ?? `v${c.claims.sid.slice(0, 8)}crisis`;
-    try {
-      await recordStudentFlag(c.db, { studentId: c.claims.studentId, threadId: c.claims.threadId, turnId, kind: "crisis" }, { now: new Date(r.ts) });
-    } catch (err) {
-      if (endIfFenced(c, err)) return;
-      throw err;
-    }
+    await crisisWrite(c, "voice_crisis_flag_failed", () =>
+      recordStudentFlag(c.db, { studentId: c.claims.studentId, threadId: c.claims.threadId, turnId, kind: "crisis" }, { now: new Date(r.ts) }),
+    );
+    // Parity with the text path (chat.ts escalateForTenant): the optional tenant port gets the REDACTED words of the student's turn.
+    // Never for a student whose text may not be stored (an unconsented minor), and never when no words are known.
+    const text = c.persistText ? c.lastUser?.text : undefined;
+    if (!deps.escalateForTenant || text === undefined || text === "" || c.state === "closing" || c.state === "closed") return;
+    const escalate = deps.escalateForTenant(c.claims.tenantId, c.db);
+    if (!escalate) return;
+    await crisisWrite(c, "voice_crisis_escalate_failed", () =>
+      escalate({
+        sessionId: c.claims.threadId,
+        studentId: c.claims.studentId,
+        turns: [{ turnId, speaker: "student", lang: /[\u0900-\u097F]/.test(text) ? "hi" : "en", text, translatedText: text }],
+      }),
+    );
   }
 
   // -- LiveSession event relay ----------------------------------------------
@@ -744,15 +829,35 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
 
   // -- connection lifecycle -------------------------------------------------
 
-  function retain(c: Conn): void {
-    if (c.seq === 0) return;
+  /** Drops every closed connection's resume log that is older than the window (insertion order is close order). */
+  function pruneRetained(): void {
     const now = nowMs();
     for (const [sid, r] of retained) {
-      if (now - r.closedAtMs <= VOICE_RESUME_WINDOW_MS) break; // insertion order is close order
+      if (now - r.closedAtMs <= VOICE_RESUME_WINDOW_MS) break;
       retained.delete(sid);
     }
-    retained.set(c.claims.sid, { tenantId: c.claims.tenantId, studentId: c.claims.studentId, threadId: c.claims.threadId, log: c.log, closedAtMs: now });
+  }
+  /**
+   * U10 repair 1 (item 7): retained logs hold transcript events, so they must not outlive the window just because nobody asked.
+   * One unref'd timer, re-armed for the oldest log, drops them; it is not one of a connection's timers.
+   */
+  function armPrune(): void {
+    if (pruneTimer !== undefined || retained.size === 0 || shuttingDown) return;
+    const oldest = retained.values().next().value as Retained;
+    const wait = Math.max(1_000, oldest.closedAtMs + VOICE_RESUME_WINDOW_MS + 1 - nowMs());
+    pruneTimer = pruneTimerApi.setTimeout(() => {
+      pruneTimer = undefined;
+      pruneRetained();
+      armPrune();
+    }, wait);
+  }
+
+  function retain(c: Conn): void {
+    if (c.seq === 0) return;
+    pruneRetained();
+    retained.set(c.claims.sid, { tenantId: c.claims.tenantId, studentId: c.claims.studentId, threadId: c.claims.threadId, log: c.log, closedAtMs: nowMs() });
     while (retained.size > VOICE_RETAINED_LOGS_MAX) retained.delete(retained.keys().next().value as string);
+    armPrune();
   }
 
   /** Idempotent. Releases the provider session, every timer and the quota slot, writes the minutes, keeps the JSON events for resume, then closes the socket. */
@@ -789,6 +894,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       }
       retain(c);
       if (activeByStudent.get(c.key) === c) activeByStudent.delete(c.key);
+      if (latestStart.get(c.key) === c) latestStart.delete(c.key);
       conns.delete(c);
       c.state = "closed";
       try {
@@ -812,6 +918,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   function replayFrom(c: Conn, lastEventId: string): void {
     const m = EVENT_ID_RE.exec(lastEventId);
     if (!m) return;
+    pruneRetained(); // an expired log is dropped on the read that finds it
     const r = retained.get(m[1]!);
     // Only the SAME student's, SAME thread's, SAME tenant's earlier connection, inside the resume window; anything else replays nothing.
     if (!r || r.tenantId !== c.claims.tenantId || r.studentId !== c.claims.studentId || r.threadId !== c.claims.threadId) return;
@@ -834,6 +941,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       return;
     }
     c.state = "starting";
+    armStartTimer(c);
     const { tenantId, studentId } = c.claims;
     const now = nowDate();
     const limits = resolveLimits(deps.limitsForTenant?.(tenantId));
@@ -865,11 +973,25 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     if (c.state !== "starting") return; // the socket closed while the checks ran
 
     // One voice session per student: a new start replaces the old one (a client that reconnects before the server noticed the drop).
-    const previous = activeByStudent.get(c.key);
-    if (previous && previous !== c) {
+    // U10 repair 1 (items 1 and 2): two starts that wait for the same old session must not both take the slot. Every await is followed by a
+    // fresh look at the map; the newest waiter wins and an older waiter steps aside; and the slot is taken only by a connection that is
+    // still starting, so a socket that closed while it waited can never leave itself in the map.
+    latestStart.set(c.key, c);
+    for (;;) {
+      const previous = activeByStudent.get(c.key);
+      if (!previous || previous === c) break;
       sendError(previous, "superseded");
       await finalize(previous, 4000);
+      if (activeByStudent.get(c.key) === previous) activeByStudent.delete(c.key); // belt and braces: a finalize that threw must not wedge the loop
+      if (c.state !== "starting") return; // the socket closed while it waited
+      if (latestStart.get(c.key) !== c) {
+        sendError(c, "superseded"); // a newer start for this student is queued behind the same old session
+        void finalize(c, 4000);
+        return;
+      }
     }
+    if (latestStart.get(c.key) === c) latestStart.delete(c.key);
+    if (c.state !== "starting") return;
     activeByStudent.set(c.key, c);
     if (lastEventId !== undefined) replayFrom(c, lastEventId);
 
@@ -912,6 +1034,8 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     }
     c.session = session;
     c.state = "active";
+    cancel(c, c.startTimer);
+    c.startTimer = undefined;
     c.startedAtMs = nowMs();
     c.capMs = Math.min(limits.voiceSessionMaxMinutes * 60_000, remainingMs);
     schedule(c, c.capMs, () => {
@@ -1024,9 +1148,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       pendingConfirms: new Map(),
     };
     conns.add(c);
-    schedule(c, VOICE_START_TIMEOUT_MS, () => {
-      if (c.state === "awaiting_start") void finalize(c, 1008);
-    });
+    armStartTimer(c);
     ws.on("message", (data, isBinary) => {
       const size = Array.isArray(data) ? data.reduce((n, b) => n + b.byteLength, 0) : data.byteLength;
       c.queuedBytes += size;
@@ -1079,6 +1201,12 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     return hit === undefined ? undefined : hit.slice(VOICE_WS_TOKEN_PROTOCOL_PREFIX.length);
   }
 
+  function preStartSockets(key: string): number {
+    let n = 0;
+    for (const c of conns) if (c.key === key && (c.state === "awaiting_start" || c.state === "starting")) n++;
+    return n;
+  }
+
   async function doUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): Promise<void> {
     if (shuttingDown) return refuse(socket, 503, "Service Unavailable");
     const pathname = pathOf({ url: req.url ?? "/" });
@@ -1101,6 +1229,8 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     }
     if (usedTokens.has(claims.jti)) return refuse(socket, 401, "Unauthorized");
     if (usedTokens.size >= VOICE_MAX_USED_TOKENS || conns.size >= maxSockets) return refuse(socket, 503, "Service Unavailable");
+    // One student may hold only a few sockets that have not started: the token is not spent when this refuses.
+    if (preStartSockets(`${claims.tenantId}\u0000${claims.studentId}`) >= VOICE_MAX_PRESTART_SOCKETS_PER_STUDENT) return refuse(socket, 429, "Too Many Requests");
     usedTokens.set(claims.jti, claims.exp);
     wss.handleUpgrade(req, socket, head, (ws) => onConnection(ws, claims));
   }
@@ -1154,6 +1284,10 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     // The token's student is the only student this token may act for; anything else looks like a missing resource.
     if (m[1] !== ctx.studentId) return NOT_FOUND();
     const threadId = m[2]!;
+    // D-088 Q5, same limiter and 30/min default as the text route: a student cannot mint tokens (and so open sockets) without bound.
+    const limit = resolveLimits(deps.limitsForTenant?.(ctx.tenantId)).requestsPerMinute;
+    const verdict = limiterFor(limit).check(`${ctx.tenantId}\u0000${ctx.studentId}`);
+    if (!verdict.allowed) return fail(429, "rate_limited", { "retry-after": String(verdict.retryAfterSec) });
     if (!(await readEmptyBody(req))) return fail(400, "invalid_request");
 
     const db = deps.dbForTenant(ctx.tenantId);
@@ -1211,6 +1345,9 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       shuttingDown = true;
       for (const c of [...conns]) void finalize(c, 1001);
       while (pendingFinalizers.size > 0) await Promise.all([...pendingFinalizers]);
+      if (pruneTimer !== undefined) pruneTimerApi.clearTimeout(pruneTimer);
+      pruneTimer = undefined;
+      retained.clear(); // nothing is resumable after shutdown, so no transcript events are kept
       await new Promise<void>((resolve) => wss.close(() => resolve()));
     },
   };
