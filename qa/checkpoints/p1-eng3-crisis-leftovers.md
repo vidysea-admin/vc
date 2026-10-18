@@ -8,3 +8,12 @@ Base 52d2af5, code 8512f82, manifest 5153e93. Lockfile pnpm-lock.yaml unchanged 
 - falsification (copy eng3chk/fals, restored): F1 5 red, F1b 4 red, F2 4 red, F3 1 red, F4a 4 red, F4b 1 red, F4c 1 red. Baselines green.
 - probes: eng3chk/probe1..6.mts (scratchpad). Result: FAIL (kms suppression; apps/api test).
 Attribution: checker p1-eng3-check (this file).
+
+# Checkpoint - p1-eng3-crisis-leftovers (cycle 2, checker, completed checks)
+Base 52d2af5, code ba4e2bf, manifest 9abff36. Env: win32, C: 99 percent full, mock only.
+- testlock: engine guard-crisis + crisis-defaults -> 403/403; apps/api four tests -> 85/85; engine typecheck -> exit 0.
+- recall/precision probes (eng3c2/probe.mts): all review rows and hostile variants as briefed pass; 4 own-paraphrase misses are pre-existing at base (ISS-p1eng3-8).
+- speed: "1"x100000 = 32.2 s, "5"x100000 = 31.2 s (quadratic LEET_BEFORE_LETTER, entered in 0cc886c; base and 8512f82 take 1 ms at 20k). All other 100k inputs under 35 ms.
+- falsification (eng3c2/fals, restored): M1-M8 killed, M9-M11 equivalent.
+- Result: FAIL (C1 speed requirement), ISS-p1eng3-7..9. Last fix cycle used.
+Attribution: checker p1-eng3-c2-check (this file).
