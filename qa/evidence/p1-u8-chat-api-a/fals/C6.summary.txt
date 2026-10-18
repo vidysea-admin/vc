@@ -1,0 +1,10 @@
+start 2026-10-18T23:51:51+05:30
+before group1 (packages/db: tests/student-store.test.ts) tests=13 pass=13 fail=0 first_fail=[]
+before group2 (apps/api: tests/chat-profile.test.ts) tests=10 pass=10 fail=0 first_fail=[]
+edited packages/db/src/profile-facts.ts
+after group1 (packages/db: tests/student-store.test.ts) tests=13 pass=10 fail=3 first_fail=[✖ a fact proposed from chat starts as proposed, is hidden from 'confirmed', and confirming it makes it student-confirmed]
+after group2 (apps/api: tests/chat-profile.test.ts) tests=10 pass=8 fail=2 first_fail=[✖ A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it]
+restored byte-identical to HEAD: packages/db/src/profile-facts.ts
+restored group1 (packages/db: tests/student-store.test.ts) tests=13 pass=13 fail=0 first_fail=[]
+restored group2 (apps/api: tests/chat-profile.test.ts) tests=10 pass=10 fail=0 first_fail=[]
+end 2026-10-18T23:52:42+05:30

@@ -1,0 +1,76 @@
+[testlock] waiting for lock held by: PID=38372 STARTED=639279632396992883 ACQUIRED_AT=1792347535 TOKEN=1792347535698116600-5164-19422 DESC=bash /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/chk-a/fals/row.sh C1 
+[testlock] running slot 1 (free RAM 2.73 GB): pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/packages/providers test
+
+> @vc/providers@0.1.0 test C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u8\packages\providers
+> tsx --test tests/*.test.ts
+
+✔ first model fails (500), second succeeds — the failover moves to the next chain model in config order (183.4682ms)
+✔ all models fail within the budget: attempt count never exceeds the budget, and backoff+jitter is applied between attempts (76.1493ms)
+✔ backoff is genuinely applied between attempts — proven with the DEFAULT sleep (real global setTimeout) and node:test fake timers (11.8242ms)
+✔ a non-retryable error (HTTP 401, an auth/config error) stops immediately: no retry, no failover to the next model (20.1692ms)
+✔ the exhaustion alert is emitted exactly once and carries no secret value (31.9305ms)
+✔ T-021 fix cycle 1 (ISS-t-021-rev-1): worst case — every attempt hangs forever — still ends in AiUnavailableError within the wall-clock deadline, and the alert fires exactly once (1.4687ms)
+✔ T-037 (ISS-066): the deadline timer aborts the LOSING attempt's own AbortSignal — not merely FailoverProvider's own promise (0.9951ms)
+✔ T-037 (ISS-066): the wall-clock deadline actually aborts the real in-flight LiteLLM HTTP request (the stub server observes the connection close, not just FailoverProvider giving up) — a concurrent, unrelated request is fully unaffected (375.5287ms)
+✔ T-032 (ISS-t-021-rev-3): the deadline expires BETWEEN attempts (during backoff) — the reported error is the deadline, not a stale earlier retryable failure (2.8326ms)
+✔ T-032 (ISS-t-032-c0-1 fix cycle 1): the deadline expires the INSTANT attempt 1's own retryable failure lands — before backoff is ever scheduled, one whole loop iteration earlier than the pre-existing top-of-loop check — the reported error is still the deadline, not the retryable failure (1.5089ms)
+{"event":"provider_failover_exhausted","models":["m1","m2"],"attempts":2,"lastErrorName":"FailoverDeadlineExceededError"}
+✔ T-021 fix cycle 1 (ISS-t-021-rev-1): VC_LLM_DEADLINE_MS / VC_LLM_ATTEMPT_TIMEOUT_MS reach the built FailoverProvider chain (real hung stub server, real small timers) (178.4627ms)
+✔ isRetryableProviderError: whitelist — timeout/429/5xx/malformed/network/ModelOutputSchemaError are retryable, everything else (auth/config, a bare unrelated ZodError) is not (1.0775ms)
+✔ T-032 (ISS-t-021-rev-3): isRetryableProviderError scopes ZodError to MODEL-OUTPUT validation only — an output-schema failure fails over, an unrelated internal ZodError propagates unchanged (2.7797ms)
+✔ computeBackoffMs: full jitter, bounded by baseDelayMs * 2^(attempt-1), capped at maxDelayMs (0.3142ms)
+✔ T-021: VC_LLM_MODELS absent — loadProviderConfig/createProvider are BYTE-FOR-BYTE unchanged (backward compatibility) (0.4387ms)
+✔ T-021/D-020: VC_LLM_MODELS + VC_LLM_RETRY_BUDGET build a FailoverProvider chain in config order (0.5549ms)
+✔ T-021: VC_LLM_RETRY_BUDGET must be a positive integer (0.3896ms)
+✔ T-021: FailoverProvider refuses an empty chain (0.1815ms)
+✔ T-021: MockProvider works as a chain member too (FailoverProvider is provider-agnostic) (0.7836ms)
+✔ T-021 fix cycle 1 (ISS-t-021-rev-2, gate failover-scope Q2 A): a wrong-shape (schema-invalid) response from model 1 fails over to model 2 WITHIN THE SAME call — model 2's valid answer is returned, no exception escapes (0.6709ms)
+✔ T-021 fix cycle 1 (ISS-t-021-rev-2, gate failover-scope Q2 A): all 3 models return wrong-shape output — the SAME single alert fires and AiUnavailableError is thrown (never a silent failedReason) (5.3261ms)
+✔ providersStatus no longer reports a scaffold placeholder (2.3926ms)
+✔ MockProvider returns the canned output parsed by the caller's Zod schema (typed output) (4.9537ms)
+✔ MockProvider records every call (skill name, prompt, input) so tests can prove zero calls (0.9264ms)
+✔ MockProvider refuses an output that does not match the schema (no free text crosses the seam, B5) (2.6294ms)
+✔ MockProvider throws for a skill with no canned response (never invents output) (0.5031ms)
+✔ B6: loadProviderConfig reads the provider and model from config, and requires both for gemini (0.7745ms)
+✔ T-019 B6: loadProviderConfig reads litellm (base URL + optional key) and rules (no model needed) config (0.4749ms)
+✔ T-019 B6: createProvider builds LiteLlmProvider and RulesProvider from config; still no default provider (1.247ms)
+✔ B6: createProvider selects the implementation by config; the Gemini stub is constructed, never called (0.6396ms)
+✔ B11: the Gemini stub never exposes its key through JSON or string conversion (0.4522ms)
+✔ T-045 leaf authorization refuses before mock execution and does not disclose its input (1.1011ms)
+✔ T-045 leaf authorization cannot execute after an abort during preflight (0.6351ms)
+✔ T-045 failover rechecks authorization at each leaf and refuses without spending another execution (1.7224ms)
+✔ T-045 failover deadline includes held preflight and never executes after late authorization (28.341ms)
+✔ T-045 raw schema failures preserve typed retry eligibility without exposing hostile provider markers (2.8786ms)
+✔ a real request goes out and a well-formed response is parsed by the caller's schema (139.7284ms)
+✔ no Authorization header is sent when no apiKey is configured (24.33ms)
+✔ a non-2xx HTTP response gives a typed LiteLlmHttpError naming the status, no key value in the message (16.7873ms)
+✔ a response whose content is not valid JSON gives a typed LiteLlmMalformedResponseError (21.5759ms)
+✔ a response with no choices[0].message.content gives a typed LiteLlmMalformedResponseError (14.993ms)
+✔ a response body that is not valid JSON at all gives a typed LiteLlmMalformedResponseError (25.9082ms)
+✔ well-formed JSON that fails the caller's outputSchema throws a typed sanitized schema error (retryable upstream) (19.4083ms)
+✔ a server that never responds times out with a typed LiteLlmTimeoutError, no key value in the message (117.497ms)
+✔ T-037 (ISS-066): a caller-supplied AbortSignal that is ALREADY aborted rejects immediately with LiteLlmAbortedError, and no request is ever sent (4.839ms)
+✔ T-037 (ISS-066): a caller-supplied AbortSignal that fires MID-FLIGHT actually cancels the real HTTP request (the stub server observes the connection close) with a typed LiteLlmAbortedError — never mistaken for LiteLlmTimeoutError (24.8948ms)
+✔ no server listening at all (connection refused) gives a typed LiteLlmNetworkError, no key value in the message (1.6838ms)
+✔ B11: the apiKey never appears in JSON.stringify / String() of the provider instance (0.232ms)
+✔ kind and model are exposed for logging/observability (0.1151ms)
+✔ fact-extraction: a 'key: value' annotation line in a turn's translatedText becomes a cited candidate fact (6.0822ms)
+✔ fact-extraction: multiple annotation lines in one turn all become facts, each cited to that turn (2.2508ms)
+✔ fact-extraction: a turn with no annotation lines produces no facts (never invents one) (0.5485ms)
+✔ fact-extraction: falls back to the original text when translatedText has no annotations (0.6089ms)
+✔ session-summary: a template summary cites every fact's key, value and turn — no model, no free text generation (1.3409ms)
+✔ session-summary: B1 — the template is a record, never an instruction to the counsellor (no recital verbs) (0.5008ms)
+✔ session-summary: zero facts still produces a valid, non-crashing summary (0.4688ms)
+✔ an unsupported skill name throws a typed RulesProviderUnsupportedSkillError (1.1952ms)
+✔ kind is 'rules' and the model defaults to 'rules' (0.2454ms)
+✔ no global fetch call is ever made by the rules provider (no model, B6/B8) (0.755ms)
+✔ T-045 rules approved-history verification releases only its exact deterministic rendering (1.7239ms)
+ℹ tests 60
+ℹ suites 0
+ℹ pass 60
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6458.1726
+exit=0

@@ -6,3 +6,6 @@ export * from "./facts.js";
 export * from "./edges.js";
 export * from "./erasure.js";
 export * from "./tenant.js";
+export * from "./chat-threads.js";
+export * from "./profile-facts.js";
+export * from "./student-logs.js";

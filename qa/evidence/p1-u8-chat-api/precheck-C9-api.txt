@@ -1,0 +1,52 @@
+✔ D-093 6A: a student who types their name, phone and email in a question gets an answer, and none of the three is in anything stored (121.4955ms)
+✔ D-093 6A: a name the Pathlynks profile supplies is redacted from stored text even when the student never said 'my name is' (30.1617ms)
+✔ D-093 6A: a model answer that carries an email address is stored and replayed redacted, while the first live answer is unchanged (29.2609ms)
+✔ D-093 4A: an under-18 student with no guardian-consent claim still gets the answer, and no turn text, answer or redacted copy is stored anywhere (23.5071ms)
+✔ D-093 4A: an under-18 student without consent who opens the chat and leaves before asking anything has a thread already marked text-free (10.3615ms)
+✔ D-093 4A: a token with no age and no minor claim is treated as under 18 (fail closed), so its text is not stored either (19.8888ms)
+✔ D-093 4A: an under-18 student WITH the guardian-consent claim is stored like an adult; a consent claim that is the string 'true' is not consent (31.7276ms)
+✔ D-093 4A: a thread opened with consent that later turns come without it is marked textStored false, and the earlier stored turns stay readable (34.0193ms)
+✔ D-093 4A: a crisis message from an under-18 student without consent gets the fixed message, keeps only an ids-and-time flag row, and does not hand the text to escalation (16.5361ms)
+✔ a crisis message from an adult is answered with the fixed message, flagged in the safety log, and escalated through the tenant's escalation path (21.6159ms)
+✔ a student who raised a crisis flag earlier in the thread still sees the helpline on a later turn after the server restarts (the flag is read from the store) (31.4199ms)
+✔ two tenants with the same student id never see each other's threads, and every stored row carries its own tenant (19.5611ms)
+✔ A6: the sandbox tenant accepts only syn- student ids (403 for a real-looking id on every route), other tenants are unaffected (10.7767ms)
+✔ D-015: a student whose erasure is in progress is told 409 student_fenced, the model is not called, and nothing new is kept (11.8468ms)
+✔ a 500 from an unexpected failure carries no cause and the log line carries no student text (10.3403ms)
+✔ A20: chat is OFF by default - unset, empty and 'false' read as disabled, only the exact word 'true' enables, anything else is a config error (1.3906ms)
+✔ A20 flag off: nothing is built and every chat path answers exactly like an unknown path (404), for every method, without touching the main handler (163.4005ms)
+✔ A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes (5.6753ms)
+✔ A20: each missing gate record refuses; voice's A10 and anonymous option b are NOT needed for authenticated chat (30.4135ms)
+✔ no student text is traced: an environment that switches LangChain/LangSmith tracing on refuses to build the chat routes (11.8008ms)
+✔ the chat route list equals the draft student paths (without voice) and none of them is in the counsellor route table (0.9286ms)
+✔ a request with no token, a garbage token or a token signed by a stranger is refused 401 with one identical body, and nothing is read or written (81.7402ms)
+✔ a counsellor, admin or approver token, validly signed with the student key, is refused 403 on every student route (15.7322ms)
+✔ a student whose token names a different student than the path gets 404 (not 403) and nothing is created (8.9364ms)
+✔ a student starts a thread, asks a sourced question, and reads the exchange back in order (97.8428ms)
+✔ a student whose phone retries the same clientTurnId after a dropped response gets the same answer, one model call, one stored exchange and one usage count (24.3106ms)
+✔ the same clientTurnId reused with different text is refused 409, and the first answer is kept (20.927ms)
+✔ a second tab sending the same clientTurnId while the first is still being answered gets 409 turn_in_progress and no second model call (10.8134ms)
+✔ a turn without a clientTurnId gets a server-made turn id, and two such turns are two exchanges (25.0998ms)
+✔ a model outage gives the apology answer, keeps nothing, and the student's retry with the same clientTurnId runs again (23.2275ms)
+✔ a body that carries identity or unknown fields, bad JSON, an empty or over-long text, or an oversized body is refused before anything runs (9.8901ms)
+✔ an unknown thread, or one that belongs to another student of the same tenant, is a 404 that does not say which (9.1019ms)
+✔ a path id with odd characters is refused 404 (path ids are letters, digits, dot, dash, underscore only) (7.2289ms)
+✔ a wrong method on a chat path is 405 with Allow, and a non-chat path is left to the main handler (8.1458ms)
+✔ A23: the 31st request in a minute from one student is 429 with Retry-After, another student is not affected, and the window reopens (18.9724ms)
+✔ A23: a tenant override of requestsPerMinute applies to that tenant only (12.5154ms)
+✔ A23: a crisis message is never rate limited, even from a student already over the limit (33.4611ms)
+✔ a question the knowledge base cannot answer says so, and adds one text-free count to the day's gap total (no student, thread or text) (18.1864ms)
+ℹ tests 38
+ℹ suites 0
+ℹ pass 38
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2799.6604
+[testlock] write_owner_enrich: lock dir token changed (ours [1792277080537366200-114237-13200], now [1792277080658909700-113798-24449]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] waiting for lock held by: PID=38272 STARTED=639278936563317612 ACQUIRED_AT=1792277080 TOKEN=1792277080658909700-113798-24449 DESC=pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-eng3/packages/engine exec tsx --test --test-name-pattern=D-093 2A tests/guard-crisis.test.ts tests/crisis-defaults.test.ts 
+[testlock] owner PID 39656 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running (free RAM 7.9 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/apps/api exec tsx --test --test-timeout=30000 tests/chat-privacy.test.ts tests/chat.test.ts

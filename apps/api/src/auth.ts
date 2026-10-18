@@ -80,6 +80,7 @@ export type AuthFailureReason =
   | "issuer"
   | "audience"
   | "claims"
+  | "role"
   | "key"
   | "invalid";
 
@@ -110,22 +111,33 @@ export const JWT_ENV = {
   clockSkewSec: "VC_JWT_CLOCK_SKEW_SEC",
 } as const;
 
+/** The environment variable names one verifier reads. The counsellor API uses JWT_ENV; the student API uses STUDENT_JWT_ENV. */
+export interface JwtEnvNames {
+  issuer: string;
+  audience: string;
+  algorithms: string;
+  publicKey: string;
+  jwksUrl: string;
+  hs256Secret: string;
+  clockSkewSec: string;
+}
+
 function nonEmpty(env: Record<string, string | undefined>, name: string): string | undefined {
   const value = env[name];
   return value === undefined || value.trim() === "" ? undefined : value;
 }
 
-function parseAlgorithms(raw: string | undefined): JwtAlgorithm[] {
-  const names = (raw ?? "RS256,ES256")
+function parseAlgorithms(raw: string | undefined, names: JwtEnvNames): JwtAlgorithm[] {
+  const listed = (raw ?? "RS256,ES256")
     .split(",")
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
-  if (names.length === 0) throw new JwtConfigError(`${JWT_ENV.algorithms} lists no algorithm`);
+  if (listed.length === 0) throw new JwtConfigError(`${names.algorithms} lists no algorithm`);
   const out: JwtAlgorithm[] = [];
-  for (const name of names) {
-    if (name.toLowerCase() === "none") throw new JwtConfigError(`${JWT_ENV.algorithms} may never include "none"`);
+  for (const name of listed) {
+    if (name.toLowerCase() === "none") throw new JwtConfigError(`${names.algorithms} may never include "none"`);
     if (!(JWT_ALGORITHMS as readonly string[]).includes(name)) {
-      throw new JwtConfigError(`${JWT_ENV.algorithms}: only ${JWT_ALGORITHMS.join(", ")} are allowed`);
+      throw new JwtConfigError(`${names.algorithms}: only ${JWT_ALGORITHMS.join(", ")} are allowed`);
     }
     if (!out.includes(name as JwtAlgorithm)) out.push(name as JwtAlgorithm);
   }
@@ -133,51 +145,51 @@ function parseAlgorithms(raw: string | undefined): JwtAlgorithm[] {
 }
 
 /** The algorithm a PEM public key verifies (RSA >= 2048 bits -> RS256, EC P-256 -> ES256), else a config error. */
-function publicKeyAlgorithm(key: KeyObject): "RS256" | "ES256" {
+function publicKeyAlgorithm(key: KeyObject, names: JwtEnvNames): "RS256" | "ES256" {
   const details = key.asymmetricKeyDetails ?? {};
   if (key.asymmetricKeyType === "rsa") {
-    if ((details.modulusLength ?? 0) < 2048) throw new JwtConfigError(`${JWT_ENV.publicKey}: an RSA key must be at least 2048 bits`);
+    if ((details.modulusLength ?? 0) < 2048) throw new JwtConfigError(`${names.publicKey}: an RSA key must be at least 2048 bits`);
     return "RS256";
   }
   if (key.asymmetricKeyType === "ec" && details.namedCurve === "prime256v1") return "ES256";
-  throw new JwtConfigError(`${JWT_ENV.publicKey}: only an RSA (RS256) or EC P-256 (ES256) public key is supported`);
+  throw new JwtConfigError(`${names.publicKey}: only an RSA (RS256) or EC P-256 (ES256) public key is supported`);
 }
 
 /**
  * Reads and validates the JWT configuration. Throws JwtConfigError (naming the variable, never
  * echoing its value) on anything missing, ambiguous or unsafe.
  */
-export function jwtConfigFromEnv(env: Record<string, string | undefined>): JwtConfig {
-  const issuer = nonEmpty(env, JWT_ENV.issuer);
-  if (!issuer) throw new JwtConfigError(`${JWT_ENV.issuer} is not set (see .env.example)`);
-  const audience = nonEmpty(env, JWT_ENV.audience);
-  const algorithms = parseAlgorithms(nonEmpty(env, JWT_ENV.algorithms));
+export function jwtConfigFromEnv(env: Record<string, string | undefined>, names: JwtEnvNames = JWT_ENV): JwtConfig {
+  const issuer = nonEmpty(env, names.issuer);
+  if (!issuer) throw new JwtConfigError(`${names.issuer} is not set (see .env.example)`);
+  const audience = nonEmpty(env, names.audience);
+  const algorithms = parseAlgorithms(nonEmpty(env, names.algorithms), names);
 
-  const skewRaw = nonEmpty(env, JWT_ENV.clockSkewSec);
+  const skewRaw = nonEmpty(env, names.clockSkewSec);
   const clockToleranceSec = skewRaw === undefined ? DEFAULT_CLOCK_SKEW_SEC : Number(skewRaw);
   if (!Number.isInteger(clockToleranceSec) || clockToleranceSec < 0 || clockToleranceSec > MAX_CLOCK_SKEW_SEC) {
-    throw new JwtConfigError(`${JWT_ENV.clockSkewSec} must be a whole number of seconds from 0 to ${MAX_CLOCK_SKEW_SEC}`);
+    throw new JwtConfigError(`${names.clockSkewSec} must be a whole number of seconds from 0 to ${MAX_CLOCK_SKEW_SEC}`);
   }
 
-  const pem = nonEmpty(env, JWT_ENV.publicKey);
-  const jwks = nonEmpty(env, JWT_ENV.jwksUrl);
-  const secret = nonEmpty(env, JWT_ENV.hs256Secret);
+  const pem = nonEmpty(env, names.publicKey);
+  const jwks = nonEmpty(env, names.jwksUrl);
+  const secret = nonEmpty(env, names.hs256Secret);
   const sources = [pem, jwks, secret].filter((s) => s !== undefined).length;
   if (sources !== 1) {
-    throw new JwtConfigError(`set exactly one of ${JWT_ENV.publicKey}, ${JWT_ENV.jwksUrl} or ${JWT_ENV.hs256Secret}`);
+    throw new JwtConfigError(`set exactly one of ${names.publicKey}, ${names.jwksUrl} or ${names.hs256Secret}`);
   }
 
   if (algorithms.includes("HS256")) {
     // Symmetric keys never share an allow-list with asymmetric ones (algorithm confusion).
-    if (algorithms.length !== 1) throw new JwtConfigError(`${JWT_ENV.algorithms}: HS256 must be the only algorithm when it is used`);
-    if (!secret) throw new JwtConfigError(`HS256 needs ${JWT_ENV.hs256Secret} (never a public key or a JWKS)`);
+    if (algorithms.length !== 1) throw new JwtConfigError(`${names.algorithms}: HS256 must be the only algorithm when it is used`);
+    if (!secret) throw new JwtConfigError(`HS256 needs ${names.hs256Secret} (never a public key or a JWKS)`);
     const bytes = new TextEncoder().encode(secret);
     if (bytes.length < MIN_HS256_SECRET_BYTES) {
-      throw new JwtConfigError(`${JWT_ENV.hs256Secret} must be at least ${MIN_HS256_SECRET_BYTES} bytes`);
+      throw new JwtConfigError(`${names.hs256Secret} must be at least ${MIN_HS256_SECRET_BYTES} bytes`);
     }
     return { issuer, audience, algorithms, clockToleranceSec, keySource: { kind: "hs256", secret: bytes } };
   }
-  if (secret) throw new JwtConfigError(`${JWT_ENV.hs256Secret} is set but ${JWT_ENV.algorithms} does not name HS256`);
+  if (secret) throw new JwtConfigError(`${names.hs256Secret} is set but ${names.algorithms} does not name HS256`);
 
   if (pem) {
     let key: KeyObject;
@@ -185,11 +197,11 @@ export function jwtConfigFromEnv(env: Record<string, string | undefined>): JwtCo
       // .env files hold one line: a literal "\n" stands for a newline in the PEM.
       key = createPublicKey(pem.replace(/\\n/g, "\n"));
     } catch {
-      throw new JwtConfigError(`${JWT_ENV.publicKey} is not a readable PEM public key`);
+      throw new JwtConfigError(`${names.publicKey} is not a readable PEM public key`);
     }
-    const algorithm = publicKeyAlgorithm(key);
+    const algorithm = publicKeyAlgorithm(key, names);
     if (!algorithms.includes(algorithm)) {
-      throw new JwtConfigError(`${JWT_ENV.publicKey} is a ${algorithm} key but ${JWT_ENV.algorithms} does not allow ${algorithm}`);
+      throw new JwtConfigError(`${names.publicKey} is a ${algorithm} key but ${names.algorithms} does not allow ${algorithm}`);
     }
     return { issuer, audience, algorithms: [algorithm], clockToleranceSec, keySource: { kind: "public_key", key, algorithm } };
   }
@@ -198,9 +210,9 @@ export function jwtConfigFromEnv(env: Record<string, string | undefined>): JwtCo
   try {
     url = new URL(jwks!);
   } catch {
-    throw new JwtConfigError(`${JWT_ENV.jwksUrl} is not a URL`);
+    throw new JwtConfigError(`${names.jwksUrl} is not a URL`);
   }
-  if (url.protocol !== "https:") throw new JwtConfigError(`${JWT_ENV.jwksUrl} must be an https URL`);
+  if (url.protocol !== "https:") throw new JwtConfigError(`${names.jwksUrl} must be an https URL`);
   return { issuer, audience, algorithms, clockToleranceSec, keySource: { kind: "jwks", url } };
 }
 
@@ -251,33 +263,165 @@ export interface JwtVerifierOptions {
   jwksFetch?: FetchImplementation;
 }
 
-/** Builds the verifier once at startup. Performs no I/O itself (a JWKS is fetched on first use). */
-export function createJwtVerifier(config: JwtConfig, options: JwtVerifierOptions = {}): JwtVerifier {
+function verificationKey(config: JwtConfig, options: JwtVerifierOptions): Parameters<typeof jwtVerify>[1] {
   const source = config.keySource;
-  const key =
+  return (
     source.kind === "jwks"
       ? createRemoteJWKSet(source.url, options.jwksFetch ? { [customFetch]: options.jwksFetch } : undefined)
       : source.kind === "hs256"
         ? source.secret
-        : source.key;
-  const verifyOptions = {
+        : source.key
+  ) as Parameters<typeof jwtVerify>[1];
+}
+
+function verifyOptionsOf(config: JwtConfig, requiredClaims: string[]) {
+  return {
     issuer: config.issuer,
     ...(config.audience !== undefined ? { audience: config.audience } : {}),
     algorithms: [...config.algorithms],
     clockTolerance: config.clockToleranceSec,
-    requiredClaims: ["exp", "iss", "tenant", "counsellorId", "role"],
+    requiredClaims,
   };
+}
+
+/** Shared by both verifiers: the cheap pre-checks, then jose's signature / time / issuer / audience checks. */
+async function verifiedPayload(token: string, key: Parameters<typeof jwtVerify>[1], verifyOptions: ReturnType<typeof verifyOptionsOf>): Promise<JWTPayload> {
+  if (typeof token !== "string" || token.length === 0) throw new AuthError("missing");
+  if (token.length > MAX_TOKEN_LENGTH || !COMPACT_JWS.test(token)) throw new AuthError("malformed");
+  try {
+    return (await jwtVerify(token, key, verifyOptions)).payload;
+  } catch (err) {
+    throw new AuthError(reasonFor(err));
+  }
+}
+
+/** Builds the verifier once at startup. Performs no I/O itself (a JWKS is fetched on first use). */
+export function createJwtVerifier(config: JwtConfig, options: JwtVerifierOptions = {}): JwtVerifier {
+  const key = verificationKey(config, options);
+  const verifyOptions = verifyOptionsOf(config, ["exp", "iss", "tenant", "counsellorId", "role"]);
   return {
     async verify(token: string): Promise<AuthContext> {
-      if (typeof token !== "string" || token.length === 0) throw new AuthError("missing");
-      if (token.length > MAX_TOKEN_LENGTH || !COMPACT_JWS.test(token)) throw new AuthError("malformed");
-      let payload: JWTPayload;
-      try {
-        ({ payload } = await jwtVerify(token, key as Parameters<typeof jwtVerify>[1], verifyOptions));
-      } catch (err) {
-        throw new AuthError(reasonFor(err));
-      }
-      return contextFrom(payload);
+      return contextFrom(await verifiedPayload(token, key, verifyOptions));
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// P1 U8 (D-093 item 11, 4A): the STUDENT token. Pathlynks has not given the real format yet, so everything that may differ is
+// configuration: its own issuer, audience (mandatory) and key source, and the NAMES of the claims. Until Pathlynks answers, the
+// defaults below are [ASSUMPTION]s, listed in the manifest and to be settled by a B21 contract amendment.
+// ---------------------------------------------------------------------------
+
+/** A student token is never a counsellor token: this is the only role the student routes accept. */
+export const STUDENT_ROLE = "student";
+
+/** The student verifier's environment names. Separate from JWT_ENV, so a counsellor-only environment configures no student route. */
+const studentVar = (suffix: string) => `VC_STUDENT_JWT_${suffix}`;
+export const STUDENT_JWT_ENV = {
+  issuer: studentVar("ISSUER"),
+  audience: studentVar("AUDIENCE"),
+  algorithms: studentVar("ALGORITHMS"),
+  publicKey: studentVar("PUBLIC_KEY"),
+  jwksUrl: studentVar("JWKS_URL"),
+  hs256Secret: studentVar("HS256_SECRET"),
+  clockSkewSec: studentVar("CLOCK_SKEW_SEC"),
+  claimTenant: studentVar("CLAIM_TENANT"),
+  claimStudentId: studentVar("CLAIM_STUDENT_ID"),
+  claimRole: studentVar("CLAIM_ROLE"),
+  claimIsMinor: studentVar("CLAIM_IS_MINOR"),
+  claimAge: studentVar("CLAIM_AGE"),
+  claimGuardianConsent: studentVar("CLAIM_GUARDIAN_CONSENT"),
+};
+
+/** The claim names the student verifier reads. */
+export interface StudentClaimNames {
+  tenant: string;
+  studentId: string;
+  role: string;
+  isMinor: string;
+  age: string;
+  guardianConsent: string;
+}
+
+export const DEFAULT_STUDENT_CLAIM_NAMES: StudentClaimNames = Object.freeze({
+  tenant: "tenant",
+  studentId: "studentId",
+  role: "role",
+  isMinor: "isMinor",
+  age: "age",
+  guardianConsent: "guardianConsent",
+});
+
+export interface StudentJwtConfig {
+  jwt: JwtConfig;
+  claims: StudentClaimNames;
+}
+
+/** The verified identity of one student request. */
+export interface StudentAuthContext {
+  tenantId: string;
+  studentId: string;
+  role: typeof STUDENT_ROLE;
+  /** true for an under-18 student, and ALSO when no age or minor claim was supplied (fail closed, D-093 4A). */
+  minor: boolean;
+  /** true only when the guardian-consent claim is the boolean true. */
+  guardianConsent: boolean;
+}
+
+export interface StudentJwtVerifier {
+  /** Resolves the verified student context, or rejects with AuthError (reason "role" for a non-student token). */
+  verify(token: string): Promise<StudentAuthContext>;
+}
+
+const CLAIM_NAME = /^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/;
+const FORBIDDEN_CLAIM_NAMES = new Set(["__proto__", "constructor", "prototype", "exp", "iss", "aud", "nbf", "iat", "jti"]);
+
+function claimName(env: Record<string, string | undefined>, envName: string, fallback: string): string {
+  const value = nonEmpty(env, envName)?.trim() ?? fallback;
+  if (!CLAIM_NAME.test(value) || FORBIDDEN_CLAIM_NAMES.has(value)) throw new JwtConfigError(`${envName} is not an allowed claim name`);
+  return value;
+}
+
+/** Reads the student verifier's configuration (JwtConfigError on anything missing or unsafe). The audience is mandatory. */
+export function studentJwtConfigFromEnv(env: Record<string, string | undefined>): StudentJwtConfig {
+  const jwt = jwtConfigFromEnv(env, STUDENT_JWT_ENV);
+  if (jwt.audience === undefined) throw new JwtConfigError(`${STUDENT_JWT_ENV.audience} is not set (a student token must name its audience)`);
+  const claims: StudentClaimNames = {
+    tenant: claimName(env, STUDENT_JWT_ENV.claimTenant, DEFAULT_STUDENT_CLAIM_NAMES.tenant),
+    studentId: claimName(env, STUDENT_JWT_ENV.claimStudentId, DEFAULT_STUDENT_CLAIM_NAMES.studentId),
+    role: claimName(env, STUDENT_JWT_ENV.claimRole, DEFAULT_STUDENT_CLAIM_NAMES.role),
+    isMinor: claimName(env, STUDENT_JWT_ENV.claimIsMinor, DEFAULT_STUDENT_CLAIM_NAMES.isMinor),
+    age: claimName(env, STUDENT_JWT_ENV.claimAge, DEFAULT_STUDENT_CLAIM_NAMES.age),
+    guardianConsent: claimName(env, STUDENT_JWT_ENV.claimGuardianConsent, DEFAULT_STUDENT_CLAIM_NAMES.guardianConsent),
+  };
+  if (new Set(Object.values(claims)).size !== Object.values(claims).length) throw new JwtConfigError("the student claim names must all differ");
+  return { jwt, claims };
+}
+
+function studentContextFrom(payload: JWTPayload, names: StudentClaimNames): StudentAuthContext {
+  const p = payload as Record<string, unknown>;
+  const role = p[names.role];
+  if (typeof role !== "string") throw new AuthError("claims");
+  // A validly signed token of any other role (counsellor, admin, approver) is a role refusal, checked before the rest.
+  if (role !== STUDENT_ROLE) throw new AuthError("role");
+  const tenant = p[names.tenant];
+  const studentId = p[names.studentId];
+  if (typeof tenant !== "string" || !TENANT_ID_PATTERN.test(tenant)) throw new AuthError("claims");
+  if (typeof studentId !== "string" || studentId.trim() === "" || studentId.length > 128 || CONTROL_CHARS.test(studentId)) throw new AuthError("claims");
+  const age = p[names.age];
+  const underAge = typeof age === "number" && Number.isFinite(age) && age < 18;
+  const statedAdult = p[names.isMinor] === false || (typeof age === "number" && Number.isFinite(age) && age >= 18);
+  const minor = p[names.isMinor] === true || underAge || !statedAdult;
+  return { tenantId: tenant, studentId, role: STUDENT_ROLE, minor, guardianConsent: p[names.guardianConsent] === true };
+}
+
+/** Builds the student verifier once at startup. Performs no I/O itself. */
+export function createStudentJwtVerifier(config: StudentJwtConfig, options: JwtVerifierOptions = {}): StudentJwtVerifier {
+  const key = verificationKey(config.jwt, options);
+  const verifyOptions = verifyOptionsOf(config.jwt, ["exp", "iss"]);
+  return {
+    async verify(token: string): Promise<StudentAuthContext> {
+      return studentContextFrom(await verifiedPayload(token, key, verifyOptions), config.claims);
     },
   };
 }

@@ -1,0 +1,32 @@
+✔ a student opening the chat gets a thread owned by them; another student cannot read it (3.4771ms)
+✔ a chat-store call on an unscoped Db is refused (tenant isolation fails closed) (1.0285ms)
+✔ a first turn is claimed, completed, and a retry with the same turn id replays the stored answer without a second claim (10.8292ms)
+✔ a retry that arrives while the first attempt is still running is told it is in progress, not run twice (1.0424ms)
+✔ a retry after the first attempt crashed past its lease takes the claim over; the dead holder can no longer complete (1.3721ms)
+✔ the same turn id sent again with different text is a conflict, not a silent replay of the old answer (2.7478ms)
+✔ when the model call fails the claim is abandoned so the student's retry runs again (0.7517ms)
+✔ a voice turn and a text turn land in one history in time order (A19) (1.2025ms)
+✔ two tenants using the same student, thread and turn ids never see or collide with each other's chat (A6) (0.7522ms)
+✔ a student under erasure gets no new thread and no new turn, and a fence that appears mid-write undoes the write (2.2378ms)
+✔ an under-18 thread without guardian consent is a text-free marker; marking an existing thread keeps its ids and flips textStored (0.5022ms)
+✔ usage counters add up per student per month and stay inside the tenant (0.4623ms)
+✔ B12: no module outside packages/db/src/client.ts calls `.db(` (66.2857ms)
+✔ B12 scanner: catches `.db(` with whitespace before the call (0.1566ms)
+✔ B12 scanner: catches bracket property access client["db"]( (0.0847ms)
+✔ B12 scanner: catches bracket property access with single quotes client['db']( (0.0972ms)
+✔ B12 scanner: catches bracket property access with backticks and internal whitespace (0.1009ms)
+✔ B12 scanner: does not flag unrelated `.db` usage that isn't a call (e.g. a property read) (0.0991ms)
+✔ B12 scanner: file filter now includes .mts/.cts/.tsx and excludes .test./.spec. variants (0.12ms)
+✔ sanity: the scanner actually walks packages/db/src (finds at least client.ts + collections.ts) (0.787ms)
+✔ D-016 / ISS-t-011-c2-rev-2: only allowlisted fence-aware modules write to student-data collections (packages|mcp|apps/**/src) (51.7085ms)
+✔ D-016 scanner: hostile variants are caught (bracket, whitespace, optional chaining, bind alias, raw and dynamic collection(), link(), saver, \u escape, concatenated key) (0.4601ms)
+✔ D-016 scanner: no false positive for read-only access or for a write to a non-student collection (0.1685ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 534.2841
+[testlock] running (free RAM 7.99 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/packages/db exec tsx --test --test-timeout=30000 tests/chat-threads.test.ts tests/db-scope.test.ts

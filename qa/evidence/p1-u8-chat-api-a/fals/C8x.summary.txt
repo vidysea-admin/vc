@@ -1,0 +1,7 @@
+start 2026-10-18T23:52:45+05:30
+before group1 (apps/api: tests/chat-privacy.test.ts tests/chat.test.ts) tests=38 pass=38 fail=0 first_fail=[]
+edited apps/api/src/chat.ts
+after group1 (apps/api: tests/chat-privacy.test.ts tests/chat.test.ts) tests=38 pass=37 fail=1 first_fail=[✖ a student whose token names a different student than the path gets 404 (not 403) and nothing is created]
+restored byte-identical to HEAD: apps/api/src/chat.ts
+restored group1 (apps/api: tests/chat-privacy.test.ts tests/chat.test.ts) tests=38 pass=38 fail=0 first_fail=[]
+end 2026-10-18T23:53:16+05:30

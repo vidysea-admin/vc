@@ -449,7 +449,11 @@ export const STUDENT_API_DRAFT = {
         additionalProperties: false,
         required: ["threadId", "turns"],
         description: "One history of text and voice turns in order",
-        properties: { threadId: idStr, turns: { type: "array", items: ref("ThreadTurn") } },
+        properties: {
+          threadId: idStr,
+          turns: { type: "array", items: ref("ThreadTurn") },
+          textStored: { type: "boolean", description: "false when a turn was answered without storing its text (under-18 student with no guardian-consent signal; D-093 4A); such turns have empty text" },
+        },
       },
       AnonymousTurnRequest: {
         type: "object",

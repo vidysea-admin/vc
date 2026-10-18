@@ -1,0 +1,7 @@
+start 2026-10-18T23:49:51+05:30
+before group1 (apps/api: tests/student-auth.test.ts tests/chat.test.ts) tests=34 pass=34 fail=0 first_fail=[]
+edited apps/api/src/auth.ts
+after group1 (apps/api: tests/student-auth.test.ts tests/chat.test.ts) tests=34 pass=32 fail=2 first_fail=[✖ a counsellor, admin or approver token, validly signed with the student key, is refused 403 on every student route]
+restored byte-identical to HEAD: apps/api/src/auth.ts
+restored group1 (apps/api: tests/student-auth.test.ts tests/chat.test.ts) tests=34 pass=34 fail=0 first_fail=[]
+end 2026-10-18T23:50:25+05:30

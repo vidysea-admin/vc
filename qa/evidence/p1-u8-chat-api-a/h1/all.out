@@ -1,0 +1,77 @@
+[testlock] owner PID 28820 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] waiting for lock held by: 
+[testlock] owner PID 37656 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] write_owner_enrich: lock dir token changed (ours [1792279359318057600-171810-17462], now [1792279359735379700-175073-22532]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] write_owner_enrich: lock dir token changed (ours [1792279436829117800-171810-31816], now [1792279436944861200-142908-22428]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] running (free RAM 1.2 GB): pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/apps/api exec tsx --test /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/chk-a/h1/h1-auth.test.ts /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/chk-a/h1/h1-tenant.test.ts /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/chk-a/h1/h1-limits.test.ts /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/chk-a/h1/h1-flag.test.ts
+✔ 1a role forgery: student key + role counsellor/admin/approver => 403 on all 5 routes; odd roles => 401/403, never 2xx (672.8081ms)
+✔ 1b token forgery matrix on all 5 routes: never 2xx, and one body per status, no config leak (703.491ms)
+OBS lowercase bearer + valid token statuses: [201,404,404,200,404]
+OBS BEARER + valid token statuses: [201,404,404,200,404]
+✔ 1c transport forgery: empty bearer, token only in query, two Authorization headers, other schemes; lowercase bearer observed (323.2226ms)
+✔ 1d a STUDENT token is refused by the counsellor handler; a counsellor-key token is refused by student routes (303.3087ms)
+✔ 2a claims abuse: bad studentId / tenant claims never yield a 2xx and never reach the data layer (2213.0064ms)
+OBS isMinor:false + age="12" => stored
+OBS isMinor:false + age="adult" => stored
+OBS isMinor:false + age=null => stored
+OBS isMinor:false + age=null => stored
+OBS isMinor:false + age=[12] => stored
+OBS isMinor:false + age={"a":1} => stored
+✔ 2b minor / consent claim abuse: only boolean true is consent; isMinor:false with age 12 is a minor; junk fails closed (1240.6622ms)
+✔ 2c path param abuse: traversal, encoded slash, NUL, dot-only, 129 chars => 4xx, never 2xx or 500 (89.2629ms)
+✖ 5a chatEnabledFromEnv: off for unset / empty / false (trimmed); on only for exactly 'true' (trimmed); every other spelling throws ChatConfigError without echoing the value (7.5294ms)
+✔ 5b flag off: every chat path/method, with and without a valid student token, answers byte-for-byte like a truly unknown /v1 path (status, headers, body) (373.5008ms)
+✔ 5c flag on: unknown chat sub-paths, wrong methods, and the exact prefix boundary behave (404 / 405, no 500), and non-chat /v1 paths still reach the main handler (7108.0785ms)
+OBS 4a pass=30 limited=10 other=0
+✔ 4a 40 parallel turns from one student: at most 30 pass, the rest 429 with Retry-After, model calls equal passes; crisis text is never limited; window resets (2731.4327ms)
+✔ 4b limiter key collisions: (tenant ab, student c) vs (tenant a, student bc) and (a-b / c) variants have separate budgets (475.2415ms)
+OBS 4c statuses {"200":1,"409:turn_in_progress":19} model calls 1 baseline per turn 1
+OBS 4c distinct 200 bodies: 1
+✔ 4c the same clientTurnId 20 times in parallel (slow KB): exactly one model run, one stored exchange, one usage count; the rest replay (200, identical) or 409 turn_in_progress (490.8833ms)
+OBS 4d race statuses 409 turn_id_conflict 200 undefined
+✔ 4d same clientTurnId with different text => 409 turn_id_conflict (sequential and concurrent), the stored text is never overwritten (306.4591ms)
+OBS 4e takeover statuses 200,200,200,200,200,200
+✔ 4e crashed lease holder: in-progress until the lease expires on the fake clock, then ONE takeover runs; the dead holder cannot complete late (262.4438ms)
+✔ 3a student A's token with path studentId=B: every route answers exactly like a nonexistent student, and nothing is touched (504.5967ms)
+✔ 3b A's token, own path, B's threadId / B's factId: indistinguishable from nonexistent ids, no side effects (476.1914ms)
+✔ 3c same studentId and the same threadId in two tenants: no collision, no 409, no leakage either way (567.6993ms)
+OBS non-identical tenant TENANT-SBX with non-syn id (distinct tenant, not sandbox) -> 201
+OBS non-identical tenant tenant-sbx2 with non-syn id (distinct tenant, not sandbox) -> 201
+✔ 3d sandbox tenant takes only syn- ids; the check runs before the path check and leaks nothing (230.0347ms)
+✔ 3e no stored data from any rejected request across the whole tenant matrix (153.2084ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 19
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 25545.9115
+
+✖ failing tests:
+
+test at ..\..\..\chk-a\h1\h1-flag.test.ts:12:1
+✖ 5a chatEnabledFromEnv: off for unset / empty / false (trimmed); on only for exactly 'true' (trimmed); every other spelling throws ChatConfigError without echoing the value (7.5294ms)
+  AssertionError [ERR_ASSERTION]: error message echoes the raw value
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\chk-a\h1\h1-flag.test.ts:27:64)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.start (node:internal/test_runner/test:1000:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+      0 [main] bash 171810 dofork: child -1 - forked process 32348 died unexpectedly, retry 0, exit code 0xC000026B, errno 11
+D:/vc/scripts/vc-testlock.sh: fork: retry: Resource temporarily unavailable
+1070659 [main] bash 171810 dofork: child -1 - forked process 38532 died unexpectedly, retry 0, exit code 0xC000026B, errno 11
+D:/vc/scripts/vc-testlock.sh: fork: retry: Resource temporarily unavailable
+3868598 [main] bash 171810 dofork: child -1 - forked process 47136 died unexpectedly, retry 0, exit code 0xC000026B, errno 11
+D:/vc/scripts/vc-testlock.sh: fork: retry: Resource temporarily unavailable

@@ -35,6 +35,12 @@ const STUDENT_ID_COLLECTIONS = [
   COLLECTION_NAMES.session_transcripts,
   // T-011: the audit row holds studentId only while the request is open (unset on completion).
   COLLECTION_NAMES.erasure_requests,
+  // P1 U8: the student chat collections each carry studentId on every row.
+  COLLECTION_NAMES.chat_threads,
+  COLLECTION_NAMES.chat_turns,
+  COLLECTION_NAMES.profile_facts,
+  COLLECTION_NAMES.student_usage,
+  COLLECTION_NAMES.student_flags,
 ];
 
 test("T-035: safety collection lookup indexes lead with tenant then student/session", () => {

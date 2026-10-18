@@ -1,0 +1,82 @@
+[
+ {
+  "id": "C2d",
+  "desc": "student verifier falls back to the counsellor key config",
+  "kind": "api",
+  "file": "apps/api/src/index.ts",
+  "before": [
+   "59",
+   "59",
+   "0"
+  ],
+  "after": [
+   "59",
+   "58",
+   "1"
+  ],
+  "failing": [
+   "startApi: flag on with the gate open but no student JWT configuration is a config error before connecting",
+   "startApi: flag on with the gate open but no student JWT configuration is a config error before connecting"
+  ]
+ },
+ {
+  "id": "C5d",
+  "desc": "a minor's thread is created as text-stored",
+  "kind": "api",
+  "file": "apps/api/src/chat.ts",
+  "before": [
+   "59",
+   "59",
+   "0"
+  ],
+  "after": [
+   "59",
+   "58",
+   "1"
+  ],
+  "failing": [
+   "D-093 4A: an under-18 student without consent who opens the chat and leaves before asking anything has a thread already marked text-free",
+   "D-093 4A: an under-18 student without consent who opens the chat and leaves before asking anything has a thread already marked text-free"
+  ]
+ },
+ {
+  "id": "C7c",
+  "desc": "default limit 31 instead of 30 per minute",
+  "kind": "api",
+  "file": "packages/schemas/src/student-api.ts",
+  "before": [
+   "59",
+   "59",
+   "0"
+  ],
+  "after": [
+   "59",
+   "58",
+   "1"
+  ],
+  "failing": [
+   "A23: the 31st request in a minute from one student is 429 with Retry-After, another student is not affected, and the window reopens",
+   "A23: the 31st request in a minute from one student is 429 with Retry-After, another student is not affected, and the window reopens"
+  ]
+ },
+ {
+  "id": "C8d",
+  "desc": "chat store accepts an unscoped Db",
+  "kind": "db",
+  "file": "packages/db/src/chat-threads.ts",
+  "before": [
+   "107",
+   "107",
+   "0"
+  ],
+  "after": [
+   "107",
+   "106",
+   "1"
+  ],
+  "failing": [
+   "a chat-store call on an unscoped Db is refused",
+   "a chat-store call on an unscoped Db is refused"
+  ]
+ }
+]

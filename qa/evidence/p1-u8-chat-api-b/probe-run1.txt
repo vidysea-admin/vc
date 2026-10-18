@@ -1,0 +1,18 @@
+[testlock] waiting for lock held by: PID=37096 STARTED=639278943847499823 ACQUIRED_AT=1792277829 TOKEN=1792277829596963300-134298-24693 DESC=pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/packages/engine typecheck 
+[testlock] write_owner_enrich: lock dir token changed (ours [1792277925751029100-136960-24652], now [1792277926982618600-133538-13221]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] running (free RAM 1.79 GB): bash C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/u8b-out/run-probe.sh
+✔ P1a forged and wrong tokens against a student route: none is ever served, none writes anything (896.4126ms)
+✔ P1b a student token is refused by the counsellor verifier even when it shares issuer, audience and key (173.0999ms)
+✔ P2 student A cannot read or touch student B: same tenant and across tenants, threads, turns, profile, facts (444.3323ms)
+✔ P3 under-18 variants: only a boolean true consent stores text; odd claim shapes fail closed; nothing leaks through crisis, overlong or retry (2166.9793ms)
+✔ P4 rate limit: 30 normal turns/min per student, crisis never limited, other student and other tenant unaffected (321.6497ms)
+✔ P5 sandbox tenant: real-looking id refused on every route, syn- id accepted (122.1076ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19534.2362

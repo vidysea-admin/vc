@@ -1,0 +1,59 @@
+[testlock] waiting for lock held by: PID=32368 STARTED=639279636785470038 ACQUIRED_AT=1792347292 TOKEN=1792347292723148100-13258-19479 DESC=python C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/eng3chk/fals_driver.py 
+[testlock] running slot 1 (free RAM 3.58 GB): pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/apps/web test
+
+> @vc/web@0.1.0 test C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u8\apps\web
+> tsx --test tests/*.test.ts tests/*.test.tsx
+
+✔ GET: a paused thread returns the proposal fact by fact, the dropped facts with reasons and the draft summary (504.6319ms)
+✔ B3: reading the pending approval (repeatedly) writes nothing and claims nothing (308.0453ms)
+✔ POST: approve / reject / edit per fact + withhold the summary writes exactly the approved and edited facts (433.8393ms)
+✔ POST twice: the second submit is already_resolved (409) and writes nothing new; GET then shows the resolved state (405.8261ms)
+✔ B5: invalid decision bodies are refused (400) and write nothing, claim nothing (632.4591ms)
+✔ T-018 ISS-t-008-c0-1: an edit value that does not match the proposed value's type is refused (400) through the full API, and writes nothing (318.2186ms)
+✔ T-020 ISS-t-018-c0-1: a per-fact reject with a typed reason writes an audit record the demo read-back exposes (decisions collection) (241.0577ms)
+✔ T-020 ISS-t-018-c0-1: a reject reason over MAX_REJECT_REASON_LENGTH is refused (400), writes nothing and records no audit (211.1604ms)
+✔ fenced: a student with an erasure in progress -> GET and POST both 423 fenced, no student data, nothing written (146.1716ms)
+✔ in_progress: a claimed thread shows in_progress; a new submit is already_resolved with the claimed decision (194.7603ms)
+✔ not found and malformed thread ids (174.4022ms)
+✔ route handlers: GET and POST through the Next route module, JSON in and out (207.1496ms)
+✔ runtime mode: demo unless VC_WEB_MODE is exactly 'live' (a typo never reaches the production server) (0.3978ms)
+✔ T046 demo persists trusted canonical edit provenance and stable replay (221.8919ms)
+✔ NewSessionForm: renders the title, the student id and every transcript turn, with a Submit button (34.636ms)
+✔ D078 Hindi capability: new session labels and speaker display localize, transcript stays verbatim (4.3265ms)
+✔ NewSessionForm: the apologetic AI-unavailable copy is plain language, not a script, and never mentions a model/vendor name (2.5521ms)
+✔ NewSessionForm: the initial idle render offers no Retry button and no ai_unavailable banner (only Submit) (1.9061ms)
+✔ T-021 fix cycle 1 (ISS-t-021-c0-1, B17): the transcript table has its OWN column label for the spoken text, never the approval screen's colValue ("Proposed value") (2.0547ms)
+✔ T-021: the first submit hits the exhausted failover chain and returns 503 ai_unavailable, with no key/transcript leak (832.4282ms)
+✔ T-021: Retry — resubmitting the SAME body after an ai_unavailable reply succeeds and reaches the normal awaiting_approval flow (537.0387ms)
+✔ T-021: an invalid body (missing turns) is refused 400 before anything runs (189.1367ms)
+✔ pending: every proposed fact renders with key, value, quote, turn, confidence and its controls (25.5011ms)
+✔ D078 Hindi capability: approval controls localize while proposal data stays verbatim (13.0108ms)
+✔ D078 dictionaries: strict locale fallback, identical complete keys and short non-script labels (4.8501ms)
+✔ D078 Hindi: every fixed approval enum is localized without translating same-named fact values (169.5753ms)
+✔ D078 Hindi done outcomes: fixed status localizes, outcome privacy remains unchanged (14.1358ms)
+✔ pending: a needsReview fact is flagged with its reasons; an unflagged fact is not (5.4677ms)
+✔ pending: dropped facts render with their reasons, and the draft summary renders (5.1678ms)
+✔ pending: a model-withheld summary (B1) shows the reason and offers no approve (7.5264ms)
+✔ states: fenced, in_progress, not_found and done each render a distinct labelled state with no fact data (4.462ms)
+✔ B1: every UI label is a short label, never a script-like sentence (9.2578ms)
+✔ B1: the only text on the screen is labels or data from the proposal (nothing the UI composes itself) (5.9673ms)
+✔ pending: no fact is decided yet, so no reject-reason field is rendered (it only appears once a fact is marked reject) (6.5045ms)
+✔ buildRejectDecision: a typed reason is trimmed and sent (0.4373ms)
+✔ buildRejectDecision: an empty or whitespace-only reason is OMITTED, never sent as reason: "" (0.2716ms)
+✔ buildRejectDecision: a reason at exactly MAX_REJECT_REASON_LENGTH is sent as-is (the server, RejectReasonSchema, is the length authority) (0.2418ms)
+✔ reasonCounter: empty text uses 0, remaining equals max, not at limit (0.3096ms)
+✔ reasonCounter: partial text counts used/remaining correctly (0.1627ms)
+✔ reasonCounter: one character below the cap shows remaining 1 and is not yet at limit (0.1911ms)
+✔ reasonCounter: exactly at the cap is atLimit with 0 remaining (0.1689ms)
+✔ reasonCounter: a value longer than max (a paste/programmatic set that bypasses the input's maxLength) clamps remaining at 0 and is still atLimit, never negative (0.1496ms)
+✔ T-023 (T-020 verdict note): ApprovalScreen.tsx and labels.ts never use dangerouslySetInnerHTML in actual code (comments may discuss it by name) (34.513ms)
+✔ T-023 (T-020 verdict note): a stored string containing <script> or <img onerror> markup renders inert, as escaped text, on every existing free-text render path (a review reason, a dropped-fact reason) (19.372ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 44
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17755.723
+exit=0

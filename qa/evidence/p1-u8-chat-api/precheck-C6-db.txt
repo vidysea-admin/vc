@@ -1,0 +1,22 @@
+✔ a fact proposed from chat starts as proposed, is hidden from 'confirmed', and confirming it makes it student-confirmed (9.4347ms)
+✔ a student correcting a proposed fact replaces its value (redacted) and confirms it (0.7664ms)
+✔ a student erasing a proposed fact deletes it from the store (0.7223ms)
+✔ a student cannot decide on another student's fact, or on one that does not exist (0.7895ms)
+✔ proposing the same key twice keeps one fact per key, and a confirmed fact is not downgraded back to proposed (0.7333ms)
+✔ two tenants with the same student id keep separate profile facts and flag logs (A6) (0.8853ms)
+✔ the profile store and flag log refuse an unscoped Db (0.2993ms)
+✔ a crisis turn leaves a text-free flag row (ids and time only), and the same turn flagged twice is one row (0.4155ms)
+✔ an unanswerable turn raises that day's gap count by one, with no student or text in the row (8.6265ms)
+✔ a student under erasure gets no new profile fact and no new flag row (1.835ms)
+✔ every new student-bearing chat collection is in the B15 erasure plan and the gap counts are exempt with a reason (0.2958ms)
+✔ erasing a student removes their threads, turns, facts, usage and flags and leaves another student's untouched; the receipt counts them (6.393ms)
+✔ exporting a student returns their chat threads, turns, facts, usage and flags, and nobody else's (1.6719ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 529.2689
+[testlock] running (free RAM 7.88 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/packages/db exec tsx --test --test-timeout=30000 tests/student-store.test.ts

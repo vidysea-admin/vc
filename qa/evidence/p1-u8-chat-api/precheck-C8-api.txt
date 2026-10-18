@@ -1,0 +1,24 @@
+✔ D-093 6A: a student who types their name, phone and email in a question gets an answer, and none of the three is in anything stored (106.7528ms)
+✔ D-093 6A: a name the Pathlynks profile supplies is redacted from stored text even when the student never said 'my name is' (25.1709ms)
+✔ D-093 6A: a model answer that carries an email address is stored and replayed redacted, while the first live answer is unchanged (21.7661ms)
+✔ D-093 4A: an under-18 student with no guardian-consent claim still gets the answer, and no turn text, answer or redacted copy is stored anywhere (18.6258ms)
+✔ D-093 4A: an under-18 student without consent who opens the chat and leaves before asking anything has a thread already marked text-free (8.3853ms)
+✔ D-093 4A: a token with no age and no minor claim is treated as under 18 (fail closed), so its text is not stored either (17.5587ms)
+✔ D-093 4A: an under-18 student WITH the guardian-consent claim is stored like an adult; a consent claim that is the string 'true' is not consent (27.9471ms)
+✔ D-093 4A: a thread opened with consent that later turns come without it is marked textStored false, and the earlier stored turns stay readable (26.5016ms)
+✔ D-093 4A: a crisis message from an under-18 student without consent gets the fixed message, keeps only an ids-and-time flag row, and does not hand the text to escalation (14.2827ms)
+✔ a crisis message from an adult is answered with the fixed message, flagged in the safety log, and escalated through the tenant's escalation path (21.0754ms)
+✔ a student who raised a crisis flag earlier in the thread still sees the helpline on a later turn after the server restarts (the flag is read from the store) (24.5298ms)
+✔ two tenants with the same student id never see each other's threads, and every stored row carries its own tenant (17.7471ms)
+✔ A6: the sandbox tenant accepts only syn- student ids (403 for a real-looking id on every route), other tenants are unaffected (9.1375ms)
+✔ D-015: a student whose erasure is in progress is told 409 student_fenced, the model is not called, and nothing new is kept (9.1685ms)
+✔ a 500 from an unexpected failure carries no cause and the log line carries no student text (6.8944ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2257.9539
+[testlock] running (free RAM 7.94 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/apps/api exec tsx --test --test-timeout=30000 tests/chat-privacy.test.ts

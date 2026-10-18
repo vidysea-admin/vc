@@ -1,0 +1,20 @@
+✔ a student who types an email address into a chat turn has it replaced by [EMAIL] (6.0551ms)
+✔ a student who gives an Indian mobile number in any common format has it replaced by [PHONE] (0.3777ms)
+✔ a student who types a phone number in Devanagari digits has it replaced (6.7115ms)
+✔ an international number and a 12-digit national id are replaced; scores, years and fees are not (0.1909ms)
+✔ an English self-introduction has the name replaced by [NAME] (0.1781ms)
+✔ a lower-case clause after I am is not a name (0.1414ms)
+✔ a Hinglish self-introduction has the name replaced (0.1362ms)
+✔ a Devanagari self-introduction has the name replaced (0.0927ms)
+✔ known names (for example from the supplied profile) are replaced wherever they appear, whole word, any case (2.6727ms)
+✔ redaction is idempotent and placeholders are stable (0.2601ms)
+✔ an over-long or empty input is handled without throwing (0.5929ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 162.4897
+[testlock] running (free RAM 7.93 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/packages/schemas exec tsx --test --test-timeout=30000 tests/redact.test.ts

@@ -1,0 +1,10 @@
+start 2026-10-18T23:55:19+05:30
+before group1 (packages/db: tests/student-store.test.ts) tests=13 pass=13 fail=0 first_fail=[]
+before group2 (apps/api: tests/chat-privacy.test.ts) tests=15 pass=15 fail=0 first_fail=[]
+edited packages/db/src/student-logs.ts
+after group1 (packages/db: tests/student-store.test.ts) tests=13 pass=12 fail=1 first_fail=[✖ an unanswerable turn raises that day's gap count by one, with no student or text in the row]
+after group2 (apps/api: tests/chat-privacy.test.ts) tests=15 pass=15 fail=0 first_fail=[]
+restored byte-identical to HEAD: packages/db/src/student-logs.ts
+restored group1 (packages/db: tests/student-store.test.ts) tests=13 pass=13 fail=0 first_fail=[]
+restored group2 (apps/api: tests/chat-privacy.test.ts) tests=15 pass=15 fail=0 first_fail=[]
+end 2026-10-18T23:56:15+05:30

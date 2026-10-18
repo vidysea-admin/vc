@@ -1,0 +1,10 @@
+start 2026-10-18T04:49:34+05:30
+before group1 (packages/db: tests/chat-threads.test.ts tests/db-scope.test.ts) tests=23 pass=23 fail=0 first_fail=[]
+before group2 (apps/api: tests/chat-privacy.test.ts) tests=15 pass=15 fail=0 first_fail=[]
+edited packages/db/src/chat-threads.ts
+after group1 (packages/db: tests/chat-threads.test.ts tests/db-scope.test.ts) tests=23 pass=22 fail=1 first_fail=[✖ a student opening the chat gets a thread owned by them; another student cannot read it]
+after group2 (apps/api: tests/chat-privacy.test.ts) tests=15 pass=15 fail=0 first_fail=[]
+restored byte-identical to HEAD: packages/db/src/chat-threads.ts
+restored group1 (packages/db: tests/chat-threads.test.ts tests/db-scope.test.ts) tests=23 pass=23 fail=0 first_fail=[]
+restored group2 (apps/api: tests/chat-privacy.test.ts) tests=15 pass=15 fail=0 first_fail=[]
+end 2026-10-18T04:51:14+05:30

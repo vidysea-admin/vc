@@ -1,0 +1,7 @@
+start 2026-10-18T04:51:21+05:30
+before group1 (apps/api: tests/chat.test.ts) tests=23 pass=23 fail=0 first_fail=[]
+edited apps/api/src/chat.ts
+after group1 (apps/api: tests/chat.test.ts) tests=23 pass=22 fail=1 first_fail=[✖ A23: a crisis message is never rate limited, even from a student already over the limit]
+restored byte-identical to HEAD: apps/api/src/chat.ts
+restored group1 (apps/api: tests/chat.test.ts) tests=23 pass=23 fail=0 first_fail=[]
+end 2026-10-18T04:52:36+05:30

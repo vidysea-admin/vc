@@ -24,9 +24,9 @@ import {
   type MongoClientFactory,
   type ErasureFenceSweepOptions,
 } from "@vc/db";
-import { initScribeCheckpointer, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentKbPort } from "@vc/engine";
+import { escalateTurns, initScribeCheckpointer, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentKbPort } from "@vc/engine";
 import { createProvider, loadProviderConfig, type LlmProvider } from "@vc/providers";
-import { createJwtVerifier, jwtConfigFromEnv, type JwtVerifier } from "./auth.js";
+import { createJwtVerifier, createStudentJwtVerifier, jwtConfigFromEnv, studentJwtConfigFromEnv, type JwtVerifier, type StudentJwtVerifier } from "./auth.js";
 import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
 import {
   AnonymousConfigError,
@@ -38,12 +38,21 @@ import {
   type AnonymousApiDeps,
   type AnonymousCounterWriter,
 } from "./anonymous.js";
+import {
+  ChatConfigError,
+  assertChatGoLive,
+  chatEnabledFromEnv,
+  createChatApi,
+  withChatRoutes,
+  type ChatApiDeps,
+} from "./chat.js";
 
 export * from "./auth.js";
 export * from "./server.js";
 export { OPENAPI_DOCUMENT, STUDENT_API_DRAFT } from "./openapi.js";
 export * from "./go-live-gate.js";
 export * from "./anonymous.js";
+export * from "./chat.js";
 
 export function apiStatus(): string {
   return "@vc/api: HTTP API over the scribe, profile and erasure (T-025); opt-in via startApi({ http })";
@@ -77,6 +86,8 @@ export interface StartApiHttpOptions {
    * production KB port is injected by the deployment (apps/api does not depend on mcp/university-kb).
    */
   anonymous?: StartApiAnonymousOptions;
+  /** P1 U8: the authenticated student chat routes (flag VC_CHAT_ENABLED plus the A20 gate). */
+  chat?: StartApiChatOptions;
 }
 
 export interface StartApiAnonymousOptions {
@@ -101,6 +112,32 @@ export interface StartApiAnonymousOptions {
   now?: AnonymousApiDeps["now"];
   nowMs?: AnonymousApiDeps["nowMs"];
   log?: AnonymousApiDeps["log"];
+}
+
+/**
+ * P1 U8: the authenticated student chat routes. Whether they are served is decided ONLY by the explicit flag VC_CHAT_ENABLED (default
+ * off) AND the A20 go-live gate; supplying this object never turns them on. The production KB port and the Pathlynks profile port are
+ * injected by the deployment (apps/api depends on neither mcp/university-kb nor a Pathlynks client).
+ */
+export interface StartApiChatOptions {
+  /** Knowledge-base port. Required when the flag is on. */
+  kb?: StudentKbPort;
+  /** Speakers file for the no-quote guard. Required when the flag is on. */
+  speakers?: SpeakersFile;
+  /** Default: the repo's qa/gates. */
+  gatesDir?: string;
+  /** Tests inject a verifier over local keys; default: studentJwtConfigFromEnv(env) (its own VC_STUDENT_JWT_* names, never the counsellor key). */
+  verifier?: StudentJwtVerifier;
+  profile?: ChatApiDeps["profile"];
+  extractFacts?: ChatApiDeps["extractFacts"];
+  /** Default: the engine's escalateTurns over the tenant's EscalationDeps (the same factory the scribe uses). */
+  escalateForTenant?: ChatApiDeps["escalateForTenant"];
+  sandboxTenantId?: ChatApiDeps["sandboxTenantId"];
+  limitsForTenant?: ChatApiDeps["limitsForTenant"];
+  config?: ChatApiDeps["config"];
+  now?: ChatApiDeps["now"];
+  nowMs?: ChatApiDeps["nowMs"];
+  log?: ChatApiDeps["log"];
 }
 
 export interface Api {
@@ -229,6 +266,15 @@ export async function startApi(
       { enabled: true, gatesDir: a.gatesDir ?? DEFAULT_GATES_DIR, env },
     );
   }
+  // P1 U8: the chat flag, the A20 gate, the tracing check, the student JWT config and the required ports are all checked BEFORE anything connects.
+  let chatSetup: { chat: StartApiChatOptions; verifier: StudentJwtVerifier; kb: StudentKbPort; speakers: SpeakersFile } | undefined;
+  if (httpSetup && chatEnabledFromEnv(env)) {
+    const c = http?.chat;
+    assertChatGoLive({ gatesDir: c?.gatesDir ?? DEFAULT_GATES_DIR, env });
+    const verifier = c?.verifier ?? createStudentJwtVerifier(studentJwtConfigFromEnv(env));
+    if (!c?.kb || !c.speakers) throw new ChatConfigError("VC_CHAT_ENABLED is true but no knowledge-base port and speakers file were supplied");
+    chatSetup = { chat: c, verifier, kb: c.kb, speakers: c.speakers };
+  }
   const { client, db } = connectFromEnv(env, clientFactory);
   counterRef.writer = createMongoAnonymousCounter(anonymousCountersCollection(db), http?.anonymous?.now);
   await client.connect();
@@ -274,7 +320,29 @@ export async function startApi(
             }
           : {}),
       });
-      const s = createApiServer(withAnonymousRoutes(handler, anonymousHandler));
+      const chatHandler = chatSetup
+        ? createChatApi(
+            {
+              verifier: chatSetup.verifier,
+              dbForTenant: wiring.dbForTenant,
+              kb: chatSetup.kb,
+              provider: httpSetup.provider,
+              skillsDir: httpSetup.skillsDir,
+              speakers: chatSetup.speakers,
+              escalateForTenant: chatSetup.chat.escalateForTenant ?? ((tenantId, tenantDb) => (input) => escalateTurns(tenantDb, input, escalationForTenant!(tenantId))),
+              ...(chatSetup.chat.profile ? { profile: chatSetup.chat.profile } : {}),
+              ...(chatSetup.chat.extractFacts ? { extractFacts: chatSetup.chat.extractFacts } : {}),
+              ...(chatSetup.chat.sandboxTenantId !== undefined ? { sandboxTenantId: chatSetup.chat.sandboxTenantId } : {}),
+              ...(chatSetup.chat.limitsForTenant ? { limitsForTenant: chatSetup.chat.limitsForTenant } : {}),
+              ...(chatSetup.chat.config ? { config: chatSetup.chat.config } : {}),
+              ...(chatSetup.chat.now ? { now: chatSetup.chat.now } : {}),
+              ...(chatSetup.chat.nowMs ? { nowMs: chatSetup.chat.nowMs } : {}),
+              ...(chatSetup.chat.log ? { log: chatSetup.chat.log } : {}),
+            },
+            { enabled: true, gatesDir: chatSetup.chat.gatesDir ?? DEFAULT_GATES_DIR, env },
+          )
+        : undefined;
+      const s = createApiServer(withChatRoutes(withAnonymousRoutes(handler, anonymousHandler), chatHandler));
       server = s;
       await new Promise<void>((resolve, reject) => {
         s.once("error", reject);

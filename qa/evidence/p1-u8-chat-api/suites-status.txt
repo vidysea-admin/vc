@@ -1,0 +1,7 @@
+schemas test exit 0
+schemas typecheck exit 0
+db test exit 0
+db typecheck exit 0
+api test exit 0
+api typecheck exit 0
+DONE

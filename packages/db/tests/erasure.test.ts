@@ -470,6 +470,12 @@ test("B15: the receipt counts match what was actually there (read back, per coll
     [COLLECTION_NAMES.edges]: 6, // 3 facts x (sourced_from + has)
     [COLLECTION_NAMES.webhook_outbox]: 0, // T-034: this fixture never enqueues a webhook event
     [COLLECTION_NAMES.webhook_emit_gaps]: 0, // T-042: this fixture never records a gap
+    // P1 U8: this fixture never opens a student chat (the chat collections are covered in student-store.test.ts)
+    [COLLECTION_NAMES.chat_turns]: 0,
+    [COLLECTION_NAMES.chat_threads]: 0,
+    [COLLECTION_NAMES.profile_facts]: 0,
+    [COLLECTION_NAMES.student_usage]: 0,
+    [COLLECTION_NAMES.student_flags]: 0,
   };
   assert.equal(a.factIds.length, 3);
   const requestId = await confirmedRequest(db, a.studentId);

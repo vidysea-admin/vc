@@ -1,0 +1,32 @@
+✔ A20: chat is OFF by default - unset, empty and 'false' read as disabled, only the exact word 'true' enables, anything else is a config error (1.2032ms)
+✔ A20 flag off: nothing is built and every chat path answers exactly like an unknown path (404), for every method, without touching the main handler (50.122ms)
+✔ A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes (4.8334ms)
+✔ A20: each missing gate record refuses; voice's A10 and anonymous option b are NOT needed for authenticated chat (22.3869ms)
+✔ no student text is traced: an environment that switches LangChain/LangSmith tracing on refuses to build the chat routes (8.0017ms)
+✔ the chat route list equals the draft student paths (without voice) and none of them is in the counsellor route table (0.8364ms)
+✔ a request with no token, a garbage token or a token signed by a stranger is refused 401 with one identical body, and nothing is read or written (80.8901ms)
+✔ a counsellor, admin or approver token, validly signed with the student key, is refused 403 on every student route (15.4592ms)
+✔ a student whose token names a different student than the path gets 404 (not 403) and nothing is created (7.9206ms)
+✔ a student starts a thread, asks a sourced question, and reads the exchange back in order (97.9216ms)
+✔ a student whose phone retries the same clientTurnId after a dropped response gets the same answer, one model call, one stored exchange and one usage count (23.6033ms)
+✔ the same clientTurnId reused with different text is refused 409, and the first answer is kept (20.5133ms)
+✔ a second tab sending the same clientTurnId while the first is still being answered gets 409 turn_in_progress and no second model call (7.9439ms)
+✔ a turn without a clientTurnId gets a server-made turn id, and two such turns are two exchanges (23.4485ms)
+✔ a model outage gives the apology answer, keeps nothing, and the student's retry with the same clientTurnId runs again (25.7359ms)
+✔ a body that carries identity or unknown fields, bad JSON, an empty or over-long text, or an oversized body is refused before anything runs (11.9471ms)
+✔ an unknown thread, or one that belongs to another student of the same tenant, is a 404 that does not say which (11.2429ms)
+✔ a path id with odd characters is refused 404 (path ids are letters, digits, dot, dash, underscore only) (8.8734ms)
+✔ a wrong method on a chat path is 405 with Allow, and a non-chat path is left to the main handler (8.4215ms)
+✔ A23: the 31st request in a minute from one student is 429 with Retry-After, another student is not affected, and the window reopens (16.3253ms)
+✔ A23: a tenant override of requestsPerMinute applies to that tenant only (10.0285ms)
+✔ A23: a crisis message is never rate limited, even from a student already over the limit (27.9265ms)
+✔ a question the knowledge base cannot answer says so, and adds one text-free count to the day's gap total (no student, thread or text) (17.6978ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2367.4706
+[testlock] running (free RAM 7.95 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/apps/api exec tsx --test --test-timeout=30000 tests/chat.test.ts

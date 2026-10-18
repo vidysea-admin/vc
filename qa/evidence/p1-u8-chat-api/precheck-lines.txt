@@ -1,0 +1,10 @@
+Pre-check[C1]: a7c0055 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat.test.ts tests/chat-profile.test.ts -> green: 33 passed, 0 failed t=46s
+Pre-check[C2]: a7c0055 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/student-auth.test.ts tests/chat.test.ts -> green: 34 passed, 0 failed t=4s
+Pre-check[C3]: a7c0055 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat.test.ts; bash scripts/vc-testlock.sh pnpm -C packages/db exec tsx --test tests/chat-threads.test.ts -> green: 35 passed, 0 failed t=7s
+Pre-check[C4]: a7c0055 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts; bash scripts/vc-testlock.sh pnpm -C packages/schemas exec tsx --test tests/redact.test.ts -> green: 26 passed, 0 failed t=6s
+Pre-check[C5]: a7c0055 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts tests/student-auth.test.ts tests/chat-profile.test.ts -> green: 36 passed, 0 failed t=4s
+Pre-check[C6]: a7c0055 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-profile.test.ts; bash scripts/vc-testlock.sh pnpm -C packages/db exec tsx --test tests/student-store.test.ts -> green: 23 passed, 0 failed t=6s
+Pre-check[C7]: a7c0055 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat.test.ts -> green: 23 passed, 0 failed t=4s
+Pre-check[C8]: a7c0055 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts; bash scripts/vc-testlock.sh pnpm -C packages/db exec tsx --test tests/chat-threads.test.ts tests/db-scope.test.ts -> green: 38 passed, 0 failed t=6s
+Pre-check[C9]: a7c0055 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts tests/chat.test.ts; bash scripts/vc-testlock.sh pnpm -C packages/db exec tsx --test tests/student-store.test.ts -> green: 51 passed, 0 failed t=19s
+Pre-check[C10]: a7c0055 bash scripts/vc-testlock.sh pnpm -C packages/db exec tsx --test tests/student-store.test.ts tests/erasure.test.ts tests/db-init.test.ts -> green: 110 passed, 0 failed t=3s

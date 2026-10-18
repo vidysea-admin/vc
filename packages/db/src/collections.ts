@@ -73,6 +73,17 @@ export const COLLECTION_NAMES = {
   // or thread identifier. NOT tenant-scoped (an anonymous request has no tenant) and holds no student data, so it is
   // in ERASURE_EXEMPT_COLLECTIONS with that reason.
   anonymous_counters: "anonymous_counters",
+  // P1 U8 (D-093 4A/6A, contract B24): the authenticated student chat. All of these are written through a tenant-scoped Db.
+  // chat_threads: one marker per thread (opaque ids and a textStored flag; no text). chat_turns: the (redacted) turns of a thread,
+  // text and voice in one history (A19). profile_facts: chat-proposed facts the student confirms or corrects (A16b).
+  // student_usage: per-student per-month usage counters (text turns, voice ms). student_flags: the text-free crisis/concern log.
+  // chat_gap_counts: per-day per-kind counts of turns the engine could not answer from a source (no student identifier).
+  chat_threads: "chat_threads",
+  chat_turns: "chat_turns",
+  profile_facts: "profile_facts",
+  student_usage: "student_usage",
+  student_flags: "student_flags",
+  chat_gap_counts: "chat_gap_counts",
   // Name constants only — owned by the university-kb unit (ARCHITECTURE Q1).
   universities: "universities",
   courses: "courses",

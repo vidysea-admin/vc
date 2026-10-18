@@ -1,0 +1,21 @@
+✔ a student opening the chat gets a thread owned by them; another student cannot read it (3.2996ms)
+✔ a chat-store call on an unscoped Db is refused (tenant isolation fails closed) (0.9613ms)
+✔ a first turn is claimed, completed, and a retry with the same turn id replays the stored answer without a second claim (10.9693ms)
+✔ a retry that arrives while the first attempt is still running is told it is in progress, not run twice (0.973ms)
+✔ a retry after the first attempt crashed past its lease takes the claim over; the dead holder can no longer complete (1.3482ms)
+✔ the same turn id sent again with different text is a conflict, not a silent replay of the old answer (0.6769ms)
+✔ when the model call fails the claim is abandoned so the student's retry runs again (2.9014ms)
+✔ a voice turn and a text turn land in one history in time order (A19) (1.0617ms)
+✔ two tenants using the same student, thread and turn ids never see or collide with each other's chat (A6) (0.6563ms)
+✔ a student under erasure gets no new thread and no new turn, and a fence that appears mid-write undoes the write (2.1617ms)
+✔ an under-18 thread without guardian consent is a text-free marker; marking an existing thread keeps its ids and flips textStored (0.4206ms)
+✔ usage counters add up per student per month and stay inside the tenant (0.4367ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 878.5513
+[testlock] running (free RAM 8.07 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8/packages/db exec tsx --test --test-timeout=30000 tests/chat-threads.test.ts
