@@ -3,7 +3,8 @@
 **Criteria:** C1 different deterministic orders, C2 citations, C3 default weights, C4 changed weights, C5 no ranking unauthenticated, C6 fact sources, C7 numbers only from the data port, C8 weight validation
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
+**Close-out:** PASS at cycle 0, verdict qa/verdicts/p1-u6b-profile-ranking.md at a3976d8. Findings filed as ISS-163..ISS-168 in qa/issues.jsonl; ISS-163 (medium) is fixed in the U6b wiring step (CORE-REQUEST).
 **Fix cycle:** 0 of max 2
 **Dual check:** no (tier M)
 **Persona walk:** skip (engine-only, no screen)
