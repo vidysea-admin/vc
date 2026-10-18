@@ -1,0 +1,11 @@
+✔ C1 A16: a Germany/engineering student and a Canada/business student asking about the same four options get different orders (12.6421ms)
+✔ C1 A16: the same student, same options and same weights ranked twice (and with the option list reversed or duplicated) give a byte-identical result (1.977ms)
+✔ C1 A16: scores are the weighted sum of the four components, fit comes from the confirmed facts matching the option attributes (2.9106ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10196.3121

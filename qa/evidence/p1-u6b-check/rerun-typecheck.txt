@@ -1,0 +1,7 @@
+[testlock] waiting for lock held by: PID=41076 STARTED=639279665488714264 ACQUIRED_AT=1792349949 TOKEN=1792349949650366600-55485-10178 DESC=bash -c pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u11/packages/engine coverage -- --fixture C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/chk-u11/hostile.json --out C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/chk-u11/h > C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/chk-u11/h.stdout 2>&1; echo EXIT_H=$?; pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u11 -r typecheck > C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/chk-u11/typecheck.log 2>&1; echo EXIT_TC=$? 
+[testlock] running slot 0 (free RAM 3.95 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6b/packages/engine typecheck
+
+> @vc/engine@0.1.0 typecheck C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u6b\packages\engine
+> tsc --noEmit && tsc --noEmit -p evals/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json
+
+EXIT=0

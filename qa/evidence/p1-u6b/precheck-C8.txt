@@ -1,0 +1,13 @@
+✔ C8 D-086 Q3: a weight vector with a negative, NaN, Infinity, string or missing component is rejected and nothing is ranked (3.8133ms)
+✔ C8 D-086 Q3: an unknown weight key (a typo, or a smuggled extra) is rejected (0.7064ms)
+✔ C8 D-086 Q3: an all-zero vector is rejected (it would rank everything equal) (0.3415ms)
+✔ C8 D-086 Q3: a vector that does not sum to 1 is scaled to sum 1 and the response says it was (4.3757ms)
+✔ C8 D-086 Q3: an invalid-weights refusal names the problem and carries no student data (0.5015ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5785.0545

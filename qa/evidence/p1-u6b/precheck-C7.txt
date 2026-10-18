@@ -1,0 +1,16 @@
+✔ C7 B24.8: an option whose cost the data port does not have is marked insufficient_data, listed last, with no invented score (10.171ms)
+✔ C7 B24.8: an option the port has never heard of is insufficient_data on every component (1.2025ms)
+✔ C7 B24.8: an option with missing data whose id sorts FIRST is still listed after every ranked option (0.978ms)
+✔ C7 B24.8: a number with no cited source, outside 0..1 or not finite is treated as missing, never clamped or guessed (1.3707ms)
+✔ C7 B24.8: a component whose weight is zero does not block ranking when its data is missing (1.2335ms)
+✔ C7 B24.8: tied scores break by option id, whatever order the options arrived in (0.9129ms)
+✔ C7 B24.8: the function takes no provider, clock or network input (a port stub that throws on anything but get proves no other call is made) (0.6554ms)
+✔ C7 B24.8: more options than the cap, or none, is refused rather than truncated (0.495ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4372.6541

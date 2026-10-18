@@ -1,0 +1,15 @@
+✔ C6 A16b: a fact the student has not confirmed (a chat-extracted proposal) never moves a score or appears in profileFactsUsed (6.3001ms)
+✔ C6 A16b: a student who has only proposed facts (nothing confirmed, nothing from Pathlynks) gets every option marked insufficient, not ranked on guesses (0.9708ms)
+✔ C6 A16b: a Pathlynks fact is labelled pathlynks and a confirmed chat fact is labelled student-confirmed, exactly (0.985ms)
+✔ C6 A16b: a fact with an unknown source label is ignored and counted, never relabelled (0.5582ms)
+✔ C6 A16b: when Pathlynks and the student give different values for one key, the student's confirmed value is the one ranked on (0.4687ms)
+✔ C6 A16b: an erased fact (absent from the list) stops moving the ranking (0.9902ms)
+✔ C6 A16b: a corrected value (Germany -> Canada) re-ranks the options (0.7261ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5836.9353

@@ -1,0 +1,11 @@
+✔ C4 D-086 Q3: a tenant that weights scholarship chance at 0.8 and fit at 0 changes the order, deterministically, and the response says so (9.3932ms)
+✔ C4 D-086 Q3: a fit weight of zero means the profile facts moved nothing, so none are reported as used (0.8775ms)
+✔ C4 D-086 Q3: with a zero fit weight two different students get the same order (only the weights decide) (1.0423ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6652.8563

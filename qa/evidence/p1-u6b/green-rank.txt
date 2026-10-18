@@ -1,0 +1,44 @@
+[testlock] waiting for lock held by: PID=16540 STARTED=639279643082838351 ACQUIRED_AT=1792347708 TOKEN=1792347708527587400-27626-29186 DESC=bash /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/chk-a/fals/row.sh C6 
+[testlock] owner PID 40264 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running slot 0 (free RAM 2.73 GB): pnpm -C packages/engine exec tsx --test tests/rank.test.ts
+✔ C1 A16: a Germany/engineering student and a Canada/business student asking about the same four options get different orders (6.0706ms)
+✔ C1 A16: the same student, same options and same weights ranked twice (and with the option list reversed or duplicated) give a byte-identical result (1.6921ms)
+✔ C1 A16: scores are the weighted sum of the four components, fit comes from the confirmed facts matching the option attributes (0.6099ms)
+✔ C2 A16: every ranked option names its KB source ids and the profile facts that moved its score (0.9789ms)
+✔ C2 A16: the claims, sources and profileFactsUsed it returns fit the TurnResponse schema, one claim per option in rank order (7.6385ms)
+✔ C2 A16: the top-level profileFactsUsed lists each fact once, with the exact source label it came with (0.8342ms)
+✔ C3 P-8: a student who sets no weights is ranked with 0.40 / 0.25 / 0.20 / 0.15 and told rankingProfile is student-success (0.7423ms)
+✔ C3 P-8: explicitly passing the default vector, or a multiple of it, is still student-success (the name follows the numbers) (0.5569ms)
+✔ C4 D-086 Q3: a tenant that weights scholarship chance at 0.8 and fit at 0 changes the order, deterministically, and the response says so (1.6103ms)
+✔ C4 D-086 Q3: a fit weight of zero means the profile facts moved nothing, so none are reported as used (0.7554ms)
+✔ C4 D-086 Q3: with a zero fit weight two different students get the same order (only the weights decide) (0.758ms)
+✔ C5 B24.8: a request with no authenticated student gets no ranking, whatever facts or options come with it (0.7817ms)
+✔ C5 B24.8: the refusal happens before the option-data port is asked anything (0.4891ms)
+✔ C6 A16b: a fact the student has not confirmed (a chat-extracted proposal) never moves a score or appears in profileFactsUsed (1.4944ms)
+✔ C6 A16b: a student who has only proposed facts (nothing confirmed, nothing from Pathlynks) gets every option marked insufficient, not ranked on guesses (2.3823ms)
+✔ C6 A16b: a Pathlynks fact is labelled pathlynks and a confirmed chat fact is labelled student-confirmed, exactly (1.0725ms)
+✔ C6 A16b: a fact with an unknown source label is ignored and counted, never relabelled (0.5298ms)
+✔ C6 A16b: when Pathlynks and the student give different values for one key, the student's confirmed value is the one ranked on (0.4737ms)
+✔ C6 A16b: an erased fact (absent from the list) stops moving the ranking (0.5012ms)
+✔ C6 A16b: a corrected value (Germany -> Canada) re-ranks the options (0.45ms)
+✔ C7 B24.8: an option whose cost the data port does not have is marked insufficient_data, listed last, with no invented score (2.4215ms)
+✔ C7 B24.8: an option the port has never heard of is insufficient_data on every component (0.6557ms)
+✔ C7 B24.8: a number with no cited source, outside 0..1 or not finite is treated as missing, never clamped or guessed (0.9784ms)
+✔ C7 B24.8: a component whose weight is zero does not block ranking when its data is missing (0.8514ms)
+✔ C7 B24.8: tied scores break by option id, whatever order the options arrived in (0.7174ms)
+✔ C7 B24.8: the function takes no provider, clock or network input (a port stub that throws on anything but get proves no other call is made) (0.5925ms)
+✔ C7 B24.8: more options than the cap, or none, is refused rather than truncated (0.3978ms)
+✔ C8 D-086 Q3: a weight vector with a negative, NaN, Infinity, string or missing component is rejected and nothing is ranked (1.0774ms)
+✔ C8 D-086 Q3: an unknown weight key (a typo, or a smuggled extra) is rejected (0.2395ms)
+✔ C8 D-086 Q3: an all-zero vector is rejected (it would rank everything equal) (0.1538ms)
+✔ C8 D-086 Q3: a vector that does not sum to 1 is scaled to sum 1 and the response says it was (0.5934ms)
+✔ C8 D-086 Q3: an invalid-weights refusal names the problem and carries no student data (0.2384ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7466.9688
