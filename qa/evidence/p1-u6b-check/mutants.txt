@@ -1,0 +1,22 @@
+C1 fit constant: pass=35 fail=6 killed first=H4 fact sources: only pathlynks / only confirmed / both conflicting 
+C2 no source ids: pass=38 fail=3 killed first=H2 NaN/neg/Infinity/missing/string numbers from port => insufficient, last 
+C2 facts not reported: pass=34 fail=7 killed first=H4 fact sources: only pathlynks / only confirmed / both conflicting 
+C3 default vector: pass=36 fail=5 killed first=H3 weights invalid 
+C3 default name: pass=37 fail=4 killed first=H3 weights invalid 
+C4 name always default: pass=39 fail=2 killed first=H8 weights change -> order & name 
+C4 weights ignored: pass=31 fail=10 killed first=H3 weights invalid 
+C5 no sign-in check: pass=38 fail=3 killed first=H5 all insufficient, empty, blank student 
+C6 proposed accepted: pass=39 fail=2 killed first=H4 fact sources: only pathlynks / only confirmed / both conflicting 
+C6 any source accepted: pass=39 fail=2 killed first=H4 fact sources: only pathlynks / only confirmed / both conflicting 
+C6 pathlynks beats student: pass=39 fail=2 killed first=H4 fact sources: only pathlynks / only confirmed / both conflicting 
+C7 NaN accepted: pass=39 fail=2 killed first=H2 NaN/neg/Infinity/missing/string numbers from port => insufficient, last 
+C7 out of range accepted: pass=39 fail=2 killed first=H2 NaN/neg/Infinity/missing/string numbers from port => insufficient, last 
+C7 unsourced accepted: pass=40 fail=1 killed first=C7 B24.8: a number with no cited source, outside 0..1 or not finite is treated as missing, never clamped or gu
+C7 insufficient scored 0: pass=32 fail=9 killed first=H2 NaN/neg/Infinity/missing/string numbers from port => insufficient, last 
+C8 negative accepted: pass=38 fail=3 killed first=H3 weights invalid 
+C8 unknown key accepted: pass=39 fail=2 killed first=H3 weights invalid 
+C8 zero vector accepted: pass=39 fail=2 killed first=H3 weights invalid 
+C8 non-finite accepted: pass=41 fail=0 SURVIVED first=
+C8 no normalise: pass=38 fail=3 killed first=H3 weights invalid 
+(node:40376) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
