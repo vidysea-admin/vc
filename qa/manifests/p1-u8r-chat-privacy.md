@@ -1,12 +1,12 @@
 # Manifest — p1-u8r-chat-privacy
 **Contract:** C1, C2, C3, C4, C5, C6 (unit-local ids, below). Parent: unit `p1-u8-chat-api` (checker A PASS with findings `qa/verdicts/p1-u8-chat-api.md`, checker B `qa/verdicts/p1-u8-chat-api.b.md`), senior review `qa/evidence/p1-briefs/p1-u8-review-result.md`. Gates: D-093 6A (persist redacted), 4A (unconsented minor: no text), D-096/D-097. Brief `qa/evidence/p1-briefs/p1-u8r-build.md`.
-**Criteria:** C7 ranked crisis slot (cycle-1 H1), C8 no unrecorded crisis turn + replay of a completed crisis turn (cycle-1 race), C9 titles do not end a name, C10 linear email scan; earlier: C1 profile outage fails closed (M1), C2 crisis write cap (M2), C3 lower-case self-introductions (A1), C4 stated names redacted in the model reply (A2), C5 escalation path gets redacted text (B medium), C6 fact key redacted (low)
+**Criteria:** cycle 2: C11 only a real escalation confirms the slot (textless holder rank 0), C12 a failed slot is never restored, C13 bounded wait behind an unconfirmed holder (replaces the C8 flag-only row), C14 titles and initials outside the name cap; cycle 1: C7 ranked crisis slot (cycle-1 H1), C8 no unrecorded crisis turn + replay of a completed crisis turn (cycle-1 race), C9 titles do not end a name, C10 linear email scan; earlier: C1 profile outage fails closed (M1), C2 crisis write cap (M2), C3 lower-case self-introductions (A1), C4 stated names redacted in the model reply (A2), C5 escalation path gets redacted text (B medium), C6 fact key redacted (low)
 **Goal task:** none
 **Date:** 2026-10-19
 **Status:** ready-for-check
-**Fix cycle:** 1 of max 2
+**Fix cycle:** 2 of max 2
 **Dual check:** required
-dual-trigger: security apps/api/src/chat.ts:487 (the redaction/persistence decision: `persistText` refuses to store while the Pathlynks profile name cannot be redacted or the turn is quiet; `chat.ts:477` 503; `chat.ts:358` escalation text; cycle 1: `chat.ts:336` ranked `takeCrisisSlot`, `chat.ts:498` replay of a completed turn, `chat.ts:564` quiet flag-only record)
+dual-trigger: security apps/api/src/chat.ts:487 (the redaction/persistence decision: `persistText` refuses to store while the Pathlynks profile name cannot be redacted or the turn is quiet; `chat.ts:477` 503; `chat.ts:358` escalation text; cycle 1: `chat.ts:336` ranked `takeCrisisSlot`, `chat.ts:498` replay of a completed turn, `chat.ts:564` quiet flag-only record; cycle 2: `chat.ts:609` slot confirmed only on a real escalation, `chat.ts:518` textless rank 0, `chat.ts:368` bounded `awaitHolder`, `chat.ts:346` released slots ignored, `redact.ts:91` `NAME_PREFIX`)
 **Persona walk:** skip (no human screen: JSON API only)
 **Issues addressed:** none (repairs the p1-u8 PROPOSED-ISSUEs: lower-case names, echoed names, crisis rationale, plus the senior review M1/M2)
 **Executor:** claude-sonnet-subagent (maker/builder p1-u8r-build)
@@ -21,9 +21,14 @@ dual-trigger: security apps/api/src/chat.ts:487 (the redaction/persistence decis
 - **C6 fact key redacted (low)** — a phone number or email inside a model-proposed fact key is stored redacted, like the value.
 
 - **C7 ranked crisis slot (cycle-1 H1, HIGH)** — the crisis slot remembers the level of its holder. A turn of a higher level than the holder (concern, then crisis 60 s later) always runs the full path (stored, flagged, escalated, counted) and takes the slot over (2 escalations); crisis then crisis gives 1; crisis then concern gives 1. If the upgrading turn fails, the previous holder's slot is put back.
-- **C8 no unrecorded crisis turn, and replay (cycle-1 race, MEDIUM)** — a quiet turn that finds the holder not yet confirmed (still in flight, or failed and released) writes a flag-only row (thread, turn id, kind `crisis`, time; no student text), so the holder failing afterwards cannot leave a crisis turn unrecorded; once the holder is confirmed a quiet turn writes nothing (the 40-turn flood still gives 1 flag). A retry of a completed crisis turn with the same clientTurnId and text is replayed from the stored answer (no graph run, no write), even when the retry is quiet.
+- **C8 no unrecorded crisis turn, and replay (cycle-1 race, MEDIUM; the flag-only half is superseded in cycle 2 by C13, the replay half stands)** — a quiet turn that finds the holder not yet confirmed (still in flight, or failed and released) writes a flag-only row (thread, turn id, kind `crisis`, time; no student text), so the holder failing afterwards cannot leave a crisis turn unrecorded; once the holder is confirmed a quiet turn writes nothing (the 40-turn flood still gives 1 flag). A retry of a completed crisis turn with the same clientTurnId and text is replayed from the stored answer (no graph run, no write), even when the retry is quiet.
 - **C9 titles do not end a name (cycle-1, MEDIUM)** — "My name is Dr. Anita Verma", "I am Mr. Rao from Pune", "my name is prof. sharma" (and Mrs, Ms, Shri, Smt, Sri, Kumari, Km, any case) redact the whole name; the place after it survives.
 - **C10 linear email scan (cycle-1, MEDIUM)** — the email pass is skipped when the text has no "@" and the local part is bounded to 64; 200k characters of "a." redact in under 200 ms (measured ~5 ms; 2M characters under 100 ms).
+
+- **C11 only a real escalation confirms the slot (cycle-2 item 1, HIGH)** — a slot holder confirms the slot (and so silences later equal-or-lower turns) only when its escalate port was actually called and succeeded and its flag was written. A turn with no escalate port (textless: over-long, or an unconsented minor) holds the slot at rank 0 and never confirms it, so any later concern or crisis turn takes over and escalates. An over-long crisis then "I want to kill myself" 60 s later gives 1 escalation; an over-long crisis then a concern gives 1; an unconsented-minor crisis then a consented crisis gives 1; two unconsented crisis turns in one window are both flagged.
+- **C12 a failed slot is never restored (cycle-2 item 2, MEDIUM)** — `releaseCrisisSlot` marks the slot `released`; a released previous holder is never put back, and `takeCrisisSlot` ignores a released slot. Concern A in flight, crisis B takes over, A fails, B fails: concern C then holds the slot itself and escalates, and a further concern D in the window is quiet behind C.
+- **C13 bounded wait behind an unconfirmed holder (cycle-2 item 3, MEDIUM race)** — the slot carries `done: Promise<boolean>`. A turn that finds an unconfirmed holder waits for it, at most `quietWaitMs` (default `CRISIS_QUIET_WAIT_MS` = 5 s, a `ChatApiDeps` option). If the holder escalated, the turn is quiet and writes nothing. If the holder failed, the turn takes the slot and runs the full path. If the holder is still in flight after the wait, the turn runs the full path itself without the slot. So a turn is quiet only behind a holder that really escalated. The cycle-1 flag-only row is removed (it is now unreachable).
+- **C14 titles and initials outside the name cap (cycle-2 item 4, LOW-MEDIUM)** — titles (TITLES set, any case, with or without a dot) and one-letter initials ("A.") before a name do not use up the {0,3} name-token budget, and a lower-case title does not count against the lower-case budget. "I'm Dr. A. P. J. Abdul Kalam", "My name is Prof. Dr. Anita Rao Verma", "my name is dr. anita rao verma ...", "I am Shri Ram Prasad Bismil Sharma" keep no part of the name; "from Pune" survives; 50k repeated "Dr. " redacts in under 500 ms.
 
 ## What changed
 Code commit `b018254` on branch `p1/u8r` (base `b1aadea` = `p1/u8` at the coordinator-A verdict). 6 files.
@@ -39,6 +44,25 @@ Fix commit `c3d3069` on `p1/u8r` (on top of manifest `a76bf38`). 4 files, tests 
 - `packages/schemas/src/redact.ts` — `redactPii`: `TITLES` set exempt from the sentence-final full stop rule; email pass skipped without "@"; `EMAIL` local part `{1,64}`.
 - Tests: `apps/api/tests/chat-privacy.test.ts` (+4), `packages/schemas/tests/redact.test.ts` (+2). No existing assertion changed or deleted (the 40-turn flood test still asserts exactly 1 flag, 1 escalation, 2 turn rows).
 - Item 5 (accepted, no code): in the profile-outage crisis path the escalation text is redacted without the Pathlynks name. Documented in the `chat.ts` header comment and listed in the open risks.
+
+## Cycle 2 changes
+Fix commit `585f6dc` on `p1/u8r` (on top of manifest `37dcb65`, cycle-1 code `c3d3069`). 4 files. Tests were written first: all 7 new tests were red on `c3d3069` (6 of 6 api cycle-2 tests, 1 of 1 redact cycle-2 test; evidence `scratchpad/u8r-c2-red.txt`), then green after the fix.
+- `apps/api/src/chat.ts`, `createChatApi`: `CrisisSlot` gains `released`, `done` and `settle`. `takeCrisisSlot` skips released slots, and `releaseCrisisSlot` marks the slot released, settles it false and never restores a released prev. A new `awaitHolder` does a bounded race with an unref'd, cleared timer. The cached `escalate` wrapper sets `escalated = true` on the per-turn ALS scope after the inner call succeeds.
+- `apps/api/src/chat.ts`, `handleTurn`: `consentOk` is computed before the slot, and `slotRank` is 0 for a textless turn. A non-holder awaits the holder, then retakes the slot or runs "loose". The slot is confirmed and settled true only when `variant === "full"`, the scope recorded an escalation and the flag write did not fail. The quiet flag-only write is removed. `ChatApiDeps.quietWaitMs` is new and optional, and the export `CRISIS_QUIET_WAIT_MS` is new.
+- `packages/schemas/src/redact.ts`: `NAME_PREFIX` (a title or a one-letter initial) is allowed any number of times before the capped tokens in `EN_NAME`. In the `redactPii` loop a lower-case title does not count against `MAX_LOWER_NAME_TOKENS`.
+- Tests: `apps/api/tests/chat-privacy.test.ts` +6 and `packages/schemas/tests/redact.test.ts` +1. No existing assertion was changed or deleted. The cycle-1 M-race test ("leaves a text-free flag") still passes unchanged: after the 5 s default wait the quiet turn escalates itself, and that run writes its own flag. That test now takes about 5 s.
+- Item 5 (LOW, record only): the limiter is charged before the 503. See the open risks.
+
+### Cycle 2 falsification
+Method: the single file was byte-copied to scratch, one edit was applied in the worktree, the targeted tests were run, and the file was restored from the copy (`cmp` identical). Evidence: `scratchpad/u8r-c2-falsify.txt`.
+| id | falsifying edit | after | first failing test |
+|---|---|---|---|
+| C11a | confirm condition back to `holdsSlot && !result.flagWriteFailed` (no real-escalation check) | 1 fail of 2 | cycle 2 item 1: an unconsented minor's crisis turn does not silence a later consented crisis turn (second unconsented turn not flagged) |
+| C11b | same edit, and `slotRank` back to `LEVEL_RANK[level]` | 2 fail of 2 | cycle 2 item 1: an over-long crisis turn ... does not silence a normal crisis turn 60 s later |
+| C12 | `!prev.released` and `!found.released` removed | 1 fail of 1 | cycle 2 item 2: a failed holder's slot is never put back |
+| C13 | `!(await awaitHolder(taken.slot))` replaced by `false` (no wait) | 2 fail of 3 | cycle 2 item 3: a quiet turn behind an in-flight holder waits for it ... |
+| C14 | `(?:${NAME_PREFIX}\s+)*` removed from `EN_NAME` | 1 fail of 1 | cycle 2 item 4: a title and initials do not use up the name-token budget |
+On the first pass there were two survivors, C11a and C12. Each mechanism was covered by a second fix as well (rank 0 for C11, and the bounded wait for C12). The tests were tightened: two unconsented crisis turns must both be flagged, and a concern D after C must be quiet. Both edits were then re-run and failed red. Survivors at the end: 0.
 
 ## Verification scope
 Policy-Version: proportional-verification/2026-10-18.15
@@ -68,6 +92,12 @@ Pre-check[C8]: c3d3069 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --t
 Pre-check[C9]: c3d3069 bash scripts/vc-testlock.sh pnpm -C packages/schemas exec tsx --test tests/redact.test.ts -> green: 18 passed, 0 failed t=4s blobs=packages/schemas/tests/redact.test.ts:fee7971
 Pre-check[C10]: c3d3069 bash scripts/vc-testlock.sh pnpm -C packages/schemas exec tsx --test tests/redact.test.ts -> green: 18 passed, 0 failed t=4s blobs=packages/schemas/tests/redact.test.ts:fee7971
 Pre-check[C6-recheck]: c3d3069 bash scripts/vc-testlock.sh pnpm -C packages/db exec tsx --test tests/student-store.test.ts -> green: 14 passed, 0 failed t=4s blobs=packages/db/tests/student-store.test.ts:96aa120
+Pre-check[C11]: 585f6dc bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts -> green: 36 passed, 0 failed t=18s blobs=apps/api/tests/chat-privacy.test.ts:12b752a
+Pre-check[C12]: 585f6dc bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts -> green: 36 passed, 0 failed t=18s blobs=apps/api/tests/chat-privacy.test.ts:12b752a
+Pre-check[C13]: 585f6dc bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts tests/chat.test.ts tests/chat-profile.test.ts -> green: 69 passed, 0 failed (36 + 23 + 10, three runs) t=44s blobs=apps/api/tests/chat-privacy.test.ts:12b752a,apps/api/tests/chat.test.ts:a4a5f48,apps/api/tests/chat-profile.test.ts:d9e63b5
+Pre-check[C14]: 585f6dc bash scripts/vc-testlock.sh pnpm -C packages/schemas exec tsx --test tests/redact.test.ts -> green: 19 passed, 0 failed t=5s blobs=packages/schemas/tests/redact.test.ts:ca6525e
+Pre-check[C6-recheck2]: 585f6dc bash scripts/vc-testlock.sh pnpm -C packages/db exec tsx --test tests/student-store.test.ts -> green: 14 passed, 0 failed t=4s blobs=packages/db/tests/student-store.test.ts:96aa120
+Pre-check[packages-c2]: 585f6dc tree (run on the identical uncommitted tree just before the commit) bash scripts/vc-testlock.sh pnpm -C <pkg> test, whole: packages/schemas 98/98, packages/db 279/279, apps/api 204/204; typecheck exit 0 for packages/schemas, packages/db, apps/api
 Pre-check[packages]: c3d3069 bash scripts/vc-testlock.sh pnpm -C <pkg> test, whole: packages/schemas 97/97 (t=5s), packages/db 279/279 (t=6s), apps/api 198/198 (t=11s); typecheck exit 0 for packages/schemas (t=2s), packages/db (t=3s), apps/api (t=4s) (the cycle-0 line on b018254 was 95/95, 279/279, 194/194)
 Metrics: start=2026-10-19T00:22:08+05:30 end=2026-10-19T00:51:29+05:30 builder_min=unavailable wall_min=unavailable agent_min=unavailable blocked_min=unavailable suite_runs=0 repeat_runs=0 mutations=10 survivors_final=0 cycle=0 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-18.15 lane=normal check_s=unavailable mutants=10 defects_unit=unavailable defects_6c=0
 (suite_runs=0: no whole-repo suite; only per-criterion file runs and the three affected packages run whole. Lock waits were short: the 2-slot lock was free for most runs.)
@@ -106,6 +136,11 @@ Survivors: 0. One first-pass survivor: C5b was green because the stoplist alread
 Not UI-touching — changed paths are `apps/api/src/**`, `packages/db/**`, `packages/schemas/**` and `qa/`.
 
 ## Not done / stated limits (for the checker)
+- **Cycle 2, item 5 (LOW, record only):** the per-student limiter is charged before the 503 `profile_unavailable`, so an ordinary turn refused during a profile outage still uses one request of the student's minute budget. Not changed.
+- **Cycle 2, latency:** a crisis turn behind an unconfirmed holder can wait up to 5 s before it is answered. The helpline answer is delayed by up to that wait, never withheld.
+- **Cycle 2, over-escalation (accepted direction):** a "loose" turn (one that ran the full path because the holder was still in flight after the wait) does not confirm the holder's slot. If the holder then fails, the next turn in the window escalates again. A textless rank-0 holder never confirms, so every textless crisis turn in a window writes its own text-free flag row. For those turns the M2 write cap is now bounded by the request rate, not by one per window.
+- **Cycle 2, single process:** `done` and the wait are in memory, like the slot itself. A second replica does not see another replica's holder.
+- **Open questions for Umesh (from the cycle-1 reviewer, not decided here):** (1) Are unconsented-minor crisis turns meant to have no escalation at all (D-093 4A)? Today they get the helpline and a text-free flag row but no escalation record. (2) Is a same-id retry of a turn whose escalation failed meant to never re-escalate? Today the retry replays the stored answer and does not run the escalation again.
 - **Cycle 1, item 5 (accepted, no code change):** in the profile-outage crisis path the escalation text lacks the Pathlynks name redaction, because the name is unknown while the profile is down. A profile-only name in that text can reach the escalation path and the classifier rationale (up to 500 chars). Stored turn text is not written in that case. The header comment in `chat.ts` now says so instead of "redaction never fails open".
 - **Cycle 1:** a bounded email local part leaves the characters before the last 64 in an address whose local part is longer than 64 (an invalid address); the address is still replaced from there. The upgrade-failure restore of the previous slot (`releaseCrisisSlot(..., prev)`) has no dedicated test.
 - **Cycle 1:** the quiet flag-only row is written only while the holder is unconfirmed; after the holder's flag is confirmed, later quiet crisis turns of equal or lower level leave nothing (the accepted M2 trade-off). Row ids are `thread:turn:kind`, so the same turn id upserts once.
@@ -119,8 +154,8 @@ Not UI-touching — changed paths are `apps/api/src/**`, `packages/db/**`, `pack
 - No `senior-software-engineer` review dispatched (brief: the orchestrator owns review and the checkers). Falsification was done in the unit's own worktree with byte backups and sha256 restore proofs, not a second directory copy, because a full copy of the installed worktree would not fit on the nearly full C: drive (5.6 GB free).
 
 ## How to verify (commands + expected)
-- `bash D:/vc/scripts/vc-testlock.sh pnpm -C <worktree>/packages/schemas test` -> tests 95, pass 95, fail 0.
+- `bash D:/vc/scripts/vc-testlock.sh pnpm -C <worktree>/packages/schemas test` -> tests 98, pass 98, fail 0 (cycle 2).
 - `bash D:/vc/scripts/vc-testlock.sh pnpm -C <worktree>/packages/db test` -> tests 279, pass 279, fail 0.
-- `bash D:/vc/scripts/vc-testlock.sh pnpm -C <worktree>/apps/api test` -> tests 194, pass 194, fail 0.
+- `bash D:/vc/scripts/vc-testlock.sh pnpm -C <worktree>/apps/api test` -> tests 204, pass 204, fail 0 (cycle 2).
 - `pnpm -C <worktree>/<package> typecheck` for packages/schemas, packages/db, apps/api -> exit 0.
 - Per-criterion: the Pre-check lines above.
