@@ -119,6 +119,7 @@ Raised by the U7 anonymous-mode dual check (2026-10-18); none is a TODO row, the
 - [ ] CANDIDATE · ISS-143 (low): scripts/vc-testlock.sh stale-lock age computed from a nonsense epoch difference.
 - [ ] CANDIDATE · ISS-144 (low): manifest template lacks a Test selection section and Sibling lines.
 - [ ] CANDIDATE · ISS-145 (low): EMAIL regex cost on 4000 chars and the trailing-slash 405 path are unmeasured/untested.
+- [ ] CANDIDATE · ISS-146 (low): scripts/vc-testlock.test.sh is load sensitive; the control suite went red once under 6 parallel copies (C1 third-holder timeout assertion), so it must be run alone. Source: qa/verdicts/p1-testlock-2slot.md (Findings).
 
 ## Sweep notes (2026-09-26T19:44 IST, Mode B single-agent sweep — only qa/ + TASKS commits landed since the last sweep 38c426e, so sharding buys nothing)
 
