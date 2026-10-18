@@ -6,3 +6,6 @@ Evidence identity: head ebbb41f, live.ts blob b246dfe, tests blob 9e8e842; clean
 
 # Checkpoint cycle 2 (PASS)
 Evidence identity: head 425ad48, live.ts blob 99e8699, live.test.ts blob e0302d6; clean copy (packages/providers, node_modules junctions) `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh python -X utf8 chk-u9c2/run.py`: live.test.ts 63/63, own probes chk2.test.ts 7/7, tsc rc 0; mutants R1 (2 fail), R2 (6 fail), each in its own copy. Files: qa/evidence/p1-u9-check/cycle2/. Checker: this session's /checker repair subagent. Result: PASS.
+
+# Checkpoint brief rewrite 1, cycle 1 (PASS)
+Evidence identity: head 73dc74f, code da32f8a, live.ts blob 2e3101d, live.test.ts blob c157273; clean copy (packages/providers, node_modules junctions) `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh python -X utf8 chk-u9rw1/run.py`: live.test.ts 70/70, own probes chkrw1.test.ts 13/13, tsc rc 0; mutants H1a (1 fail), H1b (3 fail), Low (3 fail), each in its own copy. Files: qa/evidence/p1-u9-check/rw1/. Checker: this session's /checker repair subagent. Result: PASS.
