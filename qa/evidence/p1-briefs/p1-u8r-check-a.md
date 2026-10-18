@@ -1,0 +1,13 @@
+# You are /checker coordinator A (of 2, blind dual check): p1-u8r-chat-privacy, tier L, fresh context
+- Protocol C:/Users/Lenovo/.claude/skills/checker/SKILL.md Mode A. Policy: the manifest pin (proportional-verification/2026-10-18.15). Dual check: you are coordinator A. Never read coordinator B's verdict, checkpoint or evidence. Your PASS has no side effects: findings go in your verdict as PROPOSED-ISSUE lines.
+- Worktree C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8r (branch p1/u8r, head a76bf38, code b018254, base b1aadea). Read-only toward code. Write only qa/verdicts/p1-u8r-chat-privacy.A.md, your checkpoint and your evidence. Never touch .claude/**. Do NOT push. C: is nearly full: copy only the single files you mutate to a scratch dir. Never copy the whole tree.
+- Contract: the manifest criteria C1..C6 in qa/manifests/p1-u8r-chat-privacy.md, plus the U8 review findings that the repair targets (M1 fail-open, M2 crisis flood, A1 lowercase names, A2 stated name in the reply, B rationale).
+- Prove OUTCOMES, with hostile variants:
+  - profile outage: an ordinary turn gives 503 with zero writes, and a retry of the same turn id works; a crisis turn still gets the helpline and is escalated, with its text not stored.
+  - crisis flood: 5 crisis turns in 10 min on one thread give 1 stored, flagged and escalated turn, while every turn still gets the helpline; a failed flag or escalation write gives the slot back; a different thread or student is independent.
+  - names: "my name is devika nair", "i am kabir", "call me aarav", "MY NAME IS ROHAN", "naam hai priya" (record the result if it is unsupported); precision: "i am tired", "i am from delhi", "i am a student", "i am going to apply".
+  - a model reply that echoes the stated name is redacted in the stored message, replay and history.
+  - the stored escalation rationale contains no raw student text; "i am unalive" still escalates.
+  - a profile fact key holding a name is redacted.
+- Reuse maker evidence only after identity validation. Rerun via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...`: apps/api chat-privacy, chat and chat-profile tests; schemas redact.test.ts; db student-store.test.ts; typecheck for those 3 packages. One falsification per criterion, in a copy.
+- Return ONE line: PASS/FAIL + verdict sha + reason.
