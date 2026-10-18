@@ -135,6 +135,28 @@ Raised by the U8 chat API dual check (2026-10-19, ISS-147..ISS-162); none is a T
 - [ ] CANDIDATE · ISS-161 (low): an erased profile fact is re-proposed on the next matching turn.
 - [ ] CANDIDATE · ISS-162 (low): test gap, an over-long crisis message on the chat route (the profile-outage and crisis-flood gaps are covered by the p1-u8r tests).
 
+Raised by the U6b + U11 + U9 checks (2026-10-19, ISS-163..ISS-182); none is a TODO row, the human picks. Sources: qa/verdicts/p1-u6b-profile-ranking.md, qa/verdicts/p1-u11-coverage-report.md, qa/verdicts/p1-u9-live-adapter.md, qa/evidence/p1-briefs/p1-u9-rw1-review-result.md. ISS-163 (medium, confirmed chat facts stored as source 'chat' are ignored by rankOptions unless mapped) is fixed in the U6b wiring step (CORE-REQUEST) and is not listed as a candidate.
+
+- [ ] CANDIDATE · ISS-164 (low): rankOptions output has no 'NOT PROVEN' or synthetic marker; the wiring unit must carry it (D-097 item 3) or keep the path behind a flag.
+- [ ] CANDIDATE · ISS-165 (low): rank.ts usableFacts: same key and same source label with different values resolve by input order (hand-built input only).
+- [ ] CANDIDATE · ISS-166 (low): the 25-option cap in rankOptions is the maker's own policy choice; owner to confirm the number.
+- [ ] CANDIDATE · ISS-167 (low): real per-option numbers (cost, scholarship chance, visa ease) have no proven data source (D-097 item 3); U6b is proven on fixtures only.
+- [ ] CANDIDATE · ISS-168 (low): test gap, info: an equivalent C8 mutant survives and the equal-score id tiebreak is redundant; keep the final id ordering.
+- [ ] CANDIDATE · ISS-169 (low): coverage CLI: `--real` or a bad flag prints a stack trace instead of the one-line message (parseCoverageArgs outside the .catch).
+- [ ] CANDIDATE · ISS-170 (low): coverage.ts duplicates the staleness arithmetic from claims.ts; parity pinned only by the 24/25-month boundary test.
+- [ ] CANDIDATE · ISS-171 (low): real KB breadth in the U11 coverage report is NOT PROVEN (synthetic fixture only; Q-U11-2, G-KB).
+- [ ] CANDIDATE · ISS-172 (low): VC gap counts are overall totals per date, not per country or theme (Q-U11-1).
+- [ ] CANDIDATE · ISS-173 (low): coverage has no live mode (`--real` throws by design).
+- [ ] CANDIDATE · ISS-174 (low): test gap, the maker's weak C2b crash-kill falsification; the checker's bool flip is the real C2 pin.
+- [ ] CANDIDATE · ISS-175 (low): test gap, U9: `interrupted` alone arming lift condition 1 is unpinned (review mutant M7).
+- [ ] CANDIDATE · ISS-176 (low): test gap, U9: a second crisis fire after turnComplete re-requiring a new turn end is unpinned (review mutant M5).
+- [ ] CANDIDATE · ISS-177 (low): test gap, U9: a repeated crisis phrase after a toolCall in the same utterance not refiring is unpinned (review mutant M8).
+- [ ] CANDIDATE · ISS-178 (low): test gap, U9: a repeated crisis phrase after a final=true chunk not refiring is unpinned (review mutant M9).
+- [ ] CANDIDATE · ISS-179 (low): U9 residual risk (G-REAL / A10): turnComplete carries no turn id, so a pre-crisis model turn ending just after the crisis can arm the lift.
+- [ ] CANDIDATE · ISS-180 (low): U9 residual risk (G-REAL / A10): silence after a crisis keeps the model muted indefinitely (fails closed).
+- [ ] CANDIDATE · ISS-181 (low): U9 residual risk (G-REAL / A10): a mid-sentence pause of 1.2 s or more after a turn end lifts the mute (D-097 trade-off).
+- [ ] CANDIDATE · ISS-182 (low): U9: a typed message never lifts the crisis mute or updates the resume-gap clock (D-096 as worded); carried cycle-1 lows (close-before-attach replay, M3 byteLength).
+
 ## Sweep notes (2026-09-26T19:44 IST, Mode B single-agent sweep — only qa/ + TASKS commits landed since the last sweep 38c426e, so sharding buys nothing)
 
 - **Bypass / pair-state (1):** no uncommitted or unmanifested code changes on main (`git status` shows only `qa/.last-tick` + `.handoffs/`). `t-021-provider-failover`'s worktree, snapshotted mid-sweep with ~15 uncommitted files, was committed (`0fa58c1`) by the live maker session between this sweep's first and second look — confirms the maker is active, not a bypass.
