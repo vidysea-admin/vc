@@ -126,3 +126,35 @@ test("A2: a name that ends a sentence does not take the next sentence's first wo
   assert.equal(redactPii("my name is anita verma. What are the fees").text, "my name is [NAME]. What are the fees");
   assert.equal(redactPii("I am A. Verma and I want to study").text, "I am [NAME] and I want to study");
 });
+
+// ---- p1-u8r cycle 1 ----------------------------------------------------------------------------------------------------------
+test("p1-u8r cycle 1: a title before a name does not end the name ('Dr. Anita Verma' is wholly redacted)", () => {
+  for (const [input, leaked] of [
+    ["My name is Dr. Anita Verma", ["Anita", "Verma"]],
+    ["I am Mr. Rao from Pune", ["Rao"]],
+    ["my name is prof. sharma", ["sharma"]],
+    ["My name is Mrs. Priya Nair and I want to study abroad", ["Priya", "Nair"]],
+    ["This is SMT. Lakshmi Devi", ["Lakshmi", "Devi"]],
+    ["I am Shri Ramesh Kumar", ["Ramesh", "Kumar"]],
+    ["I am Km. Sita Rani", ["Sita", "Rani"]],
+  ] as const) {
+    const out = redactPii(input).text;
+    for (const word of leaked) assert.equal(out.includes(word), false, `${input} -> ${out}`);
+  }
+  assert.equal(redactPii("I am Mr. Rao from Pune").text.includes("Pune"), true, "the place after the name survives");
+});
+
+test("p1-u8r cycle 1: the email pass is skipped without an at-sign and the local part is bounded, so 200k characters of 'a.' redact quickly", () => {
+  for (const input of ["a.".repeat(100_000), "a".repeat(200_000), "a.".repeat(50_000) + "@", "a.@".repeat(60_000)]) {
+    const t0 = performance.now();
+    redactPii(input);
+    const ms = performance.now() - t0;
+    assert.ok(ms < 200, `${input.length} chars took ${ms.toFixed(0)} ms`);
+  }
+  // Text with no at-sign never reaches the email pass: 2M characters still take well under 100 ms (the bounded pass alone would need ~400 ms).
+  const big = "a.".repeat(1_000_000);
+  const t1 = performance.now();
+  redactPii(big);
+  assert.ok(performance.now() - t1 < 100, "no-at-sign text skips the email pass");
+  assert.equal(redactPii("write to priya.sharma@example.com now").text, "write to [EMAIL] now");
+});

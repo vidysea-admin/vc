@@ -9,6 +9,8 @@
  * Honest limits (stated, not hidden):
  *  - Emails and phone numbers are matched by shape, so they are reliable. A phone number is any 10-15 digit run (separators
  *    and Devanagari digits allowed); that also covers 12-digit national ids.
+ *  - The email local part is matched up to 64 characters (the RFC limit) so the scan stays linear; in an address with a longer
+ *    (invalid) local part the first characters before the last 64 are left in the text, and the address is still replaced from there.
  *  - Names have no shape. Only a name the student states about themselves is caught: "my name is X", "I am X", "this is X",
  *    "mera naam X hai", Devanagari "मेरा नाम X है", plus any `knownNames` the caller supplies (for example the supplied
  *    profile name). A name mentioned in some other way ("my sister Anita") is NOT redacted. This is a weak proxy, not
@@ -45,7 +47,8 @@ export interface RedactResult {
   names: string[];
 }
 
-const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
+// The local part is bounded (RFC 5321 allows 64) so a long run of dots and letters cannot make the scan quadratic (p1-u8r cycle 1).
+const EMAIL = /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
 
 const DEVANAGARI_ZERO = 0x0966;
 function digitCount(s: string): number {
@@ -76,6 +79,8 @@ const LOWER_NOT_NAME = new Set(
     "hai he h hu hun hoon aur ki ka ke main mai mujhe mein me se bhi ko nahi na abhi bahut kaafi ek"
   ).split(/\s+/),
 );
+// A title ends in a full stop but does not end the sentence: "My name is Dr. Anita Verma" is one name (p1-u8r cycle 1).
+const TITLES = new Set(["dr", "mr", "mrs", "ms", "prof", "shri", "smt", "sri", "kumari", "km"]);
 const trimTail = (token: string): string => token.replace(/['.-]+$/u, "");
 const isLowerNameToken = (raw: string): boolean => {
   const token = trimTail(raw);
@@ -112,10 +117,13 @@ function replaceKnownName(text: string, name: string, counts: RedactResult["coun
 
 export function redactPii(input: string, options: RedactOptions = {}): RedactResult {
   const counts = { email: 0, phone: 0, name: 0 };
-  let text = input.replace(EMAIL, () => {
-    counts.email++;
-    return PII_PLACEHOLDERS.email;
-  });
+  // No "@" means no email: skip the pass altogether (p1-u8r cycle 1).
+  let text = !input.includes("@")
+    ? input
+    : input.replace(EMAIL, () => {
+        counts.email++;
+        return PII_PLACEHOLDERS.email;
+      });
   text = text.replace(PHONE_CANDIDATE, (m) => {
     const n = digitCount(m);
     if (n < 10 || n > 15) return m;
@@ -143,7 +151,7 @@ export function redactPii(input: string, options: RedactOptions = {}): RedactRes
       consumed = i + 1;
       // A word that ends in a full stop closes the sentence, so the next capitalised word ("My name is Anita Verma. What ...") is not part of the name.
       // A one-letter initial ("A. Verma") does not.
-      if (/\.$/.test(tok) && [...trimTail(tok)].length > 1) break;
+      if (/\.$/.test(tok) && [...trimTail(tok)].length > 1 && !TITLES.has(trimTail(tok).toLowerCase())) break;
     }
     if (used === "") return whole;
     counts.name++;

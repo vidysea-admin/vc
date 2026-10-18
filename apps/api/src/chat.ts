@@ -26,10 +26,16 @@
  *    turn has no idempotent replay (a retry runs the model again). Ids-and-time-only rows (safety flags, usage counters, gap counts) are kept.
  *  - A23: 30 requests per minute per student (per-tenant override); crisis text is never limited. The limiter is per process (in memory).
  *  - p1-u8r M2: a crisis message is always answered with the helpline, but its WRITES are bounded: per student and thread, the first crisis
- *    turn in a 10-minute window is stored, flagged, escalated and counted; the rest of the window is answered and writes nothing. A turn whose
+ *    turn in a 10-minute window is stored, flagged, escalated and counted; the rest of the window is answered and stores no text. A turn whose
  *    flag or escalation write failed gives its slot back. The window is per process (in memory), like the limiter.
+ *  - Cycle 1 H1: the slot is ranked by level (concern < crisis). A turn of a HIGHER level than the holder's (concern, then crisis) always runs
+ *    the full path (stored, flagged, escalated, counted) and takes the slot over; only a turn of equal or lower level is quiet.
+ *  - Cycle 1 race: a quiet turn that finds the holder not yet confirmed (in flight, or failed) writes a flag-only row (ids, kind, time; no text),
+ *    so no crisis turn is ever unrecorded. A retry of a completed crisis turn (same clientTurnId and text) is replayed, never re-run.
  *  - p1-u8r M1: when the Pathlynks profile cannot be read, a name from it cannot be redacted, so an ordinary turn is refused 503 before any
- *    write, and a crisis turn is answered and escalated but its text is not stored. Redaction never fails open.
+ *    write, and a crisis turn is answered and escalated but its text is not stored. Stored text never fails open. One known gap (cycle 1,
+ *    accepted, open risk in the manifest): the escalation text of a crisis turn during an outage is redacted without the profile name, because that
+ *    name is unknown, so a profile-only name in that text can reach the escalation path and the classifier rationale it stores.
  *  - p1-u8r item 5: the escalation path (and so the classifier rationale it stores) is handed REDACTED text; if redacting would hide the
  *    crisis wording from the guard, the least-redacted text that still shows it is used (an escalation is never lost for privacy).
  *  - The Pathlynks profile arrives through a port; there is no real integration here, and no voice route (U10).
@@ -96,9 +102,10 @@ export const CHAT_FLAG_ENV = "VC_CHAT_ENABLED";
 export const MAX_CHAT_BODY_BYTES = 256 * 1024;
 export const CHAT_WINDOW_MS = 60_000;
 export const CHAT_MAX_LIMITER_KEYS = 100_000;
-/** p1-u8r M2: per student and thread, one crisis turn in this window is stored, flagged, escalated and counted. */
+/** p1-u8r M2: per student and thread, one crisis turn in this window is stored, flagged, escalated and counted (a turn of a higher level than the holder's runs in full and takes over the slot: cycle 1 H1). */
 export const CRISIS_WRITE_WINDOW_MS = 10 * 60_000;
 export const CRISIS_MAX_TRACKED_THREADS = 100_000;
+const LEVEL_RANK = { none: 0, concern: 1, crisis: 2 } as const;
 /** Chat-extracted facts kept per turn (a model cannot flood a student's profile). */
 export const MAX_PROPOSED_FACTS_PER_TURN = 5;
 
@@ -316,23 +323,37 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
   };
 
   // p1-u8r M2: crisis writes are bounded per student and thread (in memory, oldest evicted). Map order is insertion order, so delete + set keeps it oldest-first.
-  const crisisSlots = new Map<string, number>();
+  // Cycle 1 H1: the slot remembers the level of the turn that holds it. A turn of a HIGHER level (concern, then crisis) is never quiet: it runs the
+  // full path and upgrades the slot, and if it then fails the previous holder's slot is put back. Only a turn of equal or lower level is quiet.
+  // `confirmed` is set once the holder's flag and escalation went through; a quiet turn that finds an unconfirmed holder writes a flag-only record.
+  interface CrisisSlot {
+    until: number;
+    rank: number;
+    confirmed: boolean;
+  }
+  const crisisSlots = new Map<string, CrisisSlot>();
   const nowMs = () => (deps.nowMs ?? Date.now)();
-  const takeCrisisSlot = (key: string): boolean => {
+  const takeCrisisSlot = (key: string, rank: number): { holds: boolean; slot: CrisisSlot; prev?: CrisisSlot } => {
     const t = nowMs();
-    const until = crisisSlots.get(key);
-    if (until !== undefined && until > t) return false;
+    const found = crisisSlots.get(key);
+    const active = found !== undefined && found.until > t ? found : undefined;
+    if (active !== undefined && rank <= active.rank) return { holds: false, slot: active };
     crisisSlots.delete(key);
     while (crisisSlots.size >= CRISIS_MAX_TRACKED_THREADS) crisisSlots.delete(crisisSlots.keys().next().value as string);
-    crisisSlots.set(key, t + CRISIS_WRITE_WINDOW_MS);
-    return true;
+    const slot: CrisisSlot = { until: t + CRISIS_WRITE_WINDOW_MS, rank, confirmed: false };
+    crisisSlots.set(key, slot);
+    return { holds: true, slot, ...(active !== undefined ? { prev: active } : {}) };
   };
-  const releaseCrisisSlot = (key: string) => void crisisSlots.delete(key);
+  /** Gives the slot back after a failed holder; a slot another turn has taken over since is left alone, and the slot it replaced returns. */
+  const releaseCrisisSlot = (key: string, slot: CrisisSlot, prev: CrisisSlot | undefined) => {
+    if (crisisSlots.get(key) !== slot) return;
+    crisisSlots.delete(key);
+    if (prev !== undefined && prev.until > nowMs()) crisisSlots.set(key, prev);
+  };
 
   // p1-u8r item 5: the redaction of the turn in flight, read by the cached `escalate` wrapper (the graph deps are shared across students).
   type Redactors = { full: (s: string) => string; minimal: (s: string) => string };
   const redactionScope = new AsyncLocalStorage<Redactors>();
-  const LEVEL_RANK = { none: 0, concern: 1, crisis: 2 } as const;
   /** The most redacted text that the crisis guard still reads as at least as serious as the original; the original only as a last resort. */
   const escalationText = (raw: string): string => {
     const r = redactionScope.getStore() ?? { full: (s: string) => redactPii(s).text, minimal: (s: string) => redactPii(s, { introductions: false }).text };
@@ -431,7 +452,8 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     if (clientTurnId !== undefined && !PATH_ID_PATTERN.test(clientTurnId)) return fail(400, "invalid_request");
 
     // A23: a crisis message is never rate limited; the scan runs on the full text before the limiter is consulted.
-    const crisis = crisisGuard(text).level !== "none";
+    const level = crisisGuard(text).level;
+    const crisis = level !== "none";
     if (!crisis) {
       const limited = limitCheck(ctx);
       if (limited) return limited;
@@ -456,8 +478,9 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
 
     // p1-u8r M2: one stored, flagged, escalated crisis turn per student and thread per window; the rest are answered and write nothing.
     const slotKey = crisis ? sha256(`${ctx.tenantId}\u0000${ctx.studentId}\u0000${threadId}`) : undefined;
-    const holdsSlot = slotKey !== undefined && takeCrisisSlot(slotKey);
-    const quiet = slotKey !== undefined && !holdsSlot;
+    const taken = slotKey !== undefined ? takeCrisisSlot(slotKey, LEVEL_RANK[level]) : undefined;
+    const holdsSlot = taken?.holds === true;
+    const quiet = taken !== undefined && !taken.holds;
     let slotConfirmed = false;
     const runTurn = async (): Promise<ApiResponse> => {
       const consentOk = !ctx.minor || ctx.guardianConsent;
@@ -469,6 +492,19 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
       const allNames = [...knownNames, ...stated];
       const redact = (s: string): string => redactPii(s, { knownNames: allNames }).text;
       const redactors: Redactors = { full: redact, minimal: (s) => redactPii(s, { knownNames: allNames, introductions: false }).text };
+
+      // Cycle 1: a retry of a crisis turn that was already completed (same clientTurnId, same redacted text) is replayed even when this retry is
+      // quiet, so the graph is not run again and nothing new is written. The stored answer is what the first call returned.
+      if (quiet && clientTurnId !== undefined && consentOk && !overlong && !profileDown) {
+        const requestHash = sha256(redact(text));
+        const rows = await listChatTurns(db, { studentId: ctx.studentId, threadId });
+        const user = rows.find((r) => r.turnId === turnId && r.role === "user");
+        const stored = rows.find((r) => r.turnId === turnId && r.role === "assistant");
+        if (user?.status === "done" && user.requestHash === requestHash && stored?.response !== undefined) {
+          const replay = TurnResponseSchema.safeParse(stored.response);
+          if (replay.success) return respond(200, replay.data);
+        }
+      }
 
       let leaseToken: string | undefined;
       if (persistText) {
@@ -522,9 +558,24 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
         await abandon();
         return respond(200, response);
       }
-      // M2: a crisis turn past its window's budget is answered with the helpline and written nowhere. One whose flag or escalation write failed gives its slot back.
-      if (quiet) return respond(200, response);
-      if (holdsSlot && !result.flagWriteFailed) slotConfirmed = true;
+      // M2: a crisis turn past its window's budget is answered with the helpline and stores no text. One whose flag or escalation write failed gives its slot back.
+      // Cycle 1: while the holder is not confirmed (still in flight, or failed and gave the slot back) the quiet turn leaves a flag-only row (ids, kind, time),
+      // so no crisis turn is ever unrecorded; once the holder is confirmed its flag already covers the window.
+      if (quiet) {
+        if (!taken!.slot.confirmed) {
+          try {
+            await recordStudentFlag(db, { studentId: ctx.studentId, threadId, turnId, kind: "crisis" }, { now });
+          } catch (err) {
+            if (err instanceof StudentFencedError || err instanceof FencedWriterDeadlineError) throw err;
+            logEvent("chat_write_failed", { write: "quiet_flag" });
+          }
+        }
+        return respond(200, response);
+      }
+      if (holdsSlot && !result.flagWriteFailed) {
+        slotConfirmed = true;
+        taken!.slot.confirmed = true;
+      }
 
       if (leaseToken !== undefined) {
         const stored = TurnResponseSchema.parse({
@@ -554,7 +605,7 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     try {
       return await runTurn();
     } finally {
-      if (holdsSlot && !slotConfirmed) releaseCrisisSlot(slotKey!);
+      if (holdsSlot && !slotConfirmed) releaseCrisisSlot(slotKey!, taken!.slot, taken!.prev);
     }
   }
 
