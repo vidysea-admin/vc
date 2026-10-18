@@ -90,6 +90,11 @@ SHIMEOF
 
 COMMON_ENV=(VC_TESTLOCK_MIN_FREE_GB=0 VC_TESTLOCK_POLL_SECS=1)
 
+# D-096 (C3): Tests 1-11 below are the original single-lock suite, run unchanged against the
+# single-lock mode (VC_TESTLOCK_SLOTS=1 must behave exactly as before). The two-slot tests (12+)
+# set VC_TESTLOCK_SLOTS explicitly per command, so this pin does not affect them.
+export VC_TESTLOCK_SLOTS=1
+
 echo "== Test 1: acquire/release round trip =="
 BASE=$(mktemp -d); LOCK="$BASE/lock"
 env "${COMMON_ENV[@]}" VC_TESTLOCK_DIR="$LOCK" bash "$SCRIPT" true
@@ -331,6 +336,98 @@ SURVIVING2=$(grep -o '^TOKEN=.*' "$LOCK/owner" 2>/dev/null | cut -d= -f2-)
 assert_eq "Site 3b: the live holder's owner file is untouched" "genuine-live-holder" "$SURVIVING2"
 kill "$LIVE2_MSYS_PID" 2>/dev/null; wait "$LIVE2_MSYS_PID" 2>/dev/null
 rm -rf "$LOCK" "$BASE"
+
+# ---------------------------------------------------------------------------------------------
+# D-096 item 1: two slots. Every test uses a fresh mktemp VC_TESTLOCK_DIR; free RAM is driven by the
+# test-only VC_TESTLOCK_FREE_GB_OVERRIDE (the real RAM probe is never called here).
+# ---------------------------------------------------------------------------------------------
+TS_ENV=(VC_TESTLOCK_MIN_FREE_GB=0 VC_TESTLOCK_POLL_SECS=1 VC_TESTLOCK_SLOTS=2 VC_TESTLOCK_FREE_GB_OVERRIDE=8)
+wait_for_owner() { local d="$1" i; for i in $(seq 1 100); do grep -q '^PID=' "$d/owner" 2>/dev/null && return 0; sleep 0.1; done; return 1; }
+
+echo "== Test 12 (D-096 C1/C5): two concurrent holders take slots 0 and 1, a third waits, release frees only its own slot =="
+BASE=$(mktemp -d); LOCK="$BASE/lock"
+env "${TS_ENV[@]}" VC_TESTLOCK_DIR="$LOCK" bash "$SCRIPT" sleep 8 2>"$BASE/h1.err" &
+H1=$!
+wait_for_owner "$LOCK"; assert_eq "C1: first holder took slot 0 (the original path)" "0" "$?"
+env "${TS_ENV[@]}" VC_TESTLOCK_DIR="$LOCK" bash "$SCRIPT" sleep 16 2>"$BASE/h2.err" &
+H2=$!
+wait_for_owner "$LOCK.slot-1"; assert_eq "C1: second concurrent holder took slot 1 (<path>.slot-1)" "0" "$?"
+[ -d "$LOCK" ] && [ -d "$LOCK.slot-1" ]; assert_eq "C1: both slots held at the same time" "0" "$?"
+env "${TS_ENV[@]}" VC_TESTLOCK_DIR="$LOCK" VC_TESTLOCK_TIMEOUT_SECS=3 bash "$SCRIPT" true 2>/dev/null
+assert_eq "C1: a third holder finds both slots busy and times out (exit 75)" "75" "$?"
+wait "$H1" 2>/dev/null
+[ ! -d "$LOCK" ]; assert_eq "C1: first holder's release freed slot 0" "0" "$?"
+[ -d "$LOCK.slot-1" ]; assert_eq "C1: ...and left the other holder's slot 1 untouched" "0" "$?"
+wait "$H2" 2>/dev/null
+[ ! -d "$LOCK.slot-1" ]; assert_eq "C1: second holder's release freed slot 1" "0" "$?"
+grep -q '^\[testlock\] running slot 0 (free RAM [^)]*): sleep 8$' "$BASE/h1.err"; assert_eq "C5: log line 'running slot 0 (free RAM X GB): ...' for slot 0" "0" "$?"
+grep -q '^\[testlock\] running slot 1 (free RAM [^)]*): sleep 16$' "$BASE/h2.err"; assert_eq "C5: log line 'running slot 1 (free RAM X GB): ...' for slot 1" "0" "$?"
+rm -rf "$BASE" "$LOCK.slot-1"
+
+echo "== Test 13 (D-096 C2): below the two-slot RAM floor only slot 0 is tried =="
+BASE=$(mktemp -d); LOCK="$BASE/lock"
+env "${TS_ENV[@]}" VC_TESTLOCK_DIR="$LOCK" bash "$SCRIPT" sleep 7 2>/dev/null &
+H1=$!
+wait_for_owner "$LOCK"
+env "${TS_ENV[@]}" VC_TESTLOCK_FREE_GB_OVERRIDE=1.0 VC_TESTLOCK_DIR="$LOCK" VC_TESTLOCK_TIMEOUT_SECS=3 bash "$SCRIPT" true 2>/dev/null
+assert_eq "C2: with 1.0 GB free (< 3.0) the second holder waits and times out (exit 75)" "75" "$?"
+[ ! -d "$LOCK.slot-1" ]; assert_eq "C2: slot 1 was never created at low RAM" "0" "$?"
+env "${TS_ENV[@]}" VC_TESTLOCK_FREE_GB_OVERRIDE=3.0 VC_TESTLOCK_DIR="$LOCK" VC_TESTLOCK_TIMEOUT_SECS=3 bash "$SCRIPT" true 2>/dev/null
+assert_eq "C2: exactly at the floor (3.0 GB) the second slot is allowed (exit 0)" "0" "$?"
+wait "$H1" 2>/dev/null
+rm -rf "$BASE" "$LOCK.slot-1"
+
+echo "== Test 14 (D-096 C3): VC_TESTLOCK_SLOTS=1 never uses a second slot =="
+BASE=$(mktemp -d); LOCK="$BASE/lock"
+env "${TS_ENV[@]}" VC_TESTLOCK_SLOTS=1 VC_TESTLOCK_DIR="$LOCK" bash "$SCRIPT" sleep 7 2>/dev/null &
+H1=$!
+wait_for_owner "$LOCK"
+env "${TS_ENV[@]}" VC_TESTLOCK_SLOTS=1 VC_TESTLOCK_DIR="$LOCK" VC_TESTLOCK_TIMEOUT_SECS=3 bash "$SCRIPT" true 2>/dev/null
+assert_eq "C3: SLOTS=1 with plenty of RAM: the second holder still waits (exit 75)" "75" "$?"
+[ ! -d "$LOCK.slot-1" ]; assert_eq "C3: SLOTS=1 never creates slot 1" "0" "$?"
+wait "$H1" 2>/dev/null
+rm -rf "$BASE" "$LOCK.slot-1"
+
+echo "== Test 15 (D-096 C4): EXCLUSIVE=1 holds both slots and never runs while another holder has either =="
+BASE=$(mktemp -d); LOCK="$BASE/lock"
+env "${TS_ENV[@]}" VC_TESTLOCK_DIR="$LOCK" bash "$SCRIPT" sleep 8 2>/dev/null &
+H1=$!
+wait_for_owner "$LOCK"
+env "${TS_ENV[@]}" VC_TESTLOCK_DIR="$LOCK" bash "$SCRIPT" sleep 26 2>/dev/null &
+H2=$!
+wait_for_owner "$LOCK.slot-1"
+env "${TS_ENV[@]}" VC_TESTLOCK_EXCLUSIVE=1 VC_TESTLOCK_DIR="$LOCK" VC_TESTLOCK_TIMEOUT_SECS=3 bash "$SCRIPT" bash -c "echo ran > '$BASE/ex1.marker'" 2>/dev/null
+assert_eq "C4: exclusive with BOTH slots held by others times out (exit 75)" "75" "$?"
+[ ! -f "$BASE/ex1.marker" ]; assert_eq "C4: ...and its command never ran" "0" "$?"
+wait "$H1" 2>/dev/null   # now only slot 1 is held
+[ ! -d "$LOCK" ]; assert_eq "C4 setup: slot 0 is free, slot 1 still held" "0" "$?"
+env "${TS_ENV[@]}" VC_TESTLOCK_EXCLUSIVE=1 VC_TESTLOCK_DIR="$LOCK" VC_TESTLOCK_TIMEOUT_SECS=3 bash "$SCRIPT" bash -c "echo ran > '$BASE/ex2.marker'" 2>"$BASE/ex2.err"
+assert_eq "C4: exclusive with only slot 1 held by another still times out (exit 75)" "75" "$?"
+[ ! -f "$BASE/ex2.marker" ]; assert_eq "C4: ...and its command never ran" "0" "$?"
+[ ! -d "$LOCK" ]; assert_eq "C4: the timed-out exclusive released the slot 0 it had taken" "0" "$?"
+[ -d "$LOCK.slot-1" ]; assert_eq "C4: ...and did not touch the other holder's slot 1" "0" "$?"
+wait "$H2" 2>/dev/null
+env "${TS_ENV[@]}" VC_TESTLOCK_EXCLUSIVE=1 VC_TESTLOCK_DIR="$LOCK" bash "$SCRIPT" \
+  bash -c "if [ -d '$LOCK' ] && [ -d '$LOCK.slot-1' ]; then echo both > '$BASE/ex3.marker'; else echo notboth > '$BASE/ex3.marker'; fi" 2>"$BASE/ex3.err"
+assert_eq "C4: exclusive on a free lock runs (exit 0)" "0" "$?"
+assert_eq "C4: while exclusive runs, BOTH slot dirs are held" "both" "$(cat "$BASE/ex3.marker" 2>/dev/null)"
+[ ! -d "$LOCK" ] && [ ! -d "$LOCK.slot-1" ]; assert_eq "C4: exclusive release frees both slots" "0" "$?"
+grep -q '^\[testlock\] running slot 0+1 (free RAM [^)]*):' "$BASE/ex3.err"; assert_eq "C5: exclusive log line reads 'running slot 0+1 (free RAM X GB): ...'" "0" "$?"
+rm -rf "$BASE" "$LOCK.slot-1"
+
+echo "== Test 16 (D-096 C4, starvation guard): while an exclusive run holds slot 0, ordinary waiters do not take slot 1 =="
+bash -c 'sleep 25' &
+EXH_MSYS=$!
+EXH_WINPID=$(winpid_of "$EXH_MSYS")
+EXH_STARTED=$(start_ticks_of "$EXH_WINPID")
+BASE=$(mktemp -d); LOCK="$BASE/lock"
+mkdir "$LOCK"
+printf 'PID=%s\nSTARTED=%s\nACQUIRED_AT=%s\nTOKEN=exclusive-holder\nEXCLUSIVE=1\nDESC=fake-exclusive\n' "$EXH_WINPID" "$EXH_STARTED" "$(date +%s)" > "$LOCK/owner"
+env "${TS_ENV[@]}" VC_TESTLOCK_DIR="$LOCK" VC_TESTLOCK_TIMEOUT_SECS=3 bash "$SCRIPT" true 2>/dev/null
+assert_eq "C4: ordinary waiter behind an exclusive slot-0 holder times out (exit 75)" "75" "$?"
+[ ! -d "$LOCK.slot-1" ]; assert_eq "C4: ...without creating slot 1" "0" "$?"
+kill "$EXH_MSYS" 2>/dev/null; wait "$EXH_MSYS" 2>/dev/null
+rm -rf "$BASE" "$LOCK.slot-1"
 
 echo
 echo "== Summary: $PASS passed, $FAIL failed =="
