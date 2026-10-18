@@ -1,0 +1,5 @@
+[testlock] running slot 1 (free RAM 4.05 GB): pnpm -C packages/db typecheck
+
+> @vc/db@0.1.0 typecheck C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u8r\packages\db
+> tsc --noEmit
+

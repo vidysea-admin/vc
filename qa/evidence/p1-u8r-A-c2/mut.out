@@ -1,0 +1,41 @@
+C1a: KILLED tests=47 pass=45 fail=2 first_fail=['P1 outage: ordinary 503 zero writes, retry works; crisis answered+escalated, text not stored', 'p1-u8r M1: when the Pathlynks profile cannot be read, an ordinary turn is refused 503 before anything is written (a profile name could not be redacted), and works once the profile is back']
+   restored identical: True (30892a690ab4)
+C1b: KILLED tests=47 pass=45 fail=2 first_fail=['P1 outage: ordinary 503 zero writes, retry works; crisis answered+escalated, text not stored', 'p1-u8r M1: a crisis message during a profile outage still gets the helpline and an escalation, but its text is not stored']
+   restored identical: True (30892a690ab4)
+C2: KILLED tests=47 pass=35 fail=12 first_fail=['P2 flood: 5 crisis in 10 min, other thread/student independent', 'P3 ranks: concern->crisis=2; crisis->concern=1; failed upgrade restores previous holder']
+   restored identical: True (30892a690ab4)
+C5: KILLED tests=47 pass=45 fail=2 first_fail=['P10 escalation text redacted; i am unalive escalates', "p1-u8r item 5: the crisis escalation path is handed redacted text, never the student's name, phone or email, and the crisis is still escalated"]
+   restored identical: True (30892a690ab4)
+C7: KILLED tests=47 pass=45 fail=2 first_fail=['P3 ranks: concern->crisis=2; crisis->concern=1; failed upgrade restores previous holder', 'p1-u8r cycle 1 H1: a concern turn does not hide a crisis turn that follows it in the window (concern then crisis escalates twice)']
+   restored identical: True (30892a690ab4)
+C8b: KILLED tests=47 pass=46 fail=1 first_fail=['p1-u8r cycle 1 M-race: a retry with the same clientTurnId of a completed crisis turn replays the stored answer and does not run the model again', 'p1-u8r cycle 1 M-race: a retry with the same clientTurnId of a completed crisis turn replays the stored answer and does not run the model again']
+   restored identical: True (30892a690ab4)
+C11a: SURVIVED tests=47 pass=47 fail=0 first_fail=[]
+   restored identical: True (30892a690ab4)
+C11b: SURVIVED tests=47 pass=47 fail=0 first_fail=[]
+   restored identical: True (30892a690ab4)
+C11c: KILLED tests=47 pass=46 fail=1 first_fail=['P2b failed flag write gives slot back', 'P2b failed flag write gives slot back']
+   restored identical: True (30892a690ab4)
+C12: SURVIVED tests=47 pass=47 fail=0 first_fail=[]
+   restored identical: True (30892a690ab4)
+C12b: SURVIVED tests=47 pass=47 fail=0 first_fail=[]
+   restored identical: True (30892a690ab4)
+C13a: KILLED tests=47 pass=45 fail=2 first_fail=['p1-u8r cycle 1 M-race: a quiet crisis turn answered while the slot holder is still in flight leaves a text-free flag, even if the holder then fails', 'p1-u8r cycle 2 item 3: the wait is bounded; a holder that hangs past it does not keep the waiting crisis turn from escalating']
+   restored identical: True (30892a690ab4)
+C13b: SURVIVED tests=? pass=? fail=? first_fail=[]
+   restored identical: True (30892a690ab4)
+C13c: PATTERN COUNT 0 -> skipped
+C4: KILLED tests=47 pass=45 fail=2 first_fail=['p1-u8r A2: a name the student stated (capitalised) and the model echoes in its reply is stored and replayed redacted, while the live answer is unchanged', 'p1-u8r A2: a name the student stated (lower case) and the model echoes in its reply is stored and replayed redacted, while the live answer is unchanged']
+   restored identical: True (30892a690ab4)
+C3: KILLED tests=23 pass=17 fail=6 first_fail=['A1: a student who types a self-introduction in lower case has the name replaced by [NAME]', 'A1: the names redact reports are the names the student stated, so a model reply can be redacted with them']
+   restored identical: True (8d9eb715e57f)
+C9: KILLED tests=23 pass=20 fail=3 first_fail=['A hard: from Pune survives; Kalam', "p1-u8r cycle 1: a title before a name does not end the name ('Dr. Anita Verma' is wholly redacted)"]
+   restored identical: True (8d9eb715e57f)
+C10: KILLED tests=23 pass=22 fail=1 first_fail=["p1-u8r cycle 1: the email pass is skipped without an at-sign and the local part is bounded, so 200k characters of 'a.' redact quickly", "p1-u8r cycle 1: the email pass is skipped without an at-sign and the local part is bounded, so 200k characters of 'a.' redact quickly"]
+   restored identical: True (8d9eb715e57f)
+C14a: KILLED tests=23 pass=21 fail=2 first_fail=['A hard: from Pune survives; Kalam', "p1-u8r cycle 2 item 4: a title and initials do not use up the name-token budget, so 'I'm Dr. A. P. J. Abdul Kalam' keeps no part of the name"]
+   restored identical: True (8d9eb715e57f)
+C14b: KILLED tests=23 pass=22 fail=1 first_fail=["p1-u8r cycle 2 item 4: a title and initials do not use up the name-token budget, so 'I'm Dr. A. P. J. Abdul Kalam' keeps no part of the name", "p1-u8r cycle 2 item 4: a title and initials do not use up the name-token budget, so 'I'm Dr. A. P. J. Abdul Kalam' keeps no part of the name"]
+   restored identical: True (8d9eb715e57f)
+C6: KILLED tests=14 pass=13 fail=1 first_fail=['p1-u8r low: a fact key a model proposed with a phone number or email in it is stored redacted, like the value', 'p1-u8r low: a fact key a model proposed with a phone number or email in it is stored redacted, like the value']
+   restored identical: True (b93fda879e0c)

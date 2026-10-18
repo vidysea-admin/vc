@@ -1,0 +1,10 @@
+C11ab: SURVIVED tests=47 pass=47 fail=0 first_fail=[]
+   restored identical: True (30892a690ab4)
+C12ab: KILLED tests=47 pass=45 fail=2 first_fail=['P7 concern A inflight, crisis B takes over, A fails, B fails, concern C escalates; D quiet', "p1-u8r cycle 2 item 2: a failed holder's slot is never put back (concern A in flight, crisis B takes over, A fails, B fails, then concern C escalates)"]
+   restored identical: True (30892a690ab4)
+C13c: KILLED tests=47 pass=46 fail=1 first_fail=['P8 quiet turn whose in-flight holder fails escalates itself within 5s (default wait)', 'P8 quiet turn whose in-flight holder fails escalates itself within 5s (default wait)']
+   restored identical: True (30892a690ab4)
+C13d: KILLED tests=47 pass=45 fail=2 first_fail=['p1-u8r cycle 1 M-race: a quiet crisis turn answered while the slot holder is still in flight leaves a text-free flag, even if the holder then fails', 'p1-u8r cycle 2 item 3: the wait is bounded; a holder that hangs past it does not keep the waiting crisis turn from escalating']
+   restored identical: True (30892a690ab4)
+C13e: KILLED tests=47 pass=45 fail=2 first_fail=['p1-u8r cycle 1 M-race: a quiet crisis turn answered while the slot holder is still in flight leaves a text-free flag, even if the holder then fails', 'p1-u8r cycle 2 item 3: the wait is bounded; a holder that hangs past it does not keep the waiting crisis turn from escalating']
+   restored identical: True (30892a690ab4)
