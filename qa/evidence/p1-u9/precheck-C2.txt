@@ -1,0 +1,49 @@
+[testlock] running (free RAM 5.2 GB): pnpm -C packages/providers exec tsx --test --test-name-pattern=^C[1456]  tests/live.test.ts
+✔ C1 audio format: a student's 16 kHz PCM16 mic chunk reaches the backend byte for byte; the constants are 16000/24000 (2.983ms)
+✔ C1 audio format: a browser that sends a half-sample (odd byte length) or an empty frame is refused, nothing reaches the backend (1.1108ms)
+✔ C1 audio out: the model speaks and the client receives 24 kHz PCM16 audio events with the 24 kHz mime (0.7006ms)
+✔ C1 transcripts: a student speaks in two chunks and the model answers; both transcripts stream and finish in thread order (2.7031ms)
+✔ C1 tool call: the model asks for search_kb mid-answer; the call is surfaced, the handler's result goes back to the model (15.7188ms)
+✔ C1 tool call: with no handler the caller answers through sendToolResult (the API layer owns KB access) (0.4407ms)
+✔ C1 tool call: the KB tool throws during a live answer; an error event is raised and the session stays usable (1.4781ms)
+✔ C1 interrupt: the student talks over the model; backend is told, event fires, the rest of that reply is dropped and the partial reply is stored as interrupted (0.5348ms)
+✔ C1 interrupt: after the barge-in the student's next words un-mute the model for its new answer (0.3544ms)
+✔ C1 interrupt: the backend itself reports the student barged in; the half reply is stored interrupted and the next reply flows (0.4894ms)
+✔ C1 close: the student hangs up twice (double tap); the backend closes once, one closed event, and every send afterwards throws (0.7992ms)
+✔ C1 close: the network drops mid-reply; the half reply is saved, one closed event, and late backend events are ignored (0.4803ms)
+✔ C1 close: a UI listener that throws never breaks the voice session (5.865ms)
+✔ C4 crisis: the phrase arrives split across two transcript chunks; the detector sees the accumulated utterance and the fixed message plays once (0.9361ms)
+✔ C4 crisis: after the trigger, the model's own audio and words for that answer are dropped (none reaches the student) (0.3791ms)
+✔ C4 crisis: the student's words are written to the thread before the fixed reply, and the crisis record is handed to the sink (0.3136ms)
+✔ C4 crisis: the rest of the same sentence keeps streaming in after the trigger; the fixed message is not played a second time (0.2767ms)
+✔ C4 crisis: the student recovers and later says it again in a new turn; the fixed message plays again and the model speaks normally in between (0.4226ms)
+✔ C4 crisis: an ordinary question about fees never triggers the hook (0.2101ms)
+✔ C4 crisis: the student types the phrase during a voice session; it is NOT forwarded to the model and the fixed message plays (0.2518ms)
+✔ C4 crisis: a harmless typed message in a voice session is forwarded to the model and not duplicated into the voice thread (0.2116ms)
+✔ C4 crisis: the detector crashes on a weird transcript; unsure counts as crisis (D-087), with an error event for the engineers (0.2981ms)
+✔ C4 crisis: the detector can return a level and it travels on the crisis event and record (0.3041ms)
+✔ C4 crisis: the trigger-to-fixed-message latency is measured on the injected clock and stays inside the 2 s bound (D-088 Q5) (0.3822ms)
+✔ C4 crisis: a deployment wires a detector but forgets the fixed message; the session refuses to start (no silent no-op) (0.4401ms)
+✔ C5 audit A9b: the model says a fee figure no tool returned; a flag event reaches the client and an audit record is stored with the thread (2.5692ms)
+✔ C5 audit A9b: the model names a counsellor who is on the do-not-name list; a listed_speaker flag fires (1.2136ms)
+✔ C5 audit A9b: a clean answer (figure came from the KB tool, no names) emits no flag and no audit record (7.5956ms)
+✔ C5 audit A9b: a name that only contains a listed name inside another word is not flagged (Rahulkar vs Rahul) (0.406ms)
+✔ C5 audit A9b: the Tele-MANAS number the fixed message carries is allow-listed, an unrelated number beside it is still flagged (0.3732ms)
+✔ C5 audit A9b: the audit is after the fact, not before: the spoken audio is already delivered when the flag arrives (0.3822ms)
+✔ C5 audit A9b: the auditor itself crashes; the failure is a visible audit_error flag, never a silent pass (0.2994ms)
+✔ C5 audit A9b: the student cuts the model off mid-sentence; the half sentence is still audited (0.2357ms)
+✔ C5 audit A9b: two findings in one reply give two flags and two audit records (one per finding) (0.2137ms)
+✔ C6 sink: U8's async persistence is slow for the first turn; thread order is still user, assistant, user (65.8768ms)
+✔ C6 sink: U8's database write fails once; an error event is raised, later turns are still delivered, the session survives (0.5992ms)
+✔ C6 sink: the timestamps come from the injected clock as ISO strings (no real time in tests) (0.3121ms)
+✔ C6 sink: the live module imports nothing from apps/api, a websocket library or a vendor SDK (layering and offline guarantee) (0.9897ms)
+✔ C4 crisis via gemini: a Hindi-English crisis phrase arrives as Gemini input transcription; Gemini is interrupted, the fixed message plays, Gemini's own reply is silenced (1.1686ms)
+✔ C5 audit A9b: createSimpleOutputAuditor numbers with thousands separators and decimals match the tool text, a different figure does not (0.5106ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2128.141

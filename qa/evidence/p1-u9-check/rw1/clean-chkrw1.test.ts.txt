@@ -1,0 +1,21 @@
+✔ a: crisis -> turnComplete -> same-utterance chunk 300ms -> model audio: 0 emitted (also with final=true chunk) (4.556ms)
+✔ a2: dense chunks every 100ms for 5s after turnComplete never lift (0.656ms)
+✔ b: crisis -> interrupted -> chunk 1300ms later -> heard; boundary 1200 exact heard; 1199 muted (0.789ms)
+✔ b2: crisis -> NO turnComplete/interrupted -> chunk after long gap -> still muted (0.4047ms)
+✔ c: crisis -> toolCall -> turnComplete -> chunk 100ms later -> 0 model audio (0.7402ms)
+✔ c2: crisis -> toolCall only (no turn end) -> chunk after long gap -> muted (0.4896ms)
+✔ d: second crisis in a NEW utterance refires once; duplicate in same utterance does not; also when the lift chunk itself is the crisis (0.5505ms)
+✔ d2: new utterance starts harmless, crisis words arrive in a later chunk of that utterance -> refires once (0.6398ms)
+✔ e: typed message after a crisis does not lift the mute (harmless and with turn end + long time) (0.8711ms)
+✔ e2: typed crisis during spoken-crisis mute fires again, does not lift (0.7917ms)
+✔ f: no regression: client interrupt() mute (no crisis) lifts at turnComplete; no detector -> audio passes (0.5847ms)
+✔ g: crisisResumeGapMs validation (1.6466ms)
+✔ h: default clock (performance.now) works: crisis -> turnComplete -> immediate chunk stays muted in real time (0.5429ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7168.8767

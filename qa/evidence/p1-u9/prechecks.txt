@@ -1,0 +1,2 @@
+Pre-check[C1]: e80c9b3 bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test --test-name-pattern="^C1 " tests/live.test.ts -> pass 13 fail 0 rc=0 t=291s blobs=packages/providers/tests/live.test.ts:5226e99,packages/providers/src/live.ts:3cea3c1
+Pre-check[C2]: e80c9b3 bash scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test --test-name-pattern="^C[1456] " tests/live.test.ts -> pass 40 fail 0 rc=0 t=6s blobs=packages/providers/tests/live.test.ts:5226e99,packages/providers/src/live.ts:3cea3c1

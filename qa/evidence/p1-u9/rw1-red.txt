@@ -1,0 +1,103 @@
+[testlock] waiting for lock held by: PID=5352 STARTED=639279630895039365 ACQUIRED_AT=1792346490 TOKEN=1792346490174055500-3912-28630 DESC=node C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/u8b-out/falsify.mjs B1,B2,B8,B10 
+[testlock] owner PID 43836 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running (free RAM 3.27 GB): pnpm exec tsx --test --test-name-pattern=C4 crisis (H1|Low): tests/live.test.ts
+✖ C4 crisis H1: Gemini order, crisis -> turnComplete -> the same sentence goes on a moment later; the model's audio stays muted (6.9417ms)
+✔ C4 crisis H1: crisis -> turnComplete -> the student speaks again after a real pause; the model's next reply is heard (0.7899ms)
+✖ C4 crisis H1: the pause is measured from the LAST student chunk, not the crisis chunk; continuous speech never lifts the mute (1.0133ms)
+✔ C4 crisis H1: crisis -> the student speaks after a pause but the backend never ended its turn; still muted (0.6235ms)
+✖ C4 crisis H1: the resume gap is a constructor option; a longer gap keeps a 2 s pause muted (0.8433ms)
+✖ C4 crisis Low: a second spoken crisis in a NEW utterance plays the helpline again; a duplicate in that utterance does not (0.8685ms)
+✖ C4 crisis Low: after a crisis the student starts a new, harmless utterance; the old crisis words are not re-scanned into a false refire (0.8767ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 2
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3487.0946
+
+✖ failing tests:
+
+test at tests\live.test.ts:915:1
+✖ C4 crisis H1: Gemini order, crisis -> turnComplete -> the same sentence goes on a moment later; the model's audio stays muted (6.9417ms)
+  AssertionError [ERR_ASSERTION]: model audio leaked mid crisis utterance after turnComplete
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:925:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:941:1
+✖ C4 crisis H1: the pause is measured from the LAST student chunk, not the crisis chunk; continuous speech never lifts the mute (1.0133ms)
+  AssertionError [ERR_ASSERTION]: 800 ms steps are one utterance
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:951:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:964:1
+✖ C4 crisis H1: the resume gap is a constructor option; a longer gap keeps a 2 s pause muted (0.8433ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:972:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:979:1
+✖ C4 crisis Low: a second spoken crisis in a NEW utterance plays the helpline again; a duplicate in that utterance does not (0.8685ms)
+  AssertionError [ERR_ASSERTION]: same-utterance duplicates must not double-fire
+  
+  3 !== 2
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:993:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 3,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:999:1
+✖ C4 crisis Low: after a crisis the student starts a new, harmless utterance; the old crisis words are not re-scanned into a false refire (0.8767ms)
+  AssertionError [ERR_ASSERTION]: the new utterance is its own thread turn
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:1010:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

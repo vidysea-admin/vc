@@ -1,0 +1,51 @@
+ 
+== BASE all providers tests except chk
+2026-10-18T02:21:07+05:30
+ℹ tests 108
+ℹ pass 108
+ℹ fail 0
+== BASE chk probes
+✔ CHK-P0 trigger chunk: model audio before is forwarded, audio right after the trigger chunk is dropped (5.2052ms)
+✖ CHK-P1 backend 'interrupted' arriving after the trigger must not reopen model audio (7.9979ms)
+✖ CHK-P2 half reply already spoken when the student's crisis arrives is audited and stored (1.8197ms)
+✔ CHK-P3 one Gemini message carrying crisis transcript + model audio: audio dropped (2.1506ms)
+ℹ tests 4
+ℹ pass 2
+ℹ fail 2
+✖ failing tests:
+✖ CHK-P1 backend 'interrupted' arriving after the trigger must not reopen model audio (7.9979ms)
+  AssertionError [ERR_ASSERTION]: model audio leaked after crisis trigger + interrupted
+✖ CHK-P2 half reply already spoken when the student's crisis arrives is audited and stored (1.8197ms)
+  AssertionError [ERR_ASSERTION]: spoken uncited number in the half reply was never audited
+mutated
+M1_C1_out_rate: ℹ pass 44 ℹ fail 4 
+✖ C1 audio format: a student's 16 kHz PCM16 mic chunk reaches the backend byte for byte; the constants are 16000/24000 (35.8893ms)
+✖ C3 gemini: a full spoken exchange from Gemini-shaped messages becomes normalized transcripts, 24 kHz audio, a tool call and a turn end (2.4478ms)
+✖ C3 gemini: the model returns audio at the wrong sample rate; an error is raised and the audio is not played (12.8994ms)
+mutated
+M2_C2_mock_text: ℹ pass 47 ℹ fail 1 
+✖ C4 crisis: a harmless typed message in a voice session is forwarded to the model and not duplicated into the voice thread (4.2571ms)
+✖ failing tests:
+✖ C4 crisis: a harmless typed message in a voice session is forwarded to the model and not duplicated into the voice thread (4.2571ms)
+mutated
+M3_C3_gemini_cfg: ℹ pass 47 ℹ fail 1 
+✖ C3 gemini: connecting asks for audio out, both transcripts, the voice, the system prompt and the KB tool declarations (5.9956ms)
+✖ failing tests:
+✖ C3 gemini: connecting asks for audio out, both transcripts, the voice, the system prompt and the KB tool declarations (5.9956ms)
+mutated
+M4_C4_nomute: ℹ pass 46 ℹ fail 2 
+✖ C4 crisis: after the trigger, the model's own audio and words for that answer are dropped (none reaches the student) (2.1901ms)
+✖ C4 crisis via gemini: a Hindi-English crisis phrase arrives as Gemini input transcription; Gemini is interrupted, the fixed message plays, Gemini's own reply is silenced (1.8136ms)
+✖ failing tests:
+mutated
+M5_C5_audit: ℹ pass 46 ℹ fail 2 
+✖ C5 audit A9b: a clean answer (figure came from the KB tool, no names) emits no flag and no audit record (26.9861ms)
+✖ C5 audit A9b: createSimpleOutputAuditor numbers with thousands separators and decimals match the tool text, a different figure does not (1.9859ms)
+✖ failing tests:
+mutated
+M6_C6_clock: ℹ pass 47 ℹ fail 1 
+✖ C6 sink: the timestamps come from the injected clock as ISO strings (no real time in tests) (5.3569ms)
+✖ failing tests:
+✖ C6 sink: the timestamps come from the injected clock as ISO strings (no real time in tests) (5.3569ms)
+== done
+2026-10-18T02:22:22+05:30

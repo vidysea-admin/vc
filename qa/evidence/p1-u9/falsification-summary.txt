@@ -1,0 +1,24 @@
+C1a tests 48 pass 47 fail 1 | odd/empty PCM16 check removed (sendAudio)
+C1b tests 48 pass 47 fail 1 | interrupt() no longer tells the backend
+C1c tests 48 pass 47 fail 1 | close() not idempotent
+C1d tests 48 pass 46 fail 2 | tool handler result never sent back
+C1e tests 48 pass 47 fail 1 | interrupt mute removed (model audio keeps playing after barge-in)
+C2 tests 48 pass 47 fail 1 | MockLiveBackend does not record audio in
+C3a tests 48 pass 47 fail 1 | Gemini sends mic audio with the 24 kHz mime
+C3b tests 48 pass 47 fail 1 | Gemini output sample-rate check removed
+C3c tests 48 pass 47 fail 1 | Gemini tool response not wrapped for non-objects
+C4a tests 48 pass 47 fail 1 | crisis detector sees only the latest chunk, not the utterance
+C4b tests 48 pass 46 fail 2 | model audio not muted after the trigger
+C4c tests 48 pass 45 fail 3 | backend not interrupted on crisis
+C4d tests 48 pass 47 fail 1 | fixed audio not played
+C4e tests 48 pass 47 fail 1 | detector error fails open
+C4f tests 48 pass 47 fail 1 | crisis refires for every chunk of the same utterance
+C4g tests 48 pass 47 fail 1 | typed text during voice not scanned
+C5a tests 48 pass 41 fail 7 | flag event never emitted
+C5b tests 48 pass 42 fail 6 | uncited numbers never flagged
+C5c tests 48 pass 47 fail 1 | auditor crash swallowed as clean
+C5d tests 48 pass 44 fail 4 | interrupted half reply not audited
+C5e tests 48 pass 46 fail 2 | audit record not handed to sink
+C6a tests 48 pass 47 fail 1 | sink failure not contained
+C6b tests 48 pass 47 fail 1 | sink writes not serialised
+RESTORED 48 48 0

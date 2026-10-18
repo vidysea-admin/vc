@@ -1,0 +1,137 @@
+2026-10-18T04:17:01+05:30
+head f2af54f, live.ts unrepaired, 6 new cycle-2 tests appended
+[testlock] running (free RAM 4.82 GB): pnpm -C packages/providers exec tsx --test --test-name-pattern=^C4 crisis (R1|R2|low) tests/live.test.ts
+✖ C4 crisis R1: the model makes a tool call right after the crisis chunk and the student keeps talking in the same utterance; no model audio is heard (7.3246ms)
+✖ C4 crisis R2: after crisis + interrupted the model ends its turn; its next reply stays muted until the student speaks again, then is heard (0.9594ms)
+✖ C4 crisis low: the transport floods events before attach; the queue is capped, the oldest are dropped with a warning, and the crisis interrupt is never dropped (1.6267ms)
+✖ C4 crisis low: a transport tries to attach a second backend; it is refused and the first stays wired (1.0395ms)
+✖ C4 crisis low: the student types a crisis message, then says one aloud; the helpline audio plays again for the spoken one (1.1838ms)
+✖ C4 crisis low: a client that mutates the helpline audio buffer it received cannot corrupt the next crisis playback (1.1654ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 0
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2413.6893
+
+✖ failing tests:
+
+test at tests\live.test.ts:818:1
+✖ C4 crisis R1: the model makes a tool call right after the crisis chunk and the student keeps talking in the same utterance; no model audio is heard (7.3246ms)
+  AssertionError [ERR_ASSERTION]: model audio leaked after crisis + toolCall
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:827:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:832:1
+✖ C4 crisis R2: after crisis + interrupted the model ends its turn; its next reply stays muted until the student speaks again, then is heard (0.9594ms)
+  AssertionError [ERR_ASSERTION]: turnComplete lifted the crisis mute
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:839:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:845:1
+✖ C4 crisis low: the transport floods events before attach; the queue is capped, the oldest are dropped with a warning, and the crisis interrupt is never dropped (1.6267ms)
+  AssertionError [ERR_ASSERTION]: dropping queued events must be visible
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:858:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:868:1
+✖ C4 crisis low: a transport tries to attach a second backend; it is refused and the first stays wired (1.0395ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception (LiveConfigError).
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:873:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:879:1
+✖ C4 crisis low: the student types a crisis message, then says one aloud; the helpline audio plays again for the spoken one (1.1838ms)
+  AssertionError [ERR_ASSERTION]: a typed crisis blocked the spoken one
+  
+  1 !== 2
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:883:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\live.test.ts:887:1
+✖ C4 crisis low: a client that mutates the helpline audio buffer it received cannot corrupt the next crisis playback (1.1654ms)
+  AssertionError [ERR_ASSERTION]: the shared buffer itself was handed out
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u9\packages\providers\tests\live.test.ts:892:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: Uint8Array(128) [
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7,
+      ... 28 more items
+    ],
+    expected: Uint8Array(128) [
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+      7, 7, 7, 7,
+      ... 28 more items
+    ],
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+rc=1
+2026-10-18T04:17:07+05:30
