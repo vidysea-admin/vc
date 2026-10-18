@@ -3,7 +3,7 @@
 **Cycle checked:** 0
 **Tier:** L (concurrency, test lock). One checker, no dual check. Policy: proportional-verification/2026-10-18.15
 **Base:** 5feb135 **Head checked:** 4bb0dd5 (code at ad7030e)
-Metrics: start=2026-10-18T04:33:37+05:30 end=2026-10-18T23:32:23+05:30 wall_min=22 agent_min=unavailable blocked_min=0 suite_runs=1 repeat_runs=0 mutations=5 cycle=0 resumes=1 tokens=unavailable policy=proportional-verification/2026-10-18.15 lane=normal check_s=1320 mutants=0 defects_unit=0 defects_6c=0
+Metrics: start=2026-10-18T04:33:37+05:30 end=2026-10-18T04:54:48+05:30 wall_min=21 agent_min=unavailable blocked_min=0 suite_runs=1 repeat_runs=0 mutations=5 cycle=0 resumes=1 tokens=unavailable policy=proportional-verification/2026-10-18.15 lane=normal check_s=1271 mutants=0 defects_unit=0 defects_6c=0
 
 ## Plan
 Full diff read (scripts/vc-testlock.sh, scripts/vc-testlock.test.sh, manifest); full test script run on a fresh mktemp VC_TESTLOCK_DIR; hostile probes in a throwaway copy; one falsification per criterion C1-C5 in throwaway copies (trimmed to Tests 12-16). The real lock was never touched.
@@ -29,3 +29,4 @@ Full diff read (scripts/vc-testlock.sh, scripts/vc-testlock.test.sh, manifest); 
 - Low (process): under 6 parallel copies of the suite (my first falsification batch) the unmutated control showed one red, "C1: a third holder ... times out (exit 75)" got 0, and the same red sat in every mutant. The control re-run alone is green (27/0), the full suite was green, and the mutants' named reds are distinct from it. This is the known load sensitivity of the timing/tasklist-based tests; run this suite alone, as the manifest says.
 - Low: an exclusive run competes for slot 0 with ordinary waiters on equal terms, so a steady stream of ordinary jobs can delay it (no fairness). It is by design and it never breaks exclusivity.
 - Manifest note confirmed: the TDD order slip (implementation before Tests 12-16) is not a correctness issue; the five falsifications supply the red evidence.
+Note: session was suspended after 04:54:48 (last run read) until the resume; end= is the last active read, verdict committed 2026-10-18T23:32+05:30.
