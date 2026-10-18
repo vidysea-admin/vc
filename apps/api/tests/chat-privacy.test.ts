@@ -291,3 +291,225 @@ test("a 500 from an unexpected failure carries no cause and the log line carries
     w.cleanup();
   }
 });
+
+// ---------------------------------------------------------------------------
+// p1-u8r (U8 repair): fail-closed profile outage, crisis flood cap, lower-case names, echoed names, redacted escalation input
+// ---------------------------------------------------------------------------
+
+test("p1-u8r A1: a student who types 'my name is devika nair' in lower case has the name in nothing that is stored or read back", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: `my name is devika nair. ${GERMANY_QUESTION}`, clientTurnId: "lc-1" } });
+    assert.equal(res.status, 200);
+    const stored = everythingStored(w.fakeDb);
+    assert.ok(!/devika|nair/i.test(stored), "the lower-case name must not be stored");
+    assert.ok(stored.includes("[NAME]"));
+    const hist = await call(w, "GET", `${threadsPath("stu-1")}/${threadId}`, { token });
+    assert.ok(!/devika|nair/i.test(hist.body));
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-u8r A1: 'i am tired' and 'i am from delhi' in a stored question survive redaction (no over-redaction)", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: `i am tired and i am from delhi. ${GERMANY_QUESTION}`, clientTurnId: "lc-2" } });
+    const stored = everythingStored(w.fakeDb);
+    assert.ok(stored.includes("i am tired and i am from delhi"), "ordinary lower-case sentences are kept as typed");
+    assert.ok(!stored.includes("[NAME]"));
+  } finally {
+    w.cleanup();
+  }
+});
+
+for (const [label, intro] of [
+  ["capitalised", "My name is Anita Verma."],
+  ["lower case", "my name is anita verma."],
+] as const) {
+  test(`p1-u8r A2: a name the student stated (${label}) and the model echoes in its reply is stored and replayed redacted, while the live answer is unchanged`, async () => {
+    const text = "Welcome Anita Verma, public universities in Germany charge no tuition for most programmes.";
+    const kb = recordingKb({ status: "ok", hits: [{ ...HIT, text }], dropped: 0 });
+    const w = chatWorld({ kb, provider: kbAnswerProvider([{ text, kind: "fact", sourceIds: ["t-sem-1"] }]) });
+    try {
+      const token = await studentToken(adult());
+      const threadId = await newThread(w, token);
+      const body = { text: `${intro} ${GERMANY_QUESTION}`, clientTurnId: "echo-name" };
+      const live = await call(w, "POST", turnsPath("stu-1", threadId), { token, body });
+      assert.equal(live.status, 200);
+      assert.ok(live.body.includes("Anita Verma"), "the live answer is unchanged");
+      assert.ok(!/anita|verma/i.test(everythingStored(w.fakeDb)), "the echoed name is in nothing stored (message and claims)");
+      const replay = await call(w, "POST", turnsPath("stu-1", threadId), { token, body });
+      assert.ok(!/anita|verma/i.test(replay.body), "nor in the replay");
+      const hist = await call(w, "GET", `${threadsPath("stu-1")}/${threadId}`, { token });
+      assert.ok(!/anita|verma/i.test(hist.body), "nor in the history");
+    } finally {
+      w.cleanup();
+    }
+  });
+}
+
+test("p1-u8r M1: when the Pathlynks profile cannot be read, an ordinary turn is refused 503 before anything is written (a profile name could not be redacted), and works once the profile is back", async () => {
+  let down = true;
+  const w = chatWorld({
+    deps: {
+      profile: {
+        facts: async () => {
+          if (down) throw new Error("pathlynks is down");
+          return [{ key: "full_name", value: "Meera Kulkarni", source: "pathlynks" }];
+        },
+      },
+    },
+  });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const body = { text: `${GERMANY_QUESTION} Asking for Meera Kulkarni.`, clientTurnId: "out-1" };
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body });
+    assert.equal(res.status, 503);
+    assert.equal(res.json.error, "profile_unavailable");
+    assert.equal(w.provider.calls.length, 0);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.student_usage).all().length, 0);
+    assert.ok(!everythingStored(w.fakeDb).includes("Kulkarni"));
+    down = false;
+    const retry = await call(w, "POST", turnsPath("stu-1", threadId), { token, body });
+    assert.equal(retry.status, 200, "the same turn id is accepted on retry (no 409 from a changed request hash)");
+    assert.ok(!everythingStored(w.fakeDb).includes("Kulkarni"));
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-u8r M1: a crisis message during a profile outage still gets the helpline and an escalation, but its text is not stored", async () => {
+  const w = chatWorld({
+    deps: {
+      profile: {
+        facts: async () => {
+          throw new Error("pathlynks is down");
+        },
+      },
+    },
+  });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: `I am Meera and ${CRISIS_TEXT}`, clientTurnId: "out-2" } });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.state, "escalated");
+    assert.match(res.json.message, /14416/);
+    assert.equal(w.escalations.length, 1);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.student_flags).all().length, 1);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0, "no turn text is stored while the profile name cannot be redacted");
+    assert.ok(!/Meera|kill/i.test(everythingStored(w.fakeDb)));
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-u8r M2: a flood of crisis messages in one thread is always answered with the helpline, but writes at most one stored exchange, one flag, one escalation and one usage count per window", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    for (let i = 0; i < 40; i++) {
+      const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: `fl-${i}` } });
+      assert.equal(res.status, 200, `crisis turn ${i} is never refused`);
+      assert.equal(res.json.state, "escalated");
+      assert.match(res.json.message, /14416/);
+    }
+    assert.equal(w.escalations.length, 1, "one escalation per thread per window");
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.student_flags).all().length, 1);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 2, "one stored exchange (user + assistant)");
+    const usage = w.fakeDb.collection<{ textTurns: number }>(COLLECTION_NAMES.student_usage).all();
+    assert.equal(usage.reduce((n, u) => n + u.textTurns, 0), 1);
+    // The window ends: the next crisis message is escalated again.
+    w.clock.ms += 11 * 60_000;
+    const later = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "fl-later" } });
+    assert.equal(later.json.state, "escalated");
+    assert.equal(w.escalations.length, 2);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.student_flags).all().length, 2);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-u8r M2: a crisis turn whose escalation write failed does not use up the window, so the next crisis turn is escalated", async () => {
+  let attempts = 0;
+  const w = chatWorld({
+    deps: {
+      escalateForTenant: () => async () => {
+        attempts++;
+        if (attempts === 1) throw new Error("mongo blip");
+      },
+    },
+  });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const first = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "rl-1" } });
+    assert.equal(first.json.state, "escalated");
+    assert.match(first.json.message, /14416/);
+    const second = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "rl-2" } });
+    assert.equal(second.json.state, "escalated");
+    assert.equal(attempts, 2, "the retry after a failed escalation reached the escalation path");
+    const third = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "rl-3" } });
+    assert.equal(third.json.state, "escalated");
+    assert.equal(attempts, 2, "once an escalation went through, the window is used");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-u8r item 5: the crisis escalation path is handed redacted text, never the student's name, phone or email, and the crisis is still escalated", async () => {
+  const w = chatWorld({ deps: { profile: { facts: async () => [{ key: "full_name", value: "Meera Kulkarni", source: "pathlynks" }] } } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), {
+      token,
+      body: { text: `my name is priya sharma, mail priya@example.com or 9876543210, my friend Meera Kulkarni knows. ${CRISIS_TEXT}`, clientTurnId: "esc-1" },
+    });
+    assert.equal(res.json.state, "escalated");
+    assert.equal(w.escalations.length, 1, "the crisis is still escalated");
+    const handed = JSON.stringify(w.escalations);
+    for (const raw of ["priya", "sharma", "priya@example.com", "9876543210", "Meera", "Kulkarni"]) assert.ok(!handed.toLowerCase().includes(raw.toLowerCase()), `${raw} must not reach the escalation path`);
+    assert.ok(/kill myself/i.test(handed), "the crisis wording itself is kept so the guard and the classifier still see it");
+    assert.ok(handed.includes("[NAME]"));
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-u8r item 5: redacting an introduction never hides the crisis wording from the escalation ('i am unalive' is not turned into 'i am [NAME]')", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: "i am unalive", clientTurnId: "sui-1" } });
+    assert.equal(res.json.state, "escalated");
+    assert.equal(w.escalations.length, 1);
+    assert.match(JSON.stringify(w.escalations), /unalive/);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-u8r M2: the crisis budget is per thread, so a student in a second thread is still escalated within the same window", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const one = await newThread(w, token);
+    const two = await newThread(w, token);
+    await call(w, "POST", turnsPath("stu-1", one), { token, body: { text: CRISIS_TEXT, clientTurnId: "th-1" } });
+    await call(w, "POST", turnsPath("stu-1", one), { token, body: { text: CRISIS_TEXT, clientTurnId: "th-2" } });
+    await call(w, "POST", turnsPath("stu-1", two), { token, body: { text: CRISIS_TEXT, clientTurnId: "th-3" } });
+    assert.equal(w.escalations.length, 2);
+  } finally {
+    w.cleanup();
+  }
+});

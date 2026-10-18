@@ -67,7 +67,9 @@ export async function proposeProfileFact(db: Db, input: ProposeProfileFactInput,
   requireNonEmptyFields({ studentId: input.studentId, key: input.key }, "proposeProfileFact");
   if (input.key.length > 128) throw new Error("proposeProfileFact: key must be at most 128 characters");
   const value = checkValue(input.value, "proposeProfileFact");
-  const factId = profileFactId(input.studentId, input.key);
+  // The key is model-chosen text too (p1-u8r low): a phone number or email in it is redacted like the value. Keys a model keeps stable are unchanged.
+  const key = redactPii(input.key).text;
+  const factId = profileFactId(input.studentId, key);
   const at = (options.now ?? new Date()).toISOString();
   const origin = {
     ...(input.threadId === undefined ? {} : { threadId: input.threadId }),
@@ -80,7 +82,7 @@ export async function proposeProfileFact(db: Db, input: ProposeProfileFactInput,
     async (op) => {
       const res = await factsOf(db).updateOne(
         { _id: factId, studentId: input.studentId } as never,
-        { $setOnInsert: { factId, key: input.key, value, status: "proposed", source: "chat", proposedAt: at, ...origin } } as never,
+        { $setOnInsert: { factId, key, value, status: "proposed", source: "chat", proposedAt: at, ...origin } } as never,
         { upsert: true, ...op },
       );
       if (res.upsertedCount === 1) {

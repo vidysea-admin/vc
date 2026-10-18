@@ -59,6 +59,15 @@ test("a student correcting a proposed fact replaces its value (redacted) and con
   assert.equal(done?.status, "confirmed");
 });
 
+test("p1-u8r low: a fact key a model proposed with a phone number or email in it is stored redacted, like the value", async () => {
+  const { a, fakeDb } = setup();
+  const f = await proposeProfileFact(a, { studentId: "stu-1", key: "reach me on 9876543210 or priya@example.com", value: "Germany" });
+  assert.equal(f.key, "reach me on [PHONE] or [EMAIL]");
+  const stored = JSON.stringify(fakeDb.collection(COLLECTION_NAMES.profile_facts).all());
+  assert.ok(!stored.includes("9876543210") && !stored.includes("priya@example.com"));
+  assert.equal((await listProfileFacts(a, { studentId: "stu-1" }))[0]!.key, "reach me on [PHONE] or [EMAIL]");
+});
+
 test("a student erasing a proposed fact deletes it from the store", async () => {
   const { a, fakeDb } = setup();
   const f = await proposeProfileFact(a, { studentId: "stu-1", key: "budget", value: "10 lakh" });

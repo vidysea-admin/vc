@@ -25,8 +25,16 @@
  *    gets answers, but no turn text, answer, extracted fact or escalation record is written; the thread keeps only a text-free marker. Such a
  *    turn has no idempotent replay (a retry runs the model again). Ids-and-time-only rows (safety flags, usage counters, gap counts) are kept.
  *  - A23: 30 requests per minute per student (per-tenant override); crisis text is never limited. The limiter is per process (in memory).
+ *  - p1-u8r M2: a crisis message is always answered with the helpline, but its WRITES are bounded: per student and thread, the first crisis
+ *    turn in a 10-minute window is stored, flagged, escalated and counted; the rest of the window is answered and writes nothing. A turn whose
+ *    flag or escalation write failed gives its slot back. The window is per process (in memory), like the limiter.
+ *  - p1-u8r M1: when the Pathlynks profile cannot be read, a name from it cannot be redacted, so an ordinary turn is refused 503 before any
+ *    write, and a crisis turn is answered and escalated but its text is not stored. Redaction never fails open.
+ *  - p1-u8r item 5: the escalation path (and so the classifier rationale it stores) is handed REDACTED text; if redacting would hide the
+ *    crisis wording from the guard, the least-redacted text that still shows it is used (an escalation is never lost for privacy).
  *  - The Pathlynks profile arrives through a port; there is no real integration here, and no voice route (U10).
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomUUID } from "node:crypto";
 import type { tenantScopedDb } from "@vc/db";
 import {
@@ -88,6 +96,9 @@ export const CHAT_FLAG_ENV = "VC_CHAT_ENABLED";
 export const MAX_CHAT_BODY_BYTES = 256 * 1024;
 export const CHAT_WINDOW_MS = 60_000;
 export const CHAT_MAX_LIMITER_KEYS = 100_000;
+/** p1-u8r M2: per student and thread, one crisis turn in this window is stored, flagged, escalated and counted. */
+export const CRISIS_WRITE_WINDOW_MS = 10 * 60_000;
+export const CRISIS_MAX_TRACKED_THREADS = 100_000;
 /** Chat-extracted facts kept per turn (a model cannot flood a student's profile). */
 export const MAX_PROPOSED_FACTS_PER_TURN = 5;
 
@@ -304,14 +315,45 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     return l;
   };
 
+  // p1-u8r M2: crisis writes are bounded per student and thread (in memory, oldest evicted). Map order is insertion order, so delete + set keeps it oldest-first.
+  const crisisSlots = new Map<string, number>();
+  const nowMs = () => (deps.nowMs ?? Date.now)();
+  const takeCrisisSlot = (key: string): boolean => {
+    const t = nowMs();
+    const until = crisisSlots.get(key);
+    if (until !== undefined && until > t) return false;
+    crisisSlots.delete(key);
+    while (crisisSlots.size >= CRISIS_MAX_TRACKED_THREADS) crisisSlots.delete(crisisSlots.keys().next().value as string);
+    crisisSlots.set(key, t + CRISIS_WRITE_WINDOW_MS);
+    return true;
+  };
+  const releaseCrisisSlot = (key: string) => void crisisSlots.delete(key);
+
+  // p1-u8r item 5: the redaction of the turn in flight, read by the cached `escalate` wrapper (the graph deps are shared across students).
+  type Redactors = { full: (s: string) => string; minimal: (s: string) => string };
+  const redactionScope = new AsyncLocalStorage<Redactors>();
+  const LEVEL_RANK = { none: 0, concern: 1, crisis: 2 } as const;
+  /** The most redacted text that the crisis guard still reads as at least as serious as the original; the original only as a last resort. */
+  const escalationText = (raw: string): string => {
+    const r = redactionScope.getStore() ?? { full: (s: string) => redactPii(s).text, minimal: (s: string) => redactPii(s, { introductions: false }).text };
+    const need = LEVEL_RANK[crisisGuard(raw).level];
+    for (const candidate of [r.full(raw), r.minimal(raw)]) if (LEVEL_RANK[crisisGuard(candidate).level] >= need) return candidate;
+    return raw;
+  };
+
   // The U6 graph deps, cached per tenant and per variant (the compiled graph is cached per deps object). `escalate` is absent in the
   // `textless` variant: an escalation record may keep text-derived rationale, which an unconsented minor's turn must not write.
+  // The `quiet` variant (a crisis turn past its window's budget) writes no flag, escalation or gap: it only answers.
+  type GraphVariant = "full" | "textless" | "quiet";
   const graphDepsCache = new Map<string, StudentGraphDeps>();
-  const graphDepsFor = (tenantId: string, db: Db, textless: boolean): StudentGraphDeps => {
-    const key = `${tenantId}|${textless ? "textless" : "full"}`;
+  const graphDepsFor = (tenantId: string, db: Db, variant: GraphVariant): StudentGraphDeps => {
+    const key = `${tenantId}|${variant}`;
     let g = graphDepsCache.get(key);
     if (!g) {
-      const escalate = textless ? undefined : deps.escalateForTenant?.(tenantId, db);
+      const inner = variant === "full" ? deps.escalateForTenant?.(tenantId, db) : undefined;
+      const escalate: StudentGraphDeps["escalate"] | undefined = inner
+        ? (input) => inner({ ...input, turns: input.turns.map((t) => ({ ...t, text: escalationText(t.text), translatedText: escalationText(t.translatedText) })) })
+        : undefined;
       g = {
         kb: deps.kb,
         provider: deps.provider,
@@ -319,8 +361,10 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
         speakers: deps.speakers,
         ...(deps.config ? { config: deps.config } : {}),
         ...(deps.now ? { now: deps.now } : {}),
-        recordGap: () => incrementGapCount(db, { kind: "no_sourced_answer" }, { now: nowDate() }),
-        logFlag: (r) => recordStudentFlag(db, { studentId: r.studentId, threadId: r.threadId, turnId: r.turnId, kind: "crisis" }, { now: new Date(r.at) }),
+        ...(variant === "quiet" ? {} : { recordGap: () => incrementGapCount(db, { kind: "no_sourced_answer" }, { now: nowDate() }) }),
+        ...(variant === "quiet"
+          ? {}
+          : { logFlag: (r: Parameters<NonNullable<StudentGraphDeps["logFlag"]>>[0]) => recordStudentFlag(db, { studentId: r.studentId, threadId: r.threadId, turnId: r.turnId, kind: "crisis" }, { now: new Date(r.at) }) }),
         ...(escalate ? { escalate } : {}),
         hasPriorFlag: async (t) => (await listStudentFlags(db, { studentId: t.studentId, threadId: t.threadId })).length > 0,
         onWriteError: (write) => logEvent("chat_write_failed", { write }),
@@ -387,7 +431,8 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     if (clientTurnId !== undefined && !PATH_ID_PATTERN.test(clientTurnId)) return fail(400, "invalid_request");
 
     // A23: a crisis message is never rate limited; the scan runs on the full text before the limiter is consulted.
-    if (crisisGuard(text).level === "none") {
+    const crisis = crisisGuard(text).level !== "none";
+    if (!crisis) {
       const limited = limitCheck(ctx);
       if (limited) return limited;
     }
@@ -395,93 +440,122 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     const thread = await getChatThread(db, { studentId: ctx.studentId, threadId });
     if (!thread) return NOT_FOUND();
 
-    const persistText = (!ctx.minor || ctx.guardianConsent) && !overlong;
-    const turnId = clientTurnId ?? randomUUID();
-
+    // D-093 6A: the Pathlynks name is redacted from stored text. If the profile cannot be read, that name is unknown, so redaction must not
+    // fail open (p1-u8r M1): an ordinary turn is refused before anything is written, and a crisis turn is answered but stores no text.
     let knownNames: string[] = [];
+    let profileDown = false;
     if (deps.profile) {
       try {
         knownNames = (await pathwaysFacts(ctx)).filter((f) => /name/i.test(f.key)).map((f) => f.value);
       } catch (err) {
         if (!(err instanceof ChatProfileUnavailableError)) throw err;
+        profileDown = true;
       }
     }
-    const redact = (s: string): string => redactPii(s, { knownNames }).text;
+    if (profileDown && !crisis) return fail(503, "profile_unavailable");
 
-    let leaseToken: string | undefined;
-    if (persistText) {
-      const redacted = redact(text);
-      const claim = await claimChatTurn(
-        db,
-        { studentId: ctx.studentId, threadId, turnId, text: redacted, requestHash: sha256(redacted), channel: "text" },
-        { now },
-      );
-      if (claim.kind === "replay") {
-        const replay = TurnResponseSchema.safeParse(claim.response);
-        if (!replay.success) throw new TypeError("ChatStoredResponseInvalid");
-        return respond(200, replay.data);
+    // p1-u8r M2: one stored, flagged, escalated crisis turn per student and thread per window; the rest are answered and write nothing.
+    const slotKey = crisis ? sha256(`${ctx.tenantId}\u0000${ctx.studentId}\u0000${threadId}`) : undefined;
+    const holdsSlot = slotKey !== undefined && takeCrisisSlot(slotKey);
+    const quiet = slotKey !== undefined && !holdsSlot;
+    let slotConfirmed = false;
+    const runTurn = async (): Promise<ApiResponse> => {
+      const consentOk = !ctx.minor || ctx.guardianConsent;
+      const persistText = consentOk && !overlong && !profileDown && !quiet;
+      const turnId = clientTurnId ?? randomUUID();
+
+      // Names the student states in this turn are redacted from the model's reply too (p1-u8r A2): a reply that greets "Anita" is stored without her.
+      const stated = redactPii(text, { knownNames }).names;
+      const allNames = [...knownNames, ...stated];
+      const redact = (s: string): string => redactPii(s, { knownNames: allNames }).text;
+      const redactors: Redactors = { full: redact, minimal: (s) => redactPii(s, { knownNames: allNames, introductions: false }).text };
+
+      let leaseToken: string | undefined;
+      if (persistText) {
+        const redacted = redact(text);
+        const claim = await claimChatTurn(
+          db,
+          { studentId: ctx.studentId, threadId, turnId, text: redacted, requestHash: sha256(redacted), channel: "text" },
+          { now },
+        );
+        if (claim.kind === "replay") {
+          const replay = TurnResponseSchema.safeParse(claim.response);
+          if (!replay.success) throw new TypeError("ChatStoredResponseInvalid");
+          return respond(200, replay.data);
+        }
+        if (claim.kind === "in_progress") return fail(409, "turn_in_progress", { "retry-after": "2" });
+        leaseToken = claim.leaseToken;
+      } else if (!consentOk && !overlong && thread.textStored !== false) {
+        await markChatThreadTextNotStored(db, { studentId: ctx.studentId, threadId });
       }
-      if (claim.kind === "in_progress") return fail(409, "turn_in_progress", { "retry-after": "2" });
-      leaseToken = claim.leaseToken;
-    } else if (!overlong && thread.textStored !== false) {
-      await markChatThreadTextNotStored(db, { studentId: ctx.studentId, threadId });
-    }
 
-    const abandon = async () => {
-      if (leaseToken !== undefined) await abandonChatTurn(db, { studentId: ctx.studentId, threadId, turnId, leaseToken }).catch(() => undefined);
-    };
+      const abandon = async () => {
+        if (leaseToken !== undefined) await abandonChatTurn(db, { studentId: ctx.studentId, threadId, turnId, leaseToken }).catch(() => undefined);
+      };
 
-    let result;
-    try {
-      result = await runStudentTurn(graphDepsFor(ctx.tenantId, db, !persistText), {
-        mode: "authenticated",
-        auth: { role: "student", studentId: ctx.studentId, tenantId: ctx.tenantId },
-        threadId,
-        turnId,
-        text,
-      });
-    } catch (err) {
-      await abandon();
-      if (err instanceof StudentInputInvalidError) return fail(400, "invalid_request");
-      throw err;
-    }
+      const variant: GraphVariant = quiet ? "quiet" : !consentOk || overlong ? "textless" : "full";
+      let result;
+      try {
+        result = await redactionScope.run(redactors, () =>
+          runStudentTurn(graphDepsFor(ctx.tenantId, db, variant), {
+            mode: "authenticated",
+            auth: { role: "student", studentId: ctx.studentId, tenantId: ctx.tenantId },
+            threadId,
+            turnId,
+            text,
+          }),
+        );
+      } catch (err) {
+        await abandon();
+        if (err instanceof StudentInputInvalidError) return fail(400, "invalid_request");
+        throw err;
+      }
 
-    const live = TurnResponseSchema.safeParse({ ...result.response, turnId });
-    if (!live.success) {
-      await abandon();
-      throw new TypeError("ChatResponseInvalid");
-    }
-    const response = live.data;
-    // A12: the provider chain failed. The apology is shown, nothing is kept and nothing is counted, so the retry runs again.
-    if (result.retryable) {
-      await abandon();
-      return respond(200, response);
-    }
+      const live = TurnResponseSchema.safeParse({ ...result.response, turnId });
+      if (!live.success) {
+        await abandon();
+        throw new TypeError("ChatResponseInvalid");
+      }
+      const response = live.data;
+      // A12: the provider chain failed. The apology is shown, nothing is kept and nothing is counted, so the retry runs again.
+      if (result.retryable) {
+        await abandon();
+        return respond(200, response);
+      }
+      // M2: a crisis turn past its window's budget is answered with the helpline and written nowhere. One whose flag or escalation write failed gives its slot back.
+      if (quiet) return respond(200, response);
+      if (holdsSlot && !result.flagWriteFailed) slotConfirmed = true;
 
-    if (leaseToken !== undefined) {
-      const stored = TurnResponseSchema.parse({
-        ...response,
-        ...(response.message !== undefined ? { message: redact(response.message) } : {}),
-        claims: response.claims.map((c) => ({ ...c, text: redact(c.text) })),
-      });
-      await completeChatTurn(db, { studentId: ctx.studentId, threadId, turnId, leaseToken, channel: "text", assistantText: stored.message ?? "", response: stored as Record<string, unknown> }, { now });
-      if (deps.extractFacts) {
-        try {
-          const facts = await deps.extractFacts({ tenantId: ctx.tenantId, studentId: ctx.studentId, threadId, turnId, text, response });
-          for (const f of facts.slice(0, MAX_PROPOSED_FACTS_PER_TURN)) {
-            await proposeProfileFact(db, { studentId: ctx.studentId, key: f.key, value: f.value, threadId, turnId }, { now });
+      if (leaseToken !== undefined) {
+        const stored = TurnResponseSchema.parse({
+          ...response,
+          ...(response.message !== undefined ? { message: redact(response.message) } : {}),
+          claims: response.claims.map((c) => ({ ...c, text: redact(c.text) })),
+        });
+        await completeChatTurn(db, { studentId: ctx.studentId, threadId, turnId, leaseToken, channel: "text", assistantText: stored.message ?? "", response: stored as Record<string, unknown> }, { now });
+        if (deps.extractFacts) {
+          try {
+            const facts = await deps.extractFacts({ tenantId: ctx.tenantId, studentId: ctx.studentId, threadId, turnId, text, response });
+            for (const f of facts.slice(0, MAX_PROPOSED_FACTS_PER_TURN)) {
+              await proposeProfileFact(db, { studentId: ctx.studentId, key: f.key, value: f.value, threadId, turnId }, { now });
+            }
+          } catch (err) {
+            if (err instanceof StudentFencedError || err instanceof FencedWriterDeadlineError) throw err;
+            logEvent("chat_fact_extraction_failed");
           }
-        } catch (err) {
-          if (err instanceof StudentFencedError || err instanceof FencedWriterDeadlineError) throw err;
-          logEvent("chat_fact_extraction_failed");
         }
       }
-    }
 
-    await recordStudentUsage(db, { studentId: ctx.studentId, textTurns: 1 }, { now });
-    if (response.state === "concern") await recordStudentFlag(db, { studentId: ctx.studentId, threadId, turnId, kind: "concern" }, { now });
-    if (response.claims.some((c) => c.status === "unverified")) await incrementGapCount(db, { kind: "unverified_claim" }, { now });
-    return respond(200, response);
+      await recordStudentUsage(db, { studentId: ctx.studentId, textTurns: 1 }, { now });
+      if (response.state === "concern") await recordStudentFlag(db, { studentId: ctx.studentId, threadId, turnId, kind: "concern" }, { now });
+      if (response.claims.some((c) => c.status === "unverified")) await incrementGapCount(db, { kind: "unverified_claim" }, { now });
+      return respond(200, response);
+    };
+    try {
+      return await runTurn();
+    } finally {
+      if (holdsSlot && !slotConfirmed) releaseCrisisSlot(slotKey!);
+    }
   }
 
   function limitCheck(ctx: StudentAuthContext): ApiResponse | undefined {
