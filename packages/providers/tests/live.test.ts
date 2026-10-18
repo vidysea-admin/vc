@@ -318,9 +318,11 @@ test("C4 crisis: the rest of the same sentence keeps streaming in after the trig
 });
 
 test("C4 crisis: the student recovers and later says it again in a new turn; the fixed message plays again and the model speaks normally in between", async () => {
-  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED });
+  let mono = 0;
+  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED, monotonicNow: () => mono });
   r.backend.emitInputTranscript("I want to end my life", false);
   r.backend.emitTurnComplete();
+  mono = 3000; // the student pauses before speaking again (new utterance)
   r.backend.emitInputTranscript("okay, I will talk to my sister", true); // D-096: only the student's next words lift the mute
   r.backend.emitOutputAudio(pcm(3)); // next normal reply is audible again
   assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 1);
@@ -723,12 +725,14 @@ test("C4 crisis F1: the crisis arrives on a FINAL transcript chunk and `interrup
 });
 
 test("C4 crisis F1: after crisis + interrupted the model's turn ends; the next reply is audible again once the student speaks (the mute is not permanent)", async () => {
-  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED });
+  let mono = 0;
+  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED, monotonicNow: () => mono });
   r.backend.emitInputTranscript("I will kill myself", false);
   r.backend.emitInterrupted();
   r.backend.emitTurnComplete();
   r.backend.emitOutputAudio(pcm(3));
   assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "D-096: turnComplete alone never lifts a crisis mute");
+  mono = 3000; // the student pauses before speaking again (new utterance)
   r.backend.emitInputTranscript("okay", true);
   r.backend.emitOutputAudio(pcm(3));
   assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 1);
@@ -834,13 +838,15 @@ test("C4 crisis R1: the model makes a tool call right after the crisis chunk and
 });
 
 test("C4 crisis R2: after crisis + interrupted the model ends its turn; its next reply stays muted until the student speaks again, then is heard", async () => {
-  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED });
+  let mono = 0;
+  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED, monotonicNow: () => mono });
   r.backend.emitInputTranscript("I will kill myself", false);
   r.backend.emitInterrupted();
   r.backend.emitTurnComplete();
   r.backend.emitOutputAudio(pcm(3));
   r.backend.emitOutputTranscript("Anyway, about the fee");
   assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "turnComplete lifted the crisis mute");
+  mono = 3000; // the student pauses before speaking again (new utterance)
   r.backend.emitInputTranscript("okay I will call them", true);
   r.backend.emitOutputAudio(pcm(3));
   assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 1, "the next student speech must lift the mute");
@@ -890,13 +896,126 @@ test("C4 crisis low: the student types a crisis message, then says one aloud; th
 
 test("C4 crisis low: a client that mutates the helpline audio buffer it received cannot corrupt the next crisis playback", async () => {
   const original = Uint8Array.from(FIXED.audio);
-  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED });
+  let mono = 0;
+  const r = await rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED, monotonicNow: () => mono });
   r.backend.emitInputTranscript("I will kill myself", true);
   const first = of(r.events, "audio").filter((a) => a.fixed)[0]!;
   assert.notEqual(first.data, FIXED.audio, "the shared buffer itself was handed out");
   first.data.fill(0);
+  r.backend.emitTurnComplete();
+  mono = 3000; // a new utterance (D-096 brief rewrite 1: turn end + pause)
   r.backend.emitInputTranscript("I might end my life", true);
   const second = of(r.events, "audio").filter((a) => a.fixed)[1]!;
   assert.deepEqual(Array.from(second.data), Array.from(original));
   assert.deepEqual(Array.from(FIXED.audio), Array.from(original));
+});
+
+// =================================================================================================
+// C4 brief rewrite 1: "new student speech" on a transport with no final flag (H1, Low; D-096)
+// The crisis mute lifts only on a student chunk that comes after a turnComplete/interrupted AND
+// after a pause of at least crisisResumeGapMs since the previous student chunk (monotonic clock).
+// =================================================================================================
+function monoRig(over: Partial<LiveSessionConfig> = {}) {
+  const clock = { t: 0 };
+  const rigP = rig({ detectCrisis: (t) => CRISIS_RE.test(t), crisisMessage: FIXED, monotonicNow: () => clock.t, ...over });
+  return { clock, rigP };
+}
+
+test("C4 crisis H1: Gemini order, crisis -> turnComplete -> the same sentence goes on a moment later; the model's audio stays muted", async () => {
+  const { clock, rigP } = monoRig();
+  const r = await rigP;
+  r.backend.emitInputTranscript("I will kill myself", false); // Gemini never sends final=true
+  r.backend.emitTurnComplete();
+  clock.t = 300; // same breath: well inside the default 1200 ms gap
+  r.backend.emitInputTranscript("because of exams", false);
+  r.backend.emitOutputAudio(pcm(50));
+  r.backend.emitOutputTranscript("Exams can be stressful, let us look at colleges");
+  await r.session.drain();
+  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "model audio leaked mid crisis utterance after turnComplete");
+  assert.ok(!r.transcripts.some((t) => t.text.includes("colleges")));
+  assert.equal(of(r.events, "crisis").length, 1, "the same utterance must not refire");
+});
+
+test("C4 crisis H1: crisis -> turnComplete -> the student speaks again after a real pause; the model's next reply is heard", async () => {
+  const { clock, rigP } = monoRig();
+  const r = await rigP;
+  r.backend.emitInputTranscript("I will kill myself", false);
+  r.backend.emitTurnComplete();
+  clock.t = 2000;
+  r.backend.emitInputTranscript("okay, I will call my sister", false);
+  r.backend.emitOutputAudio(pcm(3));
+  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 1, "new student speech must lift the crisis mute");
+});
+
+test("C4 crisis H1: the pause is measured from the LAST student chunk, not the crisis chunk; continuous speech never lifts the mute", async () => {
+  const { clock, rigP } = monoRig();
+  const r = await rigP;
+  r.backend.emitInputTranscript("I will kill myself", false);
+  r.backend.emitTurnComplete();
+  for (const [t, words] of [[800, "because"], [1600, "of exams"], [2400, "and my parents"]] as const) {
+    clock.t = t;
+    r.backend.emitInputTranscript(words, false);
+  }
+  r.backend.emitOutputAudio(pcm(3));
+  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "800 ms steps are one utterance");
+});
+
+test("C4 crisis H1: crisis -> the student speaks after a pause but the backend never ended its turn; still muted", async () => {
+  const { clock, rigP } = monoRig();
+  const r = await rigP;
+  r.backend.emitInputTranscript("I will kill myself", false);
+  clock.t = 5000;
+  r.backend.emitInputTranscript("okay", false);
+  r.backend.emitOutputAudio(pcm(3));
+  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "a pause alone must not lift the crisis mute");
+});
+
+test("C4 crisis H1: the resume gap is a constructor option; a longer gap keeps a 2 s pause muted", async () => {
+  const { clock, rigP } = monoRig({ crisisResumeGapMs: 5000 });
+  const r = await rigP;
+  r.backend.emitInputTranscript("I will kill myself", false);
+  r.backend.emitTurnComplete();
+  clock.t = 2000;
+  r.backend.emitInputTranscript("okay", false);
+  r.backend.emitOutputAudio(pcm(3));
+  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0);
+  clock.t = 8000;
+  r.backend.emitInputTranscript("so what now", false);
+  r.backend.emitOutputAudio(pcm(3));
+  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 1);
+});
+
+test("C4 crisis Low: a second spoken crisis in a NEW utterance plays the helpline again; a duplicate in that utterance does not", async () => {
+  const { clock, rigP } = monoRig();
+  const r = await rigP;
+  r.backend.emitInputTranscript("I will kill myself", false);
+  r.backend.emitTurnComplete();
+  clock.t = 3000;
+  r.backend.emitInputTranscript("I still want to end my life", false); // new utterance
+  assert.equal(of(r.events, "crisis").length, 2, "a new spoken crisis must refire");
+  assert.equal(of(r.events, "audio").filter((a) => a.fixed).length, 2);
+  clock.t = 3400;
+  r.backend.emitInputTranscript("suicide is all I think about", false); // same utterance
+  r.backend.emitTurnComplete();
+  clock.t = 3800; // a turnComplete but no pause: still the same utterance
+  r.backend.emitInputTranscript("I will kill myself", false);
+  assert.equal(of(r.events, "crisis").length, 2, "same-utterance duplicates must not double-fire");
+  assert.equal(of(r.events, "audio").filter((a) => a.fixed).length, 2);
+  r.backend.emitOutputAudio(pcm(3));
+  assert.equal(of(r.events, "audio").filter((a) => !a.fixed).length, 0, "the second crisis re-armed the mute");
+});
+
+test("C4 crisis Low: after a crisis the student starts a new, harmless utterance; the old crisis words are not re-scanned into a false refire", async () => {
+  const { clock, rigP } = monoRig();
+  const r = await rigP;
+  r.backend.emitInputTranscript("I will kill myself", false);
+  clock.t = 200;
+  r.backend.emitInputTranscript("because of exams", false); // buffered in the crisis utterance
+  r.backend.emitTurnComplete();
+  clock.t = 3000;
+  r.backend.emitInputTranscript("okay what about fees", false);
+  r.backend.emitTurnComplete(); // the new utterance ends normally (no crisis mute any more)
+  await r.session.drain();
+  assert.equal(of(r.events, "crisis").length, 1, "stale crisis text refired the helpline");
+  assert.ok(r.transcripts.some((t) => t.role === "user" && t.text === "okay what about fees"), "the new utterance is its own thread turn");
 });

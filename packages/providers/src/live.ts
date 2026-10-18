@@ -150,7 +150,17 @@ export interface LiveSessionConfig {
   toolHandler?: (call: LiveToolCall) => Promise<unknown> | unknown;
   /** Injected clock for deterministic tests. */
   now?: () => number;
+  /**
+   * After a crisis, the shortest pause (ms) between two student transcript chunks that counts as the
+   * student starting a NEW utterance (D-096 brief rewrite 1). Default `CRISIS_RESUME_GAP_MS_DEFAULT`.
+   */
+  crisisResumeGapMs?: number;
+  /** Monotonic clock (ms) for the crisis resume gap; injectable for tests. Default `performance.now()`. */
+  monotonicNow?: () => number;
 }
+
+/** Default `crisisResumeGapMs`: a pause this long after the last student chunk starts a new utterance. */
+export const CRISIS_RESUME_GAP_MS_DEFAULT = 1200;
 
 export interface LiveProvider {
   readonly kind: "mock" | "gemini";
@@ -243,6 +253,12 @@ export class LiveSession implements LiveBackendSink {
    * confirms the interrupt we asked for), not `toolCall` (R1) and not `turnComplete` (R2).
    */
   private crisisMute = false;
+  /** A `turnComplete` or `interrupted` has arrived since the last crisis fired (lift condition 1). */
+  private crisisTurnEnded = false;
+  /** Monotonic time of the last student transcript chunk (lift condition 2 measures the gap from it). */
+  private lastStudentChunkAt: number | undefined;
+  private readonly crisisResumeGapMs: number;
+  private readonly monotonicNow: () => number;
   private droppedModelAudioChunks = 0;
   private readonly sourced: string[] = [];
   private readonly now: () => number;
@@ -263,6 +279,10 @@ export class LiveSession implements LiveBackendSink {
       throw new LiveConfigError("detectCrisis requires crisisMessage.audio (non-empty 24 kHz PCM16): a voice student must never hear silence after a crisis");
     }
     this.now = config.now ?? Date.now;
+    const gap = config.crisisResumeGapMs ?? CRISIS_RESUME_GAP_MS_DEFAULT;
+    if (!Number.isFinite(gap) || gap < 0) throw new LiveConfigError(`crisisResumeGapMs must be a finite number >= 0, got ${gap}`);
+    this.crisisResumeGapMs = gap;
+    this.monotonicNow = config.monotonicNow ?? (() => performance.now());
   }
 
   /** Called once by the provider after the transport is open. Replays anything that arrived earlier. */
@@ -345,14 +365,29 @@ export class LiveSession implements LiveBackendSink {
 
   inputTranscript(text: string, final: boolean): void {
     if (this.closedFlag || !text) return;
-    if (this.muted && !this.crisisFiredForUtterance) {
-      this.muted = false; // student spoke again after a client interrupt or an earlier crisis
-      this.crisisMute = false;
+    const at = this.monotonicNow();
+    const gapMs = this.lastStudentChunkAt === undefined ? Infinity : at - this.lastStudentChunkAt;
+    this.lastStudentChunkAt = at;
+    if (this.crisisMute) {
+      // D-096, brief rewrite 1: the crisis mute lifts ONLY on new student speech, i.e. a chunk that
+      // comes (1) after the backend ended or abandoned its turn since the crisis AND (2) after a pause
+      // of at least crisisResumeGapMs since the previous student chunk. Anything else is the same
+      // crisis utterance going on: it stays muted and keeps the crisis state (no refire). No final
+      // flag is relied on: the Gemini path always reports final=false.
+      if (this.crisisTurnEnded && gapMs >= this.crisisResumeGapMs) {
+        this.flushUser(true); // the crisis utterance is over; its words must not be re-scanned
+        this.crisisMute = false;
+        this.crisisTurnEnded = false;
+        this.muted = false;
+      }
+    } else if (this.muted) {
+      this.muted = false; // student spoke again after a client interrupt
     }
     this.userBuf = this.userBuf ? `${this.userBuf} ${text}`.trim() : text.trim();
     this.emit({ type: "transcript", role: "user", text, final });
     this.scanForCrisis(this.userBuf);
-    if (final) this.flushUser(true);
+    // During a crisis mute a final flag does not end the crisis utterance (only the rule above does).
+    if (final) this.flushUser(!this.crisisMute);
   }
 
   outputTranscript(text: string): void {
@@ -399,18 +434,23 @@ export class LiveSession implements LiveBackendSink {
 
   turnComplete(): void {
     if (this.closedFlag) return;
-    this.flushUser(true);
+    // During a crisis mute the turn end does not end the student's utterance (H1): the next chunk of
+    // the same utterance must neither lift the mute nor refire the fixed message.
+    this.flushUser(!this.crisisMute);
     this.flushAssistant(false);
     // The end of the model's turn lifts a client-interrupt mute, never a crisis mute (R2, D-096):
-    // after a crisis only new student speech reopens the model's audio.
-    if (!this.crisisMute) this.muted = false;
+    // after a crisis only new student speech reopens the model's audio. It does arm lift condition 1.
+    if (this.crisisMute) this.crisisTurnEnded = true;
+    else this.muted = false;
     this.emit({ type: "turn_complete" });
   }
 
   interrupted(): void {
     if (this.closedFlag) return;
     this.flushAssistant(true);
-    if (!this.crisisMute) this.muted = false; // after a crisis the mute lasts until the student speaks again (F1, D-096)
+    // After a crisis the mute lasts until the student speaks again (F1, D-096); arms lift condition 1.
+    if (this.crisisMute) this.crisisTurnEnded = true;
+    else this.muted = false;
     this.emit({ type: "interrupted" });
   }
 
@@ -483,6 +523,7 @@ export class LiveSession implements LiveBackendSink {
     this.flushAssistant(true);
     this.muted = true;
     this.crisisMute = true;
+    this.crisisTurnEnded = false; // condition 1 counts from THIS crisis
     // Before `attach` there is no backend yet: the student still hears the fixed message now, and
     // the backend interrupt is replayed on attach (M1).
     if (this.backend) this.interruptBackendForCrisis();
