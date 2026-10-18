@@ -106,6 +106,21 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 
 ## Candidates (human picks)
 
+- [ ] CANDIDATE · priority: safety · ISS-194 (medium): the crisis guard's study-then-distress rescue depends on detector vocabulary; "I don't see the point in continuing college, <tail>" is none for tails such as "I feel so lost", "nothing is worth it", "I feel trapped", "everyone would be better off", "i just want it all to stop", "I cant breathe" (each tail is also none alone; a general vocabulary gap, crisis at base 559a421). Human approval needed (product call under D-020). Fix: extend POINT_DISTRESS/CONCERN, or let a study object suppress only when the rest is study-only. Source: qa/evidence/p1-briefs/p1-eng3-c3-review-result.md.
+
+Raised by the p1-eng3 crisis-leftovers check and reviews (2026-10-19, ISS-183..ISS-197; PASS f81a995, senior reviews cycle 2 and 3 Warning); none is a TODO row, the human picks. Sources: qa/verdicts/p1-eng3-crisis-leftovers.md, qa/evidence/p1-briefs/p1-eng3-c2-review-result.md, qa/evidence/p1-briefs/p1-eng3-c3-review-result.md. ISS-183, 184, 189 and 191 are closed.
+
+- [ ] CANDIDATE · ISS-185 (medium): crisis recall misses some spelling variants (partly fixed: "marna h", "marnaa hai", "kmss" now fire).
+- [ ] CANDIDATE · ISS-186 (low): new crisis patterns over-flag study talk ("assignment khatam ho jana chahiye kal tak"; "kms to the nearest airport is 12").
+- [ ] CANDIDATE · ISS-187 (low): U6h near-misses: claims "through 2027" / "for 2 years" verify when dropped; phone forms "( +91 ) 98765 43210", "(91) ..." keep the prefix, "(+971) 50 123 4567" undetected.
+- [ ] CANDIDATE · ISS-188 (low, process): eng3 manifest gaps (test selection omitted apps/api and two engine tests; CORE-REQUEST cites litellm.ts:509, the file is packages/providers/src/index.ts:509; mutant-cap-raise line malformed). The ISS-125 CORE-REQUEST itself (providers external-abort test) is still unowned.
+- [ ] CANDIDATE · ISS-190 (low): recall misses on "no point" paraphrases ("there is no point in going on", "no point going on", "I can't see the point in carrying on") and Devanagari "मैं खुद को मार डालूंगा"; none at base either.
+- [ ] CANDIDATE · ISS-192 (low): test gap, nothing pins the "!" element of the LEET_BEFORE_LETTER lookbehind (mutant survives; "1!" x30000 would take 5.2 s).
+- [ ] CANDIDATE · ISS-193 (low): test gap, the CONCERN_PATTERNS disjunct of pointRestHasDistress and the punctuated "onwards" form are unpinned (mutants K2b, K3b).
+- [ ] CANDIDATE · ISS-195 (low): test gap, no functional boundary test for the 240-char window in the point-continuing rest scan.
+- [ ] CANDIDATE · ISS-196 (low, accepted under D-020): "... continuing MBA nobody gets jobs" now gives crisis (study-talk over-fire).
+- [ ] CANDIDATE · umesh-confirm · ISS-197 (low): two maker [ASSUMPTION]s for Umesh (fail closed, D-020): a lead-in word alone does not suppress the crisis flag, so "... continuing with my job search" is crisis; more than 20 study-suppressed matches in one view are flagged crisis.
+
 Raised by the U7 anonymous-mode dual check (2026-10-18); none is a TODO row, the human picks. Sources: qa/verdicts/p1-u7-anon-mode.md, qa/verdicts/p1-u7-anon-mode.b.md, qa/evidence/p1-briefs/p1-u7-review-result.md.
 
 - [ ] CANDIDATE · priority: security · ISS-135 (medium): the anonymous route crisis exemption has no CPU budget; crisisGuard scans up to 256 KiB per request before the limiter (about 40-210 ms CPU each, unlimited per client). Fix: body byte cap or byte budget before the scan, a larger per-client crisis budget, or scan off the request path.
