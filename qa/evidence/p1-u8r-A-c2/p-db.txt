@@ -1,0 +1,29 @@
+[testlock] running slot 0 (free RAM 5.26 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8r/packages/db exec tsx --test tests/_probeA-db.test.ts
+FACTKEY "my name is devika nair" => "my name is [NAME]"
+FACTKEY "i am kabir" => "i am [NAME]"
+FACTKEY "reach me 9876543210" => "reach me [PHONE]"
+FACTKEY "Call me Aarav" => "Call me [NAME]"
+FACTKEY "mail a.b@c.com" => "mail [EMAIL]"
+✔ a fact proposed from chat starts as proposed, is hidden from 'confirmed', and confirming it makes it student-confirmed (8.7306ms)
+✔ a student correcting a proposed fact replaces its value (redacted) and confirms it (0.6681ms)
+✔ p1-u8r low: a fact key a model proposed with a phone number or email in it is stored redacted, like the value (0.608ms)
+✔ a student erasing a proposed fact deletes it from the store (0.5698ms)
+✔ a student cannot decide on another student's fact, or on one that does not exist (0.6321ms)
+✔ proposing the same key twice keeps one fact per key, and a confirmed fact is not downgraded back to proposed (0.6396ms)
+✔ two tenants with the same student id keep separate profile facts and flag logs (A6) (2.3939ms)
+✔ the profile store and flag log refuse an unscoped Db (0.2687ms)
+✔ a crisis turn leaves a text-free flag row (ids and time only), and the same turn flagged twice is one row (0.3973ms)
+✔ an unanswerable turn raises that day's gap count by one, with no student or text in the row (7.7147ms)
+✔ a student under erasure gets no new profile fact and no new flag row (1.681ms)
+✔ every new student-bearing chat collection is in the B15 erasure plan and the gap counts are exempt with a reason (0.2224ms)
+✔ erasing a student removes their threads, turns, facts, usage and flags and leaves another student's untouched; the receipt counts them (5.9581ms)
+✔ exporting a student returns their chat threads, turns, facts, usage and flags, and nobody else's (1.6145ms)
+✔ PROBE-A fact key holding a name or contact is redacted (1.5956ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 663.6014

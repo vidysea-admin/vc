@@ -1,0 +1,50 @@
+[testlock] running slot 1 (free RAM 5.24 GB): pnpm -C packages/schemas exec tsx --test tests/_probeA-redact.test.ts
+REDACT "my name is devika nair" => "my name is [NAME]" ok
+REDACT "i am kabir" => "i am [NAME]" ok
+REDACT "call me aarav" => "call me [NAME]" ok
+REDACT "MY NAME IS ROHAN" => "MY NAME IS [NAME]" ok
+REDACT "naam hai priya" => "naam hai priya" LEAK:priya
+REDACT "mera naam priya hai" => "mera naam [NAME] hai" ok
+REDACT "My name is Dr. Anita Verma" => "My name is [NAME]" ok
+REDACT "I am Mr. Rao from Pune" => "I am [NAME] from Pune" ok
+REDACT "my name is prof. sharma" => "my name is [NAME]" ok
+REDACT "I'm Dr. A. P. J. Abdul Kalam" => "I'm [NAME]" ok
+REDACT "My name is Prof. Dr. Anita Rao Verma" => "My name is [NAME]" ok
+REDACT "my name is dr. anita rao verma and I want to study" => "my name is [NAME] and I want to study" ok
+REDACT "I am Shri Ram Prasad Bismil Sharma" => "I am [NAME]" ok
+REDACT "my name is MRS. LAKSHMI IYER" => "my name is [NAME]" ok
+REDACT "my name is Dr Anita Verma" => "my name is [NAME]" ok
+PRECISION "i am tired" => "i am tired"
+PRECISION "i am from delhi" => "i am from delhi"
+PRECISION "i am a student" => "i am a student"
+PRECISION "i am going to apply" => "i am going to apply"
+PRECISION "I am Mr. Rao from Pune" => "I am [NAME] from Pune"
+PRECISION "i am studying engineering" => "i am studying engineering"
+PRECISION "i am 17 years old" => "i am 17 years old"
+PRECISION "i am really worried" => "i am really worried"
+PERF noat2M 2000000 6 ms
+PERF noat2Mx 2000000 7 ms
+PERF at200k 200001 48 ms
+PERF atlead 200001 45 ms
+PERF dr50k 200011 38 ms
+PERF dr50kUp 200006 30 ms
+PERF init50k 150005 26 ms
+PERF mixed 210010 30 ms
+PERF spaces 200011 0 ms
+PERF apos 200005 7 ms
+PERF tokens 400005 2 ms
+PERF ph 200000 4 ms
+PERF phd 200001 4 ms
+PERF lead 500000 21 ms
+✔ A names redacted (8.0376ms)
+✔ A precision (0.3432ms)
+✔ A hard: from Pune survives; Kalam (0.2629ms)
+✔ A perf (270.354ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 619.4706

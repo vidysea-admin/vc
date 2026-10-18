@@ -1,0 +1,28 @@
+[testlock] running slot 1 (free RAM 5.48 GB): pnpm -C packages/schemas exec tsx --test tests/redact.test.ts
+✔ a student who types an email address into a chat turn has it replaced by [EMAIL] (6.5886ms)
+✔ a student who gives an Indian mobile number in any common format has it replaced by [PHONE] (0.6067ms)
+✔ a student who types a phone number in Devanagari digits has it replaced (8.7022ms)
+✔ an international number and a 12-digit national id are replaced; scores, years and fees are not (0.2719ms)
+✔ an English self-introduction has the name replaced by [NAME] (0.2808ms)
+✔ a lower-case clause after I am is not a name (0.1215ms)
+✔ a Hinglish self-introduction has the name replaced (0.1296ms)
+✔ a Devanagari self-introduction has the name replaced (0.1458ms)
+✔ known names (for example from the supplied profile) are replaced wherever they appear, whole word, any case (3.0155ms)
+✔ redaction is idempotent and placeholders are stable (0.2777ms)
+✔ an over-long or empty input is handled without throwing (0.447ms)
+✔ A1: a student who types a self-introduction in lower case has the name replaced by [NAME] (0.2826ms)
+✔ A1: the names redact reports are the names the student stated, so a model reply can be redacted with them (0.6798ms)
+✔ A1: lower-case sentences that follow I am / I'm are not names (no over-redaction) (0.2522ms)
+✔ A1: a trailing full stop is not part of a stated name (0.1076ms)
+✔ A2: a name that ends a sentence does not take the next sentence's first word with it, and the full stop is kept (0.1238ms)
+✔ p1-u8r cycle 1: a title before a name does not end the name ('Dr. Anita Verma' is wholly redacted) (0.175ms)
+✔ p1-u8r cycle 1: the email pass is skipped without an at-sign and the local part is bounded, so 200k characters of 'a.' redact quickly (32.0774ms)
+✔ p1-u8r cycle 2 item 4: a title and initials do not use up the name-token budget, so 'I'm Dr. A. P. J. Abdul Kalam' keeps no part of the name (35.9678ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 253.4273

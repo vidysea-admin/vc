@@ -1,0 +1,36 @@
+[testlock] running slot 0 (free RAM 5.46 GB): pnpm -C apps/api exec tsx --test tests/_probeA-api.test.ts
+OUTAGE concern -> 200 escalated turns 0
+✔ P1 outage: ordinary 503 zero writes, retry works; crisis answered+escalated, text not stored (117.4682ms)
+✔ P2 flood: 5 crisis in 10 min, other thread/student independent (66.5582ms)
+FLAGFAIL wrapped updateOne,insertOne escalations after first->third: 1 -> 2 flags 1 20
+✔ P2b failed flag write gives slot back (28.2947ms)
+✔ P3 ranks: concern->crisis=2; crisis->concern=1; failed upgrade restores previous holder (67.0216ms)
+CONCURRENT attempts 3 escalations 2 flags k-1,k-2,k-3
+✔ P4 concurrent: first fails, others wait and escalate; every crisis turn recorded (52.3197ms)
+REPLAY different text same id -> 200 escalated
+✔ P5 replay of completed crisis turn (23.8008ms)
+TEXTLESS FLOOD flags added: 40 turns 0 esc 2
+OVERLONG->CONCERN esc total 3
+✔ P6 overlong crisis then crisis; minor then full; textless floods (292.9995ms)
+REVERSE-ORDER esc 1 n2 3
+✔ P7 concern A inflight, crisis B takes over, A fails, B fails, concern C escalates; D quiet (62.811ms)
+QUIET-HOLDER-FAILS elapsed ms 60 esc 1
+✔ P8 quiet turn whose in-flight holder fails escalates itself within 5s (default wait) (75.5716ms)
+NAME "my name is devika nair." liveHasName true storedLeak [] replayLeak [] histLeak []
+NAME "i am kabir." liveHasName true storedLeak [] replayLeak [] histLeak []
+NAME "call me aarav." liveHasName true storedLeak [] replayLeak [] histLeak []
+NAME "MY NAME IS ROHAN." liveHasName true storedLeak [] replayLeak [] histLeak []
+NAME "naam hai priya." liveHasName true storedLeak ["priya"] replayLeak ["priya"] histLeak ["priya"]
+NAME "Mera naam Priya hai." liveHasName true storedLeak [] replayLeak [] histLeak []
+✔ P9 names end-to-end + echo (132.159ms)
+ESC-HANDED [{"sessionId":"4a727722-9714-497f-9c67-e66ad31fd1b5","studentId":"stu-1","turns":[{"turnId":"e-1","speaker":"student","lang":"en","text":"my name is [NAME], ph [PHONE], [EMAIL]. I want to kill myself","translatedText":"my name is [NAME], ph [PHONE], [EMAIL]. I want to kill myself"}]}]
+ESC3 {"sessionId":"911de38b-4072-4cc6-895a-46762bc67950","studentId":"stu-1","turns":[{"turnId":"e-3","speaker":"student","lang":"en","text":"i am [NAME] and i want to kill myself","translatedText":"i am [NAME] and i want to kill myself"}]}
+✔ P10 escalation text redacted; i am unalive escalates (33.5944ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3253.7008
