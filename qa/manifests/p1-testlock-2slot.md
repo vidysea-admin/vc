@@ -1,5 +1,5 @@
 # Manifest — p1-testlock-2slot
-**Status:** ready-for-check
+**Status:** checked-PASS (verdict qa/verdicts/p1-testlock-2slot.md, commit 07b0641 as amended c897937; cycle 0)
 **Policy-Version:** proportional-verification/2026-10-18.15
 **Tier:** L (concurrency: test lock)
 **Round:** 1
