@@ -968,6 +968,45 @@ test("D-093 2A repair: 'see the point in going on / continuing' fires only for t
   }
 });
 
+// Review cycle 1 (Block): "see the point in going on / continuing" fires by default; only a study object right after it is study talk.
+test("D-093 2A repair: 'see the point in going on / continuing' fires unless a study object follows (review c1 Block)", () => {
+  for (const text of [
+    "I don't see the point in going on at all",
+    "I don't see the point in going on without her",
+    "I don't see the point in going on feeling like this",
+    "I don't see the point in going on, nothing matters",
+    "I don't see the point in going on everything is pointless",
+    "I don't see the point in going on today",
+    "I can't see the point in going on here",
+    "I don't see the point in going on in this world",
+    "I don't see the point in going on. Please help",
+    "I don't see the point in going on my family would be better off",
+    "i dont see the point in going on lol",
+    "I don't see the point in going on with things",
+    "I don't see the point in going on when nobody cares",
+    "I don't see the point in continuing to live",
+    "I don't see the point in going on with it",
+    "I don't see the point in continuing with everything",
+    "I don't see the point in going on like this",
+    "I don't see the point in going on with my life as a student",
+    "I don't see the point in continuing my existence",
+    "I don't see the point in continuing. My IELTS prep is useless anyway",
+    "I don't see the point in continuing with college life",
+    "I don't see the point in continuing with it my exams are over",
+  ]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+  // Study talk stays none (the five W1 cases above are unchanged).
+  for (const text of ["I don't see the point in continuing my GRE coaching", "I see no point in going on to a masters degree", "I don't see the point in going online for classes", "I see no point in continuing coaching classes"]) {
+    assert.equal(crisisGuard(text).level, "none", text);
+  }
+});
+
+test("D-093 2A repair: a trailing '1' after 'kill' ('kill1 myself') is flagged (review c1 Low)", () => {
+  for (const text of ["kill1 myself", "i want to kill1 myself", "kil11 myself"]) assert.equal(crisisGuard(text).level, "crisis", text);
+  assert.equal(crisisGuard("I will fill11 forms").level, "none");
+});
+
 test("D-093 2A: every new Hinglish/English phrase has its spaced / doubled / punctuated evasion forms flagged", () => {
   const failures: string[] = [];
   // Not generated: leet phrases (letter-spacing a leet phrase is a second evasion on top of the first) and "kms" sentences (a

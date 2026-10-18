@@ -549,6 +549,18 @@ function stripForeignMarks(text: string): string {
  * never treated as a boundary a pattern cannot cross (D-020).
  */
 function normalise(text: string, leet: false | "i" | "l" = false): string {
+  const folded = foldText(text);
+  // Review c1 Low: in the 1 -> l reading a trailing "1" after a double l ("kill1" -> "killl") is one more l, so a run of three or
+  // more l's folds back to two ("kill"). Only the l-view changes, and that view is only ever an addition.
+  const leetFolded = leet ? foldLeet(folded, leet) : folded;
+  return (leet === "l" ? leetFolded.replace(/l{3,}/g, "ll") : leetFolded).replace(NON_WORD_RUN, " ").trim();
+}
+
+/**
+ * Every step of `normalise` except the final separator collapse (so punctuation survives). The long-mark-run cap runs first,
+ * before any Unicode normalisation, which keeps it linear on huge combining-mark runs (T-033).
+ */
+function foldText(text: string): string {
   const capped = text.replace(INVISIBLE_FORMAT_CHARS, "").replace(LONG_MARK_RUN, capMarkRun);
   const stripped = stripForeignMarks(stripForeignMarks(capped).normalize("NFKD"));
   const folded = stripped
@@ -558,7 +570,7 @@ function normalise(text: string, leet: false | "i" | "l" = false): string {
     .replace(HOMOGLYPH_CHAR, (ch) => HOMOGLYPHS[ch] ?? ch)
     // P1 W3: a phone keyboard types a typographic apostrophe ("don’t"); the patterns' `'?` expects the ASCII one.
     .replace(TYPOGRAPHIC_APOSTROPHE, "'");
-  return (leet ? foldLeet(folded, leet) : folded).replace(NON_WORD_RUN, " ").trim();
+  return folded;
 }
 
 /** U+2019 right single quote, U+2018 left, U+02BC modifier letter apostrophe, U+2032 prime, U+FF07 fullwidth. */
@@ -656,19 +668,42 @@ function matchTokens(view: string): string[] {
 }
 
 /**
- * Review W1 (P1 W3 eng3): "I don't see the point in continuing / going on" is a crisis statement when it stands alone or runs on
- * as a clause ("... going on, I am so tired", "... going on anymore"), but study talk when an object follows
- * ("... continuing with MBA", "... going on with this course", "... continuing my IELTS prep"). The life form ("... with my life")
- * is a plain CRISIS_PATTERNS entry. So this check fires only for a bare end of turn or a clause connector right after the phrase.
+ * Review W1 + cycle-1 Block (P1 W3 eng3, D-020 recall over precision): "I don't see the point in going on / continuing" is a
+ * crisis statement BY DEFAULT: at the end of the turn, before punctuation (`matchPointContinuingPunctuated`) and before any next
+ * word ("... at all", "... without her", "... today", "... lol", "... my family would be better off"). It is study talk, and
+ * suppressed, ONLY when a study object follows: a study noun right after it ("... continuing MBA"), or a lead-in word followed
+ * within three words by a study noun ("... continuing with MBA", "... going on with this course", "... continuing my IELTS prep").
+ * It always fires, whatever follows, on a life word in the next four words ("... continuing to live", "... with my life") and on
+ * "without", "with things / it / everything", "like this".
+ * [ASSUMPTION] (maker decision under D-020, fail closed, for Umesh): a lead-in alone ("my", "the", "to", ...) does NOT suppress;
+ * it needs a study noun after it, so "... going on my family would be better off" fires. The life form ("with my life") is also
+ * a plain CRISIS_PATTERNS entry.
  */
-const POINT_IN_CONTINUING = /\b(?:(?:don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(?:the|any)|see\s+no)\s+point\s+in\s+(?:going\s*on|continuing)(?:\s+(\p{L}+))?/gu;
-const POINT_CLAUSE_WORDS = new Set(["anymore", "any", "because", "but", "and", "so", "since", "i", "im", "it", "what", "why", "honestly", "really", "now", "tbh", "just", "like"]);
+const POINT_IN_CONTINUING = /\b(?:(?:don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(?:the|any)|see\s+no)\s+point\s+in\s+(?:going\s*on|continuing)(?![\p{L}\p{N}])/gu;
+/** The same phrase on the lowercased raw text, immediately followed by punctuation (the normalised views fold punctuation away). */
+const POINT_IN_CONTINUING_PUNCT = /\b(?:(?:don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(?:the|any)|see\s+no)\s+point\s+in\s+(?:going\s*on|continuing)\s*[^\p{L}\p{M}\p{N}\s']/u;
+const POINT_STUDY_LEAD_IN = new Set(["with", "my", "the", "this", "these", "those", "a", "an", "our", "his", "her", "their", "your", "to"]);
+const POINT_STUDY_NOUNS = new Set([
+  "ielts", "gre", "gmat", "toefl", "sat", "mba", "ms", "btech", "course", "degree", "prep", "preparation", "studies", "study",
+  "college", "application", "applications", "coaching", "exam", "exams",
+]);
+const POINT_LIFE_WORDS = new Set(["living", "life", "live", "alive", "existing", "exist"]);
+const POINT_WITH_ALWAYS = new Set(["things", "it", "everything"]);
 function matchPointContinuing(view: string): boolean {
   for (const m of view.matchAll(POINT_IN_CONTINUING)) {
-    const next = m[1];
-    if (next === undefined || POINT_CLAUSE_WORDS.has(next)) return true;
+    const rest = view.slice((m.index ?? 0) + m[0].length).split(" ").filter((t) => t.length > 0);
+    if (rest.length === 0) return true;
+    if (rest.slice(0, 4).some((t) => POINT_LIFE_WORDS.has(t))) return true;
+    const [first, second] = rest;
+    if (first === "without" || (first === "with" && POINT_WITH_ALWAYS.has(second)) || (first === "like" && second === "this")) return true;
+    if (POINT_STUDY_NOUNS.has(first)) continue;
+    if (POINT_STUDY_LEAD_IN.has(first) && rest.slice(1, 4).some((t) => POINT_STUDY_NOUNS.has(t))) continue;
+    return true;
   }
   return false;
+}
+function matchPointContinuingPunctuated(text: string): boolean {
+  return POINT_IN_CONTINUING_PUNCT.test(foldText(text));
 }
 /** The same bare form with every separator gone (fully letter- or punctuation-spaced evasion): only when it ends the turn. */
 const SQUEEZED_POINT_IN_CONTINUING = /(?:dontseethepoint|donotseethepoint|cantseethepoint|cannotseethepoint|nolongerseethepoint|seenopoint)in(?:goingon|continuing)$/;
@@ -715,6 +750,7 @@ export function crisisGuard(text: string): CrisisCheckResult {
     for (const token of matchTokens(view)) crisisMatched.add(`token:${token}`);
     if (matchPointContinuing(view)) crisisMatched.add("token:point-in-continuing");
   }
+  if (matchPointContinuingPunctuated(text)) crisisMatched.add("token:point-in-continuing");
   for (const twin of new Set([squeezed, leetSqueezed, leetLSqueezed])) {
     if (SQUEEZED_POINT_IN_CONTINUING.test(twin)) crisisMatched.add("squeezed:point-in-continuing");
     for (const { source, regex } of SQUEEZED_CRISIS_PATTERNS) {
