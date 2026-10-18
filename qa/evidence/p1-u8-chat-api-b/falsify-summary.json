@@ -1,0 +1,172 @@
+[
+  {
+    "id": "B1",
+    "crit": "C1",
+    "error": "find matched 0 times"
+  },
+  {
+    "id": "B2",
+    "crit": "C2",
+    "error": "find matched 0 times"
+  },
+  {
+    "id": "B3",
+    "crit": "C3",
+    "note": "same turn id with other text no longer conflicts",
+    "file": "packages/db/src/chat-threads.ts",
+    "before": {
+      "exit": 0,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "failing": []
+    },
+    "after": {
+      "exit": 1,
+      "tests": 12,
+      "pass": 11,
+      "fail": 1,
+      "failing": [
+        "the same turn id sent again with different text is a conflict, not a silent replay of the old answer",
+        "the same turn id sent again with different text is a conflict, not a silent replay of the old answer"
+      ]
+    },
+    "restored": true
+  },
+  {
+    "id": "B4",
+    "crit": "C4",
+    "note": "user turn stored unredacted",
+    "file": "apps/api/src/chat.ts",
+    "before": {
+      "exit": 0,
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "failing": []
+    },
+    "after": {
+      "exit": 1,
+      "tests": 15,
+      "pass": 13,
+      "fail": 2,
+      "failing": [
+        "D-093 6A: a student who types their name, phone and email in a question gets an answer, and none of the three is in anything stored",
+        "D-093 6A: a name the Pathlynks profile supplies is redacted from stored text even when the student never said 'my name is'",
+        "D-093 6A: a student who types their name, phone and email in a question gets an answer, and none of the three is in anything stored",
+        "D-093 6A: a name the Pathlynks profile supplies is redacted from stored text even when the student never said 'my name is'"
+      ]
+    },
+    "restored": true
+  },
+  {
+    "id": "B5",
+    "crit": "C5",
+    "note": "unknown age treated as adult (fail open)",
+    "file": "apps/api/src/auth.ts",
+    "before": {
+      "exit": 0,
+      "tests": 36,
+      "pass": 36,
+      "fail": 0,
+      "failing": []
+    },
+    "after": {
+      "exit": 1,
+      "tests": 36,
+      "pass": 34,
+      "fail": 2,
+      "failing": [
+        "D-093 4A: a token with no age and no minor claim is treated as under 18 (fail closed), so its text is not stored either",
+        "an under-18 student with no age or minor claim is treated as a minor (fail closed); a stated adult is not",
+        "D-093 4A: a token with no age and no minor claim is treated as under 18 (fail closed), so its text is not stored either",
+        "an under-18 student with no age or minor claim is treated as a minor (fail closed); a stated adult is not"
+      ]
+    },
+    "restored": false
+  },
+  {
+    "id": "B6",
+    "crit": "C6",
+    "note": "proposed facts shown as in use",
+    "file": "apps/api/src/chat.ts",
+    "before": {
+      "exit": 0,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "failing": []
+    },
+    "after": {
+      "exit": 1,
+      "tests": 10,
+      "pass": 8,
+      "fail": 2,
+      "failing": [
+        "A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it",
+        "A16b: a student corrects a wrongly heard fact (the corrected value is redacted and confirmed) and erases another",
+        "A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it",
+        "A16b: a student corrects a wrongly heard fact (the corrected value is redacted and confirmed) and erases another"
+      ]
+    },
+    "restored": true
+  },
+  {
+    "id": "B7",
+    "crit": "C7",
+    "note": "limiter key is tenant only (students share a counter)",
+    "file": "apps/api/src/chat.ts",
+    "before": {
+      "exit": 0,
+      "tests": 23,
+      "pass": 23,
+      "fail": 0,
+      "failing": []
+    },
+    "after": {
+      "exit": 1,
+      "tests": 23,
+      "pass": 22,
+      "fail": 1,
+      "failing": [
+        "A23: the 31st request in a minute from one student is 429 with Retry-After, another student is not affected, and the window reopens",
+        "A23: the 31st request in a minute from one student is 429 with Retry-After, another student is not affected, and the window reopens"
+      ]
+    },
+    "restored": true
+  },
+  {
+    "id": "B8",
+    "crit": "C8",
+    "error": "find matched 0 times"
+  },
+  {
+    "id": "B9",
+    "crit": "C9",
+    "note": "prior-flag memory not read from the log",
+    "file": "apps/api/src/chat.ts",
+    "before": {
+      "exit": 0,
+      "tests": 38,
+      "pass": 38,
+      "fail": 0,
+      "failing": []
+    },
+    "after": {
+      "exit": 1,
+      "tests": 38,
+      "pass": 37,
+      "fail": 1,
+      "failing": [
+        "a student who raised a crisis flag earlier in the thread still sees the helpline on a later turn after the server restarts (the flag is read from the store)",
+        "a student who raised a crisis flag earlier in the thread still sees the helpline on a later turn after the server restarts (the flag is read from the store)"
+      ]
+    },
+    "restored": true
+  },
+  {
+    "id": "B10",
+    "crit": "C10",
+    "error": "find matched 0 times"
+  }
+]
