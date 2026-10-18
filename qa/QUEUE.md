@@ -121,6 +121,20 @@ Raised by the U7 anonymous-mode dual check (2026-10-18); none is a TODO row, the
 - [ ] CANDIDATE · ISS-145 (low): EMAIL regex cost on 4000 chars and the trailing-slash 405 path are unmeasured/untested.
 - [ ] CANDIDATE · ISS-146 (low): scripts/vc-testlock.test.sh is load sensitive; the control suite went red once under 6 parallel copies (C1 third-holder timeout assertion), so it must be run alone. Source: qa/verdicts/p1-testlock-2slot.md (Findings).
 
+Raised by the U8 chat API dual check (2026-10-19, ISS-147..ISS-162); none is a TODO row, the human picks. Sources: qa/verdicts/p1-u8-chat-api.md, qa/verdicts/p1-u8-chat-api.b.md, qa/evidence/p1-briefs/p1-u8-review-result.md. The five medium rows (ISS-147, 148, 152, 156, 157) are being repaired by unit p1-u8r and are not listed as candidates.
+
+- [ ] CANDIDATE · ISS-149 (low): obfuscated or split identifiers survive redaction ('zoya at gmail dot com', zero-width characters inside emails or phones).
+- [ ] CANDIDATE · ISS-150 (low): an unconsented under-18 student still gets student_usage and student_flags rows (and no counsellor escalation in crisis); owner to confirm within D-093 4A and record in open risks; U10 must supply crisis audio.
+- [ ] CANDIDATE · ISS-151 (low): consents, crisis_flag_reviews and escalation_notifications are erased but absent from exportStudent (data-subject-access path).
+- [ ] CANDIDATE · ISS-153 (low): profile fact key stored unredacted; fact values redacted without knownNames.
+- [ ] CANDIDATE · ISS-154 (low): requestHash is over redacted text, so retries differing only in redacted tokens replay instead of conflict.
+- [ ] CANDIDATE · ISS-155 (low): chat request body (up to 256 KB) is read before the limiter; limiter is per process; name redaction is heuristic.
+- [ ] CANDIDATE · ISS-158 (low): profileFactsUsed is not redacted on the chat response (empty today).
+- [ ] CANDIDATE · ISS-159 (low): a schema-parse failure in a chat turn is not abandon()ed, so the turn lease blocks a retry for 90 s.
+- [ ] CANDIDATE · ISS-160 (low): textStored is fixed at thread creation; a later consent change does not alter it.
+- [ ] CANDIDATE · ISS-161 (low): an erased profile fact is re-proposed on the next matching turn.
+- [ ] CANDIDATE · ISS-162 (low): test gap, an over-long crisis message on the chat route (the profile-outage and crisis-flood gaps are covered by the p1-u8r tests).
+
 ## Sweep notes (2026-09-26T19:44 IST, Mode B single-agent sweep — only qa/ + TASKS commits landed since the last sweep 38c426e, so sharding buys nothing)
 
 - **Bypass / pair-state (1):** no uncommitted or unmanifested code changes on main (`git status` shows only `qa/.last-tick` + `.handoffs/`). `t-021-provider-failover`'s worktree, snapshotted mid-sweep with ~15 uncommitted files, was committed (`0fa58c1`) by the live maker session between this sweep's first and second look — confirms the maker is active, not a bypass.
