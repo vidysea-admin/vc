@@ -1007,6 +1007,77 @@ test("D-093 2A repair: a trailing '1' after 'kill' ('kill1 myself') is flagged (
   assert.equal(crisisGuard("I will fill11 forms").level, "none");
 });
 
+// eng3 fix cycle 3 (extra cycle, D-098), cycle-2 FAIL: the leet fold was quadratic on a long run of look-alike characters.
+test("D-093 2A cycle 3: the leet fold is linear on long runs of look-alike characters (cycle-2 FAIL)", () => {
+  for (const [label, text] of [
+    ["1 x100000", "1".repeat(100000)],
+    ["5 x100000", "5".repeat(100000)],
+    ["kill + 1 x100000", "kill" + "1".repeat(100000)],
+    ["! x100000", "!".repeat(100000)],
+    ["@$ x50000", "@$".repeat(50000)],
+    ["1 x100000 then a stop", "1".repeat(100000) + "."],
+  ] as const) {
+    let best = Infinity;
+    for (let run = 0; run < 3; run++) {
+      const started = performance.now();
+      crisisGuard(text);
+      best = Math.min(best, performance.now() - started);
+    }
+    assert.ok(best < 200, `${label} took ${best.toFixed(0)} ms`);
+  }
+  // Recall on the folded forms is unchanged.
+  assert.equal(crisisGuard("kill1 myself").level, "crisis");
+  assert.equal(crisisGuard("i w4nt to d1e").level, "crisis");
+});
+
+// D-098 item 2: a study object followed, in the same clause, by distress words is still a crisis statement (D-020 recall).
+test("D-093 2A cycle 3: 'see the point in continuing <study object>' fires when distress follows in the clause (D-098)", () => {
+  for (const text of [
+    "i dont see the point in continuing college i hate myself",
+    "I dont see the point in continuing with my studies, I hate myself",
+    "I don't see the point in continuing college, I'm worthless",
+    "I don't see the point in continuing the course because everything hurts",
+    "I don't see the point in continuing the course of my life",
+    "I don't see the point in continuing my IELTS prep i feel hopeless",
+    "I don't see the point in going on with this course nobody cares about me",
+    "I don't see the point in continuing coaching classes I am a burden to everyone",
+    "I don't see the point in continuing MBA i feel so empty",
+    "I don't see the point in continuing with MBA there is so much pain",
+    "i dont see the point in going onwards",
+    "I don't see the point in going onwards.",
+    "I see no point in going onward",
+  ]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+  // The W1 study-talk cases stay none.
+  for (const text of [
+    "I don't see the point in continuing with MBA",
+    "I don't see the point in going on with this course",
+    "I don't see the point in continuing coaching classes",
+    "I don't see the point in going online for classes",
+    "I don't see the point in continuing my GRE coaching because the fees are too high",
+    "I see no point in continuing with an MS in CS",
+  ]) {
+    assert.equal(crisisGuard(text).level, "none", text);
+  }
+});
+
+test("D-093 2A cycle 3: 'see the point in continuing' scanning is linear on a long repeated phrase", () => {
+  for (const unit of ["i dont see the point in continuing mba ", "i dont see the point in continuing ", "i dont see the point in going on with this course "]) {
+    const text = unit.repeat(Math.ceil(100000 / unit.length));
+    let best = Infinity;
+    for (let run = 0; run < 3; run++) {
+      const started = performance.now();
+      crisisGuard(text);
+      best = Math.min(best, performance.now() - started);
+    }
+    assert.ok(best < 500, `${JSON.stringify(unit)} x repeated took ${best.toFixed(0)} ms`);
+  }
+  // More than a handful of study-suppressed repeats is not plain study talk: it is flagged (fail closed, D-020).
+  assert.equal(crisisGuard("i dont see the point in continuing mba ".repeat(30)).level, "crisis");
+  assert.equal(crisisGuard("i dont see the point in continuing mba ".repeat(3)).level, "none");
+});
+
 test("D-093 2A: every new Hinglish/English phrase has its spaced / doubled / punctuated evasion forms flagged", () => {
   const failures: string[] = [];
   // Not generated: leet phrases (letter-spacing a leet phrase is a second evasion on top of the first) and "kms" sentences (a

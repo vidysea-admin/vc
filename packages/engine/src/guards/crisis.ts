@@ -583,7 +583,9 @@ const TYPOGRAPHIC_APOSTROPHE = /[‘’ʼ′＇]/g;
  * number ("5 lakh", "2026") has no letter beside it and is untouched.
  */
 const LEET_MAP: Readonly<Record<string, string>> = { "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i" };
-const LEET_BEFORE_LETTER = /[013457@$!]+(?=\p{L})/gu;
+// The run start is anchored (no look-alike character directly before it), so a long run is scanned once, from its first character.
+// Unanchored, every start position inside a 100000-character run of "1" re-scanned the rest of the run: quadratic (cycle-2 FAIL).
+const LEET_BEFORE_LETTER = /(?<![013457@$!])[013457@$!]+(?=\p{L})/gu;
 const LEET_AFTER_LETTER = /(?<=\p{L})[013457@$]+/gu;
 /**
  * A whole run of look-alike characters is folded ("ki11" -> "kiii" or, with `oneAs` "l", "kill"). "1" is ambiguous: i ("d1e",
@@ -679,9 +681,9 @@ function matchTokens(view: string): string[] {
  * it needs a study noun after it, so "... going on my family would be better off" fires. The life form ("with my life") is also
  * a plain CRISIS_PATTERNS entry.
  */
-const POINT_IN_CONTINUING = /\b(?:(?:don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(?:the|any)|see\s+no)\s+point\s+in\s+(?:going\s*on|continuing)(?![\p{L}\p{N}])/gu;
+const POINT_IN_CONTINUING = /\b(?:(?:don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(?:the|any)|see\s+no)\s+point\s+in\s+(?:going\s*on(?:wards?)?|continuing)(?![\p{L}\p{N}])/gu;
 /** The same phrase on the lowercased raw text, immediately followed by punctuation (the normalised views fold punctuation away). */
-const POINT_IN_CONTINUING_PUNCT = /\b(?:(?:don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(?:the|any)|see\s+no)\s+point\s+in\s+(?:going\s*on|continuing)\s*[^\p{L}\p{M}\p{N}\s']/u;
+const POINT_IN_CONTINUING_PUNCT = /\b(?:(?:don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(?:the|any)|see\s+no)\s+point\s+in\s+(?:going\s*on(?:wards?)?|continuing)\s*[^\p{L}\p{M}\p{N}\s']/u;
 const POINT_STUDY_LEAD_IN = new Set(["with", "my", "the", "this", "these", "those", "a", "an", "our", "his", "her", "their", "your", "to"]);
 const POINT_STUDY_NOUNS = new Set([
   "ielts", "gre", "gmat", "toefl", "sat", "mba", "ms", "btech", "course", "degree", "prep", "preparation", "studies", "study",
@@ -689,16 +691,39 @@ const POINT_STUDY_NOUNS = new Set([
 ]);
 const POINT_LIFE_WORDS = new Set(["living", "life", "live", "alive", "existing", "exist"]);
 const POINT_WITH_ALWAYS = new Set(["things", "it", "everything"]);
+/**
+ * Cycle 3 (D-098, recall over precision): a study object does NOT suppress when distress follows in the same clause. The
+ * normalised view has no punctuation, so the clause is the rest of the view (bounded to POINT_REST_WINDOW characters, which keeps
+ * the scan linear on a turn that repeats the phrase). Distress is: a life word, a hard-distress phrase (POINT_DISTRESS), or any
+ * CRISIS_PATTERNS / CONCERN_PATTERNS match run on that rest.
+ */
+const POINT_REST_WINDOW = 240;
+/** After this many study-suppressed matches in one view the turn is flagged: a turn that repeats the phrase is not plain study talk. */
+const POINT_MAX_SUPPRESSED = 20;
+const POINT_DISTRESS =
+  /\b(?:hate[ds]?\s+(?:myself|my\s*self|me|my\s+life|everything|being\s+alive)|worthless|hopeless|helpless|useless\s+(?:person|human|to\s+everyone)|burden|depress(?:ed|ion|ing)|miserable|hurts?|hurting|pain(?:ful)?|suffer(?:ing)?|suffocat(?:ing|ed)|drowning|crying|alone|lonely|empty|numb|dead|die|dying|death|suicid(?:e|al)|kill(?:ing)?|nobody|no\s*one|nothing\s+matters|everything\s+is\s+(?:pointless|meaningless)|give\s+up|gave\s+up|ashamed|failure|loser)\b/u;
+function pointRestHasDistress(rest: string, tokens: readonly string[]): boolean {
+  return (
+    tokens.some((t) => POINT_LIFE_WORDS.has(t)) ||
+    POINT_DISTRESS.test(rest) ||
+    CRISIS_PATTERNS.some((pattern) => pattern.test(rest)) ||
+    CONCERN_PATTERNS.some((pattern) => pattern.test(rest))
+  );
+}
 function matchPointContinuing(view: string): boolean {
+  let suppressed = 0;
   for (const m of view.matchAll(POINT_IN_CONTINUING)) {
-    const rest = view.slice((m.index ?? 0) + m[0].length).split(" ").filter((t) => t.length > 0);
-    if (rest.length === 0) return true;
-    if (rest.slice(0, 4).some((t) => POINT_LIFE_WORDS.has(t))) return true;
-    const [first, second] = rest;
-    if (first === "without" || (first === "with" && POINT_WITH_ALWAYS.has(second)) || (first === "like" && second === "this")) return true;
-    if (POINT_STUDY_NOUNS.has(first)) continue;
-    if (POINT_STUDY_LEAD_IN.has(first) && rest.slice(1, 4).some((t) => POINT_STUDY_NOUNS.has(t))) continue;
-    return true;
+    const start = (m.index ?? 0) + m[0].length;
+    const rest = view.slice(start, start + POINT_REST_WINDOW);
+    const tokens = rest.split(" ").filter((t) => t.length > 0);
+    // Nothing follows, or something other than a study object does: the statement itself is the signal.
+    if (tokens.length === 0 || pointRestHasDistress(rest, tokens)) return true;
+    const [first, second] = tokens;
+    const studyObject =
+      POINT_STUDY_NOUNS.has(first) || (POINT_STUDY_LEAD_IN.has(first) && tokens.slice(1, 4).some((t) => POINT_STUDY_NOUNS.has(t)));
+    // "with things / it / everything" is the one lead-in that never counts as a study object ("... with it my exams are over" fires).
+    if (!studyObject || (first === "with" && POINT_WITH_ALWAYS.has(second))) return true;
+    if (++suppressed > POINT_MAX_SUPPRESSED) return true;
   }
   return false;
 }
