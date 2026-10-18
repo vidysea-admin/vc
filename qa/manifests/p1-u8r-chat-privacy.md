@@ -3,7 +3,7 @@
 **Criteria:** cycle 2: C11 only a real escalation confirms the slot (textless holder rank 0), C12 a failed slot is never restored, C13 bounded wait behind an unconfirmed holder (replaces the C8 flag-only row), C14 titles and initials outside the name cap; cycle 1: C7 ranked crisis slot (cycle-1 H1), C8 no unrecorded crisis turn + replay of a completed crisis turn (cycle-1 race), C9 titles do not end a name, C10 linear email scan; earlier: C1 profile outage fails closed (M1), C2 crisis write cap (M2), C3 lower-case self-introductions (A1), C4 stated names redacted in the model reply (A2), C5 escalation path gets redacted text (B medium), C6 fact key redacted (low)
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS (checker A PASS cycle 2 sha 8d0c2e3, qa/verdicts/p1-u8r-chat-privacy.A.md; checker B PASS cycle 2 sha b4aa502, qa/verdicts/p1-u8r-chat-privacy.B.md; senior review cycle 2 Approve; findings ISS-198..ISS-207)
 **Fix cycle:** 2 of max 2
 **Dual check:** required
 dual-trigger: security apps/api/src/chat.ts:487 (the redaction/persistence decision: `persistText` refuses to store while the Pathlynks profile name cannot be redacted or the turn is quiet; `chat.ts:477` 503; `chat.ts:358` escalation text; cycle 1: `chat.ts:336` ranked `takeCrisisSlot`, `chat.ts:498` replay of a completed turn, `chat.ts:564` quiet flag-only record; cycle 2: `chat.ts:609` slot confirmed only on a real escalation, `chat.ts:518` textless rank 0, `chat.ts:368` bounded `awaitHolder`, `chat.ts:346` released slots ignored, `redact.ts:91` `NAME_PREFIX`)
