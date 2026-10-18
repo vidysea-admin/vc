@@ -23,3 +23,4 @@ export * from "./cards/index.js";
 export * from "./student/graph.js";
 export * from "./student/claims.js";
 export * from "./student/classify.js";
+export * from "./student/rank.js";
