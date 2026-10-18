@@ -1,0 +1,12 @@
+[testlock] running (free RAM 3.31 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern=A15c tests/anonymous-zero-persistence.test.ts
+✔ A15c: the KB sees exactly one search call carrying only q; never /ask, never get_session; no identifier or header reaches it (262.7918ms)
+✔ A15c: when search finds nothing the route answers no_sourced_answer and STILL never falls back to /ask or get_session (73.9157ms)
+✔ A15c: a KB outage is the fixed no-answer, not an error and not an uncited answer (75.9571ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9842.5624

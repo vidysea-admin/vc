@@ -1,0 +1,20 @@
+# P1 U6 checker — /checker Mode A, fresh, independent, writes a verdict file
+Unit: qa/manifests/p1-u6-student-graph.md in worktree S/p1-u6 (branch p1/u6, HEAD e177db8, code 743d78b (review repair on top of e6f64a1), base cd2c092 = a06c150+p1/u2+p1/u5a). S = C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad.
+Follow ~/.claude/skills/checker/SKILL.md, Policy-Version proportional-verification/2026-10-15.12. Tier L (crisis/safety path), one checker. Never touch D:\vc working tree; never edit .claude/** or product code. Mock only, no network.
+Read the cited criteria yourself in <wt>/qa/contracts/counselling-engine.md and D:/vc/qa/evidence/p1-plan-draft-20261017/{spec,plan}.md (plan line 24).
+Prove OUTCOME through the graph entry point with hostile turns (not helper-only):
+- KB order: search first; /ask only when 0 hits >= threshold; served /ask only under serve rule; else fixed no-answer. /ask with web sources rejected.
+- Claims: /ask claim "verified" only when get_session text supports it; else attributed; /search claims vs turn.text; a claim whose sourceId is not in tool output never ships as verified. Try a meaning-reversing paraphrase ("X does NOT require IELTS" vs source "X requires IELTS") and report the result (known word-match risk).
+- No-quote: WhatsApp/unknown verbatim and speaker names never reach output; hostile name variants (ZWSP, case, diacritics, Hindi transliteration, initials, split across lines); seminar/toc verbatim only with permission record.
+- Crisis A11b: crisis turns (English, Hindi, Hinglish incl. "pressure bahut hai", "marna chahta hoon", letters/spaced) produce the fixed message + Tele-MANAS 14416 before any KB/model call; report misses as PROPOSED-ISSUE, and FAIL only if a phrase the contract/spec lists is missed or the existing crisis-escalation tests regress.
+- Unauthenticated -> gate; personal question classifier; coach-first no-script kept; tools only from capability manifest; failover.
+Reuse builder runs only after identity checks; tests via `bash D:/vc/scripts/vc-testlock.sh pnpm -C <S>/p1-u6/packages/engine test` (lock waits normal). No full suite. One falsification per criterion in a copy.
+Write <wt>/qa/verdicts/p1-u6-student-graph.md (Cycle checked: 0, PASS/FAIL per criterion, Metrics, PROPOSED-ISSUE lines), commit on p1/u6 with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Report verdict + SHA under 20 lines.
+Repair also claims fixes from a senior review; prove each as outcome, hostile:
+- Crisis message still delivered when the counter, flag log or DB write throws (A11/A11b); 4001-char crisis text gets the crisis message, never an auth error.
+- No-quote cannot be bypassed by empty sourceIds, an unknown-kind speaker label or verbatim text in the final joined message.
+- followUp text is grounded or dropped; supports() handles negation, country-prefix (india/individual), off-list countries, numbers and units.
+- classify: profile_confirm does not hijack questions; erasure needs "my"; LOR requirements question is not drafting.
+- index.ts re-exports the student graph.
+Known conflict: R2a drops claims with no resolvable source while contract B2 says "shown flagged"; D-092 (D:/vc/docs/DECISIONS.md) says anonymous drops unverified and authenticated keeps "(unverified)". Judge against D-092 + contract; if they disagree, write the contract amendment yourself per checker SKILL contract maintenance or return CONTRACT_MISMATCH.
+Fix cycle in manifest says 0 (pre-check repair before first verdict): write Cycle checked: 0.

@@ -15,6 +15,11 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p evals/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json",
     "test": "tsx --test tests/*.test.ts evals/*.test.ts",
     "eval:scribe": "tsx evals/run-eval.ts",
+    "eval:kb": "tsx evals/run-kb.ts",
+    "eval:h2h": "tsx evals/run-h2h.ts",
+    "eval:probes": "tsx evals/run-probes.ts",
+    "eval:latency": "tsx evals/run-latency.ts",
+    "eval:live": "tsx evals/run-live.ts",
     "smoke:litellm": "tsx scripts/smoke-litellm.ts"
   },
   "dependencies": {

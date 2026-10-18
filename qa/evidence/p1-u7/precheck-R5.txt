@@ -1,0 +1,17 @@
+[testlock] waiting for lock held by: PID=30372 STARTED=639278853108383746 ACQUIRED_AT=1792268718 TOKEN=1792268718786444200-7339-24726 DESC=pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-eng3/packages/engine exec tsx --test tests/guard-crisis.test.ts tests/crisis-defaults.test.ts tests/crisis-escalation.test.ts tests/crisis-eval.test.ts tests/claims-guard.test.ts tests/no-quote.test.ts tests/student-graph.test.ts tests/scribe-erasure-fence.test.ts tests/student-classify.test.ts 
+[testlock] write_owner_enrich: lock dir token changed (ours [1792268760150361800-7748-8082], now [1792268761011424500-7408-2084]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] owner PID 9548 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] owner PID 36296 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running (free RAM 0.43 GB): pnpm -C apps/api exec tsx --test --test-timeout=30000 --test-name-pattern=U7 repair 5 tests/anonymous-route.test.ts
+✔ U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 the route can return, and the AnonymousError schema carries the helpline field (4.2153ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16823.066

@@ -1,0 +1,11 @@
+# P1 U2 checker — /checker Mode A, fresh, independent, WRITES A VERDICT FILE
+Role: checker. Unit: qa/manifests/p1-u2-kb-tools.md in worktree S/p1-u2 (branch p1/u2, HEAD 4f04409; code base 38e751d -> 4cef7de cycle 0 -> 61dabdc repair). S = C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad.
+Follow ~/.claude/skills/checker/SKILL.md, Policy-Version proportional-verification/2026-10-15.12. No earlier checker verdict exists for this unit, so check EVERY criterion in the manifest over the whole-unit diff 38e751d..61dabdc (not only the repair). Never touch D:\vc working tree; never edit .claude/** or product code.
+Read the cited contract rows yourself in S/p1-u2/qa/contracts/counselling-engine.md and spec qa/evidence/p1-plan-draft-20261017/spec.md (in D:\vc, read-only). KB ground truth (read-only): D:/KnowledgeBase/packages/ask/src/{router,evaluator,ask-v2}.ts, apps/api/src/routes/{ask,search,brain}.ts.
+Prove OUTCOME with hostile variants, at the tool boundary (call the registered MCP tools, not just helpers):
+- Serve rule: served only when verdict=="correct" && !insufficient_coverage && !web_used && >=1 internal; "Correct", missing flags, web_used true, stray web array -> withheld fixed text, empty citations, no reason/answer text. Realistic no-coverage body (incorrect, insufficient true, internal [], web []) -> no_sourced_answer, NOT unavailable. Network/5xx/schema -> unavailable.
+- speakerLabel present only for seminar/toc kinds; absent for whatsapp, unknown, /sources down, source missing; both profiles.
+- Anonymous profile: only search_kb + kb_sources registered even with a full client; wire carries no tenant/student/thread id; uses VC_KB_ANON_API_KEY only, never falls back.
+- Served /ask output has sourceKind "unknown"; ask query > 1000 rejected; mismatched turn/session ids dropped.
+Reuse builder runs only after identity checks; run missing tests via `bash D:/vc/scripts/vc-testlock.sh pnpm -C <S>/p1-u2/mcp/university-kb test` (lock waits are normal). No full suite. One falsification per criterion, in a copy (never the worktree).
+Write S/p1-u2/qa/verdicts/p1-u2-kb-tools.md (Cycle checked: 1, PASS/FAIL per criterion, Metrics line, PROPOSED-ISSUE lines) and commit it on p1/u2 with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Report verdict + SHA in under 20 lines.

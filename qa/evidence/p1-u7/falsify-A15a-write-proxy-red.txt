@@ -1,0 +1,67 @@
+[testlock] running (free RAM 0.93 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7-fals/apps/api exec tsx --test --test-timeout=30000 tests/anonymous-zero-persistence.test.ts tests/anonymous-route.test.ts
+✔ A20: the anonymous route is OFF by default - unset, empty and 'false' all read as disabled; only the exact word 'true' enables (5.3325ms)
+✔ A20 state OFF: with the flag off nothing is built and the path answers exactly like an unknown path (404), for every method (47.318ms)
+✔ A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route (47.4321ms)
+✔ A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed (317.1667ms)
+✔ A20 state ON and gate open: the route is served (237.9293ms)
+✔ no student text is traced: an env that switches LangChain/LangSmith tracing on refuses to build the route (163.0384ms)
+✔ B21 exception: the closed list is exactly one text route, equals the draft's security:[] operations, and contains no voice route (1.3203ms)
+✔ B21 exception: with the anonymous route ON, every other registered route still answers 401 with no token, and the main handler touches no Db (82.0306ms)
+✔ B21 exception: the anonymous route ignores identity - a valid-looking Authorization header changes nothing and no tenant or student id is read (126.1371ms)
+✔ startApi: flag off -> the anonymous path is a 404 over real HTTP and no gate file is read (97.785ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (19.1263ms)
+✔ startApi: flag on without a KB or speakers supplied is a config error, before connecting (30.6295ms)
+✔ startApi: flag on and gate open -> a real HTTP POST is answered and ONLY the text-free counter is written to virtual_counsellor; other routes still 401 (162.1636ms)
+✔ the node:http adapter hands the socket address to the limiter (10 per minute per real client) (336.3724ms)
+✔ U7 repair 2: with the flag on, startApi refuses to start unless the deployment states how clients are told apart - an explicit clientKey or trustSocketAddress: true (60.2286ms)
+✔ U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 the route can return, and the AnonymousError schema carries the helpline field (0.5199ms)
+✔ A15a: 50 text turns through the real route (crisis, PII, borderline, generic) write nothing but increments of the text-free counter (1358.1214ms)
+✖ A15a: the handler is built with throwing proxies for gap log, flag log and escalation, no checkpointer, and the counter as its only writer (6.112ms)
+✔ A15a: the compiled anonymous graph has no checkpointer (122.8182ms)
+✔ A15a: the counter writer is atomic per (date, kind), uses the injected UTC date, and refuses an unknown kind (53.483ms)
+✔ A15a: a counter outage never fails the turn and never writes elsewhere (crisis still gets the fixed message) (131.9478ms)
+✔ A15b: >= 40 borderline cases (English, Hinglish, Hindi) through the route: 0 personal or ambiguous questions answered as generic (640.9945ms)
+✔ A15b: a clear generic question (English, Hinglish, Hindi) is answered, with sources (107.4148ms)
+✔ A15b: the limiter allows 10 requests per minute per client, the 11th is 429 with Retry-After, other clients are unaffected, the window then reopens (345.5067ms)
+✔ A15b: the limiter is in-memory and text-free: its key is hashed, never logged, never persisted; expired keys are purged; a full table fails closed (187.2306ms)
+✔ A15c: the KB sees exactly one search call carrying only q; never /ask, never get_session; no identifier or header reaches it (44.4227ms)
+✔ A15c: when search finds nothing the route answers no_sourced_answer and STILL never falls back to /ask or get_session (61.3165ms)
+✔ A15c: a KB outage is the fixed no-answer, not an error and not an uncited answer (40.597ms)
+✔ D-092: an unverified claim is dropped in anonymous mode and never shown with a flag; only-unverified is the fixed no-answer (84.8748ms)
+✔ crisis (B24.7): English and Hinglish get the fixed message with Tele-MANAS 14416, no model, no KB, only the crisis counter, nothing logged (53.4977ms)
+✔ crisis (B24.7, U6h L5): a crisis phrase beyond the 4000-character limit is still the fixed message, not a 400 (46.7148ms)
+✔ validation: malformed bodies are a bare 400, over-long non-crisis text is 400, an oversized body is 413; no input is echoed (47.1302ms)
+✔ validation: a near-limit body (about 190 KB of text) is scanned for crisis in bounded time and then refused as over-long (116.6531ms)
+✔ errors: an unexpected failure is a bare 500 {error: internal}; the log line carries the error NAME only, never its message or the text (50.44ms)
+✔ provider failure is the apology text (A12), not an error and not an unsourced answer (43.5985ms)
+✔ U7 repair 1/B: a counter that never answers does not delay any reply - crisis, sign-in and answered turns all return within the deadline (328.5113ms)
+✔ U7 repair 1: the default counter deadline is under one second, so a hung database delays the crisis message by less than that, not by the driver's 30 s (815.104ms)
+✔ U7 repair A: a crisis message is answered with the fixed message and Tele-MANAS even at request 11 (rate limited) and with a full limiter table (295.7647ms)
+✔ U7 repair A: every non-200 anonymous body (400, 405, 413, 429, 500) carries the static Tele-MANAS helpline (75.1042ms)
+✔ U7 repair D (API): the sign-in and no-answer replies over the real route carry the helpline line too (67.6522ms)
+✔ U7 repair C/E/F over the route: no follow-up question, opaque source ids and an email address is sign-in-required (53.0643ms)
+✔ U7 repair 3: client addresses are normalised before hashing - IPv4-mapped IPv6 shares the IPv4 bucket and every address in one IPv6 /64 shares one bucket (731.148ms)
+✔ U7 repair 4: with a full table the O(n) sweep runs at most once a second, however many new keys arrive (11.6511ms)
+ℹ tests 43
+ℹ suites 0
+ℹ pass 42
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13741.2981
+
+✖ failing tests:
+
+test at tests\anonymous-zero-persistence.test.ts:110:1
+✖ A15a: the handler is built with throwing proxies for gap log, flag log and escalation, no checkpointer, and the counter as its only writer (6.112ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection (AnonymousForbiddenWriteError).
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u7-fals\apps\api\tests\anonymous-zero-persistence.test.ts:118:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'rejects',
+    diff: 'simple'
+  }

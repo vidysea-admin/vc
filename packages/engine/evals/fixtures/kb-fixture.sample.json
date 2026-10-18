@@ -1,0 +1,5470 @@
+{
+ "schemaVersion": 1,
+ "source": "synthetic",
+ "recordedAt": "2026-10-17T00:00:00Z",
+ "search": [
+  {
+   "query": "SYNTHETIC: what should a student know about tuition in USA? (q1)",
+   "hits": [
+    {
+     "turnId": "t-1-X",
+     "sessionId": "s-1",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 1/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-1-2",
+     "sessionId": "s-1",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 1/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-1-3",
+     "sessionId": "s-1",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 1/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-1-4",
+     "sessionId": "s-1",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 1/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-1-5",
+     "sessionId": "s-1",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 1/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about scholarships in UK? (q2)",
+   "hits": [
+    {
+     "turnId": "t-2-1",
+     "sessionId": "s-2",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 2/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-2-X",
+     "sessionId": "s-2",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 2/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-2-3",
+     "sessionId": "s-2",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 2/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-2-4",
+     "sessionId": "s-2",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 2/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-2-5",
+     "sessionId": "s-2",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 2/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about visa in Canada? (q3)",
+   "hits": [
+    {
+     "turnId": "t-3-1",
+     "sessionId": "s-3",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 3/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-3-2",
+     "sessionId": "s-3",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 3/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-3-X",
+     "sessionId": "s-3",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 3/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-3-4",
+     "sessionId": "s-3",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 3/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-3-5",
+     "sessionId": "s-3",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 3/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about intakes in Australia? (q4)",
+   "hits": [
+    {
+     "turnId": "t-4-X",
+     "sessionId": "s-4",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 4/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-4-2",
+     "sessionId": "s-4",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 4/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-4-3",
+     "sessionId": "s-4",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 4/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-4-4",
+     "sessionId": "s-4",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 4/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-4-5",
+     "sessionId": "s-4",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 4/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about work-rights in Germany? (q5)",
+   "hits": [
+    {
+     "turnId": "t-5-1",
+     "sessionId": "s-5",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 5/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-5-X",
+     "sessionId": "s-5",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 5/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-5-3",
+     "sessionId": "s-5",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 5/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-5-4",
+     "sessionId": "s-5",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 5/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-5-5",
+     "sessionId": "s-5",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 5/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about accommodation in Ireland? (q6)",
+   "hits": [
+    {
+     "turnId": "t-6-1",
+     "sessionId": "s-6",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 6/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-6-2",
+     "sessionId": "s-6",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 6/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-6-X",
+     "sessionId": "s-6",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 6/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-6-4",
+     "sessionId": "s-6",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 6/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-6-5",
+     "sessionId": "s-6",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 6/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about tuition in NewZealand? (q7)",
+   "hits": [
+    {
+     "turnId": "t-7-X",
+     "sessionId": "s-7",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 7/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-7-2",
+     "sessionId": "s-7",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 7/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-7-3",
+     "sessionId": "s-7",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 7/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-7-4",
+     "sessionId": "s-7",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 7/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-7-5",
+     "sessionId": "s-7",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 7/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about scholarships in Singapore? (q8)",
+   "hits": [
+    {
+     "turnId": "t-8-1",
+     "sessionId": "s-8",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 8/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-8-2",
+     "sessionId": "s-8",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 8/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-8-3",
+     "sessionId": "s-8",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 8/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-8-X",
+     "sessionId": "s-8",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 8/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-8-5",
+     "sessionId": "s-8",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 8/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about visa in France? (q9)",
+   "hits": [
+    {
+     "turnId": "t-9-1",
+     "sessionId": "s-9",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 9/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-9-2",
+     "sessionId": "s-9",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 9/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-9-X",
+     "sessionId": "s-9",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 9/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-9-4",
+     "sessionId": "s-9",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 9/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-9-5",
+     "sessionId": "s-9",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 9/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about intakes in Netherlands? (q10)",
+   "hits": [
+    {
+     "turnId": "t-10-X",
+     "sessionId": "s-10",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 10/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-10-2",
+     "sessionId": "s-10",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 10/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-10-3",
+     "sessionId": "s-10",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 10/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-10-4",
+     "sessionId": "s-10",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 10/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-10-5",
+     "sessionId": "s-10",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 10/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about work-rights in Japan? (q11)",
+   "hits": [
+    {
+     "turnId": "t-11-1",
+     "sessionId": "s-11",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 11/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-11-X",
+     "sessionId": "s-11",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 11/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-11-3",
+     "sessionId": "s-11",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 11/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-11-4",
+     "sessionId": "s-11",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 11/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-11-5",
+     "sessionId": "s-11",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 11/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about accommodation in UAE? (q12)",
+   "hits": [
+    {
+     "turnId": "t-12-1",
+     "sessionId": "s-12",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 12/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-12-2",
+     "sessionId": "s-12",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 12/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-12-X",
+     "sessionId": "s-12",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 12/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-12-4",
+     "sessionId": "s-12",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 12/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-12-5",
+     "sessionId": "s-12",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 12/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about tuition in USA? (q13)",
+   "hits": [
+    {
+     "turnId": "t-13-X",
+     "sessionId": "s-13",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 13/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-13-2",
+     "sessionId": "s-13",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 13/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-13-3",
+     "sessionId": "s-13",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 13/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-13-4",
+     "sessionId": "s-13",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 13/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-13-5",
+     "sessionId": "s-13",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 13/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about scholarships in UK? (q14)",
+   "hits": [
+    {
+     "turnId": "t-14-1",
+     "sessionId": "s-14",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 14/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-14-X",
+     "sessionId": "s-14",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 14/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-14-3",
+     "sessionId": "s-14",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 14/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-14-4",
+     "sessionId": "s-14",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 14/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-14-5",
+     "sessionId": "s-14",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 14/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about visa in Canada? (q15)",
+   "hits": [
+    {
+     "turnId": "t-15-1",
+     "sessionId": "s-15",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 15/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-15-2",
+     "sessionId": "s-15",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 15/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-15-X",
+     "sessionId": "s-15",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 15/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-15-4",
+     "sessionId": "s-15",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 15/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-15-5",
+     "sessionId": "s-15",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 15/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about intakes in Australia? (q16)",
+   "hits": [
+    {
+     "turnId": "t-16-X",
+     "sessionId": "s-16",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 16/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-16-2",
+     "sessionId": "s-16",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 16/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-16-3",
+     "sessionId": "s-16",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 16/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-16-4",
+     "sessionId": "s-16",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 16/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-16-5",
+     "sessionId": "s-16",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 16/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about work-rights in Germany? (q17)",
+   "hits": [
+    {
+     "turnId": "t-17-1",
+     "sessionId": "s-17",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 17/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-17-X",
+     "sessionId": "s-17",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 17/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-17-3",
+     "sessionId": "s-17",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 17/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-17-4",
+     "sessionId": "s-17",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 17/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-17-5",
+     "sessionId": "s-17",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 17/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about accommodation in Ireland? (q18)",
+   "hits": [
+    {
+     "turnId": "t-18-1",
+     "sessionId": "s-18",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 18/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-18-2",
+     "sessionId": "s-18",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 18/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-18-X",
+     "sessionId": "s-18",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 18/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-18-4",
+     "sessionId": "s-18",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 18/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-18-5",
+     "sessionId": "s-18",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 18/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about tuition in NewZealand? (q19)",
+   "hits": [
+    {
+     "turnId": "t-19-X",
+     "sessionId": "s-19",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 19/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-19-2",
+     "sessionId": "s-19",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 19/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-19-3",
+     "sessionId": "s-19",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 19/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-19-4",
+     "sessionId": "s-19",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 19/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-19-5",
+     "sessionId": "s-19",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 19/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about scholarships in Singapore? (q20)",
+   "hits": [
+    {
+     "turnId": "t-20-1",
+     "sessionId": "s-20",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 20/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-20-X",
+     "sessionId": "s-20",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 20/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-20-3",
+     "sessionId": "s-20",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 20/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-20-4",
+     "sessionId": "s-20",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 20/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-20-5",
+     "sessionId": "s-20",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 20/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about visa in France? (q21)",
+   "hits": [
+    {
+     "turnId": "t-21-1",
+     "sessionId": "s-21",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 21/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-21-2",
+     "sessionId": "s-21",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 21/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-21-X",
+     "sessionId": "s-21",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 21/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-21-4",
+     "sessionId": "s-21",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 21/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-21-5",
+     "sessionId": "s-21",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 21/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about intakes in Netherlands? (q22)",
+   "hits": [
+    {
+     "turnId": "t-22-X",
+     "sessionId": "s-22",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 22/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-22-2",
+     "sessionId": "s-22",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 22/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-22-3",
+     "sessionId": "s-22",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 22/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-22-4",
+     "sessionId": "s-22",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 22/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-22-5",
+     "sessionId": "s-22",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 22/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about work-rights in Japan? (q23)",
+   "hits": [
+    {
+     "turnId": "t-23-1",
+     "sessionId": "s-23",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 23/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-23-X",
+     "sessionId": "s-23",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 23/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-23-3",
+     "sessionId": "s-23",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 23/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-23-4",
+     "sessionId": "s-23",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 23/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-23-5",
+     "sessionId": "s-23",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 23/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about accommodation in UAE? (q24)",
+   "hits": [
+    {
+     "turnId": "t-24-1",
+     "sessionId": "s-24",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 24/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-24-2",
+     "sessionId": "s-24",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 24/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-24-X",
+     "sessionId": "s-24",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 24/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-24-4",
+     "sessionId": "s-24",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 24/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-24-5",
+     "sessionId": "s-24",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 24/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about tuition in USA? (q25)",
+   "hits": [
+    {
+     "turnId": "t-25-X",
+     "sessionId": "s-25",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 25/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-25-2",
+     "sessionId": "s-25",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 25/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-25-3",
+     "sessionId": "s-25",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 25/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-25-4",
+     "sessionId": "s-25",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 25/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-25-5",
+     "sessionId": "s-25",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 25/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about scholarships in UK? (q26)",
+   "hits": [
+    {
+     "turnId": "t-26-1",
+     "sessionId": "s-26",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 26/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-26-X",
+     "sessionId": "s-26",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 26/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-26-3",
+     "sessionId": "s-26",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 26/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-26-4",
+     "sessionId": "s-26",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 26/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-26-5",
+     "sessionId": "s-26",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 26/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about visa in Canada? (q27)",
+   "hits": [
+    {
+     "turnId": "t-27-1",
+     "sessionId": "s-27",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 27/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-27-2",
+     "sessionId": "s-27",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 27/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-27-X",
+     "sessionId": "s-27",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 27/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-27-4",
+     "sessionId": "s-27",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 27/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-27-5",
+     "sessionId": "s-27",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 27/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about intakes in Australia? (q28)",
+   "hits": [
+    {
+     "turnId": "t-28-X",
+     "sessionId": "s-28",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 28/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-28-2",
+     "sessionId": "s-28",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 28/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-28-3",
+     "sessionId": "s-28",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 28/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-28-4",
+     "sessionId": "s-28",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 28/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-28-5",
+     "sessionId": "s-28",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 28/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about work-rights in Germany? (q29)",
+   "hits": [
+    {
+     "turnId": "t-29-1",
+     "sessionId": "s-29",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 29/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-29-X",
+     "sessionId": "s-29",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 29/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-29-3",
+     "sessionId": "s-29",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 29/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-29-4",
+     "sessionId": "s-29",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 29/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-29-5",
+     "sessionId": "s-29",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 29/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about accommodation in Ireland? (q30)",
+   "hits": [
+    {
+     "turnId": "t-30-1",
+     "sessionId": "s-30",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 30/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-30-2",
+     "sessionId": "s-30",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 30/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-30-X",
+     "sessionId": "s-30",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 30/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-30-4",
+     "sessionId": "s-30",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 30/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-30-5",
+     "sessionId": "s-30",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 30/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about tuition in NewZealand? (q31)",
+   "hits": [
+    {
+     "turnId": "t-31-X",
+     "sessionId": "s-31",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 31/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-31-2",
+     "sessionId": "s-31",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 31/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-31-3",
+     "sessionId": "s-31",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 31/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-31-4",
+     "sessionId": "s-31",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 31/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-31-5",
+     "sessionId": "s-31",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 31/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about scholarships in Singapore? (q32)",
+   "hits": [
+    {
+     "turnId": "t-32-1",
+     "sessionId": "s-32",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 32/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-32-X",
+     "sessionId": "s-32",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 32/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-32-3",
+     "sessionId": "s-32",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 32/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-32-4",
+     "sessionId": "s-32",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 32/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-32-5",
+     "sessionId": "s-32",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 32/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about visa in France? (q33)",
+   "hits": [
+    {
+     "turnId": "t-33-1",
+     "sessionId": "s-33",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 33/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-33-2",
+     "sessionId": "s-33",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 33/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-33-X",
+     "sessionId": "s-33",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 33/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-33-4",
+     "sessionId": "s-33",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 33/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-33-5",
+     "sessionId": "s-33",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 33/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about intakes in Netherlands? (q34)",
+   "hits": [
+    {
+     "turnId": "t-34-X",
+     "sessionId": "s-34",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 34/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-34-2",
+     "sessionId": "s-34",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 34/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-34-3",
+     "sessionId": "s-34",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 34/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-34-4",
+     "sessionId": "s-34",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 34/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-34-5",
+     "sessionId": "s-34",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 34/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about work-rights in Japan? (q35)",
+   "hits": [
+    {
+     "turnId": "t-35-1",
+     "sessionId": "s-35",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 35/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-35-X",
+     "sessionId": "s-35",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 35/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-35-3",
+     "sessionId": "s-35",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 35/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-35-4",
+     "sessionId": "s-35",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 35/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-35-5",
+     "sessionId": "s-35",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 35/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about accommodation in UAE? (q36)",
+   "hits": [
+    {
+     "turnId": "t-36-1",
+     "sessionId": "s-36",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 36/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-36-2",
+     "sessionId": "s-36",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 36/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-36-X",
+     "sessionId": "s-36",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 36/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-36-4",
+     "sessionId": "s-36",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 36/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-36-5",
+     "sessionId": "s-36",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 36/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about tuition in USA? (q37)",
+   "hits": [
+    {
+     "turnId": "t-37-X",
+     "sessionId": "s-37",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 37/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-37-2",
+     "sessionId": "s-37",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 37/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-37-3",
+     "sessionId": "s-37",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 37/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-37-4",
+     "sessionId": "s-37",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 37/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-37-5",
+     "sessionId": "s-37",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 37/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about scholarships in UK? (q38)",
+   "hits": [
+    {
+     "turnId": "t-38-1",
+     "sessionId": "s-38",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 38/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-38-X",
+     "sessionId": "s-38",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 38/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-38-3",
+     "sessionId": "s-38",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 38/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-38-4",
+     "sessionId": "s-38",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 38/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-38-5",
+     "sessionId": "s-38",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 38/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about visa in Canada? (q39)",
+   "hits": [
+    {
+     "turnId": "t-39-1",
+     "sessionId": "s-39",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 39/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-39-2",
+     "sessionId": "s-39",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 39/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-39-X",
+     "sessionId": "s-39",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 39/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-39-4",
+     "sessionId": "s-39",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 39/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-39-5",
+     "sessionId": "s-39",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 39/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about intakes in Australia? (q40)",
+   "hits": [
+    {
+     "turnId": "t-40-X",
+     "sessionId": "s-40",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 40/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-40-2",
+     "sessionId": "s-40",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 40/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-40-3",
+     "sessionId": "s-40",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 40/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-40-4",
+     "sessionId": "s-40",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 40/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-40-5",
+     "sessionId": "s-40",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 40/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about work-rights in Germany? (q41)",
+   "hits": [
+    {
+     "turnId": "t-41-1",
+     "sessionId": "s-41",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 41/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-41-X",
+     "sessionId": "s-41",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 41/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-41-3",
+     "sessionId": "s-41",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 41/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-41-4",
+     "sessionId": "s-41",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 41/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-41-5",
+     "sessionId": "s-41",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 41/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about accommodation in Ireland? (q42)",
+   "hits": [
+    {
+     "turnId": "t-42-1",
+     "sessionId": "s-42",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 42/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-42-2",
+     "sessionId": "s-42",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 42/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-42-X",
+     "sessionId": "s-42",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 42/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-42-4",
+     "sessionId": "s-42",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 42/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-42-5",
+     "sessionId": "s-42",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 42/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about tuition in NewZealand? (q43)",
+   "hits": [
+    {
+     "turnId": "t-43-X",
+     "sessionId": "s-43",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 43/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-43-2",
+     "sessionId": "s-43",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 43/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-43-3",
+     "sessionId": "s-43",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 43/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-43-4",
+     "sessionId": "s-43",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 43/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-43-5",
+     "sessionId": "s-43",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 43/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about scholarships in Singapore? (q44)",
+   "hits": [
+    {
+     "turnId": "t-44-1",
+     "sessionId": "s-44",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 44/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-44-X",
+     "sessionId": "s-44",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 44/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-44-3",
+     "sessionId": "s-44",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 44/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-44-4",
+     "sessionId": "s-44",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 44/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-44-5",
+     "sessionId": "s-44",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 44/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC: what should a student know about visa in France? (q45)",
+   "hits": [
+    {
+     "turnId": "t-45-1",
+     "sessionId": "s-45",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 45/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-45-2",
+     "sessionId": "s-45",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 45/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-45-X",
+     "sessionId": "s-45",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 45/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-45-4",
+     "sessionId": "s-45",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 45/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-45-5",
+     "sessionId": "s-45",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 45/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: Australia mein scholarships ke baare mein batao (q1)",
+   "hits": [
+    {
+     "turnId": "t-46-X",
+     "sessionId": "s-46",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 46/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-46-2",
+     "sessionId": "s-46",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 46/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-46-3",
+     "sessionId": "s-46",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 46/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-46-4",
+     "sessionId": "s-46",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 46/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-46-5",
+     "sessionId": "s-46",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 46/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: Germany mein visa ke baare mein batao (q2)",
+   "hits": [
+    {
+     "turnId": "t-47-X",
+     "sessionId": "s-47",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 47/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-47-2",
+     "sessionId": "s-47",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 47/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-47-3",
+     "sessionId": "s-47",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 47/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-47-4",
+     "sessionId": "s-47",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 47/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-47-5",
+     "sessionId": "s-47",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 47/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: Ireland mein intakes ke baare mein batao (q3)",
+   "hits": [
+    {
+     "turnId": "t-48-X",
+     "sessionId": "s-48",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 48/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-48-2",
+     "sessionId": "s-48",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 48/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-48-3",
+     "sessionId": "s-48",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 48/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-48-4",
+     "sessionId": "s-48",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 48/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-48-5",
+     "sessionId": "s-48",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 48/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: NewZealand mein work-rights ke baare mein batao (q4)",
+   "hits": [
+    {
+     "turnId": "t-49-X",
+     "sessionId": "s-49",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 49/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-49-2",
+     "sessionId": "s-49",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 49/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-49-3",
+     "sessionId": "s-49",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 49/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-49-4",
+     "sessionId": "s-49",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 49/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-49-5",
+     "sessionId": "s-49",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 49/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: Singapore mein accommodation ke baare mein batao (q5)",
+   "hits": [
+    {
+     "turnId": "t-50-X",
+     "sessionId": "s-50",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 50/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-50-2",
+     "sessionId": "s-50",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 50/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-50-3",
+     "sessionId": "s-50",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 50/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-50-4",
+     "sessionId": "s-50",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 50/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-50-5",
+     "sessionId": "s-50",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 50/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: France mein tuition ke baare mein batao (q6)",
+   "hits": [
+    {
+     "turnId": "t-51-X",
+     "sessionId": "s-51",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 51/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-51-2",
+     "sessionId": "s-51",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 51/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-51-3",
+     "sessionId": "s-51",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 51/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-51-4",
+     "sessionId": "s-51",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 51/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-51-5",
+     "sessionId": "s-51",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 51/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: Netherlands mein scholarships ke baare mein batao (q7)",
+   "hits": [
+    {
+     "turnId": "t-52-X",
+     "sessionId": "s-52",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 52/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-52-2",
+     "sessionId": "s-52",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 52/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-52-3",
+     "sessionId": "s-52",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 52/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-52-4",
+     "sessionId": "s-52",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 52/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-52-5",
+     "sessionId": "s-52",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 52/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: Japan mein visa ke baare mein batao (q8)",
+   "hits": [
+    {
+     "turnId": "t-53-X",
+     "sessionId": "s-53",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 53/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-53-2",
+     "sessionId": "s-53",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 53/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-53-3",
+     "sessionId": "s-53",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 53/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-53-4",
+     "sessionId": "s-53",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 53/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-53-5",
+     "sessionId": "s-53",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 53/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: UAE mein intakes ke baare mein batao (q9)",
+   "hits": [
+    {
+     "turnId": "t-54-X",
+     "sessionId": "s-54",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 54/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-54-2",
+     "sessionId": "s-54",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 54/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-54-3",
+     "sessionId": "s-54",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 54/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-54-4",
+     "sessionId": "s-54",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 54/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-54-5",
+     "sessionId": "s-54",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 54/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: USA mein work-rights ke baare mein batao (q10)",
+   "hits": [
+    {
+     "turnId": "t-55-X",
+     "sessionId": "s-55",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 55/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-55-2",
+     "sessionId": "s-55",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 55/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-55-3",
+     "sessionId": "s-55",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 55/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-55-4",
+     "sessionId": "s-55",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 55/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-55-5",
+     "sessionId": "s-55",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 55/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: UK mein accommodation ke baare mein batao (q11)",
+   "hits": [
+    {
+     "turnId": "t-56-X",
+     "sessionId": "s-56",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 56/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-56-2",
+     "sessionId": "s-56",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 56/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-56-3",
+     "sessionId": "s-56",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 56/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-56-4",
+     "sessionId": "s-56",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 56/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-56-5",
+     "sessionId": "s-56",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 56/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: Canada mein tuition ke baare mein batao (q12)",
+   "hits": [
+    {
+     "turnId": "t-57-X",
+     "sessionId": "s-57",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 57/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-57-2",
+     "sessionId": "s-57",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 57/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-57-3",
+     "sessionId": "s-57",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 57/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-57-4",
+     "sessionId": "s-57",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 57/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-57-5",
+     "sessionId": "s-57",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 57/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: Australia mein scholarships ke baare mein batao (q13)",
+   "hits": [
+    {
+     "turnId": "t-58-X",
+     "sessionId": "s-58",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 58/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-58-2",
+     "sessionId": "s-58",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 58/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-58-3",
+     "sessionId": "s-58",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 58/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-58-4",
+     "sessionId": "s-58",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 58/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-58-5",
+     "sessionId": "s-58",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 58/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: Germany mein visa ke baare mein batao (q14)",
+   "hits": [
+    {
+     "turnId": "t-59-X",
+     "sessionId": "s-59",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 59/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-59-2",
+     "sessionId": "s-59",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 59/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-59-3",
+     "sessionId": "s-59",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 59/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-59-4",
+     "sessionId": "s-59",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 59/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-59-5",
+     "sessionId": "s-59",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 59/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  },
+  {
+   "query": "SYNTHETIC-HI: Ireland mein intakes ke baare mein batao (q15)",
+   "hits": [
+    {
+     "turnId": "t-60-X",
+     "sessionId": "s-60",
+     "score": 0.8,
+     "turn": {
+      "text": "synthetic KB turn 60/1"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-60-2",
+     "sessionId": "s-60",
+     "score": 0.7,
+     "turn": {
+      "text": "synthetic KB turn 60/2"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-60-3",
+     "sessionId": "s-60",
+     "score": 0.6,
+     "turn": {
+      "text": "synthetic KB turn 60/3"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-60-4",
+     "sessionId": "s-60",
+     "score": 0.5,
+     "turn": {
+      "text": "synthetic KB turn 60/4"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    },
+    {
+     "turnId": "t-60-5",
+     "sessionId": "s-60",
+     "score": 0.4,
+     "turn": {
+      "text": "synthetic KB turn 60/5"
+     },
+     "session": {
+      "date": "2026-01-15",
+      "sourceId": "src-synthetic-seminar"
+     }
+    }
+   ]
+  }
+ ],
+ "ask": [],
+ "sessions": {
+  "s-1": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-1-X",
+     "text": "synthetic KB turn 1/1"
+    },
+    {
+     "turnId": "t-1-2",
+     "text": "synthetic KB turn 1/2"
+    },
+    {
+     "turnId": "t-1-3",
+     "text": "synthetic KB turn 1/3"
+    },
+    {
+     "turnId": "t-1-4",
+     "text": "synthetic KB turn 1/4"
+    },
+    {
+     "turnId": "t-1-5",
+     "text": "synthetic KB turn 1/5"
+    }
+   ]
+  },
+  "s-2": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-2-1",
+     "text": "synthetic KB turn 2/1"
+    },
+    {
+     "turnId": "t-2-X",
+     "text": "synthetic KB turn 2/2"
+    },
+    {
+     "turnId": "t-2-3",
+     "text": "synthetic KB turn 2/3"
+    },
+    {
+     "turnId": "t-2-4",
+     "text": "synthetic KB turn 2/4"
+    },
+    {
+     "turnId": "t-2-5",
+     "text": "synthetic KB turn 2/5"
+    }
+   ]
+  },
+  "s-3": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-3-1",
+     "text": "synthetic KB turn 3/1"
+    },
+    {
+     "turnId": "t-3-2",
+     "text": "synthetic KB turn 3/2"
+    },
+    {
+     "turnId": "t-3-X",
+     "text": "synthetic KB turn 3/3"
+    },
+    {
+     "turnId": "t-3-4",
+     "text": "synthetic KB turn 3/4"
+    },
+    {
+     "turnId": "t-3-5",
+     "text": "synthetic KB turn 3/5"
+    }
+   ]
+  },
+  "s-4": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-4-X",
+     "text": "synthetic KB turn 4/1"
+    },
+    {
+     "turnId": "t-4-2",
+     "text": "synthetic KB turn 4/2"
+    },
+    {
+     "turnId": "t-4-3",
+     "text": "synthetic KB turn 4/3"
+    },
+    {
+     "turnId": "t-4-4",
+     "text": "synthetic KB turn 4/4"
+    },
+    {
+     "turnId": "t-4-5",
+     "text": "synthetic KB turn 4/5"
+    }
+   ]
+  },
+  "s-5": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-5-1",
+     "text": "synthetic KB turn 5/1"
+    },
+    {
+     "turnId": "t-5-X",
+     "text": "synthetic KB turn 5/2"
+    },
+    {
+     "turnId": "t-5-3",
+     "text": "synthetic KB turn 5/3"
+    },
+    {
+     "turnId": "t-5-4",
+     "text": "synthetic KB turn 5/4"
+    },
+    {
+     "turnId": "t-5-5",
+     "text": "synthetic KB turn 5/5"
+    }
+   ]
+  },
+  "s-6": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-6-1",
+     "text": "synthetic KB turn 6/1"
+    },
+    {
+     "turnId": "t-6-2",
+     "text": "synthetic KB turn 6/2"
+    },
+    {
+     "turnId": "t-6-X",
+     "text": "synthetic KB turn 6/3"
+    },
+    {
+     "turnId": "t-6-4",
+     "text": "synthetic KB turn 6/4"
+    },
+    {
+     "turnId": "t-6-5",
+     "text": "synthetic KB turn 6/5"
+    }
+   ]
+  },
+  "s-7": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-7-X",
+     "text": "synthetic KB turn 7/1"
+    },
+    {
+     "turnId": "t-7-2",
+     "text": "synthetic KB turn 7/2"
+    },
+    {
+     "turnId": "t-7-3",
+     "text": "synthetic KB turn 7/3"
+    },
+    {
+     "turnId": "t-7-4",
+     "text": "synthetic KB turn 7/4"
+    },
+    {
+     "turnId": "t-7-5",
+     "text": "synthetic KB turn 7/5"
+    }
+   ]
+  },
+  "s-8": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-8-1",
+     "text": "synthetic KB turn 8/1"
+    },
+    {
+     "turnId": "t-8-2",
+     "text": "synthetic KB turn 8/2"
+    },
+    {
+     "turnId": "t-8-3",
+     "text": "synthetic KB turn 8/3"
+    },
+    {
+     "turnId": "t-8-X",
+     "text": "synthetic KB turn 8/4"
+    },
+    {
+     "turnId": "t-8-5",
+     "text": "synthetic KB turn 8/5"
+    }
+   ]
+  },
+  "s-9": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-9-1",
+     "text": "synthetic KB turn 9/1"
+    },
+    {
+     "turnId": "t-9-2",
+     "text": "synthetic KB turn 9/2"
+    },
+    {
+     "turnId": "t-9-X",
+     "text": "synthetic KB turn 9/3"
+    },
+    {
+     "turnId": "t-9-4",
+     "text": "synthetic KB turn 9/4"
+    },
+    {
+     "turnId": "t-9-5",
+     "text": "synthetic KB turn 9/5"
+    }
+   ]
+  },
+  "s-10": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-10-X",
+     "text": "synthetic KB turn 10/1"
+    },
+    {
+     "turnId": "t-10-2",
+     "text": "synthetic KB turn 10/2"
+    },
+    {
+     "turnId": "t-10-3",
+     "text": "synthetic KB turn 10/3"
+    },
+    {
+     "turnId": "t-10-4",
+     "text": "synthetic KB turn 10/4"
+    },
+    {
+     "turnId": "t-10-5",
+     "text": "synthetic KB turn 10/5"
+    }
+   ]
+  },
+  "s-11": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-11-1",
+     "text": "synthetic KB turn 11/1"
+    },
+    {
+     "turnId": "t-11-X",
+     "text": "synthetic KB turn 11/2"
+    },
+    {
+     "turnId": "t-11-3",
+     "text": "synthetic KB turn 11/3"
+    },
+    {
+     "turnId": "t-11-4",
+     "text": "synthetic KB turn 11/4"
+    },
+    {
+     "turnId": "t-11-5",
+     "text": "synthetic KB turn 11/5"
+    }
+   ]
+  },
+  "s-12": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-12-1",
+     "text": "synthetic KB turn 12/1"
+    },
+    {
+     "turnId": "t-12-2",
+     "text": "synthetic KB turn 12/2"
+    },
+    {
+     "turnId": "t-12-X",
+     "text": "synthetic KB turn 12/3"
+    },
+    {
+     "turnId": "t-12-4",
+     "text": "synthetic KB turn 12/4"
+    },
+    {
+     "turnId": "t-12-5",
+     "text": "synthetic KB turn 12/5"
+    }
+   ]
+  },
+  "s-13": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-13-X",
+     "text": "synthetic KB turn 13/1"
+    },
+    {
+     "turnId": "t-13-2",
+     "text": "synthetic KB turn 13/2"
+    },
+    {
+     "turnId": "t-13-3",
+     "text": "synthetic KB turn 13/3"
+    },
+    {
+     "turnId": "t-13-4",
+     "text": "synthetic KB turn 13/4"
+    },
+    {
+     "turnId": "t-13-5",
+     "text": "synthetic KB turn 13/5"
+    }
+   ]
+  },
+  "s-14": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-14-1",
+     "text": "synthetic KB turn 14/1"
+    },
+    {
+     "turnId": "t-14-X",
+     "text": "synthetic KB turn 14/2"
+    },
+    {
+     "turnId": "t-14-3",
+     "text": "synthetic KB turn 14/3"
+    },
+    {
+     "turnId": "t-14-4",
+     "text": "synthetic KB turn 14/4"
+    },
+    {
+     "turnId": "t-14-5",
+     "text": "synthetic KB turn 14/5"
+    }
+   ]
+  },
+  "s-15": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-15-1",
+     "text": "synthetic KB turn 15/1"
+    },
+    {
+     "turnId": "t-15-2",
+     "text": "synthetic KB turn 15/2"
+    },
+    {
+     "turnId": "t-15-X",
+     "text": "synthetic KB turn 15/3"
+    },
+    {
+     "turnId": "t-15-4",
+     "text": "synthetic KB turn 15/4"
+    },
+    {
+     "turnId": "t-15-5",
+     "text": "synthetic KB turn 15/5"
+    }
+   ]
+  },
+  "s-16": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-16-X",
+     "text": "synthetic KB turn 16/1"
+    },
+    {
+     "turnId": "t-16-2",
+     "text": "synthetic KB turn 16/2"
+    },
+    {
+     "turnId": "t-16-3",
+     "text": "synthetic KB turn 16/3"
+    },
+    {
+     "turnId": "t-16-4",
+     "text": "synthetic KB turn 16/4"
+    },
+    {
+     "turnId": "t-16-5",
+     "text": "synthetic KB turn 16/5"
+    }
+   ]
+  },
+  "s-17": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-17-1",
+     "text": "synthetic KB turn 17/1"
+    },
+    {
+     "turnId": "t-17-X",
+     "text": "synthetic KB turn 17/2"
+    },
+    {
+     "turnId": "t-17-3",
+     "text": "synthetic KB turn 17/3"
+    },
+    {
+     "turnId": "t-17-4",
+     "text": "synthetic KB turn 17/4"
+    },
+    {
+     "turnId": "t-17-5",
+     "text": "synthetic KB turn 17/5"
+    }
+   ]
+  },
+  "s-18": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-18-1",
+     "text": "synthetic KB turn 18/1"
+    },
+    {
+     "turnId": "t-18-2",
+     "text": "synthetic KB turn 18/2"
+    },
+    {
+     "turnId": "t-18-X",
+     "text": "synthetic KB turn 18/3"
+    },
+    {
+     "turnId": "t-18-4",
+     "text": "synthetic KB turn 18/4"
+    },
+    {
+     "turnId": "t-18-5",
+     "text": "synthetic KB turn 18/5"
+    }
+   ]
+  },
+  "s-19": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-19-X",
+     "text": "synthetic KB turn 19/1"
+    },
+    {
+     "turnId": "t-19-2",
+     "text": "synthetic KB turn 19/2"
+    },
+    {
+     "turnId": "t-19-3",
+     "text": "synthetic KB turn 19/3"
+    },
+    {
+     "turnId": "t-19-4",
+     "text": "synthetic KB turn 19/4"
+    },
+    {
+     "turnId": "t-19-5",
+     "text": "synthetic KB turn 19/5"
+    }
+   ]
+  },
+  "s-20": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-20-1",
+     "text": "synthetic KB turn 20/1"
+    },
+    {
+     "turnId": "t-20-X",
+     "text": "synthetic KB turn 20/2"
+    },
+    {
+     "turnId": "t-20-3",
+     "text": "synthetic KB turn 20/3"
+    },
+    {
+     "turnId": "t-20-4",
+     "text": "synthetic KB turn 20/4"
+    },
+    {
+     "turnId": "t-20-5",
+     "text": "synthetic KB turn 20/5"
+    }
+   ]
+  },
+  "s-21": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-21-1",
+     "text": "synthetic KB turn 21/1"
+    },
+    {
+     "turnId": "t-21-2",
+     "text": "synthetic KB turn 21/2"
+    },
+    {
+     "turnId": "t-21-X",
+     "text": "synthetic KB turn 21/3"
+    },
+    {
+     "turnId": "t-21-4",
+     "text": "synthetic KB turn 21/4"
+    },
+    {
+     "turnId": "t-21-5",
+     "text": "synthetic KB turn 21/5"
+    }
+   ]
+  },
+  "s-22": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-22-X",
+     "text": "synthetic KB turn 22/1"
+    },
+    {
+     "turnId": "t-22-2",
+     "text": "synthetic KB turn 22/2"
+    },
+    {
+     "turnId": "t-22-3",
+     "text": "synthetic KB turn 22/3"
+    },
+    {
+     "turnId": "t-22-4",
+     "text": "synthetic KB turn 22/4"
+    },
+    {
+     "turnId": "t-22-5",
+     "text": "synthetic KB turn 22/5"
+    }
+   ]
+  },
+  "s-23": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-23-1",
+     "text": "synthetic KB turn 23/1"
+    },
+    {
+     "turnId": "t-23-X",
+     "text": "synthetic KB turn 23/2"
+    },
+    {
+     "turnId": "t-23-3",
+     "text": "synthetic KB turn 23/3"
+    },
+    {
+     "turnId": "t-23-4",
+     "text": "synthetic KB turn 23/4"
+    },
+    {
+     "turnId": "t-23-5",
+     "text": "synthetic KB turn 23/5"
+    }
+   ]
+  },
+  "s-24": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-24-1",
+     "text": "synthetic KB turn 24/1"
+    },
+    {
+     "turnId": "t-24-2",
+     "text": "synthetic KB turn 24/2"
+    },
+    {
+     "turnId": "t-24-X",
+     "text": "synthetic KB turn 24/3"
+    },
+    {
+     "turnId": "t-24-4",
+     "text": "synthetic KB turn 24/4"
+    },
+    {
+     "turnId": "t-24-5",
+     "text": "synthetic KB turn 24/5"
+    }
+   ]
+  },
+  "s-25": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-25-X",
+     "text": "synthetic KB turn 25/1"
+    },
+    {
+     "turnId": "t-25-2",
+     "text": "synthetic KB turn 25/2"
+    },
+    {
+     "turnId": "t-25-3",
+     "text": "synthetic KB turn 25/3"
+    },
+    {
+     "turnId": "t-25-4",
+     "text": "synthetic KB turn 25/4"
+    },
+    {
+     "turnId": "t-25-5",
+     "text": "synthetic KB turn 25/5"
+    }
+   ]
+  },
+  "s-26": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-26-1",
+     "text": "synthetic KB turn 26/1"
+    },
+    {
+     "turnId": "t-26-X",
+     "text": "synthetic KB turn 26/2"
+    },
+    {
+     "turnId": "t-26-3",
+     "text": "synthetic KB turn 26/3"
+    },
+    {
+     "turnId": "t-26-4",
+     "text": "synthetic KB turn 26/4"
+    },
+    {
+     "turnId": "t-26-5",
+     "text": "synthetic KB turn 26/5"
+    }
+   ]
+  },
+  "s-27": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-27-1",
+     "text": "synthetic KB turn 27/1"
+    },
+    {
+     "turnId": "t-27-2",
+     "text": "synthetic KB turn 27/2"
+    },
+    {
+     "turnId": "t-27-X",
+     "text": "synthetic KB turn 27/3"
+    },
+    {
+     "turnId": "t-27-4",
+     "text": "synthetic KB turn 27/4"
+    },
+    {
+     "turnId": "t-27-5",
+     "text": "synthetic KB turn 27/5"
+    }
+   ]
+  },
+  "s-28": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-28-X",
+     "text": "synthetic KB turn 28/1"
+    },
+    {
+     "turnId": "t-28-2",
+     "text": "synthetic KB turn 28/2"
+    },
+    {
+     "turnId": "t-28-3",
+     "text": "synthetic KB turn 28/3"
+    },
+    {
+     "turnId": "t-28-4",
+     "text": "synthetic KB turn 28/4"
+    },
+    {
+     "turnId": "t-28-5",
+     "text": "synthetic KB turn 28/5"
+    }
+   ]
+  },
+  "s-29": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-29-1",
+     "text": "synthetic KB turn 29/1"
+    },
+    {
+     "turnId": "t-29-X",
+     "text": "synthetic KB turn 29/2"
+    },
+    {
+     "turnId": "t-29-3",
+     "text": "synthetic KB turn 29/3"
+    },
+    {
+     "turnId": "t-29-4",
+     "text": "synthetic KB turn 29/4"
+    },
+    {
+     "turnId": "t-29-5",
+     "text": "synthetic KB turn 29/5"
+    }
+   ]
+  },
+  "s-30": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-30-1",
+     "text": "synthetic KB turn 30/1"
+    },
+    {
+     "turnId": "t-30-2",
+     "text": "synthetic KB turn 30/2"
+    },
+    {
+     "turnId": "t-30-X",
+     "text": "synthetic KB turn 30/3"
+    },
+    {
+     "turnId": "t-30-4",
+     "text": "synthetic KB turn 30/4"
+    },
+    {
+     "turnId": "t-30-5",
+     "text": "synthetic KB turn 30/5"
+    }
+   ]
+  },
+  "s-31": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-31-X",
+     "text": "synthetic KB turn 31/1"
+    },
+    {
+     "turnId": "t-31-2",
+     "text": "synthetic KB turn 31/2"
+    },
+    {
+     "turnId": "t-31-3",
+     "text": "synthetic KB turn 31/3"
+    },
+    {
+     "turnId": "t-31-4",
+     "text": "synthetic KB turn 31/4"
+    },
+    {
+     "turnId": "t-31-5",
+     "text": "synthetic KB turn 31/5"
+    }
+   ]
+  },
+  "s-32": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-32-1",
+     "text": "synthetic KB turn 32/1"
+    },
+    {
+     "turnId": "t-32-X",
+     "text": "synthetic KB turn 32/2"
+    },
+    {
+     "turnId": "t-32-3",
+     "text": "synthetic KB turn 32/3"
+    },
+    {
+     "turnId": "t-32-4",
+     "text": "synthetic KB turn 32/4"
+    },
+    {
+     "turnId": "t-32-5",
+     "text": "synthetic KB turn 32/5"
+    }
+   ]
+  },
+  "s-33": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-33-1",
+     "text": "synthetic KB turn 33/1"
+    },
+    {
+     "turnId": "t-33-2",
+     "text": "synthetic KB turn 33/2"
+    },
+    {
+     "turnId": "t-33-X",
+     "text": "synthetic KB turn 33/3"
+    },
+    {
+     "turnId": "t-33-4",
+     "text": "synthetic KB turn 33/4"
+    },
+    {
+     "turnId": "t-33-5",
+     "text": "synthetic KB turn 33/5"
+    }
+   ]
+  },
+  "s-34": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-34-X",
+     "text": "synthetic KB turn 34/1"
+    },
+    {
+     "turnId": "t-34-2",
+     "text": "synthetic KB turn 34/2"
+    },
+    {
+     "turnId": "t-34-3",
+     "text": "synthetic KB turn 34/3"
+    },
+    {
+     "turnId": "t-34-4",
+     "text": "synthetic KB turn 34/4"
+    },
+    {
+     "turnId": "t-34-5",
+     "text": "synthetic KB turn 34/5"
+    }
+   ]
+  },
+  "s-35": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-35-1",
+     "text": "synthetic KB turn 35/1"
+    },
+    {
+     "turnId": "t-35-X",
+     "text": "synthetic KB turn 35/2"
+    },
+    {
+     "turnId": "t-35-3",
+     "text": "synthetic KB turn 35/3"
+    },
+    {
+     "turnId": "t-35-4",
+     "text": "synthetic KB turn 35/4"
+    },
+    {
+     "turnId": "t-35-5",
+     "text": "synthetic KB turn 35/5"
+    }
+   ]
+  },
+  "s-36": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-36-1",
+     "text": "synthetic KB turn 36/1"
+    },
+    {
+     "turnId": "t-36-2",
+     "text": "synthetic KB turn 36/2"
+    },
+    {
+     "turnId": "t-36-X",
+     "text": "synthetic KB turn 36/3"
+    },
+    {
+     "turnId": "t-36-4",
+     "text": "synthetic KB turn 36/4"
+    },
+    {
+     "turnId": "t-36-5",
+     "text": "synthetic KB turn 36/5"
+    }
+   ]
+  },
+  "s-37": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-37-X",
+     "text": "synthetic KB turn 37/1"
+    },
+    {
+     "turnId": "t-37-2",
+     "text": "synthetic KB turn 37/2"
+    },
+    {
+     "turnId": "t-37-3",
+     "text": "synthetic KB turn 37/3"
+    },
+    {
+     "turnId": "t-37-4",
+     "text": "synthetic KB turn 37/4"
+    },
+    {
+     "turnId": "t-37-5",
+     "text": "synthetic KB turn 37/5"
+    }
+   ]
+  },
+  "s-38": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-38-1",
+     "text": "synthetic KB turn 38/1"
+    },
+    {
+     "turnId": "t-38-X",
+     "text": "synthetic KB turn 38/2"
+    },
+    {
+     "turnId": "t-38-3",
+     "text": "synthetic KB turn 38/3"
+    },
+    {
+     "turnId": "t-38-4",
+     "text": "synthetic KB turn 38/4"
+    },
+    {
+     "turnId": "t-38-5",
+     "text": "synthetic KB turn 38/5"
+    }
+   ]
+  },
+  "s-39": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-39-1",
+     "text": "synthetic KB turn 39/1"
+    },
+    {
+     "turnId": "t-39-2",
+     "text": "synthetic KB turn 39/2"
+    },
+    {
+     "turnId": "t-39-X",
+     "text": "synthetic KB turn 39/3"
+    },
+    {
+     "turnId": "t-39-4",
+     "text": "synthetic KB turn 39/4"
+    },
+    {
+     "turnId": "t-39-5",
+     "text": "synthetic KB turn 39/5"
+    }
+   ]
+  },
+  "s-40": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-40-X",
+     "text": "synthetic KB turn 40/1"
+    },
+    {
+     "turnId": "t-40-2",
+     "text": "synthetic KB turn 40/2"
+    },
+    {
+     "turnId": "t-40-3",
+     "text": "synthetic KB turn 40/3"
+    },
+    {
+     "turnId": "t-40-4",
+     "text": "synthetic KB turn 40/4"
+    },
+    {
+     "turnId": "t-40-5",
+     "text": "synthetic KB turn 40/5"
+    }
+   ]
+  },
+  "s-41": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-41-1",
+     "text": "synthetic KB turn 41/1"
+    },
+    {
+     "turnId": "t-41-X",
+     "text": "synthetic KB turn 41/2"
+    },
+    {
+     "turnId": "t-41-3",
+     "text": "synthetic KB turn 41/3"
+    },
+    {
+     "turnId": "t-41-4",
+     "text": "synthetic KB turn 41/4"
+    },
+    {
+     "turnId": "t-41-5",
+     "text": "synthetic KB turn 41/5"
+    }
+   ]
+  },
+  "s-42": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-42-1",
+     "text": "synthetic KB turn 42/1"
+    },
+    {
+     "turnId": "t-42-2",
+     "text": "synthetic KB turn 42/2"
+    },
+    {
+     "turnId": "t-42-X",
+     "text": "synthetic KB turn 42/3"
+    },
+    {
+     "turnId": "t-42-4",
+     "text": "synthetic KB turn 42/4"
+    },
+    {
+     "turnId": "t-42-5",
+     "text": "synthetic KB turn 42/5"
+    }
+   ]
+  },
+  "s-43": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-43-X",
+     "text": "synthetic KB turn 43/1"
+    },
+    {
+     "turnId": "t-43-2",
+     "text": "synthetic KB turn 43/2"
+    },
+    {
+     "turnId": "t-43-3",
+     "text": "synthetic KB turn 43/3"
+    },
+    {
+     "turnId": "t-43-4",
+     "text": "synthetic KB turn 43/4"
+    },
+    {
+     "turnId": "t-43-5",
+     "text": "synthetic KB turn 43/5"
+    }
+   ]
+  },
+  "s-44": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-44-1",
+     "text": "synthetic KB turn 44/1"
+    },
+    {
+     "turnId": "t-44-X",
+     "text": "synthetic KB turn 44/2"
+    },
+    {
+     "turnId": "t-44-3",
+     "text": "synthetic KB turn 44/3"
+    },
+    {
+     "turnId": "t-44-4",
+     "text": "synthetic KB turn 44/4"
+    },
+    {
+     "turnId": "t-44-5",
+     "text": "synthetic KB turn 44/5"
+    }
+   ]
+  },
+  "s-45": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-45-1",
+     "text": "synthetic KB turn 45/1"
+    },
+    {
+     "turnId": "t-45-2",
+     "text": "synthetic KB turn 45/2"
+    },
+    {
+     "turnId": "t-45-X",
+     "text": "synthetic KB turn 45/3"
+    },
+    {
+     "turnId": "t-45-4",
+     "text": "synthetic KB turn 45/4"
+    },
+    {
+     "turnId": "t-45-5",
+     "text": "synthetic KB turn 45/5"
+    }
+   ]
+  },
+  "s-46": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-46-X",
+     "text": "synthetic KB turn 46/1"
+    },
+    {
+     "turnId": "t-46-2",
+     "text": "synthetic KB turn 46/2"
+    },
+    {
+     "turnId": "t-46-3",
+     "text": "synthetic KB turn 46/3"
+    },
+    {
+     "turnId": "t-46-4",
+     "text": "synthetic KB turn 46/4"
+    },
+    {
+     "turnId": "t-46-5",
+     "text": "synthetic KB turn 46/5"
+    }
+   ]
+  },
+  "s-47": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-47-X",
+     "text": "synthetic KB turn 47/1"
+    },
+    {
+     "turnId": "t-47-2",
+     "text": "synthetic KB turn 47/2"
+    },
+    {
+     "turnId": "t-47-3",
+     "text": "synthetic KB turn 47/3"
+    },
+    {
+     "turnId": "t-47-4",
+     "text": "synthetic KB turn 47/4"
+    },
+    {
+     "turnId": "t-47-5",
+     "text": "synthetic KB turn 47/5"
+    }
+   ]
+  },
+  "s-48": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-48-X",
+     "text": "synthetic KB turn 48/1"
+    },
+    {
+     "turnId": "t-48-2",
+     "text": "synthetic KB turn 48/2"
+    },
+    {
+     "turnId": "t-48-3",
+     "text": "synthetic KB turn 48/3"
+    },
+    {
+     "turnId": "t-48-4",
+     "text": "synthetic KB turn 48/4"
+    },
+    {
+     "turnId": "t-48-5",
+     "text": "synthetic KB turn 48/5"
+    }
+   ]
+  },
+  "s-49": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-49-X",
+     "text": "synthetic KB turn 49/1"
+    },
+    {
+     "turnId": "t-49-2",
+     "text": "synthetic KB turn 49/2"
+    },
+    {
+     "turnId": "t-49-3",
+     "text": "synthetic KB turn 49/3"
+    },
+    {
+     "turnId": "t-49-4",
+     "text": "synthetic KB turn 49/4"
+    },
+    {
+     "turnId": "t-49-5",
+     "text": "synthetic KB turn 49/5"
+    }
+   ]
+  },
+  "s-50": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-50-X",
+     "text": "synthetic KB turn 50/1"
+    },
+    {
+     "turnId": "t-50-2",
+     "text": "synthetic KB turn 50/2"
+    },
+    {
+     "turnId": "t-50-3",
+     "text": "synthetic KB turn 50/3"
+    },
+    {
+     "turnId": "t-50-4",
+     "text": "synthetic KB turn 50/4"
+    },
+    {
+     "turnId": "t-50-5",
+     "text": "synthetic KB turn 50/5"
+    }
+   ]
+  },
+  "s-51": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-51-X",
+     "text": "synthetic KB turn 51/1"
+    },
+    {
+     "turnId": "t-51-2",
+     "text": "synthetic KB turn 51/2"
+    },
+    {
+     "turnId": "t-51-3",
+     "text": "synthetic KB turn 51/3"
+    },
+    {
+     "turnId": "t-51-4",
+     "text": "synthetic KB turn 51/4"
+    },
+    {
+     "turnId": "t-51-5",
+     "text": "synthetic KB turn 51/5"
+    }
+   ]
+  },
+  "s-52": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-52-X",
+     "text": "synthetic KB turn 52/1"
+    },
+    {
+     "turnId": "t-52-2",
+     "text": "synthetic KB turn 52/2"
+    },
+    {
+     "turnId": "t-52-3",
+     "text": "synthetic KB turn 52/3"
+    },
+    {
+     "turnId": "t-52-4",
+     "text": "synthetic KB turn 52/4"
+    },
+    {
+     "turnId": "t-52-5",
+     "text": "synthetic KB turn 52/5"
+    }
+   ]
+  },
+  "s-53": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-53-X",
+     "text": "synthetic KB turn 53/1"
+    },
+    {
+     "turnId": "t-53-2",
+     "text": "synthetic KB turn 53/2"
+    },
+    {
+     "turnId": "t-53-3",
+     "text": "synthetic KB turn 53/3"
+    },
+    {
+     "turnId": "t-53-4",
+     "text": "synthetic KB turn 53/4"
+    },
+    {
+     "turnId": "t-53-5",
+     "text": "synthetic KB turn 53/5"
+    }
+   ]
+  },
+  "s-54": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-54-X",
+     "text": "synthetic KB turn 54/1"
+    },
+    {
+     "turnId": "t-54-2",
+     "text": "synthetic KB turn 54/2"
+    },
+    {
+     "turnId": "t-54-3",
+     "text": "synthetic KB turn 54/3"
+    },
+    {
+     "turnId": "t-54-4",
+     "text": "synthetic KB turn 54/4"
+    },
+    {
+     "turnId": "t-54-5",
+     "text": "synthetic KB turn 54/5"
+    }
+   ]
+  },
+  "s-55": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-55-X",
+     "text": "synthetic KB turn 55/1"
+    },
+    {
+     "turnId": "t-55-2",
+     "text": "synthetic KB turn 55/2"
+    },
+    {
+     "turnId": "t-55-3",
+     "text": "synthetic KB turn 55/3"
+    },
+    {
+     "turnId": "t-55-4",
+     "text": "synthetic KB turn 55/4"
+    },
+    {
+     "turnId": "t-55-5",
+     "text": "synthetic KB turn 55/5"
+    }
+   ]
+  },
+  "s-56": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-56-X",
+     "text": "synthetic KB turn 56/1"
+    },
+    {
+     "turnId": "t-56-2",
+     "text": "synthetic KB turn 56/2"
+    },
+    {
+     "turnId": "t-56-3",
+     "text": "synthetic KB turn 56/3"
+    },
+    {
+     "turnId": "t-56-4",
+     "text": "synthetic KB turn 56/4"
+    },
+    {
+     "turnId": "t-56-5",
+     "text": "synthetic KB turn 56/5"
+    }
+   ]
+  },
+  "s-57": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-57-X",
+     "text": "synthetic KB turn 57/1"
+    },
+    {
+     "turnId": "t-57-2",
+     "text": "synthetic KB turn 57/2"
+    },
+    {
+     "turnId": "t-57-3",
+     "text": "synthetic KB turn 57/3"
+    },
+    {
+     "turnId": "t-57-4",
+     "text": "synthetic KB turn 57/4"
+    },
+    {
+     "turnId": "t-57-5",
+     "text": "synthetic KB turn 57/5"
+    }
+   ]
+  },
+  "s-58": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-58-X",
+     "text": "synthetic KB turn 58/1"
+    },
+    {
+     "turnId": "t-58-2",
+     "text": "synthetic KB turn 58/2"
+    },
+    {
+     "turnId": "t-58-3",
+     "text": "synthetic KB turn 58/3"
+    },
+    {
+     "turnId": "t-58-4",
+     "text": "synthetic KB turn 58/4"
+    },
+    {
+     "turnId": "t-58-5",
+     "text": "synthetic KB turn 58/5"
+    }
+   ]
+  },
+  "s-59": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-59-X",
+     "text": "synthetic KB turn 59/1"
+    },
+    {
+     "turnId": "t-59-2",
+     "text": "synthetic KB turn 59/2"
+    },
+    {
+     "turnId": "t-59-3",
+     "text": "synthetic KB turn 59/3"
+    },
+    {
+     "turnId": "t-59-4",
+     "text": "synthetic KB turn 59/4"
+    },
+    {
+     "turnId": "t-59-5",
+     "text": "synthetic KB turn 59/5"
+    }
+   ]
+  },
+  "s-60": {
+   "date": "2026-01-15",
+   "sourceId": "src-synthetic-seminar",
+   "turns": [
+    {
+     "turnId": "t-60-X",
+     "text": "synthetic KB turn 60/1"
+    },
+    {
+     "turnId": "t-60-2",
+     "text": "synthetic KB turn 60/2"
+    },
+    {
+     "turnId": "t-60-3",
+     "text": "synthetic KB turn 60/3"
+    },
+    {
+     "turnId": "t-60-4",
+     "text": "synthetic KB turn 60/4"
+    },
+    {
+     "turnId": "t-60-5",
+     "text": "synthetic KB turn 60/5"
+    }
+   ]
+  }
+ }
+}

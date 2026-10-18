@@ -837,3 +837,61 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Links:** D-083..D-087; qa/evidence/p1-plan-draft-20261017/
 **Changes-authorized:** none (planning only)
 **Approved-by:** Umesh (delegated to the maker, 2026-10-17)
+
+## D-089 | 2026-10-17 | type: decision | status: ACTIVE
+**What:** P1 Student Virtual Counsellor plan set v8 approved (intent, user types, spec sha256 e183ee9a, plan sha256 3ab92f77, all under qa/evidence/p1-plan-draft-20261017/). Build starts with U0 (checker-owned contract amendments) and Wave 1 (U2 KB tools, U4 eval harness, U5a API contract + A20 go-live gate).
+**Why:** Umesh answered "Approve all" in chat on 2026-10-17T13:58:29+05:30 after an independent review (v7 APPROVE conditional on E1-E3; E1-E3 and the minor items applied in v8). Inputs D-086, D-087, D-088.
+**Result:** qa/gates/plan-approved.md P1 section carries three Answered lines. No code yet; go-live stays behind G-PROD/A20, partner publication behind G-PUBLISH (signed B13 amendment), paid runs behind G-REAL and the A24 cap.
+**Links:** D-086, D-087, D-088; qa/gates/plan-approved.md; scratchpad p1-v7-review.md
+**Changes-authorized:** none (ARCHITECTURE.md untouched; contract amendments go through /checker under U0)
+
+## D-090 | 2026-10-17 | type: decision | status: ACTIVE
+**What:** (1) The P1 U0 contract items P-1..P-8 are accepted as defaults (P-7 = 24-month staleness and P-8 = ranking weights 0.40/0.25/0.20/0.15 are configurable placeholders; the P-1 student-token format is a draft until Pathlynks confirms it). (2) Tavily is removed from P1: the KnowledgeBase TAVILY_API_KEY stays unset for every deployment that VC calls, and Tavily is not a B13 processor.
+**Why:** Umesh accepted the defaults in chat. On Tavily he asked why it is needed when Gemini is already in use. VC's serve rule (spec v8 E2, contract B24.1) drops every answer with web_used, so the web fallback adds no value to VC and only sends minors' query text to one more processor. KB ask-web-fallback.ts:57-60: with no key, no web call is made and the KB returns insufficient coverage, which VC turns into its no-answer path.
+**Result:** recorded in qa/gates/p1-u0-amendment-signatures.md on branch p1/u0. B13-signed stays PENDING until go-live; the processors to register are Gemini plus the KB's LLM provider.
+**Links:** D-086, D-087, D-089; plan U0; G6
+**Changes-authorized:** none
+
+## D-091 | 2026-10-17 | type: decision | status: ACTIVE
+**What:** P1 Wave 1 landed on origin/main (a06c150..6cb8b3d): U2 KB read tools (verdict f069b9d, cycle 1), U4 eval harness + U4b spend-cap hardening (verdicts dad6865, 00f00d1), U5a student API contract + A20 go-live gate (verdict 1774a4e). Merged-head suite 1683 tests / 0 fail / 45 skipped; 6c green 742d50cc.
+**Why:** all three units carried independent checker PASS; one integration suite covers the batch (proportional-verification .12). U2 got a review-driven repair before its check (no-coverage was reported as an outage).
+**Result:** no student route enabled; go-live gate refuses all targets until B13 signed, g-publish/g-prod answered, a10 voice record. Low follow-ups ISS-127..134 filed; ISS-133 (ledger ts undercount) must be fixed before the first real paid run. Wave 2 U6 build started.
+**Links:** D-089, D-090, qa/verdicts/p1-u2-kb-tools.md, p1-u4b-budget-hardening.md, p1-u5a-api-contract.md
+**Changes-authorized:** none
+
+## D-092 | 2026-10-17 | type: decision | status: ACTIVE
+**What:** In P1 anonymous mode the student turn graph drops unverified claims instead of showing them flagged "(unverified)". Authenticated mode keeps spec item 4 (unverified shown with a flag when at least one claim is sourced).
+**Why:** senior review of p1/u6 (finding 4) showed the spec-allowed "(unverified)" path lets training-data claims reach anonymous users, who have no profile or counsellor and may be minors, against A4 ("0 training-data answers"). Umesh delegated P1 product questions to the maker ("hn clear kr lena"); the safer, fail-closed reading is chosen. Reversible by a later entry.
+**Result:** folded into the U6 review-driven repair brief (qa/evidence/p1-briefs/p1-u6r.md item 4).
+**Links:** D-089, D-091, plan U6, spec item 4, A4
+**Changes-authorized:** none
+
+## D-093 | 2026-10-17 | type: decision | status: ACTIVE
+**What:** Umesh answered the P1 decision list ("go for it", 2026-10-17 ~23:25 IST): (1) push U6h, done at 23:27:50 (`38fd98d..47ab62a`); (2A) add every proposed Hindi/Hinglish crisis phrase, "kms" included, to the crisis list; (3A) "pressure bahut hai" and similar stress phrases get a soft check-in plus Tele-MANAS 14416, not the full crisis message; (4A) students under 18 need parent/guardian consent before anything personal is stored (DPDP s.9). Pathlynks supplies the consent signal, and without it the turn runs but nothing personal persists; (5A) WhatsApp KB content stays paraphrase-only, with no quotes and no names (already in U6); (6A) names, phone numbers and emails are redacted from student questions/essays before storage, which changes "verbatim persistence" (A19) to "redacted persistence"; (7) the maker drafts the B13 consent text, then Umesh approves it, with legal review if possible; (8) G-PROD and (9) G-REAL stay open; (10) the A20 anonymous flag stays off in production; (11) Pathlynks will send user info and integrate our chat API, and VC is the product's central AI. The student-JWT format is still unknown, so U8 builds config-driven verification (issuer/audience/JWKS or secret from env) tested on synthetic tokens, and the format binds later under the B21 amendment; (12) KB keys and Sapna ma'am's rubric will be provided, and the KB is the RAG hub. U3 waits; (13) CEO Nights is parked (mode stays tele-manas-disclosed); (14) land the D:\vc dirty tree in path-scoped commits; (15) copy the ai_os hooks, with the exact paths and Approved-by in a separate entry once the diff is known; (16) build ISS-125/126; (17) build the 5 U6h leftovers.
+**Why:** Umesh's explicit answers. On 4A and 6A, the fail-closed reading for minors is chosen. D-086 "Pathlynks-authenticated = consented" is narrowed for under-18s by 4A. The B13/B21/A19 contract amendments are checker-owned and critical; they are routed via qa/feedback-inbox.md for fold-in and Umesh's signature.
+**Result:** wave 3 dispatched: an engine builder (2A, 3A, 16, 17), U8 (4A, 6A, 11), U9, a B13 draft (7), a landplane plan (14) and a hooks diff (15).
+**Links:** D-086, D-087, D-088, D-092, plan U7/U8/U9, A11b, A19, B13, B21
+**Changes-authorized:** none
+
+## D-094 | 2026-10-17 | type: decision | status: ACTIVE
+**What:** Copy the newer ai_os maker-checker hooks into this repo: D:/ai_os/.claude/hooks/mc-sessionstart.ps1 replaces .claude/hooks/mc-sessionstart.ps1 (50 lines -> 141 lines) and D:/ai_os/.claude/hooks/mc-precommit.ps1 replaces .claude/hooks/mc-precommit.ps1 (10 lines -> 59 lines). No settings.json change: the same filenames are already wired. Nothing else is copied. decisions-append-guard and lab-session-start are newer in vc, so that is a back-port candidate for ai_os, not this repo.
+**Why:** D-093 item 15 (Umesh: "go for it" on "Copy the ai_os hooks into this repo ... needs an Approved-by: Umesh"). The read-only diff (scratchpad hooks-diff-20261017.md) shows the ai_os copies fix ISS-056 (any Status line matched) and part of ISS-084 (open issues counted as backlog). ISS-054 (worktree manifests invisible) and ISS-095 (first-wins verdict cycle in the session-start reader) stay open and are not fixed by this copy. On the current tree both copies print the same result.
+**Result:** applied on branch p1/hooks via a worktree; one checker verifies it (tier L hooks) before it is copied into the D:\vc checkout.
+**Links:** D-093, ISS-056, ISS-084, ISS-054, ISS-095
+**Changes-authorized:** .claude/hooks/mc-sessionstart.ps1 Â· .claude/hooks/mc-precommit.ps1
+**Approved-by:** Umesh
+
+## D-095 | 2026-10-17 | type: decision | status: ACTIVE
+**What:** Do not copy the ai_os mc hooks into this repo. origin/main already carries newer ones (38e751d, D-081: mc-sessionstart.ps1 251 lines, mc-precommit.ps1 222 lines, resolver-based counters fixing ISS-054/056/095/084). The D:\vc checkout runs stale 50- and 10-line copies only because it is behind origin/main. Item 15 of D-093 is therefore met by bringing the checkout up to origin/main, as part of item 14 (landplane).
+**Why:** The read-only hooks diff compared ai_os with the D:\vc working tree, not with origin/main. The p1/hooks commit (42e18bc) would have deleted 441 lines of the D-081 fix. A pre-dispatch size check caught it. The branch and worktree were deleted, nothing was pushed, and nothing reached the checkout.
+**Result:** no hook change; landplane plan must include fast-forwarding .claude/hooks/* from origin/main.
+**Supersedes:** D-094 -- D-094 assumed the repo hooks were older than ai_os; origin/main shows they are newer and already fix the issues D-094 targeted, so D-094's copy would regress them.
+**Links:** D-081, D-093, D-094, ISS-054, ISS-056, ISS-084, ISS-095
+**Changes-authorized:** none
+
+## D-096 | 2026-10-18 | type: decision | status: ACTIVE
+**What:** Three P1 answers from Umesh. (1) scripts/vc-testlock.sh gets 2 test slots instead of 1. Slot 0 keeps the current lock path. When free RAM is below 3 GB, only slot 0 is used. (2) Standing push approval: each P1 unit (U7, eng3, U8, U9 and later units) is pushed to origin/main as soon as its checker PASS verdict(s) exist, the 6c pre-push check is green and tick.mjs --push-gate exits 0. The maker does not ask before each push; it reports each push with its sha and reflog time. (3) U9 crisis mute: after a crisis is detected, the model's audio stays muted until the student speaks again. Only the Tele-MANAS helpline audio plays. A tool call or the model's end-of-turn signal never lifts the mute (U9 repair review R1/R2).
+**Why:** Umesh, chat 2026-10-18T03:43:39+05:30: "go in the recommended manner and jo jo validate hota jayega usko push krr do". He chose the recommended option on all 3 questions. Tests were queueing behind a single lock across 4 worktrees. Asking before every push left validated units waiting. R1/R2 are model-audio leaks during a minor's crisis.
+**Result:** the testlock change goes through maker-checker as its own unit (tier L, concurrency, one checker). The U9 mute rule is folded into the U9 repair brief (qa/feedback-inbox.md). Pushes still need a green --push-gate; nothing is pushed without one. Go-live gates (G-PROD, G-REAL, B13, A20) are unchanged.
+**Links:** D-089, D-093, qa/gates/p1-standing-push.md
+**Changes-authorized:** none

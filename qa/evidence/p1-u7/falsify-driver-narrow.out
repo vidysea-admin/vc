@@ -1,0 +1,7 @@
+A20-gate-narrow green ('2', '2', '0')
+A20-gate-narrow red ('2', '0', '2') ['A20 state ON but gate closed: the real repo qa/gates', "A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed"]
+A20-gate-narrow restored ('2', '2', '0')
+R2-clientkey-narrow green ('1', '1', '0')
+R2-clientkey-narrow red ('?', '?', '?') []
+R2-clientkey-narrow restored ('1', '1', '0')
+DONE

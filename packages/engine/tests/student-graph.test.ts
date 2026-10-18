@@ -718,7 +718,8 @@ test("U7 repair E: the anonymous response carries opaque source ids (s1, s2) use
     { text: "German public universities expect a semester contribution of about 300 euros.", kind: "fact", sourceIds: ["t-sem-1"] },
   ];
   const kb = fakeKb({ search: { status: "ok" as const, hits: [HIT_SEMINAR, HIT_UNLISTED_RECORDING], dropped: 0 } });
-  const withUnknown = [...claims, { text: "Blocked accounts of about 11,904 euros are required for the German student visa.", kind: "fact", sourceIds: ["t-rec-9"] }];
+  // a paraphrase (not a verbatim run) of the unlisted-recording hit, so the claim is supported and its restricted source is cited
+  const withUnknown = [...claims, { text: "A blocked account of about 11,904 euros is required for a German student visa.", kind: "fact", sourceIds: ["t-rec-9"] }];
   const anon = deps({ kb, provider: studentProvider({ kbAnswer: { claims: withUnknown } }) });
   const a = await runStudentTurn(anon.d, { mode: "anonymous", text: Q });
   assert.equal(a.response.state, "ok");
@@ -727,7 +728,10 @@ test("U7 repair E: the anonymous response carries opaque source ids (s1, s2) use
   for (const id of ids) assert.match(id, /^s\d+$/);
   assert.ok(!JSON.stringify(a.response).match(/t-sem-1|t-rec-9|sess-|src-/), "no internal turn, session or source id");
   for (const c of a.response.claims) for (const id of c.sourceIds) assert.ok(ids.includes(id), "claim source ids resolve to listed sources");
-  for (const s of a.response.sources) if (s.kind === "unknown" || s.kind === "whatsapp") assert.equal(s.title, undefined);
+  const restrictedListed = a.response.sources.filter((s) => s.kind === "unknown" || s.kind === "whatsapp");
+  assert.ok(restrictedListed.length >= 1, "the restricted-kind source is cited, so the title rule is exercised (not vacuous)");
+  for (const s of restrictedListed) assert.equal(s.title, undefined, "no session title for a restricted-kind source");
+  assert.ok(!JSON.stringify(a.response).includes("Unlisted recording"), "the restricted source's session title is not shown");
   assert.ok(a.response.sources.some((s) => s.kind === "internal-seminar" && s.title === "Study in Germany seminar"));
   const auth = deps({ kb, provider: studentProvider({ kbAnswer: { claims: withUnknown } }) });
   const u = await runStudentTurn(auth.d, turn(Q));

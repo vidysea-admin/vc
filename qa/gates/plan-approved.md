@@ -14,3 +14,21 @@ Answer format: approve all three, or name what to change. Recorded below as `Ans
 Answered: 2026-09-26T20:12:31+05:30 — intent — approved (docs/intent.md as drafted d592317) — Umesh in chat to the checker session ("approve all")
 Answered: 2026-09-26T20:12:31+05:30 — spec — approved (qa/contracts/counselling-engine.md B1..B22) — Umesh in chat ("approve all")
 Answered: 2026-09-26T20:12:31+05:30 — plan — approved (docs/plan.md + TASKS.md T-000..T-028) — Umesh in chat ("approve all"). Follow-up, not a condition: ISS-061 (add O8 personalisation/skip-known per CEO north star + B18; close the answered failover-scope question; add Non-goals).
+
+---
+
+## P1 — Student Virtual Counsellor (opened 2026-10-17T13:41:09+05:30)
+
+**Question:** approve the P1 plan set (v8) so the build can start with U0 (contract amendments)?
+- intent → `qa/evidence/p1-plan-draft-20261017/intent.md`
+- user types → `qa/evidence/p1-plan-draft-20261017/user-types.md`
+- spec → `qa/evidence/p1-plan-draft-20261017/spec.md` (v8, sha256 e183ee9a3af0e3a0096e55b84583a25ac42a456f1a23a1af7d8033941d3b9b4f)
+- plan → `qa/evidence/p1-plan-draft-20261017/plan.md` (v8, sha256 3ab92f77b1101886b2df19c3546a1f207690d73cf562399dc47387251b225fd9)
+
+**Inputs:** Umesh's answers D-086, D-087; maker decisions under his delegation D-088. Independent review: v7 APPROVE conditional on E1-E3 (scratchpad p1-v7-review.md), all three applied in v8.
+**Blocks:** every P1 build unit (U0..U13b).
+**Answer format:** "approve" (all three), or name what to change. Recorded as `Answered: <ISO> — <intent|spec|plan> — <where>`.
+
+Answered: 2026-10-17T13:57:53+05:30 — intent — approved (qa/evidence/p1-plan-draft-20261017/intent.md + user-types.md) — Umesh in chat ("Approve all")
+Answered: 2026-10-17T13:57:53+05:30 — spec — approved (spec.md v8 e183ee9a) — Umesh in chat ("Approve all")
+Answered: 2026-10-17T13:57:53+05:30 — plan — approved (plan.md v8 3ab92f77) — Umesh in chat ("Approve all")

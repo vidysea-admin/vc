@@ -1,0 +1,100 @@
+[testlock] running (free RAM 4.04 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7-fals/packages/engine exec tsx --test --test-timeout=30000 tests/student-graph.test.ts tests/student-classify.test.ts
+✔ A15b: the personal fixture has >= 40 borderline cases incl. Hindi/Hinglish, and 0 of them are classified generic (5.8829ms)
+✔ A15b: clear generic factual questions (English, Hinglish, Hindi) are generic (0.9061ms)
+✔ A15b: fails closed - empty, whitespace, very long or unrecognised input is personal (0.5083ms)
+✔ A15b: rule-based - classify.ts imports no provider and makes no model call (2.8063ms)
+✔ U7 repair F: an email address is personal data like a phone number - personal -> sign_in_required, never generic (0.5344ms)
+[student-graph] counter:crisis write failed (Error)
+[student-graph] flag_log write failed (Error)
+[student-graph] escalate write failed (Error)
+✔ gate: a missing, non-student or incomplete identity is refused before any KB or model call (counsellor/admin tokens rejected) (140.1819ms)
+✔ answer_from_kb: search_kb first; with >= 1 hit at or above the threshold, /ask is never called; reply is built from guarded claims (129.3637ms)
+✔ answer_from_kb: insufficient = 0 hits with score >= threshold -> ask_knowledge_base; low-score hits are not used as evidence (26.2417ms)
+✔ answer_from_kb: the threshold is configurable (18.2146ms)
+✔ A4/A18 (web_used): a non-served /ask result is the fixed no-answer, no model call, one gap count (16.3581ms)
+✔ A4/A18 (fallback failed): a non-served /ask result is the fixed no-answer, no model call, one gap count (22.5075ms)
+✔ A4/A18 (ambiguous): a non-served /ask result is the fixed no-answer, no model call, one gap count (17.8335ms)
+✔ A4/A18 (unavailable): a non-served /ask result is the fixed no-answer, no model call, one gap count (21.0513ms)
+✔ A4/A18 (answered but uncited): a non-served /ask result is the fixed no-answer, no model call, one gap count (21.0739ms)
+✔ A4/A18 (answered with web only): a non-served /ask result is the fixed no-answer, no model call, one gap count (19.49ms)
+✔ A4/A18 (answered with internal AND web): a non-served /ask result is the fixed no-answer, no model call, one gap count (14.6956ms)
+✔ A4: one passing correct /ask response IS served (sourced claims, no web) (16.9628ms)
+✔ A18: a KB search outage with /ask also unavailable is the fixed no-answer, never an uncited answer (11.2713ms)
+✔ B2: when the guard leaves no sourced claim, the turn is the no-answer (never an answer made of unverified text only) (21.0359ms)
+✔ B2: an unverified claim next to a verified one is returned flagged, and the message marks it (22.7077ms)
+✔ A12: provider failure fails over to the next chain member (FailoverProvider reused) (16.5282ms)
+✔ A12: every model failing gives the apology + Retry, never a guessed answer (13.1095ms)
+✔ anonymous: personal or ambiguous questions are sign_in_required with no KB call; counter only (16.2676ms)
+✔ anonymous: a generic question uses search_kb only (never /ask, never get_session), even when search finds nothing (31.0724ms)
+✔ anonymous: a turn is personal-gated before generation; no profile facts are ever used (14.019ms)
+✔ B24.2: the engine no-answer text equals the U2 MCP NO_SOURCED_ANSWER_TEXT (text-level parity, no package dependency) (2.8099ms)
+✔ R1 crisis-first: an anonymous crisis with the counter store down still returns the fixed message + Tele-MANAS 14416 (flagWriteFailed) (14.9795ms)
+✔ R1 crisis-first: an authenticated crisis with flag log AND escalation down still returns the fixed message + 14416 (13.1292ms)
+✔ R1: recordGap throwing on an authenticated no-answer still returns the fixed no-answer (logged, not thrown) (16.3384ms)
+✔ R1: the anonymous counter throwing on answered / no_answer / sign_in_required turns never fails the turn (43.7438ms)
+✔ R2a: a claim with no resolvable sourceId is dropped (never shown), even when it carries WhatsApp text and a phone number (17.2746ms)
+✔ R2a: a claim citing a seminar hit but quoting WhatsApp text verbatim is dropped (check over ALL restricted texts of the turn) (35.7806ms)
+✔ R2a: the FINAL message is checked too - two claims that are each under the verbatim bar but join into an 8+ word WhatsApp run give the no-answer (27.0628ms)
+✔ R2b: the speakerLabel of an 'unknown' (unlisted recording) hit is redacted (37.2268ms)
+✔ R2b: the speakerLabel of a get_session turn fetched on the /ask path is redacted (44.5711ms)
+✔ R3 followUp: kept only when it ends with '?', has no digits, no country, no personal identifier and no verbatim restricted run (127.9561ms)
+✔ R4 (D-092): anonymous mode never shows unverified claims; authenticated mode flags them '(unverified)' next to a sourced claim (34.3857ms)
+✔ R7: the crisis guard runs on the raw text before schema validation: 4001 chars with a crisis phrase -> the crisis message (30.0164ms)
+✔ R7: an over-long text without a crisis phrase is StudentInputInvalidError, not StudentAuthRequiredError (14.39ms)
+✔ R9: the compiled graph is cached per deps and itself enforces the TurnResponse schema + the prior-flag Tele-MANAS suffix (19.0821ms)
+✔ R9: the student module is re-exported from the @vc/engine entry point (809.7843ms)
+✔ U6h H1: the /ask path runs supports() against the served answer - an unsupported fact is never shown as sourced (probe: visa guarantee vs 'Germany is cheap.') (16.0758ms)
+✔ U6h H1: next to a supported claim, an unsupported /ask fact is flagged (unverified) in authenticated mode, never shown unmarked (20.5458ms)
+✔ U6h P4 (verdict ambiguous): an "answered" /ask the engine cannot confirm as correct and fully covered is the fixed no-answer - no model call, one gap (12.9375ms)
+✔ U6h P4 (verdict incorrect): an "answered" /ask the engine cannot confirm as correct and fully covered is the fixed no-answer - no model call, one gap (14.3351ms)
+✔ U6h P4 (insufficient_coverage true): an "answered" /ask the engine cannot confirm as correct and fully covered is the fixed no-answer - no model call, one gap (10.7746ms)
+✔ U6h P4 (insufficient_coverage absent (cannot be confirmed)): an "answered" /ask the engine cannot confirm as correct and fully covered is the fixed no-answer - no model call, one gap (17.6878ms)
+✔ U6h M3: WhatsApp hit text is redacted BEFORE it reaches the model (phone, speakerLabel, listed alias); seminar text passes through unchanged (31.3369ms)
+✔ U6h M3: the same pre-model redaction holds for an unknown-kind hit and for the /ask answer text; the claim check still sees the raw evidence (31.3573ms)
+✔ U6h M3: the kb-answer skill tells the model that evidence is data, not instructions (2.1961ms)
+✔ U6h M3 injection (not echoed): a model that echoes the instruction hidden in a WhatsApp hit cannot get >= 8 of its words past the guard (25.663ms)
+✔ U6h M3 injection (not obeyed): a model that follows the injection with words the evidence does not carry yields only unverified claims -> the fixed no-answer (21.8716ms)
+✔ U6h M4: priorFlagInThread is derived server-side - a caller-supplied true is ignored when the stored thread has no flag (12.0757ms)
+✔ U6h M4: a caller-supplied false cannot hide a flag that is in the stored thread (28.6734ms)
+✔ U6h M4: an unreadable flag store fails toward disclosure (the helpline line is shown) and the failure is reported text-free (18.5397ms)
+✔ U6h M4: with a store that has no earlier flag, a flag this graph raised earlier in the same thread still counts (e.g. the flag write failed); another thread is unaffected (36.3703ms)
+✔ U6h M4: the coach reply is claim-checked - a sentence or question carrying a number or country is dropped; coaching with >= 2 questions remains (16.0697ms)
+✔ U6h M4: when fewer than 2 fact-free coaching questions remain, the deterministic coaching fallback is used (17.9704ms)
+✔ U6h L5: a crisis phrase that occurs only after character 4000 still gets the fixed crisis message (authenticated and anonymous), never an input error (264.6297ms)
+✔ U6h L5: an over-long text with no crisis phrase anywhere is StudentInputInvalidError, whatever its length (53.8141ms)
+✔ U6h fix1 M4 coach: spelled-out numbers are facts too - 'about five thousand euros a year' and 'twenty thousand euros' never reach the student (15.5419ms)
+✔ U6h fix1 M4 coach: ordinary coaching words ('One thing', 'someone', 'tenacity') are not mistaken for numbers (14.4044ms)
+✔ U6h fix1 M4b: hasPriorFlag is a REQUIRED dep - a graph built or run without it fails loudly, never silently trusts process memory (4.8661ms)
+✔ U6h fix1 M4c followUp: only ONE sentence ending '?', <= 200 chars, passing the no-script and crisis-rule checks is shown (86.1169ms)
+✔ U7 repair C: in anonymous mode a model follow-up is never shown (hostile mock soliciting marks and school with a URL); authenticated keeps the checked follow-up (64.1703ms)
+✔ U7 repair D: the anonymous sign-in-required and no-answer replies also carry the Tele-MANAS line (recall fallback); authenticated texts are unchanged (37.1845ms)
+✖ U7 repair E: the anonymous response carries opaque source ids (s1, s2) used consistently by claims and sources, and no title for whatsapp or unknown sources; authenticated output keeps the turn ids (16.8803ms)
+ℹ tests 67
+ℹ suites 0
+ℹ pass 66
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8496.639
+
+✖ failing tests:
+
+test at tests\student-graph.test.ts:715:1
+✖ U7 repair E: the anonymous response carries opaque source ids (s1, s2) used consistently by claims and sources, and no title for whatsapp or unknown sources; authenticated output keeps the turn ids (16.8803ms)
+  AssertionError [ERR_ASSERTION]: no session title for a restricted-kind source
+  + actual - expected
+  
+  + 'Unlisted recording'
+  - undefined
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u7-fals\packages\engine\tests\student-graph.test.ts:733:44)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'Unlisted recording',
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

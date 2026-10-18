@@ -1,0 +1,20 @@
+[testlock] running (free RAM 3.03 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern=A20|startApi|node:http adapter tests/anonymous-route.test.ts
+✔ A20: the anonymous route is OFF by default - unset, empty and 'false' all read as disabled; only the exact word 'true' enables (3.4599ms)
+✔ A20 state OFF: with the flag off nothing is built and the path answers exactly like an unknown path (404), for every method (16.9057ms)
+✔ A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route (16.5308ms)
+✔ A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed (173.0113ms)
+✔ A20 state ON and gate open: the route is served (203.2173ms)
+✔ startApi: flag off -> the anonymous path is a 404 over real HTTP and no gate file is read (78.8016ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (10.5849ms)
+✔ startApi: flag on without a KB or speakers supplied is a config error, before connecting (13.9415ms)
+✔ startApi: flag on and gate open -> a real HTTP POST is answered and ONLY the text-free counter is written to virtual_counsellor; other routes still 401 (129.5722ms)
+✔ the node:http adapter hands the socket address to the limiter (10 per minute per real client) (336.4337ms)
+✔ U7 repair 2: with the flag on, startApi refuses to start unless the deployment states how clients are told apart - an explicit clientKey or trustSocketAddress: true (47.3027ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7848.6286

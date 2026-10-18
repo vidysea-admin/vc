@@ -1,0 +1,32 @@
+baseline-api | - | tests=43 pass=43 fail=0 | 
+baseline-eng | - | tests=67 pass=67 fail=0 | 
+A20-flag-default | red | tests=43 pass=41 fail=2 | A20: the anonymous route is OFF by default - unset, empty and 'false' ; startApi: flag off -> the anonymous path is a 404 over real HTTP and n; A20: the anonymous route is OFF by default - unset, empty and 'false' 
+A20-route-off | red | tests=43 pass=42 fail=1 | A20 state OFF: with the flag off nothing is built and the path answers; A20 state OFF: with the flag off nothing is built and the path answers
+A20-gate | red | tests=? pass=? fail=? | 
+A20-tracing | red | tests=43 pass=42 fail=1 | no student text is traced: an env that switches LangChain/LangSmith tr; no student text is traced: an env that switches LangChain/LangSmith tr
+A15a-counter-shape | red | tests=43 pass=42 fail=1 | A15a: 50 text turns through the real route; A15a: 50 text turns through the real route
+A15a-write-proxy | red | tests=43 pass=42 fail=1 | A15a: the handler is built with throwing proxies for gap log, flag log; A15a: the handler is built with throwing proxies for gap log, flag log
+A15b-limit | red | tests=43 pass=38 fail=5 | the node:http adapter hands the socket address to the limiter; A15b: the limiter allows 10 requests per minute per client, the 11th i; U7 repair A: a crisis message is answered with the fixed message and T
+A15b-limiter-key | red | tests=43 pass=42 fail=1 | A15b: the limiter is in-memory and text-free: its key is hashed, never; A15b: the limiter is in-memory and text-free: its key is hashed, never
+A15c-kb-args | red | tests=43 pass=42 fail=1 | A15c: the KB sees exactly one search call carrying only q; never /ask,; A15c: the KB sees exactly one search call carrying only q; never /ask,
+B21-closed-list | red | tests=43 pass=41 fail=2 | B21 exception: with the anonymous route ON, every other registered rou; startApi: flag on and gate open -> a real HTTP POST is answered and ON; B21 exception: with the anonymous route ON, every other registered rou
+B21-method | red | tests=43 pass=41 fail=2 | B21 exception: with the anonymous route ON, every other registered rou; U7 repair A: every non-200 anonymous body; B21 exception: with the anonymous route ON, every other registered rou
+B21-body-shape | red | tests=43 pass=41 fail=2 | B21 exception: the anonymous route ignores identity - a valid-looking ; validation: malformed bodies are a bare 400, over-long non-crisis text; B21 exception: the anonymous route ignores identity - a valid-looking 
+B24.7-crisis-before-length | red | tests=43 pass=42 fail=1 | crisis; crisis
+B24.6-no-echo-500 | red | tests=43 pass=42 fail=1 | errors: an unexpected failure is a bare 500 {error: internal}; the log; errors: an unexpected failure is a bare 500 {error: internal}; the log
+B21-413 | red | tests=43 pass=40 fail=3 | startApi: flag on and gate open -> a real HTTP POST is answered and ON; validation: malformed bodies are a bare 400, over-long non-crisis text; U7 repair A: every non-200 anonymous body
+R1B-counter-deadline | red | tests=43 pass=41 fail=0 | U7 repair 1/B: a counter that never answers does not delay any reply -; U7 repair 1: the default counter deadline is under one second, so a hu; U7 repair 1/B: a counter that never answers does not delay any reply -
+R2-clientkey-required | red | tests=? pass=? fail=? | 
+R3-normalize-address | red | tests=43 pass=42 fail=1 | U7 repair 3: client addresses are normalised before hashing - IPv4-map; U7 repair 3: client addresses are normalised before hashing - IPv4-map
+R4-sweep-rate-limit | red | tests=43 pass=42 fail=1 | U7 repair 4: with a full table the O(n) sweep runs at most once a seco; U7 repair 4: with a full table the O(n) sweep runs at most once a seco
+RA-crisis-before-limiter | red | tests=43 pass=42 fail=1 | U7 repair A: a crisis message is answered with the fixed message and T; U7 repair A: a crisis message is answered with the fixed message and T
+RA-helpline-on-errors | red | tests=43 pass=39 fail=4 | A15b: the limiter allows 10 requests per minute per client, the 11th i; validation: malformed bodies are a bare 400, over-long non-crisis text; errors: an unexpected failure is a bare 500 {error: internal}; the log
+R5-openapi-405 | red | tests=43 pass=42 fail=1 | U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 50; U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 50
+RC-followup | red | tests=67 pass=66 fail=1 | U7 repair C: in anonymous mode a model follow-up is never shown; U7 repair C: in anonymous mode a model follow-up is never shown
+RD-signin-helpline | red | tests=67 pass=66 fail=1 | U7 repair D: the anonymous sign-in-required and no-answer replies also; U7 repair D: the anonymous sign-in-required and no-answer replies also
+RD-noanswer-helpline | red | tests=67 pass=66 fail=1 | U7 repair D: the anonymous sign-in-required and no-answer replies also; U7 repair D: the anonymous sign-in-required and no-answer replies also
+RE-opaque-ids | red | tests=67 pass=66 fail=1 | U7 repair E: the anonymous response carries opaque source ids; U7 repair E: the anonymous response carries opaque source ids
+RE-restricted-title | red | tests=67 pass=67 fail=0 | 
+RF-email | red | tests=67 pass=66 fail=1 | U7 repair F: an email address is personal data like a phone number - p; U7 repair F: an email address is personal data like a phone number - p
+restored-api | - | tests=43 pass=43 fail=0 | 
+restored-eng | - | tests=67 pass=67 fail=0 | 

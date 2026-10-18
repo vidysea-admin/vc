@@ -1,0 +1,10 @@
+[testlock] running (free RAM 2.58 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern=no student text is traced tests/anonymous-route.test.ts
+✔ no student text is traced: an env that switches LangChain/LangSmith tracing on refuses to build the route (87.9287ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 21159.8114

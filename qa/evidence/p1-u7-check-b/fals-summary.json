@@ -1,0 +1,718 @@
+[
+ {
+  "id": "A15a-recordGap-swallowed",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 5,
+   "passed": 5,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 3.3
+  },
+  "red": {
+   "rc": 1,
+   "tests": 5,
+   "passed": 4,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 3.0,
+   "failing": [
+    "A15a: the handler is built with throwing proxies for gap log, flag log and escalation, no checkpointer, and the counter as its only writer"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 5,
+   "passed": 5,
+   "failed": 0
+  }
+ },
+ {
+  "id": "A15b-limiter-shared-bucket",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 4,
+   "passed": 4,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 4.3
+  },
+  "red": {
+   "rc": 1,
+   "tests": 4,
+   "passed": 1,
+   "failed": 3,
+   "cancelled": 0,
+   "secs": 3.1,
+   "failing": [
+    "A15b: >= 40 borderline cases",
+    "A15b: the limiter allows 10 requests per minute per client, the 11th is 429 with Retry-After, other clients are unaffected, the window then reopens",
+    "A15b: the limiter is in-memory and text-free: its key is hashed, never logged, never persisted; expired keys are purged; a full table fails closed"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 4,
+   "passed": 4,
+   "failed": 0
+  }
+ },
+ {
+  "id": "A15b-limit-off-by-one",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 4,
+   "passed": 4,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 3.4
+  },
+  "red": {
+   "rc": 1,
+   "tests": 4,
+   "passed": 3,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 6.3,
+   "failing": [
+    "A15b: the limiter allows 10 requests per minute per client, the 11th is 429 with Retry-After, other clients are unaffected, the window then reopens"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 4,
+   "passed": 4,
+   "failed": 0
+  }
+ },
+ {
+  "id": "A15b-ambiguous-reaches-kb",
+  "file": "packages/engine/src/student/graph.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 8.5
+  },
+  "red": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 7.3,
+   "failing": []
+  },
+  "verdict": "SURVIVED",
+  "restored": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0
+  }
+ },
+ {
+  "id": "A15c-anon-routes-by-intent",
+  "file": "packages/engine/src/student/graph.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 7.7
+  },
+  "red": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 10.2,
+   "failing": []
+  },
+  "verdict": "SURVIVED",
+  "restored": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0
+  }
+ },
+ {
+  "id": "A20-gate-target-weakened",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 11,
+   "passed": 11,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 8.0
+  },
+  "red": {
+   "rc": 1,
+   "tests": 11,
+   "passed": 10,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 8.5,
+   "failing": [
+    "A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 11,
+   "passed": 11,
+   "failed": 0
+  }
+ },
+ {
+  "id": "A20-flag-default-on",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 11,
+   "passed": 11,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 8.9
+  },
+  "red": {
+   "rc": 1,
+   "tests": 11,
+   "passed": 9,
+   "failed": 2,
+   "cancelled": 0,
+   "secs": 9.2,
+   "failing": [
+    "A20: the anonymous route is OFF by default - unset, empty and 'false' all read as disabled; only the exact word 'true' enables",
+    "startApi: flag off -> the anonymous path is a 404 over real HTTP and no gate file is read"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 11,
+   "passed": 11,
+   "failed": 0
+  }
+ },
+ {
+  "id": "TRACE-one-var-dropped",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 1,
+   "passed": 1,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 3.9
+  },
+  "red": {
+   "rc": 1,
+   "tests": 1,
+   "passed": 0,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 4.6,
+   "failing": [
+    "no student text is traced: an env that switches LangChain/LangSmith tracing on refuses to build the route"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 1,
+   "passed": 1,
+   "failed": 0
+  }
+ },
+ {
+  "id": "B21-any-method",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 8,
+   "passed": 8,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 11.8
+  },
+  "red": {
+   "rc": 1,
+   "tests": 8,
+   "passed": 6,
+   "failed": 2,
+   "cancelled": 0,
+   "secs": 9.4,
+   "failing": [
+    "B21 exception: with the anonymous route ON, every other registered route still answers 401 with no token, and the main handler touches no Db",
+    "U7 repair A: every non-200 anonymous body"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 8,
+   "passed": 8,
+   "failed": 0
+  }
+ },
+ {
+  "id": "B21-extra-body-keys",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 8,
+   "passed": 8,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 13.6
+  },
+  "red": {
+   "rc": 1,
+   "tests": 8,
+   "passed": 6,
+   "failed": 2,
+   "cancelled": 0,
+   "secs": 9.4,
+   "failing": [
+    "B21 exception: the anonymous route ignores identity - a valid-looking Authorization header changes nothing and no tenant or student id is read",
+    "validation: malformed bodies are a bare 400, over-long non-crisis text is 400, an oversized body is 413; no input is echoed"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 8,
+   "passed": 8,
+   "failed": 0
+  }
+ },
+ {
+  "id": "VAL-500-echo",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 6,
+   "passed": 6,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 10.7
+  },
+  "red": {
+   "rc": 1,
+   "tests": 6,
+   "passed": 5,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 12.3,
+   "failing": [
+    "errors: an unexpected failure is a bare 500 {error: internal}; the log line carries the error NAME only, never its message or the text"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 6,
+   "passed": 6,
+   "failed": 0
+  }
+ },
+ {
+  "id": "B24.7-crisis-limited",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 10,
+   "passed": 10,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 17.1
+  },
+  "red": {
+   "rc": 1,
+   "tests": 10,
+   "passed": 9,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 18.5,
+   "failing": [
+    "U7 repair A: a crisis message is answered with the fixed message and Tele-MANAS even at request 11"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 10,
+   "passed": 10,
+   "failed": 0
+  }
+ },
+ {
+  "id": "D092-show-unverified",
+  "file": "packages/engine/src/student/graph.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 24.3
+  },
+  "red": {
+   "rc": 1,
+   "tests": 67,
+   "passed": 66,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 22.5,
+   "failing": [
+    "R4"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0
+  }
+ },
+ {
+  "id": "R1B-deadline-5s",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 2,
+   "passed": 2,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 11.6
+  },
+  "red": {
+   "rc": 1,
+   "tests": 2,
+   "passed": 1,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 18.2,
+   "failing": [
+    "U7 repair 1: the default counter deadline is under one second, so a hung database delays the crisis message by less than that, not by the driver's 30 s"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 2,
+   "passed": 2,
+   "failed": 0
+  }
+ },
+ {
+  "id": "R2-clientkey-not-required",
+  "file": "apps/api/src/index.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 1,
+   "passed": 1,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 23.2
+  },
+  "red": {
+   "rc": 1,
+   "tests": 1,
+   "passed": 0,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 25.5,
+   "failing": [
+    "U7 repair 2: with the flag on, startApi refuses to start unless the deployment states how clients are told apart - an explicit clientKey or trustSocketAddress: true"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 1,
+   "passed": 1,
+   "failed": 0
+  }
+ },
+ {
+  "id": "R3-no-64-reduction",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 1,
+   "passed": 1,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 14.7
+  },
+  "red": {
+   "rc": 1,
+   "tests": 1,
+   "passed": 0,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 13.1,
+   "failing": [
+    "U7 repair 3: client addresses are normalised before hashing - IPv4-mapped IPv6 shares the IPv4 bucket and every address in one IPv6 /64 shares one bucket"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 1,
+   "passed": 1,
+   "failed": 0
+  }
+ },
+ {
+  "id": "R4-sweep-unthrottled",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 1,
+   "passed": 1,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 10.5
+  },
+  "red": {
+   "rc": 1,
+   "tests": 1,
+   "passed": 0,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 7.6,
+   "failing": [
+    "U7 repair 4: with a full table the O(n) sweep runs at most once a second, however many new keys arrive"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 1,
+   "passed": 1,
+   "failed": 0
+  }
+ },
+ {
+  "id": "R5-openapi-413-missing",
+  "file": "apps/api/src/openapi.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 1,
+   "passed": 1,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 8.0
+  },
+  "red": {
+   "rc": 1,
+   "tests": 1,
+   "passed": 0,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 7.9,
+   "failing": [
+    "U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 the route can return, and the AnonymousError schema carries the helpline field"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 1,
+   "passed": 1,
+   "failed": 0
+  }
+ },
+ {
+  "id": "RA-helpline-dropped",
+  "file": "apps/api/src/anonymous.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 5,
+   "passed": 5,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 7.2
+  },
+  "red": {
+   "rc": 1,
+   "tests": 5,
+   "passed": 2,
+   "failed": 3,
+   "cancelled": 0,
+   "secs": 7.6,
+   "failing": [
+    "U7 repair A: every non-200 anonymous body",
+    "errors: an unexpected failure is a bare 500 {error: internal}; the log line carries the error NAME only, never its message or the text",
+    "validation: malformed bodies are a bare 400, over-long non-crisis text is 400, an oversized body is 413; no input is echoed"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 5,
+   "passed": 5,
+   "failed": 0
+  }
+ },
+ {
+  "id": "RC-followup-shown",
+  "file": "packages/engine/src/student/graph.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 11.5
+  },
+  "red": {
+   "rc": 1,
+   "tests": 67,
+   "passed": 66,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 11.2,
+   "failing": [
+    "U7 repair C: in anonymous mode a model follow-up is never shown"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0
+  }
+ },
+ {
+  "id": "RD-signin-helpline-dropped",
+  "file": "packages/engine/src/student/graph.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 13.5
+  },
+  "red": {
+   "rc": 1,
+   "tests": 67,
+   "passed": 66,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 14.2,
+   "failing": [
+    "U7 repair D: the anonymous sign-in-required and no-answer replies also carry the Tele-MANAS line"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0
+  }
+ },
+ {
+  "id": "RE-opaque-ids-off",
+  "file": "packages/engine/src/student/graph.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 23.4
+  },
+  "red": {
+   "rc": 1,
+   "tests": 67,
+   "passed": 66,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 15.1,
+   "failing": [
+    "U7 repair E: the anonymous response carries opaque source ids"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0
+  }
+ },
+ {
+  "id": "RF-email-not-personal",
+  "file": "packages/engine/src/student/classify.ts",
+  "find_count": 1,
+  "green": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0,
+   "cancelled": 0,
+   "secs": 12.6
+  },
+  "red": {
+   "rc": 1,
+   "tests": 67,
+   "passed": 66,
+   "failed": 1,
+   "cancelled": 0,
+   "secs": 10.4,
+   "failing": [
+    "U7 repair F: an email address is personal data like a phone number - personal -> sign_in_required, never generic"
+   ]
+  },
+  "verdict": "KILLED",
+  "restored": {
+   "rc": 0,
+   "tests": 67,
+   "passed": 67,
+   "failed": 0
+  }
+ }
+]
