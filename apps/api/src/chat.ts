@@ -105,6 +105,8 @@ export const CHAT_MAX_LIMITER_KEYS = 100_000;
 /** p1-u8r M2: per student and thread, one crisis turn in this window is stored, flagged, escalated and counted (a turn of a higher level than the holder's runs in full and takes over the slot: cycle 1 H1). */
 export const CRISIS_WRITE_WINDOW_MS = 10 * 60_000;
 export const CRISIS_MAX_TRACKED_THREADS = 100_000;
+/** p1-u8r cycle 2: a crisis turn behind an unconfirmed holder waits at most this long for it, then escalates itself. */
+export const CRISIS_QUIET_WAIT_MS = 5_000;
 const LEVEL_RANK = { none: 0, concern: 1, crisis: 2 } as const;
 /** Chat-extracted facts kept per turn (a model cannot flood a student's profile). */
 export const MAX_PROPOSED_FACTS_PER_TURN = 5;
@@ -185,6 +187,8 @@ export interface ChatApiDeps {
   config?: Partial<StudentGraphConfig>;
   now?: () => Date;
   nowMs?: () => number;
+  /** p1-u8r cycle 2: how long a crisis turn waits for an unconfirmed slot holder before it escalates itself (default CRISIS_QUIET_WAIT_MS). */
+  quietWaitMs?: number;
   /** Text-free server-side failure log. Default: one JSON line on stderr. */
   log?: (line: ChatLogLine) => void;
 }
@@ -325,34 +329,59 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
   // p1-u8r M2: crisis writes are bounded per student and thread (in memory, oldest evicted). Map order is insertion order, so delete + set keeps it oldest-first.
   // Cycle 1 H1: the slot remembers the level of the turn that holds it. A turn of a HIGHER level (concern, then crisis) is never quiet: it runs the
   // full path and upgrades the slot, and if it then fails the previous holder's slot is put back. Only a turn of equal or lower level is quiet.
-  // `confirmed` is set once the holder's flag and escalation went through; a quiet turn that finds an unconfirmed holder writes a flag-only record.
+  // Cycle 2: `confirmed` is set only when the holder's flag went through AND its escalate port was really called and succeeded. A holder that cannot
+  // escalate (textless: over-long, or an unconsented minor) takes rank 0, so any later concern or crisis takes over. A failed holder's slot is marked
+  // `released` and is never put back. `done` settles true on confirmation and false on release; a turn behind an unconfirmed holder awaits it (bounded).
   interface CrisisSlot {
     until: number;
     rank: number;
     confirmed: boolean;
+    released: boolean;
+    done: Promise<boolean>;
+    settle: (escalated: boolean) => void;
   }
   const crisisSlots = new Map<string, CrisisSlot>();
   const nowMs = () => (deps.nowMs ?? Date.now)();
+  const quietWaitMs = deps.quietWaitMs ?? CRISIS_QUIET_WAIT_MS;
   const takeCrisisSlot = (key: string, rank: number): { holds: boolean; slot: CrisisSlot; prev?: CrisisSlot } => {
     const t = nowMs();
     const found = crisisSlots.get(key);
-    const active = found !== undefined && found.until > t ? found : undefined;
+    const active = found !== undefined && found.until > t && !found.released ? found : undefined;
     if (active !== undefined && rank <= active.rank) return { holds: false, slot: active };
     crisisSlots.delete(key);
     while (crisisSlots.size >= CRISIS_MAX_TRACKED_THREADS) crisisSlots.delete(crisisSlots.keys().next().value as string);
-    const slot: CrisisSlot = { until: t + CRISIS_WRITE_WINDOW_MS, rank, confirmed: false };
+    let settle!: (escalated: boolean) => void;
+    const done = new Promise<boolean>((r) => (settle = r));
+    const slot: CrisisSlot = { until: t + CRISIS_WRITE_WINDOW_MS, rank, confirmed: false, released: false, done, settle };
     crisisSlots.set(key, slot);
     return { holds: true, slot, ...(active !== undefined ? { prev: active } : {}) };
   };
-  /** Gives the slot back after a failed holder; a slot another turn has taken over since is left alone, and the slot it replaced returns. */
+  /** Gives the slot back after a failed holder; a slot another turn has taken over since is left alone, and the slot it replaced returns unless it failed too. */
   const releaseCrisisSlot = (key: string, slot: CrisisSlot, prev: CrisisSlot | undefined) => {
+    slot.released = true;
+    slot.settle(false);
     if (crisisSlots.get(key) !== slot) return;
     crisisSlots.delete(key);
-    if (prev !== undefined && prev.until > nowMs()) crisisSlots.set(key, prev);
+    if (prev !== undefined && !prev.released && prev.until > nowMs()) crisisSlots.set(key, prev);
+  };
+  /** True when the holder escalated within the bounded wait; false when it failed or is still in flight after it. */
+  const awaitHolder = async (slot: CrisisSlot): Promise<boolean> => {
+    if (slot.confirmed) return true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<boolean>((r) => {
+      timer = setTimeout(() => r(false), quietWaitMs);
+      timer.unref?.();
+    });
+    try {
+      return await Promise.race([slot.done, timeout]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
   };
 
   // p1-u8r item 5: the redaction of the turn in flight, read by the cached `escalate` wrapper (the graph deps are shared across students).
-  type Redactors = { full: (s: string) => string; minimal: (s: string) => string };
+  // Cycle 2: the same per-turn scope records whether this turn's escalate port was really called and succeeded.
+  type Redactors = { full: (s: string) => string; minimal: (s: string) => string; escalated?: boolean };
   const redactionScope = new AsyncLocalStorage<Redactors>();
   /** The most redacted text that the crisis guard still reads as at least as serious as the original; the original only as a last resort. */
   const escalationText = (raw: string): string => {
@@ -373,7 +402,12 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     if (!g) {
       const inner = variant === "full" ? deps.escalateForTenant?.(tenantId, db) : undefined;
       const escalate: StudentGraphDeps["escalate"] | undefined = inner
-        ? (input) => inner({ ...input, turns: input.turns.map((t) => ({ ...t, text: escalationText(t.text), translatedText: escalationText(t.translatedText) })) })
+        ? async (input) => {
+            const out = await inner({ ...input, turns: input.turns.map((t) => ({ ...t, text: escalationText(t.text), translatedText: escalationText(t.translatedText) })) });
+            const scope = redactionScope.getStore();
+            if (scope !== undefined) scope.escalated = true;
+            return out;
+          }
         : undefined;
       g = {
         kb: deps.kb,
@@ -478,12 +512,22 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
 
     // p1-u8r M2: one stored, flagged, escalated crisis turn per student and thread per window; the rest are answered and write nothing.
     const slotKey = crisis ? sha256(`${ctx.tenantId}\u0000${ctx.studentId}\u0000${threadId}`) : undefined;
-    const taken = slotKey !== undefined ? takeCrisisSlot(slotKey, LEVEL_RANK[level]) : undefined;
+    // Cycle 2 item 1: a turn that has no escalate port (textless: unconsented minor or over-long) holds the slot at rank 0, so it never silences
+    // a concern or crisis turn that can escalate.
+    const consentOk = !ctx.minor || ctx.guardianConsent;
+    const slotRank = consentOk && !overlong ? LEVEL_RANK[level] : 0;
+    let taken = slotKey !== undefined ? takeCrisisSlot(slotKey, slotRank) : undefined;
+    // Cycle 2 item 3: behind an unconfirmed holder a turn waits (bounded) for it. If the holder failed it takes the slot; if the slot is still not
+    // confirmed it runs the full path itself without the slot ("loose"). A turn is quiet only behind a holder that really escalated.
+    let loose = false;
+    if (slotKey !== undefined && taken !== undefined && !taken.holds && !(await awaitHolder(taken.slot))) {
+      taken = takeCrisisSlot(slotKey, slotRank);
+      if (!taken.holds && !taken.slot.confirmed) loose = true;
+    }
     const holdsSlot = taken?.holds === true;
-    const quiet = taken !== undefined && !taken.holds;
+    const quiet = taken !== undefined && !taken.holds && !loose;
     let slotConfirmed = false;
     const runTurn = async (): Promise<ApiResponse> => {
-      const consentOk = !ctx.minor || ctx.guardianConsent;
       const persistText = consentOk && !overlong && !profileDown && !quiet;
       const turnId = clientTurnId ?? randomUUID();
 
@@ -559,22 +603,13 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
         return respond(200, response);
       }
       // M2: a crisis turn past its window's budget is answered with the helpline and stores no text. One whose flag or escalation write failed gives its slot back.
-      // Cycle 1: while the holder is not confirmed (still in flight, or failed and gave the slot back) the quiet turn leaves a flag-only row (ids, kind, time),
-      // so no crisis turn is ever unrecorded; once the holder is confirmed its flag already covers the window.
-      if (quiet) {
-        if (!taken!.slot.confirmed) {
-          try {
-            await recordStudentFlag(db, { studentId: ctx.studentId, threadId, turnId, kind: "crisis" }, { now });
-          } catch (err) {
-            if (err instanceof StudentFencedError || err instanceof FencedWriterDeadlineError) throw err;
-            logEvent("chat_write_failed", { write: "quiet_flag" });
-          }
-        }
-        return respond(200, response);
-      }
-      if (holdsSlot && !result.flagWriteFailed) {
+      // Cycle 2: a turn is quiet only behind a confirmed holder (one that really escalated), whose flag already covers the window.
+      if (quiet) return respond(200, response);
+      // Cycle 2 item 1: only a turn whose escalate port was really called and succeeded (and whose flag was written) confirms the slot.
+      if (holdsSlot && variant === "full" && redactors.escalated === true && !result.flagWriteFailed) {
         slotConfirmed = true;
         taken!.slot.confirmed = true;
+        taken!.slot.settle(true);
       }
 
       if (leaseToken !== undefined) {

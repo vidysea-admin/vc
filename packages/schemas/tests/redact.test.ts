@@ -158,3 +158,15 @@ test("p1-u8r cycle 1: the email pass is skipped without an at-sign and the local
   assert.ok(performance.now() - t1 < 100, "no-at-sign text skips the email pass");
   assert.equal(redactPii("write to priya.sharma@example.com now").text, "write to [EMAIL] now");
 });
+
+test("p1-u8r cycle 2 item 4: a title and initials do not use up the name-token budget, so 'I'm Dr. A. P. J. Abdul Kalam' keeps no part of the name", () => {
+  for (const input of ["I'm Dr. A. P. J. Abdul Kalam", "My name is Prof. Dr. Anita Rao Verma", "my name is dr. anita rao verma and i want to study", "I am Shri Ram Prasad Bismil Sharma"]) {
+    const out = redactPii(input).text;
+    for (const word of ["Abdul", "Kalam", "Anita", "anita", "Verma", "verma", "Rao", "rao", "Bismil", "Sharma"]) assert.equal(out.includes(word), false, `${input} -> ${out}`);
+  }
+  assert.equal(redactPii("I'm Dr. A. P. J. Abdul Kalam from Pune").text.includes("Pune"), true, "the place after the name survives");
+  // A long run of titles is still linear.
+  const t0 = performance.now();
+  redactPii("My name is " + "Dr. ".repeat(50_000));
+  assert.ok(performance.now() - t0 < 500, "a run of titles redacts quickly");
+});

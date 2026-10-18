@@ -86,7 +86,10 @@ const isLowerNameToken = (raw: string): boolean => {
   const token = trimTail(raw);
   return [...token].length >= 2 && !LOWER_NOT_NAME.has(token.toLowerCase()) && !/ing$/i.test(token);
 };
-const EN_NAME = new RegExp(String.raw`(?<![\p{L}\p{M}\p{N}])(${EN_LEAD})\s+(${NAME_TOKEN}(?:\s+${NAME_TOKEN}){0,3})`, "giu");
+// Cycle 2 item 4: titles ("Dr.", "Mrs") and one-letter initials ("A.") before the name do not use up the {0,3} name-token budget, so
+// "I'm Dr. A. P. J. Abdul Kalam" is redacted whole. Each prefix token is a fixed title word or ends in a dot, so the run stays linear.
+const NAME_PREFIX = String.raw`(?:(?:${[...TITLES].join("|")})\.?(?![\p{L}\p{M}\p{N}])|\p{L}\.)`;
+const EN_NAME = new RegExp(String.raw`(?<![\p{L}\p{M}\p{N}])(${EN_LEAD})\s+((?:${NAME_PREFIX}\s+)*${NAME_TOKEN}(?:\s+${NAME_TOKEN}){0,3})`, "giu");
 const HI_STOP = String.raw`(?:hai|he|h|hu|hun|hoon|aur|and|ki|ka|ke|main|mai|mujhe|mein|me|from|se)`;
 const HINGLISH_NAME = new RegExp(
   String.raw`(?<![\p{L}\p{M}\p{N}])((?:mera|meri)\s+(?:naam|nam|name)(?:\s+hai)?)\s+((?!${HI_STOP}(?![\p{L}\p{M}]))${NAME_TOKEN}(?:\s+(?!${HI_STOP}(?![\p{L}\p{M}]))${NAME_TOKEN}){0,2})`,
@@ -144,6 +147,8 @@ export function redactPii(input: string, options: RedactOptions = {}): RedactRes
       const tok = tokens[i]!;
       if (isUpper(tok)) {
         // a capitalised token always counts
+      } else if (lowerOk && TITLES.has(trimTail(tok).toLowerCase())) {
+        // cycle 2 item 4: a lower-case title ("dr.") continues the name and does not count against the lower-case budget
       } else if (lowerOk && lowerRun < MAX_LOWER_NAME_TOKENS && isLowerNameToken(tok)) {
         lowerRun++;
       } else break;

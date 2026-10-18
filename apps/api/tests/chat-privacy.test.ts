@@ -617,3 +617,202 @@ test("p1-u8r cycle 1 M-race: a retry with the same clientTurnId of a completed c
     w.cleanup();
   }
 });
+
+// p1-u8r cycle 2: a crisis turn may be answered quietly only because another turn in its window ACTUALLY escalated.
+const OVERLONG_CRISIS = "I want to kill myself. " + "x ".repeat(3000);
+const deferred = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((r) => (resolve = r));
+  return { promise, resolve };
+};
+const flagRows = (w: ReturnType<typeof chatWorld>) => w.fakeDb.collection<{ turnId: string; kind: string }>(COLLECTION_NAMES.student_flags).all();
+const until = async (cond: () => boolean) => {
+  while (!cond()) await new Promise((r) => setTimeout(r, 5));
+};
+
+test("p1-u8r cycle 2 item 1: an over-long crisis turn (which cannot escalate) does not silence a normal crisis turn 60 s later", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const first = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: OVERLONG_CRISIS, clientTurnId: "c2-ol-1" } });
+    assert.equal(first.json.state, "escalated");
+    assert.equal(w.escalations.length, 0, "the over-long turn has no escalation port");
+    w.clock.ms += 60_000;
+    const second = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "c2-ol-2" } });
+    assert.equal(second.json.state, "escalated");
+    assert.equal(w.escalations.length, 1, "the full crisis turn is escalated");
+    assert.ok(flagRows(w).some((f) => f.turnId === "c2-ol-2"), "and flagged");
+    // An over-long crisis does not silence a concern turn either.
+    const b = await newThread(w, token);
+    await call(w, "POST", turnsPath("stu-1", b), { token, body: { text: OVERLONG_CRISIS, clientTurnId: "c2-ol-3" } });
+    w.clock.ms += 60_000;
+    await call(w, "POST", turnsPath("stu-1", b), { token, body: { text: CONCERN_TEXT, clientTurnId: "c2-ol-4" } });
+    assert.equal(w.escalations.length, 2, "the concern turn behind an over-long crisis is escalated");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-u8r cycle 2 item 1: an unconsented minor's crisis turn does not silence a later consented crisis turn in the same thread", async () => {
+  const w = chatWorld();
+  try {
+    const minorToken = await studentToken(minor());
+    const threadId = await newThread(w, minorToken);
+    await call(w, "POST", turnsPath("stu-1", threadId), { token: minorToken, body: { text: CRISIS_TEXT, clientTurnId: "c2-mn-1" } });
+    assert.equal(w.escalations.length, 0);
+    w.clock.ms += 60_000;
+    const consented = await studentToken(minor("stu-1", "tenant-a", { guardianConsent: true }));
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token: consented, body: { text: CRISIS_TEXT, clientTurnId: "c2-mn-2" } });
+    assert.equal(res.json.state, "escalated");
+    assert.equal(w.escalations.length, 1, "the consented crisis turn is escalated");
+    // A textless turn never confirms the slot (nothing was escalated), so a second unconsented crisis turn is not quiet: it is flagged too.
+    const other = await newThread(w, minorToken);
+    await call(w, "POST", turnsPath("stu-1", other), { token: minorToken, body: { text: CRISIS_TEXT, clientTurnId: "c2-mn-3" } });
+    w.clock.ms += 60_000;
+    await call(w, "POST", turnsPath("stu-1", other), { token: minorToken, body: { text: CRISIS_TEXT, clientTurnId: "c2-mn-4" } });
+    const ids = flagRows(w).map((f) => f.turnId);
+    assert.ok(ids.includes("c2-mn-3") && ids.includes("c2-mn-4"), `both unconsented crisis turns are flagged: ${ids.join(",")}`);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-u8r cycle 2 item 2: a failed holder's slot is never put back (concern A in flight, crisis B takes over, A fails, B fails, then concern C escalates)", async () => {
+  const gates: Array<() => void> = [];
+  let attempts = 0;
+  const w = chatWorld({
+    deps: {
+      quietWaitMs: 50,
+      escalateForTenant: () => async (input) => {
+        const n = ++attempts;
+        if (n <= 2) {
+          await new Promise<void>((r) => gates.push(r));
+          throw new Error("mongo blip");
+        }
+        w.escalations.push(input);
+      },
+    },
+  });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const a = call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CONCERN_TEXT, clientTurnId: "c2-g-a" } });
+    await until(() => gates.length >= 1);
+    const b = call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "c2-g-b" } });
+    await until(() => gates.length >= 2);
+    gates[0]!();
+    await a;
+    gates[1]!();
+    await b;
+    const c = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CONCERN_TEXT, clientTurnId: "c2-g-c" } });
+    assert.equal(c.status, 200);
+    assert.equal(attempts, 3, "concern C reached the escalation path");
+    assert.equal(w.escalations.length, 1, "and was escalated");
+    // C held the slot itself (no failed ghost was put back in its way), so its escalation now covers the window.
+    await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CONCERN_TEXT, clientTurnId: "c2-g-d" } });
+    assert.equal(attempts, 3, "a further concern in the window is quiet behind C's confirmed escalation");
+  } finally {
+    gates.forEach((g) => g());
+    w.cleanup();
+  }
+});
+
+test("p1-u8r cycle 2 item 3: a quiet turn behind an in-flight holder waits for it; when the holder fails, the waiting turn escalates itself", async () => {
+  const gate = deferred();
+  let attempts = 0;
+  const w = chatWorld({
+    deps: {
+      quietWaitMs: 5_000,
+      escalateForTenant: () => async (input) => {
+        attempts++;
+        if (attempts === 1) {
+          await gate.promise;
+          throw new Error("mongo blip");
+        }
+        w.escalations.push(input);
+      },
+    },
+  });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const holder = call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "c2-w-1" } });
+    await until(() => attempts >= 1);
+    const waiting = call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "c2-w-2" } });
+    await new Promise((r) => setTimeout(r, 30));
+    assert.equal(attempts, 1, "the second turn is waiting on the holder, not yet escalating");
+    gate.resolve();
+    await holder;
+    const res = await waiting;
+    assert.equal(res.json.state, "escalated");
+    assert.equal(attempts, 2, "the waiting turn ran the escalation path itself");
+    assert.equal(w.escalations.length, 1, "exactly one escalation went through");
+    await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "c2-w-3" } });
+    assert.equal(attempts, 2, "a later crisis in the window is quiet behind the confirmed escalation");
+  } finally {
+    gate.resolve();
+    w.cleanup();
+  }
+});
+
+test("p1-u8r cycle 2 item 3: a quiet turn behind an in-flight holder that succeeds stays quiet and writes nothing", async () => {
+  const gate = deferred();
+  let attempts = 0;
+  const w = chatWorld({
+    deps: {
+      quietWaitMs: 5_000,
+      escalateForTenant: () => async (input) => {
+        attempts++;
+        if (attempts === 1) await gate.promise;
+        w.escalations.push(input);
+      },
+    },
+  });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const holder = call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "c2-s-1" } });
+    await until(() => attempts >= 1);
+    const waiting = call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "c2-s-2" } });
+    await new Promise((r) => setTimeout(r, 30));
+    gate.resolve();
+    await holder;
+    const res = await waiting;
+    assert.match(res.json.message, /14416/);
+    assert.equal(attempts, 1, "the waiting turn did not escalate again");
+    assert.deepEqual(flagRows(w).map((f) => f.turnId), ["c2-s-1"], "only the holder's flag");
+  } finally {
+    gate.resolve();
+    w.cleanup();
+  }
+});
+
+test("p1-u8r cycle 2 item 3: the wait is bounded; a holder that hangs past it does not keep the waiting crisis turn from escalating", async () => {
+  const gate = deferred();
+  let attempts = 0;
+  const w = chatWorld({
+    deps: {
+      quietWaitMs: 100,
+      escalateForTenant: () => async (input) => {
+        attempts++;
+        if (attempts === 1) await gate.promise;
+        w.escalations.push(input);
+      },
+    },
+  });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const holder = call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "c2-b-1" } });
+    await until(() => attempts >= 1);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "c2-b-2" } });
+    assert.equal(res.json.state, "escalated");
+    assert.equal(attempts, 2, "after the bounded wait the turn escalated itself");
+    gate.resolve();
+    await holder;
+  } finally {
+    gate.resolve();
+    w.cleanup();
+  }
+});
