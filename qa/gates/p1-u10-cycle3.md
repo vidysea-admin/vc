@@ -7,3 +7,4 @@ Options:
 2. Stall U10. Voice is not shipped in P1; U10w is stopped.
 Blocks: U10, U10w (voice go-live).
 Evidence: qa/verdicts/p1-u10-voice-ws.B.md on p1/u10, and D:/vc/qa/evidence/p1-briefs/p1-u10-c2-review-result.md.
+Answered: 2026-10-19 — allow cycle 3, folded into U10w (option 1) — AskUserQuestion (Umesh)

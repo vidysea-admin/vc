@@ -909,3 +909,9 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Result:** The eng3 cycle-3 build is dispatched. U8r (cycle 2, 585f6dc) and U10 (0563712) go to dual check in parallel.
 **Links:** D-020, D-093, D-096, qa/verdicts/p1-eng3-crisis-leftovers.md, qa/evidence/p1-briefs/p1-eng3-c2-review-result.md, qa/evidence/p1-briefs/p1-eng3-repair3.md
 **Changes-authorized:** none
+
+## D-099 | 2026-10-19 | type: decision | status: ACTIVE
+**What:** U10 (p1-u10-voice-ws) gets one extra fix cycle (cycle 3), folded into U10w (p1-u10w-voice-wiring). U10w fixes C18 test-first: the crisis escalation carries the crisis utterance's own student turn, identified by turnId, never by seq adjacency (an unanswered earlier turn followed by a no-words crisis must escalate VOICE_CRISIS_NO_WORDS_TEXT). The combined U10+U10w branch then gets ONE fresh blind dual check over U10 C1-C19 plus the U10w criteria, and a senior review. Voice stays off (VC_VOICE_ENABLED unset, A20 closed) until that check passes.
+**Why:** Both cycle-2 blind checkers failed U10 only on C18, independently, with the same root cause and every other criterion green; U10w already edits voice.ts on top of p1/u10, so a separate cycle would duplicate the check. Gate qa/gates/p1-u10-cycle3.md, option 1, answered by Umesh.
+**Result:** pending (U10w cycle-3 repair dispatched).
+**Links:** qa/gates/p1-u10-cycle3.md; qa/verdicts/p1-u10-voice-ws.md (A, FAIL C18); qa/verdicts/p1-u10-voice-ws.B.md (B, FAIL C18, c430bae); D-097; D-096.
