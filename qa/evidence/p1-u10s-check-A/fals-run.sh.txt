@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+B=D:/vc/.worktrees/p1-u10s-fcA
+E=D:/vc/.worktrees/p1-u10s/qa/evidence/p1-u10s-check-A
+export TMP=D:/vc/.worktrees/p1-u10s-tmpA TEMP=D:/vc/.worktrees/p1-u10s-tmpA
+run() { # name copy files...
+  n=$1; d=$2; shift 2
+  ( cd $B-$d/apps/api && pnpm exec tsx --test "$@" > $E/$n.log 2>&1; echo "exit=$?" >> $E/$n.log )
+  echo "$n: $(grep -E '^ℹ (pass|fail)' $E/$n.log | tr '\n' ' ') $(tail -1 $E/$n.log)"
+}
+run green-A0 A0 tests/voice-crisis-turn.test.ts tests/chat.test.ts tests/zz-probe-A.test.ts
+# mutants: run the unit tests (copy of tests identical) + the probe
+for k in H1 H3 H4; do cp $B-A0/apps/api/tests/zz-probe-A.test.ts $B-$k/apps/api/tests/; run mut-$k $k tests/voice-crisis-turn.test.ts tests/chat.test.ts tests/zz-probe-A.test.ts; done
