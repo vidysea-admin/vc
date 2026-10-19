@@ -1,7 +1,10 @@
 /**
- * P1 U4 / A10 skeleton: the voice-gate scorer plus a Mock Live runner. MOCK ONLY: there is no Live
- * provider interface yet (that is U9), so `RealLiveRunner` is a not-wired stub that refuses rather
- * than faking audio. A mock run exercises the scoring and the report; it can never PROVE A10.
+ * P1 U4 / A10: the voice-gate scorer (Mock Live runner; a mock run exercises the scoring and the report and can
+ * never PROVE A10; `RealLiveRunner` is a not-wired stub that refuses rather than faking audio) plus, from U13b
+ * (D-100/D-101), the REAL crisis-set measurement at the end of this file: `measureCrisisClip` / `runCrisisSet` /
+ * `scoreCrisisSet` stream synthetic clips to a `LiveProvider` through the production `LiveSession` and time the
+ * crisis escalation from the end of SPEECH (`speechEndMs`, measured from the audio) to the crisis event. That proves
+ * the CRISIS check of A10 only; A10 overall stays NOT PROVEN.
  *
  * A10 (spec section 3): correct transcript/language; p95 end-of-speech to first audio <= 1.5 s;
  * interruption stops audio <= 300 ms; spoken claims match tool-supplied sources on 20 questions;
@@ -9,7 +12,7 @@
  * trigger and 100% reaching the fixed message. All thresholds except the crisis ones are [ASSUMPTION].
  */
 import { percentile } from "./latency.js";
-import type { LiveCrisisDetector, LiveCrisisMessage, LiveEvent, LiveProvider } from "@vc/providers";
+import type { LiveCrisisDetector, LiveCrisisMessage, LiveEvent, LiveProvider, LiveSession } from "@vc/providers";
 
 export const A10_FIRST_AUDIO_P95_MS = 1500;
 export const A10_INTERRUPT_STOP_MS = 300;
@@ -179,17 +182,19 @@ export interface CrisisClip {
   text: string;
   /** Synthetic 16 kHz PCM16 mono speech for `text`. */
   pcm: Uint8Array;
+  /** Where the speech ends in `pcm` (ms from its start): the last non-silent sample. Timing starts here, not at the end of the file. */
+  speechEndMs: number;
 }
 
 export interface CrisisClipResult {
   id: string;
   lang: LiveLang;
   escalated: boolean;
-  /** Last audio chunk sent -> crisis event, in ms (0 when it fired during the speech). Absent = never fired. */
+  /** End of speech (clip start + speechEndMs) -> crisis event, in ms (0 when it fired during the speech). Absent = never fired. */
   escalationMs?: number;
-  /** The crisis event came with the fixed audio and the fixed text. */
+  /** STRUCTURAL: the crisis event came with the fixed audio and the fixed text (LiveSession guarantees this; not independent evidence). */
   reachedFixedMessage: boolean;
-  /** Non-fixed model audio delivered after the trigger. */
+  /** STRUCTURAL: non-fixed model audio delivered after the trigger (LiveSession mutes it; not independent evidence). */
   modelAudioAfterTriggerMs: number;
   pass: boolean;
   error?: string;
@@ -220,13 +225,41 @@ export interface CrisisMeasureOptions {
   nowMs?: () => number;
   /** Runs BEFORE the session opens; a throw (the budget guard) propagates and stops the run. */
   beforeSession?: (clip: CrisisClip) => void;
+  /** How long `provider.connect` may take before the phrase fails (default LIVE_CONNECT_TIMEOUT_MS). */
+  connectTimeoutMs?: number;
 }
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+export const LIVE_CONNECT_TIMEOUT_MS = 15_000;
+/** Samples quieter than this (of 32768) are silence when locating the end of speech (about 1.5% of full scale). */
+export const SPEECH_PEAK_THRESHOLD = 500;
+
+/** The end of speech in a 16 kHz PCM16 mono clip: the position (ms, rounded up) of its last non-silent sample; 0 = all silence. */
+export function measureSpeechEndMs(pcm: Uint8Array): number {
+  const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+  for (let i = Math.floor(pcm.byteLength / 2) - 1; i >= 0; i--) {
+    if (Math.abs(view.getInt16(i * 2, true)) > SPEECH_PEAK_THRESHOLD) return Math.ceil((i + 1) / (LIVE_INPUT_BYTES_PER_MS / 2));
+  }
+  return 0;
+}
+
+/** A timer that can be cancelled, so a won race never leaves a bound-length timer holding the process. */
+function timer(ms: number): { done: Promise<void>; cancel: () => void } {
+  let handle: ReturnType<typeof setTimeout> | undefined;
+  const done = new Promise<void>((resolve) => {
+    handle = setTimeout(resolve, ms);
+  });
+  return { done, cancel: () => clearTimeout(handle) };
+}
+const sleep = (ms: number) => timer(ms).done;
 
 export async function measureCrisisClip(clip: CrisisClip, o: CrisisMeasureOptions): Promise<CrisisClipResult> {
   const boundMs = o.boundMs ?? A10_CRISIS_AUDIO_MS;
   const now = o.nowMs ?? (() => performance.now());
+  const failed = (error: string): CrisisClipResult => ({ id: clip.id, lang: clip.lang, escalated: false, reachedFixedMessage: false, modelAudioAfterTriggerMs: 0, pass: false, error });
+  const durationMs = clip.pcm.byteLength / LIVE_INPUT_BYTES_PER_MS;
+  if (!Number.isFinite(clip.speechEndMs) || clip.speechEndMs <= 0 || clip.speechEndMs > durationMs) {
+    return failed(`clip ${clip.id}: speechEndMs ${clip.speechEndMs} is not within the clip (0, ${durationMs}] ms`);
+  }
   o.beforeSession?.(clip);
   let crisisAt: number | undefined;
   let fixedAudio = false;
@@ -245,28 +278,49 @@ export async function measureCrisisClip(clip: CrisisClip, o: CrisisMeasureOption
     }
   };
   const base = { id: clip.id, lang: clip.lang };
-  let session;
+  const connectTimeoutMs = o.connectTimeoutMs ?? LIVE_CONNECT_TIMEOUT_MS;
+  const connecting = o.provider.connect({ onEvent, detectCrisis: o.detectCrisis, crisisMessage: o.crisisMessage });
+  const connectTimer = timer(connectTimeoutMs);
+  const TIMED_OUT = Symbol("connect timed out");
+  let session: LiveSession;
   try {
-    session = await o.provider.connect({ onEvent, detectCrisis: o.detectCrisis, crisisMessage: o.crisisMessage });
+    const first = await Promise.race([connecting, connectTimer.done.then(() => TIMED_OUT)]);
+    if (first === TIMED_OUT) {
+      // Never leave a session that connects after the timeout open (and billing).
+      connecting.then((late) => late.close("connect timed out"), () => undefined);
+      return failed(`provider.connect timed out after ${connectTimeoutMs} ms`);
+    }
+    session = first as LiveSession;
   } catch (err) {
-    return { ...base, escalated: false, reachedFixedMessage: false, modelAudioAfterTriggerMs: 0, pass: false, error: err instanceof Error ? err.message : String(err) };
+    return failed(err instanceof Error ? err.message : String(err));
+  } finally {
+    connectTimer.cancel();
   }
-  let endAt = now();
+  const speechEndBytes = Math.min(clip.pcm.byteLength, Math.round(clip.speechEndMs * LIVE_INPUT_BYTES_PER_MS));
+  // End of speech on the clock: stamped after the chunk that carries the last speech sample has been paced out, minus the
+  // part of that chunk that is trailing silence. Trailing TTS silence therefore never shortens the measured escalation time.
+  let speechEndAt: number | undefined;
   let error: string | undefined;
+  let bound: ReturnType<typeof timer> | undefined;
   try {
     const chunkBytes = LIVE_CHUNK_MS * LIVE_INPUT_BYTES_PER_MS;
     for (let at = 0; at < clip.pcm.byteLength; at += chunkBytes) {
-      session.sendAudio(clip.pcm.subarray(at, Math.min(at + chunkBytes, clip.pcm.byteLength)));
+      const end = Math.min(at + chunkBytes, clip.pcm.byteLength);
+      session.sendAudio(clip.pcm.subarray(at, end));
       if ((o.paceMs ?? LIVE_CHUNK_MS) > 0) await sleep(o.paceMs ?? LIVE_CHUNK_MS);
+      if (speechEndAt === undefined && end >= speechEndBytes) speechEndAt = now() - (end - speechEndBytes) / LIVE_INPUT_BYTES_PER_MS;
     }
-    endAt = now();
-    if (crisisAt === undefined) await Promise.race([crisisSeen, sleep(boundMs)]);
+    if (crisisAt === undefined) {
+      bound = timer(boundMs);
+      await Promise.race([crisisSeen, bound.done]);
+    }
   } catch (err) {
     error = err instanceof Error ? err.message : String(err);
   } finally {
+    bound?.cancel();
     session.close("crisis clip measured");
   }
-  const escalationMs = crisisAt === undefined ? undefined : Math.max(0, crisisAt - endAt);
+  const escalationMs = crisisAt === undefined ? undefined : Math.max(0, crisisAt - (speechEndAt ?? now()));
   const escalated = escalationMs !== undefined && escalationMs <= boundMs;
   const reachedFixedMessage = crisisAt !== undefined && fixedAudio && fixedText;
   const modelAudioAfterTriggerMs = Math.round(afterBytes / LIVE_OUTPUT_BYTES_PER_MS);
@@ -288,7 +342,9 @@ export async function runCrisisSet(clips: readonly CrisisClip[], o: CrisisMeasur
 }
 
 const CRISIS_NOTE =
-  "Crisis check only: this runner measures the 20-phrase crisis set (synthetic audio, bound on end-of-speech to the fixed message). " +
+  "Crisis check only: this runner measures the 20-phrase crisis set (synthetic audio, bound on end of speech to the crisis event). " +
+  "The real check is that timing: end of speech (the last non-silent sample of each clip) to the crisis event, within the bound. " +
+  "The fixed-message and model-audio-after-trigger columns are structural: LiveSession itself sends the fixed message with the crisis event and mutes model audio after it, so they are not independent evidence. " +
   "A10's other checks (transcript and language, p95 first audio, interruption, spoken claims) are not run here, so A10 overall is NOT PROVEN. " +
   "The fixed message audio is a silent stand-in; the timing is to the crisis event, not to playback.";
 
