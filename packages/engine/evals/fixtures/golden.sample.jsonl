@@ -1,3 +1,4 @@
+{"source":"synthetic"}
 {"id":"g-001","lang":"en","country":"USA","theme":"tuition","question":"SYNTHETIC: what should a student know about tuition in USA? (q1)","expectedTurnIds":["t-1-X"],"expectedSessionIds":[]}
 {"id":"g-002","lang":"en","country":"UK","theme":"scholarships","question":"SYNTHETIC: what should a student know about scholarships in UK? (q2)","expectedTurnIds":["t-2-X"],"expectedSessionIds":[]}
 {"id":"g-003","lang":"en","country":"Canada","theme":"visa","question":"SYNTHETIC: what should a student know about visa in Canada? (q3)","expectedTurnIds":["t-3-X"],"expectedSessionIds":[]}

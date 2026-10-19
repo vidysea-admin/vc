@@ -42,6 +42,16 @@ export function loadDataset(path: string): GoldSession[] {
 // KB responses; the schemas stay.
 // ---------------------------------------------------------------------------
 
+/**
+ * The one provenance vocabulary of every eval input (golden header, KB fixture, probe set, experts file).
+ * Exactly "synthetic" or "recorded": a mixed-case or unknown value is a clear refusal, never a raw schema dump (ISS-297).
+ */
+export const PROVENANCE_VALUES = ["synthetic", "recorded"] as const;
+export type Provenance = (typeof PROVENANCE_VALUES)[number];
+export const ProvenanceSchema = z.enum(PROVENANCE_VALUES, {
+  errorMap: (_issue, ctx) => ({ message: `source must be exactly "synthetic" or "recorded" (got ${JSON.stringify(ctx.data)}); refusing` }),
+});
+
 export const GoldenQuestionSchema = z
   .object({
     id: z.string().min(1),
@@ -60,16 +70,30 @@ export const GoldenQuestionSchema = z
   });
 export type GoldenQuestion = z.infer<typeof GoldenQuestionSchema>;
 
-export function parseGoldenSet(raw: string, sourceLabel: string): GoldenQuestion[] {
+/** A golden file may open with ONE provenance header line `{"source": "synthetic"|"recorded"}` (no `id`); it is not a question. */
+export interface GoldenFile {
+  /** Declared by the header line; undefined when the file has no header. */
+  source: Provenance | undefined;
+  questions: GoldenQuestion[];
+}
+
+export function parseGoldenFile(raw: string, sourceLabel: string): GoldenFile {
   const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
   const questions: GoldenQuestion[] = [];
   const seen = new Set<string>();
+  let source: Provenance | undefined;
   for (const [i, line] of lines.entries()) {
     let json: unknown;
     try {
       json = JSON.parse(line);
     } catch (err) {
       throw new Error(`${sourceLabel}:${i + 1}: invalid JSON (${(err as Error).message})`);
+    }
+    if (i === 0 && typeof json === "object" && json !== null && !Array.isArray(json) && "source" in json && !("id" in json)) {
+      const header = ProvenanceSchema.safeParse((json as { source: unknown }).source);
+      if (!header.success) throw new Error(`${sourceLabel}:1: ${header.error.issues.map((iss) => iss.message).join("; ")}`);
+      source = header.data;
+      continue;
     }
     const parsed = GoldenQuestionSchema.safeParse(json);
     if (!parsed.success) {
@@ -80,11 +104,19 @@ export function parseGoldenSet(raw: string, sourceLabel: string): GoldenQuestion
     questions.push(parsed.data);
   }
   if (questions.length === 0) throw new Error(`${sourceLabel}: no questions found`);
-  return questions;
+  return { source, questions };
+}
+
+export function parseGoldenSet(raw: string, sourceLabel: string): GoldenQuestion[] {
+  return parseGoldenFile(raw, sourceLabel).questions;
+}
+
+export function loadGoldenFile(path: string): GoldenFile {
+  return parseGoldenFile(readFileSync(path, "utf-8"), path);
 }
 
 export function loadGoldenSet(path: string): GoldenQuestion[] {
-  return parseGoldenSet(readFileSync(path, "utf-8"), path);
+  return loadGoldenFile(path).questions;
 }
 
 export const KbHitSchema = z
@@ -101,7 +133,7 @@ export type KbHit = z.infer<typeof KbHitSchema>;
 export const KbFixtureSchema = z.object({
   schemaVersion: z.literal(1),
   /** "synthetic" fixtures prove plumbing only; "recorded" ones are real, read-only KB API captures (U2/U3). */
-  source: z.enum(["synthetic", "recorded"]),
+  source: ProvenanceSchema,
   recordedAt: z.string(),
   search: z.array(z.object({ query: z.string(), hits: z.array(KbHitSchema) })),
   ask: z.array(z.object({ query: z.string(), response: z.record(z.unknown()) })).default([]),

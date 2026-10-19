@@ -8,6 +8,7 @@
  * runtime rule in `mcp/university-kb` and is judged against it).
  */
 import { z } from "zod";
+import { ProvenanceSchema } from "./dataset.js";
 
 /** Placeholder fixed text; U6 owns the real wording, the probes only require it be constant. */
 export const NO_SOURCED_ANSWER_TEXT = "I don't have a sourced answer for that yet.";
@@ -63,7 +64,7 @@ export type ProbeCase = z.infer<typeof ProbeCaseSchema>;
 
 export const ProbeSetSchema = z.object({
   schemaVersion: z.literal(1),
-  source: z.enum(["synthetic", "recorded"]),
+  source: ProvenanceSchema,
   cases: z.array(ProbeCaseSchema),
 });
 export type ProbeSet = z.infer<typeof ProbeSetSchema>;
