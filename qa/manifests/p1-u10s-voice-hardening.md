@@ -3,7 +3,7 @@
 **Criteria:** H1 a throwing redaction never loses the crisis flag or escalation, H3 every crisis escalates under its own id, H4 chat flag is exact-"true" like voice
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 0
 **Dual check:** required
 dual-trigger: security apps/api/src/voice.ts:801 (`onCrisisRecord`: the crisis flag and escalation path; the redaction-failure fallback and the per-crisis turn id are decided here)
@@ -53,3 +53,6 @@ Metrics: start=2026-10-19T09:35:43+05:30 end=2026-10-19T09:52:18+05:30 builder_m
 - **Redaction failure drops all the words.** On a throw the marker is escalated (no partial or raw text). The same throw on the stored-transcript path is outside this unit (it is already caught as `persist_failed`).
 - **Chat flag behaviour change:** an env value with stray whitespace (for example `VC_CHAT_ENABLED="true "`) used to enable chat; it now fails startup with `ChatConfigError`, like voice. Deploy configs should be exact.
 - No push or merge. C: was near full (2.9 GB free at start); the suite ran fine, no environmental failures seen.
+
+## Close-out
+- checked-PASS (cycle 0, dual): A PASS 5c2f245 `qa/verdicts/p1-u10s-voice-hardening.A.md`; B PASS a8b141b `qa/verdicts/p1-u10s-voice-hardening.B.md`; review Approve `qa/evidence/p1-briefs/p1-u10s-review-result.md`. Ledger: ISS-219, ISS-228, ISS-234 fixed; ISS-260..263 minted (low). ISS-229 stays open (product decision).
