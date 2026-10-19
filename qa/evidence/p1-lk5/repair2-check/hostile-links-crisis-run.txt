@@ -1,0 +1,47 @@
+[testlock] waiting for lock held by: PID=36944 STARTED=639280248754425700 ACQUIRED_AT=1792408311 TOKEN=1792408311759358000-492658-28200 DESC=bash -c cd D:/vc/.worktrees/lk1w/apps/api && npx tsx --test tests/chat-profile.test.ts tests/anonymous-route.test.ts 2>&1 | tail -60; cd ../../packages/engine && npx tsx --test tests/concern-classifier.test.ts 2>&1 | grep -E '^# (tests|pass|fail)|not ok' 
+[testlock] running slot 1 (free RAM 2.89 GB): timeout 600 pnpm exec tsx --test --test-timeout=120000 tests/chk-h3.test.ts
+LINK-BYPASSES
+SHOWN: "शिक्षा‍.संस्थान"
+SHOWN: "शिक्षा‌.संस्थान"
+SHOWN: "evil﹒test"
+SHOWN: "evil‧test"
+SHOWN: "evil⸳test"
+SHOWN: "evil .test"
+SHOWN: "evil​.test"
+SHOWN: "evil.t​est"
+END-LINK-BYPASSES
+CONTROL "यू.एस.ए" false
+CONTROL "डॉ. शर्मा" true
+CONTROL "श्री. शर्मा ने कहा" true
+CONTROL "सुबह 9.30 बजे" false
+SAME-LINK plain true
+SAME-LINK fullwidth dots true
+MAG-SOURCE (?<![\p{L}\p{M}])(?:सौ(?![\p{L}\p{M}])|हजार|लाख|करोड|मिलियन|बिलियन)
+MAG-FLAGS u
+MAG सौंदर्य false
+MAG सौहार्द false
+MAG सौम्य false
+MAG सौ true
+MAG तीन सौ यूरो true
+MAG सौर ऊर्जा false
+MAG हजारी true
+MAG लाखों true
+MAG करोड़पति true
+MAG लाखन true
+CRISIS "I just want to kill myself, nothing matters anymore." => provider calls 0, detector calls 0, CRISIS
+CRISIS "I want to end my life tonight" => provider calls 0, detector calls 0, CRISIS
+CRISIS "मैं मरना चाहता हूँ" => provider calls 0, detector calls 0, CRISIS
+CRISIS "mujhe jeena nahi hai, main khud ko khatam karna chahta hun" => provider calls 0, detector calls 0, CRISIS
+✔ links and hosts (103.4497ms)
+✔ link same as English folds (1.747ms)
+✔ ISS-387 direct (1.0221ms)
+✔ crisis first, zero model calls (280.6384ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13855.3625
+EXIT=0

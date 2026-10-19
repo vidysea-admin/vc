@@ -1,0 +1,109 @@
+[testlock] running slot 1 (free RAM 3.37 GB): timeout 600 pnpm exec tsx --test --test-timeout=120000 tests/chk-h2.test.ts
+CASE sattar no fig => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE barah no fig no unit => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE nabbe no fig percent => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE pachas no unit => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE sau => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE ek sau pachas => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE Devanagari digits extra => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE teen sau yuro control = 300 => LOCALIZED | लगभग तीन सौ यूरो का सेमेस्टर योगदान देना होगा।
+CASE chaar sau yuro vs 300 => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE teen sau pachas vs 300 => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE teen hazaar vs 300 => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE paanch hazaar yuro = 5000 control => LOCALIZED | सेमेस्टर योगदान लगभग पाँच हज़ार यूरो होगा।
+CASE panch hajar no marks = 5000 => LOCALIZED | सेमेस्टर योगदान लगभग पांच हजार यूरो होगा।
+CASE paanch hazaar pachas vs 5000 => ENGLISH | Expect a semester contribution of about 5000 euros.
+CASE Devanagari digits 5000 control => LOCALIZED | सेमेस्टर योगदान लगभग ५००० यूरो होगा।
+CASE figure-free claim control => LOCALIZED | जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती।
+CASE bare ek control => LOCALIZED | जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती। एक अच्छा विकल्प है।
+CASE rupaye vs euro => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE pound vs euro => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE yen vs euro => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE won vs euro (unlisted) => LOCALIZED | लगभग 300 वॉन का सेमेस्टर योगदान देना होगा।
+CASE yuan vs euro (unlisted) => LOCALIZED | लगभग 300 युआन का सेमेस्टर योगदान देना होगा।
+CASE franc vs euro (unlisted) => LOCALIZED | लगभग 300 फ्रैंक का सेमेस्टर योगदान देना होगा।
+CASE krona vs euro (unlisted) => LOCALIZED | लगभग 300 क्रोना का सेमेस्टर योगदान देना होगा।
+CASE dollars plural vs euro => LOCALIZED | लगभग 300 डॉलर्स का सेमेस्टर योगदान देना होगा।
+CASE rupee symbol vs euro => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE dollar symbol vs euro => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE pound symbol vs euro => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE GBP letters vs euro => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE Rs abbreviation vs euro => LOCALIZED | लगभग रु. 300 का सेमेस्टर योगदान देना होगा।
+CASE no currency word (300 only) => LOCALIZED | लगभग 300 का सेमेस्टर योगदान देना होगा।
+CASE yuro control => LOCALIZED | लगभग 300 यूरो का सेमेस्टर योगदान देना होगा।
+CASE arab after digit (unlisted) => LOCALIZED | लगभग 300 अरब यूरो का सेमेस्टर योगदान देना होगा।
+CASE kharab after digit (unlisted) => LOCALIZED | लगभग 300 खरब यूरो का सेमेस्टर योगदान देना होगा।
+CASE 300 plus hazaron students => LOCALIZED | लगभग 300 यूरो का सेमेस्टर योगदान, हज़ारों छात्र।
+CASE 300 hazaar vs 300 => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE 300 lakh vs 300 => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE darjan => LOCALIZED | जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती। एक दर्जन कोर्स।
+CASE do saal => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE teen-chaar => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE glued paanchhazaar => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE ordinal teesre saal => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE ZWNJ inside barah => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE chheh => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE atthaaees => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE shunya and gyarah => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE aadha / half with 300 => LOCALIZED | लगभग 300 यूरो का आधा सेमेस्टर योगदान देना होगा।
+CASE dedh sau => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE paanch hazaar no fig (Hinglish) => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE panch hajar spelling (Hinglish) => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. Lagbhag panch hajar euros alag se lagte hain.
+CASE paanch hazaar = 5000 control (Hinglish) => ENGLISH | Expect a semester contribution of about 5000 euros.
+CASE teen sau = 300 control (Hinglish) => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE chaar sau vs 300 (Hinglish) => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE do lakh (Hinglish) => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE bees euro (Hinglish) => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE pachaas euro (Hinglish) => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. Sirf pachaas euro lagte hain.
+CASE sattar (Hinglish) => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. Sirf sattar euro lagte hain.
+CASE barah (Hinglish) => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. Barah courses hain.
+CASE nabbe percent (Hinglish) => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. Nabbe percent students khush hain.
+CASE rupaye vs euro (Hinglish) => LOCALIZED | Semester contribution lagbhag 300 rupaye hai.
+CASE dollar vs euro (Hinglish) => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE 300 euros control (Hinglish) => LOCALIZED | Semester contribution lagbhag 300 euros hai.
+CASE figure-free control (Hinglish) => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti.
+MISMATCHES
+won vs euro (unlisted): want ENGLISH got LOCALIZED
+yuan vs euro (unlisted): want ENGLISH got LOCALIZED
+franc vs euro (unlisted): want ENGLISH got LOCALIZED
+krona vs euro (unlisted): want ENGLISH got LOCALIZED
+dollars plural vs euro: want ENGLISH got LOCALIZED
+Rs abbreviation vs euro: want ENGLISH got LOCALIZED
+arab after digit (unlisted): want ENGLISH got LOCALIZED
+kharab after digit (unlisted): want ENGLISH got LOCALIZED
+300 plus hazaron students: want ENGLISH got LOCALIZED
+darjan: want ENGLISH got LOCALIZED
+aadha / half with 300: want ENGLISH got LOCALIZED
+panch hajar spelling (Hinglish): want ENGLISH got LOCALIZED
+paanch hazaar = 5000 control (Hinglish): want LOCALIZED got ENGLISH
+teen sau = 300 control (Hinglish): want LOCALIZED got ENGLISH
+pachaas euro (Hinglish): want ENGLISH got LOCALIZED
+sattar (Hinglish): want ENGLISH got LOCALIZED
+barah (Hinglish): want ENGLISH got LOCALIZED
+nabbe percent (Hinglish): want ENGLISH got LOCALIZED
+rupaye vs euro (Hinglish): want ENGLISH got LOCALIZED
+END-MISMATCHES
+CASE MAG 3 lakh vs English 300,000 [want decide] => ENGLISH | Expect about 300,000 euros in total.
+CASE MAG 3 lakh vs English 3 lakh rupees [want LOCALIZED] => LOCALIZED | कुल लगभग 3 लाख रुपये होंगे।
+CASE MAG 3 lakh vs English 3 million [want ENGLISH] => ENGLISH | Expect about 3 million euros in total.
+CASE MAG 5 hazaar vs 5000 [want decide] => ENGLISH | Expect about 5000 euros in total.
+CASE MAG 5 hazaar vs 5 thousand [want LOCALIZED] => ENGLISH | Expect about 5 thousand euros in total.
+CASE MAG 50 hazaar vs 5 thousand [want ENGLISH] => ENGLISH | Expect about 5 thousand euros in total.
+CASE MAG 3 crore vs 3 million [want ENGLISH] => ENGLISH | Expect about 3 million euros in total.
+CASE MAG 3 hazaar vs English 3 lakh [want ENGLISH] => ENGLISH | Expect about 3 lakh rupees in total.
+CASE MAG 3 lakh vs English 3 thousand [want ENGLISH] => ENGLISH | Expect about 3 thousand euros in total.
+CASE MAG 3 sau vs English 3 hundred [want LOCALIZED] => ENGLISH | Expect about 3 hundred euros in total.
+CASE MAG 3 hazaar vs English 3k [want decide] => LOCALIZED | कुल लगभग 3 हज़ार यूरो होंगे।
+CASE MAG teen lakh (word) vs English 300,000 [want LOCALIZED] => LOCALIZED | कुल लगभग तीन लाख यूरो होंगे।
+CASE MAG teen lakh (word) vs English 3 lakh [want decide] => ENGLISH | Expect about 3 lakh rupees in total.
+✔ hostile table (1354.2112ms)
+✔ magnitude probes (159.6144ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4602.9256
+EXIT=0

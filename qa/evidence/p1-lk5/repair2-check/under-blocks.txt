@@ -1,0 +1,17 @@
+CASE won vs euro (unlisted) => LOCALIZED | लगभग 300 वॉन का सेमेस्टर योगदान देना होगा।
+CASE yuan vs euro (unlisted) => LOCALIZED | लगभग 300 युआन का सेमेस्टर योगदान देना होगा।
+CASE franc vs euro (unlisted) => LOCALIZED | लगभग 300 फ्रैंक का सेमेस्टर योगदान देना होगा।
+CASE krona vs euro (unlisted) => LOCALIZED | लगभग 300 क्रोना का सेमेस्टर योगदान देना होगा।
+CASE dollars plural vs euro => LOCALIZED | लगभग 300 डॉलर्स का सेमेस्टर योगदान देना होगा।
+CASE Rs abbreviation vs euro => LOCALIZED | लगभग रु. 300 का सेमेस्टर योगदान देना होगा।
+CASE arab after digit (unlisted) => LOCALIZED | लगभग 300 अरब यूरो का सेमेस्टर योगदान देना होगा।
+CASE kharab after digit (unlisted) => LOCALIZED | लगभग 300 खरब यूरो का सेमेस्टर योगदान देना होगा।
+CASE 300 plus hazaron students => LOCALIZED | लगभग 300 यूरो का सेमेस्टर योगदान, हज़ारों छात्र।
+CASE darjan => LOCALIZED | जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्�
+CASE aadha / half with 300 => LOCALIZED | लगभग 300 यूरो का आधा सेमेस्टर योगदान देना होगा।
+CASE panch hajar spelling (Hinglish) => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. Lagbhag panch hajar eur
+CASE pachaas euro (Hinglish) => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. Sirf pachaas euro lagte hain.
+CASE sattar (Hinglish) => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. Sirf sattar euro lagte hain.
+CASE barah (Hinglish) => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. Barah courses hain.
+CASE nabbe percent (Hinglish) => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. Nabbe percent students khush h
+CASE rupaye vs euro (Hinglish) => LOCALIZED | Semester contribution lagbhag 300 rupaye hai.

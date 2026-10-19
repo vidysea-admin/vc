@@ -1,0 +1,17 @@
+import { localizedClaimOk } from "../src/student/lang.js";
+const cases: [string, string][] = [
+  ["क x2000", "क".repeat(2000)],
+  ["कि x1000", "कि".repeat(1000)],
+  ["क. x1000", "क.".repeat(1000)],
+  ["a.a. x1000", "a.".repeat(1000)],
+  ["a-a-a x700", "a-".repeat(1000)],
+  ["क.क.क x600 + mark tail", "क.".repeat(990) + "कककक"],
+  ["mixed marks", "शिक्षा.".repeat(280)],
+  ["digits", "1२३ ".repeat(500)],
+  ["words", "पाँच हज़ार ".repeat(180)],
+];
+for (const [n, t] of cases) {
+  const s = process.hrtime.bigint();
+  const r = localizedClaimOk("Plain English claim.", t.slice(0, 2000), "hi", []);
+  console.log(n, r, Number(process.hrtime.bigint() - s) / 1e6, "ms");
+}

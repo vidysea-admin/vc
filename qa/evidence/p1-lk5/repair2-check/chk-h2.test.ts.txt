@@ -1,0 +1,161 @@
+/** Checker's own hostile drive of the real runStudentTurn with fake providers (cycle 1). Asserting cases + printed probes. */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { STUDENT_CRISIS_MESSAGE, runStudentTurn, type StudentGraphDeps } from "../src/student/graph.js";
+import type { DetectedLanguage } from "../src/student/lang.js";
+import type { SearchToolOutput } from "../src/student/claims.js";
+import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+
+const AUTH = { role: "student" as const, studentId: "syn-stu-chk", tenantId: "sandbox" };
+const turn = (text: string) => ({ mode: "authenticated" as const, auth: AUTH, threadId: "th-chk", turnId: "tu-chk", text });
+const det = (lang: string, script: DetectedLanguage["script"]) => async (): Promise<DetectedLanguage> => ({ lang, script, confidence: 0.9, source: "model" });
+const HI = det("hi", "devanagari");
+const HING = det("hi-Latn", "latin");
+const EN = det("en", "latin");
+const HI_Q = "जर्मनी की सरकारी यूनिवर्सिटी में फीस कितनी है";
+const HING_Q = "germany mein fees kitni hai";
+const EN_Q = "What is the tuition at German public universities?";
+
+const EN_CLAIM = "Public universities in Germany charge no tuition for most programmes.";
+const HI_OK = "जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती।";
+const HING_OK = "Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti.";
+const NUM_EN = "Expect a semester contribution of about 300 euros.";
+const NUM_HI = "लगभग 300 यूरो का सेमेस्टर योगदान देना होगा।";
+const LINK_EN = "German public universities charge no tuition for most programmes. See https://www.daad.de/en/ for scholarships.";
+const LINK_HIT: SearchToolOutput = {
+  status: "ok",
+  hits: [
+    {
+      turnId: "t-link-1", sessionId: "sess-l1", score: 3.2,
+      text: "German public universities charge no tuition for most programmes. See https://www.daad.de/en/ for scholarships.",
+      speakerLabel: "Nisha Varadkar", sessionDate: "2026-03-04", sessionTitle: "Study in Germany seminar", sourceId: "src-sem-1", sourceKind: "internal-seminar",
+    },
+  ],
+  dropped: 0,
+};
+
+function cls(m: string): string {
+  if (m.includes("Sorry, I couldn't")) return "APOLOGY";
+  if (m.includes("I don't have a sourced answer")) return "NOANSWER";
+  if (m.startsWith(STUDENT_CRISIS_MESSAGE.slice(0, 40))) return "CRISIS";
+  if (m.includes("Public universities in Germany charge") || m.includes("German public universities charge") || m.includes("semester contribution of about 300 euros") || m.includes("Expect ")) return "ENGLISH";
+  return "LOCALIZED";
+}
+
+async function drive(label: string, o: { det?: typeof HI; q?: string; kbAnswer: unknown; flag?: boolean; search?: SearchToolOutput }) {
+  const provider = studentProvider({ kbAnswer: o.kbAnswer });
+  const deps: StudentGraphDeps = {
+    kb: fakeKb(o.search ? { search: o.search } : {}), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW,
+    hasPriorFlag: o.flag ? async () => true : NO_PRIOR_FLAG,
+    escalate: async () => {}, logFlag: async () => {}, countAnonymous: async () => {},
+    detectLanguage: o.det ?? HI,
+  };
+  const out = await runStudentTurn(deps, turn(o.q ?? HI_Q));
+  const m = out.response.message ?? "";
+  console.log(`CASE ${label} => ${cls(m)} | ${m.slice(0, 160).replace(/\n/g, " ")}`);
+  return { m, c: cls(m) };
+}
+
+const claim = (text: string, localized: unknown, extra: Record<string, unknown> = {}) => ({ text, localized, kind: "fact", sourceIds: ["t-sem-1"], ...extra });
+const nclaim = (localized: unknown) => ({ text: NUM_EN, localized, kind: "number", sourceIds: ["t-sem-1"] });
+const ans = (claims: unknown[], top: Record<string, unknown> = {}) => ({ replyLang: "hi", claims, ...top });
+
+
+const hitFor = (text: string): SearchToolOutput => ({ status: "ok", hits: [{ turnId: "t-sem-1", sessionId: "sess-1", score: 3.2, text, speakerLabel: "Nisha Varadkar", sessionDate: "2026-03-04", sessionTitle: "Study in Germany seminar", sourceId: "src-sem-1", sourceKind: "internal-seminar" }], dropped: 0 });
+type Row = [string, "en-nofig" | "en-300" | "en-5000", string, "LOCALIZED" | "ENGLISH", ("hi" | "hing")?];
+const enOf = (k: Row[1]) => (k === "en-nofig" ? EN_CLAIM : k === "en-300" ? NUM_EN : "Expect a semester contribution of about 5000 euros.");
+const rows: Row[] = [
+  ["sattar no fig", "en-nofig", `${HI_OK} पर सत्तर यूरो लगते हैं।`, "ENGLISH"],
+  ["barah no fig no unit", "en-nofig", `${HI_OK} कुल बारह कोर्स हैं।`, "ENGLISH"],
+  ["nabbe no fig percent", "en-nofig", `${HI_OK} नब्बे प्रतिशत छात्र खुश हैं।`, "ENGLISH"],
+  ["pachas no unit", "en-nofig", `${HI_OK} पचास कोर्स हैं।`, "ENGLISH"],
+  ["sau", "en-nofig", `${HI_OK} सौ कोर्स हैं।`, "ENGLISH"],
+  ["ek sau pachas", "en-nofig", `${HI_OK} एक सौ पचास कोर्स।`, "ENGLISH"],
+  ["Devanagari digits extra", "en-nofig", `${HI_OK} कुल ५० कोर्स।`, "ENGLISH"],
+  ["teen sau yuro control = 300", "en-300", "लगभग तीन सौ यूरो का सेमेस्टर योगदान देना होगा।", "LOCALIZED"],
+  ["chaar sau yuro vs 300", "en-300", "लगभग चार सौ यूरो का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["teen sau pachas vs 300", "en-300", "लगभग तीन सौ पचास यूरो का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["teen hazaar vs 300", "en-300", "लगभग तीन हज़ार यूरो का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["paanch hazaar yuro = 5000 control", "en-5000", "सेमेस्टर योगदान लगभग पाँच हज़ार यूरो होगा।", "LOCALIZED"],
+  ["panch hajar no marks = 5000", "en-5000", "सेमेस्टर योगदान लगभग पांच हजार यूरो होगा।", "LOCALIZED"],
+  ["paanch hazaar pachas vs 5000", "en-5000", "सेमेस्टर योगदान लगभग पाँच हज़ार पचास यूरो होगा।", "ENGLISH"],
+  ["Devanagari digits 5000 control", "en-5000", "सेमेस्टर योगदान लगभग ५००० यूरो होगा।", "LOCALIZED"],
+  ["figure-free claim control", "en-nofig", HI_OK, "LOCALIZED"],
+  ["bare ek control", "en-nofig", `${HI_OK} एक अच्छा विकल्प है।`, "LOCALIZED"],
+  ["rupaye vs euro", "en-300", "लगभग 300 रुपये का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["pound vs euro", "en-300", "लगभग 300 पाउंड का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["yen vs euro", "en-300", "लगभग 300 येन का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["won vs euro (unlisted)", "en-300", "लगभग 300 वॉन का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["yuan vs euro (unlisted)", "en-300", "लगभग 300 युआन का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["franc vs euro (unlisted)", "en-300", "लगभग 300 फ्रैंक का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["krona vs euro (unlisted)", "en-300", "लगभग 300 क्रोना का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["dollars plural vs euro", "en-300", "लगभग 300 डॉलर्स का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["rupee symbol vs euro", "en-300", "लगभग ₹300 का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["dollar symbol vs euro", "en-300", "लगभग $300 का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["pound symbol vs euro", "en-300", "लगभग £300 का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["GBP letters vs euro", "en-300", "लगभग 300 GBP का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["Rs abbreviation vs euro", "en-300", "लगभग रु. 300 का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["no currency word (300 only)", "en-300", "लगभग 300 का सेमेस्टर योगदान देना होगा।", "LOCALIZED"],
+  ["yuro control", "en-300", "लगभग 300 यूरो का सेमेस्टर योगदान देना होगा।", "LOCALIZED"],
+  ["arab after digit (unlisted)", "en-300", "लगभग 300 अरब यूरो का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["kharab after digit (unlisted)", "en-300", "लगभग 300 खरब यूरो का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["300 plus hazaron students", "en-300", "लगभग 300 यूरो का सेमेस्टर योगदान, हज़ारों छात्र।", "ENGLISH"],
+  ["300 hazaar vs 300", "en-300", "लगभग 300 हज़ार यूरो का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["300 lakh vs 300", "en-300", "लगभग 300 लाख यूरो का सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["darjan", "en-nofig", `${HI_OK} एक दर्जन कोर्स।`, "ENGLISH"],
+  ["do saal", "en-nofig", `${HI_OK} दो साल में।`, "ENGLISH"],
+  ["teen-chaar", "en-nofig", `${HI_OK} तीन-चार कोर्स।`, "ENGLISH"],
+  ["glued paanchhazaar", "en-nofig", `${HI_OK} पर पाँचहज़ार यूरो लगते हैं।`, "ENGLISH"],
+  ["ordinal teesre saal", "en-nofig", `${HI_OK} तीसरे साल में।`, "ENGLISH"],
+  ["ZWNJ inside barah", "en-nofig", `${HI_OK} बा‌रह कोर्स।`, "ENGLISH"],
+  ["chheh", "en-nofig", `${HI_OK} छह कोर्स।`, "ENGLISH"],
+  ["atthaaees", "en-nofig", `${HI_OK} अट्ठाईस कोर्स।`, "ENGLISH"],
+  ["shunya and gyarah", "en-nofig", `${HI_OK} शून्य फीस और ग्यारह कोर्स।`, "ENGLISH"],
+  ["aadha / half with 300", "en-300", "लगभग 300 यूरो का आधा सेमेस्टर योगदान देना होगा।", "ENGLISH"],
+  ["dedh sau", "en-nofig", `${HI_OK} डेढ़ सौ कोर्स।`, "ENGLISH"],
+  ["paanch hazaar no fig (Hinglish)", "en-nofig", `${HING_OK} Lagbhag paanch hazaar euros alag se lagte hain.`, "ENGLISH", "hing"],
+  ["panch hajar spelling (Hinglish)", "en-nofig", `${HING_OK} Lagbhag panch hajar euros alag se lagte hain.`, "ENGLISH", "hing"],
+  ["paanch hazaar = 5000 control (Hinglish)", "en-5000", "Semester contribution lagbhag paanch hazaar euros hai.", "LOCALIZED", "hing"],
+  ["teen sau = 300 control (Hinglish)", "en-300", "Semester contribution lagbhag teen sau euros hai.", "LOCALIZED", "hing"],
+  ["chaar sau vs 300 (Hinglish)", "en-300", "Semester contribution lagbhag chaar sau euros hai.", "ENGLISH", "hing"],
+  ["do lakh (Hinglish)", "en-nofig", `${HING_OK} Aur do lakh lagte hain.`, "ENGLISH", "hing"],
+  ["bees euro (Hinglish)", "en-nofig", `${HING_OK} Sirf bees euro lagte hain.`, "ENGLISH", "hing"],
+  ["pachaas euro (Hinglish)", "en-nofig", `${HING_OK} Sirf pachaas euro lagte hain.`, "ENGLISH", "hing"],
+  ["sattar (Hinglish)", "en-nofig", `${HING_OK} Sirf sattar euro lagte hain.`, "ENGLISH", "hing"],
+  ["barah (Hinglish)", "en-nofig", `${HING_OK} Barah courses hain.`, "ENGLISH", "hing"],
+  ["nabbe percent (Hinglish)", "en-nofig", `${HING_OK} Nabbe percent students khush hain.`, "ENGLISH", "hing"],
+  ["rupaye vs euro (Hinglish)", "en-300", "Semester contribution lagbhag 300 rupaye hai.", "ENGLISH", "hing"],
+  ["dollar vs euro (Hinglish)", "en-300", "Semester contribution lagbhag 300 dollar hai.", "ENGLISH", "hing"],
+  ["300 euros control (Hinglish)", "en-300", "Semester contribution lagbhag 300 euros hai.", "LOCALIZED", "hing"],
+  ["figure-free control (Hinglish)", "en-nofig", HING_OK, "LOCALIZED", "hing"],
+];
+test("hostile table", async () => {
+  const bad: string[] = [];
+  for (const [label, k, loc, want, lang] of rows) {
+    const hing = lang === "hing";
+    const claimObj = { text: enOf(k), localized: loc, kind: k === "en-nofig" ? "fact" : "number", sourceIds: ["t-sem-1"] };
+    const r = await drive(label, { search: hitFor(enOf(k)), ...(hing ? { det: HING, q: HING_Q } : {}), kbAnswer: ans([claimObj], hing ? { replyLang: "hi-Latn" } : {}) });
+    if (r.c !== want) bad.push(`${label}: want ${want} got ${r.c}`);
+  }
+  console.log("MISMATCHES\n" + bad.join("\n") + "\nEND-MISMATCHES");
+});
+const MAGS: [string, string, string, string][] = [
+  ["3 lakh vs English 300,000", "Expect about 300,000 euros in total.", "कुल लगभग 3 लाख यूरो होंगे।", "decide"],
+  ["3 lakh vs English 3 lakh rupees", "Expect about 3 lakh rupees in total.", "कुल लगभग 3 लाख रुपये होंगे।", "LOCALIZED"],
+  ["3 lakh vs English 3 million", "Expect about 3 million euros in total.", "कुल लगभग 3 लाख यूरो होंगे।", "ENGLISH"],
+  ["5 hazaar vs 5000", "Expect about 5000 euros in total.", "कुल लगभग 5 हज़ार यूरो होंगे।", "decide"],
+  ["5 hazaar vs 5 thousand", "Expect about 5 thousand euros in total.", "कुल लगभग 5 हज़ार यूरो होंगे।", "LOCALIZED"],
+  ["50 hazaar vs 5 thousand", "Expect about 5 thousand euros in total.", "कुल लगभग 50 हज़ार यूरो होंगे।", "ENGLISH"],
+  ["3 crore vs 3 million", "Expect about 3 million euros in total.", "कुल लगभग 3 करोड़ यूरो होंगे।", "ENGLISH"],
+  ["3 hazaar vs English 3 lakh", "Expect about 3 lakh rupees in total.", "कुल लगभग 3 हज़ार रुपये होंगे।", "ENGLISH"],
+  ["3 lakh vs English 3 thousand", "Expect about 3 thousand euros in total.", "कुल लगभग 3 लाख यूरो होंगे।", "ENGLISH"],
+  ["3 sau vs English 3 hundred", "Expect about 3 hundred euros in total.", "कुल लगभग 3 सौ यूरो होंगे।", "LOCALIZED"],
+  ["3 hazaar vs English 3k", "Expect about 3k euros in total.", "कुल लगभग 3 हज़ार यूरो होंगे।", "decide"],
+  ["teen lakh (word) vs English 300,000", "Expect about 300,000 euros in total.", "कुल लगभग तीन लाख यूरो होंगे।", "LOCALIZED"],
+  ["teen lakh (word) vs English 3 lakh", "Expect about 3 lakh rupees in total.", "कुल लगभग तीन लाख रुपये होंगे।", "decide"],
+];
+test("magnitude probes", async () => {
+  for (const [label, en, loc, want] of MAGS) {
+    await drive("MAG " + label + " [want " + want + "]", { search: hitFor(en), kbAnswer: ans([{ text: en, localized: loc, kind: "number", sourceIds: ["t-sem-1"] }]) });
+  }
+});

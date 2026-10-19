@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+export TMP=D:/chk-tmp/lk5c2/tmp TEMP=D:/chk-tmp/lk5c2/tmp
+cd D:/vc/.worktrees/lk5
+PAT='ISS-386|ISS-387|review medium|review low'
+runit() { # dir label
+  ( cd $1/packages/engine && timeout 600 pnpm exec tsx --test --test-timeout=60000 --test-name-pattern "$PAT" tests/lk5.test.ts 2>&1 | grep -E "^ℹ (tests|pass|fail) |^✖|not ok" | tr '\n' ' ' ; echo )
+}
+echo "baseline (copy base, clean HEAD): $(runit D:/chk-tmp/lk5c2/base)"
+for m in m386 m386units m387 midn mdot; do
+  d=D:/chk-tmp/lk5c2/f-$m
+  rm -rf $d; mkdir -p $d
+  git archive HEAD packages skills package.json pnpm-workspace.yaml tsconfig.base.json | tar -x -C $d
+  cmd //c "mklink /J D:\chk-tmp\lk5c2\f-$m\node_modules D:\vc\.worktrees\lk5\node_modules" >/dev/null
+  cmd //c "mklink /J D:\chk-tmp\lk5c2\f-$m\packages\engine\node_modules D:\vc\.worktrees\lk5\packages\engine\node_modules" >/dev/null
+  node D:/chk-tmp/lk5c2/mut.cjs $d/packages/engine/src/student/lang.ts $m
+  echo "$m MUTANT: $(runit $d)"
+done
+echo FALS-DONE

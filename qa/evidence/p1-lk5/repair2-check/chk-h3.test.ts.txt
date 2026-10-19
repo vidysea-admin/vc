@@ -1,0 +1,113 @@
+/** Checker's own hostile drive of the real runStudentTurn with fake providers (cycle 1). Asserting cases + printed probes. */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { STUDENT_CRISIS_MESSAGE, runStudentTurn, type StudentGraphDeps } from "../src/student/graph.js";
+import type { DetectedLanguage } from "../src/student/lang.js";
+import type { SearchToolOutput } from "../src/student/claims.js";
+import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+
+const AUTH = { role: "student" as const, studentId: "syn-stu-chk", tenantId: "sandbox" };
+const turn = (text: string) => ({ mode: "authenticated" as const, auth: AUTH, threadId: "th-chk", turnId: "tu-chk", text });
+const det = (lang: string, script: DetectedLanguage["script"]) => async (): Promise<DetectedLanguage> => ({ lang, script, confidence: 0.9, source: "model" });
+const HI = det("hi", "devanagari");
+const HING = det("hi-Latn", "latin");
+const EN = det("en", "latin");
+const HI_Q = "जर्मनी की सरकारी यूनिवर्सिटी में फीस कितनी है";
+const HING_Q = "germany mein fees kitni hai";
+const EN_Q = "What is the tuition at German public universities?";
+
+const EN_CLAIM = "Public universities in Germany charge no tuition for most programmes.";
+const HI_OK = "जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती।";
+const HING_OK = "Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti.";
+const NUM_EN = "Expect a semester contribution of about 300 euros.";
+const NUM_HI = "लगभग 300 यूरो का सेमेस्टर योगदान देना होगा।";
+const LINK_EN = "German public universities charge no tuition for most programmes. See https://www.daad.de/en/ for scholarships.";
+const LINK_HIT: SearchToolOutput = {
+  status: "ok",
+  hits: [
+    {
+      turnId: "t-link-1", sessionId: "sess-l1", score: 3.2,
+      text: "German public universities charge no tuition for most programmes. See https://www.daad.de/en/ for scholarships.",
+      speakerLabel: "Nisha Varadkar", sessionDate: "2026-03-04", sessionTitle: "Study in Germany seminar", sourceId: "src-sem-1", sourceKind: "internal-seminar",
+    },
+  ],
+  dropped: 0,
+};
+
+function cls(m: string): string {
+  if (m.includes("Sorry, I couldn't")) return "APOLOGY";
+  if (m.includes("I don't have a sourced answer")) return "NOANSWER";
+  if (m.startsWith(STUDENT_CRISIS_MESSAGE.slice(0, 40))) return "CRISIS";
+  if (m.includes("Public universities in Germany charge") || m.includes("German public universities charge") || m.includes("semester contribution of about 300 euros") || m.includes("Expect ")) return "ENGLISH";
+  return "LOCALIZED";
+}
+
+async function drive(label: string, o: { det?: typeof HI; q?: string; kbAnswer: unknown; flag?: boolean; search?: SearchToolOutput }) {
+  const provider = studentProvider({ kbAnswer: o.kbAnswer });
+  const deps: StudentGraphDeps = {
+    kb: fakeKb(o.search ? { search: o.search } : {}), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW,
+    hasPriorFlag: o.flag ? async () => true : NO_PRIOR_FLAG,
+    escalate: async () => {}, logFlag: async () => {}, countAnonymous: async () => {},
+    detectLanguage: o.det ?? HI,
+  };
+  const out = await runStudentTurn(deps, turn(o.q ?? HI_Q));
+  const m = out.response.message ?? "";
+  console.log(`CASE ${label} => ${cls(m)} | ${m.slice(0, 160).replace(/\n/g, " ")}`);
+  return { m, c: cls(m) };
+}
+
+const claim = (text: string, localized: unknown, extra: Record<string, unknown> = {}) => ({ text, localized, kind: "fact", sourceIds: ["t-sem-1"], ...extra });
+const nclaim = (localized: unknown) => ({ text: NUM_EN, localized, kind: "number", sourceIds: ["t-sem-1"] });
+const ans = (claims: unknown[], top: Record<string, unknown> = {}) => ({ replyLang: "hi", claims, ...top });
+
+
+import { DEVANAGARI_MAGNITUDE, localizedClaimOk } from "../src/student/lang.js";
+
+const plain = "यहाँ पर शुल्क के बारे में पूरी जानकारी उपलब्ध है और कोई लिंक नहीं है।";
+
+test("links and hosts", () => {
+  const bad: string[] = [];
+  const mustBlock = [
+    "शिक्षा.संस्थान", "example.शिक्षा", "सेवा.संस्थान/fees", "शिक्षा‍.संस्थान", "शिक्षा‌.संस्थान",
+    "evil。test", "evil．test", "evil｡test", "evil․test", "evil。com", "evil﹒test", "evil‧test", "evil⸳test",
+    "http://evil。test/x", "https://evil．test", "www。evil。test", "ｅｖｉｌ．ｔｅｓｔ", "EVIL.TEST", "evil.test.", "(evil.test)",
+    "info@evil。test", "info@evil.test", "a@शिक्षा.संस्थान",
+    "evil .test", "evil​.test", "ev­il.test", "evil.t​est",
+    "bit.ly/abc", "t.me/evil", "goo.gl/x", "evil.xn--p1ai", "xn--e1afmkfd.xn--p1ai",
+    "http://192.168.0.1/x", "evil。co。uk", "evil.कॉम", "सेवा。संस्थान",
+  ];
+  for (const host of mustBlock) {
+    if (localizedClaimOk("No link here.", `${plain} ${host}`, "hi", []) !== false) bad.push("SHOWN: " + JSON.stringify(host));
+  }
+  console.log("LINK-BYPASSES\n" + bad.join("\n") + "\nEND-LINK-BYPASSES");
+  const controls: [string, string][] = [["यू.एस.ए", "US"], ["डॉ. शर्मा", "x"], ["श्री. शर्मा ने कहा", "x"], ["सुबह 9.30 बजे", "x"]];
+  for (const [c] of controls) console.log("CONTROL", JSON.stringify(c), localizedClaimOk("No link here.", `${plain} ${c}`, "hi", []));
+});
+
+test("link same as English folds", () => {
+  const en = "See https://www.daad.de/en/ for scholarships.";
+  console.log("SAME-LINK plain", localizedClaimOk(en, `${plain} https://www.daad.de/en/`, "hi", []));
+  console.log("SAME-LINK fullwidth dots", localizedClaimOk(en, `${plain} https://www。daad。de/en/`, "hi", []));
+});
+
+test("ISS-387 direct", () => {
+  console.log("MAG-SOURCE", DEVANAGARI_MAGNITUDE.source);
+  console.log("MAG-FLAGS", DEVANAGARI_MAGNITUDE.flags);
+  for (const w of ["सौंदर्य", "सौहार्द", "सौम्य", "सौ", "तीन सौ यूरो", "सौर ऊर्जा", "हजारी", "लाखों", "करोड़पति", "लाखन"]) {
+    console.log("MAG", w, DEVANAGARI_MAGNITUDE.test(w));
+  }
+});
+
+test("crisis first, zero model calls", async () => {
+  for (const q of ["I just want to kill myself, nothing matters anymore.", "I want to end my life tonight", "मैं मरना चाहता हूँ", "mujhe jeena nahi hai, main khud ko khatam karna chahta hun"]) {
+    const provider = studentProvider({ kbAnswer: ans([claim(EN_CLAIM, HI_OK)]) });
+    let detCalls = 0;
+    const deps: StudentGraphDeps = {
+      kb: fakeKb(), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG,
+      escalate: async () => {}, logFlag: async () => {}, countAnonymous: async () => {},
+      detectLanguage: async () => { detCalls++; return { lang: "hi", script: "devanagari", confidence: 0.9, source: "model" }; },
+    };
+    const out = await runStudentTurn(deps, turn(q));
+    console.log(`CRISIS ${JSON.stringify(q)} => provider calls ${provider.calls.length}, detector calls ${detCalls}, ${cls(out.response.message ?? "")}`);
+  }
+});

@@ -1,0 +1,24 @@
+// usage: node mut.cjs <file> <name>
+const fs = require("fs");
+const [file, name] = process.argv.slice(2);
+let s = fs.readFileSync(file, "utf8");
+const BS = "\\";
+const rep = (a, b) => { if (!s.includes(a)) throw new Error("not found: " + name + ": " + a); s = s.split(a).join(b); };
+if (name === "m386") {
+  rep("const words = devanagariWordFigures(english, localized);", "const words: Set<string> | null = new Set<string>();");
+} else if (name === "m386units") {
+  // only the currency/unit check: unit words always accepted
+  rep("if (unit && !unit.test(english)) return null;", "");
+} else if (name === "m387") {
+  rep("String.raw`(?<![" + BS + "p{L}" + BS + "p{M}])(?:`", "`(?<![" + BS + "p{L}" + BS + "p{M}])(?:`");
+  rep("String.raw`(?![" + BS + "p{L}" + BS + "p{M}])`", "`(?![" + BS + "p{L}" + BS + "p{M}])`");
+} else if (name === "midn") {
+  const line = s.match(/const DOMAIN_RE = [^\n]*/)[0];
+  const nl = line.split(BS + "p{M}").join("");
+  if (nl === line) throw new Error("no change");
+  s = s.replace(line, nl);
+} else if (name === "mdot") {
+  rep('.replace(/[。．｡․]/g, ".")', "");
+} else throw new Error("unknown " + name);
+fs.writeFileSync(file, s);
+console.log("applied " + name);

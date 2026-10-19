@@ -1,38 +1,36 @@
-# Verdict p1-lk5 (cycle 1, repair check)
-Date: 2026-10-19. Bound to D:/vc/.worktrees/lk5, head a544ba8 (code identical to 13ac9b7), Repair base 3f746e5 (ancestor of HEAD, verified). Cycle checked: 1
-Policy-Version: proportional-verification/2026-10-19.16 (as pinned). Checker: fresh subagent, single check (Dual check: no).
+# Verdict p1-lk5 (cycle 2, repair check, last cycle)
+Date: 2026-10-19. Bound to D:/vc/.worktrees/lk5, head 983c773 (code 036fc87), Repair base e71c8f4 (verified ancestor). Cycle checked: 2
+Policy-Version: proportional-verification/2026-10-19.16 (as pinned). Checker: fresh subagent, single check (Dual check: no). Earlier verdict kept as qa/verdicts/p1-lk5.r1-1.md.
 
 ## Check plan
-Tier L (safety path, graph.ts/lang.ts). Re-run: K1 (failed), M1/M2/M3 (repair touches their input files), K1-K7 scoped tests. Repair diff 6c30cf3..a544ba8 read in full (graph.ts +42, lang.ts +133, lk5.test.ts +153, qa bookkeeping); whole-unit diff outside qa/ touches only manifest-listed files; no export, test or config key removed. Drove the real runStudentTurn with fake providers in a copy outside the bound tree (D:/chk-tmp/lk5c1), hostile variants in qa/evidence/p1-lk5/repair1-check/chk-hostile.test.ts.txt.
+Tier L (safety path, lang.ts figure/link guards). Re-ran: K1/M1 (failed), ISS-387, IDN-host and dot-variant detection, crisis-first, one falsification per repaired criterion, scoped K7. Read `git diff e71c8f4..983c773` in full (lang.ts +125, lk5.test.ts +61, evidence, manifest) and scanned the whole-unit diff: files outside the unit's scope are only merged-in main work (LK1 providers, ISS-350 api), no LK5 commit touches them.
+
+## Results
+- Probes: every probe in repair1-check/probes.txt now gives the English reply; so do the cycle-1 list plus mine: सत्तर/बारह/नब्बे/पचास/सौ/एक सौ पचास with no English figure, a differing word figure (चार सौ, तीन सौ पचास, तीन हज़ार vs 300), पाँच हज़ार पचास vs 5000, रुपये/पाउंड/येन for euros, Devanagari digits extra, ₹/$/£/GBP symbols, ordinals, glued words, Hinglish teen sau/chaar sau/paanch hazaar/do lakh/bees/dollar.
+- Controls still shown: Devanagari digits ३००, तीन सौ यूरो = 300, पाँच हज़ार यूरो = 5000, पांच हजार, figure-free claim, bare एक, "300" with no currency word.
+- Magnitude after digits ("3 लाख" vs English "300,000" or "3 million", "5 हज़ार" vs "5000", "3 हज़ार" vs "3 lakh"): English reply; shown only when English carries the same magnitude word ("3 लाख" vs "3 lakh rupees", "3 हज़ार" vs "3k"). Safe (over-blocks, ISS-391).
+- ISS-387: DEVANAGARI_MAGNITUDE.source = `(?<![\p{L}\p{M}])(?:सौ(?![\p{L}\p{M}])|...`; सौंदर्य, सौहार्द, सौम्य, सौर no match; सौ matches.
+- IDN host and dots: शिक्षा.संस्थान, example.शिक्षा, सेवा.संस्थान/fees and evil。/．/｡/․ test (also in URL, www, e-mail forms) are links and give the English reply; the same link with fullwidth dots is shown (equals English link). Not links by design: ZWJ/ZWNJ/zero-width inside a host, U+FE52/2027/2E33 (not browser host separators): low.
+- crisisGuard first: 4 crisis turns (English, Hindi, Hinglish) give the fixed crisis message with 0 provider calls and 0 detector calls.
+- Perf: localizedClaimOk on 2000-char worst cases 0.04-218 ms.
+- Falsification (copies D:/chk-tmp/lk5c2/f-*, bound tree untouched; falsification.txt): baseline 5 pass 0 fail; word figures ignored -> 2 fail; unit check removed -> 2 fail; plain-string magnitude regex -> 1 fail; \p{M} removed from DOMAIN_RE -> 1 fail; dot fold removed -> 1 fail. Green before, red after for ISS-386, ISS-387, IDN, dots.
+- K7 scoped, one file at a time through vc-testlock (k7-summary.txt): engine lk5 58/0, lang 34/0, student-graph 64/0, claims-guard 33/0, crisis-defaults 17/0; api chat 32/0, anonymous-route 16/0; engine tsc --noEmit exit 0.
+
+## FAIL
+Closed hand-written lists leave the cycle-1 defect open in a narrower form. Real runStudentTurn, fake providers, English "about 300 euros" or no figure; each localized text is SHOWN to the student (evidence: under-blocks.txt, hostile-table-run.txt):
+- currency/unit the English lacks: "300 डॉलर्स" (plural of the listed डॉलर), "रु. 300", "300 वॉन", "300 युआन", "300 फ्रैंक", "300 क्रोना"; HI_UNIT in lang.ts lists 7 currencies only.
+- magnitude/figure the English lacks: "300 अरब यूरो", "300 खरब यूरो" (HI_MAGNITUDE stops at करोड़), "एक दर्जन कोर्स", "आधा सेमेस्टर", "हज़ारों छात्र".
+- Hinglish (claims.ts, unchanged): "Sirf sattar euro", "Barah courses", "Nabbe percent", "pachaas euro", "panch hajar", "300 rupaye" for euros.
+FAILURES:
+- [K1/M1] sev: medium · localized claim still shows a currency, magnitude or number word the English claim lacks, when the word is outside the lists · direction: stop extending lists; fail closed on any word after a figure that is not on a short benign allow-list, or compare structured unit/figure fields, or owner-accept the limit · issue: ISS-389 (Hinglish part ISS-390)
+Open risks 13 and 15 in the manifest disclose this list limit; it is still content shown to the student, which the dispatch judging rule makes a FAIL. Fix cycle 2 is the cap, so the next step is STALLED/HUMAN_GATE: Umesh decides between a structural fix and accepting the list limit.
+Low rows (not FAILs): ISS-391 over-blocking (दो/दिन/साल, यू.एस.ए, "5 हज़ार" vs "5 thousand", Hinglish teen sau fail closed), zero-width characters inside a host.
 
 VERDICT: FAIL
-SCOREBOARD: K1 not met (number parity), K2-K7 met; M2 and M3 hold; M1 partly holds. crisisGuard first and unweakened: holds.
-TIER: L (safety path: reply gating on a student-facing answer, graph.ts / lang.ts)
-
-FAILURES:
-- [K1/M1] sev: medium - the number-parity and unit checks of a localized claim cannot see Devanagari spelled-out figures or Devanagari currency words, so a figure the English claim does not carry reaches the student. lang.ts:337-341 `figures()` counts digits and Latin number words only; lang.ts:359 runs the Devanagari magnitude check only when the English claim has NO figure and only for सौ/हज़ार/लाख/करोड़/मिलियन/बिलियन; lang.ts:360-361 unit check uses the Latin unit list only. Ran (real runStudentTurn, probes.txt): English "no tuition" + localized "... पर पचास यूरो लगते हैं।" -> shown; English "about 300 euros" + localized "... और सालाना पाँच हज़ार यूरो।" -> shown; "... और कुल दस लाख।" -> shown; same "300" with "रुपये" or "डॉलर" instead of euros -> shown. The brief's hostile variant "a different figure ... as a spelled-out Hindi number" and "a new unit" therefore pass through when the spelled figure is added to a matching digit, is a bare number word, or the unit is written in Devanagari. Fix direction: any Devanagari number word (1-99 plus magnitudes) or Devanagari currency/unit word that the English claim does not carry means the English reply, whether or not English has a figure (safe direction). issue: ISS-386
-
-K1 repair itself holds. M1 caught: scheme-less evil.test (and with path), e-mail, https link when English has none, a different https link when English has one, evil.test when English has one, English link plus evil.test, different figure in Devanagari digits and ASCII, dropped figure, Devanagari magnitude word when English has no figure, Hinglish "teen sau" replacing 300, Hinglish "paanch hazaar" added, swapped and added country in Devanagari, new units USD and %.
-
-CAPABILITY-COVERAGE: 4/4 repaired criteria reproduced (one falsification each, copies outside the bound tree, qa/evidence/p1-lk5/repair1-check/falsification.txt)
-- K1: localized `.catch(undefined)` removed -> "K1 hostile" green 1/0 before, red 0/1 after
-- M1: link comparison line removed (lang.ts:365) -> green before, red after
-- M2: shown-text crisis check removed (graph.ts:838) -> green before, red after
-- M3: localizedFollowUpOk call removed (graph.ts:753) -> green before, red after
-LIVE-BROWSER: not-applicable (no UI paths changed)
-ISSUES-WRITTEN: ISS-386 (medium, the FAIL), ISS-387 (low), ISS-388 (low)
-
-## Evidence (all through vc-testlock, one file at a time, timeout 600, TMP/TEMP on D:)
-- Hostile drive "chk-hostile.test.ts" (copy): 6 tests, 6 pass, the asserting ones cover K1, crisis-first (0 provider calls, 0 detector calls, CRISIS message), M1 (18 cases), M2 (prior-flag student; localized-only secret / between us / therapy / lethal dose -> fixed crisis message; no-flag control shown; clean control shown), M3 (two questions, two sentences, phone number, country Devanagari and Latin, not a question, Latin script in a Devanagari reply, Devanagari follow-up in a Hinglish reply -> each the whole English reply with the English follow-up; clean follow-up still shown). K1 controls: empty English `text` stays the apology (schema strict), good localized shown.
-- K7 scoped tests on the bound head: engine lk5 53, lang 34, student-graph 64, crisis-defaults 17, crisis-escalation 42, claims-guard 33, capability-manifest 3, coach-first 5, index 2; apps/api chat 32, anonymous-route 16, acceptance-student-journey 3, voice-wiring 16; all 0 failed. Engine typecheck exit 0. guard-crisis, concern-classifier, voice, anonymous-zero-persistence not re-run: the repair diff does not touch crisis.ts, concern-classifier.ts or their inputs (maker's K7 at 13ac9b7 stands, code identical).
-- Design ruling (localized follow-up fails -> whole English reply incl. English follow-up): ACCEPTED. Safe (the English follow-up already passed safeFollowUp), coherent (matches K1's "is the English reply"), observed in every M3 case above.
-
-## Non-blocking (ledger)
-- ISS-387 low: lang.ts:331-334 builds DEVANAGARI_MAGNITUDE with new RegExp over a plain string, so `\p{L}\p{M}` lose their backslash (re.source is `(?<![p{L}p{M}])...`); words containing सौ (सौंदर्य) match and fall back to English when English has no figure. Fails closed.
-- ISS-388 low (process): the repair edited the cycle-0 verdict and ledger rows to renumber ISS-380..382; accepted, the collision with main was real.
-- Open risks 1-14 in the manifest read; 1 and 3 remain Umesh decisions.
-
-EXPLANATION: The K1 schema repair, M2 and M3 are sound and each falsifies cleanly; the link, country, Latin-unit and digit checks of M1 hold. The figure/unit guard still lets a Devanagari-written figure or currency word through, which is exactly the spelled-out Hindi figure and new-unit variant the brief asked to be hostile, so K1's number parity is not fully met. The fix is a few lines in lang.ts localizedClaimOk.
-
-Metrics: start=2026-10-19T21:40:17+05:30 end=2026-10-19T21:57:00+05:30 wall_min=17 agent_min=unavailable blocked_min=about 4 (shared lock held by PID 36944, not touched) suite_runs=0 repeat_runs=0 mutations=4 tokens=unavailable cycle=1 resumes=0 policy=proportional-verification/2026-10-19.16 check_s=1000 mutants=0 defects_unit=1 defects_6c=0
-slow: hostile-driver authoring and copies 8 min
+SCOREBOARD: 6/7 criteria met (K1 not met via M1 sub-claim), invariants K7 hold
+TIER: L (safety path; unchanged)
+CAPABILITY-COVERAGE: 4/4 repaired criteria falsified (ISS-386, ISS-387, IDN, dots)
+LIVE-BROWSER: not-applicable (engine text guard, no UI)
+ISSUES-WRITTEN: ISS-389, ISS-390, ISS-391
+EXECUTOR: claude-sonnet-subagent (checker: claude-sonnet-subagent)
+Metrics: start=2026-10-19T22:28:58+05:30 end=2026-10-19T22:41:42+05:30 wall_min=12 agent_min=unavailable blocked_min=1 suite_runs=0 repeat_runs=0 mutations=5 cycle=2 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.16 check_s=700 mutants=0 defects_unit=1 defects_6c=0

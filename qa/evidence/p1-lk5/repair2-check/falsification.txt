@@ -1,0 +1,12 @@
+baseline (copy base, clean HEAD): ℹ tests 5 ℹ pass 5 ℹ fail 0 
+applied m386
+m386 MUTANT: ✖ ISS-386: a Devanagari number word or currency/unit word the English claim does not carry gives the English reply (cycle-1 probes) (376.9225ms) ✖ ISS-386 controls: the same figure in Devanagari digits, and a figure-free localized claim, are still shown (116.4886ms) ℹ tests 5 ℹ pass 3 ℹ fail 2 ✖ failing tests: ✖ ISS-386: a Devanagari number word or currency/unit word the English claim does not carry gives the English reply (cycle-1 probes) (376.9225ms) ✖ ISS-386 controls: the same figure in Devanagari digits, and a figure-free localized claim, are still shown (116.4886ms) 
+applied m386units
+m386units MUTANT: ✖ ISS-386: a Devanagari number word or currency/unit word the English claim does not carry gives the English reply (cycle-1 probes) (545.0852ms) ✖ ISS-386 controls: the same figure in Devanagari digits, and a figure-free localized claim, are still shown (89.2282ms) ℹ tests 5 ℹ pass 3 ℹ fail 2 ✖ failing tests: ✖ ISS-386: a Devanagari number word or currency/unit word the English claim does not carry gives the English reply (cycle-1 probes) (545.0852ms) ✖ ISS-386 controls: the same figure in Devanagari digits, and a figure-free localized claim, are still shown (89.2282ms) 
+applied m387
+m387 MUTANT: ✖ ISS-387: DEVANAGARI_MAGNITUDE keeps its p escapes; सौंदर्य does not match, सौ does (1.0381ms) ℹ tests 5 ℹ pass 4 ℹ fail 1 ✖ failing tests: ✖ ISS-387: DEVANAGARI_MAGNITUDE keeps its p escapes; सौंदर्य does not match, सौ does (1.0381ms) 
+applied midn
+midn MUTANT: ✖ review medium: a Devanagari IDN host with combining marks is detected as a link (1.3606ms) ℹ tests 5 ℹ pass 4 ℹ fail 1 ✖ failing tests: ✖ review medium: a Devanagari IDN host with combining marks is detected as a link (1.3606ms) 
+applied mdot
+mdot MUTANT: ✖ review low: the dot variants 。．｡․ fold to '.' before the link check (1.8504ms) ℹ tests 5 ℹ pass 4 ℹ fail 1 ✖ failing tests: ✖ review low: the dot variants 。．｡․ fold to '.' before the link check (1.8504ms) 
+FALS-DONE
