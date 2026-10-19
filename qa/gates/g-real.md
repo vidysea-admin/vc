@@ -21,3 +21,5 @@ recorded per run (spec A24, mock-tested in `tests/budget-cap.test.ts`).
 frozen-fixture work).
 **Per-use rule:** an approval here is a cap, not a blank cheque: each paid run is still started only on a go from Umesh.
 **Answer format:** chat reply. The maker appends `Answered: <ISO> - <option> - <caps>` here.
+
+**Answered:** 2026-10-19T10:41:00+05:30 - (a) approved - Umesh (chat, 2026-10-19): paid real-model eval runs approved via API keys: Ollama-hosted GLM 5.3 Flash and DeepSeek 4.1 Flash now, Gemini models later. Caps [ASSUMPTION, not named by Umesh]: the proposed USD 50 per run / USD 200 per month. Inputs synthetic or anonymised only (B13). Recorded in D-100.

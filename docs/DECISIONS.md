@@ -915,3 +915,9 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Why:** Both cycle-2 blind checkers failed U10 only on C18, independently, with the same root cause and every other criterion green; U10w already edits voice.ts on top of p1/u10, so a separate cycle would duplicate the check. Gate qa/gates/p1-u10-cycle3.md, option 1, answered by Umesh.
 **Result:** pending (U10w cycle-3 repair dispatched).
 **Links:** qa/gates/p1-u10-cycle3.md; qa/verdicts/p1-u10-voice-ws.md (A, FAIL C18); qa/verdicts/p1-u10-voice-ws.B.md (B, FAIL C18, c430bae); D-097; D-096.
+
+## D-100 | 2026-10-19 | type: decision | status: ACTIVE
+**What:** G-REAL answered. Umesh approves paid real-model evaluation runs (U13b: A2b, A4, A8, A10, A14) using API-key models: Ollama-hosted GLM 5.3 Flash and DeepSeek 4.1 Flash now, Gemini models later.
+**Why:** U13b and contract B24.9 cannot close without real-model runs; Umesh chose low-cost flash models first (chat, 2026-10-19: "approval for using in this way ollama paid api key models like glm 5.3 flash, deepseek 4.1 flash and later gemini models via api key").
+**Result:** qa/gates/g-real.md Answered line appended. [ASSUMPTION] caps stay at the proposed USD 50 per run / USD 200 per month, since Umesh named none; he can change them. Inputs stay synthetic or anonymised only (B13); no production student text. packages/providers has no Ollama adapter today, so GLM/DeepSeek runs need a small provider unit first; Gemini runs need only GEMINI_API_KEY (present in .env). If these models later serve real students, they must be added to the B13 processor register before G-PROD.
+**Links:** qa/gates/g-real.md, U13b, D-088 Q18, B24.9
