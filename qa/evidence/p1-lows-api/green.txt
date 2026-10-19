@@ -1,0 +1,44 @@
+[testlock] waiting for lock held by: PID=40256 STARTED=639280087354211666 ACQUIRED_AT=1792392171 TOKEN=1792392171530259500-374975-16493 DESC=pnpm exec tsx --test tests/voice.test.ts 
+[testlock] running slot 1 (free RAM 2.81 GB): bash -c pnpm -C D:/vc/.worktrees/p1-lows-api/apps/api exec tsx --test tests/voice-crisis-turn.test.ts; echo TEST_RC=$?; pnpm -C D:/vc/.worktrees/p1-lows-api -r typecheck; echo TSC_RC=$?
+✔ C18 (a): an unanswered earlier turn, then a crisis with no words of its own -> the text-free marker, never the earlier words (127.1015ms)
+✔ C18 (b): an unanswered earlier turn, then a crisis WITH words -> those words only (62.0337ms)
+✔ C18 (c): an answered earlier turn (a seq gap), then a crisis with no words -> the marker (54.1134ms)
+✔ C18 (d1): the detector throws on an utterance with words -> fail-closed escalation with that utterance's own words only (68.6962ms)
+✔ C18 (d2): the detector throws on an utterance with no words -> fail-closed escalation with the marker, never the earlier words (75.1904ms)
+✔ C18 (e): two crises in a row each carry their own utterance's words (the first's words never leak into the second) (1581.3768ms)
+✔ H1: redaction throws on the crisis words -> the flag is still written and the crisis is still escalated with the text-free marker, never the raw words (46.1582ms)
+✔ H3: two crises with no words in one session each escalate under their own turn id (not deduped into one) (1574.9928ms)
+✔ ISS-260 H3 for an unconsented minor: the flag keeps the spoken turn id once, a second crisis on the same turn gets a fresh id, nothing is escalated (1591.4512ms)
+✔ ISS-261 two worded crises each keep their own spoken turn id, flag and escalation agree with the stored turn, and no words cross over (1571.8049ms)
+✔ ISS-261 a worded crisis, then a no-words crisis on the same turn: the second gets a fresh id and the text-free marker, never the first's words or id (1583.4037ms)
+✔ ISS-261 a throwing redaction on the first crisis does not touch the second: both are flagged under their own ids and escalated with the marker, no words logged (1583.2757ms)
+✔ ISS-262 ordering: the crisis record never reads a previous turn's id: a worded crisis after an answered earlier turn is flagged under its own spoken turn (64.7464ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14913.0661
+TEST_RC=0
+Scope: 9 of 10 workspace projects
+packages/observability typecheck$ tsc --noEmit
+packages/schemas typecheck$ tsc --noEmit
+packages/observability typecheck: Done
+packages/schemas typecheck: Done
+packages/db typecheck$ tsc --noEmit
+packages/providers typecheck$ tsc --noEmit
+packages/providers typecheck: Done
+packages/db typecheck: Done
+mcp/student-profile typecheck$ tsc --noEmit
+mcp/university-kb typecheck$ tsc --noEmit
+packages/engine typecheck$ tsc --noEmit && tsc --noEmit -p evals/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json
+mcp/student-profile typecheck: Done
+mcp/university-kb typecheck: Done
+packages/engine typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/api typecheck: Done
+apps/web typecheck: Done
+TSC_RC=0
