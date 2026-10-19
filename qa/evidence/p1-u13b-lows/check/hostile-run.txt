@@ -1,0 +1,15 @@
+[testlock] waiting for lock held by: PID=48024 STARTED=639280111446546812 ACQUIRED_AT=1792394552 TOKEN=1792394552770830300-395766-4683 DESC=pnpm -r typecheck 
+[testlock] running slot 0 (free RAM 1.02 GB): pnpm -C /d/vc/.worktrees/p1-u13b-lows-chk/packages/engine exec tsx --test evals/chk-hostile.test.ts
+✔ HOSTILE C1/C3: header placement, BOM, casing, header-only, double header, odd source values are all refused under --real, before any ledger/request (123.4312ms)
+✔ HOSTILE C1/C2: experts object source recorded with no --anonymised refused; with --anonymised OK; bare array / null / string refused (39.2167ms)
+✔ HOSTILE C4: withheld ids absent from pairs, key, every sheet; no model call for placeholder question; fixed-text expert + empty-hit VC also withheld (27.5062ms)
+✔ HOSTILE C4: no --experts and no flag refuses before ledger/request; flag run makes NO model call and writes empty pairs (19.5437ms)
+✔ HOSTILE C5: Devanagari marks (2.2085ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17788.2646

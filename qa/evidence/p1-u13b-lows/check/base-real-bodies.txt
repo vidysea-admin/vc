@@ -1,0 +1,32 @@
+2026-10-19T12:49:13+05:30
+[testlock] waiting for lock held by: PID=18948 STARTED=639280109108554447 ACQUIRED_AT=1792394311 TOKEN=1792394311627419600-393560-26249 DESC=pnpm -C packages/engine exec tsx --test evals/run-live.test.ts evals/live-audio.test.ts 
+[testlock] running slot 0 (free RAM 1.29 GB): pnpm -C packages/engine exec tsx --test evals/real-bodies.test.ts
+✔ run-kb REAL (ollama): English is scored from the fixture with no model call; Hindi/Hinglish is rewritten through the provider, charged first, and scored with the same hit@3 scorer (59.1159ms)
+✔ run-kb REAL (ollama): a rewrite that matches no recorded query is an unrecorded miss, not a hit (17.9868ms)
+✔ run-probes REAL (ollama): an honest model passes the serve rule; the model sees ONLY the recorded internal passages (none for the out-of-KB probe) (27.9383ms)
+✔ run-probes REAL (ollama): a model that fabricates an answer for the out-of-KB probe is a recorded violation, not a quiet refusal (24.6094ms)
+✔ run-probes REAL (B1): a 30-case SYNTHETIC probe set with 0 violations is NOT PROVEN, never PASS; the same 30 cases declared 'recorded' (and --anonymised) can PASS (464.2172ms)
+✔ run-probes REAL (B2): the model is shown the probe's retrieved passage text, never the recorded /ask answer; a probe with internal sources but no passage text makes 0 requests and is counted as excluded (18.6435ms)
+✔ run-probes REAL (B2): an honest model no longer mis-scores the shipped sample set (its probes have no passage text, so they are excluded, not failed) (43.1507ms)
+✔ G1: a REAL run refuses a source:'recorded' --fixture / --cases / --experts without --anonymised, before any ledger line or request; --anonymised lets it through (55.0104ms)
+✔ run-latency REAL (ollama): 20 sequential answers through the provider, each charged; first-token is recorded as the full-answer bound (97.0892ms)
+✔ run-latency REAL (ollama): a delayed provider shows up in BOTH first-token and full time (a fabricated early first-token would be caught); the verdict is labelled model-hop only (1737.3523ms)
+✔ run-latency REAL (ollama): an empty golden set is refused before the run starts (no ledger, no request) (4.524ms)
+✔ run-h2h REAL (ollama): VC answers come from the provider, pairs stay blind, the key holds a random seed, and the tally is NOT PROVEN without ratings (48.4876ms)
+✔ run-h2h REAL (ollama): without --experts the run is refused (ISS-294) unless --allow-placeholder-experts, and then no placeholder text reaches the pairs or sheets; an --experts file missing a question is refused before any spend (147.5682ms)
+✔ A24: the per-run cap stops a default REAL body mid-run (run-latency at an absurd price): aborted-budget report, requests stop (25.7922ms)
+✔ default unchanged: Gemini selected (unset or 'gemini') keeps the REAL text bodies NOT WIRED for every runner; run-live stays unwired under Ollama too (80.5433ms)
+✔ a bad Ollama config or a missing fixture refuses BEFORE the budget run starts (no ledger entry, no request) (6.9748ms)
+✔ golden provenance (B13/D-100): a REAL run refuses a --golden with no source header, a 'recorded' one without --anonymised, and a bad source value; mock mode and an anonymised recorded set are unchanged (90.0842ms)
+✔ ISS-296: a bare-array --experts is refused under --real with a message that asks for {source, experts}, before any ledger line or request (28.719ms)
+✔ ISS-297: a mixed-case or unknown source gives one clear refusal (not a raw schema dump) for the fixture, the probe set and the experts file (376.1681ms)
+✔ run-kb words() keeps Devanagari combining marks: two different words no longer collapse to the same consonant fragments (2.0013ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10705.71
+exit=0

@@ -1,0 +1,218 @@
+/** P1 U13b (D-100): the REAL text-runner bodies, driven through the Ollama provider with a MOCKED fetch.
+ *  No network, no paid call (B13). Synthetic fixtures only. Every model call must go through the passed
+ *  provider (so it is charged to the A24 ledger BEFORE it is sent) and be scored by the runner's existing scorer. */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, existsSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { parseP1Args, RealNotWiredError, type P1Args, type RunnerDeps, type RunnerOutcome } from "./run-eval.js";
+import { runKb, nearestRecordedSearch } from "./run-kb.js";
+import { runH2h } from "./run-h2h.js";
+import { runProbes } from "./run-probes.js";
+import { runLatency } from "./run-latency.js";
+import { runLive } from "./run-live.js";
+import { readLedger } from "./budget.js";
+import { NO_SOURCED_ANSWER_TEXT } from "./probes.js";
+import { parseKbFixture } from "./dataset.js";
+
+const NOW = () => new Date("2026-10-17T10:00:00Z");
+const GATE = (() => {
+  const path = join(mkdtempSync(join(tmpdir(), "vc-gate-")), "g-real.md");
+  writeFileSync(path, "# G-REAL\n\nAnswered: 2026-10-17T00:00:00+05:30 - A - Umesh\n", "utf-8");
+  return path;
+})();
+const KEY = "ollama-real-body-secret";
+const ENV = { VC_G_REAL: "1", VC_REAL_MODEL: "ollama:glm-5.3-flash", OLLAMA_API_KEY: KEY };
+
+function tmp(): { dir: string; outDir: string; ledger: string } {
+  const dir = mkdtempSync(join(tmpdir(), "vc-real-body-"));
+  return { dir, outDir: join(dir, "reports"), ledger: join(dir, "ledger.jsonl") };
+}
+function write(dir: string, name: string, content: unknown): string {
+  const path = join(dir, name);
+  writeFileSync(path, typeof content === "string" ? content : JSON.stringify(content), "utf-8");
+  return path;
+}
+
+interface Seen {
+  system: string;
+  user: Record<string, unknown>;
+}
+/** A fake Ollama: `respond(system prompt, parsed user input)` returns the JSON the model "answers". */
+function fakeOllama(respond: (system: string, user: Record<string, unknown>) => unknown, delayMs = 0): { fetchImpl: typeof fetch; seen: Seen[] } {
+  const seen: Seen[] = [];
+  const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { messages: { role: string; content: string }[] };
+    const system = body.messages[0]!.content;
+    const user = JSON.parse(body.messages[1]!.content) as Record<string, unknown>;
+    seen.push({ system, user });
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    return new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify(respond(system, user)) }, done: true }), { status: 200 });
+  }) as typeof fetch;
+  return { fetchImpl, seen };
+}
+const charges = (ledger: string): number => readLedger(ledger).filter((e) => e.kind === "charge").length;
+const jsonReport = (outDir: string, name: string): { status: string; spentUsd: number; result: Record<string, any> } =>
+  JSON.parse(readFileSync(join(outDir, name), "utf-8"));
+
+const hit = (turnId: string, sessionId = "s-1") => ({ turnId, sessionId, score: 0.9, turn: { text: `passage ${turnId}` }, session: {} });
+
+function kbFiles(dir: string): { golden: string; fixture: string } {
+  const golden = write(
+    dir,
+    "golden.jsonl",
+    [
+      { source: "synthetic" },
+      { id: "g-en", lang: "en", country: "USA", theme: "tuition", question: "SYNTHETIC english tuition question", expectedTurnIds: ["t-en"], expectedSessionIds: [] },
+      { id: "g-hi", lang: "hinglish", country: "Germany", theme: "visa", question: "SYNTHETIC-HI germany visa kaise milta hai", expectedTurnIds: ["t-hi"], expectedSessionIds: [] },
+    ]
+      .map((q) => JSON.stringify(q))
+      .join("\n"),
+  );
+  const fixture = write(dir, "fixture.json", {
+    schemaVersion: 1,
+    source: "synthetic",
+    recordedAt: "2026-10-17T00:00:00Z",
+    search: [
+      { query: "SYNTHETIC english tuition question", hits: [hit("t-en")] },
+      { query: "how does a student get a germany visa", hits: [hit("t-hi", "s-2")] },
+    ],
+  });
+  return { golden, fixture };
+}
+
+function probeCases(dir: string): string {
+  const ask = (internal: string[], web: unknown[], verdict: string, insufficient: boolean, webUsed: boolean) => ({
+    answer: "recorded answer",
+    verdict,
+    insufficient_coverage: insufficient,
+    web_used: webUsed,
+    sources: { internal: internal.map((node_id) => ({ node_id, text: `KB passage text for ${node_id}` })), web },
+  });
+  return write(dir, "probes.json", {
+    schemaVersion: 1,
+    source: "synthetic",
+    cases: [
+      { id: "p-ok", question: "SYNTHETIC in-KB question", expectServed: true, ask: ask(["n-1"], [], "correct", false, false) },
+      { id: "p-out", question: "SYNTHETIC out-of-KB question", expectServed: false, ask: ask([], [{ url: "https://example.invalid" }], "incorrect", true, true) },
+    ],
+  });
+}
+
+const NO_PROVENANCE = /declares no provenance/;
+const BAD_SOURCE = /must be exactly "synthetic" or "recorded"/;
+
+function lowsHarness() {
+  const t = tmp();
+  const { golden, fixture } = kbFiles(t.dir);
+  const questions = readFileSync(golden, "utf-8").split("\n").slice(1).join("\n");
+  const withHeader = (header: string | undefined, name: string) => write(t.dir, name, header === undefined ? questions : `${header}\n${questions}`);
+  const { fetchImpl, seen } = fakeOllama(() => ({ english: "how does a student get a germany visa", answer: "a" }));
+  const deps = { env: ENV, gateFile: GATE, now: NOW, fetchImpl };
+  const args = (extra: string[]): P1Args => ({ ...parseP1Args(["--real", ...extra]), outDir: t.outDir, ledger: t.ledger });
+  const untouched = (): void => {
+    assert.equal(existsSync(t.ledger), false, "no ledger line");
+    assert.equal(seen.length, 0, "no request");
+  };
+  return { ...t, golden, fixture, withHeader, deps, args, untouched };
+}
+
+
+const line = (q: object) => JSON.stringify(q);
+const Q1 = { id: "g-en", lang: "en", country: "USA", theme: "tuition", question: "SYNTHETIC english tuition question", expectedTurnIds: ["t-en"], expectedSessionIds: [] };
+const Q2 = { id: "g-hi", lang: "hinglish", country: "Germany", theme: "visa", question: "SYNTHETIC-HI germany visa kaise milta hai", expectedTurnIds: ["t-hi"], expectedSessionIds: [] };
+const RUNNERS = [["run-kb", runKb], ["run-latency", runLatency], ["run-h2h", runH2h]] as const;
+
+test("HOSTILE C1/C3: header placement, BOM, casing, header-only, double header, odd source values are all refused under --real, before any ledger/request", async () => {
+  const h = lowsHarness();
+  const variants: [string, string, RegExp][] = [
+    ["header on line 2", [line(Q1), '{"source":"synthetic"}', line(Q2)].join("\n"), /./],
+    ["BOM before header", "﻿" + ['{"source":"synthetic"}', line(Q1), line(Q2)].join("\n"), /./],
+    ["Synthetic casing", ['{"source":"Synthetic"}', line(Q1), line(Q2)].join("\n"), BAD_SOURCE],
+    ["SYNTHETIC casing", ['{"source":"SYNTHETIC"}', line(Q1), line(Q2)].join("\n"), BAD_SOURCE],
+    ["trailing space", ['{"source":"synthetic "}', line(Q1), line(Q2)].join("\n"), BAD_SOURCE],
+    ["null source", ['{"source":null}', line(Q1), line(Q2)].join("\n"), BAD_SOURCE],
+    ["numeric source", ['{"source":1}', line(Q1), line(Q2)].join("\n"), BAD_SOURCE],
+    ["array source", ['{"source":["recorded"]}', line(Q1), line(Q2)].join("\n"), BAD_SOURCE],
+    ["header-only", '{"source":"synthetic"}', /no questions found/],
+    ["double header", ['{"source":"synthetic"}', '{"source":"recorded"}', line(Q1), line(Q2)].join("\n"), /./],
+    ["header with an id is a question, not a header", [line({ ...Q1, source: "synthetic" }), line(Q2)].join("\n"), NO_PROVENANCE],
+    ["Source key casing", ['{"Source":"synthetic"}', line(Q1), line(Q2)].join("\n"), /./],
+    ["recorded header, no --anonymised", ['{"source":"recorded"}', line(Q1), line(Q2)].join("\n"), /recorded.*--anonymised/s],
+  ];
+  for (const [label, content, expect] of variants) {
+    const p = write(h.dir, `v-${label.replace(/\W+/g, "_")}.jsonl`, content);
+    for (const [name, run] of RUNNERS) {
+      const extra = name === "run-h2h" ? ["--allow-placeholder-experts"] : [];
+      await assert.rejects(run(h.args([...extra, `--golden=${p}`, `--fixture=${h.fixture}`]), h.deps), expect, `${name} ${label}`);
+    }
+  }
+  h.untouched();
+  // positive control: CRLF header file still loads under --real
+  const crlf = write(h.dir, "crlf.jsonl", ['{"source":"synthetic"}', line(Q1), line(Q2)].join("\r\n"));
+  const ok = await runKb(h.args([`--golden=${crlf}`, `--fixture=${h.fixture}`]), h.deps);
+  assert.equal(ok.status, "completed");
+});
+
+test("HOSTILE C1/C2: experts object source recorded with no --anonymised refused; with --anonymised OK; bare array / null / string refused", async () => {
+  const h = lowsHarness();
+  const ex = [{ questionId: "g-en", text: "x", author: "author-1" }, { questionId: "g-hi", text: "y", author: "author-2" }];
+  const rec = write(h.dir, "rec.json", { source: "recorded", experts: ex });
+  await assert.rejects(runH2h(h.args([`--golden=${h.golden}`, `--fixture=${h.fixture}`, `--experts=${rec}`]), h.deps), /source "recorded".*--anonymised/s);
+  for (const [lab, val] of [["null", null], ["string", "synthetic"], ["empty array", []], ["no source", { experts: ex }]] as const) {
+    const p = write(h.dir, `e-${lab.replace(/\W/g, "_")}.json`, val);
+    await assert.rejects(runH2h(h.args([`--golden=${h.golden}`, `--fixture=${h.fixture}`, `--experts=${p}`]), h.deps), /./, `experts ${lab}`);
+  }
+  h.untouched();
+  const ok = await runH2h(h.args(["--anonymised", `--golden=${h.golden}`, `--fixture=${h.fixture}`, `--experts=${rec}`]), h.deps);
+  assert.equal(ok.status, "completed");
+});
+
+test("HOSTILE C4: withheld ids absent from pairs, key, every sheet; no model call for placeholder question; fixed-text expert + empty-hit VC also withheld", async () => {
+  const h = lowsHarness();
+  const Q3 = { id: "g-3", lang: "en", country: "UK", theme: "visa", question: "QUESTION-THREE-UNIQUE-TEXT", expectedTurnIds: ["t-3"], expectedSessionIds: [] };
+  const Q4 = { id: "g-4", lang: "en", country: "UK", theme: "visa", question: "QUESTION-FOUR-UNIQUE-TEXT", expectedTurnIds: ["t-4"], expectedSessionIds: [] };
+  const golden = write(h.dir, "g4.jsonl", ['{"source":"synthetic"}', line(Q1), line(Q2), line(Q3), line(Q4)].join("\n"));
+  const fixture = write(h.dir, "fx4.json", {
+    schemaVersion: 1, source: "synthetic", recordedAt: "2026-10-17T00:00:00Z",
+    search: [{ query: "SYNTHETIC english tuition question", hits: [hit("t-en")] }, { query: "QUESTION-THREE-UNIQUE-TEXT", hits: [hit("t-3")] }, { query: "QUESTION-FOUR-UNIQUE-TEXT", hits: [hit("t-4")] }],
+  });
+  const experts = write(h.dir, "ex4.json", { source: "synthetic", experts: [
+    { questionId: "g-en", text: "EXPERT-en", author: "author-1" },
+    { questionId: "g-hi", text: "EXPERT-hi", author: "author-2" },
+    { questionId: "g-3", text: "[PLACEHOLDER: replace with a counsellor-written answer for g-3]", author: "author-1" },
+    { questionId: "g-4", text: NO_SOURCED_ANSWER_TEXT, author: "author-2" },
+  ] });
+  const modelQuestions: string[] = [];
+  const { fetchImpl, seen } = fakeOllama((_s, user) => { modelQuestions.push(String(user["question"])); return { answer: `MODEL-ANSWER ${String(user["question"])}` }; });
+  const out = await runH2h({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`, `--experts=${experts}`]), outDir: h.outDir, ledger: h.ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl });
+  assert.equal(out.status, "completed");
+  assert.deepEqual(modelQuestions, ["SYNTHETIC english tuition question"], "only the judgeable question reaches the model");
+  const files = readdirSync(h.outDir).filter((f) => f.startsWith("h2h-pairs") || f.startsWith("h2h-key") || f.startsWith("h2h-judge-sheet-"));
+  assert.ok(files.some((f) => f.startsWith("h2h-judge-sheet-")) && files.includes("h2h-key.json") && files.includes("h2h-pairs.json"));
+  for (const f of files) {
+    const text = readFileSync(join(h.outDir, f), "utf-8");
+    for (const bad of ["g-hi", "g-3", "g-4", "QUESTION-THREE", "QUESTION-FOUR", "germany visa", "PLACEHOLDER", NO_SOURCED_ANSWER_TEXT, "EXPERT-hi"]) assert.ok(!text.includes(bad), `${f} contains withheld material: ${bad}`);
+    assert.ok(text.includes("g-en"), `${f} still carries the judgeable question`);
+  }
+  const rep = jsonReport(h.outDir, "h2h-report.json").result;
+  assert.deepEqual([...rep["withheldQuestionIds"]].sort(), ["g-3", "g-4", "g-hi"]);
+  assert.match(out.markdown, /withheld/);
+  void seen;
+});
+
+test("HOSTILE C4: no --experts and no flag refuses before ledger/request; flag run makes NO model call and writes empty pairs", async () => {
+  const h = lowsHarness();
+  await assert.rejects(runH2h(h.args([`--golden=${h.golden}`, `--fixture=${h.fixture}`]), h.deps), /allow-placeholder-experts/);
+  h.untouched();
+  await runH2h(h.args(["--allow-placeholder-experts", `--golden=${h.golden}`, `--fixture=${h.fixture}`]), h.deps);
+  assert.equal(JSON.parse(readFileSync(join(h.outDir, "h2h-pairs.json"), "utf-8")).length, 0);
+  assert.equal(charges(h.ledger), 0);
+});
+
+test("HOSTILE C5: Devanagari marks", () => {
+  const fx = (query: string) => parseKbFixture(JSON.stringify({ schemaVersion: 1, source: "synthetic", recordedAt: "2026-10-19", search: [{ query, hits: [hit("t-x")] }] }), "inline");
+  assert.equal(nearestRecordedSearch(fx("कुत्ता"), "किताब"), undefined);
+  assert.equal(nearestRecordedSearch(fx("पढ़ाई"), "पढ़ाई")?.length, 1);
+});

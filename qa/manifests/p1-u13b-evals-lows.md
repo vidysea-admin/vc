@@ -8,7 +8,7 @@
 - C5 ISS-298 L1: `run-kb` `words()` keeps Devanagari combining marks (`\p{M}`), so distinct words no longer collapse to shared consonant fragments in the rewrite match.
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 0 of max 2
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** M (eval-harness guards on the code path that sends text to a paid provider; no production data, no network, no auth)
