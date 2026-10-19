@@ -7,7 +7,7 @@
 - C4 No over-triggering: benign Devanagari study-abroad talk ("मुझे कनाडा में पढ़ाई खत्म करनी है", "परीक्षा खत्म हो गई", "मुझे मार्केट जाना है", "मेरे साथ पीटर आ रहा है", ...) stays `none`; the bare word खत्म is never a flag.
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 0 of max 2
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** M (the crisis guard is the safety-critical shared module: every student and counsellor turn and the voice path run it; no auth, no production data, no network, no paid call)

@@ -1,0 +1,41 @@
+import { test } from "node:test";
+import { writeFileSync } from "node:fs";
+import { performance } from "node:perf_hooks";
+import { crisisGuard as NEW } from "../src/guards/crisis.js";
+import { crisisGuard as BASE } from "./zz-base-crisis.js";
+
+function cutBytes(s: string, bytes: number): string {
+  let out = "", n = 0;
+  for (const ch of s) { const b = Buffer.byteLength(ch, "utf8"); if (n + b > bytes) break; out += ch; n += b; }
+  return out;
+}
+const reps = (u: string, chars: number) => u.repeat(Math.ceil(chars / u.length)).slice(0, chars);
+const time = (f: (s: string) => unknown, s: string, runs: number) => {
+  const ts: number[] = [];
+  for (let i = 0; i < runs; i++) { const t = performance.now(); f(s); ts.push(performance.now() - t); }
+  ts.sort((a, b) => a - b);
+  return { med: +ts[Math.floor(runs / 2)]!.toFixed(1), max: +ts[runs - 1]!.toFixed(1) };
+};
+
+test("perf: 64 KiB-of-bytes body and linear scaling", () => {
+  const units = ["सब ", "सब खत्म कर ", "खुद को ", "मरने का ", "जीने का कोई ", "जान दे दे ", "मर जाना ", "मेरे साथ ", "मेरे न ", "चीजों को ", "मै नही ", "ज़िंदगी ", "अपने आप ", "sab khatam kar ", "sab खत्म kar दूंगा mere साथ jaan दे ", "स\u200Dब\u200D ख\u200Dत\u200Dम ", "सँब खँत्म "];
+  for (let i = 0; i < 3; i++) { NEW(reps(units[0]!, 3000)); BASE(reps(units[0]!, 3000)); }
+  const rows: unknown[] = [];
+  let maxNew = 0, maxBase = 0;
+  for (const u of units) {
+    const body = cutBytes(reps(u, 70000), 65536); // an anonymous-route-sized body (64 KiB of UTF-8)
+    const n = time(NEW, body, 5), b = time(BASE, body, 5);
+    maxNew = Math.max(maxNew, n.max); maxBase = Math.max(maxBase, b.max);
+    rows.push({ unit: u.trim(), chars: body.length, bytes: Buffer.byteLength(body), new: n, base: b });
+  }
+  console.log("PERF 64KiB-bytes rows", JSON.stringify(rows));
+  console.log(`PERF 64KiB-bytes maxNew=${maxNew}ms maxBase=${maxBase}ms`);
+  const sc: unknown[] = [];
+  for (const u of ["मेरे न ", "जान दे दे ", "सब खत्म कर "]) {
+    const r: Record<string, unknown> = { unit: u.trim() };
+    for (const chars of [8192, 16384, 32768, 65536, 131072]) r[chars] = { new: time(NEW, reps(u, chars), 3).med, base: time(BASE, reps(u, chars), 3).med };
+    sc.push(r);
+  }
+  console.log("PERF scaling (median ms)", JSON.stringify(sc));
+  writeFileSync("D:/tmp340chk/out-perf.json", JSON.stringify({ rows, sc }, null, 1));
+});

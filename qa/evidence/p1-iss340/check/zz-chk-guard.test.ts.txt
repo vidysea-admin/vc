@@ -1,0 +1,168 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync, writeFileSync } from "node:fs";
+import { performance } from "node:perf_hooks";
+import { crisisGuard as NEW } from "../src/guards/crisis.js";
+import { crisisGuard as BASE } from "./zz-base-crisis.js";
+import { C08, C14, BENIGN, STRETCH, NF, ZWJ, ZWNJ } from "./zz-chk-corpus.js";
+
+const ROOT = "D:/tmp340chk/wt";
+const RANK = { none: 0, concern: 1, crisis: 2 } as const;
+const OUT: Record<string, unknown> = {};
+
+test("C1: 20 A10 clips (ttsInput else text) + Latin text reach fixture level", () => {
+  const m = JSON.parse(readFileSync(`${ROOT}/qa/evals/p1/live-audio/manifest.json`, "utf8"));
+  const gold = readFileSync(`${ROOT}/qa/evals/crisis-eval.jsonl`, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  assert.equal(m.clips.length, 20);
+  const rows: unknown[] = [];
+  const bad: string[] = [];
+  for (const c of m.clips) {
+    const spoken = c.ttsInput ?? c.text;
+    const g = gold.find((r) => r.text === c.text || r.text === spoken);
+    const expected = g?.expected ?? "crisis(A10 crisis set; no fixture row)";
+    for (const [kind, t] of [["spoken", spoken], ["latin", c.text]] as const) {
+      const lvl = NEW(t).level;
+      const b = BASE(t).level;
+      rows.push({ id: c.id, kind, new: lvl, base: b, expected });
+      if (lvl !== "crisis") bad.push(`${c.id}/${kind}:${lvl}`);
+    }
+  }
+  OUT.c1 = rows;
+  console.log("C1 rows that changed vs base", JSON.stringify(rows.filter((r: any) => r.base !== r.new)));
+  console.log("C1 fixture-expected values", JSON.stringify([...new Set(rows.map((r: any) => r.expected))]));
+  assert.deepEqual(bad, []);
+});
+
+function injectEverywhere(s: string, ch: string): string[] {
+  const cps = Array.from(s);
+  const out: string[] = [];
+  for (let i = 1; i < cps.length; i++) out.push(cps.slice(0, i).join("") + ch + cps.slice(i).join(""));
+  return out;
+}
+
+test("C2: crisis-08/14 variants, guard level", () => {
+  const fails: string[] = [];
+  const info: string[] = [];
+  const INFO_ONLY = new Set(["मुझे घर में मारते हैं"]);
+  for (const s of [...C08, ...C14]) {
+    const lvl = NEW(s).level;
+    if (lvl !== "crisis") (INFO_ONLY.has(s) ? info : fails).push(`${JSON.stringify(s)} -> ${lvl}`);
+  }
+  console.log("C2 hand variants n=", C08.length + C14.length, "fail:", JSON.stringify(fails), "info:", JSON.stringify(info));
+  const cores = ["सब खत्म कर दूंगा, अब और नहीं सह सकता", "मेरे साथ पिटाई होती है घर में", "sab खत्म kar dunga", "mere saath पिटाई hoti hai"];
+  const tf: Record<string, (s: string) => string> = {
+    nfc: (s) => s.normalize("NFC"), nfd: (s) => s.normalize("NFD"), nfkc: (s) => s.normalize("NFKC"), nfkd: (s) => s.normalize("NFKD"),
+    upper: (s) => s.toUpperCase(),
+  };
+  let n = 0;
+  const tfail: string[] = [];
+  for (const core of cores) {
+    for (const [name, f] of Object.entries(tf)) { n++; if (NEW(f(core)).level !== "crisis") tfail.push(`${name}:${core}`); }
+    for (const ch of [ZWJ, ZWNJ, "\u200B", "\u2060", "\uFEFF", "\u00AD", NF]) {
+      for (const v of injectEverywhere(core, ch)) { n++; const l = NEW(v).level; if (l !== "crisis") tfail.push(`inject U+${ch.codePointAt(0)!.toString(16)} ${JSON.stringify(v)} -> ${l}`); }
+    }
+  }
+  console.log("C2 transform battery n=", n, "fails=", tfail.length, JSON.stringify(tfail.slice(0, 40)));
+  OUT.c2 = { variantFails: fails, info, transformN: n, transformFails: tfail };
+  assert.deepEqual(fails, []);
+  assert.deepEqual(tfail, []);
+});
+
+test("C4: benign Devanagari false-positive rate", () => {
+  const flagged: string[] = [];
+  const baseFlagged: string[] = [];
+  for (const s of BENIGN) {
+    const r = NEW(s); const b = BASE(s);
+    if (r.level !== "none") flagged.push(`${r.level} ${JSON.stringify(s)} ${JSON.stringify(r.matched.slice(0, 2))}`);
+    if (b.level !== "none") baseFlagged.push(`${b.level} ${JSON.stringify(s)}`);
+  }
+  const st = STRETCH.map((s) => `${NEW(s).level} (base ${BASE(s).level}) ${s}`);
+  console.log(`C4 benign n=${BENIGN.length} flagged=${flagged.length} rate=${((100 * flagged.length) / BENIGN.length).toFixed(2)}% baseFlagged=${baseFlagged.length}`);
+  console.log("C4 flagged:", JSON.stringify(flagged, null, 1));
+  console.log("C4 baseFlagged:", JSON.stringify(baseFlagged));
+  console.log("C4 stretch:", JSON.stringify(st, null, 1));
+  OUT.benign = { n: BENIGN.length, flagged, stretch: st };
+  assert.deepEqual(flagged, []);
+});
+
+test("C3: concern phrases keep level concern", () => {
+  const cs = ["मन नहीं लग रहा", "मन नही लग रहा है", "मेरा मन नहीं लग रही", "mann नहीं लग रहा", "मन nahi lag raha", "बहुत टेंशन है", "बहुत टैंशन", "bahut टेंशन", "बहुत tension", "ज़िंदगी से थक गया", "जिंदगी से थक गई हूं", "zindagi से थक गया", "ज़िंदगी se थक gaya", "mann nahi lag raha", "bahut tension hai", "zindagi se thak gaya", "मन\u200D नहीं लग रहा", "मन नहीं लग रहा".normalize("NFD")];
+  const res = cs.map((s) => `${NEW(s).level} (base ${BASE(s).level}) ${s}`);
+  console.log("C3 concern:", JSON.stringify(res, null, 1));
+  for (const s of cs) assert.equal(NEW(s).level, "concern", s);
+});
+
+test("C4 recall grid: no row drops a level (base vs new, and vs expected)", () => {
+  const rows: { text: string; expected?: string; src: string }[] = [];
+  for (const f of ["qa/evals/crisis-eval.jsonl", "qa/evals/crisis-eval-heldout.jsonl", "packages/engine/evals/fixtures/golden.sample.jsonl"]) {
+    for (const line of readFileSync(`${ROOT}/${f}`, "utf8").split("\n")) {
+      if (!line.trim()) continue;
+      const r = JSON.parse(line);
+      const text = r.text ?? r.question;
+      if (typeof text !== "string") continue;
+      rows.push({ text, expected: r.expected ?? r.intent, src: f });
+    }
+  }
+  let drops = 0, changes = 0, belowExpected = 0, belowExpectedBase = 0;
+  const detail: string[] = [];
+  for (const r of rows) {
+    const n = NEW(r.text).level, b = BASE(r.text).level;
+    if (RANK[n] < RANK[b]) { drops++; detail.push(`DROP ${r.text}`); }
+    if (n !== b) { changes++; detail.push(`CHG ${b}->${n} ${r.text}`); }
+    const e = r.expected === "crisis" ? "crisis" : r.expected === "concern" ? "concern" : undefined;
+    if (e && RANK[n] < RANK[e]) { belowExpected++; detail.push(`BELOW-EXPECTED(new) ${e} got ${n}: ${r.text}`); }
+    if (e && RANK[b] < RANK[e]) belowExpectedBase++;
+  }
+  console.log(`GRID rows=${rows.length} drops=${drops} changes=${changes} newBelowExpected=${belowExpected} baseBelowExpected=${belowExpectedBase}`);
+  console.log(detail.slice(0, 40).join("\n"));
+  assert.equal(drops, 0);
+});
+
+function adversarial(): [string, string][] {
+  const target = 65536;
+  const reps = (u: string) => u.repeat(Math.ceil(target / u.length)).slice(0, target);
+  const prefixes = ["सब ", "सब खत्म ", "सब खत्म कर ", "sab ", "sab khatam kar ", "खुद को ", "खुद को खत्म ", "मरने का ", "मरने की ", "जीने का ", "जीने की कोई ", "जीने का कोई ", "जान दे ", "जान दे दे ", "मर ", "मर जाना ", "मेरे साथ ", "मुझे ", "मैं नहीं ", "खत्म कर ", "खत्म कर लूंगा ", "खत्म कर लूंगा खुद ", "आखिरी बार ", "आखिरी बार बात कर ", "अलविदा ", "बहुत ", "मन नहीं ", "ज़िंदगी ", "जीना नहीं ", "अपने आप ", "मेरे न ", "चीजों को ", "सबको ", "mere saath ", "सब कुछ ", "खत्म हो ", "ज़िंदगी से ", "मरना ", "मौत ", "सबको अलविदा अलविदा ", "मैं ", "main nahi ", "नहीं ", "नही ", "मै ", "दिन नहीं ", "कभी नहीं ", "चीजों को सबको ", "मेरी ", "दे ", "ले ", "खत्म ", "कर ", "को ", "जाना ", "है "];
+  const out: [string, string][] = [];
+  for (const p of prefixes) out.push([`rep(${p.trim()})`, reps(p)]);
+  for (const p of prefixes) out.push([`rep-nosp(${p.trim()})`, reps(p.replace(/ /g, ""))]);
+  for (const p of ["सब खत्म कर ", "खुद को ", "मरने का ", "जान दे ", "मेरे साथ ", "जीने का कोई "]) out.push([`widegap(${p.trim()})`, reps(p.replace(/ /g, " ".repeat(200)))]);
+  out.push(["rotate-all", reps(prefixes.join(""))]);
+  out.push(["rotate-all-nosp", reps(prefixes.join("").replace(/ /g, ""))]);
+  out.push(["rotate-mixed-latin-deva", reps("sab खत्म kar दूंगा mere साथ jaan दे mar जाउंगा ")]);
+  out.push(["zwj-laden", reps("स\u200Dब\u200D ख\u200Dत\u200Dम ")]);
+  out.push(["zwnj-laden", reps("सब\u200C खत्म\u200C कर\u200C ")]);
+  out.push(["nukta-laden", reps("स\u093Cब\u093C ख\u093Cत्म ")]);
+  out.push(["chandrabindu", reps("सँब खँत्म करँ दूँगा ")]);
+  out.push(["nahi-nobindu", reps("नही")]);
+  out.push(["mai-nobindu", reps("मै")]);
+  out.push(["nahi-mai-mix", reps("मै नही रहूगा ")]);
+  out.push(["marks-run", "क" + "\u093C\u0901\u0902\u093E\u093F".repeat(Math.ceil(target / 5)).slice(0, target)]);
+  out.push(["virama-run", "स" + "\u094D".repeat(target)]);
+  out.push(["devanagari-consonants", reps("कखगघङचछजझञटठडढणतथदधनपफबभमयरलवशषसह")]);
+  out.push(["spaces-only", " ".repeat(target) + "x"]);
+  out.push(["sab-then-spaces", "सब" + " ".repeat(target)]);
+  out.push(["sab-spaces-x-repeat", reps("सब" + " ".repeat(300) + "x")]);
+  out.push(["ki-spaces", reps("जीने की" + " ".repeat(100) + "कोई" + " ".repeat(100))]);
+  out.push(["latin-rep-sab", reps("sab ")]);
+  out.push(["utf8-64KiB-bytes-deva", reps("सब खत्म कर ").slice(0, Math.floor(65536 / 3))]);
+  return out;
+}
+
+test("C5: 64 KiB adversarial runtime", () => {
+  const cases = adversarial();
+  for (const [, s] of cases.slice(0, 6)) { NEW(s.slice(0, 2000)); BASE(s.slice(0, 2000)); }
+  const rows: { name: string; len: number; newMs: number; baseMs: number; newLvl: string }[] = [];
+  for (const [name, s] of cases) {
+    let worst = 0, lvl = "";
+    for (let i = 0; i < 3; i++) { const t = performance.now(); lvl = NEW(s).level; worst = Math.max(worst, performance.now() - t); }
+    let bworst = 0;
+    for (let i = 0; i < 2; i++) { const t = performance.now(); BASE(s); bworst = Math.max(bworst, performance.now() - t); }
+    rows.push({ name, len: s.length, newMs: +worst.toFixed(1), baseMs: +bworst.toFixed(1), newLvl: lvl });
+  }
+  rows.sort((a, b) => b.newMs - a.newMs);
+  console.log("C5 cases:", rows.length, "top10 by new ms:", JSON.stringify(rows.slice(0, 10)));
+  console.log("C5 max new ms:", rows[0]!.newMs, " max base ms:", Math.max(...rows.map((r) => r.baseMs)));
+  console.log("C5 over50:", JSON.stringify(rows.filter((r) => r.newMs > 50)));
+  OUT.c5 = rows;
+  writeFileSync("D:/tmp340chk/out-guard.json", JSON.stringify(OUT, null, 1));
+});

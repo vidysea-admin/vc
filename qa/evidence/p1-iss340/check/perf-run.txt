@@ -1,0 +1,15 @@
+[testlock] waiting for lock held by: 
+[testlock] owner PID 31420 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running slot 0 (free RAM 0.99 GB): pnpm exec tsx --test tests/zz-chk-perf.test.ts
+PERF 64KiB-bytes rows [{"unit":"सब","chars":28086,"bytes":65534,"new":{"med":60.1,"max":61.9},"base":{"med":58.2,"max":59.4}},{"unit":"सब खत्म कर","chars":26700,"bytes":65536,"new":{"med":53.2,"max":69.9},"base":{"med":45.3,"max":46.8}},{"unit":"खुद को","chars":26985,"bytes":65535,"new":{"med":50.4,"max":51.9},"base":{"med":47.2,"max":53}},{"unit":"मरने का","chars":26214,"bytes":65536,"new":{"med":43.7,"max":46.7},"base":{"med":41.6,"max":43.3}},{"unit":"जीने का कोई","chars":26214,"bytes":65536,"new":{"med":47.6,"max":50.2},"base":{"med":42.9,"max":50}},{"unit":"जान दे दे","chars":27306,"bytes":65536,"new":{"med":60.4,"max":67.8},"base":{"med":54.6,"max":57.8}},{"unit":"मर जाना","chars":26214,"bytes":65536,"new":{"med":44.2,"max":47},"base":{"med":44.6,"max":107.9}},{"unit":"मेरे साथ","chars":25644,"bytes":65536,"new":{"med":43.3,"max":45.5},"base":{"med":40.5,"max":43.7}},{"unit":"मेरे न","chars":26985,"bytes":65535,"new":{"med":57,"max":70.2},"base":{"med":62.6,"max":70.7}},{"unit":"चीजों को","chars":25644,"bytes":65536,"new":{"med":46.6,"max":60.5},"base":{"med":44.6,"max":47}},{"unit":"मै नही","chars":26985,"bytes":65535,"new":{"med":60.7,"max":69.8},"base":{"med":50.4,"max":52.2}},{"unit":"ज़िंदगी","chars":23830,"bytes":65534,"new":{"med":32.5,"max":34.5},"base":{"med":33.2,"max":36.3}},{"unit":"अपने आप","chars":26214,"bytes":65536,"new":{"med":41,"max":47.1},"base":{"med":40.7,"max":43.9}},{"unit":"sab khatam kar","chars":65536,"bytes":65536,"new":{"med":24.2,"max":49.4},"base":{"med":20.9,"max":23.5}},{"unit":"sab खत्म kar दूंगा mere साथ jaan दे","chars":36864,"bytes":65536,"new":{"med":48.9,"max":53.8},"base":{"med":48.4,"max":51.9}},{"unit":"स‍ब‍ ख‍त‍म","chars":24858,"bytes":65536,"new":{"med":29.5,"max":33.1},"base":{"med":28.9,"max":37.7}},{"unit":"सँब खँत्म","chars":25206,"bytes":65536,"new":{"med":40.7,"max":43.5},"base":{"med":36.7,"max":43.3}}]
+PERF 64KiB-bytes maxNew=70.2ms maxBase=107.9ms
+PERF scaling (median ms) [{"8192":{"new":16.1,"base":16.3},"16384":{"new":27.1,"base":23.9},"32768":{"new":59,"base":60.4},"65536":{"new":138.2,"base":135.6},"131072":{"new":240.4,"base":219},"unit":"मेरे न"},{"8192":{"new":14.9,"base":14.1},"16384":{"new":32.8,"base":31.2},"32768":{"new":49.9,"base":49.9},"65536":{"new":111.6,"base":106.7},"131072":{"new":242,"base":251.5},"unit":"जान दे दे"},{"8192":{"new":16.2,"base":14.1},"16384":{"new":30,"base":31.4},"32768":{"new":65,"base":71.3},"65536":{"new":167.2,"base":123.7},"131072":{"new":256.2,"base":228.7},"unit":"सब खत्म कर"}]
+✔ perf: 64 KiB-of-bytes body and linear scaling (16473.1468ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0

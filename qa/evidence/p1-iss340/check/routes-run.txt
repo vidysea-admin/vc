@@ -1,0 +1,51 @@
+[testlock] waiting for lock held by: PID=33680 STARTED=639280202770258840 ACQUIRED_AT=1792403677 TOKEN=1792403677167767800-456133-4866 DESC=pnpm -C apps/api exec tsx --test tests/chat.test.ts tests/chat-privacy.test.ts tests/chat-profile.test.ts tests/chat-rank.test.ts tests/student-openapi.test.ts tests/anonymous-route.test.ts 
+[testlock] running slot 0 (free RAM 1.4 GB): pnpm exec tsx --test tests/zz-chk-routes.test.ts
+ROUTES crisis texts n=103 anonFail=2 chatFail=2
+{
+ "anonFail": [
+  "variant-68 \"मेरे साथ pitai होती है\" -> {\"status\":200,\"state\":\"sign_in_required\",\"has14416\":true}",
+  "variant-73 \"घर में मेरे साथ बहुत पिटाई होती है, मैं डर गया हूँ\" -> {\"status\":200,\"state\":\"sign_in_required\",\"has14416\":true}"
+ ],
+ "chatFail": [
+  "variant-68 \"मेरे साथ pitai होती है\" -> {\"status\":200,\"state\":\"ok\"}",
+  "variant-73 \"घर में मेरे साथ बहुत पिटाई होती है, मैं डर गया हूँ\" -> {\"status\":200,\"state\":\"ok\"}"
+ ]
+}
+ROUTES benign n= 40 anon states {"sign_in_required":32,"ok":8} chat states {"ok":40}
+ROUTES benign flagged {
+ "bAnonFlag": [],
+ "bChatFlag": []
+}
+ROUTES concern states [{"t":"मन नहीं लग रहा","anon":"escalated","chat":"escalated"},{"t":"बहुत टेंशन है","anon":"escalated","chat":"escalated"},{"t":"ज़िंदगी से थक गया","anon":"escalated","chat":"escalated"},{"t":"mann नहीं लग रहा","anon":"escalated","chat":"escalated"}]
+✖ routes: clips + crisis-08/14 variants escalate; benign is not escalated (4431.1099ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+
+✖ failing tests:
+
+test at tests\zz-chk-routes.test.ts:35:1
+✖ routes: clips + crisis-08/14 variants escalate; benign is not escalated (4431.1099ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'variant-68 "मेरे साथ pitai होती है" -> {"status":200,"state":"sign_in_required","has14416":true}',
+  +   'variant-73 "घर में मेरे साथ बहुत पिटाई होती है, मैं डर गया हूँ" -> {"status":200,"state":"sign_in_required","has14416":true}'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (D:\tmp340chk\wt\apps\api\tests\zz-chk-routes.test.ts:95:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'variant-68 "मेरे साथ pitai होती है" -> {"status":200,"state":"sign_in_required","has14416":true}', 'variant-73 "घर में मेरे साथ बहुत पिटाई होती है, मैं डर गया हूँ" -> {"status":200,"state":"sign_in_required","has14416":true}' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
