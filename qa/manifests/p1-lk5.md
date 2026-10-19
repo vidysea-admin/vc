@@ -10,7 +10,7 @@
 - K7 no regression: crisisGuard first and unweakened, LK4 and student-graph suites, typecheck
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS (qa/verdicts/p1-lk5.md, Cycle checked 3, d9f5b1d); merged f53f20c
 **Fix cycle:** 3
 **Brief-rewrite:** 1 (D-106, after STALLED 82d2470)
 **Policy-Version:** proportional-verification/2026-10-19.16
