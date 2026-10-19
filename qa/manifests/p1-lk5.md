@@ -11,12 +11,12 @@
 **Goal task:** none
 **Date:** 2026-10-19
 **Status:** ready-for-check
-**Fix cycle:** 0
+**Fix cycle:** 1
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** L (safety path in graph.ts plus a new live safety screen)
 **Dual check:** brief says single checker; a second look at the crisis-adjacent paths is the orchestrator's call
 **Persona walk:** skip (no human screen)
-**Issues addressed:** none
+**Issues addressed:** ISS-383 (K1, the checker FAIL), ISS-384 (link check narrow); senior review M1, M2, M3. Ledger rows renumbered from ISS-380..382 to ISS-383..385 because main already holds LK4's ISS-380..382. ISS-385 ('und' counts as outside the allow-list) is untouched.
 **Executor:** claude-sonnet-subagent (maker/builder p1-lk5-build)
 **Executor rationale:** one coherent change in graph.ts / lang.ts / concern-classifier.ts, all call-site level on top of LK4.
 
@@ -39,14 +39,14 @@ Tests[K4]: tests/lk5.test.ts "R4 ..." x4 (ok answer, no-answer, provider failure
 Tests[K5]: tests/lk5.test.ts "D a provider that throws synchronously ...", "D a provider that resolves null ..."
 Tests[K6]: tests/lk5.test.ts "D dropped VC_REPLY_LANGS ...", "D the default dropped-entry logger ..."
 Tests[K7]: existing suites unchanged: lang, student-graph, crisis-defaults, guard-crisis, student-classify, coach-first, capability-manifest, crisis-escalation, no-quote, concern-classifier, claims-guard, loader, index; apps/api voice-crisis-turn, anonymous-*, chat*, acceptance-student-journey, voice*
-Pre-check[K1]: 090b558 VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/lk5/packages/engine exec tsx --test --test-timeout=30000 tests/lk5.test.ts -> green: 34 passed, 0 failed
-Pre-check[K2]: 090b558 same command as Pre-check[K1] -> green: 34 passed, 0 failed
-Pre-check[K3]: 090b558 same command as Pre-check[K1] -> green: 34 passed, 0 failed
-Pre-check[K4]: 090b558 same command as Pre-check[K1] -> green: 34 passed, 0 failed
-Pre-check[K5]: 090b558 same command as Pre-check[K1] -> green: 34 passed, 0 failed
-Pre-check[K6]: 090b558 same command as Pre-check[K1] -> green: 34 passed, 0 failed
-Pre-check[K7]: 090b558 through vc-testlock.sh (TMP/TEMP on D:): engine `tsx --test` over lk5, lang, student-graph, crisis-defaults, guard-crisis, student-classify, coach-first, capability-manifest, crisis-escalation, no-quote, concern-classifier, claims-guard, loader, index -> green: 881 passed, 0 failed; apps/api `tsx --test` over voice-crisis-turn, anonymous-zero-persistence, anonymous-route, chat, chat-privacy, acceptance-student-journey, voice, voice-wiring -> green: 205 passed, 0 failed
-Pre-check[types]: 090b558 pnpm -C packages/engine typecheck; pnpm -C apps/api typecheck; pnpm -r --filter "!@vc/web" typecheck -> exit 0, 0, 0
+Pre-check[K1]: 13ac9b7 VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm -C D:/vc/.worktrees/lk5/packages/engine exec tsx --test --test-timeout=30000 tests/lk5.test.ts (TMP/TEMP on D:) -> green: 53 passed, 0 failed (was 34; red before the fix: 39 passed, 14 failed, qa/evidence/p1-lk5/repair1/red-before-lk5.txt). K1 repair tests: localized "" / null / >2000, replyLang null / >16, followUpLocalized null / >500, English turn with localized ""/null -> the English (or Hindi without follow-up) reply, never the apology; text stays strict
+Pre-check[K2]: 13ac9b7 same command as Pre-check[K1] -> green: 53 passed, 0 failed
+Pre-check[K3]: 13ac9b7 same command as Pre-check[K1] -> green: 53 passed, 0 failed
+Pre-check[K4]: 13ac9b7 same command as Pre-check[K1] -> green: 53 passed, 0 failed
+Pre-check[K5]: 13ac9b7 same command as Pre-check[K1] -> green: 53 passed, 0 failed
+Pre-check[K6]: 13ac9b7 same command as Pre-check[K1] -> green: 53 passed, 0 failed
+Pre-check[K7]: 13ac9b7 through vc-testlock.sh (TMP/TEMP on D:), ONE file at a time, each inside timeout 600 (qa/evidence/p1-lk5/repair1/k7-*.txt): engine lk5 53, lang 34, student-graph 64, crisis-defaults 17, guard-crisis 580, student-classify 5, coach-first 5, capability-manifest 3, crisis-escalation 42, no-quote 17, concern-classifier 22, claims-guard 33, loader 23, index 2 -> 900 passed, 0 failed; apps/api voice-crisis-turn 14, anonymous-zero-persistence 32, anonymous-route 16, chat 32, chat-privacy 36, acceptance-student-journey 3, voice 64, voice-wiring 16 -> 213 passed, 0 failed
+Pre-check[types]: 13ac9b7 pnpm -C packages/engine typecheck (tsc over src, evals, scripts); pnpm -C apps/api typecheck -> exit 0, 0 (tc-engine.txt, tc-api.txt in repair1/; the third `pnpm -r --filter` run was not repeated, engine and api cover the changed code)
 Metrics: start=2026-10-19T16:38:00+05:30 end=2026-10-19T18:20:00+05:30 builder_min=102 wall_min=unavailable agent_min=unavailable blocked_min=about 60 (waiting for the shared test lock) suite_runs=0 repeat_runs=2 mutations=12 survivors_final=0 cycle=0 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.16 lane=normal check_s=unavailable mutants=12 defects_unit=0 defects_6c=0
 
 ## Capability coverage (one falsifying edit per criterion in a detached throwaway worktree `D:/vc/.worktrees/lk5-fals` of `090b558`; the bound tree was never edited)
@@ -69,6 +69,18 @@ Baseline in the copy: lk5.test.ts 34 passed 0 failed. Each row: failing count af
 
 K7 needs no mutant (it is the existing suites). All falsifiers are killed (F-R1c is a designed redundancy, killed once both layers are removed).
 
+## Repair cycle 1 (checker FAIL on K1, cycle 0)
+Code commit `13ac9b7` on `p1/lk5`, after merging origin/main (LK4 and LK1) into the branch. All edits in place: `packages/engine/src/student/graph.ts`, `packages/engine/src/student/lang.ts`, `packages/engine/tests/lk5.test.ts`; the three ledger rows and their references in the verdict and checkpoint renumbered. No new file except the evidence folder `qa/evidence/p1-lk5/repair1/`.
+- K1 / ISS-383 (graph.ts `KbAnswerOutputSchema`): `localized`, `followUpLocalized` and `replyLang` are tolerant (`.optional().catch(undefined)`): empty, null or over-long becomes undefined, which is the English reply (Hindi reply without a follow-up for a bad follow-up). `text`, `kind`, `sourceIds` are unchanged and strict. The schema is passed to the provider as `z.ZodType<z.output<...>>` because `.catch` widens the schema's input type to unknown.
+- M1 + ISS-384 (lang.ts `localizedClaimOk`): the localized claim must now match the English claim on figures (digits in any digit system plus spelled-out English / transliterated Hindi figures via `numberMentions`, and a Devanagari magnitude word such as हज़ार / लाख when English carries no figure), on units (a unit the English claim lacks fails), on countries (new `countriesInLocalized`: the claims.ts list and demonyms plus Devanagari spellings, with usa/uk/uae/korea aliases merged; a country English does not name fails) and on links (URL, e-mail and scheme-less hosts such as `evil.test` are normalised; every localized link must be one the English claim carries, so a different link fails even when English has one). Any failure is the English reply.
+- M2 (graph.ts `answerFromKb`): the forbidden-crisis-pattern check for a prior-flag student now also runs on the text actually shown, after the localized swap (the English check stays).
+- M3 (graph.ts new `localizedFollowUpOk`): the localized follow-up goes through the same checks as `safeFollowUp` (one question ending in ?, length, no-script guard, crisis patterns, no digits or figures, no country, no personal identifier, no restricted run) plus the language-neutral comparison with the English follow-up. If a present localized follow-up fails, the whole reply is the English reply, which carries the English follow-up (judgment call on the brief's "use the English follow-up": a Hindi reply never mixes in an English sentence). An absent or blank localized follow-up still means no follow-up in the Hindi reply.
+- crisisGuard untouched and still first. The low review findings (L1, L2), the English-as-hi-Latn acceptance noted in M1 and ISS-385 are left as they were (outside the repair brief).
+- Tests (lk5.test.ts, 19 new: 34 -> 53): the K1 matrix, M1 (spelled-out and Devanagari-magnitude figures, swapped or added country in Devanagari and Latin, scheme-less host / www / e-mail / path, `localizedClaimOk` direct with an English link), M2 (prior-flag student, Hinglish reply containing "secret ... between us" -> the fixed crisis message), M3 (country, personal name, digit, recital cue, second sentence, not a question -> English follow-up; a clean localized follow-up still shown). Red first: 14 of 53 failed on the unrepaired source.
+- Falsification (copies in `D:/chk-tmp/lk5r1/fals/`, outside the bound tree, junction to the node_modules, removed after; `qa/evidence/p1-lk5/repair1/falsification.txt`; baseline copy 53 passed): k1a localized catch removed -> 4 fail; k1b followUpLocalized catch removed -> 2 fail; k1c replyLang catch removed -> 2 fail; m1a spelled-out figures ignored -> 1 fail; m1a2 Devanagari magnitude check removed -> 1 fail; m1b claim country check removed -> 1 fail; m1b2 Devanagari country names ignored -> 2 fail; m1c link comparison removed -> 3 fail; m1c2 scheme-less hosts ignored -> 2 fail; m2 shown-text crisis check removed -> 1 fail; m3a follow-up guard call removed -> 1 fail; m3b personal-identifier check removed -> 1 fail; m3c no-script guard removed -> 1 fail; m3d both country checks removed -> 2 fail. Mutants surviving: 0. (Removing only the follow-up country check survives by design: `localizedClaimOk` also rejects the country; m3d removes both.)
+- Not done by this repair: the live-browser walk (no UI), the PID 47984 lock owner was not touched.
+Metrics (repair): start=2026-10-19T20:30:56+05:30 end=2026-10-19T21:37:48+05:30 blocked_min=about 45 (shared lock held by another session's run, PID 36944 per the lock file, not touched) suite_runs=0 mutations=14 survivors_final=0 cycle=1 policy=proportional-verification/2026-10-19.16
+
 ## Open risks / not determined
 1. A15b / B24.6 conflict: those lines say no LLM sees anonymous text to classify; D-105 orders a screen on every turn. The option defaults OFF for anonymous turns as the brief says; the contract owner and Umesh decide. The model detector, the rewrite and the answer call still send anonymous text to a model.
 2. Nothing is wired in `apps/api` (`index.ts` / `anonymous.ts`): `safetyScreen` is an optional dep and `createModelLanguageDetector` is still unwired, as in LK4. With no `safetyScreen` option no screen runs, so "default ON for authenticated" holds once the option is supplied, not by mere absence. Wiring (a screen provider, `VC_REPLY_LANGS` through `parseReplyLangs`) is a follow-up.
@@ -82,3 +94,5 @@ K7 needs no mutant (it is the existing suites). All falsifiers are killed (F-R1c
 10. The dropped-entry log uses `console.warn`; `parseReplyLangs` has no caller in apps/api yet.
 11. A `senior-software-engineer` review is still due (orchestrator's single checker); a crisis-adjacent dual check is recommended.
 12. Environment: the shared test lock sat on a stale owner (PID 36944, no child process) for about an hour; runs went through slot 1 once the script's own stale handling released it. I did not touch the lock.
+13. (repair 1) The Devanagari country and magnitude lists are hand-written: a spelling not on the list is not recognised, so a swapped country written in an unlisted spelling still reaches the student (the same limit the English path has for a country it does not list). A false positive only falls back to the English reply.
+14. (repair 1) The figure and link comparisons are strict, so a faithful translation that rewrites "five thousand" as "5000" or drops/changes a link now shows the English reply; that is the safe direction.
