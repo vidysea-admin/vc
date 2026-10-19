@@ -1,0 +1,21 @@
+[testlock] running slot 0 (free RAM 4.27 GB): pnpm -C apps/api exec tsx --test tests/chk-iss350.test.ts
+✔ AUTH crisis x malformed: escalated crisis answer with 14416, nothing malformed persisted (876.5376ms)
+✔ AUTH benign x malformed: plain 400, nothing stored, no model call, no helpline (84.2738ms)
+✔ AUTH hostile: crisis text only inside an extra key / clientTurnId is NOT scanned -> 400 (41.8699ms)
+✔ AUTH KEEP400: non-string text, broken JSON, non-object bodies stay plain 400 even with crisis text around (53.7075ms)
+✔ AUTH rate-limited student + bad field + crisis -> crisis answer; benign still 429 (481.1221ms)
+✔ AUTH replay: a valid clientTurnId replayed after a crisis-with-bad-field turn (137.104ms)
+✔ ANON crisis + extra keys (all scripts, hostile keys): fixed crisis answer, one counter each, nothing echoed (176.1603ms)
+✔ ANON benign + extra keys: 400 with helpline, no model call, no counter; non-string / non-JSON stay 400 (50.5071ms)
+✔ ANON rate-limited client + extra key + crisis -> crisis answer (203.9972ms)
+AUTH scan NFKD counts: wellformed 24 malformed 24 both-bad 24 benign-malformed 4 direct-one-scan 4
+ANON scan NFKD counts: wellformed 8 malformed 8 benign-malformed 4 benign-wellformed 9
+✔ SCAN: malformed crisis == well-formed crisis; malformed benign == one scan (both routes, independent instrument) (105.9007ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6153.7765

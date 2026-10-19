@@ -1,0 +1,309 @@
+/** Independent checker probe for ISS-350 (lives only in the detached copy .worktrees/p1-iss350-chk). Real HTTP via createApiServer + real JWTs. */
+import { test, beforeEach as before, afterEach as after } from "node:test";
+import assert from "node:assert/strict";
+import type { Server } from "node:http";
+import { COLLECTION_NAMES } from "@vc/db";
+import { createApiServer } from "../src/server.js";
+import { ANONYMOUS_PATH, withAnonymousRoutes } from "../src/anonymous.js";
+import { adult, chatWorld, everythingStored, newThread, studentToken, turnsPath, threadsPath, call, type ChatWorld } from "./chat-fixtures.js";
+import { anonWorld, nonEmptyCollections, type AnonWorld } from "./anonymous-fixtures.js";
+
+const MARK = "CHKMARK-350-ZZ";
+const GERMANY = "What are the tuition fees for public universities in Germany?";
+const CRISIS: [string, string][] = [
+  ["english", "I want to kill myself"],
+  ["hinglish", "mujhe ab jeena nahi hai, main mar jaana chahta hoon"],
+  ["devanagari", "मैं मरना चाहता हूँ"],
+];
+
+let cw: ChatWorld;
+let aw: AnonWorld;
+let server: Server;
+let base: string;
+let token: string;
+
+before(async () => {
+  cw = chatWorld();
+  aw = anonWorld();
+  server = createApiServer(withAnonymousRoutes(cw.handler, aw.handler));
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  token = await studentToken(adult());
+});
+after(async () => {
+  await new Promise<void>((r) => server.close(() => r()));
+  cw.cleanup();
+  aw.cleanup();
+});
+
+async function post(path: string, raw: string | object, tok?: string) {
+  const res = await fetch(`${base}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...(tok ? { authorization: `Bearer ${tok}` } : {}) },
+    body: typeof raw === "string" ? raw : JSON.stringify(raw),
+  });
+  const body = await res.text();
+  let json: any;
+  try { json = JSON.parse(body); } catch { json = undefined; }
+  return { status: res.status, body, json };
+}
+async function thread(): Promise<string> {
+  const r = await post(threadsPath("stu-1"), {}, token);
+  assert.equal(r.status, 201, r.body);
+  return r.json.threadId as string;
+}
+const bad = (text: string): [string, string][] => [
+  ["unknown key", JSON.stringify({ text, role: MARK })],
+  ["__proto__ key", `{"text":${JSON.stringify(text)},"__proto__":{"x":"${MARK}"}}`],
+  ["constructor key", `{"text":${JSON.stringify(text)},"constructor":{"prototype":"${MARK}"}}`],
+  ["clientTurnId sep", JSON.stringify({ text, clientTurnId: `../${MARK}` })],
+  ["clientTurnId space", JSON.stringify({ text, clientTurnId: `a ${MARK}` })],
+  ["clientTurnId >128", JSON.stringify({ text, clientTurnId: "x".repeat(129) })],
+  ["clientTurnId number", JSON.stringify({ text, clientTurnId: 987654 })],
+  ["clientTurnId null", JSON.stringify({ text, clientTurnId: null })],
+  ["clientTurnId empty", JSON.stringify({ text, clientTurnId: "" })],
+  ["both", JSON.stringify({ text, extra: MARK, clientTurnId: `../${MARK}` })],
+];
+const snapshot = () => everythingStored(cw.fakeDb) + JSON.stringify(cw.escalations) + JSON.stringify(cw.logs);
+
+test("AUTH crisis x malformed: escalated crisis answer with 14416, nothing malformed persisted", async () => {
+  for (const [script, text] of CRISIS) {
+    for (const [name, raw] of bad(text)) {
+      const e0 = cw.escalations.length;
+      const f0 = cw.fakeDb.collection(COLLECTION_NAMES.student_flags).all().length;
+      const t = await thread(); // separate thread => separate slot
+      const r = await post(turnsPath("stu-1", t), raw, token);
+      assert.equal(r.status, 200, `${script}/${name}: ${r.body}`);
+      assert.equal(r.json.state, "escalated", `${script}/${name}`);
+      assert.match(r.json.message, /14416/, `${script}/${name}`);
+      assert.equal(cw.escalations.length - e0, 1, `${script}/${name}: one escalation`);
+      assert.equal(cw.fakeDb.collection(COLLECTION_NAMES.student_flags).all().length - f0, 1, `${script}/${name}: one flag`);
+      assert.ok(!r.body.includes(MARK) && !r.body.includes("987654"), `${script}/${name}: not echoed`);
+      if (r.json.turnId !== undefined) assert.match(r.json.turnId, /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/, `${script}/${name}: turnId sane`);
+    }
+  }
+  const all = snapshot();
+  assert.ok(!all.includes(MARK), "marker never stored/logged/escalated");
+  assert.ok(!all.includes("987654"), "numeric id never stored");
+  assert.ok(!all.includes("xxxxxxxxxx"), "129-char id never stored");
+});
+
+test("AUTH benign x malformed: plain 400, nothing stored, no model call, no helpline", async () => {
+  const t = await thread();
+  const stored0 = everythingStored(cw.fakeDb);
+  const calls0 = cw.provider.calls.length;
+  const esc0 = cw.escalations.length;
+  for (const text of [GERMANY, "मुझे जर्मनी में पढ़ाई की फीस जाननी है"]) {
+    for (const [name, raw] of bad(text)) {
+      const r = await post(turnsPath("stu-1", t), raw, token);
+      assert.equal(r.status, 400, `${name}: ${r.body}`);
+      assert.equal(r.json.error, "invalid_request", name);
+      assert.equal(r.json.helpline, undefined, `${name}: no helpline field`);
+    }
+  }
+  assert.equal(cw.provider.calls.length, calls0);
+  assert.equal(cw.escalations.length, esc0);
+  assert.equal(everythingStored(cw.fakeDb), stored0, "nothing stored by benign malformed turns");
+});
+
+test("AUTH hostile: crisis text only inside an extra key / clientTurnId is NOT scanned -> 400", async () => {
+  const t = await thread();
+  const esc0 = cw.escalations.length;
+  for (const raw of [
+    JSON.stringify({ text: GERMANY, note: "I want to kill myself" }),
+    JSON.stringify({ text: GERMANY, clientTurnId: "I want to kill myself" }),
+    JSON.stringify({ text: GERMANY, "I want to kill myself": 1 }),
+    `{"text":${JSON.stringify(GERMANY)},"__proto__":{"text":"I want to kill myself"}}`,
+  ]) {
+    const r = await post(turnsPath("stu-1", t), raw, token);
+    assert.equal(r.status, 400, `${raw} -> ${r.status} ${r.body}`);
+  }
+  assert.equal(cw.escalations.length, esc0, "no escalation from crisis text in a non-text field");
+});
+
+test("AUTH KEEP400: non-string text, broken JSON, non-object bodies stay plain 400 even with crisis text around", async () => {
+  const t = await thread();
+  const esc0 = cw.escalations.length;
+  for (const raw of [
+    `{"text":5,"role":"x"}`, `{"text":["I want to kill myself"]}`, `{"text":null,"clientTurnId":"../x"}`, `{"text":{"a":"I want to kill myself"}}`,
+    `{"role":"I want to kill myself"}`, `{not json I want to kill myself`, `[]`, `null`, `"I want to kill myself"`, `["I want to kill myself"]`, ``,
+  ]) {
+    const r = await post(turnsPath("stu-1", t), raw, token);
+    assert.equal(r.status, 400, `${raw} -> ${r.status} ${r.body}`);
+  }
+  assert.equal(cw.escalations.length, esc0);
+});
+
+test("AUTH rate-limited student + bad field + crisis -> crisis answer; benign still 429", async () => {
+  const w2 = chatWorld();
+  const s2 = createApiServer(w2.handler);
+  await new Promise<void>((r) => s2.listen(0, "127.0.0.1", r));
+  const b2 = `http://127.0.0.1:${(s2.address() as { port: number }).port}`;
+  try {
+    const tok = await studentToken(adult());
+    const mk = async (p: string, method: string, body?: string) => { const r = await fetch(b2 + p, { method, headers: { authorization: `Bearer ${tok}`, "content-type": "application/json" }, ...(body !== undefined ? { body } : {}) }); return { status: r.status, text: await r.text() }; };
+    const tid = JSON.parse((await mk(threadsPath("stu-1"), "POST", "{}")).text).threadId as string;
+    let limited = 0;
+    for (let i = 0; i < 60 && !limited; i++) { const r = await mk(`${threadsPath("stu-1")}/${tid}`, "GET"); if (r.status === 429) limited = i + 1; }
+    assert.ok(limited > 0, "student reached the rate limit");
+    assert.equal((await mk(turnsPath("stu-1", tid), "POST", JSON.stringify({ text: GERMANY }))).status, 429);
+    for (const [script, text] of CRISIS) {
+      for (const [name, raw] of bad(text)) {
+        const r = await mk(turnsPath("stu-1", tid), "POST", raw);
+        assert.equal(r.status, 200, `${script}/${name}: ${r.text}`);
+        assert.equal(JSON.parse(r.text).state, "escalated");
+        assert.match(JSON.parse(r.text).message, /14416/);
+      }
+    }
+    // benign + bad field while limited: still a 400 or 429 (never a crisis path); must not be 200
+    const rb = await mk(turnsPath("stu-1", tid), "POST", JSON.stringify({ text: GERMANY, role: MARK }));
+    assert.ok(rb.status === 400 || rb.status === 429, `benign malformed while limited -> ${rb.status}`);
+    assert.equal(w2.provider.calls.length, 0);
+  } finally {
+    await new Promise<void>((r) => s2.close(() => r()));
+    w2.cleanup();
+  }
+});
+
+test("AUTH replay: a valid clientTurnId replayed after a crisis-with-bad-field turn", async () => {
+  const w = chatWorld();
+  const s = createApiServer(w.handler);
+  await new Promise<void>((r) => s.listen(0, "127.0.0.1", r));
+  const b = `http://127.0.0.1:${(s.address() as { port: number }).port}`;
+  try {
+    const tok = await studentToken(adult());
+    const mk = async (p: string, body?: object | string) => { const r = await fetch(b + p, { method: "POST", headers: { authorization: `Bearer ${tok}`, "content-type": "application/json" }, body: typeof body === "string" ? body : JSON.stringify(body ?? {}) }); const text = await r.text(); return { status: r.status, text, json: JSON.parse(text) }; };
+    const tid = (await mk(threadsPath("stu-1"))).json.threadId as string;
+    const path = turnsPath("stu-1", tid);
+    const CR = "I want to kill myself";
+    const first = await mk(path, { text: CR, clientTurnId: "../evil", role: MARK });
+    assert.equal(first.status, 200);
+    assert.equal(first.json.state, "escalated");
+    assert.notEqual(first.json.turnId, "../evil");
+    const e1 = w.escalations.length;
+    assert.equal(e1, 1);
+    // now a valid id
+    const v1 = await mk(path, { text: CR, clientTurnId: "valid-replay-1" });
+    assert.equal(v1.status, 200);
+    assert.equal(v1.json.state, "escalated");
+    const e2 = w.escalations.length;
+    const v2 = await mk(path, { text: CR, clientTurnId: "valid-replay-1" });
+    assert.equal(v2.status, 200);
+    assert.equal(v2.json.state, "escalated");
+    assert.equal(v2.json.turnId, v1.json.turnId, "replay returns the same turn id");
+    assert.equal(w.escalations.length, e2, "replay does not escalate again");
+    // valid id + unknown key keeps the id (idempotent) and replays too
+    const v3 = await mk(path, { text: CR, clientTurnId: "valid-replay-1", role: MARK });
+    assert.equal(v3.status, 200);
+    assert.equal(v3.json.turnId, "valid-replay-1");
+    assert.equal(w.escalations.length, e2);
+    const all = everythingStored(w.fakeDb) + JSON.stringify(w.escalations) + JSON.stringify(w.logs);
+    assert.ok(!all.includes(MARK) && !all.includes("../evil"), "malformed fields never kept");
+  } finally {
+    await new Promise<void>((r) => s.close(() => r()));
+    w.cleanup();
+  }
+});
+
+// ---- anonymous ----
+test("ANON crisis + extra keys (all scripts, hostile keys): fixed crisis answer, one counter each, nothing echoed", async () => {
+  for (const [script, text] of CRISIS) {
+    const extras: [string, string][] = [
+      ["unknown", JSON.stringify({ text, role: MARK })],
+      ["tenant/student ids", JSON.stringify({ text, tenantId: MARK, studentId: MARK })],
+      ["clientTurnId", JSON.stringify({ text, clientTurnId: `../${MARK}` })],
+      ["__proto__", `{"text":${JSON.stringify(text)},"__proto__":{"x":"${MARK}"}}`],
+      ["constructor", `{"text":${JSON.stringify(text)},"constructor":"${MARK}"}`],
+    ];
+    for (const [name, raw] of extras) {
+      const c0 = aw.counterCalls.length;
+      const r = await post(ANONYMOUS_PATH, raw);
+      assert.equal(r.status, 200, `${script}/${name}: ${r.body}`);
+      assert.equal(r.json.state, "escalated");
+      assert.match(r.json.message, /14416/);
+      assert.ok(!r.body.includes(MARK), "not echoed");
+      assert.deepEqual(aw.counterCalls.slice(c0), ["crisis"], `${script}/${name}: exactly one crisis counter`);
+    }
+  }
+  const all = JSON.stringify(nonEmptyCollections(aw.fakeDb)) + JSON.stringify(aw.fakeDb.collection(COLLECTION_NAMES.anonymous_counters).all()) + JSON.stringify(aw.logs);
+  assert.ok(!all.includes(MARK));
+  assert.deepEqual(Object.keys(nonEmptyCollections(aw.fakeDb)), [COLLECTION_NAMES.anonymous_counters]);
+});
+
+test("ANON benign + extra keys: 400 with helpline, no model call, no counter; non-string / non-JSON stay 400", async () => {
+  const c0 = aw.counterCalls.length;
+  const p0 = aw.provider.calls.length;
+  for (const raw of [JSON.stringify({ text: GERMANY, role: MARK }), JSON.stringify({ text: GERMANY, tenantId: "t" }), `{"text":${JSON.stringify(GERMANY)},"__proto__":{"a":1}}`, JSON.stringify({ text: GERMANY, note: "I want to kill myself" })]) {
+    const r = await post(ANONYMOUS_PATH, raw);
+    assert.equal(r.status, 400, raw);
+    assert.equal(r.json.error, "invalid_request");
+  }
+  for (const raw of [`{"text":5,"x":1}`, `{"text":["I want to kill myself"]}`, `{"x":"I want to kill myself"}`, `{bad json I want to kill myself`, `[]`, `null`, `"I want to kill myself"`, ``]) {
+    const r = await post(ANONYMOUS_PATH, raw);
+    assert.equal(r.status, 400, `${raw}: ${r.body}`);
+  }
+  assert.equal(aw.counterCalls.length, c0);
+  assert.equal(aw.provider.calls.length, p0);
+});
+
+test("ANON rate-limited client + extra key + crisis -> crisis answer", async () => {
+  const w = anonWorld();
+  const s = createApiServer(w.handler);
+  await new Promise<void>((r) => s.listen(0, "127.0.0.1", r));
+  const b = `http://127.0.0.1:${(s.address() as { port: number }).port}`;
+  try {
+    const mk = async (body: string) => { const r = await fetch(b + ANONYMOUS_PATH, { method: "POST", body }); return { status: r.status, text: await r.text() }; };
+    let limited = false;
+    for (let i = 0; i < 30 && !limited; i++) limited = (await mk(JSON.stringify({ text: GERMANY }))).status === 429;
+    assert.ok(limited, "reached 429");
+    const c0 = w.counterCalls.length;
+    const r = await mk(JSON.stringify({ text: "I want to kill myself", role: MARK }));
+    assert.equal(r.status, 200);
+    assert.equal(JSON.parse(r.text).state, "escalated");
+    assert.deepEqual(w.counterCalls.slice(c0), ["crisis"]);
+    // benign + extra key while limited: not 200
+    const rb = await mk(JSON.stringify({ text: GERMANY, role: MARK }));
+    assert.equal(rb.status, 400);
+  } finally {
+    await new Promise<void>((r) => s.close(() => r()));
+    w.cleanup();
+  }
+});
+
+// ---- scan counting, independent instrument: NFKD normalisations whose receiver is the exact text (3 per crisisGuard scan) ----
+async function nfkd(text: string, fn: () => Promise<unknown>): Promise<number> {
+  const orig = String.prototype.normalize;
+  let n = 0;
+  String.prototype.normalize = function (this: string, form?: string): string {
+    if (form === "NFKD" && String(this) === text) n++;
+    return orig.call(this, form as never);
+  } as typeof String.prototype.normalize;
+  try { await fn(); } finally { String.prototype.normalize = orig; }
+  return n;
+}
+
+test("SCAN: malformed crisis == well-formed crisis; malformed benign == one scan (both routes, independent instrument)", async () => {
+  const CT = "Chk scan probe alpha: I want to kill myself";
+  const BT = "Chk scan probe beta: what are tuition fees in Germany?";
+  // auth
+  const t1 = await thread(), t2 = await thread(), t3 = await thread();
+  const wf = await nfkd(CT, () => post(turnsPath("stu-1", t1), { text: CT }, token));
+  const mf = await nfkd(CT, () => post(turnsPath("stu-1", t2), { text: CT, role: MARK }, token));
+  const t4 = await thread();
+  const mf2 = await nfkd(CT, () => post(turnsPath("stu-1", t4), { text: CT, clientTurnId: "../x", role: MARK }, token));
+  const bm = await nfkd(BT, () => post(turnsPath("stu-1", t3), { text: BT, role: MARK }, token));
+  const direct = await nfkd(BT, async () => { const { crisisGuard } = await import("@vc/engine"); crisisGuard(BT); });
+  console.log("AUTH scan NFKD counts: wellformed", wf, "malformed", mf, "both-bad", mf2, "benign-malformed", bm, "direct-one-scan", direct);
+  assert.ok(wf >= 3);
+  assert.equal(mf, wf);
+  assert.equal(mf2, wf);
+  assert.equal(bm, direct);
+  // anon
+  const awf = await nfkd(CT, () => post(ANONYMOUS_PATH, { text: CT }));
+  const amf = await nfkd(CT, () => post(ANONYMOUS_PATH, { text: CT, role: MARK }));
+  const abm = await nfkd(BT, () => post(ANONYMOUS_PATH, { text: BT, role: MARK }));
+  const abw = await nfkd(BT, () => post(ANONYMOUS_PATH, { text: BT }));
+  console.log("ANON scan NFKD counts: wellformed", awf, "malformed", amf, "benign-malformed", abm, "benign-wellformed", abw);
+  assert.equal(amf, awf);
+  assert.equal(abm, direct);
+});

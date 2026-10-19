@@ -1,0 +1,184 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { MockProvider, type GenerateRequest, type LlmProvider } from "@vc/providers";
+import { runStudentTurn, CRISIS_FORBIDDEN_PATTERNS, type StudentGraphDeps } from "../src/student/graph.js";
+import * as NEW from "../src/student/graph.js";
+import * as OLD from "../src/student/graph_old.js";
+import { crisisGuard } from "../src/guards/crisis.js";
+import { createModelLanguageDetector, detectLanguageOffline, parseReplyLangs, resolveReplyLang, fixedText, crisisMessageFor, CRISIS_MESSAGES } from "../src/student/lang.js";
+import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb } from "./student-fixtures.js";
+
+const AUTH = { role: "student" as const, studentId: "syn-stu-chk", tenantId: "sandbox" };
+const KB = { claims: [{ text: "Public universities in Germany charge no tuition for most programmes.", kind: "fact", sourceIds: ["t-sem-1"] }], followUp: "Which cities?" };
+const COACH = { reply: "Let us build this together.", questions: ["What moment made you choose this field?", "Which project are you proudest of, and why?"] };
+
+function mk(detResp: unknown, over: Partial<StudentGraphDeps> = {}) {
+  const provider = new MockProvider({ responses: { "kb-answer": KB, "vc-capabilities": COACH, "lang-detect": detResp as never } });
+  const esc: { lang: string; text: string }[] = [];
+  const d: StudentGraphDeps = {
+    kb: fakeKb(), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG,
+    escalate: async (i) => void esc.push({ lang: i.turns[0]!.lang, text: i.turns[0]!.text }),
+    detectLanguage: createModelLanguageDetector(provider),
+    ...over,
+  };
+  return { d, provider, esc };
+}
+const auth = (text: string) => ({ mode: "authenticated" as const, auth: AUTH, threadId: "th", turnId: "tu", text });
+const detCalls = (p: MockProvider) => p.calls.filter((c) => c.skillName === "lang-detect").length;
+
+const ORD: [string, string, string, string, string][] = [
+  ["English", "What is the tuition at German public universities?", "en", "en", "en"],
+  ["Devanagari", "जर्मनी की सरकारी यूनिवर्सिटी में फीस कितनी है", "hi", "hi", "hi"],
+  ["Latin Hinglish", "mujhe germany ke universities ke baare mein batao, kya requirements hain", "hinglish", "hi-Latn", "hi-Latn"],
+  ["mixed deva-majority", "मुझे Germany में MS करना है, कौन सी university अच्छी है", "hi", "hi", "hi"],
+  ["Tamil", "ஜெர்மனி பல்கலைக்கழகங்களில் கட்டணம் எவ்வளவு", "ta", "ta", "en"],
+  ["Bengali", "জার্মানির বিশ্ববিদ্যালয়ে পড়ার খরচ কত", "bn", "bn", "en"],
+];
+for (const [name, text, m, dl, rl] of ORD) {
+  test(`CHK ordinary model path: ${name}`, async () => {
+    const a = mk({ lang: m, confidence: 0.9 });
+    const out = await runStudentTurn(a.d, auth(text));
+    assert.equal(out.detectedLang, dl);
+    assert.equal(out.replyLang, rl);
+    assert.equal(detCalls(a.provider), 1);
+  });
+  test(`CHK ordinary offline path (no detector): ${name}`, async () => {
+    const a = mk({ lang: m });
+    delete (a.d as { detectLanguage?: unknown }).detectLanguage;
+    const out = await runStudentTurn(a.d, auth(text));
+    assert.equal(out.detectedLang, dl);
+    assert.equal(out.replyLang, rl);
+    assert.equal(detCalls(a.provider), 0);
+  });
+  test(`CHK ordinary anonymous: ${name}`, async () => {
+    const a = mk({ lang: m, confidence: 0.9 });
+    const out = await runStudentTurn(a.d, { mode: "anonymous", text });
+    assert.equal(out.replyLang, rl);
+  });
+}
+
+const CR: [string, string, string][] = [
+  ["English", "I just want to kill myself, nothing matters anymore.", "en"],
+  ["Devanagari", "मैं आत्महत्या करना चाहता हूँ", "hi"],
+  ["Latin Hinglish", "ab jeene ka mann nahi karta, sab khatam kar dena chahta hoon", "hi-Latn"],
+  ["Hinglish 2", "main mar jaana chahta hoon, mujhe jeena nahi hai", "hi-Latn"],
+  ["mixed", "मुझे लगता है I want to kill myself, कोई फायदा नहीं", "hi"],
+  ["Tamil", "நான் தற்கொலை செய்து கொள்ள வேண்டும்", "ta"],
+  ["Bengali", "আমি আত্মহত্যা করতে চাই", "bn"],
+  ["Tamil-majority + English phrase", "எனக்கு வாழ பிடிக்கவில்லை உண்மையில் I want to kill myself", "ta"],
+  ["Bengali-majority + English phrase", "আমার আর বাঁচতে ইচ্ছে করছে না সত্যিই I want to kill myself", "bn"],
+];
+for (const [name, text, lang] of CR) {
+  test(`CHK crisis: ${name}`, async (tc) => {
+    const lvl = crisisGuard(text).level;
+    console.log(`CRISISGUARD ${name}: ${lvl}`);
+    if (lvl === "none") {
+      tc.diagnostic(`crisisGuard does NOT flag ${name}`);
+      return;
+    }
+    for (const mode of ["auth", "anon"] as const) {
+      const a = mk({ lang: "en", confidence: 1 });
+      const out = await runStudentTurn(a.d, mode === "auth" ? auth(text) : { mode: "anonymous", text });
+      assert.equal(out.response.state, "escalated");
+      assert.equal(a.provider.calls.length, 0, "no model call");
+      assert.ok(out.response.message.includes("14416"));
+      assert.ok(/not a counsellor/.test(out.response.message));
+      assert.ok(/no counsellor from our side is being connected/.test(out.response.message));
+      if (mode === "auth") {
+        assert.equal(a.esc.length, 1);
+        assert.equal(a.esc[0]!.lang, lang);
+        assert.equal(a.esc[0]!.text, text);
+        assert.ok(/safe adult/.test(out.response.message));
+      }
+      for (const re of CRISIS_FORBIDDEN_PATTERNS) assert.ok(!re.test(out.response.message), String(re));
+    }
+  });
+}
+
+const hang: LlmProvider = { kind: "mock", model: "x", generate: () => new Promise<never>(() => {}) };
+const boom: LlmProvider = { kind: "mock", model: "x", generate: async () => { throw new Error("boom"); } };
+const devaText = "जर्मनी की सरकारी यूनिवर्सिटी में फीस कितनी है";
+test("CHK fallbacks direct (default timeout)", async () => {
+  const off = detectLanguageOffline(devaText);
+  const reasons: string[] = [];
+  const o = { onFallback: (r: string) => void reasons.push(r) };
+  const t0 = Date.now();
+  const r1 = await createModelLanguageDetector(hang, o)(devaText);
+  const el = Date.now() - t0;
+  assert.ok(el >= 1400 && el < 2000, `timeout elapsed ${el}`);
+  assert.equal(r1.lang, off.lang);
+  assert.equal(r1.source, "script");
+  const mp = (r: unknown) => new MockProvider({ responses: { "lang-detect": r as never } });
+  for (const p of [boom, mp({ garbage: 1 }), mp("not json"), mp({ lang: "en", confidence: 1 }), mp({ lang: "hi-Latn", confidence: 1 }), mp({ lang: "x", confidence: 1 }), mp({ lang: "", confidence: 1 }), mp({ lang: "hi", confidence: 7 })]) {
+    const r = await createModelLanguageDetector(p, o)(devaText);
+    assert.equal(r.lang, off.lang);
+    assert.equal(r.source, "script");
+  }
+  console.log("REASONS " + reasons.sort().join(","));
+  assert.deepEqual(reasons.sort(), ["error", "inconsistent", "inconsistent", "invalid", "invalid", "invalid", "invalid", "invalid", "timeout"].sort());
+});
+test("CHK hi from model on Latin text -> hi-Latn", async () => {
+  const txt = "mujhe germany ke baare mein batao";
+  const r = await createModelLanguageDetector(new MockProvider({ responses: { "lang-detect": { lang: "hi" } as never } }))(txt);
+  assert.equal(r.lang, "hi-Latn");
+});
+test("CHK graph: hanging detector bounded (<2.8s) and turn answered", async () => {
+  const a = mk({ lang: "en" }, { detectLanguage: () => new Promise<never>(() => {}) });
+  const t0 = Date.now();
+  const out = await runStudentTurn(a.d, auth("What is the tuition at German public universities?"));
+  const el = Date.now() - t0;
+  console.log("GRAPH-HANG elapsed " + el);
+  assert.ok(el < 2800, `elapsed ${el}`);
+  assert.equal(out.response.state, "ok");
+  assert.equal(out.replyLang, "en");
+});
+test("CHK graph: each failure mode through runStudentTurn (Devanagari) falls back to hi", async () => {
+  const mp = (r: unknown) => new MockProvider({ responses: { "lang-detect": r as never } });
+  for (const p of [boom, hang, mp({ zzz: 1 }), mp({ lang: "en" }), mp("not json")]) {
+    const a2 = mk({}, { detectLanguage: createModelLanguageDetector(p, { timeoutMs: 100 }) });
+    const out = await runStudentTurn(a2.d, auth(devaText));
+    assert.equal(out.detectedLang, "hi");
+    assert.equal(out.replyLang, "hi");
+    assert.equal(out.response.state, "ok");
+  }
+});
+
+test("CHK VC_REPLY_LANGS hostile", () => {
+  const all = ["en", "hi", "hi-Latn"];
+  for (const v of [undefined, "", "   ", "\t\n"]) assert.deepEqual(parseReplyLangs(v), all, JSON.stringify(v));
+  assert.deepEqual(parseReplyLangs(","), ["en"]);
+  assert.deepEqual(parseReplyLangs("xx,yy,__proto__,constructor,toString"), ["en"]);
+  assert.deepEqual(parseReplyLangs("hi,hi,hi"), ["en", "hi"]);
+  assert.deepEqual(parseReplyLangs(" HI , hi-latn "), all);
+  assert.deepEqual(parseReplyLangs("hi_IN"), ["en", "hi"]);
+  assert.deepEqual(parseReplyLangs("ta,bn"), ["en"]);
+  assert.deepEqual(parseReplyLangs("hinglish"), ["en", "hi-Latn"]);
+  assert.equal(resolveReplyLang({ lang: "__proto__" }, all), "en");
+  assert.equal(resolveReplyLang({ lang: "constructor" }, all), "en");
+  assert.equal(resolveReplyLang({ lang: "ta" }, ["ta"]), "en");
+  assert.equal(resolveReplyLang({ lang: "hi" }, []), "en");
+  assert.equal(resolveReplyLang({ lang: "HI-IN" }, all), "hi");
+  assert.equal(resolveReplyLang({ lang: "" }, all), "en");
+});
+test("CHK graph with hostile replyLangs", async () => {
+  for (const rl of [[], ["ta"], ["__proto__"], ["hi", "hi"]]) {
+    const a = mk({ lang: "hi" }, { replyLangs: rl });
+    const out = await runStudentTurn(a.d, auth(devaText));
+    assert.equal(out.replyLang, rl.includes("hi") ? "hi" : "en");
+    assert.equal(out.response.state, "ok");
+  }
+});
+
+test("CHK byte-identical fixed texts and crisis messages vs ae48596", () => {
+  for (const k of ["NO_SOURCED_ANSWER_TEXT", "PROVIDER_APOLOGY_TEXT", "SIGN_IN_REQUIRED_TEXT", "TELE_MANAS_LINE", "ANONYMOUS_SIGN_IN_TEXT", "ANONYMOUS_NO_ANSWER_TEXT", "STUDENT_CRISIS_MESSAGE", "ANONYMOUS_CRISIS_MESSAGE"] as const) {
+    const o = (OLD as Record<string, unknown>)[k];
+    const n = (NEW as Record<string, unknown>)[k];
+    assert.equal(typeof o, "string", k);
+    assert.ok(Buffer.from(o as string).equals(Buffer.from(n as string)), k);
+  }
+  assert.equal(CRISIS_MESSAGES.en.student, OLD.STUDENT_CRISIS_MESSAGE);
+  assert.equal(CRISIS_MESSAGES.hi.anonymous, OLD.ANONYMOUS_CRISIS_MESSAGE);
+  assert.equal(fixedText("ta", "noAnswer"), OLD.NO_SOURCED_ANSWER_TEXT);
+  assert.equal(crisisMessageFor("ta", "student"), OLD.STUDENT_CRISIS_MESSAGE);
+  assert.equal(JSON.stringify(OLD.CRISIS_FORBIDDEN_PATTERNS.map(String)), JSON.stringify(CRISIS_FORBIDDEN_PATTERNS.map(String)));
+});

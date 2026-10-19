@@ -16,7 +16,7 @@ import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { APPROVER, GERMANY_QUESTION, NOW, adult, call, chatRequest, chatWorld, cleanupGates, everythingStored, gatesFixture, kbAnswerProvider, minor, newThread, recordingKb, studentToken, studentVerifier, threadsPath, turnsPath } from "./chat-fixtures.js";
 import { SKILLS_DIR, SPEAKERS } from "./anonymous-fixtures.js";
 import { MockProvider } from "@vc/providers";
-import { TELE_MANAS_LINE } from "@vc/engine";
+import { TELE_MANAS_LINE, crisisGuard } from "@vc/engine";
 import { createHash, generateKeyPairSync } from "node:crypto";
 
 const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
@@ -490,6 +490,142 @@ test("ISS-303: a student already over the rate limit who sends a long (inside th
     const short = await call(w, "POST", path, { token, body: { text: CRISIS_PHRASE, clientTurnId: "rl-short" } });
     assert.equal(short.status, 200);
     assert.equal(short.json.state, "escalated");
+  } finally {
+    w.cleanup();
+  }
+});
+
+// ISS-350 (D-104): the crisis exemption must come before the shape checks. A body with a crisis `text` and an unknown key or a bad clientTurnId
+// used to be a plain 400 with no crisis answer and no helpline. The crisis turn is now answered and escalated like any other, from `text` only.
+const EVIL_MARK = "EVIL-MARK-350";
+const CRISIS_TEXTS = [
+  ["latin", "I want to kill myself"],
+  ["devanagari", "मैं मरना चाहता हूँ"],
+] as const;
+const MALFORMED: readonly [string, (text: string) => Record<string, unknown>][] = [
+  ["unknown key", (text) => ({ text, role: EVIL_MARK })],
+  ["unknown tenantId key", (text) => ({ text, tenantId: EVIL_MARK, clientTurnId: "iss350-ok" })],
+  ["clientTurnId with a path separator", (text) => ({ text, clientTurnId: `../${EVIL_MARK}` })],
+  ["clientTurnId with a space", (text) => ({ text, clientTurnId: `a ${EVIL_MARK}` })],
+  ["clientTurnId over 128 characters", (text) => ({ text, clientTurnId: "x".repeat(129) })],
+  ["clientTurnId that is not a string", (text) => ({ text, clientTurnId: 12345 })],
+  ["unknown key and a bad clientTurnId", (text) => ({ text, extra: EVIL_MARK, clientTurnId: `../${EVIL_MARK}` })],
+];
+
+test("ISS-350: a crisis text with an unknown key or an invalid clientTurnId, Latin or Devanagari, gets the fixed crisis answer, an escalation and a flag, with no malformed field stored", async () => {
+  for (const [script, text] of CRISIS_TEXTS) {
+    for (const [name, make] of MALFORMED) {
+      const w = chatWorld();
+      try {
+        const token = await studentToken(adult());
+        const threadId = await newThread(w, token);
+        const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: make(text) });
+        assert.equal(res.status, 200, `${script} / ${name}`);
+        assert.equal(res.json.state, "escalated", `${script} / ${name}`);
+        assert.match(res.json.message, /14416/, `${script} / ${name}: the helpline is in the answer`);
+        assert.equal(w.escalations.length, 1, `${script} / ${name}: escalated`);
+        assert.equal(w.fakeDb.collection(COLLECTION_NAMES.student_flags).all().length, 1, `${script} / ${name}: flagged`);
+        const kept = everythingStored(w.fakeDb) + JSON.stringify(w.escalations) + JSON.stringify(w.logs) + res.body;
+        assert.ok(!kept.includes(EVIL_MARK), `${script} / ${name}: no malformed field is stored, logged, escalated or echoed`);
+        assert.ok(!kept.includes("12345") && !kept.includes("xxxxxxxxxx"), `${script} / ${name}: no malformed clientTurnId is kept`);
+      } finally {
+        w.cleanup();
+      }
+    }
+  }
+});
+
+test("ISS-350: a crisis text with a bad field is also answered for a student already over the rate limit, and for an over-long crisis text with an unknown key", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const threadB = await newThread(w, token);
+    const path = turnsPath("stu-1", threadId);
+    for (let i = 0; i < 40; i++) await call(w, "GET", `${threadsPath("stu-1")}/${threadId}`, { token });
+    assert.equal((await call(w, "POST", path, { token, body: { text: GERMANY_QUESTION } })).status, 429);
+    const limited = await call(w, "POST", path, { token, body: { text: CRISIS_PHRASE, role: EVIL_MARK } });
+    assert.equal(limited.status, 200);
+    assert.equal(limited.json.state, "escalated");
+    const long = await call(w, "POST", turnsPath("stu-1", threadB), { token, body: { text: `${FILLER.repeat(100)}${CRISIS_PHRASE}`, role: EVIL_MARK, clientTurnId: "../x" } });
+    assert.equal(long.status, 200);
+    assert.equal(long.json.state, "escalated");
+    assert.ok(!everythingStored(w.fakeDb).includes(EVIL_MARK));
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("ISS-350: a benign text with the same unknown key or invalid clientTurnId stays a plain 400, with no model call and nothing stored", async () => {
+  for (const [name, make] of MALFORMED) {
+    for (const text of [GERMANY_QUESTION, "मुझे जर्मनी में पढ़ाई की फीस जाननी है"]) {
+      const w = chatWorld();
+      try {
+        const token = await studentToken(adult());
+        const threadId = await newThread(w, token);
+        const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: make(text) });
+        assert.equal(res.status, 400, name);
+        assert.equal(res.json.error, "invalid_request", name);
+        assert.equal(res.json.helpline, undefined, `${name}: a benign 400 is unchanged (no helpline)`);
+        assert.equal(w.provider.calls.length, 0, name);
+        assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0, name);
+        assert.equal(w.escalations.length, 0, name);
+      } finally {
+        w.cleanup();
+      }
+    }
+  }
+});
+
+test("ISS-350: non-string text and unparseable JSON stay a plain 400, whatever else the body carries", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const path = turnsPath("stu-1", threadId);
+    for (const body of [{ text: 42, role: "x" }, { text: ["I want to kill myself"] }, { role: "x" }, "{not json I want to kill myself", "[]", "null"]) {
+      const res = await call(w, "POST", path, { token, body });
+      assert.equal(res.status, 400, JSON.stringify(body));
+    }
+    assert.equal(w.escalations.length, 0);
+  } finally {
+    w.cleanup();
+  }
+});
+
+/** How many times `text.trim()` runs on exactly `text` while `fn` runs: the first line of crisisGuard, so one count per guard scan of that text. */
+async function countScans(text: string, fn: () => Promise<unknown> | unknown): Promise<number> {
+  const original = String.prototype.trim;
+  let n = 0;
+  String.prototype.trim = function (this: string): string {
+    if (String(this) === text) n++;
+    return original.call(this);
+  };
+  try {
+    await fn();
+  } finally {
+    String.prototype.trim = original;
+  }
+  return n;
+}
+
+test("ISS-350: the fix adds no scan: a malformed crisis turn scans exactly as often as a well-formed one, and a malformed benign turn is scanned once", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const crisisText = "Scan count probe: I want to kill myself";
+    const benignText = "Scan count probe: what are tuition fees in Germany?";
+    const newPath = async () => turnsPath("stu-1", await newThread(w, token));
+    const okPath = await newPath();
+    const wellFormed = await countScans(crisisText, () => call(w, "POST", okPath, { token, body: { text: crisisText } }));
+    const malformedPath = await newPath();
+    const malformed = await countScans(crisisText, () => call(w, "POST", malformedPath, { token, body: { text: crisisText, role: EVIL_MARK } }));
+    assert.ok(wellFormed >= 1);
+    assert.equal(malformed, wellFormed, "the malformed crisis turn runs the same scans as the well-formed one");
+    const benignPath = await newPath();
+    const direct = await countScans(benignText, () => crisisGuard(benignText));
+    const benign = await countScans(benignText, () => call(w, "POST", benignPath, { token, body: { text: benignText, role: EVIL_MARK } }));
+    assert.equal(benign, direct, "a malformed benign turn is scanned once by the route and then refused");
   } finally {
     w.cleanup();
   }

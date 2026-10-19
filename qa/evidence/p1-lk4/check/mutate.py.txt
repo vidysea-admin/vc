@@ -1,0 +1,63 @@
+import subprocess, sys, re, os
+ROOT = "D:/vc/.worktrees/chk-lk4"
+LANG = "packages/engine/src/student/lang.ts"
+GRAPH = "packages/engine/src/student/graph.ts"
+VOICE = "apps/api/src/voice.ts"
+M = [
+ ("F-L1", "L1", LANG, 'devanagari: "hi",', 'devanagari: "en",'),
+ ("F-L2", "L2", VOICE, 'lang: detectLanguageOffline(text).lang,', 'lang: /[\\u0900-\\u097F]/.test(text) ? "hi" : "en",'),
+ ("F-L3", "L3", GRAPH, 'speaker: "student", lang: lang.lang,', 'speaker: "student", lang: /[\\u0900-\\u097F]/.test(input.text) ? "hi" : "en",'),
+ ("F-L4", "L4", LANG, 'const key = l === "hi" || l === "hi-Latn" ? "hi"', 'const key = l === "hi" ? "hi"'),
+ ("F-L5", "L5", LANG, "I'm an AI guide, not a counsellor, and no counsellor from our side is ", "I'm here to help, and no counsellor from our side is "),
+ ("F-L6", "L6", GRAPH, 'const lang = detectLanguageOffline(input.text);', 'const lang = await detectLanguage(input.text);'),
+ ("F-L7", "L7", LANG, '"a trusted adult near you.";', '"a trusted adult near you. This stays confidential.";'),
+ ("F-D1a", "D1", LANG, 'if (settled === "timeout") return fallback(text, "timeout");', 'if (settled === "timeout") return { lang: "und", script, confidence: 0, source: "model" };'),
+ ("F-D1b", "D1", GRAPH, 'LANG_DETECT_TIMEOUT_MS + 500', '3_600_000'),
+ ("F-D1c", "D1", LANG, 'if (lang === "" || inconsistentWithScript(lang, script)) return fallback(text, "inconsistent");', 'if (lang === "") return fallback(text, "inconsistent");'),
+ ("F-D1d", "D1", LANG, 'return { lang, script, confidence: settled.out.confidence ?? 0.5, source: "model" };', 'return { lang, script: "latin", confidence: settled.out.confidence ?? 0.5, source: "model" };'),
+ ("F-D2a", "D2", LANG, 'return (REPLY_LANGS_ORDER as readonly string[]).includes(lang) && allowed.includes(lang) ? (lang as ReplyLang) : "en";', 'return lang as ReplyLang;'),
+ ("F-D2b", "D2", LANG, 'if (raw === undefined || raw.trim() === "") return [...DEFAULT_REPLY_LANGS];', 'if (raw === undefined) return [...DEFAULT_REPLY_LANGS];'),
+ ("F-D3", "D3", LANG, 'hi: { student: STUDENT_CRISIS_MESSAGE, anonymous: ANONYMOUS_CRISIS_MESSAGE },', 'hi: { student: STUDENT_CRISIS_MESSAGE, anonymous: ANONYMOUS_CRISIS_MESSAGE }, ta: { student: STUDENT_CRISIS_MESSAGE, anonymous: ANONYMOUS_CRISIS_MESSAGE },'),
+ ("F-BYTE", "bytes", LANG, 'free and open 24x7."', 'free and open 24/7."'),
+]
+ENG = ["tests/lang.test.ts", "tests/crisis-defaults.test.ts", "tests/student-graph.test.ts", "tests/chk-lk4.test.ts"]
+API = ["tests/voice-crisis-turn.test.ts"]
+
+def run(cmd_dir, files):
+    p = subprocess.run(["pnpm", "-C", cmd_dir, "exec", "tsx", "--test", "--test-timeout=30000"] + files, capture_output=True, text=True, encoding="utf-8", errors="replace", shell=True)
+    out = p.stdout + p.stderr
+    t = re.search(r"ℹ tests (\d+)", out); f = re.search(r"ℹ fail (\d+)", out)
+    names = re.findall(r"^✖ (.*?) \(", out, re.M)
+    return (int(t.group(1)) if t else -1, int(f.group(1)) if f else -1, sorted(set(names))[:4])
+
+def read(path):
+    with open(os.path.join(ROOT, path), "rb") as fh:
+        return fh.read().decode("utf-8")
+
+def main():
+    which = sys.argv[1:] or None
+    for fid, crit, path, old, new in M:
+        if which and fid not in which: continue
+        orig = read(path)
+        crlf = "\r\n" in orig
+        o = old
+        if o not in orig:
+            print(fid, "PATTERN NOT FOUND"); continue
+        assert orig.count(o) == 1, (fid, orig.count(o))
+        with open(os.path.join(ROOT, path), "wb") as fh:
+            fh.write(orig.replace(o, new).encode("utf-8"))
+        try:
+            e = run(ROOT + "/packages/engine", ENG)
+            a = run(ROOT + "/apps/api", API) if fid == "F-L2" or fid == "F-L3" else None
+            print(fid, crit, "engine tests/fail", e[0], e[1], e[2], "api", a, flush=True)
+        finally:
+            with open(os.path.join(ROOT, path), "wb") as fh:
+                fh.write(orig.encode("utf-8"))
+    r = subprocess.run(["git", "-C", ROOT, "status", "--short"], capture_output=True, text=True)
+    print("STATUS after:", r.stdout)
+
+if __name__ == "__main__":
+    if sys.argv[1:] == ["baseline"]:
+        print("baseline engine", run(ROOT + "/packages/engine", ENG), "api", run(ROOT + "/apps/api", API))
+    else:
+        main()

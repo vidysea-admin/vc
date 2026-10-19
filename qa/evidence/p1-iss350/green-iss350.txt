@@ -1,0 +1,17 @@
+[testlock] running slot 0 (free RAM 4.88 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-350 tests/chat.test.ts tests/anonymous-zero-persistence.test.ts
+✔ ISS-350: an anonymous crisis text with extra keys, Latin or Devanagari, gets the fixed crisis answer and one crisis counter, and the extra keys are never kept (326.0419ms)
+✔ ISS-350: an anonymous crisis text with an extra key is answered for a client already rate limited; a benign text with extra keys stays a 400 that carries the helpline (88.8581ms)
+✔ ISS-350: the anonymous route scans an extra-key crisis body exactly as often as a well-formed one, and an extra-key benign body once (38.9714ms)
+✔ ISS-350: a crisis text with an unknown key or an invalid clientTurnId, Latin or Devanagari, gets the fixed crisis answer, an escalation and a flag, with no malformed field stored (676.1045ms)
+✔ ISS-350: a crisis text with a bad field is also answered for a student already over the rate limit, and for an over-long crisis text with an unknown key (73.5269ms)
+✔ ISS-350: a benign text with the same unknown key or invalid clientTurnId stays a plain 400, with no model call and nothing stored (198.4324ms)
+✔ ISS-350: non-string text and unparseable JSON stay a plain 400, whatever else the body carries (15.3846ms)
+✔ ISS-350: the fix adds no scan: a malformed crisis turn scans exactly as often as a well-formed one, and a malformed benign turn is scanned once (50.5929ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4789.1605

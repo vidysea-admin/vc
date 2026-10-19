@@ -1,0 +1,77 @@
+[testlock] running slot 0 (free RAM 4.58 GB): pnpm -C apps/api exec tsx --test tests/chk-iss350.test.ts
+✔ AUTH crisis x malformed: escalated crisis answer with 14416, nothing malformed persisted (386.1566ms)
+✔ AUTH benign x malformed: plain 400, nothing stored, no model call, no helpline (51.072ms)
+✔ AUTH hostile: crisis text only inside an extra key / clientTurnId is NOT scanned -> 400 (20.6123ms)
+✔ AUTH KEEP400: non-string text, broken JSON, non-object bodies stay plain 400 even with crisis text around (24.753ms)
+✔ AUTH rate-limited student + bad field + crisis -> crisis answer; benign still 429 (216.2272ms)
+✔ AUTH replay: a valid clientTurnId replayed after a crisis-with-bad-field turn (96.7771ms)
+✔ ANON crisis + extra keys (all scripts, hostile keys): fixed crisis answer, one counter each, nothing echoed (85.135ms)
+✖ ANON benign + extra keys: 400 with helpline, no model call, no counter; non-string / non-JSON stay 400 (38.2414ms)
+✖ ANON rate-limited client + extra key + crisis -> crisis answer (101.0945ms)
+AUTH scan NFKD counts: wellformed 24 malformed 24 both-bad 24 benign-malformed 4 direct-one-scan 4
+ANON scan NFKD counts: wellformed 8 malformed 8 benign-malformed 9 benign-wellformed 9
+✖ SCAN: malformed crisis == well-formed crisis; malformed benign == one scan (both routes, independent instrument) (74.3138ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 7
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3069.6252
+
+✖ failing tests:
+
+test at tests\chk-iss350.test.ts:233:1
+✖ ANON benign + extra keys: 400 with helpline, no model call, no counter; non-string / non-JSON stay 400 (38.2414ms)
+  AssertionError [ERR_ASSERTION]: {"text":"What are the tuition fees for public universities in Germany?","role":"CHKMARK-350-ZZ"}
+  
+  200 !== 400
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss350-chk\apps\api\tests\chk-iss350.test.ts:238:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 400,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chk-iss350.test.ts:249:1
+✖ ANON rate-limited client + extra key + crisis -> crisis answer (101.0945ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  429 !== 400
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss350-chk\apps\api\tests\chk-iss350.test.ts:266:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 429,
+    expected: 400,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chk-iss350.test.ts:285:1
+✖ SCAN: malformed crisis == well-formed crisis; malformed benign == one scan (both routes, independent instrument) (74.3138ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  9 !== 4
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss350-chk\apps\api\tests\chk-iss350.test.ts:308:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 9,
+    expected: 4,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

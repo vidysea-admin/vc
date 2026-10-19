@@ -558,10 +558,21 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     const level = crisisGuard(text).level;
     const overlong = text.length > MAX_TURN_TEXT_LENGTH;
     if (overlong && level === "none") return fail(400, "invalid_request");
-    const parsed = TurnRequestSchema.safeParse({ ...(obj as object), text: overlong ? text.slice(0, MAX_TURN_TEXT_LENGTH) : text });
-    if (!parsed.success) return fail(400, "invalid_request");
-    const clientTurnId = parsed.data.clientTurnId;
-    if (clientTurnId !== undefined && !PATH_ID_PATTERN.test(clientTurnId)) return fail(400, "invalid_request");
+    const bounded = overlong ? text.slice(0, MAX_TURN_TEXT_LENGTH) : text;
+    const parsed = TurnRequestSchema.safeParse({ ...(obj as object), text: bounded });
+    let clientTurnId: string | undefined;
+    if (parsed.success && (parsed.data.clientTurnId === undefined || PATH_ID_PATTERN.test(parsed.data.clientTurnId))) {
+      clientTurnId = parsed.data.clientTurnId;
+    } else {
+      // ISS-350 (D-104): the crisis exemption comes before the shape checks. A malformed body (unknown key, invalid clientTurnId) whose text is a
+      // crisis or concern phrase is still answered and escalated from `text` alone (reusing the one scan above); the malformed fields are dropped,
+      // never stored. A valid clientTurnId is kept. A benign text stays a plain 400.
+      if (level === "none") return fail(400, "invalid_request");
+      const supplied = (obj as { clientTurnId?: unknown }).clientTurnId;
+      const salvaged = TurnRequestSchema.safeParse({ text: bounded, ...(typeof supplied === "string" && PATH_ID_PATTERN.test(supplied) ? { clientTurnId: supplied } : {}) });
+      if (!salvaged.success) return fail(400, "invalid_request");
+      clientTurnId = salvaged.data.clientTurnId;
+    }
 
     // A23: a crisis message is never rate limited; the scan runs on the full text before the limiter is consulted.
     const crisis = level !== "none";
