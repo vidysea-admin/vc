@@ -19,6 +19,7 @@ import { scoreDataset } from "./score.js";
 import { toMarkdown, toAbortMarkdown } from "./report.js";
 import { type BudgetRun, assertGReal, executeReal } from "./budget.js";
 import { PROVIDER_MODES, type ProviderMode } from "./providers.js";
+import { prepareOllamaProvider, type LlmProvider } from "@vc/providers";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const DEFAULT_DATASET = join(here, "..", "..", "..", "qa", "evals", "scribe", "sessions.jsonl");
@@ -95,9 +96,16 @@ export interface RunnerDeps {
   now?: () => Date;
   /** Override of qa/gates/g-real.md (tests only). */
   gateFile?: string;
-  /** REAL-mode body (the provider/KB/audio call). Absent = the real path is not wired yet and refuses. */
-  realBody?: (run: BudgetRun) => Promise<unknown>;
+  /**
+   * REAL-mode body (the provider/KB/audio call). Absent = the real path is not wired yet and refuses.
+   * `provider` (U13b, D-100) is set only when VC_REAL_MODEL selects `ollama:<id>`: an OllamaProvider
+   * whose every request is charged to `run` BEFORE it is sent. Unset/"gemini" = the default path,
+   * unchanged: `provider` is undefined and the body brings its own, as before.
+   */
+  realBody?: (run: BudgetRun, provider?: LlmProvider) => Promise<unknown>;
   estimateUsd?: number;
+  /** Mocked fetch for the Ollama provider (tests only; production uses the global fetch). */
+  fetchImpl?: typeof fetch;
 }
 
 export interface RunnerOutcome {
@@ -153,6 +161,10 @@ export function writeP1Report(outDir: string, base: string, report: unknown, mar
 export async function runRealPath(runner: string, base: string, args: P1Args, deps: RunnerDeps): Promise<RunnerOutcome> {
   assertGReal(deps.env ?? process.env, deps.gateFile);
   if (!deps.realBody) throw new RealNotWiredError(runner);
+  // U13b: validate the model selection (VC_REAL_MODEL, OLLAMA_API_KEY, price) BEFORE the budget guard
+  // starts a run, so a bad config refuses without touching the spend ledger.
+  const makeOllama = prepareOllamaProvider(deps.env ?? process.env, deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {});
+  const realBody = deps.realBody;
   const result = await executeReal(
     {
       runner,
@@ -162,7 +174,7 @@ export async function runRealPath(runner: string, base: string, args: P1Args, de
       ...(deps.now ? { now: deps.now } : {}),
       ...(deps.estimateUsd !== undefined ? { estimateUsd: deps.estimateUsd } : {}),
     },
-    deps.realBody,
+    (run) => realBody(run, makeOllama?.((estimate) => run.charge(estimate.estimatedCostUsd))),
   );
   if (result.status === "aborted-budget") {
     const report = { status: result.status, runner, spentUsd: result.spentUsd, cap: result.cap, limitUsd: result.limitUsd };

@@ -148,3 +148,128 @@ test("fix4: a runner with VC_G_REAL=1 but no answered g-real.md gate file refuse
   );
   assert.equal(existsSync(ledger), false);
 });
+
+// ---------------------------------------------------------------------------
+// U13b (D-100): Ollama-hosted models behind VC_REAL_MODEL=ollama:<id>. MOCKED fetch only: no network,
+// no paid call. The A24 caps must apply to Ollama runs exactly as they do to any REAL run.
+// ---------------------------------------------------------------------------
+import { z } from "zod";
+import { OllamaRefusedError } from "@vc/providers";
+
+const OLLAMA_KEY = "ollama-test-secret-key";
+const OLLAMA_ENV = { VC_G_REAL: "1", VC_REAL_MODEL: "ollama:glm-5.3-flash", OLLAMA_API_KEY: OLLAMA_KEY };
+const AnswerSchema = z.object({ answer: z.string() });
+
+function fakeOllama(): { fetchImpl: typeof fetch; calls: { url: string; auth: string | undefined }[] } {
+  const calls: { url: string; auth: string | undefined }[] = [];
+  const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+    calls.push({ url: String(url), auth: (init?.headers as Record<string, string> | undefined)?.["authorization"] });
+    return new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify({ answer: "ok" }) }, done: true }), { status: 200 });
+  }) as typeof fetch;
+  return { fetchImpl, calls };
+}
+const ask = (provider: { generate: (r: never) => Promise<unknown> } | undefined) =>
+  provider!.generate({ skillName: "s", skillPrompt: "P", outputSchema: AnswerSchema, input: { q: 1 } } as never);
+
+for (const [name, run] of RUNNERS) {
+  test(`${name}: U13b VC_REAL_MODEL=ollama:<id> hands the body an Ollama provider; each request is charged to the ledger BEFORE it is sent`, async () => {
+    const { outDir, ledger } = tmp();
+    const { fetchImpl, calls } = fakeOllama();
+    let kind: string | undefined;
+    const outcome = await run(
+      { ...parseP1Args(["--real"]), outDir, ledger },
+      {
+        env: OLLAMA_ENV,
+        gateFile: GATE,
+        now: NOW,
+        fetchImpl,
+        realBody: async (budget, provider) => {
+          kind = provider?.kind;
+          assert.equal(calls.length, 0);
+          await ask(provider);
+          const afterFirst = readLedger(ledger).filter((e) => e.kind === "charge").length;
+          assert.equal(afterFirst, 1, "charged for request 1");
+          await ask(provider);
+          assert.equal(budget.spentUsd, readLedger(ledger).filter((e) => e.kind === "charge").reduce((a, e) => a + (e.usd ?? 0), 0));
+          return { ok: true };
+        },
+      },
+    );
+    assert.equal(kind, "ollama");
+    assert.equal(outcome.status, "completed");
+    assert.equal(calls.length, 2);
+    assert.ok(calls.every((c) => c.url === "https://ollama.com/api/chat" && c.auth === `Bearer ${OLLAMA_KEY}`));
+    assert.ok(outcome.report && (outcome.report as { spentUsd: number }).spentUsd > 0);
+    for (const f of [...readdirSync(outDir).map((x) => join(outDir, x)), ledger]) assert.ok(!readFileSync(f, "utf-8").includes(OLLAMA_KEY), `${f} must not contain the key`);
+  });
+
+  test(`${name}: U13b the USD 50 per-run cap stops an Ollama run before the request that would pass it is sent`, async () => {
+    const { outDir, ledger } = tmp();
+    const { fetchImpl, calls } = fakeOllama();
+    const outcome = await run(
+      { ...parseP1Args(["--real"]), outDir, ledger },
+      {
+        env: { ...OLLAMA_ENV, OLLAMA_PRICE_USD_PER_MTOK: "10000,10000" }, // ~USD 20.5 per request upper bound
+        gateFile: GATE,
+        now: NOW,
+        fetchImpl,
+        realBody: async (_b, provider) => {
+          for (let i = 0; i < 5; i++) await ask(provider);
+          return {};
+        },
+      },
+    );
+    assert.equal(outcome.status, "aborted-budget");
+    assert.equal(calls.length, 2, "the third request (would be ~61 USD) is never sent");
+    const written = JSON.parse(readFileSync(join(outDir, readdirSync(outDir).find((f) => f.endsWith(".json"))!), "utf-8"));
+    assert.equal(written.cap, "per-run");
+    assert.ok(monthSpendUsd(readLedger(ledger), NOW()) > 40 && monthSpendUsd(readLedger(ledger), NOW()) < 50);
+  });
+
+  test(`${name}: U13b missing OLLAMA_API_KEY, unknown model price or a junk VC_REAL_MODEL refuse before any run (no ledger, no request)`, async () => {
+    for (const env of [
+      { VC_G_REAL: "1", VC_REAL_MODEL: "ollama:glm-5.3-flash" },
+      { ...OLLAMA_ENV, VC_REAL_MODEL: "ollama:mystery-model" },
+      { ...OLLAMA_ENV, VC_REAL_MODEL: "openai:gpt-x" },
+    ]) {
+      const { outDir, ledger } = tmp();
+      const { fetchImpl, calls } = fakeOllama();
+      await assert.rejects(
+        run({ ...parseP1Args(["--real"]), outDir, ledger }, { env, gateFile: GATE, now: NOW, fetchImpl, realBody: async () => ({}) }),
+        OllamaRefusedError,
+      );
+      assert.equal(existsSync(ledger), false);
+      assert.equal(existsSync(outDir), false);
+      assert.equal(calls.length, 0);
+    }
+  });
+
+  test(`${name}: U13b default unchanged: no VC_REAL_MODEL (or "gemini") gives the body no Ollama provider and sends no request`, async () => {
+    for (const env of [{ VC_G_REAL: "1" }, { VC_G_REAL: "1", VC_REAL_MODEL: "gemini" }]) {
+      const { outDir, ledger } = tmp();
+      const { fetchImpl, calls } = fakeOllama();
+      let seen: unknown = "unset";
+      const outcome = await run(
+        { ...parseP1Args(["--real"]), outDir, ledger },
+        { env, gateFile: GATE, now: NOW, fetchImpl, realBody: async (_b, provider) => ((seen = provider), {}) },
+      );
+      assert.equal(outcome.status, "completed");
+      assert.equal(seen, undefined);
+      assert.equal(calls.length, 0);
+    }
+  });
+}
+
+test("U13b the USD 200 per-month cap also stops Ollama runs across runs", async () => {
+  const { outDir, ledger } = tmp();
+  const { fetchImpl, calls } = fakeOllama();
+  const env = { ...OLLAMA_ENV, OLLAMA_PRICE_USD_PER_MTOK: "20000,20000" }; // ~USD 41.1 per single request
+  const statuses: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    const o = await runKb({ ...parseP1Args(["--real"]), outDir, ledger }, { env, gateFile: GATE, now: NOW, fetchImpl, realBody: async (_b, p) => ask(p) });
+    statuses.push(o.status);
+  }
+  assert.deepEqual(statuses, ["completed", "completed", "completed", "completed", "aborted-budget"]);
+  assert.equal(calls.length, 4, "the fifth request is never sent");
+  assert.ok(monthSpendUsd(readLedger(ledger), NOW()) <= 200);
+});

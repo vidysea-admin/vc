@@ -46,7 +46,7 @@
 import { z } from "zod";
 import { recordErrorSpan } from "@vc/observability";
 
-export type ProviderKind = "mock" | "gemini" | "litellm" | "rules";
+export type ProviderKind = "mock" | "gemini" | "litellm" | "rules" | "ollama";
 
 export interface GenerateRequest<T> {
   /** The skill folder name, e.g. "fact-extraction". */
@@ -1015,6 +1015,252 @@ export class RulesProvider implements LlmProvider {
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// OllamaProvider (P1 U13b prep, D-100) — Ollama-hosted API-key models (e.g. GLM 5.3 Flash,
+// DeepSeek 4.1 Flash) for the REAL eval runners. A Bearer-key HTTP client for Ollama's
+// `POST {base}/api/chat`. It is NOT part of the production failover chain or `createProvider`;
+// the REAL runners select it through `VC_REAL_MODEL=ollama:<model-id>` (`prepareOllamaProvider`).
+// Every request is charged against the A24 budget BEFORE it is sent (the `beforeRequest` hook),
+// so the USD 50/run and 200/month caps apply to Ollama runs exactly as they do to any REAL run.
+// ---------------------------------------------------------------------------
+
+export const OLLAMA_DEFAULT_BASE_URL = "https://ollama.com";
+export const OLLAMA_DEFAULT_TIMEOUT_MS = 120_000;
+/** Upper bound on generated tokens per request (Ollama `options.num_predict`); also the output side of the pre-request cost bound. */
+export const OLLAMA_DEFAULT_MAX_OUTPUT_TOKENS = 2048;
+export const OLLAMA_PRICE_ENV = "OLLAMA_PRICE_USD_PER_MTOK";
+
+export interface OllamaPrice {
+  inputUsdPerMTok: number;
+  outputUsdPerMTok: number;
+}
+
+/**
+ * Per-model price table (USD per million tokens). [ASSUMPTION - UNVERIFIED]: neither the model ids
+ * nor the prices below come from Ollama's price list; they are deliberately conservative
+ * placeholders so the budget cap over-counts rather than under-counts. A model id that is not in
+ * this table (and has no `OLLAMA_PRICE_USD_PER_MTOK="<in>,<out>"` override) is REFUSED: an unknown
+ * price is never treated as zero. Replace with the real ids/prices before the first paid run.
+ */
+export const OLLAMA_PRICE_TABLE_USD_PER_MTOK: Readonly<Record<string, OllamaPrice>> = {
+  "glm-5.3-flash": { inputUsdPerMTok: 1, outputUsdPerMTok: 4 },
+  "deepseek-4.1-flash": { inputUsdPerMTok: 1, outputUsdPerMTok: 4 },
+};
+
+/** A REAL-run config problem (missing key, unknown model price, bad VC_REAL_MODEL) found before any request. */
+export class OllamaRefusedError extends Error {
+  constructor(reason: string) {
+    super(`OllamaRefusedError: ${reason}`);
+    this.name = "OllamaRefusedError";
+  }
+}
+export class OllamaHttpError extends Error {
+  readonly status: number;
+  constructor(status: number, model: string) {
+    super(`OllamaHttpError: the ollama provider (model "${model}") request failed with HTTP ${status}`);
+    this.name = "OllamaHttpError";
+    this.status = status;
+  }
+}
+export class OllamaTimeoutError extends Error {
+  constructor(model: string, timeoutMs: number) {
+    super(`OllamaTimeoutError: the ollama provider (model "${model}") did not respond within ${timeoutMs}ms`);
+    this.name = "OllamaTimeoutError";
+  }
+}
+export class OllamaAbortedError extends Error {
+  constructor(model: string) {
+    super(`OllamaAbortedError: the ollama provider (model "${model}") request was aborted by the caller's signal`);
+    this.name = "OllamaAbortedError";
+  }
+}
+export class OllamaMalformedResponseError extends Error {
+  constructor(model: string, reason: string) {
+    super(`OllamaMalformedResponseError: the ollama provider (model "${model}") returned an unusable response: ${reason}`);
+    this.name = "OllamaMalformedResponseError";
+  }
+}
+export class OllamaNetworkError extends Error {
+  constructor(model: string, reason: string) {
+    super(`OllamaNetworkError: the ollama provider (model "${model}") request could not be sent: ${reason}`);
+    this.name = "OllamaNetworkError";
+  }
+}
+
+/** What is about to be sent: an UPPER BOUND on its cost, so a budget guard never under-counts. */
+export interface OllamaRequestEstimate {
+  model: string;
+  /** Prompt-size bound: one token per character (never fewer tokens than reality for the price bound). */
+  estimatedInputTokens: number;
+  maxOutputTokens: number;
+  estimatedCostUsd: number;
+}
+
+export interface OllamaProviderOptions {
+  model: string;
+  apiKey: string;
+  price: OllamaPrice;
+  baseUrl?: string;
+  timeoutMs?: number;
+  maxOutputTokens?: number;
+  /** Called after authorization and BEFORE the request is sent; throwing (e.g. BudgetExceededError) stops the request. */
+  beforeRequest?: (estimate: OllamaRequestEstimate) => void;
+  /** Injected in tests; production uses the global fetch. */
+  fetchImpl?: typeof fetch;
+}
+
+export class OllamaProvider implements LlmProvider {
+  readonly kind = "ollama" as const;
+  readonly model: string;
+  private readonly baseUrl: string;
+  private readonly timeoutMs: number;
+  private readonly maxOutputTokens: number;
+  private readonly price: OllamaPrice;
+  private readonly beforeRequest: ((estimate: OllamaRequestEstimate) => void) | undefined;
+  private readonly fetchImpl: typeof fetch;
+  // Private (#) so the key never shows up in JSON.stringify, String() or util.inspect (B11).
+  readonly #apiKey: string;
+
+  constructor(options: OllamaProviderOptions) {
+    if (!options.apiKey) throw new OllamaRefusedError("OLLAMA_API_KEY is required for the ollama provider");
+    const { inputUsdPerMTok: i, outputUsdPerMTok: o } = options.price;
+    if (!Number.isFinite(i) || !Number.isFinite(o) || i <= 0 || o <= 0) {
+      throw new OllamaRefusedError(`price for model "${options.model}" must be finite and > 0 (an unknown price is never assumed zero)`);
+    }
+    this.model = options.model;
+    this.price = options.price;
+    this.#apiKey = options.apiKey;
+    this.baseUrl = (options.baseUrl ?? OLLAMA_DEFAULT_BASE_URL).replace(/\/+$/, "");
+    this.timeoutMs = options.timeoutMs ?? OLLAMA_DEFAULT_TIMEOUT_MS;
+    this.maxOutputTokens = options.maxOutputTokens ?? OLLAMA_DEFAULT_MAX_OUTPUT_TOKENS;
+    this.beforeRequest = options.beforeRequest;
+    this.fetchImpl = options.fetchImpl ?? fetch;
+  }
+
+  toString(): string {
+    return `OllamaProvider(model=${this.model}, baseUrl=${this.baseUrl})`;
+  }
+
+  async generate<T>(request: GenerateRequest<T>): Promise<T> {
+    if (request.signal?.aborted) throw new OllamaAbortedError(this.model);
+    const userContent = JSON.stringify(request.input);
+    const estimatedInputTokens = request.skillPrompt.length + userContent.length;
+    const estimate: OllamaRequestEstimate = {
+      model: this.model,
+      estimatedInputTokens,
+      maxOutputTokens: this.maxOutputTokens,
+      estimatedCostUsd:
+        (estimatedInputTokens * this.price.inputUsdPerMTok + this.maxOutputTokens * this.price.outputUsdPerMTok) / 1e6,
+    };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const externalSignal = request.signal;
+    const onExternalAbort = (): void => controller.abort();
+    externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
+    let phase: "pre" | "sent" = "pre";
+    let res: Response;
+    try {
+      await authorizeExecution({ ...request, signal: controller.signal });
+      this.beforeRequest?.(estimate); // charge BEFORE the spend can happen
+      phase = "sent";
+      res = await this.fetchImpl(`${this.baseUrl}/api/chat`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${this.#apiKey}` },
+        body: JSON.stringify({
+          model: this.model,
+          stream: false,
+          format: "json",
+          options: { num_predict: this.maxOutputTokens },
+          messages: [
+            { role: "system", content: request.skillPrompt },
+            { role: "user", content: userContent },
+          ],
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if ((err as { name?: unknown } | null)?.name === "AbortError") {
+        if (externalSignal?.aborted) throw new OllamaAbortedError(this.model);
+        throw new OllamaTimeoutError(this.model, this.timeoutMs);
+      }
+      if (phase === "pre") throw err; // authorization refusal or a budget stop: surface it unchanged
+      throw new OllamaNetworkError(this.model, err instanceof Error ? err.message : String(err));
+    } finally {
+      clearTimeout(timer);
+      externalSignal?.removeEventListener("abort", onExternalAbort);
+    }
+
+    if (!res.ok) throw new OllamaHttpError(res.status, this.model);
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      throw new OllamaMalformedResponseError(this.model, "response body was not valid JSON");
+    }
+    const content = (body as { message?: { content?: unknown } } | null)?.message?.content;
+    if (typeof content !== "string" || content.length === 0) {
+      throw new OllamaMalformedResponseError(this.model, "no message.content string in the response");
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      throw new OllamaMalformedResponseError(this.model, "message.content was not valid JSON");
+    }
+    return parseModelOutput(request.outputSchema, parsed); // B5: the caller's Zod schema is the only judge
+  }
+}
+
+/**
+ * `VC_REAL_MODEL` selection for the REAL runners: unset/empty/"gemini" -> the existing default
+ * (unchanged); "ollama:<model-id>" -> Ollama. Anything else is refused, never guessed.
+ */
+export function parseRealModel(env: ProviderEnv): { backend: "gemini" } | { backend: "ollama"; model: string } {
+  const raw = env.VC_REAL_MODEL?.trim();
+  if (!raw || raw === "gemini") return { backend: "gemini" };
+  if (raw.startsWith("ollama:") && raw.slice("ollama:".length).trim().length > 0) {
+    return { backend: "ollama", model: raw.slice("ollama:".length).trim() };
+  }
+  throw new OllamaRefusedError(`VC_REAL_MODEL must be unset, "gemini" or "ollama:<model-id>" (got ${JSON.stringify(raw)})`);
+}
+
+function resolveOllamaPrice(model: string, env: ProviderEnv): OllamaPrice {
+  const override = env[OLLAMA_PRICE_ENV];
+  if (override !== undefined) {
+    const parts = override.split(",").map((s) => Number(s.trim()));
+    const [i, o] = parts;
+    if (parts.length !== 2 || i === undefined || o === undefined || !Number.isFinite(i) || !Number.isFinite(o) || i <= 0 || o <= 0) {
+      throw new OllamaRefusedError(`${OLLAMA_PRICE_ENV} must be "<input>,<output>" USD per million tokens, both finite and > 0`);
+    }
+    return { inputUsdPerMTok: i, outputUsdPerMTok: o };
+  }
+  const known = Object.hasOwn(OLLAMA_PRICE_TABLE_USD_PER_MTOK, model) ? OLLAMA_PRICE_TABLE_USD_PER_MTOK[model] : undefined;
+  if (!known) {
+    throw new OllamaRefusedError(`no price for ollama model "${model}": add it to OLLAMA_PRICE_TABLE_USD_PER_MTOK or set ${OLLAMA_PRICE_ENV}; REAL runs never assume a zero price`);
+  }
+  return known;
+}
+
+/**
+ * Validates everything an Ollama REAL run needs BEFORE any run starts (so nothing is written to the
+ * spend ledger on a bad config): the VC_REAL_MODEL selection, OLLAMA_API_KEY and the model price.
+ * Returns undefined when the default (Gemini) is selected; otherwise a factory that builds the
+ * provider once the run's budget hook exists. Reads only the env object it is given.
+ */
+export function prepareOllamaProvider(
+  env: ProviderEnv,
+  options: { fetchImpl?: typeof fetch } = {},
+): ((beforeRequest: (estimate: OllamaRequestEstimate) => void) => OllamaProvider) | undefined {
+  const selection = parseRealModel(env);
+  if (selection.backend !== "ollama") return undefined;
+  const apiKey = env.OLLAMA_API_KEY;
+  if (!apiKey) throw new OllamaRefusedError("OLLAMA_API_KEY is required when VC_REAL_MODEL selects an ollama model");
+  const price = resolveOllamaPrice(selection.model, env);
+  const baseUrl = env.OLLAMA_BASE_URL || OLLAMA_DEFAULT_BASE_URL;
+  return (beforeRequest) =>
+    new OllamaProvider({ model: selection.model, apiKey, price, baseUrl, beforeRequest, ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}) });
+}
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
