@@ -13,6 +13,7 @@ import { startApi } from "../src/index.js";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { GERMANY_QUESTION, adult, call, chatWorld, cleanupGates, gatesFixture, kbAnswerProvider, minor, newThread, profilePath, recordingKb, studentToken, studentVerifier, threadsPath, turnsPath, SKILLS_DIR, SPEAKERS } from "./chat-fixtures.js";
 import { generateKeyPairSync } from "node:crypto";
+import { CHAIN_ENV, GOOD_CLAIM, stubOllamaFetch } from "./anonymous-fixtures.js";
 
 const PATHLYNKS = [{ key: "grade", value: "Grade 12, CBSE", source: "pathlynks" as const }];
 const proposeGermany = () => [{ key: "target_country", value: "Germany" }];
@@ -232,4 +233,85 @@ test("startApi: flag on and gate open -> a student creates a thread and asks a q
     await api.stop();
     cleanupGates(f);
   }
+});
+
+// ---------------------------------------------------------------------------
+// P1 LK1w: the student chat surface runs on the text chain (VC_TEXT_CHAIN); the scribe / classifier provider does not move.
+// ---------------------------------------------------------------------------
+
+/** Like mustRefuse, matching the refusal by message; a startApi that wrongly starts is stopped first so a red run fails instead of hanging on an open server. */
+async function mustRefuseWith(p: Promise<{ stop(): Promise<void> }>, message: RegExp): Promise<void> {
+  let api: { stop(): Promise<void> } | undefined;
+  try {
+    api = await p;
+  } catch (e) {
+    assert.match(String((e as Error).message), message);
+    return;
+  }
+  await api.stop();
+  assert.fail("startApi started, but it must have refused");
+}
+
+async function chatTurnOverHttp(env: Record<string, string | undefined>, scribe: ReturnType<typeof kbAnswerProvider>) {
+  const fake = createFakeMongoClient();
+  const f = gatesFixture();
+  const api = await startApi(
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", ...env },
+    { clientFactory: () => fake.client, http: httpBase({ provider: scribe, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
+  );
+  try {
+    const base = `http://127.0.0.1:${api.port}`;
+    const headers = { authorization: `Bearer ${await studentToken(adult())}`, "content-type": "application/json" };
+    const { threadId } = (await (await fetch(`${base}${threadsPath("stu-1")}`, { method: "POST", headers })).json()) as { threadId: string };
+    const turn = await fetch(`${base}${turnsPath("stu-1", threadId)}`, { method: "POST", headers, body: JSON.stringify({ text: GERMANY_QUESTION, clientTurnId: "lk1w-1" }) });
+    assert.equal(turn.status, 200);
+    return (await turn.json()) as { state: string };
+  } finally {
+    await api.stop();
+    cleanupGates(f);
+  }
+}
+
+test("LK1w: VC_TEXT_CHAIN set -> a student chat turn is answered by the chain (Ollama hop on the wire) and the injected scribe/classifier provider is not called", async () => {
+  const stub = stubOllamaFetch({ claims: [GOOD_CLAIM] });
+  const scribe = kbAnswerProvider();
+  try {
+    const out = await chatTurnOverHttp(CHAIN_ENV, scribe);
+    assert.equal(out.state, "ok");
+    assert.ok(stub.calls.length >= 1, "the chain hop was called");
+    assert.match(stub.calls[0]!.url, /^http:\/\/ollama\.synthetic\.test\/api\/chat$/);
+    assert.equal(JSON.parse(stub.calls[0]!.body).model, "glm-5.3-flash", "the chain's first hop, in config order");
+    assert.equal(scribe.calls.length, 0, "the current provider (scribe/classifier base) never served the student turn");
+  } finally {
+    stub.restore();
+  }
+});
+
+test("LK1w: VC_TEXT_CHAIN unset -> the student chat turn uses the current provider and nothing is sent to Ollama", async () => {
+  const stub = stubOllamaFetch({ claims: [GOOD_CLAIM] });
+  const scribe = kbAnswerProvider();
+  try {
+    const out = await chatTurnOverHttp({}, scribe);
+    assert.equal(out.state, "ok");
+    assert.ok(scribe.calls.length >= 1);
+    assert.equal(stub.calls.length, 0);
+  } finally {
+    stub.restore();
+  }
+});
+
+test("LK1w: VC_TEXT_CHAIN does not replace the scribe provider config: with no injected provider, no VC_LLM_PROVIDER and the classifier injected (so only the scribe base is read), startApi still refuses before connecting", async () => {
+  const fake = createFakeMongoClient();
+  let connected = 0;
+  (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
+  await mustRefuseWith(startApi({ MONGODB_URL: "mongodb://fake-host/ignored", ...CHAIN_ENV }, { clientFactory: () => fake.client, http: { port: 0, verifier: counsellorVerifier, skillsDir: SKILLS_DIR, escalationForTenant: (() => ({})) as never } }), /VC_LLM_PROVIDER/);
+  assert.equal(connected, 0);
+});
+
+test("LK1w: a bad chain (no OLLAMA_API_KEY) is a startup config error before connecting, and its message never carries a key", async () => {
+  const fake = createFakeMongoClient();
+  let connected = 0;
+  (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
+  await mustRefuseWith(startApi({ MONGODB_URL: "mongodb://fake-host/ignored", VC_TEXT_CHAIN: "default" }, { clientFactory: () => fake.client, http: httpBase() }), /OLLAMA_API_KEY/);
+  assert.equal(connected, 0);
 });

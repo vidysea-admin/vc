@@ -1,0 +1,22 @@
+✔ A16b: the profile shows the Pathlynks-supplied facts as in use and nothing else when the student has said nothing storable (107.6923ms)
+✔ A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it (351.0037ms)
+✔ A16b: a student corrects a wrongly heard fact (the corrected value is redacted and confirmed) and erases another (111.6256ms)
+✔ A16b: a decision on a fact that does not exist, or on another student's fact, is 404; a bad decision body is 400 (209.9039ms)
+✔ D-093 4A: for an under-18 student without consent nothing is extracted or proposed, so no fact row is created (143.6849ms)
+✔ a Pathlynks profile outage is a 503 profile_unavailable (never an empty profile that hides what is in use), with no cause in the body (73.9221ms)
+✔ startApi: flag off -> a chat path answers exactly like an unknown /v1 path over real HTTP, and no gate file is read (102.8197ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (7.5386ms)
+✔ startApi: flag on with the gate open but no student JWT configuration is a config error before connecting (no silent fall-back to the counsellor key) (18.5086ms)
+✔ startApi: flag on and gate open -> a student creates a thread and asks a question over real HTTP; the rows land in virtual_counsellor under the student's tenant; a counsellor-key token is refused (315.6081ms)
+✔ LK1w: VC_TEXT_CHAIN set -> a student chat turn is answered by the chain (Ollama hop on the wire) and the injected scribe/classifier provider is not called (182.1207ms)
+✔ LK1w: VC_TEXT_CHAIN unset -> the student chat turn uses the current provider and nothing is sent to Ollama (110.9257ms)
+✔ LK1w: VC_TEXT_CHAIN does not replace the scribe provider config: with no injected provider, no VC_LLM_PROVIDER and the classifier injected (so only the scribe base is read), startApi still refuses before connecting (1.1282ms)
+✔ LK1w: a bad chain (no OLLAMA_API_KEY) is a startup config error before connecting, and its message never carries a key (0.5155ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10493.3973

@@ -1,0 +1,30 @@
+✖ O6 crisis text, chain set: zero Ollama calls in chat and anonymous; fixed helpline reply (720.5201ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7770.9661
+
+✖ failing tests:
+
+test at ..\..\..\outcome.test.ts:215:1
+✖ O6 crisis text, chain set: zero Ollama calls in chat and anonymous; fixed helpline reply (720.5201ms)
+  AssertionError [ERR_ASSERTION]: chat crisis #0: zero chain calls
+  
+  1 !== 0
+  
+      at <anonymous> (D:\chk-lk1w\outcome.test.ts:228:14)
+      at async withApi (D:\chk-lk1w\outcome.test.ts:91:12)
+      at async TestContext.<anonymous> (D:\chk-lk1w\outcome.test.ts:217:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

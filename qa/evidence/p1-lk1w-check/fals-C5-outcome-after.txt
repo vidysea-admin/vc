@@ -1,0 +1,29 @@
+✖ O7 hostile config: missing hop key / bad price / malformed chain all fail BEFORE connect, with no secret value in the error (81.2664ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10906.365
+
+✖ failing tests:
+
+test at ..\..\..\outcome.test.ts:236:1
+✖ O7 hostile config: missing hop key / bad price / malformed chain all fail BEFORE connect, with no secret value in the error (81.2664ms)
+  AssertionError [ERR_ASSERTION]: default, OLLAMA_API_KEY missing: must refuse
+  
+  true !== false
+  
+      at TestContext.<anonymous> (D:\chk-lk1w\outcome.test.ts:272:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

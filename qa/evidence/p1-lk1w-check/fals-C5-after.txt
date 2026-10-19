@@ -1,0 +1,27 @@
+✖ LK1w: a bad chain (no OLLAMA_API_KEY) is a startup config error before connecting, and its message never carries a key (45.8677ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6859.8034
+
+✖ failing tests:
+
+test at tests\chat-profile.test.ts:311:1
+✖ LK1w: a bad chain (no OLLAMA_API_KEY) is a startup config error before connecting, and its message never carries a key (45.8677ms)
+  AssertionError [ERR_ASSERTION]: startApi started, but it must have refused
+      at mustRefuseWith (D:\chk-lk1w\copy\apps\api\tests\chat-profile.test.ts:252:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async TestContext.<anonymous> (D:\chk-lk1w\copy\apps\api\tests\chat-profile.test.ts:315:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'fail',
+    diff: 'simple'
+  }

@@ -1,0 +1,12 @@
+{"event":"escalation_unrouted","escalationId":"c9baa3a7-bb6f-423c-9492-ae401bb8ff92:o6-c0","sessionId":"c9baa3a7-bb6f-423c-9492-ae401bb8ff92"}
+{"event":"escalation_unrouted","escalationId":"8e650bae-d245-4b18-b706-fe29bb2672d9:o6-c1","sessionId":"8e650bae-d245-4b18-b706-fe29bb2672d9"}
+{"event":"escalation_unrouted","escalationId":"71c52c2e-2f7f-4a62-91b1-f5c02b801a53:o6-c2","sessionId":"71c52c2e-2f7f-4a62-91b1-f5c02b801a53"}
+✔ O6 crisis text, chain set: zero Ollama calls in chat and anonymous; fixed helpline reply (1396.7921ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10774.4407

@@ -1,0 +1,7 @@
+start 2026-10-19T20:52:04+05:30
+outcome exit=0 2026-10-19T20:52:19+05:30
+mutated D:/chk-lk1w/copy/packages/engine/src/student/graph.ts occurrence 1
+FALS[C2crisis-outcome] green-before exit=0 | red-after exit=1 | restored | 2026-10-19T20:52:44+05:30
+mutated D:/chk-lk1w/copy/packages/engine/src/student/graph.ts occurrence 1
+FALS[C2crisis-maker] green-before exit=0 | red-after exit=1 | restored | 2026-10-19T20:53:04+05:30
+end 2026-10-19T20:53:04+05:30

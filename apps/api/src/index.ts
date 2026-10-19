@@ -26,7 +26,7 @@ import {
   type ErasureFenceSweepOptions,
 } from "@vc/db";
 import { escalateTurns, initScribeCheckpointer, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentKbPort } from "@vc/engine";
-import { createProvider, loadProviderConfig, type LiveProvider, type LlmProvider } from "@vc/providers";
+import { createProvider, loadProviderConfig, loadTextChainConfig, type LiveProvider, type LlmProvider } from "@vc/providers";
 import { createJwtVerifier, createStudentJwtVerifier, jwtConfigFromEnv, studentJwtConfigFromEnv, type JwtVerifier, type StudentJwtVerifier } from "./auth.js";
 import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
 import {
@@ -84,7 +84,7 @@ export interface StartApiHttpOptions {
   host?: string;
   /** Tests inject a verifier over locally generated keys; default: jwtConfigFromEnv(env). */
   verifier?: JwtVerifier;
-  /** Tests inject a MockProvider; default: createProvider(loadProviderConfig(env)). */
+  /** Tests inject a MockProvider; default: createProvider(loadProviderConfig(env)). The scribe and the concern classifier use this; the student chat and anonymous surfaces use it only when VC_TEXT_CHAIN is unset (P1 LK1w). */
   provider?: LlmProvider;
   skillsDir?: string;
   /** Trusted dependency factory, never populated from HTTP request bodies. */
@@ -254,7 +254,7 @@ export async function startApi(
 ): Promise<Api> {
   const { clientFactory, onError, http, ...sweepOptions } = options;
   // T-025: every configuration error (JWT, provider, port) surfaces BEFORE anything connects.
-  const httpSetup = http
+  const httpBase = http
     ? {
         port: resolvePort(env, http.port),
         host: http.host ?? "127.0.0.1",
@@ -263,6 +263,11 @@ export async function startApi(
         skillsDir: http.skillsDir ?? DEFAULT_SKILLS_DIR,
       }
     : undefined;
+  // P1 LK1w (D-105): `provider` stays the scribe's and the concern classifier's base (a task moves to the text chain only after its own eval, Q4).
+  // `studentProvider` serves the student surfaces (chat turn, anonymous route): the VC_TEXT_CHAIN chain when set, else that same current provider.
+  // A bad chain (no OLLAMA_API_KEY, unknown price) throws here, before anything connects.
+  const textChain = httpBase ? loadTextChainConfig(env) : undefined;
+  const httpSetup = httpBase ? { ...httpBase, studentProvider: textChain ? createProvider(textChain) : httpBase.provider } : undefined;
   const classifierConfig = httpSetup ? loadConcernClassifierConfig(env) : undefined;
   const classifierProvider = httpSetup && !http?.escalationForTenant
     ? (http?.provider ?? createProvider(concernClassifierProviderConfig(loadProviderConfig(env), classifierConfig!))) : undefined;
@@ -286,7 +291,7 @@ export async function startApi(
     anonymousHandler = createAnonymousApi(
       {
         kb: a.kb,
-        provider: httpSetup.provider,
+        provider: httpSetup.studentProvider,
         skillsDir: httpSetup.skillsDir,
         speakers: a.speakers,
         counter:
@@ -403,7 +408,7 @@ export async function startApi(
               verifier: chatSetup.verifier,
               dbForTenant: wiring.dbForTenant,
               kb: chatSetup.kb,
-              provider: httpSetup.provider,
+              provider: httpSetup.studentProvider,
               skillsDir: httpSetup.skillsDir,
               speakers: chatSetup.speakers,
               escalateForTenant: sharedEscalateForTenant,
