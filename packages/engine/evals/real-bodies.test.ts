@@ -11,7 +11,7 @@ import { runKb } from "./run-kb.js";
 import { runH2h } from "./run-h2h.js";
 import { runProbes } from "./run-probes.js";
 import { runLatency } from "./run-latency.js";
-import { runLive } from "./run-live.js";
+import { runLive, LiveRefusedError } from "./run-live.js";
 import { readLedger } from "./budget.js";
 
 const NOW = () => new Date("2026-10-17T10:00:00Z");
@@ -373,7 +373,7 @@ test("A24: the per-run cap stops a default REAL body mid-run (run-latency at an 
   assert.equal(jsonReport(outDir, "latency-report.json").status, "aborted-budget");
 });
 
-test("default unchanged: Gemini selected (unset or 'gemini') keeps the REAL text bodies NOT WIRED for every runner; run-live stays unwired under Ollama too", async () => {
+test("default unchanged: Gemini selected (unset or 'gemini') keeps the REAL text bodies NOT WIRED for every runner; run-live refuses non-Gemini (A10 LiveRefusedError)", async () => {
   const runs: [string, (a: P1Args, d: RunnerDeps) => Promise<RunnerOutcome>][] = [
     ["run-kb", runKb],
     ["run-h2h", runH2h],
@@ -391,7 +391,7 @@ test("default unchanged: Gemini selected (unset or 'gemini') keeps the REAL text
   }
   const { outDir, ledger } = tmp();
   const { fetchImpl, seen } = fakeOllama(() => ({}));
-  await assert.rejects(runLive({ ...parseP1Args(["--real"]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl }), RealNotWiredError);
+  await assert.rejects(runLive({ ...parseP1Args(["--real"]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl }), LiveRefusedError);
   assert.equal(existsSync(ledger), false);
   assert.equal(seen.length, 0);
 });
