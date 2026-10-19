@@ -1,0 +1,7 @@
+6c run for U6w (int-u6w), 2026-10-19
+validator: python contracts/verify_contracts.py -> PASS by vacuity, exit 0
+install: pnpm install --offline --frozen-lockfile -> exit 0 (lockfile identical to main: git diff main..HEAD -- pnpm-lock.yaml empty)
+run 1: VC_TESTLOCK_TIMEOUT_SECS=7200 bash scripts/vc-testlock.sh pnpm -r test -> exit 134, ENVIRONMENTAL: mcp/university-kb "FATAL ERROR: Committing semi space failed ... JavaScript heap out of memory" at a 7 MB heap with C: at 0 bytes free (pagefile cannot grow); mcp/university-kb is not touched by U6w. Nothing stamped from this run.
+run 2: same under pnpm -r --workspace-concurrency=1 test -> SUITE_EXIT 0
+ observability 59/59, schemas 98/98, db 279/279, providers 130/130, mcp/student-profile 12/12, mcp/university-kb 72/72, engine 1336 (1291 pass, 45 skipped = known Mongo baseline, 0 fail), apps/api 217/217, apps/web 44/44. Total 2247 tests, 2202 pass, 0 fail, 45 skipped.
+typecheck: pnpm -r typecheck -> exit 0

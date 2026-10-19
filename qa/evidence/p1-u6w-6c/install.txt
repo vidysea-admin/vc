@@ -1,0 +1,30 @@
+Scope: all 10 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +177
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 177, reused 177, downloaded 0, added 21
+Progress: resolved 177, reused 177, downloaded 0, added 44
+Progress: resolved 177, reused 177, downloaded 0, added 79
+Progress: resolved 177, reused 177, downloaded 0, added 98
+Progress: resolved 177, reused 177, downloaded 0, added 138
+Progress: resolved 177, reused 177, downloaded 0, added 166
+Progress: resolved 177, reused 177, downloaded 0, added 174
+Progress: resolved 177, reused 177, downloaded 0, added 176
+Progress: resolved 177, reused 177, downloaded 0, added 177
+Progress: resolved 177, reused 177, downloaded 0, added 177, done
+
+devDependencies:
++ @types/node 22.20.4
++ tsx 4.23.15
++ typescript 5.8.3
+
+ Warning 
+                                                                              
+   Ignored build scripts: esbuild@0.28.2.                                     
+   Run "pnpm approve-builds" to pick which dependencies should be allowed     
+   to run scripts.                                                            
+                                                                              
+
+Done in 19.4s using pnpm v10.33.0
+EXIT 0
