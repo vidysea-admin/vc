@@ -1,0 +1,14 @@
+# You are /checker running a Mode A check, coordinator B of a blind dual check: p1-u10w-voice-wiring (combined U10+U10w, D-099)
+- Protocol C:/Users/Lenovo/.claude/skills/checker/SKILL.md. Policy: proportional-verification/2026-10-18.15 (pinned).
+- Manifest: qa/manifests/p1-u10w-voice-wiring.md (criteria U10 C1-C19 + W1-W10). Project: D:/vc/.worktrees/p1-u10w (branch p1/u10w, head 0c2b981). You are BOUND to it.
+- Verdict path: qa/verdicts/p1-u10w-voice-wiring.B.md. Checkpoint: qa/checkpoints/p1-u10w-voice-wiring.B.md.
+- Tier L (auth/tenancy on the WS upgrade, crisis escalation, concurrency; dual-trigger lines in the manifest). Budget: wall 45 min, agent-minutes 135. Cycle: 1 (U10's last allowed cycle; D-099).
+- Base for the whole-unit diff: 76b89c5ea4711de36d1fdae49809711b8957ae87 (origin/main; verify with git merge-base). Repair base 8fca003.
+- Failed criteria (your side, U10 cycle 2): C18 - escalation could carry an earlier unanswered student turn's words instead of VOICE_CRISIS_NO_WORDS_TEXT. Every W criterion is new and unchecked. voice.ts and index.ts changed, so re-evidence every criterion whose input files changed (that is all of them); there is no prior evidence identity on this slug to reuse.
+- Gate: qa/gates/p1-u10-cycle3.md Answered line; voice stays off (VC_VOICE_ENABLED unset, A20 closed) until PASS.
+- You are coordinator B. Do NOT read, list, grep or git-show the other coordinator's verdict, checkpoint or evidence (qa/verdicts/p1-u10w-voice-wiring.A.md, qa/checkpoints/p1-u10w-voice-wiring.A.md, any qa/evidence/*-A*/ for this slug), and do not read qa/verdicts/p1-u10-voice-ws*.md or qa/evidence/p1-u10-A-c2/ / p1-u10-check-b/ (earlier verdict narratives). Do not count anyone else's evidence.
+- Prove outcomes with hostile variants, especially for C18 (unanswered turn then a no-words crisis; crisis with words; answered earlier turn; throwing detector; two crises in a row; socket drop during the flag write), W1 (deadline error still escalates), W2 (late work awaited by close, bounded), W3 (superseded connect overlap), the flag gate (VC_VOICE_ENABLED must be exactly "true"; flag-on with real gates refuses), WS auth (other student's/tenant's token, expired, alg none), and the monthly cap.
+- One falsification per criterion changed in this cycle, in a scratch copy UNDER D:/vc/.worktrees/ only (C: is full, ~3 MB). Never mutate the bound tree.
+- Tests only via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...` (long waits normal). No full suite. `git -C <dir>`, never `cd X && cmd`. Never `git add -A`. Never touch .claude/**. Do NOT push. Kill only PIDs you started.
+- Dual check: PROPOSED-ISSUE lines (cite P1.. in FAILURES), no issue rows. Verdict carries "Cycle checked: 1" and a Metrics line. COMMIT verdict + checkpoint + evidence with a narrow pathspec on p1/u10w.
+- Return: verdict, sha, one line per failing criterion (or "all pass").
