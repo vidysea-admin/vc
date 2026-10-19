@@ -525,6 +525,19 @@ test("the committed clips drive a full scripted run through the default manifest
   assert.equal(n, 19);
 });
 
+test("ISS-330: a manifest saved with a leading UTF-8 BOM loads exactly like one without (Windows editors and PowerShell add one)", () => {
+  const plain = writeManifest();
+  const raw = readFileSync(plain, "utf-8");
+  // the clip files sit next to the plain manifest, so write the BOM copy beside them
+  const beside = join(plain, "..", "manifest-bom.json");
+  writeFileSync(beside, "\uFEFF" + raw, "utf-8");
+  assert.equal(readFileSync(beside)[0], 0xef, "the fixture really starts with a BOM");
+  const a = loadSyntheticCrisisClips(plain);
+  const b = loadSyntheticCrisisClips(beside);
+  assert.deepEqual(b, a);
+  assert.equal(b.length, 20);
+});
+
 test("a caller-supplied realBody still wins (the shared A24 harness contract is unchanged)", async () => {
   const s = setup();
   const deps: RunnerDeps = { ...s.deps, realBody: async (run) => (run.charge(1), { custom: true }) };

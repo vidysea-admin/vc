@@ -106,7 +106,7 @@ export function loadSyntheticCrisisClips(manifestPath: string): CrisisClip[] {
   }
   let manifest: { provenance?: unknown; generator?: unknown; sampleRateHz?: unknown; clips?: unknown };
   try {
-    manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+    manifest = JSON.parse(readFileSync(manifestPath, "utf-8").replace(/^\uFEFF/, "")); // ISS-330: one leading UTF-8 BOM (Windows editors, PowerShell) is not part of the JSON
   } catch (err) {
     throw new LiveRefusedError(`audio manifest ${manifestPath} is not valid JSON (${(err as Error).message})`);
   }
