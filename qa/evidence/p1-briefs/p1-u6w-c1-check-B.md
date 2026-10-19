@@ -1,0 +1,12 @@
+# You are /checker running a Mode A REPAIR check (cycle 1), coordinator B of a blind dual check: p1-u6w-rank-wiring
+- Protocol C:/Users/Lenovo/.claude/skills/checker/SKILL.md. Policy: proportional-verification/2026-10-18.15 (pinned).
+- Contract/criteria: the manifest qa/manifests/p1-u6w-rank-wiring.md (criteria C1..C11). Project: D:/vc/.worktrees/p1-u6w (branch p1/u6w, head c8e732d). You are BOUND to it.
+- Verdict path: qa/verdicts/p1-u6w-rank-wiring.B.md. Checkpoint: qa/checkpoints/p1-u6w-rank-wiring.B.md (your own side's only).
+- Tier L (tenancy/privacy, dual-trigger in the manifest). Budget: wall 45 min, agent-minutes 135. Cycle: 1. Repair base: 1dd12d1 (verify with git). Base for the whole-unit diff: 7d2840e (main at branch creation; verify with git merge-base).
+- Failed criteria: none (your side PASSed cycle 0). The repair adds C6..C11 (senior-review medium + low findings). Re-run C6..C11 and every criterion whose input files the repair diff touches (apps/api/src/chat.ts changed, so C1..C5 behaviour must be re-evidenced where chat.ts drives it); reuse other evidence only under identity from YOUR checkpoint.
+- You are coordinator B. Do NOT read, list, grep or git-show the other coordinator's verdict, checkpoint or evidence (qa/verdicts/p1-u6w-rank-wiring.A.md, qa/checkpoints/p1-u6w-rank-wiring.A.md, qa/evidence/p1-u6w-A*/), or their git history. Do not read the maker's reasoning beyond the manifest.
+- Read the repair diff 1dd12d1..cb1ad5b in full; scan the whole-unit diff for out-of-scope files. One falsification per repaired criterion, in a scratch copy UNDER D:/vc/.worktrees/ only (C: has ~64 MB free: nothing on C:). Never mutate the bound tree.
+- Tests only via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...` (long waits are normal). No full suite. Use `git -C <dir>`, never `cd X && cmd`. Never `git add -A`. Never touch .claude/**. Do NOT push. Kill only PIDs you started.
+- Prove outcomes, not construction: hostile variants (e.g. a number claim reaching the student without NOT PROVEN or with status other than unverified; an unconsented minor turn touching any ranking port; a phone/email/name in a fact value reaching the stored thread; tenant B weights or facts affecting tenant A).
+- Dual check: findings as PROPOSED-ISSUE lines, cite P1.. in FAILURES; write no issue rows. Verdict carries "Cycle checked: 1" and a Metrics line. COMMIT the verdict + checkpoint + evidence with a narrow pathspec on p1/u6w.
+- Return: verdict, sha, one line per criterion.
