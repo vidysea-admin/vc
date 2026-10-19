@@ -24,6 +24,7 @@
     "smoke:litellm": "tsx scripts/smoke-litellm.ts"
   },
   "dependencies": {
+    "@google/genai": "2.30.0",
     "@langchain/core": "^1.2.12",
     "@langchain/langgraph": "^1.4.17",
     "@langchain/langgraph-checkpoint-mongodb": "^1.4.1",
