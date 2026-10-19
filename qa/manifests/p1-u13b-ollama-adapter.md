@@ -8,7 +8,7 @@
 - C5 Response and error handling: JSON parse, Zod output schema, HTTP error, network error, timeout and caller abort are typed errors.
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 0 of max 2
 **Policy-Version:** proportional-verification/2026-10-18.15
 **Tier:** L (config/provider seam; pins the budget gate for paid runs)
@@ -65,3 +65,5 @@ All 10 killed, 0 survivors.
 - The runners' REAL bodies are still not wired (`RealNotWiredError`, U13b proper). This unit only supplies the selected, budget-charging provider to `realBody(run, provider)`. The default Gemini provider is still the unwired stub.
 - Env vars Umesh must set for an Ollama REAL run: `VC_G_REAL=1` (as before), `VC_REAL_MODEL=ollama:<model-id>`, `OLLAMA_API_KEY=<key>`; optional `OLLAMA_BASE_URL` (default `https://ollama.com`) and `OLLAMA_PRICE_USD_PER_MTOK`. Each paid run still needs its own go from Umesh (g-real.md per-use rule).
 - Worst-case per-request charge is about USD 0.01 at the placeholder price (2048 output tokens max); the USD 50 per run cap is therefore reached only by thousands of requests, but the cost is an upper bound, not the metered bill.
+
+**Close-out:** checked-PASS at ae46c34 (qa/verdicts/p1-u13b-ollama-adapter.md) + senior review Approve (qa/evidence/p1-briefs/p1-u13b-ollama-review-result.md on main). Issues ISS-270..277 (low) minted.
