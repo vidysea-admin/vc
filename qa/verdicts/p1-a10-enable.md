@@ -3,7 +3,7 @@
 **Cycle checked:** 0
 **Tier:** L (dependency add + paid-run gate). One checker; Dual check: no per manifest. Policy: proportional-verification/2026-10-19.16
 **Base:** 00d461d (`git merge-base origin/main p1/a10-enable`) **Head checked:** 507fc2c (code ede1e42; the manifest commit adds no product file)
-Metrics: start=2026-10-19T13:59:08+05:30 end=2026-10-19T14:40:00+05:30 suite_runs=1 mutations=10 hostile_probes=27 cycle=0 policy=proportional-verification/2026-10-19.16 lane=normal
+Metrics: start=2026-10-19T13:59:08+05:30 end=2026-10-19T14:37:29+05:30 suite_runs=1 mutations=10 hostile_probes=27 cycle=0 policy=proportional-verification/2026-10-19.16 lane=normal
 
 ## Why PASS (read first)
 C1-C7 hold on the bound head. Every command the checker re-ran is green, the 20 committed clips were re-verified independently of the loader, and each hostile variant of the brief refuses or is correctly accepted. No network, Gemini or paid call was made. One HIGH finding is NOT a defect of this unit but is the real blocker for a crisis PASS: the production `crisisGuard` misses two of the seven Hinglish phrases once they are spoken/transcribed in Devanagari (ISS-340, verified by a direct call). The builder disclosed it and did not touch the guard; this unit's contract does not cover the guard, so it does not block PASS here. A real paid run would FAIL crisis-08 and crisis-14 on the guard, not on timing. A10 overall stays NOT PROVEN.
