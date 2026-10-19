@@ -927,3 +927,9 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Why:** finish P1 fast with maximum parallel work; the team is waiting.
 **Result:** g-prod.md Answered (partial) line appended. G-PROD (c) still requires B13 signed, a passing A10 real Gemini Live voice report, g-publish answered and nights mode recorded, plus the open decisions in g-prod.md; so A10 run-live wiring (Gemini, per D-100 "later gemini") is now on the build path. ISS-229 becomes owner-accepted. ISS-135 moves from Candidates to the buildable queue.
 **Links:** qa/gates/g-prod.md, ISS-135, ISS-229, ISS-260..263, D-100, U13b
+
+## D-102 | 2026-10-19 | type: decision | status: ACTIVE
+**What:** Umesh's go-live answers of 2026-10-19: (1) nights mode FINAL = tele-manas-disclosed (option b), chosen for minimum liability; human-alert route stays disabled. (2) Minors: anyone may use VC; verifiable parental consent is owned by the consent team [ASSUMPTION: the consent team operates it before a minor's data is processed]. (3) Go for the first paid REAL text runs on Ollama, synthetic inputs only, within D-100 caps. (4) Owner sign-off delegated for items already validated by a checker PASS ("jo jo validate hai usko sign off kr dena"); legal (B13) sign-off is NOT delegable to the agent and stays with counsel/Umesh.
+**Why:** Umesh, chat 2026-10-19, to reach go-live fast with minimum liability.
+**Result:** qa/gates/nights.md, g-prod.md, g-real.md carry Answered lines citing D-102.
+**Links:** qa/gates/nights.md, qa/gates/g-prod.md, qa/gates/g-real.md, D-100, D-101
