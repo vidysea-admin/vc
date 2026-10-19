@@ -3,7 +3,7 @@
  *  every one is hard-stopped by the A24 budget guard and still writes an abort report. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, existsSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, existsSync, readdirSync, writeFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseP1Args, P1_LEDGER, type P1Args, type RunnerDeps, type RunnerOutcome } from "./run-eval.js";
@@ -272,4 +272,177 @@ test("U13b the USD 200 per-month cap also stops Ollama runs across runs", async 
   assert.deepEqual(statuses, ["completed", "completed", "completed", "completed", "aborted-budget"]);
   assert.equal(calls.length, 4, "the fifth request is never sent");
   assert.ok(monthSpendUsd(readLedger(ledger), NOW()) <= 200);
+});
+
+// ---------------------------------------------------------------------------
+// p1-ollama-actual-tokens (D-103): prompt_eval_count / eval_count -> ledger actual lines + per-runner report sums.
+// MOCKED fetch only.
+// ---------------------------------------------------------------------------
+function fakeOllamaCounts(counts: (n: number) => Record<string, unknown>): { fetchImpl: typeof fetch; calls: number[] } {
+  const calls: number[] = [];
+  const fetchImpl = (async () => {
+    calls.push(calls.length);
+    return new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify({ answer: "ok" }) }, done: true, ...counts(calls.length) }), { status: 200 });
+  }) as typeof fetch;
+  return { fetchImpl, calls };
+}
+
+for (const [name, run] of RUNNERS) {
+  test(`${name}: p1-ollama-actual-tokens present counts are recorded per call in the ledger and summed in the report (json + md), USD labelled notional`, async () => {
+    const { outDir, ledger } = tmp();
+    const { fetchImpl } = fakeOllamaCounts((n) => ({ prompt_eval_count: 1000 * n, eval_count: 100 * n }));
+    const outcome = await run(
+      { ...parseP1Args(["--real"]), outDir, ledger },
+      {
+        env: OLLAMA_ENV,
+        gateFile: GATE,
+        now: NOW,
+        fetchImpl,
+        realBody: async (_b, provider) => {
+          await ask(provider);
+          await ask(provider);
+          return {};
+        },
+      },
+    );
+    assert.equal(outcome.status, "completed");
+    const entries = readLedger(ledger);
+    assert.deepEqual(entries.map((e) => e.kind), ["start", "charge", "actual", "charge", "actual", "end"], "reservation first, then the actual line, per request");
+    const actuals = entries.filter((e) => e.kind === "actual");
+    assert.deepEqual(actuals.map((e) => [e.actual, e.actualInTokens, e.actualOutTokens]), [["reported", 1000, 100], ["reported", 2000, 200]]);
+    // table price for glm-5.3-flash is 1 / 4 USD per MTok
+    assert.deepEqual(actuals.map((e) => e.actualUsd), [(1000 * 1 + 100 * 4) / 1e6, (2000 * 1 + 200 * 4) / 1e6]);
+    const reserved = entries.filter((e) => e.kind === "charge").map((e) => e.usd);
+    assert.deepEqual(actuals.map((e) => e.reservedUsd), reserved);
+    const usage = (outcome.report as { usage: Record<string, unknown> }).usage;
+    assert.deepEqual(usage, {
+      backend: "ollama",
+      usdBasis: "notional",
+      reportedCalls: 2,
+      unreportedCalls: 0,
+      actualInTokens: 3000,
+      actualOutTokens: 300,
+      actualUsd: (3000 * 1 + 300 * 4) / 1e6,
+      unreportedReservedUsd: 0,
+    });
+    assert.match(outcome.markdown, /actual input tokens 3000, output tokens 300/);
+    assert.match(outcome.markdown, /notional/);
+    const onDisk = JSON.parse(readFileSync(join(outDir, readdirSync(outDir).find((f) => f.endsWith(".json"))!), "utf-8"));
+    assert.deepEqual(onDisk.usage, usage);
+    assert.equal(monthSpendUsd(entries, NOW()), (outcome.report as { spentUsd: number }).spentUsd, "the cap figure is still the reservation total");
+  });
+
+  test(`${name}: p1-ollama-actual-tokens missing / negative / string counts are 'unreported' (reservation kept, never zero) in ledger and report`, async () => {
+    const { outDir, ledger } = tmp();
+    const shapes: Record<string, unknown>[] = [{}, { prompt_eval_count: -3, eval_count: 5 }, { prompt_eval_count: "12", eval_count: 5 }];
+    const { fetchImpl } = fakeOllamaCounts((n) => shapes[n - 1]!);
+    const outcome = await run(
+      { ...parseP1Args(["--real"]), outDir, ledger },
+      {
+        env: OLLAMA_ENV,
+        gateFile: GATE,
+        now: NOW,
+        fetchImpl,
+        realBody: async (_b, provider) => {
+          for (let i = 0; i < 3; i++) await ask(provider);
+          return {};
+        },
+      },
+    );
+    assert.equal(outcome.status, "completed");
+    const entries = readLedger(ledger);
+    const actuals = entries.filter((e) => e.kind === "actual");
+    assert.equal(actuals.length, 3);
+    for (const a of actuals) {
+      assert.equal(a.actual, "unreported");
+      assert.equal(a.actualInTokens, undefined);
+      assert.equal(a.actualUsd, undefined);
+      assert.ok((a.reservedUsd ?? 0) > 0, "the reservation figure is kept, not zero");
+    }
+    const reservedTotal = entries.filter((e) => e.kind === "charge").reduce((s, e) => s + (e.usd ?? 0), 0);
+    const usage = (outcome.report as { usage: Record<string, number> }).usage;
+    assert.equal(usage["reportedCalls"], 0);
+    assert.equal(usage["unreportedCalls"], 3);
+    assert.equal(usage["actualInTokens"], 0);
+    assert.ok(Math.abs((usage["unreportedReservedUsd"] ?? 0) - reservedTotal) < 1e-9);
+    assert.match(outcome.markdown, /3 unreported/);
+  });
+
+  test(`${name}: p1-ollama-actual-tokens the reservation still caps: tiny reported actuals do not free headroom, and the refused request is never sent`, async () => {
+    const { outDir, ledger } = tmp();
+    const { fetchImpl, calls } = fakeOllamaCounts(() => ({ prompt_eval_count: 1, eval_count: 1 }));
+    const outcome = await run(
+      { ...parseP1Args(["--real"]), outDir, ledger },
+      {
+        env: { ...OLLAMA_ENV, OLLAMA_PRICE_USD_PER_MTOK: "10000,10000" }, // ~USD 20.5 per request reservation
+        gateFile: GATE,
+        now: NOW,
+        fetchImpl,
+        realBody: async (_b, provider) => {
+          for (let i = 0; i < 5; i++) await ask(provider);
+          return {};
+        },
+      },
+    );
+    assert.equal(outcome.status, "aborted-budget");
+    assert.equal(calls.length, 2, "the third reservation (~61 USD) refuses before its request");
+    const written = JSON.parse(readFileSync(join(outDir, readdirSync(outDir).find((f) => f.endsWith(".json"))!), "utf-8"));
+    assert.equal(written.cap, "per-run");
+    assert.equal(written.usage.reportedCalls, 2, "the abort report still shows the actuals recorded before the stop");
+    assert.equal(written.usage.actualInTokens, 2);
+  });
+}
+
+test("p1-ollama-actual-tokens: the default (no VC_REAL_MODEL) path has no usage section and no actual lines", async () => {
+  const { outDir, ledger } = tmp();
+  const outcome = await runKb({ ...parseP1Args(["--real"]), outDir, ledger }, { env: { VC_G_REAL: "1" }, gateFile: GATE, now: NOW, realBody: async () => ({}) });
+  assert.equal(outcome.status, "completed");
+  assert.equal("usage" in (outcome.report as object), false);
+  assert.equal(readLedger(ledger).some((e) => e.kind === "actual"), false);
+  assert.doesNotMatch(outcome.markdown, /notional/);
+});
+
+test("p1-ollama-actual-tokens: end to end, a ledger that rejects the actual append (read-only file) does not discard the response: one charge line for that call, the run completes, the report counts it as unreported", async () => {
+  const { outDir, ledger } = tmp();
+  let n = 0;
+  const fetchImpl = (async () => {
+    n += 1;
+    if (n === 1) chmodSync(ledger, 0o444); // the ledger refuses the actual append that follows this response
+    return new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify({ answer: "ok" }) }, done: true, prompt_eval_count: 40, eval_count: 6 }), { status: 200 });
+  }) as typeof fetch;
+  const answers: unknown[] = [];
+  try {
+    const outcome = await runKb(
+      { ...parseP1Args(["--real"]), outDir, ledger },
+      {
+        env: OLLAMA_ENV,
+        gateFile: GATE,
+        now: NOW,
+        fetchImpl,
+        realBody: async (_b, provider) => {
+          answers.push(await ask(provider));
+          chmodSync(ledger, 0o666);
+          answers.push(await ask(provider));
+          return {};
+        },
+      },
+    );
+    assert.equal(outcome.status, "completed");
+    assert.deepEqual(answers, [{ answer: "ok" }, { answer: "ok" }], "the first, already-paid response was returned");
+    const entries = readLedger(ledger);
+    assert.equal(entries.filter((e) => e.kind === "charge").length, 2, "one charge per request, no re-charge");
+    assert.equal(entries.filter((e) => e.kind === "actual").length, 1, "only the second call's actual line exists");
+    const usage = (outcome.report as { usage: Record<string, number> }).usage;
+    assert.equal(usage["reportedCalls"], 1);
+    assert.equal(usage["unreportedCalls"], 1, "the call whose actual could not be written counts as unreported");
+    assert.equal(usage["actualInTokens"], 40);
+    const firstReserved = entries.filter((e) => e.kind === "charge")[0]!.usd!;
+    assert.ok(Math.abs(usage["unreportedReservedUsd"]! - firstReserved) < 1e-9, "it keeps its reservation figure");
+  } finally {
+    try {
+      chmodSync(ledger, 0o666);
+    } catch {
+      // ledger never created
+    }
+  }
 });

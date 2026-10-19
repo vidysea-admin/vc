@@ -215,6 +215,15 @@ export function writeP1Report(outDir: string, base: string, report: unknown, mar
   ];
 }
 
+/** D-103: the report block for an Ollama run's actual token usage. The Spend line above it is the pre-request reservation total (what the caps count). */
+function usageMarkdown(u: { reportedCalls: number; unreportedCalls: number; actualInTokens: number; actualOutTokens: number; actualUsd: number; unreportedReservedUsd: number }): string {
+  return [
+    `Ollama actual usage (this runner): ${u.reportedCalls} calls reported, ${u.unreportedCalls} unreported; actual input tokens ${u.actualInTokens}, output tokens ${u.actualOutTokens}.`,
+    `Actual USD ${u.actualUsd} is notional (actual tokens x the table/override price, not an invoice); the Spend figure above is the pre-request reservation upper bound that the caps count.` +
+      (u.unreportedCalls > 0 ? ` The ${u.unreportedCalls} unreported calls keep their reservation figure (USD ${u.unreportedReservedUsd} in total), never zero.` : ""),
+  ].join("\n");
+}
+
 /** The REAL path every runner shares: G-REAL gate -> wired? -> budget guard -> report (or abort report). */
 export async function runRealPath(
   runner: string,
@@ -246,23 +255,41 @@ export async function runRealPath(
       ...(deps.now ? { now: deps.now } : {}),
       ...(deps.estimateUsd !== undefined ? { estimateUsd: deps.estimateUsd } : {}),
     },
-    (run) => realBody(run, makeOllama?.((estimate) => run.charge(estimate.estimatedCostUsd))),
+    (run) =>
+      realBody(
+        run,
+        makeOllama?.(
+          (estimate) => run.charge(estimate.estimatedCostUsd),
+          // D-103: record the response's own token counts next to the reservation just charged (informational; the cap uses the reservation).
+          (usage) =>
+            run.recordActual({
+              reservedUsd: usage.estimate.estimatedCostUsd,
+              ...(usage.inputTokens !== undefined ? { inputTokens: usage.inputTokens } : {}),
+              ...(usage.outputTokens !== undefined ? { outputTokens: usage.outputTokens } : {}),
+              ...(usage.usd !== undefined ? { usd: usage.usd } : {}),
+            }),
+        ),
+      ),
   );
+  // D-103: per-runner sums of the actual tokens the Ollama responses reported (ollama runs only).
+  const usage = makeOllama && result.usage ? { backend: "ollama" as const, usdBasis: "notional" as const, ...result.usage } : undefined;
   if (result.status === "aborted-budget") {
-    const report = { status: result.status, runner, spentUsd: result.spentUsd, cap: result.cap, limitUsd: result.limitUsd };
-    const markdown = toAbortMarkdown({
-      runner,
-      spentUsd: result.spentUsd,
-      ...(result.cap ? { cap: result.cap } : {}),
-      ...(result.limitUsd !== undefined ? { limitUsd: result.limitUsd } : {}),
-    });
+    const report = { status: result.status, runner, spentUsd: result.spentUsd, cap: result.cap, limitUsd: result.limitUsd, ...(usage ? { usage } : {}) };
+    const markdown =
+      toAbortMarkdown({
+        runner,
+        spentUsd: result.spentUsd,
+        ...(result.cap ? { cap: result.cap } : {}),
+        ...(result.limitUsd !== undefined ? { limitUsd: result.limitUsd } : {}),
+      }) + (usage ? `\n${usageMarkdown(usage)}\n` : "");
     return { runner, mode: "real", status: "aborted-budget", report, markdown, files: writeP1Report(args.outDir, base, report, markdown) };
   }
   const rich = result.value instanceof RealReport ? result.value : undefined;
-  const report = { status: result.status, runner, spentUsd: result.spentUsd, result: rich ? rich.value : result.value };
+  const report = { status: result.status, runner, spentUsd: result.spentUsd, result: rich ? rich.value : result.value, ...(usage ? { usage } : {}) };
+  const usageNote = usage ? `\n${usageMarkdown(usage)}\n` : "";
   const markdown = rich
-    ? `${rich.markdown.trimEnd()}\n\nSpend: USD ${result.spentUsd}.\n`
-    : `# ${runner}: real run completed\n\nSpend: USD ${result.spentUsd}. Result recorded in the JSON report.\n`;
+    ? `${rich.markdown.trimEnd()}\n\nSpend: USD ${result.spentUsd}.\n${usageNote}`
+    : `# ${runner}: real run completed\n\nSpend: USD ${result.spentUsd}. Result recorded in the JSON report.\n${usageNote}`;
   return { runner, mode: "real", status: "completed", report, markdown, files: writeP1Report(args.outDir, base, report, markdown) };
 }
 

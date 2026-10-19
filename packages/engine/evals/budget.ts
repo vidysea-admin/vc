@@ -11,6 +11,13 @@
  *  - Spend is recorded per charge, append-only, to a JSONL ledger (crash-safe: a killed run keeps
  *    what it already spent). A corrupt ledger line, or a charge whose usd is not a finite number
  *    >= 0, fails closed: undercounting spend would defeat the cap.
+ *  - D-103: after a response that reports its token counts, `BudgetRun.recordActual` appends an `actual`
+ *    line (actualInTokens / actualOutTokens / actualUsd next to the reservation it was made under). It is
+ *    informational: month/run spend and the cap check keep using the pre-request reservation (`charge`),
+ *    so actuals can never loosen a cap. Counts that are missing or invalid are recorded `actual:
+ *    "unreported"` with the reservation figure, never as zero. A failed append of an `actual` line is tallied in memory as
+ *    unreported (the response was already paid for) and never re-charged; a TORN trailing line (process killed
+ *    mid-append) fails `readLedger` closed like any corrupt line, so the next run refuses until it is repaired.
  *  - The read-check-append of every charge/start is serialised across processes by an exclusive
  *    lock file next to the ledger, so concurrent runners cannot jointly overshoot a cap.
  */
@@ -67,11 +74,33 @@ export interface LedgerEntry {
   ts: string;
   runId: string;
   runner: string;
-  kind: "start" | "charge" | "abort" | "end";
+  kind: "start" | "charge" | "abort" | "end" | "actual";
   /** Only meaningful for `charge`. */
   usd?: number;
+  /** `actual` lines only (D-103): "reported" = both token counts were valid; "unreported" = reservation kept, no figures. */
+  actual?: "reported" | "unreported";
+  actualInTokens?: number;
+  actualOutTokens?: number;
+  /** Actual tokens x the table/override price; notional for a hosted-key model. */
+  actualUsd?: number;
+  /** The pre-request reservation (the `charge` usd) this `actual` line belongs to. */
+  reservedUsd?: number;
   cap?: BudgetCap;
   status?: "completed" | "aborted-budget" | "error";
+}
+
+const isCount = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
+const isUsd = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
+
+function validateActualEntry(e: LedgerEntry): void {
+  if (!isUsd(e.reservedUsd)) throw new Error("actual entry without a finite reservedUsd >= 0");
+  if (e.actual === "reported") {
+    if (!isCount(e.actualInTokens) || !isCount(e.actualOutTokens) || !isUsd(e.actualUsd)) {
+      throw new Error("reported actual entry without integer token counts >= 0 and a finite actualUsd >= 0");
+    }
+  } else if (e.actual !== "unreported") {
+    throw new Error(`actual entry with unknown actual flag ${JSON.stringify(e.actual)}`);
+  }
 }
 
 export function readLedger(path: string): LedgerEntry[] {
@@ -86,6 +115,7 @@ export function readLedger(path: string): LedgerEntry[] {
       if (parsed.kind === "charge" && (typeof parsed.usd !== "number" || !Number.isFinite(parsed.usd) || parsed.usd < 0)) {
         throw new Error("charge entry without a finite usd >= 0");
       }
+      if (parsed.kind === "actual") validateActualEntry(parsed);
       entries.push(parsed);
     } catch (err) {
       throw new Error(`budget ledger ${path}:${i + 1} is corrupt (${(err as Error).message}); refusing to run rather than undercount spend`);
@@ -166,9 +196,30 @@ function checkCap(name: string, value: number): number {
   return value;
 }
 
+/** D-103: what one response reported, next to the reservation it was made under. Valid figures or "unreported" (never zero). */
+export interface ActualUsage {
+  /** The pre-request reservation (the amount passed to `charge`) for this request. */
+  reservedUsd: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  /** Actual tokens x price. */
+  usd?: number;
+}
+
+/** Per-run sums of recorded actuals; unreported calls are counted and keep their reservation, never zero. */
+export interface UsageSummary {
+  reportedCalls: number;
+  unreportedCalls: number;
+  actualInTokens: number;
+  actualOutTokens: number;
+  actualUsd: number;
+  unreportedReservedUsd: number;
+}
+
 export class BudgetRun {
   spentUsd = 0;
   aborted = false;
+  private readonly usage: UsageSummary = { reportedCalls: 0, unreportedCalls: 0, actualInTokens: 0, actualOutTokens: 0, actualUsd: 0, unreportedReservedUsd: 0 };
   constructor(
     readonly runId: string,
     readonly runner: string,
@@ -179,6 +230,41 @@ export class BudgetRun {
   charge(usd: number): void {
     if (!Number.isFinite(usd) || usd < 0) throw new RangeError(`charge must be a finite number >= 0, got ${usd}`);
     this.guard.charge(this, usd);
+  }
+
+  /**
+   * D-103: record what a response actually reported, AFTER its `charge`. Never changes `spentUsd`, the
+   * month spend or any cap check. Missing / non-integer / negative / non-finite figures are recorded as
+   * "unreported" (reservation kept), never as zero.
+   */
+  recordActual(usage: ActualUsage): void {
+    if (!isUsd(usage.reservedUsd)) throw new RangeError(`reservedUsd must be a finite number >= 0, got ${usage.reservedUsd}`);
+    const reported = isCount(usage.inputTokens) && isCount(usage.outputTokens) && isUsd(usage.usd);
+    // A failed append must not lose the call: it is still tallied (as unreported, keeping its reservation) and the
+    // error is rethrown after the tally. The reservation was already charged, so nothing is ever re-charged.
+    let appendError: unknown;
+    let appended = true;
+    try {
+      this.guard.recordActual(this, usage, reported);
+    } catch (err) {
+      appended = false;
+      appendError = err;
+    }
+    const u = this.usage;
+    if (reported && appended) {
+      u.reportedCalls += 1;
+      u.actualInTokens += usage.inputTokens!;
+      u.actualOutTokens += usage.outputTokens!;
+      u.actualUsd = Math.round((u.actualUsd + usage.usd!) * 1e9) / 1e9;
+    } else {
+      u.unreportedCalls += 1;
+      u.unreportedReservedUsd = Math.round((u.unreportedReservedUsd + usage.reservedUsd) * 1e6) / 1e6;
+    }
+    if (!appended) throw appendError;
+  }
+
+  usageSummary(): UsageSummary {
+    return { ...this.usage };
   }
 }
 
@@ -256,6 +342,21 @@ export class BudgetGuard {
     run.spentUsd = runWould;
   }
 
+  /** @internal called by BudgetRun.recordActual; locked so a concurrent reader never sees a half-written line. */
+  recordActual(run: BudgetRun, usage: ActualUsage, reported: boolean): void {
+    this.locked(() =>
+      this.append({
+        runId: run.runId,
+        runner: run.runner,
+        kind: "actual",
+        reservedUsd: usage.reservedUsd,
+        ...(reported
+          ? { actual: "reported" as const, actualInTokens: usage.inputTokens!, actualOutTokens: usage.outputTokens!, actualUsd: usage.usd! }
+          : { actual: "unreported" as const }),
+      }),
+    );
+  }
+
   /** @internal */
   end(run: BudgetRun, status: "completed" | "aborted-budget" | "error"): void {
     this.append({ runId: run.runId, runner: run.runner, kind: "end", status });
@@ -281,6 +382,8 @@ export interface RealResult<T> {
   cap?: BudgetCap;
   limitUsd?: number;
   runner: string;
+  /** D-103: sums of the actual-token lines recorded during the run (absent when the run never started). */
+  usage?: UsageSummary;
 }
 
 /**
@@ -308,11 +411,11 @@ export async function executeReal<T>(options: ExecuteRealOptions, body: (run: Bu
   try {
     const value = await body(run);
     guard.end(run, "completed");
-    return { status: "completed", value, spentUsd: run.spentUsd, runner: options.runner };
+    return { status: "completed", value, spentUsd: run.spentUsd, runner: options.runner, usage: run.usageSummary() };
   } catch (err) {
     if (err instanceof BudgetExceededError) {
       guard.end(run, "aborted-budget");
-      return { status: "aborted-budget", spentUsd: run.spentUsd, cap: err.cap, limitUsd: err.limitUsd, runner: options.runner };
+      return { status: "aborted-budget", spentUsd: run.spentUsd, cap: err.cap, limitUsd: err.limitUsd, runner: options.runner, usage: run.usageSummary() };
     }
     try {
       guard.end(run, "error");
