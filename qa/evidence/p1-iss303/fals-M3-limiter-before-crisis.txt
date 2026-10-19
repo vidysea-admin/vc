@@ -1,0 +1,32 @@
+[testlock] running slot 1 (free RAM 4.04 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-303 tests/chat.test.ts
+✔ ISS-303: the authenticated chat body cap is the 64 KiB scan budget of the anonymous route (ISS-300), not 256 KiB (2.4807ms)
+✔ ISS-303: a turn body over the cap is a 413 that still carries the helpline, never scanned, no model, nothing stored, whatever the crisis phrase position (148.0761ms)
+✔ ISS-303: a crisis phrase at the start, middle or end of a body inside the cap, far over the 4000-character turn limit, gets the fixed crisis answer (566.7639ms)
+✖ ISS-303: a student already over the rate limit who sends a long (inside the cap) crisis message still gets the crisis answer; a plain message is 429 (81.9446ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4654.8682
+
+✖ failing tests:
+
+test at tests\chat.test.ts:477:1
+✖ ISS-303: a student already over the rate limit who sends a long (inside the cap) crisis message still gets the crisis answer; a plain message is 429 (81.9446ms)
+  AssertionError [ERR_ASSERTION]: start
+  
+  429 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss303-fals\apps\api\tests\chat.test.ts:487:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 429,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,34 @@
+[testlock] running slot 1 (free RAM 3.79 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-303 tests/chat.test.ts
+✔ ISS-303: the authenticated chat body cap is the 64 KiB scan budget of the anonymous route (ISS-300), not 256 KiB (2.4669ms)
+✖ ISS-303: a turn body over the cap is a 413 that still carries the helpline, never scanned, no model, nothing stored, whatever the crisis phrase position (51.0445ms)
+✔ ISS-303: a crisis phrase at the start, middle or end of a body inside the cap, far over the 4000-character turn limit, gets the fixed crisis answer (401.6393ms)
+✔ ISS-303: a student already over the rate limit who sends a long (inside the cap) crisis message still gets the crisis answer; a plain message is 429 (374.6786ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6784.7136
+
+✖ failing tests:
+
+test at tests\chat.test.ts:427:1
+✖ ISS-303: a turn body over the cap is a 413 that still carries the helpline, never scanned, no model, nothing stored, whatever the crisis phrase position (51.0445ms)
+  AssertionError [ERR_ASSERTION]: 100 KiB start: a 413 carries the helpline
+  + actual - expected
+  
+  + undefined
+  - 'If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.'
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss303-fals\apps\api\tests\chat.test.ts:440:16)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

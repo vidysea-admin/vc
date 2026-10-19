@@ -1,0 +1,10 @@
+[testlock] running slot 1 (free RAM 4.94 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-303: a student already over the rate limit tests/chat.test.ts
+✔ ISS-303: a student already over the rate limit who sends a long (inside the cap) crisis message still gets the crisis answer; a plain message is 429 (365.356ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3335.2643
