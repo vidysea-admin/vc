@@ -23,3 +23,4 @@ frozen-fixture work).
 **Answer format:** chat reply. The maker appends `Answered: <ISO> - <option> - <caps>` here.
 
 **Answered:** 2026-10-19T10:41:00+05:30 - (a) approved - Umesh (chat, 2026-10-19): paid real-model eval runs approved via API keys: Ollama-hosted GLM 5.3 Flash and DeepSeek 4.1 Flash now, Gemini models later. Caps [ASSUMPTION, not named by Umesh]: the proposed USD 50 per run / USD 200 per month. Inputs synthetic or anonymised only (B13). Recorded in D-100.
+Answered: 2026-10-19T13:59:46+05:30 - per-run go for the first REAL text runs (Ollama, synthetic inputs only, caps per D-100) - Umesh in chat: "go for the paid run"; D-102

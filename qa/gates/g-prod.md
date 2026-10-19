@@ -25,3 +25,4 @@ voice (needs item 2); (d) hold.
 **Answer format:** chat reply. The maker appends `Answered: <ISO> - <option> - <decisions above>` here.
 
 **Answered (partial):** 2026-10-19T11:54:02+05:30 - (c) all three incl. voice - Umesh (chat, 2026-10-19). Prerequisites still open before the go-live script will enable anything: B13 signed, A10 voice report passing, g-publish answered, nights mode recorded; and the decisions above (minors before DPDP counsel, clinical-safety owner, Tele-MANAS test call) are still unanswered. Recorded in D-101.
+Answered: 2026-10-19T13:59:46+05:30 - minors: anyone can use; verifiable parental consent (DPDP s.9) is owned by the consent team [ASSUMPTION: consent team operates it before minors' data is processed] - Umesh in chat: "anyone can use, kyuki consent team le legi hum ye maan rhe hi"; D-102

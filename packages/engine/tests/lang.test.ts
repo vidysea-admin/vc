@@ -1,0 +1,349 @@
+/**
+ * P1 LK4 (D-104, D-105): language detection (model-based, offline script fallback), the VC_REPLY_LANGS allow-list, the fixed-text
+ * catalog and the crisis message catalog, and their use in the student graph. The crisis guard runs first on the original text and a
+ * crisis turn makes no model call (B24.7).
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { MockProvider, type GenerateRequest, type LlmProvider } from "@vc/providers";
+import {
+  ANONYMOUS_CRISIS_MESSAGE,
+  CRISIS_FORBIDDEN_PATTERNS,
+  STUDENT_CRISIS_MESSAGE,
+  NO_SOURCED_ANSWER_TEXT,
+  runStudentTurn,
+  type StudentGraphDeps,
+} from "../src/student/graph.js";
+import {
+  CRISIS_MESSAGES,
+  DEFAULT_REPLY_LANGS,
+  FIXED_TEXTS,
+  LANG_DETECT_TIMEOUT_MS,
+  crisisMessageFor,
+  createModelLanguageDetector,
+  detectLanguageOffline,
+  detectScript,
+  fixedText,
+  parseReplyLangs,
+  resolveReplyLang,
+  type CrisisCatalog,
+  type DetectedLanguage,
+} from "../src/student/lang.js";
+import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const AUTH = { role: "student" as const, studentId: "syn-stu-lk4", tenantId: "sandbox" };
+
+// ---------------------------------------------------------------------------
+// C1: detection fixtures for each script, Latin Hinglish and mixed text (offline fallback)
+// ---------------------------------------------------------------------------
+
+const SCRIPT_FIXTURES: [string, string, string, string][] = [
+  // [name, text, script, lang]
+  ["English", "What is the tuition at German public universities?", "latin", "en"],
+  ["Latin Hinglish", "mujhe germany ke universities ke baare mein batao, kya requirements hain", "hi-Latn-script", "hi-Latn"],
+  ["Devanagari Hindi", "जर्मनी की सरकारी यूनिवर्सिटी में फीस कितनी है", "devanagari", "hi"],
+  ["Bengali", "জার্মানির বিশ্ববিদ্যালয়ে পড়ার খরচ কত", "bengali", "bn"],
+  ["Gurmukhi", "ਜਰਮਨੀ ਦੀਆਂ ਯੂਨੀਵਰਸਿਟੀਆਂ ਦੀ ਫੀਸ ਕਿੰਨੀ ਹੈ", "gurmukhi", "pa"],
+  ["Gujarati", "જર્મનીની યુનિવર્સિટીમાં ફી કેટલી છે", "gujarati", "gu"],
+  ["Odia", "ଜର୍ମାନୀର ବିଶ୍ୱବିଦ୍ୟାଳୟରେ ଫି କେତେ", "odia", "or"],
+  ["Tamil", "ஜெர்மனி பல்கலைக்கழகங்களில் கட்டணம் எவ்வளவு", "tamil", "ta"],
+  ["Telugu", "జర్మనీ విశ్వవిద్యాలయాల్లో ఫీజు ఎంత", "telugu", "te"],
+  ["Kannada", "ಜರ್ಮನಿಯ ವಿಶ್ವವಿದ್ಯಾಲಯಗಳಲ್ಲಿ ಶುಲ್ಕ ಎಷ್ಟು", "kannada", "kn"],
+  ["Malayalam", "ജർമ്മനിയിലെ സർവകലാശാലകളിൽ ഫീസ് എത്ര", "malayalam", "ml"],
+  ["Urdu (Arabic script)", "جرمنی کی یونیورسٹیوں میں فیس کتنی ہے", "arabic", "ur"],
+  ["Devanagari-majority mixed", "मुझे Germany में MS करना है, कौन सी university अच्छी है", "devanagari", "hi"],
+  ["Latin-majority mixed", "I want to study in Germany, मुझे लगता है it is cheap and good for engineering", "latin", "en"],
+];
+
+for (const [name, text, script, lang] of SCRIPT_FIXTURES) {
+  test(`C1 offline detection: ${name}`, () => {
+    const d = detectLanguageOffline(text);
+    assert.equal(d.lang, lang);
+    assert.equal(d.source, "script");
+    assert.equal(d.script, script === "hi-Latn-script" ? "latin" : script);
+  });
+}
+
+test("C1 offline detection: a Latin turn with one Hinglish word stays English; digits or empty text are English with low confidence", () => {
+  assert.equal(detectLanguageOffline("The main campus is in Munich").lang, "en");
+  const empty = detectLanguageOffline("12345 !!!");
+  assert.equal(empty.lang, "en");
+  assert.ok(empty.confidence < 0.5);
+  assert.equal(detectScript("12345"), "other");
+});
+
+// ---------------------------------------------------------------------------
+// C2: model-based detector with the offline fallback
+// ---------------------------------------------------------------------------
+
+function detectorProvider(response: unknown | ((input: unknown) => unknown)): MockProvider {
+  return new MockProvider({ responses: { "lang-detect": response as never } });
+}
+
+test("C2 model detector: returns the model's language, source model, and sends only the (truncated) text", async () => {
+  const provider = detectorProvider({ lang: "ta", confidence: 0.97 });
+  const detect = createModelLanguageDetector(provider);
+  const d = await detect("ஜெர்மனி பல்கலைக்கழகங்களில் கட்டணம் எவ்வளவு".repeat(40));
+  assert.equal(d.lang, "ta");
+  assert.equal(d.source, "model");
+  assert.equal(d.script, "tamil", "the script is always the deterministic one");
+  assert.equal(provider.calls.length, 1);
+  assert.equal(provider.calls[0]!.skillName, "lang-detect");
+  const input = provider.calls[0]!.input as { text: string };
+  assert.ok(input.text.length <= 400, "only a bounded prefix of the student text is sent");
+});
+
+test("C2 model detector: Latin Hinglish from the model is normalised to hi-Latn; a regional tag collapses to its base", async () => {
+  const hing = await createModelLanguageDetector(detectorProvider({ lang: "hinglish", confidence: 0.9 }))("mujhe germany ke baare mein batao");
+  assert.equal(hing.lang, "hi-Latn");
+  const regional = await createModelLanguageDetector(detectorProvider({ lang: "en-IN", confidence: 0.9 }))("What is the tuition fee");
+  assert.equal(regional.lang, "en");
+});
+
+test("C2 fallback: a provider error, an invalid answer, a timeout and a script-inconsistent answer each fall back to the offline result", async () => {
+  const text = "जर्मनी की सरकारी यूनिवर्सिटी में फीस कितनी है";
+  const offline = detectLanguageOffline(text);
+  const fallbacks: string[] = [];
+  const opts = { timeoutMs: 40, onFallback: (why: string) => void fallbacks.push(why) };
+
+  const throwing: LlmProvider = { kind: "mock", model: "x", generate: async () => { throw new Error("chain down"); } };
+  const invalid = detectorProvider({ nonsense: true });
+  const hangs: LlmProvider = {
+    kind: "mock",
+    model: "x",
+    generate: <T>(req: GenerateRequest<T>) =>
+      new Promise<T>((_, reject) => req.signal?.addEventListener("abort", () => reject(new Error("aborted")))),
+  };
+  const wrongScript = detectorProvider({ lang: "en", confidence: 0.99 }); // "English" for Devanagari text
+
+  for (const p of [throwing, invalid, hangs, wrongScript]) {
+    const d = await createModelLanguageDetector(p, opts)(text);
+    assert.equal(d.lang, offline.lang);
+    assert.equal(d.source, "script");
+  }
+  assert.equal(fallbacks.length, 4);
+  assert.deepEqual(fallbacks.sort(), ["error", "inconsistent", "invalid", "timeout"].sort());
+});
+
+test("C2 fallback: the default timeout is short (1.5 s) and a hung model never holds the turn longer than that", async () => {
+  assert.equal(LANG_DETECT_TIMEOUT_MS, 1500);
+  const hangs: LlmProvider = { kind: "mock", model: "x", generate: () => new Promise<never>(() => {}) };
+  const t0 = Date.now();
+  const d = await createModelLanguageDetector(hangs, { timeoutMs: 60 })("What is the tuition");
+  assert.ok(Date.now() - t0 < 1000);
+  assert.equal(d.source, "script");
+});
+
+// ---------------------------------------------------------------------------
+// C3: allow-list
+// ---------------------------------------------------------------------------
+
+test("C3 allow-list: default en,hi,hi-Latn; any other detected language maps to en", () => {
+  assert.deepEqual([...DEFAULT_REPLY_LANGS], ["en", "hi", "hi-Latn"]);
+  assert.deepEqual(parseReplyLangs(undefined), [...DEFAULT_REPLY_LANGS]);
+  assert.deepEqual(parseReplyLangs(""), [...DEFAULT_REPLY_LANGS]);
+  const allowed = parseReplyLangs(undefined);
+  const d = (lang: string): DetectedLanguage => ({ lang, script: "latin", confidence: 1, source: "model" });
+  assert.equal(resolveReplyLang(d("hi"), allowed), "hi");
+  assert.equal(resolveReplyLang(d("hi-Latn"), allowed), "hi-Latn");
+  assert.equal(resolveReplyLang(d("en"), allowed), "en");
+  for (const other of ["ta", "bn", "te", "ur", "fr", "mr", "und", ""]) assert.equal(resolveReplyLang(d(other), allowed), "en", other);
+});
+
+test("C3 allow-list: VC_REPLY_LANGS narrows or is ignored when garbage; en is always allowed", () => {
+  assert.deepEqual(parseReplyLangs("en,hi"), ["en", "hi"]);
+  assert.deepEqual(parseReplyLangs(" HI , hi-latn "), ["en", "hi", "hi-Latn"]);
+  assert.deepEqual(parseReplyLangs("hi"), ["en", "hi"]);
+  assert.deepEqual(parseReplyLangs("ta,xx"), ["en"], "an unsupported tag is not allowed (only en remains)");
+  assert.equal(resolveReplyLang({ lang: "hi-Latn", script: "latin", confidence: 1, source: "model" }, parseReplyLangs("en,hi")), "en");
+});
+
+// ---------------------------------------------------------------------------
+// C4: crisis message catalog: en and hi only, every entry passes the substring fixture
+// ---------------------------------------------------------------------------
+
+test("C4 catalog: only en and hi entries; every entry (student and anonymous) passes the substring fixture", () => {
+  assert.deepEqual(Object.keys(CRISIS_MESSAGES).sort(), ["en", "hi"]);
+  for (const [lang, entry] of Object.entries(CRISIS_MESSAGES)) {
+    for (const mode of ["student", "anonymous"] as const) {
+      const msg = entry[mode];
+      assert.ok(msg.includes("14416"), `${lang}/${mode}: helpline number`);
+      assert.match(msg, /not a counsellor/i, `${lang}/${mode}: it is not a counsellor`);
+      assert.match(msg, /no counsellor from our side is\s+being connected/i, `${lang}/${mode}: no counsellor is being connected`);
+      assert.ok(CRISIS_FORBIDDEN_PATTERNS.every((p) => !p.test(msg)), `${lang}/${mode}: forbidden phrases`);
+    }
+    assert.ok(entry.student.includes("safe adult"), `${lang}: student entry asks the safe-adult question`);
+    assert.ok(entry.student.includes("?"));
+    assert.ok(!entry.anonymous.includes("Who is a safe adult"), `${lang}: anonymous entry asks no identity question`);
+  }
+});
+
+test("C4 catalog: the existing approved wording is the English entry, byte for byte; other languages get English+Hindi (the same message)", () => {
+  assert.equal(CRISIS_MESSAGES.en.student, STUDENT_CRISIS_MESSAGE);
+  assert.equal(CRISIS_MESSAGES.en.anonymous, ANONYMOUS_CRISIS_MESSAGE);
+  for (const lang of ["ta", "bn", "und", "fr"]) {
+    assert.equal(crisisMessageFor(lang, "student"), STUDENT_CRISIS_MESSAGE);
+    assert.equal(crisisMessageFor(lang, "anonymous"), ANONYMOUS_CRISIS_MESSAGE);
+  }
+  assert.match(STUDENT_CRISIS_MESSAGE, /[ऀ-ॿ]/, "the English fixed message carries the Hindi helpline text");
+});
+
+test("C4 catalog routing: a vetted entry is returned for its language (hi and hi-Latn), anything else gets the English+Hindi fallback", () => {
+  const catalog: CrisisCatalog = {
+    en: { student: "EN-S 14416", anonymous: "EN-A 14416" },
+    hi: { student: "HI-S 14416", anonymous: "HI-A 14416" },
+  };
+  assert.equal(crisisMessageFor("hi", "student", catalog), "HI-S 14416");
+  assert.equal(crisisMessageFor("hi-Latn", "anonymous", catalog), "HI-A 14416");
+  assert.equal(crisisMessageFor("en", "student", catalog), "EN-S 14416");
+  assert.equal(crisisMessageFor("ta", "student", catalog), STUDENT_CRISIS_MESSAGE);
+  assert.equal(crisisMessageFor("ta", "anonymous", catalog), ANONYMOUS_CRISIS_MESSAGE);
+});
+
+test("C4 fixed-text catalog: English entries equal the graph constants and any other language falls back to English", () => {
+  assert.equal(FIXED_TEXTS.en.noAnswer, NO_SOURCED_ANSWER_TEXT);
+  assert.equal(fixedText("hi", "noAnswer"), NO_SOURCED_ANSWER_TEXT);
+  assert.equal(fixedText("ta", "apology"), FIXED_TEXTS.en.apology);
+  assert.equal(fixedText("en", "helpline"), FIXED_TEXTS.en.helpline);
+});
+
+// ---------------------------------------------------------------------------
+// C5/C6: the graph. Crisis first on the original text, no model call on a crisis turn, escalation lang correct
+// ---------------------------------------------------------------------------
+
+const CRISIS_EN = "I just want to kill myself, nothing matters anymore.";
+const CRISIS_HINGLISH = "ab jeene ka mann nahi karta, sab khatam kar dena chahta hoon";
+const CRISIS_HINDI = "मैं आत्महत्या करना चाहता हूँ";
+
+function graphDeps(over: Partial<StudentGraphDeps> = {}) {
+  const escalations: { turns: { lang: string; text: string }[] }[] = [];
+  const detected: string[] = [];
+  const provider = studentProvider();
+  const d: StudentGraphDeps = {
+    kb: fakeKb(),
+    provider,
+    skillsDir: SKILLS_DIR,
+    speakers: SPEAKERS,
+    now: () => NOW,
+    hasPriorFlag: NO_PRIOR_FLAG,
+    escalate: async (i) => void escalations.push(i as never),
+    detectLanguage: async (text) => {
+      detected.push(text);
+      return { lang: "ta", script: "tamil", confidence: 0.9, source: "model" };
+    },
+    ...over,
+  };
+  return { d, escalations, detected, provider };
+}
+const authTurn = (text: string) => ({ mode: "authenticated" as const, auth: AUTH, threadId: "th-lk4", turnId: "tu-lk4", text });
+
+test("C5 crisis turns (English, Hinglish, Hindi; student and anonymous) never reach the language detector or any model", async () => {
+  for (const text of [CRISIS_EN, CRISIS_HINGLISH, CRISIS_HINDI]) {
+    const a = graphDeps();
+    const out = await runStudentTurn(a.d, authTurn(text));
+    assert.equal(out.response.state, "escalated", text);
+    assert.deepEqual(a.detected, [], "the detector never sees a crisis turn");
+    assert.equal(a.provider.calls.length, 0);
+    const b = graphDeps();
+    const anon = await runStudentTurn(b.d, { mode: "anonymous", text });
+    assert.equal(anon.response.state, "escalated", text);
+    assert.deepEqual(b.detected, []);
+    assert.equal(b.provider.calls.length, 0);
+  }
+});
+
+test("C5 a crisis turn is never delayed or broken by a detector that would hang or throw", async () => {
+  const a = graphDeps({ detectLanguage: () => new Promise<never>(() => {}) });
+  const out = await runStudentTurn(a.d, authTurn(CRISIS_HINDI));
+  assert.equal(out.response.message, STUDENT_CRISIS_MESSAGE);
+  const b = graphDeps({ detectLanguage: async () => { throw new Error("boom"); } });
+  assert.equal((await runStudentTurn(b.d, { mode: "anonymous", text: CRISIS_EN })).response.message, ANONYMOUS_CRISIS_MESSAGE);
+});
+
+test("C5 escalation lang is the detected language: Devanagari hi, Latin Hinglish hi-Latn, English en", async () => {
+  const cases: [string, string][] = [[CRISIS_HINDI, "hi"], [CRISIS_HINGLISH, "hi-Latn"], [CRISIS_EN, "en"]];
+  for (const [text, lang] of cases) {
+    const a = graphDeps();
+    const out = await runStudentTurn(a.d, authTurn(text));
+    assert.equal(a.escalations.length, 1);
+    assert.equal(a.escalations[0]!.turns[0]!.lang, lang, text);
+    assert.equal(a.escalations[0]!.turns[0]!.text, text, "the ORIGINAL text is escalated");
+    assert.equal(out.detectedLang, lang);
+  }
+});
+
+test("C5 the crisis message for a language comes from the catalog (injected vetted entry for hi, fallback for English)", async () => {
+  const catalog: CrisisCatalog = {
+    en: { student: STUDENT_CRISIS_MESSAGE, anonymous: ANONYMOUS_CRISIS_MESSAGE },
+    hi: { student: "HI-VETTED-S 14416", anonymous: "HI-VETTED-A 14416" },
+  };
+  const hi = await runStudentTurn(graphDeps({ crisisMessages: catalog }).d, authTurn(CRISIS_HINDI));
+  assert.equal(hi.response.message, "HI-VETTED-S 14416");
+  const hing = await runStudentTurn(graphDeps({ crisisMessages: catalog }).d, { mode: "anonymous", text: CRISIS_HINGLISH });
+  assert.equal(hing.response.message, "HI-VETTED-A 14416");
+  const en = await runStudentTurn(graphDeps({ crisisMessages: catalog }).d, authTurn(CRISIS_EN));
+  assert.equal(en.response.message, STUDENT_CRISIS_MESSAGE);
+});
+
+test("C6 an ordinary turn: the detector sees the original text once, and the reply language is allow-listed (ta -> en)", async () => {
+  const text = "What is the tuition at German public universities?";
+  const a = graphDeps();
+  const out = await runStudentTurn(a.d, authTurn(text));
+  assert.deepEqual(a.detected, [text]);
+  assert.equal(out.detectedLang, "ta");
+  assert.equal(out.replyLang, "en");
+  assert.equal(out.response.state, "ok");
+});
+
+test("C6 an ordinary turn in Hindi / Hinglish keeps its language when allowed, and narrowing VC_REPLY_LANGS sends it to en", async () => {
+  const hi = graphDeps({ detectLanguage: async () => ({ lang: "hi", script: "devanagari", confidence: 0.9, source: "model" }) });
+  assert.equal((await runStudentTurn(hi.d, authTurn("जर्मनी में फीस कितनी है"))).replyLang, "hi");
+  const hing = graphDeps({ detectLanguage: async () => ({ lang: "hi-Latn", script: "latin", confidence: 0.9, source: "model" }) });
+  assert.equal((await runStudentTurn(hing.d, authTurn("germany mein fees kitni hai"))).replyLang, "hi-Latn");
+  const narrow = graphDeps({ detectLanguage: async () => ({ lang: "hi", script: "devanagari", confidence: 0.9, source: "model" }), replyLangs: ["en"] });
+  assert.equal((await runStudentTurn(narrow.d, authTurn("जर्मनी में फीस कितनी है"))).replyLang, "en");
+});
+
+test("C6 with no detector wired, or a detector that throws, the offline script result is used and the turn is answered", async () => {
+  const none = graphDeps();
+  delete (none.d as { detectLanguage?: unknown }).detectLanguage;
+  const out = await runStudentTurn(none.d, authTurn("जर्मनी की सरकारी यूनिवर्सिटी में फीस कितनी है"));
+  assert.equal(out.replyLang, "hi");
+  assert.equal(out.detectedLang, "hi");
+  const boom = graphDeps({ detectLanguage: async () => { throw new Error("chain down"); } });
+  const out2 = await runStudentTurn(boom.d, authTurn("What is the tuition at German public universities?"));
+  assert.equal(out2.replyLang, "en");
+  assert.equal(out2.response.state, "ok");
+});
+
+test("C6 the detector does not see the text before the crisis guard: a non-crisis turn reaches it only after the crisis node cleared it", async () => {
+  const order: string[] = [];
+  const a = graphDeps({
+    detectLanguage: async (t) => {
+      order.push(`detect:${t.slice(0, 4)}`);
+      return { lang: "en", script: "latin", confidence: 1, source: "model" };
+    },
+    escalate: async () => void order.push("escalate"),
+  });
+  await runStudentTurn(a.d, authTurn("What is the tuition at German public universities?"));
+  await runStudentTurn(a.d, authTurn(CRISIS_EN));
+  assert.deepEqual(order, ["detect:What", "escalate"]);
+});
+
+// ---------------------------------------------------------------------------
+// C7: both isDevanagari copies are gone (graph.ts, apps/api voice.ts)
+// ---------------------------------------------------------------------------
+
+test("C7 no inline Devanagari language test is left in the student graph or the voice escalation", () => {
+  const graph = readFileSync(join(here, "../src/student/graph.ts"), "utf8");
+  const voice = readFileSync(join(here, "../../../apps/api/src/voice.ts"), "utf8");
+  assert.ok(!/isDevanagari/.test(graph), "graph.ts has no isDevanagari");
+  assert.ok(!/\\u0900-\\u097F|ऀ-ॿ/.test(graph), "graph.ts has no inline Devanagari range");
+  assert.ok(!/\\u0900-\\u097F|ऀ-ॿ/.test(voice), "voice.ts has no inline Devanagari range");
+  assert.ok(/detectLanguageOffline/.test(voice), "voice.ts uses the shared detector");
+  assert.ok(/detectLanguageOffline/.test(graph), "graph.ts uses the shared detector");
+});

@@ -48,6 +48,26 @@ import { STRESS_CHECK_IN, crisisGuard, stressSignal, type CrisisLevel } from "..
 import { noScriptGuard } from "../guards/no-script.js";
 import { findPersonalIdentifiers, hasVerbatimRun, noQuoteGuard, redactPersonalIdentifiers, type SpeakersFile } from "../guards/no-quote.js";
 import { loadSkill } from "../skills/loader.js";
+import {
+  ANONYMOUS_CRISIS_MESSAGE,
+  ANONYMOUS_NO_ANSWER_TEXT,
+  ANONYMOUS_SIGN_IN_TEXT,
+  CRISIS_MESSAGES,
+  DEFAULT_REPLY_LANGS,
+  LANG_DETECT_TIMEOUT_MS,
+  NO_SOURCED_ANSWER_TEXT,
+  PROVIDER_APOLOGY_TEXT,
+  SIGN_IN_REQUIRED_TEXT,
+  STUDENT_CRISIS_MESSAGE,
+  TELE_MANAS_LINE,
+  crisisMessageFor,
+  detectLanguageOffline,
+  resolveReplyLang,
+  type CrisisCatalog,
+  type DetectedLanguage,
+  type LanguageDetector,
+  type ReplyLang,
+} from "./lang.js";
 import { classifyIntent, classifyQuestion, type StudentIntentTool } from "./classify.js";
 import {
   DEFAULT_STALE_AFTER_MONTHS,
@@ -66,34 +86,18 @@ import {
 // Fixed texts (B24.2, B24.7, A12)
 // ---------------------------------------------------------------------------
 
-/** Same text as mcp/university-kb NO_SOURCED_ANSWER_TEXT (a test keeps them equal). */
-export const NO_SOURCED_ANSWER_TEXT = "I don't have a sourced answer for this yet.";
-export const PROVIDER_APOLOGY_TEXT = "Sorry, I couldn't put an answer together just now. Please try again.";
-export const SIGN_IN_REQUIRED_TEXT =
-  "This sounds like a question about your own situation. Please sign in through Pathlynks so I can help with it properly.";
-export const TELE_MANAS_LINE = "If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.";
-/**
- * U7 repair D: the crisis phrase list is recall-only and misses indirect phrasing ("thinking about ending things"), and an anonymous
- * turn that falls through to a non-answer would otherwise leave the student with nothing. Every anonymous non-answer reply therefore
- * carries the helpline line. Authenticated texts are unchanged.
- */
-export const ANONYMOUS_SIGN_IN_TEXT = `${SIGN_IN_REQUIRED_TEXT} ${TELE_MANAS_LINE}`;
-export const ANONYMOUS_NO_ANSWER_TEXT = `${NO_SOURCED_ANSWER_TEXT} ${TELE_MANAS_LINE}`;
-
-const CRISIS_CORE =
-  "I'm really glad you told me. What you're going through matters, and you deserve support right now. " +
-  "Please call Tele-MANAS on 14416. It is free, open 24x7, and the people there are trained for exactly this " +
-  "(Tele-MANAS: 14416, मुफ़्त, 24x7). I'm an AI guide, not a counsellor, and no counsellor from our side is " +
-  "being connected right now, so Tele-MANAS is the best next step. If you are in danger right now, please tell " +
-  "a trusted adult near you.";
-
-/** Authenticated student, Nights mode `tele-manas-disclosed` (qa/gates/nights.md): asks for the safe adult. */
-export const STUDENT_CRISIS_MESSAGE =
-  `${CRISIS_CORE} Who is a safe adult you could talk to today, like a parent, relative or teacher? ` +
-  "I'm still here, and you can keep talking to me.";
-
-/** Anonymous mode: the same hand-off, no identity questions. */
-export const ANONYMOUS_CRISIS_MESSAGE = `${CRISIS_CORE} I'm still here, and you can keep talking to me.`;
+// The fixed texts and the crisis messages now live in ./lang.ts (the fixed-text catalog, LK4 / D-105); re-exported so every
+// existing importer (`@vc/engine`, tests) keeps the same names.
+export {
+  NO_SOURCED_ANSWER_TEXT,
+  PROVIDER_APOLOGY_TEXT,
+  SIGN_IN_REQUIRED_TEXT,
+  TELE_MANAS_LINE,
+  ANONYMOUS_SIGN_IN_TEXT,
+  ANONYMOUS_NO_ANSWER_TEXT,
+  STUDENT_CRISIS_MESSAGE,
+  ANONYMOUS_CRISIS_MESSAGE,
+};
 
 /** B24.7 / A11b forbidden list: none of these may ever reach a student after a flag. */
 export const CRISIS_FORBIDDEN_PATTERNS: readonly RegExp[] = [
@@ -250,6 +254,15 @@ export interface StudentGraphDeps {
   logFlag?: (record: CrisisFlagRecord) => Promise<void>;
   /** The existing escalation path (production: `(i) => escalateTurns(db, i, escalationDeps)`). */
   escalate?: (input: { sessionId: string; studentId: string; turns: { turnId: string; speaker: string; lang: string; text: string; translatedText: string }[] }) => Promise<unknown>;
+  /**
+   * LK4 (D-105): the model-based language detector (production: `createModelLanguageDetector(chain)`). It is called only on a turn the
+   * crisis guard has already cleared, never on a crisis turn. A missing, failing or slow detector falls back to the offline script test.
+   */
+  detectLanguage?: LanguageDetector;
+  /** LK4: the reply-language allow-list (`VC_REPLY_LANGS`, see `parseReplyLangs`). Default en, hi, hi-Latn. */
+  replyLangs?: readonly string[];
+  /** LK4: the vetted crisis messages (default `CRISIS_MESSAGES`); a test injects its own. */
+  crisisMessages?: CrisisCatalog;
   /** The anonymous text-free aggregate counter (B24.6); U7 wires the single counter writer. */
   countAnonymous?: (kind: AnonymousCounterKind) => Promise<void>;
   /**
@@ -351,6 +364,10 @@ export interface StudentTurnResult {
   claimSourceKinds: SourceKind[];
   /** A flag-log or escalation write failed; the fixed message was still shown. */
   flagWriteFailed?: boolean;
+  /** LK4: the language detected for this turn (a crisis turn: the offline script result). */
+  detectedLang?: string;
+  /** LK4: the language the reply is written in: the detected language when allow-listed, else en. */
+  replyLang?: ReplyLang;
 }
 
 const KbAnswerOutputSchema = z.object({
@@ -377,6 +394,9 @@ export const StudentTurnState = Annotation.Root({
   salvagedLevel: last<CrisisLevel | undefined>(),
   /** U6h M4: derived server-side by the route node (authenticated mode only). */
   priorFlag: last<boolean>(),
+  /** LK4: set by the crisis node (offline) or the route node (model detector), attached to the result by finish. */
+  detectedLang: last<string | undefined>(),
+  replyLang: last<ReplyLang | undefined>(),
 });
 type State = typeof StudentTurnState.State;
 
@@ -391,14 +411,29 @@ const emptyResponse = (input: StudentTurnInput, state: TurnResponse["state"], me
   profileFactsUsed: [],
 });
 
-const isDevanagari = (t: string) => /[ऀ-ॿ]/.test(t);
-
 export function buildStudentGraph(deps: StudentGraphDeps) {
   // U6h fix1 M4b: the durable prior-flag read is not optional. A JS caller or a cast that leaves it out gets a loud failure here,
   // not a graph that quietly trusts process memory.
   if (typeof deps.hasPriorFlag !== "function") throw new Error("StudentGraphDeps.hasPriorFlag is required (the durable crisis-flag read)");
   const config: StudentGraphConfig = { ...DEFAULT_CONFIG, ...deps.config };
   const now = deps.now ?? (() => new Date());
+  const replyLangs = deps.replyLangs ?? DEFAULT_REPLY_LANGS;
+  const crisisMessages = deps.crisisMessages ?? CRISIS_MESSAGES;
+  /** LK4: the model detector with a hard stop; any failure or overrun is the offline script result (the turn never waits on it). */
+  const detectLanguage = async (text: string): Promise<DetectedLanguage> => {
+    if (!deps.detectLanguage) return detectLanguageOffline(text);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const guard = new Promise<undefined>((resolve) => {
+        timer = setTimeout(() => resolve(undefined), LANG_DETECT_TIMEOUT_MS + 500);
+      });
+      return (await Promise.race([deps.detectLanguage(text), guard])) ?? detectLanguageOffline(text);
+    } catch {
+      return detectLanguageOffline(text);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
   const manifestPrompt = loadSkill(deps.skillsDir, CAPABILITY_MANIFEST_SKILL);
   assertManifestMatches(manifestPrompt);
   const kbAnswerPrompt = loadSkill(deps.skillsDir, KB_ANSWER_SKILL);
@@ -483,13 +518,17 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       const input = s.input;
       const guard = { level: s.salvagedLevel ?? crisisGuard(input.text).level };
       if (guard.level === "none") return {};
+      // LK4: a crisis turn makes no model call. Its language is the offline script result, which picks the vetted message.
+      const lang = detectLanguageOffline(input.text);
+      const langState = { detectedLang: lang.lang, replyLang: resolveReplyLang(lang, replyLangs) };
       // B24.7: unsure / indirect / Hinglish count as the higher level; with no connected counsellor on
       // the student surface every flag is handled as crisis.
       if (input.mode === "anonymous") {
         const counted = await count("crisis");
         return {
+          ...langState,
           result: {
-            response: emptyResponse(input, "escalated", ANONYMOUS_CRISIS_MESSAGE),
+            response: emptyResponse(input, "escalated", crisisMessageFor(lang.lang, "anonymous", crisisMessages)),
             guardLevel: guard.level,
             claimSourceKinds: [],
             ...(counted ? {} : { flagWriteFailed: true }),
@@ -519,13 +558,14 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
               deps.escalate!({
                 sessionId: input.threadId,
                 studentId: input.auth.studentId,
-                turns: [{ turnId: input.turnId, speaker: "student", lang: isDevanagari(input.text) ? "hi" : "en", text: input.text, translatedText: input.text }],
+                turns: [{ turnId: input.turnId, speaker: "student", lang: lang.lang, text: input.text, translatedText: input.text }],
               })
           : undefined,
       );
       return {
+        ...langState,
         result: {
-          response: emptyResponse(input, "escalated", STUDENT_CRISIS_MESSAGE),
+          response: emptyResponse(input, "escalated", crisisMessageFor(lang.lang, "student", crisisMessages)),
           guardLevel: guard.level,
           claimSourceKinds: [],
           ...(logged && escalated ? {} : { flagWriteFailed: true }),
@@ -534,14 +574,17 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     })
     .addNode(STUDENT_NODES.route, async (s: State) => {
       const input = s.input;
+      // LK4: only a turn the crisis guard cleared gets here, so the detector (a model call) never sees a crisis turn.
+      const detected = await detectLanguage(input.text);
+      const langState = { detectedLang: detected.lang, replyLang: resolveReplyLang(detected, replyLangs) };
       if (input.mode === "anonymous") {
         if (classifyQuestion(input.text).class !== "generic") {
           await count("sign_in_required");
-          return { result: { response: emptyResponse(input, "sign_in_required", ANONYMOUS_SIGN_IN_TEXT), claimSourceKinds: [] } };
+          return { ...langState, result: { response: emptyResponse(input, "sign_in_required", ANONYMOUS_SIGN_IN_TEXT), claimSourceKinds: [] } };
         }
-        return { tool: "search_kb" as const };
+        return { ...langState, tool: "search_kb" as const };
       }
-      return { tool: classifyIntent(input.text), priorFlag: await readPriorFlag(input) };
+      return { ...langState, tool: classifyIntent(input.text), priorFlag: await readPriorFlag(input) };
     })
     .addNode(STUDENT_NODES.answer, async (s: State) => ({ result: await answerFromKb(s.input, Boolean(s.priorFlag)) }))
     .addNode(STUDENT_NODES.coach, async (s: State) => ({ result: await coach(s.input, Boolean(s.priorFlag)) }))
@@ -551,7 +594,8 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     })
     .addNode(STUDENT_NODES.finish, (s: State) => {
       if (!s.result) throw new Error("student graph reached finish without a result");
-      return { result: finish(s.input, s.result, Boolean(s.priorFlag)) };
+      const done = finish(s.input, s.result, Boolean(s.priorFlag));
+      return { result: { ...done, ...(s.detectedLang ? { detectedLang: s.detectedLang } : {}), ...(s.replyLang ? { replyLang: s.replyLang } : {}) } };
     })
     .addEdge(START, STUDENT_NODES.gate)
     .addEdge(STUDENT_NODES.gate, STUDENT_NODES.crisis)

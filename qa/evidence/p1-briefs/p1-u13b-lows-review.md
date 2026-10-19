@@ -1,0 +1,2 @@
+# senior review — U13b evals-lows (read-only). Diff: `git -C D:/vc/.worktrees/p1-u13b-lows diff origin/main...p1/u13b-lows -- packages`.
+Focus: refusal paths happen before any ledger write/network call; h2h withholding cannot leak which side is VC (sheet ordering, counts, key); ProvenanceSchema reuse does not change mock-mode behaviour; golden header parsing robust (BOM/CRLF/blank first line). Return Approve / Warning / Block with file:line at >80% confidence. Write result to D:/vc/qa/evidence/p1-briefs/p1-u13b-lows-review-result.md (do not commit). No edits elsewhere.

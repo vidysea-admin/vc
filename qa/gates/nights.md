@@ -14,7 +14,7 @@ The proposal prices this as people, not software: one 24x7 seat is about 4 to 5 
   so; the bot never promises a counsellor it cannot deliver.
 
 Nights-mode: tele-manas-disclosed
-Mode-status: INTERIM (applies until the CEO answers; recorded because spec A20 accepts it meanwhile)
+Mode-status: FINAL (Umesh 2026-10-19: minimal liability; D-102)
 Human-alert-route: NOT ENABLED
 
 **Blocks:** enabling the human-alert route (only under `funded`). It does not block building or the go-live script, which
@@ -26,3 +26,4 @@ Tele-MANAS hand-off and promises no counsellor (contract B24.7, spec A11b).
 wishes at level 3.
 **Answer format:** the CEO's answer relayed by Umesh. The maker appends `Answered: <ISO> - <a|b> - <who>` and replaces the
 `Nights-mode:` and `Mode-status:` lines above (the A20 script reads `Nights-mode:`; U5a may adjust the format and must say so).
+Answered: 2026-10-19T13:59:46+05:30 - b (tele-manas-disclosed) - Umesh in chat: "keep the minimal so that liability too remaining minimum"; D-102
