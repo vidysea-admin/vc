@@ -790,3 +790,63 @@ test("D the default dropped-entry logger writes the tags, never anything else, t
   assert.match(lines[0]!, /VC_REPLY_LANGS/);
   assert.match(lines[0]!, /\bta\b/);
 });
+
+// ---------------------------------------------------------------------------
+// LK5b (D-106 rule (a) follow-up): spelled-out figures, ordinals, months and bare currency/unit words; NFC follow-up; DOMAIN_RE cost
+// ---------------------------------------------------------------------------
+
+test("B1 (LK5b): English sentences with a spelled-out figure, ordinal, month, or bare currency/unit word are factual", () => {
+  for (const s of [
+    "Fees are eighty euros a semester.", "The programme lasts thirteen months.", "It takes nineteen weeks.", "Roughly ninety percent are admitted.",
+    "Tuition is seventy euros.", "Tuition: Eighty Euros", "The deadline is the first of March.", "Pay in yen.",
+    "It takes seventy-five days.", "Around two hundred places.", "A fee of one hundred and twenty dollars.", "About ten lakh rupees.", "Ten crore people apply.",
+    "Roughly 5 per cent.", "A tenth of applicants.", "The twentieth of June.", "Pay in yuan or francs.", "Costs in kronor.", "Costs in krona.", "Paid in won.", "About a million applicants.",
+    "Applications open in October.", "Applications open in May.", "Pay in rand.", "Pay in pounds.", "Pay in a euro account.", "Only zero tuition.", "In the 1st year.", "The thousandth student.",
+  ]) assert.equal(isFactualSentence(s), true, s);
+  for (const s of ["Good luck with your plans!", "That is a great question.", "It is a good option.", "Beauty courses are offered.", "You may apply when ready.", "Which cities are you considering?"]) {
+    assert.equal(isFactualSentence(s), false, s);
+  }
+});
+
+test("B1 (LK5b): localizedClaimText gives the English wording end to end for every review example", () => {
+  const cases: [string, string][] = [
+    ["Fees are eighty euros a semester.", "फीस प्रति सेमेस्टर अस्सी यूरो है।"],
+    ["The programme lasts thirteen months.", "प्रोग्राम तेरह महीने का है।"],
+    ["It takes nineteen weeks.", "इसमें उन्नीस हफ़्ते लगते हैं।"],
+    ["Roughly ninety percent are admitted.", "लगभग नब्बे प्रतिशत को प्रवेश मिलता है।"],
+    ["Tuition is seventy euros.", "ट्यूशन सत्तर यूरो है।"],
+    ["Tuition: Eighty Euros", "ट्यूशन: अस्सी यूरो"],
+    ["The deadline is the first of March.", "अंतिम तिथि एक मार्च है।"],
+    ["Pay in yen.", "येन में भुगतान करें।"],
+    ["The fee is eighty euros.", "फीस अस्सी यूरो है।"],
+  ];
+  for (const [en, hi] of cases) assert.equal(localizedClaimText(en, hi, "hi", []), en, en);
+  // a fact-free sentence next to a factual one is still localized
+  assert.equal(
+    localizedClaimText("Good luck with your plans! Fees are eighty euros.", "आपकी योजनाओं के लिए शुभकामनाएँ! फीस अस्सी यूरो है।", "hi", []),
+    "आपकी योजनाओं के लिए शुभकामनाएँ! Fees are eighty euros.",
+  );
+});
+
+test("B2 (LK5b): a precomposed-nukta localized follow-up is not falsely rejected (compared NFC to NFC)", async () => {
+  const fl = "आप कौन-से शहर \u095B्यादा पसंद करेंगे?"; // U+095B precomposed: NFC turns it into U+091C U+093C
+  assert.notEqual(fl, fl.normalize("NFC"));
+  const a = build({}, answer({ followUp: "Which cities are you considering?", followUpLocalized: fl }));
+  const m = (await runStudentTurn(a.d, authTurn(HI_Q))).response.message!;
+  assert.ok(m.normalize("NFC").includes(fl.normalize("NFC")), m);
+  assert.ok(!m.includes("Which cities"), m);
+  assert.ok(m.includes(HI_LOCAL), m);
+});
+
+test("B3 (LK5b): a 2000-char unbroken Devanagari claim is classified fast (DOMAIN_RE skipped when there is no dot)", () => {
+  const long = "शिक्षा".repeat(333) + "अ".repeat(2);
+  assert.ok(long.length >= 2000);
+  const t0 = performance.now();
+  const r = isFactualSentence(long);
+  const ms = performance.now() - t0;
+  assert.equal(r, false);
+  assert.ok(ms < 50, `took ${ms.toFixed(1)} ms`);
+  // a dot variant still triggers the host scan
+  assert.equal(isFactualSentence("देखें शिक्षा。भारत"), true);
+  assert.equal(isFactualSentence("see daad.de"), true);
+});

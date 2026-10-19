@@ -235,13 +235,16 @@ function linksIn(text: string): Set<string> {
   const out = new Set<string>();
   // The ideographic, fullwidth, halfwidth and one-dot-leader full stops act as "." in a host (LK5 repair 2).
   let rest = text.normalize("NFC").replace(/[。．｡․]/g, ".");
-  for (const re of [URL_RE, EMAIL_RE]) {
+  // LK5b B3: EMAIL_RE backtracks quadratically on a long unbroken word, so it runs only when an "@" is there (a URL needs "//" or "www.").
+  for (const [re, needle] of [[URL_RE, /\/\/|www\./i], [EMAIL_RE, /@/]] as const) {
+    if (!needle.test(rest)) continue;
     rest = rest.replace(re, (m) => {
       out.add(linkKey(m));
       return " ";
     });
   }
-  for (const m of rest.matchAll(DOMAIN_RE)) out.add(linkKey(m[0]));
+  // LK5b B3: a host needs a dot; skip the (backtracking) scan for dot-free text such as a long unbroken Devanagari sentence.
+  if (rest.includes(".")) for (const m of rest.matchAll(DOMAIN_RE)) out.add(linkKey(m[0]));
   return out;
 }
 
@@ -323,18 +326,39 @@ export function countriesInLocalized(text: string): string[] {
 /** ISO 4217 codes of currencies a counselling answer plausibly names (whole upper-case token; "USA"/"UK" are not codes). */
 const ISO_CURRENCY_RE =
   /(?<![\p{L}\p{N}])(?:EUR|USD|GBP|INR|JPY|CNY|RMB|AUD|CAD|NZD|SGD|AED|CHF|SEK|NOK|DKK|PLN|CZK|HUF|KRW|MYR|RUB|HKD|ZAR|BDT|NPR|LKR|PKR|THB|IDR|PHP|TRY|SAR|QAR|KWD|BRL|MXN|ILS|UAH|KZT|GEL)(?![\p{L}\p{N}])/u;
+/**
+ * LK5b (B1): an English figure written in words, an ordinal, a month, or a bare currency / unit word with no digit. Hyphenated forms
+ * ("seventy-five") match on the first word. "May" is matched capitalised only (the modal verb is not a month). Over-matching ("no one",
+ * "won the place") only gives the English wording, which is safe.
+ */
+const WORD_FACT_RE = new RegExp(
+  "(?<![\\p{L}\\p{N}])(?:" +
+    "zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|" +
+    "twenty|thirty|forty|fourty|fifty|sixty|seventy|eighty|ninety|hundreds?|thousands?|millions?|billions?|trillions?|lakhs?|lacs?|crores?|" +
+    "first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|" +
+    "(?:twent|thirt|fort|fift|sixt|sevent|eight|ninet)ieth|hundredth|thousandth|millionth|" +
+    "january|february|march|april|june|july|august|september|october|november|december|" +
+    "euros?|dollars?|pounds?|rupees?|yen|yuan|renminbi|francs?|krona|kronor|krone|kroner|won|rand|dirhams?|ringgits?|bahts?|pesos?|zlotys?|forints?|korunas?|cents?|" +
+    "percent|per\\s+cent|percentage" +
+  ")(?![\\p{L}\\p{N}])",
+  "iu",
+);
+const MAY_RE = /(?<![\p{L}\p{N}])May(?![\p{L}\p{N}])/u;
+
 /** A capitalised proper noun right after in/to/from/at/near ("in Berlin", "to Munich"): a place. Over-matching only means English. */
 const PLACE_AFTER_PREP_RE = /(?<![\p{L}\p{N}])(?:[Ii]n|[Tt]o|[Ff]rom|[Aa]t|[Nn]ear)\s+(?:the\s+)?\p{Lu}[\p{L}\p{M}]+/u;
 
 /**
  * True when a sentence carries a fact (D-106): any digit in any script (Devanagari ३०० too), a currency symbol (Unicode Sc) or ISO code,
  * a percent sign, a spelled-out figure or unit+figure that claims.ts reads, a URL / scheme-less host / e-mail (IDN hosts and dot
- * variants included), a country (claims.ts list, demonyms, Devanagari spellings), or a place after in/to/from/at/near.
+ * variants included), a country (claims.ts list, demonyms, Devanagari spellings), a place after in/to/from/at/near, or (LK5b) a spelled-out
+ * cardinal / ordinal, a month name, or a bare currency / unit word.
  */
 export function isFactualSentence(sentence: string): boolean {
   const s = sentence.normalize("NFC");
   if (/[\p{N}\p{Sc}%٪﹪％]/u.test(s)) return true;
   if (ISO_CURRENCY_RE.test(s) || PLACE_AFTER_PREP_RE.test(s)) return true;
+  if (WORD_FACT_RE.test(s) || MAY_RE.test(s)) return true;
   if (numberMentions(s).length > 0) return true;
   if (linksIn(s).size > 0) return true;
   return countriesInLocalized(s).length > 0;
