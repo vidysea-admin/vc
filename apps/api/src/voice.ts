@@ -128,6 +128,8 @@ export const VOICE_CRISIS_WRITE_ATTEMPTS = 2;
 export const VOICE_CRISIS_NO_WORDS_TEXT = "[voice crisis detected: the student's words for this turn were not captured]";
 /** U10 repair 2 (item 6): finalize waits this long for the queued transcript and crisis writes, then logs and releases the slot. */
 export const VOICE_DRAIN_TIMEOUT_MS_DEFAULT = 10_000;
+/** U10w item 3: how long a start waits for a predecessor's provider connect that is still in flight before it proceeds (and logs the overlap). */
+export const VOICE_CONNECT_OVERLAP_WAIT_MS_DEFAULT = 2_000;
 const MAX_INVALID_CLIENT_MESSAGES = 10;
 const MAX_PENDING_CONFIRMS = 20;
 
@@ -246,6 +248,8 @@ export interface VoiceApiDeps {
    * releases the slot (the writes themselves go on in the background). Default VOICE_DRAIN_TIMEOUT_MS_DEFAULT; an unref'd real timer.
    */
   drainTimeoutMs?: number;
+  /** U10w item 3: bound on a start's wait for a predecessor's in-flight provider connect (default VOICE_CONNECT_OVERLAP_WAIT_MS_DEFAULT); on expiry it proceeds and logs `voice_connect_overlap`. */
+  connectOverlapWaitMs?: number;
 }
 
 export interface VoiceRouteConfig {
@@ -465,6 +469,9 @@ interface Conn {
   flagsSent: Set<string>;
   pendingConfirms: Map<string, string>;
   finalizing?: Promise<void>;
+  /** U10w item 3: settles (never rejects) when this connection's provider connect returned or failed; `connectDone` is set at that moment. */
+  connecting?: Promise<void>;
+  connectDone?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -489,6 +496,8 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   const maxSockets = deps.maxSockets ?? VOICE_MAX_SOCKETS_DEFAULT;
   const drainTimeoutMs =
     deps.drainTimeoutMs !== undefined && Number.isFinite(deps.drainTimeoutMs) && deps.drainTimeoutMs > 0 ? deps.drainTimeoutMs : VOICE_DRAIN_TIMEOUT_MS_DEFAULT;
+  const connectOverlapWaitMs =
+    deps.connectOverlapWaitMs !== undefined && Number.isFinite(deps.connectOverlapWaitMs) && deps.connectOverlapWaitMs > 0 ? deps.connectOverlapWaitMs : VOICE_CONNECT_OVERLAP_WAIT_MS_DEFAULT;
   const timerApi: VoiceTimers = deps.timers ?? {
     setTimeout: (fn, ms) => {
       const t = setTimeout(fn, ms);
@@ -527,6 +536,10 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   const pendingFinalizers = new Set<Promise<void>>();
   /** The newest connection that is waiting its turn to take a student's slot: an older waiter steps aside for it. */
   const latestStart = new Map<string, Conn>();
+  /** U10w item 3: connections finalized while their provider connect is still in flight, per student key; the next start waits (bounded) for them. */
+  const lingering = new Map<string, Set<Conn>>();
+  /** U10w item 2: drain promises that outlived `drainTimeoutMs`; `close()` waits for them (bounded) so a shutdown does not drop in-flight crisis work. */
+  const lateWork = new Set<Promise<boolean>>();
   let liveOpen = 0;
   let shuttingDown = false;
 
@@ -738,7 +751,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   /**
    * A crisis write is never lost to one blip: it is tried VOICE_CRISIS_WRITE_ATTEMPTS times in all (one retry, mirroring the text path's
    * safeWrite) and a final failure is logged text-free under `failEvent`; it never throws, so the later sink writes and the session go on.
-   * A student fenced for erasure is not retried: the session ends, exactly as for every other write. The write is a thunk, so anything it
+   * A student fenced for erasure (StudentFencedError only) is not retried: the session ends, exactly as for every other write; a writer-deadline error is retried and logged as `<event>_deadline`. The write is a thunk, so anything it
    * builds (the escalation port included) is inside the retry: a synchronous throw is retried and logged like a rejected promise.
    * Returns how it ended, so the caller can log why a later crisis step is skipped.
    */
@@ -749,11 +762,16 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
         await write();
         return "ok";
       } catch (err) {
-        if (endIfFenced(c, err)) return "fenced";
+        // U10w item 1: ONLY a student fenced for erasure is "fenced" (no retry, session ended). A writer-deadline error says the write took too
+        // long, not that the student is fenced: it is retried like any other failure, the crisis is still escalated, and the session goes on.
+        if (err instanceof StudentFencedError) {
+          endIfFenced(c, err);
+          return "fenced";
+        }
         last = err;
       }
     }
-    logEvent(failEvent, last);
+    logEvent(last instanceof FencedWriterDeadlineError ? failEvent.replace(/_failed$/, "_deadline") : failEvent, last);
     return "failed";
   }
 
@@ -920,6 +938,18 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       // A closing connection is no longer a start waiting for the slot (U10 repair 2, item 3): an older waiter must not step aside for it.
       if (latestStart.get(c.key) === c) latestStart.delete(c.key);
       clearTimers(c);
+      // U10w item 3: a provider connect still in flight is not waited for here (a hung connect must not hold the socket or the slot), but the
+      // next start for this student waits for it (bounded), so two paid provider sessions never overlap.
+      if (c.connecting && !c.connectDone) {
+        let set = lingering.get(c.key);
+        if (!set) lingering.set(c.key, (set = new Set()));
+        set.add(c);
+        void c.connecting.then(() => {
+          const l = lingering.get(c.key);
+          l?.delete(c);
+          if (l && l.size === 0) lingering.delete(c.key);
+        });
+      }
       const session = c.session;
       if (session) {
         try {
@@ -930,21 +960,27 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
         // The queued writes (the crisis record and escalation included) go on to completion; finalize waits for them only so long
         // (item 6: an escalation port has no deadline of its own), so a hung write cannot hold the socket, the session or the slot.
         let drainTimer: ReturnType<typeof setTimeout> | undefined;
+        const drained: Promise<boolean> = session.drain().then(
+          () => false,
+          (err: unknown) => {
+            logEvent("voice_drain_failed", err);
+            return false;
+          },
+        );
         const timedOut = await Promise.race([
-          session.drain().then(
-            () => false,
-            (err: unknown) => {
-              logEvent("voice_drain_failed", err);
-              return false;
-            },
-          ),
+          drained,
           new Promise<boolean>((resolve) => {
             drainTimer = setTimeout(() => resolve(true), drainTimeoutMs);
             drainTimer.unref?.();
           }),
         ]);
         if (drainTimer !== undefined) clearTimeout(drainTimer);
-        if (timedOut) logEvent("voice_drain_timeout");
+        if (timedOut) {
+          logEvent("voice_drain_timeout");
+          // U10w item 2: the writes go on in the background; `close()` waits for them (bounded) so a shutdown cannot lose an in-flight escalation.
+          lateWork.add(drained);
+          void drained.then(() => lateWork.delete(drained));
+        }
         liveOpen--;
         c.session = undefined;
       }
@@ -994,6 +1030,27 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     const first = r.log[0] ? Number(r.log[0].eventId.slice(r.log[0].eventId.lastIndexOf(".") + 1)) : after + 1;
     if (first > after + 1) sendError(c, "resume_gap");
     for (const e of missed) rawSend(c, JSON.stringify(e), false);
+  }
+
+  /** Waits (at most connectOverlapWaitMs) for connections of this student whose provider connect is still in flight. Returns true when it waited. */
+  async function settleLingering(c: Conn): Promise<boolean> {
+    const pending = [...(lingering.get(c.key) ?? [])].filter((p) => p !== c && !p.connectDone);
+    if (pending.length === 0) return false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = await Promise.race([
+      Promise.all(pending.map((p) => p.connecting)).then(() => false),
+      new Promise<boolean>((resolve) => {
+        timer = setTimeout(() => resolve(true), connectOverlapWaitMs);
+        timer.unref?.();
+      }),
+    ]);
+    if (timer !== undefined) clearTimeout(timer);
+    if (timedOut) {
+      logEvent("voice_connect_overlap");
+      // Proceed: the overlap is bounded and logged; the late session still closes itself when its connect returns.
+      for (const p of pending) lingering.get(c.key)?.delete(p);
+    }
+    return true;
   }
 
   async function handleStart(c: Conn, threadId: string, lastEventId: string | undefined): Promise<void> {
@@ -1062,7 +1119,14 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     };
     for (;;) {
       const previous = activeByStudent.get(c.key);
-      if (!previous || previous === c) break;
+      if (!previous || previous === c) {
+        // U10w item 3: a predecessor finalized while its provider connect was still in flight has not closed its provider session yet; wait for
+        // it (bounded by connectOverlapWaitMs, logged as voice_connect_overlap when it does not return) before opening this start's own session.
+        if (!(await settleLingering(c))) break;
+        if (c.state !== "starting") return;
+        if (steppedAside()) return;
+        continue;
+      }
       sendError(previous, "superseded");
       await finalize(previous, 4000);
       if (activeByStudent.get(c.key) === previous) activeByStudent.delete(c.key); // belt and braces: a finalize that threw must not wedge the loop
@@ -1107,7 +1171,16 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
 
     let session: LiveSession;
     try {
-      session = await deps.live.connect(liveConfig(c));
+      const connecting = deps.live.connect(liveConfig(c));
+      c.connecting = connecting
+        .then(
+          () => undefined,
+          () => undefined,
+        )
+        .then(() => {
+          c.connectDone = true;
+        });
+      session = await connecting;
     } catch (err) {
       // A12: any Live failure, LiveConfigError included, is an error event; the thread and text chat are untouched.
       sendError(c, err instanceof LiveConfigError ? "live_config" : "live_unavailable");
@@ -1439,6 +1512,19 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       shuttingDown = true;
       for (const c of [...conns]) void finalize(c, 1001);
       while (pendingFinalizers.size > 0) await Promise.all([...pendingFinalizers]);
+      // U10w item 2: crisis writes and escalations that outlived a finalize's drain timeout get one more bounded wait at shutdown.
+      if (lateWork.size > 0) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timedOut = await Promise.race([
+          Promise.all([...lateWork]).then(() => false),
+          new Promise<boolean>((resolve) => {
+            timer = setTimeout(() => resolve(true), drainTimeoutMs);
+            timer.unref?.();
+          }),
+        ]);
+        if (timer !== undefined) clearTimeout(timer);
+        if (timedOut) logEvent("voice_shutdown_drain_timeout");
+      }
       if (pruneTimer !== undefined) pruneTimerApi.clearTimeout(pruneTimer);
       pruneTimer = undefined;
       retained.clear(); // nothing is resumable after shutdown, so no transcript events are kept
