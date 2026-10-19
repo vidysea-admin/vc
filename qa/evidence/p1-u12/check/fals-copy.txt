@@ -1,0 +1,19 @@
+== BEFORE (unmutated copy) ==
+✔ acceptance A5/A6/A7: a signed-in student's real turn validates against the published response schema, is stored redacted and tenant-stamped, shows in the export, and erasure leaves read-back zero through the API (316.6885ms)
+✔ trace covers every criterion of the spec exactly once, with a known status (2.7384ms)
+✔ every test file a trace row names exists in the repo, and a PASS row names at least one (7.0253ms)
+✔ every `pnpm --filter <pkg> <script>` command names a real package and a real script (0.7611ms)
+ℹ pass 4
+ℹ fail 0
+1
+== AFTER (M1 redact identity + T2 A24 row deleted) ==
+✖ acceptance A5/A6/A7: a signed-in student's real turn validates against the published response schema, is stored redacted and tenant-stamped, shows in the export, and erasure leaves read-back zero through the API (405.9911ms)
+✖ trace covers every criterion of the spec exactly once, with a known status (4.7853ms)
+✔ every test file a trace row names exists in the repo, and a PASS row names at least one (5.9997ms)
+✔ every `pnpm --filter <pkg> <script>` command names a real package and a real script (1.1014ms)
+ℹ pass 2
+ℹ fail 2
+✖ failing tests:
+✖ acceptance A5/A6/A7: a signed-in student's real turn validates against the published response schema, is stored redacted and tenant-stamped, shows in the export, and erasure leaves read-back zero through the API (405.9911ms)
+✖ trace covers every criterion of the spec exactly once, with a known status (4.7853ms)
+DONE

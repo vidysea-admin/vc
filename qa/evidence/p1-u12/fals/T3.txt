@@ -1,0 +1,7 @@
+ℹ fail 1
+ℹ pass 3
+✔ a PENDING-INTEGRATION row must name the branch that carries the proof; a NOT PROVEN or REAL row never claims files as proof (19.277ms)
+✔ every test file a trace row names exists in the repo, and a PASS row names at least one (12.6154ms)
+✔ trace covers every criterion of the spec exactly once, with a known status (2.8055ms)
+✖ every `pnpm --filter <pkg> <script>` command names a real package and a real script (2.482ms)
+✖ failing tests:

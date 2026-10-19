@@ -1,0 +1,22 @@
+== checker cycle 1 falsification (isolated copy D:/vc/.worktrees/_chk_u12_fals, src+tests synced from c86ad3a; bound tree untouched) ==
+-- F1 chat.ts:596 quiet=false (dedup broken) --
+✔ acceptance A5/A6/A7: a signed-in student's real turn validates against the published response schema, is stored redacted and tenant-stamped, shows in the export, and erasure leaves read-back zero through the API (244.5864ms)
+✖ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and write one text-free flag per thread and window (flood dedup) (286.7912ms)
+✔ acceptance hostile: a student of tenant-b cannot read, write to or erase-probe tenant-a's thread, and an under-18 student without guardian consent is answered but nothing of the text is kept (39.4303ms)
+ℹ pass 2
+ℹ fail 1
+✖ failing tests:
+✖ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and write one text-free flag per thread and window (flood dedup) (286.7912ms)
+  35 !== 1
+EXIT=1
+-- F2 chat.ts:582 slot key drops threadId (per-thread dedup broken) --
+✔ acceptance A5/A6/A7: a signed-in student's real turn validates against the published response schema, is stored redacted and tenant-stamped, shows in the export, and erasure leaves read-back zero through the API (163.7571ms)
+✖ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and write one text-free flag per thread and window (flood dedup) (311.6002ms)
+✔ acceptance hostile: a student of tenant-b cannot read, write to or erase-probe tenant-a's thread, and an under-18 student without guardian consent is answered but nothing of the text is kept (96.5717ms)
+ℹ pass 2
+ℹ fail 1
+✖ failing tests:
+✖ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and write one text-free flag per thread and window (flood dedup) (311.6002ms)
+  1 !== 2
+EXIT=1
+chat.ts in copy restored byte-identical to bound tree (diff -q clean)

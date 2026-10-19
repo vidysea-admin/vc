@@ -1,0 +1,4 @@
+int rank+coverage exit=0
+int coverage cmd exit=0
+int api exit=0
+ALLDONE

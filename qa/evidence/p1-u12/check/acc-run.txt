@@ -1,0 +1,38 @@
+2026-10-19T10:14:02+05:30
+[testlock] running slot 0 (free RAM 3.63 GB): pnpm -C apps/api exec tsx --test tests/acceptance-*.test.ts
+✔ acceptance A5/A6/A7: a signed-in student's real turn validates against the published response schema, is stored redacted and tenant-stamped, shows in the export, and erasure leaves read-back zero through the API (234.6248ms)
+✖ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and each write one text-free flag (356.3274ms)
+✔ acceptance hostile: a student of tenant-b cannot read, write to or erase-probe tenant-a's thread, and an under-18 student without guardian consent is answered but nothing of the text is kept (45.4878ms)
+✔ trace covers every criterion of the spec exactly once, with a known status (2.2224ms)
+✔ every test file a trace row names exists in the repo, and a PASS row names at least one (2.7975ms)
+✔ every `pnpm --filter <pkg> <script>` command names a real package and a real script (0.5872ms)
+✔ a PENDING-INTEGRATION row must name the branch that carries the proof; a NOT PROVEN or REAL row never claims files as proof (0.4897ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 6
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4331.6866
+
+✖ failing tests:
+
+test at tests\acceptance-student-journey.test.ts:66:1
+✖ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and each write one text-free flag (356.3274ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 35
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u12\apps\api\tests\acceptance-student-journey.test.ts:79:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 35,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+EXIT=1
+2026-10-19T10:14:10+05:30

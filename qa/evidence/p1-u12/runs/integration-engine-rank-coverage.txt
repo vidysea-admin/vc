@@ -1,0 +1,67 @@
+[testlock] waiting for lock held by: PID=26924 STARTED=639280005776930582 ACQUIRED_AT=1792384175 TOKEN=1792384175671790000-309523-17958 DESC=pnpm exec tsx --test tests/voice-audit.test.ts tests/voice-crisis-turn.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts tests/voice-wiring.test.ts tests/voice.test.ts tests/chat-privacy.test.ts tests/chat-profile.test.ts tests/chat.test.ts 
+[testlock] write_owner_enrich: lock dir token changed (ours [1792384242890657200-312360-2192], now [1792384243282040600-312517-28747]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] running slot 1 (free RAM 2.43 GB): pnpm -C D:/vc/.worktrees/p1-u12-int/packages/engine exec tsx --test tests/rank.test.ts evals/coverage.test.ts
+✔ the staleness and score defaults are the engine's own (P-7 24 months, score 1.0), not a copy (1.8152ms)
+✔ C1 a counsellor opens the report for a probe with fresh, stale, undated and below-threshold hits: each is counted in its own column (4.3466ms)
+✔ C1 only hits below the score threshold: the probe is unanswered although KB returned hits (2.2398ms)
+✔ C1 staleness boundary follows asOf and the months threshold (24 months: exactly 24 is fresh, 25 is stale), and a custom threshold applies (1.7738ms)
+✔ C1 the report records the asOf, the staleness months and the score threshold it was computed with (1.3166ms)
+✔ C2 a country whose probes return zero hits shows as a no-answer country with a gap row per theme (1.8323ms)
+✔ C2 a probe whose query was never recorded is an unrecorded gap row, not a missing row and not a zero-hit answer (0.5799ms)
+✔ C2 a country in the roster with no probe for a theme still gets a row for that cell (no_probe), and a country with no probes at all is a no-answer country (0.6038ms)
+✔ C2 a probe naming a country or theme outside the roster is refused, never silently dropped (0.8186ms)
+✔ C2 a search that throws fails the report (a broken KB is not read as an empty country) (0.6337ms)
+✔ C3 KB /gaps rows from the recorded gaps.json are listed with id, kind, status and description, a row missing fields shows the gap in the field (6.8764ms)
+✔ C3 the report carries the KB gap rows next to the probes and the markdown lists them (5.2523ms)
+✔ C4 VC gap counts are read through the port once per requested date and shown as totals by kind and by date (1.5331ms)
+✔ C4 the VC gap store has no country or theme: the report says so and does not invent a per-probe VC count (0.4925ms)
+✔ C4 a port that fails fails the report, and a malformed count is refused (1.4837ms)
+✔ C5 two runs of the CLI on the same fixture write byte-identical report files, and the report holds no clock field (169.4508ms)
+✔ C5 --as-of is an input: a different asOf changes the stale counts, and the default asOf is the fixture's recordedAt date, not today (31.34ms)
+✔ the synthetic sample fixture has at least 10 countries x 5 themes, is flagged synthetic, and parses (3.8693ms)
+✔ A17 the coverage command on the sample fixture lists every country x theme, with a no-answer country, unrecorded and no_probe cells, stale and date_unknown counts (13.9952ms)
+✔ the CLI refuses --real (no live mode: G-KB and the KB key are open) and an unknown flag (0.8614ms)
+✔ C6 the sample fixture's hits carry turn text, and neither the JSON nor the markdown report contains any of it, nor any probe query (14.5973ms)
+✔ C6 a search hit that carries text or a port row that carries a student field leaks neither into the report (1.2501ms)
+✔ C1 A16: a Germany/engineering student and a Canada/business student asking about the same four options get different orders (7.5549ms)
+✔ C1 A16: the same student, same options and same weights ranked twice (and with the option list reversed or duplicated) give a byte-identical result (1.6134ms)
+✔ C1 A16: scores are the weighted sum of the four components, fit comes from the confirmed facts matching the option attributes (0.6078ms)
+✔ C2 A16: every ranked option names its KB source ids and the profile facts that moved its score (0.7411ms)
+✔ C2 A16: the claims, sources and profileFactsUsed it returns fit the TurnResponse schema, one claim per option in rank order (11.8295ms)
+✔ C2 A16: the top-level profileFactsUsed lists each fact once, with the exact source label it came with (0.675ms)
+✔ C3 P-8: a student who sets no weights is ranked with 0.40 / 0.25 / 0.20 / 0.15 and told rankingProfile is student-success (0.5622ms)
+✔ C3 P-8: explicitly passing the default vector, or a multiple of it, is still student-success (the name follows the numbers) (0.8578ms)
+✔ C4 D-086 Q3: a tenant that weights scholarship chance at 0.8 and fit at 0 changes the order, deterministically, and the response says so (2.169ms)
+✔ C4 D-086 Q3: a fit weight of zero means the profile facts moved nothing, so none are reported as used (0.8024ms)
+✔ C4 D-086 Q3: with a zero fit weight two different students get the same order (only the weights decide) (0.8543ms)
+✔ C5 B24.8: a request with no authenticated student gets no ranking, whatever facts or options come with it (0.3313ms)
+✔ C5 B24.8: the refusal happens before the option-data port is asked anything (0.2631ms)
+✔ C6 A16b: a fact the student has not confirmed (a chat-extracted proposal) never moves a score or appears in profileFactsUsed (0.7427ms)
+✔ C6 A16b: a student who has only proposed facts (nothing confirmed, nothing from Pathlynks) gets every option marked insufficient, not ranked on guesses (0.4363ms)
+✔ C6 A16b: a Pathlynks fact is labelled pathlynks and a confirmed chat fact is labelled student-confirmed, exactly (0.7849ms)
+✔ C6 A16b: a fact with an unknown source label is ignored and counted, never relabelled (0.4438ms)
+✔ C6 A16b: when Pathlynks and the student give different values for one key, the student's confirmed value is the one ranked on (0.6008ms)
+✔ C6 A16b: an erased fact (absent from the list) stops moving the ranking (0.8306ms)
+✔ C6 A16b: a corrected value (Germany -> Canada) re-ranks the options (0.5384ms)
+✔ C7 B24.8: an option whose cost the data port does not have is marked insufficient_data, listed last, with no invented score (0.7444ms)
+✔ C7 B24.8: an option the port has never heard of is insufficient_data on every component (0.4877ms)
+✔ C7 B24.8: an option with missing data whose id sorts FIRST is still listed after every ranked option (0.5641ms)
+✔ C7 B24.8: a number with no cited source, outside 0..1 or not finite is treated as missing, never clamped or guessed (0.6867ms)
+✔ C7 B24.8: a component whose weight is zero does not block ranking when its data is missing (0.638ms)
+✔ C7 B24.8: tied scores break by option id, whatever order the options arrived in (0.5501ms)
+✔ C7 B24.8: the function takes no provider, clock or network input (a port stub that throws on anything but get proves no other call is made) (0.6731ms)
+✔ C7 B24.8: more options than the cap, or none, is refused rather than truncated (0.3528ms)
+✔ C8 D-086 Q3: a weight vector with a negative, NaN, Infinity, string or missing component is rejected and nothing is ranked (0.4148ms)
+✔ C8 D-086 Q3: an unknown weight key (a typo, or a smuggled extra) is rejected (0.385ms)
+✔ C8 D-086 Q3: an all-zero vector is rejected (it would rank everything equal) (0.1735ms)
+✔ C8 D-086 Q3: a vector that does not sum to 1 is scaled to sum 1 and the response says it was (0.5854ms)
+✔ C8 D-086 Q3: an invalid-weights refusal names the problem and carries no student data (0.3228ms)
+ℹ tests 55
+ℹ suites 0
+ℹ pass 55
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7952.2433

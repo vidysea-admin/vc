@@ -1,0 +1,26 @@
+== R0 BEFORE (unmutated copy of repaired tree, 2026-10-19T10:23:04+05:30) ==
+✔ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and write one text-free flag per thread and window (flood dedup) (640.3301ms)
+ℹ pass 1
+ℹ fail 0
+== R1 test edit: expected flag count 1 -> 35 (product unchanged) ==
+1
+✖ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and write one text-free flag per thread and window (flood dedup) (707.9403ms)
+ℹ pass 0
+ℹ fail 1
+✖ failing tests:
+✖ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and write one text-free flag per thread and window (flood dedup) (707.9403ms)
+  AssertionError [ERR_ASSERTION]: 35 crisis turns in one thread and window write ONE flag (p1-u8r M2 dedup, A11b)
+  1 !== 35
+== R2 product mutant in copy: chat.ts quiet=false (dedup broken) ==
+1
+✖ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and write one text-free flag per thread and window (flood dedup) (483.6626ms)
+ℹ pass 0
+ℹ fail 1
+✖ failing tests:
+✖ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and write one text-free flag per thread and window (flood dedup) (483.6626ms)
+  AssertionError [ERR_ASSERTION]: 35 crisis turns in one thread and window write ONE flag (p1-u8r M2 dedup, A11b)
+  35 !== 1
+== R3 restored: ==
+✔ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and write one text-free flag per thread and window (flood dedup) (473.3955ms)
+ℹ pass 1
+ℹ fail 0
