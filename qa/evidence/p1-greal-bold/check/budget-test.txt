@@ -1,0 +1,33 @@
+[testlock] running slot 0 (free RAM 1.8 GB): pnpm -C packages/engine exec tsx --test evals/budget.test.ts
+✔ default caps are USD 50 per run and USD 200 per month (spec A24) (2.745ms)
+✔ assertGReal refuses without the explicit VC_G_REAL flag, in every non-approved shape (1.6353ms)
+✔ a charge under both caps is recorded to the ledger before it returns (7.6411ms)
+✔ a charge that would pass USD 50 in one run aborts, is NOT recorded as spent, and logs the abort (5.7449ms)
+✔ exactly USD 50 in a run is allowed; the next cent is not (boundary) (3.4404ms)
+✔ month cap USD 200 counts spend across separate runs and aborts the run that would pass it (19.8773ms)
+✔ the month cap rolls over: July spend does not block August (17.8407ms)
+✔ an up-front estimate over a cap refuses before any run starts (1.6334ms)
+✔ negative, NaN and infinite charges are rejected, never silently absorbed (1.2825ms)
+✔ caps are adjustable per guard (spec: USD 50 / 200 are ASSUMPTION, adjustable) but never silently unlimited (8.2485ms)
+✔ executeReal refuses without G-REAL: body never runs and no ledger file is created (1.1956ms)
+✔ executeReal returns an aborted-budget result (not a throw) when the body overspends, and keeps the recorded spend (6.7532ms)
+✔ executeReal completes, records an end entry and returns the body value (6.325ms)
+✔ a body that throws a non-budget error still records an end entry and rethrows (5.0998ms)
+✔ a corrupt ledger line fails closed (refuses to run) rather than undercounting spend (4.9893ms)
+✔ fix1: a charge entry with a non-numeric, null, missing or negative usd fails closed (20.6523ms)
+✔ fix2: 6 concurrent processes each charging USD 1 against a shared month cap record at most the cap (400 here; 900 attempts) (6017.2034ms)
+✔ fix2: a stale lock file (dead owner) is broken after the stale timeout instead of starving the run (32.3656ms)
+✔ fix2: a live lock that never frees fails closed after the bounded wait (no unlocked write) (228.4603ms)
+✔ fix4: assertGReal also needs qa/gates/g-real.md with an Answered: line; refuses when absent or unanswered (6.8726ms)
+✔ p1-greal-bold: a verbatim copy of the real g-real.md (bold **Answered:** line only) is accepted (5.6037ms)
+✔ p1-greal-bold: assertGReal accepts Answered: and the bold wrapper forms, each with content; refuses empty, mid-line, quoted and negated forms (83.4346ms)
+✔ fix4: executeReal refuses with the env flag but no gate file; the body never runs and no ledger is created (1.5089ms)
+✔ fix8: if guard.end throws after the body threw, the original body error is kept (5.0021ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6808.9517

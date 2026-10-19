@@ -273,6 +273,59 @@ test("fix4: assertGReal also needs qa/gates/g-real.md with an Answered: line; re
   assert.throws(() => assertGReal({}, GATE_OK), GRealRefusedError);
 });
 
+/** A verbatim copy of qa/gates/g-real.md as it stood on 2026-10-19 (the approval is the bold `**Answered:**` line). */
+const G_REAL_FILE_COPY = "# HUMAN_GATE: G-REAL (paid, real-model evaluation runs, with a budget cap)\n**Opened:** 2026-10-17T14:05:14+05:30 (checker, P1 unit U0; plan v8 U0/U4/U13b, spec A24, D-088 Q18, contract B24.9)\n**Status:** OPEN\n\n**Question:** may P1 spend money on real-model and real-audio evaluation runs, and under what cap? The runs are\n`run-h2h` (A14, with the REAL parts of A1/A3), `run-probes` (A4), `run-latency` (A8), `run-live` (A10 voice) and\n`eval:kb --real` (A2b). They use synthetic or anonymised inputs only (B13); no production student text is involved.\n\n**Proposed cap (D-088 Q18, [ASSUMPTION, adjustable]):** USD 50 per run and USD 200 per month. Every REAL runner\nhard-stops and reports when a run would pass USD 50, or when the month's recorded spend would pass USD 200. Spend is\nrecorded per run (spec A24, mock-tested in `tests/budget-cap.test.ts`).\n\n**Options:**\n- **(a) Approve the caps as proposed (USD 50 per run, USD 200 per month),** with a per-run go from Umesh before each\n  paid run starts.\n- **(b) Approve different caps** (name them).\n- **(c) Per-use approval only,** no standing cap; each run asks first.\n- **(d) No paid runs yet.** REAL criteria stay NOT PROVEN, and text P1 cannot be called done (contract B24.9).\n\n**Blocks:** every REAL run and therefore unit U13b (A2b, A4 probes, A8, A10, A14). It does not block U0-U13a (mock and\nfrozen-fixture work).\n**Per-use rule:** an approval here is a cap, not a blank cheque: each paid run is still started only on a go from Umesh.\n**Answer format:** chat reply. The maker appends `Answered: <ISO> - <option> - <caps>` here.\n\n**Answered:** 2026-10-19T10:41:00+05:30 - (a) approved - Umesh (chat, 2026-10-19): paid real-model eval runs approved via API keys: Ollama-hosted GLM 5.3 Flash and DeepSeek 4.1 Flash now, Gemini models later. Caps [ASSUMPTION, not named by Umesh]: the proposed USD 50 per run / USD 200 per month. Inputs synthetic or anonymised only (B13). Recorded in D-100.\n";
+
+test("p1-greal-bold: a verbatim copy of the real g-real.md (bold **Answered:** line only) is accepted", () => {
+  const env = { VC_G_REAL: "1" };
+  // the copy has no bare `Answered:` line: its only approval is the bold form, and the quoted `Answered: <ISO>` on the Answer format line must not be what passes
+  assert.equal(/^Answered:/m.test(G_REAL_FILE_COPY), false);
+  assert.doesNotThrow(() => assertGReal(env, tmpGate(G_REAL_FILE_COPY)));
+  assert.doesNotThrow(() => assertGReal(env, tmpGate(G_REAL_FILE_COPY.replace(/\n/g, "\r\n"))));
+  // the same file with the approval line removed is still refused (the quoted Answer format line does not count)
+  const unanswered = G_REAL_FILE_COPY.split("\n").filter((l) => !l.startsWith("**Answered:**")).join("\n");
+  assert.notEqual(unanswered, G_REAL_FILE_COPY);
+  assert.throws(() => assertGReal(env, tmpGate(unanswered)), GRealRefusedError);
+});
+
+test("p1-greal-bold: assertGReal accepts Answered: and the bold wrapper forms, each with content; refuses empty, mid-line, quoted and negated forms", () => {
+  const env = { VC_G_REAL: "1" };
+  const gate = (line: string, crlf = false) => tmpGate(("# G-REAL\n\n" + line + "\n").replace(/\n/g, crlf ? "\r\n" : "\n"));
+  for (const ok of [
+    "Answered: 2026-10-19T10:41:00+05:30 - (a) approved",
+    "**Answered:** 2026-10-19T10:41:00+05:30 - (a) approved",
+    "**Answered**: 2026-10-19T10:41:00+05:30 - (a) approved",
+    "**Answered:**2026-10-19T10:41:00+05:30 - (a) approved",
+    "**Answered:**\t2026-10-19T10:41:00+05:30",
+  ]) {
+    assert.doesNotThrow(() => assertGReal(env, gate(ok)), ok);
+    assert.doesNotThrow(() => assertGReal(env, gate(ok, true)), `${ok} (CRLF)`);
+  }
+  for (const bad of [
+    "Answered:",
+    "Answered:   ",
+    "**Answered:**",
+    "**Answered:**   ",
+    "**Answered**:",
+    "**Answered**:  ",
+    "Answer format: `Answered: <ISO>` (pending)",
+    "**Answer format:** chat reply. The maker appends `Answered: <ISO> - <option>` here.",
+    "Not Answered: yes",
+    "**Not Answered:** yes",
+    "> Answered: 2026-10-19 - a",
+    "> **Answered:** 2026-10-19 - a",
+    "  Answered: 2026-10-19 - a",
+    "x **Answered:** 2026-10-19 - a",
+    "**Answered:",
+    "Answered** : 2026-10-19",
+  ]) {
+    assert.throws(() => assertGReal(env, gate(bad)), GRealRefusedError, bad);
+    assert.throws(() => assertGReal(env, gate(bad, true)), GRealRefusedError, `${bad} (CRLF)`);
+  }
+  // a bold label with nothing after it must not borrow content from the NEXT line
+  assert.throws(() => assertGReal(env, tmpGate("# G-REAL\n\n**Answered:**\n2026-10-19 - a\n")), GRealRefusedError);
+});
+
 test("fix4: executeReal refuses with the env flag but no gate file; the body never runs and no ledger is created", async () => {
   const ledgerPath = tmpLedger();
   let ran = false;

@@ -57,7 +57,8 @@ export function assertGReal(env: Record<string, string | undefined> = process.en
   } catch {
     throw new GRealRefusedError(`${G_REAL_ENV}=1 is set but the gate file qa/gates/g-real.md (${gateFile}) is missing`);
   }
-  if (!/^Answered:[ \t]*\S/m.test(text)) {
+  // The label must start the line: plain `Answered:` or the markdown-bold forms `**Answered:**` / `**Answered**:`, then non-empty content on the same line.
+  if (!/^(?:Answered:|\*\*Answered:\*\*|\*\*Answered\*\*:)[ \t]*\S/m.test(text)) {
     throw new GRealRefusedError(`${G_REAL_ENV}=1 is set but qa/gates/g-real.md has no "Answered:" line (the G-REAL question is unanswered)`);
   }
 }
