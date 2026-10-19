@@ -610,7 +610,7 @@ export const STUDENT_API_DRAFT = {
           "200": ok("The answer", ref("AnonymousTurnResponse")),
           "400": { description: "Malformed body, unknown field or over-long text", ...json(ref("AnonymousError")) },
           "405": { description: "Only POST is served", headers: { Allow: { schema: { type: "string" } } }, ...json(ref("AnonymousError")) },
-          "413": { description: "Body larger than 256 KiB", ...json(ref("AnonymousError")) },
+          "413": { description: "Body larger than 64 KiB", ...json(ref("AnonymousError")) },
           "429": { description: "More than the anonymous requests-per-minute limit from this client (crisis messages are never limited)", headers: { "Retry-After": { schema: { type: "integer", minimum: 1 } } }, ...json(ref("AnonymousError")) },
           "500": { description: "Unexpected failure; the body never carries the cause", ...json(ref("AnonymousError")) },
         },
