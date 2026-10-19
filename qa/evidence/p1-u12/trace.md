@@ -20,22 +20,22 @@ Status words: `PASS` (executed green at the sha in the run table), `NOT PROVEN` 
 | A9b | MOCK | `pnpm --filter @vc/api test` | `apps/api/tests/voice-audit.test.ts`, `packages/providers/tests/live.test.ts` | PASS | |
 | A10 | REAL | `pnpm --filter @vc/engine eval:live` | | OUT-OF-SCOPE-REAL | U13b under G-REAL; voice stays disabled until it passes |
 | A11 | MOCK | `pnpm --filter @vc/engine test` | `packages/engine/tests/crisis-escalation.test.ts`, `packages/engine/tests/guard-crisis.test.ts`, `packages/engine/tests/crisis-eval.test.ts`, `packages/engine/tests/crisis-defaults.test.ts` | PASS | |
-| A11b | MOCK | `pnpm --filter @vc/engine test` | `packages/engine/tests/crisis-defaults.test.ts`, `apps/api/tests/acceptance-student-journey.test.ts` | PASS | |
+| A11b | MOCK | `pnpm --filter @vc/engine test` | `packages/engine/tests/crisis-defaults.test.ts`, `apps/api/tests/acceptance-student-journey.test.ts` | PASS | Crisis flood dedup: journey test 2 (repaired, fix cycle 1) expects ONE flag for 35 same-thread crisis turns in one window (chat.ts p1-u8r M2) plus one more flag for a second thread; all 35 turns 200 with 14416 and the model never called. |
 | A12 | MOCK | `pnpm --filter @vc/providers test` | `packages/providers/tests/failover.test.ts`, `packages/engine/tests/student-graph.test.ts`, `packages/providers/tests/live.test.ts` | PASS | |
 | A13 | MOCK | `pnpm --filter @vc/mcp-university-kb test` | `mcp/university-kb/tests/kb-tools.test.ts`, `packages/engine/tests/claims-guard.test.ts` | PASS | Spec names the mcp package; staleness and date_unknown flags live in the engine claims guard, the not-re-readable session in the mcp `get_session` 404 test. Both cited. |
 | A14 | REAL | `pnpm --filter @vc/engine eval:h2h` | | OUT-OF-SCOPE-REAL | U13b under G-REAL |
 | A15a | MOCK | `pnpm --filter @vc/api test` | `apps/api/tests/anonymous-zero-persistence.test.ts`, `apps/api/tests/anonymous-route.test.ts` | PASS | |
 | A15b | MOCK | `pnpm --filter @vc/api test` | `apps/api/tests/anonymous-zero-persistence.test.ts` | PASS | |
 | A15c | MOCK | `pnpm --filter @vc/mcp-university-kb test` | `mcp/university-kb/tests/kb-tools.test.ts`, `apps/api/tests/anonymous-zero-persistence.test.ts` | PASS | |
-| A16 | MOCK | `pnpm --filter @vc/engine test` | | PENDING-INTEGRATION | U6b ranking is checker-PASSed on branch `p1/u6b` (fce8f83) and is not in this base; its test is `packages/engine/tests/rank.test.ts`. Executed on a throwaway integration merge (see `integration.md`). |
+| A16 | MOCK | `pnpm --filter @vc/engine test` | `packages/engine/tests/rank.test.ts` | PASS | U6b ranking is on the merged head: checker engine run of cycle 0 (verdict 8b3f52f) executed rank.test.ts with five sibling engine files, 131 pass, 0 fail. |
 | A16b | MOCK | `pnpm --filter @vc/api test` | `apps/api/tests/chat-profile.test.ts`, `packages/db/tests/student-store.test.ts` | PASS | Chat and db halves on base. The engine ranking half (unconfirmed fact never reaches ranking) is `rank.test.ts` on `p1/u6b`, see A16. |
-| A17 | MOCK | `pnpm --filter @vc/engine coverage` | | PENDING-INTEGRATION | U11 coverage report is checker-PASSed on branch `p1/u11` (06469b6) and is not in this base: no `coverage` script exists here; its test is `packages/engine/evals/coverage.test.ts`. Executed on the throwaway integration merge (see `integration.md`). |
+| A17 | MOCK | `pnpm --filter @vc/engine coverage` | `packages/engine/evals/coverage.test.ts` | PASS | U11 coverage report is on the merged head (`coverage` script at packages/engine/package.json:23): checker engine run of cycle 0 (verdict 8b3f52f) executed evals/coverage.test.ts, 131 pass, 0 fail. |
 | A18 | MOCK | `pnpm --filter @vc/mcp-university-kb test` | `mcp/university-kb/tests/kb-tools.test.ts`, `packages/engine/tests/student-graph.test.ts` | PASS | repo scan = the `kb-fixture/` declared-synthetic test in kb-tools |
 | A19 | MOCK | `pnpm --filter @vc/api test` | `apps/api/tests/voice-history.test.ts`, `packages/db/tests/chat-threads.test.ts` | PASS | |
 | A20 | MOCK | `pnpm --filter @vc/api test` | `apps/api/tests/go-live-gate.test.ts` | PASS | the real repo gates refuse every target today, as intended |
 | A21 | MOCK | `pnpm --filter @vc/engine test` | `packages/engine/tests/coach-first.test.ts`, `packages/engine/tests/capability-manifest.test.ts` | PASS | (a) also REAL on h2h, U13b |
 | A22 | MOCK | `pnpm --filter @vc/engine test` | `packages/engine/tests/source-kind.test.ts`, `mcp/university-kb/tests/source-kind.test.ts` | PASS | |
-| A23 | MOCK | `pnpm --filter @vc/api test` | `apps/api/tests/chat.test.ts`, `apps/api/tests/voice-limits.test.ts`, `apps/api/tests/acceptance-student-journey.test.ts` | PASS | Spec names `tests/limits.test.ts`, which does not exist; the criterion is proven by these three files. |
+| A23 | MOCK | `pnpm --filter @vc/api test` | `apps/api/tests/chat.test.ts`, `apps/api/tests/voice-limits.test.ts`, `apps/api/tests/acceptance-student-journey.test.ts` | PASS | Crisis never limited: journey test 2 (repaired, fix cycle 1) runs 35 crisis turns, all 200, expects 1 flag per thread and window. Spec names `tests/limits.test.ts`, which does not exist; the criterion is proven by these three files. |
 | A24 | MOCK | `pnpm --filter @vc/engine test` | `packages/engine/evals/budget.test.ts`, `packages/engine/evals/p1-runners.test.ts` | PASS | Spec names `tests/budget-cap.test.ts`, which does not exist; the cap lives in `evals/budget.ts` and its test. |
 
 ## Run table (commands executed through `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh`, TMP/TEMP under `D:/vc/.worktrees/`)
@@ -56,3 +56,5 @@ Base run sha `d1e511e` (branch `p1/u12` = origin/main + U10w head `1c9fafb` + th
 | Integration view `7eab007`: `pnpm -C apps/api test` | 293 tests, 293 pass, 0 fail | A5-A23 still green with U6b and U11 merged in |
 
 The 45 engine skips are the legacy B18 live-card adapter cases printed `NOT RUNNABLE` (pre-existing, no P1 criterion).
+| Fix cycle 1 (repaired journey test 2): `pnpm -C apps/api exec tsx --test tests/acceptance-*.test.ts` | 7 tests, 7 pass, 0 fail | A5, A6, A7, A11b, A23 |
+| Fix cycle 1: checker engine run `rank.test.ts evals/coverage.test.ts source-kind budget p1-runners crisis-defaults` (verdict 8b3f52f) | 131 tests, 131 pass, 0 fail | A16, A17 |

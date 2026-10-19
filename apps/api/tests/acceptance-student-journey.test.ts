@@ -63,7 +63,7 @@ test("acceptance A5/A6/A7: a signed-in student's real turn validates against the
   }
 });
 
-test("acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and each write one text-free flag", async () => {
+test("acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and write one text-free flag per thread and window (flood dedup)", async () => {
   const w = chatWorld();
   try {
     const token = await studentToken(adult());
@@ -76,8 +76,16 @@ test("acceptance hostile: 35 crisis messages in a row from one student are all a
     }
     assert.equal(w.provider.calls.length, 0, "the model is never called on a crisis turn");
     const flags = rowsOf(w, COLLECTION_NAMES.student_flags, "stu-1");
-    assert.equal(flags.length, 35);
+    assert.equal(flags.length, 1, "35 crisis turns in one thread and window write ONE flag (p1-u8r M2 dedup, A11b)");
     assert.ok(flags.every((f) => !JSON.stringify(f).match(/kill|myself/i)), "flag rows hold ids and time only");
+
+    // The dedup is keyed per thread: the same student's crisis turn in a second thread is its own flag.
+    const thread2 = await newThread(w, token);
+    const res2 = await call(w, "POST", turnsPath("stu-1", thread2), { token, body: { text: CRISIS_TEXT, clientTurnId: "cr-t2" } });
+    assert.equal(res2.status, 200);
+    assert.match(res2.json.message, /14416/);
+    assert.equal(rowsOf(w, COLLECTION_NAMES.student_flags, "stu-1").length, 2, "a second thread gets its own flag");
+    assert.equal(w.provider.calls.length, 0, "the model is still never called");
   } finally {
     w.cleanup();
   }

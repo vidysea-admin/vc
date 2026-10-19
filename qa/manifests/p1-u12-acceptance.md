@@ -4,7 +4,7 @@
 **Goal task:** none
 **Date:** 2026-10-19
 **Status:** ready-for-check
-**Fix cycle:** 0 of max 2
+**Fix cycle:** 1 of max 2
 **Policy-Version:** proportional-verification/2026-10-18.15
 **Tier:** M (verification unit, no product code changed)
 **Dual check:** no (the unit fixes nothing and touches no auth, student-data or production path; it adds tests and evidence only)
@@ -42,7 +42,7 @@ Pre-check[A9]: d1e511e bash scripts/vc-testlock.sh pnpm -C apps/api test -> gree
 Pre-check[A9b]: d1e511e bash scripts/vc-testlock.sh pnpm -C apps/api test -> green: 300 passed, 0 failed
 Out-of-scope[A10]: not run, OUT-OF-SCOPE-REAL (REAL criterion, U13b under G-REAL, D-097/D-093)
 Pre-check[A11]: d1e511e bash scripts/vc-testlock.sh pnpm -C packages/engine test -> green: 1123 passed, 0 failed, 45 skipped (legacy B18 NOT RUNNABLE)
-Pre-check[A11b]: d1e511e bash scripts/vc-testlock.sh pnpm -C packages/engine test -> green: 1123 passed, 0 failed, 45 skipped (legacy B18 NOT RUNNABLE)
+Pre-check[A11b-c0]: d1e511e bash scripts/vc-testlock.sh pnpm -C packages/engine test -> green: 1123 passed, 0 failed, 45 skipped (legacy B18 NOT RUNNABLE)
 Pre-check[A12]: d1e511e bash scripts/vc-testlock.sh pnpm -C packages/providers test -> green: 130 passed, 0 failed
 Pre-check[A13]: d1e511e bash scripts/vc-testlock.sh pnpm -C mcp/university-kb test -> green: 72 passed, 0 failed
 Out-of-scope[A14]: not run, OUT-OF-SCOPE-REAL (REAL criterion, U13b under G-REAL, D-097/D-093)
@@ -57,7 +57,9 @@ Pre-check[A19]: d1e511e bash scripts/vc-testlock.sh pnpm -C apps/api test -> gre
 Pre-check[A20]: d1e511e bash scripts/vc-testlock.sh pnpm -C apps/api test -> green: 300 passed, 0 failed
 Pre-check[A21]: d1e511e bash scripts/vc-testlock.sh pnpm -C packages/engine test -> green: 1123 passed, 0 failed, 45 skipped (legacy B18 NOT RUNNABLE)
 Pre-check[A22]: d1e511e bash scripts/vc-testlock.sh pnpm -C packages/engine test -> green: 1123 passed, 0 failed, 45 skipped (legacy B18 NOT RUNNABLE)
-Pre-check[A23]: d1e511e bash scripts/vc-testlock.sh pnpm -C apps/api test -> green: 300 passed, 0 failed
+Pre-check[A23-c0]: d1e511e bash scripts/vc-testlock.sh pnpm -C apps/api test -> green: 300 passed, 0 failed
+Pre-check[A11b]: 8b3f52f+repair1 (working tree, committed as the next commit) VC_TESTLOCK_TIMEOUT_SECS=7200 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/acceptance-*.test.ts -> 7 tests, 7 pass, 0 fail (journey test 2 now expects 1 flag per thread and window, plus 1 more for a second thread; engine half crisis-defaults.test.ts in checker run 8b3f52f, 131/131)
+Pre-check[A23]: 8b3f52f+repair1 (working tree, committed as the next commit) same command -> 7 tests, 7 pass, 0 fail (35 crisis turns all 200, never 429, model never called)
 Pre-check[A24]: d1e511e bash scripts/vc-testlock.sh pnpm -C packages/engine test -> green: 1123 passed, 0 failed, 45 skipped (legacy B18 NOT RUNNABLE)
 Pre-check[typecheck]: d1e511e bash scripts/vc-testlock.sh pnpm -C . -r typecheck -> exit 0 (qa/evidence/p1-u12/runs/typecheck.txt)
 Pre-check[integration-api]: 7eab007 bash scripts/vc-testlock.sh pnpm -C apps/api test -> green: 293 passed, 0 failed (U6b and U11 merged in do not break the API suites)
@@ -96,3 +98,8 @@ Not applicable (tests and evidence only; no UI or route changed).
 - `bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/acceptance-student-journey.test.ts tests/acceptance-trace.test.ts` -> 7 tests, 7 pass.
 - `bash scripts/vc-testlock.sh pnpm -C apps/api test` -> 300 pass, 0 fail; `pnpm -C packages/engine test` -> 1168 tests, 0 fail, 45 skipped.
 - `node D:/ai_os/.claude/skills/maker/tools/tick.mjs --lint-manifest qa/manifests/p1-u12-acceptance.md` -> exit 0.
+
+## Fix cycle 1 (ISS-237, test/trace only)
+Checker cycle 0 FAIL: journey test 2 pinned the pre-U8r 35-flags behaviour. Repaired in apps/api/tests/acceptance-student-journey.test.ts: expects `flags.length === 1` for 35 same-thread turns (chat.ts:581-582 p1-u8r M2 dedup), keeps 35 x 200 / 14416 / model never called, adds a second thread -> 2 flags (per-thread keying). Trace: A16 and A17 PENDING-INTEGRATION -> PASS (checker engine run 131/131, verdict 8b3f52f); A11b and A23 rows cite the repaired test; run table extended. ISS-238/239/240 wording items left untouched (not one-line trace edits).
+Falsification (copy D:/vc/.worktrees/_u12r_fals, bound tree untouched; output qa/evidence/p1-u12/check/fals-repair1.txt): R0 unmutated 1/1 green; R1 expected count set to 35 -> RED (1 !== 35); R2 chat.ts `quiet=false` (dedup broken) -> RED (35 !== 1); R3 restored -> green.
+Product diff: `git diff origin/main --stat -- apps packages` lists only the two acceptance test files.
