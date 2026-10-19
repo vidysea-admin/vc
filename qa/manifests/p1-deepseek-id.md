@@ -5,7 +5,7 @@
 - C2 A pinned `<base>:<tag>` id (e.g. `deepseek-v4.1-flash:1017`) is priced from its base id when the exact id is not in the table; the full id is still what is sent. Unknown bases, an empty tag, an empty base and prototype names (`constructor:x`) stay refused. The code had no tag rule before.
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 0 of max 2
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** S (one table key and a three-line lookup in the price resolver; no auth, no production data, no network, no paid call)
