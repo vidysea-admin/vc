@@ -62,7 +62,7 @@ import {
   type Source,
   type VoiceServerEvent,
 } from "@vc/schemas";
-import { crisisGuard, type SpeakersFile, type StudentGraphDeps } from "@vc/engine";
+import { crisisGuard, detectLanguageOffline, type SpeakersFile, type StudentGraphDeps } from "@vc/engine";
 import {
   LiveConfigError,
   createSimpleOutputAuditor,
@@ -846,7 +846,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       await escalate({
         sessionId: c.claims.threadId,
         studentId: c.claims.studentId,
-        turns: [{ turnId, speaker: "student", lang: /[\u0900-\u097F]/.test(text) ? "hi" : "en", text, translatedText: text }],
+        turns: [{ turnId, speaker: "student", lang: detectLanguageOffline(text).lang, text, translatedText: text }],
       });
     });
     if (escalated === "fenced") logEvent("voice_crisis_escalate_skipped_fenced");

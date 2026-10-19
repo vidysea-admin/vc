@@ -1,0 +1,58 @@
+[testlock] owner PID 40204 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running slot 0 (free RAM 1.87 GB): pnpm -C D:/vc/.worktrees/chk-lk4/packages/engine exec tsx --test --test-timeout=30000 tests/chk-lk4.test.ts
+CRISISGUARD English: crisis
+CRISISGUARD Devanagari: crisis
+CRISISGUARD Latin Hinglish: crisis
+CRISISGUARD Hinglish 2: crisis
+CRISISGUARD mixed: crisis
+CRISISGUARD Tamil: none
+CRISISGUARD Bengali: none
+CRISISGUARD Tamil-majority + English phrase: crisis
+CRISISGUARD Bengali-majority + English phrase: crisis
+✔ CHK ordinary model path: English (322.8936ms)
+✔ CHK ordinary offline path (no detector): English (58.9223ms)
+✔ CHK ordinary anonymous: English (32.9389ms)
+✔ CHK ordinary model path: Devanagari (69.612ms)
+✔ CHK ordinary offline path (no detector): Devanagari (27.4314ms)
+✔ CHK ordinary anonymous: Devanagari (29.426ms)
+✔ CHK ordinary model path: Latin Hinglish (38.157ms)
+✔ CHK ordinary offline path (no detector): Latin Hinglish (33.4723ms)
+✔ CHK ordinary anonymous: Latin Hinglish (32.1293ms)
+✔ CHK ordinary model path: mixed deva-majority (32.6993ms)
+✔ CHK ordinary offline path (no detector): mixed deva-majority (28.5143ms)
+✔ CHK ordinary anonymous: mixed deva-majority (24.7142ms)
+✔ CHK ordinary model path: Tamil (32.5218ms)
+✔ CHK ordinary offline path (no detector): Tamil (27.7265ms)
+✔ CHK ordinary anonymous: Tamil (30.0254ms)
+✔ CHK ordinary model path: Bengali (34.9242ms)
+✔ CHK ordinary offline path (no detector): Bengali (29.7797ms)
+✔ CHK ordinary anonymous: Bengali (22.3469ms)
+✔ CHK crisis: English (48.0148ms)
+✔ CHK crisis: Devanagari (47.4529ms)
+✔ CHK crisis: Latin Hinglish (31.4309ms)
+✔ CHK crisis: Hinglish 2 (42.3879ms)
+✔ CHK crisis: mixed (36.6132ms)
+✔ CHK crisis: Tamil (1.1738ms)
+ℹ crisisGuard does NOT flag Tamil
+✔ CHK crisis: Bengali (0.7023ms)
+ℹ crisisGuard does NOT flag Bengali
+✔ CHK crisis: Tamil-majority + English phrase (41.7201ms)
+✔ CHK crisis: Bengali-majority + English phrase (41.7797ms)
+REASONS error,inconsistent,inconsistent,invalid,invalid,invalid,invalid,invalid,timeout
+✔ CHK fallbacks direct (default timeout) (1533.4824ms)
+✔ CHK hi from model on Latin text -> hi-Latn (1.4466ms)
+GRAPH-HANG elapsed 2061
+✔ CHK graph: hanging detector bounded (<2.8s) and turn answered (2061.4116ms)
+✔ CHK graph: each failure mode through runStudentTurn (Devanagari) falls back to hi (271.1447ms)
+✔ CHK VC_REPLY_LANGS hostile (1.234ms)
+✔ CHK graph with hostile replyLangs (111.7727ms)
+✔ CHK byte-identical fixed texts and crisis messages vs ae48596 (0.6698ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9157.7719

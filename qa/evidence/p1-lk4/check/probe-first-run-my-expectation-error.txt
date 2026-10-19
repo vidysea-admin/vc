@@ -1,0 +1,82 @@
+[testlock] running slot 0 (free RAM 1.82 GB): pnpm -C D:/vc/.worktrees/chk-lk4/packages/engine exec tsx --test --test-timeout=30000 tests/chk-lk4.test.ts
+CRISISGUARD English: crisis
+CRISISGUARD Devanagari: crisis
+CRISISGUARD Latin Hinglish: crisis
+CRISISGUARD Hinglish 2: crisis
+CRISISGUARD mixed: crisis
+CRISISGUARD Tamil: none
+CRISISGUARD Bengali: none
+✔ CHK ordinary model path: English (324.7291ms)
+✔ CHK ordinary offline path (no detector): English (79.2459ms)
+✔ CHK ordinary anonymous: English (50.39ms)
+✔ CHK ordinary model path: Devanagari (86.8941ms)
+✔ CHK ordinary offline path (no detector): Devanagari (42.0853ms)
+✔ CHK ordinary anonymous: Devanagari (35.0973ms)
+✔ CHK ordinary model path: Latin Hinglish (42.6807ms)
+✔ CHK ordinary offline path (no detector): Latin Hinglish (53.2096ms)
+✔ CHK ordinary anonymous: Latin Hinglish (30.7752ms)
+✔ CHK ordinary model path: mixed deva-majority (32.183ms)
+✔ CHK ordinary offline path (no detector): mixed deva-majority (35.2237ms)
+✔ CHK ordinary anonymous: mixed deva-majority (34.1584ms)
+✔ CHK ordinary model path: Tamil (26.6343ms)
+✔ CHK ordinary offline path (no detector): Tamil (40.7611ms)
+✔ CHK ordinary anonymous: Tamil (20.2252ms)
+✔ CHK ordinary model path: Bengali (23.7168ms)
+✔ CHK ordinary offline path (no detector): Bengali (22.4492ms)
+✔ CHK ordinary anonymous: Bengali (27.4572ms)
+✔ CHK crisis: English (53.3899ms)
+✔ CHK crisis: Devanagari (38.4408ms)
+✔ CHK crisis: Latin Hinglish (31.34ms)
+✔ CHK crisis: Hinglish 2 (44.8597ms)
+✔ CHK crisis: mixed (34.3887ms)
+✔ CHK crisis: Tamil (1.8319ms)
+ℹ crisisGuard does NOT flag Tamil
+✔ CHK crisis: Bengali (1.0965ms)
+ℹ crisisGuard does NOT flag Bengali
+REASONS error,inconsistent,inconsistent,invalid,invalid,invalid,invalid,invalid,timeout
+✖ CHK fallbacks direct (default timeout) (1550.4721ms)
+✔ CHK hi from model on Latin text -> hi-Latn (3.7344ms)
+GRAPH-HANG elapsed 2107
+✔ CHK graph: hanging detector bounded (<2.8s) and turn answered (2107.3216ms)
+✔ CHK graph: each failure mode through runStudentTurn (Devanagari) falls back to hi (683.9231ms)
+✔ CHK VC_REPLY_LANGS hostile (1.4248ms)
+✔ CHK graph with hostile replyLangs (481.61ms)
+✔ CHK byte-identical fixed texts and crisis messages vs ae48596 (0.8383ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 31
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16453.2863
+
+✖ failing tests:
+
+test at tests\chk-lk4.test.ts:99:1
+✖ CHK fallbacks direct (default timeout) (1550.4721ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  ... Skipped lines
+  
+    [
+      'error',
+      'inconsistent',
+      'inconsistent',
+      'invalid',
+  ...
+      'invalid',
+  +   'invalid',
+      'timeout'
+    ]
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\chk-lk4\packages\engine\tests\chk-lk4.test.ts:116:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'error', 'inconsistent', 'inconsistent', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'timeout' ],
+    expected: [ 'error', 'inconsistent', 'inconsistent', 'invalid', 'invalid', 'invalid', 'invalid', 'timeout' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
