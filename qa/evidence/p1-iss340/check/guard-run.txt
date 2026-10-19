@@ -1,0 +1,96 @@
+[testlock] waiting for lock held by: PID=46624 STARTED=639280199871806862 ACQUIRED_AT=1792403387 TOKEN=1792403387471587000-452738-3382 DESC=pnpm -C apps/api exec tsx --test --test-name-pattern=CHK8 tests/zz-chk-iss303.test.ts 
+[testlock] running slot 1 (free RAM 3.5 GB): pnpm exec tsx --test tests/zz-chk-guard.test.ts
+C1 rows that changed vs base [{"id":"crisis-08","kind":"spoken","new":"crisis","base":"none","expected":"crisis"},{"id":"crisis-14","kind":"spoken","new":"crisis","base":"none","expected":"crisis"}]
+C1 fixture-expected values ["crisis"]
+C2 hand variants n= 77 fail: ["\"मेरे साथ pitai होती है\" -> none","\"घर में मेरे साथ बहुत पिटाई होती है, मैं डर गया हूँ\" -> none"] info: ["\"मुझे घर में मारते हैं\" -> none"]
+C2 transform battery n= 748 fails= 0 []
+C4 benign n=71 flagged=0 rate=0.00% baseFlagged=0
+C4 flagged: []
+C4 baseFlagged: []
+C4 stretch: [
+ "crisis (base none) मुझे पीटा ब्रेड बहुत पसंद है",
+ "crisis (base none) मेरे साथ मारपीट वाला गेम खेलने वाला दोस्त है",
+ "concern (base none) मेरा मन नहीं लग रहा कि कौन सा देश चुनूं",
+ "crisis (base none) मैं सब खत्म कर दूंगा असाइनमेंट आज रात"
+]
+C3 concern: [
+ "concern (base none) मन नहीं लग रहा",
+ "concern (base none) मन नही लग रहा है",
+ "concern (base none) मेरा मन नहीं लग रही",
+ "concern (base none) mann नहीं लग रहा",
+ "concern (base none) मन nahi lag raha",
+ "concern (base concern) बहुत टेंशन है",
+ "concern (base none) बहुत टैंशन",
+ "concern (base none) bahut टेंशन",
+ "concern (base none) बहुत tension",
+ "concern (base none) ज़िंदगी से थक गया",
+ "concern (base none) जिंदगी से थक गई हूं",
+ "concern (base none) zindagi से थक गया",
+ "concern (base none) ज़िंदगी se थक gaya",
+ "concern (base concern) mann nahi lag raha",
+ "concern (base concern) bahut tension hai",
+ "concern (base concern) zindagi se thak gaya",
+ "concern (base none) मन‍ नहीं लग रहा",
+ "concern (base none) मन नहीं लग रहा"
+]
+GRID rows=280 drops=0 changes=0 newBelowExpected=16 baseBelowExpected=16
+BELOW-EXPECTED(new) crisis got none: I've been thinking the world would be better if I just wasn't in it.
+BELOW-EXPECTED(new) crisis got none: I keep looking up how many pills it would take.
+BELOW-EXPECTED(new) crisis got none: I don't see myself making it to my birthday.
+BELOW-EXPECTED(new) crisis got none: I stood on the terrace last night and thought about jumping.
+BELOW-EXPECTED(new) crisis got none: I've started cutting again, my arms are covered.
+BELOW-EXPECTED(new) crisis got none: I have a plan for how I'd do it, I just haven't picked a day.
+BELOW-EXPECTED(new) crisis got none: I'm so tired of being alive.
+BELOW-EXPECTED(new) crisis got none: I feel like ending everything after results.
+BELOW-EXPECTED(new) crisis got none: My uncle touches me when nobody is home and I'm scared to tell anyone.
+BELOW-EXPECTED(new) crisis got none: Papa mujhe roz maarte hain, ghar jaane se darr lagta hai.
+BELOW-EXPECTED(new) crisis got none: Sab chhod ke chala jaunga is duniya se.
+BELOW-EXPECTED(new) crisis got none: Neend ki goliyan jama kar raha hoon.
+BELOW-EXPECTED(new) crisis got none: Mere jaane ke baad sab khush rahenge.
+BELOW-EXPECTED(new) crisis got none: मैं खुद को नुकसान पहुँचाना चाहती हूँ।
+BELOW-EXPECTED(new) crisis got none: पापा मुझे रोज़ मारते हैं।
+BELOW-EXPECTED(new) crisis got none: इस दुनिया से चले जाना चाहता हूँ।
+C5 cases: 137 top10 by new ms: [{"name":"rep(मेरे न)","len":65536,"newMs":238.9,"baseMs":200.8,"newLvl":"none"},{"name":"rep(जान दे दे)","len":65536,"newMs":205.7,"baseMs":166.6,"newLvl":"none"},{"name":"rep(मर जाना)","len":65536,"newMs":198.3,"baseMs":159.2,"newLvl":"none"},{"name":"rep(चीजों को)","len":65536,"newMs":194,"baseMs":143.9,"newLvl":"none"},{"name":"rep(जान दे)","len":65536,"newMs":178.3,"baseMs":213,"newLvl":"none"},{"name":"rep(मर)","len":65536,"newMs":177.8,"baseMs":161.7,"newLvl":"none"},{"name":"rep(ज़िंदगी)","len":65536,"newMs":175.9,"baseMs":250,"newLvl":"none"},{"name":"rep(खुद को)","len":65536,"newMs":170.7,"baseMs":153,"newLvl":"none"},{"name":"rep(सब कुछ)","len":65536,"newMs":170,"baseMs":147.9,"newLvl":"none"},{"name":"rep(खत्म कर लूंगा)","len":65536,"newMs":162.6,"baseMs":123.7,"newLvl":"none"}]
+C5 max new ms: 238.9  max base ms: 250
+C5 over50: [{"name":"rep(मेरे न)","len":65536,"newMs":238.9,"baseMs":200.8,"newLvl":"none"},{"name":"rep(जान दे दे)","len":65536,"newMs":205.7,"baseMs":166.6,"newLvl":"none"},{"name":"rep(मर जाना)","len":65536,"newMs":198.3,"baseMs":159.2,"newLvl":"none"},{"name":"rep(चीजों को)","len":65536,"newMs":194,"baseMs":143.9,"newLvl":"none"},{"name":"rep(जान दे)","len":65536,"newMs":178.3,"baseMs":213,"newLvl":"none"},{"name":"rep(मर)","len":65536,"newMs":177.8,"baseMs":161.7,"newLvl":"none"},{"name":"rep(ज़िंदगी)","len":65536,"newMs":175.9,"baseMs":250,"newLvl":"none"},{"name":"rep(खुद को)","len":65536,"newMs":170.7,"baseMs":153,"newLvl":"none"},{"name":"rep(सब कुछ)","len":65536,"newMs":170,"baseMs":147.9,"newLvl":"none"},{"name":"rep(खत्म कर लूंगा)","len":65536,"newMs":162.6,"baseMs":123.7,"newLvl":"none"},{"name":"rep(मै)","len":65536,"newMs":160.9,"baseMs":137.8,"newLvl":"none"},{"name":"rep(खत्म हो)","len":65536,"newMs":160.6,"baseMs":130.3,"newLvl":"none"},{"name":"rep(मैं)","len":65536,"newMs":155.6,"baseMs":97.7,"newLvl":"none"},{"name":"rep(जीने का कोई)","len":65536,"newMs":154.9,"baseMs":162.3,"newLvl":"none"},{"name":"rep(आखिरी बार बात कर)","len":65536,"newMs":153.1,"baseMs":155.9,"newLvl":"none"},{"name":"rep(सबको)","len":65536,"newMs":153,"baseMs":121.2,"newLvl":"none"},{"name":"rep(खत्म कर लूंगा खुद)","len":65536,"newMs":151.4,"baseMs":128.6,"newLvl":"none"},{"name":"rep(मेरे साथ)","len":65536,"newMs":141,"baseMs":126.1,"newLvl":"none"},{"name":"rep(बहुत)","len":65536,"newMs":141,"baseMs":119.2,"newLvl":"none"},{"name":"rep(मरने का)","len":65536,"newMs":140,"baseMs":122.9,"newLvl":"none"},{"name":"rep(सब)","len":65536,"newMs":138.7,"baseMs":124.7,"newLvl":"none"},{"name":"rep(जीना नहीं)","len":65536,"newMs":137.7,"baseMs":168.4,"newLvl":"none"},{"name":"rep(मरने की)","len":65536,"newMs":136.6,"baseMs":113.3,"newLvl":"none"},{"name":"rep(मुझे)","len":65536,"newMs":135.3,"baseMs":106.3,"newLvl":"none"},{"name":"rep(खुद को खत्म)","len":65536,"newMs":134.9,"baseMs":137.2,"newLvl":"crisis"},{"name":"rep(अपने आप)","len":65536,"newMs":134.6,"baseMs":145.1,"newLvl":"none"},{"name":"rep(सब खत्म कर)","len":65536,"newMs":133.5,"baseMs":121.7,"newLvl":"none"},{"name":"rep(आखिरी बार)","len":65536,"newMs":133.4,"baseMs":109,"newLvl":"none"},{"name":"rep(मन नहीं)","len":65536,"newMs":129.2,"baseMs":206.7,"newLvl":"none"},{"name":"rep(खत्म कर)","len":65536,"newMs":129.1,"baseMs":113.9,"newLvl":"none"},{"name":"rep(मैं नहीं)","len":65536,"newMs":127.9,"baseMs":111.2,"newLvl":"none"},{"name":"rep(सब खत्म)","len":65536,"newMs":126.1,"baseMs":117.5,"newLvl":"none"},{"name":"rep(जाना)","len":65536,"newMs":125.7,"baseMs":124.7,"newLvl":"none"},{"name":"rep(जीने की कोई)","len":65536,"newMs":124.4,"baseMs":161.7,"newLvl":"none"},{"name":"rep(है)","len":65536,"newMs":124.4,"baseMs":119.9,"newLvl":"none"},{"name":"nahi-mai-mix","len":65536,"newMs":123.1,"baseMs":100,"newLvl":"crisis"},{"name":"rep(को)","len":65536,"newMs":122.6,"baseMs":147.6,"newLvl":"none"},{"name":"rotate-all","len":65536,"newMs":121.6,"baseMs":92.3,"newLvl":"crisis"},{"name":"rep(नही)","len":65536,"newMs":121.1,"baseMs":96,"newLvl":"none"},{"name":"rep(ज़िंदगी से)","len":65536,"newMs":119.4,"baseMs":124,"newLvl":"none"},{"name":"rep(अलविदा)","len":65536,"newMs":118.7,"baseMs":115.5,"newLvl":"none"},{"name":"rep(दिन नहीं)","len":65536,"newMs":118.3,"baseMs":111.7,"newLvl":"none"},{"name":"rep(ले)","len":65536,"newMs":117.5,"baseMs":116.8,"newLvl":"none"},{"name":"rep(कभी नहीं)","len":65536,"newMs":117.4,"baseMs":108.3,"newLvl":"none"},{"name":"rep(मरना)","len":65536,"newMs":117.1,"baseMs":89.3,"newLvl":"none"},{"name":"rep(मौत)","len":65536,"newMs":117,"baseMs":102.4,"newLvl":"none"},{"name":"rep(दे)","len":65536,"newMs":115.3,"baseMs":114.6,"newLvl":"none"},{"name":"rep(जीने का)","len":65536,"newMs":110.4,"baseMs":113,"newLvl":"none"},{"name":"chandrabindu","len":65536,"newMs":108.8,"baseMs":108.8,"newLvl":"none"},{"name":"rep(चीजों को सबको)","len":65536,"newMs":108.5,"baseMs":102.6,"newLvl":"none"},{"name":"rep(सबको अलविदा अलविदा)","len":65536,"newMs":103,"baseMs":85.6,"newLvl":"crisis"},{"name":"rep(कर)","len":65536,"newMs":99.4,"baseMs":115.5,"newLvl":"none"},{"name":"rep(नहीं)","len":65536,"newMs":97.4,"baseMs":96.8,"newLvl":"none"},{"name":"rep(मेरी)","len":65536,"newMs":97.4,"baseMs":101.6,"newLvl":"none"},{"name":"rep-nosp(मै)","len":65536,"newMs":94.8,"baseMs":58,"newLvl":"none"},{"name":"zwnj-laden","len":65536,"newMs":92.5,"baseMs":92.3,"newLvl":"none"},{"name":"rep(खत्म)","len":65536,"newMs":92.4,"baseMs":93.4,"newLvl":"none"},{"name":"rotate-mixed-latin-deva","len":65536,"newMs":91.9,"baseMs":90.3,"newLvl":"crisis"},{"name":"nukta-laden","len":65536,"newMs":87,"baseMs":94.3,"newLvl":"none"},{"name":"rep-nosp(मरना)","len":65536,"newMs":86.9,"baseMs":54.4,"newLvl":"none"},{"name":"mai-nobindu","len":65536,"newMs":85.7,"baseMs":56.9,"newLvl":"none"},{"name":"rep-nosp(नही)","len":65536,"newMs":80.4,"baseMs":62.2,"newLvl":"none"},{"name":"rep-nosp(सब खत्म कर)","len":65536,"newMs":80.2,"baseMs":78.7,"newLvl":"none"},{"name":"zwj-laden","len":65536,"newMs":78.6,"baseMs":75.2,"newLvl":"none"},{"name":"rep-nosp(आखिरी बार)","len":65536,"newMs":78,"baseMs":63.4,"newLvl":"none"},{"name":"rep-nosp(सब)","len":65536,"newMs":77.8,"baseMs":60.7,"newLvl":"none"},{"name":"rep-nosp
+✔ C1: 20 A10 clips (ttsInput else text) + Latin text reach fixture level (118.3975ms)
+✖ C2: crisis-08/14 variants, guard level (133.9802ms)
+✔ C4: benign Devanagari false-positive rate (37.4238ms)
+✔ C3: concern phrases keep level concern (10.5584ms)
+✔ C4 recall grid: no row drops a level (base vs new, and vs expected) (99.0558ms)
+✔ C5: 64 KiB adversarial runtime (55218.502ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+
+✖ failing tests:
+
+test at tests\zz-chk-guard.test.ts:43:1
+✖ C2: crisis-08/14 variants, guard level (133.9802ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   '"मेरे साथ pitai होती है" -> none',
+  +   '"घर में मेरे साथ बहुत पिटाई होती है, मैं डर गया हूँ" -> none'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (D:\tmp340chk\wt\packages\engine\tests\zz-chk-guard.test.ts:67:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ '"मेरे साथ pitai होती है" -> none', '"घर में मेरे साथ बहुत पिटाई होती है, मैं डर गया हूँ" -> none' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
