@@ -1,0 +1,464 @@
+[
+ {
+  "id": "A-C14a",
+  "what": "crisis record skipped again once the socket is closing (cycle-1 state check)",
+  "result": "RED(hang/timeout)",
+  "pass": null,
+  "fail": null,
+  "failing": []
+ },
+ {
+  "id": "A-C14b",
+  "what": "fenced student is escalated anyway",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C14c",
+  "what": "unconsented-minor skip leaves no log",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C14: an unconsented minor is flagged, not escalated, and the skip is logged text-free",
+   "PA4 C14/C12: an unconsented minor who drops mid-crisis is flagged once, NOT escalated, the",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C14d",
+  "what": "unconsented minor IS escalated (persistText check removed)",
+  "result": "RED(3 fail)",
+  "pass": 111,
+  "fail": 3,
+  "failing": [
+   "C12: an under-18 student without guardian consent is flagged",
+   "C14: an unconsented minor is flagged, not escalated, and the skip is logged text-free",
+   "PA4 C14/C12: an unconsented minor who drops mid-crisis is flagged once, NOT escalated, the",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C14e",
+  "what": "escalation requires the flag write to have succeeded",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "PA6 C12: a crisis flag write that always fails is retried once, logged text-free",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C14f",
+  "what": "fenced flag write logs nothing before returning (skip leaves no line)",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C15a",
+  "what": "no quota refusal after the supersede re-read",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C15: usage 50 min, A runs 10 min, B supersedes A: the month is read again after A's minute",
+   "PA9b C15: usage 50, A ran 10 min, B and C start together -> both refused/stepped aside, no",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C15b",
+  "what": "month not re-read after the supersede (stale usage)",
+  "result": "RED(4 fail)",
+  "pass": 110,
+  "fail": 4,
+  "failing": [
+   "C15: usage 50 min, A runs 10 min, B supersedes A: the month is read again after A's minute",
+   "C16: the supersede loop's second pass is needed: a start that took the slot while B re-rea",
+   "PA9a C15: usage 50, A ran 5 min -> B supersedes A and IS allowed, but its cap is exactly t",
+   "PA9b C15: usage 50, A ran 10 min, B and C start together -> both refused/stepped aside, no",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C15c",
+  "what": "session cap ignores the remaining month",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the ",
+   "PA9a C15: usage 50, A ran 5 min -> B supersedes A and IS allowed, but its cap is exactly t",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C16a",
+  "what": "waiter steps aside when the newest start went away (cycle-1 rule)",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C16: A active with a slow drain, B starts, C starts and then aborts: B",
+   "C16: the supersede loop's second pass is needed: a start that took the slot while B re-rea",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C16b",
+  "what": "finalize does not drop a closing conn from latestStart at once",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C16: the supersede loop's second pass is needed: a start that took the slot while B re-rea",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C16c",
+  "what": "supersede loop runs once",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C16: the supersede loop's second pass is needed: a start that took the slot while B re-rea",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C16d",
+  "what": "newest-wins removed entirely (no step aside)",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C10: B and C start together while A is active and A's drain is slow -> exactly one live pr",
+   "PA10b C10/C16: A active",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C10a",
+  "what": "closed waiter takes the slot (state guard before activeByStudent.set removed)",
+  "result": "SURVIVES",
+  "pass": 114,
+  "fail": 0,
+  "failing": []
+ },
+ {
+  "id": "A-C10b",
+  "what": "start timer ignores 'starting'",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C10: a start whose provider connect never returns is closed by the start timer, and the so",
+   "PA13d C10: a never-resolving live.connect is closed by the 15 s start timer",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C10c",
+  "what": "late provider session not closed when the socket left",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C9: a socket that closes while the provider connect is still in flight leaves no provider ",
+   "PA11 C10: B's provider connect is still in flight when C supersedes B -> C goes live, B's ",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C17a",
+  "what": "escalation port built outside the retried write",
+  "result": "RED(3 fail)",
+  "pass": 111,
+  "fail": 3,
+  "failing": [
+   "C17: an escalateForTenant factory that throws synchronously is retried, logged as voice_cr",
+   "C17: a factory that throws once is retried and the escalation is delivered, with nothing l",
+   "PA8b C17: an escalation factory that throws twice with the socket gone is logged",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C18a",
+  "what": "escalation falls back to the latest student turn's words",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C18: a crisis with no words of its own is escalated with the fixed text-free marker, never",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C18b",
+  "what": "crisis words taken from any earlier student turn (no seq adjacency)",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C18: a crisis with no words of its own is escalated with the fixed text-free marker, never",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C18c",
+  "what": "no-words crisis is not escalated (skip)",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C18: a crisis with no words of its own is escalated with the fixed text-free marker, never",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C19a",
+  "what": "drain wait unbounded (timer never resolves)",
+  "result": "RED(hang/timeout)",
+  "pass": null,
+  "fail": null,
+  "failing": []
+ },
+ {
+  "id": "A-C19b",
+  "what": "drain timeout not logged",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C19: a crisis sink write that never settles cannot hold the slot: finalize waits at most d",
+   "PA12 C19: a never-settling escalation + a plain socket DROP",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C19c",
+  "what": "drain wait ignores the dep (hard 10 s)",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C19: a crisis sink write that never settles cannot hold the slot: finalize waits at most d",
+   "PA12 C19: a never-settling escalation + a plain socket DROP",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C12a",
+  "what": "crisis write not retried",
+  "result": "RED(7 fail)",
+  "pass": 107,
+  "fail": 7,
+  "failing": [
+   "C12: a crisis flag write that fails once is retried once and stored; nothing is logged and",
+   "C12: a crisis flag write that keeps failing is tried twice, logged as voice_crisis_flag_fa",
+   "C12: an escalation that keeps failing is tried twice and logged as voice_crisis_escalate_f",
+   "C12: an escalation that fails once is retried once and delivered, with nothing logged",
+   "C17: an escalateForTenant factory that throws synchronously is retried, logged as voice_cr",
+   "C17: a factory that throws once is retried and the escalation is delivered, with nothing l"
+  ]
+ },
+ {
+  "id": "A-C12b",
+  "what": "escalation carries unredacted words",
+  "result": "RED(3 fail)",
+  "pass": 111,
+  "fail": 3,
+  "failing": [
+   "C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED w",
+   "PA1 C14: socket aborts while the flag write is gated -> exactly 1 flag, 1 escalation, reda",
+   "PA5 C14/C12: a minor WITH guardian consent who drops mid-crisis IS escalated once, with re",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C13a",
+  "what": "prune timer never armed",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C13: the prune timer drops an expired resume log although nobody reads it, and is not coun",
+   "PA14 C13: an expired resume log is pruned by the timer with nobody asking, and a late reco",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C2a",
+  "what": "audience not checked",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C2: a token with the wrong audience",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C2b",
+  "what": "replay allowed",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C2: a token is single use: a replay is refused, and two concurrent upgrades with one token",
+   "PA15 C2: tampered signature, tampered payload",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C2c",
+  "what": "token for another thread accepted",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C2: a token minted for one student or thread is refused on another student's or thread's p",
+   "PA15 C2: tampered signature, tampered payload",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C2d",
+  "what": "token for another student accepted",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C2: a token minted for one student or thread is refused on another student's or thread's p",
+   "PA15 C2: tampered signature, tampered payload",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C2e",
+  "what": "expiry not enforced",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C2: an expired token is refused",
+   "PA15 C2: tampered signature, tampered payload",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C2f",
+  "what": "issuer not checked",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C2: a token with the wrong audience",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C9a",
+  "what": "socket cap ignored",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C9: the socket cap refuses more connections with 503 without opening anything",
+   "PA13c C11: socket cap holds",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C11a",
+  "what": "pre-start cap ignored",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C11: one student can hold only 2 sockets that have not started; a third is refused 429 at ",
+   "PA13b C11: pre-start cap: one student's third unstarted socket is 429 and its token is not",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C11b",
+  "what": "session-route limiter ignored",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C11: the session route is limited per student",
+   "PA13 C11: default 30/min session-route limit per student: the 31st is 429 with Retry-After",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C4a",
+  "what": "silence default 30 s",
+  "result": "RED(2 fail)",
+  "pass": 112,
+  "fail": 2,
+  "failing": [
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart",
+   "PA17 C4: 60 s of silence closes the socket",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C6a",
+  "what": "unconsented minor persists text",
+  "result": "RED(7 fail)",
+  "pass": 107,
+  "fail": 7,
+  "failing": [
+   "C5: for an unconsented minor the flag still reaches the student but no finding or text is ",
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no ",
+   "C6/D-093 4A: a guardianConsent claim that is not the boolean true",
+   "C12: an under-18 student without guardian consent is flagged",
+   "C14: an unconsented minor is flagged, not escalated, and the skip is logged text-free",
+   "PA4 C14/C12: an unconsented minor who drops mid-crisis is flagged once, NOT escalated, the"
+  ]
+ },
+ {
+  "id": "A-C6b",
+  "what": "stored transcript unredacted",
+  "result": "RED(4 fail)",
+  "pass": 110,
+  "fail": 4,
+  "failing": [
+   "C6/D-093 6A: the stored transcript is redacted",
+   "C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED w",
+   "PA1 C14: socket aborts while the flag write is gated -> exactly 1 flag, 1 escalation, reda",
+   "PA5 C14/C12: a minor WITH guardian consent who drops mid-crisis IS escalated once, with re",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C7a",
+  "what": "minutes not recorded",
+  "result": "RED(10 fail)",
+  "pass": 104,
+  "fail": 10,
+  "failing": [
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the ",
+   "C7: minutes are recorded when the connection ends",
+   "C7: a per-tenant override changes the limits for that tenant only",
+   "C15: usage 50 min, A runs 10 min, B supersedes A: the month is read again after A's minute",
+   "C4/D-088: a session ends at the 20-minute cap with a fixed message, and exactly 20 minutes",
+   "C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume acr"
+  ]
+ }
+]

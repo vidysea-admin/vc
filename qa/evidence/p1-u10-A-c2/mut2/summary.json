@@ -1,0 +1,71 @@
+[
+ {
+  "id": "A-C1a",
+  "what": "counsellor/admin role not refused 403 (role error becomes 401)",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C1: session route refusals: no token, wrong role, other student's path, unknown thread, ot",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C1b",
+  "what": "sandbox syn- rule removed",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "A6: the sandbox tenant accepts only syn- student ids at the voice session route",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C8a",
+  "what": "flag default-on (route.enabled ignored)",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C8/A20: default off: no flag builds nothing, no route is mounted, and the upgrade path doe",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C8b",
+  "what": "A20 go-live gate not asserted",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C8/A20: enabled without the go-live records",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C5a",
+  "what": "crisis flag frame not sent to the client",
+  "result": "RED(4 fail)",
+  "pass": 110,
+  "fail": 4,
+  "failing": [
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no ",
+   "D-096 item 3: after a crisis the fixed audio and flag are forwarded, model audio is droppe",
+   "C12: a crisis flag write that keeps failing is tried twice, logged as voice_crisis_flag_fa",
+   "PA18 D-096: after a crisis only the fixed helpline audio reaches the client; later model a",
+   "failing tests:"
+  ]
+ },
+ {
+  "id": "A-C3a",
+  "what": "origin allow-list not enforced",
+  "result": "RED(1 fail)",
+  "pass": 113,
+  "fail": 1,
+  "failing": [
+   "C2: another path or method is 404 and an Origin outside the allowed list is 403",
+   "failing tests:"
+  ]
+ }
+]

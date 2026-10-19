@@ -1,0 +1,8 @@
+[
+ {"id":"A-C1a","what":"counsellor/admin role not refused 403 (role error becomes 401)","find":"return err.reason === \"role\" ? fail(403, \"forbidden\") : UNAUTHORIZED();","replace":"return UNAUTHORIZED();"},
+ {"id":"A-C1b","what":"sandbox syn- rule removed","find":"if (deps.sandboxTenantId !== undefined && ctx.tenantId === deps.sandboxTenantId && !isSyntheticStudentId(ctx.studentId)) return fail(403, \"sandbox_synthetic_only\");","replace":""},
+ {"id":"A-C8a","what":"flag default-on (route.enabled ignored)","find":"if (!route.enabled) return undefined;","replace":""},
+ {"id":"A-C8b","what":"A20 go-live gate not asserted","find":"  assertVoiceGoLive(route);\n","replace":""},
+ {"id":"A-C5a","what":"crisis flag frame not sent to the client","find":"        sendEvent(c, { type: \"flag\", reason: \"crisis_detected\", ...(ev.level !== undefined ? { detail: ev.level.slice(0, 64) } : {}) });\n","replace":""},
+ {"id":"A-C3a","what":"origin allow-list not enforced","find":"!deps.allowedOrigins.includes(origin)) {","replace":"false) {"}
+]

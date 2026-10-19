@@ -1,0 +1,40 @@
+[testlock] waiting for lock held by: PID=2684 STARTED=639279855216672312 ACQUIRED_AT=1792368921 TOKEN=1792368921760892200-210924-25395 DESC=pnpm -C D:/vc/.worktrees/p1-u10w/apps/api exec tsx --test tests/voice-wiring.test.ts 
+[testlock] running slot 1 (free RAM 5.72 GB): pnpm -C D:/vc/.worktrees/p1-u10-A-fals/apps/api exec tsx --test tests/voice-history.test.ts
+✖ C6/A19: voice turns interleave in order with text turns in one thread, survive a reconnect, and carry channel voice (53.1251ms)
+✔ C6: an assistant answer that was cut off (user spoke twice, no reply) is stored on its own and ordering stays stable (62.074ms)
+✔ C6/D-086 Q4: transcripts are stored but audio is not: no collection holds any PCM bytes (35.6158ms)
+✔ C6/A19: the student export contains the voice turns (channel voice) and erasure removes them, leaving another student's voice history alone (54.1913ms)
+✔ C6/D-093 6A: the stored transcript is redacted (email, phone, self-stated and profile names); the live transcript to the owner is not (30.1359ms)
+✔ C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay (45.2837ms)
+✔ C6/D-093 4A: a guardianConsent claim that is not the boolean true (the string 'true') is not consent; a boolean true stores the turns (92.198ms)
+✔ C6: a failure to store a transcript is reported as a fixed persist_failed event and the session keeps going (63.5992ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1920.7421
+
+✖ failing tests:
+
+test at tests\voice-history.test.ts:46:1
+✖ C6/A19: voice turns interleave in order with text turns in one thread, survive a reconnect, and carry channel voice (53.1251ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  500 !== 200
+  
+      at textTurn (D:\vc\.worktrees\p1-u10-A-fals\apps\api\tests\voice-history.test.ts:43:10)
+      at async <anonymous> (D:\vc\.worktrees\p1-u10-A-fals\apps\api\tests\voice-history.test.ts:48:5)
+      at async withWorld (D:\vc\.worktrees\p1-u10-A-fals\apps\api\tests\voice-history.test.ts:29:5)
+      at async TestContext.<anonymous> (D:\vc\.worktrees\p1-u10-A-fals\apps\api\tests\voice-history.test.ts:47:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 500,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

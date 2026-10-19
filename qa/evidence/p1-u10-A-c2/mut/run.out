@@ -1,0 +1,39 @@
+A-C14a RED(hang/timeout) 
+A-C14b RED(1 fail) C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is | failing tests:
+A-C14c RED(2 fail) C14: an unconsented minor is flagged, not escalated, and the skip is logged text-free | PA4 C14/C12: an unconsented minor who drops mid-crisis is flagged once, NOT escalated, the | failing tests:
+A-C14d RED(3 fail) C12: an under-18 student without guardian consent is flagged | C14: an unconsented minor is flagged, not escalated, and the skip is logged text-free | PA4 C14/C12: an unconsented minor who drops mid-crisis is flagged once, NOT escalated, the
+A-C14e RED(1 fail) PA6 C12: a crisis flag write that always fails is retried once, logged text-free | failing tests:
+A-C14f RED(1 fail) C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is | failing tests:
+A-C15a RED(2 fail) C15: usage 50 min, A runs 10 min, B supersedes A: the month is read again after A's minute | PA9b C15: usage 50, A ran 10 min, B and C start together -> both refused/stepped aside, no | failing tests:
+A-C15b RED(4 fail) C15: usage 50 min, A runs 10 min, B supersedes A: the month is read again after A's minute | C16: the supersede loop's second pass is needed: a start that took the slot while B re-rea | PA9a C15: usage 50, A ran 5 min -> B supersedes A and IS allowed, but its cap is exactly t
+A-C15c RED(2 fail) C7: the session limit is the smaller of 20 minutes and what is left of the month, and the  | PA9a C15: usage 50, A ran 5 min -> B supersedes A and IS allowed, but its cap is exactly t | failing tests:
+A-C16a RED(2 fail) C16: A active with a slow drain, B starts, C starts and then aborts: B | C16: the supersede loop's second pass is needed: a start that took the slot while B re-rea | failing tests:
+A-C16b RED(1 fail) C16: the supersede loop's second pass is needed: a start that took the slot while B re-rea | failing tests:
+A-C16c RED(1 fail) C16: the supersede loop's second pass is needed: a start that took the slot while B re-rea | failing tests:
+A-C16d RED(2 fail) C10: B and C start together while A is active and A's drain is slow -> exactly one live pr | PA10b C10/C16: A active | failing tests:
+A-C10a SURVIVES 
+A-C10b RED(2 fail) C10: a start whose provider connect never returns is closed by the start timer, and the so | PA13d C10: a never-resolving live.connect is closed by the 15 s start timer | failing tests:
+A-C10c RED(2 fail) C9: a socket that closes while the provider connect is still in flight leaves no provider  | PA11 C10: B's provider connect is still in flight when C supersedes B -> C goes live, B's  | failing tests:
+A-C17a RED(3 fail) C17: an escalateForTenant factory that throws synchronously is retried, logged as voice_cr | C17: a factory that throws once is retried and the escalation is delivered, with nothing l | PA8b C17: an escalation factory that throws twice with the socket gone is logged
+A-C18a RED(1 fail) C18: a crisis with no words of its own is escalated with the fixed text-free marker, never | failing tests:
+A-C18b RED(1 fail) C18: a crisis with no words of its own is escalated with the fixed text-free marker, never | failing tests:
+A-C18c RED(1 fail) C18: a crisis with no words of its own is escalated with the fixed text-free marker, never | failing tests:
+A-C19a RED(hang/timeout) 
+A-C19b RED(2 fail) C19: a crisis sink write that never settles cannot hold the slot: finalize waits at most d | PA12 C19: a never-settling escalation + a plain socket DROP | failing tests:
+A-C19c RED(2 fail) C19: a crisis sink write that never settles cannot hold the slot: finalize waits at most d | PA12 C19: a never-settling escalation + a plain socket DROP | failing tests:
+A-C12a RED(7 fail) C12: a crisis flag write that fails once is retried once and stored; nothing is logged and | C12: a crisis flag write that keeps failing is tried twice, logged as voice_crisis_flag_fa | C12: an escalation that keeps failing is tried twice and logged as voice_crisis_escalate_f
+A-C12b RED(3 fail) C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED w | PA1 C14: socket aborts while the flag write is gated -> exactly 1 flag, 1 escalation, reda | PA5 C14/C12: a minor WITH guardian consent who drops mid-crisis IS escalated once, with re
+A-C13a RED(2 fail) C13: the prune timer drops an expired resume log although nobody reads it, and is not coun | PA14 C13: an expired resume log is pruned by the timer with nobody asking, and a late reco | failing tests:
+A-C2a RED(1 fail) C2: a token with the wrong audience | failing tests:
+A-C2b RED(2 fail) C2: a token is single use: a replay is refused, and two concurrent upgrades with one token | PA15 C2: tampered signature, tampered payload | failing tests:
+A-C2c RED(2 fail) C2: a token minted for one student or thread is refused on another student's or thread's p | PA15 C2: tampered signature, tampered payload | failing tests:
+A-C2d RED(2 fail) C2: a token minted for one student or thread is refused on another student's or thread's p | PA15 C2: tampered signature, tampered payload | failing tests:
+A-C2e RED(2 fail) C2: an expired token is refused | PA15 C2: tampered signature, tampered payload | failing tests:
+A-C2f RED(1 fail) C2: a token with the wrong audience | failing tests:
+A-C9a RED(2 fail) C9: the socket cap refuses more connections with 503 without opening anything | PA13c C11: socket cap holds | failing tests:
+A-C11a RED(2 fail) C11: one student can hold only 2 sockets that have not started; a third is refused 429 at  | PA13b C11: pre-start cap: one student's third unstarted socket is 429 and its token is not | failing tests:
+A-C11b RED(2 fail) C11: the session route is limited per student | PA13 C11: default 30/min session-route limit per student: the 31st is 429 with Retry-After | failing tests:
+A-C4a RED(2 fail) C4: 60 s of silence ends the session with a fixed message; speech and model output restart | PA17 C4: 60 s of silence closes the socket | failing tests:
+A-C6a RED(7 fail) C5: for an unconsented minor the flag still reaches the student but no finding or text is  | C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no  | C6/D-093 4A: a guardianConsent claim that is not the boolean true
+A-C6b RED(4 fail) C6/D-093 6A: the stored transcript is redacted | C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED w | PA1 C14: socket aborts while the flag write is gated -> exactly 1 flag, 1 escalation, reda
+A-C7a RED(10 fail) C7: the session limit is the smaller of 20 minutes and what is left of the month, and the  | C7: minutes are recorded when the connection ends | C7: a per-tenant override changes the limits for that tenant only
