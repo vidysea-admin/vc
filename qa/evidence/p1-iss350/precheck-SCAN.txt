@@ -1,0 +1,11 @@
+[testlock] running slot 0 (free RAM 2.59 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-350: (the fix adds no scan|the anonymous route scans) tests/chat.test.ts tests/anonymous-zero-persistence.test.ts
+✔ ISS-350: the anonymous route scans an extra-key crisis body exactly as often as a well-formed one, and an extra-key benign body once (125.6354ms)
+✔ ISS-350: the fix adds no scan: a malformed crisis turn scans exactly as often as a well-formed one, and a malformed benign turn is scanned once (194.0332ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5064.5705

@@ -419,11 +419,15 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
       if (typeof json !== "object" || json === null || Array.isArray(json)) return fail(400, "invalid_request");
       const keys = Object.keys(json);
       const text = (json as { text?: unknown }).text;
-      if (keys.length !== 1 || keys[0] !== "text" || typeof text !== "string") return fail(400, "invalid_request");
+      if (typeof text !== "string") return fail(400, "invalid_request");
+      // ISS-350 (D-104): the crisis exemption comes before the shape check. A body with extra keys whose text is a crisis or concern phrase is still
+      // answered (from `text` alone; the extra keys are never read or kept). One scan serves this check and the limiter exemption below.
+      const level = crisisGuard(text).level;
+      if ((keys.length !== 1 || keys[0] !== "text") && level === "none") return fail(400, "invalid_request");
 
       // AI review A: a crisis message is never rate limited. The scan runs on the FULL text before the limiter is consulted; the graph
       // then answers it with the fixed message (no model, no KB, one text-free counter write), so it costs nothing worth limiting.
-      if (crisisGuard(text).level === "none") {
+      if (level === "none") {
         const verdict = limiter.check(clientKey(req));
         if (!verdict.allowed) return fail(429, "rate_limited", { "retry-after": String(verdict.retryAfterSec) });
       }
