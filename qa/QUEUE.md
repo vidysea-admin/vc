@@ -106,12 +106,12 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 
 ## Candidates (human picks)
 
-- [ ] CANDIDATE · priority: security · ISS-228 (medium): a throwing redactPii in onCrisisRecord (voice.ts:801-802, outside try/catch and before the flag write) would lose the flag and the escalation with only a generic persist_failed; wrap and fall back to the no-words text. Crisis path; fix in flight in p1/u10s, must land before A20/voice go-live. Source: qa/evidence/p1-briefs/p1-u10w-c1-review-result.md.
+- [x] DONE · priority: security · ISS-228 (medium): a throwing redactPii in onCrisisRecord (voice.ts:801-802, outside try/catch and before the flag write) would lose the flag and the escalation with only a generic persist_failed; wrap and fall back to the no-words text. Crisis path; fixed by p1/u10s (dual PASS 5c2f245/a8b141b). Source: qa/evidence/p1-briefs/p1-u10w-c1-review-result.md.
 - [ ] CANDIDATE · priority: security · ISS-229 (medium): escalated words are the userBuf at the first triggering chunk, so they may be only a prefix of the crisis utterance (voice.ts:529-533, live.ts:386-388). Crisis path; product decision for Umesh (deferred by the U10s brief), must be settled before A20/voice go-live. Source: qa/evidence/p1-briefs/p1-u10w-c1-review-result.md; related ISS-223.
 
 Raised by the U10w voice-wiring dual check and senior reviews (2026-10-19, ISS-218..ISS-235; dual PASS 1d28387/ee0e5a1, reviews cycle 1 Warning and cycle 2 Approve); ISS-218 (padded flag trimmed) is fixed by this unit; none is a TODO row, the human picks. Sources: qa/verdicts/p1-u10w-voice-wiring.A.md, .B.md, .A.r1-1.md, .B.r1-1.md, qa/evidence/p1-briefs/p1-u10w-c1-review-result.md.
 
-- [ ] CANDIDATE · ISS-219 (low): a second no-words crisis with no user turn in between reuses the first turnId (voice.ts:804), so its escalation collapses into the first; fix in flight in p1/u10s.
+- [x] DONE · ISS-219 (low): a second no-words crisis with no user turn in between reuses the first turnId (voice.ts:804), so its escalation collapses into the first; fixed by p1/u10s (dual PASS 5c2f245/a8b141b).
 - [ ] CANDIDATE · ISS-220 (low): detectForConn reads result.crisis outside its try (voice.ts:529-543); a non-boolean detector result queues nothing (type-violating detector only).
 - [ ] CANDIDATE · ISS-221 (low): verifyVoiceToken has no lifetime ceiling (exp=iat+3600 accepted); the jti set is per process (voice.ts:366-388).
 - [ ] CANDIDATE · ISS-222 (low, test strength): W2 bound and C19 tests have no timeout of their own; the W8 usage-before-close assertion is shadowed; only the 2-crisis pairing kills peek-instead-of-shift.
@@ -124,7 +124,14 @@ Raised by the U10w voice-wiring dual check and senior reviews (2026-10-19, ISS-2
 - [ ] CANDIDATE · ISS-231 (low): lingering and connecting voice sessions are not awaited at shutdown (voice.ts:1198, 958-967).
 - [ ] CANDIDATE · ISS-232 (low, test gaps): no test for a redactPii throw in onCrisisRecord, 3+ queued crises with a stalled escalation, or stop() closing the DB when voice.close() rejects.
 - [ ] CANDIDATE · ISS-233 (low): crisis queue entries are unclamped until consumed (growth bounded in practice).
-- [ ] CANDIDATE · ISS-234 (low): chat.ts:124 trims the voice flag while voice.ts takes only exact 'true'; fix in flight in p1/u10s.
+- [x] DONE · ISS-234 (low): chat.ts:124 trims the voice flag while voice.ts takes only exact 'true'; fixed by p1/u10s (dual PASS 5c2f245/a8b141b).
+
+Raised by the U10s voice-hardening dual check and review (2026-10-19, ISS-260..ISS-263; dual PASS 5c2f245/a8b141b, review Approve); none is a TODO row, the human picks. Sources: qa/verdicts/p1-u10s-voice-hardening.A.md, .B.md, qa/evidence/p1-briefs/p1-u10s-review-result.md.
+
+- [ ] CANDIDATE · ISS-263 (low, go-live checklist): deploy configs must set VC_CHAT_ENABLED and VC_VOICE_ENABLED to the exact word "true"; padded values such as 'true ' now fail startup.
+- [ ] CANDIDATE · ISS-260 (low, test): no committed test pins H3 for an unconsented minor (persistText false); behaviour is correct under probes.
+- [ ] CANDIDATE · ISS-261 (low, test): no test pins two crises with words on one spoken turn (second gets a fresh id) nor a throwing redaction followed by a second crisis.
+- [ ] CANDIDATE · ISS-262 (low, pre-existing): c.lastUser may be the previous turn if the crisis record arrives before the final transcript (voice.ts:683-688); provider ordering unconfirmed.
 - [ ] CANDIDATE · ISS-235 (low, informational): voice.ts:270 trims TRACING_VARS; judged safe.
 
 - [ ] CANDIDATE · priority: privacy · ISS-198 (medium): a lower-case one-letter initial before a name leaves the name unredacted ('my name is s. kumar', 'i am j. r. d. tata', 'my name is a. p. j. abdul kalam'; 'my name is dr. s. kumar' keeps the surname); packages/schemas/src/redact.ts:152-160 (isLowerNameToken length < 2 ends the run). Found by U8r checker A (cycle 2). Source: qa/verdicts/p1-u8r-chat-privacy.A.md P2.
