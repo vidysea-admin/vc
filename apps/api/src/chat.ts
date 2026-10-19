@@ -681,8 +681,8 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
       }
 
       // p1-u6w: the graph only names the tool; the API layer ranks (graph.ts `executedBy: "api"`). Authenticated routes only, so this is never anonymous.
-      // A turn that stores no text (an unconsented minor, an over-long message) or has no student text never reaches the option port.
-      if (result.selectedTool === "rank_options" && persistText && text.trim().length > 0) response = await withRanking(who, response);
+      // A turn that stores no text (an unconsented minor, an over-long message) never reaches the option port; a turn with no student text cannot pick rank_options.
+      if (result.selectedTool === "rank_options" && persistText) response = await withRanking(who, response);
 
       if (leaseToken !== undefined) {
         const stored = TurnResponseSchema.parse({
