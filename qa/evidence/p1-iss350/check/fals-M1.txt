@@ -1,0 +1,94 @@
+[testlock] running slot 0 (free RAM 4.55 GB): pnpm -C apps/api exec tsx --test tests/chk-iss350.test.ts
+✖ AUTH crisis x malformed: escalated crisis answer with 14416, nothing malformed persisted (89.0487ms)
+✔ AUTH benign x malformed: plain 400, nothing stored, no model call, no helpline (87.0953ms)
+✔ AUTH hostile: crisis text only inside an extra key / clientTurnId is NOT scanned -> 400 (35.8443ms)
+✔ AUTH KEEP400: non-string text, broken JSON, non-object bodies stay plain 400 even with crisis text around (31.9004ms)
+✖ AUTH rate-limited student + bad field + crisis -> crisis answer; benign still 429 (87.4001ms)
+✖ AUTH replay: a valid clientTurnId replayed after a crisis-with-bad-field turn (33.9314ms)
+✔ ANON crisis + extra keys (all scripts, hostile keys): fixed crisis answer, one counter each, nothing echoed (167.0795ms)
+✔ ANON benign + extra keys: 400 with helpline, no model call, no counter; non-string / non-JSON stay 400 (37.5854ms)
+✔ ANON rate-limited client + extra key + crisis -> crisis answer (274.1637ms)
+AUTH scan NFKD counts: wellformed 24 malformed 4 both-bad 4 benign-malformed 4 direct-one-scan 4
+✖ SCAN: malformed crisis == well-formed crisis; malformed benign == one scan (both routes, independent instrument) (98.0856ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 6
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3165.9035
+
+✖ failing tests:
+
+test at tests\chk-iss350.test.ts:69:1
+✖ AUTH crisis x malformed: escalated crisis answer with 14416, nothing malformed persisted (89.0487ms)
+  AssertionError [ERR_ASSERTION]: english/unknown key: {"error":"invalid_request"}
+  
+  400 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss350-chk\apps\api\tests\chk-iss350.test.ts:76:14)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 400,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chk-iss350.test.ts:137:1
+✖ AUTH rate-limited student + bad field + crisis -> crisis answer; benign still 429 (87.4001ms)
+  AssertionError [ERR_ASSERTION]: english/unknown key: {"error":"invalid_request"}
+  
+  400 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss350-chk\apps\api\tests\chk-iss350.test.ts:153:16)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 400,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chk-iss350.test.ts:168:1
+✖ AUTH replay: a valid clientTurnId replayed after a crisis-with-bad-field turn (33.9314ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  400 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss350-chk\apps\api\tests\chk-iss350.test.ts:180:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 400,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chk-iss350.test.ts:285:1
+✖ SCAN: malformed crisis == well-formed crisis; malformed benign == one scan (both routes, independent instrument) (98.0856ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  4 !== 24
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss350-chk\apps\api\tests\chk-iss350.test.ts:298:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 4,
+    expected: 24,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

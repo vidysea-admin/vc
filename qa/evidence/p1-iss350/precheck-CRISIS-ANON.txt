@@ -1,0 +1,11 @@
+[testlock] running slot 0 (free RAM 2.59 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-350: an anonymous crisis text tests/anonymous-zero-persistence.test.ts
+✔ ISS-350: an anonymous crisis text with extra keys, Latin or Devanagari, gets the fixed crisis answer and one crisis counter, and the extra keys are never kept (181.3452ms)
+✔ ISS-350: an anonymous crisis text with an extra key is answered for a client already rate limited; a benign text with extra keys stays a 400 that carries the helpline (58.5323ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2979.3017

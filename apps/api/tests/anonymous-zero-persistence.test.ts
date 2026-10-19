@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { inspect } from "node:util";
 import { ANONYMOUS_COUNTER_KINDS, DEFAULT_LIMITS } from "@vc/schemas";
 import { ANONYMOUS_COUNTER_FIELDS, COLLECTION_NAMES } from "@vc/db";
-import { ANONYMOUS_CRISIS_MESSAGE, ANONYMOUS_NO_ANSWER_TEXT, ANONYMOUS_SIGN_IN_TEXT, TELE_MANAS_LINE } from "@vc/engine";
+import { ANONYMOUS_CRISIS_MESSAGE, ANONYMOUS_NO_ANSWER_TEXT, ANONYMOUS_SIGN_IN_TEXT, TELE_MANAS_LINE, crisisGuard } from "@vc/engine";
 import {
   AnonymousForbiddenWriteError,
   AnonymousRateLimiter,
@@ -728,4 +728,106 @@ test("U7 repair 4: with a full table the O(n) sweep runs at most once a second, 
   assert.ok(lim.sweeps <= 2, `${lim.sweeps} sweeps after 1.1 s`);
   now += 61_000;
   assert.equal(lim.check("fresh").allowed, true, "expired keys are purged by a later sweep and the table reopens");
+});
+
+// ISS-350 (D-104): the anonymous route has the same ordering gap: a crisis `text` with any extra key used to be a 400 (with the helpline in the body
+// but no crisis answer, no counter). The crisis answer now comes first; the extra keys are ignored and never read, stored or echoed.
+const ISS350_MARK = "EVIL-MARK-350";
+const ISS350_CRISIS = [
+  ["latin", "I want to kill myself"],
+  ["devanagari", "मैं मरना चाहता हूँ"],
+] as const;
+const ISS350_BODIES: readonly [string, (text: string) => Record<string, unknown>][] = [
+  ["unknown key", (text) => ({ text, role: ISS350_MARK })],
+  ["tenant and student ids", (text) => ({ text, tenantId: ISS350_MARK, studentId: ISS350_MARK })],
+  ["clientTurnId", (text) => ({ text, clientTurnId: `../${ISS350_MARK}` })],
+];
+
+test("ISS-350: an anonymous crisis text with extra keys, Latin or Devanagari, gets the fixed crisis answer and one crisis counter, and the extra keys are never kept", async () => {
+  for (const [script, text] of ISS350_CRISIS) {
+    for (const [name, make] of ISS350_BODIES) {
+      const w = anonWorld();
+      try {
+        const res = await w.handler(anonRequest(make(text)));
+        const json = JSON.parse(res.body);
+        assert.equal(res.status, 200, `${script} / ${name}`);
+        assert.equal(json.state, "escalated", `${script} / ${name}`);
+        assert.match(json.message, /14416/, `${script} / ${name}`);
+        assert.deepEqual(w.counterCalls, ["crisis"], `${script} / ${name}: one crisis counter`);
+        assert.ok(!(res.body + JSON.stringify(w.logs) + JSON.stringify(w.fakeDb.collection("anonymous_counters").all())).includes(ISS350_MARK), `${script} / ${name}`);
+      } finally {
+        w.cleanup();
+      }
+    }
+  }
+});
+
+test("ISS-350: an anonymous crisis text with an extra key is answered for a client already rate limited; a benign text with extra keys stays a 400 that carries the helpline", async () => {
+  const limiter = new AnonymousRateLimiter({ limit: 1, windowMs: 60_000, maxKeys: 100, nowMs: () => 5_000 });
+  const w = anonWorld({ deps: { limiter } });
+  try {
+    const ip = "198.51.100.35";
+    assert.equal((await w.handler(anonRequest({ text: "What are tuition fees in Germany?" }, { ip }))).status, 200);
+    assert.equal((await w.handler(anonRequest({ text: "What are tuition fees in Germany?" }, { ip }))).status, 429);
+    const crisis = await w.handler(anonRequest({ text: "I want to kill myself", role: ISS350_MARK }, { ip }));
+    assert.equal(crisis.status, 200);
+    assert.equal(JSON.parse(crisis.body).state, "escalated");
+    const callsBefore = w.provider.calls.length;
+    for (const body of [{ text: "What are tuition fees in Germany?", role: ISS350_MARK }, { text: "मुझे फीस जाननी है", extra: 1 }]) {
+      const res = await w.handler(anonRequest(body, { ip: "198.51.100.36" }));
+      assert.equal(res.status, 400);
+      assert.equal(JSON.parse(res.body).error, "invalid_request");
+      assert.match(JSON.parse(res.body).helpline, /14416/);
+    }
+    assert.equal(w.provider.calls.length, callsBefore, "a refused benign body reaches no model");
+    assert.deepEqual(w.counterCalls, ["answered", "crisis"]);
+    for (const body of [{ text: 42, role: "x" }, { role: "x" }, { text: ["I want to kill myself"] }, "{not json I want to kill myself", "[]"]) {
+      assert.equal((await w.handler(anonRequest(body, { ip: "198.51.100.37" }))).status, 400, JSON.stringify(body));
+    }
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("ISS-350: the anonymous route scans an extra-key crisis body exactly as often as a well-formed one, and an extra-key benign body once", async () => {
+  const w = anonWorld();
+  const original = String.prototype.trim;
+  const count = async (text: string, body: unknown): Promise<number> => {
+    let n = 0;
+    String.prototype.trim = function (this: string): string {
+      if (String(this) === text) n++;
+      return original.call(this);
+    };
+    try {
+      await w.handler(anonRequest(body, { ip: `192.0.2.${100 + Math.floor(Math.random() * 100)}` }));
+    } finally {
+      String.prototype.trim = original;
+    }
+    return n;
+  };
+  try {
+    const crisisText = "Scan count probe: I want to kill myself";
+    const benignText = "Scan count probe: what are tuition fees in Germany?";
+    const wellFormed = await count(crisisText, { text: crisisText });
+    const extra = await count(crisisText, { text: crisisText, role: ISS350_MARK });
+    assert.ok(wellFormed >= 1);
+    assert.equal(extra, wellFormed);
+    const direct = await (async () => {
+      let n = 0;
+      String.prototype.trim = function (this: string): string {
+        if (String(this) === benignText) n++;
+        return original.call(this);
+      };
+      try {
+        crisisGuard(benignText);
+      } finally {
+        String.prototype.trim = original;
+      }
+      return n;
+    })();
+    assert.equal(await count(benignText, { text: benignText, role: ISS350_MARK }), direct);
+  } finally {
+    String.prototype.trim = original;
+    w.cleanup();
+  }
 });
