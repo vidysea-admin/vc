@@ -455,14 +455,14 @@ interface Conn {
   invalid: number;
   notStartedWarned: boolean;
   lastAtMs: number;
-  /** `text` is the REDACTED words of the turn, kept only while the student's text may be stored; the crisis escalation reads it. */
-  lastUser?: { turnId: string; at: string; answered: boolean; text?: string; seq?: number };
+  lastUser?: { turnId: string; at: string; answered: boolean };
   /**
-   * U10 repair 2 (item 5): the redacted words of the utterance that triggered the crisis now being recorded. Set when the fixed crisis
-   * reply reaches the sink: LiveSession writes the crisis utterance (seq N) right before the fixed reply (seq N + 1), so only a student
-   * turn with seq N counts; anything older is another turn and is never used.
+   * U10 C18 (cycle 3, D-099): the words of each crisis utterance, captured AT CRISIS TIME from the text the crisis detector was called
+   * with (that text is the utterance itself, nothing older), oldest first. LiveSession fires exactly one crisis record per detection, in
+   * order, so `onCrisisRecord` takes the head. `""` = the utterance had no words; `undefined` = nothing may be kept (an unconsented
+   * minor). Never inferred from seq adjacency: an unanswered earlier turn sits right before a no-words crisis reply too.
    */
-  crisisWords?: string;
+  crisisUtterances: (string | undefined)[];
   startTimer?: unknown;
   turnBySeq: Map<number, string>;
   /** `${seq}|${reason}|${detail}` of the flags already sent: one listed speaker named under three aliases is one flag, not three. */
@@ -520,6 +520,27 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   const auditOutput = deps.auditOutput ?? createSimpleOutputAuditor({ listedSpeakers });
   const detectCrisis: LiveCrisisDetector =
     deps.crisis.detect ?? ((text) => (crisisGuard(text).level === "crisis" ? { crisis: true, level: "crisis" } : { crisis: false }));
+
+  /**
+   * U10 C18 (cycle 3, D-099): the detector LiveSession calls, per connection. Whenever it reports a crisis (or throws, which LiveSession
+   * treats as a crisis, D-087) the scanned text, i.e. the crisis utterance's own words, is queued for the escalation. Raw text only in
+   * memory and only while the student's text may be stored; it is redacted when the escalation is built (off the 2 s crisis budget).
+   */
+  function detectForConn(c: Conn, text: string): ReturnType<LiveCrisisDetector> {
+    const capture = () => {
+      // Not capped: each entry is consumed by its own crisis record, and dropping one would shift every later crisis onto the wrong words.
+      c.crisisUtterances.push(c.persistText ? text.trim() : undefined);
+    };
+    let result: ReturnType<LiveCrisisDetector>;
+    try {
+      result = detectCrisis(text);
+    } catch (err) {
+      capture();
+      throw err;
+    }
+    if (typeof result === "boolean" ? result : result.crisis) capture();
+    return result;
+  }
 
   const wss = new WebSocketServer({
     noServer: true,
@@ -688,12 +709,6 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     sendEvent(c, { type: "transcript.final", role: t.role, text: clamp(t.text), turnId });
     if (!c.persistText) return; // D-093 4A: the student is answered, nothing personal is stored
     const stored = redact(c, t.text);
-    // The crisis escalation reads the words of the latest student turn; they are kept redacted and only while text may be stored.
-    if (t.role === "user" && c.lastUser?.turnId === turnId) {
-      c.lastUser.text = clamp(stored, 2000);
-      c.lastUser.seq = t.seq;
-    }
-    if (t.fixed === true) c.crisisWords = c.lastUser?.seq !== undefined && c.lastUser.seq === t.seq - 1 ? c.lastUser.text : undefined;
     try {
       await appendVoiceTurn(c.db, { studentId: c.claims.studentId, threadId: c.claims.threadId, turnId, role: t.role, text: stored, at });
     } catch (err) {
@@ -782,9 +797,9 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
    * fenced for erasure, and each such skip leaves a text-free log line.
    */
   async function onCrisisRecord(c: Conn, r: LiveCrisisRecord): Promise<void> {
-    // The words of THIS crisis utterance (consumed here, so a later crisis never sees them).
-    const words = c.crisisWords;
-    c.crisisWords = undefined;
+    // The words of THIS crisis utterance, captured when it was detected (consumed here, so a later crisis never sees them).
+    const raw = c.crisisUtterances.shift();
+    const words = raw !== undefined && raw !== "" && c.persistText ? clamp(redact(c, raw), 2000) : undefined;
     // Ids and time only: kept even for an unconsented minor, exactly like the text path's crisis flag.
     const turnId = c.lastUser?.turnId ?? `v${c.claims.sid.slice(0, 8)}crisis`;
     const flag = await crisisWrite(c, "voice_crisis_flag_failed", () =>
@@ -878,7 +893,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       ...(deps.voiceName !== undefined ? { voiceName: deps.voiceName } : {}),
       onEvent: (ev) => onLiveEvent(c, ev),
       sink,
-      detectCrisis,
+      detectCrisis: (text) => detectForConn(c, text),
       crisisMessage: deps.crisis.message,
       auditOutput,
       ...(tools
@@ -1311,6 +1326,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       notStartedWarned: false,
       lastAtMs: 0,
       turnBySeq: new Map(),
+      crisisUtterances: [],
       flagsSent: new Set(),
       pendingConfirms: new Map(),
     };
