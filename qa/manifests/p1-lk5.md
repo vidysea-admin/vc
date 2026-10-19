@@ -10,7 +10,7 @@
 - K7 no regression: crisisGuard first and unweakened, LK4 and student-graph suites, typecheck
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** STALLED (cycle-2 FAIL d907e64 + senior review Block; HUMAN_GATE qa/gates/lk5-localized-claims.md on main)
 **Fix cycle:** 2
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** L (safety path in graph.ts plus a new live safety screen)
