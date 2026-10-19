@@ -34,3 +34,28 @@ The crisis test could not be falsified (red before any edit). Output: qa/evidenc
 ## Findings (ledger rows in qa/issues.jsonl)
 - ISS-237 medium: the FAIL above. ISS-238 low: P12-1 A5 draft-vs-served openapi wording. ISS-239 low: P12-3 A7 gap-count wording. ISS-240 low: spec file names for A13/A23/A24 and the A16/A17 row text.
 - Environment: C: nearly full per brief; no OOM seen.
+
+---
+
+# Cycle 1 (repair check, fix cycle 1)
+**Verdict:** PASS
+**Cycle checked:** 1
+**Head checked:** c86ad3a (repair b67423a). Cycle-0 verdict 8b3f52f FAIL. Tier M, one checker, Policy: proportional-verification/2026-10-18.15
+Metrics: start=2026-10-19T10:24:30+05:30 end=2026-10-19T10:27:17+05:30 wall_min=4 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=0 mutations=2 cycle=1 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-18.15 lane=normal check_s=240 mutants=0 defects_unit=0 defects_6c=0
+
+## Checks (all executed in this check)
+- Diff scope: `git -C D:/vc/.worktrees/p1-u12 diff 626214d --stat -- apps packages mcp scripts` lists only apps/api/tests/acceptance-student-journey.test.ts (115 +) and apps/api/tests/acceptance-trace.test.ts (86 +), 201 insertions, no product file. Repair diff 8b3f52f..b67423a on the journey test is 12 lines: the flag expectation 35 -> 1 plus a second-thread block.
+- Product intent: apps/api/src/chat.ts:581-586 (p1-u8r M2) keys the crisis slot on sha256(tenant, student, thread) and later turns in the window are `quiet` (answered, nothing written); chat.ts:582 key includes threadId. The repaired test (1 flag after 35 same-thread turns, 35 x 200 with 14416, model never called, then 2 flags after a turn in a second thread) matches that contract.
+- Run: `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/acceptance-*.test.ts` -> tests 7, pass 7, fail 0, EXIT=0 (qa/evidence/p1-u12/check/acc-run-c1.txt). Run by this checker on c86ad3a, not reused from the maker (the maker's run was on b67423a; the only commit after it, c86ad3a, is qa-only).
+- Trace: rows A16 and A17 are PASS and cite rank.test.ts / evals/coverage.test.ts (checker cycle-0 engine run, 131/131, 8b3f52f); A11b and A23 are PASS and cite the repaired acceptance-student-journey.test.ts (qa/evidence/p1-u12/trace.md). The 4 trace tests are in the 7/7 above.
+
+## Falsification (isolated copy D:/vc/.worktrees/_chk_u12_fals, src and tests re-synced from c86ad3a; bound tree never edited; chat.ts restored byte-identical, `diff -q` clean; output qa/evidence/p1-u12/check/fals-c1-checker.txt)
+| id | edit in copy | before | after |
+|---|---|---|---|
+| F1 | chat.ts:596 `const quiet = false` (dedup broken) | 3/3 | journey test 2 RED, `35 !== 1` |
+| F2 | chat.ts:582 slot key drops `threadId` (per-thread dedup broken) | 3/3 | journey test 2 RED, `1 !== 2` (the second-thread half) |
+Both halves of the repaired test are therefore live. (A first F2 attempt by sed did not match the line, ran 3/3 green and was discarded as a no-op, not a survivor; the node-script edit above is the one that counts.)
+
+## Findings
+- ISS-237: fixed (this verdict). ISS-238, ISS-239, ISS-240 stay open as low wording rows; they are not a FAIL.
+- Environment: no OOM, shared test lock acquired at once (slot 0).
