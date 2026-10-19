@@ -1,0 +1,50 @@
+import { readFileSync, writeFileSync } from "node:fs";
+import { assertGReal, GRealRefusedError } from "./old.ts";
+const real = readFileSync("real.md", "utf-8");
+const env = { VC_G_REAL: "1" };
+function run(name: string, text: string, expect: "accept" | "refuse" | "report") {
+  writeFileSync("g.md", text);
+  let res = "accept";
+  try { assertGReal(env, "g.md"); } catch (e) { res = e instanceof GRealRefusedError ? "refuse" : "OTHER:" + e; }
+  const ok = expect === "report" ? "(report)" : res === expect ? "OK" : "MISMATCH";
+  console.log(`${ok.padEnd(9)} ${res.padEnd(7)} expect=${expect.padEnd(6)} ${name}`);
+}
+const lines = real.split("\n");
+const noAns = lines.filter(l => !/^\*\*Answered:\*\*/.test(l)).join("\n");
+run("REAL gate as-is (LF)", real, "accept");
+run("REAL gate as-is (CRLF)", real.replace(/\n/g, "\r\n"), "accept");
+run("REAL gate, Answered line removed (LF)", noAns, "refuse");
+run("REAL gate, Answered line removed (CRLF)", noAns.replace(/\n/g, "\r\n"), "refuse");
+// hostile: replace the Answered line in the real file
+const idx = lines.findIndex(l => /^\*\*Answered:\*\*/.test(l));
+function swap(repl: string[]) { const c = lines.slice(); c.splice(idx, 1, ...repl); return c.join("\n"); }
+const V: [string, string[], "accept"|"refuse"|"report"][] = [
+  ["label + only whitespace after", ["Answered:   \t"], "refuse"],
+  ["bold label then nothing", ["**Answered:**"], "refuse"],
+  ["bold label then spaces", ["**Answered:**   "], "refuse"],
+  ["bold label, content next line", ["**Answered:**", "2026-10-19 - (a)"], "refuse"],
+  ["plain label, content next line", ["Answered:", "2026-10-19 - (a)"], "refuse"],
+  ["Answered: only in backticks mid-line", ["The maker appends `Answered: <ISO> - (a)` here."], "refuse"],
+  ["Answer format line verbatim", ["**Answer format:** chat reply. The maker appends `Answered: <ISO> - <option> - <caps>` here."], "refuse"],
+  ["Not Answered:", ["Not Answered: 2026-10-19 - (a)"], "refuse"],
+  ["**Not Answered:**", ["**Not Answered:** x"], "refuse"],
+  ["> Answered:", ["> Answered: 2026 x"], "refuse"],
+  ["> **Answered:**", ["> **Answered:** 2026 x"], "refuse"],
+  ["***Answered:*** (triple star)", ["***Answered:*** 2026 x"], "report"],
+  ["**Answered:** missing close", ["**Answered: 2026 x"], "refuse"],
+  ["Answered without colon", ["Answered 2026-10-19 (a)"], "refuse"],
+  ["**Answered** without colon", ["**Answered** 2026-10-19 (a)"], "refuse"],
+  ["indented Answered:", ["  Answered: 2026 x"], "refuse"],
+  ["- Answered: list item", ["- Answered: 2026 x"], "report"],
+  ["text before label", ["Status Answered: 2026 x"], "refuse"],
+  ["lowercase answered:", ["answered: 2026 x"], "refuse"],
+  ["Answered** : broken wrapper", ["Answered** : 2026 x"], "refuse"],
+  ["plain Answered: content", ["Answered: 2026-10-19 - (a)"], "accept"],
+  ["**Answered**: content", ["**Answered**: 2026-10-19 - (a)"], "accept"],
+  ["**Answered:** content tab", ["**Answered:**\t2026"], "accept"],
+];
+for (const [n, r, e] of V) { run(n + " LF", swap(r), e); run(n + " CRLF", swap(r).replace(/\n/g, "\r\n"), e); }
+// reachability / other branches
+run("empty file", "", "refuse");
+try { assertGReal({}, "g.md"); console.log("MISMATCH no env accepted"); } catch (e) { console.log("OK        env unset ->", (e as Error).name); }
+try { assertGReal(env, "nonexistent.md"); console.log("MISMATCH missing file accepted"); } catch (e) { console.log("OK        missing file ->", (e as Error).name); }
