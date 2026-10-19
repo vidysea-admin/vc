@@ -721,7 +721,8 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     if (findPersonalIdentifiers(fl, deps.speakers, restricted.labels).length > 0) return false;
     if (restricted.texts.some((t) => hasVerbatimRun(fl, t))) return false;
     // D-106: a fact-free follow-up only; a factual one would come back as the English wording, which is the English reply here.
-    return localizedClaimText(englishFollowUp, fl, replyLang, restricted.texts) === fl;
+    // LK5b (B2): localizedClaimText returns NFC text, so compare against the NFC form of fl (a precomposed nukta is not a mismatch).
+    return localizedClaimText(englishFollowUp, fl, replyLang, restricted.texts) === fl.normalize("NFC");
   }
 
   /**
