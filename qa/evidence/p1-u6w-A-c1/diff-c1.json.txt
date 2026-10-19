@@ -1,0 +1,165 @@
+[
+ {
+  "text": "What are the tuition fees for public universities in Germany?",
+  "status": 200,
+  "json": {
+   "turnId": "<uuid>",
+   "state": "ok",
+   "message": "Public universities in Germany charge no tuition for most programmes.",
+   "claims": [
+    {
+     "text": "Public universities in Germany charge no tuition for most programmes.",
+     "kind": "fact",
+     "sourceIds": [
+      "t-sem-1"
+     ],
+     "status": "verified"
+    }
+   ],
+   "sources": [
+    {
+     "id": "t-sem-1",
+     "kind": "internal-seminar",
+     "title": "Study in Germany seminar"
+    }
+   ],
+   "profileFactsUsed": []
+  }
+ },
+ {
+  "text": "Please rank my shortlist for me",
+  "status": 200,
+  "json": {
+   "turnId": "<uuid>",
+   "state": "ok",
+   "message": "Let me compare those options against the profile facts you have confirmed.",
+   "claims": [],
+   "sources": [],
+   "profileFactsUsed": []
+  }
+ },
+ {
+  "text": "Munich vs Toronto?",
+  "status": 200,
+  "json": {
+   "turnId": "<uuid>",
+   "state": "ok",
+   "message": "Let me compare those options against the profile facts you have confirmed.",
+   "claims": [],
+   "sources": [],
+   "profileFactsUsed": []
+  }
+ },
+ {
+  "text": "compare my options",
+  "status": 200,
+  "json": {
+   "turnId": "<uuid>",
+   "state": "ok",
+   "message": "Let me compare those options against the profile facts you have confirmed.",
+   "claims": [],
+   "sources": [],
+   "profileFactsUsed": []
+  }
+ },
+ {
+  "text": "I want to kill myself",
+  "status": 200,
+  "json": {
+   "turnId": "<uuid>",
+   "state": "escalated",
+   "message": "I'm really glad you told me. What you're going through matters, and you deserve support right now. Please call Tele-MANAS on 14416. It is free, open 24x7, and the people there are trained for exactly this (Tele-MANAS: 14416, मुफ़्त, 24x7). I'm an AI guide, not a counsellor, and no counsellor from our side is being connected right now, so Tele-MANAS is the best next step. If you are in danger right now, please tell a trusted adult near you. Who is a safe adult you could talk to today, like a parent, relative or teacher? I'm still here, and you can keep talking to me.",
+   "claims": [],
+   "sources": [],
+   "profileFactsUsed": []
+  }
+ },
+ {
+  "text": "Please rank my shortlist for me",
+  "status": 200,
+  "json": {
+   "turnId": "<uuid>",
+   "state": "ok",
+   "message": "Let me compare those options against the profile facts you have confirmed. If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.",
+   "claims": [],
+   "sources": [],
+   "profileFactsUsed": []
+  }
+ },
+ {
+  "profile": {
+   "facts": [],
+   "proposed": [
+    {
+     "factId": "<fid>",
+     "key": "field-of-study",
+     "value": "engineering",
+     "status": "proposed"
+    },
+    {
+     "factId": "<fid>",
+     "key": "target-country",
+     "value": "Germany",
+     "status": "proposed"
+    }
+   ]
+  }
+ },
+ {
+  "confirm": 200
+ },
+ {
+  "confirm": 200
+ },
+ {
+  "profile2": {
+   "facts": [
+    {
+     "key": "field-of-study",
+     "value": "engineering",
+     "source": "student-confirmed"
+    },
+    {
+     "key": "target-country",
+     "value": "Germany",
+     "source": "student-confirmed"
+    }
+   ],
+   "proposed": []
+  }
+ },
+ {
+  "afterConfirm": {
+   "turnId": "<uuid>",
+   "state": "ok",
+   "message": "Let me compare those options against the profile facts you have confirmed. If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.",
+   "claims": [],
+   "sources": [],
+   "profileFactsUsed": []
+  }
+ },
+ {
+  "thread": {
+   "threadId": "<uuid>",
+   "turns": [
+    "{\"turnId\":\"x\",\"role\":\"assistant\",\"channel\":\"text\",\"text\":\"I'm really glad you told me. What you're going through matters, and you deserve support right now. Please call Tele-MANAS on 14416. It is free, open 24x7, and the people there are trained for exactly this (Tele-MANAS: 14416, मुफ़्त, 24x7). I'm an AI guide, not a counsellor, and no counsellor from our side is being connected right now, so Tele-MANAS is the best next step. If you are in danger right now, please tell a trusted adult near you. Who is a safe adult you could talk to today, like a parent, relative or teacher? I'm still here, and you can keep talking to me.\",\"at\":\"2026-11-01T10:00:00.000Z\",\"claims\":[],\"sources\":[]}",
+    "{\"turnId\":\"x\",\"role\":\"assistant\",\"channel\":\"text\",\"text\":\"Let me compare those options against the profile facts you have confirmed. If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.\",\"at\":\"2026-11-01T10:00:00.000Z\",\"claims\":[],\"sources\":[]}",
+    "{\"turnId\":\"x\",\"role\":\"assistant\",\"channel\":\"text\",\"text\":\"Let me compare those options against the profile facts you have confirmed. If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.\",\"at\":\"2026-11-01T10:00:00.000Z\",\"claims\":[],\"sources\":[]}",
+    "{\"turnId\":\"x\",\"role\":\"assistant\",\"channel\":\"text\",\"text\":\"Let me compare those options against the profile facts you have confirmed.\",\"at\":\"2026-11-01T10:00:00.000Z\",\"claims\":[],\"sources\":[]}",
+    "{\"turnId\":\"x\",\"role\":\"assistant\",\"channel\":\"text\",\"text\":\"Let me compare those options against the profile facts you have confirmed.\",\"at\":\"2026-11-01T10:00:00.000Z\",\"claims\":[],\"sources\":[]}",
+    "{\"turnId\":\"x\",\"role\":\"assistant\",\"channel\":\"text\",\"text\":\"Let me compare those options against the profile facts you have confirmed.\",\"at\":\"2026-11-01T10:00:00.000Z\",\"claims\":[],\"sources\":[]}",
+    "{\"turnId\":\"x\",\"role\":\"assistant\",\"channel\":\"text\",\"text\":\"Public universities in Germany charge no tuition for most programmes.\",\"at\":\"2026-11-01T10:00:00.000Z\",\"claims\":[{\"text\":\"Public universities in Germany charge no tuition for most programmes.\",\"kind\":\"fact\",\"sourceIds\":[\"t-sem-1\"],\"status\":\"verified\"}],\"sources\":[{\"id\":\"t-sem-1\",\"kind\":\"internal-seminar\",\"title\":\"Study in Germany seminar\"}]}",
+    "{\"turnId\":\"x\",\"role\":\"user\",\"channel\":\"text\",\"text\":\"I want to kill myself\",\"at\":\"2026-11-01T10:00:00.000Z\"}",
+    "{\"turnId\":\"x\",\"role\":\"user\",\"channel\":\"text\",\"text\":\"Munich vs Toronto?\",\"at\":\"2026-11-01T10:00:00.000Z\"}",
+    "{\"turnId\":\"x\",\"role\":\"user\",\"channel\":\"text\",\"text\":\"Please rank my shortlist for me\",\"at\":\"2026-11-01T10:00:00.000Z\"}",
+    "{\"turnId\":\"x\",\"role\":\"user\",\"channel\":\"text\",\"text\":\"Please rank my shortlist for me\",\"at\":\"2026-11-01T10:00:00.000Z\"}",
+    "{\"turnId\":\"x\",\"role\":\"user\",\"channel\":\"text\",\"text\":\"Please rank my shortlist for me\",\"at\":\"2026-11-01T10:00:00.000Z\"}",
+    "{\"turnId\":\"x\",\"role\":\"user\",\"channel\":\"text\",\"text\":\"What are the tuition fees for public universities in Germany?\",\"at\":\"2026-11-01T10:00:00.000Z\"}",
+    "{\"turnId\":\"x\",\"role\":\"user\",\"channel\":\"text\",\"text\":\"compare my options\",\"at\":\"2026-11-01T10:00:00.000Z\"}"
+   ]
+  }
+ },
+ {
+  "db": 2
+ }
+]

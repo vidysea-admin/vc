@@ -1,0 +1,52 @@
+[testlock] running slot 1 (free RAM 5.19 GB): node node_modules/tsx/dist/cli.mjs --test tests/chat-rank-B-hostile.test.ts
+profile facts [{"key":"field-of-study","value":"engineering","source":"student-confirmed"},{"key":"target-country","value":"Germany","source":"student-confirmed"}]
+✔ HB1 C1: erase after confirm and correct-after-confirm; baseline (no facts) differs from confirmed (129.2923ms)
+✔ HB1b C1: a corrected fact ranks with the corrected value (26.2024ms)
+✔ HB2 C1: db rows with source 'chat-extracted' + confirmed, or 'chat' + proposed, injected directly, never move the ranking (22.8837ms)
+weights callback tenants ["tenant-b","tenant-a"]
+✔ HB3 C3: tenant A facts never reach tenant B (same student id) and a same-tenant other student; weights callback sees only own tenant (51.326ms)
+✔ HB3b C3: Pathlynks facts come through the tenant+student port; labelled pathlynks, not student-confirmed (37.1379ms)
+rankingProfile custom-0be638cb claims 4
+THREADKEYS [["turnId","role","channel","text","at"],["turnId","role","channel","text","at","claims","sources"],["turnId","role","channel","text","at"],["turnId","role","channel","text","at","claims","sources"]]
+✖ HB4 C2: every decimal number anywhere in the response and the stored thread sits in a NOT PROVEN claim; message carries the notice (39.4609ms)
+biglabel state ok claims 4 logs []
+toomany state ok claims 0 logs [{"level":"error","event":"chat_rank_refused","ts":"2026-11-01T10:00:00.000Z","error":"too_many_options"}]
+max25 state ok claims 25 logs []
+noopts state ok claims 0 logs []
+✔ HB5 C4: logs hold no raw message / passport text; oversize label makes schema parse fail yet reply returns; profile port outage and refusals (116.4864ms)
+say with outage: {"err":"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n503 !== 200\n"}
+✔ HB5b C4: Pathlynks profile outage during a rank turn (9.0893ms)
+crisis+rank state escalated claims 0 escalations 1
+anon 200 sign_in_required [] undefined
+anon 400 undefined null undefined
+anon 200 sign_in_required [] undefined
+✔ HB6 U8r: crisis wording plus rank request is answered by the crisis path with no ranking and the port untouched (27.74ms)
+✔ HB7 C5: anonymous route with rank text and smuggled fields never ranks; anonymous.ts source has no ranking/profile/student wiring (19.5128ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 9
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1903.2339
+
+✖ failing tests:
+
+test at tests\chat-rank-B-hostile.test.ts:161:1
+✖ HB4 C2: every decimal number anywhere in the response and the stored thread sits in a NOT PROVEN claim; message carries the notice (39.4609ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /NOT PROVEN/. Input:
+  
+  'Public universities in Germany charge no tuition for most programmes.'
+  
+      at check (D:\vc\.worktrees\p1-u6w-Bfals\apps\api\tests\chat-rank-B-hostile.test.ts:169:14)
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-Bfals\apps\api\tests\chat-rank-B-hostile.test.ts:179:25)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Public universities in Germany charge no tuition for most programmes.',
+    expected: /NOT PROVEN/,
+    operator: 'match',
+    diff: 'simple'
+  }
