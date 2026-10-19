@@ -1,0 +1,10 @@
+[testlock] running slot 0 (free RAM 2.76 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-350: non-string text tests/chat.test.ts
+✔ ISS-350: non-string text and unparseable JSON stay a plain 400, whatever else the body carries (48.8394ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3654.0469

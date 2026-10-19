@@ -1,0 +1,14 @@
+[testlock] waiting for lock held by: PID=17092 STARTED=639280223609261099 ACQUIRED_AT=1792405761 TOKEN=1792405761174416800-472466-19572 DESC=pnpm -C D:/vc/.worktrees/int-otok -r typecheck 
+[testlock] owner PID 17092 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running slot 0 (free RAM 2.56 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-350: a crisis text with tests/chat.test.ts
+✔ ISS-350: a crisis text with an unknown key or an invalid clientTurnId, Latin or Devanagari, gets the fixed crisis answer, an escalation and a flag, with no malformed field stored (1131.1092ms)
+✔ ISS-350: a crisis text with a bad field is also answered for a student already over the rate limit, and for an over-long crisis text with an unknown key (65.0173ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5437.3508
