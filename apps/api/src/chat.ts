@@ -180,7 +180,7 @@ export type FactExtractor = (turn: {
   turnId: string;
   text: string;
   response: TurnResponse;
-}) => Promise<ReadonlyArray<{ key: string; value: string }>>;
+}) => Promise<ReadonlyArray<{ key: string; value: string; quote?: string; sourceLang?: string }>>;
 
 /** The label every number the ranking puts in front of a student carries until its data source is proven (D-097 item 3, ISS-167). */
 export const NOT_PROVEN_LABEL = "NOT PROVEN";
@@ -706,7 +706,12 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
           try {
             const facts = await deps.extractFacts({ tenantId: ctx.tenantId, studentId: ctx.studentId, threadId, turnId, text, response });
             for (const f of facts.slice(0, MAX_PROPOSED_FACTS_PER_TURN)) {
-              await proposeProfileFact(db, { studentId: ctx.studentId, key: f.key, value: f.value, threadId, turnId }, { now });
+              // p1-lk6: the English value is kept with the student's original-language quote (redacted by the db); neither is logged.
+              await proposeProfileFact(
+                db,
+                { studentId: ctx.studentId, key: f.key, value: f.value, ...(f.quote !== undefined ? { quote: f.quote } : {}), ...(f.sourceLang !== undefined ? { sourceLang: f.sourceLang } : {}), threadId, turnId },
+                { now },
+              );
             }
           } catch (err) {
             if (err instanceof StudentFencedError || err instanceof FencedWriterDeadlineError) throw err;

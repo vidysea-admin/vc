@@ -1212,6 +1212,132 @@ export async function extractFacts(rawInput: unknown, deps: Omit<ScribeDeps, "db
 }
 
 // ---------------------------------------------------------------------------
+// (c2) student chat/voice turn -> English knowledge-graph facts (p1-lk6, D-104, D-105)
+// ---------------------------------------------------------------------------
+
+/** A fact the student said, in English, with the original-language words it came from. */
+export interface StudentTurnFact {
+  /** English slug. */
+  key: string;
+  /** English, always a string (a number or boolean the model returned is stringified). */
+  value: string;
+  /** A verbatim substring of the student's ORIGINAL text, in its original language and script. Not redacted here; the db redacts it before storing. */
+  quote: string;
+  /** The language of the original text, when known (a caller-supplied label, else Devanagari -> "hi"). Absent when unknown: never guessed. */
+  sourceLang?: string;
+}
+
+export interface StudentTurnFactResult {
+  facts: StudentTurnFact[];
+  dropped: DroppedFact[];
+  /** The model output stayed schema-invalid after the bounded retry. */
+  failedReason?: string;
+}
+
+/**
+ * The extraction call failed (provider down, refused, aborted). Carries ONLY the original error's class name: never its message, never the
+ * student's words or a quote, so a caller can log it as is (D-093 6A: values and quotes are redacted in logs).
+ */
+export class StudentFactExtractionError extends Error {
+  readonly failureClass: string;
+  constructor(failureClass: string) {
+    super("StudentFactExtractionError: the fact extraction call failed");
+    this.name = "StudentFactExtractionError";
+    this.failureClass = failureClass;
+  }
+}
+
+/** A KG key is an English identifier slug: ASCII letters, digits and underscores. */
+const STUDENT_FACT_KEY_RE = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+/** A letter of any script other than Latin: the KG value is English, so such a value was not translated and is dropped. */
+const NON_LATIN_LETTER_RE = /(?!\p{Script=Latin})\p{L}/u;
+const MAX_STUDENT_FACT_VALUE = 1000;
+const MAX_STUDENT_FACT_QUOTE = 500;
+const DEVANAGARI_RE = /[ऀ-ॿ]/u;
+
+/** Offline label for the original text when the caller has none: only what a script can prove. Latin script says nothing about English vs Hinglish. */
+function scriptLang(text: string): string {
+  return DEVANAGARI_RE.test(text) ? "hi" : "und";
+}
+
+function studentFactValue(value: unknown): string | undefined {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "boolean") return String(value);
+  return undefined;
+}
+
+/**
+ * Reads one student turn in its ORIGINAL language and returns English KG facts (D-104: no translate-the-message step). Reuses the scribe's
+ * `extractFacts` and its citation guard with a single student turn whose `translatedText` is "" (safe: the guard matches `text` only).
+ * On top of the scribe's checks, each fact must: quote a verbatim substring of the original text (not merely a normalised match);
+ * carry an English slug key; carry an English scalar value. Anything else is dropped with a reason, never repaired.
+ * A turn with no text makes no provider call. A failed call throws `StudentFactExtractionError` (text-free).
+ */
+export async function extractStudentTurnFacts(
+  input: { turnId: string; text: string; lang?: string; now: Date },
+  deps: Omit<ScribeDeps, "db">,
+): Promise<StudentTurnFactResult> {
+  const text = input.text;
+  if (text.trim() === "") return { facts: [], dropped: [] };
+  const lang = input.lang !== undefined && /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(input.lang) ? input.lang : scriptLang(text);
+  let extracted: ExtractOutput;
+  try {
+    extracted = await extractFacts(
+      {
+        turns: [{ turnId: input.turnId, speaker: "student", lang, text, translatedText: "", ts: input.now.getTime() }],
+        sessionEndedAt: input.now.toISOString(),
+      },
+      deps,
+    );
+  } catch (err) {
+    const name = (err as { name?: unknown } | null)?.name;
+    throw new StudentFactExtractionError(typeof name === "string" && /^[A-Za-z0-9_]{1,64}$/.test(name) ? name : "Error");
+  }
+  const facts: StudentTurnFact[] = [];
+  const dropped: DroppedFact[] = [...extracted.dropped];
+  for (const f of extracted.facts) {
+    const drop = (reason: string) => dropped.push({ key: f.key, reason });
+    const quote = f.source.type === "transcript" ? f.source.quote : "";
+    if (quote.trim() === "" || quote.length > MAX_STUDENT_FACT_QUOTE) {
+      drop("the quote is empty or too long to be a snippet of the turn");
+      continue;
+    }
+    if (!text.includes(quote)) {
+      drop("the quote is not a verbatim substring of the student's original text");
+      continue;
+    }
+    if (!STUDENT_FACT_KEY_RE.test(f.key)) {
+      drop("the key is not an English slug");
+      continue;
+    }
+    const value = studentFactValue(f.value);
+    if (value === undefined || value === "" || value.length > MAX_STUDENT_FACT_VALUE) {
+      drop("the value is not a non-empty scalar");
+      continue;
+    }
+    if (NON_LATIN_LETTER_RE.test(value)) {
+      drop("the value is not in English (the knowledge graph is English)");
+      continue;
+    }
+    facts.push({ key: f.key, value, quote: quote.trim(), ...(lang === "und" ? {} : { sourceLang: lang }) });
+  }
+  return { facts, dropped, ...(extracted.failedReason !== undefined ? { failedReason: extracted.failedReason } : {}) };
+}
+
+/**
+ * The chat and voice fact-extraction port (`FactExtractor` in apps/api chat.ts, `VoiceFactExtractor` in voice.ts) over a text provider.
+ * `lang`, when the caller knows it (LK4's detector), becomes the fact's `sourceLang`. Whatever it returns is redacted by the db before
+ * it is stored; a failure throws the text-free `StudentFactExtractionError`, which both callers already treat as "no facts, turn unaffected".
+ */
+export function createStudentFactExtractor(
+  deps: Omit<ScribeDeps, "db"> & { now?: () => Date },
+): (turn: { turnId: string; text: string; lang?: string }) => Promise<StudentTurnFact[]> {
+  const { now, ...scribeDeps } = deps;
+  return async (turn) => (await extractStudentTurnFacts({ turnId: turn.turnId, text: turn.text, ...(turn.lang !== undefined ? { lang: turn.lang } : {}), now: (now ?? (() => new Date()))() }, scribeDeps)).facts;
+}
+
+// ---------------------------------------------------------------------------
 // (d) session summary — skill via provider, B1 recital check
 // ---------------------------------------------------------------------------
 
