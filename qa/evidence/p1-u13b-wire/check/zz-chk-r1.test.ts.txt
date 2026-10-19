@@ -1,0 +1,210 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, existsSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { parseP1Args, RealNotWiredError } from "./run-eval.js";
+import { runKb } from "./run-kb.js";
+import { runH2h } from "./run-h2h.js";
+import { runProbes } from "./run-probes.js";
+import { runLatency } from "./run-latency.js";
+import { runLive } from "./run-live.js";
+import { readLedger } from "./budget.js";
+
+const NOW = () => new Date("2026-10-17T10:00:00Z");
+const GATE = (() => {
+  const p = join(mkdtempSync(join(tmpdir(), "chk-gate-")), "g.md");
+  writeFileSync(p, "# G-REAL\n\nAnswered: 2026-10-17T00:00:00+05:30 - A - Umesh\n");
+  return p;
+})();
+const ENV = { VC_G_REAL: "1", VC_REAL_MODEL: "ollama:glm-5.3-flash", OLLAMA_API_KEY: "k-secret" };
+const tmp = () => {
+  const dir = mkdtempSync(join(tmpdir(), "chk-"));
+  return { dir, outDir: join(dir, "r"), ledger: join(dir, "l.jsonl") };
+};
+const write = (dir: string, n: string, c: unknown) => {
+  const p = join(dir, n);
+  writeFileSync(p, typeof c === "string" ? c : JSON.stringify(c));
+  return p;
+};
+const jr = (o: string, n: string) => JSON.parse(readFileSync(join(o, n), "utf-8"));
+const nCharges = (l: string) => (existsSync(l) ? readLedger(l).filter((e) => e.kind === "charge").length : 0);
+
+function fake(respond: (u: any) => unknown, ledger?: string) {
+  const raw: string[] = [];
+  const chargesAtSend: number[] = [];
+  const fetchImpl = (async (_u: any, init?: RequestInit) => {
+    raw.push(String(init?.body));
+    if (ledger) chargesAtSend.push(nCharges(ledger));
+    const b = JSON.parse(String(init?.body));
+    const user = JSON.parse(b.messages[1].content);
+    return new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify(respond(user)) }, done: true }), { status: 200 });
+  }) as typeof fetch;
+  return { fetchImpl, raw, chargesAtSend };
+}
+const honest = (u: any) =>
+  u.passages && u.passages.length > 0
+    ? { answer: "g", verdict: "correct", insufficient_coverage: false, web_used: false, source_node_ids: [u.passages[0].node_id] }
+    : u.passages
+      ? { answer: "", verdict: "insufficient", insufficient_coverage: true, web_used: false, source_node_ids: [] }
+      : { answer: "ans", english: "how does a student get a germany visa" };
+
+function kbFiles(dir: string, source = "synthetic") {
+  const golden = write(
+    dir,
+    "golden.jsonl",
+    [
+      { id: "g-en", lang: "en", country: "USA", theme: "t", question: "SYN en q", expectedTurnIds: ["t-en"], expectedSessionIds: [] },
+      { id: "g-hi", lang: "hinglish", country: "DE", theme: "v", question: "SYN-HI germany visa kaise", expectedTurnIds: ["t-hi"], expectedSessionIds: [] },
+    ]
+      .map((q) => JSON.stringify(q))
+      .join("\n"),
+  );
+  const h = (t: string) => ({ turnId: t, sessionId: "s", score: 0.9, turn: { text: `passage ${t}` }, session: {} });
+  const fixture = write(dir, "fx.json", {
+    schemaVersion: 1,
+    source,
+    recordedAt: "2026-10-17T00:00:00Z",
+    search: [
+      { query: "SYN en q", hits: [h("t-en")] },
+      { query: "how does a student get a germany visa", hits: [h("t-hi")] },
+    ],
+  });
+  return { golden, fixture };
+}
+const p30 = (dir: string, source: string, withText = true) =>
+  write(dir, "p30.json", {
+    schemaVersion: 1,
+    source,
+    cases: Array.from({ length: 30 }, (_, i) => ({
+      id: `p${i}`,
+      question: `q${i}`,
+      expectServed: true,
+      ask: {
+        answer: "LEAKTOKEN-RECORDED-ANSWER",
+        verdict: "correct",
+        insufficient_coverage: false,
+        web_used: false,
+        sources: { internal: [withText ? { node_id: `n${i}`, text: `passage ${i}` } : { node_id: `n${i}` }], web: [] },
+      },
+    })),
+  });
+
+test("CHK B1: 30 synthetic honest -> NOT PROVEN, never PASS, no PASS word anywhere", async () => {
+  const t = tmp();
+  const f = fake(honest);
+  const o = await runProbes({ ...parseP1Args(["--real", `--cases=${p30(t.dir, "synthetic")}`]), outDir: t.outDir, ledger: t.ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl: f.fetchImpl });
+  const r = jr(t.outDir, "probes-report.json").result.report;
+  assert.equal(f.raw.length, 30);
+  assert.equal(r.violations.length, 0);
+  assert.equal(r.verdict, "NOT PROVEN");
+  assert.equal(r.realBarMet, false);
+  assert.ok(!/PASS/.test(o.markdown), "markdown has no PASS word");
+  assert.ok(!/PASS/.test(JSON.stringify(jr(t.outDir, "probes-report.json"))), "json has no PASS word");
+});
+
+test("CHK B2: internal sources + no text => 0 requests, excluded, counted; recorded answer never on the wire; all-excluded => total 0 NOT PROVEN", async () => {
+  const t = tmp();
+  const f = fake(honest);
+  const o = await runProbes({ ...parseP1Args(["--real", `--cases=${p30(t.dir, "synthetic", false)}`]), outDir: t.outDir, ledger: t.ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl: f.fetchImpl });
+  const res = jr(t.outDir, "probes-report.json").result;
+  assert.equal(f.raw.length, 0, "0 requests");
+  assert.equal(nCharges(t.ledger), 0);
+  assert.equal(res.excluded.length, 30);
+  assert.equal(res.report.total, 0);
+  assert.equal(res.report.verdict, "NOT PROVEN");
+  assert.match(o.markdown, /30 probe\(s\) excluded: no passage text/);
+  const t2 = tmp();
+  const f2 = fake(honest);
+  await runProbes({ ...parseP1Args(["--real", `--cases=${p30(t2.dir, "synthetic", true)}`]), outDir: t2.outDir, ledger: t2.ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl: f2.fetchImpl });
+  assert.equal(f2.raw.length, 30);
+  assert.ok(!f2.raw.join("\n").includes("LEAKTOKEN-RECORDED-ANSWER"), "recorded answer not sent");
+  assert.ok(f2.raw[0]!.includes("passage 0"));
+});
+
+test("CHK G1: recorded refused w/o --anonymised before ledger/request; mixed-case Recorded refused; bare-array experts is the declared gap", async () => {
+  const t = tmp();
+  const f = fake(honest);
+  const deps = { env: ENV, gateFile: GATE, now: NOW, fetchImpl: f.fetchImpl };
+  const { golden, fixture } = kbFiles(t.dir, "synthetic");
+  const recFx = kbFiles(mkdtempSync(join(tmpdir(), "chk-r-")), "recorded");
+  const mixFx = kbFiles(mkdtempSync(join(tmpdir(), "chk-m-")), "Recorded");
+  const recCases = p30(mkdtempSync(join(tmpdir(), "chk-rc-")), "recorded");
+  const mixCases = p30(mkdtempSync(join(tmpdir(), "chk-mc-")), "Recorded");
+  const ex = [
+    { questionId: "g-en", text: "x", author: "a" },
+    { questionId: "g-hi", text: "y", author: "b" },
+  ];
+  const recExp = write(t.dir, "re.json", { source: "recorded", experts: ex });
+  const mixExp = write(t.dir, "me.json", { source: "Recorded", experts: ex });
+  const out: string[] = [];
+  const cases: [string, () => Promise<unknown>][] = [
+    ["kb rec", () => runKb({ ...parseP1Args(["--real", `--golden=${recFx.golden}`, `--fixture=${recFx.fixture}`]), outDir: t.outDir, ledger: t.ledger }, deps)],
+    ["lat rec", () => runLatency({ ...parseP1Args(["--real", `--golden=${recFx.golden}`, `--fixture=${recFx.fixture}`]), outDir: t.outDir, ledger: t.ledger }, deps)],
+    ["h2h rec fx", () => runH2h({ ...parseP1Args(["--real", `--golden=${recFx.golden}`, `--fixture=${recFx.fixture}`]), outDir: t.outDir, ledger: t.ledger }, deps)],
+    ["h2h rec exp", () => runH2h({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`, `--experts=${recExp}`]), outDir: t.outDir, ledger: t.ledger }, deps)],
+    ["probes rec", () => runProbes({ ...parseP1Args(["--real", `--cases=${recCases}`]), outDir: t.outDir, ledger: t.ledger }, deps)],
+    ["kb MIX", () => runKb({ ...parseP1Args(["--real", `--golden=${mixFx.golden}`, `--fixture=${mixFx.fixture}`]), outDir: t.outDir, ledger: t.ledger }, deps)],
+    ["probes MIX", () => runProbes({ ...parseP1Args(["--real", `--cases=${mixCases}`]), outDir: t.outDir, ledger: t.ledger }, deps)],
+    ["h2h MIX exp", () => runH2h({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`, `--experts=${mixExp}`]), outDir: t.outDir, ledger: t.ledger }, deps)],
+  ];
+  for (const [n, fn] of cases) {
+    let err = "";
+    try {
+      await fn();
+      err = "NO-ERROR";
+    } catch (e) {
+      err = (e as Error).message.slice(0, 90).replace(/\s+/g, " ");
+    }
+    out.push(`${n}: ${err}`);
+    assert.notEqual(err, "NO-ERROR", n);
+  }
+  console.log("G1-MATRIX\n" + out.join("\n"));
+  assert.equal(existsSync(t.ledger), false, "no ledger line");
+  assert.equal(f.raw.length, 0, "no request");
+  const bare = write(t.dir, "bare.json", ex);
+  const t3 = tmp();
+  const o = await runH2h({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`, `--experts=${bare}`]), outDir: t3.outDir, ledger: t3.ledger }, deps);
+  console.log("bare-array experts status (declared gap):", o.status);
+});
+
+test("CHK labels + charge-before-send for all four; Gemini => NotWired; run-live refuses", async () => {
+  for (const name of ["kb", "latency", "h2h"] as const) {
+    const t = tmp();
+    const { golden, fixture } = kbFiles(t.dir);
+    const f = fake((u) => ({ answer: "ans", english: "how does a student get a germany visa" }), t.ledger);
+    const exp = write(t.dir, "e.json", [
+      { questionId: "g-en", text: "x", author: "a" },
+      { questionId: "g-hi", text: "y", author: "b" },
+    ]);
+    const args = parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`, ...(name === "h2h" ? [`--experts=${exp}`] : [])]);
+    const fn = name === "kb" ? runKb : name === "latency" ? runLatency : runH2h;
+    const o = await fn({ ...args, outDir: t.outDir, ledger: t.ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl: f.fetchImpl });
+    assert.ok(f.raw.length >= 1, name);
+    f.chargesAtSend.forEach((c, i) => assert.ok(c >= i + 1, `${name}: request ${i + 1} sent with only ${c} charges`));
+    if (name === "kb") {
+      assert.match(o.markdown, /rewrite-fidelity \(not Hit@3\)/);
+      assert.ok(!/\| A2b Hindi\/Hinglish hit@3/.test(o.markdown));
+    }
+    if (name === "latency") {
+      assert.match(o.markdown, /model-hop only/);
+      assert.equal(jr(t.outDir, "latency-report.json").result.verdictScope, "model-hop only");
+    }
+  }
+  const t = tmp();
+  const f = fake(honest, t.ledger);
+  await runProbes({ ...parseP1Args(["--real", `--cases=${p30(t.dir, "synthetic")}`]), outDir: t.outDir, ledger: t.ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl: f.fetchImpl });
+  f.chargesAtSend.forEach((c, i) => assert.ok(c >= i + 1, `probes: request ${i + 1} sent with only ${c} charges`));
+  for (const env of [{ VC_G_REAL: "1" }, { VC_G_REAL: "1", VC_REAL_MODEL: "gemini" }]) {
+    for (const fn of [runKb, runLatency, runH2h, runProbes]) {
+      const x = tmp();
+      const g = fake(honest);
+      await assert.rejects(fn({ ...parseP1Args(["--real"]), outDir: x.outDir, ledger: x.ledger }, { env, gateFile: GATE, now: NOW, fetchImpl: g.fetchImpl }), RealNotWiredError);
+      assert.equal(existsSync(x.ledger), false);
+      assert.equal(g.raw.length, 0);
+    }
+  }
+  const x = tmp();
+  const g = fake(honest);
+  await assert.rejects(runLive({ ...parseP1Args(["--real"]), outDir: x.outDir, ledger: x.ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl: g.fetchImpl }), RealNotWiredError);
+});

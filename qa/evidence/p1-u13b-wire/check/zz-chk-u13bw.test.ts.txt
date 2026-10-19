@@ -1,0 +1,29 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { parseP1Args } from "./run-eval.js";
+import { runProbes } from "./run-probes.js";
+import { runLatency } from "./run-latency.js";
+const dir = mkdtempSync(join(tmpdir(), "chk-"));
+const gate = join(dir, "g.md"); writeFileSync(gate, "# G-REAL\n\nAnswered: 2026-10-17T00:00:00+05:30 - A - Umesh\n");
+const ENV = { VC_G_REAL: "1", VC_REAL_MODEL: "ollama:glm-5.3-flash", OLLAMA_API_KEY: "k" };
+const NOW = () => new Date("2026-10-17T10:00:00Z");
+test("probes default sample, honest mock model -> verdict?", async () => {
+  const f = (async (_u: unknown, init?: RequestInit) => {
+    const b = JSON.parse(String(init?.body)); const u = JSON.parse(b.messages[1].content);
+    const p = u.passages as { node_id: string }[];
+    const out = p.length ? { answer: "g", verdict: "correct", insufficient_coverage: false, web_used: false, source_node_ids: [p[0]!.node_id] } : { answer: "", verdict: "insufficient", insufficient_coverage: true, web_used: false, source_node_ids: [] };
+    return new Response(JSON.stringify({ message: { content: JSON.stringify(out) } }));
+  }) as typeof fetch;
+  const o = await runProbes({ ...parseP1Args(["--real"]), outDir: join(dir, "o1"), ledger: join(dir, "l1.jsonl") }, { env: ENV, gateFile: gate, now: NOW, fetchImpl: f });
+  console.log("PROBES VERDICT LINE:", o.markdown.split("\n").find((l) => l.includes("Probe source")));
+});
+test("latency with 300ms delayed model: first-token vs full", async () => {
+  const f = (async () => { await new Promise((r) => setTimeout(r, 300)); return new Response(JSON.stringify({ message: { content: JSON.stringify({ answer: "x" }) } })); }) as typeof fetch;
+  const o = await runLatency({ ...parseP1Args(["--real"]), outDir: join(dir, "o2"), ledger: join(dir, "l2.jsonl") }, { env: ENV, gateFile: gate, now: NOW, fetchImpl: f });
+  const r = JSON.parse(readFileSync(join(dir, "o2", "latency-report.json"), "utf-8")).result;
+  console.log("LATENCY:", JSON.stringify(r.summary), r.verdict.verdict);
+  assert.ok(r.summary.firstToken.p50 >= 250);
+});

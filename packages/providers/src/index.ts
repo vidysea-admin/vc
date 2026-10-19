@@ -1030,6 +1030,10 @@ export const OLLAMA_DEFAULT_TIMEOUT_MS = 120_000;
 /** Upper bound on generated tokens per request (Ollama `options.num_predict`); also the output side of the pre-request cost bound. */
 export const OLLAMA_DEFAULT_MAX_OUTPUT_TOKENS = 2048;
 export const OLLAMA_PRICE_ENV = "OLLAMA_PRICE_USD_PER_MTOK";
+/** ISS-271: a price below this (USD per million tokens) is a typo or a unit slip, not a price; the budget cap would under-count. */
+export const OLLAMA_MIN_PRICE_USD_PER_MTOK = 0.01;
+/** ISS-274: env override of the per-request output-token bound (positive integer). */
+export const OLLAMA_MAX_OUTPUT_TOKENS_ENV = "OLLAMA_MAX_OUTPUT_TOKENS";
 
 export interface OllamaPrice {
   inputUsdPerMTok: number;
@@ -1091,7 +1095,7 @@ export class OllamaNetworkError extends Error {
 /** What is about to be sent: an UPPER BOUND on its cost, so a budget guard never under-counts. */
 export interface OllamaRequestEstimate {
   model: string;
-  /** Prompt-size bound: one token per character (never fewer tokens than reality for the price bound). */
+  /** Prompt-size bound: one token per UTF-8 byte (never fewer tokens than reality for the price bound). */
   estimatedInputTokens: number;
   maxOutputTokens: number;
   estimatedCostUsd: number;
@@ -1123,14 +1127,18 @@ export class OllamaProvider implements LlmProvider {
   readonly #apiKey: string;
 
   constructor(options: OllamaProviderOptions) {
-    if (!options.apiKey) throw new OllamaRefusedError("OLLAMA_API_KEY is required for the ollama provider");
+    // ISS-272: a whitespace-only key is no key; a pasted key with a trailing newline is trimmed, never sent with it.
+    const apiKey = typeof options.apiKey === "string" ? options.apiKey.trim() : "";
+    if (!apiKey) throw new OllamaRefusedError("OLLAMA_API_KEY is required for the ollama provider");
     const { inputUsdPerMTok: i, outputUsdPerMTok: o } = options.price;
-    if (!Number.isFinite(i) || !Number.isFinite(o) || i <= 0 || o <= 0) {
-      throw new OllamaRefusedError(`price for model "${options.model}" must be finite and > 0 (an unknown price is never assumed zero)`);
+    if (!Number.isFinite(i) || !Number.isFinite(o) || i < OLLAMA_MIN_PRICE_USD_PER_MTOK || o < OLLAMA_MIN_PRICE_USD_PER_MTOK) {
+      throw new OllamaRefusedError(
+        `price for model "${options.model}" must be finite and >= ${OLLAMA_MIN_PRICE_USD_PER_MTOK} USD per million tokens (an unknown price is never assumed zero)`,
+      );
     }
     this.model = options.model;
     this.price = options.price;
-    this.#apiKey = options.apiKey;
+    this.#apiKey = apiKey;
     this.baseUrl = (options.baseUrl ?? OLLAMA_DEFAULT_BASE_URL).replace(/\/+$/, "");
     this.timeoutMs = options.timeoutMs ?? OLLAMA_DEFAULT_TIMEOUT_MS;
     this.maxOutputTokens = options.maxOutputTokens ?? OLLAMA_DEFAULT_MAX_OUTPUT_TOKENS;
@@ -1145,7 +1153,8 @@ export class OllamaProvider implements LlmProvider {
   async generate<T>(request: GenerateRequest<T>): Promise<T> {
     if (request.signal?.aborted) throw new OllamaAbortedError(this.model);
     const userContent = JSON.stringify(request.input);
-    const estimatedInputTokens = request.skillPrompt.length + userContent.length;
+    // ISS-270: UTF-8 byte length (>= tokens for any tokenizer), not UTF-16 code units: Devanagari text is 3 bytes per character.
+    const estimatedInputTokens = Buffer.byteLength(request.skillPrompt, "utf8") + Buffer.byteLength(userContent, "utf8");
     const estimate: OllamaRequestEstimate = {
       model: this.model,
       estimatedInputTokens,
@@ -1159,12 +1168,12 @@ export class OllamaProvider implements LlmProvider {
     const onExternalAbort = (): void => controller.abort();
     externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
     let phase: "pre" | "sent" = "pre";
-    let res: Response;
+    let body: unknown;
     try {
       await authorizeExecution({ ...request, signal: controller.signal });
       this.beforeRequest?.(estimate); // charge BEFORE the spend can happen
       phase = "sent";
-      res = await this.fetchImpl(`${this.baseUrl}/api/chat`, {
+      const res = await this.fetchImpl(`${this.baseUrl}/api/chat`, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${this.#apiKey}` },
         body: JSON.stringify({
@@ -1179,7 +1188,16 @@ export class OllamaProvider implements LlmProvider {
         }),
         signal: controller.signal,
       });
+      if (!res.ok) throw new OllamaHttpError(res.status, this.model);
+      // ISS-273: the abort timer stays armed until the body has been read; a stalled body is a timeout, not a hang.
+      try {
+        body = await res.json();
+      } catch (err) {
+        if ((err as { name?: unknown } | null)?.name === "AbortError") throw err;
+        throw new OllamaMalformedResponseError(this.model, "response body was not valid JSON");
+      }
     } catch (err) {
+      if (err instanceof OllamaHttpError || err instanceof OllamaMalformedResponseError) throw err;
       if ((err as { name?: unknown } | null)?.name === "AbortError") {
         if (externalSignal?.aborted) throw new OllamaAbortedError(this.model);
         throw new OllamaTimeoutError(this.model, this.timeoutMs);
@@ -1191,13 +1209,6 @@ export class OllamaProvider implements LlmProvider {
       externalSignal?.removeEventListener("abort", onExternalAbort);
     }
 
-    if (!res.ok) throw new OllamaHttpError(res.status, this.model);
-    let body: unknown;
-    try {
-      body = await res.json();
-    } catch {
-      throw new OllamaMalformedResponseError(this.model, "response body was not valid JSON");
-    }
     const content = (body as { message?: { content?: unknown } } | null)?.message?.content;
     if (typeof content !== "string" || content.length === 0) {
       throw new OllamaMalformedResponseError(this.model, "no message.content string in the response");
@@ -1230,8 +1241,8 @@ function resolveOllamaPrice(model: string, env: ProviderEnv): OllamaPrice {
   if (override !== undefined) {
     const parts = override.split(",").map((s) => Number(s.trim()));
     const [i, o] = parts;
-    if (parts.length !== 2 || i === undefined || o === undefined || !Number.isFinite(i) || !Number.isFinite(o) || i <= 0 || o <= 0) {
-      throw new OllamaRefusedError(`${OLLAMA_PRICE_ENV} must be "<input>,<output>" USD per million tokens, both finite and > 0`);
+    if (parts.length !== 2 || i === undefined || o === undefined || !Number.isFinite(i) || !Number.isFinite(o) || i < OLLAMA_MIN_PRICE_USD_PER_MTOK || o < OLLAMA_MIN_PRICE_USD_PER_MTOK) {
+      throw new OllamaRefusedError(`${OLLAMA_PRICE_ENV} must be "<input>,<output>" USD per million tokens, both finite and >= ${OLLAMA_MIN_PRICE_USD_PER_MTOK}`);
     }
     return { inputUsdPerMTok: i, outputUsdPerMTok: o };
   }
@@ -1240,6 +1251,16 @@ function resolveOllamaPrice(model: string, env: ProviderEnv): OllamaPrice {
     throw new OllamaRefusedError(`no price for ollama model "${model}": add it to OLLAMA_PRICE_TABLE_USD_PER_MTOK or set ${OLLAMA_PRICE_ENV}; REAL runs never assume a zero price`);
   }
   return known;
+}
+
+function resolveOllamaMaxOutputTokens(env: ProviderEnv): number {
+  const raw = env[OLLAMA_MAX_OUTPUT_TOKENS_ENV];
+  if (raw === undefined || raw.trim() === "") return OLLAMA_DEFAULT_MAX_OUTPUT_TOKENS;
+  const n = Number(raw.trim());
+  if (!/^\d+$/.test(raw.trim()) || !Number.isSafeInteger(n) || n <= 0) {
+    throw new OllamaRefusedError(`${OLLAMA_MAX_OUTPUT_TOKENS_ENV} must be a positive integer (got ${JSON.stringify(raw)})`);
+  }
+  return n;
 }
 
 /**
@@ -1254,12 +1275,21 @@ export function prepareOllamaProvider(
 ): ((beforeRequest: (estimate: OllamaRequestEstimate) => void) => OllamaProvider) | undefined {
   const selection = parseRealModel(env);
   if (selection.backend !== "ollama") return undefined;
-  const apiKey = env.OLLAMA_API_KEY;
+  const apiKey = env.OLLAMA_API_KEY?.trim();
   if (!apiKey) throw new OllamaRefusedError("OLLAMA_API_KEY is required when VC_REAL_MODEL selects an ollama model");
   const price = resolveOllamaPrice(selection.model, env);
   const baseUrl = env.OLLAMA_BASE_URL || OLLAMA_DEFAULT_BASE_URL;
+  const maxOutputTokens = resolveOllamaMaxOutputTokens(env);
   return (beforeRequest) =>
-    new OllamaProvider({ model: selection.model, apiKey, price, baseUrl, beforeRequest, ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}) });
+    new OllamaProvider({
+      model: selection.model,
+      apiKey,
+      price,
+      baseUrl,
+      maxOutputTokens,
+      beforeRequest,
+      ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+    });
 }
 // ---------------------------------------------------------------------------
 // Factory

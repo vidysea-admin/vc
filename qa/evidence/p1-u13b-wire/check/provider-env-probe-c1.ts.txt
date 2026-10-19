@@ -1,0 +1,15 @@
+import { prepareOllamaProvider } from "D:/vc/.worktrees/p1-u13b-chk-fals1/packages/providers/src/index.ts";
+const base = { VC_REAL_MODEL: "ollama:mystery", OLLAMA_API_KEY: "k", OLLAMA_PRICE_USD_PER_MTOK: "1,4" };
+const cases: [string, Record<string, string>][] = [
+  ["price 1e-300", { OLLAMA_PRICE_USD_PER_MTOK: "1e-300,4" }],
+  ["price 0.009", { OLLAMA_PRICE_USD_PER_MTOK: "0.009,4" }],
+  ["key whitespace", { OLLAMA_API_KEY: "  \n" }],
+  ["tokens junk", { OLLAMA_MAX_OUTPUT_TOKENS: "abc" }],
+  ["tokens 0", { OLLAMA_MAX_OUTPUT_TOKENS: "0" }],
+  ["tokens -5", { OLLAMA_MAX_OUTPUT_TOKENS: "-5" }],
+  ["tokens 1.5", { OLLAMA_MAX_OUTPUT_TOKENS: "1.5" }],
+  ["ok control", { OLLAMA_MAX_OUTPUT_TOKENS: "512" }],
+];
+for (const [n, o] of cases) {
+  try { prepareOllamaProvider({ ...base, ...o }); console.log(n, "=> ACCEPTED"); } catch (e) { console.log(n, "=> refused:", (e as Error).message.slice(0, 70)); }
+}

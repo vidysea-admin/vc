@@ -18,7 +18,7 @@ export interface AskLike {
   verdict: string;
   insufficient_coverage: boolean;
   web_used: boolean;
-  sources: { internal: { node_id: string }[]; web: unknown[] };
+  sources: { internal: { node_id: string; text?: string }[]; web: unknown[] };
 }
 
 export interface AnswerResult {
@@ -48,7 +48,8 @@ const AskLikeSchema = z
     verdict: z.string(),
     insufficient_coverage: z.boolean(),
     web_used: z.boolean(),
-    sources: z.object({ internal: z.array(z.object({ node_id: z.string() }).passthrough()), web: z.array(z.unknown()) }),
+    // `text` (optional) is the retrieved KB passage body; a REAL run needs it (U13b), mock mode never reads it.
+    sources: z.object({ internal: z.array(z.object({ node_id: z.string(), text: z.string().optional() }).passthrough()), web: z.array(z.unknown()) }),
   })
   .passthrough();
 
@@ -107,6 +108,11 @@ export interface ProbeReport {
 export async function scoreProbes(
   cases: readonly ProbeCase[],
   answer: (c: ProbeCase) => Promise<AnswerResult>,
+  /**
+   * `source` (U13b, B1): the probe set's provenance. The REAL-model bar is "0 training-data or web answers
+   * in 30 REAL probes", so a set whose source is not "recorded" can never reach PASS. Omitted (mock mode) = no cap.
+   */
+  opts: { source?: ProbeSet["source"] } = {},
 ): Promise<ProbeReport> {
   const violations: ProbeViolation[] = [];
   let served = 0;
@@ -126,7 +132,8 @@ export async function scoreProbes(
     }
   }
   const total = cases.length;
-  const realBarMet = violations.length === 0 && total >= PROBE_REAL_BAR;
+  const provenanceOk = opts.source === undefined || opts.source === "recorded";
+  const realBarMet = violations.length === 0 && total >= PROBE_REAL_BAR && provenanceOk;
   const verdict: ProbeReport["verdict"] = violations.length > 0 ? "FAIL" : realBarMet ? "PASS" : "NOT PROVEN";
   return { total, served, refused, violations, realBarMet, verdict };
 }

@@ -250,3 +250,92 @@ test("prepareOllamaProvider: price override env works, bad overrides are refused
   assert.equal(calls[0]!.url, "https://alt.example/api/chat");
   assert.ok(seen[0]!.estimatedCostUsd > 2048 * 8 / 1e6 - 1e-12, "uses the overridden 8 USD/MTok output price");
 });
+
+// ---------------------------------------------------------------------------
+// U13b before-first-paid-run fixes (ISS-270..274).
+// ---------------------------------------------------------------------------
+
+test("ISS-273: the abort timer stays armed until res.json() resolves; a stalled body is OllamaTimeoutError, not a hang", async () => {
+  const { fetchImpl } = mockFetch((cap) => {
+    const signal = cap.init.signal as AbortSignal;
+    return {
+      ok: true,
+      status: 200,
+      json: () =>
+        new Promise<unknown>((_, reject) => {
+          signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+        }),
+    } as unknown as Response;
+  });
+  const outcome = await Promise.race([
+    provider(fetchImpl, { timeoutMs: 30 }).generate(req()).then(() => "resolved", (e: unknown) => e),
+    new Promise((r) => setTimeout(() => r("HUNG"), 1500)),
+  ]);
+  assert.ok(outcome instanceof OllamaTimeoutError, `expected OllamaTimeoutError, got ${String(outcome)}`);
+});
+
+test("ISS-273: a caller abort while the body is streaming is OllamaAbortedError", async () => {
+  const mid = new AbortController();
+  const { fetchImpl } = mockFetch((cap) => {
+    const signal = cap.init.signal as AbortSignal;
+    setTimeout(() => mid.abort(), 5);
+    return {
+      ok: true,
+      status: 200,
+      json: () =>
+        new Promise<unknown>((_, reject) => {
+          signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+        }),
+    } as unknown as Response;
+  });
+  await assert.rejects(provider(fetchImpl, { timeoutMs: 5_000 }).generate(req({ signal: mid.signal })), OllamaAbortedError);
+});
+
+test("ISS-274: OLLAMA_MAX_OUTPUT_TOKENS sets num_predict and the cost bound; default 2048; non-positive-integer values are refused", async () => {
+  const { fetchImpl, calls } = mockFetch(() => okChat({ answer: "x" }));
+  const seen: OllamaRequestEstimate[] = [];
+  const env = { VC_REAL_MODEL: "ollama:glm-5.3-flash", OLLAMA_API_KEY: SECRET, OLLAMA_MAX_OUTPUT_TOKENS: "512" };
+  await prepareOllamaProvider(env, { fetchImpl })!((e) => void seen.push(e)).generate(req());
+  assert.equal(JSON.parse(String(calls[0]!.init.body)).options.num_predict, 512);
+  assert.equal(seen[0]!.maxOutputTokens, 512);
+
+  const dflt = mockFetch(() => okChat({ answer: "x" }));
+  await prepareOllamaProvider({ ...env, OLLAMA_MAX_OUTPUT_TOKENS: undefined }, { fetchImpl: dflt.fetchImpl })!(() => {}).generate(req());
+  assert.equal(JSON.parse(String(dflt.calls[0]!.init.body)).options.num_predict, 2048);
+
+  for (const bad of ["0", "-5", "1.5", "abc", "1e3", "999999999999999999999"]) {
+    assert.throws(() => prepareOllamaProvider({ ...env, OLLAMA_MAX_OUTPUT_TOKENS: bad }), OllamaRefusedError, bad);
+  }
+});
+
+test("ISS-271: a price below 0.01 USD/MTok is refused (table-independent): constructor and override env", () => {
+  const f = mockFetch(() => okChat({})).fetchImpl;
+  assert.throws(() => new OllamaProvider({ model: "m", apiKey: "k", price: { inputUsdPerMTok: 0.001, outputUsdPerMTok: 1 }, fetchImpl: f }), OllamaRefusedError);
+  assert.throws(() => new OllamaProvider({ model: "m", apiKey: "k", price: { inputUsdPerMTok: 1, outputUsdPerMTok: 0.009 }, fetchImpl: f }), OllamaRefusedError);
+  assert.doesNotThrow(() => new OllamaProvider({ model: "m", apiKey: "k", price: { inputUsdPerMTok: 0.01, outputUsdPerMTok: 0.01 }, fetchImpl: f }));
+  assert.throws(
+    () => prepareOllamaProvider({ VC_REAL_MODEL: "ollama:mystery-model", OLLAMA_API_KEY: SECRET, OLLAMA_PRICE_USD_PER_MTOK: "0.001,4" }),
+    /0\.01/,
+  );
+});
+
+test("ISS-272: the key is trimmed before use and a whitespace-only key is refused (constructor and env)", async () => {
+  const f = mockFetch(() => okChat({ answer: "x" }));
+  assert.throws(() => new OllamaProvider({ model: "m", apiKey: "   \n", price: PRICE, fetchImpl: f.fetchImpl }), OllamaRefusedError);
+  await provider(f.fetchImpl, { apiKey: `  ${SECRET}\n` }).generate(req());
+  assert.equal((f.calls[0]!.init.headers as Record<string, string>)["authorization"], `Bearer ${SECRET}`);
+  assert.throws(() => prepareOllamaProvider({ VC_REAL_MODEL: "ollama:glm-5.3-flash", OLLAMA_API_KEY: " \t " }), /OLLAMA_API_KEY/);
+  const g = mockFetch(() => okChat({ answer: "x" }));
+  await prepareOllamaProvider({ VC_REAL_MODEL: "ollama:glm-5.3-flash", OLLAMA_API_KEY: `${SECRET}\r\n` }, { fetchImpl: g.fetchImpl })!(() => {}).generate(req());
+  assert.equal((g.calls[0]!.init.headers as Record<string, string>)["authorization"], `Bearer ${SECRET}`);
+});
+
+test("ISS-270: the input estimate is the UTF-8 byte length (Devanagari is 3 bytes per character), not the UTF-16 length", async () => {
+  const seen: OllamaRequestEstimate[] = [];
+  const prompt = "नमस्ते विद्यार्थी";
+  const input = { q: "मुझे जर्मनी में पढ़ाई करनी है" };
+  await provider(mockFetch(() => okChat({ answer: "x" })).fetchImpl, { beforeRequest: (e) => void seen.push(e) }).generate(req({ skillPrompt: prompt, input }));
+  const bytes = Buffer.byteLength(prompt, "utf8") + Buffer.byteLength(JSON.stringify(input), "utf8");
+  assert.equal(seen[0]!.estimatedInputTokens, bytes);
+  assert.ok(bytes > prompt.length + JSON.stringify(input).length * 2, "sanity: bytes far exceed code units for Devanagari");
+});

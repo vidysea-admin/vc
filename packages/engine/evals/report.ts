@@ -58,7 +58,7 @@ export function toMarkdown(report: EvalReport): string {
 // Every report states its provenance (mock/synthetic vs real) so a plumbing run is never read as proof.
 // ---------------------------------------------------------------------------
 
-export function toKbMarkdown(report: KbEvalReport): string {
+export function toKbMarkdown(report: KbEvalReport, meta: { a2bLabel?: string } = {}): string {
   const a = report.a2a;
   const b = report.a2b;
   const lines: string[] = [];
@@ -73,7 +73,7 @@ export function toKbMarkdown(report: KbEvalReport): string {
   lines.push("| Check | Result |");
   lines.push("|---|---|");
   lines.push(`| A2a English hit@3 | ${a.hits}/${a.englishCount} (${pct(a.hitAt3)}) vs threshold ${pct(a.threshold)} · countries ${a.countries} · themes ${a.themes} · **${a.verdict}${a.reason ? ` (${a.reason})` : ""}** |`);
-  lines.push(`| A2b Hindi/Hinglish hit@3 | ${b.hits}/${b.count} (${pct(b.hitAt3)}) · **${b.verdict}** (${b.note}) |`);
+  lines.push(`| ${meta.a2bLabel ?? "A2b Hindi/Hinglish hit@3"} | ${b.hits}/${b.count} (${pct(b.hitAt3)}) · **${b.verdict}** (${b.note}) |`);
   lines.push("");
   lines.push("## Misses");
   lines.push("");
@@ -83,7 +83,7 @@ export function toKbMarkdown(report: KbEvalReport): string {
   return lines.join("\n");
 }
 
-export function toProbesMarkdown(report: ProbeReport, meta: { mode: "mock" | "real"; source: string }): string {
+export function toProbesMarkdown(report: ProbeReport, meta: { mode: "mock" | "real"; source: string; excluded?: number }): string {
   const lines: string[] = [];
   lines.push("# Out-of-KB probes (A4)");
   lines.push("");
@@ -91,6 +91,14 @@ export function toProbesMarkdown(report: ProbeReport, meta: { mode: "mock" | "re
   if (meta.mode === "mock") {
     lines.push("");
     lines.push("> Mock: proves the /ask serve rule plumbing on recorded/synthetic responses. The real-model bar (0 training-data or web answers in 30 probes) needs a REAL run under G-REAL.");
+  }
+  if (meta.mode === "real" && meta.source !== "recorded") {
+    lines.push("");
+    lines.push(`> Probe set source is \`${meta.source}\`, not \`recorded\`: a synthetic set cannot prove A4, so this run is capped at NOT PROVEN even with zero violations.`);
+  }
+  if (meta.excluded !== undefined && meta.excluded > 0) {
+    lines.push("");
+    lines.push(`> ${meta.excluded} probe(s) excluded: no passage text in the probe set (not sent to the model, not counted in Probes above).`);
   }
   lines.push("");
   lines.push("## Violations");
@@ -101,11 +109,11 @@ export function toProbesMarkdown(report: ProbeReport, meta: { mode: "mock" | "re
   return lines.join("\n");
 }
 
-export function toLatencyMarkdown(summary: LatencySummary, verdict: A8Result, meta: { mode: "mock" | "real" }): string {
+export function toLatencyMarkdown(summary: LatencySummary, verdict: A8Result, meta: { mode: "mock" | "real"; scope?: string }): string {
   const lines: string[] = [];
   lines.push("# Text latency (A8)");
   lines.push("");
-  lines.push(`Mode: \`${meta.mode}\` · Samples: ${summary.n} · **${verdict.verdict}**`);
+  lines.push(`Mode: \`${meta.mode}\` · Samples: ${summary.n} · **${verdict.verdict}${meta.scope ? ` (${meta.scope})` : ""}**`);
   lines.push("");
   lines.push("| Metric | p50 | p95 | max |");
   lines.push("|---|---|---|---|");

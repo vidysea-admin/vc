@@ -89,6 +89,24 @@ export interface P1Args {
   ledger: string;
   /** Blind-pairing seed. Absent = the runner decides (mock: fixed default; --real: random, kept only in the key file). */
   seed?: string;
+  /** run-h2h --real only: JSON array of counsellor-written expert answers `{questionId, text, author}` (U13b). */
+  experts?: string;
+  /** U13b (B13/D-100): the operator confirms a `source: "recorded"` input has been anonymised; REAL runners refuse recorded input without it. */
+  anonymised?: boolean;
+}
+
+/**
+ * U13b guard (B13/D-100): a REAL run sends fixture text to a paid external provider, so an input declared
+ * `source: "recorded"` (real transcripts) is refused unless the operator passes `--anonymised`. Called by each
+ * REAL body factory, i.e. BEFORE any ledger line or request. Mock mode never calls it.
+ */
+export function assertRealInputAllowed(runner: string, flag: string, source: string, args: P1Args): void {
+  if (source === "recorded" && !args.anonymised) {
+    throw new Error(
+      `${runner} --real: ${flag} is source "recorded" (real transcripts); a REAL run sends it to an external paid provider (B13/D-100). ` +
+        "Refusing. Anonymise it first, then pass --anonymised to confirm.",
+    );
+  }
 }
 
 export interface RunnerDeps {
@@ -102,10 +120,24 @@ export interface RunnerDeps {
    * whose every request is charged to `run` BEFORE it is sent. Unset/"gemini" = the default path,
    * unchanged: `provider` is undefined and the body brings its own, as before.
    */
-  realBody?: (run: BudgetRun, provider?: LlmProvider) => Promise<unknown>;
+  realBody?: RealBody;
   estimateUsd?: number;
   /** Mocked fetch for the Ollama provider (tests only; production uses the global fetch). */
   fetchImpl?: typeof fetch;
+}
+
+/** The REAL-mode body: runs the runner's fixture set, charging every model call to `run` through `provider`. */
+export type RealBody = (run: BudgetRun, provider?: LlmProvider) => Promise<unknown>;
+
+/**
+ * U13b: a REAL body may return this to have the runner's own markdown report written (the existing
+ * report.ts renderer output) instead of the generic "real run completed" stub; `value` goes into the JSON report.
+ */
+export class RealReport {
+  constructor(
+    readonly value: unknown,
+    readonly markdown: string,
+  ) {}
 }
 
 export interface RunnerOutcome {
@@ -128,13 +160,15 @@ export function parseP1Args(argv: readonly string[]): P1Args {
   const args: P1Args = { real: false, outDir: P1_REPORT_DIR, ledger: P1_LEDGER };
   for (const arg of argv) {
     if (arg === "--real") args.real = true;
+    else if (arg === "--anonymised") args.anonymised = true;
     else if (arg.startsWith("--golden=")) args.golden = arg.slice("--golden=".length);
     else if (arg.startsWith("--fixture=")) args.fixture = arg.slice("--fixture=".length);
     else if (arg.startsWith("--cases=")) args.cases = arg.slice("--cases=".length);
     else if (arg.startsWith("--out=")) args.outDir = arg.slice("--out=".length);
     else if (arg.startsWith("--ledger=")) args.ledger = arg.slice("--ledger=".length);
     else if (arg.startsWith("--seed=")) args.seed = arg.slice("--seed=".length);
-    else throw new Error(`unknown argument "${arg}" (known: --real --golden= --fixture= --cases= --out= --ledger= --seed=)`);
+    else if (arg.startsWith("--experts=")) args.experts = arg.slice("--experts=".length);
+    else throw new Error(`unknown argument "${arg}" (known: --real --anonymised --golden= --fixture= --cases= --out= --ledger= --seed= --experts=)`);
   }
   // --real spends money against the one shared A24 ledger; a different --ledger would hide that spend from the caps.
   if (args.real && resolve(args.ledger) !== resolve(P1_LEDGER)) {
@@ -158,13 +192,27 @@ export function writeP1Report(outDir: string, base: string, report: unknown, mar
 }
 
 /** The REAL path every runner shares: G-REAL gate -> wired? -> budget guard -> report (or abort report). */
-export async function runRealPath(runner: string, base: string, args: P1Args, deps: RunnerDeps): Promise<RunnerOutcome> {
+export async function runRealPath(
+  runner: string,
+  base: string,
+  args: P1Args,
+  deps: RunnerDeps,
+  /**
+   * U13b: the runner's own REAL body factory. Used only when the caller supplied no `deps.realBody` AND
+   * VC_REAL_MODEL selects an Ollama model (a `provider` exists). With Gemini selected (the default) the
+   * body is still not wired and the runner refuses with RealNotWiredError, exactly as before. The factory
+   * runs after the gate and the config validation but before the budget run starts, so a bad fixture path
+   * refuses without touching the spend ledger.
+   */
+  makeDefaultBody?: () => RealBody,
+): Promise<RunnerOutcome> {
   assertGReal(deps.env ?? process.env, deps.gateFile);
-  if (!deps.realBody) throw new RealNotWiredError(runner);
+  if (!deps.realBody && !makeDefaultBody) throw new RealNotWiredError(runner);
   // U13b: validate the model selection (VC_REAL_MODEL, OLLAMA_API_KEY, price) BEFORE the budget guard
   // starts a run, so a bad config refuses without touching the spend ledger.
   const makeOllama = prepareOllamaProvider(deps.env ?? process.env, deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {});
-  const realBody = deps.realBody;
+  if (!deps.realBody && !makeOllama) throw new RealNotWiredError(runner);
+  const realBody = deps.realBody ?? makeDefaultBody!();
   const result = await executeReal(
     {
       runner,
@@ -186,8 +234,11 @@ export async function runRealPath(runner: string, base: string, args: P1Args, de
     });
     return { runner, mode: "real", status: "aborted-budget", report, markdown, files: writeP1Report(args.outDir, base, report, markdown) };
   }
-  const report = { status: result.status, runner, spentUsd: result.spentUsd, result: result.value };
-  const markdown = `# ${runner}: real run completed\n\nSpend: USD ${result.spentUsd}. Result recorded in the JSON report.\n`;
+  const rich = result.value instanceof RealReport ? result.value : undefined;
+  const report = { status: result.status, runner, spentUsd: result.spentUsd, result: rich ? rich.value : result.value };
+  const markdown = rich
+    ? `${rich.markdown.trimEnd()}\n\nSpend: USD ${result.spentUsd}.\n`
+    : `# ${runner}: real run completed\n\nSpend: USD ${result.spentUsd}. Result recorded in the JSON report.\n`;
   return { runner, mode: "real", status: "completed", report, markdown, files: writeP1Report(args.outDir, base, report, markdown) };
 }
 
