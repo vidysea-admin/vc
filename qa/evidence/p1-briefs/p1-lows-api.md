@@ -1,0 +1,8 @@
+# /maker build subagent — low leftovers, api tests + go-live checklist (D-101)
+Worktree: `git -C D:/vc worktree add D:/vc/.worktrees/p1-lows-api -b p1/lows-api main`.
+1. ISS-260: test pinning voice H3 unique crisis turn ids for an unconsented minor (apps/api/src/voice.ts ~815-821) in apps/api/tests/voice-crisis-turn.test.ts.
+2. ISS-261: tests for two worded crises on the same turn, and a redaction throw followed by a second crisis.
+3. ISS-263 + G-PROD: write docs/go-live-checklist.md: env vars (VC_CHAT_ENABLED / VC_VOICE_ENABLED exact word "true", unset = off; padded values fail startup), and the G-PROD (c) prerequisites from qa/gates/g-prod.md (B13 signed, A10 voice report, g-publish, nights mode, the open owner decisions). Short.
+4. ISS-262 (c.lastUser ordering, voice.ts:683-688): investigate only; write findings into the manifest; no product change unless it is a one-line clear bug with a failing test.
+Test-only diff → test lane (no checker): if only tests/docs change, set `Status: merged-no-check (test-lane)` is NOT yours to set — set ready-for-check and say "test-only" in the report.
+Rules: TDD; tests only via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...` (TMP/TEMP on D:; other agents share the lock, long waits are normal, wait); `pnpm -r typecheck` exit 0; 1 falsification per criterion in a copy (never the bound tree); manifest with current Policy-Version, criteria, Tests[<id>], Pre-check[<id>], `tick.mjs --lint-manifest` exit 0; narrow-pathspec commits, never git add -A; no push/merge; no .claude/** or .env edits; no network/paid calls; leave no background processes. Keep it small, no over-engineering. Report head sha, files, test counts.
