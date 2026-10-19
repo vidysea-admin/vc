@@ -13,7 +13,7 @@
 - C10 (D-105 additions) extraction is model-based through an injected provider (mocked in tests), and crisisGuard runs first on the original text and is never removed or weakened: a crisis or concern turn makes no extraction call.
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS (verdict 7cb07a9)
 **Fix cycle:** 0
 **Policy-Version:** proportional-verification/2026-10-19.17
 **Tier:** L (three packages plus the api; student-data path; D-104/D-105 contract)
