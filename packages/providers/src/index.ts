@@ -140,6 +140,24 @@ export const ProviderConfigSchema = z.discriminatedUnion("provider", [
     attemptTimeoutMs: z.number().int().positive().optional(),
   }),
   z.object({ provider: z.literal("rules"), model: z.string().min(1) }),
+  z.object({
+    provider: z.literal("ollama"),
+    /** The first hop's model id (uniform with the other variants); the full ordered chain is `chain`. */
+    model: z.string().min(1),
+    apiKey: z.string().min(1),
+    baseUrl: z.string().min(1).optional(),
+    /** P1 LK1 (D-105): the text chain, config order (from VC_TEXT_CHAIN), each hop priced at load time. */
+    chain: z.array(z.object({
+      model: z.string().min(1),
+      inputUsdPerMTok: z.number().positive(),
+      outputUsdPerMTok: z.number().positive(),
+    })).min(1),
+    maxOutputTokens: z.number().int().positive().optional(),
+    /** Per-hop total timeout (VC_TEXT_CHAIN_HOP_TIMEOUT_MS; default TEXT_CHAIN_DEFAULT_HOP_TIMEOUT_MS). */
+    hopTimeoutMs: z.number().int().positive().optional(),
+    /** Product wall-clock deadline for the whole chain (VC_TEXT_CHAIN_DEADLINE_MS; default TEXT_CHAIN_DEFAULT_DEADLINE_MS). */
+    deadlineMs: z.number().int().positive().optional(),
+  }),
 ]);
 export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 
@@ -170,6 +188,16 @@ export interface ProviderEnv {
    * Optional; defaults to LITELLM_DEFAULT_ATTEMPT_TIMEOUT_MS.
    */
   VC_LLM_ATTEMPT_TIMEOUT_MS?: string;
+  /**
+   * P1 LK1 (D-105): the Ollama text chain, config order, comma-separated `ollama:<model-id>` entries
+   * (e.g. "ollama:glm-5.3-flash,ollama:deepseek-v4.1-flash"). Read ONLY by `loadTextChainConfig`; it is
+   * opt-in per caller and deliberately not a `VC_LLM_PROVIDER` value (see that function).
+   */
+  VC_TEXT_CHAIN?: string;
+  /** P1 LK1: per-hop total timeout in ms for the text chain. */
+  VC_TEXT_CHAIN_HOP_TIMEOUT_MS?: string;
+  /** P1 LK1: product wall-clock deadline in ms for the whole text chain. */
+  VC_TEXT_CHAIN_DEADLINE_MS?: string;
   [key: string]: string | undefined;
 }
 
@@ -246,6 +274,63 @@ export function loadProviderConfig(env: ProviderEnv): ProviderConfig {
   throw new Error(
     `loadProviderConfig: VC_LLM_PROVIDER must be "mock", "gemini", "litellm" or "rules" (got ${provider === undefined ? "nothing" : JSON.stringify(provider)})`,
   );
+}
+
+/** P1 LK1 (D-105): the chain's product bound, so a student never waits through a second lap (design: 12 s). */
+export const TEXT_CHAIN_DEFAULT_DEADLINE_MS = 12_000;
+/** P1 LK1: a hop that has not answered in this long is a retryable timeout and the chain moves on. */
+export const TEXT_CHAIN_DEFAULT_HOP_TIMEOUT_MS = 8_000;
+
+function positiveIntEnv(env: ProviderEnv, key: string): number | undefined {
+  const raw = env[key];
+  if (raw === undefined) return undefined;
+  const n = Number(raw.trim());
+  if (!/^\d+$/.test(raw.trim()) || !Number.isSafeInteger(n) || n <= 0) {
+    throw new Error(`loadTextChainConfig: ${key} must be a positive integer (got ${JSON.stringify(raw)})`);
+  }
+  return n;
+}
+
+/**
+ * P1 LK1 (D-105): reads the Ollama text chain from `VC_TEXT_CHAIN` (comma-separated `ollama:<model-id>`
+ * entries, in failover order). Returns `undefined` when it is unset or blank, so a caller opts in with
+ * `loadTextChainConfig(env) ?? loadProviderConfig(env)`. Every hop is priced here (table or
+ * OLLAMA_PRICE_USD_PER_MTOK; an unknown price is refused, never zero), so a bad chain fails at startup.
+ * `gemini:` entries are RESERVED (the Gemini Lite text adapter is LK3, held) and refused, not ignored.
+ *
+ * Deliberately NOT reachable through `loadProviderConfig` / `VC_LLM_PROVIDER`: that config is also the base
+ * the concern classifier and the scribe derive their provider from, and D-105 Q4 keeps a call on its current
+ * model until its own eval passes on the chain. Reads only the env object it is given; messages name keys,
+ * never values.
+ */
+export function loadTextChainConfig(env: ProviderEnv): Extract<ProviderConfig, { provider: "ollama" }> | undefined {
+  const raw = env.VC_TEXT_CHAIN;
+  if (raw === undefined || raw.trim() === "") return undefined;
+  const entries = raw.split(",").map((e) => e.trim()).filter((e) => e.length > 0);
+  if (entries.length === 0) throw new Error("loadTextChainConfig: VC_TEXT_CHAIN was set but contained no entries");
+  const models = entries.map((entry) => {
+    if (/^gemini:/i.test(entry)) {
+      throw new Error("loadTextChainConfig: VC_TEXT_CHAIN gemini entries are reserved (the Gemini text adapter is not built yet, LK3); use ollama:<model-id>");
+    }
+    const m = /^ollama:(.+)$/.exec(entry);
+    const id = m?.[1]?.trim();
+    if (!id) throw new Error('loadTextChainConfig: every VC_TEXT_CHAIN entry must be "ollama:<model-id>"');
+    return id;
+  });
+  const apiKey = env.OLLAMA_API_KEY?.trim();
+  if (!apiKey) throw new OllamaRefusedError("OLLAMA_API_KEY is required when VC_TEXT_CHAIN is set");
+  const chain = models.map((model) => ({ model, ...resolveOllamaPrice(model, env) }));
+  const maxOutputTokens = env[OLLAMA_MAX_OUTPUT_TOKENS_ENV] === undefined ? undefined : resolveOllamaMaxOutputTokens(env);
+  return {
+    provider: "ollama",
+    model: models[0]!,
+    apiKey,
+    ...(env.OLLAMA_BASE_URL ? { baseUrl: env.OLLAMA_BASE_URL } : {}),
+    chain,
+    ...(maxOutputTokens !== undefined ? { maxOutputTokens } : {}),
+    hopTimeoutMs: positiveIntEnv(env, "VC_TEXT_CHAIN_HOP_TIMEOUT_MS") ?? TEXT_CHAIN_DEFAULT_HOP_TIMEOUT_MS,
+    deadlineMs: positiveIntEnv(env, "VC_TEXT_CHAIN_DEADLINE_MS") ?? TEXT_CHAIN_DEFAULT_DEADLINE_MS,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -624,6 +709,13 @@ export function isRetryableProviderError(err: unknown): boolean {
   if (err instanceof LiteLlmNetworkError) return true;
   if (err instanceof LiteLlmHttpError) return err.status === 429 || err.status >= 500;
   if (err instanceof ModelOutputSchemaError) return true;
+  // P1 LK1 (D-105 Q5): the Ollama text chain. Same rule as LiteLLM: timeout, unusable body, unsendable
+  // request, 429 and 5xx are outages and go to the next hop. 4xx other than 429 (config/auth), the caller's
+  // own abort (OllamaAbortedError), a refusal (OllamaRefusedError) and a budget stop are NOT, so they surface.
+  if (err instanceof OllamaTimeoutError) return true;
+  if (err instanceof OllamaMalformedResponseError) return true;
+  if (err instanceof OllamaNetworkError) return true;
+  if (err instanceof OllamaHttpError) return err.status === 429 || err.status >= 500;
   return false;
 }
 
@@ -678,6 +770,8 @@ export interface FailoverExhaustedInfo {
   attempts: number;
   lastErrorName: string;
   lastErrorMessage: string;
+  /** Kind of the first chain member, so the alert names the real provider (absent from older callers). */
+  kind?: ProviderKind;
 }
 
 /**
@@ -704,7 +798,7 @@ export function emitFailoverAlert(info: FailoverExhaustedInfo): void {
       // scope, a known LLM instrumentor's scope, or a "gen_ai."-prefixed attribute) — verified against
       // its published dist (span-filter.ts's isDefaultExportSpan). Without this, the span is a real,
       // correctly-built OTel span that the processor silently drops before it ever reaches Langfuse.
-      "gen_ai.system": "litellm",
+      "gen_ai.system": info.kind ?? "litellm",
       "failover.models": info.models.join(" -> "),
       "failover.attempts": info.attempts,
       "failover.last_error_name": info.lastErrorName,
@@ -728,6 +822,12 @@ export interface FailoverProviderOptions {
    * itself push the total wait past the deadline.
    */
   deadlineMs?: number;
+  /**
+   * P1 LK1 (D-105 Q5): one attempt per chain member, no wrap-around, for a caller-facing chain where a
+   * second lap over the same models only adds latency. Caps the attempt budget at `chain.length`
+   * (a smaller `maxAttempts` still wins). Default false: the LiteLLM chain keeps its wrapping budget.
+   */
+  singlePass?: boolean;
   /** Injectable for tests (no real waiting; node:test fake timers also work against the default). */
   sleep?: (ms: number) => Promise<void>;
   /** Injectable for deterministic jitter in tests. */
@@ -758,7 +858,9 @@ export class FailoverProvider implements LlmProvider {
     this.chain = options.chain;
     this.kind = options.chain[0]!.kind;
     this.model = options.chain.map((p) => p.model).join(" -> ");
-    this.maxAttempts = options.maxAttempts ?? FAILOVER_DEFAULT_MAX_ATTEMPTS;
+    this.maxAttempts = options.singlePass
+      ? Math.min(options.maxAttempts ?? options.chain.length, options.chain.length)
+      : (options.maxAttempts ?? FAILOVER_DEFAULT_MAX_ATTEMPTS);
     this.baseDelayMs = options.baseDelayMs ?? FAILOVER_DEFAULT_BASE_DELAY_MS;
     this.maxDelayMs = options.maxDelayMs ?? FAILOVER_DEFAULT_MAX_DELAY_MS;
     this.deadlineMs = options.deadlineMs ?? FAILOVER_DEFAULT_DEADLINE_MS;
@@ -870,7 +972,7 @@ export class FailoverProvider implements LlmProvider {
     const lastErrorMessage = lastError instanceof ModelOutputSchemaError
       ? "Provider output did not match the required schema."
       : lastError instanceof Error ? lastError.message : String(lastError);
-    this.onExhausted({ models, attempts: attempt, lastErrorName, lastErrorMessage });
+    this.onExhausted({ models, attempts: attempt, lastErrorName, lastErrorMessage, kind: this.kind });
     throw new AiUnavailableError(models, attempt, lastErrorName);
   }
 }
@@ -1355,6 +1457,14 @@ export function prepareOllamaProvider(
 export interface CreateProviderDeps {
   /** Canned responses when `config.provider === "mock"`. */
   mockResponses?: Record<string, MockResponse>;
+  /** P1 LK1, `provider: "ollama"` only. Charged on EVERY hop before its request is sent; a throw (a budget stop) stops the chain, it does not fail over. */
+  beforeRequest?: (estimate: OllamaRequestEstimate) => void;
+  /** P1 LK1, `provider: "ollama"` only. Per-hop usage: the actual token counts the hop reported, or `actual: "unreported"`; called once per 2xx response, even when its content proves unusable. */
+  onUsage?: (usage: OllamaActualUsage) => void;
+  /** P1 LK1, `provider: "ollama"` only. Replaces the default engineering alert when the whole chain is exhausted. */
+  onExhausted?: (info: FailoverExhaustedInfo) => void;
+  /** P1 LK1, `provider: "ollama"` only. Injected in tests; production uses the global fetch. */
+  fetchImpl?: typeof fetch;
 }
 
 /** Picks the implementation from config (B6). */
@@ -1384,6 +1494,32 @@ export function createProvider(config: ProviderConfig, deps: CreateProviderDeps 
       return new LiteLlmProvider({ model: parsed.model, baseUrl: parsed.baseUrl, apiKey: parsed.apiKey });
     case "rules":
       return new RulesProvider({ model: parsed.model });
+    case "ollama": {
+      // P1 LK1 (D-105): a single-pass chain over the configured hops with a product deadline. No backoff
+      // between hops: the next hop is a different model, so waiting only adds student-visible latency.
+      const hopTimeoutMs = parsed.hopTimeoutMs ?? TEXT_CHAIN_DEFAULT_HOP_TIMEOUT_MS;
+      return new FailoverProvider({
+        chain: parsed.chain.map(
+          (hop) =>
+            new OllamaProvider({
+              model: hop.model,
+              apiKey: parsed.apiKey,
+              price: { inputUsdPerMTok: hop.inputUsdPerMTok, outputUsdPerMTok: hop.outputUsdPerMTok },
+              timeoutMs: hopTimeoutMs,
+              ...(parsed.baseUrl ? { baseUrl: parsed.baseUrl } : {}),
+              ...(parsed.maxOutputTokens !== undefined ? { maxOutputTokens: parsed.maxOutputTokens } : {}),
+              ...(deps.beforeRequest ? { beforeRequest: deps.beforeRequest } : {}),
+              ...(deps.onUsage ? { afterResponse: deps.onUsage } : {}),
+              ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
+            }),
+        ),
+        singlePass: true,
+        deadlineMs: parsed.deadlineMs ?? TEXT_CHAIN_DEFAULT_DEADLINE_MS,
+        baseDelayMs: 0,
+        maxDelayMs: 0,
+        ...(deps.onExhausted ? { onExhausted: deps.onExhausted } : {}),
+      });
+    }
   }
 }
 
