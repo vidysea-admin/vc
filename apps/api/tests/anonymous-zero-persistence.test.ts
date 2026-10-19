@@ -468,15 +468,56 @@ test("validation: malformed bodies are a bare 400, over-long non-crisis text is 
   }
 });
 
-test("validation: a near-limit body (about 190 KB of text) is scanned for crisis in bounded time and then refused as over-long", async () => {
+test("validation: a near-cap body (about 48 KB of text) is scanned for crisis in bounded time and then refused as over-long", async () => {
   const w = anonWorld();
   try {
-    const text = "lorem ipsum dolor sit amet ".repeat(7000);
-    assert.ok(text.length > 150_000 && Buffer.byteLength(JSON.stringify({ text })) < MAX_ANONYMOUS_BODY_BYTES);
+    const text = "lorem ipsum dolor sit amet ".repeat(1800);
+    assert.ok(text.length > 40_000 && Buffer.byteLength(JSON.stringify({ text })) < MAX_ANONYMOUS_BODY_BYTES);
     const t0 = Date.now();
     const res = await ask(w, text);
     assert.equal(res.status, 400);
     assert.ok(Date.now() - t0 < 5000, `took ${Date.now() - t0} ms`);
+  } finally {
+    w.cleanup();
+  }
+});
+
+// ISS-135 (D-101): the crisis scan runs before the limiter (B24.7), so it is unlimited per client; its CPU is bounded by a byte cap.
+test("ISS-135: the body cap is 64 KiB, and a body over it is a 413 with the helpline, never scanned, never limited, no model, no counter", async () => {
+  assert.equal(MAX_ANONYMOUS_BODY_BYTES, 64 * 1024);
+  const w = anonWorld();
+  try {
+    for (const [i, kib] of [100, 300].entries()) {
+      // The crisis phrase sits at the END of the over-cap body: had it been scanned, the answer would be an escalated 200 plus a crisis counter write.
+      const text = `${"I am writing a very long message about my exams. ".repeat(Math.ceil((kib * 1024) / 50))} I want to kill myself.`;
+      assert.ok(Buffer.byteLength(JSON.stringify({ text })) > MAX_ANONYMOUS_BODY_BYTES);
+      const res = await ask(w, text, { ip: `192.0.2.${10 + i}` });
+      assert.equal(res.status, 413, `${kib} KiB`);
+      assert.equal(res.json.error, "body_too_large");
+      assert.equal(res.json.helpline, TELE_MANAS_LINE, `${kib} KiB: a 413 still carries the helpline`);
+      assert.match(res.json.helpline, /14416/);
+    }
+    assert.equal(w.provider.calls.length, 0);
+    assert.equal(w.kb.calls.length, 0);
+    assert.deepEqual(w.counterCalls, [], "an unscanned body writes no crisis counter");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("ISS-135: a crisis message within the cap still escalates, and still does so before the limiter for a client already rate limited", async () => {
+  const limiter = new AnonymousRateLimiter({ limit: 1, windowMs: 60_000, maxKeys: 100, nowMs: () => 5_000 });
+  const w = anonWorld({ deps: { limiter } });
+  try {
+    const text = `${"I am writing a very long message about my exams. ".repeat(1000)} I want to kill myself.`;
+    assert.ok(Buffer.byteLength(JSON.stringify({ text })) > 40_000 && Buffer.byteLength(JSON.stringify({ text })) < MAX_ANONYMOUS_BODY_BYTES);
+    const ip = "198.51.100.77";
+    assert.equal((await ask(w, GENERIC, { ip })).status, 200);
+    assert.equal((await ask(w, GENERIC, { ip })).status, 429, "the client is now limited");
+    const res = await ask(w, text, { ip });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.state, "escalated");
+    assert.match(res.json.message, /14416/);
   } finally {
     w.cleanup();
   }

@@ -27,8 +27,8 @@
  *
  * Honest limits: provider and KB handling of the question text (`q` to /search; the text to the model for a generic
  * question) is outside VC storage and is disclosed in the B13 amendment, not claimed away. The body is read up to
- * MAX_ANONYMOUS_BODY_BYTES so a crisis phrase deep in a long message is still scanned (U6h L5); a larger body is a 413
- * and is not scanned.
+ * MAX_ANONYMOUS_BODY_BYTES (64 KiB, ISS-135) so a crisis phrase deep in a long message is still scanned (U6h L5); a larger
+ * body is a 413 that still carries the helpline, and is not scanned.
  */
 import { createHash, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
@@ -59,8 +59,12 @@ export const ANONYMOUS_ROUTES: readonly ApiRoute[] = Object.freeze([{ id: "postA
 export const ANONYMOUS_FLAG_ENV = "VC_ANONYMOUS_ENABLED";
 /** Repo qa/gates (apps/api/src -> repo root): where the A20 gate records live. */
 export const DEFAULT_GATES_DIR = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
-/** 256 KiB: far above the 4000-character turn limit, so a crisis phrase anywhere in an over-long message is still scanned. */
-export const MAX_ANONYMOUS_BODY_BYTES = 256 * 1024;
+/**
+ * ISS-135 (D-101): 64 KiB, about 16 times the 4000-character turn limit, so a crisis phrase anywhere in an over-long message is still
+ * scanned. The crisis scan runs before the limiter (B24.7) and so is unlimited per client; the cap bounds its CPU per request
+ * (it was 256 KiB, 40-210 ms each). A larger body is a 413 with the helpline and is never scanned.
+ */
+export const MAX_ANONYMOUS_BODY_BYTES = 64 * 1024;
 export const ANONYMOUS_WINDOW_MS = 60_000;
 export const ANONYMOUS_MAX_LIMITER_KEYS = 50_000;
 /** U7 repair 1: a counter write not finished by then counts as failed; the reply (a crisis message included) never waits longer. */
