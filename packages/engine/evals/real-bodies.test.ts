@@ -533,3 +533,79 @@ test("ISS-330: a BOM-prefixed golden header, KB fixture and --experts file are a
   const kb = await runKb(h.args([`--golden=${golden}`, `--fixture=${fixture}`]), h.deps);
   assert.equal(kb.status, "completed");
 });
+
+// ---------------------------------------------------------------- p1-ollama-actual-tokens (D-103)
+/** Wraps a fake Ollama so every 2xx response also carries prompt_eval_count / eval_count (or none when `counts` is null). */
+function withCounts(inner: typeof fetch, counts: { prompt_eval_count: number; eval_count: number } | null): typeof fetch {
+  return (async (url: string | URL | Request, init?: RequestInit) => {
+    const res = await inner(url, init);
+    const json = (await res.json()) as Record<string, unknown>;
+    return new Response(JSON.stringify({ ...json, ...(counts ?? {}) }), { status: 200 });
+  }) as typeof fetch;
+}
+
+test("p1-ollama-actual-tokens: run-kb / run-probes / run-latency REAL (ollama) reports (json + md) carry per-runner sums of the actual tokens, USD notional; ledger has one actual line per charge", async () => {
+  const cases: { name: string; base: string; n: number; run: (dir: string, outDir: string, ledger: string, fetchImpl: typeof fetch) => Promise<RunnerOutcome> }[] = [
+    {
+      name: "run-kb",
+      base: "kb-report.json",
+      n: 1,
+      run: (dir, outDir, ledger, fetchImpl) => {
+        const { golden, fixture } = kbFiles(dir);
+        return runKb({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl });
+      },
+    },
+    {
+      name: "run-probes",
+      base: "probes-report.json",
+      n: 2,
+      run: (dir, outDir, ledger, fetchImpl) => runProbes({ ...parseP1Args(["--real", `--cases=${probeCases(dir)}`]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl }),
+    },
+    {
+      name: "run-latency",
+      base: "latency-report.json",
+      n: 20,
+      run: (dir, outDir, ledger, fetchImpl) => {
+        const { golden, fixture } = kbFiles(dir);
+        return runLatency({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl });
+      },
+    },
+  ];
+  for (const c of cases) {
+    const { dir, outDir, ledger } = tmp();
+    const { fetchImpl } = fakeOllama((_s, user) => {
+      const passages = user["passages"] as { node_id: string }[] | undefined;
+      if (c.name === "run-probes" && passages) {
+        return passages.length > 0
+          ? { answer: "grounded", verdict: "correct", insufficient_coverage: false, web_used: false, source_node_ids: [passages[0]!.node_id] }
+          : { answer: "", verdict: "insufficient", insufficient_coverage: true, web_used: false, source_node_ids: [] };
+      }
+      return c.name === "run-kb" ? { english: "how does a student get a germany visa" } : { answer: "short answer" };
+    });
+    const outcome = await c.run(dir, outDir, ledger, withCounts(fetchImpl, { prompt_eval_count: 500, eval_count: 50 }));
+    assert.equal(outcome.status, "completed", c.name);
+    const entries = readLedger(ledger);
+    assert.equal(entries.filter((e) => e.kind === "charge").length, c.n, c.name);
+    assert.equal(entries.filter((e) => e.kind === "actual" && e.actual === "reported").length, c.n, `${c.name}: one actual line per charge`);
+    const json = JSON.parse(readFileSync(join(outDir, c.base), "utf-8"));
+    assert.equal(json.usage.reportedCalls, c.n, c.name);
+    assert.equal(json.usage.actualInTokens, 500 * c.n, c.name);
+    assert.equal(json.usage.actualOutTokens, 50 * c.n, c.name);
+    assert.equal(json.usage.usdBasis, "notional", c.name);
+    assert.match(outcome.markdown, new RegExp(`actual input tokens ${500 * c.n}, output tokens ${50 * c.n}`), c.name);
+    assert.match(outcome.markdown, /notional/, c.name);
+  }
+});
+
+test("p1-ollama-actual-tokens: with no counts in the responses the same runners report 'unreported' calls and keep the reservation, not zero", async () => {
+  const { dir, outDir, ledger } = tmp();
+  const { golden, fixture } = kbFiles(dir);
+  const { fetchImpl } = fakeOllama(() => ({ answer: "short answer" }));
+  const outcome = await runLatency({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl: withCounts(fetchImpl, null) });
+  assert.equal(outcome.status, "completed");
+  const json = JSON.parse(readFileSync(join(outDir, "latency-report.json"), "utf-8"));
+  assert.equal(json.usage.unreportedCalls, 20);
+  assert.equal(json.usage.reportedCalls, 0);
+  assert.ok(json.usage.unreportedReservedUsd > 0);
+  assert.ok(Math.abs(json.usage.unreportedReservedUsd - json.spentUsd) < 1e-6, "every call kept its reservation figure");
+});
