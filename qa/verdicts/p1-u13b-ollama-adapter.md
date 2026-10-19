@@ -3,7 +3,7 @@
 **Cycle checked:** 0
 **Tier:** L (config/provider seam). One checker, Dual check: no per manifest. Policy: proportional-verification/2026-10-18.15 (the manifest's pin)
 **Base:** main 08b23f0 **Head checked:** b52550f (code 9bc857b; the manifest commit adds no product file)
-Metrics: start=2026-10-19T10:59:54+05:30 end=2026-10-19T11:17:00+05:30 suite_runs=0 mutations=6 cycle=0 policy=proportional-verification/2026-10-18.15 lane=normal
+Metrics: start=2026-10-19T10:59:54+05:30 end=2026-10-19T11:08:25+05:30 suite_runs=0 mutations=6 cycle=0 policy=proportional-verification/2026-10-18.15 lane=normal
 
 ## Plan
 Read the diff (providers/src/index.ts, engine/evals/run-eval.ts, both test files) against C1-C5; rerun the three pinned commands through vc-testlock.sh myself (maker evidence not reused); one falsification per criterion in an isolated copy; hostile-variant probe through the real runner entry with mocked fetch; no network, no paid call, no full suite (not a security / prod-write L unit).
