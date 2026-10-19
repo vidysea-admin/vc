@@ -1,0 +1,13 @@
+import sys
+name=sys.argv[1]
+def sub(path, old, new):
+    s=open(path,encoding='utf-8').read()
+    assert s.count(old)==1, (name, path, s.count(old))
+    open(path,'w',encoding='utf-8',newline='').write(s.replace(old,new))
+C='apps/api/src/chat.ts'; A='apps/api/src/anonymous.ts'
+if name=='M1': sub(C,'      if (level === "none") return fail(400, "invalid_request");\n      const supplied','      return fail(400, "invalid_request");\n      const supplied')
+elif name=='M2': sub(C,'      if (level === "none") return fail(400, "invalid_request");\n      const supplied','      const supplied')
+elif name=='M3': sub(C,'    const text = (obj as { text?: unknown }).text;\n    if (typeof text !== "string") return fail(400, "invalid_request");\n    // An over-long','    const text = String((obj as { text?: unknown }).text ?? "");\n    // An over-long')
+elif name=='M4': sub(A,'if ((keys.length !== 1 || keys[0] !== "text") && level === "none") return fail','if (keys.length !== 1 || keys[0] !== "text") return fail')
+elif name=='M5': sub(A,'if ((keys.length !== 1 || keys[0] !== "text") && level === "none") return fail','if (false) return fail')
+elif name=='M6': sub(C,'      const supplied = (obj as { clientTurnId?: unknown }).clientTurnId;','      crisisGuard(text);\n      const supplied = (obj as { clientTurnId?: unknown }).clientTurnId;')
