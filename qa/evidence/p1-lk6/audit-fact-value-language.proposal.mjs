@@ -17,8 +17,8 @@
  */
 import { pathToFileURL } from "node:url";
 
-/** Same test as the extractor's guard: a letter of any script other than Latin. */
-export const NON_LATIN_LETTER_RE = /(?!\p{Script=Latin})\p{L}/u;
+/** Same test as the extractor's guard: a letter of any script other than Latin, or a decimal digit other than 0-9. */
+export const NON_LATIN_LETTER_RE = /(?!\p{Script=Latin})\p{L}|(?![0-9])\p{Nd}/u;
 const COLLECTIONS = ["profile_facts", "facts"];
 
 /** @param {{ collection(name: string): { find(filter: object, options?: object): AsyncIterable<any> } }} db */

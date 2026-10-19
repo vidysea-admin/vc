@@ -366,3 +366,20 @@ test("p1-lk6: an injected extractFacts still wins over the default", async () =>
     cleanupGates(f);
   }
 });
+
+test("p1-lk6: a crisis turn is answered with the fixed helpline text and is never sent to the fact extractor model", async () => {
+  let calls = 0;
+  const provider = lk6Provider((turnId) => [lk6Cand("feeling", "wants to die", "kill myself", turnId)], () => void (calls += 1));
+  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: "I want to kill myself", clientTurnId: "lk6-7" } });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.state, "escalated");
+    assert.equal(calls, 0);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.profile_facts).all().length, 0);
+  } finally {
+    w.cleanup();
+  }
+});

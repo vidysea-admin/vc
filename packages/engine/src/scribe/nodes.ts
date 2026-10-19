@@ -27,7 +27,7 @@ import {
 } from "@vc/db";
 import { ProviderAuthorizationRefusedError, type GenerateRequest, type LlmProvider } from "@vc/providers";
 import { citationGuard } from "../guards/citation.js";
-import { routeBeforeGeneration } from "../guards/crisis.js";
+import { crisisGuard, routeBeforeGeneration } from "../guards/crisis.js";
 import type { EscalationDeps } from "../guards/escalation.js";
 import { loadSkill } from "../skills/loader.js";
 import {
@@ -1249,8 +1249,8 @@ export class StudentFactExtractionError extends Error {
 
 /** A KG key is an English identifier slug: ASCII letters, digits and underscores. */
 const STUDENT_FACT_KEY_RE = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
-/** A letter of any script other than Latin: the KG value is English, so such a value was not translated and is dropped. */
-const NON_LATIN_LETTER_RE = /(?!\p{Script=Latin})\p{L}/u;
+/** A letter of any script other than Latin, or a decimal digit other than 0-9: the KG value is English, so such a value was not translated and is dropped. */
+const NON_ENGLISH_CHAR_RE = /(?!\p{Script=Latin})\p{L}|(?![0-9])\p{Nd}/u;
 const MAX_STUDENT_FACT_VALUE = 1000;
 const MAX_STUDENT_FACT_QUOTE = 500;
 const DEVANAGARI_RE = /[ऀ-ॿ]/u;
@@ -1272,7 +1272,8 @@ function studentFactValue(value: unknown): string | undefined {
  * `extractFacts` and its citation guard with a single student turn whose `translatedText` is "" (safe: the guard matches `text` only).
  * On top of the scribe's checks, each fact must: quote a verbatim substring of the original text (not merely a normalised match);
  * carry an English slug key; carry an English scalar value. Anything else is dropped with a reason, never repaired.
- * A turn with no text makes no provider call. A failed call throws `StudentFactExtractionError` (text-free).
+ * A turn with no text makes no provider call, and neither does a turn the deterministic `crisisGuard` flags (crisis or concern) on its ORIGINAL
+ * text: such a turn is never sent to a model for extraction and never becomes a profile fact. A failed call throws `StudentFactExtractionError` (text-free).
  */
 export async function extractStudentTurnFacts(
   input: { turnId: string; text: string; lang?: string; now: Date },
@@ -1280,6 +1281,7 @@ export async function extractStudentTurnFacts(
 ): Promise<StudentTurnFactResult> {
   const text = input.text;
   if (text.trim() === "") return { facts: [], dropped: [] };
+  if (crisisGuard(text).level !== "none") return { facts: [], dropped: [] };
   const lang = input.lang !== undefined && /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(input.lang) ? input.lang : scriptLang(text);
   let extracted: ExtractOutput;
   try {
@@ -1316,7 +1318,7 @@ export async function extractStudentTurnFacts(
       drop("the value is not a non-empty scalar");
       continue;
     }
-    if (NON_LATIN_LETTER_RE.test(value)) {
+    if (NON_ENGLISH_CHAR_RE.test(value)) {
       drop("the value is not in English (the knowledge graph is English)");
       continue;
     }

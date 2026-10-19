@@ -173,3 +173,17 @@ test("LK6: the read-only audit proposal counts non-Latin fact values per tenant,
   assert.deepEqual(touched, [], "only find() is used");
   assert.ok(!JSON.stringify(report).includes("जर्मनी") && !JSON.stringify(report).includes("தமிழ்"), "no value in the report");
 });
+
+test("LK6: a crisis or concern turn makes no extraction call (a crisis turn is never sent to a model, and never becomes a profile fact)", async () => {
+  const p = provider([cand("feeling", "wants to die", "kill myself")]);
+  for (const text of ["I want to kill myself", "mujhe marna hai, main apni jaan dena chahta hoon", "मैं आत्महत्या करना चाहता हूँ"]) {
+    const r = await run(p, text);
+    assert.deepEqual(r.facts, [], text);
+  }
+  assert.equal(p.calls.length, 0, "the crisisGuard runs first on the original text and the model is never called");
+});
+
+test("LK6: a value written in non-ASCII digits is not English and is dropped", async () => {
+  const r = await run(provider([cand("budget_inr", "२००००००", "बजट बीस लाख"), cand("budget_usd", "20000", "बजट बीस लाख")]), HINDI.replace("बीस लाख रुपये", "बजट बीस लाख"));
+  assert.deepEqual(r.facts.map((f) => f.key), ["budget_usd"]);
+});
