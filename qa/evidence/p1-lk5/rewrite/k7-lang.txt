@@ -1,0 +1,44 @@
+[testlock] running slot 0 (free RAM 4.29 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk5/packages/engine exec tsx --test --test-timeout=60000 tests/lang.test.ts
+✔ C1 offline detection: English (1.3122ms)
+✔ C1 offline detection: Latin Hinglish (0.1171ms)
+✔ C1 offline detection: Devanagari Hindi (0.3971ms)
+✔ C1 offline detection: Bengali (0.0848ms)
+✔ C1 offline detection: Gurmukhi (0.0642ms)
+✔ C1 offline detection: Gujarati (0.0692ms)
+✔ C1 offline detection: Odia (0.0541ms)
+✔ C1 offline detection: Tamil (0.0475ms)
+✔ C1 offline detection: Telugu (0.0912ms)
+✔ C1 offline detection: Kannada (0.1087ms)
+✔ C1 offline detection: Malayalam (0.0767ms)
+✔ C1 offline detection: Urdu (Arabic script) (0.0728ms)
+✔ C1 offline detection: Devanagari-majority mixed (0.0386ms)
+✔ C1 offline detection: Latin-majority mixed (0.0697ms)
+✔ C1 offline detection: a Latin turn with one Hinglish word stays English; digits or empty text are English with low confidence (0.1537ms)
+✔ C2 model detector: returns the model's language, source model, and sends only the (truncated) text (0.7137ms)
+✔ C2 model detector: Latin Hinglish from the model is normalised to hi-Latn; a regional tag collapses to its base (0.2262ms)
+✔ C2 fallback: a provider error, an invalid answer, a timeout and a script-inconsistent answer each fall back to the offline result (50.6015ms)
+[lang] VC_REPLY_LANGS entries dropped (not a supported reply language): ta, xx
+✔ C2 fallback: the default timeout is short (1.5 s) and a hung model never holds the turn longer than that (65.0367ms)
+✔ C3 allow-list: default en,hi,hi-Latn; any other detected language maps to en (0.3944ms)
+✔ C3 allow-list: VC_REPLY_LANGS narrows or is ignored when garbage; en is always allowed (0.3202ms)
+✔ C4 catalog: only en and hi entries; every entry (student and anonymous) passes the substring fixture (1.1051ms)
+✔ C4 catalog: the existing approved wording is the English entry, byte for byte; other languages get English+Hindi (the same message) (0.1864ms)
+✔ C4 catalog routing: a vetted entry is returned for its language (hi and hi-Latn), anything else gets the English+Hindi fallback (0.0932ms)
+✔ C4 fixed-text catalog: English entries equal the graph constants and any other language falls back to English (0.0593ms)
+✔ C5 crisis turns (English, Hinglish, Hindi; student and anonymous) never reach the language detector or any model (89.1316ms)
+✔ C5 a crisis turn is never delayed or broken by a detector that would hang or throw (11.0573ms)
+✔ C5 escalation lang is the detected language: Devanagari hi, Latin Hinglish hi-Latn, English en (15.9601ms)
+✔ C5 the crisis message for a language comes from the catalog (injected vetted entry for hi, fallback for English) (14.1666ms)
+✔ C6 an ordinary turn: the detector sees the original text once, and the reply language is allow-listed (ta -> en) (62.747ms)
+✔ C6 an ordinary turn in Hindi / Hinglish keeps its language when allowed, and narrowing VC_REPLY_LANGS sends it to en (29.0983ms)
+✔ C6 with no detector wired, or a detector that throws, the offline script result is used and the turn is answered (15.2617ms)
+✔ C6 the detector does not see the text before the crisis guard: a non-crisis turn reaches it only after the crisis node cleared it (8.7642ms)
+✔ C7 no inline Devanagari language test is left in the student graph or the voice escalation (1.4769ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1620.6037

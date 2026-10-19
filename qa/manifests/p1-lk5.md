@@ -10,8 +10,9 @@
 - K7 no regression: crisisGuard first and unweakened, LK4 and student-graph suites, typecheck
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** STALLED (cycle-2 FAIL d907e64 + senior review Block; HUMAN_GATE qa/gates/lk5-localized-claims.md on main)
-**Fix cycle:** 2
+**Status:** ready-for-check
+**Fix cycle:** 3
+**Brief-rewrite:** 1 (D-106, after STALLED 82d2470)
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** L (safety path in graph.ts plus a new live safety screen)
 **Dual check:** brief says single checker; a second look at the crisis-adjacent paths is the orchestrator's call
@@ -100,6 +101,38 @@ Code commits `f635f13` (lang.ts + tests) and `036fc87` (test hosts only) on `p1/
   - dot fold removed -> dots 0/1
   - Mutants surviving: 0.
 Metrics (repair 2): end=2026-10-19T22:26:54+05:30 mutations=4 survivors_final=0 cycle=2 policy=proportional-verification/2026-10-19.16; lock waits on the shared test lock, PIDs 47984/36944 not touched.
+
+## Brief rewrite 1 (D-106, after STALLED 82d2470; gate lk5-localized-claims answered (a))
+Brief `qa/evidence/p1-briefs/p1-lk5-rewrite.md`. Branch `p1/lk5` merged with main (6a7a547, no conflicts). Code commit `af84edb`. In this section K1..K4 are the BRIEF's acceptance ids (all inside contract criterion K1, reply language); contract K2..K7 are untouched.
+- `packages/engine/src/student/lang.ts` (in place): `localizedClaimOk` (word-list parity) replaced by `localizedClaimText(english, localized, replyLang, restricted)`. It splits both texts into sentences (`splitSentences`: after . ! ? । ॥ and fullwidth forms when whitespace follows, and at line breaks). Different count -> undefined (the whole English reply). Per aligned pair: if the English sentence or its localized counterpart is factual (`isFactualSentence`), the English sentence is shown verbatim, else the localized one. Script check and restricted-run check kept.
+- `isFactualSentence`: any `\p{N}` (all digit systems), any `\p{Sc}` currency symbol, an ISO 4217 code (40 codes), % and its variants, a `numberMentions` hit (claims.ts spelled-out figures / unit+number), a link (`linksIn`, with the cycle-2 `\p{M}` IDN and dot-fold fixes kept), a country (`countriesInLocalized`: claims.ts list + demonyms + Devanagari spellings), or a capitalised word after in/to/from/at/near.
+- DELETED: `HI_NUMBER_WORDS`, `HI_NUMBER`, `HI_MAGNITUDE`, `HI_UNIT`, `DEV_TOKEN_RE`, `foldDev`, `devanagariWordFigures`, `DEVANAGARI_MAGNITUDE`, `figures`, `unitsOf`, `digitRuns` (the parity code). No Hindi/Hinglish number, currency or magnitude list remains.
+- `graph.ts` `localizedMessage`: uses the mixed text from `localizedClaimText` (redaction as before); `localizedFollowUpOk` keeps its own checks and then requires `localizedClaimText(...) === fl` (a factual follow-up is the English reply, as before). `index.ts` exports `localizedClaimText`, `isFactualSentence`, `splitSentences` instead of `localizedClaimOk`. crisisGuard untouched.
+- Protected test changes (lk5.test.ts, each pinned behaviour the rule (a) decision changes): (1) the shared fixture `EN_CLAIM`/`HI_LOCAL`/`HING_LOCAL` no longer names Germany (a country sentence is now English, so the old fixture could not show a localized sentence); the old one is kept as `GERMANY_EN`/`GERMANY_HI`. (2) R1 number parity: the Devanagari-digit control (३००) is now the English wording. (3) M1 same-figure control ("lagbhag 300 euros") is now the English wording. (4) M1 country cases build the swapped country by prefix (fixture has no जर्मनी). (5) the `localizedClaimOk` direct tests (links, IDN hosts, dot variants) rewritten against `localizedClaimText` / `isFactualSentence`, same hosts. (6) ISS-386 controls and the ISS-387 `DEVANAGARI_MAGNITUDE` test removed with the lists; their fact-free controls (सौंदर्य, bare एक) moved into K3. (7) M2: the forbidden phrase moved inside the one aligned sentence (as a 2nd sentence it is now an alignment failure, i.e. English).
+Round: est 45 min; targeted files only, one at a time through vc-testlock, never the full suite. Checked state: `af84edb` (working tree identical: `git diff af84edb -- packages` empty).
+Tests[K1]: tests/lk5.test.ts "K1 (D-106): every cycle-1 probe and every word the cycle-2 verdict cited ..." (23 probes through runStudentTurn), "ISS-386: ..." (cycle-1 probes) — every probe of repair1-check/probes.txt and each word of verdict d907e64 as one aligned sentence, English wording asserted
+Tests[K2]: tests/lk5.test.ts "K2 (D-106): 13 new hostile ..." and "K2 (D-106): isFactualSentence on ENGLISH ..." — 13 sentences with words never in a list (फ़्रैंक, रिंगित, दीनार, शतक लीरा, पौन हज़ार शेकेल, दशमलव, तीसरे/ढाई गुना, fifty hazaar baht, teen point paanch sau kroner, tisre mahine zloty, peso, dedh sau kwacha, kilo-rupiah), through runStudentTurn and against a country-only English sentence
+Tests[K3]: tests/lk5.test.ts "K3 (D-106): non-factual sentences ..." plus R1/M3 controls — greeting, encouragement, question back, सौंदर्य, bare एक stay localized; a mixed claim gives Hindi sentence + English figure sentence + Hindi follow-up (exact string)
+Tests[K4]: tests/lk5.test.ts "K4 (D-106): sentence alignment failure ..." — 1 vs 2 and 2 vs 1 sentences -> undefined; two-claim turn with one misaligned claim -> exact whole English reply
+Pre-check[K1]: af84edb VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm -C D:/vc/.worktrees/lk5/packages/engine exec tsx --test --test-timeout=60000 tests/lk5.test.ts (TMP/TEMP on D:) -> green: 61 passed, 0 failed
+Red-before[K1..K4]: the same command on the tests-only change failed the file on the missing exports (rewrite/red-before-lk5.txt); green output rewrite/green-lk5.txt
+Pre-check[K2]: af84edb same command as Pre-check[K1] tests/lk5.test.ts -> green: 61 passed, 0 failed
+Pre-check[K3]: af84edb same command as Pre-check[K1] tests/lk5.test.ts -> green: 61 passed, 0 failed
+Pre-check[K4]: af84edb same command as Pre-check[K1] tests/lk5.test.ts -> green: 61 passed, 0 failed
+Pre-check[K7-rw]: af84edb same wrapper, one file at a time: tests/lang.test.ts 34 passed 0 failed, tests/student-graph.test.ts 64/0, tests/claims-guard.test.ts 33/0, tests/crisis-defaults.test.ts 17/0 (rewrite/k7-*.txt); pnpm -C packages/engine exec tsc --noEmit -> exit 0 (rewrite/tsc.txt)
+Falsification (copy D:/tmp-lk5/fals/base with a node_modules junction, bound tree never edited; qa/evidence/p1-lk5/rewrite/falsification.txt; baseline copy 61/0, restored 61/0):
+Falsification[K1]: F-K1b the factual test removed (every aligned localized sentence shown) -> 10 fail of 61, including the K1 probe test, ISS-386 and K2
+Falsification[K2]: F-K1 only the localized side is tested (the English sentence no longer decides) -> 3 fail (K2 hostile set, K3 mixed claim, R1 number parity); F-K2 country detection removed -> 2 fail (K2 isFactualSentence, M1 country)
+Falsification[K3]: F-K3 fact-free sentences also shown in English -> 12 fail (K3, R1 localized, follow-up tests)
+Falsification[K4]: F-K4 the sentence-count equality dropped (zip) -> 6 fail (K4, ISS-386, M1 figure/country/domain)
+Mutants surviving: 0.
+Metrics (rewrite): start=2026-10-20T01:31:05+05:30 end=2026-10-20T01:41:30+05:30 builder_min=11 blocked_min=0 suite_runs=0 repeat_runs=1 mutations=5 survivors_final=0 cycle=3 policy=proportional-verification/2026-10-19.16
+mutant-cap-raise: the cycle-0 Metrics line counts 12 single-criterion falsifiers over contract K1..K6 (history, one per criterion); this rewrite adds 5, one or two per brief criterion
+Open risks (rewrite) - these replace risks 13, 15 and 16 (the lists are gone):
+- R-a. A fact the model invents ONLY in the localized copy of a fact-free English sentence, written in words no detector reads (e.g. Hindi "सत्तर युआन" with no digit, country or link), is shown. Rule (a) decides by the English sentence; this is translation drift, not checkable by code (design R2). Detectors on the localized side (digits, symbols, links, Devanagari country names, claims.ts number words) catch the structural forms.
+- R-b. Over-English by design: every sentence naming a country (including demonyms such as "German", "English") or a place after in/to/from is English, so many fee/destination replies are mostly English with Hindi connective sentences.
+- R-c. Abbreviations ("e.g. ", "U.S. ") or a translator merging/splitting sentences give an alignment failure -> the whole English reply (safe, costs localization).
+- R-d. The ISO code list is 40 codes; an unlisted code without a digit is not factual on its own (a code nearly always sits next to a figure, which is).
 
 ## Open risks / not determined
 1. A15b / B24.6 conflict: those lines say no LLM sees anonymous text to classify; D-105 orders a screen on every turn. The option defaults OFF for anonymous turns as the brief says; the contract owner and Umesh decide. The model detector, the rewrite and the answer call still send anonymous text to a model.
