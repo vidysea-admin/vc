@@ -1,0 +1,12 @@
+[testlock] waiting for lock held by: PID=37272 STARTED=639280082012594343 ACQUIRED_AT=1792391602 TOKEN=1792391602633234800-364932-22799 DESC=pnpm -C D:/vc/.worktrees/p1-lows-api/apps/api exec tsx --test tests/voice-crisis-turn.test.ts 
+[testlock] running slot 0 (free RAM 2.45 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-135 tests/anonymous-zero-persistence.test.ts
+✔ ISS-135: the body cap is 64 KiB, and a body over it is a 413 with the helpline, never scanned, never limited, no model, no counter (38.5385ms)
+✔ ISS-135: a crisis message within the cap still escalates, and still does so before the limiter for a client already rate limited (250.6477ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5521.7661

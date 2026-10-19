@@ -1,0 +1,11 @@
+[testlock] waiting for lock held by: PID=34172 STARTED=639280082731731250 ACQUIRED_AT=1792391769 TOKEN=1792391769397851600-365898-12345 DESC=pnpm -C packages/providers exec tsx --test tests/ollama.test.ts 
+[testlock] running slot 0 (free RAM 2.3 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-135: the body cap tests/anonymous-zero-persistence.test.ts
+✔ ISS-135: the body cap is 64 KiB, and a body over it is a 413 with the helpline, never scanned, never limited, no model, no counter (35.4509ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5108.1373

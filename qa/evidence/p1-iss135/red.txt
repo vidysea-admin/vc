@@ -1,0 +1,36 @@
+[testlock] waiting for lock held by: PID=37768 STARTED=639280077510211838 ACQUIRED_AT=1792391152 TOKEN=1792391152793773400-360403-32202 DESC=pnpm -r --workspace-concurrency=1 test 
+[testlock] running slot 1 (free RAM 3.54 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-135|near-cap tests/anonymous-zero-persistence.test.ts
+✔ validation: a near-cap body (about 48 KB of text) is scanned for crisis in bounded time and then refused as over-long (222.5577ms)
+✖ ISS-135: the body cap is 64 KiB, and a body over it is a 413 with the helpline, never scanned, never limited, no model, no counter (3.1619ms)
+✔ ISS-135: a crisis message within the cap still escalates, and still does so before the limiter for a client already rate limited (292.697ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10334.6188
+
+✖ failing tests:
+
+test at tests\anonymous-zero-persistence.test.ts:486:1
+✖ ISS-135: the body cap is 64 KiB, and a body over it is a 413 with the helpline, never scanned, never limited, no model, no counter (3.1619ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  262144 !== 65536
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss135\apps\api\tests\anonymous-zero-persistence.test.ts:487:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 262144,
+    expected: 65536,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

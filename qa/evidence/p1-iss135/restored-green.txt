@@ -1,0 +1,11 @@
+[testlock] running slot 0 (free RAM 2.01 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-135 tests/anonymous-zero-persistence.test.ts
+✔ ISS-135: the body cap is 64 KiB, and a body over it is a 413 with the helpline, never scanned, never limited, no model, no counter (40.756ms)
+✔ ISS-135: a crisis message within the cap still escalates, and still does so before the limiter for a client already rate limited (283.3592ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18109.549

@@ -1,0 +1,30 @@
+[testlock] running slot 0 (free RAM 1.77 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-135 tests/anonymous-zero-persistence.test.ts
+✔ ISS-135: the body cap is 64 KiB, and a body over it is a 413 with the helpline, never scanned, never limited, no model, no counter (89.5275ms)
+✖ ISS-135: a crisis message within the cap still escalates, and still does so before the limiter for a client already rate limited (160.9666ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6164.9379
+
+✖ failing tests:
+
+test at tests\anonymous-zero-persistence.test.ts:508:1
+✖ ISS-135: a crisis message within the cap still escalates, and still does so before the limiter for a client already rate limited (160.9666ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  429 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss135-fals\apps\api\tests\anonymous-zero-persistence.test.ts:518:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 429,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
