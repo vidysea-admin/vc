@@ -23,3 +23,4 @@
 - Hinglish number words (sattar, panch hajar).
 Its two options are a structural fix (option a or a short allow-list) or owner-accepting the limit. Option (a) above is the structural fix.
 Diagnosis: loop design. The parity-by-word-list approach is the cause, not execution. No /agent-debugger run: the cause is already evidenced by two verdicts and two reviews.
+Answered: 2026-10-20T01:30:00+05:30 - (a) structural rule: any sentence with a figure, unit, link or country is rendered in English wording; closed word lists removed - Umesh in chat
