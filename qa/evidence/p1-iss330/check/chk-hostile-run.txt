@@ -1,0 +1,23 @@
+[testlock] waiting for lock held by: PID=24180 STARTED=639280123682439068 ACQUIRED_AT=1792395768 TOKEN=1792395768428678700-402429-3737 DESC=pnpm -C packages/engine exec tsx --test evals/live-audio.test.ts 
+[testlock] running slot 1 (free RAM 3.42 GB): pnpm -C packages/engine exec tsx --test evals/chk-iss330.test.ts
+HOSTILE_RESULTS {
+ "double-bom": "<path>:1: invalid JSON (Unexpected token '﻿', \"﻿{\"source\"\"... is not valid JSON)",
+ "bom-line2-start": "<path>:2: invalid JSON (Unexpected token '﻿', \"﻿{\"id\":\"g-\"... is not valid JSON)",
+ "bom-mid-line": "<path>:2: invalid JSON (Expected double-quoted property name in JSON at position 13 (line 1 column 14))",
+ "bom-mid-header": "<path>:1: source must be exactly \"synthetic\" or \"recorded\" (got \"syn﻿thetic\"); refusing",
+ "bom-only": "D:/vc/.tmp/iss330chk/vc-chk330-VvKW6x/bo.jsonl: no questions found",
+ "utf16le-bom": "<path>:1: invalid JSON (Unexpected token '�', \"��{\u0000\"\u0000s\u0000o\u0000\"... is not valid JSON)",
+ "utf16be-bom": "<path>:1: invalid JSON (Unexpected token '�', \"��\u0000{\u0000\"\u0000s\u0000o\"... is not valid JSON)"
+}
+✔ C1/C2 equivalence: BOM-prefixed golden/fixture/probes/experts give the same outcome as BOM-less through the real runners (132.5596ms)
+✔ C1 bad provenance after a BOM is refused before any ledger line or request (golden, all three golden runners) (15.8307ms)
+✔ C2 bad provenance after a BOM refused for fixture, probe set and experts (12.4574ms)
+✔ hostile: double BOM, BOM mid-file / mid-line, UTF-16 BOM, BOM-only are all refused (never silently accepted) with nothing sent (21.7ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5681.9189

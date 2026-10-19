@@ -6,7 +6,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
-import { loadDataset, parseDataset } from "./dataset.js";
+import { loadDataset, parseDataset, parseGoldenFile, parseKbFixture, stripBom } from "./dataset.js";
+import { parseProbeSet } from "./probes.js";
+import { parseCoverageFixture, parseKbGaps } from "./coverage.js";
 import { collapseWhitespace } from "./citation.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -77,4 +79,63 @@ test("parseDataset refuses a duplicate session id", () => {
   const sessions = loadDataset(DATASET_PATH);
   const first = JSON.stringify(sessions[0]);
   assert.throws(() => parseDataset(`${first}\n${first}`, "inline"), /duplicate session id/);
+});
+
+// ISS-330: a Windows editor saves JSON/JSONL with a leading UTF-8 BOM; readFileSync("utf-8") keeps it
+// as U+FEFF and JSON.parse refuses it. Every eval input parser strips one leading BOM.
+const BOM = "\uFEFF";
+const Q = JSON.stringify({ id: "q1", lang: "en", country: "IN", theme: "t", question: "why?", expectedTurnIds: ["t1"] });
+const HEADER = JSON.stringify({ source: "synthetic" });
+
+test("stripBom removes exactly one leading U+FEFF and nothing else", () => {
+  assert.equal(stripBom(`${BOM}abc`), "abc");
+  assert.equal(stripBom(`${BOM}${BOM}abc`), `${BOM}abc`);
+  assert.equal(stripBom(`abc${BOM}`), `abc${BOM}`);
+  assert.equal(stripBom("abc"), "abc");
+});
+
+test("parseGoldenFile: a header line with a leading BOM still parses as source=synthetic (ISS-330)", () => {
+  const f = parseGoldenFile(`${BOM}${HEADER}\n${Q}\n`, "inline");
+  assert.equal(f.source, "synthetic");
+  assert.equal(f.questions.length, 1);
+});
+
+test("parseGoldenFile: BOM + CRLF line endings still parse as source=synthetic (ISS-330)", () => {
+  const f = parseGoldenFile(`${BOM}${HEADER}\r\n${Q}\r\n`, "inline");
+  assert.equal(f.source, "synthetic");
+  assert.equal(f.questions.length, 1);
+});
+
+test("parseGoldenFile: a blank first line (with and without BOM) before the header still parses as source=synthetic (ISS-330)", () => {
+  for (const raw of [`\n${HEADER}\n${Q}\n`, `${BOM}\n${HEADER}\n${Q}\n`, `${BOM}\r\n${HEADER}\r\n${Q}`]) {
+    const f = parseGoldenFile(raw, "inline");
+    assert.equal(f.source, "synthetic", JSON.stringify(raw.slice(0, 12)));
+    assert.equal(f.questions.length, 1);
+  }
+});
+
+test("parseGoldenFile: a BOM on a header-less file parses and declares no provenance (ISS-330)", () => {
+  const f = parseGoldenFile(`${BOM}${Q}\n`, "inline");
+  assert.equal(f.source, undefined);
+  assert.equal(f.questions.length, 1);
+});
+
+test("parseGoldenFile: a BOM does not weaken the provenance check (bad source still refused)", () => {
+  assert.throws(() => parseGoldenFile(`${BOM}${JSON.stringify({ source: "Synthetic" })}\n${Q}`, "inline"), /exactly "synthetic" or "recorded"/);
+});
+
+test("parseDataset: a BOM before the first session line is stripped (ISS-330)", () => {
+  const sessions = loadDataset(DATASET_PATH);
+  const parsed = parseDataset(`${BOM}${sessions.map((s) => JSON.stringify(s)).join("\n")}`, "inline");
+  assert.equal(parsed.length, sessions.length);
+});
+
+test("parseKbFixture / parseProbeSet / parseCoverageFixture / parseKbGaps: a leading BOM is stripped (ISS-330)", () => {
+  const kb = parseKbFixture(`${BOM}${JSON.stringify({ schemaVersion: 1, source: "synthetic", recordedAt: "2026-01-01", search: [] })}`, "inline");
+  assert.equal(kb.source, "synthetic");
+  const probes = parseProbeSet(`${BOM}${JSON.stringify({ schemaVersion: 1, source: "synthetic", cases: [] })}`, "inline");
+  assert.equal(probes.source, "synthetic");
+  const gaps = parseKbGaps(`${BOM}${JSON.stringify({ gaps: [] })}`, "inline");
+  assert.equal(gaps.rows.length, 0);
+  assert.throws(() => parseCoverageFixture(`${BOM}{"schemaVersion":2}`, "inline"), /unsupported schemaVersion 2/);
 });

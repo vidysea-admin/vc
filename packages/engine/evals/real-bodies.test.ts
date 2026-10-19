@@ -514,3 +514,22 @@ test("run-kb words() keeps Devanagari combining marks: two different words no lo
   assert.equal(nearestRecordedSearch(fx("कुत्ता"), "किताब"), undefined);
   assert.equal(nearestRecordedSearch(fx("किताब"), "किताब")?.length, 1, "the identical word still matches");
 });
+
+test("ISS-330: a BOM-prefixed golden header, KB fixture and --experts file are all read under --real (no 'invalid JSON', no lost provenance)", async () => {
+  const h = lowsHarness();
+  const bomCopy = (src: string, name: string): string => {
+    const out = join(h.dir, name);
+    writeFileSync(out, "\uFEFF" + readFileSync(src, "utf-8"), "utf-8");
+    return out;
+  };
+  const golden = bomCopy(h.golden, "g-bom.jsonl");
+  assert.equal(readFileSync(golden, "utf-8").charCodeAt(0), 0xfeff, "the copy really starts with a BOM");
+  assert.equal(JSON.parse(readFileSync(h.golden, "utf-8").split("\n")[0]!).source, "synthetic", "the shipped header is the first line");
+  const fixture = bomCopy(h.fixture, "fx-bom.json");
+  const experts = write(h.dir, "experts-plain.json", { source: "synthetic", experts: [{ questionId: "g-en", text: "x", author: "author-1" }, { questionId: "g-hi", text: "y", author: "author-2" }] });
+  const expertsBom = bomCopy(experts, "experts-bom.json");
+  const ok = await runH2h(h.args([`--golden=${golden}`, `--fixture=${fixture}`, `--experts=${expertsBom}`]), h.deps);
+  assert.equal(ok.status, "completed");
+  const kb = await runKb(h.args([`--golden=${golden}`, `--fixture=${fixture}`]), h.deps);
+  assert.equal(kb.status, "completed");
+});

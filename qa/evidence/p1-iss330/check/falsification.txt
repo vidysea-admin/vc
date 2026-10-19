@@ -1,0 +1,13 @@
+Falsification (throwaway detached copy D:/vc/.worktrees/p1-iss330-chk @ da13e70; run = chk-iss330 + dataset.test + real-bodies, 41 tests unmutated, 41 pass)
+M1 (C1): parseGoldenFile stripBom(raw) -> raw      => 7 fail: equivalence, C1 bad-provenance-after-BOM, 4 dataset parseGoldenFile BOM tests, builder real-bodies ISS-330 test
+M2 (C2): stripBom removed from probes.ts, coverage.ts (parseCoverageFixture, parseKbGaps), parseKbFixture, run-h2h parseExpertsFile => 4 fail: equivalence, C2 bad-provenance-after-BOM, dataset four-parser test, builder real-bodies ISS-330 test
+Each edit reverted with git checkout; copy ends with only the untracked chk-iss330.test.ts.
+Hostile results (real runner entries, mock fetch, 0 requests, no ledger file):
+ double-bom      -> <path>:1: invalid JSON (Unexpected token BOM)            REFUSED
+ bom-line2-start -> <path>:2: invalid JSON                                   REFUSED
+ bom-mid-line    -> <path>:2: invalid JSON                                   REFUSED
+ bom-mid-header  -> source must be exactly "synthetic" or "recorded" (got "syn<BOM>thetic")  REFUSED
+ bom-only        -> no questions found                                       REFUSED
+ utf16le-bom / utf16be-bom -> invalid JSON (replacement chars)               REFUSED
+ double BOM in KB fixture / probe set / experts -> invalid JSON              REFUSED
+ utf16le fixture -> invalid JSON                                             REFUSED

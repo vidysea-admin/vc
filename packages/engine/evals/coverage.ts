@@ -18,6 +18,7 @@
  */
 import { readFileSync } from "node:fs";
 import { z } from "zod";
+import { stripBom } from "./dataset.js";
 import type { listGapCounts } from "@vc/db";
 import { DEFAULT_STALE_AFTER_MONTHS } from "../src/student/claims.js";
 import { DEFAULT_SEARCH_SCORE_THRESHOLD } from "../src/student/graph.js";
@@ -313,7 +314,7 @@ function issues(label: string, error: z.ZodError): string {
 export function parseCoverageFixture(raw: string, label: string): CoverageFixture {
   let json: unknown;
   try {
-    json = JSON.parse(raw);
+    json = JSON.parse(stripBom(raw));
   } catch (err) {
     throw new Error(`${label}: invalid JSON (${(err as Error).message})`);
   }
@@ -372,7 +373,7 @@ const KbGapsFileSchema = z.object({
 export function parseKbGaps(raw: string, label: string): KbGapsSnapshot {
   let json: unknown;
   try {
-    json = JSON.parse(raw);
+    json = JSON.parse(stripBom(raw));
   } catch (err) {
     throw new Error(`${label}: invalid JSON (${(err as Error).message})`);
   }

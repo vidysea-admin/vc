@@ -25,7 +25,7 @@ import {
   type RunnerDeps,
   type RunnerOutcome,
 } from "./run-eval.js";
-import { ProvenanceSchema, fixtureSearch, loadGoldenSet, loadKbFixture } from "./dataset.js";
+import { ProvenanceSchema, fixtureSearch, loadGoldenSet, loadKbFixture, stripBom } from "./dataset.js";
 import { NO_SOURCED_ANSWER_TEXT } from "./probes.js";
 import { buildBlindPairs, buildJudgeSheets, buildKeyFile, resolveH2hSeed, tallyH2h, type ExpertAnswer, type H2hRating } from "./h2h.js";
 import { judgeSheetMarkdown, toH2hMarkdown } from "./report.js";
@@ -40,7 +40,7 @@ const ExpertsFileSchema = z.object({ source: ProvenanceSchema, experts: z.array(
 
 /** ISS-296/297: a bare array declares no source (refused under --real); a bad source value is one clear refusal, not a schema dump. */
 function parseExpertsFile(path: string): z.infer<typeof ExpertsFileSchema> {
-  const json: unknown = JSON.parse(readFileSync(path, "utf-8"));
+  const json: unknown = JSON.parse(stripBom(readFileSync(path, "utf-8")));
   if (Array.isArray(json)) {
     throw new Error(
       `run-h2h --real: --experts ${path} is a bare array and declares no source, so the recorded-input guard (B13/D-100) cannot check it. ` +
