@@ -1,0 +1,36 @@
+TAP version 13
+# Subtest: W5: VC_VOICE_ENABLED unset, empty or 'false' -> no voice route, an upgrade is refused, no gate is read, nothing voice-related is built or connected
+ok 1 - W5: VC_VOICE_ENABLED unset, empty or 'false' -> no voice route, an upgrade is refused, no gate is read, nothing voice-related is built or connected
+  ---
+  duration_ms: 205.4359
+  type: 'test'
+  ...
+# Subtest: W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' are off; padded, cased or other values throw VoiceConfigError (never on)
+ok 2 - W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' are off; padded, cased or other values throw VoiceConfigError (never on)
+  ---
+  duration_ms: 2.1141
+  type: 'test'
+  ...
+# Subtest: W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value
+ok 3 - W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value
+  ---
+  duration_ms: 310.1396
+  type: 'test'
+  ...
+1..0
+# Subtest: tests\\voice.test.ts
+ok 2 - tests\\voice.test.ts
+  ---
+  duration_ms: 5700.6966
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6240.9958
+EXIT=0

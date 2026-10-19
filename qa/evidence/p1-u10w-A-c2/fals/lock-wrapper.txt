@@ -1,0 +1,3 @@
+[testlock] running slot 0 (free RAM 2.82 GB): bash D:/vc/.worktrees/p1-u10w/qa/evidence/p1-u10w-A-c2/fals/w5-falsify.sh
+warning: in the working copy of 'apps/api/src/voice.ts', LF will be replaced by CRLF the next time Git touches it
+[testlock] release: lock dir token changed (ours [1792382375332801200-294992-32319], now [1792382463489219300-295872-25039]) -- not removing, it is no longer ours
