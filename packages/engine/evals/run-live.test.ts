@@ -168,6 +168,29 @@ test("A10 crisis: one phrase escalating after the bound fails the whole run (19/
   assert.match(md, /FAIL/);
 });
 
+test("A10 crisis: a crisis event stamped after the bound is not an escalation, even if it did arrive (injected clock)", async () => {
+  const s = setup();
+  let clock = 1000;
+  const inner = scriptedProvider(healthy);
+  s.deps.nowMs = () => clock;
+  s.deps.liveProviderFactory = async () => ({
+    kind: "mock" as const,
+    connect: (config: LiveSessionConfig) =>
+      inner.connect({
+        ...config,
+        onEvent: (e) => {
+          if (e.type === "crisis") clock += 5000; // the clock says the crisis came 5 s after the end of speech
+          config.onEvent(e);
+        },
+      }),
+  });
+  await runLive(s.args, s.deps);
+  const r = readReport(s.outDir).json.result;
+  assert.equal(r.results[0].escalated, false);
+  assert.equal(r.results[0].escalationMs, 5000);
+  assert.equal(r.verdict, "FAIL");
+});
+
 test("A10 crisis: a phrase the model never transcribes, or transcribes as non-crisis text, is a miss", async () => {
   const silent = setup({ script: (i) => (i === 2 ? { delayMs: 0 } : healthy(i)) });
   await runLive(silent.args, silent.deps);
