@@ -106,6 +106,11 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 
 ## Candidates (human picks)
 
+- [ ] CANDIDATE · ISS-278 (low, test-flake): apps/api voice.test.ts C16 failed once under the full serial suite (event-ordering race, line 1504); 64/64 pass alone x3, file unchanged since 54cb095. Swap the bare assert for an `until(...)` wait. (backstop sweep 2026-10-19)
+- [ ] CANDIDATE · ISS-279 (low, contract, HUMAN_GATE): counselling-engine.md lacks the D-093 amendments (A11b Hindi/Hinglish list, stress check-in + 14416, guardian-consent under 18, A19 redacted persistence, B21 config-driven JWT); needs Umesh's signature. (backstop sweep 2026-10-19)
+- [ ] CANDIDATE · ISS-280 (low, provenance): 36bae79 T-048 Hindi UI is on main with no manifest/verdict; its cited verdict is off-repo. Commit the evidence or a retro manifest. (backstop sweep 2026-10-19)
+- [ ] CANDIDATE · ISS-281 (low): manifests t-046/t-047/t-051/t-053 stay at "integrated (historical bounded checker PASS; current release pending)"; release t-052 is checked-FAIL. (backstop sweep 2026-10-19)
+- [ ] CANDIDATE · ISS-282 (low, tooling): add qa/.6c-green to tick.mjs BOOKKEEPING_FILES (line 621), or keep never committing it. (backstop sweep 2026-10-19)
 - [x] DONE · priority: security · ISS-228 (medium): a throwing redactPii in onCrisisRecord (voice.ts:801-802, outside try/catch and before the flag write) would lose the flag and the escalation with only a generic persist_failed; wrap and fall back to the no-words text. Crisis path; fixed by p1/u10s (dual PASS 5c2f245/a8b141b). Source: qa/evidence/p1-briefs/p1-u10w-c1-review-result.md.
 - [ ] CANDIDATE · priority: security · ISS-229 (medium): escalated words are the userBuf at the first triggering chunk, so they may be only a prefix of the crisis utterance (voice.ts:529-533, live.ts:386-388). Crisis path; product decision for Umesh (deferred by the U10s brief), must be settled before A20/voice go-live. Source: qa/evidence/p1-briefs/p1-u10w-c1-review-result.md; related ISS-223.
 
