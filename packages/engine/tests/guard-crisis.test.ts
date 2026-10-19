@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
   CONCERN_PATTERNS,
   CRISIS_PATTERNS,
@@ -1138,4 +1140,274 @@ test("D-093 3A: the stress patterns are linear (no quantified group, no {n,m}) a
   const t0 = performance.now();
   stressSignal("pressure ".repeat(20000));
   assert.ok(performance.now() - t0 < 3000);
+});
+
+// -------------------------------------------------------------------------------------------
+// ISS-340 (D-103) - Devanagari-script Hinglish. Gemini Live transcribes Hindi speech in Devanagari, so
+// every Latin Hinglish crisis/concern phrase needs its Devanagari counterpart at the SAME level, in the
+// spelling variants a transcript or a phone keyboard produces (nukta / no nukta, anusvara vs chandrabindu
+// vs none, short vs long u, a dropped bindu on "nahi" / "main", khatam vs khatm, mixed Devanagari + Latin).
+// -------------------------------------------------------------------------------------------
+
+const A10_MANIFEST = fileURLToPath(new URL("../../../qa/evals/p1/live-audio/manifest.json", import.meta.url));
+
+test("ISS-340: every A10 clip's spoken text (ttsInput when set, else text) reaches 'crisis' - all 20, and the Latin text too", () => {
+  const manifest = JSON.parse(readFileSync(A10_MANIFEST, "utf-8")) as {
+    clips: { id: string; text: string; ttsInput?: string }[];
+  };
+  assert.equal(manifest.clips.length, 20);
+  const misses: string[] = [];
+  for (const clip of manifest.clips) {
+    for (const spoken of new Set([clip.ttsInput ?? clip.text, clip.text])) {
+      const level = crisisGuard(spoken).level;
+      if (level !== "crisis") misses.push(`${clip.id} ${JSON.stringify(spoken)} -> ${level}`);
+    }
+  }
+  assert.deepEqual(misses, []);
+  assert.ok(manifest.clips.filter((c) => c.ttsInput !== undefined).length >= 7, "the 7 Hinglish clips carry a Devanagari ttsInput");
+});
+
+const ISS340_CRISIS: ReadonlyArray<readonly [string, string]> = [
+  // "sab khatam kar dunga" (+ spelling variants of khatam and of the "dunga" verb)
+  ["sab khatam kar dunga", "सब खत्म कर दूंगा, अब और नहीं सह सकता"],
+  ["sab khatam kar dunga", "सब खत्म कर दूँगा"],
+  ["sab khatam kar dunga", "सब खत्म कर दुंगा"],
+  ["sab khatam kar dunga", "सब खत्म कर दूगा"],
+  ["sab khatam kar dungi", "सब खत्म कर दूंगी"],
+  ["sab khatam kar dungi", "सब खत्म कर दुँगी"],
+  ["sab khatam (khatam -> khatm)", "सब खतम कर दूंगा"],
+  ["sab khatam (nukta precomposed U+0959)", "सब ख़त्म कर दूँगा"],
+  ["sab khatam (nukta decomposed)", "सब ख़त्म कर दूँगा"],
+  ["sab khatam (ZWJ inside the conjunct)", "सब खत्‍म कर दूंगा"],
+  ["sab khatam kar lunga", "सब खत्म कर लूंगा"],
+  ["mixed: sab + Devanagari", "sab खत्म kar dunga"],
+  ["mixed: Devanagari sab + Latin khatam", "सब khatam कर दूंगा"],
+  ["mixed: Devanagari verb at the end", "सब खत्म कर dunga"],
+  ["mixed: Latin verb at the end", "sab खत्म कर dungi"],
+  // "sab kuch khatam"
+  ["sab kuch khatam", "सब कुछ खत्म"],
+  ["sab kuch khatam", "सब कुछ ख़त्म हो गया"],
+  ["sab kuch khatam", "सब कुछ खतम"],
+  ["mixed: sab kuch khatam", "सब कुछ khatam"],
+  // "khud ko khatam / maar"
+  ["khud ko khatam (nukta)", "ख़ुद को खत्म करना चाहता हूं"],
+  ["khud ko khatam (khatm)", "खुद को खतम कर लूंगा"],
+  ["khud ko maar", "खुद को मार दूंगा"],
+  ["khud ko maarna", "खुद को मारना चाहता हूं"],
+  ["khud ko marne", "खुद को मरने दूंगा"],
+  ["mixed: khud ko khatam", "खुद को khatam कर लूंगा"],
+  ["khatam kar lunga khud ko / apne aap ko / apni jaan", "खत्म कर लूंगा अपने आप को"],
+  ["khatam kar lunga khud ko / apne aap ko / apni jaan", "खत्म कर लूँगा अपनी जान"],
+  ["khatam kar lunga khud ko", "खतम कर लूंगा खुद को"],
+  // "zindagi khatam / bekaar"
+  ["zindagi khatam", "ज़िंदगी खत्म"],
+  ["zindagi khatam", "जिंदगी खत्म हो गई"],
+  ["zindagi bekaar", "ज़िन्दगी बेकार है"],
+  ["zindagi bekaar", "जिन्दगी बेकार"],
+  ["zindagi bekaar", "जिँदगी बेकार है"],
+  ["mixed: zindagi bekaar", "zindagi बेकार है"],
+  ["mixed: zindagi khatam", "ज़िंदगी khatam"],
+  // "marna / maut chahta"
+  ["maut chahiye", "मौत चाहिए"],
+  ["maut chahta", "मुझे मौत चाहिए"],
+  ["marna chahiye", "मरना चाहिए"],
+  ["marna chahte", "हम मरना चाहते हैं"],
+  ["mixed: marna chahta", "मैं marna चाहता हूं"],
+  ["mixed: marna chahta", "मैं मरना chahta हूं"],
+  // "marne ka mann / iccha / khayal / khwahish"
+  ["marne ka mann", "मरने का मन कर रहा है"],
+  ["marne ka mann (long n)", "मरने का मन्न है"],
+  ["marne ki khwahish", "मरने की ख्वाहिश"],
+  ["marne ka khayal", "मरने का ख़याल आता है"],
+  ["marne ka khayal", "मरने का खयाल"],
+  ["mixed: marne ka mann", "marne का मन कर रहा है"],
+  ["mixed: marne ka mann", "मरने ka mann"],
+  // "jeena nahi chahta / hai" (nahi without its bindu, chandrabindu, plural)
+  ["jeena nahi chahta (no bindu)", "जीना नही चाहता"],
+  ["jeena nahi chahta (chandrabindu)", "जीना नहीँ चाहती"],
+  ["jeena nahi chahte", "जीना नहीं चाहते"],
+  ["jeena nahi hai (no bindu)", "जीना नही है"],
+  ["mixed: jeena nahi chahta", "jeena नहीं चाहता"],
+  ["mixed: jeena nahi chahta", "जीना nahi चाहता हूं"],
+  // "jeene ka mann / matlab / point / reason nahi"
+  ["jeene ka mann nahi (no bindu)", "जीने का मन नही है"],
+  ["jeene ki wajah nahi (nukta)", "जीने की कोई वज़ह नही"],
+  ["jeene ka matlab nahi", "जीने का कोई मतलब नहीं"],
+  ["jeene ka reason nahi", "जीने का कोई रीज़न नहीं"],
+  ["jeene ka point nahi", "जीने का कोई पॉइंट नहीं"],
+  // "mar jaunga / jaana hai"
+  ["mar jaunga (chandrabindu)", "मर जाऊँगा"],
+  ["mar jaunga (short u)", "मर जाउंगा"],
+  ["mar jaungi (short u, chandrabindu)", "मर जाउँगी"],
+  ["mar jaana hai", "मर जाना है"],
+  ["mar jaana chahta", "मर जाना चाहता हूं"],
+  ["mixed: mar jaunga", "मर jaunga"],
+  ["mixed: mar jaunga", "mar जाऊंगा"],
+  // "jaan de dunga / le lunga / dena hai"
+  ["jaan de dunga", "जान दे दूंगा"],
+  ["jaan de dunga (short u)", "जान दे दुंगा"],
+  ["jaan de dungi (chandrabindu)", "जान दे दूँगी"],
+  ["jaan le lunga", "जान ले लूंगा"],
+  ["jaan le lunga (short u)", "जान ले लुँगा"],
+  ["jaan dena hai", "जान देना है"],
+  ["jaan dena chahti", "जान देना चाहती हूं"],
+  ["mixed: jaan de dunga", "जान दे dunga"],
+  ["mixed: jaan de dunga", "jaan दे दूंगा"],
+  // "khatam ho jana / jaunga"
+  ["khatam ho jaunga", "खत्म हो जाऊंगा"],
+  ["khatam ho jaunga (khatm)", "खतम हो जाऊँगी"],
+  ["khatam ho jana", "ख़त्म हो जाना चाहता हूं"],
+  ["mixed: khatam ho jaunga", "खत्म हो jaunga"],
+  // abuse: "mujhe maarta hai / mere saath peet..."
+  ["mere saath peetai hoti hai", "मेरे साथ पिटाई होती है घर में"],
+  ["mere saath peetai hoti hai (long ee)", "मेरे साथ पीटाई होती है"],
+  ["mere saath marpeet", "मेरे साथ मारपीट होती है"],
+  ["mere saath marpeet (hyphen)", "मेरे साथ मार-पीट होती है"],
+  ["mujhe maarte hain", "मुझे मारते हैं घर में"],
+  ["mujhe maarta hai", "मुझे मारता है मेरा सौतेला बाप"],
+  ["mujhe peetta hai", "मुझे पीटता है"],
+  ["mujhe peette hain", "मुझे पीटते हैं"],
+  ["mujhe peeta gaya", "मुझे पीटा गया"],
+  ["mujhko maarti hai", "मुझको मारती है मेरी सौतेली माँ"],
+  ["meri pitai", "घर में मेरी पिटाई होती है"],
+  ["mixed: mere saath peetai", "मेरे saath पिटाई होती है"],
+  ["mixed: mujhe maarta", "mujhe मारता है"],
+  // T-033 families: dropped bindu on "main", short u in the verb, nahi without bindu
+  ["main nahi rahunga (no bindu on main)", "मै नहीं रहूंगा"],
+  ["main nahi rahunga (nahi no bindu)", "मैं नही रहूँगा"],
+  ["main nahi rahunga (short u)", "मैं नहीं रहुंगा"],
+  ["main nahi bachunga (short u)", "मैं नही बचुंगा"],
+  ["nahi bachunga (short u)", "अब नहीं बचुंगा"],
+  ["din nahi rahunga (short u)", "ज्यादा दिन नहीं रहुंगा"],
+  ["din na jiunga (short u)", "ज्यादा दिन ना जिउंगा"],
+  ["kabhi nahi uthunga (short u)", "कभी नहीं उठुंगा"],
+  ["kabhi nahi uthun (no bindu)", "कभी नही उठूंगा"],
+  ["mere na rehne ke baad", "मेरे न रहने के बाद सब खुश रहेंगे"],
+  ["mere na rehne se", "मेरे ना रहने से किसी को फर्क नहीं पड़ेगा"],
+  ["cheezon ko de dunga", "अपनी सारी चीजों को दोस्तों को दे दूंगा"],
+  ["goodbye (gudbye)", "सबको गुडबाय"],
+  ["goodbye (good bye)", "आप सबको गुड बाय"],
+  ["alvida zindagi", "अलविदा ज़िंदगी"],
+  ["aakhri baar (akhri spelling)", "आखरी बार बात कर रहा हूं"],
+  ["aakhri baar mil raha", "आख़िरी बार मिल रही हूं"],
+  ["mixed: sabko alvida", "sabko अलविदा"],
+];
+
+for (const [meaning, text] of ISS340_CRISIS) {
+  test(`ISS-340: Devanagari/mixed Hinglish "${meaning}" -> crisis: ${JSON.stringify(text)}`, () => {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+    const routed = routeBeforeGeneration(text);
+    assert.equal(routed.route, "escalate");
+  });
+}
+
+// Spaced / punctuated evasion of the new Devanagari forms (the squeezed twin is derived per pattern).
+for (const text of ["सब खत्म कर दूंगा", "मेरे साथ पिटाई होती है", "मरने का मन कर रहा है", "जान दे दूंगा"]) {
+  test(`ISS-340: evasion forms of ${JSON.stringify(text)} stay crisis`, () => {
+    const words = text.split(" ");
+    const spaced = words.map((w) => (w.match(/\p{L}\p{M}*/gu) ?? []).join(" ")).join("  ");
+    const dotted = words.map((w) => (w.match(/\p{L}\p{M}*/gu) ?? []).join(".")).join(" ");
+    for (const form of [text.split(" ").join("  "), spaced, dotted, text.split(" ").join("\n"), `ok. ${text}. thanks`]) {
+      assert.equal(crisisGuard(form).level, "crisis", form);
+    }
+  });
+}
+
+const ISS340_CONCERN: ReadonlyArray<readonly [string, string]> = [
+  ["mann nahi lag raha", "मन नहीं लग रहा"],
+  ["mann nahi lag raha (nahi no bindu)", "आजकल मन नही लग रहा है"],
+  ["mann nahi lag rahi", "मन नहीं लग रही"],
+  ["bahut tension (halant)", "बहुत टेन्शन है"],
+  ["bahut tension (ai)", "बहुत टैंशन हो रही है"],
+  ["bahut tension (anusvara)", "बहुत टेंशन है"],
+  ["mixed: bahut tension", "बहुत tension है"],
+  ["mixed: bahut tension", "bahut टेंशन है"],
+  ["zindagi se thak gaya", "ज़िंदगी से थक गया हूं"],
+  ["zindagi se thak gayi", "जिंदगी से थक गई"],
+  ["zindagi se thak gayi", "ज़िन्दगी से थक गयी हूं"],
+];
+
+for (const [meaning, text] of ISS340_CONCERN) {
+  test(`ISS-340: Devanagari/mixed Hinglish "${meaning}" -> concern: ${JSON.stringify(text)}`, () => {
+    assert.equal(crisisGuard(text).level, "concern", text);
+  });
+}
+
+// Benign Devanagari study-abroad talk must stay none: the new patterns must not fire on the bare word
+// "khatam" or on a near-miss of a new family (a study noun, a market, a friend named Peter, a PT class).
+const ISS340_NEGATIVES: ReadonlyArray<string> = [
+  "मुझे कनाडा में पढ़ाई खत्म करनी है",
+  "परीक्षा खत्म हो गई",
+  "मेरी पढ़ाई खतम हो गई है",
+  "सेमेस्टर खत्म होने के बाद मैं कनाडा जाऊंगा",
+  "वीज़ा की प्रक्रिया खत्म हो गई",
+  "आज की क्लास खत्म कर दूंगा",
+  "मैं सारा काम खत्म कर दूंगा",
+  "बैंक का काम खत्म कर लूंगा",
+  "मुझे मार्केट जाना है",
+  "मैं मार्केट जा रहा हूं",
+  "मेरे साथ पीटर आ रहा है",
+  "मेरे साथ पीटी की क्लास है",
+  "मुझे पिटारा चाहिए",
+  "मेरे साथ दोस्त रहता है",
+  "ज़िंदगी में बहुत कुछ करना है",
+  "ज़िंदगी बहुत खूबसूरत है",
+  "मौत की सज़ा के बारे में पढ़ना चाहता हूं",
+  "जीना सीखना चाहता हूं",
+  "जीने का तरीका बदलना है",
+  "मैं कल कॉलेज नहीं आऊंगा",
+  "मैं नहीं आऊंगा",
+  "आखरी बार वीज़ा के बारे में बात कर रहा हूं",
+  "टेन्शन फ्री पढ़ाई कैसे करें",
+  "मैं सब कुछ ठीक कर दूंगा",
+  "उसने सारी चीज़ें सबको बांट दीं",
+  "सबको नमस्ते",
+  "मरने वालों की संख्या कितनी है",
+  "मैं मैदान में खेलता हूं",
+];
+
+for (const text of ISS340_NEGATIVES) {
+  test(`ISS-340 negative stays 'none': ${JSON.stringify(text)}`, () => {
+    assert.equal(crisisGuard(text).level, "none", JSON.stringify(text));
+  });
+}
+
+// D-020 parity: the Latin phrase already flags this study-adjacent sentence; its Devanagari counterpart flags too
+// (recall over precision, never suppressed).
+test("ISS-340 parity: 'ye sab khatam kar dunga' (Latin) and its Devanagari form are both crisis (accepted residual, D-020)", () => {
+  assert.equal(crisisGuard("ye sab khatam kar dunga").level, "crisis");
+  assert.equal(crisisGuard("मैं यह सब खत्म कर दूंगा").level, "crisis");
+});
+
+// The mapping is additive: a Latin phrase that was already crisis stays crisis, and the pure-Latin set is unchanged.
+test("ISS-340: pure-Latin Hinglish is unaffected (still crisis / none exactly as before)", () => {
+  for (const text of ["sab khatam kar dunga, ab aur nahi seh sakta", "mere saath peetai hoti hai ghar mein", "marne ka mann kar raha hai aajkal", "mar jaunga"]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+  for (const text of ["exam khatam ho gaya", "mujhe market jana hai", "mere saath Peter aa raha hai", "kar dunga kal"]) {
+    assert.equal(crisisGuard(text).level, "none", text);
+  }
+});
+
+// Nukta handling is a normaliser fold, so existing Devanagari patterns that spell a nukta letter plainly also match its
+// nukta-bearing form (and vice versa): ख़ुश / खुश, ग़ायब / गायब.
+test("ISS-340: nukta, chandrabindu and a dropped bindu fold in the normaliser for the existing Devanagari patterns too", () => {
+  for (const text of ["मेरे बिना सब ख़ुश रहेंगे", "मेरे बिना सब खुश रहेंगे", "ग़ायब हो जाऊं", "गायब हो जाऊँ", "मैं नही रहूंगा", "जीना नहीँ चाहता", "खुद को ख़त्म कर लूंगा"]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+});
+
+// Linear time on a long Devanagari turn built from the new phrases' near-miss prefixes (no new quadratic step).
+test("ISS-340: a 200k-character Devanagari turn of near-miss prefixes runs in linear time", () => {
+  const unit = "सब खत्म कर द मेरे साथ पि मरने का म जान दे द खुद को ख ज़िंदगी से थ मुझे मार ";
+  const build = (n: number): string => unit.repeat(Math.ceil(n / unit.length)).slice(0, n);
+  const time = (text: string): number => {
+    const t0 = performance.now();
+    crisisGuard(text);
+    return performance.now() - t0;
+  };
+  const small = Math.min(time(build(25000)), time(build(25000)));
+  const large = Math.min(time(build(100000)), time(build(100000)));
+  assert.ok(large < 4000, `100k chars took ${large.toFixed(1)} ms`);
+  assert.ok(large / Math.max(small, 1) < 8, `ratio ${(large / Math.max(small, 1)).toFixed(2)} for 4x the input`);
 });

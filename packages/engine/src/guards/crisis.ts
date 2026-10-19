@@ -72,6 +72,128 @@ export interface EscalationCard {
 
 export type RouteResult = { route: "escalate"; card: EscalationCard } | { route: "continue" };
 
+// ---------------------------------------------------------------------------
+// ISS-340 (D-103): Devanagari-script and mixed-script Hinglish
+// ---------------------------------------------------------------------------
+// Gemini Live transcribes Hindi speech in Devanagari, so a voice crisis turn ("सब खत्म कर दूंगा", "मेरे साथ
+// पिटाई होती है") reached the guard in a script the romanised Hinglish patterns above cannot match. This
+// block gives every romanised Hinglish crisis/concern phrase its Devanagari counterpart at the SAME level,
+// built from per-word slots that accept the Latin spelling an existing pattern already uses, the Devanagari
+// forms, or either one in the same sentence ("sab खत्म kar dunga", "सब khatam कर दूंगा"). The Latin
+// alternatives of every slot are copied from the existing Latin patterns, so a pure-Latin turn is unchanged.
+// Spelling variants (nukta / no nukta, chandrabindu / anusvara, a dropped bindu on नहीं and मैं) are folded by
+// `foldDevanagariSpelling` before matching, so a pattern here never spells a nukta or a chandrabindu.
+// Every pattern is star-height 1 with no `{n,m}` quantifier (same contract as the list below).
+
+type SlotEdge = "start" | "end" | "mid";
+
+/** One word position: the Latin spellings (word-boundary anchored at a phrase edge) or the Devanagari forms. */
+function slot(latin: readonly string[], devanagari: readonly string[], edge: SlotEdge = "mid"): string {
+  const lat = latin.map((word) => (edge === "start" ? String.raw`\b${word}` : edge === "end" ? String.raw`${word}\b` : word));
+  return `(?:${[...lat, ...devanagari].join("|")})`;
+}
+
+/** A phrase: its slots joined by one-or-more whitespace, matched case-insensitively (Devanagari has no case). */
+function phrase(...slots: readonly string[]): RegExp {
+  return new RegExp(slots.join(String.raw`\s+`), "i");
+}
+
+// Verb endings. Text is folded first (chandrabindu -> anusvara), so only the anusvara form is written here.
+const D_DUNGA = "द[ुू]ं?ग[ाी]"; // dunga / dungi, long or short u, with or without the bindu
+const D_LUNGA = "ल[ुू]ं?ग[ाी]"; // lunga / lungi
+const D_MAAR = String.raw`मार(?:ना|ने|ता|ती|ा|ू|\s+द|\s+ल|\s+डाल)`; // "maar dunga / maarna / maara" - never "मार्केट"
+const S_SAB = slot(["sab"], ["सब"], "start");
+const S_KUCH = slot(["kuch"], ["कुछ"]);
+const S_KHATAM = slot(["khatam"], ["खत्म", "खतम"]);
+const S_KAR = slot(["kar"], ["कर"]);
+const S_KHUD = slot(["khud"], ["खुद"]);
+const S_KO = slot(["ko"], ["को"]);
+const S_ZINDAGI = slot(["zindagi"], ["ज(?:ि|ी)ं?दगी", "ज(?:ि|ी)न्दगी"], "start");
+const S_JEENA = slot(["jeena"], ["जीना", "जिना"], "start");
+const S_JEENE = slot(["jeene?"], ["जीने"], "start");
+const S_MARNE = slot(["marne"], ["मरने"], "start");
+const S_JAAN = slot(["jaan"], ["जान"], "start");
+const S_NAHI = slot(["nahi", "nahin"], ["नहीं"]);
+const S_NAHI4 = slot(["nahi", "nahin", "na", "nai"], ["नहीं", "ना", "न"], "end");
+const S_HAI = slot(["hai"], ["है"], "end");
+const S_KAKI = slot(["ka", "ki"], ["का", "की"]);
+const S_KOI = String.raw`(?:(?:koi|कोई)\s+)?`;
+// "jaan de dunga" / "jaan de de dunga" / "jaan le lunga": the verb endings of the existing Latin pattern, plus the Devanagari ones.
+const S_DE_DUNGA = String.raw`(?:(?:de|le|दे|ले)\s+)?` + slot(["dunga", "dungi", "doonga", "doongi", "lunga", "lungi", "loonga", "loongi"], [D_DUNGA, D_LUNGA], "end");
+// "khud ko / apne aap ko / apni jaan" (the object of "khatam kar lunga ...").
+const S_SELF = `(?:${S_KHUD}\\s+${S_KO}|${slot(["apne"], ["अपने"])}\\s+${slot(["aap"], ["आप"])}\\s+${S_KO}|${slot(["apni"], ["अपनी"])}\\s+${slot(["jaan"], ["जान"])})`;
+// Abuse: "mujhe / mere saath" + a hitting verb. Latin verbs keep the existing `\w*` tail; Devanagari excludes
+// "मार्केट", "पीटर" (Peter), "पीटी" (PT) and "पिटारा" (a box) by listing the verb forms.
+const S_ME = slot(["mujhe", String.raw`mere\s+saath`], ["मुझे", "मुझको", String.raw`मेरे\s+साथ`, String.raw`मेरे\s+saath`, String.raw`mere\s+साथ`], "start");
+const S_HIT = slot(
+  [String.raw`maarta\w*`, String.raw`maarti\w*`, String.raw`peetata\w*`, String.raw`peet\w*`],
+  ["मार(?:ता|ती|ते|ा)", String.raw`मार\s*पीट`, "प[िी]टाई", "प[िी]ट(?:ता|ती|ते|ना)", "पीटा"],
+);
+const D_TENSION = "(?:टेंशन|टेन्शन|टैंशन|टेनशन)";
+
+const ISS340_CRISIS_PATTERNS: readonly RegExp[] = [
+  // "sab kuch khatam" / "sab khatam kar dunga" (ISS-023) - the crisis-08 clip: "सब खत्म कर दूंगा"
+  phrase(S_SAB, S_KUCH, slot(["khatam"], ["खत्म", "खतम"], "end")),
+  phrase(S_SAB, S_KHATAM, S_KAR, slot(["dunga", "dungi", "doonga", "doongi"], [D_DUNGA, D_LUNGA], "end")),
+  // "khud ko khatam / maar / marne" and "khatam kar lunga khud ko / apne aap ko / apni jaan"
+  phrase(S_KHUD, S_KO, slot(["khatam", "maar", "marne", "mara"], ["खत्म", "खतम", D_MAAR, "मरने", "मरना"], "mid")),
+  phrase(S_KHATAM, S_KAR, slot(["lunga", "lungi", "loonga", "loongi", "dunga", "dungi", "doonga", "doongi"], [D_LUNGA, D_DUNGA]), S_SELF),
+  // "zindagi khatam / bekaar"
+  phrase(S_ZINDAGI, slot(["khatam", "bekaar", "bekar"], ["खत्म", "खतम", "बेकार"], "end")),
+  // "marna / maut chahta / chahiye" (the plain Devanagari form is already above; this adds "मौत चाहिए", "मरना चाहिए", mixed script)
+  phrase(slot(["marna", "maut"], ["मरना", "मौत"], "start"), slot(["chah", "chahta", "chahti", "chahiye"], ["चाह"], "end")),
+  // "marne ka mann", "marne ki iccha / khwahish / khayal"
+  phrase(S_MARNE, slot(["ka"], ["का"]), slot(["man+"], ["मन"], "end")),
+  phrase(S_MARNE, S_KAKI, slot(["iccha", "ichha", "ichchha", "khwahish", "khayal"], ["इच्छा", "इछा", "ख्वाहिश", "खयाल", "ख्याल"], "end")),
+  // "jeena nahi chahta / hai"
+  phrase(S_JEENA, S_NAHI, slot(["chahta", "chahti"], ["चाहत"], "end")),
+  phrase(S_JEENA, S_NAHI, S_HAI),
+  // "jeene ka mann / dil / matlab / point nahi", "jeene ki wajah nahi"
+  phrase(S_JEENE, slot(["ka"], ["का"]), slot(["mann", "man", "dil", "fayda"], ["मन", "दिल", "फायदा"]), S_NAHI4),
+  phrase(S_JEENE, slot(["ki"], ["की"]), S_KOI + slot(["wajah", "vajah", "wajeh", "reason"], ["वजह", "कारण", "रीजन"]), S_NAHI4),
+  phrase(S_JEENE, slot(["ka"], ["का"]), S_KOI + slot(["matlab", "maksad", "maqsad", "reason", "point", "faida", "fayda"], ["मतलब", "मकसद", "रीजन", "पॉइंट", "पॉइन्ट", "प्वाइंट", "फायदा"]), S_NAHI4),
+  // "mar jaunga / jaungi / jaana hai / jaana chahta" (a short-u "जाउंगा" is included)
+  phrase(slot(["mar"], ["मर"], "start"), slot(["jaun", "jaaun", "jau", "jaau", "jaoon", "jaaoon", "jaunga", "jaungi"], ["जा[उऊ]"], "end")),
+  phrase(slot(["mar"], ["मर"], "start"), slot(["jaana", "jana"], ["जाना"]), slot(["hai", "chahta", "chahti"], ["है", "चाहत"], "end")),
+  // "jaan de dunga / le lunga", "jaan dena hai / chahta" (a short-u "दुंगा" is included)
+  phrase(S_JAAN, slot(["de", "le"], ["दे", "ले"]), S_DE_DUNGA),
+  phrase(S_JAAN, slot(["dena"], ["देना"]), slot(["hai", "chahta", "chahti"], ["है", "चाहत"], "end")),
+  // "khatam ho jana / jaunga"
+  phrase(S_KHATAM, slot(["ho"], ["हो"]), slot(["jana", "jaana", "jaun", "jaaun", "jaunga", "jaungi", "jaaunga", "jaaungi"], ["जाना", "जा[उऊ]"], "end")),
+  // Abuse: "mujhe maarta hai", "mere saath peetai hoti hai" ("पिटाई", "पीटाई", "मारपीट"); and the Hindi word order "मेरी पिटाई होती है"
+  phrase(S_ME, S_HIT),
+  /मेरी\s+(?:प[िी]टाई|मार\s*पीट)/,
+  // T-033 families, Devanagari spelling variants the existing patterns do not take (short u instead of long u, na/n for nahi)
+  phrase(slot(["main", "mai"], ["मैं"], "start"), slot(["nahi", "nahin", "na"], ["नहीं", "ना", "न"]), slot(["rahunga", "rahungi", "rahoonga", "rahoongi", "bachunga", "bachungi"], ["(?:रह|बच)[ुू]ं?ग[ाी]"], "end")),
+  /(?:नहीं|ना|न)\s+बच[ुू]ं?ग[ाी]/, // "nahi bachunga" - I won't survive, short-u spelling
+  /दिन\s+(?:नहीं|ना|न)\s+(?:रह[ुू]|बच[ुू]|जि[उऊ]|जी[उऊ])ं?ग[ाी]/, // "(zyada) din nahi rahunga / jiunga"
+  /कभी\s+(?:नहीं|ना|न)\s+(?:उठ[ुू]|जाग[ुू])/, // "kabhi na uthun" - never wake up, short-u spelling
+  /मेरे\s+(?:न|ना)\s+रहने\s+(?:से|पर|पे|के\s+बाद)/, // "mere na rehne se / par / ke baad"
+  /(?:अपनी|अपना|अपने|मेरी|मेरा|मेरे)\s+(?:(?:सारी|सारा|सारे|सब)\s+)?चीजों\s+को\s+(?:(?:सबको|सब\s+को|लोगों\s+को|दोस्तों\s+को)\s+)?(?:दे|बांट)/, // "cheezon ko de dunga"
+  // goodbye: "sabko alvida / goodbye", "alvida duniya / zindagi", "aakhri baar baat kar raha"
+  phrase(
+    slot(["sab\\s*ko", "sabhi\\s+ko", "aap\\s+sab\\s*ko", "tum\\s+sab\\s*ko", "aapko", "tumko", "tumhe", "tumhein"], ["सबको", "सब\\s+को", "आप\\s+सबको", "तुम\\s+सबको", "आपको", "तुम्हें", "तुमको"], "start"),
+    slot(["alvida", "alwida", "goodbye", "good\\s*bye"], ["अलविदा", "गुडबाय", "गुड\\s*बाय"], "end"),
+  ),
+  phrase(slot(["alvida", "alwida"], ["अलविदा"], "start"), slot(["dosto", "doston", "sab", "sabko", "duniya", "zindagi", "hamesha", "forever"], ["दोस्तों", "दोस्तो", "दुनिया", "सबको", "हमेशा", "ज(?:ि|ी)ं?दगी", "ज(?:ि|ी)न्दगी"], "end")),
+  phrase(
+    slot(["aakhri", "akhri", "aakhiri", "aakhari", "akhiri"], ["आखिरी", "आखरी"], "start"),
+    slot(["baar", "bar"], ["बार"]),
+    slot(["baat\\s+kar", "mil"], ["बात\\s+कर", "मिल"]),
+    slot(["raha", "rahi", "rahe"], ["रहा", "रही", "रहे"], "end"),
+  ),
+];
+
+const ISS340_CONCERN_PATTERNS: readonly RegExp[] = [
+  // "mann nahi lag raha"
+  phrase(slot(["mann"], ["मन"], "start"), S_NAHI, slot(["lag"], ["लग"]), slot(["raha"], ["रहा", "रही"], "end")),
+  // "bahut tension": the Devanagari spellings of tension, and either word in the other script
+  new RegExp(String.raw`बहुत\s+(?:tension|${D_TENSION})`, "i"),
+  new RegExp(String.raw`\bbahut\s+${D_TENSION}`, "i"),
+  // "zindagi se thak gaya / gayi" - tired-of-life exhaustion, concern (see the ISS-023 table)
+  phrase(S_ZINDAGI, slot(["se"], ["से"]), slot(["thak"], ["थक"]), slot(["gaya", "gayi", "gya", "gyi"], ["गया", "गई", "गयी"], "end")),
+];
+
 // Ported verbatim from ikigai-counsellor's crisis-guard.ts (H6). Exported (read-only) so the test
 // suite can generate every letter-/punctuation-/double-spaced evasion form of every pattern
 // (T-005c cycle 1, ISS-t-005c-rev-1) — the coverage is closed by construction, not by examples.
@@ -266,6 +388,8 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /(सबको|सब\s+को|आप\s+सबको|तुम\s+सबको|आपको|तुम्हें|तुमको)\s+अलविदा/, // "sabko alvida" — goodbye everyone
   /अलविदा\s+(दोस्तों|दोस्तो|दुनिया|सबको|हमेशा)/, // "alvida duniya" — goodbye world
   /आख़?िरी\s+बार\s+(बात\s+कर|मिल)\s+(रहा|रही|रहे)/, // "aakhri baar baat kar raha" — talking for the last time
+  // ISS-340 (D-103): the Devanagari / mixed-script counterparts of the romanised Hinglish phrases (defined above).
+  ...ISS340_CRISIS_PATTERNS,
 ];
 
 // New in this engine (not in ikigai's source) — softer distress language: stressed/hopeless/
@@ -285,6 +409,8 @@ export const CONCERN_PATTERNS: readonly RegExp[] = [
   // ISS-023: Devanagari "bahut tension" — mirrors the existing Hinglish concern pattern above.
   // No \b (see the CRISIS_PATTERNS Devanagari note) — plain substring matching is safe here.
   /बहुत\s+टेंशन/,
+  // ISS-340 (D-103): Devanagari / mixed-script counterparts of the romanised Hinglish concern phrases.
+  ...ISS340_CONCERN_PATTERNS,
 ];
 
 // ISS-023 crisis-vs-concern classification table for the new phrases above (per-phrase reasoning,
@@ -528,6 +654,27 @@ function capMarkRun(run: string): string {
   return Array.from(run).slice(0, MAX_MARK_RUN).join("");
 }
 
+/**
+ * ISS-340 (D-103): Devanagari spelling variants a transcript or a phone keyboard produces, folded to the one form the
+ * patterns spell. Runs on the NFKD text (before NFKC), so a precomposed nukta letter (U+0958..U+095F) has already been
+ * split into base + U+093C. Recall only: every fold maps several spellings to one, so a pattern can match more, never fewer.
+ *   - nukta (U+093C) deleted: ख़त्म == खत्म, ज़िंदगी == जिंदगी, ग़ायब == गायब (the nukta is optional in speech and typing);
+ *   - chandrabindu (U+0901) -> anusvara (U+0902): दूँगा == दूंगा, नहीँ == नहीं;
+ *   - a dropped bindu on the two commonest words: "नही" -> "नहीं" (nahi), "मै" -> "मैं" (main).
+ * Linear: four single-pass regex replaces with a one-character lookahead.
+ */
+const DEVA_NUKTA = /़/g;
+const DEVA_CHANDRABINDU = /ँ/g;
+const DEVA_NAHI_NO_BINDU = /नही(?![ंँ])/g;
+const DEVA_MAIN_NO_BINDU = /मै(?![ंँ])/g;
+function foldDevanagariSpelling(text: string): string {
+  return text
+    .replace(DEVA_NUKTA, "")
+    .replace(DEVA_CHANDRABINDU, "ं")
+    .replace(DEVA_NAHI_NO_BINDU, "नहीं")
+    .replace(DEVA_MAIN_NO_BINDU, "मैं");
+}
+
 const DEVANAGARI_RUN_OR_MARK =/\p{Script=Devanagari}+|\p{M}/gu;
 const IS_DEVANAGARI = /^\p{Script=Devanagari}/u;
 function stripForeignMarks(text: string): string {
@@ -562,7 +709,7 @@ function normalise(text: string, leet: false | "i" | "l" = false): string {
  */
 function foldText(text: string): string {
   const capped = text.replace(INVISIBLE_FORMAT_CHARS, "").replace(LONG_MARK_RUN, capMarkRun);
-  const stripped = stripForeignMarks(stripForeignMarks(capped).normalize("NFKD"));
+  const stripped = foldDevanagariSpelling(stripForeignMarks(stripForeignMarks(capped).normalize("NFKD")));
   const folded = stripped
     .normalize("NFKC")
     .replace(INVISIBLE_FORMAT_CHARS, "")
