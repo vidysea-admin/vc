@@ -1,0 +1,17 @@
+apps/api/src/voice.ts:208:  /** `wss://host[/prefix]` (or `ws://` for local tests); the stream path is appended. */
+apps/api/src/voice.ts:309:    return new URL(req.url, "http://vc-api.invalid").pathname;
+apps/api/src/voice.ts:492:  if (!/^wss?:\/\/\S+$/.test(wsBase)) throw new VoiceConfigError("wsBaseUrl must be a ws:// or wss:// URL");
+apps/api/tests/voice-wiring.test.ts:302:const counsellorVerifier = createJwtVerifier(jwtConfigFromEnv({ VC_JWT_ISSUER: "https://issuer.synthetic.test", VC_JWT_PUBLIC_KEY: PEM }));
+apps/api/tests/voice-wiring.test.ts:363:const sessionUrl = (port: number, threadId: string) => `http://127.0.0.1:${port}/v1/students/stu-1/chat/threads/${threadId}/voice/sessions`;
+apps/api/tests/voice-wiring.test.ts:368:  const res = await fetch(sessionUrl(b.port, threadId), { method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: "{}" });
+apps/api/tests/voice-wiring.test.ts:409:      const res = await fetch(sessionUrl(b.port, threadId), { method: "POST", headers: { authorization: `Bearer ${jwt}` }, body: "{}" });
+apps/api/tests/voice-wiring.test.ts:429:    { name: "bad base url", env: { VC_VOICE_ENABLED: "true" }, voice: { wsBaseUrl: "https://nope.example" }, want: VoiceConfigError },
+apps/api/tests/voice-wiring.test.ts:489:    { VC_VOICE_ENABLED: "true", VC_VOICE_WS_SECRET: "an-env-secret-of-at-least-32-bytes-long!!", VC_VOICE_WS_BASE_URL: "wss://voice.example.test/ws" },
+apps/api/tests/voice-wiring.test.ts:496:    const res = await fetch(sessionUrl(b.port, threadId), { method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: "{}" });
+apps/api/tests/voice-wiring.test.ts:499:    assert.ok(String(json.wsUrl).startsWith("wss://voice.example.test/ws/"), String(json.wsUrl));
+apps/api/tests/voice.test.ts:171:    await assertRefused(w, await w.signWsToken({ tenant: "tenant-a", studentId: "stu-1", threadId }, { iss: "https://evil.test" }), threadId, 401);
+apps/api/tests/voice.test.ts:272:      await assertRefused(w, token, threadId, 403, { threadId, origin: "https://evil.example" });
+apps/api/tests/voice.test.ts:274:      assert.ok((await w.connect(token, { threadId, origin: "https://app.example" })).ok);
+apps/api/tests/voice.test.ts:277:    { deps: { allowedOrigins: ["https://app.example"] } },
+apps/api/tests/voice.test.ts:758:    wsBaseUrl: "wss://api.example.test",
+apps/api/tests/voice.test.ts:784:    assert.throws(() => createVoiceApi({ ...deps, wsBaseUrl: "http://nope" }, { enabled: true, gatesDir: g.gates, now: NOW, approver: APPROVER, env: {} }), VoiceConfigError);

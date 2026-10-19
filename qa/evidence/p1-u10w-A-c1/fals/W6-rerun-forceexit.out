@@ -1,0 +1,2 @@
+W6 {'edit': 'assertGoLive(route.gatesDir, "voice", route.now, route.approver);', 'file': 'tests/voice-wiring.test.ts', 'green': [15, 0], 'red': [14, 1], 'failing': ['W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value'], 'verdict': 'killed', 'secs': 37}
+ALLDONE

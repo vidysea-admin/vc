@@ -1,0 +1,491 @@
+[testlock] waiting for lock held by: PID=28004 STARTED=639279942252876178 ACQUIRED_AT=1792377625 TOKEN=1792377625452566000-256160-30938 DESC=pnpm -C D:/vc/.worktrees/p1-u10w-A-m-W4/apps/api exec tsx --test --test-reporter=tap tests/voice-wiring.test.ts 
+[testlock] running slot 0 (free RAM 2.74 GB): pnpm -C D:/vc/.worktrees/p1-u10w/apps/api exec tsx --test --test-reporter=tap tests/anonymous-route.test.ts tests/chat-profile.test.ts tests/index.test.ts tests/server.test.ts tests/student-openapi.test.ts
+TAP version 13
+# Subtest: A20: the anonymous route is OFF by default - unset, empty and 'false' all read as disabled; only the exact word 'true' enables
+ok 1 - A20: the anonymous route is OFF by default - unset, empty and 'false' all read as disabled; only the exact word 'true' enables
+  ---
+  duration_ms: 2.0551
+  type: 'test'
+  ...
+# Subtest: A20 state OFF: with the flag off nothing is built and the path answers exactly like an unknown path (404), for every method
+ok 2 - A20 state OFF: with the flag off nothing is built and the path answers exactly like an unknown path (404), for every method
+  ---
+  duration_ms: 7.7918
+  type: 'test'
+  ...
+# Subtest: A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route
+ok 3 - A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route
+  ---
+  duration_ms: 11.4003
+  type: 'test'
+  ...
+# Subtest: A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed
+ok 4 - A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed
+  ---
+  duration_ms: 72.7662
+  type: 'test'
+  ...
+# Subtest: A20 state ON and gate open: the route is served
+ok 5 - A20 state ON and gate open: the route is served
+  ---
+  duration_ms: 134.1048
+  type: 'test'
+  ...
+# Subtest: no student text is traced: an env that switches LangChain/LangSmith tracing on refuses to build the route
+ok 6 - no student text is traced: an env that switches LangChain/LangSmith tracing on refuses to build the route
+  ---
+  duration_ms: 35.4293
+  type: 'test'
+  ...
+# Subtest: B21 exception: the closed list is exactly one text route, equals the draft's security:[] operations, and contains no voice route
+ok 7 - B21 exception: the closed list is exactly one text route, equals the draft's security:[] operations, and contains no voice route
+  ---
+  duration_ms: 0.6359
+  type: 'test'
+  ...
+# Subtest: B21 exception: with the anonymous route ON, every other registered route still answers 401 with no token, and the main handler touches no Db
+ok 8 - B21 exception: with the anonymous route ON, every other registered route still answers 401 with no token, and the main handler touches no Db
+  ---
+  duration_ms: 14.1413
+  type: 'test'
+  ...
+# Subtest: B21 exception: the anonymous route ignores identity - a valid-looking Authorization header changes nothing and no tenant or student id is read
+ok 9 - B21 exception: the anonymous route ignores identity - a valid-looking Authorization header changes nothing and no tenant or student id is read
+  ---
+  duration_ms: 61.8008
+  type: 'test'
+  ...
+# Subtest: startApi: flag off -> the anonymous path is a 404 over real HTTP and no gate file is read
+ok 10 - startApi: flag off -> the anonymous path is a 404 over real HTTP and no gate file is read
+  ---
+  duration_ms: 59.11
+  type: 'test'
+  ...
+# Subtest: startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo
+ok 11 - startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo
+  ---
+  duration_ms: 6.7654
+  type: 'test'
+  ...
+# Subtest: startApi: flag on without a KB or speakers supplied is a config error, before connecting
+ok 12 - startApi: flag on without a KB or speakers supplied is a config error, before connecting
+  ---
+  duration_ms: 7.5654
+  type: 'test'
+  ...
+# Subtest: startApi: flag on and gate open -> a real HTTP POST is answered and ONLY the text-free counter is written to virtual_counsellor; other routes still 401
+ok 13 - startApi: flag on and gate open -> a real HTTP POST is answered and ONLY the text-free counter is written to virtual_counsellor; other routes still 401
+  ---
+  duration_ms: 100.8666
+  type: 'test'
+  ...
+# Subtest: the node:http adapter hands the socket address to the limiter (10 per minute per real client)
+ok 14 - the node:http adapter hands the socket address to the limiter (10 per minute per real client)
+  ---
+  duration_ms: 261.7759
+  type: 'test'
+  ...
+# Subtest: U7 repair 2: with the flag on, startApi refuses to start unless the deployment states how clients are told apart - an explicit clientKey or trustSocketAddress: true
+ok 15 - U7 repair 2: with the flag on, startApi refuses to start unless the deployment states how clients are told apart - an explicit clientKey or trustSocketAddress: true
+  ---
+  duration_ms: 47.5136
+  type: 'test'
+  ...
+# Subtest: U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 the route can return, and the AnonymousError schema carries the helpline field
+ok 16 - U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 the route can return, and the AnonymousError schema carries the helpline field
+  ---
+  duration_ms: 0.6376
+  type: 'test'
+  ...
+# Subtest: A16b: the profile shows the Pathlynks-supplied facts as in use and nothing else when the student has said nothing storable
+ok 17 - A16b: the profile shows the Pathlynks-supplied facts as in use and nothing else when the student has said nothing storable
+  ---
+  duration_ms: 36.8156
+  type: 'test'
+  ...
+# Subtest: A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it
+ok 18 - A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it
+  ---
+  duration_ms: 180.4684
+  type: 'test'
+  ...
+# Subtest: A16b: a student corrects a wrongly heard fact (the corrected value is redacted and confirmed) and erases another
+ok 19 - A16b: a student corrects a wrongly heard fact (the corrected value is redacted and confirmed) and erases another
+  ---
+  duration_ms: 74.3461
+  type: 'test'
+  ...
+# Subtest: A16b: a decision on a fact that does not exist, or on another student's fact, is 404; a bad decision body is 400
+ok 20 - A16b: a decision on a fact that does not exist, or on another student's fact, is 404; a bad decision body is 400
+  ---
+  duration_ms: 48.8999
+  type: 'test'
+  ...
+# Subtest: D-093 4A: for an under-18 student without consent nothing is extracted or proposed, so no fact row is created
+ok 21 - D-093 4A: for an under-18 student without consent nothing is extracted or proposed, so no fact row is created
+  ---
+  duration_ms: 35.248
+  type: 'test'
+  ...
+# Subtest: a Pathlynks profile outage is a 503 profile_unavailable (never an empty profile that hides what is in use), with no cause in the body
+ok 22 - a Pathlynks profile outage is a 503 profile_unavailable (never an empty profile that hides what is in use), with no cause in the body
+  ---
+  duration_ms: 25.2245
+  type: 'test'
+  ...
+# Subtest: startApi: flag off -> a chat path answers exactly like an unknown /v1 path over real HTTP, and no gate file is read
+ok 23 - startApi: flag off -> a chat path answers exactly like an unknown /v1 path over real HTTP, and no gate file is read
+  ---
+  duration_ms: 66.4079
+  type: 'test'
+  ...
+# Subtest: startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo
+ok 24 - startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo
+  ---
+  duration_ms: 12.4067
+  type: 'test'
+  ...
+# Subtest: startApi: flag on with the gate open but no student JWT configuration is a config error before connecting (no silent fall-back to the counsellor key)
+ok 25 - startApi: flag on with the gate open but no student JWT configuration is a config error before connecting (no silent fall-back to the counsellor key)
+  ---
+  duration_ms: 18.5302
+  type: 'test'
+  ...
+# Subtest: startApi: flag on and gate open -> a student creates a thread and asks a question over real HTTP; the rows land in virtual_counsellor under the student's tenant; a counsellor-key token is refused
+ok 26 - startApi: flag on and gate open -> a student creates a thread and asks a question over real HTTP; the rows land in virtual_counsellor under the student's tenant; a counsellor-key token is refused
+  ---
+  duration_ms: 99.3881
+  type: 'test'
+  ...
+# Subtest: apiStatus reports the T-025 HTTP API (opt-in)
+ok 27 - apiStatus reports the T-025 HTTP API (opt-in)
+  ---
+  duration_ms: 1.7076
+  type: 'test'
+  ...
+# Subtest: T-014/ISS-t-011-c3-rev-3: startApi connects via connectFromEnv (B12: virtual_counsellor only) and wires the erasure-fence sweep so a scheduled tick actually releases an expired fence
+ok 28 - T-014/ISS-t-011-c3-rev-3: startApi connects via connectFromEnv (B12: virtual_counsellor only) and wires the erasure-fence sweep so a scheduled tick actually releases an expired fence
+  ---
+  duration_ms: 20.1753
+  type: 'test'
+  ...
+# Subtest: T-015/ISS-t-014-rev-2: startApi's default onError logs a structured JSON line naming the failure, instead of discarding it
+ok 29 - T-015/ISS-t-014-rev-2: startApi's default onError logs a structured JSON line naming the failure, instead of discarding it
+  ---
+  duration_ms: 4.4871
+  type: 'test'
+  ...
+# Subtest: ISS-t-015-c0-1: a Mongo-shaped error whose message embeds a value does not survive in the logged line
+ok 30 - ISS-t-015-c0-1: a Mongo-shaped error whose message embeds a value does not survive in the logged line
+  ---
+  duration_ms: 3.7418
+  type: 'test'
+  ...
+# Subtest: T-015/ISS-t-014-rev-2: a caller-supplied onError still wins over the default (not double-logged)
+ok 31 - T-015/ISS-t-014-rev-2: a caller-supplied onError still wins over the default (not double-logged)
+  ---
+  duration_ms: 2.7926
+  type: 'test'
+  ...
+# Subtest: T-015/ISS-t-014-rev-3: startApi closes the client and rethrows when starting the sweep fails after connect
+ok 32 - T-015/ISS-t-014-rev-3: startApi closes the client and rethrows when starting the sweep fails after connect
+  ---
+  duration_ms: 1.1515
+  type: 'test'
+  ...
+# Subtest: ISS-t-015-c0-2: when close() throws too, the ORIGINAL error is preserved (not discarded), with the close failure attached
+ok 33 - ISS-t-015-c0-2: when close() throws too, the ORIGINAL error is preserved (not discarded), with the close failure attached
+  ---
+  duration_ms: 0.5603
+  type: 'test'
+  ...
+# Subtest: T-015/ISS-t-014-rev-3 (regression): a SUCCESSFUL startApi does not close the client until stop() is called
+ok 34 - T-015/ISS-t-014-rev-3 (regression): a SUCCESSFUL startApi does not close the client until stop() is called
+  ---
+  duration_ms: 0.4845
+  type: 'test'
+  ...
+# Subtest: T-025 api: every auth failure on every protected route is the same 401, and no Db or graph is touched
+ok 35 - T-025 api: every auth failure on every protected route is the same 401, and no Db or graph is touched
+  ---
+  duration_ms: 263.34
+  type: 'test'
+  ...
+# Subtest: T-025 api: a role outside a route's roles is 403 before any Db access; unknown paths 404; wrong method 405 + Allow
+ok 36 - T-025 api: a role outside a route's roles is 403 before any Db access; unknown paths 404; wrong method 405 + Allow
+  ---
+  duration_ms: 13.2179
+  type: 'test'
+  ...
+# Subtest: T-025 api: bad ids, bad JSON and bad bodies are 400 before any Db access, with issue paths but no values
+ok 37 - T-025 api: bad ids, bad JSON and bad bodies are 400 before any Db access, with issue paths but no values
+  ---
+  duration_ms: 10.6323
+  type: 'test'
+  ...
+# Subtest: T-025 api: scribe start -> approval diff -> approve -> profile, with every stored document stamped with the token's tenant
+ok 38 - T-025 api: scribe start -> approval diff -> approve -> profile, with every stored document stamped with the token's tenant
+  ---
+  duration_ms: 109.1421
+  type: 'test'
+  ...
+# Subtest: T-034 api: decideApproval enqueues one fact.approved webhook event per DURABLY WRITTEN fact (read back via getFactsByIds, not re-derived from the response), carrying B2 provenance
+ok 39 - T-034 api: decideApproval enqueues one fact.approved webhook event per DURABLY WRITTEN fact (read back via getFactsByIds, not re-derived from the response), carrying B2 provenance
+  ---
+  duration_ms: 87.5495
+  type: 'test'
+  ...
+# Subtest: T-034 api: with no webhooks configured, an approve decision writes facts exactly as before and enqueues nothing (the emission hook is a pure no-op)
+ok 40 - T-034 api: with no webhooks configured, an approve decision writes facts exactly as before and enqueues nothing (the emission hook is a pure no-op)
+  ---
+  duration_ms: 77.9763
+  type: 'test'
+  ...
+# Subtest: T-034 api: a webhook enqueue failure is logged (webhook_enqueue_failed) but never turns an already-successful approval into an error response
+ok 41 - T-034 api: a webhook enqueue failure is logged (webhook_enqueue_failed) but never turns an already-successful approval into an error response
+  ---
+  duration_ms: 95.3556
+  type: 'test'
+  ...
+# Subtest: T-042 api (ISS-085 leak 1): a short read-back NOT explained by an erasure fence is alerted and recorded as a recoverable gap; the facts that WERE found still emit their events
+ok 42 - T-042 api (ISS-085 leak 1): a short read-back NOT explained by an erasure fence is alerted and recorded as a recoverable gap; the facts that WERE found still emit their events
+  ---
+  duration_ms: 98.1649
+  type: 'test'
+  ...
+# Subtest: T-042 api (ISS-085 leak 1, erasure interaction): the SAME short read-back, explained by a concurrent B15 erasure fence that lands AFTER the write, is never alerted or recorded
+ok 43 - T-042 api (ISS-085 leak 1, erasure interaction): the SAME short read-back, explained by a concurrent B15 erasure fence that lands AFTER the write, is never alerted or recorded
+  ---
+  duration_ms: 71.6437
+  type: 'test'
+  ...
+# Subtest: T-042 api (ISS-090): a genuine read-back gap whose fence check itself throws is still a 200 (the write already succeeded), alerted twice (the fence-check failure AND the now-unexplained gap) and recorded -- never a 500
+ok 44 - T-042 api (ISS-090): a genuine read-back gap whose fence check itself throws is still a 200 (the write already succeeded), alerted twice (the fence-check failure AND the now-unexplained gap) and recorded -- never a 500
+  ---
+  duration_ms: 71.6309
+  type: 'test'
+  ...
+# Subtest: T-042 api (ISS-085 leak 2): an enqueue failure records a recoverable gap entry carrying the fully built event, so it can be replayed without rebuilding it
+ok 45 - T-042 api (ISS-085 leak 2): an enqueue failure records a recoverable gap entry carrying the fully built event, so it can be replayed without rebuilding it
+  ---
+  duration_ms: 69.7498
+  type: 'test'
+  ...
+# Subtest: T-025 api: another tenant sees tenant A's student exactly as a student that never existed, and changes nothing of A's
+ok 46 - T-025 api: another tenant sees tenant A's student exactly as a student that never existed, and changes nothing of A's
+  ---
+  duration_ms: 69.6791
+  type: 'test'
+  ...
+# {"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+# {"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+# Subtest: T-025 api (T-022 merge): concern_flagged edges are stamped with the token's tenant, the same student/session in two tenants coexist, and A's erasure deletes only A's
+ok 47 - T-025 api (T-022 merge): concern_flagged edges are stamped with the token's tenant, the same student/session in two tenants coexist, and A's erasure deletes only A's
+  ---
+  duration_ms: 140.783
+  type: 'test'
+  ...
+# Subtest: T-034 api: the first erasure confirmation enqueues one erasure.requested webhook event, carrying the request's own reason/requestedAt (read back via getErasureRequest, the last point studentId is still clear)
+ok 48 - T-034 api: the first erasure confirmation enqueues one erasure.requested webhook event, carrying the request's own reason/requestedAt (read back via getErasureRequest, the last point studentId is still clear)
+  ---
+  duration_ms: 78.5602
+  type: 'test'
+  ...
+# Subtest: T-029 api: request -> confirm -> reconfirm (token) -> approver approves -> purged; no single call purges; self-approval, a wrong token and student-as-actor are refused
+ok 49 - T-029 api: request -> confirm -> reconfirm (token) -> approver approves -> purged; no single call purges; self-approval, a wrong token and student-as-actor are refused
+  ---
+  duration_ms: 59.8551
+  type: 'test'
+  ...
+# Subtest: T-029 api: the approver REJECTS -> 200 rejected, nothing purged; a later approve / execute is refused
+ok 50 - T-029 api: the approver REJECTS -> 200 rejected, nothing purged; a later approve / execute is refused
+  ---
+  duration_ms: 56.8573
+  type: 'test'
+  ...
+# Subtest: T-029 api: autoDelete=true -> the reconfirm itself purges (200, autoDeleted); an unconfigured workflow is 503 erasure_not_configured and writes nothing
+ok 51 - T-029 api: autoDelete=true -> the reconfirm itself purges (200, autoDeleted); an unconfigured workflow is 503 erasure_not_configured and writes nothing
+  ---
+  duration_ms: 138.1967
+  type: 'test'
+  ...
+# Subtest: T-025 api: an unexpected error is a 500 with a fixed body, logged by error label only
+ok 52 - T-025 api: an unexpected error is a 500 with a fixed body, logged by error label only
+  ---
+  duration_ms: 2.8766
+  type: 'test'
+  ...
+# Subtest: T-025 api: a consent-less profile read is 403 consent_required
+ok 53 - T-025 api: a consent-less profile read is 403 consent_required
+  ---
+  duration_ms: 2.3521
+  type: 'test'
+  ...
+# Subtest: T-025 api: the OpenAPI document is public and matches the route table (method, path, roles) in both directions
+ok 54 - T-025 api: the OpenAPI document is public and matches the route table (method, path, roles) in both directions
+  ---
+  duration_ms: 1.5143
+  type: 'test'
+  ...
+# Subtest: T-025 api: the node:http adapter serves on loopback, answers 401 and refuses a body over 1 MiB with 413
+ok 55 - T-025 api: the node:http adapter serves on loopback, answers 401 and refuses a body over 1 MiB with 413
+  ---
+  duration_ms: 72.7428
+  type: 'test'
+  ...
+# Subtest: T-025 api: startApi serves HTTP only when asked, on virtual_counsellor only, and stop() closes the server
+ok 56 - T-025 api: startApi serves HTTP only when asked, on virtual_counsellor only, and stop() closes the server
+  ---
+  duration_ms: 29.7183
+  type: 'test'
+  ...
+# Subtest: T-025 api: startApi with http refuses a missing JWT configuration before connecting
+ok 57 - T-025 api: startApi with http refuses a missing JWT configuration before connecting
+  ---
+  duration_ms: 1.0468
+  type: 'test'
+  ...
+# Subtest: T046 verified JWT edit provenance is identical in raw KG API profile and approved webhook
+ok 58 - T046 verified JWT edit provenance is identical in raw KG API profile and approved webhook
+  ---
+  duration_ms: 80.1332
+  type: 'test'
+  ...
+# Subtest: T046 forged body actor time and nested provenance refuse before actual claim or write
+ok 59 - T046 forged body actor time and nested provenance refuse before actual claim or write
+  ---
+  duration_ms: 40.9728
+  type: 'test'
+  ...
+# Subtest: T047 signed JWT ordinary no-consent start leaves every personal collection empty
+ok 60 - T047 signed JWT ordinary no-consent start leaves every personal collection empty
+  ---
+  duration_ms: 6.8364
+  type: 'test'
+  ...
+# {"event":"escalation_unrouted","escalationId":"session-synthetic-1:t1","sessionId":"session-synthetic-1"}
+# {"event":"escalation_unrouted","escalationId":"session-synthetic-1:t1","sessionId":"session-synthetic-1"}
+# Subtest: T047 signed JWT same IDs in two tenants produce only minimal unrouted record-only crisis flags
+ok 61 - T047 signed JWT same IDs in two tenants produce only minimal unrouted record-only crisis flags
+  ---
+  duration_ms: 14.7097
+  type: 'test'
+  ...
+# Subtest: T047 actual startup trusted recipient factory binds signed JWT tenant and replay keeps raw minimal records
+ok 62 - T047 actual startup trusted recipient factory binds signed JWT tenant and replay keeps raw minimal records
+  ---
+  duration_ms: 34.4261
+  type: 'test'
+  ...
+# {"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+# {"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+# Subtest: ISS-t-034-concern-hook api: a recorded session concern enqueues exactly one concern.flagged event (no quote, tenant-stamped); a replay enqueues nothing more
+ok 63 - ISS-t-034-concern-hook api: a recorded session concern enqueues exactly one concern.flagged event (no quote, tenant-stamped); a replay enqueues nothing more
+  ---
+  duration_ms: 96.8711
+  type: 'test'
+  ...
+# Subtest: ISS-t-034-concern-hook api: a session with no concern, or one the consent gate refuses, enqueues no concern.flagged event
+ok 64 - ISS-t-034-concern-hook api: a session with no concern, or one the consent gate refuses, enqueues no concern.flagged event
+  ---
+  duration_ms: 75.8397
+  type: 'test'
+  ...
+# {"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+# Subtest: ISS-t-034-concern-hook api: concern events go to the verified tenant's own outbox only
+ok 65 - ISS-t-034-concern-hook api: concern events go to the verified tenant's own outbox only
+  ---
+  duration_ms: 50.056
+  type: 'test'
+  ...
+# {"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+# {"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+# Subtest: ISS-t-034-concern-hook api: with no webhooks configured a concern session runs exactly as before, and an enqueue failure is logged but never fails the start
+ok 66 - ISS-t-034-concern-hook api: with no webhooks configured a concern session runs exactly as before, and an enqueue failure is logged but never fails the start
+  ---
+  duration_ms: 91.919
+  type: 'test'
+  ...
+# {"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+# Subtest: ISS-t-034-concern-hook api: a concern read-back that throws is logged (webhook_readback_failed) and recorded as a recoverable gap, and the start still answers 200
+ok 67 - ISS-t-034-concern-hook api: a concern read-back that throws is logged (webhook_readback_failed) and recorded as a recoverable gap, and the start still answers 200
+  ---
+  duration_ms: 52.759
+  type: 'test'
+  ...
+# {"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+# Subtest: ISS-t-034-concern-hook api: a fenced student's start announces nothing, even when concern edges from an earlier run are still stored
+ok 68 - ISS-t-034-concern-hook api: a fenced student's start announces nothing, even when concern edges from an earlier run are still stored
+  ---
+  duration_ms: 63.3211
+  type: 'test'
+  ...
+# Subtest: the draft is a separate OpenAPI 3.1 document marked not enabled
+ok 69 - the draft is a separate OpenAPI 3.1 document marked not enabled
+  ---
+  duration_ms: 1.8119
+  type: 'test'
+  ...
+# Subtest: U5a: no draft path is in the served document or the route table (routes are not implemented or enabled)
+ok 70 - U5a: no draft path is in the served document or the route table (routes are not implemented or enabled)
+  ---
+  duration_ms: 0.4787
+  type: 'test'
+  ...
+# Subtest: the draft covers chat, voice-session, anonymous, profile and fact-confirm with the expected roles
+ok 71 - the draft covers chat, voice-session, anonymous, profile and fact-confirm with the expected roles
+  ---
+  duration_ms: 1.4404
+  type: 'test'
+  ...
+# Subtest: turn and voice-session and anonymous routes document 429 with Retry-After (A23)
+ok 72 - turn and voice-session and anonymous routes document 429 with Retry-After (A23)
+  ---
+  duration_ms: 0.2575
+  type: 'test'
+  ...
+# Subtest: component schemas match the Zod shapes (names, required, strictness)
+ok 73 - component schemas match the Zod shapes (names, required, strictness)
+  ---
+  duration_ms: 4.0131
+  type: 'test'
+  ...
+# Subtest: enums in the draft are the exact Zod values (claim status, kind, state, source kind, fact source)
+ok 74 - enums in the draft are the exact Zod values (claim status, kind, state, source kind, fact source)
+  ---
+  duration_ms: 0.415
+  type: 'test'
+  ...
+# Subtest: limits and audio defaults are published as the D-088 numbers
+ok 75 - limits and audio defaults are published as the D-088 numbers
+  ---
+  duration_ms: 0.2702
+  type: 'test'
+  ...
+# Subtest: WebSocket events: every Zod event type is documented with matching fields, client and server
+ok 76 - WebSocket events: every Zod event type is documented with matching fields, client and server
+  ---
+  duration_ms: 1.3973
+  type: 'test'
+  ...
+# Subtest: every $ref in the draft resolves and the document is plain JSON
+ok 77 - every $ref in the draft resolves and the document is plain JSON
+  ---
+  duration_ms: 2.1716
+  type: 'test'
+  ...
+# Subtest: the draft carries no tenant or student identity in any request body (identity is the JWT)
+ok 78 - the draft carries no tenant or student identity in any request body (identity is the JWT)
+  ---
+  duration_ms: 0.4359
+  type: 'test'
+  ...
+1..78
+# tests 78
+# suites 0
+# pass 78
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5306.6833

@@ -1,0 +1,618 @@
+[testlock] running slot 0 (free RAM 4.46 GB): pnpm -C D:/vc/.worktrees/p1-u10w/packages/db exec tsx --test --test-reporter=tap tests/chat-threads.test.ts tests/erasure.test.ts tests/erasure-approver.test.ts
+TAP version 13
+# Subtest: a student opening the chat gets a thread owned by them; another student cannot read it
+ok 1 - a student opening the chat gets a thread owned by them; another student cannot read it
+  ---
+  duration_ms: 11.3664
+  type: 'test'
+  ...
+# Subtest: a chat-store call on an unscoped Db is refused (tenant isolation fails closed)
+ok 2 - a chat-store call on an unscoped Db is refused (tenant isolation fails closed)
+  ---
+  duration_ms: 1.949
+  type: 'test'
+  ...
+# Subtest: a first turn is claimed, completed, and a retry with the same turn id replays the stored answer without a second claim
+ok 3 - a first turn is claimed, completed, and a retry with the same turn id replays the stored answer without a second claim
+  ---
+  duration_ms: 19.4082
+  type: 'test'
+  ...
+# Subtest: a retry that arrives while the first attempt is still running is told it is in progress, not run twice
+ok 4 - a retry that arrives while the first attempt is still running is told it is in progress, not run twice
+  ---
+  duration_ms: 1.8914
+  type: 'test'
+  ...
+# Subtest: a retry after the first attempt crashed past its lease takes the claim over; the dead holder can no longer complete
+ok 5 - a retry after the first attempt crashed past its lease takes the claim over; the dead holder can no longer complete
+  ---
+  duration_ms: 3.7673
+  type: 'test'
+  ...
+# Subtest: the same turn id sent again with different text is a conflict, not a silent replay of the old answer
+ok 6 - the same turn id sent again with different text is a conflict, not a silent replay of the old answer
+  ---
+  duration_ms: 2.1105
+  type: 'test'
+  ...
+# Subtest: when the model call fails the claim is abandoned so the student's retry runs again
+ok 7 - when the model call fails the claim is abandoned so the student's retry runs again
+  ---
+  duration_ms: 2.6755
+  type: 'test'
+  ...
+# Subtest: a voice turn and a text turn land in one history in time order (A19)
+ok 8 - a voice turn and a text turn land in one history in time order (A19)
+  ---
+  duration_ms: 2.9513
+  type: 'test'
+  ...
+# Subtest: two tenants using the same student, thread and turn ids never see or collide with each other's chat (A6)
+ok 9 - two tenants using the same student, thread and turn ids never see or collide with each other's chat (A6)
+  ---
+  duration_ms: 1.5205
+  type: 'test'
+  ...
+# Subtest: a student under erasure gets no new thread and no new turn, and a fence that appears mid-write undoes the write
+ok 10 - a student under erasure gets no new thread and no new turn, and a fence that appears mid-write undoes the write
+  ---
+  duration_ms: 5.2783
+  type: 'test'
+  ...
+# Subtest: an under-18 thread without guardian consent is a text-free marker; marking an existing thread keeps its ids and flips textStored
+ok 11 - an under-18 thread without guardian consent is a text-free marker; marking an existing thread keeps its ids and flips textStored
+  ---
+  duration_ms: 1.1448
+  type: 'test'
+  ...
+# Subtest: usage counters add up per student per month and stay inside the tenant
+ok 12 - usage counters add up per student per month and stay inside the tenant
+  ---
+  duration_ms: 1.1813
+  type: 'test'
+  ...
+# Subtest: U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time
+ok 13 - U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time
+  ---
+  duration_ms: 2.1011
+  type: 'test'
+  ...
+# Subtest: U10: appendVoiceTurn is idempotent on (thread, turn, role): a replay changes neither the text nor the row count
+ok 14 - U10: appendVoiceTurn is idempotent on (thread, turn, role): a replay changes neither the text nor the row count
+  ---
+  duration_ms: 0.787
+  type: 'test'
+  ...
+# Subtest: U10: appendVoiceTurn refuses a thread that is not the student's, bad input, and an unscoped Db
+ok 15 - U10: appendVoiceTurn refuses a thread that is not the student's, bad input, and an unscoped Db
+  ---
+  duration_ms: 0.926
+  type: 'test'
+  ...
+# Subtest: U10: a student under erasure gets no voice row, and a fence that appears mid-write undoes it
+ok 16 - U10: a student under erasure gets no voice row, and a fence that appears mid-write undoes it
+  ---
+  duration_ms: 2.2096
+  type: 'test'
+  ...
+# Subtest: U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row
+ok 17 - U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row
+  ---
+  duration_ms: 3.1423
+  type: 'test'
+  ...
+# Subtest: SC-028 T029-A1: request alone and ONE confirmation purge nothing (every student collection byte-identical, both tenants)
+ok 18 - SC-028 T029-A1: request alone and ONE confirmation purge nothing (every student collection byte-identical, both tenants)
+  ---
+  duration_ms: 40.8559
+  type: 'test'
+  ...
+# Subtest: SC-029 T029-A2: two confirmations with no approver purge nothing; the approval request is in the outbox (no studentId), addressed to the configured approver
+ok 19 - SC-029 T029-A2: two confirmations with no approver purge nothing; the approval request is in the outbox (no studentId), addressed to the configured approver
+  ---
+  duration_ms: 5.5628
+  type: 'test'
+  ...
+# Subtest: SC-030 T029-A3: after the approver approves, the purge runs: read-back ZERO for the student in every collection (session_transcripts, concern_flagged edges included); tenant B's same studentId untouched; HMAC receipt row
+ok 20 - SC-030 T029-A3: after the approver approves, the purge runs: read-back ZERO for the student in every collection (session_transcripts, concern_flagged edges included); tenant B's same studentId untouched; HMAC receipt row
+  ---
+  duration_ms: 10.0953
+  type: 'test'
+  ...
+# Subtest: T029-A6: 50k-candidate dictionary recovery of the audit pseudonym FAILS without the key (sha256 over the same input, the old v1 scheme, an empty key and guessed keys all miss); with the key it finds exactly the real id
+ok 21 - T029-A6: 50k-candidate dictionary recovery of the audit pseudonym FAILS without the key (sha256 over the same input, the old v1 scheme, an empty key and guessed keys all miss); with the key it finds exactly the real id
+  ---
+  duration_ms: 1419.5066
+  type: 'test'
+  ...
+# Subtest: SC-031 T029-A4: autoDelete=true skips the approver after the double confirmation (no outbox record) and the purge completes; the default is false
+ok 22 - SC-031 T029-A4: autoDelete=true skips the approver after the double confirmation (no outbox record) and the purge completes; the default is false
+  ---
+  duration_ms: 6.4855
+  type: 'test'
+  ...
+# Subtest: T029-A7: a missing / short VC_AUDIT_HMAC_KEY, a bad autoDelete value or a missing approver address is ErasureConfigError; the reconfirm then writes NOTHING (no unkeyed fallback)
+ok 23 - T029-A7: a missing / short VC_AUDIT_HMAC_KEY, a bad autoDelete value or a missing approver address is ErasureConfigError; the reconfirm then writes NOTHING (no unkeyed fallback)
+  ---
+  duration_ms: 3.9614
+  type: 'test'
+  ...
+# Subtest: T029-A8: the second confirmation needs the first confirmer AND their unused token; wrong / other actor / reused tokens change nothing; an expired token closes the request as expired, purging nothing
+ok 24 - T029-A8: the second confirmation needs the first confirmer AND their unused token; wrong / other actor / reused tokens change nothing; an expired token closes the request as expired, purging nothing
+  ---
+  duration_ms: 12.4986
+  type: 'test'
+  ...
+# Subtest: T029-A9: the approver REJECTS -> nothing purged, the request can never execute or be approved, the fence is released at once (writes work again)
+ok 25 - T029-A9: the approver REJECTS -> nothing purged, the request can never execute or be approved, the fence is released at once (writes work again)
+  ---
+  duration_ms: 6.3847
+  type: 'test'
+  ...
+# Subtest: T029-A10: an approval request that expires unanswered purges nothing: approve after expiry is ErasureExpiredError; the sweep (with the key) closes an abandoned one and drops its fence, without the key it keeps it
+ok 26 - T029-A10: an approval request that expires unanswered purges nothing: approve after expiry is ErasureExpiredError; the sweep (with the key) closes an abandoned one and drops its fence, without the key it keeps it
+  ---
+  duration_ms: 6.903
+  type: 'test'
+  ...
+# Subtest: SC-033 T029-A5: writes are refused from the FIRST confirmation, through the approval wait, until completion + 24h; after the hold re-enrolment works
+ok 27 - SC-033 T029-A5: writes are refused from the FIRST confirmation, through the approval wait, until completion + 24h; after the hold re-enrolment works
+  ---
+  duration_ms: 9.1394
+  type: 'test'
+  ...
+# Subtest: T029-A12: rejecting a NEW request inside an earlier completion's 24h grace never ends that grace early (priorReleaseAfter)
+ok 28 - T029-A12: rejecting a NEW request inside an earlier completion's 24h grace never ends that grace early (priorReleaseAfter)
+  ---
+  duration_ms: 5.5443
+  type: 'test'
+  ...
+# Subtest: T029-A13: the sweep never removes a fence while the student has a request AWAITING APPROVAL, even a fence row past its release time (planted: the fence still names an earlier completed request)
+ok 29 - T029-A13: the sweep never removes a fence while the student has a request AWAITING APPROVAL, even a fence row past its release time (planted: the fence still names an earlier completed request)
+  ---
+  duration_ms: 5.5969
+  type: 'test'
+  ...
+# Subtest: T029-A11: the outbox is a record only: erasure.ts imports no network / SMTP module and makes no fetch call
+ok 30 - T029-A11: the outbox is a record only: erasure.ts imports no network / SMTP module and makes no fetch call
+  ---
+  duration_ms: 3.2961
+  type: 'test'
+  ...
+# Subtest: fixture: student A has retired AND active facts, edges, claims, checkpoints and checkpoint writes
+ok 31 - fixture: student A has retired AND active facts, edges, claims, checkpoints and checkpoint writes
+  ---
+  duration_ms: 20.3015
+  type: 'test'
+  ...
+# Subtest: B15: an unconfirmed request deletes NOTHING (every collection byte-identical)
+ok 32 - B15: an unconfirmed request deletes NOTHING (every collection byte-identical)
+  ---
+  duration_ms: 7.2953
+  type: 'test'
+  ...
+# Subtest: B15/T-029: a self-approval (requester or confirmer, incl. case/whitespace variants) is refused and the request stays unexecutable
+ok 33 - B15/T-029: a self-approval (requester or confirmer, incl. case/whitespace variants) is refused and the request stays unexecutable
+  ---
+  duration_ms: 9.7638
+  type: 'test'
+  ...
+# Subtest: B15: confirm records requester, confirmer and times in the audit row; a second confirm is refused
+ok 34 - B15: confirm records requester, confirmer and times in the audit row; a second confirm is refused
+  ---
+  duration_ms: 5.6195
+  type: 'test'
+  ...
+# Subtest: B15: request validation — free-text reason, the student as actor, blank actors, unknown ids are refused
+ok 35 - B15: request validation — free-text reason, the student as actor, blank actors, unknown ids are refused
+  ---
+  duration_ms: 7.4728
+  type: 'test'
+  ...
+# Subtest: B15: the full purge leaves ZERO documents for the student in every collection (retired facts, edges, claims, checkpoints)
+ok 36 - B15: the full purge leaves ZERO documents for the student in every collection (retired facts, edges, claims, checkpoints)
+  ---
+  duration_ms: 11.8946
+  type: 'test'
+  ...
+# Subtest: T-034/B15: a queued webhook_outbox event that names the student (event.data.studentId) is purged by the full erasure -- a sibling student's queued event is untouched
+ok 37 - T-034/B15: a queued webhook_outbox event that names the student (event.data.studentId) is purged by the full erasure -- a sibling student's queued event is untouched
+  ---
+  duration_ms: 7.6332
+  type: 'test'
+  ...
+# Subtest: T-042/B15: a queued webhook_emit_gaps row naming the student (flat studentId) is purged by the full erasure -- a sibling student's row is untouched
+ok 38 - T-042/B15: a queued webhook_emit_gaps row naming the student (flat studentId) is purged by the full erasure -- a sibling student's row is untouched
+  ---
+  duration_ms: 8.6804
+  type: 'test'
+  ...
+# Subtest: B15: the receipt counts match what was actually there (read back, per collection)
+ok 39 - B15: the receipt counts match what was actually there (read back, per collection)
+  ---
+  duration_ms: 7.671
+  type: 'test'
+  ...
+# Subtest: ISS-t-014-rev-1: ERASURE_PURGE_OP_TIMEOUT_MS is larger than the client-level default (D-016's fence margin)
+ok 40 - ISS-t-014-rev-1: ERASURE_PURGE_OP_TIMEOUT_MS is larger than the client-level default (D-016's fence margin)
+  ---
+  duration_ms: 0.398
+  type: 'test'
+  ...
+# Subtest: ISS-t-014-rev-1: every executeErasure deleteMany/countDocuments call REALLY CARRIES {timeoutMS: ERASURE_PURGE_OP_TIMEOUT_MS} (the fake records the options it received)
+ok 41 - ISS-t-014-rev-1: every executeErasure deleteMany/countDocuments call REALLY CARRIES {timeoutMS: ERASURE_PURGE_OP_TIMEOUT_MS} (the fake records the options it received)
+  ---
+  duration_ms: 10.6547
+  type: 'test'
+  ...
+# Subtest: B15: ANOTHER student's data is untouched, byte for byte
+ok 42 - B15: ANOTHER student's data is untouched, byte for byte
+  ---
+  duration_ms: 8.271
+  type: 'test'
+  ...
+# Subtest: B15: an unrelated global edge (kb_record -> kb_record) survives
+ok 43 - B15: an unrelated global edge (kb_record -> kb_record) survives
+  ---
+  duration_ms: 5.0943
+  type: 'test'
+  ...
+# Subtest: B15: the receipt and the surviving audit row carry NO personal data (searched for every identifier)
+ok 44 - B15: the receipt and the surviving audit row carry NO personal data (searched for every identifier)
+  ---
+  duration_ms: 8.8146
+  type: 'test'
+  ...
+# Subtest: B15: the audit hash is salted per request (two requests for one student do not share a hash)
+ok 45 - B15: the audit hash is salted per request (two requests for one student do not share a hash)
+  ---
+  duration_ms: 4.5836
+  type: 'test'
+  ...
+# Subtest: B15: a deleteMany failure on edges is REPORTED (thrown with a receipt), anchors are deferred, and the retry completes
+ok 46 - B15: a deleteMany failure on edges is REPORTED (thrown with a receipt), anchors are deferred, and the retry completes
+  ---
+  duration_ms: 9.111
+  type: 'test'
+  ...
+# Subtest: B15: a failure on an anchor collection (sessions) is reported and the retry still finds every dependent
+ok 47 - B15: a failure on an anchor collection (sessions) is reported and the retry still finds every dependent
+  ---
+  duration_ms: 8.676
+  type: 'test'
+  ...
+# Subtest: B15: the verification pass catches a delete that reports success but leaves documents
+ok 48 - B15: the verification pass catches a delete that reports success but leaves documents
+  ---
+  duration_ms: 8.7753
+  type: 'test'
+  ...
+# Subtest: B15: every COLLECTION_NAMES entry is in ERASURE_PLAN or explicitly exempt with a reason (a new cards/feedback collection can not be missed)
+ok 49 - B15: every COLLECTION_NAMES entry is in ERASURE_PLAN or explicitly exempt with a reason (a new cards/feedback collection can not be missed)
+  ---
+  duration_ms: 0.475
+  type: 'test'
+  ...
+# Subtest: B15 drift guard: checkpoint collection names and the scribe thread-id format match packages/engine
+ok 50 - B15 drift guard: checkpoint collection names and the scribe thread-id format match packages/engine
+  ---
+  duration_ms: 5.9808
+  type: 'test'
+  ...
+# Subtest: B15 export: the bundle holds all of A's facts (with history), sessions, decisions, consents, edges and claims, and nothing of B
+ok 51 - B15 export: the bundle holds all of A's facts (with history), sessions, decisions, consents, edges and claims, and nothing of B
+  ---
+  duration_ms: 23.5475
+  type: 'test'
+  ...
+# Subtest: ISS-t-013r-c0-3: exportStudent includes the full transcript VERBATIM (every turn, text + translation), and none of B's
+ok 52 - ISS-t-013r-c0-3: exportStudent includes the full transcript VERBATIM (every turn, text + translation), and none of B's
+  ---
+  duration_ms: 5.2066
+  type: 'test'
+  ...
+# Subtest: ISS-t-013r-c0-3: erasure hard-deletes A's transcript with read-back ZERO, and B's transcript is untouched
+ok 53 - ISS-t-013r-c0-3: erasure hard-deletes A's transcript with read-back ZERO, and B's transcript is untouched
+  ---
+  duration_ms: 10.4339
+  type: 'test'
+  ...
+# Subtest: ISS-t-013r-c0-3: the counsellor reads a session's chat back verbatim, in speaking order, scoped to the student
+ok 54 - ISS-t-013r-c0-3: the counsellor reads a session's chat back verbatim, in speaking order, scoped to the student
+  ---
+  duration_ms: 5.5543
+  type: 'test'
+  ...
+# Subtest: B15 export: an unknown student yields an empty bundle, not someone else's data
+ok 55 - B15 export: an unknown student yields an empty bundle, not someone else's data
+  ---
+  duration_ms: 3.0362
+  type: 'test'
+  ...
+# Subtest: rev-3: a fact (with edges, via the real applyApprovedDiff) written at the START of phase 2 leaves no orphan edge and nothing of A
+ok 56 - rev-3: a fact (with edges, via the real applyApprovedDiff) written at the START of phase 2 leaves no orphan edge and nothing of A
+  ---
+  duration_ms: 6.5013
+  type: 'test'
+  ...
+# Subtest: rev-3: a SESSION (row, checkpoints, checkpoint writes, a session edge) inserted mid-erasure is erased too, never orphaned
+ok 57 - rev-3: a SESSION (row, checkpoints, checkpoint writes, a session edge) inserted mid-erasure is erased too, never orphaned
+  ---
+  duration_ms: 6.0788
+  type: 'test'
+  ...
+# Subtest: rev-3: a writer that never stops exhausts the bounded loop -> verified:false + failed (retryable); the retry still finds edges of facts deleted in the failed run
+ok 58 - rev-3: a writer that never stops exhausts the bounded loop -> verified:false + failed (retryable); the retry still finds edges of facts deleted in the failed run
+  ---
+  duration_ms: 7.5259
+  type: 'test'
+  ...
+# Subtest: c0-1: two concurrent executeErasure calls on one confirmed request both return the STORED receipt; attempts counted once
+ok 59 - c0-1: two concurrent executeErasure calls on one confirmed request both return the STORED receipt; attempts counted once
+  ---
+  duration_ms: 5.1324
+  type: 'test'
+  ...
+# Subtest: c0-1: two concurrent FAILING runs each record their own attempt (1 and 2); the stored receipt is the last one recorded
+ok 60 - c0-1: two concurrent FAILING runs each record their own attempt (1 and 2); the stored receipt is the last one recorded
+  ---
+  duration_ms: 8.2591
+  type: 'test'
+  ...
+# Subtest: D-015 fence: confirm sets a fence that holds NO clear studentId (hashed key), unique per student; pending sets none
+ok 61 - D-015 fence: confirm sets a fence that holds NO clear studentId (hashed key), unique per student; pending sets none
+  ---
+  duration_ms: 3.8222
+  type: 'test'
+  ...
+# Subtest: D-015 fence: a writer that STARTS after confirm is refused and writes nothing (every collection unchanged)
+ok 62 - D-015 fence: a writer that STARTS after confirm is refused and writes nothing (every collection unchanged)
+  ---
+  duration_ms: 4.4546
+  type: 'test'
+  ...
+# Subtest: D-015 H4 (checker probe, fact + edge): a writer started BEFORE confirm and landing inside students.countDocuments (the LAST read-back) is compensated -> zero residue, fenced error
+ok 63 - D-015 H4 (checker probe, fact + edge): a writer started BEFORE confirm and landing inside students.countDocuments (the LAST read-back) is compensated -> zero residue, fenced error
+  ---
+  duration_ms: 15.5244
+  type: 'test'
+  ...
+# Subtest: D-015 H4 variant: a writer that STARTS inside students.countDocuments (after confirm) is refused by its pre-check -> zero residue
+ok 64 - D-015 H4 variant: a writer that STARTS inside students.countDocuments (after confirm) is refused by its pre-check -> zero residue
+  ---
+  duration_ms: 6.5926
+  type: 'test'
+  ...
+# Subtest: D-015 H4b (checker probe, session + checkpoint + edge): a fence-aware writer landing inside scribe_resolutions.countDocuments leaves zero residue
+ok 65 - D-015 H4b (checker probe, session + checkpoint + edge): a fence-aware writer landing inside scribe_resolutions.countDocuments leaves zero residue
+  ---
+  duration_ms: 8.2789
+  type: 'test'
+  ...
+# Subtest: D-015: a writer that starts BEFORE confirm and finishes AFTER it (before execute) compensates; the erasure then completes with zero residue
+ok 66 - D-015: a writer that starts BEFORE confirm and finishes AFTER it (before execute) compensates; the erasure then completes with zero residue
+  ---
+  duration_ms: 3.8131
+  type: 'test'
+  ...
+# Subtest: D-015 (ISS-t-011-c1-rev-1): a writer landing between the final read-back and the completion CAS is compensated -> zero residue
+ok 67 - D-015 (ISS-t-011-c1-rev-1): a writer landing between the final read-back and the completion CAS is compensated -> zero residue
+  ---
+  duration_ms: 4.3637
+  type: 'test'
+  ...
+# Subtest: D-015: ANOTHER student is unaffected by A's fence (B writes while A is fenced; B intact after A's erasure)
+ok 68 - D-015: ANOTHER student is unaffected by A's fence (B writes while A is fenced; B intact after A's erasure)
+  ---
+  duration_ms: 3.2639
+  type: 'test'
+  ...
+# Subtest: D-016: on completion the fence is HELD until createdAt + MINIMUM_FENCE_HOLD_MS (with grace 0); after the hold the sweep removes it and the student can be written again
+ok 69 - D-016: on completion the fence is HELD until createdAt + MINIMUM_FENCE_HOLD_MS (with grace 0); after the hold the sweep removes it and the student can be written again
+  ---
+  duration_ms: 4.1698
+  type: 'test'
+  ...
+# Subtest: D-015: a FAILED attempt keeps the fence (writes still refused) until the retry completes
+ok 70 - D-015: a FAILED attempt keeps the fence (writes still refused) until the retry completes
+  ---
+  duration_ms: 4.4648
+  type: 'test'
+  ...
+# Subtest: D-015: executeErasure re-creates a missing fence BEFORE resolving any selector
+ok 71 - D-015: executeErasure re-creates a missing fence BEFORE resolving any selector
+  ---
+  duration_ms: 3.3967
+  type: 'test'
+  ...
+# Subtest: D-015/D-016: two concurrent executes leave no fence beyond the hold (one fence, stamped; the sweep removes it after the hold)
+ok 72 - D-015/D-016: two concurrent executes leave no fence beyond the hold (one fence, stamped; the sweep removes it after the hold)
+  ---
+  duration_ms: 4.1084
+  type: 'test'
+  ...
+# Subtest: D-015: with a grace period the fence lingers after completion (writes refused), and releaseExpiredErasureFences releases it once expired
+ok 73 - D-015: with a grace period the fence lingers after completion (writes refused), and releaseExpiredErasureFences releases it once expired
+  ---
+  duration_ms: 3.1158
+  type: 'test'
+  ...
+# Subtest: D-015: a failed fence release never fails a verified erasure, and releaseExpiredErasureFences clears the leftover fence after the hold
+ok 74 - D-015: a failed fence release never fails a verified erasure, and releaseExpiredErasureFences clears the leftover fence after the hold
+  ---
+  duration_ms: 4.1895
+  type: 'test'
+  ...
+# Subtest: rev-2: ids over MAX_CARRIED_IDS -> failed with the distinct 'selectors:over_cap' label, no anchor deleted past the cap, the carried ids stay within the cap and parse
+ok 75 - rev-2: ids over MAX_CARRIED_IDS -> failed with the distinct 'selectors:over_cap' label, no anchor deleted past the cap, the carried ids stay within the cap and parse
+  ---
+  duration_ms: 6.3366
+  type: 'test'
+  ...
+# Subtest: rev-2: a corrupted carriedSelectors on the row is refused (zod) before anything is deleted
+ok 76 - rev-2: a corrupted carriedSelectors on the row is refused (zod) before anything is deleted
+  ---
+  duration_ms: 5.3022
+  type: 'test'
+  ...
+# Subtest: rev-3: CAS retries exhausted -> the attempt is STILL recorded (attempts+1, failed, receipt stored) and the call throws
+ok 77 - rev-3: CAS retries exhausted -> the attempt is STILL recorded (attempts+1, failed, receipt stored) and the call throws
+  ---
+  duration_ms: 6.252
+  type: 'test'
+  ...
+# Subtest: rev-3: a resolve failure in a later round is labelled with the collection that failed (sessions), not always facts
+ok 78 - rev-3: a resolve failure in a later round is labelled with the collection that failed (sessions), not always facts
+  ---
+  duration_ms: 6.0914
+  type: 'test'
+  ...
+# Subtest: D-016 KEY PROBE (ISS-t-011-c2-1): a real writer paused before its insert and released only AFTER completion AND the fence-release call is still fenced -> compensated, zero residue; the sweep removes the fence only after the hold
+ok 79 - D-016 KEY PROBE (ISS-t-011-c2-1): a real writer paused before its insert and released only AFTER completion AND the fence-release call is still fenced -> compensated, zero residue; the sweep removes the fence only after the hold
+  ---
+  duration_ms: 25.1485
+  type: 'test'
+  ...
+# Subtest: D-016 minimum hold: releaseAfter = max(createdAt + hold, completion + grace); createdAt is NOT reset on re-arm; an old fence past its hold is deleted at completion
+ok 80 - D-016 minimum hold: releaseAfter = max(createdAt + hold, completion + grace); createdAt is NOT reset on re-arm; an old fence past its hold is deleted at completion
+  ---
+  duration_ms: 67.8505
+  type: 'test'
+  ...
+# Subtest: D-016 deadline: a writer that exceeds its deadline is ABORTED and COMPENSATED (typed error; its in-flight insert is undone when it lands; every op carried a driver timeoutMS)
+ok 81 - D-016 deadline: a writer that exceeds its deadline is ABORTED and COMPENSATED (typed error; its in-flight insert is undone when it lands; every op carried a driver timeoutMS)
+  ---
+  duration_ms: 54.5424
+  type: 'test'
+  ...
+# Subtest: D-016 finally post-check: an unrelated error mid-write still runs the post-check; when fenced it compensates and StudentFencedError carries the original error as `cause` (ISS-t-011-c2-rev-3)
+ok 82 - D-016 finally post-check: an unrelated error mid-write still runs the post-check; when fenced it compensates and StudentFencedError carries the original error as `cause` (ISS-t-011-c2-rev-3)
+  ---
+  duration_ms: 4.4899
+  type: 'test'
+  ...
+# Subtest: D-016 lows (ISS-t-011-c2-rev-3): the fenced undo removes ONLY edges this call created, never pre-existing deterministic edges (idempotent replay)
+ok 83 - D-016 lows (ISS-t-011-c2-rev-3): the fenced undo removes ONLY edges this call created, never pre-existing deterministic edges (idempotent replay)
+  ---
+  duration_ms: 7.7472
+  type: 'test'
+  ...
+# Subtest: T-014/ISS-t-011-c3-rev-1: a PRE-EXISTING edge survives even when THIS call's link() to it throws (ambiguous outcome), because it lacks this call's writerToken
+ok 84 - T-014/ISS-t-011-c3-rev-1: a PRE-EXISTING edge survives even when THIS call's link() to it throws (ambiguous outcome), because it lacks this call's writerToken
+  ---
+  duration_ms: 23.1314
+  type: 'test'
+  ...
+# Subtest: T-014/ISS-t-011-c3-rev-1: an edge THIS call actually created is still removed by the fenced undo, even though link()'s own outcome to it was ambiguous
+ok 85 - T-014/ISS-t-011-c3-rev-1: an edge THIS call actually created is still removed by the fenced undo, even though link()'s own outcome to it was ambiguous
+  ---
+  duration_ms: 5.735
+  type: 'test'
+  ...
+# Subtest: D-016 one open request (ISS-t-011-c2-rev-4): a second open request for the same student is refused with a typed error, also under concurrency; after completion a new one is allowed
+ok 86 - D-016 one open request (ISS-t-011-c2-rev-4): a second open request for the same student is refused with a typed error, also under concurrency; after completion a new one is allowed
+  ---
+  duration_ms: 5.5177
+  type: 'test'
+  ...
+# Subtest: D-016 no stuck fence (ISS-t-011-c2-rev-4): the fence is released only when no fencing request remains, and never left behind
+ok 87 - D-016 no stuck fence (ISS-t-011-c2-rev-4): the fence is released only when no fencing request remains, and never left behind
+  ---
+  duration_ms: 9.0651
+  type: 'test'
+  ...
+# Subtest: T-014/ISS-t-011-c3-rev-3: startErasureFenceSweep's timer actually releases an expired fence, and stop() actually stops it (fake timers)
+ok 88 - T-014/ISS-t-011-c3-rev-3: startErasureFenceSweep's timer actually releases an expired fence, and stop() actually stops it (fake timers)
+  ---
+  duration_ms: 29.7724
+  type: 'test'
+  ...
+# Subtest: T-014/ISS-t-011-c3-rev-3: startErasureFenceSweep rejects a non-positive intervalMs
+ok 89 - T-014/ISS-t-011-c3-rev-3: startErasureFenceSweep rejects a non-positive intervalMs
+  ---
+  duration_ms: 0.6928
+  type: 'test'
+  ...
+# Subtest: T-014/ISS-t-011-c3-rev-3: a failing tick is reported via onError, not thrown, and does not stop the interval
+ok 90 - T-014/ISS-t-011-c3-rev-3: a failing tick is reported via onError, not thrown, and does not stop the interval
+  ---
+  duration_ms: 47.6124
+  type: 'test'
+  ...
+# Subtest: ISS-t-015-c0-3: an onError that itself throws does not produce an unhandledRejection, and the interval keeps running
+ok 91 - ISS-t-015-c0-3: an onError that itself throws does not produce an unhandledRejection, and the interval keeps running
+  ---
+  duration_ms: 43.8751
+  type: 'test'
+  ...
+# Subtest: ISS-t-017-rev-2: an ASYNC onError whose returned promise rejects (not a synchronous throw) does not produce an unhandledRejection, and the interval keeps running
+ok 92 - ISS-t-017-rev-2: an ASYNC onError whose returned promise rejects (not a synchronous throw) does not produce an unhandledRejection, and the interval keeps running
+  ---
+  duration_ms: 46.2904
+  type: 'test'
+  ...
+# Subtest: ISS-t-017-rev-3: an onError that returns a NEVER-SETTLING promise does not stall the sweep — a LATER tick still runs and releases an expired fence
+ok 93 - ISS-t-017-rev-3: an onError that returns a NEVER-SETTLING promise does not stall the sweep — a LATER tick still runs and releases an expired fence
+  ---
+  duration_ms: 140.6862
+  type: 'test'
+  ...
+# Subtest: ISS-t-017-rev-3: onError returning a THENABLE (not a native Promise) that never resolves does not stall the sweep either
+ok 94 - ISS-t-017-rev-3: onError returning a THENABLE (not a native Promise) that never resolves does not stall the sweep either
+  ---
+  duration_ms: 62.0135
+  type: 'test'
+  ...
+# Subtest: ISS-t-017-rev-3: a non-function onError does not crash tick() or stall the sweep
+ok 95 - ISS-t-017-rev-3: a non-function onError does not crash tick() or stall the sweep
+  ---
+  duration_ms: 47.557
+  type: 'test'
+  ...
+# Subtest: T-015/ISS-t-014-rev-4: an in-flight tick is not overlapped by the next scheduled tick; a tick AFTER the previous one finished is not skipped
+ok 96 - T-015/ISS-t-014-rev-4: an in-flight tick is not overlapped by the next scheduled tick; a tick AFTER the previous one finished is not skipped
+  ---
+  duration_ms: 60.3524
+  type: 'test'
+  ...
+# Subtest: D-016 deadline: the post-check runs AT the abort (in the finally), not only when the stuck op settles: a fact that landed before the stuck edge write is already gone when the writer returns
+ok 97 - D-016 deadline: the post-check runs AT the abort (in the finally), not only when the stuck op settles: a fact that landed before the stuck edge write is already gone when the writer returns
+  ---
+  duration_ms: 47.7818
+  type: 'test'
+  ...
+# Subtest: ISS-t-011-rev-5: checkpoints of a thread recorded on the session row (NOT scribe:<sessionId>) are exported and purged to zero
+ok 98 - ISS-t-011-rev-5: checkpoints of a thread recorded on the session row (NOT scribe:<sessionId>) are exported and purged to zero
+  ---
+  duration_ms: 2.6321
+  type: 'test'
+  ...
+# Subtest: T-035: projected safety export and unanchored erasure preserve an identical-ID other tenant
+ok 99 - T-035: projected safety export and unanchored erasure preserve an identical-ID other tenant
+  ---
+  duration_ms: 12.2369
+  type: 'test'
+  ...
+# Subtest: T-035: either safety purge or residue read failure cannot report completed
+ok 100 - T-035: either safety purge or residue read failure cannot report completed
+  ---
+  duration_ms: 18.9308
+  type: 'test'
+  ...
+# Subtest: T-035: safety export orders each stored row and projects classified annotations
+ok 101 - T-035: safety export orders each stored row and projects classified annotations
+  ---
+  duration_ms: 0.8767
+  type: 'test'
+  ...
+1..101
+# tests 101
+# suites 0
+# pass 101
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3316.675
+exit 0 2026-10-19T08:06:39+05:30

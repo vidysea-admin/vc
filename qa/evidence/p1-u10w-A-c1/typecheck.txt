@@ -1,0 +1,23 @@
+[testlock] write_owner_enrich: lock dir token changed (ours [1792377406668716100-253149-22819], now [1792377406838710900-253094-6700]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] running slot 1 (free RAM 4.01 GB): pnpm -C D:/vc/.worktrees/p1-u10w -r typecheck
+Scope: 9 of 10 workspace projects
+packages/observability typecheck$ tsc --noEmit
+packages/schemas typecheck$ tsc --noEmit
+packages/observability typecheck: Done
+packages/schemas typecheck: Done
+packages/db typecheck$ tsc --noEmit
+packages/providers typecheck$ tsc --noEmit
+packages/providers typecheck: Done
+packages/db typecheck: Done
+mcp/student-profile typecheck$ tsc --noEmit
+mcp/university-kb typecheck$ tsc --noEmit
+packages/engine typecheck$ tsc --noEmit && tsc --noEmit -p evals/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json
+mcp/student-profile typecheck: Done
+mcp/university-kb typecheck: Done
+packages/engine typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/api typecheck: Done
+apps/web typecheck: Done
+exit 0 2026-10-19T08:07:34+05:30
