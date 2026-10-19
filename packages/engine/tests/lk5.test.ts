@@ -18,10 +18,11 @@ import {
 } from "../src/student/graph.js";
 import {
   HELPLINE_LINE_EN_HI,
-  DEVANAGARI_MAGNITUDE,
   HELPLINE_GLOSS,
   createModelLanguageDetector,
-  localizedClaimOk,
+  isFactualSentence,
+  localizedClaimText,
+  splitSentences,
   parseReplyLangs,
   type DetectedLanguage,
 } from "../src/student/lang.js";
@@ -35,15 +36,21 @@ const HING_Q = "germany mein fees kitni hai";
 const TA_Q = "ஜெர்மனி பல்கலைக்கழகங்களில் கட்டணம் எவ்வளவு";
 const CRISIS_EN = "I just want to kill myself, nothing matters anymore.";
 
+const detectLatin = (t: string) => !/\p{Script=Devanagari}/u.test(t);
 const det = (lang: string, script: DetectedLanguage["script"]) => async (): Promise<DetectedLanguage> => ({ lang, script, confidence: 0.9, source: "model" });
 const HI = det("hi", "devanagari");
 const HING = det("hi-Latn", "latin");
 const TA = det("ta", "tamil");
 const EN = det("en", "latin");
 
-const EN_CLAIM = "Public universities in Germany charge no tuition for most programmes.";
-const HI_LOCAL = "जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती।";
-const HING_LOCAL = "Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti.";
+// D-106 brief rewrite (protected change): the shared fixture claim no longer names Germany. Under rule (a) a sentence naming a country
+// is shown in its English wording, so the old fixture could no longer prove that a fact-free sentence stays localized. The old
+// Germany claim is kept as GERMANY_EN / GERMANY_HI for the factual-sentence tests.
+const EN_CLAIM = "Public universities charge no tuition for most programmes.";
+const HI_LOCAL = "सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती।";
+const HING_LOCAL = "Sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti.";
+const GERMANY_EN = "Public universities in Germany charge no tuition for most programmes.";
+const GERMANY_HI = "जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती।";
 
 function answer(over: Record<string, unknown> = {}, claimOver: Record<string, unknown> = {}) {
   return {
@@ -131,10 +138,12 @@ test("R1 drift: no replyLang from the model, or localized in the wrong script ->
   assert.ok((await runStudentTurn(latinForHi.d, authTurn(HI_Q))).response.message!.includes(EN_CLAIM));
 });
 
-test("R1 number parity: a localized copy that changes, adds or drops a number is not shown (Devanagari digits count as the same number)", async () => {
+test("R1 number parity: a localized copy that changes, adds or drops a number is not shown (D-106: a figure sentence is always the English wording)", async () => {
   const num = { text: "Expect a semester contribution of about 300 euros.", kind: "number" };
+  // protected change (D-106): the same figure in Devanagari digits was shown before; a figure sentence is now always the English wording
   const ok = build({}, answer({}, { ...num, localized: "लगभग ३०० यूरो का सेमेस्टर योगदान देना होगा।" }));
-  assert.ok((await runStudentTurn(ok.d, authTurn(HI_Q))).response.message!.includes("३००"));
+  const mOk = (await runStudentTurn(ok.d, authTurn(HI_Q))).response.message!;
+  assert.ok(mOk.includes("about 300 euros") && !mOk.includes("३००"), mOk);
   for (const bad of ["लगभग 400 यूरो का सेमेस्टर योगदान देना होगा।", "सेमेस्टर योगदान देना होगा।", "लगभग 300 यूरो और 12 महीने का योगदान देना होगा।"]) {
     const a = build({}, answer({}, { ...num, localized: bad }));
     const m = (await runStudentTurn(a.d, authTurn(HI_Q))).response.message!;
@@ -242,15 +251,17 @@ test("M1 repair: a spelled-out figure that DIFFERS from the English one is not s
   const m = (await runStudentTurn(swapped.d, authTurn(HING_Q))).response.message!;
   assert.ok(m.includes("300 euros"), `English reply: ${m}`);
   assert.ok(!m.includes("teen sau"), m);
+  // protected change (D-106): the same-figure control was shown localized before; a figure sentence is now always the English wording
   const same = build({ detectLanguage: HING }, answer({ replyLang: "hi-Latn" }, { ...num, localized: "Semester contribution lagbhag 300 euros hai." }));
-  assert.ok((await runStudentTurn(same.d, authTurn(HING_Q))).response.message!.includes("lagbhag 300 euros"), "control: the same figure passes");
+  const mSame = (await runStudentTurn(same.d, authTurn(HING_Q))).response.message!;
+  assert.ok(mSame.includes("about 300 euros") && !mSame.includes("lagbhag"), mSame);
 });
 
 test("M1 repair: a country the English claim does not name, or a swapped country, is not shown (Devanagari and Latin)", async () => {
   for (const [lang, replyLang, localized, q] of [
-    [HI, "hi", HI_LOCAL.replace("जर्मनी", "फ्रांस"), HI_Q],
+    [HI, "hi", `फ्रांस के ${HI_LOCAL}`, HI_Q],
     [HI, "hi", `${HI_LOCAL} फ्रांस में भी यही नियम है।`, HI_Q],
-    [HING, "hi-Latn", HING_LOCAL.replace("Germany", "France"), HING_Q],
+    [HING, "hi-Latn", `France ki ${HING_LOCAL}`, HING_Q],
     [HING, "hi-Latn", `${HING_LOCAL} Canada mein bhi aisa hi hai.`, HING_Q],
   ] as const) {
     const a = build({ detectLanguage: lang }, answer({ replyLang }, { localized }));
@@ -272,16 +283,17 @@ test("M1 repair: a scheme-less domain in the localized claim is not shown (evil.
   }
 });
 
-test("M1 repair: localizedClaimOk - a link different from the English one fails even when English carries a link; the same link passes", () => {
+test("M1 repair (D-106 form): a link sentence is the English wording; a different, extra or same localized link is never shown", () => {
+  // protected change (D-106): localizedClaimOk (boolean parity) became localizedClaimText (the text to show); a link sentence is English
   const en = "Details are on https://daad.de/en/fees today.";
-  assert.equal(localizedClaimOk(en, "शुल्क के बारे में पूरा विवरण आज की तारीख में https://daad.de/en/fees पर हैं।", "hi", []), true);
-  assert.equal(localizedClaimOk(en, "शुल्क के बारे में पूरा विवरण आज की तारीख में https://evil.test/fees पर हैं।", "hi", []), false);
-  assert.equal(localizedClaimOk(en, "शुल्क के बारे में पूरा विवरण आज की तारीख में https://daad.de/en/fees और evil.test पर हैं।", "hi", []), false);
-  assert.equal(localizedClaimOk(en, "शुल्क के बारे में पूरा विवरण आज की तारीख में https://daad.de/en/other पर हैं।", "hi", []), false);
+  for (const lo of [
+    "शुल्क के बारे में पूरा विवरण आज की तारीख में https://daad.de/en/fees पर हैं।",
+    "शुल्क के बारे में पूरा विवरण आज की तारीख में https://evil.test/fees पर हैं।",
+    "शुल्क के बारे में पूरा विवरण आज की तारीख में https://daad.de/en/fees और evil.test पर हैं।",
+  ]) assert.equal(localizedClaimText(en, lo, "hi", []), en, lo);
   const plain = "यहाँ पर शुल्क के बारे में पूरी जानकारी उपलब्ध है और कोई लिंक नहीं है।";
-  assert.equal(localizedClaimOk("No link here.", plain, "hi", []), true, "control: without the host it passes");
-  assert.equal(localizedClaimOk("No link here.", `${plain} evil.test`, "hi", []), false);
-  assert.equal(localizedClaimOk("It costs 3.5 lakh, e.g. in Berlin.", "यह 3.5 लाख लगता है, जैसे बर्लिन में।", "hi", []), true);
+  assert.equal(localizedClaimText("Full details on fees are available here.", plain, "hi", []), plain, "control: no link, no fact -> localized");
+  assert.equal(localizedClaimText("Full details on fees are available here.", plain.replace("।", " evil.test।"), "hi", []), "Full details on fees are available here.");
 });
 
 // ---- repair cycle 2: Devanagari number/unit words (ISS-386), the magnitude regex (ISS-387), IDN hosts and dot variants ----
@@ -308,40 +320,135 @@ test("ISS-386: a Devanagari number word or currency/unit word the English claim 
   }
 });
 
-test("ISS-386 controls: the same figure in Devanagari digits, and a figure-free localized claim, are still shown", async () => {
-  const digits = "लगभग ३०० यूरो का सेमेस्टर योगदान देना होगा।";
-  const a = build({}, answer({}, { text: NUM_EN, localized: digits, kind: "number" }));
-  assert.ok((await runStudentTurn(a.d, authTurn(HI_Q))).response.message!.includes(digits));
-  const b = build({}, answer());
-  assert.ok((await runStudentTurn(b.d, authTurn(HI_Q))).response.message!.includes(HI_LOCAL));
-  assert.equal(localizedClaimOk(NUM_EN, NUM_HI, "hi", []), true, "the same figure and unit");
-  assert.equal(localizedClaimOk("It costs 5000 euros.", "इसकी लागत पाँच हज़ार यूरो है।", "hi", []), true, "a word figure equal to the English figure");
-  assert.equal(localizedClaimOk("It costs 5000 euros.", "इसकी लागत पाँच हज़ार रुपये है।", "hi", []), false, "same value, other currency");
-  assert.equal(localizedClaimOk("It costs 5000 euros.", "इसकी लागत छह हज़ार यूरो है।", "hi", []), false, "a different word figure");
-  assert.equal(localizedClaimOk("It costs 5000 euros.", "इसकी लागत डेढ़ हज़ार यूरो है।", "hi", []), false, "a fraction word is never mapped");
-  assert.equal(localizedClaimOk("It is a good option.", "यह एक अच्छा विकल्प है।", "hi", []), true, "a bare एक (the article) is not a figure");
-  assert.equal(localizedClaimOk("It is a good option.", "यह एक लाख का विकल्प है।", "hi", []), false);
-});
-
-test("ISS-387: DEVANAGARI_MAGNITUDE keeps its \p escapes; सौंदर्य does not match, सौ does", () => {
-  assert.ok(DEVANAGARI_MAGNITUDE.source.includes(String.raw`\p{L}\p{M}`), DEVANAGARI_MAGNITUDE.source);
-  assert.equal(DEVANAGARI_MAGNITUDE.test("सौंदर्य"), false);
-  assert.equal(DEVANAGARI_MAGNITUDE.test("तीन सौ यूरो"), true);
-  assert.equal(localizedClaimOk("Beauty courses are offered.", "सौंदर्य के कोर्स उपलब्ध हैं।", "hi", []), true);
-});
-
-test("review medium: a Devanagari IDN host with combining marks is detected as a link", () => {
-  const plain = "यहाँ पर शुल्क के बारे में पूरी जानकारी उपलब्ध है और कोई लिंक नहीं है।";
+test("review medium (kept under D-106): a Devanagari IDN host with combining marks makes the sentence factual -> English wording", () => {
+  const en = "Full details on fees are available here.";
   for (const host of ["शिक्षा.संस्थान", "example.शिक्षा", "सेवा.संस्थान/fees"]) {
-    assert.equal(localizedClaimOk("No link here.", `${plain} ${host}`, "hi", []), false, host);
+    assert.equal(isFactualSentence(`यहाँ पर शुल्क की पूरी जानकारी ${host} पर उपलब्ध है।`), true, host);
+    assert.equal(localizedClaimText(en, `यहाँ पर शुल्क की पूरी जानकारी ${host} पर उपलब्ध है।`, "hi", []), en, host);
   }
 });
 
-test("review low: the dot variants 。．｡․ fold to '.' before the link check", () => {
-  const plain = "यहाँ पर शुल्क के बारे में पूरी जानकारी उपलब्ध है और कोई लिंक नहीं है।";
+test("review low (kept under D-106): the dot variants 。．｡․ fold to '.' before the link check", () => {
+  const en = "Full details on fees are available here.";
   for (const host of ["evil。test", "evil．test", "evil｡test", "evil․test"]) {
-    assert.equal(localizedClaimOk("No link here.", `${plain} ${host}`, "hi", []), false, host);
+    assert.equal(localizedClaimText(en, `यहाँ पर शुल्क की पूरी जानकारी ${host} पर उपलब्ध है।`, "hi", []), en, host);
   }
+});
+
+// ---------------------------------------------------------------------------
+// D-106 brief rewrite: rule (a). Facts stay in English, sentence by sentence; no closed Devanagari number/currency/magnitude lists.
+// ---------------------------------------------------------------------------
+
+/** Every probe of repair1-check/probes.txt and every word the cycle-2 verdict cited, each as ONE localized sentence (aligned). */
+const VERDICT_PROBES: [string, string, string][] = [
+  // [English (factual), localized, label]
+  [GERMANY_EN, "जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए पचास यूरो लगते हैं।", "probe: bare number word पचास"],
+  [NUM_EN, "लगभग 300 यूरो का सेमेस्टर योगदान और सालाना पाँच हज़ार यूरो देना होगा।", "probe: extra पाँच हज़ार यूरो"],
+  [NUM_EN, "लगभग 300 यूरो का सेमेस्टर योगदान और कुल दस लाख देना होगा।", "probe: extra दस लाख"],
+  [NUM_EN, "लगभग 300 रुपये का सेमेस्टर योगदान देना होगा।", "probe2: euros -> rupees"],
+  [NUM_EN, "लगभग 300 डॉलर का सेमेस्टर योगदान देना होगा।", "probe2: euros -> dollars"],
+  [NUM_EN, "हर महीने लगभग 300 यूरो देने होंगे।", "probe2: per month"],
+  [NUM_EN, "लगभग 300 डॉलर्स का सेमेस्टर योगदान देना होगा।", "verdict: डॉलर्स"],
+  [NUM_EN, "लगभग रु 300 का सेमेस्टर योगदान देना होगा।", "verdict: रु."],
+  [NUM_EN, "लगभग 300 वॉन का सेमेस्टर योगदान देना होगा।", "verdict: वॉन"],
+  [NUM_EN, "लगभग 300 युआन का सेमेस्टर योगदान देना होगा।", "verdict: युआन"],
+  [NUM_EN, "लगभग 300 फ्रैंक का सेमेस्टर योगदान देना होगा।", "verdict: फ्रैंक"],
+  [NUM_EN, "लगभग 300 क्रोना का सेमेस्टर योगदान देना होगा।", "verdict: क्रोना"],
+  [NUM_EN, "लगभग 300 अरब यूरो का सेमेस्टर योगदान देना होगा।", "verdict: अरब"],
+  [NUM_EN, "लगभग 300 खरब यूरो का सेमेस्टर योगदान देना होगा।", "verdict: खरब"],
+  [GERMANY_EN, "जर्मनी में एक दर्जन कोर्स के लिए कोई ट्यूशन फीस नहीं लगती।", "verdict: दर्जन"],
+  [GERMANY_EN, "जर्मनी में आधा सेमेस्टर कोई ट्यूशन फीस नहीं लगती।", "verdict: आधा"],
+  [GERMANY_EN, "जर्मनी में हज़ारों छात्रों के लिए कोई ट्यूशन फीस नहीं लगती।", "verdict: हज़ारों"],
+  [GERMANY_EN, "Germany mein sirf sattar euro lagte hain.", "verdict: Hinglish sattar"],
+  [GERMANY_EN, "Germany mein barah courses ki tuition fees nahi lagti.", "verdict: Hinglish barah"],
+  [GERMANY_EN, "Germany mein nabbe percent courses free hain.", "verdict: Hinglish nabbe"],
+  [GERMANY_EN, "Germany mein pachaas euro lagte hain.", "verdict: Hinglish pachaas"],
+  [GERMANY_EN, "Germany mein panch hajar lagte hain.", "verdict: Hinglish panch hajar"],
+  [NUM_EN, "Semester contribution lagbhag 300 rupaye hai.", "verdict: 300 rupaye for euros"],
+];
+
+test("K1 (D-106): every cycle-1 probe and every word the cycle-2 verdict cited gives the English wording of that factual sentence", async () => {
+  for (const [en, localized, label] of VERDICT_PROBES) {
+    const hinglish = detectLatin(localized);
+    const a = build(
+      hinglish ? { detectLanguage: HING } : {},
+      answer({ replyLang: hinglish ? "hi-Latn" : "hi" }, { text: en, localized, kind: en === NUM_EN ? "number" : "fact" }),
+    );
+    const m = (await runStudentTurn(a.d, authTurn(hinglish ? HING_Q : HI_Q))).response.message!;
+    assert.ok(m.includes(en), `${label}: English wording expected -> ${m}`);
+    assert.ok(!m.includes(localized), `${label}: localized shown -> ${m}`);
+  }
+});
+
+/** K2: hostile factual sentences whose words never appeared in any of the deleted lists (other currencies, ordinals, spelled-out decimals, Hinglish, Roman units). */
+const HOSTILE_K2: [string, "hi" | "hi-Latn"][] = [
+  ["लगभग तीन सौ स्विस फ़्रैंक का सेमेस्टर योगदान देना होगा।", "hi"],
+  ["सेमेस्टर योगदान लगभग साढ़े तीन सौ रिंगित है।", "hi"],
+  ["तीसरे सेमेस्टर से योगदान ढाई गुना हो जाता है।", "hi"],
+  ["सेमेस्टर योगदान लगभग तीन सौ दीनार है।", "hi"],
+  ["सेमेस्टर योगदान तीन शतक लीरा के बराबर है।", "hi"],
+  ["प्रति सेमेस्टर लगभग पौन हज़ार शेकेल का योगदान देना होगा।", "hi"],
+  ["सेमेस्टर योगदान तीन दशमलव पाँच सौ बाट है।", "hi"],
+  ["Semester contribution lagbhag fifty hazaar baht hai.", "hi-Latn"],
+  ["Semester contribution teen point paanch sau kroner hai.", "hi-Latn"],
+  ["Har tisre mahine chaar sau zloty dene honge.", "hi-Latn"],
+  ["Semester ka contribution teen sau pachaas peso hai.", "hi-Latn"],
+  ["Contribution dedh sau kwacha per semester hai.", "hi-Latn"],
+  ["Semester contribution saadhe teen sau kilo-rupiah ke barabar hai.", "hi-Latn"],
+];
+
+test("K2 (D-106): 13 new hostile Hindi/Hinglish factual sentences (words in no list) all show the English wording: the rule is structural", async () => {
+  assert.ok(HOSTILE_K2.length >= 10);
+  for (const [localized, replyLang] of HOSTILE_K2) {
+    const a = build(replyLang === "hi-Latn" ? { detectLanguage: HING } : {}, answer({ replyLang }, { text: NUM_EN, localized, kind: "number" }));
+    const m = (await runStudentTurn(a.d, authTurn(replyLang === "hi-Latn" ? HING_Q : HI_Q))).response.message!;
+    assert.ok(m.includes(NUM_EN), `English wording expected for: ${localized} -> ${m}`);
+    assert.ok(!m.includes(localized), m);
+    // the same through the pure function, against a figure-free but country-naming English sentence
+    assert.equal(localizedClaimText(GERMANY_EN, localized, replyLang, []), GERMANY_EN, localized);
+  }
+});
+
+test("K2 (D-106): isFactualSentence on ENGLISH: digit, currency symbol, ISO code, %, unit+number, URL/host/e-mail, country, place after in/to/from, spelled-out figure", () => {
+  for (const s of [
+    "It costs about 300 euros.", "It costs €300.", "Fees are in EUR.", "Fees are listed in INR and USD.", "About 90% get a place.",
+    "The course runs 18 months.", "See https://daad.de/fees.", "See daad.de for details.", "Write to help@daad.de for details.",
+    "Public universities in Germany charge no tuition.", "German universities charge no tuition.", "Many students move to Berlin.",
+    "It costs five thousand euros.", "Fees are ३०० a term.",
+  ]) assert.equal(isFactualSentence(s), true, s);
+  for (const s of ["Good luck with your plans!", "Which cities are you considering?", "That is a great question.", "Public universities charge no tuition for most programmes."]) {
+    assert.equal(isFactualSentence(s), false, s);
+  }
+});
+
+test("K3 (D-106): non-factual sentences (greeting, encouragement, a question back) stay localized; a factual sentence in the same claim is English", async () => {
+  assert.equal(localizedClaimText("Good luck with your plans!", "आपकी योजनाओं के लिए शुभकामनाएँ!", "hi", []), "आपकी योजनाओं के लिए शुभकामनाएँ!");
+  assert.equal(localizedClaimText("That is a great question.", "Yeh bahut accha sawaal hai.", "hi-Latn", []), "Yeh bahut accha sawaal hai.");
+  assert.equal(localizedClaimText("Which cities are you considering?", "आप किन शहरों के बारे में सोच रहे हैं?", "hi", []), "आप किन शहरों के बारे में सोच रहे हैं?");
+  assert.equal(localizedClaimText("Beauty courses are offered.", "सौंदर्य के कोर्स उपलब्ध हैं।", "hi", []), "सौंदर्य के कोर्स उपलब्ध हैं।", "सौंदर्य is no figure");
+  assert.equal(localizedClaimText("It is a good option.", "यह एक अच्छा विकल्प है।", "hi", []), "यह एक अच्छा विकल्प है।");
+  // mixed claim through the real turn: sentence 1 fact-free -> Hindi, sentence 2 has a figure -> English wording
+  const en = `${EN_CLAIM} ${NUM_EN}`;
+  const lo = `${HI_LOCAL} लगभग तीन सौ यूरो का सेमेस्टर योगदान देना होगा।`;
+  const a = build({}, answer({ followUp: "Which cities are you considering?", followUpLocalized: "आप किन शहरों के बारे में सोच रहे हैं?" }, { text: en, localized: lo, kind: "number" }));
+  const m = (await runStudentTurn(a.d, authTurn(HI_Q))).response.message!;
+  assert.equal(m, `${HI_LOCAL} ${NUM_EN} आप किन शहरों के बारे में सोच रहे हैं?`);
+});
+
+test("K4 (D-106): sentence alignment failure (different count) -> the whole English reply, every claim", async () => {
+  assert.equal(localizedClaimText(EN_CLAIM, `${HI_LOCAL} आपको शुभकामनाएँ।`, "hi", []), undefined, "1 English vs 2 localized");
+  assert.equal(localizedClaimText(`${EN_CLAIM} ${NUM_EN}`, HI_LOCAL, "hi", []), undefined, "2 English vs 1 localized");
+  assert.equal(localizedClaimText(EN_CLAIM, "", "hi", []), undefined);
+  assert.deepEqual(splitSentences("One. Two? तीन। Four!"), ["One.", "Two?", "तीन।", "Four!"]);
+  const a = build({}, {
+    replyLang: "hi",
+    claims: [
+      { text: EN_CLAIM, localized: HI_LOCAL, kind: "fact", sourceIds: ["t-sem-1"] },
+      { text: NUM_EN, localized: "लगभग तीन सौ यूरो देने होंगे। यह हर सेमेस्टर होता है।", kind: "number", sourceIds: ["t-sem-1"] },
+    ],
+  });
+  const m = (await runStudentTurn(a.d, authTurn(HI_Q))).response.message!;
+  assert.equal(m, `${EN_CLAIM} ${NUM_EN}`, m);
 });
 
 // ---- repair cycle 1 (M2): the crisis-rule check runs on the text actually shown ----
@@ -349,7 +456,8 @@ test("review low: the dot variants 。．｡․ fold to '.' before the link chec
 test("M2 repair: a prior-flag student's LOCALIZED reply is checked against the forbidden crisis patterns (shown text, not the English one)", async () => {
   const bad = build(
     { detectLanguage: HING, hasPriorFlag: async () => true },
-    answer({ replyLang: "hi-Latn" }, { localized: `${HING_LOCAL} Ye sab secret hai, between us.` }),
+    // protected change (D-106): the bad phrase sits inside the one aligned sentence; as a 2nd sentence it is an alignment failure
+    answer({ replyLang: "hi-Latn" }, { localized: `${HING_LOCAL.slice(0, -1)}, ye sab secret hai between us.` }),
   );
   const out = await runStudentTurn(bad.d, authTurn(HING_Q));
   assert.ok(out.response.message!.startsWith(STUDENT_CRISIS_MESSAGE.slice(0, 40)), out.response.message);

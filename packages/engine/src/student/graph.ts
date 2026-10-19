@@ -68,7 +68,7 @@ import {
   isNonEnglish,
   isOutsideAllowList,
   countriesInLocalized,
-  localizedClaimOk,
+  localizedClaimText,
   replyLangIs,
   resolveReplyLang,
   rewriteToEnglishQuery,
@@ -720,7 +720,8 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     if (countriesInLocalized(fl).length > 0) return false;
     if (findPersonalIdentifiers(fl, deps.speakers, restricted.labels).length > 0) return false;
     if (restricted.texts.some((t) => hasVerbatimRun(fl, t))) return false;
-    return localizedClaimOk(englishFollowUp, fl, replyLang, restricted.texts);
+    // D-106: a fact-free follow-up only; a factual one would come back as the English wording, which is the English reply here.
+    return localizedClaimText(englishFollowUp, fl, replyLang, restricted.texts) === fl;
   }
 
   /**
@@ -739,11 +740,13 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     if (replyLang === "en" || !replyLangIs(draft.replyLang, replyLang)) return undefined;
     const parts: string[] = [];
     for (const c of shown) {
-      if (!c.localized || !localizedClaimOk(c.text, c.localized, replyLang, restricted.texts)) return undefined;
+      // D-106 rule (a): factual sentences in their English wording, fact-free ones localized; alignment failure = the English reply.
+      const mixed = c.localized ? localizedClaimText(c.text, c.localized, replyLang, restricted.texts) : undefined;
+      if (mixed === undefined) return undefined;
       const text =
         c.sourceKind === "whatsapp" || c.sourceKind === "unknown"
-          ? redactPersonalIdentifiers(c.localized, deps.speakers, restricted.labels)
-          : redactPersonalIdentifiers(c.localized, { speakers: [] }, []);
+          ? redactPersonalIdentifiers(mixed, deps.speakers, restricted.labels)
+          : redactPersonalIdentifiers(mixed, { speakers: [] }, []);
       parts.push(c.status === "unverified" ? `${text} (unverified)` : text);
     }
     // Repair 1 (M3): a localized follow-up goes through the same checks as the English one; if it fails, the whole reply is the English

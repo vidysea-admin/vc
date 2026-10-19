@@ -212,23 +212,7 @@ export function replyScript(lang: ReplyLang): Script {
   return lang === "hi" ? "devanagari" : "latin";
 }
 
-/** Every digit system to ASCII (Devanagari, Arabic-Indic, ...), thousands commas removed: the digit runs of a text. */
-function digitRuns(text: string): Set<string> {
-  let ascii = "";
-  for (const ch of text) {
-    if (/\p{Nd}/u.test(ch)) {
-      let zero = ch.codePointAt(0)!;
-      const cp = zero;
-      while (/\p{Nd}/u.test(String.fromCodePoint(zero - 1))) zero--;
-      ascii += String((cp - zero) % 10);
-    } else {
-      ascii += ch;
-    }
-  }
-  return new Set((ascii.match(/\d+(?:[.,]\d+)*/g) ?? []).map((n) => n.replace(/,/g, "")));
-}
-
-// ---- link, country and figure comparison of a localized claim with its English claim (LK5 repair 1: ISS-383 family, M1) ----
+// ---- link and country detection for the factual-sentence rule (LK5 repair 1/2; D-106) ----
 
 const URL_RE = /(?:https?:\/\/|www\.)[^\s<>"'\u0964]+/giu;
 const EMAIL_RE = /[^\s@<>()"',;]+@[^\s@<>()"',;]+\.\p{L}[\p{L}\p{M}]+/giu;
@@ -331,148 +315,60 @@ export function countriesInLocalized(text: string): string[] {
   return [...found];
 }
 
-/** Devanagari magnitude words ("हज़ार", "लाख", "करोड़", "सौ"): a spelled-out figure the digit comparison cannot see. */
-export const DEVANAGARI_MAGNITUDE = new RegExp(
-  String.raw`(?<![\p{L}\p{M}])(?:` +
-    [stripNukta("सौ") + String.raw`(?![\p{L}\p{M}])`, stripNukta("हजार"), stripNukta("लाख"), stripNukta("करोड़"), "मिलियन", "बिलियन"].join("|") +
-    ")",
-  "u",
-);
+// ---- LK5 brief rewrite (D-106, gate lk5-localized-claims answered (a)): facts stay in English, sentence by sentence ----
+// The cycle-2 closed Devanagari number / currency / magnitude word lists and their parity code are gone. Instead the ENGLISH sentence
+// decides: a sentence carrying a figure, a currency, a %, a unit, a link or a country is shown in its English wording, whatever the
+// localized copy says. Only fact-free sentences are shown localized. No list of Hindi/Hinglish words has to be complete for this.
 
-/** The figures in a text: its digit runs (any digit system) plus spelled-out English / transliterated Hindi figures. */
-function figures(text: string): Set<string> {
-  const out = digitRuns(text);
-  for (const m of numberMentions(text)) if (!/\d/.test(text[m.start] ?? "")) out.add(m.n);
-  return out;
-}
-
-const unitsOf = (text: string): Set<string> => new Set(numberMentions(text).flatMap((m) => (m.unit ? [m.unit] : [])));
-
-// LK5 repair 2 (ISS-386): Devanagari number words and currency/unit words. Fail closed: a word the English claim does not carry
-// means the English reply. No full number parser; anything not mapped below is simply the English reply.
-/** Nukta removed and candrabindu folded to anusvara, so `पाँच` = `पांच` and `हज़ार` = `हजार`. */
-const foldDev = (t: string): string => stripNukta(t).replace(/ँ/g, "ं");
-const HI_NUMBER_WORDS: [number, string[]][] = [
-  [1, ["एक"]], [2, ["दो"]], [3, ["तीन"]], [4, ["चार"]], [5, ["पाँच", "पांच"]], [6, ["छह", "छः", "छे", "छै"]], [7, ["सात"]], [8, ["आठ"]],
-  [9, ["नौ"]], [10, ["दस"]], [11, ["ग्यारह"]], [12, ["बारह"]], [13, ["तेरह"]], [14, ["चौदह"]], [15, ["पंद्रह", "पन्द्रह"]], [16, ["सोलह"]],
-  [17, ["सत्रह"]], [18, ["अठारह"]], [19, ["उन्नीस"]], [20, ["बीस"]], [21, ["इक्कीस"]], [22, ["बाईस"]], [23, ["तेईस"]], [24, ["चौबीस"]],
-  [25, ["पच्चीस"]], [26, ["छब्बीस"]], [27, ["सत्ताईस"]], [28, ["अट्ठाईस", "अठाईस"]], [29, ["उनतीस"]], [30, ["तीस"]],
-  [31, ["इकतीस", "इकत्तीस"]], [32, ["बत्तीस"]], [33, ["तैंतीस", "तेंतीस"]], [34, ["चौंतीस"]], [35, ["पैंतीस"]], [36, ["छत्तीस"]],
-  [37, ["सैंतीस"]], [38, ["अड़तीस"]], [39, ["उनतालीस"]], [40, ["चालीस"]], [41, ["इकतालीस"]], [42, ["बयालीस"]], [43, ["तैंतालीस"]],
-  [44, ["चवालीस", "चौवालीस"]], [45, ["पैंतालीस"]], [46, ["छियालीस"]], [47, ["सैंतालीस"]], [48, ["अड़तालीस"]], [49, ["उनचास"]],
-  [50, ["पचास"]], [51, ["इक्यावन"]], [52, ["बावन"]], [53, ["तिरेपन", "तिरपन"]], [54, ["चौवन"]], [55, ["पचपन"]], [56, ["छप्पन"]],
-  [57, ["सत्तावन"]], [58, ["अट्ठावन"]], [59, ["उनसठ"]], [60, ["साठ"]], [61, ["इकसठ"]], [62, ["बासठ"]], [63, ["तिरसठ"]], [64, ["चौंसठ"]],
-  [65, ["पैंसठ"]], [66, ["छियासठ"]], [67, ["सड़सठ", "सरसठ"]], [68, ["अड़सठ"]], [69, ["उनहत्तर"]], [70, ["सत्तर"]], [71, ["इकहत्तर"]],
-  [72, ["बहत्तर"]], [73, ["तिहत्तर"]], [74, ["चौहत्तर"]], [75, ["पचहत्तर"]], [76, ["छिहत्तर"]], [77, ["सतहत्तर"]], [78, ["अठहत्तर"]],
-  [79, ["उन्यासी", "उनासी"]], [80, ["अस्सी"]], [81, ["इक्यासी"]], [82, ["बयासी"]], [83, ["तिरासी"]], [84, ["चौरासी"]], [85, ["पचासी"]],
-  [86, ["छियासी"]], [87, ["सत्तासी"]], [88, ["अट्ठासी"]], [89, ["नवासी"]], [90, ["नब्बे"]], [91, ["इक्यानबे"]], [92, ["बानबे"]],
-  [93, ["तिरानबे"]], [94, ["चौरानबे"]], [95, ["पचानबे"]], [96, ["छियानबे"]], [97, ["सत्तानबे"]], [98, ["अट्ठानबे"]], [99, ["निन्यानबे"]],
-  [NaN, ["डेढ़", "ढाई", "सवा", "पौने"]], // fractions: never mapped, always the English reply
-];
-const HI_NUMBER = new Map<string, number>(HI_NUMBER_WORDS.flatMap(([v, ws]) => ws.map((w): [string, number] => [foldDev(w), v])));
-/** Magnitude words: the value, and the English spelling that a digit-led magnitude ("3.5 लाख") must find in the English claim. */
-const HI_MAGNITUDE = new Map<string, [number, RegExp]>(
-  ([
-    [["सौ"], 100, /hundred|\bsau\b/i],
-    [["हज़ार", "हजार"], 1000, /thousand|\bhazaa?r\b|\d\s*k\b/i],
-    [["लाख"], 1e5, /\blakhs?\b|\blacs?\b/i],
-    [["करोड़"], 1e7, /\bcrores?\b|\bkarod\b/i],
-    [["मिलियन"], 1e6, /million/i],
-    [["बिलियन"], 1e9, /billion/i],
-  ] as [string[], number, RegExp][]).flatMap(([ws, v, re]) => ws.map((w): [string, [number, RegExp]] => [foldDev(w), [v, re]])),
-);
-/** Currency and unit words, each with what the English claim must carry for the word to be the same unit. */
-const HI_UNIT = new Map<string, RegExp>(
-  ([
-    [["यूरो"], /euro|€|\beur\b/i],
-    [["रुपये", "रुपए", "रुपया", "रुपयों", "रूपये", "रूपए", "रूपया"], /rupee|rupay|₹|\binr\b|\brs\b/i],
-    [["डॉलर", "डालर", "डॉलरों"], /dollar|\$|\busd\b/i],
-    [["पाउंड", "पौंड", "पाउंडों"], /pound|£|\bgbp\b/i],
-    [["येन"], /\byen\b|¥|\bjpy\b/i],
-    [["दिरहम"], /dirham|\baed\b/i],
-    [["प्रतिशत", "फीसदी", "फ़ीसदी", "परसेंट"], /%|percent|per cent/i],
-    [["साल", "सालों", "सालाना", "वर्ष", "वर्षों", "वार्षिक", "बरस"], /year|annual|annum/i],
-    [["महीने", "महीना", "महीनों", "मासिक", "माह"], /month/i],
-    [["हफ्ते", "हफ्ता", "सप्ताह"], /week/i],
-    [["दिन", "दिनों"], /\bdays?\b|daily/i],
-    [["घंटे", "घंटा", "घंटों"], /hour|\bhrs?\b/i],
-    [["सेमेस्टर"], /semester|\bterm\b/i],
-  ] as [string[], RegExp][]).flatMap(([ws, re]) => ws.map((w): [string, RegExp] => [foldDev(w), re])),
-);
-const DEV_TOKEN_RE = /[\p{L}\p{M}]+|\p{Nd}+(?:[.,]\p{Nd}+)*/gu;
+/** ISO 4217 codes of currencies a counselling answer plausibly names (whole upper-case token; "USA"/"UK" are not codes). */
+const ISO_CURRENCY_RE =
+  /(?<![\p{L}\p{N}])(?:EUR|USD|GBP|INR|JPY|CNY|RMB|AUD|CAD|NZD|SGD|AED|CHF|SEK|NOK|DKK|PLN|CZK|HUF|KRW|MYR|RUB|HKD|ZAR|BDT|NPR|LKR|PKR|THB|IDR|PHP|TRY|SAR|QAR|KWD|BRL|MXN|ILS|UAH|KZT|GEL)(?![\p{L}\p{N}])/u;
+/** A capitalised proper noun right after in/to/from/at/near ("in Berlin", "to Munich"): a place. Over-matching only means English. */
+const PLACE_AFTER_PREP_RE = /(?<![\p{L}\p{N}])(?:[Ii]n|[Tt]o|[Ff]rom|[Aa]t|[Nn]ear)\s+(?:the\s+)?\p{Lu}[\p{L}\p{M}]+/u;
 
 /**
- * The values of the Devanagari number-word runs of a localized claim ("पाँच हज़ार" -> 5000), for the figure parity check; null (the
- * English reply) when a run cannot be mapped (a fraction), when a magnitude right after digits ("3.5 लाख") has no same magnitude word
- * in English (the digits themselves are compared by `figures`), or when a currency/unit word has no same unit in English. Applies
- * whether or not English has a figure. A lone `एक` is the article ("a"), not a figure.
+ * True when a sentence carries a fact (D-106): any digit in any script (Devanagari ३०० too), a currency symbol (Unicode Sc) or ISO code,
+ * a percent sign, a spelled-out figure or unit+figure that claims.ts reads, a URL / scheme-less host / e-mail (IDN hosts and dot
+ * variants included), a country (claims.ts list, demonyms, Devanagari spellings), or a place after in/to/from/at/near.
  */
-function devanagariWordFigures(english: string, localized: string): Set<string> | null {
-  const out = new Set<string>();
-  let group: { n?: number; mag?: number }[] = [];
-  const flush = (): boolean => {
-    const g = group;
-    group = [];
-    if (g.length === 0 || (g.length === 1 && g[0]!.n === 1)) return true;
-    let total = 0;
-    let cur = 0;
-    for (const t of g) {
-      if (t.n !== undefined) cur += t.n;
-      else if (t.mag === 100) cur = (cur || 1) * 100;
-      else {
-        total += (cur || 1) * t.mag!;
-        cur = 0;
-      }
-    }
-    const value = total + cur;
-    if (!Number.isFinite(value)) return false;
-    out.add(String(value));
-    return true;
-  };
-  let prevDigit = false;
-  for (const [tok] of foldDev(localized).matchAll(DEV_TOKEN_RE)) {
-    const unit = HI_UNIT.get(tok);
-    if (unit && !unit.test(english)) return null;
-    const mag = HI_MAGNITUDE.get(tok);
-    const n = HI_NUMBER.get(tok);
-    if (mag && prevDigit && group.length === 0) {
-      if (!mag[1].test(english)) return null;
-    } else if (mag) {
-      group.push({ mag: mag[0] });
-    } else if (n !== undefined) {
-      group.push({ n });
-    } else if (!flush()) {
-      return null;
-    }
-    prevDigit = /^\p{Nd}/u.test(tok!);
-  }
-  return flush() ? out : null;
+export function isFactualSentence(sentence: string): boolean {
+  const s = sentence.normalize("NFC");
+  if (/[\p{N}\p{Sc}%٪﹪％]/u.test(s)) return true;
+  if (ISO_CURRENCY_RE.test(s) || PLACE_AFTER_PREP_RE.test(s)) return true;
+  if (numberMentions(s).length > 0) return true;
+  if (linksIn(s).size > 0) return true;
+  return countriesInLocalized(s).length > 0;
 }
 
 /**
- * Language-neutral checks on a localized claim against the English claim the guards already passed (LK5, design 1B). All must hold,
- * otherwise the caller shows the English reply: (i) the script is the reply language's script; (ii) the same numbers, in any digit
- * system or spelled out (Devanagari number words included), no more and no fewer, and no unit the English claim does not carry; (iii) no run of a restricted text
- * (WhatsApp/unknown/ask material); (iv) no link, e-mail or scheme-less host the English claim does not carry (a different link fails even
- * when English has one); (v) no country the English claim does not name (Latin or Devanagari spelling). Meaning drift cannot be checked
- * by code; that stays an eval (design R2).
+ * Sentences of a text: split after . ! ? । ॥ (and their fullwidth forms) when whitespace follows, and at line breaks. "3.5" and
+ * "daad.de" do not split (no space after the dot); an abbreviation like "e.g. " does, which can only cause an alignment failure
+ * (the English reply).
  */
-export function localizedClaimOk(english: string, localized: string, replyLang: ReplyLang, restrictedTexts: readonly string[]): boolean {
-  if (replyLang === "en" || localized.trim() === "") return false;
-  if (detectScript(localized) !== replyScript(replyLang)) return false;
-  const a = figures(english);
-  const words = devanagariWordFigures(english, localized);
-  if (!words) return false;
-  const b = new Set([...figures(localized), ...words]);
-  if (a.size !== b.size || [...a].some((n) => !b.has(n))) return false;
-  if (a.size === 0 && DEVANAGARI_MAGNITUDE.test(stripNukta(localized))) return false;
-  const unitsEn = unitsOf(english);
-  if ([...unitsOf(localized)].some((u) => !unitsEn.has(u))) return false;
-  const countriesEn = new Set(countriesInLocalized(english));
-  if (countriesInLocalized(localized).some((c) => !countriesEn.has(c))) return false;
-  const linksEn = linksIn(english);
-  if ([...linksIn(localized)].some((k) => !linksEn.has(k))) return false;
-  return !restrictedTexts.some((t) => hasVerbatimRun(localized, t));
+export function splitSentences(text: string): string[] {
+  return text
+    .normalize("NFC")
+    .split(/(?<=[.!?।॥！？。])\s+|[\x0A\x0D\p{Zl}\p{Zp}]+/u)
+    .map((s) => s.trim())
+    .filter((s) => s !== "");
+}
+
+/**
+ * The text to show for one claim in the reply language (LK5, rule (a) of D-106), or undefined for "show the whole English reply".
+ * The English claim already passed every guard. The localized copy is used only if it is in the reply language's script and has
+ * exactly as many sentences as the English claim (else fail closed). Sentence by sentence: if the English sentence or its localized
+ * counterpart is factual (`isFactualSentence`), the English sentence is shown verbatim; otherwise the localized sentence. Finally no run
+ * of a restricted text (WhatsApp/unknown/ask material) may appear. Meaning drift in a fact-free sentence is not checkable by code
+ * (design R2).
+ */
+export function localizedClaimText(english: string, localized: string, replyLang: ReplyLang, restrictedTexts: readonly string[]): string | undefined {
+  if (replyLang === "en" || localized.trim() === "") return undefined;
+  if (detectScript(localized) !== replyScript(replyLang)) return undefined;
+  const en = splitSentences(english);
+  const lo = splitSentences(localized);
+  if (en.length === 0 || en.length !== lo.length) return undefined;
+  const text = en.map((e, i) => (isFactualSentence(e) || isFactualSentence(lo[i]!) ? e : lo[i]!)).join(" ");
+  return restrictedTexts.some((t) => hasVerbatimRun(text, t)) ? undefined : text;
 }
 
 // ---------------------------------------------------------------------------
