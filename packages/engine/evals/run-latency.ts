@@ -7,7 +7,7 @@
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import {
-  DEFAULT_GOLDEN_SET,
+  loadRealGoldenSet,
   DEFAULT_KB_FIXTURE,
   RealNotWiredError,
   assertRealInputAllowed,
@@ -20,7 +20,7 @@ import {
   type RunnerDeps,
   type RunnerOutcome,
 } from "./run-eval.js";
-import { fixtureSearch, loadGoldenSet, loadKbFixture } from "./dataset.js";
+import { fixtureSearch, loadKbFixture } from "./dataset.js";
 import { A8_MIN_SAMPLES, evaluateA8, measureOnce, summarizeLatency, type LatencySample } from "./latency.js";
 import { toLatencyMarkdown } from "./report.js";
 
@@ -37,7 +37,7 @@ const LATENCY_PROMPT =
  * as equal to full-answer latency, a conservative upper bound (it can only make A8 harder to pass).
  */
 export function realLatencyBody(args: P1Args): RealBody {
-  const golden = loadGoldenSet(args.golden ?? DEFAULT_GOLDEN_SET);
+  const golden = loadRealGoldenSet("run-latency", args);
   const fixture = loadKbFixture(args.fixture ?? DEFAULT_KB_FIXTURE);
   if (golden.length === 0) throw new Error("run-latency --real: the golden set is empty; refusing before the run starts");
   assertRealInputAllowed("run-latency", "--fixture", fixture.source, args);

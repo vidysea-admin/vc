@@ -1,0 +1,42 @@
+F1 C1 headerless golden accepted => exit=1 pass=23 fail=2 syntaxerr=False
+    - HOSTILE C1/C3: header placement, BOM, casing, header-only, double header, odd source values are all refused un
+    - golden provenance (B13/D-100): a REAL run refuses a --golden with no source header, a 'recorded' one without -
+    - failing tests:
+F2 C1 recorded golden needs no --anonymised => exit=1 pass=23 fail=2 syntaxerr=False
+    - HOSTILE C1/C3: header placement, BOM, casing, header-only, double header, odd source values are all refused un
+    - golden provenance (B13/D-100): a REAL run refuses a --golden with no source header, a 'recorded' one without -
+    - failing tests:
+F3 C2 bare-array experts accepted => exit=1 pass=24 fail=1 syntaxerr=False
+    - ISS-296: a bare-array --experts is refused under --real with a message that asks for {source, experts}, before
+    - failing tests:
+F4 C3 raw zod enum message => exit=1 pass=22 fail=3 syntaxerr=False
+    - HOSTILE C1/C3: header placement, BOM, casing, header-only, double header, odd source values are all refused un
+    - golden provenance (B13/D-100): a REAL run refuses a --golden with no source header, a 'recorded' one without -
+    - ISS-297: a mixed-case or unknown source gives one clear refusal (not a raw schema dump) for the fixture, the p
+    - failing tests:
+F5 C4a placeholder-experts refusal removed => exit=1 pass=23 fail=2 syntaxerr=False
+    - HOSTILE C4: no --experts and no flag refuses before ledger/request; flag run makes NO model call and writes em
+    - run-h2h REAL (ollama): without --experts the run is refused (ISS-294) unless --allow-placeholder-experts, and 
+    - failing tests:
+F6 C4b nothing withheld => exit=1 pass=0 fail=2 syntaxerr=True
+    - evals\chk-hostile.test.ts (2079.7774ms)
+    - evals\real-bodies.test.ts (2058.1886ms)
+    - failing tests:
+F7 C5 words() without \p{M} => exit=1 pass=23 fail=2 syntaxerr=False
+    - HOSTILE C5: Devanagari marks (4.0912ms)
+    - run-kb words() keeps Devanagari combining marks: two different words no longer collapse to the same consonant 
+    - failing tests:
+F8 C4c placeholder question still calls model => exit=1 pass=23 fail=2 syntaxerr=False
+    - HOSTILE C4: withheld ids absent from pairs, key, every sheet; no model call for placeholder question; fixed-te
+    - HOSTILE C4: no --experts and no flag refuses before ledger/request; flag run makes NO model call and writes em
+    - failing tests:
+?? packages/engine/evals/chk-hostile.test.ts
+
+F6 C4b nothing withheld => exit=1 pass=21 fail=4 syntaxerr=False
+    - HOSTILE C4: withheld ids absent from pairs, key, every sheet; no model call for placeholder question; fixed-te
+    - HOSTILE C4: no --experts and no flag refuses before ledger/request; flag run makes NO model call and writes em
+    - run-h2h REAL (ollama): VC answers come from the provider, pairs stay blind, the key holds a random seed, and t
+    - run-h2h REAL (ollama): without --experts the run is refused (ISS-294) unless --allow-placeholder-experts, and 
+    - failing tests:
+?? packages/engine/evals/chk-hostile.test.ts
+

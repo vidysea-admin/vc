@@ -14,7 +14,7 @@
 import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { loadDataset } from "./dataset.js";
+import { loadDataset, loadGoldenFile, type GoldenQuestion } from "./dataset.js";
 import { scoreDataset } from "./score.js";
 import { toMarkdown, toAbortMarkdown } from "./report.js";
 import { type BudgetRun, assertGReal, executeReal } from "./budget.js";
@@ -93,6 +93,8 @@ export interface P1Args {
   experts?: string;
   /** U13b (B13/D-100): the operator confirms a `source: "recorded"` input has been anonymised; REAL runners refuse recorded input without it. */
   anonymised?: boolean;
+  /** run-h2h --real only (ISS-294): permit placeholder expert answers; their questions are withheld from the blinded pairs and sheets. */
+  allowPlaceholderExperts?: boolean;
 }
 
 /**
@@ -101,12 +103,33 @@ export interface P1Args {
  * REAL body factory, i.e. BEFORE any ledger line or request. Mock mode never calls it.
  */
 export function assertRealInputAllowed(runner: string, flag: string, source: string, args: P1Args): void {
+  if (source !== "synthetic" && source !== "recorded") {
+    throw new Error(`${runner} --real: ${flag} declares source ${JSON.stringify(source)}; it must be exactly "synthetic" or "recorded". Refusing.`);
+  }
   if (source === "recorded" && !args.anonymised) {
     throw new Error(
       `${runner} --real: ${flag} is source "recorded" (real transcripts); a REAL run sends it to an external paid provider (B13/D-100). ` +
         "Refusing. Anonymise it first, then pass --anonymised to confirm.",
     );
   }
+}
+
+/**
+ * U13b guard for the `--golden` question file (D-101): a REAL run sends the questions to a paid provider, so the
+ * file must declare its provenance in a first-line `{"source": "synthetic"|"recorded"}` header. No header = refused
+ * (an undeclared file cannot be checked); "recorded" needs `--anonymised`. Mock mode never calls this.
+ */
+export function loadRealGoldenSet(runner: string, args: P1Args): GoldenQuestion[] {
+  const path = args.golden ?? DEFAULT_GOLDEN_SET;
+  const file = loadGoldenFile(path);
+  if (file.source === undefined) {
+    throw new Error(
+      `${runner} --real: --golden ${path} declares no provenance, so the recorded-input guard (B13/D-100) cannot check it. ` +
+        'Add a first line {"source": "synthetic"} or {"source": "recorded"}. Refusing.',
+    );
+  }
+  assertRealInputAllowed(runner, "--golden", file.source, args);
+  return file.questions;
 }
 
 export interface RunnerDeps {
@@ -161,6 +184,7 @@ export function parseP1Args(argv: readonly string[]): P1Args {
   for (const arg of argv) {
     if (arg === "--real") args.real = true;
     else if (arg === "--anonymised") args.anonymised = true;
+    else if (arg === "--allow-placeholder-experts") args.allowPlaceholderExperts = true;
     else if (arg.startsWith("--golden=")) args.golden = arg.slice("--golden=".length);
     else if (arg.startsWith("--fixture=")) args.fixture = arg.slice("--fixture=".length);
     else if (arg.startsWith("--cases=")) args.cases = arg.slice("--cases=".length);
@@ -168,7 +192,7 @@ export function parseP1Args(argv: readonly string[]): P1Args {
     else if (arg.startsWith("--ledger=")) args.ledger = arg.slice("--ledger=".length);
     else if (arg.startsWith("--seed=")) args.seed = arg.slice("--seed=".length);
     else if (arg.startsWith("--experts=")) args.experts = arg.slice("--experts=".length);
-    else throw new Error(`unknown argument "${arg}" (known: --real --anonymised --golden= --fixture= --cases= --out= --ledger= --seed= --experts=)`);
+    else throw new Error(`unknown argument "${arg}" (known: --real --anonymised --allow-placeholder-experts --golden= --fixture= --cases= --out= --ledger= --seed= --experts=)`);
   }
   // --real spends money against the one shared A24 ledger; a different --ledger would hide that spend from the caps.
   if (args.real && resolve(args.ledger) !== resolve(P1_LEDGER)) {
