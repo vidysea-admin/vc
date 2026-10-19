@@ -13,7 +13,7 @@
 - D3 (D-105) the crisis message catalog is en and hi only and reuses wording already approved in the repo (no new clinical wording)
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 0
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** L (crisis text path plus a new engine module and two call sites)
