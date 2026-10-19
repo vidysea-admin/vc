@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { z } from "zod";
 import {
   DEFAULT_GOLDEN_SET,
+  loadRealGoldenSet,
   DEFAULT_KB_FIXTURE,
   RealNotWiredError,
   assertRealInputAllowed,
@@ -24,7 +25,7 @@ import {
   type RunnerDeps,
   type RunnerOutcome,
 } from "./run-eval.js";
-import { fixtureSearch, loadGoldenSet, loadKbFixture } from "./dataset.js";
+import { ProvenanceSchema, fixtureSearch, loadGoldenSet, loadKbFixture } from "./dataset.js";
 import { NO_SOURCED_ANSWER_TEXT } from "./probes.js";
 import { buildBlindPairs, buildJudgeSheets, buildKeyFile, resolveH2hSeed, tallyH2h, type ExpertAnswer, type H2hRating } from "./h2h.js";
 import { judgeSheetMarkdown, toH2hMarkdown } from "./report.js";
@@ -34,11 +35,27 @@ const MOCK_JUDGES = ["judge-1", "judge-2"];
 
 const VcAnswerSchema = z.object({ answer: z.string().min(1) });
 const ExpertAnswerSchema = z.object({ questionId: z.string().min(1), text: z.string().min(1), author: z.string().min(1) });
-/** `--experts` file: a bare array (counsellor-written answers), or `{source, experts}` so a file can declare it holds recorded (real) text. */
-const ExpertsFileSchema = z.union([
-  z.array(ExpertAnswerSchema).transform((experts) => ({ source: "synthetic" as const, experts })),
-  z.object({ source: z.enum(["synthetic", "recorded"]), experts: z.array(ExpertAnswerSchema) }),
-]);
+/** `--experts` file: `{source, experts}` so the file declares whether it holds recorded (real) text. */
+const ExpertsFileSchema = z.object({ source: ProvenanceSchema, experts: z.array(ExpertAnswerSchema) });
+
+/** ISS-296/297: a bare array declares no source (refused under --real); a bad source value is one clear refusal, not a schema dump. */
+function parseExpertsFile(path: string): z.infer<typeof ExpertsFileSchema> {
+  const json: unknown = JSON.parse(readFileSync(path, "utf-8"));
+  if (Array.isArray(json)) {
+    throw new Error(
+      `run-h2h --real: --experts ${path} is a bare array and declares no source, so the recorded-input guard (B13/D-100) cannot check it. ` +
+        'Use the {source, experts} form: {"source": "synthetic"|"recorded", "experts": [...]}. Refusing.',
+    );
+  }
+  const parsed = ExpertsFileSchema.safeParse(json);
+  if (!parsed.success) throw new Error(`run-h2h --experts ${path}: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
+  return parsed.data;
+}
+
+/** A text only one side can carry (the fixed VC no-sourced-answer text, or a placeholder expert text) would tell a judge which side is VC. */
+function isFixedAnswerText(text: string): boolean {
+  return text === NO_SOURCED_ANSWER_TEXT || text.startsWith("[PLACEHOLDER");
+}
 /** Eval-harness prompt (not a product skill). */
 const H2H_PROMPT =
   "You are a study-abroad counsellor's assistant. Answer the student's question using ONLY the supplied knowledge-base passages, in at most five sentences. " +
@@ -53,10 +70,16 @@ const H2H_PROMPT =
  * two counsellor judges fill the sheets in.
  */
 export function realH2hBody(args: P1Args): RealBody {
-  const golden = loadGoldenSet(args.golden ?? DEFAULT_GOLDEN_SET);
+  const golden = loadRealGoldenSet("run-h2h", args);
   const fixture = loadKbFixture(args.fixture ?? DEFAULT_KB_FIXTURE);
   assertRealInputAllowed("run-h2h", "--fixture", fixture.source, args);
-  const expertsFile = args.experts ? ExpertsFileSchema.parse(JSON.parse(readFileSync(args.experts, "utf-8"))) : undefined;
+  if (!args.experts && !args.allowPlaceholderExperts) {
+    throw new Error(
+      "run-h2h --real: no --experts given, so the expert side would be placeholder text. Judges would see which side is VC (ISS-294). " +
+        "Pass --experts=<{source, experts} json>, or --allow-placeholder-experts for a plumbing run (those questions are withheld from the pairs and sheets). Refusing.",
+    );
+  }
+  const expertsFile = args.experts ? parseExpertsFile(args.experts) : undefined;
   if (expertsFile) assertRealInputAllowed("run-h2h", "--experts", expertsFile.source, args);
   const provided = expertsFile?.experts;
   const experts: ExpertAnswer[] = golden.map((g, i) => {
@@ -68,6 +91,8 @@ export function realH2hBody(args: P1Args): RealBody {
     if (!provider) throw new RealNotWiredError("run-h2h");
     const vcAnswers: Record<string, string> = {};
     for (const g of golden) {
+      // A placeholder expert side is withheld below, so do not pay for a VC answer that will never be shown.
+      if (isFixedAnswerText(experts.find((e) => e.questionId === g.id)?.text ?? "")) continue;
       const top = [...(fixtureSearch(fixture, g.question) ?? [])].sort((a, b) => b.score - a.score).slice(0, 3);
       if (top.length === 0) {
         vcAnswers[g.id] = NO_SOURCED_ANSWER_TEXT;
@@ -82,13 +107,18 @@ export function realH2hBody(args: P1Args): RealBody {
       vcAnswers[g.id] = out.answer;
     }
     const resolved = resolveH2hSeed({ real: true, ...(args.seed !== undefined ? { seed: args.seed } : {}) });
+    // A14 blinding (ISS-294/298 L3): a question whose VC or expert text is a fixed/placeholder text cannot be shown blind; withhold it.
+    const withheld = golden.filter((g) => isFixedAnswerText(vcAnswers[g.id] ?? "") || isFixedAnswerText(experts.find((e) => e.questionId === g.id)?.text ?? ""));
+    const withheldIds = new Set(withheld.map((g) => g.id));
+    const judgeable = golden.filter((g) => !withheldIds.has(g.id));
+    const judgeableExperts = experts.filter((e) => !withheldIds.has(e.questionId));
     const { pairs, key } = buildBlindPairs(
-      golden.map((g) => ({ id: g.id, question: g.question })),
+      judgeable.map((g) => ({ id: g.id, question: g.question })),
       vcAnswers,
-      experts,
+      judgeableExperts,
       resolved.seed,
     );
-    const sheets = buildJudgeSheets(pairs, experts, MOCK_JUDGES, resolved.seed);
+    const sheets = buildJudgeSheets(pairs, judgeableExperts, MOCK_JUDGES, resolved.seed);
     writeP1File(args.outDir, "h2h-pairs.json", `${JSON.stringify(pairs, null, 2)}\n`);
     writeP1File(args.outDir, "h2h-key.json", `${JSON.stringify(buildKeyFile(resolved, key), null, 2)}\n`);
     for (const sheet of sheets) {
@@ -99,15 +129,18 @@ export function realH2hBody(args: P1Args): RealBody {
       judges: MOCK_JUDGES,
       a1Met: false, // a real run reads the A1/A3 REAL reports; not read here, so not claimed
       a3Met: false,
-      authorsByQuestion: Object.fromEntries(experts.map((e) => [e.questionId, e.author])),
+      authorsByQuestion: Object.fromEntries(judgeableExperts.map((e) => [e.questionId, e.author])),
     });
     const expertsSource = provided ? "counsellor-written (--experts)" : "PLACEHOLDER (no --experts given)";
     const markdown = [
-      `> REAL run: model \`${provider.model}\` wrote ${golden.length} VC answer(s). Expert answers: ${expertsSource}. Blind pairs, secret key and judge sheets are written; no ratings yet, so A14 is NOT PROVEN until two counsellor judges rate them.`,
+      `> REAL run: model \`${provider.model}\` wrote ${judgeable.length} judgeable VC answer(s). Expert answers: ${expertsSource}. Blind pairs, secret key and judge sheets are written; no ratings yet, so A14 is NOT PROVEN until two counsellor judges rate them.`,
+      ...(withheld.length > 0
+        ? [`> ${withheld.length} question(s) withheld from the blinded pairs and sheets because one side is a fixed text (no sourced VC answer, or a placeholder expert answer) that would reveal which side is VC: ${withheld.map((g) => g.id).join(", ")}.`]
+        : []),
       "",
       toH2hMarkdown(tally, { mode: "real" }),
     ].join("\n");
-    return new RealReport({ mode: "real", model: provider.model, expertsSource, seedSource: resolved.source, tally }, markdown);
+    return new RealReport({ mode: "real", model: provider.model, expertsSource, seedSource: resolved.source, withheldQuestionIds: withheld.map((g) => g.id), tally }, markdown);
   };
 }
 

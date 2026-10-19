@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import {
   DEFAULT_GOLDEN_SET,
+  loadRealGoldenSet,
   DEFAULT_KB_FIXTURE,
   RealNotWiredError,
   assertRealInputAllowed,
@@ -34,7 +35,7 @@ const REWRITE_PROMPT =
 export const REWRITE_MATCH_MIN_JACCARD = 0.5;
 
 function words(text: string): Set<string> {
-  return new Set(text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 0));
+  return new Set(text.toLowerCase().split(/[^\p{L}\p{N}\p{M}]+/u).filter((w) => w.length > 0));
 }
 
 /** The recorded hits of the fixture query closest to `text` (a frozen fixture cannot run a live /search); undefined below the threshold. */
@@ -59,7 +60,7 @@ export function nearestRecordedSearch(fixture: KbFixture, text: string): KbHit[]
  * Retrieval stays on the frozen fixture: a live KB smoke is a separate step.
  */
 export function realKbBody(args: P1Args): RealBody {
-  const golden = loadGoldenSet(args.golden ?? DEFAULT_GOLDEN_SET);
+  const golden = loadRealGoldenSet("run-kb", args);
   const fixture = loadKbFixture(args.fixture ?? DEFAULT_KB_FIXTURE);
   assertRealInputAllowed("run-kb", "--fixture", fixture.source, args);
   return async (_run, provider) => {

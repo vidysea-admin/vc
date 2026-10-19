@@ -7,12 +7,14 @@ import { mkdtempSync, readFileSync, existsSync, readdirSync, writeFileSync } fro
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseP1Args, RealNotWiredError, type P1Args, type RunnerDeps, type RunnerOutcome } from "./run-eval.js";
-import { runKb } from "./run-kb.js";
+import { runKb, nearestRecordedSearch } from "./run-kb.js";
 import { runH2h } from "./run-h2h.js";
 import { runProbes } from "./run-probes.js";
 import { runLatency } from "./run-latency.js";
 import { runLive } from "./run-live.js";
 import { readLedger } from "./budget.js";
+import { NO_SOURCED_ANSWER_TEXT } from "./probes.js";
+import { parseKbFixture } from "./dataset.js";
 
 const NOW = () => new Date("2026-10-17T10:00:00Z");
 const GATE = (() => {
@@ -62,6 +64,7 @@ function kbFiles(dir: string): { golden: string; fixture: string } {
     dir,
     "golden.jsonl",
     [
+      { source: "synthetic" },
       { id: "g-en", lang: "en", country: "USA", theme: "tuition", question: "SYNTHETIC english tuition question", expectedTurnIds: ["t-en"], expectedSessionIds: [] },
       { id: "g-hi", lang: "hinglish", country: "Germany", theme: "visa", question: "SYNTHETIC-HI germany visa kaise milta hai", expectedTurnIds: ["t-hi"], expectedSessionIds: [] },
     ]
@@ -317,10 +320,13 @@ test("run-latency REAL (ollama): an empty golden set is refused before the run s
 test("run-h2h REAL (ollama): VC answers come from the provider, pairs stay blind, the key holds a random seed, and the tally is NOT PROVEN without ratings", async () => {
   const { dir, outDir, ledger } = tmp();
   const { golden, fixture } = kbFiles(dir);
-  const experts = write(dir, "experts.json", [
-    { questionId: "g-en", text: "EXPERT-en", author: "author-1" },
-    { questionId: "g-hi", text: "EXPERT-hi", author: "author-2" },
-  ]);
+  const experts = write(dir, "experts.json", {
+    source: "synthetic",
+    experts: [
+      { questionId: "g-en", text: "EXPERT-en", author: "author-1" },
+      { questionId: "g-hi", text: "EXPERT-hi", author: "author-2" },
+    ],
+  });
   const { fetchImpl, seen } = fakeOllama((_s, user) => ({ answer: `MODEL-ANSWER for ${String(user["question"])}` }));
   const outcome = await runH2h({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`, `--experts=${experts}`]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl });
   assert.equal(outcome.status, "completed");
@@ -331,10 +337,15 @@ test("run-h2h REAL (ollama): VC answers come from the provider, pairs stay blind
   const en = pairs.find((p) => p.questionId === "g-en")!;
   assert.deepEqual([en.A, en.B].sort(), ["EXPERT-en", "MODEL-ANSWER for SYNTHETIC english tuition question"].sort());
   assert.ok(!pairsRaw.includes("vcSide"), "origin never in the public pairs");
+  assert.ok(!pairsRaw.includes(NO_SOURCED_ANSWER_TEXT) && !pairsRaw.includes("EXPERT-hi"), "A14 blinding: the VC-only fixed text (and its pair) is not in the pairs");
+  for (const f of readdirSync(outDir).filter((x) => x.startsWith("h2h-judge-sheet-"))) {
+    assert.ok(!readFileSync(join(outDir, f), "utf-8").includes(NO_SOURCED_ANSWER_TEXT), `${f} leaks the VC-only fixed text`);
+  }
   const key = JSON.parse(readFileSync(join(outDir, "h2h-key.json"), "utf-8")) as { seed: string; source: string; key: unknown[] };
   assert.equal(key.source, "random");
   assert.match(key.seed, /^[0-9a-f]{32}$/);
-  assert.equal(key.key.length, 2);
+  assert.equal(key.key.length, 1, "g-hi (fixed no-sourced-answer text) is withheld from the blinded set");
+  assert.deepEqual(jsonReport(outDir, "h2h-report.json").result["withheldQuestionIds"], ["g-hi"]);
   assert.ok(readdirSync(outDir).some((f) => f.startsWith("h2h-judge-sheet-")));
   const r = jsonReport(outDir, "h2h-report.json").result;
   assert.equal(r["tally"].verdict, "NOT PROVEN");
@@ -342,16 +353,26 @@ test("run-h2h REAL (ollama): VC answers come from the provider, pairs stay blind
   assert.ok(!JSON.stringify(r).includes(key.seed), "the seed lives only in the key file");
 });
 
-test("run-h2h REAL (ollama): without --experts the expert side is a labelled placeholder and the report says so; an --experts file missing a question is refused before any spend", async () => {
+test("run-h2h REAL (ollama): without --experts the run is refused (ISS-294) unless --allow-placeholder-experts, and then no placeholder text reaches the pairs or sheets; an --experts file missing a question is refused before any spend", async () => {
   const { dir, outDir, ledger } = tmp();
   const { golden, fixture } = kbFiles(dir);
-  const { fetchImpl } = fakeOllama(() => ({ answer: "a" }));
-  const outcome = await runH2h({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl });
+  const { fetchImpl, seen } = fakeOllama(() => ({ answer: "a" }));
+  await assert.rejects(
+    runH2h({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl }),
+    /placeholder.*--allow-placeholder-experts/s,
+  );
+  assert.equal(existsSync(ledger), false, "refused before any ledger line");
+  assert.equal(seen.length, 0, "refused before any request");
+  const outcome = await runH2h({ ...parseP1Args(["--real", "--allow-placeholder-experts", `--golden=${golden}`, `--fixture=${fixture}`]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl });
   assert.equal(jsonReport(outDir, "h2h-report.json").result["expertsSource"], "PLACEHOLDER (no --experts given)");
   assert.match(outcome.markdown, /Expert answers: PLACEHOLDER/);
+  for (const f of readdirSync(outDir).filter((x) => x.startsWith("h2h-pairs") || x.startsWith("h2h-judge-sheet-"))) {
+    const text = readFileSync(join(outDir, f), "utf-8");
+    assert.ok(!/PLACEHOLDER/.test(text) && !text.includes(NO_SOURCED_ANSWER_TEXT), `${f} leaks which side is VC`);
+  }
 
   const bad = tmp();
-  const partial = write(bad.dir, "experts.json", [{ questionId: "g-en", text: "x", author: "author-1" }]);
+  const partial = write(bad.dir, "experts.json", { source: "synthetic", experts: [{ questionId: "g-en", text: "x", author: "author-1" }] });
   await assert.rejects(
     runH2h({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`, `--experts=${partial}`]), outDir: bad.outDir, ledger: bad.ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl }),
     /no expert answer for question g-hi/,
@@ -406,4 +427,90 @@ test("a bad Ollama config or a missing fixture refuses BEFORE the budget run sta
   );
   assert.equal(existsSync(ledger), false);
   assert.equal(seen.length, 0);
+});
+
+// ---------------------------------------------------------------- U13b lows (D-101)
+const NO_PROVENANCE = /declares no provenance/;
+const BAD_SOURCE = /must be exactly "synthetic" or "recorded"/;
+
+function lowsHarness() {
+  const t = tmp();
+  const { golden, fixture } = kbFiles(t.dir);
+  const questions = readFileSync(golden, "utf-8").split("\n").slice(1).join("\n");
+  const withHeader = (header: string | undefined, name: string) => write(t.dir, name, header === undefined ? questions : `${header}\n${questions}`);
+  const { fetchImpl, seen } = fakeOllama(() => ({ english: "how does a student get a germany visa", answer: "a" }));
+  const deps = { env: ENV, gateFile: GATE, now: NOW, fetchImpl };
+  const args = (extra: string[]): P1Args => ({ ...parseP1Args(["--real", ...extra]), outDir: t.outDir, ledger: t.ledger });
+  const untouched = (): void => {
+    assert.equal(existsSync(t.ledger), false, "no ledger line");
+    assert.equal(seen.length, 0, "no request");
+  };
+  return { ...t, golden, fixture, withHeader, deps, args, untouched };
+}
+
+test("golden provenance (B13/D-100): a REAL run refuses a --golden with no source header, a 'recorded' one without --anonymised, and a bad source value; mock mode and an anonymised recorded set are unchanged", async () => {
+  const h = lowsHarness();
+  const none = h.withHeader(undefined, "g-none.jsonl");
+  const rec = h.withHeader('{"source":"recorded"}', "g-rec.jsonl");
+  const mixed = h.withHeader('{"source":"Recorded"}', "g-mixed.jsonl");
+  for (const [name, run] of [["run-kb", runKb], ["run-latency", runLatency], ["run-h2h", runH2h]] as const) {
+    const extra = name === "run-h2h" ? ["--allow-placeholder-experts"] : [];
+    await assert.rejects(run(h.args([...extra, `--golden=${none}`, `--fixture=${h.fixture}`]), h.deps), NO_PROVENANCE, `${name} no header`);
+    await assert.rejects(run(h.args([...extra, `--golden=${rec}`, `--fixture=${h.fixture}`]), h.deps), /source "recorded".*--anonymised/s, `${name} recorded`);
+    await assert.rejects(run(h.args([...extra, `--golden=${mixed}`, `--fixture=${h.fixture}`]), h.deps), BAD_SOURCE, `${name} mixed case`);
+  }
+  h.untouched();
+  // recorded + --anonymised goes through
+  const ok = await runKb(h.args(["--anonymised", `--golden=${rec}`, `--fixture=${h.fixture}`]), h.deps);
+  assert.equal(ok.status, "completed");
+  // mock mode: a header-less golden set and a headed one both load, and give the same questions
+  const a = await runKb({ ...parseP1Args([`--golden=${none}`, `--fixture=${h.fixture}`]), outDir: tmp().outDir, ledger: tmp().ledger });
+  const b = await runKb({ ...parseP1Args([`--golden=${rec}`, `--fixture=${h.fixture}`]), outDir: tmp().outDir, ledger: tmp().ledger });
+  assert.equal(a.mode, "mock");
+  assert.deepEqual((a.report as { a2a: unknown }).a2a, (b.report as { a2a: unknown }).a2a);
+});
+
+test("ISS-296: a bare-array --experts is refused under --real with a message that asks for {source, experts}, before any ledger line or request", async () => {
+  const h = lowsHarness();
+  const bare = write(h.dir, "bare.json", [
+    { questionId: "g-en", text: "x", author: "author-1" },
+    { questionId: "g-hi", text: "y", author: "author-2" },
+  ]);
+  await assert.rejects(runH2h(h.args([`--golden=${h.golden}`, `--fixture=${h.fixture}`, `--experts=${bare}`]), h.deps), /declares no source.*\{source, experts\}/s);
+  h.untouched();
+  const good = write(h.dir, "good.json", { source: "synthetic", experts: [{ questionId: "g-en", text: "x", author: "author-1" }, { questionId: "g-hi", text: "y", author: "author-2" }] });
+  const ok = await runH2h(h.args([`--golden=${h.golden}`, `--fixture=${h.fixture}`, `--experts=${good}`]), h.deps);
+  assert.equal(ok.status, "completed");
+});
+
+test("ISS-297: a mixed-case or unknown source gives one clear refusal (not a raw schema dump) for the fixture, the probe set and the experts file", async () => {
+  const h = lowsHarness();
+  const badFixture = write(h.dir, "bad-fixture.json", JSON.parse(readFileSync(h.fixture, "utf-8").replace('"synthetic"', '"Recorded"')));
+  const badCases = write(h.dir, "bad-cases.json", JSON.parse(readFileSync(probeCases(h.dir), "utf-8").replace('"synthetic"', '"RECORDED"')));
+  const badExperts = write(h.dir, "bad-experts.json", { source: "Recorded", experts: [{ questionId: "g-en", text: "x", author: "author-1" }] });
+  const unknownExperts = write(h.dir, "unk-experts.json", { source: "real", experts: [{ questionId: "g-en", text: "x", author: "author-1" }] });
+  const cases: [string, () => Promise<unknown>][] = [
+    ["kb fixture", () => runKb(h.args([`--golden=${h.golden}`, `--fixture=${badFixture}`]), h.deps)],
+    ["h2h fixture", () => runH2h(h.args(["--allow-placeholder-experts", `--golden=${h.golden}`, `--fixture=${badFixture}`]), h.deps)],
+    ["probes", () => runProbes(h.args([`--cases=${badCases}`]), h.deps)],
+    ["experts mixed", () => runH2h(h.args([`--golden=${h.golden}`, `--fixture=${h.fixture}`, `--experts=${badExperts}`]), h.deps)],
+    ["experts unknown", () => runH2h(h.args([`--golden=${h.golden}`, `--fixture=${h.fixture}`, `--experts=${unknownExperts}`]), h.deps)],
+  ];
+  for (const [name, run] of cases) {
+    const err = await run().then(
+      () => assert.fail(`${name}: should have been refused`),
+      (e: unknown) => e as Error,
+    );
+    assert.match(err.message, BAD_SOURCE, name);
+    assert.ok(!/invalid_union|Invalid enum value|invalid_enum_value/.test(err.message), `${name}: raw schema dump: ${err.message.slice(0, 120)}`);
+  }
+  h.untouched();
+});
+
+test("run-kb words() keeps Devanagari combining marks: two different words no longer collapse to the same consonant fragments", () => {
+  const fx = (query: string) =>
+    parseKbFixture(JSON.stringify({ schemaVersion: 1, source: "synthetic", recordedAt: "2026-10-19", search: [{ query, hits: [hit("t-x")] }] }), "inline");
+  // old split on marks: किताब -> {क,त,ब}, कुत्ता -> {क,त}; Jaccard 2/3 >= 0.5 was a false match
+  assert.equal(nearestRecordedSearch(fx("कुत्ता"), "किताब"), undefined);
+  assert.equal(nearestRecordedSearch(fx("किताब"), "किताब")?.length, 1, "the identical word still matches");
 });
