@@ -26,4 +26,4 @@ CAPABILITY-COVERAGE: 5/5 falsified (K1-K4, M2)
 LIVE-BROWSER: not-applicable (engine text guard, no UI)
 ISSUES-WRITTEN: ISS-392 (low); ISS-389 set fixed, ISS-390 set wontfix-accepted (D-106 R-a)
 EXECUTOR: claude-sonnet-subagent (checker: claude-sonnet-subagent)
-Metrics: start=2026-10-20T01:42:59+05:30 end=2026-10-20T01:56:00+05:30 wall_min=13 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=0 mutations=5 cycle=3 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.16 check_s=780 mutants=0 defects_unit=0 defects_6c=0
+Metrics: start=2026-10-20T01:42:59+05:30 end=2026-10-20T01:54:40+05:30 wall_min=12 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=0 mutations=5 cycle=3 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.16 check_s=701 mutants=0 defects_unit=0 defects_6c=0
