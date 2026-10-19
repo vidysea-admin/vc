@@ -1,0 +1,123 @@
+[testlock] running slot 0 (free RAM 3.05 GB): pnpm -C D:/vc/.worktrees/p1-u10w/apps/api exec tsx --test --test-reporter=tap tests/voice-wiring.test.ts
+TAP version 13
+# Subtest: W1: a crisis flag write that dies with FencedWriterDeadlineError (student NOT fenced) is retried, the crisis is still escalated once, the student is not ejected, and the log names the deadline, not a fence
+ok 1 - W1: a crisis flag write that dies with FencedWriterDeadlineError (student NOT fenced) is retried, the crisis is still escalated once, the student is not ejected, and the log names the deadline, not a fence
+  ---
+  duration_ms: 178.9355
+  type: 'test'
+  ...
+# Subtest: W1: a flag write that hits the deadline once and then succeeds stores the flag once and escalates once, logging nothing
+ok 2 - W1: a flag write that hits the deadline once and then succeeds stores the flag once and escalates once, logging nothing
+  ---
+  duration_ms: 80.5107
+  type: 'test'
+  ...
+# Subtest: W1: an escalation port that dies with FencedWriterDeadlineError once is retried and delivered; the student is not ejected
+ok 3 - W1: an escalation port that dies with FencedWriterDeadlineError once is retried and delivered; the student is not ejected
+  ---
+  duration_ms: 60.5602
+  type: 'test'
+  ...
+# Subtest: W2: an escalation still running after the drain timeout is awaited by voice.close(), so a shutdown does not lose it
+ok 4 - W2: an escalation still running after the drain timeout is awaited by voice.close(), so a shutdown does not lose it
+  ---
+  duration_ms: 749.0463
+  type: 'test'
+  ...
+# Subtest: W2: the wait for late work at shutdown is bounded: a write that never settles delays close() by at most drainTimeoutMs and is logged
+ok 5 - W2: the wait for late work at shutdown is bounded: a write that never settles delays close() by at most drainTimeoutMs and is logged
+  ---
+  duration_ms: 261.8599
+  type: 'test'
+  ...
+# Subtest: W3: a start superseded while its provider connect is still in flight is closed before the newer start opens its own provider session (never two paid sessions at once)
+ok 6 - W3: a start superseded while its provider connect is still in flight is closed before the newer start opens its own provider session (never two paid sessions at once)
+  ---
+  duration_ms: 234.3438
+  type: 'test'
+  ...
+# Subtest: W3: if the superseded connect never returns, the newer start waits at most connectOverlapWaitMs, the overlap is logged, and it still becomes the live session
+ok 7 - W3: if the superseded connect never returns, the newer start waits at most connectOverlapWaitMs, the overlap is logged, and it still becomes the live session
+  ---
+  duration_ms: 192.0293
+  type: 'test'
+  ...
+# Subtest: W4: the retry after a delivered-then-thrown escalation reuses the same session and turn id, and the real escalateTurns port writes each recipient record once
+ok 8 - W4: the retry after a delivered-then-thrown escalation reuses the same session and turn id, and the real escalateTurns port writes each recipient record once
+  ---
+  duration_ms: 96.8683
+  type: 'test'
+  ...
+# Subtest: W5: VC_VOICE_ENABLED unset, empty or 'false' -> no voice route, an upgrade is refused, no gate is read, nothing voice-related is built or connected
+ok 9 - W5: VC_VOICE_ENABLED unset, empty or 'false' -> no voice route, an upgrade is refused, no gate is read, nothing voice-related is built or connected
+  ---
+  duration_ms: 137.2359
+  type: 'test'
+  ...
+# Subtest: W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' are off; padded, cased or other values throw VoiceConfigError (never on)
+not ok 10 - W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' are off; padded, cased or other values throw VoiceConfigError (never on)
+  ---
+  duration_ms: 3.1526
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\p1-u10w\\apps\\api\\tests\\voice-wiring.test.ts:422:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception (VoiceConfigError): " true"'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    TestContext.<anonymous> (D:\vc\.worktrees\p1-u10w\apps\api\tests\voice-wiring.test.ts:426:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1103:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+    Test.postRun (node:internal/test_runner/test:1232:19)
+    Test.run (node:internal/test_runner/test:1160:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value
+not ok 11 - W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value
+  ---
+  duration_ms: 151.9026
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\p1-u10w\\apps\\api\\tests\\voice-wiring.test.ts:430:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection (VoiceConfigError): bad flag value " true"'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (D:\vc\.worktrees\p1-u10w\apps\api\tests\voice-wiring.test.ts:460:7)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: W7: flag on and gates open -> in a started process the session route mints a token, the WebSocket upgrades, a start reaches the provider, and a wrong token is refused
+ok 12 - W7: flag on and gates open -> in a started process the session route mints a token, the WebSocket upgrades, a start reaches the provider, and a wrong token is refused
+  ---
+  duration_ms: 57.49
+  type: 'test'
+  ...
+# Subtest: W7: the WebSocket secret and base URL default to VC_VOICE_WS_SECRET and VC_VOICE_WS_BASE_URL when the options are not supplied
+ok 13 - W7: the WebSocket secret and base URL default to VC_VOICE_WS_SECRET and VC_VOICE_WS_BASE_URL when the options are not supplied
+  ---
+  duration_ms: 37.6359
+  type: 'test'
+  ...
+# Subtest: W8: stop() finalizes a live voice session before the database client closes, and its usage is recorded
+ok 14 - W8: stop() finalizes a live voice session before the database client closes, and its usage is recorded
+  ---
+  duration_ms: 98.0213
+  type: 'test'
+  ...
+# Subtest: W9: a voice crisis in a started process reaches the SAME escalateForTenant port the text chat uses (one flag, one escalation)
+ok 15 - W9: a voice crisis in a started process reaches the SAME escalateForTenant port the text chat uses (one flag, one escalation)
+  ---
+  duration_ms: 188.9275
+  type: 'test'
+  ...
+# {"event":"escalation_unrouted","escalationId":"th-w:v41863a50000001","sessionId":"th-w"}
+# Subtest: W9: with chat off, a voice crisis goes through the engine's escalateTurns exactly like the text path default (notification records are written)
+ok 16 - W9: with chat off, a voice crisis goes through the engine's escalateTurns exactly like the text path default (notification records are written)
+  ---
+  duration_ms: 91.91
+  type: 'test'
+  ...

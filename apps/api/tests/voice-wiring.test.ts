@@ -19,7 +19,7 @@ import { MockLiveProvider, type LiveProvider } from "@vc/providers";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { GoLiveRefusedError } from "../src/go-live-gate.js";
 import { startApi } from "../src/index.js";
-import { VoiceConfigError, type VoiceApiDeps } from "../src/voice.js";
+import { VoiceConfigError, voiceEnabledFromEnv, type VoiceApiDeps } from "../src/voice.js";
 import { CRISIS_AUDIO, CRISIS_PHRASE, CRISIS_TEXT_FIXED, adult, newThread, studentToken, until, voiceWorld, type VoiceWorld, type VoiceWorldOptions } from "./voice-fixtures.js";
 import { SKILLS_DIR, SPEAKERS, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb, studentVerifier } from "./chat-fixtures.js";
 
@@ -419,6 +419,14 @@ test("W5: VC_VOICE_ENABLED unset, empty or 'false' -> no voice route, an upgrade
   }
 });
 
+test("W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' are off; padded, cased or other values throw VoiceConfigError (never on)", () => {
+  assert.equal(voiceEnabledFromEnv({ VC_VOICE_ENABLED: "true" }), true);
+  for (const env of [{}, { VC_VOICE_ENABLED: "" }, { VC_VOICE_ENABLED: "false" }]) assert.equal(voiceEnabledFromEnv(env), false);
+  for (const v of [" true", "true ", "\ttrue\n", " true ", "TRUE", "1", "yes"]) {
+    assert.throws(() => voiceEnabledFromEnv({ VC_VOICE_ENABLED: v }), VoiceConfigError, JSON.stringify(v));
+  }
+});
+
 test("W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value", async () => {
   const cases: Array<{ name: string; env: Record<string, string>; voice: Record<string, unknown> | "real-gates"; want: new (...a: never[]) => Error }> = [
     { name: "real repo gates (A20 gate not satisfied)", env: { VC_VOICE_ENABLED: "true" }, voice: "real-gates", want: GoLiveRefusedError },
@@ -428,6 +436,13 @@ test("W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listeni
     { name: "short secret", env: { VC_VOICE_ENABLED: "true" }, voice: { wsSecret: new Uint8Array(8) }, want: VoiceConfigError },
     { name: "bad base url", env: { VC_VOICE_ENABLED: "true" }, voice: { wsBaseUrl: "https://nope.example" }, want: VoiceConfigError },
     { name: "bad flag value", env: { VC_VOICE_ENABLED: "TRUE" }, voice: {}, want: VoiceConfigError },
+    // W5 repair (cycle 2): only the exact string "true" enables voice. A padded or differently-cased value is NOT trimmed into "true"; it fails closed.
+    ...[" true", "true ", "\ttrue\n", " true ", "1", "yes"].map((v) => ({
+      name: `bad flag value ${JSON.stringify(v)}`,
+      env: { VC_VOICE_ENABLED: v },
+      voice: {} as Record<string, unknown>,
+      want: VoiceConfigError,
+    })),
   ];
   for (const c of cases) {
     const fake = createFakeMongoClient();

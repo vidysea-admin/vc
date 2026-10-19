@@ -155,9 +155,9 @@ export class VoiceConfigError extends Error {
   }
 }
 
-/** Reads the flag: unset, empty and "false" are off; exactly "true" is on; anything else is a config error (never a silent on or off). */
+/** Reads the flag: unset, empty and "false" are off; exactly "true" is on (no trimming: " true", "TRUE", "1" are not "true"); anything else is a config error (never a silent on or off). */
 export function voiceEnabledFromEnv(env: Record<string, string | undefined>): boolean {
-  const raw = env[VOICE_FLAG_ENV]?.trim();
+  const raw = env[VOICE_FLAG_ENV];
   if (raw === undefined || raw === "" || raw === "false") return false;
   if (raw === "true") return true;
   throw new VoiceConfigError(`${VOICE_FLAG_ENV} must be "true" or "false" (got a different value)`);
