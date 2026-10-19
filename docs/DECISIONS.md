@@ -933,3 +933,9 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Why:** Umesh, chat 2026-10-19, to reach go-live fast with minimum liability.
 **Result:** qa/gates/nights.md, g-prod.md, g-real.md carry Answered lines citing D-102.
 **Links:** qa/gates/nights.md, qa/gates/g-prod.md, qa/gates/g-real.md, D-100, D-101
+
+## D-103 | 2026-10-19 | type: decision | status: ACTIVE
+**What:** Umesh in chat (2026-10-19): (1) ISS-340 go: fix crisisGuard for Devanagari-script Hinglish and add the fixture variants. (2) Direction: non-English student text is translated to English (via Ollama/LLM) for storage and processing, and replies are English-first; design unit to follow, details asked once. (3) ISS-303 go: verify the authenticated chat route scans for crisis before its 256 KiB body cap and apply the anonymous-route fix if not. (4) Ollama spend is tracked from actual response token counts (prompt_eval_count/eval_count), not a guessed per-token USD price; USD figures for Ollama are notional. (5) B13 legal sign-off and the consent text are owned and managed by the legal/consent team, outside this build; the agent stops tracking B13 items and never flips B13-signed.
+**Why:** Voice transcripts arrive in Devanagari, so a Latin-only guard misses crisis turns (ISS-340, high). Umesh wants one canonical English record. Ollama Cloud bills by plan, not per token.
+**Result:** ISS-340 and ISS-303 builds dispatched in parallel; translation layer waits on its design answers. Hard rule kept: the deterministic crisisGuard runs on the ORIGINAL text before and independent of any translation call, so a translation outage can never hide a crisis.
+**Links:** ISS-340, ISS-303, qa/gates/p1-u0-amendment-signatures.md, D-100, D-102
