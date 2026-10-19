@@ -112,7 +112,7 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 - [ ] CANDIDATE · ISS-281 (low): manifests t-046/t-047/t-051/t-053 stay at "integrated (historical bounded checker PASS; current release pending)"; release t-052 is checked-FAIL. (backstop sweep 2026-10-19)
 - [ ] CANDIDATE · ISS-282 (low, tooling): add qa/.6c-green to tick.mjs BOOKKEEPING_FILES (line 621), or keep never committing it. (backstop sweep 2026-10-19)
 - [x] DONE · priority: security · ISS-228 (medium): a throwing redactPii in onCrisisRecord (voice.ts:801-802, outside try/catch and before the flag write) would lose the flag and the escalation with only a generic persist_failed; wrap and fall back to the no-words text. Crisis path; fixed by p1/u10s (dual PASS 5c2f245/a8b141b). Source: qa/evidence/p1-briefs/p1-u10w-c1-review-result.md.
-- [ ] CANDIDATE · priority: security · ISS-229 (medium): escalated words are the userBuf at the first triggering chunk, so they may be only a prefix of the crisis utterance (voice.ts:529-533, live.ts:386-388). Crisis path; product decision for Umesh (deferred by the U10s brief), must be settled before A20/voice go-live. Source: qa/evidence/p1-briefs/p1-u10w-c1-review-result.md; related ISS-223.
+- [x] DONE · priority: security · ISS-229 (medium): escalated words are the userBuf at the first triggering chunk, so they may be only a prefix of the crisis utterance (voice.ts:529-533, live.ts:386-388). Crisis path; product decision for Umesh (deferred by the U10s brief), must be settled before A20/voice go-live. Source: qa/evidence/p1-briefs/p1-u10w-c1-review-result.md; related ISS-223. Owner-accepted (D-101).
 
 Raised by the U10w voice-wiring dual check and senior reviews (2026-10-19, ISS-218..ISS-235; dual PASS 1d28387/ee0e5a1, reviews cycle 1 Warning and cycle 2 Approve); ISS-218 (padded flag trimmed) is fixed by this unit; none is a TODO row, the human picks. Sources: qa/verdicts/p1-u10w-voice-wiring.A.md, .B.md, .A.r1-1.md, .B.r1-1.md, qa/evidence/p1-briefs/p1-u10w-c1-review-result.md.
 
@@ -133,10 +133,10 @@ Raised by the U10w voice-wiring dual check and senior reviews (2026-10-19, ISS-2
 
 Raised by the U10s voice-hardening dual check and review (2026-10-19, ISS-260..ISS-263; dual PASS 5c2f245/a8b141b, review Approve); none is a TODO row, the human picks. Sources: qa/verdicts/p1-u10s-voice-hardening.A.md, .B.md, qa/evidence/p1-briefs/p1-u10s-review-result.md.
 
-- [ ] CANDIDATE · ISS-263 (low, go-live checklist): deploy configs must set VC_CHAT_ENABLED and VC_VOICE_ENABLED to the exact word "true"; padded values such as 'true ' now fail startup.
-- [ ] CANDIDATE · ISS-260 (low, test): no committed test pins H3 for an unconsented minor (persistText false); behaviour is correct under probes.
-- [ ] CANDIDATE · ISS-261 (low, test): no test pins two crises with words on one spoken turn (second gets a fresh id) nor a throwing redaction followed by a second crisis.
-- [ ] CANDIDATE · ISS-262 (low, pre-existing): c.lastUser may be the previous turn if the crisis record arrives before the final transcript (voice.ts:683-688); provider ordering unconfirmed.
+- [x] DONE · ISS-263 (low, go-live checklist): deploy configs must set VC_CHAT_ENABLED and VC_VOICE_ENABLED to the exact word "true"; padded values such as 'true ' now fail startup. Fixed on int/iss135 via p1/lows-api (2d9cd19, test lane, falsification 5/5 killed).
+- [x] DONE · ISS-260 (low, test): no committed test pins H3 for an unconsented minor (persistText false); behaviour is correct under probes. Fixed on int/iss135 via p1/lows-api (2d9cd19, test lane, falsification 5/5 killed).
+- [x] DONE · ISS-261 (low, test): no test pins two crises with words on one spoken turn (second gets a fresh id) nor a throwing redaction followed by a second crisis. Fixed on int/iss135 via p1/lows-api (2d9cd19, test lane, falsification 5/5 killed).
+- [x] DONE · ISS-262 (low, pre-existing): c.lastUser may be the previous turn if the crisis record arrives before the final transcript (voice.ts:683-688); provider ordering unconfirmed. Fixed on int/iss135 via p1/lows-api (2d9cd19, test lane, falsification 5/5 killed).
 - [ ] CANDIDATE · ISS-235 (low, informational): voice.ts:270 trims TRACING_VARS; judged safe.
 
 - [x] DONE · U12 (p1-u12-acceptance): traceability matrix qa/evidence/p1-u12/trace.md plus acceptance-trace and acceptance-student-journey tests; checker cycle 0 FAIL 8b3f52f (ISS-237), repaired b67423a, cycle 1 PASS 9a0016a, close-out eb6a4ba. Test and evidence only, no product change; A2a closes NOT PROVEN (D-097 item 2).
@@ -185,7 +185,7 @@ Raised by the p1-eng3 crisis-leftovers check and reviews (2026-10-19, ISS-183..I
 
 Raised by the U7 anonymous-mode dual check (2026-10-18); none is a TODO row, the human picks. Sources: qa/verdicts/p1-u7-anon-mode.md, qa/verdicts/p1-u7-anon-mode.b.md, qa/evidence/p1-briefs/p1-u7-review-result.md.
 
-- [ ] CANDIDATE · priority: security · ISS-135 (medium): the anonymous route crisis exemption has no CPU budget; crisisGuard scans up to 256 KiB per request before the limiter (about 40-210 ms CPU each, unlimited per client). Fix: body byte cap or byte budget before the scan, a larger per-client crisis budget, or scan off the request path.
+- [x] DONE · priority: security · ISS-135 (medium): the anonymous route crisis exemption has no CPU budget; crisisGuard scans up to 256 KiB per request before the limiter (about 40-210 ms CPU each, unlimited per client). Fix: body byte cap or byte budget before the scan, a larger per-client crisis budget, or scan off the request path. Fixed in 6f025b6 (body cap 256 -> 64 KiB, D-101); dual PASS 5f8595e/0dd09f4, review Approve, close-out b394c10; residual per-client crisis CPU is B24.7-by-design (ISS-300, Umesh).
 - [ ] CANDIDATE · ISS-136 (low): crisis flood inflates the ${date}:crisis counter ($inc upsert per bypassed request).
 - [ ] CANDIDATE · ISS-137 (low): test gap, mutant RE-restricted-source-listed survives; manifest wrongly calls it equivalent.
 - [ ] CANDIDATE · ISS-138 (low): anonymousEnabledFromEnv trims, so " true " enables the route.
