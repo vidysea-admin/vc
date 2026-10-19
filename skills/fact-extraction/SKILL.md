@@ -12,8 +12,23 @@ these facts carrying a real, checkable source.
 ## Input shape
 
 `TranscriptTurn[]` (see `TranscriptTurnSchema`): `{text, lang, translatedText, ts, speaker}[]` — the
-English-translated text is what gets read; `lang`/original `text` are kept for audit, not re-translated
-here.
+English-translated text is what gets read for a counsellor-session transcript; `lang`/original `text`
+are kept for audit, not re-translated here. A student chat or voice turn has no translation: its
+`translatedText` is empty and the original `text` is what gets read (next section).
+
+## Student chat and voice turns (English knowledge graph, D-104)
+
+When `turns` holds a single student turn from chat or voice, `translatedText` is `""` (empty) on purpose: there is no translation step. Read the ORIGINAL `text`, whatever its language or script (Devanagari, Hinglish in Latin script, English, or another). Write the fact in English, quote it in the original:
+
+- `key`: an English snake_case slug, reusing the existing vocabulary (`target_country`, `budget_inr`, `intended_degree`, `intended_major`, ...). Never a word in the student's script.
+- `value`: in English. Translate the meaning ("जर्मनी" becomes "Germany", "bees lakh" becomes 2000000 or "20 lakh"), never copy the original-language words into `value`. Do not add anything the student did not say.
+- `source.quote`: copied character for character from `text`, in its ORIGINAL language and script. Never translate the quote, never fix its spelling, never join two separate pieces of the turn. If you cannot copy a verbatim snippet that supports the fact, do not emit the fact; a fact whose quote is not a verbatim substring of `text` is dropped.
+- `source.turnId`: the turn's `turnId`, as for any other turn.
+
+Examples (the original is shown first):
+
+- `text`: "मैं जर्मनी में एमबीए करना चाहता हूँ" gives `{key: "target_country", value: "Germany", source: {type: "transcript", quote: "जर्मनी में", turnId: ...}}` and `{key: "intended_degree", value: "MBA", source: {type: "transcript", quote: "एमबीए करना चाहता हूँ", turnId: ...}}`.
+- `text`: "Mujhe Germany mein MBA karna hai, budget lagbhag 20 lakh hai" gives `{key: "budget_inr", value: 2000000, source: {type: "transcript", quote: "20 lakh", turnId: ...}}`.
 
 ## Output shape
 

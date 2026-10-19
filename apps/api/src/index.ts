@@ -25,8 +25,8 @@ import {
   type MongoClientFactory,
   type ErasureFenceSweepOptions,
 } from "@vc/db";
-import { escalateTurns, initScribeCheckpointer, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentKbPort } from "@vc/engine";
-import { createProvider, loadProviderConfig, type LiveProvider, type LlmProvider } from "@vc/providers";
+import { createStudentFactExtractor, escalateTurns, initScribeCheckpointer, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentKbPort } from "@vc/engine";
+import { createProvider, loadProviderConfig, loadTextChainConfig, type LiveProvider, type LlmProvider } from "@vc/providers";
 import { createJwtVerifier, createStudentJwtVerifier, jwtConfigFromEnv, studentJwtConfigFromEnv, type JwtVerifier, type StudentJwtVerifier } from "./auth.js";
 import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
 import {
@@ -84,7 +84,7 @@ export interface StartApiHttpOptions {
   host?: string;
   /** Tests inject a verifier over locally generated keys; default: jwtConfigFromEnv(env). */
   verifier?: JwtVerifier;
-  /** Tests inject a MockProvider; default: createProvider(loadProviderConfig(env)). */
+  /** Tests inject a MockProvider; default: createProvider(loadProviderConfig(env)). The scribe and the concern classifier use this; the student chat and anonymous surfaces use it only when VC_TEXT_CHAIN is unset (P1 LK1w). */
   provider?: LlmProvider;
   skillsDir?: string;
   /** Trusted dependency factory, never populated from HTTP request bodies. */
@@ -254,7 +254,7 @@ export async function startApi(
 ): Promise<Api> {
   const { clientFactory, onError, http, ...sweepOptions } = options;
   // T-025: every configuration error (JWT, provider, port) surfaces BEFORE anything connects.
-  const httpSetup = http
+  const httpBase = http
     ? {
         port: resolvePort(env, http.port),
         host: http.host ?? "127.0.0.1",
@@ -263,6 +263,11 @@ export async function startApi(
         skillsDir: http.skillsDir ?? DEFAULT_SKILLS_DIR,
       }
     : undefined;
+  // P1 LK1w (D-105): `provider` stays the scribe's and the concern classifier's base (a task moves to the text chain only after its own eval, Q4).
+  // `studentProvider` serves the student surfaces (chat turn, anonymous route): the VC_TEXT_CHAIN chain when set, else that same current provider.
+  // A bad chain (no OLLAMA_API_KEY, unknown price) throws here, before anything connects.
+  const textChain = httpBase ? loadTextChainConfig(env) : undefined;
+  const httpSetup = httpBase ? { ...httpBase, studentProvider: textChain ? createProvider(textChain) : httpBase.provider } : undefined;
   const classifierConfig = httpSetup ? loadConcernClassifierConfig(env) : undefined;
   const classifierProvider = httpSetup && !http?.escalationForTenant
     ? (http?.provider ?? createProvider(concernClassifierProviderConfig(loadProviderConfig(env), classifierConfig!))) : undefined;
@@ -286,7 +291,7 @@ export async function startApi(
     anonymousHandler = createAnonymousApi(
       {
         kb: a.kb,
-        provider: httpSetup.provider,
+        provider: httpSetup.studentProvider,
         skillsDir: httpSetup.skillsDir,
         speakers: a.speakers,
         counter:
@@ -327,6 +332,11 @@ export async function startApi(
   // The escalation port chat and voice share (one flag, one escalation): an explicit chat port, else the engine's escalateTurns over the tenant's deps.
   const defaultEscalateForTenant: NonNullable<ChatApiDeps["escalateForTenant"]> = (tenantId, tenantDb) => (input) => escalateTurns(tenantDb, input, escalationForTenant!(tenantId));
   const sharedEscalateForTenant = chatSetup?.chat.escalateForTenant ?? defaultEscalateForTenant;
+  // p1-lk6 (D-104): the default student fact extractor, for chat and voice alike. It reads the student's ORIGINAL words through the default text
+  // provider (the student chain when VC_TEXT_CHAIN is set, D-105 Q4) and proposes English facts; an injected `extractFacts` option wins. It runs only on a turn whose text
+  // is stored, and a failure never fails the turn (chat.ts and voice.ts catch it and log the event name only).
+  const defaultExtractFacts = httpSetup ? createStudentFactExtractor({ provider: httpSetup.studentProvider, skillsDir: httpSetup.skillsDir }) : undefined;
+  const chatExtractFacts = chatSetup?.chat.extractFacts ?? defaultExtractFacts;
   const { client, db } = connectFromEnv(env, clientFactory);
   counterRef.writer = createMongoAnonymousCounter(anonymousCountersCollection(db), http?.anonymous?.now);
   // Built before connecting so every voice configuration error (secret length, base URL) is a startup error with nothing connected.
@@ -338,6 +348,7 @@ export async function startApi(
     voice = createVoiceApi(
       {
         ...passThrough,
+        ...(passThrough.extractFacts === undefined && defaultExtractFacts ? { extractFacts: defaultExtractFacts } : {}),
         verifier,
         dbForTenant: (tenantId) => tenantScopedDb(db, tenantId),
         live,
@@ -403,12 +414,12 @@ export async function startApi(
               verifier: chatSetup.verifier,
               dbForTenant: wiring.dbForTenant,
               kb: chatSetup.kb,
-              provider: httpSetup.provider,
+              provider: httpSetup.studentProvider,
               skillsDir: httpSetup.skillsDir,
               speakers: chatSetup.speakers,
               escalateForTenant: sharedEscalateForTenant,
               ...(chatSetup.chat.profile ? { profile: chatSetup.chat.profile } : {}),
-              ...(chatSetup.chat.extractFacts ? { extractFacts: chatSetup.chat.extractFacts } : {}),
+              ...(chatExtractFacts ? { extractFacts: chatExtractFacts } : {}),
               ...(chatSetup.chat.sandboxTenantId !== undefined ? { sandboxTenantId: chatSetup.chat.sandboxTenantId } : {}),
               ...(chatSetup.chat.limitsForTenant ? { limitsForTenant: chatSetup.chat.limitsForTenant } : {}),
               ...(chatSetup.chat.config ? { config: chatSetup.chat.config } : {}),

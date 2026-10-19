@@ -1,0 +1,48 @@
+import subprocess, sys, os, re
+root='D:/vc/.worktrees/chk-lk1/packages/providers'
+src=root+'/src/index.ts'
+orig=open(src,encoding='utf8',newline='').read()
+M={
+ 'C1 ollama errors non-retryable': [("  if (err instanceof OllamaTimeoutError) return true;\n  if (err instanceof OllamaMalformedResponseError) return true;\n  if (err instanceof OllamaNetworkError) return true;\n  if (err instanceof OllamaHttpError) return err.status === 429 || err.status >= 500;","  if (err instanceof OllamaHttpError) return err.status === 429 || err.status >= 500;")],
+ 'C1b malformed only non-retryable': [("  if (err instanceof OllamaMalformedResponseError) return true;\n","")],
+ 'C2 every OllamaHttpError retryable': [("if (err instanceof OllamaHttpError) return err.status === 429 || err.status >= 500;","if (err instanceof OllamaHttpError) return true;")],
+ 'C3 singlePass false': [("        singlePass: true,\n","        singlePass: false,\n")],
+ 'C4 deadline ignored (10 min)': [("deadlineMs: parsed.deadlineMs ?? TEXT_CHAIN_DEFAULT_DEADLINE_MS,","deadlineMs: 600_000,")],
+ 'C5 unknown errors (budget stop) retryable': [("  if (err instanceof OllamaHttpError) return err.status === 429 || err.status >= 500;\n  return false;","  if (err instanceof OllamaHttpError) return err.status === 429 || err.status >= 500;\n  return !(err instanceof OllamaAbortedError) ? true : false;")],
+ 'C5b beforeRequest not wired to hops': [("              ...(deps.beforeRequest ? { beforeRequest: deps.beforeRequest } : {}),\n","")],
+ 'C6 onUsage not wired': [("              ...(deps.onUsage ? { afterResponse: deps.onUsage } : {}),\n","")],
+ 'C6b onUsage only first hop': [("              ...(deps.onUsage ? { afterResponse: deps.onUsage } : {}),\n","              ...(deps.onUsage && hop === parsed.chain[0] ? { afterResponse: deps.onUsage } : {}),\n")],
+ 'C7 singlePass default on': [("    this.maxAttempts = options.singlePass\n","    this.maxAttempts = (options.singlePass ?? true)\n")],
+ 'C8a gemini not refused': [("if (/^gemini:/i.test(entry)) {","if (false) {")],
+ 'C8b default order flipped': [('export const TEXT_CHAIN_DEFAULT_SPEC = "ollama:glm-5.3-flash,ollama:deepseek-v4.1-flash";','export const TEXT_CHAIN_DEFAULT_SPEC = "ollama:deepseek-v4.1-flash,ollama:glm-5.3-flash";')],
+ 'C8c VC_LLM_PROVIDER=ollama selects chain': [('  if (provider === "rules") {\n    return { provider: "rules", model: env.VC_LLM_MODEL || "rules" };','  if (provider === "ollama") { const c = loadTextChainConfig(env); if (c) return c; }\n  if (provider === "rules") {\n    return { provider: "rules", model: env.VC_LLM_MODEL || "rules" };')],
+ 'C8d entries not trimmed/empties kept': [('const entries = spec.split(",").map((e) => e.trim()).filter((e) => e.length > 0);','const entries = spec.split(",");')],
+ 'C8e hop timeout ignored': [("              timeoutMs: hopTimeoutMs,\n","")],
+ 'C8f abort retryable': [("  if (err instanceof OllamaTimeoutError) return true;","  if (err instanceof OllamaTimeoutError || err instanceof OllamaAbortedError) return true;")],
+ 'C8g alert names litellm': [('"gen_ai.system": info.kind ?? "litellm"','"gen_ai.system": "litellm"'),("this.onExhausted({ models, attempts: attempt, lastErrorName, lastErrorMessage, kind: this.kind });","this.onExhausted({ models, attempts: attempt, lastErrorName, lastErrorMessage });")],
+ 'C8h price unknown => zero': [("const chain = models.map((model) => ({ model, ...resolveOllamaPrice(model, env) }));","const chain = models.map((model) => ({ model, inputUsdPerMTok: 1, outputUsdPerMTok: 4 }));")],
+}
+only=sys.argv[1:] 
+env=dict(os.environ, TMP='D:/vc/.worktrees/_chk-lk1-tmp', TEMP='D:/vc/.worktrees/_chk-lk1-tmp', VC_TESTLOCK_TIMEOUT_SECS='7200')
+for name,reps in M.items():
+    if only and not any(name.startswith(o) for o in only): continue
+    s=orig
+    for a,b in reps:
+        a2=a.replace('\n','\r\n') if '\r\n' in orig else a
+        b2=b.replace('\n','\r\n') if '\r\n' in orig else b
+        assert a2 in s, f'{name}: pattern not found'
+        s=s.replace(a2,b2,1)
+    open(src,'w',encoding='utf8',newline='').write(s)
+    files=['tests/chk-lk1-outcome.test.ts','tests/ollama.test.ts']
+    if name.startswith('C7'): files+=['tests/failover.test.ts','tests/litellm.test.ts','tests/index.test.ts']
+    try:
+        r=subprocess.run(['C:/Program Files/Git/bin/bash.exe','D:/vc/scripts/vc-testlock.sh','pnpm','-C',root,'exec','tsx','--test']+files,capture_output=True,text=True,env=env,timeout=1800,encoding='utf8')
+        out=r.stdout+r.stderr
+    finally:
+        open(src,'w',encoding='utf8',newline='').write(orig)
+    t=re.search(r'ℹ tests (\d+)',out); p=re.search(r'ℹ pass (\d+)',out); f=re.search(r'ℹ fail (\d+)',out)
+    fails=re.findall(r'^✖ (.*?) \(',out,re.M)
+    mine=[x for x in fails if x.startswith(('C1','C2','C3','C4','C5','C6','C8','OllamaProvider'))]
+    print(f'MUT {name}: tests={t and t.group(1)} pass={p and p.group(1)} fail={f and f.group(1)} exit={r.returncode}')
+    for x in sorted(set(fails)): print('    FAIL',x[:110])
+    sys.stdout.flush()

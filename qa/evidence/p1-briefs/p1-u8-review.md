@@ -1,0 +1,14 @@
+# Senior software engineer review (read-only): U8 student chat API
+- **Diff:** `git -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8 diff 52d2af5..HEAD -- apps/ packages/ scripts/`
+- **Review for correctness and security:**
+  - student JWT and the role gate;
+  - the under-18 rule;
+  - tenant scoping and cross-student access;
+  - redaction before persistence;
+  - idempotency races;
+  - the 30 rpm limiter;
+  - erasure and export completeness for chat-threads, profile-facts and student-logs;
+  - db-init indexes;
+  - error handling and resource leaks.
+- **Read-only:** never edit, commit, or run anything that writes.
+- **Return** Approve / Warning / Block, with file:line evidence for each finding, in at most 25 lines.

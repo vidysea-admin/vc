@@ -962,3 +962,13 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Result:** units LK1, LK4 and LK6 start in parallel; LK2, LK5, LK7, LK8, LK9 follow per the design order. LK3 (Gemini Lite) stays held until a model id and key are supplied.
 
 **Links:** D-104, D-100, D-102, ISS-340, design result 29dcb51
+
+## D-106 | 2026-10-20 | type: decision | status: ACTIVE
+
+**What:** LK5 localized claims: option (a) of qa/gates/lk5-localized-claims.md. Any reply sentence that carries a figure, unit, link or country is shown in English wording; the closed Devanagari word lists in packages/engine/src/student/lang.ts are removed instead of extended. Detection runs on the English sentence (the authoritative source), so no Hindi/Hinglish number or currency vocabulary is needed.
+
+**Why:** Umesh 2026-10-20 in chat: "go with the recommended manner". Two fix cycles failed on the word-list approach (verdict d907e64, ISS-389): every list missed words outside it. A structural rule cannot miss a word, and it fits D-105's "not rule-based, it will always break" direction.
+
+**Result:** p1-lk5 STALLED (82d2470) is lifted by a rewritten brief; one Opus build round, then the repair checker, 6c and push under D-096.
+
+**Links:** D-105, D-096, ISS-386, ISS-389, qa/gates/lk5-localized-claims.md, 82d2470

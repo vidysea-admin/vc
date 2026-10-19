@@ -1,0 +1,9 @@
+[testlock] running slot 0 (free RAM 3.49 GB): pnpm -C D:/vc/.worktrees/chk-lk1/packages/providers exec tsx --test tests/chk-lk1-outcome.test.ts tests/ollama.test.ts tests/failover.test.ts tests/litellm.test.ts tests/index.test.ts tests/rules.test.ts tests/live.test.ts
+ℹ tests 232
+ℹ suites 0
+ℹ pass 232
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11694.8505

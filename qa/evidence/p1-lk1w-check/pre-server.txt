@@ -1,0 +1,53 @@
+✔ T-025 api: every auth failure on every protected route is the same 401, and no Db or graph is touched (1168.5405ms)
+✔ T-025 api: a role outside a route's roles is 403 before any Db access; unknown paths 404; wrong method 405 + Allow (17.0408ms)
+✔ T-025 api: bad ids, bad JSON and bad bodies are 400 before any Db access, with issue paths but no values (39.8735ms)
+✔ T-025 api: scribe start -> approval diff -> approve -> profile, with every stored document stamped with the token's tenant (289.8889ms)
+✔ T-034 api: decideApproval enqueues one fact.approved webhook event per DURABLY WRITTEN fact (read back via getFactsByIds, not re-derived from the response), carrying B2 provenance (149.5933ms)
+✔ T-034 api: with no webhooks configured, an approve decision writes facts exactly as before and enqueues nothing (the emission hook is a pure no-op) (172.4435ms)
+✔ T-034 api: a webhook enqueue failure is logged (webhook_enqueue_failed) but never turns an already-successful approval into an error response (147.953ms)
+✔ T-042 api (ISS-085 leak 1): a short read-back NOT explained by an erasure fence is alerted and recorded as a recoverable gap; the facts that WERE found still emit their events (283.6239ms)
+✔ T-042 api (ISS-085 leak 1, erasure interaction): the SAME short read-back, explained by a concurrent B15 erasure fence that lands AFTER the write, is never alerted or recorded (207.9059ms)
+✔ T-042 api (ISS-090): a genuine read-back gap whose fence check itself throws is still a 200 (the write already succeeded), alerted twice (the fence-check failure AND the now-unexplained gap) and recorded -- never a 500 (110.6479ms)
+✔ T-042 api (ISS-085 leak 2): an enqueue failure records a recoverable gap entry carrying the fully built event, so it can be replayed without rebuilding it (131.4781ms)
+✔ T-025 api: another tenant sees tenant A's student exactly as a student that never existed, and changes nothing of A's (499.1404ms)
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+✔ T-025 api (T-022 merge): concern_flagged edges are stamped with the token's tenant, the same student/session in two tenants coexist, and A's erasure deletes only A's (875.4077ms)
+✔ T-034 api: the first erasure confirmation enqueues one erasure.requested webhook event, carrying the request's own reason/requestedAt (read back via getErasureRequest, the last point studentId is still clear) (246.4484ms)
+✔ T-029 api: request -> confirm -> reconfirm (token) -> approver approves -> purged; no single call purges; self-approval, a wrong token and student-as-actor are refused (522.3464ms)
+✔ T-029 api: the approver REJECTS -> 200 rejected, nothing purged; a later approve / execute is refused (220.4564ms)
+✔ T-029 api: autoDelete=true -> the reconfirm itself purges (200, autoDeleted); an unconfigured workflow is 503 erasure_not_configured and writes nothing (377.5338ms)
+✔ T-025 api: an unexpected error is a 500 with a fixed body, logged by error label only (9.9383ms)
+✔ T-025 api: a consent-less profile read is 403 consent_required (5.7903ms)
+✔ T-025 api: the OpenAPI document is public and matches the route table (method, path, roles) in both directions (1.6918ms)
+✔ T-025 api: the node:http adapter serves on loopback, answers 401 and refuses a body over 1 MiB with 413 (133.1947ms)
+✔ T-025 api: startApi serves HTTP only when asked, on virtual_counsellor only, and stop() closes the server (28.7475ms)
+✔ T-025 api: startApi with http refuses a missing JWT configuration before connecting (1.1537ms)
+✔ T046 verified JWT edit provenance is identical in raw KG API profile and approved webhook (150.2783ms)
+✔ T046 forged body actor time and nested provenance refuse before actual claim or write (107.8352ms)
+✔ T047 signed JWT ordinary no-consent start leaves every personal collection empty (7.1186ms)
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t1","sessionId":"session-synthetic-1"}
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t1","sessionId":"session-synthetic-1"}
+✔ T047 signed JWT same IDs in two tenants produce only minimal unrouted record-only crisis flags (16.7056ms)
+✔ T047 actual startup trusted recipient factory binds signed JWT tenant and replay keeps raw minimal records (96.7484ms)
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+✔ ISS-t-034-concern-hook api: a recorded session concern enqueues exactly one concern.flagged event (no quote, tenant-stamped); a replay enqueues nothing more (201.1492ms)
+✔ ISS-t-034-concern-hook api: a session with no concern, or one the consent gate refuses, enqueues no concern.flagged event (75.3415ms)
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+✔ ISS-t-034-concern-hook api: concern events go to the verified tenant's own outbox only (74.939ms)
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+✔ ISS-t-034-concern-hook api: with no webhooks configured a concern session runs exactly as before, and an enqueue failure is logged but never fails the start (164.0185ms)
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+✔ ISS-t-034-concern-hook api: a concern read-back that throws is logged (webhook_readback_failed) and recorded as a recoverable gap, and the start still answers 200 (73.117ms)
+{"event":"escalation_unrouted","escalationId":"session-synthetic-1:t4","sessionId":"session-synthetic-1"}
+✔ ISS-t-034-concern-hook api: a fenced student's start announces nothing, even when concern edges from an earlier run are still stored (88.3225ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16900.7836

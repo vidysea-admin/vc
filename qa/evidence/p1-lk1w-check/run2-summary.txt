@@ -1,0 +1,21 @@
+start 2026-10-19T20:43:44+05:30
+outcome exit=1 2026-10-19T20:44:05+05:30
+mutated D:/chk-lk1w/copy/apps/api/src/index.ts occurrence 2
+FALS[C1] green-before exit=0 | red-after exit=1 | restored | 2026-10-19T20:44:51+05:30
+mutated D:/chk-lk1w/copy/apps/api/src/index.ts occurrence 1
+FALS[C2] green-before exit=0 | red-after exit=1 | restored | 2026-10-19T20:45:29+05:30
+mutated D:/chk-lk1w/copy/packages/engine/src/student/graph.ts occurrence 1
+FALS[C2crisis-outcome] green-before exit=1 | red-after exit=1 | restored | 2026-10-19T20:45:58+05:30
+mutated D:/chk-lk1w/copy/packages/engine/src/student/graph.ts occurrence 1
+FALS[C2crisis-maker] green-before exit=0 | red-after exit=1 | restored | 2026-10-19T20:46:28+05:30
+mutated D:/chk-lk1w/copy/apps/api/src/index.ts occurrence 1
+FALS[C3a-scribe] green-before exit=0 | red-after exit=1 | restored | 2026-10-19T20:46:58+05:30
+mutated D:/chk-lk1w/copy/apps/api/src/index.ts occurrence 1
+FALS[C3b-classifier] green-before exit=0 | red-after exit=1 | restored | 2026-10-19T20:47:25+05:30
+mutated D:/chk-lk1w/copy/packages/engine/src/guards/concern-classifier.ts occurrence 1
+FALS[C4] green-before exit=0 | red-after exit=1 | restored | 2026-10-19T20:47:41+05:30
+mutated D:/chk-lk1w/copy/apps/api/src/index.ts occurrence 1
+FALS[C5] green-before exit=0 | red-after exit=1 | restored | 2026-10-19T20:48:04+05:30
+mutated D:/chk-lk1w/copy/apps/api/src/index.ts occurrence 1
+FALS[C5-outcome] green-before exit=0 | red-after exit=1 | restored | 2026-10-19T20:48:41+05:30
+end 2026-10-19T20:48:41+05:30

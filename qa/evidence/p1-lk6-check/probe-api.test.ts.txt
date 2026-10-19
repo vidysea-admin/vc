@@ -1,0 +1,133 @@
+/** CHECKER throwaway hostile probe for p1-lk6 chat + voice (lives only in D:/lk6-chk/copy). */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { COLLECTION_NAMES } from "@vc/db";
+import { MockProvider } from "@vc/providers";
+import { createStudentFactExtractor } from "@vc/engine";
+import { adult, call, chatWorld, kbAnswerProvider, minor, newThread, studentToken, turnsPath, SKILLS_DIR } from "./chat-fixtures.js";
+import { adult as vAdult, minorNoConsent, until, voiceWorld, newThread as vNewThread, studentToken as vToken } from "./voice-fixtures.js";
+
+const cand = (key: string, value: unknown, quote: string, turnId: string) => ({ key, value, source: { type: "transcript", quote, turnId }, confidence: 0.8, purposeTags: ["profile_synthesis"], sensitivity: "low" });
+function provFor(candidates: (turnId: string, text: string) => unknown[], onExtract?: () => void): MockProvider {
+  const p = kbAnswerProvider();
+  p.setResponse("fact-extraction", ((input: { turns: { turnId: string; text: string }[] }) => {
+    onExtract?.();
+    return { facts: candidates(input.turns[0]!.turnId, input.turns[0]!.text) };
+  }) as never);
+  return p;
+}
+
+test("CHAT: quote with e-mail/phone is stored redacted; value with phone redacted; logs clean", async () => {
+  const text = "मुझे जर्मनी जाना है, मेरा फोन 9876543210 और ईमेल priya@example.com है, मेरा नंबर ९८७६५४३२१०";
+  const provider = provFor((tid) => [
+    cand("target_country", "Germany 9876543210 priya@example.com", "मुझे जर्मनी जाना है, मेरा फोन 9876543210 और ईमेल priya@example.com है", tid),
+    cand("phone_dev", "contact", "मेरा नंबर ९८७६५४३२१०", tid),
+  ]);
+  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text, clientTurnId: "chk-1" } });
+    assert.equal(res.status, 200);
+    const rows = w.fakeDb.collection<any>(COLLECTION_NAMES.profile_facts).all();
+    for (const r of rows) console.log("  CHAT row:", JSON.stringify({ key: r.key, value: r.value, quote: r.quote, sourceLang: r.sourceLang }));
+    const dump = JSON.stringify(rows);
+    console.log("  stored has ascii phone?", dump.includes("9876543210"), "email?", dump.includes("priya@example.com"), "dev-digit phone?", dump.includes("९८७६५४३२१०"));
+    console.log("  logs:", JSON.stringify(w.logs).slice(0, 300));
+  } finally { w.cleanup(); }
+});
+
+test("CHAT: crisis (Hindi / Hinglish explicit) -> zero fact-extraction calls (and what the chat answers)", async () => {
+  const phrases = ["मैं मरना चाहता हूँ", "मुझे आत्महत्या करनी है", "main marna chahta hoon", "mujhe mar jana hai", "main suicide karna chahta hoon", "main khud ko khatam kar lunga"];
+  for (const [i, ph] of phrases.entries()) {
+    let calls = 0;
+    const provider = provFor((tid) => [cand("feeling", "wants to die", ph.slice(0, 6), tid)], () => void (calls += 1));
+    const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+    try {
+      const token = await studentToken(adult());
+      const threadId = await newThread(w, token);
+      const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: ph, clientTurnId: `chk-c${i}` } });
+      console.log(`  CHAT crisis[${ph}] status=${res.status} state=${res.json?.state} extractCalls=${calls} facts=${w.fakeDb.collection(COLLECTION_NAMES.profile_facts).all().length}`);
+    } finally { w.cleanup(); }
+  }
+});
+
+test("CHAT: unconsented minor and blank text -> zero fact-extraction calls", async () => {
+  let calls = 0;
+  const provider = provFor((tid) => [cand("x", "y", "z", tid)], () => void (calls += 1));
+  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  try {
+    const tokenM = await studentToken(minor());
+    const threadM = await newThread(w, tokenM);
+    const r1 = await call(w, "POST", turnsPath("stu-1", threadM), { token: tokenM, body: { text: "मैं जर्मनी में एमबीए करना चाहता हूँ", clientTurnId: "chk-m1" } });
+    console.log("  minor status", r1.status, "calls", calls);
+    const tokenA = await studentToken(adult());
+    const threadA = await newThread(w, tokenA);
+    for (const [i, t] of ["", "   ", "\n\t "].entries()) {
+      const r = await call(w, "POST", turnsPath("stu-1", threadA), { token: tokenA, body: { text: t, clientTurnId: `chk-b${i}` } });
+      console.log(`  blank ${JSON.stringify(t)} status=${r.status} calls=${calls}`);
+    }
+    assert.equal(calls, 0);
+  } finally { w.cleanup(); }
+});
+
+test("CHAT: provider throws / malformed -> turn 200, log has no student words", async () => {
+  const text = "मैं जर्मनी में एमबीए करना चाहता हूँ SECRETTOKEN 9876543210";
+  for (const mode of ["throw", "malformed", "weirdname"]) {
+    const provider = kbAnswerProvider();
+    provider.setResponse("fact-extraction", ((): unknown => {
+      if (mode === "throw") throw new Error(`echo ${text}`);
+      if (mode === "weirdname") { const e = new Error(text); e.name = text; throw e; }
+      return "not json {{{";
+    }) as never);
+    const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+    try {
+      const token = await studentToken(adult());
+      const threadId = await newThread(w, token);
+      const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text, clientTurnId: `chk-f-${mode}` } });
+      const logged = JSON.stringify(w.logs);
+      console.log(`  CHAT ${mode}: status=${res.status} state=${res.json?.state} logEvents=${w.logs.map((l: any) => l.event).join("|")} leaks=${logged.includes("SECRETTOKEN") || logged.includes("जर्मनी") || logged.includes("9876543210")}`);
+      assert.equal(res.status, 200);
+      assert.ok(!logged.includes("SECRETTOKEN") && !logged.includes("जर्मनी") && !logged.includes("9876543210"));
+    } finally { w.cleanup(); }
+  }
+});
+
+test("CHAT: same key re-proposed in a second turn leaves no stale quote", async () => {
+  let n = 0;
+  const provider = kbAnswerProvider();
+  provider.setResponse("fact-extraction", ((input: { turns: { turnId: string }[] }) => {
+    n += 1;
+    const tid = input.turns[0]!.turnId;
+    return { facts: n === 1 ? [cand("target_country", "Germany", "जर्मनी", tid)] : [cand("target_country", "France", "France", tid)] };
+  }) as never);
+  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: "मुझे जर्मनी जाना है", clientTurnId: "chk-s1" } });
+    await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: "actually I prefer France", clientTurnId: "chk-s2" } });
+    const rows = w.fakeDb.collection<any>(COLLECTION_NAMES.profile_facts).all();
+    console.log("  re-propose rows:", JSON.stringify(rows.map((r: any) => ({ key: r.key, value: r.value, quote: r.quote, sourceLang: r.sourceLang }))));
+  } finally { w.cleanup(); }
+});
+
+test("VOICE: Hindi crisis utterance, unconsented minor, blank -> zero extraction calls", async () => {
+  for (const [label, who, text] of [
+    ["hindi crisis", vAdult(), "मैं मरना चाहता हूँ"],
+    ["hinglish crisis", vAdult(), "main marna chahta hoon"],
+    ["minor no consent", minorNoConsent(), "मैं जर्मनी में एमबीए करना चाहता हूँ"],
+    ["blank", vAdult(), "   "],
+  ] as const) {
+    let calls = 0;
+    const text2 = new MockProvider({ responses: { "fact-extraction": (() => { calls += 1; return { facts: [] }; }) as never } });
+    const w = await voiceWorld({ deps: { extractFacts: createStudentFactExtractor({ provider: text2, skillsDir: SKILLS_DIR }) } });
+    try {
+      const threadId = await vNewThread(w.chat, await vToken(vAdult()));
+      await w.open(who as never, threadId);
+      w.provider.backends[0]!.emitInputTranscript(text, true);
+      await new Promise((r) => setTimeout(r, 300));
+      console.log(`  VOICE ${label}: extractCalls=${calls} providerCalls=${text2.calls.length}`);
+    } finally { await w.cleanup(); }
+  }
+});

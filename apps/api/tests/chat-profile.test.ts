@@ -13,6 +13,9 @@ import { startApi } from "../src/index.js";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { GERMANY_QUESTION, adult, call, chatWorld, cleanupGates, gatesFixture, kbAnswerProvider, minor, newThread, profilePath, recordingKb, studentToken, studentVerifier, threadsPath, turnsPath, SKILLS_DIR, SPEAKERS } from "./chat-fixtures.js";
 import { generateKeyPairSync } from "node:crypto";
+import { CHAIN_ENV, GOOD_CLAIM, stubOllamaFetch } from "./anonymous-fixtures.js";
+import { MockProvider } from "@vc/providers";
+import { createStudentFactExtractor } from "@vc/engine";
 
 const PATHLYNKS = [{ key: "grade", value: "Grade 12, CBSE", source: "pathlynks" as const }];
 const proposeGermany = () => [{ key: "target_country", value: "Germany" }];
@@ -231,5 +234,234 @@ test("startApi: flag on and gate open -> a student creates a thread and asks a q
   } finally {
     await api.stop();
     cleanupGates(f);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// P1 LK1w: the student chat surface runs on the text chain (VC_TEXT_CHAIN); the scribe / classifier provider does not move.
+// ---------------------------------------------------------------------------
+
+/** Like mustRefuse, matching the refusal by message; a startApi that wrongly starts is stopped first so a red run fails instead of hanging on an open server. */
+async function mustRefuseWith(p: Promise<{ stop(): Promise<void> }>, message: RegExp): Promise<void> {
+  let api: { stop(): Promise<void> } | undefined;
+  try {
+    api = await p;
+  } catch (e) {
+    assert.match(String((e as Error).message), message);
+    return;
+  }
+  await api.stop();
+  assert.fail("startApi started, but it must have refused");
+}
+
+async function chatTurnOverHttp(env: Record<string, string | undefined>, scribe: ReturnType<typeof kbAnswerProvider>) {
+  const fake = createFakeMongoClient();
+  const f = gatesFixture();
+  const api = await startApi(
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", ...env },
+    { clientFactory: () => fake.client, http: httpBase({ provider: scribe, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
+  );
+  try {
+    const base = `http://127.0.0.1:${api.port}`;
+    const headers = { authorization: `Bearer ${await studentToken(adult())}`, "content-type": "application/json" };
+    const { threadId } = (await (await fetch(`${base}${threadsPath("stu-1")}`, { method: "POST", headers })).json()) as { threadId: string };
+    const turn = await fetch(`${base}${turnsPath("stu-1", threadId)}`, { method: "POST", headers, body: JSON.stringify({ text: GERMANY_QUESTION, clientTurnId: "lk1w-1" }) });
+    assert.equal(turn.status, 200);
+    return (await turn.json()) as { state: string };
+  } finally {
+    await api.stop();
+    cleanupGates(f);
+  }
+}
+
+test("LK1w: VC_TEXT_CHAIN set -> a student chat turn is answered by the chain (Ollama hop on the wire) and the injected scribe/classifier provider is not called", async () => {
+  const stub = stubOllamaFetch({ claims: [GOOD_CLAIM] });
+  const scribe = kbAnswerProvider();
+  try {
+    const out = await chatTurnOverHttp(CHAIN_ENV, scribe);
+    assert.equal(out.state, "ok");
+    assert.ok(stub.calls.length >= 1, "the chain hop was called");
+    assert.match(stub.calls[0]!.url, /^http:\/\/ollama\.synthetic\.test\/api\/chat$/);
+    assert.equal(JSON.parse(stub.calls[0]!.body).model, "glm-5.3-flash", "the chain's first hop, in config order");
+    assert.equal(scribe.calls.length, 0, "the current provider (scribe/classifier base) never served the student turn");
+  } finally {
+    stub.restore();
+  }
+});
+
+test("LK1w: VC_TEXT_CHAIN unset -> the student chat turn uses the current provider and nothing is sent to Ollama", async () => {
+  const stub = stubOllamaFetch({ claims: [GOOD_CLAIM] });
+  const scribe = kbAnswerProvider();
+  try {
+    const out = await chatTurnOverHttp({}, scribe);
+    assert.equal(out.state, "ok");
+    assert.ok(scribe.calls.length >= 1);
+    assert.equal(stub.calls.length, 0);
+  } finally {
+    stub.restore();
+  }
+});
+
+test("LK1w: VC_TEXT_CHAIN does not replace the scribe provider config: with no injected provider, no VC_LLM_PROVIDER and the classifier injected (so only the scribe base is read), startApi still refuses before connecting", async () => {
+  const fake = createFakeMongoClient();
+  let connected = 0;
+  (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
+  await mustRefuseWith(startApi({ MONGODB_URL: "mongodb://fake-host/ignored", ...CHAIN_ENV }, { clientFactory: () => fake.client, http: { port: 0, verifier: counsellorVerifier, skillsDir: SKILLS_DIR, escalationForTenant: (() => ({})) as never } }), /VC_LLM_PROVIDER/);
+  assert.equal(connected, 0);
+});
+
+test("LK1w: a bad chain (no OLLAMA_API_KEY) is a startup config error before connecting, and its message never carries a key", async () => {
+  const fake = createFakeMongoClient();
+  let connected = 0;
+  (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
+  await mustRefuseWith(startApi({ MONGODB_URL: "mongodb://fake-host/ignored", VC_TEXT_CHAIN: "default" }, { clientFactory: () => fake.client, http: httpBase() }), /OLLAMA_API_KEY/);
+  assert.equal(connected, 0);
+});
+
+// ---------------------------------------------------------------------------
+// p1-lk6 (D-104, D-105): the student's original words become English KG facts, with the original-language quote kept as the source
+// ---------------------------------------------------------------------------
+
+const HINDI_Q = "जर्मनी में सार्वजनिक विश्वविद्यालयों की ट्यूशन फीस कितनी है? मैं वहाँ एमबीए करना चाहता हूँ";
+const lk6Cand = (key: string, value: unknown, quote: string, turnId: string) => ({ key, value, source: { type: "transcript", quote, turnId }, confidence: 0.8, purposeTags: ["profile_synthesis"], sensitivity: "low" });
+/** A text provider that answers the KB question and, for fact-extraction, cites the turn id it was given. */
+function lk6Provider(candidates: (turnId: string) => unknown[], onExtract?: () => void): MockProvider {
+  const p = kbAnswerProvider();
+  p.setResponse("fact-extraction", ((input: { turns: { turnId: string }[] }) => {
+    onExtract?.();
+    return { facts: candidates(input.turns[0]!.turnId) };
+  }) as never);
+  return p;
+}
+
+test("p1-lk6: a Devanagari chat turn is stored as written, and the proposed fact is English with the Devanagari quote kept as its source", async () => {
+  const provider = lk6Provider((turnId) => [lk6Cand("target_country", "Germany", "जर्मनी में", turnId), lk6Cand("intended_degree", "MBA", "एमबीए करना चाहता हूँ", turnId)]);
+  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: HINDI_Q, clientTurnId: "lk6-1" } });
+    assert.equal(res.status, 200);
+    const rows = w.fakeDb.collection<any>(COLLECTION_NAMES.profile_facts).all().sort((x, y) => x.key.localeCompare(y.key));
+    assert.deepEqual(rows.map((r) => [r.key, r.value, r.quote, r.sourceLang, r.status]), [
+      ["intended_degree", "MBA", "एमबीए करना चाहता हूँ", "hi", "proposed"],
+      ["target_country", "Germany", "जर्मनी में", "hi", "proposed"],
+    ]);
+    const user = w.fakeDb.collection<any>("chat_turns").all().find((t) => t.role === "user");
+    assert.equal(user.text, HINDI_Q, "the original message is stored as written, not translated");
+    const view = (await call(w, "GET", profilePath("stu-1"), { token })).json;
+    assert.deepEqual(view.proposed.map((p: any) => [p.key, p.value]).sort(), [["intended_degree", "MBA"], ["target_country", "Germany"]]);
+    assert.ok(!JSON.stringify(view).includes("जर्मनी में"), "the student-facing profile view is unchanged: English key and value only");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-lk6: a fact whose quote is not in the student's words is never proposed", async () => {
+  const provider = lk6Provider((turnId) => [lk6Cand("target_country", "Germany", "I want to study in Germany", turnId)]);
+  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    assert.equal((await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: HINDI_Q, clientTurnId: "lk6-2" } })).status, 200);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.profile_facts).all().length, 0);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-lk6: an under-18 student without guardian consent makes no extraction call", async () => {
+  let calls = 0;
+  const provider = lk6Provider((turnId) => [lk6Cand("target_country", "Germany", "जर्मनी में", turnId)], () => void (calls += 1));
+  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  try {
+    const token = await studentToken(minor());
+    const threadId = await newThread(w, token);
+    assert.equal((await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: HINDI_Q, clientTurnId: "lk6-3" } })).status, 200);
+    assert.equal(calls, 0);
+    assert.equal(provider.calls.filter((c) => c.skillName === "fact-extraction").length, 0);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.profile_facts).all().length, 0);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-lk6: extraction failure never fails the turn; the log has the event name, no student words or quote", async () => {
+  const provider = lk6Provider(() => {
+    throw new Error(`upstream echoed: ${HINDI_Q} 9876543210`);
+  });
+  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: HINDI_Q, clientTurnId: "lk6-4" } });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.state, "ok");
+    assert.ok(w.logs.some((l: any) => l.event === "chat_fact_extraction_failed"));
+    const logged = JSON.stringify(w.logs);
+    assert.ok(!logged.includes("जर्मनी") && !logged.includes("9876543210"));
+    assert.equal(w.fakeDb.collection<any>("chat_turns").all().filter((t) => t.role === "assistant").length, 1, "the turn was stored");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-lk6: startApi wires the default extractor for chat when none is injected, over the default text provider", async () => {
+  const fake = createFakeMongoClient();
+  const f = gatesFixture();
+  const provider = lk6Provider((turnId) => [lk6Cand("target_country", "Germany", "जर्मनी में", turnId)]);
+  const api = await startApi(
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true" },
+    { clientFactory: () => fake.client, http: httpBase({ provider, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
+  );
+  try {
+    const base = `http://127.0.0.1:${api.port}`;
+    const headers = { authorization: `Bearer ${await studentToken(adult())}`, "content-type": "application/json" };
+    const { threadId } = (await (await fetch(`${base}${threadsPath("stu-1")}`, { method: "POST", headers })).json()) as { threadId: string };
+    const turn = await fetch(`${base}${turnsPath("stu-1", threadId)}`, { method: "POST", headers, body: JSON.stringify({ text: HINDI_Q, clientTurnId: "lk6-5" }) });
+    assert.equal(turn.status, 200);
+    const rows = fake.dbFor(VC_DB_NAME).collection<any>("profile_facts").all();
+    assert.deepEqual(rows.map((r) => [r.key, r.value, r.quote, r.sourceLang]), [["target_country", "Germany", "जर्मनी में", "hi"]]);
+  } finally {
+    await api.stop();
+    cleanupGates(f);
+  }
+});
+
+test("p1-lk6: an injected extractFacts still wins over the default", async () => {
+  const fake = createFakeMongoClient();
+  const f = gatesFixture();
+  const provider = lk6Provider((turnId) => [lk6Cand("target_country", "Germany", "जर्मनी में", turnId)]);
+  const api = await startApi(
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true" },
+    { clientFactory: () => fake.client, http: httpBase({ provider, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), extractFacts: async () => [{ key: "city", value: "Pune" }] } }) },
+  );
+  try {
+    const base = `http://127.0.0.1:${api.port}`;
+    const headers = { authorization: `Bearer ${await studentToken(adult())}`, "content-type": "application/json" };
+    const { threadId } = (await (await fetch(`${base}${threadsPath("stu-1")}`, { method: "POST", headers })).json()) as { threadId: string };
+    await fetch(`${base}${turnsPath("stu-1", threadId)}`, { method: "POST", headers, body: JSON.stringify({ text: HINDI_Q, clientTurnId: "lk6-6" }) });
+    assert.deepEqual(fake.dbFor(VC_DB_NAME).collection<any>("profile_facts").all().map((r) => r.key), ["city"]);
+    assert.ok(!provider.calls.some((c) => c.skillName === "fact-extraction"));
+  } finally {
+    await api.stop();
+    cleanupGates(f);
+  }
+});
+
+test("p1-lk6: a crisis turn is answered with the fixed helpline text and is never sent to the fact extractor model", async () => {
+  let calls = 0;
+  const provider = lk6Provider((turnId) => [lk6Cand("feeling", "wants to die", "kill myself", turnId)], () => void (calls += 1));
+  const w = chatWorld({ provider, deps: { extractFacts: createStudentFactExtractor({ provider, skillsDir: SKILLS_DIR }) } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: "I want to kill myself", clientTurnId: "lk6-7" } });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.state, "escalated");
+    assert.equal(calls, 0);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.profile_facts).all().length, 0);
+  } finally {
+    w.cleanup();
   }
 });

@@ -187,7 +187,7 @@ export type VoiceFactExtractor = (turn: {
   threadId: string;
   turnId: string;
   text: string;
-}) => Promise<ReadonlyArray<{ key: string; value: string }>>;
+}) => Promise<ReadonlyArray<{ key: string; value: string; quote?: string; sourceLang?: string }>>;
 
 export type VoiceLogLine = { level: "error"; event: string; ts: string; error?: string };
 
@@ -724,7 +724,12 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     try {
       const facts = await deps.extractFacts!({ tenantId: c.claims.tenantId, studentId: c.claims.studentId, threadId: c.claims.threadId, turnId, text });
       for (const f of facts.slice(0, VOICE_MAX_PROPOSED_FACTS_PER_TURN)) {
-        await proposeProfileFact(c.db, { studentId: c.claims.studentId, key: f.key, value: f.value, threadId: c.claims.threadId, turnId }, { now: nowDate() });
+        // p1-lk6: the English value is kept with the student's original-language quote (redacted by the db); neither is logged.
+        await proposeProfileFact(
+          c.db,
+          { studentId: c.claims.studentId, key: f.key, value: f.value, ...(f.quote !== undefined ? { quote: f.quote } : {}), ...(f.sourceLang !== undefined ? { sourceLang: f.sourceLang } : {}), threadId: c.claims.threadId, turnId },
+          { now: nowDate() },
+        );
         // A numeric value is read back to the student for confirmation: speech recognition mishears figures. Nothing is used until they accept.
         if (/\d/.test(f.value)) {
           c.pendingConfirms.set(f.key, profileFactId(c.claims.studentId, f.key));
