@@ -10,7 +10,7 @@
 - C7 (ISS-330 follow-up) a manifest with one leading UTF-8 BOM loads exactly like one without.
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 0
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** L (dependency add + provider/paid-run gate for the voice go-live bar; depends on the checked-PASS unit p1-a10-live)
