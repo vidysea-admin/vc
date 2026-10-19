@@ -37,3 +37,22 @@ Status words: `PASS` (executed green at the sha in the run table), `NOT PROVEN` 
 | A22 | MOCK | `pnpm --filter @vc/engine test` | `packages/engine/tests/source-kind.test.ts`, `mcp/university-kb/tests/source-kind.test.ts` | PASS | |
 | A23 | MOCK | `pnpm --filter @vc/api test` | `apps/api/tests/chat.test.ts`, `apps/api/tests/voice-limits.test.ts`, `apps/api/tests/acceptance-student-journey.test.ts` | PASS | Spec names `tests/limits.test.ts`, which does not exist; the criterion is proven by these three files. |
 | A24 | MOCK | `pnpm --filter @vc/engine test` | `packages/engine/evals/budget.test.ts`, `packages/engine/evals/p1-runners.test.ts` | PASS | Spec names `tests/budget-cap.test.ts`, which does not exist; the cap lives in `evals/budget.ts` and its test. |
+
+## Run table (commands executed through `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh`, TMP/TEMP under `D:/vc/.worktrees/`)
+Base run sha `d1e511e` (branch `p1/u12` = origin/main + U10w head `1c9fafb` + this unit's two new test files + trace). Raw output in `qa/evidence/p1-u12/runs/`.
+
+| Command | Result | Criteria it carries |
+|---|---|---|
+| `pnpm -C packages/schemas test` | 90 tests, 90 pass, 0 fail | A5 (schemas), A6, A16b |
+| `pnpm -C packages/db test` | 283 tests, 283 pass, 0 fail | A6, A7, A16b, A19 |
+| `pnpm -C packages/providers test` | 130 tests, 130 pass, 0 fail | A9, A9b, A12 |
+| `pnpm -C mcp/university-kb test` | 72 tests, 72 pass, 0 fail | A4, A13, A15c, A18, A22 |
+| `pnpm -C packages/engine test` | 1168 tests, 1123 pass, 0 fail, 45 skipped | A1, A3, A4, A11, A11b, A12, A13, A18, A21, A22, A24 |
+| `pnpm -C apps/api test` | 300 tests, 300 pass, 0 fail (incl. 7 new: 3 journey + 4 trace) | A5, A6, A7, A9, A9b, A15a-c, A16b, A19, A20, A23 |
+| `pnpm -r typecheck` | exit 0 | all |
+| `pnpm -C packages/engine eval:kb` | exit 0, prints `NOT PROVEN (synthetic fixture)` for A2a and `NOT PROVEN` for A2b | A2a |
+| Integration view `7eab007` (= `1c9fafb` + `p1/u6b` fce8f83 + `p1/u11` 06469b6, throwaway detached worktree, not a branch): `tests/rank.test.ts evals/coverage.test.ts` | 55 tests, 55 pass, 0 fail | A16, A16b (engine), A17 |
+| Integration view `7eab007`: `pnpm -C packages/engine coverage -- --out <tmp>` | exit 0, report written | A17 |
+| Integration view `7eab007`: `pnpm -C apps/api test` | 293 tests, 293 pass, 0 fail | A5-A23 still green with U6b and U11 merged in |
+
+The 45 engine skips are the legacy B18 live-card adapter cases printed `NOT RUNNABLE` (pre-existing, no P1 criterion).

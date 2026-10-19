@@ -1,0 +1,9 @@
+packages/schemas exit=0
+packages/db exit=0
+packages/providers exit=0
+mcp/university-kb exit=0
+packages/engine exit=0
+apps/api exit=0
+typecheck exit=0
+eval:kb exit=0
+ALLDONE

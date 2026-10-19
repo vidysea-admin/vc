@@ -1,0 +1,20 @@
+[testlock] running slot 0 (free RAM 4.37 GB): pnpm -C D:/vc/.worktrees/p1-u12/packages/engine eval:kb
+
+> @vc/engine@0.1.0 eval:kb D:\vc\.worktrees\p1-u12\packages\engine
+> tsx evals/run-kb.ts
+
+# KB retrieval eval (A2a / A2b)
+
+Fixture source: `synthetic` · Questions: 60 · k=3 · Unrecorded queries: 0
+
+> Synthetic fixture: this proves the harness only. A2a is proven against recorded KB responses (U2/U3), not this sample.
+
+| Check | Result |
+|---|---|
+| A2a English hit@3 | 44/45 (97.8%) vs threshold 95.0% · countries 12 · themes 6 · **NOT PROVEN (synthetic fixture)** |
+| A2b Hindi/Hinglish hit@3 | 15/15 (100.0%) · **NOT PROVEN** (Hindi/Hinglish retrieval depends on an engine query-rewrite to English that a frozen fixture cannot exercise; A2b is REAL-only (G-REAL).) |
+
+## Misses
+
+- g-008: miss
+
