@@ -139,6 +139,15 @@ Raised by the U10s voice-hardening dual check and review (2026-10-19, ISS-260..I
 - [ ] CANDIDATE · ISS-238 (low, docs): A5 wording; the spec says GET /v1/openapi.json lists every new route, the served document keeps the student routes in the draft (U5a). Source: qa/verdicts/p1-u12-acceptance.md.
 - [ ] CANDIDATE · ISS-239 (low, docs): A7 wording; the spec says erased students leave gap counts at read-back zero, the implementation exempts chat_gap_counts (no student, thread or text in the row).
 - [ ] CANDIDATE · ISS-240 (low, docs): spec and contract file names for A13, A23 and A24 do not hold the proofs, and the A16/A17 trace row text predates the merge; the trace cites the real files.
+- [x] DONE · U13b Ollama adapter (D-100): PASS ae46c34, review Approve, merged on int/u13b-ollama; mocked-fetch tests only. REAL runner bodies are still NOT wired (RealNotWiredError) and every paid run still needs its own go from Umesh.
+- [ ] CANDIDATE · ISS-270 (low, budget): Ollama cost estimate counts one token per UTF-16 char; Devanagari/Hinglish/CJK can exceed it (use UTF-8 bytes).
+- [ ] CANDIDATE · ISS-271 (low, budget): OLLAMA_PRICE_USD_PER_MTOK accepts a vanishing positive price (1e-300), so the cap charges 0; add a floor.
+- [ ] CANDIDATE · ISS-272 (low, config): a whitespace-only OLLAMA_API_KEY is accepted; trim before the presence check.
+- [ ] CANDIDATE · ISS-273 (low, providers): Ollama res.json() has no timeout (clearTimeout runs first). FIX BEFORE FIRST PAID RUN (D-100).
+- [ ] CANDIDATE · ISS-274 (low, providers): 2048 max output tokens may truncate structured output and is not configurable. FIX BEFORE FIRST PAID RUN (D-100).
+- [ ] CANDIDATE · ISS-275 (low, security): OLLAMA_BASE_URL is not validated; require https unless localhost.
+- [ ] CANDIDATE · ISS-276 (low, engine): a future REAL body that ignores the provider argument would bypass the charge hook; wire runners to use it.
+- [ ] CANDIDATE · ISS-277 (low, config): Ollama model ids and prices are [ASSUMPTION-UNVERIFIED] placeholders; set real values (and check num_predict is honoured) before the first paid run.
 
 - [ ] CANDIDATE · priority: privacy · ISS-198 (medium): a lower-case one-letter initial before a name leaves the name unredacted ('my name is s. kumar', 'i am j. r. d. tata', 'my name is a. p. j. abdul kalam'; 'my name is dr. s. kumar' keeps the surname); packages/schemas/src/redact.ts:152-160 (isLowerNameToken length < 2 ends the run). Found by U8r checker A (cycle 2). Source: qa/verdicts/p1-u8r-chat-privacy.A.md P2.
 - [ ] CANDIDATE · priority: safety · ISS-194 (medium): the crisis guard's study-then-distress rescue depends on detector vocabulary; "I don't see the point in continuing college, <tail>" is none for tails such as "I feel so lost", "nothing is worth it", "I feel trapped", "everyone would be better off", "i just want it all to stop", "I cant breathe" (each tail is also none alone; a general vocabulary gap, crisis at base 559a421). Human approval needed (product call under D-020). Fix: extend POINT_DISTRESS/CONCERN, or let a study object suppress only when the rest is study-only. Source: qa/evidence/p1-briefs/p1-eng3-c3-review-result.md.
