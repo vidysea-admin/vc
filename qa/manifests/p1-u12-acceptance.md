@@ -61,7 +61,7 @@ Pre-check[A23]: d1e511e bash scripts/vc-testlock.sh pnpm -C apps/api test -> gre
 Pre-check[A24]: d1e511e bash scripts/vc-testlock.sh pnpm -C packages/engine test -> green: 1123 passed, 0 failed, 45 skipped (legacy B18 NOT RUNNABLE)
 Pre-check[typecheck]: d1e511e bash scripts/vc-testlock.sh pnpm -C . -r typecheck -> exit 0 (qa/evidence/p1-u12/runs/typecheck.txt)
 Pre-check[integration-api]: 7eab007 bash scripts/vc-testlock.sh pnpm -C apps/api test -> green: 293 passed, 0 failed (U6b and U11 merged in do not break the API suites)
-Metrics: start=2026-10-19T09:35:40+05:30 end=2026-10-19T10:11:31+05:30 builder_min=39 wall_min=39 agent_min=unavailable blocked_min=18 suite_runs=0 repeat_runs=0 mutants=6 files=4
+Metrics: start=2026-10-19T09:35:40+05:30 end=2026-10-19T10:11:31+05:30 builder_min=36 wall_min=36 agent_min=unavailable blocked_min=18 suite_runs=0 repeat_runs=0 mutants=6 files=4
 mutant-cap-raise: two new test files (3 journey tests, 4 trace tests) each need their own kill; 3 product-edit mutants for the journey tests and 3 trace-table edits for the trace checker are distinct tests, not repeats.
 
 ## Capability coverage (each new test -> one falsifying edit, product file edited in the worktree then restored from a saved copy; outputs in `qa/evidence/p1-u12/fals/`)
