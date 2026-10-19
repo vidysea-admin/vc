@@ -1,0 +1,52 @@
+import subprocess, sys, os, re
+ROOT = "D:/vc/.worktrees/p1-u13b-chk-fals1"
+env = dict(os.environ, TMP="D:/tmp/u13bw-r1chk", TEMP="D:/tmp/u13bw-r1chk", VC_TESTLOCK_TIMEOUT_SECS="7200")
+
+def sh(cmd):
+    return subprocess.run(["C:/Program Files/Git/usr/bin/bash.exe", "-c", cmd], capture_output=True, text=True, env=env, cwd=ROOT, encoding="utf-8", errors="replace")
+
+def edit(path, old, new):
+    p = os.path.join(ROOT, path)
+    s = open(p, encoding="utf-8").read()
+    assert s.count(old) == 1, (path, old, s.count(old))
+    open(p, "w", encoding="utf-8").write(s.replace(old, new))
+
+PROV = "packages/providers/src/index.ts"
+EVA = "packages/engine/evals/"
+ENG = "VC=D:/vc/scripts/vc-testlock.sh; bash $VC pnpm -C packages/engine exec tsx --test evals/real-bodies.test.ts evals/zz-chk-r1.test.ts"
+PRV = "bash D:/vc/scripts/vc-testlock.sh pnpm -C packages/providers exec tsx --test tests/ollama.test.ts"
+
+F = [
+ ("BASELINE", "packages/engine/evals/probes.ts", "export const NO_SOURCED_ANSWER_TEXT", "export const NO_SOURCED_ANSWER_TEXT", ENG),
+ ("BASELINEP", "packages/providers/src/index.ts", "export const OLLAMA_MIN_PRICE_USD_PER_MTOK = 0.01;", "export const OLLAMA_MIN_PRICE_USD_PER_MTOK = 0.01;", PRV),
+ ("C3 timer cleared before res.json", PROV, "      if (!res.ok) throw new OllamaHttpError(res.status, this.model);\n      // ISS-273", "      clearTimeout(timer);\n      if (!res.ok) throw new OllamaHttpError(res.status, this.model);\n      // ISS-273", PRV),
+ ("C4 env tokens ignored", PROV, "  const n = Number(raw.trim());\n  if (!/^\\d+$/.test", "  return OLLAMA_DEFAULT_MAX_OUTPUT_TOKENS;\n  const n = Number(raw.trim());\n  if (!/^\\d+$/.test", PRV),
+ ("C5 price floor 0", PROV, "export const OLLAMA_MIN_PRICE_USD_PER_MTOK = 0.01;", "export const OLLAMA_MIN_PRICE_USD_PER_MTOK = 0;", PRV),
+ ("C6 no trim ctor", PROV, 'typeof options.apiKey === "string" ? options.apiKey.trim() : ""', 'typeof options.apiKey === "string" ? options.apiKey : ""', PRV),
+ ("C7 utf16 length", PROV, 'Buffer.byteLength(userContent, "utf8")', "userContent.length", PRV),
+ ("B1 cap removed", EVA + "probes.ts", 'const provenanceOk = opts.source === undefined || opts.source === "recorded";', "const provenanceOk = true;", ENG),
+ ("B2 passage=recorded answer", EVA + "run-probes.ts", "c.ask.sources.internal.filter((s) => (s.text ?? \"\").trim() !== \"\").map((s) => ({ node_id: s.node_id, text: s.text!.trim() }))", "c.ask.sources.internal.map((s) => ({ node_id: s.node_id, text: c.ask === \"unavailable\" ? \"\" : (c.ask.answer ?? \"\") }))", ENG),
+ ("B2 no exclusion", EVA + "run-probes.ts", "const scorable = set.cases.filter((c) => !hasSourcesWithoutText(c));", "const scorable = set.cases;", ENG),
+ ("G1 guard noop", EVA + "run-eval.ts", 'if (source === "recorded" && !args.anonymised) {', 'if (false) {', ENG),
+ ("G1 experts guard removed", EVA + "run-h2h.ts", '  if (expertsFile) assertRealInputAllowed("run-h2h", "--experts", expertsFile.source, args);\n', "", ENG),
+ ("G1 probes guard removed", EVA + "run-probes.ts", '  assertRealInputAllowed("run-probes", "--cases", set.source, args);\n', "", ENG),
+ ("label A2b dropped", EVA + "run-kb.ts", 'toKbMarkdown(report, { a2bLabel: "A2b Hindi/Hinglish rewrite-fidelity (not Hit@3)" })', "toKbMarkdown(report)", ENG),
+ ("label model-hop dropped", EVA + "run-latency.ts", 'toLatencyMarkdown(summary, verdict, { mode: "real", scope: "model-hop only" })', 'toLatencyMarkdown(summary, verdict, { mode: "real" })', ENG),
+ ("charge hook noop", EVA + "run-eval.ts", "makeOllama?.((estimate) => run.charge(estimate.estimatedCostUsd))", "makeOllama?.(() => undefined)", ENG),
+ ("Gemini wiring check removed", EVA + "run-eval.ts", "  if (!deps.realBody && !makeOllama) throw new RealNotWiredError(runner);", "", ENG),
+]
+only = sys.argv[1:]
+for name, path, old, new, cmd in F:
+    if only and not any(o in name for o in only):
+        continue
+    edit(path, old, new)
+    r = sh(cmd)
+    out = r.stdout + r.stderr
+    m = re.findall(r"(?m)^\S*\s*(tests|pass|fail) (\d+)\s*$", out)
+    d = {}
+    for k, v in m:
+        d[k] = v
+    fails = sorted(set(re.findall(r"(?m)^\s*✖ (.{0,70})", out)))[:4]
+    print(f"{name}: exit={r.returncode} {d} {fails}", flush=True)
+    sh(f"git -C {ROOT} checkout -- packages")
+print("clean:", sh(f"git -C {ROOT} status --short packages").stdout.strip() or "yes")

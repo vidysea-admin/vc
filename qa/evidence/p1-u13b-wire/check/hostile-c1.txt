@@ -1,0 +1,23 @@
+[testlock] running slot 0 (free RAM 2.43 GB): pnpm -C packages/engine exec tsx --test evals/zz-chk-r1.test.ts
+G1-MATRIX
+kb rec: run-kb --real: --fixture is source "recorded" (real transcripts); a REAL run sends it to a
+lat rec: run-latency --real: --fixture is source "recorded" (real transcripts); a REAL run sends it
+h2h rec fx: run-h2h --real: --fixture is source "recorded" (real transcripts); a REAL run sends it to 
+h2h rec exp: run-h2h --real: --experts is source "recorded" (real transcripts); a REAL run sends it to 
+probes rec: run-probes --real: --cases is source "recorded" (real transcripts); a REAL run sends it to
+kb MIX: D:\tmp\u13bw-r1chk\chk-m-NyKwSi\fx.json: source: Invalid enum value. Expected 'synthetic' 
+probes MIX: D:\tmp\u13bw-r1chk\chk-mc-H94Vof\p30.json: source: Invalid enum value. Expected 'synthetic
+h2h MIX exp: [ { "code": "invalid_union", "unionErrors": [ { "issues": [ 
+bare-array experts status (declared gap): completed
+✔ CHK B1: 30 synthetic honest -> NOT PROVEN, never PASS, no PASS word anywhere (134.0946ms)
+✔ CHK B2: internal sources + no text => 0 requests, excluded, counted; recorded answer never on the wire; all-excluded => total 0 NOT PROVEN (101.455ms)
+✔ CHK G1: recorded refused w/o --anonymised before ledger/request; mixed-case Recorded refused; bare-array experts is the declared gap (59.8069ms)
+✔ CHK labels + charge-before-send for all four; Gemini => NotWired; run-live refuses (297.6805ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4969.3105
