@@ -518,7 +518,8 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
         if (r.reason !== "no_options") logEvent("chat_rank_refused", { error: r.reason });
         return base;
       }
-      const claims = r.claims.map((c) => (c.kind === "number" ? { ...c, text: `${NOT_PROVEN_LABEL}: ${c.text}` } : c));
+      // A number with no proven source must not carry an attributed status (D-097 item 3): every ranked number is `unverified` and keeps the label.
+      const claims = r.claims.map((c) => (c.kind === "number" ? { ...c, text: `${NOT_PROVEN_LABEL}: ${c.text}`, status: "unverified" as const } : c));
       const hasNumbers = claims.some((c) => c.kind === "number");
       const known = new Set(base.sources.map((s) => s.id));
       return TurnResponseSchema.parse({
@@ -680,13 +681,16 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
       }
 
       // p1-u6w: the graph only names the tool; the API layer ranks (graph.ts `executedBy: "api"`). Authenticated routes only, so this is never anonymous.
-      if (result.selectedTool === "rank_options") response = await withRanking(who, response);
+      // A turn that stores no text (an unconsented minor, an over-long message) or has no student text never reaches the option port.
+      if (result.selectedTool === "rank_options" && persistText && text.trim().length > 0) response = await withRanking(who, response);
 
       if (leaseToken !== undefined) {
         const stored = TurnResponseSchema.parse({
           ...response,
           ...(response.message !== undefined ? { message: redact(response.message) } : {}),
           claims: response.claims.map((c) => ({ ...c, text: redact(c.text) })),
+          // Fact values (Pathlynks or chat) can hold free text; they go through the same U8r redaction before they are stored.
+          ...(response.profileFactsUsed !== undefined ? { profileFactsUsed: response.profileFactsUsed.map((f) => ({ ...f, value: redact(f.value) })) } : {}),
         });
         await completeChatTurn(db, { studentId: ctx.studentId, threadId, turnId, leaseToken, channel: "text", assistantText: stored.message ?? "", response: stored as Record<string, unknown> }, { now });
         if (deps.extractFacts) {

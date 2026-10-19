@@ -11,7 +11,7 @@ import { rankOptions, type OptionData, type OptionDataPort } from "@vc/engine";
 import { TurnResponseSchema } from "@vc/schemas";
 import { createChatApi, rankFactFromStored, type ChatApiDeps } from "../src/chat.js";
 import { anonWorld, ask } from "./anonymous-fixtures.js";
-import { GERMANY_QUESTION, adult, call, chatWorld, newThread, profilePath, studentToken, threadsPath, turnsPath, type ChatWorld } from "./chat-fixtures.js";
+import { GERMANY_QUESTION, adult, call, chatWorld, everythingStored, minor, newThread, profilePath, studentToken, threadsPath, turnsPath, type ChatWorld } from "./chat-fixtures.js";
 
 const FIX = JSON.parse(readFileSync(fileURLToPath(new URL("../../../packages/engine/tests/fixtures/ranking-profiles.json", import.meta.url)), "utf8")) as {
   optionIds: string[];
@@ -163,9 +163,11 @@ test("U6w item 2 ISS-167: every number the student is shown carries a visible NO
 test("U6w item 3 tenancy: the same student id in tenant B with other facts never moves tenant A's ranking, and only tenant A's id reaches the profile and option-list ports", async () => {
   const askedProfile: string[] = [];
   const askedOptions: string[] = [];
+  const askedProfileStudents: string[] = [];
+  const askedOptionStudents: string[] = [];
   const ctx = rankWorld({
-    optionIds: (who) => (askedOptions.push(who.tenantId), FIX.optionIds),
-    deps: { profile: { facts: async (who) => (askedProfile.push(who.tenantId), []) } },
+    optionIds: (who) => (askedOptions.push(who.tenantId), askedOptionStudents.push(who.studentId), FIX.optionIds),
+    deps: { profile: { facts: async (who) => (askedProfile.push(who.tenantId), askedProfileStudents.push(who.studentId), []) } },
   });
   try {
     const baseThread = await sayAndConfirm(ctx, "tenant-a", "syn-same", GERMANY_ENG);
@@ -185,6 +187,19 @@ test("U6w item 3 tenancy: the same student id in tenant B with other facts never
     const tbThread = await newThread(ctx.w, tbToken, "syn-same");
     const b = await call(ctx.w, "POST", turnsPath("syn-same", tbThread), { token: tbToken, body: { text: RANK_TEXT } });
     assert.equal(rankedIds(b.json)[0], "Toronto business (synthetic)");
+
+    // Cycle 1 (checker B P1): a DIFFERENT student of the same tenant, with opposite confirmed facts, never moves syn-same's ranking, and the
+    // student id that reaches the profile port and the option-list callback is the asking student's, never the other one's.
+    await sayAndConfirm(ctx, "tenant-a", "syn-other", CANADA_BIZ);
+    askedProfile.length = 0;
+    askedOptions.length = 0;
+    askedProfileStudents.length = 0;
+    askedOptionStudents.length = 0;
+    const withOther = await rankTurn(ctx.w, "tenant-a", "syn-same", baseThread);
+    assert.deepEqual(withOther.json.claims, alone.json.claims, "another student's facts did not change one claim");
+    assert.deepEqual(withOther.json.profileFactsUsed, alone.json.profileFactsUsed);
+    assert.ok(askedProfileStudents.length >= 1 && askedProfileStudents.every((s) => s === "syn-same"), `profile port saw students ${askedProfileStudents}`);
+    assert.ok(askedOptionStudents.length === 1 && askedOptionStudents.every((s) => s === "syn-same"), `option-list callback saw students ${askedOptionStudents}`);
   } finally {
     ctx.w.cleanup();
   }
@@ -265,5 +280,138 @@ test("U6w item 5: an anonymous visitor asking to rank gets sign_in_required with
     assert.equal(typeof createChatApi, "function");
   } finally {
     a.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------------------------------------
+// Cycle 1 repair items (C6..C11)
+// ---------------------------------------------------------------------------------------------------------
+test("U6w cycle 1 C6 (senior review MEDIUM): a NOT PROVEN number never carries an attributed status: every ranked claim is unverified, live and stored, and keeps the label", async () => {
+  const ctx = rankWorld();
+  try {
+    const t = await sayAndConfirm(ctx, "tenant-a", "syn-a", GERMANY_ENG);
+    const res = await rankTurn(ctx.w, "tenant-a", "syn-a", t);
+    const numbers = res.json.claims.filter((c: { kind: string }) => c.kind === "number");
+    assert.ok(numbers.length >= 1, "the fixture ranks at least one option");
+    assert.ok(res.json.claims.every((c: { status: string }) => c.status === "unverified"), JSON.stringify(res.json.claims.map((c: { status: string }) => c.status)));
+    for (const c of numbers) assert.match(c.text, /^NOT PROVEN: /);
+    const token = await studentToken(adult("syn-a", "tenant-a"));
+    const thread = await call(ctx.w, "GET", `${threadsPath("syn-a")}/${t}`, { token });
+    const stored = thread.json.turns.find((x: { role: string; claims?: unknown[] }) => x.role === "assistant" && (x.claims ?? []).some((c) => (c as { kind: string }).kind === "number"));
+    assert.ok(stored, "the ranked turn is in the thread");
+    assert.ok(stored.claims.every((c: { status: string }) => c.status === "unverified"), "stored claims are all unverified");
+    for (const c of stored.claims.filter((c: { kind: string }) => c.kind === "number")) assert.match(c.text, /^NOT PROVEN: /);
+    // The reply still works (200 above); the unverified claims are counted as a gap, not rejected.
+    assert.ok(everythingStored(ctx.w.fakeDb).includes("unverified_claim"), "the unverified_claim gap counter was incremented");
+  } finally {
+    ctx.w.cleanup();
+  }
+});
+
+test("U6w cycle 1 C7 (checker A P1): a turn that stores no text (an unconsented minor) never reaches the ranking port, the option list or the weights callback", async () => {
+  const port = spyPort();
+  let optionListCalls = 0;
+  let weightsCalls = 0;
+  const ctx = rankWorld({
+    port,
+    deps: { ranking: { port, optionIds: () => (optionListCalls++, FIX.optionIds), weightsForTenant: () => (weightsCalls++, undefined) } },
+  });
+  try {
+    const token = await studentToken(minor("syn-min", "tenant-a")); // guardianConsent absent: the turn is textless
+    const th = await newThread(ctx.w, token, "syn-min");
+    const res = await call(ctx.w, "POST", turnsPath("syn-min", th), { token, body: { text: RANK_TEXT } });
+    assert.equal(res.status, 200, res.body);
+    assert.equal(port.calls.length, 0, "the option port was asked on a textless turn");
+    assert.equal(optionListCalls, 0);
+    assert.equal(weightsCalls, 0);
+    assert.deepEqual(res.json.claims, []);
+    assert.equal(res.json.rankingProfile, undefined);
+    // Control: the same wiring does rank for an adult (so the zero above is not a dead spy).
+    const ta = await sayAndConfirm(ctx, "tenant-a", "syn-a", GERMANY_ENG);
+    await rankTurn(ctx.w, "tenant-a", "syn-a", ta);
+    assert.ok(port.calls.length > 0, "control: the spy records calls for an adult");
+    assert.ok(optionListCalls > 0 && weightsCalls > 0, "control: the callbacks are live");
+  } finally {
+    ctx.w.cleanup();
+  }
+});
+
+test("U6w cycle 1 C8 (checker A P4): a profile fact value holding a phone number never reaches the stored thread through profileFactsUsed", async () => {
+  const ctx = rankWorld({ deps: { profile: { facts: async () => [{ key: "target-country", value: "Germany call me on 98765 43210", source: "pathlynks" }] } } });
+  try {
+    const token = await studentToken(adult("syn-a", "tenant-a"));
+    const th = await newThread(ctx.w, token, "syn-a");
+    const res = await call(ctx.w, "POST", turnsPath("syn-a", th), { token, body: { text: RANK_TEXT } });
+    assert.equal(res.status, 200, res.body);
+    // The ranker used the fact (so the test is not vacuous): the stored ranked turn carries a profileFactsUsed row for it.
+    const stored = ctx.w.fakeDb
+      .collection<{ response?: { profileFactsUsed?: { key: string; value: string }[] } }>("chat_turns")
+      .all()
+      .find((r) => (r.response?.profileFactsUsed ?? []).length > 0);
+    assert.ok(stored, "the stored ranked turn carries profileFactsUsed");
+    assert.ok(stored!.response!.profileFactsUsed!.some((f) => f.key === "target-country"));
+    const everything = everythingStored(ctx.w.fakeDb);
+    assert.ok(!everything.includes("98765"), "no part of the phone number is stored anywhere");
+    assert.ok(!everything.includes("43210"));
+  } finally {
+    ctx.w.cleanup();
+  }
+});
+
+test("U6w cycle 1 C10 (checker B P2): weightsForTenant receives the asking tenant's id, and tenant A's weights never apply to tenant B", async () => {
+  const seen: string[] = [];
+  const COST_ONLY = { fit: 0, cost: 1, scholarshipChance: 0, visaEase: 0 };
+  const ctx = rankWorld({ deps: { ranking: { port: spyPort(), optionIds: () => FIX.optionIds, weightsForTenant: (t) => (seen.push(t), t === "tenant-a" ? COST_ONLY : undefined) } } });
+  const base = rankWorld();
+  try {
+    const ta = await sayAndConfirm(ctx, "tenant-a", "syn-w", GERMANY_ENG);
+    const tb = await sayAndConfirm(ctx, "tenant-b", "syn-w", GERMANY_ENG);
+    const bt = await sayAndConfirm(base, "tenant-b", "syn-w", GERMANY_ENG);
+    seen.length = 0;
+    const a = await rankTurn(ctx.w, "tenant-a", "syn-w", ta);
+    assert.deepEqual(seen, ["tenant-a"], "the callback got tenant A's id");
+    seen.length = 0;
+    const b = await rankTurn(ctx.w, "tenant-b", "syn-w", tb);
+    assert.deepEqual(seen, ["tenant-b"], "the callback got tenant B's id");
+    const bBase = await rankTurn(base.w, "tenant-b", "syn-w", bt);
+    assert.match(a.json.rankingProfile, /^custom-/, "tenant A's weights apply to tenant A");
+    assert.equal(b.json.rankingProfile, "student-success", "tenant B is ranked with the default weights");
+    assert.deepEqual(b.json.claims, bBase.json.claims, "tenant B's ranking is byte-equal to a world where tenant A's weights do not exist");
+    assert.notDeepEqual(a.json.claims, b.json.claims);
+  } finally {
+    ctx.w.cleanup();
+    base.w.cleanup();
+  }
+});
+
+test("U6w cycle 1 C11 (checker B P3 / A note): non-vacuous C5: an anonymous route handed live ranking, profile and Db spies never calls them, and the same spy wiring is called by the authenticated route", async () => {
+  const port = spyPort();
+  let optionListCalls = 0;
+  let profileCalls = 0;
+  let dbCalls = 0;
+  const optionIds = () => (optionListCalls++, FIX.optionIds);
+  const profile = { facts: async () => (profileCalls++, []) };
+  const dbForTenant = (): never => {
+    dbCalls++;
+    throw new Error("anonymous mode must never open a tenant Db");
+  };
+  const a = anonWorld({ deps: { ranking: { port, optionIds }, profile, dbForTenant } as never });
+  const auth = rankWorld({ port, optionIds });
+  try {
+    const res = await ask(a, RANK_TEXT);
+    assert.equal(res.status, 200);
+    assert.equal(res.json.state, "sign_in_required");
+    assert.equal(port.calls.length, 0, "anonymous: the option port was asked");
+    assert.equal(optionListCalls, 0);
+    assert.equal(profileCalls, 0);
+    assert.equal(dbCalls, 0);
+    // Control: the authenticated route with the very same spies does ask them.
+    const t = await sayAndConfirm(auth, "tenant-a", "syn-a", GERMANY_ENG);
+    await rankTurn(auth.w, "tenant-a", "syn-a", t);
+    assert.ok(port.calls.length > 0, "control: the option port spy is live");
+    assert.ok(optionListCalls > 0, "control: the option-list spy is live");
+  } finally {
+    a.cleanup();
+    auth.w.cleanup();
   }
 });
