@@ -463,6 +463,8 @@ interface Conn {
    * minor). Never inferred from seq adjacency: an unanswered earlier turn sits right before a no-words crisis reply too.
    */
   crisisUtterances: (string | undefined)[];
+  /** U10s H3: the turn ids already used by a crisis flag/escalation on this connection (a reused id would dedupe a later crisis away). */
+  crisisTurnIds: Set<string>;
   startTimer?: unknown;
   turnBySeq: Map<number, string>;
   /** `${seq}|${reason}|${detail}` of the flags already sent: one listed speaker named under three aliases is one flag, not three. */
@@ -799,9 +801,25 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   async function onCrisisRecord(c: Conn, r: LiveCrisisRecord): Promise<void> {
     // The words of THIS crisis utterance, captured when it was detected (consumed here, so a later crisis never sees them).
     const raw = c.crisisUtterances.shift();
-    const words = raw !== undefined && raw !== "" && c.persistText ? clamp(redact(c, raw), 2000) : undefined;
+    // U10s H1: a throwing redaction must never lose the flag or the escalation: the words are dropped (the fixed text-free marker is
+    // escalated instead, never the raw words) and the failure is logged without text.
+    let words: string | undefined;
+    if (raw !== undefined && raw !== "" && c.persistText) {
+      try {
+        words = clamp(redact(c, raw), 2000);
+      } catch {
+        logEvent("voice_crisis_redact_failed");
+      }
+    }
     // Ids and time only: kept even for an unconsented minor, exactly like the text path's crisis flag.
-    const turnId = c.lastUser?.turnId ?? `v${c.claims.sid.slice(0, 8)}crisis`;
+    // U10s H3: each crisis gets its own id, or the flag's and the escalation port's upserts (keyed on the turn id) would fold a second crisis
+    // into the first. A crisis with an utterance keeps the spoken turn's id (flag and stored turn agree) the first time that id is used; a no-words
+    // crisis has no turn of its own and never borrows the previous turn's id.
+    const spokenId = c.lastUser?.turnId;
+    const ownTurn = raw !== "" && !(raw === undefined && c.persistText); // "" = the utterance had no words; undefined while text may be stored = no record
+    const turnId =
+      ownTurn && spokenId !== undefined && !c.crisisTurnIds.has(spokenId) ? spokenId : `v${c.claims.sid.slice(0, 8)}crisis${randomUUID().slice(0, 8)}`;
+    c.crisisTurnIds.add(turnId);
     const flag = await crisisWrite(c, "voice_crisis_flag_failed", () =>
       recordStudentFlag(c.db, { studentId: c.claims.studentId, threadId: c.claims.threadId, turnId, kind: "crisis" }, { now: new Date(r.ts) }),
     );
@@ -1327,6 +1345,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       lastAtMs: 0,
       turnBySeq: new Map(),
       crisisUtterances: [],
+      crisisTurnIds: new Set(),
       flagsSent: new Set(),
       pendingConfirms: new Map(),
     };

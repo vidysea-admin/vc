@@ -34,9 +34,9 @@ const baseDeps = () => ({
 
 test("A20: chat is OFF by default - unset, empty and 'false' read as disabled, only the exact word 'true' enables, anything else is a config error", () => {
   assert.equal(CHAT_FLAG_ENV, "VC_CHAT_ENABLED");
-  for (const env of [{}, { VC_CHAT_ENABLED: "" }, { VC_CHAT_ENABLED: "false" }, { VC_CHAT_ENABLED: " false " }]) assert.equal(chatEnabledFromEnv(env), false, JSON.stringify(env));
+  for (const env of [{}, { VC_CHAT_ENABLED: "" }, { VC_CHAT_ENABLED: "false" }]) assert.equal(chatEnabledFromEnv(env), false, JSON.stringify(env));
   assert.equal(chatEnabledFromEnv({ VC_CHAT_ENABLED: "true" }), true);
-  for (const bad of ["1", "yes", "TRUE", "on", "tru"]) assert.throws(() => chatEnabledFromEnv({ VC_CHAT_ENABLED: bad }), ChatConfigError, bad);
+  for (const bad of ["1", "yes", "TRUE", "on", "tru", " true", "true ", " false ", " false", "false ", " ", "\ttrue\n"]) assert.throws(() => chatEnabledFromEnv({ VC_CHAT_ENABLED: bad }), ChatConfigError, bad);
 });
 
 test("A20 flag off: nothing is built and every chat path answers exactly like an unknown path (404), for every method, without touching the main handler", async () => {

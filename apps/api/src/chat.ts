@@ -121,7 +121,7 @@ export class ChatConfigError extends Error {
 
 /** Reads the flag: unset, empty and "false" are off; exactly "true" is on; anything else is a config error (never a silent on or off). */
 export function chatEnabledFromEnv(env: Record<string, string | undefined>): boolean {
-  const raw = env[CHAT_FLAG_ENV]?.trim();
+  const raw = env[CHAT_FLAG_ENV]; // exact, like voice: no trim, so " true" or "false " is a config error, never a silent on or off
   if (raw === undefined || raw === "" || raw === "false") return false;
   if (raw === "true") return true;
   throw new ChatConfigError(`${CHAT_FLAG_ENV} must be "true" or "false" (got a different value)`);
