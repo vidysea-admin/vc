@@ -5,7 +5,7 @@
 - C2 The same one shared helper (`stripBom` in `dataset.ts`, strips exactly one leading U+FEFF) is applied to every other eval input that is JSON-parsed from file text: the sessions dataset, the KB fixture, the probe set, the `--experts` file, the coverage fixture and the KB gaps snapshot. A BOM-prefixed golden, KB fixture and experts file run end to end under `--real` (mock provider, no network).
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 0 of max 2
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** S (a one-line shared helper applied at the parse step of file loaders; no auth, no production data, no network, no paid call)
