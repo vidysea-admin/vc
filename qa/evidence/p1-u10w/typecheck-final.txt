@@ -1,0 +1,22 @@
+[testlock] waiting for lock held by: PID=40396 STARTED=639279863913282673 ACQUIRED_AT=1792369806 TOKEN=1792369806252652300-225303-17741 DESC=pnpm -C D:/vc/.worktrees/p1-u10-A-fals/apps/api exec tsx --test tests/voice.test.ts tests/voice-limits.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/zz-a-probe.test.ts 
+[testlock] running slot 1 (free RAM 6.26 GB): pnpm -C D:/vc/.worktrees/p1-u10w -r typecheck
+Scope: 9 of 10 workspace projects
+packages/observability typecheck$ tsc --noEmit
+packages/schemas typecheck$ tsc --noEmit
+packages/observability typecheck: Done
+packages/schemas typecheck: Done
+packages/db typecheck$ tsc --noEmit
+packages/providers typecheck$ tsc --noEmit
+packages/providers typecheck: Done
+packages/db typecheck: Done
+packages/engine typecheck$ tsc --noEmit && tsc --noEmit -p evals/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json
+mcp/university-kb typecheck$ tsc --noEmit
+mcp/student-profile typecheck$ tsc --noEmit
+mcp/student-profile typecheck: Done
+mcp/university-kb typecheck: Done
+packages/engine typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/api typecheck: Done
+apps/web typecheck: Done
+EXIT=0
