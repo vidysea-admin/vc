@@ -10,7 +10,7 @@
 - C7 ISS-270: the input estimate that feeds the budget charge is the UTF-8 byte length (Devanagari is 3 bytes per character), not UTF-16 code units.
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 1 of max 2
 **Policy-Version:** proportional-verification/2026-10-18.15
 **Tier:** L (config/provider seam; the code that spends money on a REAL run and the budget estimate it is charged by)
