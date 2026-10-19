@@ -1,0 +1,12 @@
+import { test } from "node:test";
+import { crisisGuard as NEW } from "../src/guards/crisis.js";
+import { crisisGuard as BASE } from "./zz-base-crisis.js";
+
+test("parity of the two C2 gaps with their Latin twins", () => {
+  const ss = [
+    "mere saath pitai hoti hai", "mere saath peetai hoti hai", "mere saath bahut peetai hoti hai", "मेरे साथ बहुत पिटाई होती है", "ghar mein mere saath bahut peetai hoti hai, main dar gaya hoon",
+    "पापा मुझे रोज़ मारते हैं।", "papa mujhe roz maarte hain", "मेरे साथ रोज पिटाई होती है", "मुझे घर में मारते हैं",
+    "मुझे रोज मारते हैं", "सब कुछ खत्म हो गया", "मैं मरना चाहता हूँ", "mujhe kal se maar rahe hain",
+  ];
+  for (const s of ss) console.log(`PARITY new=${NEW(s).level} base=${BASE(s).level} :: ${s}`);
+});
