@@ -1,0 +1,19 @@
+[testlock] running slot 1 (free RAM 3.44 GB): pnpm -C apps/api exec tsx --test tests/zz-chkB-probe.test.ts
+✔ P0 constants (1.0069ms)
+✔ P1 exact byte boundary, ASCII: 65535/65536 pass the gate (escalate), 65537/65538/100K/300K are 413 (384.9538ms)
+✔ P2 multibyte UTF-8 straddling the cap (3-byte and 4-byte chars; crisis phrase before the tail) (441.6377ms)
+P3a status 0 ERR read ECONNRESET
+P3b status 0 ERR read ECONNRESET
+✔ P3 Content-Length lies (81.4737ms)
+✔ P4 chunked transfer, no Content-Length (248.1797ms)
+✔ P5 encoded bodies are not decoded: gzip never reaches the scanner (88.0156ms)
+✔ P6 within-cap crisis escalates before the limiter, including a client already at 429, over real HTTP (199.6361ms)
+✔ P7 over-cap request does not consume limiter budget and is never a 429 (50.0643ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13884.2055

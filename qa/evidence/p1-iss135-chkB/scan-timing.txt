@@ -1,0 +1,5 @@
+[testlock] waiting for lock held by: PID=49032 STARTED=639280091186124517 ACQUIRED_AT=1792392528 TOKEN=1792392528457318900-380079-6552 DESC=pnpm -C apps/api exec tsx --test tests/chkA-hostile.test.ts 
+[testlock] running slot 0 (free RAM 2.22 GB): pnpm exec tsx zz-m.ts
+ascii-benign 65516 none 39.2ms
+mixed-script 65000 none 104.5ms
+near-miss 65516 crisis 23.0ms
