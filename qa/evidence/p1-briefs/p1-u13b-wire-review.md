@@ -1,0 +1,3 @@
+# Senior review (read-only) — p1/u13b-wire vs main
+Worktree D:/vc/.worktrees/p1-u13b-wire, code 8f5395b. Review `git -C D:/vc/.worktrees/p1-u13b-wire diff main...HEAD -- packages`: providers/src/index.ts (ISS-270..274 fixes), engine/evals/run-eval.ts, run-kb.ts, run-probes.ts, run-latency.ts, run-h2h.ts, tests.
+Focus: any path where a paid call escapes the charge hook; budget/cost bound correctness with OLLAMA_MAX_OUTPUT_TOKENS; timeout covering body read; misleading scoring (NOT PROVEN honesty for A14, A8 first-token claim, A4 violations, A2b Jaccard matching producing false PASS); any production/student data access; over-engineering. Read-only, no network. Return Approve / Warning / Block with file:line at >80% confidence.
