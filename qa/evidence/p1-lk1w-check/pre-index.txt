@@ -1,0 +1,16 @@
+✔ apiStatus reports the T-025 HTTP API (opt-in) (3.8948ms)
+✔ T-014/ISS-t-011-c3-rev-3: startApi connects via connectFromEnv (B12: virtual_counsellor only) and wires the erasure-fence sweep so a scheduled tick actually releases an expired fence (20.8365ms)
+✔ T-015/ISS-t-014-rev-2: startApi's default onError logs a structured JSON line naming the failure, instead of discarding it (4.8723ms)
+✔ ISS-t-015-c0-1: a Mongo-shaped error whose message embeds a value does not survive in the logged line (3.3295ms)
+✔ T-015/ISS-t-014-rev-2: a caller-supplied onError still wins over the default (not double-logged) (5.3288ms)
+✔ T-015/ISS-t-014-rev-3: startApi closes the client and rethrows when starting the sweep fails after connect (2.2596ms)
+✔ ISS-t-015-c0-2: when close() throws too, the ORIGINAL error is preserved (not discarded), with the close failure attached (0.7637ms)
+✔ T-015/ISS-t-014-rev-3 (regression): a SUCCESSFUL startApi does not close the client until stop() is called (0.4795ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7173.3985

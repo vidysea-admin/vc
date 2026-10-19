@@ -1,0 +1,40 @@
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"event":"escalation_unrouted","escalationId":"sess1:t4","sessionId":"sess1"}
+✖ O2 chain SET (default): chat and anonymous served by Ollama glm first hop; scribe + classifier stay on litellm (1416.1131ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8642.2524
+
+✖ failing tests:
+
+test at ..\..\..\outcome.test.ts:144:1
+✖ O2 chain SET (default): chat and anonymous served by Ollama glm first hop; scribe + classifier stay on litellm (1416.1131ms)
+  AssertionError [ERR_ASSERTION]: scribe + classifier never reach the chain
+  + actual - expected
+  
+  + [
+  +   '/api/chat#glm-5.3-flash',
+  +   '/api/chat#deepseek-v4.1-flash',
+  +   '/api/chat#glm-5.3-flash',
+  +   '/api/chat#deepseek-v4.1-flash'
+  + ]
+  - []
+  
+      at <anonymous> (D:\chk-lk1w\outcome.test.ts:163:12)
+      at async withApi (D:\chk-lk1w\outcome.test.ts:91:12)
+      at async TestContext.<anonymous> (D:\chk-lk1w\outcome.test.ts:146:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ '/api/chat#glm-5.3-flash', '/api/chat#deepseek-v4.1-flash', '/api/chat#glm-5.3-flash', '/api/chat#deepseek-v4.1-flash' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
