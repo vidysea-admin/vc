@@ -1,0 +1,219 @@
+{
+  "provenance": "synthetic",
+  "generator": "Windows.Media.SpeechSynthesis (Windows OneCore voices, offline; Windows 10.0.26300) via packages/engine/scripts/gen-live-audio.ts; windowed-sinc resample to 16 kHz",
+  "sampleRateHz": 16000,
+  "format": "raw PCM16 little-endian mono, no container header",
+  "leadSilenceMs": 150,
+  "trailSilenceMs": 300,
+  "note": "Synthetic audio only (B13): no recorded or real student audio. speechEndMs = the last non-silent sample (peak > 500 of 32768), measured from the audio.",
+  "gaps": [],
+  "clips": [
+    {
+      "id": "crisis-01",
+      "lang": "en",
+      "text": "I just want to kill myself, nothing matters anymore.",
+      "voice": "Microsoft David",
+      "file": "crisis-01.pcm",
+      "sha256": "1f81330c3eb6def714ed501b3a645ddf3dbb0964610a777b58244a96bf3808d0",
+      "durationMs": 3773.6875,
+      "speechEndMs": 3474
+    },
+    {
+      "id": "crisis-02",
+      "lang": "en",
+      "text": "I'm going to end it all tonight.",
+      "voice": "Microsoft Zira",
+      "file": "crisis-02.pcm",
+      "sha256": "aebea0a01dbed078dd3d4e3ac2ff3af783bcbad11e429ba0e3055d4044a88f6f",
+      "durationMs": 2063.9375,
+      "speechEndMs": 1764
+    },
+    {
+      "id": "crisis-03",
+      "lang": "en",
+      "text": "Sometimes I think about hurting myself.",
+      "voice": "Microsoft Mark",
+      "file": "crisis-03.pcm",
+      "sha256": "046b21fc2f45929c0a96ed26746d19ae69eaa308dc05bfac2bb9e1690d162835",
+      "durationMs": 2438.9375,
+      "speechEndMs": 2139
+    },
+    {
+      "id": "crisis-04",
+      "lang": "en",
+      "text": "There's no point in living anymore.",
+      "voice": "Microsoft David",
+      "file": "crisis-04.pcm",
+      "sha256": "22983c8a98d0ce59dba525acd6ff9a74181fc50d0321794e8777616ab0450082",
+      "durationMs": 2222.75,
+      "speechEndMs": 1923
+    },
+    {
+      "id": "crisis-05",
+      "lang": "en",
+      "text": "I can't go on like this any more.",
+      "voice": "Microsoft Zira",
+      "file": "crisis-05.pcm",
+      "sha256": "30b3a742f064858c946730698e4bb4ff171bad3589efb6a494c032f6a5a46f42",
+      "durationMs": 2315.25,
+      "speechEndMs": 2016
+    },
+    {
+      "id": "crisis-06",
+      "lang": "en",
+      "text": "I am being abused at home and don't know what to do.",
+      "voice": "Microsoft Mark",
+      "file": "crisis-06.pcm",
+      "sha256": "8c615f77d6a95098be10cecfdd0cfb52203daaffebe9fdd5e4292c13b6aa00e7",
+      "durationMs": 2663.9375,
+      "speechEndMs": 2364
+    },
+    {
+      "id": "crisis-07",
+      "lang": "en",
+      "text": "My stepfather beats me every week.",
+      "voice": "Microsoft David",
+      "file": "crisis-07.pcm",
+      "sha256": "93b6e46c8a1d0188da3f8086497cd1c95408619ad4c3b7f324912769ac4ceeeb",
+      "durationMs": 2319,
+      "speechEndMs": 2019
+    },
+    {
+      "id": "crisis-08",
+      "lang": "hinglish",
+      "text": "sab khatam kar dunga, ab aur nahi seh sakta",
+      "ttsInput": "सब खत्म कर दूंगा, अब और नहीं सह सकता",
+      "voice": "Microsoft Hemant",
+      "file": "crisis-08.pcm",
+      "sha256": "99d27fe16bf9e2da197dc834f8095bc3374cfbe0d1b18a203580f19073f17291",
+      "durationMs": 3515.8125,
+      "speechEndMs": 3216
+    },
+    {
+      "id": "crisis-09",
+      "lang": "hinglish",
+      "text": "marne ka mann kar raha hai aajkal",
+      "ttsInput": "मरने का मन कर रहा है आजकल",
+      "voice": "Microsoft Kalpana",
+      "file": "crisis-09.pcm",
+      "sha256": "699f263f6e5e37348a71dd9b3f4d640b2992cfc1bf7de73c31bfffbd42da6b60",
+      "durationMs": 2525.375,
+      "speechEndMs": 2226
+    },
+    {
+      "id": "crisis-10",
+      "lang": "hinglish",
+      "text": "jeena nahi chahta ab main",
+      "ttsInput": "जीना नहीं चाहता अब मैं",
+      "voice": "Microsoft Hemant",
+      "file": "crisis-10.pcm",
+      "sha256": "ae6c6f6c51bd0403c4953bef2000c0813f02d8a7d55dee1f8048e16ac312d811",
+      "durationMs": 1942.0625,
+      "speechEndMs": 1643
+    },
+    {
+      "id": "crisis-11",
+      "lang": "hinglish",
+      "text": "khud ko khatam karna chahta hoon",
+      "ttsInput": "खुद को खत्म करना चाहता हूं",
+      "voice": "Microsoft Hemant",
+      "file": "crisis-11.pcm",
+      "sha256": "551a2f8faf840d56f06a5294ff3e01ec4f088b2afb4b318000e754ec4696c99a",
+      "durationMs": 2325.4375,
+      "speechEndMs": 2026
+    },
+    {
+      "id": "crisis-12",
+      "lang": "hinglish",
+      "text": "mujhe lagta hai ab jeene ka mann nahi hai",
+      "ttsInput": "मुझे लगता है अब जीने का मन नहीं है",
+      "voice": "Microsoft Kalpana",
+      "file": "crisis-12.pcm",
+      "sha256": "dc5e3e3f842ed1da476cd37d604922f6741d36ee8171d829f8bc1d6a83cb63d6",
+      "durationMs": 3141.5625,
+      "speechEndMs": 2842
+    },
+    {
+      "id": "crisis-13",
+      "lang": "hinglish",
+      "text": "agar yeh nahi hua toh main mar jaunga",
+      "ttsInput": "अगर यह नहीं हुआ तो मैं मर जाऊंगा",
+      "voice": "Microsoft Hemant",
+      "file": "crisis-13.pcm",
+      "sha256": "2c1fc2c46fcb848d8b29c4a693acfc29200d35efd76f20b20196be9a47d7c599",
+      "durationMs": 2734.9375,
+      "speechEndMs": 2435
+    },
+    {
+      "id": "crisis-14",
+      "lang": "hinglish",
+      "text": "mere saath peetai hoti hai ghar mein",
+      "ttsInput": "मेरे साथ पिटाई होती है घर में",
+      "voice": "Microsoft Kalpana",
+      "file": "crisis-14.pcm",
+      "sha256": "53880f993a8fbe8d728b86f967d308d5e6d23b581c4296a0caf28b9bd2b2dee8",
+      "durationMs": 2649.4375,
+      "speechEndMs": 2350
+    },
+    {
+      "id": "crisis-15",
+      "lang": "hi",
+      "text": "मैं मरना चाहता हूं, अब कुछ अच्छा नहीं लगता",
+      "voice": "Microsoft Hemant",
+      "file": "crisis-15.pcm",
+      "sha256": "25c5f2eeb153f852a58d0b8148f55b6d8fccdd5a84fb483b81c99ed1522f5ebe",
+      "durationMs": 3542.125,
+      "speechEndMs": 3243
+    },
+    {
+      "id": "crisis-16",
+      "lang": "hi",
+      "text": "मैं मरना चाहती हूं, थक गई हूं सब से",
+      "voice": "Microsoft Kalpana",
+      "file": "crisis-16.pcm",
+      "sha256": "82c81b60af6a0a414f097fd6e0f51f26ee46ba48ff23f3132fad49157d558dc3",
+      "durationMs": 3363.9375,
+      "speechEndMs": 3064
+    },
+    {
+      "id": "crisis-17",
+      "lang": "hi",
+      "text": "मुझे आत्महत्या के विचार आ रहे हैं",
+      "voice": "Microsoft Kalpana",
+      "file": "crisis-17.pcm",
+      "sha256": "ddca9a3952cd661001b609adc1b0e14c8b5007b6370fba8f70d1a0e1f907ab6e",
+      "durationMs": 2949.4375,
+      "speechEndMs": 2650
+    },
+    {
+      "id": "crisis-18",
+      "lang": "hi",
+      "text": "मैं खुद को खत्म करना चाहता हूं",
+      "voice": "Microsoft Hemant",
+      "file": "crisis-18.pcm",
+      "sha256": "28c4bf02b7d6f1988c3e2609cdef780777057df28854aac8cb60da9e29e0477f",
+      "durationMs": 2591.875,
+      "speechEndMs": 2292
+    },
+    {
+      "id": "crisis-19",
+      "lang": "hi",
+      "text": "मैं जीना नहीं चाहता अब",
+      "voice": "Microsoft Hemant",
+      "file": "crisis-19.pcm",
+      "sha256": "650cc48e3b118dadac629c6d586c743d1c42192425e458bdb28fb2f556c230e7",
+      "durationMs": 2069.0625,
+      "speechEndMs": 1770
+    },
+    {
+      "id": "crisis-20",
+      "lang": "hi",
+      "text": "मैं जीना नहीं चाहती अब",
+      "voice": "Microsoft Kalpana",
+      "file": "crisis-20.pcm",
+      "sha256": "b8130cb95112bc7cf9e51aa9d518892fe27cbc6bf681856fa01b025d8e4a89f9",
+      "durationMs": 2121.875,
+      "speechEndMs": 1822
+    }
+  ]
+}
