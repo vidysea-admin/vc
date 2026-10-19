@@ -113,10 +113,14 @@ export interface DraftClaim {
   text: string;
   kind: ClaimKind;
   sourceIds: string[];
+  /** LK5: the same claim in the reply language. The guards below read `text` (English) only; this rides along unchanged. */
+  localized?: string | undefined;
 }
 
 export interface GuardedClaim extends Claim {
   sourceKind: SourceKind;
+  /** LK5: carried through from the draft, unchecked here (the graph checks it against the guarded English claim). */
+  localized?: string | undefined;
 }
 
 export interface ClaimsGuardContext {
@@ -683,7 +687,7 @@ export async function guardClaims(drafts: DraftClaim[], ctx: ClaimsGuardContext)
           : redactPersonalIdentifiers(text, { speakers: [] }, []); // phone numbers only; permitted names may stay
       text = noQuoteGuard(text, ctx.speakers, labels).text;
     }
-    claims.push({ text, kind: draft.kind, sourceIds: ids, status, sourceKind });
+    claims.push({ text, kind: draft.kind, sourceIds: ids, status, sourceKind, ...(draft.localized !== undefined ? { localized: draft.localized } : {}) });
   }
 
   const cited = new Set(claims.flatMap((c) => c.sourceIds));

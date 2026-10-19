@@ -1,0 +1,3 @@
+[testlock] waiting for lock held by: PID=36944 STARTED=639280248754425700 ACQUIRED_AT=1792408311 TOKEN=1792408311759358000-492658-28200 DESC=bash -c cd D:/vc/.worktrees/lk1w/apps/api && npx tsx --test tests/chat-profile.test.ts tests/anonymous-route.test.ts 2>&1 | tail -60; cd ../../packages/engine && npx tsx --test tests/concern-classifier.test.ts 2>&1 | grep -E '^# (tests|pass|fail)|not ok' 
+[testlock] running slot 1 (free RAM 2.87 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk5/packages/engine exec tsc --noEmit
+EXIT=0

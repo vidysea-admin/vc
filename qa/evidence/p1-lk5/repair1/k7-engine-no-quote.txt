@@ -1,0 +1,26 @@
+✔ A3: the fixture has both denied and permitted speakers, including external seminar speakers on both sides (2.5835ms)
+✔ A3: exhaustive - no alias of a speaker without a written-permission record survives the guard in any surface form (241.752ms)
+✔ A3: a speaker WITH a written-permission record may be named (default-deny is per speaker, not blanket) (4.7036ms)
+✔ A3: a denied name embedded inside a longer word is not mangled, but a standalone one is removed (1.3013ms)
+✔ A3: zero-width characters and NBSP inside a denied name do not let it through (1.4131ms)
+✔ R8: normalisation is for matching only - ZWJ/ZWNJ in Hindi text survive the guard unchanged; a removed name loses its zero-width chars (79.7205ms)
+✔ R8: a title before a removed name goes with it (no 'Dr. a speaker' / 'Prof. a speaker') (33.8014ms)
+✔ A3: extra names (e.g. WhatsApp speakerLabels of this turn's hits) are removed too (5.9249ms)
+✔ A22 detector: phone numbers, listed names/aliases and speakerLabels are personal identifiers; plain advice is not (2.9456ms)
+✔ A22 detector: a verbatim run of >= 8 consecutive source words is detected; 7 words or a paraphrase is not (3.2513ms)
+✔ U6h P5: redactPersonalIdentifiers removes every variant of a speakerLabel (first, last, reversed, initials, diacritic-folded) (31.5334ms)
+✔ U6h P5: noQuoteGuard (extraNames) and the A22 detector cover the same variants (10.8335ms)
+✔ U6h P5: a label with a diacritic matches its plain spelling too, and non-label look-alikes are not mangled (1.3805ms)
+✔ U6h P5: a common word used as a name token ('Will') does not blank ordinary sentences (16.5451ms)
+✔ U6h fix1 M3b: phone shapes the old detector missed are found and redacted (parenthesised area code, dots, Devanagari digits) (59.3034ms)
+✔ U6h fix1 M3b: years, fees, dates and ordinary numbers are not phone numbers (4.1814ms)
+✔ P1 W3 U6h leftover 4: a parenthesised country code is redacted with its number, leaving no digit (4.5913ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1318.0198
+EXIT=0

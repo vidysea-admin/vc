@@ -1,0 +1,271 @@
+[testlock] waiting for lock held by: PID=36944 STARTED=639280248754425700 ACQUIRED_AT=1792408311 TOKEN=1792408311759358000-492658-28200 DESC=bash -c cd D:/vc/.worktrees/lk1w/apps/api && npx tsx --test tests/chat-profile.test.ts tests/anonymous-route.test.ts 2>&1 | tail -60; cd ../../packages/engine && npx tsx --test tests/concern-classifier.test.ts 2>&1 | grep -E '^# (tests|pass|fail)|not ok' 
+[testlock] running slot 1 (free RAM 3.29 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk5/packages/engine exec tsx --test --test-timeout=30000 tests/lk5.test.ts
+✔ R1 the answer prompt input carries replyLang (the resolved reply language), and the Hindi reply is the localized text (276.9261ms)
+✔ R1 an English turn is told replyLang en and shows the English claim even if the model sends a localized copy (54.1504ms)
+✔ R1 Hinglish gets the Latin-script localized text (23.7987ms)
+✔ R1 the guards still run on the ENGLISH claim: an unsupported English claim is not shown even with a perfect localized copy (54.1578ms)
+✔ R1 drift: the model reports another language than the one asked -> the English reply (20.8242ms)
+✔ R1 drift: no replyLang from the model, or localized in the wrong script -> the English reply (65.7987ms)
+✔ R1 number parity: a localized copy that changes, adds or drops a number is not shown (Devanagari digits count as the same number) (104.3991ms)
+✔ R1 a verbatim 8-word run of restricted (WhatsApp) text inside the localized copy is not shown (23.0715ms)
+✔ R1 a URL or e-mail that the English claim does not carry is not shown (27.2927ms)
+✔ R1 narrowing VC_REPLY_LANGS to en gives an English reply even for a Hindi turn (24.6389ms)
+✔ R1 the follow-up: localized when it passes, omitted (never mixed in English) in a non-English reply when it does not (56.4518ms)
+✖ K1 repair: localized empty string -> the English reply, not the provider apology (21.7635ms)
+✖ K1 repair: localized null -> the English reply, not the provider apology (17.4408ms)
+✖ K1 repair: localized over 2000 characters -> the English reply, not the provider apology (20.8457ms)
+✔ K1 repair: replyLang empty string -> the English reply, not the provider apology (18.8117ms)
+✖ K1 repair: replyLang null -> the English reply, not the provider apology (20.6571ms)
+✖ K1 repair: replyLang over 16 characters -> the English reply, not the provider apology (25.5731ms)
+✔ K1 repair: followUpLocalized empty -> the Hindi reply without a follow-up (never the apology) (47.7392ms)
+✖ K1 repair: followUpLocalized null -> the Hindi reply without a follow-up (never the apology) (21.4914ms)
+✖ K1 repair: followUpLocalized over 500 characters -> the Hindi reply without a follow-up (never the apology) (34.4011ms)
+✖ K1 repair: an English turn whose model emits localized empty or null still gets the English reply (28.3909ms)
+✔ K1 repair: text, kind and sourceIds stay strict (an empty English text is still the provider apology) (26.0156ms)
+✖ M1 repair: a spelled-out figure the English claim does not carry is not shown (Devanagari magnitude word, Hinglish number words) (24.5592ms)
+✔ M1 repair: a spelled-out figure that DIFFERS from the English one is not shown (26.8517ms)
+✖ M1 repair: a country the English claim does not name, or a swapped country, is not shown (Devanagari and Latin) (39.412ms)
+✖ M1 repair: a scheme-less domain in the localized claim is not shown (evil.test), a www host or e-mail neither (24.2642ms)
+✖ M1 repair: localizedClaimOk - a link different from the English one fails even when English carries a link; the same link passes (1.2952ms)
+✖ M2 repair: a prior-flag student's LOCALIZED reply is checked against the forbidden crisis patterns (shown text, not the English one) (25.3832ms)
+✖ M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-up is (41.3891ms)
+✔ M3 repair: a clean localized follow-up is still shown in the Hindi reply (27.1131ms)
+✔ R2 a non-English turn searches the KB with the English rewrite; the ask fallback and the answer prompt keep the original (24.3692ms)
+✔ R2 an English turn makes no rewrite call (19.3502ms)
+[student-graph] safety_screen write failed (ModelOutputSchemaError)
+✔ R2 a rewrite that fails (error, empty, hang) falls back to the original text and the turn is still answered (115.3752ms)
+✔ R3 a clear screen releases the normal answer; the screen sees the original text with guardLevel none (25.4344ms)
+✔ R3 'possible' (severity at or above the escalation threshold) returns the fixed crisis message and nothing of the answer; flag log and escalation run (22.3003ms)
+✔ R3 low and moderate severities do not block the answer (50.9668ms)
+✔ R3 a screen error returns the fixed crisis message (fail closed), without a flag log or an escalation for an outage (29.6472ms)
+✔ R3 invalid screen output (schema) is an error too: fixed crisis message (24.2735ms)
+[student-graph] safety_screen write failed (ConcernClassifierTimeoutError)
+✔ R3 a screen that never answers times out to the fixed crisis message (73.9226ms)
+✔ R3 the screen runs in PARALLEL with the answer call (the answer waits for the screen to have started) (18.1108ms)
+✔ R3 the answer is HELD until the screen returns: a finished answer is not released while the screen is pending, and 'possible' replaces it (309.6465ms)
+✔ R3 default ON for authenticated turns, OFF for anonymous turns; both switchable (83.5041ms)
+✔ R3 an anonymous 'possible' gives the anonymous crisis message and counts a crisis, not an answer (29.8861ms)
+✔ R3 a crisis turn never reaches the screen, the detector or the rewrite (crisisGuard first, no model call) (20.4966ms)
+✔ R3 with no safetyScreen option nothing is screened (unchanged behaviour) (22.4016ms)
+✔ R4 a Tamil turn (outside the allow-list) gets an English reply that carries the English+Hindi helpline line (27.2267ms)
+✔ R4 a no-answer and a provider failure in an uncovered language carry it too; an anonymous non-answer gets the Hindi gloss added once (81.2306ms)
+✔ R4 allow-listed languages and English do not get the extra line; an unlisted-by-narrowing language does (60.1367ms)
+✔ R4 the crisis messages are untouched (they already carry the gloss; no double line) (15.7103ms)
+✔ D a provider that throws synchronously falls back to the offline result (1.6959ms)
+✔ D a provider that resolves null falls back to the offline result (0.5033ms)
+✔ D dropped VC_REPLY_LANGS entries are reported by tag only; supported ones are kept; nothing is reported when all are valid (0.6175ms)
+✔ D the default dropped-entry logger writes the tags, never anything else, to the console (0.4442ms)
+ℹ tests 53
+ℹ suites 0
+ℹ pass 39
+ℹ fail 14
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7532.4614
+
+✖ failing tests:
+
+test at tests\lk5.test.ts:186:3
+✖ K1 repair: localized empty string -> the English reply, not the provider apology (21.7635ms)
+  AssertionError [ERR_ASSERTION]: Sorry, I couldn't put an answer together just now. Please try again.
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:190:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:186:3
+✖ K1 repair: localized null -> the English reply, not the provider apology (17.4408ms)
+  AssertionError [ERR_ASSERTION]: Sorry, I couldn't put an answer together just now. Please try again.
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:190:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:186:3
+✖ K1 repair: localized over 2000 characters -> the English reply, not the provider apology (20.8457ms)
+  AssertionError [ERR_ASSERTION]: Sorry, I couldn't put an answer together just now. Please try again.
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:190:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:186:3
+✖ K1 repair: replyLang null -> the English reply, not the provider apology (20.6571ms)
+  AssertionError [ERR_ASSERTION]: Sorry, I couldn't put an answer together just now. Please try again.
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:190:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:186:3
+✖ K1 repair: replyLang over 16 characters -> the English reply, not the provider apology (25.5731ms)
+  AssertionError [ERR_ASSERTION]: Sorry, I couldn't put an answer together just now. Please try again.
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:190:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:197:3
+✖ K1 repair: followUpLocalized null -> the Hindi reply without a follow-up (never the apology) (21.4914ms)
+  AssertionError [ERR_ASSERTION]: Sorry, I couldn't put an answer together just now. Please try again.
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:201:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:197:3
+✖ K1 repair: followUpLocalized over 500 characters -> the Hindi reply without a follow-up (never the apology) (34.4011ms)
+  AssertionError [ERR_ASSERTION]: Sorry, I couldn't put an answer together just now. Please try again.
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:201:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:207:1
+✖ K1 repair: an English turn whose model emits localized empty or null still gets the English reply (28.3909ms)
+  AssertionError [ERR_ASSERTION]: Sorry, I couldn't put an answer together just now. Please try again.
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:211:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:224:1
+✖ M1 repair: a spelled-out figure the English claim does not carry is not shown (Devanagari magnitude word, Hinglish number words) (24.5592ms)
+  AssertionError [ERR_ASSERTION]: English for: जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती। लगभग दो हज़ार यूरो का खर्च अलग से आता है।
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:232:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:244:1
+✖ M1 repair: a country the English claim does not name, or a swapped country, is not shown (Devanagari and Latin) (39.412ms)
+  AssertionError [ERR_ASSERTION]: English for: फ्रांस के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती।
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:253:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:261:1
+✖ M1 repair: a scheme-less domain in the localized claim is not shown (evil.test), a www host or e-mail neither (24.2642ms)
+  AssertionError [ERR_ASSERTION]: English for: अधिक जानकारी evil.test पर देखें।
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:265:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:270:1
+✖ M1 repair: localizedClaimOk - a link different from the English one fails even when English carries a link; the same link passes (1.2952ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:272:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:282:1
+✖ M2 repair: a prior-flag student's LOCALIZED reply is checked against the forbidden crisis patterns (shown text, not the English one) (25.3832ms)
+  AssertionError [ERR_ASSERTION]: Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. Ye sab secret hai, between us. If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:288:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\lk5.test.ts:296:1
+✖ M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-up is (41.3891ms)
+  AssertionError [ERR_ASSERTION]: country: English follow-up shown: जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती। आप फ्रांस के किन शहरों के बारे में सोच रहे हैं?
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk5\packages\engine\tests\lk5.test.ts:309:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+done-exit=1

@@ -1,0 +1,27 @@
+import { test } from "node:test";
+import { localizedClaimText } from "../src/student/lang.js";
+
+const FREE_EN = "Public universities charge no tuition for most programmes.";
+const words = ["two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","fifteen","twenty","thirty","forty","fifty","sixty","hundred","thousand","million","billion","hazaar","hazar"];
+const hindiNum = ["ek","do","teen","char","chaar","paanch","panch","chhe","chhah","saat","aath","nau","das","bees","pachas","sau"];
+const after = ["lakh","lakhs","lac","crore","crores","karod","hazaar","hazar","sau","rupaye","rupay","rupees","euro","euros","dollars"];
+const out: string[] = [];
+let leaks = 0, total = 0;
+const probe = (lo: string, label: string) => {
+  total++;
+  const r = localizedClaimText(FREE_EN, lo, /[ऀ-ॿ]/.test(lo) ? "hi" : "hi-Latn", []);
+  if (r !== FREE_EN) { leaks++; out.push(`${r === undefined ? "UNDEF(english reply, safe)" : "LEAK"}[${label}] ${lo}`); }
+};
+test("claims.ts number words, on the localized side of a fact-free English sentence", () => {
+  for (const w of words) probe(`Yeh course ${w} ka hota hai.`, "NUMBER_WORDS");
+  for (const w of hindiNum) for (const a of after) probe(`Yeh ${w} ${a} mein hota hai.`, "HINDI+magnitude");
+  for (const p of ["a lakh", "an crore", "a million", "half a million", "a billion", "one month", "one year", "one euro", "one semester"]) probe(`Is mein ${p} lagta hai.`, "multi");
+  // units next to digits in other forms
+  for (const p of ["3 lakh", "5 crore", "10%", "10 percent", "2 years", "6 months", "4 weeks", "30 credits", "60 ECTS", "Rs. 500", "$ 5", "£5", "€5", "US$5", "5k", "1,00,000", "3.5", "०", "٣", "三百", "③", "²", "Ⅻ", "½", "٪", "１２３"]) probe(`Is mein ${p} lagta hai.`, "digits/units");
+  for (const p of ["EUR", "USD", "GBP", "INR", "JPY", "CNY", "AUD", "CAD", "NZD", "CHF", "SEK", "AED", "SGD"]) probe(`Fees ${p} mein hoti hain.`, "ISO");
+  for (const p of ["https://daad.de", "http://x.in/a", "www.example.com", "daad.de/en", "a@b.co", "xn--p1ai.test", "sub.domain.co.uk", "bit.ly/abc", "daad[.]de", "daad . de"]) probe(`Details ${p} par hain.`, "links");
+  for (const p of ["Germany", "germany", "German", "Deutschland", "France", "Japan", "Canada", "USA", "U.S.", "UK", "the Netherlands", "Holland", "UAE", "South Korea", "New Zealand", "Australia", "Ireland", "Switzerland", "Sweden", "Italy", "Spain", "Poland", "Austria", "India", "China", "Singapore", "Dubai"]) probe(`Yeh sab ${p} mein hota hai.`, "countries");
+  for (const p of ["Munich", "Berlin", "Tokyo", "Toronto", "Dublin"]) { probe(`Yeh sab in ${p} hota hai.`, "place-after-prep"); probe(`Yeh sab ${p} mein hota hai.`, "city-postposition"); }
+  for (const p of ["जर्मनी", "फ्रांस", "जापान", "कनाडा", "अमेरिका", "भारत", "चीन", "ऑस्ट्रेलिया", "आयरलैंड", "स्विट्ज़रलैंड", "नीदरलैंड", "यूके", "बर्लिन", "म्यूनिख", "टोक्यो"]) probe(`यह सब ${p} में होता है।`, "countries-dev");
+  console.log("\n=====H5=====\ntotal=" + total + " leaks=" + leaks + "\n" + out.join("\n") + "\n=====END5=====");
+});

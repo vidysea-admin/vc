@@ -1,0 +1,14 @@
+✔ A21(a): the fixture has >= 20 drafting requests incl. Hinglish/Hindi, and every one is detected (16.6758ms)
+✔ A21(a): every drafting request yields coaching (questions, structure) and never a full draft - even when the model returns one (881.3948ms)
+✔ A21(a): isDraftLike flags essay-shaped text and not a coaching reply (0.2495ms)
+✔ R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB (6.0124ms)
+✔ A21(b): >= 15 fixture intents select the matching tool/feature, and every selected tool is a registered student tool (279.762ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5276.1753
+EXIT=0

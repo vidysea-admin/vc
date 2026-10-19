@@ -1,0 +1,28 @@
+
+=====H5=====
+total=373 leaks=15
+UNDEF(english reply, safe)[digits/units] Is mein Rs. 500 lagta hai.
+UNDEF(english reply, safe)[digits/units] Is mein ० lagta hai.
+LEAK[digits/units] Is mein 三百 lagta hai.
+LEAK[links] Details daad[.]de par hain.
+UNDEF(english reply, safe)[links] Details daad . de par hain.
+LEAK[countries] Yeh sab Deutschland mein hota hai.
+UNDEF(english reply, safe)[countries] Yeh sab U.S. mein hota hai.
+LEAK[city-postposition] Yeh sab Munich mein hota hai.
+LEAK[city-postposition] Yeh sab Berlin mein hota hai.
+LEAK[city-postposition] Yeh sab Tokyo mein hota hai.
+LEAK[city-postposition] Yeh sab Toronto mein hota hai.
+LEAK[city-postposition] Yeh sab Dublin mein hota hai.
+LEAK[countries-dev] यह सब बर्लिन में होता है।
+LEAK[countries-dev] यह सब म्यूनिख में होता है।
+LEAK[countries-dev] यह सब टोक्यो में होता है।
+=====END5=====
+✔ claims.ts number words, on the localized side of a fact-free English sentence (96.2232ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1309.227

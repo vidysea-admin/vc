@@ -1,0 +1,12 @@
+[testlock] running slot 1 (free RAM 4.52 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk5/packages/engine exec tsx --test --test-timeout=60000 tests/index.test.ts
+✔ engineStatus reports the scaffold placeholder (0.935ms)
+✔ ISS-007: @vc/schemas is importable cross-package and parses a valid Card (2.3808ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2514.0544
+EXIT=0

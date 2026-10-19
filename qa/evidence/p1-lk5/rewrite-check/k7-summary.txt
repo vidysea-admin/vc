@@ -1,0 +1,7 @@
+lk5: ℹ tests 61 ℹ pass 61 ℹ fail 0  exit=0 wall_s=38
+lang: ℹ tests 34 ℹ pass 34 ℹ fail 0  exit=0 wall_s=9
+student-graph: ℹ tests 64 ℹ pass 64 ℹ fail 0  exit=0 wall_s=16
+claims-guard: ℹ tests 33 ℹ pass 33 ℹ fail 0  exit=0 wall_s=5
+crisis-defaults: ℹ tests 17 ℹ pass 17 ℹ fail 0  exit=0 wall_s=9
+tsc exit=0 wall_s=11
+K7-DONE

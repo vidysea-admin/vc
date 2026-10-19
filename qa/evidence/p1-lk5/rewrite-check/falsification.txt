@@ -1,0 +1,19 @@
+BASELINE(copy): lk5: ℹ tests 61 ℹ pass 61 ℹ fail 0 
+chk-h3: ℹ tests 6 ℹ pass 6 ℹ fail 0 
+MUTATED k1
+MUTANT k1: lk5: ℹ tests 61 ℹ pass 51 ℹ fail 10 
+chk-h3: ℹ tests 6 ℹ pass 4 ℹ fail 2 
+MUTANT k2: lk5: ℹ tests 61 ℹ pass 61 ℹ fail 0 
+chk-h3: ℹ tests 6 ℹ pass 6 ℹ fail 0 
+MUTATED k3
+MUTANT k3: lk5: ℹ tests 61 ℹ pass 48 ℹ fail 13 
+chk-h3: ℹ tests 6 ℹ pass 4 ℹ fail 2 
+MUTATED k4
+MUTANT k4: lk5: ℹ tests 61 ℹ pass 55 ℹ fail 6 
+chk-h3: ℹ tests 6 ℹ pass 5 ℹ fail 1 
+MUTATED m2
+MUTANT m2: lk5: ℹ tests 61 ℹ pass 60 ℹ fail 1 
+chk-h3: ℹ tests 6 ℹ pass 6 ℹ fail 0 
+FALS-DONE
+MUTANT k2 lk5: ℹ tests 61 ℹ pass 59 ℹ fail 2 
+MUTANT k2 chk-h3: ℹ tests 6 ℹ pass 6 ℹ fail 0 

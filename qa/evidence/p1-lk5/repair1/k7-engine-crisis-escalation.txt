@@ -1,0 +1,51 @@
+✔ T-012 E1: a guard crisis notifies the admin AND every concerned counsellor at the same moment, before the classifier answers (380.9067ms)
+✔ T-012 E1b: a classifier that times out changes nothing about the crisis escalation (fail-open) (45.7318ms)
+✔ T-012 E2: the classifier says 'likely benign, none' on a guard-crisis idiom — the flag still shows and still notifies (8.7542ms)
+✔ T-012 E3: a classifier OUTAGE on a guard concern still escalates, on the flag alone (7.2944ms)
+✔ T-012 E3b: a classifier TIMEOUT on a guard concern still escalates (28.5837ms)
+✔ T-012 E4: a guard concern the classifier rates low is NOT escalated (still visible); rated critical, it is (12.8656ms)
+✔ T-012 E5: a SAMPLED unflagged turn the guard missed is escalated when the classifier rates it critical; rate 0 never calls it (12.0957ms)
+✔ T-012 E6: a resolver failure never drops an escalation — unrouted records are written and an alert fires (12.5753ms)
+✔ T-012 E7: a replay writes no duplicate notification and keeps the first notifiedAt (7.521ms)
+✔ T-012 E8 (SLA parked): flaggedAt/notifiedAt are recorded; acknowledgement is recorded once, for measurement only (9.0365ms)
+✔ T-012 E9: tenancy — an unscoped Db is refused, and another tenant never sees the records (7.8047ms)
+✔ T-012 E10: the collection names used at the call sites are the exported constants (and not T-029's email_outbox) (2.5729ms)
+✔ T-012 E11: startScribe on a crisis session escalates to admin + counsellors with zero scribe provider calls (81.0251ms)
+✔ T-012 E12: startScribe on a concern session still pauses for approval (B20) and, with the classifier down, escalates (67.8686ms)
+✔ T-012 E13: no consent crisis -> minimal guard-only escalation; unscoped Db is still refused at compile time (10.4562ms)
+✔ T-012 E14: without `escalation` the scribe writes no escalation record (backward compatible) (25.3187ms)
+✔ T-035: initial review and notification writes held across a fence leave zero owned insert residue (11.4775ms)
+✔ T-035: annotation fencing restores only its fields and keeps a pre-existing review row (10.2143ms)
+✔ T-035: acknowledgement held across fencing restores its own annotation, never deletes notification (9.3673ms)
+✔ T-035: a notification replay compensation preserves the prior invocation's raw records (9.4562ms)
+✔ T-035: timeout observes late insert settlement and removes only its own records (44.3918ms)
+✔ T-035: classifier returning after erasure cannot annotate or notify and a fenced replay writes nothing (6.3733ms)
+✔ T-035: postcheck fence read failure undoes inserted review and compensation failure is visible (14.4121ms)
+✔ T-035: background late annotation compensation failure emits a text-free alert (22.439ms)
+✔ T-035: annotation compensation cannot overwrite a newer invocation token (12.473ms)
+✔ T-035: late notification/annotation/acknowledgement settlement compensates after deadline (59.5244ms)
+✔ T-035: acknowledgement rollback preserves a newer invocation (10.1729ms)
+✔ T-035: late newly inserted notifications are deleted after the public timeout (12.7542ms)
+✔ T-035: a fence prevents driver dispatch on every safety mutation phase (17.0455ms)
+✔ T-035: applied-write-then-reject ambiguous inserts clean up own writes and preserve replay bytes (25.2168ms)
+✔ T047 RED: no-consent deterministic crises return a minimal outcome for every detected turn (11.0125ms)
+✔ T047 RED: no-consent crisis processing writes no personal session, transcript, review, fact or checkpoint (8.0046ms)
+✔ T047 RED: ordinary no-consent refusal writes no personal session, transcript, review, fact or checkpoint (5.3172ms)
+✔ T047 repair RED: a refused classifier leaf cannot recover into annotation or fallback publication (2.9913ms)
+✔ T047 repair RED: final fence postcheck expiry rejects success and removes only owned notifications (168.6349ms)
+✔ T047 no-consent processing never enters graph, checkpoints, tracing or personal collections (11.6031ms)
+✔ T047 publication budget: annotation and delayed recipients share remaining original review budget (1110.4017ms)
+✔ T047 cancellation RED: explicit background cancellation prevents late annotation and fallback (4.6608ms)
+✔ T047 consent revoked while valid model is held leaves prior guard flag and publishes nothing (3.8286ms)
+✔ T047 late guard-only notification compensation reaches own token CAS and preserves full newer-owner record (69.7412ms)
+✔ T047 no-session-anchor guard-only records export and erase through actual confirmed workflow (25.2963ms)
+✔ ISS-126: a budget that refuses early after the writer deadline passed leaves no unhandled rejection from the postcheck race (reached by a held review insert that outlives a 50 ms writer deadline while the host budget has the same expiry) (7.9349ms)
+ℹ tests 42
+ℹ suites 0
+ℹ pass 42
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8147.4859
+EXIT=0

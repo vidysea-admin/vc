@@ -1,0 +1,41 @@
+✔ A20: chat is OFF by default - unset, empty and 'false' read as disabled, only the exact word 'true' enables, anything else is a config error (3.5636ms)
+✔ A20 flag off: nothing is built and every chat path answers exactly like an unknown path (404), for every method, without touching the main handler (50.4869ms)
+✔ A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes (10.1824ms)
+✔ A20: each missing gate record refuses; voice's A10 and anonymous option b are NOT needed for authenticated chat (73.8909ms)
+✔ no student text is traced: an environment that switches LangChain/LangSmith tracing on refuses to build the chat routes (24.0815ms)
+✔ the chat route list equals the draft student paths (without voice) and none of them is in the counsellor route table (2.2309ms)
+✔ a request with no token, a garbage token or a token signed by a stranger is refused 401 with one identical body, and nothing is read or written (160.5851ms)
+✔ a counsellor, admin or approver token, validly signed with the student key, is refused 403 on every student route (51.6502ms)
+✔ a student whose token names a different student than the path gets 404 (not 403) and nothing is created (18.7395ms)
+✔ a student starts a thread, asks a sourced question, and reads the exchange back in order (254.5328ms)
+✔ a student whose phone retries the same clientTurnId after a dropped response gets the same answer, one model call, one stored exchange and one usage count (69.4097ms)
+✔ the same clientTurnId reused with different text is refused 409, and the first answer is kept (72.6076ms)
+✔ a second tab sending the same clientTurnId while the first is still being answered gets 409 turn_in_progress and no second model call (18.3647ms)
+✔ a turn without a clientTurnId gets a server-made turn id, and two such turns are two exchanges (87.989ms)
+✔ a model outage gives the apology answer, keeps nothing, and the student's retry with the same clientTurnId runs again (70.0208ms)
+✔ a body that carries identity or unknown fields, bad JSON, an empty or over-long text, or an oversized body is refused before anything runs (35.7599ms)
+✔ an unknown thread, or one that belongs to another student of the same tenant, is a 404 that does not say which (17.619ms)
+✔ a path id with odd characters is refused 404 (path ids are letters, digits, dot, dash, underscore only) (22.6662ms)
+✔ a wrong method on a chat path is 405 with Allow, and a non-chat path is left to the main handler (17.3675ms)
+✔ A23: the 31st request in a minute from one student is 429 with Retry-After, another student is not affected, and the window reopens (82.741ms)
+✔ A23: a tenant override of requestsPerMinute applies to that tenant only (25.4514ms)
+✔ A23: a crisis message is never rate limited, even from a student already over the limit (90.0311ms)
+✔ ISS-303: the authenticated chat body cap is the 64 KiB scan budget of the anonymous route (ISS-300), not 256 KiB (0.44ms)
+✔ ISS-303: a turn body over the cap is a 413 that still carries the helpline, never scanned, no model, nothing stored, whatever the crisis phrase position (30.2463ms)
+✔ ISS-303: a crisis phrase at the start, middle or end of a body inside the cap, far over the 4000-character turn limit, gets the fixed crisis answer (322.4871ms)
+✔ ISS-303: a student already over the rate limit who sends a long (inside the cap) crisis message still gets the crisis answer; a plain message is 429 (339.237ms)
+✔ ISS-350: a crisis text with an unknown key or an invalid clientTurnId, Latin or Devanagari, gets the fixed crisis answer, an escalation and a flag, with no malformed field stored (783.7244ms)
+✔ ISS-350: a crisis text with a bad field is also answered for a student already over the rate limit, and for an over-long crisis text with an unknown key (122.8316ms)
+✔ ISS-350: a benign text with the same unknown key or invalid clientTurnId stays a plain 400, with no model call and nothing stored (310.17ms)
+✔ ISS-350: non-string text and unparseable JSON stay a plain 400, whatever else the body carries (32.4916ms)
+✔ ISS-350: the fix adds no scan: a malformed crisis turn scans exactly as often as a well-formed one, and a malformed benign turn is scanned once (79.3589ms)
+✔ a question the knowledge base cannot answer says so, and adds one text-free count to the day's gap total (no student, thread or text) (66.3428ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9151.3889
+EXIT=0

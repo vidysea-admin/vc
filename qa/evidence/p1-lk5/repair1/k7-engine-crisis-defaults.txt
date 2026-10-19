@@ -1,0 +1,26 @@
+✔ A11b: the authenticated fixed message has Tele-MANAS 14416, the safe-adult question, discloses the hand-off and promises no counsellor (2.9329ms)
+✔ A11b: neither fixed message contains anything on the forbidden list (secrecy, 'nothing will happen to you', method/lethality, therapy claims, a counsellor promise) (4.0363ms)
+✔ A11/A11b: crisis phrases (English, Hinglish, Hindi) on an authenticated turn get the fixed message, no model/KB call, a flag log record and the existing escalation path (265.2664ms)
+✔ A11: the authenticated escalate port drives the EXISTING escalateTurns (notifications written for admin + counsellor) (33.7373ms)
+✔ A11b: the existing counsellor-path crisis card is unchanged (routeBeforeGeneration still returns its own message) (1.2605ms)
+✔ A11b: unsure / indirect / concern-level / Hinglish cases map to the higher level (222.0151ms)
+✔ A11/A11b anonymous: fixed anonymous message, only the text-free counter, no flag log, no escalation, no KB/model call (18.3037ms)
+✔ A11b keep talking: over a 30-turn Mock session risk is re-checked on every message; the turn after a flag is still answered (606.7196ms)
+✔ A11b: a generated reply that contains a forbidden phrase is never shown; the fixed safe message replaces it (28.8795ms)
+✔ U6h L5: the missed recall phrases are crisis for the guard, and the student turn gets the fixed message with Tele-MANAS 14416 (authenticated and anonymous) (540.5299ms)
+✔ U6h L5: 'pressure bahut hai' and look-alike benign phrases are NOT crisis; the student surface stays coach-first (a normal answer, no escalation, no flag) (29.0037ms)
+✔ D-093 2A: the new crisis phrases get the fixed message + Tele-MANAS 14416 with zero KB and zero model calls (authenticated and anonymous), even with a study question attached (252.6093ms)
+✔ D-093 2A: study talk that shares a word with the new phrases is still answered (kms as a distance, MS as a degree, kill this exam) (58.4445ms)
+✔ D-093 3A: a stress phrase on a normal question still gets the answer, then a soft check-in and Tele-MANAS 14416 once; no flag, no escalation, not the crisis message (210.5955ms)
+✔ D-093 3A: a stress phrase alone (no question) still runs the normal turn and carries the note; on an anonymous no-answer the helpline line appears once (156.0626ms)
+✔ D-093 3A: stress after an earlier flag in the thread shows the helpline line once, not twice (21.5024ms)
+✔ D-093 3A: the soft note passes the crisis forbidden-phrase list (no secrecy, no therapy claim, no counsellor promise) (20.4546ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10723.6716
+EXIT=0

@@ -1,0 +1,137 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { runStudentTurn, type StudentGraphDeps } from "../src/student/graph.js";
+import { localizedClaimText, type DetectedLanguage } from "../src/student/lang.js";
+import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+
+const AUTH = { role: "student" as const, studentId: "syn-chk", tenantId: "sandbox" };
+const turn = (text: string) => ({ mode: "authenticated" as const, auth: AUTH, threadId: "th-c", turnId: "tu-c", text });
+const det = (lang: string, script: DetectedLanguage["script"]) => async (): Promise<DetectedLanguage> => ({ lang, script, confidence: 0.9, source: "model" });
+const HI = det("hi", "devanagari"), HING = det("hi-Latn", "latin");
+function run(claims: unknown[], replyLang: "hi" | "hi-Latn", followUpLocalized?: string, followUp?: string) {
+  const provider = studentProvider({ kbAnswer: { replyLang, claims, ...(followUp ? { followUp } : {}), ...(followUpLocalized ? { followUpLocalized } : {}) } });
+  const d: StudentGraphDeps = {
+    kb: fakeKb(), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG,
+    escalate: async () => {}, logFlag: async () => {}, countAnonymous: async () => {}, detectLanguage: replyLang === "hi" ? HI : HING,
+  };
+  return runStudentTurn(d, turn(replyLang === "hi" ? "फीस कितनी है" : "fees kitni hai"));
+}
+const NUM_EN = "Expect a semester contribution of about 300 euros.";
+const DE_EN = "Public universities in Germany charge no tuition for most programmes.";
+const FREE_EN = "Public universities charge no tuition for most programmes.";
+const FREE_HI = "सरकारी विश्वविद्यालयों में अधिकतर कोर्स की ट्यूशन फीस नहीं लगती।";
+const rows: string[] = [];
+
+// A: English side factual; NEW localized sentences (not in the builder's lk5.test.ts); each must come out with English wording
+const A: [string, string, "hi" | "hi-Latn"][] = [
+  [NUM_EN, "सेमेस्टर शुल्क करीब 300 यूरो होगा।", "hi"],
+  [NUM_EN, "सेमेस्टर शुल्क लगभग ३०० € है।", "hi"],
+  [NUM_EN, "सेमेस्टर शुल्क तीन सौ यूरो के आसपास रहता है।", "hi"],
+  [NUM_EN, "Semester contribution takriban teen sau euros rehta hai.", "hi-Latn"],
+  [NUM_EN, "सेमेस्टर शुल्क 300 यूरो यानी लगभग ₹27,000 है।", "hi"],
+  [NUM_EN, "सेमेस्टर शुल्क साढ़े तीन सौ यूरो है।", "hi"],
+  [NUM_EN, "Semester ki fees lagbhag three hundred euros hai.", "hi-Latn"],
+  [NUM_EN, "Semester ka kharcha 300 EUR ke aas-paas rahega.", "hi-Latn"],
+  [NUM_EN, "सेमेस्टर योगदान तीन सौ यूआन जितना है।", "hi"],
+  [NUM_EN, "सेमेस्टर योगदान 0.3 हज़ार यूरो है।", "hi"],
+  [DE_EN, "जर्मनी में सरकारी विश्वविद्यालयों में ज़्यादातर प्रोग्राम में फीस नहीं लगती।", "hi"],
+  [DE_EN, "Germany ke public universities mein zyadatar programmes free hain.", "hi-Latn"],
+  [DE_EN, "Jarmani ke sarkari vishwavidyalayon mein zyadatar programmes ki fees nahi lagti.", "hi-Latn"],
+  [DE_EN, "डॉयचलैंड के सरकारी विश्वविद्यालयों में अधिकतर कोर्स मुफ़्त हैं।", "hi"],
+];
+test("A english factual -> english wording via runStudentTurn", async () => {
+  for (const [en, lo, rl] of A) {
+    const out = await run([{ text: en, localized: lo, kind: "fact", sourceIds: ["t-sem-1"] }], rl);
+    const m = out.response.message ?? "";
+    const ok = m.includes(en) && !m.includes(lo);
+    rows.push(`A ${ok ? "OK " : "BAD"} | ${lo} | ${m.slice(0, 90).replace(/\n/g, "/")}`);
+  }
+  assert.ok(rows.filter((r) => r.startsWith("A BAD")).length === 0, rows.filter((r) => r.startsWith("A BAD")).join("\n"));
+});
+
+// B: English fact-free; localized carries a detectable fact in a form the builder did not use -> English wording
+const B: [string, "hi" | "hi-Latn"][] = [
+  ["इन विश्वविद्यालयों में 300 यूरो तक का खर्च आता है।", "hi"],
+  ["इन विश्वविद्यालयों में कुल ₹5000 का खर्च आता है।", "hi"],
+  ["इन विश्वविद्यालयों में ९५% सीटें भर जाती हैं।", "hi"],
+  ["अधिक जानकारी के लिए daad.de देखें।", "hi"],
+  ["अधिक जानकारी के लिए www.daad.de/fees देखें।", "hi"],
+  ["अधिक जानकारी के लिए info@daad.de पर लिखें।", "hi"],
+  ["ये नियम जर्मनी के लिए हैं।", "hi"],
+  ["Is mein fifty euro lagte hain.", "hi-Latn"],
+  ["Yeh tuition lagbhag two hundred hota hai.", "hi-Latn"],
+  ["Yeh sab Germany mein hota hai.", "hi-Latn"],
+  ["Yeh 12 months ka course hai.", "hi-Latn"],
+  ["Isme USD aur INR dono chalte hain.", "hi-Latn"],
+  ["Yahan 2nd round mein seat milti hai.", "hi-Latn"],
+  ["Ye sab Sirf Sattar Euro mein hota hai.", "hi-Latn"],
+  ["Ye sirf pachaas euro hai.", "hi-Latn"],
+];
+test("B english fact-free, localized detectable fact -> english wording", () => {
+  for (const [lo, rl] of B) {
+    const r = localizedClaimText(FREE_EN, lo, rl, []);
+    rows.push(`B ${r === FREE_EN ? "OK  " : "LEAK"} | ${lo} | -> ${r === FREE_EN ? "English" : r}`);
+  }
+  assert.ok(true);
+});
+
+// C: non-factual sentences stay localized
+const C: [string, string, "hi" | "hi-Latn"][] = [
+  ["Good luck with your plans!", "आपकी योजनाओं के लिए शुभकामनाएँ!", "hi"],
+  ["That is a great question.", "यह बहुत अच्छा सवाल है।", "hi"],
+  ["Which subject do you enjoy most?", "आपको कौन सा विषय सबसे ज़्यादा पसंद है?", "hi"],
+  ["Which subject do you enjoy most?", "Aapko kaun sa subject sabse zyada pasand hai?", "hi-Latn"],
+  [FREE_EN, FREE_HI, "hi"],
+  ["Take your time and think about what matters to you.", "Apna waqt lijiye aur sochiye ki aapke liye kya zaroori hai.", "hi-Latn"],
+];
+test("C non-factual stay localized", async () => {
+  for (const [en, lo, rl] of C) {
+    const r = localizedClaimText(en, lo, rl, []);
+    rows.push(`C ${r === lo ? "OK " : "BAD"} | ${lo} | -> ${r === lo ? "localized" : r}`);
+    assert.equal(r, lo);
+  }
+  const out = await run([{ text: FREE_EN, localized: FREE_HI, kind: "fact", sourceIds: ["t-sem-1"] }], "hi");
+  assert.ok(out.response.message!.includes(FREE_HI), out.response.message);
+});
+
+// D: mixed + alignment + follow-up
+test("D mixed claim, misalignment, follow-up", async () => {
+  const en = `${FREE_EN} ${NUM_EN} Good luck with your plans!`;
+  const lo = `${FREE_HI} सेमेस्टर शुल्क करीब तीन सौ यूरो है। आपकी योजनाओं के लिए शुभकामनाएँ!`;
+  const r = localizedClaimText(en, lo, "hi", []);
+  assert.equal(r, `${FREE_HI} ${NUM_EN} आपकी योजनाओं के लिए शुभकामनाएँ!`);
+  rows.push(`D mixed OK | ${r}`);
+  assert.equal(localizedClaimText(`${FREE_EN} ${NUM_EN}`, "सरकारी विश्वविद्यालयों में अधिकतर कोर्स मुफ़्त हैं।", "hi", []), undefined);
+  assert.equal(localizedClaimText(FREE_EN, "सरकारी कोर्स मुफ़्त हैं। सेमेस्टर शुल्क सत्तर है।", "hi", []), undefined);
+  const out = await run([{ text: FREE_EN, localized: "सरकारी कोर्स मुफ़्त हैं। सेमेस्टर शुल्क सत्तर है।", kind: "fact", sourceIds: ["t-sem-1"] }], "hi");
+  assert.ok(out.response.message!.includes(FREE_EN) && !out.response.message!.includes("सत्तर"), out.response.message);
+  const out2 = await run([
+    { text: FREE_EN, localized: FREE_HI, kind: "fact", sourceIds: ["t-sem-1"] },
+    { text: NUM_EN, localized: "सेमेस्टर शुल्क। करीब तीन सौ यूरो।", kind: "number", sourceIds: ["t-sem-1"] },
+  ], "hi");
+  const m2 = out2.response.message!;
+  rows.push(`D twoclaim-misaligned | ${m2.slice(0, 200).replace(/\n/g, "/")}`);
+  assert.ok(m2.includes(FREE_EN) && m2.includes(NUM_EN) && !m2.includes(FREE_HI), m2);
+  const f1 = await run([{ text: FREE_EN, localized: FREE_HI, kind: "fact", sourceIds: ["t-sem-1"] }], "hi", "आप कौन सा विषय पढ़ना चाहते हैं?", "Which subject would you like to study?");
+  rows.push(`D followup-free | ${f1.response.message!.replace(/\n/g, "/")}`);
+  assert.ok(f1.response.message!.includes("आप कौन सा विषय"), f1.response.message);
+  const f2 = await run([{ text: FREE_EN, localized: FREE_HI, kind: "fact", sourceIds: ["t-sem-1"] }], "hi", "आप 2027 में आवेदन करेंगे?", "Which subject would you like to study?");
+  rows.push(`D followup-digit | ${f2.response.message!.replace(/\n/g, "/")}`);
+  assert.ok(!f2.response.message!.includes("2027"));
+});
+
+// E: informational: facts on the localized side with fact-free English (R-a class)
+const E: [string, "hi" | "hi-Latn"][] = [
+  ["सेमेस्टर शुल्क सत्तर युआन है।", "hi"], ["यह बहुत महंगा है।", "hi"], ["यह दोगुना हो जाता है।", "hi"],
+  ["आवेदन मार्च की पहली तारीख को बंद होते हैं।", "hi"], ["Ye sirf sattar yuan mein hota hai.", "hi-Latn"], ["Yeh course paanch saal ka hota hai.", "hi-Latn"],
+  ["Is mein koi kharcha nahi hai.", "hi-Latn"], ["Ye sab pachaas rupaye mein hota hai.", "hi-Latn"], ["Ye sab Nabbe percent hota hai.", "hi-Latn"],
+  ["यहाँ पाँच साल का कोर्स होता है।", "hi"], ["यहाँ एक दर्जन कोर्स हैं।", "hi"], ["यहाँ साढ़े तीन सौ रिंगित लगते हैं।", "hi"],
+  ["Ye sab teen sau pachaas euros mein hota hai.", "hi-Latn"],
+];
+test("E informational R-a probes", () => {
+  for (const [lo, rl] of E) {
+    const r = localizedClaimText(FREE_EN, lo, rl, []);
+    rows.push(`E ${r === FREE_EN ? "ENGLISH      " : "SHOWN-LOCAL  "} | ${lo}`);
+  }
+});
+test("zz print", () => { console.log("\n=====TABLE=====\n" + rows.join("\n") + "\n=====END====="); });

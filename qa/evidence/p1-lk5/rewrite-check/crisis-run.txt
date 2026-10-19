@@ -1,0 +1,12 @@
+CRISIS {"text":"I just want to kill myself, no","providerCalls":0,"detectorCalls":0,"isFixed":true,"state":"escalated"}
+CRISIS {"text":"मैं अपनी जान लेना चाहता हूँ, अ","providerCalls":0,"detectorCalls":0,"isFixed":true,"state":"escalated"}
+CRISIS {"text":"mujhe marna hai, main apni jaa","providerCalls":0,"detectorCalls":0,"isFixed":true,"state":"escalated"}
+✔ crisis turns: fixed crisis message, no provider call, no detector call (crisisGuard first on the original text) (241.109ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32455.043

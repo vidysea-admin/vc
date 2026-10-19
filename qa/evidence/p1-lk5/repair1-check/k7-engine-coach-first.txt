@@ -1,0 +1,16 @@
+[testlock] waiting for lock held by: PID=36944 STARTED=639280248754425700 ACQUIRED_AT=1792408311 TOKEN=1792408311759358000-492658-28200 DESC=bash -c cd D:/vc/.worktrees/lk1w/apps/api && npx tsx --test tests/chat-profile.test.ts tests/anonymous-route.test.ts 2>&1 | tail -60; cd ../../packages/engine && npx tsx --test tests/concern-classifier.test.ts 2>&1 | grep -E '^# (tests|pass|fail)|not ok' 
+[testlock] running slot 1 (free RAM 4.75 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk5/packages/engine exec tsx --test --test-timeout=60000 tests/coach-first.test.ts
+✔ A21(a): the fixture has >= 20 drafting requests incl. Hinglish/Hindi, and every one is detected (2.6199ms)
+✔ A21(a): every drafting request yields coaching (questions, structure) and never a full draft - even when the model returns one (612.1783ms)
+✔ A21(a): isDraftLike flags essay-shaped text and not a coaching reply (0.2214ms)
+✔ R6: questions that only contain a routing trigger word (latest, compare, yes/correct, remove, prepare LOR, rank) go to the KB (4.9971ms)
+✔ A21(b): >= 15 fixture intents select the matching tool/feature, and every selected tool is a registered student tool (171.738ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3016.4355
+EXIT=0

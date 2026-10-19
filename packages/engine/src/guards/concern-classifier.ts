@@ -381,3 +381,44 @@ export function escalationDecision(guard: GuardFlag, classifier: ClassifierAnnot
   }
   return { escalate: false };
 }
+
+// ---------------------------------------------------------------------------
+// Live safety screen (LK5, D-105): the model detector next to the keyword floor
+// ---------------------------------------------------------------------------
+
+/** A classifier severity at or above this makes a live student turn "possible" (the same line the counsellor escalation uses). */
+export const SAFETY_SCREEN_BLOCK_AT: Severity = ESCALATE_AT;
+
+export type SafetyScreenVerdict =
+  | { verdict: "clear" }
+  | { verdict: "possible"; basis: "classified"; severity: Severity }
+  | { verdict: "possible"; basis: "unavailable"; errorName: string };
+
+export interface SafetyScreenDeps {
+  provider: LlmProvider;
+  /** The body of skills/concern-classifier/SKILL.md. */
+  skillPrompt: string;
+  timeoutMs?: number;
+  blockAt?: Severity;
+}
+
+/**
+ * The model safety screen for a live student turn the keyword guard did NOT flag. It runs in parallel with the answer, and the
+ * caller holds the answer until it returns. FAIL CLOSED: an error, a timeout, an invalid answer or a severity at or above `blockAt`
+ * is "possible"; only a clean classification is "clear". Never rejects. (The async review above is the opposite: fail open to a
+ * guard flag. A live screen has no guard flag to fall back on, so a missing answer must not mean a free pass.)
+ */
+export async function safetyScreen(turn: { text: string; lang: string }, deps: SafetyScreenDeps): Promise<SafetyScreenVerdict> {
+  let annotation: ClassifierAnnotation;
+  try {
+    annotation = await classifyConcern(
+      { text: turn.text, translatedText: turn.text, lang: turn.lang, guardLevel: "none", guardMatched: [] },
+      { provider: deps.provider, skillPrompt: deps.skillPrompt, timeoutMs: deps.timeoutMs ?? CONCERN_CLASSIFIER_DEFAULT_TIMEOUT_MS },
+    );
+  } catch (err) {
+    return { verdict: "possible", basis: "unavailable", errorName: err instanceof Error ? err.name : "Error" };
+  }
+  if (annotation.status === "unavailable") return { verdict: "possible", basis: "unavailable", errorName: annotation.errorName };
+  const blockAt = deps.blockAt ?? SAFETY_SCREEN_BLOCK_AT;
+  return severityRank(annotation.severity) >= severityRank(blockAt) ? { verdict: "possible", basis: "classified", severity: annotation.severity } : { verdict: "clear" };
+}

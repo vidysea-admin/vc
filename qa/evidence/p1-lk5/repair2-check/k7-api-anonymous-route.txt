@@ -1,0 +1,27 @@
+[testlock] waiting for lock held by: PID=36944 STARTED=639280248754425700 ACQUIRED_AT=1792408311 TOKEN=1792408311759358000-492658-28200 DESC=bash -c cd D:/vc/.worktrees/lk1w/apps/api && npx tsx --test tests/chat-profile.test.ts tests/anonymous-route.test.ts 2>&1 | tail -60; cd ../../packages/engine && npx tsx --test tests/concern-classifier.test.ts 2>&1 | grep -E '^# (tests|pass|fail)|not ok' 
+[testlock] running slot 1 (free RAM 3.35 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk5/apps/api exec tsx --test --test-timeout=60000 tests/anonymous-route.test.ts
+✔ A20: the anonymous route is OFF by default - unset, empty and 'false' all read as disabled; only the exact word 'true' enables (2.9529ms)
+✔ A20 state OFF: with the flag off nothing is built and the path answers exactly like an unknown path (404), for every method (8.7786ms)
+✔ A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route (11.4339ms)
+✔ A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed (98.7509ms)
+✔ A20 state ON and gate open: the route is served (233.3594ms)
+✔ no student text is traced: an env that switches LangChain/LangSmith tracing on refuses to build the route (80.7453ms)
+✔ B21 exception: the closed list is exactly one text route, equals the draft's security:[] operations, and contains no voice route (1.0249ms)
+✔ B21 exception: with the anonymous route ON, every other registered route still answers 401 with no token, and the main handler touches no Db (17.2203ms)
+✔ B21 exception: the anonymous route ignores identity - a valid-looking Authorization header changes nothing and no tenant or student id is read (90.4412ms)
+✔ startApi: flag off -> the anonymous path is a 404 over real HTTP and no gate file is read (117.6134ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (8.014ms)
+✔ startApi: flag on without a KB or speakers supplied is a config error, before connecting (7.1678ms)
+✔ startApi: flag on and gate open -> a real HTTP POST is answered and ONLY the text-free counter is written to virtual_counsellor; other routes still 401 (117.4528ms)
+✔ the node:http adapter hands the socket address to the limiter (10 per minute per real client) (294.6617ms)
+✔ U7 repair 2: with the flag on, startApi refuses to start unless the deployment states how clients are told apart - an explicit clientKey or trustSocketAddress: true (65.8602ms)
+✔ U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 the route can return, and the AnonymousError schema carries the helpline field (0.6614ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15798.7484
+EXIT=0

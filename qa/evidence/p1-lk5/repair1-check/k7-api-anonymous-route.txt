@@ -1,0 +1,26 @@
+[testlock] running slot 1 (free RAM 4.59 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk5/apps/api exec tsx --test --test-timeout=60000 tests/anonymous-route.test.ts
+✔ A20: the anonymous route is OFF by default - unset, empty and 'false' all read as disabled; only the exact word 'true' enables (1.5517ms)
+✔ A20 state OFF: with the flag off nothing is built and the path answers exactly like an unknown path (404), for every method (4.5208ms)
+✔ A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route (6.9663ms)
+✔ A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed (59.483ms)
+✔ A20 state ON and gate open: the route is served (104.846ms)
+✔ no student text is traced: an env that switches LangChain/LangSmith tracing on refuses to build the route (24.3002ms)
+✔ B21 exception: the closed list is exactly one text route, equals the draft's security:[] operations, and contains no voice route (0.4193ms)
+✔ B21 exception: with the anonymous route ON, every other registered route still answers 401 with no token, and the main handler touches no Db (9.3805ms)
+✔ B21 exception: the anonymous route ignores identity - a valid-looking Authorization header changes nothing and no tenant or student id is read (34.2461ms)
+✔ startApi: flag off -> the anonymous path is a 404 over real HTTP and no gate file is read (51.8169ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (6.214ms)
+✔ startApi: flag on without a KB or speakers supplied is a config error, before connecting (3.855ms)
+✔ startApi: flag on and gate open -> a real HTTP POST is answered and ONLY the text-free counter is written to virtual_counsellor; other routes still 401 (58.7787ms)
+✔ the node:http adapter hands the socket address to the limiter (10 per minute per real client) (136.6673ms)
+✔ U7 repair 2: with the flag on, startApi refuses to start unless the deployment states how clients are told apart - an explicit clientKey or trustSocketAddress: true (25.2306ms)
+✔ U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 the route can return, and the AnonymousError schema carries the helpline field (0.2328ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3522.6254
+EXIT=0

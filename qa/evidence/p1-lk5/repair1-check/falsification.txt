@@ -1,0 +1,16 @@
+== k1 [K1 hostile] src/student/graph.ts
+green-before: ℹ pass 1 ℹ fail 0 
+edited D:/chk-tmp/lk5c1/k1/packages/engine/src/student/graph.ts
+red-after:    ℹ pass 0 ℹ fail 1 
+== m1 [M1 hostile] src/student/lang.ts
+green-before: ℹ pass 1 ℹ fail 0 
+edited D:/chk-tmp/lk5c1/m1/packages/engine/src/student/lang.ts
+red-after:    ℹ pass 0 ℹ fail 1 
+== m2 [M2 hostile] src/student/graph.ts
+green-before: ℹ pass 1 ℹ fail 0 
+edited D:/chk-tmp/lk5c1/m2/packages/engine/src/student/graph.ts
+red-after:    ℹ pass 0 ℹ fail 1 
+== m3 [M3 hostile] src/student/graph.ts
+green-before: ℹ pass 1 ℹ fail 0 
+edited D:/chk-tmp/lk5c1/m3/packages/engine/src/student/graph.ts
+red-after:    ℹ pass 0 ℹ fail 1 
