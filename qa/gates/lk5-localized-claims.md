@@ -16,3 +16,10 @@
 
 **Blocks:** LK5 only. Everything else is shipped.
 **Answer format:** "a", "b" or "c", relayed by Umesh. The maker appends `Answered: <ISO> - <choice> - Umesh in chat` and then dispatches a rewritten brief (a or b) or closes LK5 as held (c).
+
+**Checker cycle-2 verdict (d907e64 on p1/lk5): FAIL; the unit is STALLED.** The checker agrees with the review: word lists cannot close the gap. Examples it showed:
+- currencies not on the list (डॉलर्स, रु., युआन);
+- magnitudes not on the list (अरब, खरब, दर्जन, हज़ारों);
+- Hinglish number words (sattar, panch hajar).
+Its two options are a structural fix (option a or a short allow-list) or owner-accepting the limit. Option (a) above is the structural fix.
+Diagnosis: loop design. The parity-by-word-list approach is the cause, not execution. No /agent-debugger run: the cause is already evidenced by two verdicts and two reviews.
