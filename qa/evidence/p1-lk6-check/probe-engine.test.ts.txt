@@ -1,0 +1,178 @@
+/** CHECKER throwaway hostile probe for p1-lk6 (lives only in D:/lk6-chk/copy). */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { MockProvider } from "@vc/providers";
+import { crisisGuard, createStudentFactExtractor, extractStudentTurnFacts, StudentFactExtractionError } from "../src/index.js";
+import { SKILLS_DIR } from "./scribe-fixtures.js";
+
+const NOW = new Date("2026-10-19T10:30:00.000Z");
+const cand = (key: string, value: unknown, quote: string, turnId = "t-1") => ({
+  key, value, source: { type: "transcript", quote, turnId }, confidence: 0.8, purposeTags: ["profile_synthesis"], sensitivity: "low",
+});
+const prov = (facts: unknown[] | ((i: any) => unknown)) => new MockProvider({ responses: { "fact-extraction": typeof facts === "function" ? (facts as never) : { facts } } });
+const run = (p: MockProvider, text: string, lang?: string) =>
+  extractStudentTurnFacts({ turnId: "t-1", text, ...(lang ? { lang } : {}), now: NOW }, { provider: p, skillsDir: SKILLS_DIR });
+
+const HINDI = "मैं जर्मनी में एमबीए करना चाहता हूँ और मेरा बजट बीस लाख रुपये है";
+const HINGLISH = "Mujhe Germany mein MBA karna hai, budget lagbhag 20 lakh hai";
+
+test("H-quote: translation, case drift, trailing-space, NFD, spliced", async () => {
+  const nfcText = "मुझे क़ानून पढ़ना है"; // nukta chars precomposed (U+0958 etc may be composed)
+  const nfd = nfcText.normalize("NFD");
+  const nfc = nfcText.normalize("NFC");
+  console.log("nfc==nfd?", nfc === nfd, "text is nfc?", nfcText === nfc, "text is nfd?", nfcText === nfd);
+  // text given as NFC; model returns NFD quote
+  let r = await run(prov([cand("intended_major", "Law", nfd.slice(5, 14))]), nfc);
+  const nfdQuoteInNfc = nfc.includes(nfd.slice(5, 14));
+  console.log("NFC text / NFD quote -> includes?", nfdQuoteInNfc, "facts", r.facts.length, "dropped", JSON.stringify(r.dropped));
+  // text NFD, quote NFC
+  r = await run(prov([cand("intended_major", "Law", "क़ानून".normalize("NFC"))]), nfd);
+  console.log("NFD text / NFC quote -> facts", r.facts.length, "dropped", JSON.stringify(r.dropped));
+  // trailing space not in text
+  r = await run(prov([cand("target_country", "Germany", "जर्मनी में ")]), "मैं जर्मनी में");
+  console.log("trailing space beyond text end -> facts", r.facts.length, JSON.stringify(r.dropped));
+  // trailing space present in text: kept, trimmed
+  r = await run(prov([cand("target_country", "Germany", "जर्मनी में ")]), HINDI);
+  console.log("trailing space inside text -> facts", JSON.stringify(r.facts));
+  assert.equal(r.facts.length, 1);
+  assert.equal(r.facts[0]!.quote, "जर्मनी में");
+  // case drift (Latin)
+  r = await run(prov([cand("target_country", "Germany", "germany mein mba")]), HINGLISH);
+  assert.equal(r.facts.length, 0);
+  // translation of Hindi
+  r = await run(prov([cand("target_country", "Germany", "Germany")]), HINDI);
+  assert.equal(r.facts.length, 0);
+  // spliced (two pieces of one turn joined)
+  r = await run(prov([cand("target_country", "Germany", "जर्मनी में बीस लाख रुपये")]), HINDI);
+  assert.equal(r.facts.length, 0, "spliced quote must drop");
+  r = await run(prov([cand("target_country", "Germany", "जर्मनी में ... बीस लाख")]), HINDI);
+  assert.equal(r.facts.length, 0, "ellipsis-joined quote must drop");
+  // quote from a DIFFERENT turn (prior assistant text) : not in this turn's text
+  r = await run(prov([cand("target_country", "Germany", "Which country do you prefer?")]), HINDI);
+  assert.equal(r.facts.length, 0);
+  // quote with different turnId than the one given
+  r = await run(prov([cand("target_country", "Germany", "जर्मनी में", "t-OTHER")]), HINDI);
+  console.log("wrong turnId -> facts", r.facts.length, JSON.stringify(r.dropped));
+  assert.equal(r.facts.length, 0);
+  // over-long quote 501
+  const longText = "ab ".repeat(400);
+  r = await run(prov([cand("k", "v", longText.slice(0, 501))]), longText);
+  assert.equal(r.facts.length, 0);
+});
+
+test("H-value/key", async () => {
+  const T = HINDI;
+  const q = "जर्मनी में";
+  const cases: Array<[string, string, unknown, boolean]> = [
+    ["dev value", "target_country", "जर्मनी", false],
+    ["arabic-indic digit value", "budget_inr", "٢٠٠٠٠٠٠", false],
+    ["devanagari digits value", "budget_inr", "२०००००", false],
+    ["fullwidth digits", "budget_inr", "２０", false],
+    ["mixed latin + dev letter", "budget_inr", "20 लाख", false],
+    ["object", "budget_inr", { a: 1 }, false],
+    ["array", "budget_inr", ["a"], false],
+    ["null", "budget_inr", null, false],
+    ["boolean", "has_passport", true, true],
+    ["number", "budget_inr", 2000000, true],
+    ["email value", "contact", "x@y.com", true],
+    ["phone value", "contact", "98765 43210", true],
+    ["superscript digit", "budget_inr", "2²", true],
+    ["Greek letter value", "x", "αβγ", false],
+    ["Cyrillic", "x", "привет", false],
+    ["Latin diacritic", "x", "München", true],
+    ["Dev combining mark only", "x", "\u093F\u0902", true],
+    ["empty string value", "x", "", false],
+    ["spaces value", "x", "   ", false],
+    ["key spaces", "target country", "Germany", false],
+    ["key upper", "Target_Country", "Germany", true],
+    ["key hyphen", "target-country", "Germany", false],
+    ["key nonascii", "लक्ष्य", "Germany", false],
+    ["key accent", "pays_cible_é", "Germany", false],
+    ["key leading digit", "1abc", "Germany", false],
+    ["key 65 chars", "a".repeat(65), "Germany", false],
+    ["key 64 chars", "a".repeat(64), "Germany", true],
+    ["key empty", "", "Germany", false],
+    ["key proto", "__proto__", "Germany", true],
+    ["key with email", "a@b_com", "Germany", false],
+  ];
+  for (const [name, key, value, expectKept] of cases) {
+    let kept: boolean;
+    try {
+      const r = await run(prov([cand(key, value, q)]), T);
+      kept = r.facts.length === 1;
+      console.log(`  ${expectKept === kept ? "ok " : "MISMATCH"} ${name} -> kept=${kept}${kept ? " " + JSON.stringify(r.facts[0]) : " " + JSON.stringify(r.dropped)}`);
+    } catch (e) {
+      kept = false;
+      console.log(`  THREW ${name}: ${(e as Error).name}`);
+    }
+  }
+});
+
+test("H-failure modes: throws / timeout / malformed JSON / abort; error carries no student words", async () => {
+  const secret = "SECRETWORDS-जर्मनी-9876543210";
+  const thrower = prov(() => { const e = new Error(`echo ${secret}`); e.name = `Weird ${secret}`; throw e; });
+  await assert.rejects(run(thrower, HINDI), (e: any) => {
+    const dump = JSON.stringify({ n: e.name, m: e.message, f: e.failureClass, s: String(e.stack).split("\n")[0] });
+    console.log("thrown dump:", dump);
+    assert.ok(e instanceof StudentFactExtractionError);
+    assert.ok(!dump.includes("SECRETWORDS") && !dump.includes("जर्मनी") && !dump.includes("9876543210"));
+    return true;
+  });
+  // timeout-like: DOMException TimeoutError
+  const timeouty = prov(() => { const e: any = new Error(`timed out on ${secret}`); e.name = "TimeoutError"; throw e; });
+  await assert.rejects(run(timeouty, HINDI), (e: any) => { assert.equal(e.failureClass, "TimeoutError"); assert.ok(!e.message.includes("SECRET")); assert.equal((e as any).cause, undefined); return true; });
+  // malformed JSON / wrong shape -> empty result, not throw
+  for (const bad of ["not json", { facts: "no" }, { facts: [1, 2] }, null, 42, { nope: 1 }]) {
+    const p = prov(() => bad);
+    const r = await run(p, HINDI);
+    console.log("malformed", JSON.stringify(bad), "->", r.facts.length, "calls", p.calls.length, "failedReason?", !!r.failedReason);
+    assert.deepEqual(r.facts, []);
+  }
+  // abort signal
+  const ac = new AbortController(); ac.abort();
+  const p3 = prov([cand("x", "y", "जर्मनी में")]);
+  try { const r = await extractStudentTurnFacts({ turnId: "t-1", text: HINDI, now: NOW }, { provider: p3, skillsDir: SKILLS_DIR, signal: ac.signal }); console.log("abort -> facts", r.facts.length); } catch (e) { console.log("abort threw", (e as Error).name); }
+  // e.cause / own props
+  try { await run(thrower, HINDI); } catch (e: any) { console.log("own props:", Object.getOwnPropertyNames(e).join(",")); assert.equal(e.cause, undefined); }
+});
+
+test("H-crisis: Hindi / Hinglish explicit self-harm -> zero provider calls", async () => {
+  const phrases = [
+    "मैं मरना चाहता हूँ", "मुझे आत्महत्या करनी है", "मैं अपनी जान दे दूँगा", "मैं खुद को खत्म कर लूँगा", "मुझे जीना नहीं है",
+    "main marna chahta hoon", "main suicide karna chahta hoon", "mujhe mar jana hai", "main apni jaan de dunga", "khud ko khatam kar lunga", "I want to kill myself",
+    "mujhe jeena nahi hai", "main khudkushi karunga", "मैं खुदकुशी करना चाहता हूँ",
+    "मैं जर्मनी में एमबीए करना चाहता हूँ और मरना चाहता हूँ",
+  ];
+  for (const ph of phrases) {
+    const p = prov([cand("x", "y", ph.slice(0, 5))]);
+    const g = crisisGuard(ph).level;
+    const r = await run(p, ph);
+    console.log(`  crisisGuard=${g} calls=${p.calls.length} facts=${r.facts.length} :: ${ph}`);
+    if (g !== "none") assert.equal(p.calls.length, 0);
+  }
+  // wrapped in whitespace / zero-width
+  const p = prov([]);
+  await run(p, "i want to  k\u200bill myself");
+  console.log("zero-width kill myself calls", p.calls.length, "guard", crisisGuard("i want to  k\u200bill myself").level);
+});
+
+test("H-nocall: blank/whitespace/zero-width text makes zero calls; createStudentFactExtractor port", async () => {
+  for (const t of ["", "   ", "\n\t", "\u200b", "\u00a0"]) {
+    const p = prov([cand("x", "y", "z")]);
+    const r = await run(p, t);
+    console.log(`  blank ${JSON.stringify(t)} calls=${p.calls.length}`);
+    if (t.trim() === "") assert.equal(p.calls.length, 0);
+    assert.deepEqual(r.facts, []);
+  }
+  const p = prov([]);
+  const port = createStudentFactExtractor({ provider: p, skillsDir: SKILLS_DIR });
+  assert.deepEqual(await port({ turnId: "t", text: "" }), []);
+  assert.equal(p.calls.length, 0);
+});
+
+test("H-lang: caller lang validated; und never stored; sourceLang weird tag", async () => {
+  let r = await run(prov([cand("target_country", "Germany", "Germany mein MBA")]), HINGLISH, "<script>");
+  console.log("bad lang ->", JSON.stringify(r.facts));
+  r = await run(prov([cand("target_country", "Germany", "Germany mein MBA")]), HINGLISH, "hi-Latn");
+  console.log("hi-Latn ->", JSON.stringify(r.facts));
+});

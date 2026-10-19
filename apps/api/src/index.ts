@@ -25,7 +25,7 @@ import {
   type MongoClientFactory,
   type ErasureFenceSweepOptions,
 } from "@vc/db";
-import { escalateTurns, initScribeCheckpointer, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentKbPort } from "@vc/engine";
+import { createStudentFactExtractor, escalateTurns, initScribeCheckpointer, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentKbPort } from "@vc/engine";
 import { createProvider, loadProviderConfig, loadTextChainConfig, type LiveProvider, type LlmProvider } from "@vc/providers";
 import { createJwtVerifier, createStudentJwtVerifier, jwtConfigFromEnv, studentJwtConfigFromEnv, type JwtVerifier, type StudentJwtVerifier } from "./auth.js";
 import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
@@ -332,6 +332,11 @@ export async function startApi(
   // The escalation port chat and voice share (one flag, one escalation): an explicit chat port, else the engine's escalateTurns over the tenant's deps.
   const defaultEscalateForTenant: NonNullable<ChatApiDeps["escalateForTenant"]> = (tenantId, tenantDb) => (input) => escalateTurns(tenantDb, input, escalationForTenant!(tenantId));
   const sharedEscalateForTenant = chatSetup?.chat.escalateForTenant ?? defaultEscalateForTenant;
+  // p1-lk6 (D-104): the default student fact extractor, for chat and voice alike. It reads the student's ORIGINAL words through the default text
+  // provider (the student chain when VC_TEXT_CHAIN is set, D-105 Q4) and proposes English facts; an injected `extractFacts` option wins. It runs only on a turn whose text
+  // is stored, and a failure never fails the turn (chat.ts and voice.ts catch it and log the event name only).
+  const defaultExtractFacts = httpSetup ? createStudentFactExtractor({ provider: httpSetup.studentProvider, skillsDir: httpSetup.skillsDir }) : undefined;
+  const chatExtractFacts = chatSetup?.chat.extractFacts ?? defaultExtractFacts;
   const { client, db } = connectFromEnv(env, clientFactory);
   counterRef.writer = createMongoAnonymousCounter(anonymousCountersCollection(db), http?.anonymous?.now);
   // Built before connecting so every voice configuration error (secret length, base URL) is a startup error with nothing connected.
@@ -343,6 +348,7 @@ export async function startApi(
     voice = createVoiceApi(
       {
         ...passThrough,
+        ...(passThrough.extractFacts === undefined && defaultExtractFacts ? { extractFacts: defaultExtractFacts } : {}),
         verifier,
         dbForTenant: (tenantId) => tenantScopedDb(db, tenantId),
         live,
@@ -413,7 +419,7 @@ export async function startApi(
               speakers: chatSetup.speakers,
               escalateForTenant: sharedEscalateForTenant,
               ...(chatSetup.chat.profile ? { profile: chatSetup.chat.profile } : {}),
-              ...(chatSetup.chat.extractFacts ? { extractFacts: chatSetup.chat.extractFacts } : {}),
+              ...(chatExtractFacts ? { extractFacts: chatExtractFacts } : {}),
               ...(chatSetup.chat.sandboxTenantId !== undefined ? { sandboxTenantId: chatSetup.chat.sandboxTenantId } : {}),
               ...(chatSetup.chat.limitsForTenant ? { limitsForTenant: chatSetup.chat.limitsForTenant } : {}),
               ...(chatSetup.chat.config ? { config: chatSetup.chat.config } : {}),

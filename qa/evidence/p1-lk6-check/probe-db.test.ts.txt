@@ -1,0 +1,84 @@
+/** CHECKER throwaway hostile probe for p1-lk6 store (lives only in D:/lk6-chk/copy). */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { COLLECTION_NAMES, decideProfileFact, listProfileFacts, proposeProfileFact, tenantScopedDb } from "../src/index.js";
+import { INDEX_PLAN } from "../scripts/db-init.js";
+import { createFakeDb } from "./fakes.js";
+
+function setup() {
+  const { db, fakeDb } = createFakeDb();
+  for (const spec of INDEX_PLAN) {
+    if (!spec.unique) continue;
+    fakeDb.collection<{ _id: string }>(spec.collection).declareUniqueIndex(Object.keys(spec.keys), { partialFilterExpression: spec.partialFilterExpression });
+  }
+  return { fakeDb, a: tenantScopedDb(db, "tenantA") };
+}
+
+test("store redaction: e-mail / phone (ascii, devanagari digits, arabic-indic) in value, quote, key", async () => {
+  const { a, fakeDb } = setup();
+  const samples: Array<[string, string]> = [
+    ["email", "mera email priya.sharma@gmail.com hai"],
+    ["ascii phone", "mera number 9876543210 hai"],
+    ["spaced phone", "call 98765 43210 now"],
+    ["+91 phone", "+91 98765-43210"],
+    ["devanagari digits phone", "मेरा नंबर ९८७६५४३२१० है"],
+    ["arabic-indic phone", "رقمي ٩٨٧٦٥٤٣٢١٠"],
+    ["devanagari name intro", "मेरा नाम प्रिया शर्मा है"],
+    ["hinglish name intro", "mera naam Priya Sharma hai"],
+    ["english name intro", "My name is Priya Sharma"],
+  ];
+  let i = 0;
+  for (const [label, text] of samples) {
+    i += 1;
+    const f = await proposeProfileFact(a, { studentId: "stu-1", key: `k${i}`, value: `v ${text}`, quote: text, sourceLang: "hi" });
+    console.log(`  ${label}: value=${JSON.stringify(f.value)} quote=${JSON.stringify(f.quote)}`);
+  }
+  const f = await proposeProfileFact(a, { studentId: "stu-1", key: "mail priya@x.com 9876543210", value: "ok" });
+  console.log("  key redaction:", f.key);
+  const dump = JSON.stringify(fakeDb.collection(COLLECTION_NAMES.profile_facts).all());
+  console.log("  stored contains ascii phone?", dump.includes("9876543210"), " email?", dump.includes("@gmail.com") || dump.includes("priya@x.com"), " devanagari-digit phone?", dump.includes("९८७६५४३२१०"), " arabic-indic phone?", dump.includes("٩٨٧٦٥٤٣٢١٠"), " name Priya?", dump.includes("Priya"), " dev name?", dump.includes("प्रिया"));
+});
+
+test("store: quote/sourceLang odd inputs; object / array / number passed from a careless caller", async () => {
+  const { a } = setup();
+  for (const [i, bad] of [
+    { quote: { x: 1 } as any }, { quote: ["a"] as any }, { quote: 5 as any }, { sourceLang: { $ne: 1 } as any, quote: "q" }, { sourceLang: "hi", quote: "" },
+    { sourceLang: "hi" }, { quote: "q", sourceLang: "a".repeat(40) }, { quote: "q", sourceLang: "hi-Latn-IN-x-lk6" }, { quote: "$where" }, { quote: "NFD: \u0915\u093C" },
+  ].entries()) {
+    const f: any = await proposeProfileFact(a, { studentId: "stu-1", key: `odd${i}`, value: "v", ...bad });
+    console.log(`  ${JSON.stringify(bad)} -> quote=${JSON.stringify(f.quote)} sourceLang=${JSON.stringify(f.sourceLang)}`);
+  }
+});
+
+test("store: stale quote across cycles; correct drops; confirmed keeps; legacy row reads", async () => {
+  const { a, fakeDb } = setup();
+  // legacy row inserted by hand without quote/sourceLang
+  await fakeDb.collection<any>(COLLECTION_NAMES.profile_facts).insertOne({ _id: "legacy1", factId: "legacy1", studentId: "stu-9", key: "city", value: "Pune", status: "confirmed", source: "chat", proposedAt: "2026-01-01T00:00:00.000Z" } as never);
+  // note tenant scoping may reject; listing as same tenant
+  try {
+    const rows = await listProfileFacts(a, { studentId: "stu-9" });
+    console.log("legacy read:", JSON.stringify(rows));
+  } catch (e) { console.log("legacy read threw", (e as Error).message); }
+  // propose A(quote) -> propose B(no quote) -> propose C(quote)
+  await proposeProfileFact(a, { studentId: "stu-1", key: "budget", value: "10 lakh", quote: "दस लाख", sourceLang: "hi" });
+  const b = await proposeProfileFact(a, { studentId: "stu-1", key: "budget", value: "12 lakh" });
+  assert.ok(!("quote" in b) && !("sourceLang" in b));
+  const raw = fakeDb.collection<any>(COLLECTION_NAMES.profile_facts).all().find((r: any) => r.key === "budget");
+  assert.ok(!("quote" in raw) && !("sourceLang" in raw), "raw doc has no stale quote");
+  // value-with-quote then unusable (over-long) quote on re-propose: stale one must go
+  await proposeProfileFact(a, { studentId: "stu-1", key: "city", value: "Pune", quote: "पुणे", sourceLang: "hi" });
+  const c = await proposeProfileFact(a, { studentId: "stu-1", key: "city", value: "Delhi", quote: "x".repeat(2000), sourceLang: "hi" });
+  assert.ok(!("quote" in c), "unusable new quote does not leave the old one");
+  // sourceLang only, re-propose with prior quote
+  await proposeProfileFact(a, { studentId: "stu-1", key: "major", value: "CS", quote: "कंप्यूटर", sourceLang: "hi" });
+  const d: any = await proposeProfileFact(a, { studentId: "stu-1", key: "major", value: "EE", sourceLang: "hi" });
+  assert.ok(!("quote" in d) && !("sourceLang" in d), "sourceLang without a quote is not stored");
+  // same value re-proposed with no quote -> quote removed (the quote supported same value, acceptable?) report
+  await proposeProfileFact(a, { studentId: "stu-1", key: "deg", value: "MBA", quote: "एमबीए", sourceLang: "hi" });
+  const e: any = await proposeProfileFact(a, { studentId: "stu-1", key: "deg", value: "MBA" });
+  console.log("same value, no quote on re-propose -> quote kept?", "quote" in e);
+  // decide: reject?
+  const f = await proposeProfileFact(a, { studentId: "stu-1", key: "x1", value: "v", quote: "q1", sourceLang: "hi" });
+  const rej: any = await decideProfileFact(a, { studentId: "stu-1", factId: f.factId, action: "reject" as any }).catch((err: Error) => ({ threw: err.message }));
+  console.log("reject ->", JSON.stringify(rej));
+});
