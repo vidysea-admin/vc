@@ -239,6 +239,19 @@ test("startApi: flag on and gate open -> a student creates a thread and asks a q
 // P1 LK1w: the student chat surface runs on the text chain (VC_TEXT_CHAIN); the scribe / classifier provider does not move.
 // ---------------------------------------------------------------------------
 
+/** Like mustRefuse, matching the refusal by message; a startApi that wrongly starts is stopped first so a red run fails instead of hanging on an open server. */
+async function mustRefuseWith(p: Promise<{ stop(): Promise<void> }>, message: RegExp): Promise<void> {
+  let api: { stop(): Promise<void> } | undefined;
+  try {
+    api = await p;
+  } catch (e) {
+    assert.match(String((e as Error).message), message);
+    return;
+  }
+  await api.stop();
+  assert.fail("startApi started, but it must have refused");
+}
+
 async function chatTurnOverHttp(env: Record<string, string | undefined>, scribe: ReturnType<typeof kbAnswerProvider>) {
   const fake = createFakeMongoClient();
   const f = gatesFixture();
@@ -291,10 +304,7 @@ test("LK1w: VC_TEXT_CHAIN does not replace the scribe provider config: with no i
   const fake = createFakeMongoClient();
   let connected = 0;
   (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
-  await assert.rejects(
-    startApi({ MONGODB_URL: "mongodb://fake-host/ignored", ...CHAIN_ENV }, { clientFactory: () => fake.client, http: { port: 0, verifier: counsellorVerifier, skillsDir: SKILLS_DIR } }),
-    (e: unknown) => /VC_LLM_PROVIDER/.test(String((e as Error).message)),
-  );
+  await mustRefuseWith(startApi({ MONGODB_URL: "mongodb://fake-host/ignored", ...CHAIN_ENV }, { clientFactory: () => fake.client, http: { port: 0, verifier: counsellorVerifier, skillsDir: SKILLS_DIR } }), /VC_LLM_PROVIDER/);
   assert.equal(connected, 0);
 });
 
@@ -302,9 +312,6 @@ test("LK1w: a bad chain (no OLLAMA_API_KEY) is a startup config error before con
   const fake = createFakeMongoClient();
   let connected = 0;
   (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
-  await assert.rejects(
-    startApi({ MONGODB_URL: "mongodb://fake-host/ignored", VC_TEXT_CHAIN: "default" }, { clientFactory: () => fake.client, http: httpBase() }),
-    (e: unknown) => /OLLAMA_API_KEY/.test(String((e as Error).message)),
-  );
+  await mustRefuseWith(startApi({ MONGODB_URL: "mongodb://fake-host/ignored", VC_TEXT_CHAIN: "default" }, { clientFactory: () => fake.client, http: httpBase() }), /OLLAMA_API_KEY/);
   assert.equal(connected, 0);
 });
