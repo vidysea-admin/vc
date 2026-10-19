@@ -1,0 +1,9 @@
+[testlock] running slot 0 (free RAM 6.05 GB): python C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/fals.py
+F6a C6 ranked number claims keep the attributed status | pass=12 fail=1 | first failing: x U6w cycle 1 C6 (senior review MEDIUM): a NOT PROVEN number never carries an attributed status: every ranked claim is unverified, live and stored, an
+F7a C7 ranking runs on textless turns (persistText gate removed) | pass=12 fail=1 | first failing: x U6w cycle 1 C7 (checker A P1): a turn that stores no text (an unconsented minor) never reaches the ranking port, the option list or the weights call
+F8a C8 profileFactsUsed stored unredacted | pass=12 fail=1 | first failing: x U6w cycle 1 C8 (checker A P4): a profile fact value holding a phone number never reaches the stored thread through profileFactsUsed (12.5533ms)
+F9a C9 option-list callback asked with another student id | pass=12 fail=1 | first failing: x U6w item 3 tenancy: the same student id in tenant B with other facts never moves tenant A's ranking, and only tenant A's id reaches the profile and 
+F9b C9 Pathlynks profile port asked with another student id | pass=12 fail=1 | first failing: x U6w item 3 tenancy: the same student id in tenant B with other facts never moves tenant A's ranking, and only tenant A's id reaches the profile and 
+F10a C10 weights callback gets a fixed tenant id (tenant A weights leak to B) | pass=12 fail=1 | first failing: x U6w cycle 1 C10 (checker B P2): weightsForTenant receives the asking tenant's id, and tenant A's weights never apply to tenant B (48.123ms)
+F11a C11 anonymous route reaches ranking, profile and Db ports | pass=12 fail=1 | first failing: x U6w cycle 1 C11 (checker B P3 / A note): non-vacuous C5: an anonymous route handed live ranking, profile and Db spies never calls them, and the same
+BASELINE (no edit, scratch copy) | pass=13 fail=0
