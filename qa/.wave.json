@@ -461,3 +461,5 @@
 {"slug":"p1-lk5-check","lane":"code","event":"start","ts":"2026-10-19T20:12:41.480Z"}
 {"slug":"p1-lk5-6c","lane":"code","event":"start","ts":"2026-10-19T20:26:33.627Z"}
 {"slug":"p1-lk5b","lane":"code","event":"start","ts":"2026-10-19T20:26:33.699Z"}
+{"slug":"p1-lk5-6c","lane":"code","event":"end","ts":"2026-10-19T20:31:57.156Z"}
+{"slug":"p1-lk5b","lane":"code","event":"end","ts":"2026-10-19T20:35:26.150Z"}
