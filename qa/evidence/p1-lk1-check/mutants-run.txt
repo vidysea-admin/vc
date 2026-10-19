@@ -1,0 +1,106 @@
+MUT C1 ollama errors non-retryable: tests=102 pass=86 fail=16 exit=1
+    FAIL C1 200 empty body -> hop 2 answers
+    FAIL C1 200 empty content -> hop 2 answers
+    FAIL C1 200 no message -> hop 2 answers
+    FAIL C1 content not JSON -> hop 2 answers
+    FAIL C1 malformed JSON body -> hop 2 answers
+    FAIL C1 network throw -> hop 2 answers
+    FAIL C1 timeout
+    FAIL C4c hop 1 times out at hop timeout
+    FAIL C4d hop 2 cut by the overall deadline even though its own timeout is longer
+    FAIL C4f stalled response BODY
+    FAIL C6 usage on every answering hop: reported counts, then unreported; hop 5xx fires none
+    FAIL p1-lk1 C1: GLM malformed JSON fails over to hop 2
+    FAIL p1-lk1 C1: GLM network error fails over to hop 2
+    FAIL p1-lk1 C1: GLM timeout fails over to hop 2
+    FAIL p1-lk1 C6: the per-hop usage hook gets actual counts for a hop that answered
+    FAIL p1-lk1 C8: isRetryableProviderError whitelist covers Ollama timeout/network/malformed/429/5xx and nothing else
+MUT C1b malformed only non-retryable: tests=102 pass=93 fail=9 exit=1
+    FAIL C1 200 empty body -> hop 2 answers
+    FAIL C1 200 empty content -> hop 2 answers
+    FAIL C1 200 no message -> hop 2 answers
+    FAIL C1 content not JSON -> hop 2 answers
+    FAIL C1 malformed JSON body -> hop 2 answers
+    FAIL C6 usage on every answering hop: reported counts, then unreported; hop 5xx fires none
+    FAIL p1-lk1 C1: GLM malformed JSON fails over to hop 2
+    FAIL p1-lk1 C6: the per-hop usage hook gets actual counts for a hop that answered
+    FAIL p1-lk1 C8: isRetryableProviderError whitelist covers Ollama timeout/network/malformed/429/5xx and nothing else
+MUT C2 every OllamaHttpError retryable: tests=102 pass=87 fail=15 exit=1
+    FAIL C2 HTTP 400 on hop 1 surfaces, hop 2 never called
+    FAIL C2 HTTP 401 on hop 1 surfaces, hop 2 never called
+    FAIL C2 HTTP 403 on hop 1 surfaces, hop 2 never called
+    FAIL C2 HTTP 404 on hop 1 surfaces, hop 2 never called
+    FAIL C2 HTTP 405 on hop 1 surfaces, hop 2 never called
+    FAIL C2 HTTP 408 on hop 1 surfaces, hop 2 never called
+    FAIL C2 HTTP 413 on hop 1 surfaces, hop 2 never called
+    FAIL C2 HTTP 418 on hop 1 surfaces, hop 2 never called
+    FAIL C2 HTTP 422 on hop 1 surfaces, hop 2 never called
+    FAIL C2b hop1 5xx then hop2 400 -> the 400 surfaces
+    FAIL p1-lk1 C2: HTTP 400 on hop 1 does NOT fail over
+    FAIL p1-lk1 C2: HTTP 401 on hop 1 does NOT fail over
+    FAIL p1-lk1 C2: HTTP 403 on hop 1 does NOT fail over
+    FAIL p1-lk1 C2: HTTP 404 on hop 1 does NOT fail over
+    FAIL p1-lk1 C8: isRetryableProviderError whitelist covers Ollama timeout/network/malformed/429/5xx and nothing else
+MUT C3 singlePass false: tests=102 pass=98 fail=4 exit=1
+    FAIL C3 both hops fail retryably -> exactly 2 requests, AiUnavailable, one alert naming ollama
+    FAIL C3b one-hop chain: exactly one request
+    FAIL C3c three hops incl. duplicate: exactly 3 requests in order
+    FAIL p1-lk1 C3: single pass - both hops failing retryably makes exactly one attempt per hop
+MUT C4 deadline ignored (10 min): tests=102 pass=98 fail=4 exit=1
+    FAIL C4 deadline 150ms over 5000ms hop timeouts, signal-honouring hangs: AiUnavailable(FailoverDeadlineExceededErro
+    FAIL C4b deadline with a hop that IGNORES the abort signal still returns on time
+    FAIL C4d hop 2 cut by the overall deadline even though its own timeout is longer
+    FAIL p1-lk1 C4: the product deadline is honoured
+MUT C5 unknown errors (budget stop) retryable: tests=102 pass=97 fail=5 exit=1
+    FAIL C2c preflight refusal surfaces and does not fail over
+    FAIL C5 budget stop on hop 1: surfaces, zero requests
+    FAIL C5b budget stop on hop 2
+    FAIL p1-lk1 C5: a budget stop
+    FAIL p1-lk1 C8: isRetryableProviderError whitelist covers Ollama timeout/network/malformed/429/5xx and nothing else
+MUT C5b beforeRequest not wired to hops: tests=102 pass=98 fail=4 exit=1
+    FAIL C5 budget stop on hop 1: surfaces, zero requests
+    FAIL C5b budget stop on hop 2
+    FAIL C5c each hop is charged exactly once when failing over
+    FAIL p1-lk1 C5: a budget stop
+MUT C6 onUsage not wired: tests=102 pass=99 fail=3 exit=1
+    FAIL C6 usage on every answering hop: reported counts, then unreported; hop 5xx fires none
+    FAIL C6b 5xx / bad JSON body fire no usage; success with counts: reported, usd = tokens x table price
+    FAIL p1-lk1 C6: the per-hop usage hook gets actual counts for a hop that answered
+
+MUT C6b onUsage only first hop: tests=102 pass=99 fail=3 exit=1
+    FAIL C6 usage on every answering hop: reported counts, then unreported; hop 5xx fires none
+    FAIL C6b 5xx / bad JSON body fire no usage; success with counts: reported, usd = tokens x table price
+    FAIL p1-lk1 C6: the per-hop usage hook gets actual counts for a hop that answered
+MUT C7 singlePass default on: tests=151 pass=147 fail=4 exit=1
+    FAIL T-032
+    FAIL T-045 raw schema failures preserve typed retry eligibility without exposing hostile provider markers
+    FAIL all models fail within the budget: attempt count never exceeds the budget, and backoff+jitter is applied betwe
+    FAIL backoff is genuinely applied between attempts � proven with the DEFAULT sleep
+MUT C8a gemini not refused: tests=102 pass=100 fail=2 exit=1
+    FAIL C8 gemini entries refused
+    FAIL p1-lk1 C9: loadTextChainConfig - absent/blank is undefined; entries parse in order; bad input is refused witho
+MUT C8b default order flipped: tests=102 pass=100 fail=2 exit=1
+    FAIL C8b hostile specs
+    FAIL p1-lk1 C12: VC_TEXT_CHAIN=default is glm-5.3-flash then deepseek-v4.1-flash
+MUT C8c VC_LLM_PROVIDER=ollama selects chain: tests=102 pass=100 fail=2 exit=1
+    FAIL C8d VC_LLM_PROVIDER cannot select the chain; classifier/scribe base config never carries it
+    FAIL p1-lk1 C10: the chain is opt-in only: VC_LLM_PROVIDER=ollama is still refused by loadProviderConfig
+MUT C8d entries not trimmed/empties kept: tests=102 pass=100 fail=2 exit=1
+    FAIL C8 gemini entries refused
+    FAIL C8b hostile specs
+MUT C8e hop timeout ignored: tests=102 pass=98 fail=4 exit=1
+    FAIL C1 timeout
+    FAIL C4c hop 1 times out at hop timeout
+    FAIL C4f stalled response BODY
+    FAIL p1-lk1 C1: GLM timeout fails over to hop 2
+MUT C8f abort retryable: tests=102 pass=98 fail=4 exit=1
+    FAIL C2d caller abort mid-flight surfaces OllamaAbortedError, no hop 2
+    FAIL C2f caller abort after hop1 failed: hop 2 request aborted, surfaces abort not AiUnavailable
+    FAIL p1-lk1 C7: a caller abort is not failed over
+    FAIL p1-lk1 C8: isRetryableProviderError whitelist covers Ollama timeout/network/malformed/429/5xx and nothing else
+MUT C8g alert names litellm: tests=102 pass=101 fail=1 exit=1
+    FAIL C3 both hops fail retryably -> exactly 2 requests, AiUnavailable, one alert naming ollama
+MUT C8h price unknown => zero: tests=102 pass=100 fail=2 exit=1
+    FAIL C8b hostile specs
+    FAIL p1-lk1 C9: loadTextChainConfig - absent/blank is undefined; entries parse in order; bad input is refused witho
+DONE
