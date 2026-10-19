@@ -91,6 +91,22 @@ export interface P1Args {
   seed?: string;
   /** run-h2h --real only: JSON array of counsellor-written expert answers `{questionId, text, author}` (U13b). */
   experts?: string;
+  /** U13b (B13/D-100): the operator confirms a `source: "recorded"` input has been anonymised; REAL runners refuse recorded input without it. */
+  anonymised?: boolean;
+}
+
+/**
+ * U13b guard (B13/D-100): a REAL run sends fixture text to a paid external provider, so an input declared
+ * `source: "recorded"` (real transcripts) is refused unless the operator passes `--anonymised`. Called by each
+ * REAL body factory, i.e. BEFORE any ledger line or request. Mock mode never calls it.
+ */
+export function assertRealInputAllowed(runner: string, flag: string, source: string, args: P1Args): void {
+  if (source === "recorded" && !args.anonymised) {
+    throw new Error(
+      `${runner} --real: ${flag} is source "recorded" (real transcripts); a REAL run sends it to an external paid provider (B13/D-100). ` +
+        "Refusing. Anonymise it first, then pass --anonymised to confirm.",
+    );
+  }
 }
 
 export interface RunnerDeps {
@@ -144,6 +160,7 @@ export function parseP1Args(argv: readonly string[]): P1Args {
   const args: P1Args = { real: false, outDir: P1_REPORT_DIR, ledger: P1_LEDGER };
   for (const arg of argv) {
     if (arg === "--real") args.real = true;
+    else if (arg === "--anonymised") args.anonymised = true;
     else if (arg.startsWith("--golden=")) args.golden = arg.slice("--golden=".length);
     else if (arg.startsWith("--fixture=")) args.fixture = arg.slice("--fixture=".length);
     else if (arg.startsWith("--cases=")) args.cases = arg.slice("--cases=".length);
@@ -151,7 +168,7 @@ export function parseP1Args(argv: readonly string[]): P1Args {
     else if (arg.startsWith("--ledger=")) args.ledger = arg.slice("--ledger=".length);
     else if (arg.startsWith("--seed=")) args.seed = arg.slice("--seed=".length);
     else if (arg.startsWith("--experts=")) args.experts = arg.slice("--experts=".length);
-    else throw new Error(`unknown argument "${arg}" (known: --real --golden= --fixture= --cases= --out= --ledger= --seed= --experts=)`);
+    else throw new Error(`unknown argument "${arg}" (known: --real --anonymised --golden= --fixture= --cases= --out= --ledger= --seed= --experts=)`);
   }
   // --real spends money against the one shared A24 ledger; a different --ledger would hide that spend from the caps.
   if (args.real && resolve(args.ledger) !== resolve(P1_LEDGER)) {

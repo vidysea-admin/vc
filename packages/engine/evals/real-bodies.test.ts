@@ -38,13 +38,14 @@ interface Seen {
   user: Record<string, unknown>;
 }
 /** A fake Ollama: `respond(system prompt, parsed user input)` returns the JSON the model "answers". */
-function fakeOllama(respond: (system: string, user: Record<string, unknown>) => unknown): { fetchImpl: typeof fetch; seen: Seen[] } {
+function fakeOllama(respond: (system: string, user: Record<string, unknown>) => unknown, delayMs = 0): { fetchImpl: typeof fetch; seen: Seen[] } {
   const seen: Seen[] = [];
   const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body)) as { messages: { role: string; content: string }[] };
     const system = body.messages[0]!.content;
     const user = JSON.parse(body.messages[1]!.content) as Record<string, unknown>;
     seen.push({ system, user });
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
     return new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify(respond(system, user)) }, done: true }), { status: 200 });
   }) as typeof fetch;
   return { fetchImpl, seen };
@@ -94,7 +95,7 @@ test("run-kb REAL (ollama): English is scored from the fixture with no model cal
   assert.equal(r.result["report"].a2b.count, 1);
   assert.equal(r.result["report"].a2b.hits, 1, "the rewrite found the recorded query, so the Hinglish question hit");
   assert.match(outcome.markdown, /REAL run: model `glm-5.3-flash`/);
-  assert.match(outcome.markdown, /A2b Hindi\/Hinglish hit@3 \| 1\/1/);
+  assert.match(outcome.markdown, /A2b Hindi\/Hinglish rewrite-fidelity \(not Hit@3\) \| 1\/1/);
   assert.ok(!outcome.markdown.includes(KEY));
 });
 
@@ -115,7 +116,7 @@ function probeCases(dir: string): string {
     verdict,
     insufficient_coverage: insufficient,
     web_used: webUsed,
-    sources: { internal: internal.map((node_id) => ({ node_id })), web },
+    sources: { internal: internal.map((node_id) => ({ node_id, text: `KB passage text for ${node_id}` })), web },
   });
   return write(dir, "probes.json", {
     schemaVersion: 1,
@@ -161,6 +162,118 @@ test("run-probes REAL (ollama): a model that fabricates an answer for the out-of
   assert.deepEqual(rules, ["answered-without-source", "unservable-answered"]);
 });
 
+test("run-probes REAL (B1): a 30-case SYNTHETIC probe set with 0 violations is NOT PROVEN, never PASS; the same 30 cases declared 'recorded' (and --anonymised) can PASS", async () => {
+  const mk = (source: string) =>
+    write(tmp().dir, "p30.json", {
+      schemaVersion: 1,
+      source,
+      cases: Array.from({ length: 30 }, (_, i) => ({
+        id: `p-${i}`,
+        question: `question ${i}`,
+        expectServed: true,
+        ask: { answer: "x", verdict: "correct", insufficient_coverage: false, web_used: false, sources: { internal: [{ node_id: `n-${i}`, text: `passage ${i}` }], web: [] } },
+      })),
+    });
+  const honest = () =>
+    fakeOllama((_s, user) => ({ answer: "grounded", verdict: "correct", insufficient_coverage: false, web_used: false, source_node_ids: [(user["passages"] as { node_id: string }[])[0]!.node_id] }));
+  const syn = tmp();
+  const a = honest();
+  const outcome = await runProbes({ ...parseP1Args(["--real", `--cases=${mk("synthetic")}`]), outDir: syn.outDir, ledger: syn.ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl: a.fetchImpl });
+  const r = jsonReport(syn.outDir, "probes-report.json").result["report"];
+  assert.equal(a.seen.length, 30);
+  assert.equal(r.violations.length, 0);
+  assert.equal(r.total, 30);
+  assert.equal(r.verdict, "NOT PROVEN");
+  assert.equal(r.realBarMet, false);
+  assert.ok(!/\*\*PASS\*\*/.test(outcome.markdown));
+  assert.match(outcome.markdown, /synthetic set cannot prove A4/);
+
+  const rec = tmp();
+  const b = honest();
+  await runProbes({ ...parseP1Args(["--real", "--anonymised", `--cases=${mk("recorded")}`]), outDir: rec.outDir, ledger: rec.ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl: b.fetchImpl });
+  assert.equal(jsonReport(rec.outDir, "probes-report.json").result["report"].verdict, "PASS", "only provenance differs");
+});
+
+test("run-probes REAL (B2): the model is shown the probe's retrieved passage text, never the recorded /ask answer; a probe with internal sources but no passage text makes 0 requests and is counted as excluded", async () => {
+  const { dir, outDir, ledger } = tmp();
+  const ask = (internal: { node_id: string; text?: string }[]) => ({ answer: "RECORDED-ANSWER-MUST-NOT-LEAK", verdict: "correct", insufficient_coverage: false, web_used: false, sources: { internal, web: [] } });
+  const cases = write(dir, "probes.json", {
+    schemaVersion: 1,
+    source: "synthetic",
+    cases: [
+      { id: "p-text", question: "has text", expectServed: true, ask: ask([{ node_id: "n-1", text: "REAL PASSAGE BODY" }]) },
+      { id: "p-notext", question: "no text", expectServed: false, ask: ask([{ node_id: "n-2" }]) },
+      { id: "p-blank", question: "blank text", expectServed: false, ask: ask([{ node_id: "n-3", text: "   " }]) },
+      { id: "p-none", question: "no sources at all", expectServed: false, ask: ask([]) },
+    ],
+  });
+  const { fetchImpl, seen } = fakeOllama((_s, user) => {
+    const passages = user["passages"] as { node_id: string }[];
+    return passages.length > 0
+      ? { answer: "g", verdict: "correct", insufficient_coverage: false, web_used: false, source_node_ids: [passages[0]!.node_id] }
+      : { answer: "", verdict: "insufficient", insufficient_coverage: true, web_used: false, source_node_ids: [] };
+  });
+  const outcome = await runProbes({ ...parseP1Args(["--real", `--cases=${cases}`]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl });
+  assert.deepEqual(seen.map((x) => x.user["question"]), ["has text", "no sources at all"], "no request for the two probes without passage text");
+  assert.deepEqual(seen[0]!.user["passages"], [{ node_id: "n-1", text: "REAL PASSAGE BODY" }]);
+  assert.ok(!JSON.stringify(seen).includes("RECORDED-ANSWER-MUST-NOT-LEAK"));
+  assert.equal(charges(ledger), 2);
+  const res = jsonReport(outDir, "probes-report.json").result;
+  assert.deepEqual(res["excluded"].map((e: { id: string; reason: string }) => [e.id, e.reason]), [["p-notext", "no passage text"], ["p-blank", "no passage text"]]);
+  assert.equal(res["report"].total, 2, "excluded probes are not counted as scored");
+  assert.deepEqual(res["report"].violations, []);
+  assert.match(outcome.markdown, /2 probe\(s\) excluded: no passage text/);
+});
+
+test("run-probes REAL (B2): an honest model no longer mis-scores the shipped sample set (its probes have no passage text, so they are excluded, not failed)", async () => {
+  const { outDir, ledger } = tmp();
+  const { fetchImpl, seen } = fakeOllama((_s, user) => {
+    const passages = user["passages"] as { node_id: string }[];
+    return passages.length > 0
+      ? { answer: "g", verdict: "correct", insufficient_coverage: false, web_used: false, source_node_ids: [passages[0]!.node_id] }
+      : { answer: "", verdict: "insufficient", insufficient_coverage: true, web_used: false, source_node_ids: [] };
+  });
+  await runProbes({ ...parseP1Args(["--real"]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl });
+  const res = jsonReport(outDir, "probes-report.json").result;
+  assert.ok(seen.every((x) => (x.user["passages"] as unknown[]).length === 0), "no passage text anywhere in the sample");
+  assert.deepEqual(res["report"].violations.filter((v: { rule: string }) => v.rule === "unservable-answered"), []);
+  assert.notEqual(res["report"].verdict, "FAIL");
+  assert.notEqual(res["report"].verdict, "PASS");
+});
+
+// ---------------------------------------------------------------- G1 (B13/D-100): recorded input needs --anonymised
+test("G1: a REAL run refuses a source:'recorded' --fixture / --cases / --experts without --anonymised, before any ledger line or request; --anonymised lets it through", async () => {
+  const { dir, outDir, ledger } = tmp();
+  const { golden, fixture } = kbFiles(dir);
+  const recFixture = write(dir, "rec-fixture.json", JSON.parse(readFileSync(fixture, "utf-8").replace('"synthetic"', '"recorded"')));
+  const recCases = write(dir, "rec-cases.json", JSON.parse(readFileSync(probeCases(dir), "utf-8").replace('"synthetic"', '"recorded"')));
+  const recExperts = write(dir, "rec-experts.json", {
+    source: "recorded",
+    experts: [
+      { questionId: "g-en", text: "x", author: "author-1" },
+      { questionId: "g-hi", text: "y", author: "author-2" },
+    ],
+  });
+  const { fetchImpl, seen } = fakeOllama(() => ({ answer: "", english: "b", verdict: "insufficient", insufficient_coverage: true, web_used: false, source_node_ids: [] }));
+  const deps = { env: ENV, gateFile: GATE, now: NOW, fetchImpl };
+  const refuse = /source "recorded".*--anonymised/s;
+  await assert.rejects(runKb({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${recFixture}`]), outDir, ledger }, deps), refuse);
+  await assert.rejects(runLatency({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${recFixture}`]), outDir, ledger }, deps), refuse);
+  await assert.rejects(runH2h({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${recFixture}`]), outDir, ledger }, deps), refuse);
+  await assert.rejects(runH2h({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`, `--experts=${recExperts}`]), outDir, ledger }, deps), refuse);
+  await assert.rejects(runProbes({ ...parseP1Args(["--real", `--cases=${recCases}`]), outDir, ledger }, deps), refuse);
+  assert.equal(existsSync(ledger), false, "no ledger line");
+  assert.equal(seen.length, 0, "no request");
+
+  // the same input passes with the explicit confirmation
+  const ok = await runProbes({ ...parseP1Args(["--real", "--anonymised", `--cases=${recCases}`]), outDir, ledger }, deps);
+  assert.equal(ok.status, "completed");
+  assert.ok(seen.length > 0);
+  // mock mode is untouched by the guard
+  const mockRes = await runKb({ ...parseP1Args([`--golden=${golden}`, `--fixture=${recFixture}`]), outDir: tmp().outDir, ledger: tmp().ledger });
+  assert.equal(mockRes.mode, "mock");
+});
+
 // ---------------------------------------------------------------- run-latency (A8)
 test("run-latency REAL (ollama): 20 sequential answers through the provider, each charged; first-token is recorded as the full-answer bound", async () => {
   const { dir, outDir, ledger } = tmp();
@@ -176,6 +289,28 @@ test("run-latency REAL (ollama): 20 sequential answers through the provider, eac
   assert.equal(r["firstTokenBasis"], "full-answer (non-streamed)");
   assert.ok(Math.abs(r["summary"].firstToken.max - r["summary"].full.max) < 50, "first token is the full-answer time, not an invented smaller number");
   assert.match(outcome.markdown, /Mode: `real`/);
+});
+
+test("run-latency REAL (ollama): a delayed provider shows up in BOTH first-token and full time (a fabricated early first-token would be caught); the verdict is labelled model-hop only", async () => {
+  const { dir, outDir, ledger } = tmp();
+  const { golden, fixture } = kbFiles(dir);
+  const { fetchImpl } = fakeOllama(() => ({ answer: "slow answer" }), 60);
+  const outcome = await runLatency({ ...parseP1Args(["--real", `--golden=${golden}`, `--fixture=${fixture}`]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl });
+  const r = jsonReport(outDir, "latency-report.json").result;
+  assert.ok(r["summary"].firstToken.p50 >= 55, `first-token p50 ${r["summary"].firstToken.p50} must include the 60 ms model delay`);
+  assert.ok(r["summary"].full.p50 >= 55);
+  assert.equal(r["verdictScope"], "model-hop only");
+  assert.match(outcome.markdown, /\*\*(PASS|FAIL) \(model-hop only\)\*\*/);
+});
+
+test("run-latency REAL (ollama): an empty golden set is refused before the run starts (no ledger, no request)", async () => {
+  const { dir, outDir, ledger } = tmp();
+  const { fixture } = kbFiles(dir);
+  const empty = write(dir, "empty.jsonl", "");
+  const { fetchImpl, seen } = fakeOllama(() => ({ answer: "x" }));
+  await assert.rejects(runLatency({ ...parseP1Args(["--real", `--golden=${empty}`, `--fixture=${fixture}`]), outDir, ledger }, { env: ENV, gateFile: GATE, now: NOW, fetchImpl }), /no questions found|golden set is empty/);
+  assert.equal(existsSync(ledger), false);
+  assert.equal(seen.length, 0);
 });
 
 // ---------------------------------------------------------------- run-h2h (A14)

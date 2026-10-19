@@ -13,6 +13,7 @@ import {
   DEFAULT_GOLDEN_SET,
   DEFAULT_KB_FIXTURE,
   RealNotWiredError,
+  assertRealInputAllowed,
   RealReport,
   p1Main,
   runRealPath,
@@ -32,7 +33,12 @@ const MOCK_AUTHORS = ["author-1", "author-2"];
 const MOCK_JUDGES = ["judge-1", "judge-2"];
 
 const VcAnswerSchema = z.object({ answer: z.string().min(1) });
-const ExpertsFileSchema = z.array(z.object({ questionId: z.string().min(1), text: z.string().min(1), author: z.string().min(1) }));
+const ExpertAnswerSchema = z.object({ questionId: z.string().min(1), text: z.string().min(1), author: z.string().min(1) });
+/** `--experts` file: a bare array (counsellor-written answers), or `{source, experts}` so a file can declare it holds recorded (real) text. */
+const ExpertsFileSchema = z.union([
+  z.array(ExpertAnswerSchema).transform((experts) => ({ source: "synthetic" as const, experts })),
+  z.object({ source: z.enum(["synthetic", "recorded"]), experts: z.array(ExpertAnswerSchema) }),
+]);
 /** Eval-harness prompt (not a product skill). */
 const H2H_PROMPT =
   "You are a study-abroad counsellor's assistant. Answer the student's question using ONLY the supplied knowledge-base passages, in at most five sentences. " +
@@ -49,7 +55,10 @@ const H2H_PROMPT =
 export function realH2hBody(args: P1Args): RealBody {
   const golden = loadGoldenSet(args.golden ?? DEFAULT_GOLDEN_SET);
   const fixture = loadKbFixture(args.fixture ?? DEFAULT_KB_FIXTURE);
-  const provided = args.experts ? ExpertsFileSchema.parse(JSON.parse(readFileSync(args.experts, "utf-8"))) : undefined;
+  assertRealInputAllowed("run-h2h", "--fixture", fixture.source, args);
+  const expertsFile = args.experts ? ExpertsFileSchema.parse(JSON.parse(readFileSync(args.experts, "utf-8"))) : undefined;
+  if (expertsFile) assertRealInputAllowed("run-h2h", "--experts", expertsFile.source, args);
+  const provided = expertsFile?.experts;
   const experts: ExpertAnswer[] = golden.map((g, i) => {
     const given = provided?.find((e) => e.questionId === g.id);
     if (provided && !given) throw new Error(`run-h2h --experts: no expert answer for question ${g.id}`);

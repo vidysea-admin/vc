@@ -10,6 +10,7 @@ import { z } from "zod";
 import {
   DEFAULT_PROBE_SET,
   RealNotWiredError,
+  assertRealInputAllowed,
   RealReport,
   p1Main,
   runRealPath,
@@ -19,7 +20,7 @@ import {
   type RunnerDeps,
   type RunnerOutcome,
 } from "./run-eval.js";
-import { NO_SOURCED_ANSWER_TEXT, decideAnswer, isServable, parseProbeSet, scoreProbes, type AnswerResult, type AskLike } from "./probes.js";
+import { NO_SOURCED_ANSWER_TEXT, decideAnswer, isServable, parseProbeSet, scoreProbes, type AnswerResult, type AskLike, type ProbeCase } from "./probes.js";
 import { toProbesMarkdown } from "./report.js";
 
 const ModelAskSchema = z.object({
@@ -38,33 +39,51 @@ const PROBE_PROMPT =
 
 /**
  * U13b / A4 REAL body (VC_REAL_MODEL=ollama:<id>): each probe goes through `provider`, which sees only the
- * probe's recorded INTERNAL KB passages (none for an out-of-KB probe). The reply is judged by the same
- * serve rule and scorer as mock mode. A reply the rule would serve but that cites no supplied passage is
- * recorded as an answered-without-source violation (it is NOT quietly turned into a refusal).
+ * probe's retrieved INTERNAL KB passage TEXT from the probe set (`sources.internal[].text`), never the recorded
+ * /ask answer. A probe that lists internal sources but carries no passage text is EXCLUDED (0 requests, counted
+ * in the report): there is nothing real to show the model. A probe with no internal sources at all is a genuine
+ * out-of-KB probe and is sent with an empty passage list (the model must refuse). The reply is judged by the
+ * same serve rule and scorer as mock mode; a servable-looking reply that cites no supplied passage is recorded
+ * as an answered-without-source violation (NOT quietly turned into a refusal). A set whose source is not
+ * "recorded" can never print PASS (scoreProbes caps it at NOT PROVEN).
  */
 export function realProbesBody(args: P1Args): RealBody {
   const path = args.cases ?? DEFAULT_PROBE_SET;
   const set = parseProbeSet(readFileSync(path, "utf-8"), path);
+  assertRealInputAllowed("run-probes", "--cases", set.source, args);
+  const passagesOf = (c: ProbeCase): { node_id: string; text: string }[] =>
+    c.ask === "unavailable" ? [] : c.ask.sources.internal.filter((s) => (s.text ?? "").trim() !== "").map((s) => ({ node_id: s.node_id, text: s.text!.trim() }));
+  const hasSourcesWithoutText = (c: ProbeCase): boolean => c.ask !== "unavailable" && c.ask.sources.internal.length > 0 && passagesOf(c).length === 0;
+  const excluded = set.cases.filter(hasSourcesWithoutText).map((c) => ({ id: c.id, reason: "no passage text" }));
+  const scorable = set.cases.filter((c) => !hasSourcesWithoutText(c));
   return async (_run, provider) => {
     if (!provider) throw new RealNotWiredError("run-probes");
-    const report = await scoreProbes(set.cases, async (c): Promise<AnswerResult> => {
-      if (c.ask === "unavailable") return decideAnswer("unavailable");
-      const passages = c.ask.sources.internal.map((s) => ({ node_id: s.node_id, text: c.ask === "unavailable" ? "" : (c.ask.answer ?? "") }));
-      const out = await provider.generate({ skillName: "eval-probe-ask", skillPrompt: PROBE_PROMPT, outputSchema: ModelAskSchema, input: { question: c.question, passages } });
-      const known = new Set(passages.map((p) => p.node_id));
-      const cited = out.source_node_ids.filter((id) => known.has(id));
-      const modelAsk: AskLike = {
-        answer: out.answer,
-        verdict: out.verdict,
-        insufficient_coverage: out.insufficient_coverage,
-        web_used: out.web_used,
-        sources: { internal: cited.map((node_id) => ({ node_id })), web: [] },
-      };
-      if (!isServable(modelAsk)) return { status: "no_sourced_answer", text: NO_SOURCED_ANSWER_TEXT, sourceIds: [], webUsed: false };
-      return { status: "answered", text: out.answer, sourceIds: cited, webUsed: false };
-    });
-    const markdown = [`> REAL run: model \`${provider.model}\` answered ${set.cases.length} probe(s) from the recorded KB passages only.`, "", toProbesMarkdown(report, { mode: "real", source: set.source })].join("\n");
-    return new RealReport({ mode: "real", model: provider.model, source: set.source, report }, markdown);
+    const report = await scoreProbes(
+      scorable,
+      async (c): Promise<AnswerResult> => {
+        if (c.ask === "unavailable") return decideAnswer("unavailable");
+        const passages = passagesOf(c);
+        const out = await provider.generate({ skillName: "eval-probe-ask", skillPrompt: PROBE_PROMPT, outputSchema: ModelAskSchema, input: { question: c.question, passages } });
+        const known = new Set(passages.map((p) => p.node_id));
+        const cited = out.source_node_ids.filter((id) => known.has(id));
+        const modelAsk: AskLike = {
+          answer: out.answer,
+          verdict: out.verdict,
+          insufficient_coverage: out.insufficient_coverage,
+          web_used: out.web_used,
+          sources: { internal: cited.map((node_id) => ({ node_id })), web: [] },
+        };
+        if (!isServable(modelAsk)) return { status: "no_sourced_answer", text: NO_SOURCED_ANSWER_TEXT, sourceIds: [], webUsed: false };
+        return { status: "answered", text: out.answer, sourceIds: cited, webUsed: false };
+      },
+      { source: set.source },
+    );
+    const markdown = [
+      `> REAL run: model \`${provider.model}\` answered ${scorable.length} probe(s) from the probe set's retrieved passage text only; ${excluded.length} excluded (no passage text).`,
+      "",
+      toProbesMarkdown(report, { mode: "real", source: set.source, excluded: excluded.length }),
+    ].join("\n");
+    return new RealReport({ mode: "real", model: provider.model, source: set.source, excluded, report }, markdown);
   };
 }
 

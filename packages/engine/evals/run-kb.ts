@@ -11,6 +11,7 @@ import {
   DEFAULT_GOLDEN_SET,
   DEFAULT_KB_FIXTURE,
   RealNotWiredError,
+  assertRealInputAllowed,
   RealReport,
   p1Main,
   runRealPath,
@@ -60,6 +61,7 @@ export function nearestRecordedSearch(fixture: KbFixture, text: string): KbHit[]
 export function realKbBody(args: P1Args): RealBody {
   const golden = loadGoldenSet(args.golden ?? DEFAULT_GOLDEN_SET);
   const fixture = loadKbFixture(args.fixture ?? DEFAULT_KB_FIXTURE);
+  assertRealInputAllowed("run-kb", "--fixture", fixture.source, args);
   return async (_run, provider) => {
     if (!provider) throw new RealNotWiredError("run-kb");
     const nonEnglish = new Set(golden.filter((q) => q.lang !== "en").map((q) => q.question));
@@ -75,9 +77,9 @@ export function realKbBody(args: P1Args): RealBody {
       { fixtureSource: fixture.source },
     );
     const markdown = [
-      `> REAL run: model \`${provider.model}\` rewrote ${Object.keys(rewrites).length} Hindi/Hinglish question(s) to English; retrieval is the frozen fixture (\`${fixture.source}\`), not a live KB.`,
+      `> REAL run: model \`${provider.model}\` rewrote ${Object.keys(rewrites).length} Hindi/Hinglish question(s) to English; retrieval is the frozen fixture (\`${fixture.source}\`), not a live KB. The A2b number below is rewrite-fidelity (did the rewrite land on a recorded query whose hits contain the gold turn), NOT live Hit@3.`,
       "",
-      toKbMarkdown(report),
+      toKbMarkdown(report, { a2bLabel: "A2b Hindi/Hinglish rewrite-fidelity (not Hit@3)" }),
     ].join("\n");
     return new RealReport({ mode: "real", model: provider.model, rewrites, report }, markdown);
   };

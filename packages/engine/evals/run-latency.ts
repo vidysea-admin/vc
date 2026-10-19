@@ -10,6 +10,7 @@ import {
   DEFAULT_GOLDEN_SET,
   DEFAULT_KB_FIXTURE,
   RealNotWiredError,
+  assertRealInputAllowed,
   RealReport,
   p1Main,
   runRealPath,
@@ -38,6 +39,8 @@ const LATENCY_PROMPT =
 export function realLatencyBody(args: P1Args): RealBody {
   const golden = loadGoldenSet(args.golden ?? DEFAULT_GOLDEN_SET);
   const fixture = loadKbFixture(args.fixture ?? DEFAULT_KB_FIXTURE);
+  if (golden.length === 0) throw new Error("run-latency --real: the golden set is empty; refusing before the run starts");
+  assertRealInputAllowed("run-latency", "--fixture", fixture.source, args);
   return async (_run, provider) => {
     if (!provider) throw new RealNotWiredError("run-latency");
     const samples: LatencySample[] = [];
@@ -57,11 +60,11 @@ export function realLatencyBody(args: P1Args): RealBody {
     const summary = summarizeLatency(samples);
     const verdict = evaluateA8(summary, { real: true });
     const markdown = [
-      `> REAL run: model \`${provider.model}\`, ${samples.length} sequential non-streamed answers. First-token latency is recorded equal to full-answer latency (no streaming), a conservative upper bound.`,
+      `> REAL run: model \`${provider.model}\`, ${samples.length} sequential non-streamed answers. First-token latency is recorded equal to full-answer latency (no streaming), a conservative upper bound. The verdict covers the model hop only (no KB search, no engine, no network path to the student).`,
       "",
-      toLatencyMarkdown(summary, verdict, { mode: "real" }),
+      toLatencyMarkdown(summary, verdict, { mode: "real", scope: "model-hop only" }),
     ].join("\n");
-    return new RealReport({ mode: "real", model: provider.model, firstTokenBasis: "full-answer (non-streamed)", summary, verdict }, markdown);
+    return new RealReport({ mode: "real", model: provider.model, firstTokenBasis: "full-answer (non-streamed)", verdictScope: "model-hop only", summary, verdict }, markdown);
   };
 }
 
