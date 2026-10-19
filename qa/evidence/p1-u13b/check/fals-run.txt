@@ -1,0 +1,75 @@
+warning: in the working copy of 'packages/providers/src/index.ts', LF will be replaced by CRLF the next time Git touches it
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+== F1-C1 providers ollama.test.ts
+✖ request shape: POST {base}/api/chat, Bearer key, model, system+user messages, stream off, JSON format (6.8083ms)
+✖ custom base URL is used and a trailing slash is tolerated (1.3104ms)
+✖ prepareOllamaProvider: price override env works, bad overrides are refused; table entries resolve; base URL env is honoured (1.3508ms)
+ℹ pass 10
+ℹ fail 3
+✖ failing tests:
+✖ request shape: POST {base}/api/chat, Bearer key, model, system+user messages, stream off, JSON format (6.8083ms)
+✖ custom base URL is used and a trailing slash is tolerated (1.3104ms)
+✖ prepareOllamaProvider: price override env works, bad overrides are refused; table entries resolve; base URL env is honoured (1.3508ms)
+== F1-C1 engine p1-runners.test.ts
+      2 ✖ run-probes: U13b VC_REAL_MODEL=ollama:<id> hands the body an Ollama provider; each request is charged to the ledger BEFORE it is sent (14.284ms)
+      2 ✖ run-live: U13b VC_REAL_MODEL=ollama:<id> hands the body an Ollama provider; each request is charged to the ledger BEFORE it is sent (15.1805ms)
+      2 ✖ run-latency: U13b VC_REAL_MODEL=ollama:<id> hands the body an Ollama provider; each request is charged to the ledger BEFORE it is sent (13.8484ms)
+      2 ✖ run-kb: U13b VC_REAL_MODEL=ollama:<id> hands the body an Ollama provider; each request is charged to the ledger BEFORE it is sent (28.2203ms)
+      2 ✖ run-h2h: U13b VC_REAL_MODEL=ollama:<id> hands the body an Ollama provider; each request is charged to the ledger BEFORE it is sent (16.3927ms)
+      1 ✖ failing tests:
+      1 ℹ pass 46
+      1 ℹ fail 5
+warning: in the working copy of 'packages/engine/evals/run-eval.ts', LF will be replaced by CRLF the next time Git touches it
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+== F2-C2 providers ollama.test.ts
+ℹ pass 13
+ℹ fail 0
+== F2-C2 engine p1-runners.test.ts
+      2 ✖ run-probes: U13b the USD 50 per-run cap stops an Ollama run before the request that would pass it is sent (4.7963ms)
+      2 ✖ run-probes: U13b VC_REAL_MODEL=ollama:<id> hands the body an Ollama provider; each request is charged to the ledger BEFORE it is sent (4.1479ms)
+      2 ✖ run-live: U13b the USD 50 per-run cap stops an Ollama run before the request that would pass it is sent (5.3088ms)
+      2 ✖ run-live: U13b VC_REAL_MODEL=ollama:<id> hands the body an Ollama provider; each request is charged to the ledger BEFORE it is sent (3.6324ms)
+      2 ✖ run-latency: U13b the USD 50 per-run cap stops an Ollama run before the request that would pass it is sent (3.8348ms)
+      2 ✖ run-latency: U13b VC_REAL_MODEL=ollama:<id> hands the body an Ollama provider; each request is charged to the ledger BEFORE it is sent (4.6208ms)
+      2 ✖ run-kb: U13b the USD 50 per-run cap stops an Ollama run before the request that would pass it is sent (4.0404ms)
+      2 ✖ run-kb: U13b VC_REAL_MODEL=ollama:<id> hands the body an Ollama provider; each request is charged to the ledger BEFORE it is sent (4.8161ms)
+warning: in the working copy of 'packages/providers/src/index.ts', LF will be replaced by CRLF the next time Git touches it
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+== F3-C3-zero-price-override providers ollama.test.ts
+✖ prepareOllamaProvider: price override env works, bad overrides are refused; table entries resolve; base URL env is honoured (1.7632ms)
+ℹ pass 12
+ℹ fail 1
+✖ failing tests:
+✖ prepareOllamaProvider: price override env works, bad overrides are refused; table entries resolve; base URL env is honoured (1.7632ms)
+== F3-C3-zero-price-override engine p1-runners.test.ts
+      1 ℹ pass 51
+      1 ℹ fail 0
+warning: in the working copy of 'packages/engine/evals/run-eval.ts', LF will be replaced by CRLF the next time Git touches it
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+== F3b-C3-undercount providers ollama.test.ts
+ℹ pass 13
+ℹ fail 0
+== F3b-C3-undercount engine p1-runners.test.ts
+      2 ✖ run-probes: U13b the USD 50 per-run cap stops an Ollama run before the request that would pass it is sent (18.178ms)
+      2 ✖ run-live: U13b the USD 50 per-run cap stops an Ollama run before the request that would pass it is sent (19.3504ms)
+      2 ✖ run-latency: U13b the USD 50 per-run cap stops an Ollama run before the request that would pass it is sent (16.7312ms)
+      2 ✖ run-kb: U13b the USD 50 per-run cap stops an Ollama run before the request that would pass it is sent (23.1297ms)
+      2 ✖ run-h2h: U13b the USD 50 per-run cap stops an Ollama run before the request that would pass it is sent (20.3409ms)
+      2 ✖ U13b the USD 200 per-month cap also stops Ollama runs across runs (50.713ms)
+      1 ✖ failing tests:
+      1 ℹ pass 45
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+AssertionError: pattern count 2
+MUTATION NOT APPLIED
+warning: in the working copy of 'packages/providers/src/index.ts', LF will be replaced by CRLF the next time Git touches it
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+== F5-C5-http-not-checked providers ollama.test.ts
+✖ error path: non-2xx -> OllamaHttpError carrying the status; network failure -> OllamaNetworkError; neither leaks the key (6.8048ms)
+ℹ pass 12
+ℹ fail 1
+✖ failing tests:
+✖ error path: non-2xx -> OllamaHttpError carrying the status; network failure -> OllamaNetworkError; neither leaks the key (6.8048ms)
+== F5-C5-http-not-checked engine p1-runners.test.ts
+      1 ℹ pass 51
+      1 ℹ fail 0

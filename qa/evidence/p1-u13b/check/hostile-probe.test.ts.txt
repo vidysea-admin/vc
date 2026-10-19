@@ -1,0 +1,75 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { z } from "zod";
+import { parseP1Args } from "./run-eval.js";
+import { runKb } from "./run-kb.js";
+import { readLedger, monthSpendUsd } from "./budget.js";
+import { OllamaProvider } from "@vc/providers";
+
+const NOW = () => new Date("2026-10-17T10:00:00Z");
+const GATE = (() => { const p = join(mkdtempSync(join(tmpdir(), "chk-gate-")), "g.md"); writeFileSync(p, "# G-REAL\n\nAnswered: 2026-10-17T00:00:00+05:30 - A - Umesh\n"); return p; })();
+const tmp = () => { const d = mkdtempSync(join(tmpdir(), "chk-run-")); return { outDir: join(d, "r"), ledger: join(d, "l.jsonl") }; };
+const KEY = "chk-secret-KEY-123";
+function fake() { const calls: string[] = []; const fetchImpl = (async (u: unknown) => { calls.push(String(u)); return new Response(JSON.stringify({ message: { content: '{"answer":"ok"}' } })); }) as typeof fetch; return { fetchImpl, calls }; }
+const S = z.object({ answer: z.string() });
+const base = { VC_G_REAL: "1", VC_REAL_MODEL: "ollama:glm-5.3-flash", OLLAMA_API_KEY: KEY };
+
+async function attempt(env: Record<string, string>, ask = false) {
+  const { outDir, ledger } = tmp(); const f = fake();
+  try {
+    const o = await runKb({ ...parseP1Args(["--real"]), outDir, ledger }, { env, gateFile: GATE, now: NOW, fetchImpl: f.fetchImpl,
+      realBody: async (_b, p) => { if (ask && p) await p.generate({ skillName: "s", skillPrompt: "P", outputSchema: S, input: { q: 1 } } as never); return { gotProvider: p?.kind ?? null }; } });
+    return { ok: true as const, status: o.status, ledger: existsSync(ledger), spent: existsSync(ledger) ? monthSpendUsd(readLedger(ledger), NOW()) : 0, calls: f.calls.length, led: existsSync(ledger) ? readFileSync(ledger, "utf-8") : "" };
+  } catch (e) { return { ok: false as const, err: (e as Error).name + ": " + (e as Error).message, ledger: existsSync(ledger), calls: f.calls.length }; }
+}
+
+test("H1 VC_G_REAL unset -> refuses, no ledger, no request", async () => {
+  const r = await attempt({ VC_REAL_MODEL: base.VC_REAL_MODEL, OLLAMA_API_KEY: KEY }, true);
+  console.log("H1", JSON.stringify(r)); assert.equal(r.ok, false); assert.equal(r.ledger, false); assert.equal(r.calls, 0);
+});
+test("H2 hostile prices refuse before ledger/request", async () => {
+  for (const p of ["0,0", "0,1", "1,0", "-1,-1", "NaN,1", "1,NaN", "Infinity,1", "1,-Infinity", "  ,  ", ",", "1e999,1", "0x0,1", "0,0,0", "free"]) {
+    const r = await attempt({ ...base, OLLAMA_PRICE_USD_PER_MTOK: p }, true);
+    console.log("H2", JSON.stringify(p), r.ok ? "ACCEPTED" : "refused", r.ledger, r.calls);
+    assert.equal(r.ok, false, p); assert.equal(r.ledger, false, p); assert.equal(r.calls, 0, p);
+    if (!r.ok) assert.ok(!r.err.includes(KEY));
+  }
+});
+test("H3 VC_REAL_MODEL spelling variants (record behaviour)", async () => {
+  for (const m of [" ollama:glm-5.3-flash ", "OLLAMA:glm-5.3-flash", "Ollama:glm-5.3-flash", "ollama:GLM-5.3-flash", "Gemini", " gemini", "gemini ", "GEMINI", "ollama: glm-5.3-flash", "ollama:glm-5.3-flash:cloud", "ollama:", "ollama:  ", "ollama:__proto__", "ollama:toString"]) {
+    const r = await attempt({ ...base, VC_REAL_MODEL: m }, true);
+    console.log("H3", JSON.stringify(m), r.ok ? `ok status=${r.status} calls=${r.calls} ledger=${r.ledger}` : `refused ${r.err.slice(0, 70)} ledger=${r.ledger} calls=${r.calls}`);
+    if (!r.ok) { assert.equal(r.ledger, false, m); assert.equal(r.calls, 0, m); }
+  }
+});
+test("H4 key edge cases", async () => {
+  for (const k of ["", "   "]) {
+    const r = await attempt({ ...base, OLLAMA_API_KEY: k }, true);
+    console.log("H4", JSON.stringify(k), r.ok ? `ACCEPTED calls=${r.calls}` : `refused ledger=${r.ledger} calls=${r.calls}`);
+  }
+});
+test("H5 key never in ledger/error on success, http error, network error", async () => {
+  const ok = await attempt(base, true); assert.ok(ok.ok); if (ok.ok) assert.ok(!ok.led.includes(KEY));
+  const { outDir, ledger } = tmp();
+  for (const mode of ["500", "net"]) {
+    const fetchImpl = (async () => { if (mode === "net") throw new TypeError("fetch failed"); return new Response("x", { status: 500 }); }) as typeof fetch;
+    const o = await runKb({ ...parseP1Args(["--real"]), outDir, ledger }, { env: base, gateFile: GATE, now: NOW, fetchImpl,
+      realBody: async (_b, p) => p!.generate({ skillName: "s", skillPrompt: "P", outputSchema: S, input: { q: 1 } } as never) }).then((x) => JSON.stringify(x), (e: Error) => `${e.name}:${e.message}`);
+    console.log("H5", mode, o.slice(0, 160)); assert.ok(!o.includes(KEY));
+  }
+  assert.ok(!readFileSync(ledger, "utf-8").includes(KEY));
+});
+test("H6 tiny positive price is accepted and ~free (record)", async () => {
+  const r = await attempt({ ...base, OLLAMA_PRICE_USD_PER_MTOK: "1e-300,1e-300" }, true);
+  console.log("H6", JSON.stringify({ ...r, led: undefined }));
+});
+test("H7 estimate vs real token upper bound for Devanagari/Hinglish (record)", async () => {
+  const hindi = "मुझे इंजीनियरिंग में दाखिला लेना है, कृपया फीस बताइए ".repeat(20);
+  let est: { estimatedInputTokens: number } | undefined;
+  const p = new OllamaProvider({ model: "m", apiKey: "k", price: { inputUsdPerMTok: 1, outputUsdPerMTok: 1 }, beforeRequest: (e) => { est = e; }, fetchImpl: fake().fetchImpl });
+  await p.generate({ skillName: "s", skillPrompt: "P", outputSchema: S, input: { q: hindi } } as never);
+  console.log("H7 chars", hindi.length, "utf8bytes", Buffer.byteLength(hindi), "estimatedInputTokens", est!.estimatedInputTokens);
+});
