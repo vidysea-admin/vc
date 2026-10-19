@@ -176,9 +176,12 @@ export function loadConcernClassifierConfig(env: ConcernClassifierEnv): ConcernC
 /**
  * The provider config for the classifier: the deployment's own provider config with the model
  * swapped for the classifier tier. A litellm failover chain is dropped on purpose — the classifier is
- * off the live path and fails open to escalation, so one bounded attempt is the right cost.
+ * off the live path and fails open to escalation, so one bounded attempt is the right cost. An ollama text-chain base is refused (see below).
  */
 export function concernClassifierProviderConfig(base: ProviderConfig, config: Pick<ConcernClassifierConfig, "model">): ProviderConfig {
+  // P1 LK1w (D-105 Q4): the classifier stays on its own model until its own eval passes on the text chain. An ollama chain base would be kept
+  // as-is below (its `chain` ignores the model swap), silently moving the classifier onto the chain, so it is refused.
+  if (base.provider === "ollama") throw new Error("concernClassifierProviderConfig: the ollama text chain is not a classifier base (D-105 Q4); the classifier keeps its own provider config");
   if (base.provider === "litellm") {
     const { models: _chain, maxAttempts: _budget, ...single } = base;
     return { ...single, model: config.model };

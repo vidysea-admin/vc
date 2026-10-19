@@ -24,7 +24,7 @@ import {
 } from "../src/anonymous.js";
 import { createFakeMongoClient } from "@vc/db/testing";
 import { VC_DB_NAME } from "@vc/db";
-import { APPROVER, NOW, SKILLS_DIR, SPEAKERS, anonRequest, anonWorld, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb } from "./anonymous-fixtures.js";
+import { APPROVER, CHAIN_ENV, GOOD_CLAIM, NOW, SKILLS_DIR, SPEAKERS, anonRequest, anonWorld, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb, stubOllamaFetch } from "./anonymous-fixtures.js";
 
 const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
 const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -332,4 +332,53 @@ test("U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 th
   for (const code of ["200", "400", "405", "413", "429", "500"]) assert.ok(code in op.responses, `response ${code} documented`);
   const err = (STUDENT_API_DRAFT.components.schemas.AnonymousError as { properties: Record<string, unknown> });
   assert.ok("helpline" in err.properties);
+});
+
+// P1 LK1w: the anonymous route is a student surface, so it runs on the text chain when VC_TEXT_CHAIN is set; crisisGuard still runs first.
+async function anonymousOverHttp(env: Record<string, string | undefined>, text: string, scribe: ReturnType<typeof kbAnswerProvider>) {
+  const fake = createFakeMongoClient();
+  const f = gatesFixture();
+  const api = await startApi(
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true", ...env },
+    { clientFactory: () => fake.client, http: { port: 0, verifier, provider: scribe, skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, trustSocketAddress: true } } },
+  );
+  try {
+    const res = await fetch(`http://127.0.0.1:${api.port}${ANONYMOUS_PATH}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
+    assert.equal(res.status, 200);
+    return (await res.json()) as { state: string };
+  } finally {
+    await api.stop();
+    cleanupGates(f);
+  }
+}
+
+test("LK1w: VC_TEXT_CHAIN set -> an anonymous question is answered by the chain and not by the injected provider; a crisis text still escalates with zero model calls", async () => {
+  const stub = stubOllamaFetch({ claims: [GOOD_CLAIM] });
+  const scribe = kbAnswerProvider();
+  try {
+    const ok = await anonymousOverHttp(CHAIN_ENV, "What are the tuition fees for public universities in Germany?", scribe);
+    assert.equal(ok.state, "ok");
+    assert.ok(stub.calls.length >= 1, "the chain hop was called");
+    assert.equal(scribe.calls.length, 0);
+    const before = stub.calls.length;
+    const crisis = await anonymousOverHttp(CHAIN_ENV, "I want to kill myself", scribe);
+    assert.equal(crisis.state, "escalated");
+    assert.equal(stub.calls.length, before, "crisisGuard runs first on the original text: no chain call for a crisis turn");
+    assert.equal(scribe.calls.length, 0);
+  } finally {
+    stub.restore();
+  }
+});
+
+test("LK1w: VC_TEXT_CHAIN unset -> the anonymous route uses the current provider and nothing goes to Ollama", async () => {
+  const stub = stubOllamaFetch({ claims: [GOOD_CLAIM] });
+  const scribe = kbAnswerProvider();
+  try {
+    const ok = await anonymousOverHttp({}, "What are the tuition fees for public universities in Germany?", scribe);
+    assert.equal(ok.state, "ok");
+    assert.ok(scribe.calls.length >= 1);
+    assert.equal(stub.calls.length, 0);
+  } finally {
+    stub.restore();
+  }
 });

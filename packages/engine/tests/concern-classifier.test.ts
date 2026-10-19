@@ -129,6 +129,19 @@ test("T-012 config: the classifier's provider config swaps in the tier model and
   assert.deepEqual(mock, { provider: "mock", model: "flash-lite" });
 });
 
+test("P1 LK1w config: an ollama text-chain base is refused, never kept (the classifier stays off the chain until its own eval, D-105 Q4)", () => {
+  const chainBase: ProviderConfig = {
+    provider: "ollama",
+    model: "glm-5.3-flash",
+    apiKey: "synthetic-key-not-real",
+    chain: [
+      { model: "glm-5.3-flash", inputUsdPerMTok: 1, outputUsdPerMTok: 4 },
+      { model: "deepseek-v4.1-flash", inputUsdPerMTok: 1, outputUsdPerMTok: 4 },
+    ],
+  };
+  assert.throws(() => concernClassifierProviderConfig(chainBase, { model: "flash-lite" }), /ollama/i);
+});
+
 // ---------------------------------------------------------------------------
 // selection
 // ---------------------------------------------------------------------------
