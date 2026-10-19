@@ -3,7 +3,7 @@
 **Criteria:** ISS-260, ISS-261, ISS-262, ISS-263
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** merged-no-check (test-lane)
 **Fix cycle:** 0
 **Dual check:** no (test and docs only; no src change)
 **Persona walk:** skip (no screen)
