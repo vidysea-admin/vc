@@ -109,6 +109,19 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 - [ ] CANDIDATE · priority: privacy · ISS-198 (medium): a lower-case one-letter initial before a name leaves the name unredacted ('my name is s. kumar', 'i am j. r. d. tata', 'my name is a. p. j. abdul kalam'; 'my name is dr. s. kumar' keeps the surname); packages/schemas/src/redact.ts:152-160 (isLowerNameToken length < 2 ends the run). Found by U8r checker A (cycle 2). Source: qa/verdicts/p1-u8r-chat-privacy.A.md P2.
 - [ ] CANDIDATE · priority: safety · ISS-194 (medium): the crisis guard's study-then-distress rescue depends on detector vocabulary; "I don't see the point in continuing college, <tail>" is none for tails such as "I feel so lost", "nothing is worth it", "I feel trapped", "everyone would be better off", "i just want it all to stop", "I cant breathe" (each tail is also none alone; a general vocabulary gap, crisis at base 559a421). Human approval needed (product call under D-020). Fix: extend POINT_DISTRESS/CONCERN, or let a study object suppress only when the rest is study-only. Source: qa/evidence/p1-briefs/p1-eng3-c3-review-result.md.
 
+Raised by the U6w rank-wiring dual check and senior reviews (2026-10-19, ISS-208..ISS-217; dual PASS 02a187c/64f53f9, reviews cycle 0 Warning and cycle 1 Approve); ISS-163 is fixed by this unit; none is a TODO row, the human picks. All low. Sources: qa/verdicts/p1-u6w-rank-wiring.A.md, qa/verdicts/p1-u6w-rank-wiring.B.md, qa/evidence/p1-briefs/p1-u6w-review-result.md, qa/evidence/p1-briefs/p1-u6w-c1-review-result.md.
+
+- [ ] CANDIDATE · ISS-208 (low): no deadline on the ranking callbacks (optionIds, weightsForTenant, option port); a hang holds the turn lease.
+- [ ] CANDIDATE · ISS-209 (low): the Pathlynks profile is fetched twice per rank turn; reuse the first read.
+- [ ] CANDIDATE · ISS-210 (low): a generic "X vs Y" question triggers rank_options once deps.ranking is wired (classify.ts:113).
+- [ ] CANDIDATE · ISS-211 (low): deps.extractFacts still gets the unredacted live response incl. ranked claims and profileFactsUsed; confirm it proposes facts only from student text.
+- [ ] CANDIDATE · ISS-212 (low, wording): the chat.ts comment and manifest C7 say a textless turn cannot pick rank_options; the graph does, the persistText gate is the guard.
+- [ ] CANDIDATE · ISS-213 (low): OptionDataPort.get(optionId) takes no tenant argument; a real adapter needs a tenant wrapper.
+- [ ] CANDIDATE · ISS-214 (low): index.ts:324 creates the chat API without ranking and no owner is named for wiring it (ranking dormant, numbers NOT PROVEN per ISS-167).
+- [ ] CANDIDATE · ISS-215 (low): rank.ts:264 still emits "attributed" for ranked numbers; only the api path overrides it to "unverified".
+- [ ] CANDIDATE · ISS-216 (low): the unverified_claim gap counter now fires on every ranked turn, mixing KB-gap and ranking-number signals.
+- [ ] CANDIDATE · ISS-217 (low, test gaps): no repo test for invalid_weights refusal, stress/helpline suffix on a ranked turn, replayed ranked clientTurnId, the 8000-char cap, profileDown skipping ranking, or a non-number ranker claim staying unlabeled.
+
 Raised by the p1-eng3 crisis-leftovers check and reviews (2026-10-19, ISS-183..ISS-197; PASS f81a995, senior reviews cycle 2 and 3 Warning); none is a TODO row, the human picks. Sources: qa/verdicts/p1-eng3-crisis-leftovers.md, qa/evidence/p1-briefs/p1-eng3-c2-review-result.md, qa/evidence/p1-briefs/p1-eng3-c3-review-result.md. ISS-183, 184, 189 and 191 are closed.
 
 - [ ] CANDIDATE · ISS-185 (medium): crisis recall misses some spelling variants (partly fixed: "marna h", "marnaa hai", "kmss" now fire).
