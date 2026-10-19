@@ -1,0 +1,24 @@
+== k1 src/student/lang.ts
+green-before: ℹ tests 34 ℹ pass 34 ℹ fail 0 
+edited D:/chk-tmp/fals/k1/packages/engine/src/student/lang.ts
+red-after:    ✖ R1 drift: no replyLang from the model, or localized in the wrong script -> the English reply (48.0534ms) ℹ tests 34 ℹ pass 33 ℹ fail 1 ✖ failing tests: ✖ R1 drift: no replyLang from the model, or localized in the wrong script -> the English reply (48.0534ms) 
+== k2 src/student/graph.ts
+green-before: ℹ tests 34 ℹ pass 34 ℹ fail 0 
+edited D:/chk-tmp/fals/k2/packages/engine/src/student/graph.ts
+red-after:    ✖ R2 an English turn makes no rewrite call (25.4467ms) ℹ tests 34 ℹ pass 33 ℹ fail 1 ✖ failing tests: ✖ R2 an English turn makes no rewrite call (25.4467ms) 
+== k3 src/guards/concern-classifier.ts
+green-before: ℹ tests 34 ℹ pass 34 ℹ fail 0 
+edited D:/chk-tmp/fals/k3/packages/engine/src/guards/concern-classifier.ts
+red-after:    ✖ R3 'possible' (severity at or above the escalation threshold) returns the fixed crisis message and nothing of the answer; flag log and escalation run (17.9573ms) ℹ tests 34 ℹ pass 33 ℹ fail 1 ✖ failing tests: ✖ R3 'possible' (severity at or above the escalation threshold) returns the fixed crisis message and nothing of the answer; flag log and escalation run (17.9573ms) 
+== k4 src/student/lang.ts
+green-before: ℹ tests 34 ℹ pass 34 ℹ fail 0 
+edited D:/chk-tmp/fals/k4/packages/engine/src/student/lang.ts
+red-after:    ✖ R4 a Tamil turn (outside the allow-list) gets an English reply that carries the English+Hindi helpline line (22.7585ms) ✖ R4 a no-answer and a provider failure in an uncovered language carry it too; an anonymous non-answer gets the Hindi gloss added once (17.4149ms) ✖ R4 allow-listed languages and English do not get the extra line; an unlisted-by-narrowing language does (63.5792ms) ℹ tests 34 ℹ pass 31 ℹ fail 3 ✖ failing tests: ✖ R4 a Tamil turn (outside the allow-list) gets an English reply that carries the English+Hindi helpline line (22.7585ms) ✖ R4 a no-answer and a provider failure in an uncovered language carry it too; an anonymous non-answer gets the Hindi gloss added once (17.4149ms) ✖ R4 allow-listed languages and English do not get the extra line; an unlisted-by-narrowing language does (63.5792ms) 
+== k5 src/student/lang.ts
+green-before: ℹ tests 34 ℹ pass 34 ℹ fail 0 
+edited D:/chk-tmp/fals/k5/packages/engine/src/student/lang.ts
+red-after:    ✖ D a provider that resolves null falls back to the offline result (0.353ms) ℹ tests 34 ℹ pass 33 ℹ fail 1 ✖ failing tests: ✖ D a provider that resolves null falls back to the offline result (0.353ms) 
+== k6 src/student/lang.ts
+green-before: ℹ tests 34 ℹ pass 34 ℹ fail 0 
+edited D:/chk-tmp/fals/k6/packages/engine/src/student/lang.ts
+red-after:    ✖ D dropped VC_REPLY_LANGS entries are reported by tag only; supported ones are kept; nothing is reported when all are valid (2.9284ms) ✖ D the default dropped-entry logger writes the tags, never anything else, to the console (1.1643ms) ℹ tests 34 ℹ pass 32 ℹ fail 2 ✖ failing tests: ✖ D dropped VC_REPLY_LANGS entries are reported by tag only; supported ones are kept; nothing is reported when all are valid (2.9284ms) ✖ D the default dropped-entry logger writes the tags, never anything else, to the console (1.1643ms) 

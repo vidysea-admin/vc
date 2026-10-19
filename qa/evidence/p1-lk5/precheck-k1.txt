@@ -1,0 +1,47 @@
+[testlock] waiting for lock held by: PID=36944 STARTED=639280248754425700 ACQUIRED_AT=1792408311 TOKEN=1792408311759358000-492658-28200 DESC=bash -c cd D:/vc/.worktrees/lk1w/apps/api && npx tsx --test tests/chat-profile.test.ts tests/anonymous-route.test.ts 2>&1 | tail -60; cd ../../packages/engine && npx tsx --test tests/concern-classifier.test.ts 2>&1 | grep -E '^# (tests|pass|fail)|not ok' 
+[testlock] running slot 1 (free RAM 4.5 GB): pnpm -C D:/vc/.worktrees/lk5/packages/engine exec tsx --test --test-timeout=30000 tests/lk5.test.ts
+✔ R1 the answer prompt input carries replyLang (the resolved reply language), and the Hindi reply is the localized text (279.0503ms)
+✔ R1 an English turn is told replyLang en and shows the English claim even if the model sends a localized copy (38.5527ms)
+✔ R1 Hinglish gets the Latin-script localized text (16.4603ms)
+✔ R1 the guards still run on the ENGLISH claim: an unsupported English claim is not shown even with a perfect localized copy (43.2682ms)
+✔ R1 drift: the model reports another language than the one asked -> the English reply (16.026ms)
+✔ R1 drift: no replyLang from the model, or localized in the wrong script -> the English reply (61.0181ms)
+✔ R1 number parity: a localized copy that changes, adds or drops a number is not shown (Devanagari digits count as the same number) (118.8463ms)
+✔ R1 a verbatim 8-word run of restricted (WhatsApp) text inside the localized copy is not shown (19.9888ms)
+✔ R1 a URL or e-mail that the English claim does not carry is not shown (16.5689ms)
+✔ R1 narrowing VC_REPLY_LANGS to en gives an English reply even for a Hindi turn (15.5325ms)
+✔ R1 the follow-up: localized when it passes, omitted (never mixed in English) in a non-English reply when it does not (45.0567ms)
+✔ R2 a non-English turn searches the KB with the English rewrite; the ask fallback and the answer prompt keep the original (52.6494ms)
+✔ R2 an English turn makes no rewrite call (18.8438ms)
+[student-graph] safety_screen write failed (ModelOutputSchemaError)
+✔ R2 a rewrite that fails (error, empty, hang) falls back to the original text and the turn is still answered (116.4979ms)
+✔ R3 a clear screen releases the normal answer; the screen sees the original text with guardLevel none (26.7815ms)
+✔ R3 'possible' (severity at or above the escalation threshold) returns the fixed crisis message and nothing of the answer; flag log and escalation run (22.5975ms)
+✔ R3 low and moderate severities do not block the answer (41.7337ms)
+✔ R3 a screen error returns the fixed crisis message (fail closed), without a flag log or an escalation for an outage (18.8534ms)
+✔ R3 invalid screen output (schema) is an error too: fixed crisis message (16.5932ms)
+[student-graph] safety_screen write failed (ConcernClassifierTimeoutError)
+✔ R3 a screen that never answers times out to the fixed crisis message (70.5144ms)
+✔ R3 the screen runs in PARALLEL with the answer call (the answer waits for the screen to have started) (18.759ms)
+✔ R3 the answer is HELD until the screen returns: a finished answer is not released while the screen is pending, and 'possible' replaces it (311.0764ms)
+✔ R3 default ON for authenticated turns, OFF for anonymous turns; both switchable (68.7563ms)
+✔ R3 an anonymous 'possible' gives the anonymous crisis message and counts a crisis, not an answer (14.3373ms)
+✔ R3 a crisis turn never reaches the screen, the detector or the rewrite (crisisGuard first, no model call) (13.004ms)
+✔ R3 with no safetyScreen option nothing is screened (unchanged behaviour) (16.0163ms)
+✔ R4 a Tamil turn (outside the allow-list) gets an English reply that carries the English+Hindi helpline line (14.5865ms)
+✔ R4 a no-answer and a provider failure in an uncovered language carry it too; an anonymous non-answer gets the Hindi gloss added once (47.9305ms)
+✔ R4 allow-listed languages and English do not get the extra line; an unlisted-by-narrowing language does (33.7353ms)
+✔ R4 the crisis messages are untouched (they already carry the gloss; no double line) (10.1094ms)
+✔ D a provider that throws synchronously falls back to the offline result (1.1358ms)
+✔ D a provider that resolves null falls back to the offline result (0.4695ms)
+✔ D dropped VC_REPLY_LANGS entries are reported by tag only; supported ones are kept; nothing is reported when all are valid (0.4513ms)
+✔ D the default dropped-entry logger writes the tags, never anything else, to the console (0.6319ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 25311.1498
+EXIT=0

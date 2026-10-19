@@ -1,0 +1,16 @@
+// Repro (checker, p1-lk5 cycle 0). Copy to packages/engine/tests/chk-repro.test.ts, run with tsx --test. Uses lk5.test.ts helpers verbatim.
+// Expected by K1: the English reply. Observed at 090b558: the provider apology ("Sorry, I couldn't put an answer together just now.").
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { runStudentTurn } from "../src/student/graph.js";
+import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+const EN_CLAIM = "Public universities in Germany charge no tuition for most programmes.";
+for (const localized of ["", null, "क".repeat(2001)]) {
+  test(`K1 localized=${String(localized).slice(0, 5)} -> English reply`, async () => {
+    const d = { kb: fakeKb(), provider: studentProvider({ kbAnswer: { replyLang: "hi", claims: [{ text: EN_CLAIM, localized, kind: "fact", sourceIds: ["t-sem-1"] }] } }),
+      skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG,
+      detectLanguage: async () => ({ lang: "hi", script: "devanagari" as const, confidence: 0.9, source: "model" as const }) };
+    const r = await runStudentTurn(d, { mode: "authenticated", auth: { role: "student", studentId: "s", tenantId: "sandbox" }, threadId: "t", turnId: "u", text: "जर्मनी की सरकारी यूनिवर्सिटी में फीस कितनी है" });
+    assert.ok(r.response.message!.includes(EN_CLAIM), r.response.message);
+  });
+}
