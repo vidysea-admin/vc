@@ -9,7 +9,7 @@
 - C6 `.env.example` documents both chain orders (GLM first, DeepSeek first), names only, no key.
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS (verdict 50a96a5)
 **Fix cycle:** 0 of max 2
 **Policy-Version:** proportional-verification/2026-10-19.17
 **Tier:** M (one wiring site in apps/api plus one guard line in engine; no new module; chain stays off unless `VC_TEXT_CHAIN` is set; no production data, network or paid call)
