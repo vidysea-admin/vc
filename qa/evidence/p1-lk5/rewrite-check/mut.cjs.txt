@@ -1,0 +1,11 @@
+const fs = require("fs");
+const [file, id] = process.argv.slice(2);
+let s = fs.readFileSync(file, "utf8");
+const rep = (a, b) => { if (!s.includes(a)) { console.error("PATTERN-MISSING", id, a); process.exit(3); } s = s.replace(a, b); };
+if (id === "k1") rep("isFactualSentence(e) || isFactualSentence(lo[i]!) ? e : lo[i]!", "false ? e : lo[i]!");
+if (id === "k2") { rep("  if (numberMentions(s).length > 0) return true;\n", ""); rep("  return countriesInLocalized(s).length > 0;\n}", "  return false;\n}"); }
+if (id === "k3") rep("export function isFactualSentence(sentence: string): boolean {", "export function isFactualSentence(sentence: string): boolean {\n  return true;");
+if (id === "k4") { rep("en.length === 0 || en.length !== lo.length", "en.length === 0"); rep("isFactualSentence(lo[i]!)", 'isFactualSentence(lo[i] ?? "")'); rep(": lo[i]!)", ": (lo[i] ?? e))"); }
+if (id === "m2") rep("(englishViolatesCrisisRules || violatesCrisisRules(message))", "(englishViolatesCrisisRules)");
+fs.writeFileSync(file, s);
+console.log("MUTATED", id);

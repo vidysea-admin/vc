@@ -1,0 +1,23 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { runStudentTurn, STUDENT_CRISIS_MESSAGE, type StudentGraphDeps } from "../src/student/graph.js";
+import type { DetectedLanguage } from "../src/student/lang.js";
+import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+
+const AUTH = { role: "student" as const, studentId: "syn-chk", tenantId: "sandbox" };
+test("crisis turns: fixed crisis message, no provider call, no detector call (crisisGuard first on the original text)", async () => {
+  for (const text of ["I just want to kill myself, nothing matters anymore.", "मैं अपनी जान लेना चाहता हूँ, अब जीने का मन नहीं है", "mujhe marna hai, main apni jaan de dunga"]) {
+    let detectorCalls = 0;
+    const provider = studentProvider();
+    const d: StudentGraphDeps = {
+      kb: fakeKb(), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG,
+      escalate: async () => {}, logFlag: async () => {}, countAnonymous: async () => {},
+      detectLanguage: async (): Promise<DetectedLanguage> => { detectorCalls++; return { lang: "hi", script: "devanagari", confidence: 0.9, source: "model" }; },
+    };
+    const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "t", turnId: "u", text });
+    console.log("CRISIS", JSON.stringify({ text: text.slice(0, 30), providerCalls: provider.calls.length, detectorCalls, isFixed: out.response.message === STUDENT_CRISIS_MESSAGE, state: out.response.state }));
+    assert.equal(provider.calls.length, 0);
+    assert.equal(detectorCalls, 0);
+    assert.equal(out.response.message, STUDENT_CRISIS_MESSAGE);
+  }
+});

@@ -1,0 +1,69 @@
+
+=====TABLE=====
+A OK  | सेमेस्टर शुल्क करीब 300 यूरो होगा। | Expect a semester contribution of about 300 euros.
+A OK  | सेमेस्टर शुल्क लगभग ३०० € है। | Expect a semester contribution of about 300 euros.
+A OK  | सेमेस्टर शुल्क तीन सौ यूरो के आसपास रहता है। | Expect a semester contribution of about 300 euros.
+A OK  | Semester contribution takriban teen sau euros rehta hai. | Expect a semester contribution of about 300 euros.
+A OK  | सेमेस्टर शुल्क 300 यूरो यानी लगभग ₹27,000 है। | Expect a semester contribution of about 300 euros.
+A OK  | सेमेस्टर शुल्क साढ़े तीन सौ यूरो है। | Expect a semester contribution of about 300 euros.
+A OK  | Semester ki fees lagbhag three hundred euros hai. | Expect a semester contribution of about 300 euros.
+A OK  | Semester ka kharcha 300 EUR ke aas-paas rahega. | Expect a semester contribution of about 300 euros.
+A OK  | सेमेस्टर योगदान तीन सौ यूआन जितना है। | Expect a semester contribution of about 300 euros.
+A OK  | सेमेस्टर योगदान 0.3 हज़ार यूरो है। | Expect a semester contribution of about 300 euros.
+A OK  | जर्मनी में सरकारी विश्वविद्यालयों में ज़्यादातर प्रोग्राम में फीस नहीं लगती। | Public universities in Germany charge no tuition for most programmes.
+A OK  | Germany ke public universities mein zyadatar programmes free hain. | Public universities in Germany charge no tuition for most programmes.
+A OK  | Jarmani ke sarkari vishwavidyalayon mein zyadatar programmes ki fees nahi lagti. | Public universities in Germany charge no tuition for most programmes.
+A OK  | डॉयचलैंड के सरकारी विश्वविद्यालयों में अधिकतर कोर्स मुफ़्त हैं। | Public universities in Germany charge no tuition for most programmes.
+B OK   | इन विश्वविद्यालयों में 300 यूरो तक का खर्च आता है। | -> English
+B OK   | इन विश्वविद्यालयों में कुल ₹5000 का खर्च आता है। | -> English
+B OK   | इन विश्वविद्यालयों में ९५% सीटें भर जाती हैं। | -> English
+B OK   | अधिक जानकारी के लिए daad.de देखें। | -> English
+B OK   | अधिक जानकारी के लिए www.daad.de/fees देखें। | -> English
+B OK   | अधिक जानकारी के लिए info@daad.de पर लिखें। | -> English
+B OK   | ये नियम जर्मनी के लिए हैं। | -> English
+B OK   | Is mein fifty euro lagte hain. | -> English
+B OK   | Yeh tuition lagbhag two hundred hota hai. | -> English
+B OK   | Yeh sab Germany mein hota hai. | -> English
+B OK   | Yeh 12 months ka course hai. | -> English
+B OK   | Isme USD aur INR dono chalte hain. | -> English
+B OK   | Yahan 2nd round mein seat milti hai. | -> English
+B LEAK | Ye sab Sirf Sattar Euro mein hota hai. | -> Ye sab Sirf Sattar Euro mein hota hai.
+B LEAK | Ye sirf pachaas euro hai. | -> Ye sirf pachaas euro hai.
+C OK  | आपकी योजनाओं के लिए शुभकामनाएँ! | -> localized
+C OK  | यह बहुत अच्छा सवाल है। | -> localized
+C OK  | आपको कौन सा विषय सबसे ज़्यादा पसंद है? | -> localized
+C OK  | Aapko kaun sa subject sabse zyada pasand hai? | -> localized
+C OK  | सरकारी विश्वविद्यालयों में अधिकतर कोर्स की ट्यूशन फीस नहीं लगती। | -> localized
+C OK  | Apna waqt lijiye aur sochiye ki aapke liye kya zaroori hai. | -> localized
+D mixed OK | सरकारी विश्वविद्यालयों में अधिकतर कोर्स की ट्यूशन फीस नहीं लगती। Expect a semester contribution of about 300 euros. आपकी योजनाओं के लिए शुभकामनाएँ!
+D twoclaim-misaligned | Public universities charge no tuition for most programmes. Expect a semester contribution of about 300 euros.
+D followup-free | सरकारी विश्वविद्यालयों में अधिकतर कोर्स की ट्यूशन फीस नहीं लगती। आप कौन सा विषय पढ़ना चाहते हैं?
+D followup-digit | Public universities charge no tuition for most programmes. Which subject would you like to study?
+E SHOWN-LOCAL   | सेमेस्टर शुल्क सत्तर युआन है।
+E SHOWN-LOCAL   | यह बहुत महंगा है।
+E SHOWN-LOCAL   | यह दोगुना हो जाता है।
+E SHOWN-LOCAL   | आवेदन मार्च की पहली तारीख को बंद होते हैं।
+E SHOWN-LOCAL   | Ye sirf sattar yuan mein hota hai.
+E SHOWN-LOCAL   | Yeh course paanch saal ka hota hai.
+E SHOWN-LOCAL   | Is mein koi kharcha nahi hai.
+E SHOWN-LOCAL   | Ye sab pachaas rupaye mein hota hai.
+E SHOWN-LOCAL   | Ye sab Nabbe percent hota hai.
+E SHOWN-LOCAL   | यहाँ पाँच साल का कोर्स होता है।
+E SHOWN-LOCAL   | यहाँ एक दर्जन कोर्स हैं।
+E SHOWN-LOCAL   | यहाँ साढ़े तीन सौ रिंगित लगते हैं।
+E ENGLISH       | Ye sab teen sau pachaas euros mein hota hai.
+=====END=====
+✔ A english factual -> english wording via runStudentTurn (335.2941ms)
+✔ B english fact-free, localized detectable fact -> english wording (18.504ms)
+✔ C non-factual stay localized (47.651ms)
+✔ D mixed claim, misalignment, follow-up (50.9935ms)
+✔ E informational R-a probes (0.9347ms)
+✔ zz print (0.5794ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2867.6947

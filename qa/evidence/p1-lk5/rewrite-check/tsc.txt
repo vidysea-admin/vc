@@ -1,0 +1,1 @@
+[testlock] running slot 0 (free RAM 8.17 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk5/packages/engine exec tsc --noEmit
