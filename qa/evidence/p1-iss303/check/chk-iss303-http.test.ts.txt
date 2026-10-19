@@ -1,0 +1,416 @@
+// CHECKER probe (throwaway, detached copy only). Real node:http server wrapping the chat handler; raw sockets for hostile framing.
+import test from "node:test";
+import assert from "node:assert/strict";
+import net from "node:net";
+import type { AddressInfo } from "node:net";
+import { createApiServer } from "../src/server.js";
+import { withChatRoutes, MAX_CHAT_BODY_BYTES } from "../src/chat.js";
+import { COLLECTION_NAMES } from "@vc/db";
+import { TELE_MANAS_LINE } from "@vc/engine";
+import { adult, chatWorld, studentToken } from "./chat-fixtures.js";
+
+const CAP = 64 * 1024;
+const PHRASES = {
+  english: "I want to kill myself.",
+  hinglish: "mujhe marne ka mann hai.",
+  devanagari: "मुझे मरना चाहता हूँ।",
+} as const;
+type Lang = keyof typeof PHRASES;
+type Where = "start" | "middle" | "end";
+const WHERES: Where[] = ["start", "middle", "end"];
+
+function exactBody(size: number, phrase: string, where: Where, fillerUnit = "ab ", extra: Record<string, unknown> = {}): Buffer {
+  // size = exact UTF-8 byte length of the JSON body. filler is built from fillerUnit; pad with ASCII spaces to hit the size exactly.
+  const mk = (pre: string, post: string): Buffer => Buffer.from(JSON.stringify({ text: pre + phrase + post, ...extra, clientTurnId: "c" + Math.random().toString(36).slice(2, 10) }), "utf8");
+  const unitBytes = Buffer.byteLength(fillerUnit);
+  const base = mk("", "").length;
+  let remaining = size - base;
+  assert.ok(remaining >= 0);
+  const units = Math.floor(remaining / unitBytes);
+  const pad = remaining - units * unitBytes; // ASCII spaces
+  const filler = fillerUnit.repeat(units) + " ".repeat(pad);
+  const halfU = Math.floor(units / 2);
+  const f1 = fillerUnit.repeat(halfU);
+  const f2 = fillerUnit.repeat(units - halfU) + " ".repeat(pad);
+  const b = where === "start" ? mk("", filler) : where === "end" ? mk(filler, "") : mk(f1, f2);
+  assert.equal(b.length, size, `exact size ${where}`);
+  return b;
+}
+
+interface Raw { status: number; headers: Record<string, string>; body: string; json: any; closedEarly?: boolean }
+function rawRequest(port: number, opts: { path: string; token: string; method?: string; body?: Buffer; chunked?: boolean; chunkSize?: number; contentLength?: number | null; keepOpenAfter?: boolean; splitAt?: number; timeoutMs?: number }): Promise<Raw> {
+  return new Promise((resolve, reject) => {
+    const s = net.connect(port, "127.0.0.1");
+    const parts: Buffer[] = [];
+    let finished = false;
+    const done = (extra: Partial<Raw> = {}) => {
+      if (finished) return;
+      finished = true;
+      s.destroy();
+      const allB = Buffer.concat(parts);
+      const CRLF = String.fromCharCode(13, 10);
+      const sep = allB.indexOf(CRLF + CRLF);
+      const head = (sep < 0 ? allB : allB.subarray(0, sep)).toString("utf8");
+      const lines = head.split(CRLF);
+      const status = Number(/HTTP\/1\.1 (\d+)/.exec(lines[0] ?? "")?.[1] ?? 0);
+      const headers: Record<string, string> = {};
+      for (const l of lines.slice(1)) { const i = l.indexOf(":"); if (i > 0) headers[l.slice(0, i).toLowerCase()] = l.slice(i + 1).trim(); }
+      let bodyB = sep < 0 ? Buffer.alloc(0) : allB.subarray(sep + 4);
+      if (headers["transfer-encoding"] === "chunked") {
+        const outs: Buffer[] = []; let o = 0;
+        while (o < bodyB.length) { const j = bodyB.indexOf(CRLF, o); if (j < 0) break; const n = parseInt(bodyB.subarray(o, j).toString("ascii"), 16); if (!n) break; outs.push(bodyB.subarray(j + 2, j + 2 + n)); o = j + 2 + n + 2; }
+        bodyB = Buffer.concat(outs);
+      }
+      const body = bodyB.toString("utf8");
+      let json: any; try { json = JSON.parse(body); } catch { json = undefined; }
+      resolve({ status, headers, body, json, ...extra });
+    };
+    const timer = setTimeout(() => done({ closedEarly: true }), opts.timeoutMs ?? 8000);
+    s.on("data", (d) => parts.push(d));
+    s.on("close", () => { clearTimeout(timer); done(); });
+    s.on("error", () => { clearTimeout(timer); done(); });
+    const body = opts.body ?? Buffer.alloc(0);
+    const hdr: string[] = [`${opts.method ?? "POST"} ${opts.path} HTTP/1.1`, `Host: 127.0.0.1:${port}`, `Authorization: Bearer ${opts.token}`, "Content-Type: application/json", "Connection: close"];
+    if (opts.chunked) hdr.push("Transfer-Encoding: chunked");
+    else if (opts.contentLength !== null) hdr.push(`Content-Length: ${opts.contentLength ?? body.length}`);
+    s.write(hdr.join("\r\n") + "\r\n\r\n");
+    if (opts.chunked) {
+      const cs = opts.chunkSize ?? 8192;
+      for (let o = 0; o < body.length; o += cs) { const c = body.subarray(o, o + cs); s.write(c.length.toString(16) + "\r\n"); s.write(c); s.write("\r\n"); }
+      s.write("0\r\n\r\n");
+    } else if (opts.splitAt !== undefined) {
+      s.write(body.subarray(0, opts.splitAt));
+      setTimeout(() => { s.write(body.subarray(opts.splitAt!)); if (!opts.keepOpenAfter) s.end(); }, 50);
+    } else {
+      s.write(body);
+    }
+    if (!opts.chunked && opts.splitAt === undefined && !opts.keepOpenAfter) { /* leave open: server closes (Connection: close) */ }
+  });
+}
+
+async function world() {
+  const w = chatWorld();
+  const composed = withChatRoutes(async () => ({ status: 404, headers: {}, body: "{}" }), w.handler);
+  const server = createApiServer(composed);
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  const port = (server.address() as AddressInfo).port;
+  let n = 0;
+  const student = async () => {
+    n++;
+    const id = `stu-${n}`;
+    const token = await studentToken(adult(id));
+    const res = await fetch(`http://127.0.0.1:${port}/v1/students/${id}/chat/threads`, { method: "POST", headers: { authorization: `Bearer ${token}` } });
+    assert.equal(res.status, 201);
+    const j: any = await res.json();
+    return { id, token, path: `/v1/students/${id}/chat/threads/${j.threadId}/turns`, threadUrl: `/v1/students/${id}/chat/threads/${j.threadId}` };
+  };
+  const close = async () => { await new Promise<void>((r) => server.close(() => r())); w.cleanup(); };
+  return { w, port, student, close };
+}
+
+const turns = (w: any) => w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length as number;
+const flags = (w: any) => w.fakeDb.collection(COLLECTION_NAMES.student_flags).all().length as number;
+
+test("CHK1 inside the cap, exactly 64 KiB: crisis phrase start/middle/end x 3 languages -> escalated; benign exactly 64 KiB -> 400, no crisis flag", async () => {
+  const { w, port, student, close } = await world();
+  try {
+    assert.equal(MAX_CHAT_BODY_BYTES, CAP);
+    const rows: string[] = [];
+    for (const lang of Object.keys(PHRASES) as Lang[]) for (const where of WHERES) {
+      const s = await student();
+      const unit = lang === "devanagari" ? "और " : "ab ";
+      const body = exactBody(CAP, PHRASES[lang], where, unit);
+      const r = await rawRequest(port, { path: s.path, token: s.token, body });
+      rows.push(`${lang}/${where}: ${r.status} state=${r.json?.state} 14416=${/14416/.test(r.body)}`);
+      assert.equal(r.status, 200, `${lang}/${where} body=${r.body.slice(0, 200)}`);
+      assert.equal(r.json.state, "escalated", `${lang}/${where}`);
+      assert.match(r.json.message, /14416/);
+    }
+    // benign exactly 64 KiB
+    const s = await student();
+    const benign = await rawRequest(port, { path: s.path, token: s.token, body: exactBody(CAP, "I like maths.", "middle"), });
+    rows.push(`benign cap: ${benign.status} ${benign.body.slice(0, 80)}`);
+    assert.equal(benign.status, 400);
+    assert.equal(benign.json.error, "invalid_request");
+    assert.equal(benign.json.helpline, undefined);
+    assert.ok(!/escalat|14416/i.test(benign.body));
+    console.log("CHK1\n" + rows.join("\n"));
+  } finally { await close(); }
+});
+
+test("CHK2 64 KiB + 1 and larger: 413 with helpline, never scanned, no model call, nothing stored", async () => {
+  const { w, port, student, close } = await world();
+  try {
+    const rows: string[] = [];
+    for (const size of [CAP + 1, CAP + 2, 100 * 1024, 300 * 1024, 2 * 1024 * 1024]) for (const lang of Object.keys(PHRASES) as Lang[]) for (const where of WHERES) {
+      const s = await student();
+      const body = exactBody(size, PHRASES[lang], where, lang === "devanagari" ? "और " : "ab ");
+      const r = await rawRequest(port, { path: s.path, token: s.token, body });
+      if (!(r.status === 413 && r.json?.helpline === TELE_MANAS_LINE && r.json?.error === "body_too_large")) rows.push(`FAIL size=${size} ${lang}/${where}: ${r.status} ${r.body.slice(0, 160)} early=${r.closedEarly}`);
+      assert.equal(r.status, 413, `${size} ${lang}/${where}`);
+      assert.equal(r.json.error, "body_too_large");
+      assert.equal(r.json.helpline, TELE_MANAS_LINE);
+    }
+    assert.equal(w.provider.calls.length, 0);
+    assert.equal(turns(w), 0);
+    assert.equal(flags(w), 0);
+    assert.equal(w.escalations.length, 0);
+    console.log("CHK2 failures:", rows.length ? rows.join("\n") : "none; helpline=" + JSON.stringify(TELE_MANAS_LINE).slice(0, 120));
+  } finally { await close(); }
+});
+
+test("CHK3 over turn limit (4000 chars) but inside cap: crisis -> escalated; benign -> plain 400", async () => {
+  const { w, port, student, close } = await world();
+  try {
+    for (const size of [5000, 20 * 1024, 50 * 1024]) for (const lang of Object.keys(PHRASES) as Lang[]) for (const where of WHERES) {
+      const s = await student();
+      const r = await rawRequest(port, { path: s.path, token: s.token, body: exactBody(size, PHRASES[lang], where, lang === "devanagari" ? "और " : "ab ") });
+      assert.equal(r.status, 200, `${size} ${lang}/${where}: ${r.body.slice(0, 150)}`);
+      assert.equal(r.json.state, "escalated", `${size} ${lang}/${where}`);
+    }
+    const s = await student();
+    const plain = await rawRequest(port, { path: s.path, token: s.token, body: exactBody(20 * 1024, "I like maths.", "end") });
+    assert.equal(plain.status, 400);
+    assert.equal(plain.json.helpline, undefined);
+    assert.ok(!/escalat|14416/i.test(plain.body));
+  } finally { await close(); }
+});
+
+test("CHK4 rate-limited student: crisis (long/short, 3 languages, positions) -> escalated; plain -> 429; 413 and benign overlong behave", async () => {
+  const { w, port, student, close } = await world();
+  try {
+    const s = await student();
+    for (let i = 0; i < 60; i++) { const r = await fetch(`http://127.0.0.1:${port}${s.threadUrl}`, { headers: { authorization: `Bearer ${s.token}` } }); await r.arrayBuffer(); }
+    const plain = await rawRequest(port, { path: s.path, token: s.token, body: Buffer.from(JSON.stringify({ text: "What are the tuition fees for public universities in Germany?" })) });
+    assert.equal(plain.status, 429);
+    for (const lang of Object.keys(PHRASES) as Lang[]) {
+      const short = await rawRequest(port, { path: s.path, token: s.token, body: Buffer.from(JSON.stringify({ text: PHRASES[lang] })) });
+      assert.equal(short.status, 200, `short ${lang}`); assert.equal(short.json.state, "escalated");
+      for (const where of WHERES) for (const size of [10 * 1024, CAP]) {
+        const r = await rawRequest(port, { path: s.path, token: s.token, body: exactBody(size, PHRASES[lang], where, lang === "devanagari" ? "और " : "ab ") });
+        assert.equal(r.status, 200, `${lang}/${where}/${size} ${r.body.slice(0, 120)}`);
+        assert.equal(r.json.state, "escalated", `${lang}/${where}/${size}`);
+      }
+    }
+    // rate-limited + over cap: 413 with helpline (limiter not consulted for an unreadable body)
+    const over = await rawRequest(port, { path: s.path, token: s.token, body: exactBody(CAP + 1, PHRASES.english, "middle") });
+    assert.equal(over.status, 413); assert.equal(over.json.helpline, TELE_MANAS_LINE);
+    // rate-limited benign over-long inside cap: 429 or 400? record
+    const benignLong = await rawRequest(port, { path: s.path, token: s.token, body: exactBody(20 * 1024, "I like maths.", "end") });
+    console.log("CHK4 rate-limited benign over-long:", benignLong.status, benignLong.body.slice(0, 100));
+  } finally { await close(); }
+});
+
+test("CHK5 multibyte UTF-8 straddling the cap, chunk boundary at the cap", async () => {
+  const { w, port, student, close } = await world();
+  try {
+    const rows: string[] = [];
+    // 3-byte filler: body exactly 65536 -> ok (200 crisis); 65537 -> 413. Chars < cap but bytes > cap -> 413.
+    for (const size of [CAP - 2, CAP - 1, CAP, CAP + 1, CAP + 2, CAP + 3]) for (const where of ["end", "start"] as Where[]) {
+      const s = await student();
+      const body = exactBody(size, PHRASES.devanagari, where, "और "); // 3-byte chars
+      const r = await rawRequest(port, { path: s.path, token: s.token, body });
+      rows.push(`dev3 size=${size} ${where}: ${r.status} ${r.json?.state ?? r.json?.error}`);
+      if (size <= CAP) { assert.equal(r.status, 200, `size=${size}`); assert.equal(r.json.state, "escalated"); } else { assert.equal(r.status, 413, `size=${size}`); assert.equal(r.json.helpline, TELE_MANAS_LINE); }
+    }
+    // 4-byte astral filler straddle
+    for (const size of [CAP, CAP + 1]) {
+      const s = await student();
+      const body = exactBody(size, PHRASES.english, "end", "\u{1F600}\u{1F600}");
+      const r = await rawRequest(port, { path: s.path, token: s.token, body });
+      rows.push(`astral size=${size}: ${r.status} ${r.json?.state ?? r.json?.error}`);
+      assert.equal(r.status, size <= CAP ? 200 : 413);
+    }
+    // TCP split mid-character exactly at byte CAP-1 / CAP (multibyte char straddling segment boundary) for an in-cap body
+    for (const splitAt of [1000, 1001, 1002]) { // inside head+filler region; characters are 3 bytes so one of these lands mid-char
+      const s = await student();
+      const body = exactBody(CAP, PHRASES.devanagari, "end", "और ");
+      const hdrLenGuess = 0;
+      const r = await rawRequest(port, { path: s.path, token: s.token, body, splitAt: splitAt + hdrLenGuess });
+      rows.push(`split mid-body @${splitAt}: ${r.status} ${r.json?.state ?? r.json?.error}`);
+      assert.equal(r.status, 200); assert.equal(r.json.state, "escalated");
+    }
+    // chunked with chunk size 1 byte-aligned to 3-byte chars (chunk size 4 splits chars) for exactly CAP and CAP+1
+    for (const size of [CAP, CAP + 1]) {
+      const s = await student();
+      const r = await rawRequest(port, { path: s.path, token: s.token, body: exactBody(size, PHRASES.devanagari, "end", "और "), chunked: true, chunkSize: 4 });
+      rows.push(`chunked(4B) dev3 size=${size}: ${r.status} ${r.json?.state ?? r.json?.error}`);
+      assert.equal(r.status, size <= CAP ? 200 : 413);
+      if (size > CAP) assert.equal(r.json.helpline, TELE_MANAS_LINE);
+    }
+    // Invalid UTF-8 tail at exactly CAP bytes (partial multibyte): replacement char expansion past the cap?
+    {
+      const s = await student();
+      const good = exactBody(CAP, PHRASES.english, "start", "ab ");
+      const bad = Buffer.concat([good.subarray(0, CAP - 3), Buffer.from([0xe0, 0xa4, 0xe0])]); // 3 bytes junk at the end
+      assert.equal(bad.length, CAP);
+      const r = await rawRequest(port, { path: s.path, token: s.token, body: bad });
+      rows.push(`invalid-utf8 tail at cap: ${r.status} ${r.json?.error}`);
+    }
+    console.log("CHK5\n" + rows.join("\n"));
+  } finally { await close(); }
+});
+
+test("CHK6 framing: chunked (no content-length) ; content-length lying low/high", async () => {
+  const { w, port, student, close } = await world();
+  try {
+    const rows: string[] = [];
+    // chunked, no CL
+    for (const [size, expect] of [[CAP, 200], [CAP + 1, 413], [300 * 1024, 413]] as const) {
+      const s = await student();
+      const r = await rawRequest(port, { path: s.path, token: s.token, body: exactBody(size, PHRASES.hinglish, "middle"), chunked: true, chunkSize: 4096 });
+      rows.push(`chunked size=${size}: ${r.status} ${r.json?.state ?? r.json?.error} helpline=${r.json?.helpline === TELE_MANAS_LINE}`);
+      assert.equal(r.status, expect, `chunked ${size}`);
+      if (expect === 413) assert.equal(r.json.helpline, TELE_MANAS_LINE); else assert.equal(r.json.state, "escalated");
+    }
+    // no content-length and not chunked on a POST (no body framing): body empty
+    {
+      const s = await student();
+      const r = await rawRequest(port, { path: s.path, token: s.token, body: exactBody(2000, PHRASES.english, "end"), contentLength: null });
+      rows.push(`no CL/no TE with body bytes sent: ${r.status} ${r.json?.error ?? r.json?.state}`);
+    }
+    // CL lies low: valid short crisis JSON then trailing junk beyond CL (smuggled/next request)
+    {
+      const s = await student();
+      const j = Buffer.from(JSON.stringify({ text: PHRASES.english }));
+      const r = await rawRequest(port, { path: s.path, token: s.token, body: Buffer.concat([j, exactBody(100 * 1024, "x", "end")]), contentLength: j.length });
+      rows.push(`CL low (valid json first, junk after): ${r.status} ${r.json?.state ?? r.json?.error}`);
+    }
+    // CL lies low: CL smaller than JSON -> truncated JSON
+    {
+      const s = await student();
+      const b = exactBody(50 * 1024, PHRASES.english, "end");
+      const r = await rawRequest(port, { path: s.path, token: s.token, body: b, contentLength: 100 });
+      rows.push(`CL=100 on 50KiB crisis body at end: ${r.status} ${r.json?.state ?? r.json?.error} helpline=${r.json?.helpline === TELE_MANAS_LINE}`);
+    }
+    // CL lies high, body in-cap crisis then client stays open: server waits (timeout) - record
+    {
+      const s = await student();
+      const b = exactBody(2000, PHRASES.english, "end");
+      const r = await rawRequest(port, { path: s.path, token: s.token, body: b, contentLength: 5000, timeoutMs: 2500 });
+      rows.push(`CL high (5000, sent 2000, socket open 2.5s): ${r.status} early=${r.closedEarly}`);
+    }
+    // CL lies high and body streams past the cap: streaming reject should fire at cap
+    {
+      const s = await student();
+      const b = exactBody(CAP + 5000, PHRASES.english, "start");
+      const r = await rawRequest(port, { path: s.path, token: s.token, body: b, contentLength: 10 * 1024 * 1024, timeoutMs: 4000 });
+      rows.push(`CL=10MiB, sent CAP+5000: ${r.status} ${r.json?.error} helpline=${r.json?.helpline === TELE_MANAS_LINE} early=${r.closedEarly}`);
+      assert.equal(r.status, 413); assert.equal(r.json.helpline, TELE_MANAS_LINE);
+    }
+    // CL honest > cap, only the first 1000 bytes sent then socket half-closed (aborted upload)
+    {
+      const s = await student();
+      const b = exactBody(2000, PHRASES.english, "end");
+      const r = await rawRequest(port, { path: s.path, token: s.token, body: b, contentLength: CAP + 10, splitAt: 1000, timeoutMs: 2500 });
+      rows.push(`aborted upload (CL>cap, half sent then FIN): ${r.status} early=${r.closedEarly}`);
+    }
+    // CL header only says > cap, with the full cap+10 honestly sent
+    {
+      const s = await student();
+      const r = await rawRequest(port, { path: s.path, token: s.token, body: exactBody(CAP + 10, PHRASES.english, "end") });
+      rows.push(`honest CL cap+10: ${r.status} helpline=${r.json?.helpline === TELE_MANAS_LINE}`);
+      assert.equal(r.status, 413);
+    }
+    assert.equal(w.provider.calls.length >= 0, true);
+    console.log("CHK6\n" + rows.join("\n"));
+  } finally { await close(); }
+});
+
+test("CHK7 crisis text in a non-message field / odd shapes", async () => {
+  const { w, port, student, close } = await world();
+  try {
+    const rows: string[] = [];
+    const cases: Array<[string, unknown]> = [
+      ["crisis in clientTurnId, benign text", { text: "What are the tuition fees for public universities in Germany?", clientTurnId: "I want to kill myself" }],
+      ["crisis in extra field, benign text", { text: "What are the tuition fees for public universities in Germany?", note: PHRASES.english }],
+      ["crisis in text + extra field", { text: PHRASES.english, note: "x" }],
+      ["benign overlong + crisis in extra field", { text: "ab ".repeat(3000), note: PHRASES.english }],
+      ["text is array containing crisis", { text: [PHRASES.english] }],
+      ["nested text object", { text: { value: PHRASES.english } }],
+      ["array body", [{ text: PHRASES.english }]],
+      ["crisis text then duplicate key benign", null],
+    ];
+    for (const [name, payload] of cases) {
+      const s = await student();
+      const body = payload === null ? Buffer.from(`{"text":"${PHRASES.english}","text":"hello there"}`) : Buffer.from(JSON.stringify(payload));
+      const r = await rawRequest(port, { path: s.path, token: s.token, body });
+      rows.push(`${name}: ${r.status} ${r.json?.state ?? r.json?.error} escalated=${r.json?.state === "escalated"}`);
+    }
+    console.log("CHK7\n" + rows.join("\n"));
+  } finally { await close(); }
+});
+
+test("CHK8 crisis scan count per turn (instrumented copy)", async () => {
+  const { w, port, student, close } = await world();
+  try {
+    const g = globalThis as any;
+    const rows: string[] = [];
+    const sites: Array<[string, number, number]> = [];
+    const run = async (name: string, body: Buffer, pre?: (s: any) => Promise<void>) => {
+      const s = await student();
+      if (pre) await pre(s);
+      g.__cg = [];
+      const r = await rawRequest(port, { path: s.path, token: s.token, body });
+      const calls: string[] = g.__cg; g.__cg = undefined;
+      const bySite: Record<string, number> = {};
+      for (const c of calls) { const k = c.replace(/len=\d+/, "").replace(/:\d+:\d+\)?/, ""); bySite[k] = (bySite[k] ?? 0) + 1; }
+      const route = calls.filter((c) => /handleTurn/.test(c)).length;
+      rows.push(`${name}: status=${r.status} total=${calls.length} routeLevel(handleTurn)=${route}`);
+      sites.push([name, r.status, route]);
+    };
+    await run("benign short", Buffer.from(JSON.stringify({ text: "What are the tuition fees for public universities in Germany?" })));
+    await run("crisis short", Buffer.from(JSON.stringify({ text: PHRASES.english })));
+    await run("crisis 50KiB middle (overlong)", exactBody(50 * 1024, PHRASES.english, "middle"));
+    await run("benign overlong 20KiB (400)", exactBody(20 * 1024, "hello", "end"));
+    await run("rate-limited crisis 50KiB", exactBody(50 * 1024, PHRASES.english, "end"), async (s) => { for (let i = 0; i < 60; i++) { const r = await fetch(`http://127.0.0.1:${port}${s.threadUrl}`, { headers: { authorization: `Bearer ${s.token}` } }); await r.arrayBuffer(); } });
+    await run("over cap 413", exactBody(CAP + 1, PHRASES.english, "end"));
+    for (const [name, status, route] of sites) assert.equal(route, status === 413 ? 0 : 1, `${name}: handleTurn scans once`);
+    console.log("CHK8\n" + rows.join("\n"));
+  } finally { await close(); }
+});
+
+test("CHK9 crisis text + bad sibling field; large-body repeatability via fetch and raw", async () => {
+  const { w, port, student, close } = await world();
+  try {
+    const rows: string[] = [];
+    for (const [name, extra] of [["bad clientTurnId chars", { clientTurnId: "bad id!!" }], ["clientTurnId 200 chars", { clientTurnId: "a".repeat(200) }], ["clientTurnId number", { clientTurnId: 5 }]] as const) {
+      const s = await student();
+      const r = await rawRequest(port, { path: s.path, token: s.token, body: Buffer.from(JSON.stringify({ text: PHRASES.english, ...extra })) });
+      rows.push(`crisis text + ${name}: ${r.status} ${r.json?.state ?? r.json?.error}`);
+    }
+    for (const kib of [100, 300, 2048]) {
+      let rawOk = 0, fetchOk = 0; const N = 8;
+      for (let i = 0; i < N; i++) {
+        const s = await student();
+        const body = exactBody(kib * 1024, PHRASES.english, "middle");
+        const r = await rawRequest(port, { path: s.path, token: s.token, body });
+        if (r.status === 413 && r.json?.helpline === TELE_MANAS_LINE) rawOk++;
+        try {
+          const f = await fetch(`http://127.0.0.1:${port}${s.path}`, { method: "POST", headers: { authorization: `Bearer ${s.token}`, "content-type": "application/json" }, body });
+          const j: any = await f.json();
+          if (f.status === 413 && j.helpline === TELE_MANAS_LINE) fetchOk++;
+        } catch { /* reset */ }
+      }
+      rows.push(`${kib} KiB crisis-middle x${N}: raw 413+helpline ${rawOk}/${N}; fetch 413+helpline ${fetchOk}/${N}`);
+    }
+    console.log("CHK9" + String.fromCharCode(10) + rows.join(String.fromCharCode(10)));
+  } finally { await close(); }
+});
+
+test("CHK10 flake quantification: raw Connection:close client vs oversize bodies", async () => {
+  const { port, student, close } = await world();
+  try {
+    const out: string[] = [];
+    for (const kib of [70, 100, 300, 1100, 2048]) {
+      let ok = 0, none = 0, other = 0; const N = 30;
+      for (let i = 0; i < N; i++) {
+        const s = await student();
+        const r = await rawRequest(port, { path: s.path, token: s.token, body: exactBody(kib * 1024, PHRASES.english, "middle"), timeoutMs: 4000 });
+        if (r.status === 413 && r.json?.helpline === TELE_MANAS_LINE) ok++; else if (r.status === 0) none++; else other++;
+      }
+      out.push(`${kib} KiB x${N}: 413+helpline ${ok}, no response (reset) ${none}, other ${other}`);
+    }
+    console.log("CHK10" + String.fromCharCode(10) + out.join(String.fromCharCode(10)));
+  } finally { await close(); }
+});

@@ -1,0 +1,52 @@
+[testlock] waiting for lock held by: PID=36332 STARTED=639280190259860760 ACQUIRED_AT=1792402426 TOKEN=1792402426566835800-444811-11219 DESC=pnpm -r --workspace-concurrency=1 test 
+[testlock] running slot 1 (free RAM 4.41 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-303 tests/chat.test.ts
+✖ ISS-303: the authenticated chat body cap is the 64 KiB scan budget of the anonymous route (ISS-300), not 256 KiB (4.065ms)
+✖ ISS-303: a turn body over the cap is a 413 that still carries the helpline, never scanned, no model, nothing stored, whatever the crisis phrase position (53.0825ms)
+✔ ISS-303: a crisis phrase at the start, middle or end of a body inside the cap, far over the 4000-character turn limit, gets the fixed crisis answer (327.7649ms)
+✔ ISS-303: a student already over the rate limit who sends a long (inside the cap) crisis message still gets the crisis answer; a plain message is 429 (296.8631ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4159.8411
+
+✖ failing tests:
+
+test at tests\chat.test.ts:423:1
+✖ ISS-303: the authenticated chat body cap is the 64 KiB scan budget of the anonymous route (ISS-300), not 256 KiB (4.065ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  262144 !== 65536
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss303-fals\apps\api\tests\chat.test.ts:424:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.start (node:internal/test_runner/test:1000:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 262144,
+    expected: 65536,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chat.test.ts:427:1
+✖ ISS-303: a turn body over the cap is a 413 that still carries the helpline, never scanned, no model, nothing stored, whatever the crisis phrase position (53.0825ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(Buffer.byteLength(body) > MAX_CHAT_BODY_BYTES)
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss303-fals\apps\api\tests\chat.test.ts:436:16)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

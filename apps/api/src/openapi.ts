@@ -571,7 +571,7 @@ export const STUDENT_API_DRAFT = {
         summary: "Send a text turn; idempotent on clientTurnId. Answers come only from the knowledge base, else state no_sourced_answer",
         parameters: [studentId, threadId],
         requestBody: { required: true, ...json(ref("TurnRequest")) },
-        responses: { "200": ok("The answer", ref("TurnResponse")), ...studentErrors },
+        responses: { "200": ok("The answer", ref("TurnResponse")), ...studentErrors, "413": { description: "Body larger than 64 KiB (never scanned; carries the static Tele-MANAS line)", ...json(ref("AnonymousError")) } },
       }),
     },
     "/v1/students/{studentId}/chat/threads/{threadId}/voice/sessions": {

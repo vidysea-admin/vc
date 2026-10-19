@@ -1,0 +1,10 @@
+[testlock] running slot 1 (free RAM 5.27 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-303: the authenticated chat body cap tests/chat.test.ts
+✔ ISS-303: the authenticated chat body cap is the 64 KiB scan budget of the anonymous route (ISS-300), not 256 KiB (2.1044ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5084.7178

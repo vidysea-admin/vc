@@ -1,0 +1,14 @@
+[testlock] waiting for lock held by: PID=36332 STARTED=639280190259860760 ACQUIRED_AT=1792402426 TOKEN=1792402426566835800-444811-11219 DESC=pnpm -r --workspace-concurrency=1 test 
+[testlock] running slot 1 (free RAM 0.68 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-303 tests/chat.test.ts
+✔ ISS-303: the authenticated chat body cap is the 64 KiB scan budget of the anonymous route (ISS-300), not 256 KiB (2.8019ms)
+✔ ISS-303: a turn body over the cap is a 413 that still carries the helpline, never scanned, no model, nothing stored, whatever the crisis phrase position (116.5964ms)
+✔ ISS-303: a crisis phrase at the start, middle or end of a body inside the cap, far over the 4000-character turn limit, gets the fixed crisis answer (431.698ms)
+✔ ISS-303: a student already over the rate limit who sends a long (inside the cap) crisis message still gets the crisis answer; a plain message is 429 (394.7699ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15442.3323

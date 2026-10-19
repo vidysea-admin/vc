@@ -1,0 +1,10 @@
+[testlock] running slot 1 (free RAM 4.07 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-303: a turn body over the cap tests/chat.test.ts
+✔ ISS-303: a turn body over the cap is a 413 that still carries the helpline, never scanned, no model, nothing stored, whatever the crisis phrase position (55.4746ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4664.1572
