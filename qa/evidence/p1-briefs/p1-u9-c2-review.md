@@ -1,0 +1,11 @@
+# Senior software engineer review (read-only): U9 live adapter, fix cycle 2
+- **Diff:** `git -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9 diff f2af54f..HEAD -- packages/`
+- **Rule (D-096):** after a crisis the model stays muted until the student speaks again; toolCall, turnComplete and interrupted never lift the mute.
+- **Review for:**
+  - any remaining path that un-mutes before new student speech;
+  - the queue cap and the protection of the crisis flag;
+  - the double-attach guard;
+  - the typed-versus-spoken crisis state;
+  - whether the two changed existing tests still assert the safety property.
+- Read-only: do not edit anything.
+- **Return** Approve / Warning / Block, with file:line evidence, in at most 20 lines.

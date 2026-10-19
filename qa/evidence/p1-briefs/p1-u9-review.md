@@ -1,0 +1,2 @@
+# Senior software engineer review (read-only): U9 live adapter
+Diff: `git -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u9 diff 47ab62a0a780ea983c0afd021e37b639d29a28d4..HEAD -- packages/`. Review it for correctness, the crisis interrupt path, resource leaks (streams, timers), error handling, and any reachable network/paid call in the Gemini compile-only adapter. Read-only: never edit, commit or run anything that writes. Return Approve / Warning / Block, with file:line evidence for each finding, in at most 25 lines.

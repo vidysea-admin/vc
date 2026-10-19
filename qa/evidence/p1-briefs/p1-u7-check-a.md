@@ -1,0 +1,15 @@
+# You are /checker running a Mode A feature check (U7 anonymous mode, dual check coordinator A)
+Protocol: C:/Users/Lenovo/.claude/skills/checker/SKILL.md. Read it first.
+- Project: C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7 (the p1/u7 worktree; you are BOUND to it). Contract: the P1 U7 criteria in D:/vc/qa/evidence/p1-briefs/p1-u7-build.md and the plan row in C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/docs/plan.md.
+- Manifest: C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/qa/manifests/p1-u7-anon-mode.md
+- Verdict path: C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/qa/verdicts/p1-u7-anon-mode.md · Checkpoint: C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u7/qa/checkpoints/p1-u7-anon-mode.md
+
+- Tier L, dual check (dual-trigger: security apps/api/src/anonymous.ts:54). Policy: proportional-verification/2026-10-17.14. Budget wall 45 min, agent-minutes 135 (lock waits are blocked_min).
+- Base: 0e62084a1491b878cbe87b89455681baa5353b77 · Integration branch: p1/u6h then main · Cycle: 0
+- Tests: tsx --test (node:test) through `bash D:/vc/scripts/vc-testlock.sh` (long lock waits are normal). Reuse maker Pre-check evidence only under full identity (.9-5/.11). Falsification floor = 1 per criterion, each in a throwaway copy, never the bound tree. Review the test selection (.13-7/.13-8). Read the full diff (step 4c); files outside the U7 scope are a finding.
+- Security read of the changed lines is mandatory: the A20 gate (refuses unless the gate is signed), the text-free counter (no student text stored or logged), the 10/min limiter and its client key (spoofable headers, per-process memory), crisis check before the limiter, helpline on refusals, anonymous output hardening. Include at least one hostile probe (for example a spoofed X-Forwarded-For, a crisis message on a rate-limited client, a gate flag flipped on but A20 unsigned).
+- Judge the builder's stated risks: the surviving mutant RE-restricted-source-listed claimed equivalent (claims.ts:670), the R1B 30 s timeout cancellations, and the mutant-cap-raise line.
+- This is a security L unit: a scoped full run of the affected packages is allowed if you judge it needed; otherwise record `full-suite trigger:` for the 6c check.
+- In a dual check: findings go as PROPOSED-ISSUE lines in the verdict; write no issue rows, close no goal task.
+- No push, no merge, never edit .claude/**, no network/paid model calls, mock provider only. Kill only PIDs you started.
+- Write and COMMIT the verdict (narrow pathspec) in the worktree with Cycle checked: 0 and a Metrics line. Return at most 8 lines: the verdict, each criterion's result, findings.
