@@ -3,7 +3,7 @@
 **Criteria:** C1 session route, C2 WS auth, C3 events, C4 resume/silence/cap/fallback, C5 A9b audit, C6 history, C7 limits, C8 errors+flag, C9 tenancy+cleanup, C10 one live session under concurrent starts and a start timer that covers `starting`, C11 per-student session-route and pre-start socket limits, C12 crisis durability and escalation parity, C13 resume-log expiry, C14 crisis escalation survives a socket drop, C15 quota re-read after a supersede, C16 step-aside only for a live newer start, C17 escalation port built inside the retry, C18 no earlier turn's words in an escalation, C19 bounded finalize drain; W1 crisis writer deadline is not a fence, W2 late work awaited at shutdown, W3 no overlapping paid provider sessions, W4 escalation retry idempotent, W5 default off, W6 fail closed, W7 reachable in a started process, W8 shutdown order and usage, W9 one flag one escalation, W10 no real provider or network
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS (checker A PASS cycle 2 sha 1d28387, qa/verdicts/p1-u10w-voice-wiring.A.md; checker B PASS cycle 2 sha ee0e5a1, qa/verdicts/p1-u10w-voice-wiring.B.md; senior review cycle 2 Approve; findings ISS-218..ISS-235)
 **Fix cycle:** 2
 **Dual check:** required
 dual-trigger: auth apps/api/src/voice.ts:369 (`jwtVerify` inside `verifyVoiceToken`: HS256 only, audience `vc-voice-ws`, issuer `vc-api`, required exp/jti/sub, single-use jti; the credential of the WebSocket upgrade)
