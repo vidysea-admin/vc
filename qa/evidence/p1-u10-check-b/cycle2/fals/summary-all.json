@@ -1,0 +1,407 @@
+{
+ "C1b": {
+  "desc": "session route accepts a non-empty/garbage body",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C1: session route refusals: no token, wrong role, other student's path, unknown thread, other tenant's thread, bad body, bad method, fenced",
+   "C1: session route refusals: no token, wrong role, other student's path, unknown thread, other tenant's thread, bad body, bad method, fenced"
+  ],
+  "secs": 33.3
+ },
+ "C2a": {
+  "desc": "replay allowed (single-use check removed)",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C2: a token is single use: a replay is refused, and two concurrent upgrades with one token admit exactly one",
+   "C2: a token is single use: a replay is refused, and two concurrent upgrades with one token admit exactly one"
+  ],
+  "secs": 11.3
+ },
+ "C2b": {
+  "desc": "a token for another thread is accepted on this path",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C2: a token minted for one student or thread is refused on another student's or thread's path",
+   "C2: a token minted for one student or thread is refused on another student's or thread's path"
+  ],
+  "secs": 11.8
+ },
+ "C2c": {
+  "desc": "expiry not enforced",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C2: an expired token is refused",
+   "C2: an expired token is refused"
+  ],
+  "secs": 39.3
+ },
+ "C2d": {
+  "desc": "audience not checked",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C2: a token with the wrong audience",
+   "C2: a token with the wrong audience"
+  ],
+  "secs": 130.6
+ },
+ "C3a": {
+  "desc": "interrupt not forwarded",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C3: interrupt reaches the provider, end closes the socket and the provider session",
+   "C3: interrupt reaches the provider, end closes the socket and the provider session"
+  ],
+  "secs": 14.7
+ },
+ "C3b": {
+  "desc": "oversize frame answered with bare 1006 not 1009",
+  "rc": 0,
+  "tests": 88,
+  "pass": 88,
+  "fail": 0,
+  "first": [],
+  "secs": 26.5
+ },
+ "C4a": {
+  "desc": "silence timeout does not close",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable",
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable"
+  ],
+  "secs": 15.2
+ },
+ "C4b": {
+  "desc": "session cap does not close",
+  "rc": 1,
+  "tests": 88,
+  "pass": 85,
+  "fail": 3,
+  "first": [
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it",
+   "C7: a per-tenant override changes the limits for that tenant only"
+  ],
+  "secs": 15.0
+ },
+ "C5a": {
+  "desc": "audit flag never sent to the client",
+  "rc": 1,
+  "tests": 88,
+  "pass": 83,
+  "fail": 5,
+  "first": [
+   "C5: an uncited figure in the spoken answer is flagged to the client and stored on the assistant row, after the audio was already sent",
+   "C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding"
+  ],
+  "secs": 21.6
+ },
+ "C6a": {
+  "desc": "minor without consent has text stored",
+  "rc": 1,
+  "tests": 88,
+  "pass": 83,
+  "fail": 5,
+  "first": [
+   "C5: for an unconsented minor the flag still reaches the student but no finding or text is stored",
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay"
+  ],
+  "secs": 14.8
+ },
+ "C7a": {
+  "desc": "minutes never recorded on close",
+  "rc": 1,
+  "tests": 88,
+  "pass": 82,
+  "fail": 6,
+  "first": [
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it",
+   "C7: minutes are recorded when the connection ends"
+  ],
+  "secs": 11.1
+ },
+ "C8a": {
+  "desc": "LiveConfigError reads as live_unavailable",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C8/A12: LiveConfigError is its own fixed error event",
+   "C8/A12: LiveConfigError is its own fixed error event"
+  ],
+  "secs": 11.3
+ },
+ "C9a": {
+  "desc": "provider session not closed on finalize",
+  "rc": 1,
+  "tests": 88,
+  "pass": 81,
+  "fail": 7,
+  "first": [
+   "C3: interrupt reaches the provider, end closes the socket and the provider session",
+   "C9: a student has one voice session: a second start replaces the first, which is told it was superseded"
+  ],
+  "secs": 34.5
+ },
+ "C9b": {
+  "desc": "socket cap ignored",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C9: the socket cap refuses more connections with 503 without opening anything",
+   "C9: the socket cap refuses more connections with 503 without opening anything"
+  ],
+  "secs": 32.3
+ },
+ "C9c": {
+  "desc": "resume ignores tenant",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume across tenants replays nothing, and usage is per tenant",
+   "C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume across tenants replays nothing, and usage is per tenant"
+  ],
+  "secs": 10.3
+ },
+ "C9d": {
+  "desc": "provider session leaks when the socket closed during connect",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C9: a socket that closes while the provider connect is still in flight leaves no provider session behind",
+   "C9: a socket that closes while the provider connect is still in flight leaves no provider session behind"
+  ],
+  "secs": 14.5
+ },
+ "C10a": {
+  "desc": "start timer ignores the starting state",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C10: a start whose provider connect never returns is closed by the start timer, and the socket slot and the student's lock are freed",
+   "C10: a start whose provider connect never returns is closed by the start timer, and the socket slot and the student's lock are freed"
+  ],
+  "secs": 37.1
+ },
+ "C10b": {
+  "desc": "waiter never steps aside (no newest-wins)",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded",
+   "C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded"
+  ],
+  "secs": 39.2
+ },
+ "C11a": {
+  "desc": "no per-student session-route limiter",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C11: the session route is limited per student",
+   "C11: the session route is limited per student"
+  ],
+  "secs": 10.1
+ },
+ "C11b": {
+  "desc": "no pre-start socket cap",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C11: one student can hold only 2 sockets that have not started; a third is refused 429 at the upgrade, another student still connects, and a slot reopens when one closes",
+   "C11: one student can hold only 2 sockets that have not started; a third is refused 429 at the upgrade, another student still connects, and a slot reopens when one closes"
+  ],
+  "secs": 10.6
+ },
+ "C12a": {
+  "desc": "crisis write not retried",
+  "rc": 1,
+  "tests": 88,
+  "pass": 82,
+  "fail": 6,
+  "first": [
+   "C12: a crisis flag write that fails once is retried once and stored; nothing is logged and the session continues",
+   "C12: a crisis flag write that keeps failing is tried twice, logged as voice_crisis_flag_failed"
+  ],
+  "secs": 51.0
+ },
+ "C12b": {
+  "desc": "escalation carries unredacted words",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED words, like the text path",
+   "C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED words, like the text path"
+  ],
+  "secs": 9.1
+ },
+ "C13a": {
+  "desc": "expired logs never pruned",
+  "rc": 1,
+  "tests": 88,
+  "pass": 86,
+  "fail": 2,
+  "first": [
+   "C13: an expired resume log is dropped when a reconnect asks for it",
+   "C13: the prune timer drops an expired resume log although nobody reads it, and is not counted in the per-connection timers"
+  ],
+  "secs": 9.3
+ },
+ "C14a": {
+  "desc": "unconsented minor IS escalated (no skip)",
+  "rc": 1,
+  "tests": 88,
+  "pass": 86,
+  "fail": 2,
+  "first": [
+   "C12: an under-18 student without guardian consent is flagged",
+   "C14: an unconsented minor is flagged, not escalated, and the skip is logged text-free"
+  ],
+  "secs": 13.9
+ },
+ "C14b": {
+  "desc": "fenced skip removed (escalates for a fenced student)",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is logged text-free",
+   "C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is logged text-free"
+  ],
+  "secs": 45.7
+ },
+ "C14c": {
+  "desc": "closing connection skips the crisis record (cycle-1 behaviour)",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is logged text-free",
+   "C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is logged text-free"
+  ],
+  "secs": 14.6
+ },
+ "C15a": {
+  "desc": "month not re-read after supersede (usage ignored in the loop)",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C15: usage 50 min, A runs 10 min, B supersedes A: the month is read again after A's minutes are written and B is refused voice_quota_exceeded with no provider session",
+   "C15: usage 50 min, A runs 10 min, B supersedes A: the month is read again after A's minutes are written and B is refused voice_quota_exceeded with no provider session"
+  ],
+  "secs": 41.2
+ },
+ "C16a": {
+  "desc": "closing connection stays the latest start",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C16: the supersede loop's second pass is needed: a start that took the slot while B re-read the month is superseded before B opens its provider session",
+   "C16: the supersede loop's second pass is needed: a start that took the slot while B re-read the month is superseded before B opens its provider session"
+  ],
+  "secs": 10.0
+ },
+ "C17a": {
+  "desc": "escalation port built outside the retried write",
+  "rc": 1,
+  "tests": 88,
+  "pass": 86,
+  "fail": 2,
+  "first": [
+   "C17: an escalateForTenant factory that throws synchronously is retried, logged as voice_crisis_escalate_failed",
+   "C17: a factory that throws once is retried and the escalation is delivered, with nothing logged"
+  ],
+  "secs": 13.9
+ },
+ "C18a": {
+  "desc": "no-words crisis uses the latest student turn's words",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "C18: a crisis with no words of its own is escalated with the fixed text-free marker, never with an earlier turn's words",
+   "C18: a crisis with no words of its own is escalated with the fixed text-free marker, never with an earlier turn's words"
+  ],
+  "secs": 9.9
+ },
+ "C19a": {
+  "desc": "drain wait unbounded in practice (1e9 ms)",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 0,
+  "first": [
+   "C19: a crisis sink write that never settles cannot hold the slot: finalize waits at most drainTimeoutMs, logs voice_drain_timeout and frees the socket, the provider session and the student's slot",
+   "C19: a crisis sink write that never settles cannot hold the slot: finalize waits at most drainTimeoutMs, logs voice_drain_timeout and frees the socket, the provider session and the student's slot"
+  ],
+  "secs": 40.2
+ },
+ "C6b": {
+  "desc": "db: a voice row is written as a text turn",
+  "rc": 1,
+  "tests": 88,
+  "pass": 86,
+  "fail": 2,
+  "first": [
+   "U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time",
+   "U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row"
+  ],
+  "secs": 5.5
+ },
+ "C6c": {
+  "desc": "db: audit finding attaches to any row (channel filter removed)",
+  "rc": 1,
+  "tests": 88,
+  "pass": 87,
+  "fail": 1,
+  "first": [
+   "U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row",
+   "U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row"
+  ],
+  "secs": 3.4
+ }
+}
