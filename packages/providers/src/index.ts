@@ -1146,6 +1146,7 @@ export class OllamaProvider implements LlmProvider {
   private readonly fetchImpl: typeof fetch;
   // Private (#) so the key never shows up in JSON.stringify, String() or util.inspect (B11).
   readonly #apiKey: string;
+  #actualHookFailures = 0;
 
   constructor(options: OllamaProviderOptions) {
     // ISS-272: a whitespace-only key is no key; a pasted key with a trailing newline is trimmed, never sent with it.
@@ -1166,6 +1167,11 @@ export class OllamaProvider implements LlmProvider {
     this.beforeRequest = options.beforeRequest;
     this.afterResponse = options.afterResponse;
     this.fetchImpl = options.fetchImpl ?? fetch;
+  }
+
+  /** D-103: how many times `afterResponse` threw (its response was still returned). */
+  get actualHookFailures(): number {
+    return this.#actualHookFailures;
   }
 
   toString(): string {
@@ -1246,7 +1252,14 @@ export class OllamaProvider implements LlmProvider {
               usd: (counts.prompt_eval_count * this.price.inputUsdPerMTok + counts.eval_count * this.price.outputUsdPerMTok) / 1e6,
             }
           : { model: this.model, estimate, actual: "unreported" };
-      this.afterResponse(usage);
+      try {
+        this.afterResponse(usage);
+      } catch {
+        // The response is already paid for: a failing hook (e.g. the ledger could not be written) must not discard it
+        // or trigger a re-send. The failure is counted so the caller can see it; the budget run tallies that call as
+        // unreported, keeping its reservation.
+        this.#actualHookFailures += 1;
+      }
     }
 
     const content = (body as { message?: { content?: unknown } } | null)?.message?.content;

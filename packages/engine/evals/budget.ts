@@ -15,7 +15,9 @@
  *    line (actualInTokens / actualOutTokens / actualUsd next to the reservation it was made under). It is
  *    informational: month/run spend and the cap check keep using the pre-request reservation (`charge`),
  *    so actuals can never loosen a cap. Counts that are missing or invalid are recorded `actual:
- *    "unreported"` with the reservation figure, never as zero.
+ *    "unreported"` with the reservation figure, never as zero. A failed append of an `actual` line is tallied in memory as
+ *    unreported (the response was already paid for) and never re-charged; a TORN trailing line (process killed
+ *    mid-append) fails `readLedger` closed like any corrupt line, so the next run refuses until it is repaired.
  *  - The read-check-append of every charge/start is serialised across processes by an exclusive
  *    lock file next to the ledger, so concurrent runners cannot jointly overshoot a cap.
  */
@@ -238,9 +240,18 @@ export class BudgetRun {
   recordActual(usage: ActualUsage): void {
     if (!isUsd(usage.reservedUsd)) throw new RangeError(`reservedUsd must be a finite number >= 0, got ${usage.reservedUsd}`);
     const reported = isCount(usage.inputTokens) && isCount(usage.outputTokens) && isUsd(usage.usd);
-    this.guard.recordActual(this, usage, reported);
+    // A failed append must not lose the call: it is still tallied (as unreported, keeping its reservation) and the
+    // error is rethrown after the tally. The reservation was already charged, so nothing is ever re-charged.
+    let appendError: unknown;
+    let appended = true;
+    try {
+      this.guard.recordActual(this, usage, reported);
+    } catch (err) {
+      appended = false;
+      appendError = err;
+    }
     const u = this.usage;
-    if (reported) {
+    if (reported && appended) {
       u.reportedCalls += 1;
       u.actualInTokens += usage.inputTokens!;
       u.actualOutTokens += usage.outputTokens!;
@@ -249,6 +260,7 @@ export class BudgetRun {
       u.unreportedCalls += 1;
       u.unreportedReservedUsd = Math.round((u.unreportedReservedUsd + usage.reservedUsd) * 1e6) / 1e6;
     }
+    if (!appended) throw appendError;
   }
 
   usageSummary(): UsageSummary {

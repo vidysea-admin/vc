@@ -456,3 +456,29 @@ test("p1-ollama-actual-tokens: a tiny recorded actual does not free headroom und
   run.recordActual({ reservedUsd: 40, inputTokens: 1, outputTokens: 1, usd: 0.000005 });
   assert.throws(() => run.charge(10.01), BudgetExceededError);
 });
+
+test("p1-ollama-actual-tokens: if the actual line cannot be appended, recordActual rethrows but the run still tallies the call as unreported with its reservation (never lost, never zero, never re-charged)", () => {
+  const ledgerPath = tmpLedger();
+  const guard = new BudgetGuard({ ledgerPath, now: JULY });
+  const run = guard.startRun({ runner: "run-kb" });
+  run.charge(0.5);
+  const real = guard.recordActual.bind(guard);
+  (guard as unknown as { recordActual: () => void }).recordActual = () => {
+    throw new Error("EIO");
+  };
+  assert.throws(() => run.recordActual({ reservedUsd: 0.5, inputTokens: 10, outputTokens: 2, usd: 0.001 }), /EIO/);
+  (guard as unknown as { recordActual: typeof real }).recordActual = real;
+  assert.deepEqual(run.usageSummary(), { reportedCalls: 0, unreportedCalls: 1, actualInTokens: 0, actualOutTokens: 0, actualUsd: 0, unreportedReservedUsd: 0.5 });
+  assert.equal(readLedger(ledgerPath).filter((e) => e.kind === "charge").length, 1, "exactly one charge line, no re-charge");
+  assert.equal(run.spentUsd, 0.5);
+});
+
+test("p1-ollama-actual-tokens: a torn trailing actual line (process killed mid-append) makes readLedger fail closed, like any corrupt line; the operator repairs the file before the next run", () => {
+  const ledgerPath = tmpLedger();
+  const run = new BudgetGuard({ ledgerPath, now: JULY }).startRun({ runner: "run-kb" });
+  run.charge(1);
+  assert.equal(readLedger(ledgerPath).length, 2);
+  appendFileSync(ledgerPath, '{"ts":"2026-07-15T10:00:00.000Z","runId":"r","runner":"run-kb","kind":"actual","actual":"repor', "utf-8");
+  assert.throws(() => readLedger(ledgerPath), /ledger .*is corrupt/);
+  assert.throws(() => new BudgetGuard({ ledgerPath, now: JULY }).startRun({ runner: "run-kb" }), /is corrupt/, "the next run refuses rather than undercount");
+});

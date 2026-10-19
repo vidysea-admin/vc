@@ -481,3 +481,23 @@ test("p1-ollama-actual-tokens: the price override env prices the actual tokens",
   await make!(() => undefined, (u) => seen.push(u)).generate(req());
   assert.equal(seen[0]!.usd, 2.5);
 });
+
+test("p1-ollama-actual-tokens: a throwing afterResponse never discards the paid response; it is returned, the failure is counted, and a later call still records", async () => {
+  let n = 0;
+  const seen: OllamaActualUsage[] = [];
+  const { fetchImpl, calls } = mockFetch(() => chatWithCounts({ prompt_eval_count: 5, eval_count: 2 }));
+  const p = provider(fetchImpl, {
+    afterResponse: (u) => {
+      n += 1;
+      if (n === 1) throw new Error("EIO ledger write failed");
+      seen.push(u);
+    },
+  });
+  assert.equal(p.actualHookFailures, 0);
+  assert.deepEqual(await p.generate(req()), { answer: "hi" }, "the response that was already paid for is returned");
+  assert.equal(p.actualHookFailures, 1);
+  assert.equal(calls.length, 1, "no re-send, so no second charge");
+  assert.deepEqual(await p.generate(req()), { answer: "hi" });
+  assert.equal(seen.length, 1);
+  assert.equal(p.actualHookFailures, 1);
+});

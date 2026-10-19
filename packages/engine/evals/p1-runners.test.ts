@@ -3,7 +3,7 @@
  *  every one is hard-stopped by the A24 budget guard and still writes an abort report. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, existsSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, existsSync, readdirSync, writeFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseP1Args, P1_LEDGER, type P1Args, type RunnerDeps, type RunnerOutcome } from "./run-eval.js";
@@ -400,4 +400,49 @@ test("p1-ollama-actual-tokens: the default (no VC_REAL_MODEL) path has no usage 
   assert.equal("usage" in (outcome.report as object), false);
   assert.equal(readLedger(ledger).some((e) => e.kind === "actual"), false);
   assert.doesNotMatch(outcome.markdown, /notional/);
+});
+
+test("p1-ollama-actual-tokens: end to end, a ledger that rejects the actual append (read-only file) does not discard the response: one charge line for that call, the run completes, the report counts it as unreported", async () => {
+  const { outDir, ledger } = tmp();
+  let n = 0;
+  const fetchImpl = (async () => {
+    n += 1;
+    if (n === 1) chmodSync(ledger, 0o444); // the ledger refuses the actual append that follows this response
+    return new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify({ answer: "ok" }) }, done: true, prompt_eval_count: 40, eval_count: 6 }), { status: 200 });
+  }) as typeof fetch;
+  const answers: unknown[] = [];
+  try {
+    const outcome = await runKb(
+      { ...parseP1Args(["--real"]), outDir, ledger },
+      {
+        env: OLLAMA_ENV,
+        gateFile: GATE,
+        now: NOW,
+        fetchImpl,
+        realBody: async (_b, provider) => {
+          answers.push(await ask(provider));
+          chmodSync(ledger, 0o666);
+          answers.push(await ask(provider));
+          return {};
+        },
+      },
+    );
+    assert.equal(outcome.status, "completed");
+    assert.deepEqual(answers, [{ answer: "ok" }, { answer: "ok" }], "the first, already-paid response was returned");
+    const entries = readLedger(ledger);
+    assert.equal(entries.filter((e) => e.kind === "charge").length, 2, "one charge per request, no re-charge");
+    assert.equal(entries.filter((e) => e.kind === "actual").length, 1, "only the second call's actual line exists");
+    const usage = (outcome.report as { usage: Record<string, number> }).usage;
+    assert.equal(usage["reportedCalls"], 1);
+    assert.equal(usage["unreportedCalls"], 1, "the call whose actual could not be written counts as unreported");
+    assert.equal(usage["actualInTokens"], 40);
+    const firstReserved = entries.filter((e) => e.kind === "charge")[0]!.usd!;
+    assert.ok(Math.abs(usage["unreportedReservedUsd"]! - firstReserved) < 1e-9, "it keeps its reservation figure");
+  } finally {
+    try {
+      chmodSync(ledger, 0o666);
+    } catch {
+      // ledger never created
+    }
+  }
 });
