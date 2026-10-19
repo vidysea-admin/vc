@@ -23,3 +23,5 @@ these are on disk in `qa/gates/`:
 voice (needs item 2); (d) hold.
 **Blocks:** real-user exposure, the public anonymous route and the voice flag. It does not block building or testing.
 **Answer format:** chat reply. The maker appends `Answered: <ISO> - <option> - <decisions above>` here.
+
+**Answered (partial):** 2026-10-19T11:54:02+05:30 - (c) all three incl. voice - Umesh (chat, 2026-10-19). Prerequisites still open before the go-live script will enable anything: B13 signed, A10 voice report passing, g-publish answered, nights mode recorded; and the decisions above (minors before DPDP counsel, clinical-safety owner, Tele-MANAS test call) are still unanswered. Recorded in D-101.
