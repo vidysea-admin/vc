@@ -7,11 +7,12 @@ import test from "node:test";
 import { SignJWT } from "jose";
 import { WebSocket } from "ws";
 import { LiveConfigError, LiveSession, MockLiveProvider, type LiveProvider } from "@vc/providers";
-import { createChatThread, getStudentUsage, listChatTurns, usageMonth } from "@vc/db";
+import { confirmErasure, createChatThread, getStudentUsage, listChatTurns, requestErasure, usageMonth } from "@vc/db";
 import { VoiceSessionResponseSchema } from "@vc/schemas";
 import { GoLiveRefusedError } from "../src/go-live-gate.js";
 import { createApiServer } from "../src/server.js";
 import {
+  VOICE_CRISIS_NO_WORDS_TEXT,
   VOICE_FLAG_ENV,
   VOICE_RESUME_WINDOW_MS,
   VOICE_START_TIMEOUT_MS,
@@ -20,6 +21,7 @@ import {
   createVoiceApi,
   voiceEnabledFromEnv,
   withVoiceRoutes,
+  type VoiceApiDeps,
 } from "../src/voice.js";
 import {
   CRISIS_AUDIO,
@@ -1330,4 +1332,315 @@ test("C13: shutdown drops every retained resume log (no transcript events are ke
   } finally {
     await w.cleanup();
   }
+});
+
+// ---------------------------------------------------------------------------
+// U10 repair 2 (checker B F1-F3 and the review of f71f387): C14 a crisis always reaches the escalation or a log line, also when the
+// socket drops; C16 the newest-wins step-aside survives an aborted newest start, and the supersede loop's second pass is needed;
+// C17 the escalation port is built inside the retried write; C18 the escalation never carries an earlier turn's words; C19 the
+// finalize drain is bounded. C15 (the month is read again after a supersede) is in voice-limits.test.ts.
+// ---------------------------------------------------------------------------
+
+/** Holds every student_flags write until `release()`; `hit()` turns true when the first write is in flight. */
+const gatedFlagWrites = (w: VoiceWorld): { release: () => void; hit: () => boolean } => {
+  const flags = w.fakeDb.collection<any>("student_flags");
+  const real = flags.updateOne.bind(flags);
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  let hit = false;
+  flags.updateOne = (async (...args: Parameters<typeof real>) => {
+    hit = true;
+    await gate;
+    return real(...args);
+  }) as typeof flags.updateOne;
+  return { release, hit: () => hit };
+};
+
+for (const how of ["drops", "ends gracefully"] as const) {
+  test(`C14: a crisis whose flag write is still in flight when the socket ${how} is flagged once and escalated once`, async () => {
+    const escalations: any[] = [];
+    await withWorld(
+      async (w, threadId) => {
+        const { client } = await w.open(adult(), threadId);
+        const g = gatedFlagWrites(w);
+        speak(w, 0, CRISIS_PHRASE);
+        await until(() => g.hit(), "the crisis flag write is in flight");
+        if (how === "drops") client.abort();
+        else client.send({ type: "end" });
+        await until(() => w.provider.backends[0]!.calls.some((x) => x.type === "close"), "finalize began (the socket is closing)");
+        g.release();
+        await until(() => escalations.length >= 1, "escalated although the socket closed");
+        await w.voice.settled();
+        await new Promise((r) => setTimeout(r, 50));
+        assert.equal(w.fakeDb.collection<any>("student_flags").all().length, 1, "exactly one flag");
+        assert.equal(escalations.length, 1, "exactly one escalation");
+        assert.match(escalations[0].turns[0].text, /kill myself/);
+        assert.equal(w.voice.stats().sockets, 0);
+        assert.ok(!w.logs.some((l) => l.event.startsWith("voice_crisis_escalate")), "nothing skipped or failed");
+      },
+      { deps: { escalateForTenant: () => async (input) => void escalations.push(input) } },
+    );
+  });
+}
+
+test("C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_fenced)", async () => {
+  const escalations: unknown[] = [];
+  await withWorld(
+    async (w, threadId) => {
+      await w.open(adult(), threadId);
+      const db = w.deps.dbForTenant("tenant-a");
+      const { requestId } = await requestErasure(db, { studentId: "stu-1", requestedBy: "counsellor-7", reason: "student_request" });
+      await confirmErasure(db, { requestId, confirmedBy: "admin-2" });
+      speak(w, 0, CRISIS_PHRASE);
+      await until(() => w.logs.some((l) => l.event === "voice_crisis_escalate_skipped_fenced"), "the skip is logged");
+      await w.voice.settled();
+      assert.equal(escalations.length, 0);
+      assert.ok(!JSON.stringify(w.logs).includes("kill"), "the log line is text-free");
+    },
+    { deps: { escalateForTenant: () => async (input) => void escalations.push(input) } },
+  );
+});
+
+test("C14: an unconsented minor is flagged, not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_text_not_stored)", async () => {
+  const escalations: unknown[] = [];
+  await withWorld(
+    async (w, threadId) => {
+      await w.open(minorNoConsent(), threadId);
+      speak(w, 0, CRISIS_PHRASE);
+      await until(() => w.logs.some((l) => l.event === "voice_crisis_escalate_skipped_text_not_stored"), "the skip is logged");
+      assert.equal(w.fakeDb.collection<any>("student_flags").all().length, 1);
+      assert.equal(escalations.length, 0);
+      assert.ok(!JSON.stringify(w.logs).includes("kill"));
+    },
+    { deps: { escalateForTenant: () => async (input) => void escalations.push(input) } },
+  );
+});
+
+/** Gates the next LiveSession.drain() call after `arm()`; restore with `restore()`. */
+function drainGate(): { arm: () => void; release: () => void; restore: () => void } {
+  const orig = LiveSession.prototype.drain;
+  let armed = false;
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  LiveSession.prototype.drain = async function (this: LiveSession) {
+    if (armed) {
+      armed = false;
+      await gate;
+    }
+    return orig.call(this);
+  };
+  return {
+    arm: () => {
+      armed = true;
+    },
+    release: () => release(),
+    restore: () => {
+      LiveSession.prototype.drain = orig;
+    },
+  };
+}
+
+test("C16: A active with a slow drain, B starts, C starts and then aborts: B (the only waiter left) becomes the one live session and is not told superseded", async () => {
+  const w = await voiceWorld();
+  const dg = drainGate();
+  try {
+    const threadId = await newThread(w.chat, await studentToken(adult()));
+    const first = await w.open(adult(), threadId);
+    dg.arm();
+    const rB = await w.connect(await w.mint(adult(), threadId), { threadId });
+    const rC = await w.connect(await w.mint(adult(), threadId), { threadId });
+    assert.ok(rB.ok && rC.ok);
+    if (!rB.ok || !rC.ok) return;
+    rB.client.send({ type: "start", threadId });
+    await until(() => first.client.of("error").filter((e) => e.code === "superseded").length >= 1, "B waits on A");
+    rC.client.send({ type: "start", threadId });
+    await until(() => first.client.of("error").filter((e) => e.code === "superseded").length >= 2, "C waits on A too");
+    rC.client.abort();
+    await until(() => w.voice.stats().sockets === 2, "C finalized (A and B left)");
+    dg.release();
+    await until(() => w.provider.backends.length === 2 || rB.client.closed, "B opened its provider session (or was closed)");
+    await w.voice.settled();
+    await new Promise((r) => setTimeout(r, 100));
+    assert.equal(rB.client.closed, false, "B is live");
+    assert.ok(!rB.client.of("error").some((e) => e.code === "superseded"), "B was never told superseded");
+    assert.equal(w.provider.backends.length, 2);
+    const s = w.voice.stats();
+    assert.equal(s.liveSessions, 1);
+    assert.equal(s.activeSessions, 1);
+    assert.equal(s.sockets, 1);
+  } finally {
+    dg.restore();
+    dg.release();
+    await w.cleanup();
+  }
+});
+
+test("C16: the supersede loop's second pass is needed: a start that took the slot while B re-read the month is superseded before B opens its provider session", async () => {
+  const w = await voiceWorld();
+  const dg = drainGate();
+  const usage = w.fakeDb.collection<any>("student_usage");
+  const realFind = usage.findOne.bind(usage);
+  let skip = -1;
+  let readHeld = false;
+  let releaseRead!: () => void;
+  const readGate = new Promise<void>((r) => (releaseRead = r));
+  usage.findOne = (async (...args: Parameters<typeof realFind>) => {
+    if (skip === 0) {
+      skip = -1;
+      readHeld = true;
+      await readGate;
+    } else if (skip > 0) skip--;
+    return realFind(...args);
+  }) as typeof usage.findOne;
+  try {
+    const threadId = await newThread(w.chat, await studentToken(adult()));
+    const a = await w.open(adult(), threadId);
+    const rB = await w.connect(await w.mint(adult(), threadId), { threadId });
+    assert.ok(rB.ok);
+    if (!rB.ok) return;
+    skip = 1; // B's start check reads the month (passes); B's re-read after superseding A is held
+    rB.client.send({ type: "start", threadId });
+    await until(() => readHeld, "B superseded A and is re-reading the month");
+    assert.ok(a.client.of("error").some((e) => e.code === "superseded"));
+    const d = await w.open(adult(), threadId); // D starts while B waits: the slot is free, D takes it and goes live
+    assert.equal(w.provider.backends.length, 2);
+    dg.arm();
+    d.client.abort();
+    await until(() => w.provider.backends[1]!.calls.some((x) => x.type === "close"), "D is closing, its drain held");
+    releaseRead();
+    await new Promise((r) => setTimeout(r, 150));
+    assert.equal(w.provider.backends.length, 2, "B must not open a provider session while D still holds the slot");
+    assert.equal(rB.client.closed, false);
+    dg.release();
+    await until(() => w.provider.backends.length === 3 || rB.client.closed, "B opened its provider session after D was released");
+    await w.voice.settled();
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(rB.client.closed, false, "B is live");
+    assert.equal(w.provider.backends.length, 3);
+    const s = w.voice.stats();
+    assert.equal(s.liveSessions, 1);
+    assert.equal(s.activeSessions, 1);
+    assert.equal(s.sockets, 1);
+  } finally {
+    usage.findOne = realFind as typeof usage.findOne;
+    dg.restore();
+    dg.release();
+    releaseRead();
+    await w.cleanup();
+  }
+});
+
+test("C17: an escalateForTenant factory that throws synchronously is retried, logged as voice_crisis_escalate_failed (text-free), and is never a persist_failed event", async () => {
+  let built = 0;
+  await withWorld(
+    async (w, threadId) => {
+      const { client } = await w.open(adult(), threadId);
+      speak(w, 0, CRISIS_PHRASE);
+      await until(() => w.logs.some((l) => l.event === "voice_crisis_escalate_failed") || client.of("error").length > 0, "the failure is visible");
+      await w.voice.settled();
+      assert.ok(w.logs.some((l) => l.event === "voice_crisis_escalate_failed"), "logged as voice_crisis_escalate_failed");
+      assert.equal(built, 2, "the factory is inside the retried write: two attempts");
+      assert.equal(w.fakeDb.collection<any>("student_flags").all().length, 1);
+      assert.ok(!client.of("error").some((e) => e.code === "persist_failed"), "a crisis-write failure is a log line, not a persist_failed event");
+      assert.ok(!JSON.stringify(w.logs).includes("secret-detail-xyz"));
+      assert.equal(client.closed, false);
+    },
+    {
+      deps: {
+        escalateForTenant: () => {
+          built++;
+          throw new Error("factory down secret-detail-xyz");
+        },
+      },
+    },
+  );
+});
+
+test("C17: a factory that throws once is retried and the escalation is delivered, with nothing logged", async () => {
+  let built = 0;
+  const seen: any[] = [];
+  await withWorld(
+    async (w, threadId) => {
+      await w.open(adult(), threadId);
+      speak(w, 0, CRISIS_PHRASE);
+      await until(() => seen.length === 1, "delivered on the retry");
+      assert.equal(built, 2);
+      assert.ok(!w.logs.some((l) => l.event.startsWith("voice_crisis_escalate")));
+    },
+    {
+      deps: {
+        escalateForTenant: () => {
+          built++;
+          if (built === 1) throw new Error("blip");
+          return async (input) => void seen.push(input);
+        },
+      },
+    },
+  );
+});
+
+test("C18: a crisis with no words of its own is escalated with the fixed text-free marker, never with an earlier turn's words", async () => {
+  const escalations: any[] = [];
+  await withWorld(
+    async (w, threadId) => {
+      const { client } = await w.open(adult(), threadId);
+      speak(w, 0, "my earlier words about studying in Germany");
+      answer(w, 0, "Here is an answer about Germany.");
+      await until(() => client.of("transcript.final").length >= 2, "the earlier turn is done");
+      speak(w, 0, "   "); // the detector fires on an empty utterance: there are no crisis words to send
+      await until(() => escalations.length === 1, "escalated");
+      const text = escalations[0].turns[0].text as string;
+      assert.equal(text, VOICE_CRISIS_NO_WORDS_TEXT);
+      assert.ok(typeof text === "string" && text.length > 0);
+      assert.ok(!text.includes("earlier") && !text.includes("Germany"), "never an earlier turn's words");
+      assert.equal(escalations[0].turns[0].translatedText, text);
+      assert.equal(w.fakeDb.collection<any>("student_flags").all().length, 1);
+    },
+    {
+      deps: {
+        crisis: {
+          message: { text: CRISIS_TEXT_FIXED, audio: CRISIS_AUDIO },
+          detect: (text) => (text.trim() === "" ? { crisis: true, level: "crisis" } : { crisis: false }),
+        },
+        escalateForTenant: () => async (input) => void escalations.push(input),
+      },
+    },
+  );
+});
+
+test("C18: the crisis utterance's own redacted words are escalated even when an earlier student turn was never answered", async () => {
+  const escalations: any[] = [];
+  await withWorld(
+    async (w, threadId) => {
+      await w.open(adult(), threadId);
+      speak(w, 0, "an earlier unanswered question about Germany");
+      speak(w, 0, CRISIS_PHRASE);
+      await until(() => escalations.length === 1, "escalated");
+      const text = escalations[0].turns[0].text as string;
+      assert.match(text, /kill myself/);
+      assert.ok(!text.includes("Germany"));
+    },
+    { deps: { escalateForTenant: () => async (input) => void escalations.push(input) } },
+  );
+});
+
+test("C19: a crisis sink write that never settles cannot hold the slot: finalize waits at most drainTimeoutMs, logs voice_drain_timeout and frees the socket, the provider session and the student's slot", async () => {
+  await withWorld(
+    async (w, threadId) => {
+      const { client } = await w.open(adult(), threadId);
+      speak(w, 0, CRISIS_PHRASE);
+      await until(() => w.fakeDb.collection<any>("student_flags").all().length === 1, "flag stored; the escalation now hangs");
+      client.send({ type: "end" });
+      await until(() => client.closed, "closed despite the hung sink write");
+      await w.voice.settled();
+      assert.ok(w.logs.some((l) => l.event === "voice_drain_timeout"));
+      const s = w.voice.stats();
+      assert.equal(s.sockets, 0);
+      assert.equal(s.activeSessions, 0);
+      assert.equal(s.liveSessions, 0);
+      const again = await w.open(adult(), threadId);
+      assert.equal(again.client.closed, false, "the student can start again");
+    },
+    { deps: { drainTimeoutMs: 100, escalateForTenant: () => () => new Promise<never>(() => undefined) } as Partial<VoiceApiDeps> },
+  );
 });

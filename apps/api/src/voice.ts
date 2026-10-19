@@ -121,6 +121,13 @@ export const VOICE_MAX_LIMITER_KEYS = 100_000;
 export const VOICE_MAX_PRESTART_SOCKETS_PER_STUDENT = 2;
 /** U10 repair 1: a crisis flag / escalation write is tried this many times in all (one retry). */
 export const VOICE_CRISIS_WRITE_ATTEMPTS = 2;
+/**
+ * U10 repair 2 (item 5): what the escalation carries when the crisis utterance has no words of its own (an empty utterance, or text that
+ * was never stored for it). Fixed and text-free: never an earlier turn's words.
+ */
+export const VOICE_CRISIS_NO_WORDS_TEXT = "[voice crisis detected: the student's words for this turn were not captured]";
+/** U10 repair 2 (item 6): finalize waits this long for the queued transcript and crisis writes, then logs and releases the slot. */
+export const VOICE_DRAIN_TIMEOUT_MS_DEFAULT = 10_000;
 const MAX_INVALID_CLIENT_MESSAGES = 10;
 const MAX_PENDING_CONFIRMS = 20;
 
@@ -234,6 +241,11 @@ export interface VoiceApiDeps {
   pruneTimers?: VoiceTimers;
   /** Text-free server-side failure log. Default: one JSON line on stderr. */
   log?: (line: VoiceLogLine) => void;
+  /**
+   * U10 repair 2 (item 6): how long finalize waits for the queued transcript and crisis writes before it logs `voice_drain_timeout` and
+   * releases the slot (the writes themselves go on in the background). Default VOICE_DRAIN_TIMEOUT_MS_DEFAULT; an unref'd real timer.
+   */
+  drainTimeoutMs?: number;
 }
 
 export interface VoiceRouteConfig {
@@ -440,7 +452,13 @@ interface Conn {
   notStartedWarned: boolean;
   lastAtMs: number;
   /** `text` is the REDACTED words of the turn, kept only while the student's text may be stored; the crisis escalation reads it. */
-  lastUser?: { turnId: string; at: string; answered: boolean; text?: string };
+  lastUser?: { turnId: string; at: string; answered: boolean; text?: string; seq?: number };
+  /**
+   * U10 repair 2 (item 5): the redacted words of the utterance that triggered the crisis now being recorded. Set when the fixed crisis
+   * reply reaches the sink: LiveSession writes the crisis utterance (seq N) right before the fixed reply (seq N + 1), so only a student
+   * turn with seq N counts; anything older is another turn and is never used.
+   */
+  crisisWords?: string;
   startTimer?: unknown;
   turnBySeq: Map<number, string>;
   /** `${seq}|${reason}|${detail}` of the flags already sent: one listed speaker named under three aliases is one flag, not three. */
@@ -469,6 +487,8 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   const nowMs = deps.nowMs ?? Date.now;
   const nowDate = () => (deps.now ? deps.now() : new Date(nowMs()));
   const maxSockets = deps.maxSockets ?? VOICE_MAX_SOCKETS_DEFAULT;
+  const drainTimeoutMs =
+    deps.drainTimeoutMs !== undefined && Number.isFinite(deps.drainTimeoutMs) && deps.drainTimeoutMs > 0 ? deps.drainTimeoutMs : VOICE_DRAIN_TIMEOUT_MS_DEFAULT;
   const timerApi: VoiceTimers = deps.timers ?? {
     setTimeout: (fn, ms) => {
       const t = setTimeout(fn, ms);
@@ -656,7 +676,11 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     if (!c.persistText) return; // D-093 4A: the student is answered, nothing personal is stored
     const stored = redact(c, t.text);
     // The crisis escalation reads the words of the latest student turn; they are kept redacted and only while text may be stored.
-    if (t.role === "user" && c.lastUser?.turnId === turnId) c.lastUser.text = clamp(stored, 2000);
+    if (t.role === "user" && c.lastUser?.turnId === turnId) {
+      c.lastUser.text = clamp(stored, 2000);
+      c.lastUser.seq = t.seq;
+    }
+    if (t.fixed === true) c.crisisWords = c.lastUser?.seq !== undefined && c.lastUser.seq === t.seq - 1 ? c.lastUser.text : undefined;
     try {
       await appendVoiceTurn(c.db, { studentId: c.claims.studentId, threadId: c.claims.threadId, turnId, role: t.role, text: stored, at });
     } catch (err) {
@@ -714,41 +738,68 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   /**
    * A crisis write is never lost to one blip: it is tried VOICE_CRISIS_WRITE_ATTEMPTS times in all (one retry, mirroring the text path's
    * safeWrite) and a final failure is logged text-free under `failEvent`; it never throws, so the later sink writes and the session go on.
-   * A student fenced for erasure is not retried: the session ends, exactly as for every other write.
+   * A student fenced for erasure is not retried: the session ends, exactly as for every other write. The write is a thunk, so anything it
+   * builds (the escalation port included) is inside the retry: a synchronous throw is retried and logged like a rejected promise.
+   * Returns how it ended, so the caller can log why a later crisis step is skipped.
    */
-  async function crisisWrite(c: Conn, failEvent: string, write: () => Promise<unknown>): Promise<void> {
+  async function crisisWrite(c: Conn, failEvent: string, write: () => Promise<unknown> | unknown): Promise<"ok" | "fenced" | "failed"> {
     let last: unknown;
     for (let attempt = 1; attempt <= VOICE_CRISIS_WRITE_ATTEMPTS; attempt++) {
       try {
         await write();
-        return;
+        return "ok";
       } catch (err) {
-        if (endIfFenced(c, err)) return;
+        if (endIfFenced(c, err)) return "fenced";
         last = err;
       }
     }
     logEvent(failEvent, last);
+    return "failed";
   }
 
+  /**
+   * The crisis record and its escalation run to completion whatever the socket does: a socket that drops (or ends) while the flag write is
+   * in flight only stops sending to the client, never the escalation (U10 repair 2, item 1; finalize waits for this through the drain).
+   * The only crisis with a configured port that is not escalated is a student whose words may not be stored (an unconsented minor) or one
+   * fenced for erasure, and each such skip leaves a text-free log line.
+   */
   async function onCrisisRecord(c: Conn, r: LiveCrisisRecord): Promise<void> {
+    // The words of THIS crisis utterance (consumed here, so a later crisis never sees them).
+    const words = c.crisisWords;
+    c.crisisWords = undefined;
     // Ids and time only: kept even for an unconsented minor, exactly like the text path's crisis flag.
     const turnId = c.lastUser?.turnId ?? `v${c.claims.sid.slice(0, 8)}crisis`;
-    await crisisWrite(c, "voice_crisis_flag_failed", () =>
+    const flag = await crisisWrite(c, "voice_crisis_flag_failed", () =>
       recordStudentFlag(c.db, { studentId: c.claims.studentId, threadId: c.claims.threadId, turnId, kind: "crisis" }, { now: new Date(r.ts) }),
     );
-    // Parity with the text path (chat.ts escalateForTenant): the optional tenant port gets the REDACTED words of the student's turn.
-    // Never for a student whose text may not be stored (an unconsented minor), and never when no words are known.
-    const text = c.persistText ? c.lastUser?.text : undefined;
-    if (!deps.escalateForTenant || text === undefined || text === "" || c.state === "closing" || c.state === "closed") return;
-    const escalate = deps.escalateForTenant(c.claims.tenantId, c.db);
-    if (!escalate) return;
-    await crisisWrite(c, "voice_crisis_escalate_failed", () =>
-      escalate({
+    // Parity with the text path (chat.ts escalateForTenant): the optional tenant port gets the REDACTED words of the crisis utterance.
+    if (!deps.escalateForTenant) return; // no port configured: the flag only, exactly as before
+    if (!c.persistText) {
+      logEvent("voice_crisis_escalate_skipped_text_not_stored"); // D-093 4A: no text is kept for an unconsented minor
+      return;
+    }
+    if (flag === "fenced") {
+      logEvent("voice_crisis_escalate_skipped_fenced");
+      return;
+    }
+    // No words of its own (an empty utterance): a fixed, text-free marker, never an earlier turn's words.
+    const text = words !== undefined && words !== "" ? words : VOICE_CRISIS_NO_WORDS_TEXT;
+    let unavailable = false;
+    const escalated = await crisisWrite(c, "voice_crisis_escalate_failed", async () => {
+      // Built inside the retried write (item 4): a factory that throws is retried and logged, never a sink failure (persist_failed).
+      const escalate = deps.escalateForTenant!(c.claims.tenantId, c.db);
+      if (!escalate) {
+        unavailable = true;
+        return;
+      }
+      await escalate({
         sessionId: c.claims.threadId,
         studentId: c.claims.studentId,
         turns: [{ turnId, speaker: "student", lang: /[\u0900-\u097F]/.test(text) ? "hi" : "en", text, translatedText: text }],
-      }),
-    );
+      });
+    });
+    if (escalated === "fenced") logEvent("voice_crisis_escalate_skipped_fenced");
+    else if (unavailable) logEvent("voice_crisis_escalate_unavailable");
   }
 
   // -- LiveSession event relay ----------------------------------------------
@@ -866,6 +917,8 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     const run = (async () => {
       const wasStarted = c.startedAtMs !== undefined;
       c.state = "closing";
+      // A closing connection is no longer a start waiting for the slot (U10 repair 2, item 3): an older waiter must not step aside for it.
+      if (latestStart.get(c.key) === c) latestStart.delete(c.key);
       clearTimers(c);
       const session = c.session;
       if (session) {
@@ -874,11 +927,24 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
         } catch (err) {
           logEvent("voice_session_close_failed", err);
         }
-        try {
-          await session.drain();
-        } catch (err) {
-          logEvent("voice_drain_failed", err);
-        }
+        // The queued writes (the crisis record and escalation included) go on to completion; finalize waits for them only so long
+        // (item 6: an escalation port has no deadline of its own), so a hung write cannot hold the socket, the session or the slot.
+        let drainTimer: ReturnType<typeof setTimeout> | undefined;
+        const timedOut = await Promise.race([
+          session.drain().then(
+            () => false,
+            (err: unknown) => {
+              logEvent("voice_drain_failed", err);
+              return false;
+            },
+          ),
+          new Promise<boolean>((resolve) => {
+            drainTimer = setTimeout(() => resolve(true), drainTimeoutMs);
+            drainTimer.unref?.();
+          }),
+        ]);
+        if (drainTimer !== undefined) clearTimeout(drainTimer);
+        if (timedOut) logEvent("voice_drain_timeout");
         liveOpen--;
         c.session = undefined;
       }
@@ -964,7 +1030,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       void finalize(c, 1011);
       return;
     }
-    const remainingMs = limits.voiceMinutesPerMonth * 60_000 - used;
+    let remainingMs = limits.voiceMinutesPerMonth * 60_000 - used;
     if (remainingMs <= 0) {
       sendError(c, "voice_quota_exceeded");
       void finalize(c, 1008);
@@ -976,7 +1042,24 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     // U10 repair 1 (items 1 and 2): two starts that wait for the same old session must not both take the slot. Every await is followed by a
     // fresh look at the map; the newest waiter wins and an older waiter steps aside; and the slot is taken only by a connection that is
     // still starting, so a socket that closed while it waited can never leave itself in the map.
+    // U10 repair 2 (item 3): `latestStart` names the newest start that is still alive (finalize removes a closing one at once), and the
+    // holder keeps its entry while it holds the slot; a waiter steps aside only for another live connection. When the newest start went
+    // away, the waiter claims the entry itself, so two surviving waiters still cannot both proceed.
+    // U10 repair 2 (item 2, A23/D-088): after a predecessor is finalized its minutes are written, so the month is read again before the
+    // slot is taken; that read is an await, so the loop then looks at the map again (its second pass), where a start that went live
+    // meanwhile is superseded in turn.
     latestStart.set(c.key, c);
+    const steppedAside = (): boolean => {
+      const newest = latestStart.get(c.key);
+      if (newest === undefined) {
+        latestStart.set(c.key, c);
+        return false;
+      }
+      if (newest === c) return false;
+      sendError(c, "superseded"); // a newer start for this student is queued behind the same old session
+      void finalize(c, 4000);
+      return true;
+    };
     for (;;) {
       const previous = activeByStudent.get(c.key);
       if (!previous || previous === c) break;
@@ -984,13 +1067,24 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       await finalize(previous, 4000);
       if (activeByStudent.get(c.key) === previous) activeByStudent.delete(c.key); // belt and braces: a finalize that threw must not wedge the loop
       if (c.state !== "starting") return; // the socket closed while it waited
-      if (latestStart.get(c.key) !== c) {
-        sendError(c, "superseded"); // a newer start for this student is queued behind the same old session
-        void finalize(c, 4000);
+      if (steppedAside()) return;
+      try {
+        used = (await getStudentUsage(c.db, { studentId, month: usageMonth(nowDate()) })).voiceMs;
+      } catch (err) {
+        logEvent("voice_start_failed", err);
+        sendError(c, "internal");
+        void finalize(c, 1011);
         return;
       }
+      if (c.state !== "starting") return;
+      remainingMs = limits.voiceMinutesPerMonth * 60_000 - used;
+      if (remainingMs <= 0) {
+        sendError(c, "voice_quota_exceeded");
+        void finalize(c, 1008);
+        return;
+      }
+      if (steppedAside()) return;
     }
-    if (latestStart.get(c.key) === c) latestStart.delete(c.key);
     if (c.state !== "starting") return;
     activeByStudent.set(c.key, c);
     if (lastEventId !== undefined) replayFrom(c, lastEventId);

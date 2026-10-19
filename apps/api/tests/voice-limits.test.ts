@@ -207,3 +207,28 @@ test("C11: one student can hold only 2 sockets that have not started; a third is
     assert.ok(again.ok, "an active session does not count against the pre-start limit");
   });
 });
+
+// -- U10 repair 2, C15 (review F1, A23/D-088): the month is read again after the old session is superseded ------------------------
+
+test("C15: usage 50 min, A runs 10 min, B supersedes A: the month is read again after A's minutes are written and B is refused voice_quota_exceeded with no provider session", async () => {
+  await withWorld(async (w, threadId) => {
+    await addUsage(w, 50 * MIN);
+    const a = await w.open(adult(), threadId);
+    w.clock.ms += 10 * MIN; // A has run its 10 minutes; the clock moves without firing A's cap timer
+    const token = await w.mint(adult(), threadId); // A's minutes are not written yet, so the mint still passes
+    const res = await w.connect(token, { threadId });
+    assert.ok(res.ok);
+    if (!res.ok) return;
+    res.client.send({ type: "start", threadId });
+    await until(() => res.client.closed, "B refused");
+    assert.ok(a.client.of("error").some((e) => e.code === "superseded"), "A was superseded");
+    assert.ok(res.client.of("error").some((e) => e.code === "voice_quota_exceeded"));
+    assert.equal(res.client.closeCode, 1008);
+    await w.voice.settled();
+    assert.equal(w.provider.backends.length, 1, "B never opened a provider session");
+    assert.equal(await used(w), 60 * MIN);
+    const s = w.voice.stats();
+    assert.equal(s.liveSessions, 0);
+    assert.equal(s.activeSessions, 0);
+  });
+});
