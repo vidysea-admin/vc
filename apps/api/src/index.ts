@@ -333,9 +333,9 @@ export async function startApi(
   const defaultEscalateForTenant: NonNullable<ChatApiDeps["escalateForTenant"]> = (tenantId, tenantDb) => (input) => escalateTurns(tenantDb, input, escalationForTenant!(tenantId));
   const sharedEscalateForTenant = chatSetup?.chat.escalateForTenant ?? defaultEscalateForTenant;
   // p1-lk6 (D-104): the default student fact extractor, for chat and voice alike. It reads the student's ORIGINAL words through the default text
-  // provider (LK1 will move it to the chain) and proposes English facts; an injected `extractFacts` option wins. It runs only on a turn whose text
+  // provider (the student chain when VC_TEXT_CHAIN is set, D-105 Q4) and proposes English facts; an injected `extractFacts` option wins. It runs only on a turn whose text
   // is stored, and a failure never fails the turn (chat.ts and voice.ts catch it and log the event name only).
-  const defaultExtractFacts = httpSetup ? createStudentFactExtractor({ provider: httpSetup.provider, skillsDir: httpSetup.skillsDir }) : undefined;
+  const defaultExtractFacts = httpSetup ? createStudentFactExtractor({ provider: httpSetup.studentProvider, skillsDir: httpSetup.skillsDir }) : undefined;
   const chatExtractFacts = chatSetup?.chat.extractFacts ?? defaultExtractFacts;
   const { client, db } = connectFromEnv(env, clientFactory);
   counterRef.writer = createMongoAnonymousCounter(anonymousCountersCollection(db), http?.anonymous?.now);
