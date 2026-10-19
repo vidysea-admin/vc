@@ -45,6 +45,7 @@ import { z } from "zod";
 import type { LlmProvider } from "@vc/providers";
 import { TurnResponseSchema, type Claim, type TurnResponse } from "@vc/schemas";
 import { STRESS_CHECK_IN, crisisGuard, stressSignal, type CrisisLevel } from "../guards/crisis.js";
+import { CONCERN_CLASSIFIER_SKILL, safetyScreen, type SafetyScreenVerdict, type Severity } from "../guards/concern-classifier.js";
 import { noScriptGuard } from "../guards/no-script.js";
 import { findPersonalIdentifiers, hasVerbatimRun, noQuoteGuard, redactPersonalIdentifiers, type SpeakersFile } from "../guards/no-quote.js";
 import { loadSkill } from "../skills/loader.js";
@@ -54,6 +55,8 @@ import {
   ANONYMOUS_SIGN_IN_TEXT,
   CRISIS_MESSAGES,
   DEFAULT_REPLY_LANGS,
+  HELPLINE_GLOSS,
+  HELPLINE_LINE_EN_HI,
   LANG_DETECT_TIMEOUT_MS,
   NO_SOURCED_ANSWER_TEXT,
   PROVIDER_APOLOGY_TEXT,
@@ -62,7 +65,12 @@ import {
   TELE_MANAS_LINE,
   crisisMessageFor,
   detectLanguageOffline,
+  isNonEnglish,
+  isOutsideAllowList,
+  localizedClaimOk,
+  replyLangIs,
   resolveReplyLang,
+  rewriteToEnglishQuery,
   type CrisisCatalog,
   type DetectedLanguage,
   type LanguageDetector,
@@ -263,6 +271,15 @@ export interface StudentGraphDeps {
   replyLangs?: readonly string[];
   /** LK4: the vetted crisis messages (default `CRISIS_MESSAGES`); a test injects its own. */
   crisisMessages?: CrisisCatalog;
+  /**
+   * LK5 (D-105): the model safety screen (`concern-classifier`) on every turn the crisis guard cleared. It runs in parallel with the
+   * answer; nothing is released until it returns; "possible" (severity at or above `blockAt`, default the escalation line), an error,
+   * a timeout or invalid output is the fixed crisis message. Absent = no screen. `authenticated` defaults to ON, `anonymous` to OFF
+   * (contract A15b/B24.6 say no model sees anonymous text to classify; that question is with Umesh).
+   */
+  safetyScreen?: { provider: LlmProvider; timeoutMs?: number; blockAt?: Severity; authenticated?: boolean; anonymous?: boolean };
+  /** LK5: hard stop for the English search-query rewrite of a non-English turn (default 2 s); a miss searches with the original text. */
+  rewriteTimeoutMs?: number;
   /** The anonymous text-free aggregate counter (B24.6); U7 wires the single counter writer. */
   countAnonymous?: (kind: AnonymousCounterKind) => Promise<void>;
   /**
@@ -276,7 +293,7 @@ export interface StudentGraphDeps {
   onWriteError?: (write: StudentWriteKind, error: unknown) => void;
 }
 
-export type StudentWriteKind = "flag_log" | "flag_read" | "escalate" | "gap" | `counter:${AnonymousCounterKind}`;
+export type StudentWriteKind = "flag_log" | "flag_read" | "escalate" | "gap" | "safety_screen" | `counter:${AnonymousCounterKind}`;
 
 const StudentAuthSchema = z
   .object({
@@ -372,9 +389,20 @@ export interface StudentTurnResult {
 
 const KbAnswerOutputSchema = z.object({
   claims: z
-    .array(z.object({ text: z.string().min(1).max(2000), kind: z.enum(["number", "country", "fact"]), sourceIds: z.array(z.string()).max(20) }))
+    .array(
+      z.object({
+        text: z.string().min(1).max(2000),
+        /** LK5: the same claim in the reply language (absent for an English reply). */
+        localized: z.string().min(1).max(2000).optional(),
+        kind: z.enum(["number", "country", "fact"]),
+        sourceIds: z.array(z.string()).max(20),
+      }),
+    )
     .max(20),
   followUp: z.string().max(500).optional(),
+  /** LK5: the language the model wrote `localized` in; anything but the language asked for means the English reply. */
+  replyLang: z.string().max(16).optional(),
+  followUpLocalized: z.string().max(500).optional(),
 });
 const CoachOutputSchema = z.object({ reply: z.string().max(8000), questions: z.array(z.string().max(500)).max(6) });
 
@@ -397,6 +425,8 @@ export const StudentTurnState = Annotation.Root({
   /** LK4: set by the crisis node (offline) or the route node (model detector), attached to the result by finish. */
   detectedLang: last<string | undefined>(),
   replyLang: last<ReplyLang | undefined>(),
+  /** LK5: the safety screen, started by the route node and awaited by finish (it never rejects). */
+  screen: last<Promise<SafetyScreenVerdict> | undefined>(),
 });
 type State = typeof StudentTurnState.State;
 
@@ -483,7 +513,68 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
   };
   const count = (kind: AnonymousCounterKind) => safeWrite(`counter:${kind}`, deps.countAnonymous ? () => deps.countAnonymous!(kind) : undefined);
 
-  const finish = (input: StudentTurnInput, result: StudentTurnResult, priorFlag: boolean): StudentTurnResult => {
+  /**
+   * The fixed crisis result for a turn: the vetted message for the language, plus (when `writes`) the flag log, the escalation and the
+   * anonymous counter. `writes` is false for a safety-screen outage: the message still goes out, but an outage is not a determination
+   * that this student is in crisis, so it must not raise a counsellor escalation per turn.
+   */
+  const crisisResult = async (input: StudentTurnInput, guardLevel: CrisisLevel | undefined, lang: string, writes: boolean): Promise<StudentTurnResult> => {
+    const level = guardLevel ? { guardLevel } : {};
+    // B24.7: unsure / indirect / Hinglish count as the higher level; with no connected counsellor on
+    // the student surface every flag is handled as crisis.
+    if (input.mode === "anonymous") {
+      const counted = writes ? await count("crisis") : true;
+      return {
+        response: emptyResponse(input, "escalated", crisisMessageFor(lang, "anonymous", crisisMessages)),
+        ...level,
+        claimSourceKinds: [],
+        ...(counted ? {} : { flagWriteFailed: true }),
+      };
+    }
+    let logged = true;
+    let escalated = true;
+    if (writes) {
+      rememberFlag(input.auth, input.threadId);
+      logged = await safeWrite(
+        "flag_log",
+        deps.logFlag
+          ? () =>
+              deps.logFlag!({
+                tenantId: input.auth.tenantId,
+                studentId: input.auth.studentId,
+                threadId: input.threadId,
+                turnId: input.turnId,
+                at: now().toISOString(),
+                level: "crisis",
+                action: "fixed_message_tele_manas_disclosed",
+              })
+          : undefined,
+      );
+      escalated = await safeWrite(
+        "escalate",
+        deps.escalate
+          ? () =>
+              deps.escalate!({
+                sessionId: input.threadId,
+                studentId: input.auth.studentId,
+                turns: [{ turnId: input.turnId, speaker: "student", lang, text: input.text, translatedText: input.text }],
+              })
+          : undefined,
+      );
+    }
+    return {
+      response: emptyResponse(input, "escalated", crisisMessageFor(lang, "student", crisisMessages)),
+      ...level,
+      claimSourceKinds: [],
+      ...(logged && escalated ? {} : { flagWriteFailed: true }),
+    };
+  };
+
+  const screenCfg = deps.safetyScreen;
+  const screenPrompt = screenCfg ? loadSkill(deps.skillsDir, CONCERN_CLASSIFIER_SKILL) : "";
+  const screenOn = (mode: StudentTurnInput["mode"]) => Boolean(screenCfg) && (mode === "authenticated" ? screenCfg!.authenticated ?? true : screenCfg!.anonymous ?? false);
+
+  const finish = (input: StudentTurnInput, result: StudentTurnResult, priorFlag: boolean, outsideAllowList: boolean): StudentTurnResult => {
     let response = result.response;
     // P1 W3 / D-093 3A: ordinary stress language ("pressure bahut hai") is not a crisis flag. The turn is answered as usual and
     // a soft check-in plus Tele-MANAS 14416 is appended. An anonymous non-answer already carries the helpline line, so only the
@@ -500,6 +591,14 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     }
     if (input.mode === "authenticated" && priorFlag && response.state === "ok" && !softNote) {
       response = { ...response, message: `${response.message ?? ""} ${TELE_MANAS_LINE}`.trim() };
+    }
+    // LK5 (D-105 Q1): a reply to a student writing a language outside the allow-list is English, so it always carries the English+Hindi
+    // helpline line. The crisis messages already carry the Hindi gloss; an existing English helpline line only gets the gloss added.
+    if (outsideAllowList && response.state !== "escalated" && !(response.message ?? "").includes(HELPLINE_GLOSS)) {
+      const message = response.message ?? "";
+      const line = message.includes(TELE_MANAS_LINE) ? HELPLINE_GLOSS : HELPLINE_LINE_EN_HI;
+      const room = STUDENT_MESSAGE_MAX - line.length - 1;
+      response = { ...response, message: `${message.length > room ? message.slice(0, room) : message} ${line}`.trim() };
     }
     return { ...result, response: TurnResponseSchema.parse(response) };
   };
@@ -520,63 +619,20 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       if (guard.level === "none") return {};
       // LK4: a crisis turn makes no model call. Its language is the offline script result, which picks the vetted message.
       const lang = detectLanguageOffline(input.text);
-      const langState = { detectedLang: lang.lang, replyLang: resolveReplyLang(lang, replyLangs) };
-      // B24.7: unsure / indirect / Hinglish count as the higher level; with no connected counsellor on
-      // the student surface every flag is handled as crisis.
-      if (input.mode === "anonymous") {
-        const counted = await count("crisis");
-        return {
-          ...langState,
-          result: {
-            response: emptyResponse(input, "escalated", crisisMessageFor(lang.lang, "anonymous", crisisMessages)),
-            guardLevel: guard.level,
-            claimSourceKinds: [],
-            ...(counted ? {} : { flagWriteFailed: true }),
-          },
-        };
-      }
-      rememberFlag(input.auth, input.threadId);
-      const logged = await safeWrite(
-        "flag_log",
-        deps.logFlag
-          ? () =>
-              deps.logFlag!({
-                tenantId: input.auth.tenantId,
-                studentId: input.auth.studentId,
-                threadId: input.threadId,
-                turnId: input.turnId,
-                at: now().toISOString(),
-                level: "crisis",
-                action: "fixed_message_tele_manas_disclosed",
-              })
-          : undefined,
-      );
-      const escalated = await safeWrite(
-        "escalate",
-        deps.escalate
-          ? () =>
-              deps.escalate!({
-                sessionId: input.threadId,
-                studentId: input.auth.studentId,
-                turns: [{ turnId: input.turnId, speaker: "student", lang: lang.lang, text: input.text, translatedText: input.text }],
-              })
-          : undefined,
-      );
-      return {
-        ...langState,
-        result: {
-          response: emptyResponse(input, "escalated", crisisMessageFor(lang.lang, "student", crisisMessages)),
-          guardLevel: guard.level,
-          claimSourceKinds: [],
-          ...(logged && escalated ? {} : { flagWriteFailed: true }),
-        },
-      };
+      return { detectedLang: lang.lang, replyLang: resolveReplyLang(lang, replyLangs), result: await crisisResult(input, guard.level, lang.lang, true) };
     })
     .addNode(STUDENT_NODES.route, async (s: State) => {
       const input = s.input;
+      // LK5: the model safety screen starts first, so it runs in parallel with detection, retrieval and the answer call. finish awaits it.
+      const screen = screenOn(input.mode)
+        ? safetyScreen(
+            { text: input.text, lang: detectLanguageOffline(input.text).lang },
+            { provider: screenCfg!.provider, skillPrompt: screenPrompt, ...(screenCfg!.timeoutMs !== undefined ? { timeoutMs: screenCfg!.timeoutMs } : {}), ...(screenCfg!.blockAt !== undefined ? { blockAt: screenCfg!.blockAt } : {}) },
+          )
+        : undefined;
       // LK4: only a turn the crisis guard cleared gets here, so the detector (a model call) never sees a crisis turn.
       const detected = await detectLanguage(input.text);
-      const langState = { detectedLang: detected.lang, replyLang: resolveReplyLang(detected, replyLangs) };
+      const langState = { detectedLang: detected.lang, replyLang: resolveReplyLang(detected, replyLangs), ...(screen ? { screen } : {}) };
       if (input.mode === "anonymous") {
         if (classifyQuestion(input.text).class !== "generic") {
           await count("sign_in_required");
@@ -586,15 +642,24 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       }
       return { ...langState, tool: classifyIntent(input.text), priorFlag: await readPriorFlag(input) };
     })
-    .addNode(STUDENT_NODES.answer, async (s: State) => ({ result: await answerFromKb(s.input, Boolean(s.priorFlag)) }))
+    .addNode(STUDENT_NODES.answer, async (s: State) => ({ result: await answerFromKb(s.input, Boolean(s.priorFlag), { detected: s.detectedLang, reply: s.replyLang ?? "en" }) }))
     .addNode(STUDENT_NODES.coach, async (s: State) => ({ result: await coach(s.input, Boolean(s.priorFlag)) }))
     .addNode(STUDENT_NODES.tool, (s: State) => {
       const tool = s.tool as keyof typeof TOOL_MESSAGES;
       return { result: { response: emptyResponse(s.input, "ok", TOOL_MESSAGES[tool]), selectedTool: tool, claimSourceKinds: [] } };
     })
-    .addNode(STUDENT_NODES.finish, (s: State) => {
+    .addNode(STUDENT_NODES.finish, async (s: State) => {
       if (!s.result) throw new Error("student graph reached finish without a result");
-      const done = finish(s.input, s.result, Boolean(s.priorFlag));
+      let result = s.result;
+      // LK5: nothing is released before the screen has answered. "Possible", an error, a timeout or invalid output replaces the reply
+      // with the fixed crisis message. Only a real "possible" raises the flag log and the escalation; an outage is reported text-free.
+      const verdict = s.screen ? await s.screen : undefined;
+      if (verdict && verdict.verdict === "possible") {
+        if (verdict.basis === "unavailable") report("safety_screen", Object.assign(new Error("safety screen unavailable"), { name: verdict.errorName }));
+        result = await crisisResult(s.input, undefined, s.detectedLang ?? detectLanguageOffline(s.input.text).lang, verdict.basis === "classified");
+      }
+      const outside = s.detectedLang !== undefined && isOutsideAllowList({ lang: s.detectedLang }, replyLangs);
+      const done = finish(s.input, result, Boolean(s.priorFlag), outside);
       return { result: { ...done, ...(s.detectedLang ? { detectedLang: s.detectedLang } : {}), ...(s.replyLang ? { replyLang: s.replyLang } : {}) } };
     })
     .addEdge(START, STUDENT_NODES.gate)
@@ -640,7 +705,36 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     return noQuoteGuard(f, deps.speakers, restricted.labels).text;
   }
 
-  async function answerFromKb(input: StudentTurnInput, priorFlag: boolean): Promise<StudentTurnResult> {
+  /**
+   * LK5: the reply in the student's language, or undefined for "show the English reply". The English claims already passed every guard;
+   * this only swaps in the localized copies, and only when ALL of them pass the language-neutral checks and the model reported the
+   * language it was asked for (a drift to any other language is the English reply). A non-English reply never mixes in an English
+   * follow-up. Names and phone numbers are redacted exactly as in the English path.
+   */
+  function localizedMessage(
+    draft: z.infer<typeof KbAnswerOutputSchema>,
+    shown: GuardedClaim[],
+    englishFollowUp: string | undefined,
+    restricted: { texts: string[]; labels: string[] },
+    replyLang: ReplyLang,
+  ): string | undefined {
+    if (replyLang === "en" || !replyLangIs(draft.replyLang, replyLang)) return undefined;
+    const parts: string[] = [];
+    for (const c of shown) {
+      if (!c.localized || !localizedClaimOk(c.text, c.localized, replyLang, restricted.texts)) return undefined;
+      const text =
+        c.sourceKind === "whatsapp" || c.sourceKind === "unknown"
+          ? redactPersonalIdentifiers(c.localized, deps.speakers, restricted.labels)
+          : redactPersonalIdentifiers(c.localized, { speakers: [] }, []);
+      parts.push(c.status === "unverified" ? `${text} (unverified)` : text);
+    }
+    const fl = draft.followUpLocalized?.trim();
+    if (englishFollowUp && fl && fl.length <= FOLLOW_UP_MAX_CHARS && fl.endsWith("?") && !/[?!\u0964\n\r\u2028\u2029;]/.test(fl.slice(0, -1)) && localizedClaimOk(englishFollowUp, fl, replyLang, restricted.texts)) parts.push(fl);
+    const message = noQuoteGuard(parts.join(" "), deps.speakers, restricted.labels).text;
+    return restricted.texts.some((t) => hasVerbatimRun(message, t)) ? undefined : message;
+  }
+
+  async function answerFromKb(input: StudentTurnInput, priorFlag: boolean, lang: { detected: string | undefined; reply: ReplyLang }): Promise<StudentTurnResult> {
     const authenticated = input.mode === "authenticated";
     // Anonymous: structurally search-only, whatever the port offers (A15c, B24.6).
     const searchKb = deps.kb.searchKb.bind(deps.kb);
@@ -649,7 +743,9 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
 
     let hits: SearchHit[] = [];
     try {
-      const search = await searchKb(input.text);
+      // LK5 (D-105 Q2): a non-English turn is searched with a one-off English rewrite (nothing stored); failure uses the original text.
+      const query = lang.detected !== undefined && isNonEnglish(lang.detected) ? await rewriteToEnglishQuery(deps.provider, input.text, deps.rewriteTimeoutMs) : input.text;
+      const search = await searchKb(query);
       if (search.status === "ok") {
         hits = search.hits
           .filter((h) => h.score >= config.searchScoreThreshold)
@@ -688,7 +784,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
         skillName: KB_ANSWER_SKILL,
         skillPrompt: kbAnswerPrompt,
         outputSchema: KbAnswerOutputSchema,
-        input: { question: input.text, evidence, priorFlag: authenticated ? priorFlag : false },
+        input: { question: input.text, evidence, priorFlag: authenticated ? priorFlag : false, replyLang: lang.reply },
       });
     } catch {
       return { response: emptyResponse(input, "ok", PROVIDER_APOLOGY_TEXT), selectedTool: "search_kb", retryable: true, claimSourceKinds: [] };
@@ -715,6 +811,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     if (authenticated && priorFlag && violatesCrisisRules(message)) {
       return { response: emptyResponse(input, "ok", STUDENT_CRISIS_MESSAGE), selectedTool: "search_kb", claimSourceKinds: [] };
     }
+    message = localizedMessage(draft, shown, followUp, guarded.restricted, lang.reply) ?? message;
     if (!authenticated) await count("answered");
     let claims: Claim[] = shown.map(({ text, kind, sourceIds, status }: GuardedClaim) => ({ text, kind, sourceIds, status }));
     const cited = new Set(shown.flatMap((c) => c.sourceIds));
