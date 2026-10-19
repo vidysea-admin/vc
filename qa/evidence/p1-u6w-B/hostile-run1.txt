@@ -1,0 +1,111 @@
+[testlock] running slot 0 (free RAM 5.26 GB): node node_modules/tsx/dist/cli.mjs --test tests/chat-rank-B-hostile.test.ts
+profile facts [{"key":"field-of-study","value":"engineering","source":"student-confirmed"},{"key":"target-country","value":"Germany","source":"student-confirmed"}]
+✔ HB1 C1: erase after confirm and correct-after-confirm; baseline (no facts) differs from confirmed (126.2049ms)
+✔ HB1b C1: a corrected fact ranks with the corrected value (26.2196ms)
+✖ HB2 C1: db rows with source 'chat-extracted' + confirmed, or 'chat' + proposed, injected directly, never move the ranking (15.0907ms)
+weights callback tenants ["tenant-b","tenant-a"]
+✔ HB3 C3: tenant A facts never reach tenant B (same student id) and a same-tenant other student; weights callback sees only own tenant (51.5308ms)
+✔ HB3b C3: Pathlynks facts come through the tenant+student port; labelled pathlynks, not student-confirmed (33.988ms)
+rankingProfile custom-0be638cb claims 4
+✖ HB4 C2: every decimal number anywhere in the response and the stored thread sits in a NOT PROVEN claim; message carries the notice (21.2137ms)
+biglabel state ok claims 4 logs []
+✖ HB5 C4: logs hold no raw message / passport text; oversize label makes schema parse fail yet reply returns; profile port outage and refusals (22.1335ms)
+say with outage: {"err":"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n503 !== 200\n"}
+✔ HB5b C4: Pathlynks profile outage during a rank turn (7.8669ms)
+crisis+rank state escalated claims 0 escalations 1
+anon 200 sign_in_required [] undefined
+anon 400 undefined null undefined
+anon 200 sign_in_required [] undefined
+✔ HB6 U8r: crisis wording plus rank request is answered by the crisis path with no ranking and the port untouched (28.3912ms)
+✔ HB7 C5: anonymous route with rank text and smuggled fields never ranks; anonymous.ts source has no ranking/profile/student wiring (18.3114ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 7
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1575.3973
+
+✖ failing tests:
+
+test at tests\chat-rank-B-hostile.test.ts:104:1
+✖ HB2 C1: db rows with source 'chat-extracted' + confirmed, or 'chat' + proposed, injected directly, never move the ranking (15.0907ms)
+  Error [FakeDuplicateKeyError]: E11000 duplicate key error collection: fake index: _id_ dup key: { _id: undefined }
+      at FakeCollection.insertOne (D:\vc\.worktrees\p1-u6w\packages\db\tests\fakes.ts:339:13)
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-Bfals\apps\api\tests\chat-rank-B-hostile.test.ts:115:18)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    code: 11000,
+    codeName: 'DuplicateKey'
+  }
+
+test at tests\chat-rank-B-hostile.test.ts:161:1
+✖ HB4 C2: every decimal number anywhere in the response and the stored thread sits in a NOT PROVEN claim; message carries the notice (21.2137ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /NOT PROVEN/. Input:
+  
+  ''
+  
+      at check (D:\vc\.worktrees\p1-u6w-Bfals\apps\api\tests\chat-rank-B-hostile.test.ts:169:14)
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-Bfals\apps\api\tests\chat-rank-B-hostile.test.ts:176:68)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /NOT PROVEN/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests\chat-rank-B-hostile.test.ts:184:1
+✖ HB5 C4: logs hold no raw message / passport text; oversize label makes schema parse fail yet reply returns; profile port outage and refusals (22.1335ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   {
+  +     kind: 'number',
+  +     sourceIds: [
+  +       'kb-node-munich'
+  +     ],
+  +     status: 'attributed',
+  +     text: 'NOT PROVEN: #1 LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL: overall 0.78 (fit 1.00, cost 0.70, scholarship chance 0.40, visa ease 0.80)'
+  +   },
+  +   {
+  +     kind: 'number',
+  +     sourceIds: [
+  +       'kb-node-leeds'
+  +     ],
+  +     status: 'attributed',
+  +     text: 'NOT PROVEN: #2 LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL: overall 0.49 (fit 0.50, cost 0.50, scholarship chance 0.30, visa ease 0.70)'
+  +   },
+  +   {
+  +     kind: 'number',
+  +     sourceIds: [
+  +       'kb-node-toronto'
+  +     ],
+  +     status: 'attributed',
+  +     text: 'NOT PROVEN: #3 LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL: overall 0.31 (fit 0.00, cost 0.40, scholarship chance 0.60, visa ease 0.60)'
+  +   },
+  +   {
+  +     kind: 'number',
+  +     sourceIds: [
+  +       'kb-node-sydney'
+  +     ],
+  +     status: 'attributed',
+  +     text: 'NOT PROVEN: #4 LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL: overall 0.25 (fit 0.00, cost 0.30, scholarship chance 0.50, visa ease 0.50)'
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-Bfals\apps\api\tests\chat-rank-B-hostile.test.ts:200:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { text: 'NOT PROVEN: #1 LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL: overall 0.78 (fit 1.00, cost 0.70, scholarship chance 0.40, visa ease 0.80)', kind: 'number', sourceIds: [Array], status: 'attributed' }, { text: 'NOT PROVEN: #2 LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL: overall 0.49 (fit 0.50, cost 0.50, scholarship chance 0.30, visa ease 0.70)', kind: 'number', sourceIds: [Array], status: 'attributed' }, { text: 'NOT PROVEN: #3 LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL: overall 0.31 (fit 0.00, cost 0.40, scholarship chance 0.60, visa ease 0.60)', kind: 'number', sourceIds: [Array], status: 'attributed' }, { text: 'NOT PROVEN: #4 LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL: overall 0.25 (fit 0.00, cost 0.30, scholarship chance 0.50, visa ease 0.50)', kind: 'number', sourceIds: [Array], status: 'attributed' } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

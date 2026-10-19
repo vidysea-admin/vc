@@ -1,0 +1,21 @@
+[testlock] running slot 0 (free RAM 4.53 GB): pnpm -C /d/vc/.worktrees/p1-u6w -r typecheck
+Scope: 9 of 10 workspace projects
+packages/observability typecheck$ tsc --noEmit
+packages/schemas typecheck$ tsc --noEmit
+packages/observability typecheck: Done
+packages/schemas typecheck: Done
+packages/providers typecheck$ tsc --noEmit
+packages/db typecheck$ tsc --noEmit
+packages/providers typecheck: Done
+packages/db typecheck: Done
+mcp/student-profile typecheck$ tsc --noEmit
+mcp/university-kb typecheck$ tsc --noEmit
+packages/engine typecheck$ tsc --noEmit && tsc --noEmit -p evals/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json
+mcp/student-profile typecheck: Done
+mcp/university-kb typecheck: Done
+packages/engine typecheck: Done
+apps/web typecheck$ tsc --noEmit
+apps/api typecheck$ tsc --noEmit
+apps/api typecheck: Done
+apps/web typecheck: Done
+EXIT 0
