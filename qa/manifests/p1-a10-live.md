@@ -9,7 +9,7 @@
 - C6 The report states the model, the date, the bound, per-phrase results and that the run is crisis-only (A10 overall NOT PROVEN); a caller-supplied `realBody` still replaces the body (shared A24 harness unchanged).
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 0
 **Policy-Version:** proportional-verification/2026-10-18.15
 **Tier:** L (config/provider; paid-run gate for the voice go-live bar)
