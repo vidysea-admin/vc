@@ -456,4 +456,8 @@
     "scope": "Full seven mandatory floors/blind identity preserved",
     "userRequest": "Optimize excessive checker time;165-minute exception not approved"
   }
-}
+}{"slug":"p1-lk5","lane":"code","event":"start","ts":"2026-10-19T20:00:55.934Z"}
+{"slug":"p1-lk5","lane":"code","event":"end","ts":"2026-10-19T20:12:40.789Z"}
+{"slug":"p1-lk5-check","lane":"code","event":"start","ts":"2026-10-19T20:12:41.480Z"}
+{"slug":"p1-lk5-6c","lane":"code","event":"start","ts":"2026-10-19T20:26:33.627Z"}
+{"slug":"p1-lk5b","lane":"code","event":"start","ts":"2026-10-19T20:26:33.699Z"}
