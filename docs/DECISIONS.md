@@ -945,3 +945,20 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Why:** One English KG keeps facts comparable across students without paying a translation call per turn; the original text keeps the student's exact words for counsellors and disputes. Mirroring the student's language serves non-English and non-Hindi speakers. GLM p95 was 9.3 s against a 3 s bound (qa/paid-glm-20261019 c52e3b4), so first-token time needs streaming.
 **Result:** ISS-350 and the DeepSeek run dispatched now. Language-mirroring, English KG, the model chain and streaming are multi-file: a design (plan) goes to Umesh for approval before code. Crisis rule unchanged: crisisGuard runs on the original text first. For the legal/consent team's processor register (B13 owned by them per D-103): Ollama (GLM, DeepSeek) becomes a processor of real student text once this ships.
 **Links:** refines D-103 item 2 ("translate to English" becomes "English KG, original kept, no per-message translation"); ISS-350, ISS-340, D-100, D-102, D-103
+
+## D-105 | 2026-10-19 | type: decision | status: ACTIVE
+
+**What:** Umesh's answers to the D-104 design questions (design result qa/evidence/p1-briefs/p1-lang-kg-design-result.md, commit 29dcb51).
+- Q1: reply languages start as English, Hindi and Hinglish (`VC_REPLY_LANGS` allow-list). A student writing another language gets an English reply. Each further language is added only after a person has checked its crisis wording.
+- Intelligent, not rule-based: language detection and the safety screen use a model, not hand-written rules. Language detection is model-based (cheap chain), with script detection only as an offline fallback when the model is unreachable. The model safety screen (`concern-classifier`) runs on every student turn, in parallel with the answer, and holds the first released text until it answers; an error or "possible" means the fixed crisis message. The existing crisisGuard regex stays as a zero-latency, offline floor that runs first on the original text and is never removed (a crisis must not depend on a network call), but it is no longer the only detector.
+- Q2: yes, runtime English search-query rewrite for non-English turns; nothing stored.
+- Q3: yes, two new files approved: `packages/engine/src/student/lang.ts` and `packages/engine/src/student/answer-stream.ts`.
+- Q4: the GLM 5.3 flash -> DeepSeek v4.1 flash -> Gemini Lite chain is used for every AI call where the cheap models deliver the required quality, proven per task by its eval; a task whose eval fails on the chain keeps its current model.
+- Q5: on a mid-stream failure, keep the text already shown, show "connection lost, try again", store nothing; before giving up, the system retries automatically and falls back to the next model in the chain.
+- Chain order stays as Umesh set it (GLM first); the LK9 streamed first-token probe reports whether a flip is needed.
+
+**Why:** Umesh 2026-10-19 in chat: "Don't make things rule-based, they will always break. Make it intelligent based"; "Q3 -- go with best"; Q4 "wherever we have to use ai and they can really work and deliver the quality as they are cheap and intelligent"; Q5 "retry or fallback should work too".
+
+**Result:** units LK1, LK4 and LK6 start in parallel; LK2, LK5, LK7, LK8, LK9 follow per the design order. LK3 (Gemini Lite) stays held until a model id and key are supplied.
+
+**Links:** D-104, D-100, D-102, ISS-340, design result 29dcb51
