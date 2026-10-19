@@ -1,0 +1,18 @@
+[testlock] running slot 0 (free RAM 5.32 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^C5[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ C5: an uncited figure in the spoken answer is flagged to the client and stored on the assistant row, after the audio was already sent (98.7864ms)
+✔ C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding (51.6327ms)
+✔ C5: a clean spoken answer produces no flag and no stored audit (47.0754ms)
+✔ C5: a figure that a knowledge-base tool returned this session is cited, so it is not flagged; the sources reach the client (61.2864ms)
+✔ C5: an auditor that throws becomes a visible unverified_claim flag, never a silent pass (46.7181ms)
+✔ C5: for an unconsented minor the flag still reaches the student but no finding or text is stored (46.6882ms)
+✔ tests\voice-history.test.ts (2352.8291ms)
+✔ tests\voice-limits.test.ts (2364.6928ms)
+✔ tests\voice.test.ts (2362.0873ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2698.9546

@@ -1,0 +1,13 @@
+diff --git a/apps/api/src/voice.ts b/apps/api/src/voice.ts
+index 3d40047..3c0f0fe 100644
+--- a/apps/api/src/voice.ts
++++ b/apps/api/src/voice.ts
+@@ -1156,7 +1156,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
+         return;
+       }
+       if (c.state !== "starting") return;
+-      remainingMs = limits.voiceMinutesPerMonth * 60_000 - used;
++      remainingMs = limits.voiceMinutesPerMonth * 60_000 - 0 * used;
+       if (remainingMs <= 0) {
+         sendError(c, "voice_quota_exceeded");
+         void finalize(c, 1008);

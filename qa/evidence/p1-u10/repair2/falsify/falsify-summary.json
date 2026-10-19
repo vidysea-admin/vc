@@ -1,0 +1,146 @@
+[
+ {
+  "id": "baseline",
+  "tests": 31,
+  "pass": 31,
+  "fail": 0,
+  "failing": []
+ },
+ {
+  "id": "C14a",
+  "desc": "the escalation is skipped again once the socket is closing (the cycle-1 state check restored)",
+  "tests": 31,
+  "pass": 28,
+  "fail": 3,
+  "verdict": "KILLED",
+  "failing": [
+   "C14: a crisis whose flag write is still in flight when the socket drops is flagged once and escalated once",
+   "C14: a crisis whose flag write is still in flight when the socket ends gracefully is flagged once and escalated once",
+   "C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_fenced)"
+  ]
+ },
+ {
+  "id": "C14b",
+  "desc": "the fenced skip leaves no log line",
+  "tests": 31,
+  "pass": 30,
+  "fail": 1,
+  "verdict": "KILLED",
+  "failing": [
+   "C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_fenced)"
+  ]
+ },
+ {
+  "id": "C14c",
+  "desc": "the unconsented-minor skip leaves no log line",
+  "tests": 31,
+  "pass": 30,
+  "fail": 1,
+  "verdict": "KILLED",
+  "failing": [
+   "C14: an unconsented minor is flagged, not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_text_not_stored)"
+  ]
+ },
+ {
+  "id": "C15a",
+  "desc": "the month is not read again after a supersede",
+  "tests": 31,
+  "pass": 29,
+  "fail": 2,
+  "verdict": "KILLED",
+  "failing": [
+   "C15: usage 50 min, A runs 10 min, B supersedes A: the month is read again after A's minutes are written and B is refused voice_quota_exceeded with no provider session",
+   "C16: the supersede loop's second pass is needed: a start that took the slot while B re-read the month is superseded before B opens its provider session"
+  ]
+ },
+ {
+  "id": "C16a",
+  "desc": "step-aside when the newest start went away (undefined counts as newer, the cycle-1 rule)",
+  "tests": 31,
+  "pass": 29,
+  "fail": 2,
+  "verdict": "KILLED",
+  "failing": [
+   "C16: A active with a slow drain, B starts, C starts and then aborts: B (the only waiter left) becomes the one live session and is not told superseded",
+   "C16: the supersede loop's second pass is needed: a start that took the slot while B re-read the month is superseded before B opens its provider session"
+  ]
+ },
+ {
+  "id": "C16b",
+  "desc": "the supersede loop runs once (mutant C10c on the cycle-2 loop)",
+  "tests": 31,
+  "pass": 30,
+  "fail": 1,
+  "verdict": "KILLED",
+  "failing": [
+   "C16: the supersede loop's second pass is needed: a start that took the slot while B re-read the month is superseded before B opens its provider session"
+  ]
+ },
+ {
+  "id": "C16c",
+  "desc": "finalize does not drop a closing connection from latestStart at once",
+  "tests": 31,
+  "pass": 30,
+  "fail": 1,
+  "verdict": "KILLED",
+  "failing": [
+   "C16: the supersede loop's second pass is needed: a start that took the slot while B re-read the month is superseded before B opens its provider session"
+  ]
+ },
+ {
+  "id": "C17a",
+  "desc": "the escalation port is built outside the retried write",
+  "tests": 31,
+  "pass": 29,
+  "fail": 2,
+  "verdict": "KILLED",
+  "failing": [
+   "C17: a factory that throws once is retried and the escalation is delivered, with nothing logged",
+   "C17: an escalateForTenant factory that throws synchronously is retried, logged as voice_crisis_escalate_failed (text-free), and is never a persist_failed event"
+  ]
+ },
+ {
+  "id": "C18a",
+  "desc": "the escalation reads the latest student turn's words (the cycle-1 source), not the crisis utterance's",
+  "tests": 31,
+  "pass": 30,
+  "fail": 1,
+  "verdict": "KILLED",
+  "failing": [
+   "C18: a crisis with no words of its own is escalated with the fixed text-free marker, never with an earlier turn's words"
+  ]
+ },
+ {
+  "id": "C18b",
+  "desc": "the crisis words are taken from any earlier student turn (seq adjacency check removed)",
+  "tests": 31,
+  "pass": 30,
+  "fail": 1,
+  "verdict": "KILLED",
+  "failing": [
+   "C18: a crisis with no words of its own is escalated with the fixed text-free marker, never with an earlier turn's words"
+  ]
+ },
+ {
+  "id": "C18c",
+  "desc": "no marker: a crisis without words is not escalated (the cycle-1 skip)",
+  "tests": 31,
+  "pass": 30,
+  "fail": 1,
+  "verdict": "KILLED",
+  "failing": [
+   "C18: a crisis with no words of its own is escalated with the fixed text-free marker, never with an earlier turn's words"
+  ]
+ },
+ {
+  "id": "C19a",
+  "desc": "the drain wait ignores drainTimeoutMs (falls back to the 10 s default)",
+  "tests": 31,
+  "pass": 30,
+  "fail": 1,
+  "verdict": "KILLED",
+  "failing": [
+   "C19: a crisis sink write that never settles cannot hold the slot: finalize waits at most drainTimeoutMs, logs voice_drain_timeout and frees the socket, the provider session and the student's slot"
+  ]
+ }
+]

@@ -1,0 +1,3 @@
+[testlock] waiting for lock held by: PID=15832 STARTED=639279995457340067 ACQUIRED_AT=1792382945 TOKEN=1792382946023950400-299947-13538 DESC=pnpm -C D:/vc/.worktrees/p1-u10w-chkB-s1/apps/api exec tsx --test --test-reporter=tap --test-name-pattern=p1 flag tests/zz-flag-probe.test.ts 
+[testlock] running slot 0 (free RAM 1.66 GB): pnpm -C D:/vc/.worktrees/p1-u10w/apps/api exec tsc --noEmit
+EXIT=0

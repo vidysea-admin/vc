@@ -21,11 +21,12 @@ import {
   erasureConfigFromEnv,
   errorLabel,
   startErasureFenceSweep,
+  tenantScopedDb,
   type MongoClientFactory,
   type ErasureFenceSweepOptions,
 } from "@vc/db";
 import { escalateTurns, initScribeCheckpointer, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentKbPort } from "@vc/engine";
-import { createProvider, loadProviderConfig, type LlmProvider } from "@vc/providers";
+import { createProvider, loadProviderConfig, type LiveProvider, type LlmProvider } from "@vc/providers";
 import { createJwtVerifier, createStudentJwtVerifier, jwtConfigFromEnv, studentJwtConfigFromEnv, type JwtVerifier, type StudentJwtVerifier } from "./auth.js";
 import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
 import {
@@ -46,6 +47,15 @@ import {
   withChatRoutes,
   type ChatApiDeps,
 } from "./chat.js";
+import {
+  VoiceConfigError,
+  assertVoiceGoLive,
+  createVoiceApi,
+  voiceEnabledFromEnv,
+  withVoiceRoutes,
+  type VoiceApi,
+  type VoiceApiDeps,
+} from "./voice.js";
 
 export * from "./auth.js";
 export * from "./server.js";
@@ -53,6 +63,7 @@ export { OPENAPI_DOCUMENT, STUDENT_API_DRAFT } from "./openapi.js";
 export * from "./go-live-gate.js";
 export * from "./anonymous.js";
 export * from "./chat.js";
+export * from "./voice.js";
 
 export function apiStatus(): string {
   return "@vc/api: HTTP API over the scribe, profile and erasure (T-025); opt-in via startApi({ http })";
@@ -88,6 +99,36 @@ export interface StartApiHttpOptions {
   anonymous?: StartApiAnonymousOptions;
   /** P1 U8: the authenticated student chat routes (flag VC_CHAT_ENABLED plus the A20 gate). */
   chat?: StartApiChatOptions;
+  /** P1 U10w: the voice WebSocket (flag VC_VOICE_ENABLED plus the A20 `voice` gate). */
+  voice?: StartApiVoiceOptions;
+}
+
+/** P1 U10w: environment names for the voice WebSocket secrets, used when the option is not supplied. */
+export const VOICE_WS_ENV = { secret: "VC_VOICE_WS_SECRET", baseUrl: "VC_VOICE_WS_BASE_URL" } as const;
+
+/**
+ * P1 U10w: the voice WebSocket. Whether it is served is decided ONLY by the explicit flag VC_VOICE_ENABLED (exactly "true"; default off) AND
+ * the A20 `voice` go-live gate (which includes the passing A10 record) with request tracing off; supplying this object never turns it on, and
+ * with the flag off none of it is read or built. The Live provider and the pre-rendered crisis message are injected by the deployment (G-REAL
+ * is not granted: no real provider is created here). The database, the tenant-scoped Db factory and the escalation port come from startApi,
+ * so a voice crisis escalates through the same path as chat.
+ */
+export interface StartApiVoiceOptions
+  extends Omit<VoiceApiDeps, "verifier" | "dbForTenant" | "live" | "crisis" | "wsSecret" | "wsBaseUrl" | "escalateForTenant"> {
+  /** The Live seam. Required when the flag is on. */
+  live?: LiveProvider;
+  /** The fixed crisis message with its pre-rendered 24 kHz PCM16 audio. Required when the flag is on. */
+  crisis?: VoiceApiDeps["crisis"];
+  /** HS256 key for the WebSocket token (at least 32 bytes). Default: VC_VOICE_WS_SECRET (its UTF-8 bytes). */
+  wsSecret?: Uint8Array;
+  /** `wss://host[/prefix]` the client is told to connect to. Default: VC_VOICE_WS_BASE_URL. */
+  wsBaseUrl?: string;
+  /** Default: studentJwtConfigFromEnv(env) (the same VC_STUDENT_JWT_* names as chat, never the counsellor key). */
+  verifier?: StudentJwtVerifier;
+  /** Default: the chat port when chat is enabled, else the engine's escalateTurns over the tenant's EscalationDeps (the same factory the scribe uses). */
+  escalateForTenant?: VoiceApiDeps["escalateForTenant"];
+  /** Default: the repo's qa/gates. */
+  gatesDir?: string;
 }
 
 export interface StartApiAnonymousOptions {
@@ -141,7 +182,7 @@ export interface StartApiChatOptions {
 }
 
 export interface Api {
-  /** Stops the HTTP server (when started), the fence sweep, and closes the Mongo client. Await once. */
+  /** Closes voice (live sessions finalized, usage written), stops the HTTP server (when started) and the fence sweep, then closes the Mongo client. Await once. */
   stop: () => Promise<void>;
   /** The bound port, when `http` was requested. */
   port?: number;
@@ -275,9 +316,45 @@ export async function startApi(
     if (!c?.kb || !c.speakers) throw new ChatConfigError("VC_CHAT_ENABLED is true but no knowledge-base port and speakers file were supplied");
     chatSetup = { chat: c, verifier, kb: c.kb, speakers: c.speakers };
   }
+  // P1 U10w: the voice flag and the A20 `voice` gate (with tracing off) are checked BEFORE anything connects; a failure is a startup error (fail closed).
+  let voiceSetup: { voice: StartApiVoiceOptions; live: LiveProvider; crisis: VoiceApiDeps["crisis"]; verifier: StudentJwtVerifier } | undefined;
+  if (httpSetup && voiceEnabledFromEnv(env)) {
+    const v = http?.voice;
+    assertVoiceGoLive({ gatesDir: v?.gatesDir ?? DEFAULT_GATES_DIR, env });
+    if (!v?.live || !v.crisis) throw new VoiceConfigError("VC_VOICE_ENABLED is true but no Live provider and crisis message were supplied");
+    voiceSetup = { voice: v, live: v.live, crisis: v.crisis, verifier: v.verifier ?? createStudentJwtVerifier(studentJwtConfigFromEnv(env)) };
+  }
+  // The escalation port chat and voice share (one flag, one escalation): an explicit chat port, else the engine's escalateTurns over the tenant's deps.
+  const defaultEscalateForTenant: NonNullable<ChatApiDeps["escalateForTenant"]> = (tenantId, tenantDb) => (input) => escalateTurns(tenantDb, input, escalationForTenant!(tenantId));
+  const sharedEscalateForTenant = chatSetup?.chat.escalateForTenant ?? defaultEscalateForTenant;
   const { client, db } = connectFromEnv(env, clientFactory);
   counterRef.writer = createMongoAnonymousCounter(anonymousCountersCollection(db), http?.anonymous?.now);
-  await client.connect();
+  // Built before connecting so every voice configuration error (secret length, base URL) is a startup error with nothing connected.
+  let voice: VoiceApi | undefined;
+  if (voiceSetup) {
+    const { voice: v, live, crisis, verifier } = voiceSetup;
+    const { gatesDir, live: _live, crisis: _crisis, wsSecret, wsBaseUrl, verifier: _verifier, escalateForTenant, ...passThrough } = v;
+    const secretRaw = env[VOICE_WS_ENV.secret];
+    voice = createVoiceApi(
+      {
+        ...passThrough,
+        verifier,
+        dbForTenant: (tenantId) => tenantScopedDb(db, tenantId),
+        live,
+        crisis,
+        wsSecret: wsSecret ?? new TextEncoder().encode(secretRaw ?? ""),
+        wsBaseUrl: wsBaseUrl ?? env[VOICE_WS_ENV.baseUrl] ?? "",
+        escalateForTenant: escalateForTenant ?? sharedEscalateForTenant,
+      },
+      { enabled: true, gatesDir: gatesDir ?? DEFAULT_GATES_DIR, env },
+    );
+  }
+  try {
+    await client.connect();
+  } catch (err) {
+    await voice?.close().catch(() => undefined);
+    throw err;
+  }
   let server: ReturnType<typeof createApiServer> | undefined;
   let sweep: ReturnType<typeof startErasureFenceSweep> | undefined;
   try {
@@ -329,7 +406,7 @@ export async function startApi(
               provider: httpSetup.provider,
               skillsDir: httpSetup.skillsDir,
               speakers: chatSetup.speakers,
-              escalateForTenant: chatSetup.chat.escalateForTenant ?? ((tenantId, tenantDb) => (input) => escalateTurns(tenantDb, input, escalationForTenant!(tenantId))),
+              escalateForTenant: sharedEscalateForTenant,
               ...(chatSetup.chat.profile ? { profile: chatSetup.chat.profile } : {}),
               ...(chatSetup.chat.extractFacts ? { extractFacts: chatSetup.chat.extractFacts } : {}),
               ...(chatSetup.chat.sandboxTenantId !== undefined ? { sandboxTenantId: chatSetup.chat.sandboxTenantId } : {}),
@@ -342,7 +419,9 @@ export async function startApi(
             { enabled: true, gatesDir: chatSetup.chat.gatesDir ?? DEFAULT_GATES_DIR, env },
           )
         : undefined;
-      const s = createApiServer(withChatRoutes(withAnonymousRoutes(handler, anonymousHandler), chatHandler));
+      const s = createApiServer(withVoiceRoutes(withChatRoutes(withAnonymousRoutes(handler, anonymousHandler), chatHandler), voice?.handler), {
+        ...(voice ? { onUpgrade: voice.upgrade } : {}),
+      });
       server = s;
       await new Promise<void>((resolve, reject) => {
         s.once("error", reject);
@@ -358,6 +437,9 @@ export async function startApi(
     return {
       ...(port !== undefined ? { port } : {}),
       stop: async () => {
+        // Voice first: it finalizes every live session (usage written, provider sessions closed) and drains within its own timeout, which
+        // also lets the HTTP server close (an upgraded socket would otherwise keep it open) and keeps the database open until it is done.
+        await voice?.close();
         if (liveServer) await new Promise<void>((resolve) => liveServer.close(() => resolve()));
         liveSweep.stop();
         await client.close();
@@ -365,6 +447,7 @@ export async function startApi(
     };
   } catch (err) {
     sweep?.stop();
+    await voice?.close().catch(() => undefined);
     if (server?.listening) server.close();
     try {
       await client.close();

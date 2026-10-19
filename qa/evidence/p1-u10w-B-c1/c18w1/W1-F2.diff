@@ -1,0 +1,12 @@
+diff --git a/apps/api/src/voice.ts b/apps/api/src/voice.ts
+index 3d40047..0851f9d 100644
+--- a/apps/api/src/voice.ts
++++ b/apps/api/src/voice.ts
+@@ -784,6 +784,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
+           return "fenced";
+         }
+         last = err;
++        if (err instanceof FencedWriterDeadlineError) break;
+       }
+     }
+     logEvent(last instanceof FencedWriterDeadlineError ? failEvent.replace(/_failed$/, "_deadline") : failEvent, last);

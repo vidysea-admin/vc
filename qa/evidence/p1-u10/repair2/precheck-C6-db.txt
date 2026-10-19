@@ -1,0 +1,26 @@
+[testlock] running slot 1 (free RAM 5.62 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/packages/db exec tsx --test tests/chat-threads.test.ts
+✔ a student opening the chat gets a thread owned by them; another student cannot read it (3.5655ms)
+✔ a chat-store call on an unscoped Db is refused (tenant isolation fails closed) (1.046ms)
+✔ a first turn is claimed, completed, and a retry with the same turn id replays the stored answer without a second claim (11.6204ms)
+✔ a retry that arrives while the first attempt is still running is told it is in progress, not run twice (1.2559ms)
+✔ a retry after the first attempt crashed past its lease takes the claim over; the dead holder can no longer complete (4.3715ms)
+✔ the same turn id sent again with different text is a conflict, not a silent replay of the old answer (0.8845ms)
+✔ when the model call fails the claim is abandoned so the student's retry runs again (0.931ms)
+✔ a voice turn and a text turn land in one history in time order (A19) (1.4026ms)
+✔ two tenants using the same student, thread and turn ids never see or collide with each other's chat (A6) (1.0079ms)
+✔ a student under erasure gets no new thread and no new turn, and a fence that appears mid-write undoes the write (2.1288ms)
+✔ an under-18 thread without guardian consent is a text-free marker; marking an existing thread keeps its ids and flips textStored (0.4225ms)
+✔ usage counters add up per student per month and stay inside the tenant (0.4636ms)
+✔ U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time (0.8819ms)
+✔ U10: appendVoiceTurn is idempotent on (thread, turn, role): a replay changes neither the text nor the row count (0.3577ms)
+✔ U10: appendVoiceTurn refuses a thread that is not the student's, bad input, and an unscoped Db (0.4797ms)
+✔ U10: a student under erasure gets no voice row, and a fence that appears mid-write undoes it (1.0159ms)
+✔ U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row (1.0218ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 508.0985

@@ -1,0 +1,5 @@
+file: apps/api/src/index.ts
+--- OLD ---
+escalateForTenant: escalateForTenant ?? sharedEscalateForTenant,
+--- NEW ---
+escalateForTenant: escalateForTenant ?? (() => async () => undefined),

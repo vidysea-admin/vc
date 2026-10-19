@@ -62,6 +62,11 @@ export interface ChatTurnDoc {
   /** Assistant row only: the full validated TurnResponse (message already redacted). */
   response?: Record<string, unknown>;
   completedAt?: string;
+  /**
+   * P1 U10 (A9b): assistant row of a VOICE turn only. The post-hoc audit findings for that spoken answer, stored with the thread
+   * so they are exported and erased with it. `detail` is a figure for an uncited number and absent otherwise (never a name).
+   */
+  voiceAudit?: Array<{ reason: string; detail?: string; at: string }>;
 }
 
 export interface StudentUsageDoc {
@@ -374,6 +379,91 @@ export async function abandonChatTurn(db: Db, input: { studentId: string; thread
     status: "in_progress",
     "lease.token": input.leaseToken,
   } as never);
+}
+
+export interface AppendVoiceTurnInput {
+  studentId: string;
+  threadId: string;
+  /** Shared by the user row and the assistant row of one spoken exchange. */
+  turnId: string;
+  role: "user" | "assistant";
+  /** Final transcript, ALREADY redacted by the caller (D-093 6A). Never called for an unconsented minor (D-093 4A). */
+  text: string;
+  /** ISO time of the exchange; the assistant row passes its user row's `at`, so a pair sorts together. */
+  at: string;
+}
+
+/**
+ * P1 U10 (A19): stores ONE side of a spoken (voice) exchange in the same thread as the text turns (`channel: "voice"`). Idempotent on
+ * (thread, turn, role): a second call for the same side changes nothing. Fence-aware like every student write. Throws
+ * ChatThreadNotFoundError when the thread is not the student's. The caller writes the user side when the final user transcript arrives
+ * and the assistant side when the final assistant transcript arrives (a spoken answer may be cut off, so the sides are independent).
+ */
+export async function appendVoiceTurn(db: Db, input: AppendVoiceTurnInput): Promise<void> {
+  requireScopedDb(db, "appendVoiceTurn");
+  requireNonEmptyFields({ studentId: input.studentId, threadId: input.threadId, turnId: input.turnId, at: input.at }, "appendVoiceTurn");
+  if (input.role !== "user" && input.role !== "assistant") throw new Error("appendVoiceTurn: role must be user or assistant");
+  if (typeof input.text !== "string") throw new Error("appendVoiceTurn: text must be a string");
+  if (Number.isNaN(Date.parse(input.at))) throw new Error("appendVoiceTurn: at must be an ISO time");
+  if ((await getChatThread(db, { studentId: input.studentId, threadId: input.threadId })) === null) throw new ChatThreadNotFoundError();
+  const _id = chatTurnDocId(input.threadId, input.turnId, input.role);
+  const created: string[] = [];
+  await fencedStudentWrite(
+    db,
+    input.studentId,
+    async (op) => {
+      const res = await turnsOf(db).updateOne(
+        { _id, studentId: input.studentId } as never,
+        {
+          $setOnInsert: {
+            threadId: input.threadId,
+            turnId: input.turnId,
+            role: input.role,
+            channel: "voice",
+            text: input.text,
+            at: input.at,
+            order: input.role === "user" ? 0 : 1,
+            status: "done",
+            completedAt: input.at,
+          },
+        } as never,
+        { upsert: true, ...op },
+      );
+      if (res.upsertedCount === 1) {
+        created.push(_id);
+        await threadsOf(db).updateOne({ _id: input.threadId, studentId: input.studentId } as never, { $set: { lastActivityAt: input.at } }, op);
+      }
+    },
+    () => (created.length === 0 ? Promise.resolve() : turnsOf(db).deleteMany({ _id: { $in: created }, studentId: input.studentId } as never)),
+  );
+}
+
+export interface AppendVoiceAuditInput {
+  studentId: string;
+  threadId: string;
+  /** The turn whose ASSISTANT row the finding belongs to. */
+  turnId: string;
+  reason: string;
+  /** A figure for an uncited number; omit for a listed speaker (the name is never stored). */
+  detail?: string;
+  at: string;
+}
+
+/** P1 U10 (A9b): attaches one post-hoc audit finding to the assistant row of a voice turn. Idempotent (an identical finding is not added twice). */
+export async function appendVoiceAudit(db: Db, input: AppendVoiceAuditInput): Promise<void> {
+  requireScopedDb(db, "appendVoiceAudit");
+  requireNonEmptyFields({ studentId: input.studentId, threadId: input.threadId, turnId: input.turnId, reason: input.reason, at: input.at }, "appendVoiceAudit");
+  const _id = chatTurnDocId(input.threadId, input.turnId, "assistant");
+  const finding = { reason: input.reason, ...(input.detail !== undefined ? { detail: input.detail } : {}), at: input.at };
+  await fencedStudentWrite(
+    db,
+    input.studentId,
+    async (op) => {
+      const res = await turnsOf(db).updateOne({ _id, studentId: input.studentId, channel: "voice" } as never, { $addToSet: { voiceAudit: finding } } as never, op);
+      if (res.matchedCount === 0) throw new ChatThreadNotFoundError();
+    },
+    async () => undefined, // adds a field to a row erasure purges; there is nothing created to undo
+  );
 }
 
 export interface RecordStudentUsageInput {

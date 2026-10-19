@@ -1,0 +1,9 @@
+C1 pattern=^(C1[:/]|A6:) tests=7 pass=7 fail=0 skipped=0 t=3s
+C2 pattern=^C2[:/] tests=12 pass=12 fail=0 skipped=0 t=4s
+C3 pattern=^(C3[:/]|D-096) tests=12 pass=12 fail=0 skipped=0 t=4s
+C4 pattern=^C4[:/] tests=8 pass=8 fail=0 skipped=0 t=4s
+C5 pattern=^C5[:/] tests=9 pass=9 fail=0 skipped=0 t=4s
+C6 pattern=^C6[:/] tests=11 pass=11 fail=0 skipped=0 t=5s
+C7 pattern=^C7[:/] tests=9 pass=9 fail=0 skipped=0 t=4s
+C8 pattern=^C8[:/] tests=7 pass=7 fail=0 skipped=0 t=4s
+C9 pattern=^C9[:/] tests=9 pass=9 fail=0 skipped=0 t=4s

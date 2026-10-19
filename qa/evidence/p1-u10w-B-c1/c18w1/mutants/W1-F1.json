@@ -1,0 +1,1 @@
+[{"old":"        if (err instanceof StudentFencedError) {\n          endIfFenced(c, err);\n          return \"fenced\";","new":"        if (err instanceof StudentFencedError || err instanceof FencedWriterDeadlineError) {\n          endIfFenced(c, err);\n          return \"fenced\";"}]

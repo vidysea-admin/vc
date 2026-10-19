@@ -1,0 +1,9 @@
+MUTANT W4F1b
+FILE packages/engine/src/guards/escalation.ts
+OLD: _id: `${escalationId}:${recipient.role}:${recipient.id}`,
+NEW: _id: `${escalationId}:${recipient.role}:${recipient.id}:${randomUUID()}`,
+TEST voice-wiring.test.ts pattern=W4 extra=
+2026-10-19T08:39:29+05:30
+APPLIED
+2026-10-19T08:39:36+05:30
+?? apps/api/tests/probe-w234.test.ts

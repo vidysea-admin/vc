@@ -1,0 +1,21 @@
+diff --git a/apps/api/src/voice.ts b/apps/api/src/voice.ts
+index 3d40047..8bb14a1 100644
+--- a/apps/api/src/voice.ts
++++ b/apps/api/src/voice.ts
+@@ -708,6 +708,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
+     if (t.role === "user") armSilence(c);
+     sendEvent(c, { type: "transcript.final", role: t.role, text: clamp(t.text), turnId });
+     if (!c.persistText) return; // D-093 4A: the student is answered, nothing personal is stored
++    if (t.role === "user") (c as any).__lastUserText = t.text;
+     const stored = redact(c, t.text);
+     try {
+       await appendVoiceTurn(c.db, { studentId: c.claims.studentId, threadId: c.claims.threadId, turnId, role: t.role, text: stored, at });
+@@ -798,7 +799,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
+    */
+   async function onCrisisRecord(c: Conn, r: LiveCrisisRecord): Promise<void> {
+     // The words of THIS crisis utterance, captured when it was detected (consumed here, so a later crisis never sees them).
+-    const raw = c.crisisUtterances.shift();
++    const raw = c.crisisUtterances.shift() || (c as any).__lastUserText;
+     const words = raw !== undefined && raw !== "" && c.persistText ? clamp(redact(c, raw), 2000) : undefined;
+     // Ids and time only: kept even for an unconsented minor, exactly like the text path's crisis flag.
+     const turnId = c.lastUser?.turnId ?? `v${c.claims.sid.slice(0, 8)}crisis`;

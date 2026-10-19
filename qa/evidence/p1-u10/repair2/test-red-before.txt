@@ -1,0 +1,14 @@
+[testlock] running slot 0 (free RAM 5.4 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^C1[4-9][:/] tests/voice.test.ts tests/voice-limits.test.ts
+✖ C15: usage 50 min, A runs 10 min, B supersedes A: the month is read again after A's minutes are written and B is refused voice_quota_exceeded with no provider session (4068.1692ms)
+✖ C14: a crisis whose flag write is still in flight when the socket drops is flagged once and escalated once (4089.2576ms)
+✖ C14: a crisis whose flag write is still in flight when the socket ends gracefully is flagged once and escalated once (4094.0392ms)
+✖ C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_fenced) (4033.0843ms)
+✖ C14: an unconsented minor is flagged, not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_text_not_stored) (4036.7763ms)
+✖ C16: A active with a slow drain, B starts, C starts and then aborts: B (the only waiter left) becomes the one live session and is not told superseded (200.2409ms)
+✖ C16: the supersede loop's second pass is needed: a start that took the slot while B re-read the month is superseded before B opens its provider session (4046.4897ms)
+✖ C17: an escalateForTenant factory that throws synchronously is retried, logged as voice_crisis_escalate_failed (text-free), and is never a persist_failed event (47.3515ms)
+✖ C17: a factory that throws once is retried and the escalation is delivered, with nothing logged (4037.2643ms)
+✖ C18: a crisis with no words of its own is escalated with the fixed text-free marker, never with an earlier turn's words (61.7524ms)
+✔ C18: the crisis utterance's own redacted words are escalated even when an earlier student turn was never answered (46.623ms)
+✖ C19: a crisis sink write that never settles cannot hold the slot: finalize waits at most drainTimeoutMs, logs voice_drain_timeout and frees the socket, the provider session and the student's slot (30008.7242ms)
+# stopped by the maker after C19 hung the file (cleanup awaits a finalize that never ends on the pre-fix code); 11 of 12 new tests red, 1 guard test green, C19 hung = red. 2026-10-19T05:26:57+05:30

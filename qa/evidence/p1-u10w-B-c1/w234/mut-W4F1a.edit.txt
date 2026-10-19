@@ -1,0 +1,9 @@
+MUTANT W4F1a
+FILE apps/api/src/voice.ts
+OLD: turns: [{ turnId, speaker: "student"
+NEW: turns: [{ turnId: turnId + Math.random().toString(36).slice(2), speaker: "student"
+TEST voice-wiring.test.ts pattern=W4 extra=
+2026-10-19T08:39:21+05:30
+APPLIED
+2026-10-19T08:39:29+05:30
+?? apps/api/tests/probe-w234.test.ts

@@ -1,0 +1,32 @@
+# Verdict p1-u10w-voice-wiring, coordinator A (blind dual check), repair check
+Cycle checked: 2 | Policy-Version: proportional-verification/2026-10-18.15 | Date: 2026-10-19
+Bound tree D:/vc/.worktrees/p1-u10w (branch p1/u10w). Base (whole unit) 76b89c5; repair base 0c2b981 (git merge-base --is-ancestor: yes); head 1c9fafb (code 6addcba), worktree clean. Cycle-1 verdict archived unread as qa/verdicts/p1-u10w-voice-wiring.A.r1-1.md.
+
+## Check plan (step 0)
+Repair checker, scope = failed criterion W5 plus criteria whose input files the repair diff touches. `git diff 0c2b981..1c9fafb -- apps packages` = apps/api/src/voice.ts (voiceEnabledFromEnv: `?.trim()` removed, comment updated) and apps/api/tests/voice-wiring.test.ts (new W5 unit test + 6 padded-flag rows in W6) -> criteria W5, W6. Plan: (1) read the repair diff in full; (2) scan the whole-unit diff for files outside scope; (3) run the api voice+chat set once through vc-testlock; (4) one W5 falsification in an isolated copy; (5) own hostile probe; (6) api typecheck (a test file changed). Other criteria keep cycle-1 results by input identity (checkpoint). No full suite (6c runs it).
+
+VERDICT: PASS
+SCOREBOARD: 29/29 criteria met (W5 re-evidenced, W6 re-run; C1-C19, W1-W4, W7-W10 reused by input identity and covered by the 133/133 run), invariants: none touched
+TIER: L (auth/config: `apps/api/src/voice.ts:159` voiceEnabledFromEnv gates whether the minor-facing voice WebSocket route exists; dual-trigger lines in the manifest)
+FAILURES: none
+CAPABILITY-COVERAGE: not-applicable (no UI; WebSocket API wiring only)
+LIVE-BROWSER: not-applicable (apps/api/src/voice.ts, apps/api/tests/voice-wiring.test.ts)
+ISSUES-WRITTEN: none (dual check: PROPOSED-ISSUE lines only)
+EXECUTOR: claude-opus-subagent (maker/builder); checker: claude-sonnet-subagent
+EXPLANATION: The repair removes the `.trim()` so only the exact string "true" returns true (voice.ts:159-163); unset, "" and "false" are off; every other value throws VoiceConfigError, which startApi propagates before connecting or listening (index.ts:321 is the only non-test caller). I read the repair diff in full, ran the set (133/133), re-added the trim in an isolated copy (W5 unit test and the W6 padded rows go red, restored green), and 30 hostile variants of my own (NBSP, BOM, ZWSP, CRLF, quoted, cased, trailing NUL) never enable voice on the fixed code.
+
+## Evidence (all run by this checker at head 1c9fafb; files under qa/evidence/p1-u10w-A-c2/)
+1. Repair diff read in full (step 4c, repair range): 2 lines of product code in one function; tests add assertions only (one new test, six new W6 rows); no assertion removed or weakened, no skip/xfail. Not a protected test change.
+2. Whole-unit scan `git diff 76b89c5..1c9fafb --name-only` outside qa/: apps/api/{package.json,src/index.ts,src/server.ts,src/voice.ts,tests/*}, packages/db chat-threads (+test), packages/providers live (+test, U9 adapter commits e80c9b3..da32f8a, U9 verdict PASS), pnpm-lock.yaml (ws 8.22.0, @types/ws). Nothing outside apps/api, packages/db, packages/providers, lockfile; no `.claude/**`, contracts, TASKS.md, ARCHITECTURE.md.
+3. `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh pnpm -C .../apps/api exec tsx --test --test-reporter=tap tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts tests/voice-wiring.test.ts tests/voice-crisis-turn.test.ts tests/chat.test.ts` -> tests 133, pass 133, fail 0, exit 0 (api-voice-chat.txt; matches the maker's 133).
+4. W5 falsification (floor, 1 named): copy = detached git worktree at 1c9fafb (removed afterwards, node_modules junctions removed first). `--test-name-pattern "W5|W6" voice-wiring.test.ts voice.test.ts`: green 4/4 -> `const raw = env[VOICE_FLAG_ENV]?.trim();` re-added (mutant.diff) -> red: `W5: voiceEnabledFromEnv ...` "Missing expected exception (VoiceConfigError): \" true\"" and `W6: ...` "Missing expected rejection (VoiceConfigError): bad flag value \" true\"" -> restored by `git checkout`, 4/4 green, copy status empty (fals/green.txt, red.txt, restored.txt, copy-status-*.txt). The red run was an assertion failure, not an import error.
+5. Own probe chkA2-w5.test.ts (fals/probe-*.txt): 30 variants (" true", "true ", tab, CR/LF, NBSP, BOM, ZWSP, em-space, "TRUE", "True", "1", "yes", "on", quoted, "true;", "truee", NUL, ...) all throw VoiceConfigError and none returns true; off values stay off; lower-case or misspelled env keys do not enable. 3/3 on the fixed code; under the trim mutant the same probe goes red (1 failing). The probe is not committed to the product tree.
+6. `pnpm -C apps/api exec tsc --noEmit` at 1c9fafb -> exit 0 (typecheck-api.txt).
+7. Reused by input identity (repair diff does not touch packages/db or packages/providers): db 101/101, providers live 70/70, importers 78/78 from the cycle-1 checkpoint.
+
+## PROPOSED-ISSUE (non-blocking, dual check: the maker mints ids)
+PROPOSED-ISSUE: {"sev":"low","kind":"test","where":"apps/api/tests/voice-wiring.test.ts W6","text":"When the flag gate regresses (trim re-added), the W6 test fails but leaves a started API listening, so the node test process never exits (my run had to be killed by PID tree; red.txt has the two not-ok lines but no summary). A regression shows as a hang, not a clean red.","fix":"close any server startApi returns inside the W6 loop (finally) when it unexpectedly resolves"}
+PROPOSED-ISSUE: {"sev":"low","kind":"wording","where":"manifest W5 text","text":"W5 says a value that is not exactly \"true\" gives 'no voice route'. For any other non-empty, non-\"false\" value (including a padded \"false \") the code throws VoiceConfigError at startup, so the process does not start at all. Fail-closed and consistent with the existing \"TRUE\" handling pinned in voice.test.ts:714, but the W5 sentence undersells it. Wording only, not a FAIL."}
+Notes (no action): the vc-testlock release line "lock dir token changed ... not removing" appeared at the end of the main run (exit 0, 133/133 intact); two coordinators share the lock. Blindness: `git log -6` printed the other coordinator's commit subjects before I saw the brief's warning; I did not open any other-letter verdict, checkpoint or evidence file.
+
+Metrics: start=2026-10-19T09:28:23+05:30 end=2026-10-19T09:40:14+05:30 wall_min=12 agent_min=unavailable blocked_min=unavailable suite_runs=0 repeat_runs=0 mutations=1 cycle=2 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-18.15 lane=normal check_s=711 mutants=0 defects_unit=0 defects_6c=0

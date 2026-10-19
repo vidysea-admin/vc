@@ -1,0 +1,1 @@
+[{"old":"    const raw = c.crisisUtterances.shift();","new":"    const raw = c.crisisUtterances[0];"}]

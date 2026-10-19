@@ -1,0 +1,21 @@
+[testlock] running slot 0 (free RAM 5.72 GB): pnpm -C apps/api exec tsx --test --test-name-pattern ^(C3[:/]|D-096) tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (1763.4892ms)
+✔ tests\voice-history.test.ts (1717.4936ms)
+✔ tests\voice-limits.test.ts (1727.7942ms)
+✔ C3: audio in reaches the provider; model audio comes back as binary; transcripts are events with monotonic ids; state follows the finals (100.4663ms)
+✔ C3: odd-length audio is refused with bad_audio and the session continues (71.6901ms)
+✔ C3: interrupt reaches the provider, end closes the socket and the provider session (63.0831ms)
+✔ C3: control-message misuse: junk, extra fields, audio before start, a second start, a wrong thread, too many bad messages (94.7698ms)
+✔ C3: start with a thread other than the token's is refused (forbidden) and the socket closes (29.6524ms)
+✔ C3: a frame over the size limit closes the socket (1009) and nothing buffers without limit (46.4023ms)
+✔ C3: a numeric fact heard in speech is read back for confirmation; accept uses it, reject erases it; a non-numeric fact is only proposed (78.5373ms)
+✔ C3: rejecting a read-back figure erases the proposed fact (63.3737ms)
+✔ D-096 item 3: after a crisis the fixed audio and flag are forwarded, model audio is dropped, and nothing is synthesised here (77.0633ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2405.4143

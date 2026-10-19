@@ -1,0 +1,58 @@
+[
+ {
+  "id": "C10f",
+  "desc": "no guard keeps a closed or older waiter out of the slot (pre-fix behaviour for item 2)",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "19",
+   "19",
+   "0"
+  ],
+  "after": [
+   "19",
+   "17",
+   "2"
+  ],
+  "failing": [
+   "C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded",
+   "C10: a connection closed while it waits to supersede the old session never takes the student's slot",
+   "C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded",
+   "C10: a connection closed while it waits to supersede the old session never takes the student's slot"
+  ]
+ },
+ {
+  "id": "C10g",
+  "desc": "the supersede step looks only once and the newest waiter does not win (pre-fix behaviour for item 1)",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "19",
+   "19",
+   "0"
+  ],
+  "after": [
+   "19",
+   "18",
+   "1"
+  ],
+  "failing": [
+   "C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded",
+   "C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded"
+  ]
+ },
+ {
+  "id": "C10h",
+  "desc": "only the final state guard before taking the slot is removed",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "19",
+   "19",
+   "0"
+  ],
+  "after": [
+   "19",
+   "19",
+   "0"
+  ],
+  "failing": []
+ }
+]

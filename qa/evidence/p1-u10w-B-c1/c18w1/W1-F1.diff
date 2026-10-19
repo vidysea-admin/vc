@@ -1,0 +1,13 @@
+diff --git a/apps/api/src/voice.ts b/apps/api/src/voice.ts
+index 3d40047..45a176a 100644
+--- a/apps/api/src/voice.ts
++++ b/apps/api/src/voice.ts
+@@ -779,7 +779,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
+       } catch (err) {
+         // U10w item 1: ONLY a student fenced for erasure is "fenced" (no retry, session ended). A writer-deadline error says the write took too
+         // long, not that the student is fenced: it is retried like any other failure, the crisis is still escalated, and the session goes on.
+-        if (err instanceof StudentFencedError) {
++        if (err instanceof StudentFencedError || err instanceof FencedWriterDeadlineError) {
+           endIfFenced(c, err);
+           return "fenced";
+         }

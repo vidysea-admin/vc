@@ -1,0 +1,26 @@
+[testlock] running slot 0 (free RAM 4.71 GB): pnpm -C packages/db exec tsx --test tests/chat-threads.test.ts
+✔ a student opening the chat gets a thread owned by them; another student cannot read it (5.3887ms)
+✔ a chat-store call on an unscoped Db is refused (tenant isolation fails closed) (1.6705ms)
+✔ a first turn is claimed, completed, and a retry with the same turn id replays the stored answer without a second claim (13.1927ms)
+✔ a retry that arrives while the first attempt is still running is told it is in progress, not run twice (1.0936ms)
+✔ a retry after the first attempt crashed past its lease takes the claim over; the dead holder can no longer complete (4.1633ms)
+✔ the same turn id sent again with different text is a conflict, not a silent replay of the old answer (1.0781ms)
+✔ when the model call fails the claim is abandoned so the student's retry runs again (0.8706ms)
+✔ a voice turn and a text turn land in one history in time order (A19) (1.7148ms)
+✔ two tenants using the same student, thread and turn ids never see or collide with each other's chat (A6) (0.7631ms)
+✔ a student under erasure gets no new thread and no new turn, and a fence that appears mid-write undoes the write (2.9462ms)
+✔ an under-18 thread without guardian consent is a text-free marker; marking an existing thread keeps its ids and flips textStored (0.5089ms)
+✔ usage counters add up per student per month and stay inside the tenant (0.5666ms)
+✔ U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time (1.0088ms)
+✔ U10: appendVoiceTurn is idempotent on (thread, turn, role): a replay changes neither the text nor the row count (0.4554ms)
+✔ U10: appendVoiceTurn refuses a thread that is not the student's, bad input, and an unscoped Db (0.6131ms)
+✔ U10: a student under erasure gets no voice row, and a fence that appears mid-write undoes it (1.1125ms)
+✔ U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row (1.1487ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 709.5316

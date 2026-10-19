@@ -1,0 +1,1990 @@
+[
+ {
+  "id": "C1a",
+  "desc": "flag default on: unset reads as enabled",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C8/A20: default off: no flag builds nothing, no route is mounted, and the upgrade path does not exist",
+   "C8/A20: default off: no flag builds nothing, no route is mounted, and the upgrade path does not exist"
+  ]
+ },
+ {
+  "id": "C1b",
+  "desc": "createVoiceApi builds even when disabled",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C8/A20: default off: no flag builds nothing, no route is mounted, and the upgrade path does not exist",
+   "C8/A20: default off: no flag builds nothing, no route is mounted, and the upgrade path does not exist"
+  ]
+ },
+ {
+  "id": "C1c",
+  "desc": "A20 voice gate not asked when building the routes",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C8/A20: enabled without the go-live records",
+   "C8/A20: enabled without the go-live records"
+  ]
+ },
+ {
+  "id": "C1d",
+  "desc": "tracing switch not checked",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C8/A20: enabled without the go-live records",
+   "C8/A20: enabled without the go-live records"
+  ]
+ },
+ {
+  "id": "C1e",
+  "desc": "session route does not require the thread to exist",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C1: session route refusals: no token, wrong role, other student's path, unknown thread, other tenant's thread, bad body, bad method, fenced",
+   "C1: session route refusals: no token, wrong role, other student's path, unknown thread, other tenant's thread, bad body, bad method, fenced"
+  ]
+ },
+ {
+  "id": "C1f",
+  "desc": "session route serves a path student other than the token student",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "56",
+   "0"
+  ],
+  "failing": []
+ },
+ {
+  "id": "C1g",
+  "desc": "a role refusal is answered 401 instead of 403",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C1: session route refusals: no token, wrong role, other student's path, unknown thread, other tenant's thread, bad body, bad method, fenced",
+   "C1: session route refusals: no token, wrong role, other student's path, unknown thread, other tenant's thread, bad body, bad method, fenced"
+  ]
+ },
+ {
+  "id": "C1h",
+  "desc": "session route mints for a fenced (erasure) student",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C1: a fenced",
+   "C1: a fenced"
+  ]
+ },
+ {
+  "id": "C1i",
+  "desc": "sandbox tenant accepts a real-looking student id",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "A6: the sandbox tenant accepts only syn- student ids at the voice session route",
+   "A6: the sandbox tenant accepts only syn- student ids at the voice session route"
+  ]
+ },
+ {
+  "id": "C1j",
+  "desc": "ws token lives 3600 s, not 60 s",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "53",
+   "3"
+  ],
+  "failing": [
+   "C1: POST voice/sessions mints a short-lived token with the D-088 audio format and no token in the URL",
+   "C2: an expired token is refused",
+   "C9: 50 connect/abort cycles",
+   "C1: POST voice/sessions mints a short-lived token with the D-088 audio format and no token in the URL"
+  ]
+ },
+ {
+  "id": "C1k",
+  "desc": "wsUrl carries the token in the URL",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C1: POST voice/sessions mints a short-lived token with the D-088 audio format and no token in the URL",
+   "C1: POST voice/sessions mints a short-lived token with the D-088 audio format and no token in the URL"
+  ]
+ },
+ {
+  "id": "C2a",
+  "desc": "audience not checked",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "C2: a token with the wrong audience",
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "C2: a token with the wrong audience"
+  ]
+ },
+ {
+  "id": "C2b",
+  "desc": "issuer not checked",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C2: a token with the wrong audience",
+   "C2: a token with the wrong audience"
+  ]
+ },
+ {
+  "id": "C2c",
+  "desc": "any HMAC algorithm accepted",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "C2: a token signed with another key, another algorithm, or alg none is refused",
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "C2: a token signed with another key, another algorithm, or alg none is refused"
+  ]
+ },
+ {
+  "id": "C2d",
+  "desc": "expiry not enforced",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C2: an expired token is refused",
+   "C2: an expired token is refused"
+  ]
+ },
+ {
+  "id": "C2e",
+  "desc": "single use not enforced (replay allowed)",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C2: a token is single use: a replay is refused, and two concurrent upgrades with one token admit exactly one",
+   "C2: a token is single use: a replay is refused, and two concurrent upgrades with one token admit exactly one"
+  ]
+ },
+ {
+  "id": "C2f",
+  "desc": "token for another student accepted on this path",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C2: a token minted for one student or thread is refused on another student's or thread's path",
+   "C2: a token minted for one student or thread is refused on another student's or thread's path"
+  ]
+ },
+ {
+  "id": "C2g",
+  "desc": "token for another thread accepted on this path",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C2: a token minted for one student or thread is refused on another student's or thread's path",
+   "C2: a token minted for one student or thread is refused on another student's or thread's path"
+  ]
+ },
+ {
+  "id": "C2h",
+  "desc": "missing token no longer refused cleanly",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C2: no token, a garbage token and a token in the URL query are each refused with 401",
+   "C2: no token, a garbage token and a token in the URL query are each refused with 401"
+  ]
+ },
+ {
+  "id": "C2i",
+  "desc": "token accepted from the URL query string",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C2: no token, a garbage token and a token in the URL query are each refused with 401",
+   "C2: no token, a garbage token and a token in the URL query are each refused with 401"
+  ]
+ },
+ {
+  "id": "C2j",
+  "desc": "Origin allow-list not enforced",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C2: another path or method is 404 and an Origin outside the allowed list is 403",
+   "C2: another path or method is 404 and an Origin outside the allowed list is 403"
+  ]
+ },
+ {
+  "id": "C2k",
+  "desc": "tenant claim shape not validated",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "C2: a token minted for one student or thread is refused on another student's or thread's path",
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "C2: a token minted for one student or thread is refused on another student's or thread's path"
+  ]
+ },
+ {
+  "id": "C2l",
+  "desc": "the presented token is written to the server log",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C2: no token and no raw frame text reaches the server log, on refusals or on a normal session",
+   "C2: no token and no raw frame text reaches the server log, on refusals or on a normal session"
+  ]
+ },
+ {
+  "id": "C2m",
+  "desc": "subprotocol not negotiated",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "?",
+   "?",
+   "?"
+  ],
+  "failing": []
+ },
+ {
+  "id": "C2n",
+  "desc": "vc-token subprotocol credential not read",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C2: the token is accepted from the Authorization header or the vc-token subprotocol, and the server selects vc-voice-v1",
+   "C2: the token is accepted from the Authorization header or the vc-token subprotocol, and the server selects vc-voice-v1"
+  ]
+ },
+ {
+  "id": "C2o",
+  "desc": "a student JWT accepted by the ws verifier (shared key + no aud)",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C2: a token with the wrong audience",
+   "C2: a token signed with another key, another algorithm, or alg none is refused",
+   "C2: a token with the wrong audience",
+   "C2: a token signed with another key, another algorithm, or alg none is refused"
+  ]
+ },
+ {
+  "id": "C3a",
+  "desc": "interrupt not forwarded to the provider",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C3: interrupt reaches the provider, end closes the socket and the provider session",
+   "C3: interrupt reaches the provider, end closes the socket and the provider session"
+  ]
+ },
+ {
+  "id": "C3b",
+  "desc": "end does not close the session",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "49",
+   "7"
+  ],
+  "failing": [
+   "C6/A19: voice turns interleave in order with text turns in one thread, survive a reconnect, and carry channel voice",
+   "C6/A19: the student export contains the voice turns",
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "C7: minutes are recorded when the connection ends"
+  ]
+ },
+ {
+  "id": "C3c",
+  "desc": "student audio not forwarded to the provider",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C3: audio in reaches the provider; model audio comes back as binary; transcripts are events with monotonic ids; state follows the finals",
+   "C3: odd-length audio is refused with bad_audio and the session continues",
+   "C3: audio in reaches the provider; model audio comes back as binary; transcripts are events with monotonic ids; state follows the finals",
+   "C3: odd-length audio is refused with bad_audio and the session continues"
+  ]
+ },
+ {
+  "id": "C3d",
+  "desc": "event ids do not advance",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C3: audio in reaches the provider; model audio comes back as binary; transcripts are events with monotonic ids; state follows the finals",
+   "C4: resume with lastEventId replays the events the client missed, with their original ids, for the same student and thread only",
+   "C3: audio in reaches the provider; model audio comes back as binary; transcripts are events with monotonic ids; state follows the finals",
+   "C4: resume with lastEventId replays the events the client missed, with their original ids, for the same student and thread only"
+  ]
+ },
+ {
+  "id": "C3e",
+  "desc": "model audio not forwarded to the client",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "52",
+   "4"
+  ],
+  "failing": [
+   "C5: an uncited figure in the spoken answer is flagged to the client and stored on the assistant row, after the audio was already sent",
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "C3: audio in reaches the provider; model audio comes back as binary; transcripts are events with monotonic ids; state follows the finals",
+   "D-096 item 3: after a crisis the fixed audio and flag are forwarded, model audio is dropped, and nothing is synthesised here"
+  ]
+ },
+ {
+  "id": "C3f",
+  "desc": "numeric facts are not read back",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C3: a numeric fact heard in speech is read back for confirmation; accept uses it, reject erases it; a non-numeric fact is only proposed",
+   "C3: rejecting a read-back figure erases the proposed fact",
+   "C3: a numeric fact heard in speech is read back for confirmation; accept uses it, reject erases it; a non-numeric fact is only proposed",
+   "C3: rejecting a read-back figure erases the proposed fact"
+  ]
+ },
+ {
+  "id": "C3g",
+  "desc": "an accepted confirmation erases the fact",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C3: a numeric fact heard in speech is read back for confirmation; accept uses it, reject erases it; a non-numeric fact is only proposed",
+   "C3: a numeric fact heard in speech is read back for confirmation; accept uses it, reject erases it; a non-numeric fact is only proposed"
+  ]
+ },
+ {
+  "id": "C3h",
+  "desc": "a rejected confirmation confirms the fact",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C3: rejecting a read-back figure erases the proposed fact",
+   "C3: rejecting a read-back figure erases the proposed fact"
+  ]
+ },
+ {
+  "id": "C3i",
+  "desc": "a second start opens a second provider session",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C3: control-message misuse: junk, extra fields, audio before start, a second start, a wrong thread, too many bad messages",
+   "C3: control-message misuse: junk, extra fields, audio before start, a second start, a wrong thread, too many bad messages"
+  ]
+ },
+ {
+  "id": "C3j",
+  "desc": "start accepts a thread other than the token thread",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C3: start with a thread other than the token's is refused",
+   "C3: start with a thread other than the token's is refused"
+  ]
+ },
+ {
+  "id": "C3k",
+  "desc": "no maximum frame size",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C3: a frame over the size limit closes the socket",
+   "C3: a frame over the size limit closes the socket"
+  ]
+ },
+ {
+  "id": "C3l",
+  "desc": "unlimited invalid client messages",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C3: control-message misuse: junk, extra fields, audio before start, a second start, a wrong thread, too many bad messages",
+   "C3: control-message misuse: junk, extra fields, audio before start, a second start, a wrong thread, too many bad messages"
+  ]
+ },
+ {
+  "id": "C3m",
+  "desc": "crisis flag not forwarded to the client",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "D-096 item 3: after a crisis the fixed audio and flag are forwarded, model audio is dropped, and nothing is synthesised here",
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "D-096 item 3: after a crisis the fixed audio and flag are forwarded, model audio is dropped, and nothing is synthesised here"
+  ]
+ },
+ {
+  "id": "C3n",
+  "desc": "crisis not logged as a student flag",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "D-096 item 3: after a crisis the fixed audio and flag are forwarded, model audio is dropped, and nothing is synthesised here",
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "D-096 item 3: after a crisis the fixed audio and flag are forwarded, model audio is dropped, and nothing is synthesised here"
+  ]
+ },
+ {
+  "id": "C3o",
+  "desc": "an oversize frame is answered with a bare abnormal close",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C3: a frame over the size limit closes the socket",
+   "C3: a frame over the size limit closes the socket"
+  ]
+ },
+ {
+  "id": "C4a",
+  "desc": "resume replays another owner's log",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C4: resume of an expired, unknown or someone else's session id replays nothing",
+   "C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume across tenants replays nothing, and usage is per tenant",
+   "C4: resume of an expired, unknown or someone else's session id replays nothing",
+   "C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume across tenants replays nothing, and usage is per tenant"
+  ]
+ },
+ {
+  "id": "C4b",
+  "desc": "resume window not enforced",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C4: resume of an expired, unknown or someone else's session id replays nothing",
+   "C4: resume of an expired, unknown or someone else's session id replays nothing"
+  ]
+ },
+ {
+  "id": "C4c",
+  "desc": "silence timeout never ends the session",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable",
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable"
+  ]
+ },
+ {
+  "id": "C4d",
+  "desc": "student speech does not restart the silence clock",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable",
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable"
+  ]
+ },
+ {
+  "id": "C4e",
+  "desc": "model output does not restart the silence clock",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "56",
+   "0"
+  ],
+  "failing": []
+ },
+ {
+  "id": "C4f",
+  "desc": "silence default is 30 s",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable",
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable"
+  ]
+ },
+ {
+  "id": "C4g",
+  "desc": "per-tenant silence timeout ignored",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable",
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable"
+  ]
+ },
+ {
+  "id": "C4h",
+  "desc": "session cap timer never armed",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "53",
+   "3"
+  ],
+  "failing": [
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it",
+   "C7: a per-tenant override changes the limits for that tenant only",
+   "C4/D-088: a session ends at the 20-minute cap with a fixed message, and exactly 20 minutes are recorded",
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it"
+  ]
+ },
+ {
+  "id": "C4i",
+  "desc": "session cap is 25 minutes",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C7: a per-tenant override changes the limits for that tenant only",
+   "C4/D-088: a session ends at the 20-minute cap with a fixed message, and exactly 20 minutes are recorded",
+   "C7: a per-tenant override changes the limits for that tenant only",
+   "C4/D-088: a session ends at the 20-minute cap with a fixed message, and exactly 20 minutes are recorded"
+  ]
+ },
+ {
+  "id": "C4j",
+  "desc": "session cap ignores the remaining monthly quota",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it",
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it"
+  ]
+ },
+ {
+  "id": "C4k",
+  "desc": "a provider failure message is sent to the client",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C4: text fallback: after a voice failure, a cap or a silence end, text chat continues in the same thread",
+   "C8/A12: LiveConfigError is its own fixed error event",
+   "C4: text fallback: after a voice failure, a cap or a silence end, text chat continues in the same thread",
+   "C8/A12: LiveConfigError is its own fixed error event"
+  ]
+ },
+ {
+  "id": "C4l",
+  "desc": "a provider failure does not end the voice socket",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C4: text fallback: after a voice failure, a cap or a silence end, text chat continues in the same thread",
+   "C8/A12: LiveConfigError is its own fixed error event",
+   "C4: text fallback: after a voice failure, a cap or a silence end, text chat continues in the same thread",
+   "C8/A12: LiveConfigError is its own fixed error event"
+  ]
+ },
+ {
+  "id": "C5a",
+  "desc": "audit findings are not stored",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C5: an uncited figure in the spoken answer is flagged to the client and stored on the assistant row, after the audio was already sent",
+   "C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding",
+   "C5: an uncited figure in the spoken answer is flagged to the client and stored on the assistant row, after the audio was already sent",
+   "C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding"
+  ]
+ },
+ {
+  "id": "C5b",
+  "desc": "audit flag not sent to the client",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "51",
+   "5"
+  ],
+  "failing": [
+   "C5: an uncited figure in the spoken answer is flagged to the client and stored on the assistant row, after the audio was already sent",
+   "C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding",
+   "C5: an auditor that throws becomes a visible unverified_claim flag, never a silent pass",
+   "C5: for an unconsented minor the flag still reaches the student but no finding or text is stored"
+  ]
+ },
+ {
+  "id": "C5c",
+  "desc": "a listed speaker name is repeated in the flag",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding",
+   "C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding"
+  ]
+ },
+ {
+  "id": "C5d",
+  "desc": "listed speakers not given to the auditor",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding",
+   "C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding"
+  ]
+ },
+ {
+  "id": "C5e",
+  "desc": "tool sources not relayed to the client",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C5: a figure that a knowledge-base tool returned this session is cited, so it is not flagged; the sources reach the client",
+   "C5: a figure that a knowledge-base tool returned this session is cited, so it is not flagged; the sources reach the client"
+  ]
+ },
+ {
+  "id": "C5f",
+  "desc": "the same flag is repeated per alias",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding",
+   "C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding"
+  ]
+ },
+ {
+  "id": "C5g",
+  "desc": "a failed audit finding is stored on the wrong row (text row filter)",
+  "kind": "db",
+  "file": "packages/db/src/chat-threads.ts",
+  "before": [
+   "17",
+   "17",
+   "0"
+  ],
+  "after": [
+   "17",
+   "16",
+   "1"
+  ],
+  "failing": [
+   "U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row",
+   "U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row"
+  ]
+ },
+ {
+  "id": "C6a",
+  "desc": "voice transcript stored unredacted",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C6/D-093 6A: the stored transcript is redacted",
+   "C6/D-093 6A: the stored transcript is redacted"
+  ]
+ },
+ {
+  "id": "C6b",
+  "desc": "profile names not used for redaction",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C6/D-093 6A: the stored transcript is redacted",
+   "C6/D-093 6A: the stored transcript is redacted"
+  ]
+ },
+ {
+  "id": "C6c",
+  "desc": "an unconsented minor has transcripts stored",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "53",
+   "3"
+  ],
+  "failing": [
+   "C5: for an unconsented minor the flag still reaches the student but no finding or text is stored",
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "C6/D-093 4A: a guardianConsent claim that is not the boolean true",
+   "C5: for an unconsented minor the flag still reaches the student but no finding or text is stored"
+  ]
+ },
+ {
+  "id": "C6d",
+  "desc": "the ws token claims consent for everyone",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "53",
+   "3"
+  ],
+  "failing": [
+   "C5: for an unconsented minor the flag still reaches the student but no finding or text is stored",
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "C6/D-093 4A: a guardianConsent claim that is not the boolean true",
+   "C5: for an unconsented minor the flag still reaches the student but no finding or text is stored"
+  ]
+ },
+ {
+  "id": "C6e",
+  "desc": "a voice row is written as a text turn",
+  "kind": "db",
+  "file": "packages/db/src/chat-threads.ts",
+  "before": [
+   "17",
+   "17",
+   "0"
+  ],
+  "after": [
+   "17",
+   "15",
+   "2"
+  ],
+  "failing": [
+   "U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time",
+   "U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row",
+   "U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time",
+   "U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row"
+  ]
+ },
+ {
+  "id": "C6f",
+  "desc": "a replayed voice turn overwrites the stored one",
+  "kind": "db",
+  "file": "packages/db/src/chat-threads.ts",
+  "before": [
+   "17",
+   "17",
+   "0"
+  ],
+  "after": [
+   "17",
+   "16",
+   "1"
+  ],
+  "failing": [
+   "U10: appendVoiceTurn is idempotent on",
+   "U10: appendVoiceTurn is idempotent on"
+  ]
+ },
+ {
+  "id": "C6g",
+  "desc": "assistant voice row sorts with the user row",
+  "kind": "db",
+  "file": "packages/db/src/chat-threads.ts",
+  "before": [
+   "17",
+   "17",
+   "0"
+  ],
+  "after": [
+   "17",
+   "16",
+   "1"
+  ],
+  "failing": [
+   "U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time",
+   "U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time"
+  ]
+ },
+ {
+  "id": "C6h",
+  "desc": "appendVoiceTurn accepts an unscoped Db",
+  "kind": "db",
+  "file": "packages/db/src/chat-threads.ts",
+  "before": [
+   "17",
+   "17",
+   "0"
+  ],
+  "after": [
+   "17",
+   "17",
+   "0"
+  ],
+  "failing": []
+ },
+ {
+  "id": "C6i",
+  "desc": "appendVoiceAudit accepts an unscoped Db",
+  "kind": "db",
+  "file": "packages/db/src/chat-threads.ts",
+  "before": [
+   "17",
+   "17",
+   "0"
+  ],
+  "after": [
+   "17",
+   "16",
+   "1"
+  ],
+  "failing": [
+   "U10: appendVoiceTurn refuses a thread that is not the student's, bad input, and an unscoped Db",
+   "U10: appendVoiceTurn refuses a thread that is not the student's, bad input, and an unscoped Db"
+  ]
+ },
+ {
+  "id": "C6j",
+  "desc": "voice turn written without the fence",
+  "kind": "db",
+  "file": "packages/db/src/chat-threads.ts",
+  "before": [
+   "17",
+   "17",
+   "0"
+  ],
+  "after": [
+   "17",
+   "16",
+   "1"
+  ],
+  "failing": [
+   "U10: a student under erasure gets no voice row, and a fence that appears mid-write undoes it",
+   "U10: a student under erasure gets no voice row, and a fence that appears mid-write undoes it"
+  ]
+ },
+ {
+  "id": "C6k",
+  "desc": "audit finding added twice",
+  "kind": "db",
+  "file": "packages/db/src/chat-threads.ts",
+  "before": [
+   "17",
+   "17",
+   "0"
+  ],
+  "after": [
+   "17",
+   "16",
+   "1"
+  ],
+  "failing": [
+   "U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row",
+   "U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row"
+  ]
+ },
+ {
+  "id": "C6l",
+  "desc": "voice turn written to a thread the student does not own",
+  "kind": "db",
+  "file": "packages/db/src/chat-threads.ts",
+  "before": [
+   "17",
+   "17",
+   "0"
+  ],
+  "after": [
+   "17",
+   "16",
+   "1"
+  ],
+  "failing": [
+   "U10: appendVoiceTurn refuses a thread that is not the student's, bad input, and an unscoped Db",
+   "U10: appendVoiceTurn refuses a thread that is not the student's, bad input, and an unscoped Db"
+  ]
+ },
+ {
+  "id": "C7a",
+  "desc": "minutes are not recorded",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "51",
+   "5"
+  ],
+  "failing": [
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it",
+   "C7: minutes are recorded when the connection ends",
+   "C7: a per-tenant override changes the limits for that tenant only",
+   "C4/D-088: a session ends at the 20-minute cap with a fixed message, and exactly 20 minutes are recorded"
+  ]
+ },
+ {
+  "id": "C7b",
+  "desc": "session route ignores the monthly limit",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "53",
+   "3"
+  ],
+  "failing": [
+   "C7: a student at 60 voice minutes gets 429 voice_quota_exceeded with Retry-After, and text chat on the same thread continues",
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it",
+   "C7: a per-tenant override changes the limits for that tenant only",
+   "C7: a student at 60 voice minutes gets 429 voice_quota_exceeded with Retry-After, and text chat on the same thread continues"
+  ]
+ },
+ {
+  "id": "C7c",
+  "desc": "start ignores the monthly limit",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C7: a token minted before the limit was reached is still refused at start",
+   "C7: a token minted before the limit was reached is still refused at start"
+  ]
+ },
+ {
+  "id": "C7d",
+  "desc": "per-tenant override ignored at start",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C7: a per-tenant override changes the limits for that tenant only",
+   "C7: a per-tenant override changes the limits for that tenant only"
+  ]
+ },
+ {
+  "id": "C7e",
+  "desc": "per-tenant override ignored at the session route",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C7: a per-tenant override changes the limits for that tenant only",
+   "C7: a per-tenant override changes the limits for that tenant only"
+  ]
+ },
+ {
+  "id": "C7f",
+  "desc": "start reads the wrong month's usage",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C7: a token minted before the limit was reached is still refused at start",
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it",
+   "C7: a token minted before the limit was reached is still refused at start",
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it"
+  ]
+ },
+ {
+  "id": "C7g",
+  "desc": "429 carries no Retry-After",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C7: a student at 60 voice minutes gets 429 voice_quota_exceeded with Retry-After, and text chat on the same thread continues",
+   "C7: a student at 60 voice minutes gets 429 voice_quota_exceeded with Retry-After, and text chat on the same thread continues"
+  ]
+ },
+ {
+  "id": "C7h",
+  "desc": "advertised session length ignores the remaining quota",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it",
+   "C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it"
+  ]
+ },
+ {
+  "id": "C8a",
+  "desc": "LiveConfigError not distinguished",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C8/A12: LiveConfigError is its own fixed error event",
+   "C8/A12: LiveConfigError is its own fixed error event"
+  ]
+ },
+ {
+  "id": "C8b",
+  "desc": "provider error text sent to the client",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C6: a failure to store a transcript is reported as a fixed persist_failed event and the session keeps going",
+   "C8/A12: a provider error mid-session is an error event and the session continues; a backend close ends the session with live_closed",
+   "C6: a failure to store a transcript is reported as a fixed persist_failed event and the session keeps going",
+   "C8/A12: a provider error mid-session is an error event and the session continues; a backend close ends the session with live_closed"
+  ]
+ },
+ {
+  "id": "C8c",
+  "desc": "backend close does not end the session",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C8/A12: a provider error mid-session is an error event and the session continues; a backend close ends the session with live_closed",
+   "C8/A12: a provider error mid-session is an error event and the session continues; a backend close ends the session with live_closed"
+  ]
+ },
+ {
+  "id": "C8d",
+  "desc": "a storage failure reads as a provider failure",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C6: a failure to store a transcript is reported as a fixed persist_failed event and the session keeps going",
+   "C6: a failure to store a transcript is reported as a fixed persist_failed event and the session keeps going"
+  ]
+ },
+ {
+  "id": "C9a",
+  "desc": "resume ignores the tenant of the retained log",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume across tenants replays nothing, and usage is per tenant",
+   "C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume across tenants replays nothing, and usage is per tenant"
+  ]
+ },
+ {
+  "id": "C9b",
+  "desc": "timers are not cleared when a connection ends",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable",
+   "C9: 50 connect/abort cycles",
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable",
+   "C9: 50 connect/abort cycles"
+  ]
+ },
+ {
+  "id": "C9c",
+  "desc": "the provider session is not closed on finalize",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "53",
+   "3"
+  ],
+  "failing": [
+   "C3: interrupt reaches the provider, end closes the socket and the provider session",
+   "C9: a student has one voice session: a second start replaces the first, which is told it was superseded",
+   "C9: 50 connect/abort cycles",
+   "C3: interrupt reaches the provider, end closes the socket and the provider session"
+  ]
+ },
+ {
+  "id": "C9d",
+  "desc": "a finished connection stays in the socket set",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "51",
+   "5"
+  ],
+  "failing": [
+   "C7: minutes are recorded when the connection ends",
+   "C7: a student under erasure is not charged: the minutes write is refused by the fence, nothing is forced, the session closes cleanly",
+   "C4: resume with lastEventId replays the events the client missed, with their original ids, for the same student and thread only",
+   "C9: 50 connect/abort cycles"
+  ]
+ },
+ {
+  "id": "C9e",
+  "desc": "the live-session count is never decremented",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "49",
+   "7"
+  ],
+  "failing": [
+   "C7: a student under erasure is not charged: the minutes write is refused by the fence, nothing is forced, the session closes cleanly",
+   "C3: interrupt reaches the provider, end closes the socket and the provider session",
+   "C3: a frame over the size limit closes the socket",
+   "C8/A12: a provider error mid-session is an error event and the session continues; a backend close ends the session with live_closed"
+  ]
+ },
+ {
+  "id": "C9f",
+  "desc": "the student slot is never released",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "53",
+   "3"
+  ],
+  "failing": [
+   "C3: interrupt reaches the provider, end closes the socket and the provider session",
+   "C8/A12: LiveConfigError is its own fixed error event",
+   "C9: 50 connect/abort cycles",
+   "C3: interrupt reaches the provider, end closes the socket and the provider session"
+  ]
+ },
+ {
+  "id": "C9g",
+  "desc": "used-token memory never pruned",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C9: 50 connect/abort cycles",
+   "C9: 50 connect/abort cycles"
+  ]
+ },
+ {
+  "id": "C9h",
+  "desc": "a newer session does not end the older one",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C9: a student has one voice session: a second start replaces the first, which is told it was superseded",
+   "C9: a student has one voice session: a second start replaces the first, which is told it was superseded"
+  ]
+ },
+ {
+  "id": "C9i",
+  "desc": "socket cap ignored",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "C9: the socket cap refuses more connections with 503 without opening anything",
+   "C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay",
+   "C9: the socket cap refuses more connections with 503 without opening anything"
+  ]
+ },
+ {
+  "id": "C9j",
+  "desc": "the connection uses another tenant's Db",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "54",
+   "2"
+  ],
+  "failing": [
+   "C7: a per-tenant override changes the limits for that tenant only",
+   "C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume across tenants replays nothing, and usage is per tenant",
+   "C7: a per-tenant override changes the limits for that tenant only",
+   "C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume across tenants replays nothing, and usage is per tenant"
+  ]
+ },
+ {
+  "id": "C9k",
+  "desc": "shutdown leaves connections open",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "?",
+   "?",
+   "?"
+  ],
+  "failing": []
+ },
+ {
+  "id": "C9l",
+  "desc": "a session that connects after the client left is not closed",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "56",
+   "0"
+  ],
+  "failing": []
+ },
+ {
+  "id": "C9m",
+  "desc": "the superseded session is not told why",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "56",
+   "56",
+   "0"
+  ],
+  "after": [
+   "56",
+   "55",
+   "1"
+  ],
+  "failing": [
+   "C9: a student has one voice session: a second start replaces the first, which is told it was superseded",
+   "C9: a student has one voice session: a second start replaces the first, which is told it was superseded"
+  ]
+ }
+]

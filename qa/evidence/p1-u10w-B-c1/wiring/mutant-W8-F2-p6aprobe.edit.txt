@@ -1,0 +1,6 @@
+file: apps/api/src/index.ts
+--- OLD ---
+        await voice?.close();
+        if (liveServer)
+--- NEW ---
+        if (liveServer)

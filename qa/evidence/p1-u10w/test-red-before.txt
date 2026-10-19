@@ -1,0 +1,17 @@
+[testlock] running slot 0 (free RAM 5.27 GB): pnpm -C D:/vc/.worktrees/p1-u10w/apps/api exec tsx --test tests/voice-wiring.test.ts
+✖ W1: a crisis flag write that dies with FencedWriterDeadlineError (student NOT fenced) is retried, the crisis is still escalated once, the student is not ejected, and the log names the deadline, not a fence (4062.8863ms)
+✖ W1: a flag write that hits the deadline once and then succeeds stores the flag once and escalates once, logging nothing (4038.3245ms)
+✖ W1: an escalation port that dies with FencedWriterDeadlineError once is retried and delivered; the student is not ejected (4046.6308ms)
+✖ W2: an escalation still running after the drain timeout is awaited by voice.close(), so a shutdown does not lose it (218.4785ms)
+✖ W2: the wait for late work at shutdown is bounded: a write that never settles delays close() by at most drainTimeoutMs and is logged (125.0872ms)
+✖ W3: a start superseded while its provider connect is still in flight is closed before the newer start opens its own provider session (never two paid sessions at once) (204.2276ms)
+✖ W3: if the superseded connect never returns, the newer start waits at most drainTimeoutMs, the overlap is logged, and it still becomes the live session (46.2497ms)
+✔ W4: the retry after a delivered-then-thrown escalation reuses the same session and turn id, and the real escalateTurns port writes each recipient record once (36.4309ms)
+✔ W5: VC_VOICE_ENABLED unset, empty or 'false' -> no voice route, an upgrade is refused, no gate is read, nothing voice-related is built or connected (50.8233ms)
+✖ W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value (7.1144ms)
+✖ W7: flag on and gates open -> in a started process the session route mints a token, the WebSocket upgrades, a start reaches the provider, and a wrong token is refused (10.4682ms)
+✖ W8: stop() finalizes a live voice session before the database client closes, and its usage is recorded (10.9829ms)
+✖ W9: a voice crisis in a started process reaches the SAME escalateForTenant port the text chat uses (one flag, one escalation) (14.4925ms)
+✖ W9: with chat off, a voice crisis goes through the engine's escalateTurns exactly like the text path default (notification records are written) (9.695ms)
+
+[exited with code 0]

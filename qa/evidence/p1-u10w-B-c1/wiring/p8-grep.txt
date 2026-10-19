@@ -1,0 +1,10 @@
+0c2b981:apps/api/src/index.ts:29:import { createProvider, loadProviderConfig, type LiveProvider, type LlmProvider } from "@vc/providers";
+0c2b981:apps/api/src/index.ts:87:  /** Tests inject a MockProvider; default: createProvider(loadProviderConfig(env)). */
+0c2b981:apps/api/src/index.ts:262:        provider: http.provider ?? createProvider(loadProviderConfig(env)),
+0c2b981:apps/api/src/index.ts:268:    ? (http?.provider ?? createProvider(concernClassifierProviderConfig(loadProviderConfig(env), classifierConfig!))) : undefined;
+0c2b981:apps/api/src/voice.ts:204:  /** The Live seam (U9). Production would be GeminiLiveProvider; every test here uses MockLiveProvider. */
+0c2b981:apps/api/tests/voice-wiring.test.ts:302:const counsellorVerifier = createJwtVerifier(jwtConfigFromEnv({ VC_JWT_ISSUER: "https://issuer.synthetic.test", VC_JWT_PUBLIC_KEY: PEM }));
+0c2b981:apps/api/tests/voice-wiring.test.ts:368:  const res = await fetch(sessionUrl(b.port, threadId), { method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: "{}" });
+0c2b981:apps/api/tests/voice-wiring.test.ts:409:      const res = await fetch(sessionUrl(b.port, threadId), { method: "POST", headers: { authorization: `Bearer ${jwt}` }, body: "{}" });
+0c2b981:apps/api/tests/voice-wiring.test.ts:429:    { name: "bad base url", env: { VC_VOICE_ENABLED: "true" }, voice: { wsBaseUrl: "https://nope.example" }, want: VoiceConfigError },
+0c2b981:apps/api/tests/voice-wiring.test.ts:496:    const res = await fetch(sessionUrl(b.port, threadId), { method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: "{}" });
