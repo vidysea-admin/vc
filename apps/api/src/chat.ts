@@ -39,6 +39,12 @@
  *  - p1-u8r item 5: the escalation path (and so the classifier rationale it stores) is handed REDACTED text; if redacting would hide the
  *    crisis wording from the guard, the least-redacted text that still shows it is used (an escalation is never lost for privacy).
  *  - The Pathlynks profile arrives through a port; there is no real integration here, and no voice route (U10).
+ *  - p1-u6w: when the graph picks `rank_options`, the reply is ranked by the U6b `rankOptions` over THIS tenant's and THIS student's facts (their
+ *    confirmed chat facts and the Pathlynks profile), through `deps.ranking`. Absent `deps.ranking`, the reply is the plain graph answer. The db
+ *    label of a confirmed chat fact ("chat") is mapped to the ranker's "student-confirmed" in ONE place (`rankFactFromStored`, ISS-163); a
+ *    proposed fact or any other label stays unmapped and is ignored by the ranker. Every per-option number carries "NOT PROVEN" (D-097 item 3,
+ *    ISS-167: the real source of cost, scholarship chance and visa ease is not proven). A ranking failure never fails the turn: the plain reply
+ *    is returned and one text-free `chat_rank_failed` line names the error class. Anonymous mode (anonymous.ts) has no such port.
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomUUID } from "node:crypto";
@@ -64,6 +70,7 @@ import {
   proposeProfileFact,
   recordStudentFlag,
   recordStudentUsage,
+  type ProfileFactDoc,
 } from "@vc/db";
 import {
   FactDecisionRequestSchema,
@@ -82,7 +89,10 @@ import {
 import {
   StudentInputInvalidError,
   crisisGuard,
+  rankOptions,
   runStudentTurn,
+  type OptionDataPort,
+  type RankFactInput,
   type SpeakersFile,
   type StudentGraphConfig,
   type StudentGraphDeps,
@@ -166,6 +176,30 @@ export type FactExtractor = (turn: {
   response: TurnResponse;
 }) => Promise<ReadonlyArray<{ key: string; value: string }>>;
 
+/** The label every number the ranking puts in front of a student carries until its data source is proven (D-097 item 3, ISS-167). */
+export const NOT_PROVEN_LABEL = "NOT PROVEN";
+const NL2 = "\n\n";
+const NOT_PROVEN_NOTICE = `${NOT_PROVEN_LABEL}: the cost, scholarship chance and visa ease figures shown for each option do not come from a verified data source yet. Check them yourself before relying on them; the decision is yours.`;
+
+/**
+ * ISS-163, the ONE mapping from the db's label to the ranker's. `proposeProfileFact` stores every chat fact with source "chat"; once the student
+ * confirms it (status "confirmed") it is the student's own fact, which the ranker knows as "student-confirmed". Nothing else is relabelled: a
+ * proposed fact stays "chat" and any other label is passed through, so the ranker ignores them and counts them.
+ */
+export function rankFactFromStored(f: Pick<ProfileFactDoc, "key" | "value" | "status" | "source">): RankFactInput {
+  const confirmedInChat = f.source === "chat" && f.status === "confirmed";
+  return { key: f.key, value: f.value, source: confirmedInChat ? "student-confirmed" : f.source, status: f.status };
+}
+
+/** P1 U6w: what the chat path needs to rank options. The option list is the caller's (Q-U6b-2 is undecided); the option data is fixture-backed until a real source is proven. */
+export interface ChatRankingDeps {
+  port: OptionDataPort;
+  /** The option ids to compare for this student. Empty = nothing to rank (the plain reply is returned). */
+  optionIds(who: { tenantId: string; studentId: string }): readonly string[] | Promise<readonly string[]>;
+  /** Unvalidated per-tenant weight vector; absent = the default student-success weights. */
+  weightsForTenant?(tenantId: string): unknown;
+}
+
 export type ChatLogLine = { level: "error"; event: string; ts: string; status?: number; error?: string; write?: string };
 
 export interface ChatApiDeps {
@@ -178,6 +212,8 @@ export interface ChatApiDeps {
   speakers: SpeakersFile;
   profile?: PathlynksProfilePort;
   extractFacts?: FactExtractor;
+  /** p1-u6w: when set, a `rank_options` turn is answered with the ranked options. */
+  ranking?: ChatRankingDeps;
   /** The tenant's escalation path (production: `(i) => escalateTurns(db, i, escalationDeps)`). Never used for an unconsented minor. */
   escalateForTenant?(tenantId: string, db: Db): StudentGraphDeps["escalate"];
   /** A6: this tenant accepts only `syn-` student ids. */
@@ -463,9 +499,40 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     const confirmedKeys = new Set(confirmed.map((f) => f.key));
     const supplied = (await pathwaysFacts(ctx)).filter((f) => !confirmedKeys.has(f.key));
     return ProfileResponseSchema.parse({
-      facts: [...supplied, ...confirmed.map((f) => ({ key: f.key, value: f.value, source: "student-confirmed" as const }))],
+      facts: [...supplied, ...confirmed.map((f) => ({ key: f.key, value: f.value, source: rankFactFromStored(f).source as "student-confirmed" }))],
       proposed: stored.filter((f) => f.status === "proposed").map((f) => ({ factId: f.factId, key: f.key, value: f.value, status: "proposed" as const })),
     });
+  }
+
+  /** p1-u6w: the U6b ranking merged into a `rank_options` reply. Any failure returns the plain reply and logs the error class only (no profile text). */
+  async function withRanking({ ctx, db }: Who, base: TurnResponse): Promise<TurnResponse> {
+    const ranking = deps.ranking;
+    if (!ranking) return base;
+    try {
+      const stored = await listProfileFacts(db, { studentId: ctx.studentId });
+      const facts = [...(await pathwaysFacts(ctx)), ...stored.map(rankFactFromStored)];
+      const optionIds = await ranking.optionIds({ tenantId: ctx.tenantId, studentId: ctx.studentId });
+      const weights = ranking.weightsForTenant?.(ctx.tenantId);
+      const r = rankOptions({ studentId: ctx.studentId, optionIds, facts, ...(weights !== undefined ? { weights } : {}) }, ranking.port);
+      if (r.status === "refused") {
+        if (r.reason !== "no_options") logEvent("chat_rank_refused", { error: r.reason });
+        return base;
+      }
+      const claims = r.claims.map((c) => (c.kind === "number" ? { ...c, text: `${NOT_PROVEN_LABEL}: ${c.text}` } : c));
+      const hasNumbers = claims.some((c) => c.kind === "number");
+      const known = new Set(base.sources.map((s) => s.id));
+      return TurnResponseSchema.parse({
+        ...base,
+        message: hasNumbers ? [base.message, NOT_PROVEN_NOTICE].filter(Boolean).join(NL2) : base.message,
+        claims: [...base.claims, ...claims],
+        sources: [...base.sources, ...r.sources.filter((s) => !known.has(s.id))],
+        profileFactsUsed: r.profileFactsUsed,
+        rankingProfile: r.rankingProfile,
+      });
+    } catch (err) {
+      logEvent("chat_rank_failed", { error: err instanceof Error ? err.name : "error" });
+      return base;
+    }
   }
 
   async function handleTurn(req: ApiRequest, who: Who, params: Record<string, string>): Promise<ApiResponse> {
@@ -596,7 +663,7 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
         await abandon();
         throw new TypeError("ChatResponseInvalid");
       }
-      const response = live.data;
+      let response = live.data;
       // A12: the provider chain failed. The apology is shown, nothing is kept and nothing is counted, so the retry runs again.
       if (result.retryable) {
         await abandon();
@@ -611,6 +678,9 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
         taken!.slot.confirmed = true;
         taken!.slot.settle(true);
       }
+
+      // p1-u6w: the graph only names the tool; the API layer ranks (graph.ts `executedBy: "api"`). Authenticated routes only, so this is never anonymous.
+      if (result.selectedTool === "rank_options") response = await withRanking(who, response);
 
       if (leaseToken !== undefined) {
         const stored = TurnResponseSchema.parse({
