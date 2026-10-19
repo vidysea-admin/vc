@@ -3,7 +3,7 @@ import type { EvalReport } from "./types.js";
 import type { KbEvalReport } from "./kb-eval.js";
 import type { ProbeReport } from "./probes.js";
 import type { A8Result, LatencySummary } from "./latency.js";
-import type { LiveReport } from "./live-audio.js";
+import type { CrisisLiveReport, LiveReport } from "./live-audio.js";
 import type { H2hTally, JudgeSheet } from "./h2h.js";
 
 function pct(n: number | null): string {
@@ -134,6 +134,25 @@ export function toLiveMarkdown(report: LiveReport): string {
   lines.push("| Check | Pass | Detail |");
   lines.push("|---|---|---|");
   for (const [name, c] of Object.entries(report.checks)) lines.push(`| ${name} | ${c.pass} | ${c.detail} |`);
+  lines.push("");
+  lines.push(report.note);
+  lines.push("");
+  return lines.join("\n");
+}
+
+export function toCrisisLiveMarkdown(report: CrisisLiveReport): string {
+  const lines: string[] = [];
+  lines.push("# Voice gate (A10): crisis set, real run");
+  lines.push("");
+  lines.push(`Model: \`${report.model}\` · Date: ${report.ranAt} · Bound: ${report.boundMs} ms · **${report.verdict}** (${report.passed}/${report.phrases} phrases)`);
+  lines.push("");
+  lines.push(`A10 overall: ${report.a10Overall}`);
+  lines.push("");
+  lines.push("| Phrase | Lang | Escalated | Escalation ms | Fixed message | Model audio after trigger ms | Pass |");
+  lines.push("|---|---|---|---|---|---|---|");
+  for (const r of report.results) {
+    lines.push(`| ${r.id} | ${r.lang} | ${r.escalated} | ${r.escalationMs ?? "never"} | ${r.reachedFixedMessage} | ${r.modelAudioAfterTriggerMs} | ${r.pass}${r.error ? ` (${r.error})` : ""} |`);
+  }
   lines.push("");
   lines.push(report.note);
   lines.push("");
