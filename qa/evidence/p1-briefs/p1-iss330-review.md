@@ -1,0 +1,2 @@
+# senior review — ISS-330 BOM (read-only). Diff: `git -C D:/vc/.worktrees/p1-iss330 diff 397dd4d..p1/iss330 -- packages`.
+Focus: stripBom applied before every split/parse in the touched parsers; no behaviour change for BOM-less input; no parser missed among REAL-run file inputs. Return Approve / Warning / Block with file:line at >80% confidence in your final message (you are read-only; do not write files).
