@@ -13,6 +13,7 @@ import {
   isRetryableProviderError,
   loadTextChainConfig,
   TEXT_CHAIN_DEFAULT_DEADLINE_MS,
+  TEXT_CHAIN_DEFAULT_SPEC,
   TEXT_CHAIN_DEFAULT_HOP_TIMEOUT_MS,
   ModelOutputSchemaError,
   OllamaAbortedError,
@@ -709,4 +710,13 @@ test("p1-lk1 C11: the chain provider never exposes the key in toString/inspect",
   const { provider: chain } = chainRig({ [GLM]: answer("x"), [DSK]: answer("y") });
   assert.ok(!String(chain).includes(SECRET));
   assert.ok(!inspect(chain, { depth: 6 }).includes(SECRET));
+});
+
+test("p1-lk1 C12: VC_TEXT_CHAIN=default is glm-5.3-flash then deepseek-v4.1-flash (Ollama), and nothing else", () => {
+  assert.equal(TEXT_CHAIN_DEFAULT_SPEC, "ollama:glm-5.3-flash,ollama:deepseek-v4.1-flash");
+  const c = loadTextChainConfig({ VC_TEXT_CHAIN: "default", OLLAMA_API_KEY: SECRET })!;
+  assert.ok(c.provider === "ollama");
+  if (c.provider !== "ollama") return;
+  assert.deepEqual(c.chain.map((h) => h.model), ["glm-5.3-flash", "deepseek-v4.1-flash"]);
+  assert.equal(c.model, "glm-5.3-flash");
 });

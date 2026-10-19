@@ -278,6 +278,8 @@ export function loadProviderConfig(env: ProviderEnv): ProviderConfig {
 
 /** P1 LK1 (D-105): the chain's product bound, so a student never waits through a second lap (design: 12 s). */
 export const TEXT_CHAIN_DEFAULT_DEADLINE_MS = 12_000;
+/** P1 LK1 (D-105): the documented default chain, selected with `VC_TEXT_CHAIN=default`. Order is Umesh's (GLM first); the LK9 streamed first-token probe reports whether to flip it. The Gemini Lite slot is reserved (LK3, held) and is not in it. */
+export const TEXT_CHAIN_DEFAULT_SPEC = "ollama:glm-5.3-flash,ollama:deepseek-v4.1-flash";
 /** P1 LK1: a hop that has not answered in this long is a retryable timeout and the chain moves on. */
 export const TEXT_CHAIN_DEFAULT_HOP_TIMEOUT_MS = 8_000;
 
@@ -306,7 +308,8 @@ function positiveIntEnv(env: ProviderEnv, key: string): number | undefined {
 export function loadTextChainConfig(env: ProviderEnv): Extract<ProviderConfig, { provider: "ollama" }> | undefined {
   const raw = env.VC_TEXT_CHAIN;
   if (raw === undefined || raw.trim() === "") return undefined;
-  const entries = raw.split(",").map((e) => e.trim()).filter((e) => e.length > 0);
+  const spec = raw.trim().toLowerCase() === "default" ? TEXT_CHAIN_DEFAULT_SPEC : raw;
+  const entries = spec.split(",").map((e) => e.trim()).filter((e) => e.length > 0);
   if (entries.length === 0) throw new Error("loadTextChainConfig: VC_TEXT_CHAIN was set but contained no entries");
   const models = entries.map((entry) => {
     if (/^gemini:/i.test(entry)) {
