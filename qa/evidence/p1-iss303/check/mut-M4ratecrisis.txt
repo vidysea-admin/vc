@@ -1,0 +1,104 @@
+[testlock] running slot 0 (free RAM 3.03 GB): pnpm -C apps/api exec tsx --test tests/zz-chk-iss303.test.ts
+CHK1
+english/start: 200 state=escalated 14416=true
+english/middle: 200 state=escalated 14416=true
+english/end: 200 state=escalated 14416=true
+hinglish/start: 200 state=escalated 14416=true
+hinglish/middle: 200 state=escalated 14416=true
+hinglish/end: 200 state=escalated 14416=true
+devanagari/start: 200 state=escalated 14416=true
+devanagari/middle: 200 state=escalated 14416=true
+devanagari/end: 200 state=escalated 14416=true
+benign cap: 400 {"error":"invalid_request"}
+✔ CHK1 inside the cap, exactly 64 KiB: crisis phrase start/middle/end x 3 languages -> escalated; benign exactly 64 KiB -> 400, no crisis flag (1028.0698ms)
+CHK2 failures: none; helpline="If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."
+✔ CHK2 64 KiB + 1 and larger: 413 with helpline, never scanned, no model call, nothing stored (395.4583ms)
+✔ CHK3 over turn limit (4000 chars) but inside cap: crisis -> escalated; benign -> plain 400 (1266.248ms)
+✖ CHK4 rate-limited student: crisis (long/short, 3 languages, positions) -> escalated; plain -> 429; 413 and benign overlong behave (126.7017ms)
+CHK5
+dev3 size=65534 end: 200 escalated
+dev3 size=65534 start: 200 escalated
+dev3 size=65535 end: 200 escalated
+dev3 size=65535 start: 200 escalated
+dev3 size=65536 end: 200 escalated
+dev3 size=65536 start: 200 escalated
+dev3 size=65537 end: 413 body_too_large
+dev3 size=65537 start: 413 body_too_large
+dev3 size=65538 end: 413 body_too_large
+dev3 size=65538 start: 413 body_too_large
+dev3 size=65539 end: 413 body_too_large
+dev3 size=65539 start: 413 body_too_large
+astral size=65536: 200 escalated
+astral size=65537: 413 body_too_large
+split mid-body @1000: 200 escalated
+split mid-body @1001: 200 escalated
+split mid-body @1002: 200 escalated
+chunked(4B) dev3 size=65536: 200 escalated
+chunked(4B) dev3 size=65537: 413 body_too_large
+invalid-utf8 tail at cap: 413 body_too_large
+✔ CHK5 multibyte UTF-8 straddling the cap, chunk boundary at the cap (1667.6472ms)
+CHK6
+chunked size=65536: 200 escalated helpline=false
+chunked size=65537: 413 body_too_large helpline=true
+chunked size=307200: 413 body_too_large helpline=true
+no CL/no TE with body bytes sent: 400 undefined
+CL low (valid json first, junk after): 0 undefined
+CL=100 on 50KiB crisis body at end: 400 undefined helpline=false
+CL high (5000, sent 2000, socket open 2.5s): 0 early=true
+CL=10MiB, sent CAP+5000: 413 body_too_large helpline=true early=undefined
+aborted upload (CL>cap, half sent then FIN): 400 early=undefined
+honest CL cap+10: 413 helpline=true
+✔ CHK6 framing: chunked (no content-length) ; content-length lying low/high (2688.3526ms)
+CHK7
+crisis in clientTurnId, benign text: 400 invalid_request escalated=false
+crisis in extra field, benign text: 400 invalid_request escalated=false
+crisis in text + extra field: 400 invalid_request escalated=false
+benign overlong + crisis in extra field: 400 invalid_request escalated=false
+text is array containing crisis: 400 invalid_request escalated=false
+nested text object: 400 invalid_request escalated=false
+array body: 400 invalid_request escalated=false
+crisis text then duplicate key benign: 200 ok escalated=false
+✔ CHK7 crisis text in a non-message field / odd shapes (117.7787ms)
+CHK8
+benign short: status=200 total=2 routeLevel(handleTurn)=1
+crisis short: status=200 total=6 routeLevel(handleTurn)=1
+crisis 50KiB middle (overlong): status=200 total=14 routeLevel(handleTurn)=1
+benign overlong 20KiB (400): status=400 total=1 routeLevel(handleTurn)=1
+rate-limited crisis 50KiB: status=429 total=1 routeLevel(handleTurn)=1
+over cap 413: status=413 total=0 routeLevel(handleTurn)=0
+✔ CHK8 crisis scan count per turn (instrumented copy) (254.6171ms)
+CHK9
+crisis text + bad clientTurnId chars: 400 invalid_request
+crisis text + clientTurnId 200 chars: 400 invalid_request
+crisis text + clientTurnId number: 400 invalid_request
+100 KiB crisis-middle x8: raw 413+helpline 8/8; fetch 413+helpline 8/8
+300 KiB crisis-middle x8: raw 413+helpline 8/8; fetch 413+helpline 8/8
+2048 KiB crisis-middle x8: raw 413+helpline 8/8; fetch 413+helpline 8/8
+✔ CHK9 crisis text + bad sibling field; large-body repeatability via fetch and raw (505.1511ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 8
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10493.6557
+
+✖ failing tests:
+
+test at tests\zz-chk-iss303.test.ts:179:1
+✖ CHK4 rate-limited student: crisis (long/short, 3 languages, positions) -> escalated; plain -> 429; 413 and benign overlong behave (126.7017ms)
+  AssertionError [ERR_ASSERTION]: short english
+  
+  429 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss303-chk\apps\api\tests\zz-chk-iss303.test.ts:188:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 429,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

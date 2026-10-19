@@ -7,7 +7,7 @@
 **Issues addressed:** ISS-303
 **Executor:** claude-sonnet-subagent (maker/builder p1-iss303)
 
-Status: ready-for-check
+Status: checked-PASS
 
 ## Criteria
 - **CAP** — the authenticated chat body cap `MAX_CHAT_BODY_BYTES` is 64 KiB (was 256 KiB), the same scan budget as the anonymous route (ISS-135/ISS-300).

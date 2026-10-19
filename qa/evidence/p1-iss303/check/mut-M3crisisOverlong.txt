@@ -1,0 +1,129 @@
+[testlock] running slot 0 (free RAM 2.9 GB): pnpm -C apps/api exec tsx --test tests/zz-chk-iss303.test.ts
+✖ CHK1 inside the cap, exactly 64 KiB: crisis phrase start/middle/end x 3 languages -> escalated; benign exactly 64 KiB -> 400, no crisis flag (159.8011ms)
+CHK2 failures: none; helpline="If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."
+✔ CHK2 64 KiB + 1 and larger: 413 with helpline, never scanned, no model call, nothing stored (599.3025ms)
+✖ CHK3 over turn limit (4000 chars) but inside cap: crisis -> escalated; benign -> plain 400 (18.4891ms)
+✖ CHK4 rate-limited student: crisis (long/short, 3 languages, positions) -> escalated; plain -> 429; 413 and benign overlong behave (204.0754ms)
+✖ CHK5 multibyte UTF-8 straddling the cap, chunk boundary at the cap (74.3989ms)
+✖ CHK6 framing: chunked (no content-length) ; content-length lying low/high (39.4051ms)
+CHK7
+crisis in clientTurnId, benign text: 400 invalid_request escalated=false
+crisis in extra field, benign text: 400 invalid_request escalated=false
+crisis in text + extra field: 400 invalid_request escalated=false
+benign overlong + crisis in extra field: 400 invalid_request escalated=false
+text is array containing crisis: 400 invalid_request escalated=false
+nested text object: 400 invalid_request escalated=false
+array body: 400 invalid_request escalated=false
+crisis text then duplicate key benign: 200 ok escalated=false
+✔ CHK7 crisis text in a non-message field / odd shapes (133.2154ms)
+CHK8
+benign short: status=200 total=2 routeLevel(handleTurn)=1
+crisis short: status=200 total=6 routeLevel(handleTurn)=1
+crisis 50KiB middle (overlong): status=400 total=1 routeLevel(handleTurn)=1
+benign overlong 20KiB (400): status=400 total=1 routeLevel(handleTurn)=1
+rate-limited crisis 50KiB: status=400 total=1 routeLevel(handleTurn)=1
+over cap 413: status=413 total=0 routeLevel(handleTurn)=0
+✔ CHK8 crisis scan count per turn (instrumented copy) (285.8048ms)
+CHK9
+crisis text + bad clientTurnId chars: 400 invalid_request
+crisis text + clientTurnId 200 chars: 400 invalid_request
+crisis text + clientTurnId number: 400 invalid_request
+100 KiB crisis-middle x8: raw 413+helpline 8/8; fetch 413+helpline 8/8
+300 KiB crisis-middle x8: raw 413+helpline 8/8; fetch 413+helpline 8/8
+2048 KiB crisis-middle x8: raw 413+helpline 8/8; fetch 413+helpline 8/8
+✔ CHK9 crisis text + bad sibling field; large-body repeatability via fetch and raw (423.1164ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 4
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4310.5644
+
+✖ failing tests:
+
+test at tests\zz-chk-iss303.test.ts:114:1
+✖ CHK1 inside the cap, exactly 64 KiB: crisis phrase start/middle/end x 3 languages -> escalated; benign exactly 64 KiB -> 400, no crisis flag (159.8011ms)
+  AssertionError [ERR_ASSERTION]: english/start body={"error":"invalid_request"}
+  
+  400 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss303-chk\apps\api\tests\zz-chk-iss303.test.ts:125:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 400,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\zz-chk-iss303.test.ts:162:1
+✖ CHK3 over turn limit (4000 chars) but inside cap: crisis -> escalated; benign -> plain 400 (18.4891ms)
+  AssertionError [ERR_ASSERTION]: 5000 english/start: {"error":"invalid_request"}
+  
+  400 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss303-chk\apps\api\tests\zz-chk-iss303.test.ts:168:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 400,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\zz-chk-iss303.test.ts:179:1
+✖ CHK4 rate-limited student: crisis (long/short, 3 languages, positions) -> escalated; plain -> 429; 413 and benign overlong behave (204.0754ms)
+  AssertionError [ERR_ASSERTION]: english/start/10240 {"error":"invalid_request"}
+  
+  400 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss303-chk\apps\api\tests\zz-chk-iss303.test.ts:191:16)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 400,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\zz-chk-iss303.test.ts:204:1
+✖ CHK5 multibyte UTF-8 straddling the cap, chunk boundary at the cap (74.3989ms)
+  AssertionError [ERR_ASSERTION]: size=65534
+  
+  400 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss303-chk\apps\api\tests\zz-chk-iss303.test.ts:214:33)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 400,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\zz-chk-iss303.test.ts:254:1
+✖ CHK6 framing: chunked (no content-length) ; content-length lying low/high (39.4051ms)
+  AssertionError [ERR_ASSERTION]: chunked 65536
+  
+  400 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss303-chk\apps\api\tests\zz-chk-iss303.test.ts:263:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 400,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
