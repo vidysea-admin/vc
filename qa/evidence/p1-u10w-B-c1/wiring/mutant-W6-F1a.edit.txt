@@ -1,0 +1,6 @@
+file: apps/api/src/index.ts
+--- OLD ---
+    assertVoiceGoLive({ gatesDir: v?.gatesDir ?? DEFAULT_GATES_DIR, env });
+
+--- NEW ---
+

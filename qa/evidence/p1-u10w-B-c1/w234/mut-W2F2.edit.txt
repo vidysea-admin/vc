@@ -1,0 +1,9 @@
+MUTANT W2F2
+FILE apps/api/src/voice.ts
+OLD: timer = setTimeout(() => resolve(true), drainTimeoutMs);
+NEW: timer = setTimeout(() => resolve(true), 2147483647);
+TEST voice-wiring.test.ts pattern=W2 extra=--test-timeout=8000 --test-force-exit
+2026-10-19T08:34:02+05:30
+APPLIED
+2026-10-19T08:34:48+05:30
+?? apps/api/tests/probe-w234.test.ts

@@ -1,0 +1,14 @@
+diff --git a/apps/api/src/voice.ts b/apps/api/src/voice.ts
+index 3d40047..c427041 100644
+--- a/apps/api/src/voice.ts
++++ b/apps/api/src/voice.ts
+@@ -368,7 +368,6 @@ async function verifyVoiceToken(secret: Uint8Array, token: string, nowMs: number
+   try {
+     const { payload } = await jwtVerify(token, secret, {
+       issuer: VOICE_WS_ISSUER,
+-      audience: VOICE_WS_AUDIENCE,
+       algorithms: ["HS256"],
+       requiredClaims: ["exp", "iat", "jti"],
+       currentDate: new Date(nowMs),
+ M apps/api/src/voice.ts
+?? apps/api/tests/zz-authcap-probe.test.ts

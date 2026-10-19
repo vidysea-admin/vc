@@ -1,0 +1,2 @@
+W8-F1b 2026-10-19T08:42:10.423299+05:30 exit 1 {'tests': '15', 'pass': '14', 'fail': '1'} tree_clean= True RED: ['W8: stop() finalizes a live voice session before the database client closes, and its usage is recorded']
+W8-F1b 2026-10-19T08:42:23.213113+05:30 exit 1 {'tests': '1', 'pass': '0', 'fail': '1'} tree_clean= True RED: ['p6a live session: provider-close and usage precede db close; websocket closes 1001']

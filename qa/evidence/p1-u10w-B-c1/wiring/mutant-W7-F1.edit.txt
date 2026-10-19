@@ -1,0 +1,5 @@
+file: apps/api/src/index.ts
+--- OLD ---
+...(voice ? { onUpgrade: voice.upgrade } : {}),
+--- NEW ---
+...{},

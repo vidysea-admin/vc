@@ -1,0 +1,9 @@
+MUTANT W3F1
+FILE apps/api/src/voice.ts
+OLD: const pending = [...(lingering.get(c.key) ?? [])].filter((p) => p !== c && !p.connectDone);
+NEW: const pending: Conn[] = [];
+TEST voice-wiring.test.ts pattern=W3 extra=
+2026-10-19T08:34:48+05:30
+APPLIED
+2026-10-19T08:36:12+05:30
+?? apps/api/tests/probe-w234.test.ts

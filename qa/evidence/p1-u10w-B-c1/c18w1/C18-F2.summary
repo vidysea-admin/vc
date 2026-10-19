@@ -1,0 +1,3 @@
+== C18-F2 crisis-turn: # tests 6 # pass 5 # fail 1 
+== C18-F2 wiring-W1: # tests 15 # pass 15 # fail 0 
+== C18-F2 voice-C: # tests 64 # pass 64 # fail 0 

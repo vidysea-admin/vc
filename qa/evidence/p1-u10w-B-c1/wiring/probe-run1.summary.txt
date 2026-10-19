@@ -1,0 +1,6 @@
+not ok 8 - p1 flag " true": must be off or refuse (only exactly "true" may enable voice)
+  error: 'value " true" enabled voice although it is not exactly "true": ENABLED (session minted 201; ws upgraded)'
+not ok 9 - p1 flag "true ": must be off or refuse (only exactly "true" may enable voice)
+  error: 'value "true " enabled voice although it is not exactly "true": ENABLED (session minted 201; ws upgraded)'
+not ok 10 - p1 flag "\\ttrue\\n": must be off or refuse (only exactly "true" may enable voice)
+  error: 'value "\\ttrue\\n" enabled voice although it is not exactly "true": ENABLED (session minted 201; ws upgraded)'

@@ -1,0 +1,17 @@
+anonymous-route.test.ts decl=16 first='A20: the anonymous route is OFF by default - unset, empty an' inlog=2
+anonymous-zero-persistence.test.ts decl=27 first='A15a: 50 text turns through the real route (crisis, PII, bor' inlog=2
+auth.test.ts decl=15 first='T-025 auth: config refuses a missing issuer, ' inlog=2
+chat-privacy.test.ts decl=15 first='D-093 6A: a student who types their name, phone and email in' inlog=2
+chat-profile.test.ts decl=10 first='A16b: the profile shows the Pathlynks-supplied facts as in u' inlog=2
+chat.test.ts decl=23 first='A20: chat is OFF by default - unset, empty and ' inlog=2
+go-live-gate.test.ts decl=14 first='A20: the real repo qa/gates refuses every target today (B13 ' inlog=2
+index.test.ts decl=8 first='apiStatus reports the T-025 HTTP API (opt-in)' inlog=2
+server.test.ts decl=34 first='T-025 api: every auth failure on every protected route is th' inlog=2
+student-auth.test.ts decl=11 first='student config comes from its own env names: issuer, audienc' inlog=2
+student-openapi.test.ts decl=10 first='the draft is a separate OpenAPI 3.1 document marked not enab' inlog=2
+voice-audit.test.ts decl=6 first='C5: an uncited figure in the spoken answer is flagged to the' inlog=2
+voice-crisis-turn.test.ts decl=6 first='C18 (a): an unanswered earlier turn, then a crisis with no w' inlog=2
+voice-history.test.ts decl=8 first='C6/A19: voice turns interleave in order with text turns in o' inlog=2
+voice-limits.test.ts decl=10 first='C7: a student at 60 voice minutes gets 429 voice_quota_excee' inlog=2
+voice-wiring.test.ts decl=15 first='W1: a crisis flag write that dies with FencedWriterDeadlineE' inlog=2
+voice.test.ts decl=63 first='C1: POST voice/sessions mints a short-lived token with the D' inlog=2

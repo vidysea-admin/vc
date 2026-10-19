@@ -1,0 +1,11 @@
+file: apps/api/src/index.ts
+--- OLD ---
+        await voice?.close();
+        if (liveServer) await new Promise<void>((resolve) => liveServer.close(() => resolve()));
+        liveSweep.stop();
+        await client.close();
+--- NEW ---
+        if (liveServer) await new Promise<void>((resolve) => liveServer.close(() => resolve()));
+        liveSweep.stop();
+        await client.close();
+        await voice?.close();

@@ -1,0 +1,9 @@
+MUTANT W2F1
+FILE apps/api/src/voice.ts
+OLD:       if (lateWork.size > 0) {
+NEW:       if (false && lateWork.size > 0) {
+TEST voice-wiring.test.ts pattern=W2 extra=
+2026-10-19T08:33:47+05:30
+APPLIED
+2026-10-19T08:34:02+05:30
+?? apps/api/tests/probe-w234.test.ts
