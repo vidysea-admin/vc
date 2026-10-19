@@ -1,5 +1,5 @@
-# Checkpoint A - p1-u6w-rank-wiring cycle 0 (completed, PASS)
-Evidence identity: code fe47e01 (HEAD aa70fe9 for the runs); test blobs apps/api/tests/chat-rank.test.ts:6aab785, chat-privacy.test.ts:12b752a, packages/engine/tests/rank.test.ts:f65e783; chat.ts sha256 prefix bb81f6e43e63.
-Commands (VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...): pnpm -C apps/api exec tsx --test chat-rank chat chat-privacy chat-profile anonymous-route anonymous-zero-persistence student-openapi student-auth -> 141/141; pnpm -C packages/engine exec tsx --test tests/rank.test.ts -> 33/33; pnpm -C . -r typecheck -> exit 0.
-Probes: probe-A 10/10 on fe47e01. Falsification: 9 own edits, 9 killed (qa/evidence/p1-u6w-A/mutants.txt). Differential with ranking absent: identical to base.
-Result: PASS with 5 PROPOSED-ISSUEs (see verdict). Process incident disclosed in the verdict (stray dirs moved out of the worktree).
+# Checkpoint A - p1-u6w-rank-wiring cycle 1 (completed, PASS)
+Evidence identity: code cb1ad5b (HEAD c8e732d for the runs); repair base 1dd12d1; blobs apps/api/src/chat.ts:c97e9bc, apps/api/tests/chat-rank.test.ts:cd22afb, packages/engine/tests/rank.test.ts:f65e783, packages/engine/src/student/rank.ts:6648a1c; scratch chat.ts sha256 prefix 4664a13fb56f.
+Commands (VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...): pnpm -C apps/api exec tsx --test chat-rank chat chat-privacy chat-profile anonymous-route anonymous-zero-persistence student-openapi student-auth -> 146/146; pnpm -C packages/engine exec tsx --test tests/rank.test.ts -> 33/33; pnpm -C . -r typecheck -> exit 0.
+Probes: probe-A1 (7) + cycle-0 probe-A (10) = 17/17 on cb1ad5b. Falsification: 14 own edits, 13 killed, 1 equivalent (M7b, argued in the verdict); qa/evidence/p1-u6w-A-c1/mutants.txt. Differential with ranking absent: byte-identical to base.
+Result: PASS (C1..C11), one info-level PROPOSED-ISSUE P6; P2, P3, P5 carried open from cycle 0. P1 and P4 closed.

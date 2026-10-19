@@ -1,0 +1,243 @@
+✖ A-C1a baseline: no facts -> nothing ranked; confirm -> ranked and facts listed as student-confirmed; erase -> back to nothing (357.5365ms)
+A-C1b used [] ranked []
+✖ A-C1b correct: a student's corrected value (status confirmed, label chat) is what the ranker uses (140.9233ms)
+A-C1c pathlynks-only used ["target-country=Canada/pathlynks"]
+A-C1c conflict used ["target-country=Canada/pathlynks"]
+✖ A-C1c raw rows: 'chat-extracted' confirmed, 'chat' proposed and a 'chat' confirmed fact with a blank value never move the ranking; student-confirmed wins over a conflicting pathlynks fact (97.0772ms)
+✖ A-C3 tenancy: tenant A has NO facts, tenant B (same student id) has confirmed facts; A's ranking uses nothing. And tenant A's facts never reach tenant B / another student of tenant A (247.5737ms)
+✖ A-C2 every decimal figure the student can read carries NOT PROVEN: reply, claims, stored thread, replay, and every stored document (90.9321ms)
+A-C4 port-throws-string: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_failed:error"]
+A-C4 port-throws-evil: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_failed:Error"]
+A-C4 optionIds-rejects: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_failed:RangeError"]
+A-C4 too-many-options: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_refused:too_many_options"]
+A-C4 bad-weights: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_refused:invalid_weights"]
+A-C4 no-options: status 200 state ok claims 0 number-claims 0 logs []
+A-C4 huge-labels: status 200 state ok claims 4 number-claims 0 logs []
+A-C4 port-returns-garbage: status 200 state ok claims 4 number-claims 0 logs []
+✔ A-C4 failure matrix: non-Error throw, async rejection, refusals, over-long output, hostile Error name; always 200 + plain reply + text-free log (577.1364ms)
+A-C5 "Please rank my shortlist for me" 200 sign_in_required [] undefined undefined
+A-C5 "Compare my options: Munich vs Toronto" 200 sign_in_required [] undefined undefined
+A-C5 "which of these is best, my shortlist please" 200 sign_in_required [] undefined undefined
+A-C5 "rank them" 200 sign_in_required [] undefined undefined
+✔ A-C4b ranking failure leaves the turn fully stored: the thread read back shows the plain reply, usage counted once, no half-written ranking (54.5754ms)
+✔ A-C5 anonymous: rank questions of several shapes, with and without a student bearer token, are sign_in_required with no figures and the shared port is untouched (69.6993ms)
+A-X1 crisis escalated 0 I'm really glad you told me. What you're going through matters, and you deserve  port calls 0
+A-X1 minor 200 ok [] port calls delta 0
+✔ A-X1 crisis + rank wording, and an unconsented minor: ranking never decorates a crisis/textless answer (84.9903ms)
+✔ A-X2 an ordinary Germany question for a student with confirmed facts never calls the ranking port (51.4694ms)
+✖ A1-C6 every claim reaching the student (live, replay, thread read, storage) is unverified; no figure without NOT PROVEN; no attributed number anywhere (325.2367ms)
+A1-C6b claims 4 numbers 0
+✔ A1-C6b port returning partial data: still every claim unverified, every number labelled (126.8013ms)
+A1-C7 unconsented minor spies {"port":[],"opts":[],"weights":[],"profile":["tenant-a|syn-m"],"dbs":[]} claims 0
+A1-C7 overlong status 400
+A1-C7 overlong+crisis status 200 escalated numbers 0
+A1-C7 whitespace status 200
+✖ A1-C7 matrix: textless turns never touch port/optionIds/weights; consented minor and adult do (400.5505ms)
+A1-C7b down status 503
+A1-C7b down+crisis 200 escalated numbers 0
+✔ A1-C7b Pathlynks profile down: ordinary rank turn is 503 with no port/option calls; crisis+rank wording gives no ranking (105.1986ms)
+A1-C8 live used [{"key":"field-of-study","value":"engineering 91234 56789 bob@evil.example","source":"pathlynks"},{"key":"target-country","value":"Germany, Anita Rao, anita.rao@example.com, call 98765 43210","source":"pathlynks"}]
+A1-C8 stored used [{"key":"field-of-study","value":"engineering [PHONE] [EMAIL]","source":"pathlynks"},{"key":"target-country","value":"Germany, [NAME], [EMAIL], call [PHONE]","source":"pathlynks"}]
+✔ A1-C8 phone, e-mail and a known Pathlynks name inside a fact value never reach storage; the ranker did use the fact (146.2361ms)
+A1-C9 A spies {"port":["opt-leeds","opt-munich","opt-sydney","opt-toronto"],"opts":["tenant-a|syn-same"],"weights":["tenant-a"],"profile":["tenant-a|syn-same","tenant-a|syn-same"],"dbs":[]} profile student-success
+A1-C11 anon spies {"port":[],"opts":[],"weights":[],"profile":[],"dbs":[]}
+✖ A1-C9/C10 tenancy: ids per call reach profile port, option list and weights; B's weights/facts never reach A; a throwing weights callback = plain reply + chat_rank_failed (228.6113ms)
+✔ A1-C11 anonymous with live ranking/profile/db spies calls none; the same spies on the authenticated route are called (145.8623ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 9
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5976.1763
+
+✖ failing tests:
+
+test at tests\probe-A.test.ts:73:1
+✖ A-C1a baseline: no facts -> nothing ranked; confirm -> ranked and facts listed as student-confirmed; erase -> back to nothing (357.5365ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'Munich engineering (synthetic)'
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-A2\apps\api\tests\probe-A.test.ts:82:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'Munich engineering (synthetic)',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\probe-A.test.ts:100:1
+✖ A-C1b correct: a student's corrected value (status confirmed, label chat) is what the ranker uses (140.9233ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(used(r.json).includes("target-country=Canada/student-confirmed"))
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-A2\apps\api\tests\probe-A.test.ts:108:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\probe-A.test.ts:114:1
+✖ A-C1c raw rows: 'chat-extracted' confirmed, 'chat' proposed and a 'chat' confirmed fact with a blank value never move the ranking; student-confirmed wins over a conflicting pathlynks fact (97.0772ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(used(r2.json).includes("target-country=Germany/student-confirmed"))
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-A2\apps\api\tests\probe-A.test.ts:131:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\probe-A.test.ts:139:1
+✖ A-C3 tenancy: tenant A has NO facts, tenant B (same student id) has confirmed facts; A's ranking uses nothing. And tenant A's facts never reach tenant B / another student of tenant A (247.5737ms)
+  AssertionError [ERR_ASSERTION]: tenant A has no confirmed facts -> nothing ranked, B's facts invisible
+  + actual - expected
+  
+  + [
+  +   'Munich engineering (synthetic)',
+  +   'Leeds engineering (synthetic)',
+  +   'Toronto business (synthetic)',
+  +   'Sydney business (synthetic)'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-A2\apps\api\tests\probe-A.test.ts:155:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'Munich engineering (synthetic)', 'Leeds engineering (synthetic)', 'Toronto business (synthetic)', 'Sydney business (synthetic)' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\probe-A.test.ts:177:1
+✖ A-C2 every decimal figure the student can read carries NOT PROVEN: reply, claims, stored thread, replay, and every stored document (90.9321ms)
+  AssertionError [ERR_ASSERTION]: several number claims
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-A2\apps\api\tests\probe-A.test.ts:186:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\probe-A1.test.ts:75:1
+✖ A1-C6 every claim reaching the student (live, replay, thread read, storage) is unverified; no figure without NOT PROVEN; no attributed number anywhere (325.2367ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(nums(first.json).length >= 2)
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-A2\apps\api\tests\probe-A1.test.ts:81:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\probe-A1.test.ts:131:1
+✖ A1-C7 matrix: textless turns never touch port/optionIds/weights; consented minor and adult do (400.5505ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(nums(ra.json).length > 0)
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-A2\apps\api\tests\probe-A1.test.ts:169:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\probe-A1.test.ts:243:1
+✖ A1-C9/C10 tenancy: ids per call reach profile port, option list and weights; B's weights/facts never reach A; a throwing weights callback = plain reply + chat_rank_failed (228.6113ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      {
+  +     kind: 'number',
+  -     kind: 'fact',
+        sourceIds: [
+  +       'kb-node-toronto'
+  -       'kb-node-leeds'
+        ],
+        status: 'unverified',
+  +     text: 'NOT PROVEN: #1 Toronto business (synthetic): overall 0.71 (fit 1.00, cost 0.40, scholarship chance 0.60, visa ease 0.60)'
+  -     text: 'Leeds engineering (synthetic): not ranked, missing data for fit'
+      },
+      {
+  +     kind: 'number',
+  -     kind: 'fact',
+        sourceIds: [
+  +       'kb-node-sydney'
+  -       'kb-node-munich'
+        ],
+        status: 'unverified',
+  +     text: 'NOT PROVEN: #2 Sydney business (synthetic): overall 0.45 (fit 0.50, cost 0.30, scholarship chance 0.50, visa ease 0.50)'
+  -     text: 'Munich engineering (synthetic): not ranked, missing data for fit'
+      },
+      {
+  +     kind: 'number',
+  -     kind: 'fact',
+        sourceIds: [
+  +       'kb-node-munich'
+  -       'kb-node-sydney'
+        ],
+        status: 'unverified',
+  +     text: 'NOT PROVEN: #3 Munich engineering (synthetic): overall 0.38 (fit 0.00, cost 0.70, scholarship chance 0.40, visa ease 0.80)'
+  -     text: 'Sydney business (synthetic): not ranked, missing data for fit'
+      },
+      {
+  +     kind: 'number',
+  -     kind: 'fact',
+        sourceIds: [
+  +       'kb-node-leeds'
+  -       'kb-node-toronto'
+        ],
+        status: 'unverified',
+  +     text: 'NOT PROVEN: #4 Leeds engineering (synthetic): overall 0.29 (fit 0.00, cost 0.50, scholarship chance 0.30, visa ease 0.70)'
+  -     text: 'Toronto business (synthetic): not ranked, missing data for fit'
+      }
+    ]
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-A2\apps\api\tests\probe-A1.test.ts:271:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { text: 'NOT PROVEN: #1 Toronto business (synthetic): overall 0.71 (fit 1.00, cost 0.40, scholarship chance 0.60, visa ease 0.60)', kind: 'number', sourceIds: [Array], status: 'unverified' }, { text: 'NOT PROVEN: #2 Sydney business (synthetic): overall 0.45 (fit 0.50, cost 0.30, scholarship chance 0.50, visa ease 0.50)', kind: 'number', sourceIds: [Array], status: 'unverified' }, { text: 'NOT PROVEN: #3 Munich engineering (synthetic): overall 0.38 (fit 0.00, cost 0.70, scholarship chance 0.40, visa ease 0.80)', kind: 'number', sourceIds: [Array], status: 'unverified' }, { text: 'NOT PROVEN: #4 Leeds engineering (synthetic): overall 0.29 (fit 0.00, cost 0.50, scholarship chance 0.30, visa ease 0.70)', kind: 'number', sourceIds: [Array], status: 'unverified' } ],
+    expected: [ { text: 'Leeds engineering (synthetic): not ranked, missing data for fit', kind: 'fact', sourceIds: [Array], status: 'unverified' }, { text: 'Munich engineering (synthetic): not ranked, missing data for fit', kind: 'fact', sourceIds: [Array], status: 'unverified' }, { text: 'Sydney business (synthetic): not ranked, missing data for fit', kind: 'fact', sourceIds: [Array], status: 'unverified' }, { text: 'Toronto business (synthetic): not ranked, missing data for fit', kind: 'fact', sourceIds: [Array], status: 'unverified' } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
