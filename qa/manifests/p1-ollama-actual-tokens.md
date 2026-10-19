@@ -8,7 +8,7 @@
 - C5 A failing `afterResponse` hook (ledger lock timeout, append I/O error) never discards a response that is already paid for: `OllamaProvider.generate` catches it, returns the parsed response, counts it in `actualHookFailures` and never re-sends; `BudgetRun.recordActual` still tallies the call as unreported with its reservation (rethrowing after the tally) so the report counts it; the ledger holds exactly one `charge` line for that call. A torn trailing `actual` line makes `readLedger` fail closed (documented in `budget.ts`), like any corrupt line.
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 0 of max 2
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** M (two packages, 4 source files, cost accounting that feeds a spend cap; no auth, no production data, no network, no paid call)
