@@ -332,7 +332,7 @@ test("ISS-387: DEVANAGARI_MAGNITUDE keeps its \p escapes; सौंदर्य 
 
 test("review medium: a Devanagari IDN host with combining marks is detected as a link", () => {
   const plain = "यहाँ पर शुल्क के बारे में पूरी जानकारी उपलब्ध है और कोई लिंक नहीं है।";
-  for (const host of ["शिक्षा.भारत", "example.भारत", "सेवा.भारत/fees"]) {
+  for (const host of ["शिक्षा.संस्थान", "example.शिक्षा", "सेवा.संस्थान/fees"]) {
     assert.equal(localizedClaimOk("No link here.", `${plain} ${host}`, "hi", []), false, host);
   }
 });
