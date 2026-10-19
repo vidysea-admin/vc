@@ -927,3 +927,38 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Why:** finish P1 fast with maximum parallel work; the team is waiting.
 **Result:** g-prod.md Answered (partial) line appended. G-PROD (c) still requires B13 signed, a passing A10 real Gemini Live voice report, g-publish answered and nights mode recorded, plus the open decisions in g-prod.md; so A10 run-live wiring (Gemini, per D-100 "later gemini") is now on the build path. ISS-229 becomes owner-accepted. ISS-135 moves from Candidates to the buildable queue.
 **Links:** qa/gates/g-prod.md, ISS-135, ISS-229, ISS-260..263, D-100, U13b
+
+## D-102 | 2026-10-19 | type: decision | status: ACTIVE
+**What:** Umesh's go-live answers of 2026-10-19: (1) nights mode FINAL = tele-manas-disclosed (option b), chosen for minimum liability; human-alert route stays disabled. (2) Minors: anyone may use VC; verifiable parental consent is owned by the consent team [ASSUMPTION: the consent team operates it before a minor's data is processed]. (3) Go for the first paid REAL text runs on Ollama, synthetic inputs only, within D-100 caps. (4) Owner sign-off delegated for items already validated by a checker PASS ("jo jo validate hai usko sign off kr dena"); legal (B13) sign-off is NOT delegable to the agent and stays with counsel/Umesh.
+**Why:** Umesh, chat 2026-10-19, to reach go-live fast with minimum liability.
+**Result:** qa/gates/nights.md, g-prod.md, g-real.md carry Answered lines citing D-102.
+**Links:** qa/gates/nights.md, qa/gates/g-prod.md, qa/gates/g-real.md, D-100, D-101
+
+## D-103 | 2026-10-19 | type: decision | status: ACTIVE
+**What:** Umesh in chat (2026-10-19): (1) ISS-340 go: fix crisisGuard for Devanagari-script Hinglish and add the fixture variants. (2) Direction: non-English student text is translated to English (via Ollama/LLM) for storage and processing, and replies are English-first; design unit to follow, details asked once. (3) ISS-303 go: verify the authenticated chat route scans for crisis before its 256 KiB body cap and apply the anonymous-route fix if not. (4) Ollama spend is tracked from actual response token counts (prompt_eval_count/eval_count), not a guessed per-token USD price; USD figures for Ollama are notional. (5) B13 legal sign-off and the consent text are owned and managed by the legal/consent team, outside this build; the agent stops tracking B13 items and never flips B13-signed.
+**Why:** Voice transcripts arrive in Devanagari, so a Latin-only guard misses crisis turns (ISS-340, high). Umesh wants one canonical English record. Ollama Cloud bills by plan, not per token.
+**Result:** ISS-340 and ISS-303 builds dispatched in parallel; translation layer waits on its design answers. Hard rule kept: the deterministic crisisGuard runs on the ORIGINAL text before and independent of any translation call, so a translation outage can never hide a crisis.
+**Links:** ISS-340, ISS-303, qa/gates/p1-u0-amendment-signatures.md, D-100, D-102
+
+## D-104 | 2026-10-19 | type: decision | status: ACTIVE
+**What:** Umesh in chat (2026-10-19), answering the D-103 translation questions: (1) Store the student's ORIGINAL message as written; the student knowledge graph (KG) is kept in English. No separate translate-the-message step: facts are extracted straight into English KG entries (Umesh: "instead of translation, the KG is in English, no translation"). (2) Reply language adapts to the student: the bot answers in the language/script the student uses, any language, not only English/Hindi. (3) Model chain for this text work: Ollama glm-5.3-flash, fallback Ollama deepseek-v4.1-flash, later Gemini Flash-Lite. (4) Streaming answers: go. (5) DeepSeek v4.1 Flash paid eval run (synthetic, D-100 caps): go. (6) ISS-350 (crisis text plus a schema/clientTurnId error returns a plain 400 without the crisis answer): go.
+**Why:** One English KG keeps facts comparable across students without paying a translation call per turn; the original text keeps the student's exact words for counsellors and disputes. Mirroring the student's language serves non-English and non-Hindi speakers. GLM p95 was 9.3 s against a 3 s bound (qa/paid-glm-20261019 c52e3b4), so first-token time needs streaming.
+**Result:** ISS-350 and the DeepSeek run dispatched now. Language-mirroring, English KG, the model chain and streaming are multi-file: a design (plan) goes to Umesh for approval before code. Crisis rule unchanged: crisisGuard runs on the original text first. For the legal/consent team's processor register (B13 owned by them per D-103): Ollama (GLM, DeepSeek) becomes a processor of real student text once this ships.
+**Links:** refines D-103 item 2 ("translate to English" becomes "English KG, original kept, no per-message translation"); ISS-350, ISS-340, D-100, D-102, D-103
+
+## D-105 | 2026-10-19 | type: decision | status: ACTIVE
+
+**What:** Umesh's answers to the D-104 design questions (design result qa/evidence/p1-briefs/p1-lang-kg-design-result.md, commit 29dcb51).
+- Q1: reply languages start as English, Hindi and Hinglish (`VC_REPLY_LANGS` allow-list). A student writing another language gets an English reply. Each further language is added only after a person has checked its crisis wording.
+- Intelligent, not rule-based: language detection and the safety screen use a model, not hand-written rules. Language detection is model-based (cheap chain), with script detection only as an offline fallback when the model is unreachable. The model safety screen (`concern-classifier`) runs on every student turn, in parallel with the answer, and holds the first released text until it answers; an error or "possible" means the fixed crisis message. The existing crisisGuard regex stays as a zero-latency, offline floor that runs first on the original text and is never removed (a crisis must not depend on a network call), but it is no longer the only detector.
+- Q2: yes, runtime English search-query rewrite for non-English turns; nothing stored.
+- Q3: yes, two new files approved: `packages/engine/src/student/lang.ts` and `packages/engine/src/student/answer-stream.ts`.
+- Q4: the GLM 5.3 flash -> DeepSeek v4.1 flash -> Gemini Lite chain is used for every AI call where the cheap models deliver the required quality, proven per task by its eval; a task whose eval fails on the chain keeps its current model.
+- Q5: on a mid-stream failure, keep the text already shown, show "connection lost, try again", store nothing; before giving up, the system retries automatically and falls back to the next model in the chain.
+- Chain order stays as Umesh set it (GLM first); the LK9 streamed first-token probe reports whether a flip is needed.
+
+**Why:** Umesh 2026-10-19 in chat: "Don't make things rule-based, they will always break. Make it intelligent based"; "Q3 -- go with best"; Q4 "wherever we have to use ai and they can really work and deliver the quality as they are cheap and intelligent"; Q5 "retry or fallback should work too".
+
+**Result:** units LK1, LK4 and LK6 start in parallel; LK2, LK5, LK7, LK8, LK9 follow per the design order. LK3 (Gemini Lite) stays held until a model id and key are supplied.
+
+**Links:** D-104, D-100, D-102, ISS-340, design result 29dcb51
