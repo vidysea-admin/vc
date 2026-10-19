@@ -902,3 +902,16 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Result:** U10 is unblocked once U8 and U9 are on main. U12 has a closing rule. U6b gets the repo pointer. The U9 rewritten-brief repair implements item 4 (p1/u9 da32f8a, ready-for-check 73dc74f). Whether 1200 ms suits real Gemini chunk timing is a G-REAL/A10 question.
 **Links:** D-001, D-089, D-093, D-096, qa/evidence/p1-briefs/p1-u9-cycle3-rewrite.md, qa/evidence/p1-briefs/p1-u10-build.md, qa/evidence/p1-briefs/p1-u6b-build.md, qa/evidence/p1-briefs/p1-u12-build.md
 **Changes-authorized:** none
+
+## D-098 | 2026-10-19 | type: decision | status: ACTIVE
+**What:** Two answers from Umesh on eng3 (p1-eng3-crisis-leftovers). (1) eng3 gets ONE extra fix cycle (cycle 3) past the cap of 2, scoped to the cycle-2 FAIL (LEET_BEFORE_LETTER in crisis.ts is quadratic on long digit runs: 100k chars take about 32 s, 8000 chars about 170 ms) plus item 2. A third FAIL goes back to Umesh. (2) The crisis guard must fire when a study object is followed in the same unpunctuated clause by distress words (for example "continuing college i hate myself", "continuing the course because everything hurts", "the course of my life"). Recall over precision, D-020. It is folded into cycle 3.
+**Why:** Umesh, AskUserQuestion 2026-10-19 ~01:20 +05:30: chose "Allow cycle 3 (Recommended)" and "Yes, fire (Recommended)". The cycle-2 checker FAIL (verdict b4a1e5b) showed the speed defect entered in cycle 1. The cycle-2 senior review (Warning) found the study-then-distress gap, which was crisis at base 559a421.
+**Result:** The eng3 cycle-3 build is dispatched. U8r (cycle 2, 585f6dc) and U10 (0563712) go to dual check in parallel.
+**Links:** D-020, D-093, D-096, qa/verdicts/p1-eng3-crisis-leftovers.md, qa/evidence/p1-briefs/p1-eng3-c2-review-result.md, qa/evidence/p1-briefs/p1-eng3-repair3.md
+**Changes-authorized:** none
+
+## D-099 | 2026-10-19 | type: decision | status: ACTIVE
+**What:** U10 (p1-u10-voice-ws) gets one extra fix cycle (cycle 3), folded into U10w (p1-u10w-voice-wiring). U10w fixes C18 test-first: the crisis escalation carries the crisis utterance's own student turn, identified by turnId, never by seq adjacency (an unanswered earlier turn followed by a no-words crisis must escalate VOICE_CRISIS_NO_WORDS_TEXT). The combined U10+U10w branch then gets ONE fresh blind dual check over U10 C1-C19 plus the U10w criteria, and a senior review. Voice stays off (VC_VOICE_ENABLED unset, A20 closed) until that check passes.
+**Why:** Both cycle-2 blind checkers failed U10 only on C18, independently, with the same root cause and every other criterion green; U10w already edits voice.ts on top of p1/u10, so a separate cycle would duplicate the check. Gate qa/gates/p1-u10-cycle3.md, option 1, answered by Umesh.
+**Result:** pending (U10w cycle-3 repair dispatched).
+**Links:** qa/gates/p1-u10-cycle3.md; qa/verdicts/p1-u10-voice-ws.md (A, FAIL C18); qa/verdicts/p1-u10-voice-ws.B.md (B, FAIL C18, c430bae); D-097; D-096.

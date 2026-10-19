@@ -1,0 +1,17 @@
+# You are a /maker build subagent: U6w repair cycle 1 (p1-u6w-rank-wiring), tier L, dual check
+- Protocol C:/Users/Lenovo/.claude/skills/maker/SKILL.md, policy proportional-verification/2026-10-18.15. Worktree D:/vc/.worktrees/p1-u6w, branch p1/u6w (head 1dd12d1). COMMIT ON THE BRANCH. Use `git -C <dir>`, never `cd X && cmd`. Never `git add -A`. Never touch .claude/**. Do NOT push. Tests ONLY via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...` (long waits are normal; never quit on a busy lock). Scratch copies only under D:/vc/.worktrees/ (C: is nearly full). Do not touch D:/vc/.worktrees/p1-u6w-A-strays.
+- Do NOT read qa/verdicts/p1-u6w-rank-wiring*.md, qa/checkpoints/ or qa/evidence/p1-u6w-A*/B*/ (blind-safe for the re-check). The findings are restated here.
+- Gate answer (D-097 item 3, verbatim intent): real per-option numbers are NOT PROVEN (ISS-167); no number is presented as fact.
+
+## Fix (TDD: a failing test first for each item; do not weaken or delete any assertion)
+1. MEDIUM (senior review): apps/api/src/chat.ts ~521 withRanking: number claims built from rankOptions keep `status: "attributed"` (packages/engine rank.ts ~258). A NOT PROVEN number must not carry an attributed status. Set `status: "unverified"` on every ranked number claim (accept the resulting `unverified_claim` counter; if a downstream check rejects unverified claims, keep the reply working and note it). Test: a ranked turn's stored claims all have status "unverified" and still carry the NOT PROVEN label.
+2. LOW (checker A P1): ranking runs on textless / unconsented-minor turns, so the option port is called. Do not call the ranking/option port when the turn stores no text (unconsented minor) or has no student text. Test with a port spy that must record 0 calls.
+3. LOW (checker A P4): `profileFactsUsed` values are stored unredacted. Run them through the U8r redaction before storing (or store keys + sources only, no free-text values). Test: a fact value holding a phone number / name never reaches the stored thread.
+4. LOW (checker B P1): the tenancy test must also assert the student id seen by the ports. Strengthen by ADDING assertions (no removal).
+5. LOW (checker B P2): `weightsForTenant` must receive the tenant id; test that tenant A's weights never apply to tenant B.
+6. LOW (checker B P3 / A's note): the C5 anonymous test's port-spy assertion is vacuous. Add a non-vacuous spy test that would fail if the anonymous route reached ranking (keep the old test).
+- Everything else (no deadline on ranking callbacks, double Pathlynks fetch, "X vs Y" trigger, OptionDataPort tenant argument, index.ts wiring owner) is OUT of scope: do not change it.
+
+## Manifest
+- qa/manifests/p1-u6w-rank-wiring.md: `Fix cycle: 1`, `Repair base: 1dd12d1`, a `Round:` line, add the repaired items as criteria (C6..C11 or as sub-ids, verbatim above), `Tests[<id>]` lines, Pre-check[<id>] lines on the final sha (chat-rank, chat, chat-privacy, chat-profile, anonymous-route, anonymous-zero-persistence, student-openapi, student-auth, packages/engine tests/rank.test.ts, `pnpm -r typecheck`), one falsification per changed criterion in a scratch copy, keep the dual-trigger lines, `Status: ready-for-check`. Run `node D:/ai_os/.claude/skills/maker/tools/tick.mjs --lint-manifest <manifest>` and fix every ERROR. Commit narrow pathspecs on p1/u6w.
+- Return ONE line: `p1-u6w-rank-wiring <sha> ready` or `BLOCKED <reason>`.

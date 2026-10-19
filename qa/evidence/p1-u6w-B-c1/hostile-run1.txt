@@ -1,0 +1,56 @@
+[testlock] running slot 1 (free RAM 4.04 GB): node node_modules/tsx/dist/cli.mjs --test tests/chat-rank-B1-hostile.test.ts
+CLAIMS [["number","unverified","NOT PROVEN: #1 Munich engineer"],["number","unverified","NOT PROVEN: #2 Leeds engineeri"],["number","unverified","NOT PROVEN: #3 Toronto busines"],["number","unverified","NOT PROVEN: #4 Sydney business"]]
+✖ HB1 C6: with custom weights and Pathlynks+chat facts, EVERY claim live and stored is unverified, every number claim is labelled, no decimal escapes the label (237.7389ms)
+✔ HB1b C6: a 25-option list (the cap): all claims unverified, all number claims labelled (64.9559ms)
+✖ HB2 C7: unconsented minor, many rank-like texts, overlong crisis+rank text: no ranking port, option list or weights touched; consented minor DOES rank (33.1249ms)
+LIVE profileFactsUsed [{"key":"field-of-study","value":"engineering, call +91 98765 43210 or 044-2345-6789, ask Anita Rao","source":"pathlynks"},{"key":"target-country","value":"Germany please email anita.rao.private@example.com","source":"pathlynks"}]
+STORED profileFactsUsed [{"key":"field-of-study","value":"engineering, call [PHONE] or [PHONE], ask [NAME]","source":"pathlynks"},{"key":"target-country","value":"Germany please email [EMAIL]","source":"pathlynks"}]
+✔ HB3 C8: phone, email and a Pathlynks name inside fact values never reach any stored document (55.6574ms)
+✔ HB4 C10: tenant B's weights never affect tenant A; the callback sees only the asking tenant; a throwing callback for B does not touch A (106.6972ms)
+✔ HB5 C11: anonymous route handed live ranking/profile/Db spies never calls them for rank-like texts (59.2083ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 4
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4805.9773
+
+✖ failing tests:
+
+test at tests\chat-rank-B1-hostile.test.ts:65:1
+✖ HB1 C6: with custom weights and Pathlynks+chat facts, EVERY claim live and stored is unverified, every number claim is labelled, no decimal escapes the label (237.7389ms)
+  AssertionError [ERR_ASSERTION]: stored {"text":"Public universities in Germany charge no tuition for most programmes.","kind":"fact","sourceIds":["t-sem-1"],"status":"verified"}
+  + actual - expected
+  
+  + 'verified'
+  - 'unverified'
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-Bfals-c1\apps\api\tests\chat-rank-B1-hostile.test.ts:82:76)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'verified',
+    expected: 'unverified',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chat-rank-B1-hostile.test.ts:108:1
+✖ HB2 C7: unconsented minor, many rank-like texts, overlong crisis+rank text: no ranking port, option list or weights touched; consented minor DOES rank (33.1249ms)
+  AssertionError [ERR_ASSERTION]: Please rank my shortlist for me
+  
+  [] !== undefined
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-Bfals-c1\apps\api\tests\chat-rank-B1-hostile.test.ts:120:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

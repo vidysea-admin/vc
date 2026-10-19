@@ -248,13 +248,24 @@ const HEDGES: Record<string, string> = {
 const CONDITIONS: Record<string, string> = {
   if: "if", unless: "unless", provided: "if", providing: "if", once: "once", whenever: "if", otherwise: "unless", except: "except",
   depending: "depending", depends: "depending", subject: "depending",
+  // P1 W3 (U6h leftover 5): temporal qualifiers ("until 2027", "since 2025", "starting next year") are conditions too.
+  starting: "from", beginning: "from", effective: "from", until: "until", till: "until", since: "since",
 };
+// "from 2027", "by 2027", "before 2026", "after 2025": a dated bound is a restriction the claim may neither drop nor add.
+const DATED_BOUND = /(?<![\p{L}\p{N}])(from|by|before|after)\s+(?:the\s+)?(?:19|20)\d\d(?![\p{L}\p{N}])/giu;
 const SCOPE_WORDS = new Set(
   ["public", "private", "international", "domestic", "foreign", "overseas", "local", "undergraduate", "postgraduate", "graduate",
-    "bachelor", "master", "doctoral", "phd", "eu", "part", "online", "residential"].map((w) => lightStem(w)),
+    "bachelor", "master", "doctoral", "phd", "eu", "part", "online", "residential",
+    // P1 W3 (U6h leftover 5): partial and temporal scope - "for the first year", "in certain cases", "at selected universities".
+    "first", "second", "final", "initial", "certain", "selected", "eligible", "qualifying", "specific", "particular", "partial",
+    "partially", "temporary", "temporarily", "limited"].map((w) => lightStem(w)),
 );
 // Number comparators must match exactly in both directions ("at least 300" is not "300", "300" is not "at most 300").
-const COMPARATORS = new Set(["more", "less", "fewer", "least", "minimum", "maximum", "below", "above"]);
+const COMPARATORS = new Set([
+  "more", "less", "fewer", "least", "minimum", "maximum", "below", "above",
+  // P1 W3 (U6h leftover 5): "of up to 300 euros", "capped at", "max 300", "exceeding 300".
+  "up", "upto", "cap", "capped", "max", "min", "exceeding", "exceeds", "exceed",
+]);
 // Words that carry no checkable content: articles, auxiliaries, pronouns, hedges and filler, and currency / percent
 // words (the number check already compares the currency). "Only" and the other quantifiers are NOT here.
 const FUNCTION_WORDS = new Set([
@@ -309,9 +320,19 @@ const RATE_CANON: Record<string, string> = {
 const NUMBER_WORDS: Record<string, string> = {
   two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9", ten: "10", eleven: "11", twelve: "12",
   fifteen: "15", twenty: "20", thirty: "30", forty: "40", fifty: "50", sixty: "60", hundred: "100", thousand: "1000",
+  // P1 W3 (U6h leftover 2): large figures, and the transliterated Hindi "hazaar" ("paanch hazaar").
+  million: "1000000", billion: "1000000000", hazaar: "1000", hazar: "1000",
+};
+// Transliterated Hindi figures count only before a magnitude or currency word, so "do bhai" / "ek achha sawaal" are not numbers.
+const HINDI_NUMBER_WORDS: Record<string, string> = {
+  ek: "1", do: "2", teen: "3", char: "4", chaar: "4", paanch: "5", panch: "5", chhe: "6", chhah: "6", saat: "7", aath: "8", nau: "9",
+  das: "10", bees: "20", pachas: "50", sau: "100",
+};
+const MULTI_WORD_NUMBERS: Record<string, string> = {
+  "half a million": "500000", "a million": "1000000", "an million": "1000000", "a billion": "1000000000", "an billion": "1000000000",
 };
 const NUMBER_RE = new RegExp(
-  String.raw`\d(?:[\d,]*\d)?(?:\.\d+)?|(?<![\p{L}\p{N}])(?:${Object.keys(NUMBER_WORDS).join("|")}|one(?=\s+(?:months?|years?|weeks?|days?|hours?|semesters?|terms?|credits?|euros?|dollars?|pounds?)))(?![\p{L}\p{N}])`,
+  String.raw`\d(?:[\d,]*\d)?(?:\.\d+)?|(?<![\p{L}\p{N}])(?:half\s+a\s+million|(?:a|an)\s+(?:million|billion)|(?:a|an)(?=\s+(?:lakhs?|lacs?|crores?)(?![\p{L}\p{N}]))|(?:${Object.keys(HINDI_NUMBER_WORDS).join("|")})(?=\s+(?:lakhs?|lacs?|crores?|karod|hazaar|hazar|sau|rupaye|rupay|rupees?|euros?|dollars?)(?![\p{L}\p{N}]))|${Object.keys(NUMBER_WORDS).join("|")}|one(?=\s+(?:months?|years?|weeks?|days?|hours?|semesters?|terms?|credits?|euros?|dollars?|pounds?)))(?![\p{L}\p{N}])`,
   "giu",
 );
 export interface NumberMention {
@@ -329,7 +350,7 @@ export function numberMentions(text: string): NumberMention[] {
   for (const m of text.matchAll(NUMBER_RE)) {
     const raw = m[0];
     const low = raw.toLowerCase();
-    const n = /^\d/.test(raw) ? raw.replace(/,/g, "").replace(/\.0+$/, "") : (NUMBER_WORDS[low] ?? "1");
+    const n = /^\d/.test(raw) ? raw.replace(/,/g, "").replace(/\.0+$/, "") : (MULTI_WORD_NUMBERS[low.replace(/\s+/g, " ")] ?? NUMBER_WORDS[low] ?? HINDI_NUMBER_WORDS[low] ?? "1");
     let end = m.index! + raw.length;
     const after = text.slice(end, end + 40);
     let unit: string | null = null;
@@ -441,6 +462,7 @@ function analyse(text: string): Clause {
     if (t.length < 3 || /^\d/.test(t) || NEGATIONS.has(t) || FUNCTION_WORDS.has(t) || COUNTRY_WORDS.has(t) || q || COMPARATORS.has(t)) continue;
     words.add(conceptOf(t));
   }
+  for (const m of text.matchAll(DATED_BOUND)) cond.add(`date-${m[1]!.toLowerCase()}`);
   return { neg: hasNegation(text), words, quant, comp, hedge, cond, scope, nums, countries: new Set(countriesIn(text)), mustCarry: new Set() };
 }
 const isEmptyClause = (c: Clause) => c.words.size === 0 && c.nums.length === 0 && c.countries.size === 0 && c.quant.size === 0;

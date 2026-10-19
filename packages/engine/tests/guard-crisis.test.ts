@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import {
   CONCERN_PATTERNS,
   CRISIS_PATTERNS,
+  STRESS_PATTERNS,
   crisisGuard,
   routeBeforeGeneration,
   squeezePatternSource,
+  stressSignal,
 } from "../src/guards/crisis.js";
 
 test("a plain statement is level 'none' and continues", () => {
@@ -797,4 +799,343 @@ test("ISS-t-005c-rev-2: a lazy separator quantifier is dropped whole, never re-a
   assert.equal(squeezePatternSource(String.raw`a\s*?b`), "ab");
   assert.equal(squeezePatternSource("a +?b"), "ab");
   assert.ok(new RegExp(squeezePatternSource(String.raw`kill\s+?myself`)).test("killmyself"));
+});
+
+// -------------------------------------------------------------------------------------------
+// P1 W3 / D-093 2A (Umesh, 2026-10-17): every proposed Hindi/Hinglish crisis phrase, "kms" included.
+// Each phrase is reached by a real student sentence; spaced, doubled, punctuated, Devanagari and
+// leet forms are generated from it. The generated-pattern tests above already cover every NEW entry
+// of CRISIS_PATTERNS (spaced forms, squeezed twin, NFKC stability, star height).
+// -------------------------------------------------------------------------------------------
+
+const D093_PHRASES: ReadonlyArray<string> = [
+  "mujhe marna hai",
+  "bas ab mujhe marna hi hai",
+  "mai khatam ho jana chahta hu",
+  "main khatam ho jaunga ek din",
+  "mujhe marne ki iccha ho rahi hai",
+  "ab jeena nahi hai mujhe",
+  "mujhe jaan dena hai",
+  "मुझे मरना है",
+  "मैं खत्म हो जाना चाहता हूँ",
+  "मैं खत्म हो जाऊंगा",
+  "मुझे जीना नहीं है",
+  "मेरे मन में मरने की इच्छा है",
+  "मुझे जान देना है",
+  "I don't see the point anymore",
+  "i dont see the point anymore",
+  "I do not see any point anymore",
+  "I see no point in living",
+  "what's the point of living",
+  "what is the point anymore",
+  "I have been thinking about ending things",
+  "i am ending things tonight",
+  "I'm planning to end everything",
+  "i will end it tonight",
+  "kms",
+  "I want to kms",
+  "ugh just kms already",
+  "KMS",
+  "k m s",
+  "k.m.s",
+  "i w4nt to d1e",
+  "su1c1de is all i think about",
+  "i want to k!ll myself",
+  "i w@nt to d!e",
+  // The leet-folded second view is the ONLY path for these: the plain view has "w4nt" / "7o" beside an intact "die".
+  "i w4nt to die",
+  "i wan7 to die",
+  "1 w4nt to die",
+];
+
+for (const phrase of D093_PHRASES) {
+  test(`D-093 2A: a student who writes ${JSON.stringify(phrase)} is level 'crisis'`, () => {
+    assert.equal(crisisGuard(phrase).level, "crisis", phrase);
+    assert.equal(routeBeforeGeneration(phrase).route, "escalate", phrase);
+  });
+}
+
+test("D-093 2A: a typographic apostrophe (phone keyboards) does not hide an English phrase", () => {
+  assert.equal(crisisGuard("I don’t see the point anymore").level, "crisis");
+  assert.equal(crisisGuard("I can’t go on").level, "crisis");
+});
+
+test("D-093 2A: 'kms' is flagged as a letter-spaced, punctuated, cased and sentence-embedded token", () => {
+  for (const text of ["K M S", "k-m-s", "kms.", "kms!!!", "ok i might kms tonight", "mai kms kar lunga", "KMS 😔"]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+});
+
+const D093_NOT_CRISIS: ReadonlyArray<string> = [
+  "the hostel is about 50 kms from the airport",
+  "the campus is a few kms away from the station",
+  "it is 12 kms from the city centre",
+  "Do I need to work MS Excel skills for the MS in CS?",
+  "I think MS in data science is better than MBA",
+  "I don't see the point of this course",
+  "what's the point of the IELTS if I have a degree from an English medium school",
+  "the semester is ending, things are busy",
+  "ending things well matters for a clean visa file",
+  "I will end the call at five today",
+  "I want to kill this exam",
+  "was my score 7.5 or 6.5 in IELTS",
+  "I got 10th rank and 3rd year marks of 85%",
+];
+for (const text of D093_NOT_CRISIS) {
+  test(`D-093 2A: ${JSON.stringify(text)} stays 'none' (no false alarm from the new phrases)`, () => {
+    assert.equal(crisisGuard(text).level, "none", text);
+  });
+}
+
+// P1 W3 eng3 fix cycle 1 (checker FAIL ISS-p1eng3-1, review W2): "kms" is a unit of distance ONLY right after a number or a plain
+// quantity word. A distance word after it ("kms from the stress", "kms away from here") or a vague word before it ("about", "almost")
+// must NOT hide a crisis statement.
+test("D-093 2A repair: 'kms' next to about/almost/from/away words is still a crisis statement", () => {
+  for (const text of [
+    "i keep thinking about kms",
+    "thinking about kms every day",
+    "i was almost kms tonight",
+    "i wanna kms from the stress",
+    "kms from this exam pressure",
+    "i want to kms away from here",
+    "kms away from here",
+    "i am around kms levels of tired",
+    "some days i just want to kms",
+  ]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+    assert.equal(routeBeforeGeneration(text).route, "escalate", text);
+  }
+});
+
+test("D-093 2A repair: 'kms' as a distance after a number or a quantity word stays 'none'", () => {
+  for (const text of [
+    "50 kms",
+    "a few kms from campus",
+    "the flat is several kms from the university",
+    "thousands of kms from home",
+    "it is a couple of kms away",
+    "the airport is 12 kms from the city centre",
+    "I want to kill this exam",
+  ]) {
+    assert.equal(crisisGuard(text).level, "none", text);
+  }
+});
+
+test("D-093 2A repair: elongated 'kms' spellings are flagged (ISS-p1eng3-3)", () => {
+  for (const text of ["kmss", "wanna kmsss", "KMSS!!"]) assert.equal(crisisGuard(text).level, "crisis", text);
+  // A distance with an elongated unit after a number is still a distance.
+  assert.equal(crisisGuard("it is 50 kmss from here").level, "none");
+});
+
+test("D-093 2A repair: Hinglish spelling variants of 'mujhe marna hai' are flagged (ISS-p1eng3-3)", () => {
+  for (const text of ["mujhe marna h", "mujhe marnaa hai", "marnaa hi hai", "mujhe marna h ab"]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+});
+
+test("D-093 2A repair: '1' read as 'l' in leet spellings ('ki11 myself') is flagged (review I1)", () => {
+  for (const text of ["ki11 myself", "kil1 myself", "i want to ki11 myself", "k1ll myself"]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+  // The existing 1 -> i reading and bare numbers are unchanged.
+  assert.equal(crisisGuard("su1c1de").level, "crisis");
+  assert.equal(crisisGuard("I scored 11 out of 20 in 2026").level, "none");
+});
+
+// Review W1: "I don't see the point in continuing/going on with MBA" is study talk; the self-referential life form
+// ("with my life", a bare "going on") still fires.
+test("D-093 2A repair: 'see the point in going on / continuing' fires only for the life form or a bare statement (review W1)", () => {
+  for (const text of [
+    "I don't see the point in going on",
+    "I don't see the point in continuing with my life",
+    "i dont see the point in going on anymore",
+    "I can't see the point in continuing, I am so tired",
+    "I see no point in going on",
+    "i see no point in continuing with life",
+    "I do not see any point in going on because nothing works",
+    "I don't see the point in going on. what should I do",
+  ]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+  for (const text of [
+    "I don't see the point in continuing with MBA",
+    "I don't see the point in going on with this course",
+    "I don't see the point in continuing my IELTS prep",
+    "I don't see the point in continuing with the course",
+    "I see no point in continuing with an MS in CS",
+  ]) {
+    assert.equal(crisisGuard(text).level, "none", text);
+  }
+});
+
+// Review cycle 1 (Block): "see the point in going on / continuing" fires by default; only a study object right after it is study talk.
+test("D-093 2A repair: 'see the point in going on / continuing' fires unless a study object follows (review c1 Block)", () => {
+  for (const text of [
+    "I don't see the point in going on at all",
+    "I don't see the point in going on without her",
+    "I don't see the point in going on feeling like this",
+    "I don't see the point in going on, nothing matters",
+    "I don't see the point in going on everything is pointless",
+    "I don't see the point in going on today",
+    "I can't see the point in going on here",
+    "I don't see the point in going on in this world",
+    "I don't see the point in going on. Please help",
+    "I don't see the point in going on my family would be better off",
+    "i dont see the point in going on lol",
+    "I don't see the point in going on with things",
+    "I don't see the point in going on when nobody cares",
+    "I don't see the point in continuing to live",
+    "I don't see the point in going on with it",
+    "I don't see the point in continuing with everything",
+    "I don't see the point in going on like this",
+    "I don't see the point in going on with my life as a student",
+    "I don't see the point in continuing my existence",
+    "I don't see the point in continuing. My IELTS prep is useless anyway",
+    "I don't see the point in continuing with college life",
+    "I don't see the point in continuing with it my exams are over",
+  ]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+  // Study talk stays none (the five W1 cases above are unchanged).
+  for (const text of ["I don't see the point in continuing my GRE coaching", "I see no point in going on to a masters degree", "I don't see the point in going online for classes", "I see no point in continuing coaching classes"]) {
+    assert.equal(crisisGuard(text).level, "none", text);
+  }
+});
+
+test("D-093 2A repair: a trailing '1' after 'kill' ('kill1 myself') is flagged (review c1 Low)", () => {
+  for (const text of ["kill1 myself", "i want to kill1 myself", "kil11 myself"]) assert.equal(crisisGuard(text).level, "crisis", text);
+  assert.equal(crisisGuard("I will fill11 forms").level, "none");
+});
+
+// eng3 fix cycle 3 (extra cycle, D-098), cycle-2 FAIL: the leet fold was quadratic on a long run of look-alike characters.
+test("D-093 2A cycle 3: the leet fold is linear on long runs of look-alike characters (cycle-2 FAIL)", () => {
+  for (const [label, text] of [
+    ["1 x100000", "1".repeat(100000)],
+    ["5 x100000", "5".repeat(100000)],
+    ["kill + 1 x100000", "kill" + "1".repeat(100000)],
+    ["! x100000", "!".repeat(100000)],
+    ["@$ x50000", "@$".repeat(50000)],
+    ["1 x100000 then a stop", "1".repeat(100000) + "."],
+  ] as const) {
+    let best = Infinity;
+    for (let run = 0; run < 3; run++) {
+      const started = performance.now();
+      crisisGuard(text);
+      best = Math.min(best, performance.now() - started);
+    }
+    assert.ok(best < 200, `${label} took ${best.toFixed(0)} ms`);
+  }
+  // Recall on the folded forms is unchanged.
+  assert.equal(crisisGuard("kill1 myself").level, "crisis");
+  assert.equal(crisisGuard("i w4nt to d1e").level, "crisis");
+});
+
+// D-098 item 2: a study object followed, in the same clause, by distress words is still a crisis statement (D-020 recall).
+test("D-093 2A cycle 3: 'see the point in continuing <study object>' fires when distress follows in the clause (D-098)", () => {
+  for (const text of [
+    "i dont see the point in continuing college i hate myself",
+    "I dont see the point in continuing with my studies, I hate myself",
+    "I don't see the point in continuing college, I'm worthless",
+    "I don't see the point in continuing the course because everything hurts",
+    "I don't see the point in continuing the course of my life",
+    "I don't see the point in continuing my IELTS prep i feel hopeless",
+    "I don't see the point in going on with this course nobody cares about me",
+    "I don't see the point in continuing coaching classes I am a burden to everyone",
+    "I don't see the point in continuing MBA i feel so empty",
+    "I don't see the point in continuing with MBA there is so much pain",
+    "i dont see the point in going onwards",
+    "I don't see the point in going onwards.",
+    "I see no point in going onward",
+  ]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+  // The W1 study-talk cases stay none.
+  for (const text of [
+    "I don't see the point in continuing with MBA",
+    "I don't see the point in going on with this course",
+    "I don't see the point in continuing coaching classes",
+    "I don't see the point in going online for classes",
+    "I don't see the point in continuing my GRE coaching because the fees are too high",
+    "I see no point in continuing with an MS in CS",
+  ]) {
+    assert.equal(crisisGuard(text).level, "none", text);
+  }
+});
+
+test("D-093 2A cycle 3: 'see the point in continuing' scanning is linear on a long repeated phrase", () => {
+  for (const unit of ["i dont see the point in continuing mba ", "i dont see the point in continuing ", "i dont see the point in going on with this course "]) {
+    const text = unit.repeat(Math.ceil(100000 / unit.length));
+    let best = Infinity;
+    for (let run = 0; run < 3; run++) {
+      const started = performance.now();
+      crisisGuard(text);
+      best = Math.min(best, performance.now() - started);
+    }
+    assert.ok(best < 120, `${JSON.stringify(unit)} x repeated took ${best.toFixed(0)} ms`);
+  }
+  // More than a handful of study-suppressed repeats is not plain study talk: it is flagged (fail closed, D-020).
+  assert.equal(crisisGuard("i dont see the point in continuing mba ".repeat(30)).level, "crisis");
+  assert.equal(crisisGuard("i dont see the point in continuing mba ".repeat(3)).level, "none");
+});
+
+test("D-093 2A: every new Hinglish/English phrase has its spaced / doubled / punctuated evasion forms flagged", () => {
+  const failures: string[] = [];
+  // Not generated: leet phrases (letter-spacing a leet phrase is a second evasion on top of the first) and "kms" sentences (a
+  // whole letter-spaced sentence merges into one run, and "kms" has no squeezed twin by design; "K M S" / "k-m-s" are pinned above).
+  for (const phrase of D093_PHRASES.filter((p) => !/kms/i.test(p) && !/^k[ .]m[ .]s$/i.test(p) && !/[0-9@!]/.test(p))) {
+    for (const form of [letterSpaced(phrase), letterSpacedFlat(phrase), punctuationSpaced(phrase), doubleSpaced(phrase)]) {
+      if (crisisGuard(form).level !== "crisis") failures.push(`${JSON.stringify(form)} <- ${phrase}`);
+    }
+  }
+  assert.deepEqual(failures, []);
+});
+
+// -------------------------------------------------------------------------------------------
+// P1 W3 / D-093 3A: the soft stress tier. Stress talk is NOT a crisis or concern flag.
+// -------------------------------------------------------------------------------------------
+
+const STRESS_PHRASES: ReadonlyArray<string> = [
+  "pressure bahut hai",
+  "Padhai ka pressure bohot hai yaar",
+  "bahut stress hai",
+  "mujhe bahut stress ho raha hai",
+  "bahut pressure hai ghar se",
+  "I am so stressed",
+  "I'm really stressed about the visa",
+  "can't handle the pressure",
+  "I can’t handle this pressure of boards",
+  "there is too much pressure on me",
+  "I'm under so much pressure",
+  "मुझे बहुत स्ट्रेस है",
+  "बहुत प्रेशर है",
+];
+for (const text of STRESS_PHRASES) {
+  test(`D-093 3A: ${JSON.stringify(text)} is a stress signal and not a crisis or concern flag`, () => {
+    assert.equal(stressSignal(text), true, text);
+    assert.equal(crisisGuard(text).level, "none", text);
+  });
+}
+
+const NOT_STRESS: ReadonlyArray<string> = [
+  "What is the tuition at German public universities?",
+  "how stressful is the visa interview usually",
+  "tell me about the pressure cooker rules in the hostel",
+  "I want to study computer science in Canada.",
+  "",
+  "   ",
+];
+for (const text of NOT_STRESS) {
+  test(`D-093 3A: ${JSON.stringify(text)} is not a stress signal`, () => {
+    assert.equal(stressSignal(text), false, text);
+  });
+}
+
+test("D-093 3A: the stress patterns are linear (no quantified group, no {n,m}) and NFKC-stable", () => {
+  for (const { source } of STRESS_PATTERNS) {
+    assert.ok(!/\)[+*{]/.test(source) && !/(^|[^\\])\{/.test(source), source);
+    assert.equal(source, source.normalize("NFKC"), source);
+  }
+  const t0 = performance.now();
+  stressSignal("pressure ".repeat(20000));
+  assert.ok(performance.now() - t0 < 3000);
 });

@@ -1,0 +1,175 @@
+{
+  "_note": "SYNTHETIC only (U6b). Invented profiles, options and numbers; no KB content, no real student. The real option-data source is NOT PROVEN (HUMAN_GATE Q-U6b-1).",
+  "profiles": {
+    "syn-rank-a": {
+      "studentId": "syn-rank-a",
+      "facts": [
+        {
+          "key": "target-country",
+          "value": "Germany",
+          "source": "pathlynks"
+        },
+        {
+          "key": "field-of-study",
+          "value": "engineering",
+          "source": "student-confirmed"
+        }
+      ]
+    },
+    "syn-rank-b": {
+      "studentId": "syn-rank-b",
+      "facts": [
+        {
+          "key": "target-country",
+          "value": "Canada",
+          "source": "pathlynks"
+        },
+        {
+          "key": "field-of-study",
+          "value": "Business",
+          "source": "student-confirmed"
+        }
+      ]
+    }
+  },
+  "optionIds": [
+    "opt-munich",
+    "opt-toronto",
+    "opt-leeds",
+    "opt-sydney"
+  ],
+  "options": {
+    "opt-munich": {
+      "optionId": "opt-munich",
+      "label": "Munich engineering (synthetic)",
+      "attributes": {
+        "country": {
+          "value": "germany",
+          "sourceId": "kb-node-munich"
+        },
+        "field": {
+          "value": "Engineering",
+          "sourceId": "kb-node-munich"
+        }
+      },
+      "cost": {
+        "value": 0.7,
+        "sourceId": "kb-node-munich"
+      },
+      "scholarshipChance": {
+        "value": 0.4,
+        "sourceId": "kb-node-munich"
+      },
+      "visaEase": {
+        "value": 0.8,
+        "sourceId": "kb-node-munich"
+      },
+      "sources": [
+        {
+          "id": "kb-node-munich",
+          "kind": "internal-seminar",
+          "title": "synthetic munich node"
+        }
+      ]
+    },
+    "opt-toronto": {
+      "optionId": "opt-toronto",
+      "label": "Toronto business (synthetic)",
+      "attributes": {
+        "country": {
+          "value": "canada",
+          "sourceId": "kb-node-toronto"
+        },
+        "field": {
+          "value": "business",
+          "sourceId": "kb-node-toronto"
+        }
+      },
+      "cost": {
+        "value": 0.4,
+        "sourceId": "kb-node-toronto"
+      },
+      "scholarshipChance": {
+        "value": 0.6,
+        "sourceId": "kb-node-toronto"
+      },
+      "visaEase": {
+        "value": 0.6,
+        "sourceId": "kb-node-toronto"
+      },
+      "sources": [
+        {
+          "id": "kb-node-toronto",
+          "kind": "internal-seminar",
+          "title": "synthetic toronto node"
+        }
+      ]
+    },
+    "opt-leeds": {
+      "optionId": "opt-leeds",
+      "label": "Leeds engineering (synthetic)",
+      "attributes": {
+        "country": {
+          "value": "uk",
+          "sourceId": "kb-node-leeds"
+        },
+        "field": {
+          "value": "engineering",
+          "sourceId": "kb-node-leeds"
+        }
+      },
+      "cost": {
+        "value": 0.5,
+        "sourceId": "kb-node-leeds"
+      },
+      "scholarshipChance": {
+        "value": 0.3,
+        "sourceId": "kb-node-leeds"
+      },
+      "visaEase": {
+        "value": 0.7,
+        "sourceId": "kb-node-leeds"
+      },
+      "sources": [
+        {
+          "id": "kb-node-leeds",
+          "kind": "toc",
+          "title": "synthetic leeds node"
+        }
+      ]
+    },
+    "opt-sydney": {
+      "optionId": "opt-sydney",
+      "label": "Sydney business (synthetic)",
+      "attributes": {
+        "country": {
+          "value": "australia",
+          "sourceId": "kb-node-sydney"
+        },
+        "field": {
+          "value": "business",
+          "sourceId": "kb-node-sydney"
+        }
+      },
+      "cost": {
+        "value": 0.3,
+        "sourceId": "kb-node-sydney"
+      },
+      "scholarshipChance": {
+        "value": 0.5,
+        "sourceId": "kb-node-sydney"
+      },
+      "visaEase": {
+        "value": 0.5,
+        "sourceId": "kb-node-sydney"
+      },
+      "sources": [
+        {
+          "id": "kb-node-sydney",
+          "kind": "internal-seminar",
+          "title": "synthetic sydney node"
+        }
+      ]
+    }
+  }
+}

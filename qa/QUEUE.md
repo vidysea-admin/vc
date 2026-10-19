@@ -106,6 +106,56 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 
 ## Candidates (human picks)
 
+- [ ] CANDIDATE · priority: security · ISS-228 (medium): a throwing redactPii in onCrisisRecord (voice.ts:801-802, outside try/catch and before the flag write) would lose the flag and the escalation with only a generic persist_failed; wrap and fall back to the no-words text. Crisis path; fix in flight in p1/u10s, must land before A20/voice go-live. Source: qa/evidence/p1-briefs/p1-u10w-c1-review-result.md.
+- [ ] CANDIDATE · priority: security · ISS-229 (medium): escalated words are the userBuf at the first triggering chunk, so they may be only a prefix of the crisis utterance (voice.ts:529-533, live.ts:386-388). Crisis path; product decision for Umesh (deferred by the U10s brief), must be settled before A20/voice go-live. Source: qa/evidence/p1-briefs/p1-u10w-c1-review-result.md; related ISS-223.
+
+Raised by the U10w voice-wiring dual check and senior reviews (2026-10-19, ISS-218..ISS-235; dual PASS 1d28387/ee0e5a1, reviews cycle 1 Warning and cycle 2 Approve); ISS-218 (padded flag trimmed) is fixed by this unit; none is a TODO row, the human picks. Sources: qa/verdicts/p1-u10w-voice-wiring.A.md, .B.md, .A.r1-1.md, .B.r1-1.md, qa/evidence/p1-briefs/p1-u10w-c1-review-result.md.
+
+- [ ] CANDIDATE · ISS-219 (low): a second no-words crisis with no user turn in between reuses the first turnId (voice.ts:804), so its escalation collapses into the first; fix in flight in p1/u10s.
+- [ ] CANDIDATE · ISS-220 (low): detectForConn reads result.crisis outside its try (voice.ts:529-543); a non-boolean detector result queues nothing (type-violating detector only).
+- [ ] CANDIDATE · ISS-221 (low): verifyVoiceToken has no lifetime ceiling (exp=iat+3600 accepted); the jti set is per process (voice.ts:366-388).
+- [ ] CANDIDATE · ISS-222 (low, test strength): W2 bound and C19 tests have no timeout of their own; the W8 usage-before-close assertion is shadowed; only the 2-crisis pairing kills peek-instead-of-shift.
+- [ ] CANDIDATE · ISS-223 (low): the escalated words are LiveSession's unflushed utterance buffer, so earlier unanswered speech can be included with non-final Gemini chunks (live.ts); worth a contract note.
+- [ ] CANDIDATE · ISS-224 (low, informational): voice usage is booked per UTC month at session end; a month-spanning session is split (total conserved).
+- [ ] CANDIDATE · ISS-225 (low, wording): U10w manifest says the WS token requires sub (code requires exp, iat, jti) and that a non-true flag gives no voice route (non-empty, non-false values throw at startup).
+- [ ] CANDIDATE · ISS-226 (low, test): when the W6 flag gate regresses the test leaves a started API listening and the process hangs instead of a clean red; close the server in a finally.
+- [ ] CANDIDATE · ISS-227 (low, process): tick.mjs --lint-manifest reads '132 -> 133' as a non-green Pre-check; write 'from 132 to 133'.
+- [ ] CANDIDATE · ISS-230 (low): index.ts stop() awaits voice?.close() without try/finally; a rejection skips HTTP and Mongo close.
+- [ ] CANDIDATE · ISS-231 (low): lingering and connecting voice sessions are not awaited at shutdown (voice.ts:1198, 958-967).
+- [ ] CANDIDATE · ISS-232 (low, test gaps): no test for a redactPii throw in onCrisisRecord, 3+ queued crises with a stalled escalation, or stop() closing the DB when voice.close() rejects.
+- [ ] CANDIDATE · ISS-233 (low): crisis queue entries are unclamped until consumed (growth bounded in practice).
+- [ ] CANDIDATE · ISS-234 (low): chat.ts:124 trims the voice flag while voice.ts takes only exact 'true'; fix in flight in p1/u10s.
+- [ ] CANDIDATE · ISS-235 (low, informational): voice.ts:270 trims TRACING_VARS; judged safe.
+
+- [ ] CANDIDATE · priority: privacy · ISS-198 (medium): a lower-case one-letter initial before a name leaves the name unredacted ('my name is s. kumar', 'i am j. r. d. tata', 'my name is a. p. j. abdul kalam'; 'my name is dr. s. kumar' keeps the surname); packages/schemas/src/redact.ts:152-160 (isLowerNameToken length < 2 ends the run). Found by U8r checker A (cycle 2). Source: qa/verdicts/p1-u8r-chat-privacy.A.md P2.
+- [ ] CANDIDATE · priority: safety · ISS-194 (medium): the crisis guard's study-then-distress rescue depends on detector vocabulary; "I don't see the point in continuing college, <tail>" is none for tails such as "I feel so lost", "nothing is worth it", "I feel trapped", "everyone would be better off", "i just want it all to stop", "I cant breathe" (each tail is also none alone; a general vocabulary gap, crisis at base 559a421). Human approval needed (product call under D-020). Fix: extend POINT_DISTRESS/CONCERN, or let a study object suppress only when the rest is study-only. Source: qa/evidence/p1-briefs/p1-eng3-c3-review-result.md.
+
+Raised by the U6w rank-wiring dual check and senior reviews (2026-10-19, ISS-208..ISS-217; dual PASS 02a187c/64f53f9, reviews cycle 0 Warning and cycle 1 Approve); ISS-163 is fixed by this unit; none is a TODO row, the human picks. All low. Sources: qa/verdicts/p1-u6w-rank-wiring.A.md, qa/verdicts/p1-u6w-rank-wiring.B.md, qa/evidence/p1-briefs/p1-u6w-review-result.md, qa/evidence/p1-briefs/p1-u6w-c1-review-result.md.
+
+- [ ] CANDIDATE · ISS-208 (low): no deadline on the ranking callbacks (optionIds, weightsForTenant, option port); a hang holds the turn lease.
+- [ ] CANDIDATE · ISS-209 (low): the Pathlynks profile is fetched twice per rank turn; reuse the first read.
+- [ ] CANDIDATE · ISS-210 (low): a generic "X vs Y" question triggers rank_options once deps.ranking is wired (classify.ts:113).
+- [ ] CANDIDATE · ISS-211 (low): deps.extractFacts still gets the unredacted live response incl. ranked claims and profileFactsUsed; confirm it proposes facts only from student text.
+- [ ] CANDIDATE · ISS-212 (low, wording): the chat.ts comment and manifest C7 say a textless turn cannot pick rank_options; the graph does, the persistText gate is the guard.
+- [ ] CANDIDATE · ISS-213 (low): OptionDataPort.get(optionId) takes no tenant argument; a real adapter needs a tenant wrapper.
+- [ ] CANDIDATE · ISS-214 (low): index.ts:324 creates the chat API without ranking and no owner is named for wiring it (ranking dormant, numbers NOT PROVEN per ISS-167).
+- [ ] CANDIDATE · ISS-215 (low): rank.ts:264 still emits "attributed" for ranked numbers; only the api path overrides it to "unverified".
+- [ ] CANDIDATE · ISS-216 (low): the unverified_claim gap counter now fires on every ranked turn, mixing KB-gap and ranking-number signals.
+- [ ] CANDIDATE · ISS-217 (low, test gaps): no repo test for invalid_weights refusal, stress/helpline suffix on a ranked turn, replayed ranked clientTurnId, the 8000-char cap, profileDown skipping ranking, or a non-number ranker claim staying unlabeled.
+
+Raised by the p1-eng3 crisis-leftovers check and reviews (2026-10-19, ISS-183..ISS-197; PASS f81a995, senior reviews cycle 2 and 3 Warning); none is a TODO row, the human picks. Sources: qa/verdicts/p1-eng3-crisis-leftovers.md, qa/evidence/p1-briefs/p1-eng3-c2-review-result.md, qa/evidence/p1-briefs/p1-eng3-c3-review-result.md. ISS-183, 184, 189 and 191 are closed.
+
+- [ ] CANDIDATE · ISS-185 (medium): crisis recall misses some spelling variants (partly fixed: "marna h", "marnaa hai", "kmss" now fire).
+- [ ] CANDIDATE · ISS-186 (low): new crisis patterns over-flag study talk ("assignment khatam ho jana chahiye kal tak"; "kms to the nearest airport is 12").
+- [ ] CANDIDATE · ISS-187 (low): U6h near-misses: claims "through 2027" / "for 2 years" verify when dropped; phone forms "( +91 ) 98765 43210", "(91) ..." keep the prefix, "(+971) 50 123 4567" undetected.
+- [ ] CANDIDATE · ISS-188 (low, process): eng3 manifest gaps (test selection omitted apps/api and two engine tests; CORE-REQUEST cites litellm.ts:509, the file is packages/providers/src/index.ts:509; mutant-cap-raise line malformed). The ISS-125 CORE-REQUEST itself (providers external-abort test) is still unowned.
+- [ ] CANDIDATE · ISS-190 (low): recall misses on "no point" paraphrases ("there is no point in going on", "no point going on", "I can't see the point in carrying on") and Devanagari "मैं खुद को मार डालूंगा"; none at base either.
+- [ ] CANDIDATE · ISS-192 (low): test gap, nothing pins the "!" element of the LEET_BEFORE_LETTER lookbehind (mutant survives; "1!" x30000 would take 5.2 s).
+- [ ] CANDIDATE · ISS-193 (low): test gap, the CONCERN_PATTERNS disjunct of pointRestHasDistress and the punctuated "onwards" form are unpinned (mutants K2b, K3b).
+- [ ] CANDIDATE · ISS-195 (low): test gap, no functional boundary test for the 240-char window in the point-continuing rest scan.
+- [ ] CANDIDATE · ISS-196 (low, accepted under D-020): "... continuing MBA nobody gets jobs" now gives crisis (study-talk over-fire).
+- [ ] CANDIDATE · umesh-confirm · ISS-197 (low): two maker [ASSUMPTION]s for Umesh (fail closed, D-020): a lead-in word alone does not suppress the crisis flag, so "... continuing with my job search" is crisis; more than 20 study-suppressed matches in one view are flagged crisis.
+
 Raised by the U7 anonymous-mode dual check (2026-10-18); none is a TODO row, the human picks. Sources: qa/verdicts/p1-u7-anon-mode.md, qa/verdicts/p1-u7-anon-mode.b.md, qa/evidence/p1-briefs/p1-u7-review-result.md.
 
 - [ ] CANDIDATE · priority: security · ISS-135 (medium): the anonymous route crisis exemption has no CPU budget; crisisGuard scans up to 256 KiB per request before the limiter (about 40-210 ms CPU each, unlimited per client). Fix: body byte cap or byte budget before the scan, a larger per-client crisis budget, or scan off the request path.
@@ -134,6 +184,40 @@ Raised by the U8 chat API dual check (2026-10-19, ISS-147..ISS-162); none is a T
 - [ ] CANDIDATE · ISS-160 (low): textStored is fixed at thread creation; a later consent change does not alter it.
 - [ ] CANDIDATE · ISS-161 (low): an erased profile fact is re-proposed on the next matching turn.
 - [ ] CANDIDATE · ISS-162 (low): test gap, an over-long crisis message on the chat route (the profile-outage and crisis-flood gaps are covered by the p1-u8r tests).
+
+Raised by the U6b + U11 + U9 checks (2026-10-19, ISS-163..ISS-182); none is a TODO row, the human picks. Sources: qa/verdicts/p1-u6b-profile-ranking.md, qa/verdicts/p1-u11-coverage-report.md, qa/verdicts/p1-u9-live-adapter.md, qa/evidence/p1-briefs/p1-u9-rw1-review-result.md. ISS-163 (medium, confirmed chat facts stored as source 'chat' are ignored by rankOptions unless mapped) is fixed in the U6b wiring step (CORE-REQUEST) and is not listed as a candidate.
+
+- [ ] CANDIDATE · ISS-164 (low): rankOptions output has no 'NOT PROVEN' or synthetic marker; the wiring unit must carry it (D-097 item 3) or keep the path behind a flag.
+- [ ] CANDIDATE · ISS-165 (low): rank.ts usableFacts: same key and same source label with different values resolve by input order (hand-built input only).
+- [ ] CANDIDATE · ISS-166 (low): the 25-option cap in rankOptions is the maker's own policy choice; owner to confirm the number.
+- [ ] CANDIDATE · ISS-167 (low): real per-option numbers (cost, scholarship chance, visa ease) have no proven data source (D-097 item 3); U6b is proven on fixtures only.
+- [ ] CANDIDATE · ISS-168 (low): test gap, info: an equivalent C8 mutant survives and the equal-score id tiebreak is redundant; keep the final id ordering.
+- [ ] CANDIDATE · ISS-169 (low): coverage CLI: `--real` or a bad flag prints a stack trace instead of the one-line message (parseCoverageArgs outside the .catch).
+- [ ] CANDIDATE · ISS-170 (low): coverage.ts duplicates the staleness arithmetic from claims.ts; parity pinned only by the 24/25-month boundary test.
+- [ ] CANDIDATE · ISS-171 (low): real KB breadth in the U11 coverage report is NOT PROVEN (synthetic fixture only; Q-U11-2, G-KB).
+- [ ] CANDIDATE · ISS-172 (low): VC gap counts are overall totals per date, not per country or theme (Q-U11-1).
+- [ ] CANDIDATE · ISS-173 (low): coverage has no live mode (`--real` throws by design).
+- [ ] CANDIDATE · ISS-174 (low): test gap, the maker's weak C2b crash-kill falsification; the checker's bool flip is the real C2 pin.
+- [ ] CANDIDATE · ISS-175 (low): test gap, U9: `interrupted` alone arming lift condition 1 is unpinned (review mutant M7).
+- [ ] CANDIDATE · ISS-176 (low): test gap, U9: a second crisis fire after turnComplete re-requiring a new turn end is unpinned (review mutant M5).
+- [ ] CANDIDATE · ISS-177 (low): test gap, U9: a repeated crisis phrase after a toolCall in the same utterance not refiring is unpinned (review mutant M8).
+- [ ] CANDIDATE · ISS-178 (low): test gap, U9: a repeated crisis phrase after a final=true chunk not refiring is unpinned (review mutant M9).
+- [ ] CANDIDATE · ISS-179 (low): U9 residual risk (G-REAL / A10): turnComplete carries no turn id, so a pre-crisis model turn ending just after the crisis can arm the lift.
+- [ ] CANDIDATE · ISS-180 (low): U9 residual risk (G-REAL / A10): silence after a crisis keeps the model muted indefinitely (fails closed).
+- [ ] CANDIDATE · ISS-181 (low): U9 residual risk (G-REAL / A10): a mid-sentence pause of 1.2 s or more after a turn end lifts the mute (D-097 trade-off).
+- [ ] CANDIDATE · ISS-182 (low): U9: a typed message never lifts the crisis mute or updates the resume-gap clock (D-096 as worded); carried cycle-1 lows (close-before-attach replay, M3 byteLength).
+
+Raised by the U8r chat privacy dual check (2026-10-19, ISS-198..ISS-207; PASS A 8d0c2e3, B b4aa502; senior review cycle 2 Approve); none is a TODO row, the human picks. Sources: qa/verdicts/p1-u8r-chat-privacy.A.md, qa/verdicts/p1-u8r-chat-privacy.B.md, qa/evidence/p1-briefs/p1-u8r-c2-review-result.md. ISS-163 (U6b chat source mapping) stays open under the earlier row.
+
+- [ ] CANDIDATE · ISS-199 (low): crisis flood cap does not apply to textless turns (40 over-long or unconsented-minor crisis turns wrote 40 flag rows); the crisis route is not rate limited. apps/api/src/chat.ts:518,609.
+- [ ] CANDIDATE · ISS-200 (low): the crisis write cap binds only when an escalate port is wired; with no escalateForTenant every crisis turn is stored and flagged (production wiring at apps/api/src/index.ts:332 always supplies one).
+- [ ] CANDIDATE · ISS-201 (low): concurrent crisis waiters or the loose path can escalate more than once (1 failing holder + 6 waiters gave 6 escalations); safe direction. Fix: wait once more on the new holder. apps/api/src/chat.ts:592-598.
+- [ ] CANDIDATE · ISS-202 (low): a crisis helpline answer behind a slow or hung unconfirmed holder is delayed up to 5 s (quietWaitMs); owner to confirm or answer first and settle after.
+- [ ] CANDIDATE · ISS-203 (low): a model-proposed profile fact is stored with the Pathlynks profile name unredacted (proposeProfileFact redacts without knownNames). Overlaps ISS-153.
+- [ ] CANDIDATE · ISS-204 (low): Hinglish 'naam hai X' without 'mera' is not redacted (recorded as unsupported).
+- [ ] CANDIDATE · ISS-205 (low): name over-redaction ('I am Dr. what is the fee' becomes 'I am [NAME]. what is the fee'; 'sri'/'kumari' and initials); precision only.
+- [ ] CANDIDATE · ISS-206 (low): the quiet-turn replay branch calls listChatTurns on every quiet turn (predates cycle 2).
+- [ ] CANDIDATE · ISS-207 (low, umesh-confirm): pending questions: more than one API instance (the crisis window is per process)? crisis escalation without Pathlynks name redaction during a profile outage accepted? D-093 4A unconsented-minor escalation and same-id retry re-escalation? 5 s helpline delay bound?
 
 ## Sweep notes (2026-09-26T19:44 IST, Mode B single-agent sweep — only qa/ + TASKS commits landed since the last sweep 38c426e, so sharding buys nothing)
 

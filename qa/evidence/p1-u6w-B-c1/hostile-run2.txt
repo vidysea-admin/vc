@@ -1,0 +1,20 @@
+[testlock] running slot 0 (free RAM 3.24 GB): node node_modules/tsx/dist/cli.mjs --test tests/chat-rank-B1-hostile.test.ts
+CLAIMS [["number","unverified","NOT PROVEN: #1 Munich engineer"],["number","unverified","NOT PROVEN: #2 Leeds engineeri"],["number","unverified","NOT PROVEN: #3 Toronto busines"],["number","unverified","NOT PROVEN: #4 Sydney business"]]
+✔ HB1 C6: with custom weights and Pathlynks+chat facts, EVERY claim live and stored is unverified, every number claim is labelled, no decimal escapes the label (253.1096ms)
+✔ HB1b C6: a 25-option list (the cap): all claims unverified, all number claims labelled (99.28ms)
+overlong crisis status 200 escalated
+consented minor ok 1 4
+✔ HB2 C7: unconsented minor, many rank-like texts, overlong crisis+rank text: no ranking port, option list or weights touched; consented minor DOES rank (172.8169ms)
+LIVE profileFactsUsed [{"key":"field-of-study","value":"engineering, call +91 98765 43210 or 044-2345-6789, ask Anita Rao","source":"pathlynks"},{"key":"target-country","value":"Germany please email anita.rao.private@example.com","source":"pathlynks"}]
+STORED profileFactsUsed [{"key":"field-of-study","value":"engineering, call [PHONE] or [PHONE], ask [NAME]","source":"pathlynks"},{"key":"target-country","value":"Germany please email [EMAIL]","source":"pathlynks"}]
+✔ HB3 C8: phone, email and a Pathlynks name inside fact values never reach any stored document (37.271ms)
+✔ HB4 C10: tenant B's weights never affect tenant A; the callback sees only the asking tenant; a throwing callback for B does not touch A (126.0281ms)
+✔ HB5 C11: anonymous route handed live ranking/profile/Db spies never calls them for rank-like texts (60.8224ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4237.1288

@@ -1,0 +1,15 @@
+start 2026-10-19T06:01:00+0530
+BASELINE probe-A: pass=10 fail=0 failing=[]
+M0 ranking runs for every turn (A-X2): pass=8 fail=2 failing=['A-X1', 'A-X2'] restored=True
+M1a C1 chat label not mapped (stored rows passed raw): pass=5 fail=5 failing=['A-C1a', 'A-C1b', 'A-C1c', 'A-C2', 'A-C3'] restored=True
+M1c C1 any confirmed row counts as student-confirmed: pass=9 fail=1 failing=['A-C1c'] restored=True
+M2a C2 only the first number claim is labelled: pass=8 fail=2 failing=['A-C2', 'A-C4'] restored=True
+M2b C2 message notice dropped: pass=9 fail=1 failing=['A-C2'] restored=True
+M3 C3 stored facts read from tenant-a db whatever the caller: pass=9 fail=1 failing=['A-C3'] restored=True
+M4a C4 failure rethrown: pass=8 fail=2 failing=['A-C4', 'A-C4b'] restored=True
+M4b C4 failure log carries the message: pass=9 fail=1 failing=['A-C4'] restored=True
+M5 C5 classifier never calls a question personal (anonymous rank question reaches search): pass=9 fail=1 failing=['A-C5'] restored=True
+DIFF u6w: pass/fail ('1', '0')
+DIFF base: pass/fail ('1', '0')
+final chat.ts sha equal: True
+end 2026-10-19T06:01:28+0530

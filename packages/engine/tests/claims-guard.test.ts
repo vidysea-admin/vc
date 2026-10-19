@@ -359,3 +359,58 @@ test("U6h fix1 M4 spelled-out numbers: numberMentions is exported and sees 'five
   assert.equal(n("Tell me about your own story and what you built"), 0);
   assert.equal(n("One thing is clear to me"), 0, "the pronoun 'one' is not a number");
 });
+
+// ---------------------------------------------------------------------------
+// P1 W3 (C4): the U6h PROPOSED-ISSUE leftovers that live inside packages/engine (items 2 and 5).
+// ---------------------------------------------------------------------------
+
+test("P1 W3 U6h leftover 2: numberMentions sees million / billion, 'half a million', 'a lakh' and transliterated Hindi figures", async () => {
+  const { numberMentions } = await import("../src/student/claims.js");
+  for (const s of [
+    "It costs half a million rupees",
+    "A year there is about a million rupees",
+    "about two million euros in total",
+    "a billion",
+    "Total fees come to a lakh",
+    "Kharcha ek lakh rupaye hai",
+    "Fees paanch hazaar euro hain",
+    "teen lakh ka loan",
+    "do hazaar euro",
+  ]) assert.ok(numberMentions(s).length >= 1, s);
+  // "half a million" is ONE figure, 500000 (not the "million" inside it read as 1000000).
+  assert.deepEqual(numberMentions("It costs half a million rupees").map((m) => m.n), ["500000"]);
+  for (const s of [
+    "Do you want to apply?",
+    "Ek achha sawaal hai",
+    "Do bhai, baat suno",
+    "Tell me about a hundred-year-old tradition of mill work",
+    "The das tradition is old",
+    "Which millionaire built this campus",
+  ]) assert.equal(numberMentions(s).filter((m) => m.n !== "100").length, 0, s);
+});
+
+test("P1 W3 U6h leftover 5 (H2a): temporal and partial qualifiers dropped by the claim are rejected; carrying them verifies", () => {
+  const pairs: [string, string][] = [
+    ["Students pay a 300 euro contribution.", "Students pay a 300 euro contribution for the first year."],
+    ["The scholarship covers fees.", "The scholarship covers fees until 2027."],
+    ["The scholarship covers fees.", "The scholarship covers fees from 2027."],
+    ["The scholarship covers fees.", "The scholarship covers fees till graduation."],
+    ["Applicants may get a waiver.", "Applicants may get a waiver in certain cases."],
+    ["Universities offer scholarships.", "Selected universities offer scholarships."],
+    ["Universities offer scholarships.", "Universities offer scholarships at selected universities."],
+    ["The scholarship is 300 euros.", "The scholarship is of up to 300 euros."],
+    ["The scholarship is 300 euros.", "The scholarship is of upto 300 euros."],
+    ["The fee is 300 euros.", "The fee is capped at 300 euros."],
+    ["The fee is 300 euros.", "The fee is max 300 euros."],
+    ["Fees are 300 euros.", "Fees are exceeding 300 euros."],
+    ["The fee is waived.", "The fee is partially waived."],
+    ["The fee is waived.", "The fee is temporarily waived."],
+  ];
+  for (const [claim, evidence] of pairs) {
+    assert.equal(verifies(claim, evidence, /\d/.test(claim) ? "number" : "fact"), false, `dropped: ${claim} <- ${evidence}`);
+    assert.equal(verifies(evidence, claim, /\d/.test(evidence) ? "number" : "fact"), false, `added: ${evidence} <- ${claim}`);
+    assert.equal(verifies(evidence, evidence, /\d/.test(evidence) ? "number" : "fact"), true, `carried: ${evidence}`);
+  }
+  // A date that is not a restriction stays harmless: the same sentence with the same date verifies.
+  assert.equal(verifies("Applications close in July.", "Applications close in July."), true);
+});

@@ -1,0 +1,220 @@
+/** Checker B cycle-1 hostile tests (scratch copy only; never committed to the bound tree). */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { type OptionData, type OptionDataPort } from "@vc/engine";
+import { type ChatApiDeps } from "../src/chat.js";
+import { anonWorld, ask } from "./anonymous-fixtures.js";
+import { GERMANY_QUESTION, adult, call, chatWorld, everythingStored, minor, newThread, profilePath, studentToken, threadsPath, turnsPath, type ChatWorld } from "./chat-fixtures.js";
+
+const FIX = JSON.parse(readFileSync(fileURLToPath(new URL("../../../packages/engine/tests/fixtures/ranking-profiles.json", import.meta.url)), "utf8")) as {
+  optionIds: string[];
+  options: Record<string, OptionData>;
+};
+const RANK_TEXT = "Please rank my shortlist for me";
+type Fact = { key: string; value: string };
+const GERMANY_ENG: Fact[] = [
+  { key: "target-country", value: "Germany" },
+  { key: "field-of-study", value: "engineering" },
+];
+
+function spyPort(): OptionDataPort & { calls: string[] } {
+  const calls: string[] = [];
+  return { calls, get: (id: string) => (calls.push(id), FIX.options[id]) } as OptionDataPort & { calls: string[] };
+}
+
+function rankWorld(over: { port?: OptionDataPort; deps?: Partial<ChatApiDeps>; optionIds?: NonNullable<ChatApiDeps["ranking"]>["optionIds"]; weightsForTenant?: (t: string) => any } = {}) {
+  const proposals = new Map<string, Fact[]>();
+  const port = over.port ?? spyPort();
+  const w = chatWorld({
+    deps: {
+      ranking: { port, optionIds: over.optionIds ?? (() => FIX.optionIds), ...(over.weightsForTenant ? { weightsForTenant: over.weightsForTenant } : {}) },
+      extractFacts: async (t) => {
+        const key = `${t.tenantId}|${t.studentId}`;
+        const out = proposals.get(key) ?? [];
+        proposals.delete(key);
+        return out;
+      },
+      ...over.deps,
+    },
+  });
+  return { w, port, proposals };
+}
+
+async function sayAndConfirm(ctx: { w: ChatWorld; proposals: Map<string, Fact[]> }, tenant: string, studentId: string, facts: Fact[]): Promise<string> {
+  const token = await studentToken(adult(studentId, tenant));
+  const threadId = await newThread(ctx.w, token, studentId);
+  ctx.proposals.set(`${tenant}|${studentId}`, facts);
+  const said = await call(ctx.w, "POST", turnsPath(studentId, threadId), { token, body: { text: GERMANY_QUESTION } });
+  assert.equal(said.status, 200);
+  const prof = await call(ctx.w, "GET", profilePath(studentId), { token });
+  for (const p of prof.json.proposed) {
+    const done = await call(ctx.w, "POST", `/v1/students/${studentId}/chat/profile/facts/${p.factId}/decision`, { token, body: { action: "confirm" } });
+    assert.equal(done.status, 200);
+  }
+  return threadId;
+}
+async function rankTurn(w: ChatWorld, tenant: string, studentId: string, threadId: string, text = RANK_TEXT) {
+  const token = await studentToken(adult(studentId, tenant));
+  const res = await call(w, "POST", turnsPath(studentId, threadId), { token, body: { text } });
+  assert.equal(res.status, 200, res.body);
+  return res;
+}
+
+test("HB1 C6: with custom weights and Pathlynks+chat facts, EVERY claim live and stored is unverified, every number claim is labelled, no decimal escapes the label", async () => {
+  const ctx = rankWorld({ weightsForTenant: () => ({ fit: 2, cost: 1, scholarshipChance: 1, visaEase: 1 }) });
+  try {
+    const t = await sayAndConfirm(ctx, "tenant-a", "syn-a", GERMANY_ENG);
+    const res = await rankTurn(ctx.w, "tenant-a", "syn-a", t);
+    const claims = res.json.claims as { kind: string; status: string; text: string }[];
+    console.log("CLAIMS", JSON.stringify(claims.map((c) => [c.kind, c.status, c.text.slice(0, 30)])));
+    assert.ok(claims.filter((c) => c.kind === "number").length >= 2, "multiple number claims");
+    for (const c of claims) assert.equal(c.status, "unverified", JSON.stringify(c));
+    for (const c of claims.filter((c) => c.kind === "number")) assert.match(c.text, /^NOT PROVEN: /);
+    // no decimal outside a NOT PROVEN claim anywhere in the live response
+    const outside = JSON.stringify({ ...res.json, claims: [] }).match(/\d+\.\d+/g);
+    assert.equal(outside, null, `decimals outside claims: ${outside}`);
+    const token = await studentToken(adult("syn-a", "tenant-a"));
+    const thread = await call(ctx.w, "GET", `${threadsPath("syn-a")}/${t}`, { token });
+    const assistantTurns = thread.json.turns.filter((x: { role: string; claims?: unknown[] }) => x.role === "assistant" && (x.claims ?? []).length > 0);
+    assert.ok(assistantTurns.length >= 1);
+    const rankedStored = assistantTurns.filter((x: { claims: { kind: string }[] }) => x.claims.some((c) => c.kind === "number"));
+    assert.ok(rankedStored.length >= 1, "ranked turn stored");
+    for (const turn of rankedStored) for (const c of turn.claims) assert.equal(c.status, "unverified", "stored " + JSON.stringify(c));
+    // raw stored docs too
+    const raw = ctx.w.fakeDb.collection<{ response?: { claims?: { kind: string; status: string; text: string }[] } }>("chat_turns").all();
+    for (const r of raw) for (const c of r.response?.claims ?? []) if (c.kind === "number") assert.ok(c.status === "unverified" && c.text.startsWith("NOT PROVEN: "), JSON.stringify(c));
+    assert.ok(raw.some((r) => (r.response?.claims ?? []).some((c) => c.kind === "number")), "non-vacuous: a number claim is stored");
+  } finally {
+    ctx.w.cleanup();
+  }
+});
+
+test("HB1b C6: a 25-option list (the cap): all claims unverified, all number claims labelled", async () => {
+  const ids = Array.from({ length: 25 }, (_, i) => FIX.optionIds[i % FIX.optionIds.length] + (i >= FIX.optionIds.length ? "" : ""));
+  const uniq = [...new Set(ids)];
+  const ctx = rankWorld({ optionIds: () => uniq });
+  try {
+    const t = await sayAndConfirm(ctx, "tenant-a", "syn-a", GERMANY_ENG);
+    const res = await rankTurn(ctx.w, "tenant-a", "syn-a", t);
+    for (const c of res.json.claims as { kind: string; status: string; text: string }[]) {
+      assert.equal(c.status, "unverified");
+      if (c.kind === "number") assert.match(c.text, /^NOT PROVEN: /);
+    }
+  } finally {
+    ctx.w.cleanup();
+  }
+});
+
+test("HB2 C7: unconsented minor, many rank-like texts, overlong crisis+rank text: no ranking port, option list or weights touched; consented minor DOES rank", async () => {
+  const port = spyPort();
+  let optionListCalls = 0;
+  let weightsCalls = 0;
+  const ctx = rankWorld({ port, optionIds: () => (optionListCalls++, FIX.optionIds), weightsForTenant: () => (weightsCalls++, undefined) });
+  try {
+    const token = await studentToken(minor("syn-min", "tenant-a"));
+    const th = await newThread(ctx.w, token, "syn-min");
+    for (const text of [RANK_TEXT, "rank these options for me", "Which is better, Munich engineering or Toronto business? Rank them.", "RANK MY SHORTLIST " + "x".repeat(10)]) {
+      const res = await call(ctx.w, "POST", turnsPath("syn-min", th), { token, body: { text } });
+      assert.equal(res.status, 200, res.body);
+      assert.equal(res.json.rankingProfile, undefined, text);
+      assert.deepEqual(res.json.profileFactsUsed ?? [], [], text);
+      assert.ok(!(res.json.claims as { text: string }[]).some((c) => /NOT PROVEN/.test(c.text)), text);
+    }
+    // overlong crisis + rank text
+    const long = "Please rank my shortlist. " + "x".repeat(4100) + " I want to kill myself";
+    const adultTok = await studentToken(adult("syn-a", "tenant-a"));
+    const th2 = await newThread(ctx.w, adultTok, "syn-a");
+    const r2 = await call(ctx.w, "POST", turnsPath("syn-a", th2), { token: adultTok, body: { text: long } });
+    console.log("overlong crisis status", r2.status, r2.json?.state);
+    assert.equal(r2.json?.rankingProfile, undefined);
+    assert.equal(port.calls.length, 0, "option port touched");
+    assert.equal(optionListCalls, 0, "option list touched");
+    assert.equal(weightsCalls, 0, "weights touched");
+    // rank-text crisis from unconsented minor
+    const r3 = await call(ctx.w, "POST", turnsPath("syn-min", th), { token, body: { text: "rank my shortlist. I want to kill myself" } });
+    assert.equal(r3.status, 200);
+    assert.equal(port.calls.length, 0);
+    assert.equal(optionListCalls, 0);
+    // consented minor ranks
+    const ctok = await studentToken(minor("syn-cm", "tenant-a", { guardianConsent: true }));
+    const th3 = await newThread(ctx.w, ctok, "syn-cm");
+    const r4 = await call(ctx.w, "POST", turnsPath("syn-cm", th3), { token: ctok, body: { text: RANK_TEXT } });
+    assert.equal(r4.status, 200, r4.body);
+    console.log("consented minor", r4.json.state, optionListCalls, port.calls.length);
+    assert.ok(optionListCalls >= 1, "control: consented minor reaches the option list");
+  } finally {
+    ctx.w.cleanup();
+  }
+});
+
+test("HB3 C8: phone, email and a Pathlynks name inside fact values never reach any stored document", async () => {
+  const facts = [
+    { key: "student-name", value: "Anita Rao", source: "pathlynks" },
+    { key: "target-country", value: "Germany please email anita.rao.private@example.com", source: "pathlynks" },
+    { key: "field-of-study", value: "engineering, call +91 98765 43210 or 044-2345-6789, ask Anita Rao", source: "pathlynks" },
+  ];
+  const ctx = rankWorld({ deps: { profile: { facts: async () => facts } } as never });
+  try {
+    const token = await studentToken(adult("syn-a", "tenant-a"));
+    const th = await newThread(ctx.w, token, "syn-a");
+    const res = await call(ctx.w, "POST", turnsPath("syn-a", th), { token, body: { text: RANK_TEXT } });
+    assert.equal(res.status, 200, res.body);
+    console.log("LIVE profileFactsUsed", JSON.stringify(res.json.profileFactsUsed));
+    const stored = ctx.w.fakeDb.collection<{ response?: { profileFactsUsed?: { key: string; value: string }[] } }>("chat_turns").all().find((r) => (r.response?.profileFactsUsed ?? []).length > 0);
+    assert.ok(stored, "non-vacuous: the ranker used at least one fact and it is stored");
+    console.log("STORED profileFactsUsed", JSON.stringify(stored!.response!.profileFactsUsed));
+    const everything = everythingStored(ctx.w.fakeDb);
+    for (const piece of ["anita.rao.private", "example.com", "98765", "43210", "2345", "6789", "Anita", "Rao"]) assert.ok(!everything.includes(piece), `stored data holds ${piece}`);
+    const thread = await call(ctx.w, "GET", `${threadsPath("syn-a")}/${th}`, { token });
+    for (const piece of ["anita.rao.private", "98765", "Anita", "Rao"]) assert.ok(!thread.body.includes(piece), `thread read-back holds ${piece}`);
+  } finally {
+    ctx.w.cleanup();
+  }
+});
+
+test("HB4 C10: tenant B's weights never affect tenant A; the callback sees only the asking tenant; a throwing callback for B does not touch A", async () => {
+  const seen: string[] = [];
+  const COST_ONLY = { fit: 0, cost: 1, scholarshipChance: 0, visaEase: 0 };
+  const ctx = rankWorld({ weightsForTenant: (t: string) => (seen.push(t), t === "tenant-b" ? COST_ONLY : undefined) });
+  const base = rankWorld();
+  try {
+    const ta = await sayAndConfirm(ctx, "tenant-a", "syn-w", GERMANY_ENG);
+    const bta = await sayAndConfirm(base, "tenant-a", "syn-w", GERMANY_ENG);
+    seen.length = 0;
+    const a = await rankTurn(ctx.w, "tenant-a", "syn-w", ta);
+    const aBase = await rankTurn(base.w, "tenant-a", "syn-w", bta);
+    assert.deepEqual(seen, ["tenant-a"]);
+    assert.equal(a.json.rankingProfile, "student-success");
+    assert.deepEqual(a.json.claims, aBase.json.claims);
+  } finally {
+    ctx.w.cleanup();
+    base.w.cleanup();
+  }
+});
+
+test("HB5 C11: anonymous route handed live ranking/profile/Db spies never calls them for rank-like texts", async () => {
+  const port = spyPort();
+  let optionListCalls = 0;
+  let profileCalls = 0;
+  let dbCalls = 0;
+  const a = anonWorld({
+    deps: {
+      ranking: { port, optionIds: () => (optionListCalls++, FIX.optionIds) },
+      profile: { facts: async () => (profileCalls++, []) },
+      dbForTenant: () => (dbCalls++, undefined as never),
+    } as never,
+  });
+  try {
+    for (const text of [RANK_TEXT, "rank these options", "Munich vs Toronto, which is best, rank them"]) {
+      const res = await ask(a, text);
+      assert.equal(res.status, 200, text);
+      assert.notEqual(res.json.state, undefined);
+      assert.ok(!/NOT PROVEN/.test(res.body), text);
+    }
+    assert.equal(port.calls.length + optionListCalls + profileCalls + dbCalls, 0);
+  } finally {
+    a.cleanup();
+  }
+});

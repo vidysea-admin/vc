@@ -1,0 +1,12 @@
+I1a mapping removed (db label passes through) | pass=2 fail=6 | first failing: ✖ U6w item 1 ISS-163: facts the student confirmed in chat (db label source 'chat') change the ranking, and t
+I1b mapping ignores status (a proposed chat fact counts) | pass=7 fail=1 | first failing: ✖ U6w item 1: the one mapping turns exactly {source 'chat', status 'confirmed'} into student-confirmed; a pr
+I1c any non-pathlynks label counts as student-confirmed | pass=7 fail=1 | first failing: ✖ U6w item 1: the one mapping turns exactly {source 'chat', status 'confirmed'} into student-confirmed; a pr
+I2a number claims lose the NOT PROVEN prefix | pass=7 fail=1 | first failing: ✖ U6w item 2 ISS-167: every number the student is shown carries a visible NOT PROVEN label, in the reply, in
+I2b reply message loses the NOT PROVEN notice | pass=7 fail=1 | first failing: ✖ U6w item 2 ISS-167: every number the student is shown carries a visible NOT PROVEN label, in the reply, in
+I3a stored facts read from another tenant's Db | pass=5 fail=3 | first failing: ✖ U6w item 1 ISS-163: facts the student confirmed in chat (db label source 'chat') change the ranking, and t
+I3b option-list port asked with a fixed tenant id | pass=7 fail=1 | first failing: ✖ U6w item 3 tenancy: the same student id in tenant B with other facts never moves tenant A's ranking, and o
+I4a a ranking failure is rethrown (turn fails) | pass=7 fail=1 | first failing: ✖ U6w item 4: a throwing option port, option-list callback or weights callback still returns the reply (200)
+I4b failure not logged | pass=7 fail=1 | first failing: ✖ U6w item 4: a throwing option port, option-list callback or weights callback still returns the reply (200)
+I4c failure log carries the error message text | pass=7 fail=1 | first failing: ✖ U6w item 4: a throwing option port, option-list callback or weights callback still returns the reply (200)
+I4d ranking runs for every turn, not only rank_options | pass=7 fail=1 | first failing: ✖ U6w item 4: an ordinary (non-ranking) question never touches the ranking port, and a rank question with no
+I5a anonymous rank question reaches the search path (graph refusal removed) | pass=7 fail=1 | first failing: ✖ U6w item 5: an anonymous visitor asking to rank gets sign_in_required with no ranking, and the option-data

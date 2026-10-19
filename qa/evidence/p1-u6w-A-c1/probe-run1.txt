@@ -1,0 +1,74 @@
+[testlock] running slot 0 (free RAM 4.58 GB): pnpm -C /d/vc/.worktrees/p1-u6w-A2/apps/api exec tsx --test tests/probe-A1.test.ts tests/probe-A.test.ts
+A-C1a OK ["field-of-study=engineering/student-confirmed","target-country=Germany/student-confirmed"]
+✔ A-C1a baseline: no facts -> nothing ranked; confirm -> ranked and facts listed as student-confirmed; erase -> back to nothing (396.9036ms)
+A-C1b used ["field-of-study=engineering/student-confirmed","target-country=Canada/student-confirmed"] ranked ["Munich engineering (synthetic)","Toronto business (synthetic)","Leeds engineering (synthetic)","Sydney business (synthetic)"]
+✔ A-C1b correct: a student's corrected value (status confirmed, label chat) is what the ranker uses (70.6614ms)
+A-C1c pathlynks-only used ["target-country=Canada/pathlynks"]
+A-C1c conflict used ["target-country=Germany/student-confirmed"]
+✔ A-C1c raw rows: 'chat-extracted' confirmed, 'chat' proposed and a 'chat' confirmed fact with a blank value never move the ranking; student-confirmed wins over a conflicting pathlynks fact (98.9593ms)
+A-C3 OK
+✔ A-C3 tenancy: tenant A has NO facts, tenant B (same student id) has confirmed facts; A's ranking uses nothing. And tenant A's facts never reach tenant B / another student of tenant A (292.4578ms)
+A-C2 figures in storage 4 labelled 4
+✔ A-C2 every decimal figure the student can read carries NOT PROVEN: reply, claims, stored thread, replay, and every stored document (95.2721ms)
+A-C4 port-throws-string: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_failed:error"]
+A-C4 port-throws-evil: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_failed:Error"]
+A-C4 optionIds-rejects: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_failed:RangeError"]
+A-C4 too-many-options: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_refused:too_many_options"]
+A-C4 bad-weights: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_refused:invalid_weights"]
+A-C4 no-options: status 200 state ok claims 0 number-claims 0 logs []
+A-C4 huge-labels: status 200 state ok claims 4 number-claims 4 logs []
+A-C4 port-returns-garbage: status 200 state ok claims 4 number-claims 0 logs []
+✔ A-C4 failure matrix: non-Error throw, async rejection, refusals, over-long output, hostile Error name; always 200 + plain reply + text-free log (490.5375ms)
+A-C5 "Please rank my shortlist for me" 200 sign_in_required [] undefined undefined
+A-C5 "Compare my options: Munich vs Toronto" 200 sign_in_required [] undefined undefined
+A-C5 "which of these is best, my shortlist please" 200 sign_in_required [] undefined undefined
+A-C5 "rank them" 200 sign_in_required [] undefined undefined
+✔ A-C4b ranking failure leaves the turn fully stored: the thread read back shows the plain reply, usage counted once, no half-written ranking (49.0825ms)
+✔ A-C5 anonymous: rank questions of several shapes, with and without a student bearer token, are sign_in_required with no figures and the shared port is untouched (47.6467ms)
+A-X1 crisis escalated 0 I'm really glad you told me. What you're going through matters, and you deserve  port calls 0
+A-X1 minor 200 ok [] port calls delta 0
+✔ A-X1 crisis + rank wording, and an unconsented minor: ranking never decorates a crisis/textless answer (81.0644ms)
+✔ A-X2 an ordinary Germany question for a student with confirmed facts never calls the ranking port (76.4643ms)
+A1-C6 stored status values ["done","verified","unverified","confirmed"]
+✔ A1-C6 every claim reaching the student (live, replay, thread read, storage) is unverified; no figure without NOT PROVEN; no attributed number anywhere (300.9188ms)
+A1-C6b claims 4 numbers 3
+✔ A1-C6b port returning partial data: still every claim unverified, every number labelled (79.1462ms)
+A1-C7 unconsented minor spies {"port":[],"opts":[],"weights":[],"profile":["tenant-a|syn-m"],"dbs":[]} claims 0
+✖ A1-C7 matrix: textless turns never touch port/optionIds/weights; consented minor and adult do (39.2377ms)
+A1-C7b down status 503
+A1-C7b down+crisis 200 escalated numbers 0
+✔ A1-C7b Pathlynks profile down: ordinary rank turn is 503 with no port/option calls; crisis+rank wording gives no ranking (85.4626ms)
+A1-C8 live used [{"key":"target-country","value":"Germany, Anita Rao, anita.rao@example.com, call 98765 43210","source":"pathlynks"}]
+A1-C8 stored used [{"key":"target-country","value":"Germany, [NAME], [EMAIL], call [PHONE]","source":"pathlynks"}]
+✔ A1-C8 phone, e-mail and a known Pathlynks name inside a fact value never reach storage; the ranker did use the fact (93.7272ms)
+A1-C9 A spies {"port":["opt-leeds","opt-munich","opt-sydney","opt-toronto"],"opts":["tenant-a|syn-same"],"weights":["tenant-a"],"profile":["tenant-a|syn-same","tenant-a|syn-same"],"dbs":[]} profile student-success
+A1-C11 anon spies {"port":[],"opts":[],"weights":[],"profile":[],"dbs":[]}
+✔ A1-C9/C10 tenancy: ids per call reach profile port, option list and weights; B's weights/facts never reach A; a throwing weights callback = plain reply + chat_rank_failed (323.9155ms)
+✔ A1-C11 anonymous with live ranking/profile/db spies calls none; the same spies on the authenticated route are called (192.4769ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 16
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5727.9632
+
+✖ failing tests:
+
+test at tests\probe-A1.test.ts:130:1
+✖ A1-C7 matrix: textless turns never touch port/optionIds/weights; consented minor and adult do (39.2377ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  [] !== undefined
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-A2\apps\api\tests\probe-A1.test.ts:141:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,16 @@
+# You are a /maker build subagent: eng3 fix cycle 3 (one extra cycle approved by Umesh, D-098), p1-eng3-crisis-leftovers, tier L
+- Worktree C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-eng3 (branch p1/eng3; code ba4e2bf; cycle-2 FAIL verdict b4a1e5b in qa/verdicts/p1-eng3-crisis-leftovers.md). Use `git -C <wt>`, never `cd X && cmd`. Never `git add -A`. Never touch .claude/**. Do NOT push. C: is nearly full: falsify on a scratch copy of crisis.ts only.
+- Read: the cycle-2 verdict, D:/vc/qa/evidence/p1-briefs/p1-eng3-c2-review-result.md, D-020 and D-098 in D:/vc/docs/DECISIONS.md. The checker's probes are in scratchpad/eng3c2/ and the reviewer's in scratchpad/eng3c2rev/ (cmp.ts compares base, c1 and c2).
+
+## Fix (TDD: a failing test first)
+1. FAIL item, crisis.ts ~582 `LEET_BEFORE_LETTER = /[013457@$!]+(?=\p{L})/gu` is quadratic. Anchor the run start: `(?<![013457@$!])[013457@$!]+(?=\p{L})`, or do an equivalent linear scan. Check every other regex in foldLeet and normalise for the same pattern. Add speed tests: "1"x100000, "5"x100000 and "kill"+"1"x100000 must each finish under 200 ms.
+2. D-098 item 2: study-object suppression in matchPointContinuing must not suppress when distress follows in the same unpunctuated clause. Fire if any hard-distress token or crisis pattern (reuse the existing crisis and concern pattern sets, run on the rest of the clause), or a life word, appears anywhere later in the clause, not only in the first 4 tokens. Tests: "i dont see the point in continuing college i hate myself", "I dont see the point in continuing with my studies, I hate myself", "I don't see the point in continuing college, I'm worthless", "I don't see the point in continuing the course because everything hurts", "I don't see the point in continuing the course of my life" must all be crisis. The W1 none cases ("continuing with MBA", "going on with this course", "continuing coaching classes", "going online for classes") stay none.
+3. Low, from the review: "going onwards" should be crisis again (it was at base). Also fix the quadratic per-match `split` in matchPointContinuing (~686) by slicing only the next ~200 chars.
+4. Remove the dead branches the checker found (ISS-p1eng3-9: `without`, `like this`, empty rest), or keep them only if a test kills them.
+- Do not weaken or delete any existing assertion. Rerun the reviewer's cmp.ts grid (base, c2, c3): no row that is crisis at c2 may drop at c3.
+
+## Pre-check + manifest
+- Via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...` (long waits are normal; never quit on a busy lock): engine guard-crisis.test.ts and crisis-defaults.test.ts, the 4 apps/api tests in the manifest, engine typecheck.
+- One falsification per changed criterion, on a scratch copy of crisis.ts.
+- Manifest: `Fix cycle: 3` (note "extra cycle, D-098"), Pre-check[<id>] lines on the final sha, `Status: ready-for-check`. Run `node D:/ai_os/.claude/skills/maker/tools/tick.mjs --lint-manifest <manifest>`. If the lint rejects cycle 3 because of the cap, cite D-098 in the manifest and report the exact lint output. Commit with narrow pathspecs.
+- Return ONE line: `p1-eng3-crisis-leftovers <sha> ready` or `BLOCKED <reason>`.

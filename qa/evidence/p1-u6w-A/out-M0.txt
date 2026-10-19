@@ -1,0 +1,73 @@
+A-C1a OK ["field-of-study=engineering/student-confirmed","target-country=Germany/student-confirmed"]
+✔ A-C1a baseline: no facts -> nothing ranked; confirm -> ranked and facts listed as student-confirmed; erase -> back to nothing (134.1249ms)
+A-C1b used ["field-of-study=engineering/student-confirmed","target-country=Canada/student-confirmed"] ranked ["Munich engineering (synthetic)","Toronto business (synthetic)","Leeds engineering (synthetic)","Sydney business (synthetic)"]
+✔ A-C1b correct: a student's corrected value (status confirmed, label chat) is what the ranker uses (26.0185ms)
+A-C1c pathlynks-only used ["target-country=Canada/pathlynks"]
+A-C1c conflict used ["target-country=Germany/student-confirmed"]
+✔ A-C1c raw rows: 'chat-extracted' confirmed, 'chat' proposed and a 'chat' confirmed fact with a blank value never move the ranking; student-confirmed wins over a conflicting pathlynks fact (25.2685ms)
+A-C3 OK
+✔ A-C3 tenancy: tenant A has NO facts, tenant B (same student id) has confirmed facts; A's ranking uses nothing. And tenant A's facts never reach tenant B / another student of tenant A (59.2576ms)
+A-C2 figures in storage 4 labelled 4
+✔ A-C2 every decimal figure the student can read carries NOT PROVEN: reply, claims, stored thread, replay, and every stored document (21.2077ms)
+A-C4 port-throws-string: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_failed:error"]
+A-C4 port-throws-evil: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_failed:Error"]
+A-C4 optionIds-rejects: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_failed:RangeError"]
+A-C4 too-many-options: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_refused:too_many_options"]
+A-C4 bad-weights: status 200 state ok claims 0 number-claims 0 logs ["chat_rank_refused:invalid_weights"]
+A-C4 no-options: status 200 state ok claims 0 number-claims 0 logs []
+A-C4 huge-labels: status 200 state ok claims 4 number-claims 4 logs []
+A-C4 port-returns-garbage: status 200 state ok claims 4 number-claims 0 logs []
+✔ A-C4 failure matrix: non-Error throw, async rejection, refusals, over-long output, hostile Error name; always 200 + plain reply + text-free log (152.5832ms)
+A-C5 "Please rank my shortlist for me" 200 sign_in_required [] undefined undefined
+A-C5 "Compare my options: Munich vs Toronto" 200 sign_in_required [] undefined undefined
+A-C5 "which of these is best, my shortlist please" 200 sign_in_required [] undefined undefined
+A-C5 "rank them" 200 sign_in_required [] undefined undefined
+✔ A-C4b ranking failure leaves the turn fully stored: the thread read back shows the plain reply, usage counted once, no half-written ranking (15.6938ms)
+✔ A-C5 anonymous: rank questions of several shapes, with and without a student bearer token, are sign_in_required with no figures and the shared port is untouched (20.2893ms)
+A-X1 crisis escalated 4 I'm really glad you told me. What you're going through matters, and you deserve  port calls 8
+✖ A-X1 crisis + rank wording, and an unconsented minor: ranking never decorates a crisis/textless answer (28.2152ms)
+✖ A-X2 an ordinary Germany question for a student with confirmed facts never calls the ranking port (21.9202ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 8
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1777.7054
+
+✖ failing tests:
+
+test at tests\probe-A.test.ts:282:1
+✖ A-X1 crisis + rank wording, and an unconsented minor: ranking never decorates a crisis/textless answer (28.2152ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(!cr.json.claims.some((x: { kind: string }) => x.kind === "number"))
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-A2\apps\api\tests\probe-A.test.ts:289:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\probe-A.test.ts:302:1
+✖ A-X2 an ordinary Germany question for a student with confirmed facts never calls the ranking port (21.9202ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  4 !== 0
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-u6w-A2\apps\api\tests\probe-A.test.ts:309:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 4,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

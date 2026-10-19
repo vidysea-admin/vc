@@ -1,0 +1,12 @@
+# You are /checker: eng3 repair check, fix cycle 1 (p1-eng3-crisis-leftovers), tier L, fresh context
+- Protocol C:/Users/Lenovo/.claude/skills/checker/SKILL.md Mode A. Policy: the manifest pin, with .15 rules.
+- Worktree C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-eng3 (p1/eng3 head 2c5d97c; code 0cc886c; cycle-0 FAIL verdict 559a421). Read-only toward code; write only your verdict, checkpoint and evidence. Never touch .claude/**. Do NOT push.
+- Contract: the manifest criteria C1..C4, the cycle-0 FAIL verdict qa/verdicts/p1-eng3-crisis-leftovers.md, and the repair brief D:/vc/qa/evidence/p1-briefs/p1-eng3-repair1.md.
+- Prove OUTCOMES. Hostile variants REQUIRED, as your own tests in a throwaway COPY:
+  - recall: every cycle-0 failing sentence fires; plus "kms tonight", "i will kms", "KMS", "k.m.s", "kms!!!", Hinglish "mujhe kms karna hai", "ab jeena nahi hai", Devanagari forms, leet "k1ll mys3lf", "ki11 myself", "su1c1de".
+  - precision: "50 kms", "a few kms from campus", "hundreds of kms", "the campus is 3 kms away", "continuing with MBA", "going on with this course", "kill this exam", "I am dying to see Paris", "this assignment is killing me".
+  - the bare "I don't see the point in going on" still fires; with a study object it does not.
+  - speed: 100k-character pathological inputs finish fast (as cycle 0).
+  - the apps/api test input change at anonymous-zero-persistence.test.ts:621 is a non-crisis input with the assertions unchanged (diff the test).
+- Reuse maker evidence only after identity validation. Rerun guard-crisis.test.ts, the manifest's engine set and the 4 apps/api tests, plus engine typecheck, via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...`. One falsification per changed criterion, in a copy.
+- Write qa/verdicts/p1-eng3-crisis-leftovers.md (Cycle checked: 1), checkpoint, Metrics. Commit narrow pathspecs. Return ONE line: PASS/FAIL + sha + reason.

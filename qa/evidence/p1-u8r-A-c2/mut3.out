@@ -1,0 +1,4 @@
+C11abc: KILLED tests=47 pass=44 fail=3 first_fail=['P6 overlong crisis then crisis; minor then full; textless floods', 'p1-u8r cycle 2 item 1: an over-long crisis turn (which cannot escalate) does not silence a normal crisis turn 60 s later']
+   restored identical: True (30892a690ab4)
+C11bc: KILLED tests=47 pass=46 fail=1 first_fail=["p1-u8r cycle 2 item 1: an unconsented minor's crisis turn does not silence a later consented crisis turn in the same thread", "p1-u8r cycle 2 item 1: an unconsented minor's crisis turn does not silence a later consented crisis turn in the same thread"]
+   restored identical: True (30892a690ab4)

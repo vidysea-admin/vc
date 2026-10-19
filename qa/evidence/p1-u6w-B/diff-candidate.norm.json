@@ -1,0 +1,198 @@
+[
+ {
+  "turnId": "<uuid>",
+  "state": "ok",
+  "message": "Public universities in Germany charge no tuition for most programmes.",
+  "claims": [
+   {
+    "text": "Public universities in Germany charge no tuition for most programmes.",
+    "kind": "fact",
+    "sourceIds": [
+     "t-sem-1"
+    ],
+    "status": "verified"
+   }
+  ],
+  "sources": [
+   {
+    "id": "t-sem-1",
+    "kind": "internal-seminar",
+    "title": "Study in Germany seminar"
+   }
+  ],
+  "profileFactsUsed": []
+ },
+ {
+  "facts": [],
+  "proposed": [
+   {
+    "factId": "<id>",
+    "key": "field-of-study",
+    "value": "engineering",
+    "status": "proposed"
+   },
+   {
+    "factId": "<id>",
+    "key": "target-country",
+    "value": "Germany",
+    "status": "proposed"
+   }
+  ]
+ },
+ {
+  "facts": [
+   {
+    "key": "field-of-study",
+    "value": "engineering",
+    "source": "student-confirmed"
+   }
+  ],
+  "proposed": [
+   {
+    "factId": "<id>",
+    "key": "target-country",
+    "value": "Germany",
+    "status": "proposed"
+   }
+  ]
+ },
+ {
+  "facts": [
+   {
+    "key": "field-of-study",
+    "value": "engineering",
+    "source": "student-confirmed"
+   },
+   {
+    "key": "target-country",
+    "value": "Germany",
+    "source": "student-confirmed"
+   }
+  ],
+  "proposed": []
+ },
+ {
+  "facts": [
+   {
+    "key": "field-of-study",
+    "value": "engineering",
+    "source": "student-confirmed"
+   },
+   {
+    "key": "target-country",
+    "value": "Germany",
+    "source": "student-confirmed"
+   }
+  ],
+  "proposed": []
+ },
+ {
+  "turnId": "<uuid>",
+  "state": "ok",
+  "message": "Let me compare those options against the profile facts you have confirmed.",
+  "claims": [],
+  "sources": [],
+  "profileFactsUsed": []
+ },
+ {
+  "turnId": "<uuid>",
+  "state": "ok",
+  "message": "Let me compare those options against the profile facts you have confirmed.",
+  "claims": [],
+  "sources": [],
+  "profileFactsUsed": []
+ },
+ {
+  "turnId": "<uuid>",
+  "state": "escalated",
+  "message": "I'm really glad you told me. What you're going through matters, and you deserve support right now. Please call Tele-MANAS on 14416. It is free, open 24x7, and the people there are trained for exactly this (Tele-MANAS: 14416, मुफ़्त, 24x7). I'm an AI guide, not a counsellor, and no counsellor from our side is being connected right now, so Tele-MANAS is the best next step. If you are in danger right now, please tell a trusted adult near you. Who is a safe adult you could talk to today, like a parent, relative or teacher? I'm still here, and you can keep talking to me.",
+  "claims": [],
+  "sources": [],
+  "profileFactsUsed": []
+ },
+ {
+  "threadId": "<uuid>",
+  "turns": [
+   {
+    "turnId": "<uuid>",
+    "role": "user",
+    "channel": "text",
+    "text": "compare these options for me",
+    "at": "2026-11-01T10:00:00.000Z"
+   },
+   {
+    "turnId": "<uuid>",
+    "role": "assistant",
+    "channel": "text",
+    "text": "Let me compare those options against the profile facts you have confirmed.",
+    "at": "2026-11-01T10:00:00.000Z",
+    "claims": [],
+    "sources": []
+   },
+   {
+    "turnId": "<uuid>",
+    "role": "user",
+    "channel": "text",
+    "text": "I want to kill myself, rank my shortlist",
+    "at": "2026-11-01T10:00:00.000Z"
+   },
+   {
+    "turnId": "<uuid>",
+    "role": "assistant",
+    "channel": "text",
+    "text": "I'm really glad you told me. What you're going through matters, and you deserve support right now. Please call Tele-MANAS on 14416. It is free, open 24x7, and the people there are trained for exactly this (Tele-MANAS: 14416, मुफ़्त, 24x7). I'm an AI guide, not a counsellor, and no counsellor from our side is being connected right now, so Tele-MANAS is the best next step. If you are in danger right now, please tell a trusted adult near you. Who is a safe adult you could talk to today, like a parent, relative or teacher? I'm still here, and you can keep talking to me.",
+    "at": "2026-11-01T10:00:00.000Z",
+    "claims": [],
+    "sources": []
+   },
+   {
+    "turnId": "<uuid>",
+    "role": "user",
+    "channel": "text",
+    "text": "Please rank my shortlist for me",
+    "at": "2026-11-01T10:00:00.000Z"
+   },
+   {
+    "turnId": "<uuid>",
+    "role": "assistant",
+    "channel": "text",
+    "text": "Let me compare those options against the profile facts you have confirmed.",
+    "at": "2026-11-01T10:00:00.000Z",
+    "claims": [],
+    "sources": []
+   },
+   {
+    "turnId": "<uuid>",
+    "role": "user",
+    "channel": "text",
+    "text": "What are the tuition fees for public universities in Germany?",
+    "at": "2026-11-01T10:00:00.000Z"
+   },
+   {
+    "turnId": "<uuid>",
+    "role": "assistant",
+    "channel": "text",
+    "text": "Public universities in Germany charge no tuition for most programmes.",
+    "at": "2026-11-01T10:00:00.000Z",
+    "claims": [
+     {
+      "text": "Public universities in Germany charge no tuition for most programmes.",
+      "kind": "fact",
+      "sourceIds": [
+       "t-sem-1"
+      ],
+      "status": "verified"
+     }
+    ],
+    "sources": [
+     {
+      "id": "t-sem-1",
+      "kind": "internal-seminar",
+      "title": "Study in Germany seminar"
+     }
+    ]
+   }
+  ]
+ },
+ []
+]

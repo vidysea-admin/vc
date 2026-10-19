@@ -1,0 +1,5 @@
+# Checkpoint A - p1-u8r-chat-privacy cycle 2 (completed, PASS)
+Evidence identity: code 585f6dc (HEAD e3bec20); test blobs apps/api/tests/chat-privacy.test.ts:12b752a chat.test.ts:a4a5f48 chat-profile.test.ts:d9e63b5 packages/schemas/tests/redact.test.ts:ca6525e packages/db/tests/student-store.test.ts:96aa120; source sha256 prefixes chat.ts 30892a690ab4, redact.ts 8d9eb715e57f, profile-facts.ts b93fda879e0c.
+Commands (VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...): pnpm -C apps/api exec tsx --test tests/chat-privacy.test.ts tests/chat.test.ts tests/chat-profile.test.ts -> 69/69; pnpm -C packages/schemas exec tsx --test tests/redact.test.ts -> 19/19; pnpm -C packages/db exec tsx --test tests/student-store.test.ts -> 14/14; pnpm -C apps/api|packages/schemas|packages/db typecheck -> exit 0 x3.
+Probes: probeA-api (11/11), probeA-redact (4/4), probeA-db (15/15). Falsification: 27 edit runs (qa/evidence/p1-u8r-A-c2/mut.out, mut2.out, mut3.out).
+Result: PASS with 4 PROPOSED-ISSUEs (see verdict).

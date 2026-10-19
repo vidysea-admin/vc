@@ -1,0 +1,19 @@
+start 2026-10-19T08:03:56+0530
+BASELINE probes: pass=17 fail=0 failing=[]
+M0 ranking runs on every turn: pass=14 fail=3 failing=['A-X1', 'A-X2', 'A1-C7'] restored=True
+M6a status override removed: pass=15 fail=2 failing=['A1-C6', 'A1-C6b'] restored=True
+M6b only the #1 number claim is unverified: pass=15 fail=2 failing=['A1-C6', 'A1-C6b'] restored=True
+M7a persistText gate removed: pass=16 fail=1 failing=['A1-C7'] restored=True
+M7b gate is consentOk only: pass=17 fail=0 failing=[] restored=True
+M7c gate is !overlong only (unconsented minor ranks): pass=16 fail=1 failing=['A1-C7'] restored=True
+M8a profileFactsUsed stored unredacted: pass=16 fail=1 failing=['A1-C8'] restored=True
+M8b only the first fact redacted: pass=16 fail=1 failing=['A1-C8'] restored=True
+M9a option list asked with another student id: pass=15 fail=2 failing=['A-C3', 'A1-C9/C10'] restored=True
+M9b stored facts read for another student: pass=9 fail=8 failing=['A-C1a', 'A-C1b', 'A-C1c', 'A-C2', 'A-C3', 'A1-C6', 'A1-C7', 'A1-C9/C10'] restored=True
+M9c option list asked with fixed tenant: pass=16 fail=1 failing=['A1-C9/C10'] restored=True
+M10 weights asked with fixed tenant-a: pass=16 fail=1 failing=['A1-C9/C10'] restored=True
+M10b weights asked with no tenant id: pass=16 fail=1 failing=['A1-C9/C10'] restored=True
+M11 anonymous handler touches ranking/profile deps: pass=16 fail=1 failing=['A1-C11'] restored=True
+DIFF c1: pass/fail ('1', '0')
+final sha equal: True
+end 2026-10-19T08:06:08+0530

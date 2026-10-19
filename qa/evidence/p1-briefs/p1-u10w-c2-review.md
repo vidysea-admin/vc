@@ -1,0 +1,2 @@
+# p1-u10w-c2-review — senior-software-engineer review (read-only)
+Review the repair diff `git -C D:/vc/.worktrees/p1-u10w diff 0c2b981..1c9fafb -- apps/` (voiceEnabledFromEnv no longer trims VC_VOICE_ENABLED; exact "true" on, unset/""/"false" off, anything else throws VoiceConfigError at startup; new W5/W6 test cases). Do not read qa/verdicts or qa/checkpoints. Return Approve / Warning / Block with file:line evidence, under 200 words. Edit nothing.

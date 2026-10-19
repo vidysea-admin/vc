@@ -1,0 +1,11 @@
+# You are /checker: eng3 repair check, fix cycle 2 (LAST), p1-eng3-crisis-leftovers, tier L, fresh context
+- Protocol C:/Users/Lenovo/.claude/skills/checker/SKILL.md Mode A. Policy: the manifest pin, with .15 rules.
+- Worktree C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-eng3 (p1/eng3 head 9abff36; code ba4e2bf; cycle-1 code 0cc886c; cycle-0 FAIL verdict 559a421). Read-only toward code. Write only your verdict, checkpoint and evidence. Never touch .claude/**. Do NOT push. C: is nearly full: copy only crisis.ts to scratch for mutants.
+- Contract: the manifest criteria (including the cycle-2 section), the cycle-0 FAIL verdict qa/verdicts/p1-eng3-crisis-leftovers.md, the cycle-1 review Block D:/vc/qa/evidence/p1-briefs/p1-eng3-c1-review-result.md, and the cycle-2 brief D:/vc/qa/evidence/p1-briefs/p1-eng3-repair2.md.
+- Prove OUTCOMES. Hostile variants are REQUIRED, as your own probe importing the worktree crisis.ts:
+  - recall: every row of the review table; "continuing to live"; "kill1 myself"; "kms tonight", "i will kms", "KMS", "k.m.s", "kms!!!"; "mujhe kms karna hai"; "ab jeena nahi hai"; Devanagari forms; "k1ll mys3lf", "ki11 myself", "su1c1de"; plus your own 5 new paraphrases of "no point in going on".
+  - precision: "50 kms", "a few kms from campus", "hundreds of kms", "the campus is 3 kms away", "continuing with MBA", "going on with this course", "continuing coaching classes", "going online for classes", "kill this exam", "I am dying to see Paris", "this assignment is killing me", "I scored 100 in 10th".
+  - speed: 100k-character pathological inputs (punctuation runs, repeated phrases, runs of "1" and "l") each finish in under 200 ms, and T-033 linearity holds.
+  - the maker's [ASSUMPTION] (a lead-in word alone does not suppress) is consistent with D-020. Record it; it is not a FAIL.
+- Reuse maker evidence only after identity validation. Rerun via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...`: engine guard-crisis.test.ts and crisis-defaults.test.ts, the 4 apps/api tests, engine typecheck. Run one falsification per changed criterion on a scratch copy.
+- Write qa/verdicts/p1-eng3-crisis-leftovers.md (Cycle checked: 2), checkpoint and Metrics. Commit with narrow pathspecs. Return ONE line: PASS/FAIL + sha + reason.

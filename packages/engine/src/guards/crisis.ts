@@ -120,6 +120,37 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /\bin\s+case\s+(i'?m|i\s+am)\s+not\s+(here|around|there|alive)\b/i,
   /\bin\s+case\s+i\s+(won'?t|will\s+not)\s+be\s+(here|around|there|alive)\b/i,
 
+  // --- P1 W3 / D-093 2A (Umesh, 2026-10-17): every proposed Hindi/Hinglish recall phrase ---------
+  // Source: the U6h AI review (e2fd6fc, item 6) and the U7 review. Recall-only (D-020): a phrase that
+  // also appears in ordinary talk ("end things with my agent") is an accepted false alarm. "kms" is a
+  // whole-token check (TOKEN_CRISIS_PHRASES below), not a pattern: its separator-free twin would match
+  // inside "work ms" / "think ms".
+  // "mujhe marna hai / marna hi hai" - a stated wish to die, the verb "marna" with no "chahta" (the
+  // "marna chahta" family is matched above).
+  /\bmarna+\s+(hi\s+)?(hai|hain|h)\b/i,
+  // "mai khatam ho jana chahta hu / khatam ho jaunga" - "I want to cease to exist", distinct from
+  // "sab kuch khatam" (a bare hopelessness statement).
+  /\bkhatam\s+ho\s+(jana|jaana|jaun|jaaun|jaunga|jaungi|jaaunga|jaaungi)\b/i,
+  // "marne ki iccha / marne ka khayal" - a stated wish or thought of dying.
+  /\bmarne\s+(ki|ka)\s+(iccha|ichha|ichchha|khwahish|khayal)\b/i,
+  // "jeena nahi hai" - "I don't want to live" without "chahta".
+  /\bjeena\s+nahi[n]?\s+hai\b/i,
+  // "jaan dena hai / jaan dena chahta" - intent to give up one's life ("jaan lena" is left out: it also means "to find out").
+  /\bjaan\s+dena\s+(hai|chahta|chahti)\b/i,
+  // English - "I don't see the point anymore", "what's the point of living". Needs "anymore" or a life word, so
+  // "I don't see the point of this course" stays clear.
+  /\b(don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(the|any)\s+point\s+(anymore|any\s+more|in\s+(living|life|anything|being\s+alive))\b/i,
+  /\bsee\s+no\s+point\s+(anymore|any\s+more|in\s+(living|life|anything|being\s+alive))\b/i,
+  // "...point in going on / continuing with (my) life": the self-referential life form. The bare "in going on" / "in continuing"
+  // is a code check (matchPointContinuing): "continuing with MBA" is study talk, so it cannot be a plain pattern.
+  /\b(don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(the|any)\s+point\s+in\s+(going\s+on|continuing)\s+(with\s+)?(my\s+|this\s+)?(life|living)\b/i,
+  /\bsee\s+no\s+point\s+in\s+(going\s+on|continuing)\s+(with\s+)?(my\s+|this\s+)?(life|living)\b/i,
+  /\b(what'?s|what\s+is)\s+the\s+point\s+(of\s+(living|life|going\s+on|anything)|anymore|any\s+more)\b/i,
+  // English - "thinking about ending things", "I'm ending things tonight".
+  /\b(thinking|thought|thoughts|think|planning|plan|plans|want|wanna|going|gonna|decided|ready|trying)\s+((about|of|to)\s+)?end(ing)?\s+(things|everything)\b/i,
+  /\bend(ing)?\s+(things|everything)\s+(for\s+good|tonight|today|right\s+now|soon)\b/i,
+  /\bend(ing)?\s+it\s+(tonight|today|soon|for\s+good|right\s+now)\b/i,
+
   // --- ISS-023: Devanagari -----------------------------------------------------------------------
   // \b is not used here — JS's default \b is defined over ASCII word chars ([A-Za-z0-9_]) and does
   // not treat Devanagari code points as word characters, so it would silently fail to match at
@@ -130,6 +161,12 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /खुद\s+को\s+खत्म/, // "khud ko khatam" — end oneself
   /जीना\s+नहीं\s+चाहत[ाी]/, // "jeena nahi chahta/chahti" — don't want to live
   /जान\s+(दे|ले)\s+((दे|ले)\s+)?(दू[ंँ]?ग[ाी]|लू[ंँ]?ग[ाी])/, // U6h L5: "jaan de dunga" - (I will) give up my life
+  // P1 W3 / D-093 2A: the Devanagari forms of the new Hinglish phrases above.
+  /मरना\s+(ही\s+)?(है|हैं)/, // "marna hai" - (I) have to / want to die
+  /खत्म\s+हो\s+(जाना|जाऊ[ंँ]?(ग[ाी])?)/, // "khatam ho jana / jaunga" - cease to exist
+  /मरने\s+(की|का)\s+(इच्छा|ख्याल|मन)/, // "marne ki iccha / ka khayal" - a wish or thought of dying
+  /जीना\s+नहीं\s+है/, // "jeena nahi hai" - don't want to live
+  /जान\s+देना\s+(है|चाहत[ाी])/, // "jaan dena hai / chahta" - give up my life
 
   // --- T-033 / ISS-t-005c-c0-1: indirect suicidal-ideation WARNING SIGNS -------------------------
   // The classic warning-sign statements a keyword list used to miss entirely ("everyone would be
@@ -511,16 +548,52 @@ function stripForeignMarks(text: string): string {
  * ordinary "kill myself": sentence punctuation is folded away exactly like any other separator,
  * never treated as a boundary a pattern cannot cross (D-020).
  */
-function normalise(text: string): string {
+function normalise(text: string, leet: false | "i" | "l" = false): string {
+  const folded = foldText(text);
+  // Review c1 Low: in the 1 -> l reading a trailing "1" after a double l ("kill1" -> "killl") is one more l, so a run of three or
+  // more l's folds back to two ("kill"). Only the l-view changes, and that view is only ever an addition.
+  const leetFolded = leet ? foldLeet(folded, leet) : folded;
+  return (leet === "l" ? leetFolded.replace(/l{3,}/g, "ll") : leetFolded).replace(NON_WORD_RUN, " ").trim();
+}
+
+/**
+ * Every step of `normalise` except the final separator collapse (so punctuation survives). The long-mark-run cap runs first,
+ * before any Unicode normalisation, which keeps it linear on huge combining-mark runs (T-033).
+ */
+function foldText(text: string): string {
   const capped = text.replace(INVISIBLE_FORMAT_CHARS, "").replace(LONG_MARK_RUN, capMarkRun);
   const stripped = stripForeignMarks(stripForeignMarks(capped).normalize("NFKD"));
-  return stripped
+  const folded = stripped
     .normalize("NFKC")
     .replace(INVISIBLE_FORMAT_CHARS, "")
     .toLowerCase()
     .replace(HOMOGLYPH_CHAR, (ch) => HOMOGLYPHS[ch] ?? ch)
-    .replace(NON_WORD_RUN, " ")
-    .trim();
+    // P1 W3: a phone keyboard types a typographic apostrophe ("don’t"); the patterns' `'?` expects the ASCII one.
+    .replace(TYPOGRAPHIC_APOSTROPHE, "'");
+  return folded;
+}
+
+/** U+2019 right single quote, U+2018 left, U+02BC modifier letter apostrophe, U+2032 prime, U+FF07 fullwidth. */
+const TYPOGRAPHIC_APOSTROPHE = /[‘’ʼ′＇]/g;
+
+/**
+ * P1 W3 / D-093 2A: "i w4nt to d1e", "su1c1de", "k!ll myself", "d@ie". A digit or symbol standing beside a letter is read
+ * as the letter it imitates (0 o, 1 i, 3 e, 4 a, 5 s, 7 t, @ a, $ s; "!" only before a letter, so "die!" keeps its stop).
+ * This is a SECOND VIEW tried in addition to the plain one (never instead of it), so it can only add a match. A bare
+ * number ("5 lakh", "2026") has no letter beside it and is untouched.
+ */
+const LEET_MAP: Readonly<Record<string, string>> = { "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i" };
+// The run start is anchored (no look-alike character directly before it), so a long run is scanned once, from its first character.
+// Unanchored, every start position inside a 100000-character run of "1" re-scanned the rest of the run: quadratic (cycle-2 FAIL).
+const LEET_BEFORE_LETTER = /(?<![013457@$!])[013457@$!]+(?=\p{L})/gu;
+const LEET_AFTER_LETTER = /(?<=\p{L})[013457@$]+/gu;
+/**
+ * A whole run of look-alike characters is folded ("ki11" -> "kiii" or, with `oneAs` "l", "kill"). "1" is ambiguous: i ("d1e",
+ * "su1c1de") or l ("ki11 myself", "k1ll"), so the caller tries both readings as separate views.
+ */
+function foldLeet(text: string, oneAs: "i" | "l" = "i"): string {
+  const map = (run: string): string => [...run].map((ch) => (ch === "1" ? oneAs : (LEET_MAP[ch] ?? ch))).join("");
+  return text.replace(LEET_BEFORE_LETTER, map).replace(LEET_AFTER_LETTER, map);
 }
 
 /**
@@ -565,6 +638,101 @@ function squeeze(normalised: string): string {
   return normalised.replace(NON_SQUEEZE_RUN, "");
 }
 
+/**
+ * P1 W3 / D-093 2A: crisis shorthand that is only safe to match as a WHOLE TOKEN. "kms" ("kill myself") is the one: its
+ * separator-free twin would match inside ordinary text ("work ms" -> "workms", "think ms in cs"), so it is deliberately not a
+ * CRISIS_PATTERNS entry (no squeezed twin). An elongated "kmss" / "kmsss" is the same token. The ONLY suppression is a unit-of-
+ * distance reading, and only from the word BEFORE it: a number or a plain quantity word ("50 kms", "a few kms", "thousands of
+ * kms"). Nothing after it suppresses ("kms away from here", "kms from the stress" are crisis statements, fix cycle 1 of
+ * p1-eng3), and neither does a vague word before it ("thinking about kms", "almost kms"). Anything else is a flag (recall-only, D-020).
+ */
+export const TOKEN_CRISIS_PHRASES: readonly string[] = ["kms"];
+const QUANTITY_BEFORE = new Set(["few", "several", "couple", "many", "hundred", "hundreds", "thousand", "thousands"]);
+function isDistanceQuantity(token: string | undefined): boolean {
+  return token !== undefined && (/^\p{N}+$/u.test(token) || QUANTITY_BEFORE.has(token));
+}
+function matchTokens(view: string): string[] {
+  const tokens = view.split(" ");
+  const found: string[] = [];
+  for (const phrase of TOKEN_CRISIS_PHRASES) {
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i] !== phrase && !(tokens[i].length > phrase.length && tokens[i].startsWith(phrase) && /^s+$/.test(tokens[i].slice(phrase.length)))) continue;
+      const before = tokens[i - 1];
+      // "thousands of kms", "a couple of kms": the quantity word sits one token further back.
+      const distance = isDistanceQuantity(before) || (before === "of" && isDistanceQuantity(tokens[i - 2]));
+      if (!distance) {
+        found.push(phrase);
+        break;
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * Review W1 + cycle-1 Block (P1 W3 eng3, D-020 recall over precision): "I don't see the point in going on / continuing" is a
+ * crisis statement BY DEFAULT: at the end of the turn, before punctuation (`matchPointContinuingPunctuated`) and before any next
+ * word ("... at all", "... without her", "... today", "... lol", "... my family would be better off"). It is study talk, and
+ * suppressed, ONLY when a study object follows: a study noun right after it ("... continuing MBA"), or a lead-in word followed
+ * within three words by a study noun ("... continuing with MBA", "... going on with this course", "... continuing my IELTS prep").
+ * It always fires, whatever follows, on a life word in the next four words ("... continuing to live", "... with my life") and on
+ * "without", "with things / it / everything", "like this".
+ * [ASSUMPTION] (maker decision under D-020, fail closed, for Umesh): a lead-in alone ("my", "the", "to", ...) does NOT suppress;
+ * it needs a study noun after it, so "... going on my family would be better off" fires. The life form ("with my life") is also
+ * a plain CRISIS_PATTERNS entry.
+ */
+const POINT_IN_CONTINUING = /\b(?:(?:don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(?:the|any)|see\s+no)\s+point\s+in\s+(?:going\s*on(?:wards?)?|continuing)(?![\p{L}\p{N}])/gu;
+/** The same phrase on the lowercased raw text, immediately followed by punctuation (the normalised views fold punctuation away). */
+const POINT_IN_CONTINUING_PUNCT = /\b(?:(?:don'?t|do\s+not|can'?t|cannot|no\s+longer)\s+see\s+(?:the|any)|see\s+no)\s+point\s+in\s+(?:going\s*on(?:wards?)?|continuing)\s*[^\p{L}\p{M}\p{N}\s']/u;
+const POINT_STUDY_LEAD_IN = new Set(["with", "my", "the", "this", "these", "those", "a", "an", "our", "his", "her", "their", "your", "to"]);
+const POINT_STUDY_NOUNS = new Set([
+  "ielts", "gre", "gmat", "toefl", "sat", "mba", "ms", "btech", "course", "degree", "prep", "preparation", "studies", "study",
+  "college", "application", "applications", "coaching", "exam", "exams",
+]);
+const POINT_LIFE_WORDS = new Set(["living", "life", "live", "alive", "existing", "exist"]);
+const POINT_WITH_ALWAYS = new Set(["things", "it", "everything"]);
+/**
+ * Cycle 3 (D-098, recall over precision): a study object does NOT suppress when distress follows in the same clause. The
+ * normalised view has no punctuation, so the clause is the rest of the view (bounded to POINT_REST_WINDOW characters, which keeps
+ * the scan linear on a turn that repeats the phrase). Distress is: a life word, a hard-distress phrase (POINT_DISTRESS), or any
+ * CRISIS_PATTERNS / CONCERN_PATTERNS match run on that rest.
+ */
+const POINT_REST_WINDOW = 240;
+/** After this many study-suppressed matches in one view the turn is flagged: a turn that repeats the phrase is not plain study talk. */
+const POINT_MAX_SUPPRESSED = 20;
+const POINT_DISTRESS =
+  /\b(?:hate[ds]?\s+(?:myself|my\s*self|me|my\s+life|everything|being\s+alive)|worthless|hopeless|helpless|useless\s+(?:person|human|to\s+everyone)|burden|depress(?:ed|ion|ing)|miserable|hurts?|hurting|pain(?:ful)?|suffer(?:ing)?|suffocat(?:ing|ed)|drowning|crying|alone|lonely|empty|numb|dead|die|dying|death|suicid(?:e|al)|kill(?:ing)?|nobody|no\s*one|nothing\s+matters|everything\s+is\s+(?:pointless|meaningless)|give\s+up|gave\s+up|ashamed|failure|loser)\b/u;
+function pointRestHasDistress(rest: string, tokens: readonly string[]): boolean {
+  return (
+    tokens.some((t) => POINT_LIFE_WORDS.has(t)) ||
+    POINT_DISTRESS.test(rest) ||
+    CRISIS_PATTERNS.some((pattern) => pattern.test(rest)) ||
+    CONCERN_PATTERNS.some((pattern) => pattern.test(rest))
+  );
+}
+function matchPointContinuing(view: string): boolean {
+  let suppressed = 0;
+  for (const m of view.matchAll(POINT_IN_CONTINUING)) {
+    const start = (m.index ?? 0) + m[0].length;
+    const rest = view.slice(start, start + POINT_REST_WINDOW);
+    const tokens = rest.split(" ").filter((t) => t.length > 0);
+    // Nothing follows, or something other than a study object does: the statement itself is the signal.
+    if (tokens.length === 0 || pointRestHasDistress(rest, tokens)) return true;
+    const [first, second] = tokens;
+    const studyObject =
+      POINT_STUDY_NOUNS.has(first) || (POINT_STUDY_LEAD_IN.has(first) && tokens.slice(1, 4).some((t) => POINT_STUDY_NOUNS.has(t)));
+    // "with things / it / everything" is the one lead-in that never counts as a study object ("... with it my exams are over" fires).
+    if (!studyObject || (first === "with" && POINT_WITH_ALWAYS.has(second))) return true;
+    if (++suppressed > POINT_MAX_SUPPRESSED) return true;
+  }
+  return false;
+}
+function matchPointContinuingPunctuated(text: string): boolean {
+  return POINT_IN_CONTINUING_PUNCT.test(foldText(text));
+}
+/** The same bare form with every separator gone (fully letter- or punctuation-spaced evasion): only when it ends the turn. */
+const SQUEEZED_POINT_IN_CONTINUING = /(?:dontseethepoint|donotseethepoint|cantseethepoint|cannotseethepoint|nolongerseethepoint|seenopoint)in(?:goingon|continuing)$/;
+
 function matchAll(text: string, patterns: readonly RegExp[]): string[] {
   return patterns.filter((pattern) => pattern.test(text)).map((pattern) => pattern.source);
 }
@@ -588,20 +756,34 @@ export function crisisGuard(text: string): CrisisCheckResult {
   }
   const collapsed = collapseLetterSpacedRuns(normalised);
   const squeezed = squeeze(normalised);
+  // P1 W3 / D-093 2A: the leet-folded second view ("w4nt", "d1e"). Tried in addition to the plain views, so it only adds.
+  const leeted = normalise(text, "i");
+  const leetCollapsed = collapseLetterSpacedRuns(leeted);
+  const leetSqueezed = squeeze(leeted);
+  // Review I1: "1" is also an "l" ("ki11 myself", "k1ll"), so the l-reading is a third view (again, only ever an addition).
+  const leetedL = normalise(text, "l");
+  const leetLCollapsed = collapseLetterSpacedRuns(leetedL);
+  const leetLSqueezed = squeeze(leetedL);
 
   const crisisMatched = new Set<string>();
   const concernMatched = new Set<string>();
 
-  const views = collapsed === normalised ? [normalised] : [normalised, collapsed];
+  const views = [...new Set([normalised, collapsed, leeted, leetCollapsed, leetedL, leetLCollapsed])];
   for (const view of views) {
     for (const source of matchAll(view, CRISIS_PATTERNS)) crisisMatched.add(source);
     for (const source of matchAll(view, CONCERN_PATTERNS)) concernMatched.add(source);
+    for (const token of matchTokens(view)) crisisMatched.add(`token:${token}`);
+    if (matchPointContinuing(view)) crisisMatched.add("token:point-in-continuing");
   }
-  for (const { source, regex } of SQUEEZED_CRISIS_PATTERNS) {
-    if (regex.test(squeezed)) crisisMatched.add(`squeezed:${source}`);
-  }
-  for (const { source, regex } of SQUEEZED_CONCERN_PATTERNS) {
-    if (regex.test(squeezed)) concernMatched.add(`squeezed:${source}`);
+  if (matchPointContinuingPunctuated(text)) crisisMatched.add("token:point-in-continuing");
+  for (const twin of new Set([squeezed, leetSqueezed, leetLSqueezed])) {
+    if (SQUEEZED_POINT_IN_CONTINUING.test(twin)) crisisMatched.add("squeezed:point-in-continuing");
+    for (const { source, regex } of SQUEEZED_CRISIS_PATTERNS) {
+      if (regex.test(twin)) crisisMatched.add(`squeezed:${source}`);
+    }
+    for (const { source, regex } of SQUEEZED_CONCERN_PATTERNS) {
+      if (regex.test(twin)) concernMatched.add(`squeezed:${source}`);
+    }
   }
 
   if (crisisMatched.size > 0) {
@@ -635,4 +817,42 @@ export function routeBeforeGeneration(text: string): RouteResult {
       matched: result.matched,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// P1 W3 / D-093 3A (Umesh, 2026-10-17): the SOFT stress tier
+// ---------------------------------------------------------------------------
+
+/**
+ * Ordinary exam / study-abroad stress talk: "pressure bahut hai", "bahut stress", "I am so stressed", "can't handle the
+ * pressure". It asserts no death or self-harm, so it is NOT a crisis or concern flag (crisisGuard returns "none" for all of
+ * these; B24.7 would otherwise show the full crisis message on routine study talk). The student surface answers the turn as
+ * usual and appends a soft check-in plus Tele-MANAS 14416 (`stressSignal`, student graph `finish`). The counsellor path
+ * (`routeBeforeGeneration`) is unchanged. Star-height 1, no `{n,m}`, so matching stays linear.
+ */
+export const STRESS_PATTERNS: readonly RegExp[] = [
+  // Hinglish
+  /\bpressure\s+(bahut|bohot|bahot|zyada|jyada|kaafi|kafi)\s+(hai|hota|ho|badh)\b/i,
+  /\b(bahut|bohot|bahot|zyada|jyada|kaafi|kafi)\s+(stress|pressure)\b/i,
+  /\bstress\s+(bahut|bohot|bahot|zyada|jyada)\b/i,
+  // English
+  /\b(i\s+am|i'?m|im|feeling|feel|so|really|very|too)\s+(so\s+|really\s+|very\s+|too\s+|extremely\s+|super\s+)?(stressed|overwhelmed)\b/i,
+  /\b(can'?t|cannot|couldn'?t|unable\s+to)\s+(handle|take|cope\s+with|deal\s+with|bear)\s+(the|this|all\s+this|so\s+much|all\s+the|any\s+more\s+of\s+the)\s+(pressure|stress)\b/i,
+  /\b(too|so)\s+much\s+(pressure|stress)\b/i,
+  /\bunder\s+(so\s+|a\s+lot\s+of\s+|too\s+much\s+|immense\s+|a\s+lot\s+of\s+)?(pressure|stress)\b/i,
+  // Devanagari
+  /बहुत\s+(स्ट्रेस|प्रेशर|दबाव)/,
+  /(स्ट्रेस|प्रेशर|दबाव)\s+बहुत/,
+];
+
+/** The soft check-in line, then the helpline line (kept in sync with the student graph's TELE_MANAS_LINE). */
+export const STRESS_CHECK_IN = "That sounds like a lot of pressure, and it's okay to say so.";
+
+/** True when the turn carries ordinary stress language. Independent of `crisisGuard`: callers run the crisis path first. */
+export function stressSignal(text: string): boolean {
+  if (!text || text.trim().length === 0) return false;
+  const normalised = normalise(text);
+  if (normalised.length === 0) return false;
+  const collapsed = collapseLetterSpacedRuns(normalised);
+  return STRESS_PATTERNS.some((p) => p.test(normalised) || (collapsed !== normalised && p.test(collapsed)));
 }

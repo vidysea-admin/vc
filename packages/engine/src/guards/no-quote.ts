@@ -235,7 +235,8 @@ export function noQuoteGuard(text: string, speakers: SpeakersFile, extraNames: r
 //  - a parenthesised area code: "(415) 555-0132", "(98765) 43210", "+91 (98765) 43210";
 //  - dot or slash separated groups: "98765.43210", "98765/43210", "415.555.0132".
 // Dates (2026-03-04, 04.03.2026), amounts (11,000, 5000) and years are too short, differently grouped or comma-separated to match.
-const PHONE_CC = String.raw`(?:\+\p{Nd}{1,3}[\s.-]?)?`;
+// P1 W3 (U6h leftover 4): the country code may be parenthesised, "(+91) 98765 43210".
+const PHONE_CC = String.raw`(?:(?:\+\p{Nd}{1,3}|\(\+\p{Nd}{1,3}\))[\s.-]?)?`;
 const PHONE = new RegExp(
   String.raw`(?<![\p{N}])${PHONE_CC}(?:` +
     String.raw`(?:\p{Nd}[\s-]?){9,13}\p{Nd}` +

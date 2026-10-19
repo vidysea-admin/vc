@@ -1,0 +1,44 @@
+TAP version 13
+# Subtest: W5: VC_VOICE_ENABLED unset, empty or 'false' -> no voice route, an upgrade is refused, no gate is read, nothing voice-related is built or connected
+ok 1 - W5: VC_VOICE_ENABLED unset, empty or 'false' -> no voice route, an upgrade is refused, no gate is read, nothing voice-related is built or connected
+  ---
+  duration_ms: 285.8352
+  type: 'test'
+  ...
+# Subtest: W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' are off; padded, cased or other values throw VoiceConfigError (never on)
+not ok 2 - W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' are off; padded, cased or other values throw VoiceConfigError (never on)
+  ---
+  duration_ms: 2.1659
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\p1-u10w-A-c2-fals\\apps\\api\\tests\\voice-wiring.test.ts:422:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception (VoiceConfigError): " true"'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    TestContext.<anonymous> (D:\vc\.worktrees\p1-u10w-A-c2-fals\apps\api\tests\voice-wiring.test.ts:426:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1103:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+    Test.postRun (node:internal/test_runner/test:1232:19)
+    Test.run (node:internal/test_runner/test:1160:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+# Subtest: W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value
+not ok 3 - W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value
+  ---
+  duration_ms: 251.9591
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\p1-u10w-A-c2-fals\\apps\\api\\tests\\voice-wiring.test.ts:430:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection (VoiceConfigError): bad flag value " true"'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (D:\vc\.worktrees\p1-u10w-A-c2-fals\apps\api\tests\voice-wiring.test.ts:460:7)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+EXIT=1

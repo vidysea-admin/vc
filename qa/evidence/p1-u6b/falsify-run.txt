@@ -1,0 +1,29 @@
+[testlock] running slot 0 (free RAM 3.73 GB): node C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6b-fals/run.mjs C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6b-fals/packages/engine C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u6b/qa/evidence/p1-u6b/falsify
+BASELINE 33/33 fail=0 code=0
+C1a killed 6/33 C1 A16: a Germany/engineering student and a Canada/business student asking about the same 
+C1b killed 1/33 C1 A16: the same student, same options and same weights ranked twice
+C2a killed 2/33 C2 A16: every ranked option names its KB source ids and the profile facts that moved its s
+C2b killed 6/33 C2 A16: every ranked option names its KB source ids and the profile facts that moved its s
+C3a killed 3/33 C1 A16: scores are the weighted sum of the four components, fit comes from the confirmed f
+C3b killed 2/33 C3 P-8: a student who sets no weights is ranked with 0.40 / 0.25 / 0.20 / 0.15 and told ra
+C4a killed 5/33 C4 D-086 Q3: a tenant that weights scholarship chance at 0.8 and fit at 0 changes the orde
+C4b killed 1/33 C4 D-086 Q3: a tenant that weights scholarship chance at 0.8 and fit at 0 changes the orde
+C4c killed 1/33 C4 D-086 Q3: a fit weight of zero means the profile facts moved nothing, so none are repor
+C5a killed 2/33 C5 B24.8: a request with no authenticated student gets no ranking, whatever facts or optio
+C5b killed 1/33 C5 B24.8: a request with no authenticated student gets no ranking, whatever facts or optio
+C5c killed 1/33 C5 B24.8: the refusal happens before the option-data port is asked anything
+C6a killed 1/33 C6 A16b: a fact the student has not confirmed
+C6b killed 1/33 C6 A16b: a fact with an unknown source label is ignored and counted, never relabelled
+C6c killed 1/33 C6 A16b: when Pathlynks and the student give different values for one key, the student's c
+C6d killed 4/33 C2 A16: the top-level profileFactsUsed lists each fact once, with the exact source label i
+C7a killed 6/33 C6 A16b: a student who has only proposed facts
+C7b killed 1/33 C7 B24.8: a number with no cited source, outside 0..1 or not finite is treated as missing,
+C7c killed 1/33 C7 B24.8: a number with no cited source, outside 0..1 or not finite is treated as missing,
+C7d killed 1/33 C7 B24.8: tied scores break by option id, whatever order the options arrived in
+C7e killed 1/33 C7 B24.8: a component whose weight is zero does not block ranking when its data is missing
+C7f killed 1/33 C7 B24.8: more options than the cap, or none, is refused rather than truncated
+C7g killed 4/33 C7 B24.8: an option whose cost the data port does not have is marked insufficient_data, li
+C8a killed 2/33 C8 D-086 Q3: a weight vector with a negative, NaN, Infinity, string or missing component i
+C8b killed 1/33 C8 D-086 Q3: an unknown weight key
+C8c killed 1/33 C8 D-086 Q3: an all-zero vector is rejected
+C8d killed 2/33 C3 P-8: explicitly passing the default vector, or a multiple of it, is still student-succe

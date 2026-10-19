@@ -1,0 +1,141 @@
+# Coverage report (A17)
+
+Mode: `mock` · Fixture source: `synthetic` · As of: 2026-10-17 · Stale after 24 months · A hit counts at score >= 1
+
+> Synthetic fixture: this proves the report only. Real breadth is NOT PROVEN until the counsellor team supplies the country x theme probe list (Q-U11-2) and a recorded KB capture exists (G-KB).
+
+Cells: 72 · answered 53 · unanswered 14 · unrecorded 3 · no probe 2 · hits 159 (stale 20, date_unknown 14)
+
+No-answer countries: Japan, Singapore
+
+No-answer themes: none
+
+## Countries
+
+| Country | Cells | Answered | Gap cells | Hits | Stale | date_unknown | No answer |
+|---|---|---|---|---|---|---|---|
+| Australia | 6 | 6 | 0 | 18 | 4 | 0 | no |
+| Canada | 6 | 6 | 0 | 18 | 2 | 0 | no |
+| France | 6 | 6 | 0 | 18 | 2 | 2 | no |
+| Germany | 6 | 6 | 0 | 18 | 2 | 2 | no |
+| Ireland | 6 | 6 | 0 | 18 | 2 | 2 | no |
+| Japan | 6 | 0 | 6 | 0 | 0 | 0 | **GAP** |
+| Netherlands | 6 | 3 | 3 | 9 | 0 | 2 | no |
+| New Zealand | 6 | 6 | 0 | 18 | 2 | 2 | no |
+| Singapore | 6 | 0 | 6 | 0 | 0 | 0 | **GAP** |
+| UAE | 6 | 4 | 2 | 12 | 2 | 0 | no |
+| UK | 6 | 5 | 1 | 15 | 4 | 2 | no |
+| USA | 6 | 5 | 1 | 15 | 0 | 2 | no |
+
+## Themes
+
+| Theme | Cells | Answered | Gap cells | Hits | Stale | date_unknown | No answer |
+|---|---|---|---|---|---|---|---|
+| accommodation | 12 | 10 | 2 | 30 | 4 | 2 | no |
+| admissions | 12 | 10 | 2 | 30 | 4 | 2 | no |
+| scholarships | 12 | 10 | 2 | 30 | 2 | 0 | no |
+| tuition | 12 | 8 | 4 | 24 | 4 | 4 | no |
+| visa | 12 | 7 | 5 | 21 | 2 | 4 | no |
+| work-rights | 12 | 8 | 4 | 24 | 4 | 2 | no |
+
+## Probes (country x theme)
+
+| Country | Theme | Probe | Status | Hits | Below threshold | Fresh | Stale | date_unknown | Unanswered |
+|---|---|---|---|---|---|---|---|---|---|
+| Australia | accommodation | cov-australia-accommodation | answered | 3 | 0 | 1 | 2 | 0 | no |
+| Australia | admissions | cov-australia-admissions | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Australia | scholarships | cov-australia-scholarships | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Australia | tuition | cov-australia-tuition | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Australia | visa | cov-australia-visa | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Australia | work-rights | cov-australia-work-rights | answered | 3 | 0 | 1 | 2 | 0 | no |
+| Canada | accommodation | cov-canada-accommodation | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Canada | admissions | cov-canada-admissions | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Canada | scholarships | cov-canada-scholarships | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Canada | tuition | cov-canada-tuition | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Canada | visa | cov-canada-visa | answered | 3 | 0 | 1 | 2 | 0 | no |
+| Canada | work-rights | cov-canada-work-rights | answered | 3 | 0 | 3 | 0 | 0 | no |
+| France | accommodation | cov-france-accommodation | answered | 3 | 0 | 3 | 0 | 0 | no |
+| France | admissions | cov-france-admissions | answered | 3 | 0 | 3 | 0 | 0 | no |
+| France | scholarships | cov-france-scholarships | answered | 3 | 0 | 3 | 0 | 0 | no |
+| France | tuition | cov-france-tuition | answered | 3 | 0 | 1 | 2 | 0 | no |
+| France | visa | cov-france-visa | answered | 3 | 0 | 3 | 0 | 0 | no |
+| France | work-rights | cov-france-work-rights | answered | 3 | 0 | 1 | 0 | 2 | no |
+| Germany | accommodation | cov-germany-accommodation | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Germany | admissions | cov-germany-admissions | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Germany | scholarships | cov-germany-scholarships | answered | 3 | 0 | 1 | 2 | 0 | no |
+| Germany | tuition | cov-germany-tuition | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Germany | visa | cov-germany-visa | answered | 3 | 0 | 1 | 0 | 2 | no |
+| Germany | work-rights | cov-germany-work-rights | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Ireland | accommodation | cov-ireland-accommodation | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Ireland | admissions | cov-ireland-admissions | answered | 3 | 0 | 1 | 2 | 0 | no |
+| Ireland | scholarships | cov-ireland-scholarships | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Ireland | tuition | cov-ireland-tuition | answered | 3 | 0 | 1 | 0 | 2 | no |
+| Ireland | visa | cov-ireland-visa | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Ireland | work-rights | cov-ireland-work-rights | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Japan | accommodation | cov-japan-accommodation | unanswered | 0 | 2 | 0 | 0 | 0 | **yes** |
+| Japan | admissions | cov-japan-admissions | unanswered | 0 | 2 | 0 | 0 | 0 | **yes** |
+| Japan | scholarships | cov-japan-scholarships | unanswered | 0 | 2 | 0 | 0 | 0 | **yes** |
+| Japan | tuition | cov-japan-tuition | unanswered | 0 | 2 | 0 | 0 | 0 | **yes** |
+| Japan | visa | cov-japan-visa | unanswered | 0 | 2 | 0 | 0 | 0 | **yes** |
+| Japan | work-rights | cov-japan-work-rights | unanswered | 0 | 2 | 0 | 0 | 0 | **yes** |
+| Netherlands | accommodation | cov-netherlands-accommodation | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Netherlands | admissions | cov-netherlands-admissions | answered | 3 | 0 | 1 | 0 | 2 | no |
+| Netherlands | scholarships | cov-netherlands-scholarships | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Netherlands | tuition | cov-netherlands-tuition | unrecorded | 0 | 0 | 0 | 0 | 0 | **yes** |
+| Netherlands | visa | cov-netherlands-visa | unrecorded | 0 | 0 | 0 | 0 | 0 | **yes** |
+| Netherlands | work-rights | cov-netherlands-work-rights | unrecorded | 0 | 0 | 0 | 0 | 0 | **yes** |
+| New Zealand | accommodation | cov-new-zealand-accommodation | answered | 3 | 0 | 1 | 0 | 2 | no |
+| New Zealand | admissions | cov-new-zealand-admissions | answered | 3 | 0 | 3 | 0 | 0 | no |
+| New Zealand | scholarships | cov-new-zealand-scholarships | answered | 3 | 0 | 3 | 0 | 0 | no |
+| New Zealand | tuition | cov-new-zealand-tuition | answered | 3 | 0 | 1 | 2 | 0 | no |
+| New Zealand | visa | cov-new-zealand-visa | answered | 3 | 0 | 3 | 0 | 0 | no |
+| New Zealand | work-rights | cov-new-zealand-work-rights | answered | 3 | 0 | 3 | 0 | 0 | no |
+| Singapore | accommodation | cov-singapore-accommodation | unanswered | 0 | 0 | 0 | 0 | 0 | **yes** |
+| Singapore | admissions | cov-singapore-admissions | unanswered | 0 | 0 | 0 | 0 | 0 | **yes** |
+| Singapore | scholarships | cov-singapore-scholarships | unanswered | 0 | 0 | 0 | 0 | 0 | **yes** |
+| Singapore | tuition | cov-singapore-tuition | unanswered | 0 | 0 | 0 | 0 | 0 | **yes** |
+| Singapore | visa | cov-singapore-visa | unanswered | 0 | 0 | 0 | 0 | 0 | **yes** |
+| Singapore | work-rights | cov-singapore-work-rights | unanswered | 0 | 0 | 0 | 0 | 0 | **yes** |
+| UAE | accommodation | cov-uae-accommodation | answered | 3 | 0 | 3 | 0 | 0 | no |
+| UAE | admissions | cov-uae-admissions | answered | 3 | 0 | 1 | 2 | 0 | no |
+| UAE | scholarships | cov-uae-scholarships | answered | 3 | 0 | 3 | 0 | 0 | no |
+| UAE | tuition | cov-uae-tuition | answered | 3 | 0 | 3 | 0 | 0 | no |
+| UAE | visa | (none) | no_probe | 0 | 0 | 0 | 0 | 0 | **yes** |
+| UAE | work-rights | (none) | no_probe | 0 | 0 | 0 | 0 | 0 | **yes** |
+| UK | accommodation | cov-uk-accommodation | answered | 3 | 0 | 1 | 2 | 0 | no |
+| UK | admissions | cov-uk-admissions | answered | 3 | 0 | 3 | 0 | 0 | no |
+| UK | scholarships | cov-uk-scholarships | answered | 3 | 0 | 3 | 0 | 0 | no |
+| UK | tuition | cov-uk-tuition | unanswered | 0 | 1 | 0 | 0 | 0 | **yes** |
+| UK | visa | cov-uk-visa | answered | 3 | 0 | 1 | 0 | 2 | no |
+| UK | work-rights | cov-uk-work-rights | answered | 3 | 0 | 1 | 2 | 0 | no |
+| USA | accommodation | cov-usa-accommodation | answered | 3 | 0 | 3 | 0 | 0 | no |
+| USA | admissions | cov-usa-admissions | answered | 3 | 0 | 3 | 0 | 0 | no |
+| USA | scholarships | cov-usa-scholarships | answered | 3 | 0 | 3 | 0 | 0 | no |
+| USA | tuition | cov-usa-tuition | answered | 3 | 0 | 1 | 0 | 2 | no |
+| USA | visa | cov-usa-visa | unanswered | 0 | 0 | 0 | 0 | 0 | **yes** |
+| USA | work-rights | cov-usa-work-rights | answered | 3 | 0 | 3 | 0 | 0 | no |
+
+## KB /gaps (knowledge-health gaps) · source `mcp/university-kb/kb-fixture/gaps.json`
+
+| Id | Kind | Status | Description |
+|---|---|---|---|
+| gap-1 | source-pending | open | Japan scholarship webinar recording not received |
+| gap-2 | vector-pending | open | (none) |
+| (none) | recording-pending | (none) | (none) |
+
+## VC gap counts (authenticated mode, text-free)
+
+[ASSUMPTION] Q-U11-1: the VC gap store holds a count per date and kind only, with no country or theme, so these are overall totals and per-probe unanswered comes from the probe itself.
+
+Dates: 2026-10-15, 2026-10-16, 2026-10-17 · Total: 17
+
+| Kind | Total |
+|---|---|
+| no_sourced_answer | 13 |
+| unverified_claim | 4 |
+
+| Date | Total |
+|---|---|
+| 2026-10-15 | 5 |
+| 2026-10-16 | 7 |
+| 2026-10-17 | 5 |

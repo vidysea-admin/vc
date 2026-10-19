@@ -1,0 +1,14 @@
+# You are /checker coordinator A (of 2, blind dual check): p1-u6w-rank-wiring, tier L (tenancy), fresh context, cycle 0
+- Protocol C:/Users/Lenovo/.claude/skills/checker/SKILL.md Mode A. Policy: the manifest pin (proportional-verification/2026-10-18.15). Never read coordinator B's verdict, checkpoint or evidence. Your PASS has no side effects: findings go in your verdict as PROPOSED-ISSUE lines.
+- Worktree D:/vc/.worktrees/p1-u6w (branch p1/u6w, head aa70fe9, code fe47e01, base main 7d2840e). Read-only toward code. Write only qa/verdicts/p1-u6w-rank-wiring.A.md, your checkpoint and your evidence (qa/evidence/p1-u6w-A/). Never touch .claude/**. Do NOT push. Scratch copies go under D:/vc/.worktrees/ only (C: is full), one mutant per copy.
+- Contract: the manifest criteria in qa/manifests/p1-u6w-rank-wiring.md, the brief D:/vc/qa/evidence/p1-briefs/p1-u6w-build.md, ISS-163/ISS-167, D-097 item 3, and the U6b verdict qa/verdicts/p1-u6b-profile-ranking.md (hostile H4).
+- Prove OUTCOMES with hostile variants:
+  - a 'chat'-sourced confirmed fact changes the ranking; a proposed, unconfirmed or 'chat-extracted' fact does not;
+  - tenant B's facts never affect tenant A's ranking, including when the student id is the same in both tenants;
+  - every per-option number that reaches the student carries NOT PROVEN, in both the claims and the message text;
+  - a ranking throw still returns the reply, logs chat_rank_failed with no profile text and no raw message;
+  - anonymous mode never ranks on stored facts;
+  - the U8r privacy behaviour (redaction, crisis path) is unchanged: chat-privacy.test.ts is green and no assertion was weakened (the test diff is additions only);
+  - when ranking is not wired (no deps.ranking), the behaviour is identical to main.
+- Reuse maker evidence only after identity validation. Rerun via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh ...` (long waits are normal): the manifest's apps/api files, packages/engine tests/rank.test.ts, and `pnpm -r typecheck`. One falsification per criterion, on a scratch copy.
+- Return ONE line: PASS/FAIL + verdict sha + reason. Write the verdict with Cycle checked: 0.

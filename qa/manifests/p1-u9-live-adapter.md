@@ -3,7 +3,8 @@
 **Criteria:** C1 interface, C2 mock, C3 gemini, C4 crisis, C5 audit, C6 sink
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
+**Close-out:** PASS at brief rewrite 1 (cycle rw1), verdict qa/verdicts/p1-u9-live-adapter.md at f53b50a; senior review Approve (qa/evidence/p1-briefs/p1-u9-rw1-review-result.md). Review test gaps and residual risks filed as ISS-175..ISS-182 in qa/issues.jsonl (all low; G-REAL / A10 where noted).
 **Brief rewrite:** 1 (reset)
 **Fix cycle:** 1 of max 2
 **Dual check:** no (no auth, tenancy or prod-write trigger: provider seam, mock only, no network)
