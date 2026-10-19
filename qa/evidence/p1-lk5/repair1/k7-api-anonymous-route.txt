@@ -1,0 +1,25 @@
+✔ A20: the anonymous route is OFF by default - unset, empty and 'false' all read as disabled; only the exact word 'true' enables (3.134ms)
+✔ A20 state OFF: with the flag off nothing is built and the path answers exactly like an unknown path (404), for every method (9.7996ms)
+✔ A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route (13.1399ms)
+✔ A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed (100.1048ms)
+✔ A20 state ON and gate open: the route is served (220.4359ms)
+✔ no student text is traced: an env that switches LangChain/LangSmith tracing on refuses to build the route (48.8971ms)
+✔ B21 exception: the closed list is exactly one text route, equals the draft's security:[] operations, and contains no voice route (1.7533ms)
+✔ B21 exception: with the anonymous route ON, every other registered route still answers 401 with no token, and the main handler touches no Db (42.9362ms)
+✔ B21 exception: the anonymous route ignores identity - a valid-looking Authorization header changes nothing and no tenant or student id is read (128.674ms)
+✔ startApi: flag off -> the anonymous path is a 404 over real HTTP and no gate file is read (88.2638ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (18.2796ms)
+✔ startApi: flag on without a KB or speakers supplied is a config error, before connecting (9.4689ms)
+✔ startApi: flag on and gate open -> a real HTTP POST is answered and ONLY the text-free counter is written to virtual_counsellor; other routes still 401 (188.4256ms)
+✔ the node:http adapter hands the socket address to the limiter (10 per minute per real client) (425.1716ms)
+✔ U7 repair 2: with the flag on, startApi refuses to start unless the deployment states how clients are told apart - an explicit clientKey or trustSocketAddress: true (43.8754ms)
+✔ U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 the route can return, and the AnonymousError schema carries the helpline field (0.5652ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8080.0855
+EXIT=0

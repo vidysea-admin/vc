@@ -1,0 +1,33 @@
+✔ listSkills finds all 14 real skills (97.7869ms)
+✔ listSkills: every skill's frontmatter name matches its folder name (144.1717ms)
+✔ listSkills: every skill has a non-empty description (34.8021ms)
+✔ loadSkill returns the body (progressive disclosure) for every real skill (25.6448ms)
+✔ loadSkill throws when SKILL.md has no frontmatter (3.7227ms)
+✔ loadSkill throws when the frontmatter name does not match the folder name (3.1726ms)
+✔ loadSkill succeeds for a well-formed fixture skill (2.6151ms)
+✔ listSkills throws when the directory contains a malformed skill (3.7216ms)
+✔ ISS-022: loadSkill throws on a '../' path-traversal name (0.7043ms)
+✔ ISS-022: loadSkill throws on a '..\\' (backslash) path-traversal name (0.5502ms)
+✔ ISS-022: loadSkill throws on a nested traversal name 'a/../../b' (0.3391ms)
+✔ ISS-022: loadSkill throws on an absolute path name (0.7255ms)
+✔ ISS-022: loadSkill throws on an empty name (0.514ms)
+✔ ISS-022: loadSkill throws on an uppercase name (0.2706ms)
+✔ ISS-022: loadSkill throws on a name containing NUL (1.0952ms)
+✔ ISS-022: loadSkill throws on a name containing a space (0.4999ms)
+✔ ISS-022: rejection is the name-allowlist guard itself, not an incidental ENOENT (0.6753ms)
+✔ ISS-022: loadSkill still loads a valid name (2.6115ms)
+✔ ISS-024: loadSkill throws on a YAML block-scalar description ('description: >') (4.902ms)
+✔ ISS-024: loadSkill throws on a YAML block-scalar description ('description: |') (2.611ms)
+✔ ISS-t-005c-c0-4: loadSkill refuses a skill folder that is a link escaping the skills dir (7.2713ms)
+ℹ link kind used: dir
+✔ ISS-t-005c-c0-4: listSkills refuses (throws) rather than listing an escaping linked skill folder (4.3986ms)
+✔ ISS-t-005c-c0-4: a skills root reached THROUGH a link still loads its own skills (6.4454ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1188.9819
+EXIT=0

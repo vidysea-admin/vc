@@ -1,0 +1,14 @@
+✔ A15b: the personal fixture has >= 40 borderline cases incl. Hindi/Hinglish, and 0 of them are classified generic (5.8658ms)
+✔ A15b: clear generic factual questions (English, Hinglish, Hindi) are generic (0.9803ms)
+✔ A15b: fails closed - empty, whitespace, very long or unrecognised input is personal (0.6598ms)
+✔ A15b: rule-based - classify.ts imports no provider and makes no model call (2.9038ms)
+✔ U7 repair F: an email address is personal data like a phone number - personal -> sign_in_required, never generic (0.4996ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 481.792
+EXIT=0

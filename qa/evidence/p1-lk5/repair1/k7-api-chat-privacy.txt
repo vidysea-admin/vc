@@ -1,0 +1,45 @@
+✔ D-093 6A: a student who types their name, phone and email in a question gets an answer, and none of the three is in anything stored (471.6489ms)
+✔ D-093 6A: a name the Pathlynks profile supplies is redacted from stored text even when the student never said 'my name is' (99.9772ms)
+✔ D-093 6A: a model answer that carries an email address is stored and replayed redacted, while the first live answer is unchanged (88.0501ms)
+✔ D-093 4A: an under-18 student with no guardian-consent claim still gets the answer, and no turn text, answer or redacted copy is stored anywhere (114.7178ms)
+✔ D-093 4A: an under-18 student without consent who opens the chat and leaves before asking anything has a thread already marked text-free (28.443ms)
+✔ D-093 4A: a token with no age and no minor claim is treated as under 18 (fail closed), so its text is not stored either (54.7993ms)
+✔ D-093 4A: an under-18 student WITH the guardian-consent claim is stored like an adult; a consent claim that is the string 'true' is not consent (84.642ms)
+✔ D-093 4A: a thread opened with consent that later turns come without it is marked textStored false, and the earlier stored turns stay readable (86.4538ms)
+✔ D-093 4A: a crisis message from an under-18 student without consent gets the fixed message, keeps only an ids-and-time flag row, and does not hand the text to escalation (55.1937ms)
+✔ a crisis message from an adult is answered with the fixed message, flagged in the safety log, and escalated through the tenant's escalation path (74.4971ms)
+✔ a student who raised a crisis flag earlier in the thread still sees the helpline on a later turn after the server restarts (the flag is read from the store) (145.4371ms)
+✔ two tenants with the same student id never see each other's threads, and every stored row carries its own tenant (164.9267ms)
+✔ A6: the sandbox tenant accepts only syn- student ids (403 for a real-looking id on every route), other tenants are unaffected (97.572ms)
+✔ D-015: a student whose erasure is in progress is told 409 student_fenced, the model is not called, and nothing new is kept (52.4669ms)
+✔ a 500 from an unexpected failure carries no cause and the log line carries no student text (26.219ms)
+✔ p1-u8r A1: a student who types 'my name is devika nair' in lower case has the name in nothing that is stored or read back (94.0735ms)
+✔ p1-u8r A1: 'i am tired' and 'i am from delhi' in a stored question survive redaction (no over-redaction) (87.9015ms)
+✔ p1-u8r A2: a name the student stated (capitalised) and the model echoes in its reply is stored and replayed redacted, while the live answer is unchanged (117.1559ms)
+✔ p1-u8r A2: a name the student stated (lower case) and the model echoes in its reply is stored and replayed redacted, while the live answer is unchanged (55.3621ms)
+✔ p1-u8r M1: when the Pathlynks profile cannot be read, an ordinary turn is refused 503 before anything is written (a profile name could not be redacted), and works once the profile is back (54.3006ms)
+✔ p1-u8r M1: a crisis message during a profile outage still gets the helpline and an escalation, but its text is not stored (39.9495ms)
+✔ p1-u8r M2: a flood of crisis messages in one thread is always answered with the helpline, but writes at most one stored exchange, one flag, one escalation and one usage count per window (708.0138ms)
+✔ p1-u8r M2: a crisis turn whose escalation write failed does not use up the window, so the next crisis turn is escalated (81.7468ms)
+✔ p1-u8r item 5: the crisis escalation path is handed redacted text, never the student's name, phone or email, and the crisis is still escalated (63.6584ms)
+✔ p1-u8r item 5: redacting an introduction never hides the crisis wording from the escalation ('i am unalive' is not turned into 'i am [NAME]') (51.1741ms)
+✔ p1-u8r M2: the crisis budget is per thread, so a student in a second thread is still escalated within the same window (172.025ms)
+✔ p1-u8r cycle 1 H1: a concern turn does not hide a crisis turn that follows it in the window (concern then crisis escalates twice) (126.9632ms)
+✔ p1-u8r cycle 1 H1: crisis then crisis escalates once, and crisis then concern escalates once (88.9813ms)
+✔ p1-u8r cycle 1 M-race: a quiet crisis turn answered while the slot holder is still in flight leaves a text-free flag, even if the holder then fails (5096.6993ms)
+✔ p1-u8r cycle 1 M-race: a retry with the same clientTurnId of a completed crisis turn replays the stored answer and does not run the model again (31.0801ms)
+✔ p1-u8r cycle 2 item 1: an over-long crisis turn (which cannot escalate) does not silence a normal crisis turn 60 s later (98.1167ms)
+✔ p1-u8r cycle 2 item 1: an unconsented minor's crisis turn does not silence a later consented crisis turn in the same thread (86.9227ms)
+✔ p1-u8r cycle 2 item 2: a failed holder's slot is never put back (concern A in flight, crisis B takes over, A fails, B fails, then concern C escalates) (81.2797ms)
+✔ p1-u8r cycle 2 item 3: a quiet turn behind an in-flight holder waits for it; when the holder fails, the waiting turn escalates itself (103.1295ms)
+✔ p1-u8r cycle 2 item 3: a quiet turn behind an in-flight holder that succeeds stays quiet and writes nothing (97.7795ms)
+✔ p1-u8r cycle 2 item 3: the wait is bounded; a holder that hangs past it does not keep the waiting crisis turn from escalating (171.5812ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16287.0429
+EXIT=0

@@ -67,6 +67,7 @@ import {
   detectLanguageOffline,
   isNonEnglish,
   isOutsideAllowList,
+  countriesInLocalized,
   localizedClaimOk,
   replyLangIs,
   resolveReplyLang,
@@ -393,16 +394,20 @@ const KbAnswerOutputSchema = z.object({
       z.object({
         text: z.string().min(1).max(2000),
         /** LK5: the same claim in the reply language (absent for an English reply). */
-        localized: z.string().min(1).max(2000).optional(),
+        localized: z.string().min(1).max(2000).optional().catch(undefined),
         kind: z.enum(["number", "country", "fact"]),
         sourceIds: z.array(z.string()).max(20),
       }),
     )
     .max(20),
   followUp: z.string().max(500).optional(),
-  /** LK5: the language the model wrote `localized` in; anything but the language asked for means the English reply. */
-  replyLang: z.string().max(16).optional(),
-  followUpLocalized: z.string().max(500).optional(),
+  /**
+   * LK5: the language the model wrote `localized` in; anything but the language asked for means the English reply. The three LK5 fields
+   * are tolerant (repair 1, ISS-383): an empty, null or over-long value becomes undefined, which is "show the English reply". `text`, `kind`
+   * and `sourceIds` stay strict.
+   */
+  replyLang: z.string().max(16).optional().catch(undefined),
+  followUpLocalized: z.string().max(500).optional().catch(undefined),
 });
 const CoachOutputSchema = z.object({ reply: z.string().max(8000), questions: z.array(z.string().max(500)).max(6) });
 
@@ -705,6 +710,19 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     return noQuoteGuard(f, deps.speakers, restricted.labels).text;
   }
 
+  /** Repair 1 (M3): the localized follow-up passes what `safeFollowUp` applies to the English one, plus the language-neutral comparison with it. */
+  function localizedFollowUpOk(englishFollowUp: string, fl: string, replyLang: ReplyLang, restricted: { texts: string[]; labels: string[] }): boolean {
+    if (fl.length > FOLLOW_UP_MAX_CHARS || !fl.endsWith("?")) return false;
+    const body = fl.slice(0, -1);
+    if (/[?!\u0964\n\r\u2028\u2029;]/.test(body) || /\.\s/.test(body)) return false;
+    if (!noScriptGuard({ type: "clarify", prompt: fl }).ok || violatesCrisisRules(fl)) return false;
+    if (/\p{N}/u.test(fl) || numberMentions(fl).length > 0) return false;
+    if (countriesInLocalized(fl).length > 0) return false;
+    if (findPersonalIdentifiers(fl, deps.speakers, restricted.labels).length > 0) return false;
+    if (restricted.texts.some((t) => hasVerbatimRun(fl, t))) return false;
+    return localizedClaimOk(englishFollowUp, fl, replyLang, restricted.texts);
+  }
+
   /**
    * LK5: the reply in the student's language, or undefined for "show the English reply". The English claims already passed every guard;
    * this only swaps in the localized copies, and only when ALL of them pass the language-neutral checks and the model reported the
@@ -728,8 +746,13 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
           : redactPersonalIdentifiers(c.localized, { speakers: [] }, []);
       parts.push(c.status === "unverified" ? `${text} (unverified)` : text);
     }
+    // Repair 1 (M3): a localized follow-up goes through the same checks as the English one; if it fails, the whole reply is the English
+    // reply (which carries the English follow-up). An absent or blank one just means no follow-up in the localized reply.
     const fl = draft.followUpLocalized?.trim();
-    if (englishFollowUp && fl && fl.length <= FOLLOW_UP_MAX_CHARS && fl.endsWith("?") && !/[?!\u0964\n\r\u2028\u2029;]/.test(fl.slice(0, -1)) && localizedClaimOk(englishFollowUp, fl, replyLang, restricted.texts)) parts.push(fl);
+    if (englishFollowUp && fl) {
+      if (!localizedFollowUpOk(englishFollowUp, fl, replyLang, restricted)) return undefined;
+      parts.push(fl);
+    }
     const message = noQuoteGuard(parts.join(" "), deps.speakers, restricted.labels).text;
     return restricted.texts.some((t) => hasVerbatimRun(message, t)) ? undefined : message;
   }
@@ -783,7 +806,8 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       draft = await deps.provider.generate({
         skillName: KB_ANSWER_SKILL,
         skillPrompt: kbAnswerPrompt,
-        outputSchema: KbAnswerOutputSchema,
+        // the tolerant LK5 fields (.catch) widen the schema INPUT type to unknown; the OUTPUT type is what the provider hands back
+        outputSchema: KbAnswerOutputSchema as z.ZodType<z.output<typeof KbAnswerOutputSchema>>,
         input: { question: input.text, evidence, priorFlag: authenticated ? priorFlag : false, replyLang: lang.reply },
       });
     } catch {
@@ -808,10 +832,12 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     // Repair R2a: the FINAL message is checked against every restricted text of the turn (fail closed).
     if (guarded.restricted.texts.some((t) => hasVerbatimRun(message, t))) return noAnswer(input);
     message = noQuoteGuard(message, deps.speakers, guarded.restricted.labels).text;
-    if (authenticated && priorFlag && violatesCrisisRules(message)) {
+    const englishViolatesCrisisRules = authenticated && priorFlag && violatesCrisisRules(message);
+    message = localizedMessage(draft, shown, followUp, guarded.restricted, lang.reply) ?? message;
+    // Repair 1 (M2): the forbidden-pattern check also runs on the text actually shown, i.e. after the localized swap.
+    if (authenticated && priorFlag && (englishViolatesCrisisRules || violatesCrisisRules(message))) {
       return { response: emptyResponse(input, "ok", STUDENT_CRISIS_MESSAGE), selectedTool: "search_kb", claimSourceKinds: [] };
     }
-    message = localizedMessage(draft, shown, followUp, guarded.restricted, lang.reply) ?? message;
     if (!authenticated) await count("answered");
     let claims: Claim[] = shown.map(({ text, kind, sourceIds, status }: GuardedClaim) => ({ text, kind, sourceIds, status }));
     const cited = new Set(shown.flatMap((c) => c.sourceIds));

@@ -1,0 +1,5 @@
+
+> @vc/engine@0.1.0 typecheck D:\vc\.worktrees\lk5\packages\engine
+> tsc --noEmit && tsc --noEmit -p evals/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json
+
+EXIT=0

@@ -1,0 +1,46 @@
+baseline (unedited copy): ℹ tests 53|ℹ pass 53|ℹ fail 0|
+== k1a src/student/graph.ts
+edited D:/chk-tmp/lk5r1/fals/k1a/packages/engine/src/student/graph.ts
+after: ✖ K1 repair: localized empty string -> the English reply, not the provider apology|✖ K1 repair: localized null -> the English reply, not the provider apology|✖ K1 repair: localized over 2000 characters -> the English reply, not the provider apology|✖ K1 repair: an English turn whose model emits localized empty or null still gets the English reply|ℹ tests 53|ℹ pass 49|ℹ fail 4|✖ K1 repair: localized empty string -> the English reply, not the provider apology|✖ K1 repair: localized null -> the English reply, not the provider apology|✖ K1 repair: localized over 2000 characters -> the English reply, not the provider apology|✖ K1 repair: an English turn whose model emits localized empty or null still gets the English reply|
+== k1b src/student/graph.ts
+edited D:/chk-tmp/lk5r1/fals/k1b/packages/engine/src/student/graph.ts
+after: ✖ K1 repair: followUpLocalized null -> the Hindi reply without a follow-up (never the apology)|✖ K1 repair: followUpLocalized over 500 characters -> the Hindi reply without a follow-up (never the apology|ℹ tests 53|ℹ pass 51|ℹ fail 2|✖ K1 repair: followUpLocalized null -> the Hindi reply without a follow-up (never the apology)|✖ K1 repair: followUpLocalized over 500 characters -> the Hindi reply without a follow-up (never the apology|
+== k1c src/student/graph.ts
+edited D:/chk-tmp/lk5r1/fals/k1c/packages/engine/src/student/graph.ts
+after: ✖ K1 repair: replyLang null -> the English reply, not the provider apology|✖ K1 repair: replyLang over 16 characters -> the English reply, not the provider apology|ℹ tests 53|ℹ pass 51|ℹ fail 2|✖ K1 repair: replyLang null -> the English reply, not the provider apology|✖ K1 repair: replyLang over 16 characters -> the English reply, not the provider apology|
+== m1a src/student/lang.ts
+edited D:/chk-tmp/lk5r1/fals/m1a/packages/engine/src/student/lang.ts
+after: ✖ M1 repair: a spelled-out figure the English claim does not carry is not shown (Devanagari magnitude word, |ℹ tests 53|ℹ pass 52|ℹ fail 1|✖ M1 repair: a spelled-out figure the English claim does not carry is not shown (Devanagari magnitude word, |
+== m1a2 src/student/lang.ts
+edited D:/chk-tmp/lk5r1/fals/m1a2/packages/engine/src/student/lang.ts
+after: ✖ M1 repair: a spelled-out figure the English claim does not carry is not shown (Devanagari magnitude word, |ℹ tests 53|ℹ pass 52|ℹ fail 1|✖ M1 repair: a spelled-out figure the English claim does not carry is not shown (Devanagari magnitude word, |
+== m1b src/student/lang.ts
+edited D:/chk-tmp/lk5r1/fals/m1b/packages/engine/src/student/lang.ts
+after: ✖ M1 repair: a country the English claim does not name, or a swapped country, is not shown (Devanagari and L|ℹ tests 53|ℹ pass 52|ℹ fail 1|✖ M1 repair: a country the English claim does not name, or a swapped country, is not shown (Devanagari and L|
+== m1b2 src/student/lang.ts
+edited D:/chk-tmp/lk5r1/fals/m1b2/packages/engine/src/student/lang.ts
+after: ✖ M1 repair: a country the English claim does not name, or a swapped country, is not shown (Devanagari and L|✖ M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-|ℹ tests 53|ℹ pass 51|ℹ fail 2|✖ M1 repair: a country the English claim does not name, or a swapped country, is not shown (Devanagari and L|✖ M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-|
+== m1c src/student/lang.ts
+edited D:/chk-tmp/lk5r1/fals/m1c/packages/engine/src/student/lang.ts
+after: ✖ R1 a URL or e-mail that the English claim does not carry is not shown|✖ M1 repair: a scheme-less domain in the localized claim is not shown (evil.test), a www host or e-mail neit|✖ M1 repair: localizedClaimOk - a link different from the English one fails even when English carries a link|ℹ tests 53|ℹ pass 50|ℹ fail 3|✖ R1 a URL or e-mail that the English claim does not carry is not shown|✖ M1 repair: a scheme-less domain in the localized claim is not shown (evil.test), a www host or e-mail neit|✖ M1 repair: localizedClaimOk - a link different from the English one fails even when English carries a link|
+== m1c2 src/student/lang.ts
+edited D:/chk-tmp/lk5r1/fals/m1c2/packages/engine/src/student/lang.ts
+after: ✖ M1 repair: a scheme-less domain in the localized claim is not shown (evil.test), a www host or e-mail neit|✖ M1 repair: localizedClaimOk - a link different from the English one fails even when English carries a link|ℹ tests 53|ℹ pass 51|ℹ fail 2|✖ M1 repair: a scheme-less domain in the localized claim is not shown (evil.test), a www host or e-mail neit|✖ M1 repair: localizedClaimOk - a link different from the English one fails even when English carries a link|
+== m2 src/student/graph.ts
+edited D:/chk-tmp/lk5r1/fals/m2/packages/engine/src/student/graph.ts
+after: ✖ M2 repair: a prior-flag student's LOCALIZED reply is checked against the forbidden crisis patterns (shown |ℹ tests 53|ℹ pass 52|ℹ fail 1|✖ M2 repair: a prior-flag student's LOCALIZED reply is checked against the forbidden crisis patterns (shown |
+== m3a src/student/graph.ts
+edited D:/chk-tmp/lk5r1/fals/m3a/packages/engine/src/student/graph.ts
+after: ✖ M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-|ℹ tests 53|ℹ pass 52|ℹ fail 1|✖ M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-|
+== m3b src/student/graph.ts
+edited D:/chk-tmp/lk5r1/fals/m3b/packages/engine/src/student/graph.ts
+after: ✖ M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-|ℹ tests 53|ℹ pass 52|ℹ fail 1|✖ M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-|
+== m3c src/student/graph.ts
+edited D:/chk-tmp/lk5r1/fals/m3c/packages/engine/src/student/graph.ts
+after: ✖ M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-|ℹ tests 53|ℹ pass 52|ℹ fail 1|✖ M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-|
+== m3d src/student/graph.ts
+edited D:/chk-tmp/lk5r1/fals/m3d/packages/engine/src/student/graph.ts
+edited D:/chk-tmp/lk5r1/fals/m3d/packages/engine/src/student/lang.ts
+after: ✖ M1 repair: a country the English claim does not name, or a swapped country, is not shown (Devanagari and L|✖ M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-|ℹ tests 53|ℹ pass 51|ℹ fail 2|✖ M1 repair: a country the English claim does not name, or a swapped country, is not shown (Devanagari and L|✖ M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-|
+copies removed
+FALSDONE

@@ -17,6 +17,7 @@
 import { z } from "zod";
 import type { LlmProvider } from "@vc/providers";
 import { hasVerbatimRun } from "../guards/no-quote.js";
+import { countriesIn, numberMentions } from "./claims.js";
 
 // ---------------------------------------------------------------------------
 // Fixed texts (moved here from graph.ts, which re-exports them; B24.2, B24.7, A12)
@@ -227,21 +228,141 @@ function digitRuns(text: string): Set<string> {
   return new Set((ascii.match(/\d+(?:[.,]\d+)*/g) ?? []).map((n) => n.replace(/,/g, "")));
 }
 
-const LINK_OR_EMAIL = /(https?:\/\/|www\.|\S+@\S+\.\S+)/i;
+// ---- link, country and figure comparison of a localized claim with its English claim (LK5 repair 1: ISS-383 family, M1) ----
+
+const URL_RE = /(?:https?:\/\/|www\.)[^\s<>"'\u0964]+/giu;
+const EMAIL_RE = /[^\s@<>()"',;]+@[^\s@<>()"',;]+\.\p{L}{2,}/giu;
+/** A scheme-less host such as `evil.test`. The match may be sloppy next to a Devanagari word; any extra match only fails closed. */
+const DOMAIN_RE = /[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?(?:\.[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?)*\.\p{L}{2,}/giu;
+
+function linkKey(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/[\s.,;:!?)\]}'"\u0964/]+$/u, "");
+}
+
+/** Every URL, e-mail address and scheme-less host in the text, normalised (scheme, `www.` and trailing punctuation removed). */
+function linksIn(text: string): Set<string> {
+  const out = new Set<string>();
+  let rest = text.normalize("NFC");
+  for (const re of [URL_RE, EMAIL_RE]) {
+    rest = rest.replace(re, (m) => {
+      out.add(linkKey(m));
+      return " ";
+    });
+  }
+  for (const m of rest.matchAll(DOMAIN_RE)) out.add(linkKey(m[0]));
+  return out;
+}
+
+/** Nukta and zero-width joiners removed, so `फ़्रांस` and `फ्रांस` (and `हज़ार` / `हजार`) compare equal. */
+const stripNukta = (t: string): string => t.normalize("NFD").replace(/[\u093C\u200C\u200D]/g, "").normalize("NFC");
+
+const COUNTRY_CANON: Record<string, string> = {
+  "united states": "usa",
+  america: "usa",
+  "united kingdom": "uk",
+  britain: "uk",
+  "united arab emirates": "uae",
+  "south korea": "korea",
+};
+const canonCountry = (c: string): string => COUNTRY_CANON[c] ?? c;
+
+/** Devanagari spellings of the country names claims.ts knows (canonical English name -> spellings). Substring match after nukta removal. */
+const DEVANAGARI_COUNTRIES: [string, string[]][] = [
+  ["australia", ["ऑस्ट्रेलिया", "आस्ट्रेलिया", "ऑस्ट्रलिया", "ऑस्ट्रेलीया"]],
+  ["austria", ["ऑस्ट्रिया", "आस्ट्रिया"]],
+  ["belgium", ["बेल्जियम", "बेल्जीयम"]],
+  ["canada", ["कनाडा", "कैनडा", "कनेडा"]],
+  ["china", ["चीन"]],
+  ["cyprus", ["साइप्रस", "सायप्रस", "साइप्रश"]],
+  ["czech", ["चेक गणराज्य", "चेक रिपब्लिक", "चेकिया", "चेक गणतंत्र"]],
+  ["denmark", ["डेनमार्क", "डेन्मार्क"]],
+  ["dubai", ["दुबई", "दुबाई"]],
+  ["finland", ["फिनलैंड", "फिनलैण्ड", "फ़िनलैंड", "फिन्लैंड"]],
+  ["france", ["फ्रांस", "फ्रान्स", "फ़्रांस", "फ्रांसीसी", "फ्रेंच"]],
+  ["germany", ["जर्मन", "जरमन"]],
+  ["hungary", ["हंगरी", "हंगेरी", "हंगारी", "हङ्गरी"]],
+  ["india", ["भारत", "इंडिया", "इण्डिया"]],
+  ["ireland", ["आयरलैंड", "आयरलैण्ड", "आयरलेंड", "आयर्लैंड", "आयर्लैण्ड"]],
+  ["italy", ["इटली", "इटालियन", "इटैलियन"]],
+  ["japan", ["जापान", "जपान"]],
+  ["latvia", ["लातविया", "लात्विया", "लैटविया"]],
+  ["lithuania", ["लिथुआनिया", "लिथुएनिया", "लिथूआनिया"]],
+  ["malaysia", ["मलेशिया", "मलयेशिया", "मलेसिया"]],
+  ["malta", ["माल्टा"]],
+  ["netherlands", ["नीदरलैंड", "नीदरलैण्ड", "नीदरलेंड", "नीदरलैंड्स", "हॉलैंड", "हालैंड", "नीदरलैण्ड्स"]],
+  ["new zealand", ["न्यूजीलैंड", "न्यूज़ीलैंड", "न्यूजीलैण्ड", "न्यूजीलेंड", "न्यूज़ीलैण्ड", "न्यू जीलैंड", "न्यूज़ीलेंड"]],
+  ["norway", ["नॉर्वे", "नार्वे", "नॉरवे", "नोर्वे", "नॉर्वे"]],
+  ["poland", ["पोलैंड", "पोलैण्ड", "पोलेंड"]],
+  ["portugal", ["पुर्तगाल", "पुर्तागाल", "पोर्चुगल", "पोर्तुगाल"]],
+  ["russia", ["रूस", "रशिया", "रुस"]],
+  ["singapore", ["सिंगापुर", "सिंगापूर", "सिंगापोर"]],
+  ["korea", ["कोरिया"]],
+  ["spain", ["स्पेन"]],
+  ["sweden", ["स्वीडन", "स्वीडेन"]],
+  ["switzerland", ["स्विट्जरलैंड", "स्विट्ज़रलैंड", "स्विटजरलैंड", "स्विट्जरलैण्ड", "स्विट्ज़रलैण्ड", "स्वीटजरलैंड", "स्विट्जरलेंड"]],
+  ["uae", ["यूएई", "यू.ए.ई", "संयुक्त अरब अमीरात", "संयुक्त अरब अमिरात"]],
+  ["uk", ["यूके", "यू.के", "यूनाइटेड किंगडम", "ब्रिटेन", "ब्रिटिश", "यूनाइटेड किंग्डम"]],
+  ["england", ["इंग्लैंड", "इंग्लैण्ड", "इंगलैंड"]],
+  ["scotland", ["स्कॉटलैंड", "स्कॉटलैण्ड", "स्कॉटलेंड", "स्कोटलैंड"]],
+  ["wales", ["वेल्स"]],
+  ["usa", ["यूएसए", "यू.एस.ए", "अमेरिका", "अमरीका", "संयुक्त राज्य", "यूनाइटेड स्टेट्स", "अमेरिकी"]],
+  ["ukraine", ["यूक्रेन", "यूक्रैन"]],
+  ["georgia", ["जॉर्जिया", "जोर्जिया"]],
+  ["kazakhstan", ["कजाखस्तान", "कजाकिस्तान", "कजाकस्तान", "कज़ाखस्तान", "कज़ाकिस्तान"]],
+  ["philippines", ["फिलीपींस", "फिलिपींस", "फिलीपीन", "फिलिपीन"]],
+  ["bangladesh", ["बांग्लादेश", "बंगलादेश", "बाँग्लादेश", "बांगलादेश"]],
+  ["nepal", ["नेपाल"]],
+];
+const DEVANAGARI_COUNTRY_KEYS: [string, string][] = DEVANAGARI_COUNTRIES.flatMap(([canon, names]) => names.map((n): [string, string] => [stripNukta(n), canonCountry(canon)]));
+
+/** The countries a text names, in Latin (claims.ts list, demonyms) or Devanagari spelling, with the usa/uk/uae/korea aliases merged. */
+export function countriesInLocalized(text: string): string[] {
+  const found = new Set(countriesIn(text).map(canonCountry));
+  const dev = stripNukta(text);
+  for (const [name, canon] of DEVANAGARI_COUNTRY_KEYS) if (dev.includes(name)) found.add(canon);
+  return [...found];
+}
+
+/** Devanagari magnitude words ("हज़ार", "लाख", "करोड़", "सौ"): a spelled-out figure the digit comparison cannot see. */
+const DEVANAGARI_MAGNITUDE = new RegExp(
+  "(?<![\p{L}\p{M}])(?:" + [stripNukta("सौ") + "(?![\p{L}\p{M}])", stripNukta("हजार"), stripNukta("लाख"), stripNukta("करोड़"), "मिलियन", "बिलियन"].join("|") + ")",
+  "u",
+);
+
+/** The figures in a text: its digit runs (any digit system) plus spelled-out English / transliterated Hindi figures. */
+function figures(text: string): Set<string> {
+  const out = digitRuns(text);
+  for (const m of numberMentions(text)) if (!/\d/.test(text[m.start] ?? "")) out.add(m.n);
+  return out;
+}
+
+const unitsOf = (text: string): Set<string> => new Set(numberMentions(text).flatMap((m) => (m.unit ? [m.unit] : [])));
 
 /**
  * Language-neutral checks on a localized claim against the English claim the guards already passed (LK5, design 1B). All must hold,
  * otherwise the caller shows the English reply: (i) the script is the reply language's script; (ii) the same numbers, in any digit
- * system, no more and no fewer; (iii) no run of a restricted text (WhatsApp/unknown/ask material); (iv) no link or e-mail the English
- * claim does not carry. Meaning drift cannot be checked by code; that stays an eval (design R2).
+ * system or spelled out, no more and no fewer, and no unit the English claim does not carry; (iii) no run of a restricted text
+ * (WhatsApp/unknown/ask material); (iv) no link, e-mail or scheme-less host the English claim does not carry (a different link fails even
+ * when English has one); (v) no country the English claim does not name (Latin or Devanagari spelling). Meaning drift cannot be checked
+ * by code; that stays an eval (design R2).
  */
 export function localizedClaimOk(english: string, localized: string, replyLang: ReplyLang, restrictedTexts: readonly string[]): boolean {
   if (replyLang === "en" || localized.trim() === "") return false;
   if (detectScript(localized) !== replyScript(replyLang)) return false;
-  const a = digitRuns(english);
-  const b = digitRuns(localized);
+  const a = figures(english);
+  const b = figures(localized);
   if (a.size !== b.size || [...a].some((n) => !b.has(n))) return false;
-  if (LINK_OR_EMAIL.test(localized) && !LINK_OR_EMAIL.test(english)) return false;
+  if (a.size === 0 && DEVANAGARI_MAGNITUDE.test(stripNukta(localized))) return false;
+  const unitsEn = unitsOf(english);
+  if ([...unitsOf(localized)].some((u) => !unitsEn.has(u))) return false;
+  const countriesEn = new Set(countriesInLocalized(english));
+  if (countriesInLocalized(localized).some((c) => !countriesEn.has(c))) return false;
+  const linksEn = linksIn(english);
+  if ([...linksIn(localized)].some((k) => !linksEn.has(k))) return false;
   return !restrictedTexts.some((t) => hasVerbatimRun(localized, t));
 }
 

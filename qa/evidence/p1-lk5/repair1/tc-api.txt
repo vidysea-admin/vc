@@ -1,0 +1,5 @@
+
+> @vc/api@0.1.0 typecheck D:\vc\.worktrees\lk5\apps\api
+> tsc --noEmit
+
+EXIT=0

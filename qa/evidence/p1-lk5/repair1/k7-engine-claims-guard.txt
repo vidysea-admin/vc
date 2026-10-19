@@ -1,0 +1,42 @@
+✔ A1 /search: a claim supported by the inline turn.text is verified, with no session fetch (23.4557ms)
+✔ A1 /search: a number that does not match the inline text is unverified, never verified (3.8018ms)
+✔ A1: number formats are normalised (11,904 == 11904) but a different number is not (2.3113ms)
+✔ A1: a country the source text does not name is unverified (1.5349ms)
+✔ A1 (repair R2a): a sourceId not returned in THIS turn (invented, or another turn's id) is stripped; with none left the claim is DROPPED, never shown or sourced (2.6645ms)
+✔ R5 supports(): negation parity - 'no tuition' is not supported by 'tuition fees of 500 euros' (and vice versa) (3.1987ms)
+✔ R5 supports(): country match is exact token or demonym, never a prefix ('India' must not match 'individual') (1.6095ms)
+✔ R5 supports(): a capitalised proper noun in a fact/country claim must appear in the evidence (off-list countries like Turkey) (1.2785ms)
+✔ R5 supports(): numbers must match with the same currency/unit when one is present (15.2779ms)
+✔ A1 /ask: verified only when the node_id is in this response AND get_session on evidence.sessionRef returns supporting text (3.1079ms)
+✔ A1 /ask: a session-level node_id (session:<id> or /session:<id>) resolves without evidence; a topic node without sessionRefs cannot be verified (2.4577ms)
+✔ A1 /ask: kind:fact whose fetched text does not support it is attributed; a number/country with no supporting text is unverified (4.3533ms)
+✔ A1/A13 /ask: a cited session that cannot be re-read (get_session unavailable) is never verified (1.8034ms)
+✔ A1 /ask: a node_id not in this response's sources.internal is not a sourceId (web sources never count) (0.627ms)
+✔ A1/A13: sources[] lists each cited source once, schema-valid, with stale (older than the threshold) and dateUnknown flags (2.9177ms)
+✔ A13: with no override the staleness threshold is the 24-month default [ASSUMPTION P-7]: 45 months old is stale, 16 months is not (1.3152ms)
+✔ U6h H1 /ask: a fact whose fetched text AND the served /ask answer both fail to support it is unverified (never attributed-unmarked) (1.3012ms)
+✔ U6h H1 /ask: attributed is only for kind:fact; a number or country backed only by the served answer is unverified (2.6706ms)
+✔ U6h H1 /ask: a non-serveable ask (verdict not correct, or insufficient_coverage not false) contributes no node at all (1.4355ms)
+✔ U6h H2 supports(): positive controls still verify (paraphrase, number formats, order) (2.229ms)
+✔ U6h H2 supports(): an extra clause the evidence does not carry is rejected (no 50% overlap acceptance) (5.8656ms)
+✔ U6h H2 supports(): unit / rate swap is rejected (semester vs per month, per day, a year, monthly) (9.7786ms)
+✔ U6h H2 supports(): a scope or quantifier swap is rejected (public->private, most->all/every/only, domestic->international) (2.669ms)
+✔ U6h H2 supports(): an antonym with no negation word is rejected (mandatory vs optional, higher vs lower, allowed vs banned) (1.8983ms)
+✔ U6h fix1 H2a hedges and modals: a claim that drops 'may' / 'usually', or swaps may for must, is rejected; the same hedge verifies (2.1103ms)
+✔ U6h fix1 H2a quantifiers, both directions: dropping or adding some / most / only / all / few is rejected (2.7179ms)
+✔ U6h fix1 H2a conditions: a claim that drops if / unless / only-if / provided is rejected; carrying the condition verifies (1.3573ms)
+✔ U6h fix1 H2a scope: a claim that drops public / private / international / postgraduate (scope) is rejected (2.2867ms)
+✔ U6h fix1 H2a caveat sentence: a restrictor in the evidence sentence right after the matched one must be carried by the claim (5.5775ms)
+✔ U6h fix1 H2b number-country binding: a figure belongs to the country it sits next to (5.3414ms)
+✔ U6h fix1 M4 spelled-out numbers: numberMentions is exported and sees 'five thousand' / 'twenty thousand' (1.1574ms)
+✔ P1 W3 U6h leftover 2: numberMentions sees million / billion, 'half a million', 'a lakh' and transliterated Hindi figures (0.9231ms)
+✔ P1 W3 U6h leftover 5 (H2a): temporal and partial qualifiers dropped by the claim are rejected; carrying them verifies (7.3622ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6519.1317
+EXIT=0

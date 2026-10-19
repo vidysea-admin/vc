@@ -20,6 +20,7 @@ import {
   HELPLINE_LINE_EN_HI,
   HELPLINE_GLOSS,
   createModelLanguageDetector,
+  localizedClaimOk,
   parseReplyLangs,
   type DetectedLanguage,
 } from "../src/student/lang.js";
@@ -170,6 +171,158 @@ test("R1 the follow-up: localized when it passes, omitted (never mixed in Englis
   const m2 = (await runStudentTurn(noLocal.d, authTurn(HI_Q))).response.message!;
   assert.ok(!m2.includes("Which cities"), m2);
   assert.ok(m2.includes(HI_LOCAL));
+});
+
+// ---- repair cycle 1 (ISS-383): a bad optional localized field is "show English", never the provider apology ----
+
+for (const [label, claimOver, topOver] of [
+  ["localized empty string", { localized: "" }, {}],
+  ["localized null", { localized: null }, {}],
+  ["localized over 2000 characters", { localized: "क".repeat(2001) }, {}],
+  ["replyLang empty string", {}, { replyLang: "" }],
+  ["replyLang null", {}, { replyLang: null }],
+  ["replyLang over 16 characters", {}, { replyLang: "h".repeat(17) }],
+] as const) {
+  test(`K1 repair: ${label} -> the English reply, not the provider apology`, async () => {
+    const a = build({}, answer(topOver as Record<string, unknown>, claimOver as Record<string, unknown>));
+    const out = await runStudentTurn(a.d, authTurn(HI_Q));
+    assert.equal(out.response.state, "ok");
+    assert.ok(out.response.message!.includes(EN_CLAIM), out.response.message);
+    assert.ok(!out.response.message!.includes("Sorry, I couldn't put an answer together"), out.response.message);
+    assert.ok(!out.response.message!.includes(HI_LOCAL));
+  });
+}
+
+for (const [label, fl] of [["empty", ""], ["null", null], ["over 500 characters", "क".repeat(501)]] as const) {
+  test(`K1 repair: followUpLocalized ${label} -> the Hindi reply without a follow-up (never the apology)`, async () => {
+    const a = build({}, answer({ followUp: "Which cities are you considering?", followUpLocalized: fl }));
+    const out = await runStudentTurn(a.d, authTurn(HI_Q));
+    assert.equal(out.response.state, "ok");
+    assert.ok(out.response.message!.includes(HI_LOCAL), out.response.message);
+    assert.ok(!out.response.message!.includes("Which cities"), out.response.message);
+    assert.ok(!out.response.message!.includes("Sorry, I couldn't"));
+  });
+}
+
+test("K1 repair: an English turn whose model emits localized empty or null still gets the English reply", async () => {
+  for (const localized of ["", null]) {
+    const a = build({ detectLanguage: EN }, answer({ replyLang: "en" }, { localized }));
+    const out = await runStudentTurn(a.d, authTurn(EN_Q));
+    assert.ok(out.response.message!.includes(EN_CLAIM), out.response.message);
+    assert.ok(!out.response.message!.includes("Sorry, I couldn't"));
+  }
+});
+
+test("K1 repair: text, kind and sourceIds stay strict (an empty English text is still the provider apology)", async () => {
+  const a = build({}, answer({}, { text: "" }));
+  const out = await runStudentTurn(a.d, authTurn(HI_Q));
+  assert.ok(out.response.message!.includes("Sorry, I couldn't"), out.response.message);
+});
+
+// ---- repair cycle 1 (M1): the localized claim passes the same number, country and link guards as the English claim ----
+
+test("M1 repair: a spelled-out figure the English claim does not carry is not shown (Devanagari magnitude word, Hinglish number words)", async () => {
+  for (const [lang, replyLang, localized, q] of [
+    [HI, "hi", `${HI_LOCAL} लगभग दो हज़ार यूरो का खर्च अलग से आता है।`, HI_Q],
+    [HING, "hi-Latn", `${HING_LOCAL} Lagbhag do hazaar alag se lagte hain.`, HING_Q],
+    [HING, "hi-Latn", `${HING_LOCAL} Lagbhag five thousand alag se lagte hain.`, HING_Q],
+    [HING, "hi-Latn", `${HING_LOCAL} Lagbhag do hazaar euros alag se lagte hain.`, HING_Q],
+  ] as const) {
+    const a = build({ detectLanguage: lang }, answer({ replyLang }, { localized }));
+    const m = (await runStudentTurn(a.d, authTurn(q))).response.message!;
+    assert.ok(m.includes(EN_CLAIM), `English for: ${localized}`);
+    assert.ok(!/हज़ार|hazaar|five thousand/.test(m), m);
+  }
+});
+
+test("M1 repair: a spelled-out figure that DIFFERS from the English one is not shown", async () => {
+  const num = { text: "Expect a semester contribution of about 300 euros.", kind: "number" };
+  const swapped = build({ detectLanguage: HING }, answer({ replyLang: "hi-Latn" }, { ...num, localized: "Semester contribution lagbhag teen sau euros hai." }));
+  const m = (await runStudentTurn(swapped.d, authTurn(HING_Q))).response.message!;
+  assert.ok(m.includes("300 euros"), `English reply: ${m}`);
+  assert.ok(!m.includes("teen sau"), m);
+  const same = build({ detectLanguage: HING }, answer({ replyLang: "hi-Latn" }, { ...num, localized: "Semester contribution lagbhag 300 euros hai." }));
+  assert.ok((await runStudentTurn(same.d, authTurn(HING_Q))).response.message!.includes("lagbhag 300 euros"), "control: the same figure passes");
+});
+
+test("M1 repair: a country the English claim does not name, or a swapped country, is not shown (Devanagari and Latin)", async () => {
+  for (const [lang, replyLang, localized, q] of [
+    [HI, "hi", HI_LOCAL.replace("जर्मनी", "फ्रांस"), HI_Q],
+    [HI, "hi", `${HI_LOCAL} फ्रांस में भी यही नियम है।`, HI_Q],
+    [HING, "hi-Latn", HING_LOCAL.replace("Germany", "France"), HING_Q],
+    [HING, "hi-Latn", `${HING_LOCAL} Canada mein bhi aisa hi hai.`, HING_Q],
+  ] as const) {
+    const a = build({ detectLanguage: lang }, answer({ replyLang }, { localized }));
+    const m = (await runStudentTurn(a.d, authTurn(q))).response.message!;
+    assert.ok(m.includes(EN_CLAIM), `English for: ${localized}`);
+    assert.ok(!/फ्रांस|France|Canada/.test(m), m);
+  }
+  // control: the same country as English passes
+  const ok = build({}, answer());
+  assert.ok((await runStudentTurn(ok.d, authTurn(HI_Q))).response.message!.includes(HI_LOCAL));
+});
+
+test("M1 repair: a scheme-less domain in the localized claim is not shown (evil.test), a www host or e-mail neither", async () => {
+  for (const extra of ["अधिक जानकारी evil.test पर देखें।", "अधिक जानकारी www.evil.test पर देखें।", "संपर्क: help@evil.test", "अधिक जानकारी evil.test/fees पर देखें।"]) {
+    const a = build({}, answer({}, { localized: `${HI_LOCAL} ${extra}` }));
+    const m = (await runStudentTurn(a.d, authTurn(HI_Q))).response.message!;
+    assert.ok(m.includes(EN_CLAIM), `English for: ${extra}`);
+    assert.ok(!m.includes("evil.test"), m);
+  }
+});
+
+test("M1 repair: localizedClaimOk - a link different from the English one fails even when English carries a link; the same link passes", () => {
+  const en = "Details are on https://daad.de/en/fees today.";
+  assert.equal(localizedClaimOk(en, "शुल्क के बारे में पूरा विवरण आज की तारीख में https://daad.de/en/fees पर हैं।", "hi", []), true);
+  assert.equal(localizedClaimOk(en, "शुल्क के बारे में पूरा विवरण आज की तारीख में https://evil.test/fees पर हैं।", "hi", []), false);
+  assert.equal(localizedClaimOk(en, "शुल्क के बारे में पूरा विवरण आज की तारीख में https://daad.de/en/fees और evil.test पर हैं।", "hi", []), false);
+  assert.equal(localizedClaimOk(en, "शुल्क के बारे में पूरा विवरण आज की तारीख में https://daad.de/en/other पर हैं।", "hi", []), false);
+  const plain = "यहाँ पर शुल्क के बारे में पूरी जानकारी उपलब्ध है और कोई लिंक नहीं है।";
+  assert.equal(localizedClaimOk("No link here.", plain, "hi", []), true, "control: without the host it passes");
+  assert.equal(localizedClaimOk("No link here.", `${plain} evil.test`, "hi", []), false);
+  assert.equal(localizedClaimOk("It costs 3.5 lakh, e.g. in Berlin.", "यह 3.5 लाख लगता है, जैसे बर्लिन में।", "hi", []), true);
+});
+
+// ---- repair cycle 1 (M2): the crisis-rule check runs on the text actually shown ----
+
+test("M2 repair: a prior-flag student's LOCALIZED reply is checked against the forbidden crisis patterns (shown text, not the English one)", async () => {
+  const bad = build(
+    { detectLanguage: HING, hasPriorFlag: async () => true },
+    answer({ replyLang: "hi-Latn" }, { localized: `${HING_LOCAL} Ye sab secret hai, between us.` }),
+  );
+  const out = await runStudentTurn(bad.d, authTurn(HING_Q));
+  assert.ok(out.response.message!.startsWith(STUDENT_CRISIS_MESSAGE.slice(0, 40)), out.response.message);
+  assert.ok(!/secret/i.test(out.response.message!));
+  const good = build({ detectLanguage: HING, hasPriorFlag: async () => true }, answer({ replyLang: "hi-Latn" }, { localized: HING_LOCAL }));
+  assert.ok((await runStudentTurn(good.d, authTurn(HING_Q))).response.message!.includes(HING_LOCAL));
+});
+
+// ---- repair cycle 1 (M3): the localized follow-up passes the English follow-up guards, else the English reply with the English follow-up ----
+
+test("M3 repair: a localized follow-up that fails the English follow-up guards is not shown; the English follow-up is", async () => {
+  const cases: [string, typeof HI, string, string, string][] = [
+    ["country", HI, "hi", HI_Q, "आप फ्रांस के किन शहरों के बारे में सोच रहे हैं?"],
+    ["personal name", HI, "hi", HI_Q, "काव्या किन शहरों के बारे में सोच रही हैं?"],
+    ["digit", HI, "hi", HI_Q, "आप 3 किन शहरों के बारे में सोच रहे हैं?"],
+    ["script-like (recital cue)", HING, "hi-Latn", HING_Q, "Aap convince karna chahte hain kya?"],
+    ["second sentence", HI, "hi", HI_Q, "ठीक है। आप किन शहरों के बारे में सोच रहे हैं?"],
+    ["not a question", HI, "hi", HI_Q, "आप किन शहरों के बारे में सोच रहे हैं।"],
+  ];
+  for (const [label, lang, replyLang, q, fl] of cases) {
+    const localized = replyLang === "hi" ? HI_LOCAL : HING_LOCAL;
+    const a = build({ detectLanguage: lang }, answer({ replyLang, followUp: "Which cities are you considering?", followUpLocalized: fl }, { localized }));
+    const m = (await runStudentTurn(a.d, authTurn(q))).response.message!;
+    assert.ok(m.includes("Which cities are you considering?"), `${label}: English follow-up shown: ${m}`);
+    assert.ok(m.includes(EN_CLAIM), `${label}: English reply`);
+    assert.ok(!m.includes(fl), `${label}: the unsafe localized follow-up is not shown`);
+  }
+});
+
+test("M3 repair: a clean localized follow-up is still shown in the Hindi reply", async () => {
+  const a = build({}, answer({ followUp: "Which cities are you considering?", followUpLocalized: "आप किन शहरों के बारे में सोच रहे हैं?" }));
+  const m = (await runStudentTurn(a.d, authTurn(HI_Q))).response.message!;
+  assert.ok(m.includes(HI_LOCAL) && m.includes("आप किन शहरों के बारे में सोच रहे हैं?"), m);
+  assert.ok(!m.includes("Which cities"));
 });
 
 // ---------------------------------------------------------------------------

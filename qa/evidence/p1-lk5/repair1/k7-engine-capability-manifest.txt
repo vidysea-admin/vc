@@ -1,0 +1,12 @@
+✔ A21(c): manifest tools == registered student-graph tools (drift check, both directions) (6.1699ms)
+✔ A21(c): both new skills load through the existing skill loader (31.399ms)
+✔ A21(c): building the graph against a drifted manifest fails loudly (a missing or an extra tool) (23.5521ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4725.788
+EXIT=0

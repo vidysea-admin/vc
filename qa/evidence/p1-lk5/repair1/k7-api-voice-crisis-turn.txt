@@ -1,0 +1,23 @@
+✔ C18 (a): an unanswered earlier turn, then a crisis with no words of its own -> the text-free marker, never the earlier words (257.9959ms)
+✔ C18 (b): an unanswered earlier turn, then a crisis WITH words -> those words only (135.8759ms)
+✔ C18 (c): an answered earlier turn (a seq gap), then a crisis with no words -> the marker (134.1407ms)
+✔ C18 (d1): the detector throws on an utterance with words -> fail-closed escalation with that utterance's own words only (67.9882ms)
+✔ C18 (d2): the detector throws on an utterance with no words -> fail-closed escalation with the marker, never the earlier words (173.1728ms)
+✔ C18 (e): two crises in a row each carry their own utterance's words (the first's words never leak into the second) (1608.1547ms)
+✔ LK4: the voice escalation carries the detected language of the utterance (Devanagari hi, Latin Hinglish hi-Latn, English en), not an inline Devanagari test (210.8923ms)
+✔ H1: redaction throws on the crisis words -> the flag is still written and the crisis is still escalated with the text-free marker, never the raw words (88.8476ms)
+✔ H3: two crises with no words in one session each escalate under their own turn id (not deduped into one) (1598.4294ms)
+✔ ISS-260 H3 for an unconsented minor: the flag keeps the spoken turn id once, a second crisis on the same turn gets a fresh id, nothing is escalated (1583.836ms)
+✔ ISS-261 two worded crises each keep their own spoken turn id, flag and escalation agree with the stored turn, and no words cross over (1597.1543ms)
+✔ ISS-261 a worded crisis, then a no-words crisis on the same turn: the second gets a fresh id and the text-free marker, never the first's words or id (1580.7383ms)
+✔ ISS-261 a throwing redaction on the first crisis does not touch the second: both are flagged under their own ids and escalated with the marker, no words logged (1594.3951ms)
+✔ ISS-262 ordering: the crisis record never reads a previous turn's id: a worded crisis after an answered earlier turn is flagged under its own spoken turn (70.5471ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20697.6282
+EXIT=0
