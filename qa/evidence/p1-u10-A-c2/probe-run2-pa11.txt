@@ -1,0 +1,11 @@
+[testlock] running slot 0 (free RAM 5.36 GB): pnpm -C D:/vc/.worktrees/p1-u10-A-fals/apps/api exec tsx --test --test-name-pattern PA11 tests/zz-a-probe.test.ts
+✔ PA11 C10: B's provider connect is still in flight when C supersedes B -> C goes live, B's LATE provider session is closed on arrival, 1 live session, counters 0 at the end (113.6343ms)
+✔ PA11b C9: a second concurrent session for one student is not an extra paid session: A is told superseded and closed, one live session remains (46.4887ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2159.0401

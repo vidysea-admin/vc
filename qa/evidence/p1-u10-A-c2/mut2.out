@@ -1,0 +1,6 @@
+A-C1a RED(1 fail) C1: session route refusals: no token, wrong role, other student's path, unknown thread, ot | failing tests:
+A-C1b RED(1 fail) A6: the sandbox tenant accepts only syn- student ids at the voice session route | failing tests:
+A-C8a RED(1 fail) C8/A20: default off: no flag builds nothing, no route is mounted, and the upgrade path doe | failing tests:
+A-C8b RED(1 fail) C8/A20: enabled without the go-live records | failing tests:
+A-C5a RED(4 fail) C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no  | D-096 item 3: after a crisis the fixed audio and flag are forwarded, model audio is droppe | C12: a crisis flag write that keeps failing is tried twice, logged as voice_crisis_flag_fa
+A-C3a RED(1 fail) C2: another path or method is 404 and an Origin outside the allowed list is 403 | failing tests:
