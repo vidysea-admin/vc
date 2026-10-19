@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# usage: fals.sh ID file 'old' 'new' testpkg testfile
+W=/d/vc/.worktrees/p1-u13b-chk-fals
+export TMP=D:/tmp/u13bw-chk TEMP=D:/tmp/u13bw-chk VC_TESTLOCK_TIMEOUT_SECS=7200
+id=$1; file=$2; old=$3; new=$4; pkg=$5; tf=$6
+cd $W || exit 9
+git checkout -q -- packages
+OLD="$old" NEW="$new" FILE="$file" python -I - <<'PY' || { echo "$id EDIT-FAILED"; exit 8; }
+import os,sys
+p=os.environ["FILE"]; s=open(p,encoding="utf-8",newline="").read(); o=os.environ["OLD"]
+if s.count(o)!=1: print("count",s.count(o)); sys.exit(1)
+open(p,"w",encoding="utf-8",newline="").write(s.replace(o,os.environ["NEW"]))
+PY
+git diff --stat -- packages | tail -1
+bash /d/vc/scripts/vc-testlock.sh pnpm -C $pkg exec tsx --test $tf > /d/tmp/u13bw-chk/f-$id.log 2>&1
+rc=$?
+echo "$id rc=$rc $(grep -E '^ℹ (pass|fail) ' /d/tmp/u13bw-chk/f-$id.log | tr '\n' ' ')"
+grep -E '^✖' /d/tmp/u13bw-chk/f-$id.log | head -3 | cut -c1-140
+git checkout -q -- packages

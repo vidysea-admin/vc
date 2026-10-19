@@ -1,0 +1,65 @@
+=== prov
+ℹ tests 149
+ℹ pass 149
+ℹ fail 0
+exit=0
+=== eng
+ℹ tests 83
+ℹ pass 83
+ℹ fail 0
+exit=0
+=== tc
+exit=0
+=== /d/tmp/u13bw-chk/f-C1a.log
+✖ run-probes REAL (ollama): a model that fabricates an answer for the out-of-KB probe is a recorded violation, not a quiet refusal (11.909ms)
+ℹ pass 9
+ℹ fail 1
+✖ failing tests:
+=== /d/tmp/u13bw-chk/f-C1b.log
+✖ run-kb REAL (ollama): a rewrite that matches no recorded query is an unrecorded miss, not a hit (10.9089ms)
+ℹ pass 9
+ℹ fail 1
+✖ failing tests:
+=== /d/tmp/u13bw-chk/f-C1c.log
+ℹ pass 10
+ℹ fail 0
+=== /d/tmp/u13bw-chk/f-C1d.log
+✖ run-h2h REAL (ollama): VC answers come from the provider, pairs stay blind, the key holds a random seed, and the tally is NOT PROVEN without ratings (6.3263
+✖ run-h2h REAL (ollama): without --experts the expert side is a labelled placeholder and the report says so; an --experts file missing a question is refused b
+ℹ pass 8
+ℹ fail 2
+=== /d/tmp/u13bw-chk/f-C1e.log
+✖ run-kb REAL (ollama): English is scored from the fixture with no model call; Hindi/Hinglish is rewritten through the provider, charged first, and scored wit
+✖ run-probes REAL (ollama): an honest model passes the serve rule; the model sees ONLY the recorded internal passages (none for the out-of-KB probe) (13.3142m
+✖ run-latency REAL (ollama): 20 sequential answers through the provider, each charged; first-token is recorded as the full-answer bound (15.8747ms)
+✖ run-h2h REAL (ollama): VC answers come from the provider, pairs stay blind, the key holds a random seed, and the tally is NOT PROVEN without ratings (11.713
+=== /d/tmp/u13bw-chk/f-C2.log
+✖ default unchanged: Gemini selected (unset or 'gemini') keeps the REAL text bodies NOT WIRED for every runner; run-live stays unwired under Ollama too (13.37
+ℹ pass 9
+ℹ fail 1
+✖ failing tests:
+=== /d/tmp/u13bw-chk/f-C3.log
+✖ ISS-273: the abort timer stays armed until res.json() resolves; a stalled body is OllamaTimeoutError, not a hang (1504.8539ms)
+ℹ pass 18
+ℹ fail 1
+✖ failing tests:
+=== /d/tmp/u13bw-chk/f-C4.log
+✖ ISS-274: OLLAMA_MAX_OUTPUT_TOKENS sets num_predict and the cost bound; default 2048; non-positive-integer values are refused (2.8706ms)
+ℹ pass 18
+ℹ fail 1
+✖ failing tests:
+=== /d/tmp/u13bw-chk/f-C5.log
+✖ ISS-271: a price below 0.01 USD/MTok is refused (table-independent): constructor and override env (0.8572ms)
+ℹ pass 18
+ℹ fail 1
+✖ failing tests:
+=== /d/tmp/u13bw-chk/f-C6.log
+✖ ISS-272: the key is trimmed before use and a whitespace-only key is refused (constructor and env) (1.6112ms)
+ℹ pass 18
+ℹ fail 1
+✖ failing tests:
+=== /d/tmp/u13bw-chk/f-C7.log
+✖ ISS-270: the input estimate is the UTF-8 byte length (Devanagari is 3 bytes per character), not the UTF-16 length (1.2241ms)
+ℹ pass 18
+ℹ fail 1
+✖ failing tests:
