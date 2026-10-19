@@ -3,7 +3,7 @@
 **Criteria:** C1 confirmed chat facts reach the ranker (ISS-163), C2 NOT PROVEN on every per-option number (ISS-167), C3 tenancy, C4 a ranking failure never breaks the turn, C5 anonymous mode never ranks; cycle-1 repair items C6 ranked numbers are `unverified`, C7 no ranking on textless turns, C8 `profileFactsUsed` redacted before storing, C9 tenancy test asserts the student id, C10 `weightsForTenant` tenant isolation, C11 non-vacuous anonymous spy
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS (dual check, cycle 1: qa/verdicts/p1-u6w-rank-wiring.A.md PASS at 02a187c, qa/verdicts/p1-u6w-rank-wiring.B.md PASS at 64f53f9; senior review cycle 1 Approve; close-out 2026-10-19, ledger rows ISS-208..ISS-217, ISS-163 fixed)
 **Fix cycle:** 1 of max 2
 **Repair base:** 1dd12d1
 **Dual check:** required
