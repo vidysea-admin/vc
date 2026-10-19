@@ -8,7 +8,13 @@ import assert from "node:assert/strict";
 import { inspect } from "node:util";
 import { z } from "zod";
 import {
+  AiUnavailableError,
   GeminiProvider,
+  isRetryableProviderError,
+  loadTextChainConfig,
+  TEXT_CHAIN_DEFAULT_DEADLINE_MS,
+  TEXT_CHAIN_DEFAULT_SPEC,
+  TEXT_CHAIN_DEFAULT_HOP_TIMEOUT_MS,
   ModelOutputSchemaError,
   OllamaAbortedError,
   OllamaHttpError,
@@ -500,4 +506,217 @@ test("p1-ollama-actual-tokens: a throwing afterResponse never discards the paid 
   assert.deepEqual(await p.generate(req()), { answer: "hi" });
   assert.equal(seen.length, 1);
   assert.equal(p.actualHookFailures, 1);
+});
+
+// ---------------------------------------------------------------------------
+// p1-lk1 (D-105): the Ollama text chain as a production seam. MOCKED fetch only: no network, no paid call.
+// VC_TEXT_CHAIN -> loadTextChainConfig -> createProvider -> FailoverProvider over OllamaProviders.
+// ---------------------------------------------------------------------------
+const GLM = "glm-5.3-flash";
+const DSK = "deepseek-v4.1-flash";
+const CHAIN_ENV = { VC_TEXT_CHAIN: `ollama:${GLM},ollama:${DSK}`, OLLAMA_API_KEY: SECRET };
+
+type ModelResponder = (cap: Captured) => Response | Promise<Response>;
+/** Routes each request to a per-model responder by the model id on the wire; records the model order. */
+function chainRig(responders: Record<string, ModelResponder>, env: Record<string, string> = {}, deps: Record<string, unknown> = {}) {
+  const order: string[] = [];
+  const exhausted: unknown[] = [];
+  const { fetchImpl } = mockFetch((cap) => {
+    const model = JSON.parse(String(cap.init.body)).model as string;
+    order.push(model);
+    return responders[model]!(cap);
+  });
+  const config = loadTextChainConfig({ ...CHAIN_ENV, ...env });
+  assert.ok(config, "chain config present");
+  const chain = createProvider(config, { fetchImpl, onExhausted: (i: unknown) => exhausted.push(i), ...deps } as never);
+  return { provider: chain, order, exhausted };
+}
+const hang: ModelResponder = (cap) =>
+  new Promise<Response>((_, reject) => {
+    (cap.init.signal as AbortSignal).addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+  });
+const answer = (a: string): ModelResponder => () => okChat({ answer: a });
+
+for (const [name, bad, env] of [
+  ["GLM timeout", hang, { VC_TEXT_CHAIN_HOP_TIMEOUT_MS: "30" }],
+  ["GLM HTTP 500", () => new Response("boom", { status: 500 }), {}],
+  ["GLM HTTP 503", () => new Response("boom", { status: 503 }), {}],
+  ["GLM HTTP 429", () => new Response("slow down", { status: 429 }), {}],
+  ["GLM malformed JSON", () => okChat("not json at all"), {}],
+  ["GLM wrong-shape output", () => okChat({ nope: 1 }), {}],
+  [
+    "GLM network error",
+    () => {
+      throw new TypeError("fetch failed");
+    },
+    {},
+  ],
+] as Array<[string, ModelResponder, Record<string, string>]>) {
+  test(`p1-lk1 C1: ${name} fails over to hop 2 (deepseek) and its answer is returned`, async () => {
+    const { provider: chain, order, exhausted } = chainRig({ [GLM]: bad, [DSK]: answer("from-deepseek") }, env);
+    assert.deepEqual(await chain.generate(req()), { answer: "from-deepseek" });
+    assert.deepEqual(order, [GLM, DSK]);
+    assert.equal(exhausted.length, 0);
+  });
+}
+
+for (const status of [400, 401, 403, 404]) {
+  test(`p1-lk1 C2: HTTP ${status} on hop 1 does NOT fail over (config/auth error surfaces, hop 2 never called)`, async () => {
+    const { provider: chain, order } = chainRig({ [GLM]: () => new Response("no", { status }), [DSK]: answer("never") });
+    const err = await chain.generate(req()).then(
+      () => assert.fail("must reject"),
+      (e: unknown) => e,
+    );
+    assert.ok(err instanceof OllamaHttpError);
+    assert.equal((err as OllamaHttpError).status, status);
+    assert.deepEqual(order, [GLM]);
+  });
+}
+
+test("p1-lk1 C3: single pass - both hops failing retryably makes exactly one attempt per hop (no wrap-around) then AiUnavailableError + one alert", async () => {
+  const { provider: chain, order, exhausted } = chainRig({
+    [GLM]: () => new Response("boom", { status: 500 }),
+    [DSK]: () => new Response("boom", { status: 502 }),
+  });
+  await assert.rejects(chain.generate(req()), AiUnavailableError);
+  assert.deepEqual(order, [GLM, DSK], "a second lap over the chain would show GLM again");
+  assert.equal(exhausted.length, 1);
+  assert.equal((exhausted[0] as { attempts: number }).attempts, 2);
+});
+
+test("p1-lk1 C4: the product deadline is honoured (configurable) and the in-flight request is aborted", async () => {
+  let aborted = false;
+  const { provider: chain, order, exhausted } = chainRig(
+    {
+      [GLM]: (cap) => {
+        (cap.init.signal as AbortSignal).addEventListener("abort", () => {
+          aborted = true;
+        });
+        return hang(cap);
+      },
+      [DSK]: hang,
+    },
+    { VC_TEXT_CHAIN_DEADLINE_MS: "120", VC_TEXT_CHAIN_HOP_TIMEOUT_MS: "5000" },
+  );
+  const t0 = Date.now();
+  const err = await chain.generate(req()).then(
+    () => assert.fail("must reject"),
+    (e: unknown) => e,
+  );
+  assert.ok(err instanceof AiUnavailableError);
+  assert.ok(Date.now() - t0 < 2000, "far below the 5000 ms hop timeout");
+  assert.equal((exhausted[0] as { lastErrorName: string }).lastErrorName, "FailoverDeadlineExceededError");
+  assert.equal(aborted, true, "the real request was cancelled, not just abandoned");
+  assert.ok(order.length >= 1 && order.length <= 2);
+});
+
+test("p1-lk1 C4b: defaults - 12000 ms product deadline and 8000 ms hop timeout when nothing is set; env overrides them", () => {
+  const c = loadTextChainConfig(CHAIN_ENV)!;
+  assert.ok(c.provider === "ollama");
+  if (c.provider !== "ollama") return;
+  assert.equal(c.deadlineMs, TEXT_CHAIN_DEFAULT_DEADLINE_MS);
+  assert.equal(c.hopTimeoutMs, TEXT_CHAIN_DEFAULT_HOP_TIMEOUT_MS);
+  assert.equal(TEXT_CHAIN_DEFAULT_DEADLINE_MS, 12_000);
+  assert.equal(TEXT_CHAIN_DEFAULT_HOP_TIMEOUT_MS, 8_000);
+  const o = loadTextChainConfig({ ...CHAIN_ENV, VC_TEXT_CHAIN_DEADLINE_MS: "5000", VC_TEXT_CHAIN_HOP_TIMEOUT_MS: "2500" })!;
+  assert.ok(o.provider === "ollama" && o.deadlineMs === 5000 && o.hopTimeoutMs === 2500);
+});
+
+test("p1-lk1 C5: a budget stop (beforeRequest throws) does NOT fail over: it surfaces, no request is sent, hop 2 is not tried", async () => {
+  class BudgetStop extends Error {}
+  const { provider: chain, order } = chainRig({ [GLM]: answer("x"), [DSK]: answer("y") }, {}, {
+    beforeRequest: () => {
+      throw new BudgetStop("cap");
+    },
+  });
+  await assert.rejects(chain.generate(req()), BudgetStop);
+  assert.deepEqual(order, []);
+});
+
+test("p1-lk1 C6: the per-hop usage hook gets actual counts for a hop that answered (even unusable), and 'unreported' when counts are missing", async () => {
+  const usage: OllamaActualUsage[] = [];
+  const { provider: chain, order } = chainRig(
+    {
+      [GLM]: () => new Response(JSON.stringify({ message: { role: "assistant", content: "not json" }, prompt_eval_count: 900, eval_count: 40 }), { status: 200 }),
+      [DSK]: () => okChat({ answer: "ok" }),
+    },
+    {},
+    { onUsage: (u: OllamaActualUsage) => usage.push(u) },
+  );
+  assert.deepEqual(await chain.generate(req()), { answer: "ok" });
+  assert.deepEqual(order, [GLM, DSK]);
+  assert.equal(usage.length, 2);
+  assert.equal(usage[0]!.model, GLM);
+  assert.equal(usage[0]!.actual, "reported");
+  assert.equal(usage[0]!.inputTokens, 900);
+  assert.equal(usage[0]!.outputTokens, 40);
+  assert.equal(usage[1]!.model, DSK);
+  assert.equal(usage[1]!.actual, "unreported");
+  assert.equal(usage[1]!.inputTokens, undefined);
+});
+
+test("p1-lk1 C7: a caller abort is not failed over", async () => {
+  const ac = new AbortController();
+  const { provider: chain, order } = chainRig({
+    [GLM]: (cap) => {
+      queueMicrotask(() => ac.abort());
+      return hang(cap);
+    },
+    [DSK]: answer("never"),
+  });
+  await assert.rejects(chain.generate(req({ signal: ac.signal })), OllamaAbortedError);
+  assert.deepEqual(order, [GLM]);
+});
+
+test("p1-lk1 C8: isRetryableProviderError whitelist covers Ollama timeout/network/malformed/429/5xx and nothing else", () => {
+  assert.equal(isRetryableProviderError(new OllamaTimeoutError("m", 1)), true);
+  assert.equal(isRetryableProviderError(new OllamaNetworkError("m", "x")), true);
+  assert.equal(isRetryableProviderError(new OllamaMalformedResponseError("m", "x")), true);
+  assert.equal(isRetryableProviderError(new OllamaHttpError(429, "m")), true);
+  assert.equal(isRetryableProviderError(new OllamaHttpError(500, "m")), true);
+  assert.equal(isRetryableProviderError(new OllamaHttpError(599, "m")), true);
+  for (const s of [400, 401, 403, 404, 422]) assert.equal(isRetryableProviderError(new OllamaHttpError(s, "m")), false, String(s));
+  assert.equal(isRetryableProviderError(new OllamaAbortedError("m")), false);
+  assert.equal(isRetryableProviderError(new OllamaRefusedError("x")), false);
+});
+
+test("p1-lk1 C9: loadTextChainConfig - absent/blank is undefined; entries parse in order; bad input is refused without leaking the key", () => {
+  assert.equal(loadTextChainConfig({}), undefined);
+  assert.equal(loadTextChainConfig({ VC_TEXT_CHAIN: "  ", OLLAMA_API_KEY: SECRET }), undefined);
+  const c = loadTextChainConfig({ ...CHAIN_ENV, OLLAMA_BASE_URL: "https://proxy.example" })!;
+  assert.ok(c.provider === "ollama");
+  if (c.provider !== "ollama") return;
+  assert.deepEqual(c.chain.map((h) => h.model), [GLM, DSK]);
+  assert.equal(c.chain[0]!.inputUsdPerMTok, OLLAMA_PRICE_TABLE_USD_PER_MTOK[GLM]!.inputUsdPerMTok);
+  assert.equal(c.baseUrl, "https://proxy.example");
+  assert.throws(() => loadTextChainConfig({ VC_TEXT_CHAIN: `ollama:${GLM}` }), /OLLAMA_API_KEY/);
+  assert.throws(
+    () => loadTextChainConfig({ VC_TEXT_CHAIN: "ollama:no-such-model-x", OLLAMA_API_KEY: SECRET }),
+    (e: Error) => /price/.test(e.message) && !e.message.includes(SECRET),
+  );
+  assert.throws(() => loadTextChainConfig({ VC_TEXT_CHAIN: `ollama:${GLM},gemini:flash-lite`, OLLAMA_API_KEY: SECRET }), /gemini/i);
+  assert.throws(() => loadTextChainConfig({ VC_TEXT_CHAIN: `${GLM}`, OLLAMA_API_KEY: SECRET }), /VC_TEXT_CHAIN/);
+  assert.throws(() => loadTextChainConfig({ VC_TEXT_CHAIN: "ollama:", OLLAMA_API_KEY: SECRET }), /VC_TEXT_CHAIN/);
+  assert.throws(() => loadTextChainConfig({ ...CHAIN_ENV, VC_TEXT_CHAIN_DEADLINE_MS: "0" }), /VC_TEXT_CHAIN_DEADLINE_MS/);
+  assert.throws(() => loadTextChainConfig({ ...CHAIN_ENV, VC_TEXT_CHAIN_HOP_TIMEOUT_MS: "abc" }), /VC_TEXT_CHAIN_HOP_TIMEOUT_MS/);
+});
+
+test("p1-lk1 C10: the chain is opt-in only: VC_LLM_PROVIDER=ollama is still refused by loadProviderConfig (classifier/scribe never inherit it)", () => {
+  assert.throws(() => loadProviderConfig({ VC_LLM_PROVIDER: "ollama", ...CHAIN_ENV }), /VC_LLM_PROVIDER/);
+  assert.deepEqual(loadProviderConfig({ VC_LLM_PROVIDER: "mock", ...CHAIN_ENV }), { provider: "mock", model: "mock" });
+});
+
+test("p1-lk1 C11: the chain provider never exposes the key in toString/inspect", () => {
+  const { provider: chain } = chainRig({ [GLM]: answer("x"), [DSK]: answer("y") });
+  assert.ok(!String(chain).includes(SECRET));
+  assert.ok(!inspect(chain, { depth: 6 }).includes(SECRET));
+});
+
+test("p1-lk1 C12: VC_TEXT_CHAIN=default is glm-5.3-flash then deepseek-v4.1-flash (Ollama), and nothing else", () => {
+  assert.equal(TEXT_CHAIN_DEFAULT_SPEC, "ollama:glm-5.3-flash,ollama:deepseek-v4.1-flash");
+  const c = loadTextChainConfig({ VC_TEXT_CHAIN: "default", OLLAMA_API_KEY: SECRET })!;
+  assert.ok(c.provider === "ollama");
+  if (c.provider !== "ollama") return;
+  assert.deepEqual(c.chain.map((h) => h.model), ["glm-5.3-flash", "deepseek-v4.1-flash"]);
+  assert.equal(c.model, "glm-5.3-flash");
 });
