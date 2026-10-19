@@ -3,8 +3,9 @@
 **Criteria:** C1 session route, C2 WS auth, C3 events, C4 resume/silence/cap/fallback, C5 A9b audit, C6 history, C7 limits, C8 errors+flag, C9 tenancy+cleanup, C10 one live session under concurrent starts and a start timer that covers `starting`, C11 per-student session-route and pre-start socket limits, C12 crisis durability and escalation parity, C13 resume-log expiry, C14 crisis escalation survives a socket drop, C15 quota re-read after a supersede, C16 step-aside only for a live newer start, C17 escalation port built inside the retry, C18 no earlier turn's words in an escalation, C19 bounded finalize drain
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
-**Fix cycle:** 2
+**Status:** superseded-by p1-u10w-voice-wiring (D-099)
+**Fix cycle:** 3
+Superseded: cycle 3 (the C18 repair after the cycle-2 FAIL from both blind checkers, probe PA20/P1) is folded into `qa/manifests/p1-u10w-voice-wiring.md` per D-099 (gate `qa/gates/p1-u10-cycle3.md`, answered 2026-10-19, option 1). That manifest carries C1-C19 verbatim plus W1-W10 as one combined unit; cycle 3 is U10's last cycle. This file is kept unchanged below as the cycle-0..2 record.
 **Dual check:** required
 dual-trigger: auth apps/api/src/voice.ts:365 (`jwtVerify` inside `verifyVoiceToken`: HS256 only, audience `vc-voice-ws`, issuer `vc-api`, required exp/jti/sub, single-use jti; the credential of the WebSocket upgrade)
 dual-trigger: tenancy apps/api/src/voice.ts:1227 (the connection's Db is `deps.dbForTenant(claims.tenantId)`; resume ownership at `voice.ts:990` checks tenant, student and thread; student PII persistence and erasure)
