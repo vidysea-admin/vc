@@ -18,6 +18,7 @@ import {
 } from "../src/student/graph.js";
 import {
   HELPLINE_LINE_EN_HI,
+  DEVANAGARI_MAGNITUDE,
   HELPLINE_GLOSS,
   createModelLanguageDetector,
   localizedClaimOk,
@@ -281,6 +282,66 @@ test("M1 repair: localizedClaimOk - a link different from the English one fails 
   assert.equal(localizedClaimOk("No link here.", plain, "hi", []), true, "control: without the host it passes");
   assert.equal(localizedClaimOk("No link here.", `${plain} evil.test`, "hi", []), false);
   assert.equal(localizedClaimOk("It costs 3.5 lakh, e.g. in Berlin.", "यह 3.5 लाख लगता है, जैसे बर्लिन में।", "hi", []), true);
+});
+
+// ---- repair cycle 2: Devanagari number/unit words (ISS-386), the magnitude regex (ISS-387), IDN hosts and dot variants ----
+
+const NUM_EN = "Expect a semester contribution of about 300 euros.";
+const NUM_HI = "लगभग 300 यूरो का सेमेस्टर योगदान देना होगा।";
+
+test("ISS-386: a Devanagari number word or currency/unit word the English claim does not carry gives the English reply (cycle-1 probes)", async () => {
+  for (const [en, localized] of [
+    [EN_CLAIM, `${HI_LOCAL} पर पचास यूरो लगते हैं।`],
+    [NUM_EN, `${NUM_HI} और सालाना पाँच हज़ार यूरो।`],
+    [NUM_EN, `${NUM_HI} और कुल दस लाख।`],
+    [NUM_EN, "लगभग 300 रुपये का सेमेस्टर योगदान देना होगा।"],
+    [NUM_EN, "लगभग 300 डॉलर का सेमेस्टर योगदान देना होगा।"],
+    [NUM_EN, "हर महीने लगभग 300 यूरो देने होंगे।"],
+    [EN_CLAIM, `${HI_LOCAL} पांच साल तक।`],
+    [EN_CLAIM, `${HI_LOCAL} बीस प्रतिशत छात्र।`],
+    [NUM_EN, `${NUM_HI} यह तीन सौ पचास भी हो सकता है।`],
+  ] as const) {
+    const a = build({}, answer({}, { text: en, localized, kind: en === NUM_EN ? "number" : "fact" }));
+    const m = (await runStudentTurn(a.d, authTurn(HI_Q))).response.message!;
+    assert.ok(m.includes(en), `English for: ${localized} -> ${m}`);
+    assert.ok(!m.includes(localized), m);
+  }
+});
+
+test("ISS-386 controls: the same figure in Devanagari digits, and a figure-free localized claim, are still shown", async () => {
+  const digits = "लगभग ३०० यूरो का सेमेस्टर योगदान देना होगा।";
+  const a = build({}, answer({}, { text: NUM_EN, localized: digits, kind: "number" }));
+  assert.ok((await runStudentTurn(a.d, authTurn(HI_Q))).response.message!.includes(digits));
+  const b = build({}, answer());
+  assert.ok((await runStudentTurn(b.d, authTurn(HI_Q))).response.message!.includes(HI_LOCAL));
+  assert.equal(localizedClaimOk(NUM_EN, NUM_HI, "hi", []), true, "the same figure and unit");
+  assert.equal(localizedClaimOk("It costs 5000 euros.", "इसकी लागत पाँच हज़ार यूरो है।", "hi", []), true, "a word figure equal to the English figure");
+  assert.equal(localizedClaimOk("It costs 5000 euros.", "इसकी लागत पाँच हज़ार रुपये है।", "hi", []), false, "same value, other currency");
+  assert.equal(localizedClaimOk("It costs 5000 euros.", "इसकी लागत छह हज़ार यूरो है।", "hi", []), false, "a different word figure");
+  assert.equal(localizedClaimOk("It costs 5000 euros.", "इसकी लागत डेढ़ हज़ार यूरो है।", "hi", []), false, "a fraction word is never mapped");
+  assert.equal(localizedClaimOk("It is a good option.", "यह एक अच्छा विकल्प है।", "hi", []), true, "a bare एक (the article) is not a figure");
+  assert.equal(localizedClaimOk("It is a good option.", "यह एक लाख का विकल्प है।", "hi", []), false);
+});
+
+test("ISS-387: DEVANAGARI_MAGNITUDE keeps its \p escapes; सौंदर्य does not match, सौ does", () => {
+  assert.ok(DEVANAGARI_MAGNITUDE.source.includes(String.raw`\p{L}\p{M}`), DEVANAGARI_MAGNITUDE.source);
+  assert.equal(DEVANAGARI_MAGNITUDE.test("सौंदर्य"), false);
+  assert.equal(DEVANAGARI_MAGNITUDE.test("तीन सौ यूरो"), true);
+  assert.equal(localizedClaimOk("Beauty courses are offered.", "सौंदर्य के कोर्स उपलब्ध हैं।", "hi", []), true);
+});
+
+test("review medium: a Devanagari IDN host with combining marks is detected as a link", () => {
+  const plain = "यहाँ पर शुल्क के बारे में पूरी जानकारी उपलब्ध है और कोई लिंक नहीं है।";
+  for (const host of ["शिक्षा.भारत", "example.भारत", "सेवा.भारत/fees"]) {
+    assert.equal(localizedClaimOk("No link here.", `${plain} ${host}`, "hi", []), false, host);
+  }
+});
+
+test("review low: the dot variants 。．｡․ fold to '.' before the link check", () => {
+  const plain = "यहाँ पर शुल्क के बारे में पूरी जानकारी उपलब्ध है और कोई लिंक नहीं है।";
+  for (const host of ["evil。test", "evil．test", "evil｡test", "evil․test"]) {
+    assert.equal(localizedClaimOk("No link here.", `${plain} ${host}`, "hi", []), false, host);
+  }
 });
 
 // ---- repair cycle 1 (M2): the crisis-rule check runs on the text actually shown ----
