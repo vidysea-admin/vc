@@ -10,12 +10,13 @@ import { COLLECTION_NAMES, claimChatTurn, tenantScopedDb } from "@vc/db";
 import { createFakeDb } from "@vc/db/testing";
 import { STUDENT_API_DRAFT } from "../src/openapi.js";
 import { GoLiveRefusedError } from "../src/go-live-gate.js";
-import { CHAT_FLAG_ENV, CHAT_ROUTES, ChatConfigError, chatEnabledFromEnv, createChatApi, withChatRoutes } from "../src/chat.js";
+import { CHAT_FLAG_ENV, CHAT_ROUTES, ChatConfigError, MAX_CHAT_BODY_BYTES, chatEnabledFromEnv, createChatApi, withChatRoutes } from "../src/chat.js";
 import { API_ROUTES, BodyTooLargeError, createApiHandler } from "../src/server.js";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { APPROVER, GERMANY_QUESTION, NOW, adult, call, chatRequest, chatWorld, cleanupGates, everythingStored, gatesFixture, kbAnswerProvider, minor, newThread, recordingKb, studentToken, studentVerifier, threadsPath, turnsPath } from "./chat-fixtures.js";
 import { SKILLS_DIR, SPEAKERS } from "./anonymous-fixtures.js";
 import { MockProvider } from "@vc/providers";
+import { TELE_MANAS_LINE } from "@vc/engine";
 import { createHash, generateKeyPairSync } from "node:crypto";
 
 const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
@@ -401,6 +402,94 @@ test("A23: a crisis message is never rate limited, even from a student already o
     const crisis = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: "I want to kill myself", clientTurnId: "cr-1" } });
     assert.equal(crisis.status, 200);
     assert.equal(crisis.json.state, "escalated");
+  } finally {
+    w.cleanup();
+  }
+});
+
+// ISS-303 (D-103): the authenticated turn route has the same shape as the anonymous route after ISS-135 (D-101): the crisis scan runs on the
+// full text before the limiter, so its CPU is bounded only by the body cap. The cap is the ISS-300 budget (64 KiB); a larger body is a 413
+// that still carries the helpline, and is never scanned.
+const CRISIS_PHRASE = "I want to kill myself.";
+const FILLER = "I am writing a long message about my exams and my plans. ";
+/** A turn body of about `kib` KiB with the crisis phrase at the start, in the middle or at the end. */
+const crisisBody = (kib: number, where: "start" | "middle" | "end"): string => {
+  const half = FILLER.repeat(Math.ceil((kib * 1024) / FILLER.length / 2));
+  const text = where === "start" ? `${CRISIS_PHRASE} ${half}${half}` : where === "middle" ? `${half}${CRISIS_PHRASE} ${half}` : `${half}${half}${CRISIS_PHRASE}`;
+  return JSON.stringify({ text, clientTurnId: `iss303-${kib}-${where}` });
+};
+const WHERE = ["start", "middle", "end"] as const;
+
+test("ISS-303: the authenticated chat body cap is the 64 KiB scan budget of the anonymous route (ISS-300), not 256 KiB", () => {
+  assert.equal(MAX_CHAT_BODY_BYTES, 64 * 1024);
+});
+
+test("ISS-303: a turn body over the cap is a 413 that still carries the helpline, never scanned, no model, nothing stored, whatever the crisis phrase position", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const path = turnsPath("stu-1", threadId);
+    for (const kib of [100, 300]) {
+      for (const where of WHERE) {
+        const body = crisisBody(kib, where);
+        assert.ok(Buffer.byteLength(body) > MAX_CHAT_BODY_BYTES);
+        const res = await call(w, "POST", path, { token, body });
+        assert.equal(res.status, 413, `${kib} KiB ${where}`);
+        assert.equal(res.json.error, "body_too_large");
+        assert.equal(res.json.helpline, TELE_MANAS_LINE, `${kib} KiB ${where}: a 413 carries the helpline`);
+      }
+    }
+    // The real server rejects while reading, so the handler never sees the text at all.
+    const streamed = await call(w, "POST", path, { token, body: "{}", readBody: () => Promise.reject(new BodyTooLargeError()) });
+    assert.equal(streamed.status, 413);
+    assert.equal(streamed.json.helpline, TELE_MANAS_LINE);
+    assert.equal(w.provider.calls.length, 0);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.student_flags).all().length, 0);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("ISS-303: a crisis phrase at the start, middle or end of a body inside the cap, far over the 4000-character turn limit, gets the fixed crisis answer", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    for (const [i, where] of WHERE.entries()) {
+      const threadId = await newThread(w, token);
+      const body = crisisBody(50, where);
+      assert.ok(Buffer.byteLength(body) < MAX_CHAT_BODY_BYTES && JSON.parse(body).text.length > 4000);
+      const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body });
+      assert.equal(res.status, 200, `${where} (${i})`);
+      assert.equal(res.json.state, "escalated", where);
+      assert.match(res.json.message, /14416/);
+    }
+    // The same size without a crisis phrase is a plain 400: the over-long refusal is unchanged.
+    const threadId = await newThread(w, token);
+    const plain = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: FILLER.repeat(200) } });
+    assert.equal(plain.status, 400);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("ISS-303: a student already over the rate limit who sends a long (inside the cap) crisis message still gets the crisis answer; a plain message is 429", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const path = turnsPath("stu-1", threadId);
+    for (let i = 0; i < 40; i++) await call(w, "GET", `${threadsPath("stu-1")}/${threadId}`, { token });
+    assert.equal((await call(w, "POST", path, { token, body: { text: GERMANY_QUESTION, clientTurnId: "rl-plain" } })).status, 429);
+    for (const where of WHERE) {
+      const res = await call(w, "POST", path, { token, body: crisisBody(50, where) });
+      assert.equal(res.status, 200, where);
+      assert.equal(res.json.state, "escalated", where);
+    }
+    const short = await call(w, "POST", path, { token, body: { text: CRISIS_PHRASE, clientTurnId: "rl-short" } });
+    assert.equal(short.status, 200);
+    assert.equal(short.json.state, "escalated");
   } finally {
     w.cleanup();
   }
