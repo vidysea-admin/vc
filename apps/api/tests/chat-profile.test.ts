@@ -300,11 +300,11 @@ test("LK1w: VC_TEXT_CHAIN unset -> the student chat turn uses the current provid
   }
 });
 
-test("LK1w: VC_TEXT_CHAIN does not replace the scribe provider config: with no injected provider and no VC_LLM_PROVIDER, startApi still refuses (provider config) before connecting", async () => {
+test("LK1w: VC_TEXT_CHAIN does not replace the scribe provider config: with no injected provider, no VC_LLM_PROVIDER and the classifier injected (so only the scribe base is read), startApi still refuses before connecting", async () => {
   const fake = createFakeMongoClient();
   let connected = 0;
   (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
-  await mustRefuseWith(startApi({ MONGODB_URL: "mongodb://fake-host/ignored", ...CHAIN_ENV }, { clientFactory: () => fake.client, http: { port: 0, verifier: counsellorVerifier, skillsDir: SKILLS_DIR } }), /VC_LLM_PROVIDER/);
+  await mustRefuseWith(startApi({ MONGODB_URL: "mongodb://fake-host/ignored", ...CHAIN_ENV }, { clientFactory: () => fake.client, http: { port: 0, verifier: counsellorVerifier, skillsDir: SKILLS_DIR, escalationForTenant: (() => ({})) as never } }), /VC_LLM_PROVIDER/);
   assert.equal(connected, 0);
 });
 
