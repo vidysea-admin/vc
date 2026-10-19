@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { VOICE_CRISIS_NO_WORDS_TEXT } from "../src/voice.js";
-import { CRISIS_AUDIO, CRISIS_PHRASE, CRISIS_TEXT_FIXED, adult, newThread, studentToken, until, voiceWorld, type VoiceWorld } from "./voice-fixtures.js";
+import { CRISIS_AUDIO, CRISIS_PHRASE, CRISIS_TEXT_FIXED, adult, minorNoConsent, newThread, studentToken, until, voiceWorld, type VoiceWorld } from "./voice-fixtures.js";
 import { CRISIS_RESUME_GAP_MS_DEFAULT, type LiveCrisisDetector } from "@vc/providers";
 
 const EARLIER = "my earlier unanswered question about Germany";
@@ -140,6 +140,7 @@ const throwingNames = (): any => ({ profileNames: async () => [123 as unknown as
 async function runWith(
   extraDeps: Record<string, unknown>,
   body: (w: VoiceWorld, escalations: any[]) => Promise<void>,
+  claims: Record<string, unknown> = adult(),
 ): Promise<void> {
   const escalations: any[] = [];
   const w = await voiceWorld({
@@ -150,8 +151,8 @@ async function runWith(
     } as any,
   });
   try {
-    const threadId = await newThread(w.chat, await studentToken(adult()));
-    await w.open(adult(), threadId);
+    const threadId = await newThread(w.chat, await studentToken(claims));
+    await w.open(claims, threadId);
     await body(w, escalations);
   } finally {
     await w.cleanup();
@@ -189,5 +190,112 @@ test("H3: two crises with no words in one session each escalate under their own 
     // The real port keys each record on sessionId:turnId:role:recipient: one id per crisis, or the second is a silent no-op upsert.
     assert.notEqual(escalations[0].turns[0].turnId, escalations[1].turns[0].turnId, "each crisis escalation has its own turn id");
     assert.equal(w.fakeDb.collection<any>("student_flags").all().length, 2, "and each crisis has its own flag");
+  });
+});
+
+// ---- low leftovers (D-101): ISS-260 / ISS-261 / ISS-262 -----------------------------------------------------------------------------
+
+/** The crisis gap: the mute lifts only on new speech after the model's turn ended and a pause longer than the resume gap. */
+const nextUtterance = async (w: VoiceWorld) => {
+  w.provider.backends[0]!.emitTurnComplete();
+  await new Promise((r) => setTimeout(r, CRISIS_RESUME_GAP_MS_DEFAULT + 300));
+};
+const flagIds = (w: VoiceWorld): string[] => w.fakeDb.collection<any>("student_flags").all().map((f) => f.turnId as string);
+const SPOKEN_ID = /^v[0-9a-f]{8}\d{6}$/; // the spoken turn's id: v<sid8><seq>
+const CRISIS_ID = /^v[0-9a-f]{8}crisis[0-9a-f]{8}$/; // a crisis with no turn of its own, or whose spoken id was already used
+
+test("ISS-260 H3 for an unconsented minor: the flag keeps the spoken turn id once, a second crisis on the same turn gets a fresh id, nothing is escalated", async () => {
+  await runWith(
+    {},
+    async (w, escalations) => {
+      speak(w, `${CRISIS_PHRASE} tonight`);
+      await until(() => flagIds(w).length === 1, "first flag");
+      await nextUtterance(w);
+      speak(w, "   "); // a second crisis; the minor's words are never kept, and no new spoken turn exists to borrow
+      await until(() => flagIds(w).length === 2, "second flag");
+      await w.voice.settled();
+      const [first, second] = flagIds(w);
+      assert.match(first!, SPOKEN_ID, "the first flag keeps the spoken turn's id");
+      assert.match(second!, CRISIS_ID, "the second crisis does not reuse the first's id");
+      assert.notEqual(first, second);
+      assert.equal(escalations.length, 0, "no text is stored for an unconsented minor, so nothing is escalated");
+      assert.equal(w.fakeDb.collection<any>("chat_turns").all().length, 0, "and no turn is stored");
+      assert.equal(w.logs.filter((l) => l.event === "voice_crisis_escalate_skipped_text_not_stored").length, 2, "each skip leaves a text-free log line");
+    },
+    minorNoConsent(),
+  );
+});
+
+test("ISS-261 two worded crises each keep their own spoken turn id, flag and escalation agree with the stored turn, and no words cross over", async () => {
+  await runWith({}, async (w, escalations) => {
+    speak(w, `${CRISIS_PHRASE} first`);
+    await until(() => escalations.length === 1, "first escalated");
+    await nextUtterance(w);
+    speak(w, `${CRISIS_PHRASE} second`);
+    await until(() => escalations.length === 2, "second escalated");
+    await w.voice.settled();
+    const stored = w.fakeDb.collection<any>("chat_turns").all().filter((t) => t.role === "user");
+    const idOf = (needle: string): string => stored.find((t) => String(t.text).includes(needle))!.turnId as string;
+    const [f1, f2] = flagIds(w);
+    assert.equal(f1, idOf("first"));
+    assert.equal(f2, idOf("second"));
+    assert.notEqual(f1, f2);
+    assert.equal(escalations[0].turns[0].turnId, f1);
+    assert.equal(escalations[1].turns[0].turnId, f2);
+    assert.match(escalations[0].turns[0].text, /first/);
+    assert.ok(!escalations[0].turns[0].text.includes("second"));
+    assert.match(escalations[1].turns[0].text, /second/);
+    assert.ok(!escalations[1].turns[0].text.includes("first"));
+  });
+});
+
+test("ISS-261 a worded crisis, then a no-words crisis on the same turn: the second gets a fresh id and the text-free marker, never the first's words or id", async () => {
+  await runWith({}, async (w, escalations) => {
+    speak(w, `${CRISIS_PHRASE} first`);
+    await until(() => escalations.length === 1, "first escalated");
+    await nextUtterance(w);
+    speak(w, "   ");
+    await until(() => escalations.length === 2, "second escalated");
+    await w.voice.settled();
+    const [f1, f2] = flagIds(w);
+    assert.match(f1!, SPOKEN_ID);
+    assert.match(f2!, CRISIS_ID);
+    assert.equal(escalations[1].turns[0].text, VOICE_CRISIS_NO_WORDS_TEXT);
+    assert.notEqual(escalations[0].turns[0].turnId, escalations[1].turns[0].turnId);
+  });
+});
+
+test("ISS-261 a throwing redaction on the first crisis does not touch the second: both are flagged under their own ids and escalated with the marker, no words logged", async () => {
+  await runWith(throwingNames(), async (w, escalations) => {
+    speak(w, `${CRISIS_PHRASE} secret-one-xyz`);
+    await until(() => escalations.length === 1, "first escalated despite the redaction failure");
+    await nextUtterance(w);
+    speak(w, `${CRISIS_PHRASE} secret-two-xyz`);
+    await until(() => escalations.length === 2, "second escalated despite the redaction failure");
+    await w.voice.settled();
+    for (const e of escalations) assert.equal(e.turns[0].text, VOICE_CRISIS_NO_WORDS_TEXT, "the marker, never the raw words");
+    const ids = flagIds(w);
+    assert.equal(ids.length, 2, "both crises are flagged");
+    assert.notEqual(ids[0], ids[1]);
+    assert.notEqual(escalations[0].turns[0].turnId, escalations[1].turns[0].turnId);
+    assert.equal(w.logs.filter((l) => l.event === "voice_crisis_redact_failed").length, 2);
+    const logged = JSON.stringify(w.logs);
+    assert.ok(!logged.includes("secret-one-xyz") && !logged.includes("secret-two-xyz") && !logged.includes("kill myself"), "the log carries no words");
+  });
+});
+
+test("ISS-262 ordering: the crisis record never reads a previous turn's id: a worded crisis after an answered earlier turn is flagged under its own spoken turn", async () => {
+  await runWith({}, async (w, escalations) => {
+    speak(w, EARLIER);
+    answer(w, "Here is an answer about Germany.");
+    speak(w, `${CRISIS_PHRASE} tonight`);
+    await until(() => escalations.length === 1, "escalated");
+    await w.voice.settled();
+    const users = w.fakeDb.collection<any>("chat_turns").all().filter((t) => t.role === "user");
+    const earlier = users.find((t) => String(t.text).includes("Germany"))!.turnId as string;
+    const crisis = users.find((t) => String(t.text).includes("kill myself") || String(t.text).includes("tonight"))!.turnId as string;
+    assert.notEqual(earlier, crisis);
+    assert.deepEqual(flagIds(w), [crisis], "the flag carries the crisis utterance's own turn id, not the earlier turn's");
+    assert.equal(escalations[0].turns[0].turnId, crisis);
   });
 });

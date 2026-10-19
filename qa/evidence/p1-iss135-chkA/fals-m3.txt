@@ -1,0 +1,120 @@
+[testlock] running slot 1 (free RAM 4.76 GB): pnpm -C apps/api exec tsx --test tests/anonymous-zero-persistence.test.ts tests/anonymous-route.test.ts tests/chkA-hostile.test.ts
+✔ A20: the anonymous route is OFF by default - unset, empty and 'false' all read as disabled; only the exact word 'true' enables (2.35ms)
+✔ A20 state OFF: with the flag off nothing is built and the path answers exactly like an unknown path (404), for every method (6.9475ms)
+✔ A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route (7.4437ms)
+✔ A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed (74.5808ms)
+✔ A20 state ON and gate open: the route is served (151.124ms)
+✔ no student text is traced: an env that switches LangChain/LangSmith tracing on refuses to build the route (57.8376ms)
+✔ B21 exception: the closed list is exactly one text route, equals the draft's security:[] operations, and contains no voice route (0.7605ms)
+✔ B21 exception: with the anonymous route ON, every other registered route still answers 401 with no token, and the main handler touches no Db (16.7171ms)
+✔ B21 exception: the anonymous route ignores identity - a valid-looking Authorization header changes nothing and no tenant or student id is read (110.064ms)
+✔ startApi: flag off -> the anonymous path is a 404 over real HTTP and no gate file is read (93.8201ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (6.9791ms)
+✔ startApi: flag on without a KB or speakers supplied is a config error, before connecting (12.5262ms)
+✔ startApi: flag on and gate open -> a real HTTP POST is answered and ONLY the text-free counter is written to virtual_counsellor; other routes still 401 (150.4202ms)
+✔ the node:http adapter hands the socket address to the limiter (10 per minute per real client) (249.7562ms)
+✔ U7 repair 2: with the flag on, startApi refuses to start unless the deployment states how clients are told apart - an explicit clientKey or trustSocketAddress: true (38.2454ms)
+✔ U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 the route can return, and the AnonymousError schema carries the helpline field (0.5274ms)
+✔ A15a: 50 text turns through the real route (crisis, PII, borderline, generic) write nothing but increments of the text-free counter (901.0121ms)
+✔ A15a: the handler is built with throwing proxies for gap log, flag log and escalation, no checkpointer, and the counter as its only writer (1.8416ms)
+✔ A15a: the compiled anonymous graph has no checkpointer (30.4194ms)
+✔ A15a: the counter writer is atomic per (date, kind), uses the injected UTC date, and refuses an unknown kind (17.8764ms)
+✔ A15a: a counter outage never fails the turn and never writes elsewhere (crisis still gets the fixed message) (87.045ms)
+✔ A15b: >= 40 borderline cases (English, Hinglish, Hindi) through the route: 0 personal or ambiguous questions answered as generic (502.9353ms)
+✔ A15b: a clear generic question (English, Hinglish, Hindi) is answered, with sources (49.5352ms)
+✔ A15b: the limiter allows 10 requests per minute per client, the 11th is 429 with Retry-After, other clients are unaffected, the window then reopens (222.5522ms)
+✔ A15b: the limiter is in-memory and text-free: its key is hashed, never logged, never persisted; expired keys are purged; a full table fails closed (165.3257ms)
+✔ A15c: the KB sees exactly one search call carrying only q; never /ask, never get_session; no identifier or header reaches it (23.5261ms)
+✔ A15c: when search finds nothing the route answers no_sourced_answer and STILL never falls back to /ask or get_session (22.7377ms)
+✔ A15c: a KB outage is the fixed no-answer, not an error and not an uncited answer (25.3097ms)
+✔ D-092: an unverified claim is dropped in anonymous mode and never shown with a flag; only-unverified is the fixed no-answer (46.0956ms)
+✔ crisis (B24.7): English and Hinglish get the fixed message with Tele-MANAS 14416, no model, no KB, only the crisis counter, nothing logged (35.5065ms)
+✔ crisis (B24.7, U6h L5): a crisis phrase beyond the 4000-character limit is still the fixed message, not a 400 (30.3295ms)
+✔ validation: malformed bodies are a bare 400, over-long non-crisis text is 400, an oversized body is 413; no input is echoed (44.8682ms)
+✔ validation: a near-cap body (about 48 KB of text) is scanned for crisis in bounded time and then refused as over-long (32.9395ms)
+✔ ISS-135: the body cap is 64 KiB, and a body over it is a 413 with the helpline, never scanned, never limited, no model, no counter (13.296ms)
+✖ ISS-135: a crisis message within the cap still escalates, and still does so before the limiter for a client already rate limited (29.2905ms)
+✔ errors: an unexpected failure is a bare 500 {error: internal}; the log line carries the error NAME only, never its message or the text (13.8631ms)
+✔ provider failure is the apology text (A12), not an error and not an unsourced answer (21.7969ms)
+✔ U7 repair 1/B: a counter that never answers does not delay any reply - crisis, sign-in and answered turns all return within the deadline (266.1341ms)
+✔ U7 repair 1: the default counter deadline is under one second, so a hung database delays the crisis message by less than that, not by the driver's 30 s (785.6788ms)
+✖ U7 repair A: a crisis message is answered with the fixed message and Tele-MANAS even at request 11 (rate limited) and with a full limiter table (147.4085ms)
+✔ U7 repair A: every non-200 anonymous body (400, 405, 413, 429, 500) carries the static Tele-MANAS helpline (232.8348ms)
+✔ U7 repair D (API): the sign-in and no-answer replies over the real route carry the helpline line too (70.3352ms)
+✔ U7 repair C/E/F over the route: no follow-up question, opaque source ids and an email address is sign-in-required (49.4182ms)
+✔ U7 repair 3: client addresses are normalised before hashing - IPv4-mapped IPv6 shares the IPv4 bucket and every address in one IPv6 /64 shares one bucket (396.3938ms)
+✔ U7 repair 4: with a full table the O(n) sweep runs at most once a second, however many new keys arrive (54.5578ms)
+✔ boundary: 65535/65536 with trailing crisis escalate; 65537+ (incl. multibyte next to the cap) is 413 + helpline + zero side effects (2564.3383ms)
+✔ a multibyte char straddling byte 65536: first byte inside the cap, rest outside, is 413 (76.9029ms)
+✔ chars under cap but bytes over: 25000 euro signs (75000 bytes, 25000 chars) is 413, not scanned (30.0746ms)
+✔ chunked transfer without Content-Length: over cap 413 (zero effects), within cap crisis escalates, any chunk size (3654.834ms)
+✔ Content-Length lies never get an over-cap payload scanned (1542.0431ms)
+✔ encoded bodies: gzip is not decoded, so neither a tiny gzip of a huge crisis text nor a big gzip-labelled stream is a bypass (60.3161ms)
+✔ invalid UTF-8 at the cap: 65536 raw bytes of 0xFF are refused (400 or 413 with helpline), never scanned (30.2894ms)
+CPU64K ascii:21.4ms punct:39.1ms spaces:0.2ms hindi:42.7ms spaced:31.0ms near:29.4ms euro:4.7ms
+CPU256K ascii:100.0ms
+✖ limiter: a 413 does not consume the limiter; a within-cap crisis from a 429-limited client still escalates (160.6701ms)
+✔ CPU: crisisGuard on 64 KiB texts of several shapes (informational timing) (271.6031ms)
+ℹ tests 54
+ℹ suites 0
+ℹ pass 51
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16495.782
+
+✖ failing tests:
+
+test at tests\anonymous-zero-persistence.test.ts:508:1
+✖ ISS-135: a crisis message within the cap still escalates, and still does so before the limiter for a client already rate limited (29.2905ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  429 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss135-chkA-fals\apps\api\tests\anonymous-zero-persistence.test.ts:518:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 429,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\anonymous-zero-persistence.test.ts:602:1
+✖ U7 repair A: a crisis message is answered with the fixed message and Tele-MANAS even at request 11 (rate limited) and with a full limiter table (147.4085ms)
+  AssertionError [ERR_ASSERTION]: I want to kill myself
+  
+  429 !== 200
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss135-chkA-fals\apps\api\tests\anonymous-zero-persistence.test.ts:609:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 429,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chkA-hostile.test.ts:326:1
+✖ limiter: a 413 does not consume the limiter; a within-cap crisis from a 429-limited client still escalates (160.6701ms)
+  AssertionError [ERR_ASSERTION]: at-cap crisis while 429: status (got 429 {"error":"rate_limited","helpline":"If things feel heavy, Tele-MANAS on 14416 is)
+  
+  429 !== 200
+  
+      at escalated (D:\vc\.worktrees\p1-iss135-chkA-fals\apps\api\tests\chkA-hostile.test.ts:133:10)
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss135-chkA-fals\apps\api\tests\chkA-hostile.test.ts:336:5)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 429,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

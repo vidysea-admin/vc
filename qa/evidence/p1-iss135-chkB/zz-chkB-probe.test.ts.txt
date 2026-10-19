@@ -1,0 +1,296 @@
+/** Checker B hostile probe (ISS-135). Not part of the product. Real node:http server + raw TCP client. */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import net from "node:net";
+import { gzipSync } from "node:zlib";
+import { TELE_MANAS_LINE } from "@vc/engine";
+import { AnonymousRateLimiter, MAX_ANONYMOUS_BODY_BYTES, ANONYMOUS_PATH, withAnonymousRoutes } from "../src/anonymous.js";
+import { MAX_CHAT_BODY_BYTES } from "../src/chat.js";
+import { createApiServer, createApiHandler } from "../src/server.js";
+import { anonWorld } from "./anonymous-fixtures.js";
+
+const CAP = MAX_ANONYMOUS_BODY_BYTES;
+const CRISIS = " I want to kill myself.";
+
+function decodeChunked(buf: Buffer): Buffer {
+  const out: Buffer[] = [];
+  let i = 0;
+  while (i < buf.length) {
+    const nl = buf.indexOf("\r\n", i);
+    if (nl < 0) break;
+    const size = parseInt(buf.subarray(i, nl).toString("latin1"), 16);
+    if (!size) break;
+    out.push(buf.subarray(nl + 2, nl + 2 + size));
+    i = nl + 2 + size + 2;
+  }
+  return Buffer.concat(out);
+}
+
+async function raw(port: number, head: string, pieces: Buffer[]): Promise<{ status: number; json: any; text: string }> {
+  return new Promise((resolve, reject) => {
+    const s = net.connect(port, "127.0.0.1");
+    const got: Buffer[] = [];
+    let done = false;
+    function finish() {
+      if (done) return;
+      done = true;
+      const all = Buffer.concat(got);
+      const at = all.indexOf("\r\n\r\n");
+      const headTxt = all.subarray(0, at).toString("latin1");
+      let body = all.subarray(at + 4);
+      if (/transfer-encoding:\s*chunked/i.test(headTxt)) body = decodeChunked(body);
+      const status = Number(/^HTTP\/1\.1 (\d+)/.exec(headTxt)?.[1]);
+      const text = body.toString("utf8");
+      let json: any;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = undefined;
+      }
+      resolve({ status, json, text });
+    }
+    s.on("data", (d) => got.push(d));
+    s.on("error", (e) => {
+      if (got.length) finish();
+      else { done = true; resolve({ status: 0, json: undefined, text: "ERR " + (e as Error).message }); }
+    });
+    s.on("close", finish);
+    s.write(head);
+    (async () => {
+      for (const p of pieces) {
+        s.write(p);
+        await new Promise((r) => setTimeout(r, 2));
+      }
+      setTimeout(() => s.end(), 300);
+    })();
+    setTimeout(() => {
+      s.destroy();
+    }, 8000);
+  });
+}
+const headCL = (n: number | string, extra = "") => `POST ${ANONYMOUS_PATH} HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: ${n}\r\n${extra}Connection: close\r\n\r\n`;
+const headChunked = (extra = "") => `POST ${ANONYMOUS_PATH} HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n${extra}Connection: close\r\n\r\n`;
+const chunk = (b: Buffer) => Buffer.concat([Buffer.from(b.length.toString(16) + "\r\n"), b, Buffer.from("\r\n")]);
+const endChunk = Buffer.from("0\r\n\r\n");
+
+/** A JSON body of EXACTLY `total` bytes: {"text": <pad> + tail}. */
+function bodyOfBytes(total: number, tail: string, padChar = "a"): Buffer {
+  const overhead = Buffer.byteLength(JSON.stringify({ text: "" }));
+  const tailB = Buffer.byteLength(tail);
+  const padBytes = total - overhead - tailB;
+  const cb = Buffer.byteLength(padChar);
+  const n = Math.floor(padBytes / cb);
+  const fill = padBytes - n * cb;
+  const text = padChar.repeat(n) + "x".repeat(fill) + tail;
+  const b = Buffer.from(JSON.stringify({ text }), "utf8");
+  assert.equal(b.length, total, "builder hit the exact byte count");
+  return b;
+}
+
+async function withServer<T>(opts: Parameters<typeof anonWorld>[0], fn: (port: number, w: ReturnType<typeof anonWorld>) => Promise<T>): Promise<T> {
+  const w = anonWorld(opts);
+  const main = createApiHandler({ verifier: undefined as never, dbForTenant: () => { throw new Error("db"); }, graphForTenant: () => { throw new Error("graph"); } } as never);
+  const server = createApiServer(withAnonymousRoutes(main, w.handler));
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  try {
+    return await fn((server.address() as net.AddressInfo).port, w);
+  } finally {
+    await new Promise<void>((r) => {
+      server.closeAllConnections?.();
+      server.close(() => r());
+    });
+    w.cleanup();
+  }
+}
+const noSideEffects = (w: ReturnType<typeof anonWorld>, label: string) => {
+  assert.equal(w.provider.calls.length, 0, `${label}: no model call`);
+  assert.equal(w.kb.calls.length, 0, `${label}: no KB call`);
+  assert.deepEqual(w.counterCalls, [], `${label}: no counter write`);
+};
+
+test("P0 constants", () => {
+  assert.equal(CAP, 65536);
+  assert.equal(MAX_CHAT_BODY_BYTES, 256 * 1024, "authenticated route constant untouched");
+});
+
+test("P1 exact byte boundary, ASCII: 65535/65536 pass the gate (escalate), 65537/65538/100K/300K are 413", async () => {
+  for (const total of [CAP - 1, CAP]) {
+    await withServer({}, async (port, w) => {
+      const b = bodyOfBytes(total, CRISIS);
+      const r = await raw(port, headCL(b.length), [b]);
+      assert.equal(r.status, 200, `${total}`);
+      assert.equal(r.json.state, "escalated");
+      assert.match(r.json.message, /14416/);
+      assert.deepEqual(w.counterCalls, ["crisis"]);
+    });
+  }
+  for (const total of [CAP + 1, CAP + 2, 100 * 1024, 300 * 1024]) {
+    await withServer({}, async (port, w) => {
+      const b = bodyOfBytes(total, CRISIS);
+      const r = await raw(port, headCL(b.length), [b]);
+      assert.equal(r.status, 413, `${total}`);
+      assert.equal(r.json.error, "body_too_large");
+      assert.equal(r.json.helpline, TELE_MANAS_LINE);
+      assert.match(r.json.helpline, /14416/);
+      noSideEffects(w, String(total));
+    });
+  }
+});
+
+test("P2 multibyte UTF-8 straddling the cap (3-byte and 4-byte chars; crisis phrase before the tail)", async () => {
+  for (const ch of ["あ", "😀"]) {
+    await withServer({}, async (port) => {
+      const b = bodyOfBytes(CAP, `${CRISIS} ${ch}`, ch);
+      const r = await raw(port, headCL(b.length), [b]);
+      assert.equal(r.status, 200, `${ch} at cap`);
+      assert.equal(r.json.state, "escalated");
+    });
+    await withServer({}, async (port, w) => {
+      const b = bodyOfBytes(CAP + 1, `${CRISIS} ${ch}`, ch);
+      const r = await raw(port, headCL(b.length), [b]);
+      assert.equal(r.status, 413, `${ch} cap+1`);
+      assert.equal(r.json.helpline, TELE_MANAS_LINE);
+      noSideEffects(w, `${ch} cap+1`);
+    });
+  }
+  // few characters, many bytes: 30000 x 3-byte chars = 90000 bytes (a char-count gate would let it through)
+  await withServer({}, async (port, w) => {
+    const text = "あ".repeat(30000) + CRISIS;
+    assert.ok(text.length < CAP && Buffer.byteLength(text) > CAP);
+    const b = Buffer.from(JSON.stringify({ text }));
+    const r = await raw(port, headCL(b.length), [b]);
+    assert.equal(r.status, 413);
+    noSideEffects(w, "chars<cap bytes>cap");
+  });
+  // within-cap body whose TCP segments split inside a multibyte char still decodes and escalates
+  await withServer({}, async (port) => {
+    const b = bodyOfBytes(CAP - 10, `${CRISIS} あ😀`, "あ");
+    const cut = b.indexOf(Buffer.from("あ")) + 1;
+    const r = await raw(port, headCL(b.length), [b.subarray(0, cut), b.subarray(cut, 40001), b.subarray(40001)]);
+    assert.equal(r.status, 200);
+    assert.equal(r.json.state, "escalated");
+  });
+});
+
+test("P3 Content-Length lies", async () => {
+  // declared small, actual 100 KiB stream with the crisis phrase at the end: nothing past the declared length is a body
+  await withServer({}, async (port, w) => {
+    const b = bodyOfBytes(100 * 1024, CRISIS);
+    const r = await raw(port, headCL(10), [b]);
+    assert.ok([0, 400, 413].includes(r.status), `status ${r.status} ${r.text}`); console.log("P3a status", r.status, r.text.slice(0, 80));
+    assert.equal(w.provider.calls.length, 0);
+    assert.equal(w.kb.calls.length, 0);
+    assert.deepEqual(w.counterCalls, []);
+  });
+  // declared at-cap but 300 KiB streamed
+  await withServer({}, async (port, w) => {
+    const b = bodyOfBytes(300 * 1024, CRISIS);
+    const r = await raw(port, headCL(CAP), [b]);
+    assert.ok([0, 400, 413].includes(r.status), `status ${r.status}`); console.log("P3b status", r.status, r.text.slice(0, 80));
+    assert.deepEqual(w.counterCalls, []);
+    assert.equal(w.provider.calls.length, 0);
+  });
+  // declared larger than actual, actual over cap
+  await withServer({}, async (port, w) => {
+    const b = bodyOfBytes(300 * 1024, CRISIS);
+    const r = await raw(port, headCL(b.length + 5000), [b]);
+    assert.equal(r.status, 413);
+    assert.equal(r.json.helpline, TELE_MANAS_LINE);
+    noSideEffects(w, "declared bigger than actual");
+  });
+  // whitespace padding after a valid crisis JSON, past the cap
+  await withServer({}, async (port, w) => {
+    const j = Buffer.from(JSON.stringify({ text: "I want to kill myself" }));
+    const pad = Buffer.alloc(CAP + 100 - j.length, 0x20);
+    const b = Buffer.concat([j, pad]);
+    const r = await raw(port, headCL(b.length), [b]);
+    assert.equal(r.status, 413, "whitespace padding past the cap is still over the cap");
+    noSideEffects(w, "padded");
+  });
+});
+
+test("P4 chunked transfer, no Content-Length", async () => {
+  await withServer({}, async (port, w) => {
+    const b = bodyOfBytes(100 * 1024, CRISIS);
+    const pieces: Buffer[] = [];
+    for (let o = 0; o < b.length; o += 7919) pieces.push(chunk(b.subarray(o, o + 7919)));
+    pieces.push(endChunk);
+    const r = await raw(port, headChunked(), pieces);
+    assert.equal(r.status, 413);
+    assert.equal(r.json.helpline, TELE_MANAS_LINE);
+    noSideEffects(w, "chunked over");
+  });
+  await withServer({}, async (port, w) => {
+    const b = bodyOfBytes(CAP + 1, CRISIS);
+    const r = await raw(port, headChunked(), [chunk(b.subarray(0, CAP)), chunk(b.subarray(CAP)), endChunk]);
+    assert.equal(r.status, 413);
+    noSideEffects(w, "chunked cap+1");
+  });
+  await withServer({}, async (port) => {
+    const b = bodyOfBytes(CAP, CRISIS);
+    const r = await raw(port, headChunked(), [chunk(b.subarray(0, 30000)), chunk(b.subarray(30000)), endChunk]);
+    assert.equal(r.status, 200);
+    assert.equal(r.json.state, "escalated");
+  });
+  await withServer({}, async (port, w) => {
+    const b = bodyOfBytes(2 * 1024 * 1024, CRISIS);
+    const r = await raw(port, headChunked(), [chunk(b), endChunk]);
+    assert.equal(r.status, 413);
+    noSideEffects(w, "chunked 2MiB");
+  });
+});
+
+test("P5 encoded bodies are not decoded: gzip never reaches the scanner", async () => {
+  await withServer({}, async (port, w) => {
+    const big = bodyOfBytes(5 * 1024 * 1024, CRISIS);
+    const gz = gzipSync(big);
+    assert.ok(gz.length < CAP, `gz ${gz.length}`);
+    const r = await raw(port, headCL(gz.length, "Content-Encoding: gzip\r\n"), [gz]);
+    assert.equal(r.status, 400, "undecoded gzip is just invalid JSON");
+    noSideEffects(w, "gzip bomb");
+  });
+  await withServer({}, async (port, w) => {
+    const gz = gzipSync(Buffer.from(JSON.stringify({ text: "I want to kill myself" })));
+    const r = await raw(port, headCL(gz.length, "Content-Encoding: gzip\r\n"), [gz]);
+    assert.equal(r.status, 400);
+    assert.deepEqual(w.counterCalls, []);
+  });
+});
+
+test("P6 within-cap crisis escalates before the limiter, including a client already at 429, over real HTTP", async () => {
+  const limiter = new AnonymousRateLimiter({ limit: 1, windowMs: 60_000, maxKeys: 100, nowMs: () => 5_000 });
+  await withServer({ deps: { limiter } }, async (port, w) => {
+    const generic = Buffer.from(JSON.stringify({ text: "What are the tuition fees for public universities in Germany?" }));
+    assert.equal((await raw(port, headCL(generic.length), [generic])).status, 200);
+    const l = await raw(port, headCL(generic.length), [generic]);
+    assert.equal(l.status, 429);
+    assert.match(l.json.helpline, /14416/);
+    const callsBefore = w.provider.calls.length;
+    for (const total of [50 * 1024, CAP - 1, CAP]) {
+      const b = bodyOfBytes(total, CRISIS);
+      const r = await raw(port, headCL(b.length), [b]);
+      assert.equal(r.status, 200, `${total} while limited`);
+      assert.equal(r.json.state, "escalated");
+      assert.match(r.json.message, /14416/);
+    }
+    assert.equal(w.provider.calls.length, callsBefore, "crisis made no model call");
+    const nBefore = w.counterCalls.length;
+    const b = bodyOfBytes(CAP + 1, CRISIS);
+    const r = await raw(port, headCL(b.length), [b]);
+    assert.equal(r.status, 413);
+    assert.equal(w.counterCalls.length, nBefore);
+  });
+});
+
+test("P7 over-cap request does not consume limiter budget and is never a 429", async () => {
+  const limiter = new AnonymousRateLimiter({ limit: 1, windowMs: 60_000, maxKeys: 100, nowMs: () => 5_000 });
+  await withServer({ deps: { limiter } }, async (port) => {
+    for (let i = 0; i < 5; i++) {
+      const b = bodyOfBytes(CAP + 1 + i, "");
+      const r = await raw(port, headCL(b.length), [b]);
+      assert.equal(r.status, 413);
+    }
+    const generic = Buffer.from(JSON.stringify({ text: "What are the tuition fees for public universities in Germany?" }));
+    assert.equal((await raw(port, headCL(generic.length), [generic])).status, 200);
+  });
+});

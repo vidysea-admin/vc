@@ -1,0 +1,2 @@
+# Checkpoint A - p1-iss135-anon-crisis-budget (cycle 0)
+2026-10-19 PASS. Identity: code 6f025b6 (HEAD 0dd09f4, qa-only above it). Whole api package 338/338, typecheck 0, own probes 9/9 + auth probe 1/1, 4 of 4 mutants killed (M1 cap 256K, M2 cap checks removed, M3 limiter first, M4 catch-branch 413 without helpline). Findings: PROPOSED-ISSUE P2 (unlimited synchronous scan residual, Umesh call), P3 (client reset before reading the 413, pre-existing). Verdict: qa/verdicts/p1-iss135-anon-crisis-budget.A.md. Evidence: qa/evidence/p1-iss135-chkA/.

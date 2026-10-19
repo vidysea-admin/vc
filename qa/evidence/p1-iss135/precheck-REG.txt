@@ -1,0 +1,20 @@
+[testlock] running slot 0 (free RAM 2.13 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=validation|crisis|U7 repair A tests/anonymous-zero-persistence.test.ts
+✔ A15a: 50 text turns through the real route (crisis, PII, borderline, generic) write nothing but increments of the text-free counter (939.6944ms)
+✔ A15a: a counter outage never fails the turn and never writes elsewhere (crisis still gets the fixed message) (100.6546ms)
+✔ crisis (B24.7): English and Hinglish get the fixed message with Tele-MANAS 14416, no model, no KB, only the crisis counter, nothing logged (33.6209ms)
+✔ crisis (B24.7, U6h L5): a crisis phrase beyond the 4000-character limit is still the fixed message, not a 400 (35.0269ms)
+✔ validation: malformed bodies are a bare 400, over-long non-crisis text is 400, an oversized body is 413; no input is echoed (32.1833ms)
+✔ validation: a near-cap body (about 48 KB of text) is scanned for crisis in bounded time and then refused as over-long (40.5239ms)
+✔ ISS-135: a crisis message within the cap still escalates, and still does so before the limiter for a client already rate limited (96.3547ms)
+✔ U7 repair 1/B: a counter that never answers does not delay any reply - crisis, sign-in and answered turns all return within the deadline (288.1185ms)
+✔ U7 repair 1: the default counter deadline is under one second, so a hung database delays the crisis message by less than that, not by the driver's 30 s (793.1702ms)
+✔ U7 repair A: a crisis message is answered with the fixed message and Tele-MANAS even at request 11 (rate limited) and with a full limiter table (324.2618ms)
+✔ U7 repair A: every non-200 anonymous body (400, 405, 413, 429, 500) carries the static Tele-MANAS helpline (77.9078ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8556.5954

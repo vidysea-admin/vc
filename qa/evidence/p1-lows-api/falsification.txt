@@ -1,0 +1,8 @@
+Throwaway detached worktree D:/vc/.worktrees/p1-lows-api-fals (main 8efd936 + the new test file); apps/api/src/voice.ts mutated one edit at a time, reset between runs.
+Baseline (unmutated): voice-crisis-turn.test.ts 13/13 pass.
+M1 (ISS-260)  voice.ts:821 drop the used-id guard (!c.crisisTurnIds.has(spokenId) -> true)      -> fail 1: ISS-260 minor test
+M2 (ISS-261)  voice.ts:819 ownTurn = false (a crisis never keeps its spoken id)                   -> fail 4: ISS-260, ISS-261 two worded, ISS-261 worded+no-words, ISS-262
+M3 (ISS-261)  voice.ts:819 ownTurn = true and the guard dropped (no-words crisis borrows an id)   -> fail 3: H3 (existing), ISS-260, ISS-261 worded+no-words
+M4 (ISS-261)  voice.ts:811 words = raw after a redaction throw (raw words escalated)              -> fail 2: H1 (existing), ISS-261 throwing redaction
+M5 (ISS-262)  voice.ts:688 c.lastUser never updated at the final transcript                       -> fail 4: ISS-260, ISS-261 two worded, ISS-261 worded+no-words, ISS-262
+All mutants killed by the new tests; the mutated copy was not the bound tree and holds no commit.

@@ -1,0 +1,41 @@
+[testlock] running slot 0 (free RAM 2.53 GB): pnpm -C apps/api exec tsx --test tests/chkA-hostile.test.ts
+✔ boundary: 65535/65536 with trailing crisis escalate; 65537+ (incl. multibyte next to the cap) is 413 + helpline + zero side effects (2035.9722ms)
+✔ a multibyte char straddling byte 65536: first byte inside the cap, rest outside, is 413 (60.2008ms)
+✔ chars under cap but bytes over: 25000 euro signs (75000 bytes, 25000 chars) is 413, not scanned (32.2807ms)
+✔ chunked transfer without Content-Length: over cap 413 (zero effects), within cap crisis escalates, any chunk size (3287.9557ms)
+✖ Content-Length lies never get an over-cap payload scanned (64.6778ms)
+✔ encoded bodies: gzip is not decoded, so neither a tiny gzip of a huge crisis text nor a big gzip-labelled stream is a bypass (65.6777ms)
+✔ invalid UTF-8 at the cap: 65536 raw bytes of 0xFF are refused (400 or 413 with helpline), never scanned (24.9631ms)
+CPU64K ascii:16.1ms punct:17.7ms spaces:0.1ms hindi:25.1ms spaced:26.5ms near:27.2ms euro:3.4ms
+CPU256K ascii:72.6ms
+✔ limiter: a 413 does not consume the limiter; a within-cap crisis from a 429-limited client still escalates (667.1239ms)
+✔ CPU: crisisGuard on 64 KiB texts of several shapes (informational timing) (189.8861ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 8
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9691.8718
+
+✖ failing tests:
+
+test at tests\chkA-hostile.test.ts:232:1
+✖ Content-Length lies never get an over-cap payload scanned (64.6778ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.'
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\p1-iss135-chkA-fals\apps\api\tests\chkA-hostile.test.ts:246:38)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

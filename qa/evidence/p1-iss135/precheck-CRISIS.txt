@@ -1,0 +1,10 @@
+[testlock] running slot 0 (free RAM 2.08 GB): pnpm -C apps/api exec tsx --test --test-name-pattern=ISS-135: a crisis message within the cap tests/anonymous-zero-persistence.test.ts
+✔ ISS-135: a crisis message within the cap still escalates, and still does so before the limiter for a client already rate limited (271.2926ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5969.8551
