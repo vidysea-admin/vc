@@ -8,7 +8,7 @@ dual-trigger: security apps/api/src/anonymous.ts:405 (public unauthenticated rou
 **Issues addressed:** ISS-135
 **Executor:** claude-sonnet-subagent (maker/builder p1-iss135)
 
-Status: ready-for-check
+Status: checked-PASS (dual: verdict A 5f8595e qa/verdicts/p1-iss135-anon-crisis-budget.A.md, verdict B 0dd09f4 qa/verdicts/p1-iss135-anon-crisis-budget.B.md; review Approve)
 
 ## Criteria
 - **CAP** — the anonymous body cap is 64 KiB (`MAX_ANONYMOUS_BODY_BYTES`, was 256 KiB). A body over it is a 413 `body_too_large` that still carries the 14416 helpline, and is rejected BEFORE the crisis scan: a 100 KiB and a 300 KiB body that end with a crisis phrase get 413 (not an escalated 200), with zero model calls, zero KB calls and zero counter writes.
