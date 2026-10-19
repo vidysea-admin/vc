@@ -1,0 +1,14 @@
+[testlock] waiting for lock held by: PID=36944 STARTED=639280248754425700 ACQUIRED_AT=1792408311 TOKEN=1792408311759358000-492658-28200 DESC=bash -c cd D:/vc/.worktrees/lk1w/apps/api && npx tsx --test tests/chat-profile.test.ts tests/anonymous-route.test.ts 2>&1 | tail -60; cd ../../packages/engine && npx tsx --test tests/concern-classifier.test.ts 2>&1 | grep -E '^# (tests|pass|fail)|not ok' 
+[testlock] running slot 1 (free RAM 4.4 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk5/apps/api exec tsx --test --test-timeout=60000 tests/acceptance-student-journey.test.ts
+✔ acceptance A5/A6/A7: a signed-in student's real turn validates against the published response schema, is stored redacted and tenant-stamped, shows in the export, and erasure leaves read-back zero through the API (204.4014ms)
+✔ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and write one text-free flag per thread and window (flood dedup) (342.1855ms)
+✔ acceptance hostile: a student of tenant-b cannot read, write to or erase-probe tenant-a's thread, and an under-18 student without guardian consent is answered but nothing of the text is kept (78.6083ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4325.3767
+EXIT=0

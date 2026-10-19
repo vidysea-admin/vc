@@ -1,0 +1,68 @@
+[testlock] waiting for lock held by: PID=36944 STARTED=639280248754425700 ACQUIRED_AT=1792408311 TOKEN=1792408311759358000-492658-28200 DESC=bash -c cd D:/vc/.worktrees/lk1w/apps/api && npx tsx --test tests/chat-profile.test.ts tests/anonymous-route.test.ts 2>&1 | tail -60; cd ../../packages/engine && npx tsx --test tests/concern-classifier.test.ts 2>&1 | grep -E '^# (tests|pass|fail)|not ok' 
+[testlock] running slot 1 (free RAM 2.8 GB): timeout 600 pnpm -C D:/chk-tmp/lk5c1/base/packages/engine exec tsx --test --test-timeout=60000 tests/chk-hostile.test.ts
+CASE K1 localized empty => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE K1 localized null => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE K1 localized 2001 chars => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE K1 followUpLocalized 501 chars => LOCALIZED | जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती।
+CASE K1 replyLang 17 chars => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE K1 English turn localized empty => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE K1 English turn localized null replyLang null => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE K1 English turn localized absent => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE K1 control: empty English text (stays strict -> APOLOGY) => APOLOGY | Sorry, I couldn't put an answer together just now. Please try again.
+CASE K1 control: good localized => LOCALIZED | जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती।
+CASE crisis => model calls 0, detector calls 0, CRISIS
+CASE M1 control same figure => LOCALIZED | लगभग 300 यूरो का सेमेस्टर योगदान देना होगा।
+CASE M1 control Devanagari digits same figure => LOCALIZED | लगभग ३०० यूरो का सेमेस्टर योगदान देना होगा।
+CASE M1 scheme-less evil.test => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE M1 scheme-less evil.test/path => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE M1 e-mail => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE M1 https link when English has none => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE M1 different figure Devanagari digits => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE M1 different figure ASCII => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE M1 figure dropped => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE M1 spelled-out Devanagari magnitude, English has no figure => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE M1 swapped country Devanagari => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE M1 added country Devanagari => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE M1 new unit percent => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE M1 new unit USD => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE M1 link control same link => LOCALIZED | जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती। छात्रवृत्ति: https://www.daad.de/en/
+CASE M1 different https link, English has one => ENGLISH | German public universities charge no tuition for most programmes. See https://www.daad.de/en/ for scholarships.
+CASE M1 scheme-less evil.test, English has a link => ENGLISH | German public universities charge no tuition for most programmes. See https://www.daad.de/en/ for scholarships.
+CASE M1 English's link plus evil.test => ENGLISH | German public universities charge no tuition for most programmes. See https://www.daad.de/en/ for scholarships.
+CASE M1 Hinglish spelled-out teen sau replacing 300 => ENGLISH | Expect a semester contribution of about 300 euros.
+CASE M1 Hinglish paanch hazaar added => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE PROBE English no figure + Devanagari bare number word पचास यूरो => LOCALIZED | जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती। पर पचास यूरो लगते हैं।
+CASE PROBE English HAS 300 + extra पाँच हज़ार यूरो => LOCALIZED | लगभग 300 यूरो का सेमेस्टर योगदान देना होगा। और सालाना पाँच हज़ार यूरो।
+CASE PROBE English HAS 300 + extra दस लाख => LOCALIZED | लगभग 300 यूरो का सेमेस्टर योगदान देना होगा। और कुल दस लाख।
+CASE PROBE English no figure + 'सौंदर्य' (word containing सौ, benign) => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE M2 prior-flag, localized-only 'secret' => CRISIS | I'm really glad you told me. What you're going through matters, and you deserve support right now. Please call Tele-MANAS on 14416. It is free, open 24x7, and t
+CASE M2 prior-flag, localized-only 'between us' => CRISIS | I'm really glad you told me. What you're going through matters, and you deserve support right now. Please call Tele-MANAS on 14416. It is free, open 24x7, and t
+CASE M2 prior-flag, localized-only 'therapy' => CRISIS | I'm really glad you told me. What you're going through matters, and you deserve support right now. Please call Tele-MANAS on 14416. It is free, open 24x7, and t
+CASE M2 prior-flag, localized-only 'lethal dose' => CRISIS | I'm really glad you told me. What you're going through matters, and you deserve support right now. Please call Tele-MANAS on 14416. It is free, open 24x7, and t
+CASE M2 no prior flag, same 'secret' (control) => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. Ye sab secret hai.
+CASE M2 prior-flag clean control => LOCALIZED | Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti. If things feel heavy, Tele-MANAS on 14416 is free and open 24x7.
+CASE M3 two questions => ENGLISH | Public universities in Germany charge no tuition for most programmes. Which cities are you considering?
+CASE M3 two sentences => ENGLISH | Public universities in Germany charge no tuition for most programmes. Which cities are you considering?
+CASE M3 phone number => ENGLISH | Public universities in Germany charge no tuition for most programmes. Which cities are you considering?
+CASE M3 phone in the question => ENGLISH | Public universities in Germany charge no tuition for most programmes. Which cities are you considering?
+CASE M3 country Devanagari => ENGLISH | Public universities in Germany charge no tuition for most programmes. Which cities are you considering?
+CASE M3 country Latin => ENGLISH | Public universities in Germany charge no tuition for most programmes. Which cities are you considering?
+CASE M3 not a question => ENGLISH | Public universities in Germany charge no tuition for most programmes. Which cities are you considering?
+CASE M3 Latin script in a Devanagari reply => ENGLISH | Public universities in Germany charge no tuition for most programmes. Which cities are you considering?
+CASE M3 Hinglish reply, Devanagari follow-up (script mismatch) => ENGLISH | Public universities in Germany charge no tuition for most programmes. Which cities are you considering?
+CASE M3 control: clean => LOCALIZED | जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती। आप कौन से शहर सोच रहे हैं?
+✔ K1 hostile (395.2869ms)
+✔ crisis first, 0 model calls (8.0106ms)
+✔ M1 hostile (241.3861ms)
+✔ M1 probes (printed, not asserted): spelled-out Hindi numbers the figure check may not see (36.0278ms)
+✔ M2 hostile (59.2867ms)
+✔ M3 hostile (116.8329ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9904.1962
+EXIT=0

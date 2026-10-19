@@ -1,0 +1,186 @@
+/** Checker's own hostile drive of the real runStudentTurn with fake providers (cycle 1). Asserting cases + printed probes. */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { STUDENT_CRISIS_MESSAGE, runStudentTurn, type StudentGraphDeps } from "../src/student/graph.js";
+import type { DetectedLanguage } from "../src/student/lang.js";
+import type { SearchToolOutput } from "../src/student/claims.js";
+import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+
+const AUTH = { role: "student" as const, studentId: "syn-stu-chk", tenantId: "sandbox" };
+const turn = (text: string) => ({ mode: "authenticated" as const, auth: AUTH, threadId: "th-chk", turnId: "tu-chk", text });
+const det = (lang: string, script: DetectedLanguage["script"]) => async (): Promise<DetectedLanguage> => ({ lang, script, confidence: 0.9, source: "model" });
+const HI = det("hi", "devanagari");
+const HING = det("hi-Latn", "latin");
+const EN = det("en", "latin");
+const HI_Q = "जर्मनी की सरकारी यूनिवर्सिटी में फीस कितनी है";
+const HING_Q = "germany mein fees kitni hai";
+const EN_Q = "What is the tuition at German public universities?";
+
+const EN_CLAIM = "Public universities in Germany charge no tuition for most programmes.";
+const HI_OK = "जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती।";
+const HING_OK = "Germany ki sarkari universities mein zyada tar programmes ke liye koi tuition fees nahi lagti.";
+const NUM_EN = "Expect a semester contribution of about 300 euros.";
+const NUM_HI = "लगभग 300 यूरो का सेमेस्टर योगदान देना होगा।";
+const LINK_EN = "German public universities charge no tuition for most programmes. See https://www.daad.de/en/ for scholarships.";
+const LINK_HIT: SearchToolOutput = {
+  status: "ok",
+  hits: [
+    {
+      turnId: "t-link-1", sessionId: "sess-l1", score: 3.2,
+      text: "German public universities charge no tuition for most programmes. See https://www.daad.de/en/ for scholarships.",
+      speakerLabel: "Nisha Varadkar", sessionDate: "2026-03-04", sessionTitle: "Study in Germany seminar", sourceId: "src-sem-1", sourceKind: "internal-seminar",
+    },
+  ],
+  dropped: 0,
+};
+
+function cls(m: string): string {
+  if (m.includes("Sorry, I couldn't")) return "APOLOGY";
+  if (m.includes("I don't have a sourced answer")) return "NOANSWER";
+  if (m.startsWith(STUDENT_CRISIS_MESSAGE.slice(0, 40))) return "CRISIS";
+  if (m.includes("Public universities in Germany charge") || m.includes("German public universities charge") || m.includes("semester contribution of about 300 euros")) return "ENGLISH";
+  return "LOCALIZED";
+}
+
+async function drive(label: string, o: { det?: typeof HI; q?: string; kbAnswer: unknown; flag?: boolean; search?: SearchToolOutput }) {
+  const provider = studentProvider({ kbAnswer: o.kbAnswer });
+  const deps: StudentGraphDeps = {
+    kb: fakeKb(o.search ? { search: o.search } : {}), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW,
+    hasPriorFlag: o.flag ? async () => true : NO_PRIOR_FLAG,
+    escalate: async () => {}, logFlag: async () => {}, countAnonymous: async () => {},
+    detectLanguage: o.det ?? HI,
+  };
+  const out = await runStudentTurn(deps, turn(o.q ?? HI_Q));
+  const m = out.response.message ?? "";
+  console.log(`CASE ${label} => ${cls(m)} | ${m.slice(0, 160).replace(/\n/g, " ")}`);
+  return { m, c: cls(m) };
+}
+
+const claim = (text: string, localized: unknown, extra: Record<string, unknown> = {}) => ({ text, localized, kind: "fact", sourceIds: ["t-sem-1"], ...extra });
+const nclaim = (localized: unknown) => ({ text: NUM_EN, localized, kind: "number", sourceIds: ["t-sem-1"] });
+const ans = (claims: unknown[], top: Record<string, unknown> = {}) => ({ replyLang: "hi", claims, ...top });
+
+test("K1 hostile", async () => {
+  for (const [label, loc] of [["empty", ""], ["null", null], ["2001 chars", "क".repeat(2001)]] as const) {
+    const r = await drive(`K1 localized ${label}`, { kbAnswer: ans([claim(EN_CLAIM, loc)]) });
+    assert.equal(r.c, "ENGLISH", label);
+  }
+  let r = await drive("K1 followUpLocalized 501 chars", { kbAnswer: ans([claim(EN_CLAIM, HI_OK)], { followUp: "Which cities are you considering?", followUpLocalized: "क".repeat(501) }) });
+  assert.equal(r.c, "LOCALIZED");
+  assert.ok(!r.m.includes("Which cities"));
+  r = await drive("K1 replyLang 17 chars", { kbAnswer: ans([claim(EN_CLAIM, HI_OK)], { replyLang: "h".repeat(17) }) });
+  assert.equal(r.c, "ENGLISH");
+  r = await drive("K1 English turn localized empty", { det: EN, q: EN_Q, kbAnswer: ans([claim(EN_CLAIM, "")], { replyLang: "en" }) });
+  assert.equal(r.c, "ENGLISH");
+  r = await drive("K1 English turn localized null replyLang null", { det: EN, q: EN_Q, kbAnswer: ans([claim(EN_CLAIM, null)], { replyLang: null }) });
+  assert.equal(r.c, "ENGLISH");
+  r = await drive("K1 English turn localized absent", { det: EN, q: EN_Q, kbAnswer: { claims: [{ text: EN_CLAIM, kind: "fact", sourceIds: ["t-sem-1"] }] } });
+  assert.equal(r.c, "ENGLISH");
+  r = await drive("K1 control: empty English text (stays strict -> APOLOGY)", { kbAnswer: ans([{ text: "", localized: HI_OK, kind: "fact", sourceIds: ["t-sem-1"] }]) });
+  assert.equal(r.c, "APOLOGY");
+  r = await drive("K1 control: good localized", { kbAnswer: ans([claim(EN_CLAIM, HI_OK)]) });
+  assert.equal(r.c, "LOCALIZED");
+});
+
+test("crisis first, 0 model calls", async () => {
+  const provider = studentProvider({ kbAnswer: ans([claim(EN_CLAIM, HI_OK)]) });
+  let detCalls = 0;
+  const deps: StudentGraphDeps = {
+    kb: fakeKb(), provider, skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG,
+    escalate: async () => {}, logFlag: async () => {}, countAnonymous: async () => {},
+    detectLanguage: async () => { detCalls++; return { lang: "hi", script: "devanagari", confidence: 0.9, source: "model" }; },
+  };
+  const out = await runStudentTurn(deps, turn("I just want to kill myself, nothing matters anymore."));
+  console.log(`CASE crisis => model calls ${provider.calls.length}, detector calls ${detCalls}, ${cls(out.response.message ?? "")}`);
+  assert.equal(provider.calls.length, 0);
+  assert.equal(detCalls, 0);
+  assert.equal(cls(out.response.message ?? ""), "CRISIS");
+});
+
+test("M1 hostile", async () => {
+  const mismatches: string[] = [];
+  const cases: [string, unknown[], "LOCALIZED" | "ENGLISH", SearchToolOutput?][] = [
+    ["control same figure", [nclaim(NUM_HI)], "LOCALIZED"],
+    ["control Devanagari digits same figure", [nclaim("लगभग ३०० यूरो का सेमेस्टर योगदान देना होगा।")], "LOCALIZED"],
+    ["scheme-less evil.test", [claim(EN_CLAIM, `${HI_OK} अधिक जानकारी: evil.test`)], "ENGLISH"],
+    ["scheme-less evil.test/path", [claim(EN_CLAIM, `${HI_OK} देखें evil.test/apply`)], "ENGLISH"],
+    ["e-mail", [claim(EN_CLAIM, `${HI_OK} संपर्क: info@evil.test`)], "ENGLISH"],
+    ["https link when English has none", [claim(EN_CLAIM, `${HI_OK} https://evil.test/x`)], "ENGLISH"],
+    ["different figure Devanagari digits", [nclaim("लगभग ४०० यूरो का सेमेस्टर योगदान देना होगा।")], "ENGLISH"],
+    ["different figure ASCII", [nclaim("लगभग 3000 यूरो का सेमेस्टर योगदान देना होगा।")], "ENGLISH"],
+    ["figure dropped", [nclaim("सेमेस्टर योगदान देना होगा।")], "ENGLISH"],
+    ["spelled-out Devanagari magnitude, English has no figure", [claim(EN_CLAIM, `${HI_OK} पर दो हज़ार यूरो लगते हैं।`)], "ENGLISH"],
+    ["swapped country Devanagari", [claim(EN_CLAIM, "फ्रांस के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती।")], "ENGLISH"],
+    ["added country Devanagari", [claim(EN_CLAIM, `${HI_OK} कनाडा में भी यही है।`)], "ENGLISH"],
+    ["new unit percent", [nclaim("लगभग 300 यूरो का सेमेस्टर योगदान देना होगा, 20% छूट के साथ।")], "ENGLISH"],
+    ["new unit USD", [nclaim("लगभग 300 USD का सेमेस्टर योगदान देना होगा।")], "ENGLISH"],
+    ["link control same link", [{ text: LINK_EN, localized: "जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती। छात्रवृत्ति: https://www.daad.de/en/", kind: "fact", sourceIds: ["t-link-1"] }], "LOCALIZED", LINK_HIT],
+    ["different https link, English has one", [{ text: LINK_EN, localized: "जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती। छात्रवृत्ति: https://www.daad-fake.de/en/", kind: "fact", sourceIds: ["t-link-1"] }], "ENGLISH", LINK_HIT],
+    ["scheme-less evil.test, English has a link", [{ text: LINK_EN, localized: "जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती। छात्रवृत्ति: evil.test", kind: "fact", sourceIds: ["t-link-1"] }], "ENGLISH", LINK_HIT],
+    ["English's link plus evil.test", [{ text: LINK_EN, localized: "जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती। https://www.daad.de/en/ और evil.test", kind: "fact", sourceIds: ["t-link-1"] }], "ENGLISH", LINK_HIT],
+  ];
+  for (const [label, claims, want, search] of cases) {
+    const r = await drive(`M1 ${label}`, { kbAnswer: ans(claims), ...(search ? { search } : {}) });
+    if (r.c !== want) mismatches.push(`${label}: want ${want} got ${r.c}`);
+  }
+  // Hinglish number words
+  for (const [label, loc, want] of [
+    ["Hinglish spelled-out teen sau replacing 300", "Semester contribution lagbhag teen sau euros hai.", "ENGLISH"],
+    ["Hinglish paanch hazaar added", `${HING_OK} Lagbhag paanch hazaar euros alag se lagte hain.`, "ENGLISH"],
+  ] as const) {
+    const claims = label.includes("teen sau") ? [nclaim(loc)] : [claim(EN_CLAIM, loc)];
+    const r = await drive(`M1 ${label}`, { det: HING, q: HING_Q, kbAnswer: ans(claims, { replyLang: "hi-Latn" }) });
+    if (r.c !== want) mismatches.push(`${label}: want ${want} got ${r.c}`);
+  }
+  assert.deepEqual(mismatches, []);
+});
+
+test("M1 probes (printed, not asserted): spelled-out Hindi numbers the figure check may not see", async () => {
+  await drive("PROBE English no figure + Devanagari bare number word पचास यूरो", { kbAnswer: ans([claim(EN_CLAIM, `${HI_OK} पर पचास यूरो लगते हैं।`)]) });
+  await drive("PROBE English HAS 300 + extra पाँच हज़ार यूरो", { kbAnswer: ans([nclaim(`${NUM_HI} और सालाना पाँच हज़ार यूरो।`)]) });
+  await drive("PROBE English HAS 300 + extra दस लाख", { kbAnswer: ans([nclaim(`${NUM_HI} और कुल दस लाख।`)]) });
+  await drive("PROBE English no figure + 'सौंदर्य' (word containing सौ, benign)", { kbAnswer: ans([claim(EN_CLAIM, `${HI_OK} सौंदर्य भी अच्छा है।`)]) });
+});
+
+test("M2 hostile", async () => {
+  const mk = (loc: string) => ans([claim(EN_CLAIM, loc)], { replyLang: "hi-Latn" });
+  for (const [label, extra] of [["secret", "Ye sab secret hai."], ["between us", "Ye sirf between us rahega."], ["therapy", "Therapy lena accha hai."], ["lethal dose", "Lethal dose ke baare mein mat socho."]] as const) {
+    const r = await drive(`M2 prior-flag, localized-only '${label}'`, { det: HING, q: HING_Q, flag: true, kbAnswer: mk(`${HING_OK} ${extra}`) });
+    assert.equal(r.c, "CRISIS", label);
+  }
+  const noFlag = await drive("M2 no prior flag, same 'secret' (control)", { det: HING, q: HING_Q, flag: false, kbAnswer: mk(`${HING_OK} Ye sab secret hai.`) });
+  assert.equal(noFlag.c, "LOCALIZED");
+  const ok = await drive("M2 prior-flag clean control", { det: HING, q: HING_Q, flag: true, kbAnswer: mk(HING_OK) });
+  assert.equal(ok.c, "LOCALIZED");
+});
+
+test("M3 hostile", async () => {
+  const FU = "Which cities are you considering?";
+  const bad: [string, string][] = [
+    ["two questions", "आप कौन से शहर सोच रहे हैं? और कौन सा कोर्स?"],
+    ["two sentences", "ठीक है। आप कौन से शहर सोच रहे हैं?"],
+    ["phone number", "आप कौन से शहर सोच रहे हैं? 9876543210"],
+    ["phone in the question", "क्या आप 9876543210 पर बात करना चाहेंगे?"],
+    ["country Devanagari", "क्या आप जर्मनी के किसी शहर के बारे में सोच रहे हैं?"],
+    ["country Latin", "क्या आप Germany के किसी शहर के बारे में सोच रहे हैं?"],
+    ["not a question", "आप कौन से शहर सोच रहे हैं।"],
+    ["Latin script in a Devanagari reply", "Kaun se cities aap soch rahe hain?"],
+  ];
+  const problems: string[] = [];
+  for (const [label, fl] of bad) {
+    const r = await drive(`M3 ${label}`, { kbAnswer: ans([claim(EN_CLAIM, HI_OK)], { followUp: FU, followUpLocalized: fl }) });
+    if (r.m.includes(fl)) problems.push(`${label}: unsafe localized follow-up shown`);
+    if (r.c !== "ENGLISH" || !r.m.includes(FU)) problems.push(`${label}: expected the whole English reply incl. English follow-up, got ${r.c}`);
+  }
+  const hing = await drive("M3 Hinglish reply, Devanagari follow-up (script mismatch)", { det: HING, q: HING_Q, kbAnswer: ans([claim(EN_CLAIM, HING_OK)], { replyLang: "hi-Latn", followUp: FU, followUpLocalized: "आप कौन से शहर सोच रहे हैं?" }) });
+  if (hing.m.includes("आप कौन से")) problems.push("Hinglish reply showed a Devanagari follow-up");
+  const ok = await drive("M3 control: clean", { kbAnswer: ans([claim(EN_CLAIM, HI_OK)], { followUp: FU, followUpLocalized: "आप कौन से शहर सोच रहे हैं?" }) });
+  if (!ok.m.includes("आप कौन से शहर सोच रहे हैं?")) problems.push("control: clean follow-up not shown");
+  assert.deepEqual(problems, []);
+});
+
+test("M1 probes 2 (printed): Devanagari unit swap and per-period change", async () => {
+  await drive("PROBE2 euros -> rupees (Devanagari) same 300", { kbAnswer: ans([nclaim("लगभग 300 रुपये का सेमेस्टर योगदान देना होगा।")]) });
+  await drive("PROBE2 euros -> dollars (Devanagari) same 300", { kbAnswer: ans([nclaim("लगभग 300 डॉलर का सेमेस्टर योगदान देना होगा।")]) });
+  await drive("PROBE2 per month instead of semester", { kbAnswer: ans([nclaim("हर महीने लगभग 300 यूरो देने होंगे।")]) });
+});

@@ -1,0 +1,18 @@
+[testlock] running slot 1 (free RAM 2.74 GB): timeout 600 pnpm -C D:/chk-tmp/lk5c1/base/packages/engine exec tsx --test --test-timeout=60000 --test-name-pattern probes tests/chk-hostile.test.ts
+CASE PROBE English no figure + Devanagari bare number word पचास यूरो => LOCALIZED | जर्मनी के सरकारी विश्वविद्यालयों में ज़्यादातर कोर्स के लिए कोई ट्यूशन फीस नहीं लगती। पर पचास यूरो लगते हैं।
+CASE PROBE English HAS 300 + extra पाँच हज़ार यूरो => LOCALIZED | लगभग 300 यूरो का सेमेस्टर योगदान देना होगा। और सालाना पाँच हज़ार यूरो।
+CASE PROBE English HAS 300 + extra दस लाख => LOCALIZED | लगभग 300 यूरो का सेमेस्टर योगदान देना होगा। और कुल दस लाख।
+CASE PROBE English no figure + 'सौंदर्य' (word containing सौ, benign) => ENGLISH | Public universities in Germany charge no tuition for most programmes.
+CASE PROBE2 euros -> rupees (Devanagari) same 300 => LOCALIZED | लगभग 300 रुपये का सेमेस्टर योगदान देना होगा।
+CASE PROBE2 euros -> dollars (Devanagari) same 300 => LOCALIZED | लगभग 300 डॉलर का सेमेस्टर योगदान देना होगा।
+CASE PROBE2 per month instead of semester => LOCALIZED | हर महीने लगभग 300 यूरो देने होंगे।
+✔ M1 probes (printed, not asserted): spelled-out Hindi numbers the figure check may not see (414.3645ms)
+✔ M1 probes 2 (printed): Devanagari unit swap and per-period change (62.4859ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4796.7072

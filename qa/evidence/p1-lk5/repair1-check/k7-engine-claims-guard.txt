@@ -1,0 +1,44 @@
+[testlock] waiting for lock held by: PID=36944 STARTED=639280248754425700 ACQUIRED_AT=1792408311 TOKEN=1792408311759358000-492658-28200 DESC=bash -c cd D:/vc/.worktrees/lk1w/apps/api && npx tsx --test tests/chat-profile.test.ts tests/anonymous-route.test.ts 2>&1 | tail -60; cd ../../packages/engine && npx tsx --test tests/concern-classifier.test.ts 2>&1 | grep -E '^# (tests|pass|fail)|not ok' 
+[testlock] running slot 1 (free RAM 3.75 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk5/packages/engine exec tsx --test --test-timeout=60000 tests/claims-guard.test.ts
+✔ A1 /search: a claim supported by the inline turn.text is verified, with no session fetch (23.3226ms)
+✔ A1 /search: a number that does not match the inline text is unverified, never verified (3.1856ms)
+✔ A1: number formats are normalised (11,904 == 11904) but a different number is not (1.7881ms)
+✔ A1: a country the source text does not name is unverified (1.7063ms)
+✔ A1 (repair R2a): a sourceId not returned in THIS turn (invented, or another turn's id) is stripped; with none left the claim is DROPPED, never shown or sourced (2.6195ms)
+✔ R5 supports(): negation parity - 'no tuition' is not supported by 'tuition fees of 500 euros' (and vice versa) (2.791ms)
+✔ R5 supports(): country match is exact token or demonym, never a prefix ('India' must not match 'individual') (1.4394ms)
+✔ R5 supports(): a capitalised proper noun in a fact/country claim must appear in the evidence (off-list countries like Turkey) (1.2111ms)
+✔ R5 supports(): numbers must match with the same currency/unit when one is present (15.1664ms)
+✔ A1 /ask: verified only when the node_id is in this response AND get_session on evidence.sessionRef returns supporting text (3.1704ms)
+✔ A1 /ask: a session-level node_id (session:<id> or /session:<id>) resolves without evidence; a topic node without sessionRefs cannot be verified (2.6242ms)
+✔ A1 /ask: kind:fact whose fetched text does not support it is attributed; a number/country with no supporting text is unverified (2.9579ms)
+✔ A1/A13 /ask: a cited session that cannot be re-read (get_session unavailable) is never verified (1.5214ms)
+✔ A1 /ask: a node_id not in this response's sources.internal is not a sourceId (web sources never count) (0.4667ms)
+✔ A1/A13: sources[] lists each cited source once, schema-valid, with stale (older than the threshold) and dateUnknown flags (1.9522ms)
+✔ A13: with no override the staleness threshold is the 24-month default [ASSUMPTION P-7]: 45 months old is stale, 16 months is not (1.2595ms)
+✔ U6h H1 /ask: a fact whose fetched text AND the served /ask answer both fail to support it is unverified (never attributed-unmarked) (1.189ms)
+✔ U6h H1 /ask: attributed is only for kind:fact; a number or country backed only by the served answer is unverified (0.7211ms)
+✔ U6h H1 /ask: a non-serveable ask (verdict not correct, or insufficient_coverage not false) contributes no node at all (0.45ms)
+✔ U6h H2 supports(): positive controls still verify (paraphrase, number formats, order) (2.1492ms)
+✔ U6h H2 supports(): an extra clause the evidence does not carry is rejected (no 50% overlap acceptance) (4.4423ms)
+✔ U6h H2 supports(): unit / rate swap is rejected (semester vs per month, per day, a year, monthly) (12.0132ms)
+✔ U6h H2 supports(): a scope or quantifier swap is rejected (public->private, most->all/every/only, domestic->international) (2.5802ms)
+✔ U6h H2 supports(): an antonym with no negation word is rejected (mandatory vs optional, higher vs lower, allowed vs banned) (2.091ms)
+✔ U6h fix1 H2a hedges and modals: a claim that drops 'may' / 'usually', or swaps may for must, is rejected; the same hedge verifies (2.2497ms)
+✔ U6h fix1 H2a quantifiers, both directions: dropping or adding some / most / only / all / few is rejected (2.385ms)
+✔ U6h fix1 H2a conditions: a claim that drops if / unless / only-if / provided is rejected; carrying the condition verifies (1.9104ms)
+✔ U6h fix1 H2a scope: a claim that drops public / private / international / postgraduate (scope) is rejected (10.6829ms)
+✔ U6h fix1 H2a caveat sentence: a restrictor in the evidence sentence right after the matched one must be carried by the claim (4.5718ms)
+✔ U6h fix1 H2b number-country binding: a figure belongs to the country it sits next to (3.4648ms)
+✔ U6h fix1 M4 spelled-out numbers: numberMentions is exported and sees 'five thousand' / 'twenty thousand' (8.3931ms)
+✔ P1 W3 U6h leftover 2: numberMentions sees million / billion, 'half a million', 'a lakh' and transliterated Hindi figures (3.0937ms)
+✔ P1 W3 U6h leftover 5 (H2a): temporal and partial qualifiers dropped by the claim are rejected; carrying them verifies (7.2637ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3436.2673
+EXIT=0

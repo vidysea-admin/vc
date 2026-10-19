@@ -1,34 +1,38 @@
-# Verdict - p1-lk5 (Mode A, cycle 0)
-Date: 2026-10-19. Bound to D:/vc/.worktrees/lk5. Checked 3f746e5 (code 090b558); judged d057b13..HEAD. Policy proportional-verification/2026-10-19.16.
-Cycle checked: 0
+# Verdict p1-lk5 (cycle 1, repair check)
+Date: 2026-10-19. Bound to D:/vc/.worktrees/lk5, head a544ba8 (code identical to 13ac9b7), Repair base 3f746e5 (ancestor of HEAD, verified). Cycle checked: 1
+Policy-Version: proportional-verification/2026-10-19.16 (as pinned). Checker: fresh subagent, single check (Dual check: no).
 
 ## Check plan
-Tier L (safety screen gating replies, parallel/hold concurrency). Single checker (no dual-trigger). Plan: pre-checks K1-K6 and K7 through vc-testlock (TMP on D:), real runStudentTurn driven with fake providers for every hostile variant in the brief, step 4c diff read, one falsification per criterion in copies outside the bound tree. No UI, no live provider. PID 47984 not touched.
+Tier L (safety path, graph.ts/lang.ts). Re-run: K1 (failed), M1/M2/M3 (repair touches their input files), K1-K7 scoped tests. Repair diff 6c30cf3..a544ba8 read in full (graph.ts +42, lang.ts +133, lk5.test.ts +153, qa bookkeeping); whole-unit diff outside qa/ touches only manifest-listed files; no export, test or config key removed. Drove the real runStudentTurn with fake providers in a copy outside the bound tree (D:/chk-tmp/lk5c1), hostile variants in qa/evidence/p1-lk5/repair1-check/chk-hostile.test.ts.txt.
 
 VERDICT: FAIL
-SCOREBOARD: 6/7 criteria met (K2-K7), K1 not met; invariants: crisisGuard first and unweakened holds
-TIER: L (concurrency: safety screen started in route, awaited in finish; graph.ts:549-571, 649-662)
+SCOREBOARD: K1 not met (number parity), K2-K7 met; M2 and M3 hold; M1 partly holds. crisisGuard first and unweakened: holds.
+TIER: L (safety path: reply gating on a student-facing answer, graph.ts / lang.ts)
+
 FAILURES:
-- [K1] sev: medium - a model-emitted localized "" / null / >2000 chars (or followUpLocalized >500, replyLang >16) fails the whole kb-answer schema, so the student gets the provider apology instead of the English reply, and so does an English turn if the model emits localized "" or null. packages/engine/src/student/graph.ts:392-406 read in this check. Real providers validate (packages/providers/src/index.ts:282). Ran: probe-hostile.txt "empty-string localized", "null localized", "localized too long (2001)", "EN turn localized empty/null" all state=ok message "Sorry, I couldn't put an answer together just now. Please try again."; repro qa/evidence/p1-lk5/repro-k1-empty-localized.test.ts.txt. localizedClaimOk/localizedMessage already treat empty as "show English", so the intent is K1's English reply. Fix: make the three localized fields tolerant (undefined on empty/null/over-long), keep text/kind/sourceIds strict. issue: ISS-383
-CAPABILITY-COVERAGE: 6/6 reproduced (K1-K6; K7 is the existing suites)
+- [K1/M1] sev: medium - the number-parity and unit checks of a localized claim cannot see Devanagari spelled-out figures or Devanagari currency words, so a figure the English claim does not carry reaches the student. lang.ts:337-341 `figures()` counts digits and Latin number words only; lang.ts:359 runs the Devanagari magnitude check only when the English claim has NO figure and only for सौ/हज़ार/लाख/करोड़/मिलियन/बिलियन; lang.ts:360-361 unit check uses the Latin unit list only. Ran (real runStudentTurn, probes.txt): English "no tuition" + localized "... पर पचास यूरो लगते हैं।" -> shown; English "about 300 euros" + localized "... और सालाना पाँच हज़ार यूरो।" -> shown; "... और कुल दस लाख।" -> shown; same "300" with "रुपये" or "डॉलर" instead of euros -> shown. The brief's hostile variant "a different figure ... as a spelled-out Hindi number" and "a new unit" therefore pass through when the spelled figure is added to a matching digit, is a bare number word, or the unit is written in Devanagari. Fix direction: any Devanagari number word (1-99 plus magnitudes) or Devanagari currency/unit word that the English claim does not carry means the English reply, whether or not English has a figure (safe direction). issue: ISS-386
+
+K1 repair itself holds. M1 caught: scheme-less evil.test (and with path), e-mail, https link when English has none, a different https link when English has one, evil.test when English has one, English link plus evil.test, different figure in Devanagari digits and ASCII, dropped figure, Devanagari magnitude word when English has no figure, Hinglish "teen sau" replacing 300, Hinglish "paanch hazaar" added, swapped and added country in Devanagari, new units USD and %.
+
+CAPABILITY-COVERAGE: 4/4 repaired criteria reproduced (one falsification each, copies outside the bound tree, qa/evidence/p1-lk5/repair1-check/falsification.txt)
+- K1: localized `.catch(undefined)` removed -> "K1 hostile" green 1/0 before, red 0/1 after
+- M1: link comparison line removed (lang.ts:365) -> green before, red after
+- M2: shown-text crisis check removed (graph.ts:838) -> green before, red after
+- M3: localizedFollowUpOk call removed (graph.ts:753) -> green before, red after
 LIVE-BROWSER: not-applicable (no UI paths changed)
-ISSUES-WRITTEN: ISS-383 (medium), ISS-384 (low), ISS-385 (low)
-EXECUTOR: claude-sonnet-subagent (maker/builder p1-lk5-build) (checker: claude-sonnet-subagent)
-EXPLANATION: Everything except one robustness case holds with fake providers: the screen, the held reply, the rewrite, the helpline line and the detector fixes. The K1 gap is narrow but the brief listed the empty string explicitly, and the code's own empty-string handling is unreachable behind the schema. A repair should be a few lines in graph.ts.
+ISSUES-WRITTEN: ISS-386 (medium, the FAIL), ISS-387 (low), ISS-388 (low)
 
-## Evidence (files under qa/evidence/p1-lk5/)
-- Pre-check K1-K6 rerun: tests/lk5.test.ts 34 pass 0 fail (precheck-k1.txt). K7: engine 14 files 881 pass 0 fail (k7-engine.txt); apps/api 8 files 205 pass 0 fail (k7-api.txt); typecheck engine exit 0, apps/api exit 0 (tc-*.txt). The manifest's third typecheck (pnpm -r --filter) was not rerun; engine and api cover the changed code.
-- Hostile drive of runStudentTurn (probe-hostile.txt, probe-hostile-k2.txt; probe source in a deleted throwaway copy): 
-  K1: new https and www URL, e-mail, different number, Latin text claiming hi, whitespace-only -> English reply (OK); "" / null / 2001 chars -> apology (FAIL above); replyLang HI / hi-IN accepted, "" -> English; empty followUpLocalized -> Hindi reply without follow-up.
-  K2: injected rewrite text reaches only searchKb (not the response, not the answer prompt question, ask fallback keeps the original); error, empty, wrong shape, >300, number, hang (130 ms with 100 ms cap) -> original text; English turn 0 rewrite calls, Hinglish 1.
-  K3: high/critical -> fixed crisis message with flag+escalation; moderate/none -> answer; malformed shape, bogus severity, throw, sync throw, null, undefined, timeout (91 ms at 60 ms cap) -> crisis message with no flag/escalation; late resolve after timeout stays crisis; screen pending 400 ms -> reply not released, then high -> crisis message; screen sees the original text.
-  crisisGuard: 7 Hindi/Hinglish/English explicit phrases, authenticated and anonymous -> escalated, 0 screen calls, 0 answer-provider calls.
-  K4 (detected ta): ok answer, stress signal, prior flag, coach, anonymous sign-in, anonymous no-answer, provider failure, long message, screen "possible": gloss count 1 and the 14416 line once each; en/hi/hi-Latn: 0 extra lines.
-  K5: sync throw, reject, null, undefined, {}, lang number -> offline result, reasons error/invalid. K6: dropped tags only; throwing logger does not break parsing.
-- Falsification (falsification.txt; copies D:/chk-tmp/fals/k1..k6, all green before, removed after): K1 script check removed -> 1 fail; K2 rewrite on English turn -> 1 fail; K3 blockAt >= to > -> 1 fail; K4 isOutsideAllowList false -> 3 fail; K5 null guard removed -> 1 fail; K6 dropped log disabled -> 2 fail. Mutants beyond the floor: 0.
-- Step 4c: diff d057b13...HEAD touches only the manifest's listed files plus the manifest; no deletion of existing exports; crisis node body moved unchanged into crisisResult (same writes, same flagWriteFailed logic); packages/engine/src/guards/crisis.ts untouched.
+## Evidence (all through vc-testlock, one file at a time, timeout 600, TMP/TEMP on D:)
+- Hostile drive "chk-hostile.test.ts" (copy): 6 tests, 6 pass, the asserting ones cover K1, crisis-first (0 provider calls, 0 detector calls, CRISIS message), M1 (18 cases), M2 (prior-flag student; localized-only secret / between us / therapy / lethal dose -> fixed crisis message; no-flag control shown; clean control shown), M3 (two questions, two sentences, phone number, country Devanagari and Latin, not a question, Latin script in a Devanagari reply, Devanagari follow-up in a Hinglish reply -> each the whole English reply with the English follow-up; clean follow-up still shown). K1 controls: empty English `text` stays the apology (schema strict), good localized shown.
+- K7 scoped tests on the bound head: engine lk5 53, lang 34, student-graph 64, crisis-defaults 17, crisis-escalation 42, claims-guard 33, capability-manifest 3, coach-first 5, index 2; apps/api chat 32, anonymous-route 16, acceptance-student-journey 3, voice-wiring 16; all 0 failed. Engine typecheck exit 0. guard-crisis, concern-classifier, voice, anonymous-zero-persistence not re-run: the repair diff does not touch crisis.ts, concern-classifier.ts or their inputs (maker's K7 at 13ac9b7 stands, code identical).
+- Design ruling (localized follow-up fails -> whole English reply incl. English follow-up): ACCEPTED. Safe (the English follow-up already passed safeFollowUp), coherent (matches K1's "is the English reply"), observed in every M3 case above.
 
-## Proposed non-blocking (ledger rows written)
-ISS-384 link check narrow (scheme-less domain shown in a Hindi reply; a different link when English also has one passes). ISS-385 detected "und" counts as outside the allow-list. Manifest open risks 1-12 read; risk 1 (A15b/B24.6) and 3 (threshold) remain Umesh decisions, not a FAIL.
+## Non-blocking (ledger)
+- ISS-387 low: lang.ts:331-334 builds DEVANAGARI_MAGNITUDE with new RegExp over a plain string, so `\p{L}\p{M}` lose their backslash (re.source is `(?<![p{L}p{M}])...`); words containing सौ (सौंदर्य) match and fall back to English when English has no figure. Fails closed.
+- ISS-388 low (process): the repair edited the cycle-0 verdict and ledger rows to renumber ISS-380..382; accepted, the collision with main was real.
+- Open risks 1-14 in the manifest read; 1 and 3 remain Umesh decisions.
 
-Metrics: start=2026-10-19T18:28:16+05:30 end=2026-10-19T20:29:30+05:30 wall_min=unavailable agent_min=unavailable blocked_min=about 95 (shared lock wait from 18:29 to about 20:12, includes a network outage; not separately timed) suite_runs=0 repeat_runs=0 mutations=6 tokens=unavailable cycle=0 resumes=0 policy=proportional-verification/2026-10-19.16 check_s=unavailable mutants=0 defects_unit=1 defects_6c=0
+EXPLANATION: The K1 schema repair, M2 and M3 are sound and each falsifies cleanly; the link, country, Latin-unit and digit checks of M1 hold. The figure/unit guard still lets a Devanagari-written figure or currency word through, which is exactly the spelled-out Hindi figure and new-unit variant the brief asked to be hostile, so K1's number parity is not fully met. The fix is a few lines in lang.ts localizedClaimOk.
+
+Metrics: start=2026-10-19T21:40:17+05:30 end=2026-10-19T21:57:00+05:30 wall_min=17 agent_min=unavailable blocked_min=about 4 (shared lock held by PID 36944, not touched) suite_runs=0 repeat_runs=0 mutations=4 tokens=unavailable cycle=1 resumes=0 policy=proportional-verification/2026-10-19.16 check_s=1000 mutants=0 defects_unit=1 defects_6c=0
+slow: hostile-driver authoring and copies 8 min
