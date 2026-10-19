@@ -353,3 +353,106 @@ test("fix8: if guard.end throws after the body threw, the original body error is
     /body boom/,
   );
 });
+
+// ---------------------------------------------------------------------------
+// p1-ollama-actual-tokens (D-103): actual-token lines next to the pre-request reservation.
+// ---------------------------------------------------------------------------
+test("p1-ollama-actual-tokens: recordActual appends an 'actual' line with the counts and USD, after the charge, and does not change spend", () => {
+  const ledgerPath = tmpLedger();
+  const guard = new BudgetGuard({ ledgerPath, now: JULY });
+  const run = guard.startRun({ runner: "run-kb" });
+  run.charge(0.25);
+  run.recordActual({ reservedUsd: 0.25, inputTokens: 1200, outputTokens: 300, usd: 0.0024 });
+  const entries = readLedger(ledgerPath);
+  assert.deepEqual(entries.map((e) => e.kind), ["start", "charge", "actual"]);
+  const a = entries[2]!;
+  assert.equal(a.actual, "reported");
+  assert.equal(a.actualInTokens, 1200);
+  assert.equal(a.actualOutTokens, 300);
+  assert.equal(a.actualUsd, 0.0024);
+  assert.equal(a.reservedUsd, 0.25);
+  assert.equal(a.runId, run.runId);
+  assert.equal(run.spentUsd, 0.25, "the reservation stays the spend / cap figure");
+  assert.equal(monthSpendUsd(entries, JULY()), 0.25, "an actual line is never added to month spend");
+  assert.equal(guard.monthSpend(), 0.25);
+});
+
+test("p1-ollama-actual-tokens: missing / negative / fractional / non-finite / string figures are recorded as 'unreported' with the reservation, never zero", () => {
+  const bad: Record<string, unknown>[] = [
+    {},
+    { inputTokens: 10 },
+    { inputTokens: 10, outputTokens: 5 },
+    { inputTokens: -1, outputTokens: 5, usd: 0.1 },
+    { inputTokens: 10, outputTokens: -5, usd: 0.1 },
+    { inputTokens: 1.5, outputTokens: 5, usd: 0.1 },
+    { inputTokens: "10", outputTokens: 5, usd: 0.1 },
+    { inputTokens: 10, outputTokens: 5, usd: -0.1 },
+    { inputTokens: 10, outputTokens: 5, usd: Number.NaN },
+    { inputTokens: 10, outputTokens: Number.POSITIVE_INFINITY, usd: 0.1 },
+  ];
+  for (const figures of bad) {
+    const ledgerPath = tmpLedger();
+    const run = new BudgetGuard({ ledgerPath, now: JULY }).startRun({ runner: "run-probes" });
+    run.charge(0.5);
+    run.recordActual({ reservedUsd: 0.5, ...figures } as never);
+    const a = readLedger(ledgerPath).find((e) => e.kind === "actual")!;
+    assert.equal(a.actual, "unreported", JSON.stringify(figures));
+    assert.equal(a.actualInTokens, undefined, JSON.stringify(figures));
+    assert.equal(a.actualOutTokens, undefined, JSON.stringify(figures));
+    assert.equal(a.actualUsd, undefined, JSON.stringify(figures));
+    assert.equal(a.reservedUsd, 0.5, "the reservation figure is kept");
+    assert.deepEqual(run.usageSummary(), {
+      reportedCalls: 0,
+      unreportedCalls: 1,
+      actualInTokens: 0,
+      actualOutTokens: 0,
+      actualUsd: 0,
+      unreportedReservedUsd: 0.5,
+    });
+  }
+});
+
+test("p1-ollama-actual-tokens: usageSummary sums reported calls and keeps unreported reservations separate", () => {
+  const run = new BudgetGuard({ ledgerPath: tmpLedger(), now: JULY }).startRun({ runner: "run-latency" });
+  run.charge(1);
+  run.recordActual({ reservedUsd: 1, inputTokens: 100, outputTokens: 40, usd: 0.01 });
+  run.charge(1);
+  run.recordActual({ reservedUsd: 1, inputTokens: 50, outputTokens: 10, usd: 0.005 });
+  run.charge(2);
+  run.recordActual({ reservedUsd: 2 });
+  assert.deepEqual(run.usageSummary(), {
+    reportedCalls: 2,
+    unreportedCalls: 1,
+    actualInTokens: 150,
+    actualOutTokens: 50,
+    actualUsd: 0.015,
+    unreportedReservedUsd: 2,
+  });
+});
+
+test("p1-ollama-actual-tokens: a corrupt actual line (bad figures, unknown actual flag, no reservation) fails closed like a corrupt charge", () => {
+  const base = { ts: "2026-07-15T10:00:00Z", runId: "r", runner: "x", kind: "actual" };
+  for (const line of [
+    { ...base, actual: "reported", actualInTokens: -1, actualOutTokens: 1, actualUsd: 0, reservedUsd: 1 },
+    { ...base, actual: "reported", actualInTokens: 1, actualOutTokens: 1.5, actualUsd: 0, reservedUsd: 1 },
+    { ...base, actual: "reported", actualInTokens: 1, actualOutTokens: 1, reservedUsd: 1 },
+    { ...base, actual: "maybe", reservedUsd: 1 },
+    { ...base, actual: "unreported" },
+  ]) {
+    const ledgerPath = tmpLedger();
+    writeFileSync(ledgerPath, `${JSON.stringify(line)}\n`, "utf-8");
+    assert.throws(() => readLedger(ledgerPath), /ledger/i, JSON.stringify(line));
+  }
+  const ok = tmpLedger();
+  writeFileSync(ok, `${JSON.stringify({ ...base, actual: "unreported", reservedUsd: 1 })}\n`, "utf-8");
+  assert.equal(readLedger(ok).length, 1);
+});
+
+test("p1-ollama-actual-tokens: a tiny recorded actual does not free headroom under the reservation cap", () => {
+  const ledgerPath = tmpLedger();
+  const guard = new BudgetGuard({ ledgerPath, now: JULY });
+  const run = guard.startRun({ runner: "run-h2h" });
+  run.charge(40);
+  run.recordActual({ reservedUsd: 40, inputTokens: 1, outputTokens: 1, usd: 0.000005 });
+  assert.throws(() => run.charge(10.01), BudgetExceededError);
+});

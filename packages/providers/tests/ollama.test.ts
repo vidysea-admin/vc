@@ -23,7 +23,9 @@ import {
   loadProviderConfig,
   parseRealModel,
   prepareOllamaProvider,
+  type OllamaActualUsage,
   type OllamaRequestEstimate,
+  OLLAMA_PRICE_ENV,
 } from "../src/index.js";
 
 const OutSchema = z.object({ answer: z.string().min(1) });
@@ -378,4 +380,104 @@ test("ISS-270: the input estimate is the UTF-8 byte length (Devanagari is 3 byte
   const bytes = Buffer.byteLength(prompt, "utf8") + Buffer.byteLength(JSON.stringify(input), "utf8");
   assert.equal(seen[0]!.estimatedInputTokens, bytes);
   assert.ok(bytes > prompt.length + JSON.stringify(input).length * 2, "sanity: bytes far exceed code units for Devanagari");
+});
+
+// ---------------------------------------------------------------------------
+// p1-ollama-actual-tokens (D-103): read prompt_eval_count / eval_count from each successful response.
+// MOCKED fetch only. The pre-request reservation (beforeRequest) is untouched.
+// ---------------------------------------------------------------------------
+const chatWithCounts = (counts: Record<string, unknown>) =>
+  new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify({ answer: "hi" }) }, done: true, ...counts }), { status: 200 });
+
+test("p1-ollama-actual-tokens: present counts reach afterResponse as reported actuals priced at the model price; the reservation hook still runs first", async () => {
+  const order: string[] = [];
+  const seen: OllamaActualUsage[] = [];
+  const { fetchImpl } = mockFetch(() => {
+    order.push("fetch");
+    return chatWithCounts({ prompt_eval_count: 1200, eval_count: 300 });
+  });
+  const p = provider(fetchImpl, {
+    beforeRequest: () => order.push("before"),
+    afterResponse: (u) => {
+      order.push("after");
+      seen.push(u);
+    },
+  });
+  assert.deepEqual(await p.generate(req()), { answer: "hi" });
+  assert.deepEqual(order, ["before", "fetch", "after"]);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0]!.actual, "reported");
+  assert.equal(seen[0]!.inputTokens, 1200);
+  assert.equal(seen[0]!.outputTokens, 300);
+  assert.equal(seen[0]!.usd, (1200 * PRICE.inputUsdPerMTok + 300 * PRICE.outputUsdPerMTok) / 1e6);
+  assert.ok(seen[0]!.estimate.estimatedCostUsd > 0, "the reservation figure travels with the actual");
+});
+
+test("p1-ollama-actual-tokens: missing, negative, fractional, string, NaN/null, or half-present counts are 'unreported' (never zero)", async () => {
+  const bad: Record<string, unknown>[] = [
+    {},
+    { prompt_eval_count: 10 },
+    { eval_count: 10 },
+    { prompt_eval_count: -1, eval_count: 5 },
+    { prompt_eval_count: 5, eval_count: -1 },
+    { prompt_eval_count: "12", eval_count: 5 },
+    { prompt_eval_count: 12, eval_count: "5" },
+    { prompt_eval_count: 1.5, eval_count: 5 },
+    { prompt_eval_count: null, eval_count: 5 },
+    { prompt_eval_count: Number.MAX_SAFE_INTEGER + 2, eval_count: 5 },
+    { prompt_eval_count: [3], eval_count: 5 },
+  ];
+  for (const counts of bad) {
+    const seen: OllamaActualUsage[] = [];
+    const { fetchImpl } = mockFetch(() => chatWithCounts(counts));
+    await provider(fetchImpl, { afterResponse: (u) => seen.push(u) }).generate(req());
+    assert.equal(seen.length, 1, JSON.stringify(counts));
+    assert.equal(seen[0]!.actual, "unreported", JSON.stringify(counts));
+    assert.equal(seen[0]!.inputTokens, undefined, JSON.stringify(counts));
+    assert.equal(seen[0]!.outputTokens, undefined, JSON.stringify(counts));
+    assert.equal(seen[0]!.usd, undefined, JSON.stringify(counts));
+    assert.ok(seen[0]!.estimate.estimatedCostUsd > 0, "the reservation figure is still present");
+  }
+});
+
+test("p1-ollama-actual-tokens: zero counts are valid integers (reported as 0), and afterResponse is NOT called for a failed (non-2xx) response", async () => {
+  const seen: OllamaActualUsage[] = [];
+  const zero = mockFetch(() => chatWithCounts({ prompt_eval_count: 0, eval_count: 0 }));
+  await provider(zero.fetchImpl, { afterResponse: (u) => seen.push(u) }).generate(req());
+  assert.equal(seen[0]!.actual, "reported");
+  assert.equal(seen[0]!.usd, 0);
+  const failing = mockFetch(() => new Response("nope", { status: 500 }));
+  await assert.rejects(provider(failing.fetchImpl, { afterResponse: (u) => seen.push(u) }).generate(req()), OllamaHttpError);
+  assert.equal(seen.length, 1, "no actual for a request that returned an error status");
+});
+
+test("p1-ollama-actual-tokens: the reservation still happens BEFORE the request: a throwing beforeRequest means no fetch and no afterResponse", async () => {
+  const seen: OllamaActualUsage[] = [];
+  const { fetchImpl, calls } = mockFetch(() => chatWithCounts({ prompt_eval_count: 1, eval_count: 1 }));
+  const p = provider(fetchImpl, {
+    beforeRequest: () => {
+      throw new Error("budget stop");
+    },
+    afterResponse: (u) => seen.push(u),
+  });
+  await assert.rejects(p.generate(req()), /budget stop/);
+  assert.equal(calls.length, 0);
+  assert.equal(seen.length, 0);
+});
+
+test("p1-ollama-actual-tokens: prepareOllamaProvider's factory passes afterResponse through to the provider", async () => {
+  const seen: OllamaActualUsage[] = [];
+  const { fetchImpl } = mockFetch(() => chatWithCounts({ prompt_eval_count: 7, eval_count: 3 }));
+  const make = prepareOllamaProvider({ VC_REAL_MODEL: "ollama:glm-5.3-flash", OLLAMA_API_KEY: SECRET }, { fetchImpl });
+  await make!(() => undefined, (u) => seen.push(u)).generate(req());
+  assert.equal(seen[0]!.inputTokens, 7);
+  assert.equal(seen[0]!.outputTokens, 3);
+});
+
+test("p1-ollama-actual-tokens: the price override env prices the actual tokens", async () => {
+  const seen: OllamaActualUsage[] = [];
+  const { fetchImpl } = mockFetch(() => chatWithCounts({ prompt_eval_count: 1_000_000, eval_count: 1_000_000 }));
+  const make = prepareOllamaProvider({ VC_REAL_MODEL: "ollama:glm-5.3-flash", OLLAMA_API_KEY: SECRET, [OLLAMA_PRICE_ENV]: "0.5,2" }, { fetchImpl });
+  await make!(() => undefined, (u) => seen.push(u)).generate(req());
+  assert.equal(seen[0]!.usd, 2.5);
 });

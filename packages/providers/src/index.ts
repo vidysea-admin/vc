@@ -1102,6 +1102,23 @@ export interface OllamaRequestEstimate {
   estimatedCostUsd: number;
 }
 
+/**
+ * D-103: what a SUCCESSFUL `/api/chat` response actually reported (`prompt_eval_count` / `eval_count`), next to the
+ * pre-request reservation it was made under. `actual` is "reported" only when BOTH counts are non-negative safe
+ * integers; anything else (missing, negative, fractional, string, null, half-present) is "unreported" and carries no
+ * token or USD figure, so a caller keeps the reservation instead of recording zero.
+ */
+export interface OllamaActualUsage {
+  model: string;
+  /** The reservation this request was charged under (the cap check is unchanged). */
+  estimate: OllamaRequestEstimate;
+  actual: "reported" | "unreported";
+  inputTokens?: number;
+  outputTokens?: number;
+  /** Actual tokens x this provider's table/override price (USD per million tokens); notional for a hosted-key model. */
+  usd?: number;
+}
+
 export interface OllamaProviderOptions {
   model: string;
   apiKey: string;
@@ -1111,6 +1128,8 @@ export interface OllamaProviderOptions {
   maxOutputTokens?: number;
   /** Called after authorization and BEFORE the request is sent; throwing (e.g. BudgetExceededError) stops the request. */
   beforeRequest?: (estimate: OllamaRequestEstimate) => void;
+  /** D-103: called once per successful (2xx, JSON-body) response with the reported token counts; never replaces the reservation above. */
+  afterResponse?: (usage: OllamaActualUsage) => void;
   /** Injected in tests; production uses the global fetch. */
   fetchImpl?: typeof fetch;
 }
@@ -1123,6 +1142,7 @@ export class OllamaProvider implements LlmProvider {
   private readonly maxOutputTokens: number;
   private readonly price: OllamaPrice;
   private readonly beforeRequest: ((estimate: OllamaRequestEstimate) => void) | undefined;
+  private readonly afterResponse: ((usage: OllamaActualUsage) => void) | undefined;
   private readonly fetchImpl: typeof fetch;
   // Private (#) so the key never shows up in JSON.stringify, String() or util.inspect (B11).
   readonly #apiKey: string;
@@ -1144,6 +1164,7 @@ export class OllamaProvider implements LlmProvider {
     this.timeoutMs = options.timeoutMs ?? OLLAMA_DEFAULT_TIMEOUT_MS;
     this.maxOutputTokens = options.maxOutputTokens ?? OLLAMA_DEFAULT_MAX_OUTPUT_TOKENS;
     this.beforeRequest = options.beforeRequest;
+    this.afterResponse = options.afterResponse;
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
@@ -1208,6 +1229,24 @@ export class OllamaProvider implements LlmProvider {
     } finally {
       clearTimeout(timer);
       externalSignal?.removeEventListener("abort", onExternalAbort);
+    }
+
+    if (this.afterResponse) {
+      // D-103: the tokens were spent whether or not the content turns out usable, so record them first.
+      const counts = body as { prompt_eval_count?: unknown; eval_count?: unknown } | null;
+      const validCount = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
+      const usage: OllamaActualUsage =
+        validCount(counts?.prompt_eval_count) && validCount(counts?.eval_count)
+          ? {
+              model: this.model,
+              estimate,
+              actual: "reported",
+              inputTokens: counts.prompt_eval_count,
+              outputTokens: counts.eval_count,
+              usd: (counts.prompt_eval_count * this.price.inputUsdPerMTok + counts.eval_count * this.price.outputUsdPerMTok) / 1e6,
+            }
+          : { model: this.model, estimate, actual: "unreported" };
+      this.afterResponse(usage);
     }
 
     const content = (body as { message?: { content?: unknown } } | null)?.message?.content;
@@ -1276,7 +1315,7 @@ function resolveOllamaMaxOutputTokens(env: ProviderEnv): number {
 export function prepareOllamaProvider(
   env: ProviderEnv,
   options: { fetchImpl?: typeof fetch } = {},
-): ((beforeRequest: (estimate: OllamaRequestEstimate) => void) => OllamaProvider) | undefined {
+): ((beforeRequest: (estimate: OllamaRequestEstimate) => void, afterResponse?: (usage: OllamaActualUsage) => void) => OllamaProvider) | undefined {
   const selection = parseRealModel(env);
   if (selection.backend !== "ollama") return undefined;
   const apiKey = env.OLLAMA_API_KEY?.trim();
@@ -1284,7 +1323,7 @@ export function prepareOllamaProvider(
   const price = resolveOllamaPrice(selection.model, env);
   const baseUrl = env.OLLAMA_BASE_URL || OLLAMA_DEFAULT_BASE_URL;
   const maxOutputTokens = resolveOllamaMaxOutputTokens(env);
-  return (beforeRequest) =>
+  return (beforeRequest, afterResponse) =>
     new OllamaProvider({
       model: selection.model,
       apiKey,
@@ -1292,6 +1331,7 @@ export function prepareOllamaProvider(
       baseUrl,
       maxOutputTokens,
       beforeRequest,
+      ...(afterResponse ? { afterResponse } : {}),
       ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
     });
 }
