@@ -134,6 +134,12 @@ Raised by the U10s voice-hardening dual check and review (2026-10-19, ISS-260..I
 - [ ] CANDIDATE · ISS-262 (low, pre-existing): c.lastUser may be the previous turn if the crisis record arrives before the final transcript (voice.ts:683-688); provider ordering unconfirmed.
 - [ ] CANDIDATE · ISS-235 (low, informational): voice.ts:270 trims TRACING_VARS; judged safe.
 
+- [x] DONE · U12 (p1-u12-acceptance): traceability matrix qa/evidence/p1-u12/trace.md plus acceptance-trace and acceptance-student-journey tests; checker cycle 0 FAIL 8b3f52f (ISS-237), repaired b67423a, cycle 1 PASS 9a0016a, close-out eb6a4ba. Test and evidence only, no product change; A2a closes NOT PROVEN (D-097 item 2).
+- [x] DONE · ISS-237 (medium): journey test 2 asserted 35 flags where U8r M2 writes one per student, thread and window; fixed in b67423a, verified by 9a0016a.
+- [ ] CANDIDATE · ISS-238 (low, docs): A5 wording; the spec says GET /v1/openapi.json lists every new route, the served document keeps the student routes in the draft (U5a). Source: qa/verdicts/p1-u12-acceptance.md.
+- [ ] CANDIDATE · ISS-239 (low, docs): A7 wording; the spec says erased students leave gap counts at read-back zero, the implementation exempts chat_gap_counts (no student, thread or text in the row).
+- [ ] CANDIDATE · ISS-240 (low, docs): spec and contract file names for A13, A23 and A24 do not hold the proofs, and the A16/A17 trace row text predates the merge; the trace cites the real files.
+
 - [ ] CANDIDATE · priority: privacy · ISS-198 (medium): a lower-case one-letter initial before a name leaves the name unredacted ('my name is s. kumar', 'i am j. r. d. tata', 'my name is a. p. j. abdul kalam'; 'my name is dr. s. kumar' keeps the surname); packages/schemas/src/redact.ts:152-160 (isLowerNameToken length < 2 ends the run). Found by U8r checker A (cycle 2). Source: qa/verdicts/p1-u8r-chat-privacy.A.md P2.
 - [ ] CANDIDATE · priority: safety · ISS-194 (medium): the crisis guard's study-then-distress rescue depends on detector vocabulary; "I don't see the point in continuing college, <tail>" is none for tails such as "I feel so lost", "nothing is worth it", "I feel trapped", "everyone would be better off", "i just want it all to stop", "I cant breathe" (each tail is also none alone; a general vocabulary gap, crisis at base 559a421). Human approval needed (product call under D-020). Fix: extend POINT_DISTRESS/CONCERN, or let a study object suppress only when the rest is study-only. Source: qa/evidence/p1-briefs/p1-eng3-c3-review-result.md.
 
