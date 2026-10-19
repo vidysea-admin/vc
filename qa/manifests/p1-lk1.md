@@ -11,7 +11,7 @@
 - C8 (D-105) `VC_TEXT_CHAIN` is the chain config: `default` is `ollama:glm-5.3-flash,ollama:deepseek-v4.1-flash`; a `gemini:` entry is refused (slot reserved, LK3 held), not ignored; the chain is an opt-in seam (`loadTextChainConfig(env) ?? loadProviderConfig(env)`) and is NOT reachable through `VC_LLM_PROVIDER`, so the concern classifier and scribe, which derive from that config, never inherit it (D-105 Q4).
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 0 of max 2
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** M (one source file plus its tests; provider seam that will carry real student text once enabled; no production data, no network, no paid call, no auth or tenancy change)

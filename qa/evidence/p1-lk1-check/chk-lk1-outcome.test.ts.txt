@@ -1,0 +1,330 @@
+/**
+ * CHECKER-OWNED outcome tests for p1-lk1 (cycle 0). Independent of the builder's tests. Mocked fetch only.
+ * Goes through loadTextChainConfig(env) -> createProvider(config, deps) -> generate(). Lives in the check copy only.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { inspect } from "node:util";
+import { z } from "zod";
+import {
+  AiUnavailableError,
+  createProvider,
+  loadProviderConfig,
+  loadTextChainConfig,
+  OllamaAbortedError,
+  OllamaHttpError,
+  OllamaProvider,
+  ProviderAuthorizationRefusedError,
+  type FailoverExhaustedInfo,
+  type OllamaActualUsage,
+  type OllamaRequestEstimate,
+} from "../src/index.js";
+
+const KEY = "chk-secret-key-abc123";
+const GLM = "glm-5.3-flash";
+const DSK = "deepseek-v4.1-flash";
+const Out = z.object({ answer: z.string().min(1) });
+const baseEnv = { VC_TEXT_CHAIN: `ollama:${GLM},ollama:${DSK}`, OLLAMA_API_KEY: KEY };
+const mkReq = (extra: Record<string, unknown> = {}) => ({ skillName: "s", skillPrompt: "SYS", outputSchema: Out, input: { q: "hi" }, ...extra });
+const ok = (content: unknown, extra: Record<string, unknown> = {}) =>
+  new Response(JSON.stringify({ message: { role: "assistant", content: typeof content === "string" ? content : JSON.stringify(content) }, done: true, ...extra }), { status: 200 });
+
+type Cap = { url: string; init: RequestInit; model: string };
+type Responder = (cap: Cap, n: number) => Response | Promise<Response>;
+function rig(responders: Responder[] | Record<string, Responder>, env: Record<string, string> = {}, deps: Record<string, unknown> = {}) {
+  const calls: Cap[] = [];
+  const exhausted: FailoverExhaustedInfo[] = [];
+  const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+    const model = JSON.parse(String(init!.body)).model as string;
+    const cap = { url: String(url), init: init!, model };
+    calls.push(cap);
+    const r = Array.isArray(responders) ? responders[calls.length - 1] : responders[model];
+    if (!r) throw new Error("rig: no responder for call " + calls.length + " " + model);
+    return r(cap, calls.length);
+  }) as typeof fetch;
+  const cfg = loadTextChainConfig({ ...baseEnv, ...env });
+  assert.ok(cfg);
+  const p = createProvider(cfg, { fetchImpl, onExhausted: (i: FailoverExhaustedInfo) => exhausted.push(i), ...deps } as never);
+  return { p, calls, exhausted };
+}
+const hangHonoring: Responder = (cap) =>
+  new Promise<Response>((_, rej) => {
+    (cap.init.signal as AbortSignal).addEventListener("abort", () => rej(Object.assign(new Error("aborted"), { name: "AbortError" })));
+  });
+const hangIgnoring: Responder = () => new Promise<Response>(() => {});
+
+// ---- C1: each retryable failure reaches hop 2 -------------------------------------------------------
+const c1: Array<[string, Responder, Record<string, string>]> = [
+  ["timeout (signal-honouring hang)", hangHonoring, { VC_TEXT_CHAIN_HOP_TIMEOUT_MS: "40" }],
+  ["500", () => new Response("x", { status: 500 }), {}],
+  ["502", () => new Response("x", { status: 502 }), {}],
+  ["503", () => new Response("", { status: 503 }), {}],
+  ["429", () => new Response("x", { status: 429 }), {}],
+  ["malformed JSON body", () => new Response("<html>nope", { status: 200 }), {}],
+  ["content not JSON", () => ok("plain words"), {}],
+  ["wrong-shape (schema)", () => ok({ nope: 1 }), {}],
+  ["wrong-shape (array)", () => ok([]), {}],
+  ["wrong-shape (null)", () => ok("null"), {}],
+  ["200 empty body", () => new Response("", { status: 200 }), {}],
+  ["200 empty content", () => ok(""), {}],
+  ["200 no message", () => new Response("{}", { status: 200 }), {}],
+  ["network throw", () => { throw new TypeError("fetch failed"); }, {}],
+];
+for (const [name, bad, env] of c1) {
+  test(`C1 ${name} -> hop 2 answers`, async () => {
+    const { p, calls, exhausted } = rig([bad, () => ok({ answer: "ds" })], env);
+    assert.deepEqual(await p.generate(mkReq()), { answer: "ds" });
+    assert.deepEqual(calls.map((c) => c.model), [GLM, DSK]);
+    assert.equal(exhausted.length, 0);
+    // hop 2 request is a real second request: own model, own bearer, own url
+    assert.equal(calls[1]!.url, "https://ollama.com/api/chat");
+    assert.equal((calls[1]!.init.headers as Record<string, string>)["authorization"], `Bearer ${KEY}`);
+  });
+}
+
+// ---- C2: no failover -------------------------------------------------------------------------------
+for (const s of [400, 401, 403, 404, 405, 408, 413, 418, 422]) {
+  test(`C2 HTTP ${s} on hop 1 surfaces, hop 2 never called`, async () => {
+    const { p, calls, exhausted } = rig([() => new Response("x", { status: s }), () => ok({ answer: "never" })]);
+    await assert.rejects(p.generate(mkReq()), (e: unknown) => e instanceof OllamaHttpError && e.status === s);
+    assert.equal(calls.length, 1);
+    assert.equal(exhausted.length, 0);
+  });
+}
+test("C2b hop1 5xx then hop2 400 -> the 400 surfaces (not AiUnavailable)", async () => {
+  const { p, calls } = rig([() => new Response("x", { status: 500 }), () => new Response("x", { status: 401 })]);
+  await assert.rejects(p.generate(mkReq()), (e: unknown) => e instanceof OllamaHttpError && e.status === 401);
+  assert.equal(calls.length, 2);
+});
+test("C2c preflight refusal surfaces and does not fail over", async () => {
+  const { p, calls } = rig([() => ok({ answer: "a" }), () => ok({ answer: "b" })]);
+  await assert.rejects(p.generate(mkReq({ preflight: () => { throw new Error("no"); } })), ProviderAuthorizationRefusedError);
+  assert.equal(calls.length, 0);
+});
+
+// ---- caller abort ---------------------------------------------------------------------------------------
+test("C2d caller abort mid-flight surfaces OllamaAbortedError, no hop 2", async () => {
+  const ac = new AbortController();
+  const { p, calls } = rig([(cap, n) => { setTimeout(() => ac.abort(), 10); return hangHonoring(cap, n); }, () => ok({ answer: "never" })]);
+  await assert.rejects(p.generate(mkReq({ signal: ac.signal })), OllamaAbortedError);
+  assert.equal(calls.length, 1);
+});
+test("C2e caller pre-aborted: nothing sent", async () => {
+  const ac = new AbortController(); ac.abort();
+  const { p, calls } = rig([() => ok({ answer: "x" }), () => ok({ answer: "x" })]);
+  await assert.rejects(p.generate(mkReq({ signal: ac.signal })));
+  assert.equal(calls.length, 0);
+});
+test("C2f caller abort after hop1 failed: hop 2 request aborted, surfaces abort not AiUnavailable", async () => {
+  const ac = new AbortController();
+  const { p, calls } = rig([() => new Response("x", { status: 500 }), (cap, n) => { setTimeout(() => ac.abort(), 10); return hangHonoring(cap, n); }]);
+  await assert.rejects(p.generate(mkReq({ signal: ac.signal })), OllamaAbortedError);
+  assert.equal(calls.length, 2);
+});
+
+// ---- C5 budget ------------------------------------------------------------------------------------------
+class BudgetStop extends Error {}
+test("C5 budget stop on hop 1: surfaces, zero requests", async () => {
+  const { p, calls, exhausted } = rig([() => ok({ answer: "a" })], {}, { beforeRequest: () => { throw new BudgetStop("cap"); } });
+  await assert.rejects(p.generate(mkReq()), BudgetStop);
+  assert.equal(calls.length, 0);
+  assert.equal(exhausted.length, 0);
+});
+test("C5b budget stop on hop 2 (after hop 1 outage): surfaces BudgetStop, hop 2 not sent; every hop is charged before its request", async () => {
+  const charged: OllamaRequestEstimate[] = [];
+  let n = 0;
+  const { p, calls } = rig([() => new Response("x", { status: 503 }), () => ok({ answer: "never" })], {}, {
+    beforeRequest: (e: OllamaRequestEstimate) => { charged.push(e); if (++n === 2) throw new BudgetStop("cap"); },
+  });
+  await assert.rejects(p.generate(mkReq()), BudgetStop);
+  assert.deepEqual(charged.map((c) => c.model), [GLM, DSK]);
+  assert.equal(calls.length, 1);
+  assert.ok(charged[0]!.estimatedCostUsd > 0 && charged[0]!.maxOutputTokens > 0);
+});
+test("C5c each hop is charged exactly once when failing over", async () => {
+  const charged: string[] = [];
+  const { p } = rig([() => new Response("x", { status: 500 }), () => ok({ answer: "a" })], {}, { beforeRequest: (e: OllamaRequestEstimate) => charged.push(e.model) });
+  await p.generate(mkReq());
+  assert.deepEqual(charged, [GLM, DSK]);
+});
+
+// ---- C3 single pass -------------------------------------------------------------------------------------
+test("C3 both hops fail retryably -> exactly 2 requests, AiUnavailable, one alert naming ollama", async () => {
+  const { p, calls, exhausted } = rig([() => new Response("x", { status: 500 }), () => new Response("x", { status: 429 })]);
+  await assert.rejects(p.generate(mkReq()), AiUnavailableError);
+  assert.deepEqual(calls.map((c) => c.model), [GLM, DSK]);
+  assert.equal(exhausted.length, 1);
+  assert.equal(exhausted[0]!.attempts, 2);
+  assert.equal(exhausted[0]!.kind, "ollama");
+});
+test("C3b one-hop chain: exactly one request", async () => {
+  const { p, calls } = rig([() => new Response("x", { status: 500 }), () => new Response("x", { status: 500 })], { VC_TEXT_CHAIN: `ollama:${GLM}` });
+  await assert.rejects(p.generate(mkReq()), AiUnavailableError);
+  assert.equal(calls.length, 1);
+});
+test("C3c three hops incl. duplicate: exactly 3 requests in order", async () => {
+  const { p, calls } = rig(
+    [() => new Response("x", { status: 500 }), () => new Response("x", { status: 500 }), () => new Response("x", { status: 500 }), () => new Response("x", { status: 500 })],
+    { VC_TEXT_CHAIN: `ollama:${GLM},ollama:${DSK},ollama:${GLM}` },
+  );
+  await assert.rejects(p.generate(mkReq()), AiUnavailableError);
+  assert.deepEqual(calls.map((c) => c.model), [GLM, DSK, GLM]);
+});
+test("C3d no inter-hop wait: two quick 500s finish well under 300ms", async () => {
+  const { p } = rig([() => new Response("x", { status: 500 }), () => new Response("x", { status: 500 })]);
+  const t = Date.now();
+  await assert.rejects(p.generate(mkReq()), AiUnavailableError);
+  assert.ok(Date.now() - t < 300, `took ${Date.now() - t}`);
+});
+
+// ---- C4 deadline ----------------------------------------------------------------------------------------
+test("C4 deadline 150ms over 5000ms hop timeouts, signal-honouring hangs: AiUnavailable(FailoverDeadlineExceededError) <1s, in-flight aborted", async () => {
+  let sig: AbortSignal | undefined;
+  const { p, calls, exhausted } = rig([(cap, n) => { sig = cap.init.signal as AbortSignal; return hangHonoring(cap, n); }, hangHonoring], { VC_TEXT_CHAIN_DEADLINE_MS: "150", VC_TEXT_CHAIN_HOP_TIMEOUT_MS: "5000" });
+  const t = Date.now();
+  await assert.rejects(p.generate(mkReq()), AiUnavailableError);
+  assert.ok(Date.now() - t < 1000, `took ${Date.now() - t}`);
+  assert.equal(exhausted[0]!.lastErrorName, "FailoverDeadlineExceededError");
+  assert.equal(sig!.aborted, true);
+  assert.equal(calls.length, 1);
+});
+test("C4b deadline with a hop that IGNORES the abort signal still returns on time", async () => {
+  const { p, exhausted } = rig([hangIgnoring, hangIgnoring], { VC_TEXT_CHAIN_DEADLINE_MS: "150", VC_TEXT_CHAIN_HOP_TIMEOUT_MS: "5000" });
+  const t = Date.now();
+  await assert.rejects(p.generate(mkReq()), AiUnavailableError);
+  assert.ok(Date.now() - t < 1000, `took ${Date.now() - t}`);
+  assert.equal(exhausted[0]!.lastErrorName, "FailoverDeadlineExceededError");
+});
+test("C4c hop 1 times out at hop timeout (60ms), hop 2 gets the remainder of the deadline (400ms) and answers at ~200ms", async () => {
+  const { p, calls } = rig([hangHonoring, async () => { await new Promise((r) => setTimeout(r, 150)); return ok({ answer: "late-ds" }); }], { VC_TEXT_CHAIN_HOP_TIMEOUT_MS: "60", VC_TEXT_CHAIN_DEADLINE_MS: "400" });
+  assert.deepEqual(await p.generate(mkReq()), { answer: "late-ds" });
+  assert.equal(calls.length, 2);
+});
+test("C4d hop 2 cut by the overall deadline even though its own timeout is longer", async () => {
+  const { p, exhausted } = rig([hangHonoring, hangHonoring], { VC_TEXT_CHAIN_HOP_TIMEOUT_MS: "60", VC_TEXT_CHAIN_DEADLINE_MS: "100" });
+  const t = Date.now();
+  await assert.rejects(p.generate(mkReq()), AiUnavailableError);
+  assert.ok(Date.now() - t < 600, `took ${Date.now() - t}`);
+  assert.equal(exhausted[0]!.lastErrorName, "FailoverDeadlineExceededError");
+});
+test("C4e defaults are 12000/8000 on the loaded config", () => {
+  const c = loadTextChainConfig(baseEnv)!;
+  assert.equal(c.provider === "ollama" && c.deadlineMs, 12000);
+  assert.equal(c.provider === "ollama" && c.hopTimeoutMs, 8000);
+});
+test("C4f stalled response BODY (headers sent, body never ends) is a timeout and fails over", async () => {
+  const stalled: Responder = (cap) => {
+    const sig = cap.init.signal as AbortSignal;
+    const body = new ReadableStream({ start(ctrl) { sig.addEventListener("abort", () => ctrl.error(Object.assign(new Error("aborted"), { name: "AbortError" }))); } });
+    return new Response(body, { status: 200 });
+  };
+  const { p, calls } = rig([stalled, () => ok({ answer: "ds" })], { VC_TEXT_CHAIN_HOP_TIMEOUT_MS: "50" });
+  assert.deepEqual(await p.generate(mkReq()), { answer: "ds" });
+  assert.equal(calls.length, 2);
+});
+
+// ---- C6 usage ------------------------------------------------------------------------------------------
+test("C6 usage on every answering hop: reported counts, then unreported; hop 5xx fires none", async () => {
+  const usage: OllamaActualUsage[] = [];
+  const { p } = rig(
+    [
+      () => ok("garbage", { prompt_eval_count: 11, eval_count: 7 }),
+      () => ok({ answer: "x" }, { prompt_eval_count: -1, eval_count: 3 }),
+    ],
+    {},
+    { onUsage: (u: OllamaActualUsage) => usage.push(u) },
+  );
+  await p.generate(mkReq());
+  assert.equal(usage.length, 2);
+  assert.deepEqual([usage[0]!.model, usage[0]!.actual, usage[0]!.inputTokens, usage[0]!.outputTokens], [GLM, "reported", 11, 7]);
+  assert.deepEqual([usage[1]!.model, usage[1]!.actual, usage[1]!.inputTokens, usage[1]!.outputTokens, usage[1]!.usd], [DSK, "unreported", undefined, undefined, undefined]);
+});
+test("C6b 5xx / bad JSON body fire no usage; success with counts: reported, usd = tokens x table price", async () => {
+  const usage: OllamaActualUsage[] = [];
+  const { p } = rig([() => new Response("x", { status: 500 }), () => ok({ answer: "x" }, { prompt_eval_count: 1000000, eval_count: 1000000 })], {}, { onUsage: (u: OllamaActualUsage) => usage.push(u) });
+  await p.generate(mkReq());
+  assert.equal(usage.length, 1);
+  assert.equal(usage[0]!.actual, "reported");
+  assert.equal(usage[0]!.usd, 5); // 1M*$1 + 1M*$4
+});
+test("C6c a throwing usage hook never discards the answer or re-sends", async () => {
+  const { p, calls } = rig([() => ok({ answer: "x" }, { prompt_eval_count: 1, eval_count: 1 })], {}, { onUsage: () => { throw new Error("ledger down"); } });
+  assert.deepEqual(await p.generate(mkReq()), { answer: "x" });
+  assert.equal(calls.length, 1);
+});
+test("C6d no usage hook configured: still works", async () => {
+  const { p } = rig([() => ok({ answer: "x" })]);
+  assert.deepEqual(await p.generate(mkReq()), { answer: "x" });
+});
+
+// ---- C8 config ------------------------------------------------------------------------------------------
+test("C8 gemini entries refused (any position, any case, whitespace)", () => {
+  for (const spec of ["gemini:flash-lite", `ollama:${GLM},gemini:flash-lite`, `gemini:x,ollama:${GLM}`, "GEMINI:x", `ollama:${GLM}, Gemini:flash-lite `, "  gemini:x"]) {
+    assert.throws(() => loadTextChainConfig({ VC_TEXT_CHAIN: spec, OLLAMA_API_KEY: KEY }), /gemini/i, spec);
+  }
+});
+test("C8b hostile specs", () => {
+  const e = (spec: string) => loadTextChainConfig({ VC_TEXT_CHAIN: spec, OLLAMA_API_KEY: KEY });
+  const models = (spec: string) => { const c = e(spec)!; return c.provider === "ollama" ? c.chain.map((h) => h.model) : []; };
+  assert.deepEqual(models(` ollama:${GLM} , ollama:${DSK} `), [GLM, DSK]);
+  assert.deepEqual(models(`ollama:${GLM},,ollama:${DSK}`), [GLM, DSK]);
+  assert.deepEqual(models(`ollama:${GLM},ollama:${DSK},`), [GLM, DSK]);
+  assert.deepEqual(models(`,ollama:${GLM}`), [GLM]);
+  assert.deepEqual(models(`ollama:${GLM},ollama:${GLM}`), [GLM, GLM]);
+  assert.deepEqual(models(` DEFAULT `), [GLM, DSK]);
+  assert.deepEqual(models("default"), [GLM, DSK]);
+  assert.deepEqual(models(`ollama:${DSK}:1017`), [`${DSK}:1017`]);
+  assert.throws(() => e(",,,"), /no entries/);
+  assert.throws(() => e("openai:gpt-9"), /ollama:<model-id>/);
+  assert.throws(() => e("litellm:glm"), /ollama:<model-id>/);
+  assert.throws(() => e("ollama:"), /ollama:<model-id>/);
+  assert.throws(() => e("ollama: "), /ollama:<model-id>/);
+  assert.throws(() => e("OLLAMA:glm-5.3-flash"), /ollama:<model-id>/);
+  assert.throws(() => e("default,ollama:glm-5.3-flash"), /ollama:<model-id>/);
+  assert.throws(() => e("ollama:not-a-priced-model"), /price/);
+});
+test("C8c missing/blank key refused and never echoes key; bad numbers refused", () => {
+  assert.throws(() => loadTextChainConfig({ VC_TEXT_CHAIN: `ollama:${GLM}` }), /OLLAMA_API_KEY/);
+  assert.throws(() => loadTextChainConfig({ VC_TEXT_CHAIN: `ollama:${GLM}`, OLLAMA_API_KEY: "   " }), /OLLAMA_API_KEY/);
+  for (const bad of ["0", "-5", "1.5", "abc", "", "1e3", "12000ms"]) {
+    assert.throws(() => loadTextChainConfig({ ...baseEnv, VC_TEXT_CHAIN_DEADLINE_MS: bad }), (er: Error) => /VC_TEXT_CHAIN_DEADLINE_MS/.test(er.message) && !er.message.includes(KEY), bad);
+    assert.throws(() => loadTextChainConfig({ ...baseEnv, VC_TEXT_CHAIN_HOP_TIMEOUT_MS: bad }), /VC_TEXT_CHAIN_HOP_TIMEOUT_MS/, bad);
+  }
+});
+test("C8d VC_LLM_PROVIDER cannot select the chain; classifier/scribe base config never carries it", () => {
+  assert.throws(() => loadProviderConfig({ VC_LLM_PROVIDER: "ollama", ...baseEnv }), /VC_LLM_PROVIDER/);
+  assert.throws(() => loadProviderConfig({ VC_LLM_PROVIDER: "ollama:glm-5.3-flash", ...baseEnv }));
+  for (const base of [{ VC_LLM_PROVIDER: "mock" }, {}] as Array<Record<string, string>>) {
+    let cfg;
+    try { cfg = loadProviderConfig({ ...base, ...baseEnv }); } catch (er) { cfg = (er as Error).message; }
+    assert.notEqual((cfg as { provider?: string }).provider, "ollama");
+  }
+  // opt-in expression
+  const chosen = loadTextChainConfig({ ...baseEnv, VC_LLM_PROVIDER: "mock" }) ?? loadProviderConfig({ ...baseEnv, VC_LLM_PROVIDER: "mock" });
+  assert.equal(chosen.provider, "ollama");
+  const unchosen = loadTextChainConfig({ VC_LLM_PROVIDER: "mock" }) ?? loadProviderConfig({ VC_LLM_PROVIDER: "mock" });
+  assert.equal(unchosen.provider, "mock");
+});
+test("C8e key never leaks via String/inspect/JSON of provider or error", async () => {
+  const { p } = rig([() => new Response("x", { status: 500 }), () => new Response("x", { status: 500 })]);
+  assert.ok(!String(p).includes(KEY));
+  assert.ok(!inspect(p, { depth: 8, showHidden: true }).includes(KEY));
+  assert.ok(!JSON.stringify(p).includes(KEY));
+  const e = await p.generate(mkReq()).catch((x) => x);
+  assert.ok(!String(e.message).includes(KEY) && !inspect(e, { depth: 5 }).includes(KEY));
+});
+test("C8f OLLAMA_BASE_URL + max output tokens flow to the wire; model per hop in body; stream off", async () => {
+  const { p, calls } = rig([() => new Response("x", { status: 500 }), () => ok({ answer: "x" })], { OLLAMA_BASE_URL: "https://proxy.example/", OLLAMA_MAX_OUTPUT_TOKENS: "321" });
+  await p.generate(mkReq());
+  assert.equal(calls[0]!.url, "https://proxy.example/api/chat");
+  const b = JSON.parse(String(calls[1]!.init.body));
+  assert.equal(b.model, DSK);
+  assert.equal(b.stream, false);
+  assert.equal(b.options.num_predict, 321);
+});
+
+// ---- the opt-in default for others: createProvider unchanged for other kinds --------------------------
+test("OllamaProvider direct use still works and is not failover-wrapped (existing REAL path)", () => {
+  const o = new OllamaProvider({ model: GLM, apiKey: KEY, price: { inputUsdPerMTok: 1, outputUsdPerMTok: 4 } });
+  assert.equal(o.kind, "ollama");
+});
