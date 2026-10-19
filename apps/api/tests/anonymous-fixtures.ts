@@ -101,6 +101,25 @@ export function kbAnswerProvider(claims: unknown[] = [GOOD_CLAIM], followUp?: st
   });
 }
 
+/** P1 LK1w: the env that selects the Ollama text chain. The key is invented; the host is never contacted (see stubOllamaFetch). */
+export const CHAIN_ENV = { VC_TEXT_CHAIN: "ollama:glm-5.3-flash,ollama:deepseek-v4.1-flash", OLLAMA_API_KEY: "synthetic-key-not-real", OLLAMA_BASE_URL: "http://ollama.synthetic.test" };
+
+/**
+ * P1 LK1w: replaces globalThis.fetch with a mock that answers CHAIN_ENV's Ollama host with `content` as the model reply and passes every other
+ * URL (the test's own calls to its local server) to the real fetch. Call BEFORE startApi: the chain captures `fetch` when it is built.
+ */
+export function stubOllamaFetch(content: unknown): { calls: { url: string; body: string }[]; restore(): void } {
+  const real = globalThis.fetch;
+  const calls: { url: string; body: string }[] = [];
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (!url.startsWith(CHAIN_ENV.OLLAMA_BASE_URL)) return real(input, init);
+    calls.push({ url, body: String(init?.body ?? "") });
+    return new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify(content) }, done: true }), { status: 200 });
+  }) as typeof fetch;
+  return { calls, restore: () => { globalThis.fetch = real; } };
+}
+
 export interface AnonWorld {
   fakeDb: FakeDb;
   kb: ReturnType<typeof recordingKb>;

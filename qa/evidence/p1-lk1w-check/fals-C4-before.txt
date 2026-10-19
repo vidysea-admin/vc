@@ -1,0 +1,9 @@
+✔ P1 LK1w config: an ollama text-chain base is refused, never kept (the classifier stays off the chain until its own eval, D-105 Q4) (2.7059ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3120.1889

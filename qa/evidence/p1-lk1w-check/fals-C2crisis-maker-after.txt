@@ -1,0 +1,31 @@
+✖ LK1w: VC_TEXT_CHAIN set -> an anonymous question is answered by the chain and not by the injected provider; a crisis text still escalates with zero model calls (364.1011ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4742.1121
+
+✖ failing tests:
+
+test at tests\anonymous-route.test.ts:355:1
+✖ LK1w: VC_TEXT_CHAIN set -> an anonymous question is answered by the chain and not by the injected provider; a crisis text still escalates with zero model calls (364.1011ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'sign_in_required'
+  - 'escalated'
+  
+      at TestContext.<anonymous> (D:\chk-lk1w\copy\apps\api\tests\anonymous-route.test.ts:365:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'sign_in_required',
+    expected: 'escalated',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

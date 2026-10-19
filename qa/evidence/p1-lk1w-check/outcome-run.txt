@@ -1,0 +1,26 @@
+{"event":"escalation_unrouted","escalationId":"sess1:t4","sessionId":"sess1"}
+✔ O1 chain UNSET: chat, anonymous, scribe and classifier are all served by the VC_LLM_* provider (litellm); zero Ollama calls (1340.6152ms)
+{"event":"escalation_unrouted","escalationId":"sess1:t4","sessionId":"sess1"}
+✔ O2 chain SET (default): chat and anonymous served by Ollama glm first hop; scribe + classifier stay on litellm (926.364ms)
+✔ O3 DeepSeek-first order is honoured (config only) (108.0619ms)
+✔ O4 first hop http503: the second hop answers inside the deadline (chat and anonymous) (171.2922ms)
+✔ O4 first hop timeout: the second hop answers inside the deadline (chat and anonymous) (987.2752ms)
+✔ O4 first hop http500-then-ok: the second hop answers inside the deadline (chat and anonymous) (95.1317ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"OllamaHttpError"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"OllamaHttpError"}
+✔ O5 both hops down: bounded by the deadline, no hang, informational outcome (107.3068ms)
+{"event":"escalation_unrouted","escalationId":"8a88c9f7-601c-4b61-aa14-696237e8f45e:o6-c0","sessionId":"8a88c9f7-601c-4b61-aa14-696237e8f45e"}
+{"event":"escalation_unrouted","escalationId":"66771fa9-c2d9-4a4a-8830-721932f24d2d:o6-c1","sessionId":"66771fa9-c2d9-4a4a-8830-721932f24d2d"}
+{"event":"escalation_unrouted","escalationId":"2b042c92-bdeb-4b35-bcbd-75ffb74368e2:o6-c2","sessionId":"2b042c92-bdeb-4b35-bcbd-75ffb74368e2"}
+✔ O6 crisis text, chain set: zero Ollama calls in chat and anonymous; fixed helpline reply (1136.2609ms)
+✔ O7 hostile config: missing hop key / bad price / malformed chain all fail BEFORE connect, with no secret value in the error (204.2481ms)
+✔ O8 blank / whitespace / case variants that are tolerated by design (267.7817ms)
+✔ O9 classifier base: ollama chain config is refused; litellm and mock bases still work (1.2314ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11887.2941

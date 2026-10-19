@@ -1,0 +1,26 @@
+✖ LK1w: VC_TEXT_CHAIN set -> a student chat turn is answered by the chain (Ollama hop on the wire) and the injected scribe/classifier provider is not called (553.7962ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12048.4756
+
+✖ failing tests:
+
+test at tests\chat-profile.test.ts:275:1
+✖ LK1w: VC_TEXT_CHAIN set -> a student chat turn is answered by the chain (Ollama hop on the wire) and the injected scribe/classifier provider is not called (553.7962ms)
+  AssertionError [ERR_ASSERTION]: the chain hop was called
+      at TestContext.<anonymous> (D:\chk-lk1w\copy\apps\api\tests\chat-profile.test.ts:281:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

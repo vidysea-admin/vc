@@ -1,0 +1,25 @@
+✔ W1: a crisis flag write that dies with FencedWriterDeadlineError (student NOT fenced) is retried, the crisis is still escalated once, the student is not ejected, and the log names the deadline, not a fence (268.432ms)
+✔ W1: a flag write that hits the deadline once and then succeeds stores the flag once and escalates once, logging nothing (111.1312ms)
+✔ W1: an escalation port that dies with FencedWriterDeadlineError once is retried and delivered; the student is not ejected (82.8679ms)
+✔ W2: an escalation still running after the drain timeout is awaited by voice.close(), so a shutdown does not lose it (789.6773ms)
+✔ W2: the wait for late work at shutdown is bounded: a write that never settles delays close() by at most drainTimeoutMs and is logged (298.9709ms)
+✔ W3: a start superseded while its provider connect is still in flight is closed before the newer start opens its own provider session (never two paid sessions at once) (279.6598ms)
+✔ W3: if the superseded connect never returns, the newer start waits at most connectOverlapWaitMs, the overlap is logged, and it still becomes the live session (198.127ms)
+✔ W4: the retry after a delivered-then-thrown escalation reuses the same session and turn id, and the real escalateTurns port writes each recipient record once (107.8273ms)
+✔ W5: VC_VOICE_ENABLED unset, empty or 'false' -> no voice route, an upgrade is refused, no gate is read, nothing voice-related is built or connected (176.3957ms)
+✔ W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' are off; padded, cased or other values throw VoiceConfigError (never on) (3.4113ms)
+✔ W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value (308.8528ms)
+✔ W7: flag on and gates open -> in a started process the session route mints a token, the WebSocket upgrades, a start reaches the provider, and a wrong token is refused (102.467ms)
+✔ W7: the WebSocket secret and base URL default to VC_VOICE_WS_SECRET and VC_VOICE_WS_BASE_URL when the options are not supplied (71.3005ms)
+✔ W8: stop() finalizes a live voice session before the database client closes, and its usage is recorded (154.7988ms)
+✔ W9: a voice crisis in a started process reaches the SAME escalateForTenant port the text chat uses (one flag, one escalation) (291.415ms)
+{"event":"escalation_unrouted","escalationId":"th-w:vbf717e13000001","sessionId":"th-w"}
+✔ W9: with chat off, a voice crisis goes through the engine's escalateTurns exactly like the text path default (notification records are written) (123.2084ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10219.6796
