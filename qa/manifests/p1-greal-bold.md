@@ -5,7 +5,7 @@
 - C2 It still refuses: `Answered:` / `**Answered:**` / `**Answered**:` with only whitespace after; a bold label with its content on the NEXT line; the label not at line start (the `Answer format` line that quotes `Answered: <ISO>` in backticks, an indented line, text before the label); `Not Answered:`, `**Not Answered:**`, `> Answered:`, `> **Answered:**`, a broken wrapper (`**Answered:`, `Answered** :`). The real gate text with its bold approval line removed is refused.
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Fix cycle:** 0 of max 2
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** S (one regex and its comment in one file plus its test file; no auth, no production data, no network, no paid call)
