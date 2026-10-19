@@ -58,8 +58,8 @@ Pre-check[A20]: d1e511e bash scripts/vc-testlock.sh pnpm -C apps/api test -> gre
 Pre-check[A21]: d1e511e bash scripts/vc-testlock.sh pnpm -C packages/engine test -> green: 1123 passed, 0 failed, 45 skipped (legacy B18 NOT RUNNABLE)
 Pre-check[A22]: d1e511e bash scripts/vc-testlock.sh pnpm -C packages/engine test -> green: 1123 passed, 0 failed, 45 skipped (legacy B18 NOT RUNNABLE)
 Pre-check[A23-c0]: d1e511e bash scripts/vc-testlock.sh pnpm -C apps/api test -> green: 300 passed, 0 failed
-Pre-check[A11b]: 8b3f52f+repair1 (working tree, committed as the next commit) VC_TESTLOCK_TIMEOUT_SECS=7200 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/acceptance-*.test.ts -> 7 tests, 7 pass, 0 fail (journey test 2 now expects 1 flag per thread and window, plus 1 more for a second thread; engine half crisis-defaults.test.ts in checker run 8b3f52f, 131/131)
-Pre-check[A23]: 8b3f52f+repair1 (working tree, committed as the next commit) same command -> 7 tests, 7 pass, 0 fail (35 crisis turns all 200, never 429, model never called)
+Pre-check[A11b]: b67423a (test and trace content identical to the run tree) VC_TESTLOCK_TIMEOUT_SECS=7200 bash scripts/vc-testlock.sh pnpm -C apps/api exec tsx --test tests/acceptance-*.test.ts -> green: 7 passed, 0 failed (journey test 2 now expects 1 flag per thread and window, plus 1 more for a second thread; engine half crisis-defaults.test.ts in checker run 8b3f52f, 131/131)
+Pre-check[A23]: b67423a (test and trace content identical to the run tree) same command -> green: 7 passed, 0 failed (35 crisis turns all 200, never 429, model never called)
 Pre-check[A24]: d1e511e bash scripts/vc-testlock.sh pnpm -C packages/engine test -> green: 1123 passed, 0 failed, 45 skipped (legacy B18 NOT RUNNABLE)
 Pre-check[typecheck]: d1e511e bash scripts/vc-testlock.sh pnpm -C . -r typecheck -> exit 0 (qa/evidence/p1-u12/runs/typecheck.txt)
 Pre-check[integration-api]: 7eab007 bash scripts/vc-testlock.sh pnpm -C apps/api test -> green: 293 passed, 0 failed (U6b and U11 merged in do not break the API suites)
