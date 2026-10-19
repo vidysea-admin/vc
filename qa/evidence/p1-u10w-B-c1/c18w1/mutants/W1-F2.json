@@ -1,0 +1,1 @@
+[{"old":"        last = err;\n      }\n    }\n    logEvent(last instanceof FencedWriterDeadlineError","new":"        last = err;\n        if (err instanceof FencedWriterDeadlineError) break;\n      }\n    }\n    logEvent(last instanceof FencedWriterDeadlineError"}]

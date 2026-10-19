@@ -1,0 +1,18 @@
+[testlock] write_owner_enrich: lock dir token changed (ours [1792364402964375700-173720-3033], now [1792364403094408900-173525-22460]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] waiting for lock held by: PID=34320 STARTED=639279809952383798 ACQUIRED_AT=1792364403 TOKEN=1792364403094408900-173525-22460 DESC=pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u8r/apps/api exec tsx --test --test-timeout=120000 tests/chat-privacy.test.ts tests/_probeA-api.test.ts 
+[testlock] running slot 0 (free RAM 5.33 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-name-pattern ^C13[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2351.2109ms)
+✔ tests\voice-history.test.ts (2304.5156ms)
+✔ tests\voice-limits.test.ts (2298.3932ms)
+✔ C13: an expired resume log is dropped when a reconnect asks for it (read), and replays nothing (169.149ms)
+✔ C13: the prune timer drops an expired resume log although nobody reads it, and is not counted in the per-connection timers (60.8211ms)
+✔ C13: shutdown drops every retained resume log (no transcript events are kept after close) (63.6582ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2634.3988

@@ -1,0 +1,4 @@
+[
+{"old":"    const raw = c.crisisUtterances.shift();","new":"    const raw = c.crisisUtterances.shift() || (c as any).__lastUserText;"},
+{"old":"    const stored = redact(c, t.text);\n    try {\n      await appendVoiceTurn(","new":"    if (t.role === \"user\") (c as any).__lastUserText = t.text;\n    const stored = redact(c, t.text);\n    try {\n      await appendVoiceTurn("}
+]

@@ -1,0 +1,432 @@
+[testlock] running slot 0 (free RAM 4.79 GB): pnpm -C D:/vc/.worktrees/p1-u10w/packages/providers exec tsx --test --test-reporter=tap tests/live.test.ts
+TAP version 13
+# Subtest: C1 audio format: a student's 16 kHz PCM16 mic chunk reaches the backend byte for byte; the constants are 16000/24000
+ok 1 - C1 audio format: a student's 16 kHz PCM16 mic chunk reaches the backend byte for byte; the constants are 16000/24000
+  ---
+  duration_ms: 5.0179
+  type: 'test'
+  ...
+# Subtest: C1 audio format: a browser that sends a half-sample (odd byte length) or an empty frame is refused, nothing reaches the backend
+ok 2 - C1 audio format: a browser that sends a half-sample (odd byte length) or an empty frame is refused, nothing reaches the backend
+  ---
+  duration_ms: 1.4682
+  type: 'test'
+  ...
+# Subtest: C1 audio out: the model speaks and the client receives 24 kHz PCM16 audio events with the 24 kHz mime
+ok 3 - C1 audio out: the model speaks and the client receives 24 kHz PCM16 audio events with the 24 kHz mime
+  ---
+  duration_ms: 0.8433
+  type: 'test'
+  ...
+# Subtest: C1 transcripts: a student speaks in two chunks and the model answers; both transcripts stream and finish in thread order
+ok 4 - C1 transcripts: a student speaks in two chunks and the model answers; both transcripts stream and finish in thread order
+  ---
+  duration_ms: 3.4334
+  type: 'test'
+  ...
+# Subtest: C1 tool call: the model asks for search_kb mid-answer; the call is surfaced, the handler's result goes back to the model
+ok 5 - C1 tool call: the model asks for search_kb mid-answer; the call is surfaced, the handler's result goes back to the model
+  ---
+  duration_ms: 20.422
+  type: 'test'
+  ...
+# Subtest: C1 tool call: with no handler the caller answers through sendToolResult (the API layer owns KB access)
+ok 6 - C1 tool call: with no handler the caller answers through sendToolResult (the API layer owns KB access)
+  ---
+  duration_ms: 1.009
+  type: 'test'
+  ...
+# Subtest: C1 tool call: the KB tool throws during a live answer; an error event is raised and the session stays usable
+ok 7 - C1 tool call: the KB tool throws during a live answer; an error event is raised and the session stays usable
+  ---
+  duration_ms: 16.3989
+  type: 'test'
+  ...
+# Subtest: C1 interrupt: the student talks over the model; backend is told, event fires, the rest of that reply is dropped and the partial reply is stored as interrupted
+ok 8 - C1 interrupt: the student talks over the model; backend is told, event fires, the rest of that reply is dropped and the partial reply is stored as interrupted
+  ---
+  duration_ms: 2.2252
+  type: 'test'
+  ...
+# Subtest: C1 interrupt: after the barge-in the student's next words un-mute the model for its new answer
+ok 9 - C1 interrupt: after the barge-in the student's next words un-mute the model for its new answer
+  ---
+  duration_ms: 0.5578
+  type: 'test'
+  ...
+# Subtest: C1 interrupt: the backend itself reports the student barged in; the half reply is stored interrupted and the next reply flows
+ok 10 - C1 interrupt: the backend itself reports the student barged in; the half reply is stored interrupted and the next reply flows
+  ---
+  duration_ms: 0.691
+  type: 'test'
+  ...
+# Subtest: C1 close: the student hangs up twice (double tap); the backend closes once, one closed event, and every send afterwards throws
+ok 11 - C1 close: the student hangs up twice (double tap); the backend closes once, one closed event, and every send afterwards throws
+  ---
+  duration_ms: 1.2594
+  type: 'test'
+  ...
+# Subtest: C1 close: the network drops mid-reply; the half reply is saved, one closed event, and late backend events are ignored
+ok 12 - C1 close: the network drops mid-reply; the half reply is saved, one closed event, and late backend events are ignored
+  ---
+  duration_ms: 0.564
+  type: 'test'
+  ...
+# Subtest: C1 close: a UI listener that throws never breaks the voice session
+ok 13 - C1 close: a UI listener that throws never breaks the voice session
+  ---
+  duration_ms: 0.3302
+  type: 'test'
+  ...
+# Subtest: C4 crisis: the phrase arrives split across two transcript chunks; the detector sees the accumulated utterance and the fixed message plays once
+ok 14 - C4 crisis: the phrase arrives split across two transcript chunks; the detector sees the accumulated utterance and the fixed message plays once
+  ---
+  duration_ms: 1.2899
+  type: 'test'
+  ...
+# Subtest: C4 crisis: after the trigger, the model's own audio and words for that answer are dropped (none reaches the student)
+ok 15 - C4 crisis: after the trigger, the model's own audio and words for that answer are dropped (none reaches the student)
+  ---
+  duration_ms: 0.5676
+  type: 'test'
+  ...
+# Subtest: C4 crisis: the student's words are written to the thread before the fixed reply, and the crisis record is handed to the sink
+ok 16 - C4 crisis: the student's words are written to the thread before the fixed reply, and the crisis record is handed to the sink
+  ---
+  duration_ms: 0.5795
+  type: 'test'
+  ...
+# Subtest: C4 crisis: the rest of the same sentence keeps streaming in after the trigger; the fixed message is not played a second time
+ok 17 - C4 crisis: the rest of the same sentence keeps streaming in after the trigger; the fixed message is not played a second time
+  ---
+  duration_ms: 2.4438
+  type: 'test'
+  ...
+# Subtest: C4 crisis: the student recovers and later says it again in a new turn; the fixed message plays again and the model speaks normally in between
+ok 18 - C4 crisis: the student recovers and later says it again in a new turn; the fixed message plays again and the model speaks normally in between
+  ---
+  duration_ms: 1.3777
+  type: 'test'
+  ...
+# Subtest: C4 crisis: an ordinary question about fees never triggers the hook
+ok 19 - C4 crisis: an ordinary question about fees never triggers the hook
+  ---
+  duration_ms: 0.402
+  type: 'test'
+  ...
+# Subtest: C4 crisis: the student types the phrase during a voice session; it is NOT forwarded to the model and the fixed message plays
+ok 20 - C4 crisis: the student types the phrase during a voice session; it is NOT forwarded to the model and the fixed message plays
+  ---
+  duration_ms: 0.5308
+  type: 'test'
+  ...
+# Subtest: C4 crisis: a harmless typed message in a voice session is forwarded to the model and not duplicated into the voice thread
+ok 21 - C4 crisis: a harmless typed message in a voice session is forwarded to the model and not duplicated into the voice thread
+  ---
+  duration_ms: 0.3816
+  type: 'test'
+  ...
+# Subtest: C4 crisis: the detector crashes on a weird transcript; unsure counts as crisis (D-087), with an error event for the engineers
+ok 22 - C4 crisis: the detector crashes on a weird transcript; unsure counts as crisis (D-087), with an error event for the engineers
+  ---
+  duration_ms: 0.6291
+  type: 'test'
+  ...
+# Subtest: C4 crisis: the detector can return a level and it travels on the crisis event and record
+ok 23 - C4 crisis: the detector can return a level and it travels on the crisis event and record
+  ---
+  duration_ms: 0.688
+  type: 'test'
+  ...
+# Subtest: C4 crisis: the trigger-to-fixed-message latency is measured on the injected clock and stays inside the 2 s bound (D-088 Q5)
+ok 24 - C4 crisis: the trigger-to-fixed-message latency is measured on the injected clock and stays inside the 2 s bound (D-088 Q5)
+  ---
+  duration_ms: 0.5812
+  type: 'test'
+  ...
+# Subtest: C4 crisis: a deployment wires a detector but forgets the fixed message; the session refuses to start (no silent no-op)
+ok 25 - C4 crisis: a deployment wires a detector but forgets the fixed message; the session refuses to start (no silent no-op)
+  ---
+  duration_ms: 0.3881
+  type: 'test'
+  ...
+# Subtest: C5 audit A9b: the model says a fee figure no tool returned; a flag event reaches the client and an audit record is stored with the thread
+ok 26 - C5 audit A9b: the model says a fee figure no tool returned; a flag event reaches the client and an audit record is stored with the thread
+  ---
+  duration_ms: 3.7842
+  type: 'test'
+  ...
+# Subtest: C5 audit A9b: the model names a counsellor who is on the do-not-name list; a listed_speaker flag fires
+ok 27 - C5 audit A9b: the model names a counsellor who is on the do-not-name list; a listed_speaker flag fires
+  ---
+  duration_ms: 1.515
+  type: 'test'
+  ...
+# Subtest: C5 audit A9b: a clean answer (figure came from the KB tool, no names) emits no flag and no audit record
+ok 28 - C5 audit A9b: a clean answer (figure came from the KB tool, no names) emits no flag and no audit record
+  ---
+  duration_ms: 8.0433
+  type: 'test'
+  ...
+# Subtest: C5 audit A9b: a name that only contains a listed name inside another word is not flagged (Rahulkar vs Rahul)
+ok 29 - C5 audit A9b: a name that only contains a listed name inside another word is not flagged (Rahulkar vs Rahul)
+  ---
+  duration_ms: 1.6248
+  type: 'test'
+  ...
+# Subtest: C5 audit A9b: the Tele-MANAS number the fixed message carries is allow-listed, an unrelated number beside it is still flagged
+ok 30 - C5 audit A9b: the Tele-MANAS number the fixed message carries is allow-listed, an unrelated number beside it is still flagged
+  ---
+  duration_ms: 0.8167
+  type: 'test'
+  ...
+# Subtest: C5 audit A9b: the audit is after the fact, not before: the spoken audio is already delivered when the flag arrives
+ok 31 - C5 audit A9b: the audit is after the fact, not before: the spoken audio is already delivered when the flag arrives
+  ---
+  duration_ms: 0.5624
+  type: 'test'
+  ...
+# Subtest: C5 audit A9b: the auditor itself crashes; the failure is a visible audit_error flag, never a silent pass
+ok 32 - C5 audit A9b: the auditor itself crashes; the failure is a visible audit_error flag, never a silent pass
+  ---
+  duration_ms: 0.4316
+  type: 'test'
+  ...
+# Subtest: C5 audit A9b: the student cuts the model off mid-sentence; the half sentence is still audited
+ok 33 - C5 audit A9b: the student cuts the model off mid-sentence; the half sentence is still audited
+  ---
+  duration_ms: 0.377
+  type: 'test'
+  ...
+# Subtest: C5 audit A9b: two findings in one reply give two flags and two audit records (one per finding)
+ok 34 - C5 audit A9b: two findings in one reply give two flags and two audit records (one per finding)
+  ---
+  duration_ms: 0.3894
+  type: 'test'
+  ...
+# Subtest: C6 sink: U8's async persistence is slow for the first turn; thread order is still user, assistant, user
+ok 35 - C6 sink: U8's async persistence is slow for the first turn; thread order is still user, assistant, user
+  ---
+  duration_ms: 45.5762
+  type: 'test'
+  ...
+# Subtest: C6 sink: U8's database write fails once; an error event is raised, later turns are still delivered, the session survives
+ok 36 - C6 sink: U8's database write fails once; an error event is raised, later turns are still delivered, the session survives
+  ---
+  duration_ms: 1.6683
+  type: 'test'
+  ...
+# Subtest: C6 sink: the timestamps come from the injected clock as ISO strings (no real time in tests)
+ok 37 - C6 sink: the timestamps come from the injected clock as ISO strings (no real time in tests)
+  ---
+  duration_ms: 0.4888
+  type: 'test'
+  ...
+# Subtest: C6 sink: the live module imports nothing from apps/api, a websocket library or a vendor SDK (layering and offline guarantee)
+ok 38 - C6 sink: the live module imports nothing from apps/api, a websocket library or a vendor SDK (layering and offline guarantee)
+  ---
+  duration_ms: 1.591
+  type: 'test'
+  ...
+# Subtest: C3 gemini: a deployment with no connector (no key, no SDK) fails loudly instead of pretending to be live
+ok 39 - C3 gemini: a deployment with no connector (no key, no SDK) fails loudly instead of pretending to be live
+  ---
+  duration_ms: 0.6281
+  type: 'test'
+  ...
+# Subtest: C3 gemini: connecting asks for audio out, both transcripts, the voice, the system prompt and the KB tool declarations
+ok 40 - C3 gemini: connecting asks for audio out, both transcripts, the voice, the system prompt and the KB tool declarations
+  ---
+  duration_ms: 0.5798
+  type: 'test'
+  ...
+# Subtest: C3 gemini: a full spoken exchange from Gemini-shaped messages becomes normalized transcripts, 24 kHz audio, a tool call and a turn end
+ok 41 - C3 gemini: a full spoken exchange from Gemini-shaped messages becomes normalized transcripts, 24 kHz audio, a tool call and a turn end
+  ---
+  duration_ms: 2.1789
+  type: 'test'
+  ...
+# Subtest: C3 gemini: the student's mic audio is sent to Gemini as base64 PCM16 at 16 kHz; text, tool results and close take the SDK's shapes
+ok 42 - C3 gemini: the student's mic audio is sent to Gemini as base64 PCM16 at 16 kHz; text, tool results and close take the SDK's shapes
+  ---
+  duration_ms: 1.1197
+  type: 'test'
+  ...
+# Subtest: C3 gemini: the model returns audio at the wrong sample rate; an error is raised and the audio is not played
+ok 43 - C3 gemini: the model returns audio at the wrong sample rate; an error is raised and the audio is not played
+  ---
+  duration_ms: 0.8197
+  type: 'test'
+  ...
+# Subtest: C3 gemini: Gemini reports the student barged in and then closes the socket; both surface once
+ok 44 - C3 gemini: Gemini reports the student barged in and then closes the socket; both surface once
+  ---
+  duration_ms: 0.5112
+  type: 'test'
+  ...
+# Subtest: C3 gemini: an SDK error callback becomes an error event without closing the session
+ok 45 - C3 gemini: an SDK error callback becomes an error event without closing the session
+  ---
+  duration_ms: 0.3768
+  type: 'test'
+  ...
+# Subtest: C3 gemini: junk messages (null, empty serverContent, a function call with no name) are ignored without throwing
+ok 46 - C3 gemini: junk messages (null, empty serverContent, a function call with no name) are ignored without throwing
+  ---
+  duration_ms: 0.4144
+  type: 'test'
+  ...
+# Subtest: C4 crisis via gemini: a Hindi-English crisis phrase arrives as Gemini input transcription; Gemini is interrupted, the fixed message plays, Gemini's own reply is silenced
+ok 47 - C4 crisis via gemini: a Hindi-English crisis phrase arrives as Gemini input transcription; Gemini is interrupted, the fixed message plays, Gemini's own reply is silenced
+  ---
+  duration_ms: 3.9773
+  type: 'test'
+  ...
+# Subtest: C5 audit A9b: createSimpleOutputAuditor numbers with thousands separators and decimals match the tool text, a different figure does not
+ok 48 - C5 audit A9b: createSimpleOutputAuditor numbers with thousands separators and decimals match the tool text, a different figure does not
+  ---
+  duration_ms: 0.6406
+  type: 'test'
+  ...
+# Subtest: C4 crisis F1: the backend reports `interrupted` after the crisis trigger chunk; the model's audio and words stay silenced
+ok 49 - C4 crisis F1: the backend reports `interrupted` after the crisis trigger chunk; the model's audio and words stay silenced
+  ---
+  duration_ms: 1.2557
+  type: 'test'
+  ...
+# Subtest: C4 crisis F1: the crisis arrives on a FINAL transcript chunk and `interrupted` follows; the mute still holds
+ok 50 - C4 crisis F1: the crisis arrives on a FINAL transcript chunk and `interrupted` follows; the mute still holds
+  ---
+  duration_ms: 0.6867
+  type: 'test'
+  ...
+# Subtest: C4 crisis F1: after crisis + interrupted the model's turn ends; the next reply is audible again once the student speaks (the mute is not permanent)
+ok 51 - C4 crisis F1: after crisis + interrupted the model's turn ends; the next reply is audible again once the student speaks (the mute is not permanent)
+  ---
+  duration_ms: 0.5193
+  type: 'test'
+  ...
+# Subtest: C4 crisis F2: the model was mid-sentence with a figure when the student's crisis phrase arrived; the half reply is audited and stored as interrupted, before the student's words
+ok 52 - C4 crisis F2: the model was mid-sentence with a figure when the student's crisis phrase arrived; the half reply is audited and stored as interrupted, before the student's words
+  ---
+  duration_ms: 1.1512
+  type: 'test'
+  ...
+# Subtest: C4 crisis M1: a crisis arrives from the transport before the session is attached; the fixed message plays now and the backend interrupt is replayed on attach
+ok 53 - C4 crisis M1: a crisis arrives from the transport before the session is attached; the fixed message plays now and the backend interrupt is replayed on attach
+  ---
+  duration_ms: 0.5394
+  type: 'test'
+  ...
+# Subtest: C4 crisis M1: the model asks for a KB tool before the session is attached; the call is answered after attach, not turned into an error
+ok 54 - C4 crisis M1: the model asks for a KB tool before the session is attached; the call is answered after attach, not turned into an error
+  ---
+  duration_ms: 6.5131
+  type: 'test'
+  ...
+# Subtest: C4 crisis M2: the student speaks a crisis phrase and then types another distress message in the same utterance; the typed text is scanned, not forwarded, and answered
+ok 55 - C4 crisis M2: the student speaks a crisis phrase and then types another distress message in the same utterance; the typed text is scanned, not forwarded, and answered
+  ---
+  duration_ms: 1.297
+  type: 'test'
+  ...
+# Subtest: C4 crisis M2: a harmless typed message after a spoken crisis in the same utterance is still scanned and forwarded
+ok 56 - C4 crisis M2: a harmless typed message after a spoken crisis in the same utterance is still scanned and forwarded
+  ---
+  duration_ms: 0.7773
+  type: 'test'
+  ...
+# Subtest: C4 crisis M3: a voice deployment wires a detector and a fixed message with text only (no audio); the session refuses to start rather than leave the student with silence
+ok 57 - C4 crisis M3: a voice deployment wires a detector and a fixed message with text only (no audio); the session refuses to start rather than leave the student with silence
+  ---
+  duration_ms: 0.615
+  type: 'test'
+  ...
+# Subtest: C4 crisis R1: the model makes a tool call right after the crisis chunk and the student keeps talking in the same utterance; no model audio is heard
+ok 58 - C4 crisis R1: the model makes a tool call right after the crisis chunk and the student keeps talking in the same utterance; no model audio is heard
+  ---
+  duration_ms: 0.6106
+  type: 'test'
+  ...
+# Subtest: C4 crisis R2: after crisis + interrupted the model ends its turn; its next reply stays muted until the student speaks again, then is heard
+ok 59 - C4 crisis R2: after crisis + interrupted the model ends its turn; its next reply stays muted until the student speaks again, then is heard
+  ---
+  duration_ms: 0.3825
+  type: 'test'
+  ...
+# Subtest: C4 crisis low: the transport floods events before attach; the queue is capped, the oldest are dropped with a warning, and the crisis interrupt is never dropped
+ok 60 - C4 crisis low: the transport floods events before attach; the queue is capped, the oldest are dropped with a warning, and the crisis interrupt is never dropped
+  ---
+  duration_ms: 10.7833
+  type: 'test'
+  ...
+# Subtest: C4 crisis low: a transport tries to attach a second backend; it is refused and the first stays wired
+ok 61 - C4 crisis low: a transport tries to attach a second backend; it is refused and the first stays wired
+  ---
+  duration_ms: 0.8813
+  type: 'test'
+  ...
+# Subtest: C4 crisis low: the student types a crisis message, then says one aloud; the helpline audio plays again for the spoken one
+ok 62 - C4 crisis low: the student types a crisis message, then says one aloud; the helpline audio plays again for the spoken one
+  ---
+  duration_ms: 1.0933
+  type: 'test'
+  ...
+# Subtest: C4 crisis low: a client that mutates the helpline audio buffer it received cannot corrupt the next crisis playback
+ok 63 - C4 crisis low: a client that mutates the helpline audio buffer it received cannot corrupt the next crisis playback
+  ---
+  duration_ms: 1.3611
+  type: 'test'
+  ...
+# Subtest: C4 crisis H1: Gemini order, crisis -> turnComplete -> the same sentence goes on a moment later; the model's audio stays muted
+ok 64 - C4 crisis H1: Gemini order, crisis -> turnComplete -> the same sentence goes on a moment later; the model's audio stays muted
+  ---
+  duration_ms: 0.7863
+  type: 'test'
+  ...
+# Subtest: C4 crisis H1: crisis -> turnComplete -> the student speaks again after a real pause; the model's next reply is heard
+ok 65 - C4 crisis H1: crisis -> turnComplete -> the student speaks again after a real pause; the model's next reply is heard
+  ---
+  duration_ms: 0.4608
+  type: 'test'
+  ...
+# Subtest: C4 crisis H1: the pause is measured from the LAST student chunk, not the crisis chunk; continuous speech never lifts the mute
+ok 66 - C4 crisis H1: the pause is measured from the LAST student chunk, not the crisis chunk; continuous speech never lifts the mute
+  ---
+  duration_ms: 0.654
+  type: 'test'
+  ...
+# Subtest: C4 crisis H1: crisis -> the student speaks after a pause but the backend never ended its turn; still muted
+ok 67 - C4 crisis H1: crisis -> the student speaks after a pause but the backend never ended its turn; still muted
+  ---
+  duration_ms: 0.4307
+  type: 'test'
+  ...
+# Subtest: C4 crisis H1: the resume gap is a constructor option; a longer gap keeps a 2 s pause muted
+ok 68 - C4 crisis H1: the resume gap is a constructor option; a longer gap keeps a 2 s pause muted
+  ---
+  duration_ms: 0.4516
+  type: 'test'
+  ...
+# Subtest: C4 crisis Low: a second spoken crisis in a NEW utterance plays the helpline again; a duplicate in that utterance does not
+ok 69 - C4 crisis Low: a second spoken crisis in a NEW utterance plays the helpline again; a duplicate in that utterance does not
+  ---
+  duration_ms: 0.6111
+  type: 'test'
+  ...
+# Subtest: C4 crisis Low: after a crisis the student starts a new, harmless utterance; the old crisis words are not re-scanned into a false refire
+ok 70 - C4 crisis Low: after a crisis the student starts a new, harmless utterance; the old crisis words are not re-scanned into a false refire
+  ---
+  duration_ms: 0.4878
+  type: 'test'
+  ...
+1..70
+# tests 70
+# suites 0
+# pass 70
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2313.7883
+exit 0 2026-10-19T08:06:46+05:30

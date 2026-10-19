@@ -1,0 +1,62 @@
+[
+ {
+  "id": "C1f",
+  "desc": "session route serves a path student other than the token student",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "57",
+   "57",
+   "0"
+  ],
+  "after": [
+   "57",
+   "56",
+   "1"
+  ],
+  "failing": [
+   "C1: session route refusals: no token, wrong role, other student's path, unknown thread, other tenant's thread, bad body, bad method, fenced",
+   "C1: session route refusals: no token, wrong role, other student's path, unknown thread, other tenant's thread, bad body, bad method, fenced"
+  ]
+ },
+ {
+  "id": "C4e",
+  "desc": "model output does not restart the silence clock",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "57",
+   "57",
+   "0"
+  ],
+  "after": [
+   "57",
+   "56",
+   "1"
+  ],
+  "failing": [
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable",
+   "C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable"
+  ]
+ },
+ {
+  "id": "C9l",
+  "desc": "a session that connects after the client left is not closed",
+  "kind": "api",
+  "file": "apps/api/src/voice.ts",
+  "before": [
+   "57",
+   "57",
+   "0"
+  ],
+  "after": [
+   "57",
+   "56",
+   "1"
+  ],
+  "failing": [
+   "C9: a socket that closes while the provider connect is still in flight leaves no provider session behind",
+   "C9: a socket that closes while the provider connect is still in flight leaves no provider session behind"
+  ]
+ }
+]

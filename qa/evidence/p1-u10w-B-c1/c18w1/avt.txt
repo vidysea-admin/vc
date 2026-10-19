@@ -1,0 +1,41 @@
+402:export async function appendVoiceTurn(db: Db, input: AppendVoiceTurnInput): Promise<void> {
+403-  requireScopedDb(db, "appendVoiceTurn");
+404-  requireNonEmptyFields({ studentId: input.studentId, threadId: input.threadId, turnId: input.turnId, at: input.at }, "appendVoiceTurn");
+405-  if (input.role !== "user" && input.role !== "assistant") throw new Error("appendVoiceTurn: role must be user or assistant");
+406-  if (typeof input.text !== "string") throw new Error("appendVoiceTurn: text must be a string");
+407-  if (Number.isNaN(Date.parse(input.at))) throw new Error("appendVoiceTurn: at must be an ISO time");
+408-  if ((await getChatThread(db, { studentId: input.studentId, threadId: input.threadId })) === null) throw new ChatThreadNotFoundError();
+409-  const _id = chatTurnDocId(input.threadId, input.turnId, input.role);
+410-  const created: string[] = [];
+411-  await fencedStudentWrite(
+412-    db,
+413-    input.studentId,
+414-    async (op) => {
+415-      const res = await turnsOf(db).updateOne(
+416-        { _id, studentId: input.studentId } as never,
+417-        {
+418-          $setOnInsert: {
+419-            threadId: input.threadId,
+420-            turnId: input.turnId,
+421-            role: input.role,
+422-            channel: "voice",
+423-            text: input.text,
+424-            at: input.at,
+425-            order: input.role === "user" ? 0 : 1,
+426-            status: "done",
+427-            completedAt: input.at,
+428-          },
+429-        } as never,
+430-        { upsert: true, ...op },
+431-      );
+432-      if (res.upsertedCount === 1) {
+433-        created.push(_id);
+434-        await threadsOf(db).updateOne({ _id: input.threadId, studentId: input.studentId } as never, { $set: { lastActivityAt: input.at } }, op);
+435-      }
+436-    },
+437-    () => (created.length === 0 ? Promise.resolve() : turnsOf(db).deleteMany({ _id: { $in: created }, studentId: input.studentId } as never)),
+438-  );
+439-}
+440-
+441-export interface AppendVoiceAuditInput {
+442-  studentId: string;

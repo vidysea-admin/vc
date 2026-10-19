@@ -1,0 +1,86 @@
+[testlock] running slot 1 (free RAM 3.56 GB): pnpm -C D:/vc/.worktrees/p1-u10w-A-s1/apps/api exec tsx --test --test-reporter=tap tests/chkA.test.ts
+TAP version 13
+# Subtest: PA1 C18+C14: unanswered earlier turn, crisis WITH words, flag write in flight, socket drops -> one escalation with ONLY the crisis words
+ok 1 - PA1 C18+C14: unanswered earlier turn, crisis WITH words, flag write in flight, socket drops -> one escalation with ONLY the crisis words
+  ---
+  duration_ms: 237.7345
+  type: 'test'
+  ...
+# Subtest: PA2 C18+C14: unanswered earlier turn, NO-words crisis, flag write in flight, graceful end -> marker, never the earlier words
+ok 2 - PA2 C18+C14: unanswered earlier turn, NO-words crisis, flag write in flight, graceful end -> marker, never the earlier words
+  ---
+  duration_ms: 138.7703
+  type: 'test'
+  ...
+# Subtest: PA3 C18: no-words crisis (after an unanswered turn) THEN a crisis with words: each carries its own
+ok 3 - PA3 C18: no-words crisis (after an unanswered turn) THEN a crisis with words: each carries its own
+  ---
+  duration_ms: 1571.8494
+  type: 'test'
+  ...
+# Subtest: PA4 C18: throwing detector, three crises in a row (words / no words / words): no leak between them
+ok 4 - PA4 C18: throwing detector, three crises in a row (words / no words / words): no leak between them
+  ---
+  duration_ms: 3118.1308
+  type: 'test'
+  ...
+# Subtest: PA5 C18/C12: the escalated crisis words are redacted (email, phone)
+ok 5 - PA5 C18/C12: the escalated crisis words are redacted (email, phone)
+  ---
+  duration_ms: 62.8153
+  type: 'test'
+  ...
+# Subtest: PA6 C18: unconsented minor crisis: flagged, never escalated, logged text-free; next adult-free session unaffected
+ok 6 - PA6 C18: unconsented minor crisis: flagged, never escalated, logged text-free; next adult-free session unaffected
+  ---
+  duration_ms: 62.1292
+  type: 'test'
+  ...
+# PA13 observation: notification records = 2 flags = 1 ids = tenant-a:7eef3e61-3332-479e-9478-17f3df0b7a88:v6e08c978000001:admin:admin-1 | tenant-a:7eef3e61-3332-479e-9478-17f3df0b7a88:v6e08c978000001:counsellor:counsellor-1
+# PA9 observation: ' true ' -> true
+# Subtest: PA13 (observation): two crises sharing lastUser.turnId through the REAL escalateTurns port: how many notification records?
+ok 7 - PA13 (observation): two crises sharing lastUser.turnId through the REAL escalateTurns port: how many notification records?
+  ---
+  duration_ms: 1874.5944
+  type: 'test'
+  ...
+# Subtest: PA9 flag gate: only a trimmed 'true' is on; unset/empty/'false' off; everything else is a config error, never on
+ok 8 - PA9 flag gate: only a trimmed 'true' is on; unset/empty/'false' off; everything else is a config error, never on
+  ---
+  duration_ms: 2.6025
+  type: 'test'
+  ...
+# Subtest: PA10a WS auth: alg none (empty signature, dummy signature), HS384 with the right secret, wrong issuer, wrong audience, expired by payload, expired by clock
+ok 9 - PA10a WS auth: alg none (empty signature, dummy signature), HS384 with the right secret, wrong issuer, wrong audience, expired by payload, expired by clock
+  ---
+  duration_ms: 106.1539
+  type: 'test'
+  ...
+# Subtest: PA10b WS auth: another student's token on this student's path, another thread's token, and replay after the first socket closed
+ok 10 - PA10b WS auth: another student's token on this student's path, another thread's token, and replay after the first socket closed
+  ---
+  duration_ms: 66.9486
+  type: 'test'
+  ...
+# Subtest: PA10c tenancy: a token for tenant-b (same student id, same thread id) on tenant-a's path never reaches tenant-a's thread: start -> not_found, no provider session, nothing of tenant-a replayed
+ok 11 - PA10c tenancy: a token for tenant-b (same student id, same thread id) on tenant-a's path never reaches tenant-a's thread: start -> not_found, no provider session, nothing of tenant-a replayed
+  ---
+  duration_ms: 86.767
+  type: 'test'
+  ...
+# PA11 used ms = 3600000
+# Subtest: PA11 cap: 59 min used; two overlapping starts and a restart cannot push the month above 60 min
+ok 12 - PA11 cap: 59 min used; two overlapping starts and a restart cannot push the month above 60 min
+  ---
+  duration_ms: 129.1845
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10563.6436

@@ -1,0 +1,48 @@
+[testlock] running slot 0 (free RAM 5.23 GB): pnpm -C D:/vc/.worktrees/p1-u10-A-fals/apps/api exec tsx --test tests/zz-a-probe.test.ts
+✔ PA1 C14: socket aborts while the flag write is gated -> exactly 1 flag, 1 escalation, redacted words, nothing leaked or skipped (152.6165ms)
+✔ PA2 C14: API shutdown (voice.close) while the crisis flag write is gated still flags once and escalates once (111.8317ms)
+✔ PA3 C14: socket aborts while the ESCALATION itself is gated (flag already stored) -> still exactly one escalation, then everything is released (121.8025ms)
+✔ PA4 C14/C12: an unconsented minor who drops mid-crisis is flagged once, NOT escalated, the skip is logged text-free, and no spoken text is stored (94.9784ms)
+✔ PA5 C14/C12: a minor WITH guardian consent who drops mid-crisis IS escalated once, with redacted words (95.6114ms)
+✔ PA6 C12: a crisis flag write that always fails is retried once, logged text-free (voice_crisis_flag_failed), the escalation STILL happens, and no persist_failed reaches the client (46.8193ms)
+PA7-OBSERVE escalations=0 logs=["voice_crisis_escalate_skipped_fenced"]
+✔ PA7 OBSERVE: a flag write that dies with FencedWriterDeadlineError (not a real erasure fence) -> what happens to the escalation? (341.1682ms)
+✔ PA8 C14: crisis spoken and the socket aborted in the same tick (no gating) -> 1 flag, 1 escalation (93.3616ms)
+✔ PA8b C17: an escalation factory that throws twice with the socket gone is logged (voice_crisis_escalate_failed), flag kept, nothing thrown, slot released (95.2242ms)
+✔ PA9a C15: usage 50, A ran 5 min -> B supersedes A and IS allowed, but its cap is exactly the 5 minutes left (124.9553ms)
+✔ PA9b C15: usage 50, A ran 10 min, B and C start together -> both refused/stepped aside, no new provider session, everything returns to zero (61.3701ms)
+✔ PA10a C16: A active (slow drain), B starts then C starts; the OLDER B aborts -> C is the one live session and is never told superseded (201.7106ms)
+✔ PA10b C10/C16: A active (slow drain), B and C start, NEITHER aborts -> exactly one live provider session, loser told superseded, all counters 0 after both close (265.5482ms)
+✖ PA11 C10: B's provider connect is still in flight when C supersedes B -> C goes live, B's LATE provider session is closed on arrival, 1 live session, counters 0 at the end (4083.5089ms)
+✔ PA11b C9: a second concurrent session for one student is not an extra paid session: A is told superseded and closed, one live session remains (47.979ms)
+✔ PA12 C19: a never-settling escalation + a plain socket DROP (not 'end'): released within drainTimeoutMs, voice_drain_timeout logged, minutes recorded, student can start again, shutdown completes (230.6624ms)
+✔ PA13 C11: default 30/min session-route limit per student: the 31st is 429 with Retry-After, another student is unaffected (45.0716ms)
+✔ PA13b C11: pre-start cap: one student's third unstarted socket is 429 and its token is not burned; another student connects (37.4397ms)
+✔ PA13c C11: socket cap holds (maxSockets 2): third connection is 503 and opens nothing (28.2322ms)
+✔ PA13d C10: a never-resolving live.connect is closed by the 15 s start timer (1008); slot, socket and lock are freed and the student can retry (109.5585ms)
+✔ PA14 C13: an expired resume log is pruned by the timer with nobody asking, and a late reconnect replays nothing (141.6578ms)
+✔ PA15 C2: tampered signature, tampered payload (other student), expired, replayed, other-thread, student-JWT-as-ws-token, alg none -> all refused 401 before any provider session; no token in logs (62.0326ms)
+✔ PA16 C3: oversize frame -> 1009; 11 malformed messages -> 1008; binary before start does not close (60.9799ms)
+✔ PA17 C4: 60 s of silence closes the socket (raw audio frames do not reset the clock); default config (96.4401ms)
+✔ PA18 D-096: after a crisis only the fixed helpline audio reaches the client; later model audio is dropped (143.7306ms)
+✔ PA19 C6/C7: adult voice turns are in the export and erased; an unconsented minor stores no words; minutes are recorded on abort (140.8495ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 25
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8896.5179
+
+✖ failing tests:
+
+test at tests\zz-a-probe.test.ts:401:1
+✖ PA11 C10: B's provider connect is still in flight when C supersedes B -> C goes live, B's LATE provider session is closed on arrival, 1 live session, counters 0 at the end (4083.5089ms)
+  Error: timed out waiting for: B's late session closed on arrival
+      at until (D:\vc\.worktrees\p1-u10-A-fals\apps\api\tests\voice-fixtures.ts:75:38)
+      at async withWorld.live.live (D:\vc\.worktrees\p1-u10-A-fals\apps\api\tests\zz-a-probe.test.ts:430:7)
+      at async withWorld (D:\vc\.worktrees\p1-u10-A-fals\apps\api\tests\zz-a-probe.test.ts:32:5)
+      at async TestContext.<anonymous> (D:\vc\.worktrees\p1-u10-A-fals\apps\api\tests\zz-a-probe.test.ts:414:3)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)

@@ -11,6 +11,9 @@ import {
   StudentFencedError,
   TenantScopeError,
   abandonChatTurn,
+  ChatThreadNotFoundError,
+  appendVoiceAudit,
+  appendVoiceTurn,
   claimChatTurn,
   completeChatTurn,
   confirmErasure,
@@ -198,4 +201,105 @@ test("usage counters add up per student per month and stay inside the tenant", a
   assert.deepEqual(await getStudentUsage(a, { studentId: "stu-1", month: "2026-10" }), { month: "2026-10", textTurns: 3, voiceMs: 5000 });
   assert.deepEqual(await getStudentUsage(b, { studentId: "stu-1", month: "2026-10" }), { month: "2026-10", textTurns: 9, voiceMs: 0 });
   assert.deepEqual(await getStudentUsage(a, { studentId: "stu-1", month: "2026-09" }), { month: "2026-09", textTurns: 0, voiceMs: 0 });
+});
+
+// ---------------------------------------------------------------------------
+// P1 U10 (A19, A9b): voice turns and their audit findings, in the same thread as the text turns
+// ---------------------------------------------------------------------------
+
+const voiceTurn = (over: Record<string, unknown> = {}) => ({
+  studentId: "stu-1",
+  threadId: "th-1",
+  turnId: "v-1",
+  role: "user" as const,
+  text: "spoken [NAME] words",
+  at: "2026-10-17T10:00:00.000Z",
+  ...over,
+});
+
+test("U10: a spoken exchange is stored as voice rows in the same thread, user before assistant, interleaved with text turns by time", async () => {
+  const { a } = setup();
+  await createChatThread(a, { studentId: "stu-1", textStored: true, threadId: "th-1" });
+  const t0 = new Date("2026-10-17T09:59:00.000Z");
+  const c = await claimChatTurn(a, claimInput({ turnId: "t0" }), { now: t0 });
+  if (c.kind !== "claimed") throw new Error("expected claimed");
+  await completeChatTurn(a, { studentId: "stu-1", threadId: "th-1", turnId: "t0", leaseToken: c.leaseToken, channel: "text", assistantText: "a", response: RESPONSE });
+  // The assistant side arrives first (a race the store must tolerate), sharing the user side's time.
+  await appendVoiceTurn(a, voiceTurn({ role: "assistant", text: "spoken answer" }));
+  await appendVoiceTurn(a, voiceTurn());
+  const turns = await listChatTurns(a, { studentId: "stu-1", threadId: "th-1" });
+  assert.deepEqual(turns.map((x) => `${x.turnId}:${x.role}:${x.channel}`), ["t0:user:text", "t0:assistant:text", "v-1:user:voice", "v-1:assistant:voice"]);
+  assert.equal(turns[2]!.status, "done");
+  assert.equal((await getChatThread(a, { studentId: "stu-1", threadId: "th-1" }))?.lastActivityAt, "2026-10-17T10:00:00.000Z");
+});
+
+test("U10: appendVoiceTurn is idempotent on (thread, turn, role): a replay changes neither the text nor the row count", async () => {
+  const { a, fakeDb } = setup();
+  await createChatThread(a, { studentId: "stu-1", textStored: true, threadId: "th-1" });
+  await appendVoiceTurn(a, voiceTurn());
+  await appendVoiceTurn(a, voiceTurn({ text: "a different text on replay", at: "2026-10-17T11:00:00.000Z" }));
+  const rows = fakeDb.collection<any>(COLLECTION_NAMES.chat_turns).all();
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].text, "spoken [NAME] words");
+  assert.equal(rows[0].at, "2026-10-17T10:00:00.000Z");
+});
+
+test("U10: appendVoiceTurn refuses a thread that is not the student's, bad input, and an unscoped Db", async () => {
+  const { db, a, b } = setup();
+  await createChatThread(a, { studentId: "stu-1", textStored: true, threadId: "th-1" });
+  await assert.rejects(appendVoiceTurn(a, voiceTurn({ studentId: "stu-2" })), ChatThreadNotFoundError);
+  await assert.rejects(appendVoiceTurn(b, voiceTurn()), ChatThreadNotFoundError, "another tenant has no such thread");
+  await assert.rejects(appendVoiceTurn(a, voiceTurn({ threadId: "nope" })), ChatThreadNotFoundError);
+  await assert.rejects(appendVoiceTurn(a, voiceTurn({ role: "system" })), /role/);
+  await assert.rejects(appendVoiceTurn(a, voiceTurn({ at: "not a time" })), /ISO/);
+  await assert.rejects(appendVoiceTurn(a, voiceTurn({ turnId: "" })), /turnId/);
+  await assert.rejects(appendVoiceTurn(db, voiceTurn()), TenantScopeError);
+  await assert.rejects(appendVoiceAudit(db, { studentId: "stu-1", threadId: "th-1", turnId: "v-1", reason: "uncited_number", at: "2026-10-17T10:00:00.000Z" }), TenantScopeError);
+});
+
+test("U10: a student under erasure gets no voice row, and a fence that appears mid-write undoes it", async () => {
+  const { a, fakeDb } = setup();
+  await createChatThread(a, { studentId: "stu-1", textStored: true, threadId: "th-1" });
+  const { requestId } = await requestErasure(a, { studentId: "stu-1", requestedBy: "counsellor-7", reason: "student_request" });
+  await confirmErasure(a, { requestId, confirmedBy: "admin-2" });
+  await assert.rejects(appendVoiceTurn(a, voiceTurn()), StudentFencedError);
+  assert.equal(fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0);
+
+  await createChatThread(a, { studentId: "stu-2", textStored: true, threadId: "th-2" });
+  const turns = fakeDb.collection<{ _id: string }>(COLLECTION_NAMES.chat_turns);
+  const realUpdate = turns.updateOne.bind(turns);
+  let fenced = false;
+  turns.updateOne = (async (filter, update, opts) => {
+    const res = await realUpdate(filter, update, opts);
+    if (!fenced) {
+      fenced = true;
+      const r = await requestErasure(a, { studentId: "stu-2", requestedBy: "counsellor-7", reason: "student_request" });
+      await confirmErasure(a, { requestId: r.requestId, confirmedBy: "admin-2" });
+    }
+    return res;
+  }) as typeof turns.updateOne;
+  await assert.rejects(appendVoiceTurn(a, voiceTurn({ studentId: "stu-2", threadId: "th-2" })), StudentFencedError);
+  assert.equal(turns.all().length, 0, "the row this call wrote is undone");
+});
+
+test("U10: appendVoiceAudit attaches a finding to the assistant voice row once, keeps a speaker's name out, and refuses a missing or text row", async () => {
+  const { a, fakeDb } = setup();
+  await createChatThread(a, { studentId: "stu-1", textStored: true, threadId: "th-1" });
+  await appendVoiceTurn(a, voiceTurn({ role: "assistant", text: "it costs 5000" }));
+  const finding = { studentId: "stu-1", threadId: "th-1", turnId: "v-1", reason: "uncited_number", detail: "5000", at: "2026-10-17T10:00:01.000Z" };
+  await appendVoiceAudit(a, finding);
+  await appendVoiceAudit(a, finding); // identical finding: not added twice
+  await appendVoiceAudit(a, { studentId: "stu-1", threadId: "th-1", turnId: "v-1", reason: "named_speaker", at: "2026-10-17T10:00:02.000Z" });
+  const row = fakeDb.collection<any>(COLLECTION_NAMES.chat_turns).all()[0];
+  assert.deepEqual(row.voiceAudit, [
+    { reason: "uncited_number", detail: "5000", at: "2026-10-17T10:00:01.000Z" },
+    { reason: "named_speaker", at: "2026-10-17T10:00:02.000Z" },
+  ]);
+  await assert.rejects(appendVoiceAudit(a, { ...finding, turnId: "missing" }), ChatThreadNotFoundError);
+  await assert.rejects(appendVoiceAudit(a, { ...finding, studentId: "stu-2" }), ChatThreadNotFoundError);
+  // A text-channel row is never given voice findings.
+  const c = await claimChatTurn(a, claimInput({ turnId: "t9" }));
+  if (c.kind !== "claimed") throw new Error("expected claimed");
+  await completeChatTurn(a, { studentId: "stu-1", threadId: "th-1", turnId: "t9", leaseToken: c.leaseToken, channel: "text", assistantText: "a", response: RESPONSE });
+  await assert.rejects(appendVoiceAudit(a, { ...finding, turnId: "t9" }), ChatThreadNotFoundError);
 });

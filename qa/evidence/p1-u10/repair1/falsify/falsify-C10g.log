@@ -1,0 +1,43 @@
+# C10g the supersede step looks only once and the newest waiter does not win (pre-fix behaviour for item 1)
+# before tests 19 pass 19 fail 0
+# after tests 19 pass 18 fail 1
+# failing: C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded; C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded
+
+[testlock] running slot 0 (free RAM 7.2 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10-fals/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^(C10|C11|C12|C13) tests/voice.test.ts tests/voice-limits.test.ts
+✔ C11: the session route is limited per student (requestsPerMinute, D-088 Q5): the next mint is 429 rate_limited with Retry-After, another student is unaffected, and the window reopens (52.5903ms)
+✔ C11: a refused (not-yours) session request does not spend the student's budget (30.3692ms)
+✔ C11: one student can hold only 2 sockets that have not started; a third is refused 429 at the upgrade, another student still connects, and a slot reopens when one closes (57.6772ms)
+✖ C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded (4201.0198ms)
+✔ C10: a connection closed while it waits to supersede the old session never takes the student's slot (activeSessions returns to 0) (185.4958ms)
+✔ C10: a start whose provider connect never returns is closed by the start timer, and the socket slot and the student's lock are freed (61.6445ms)
+✔ C10: a start that arrived late gets its own budget: a slow but finishing connect is not cut short by the connection's first timer (80.444ms)
+✔ C10: the start timer still closes a socket that never sent start (30.5496ms)
+✔ C12: a crisis flag write that fails once is retried once and stored; nothing is logged and the session continues (48.253ms)
+✔ C12: a crisis flag write that keeps failing is tried twice, logged as voice_crisis_flag_failed (text-free) and never ends the session (46.0097ms)
+✔ C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED words, like the text path (46.7029ms)
+✔ C12: no escalation port -> behaviour is exactly as before (the flag only) (46.9472ms)
+✔ C12: an under-18 student without guardian consent is flagged (ids and time) but never escalated: no text is kept for them (112.0659ms)
+✔ C12: a minor WITH guardian consent is escalated, like the text path (46.8534ms)
+✔ C12: an escalation that keeps failing is tried twice and logged as voice_crisis_escalate_failed (text-free); the flag does not depend on it (46.6507ms)
+✔ C12: an escalation that fails once is retried once and delivered, with nothing logged (46.6178ms)
+✔ C13: an expired resume log is dropped when a reconnect asks for it (read), and replays nothing (142.779ms)
+✔ C13: the prune timer drops an expired resume log although nobody reads it, and is not counted in the per-connection timers (63.0728ms)
+✔ C13: shutdown drops every retained resume log (no transcript events are kept after close) (62.6043ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 18
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7195.2939
+
+✖ failing tests:
+
+test at tests\voice.test.ts:956:1
+✖ C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded (4201.0198ms)
+  Error: timed out waiting for: one of B and C was closed
+      at until (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice-fixtures.ts:75:38)
+      at async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10-fals\apps\api\tests\voice.test.ts:982:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)

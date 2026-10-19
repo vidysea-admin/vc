@@ -1,0 +1,14 @@
+[testlock] running slot 0 (free RAM 5.82 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^C16[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2143.1733ms)
+✔ tests\voice-history.test.ts (2041.9954ms)
+✔ tests\voice-limits.test.ts (2047.0325ms)
+✔ C16: A active with a slow drain, B starts, C starts and then aborts: B (the only waiter left) becomes the one live session and is not told superseded (243.7777ms)
+✔ C16: the supersede loop's second pass is needed: a start that took the slot while B re-read the month is superseded before B opens its provider session (314.7221ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2638.738

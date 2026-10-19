@@ -1,0 +1,813 @@
+[testlock] waiting for lock held by: PID=32788 STARTED=639279967651039237 ACQUIRED_AT=1792380165 TOKEN=1792380165325668900-285634-20456 DESC=pnpm -C D:/vc/.worktrees/p1-u10w/apps/api exec tsx --test --test-reporter=tap tests/voice-wiring.test.ts 
+[testlock] running slot 0 (free RAM 2.6 GB): pnpm -C D:/vc/.worktrees/p1-u10w/apps/api exec tsx --test --test-reporter=tap tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts tests/voice-wiring.test.ts tests/voice-crisis-turn.test.ts tests/chat.test.ts
+TAP version 13
+# Subtest: A20: chat is OFF by default - unset, empty and 'false' read as disabled, only the exact word 'true' enables, anything else is a config error
+ok 1 - A20: chat is OFF by default - unset, empty and 'false' read as disabled, only the exact word 'true' enables, anything else is a config error
+  ---
+  duration_ms: 6.6263
+  type: 'test'
+  ...
+# Subtest: A20 flag off: nothing is built and every chat path answers exactly like an unknown path (404), for every method, without touching the main handler
+ok 2 - A20 flag off: nothing is built and every chat path answers exactly like an unknown path (404), for every method, without touching the main handler
+  ---
+  duration_ms: 131.303
+  type: 'test'
+  ...
+# Subtest: A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes
+ok 3 - A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes
+  ---
+  duration_ms: 19.4567
+  type: 'test'
+  ...
+# Subtest: A20: each missing gate record refuses; voice's A10 and anonymous option b are NOT needed for authenticated chat
+ok 4 - A20: each missing gate record refuses; voice's A10 and anonymous option b are NOT needed for authenticated chat
+  ---
+  duration_ms: 54.4525
+  type: 'test'
+  ...
+# Subtest: no student text is traced: an environment that switches LangChain/LangSmith tracing on refuses to build the chat routes
+ok 5 - no student text is traced: an environment that switches LangChain/LangSmith tracing on refuses to build the chat routes
+  ---
+  duration_ms: 17.291
+  type: 'test'
+  ...
+# Subtest: the chat route list equals the draft student paths (without voice) and none of them is in the counsellor route table
+ok 6 - the chat route list equals the draft student paths (without voice) and none of them is in the counsellor route table
+  ---
+  duration_ms: 1.9912
+  type: 'test'
+  ...
+# Subtest: a request with no token, a garbage token or a token signed by a stranger is refused 401 with one identical body, and nothing is read or written
+ok 7 - a request with no token, a garbage token or a token signed by a stranger is refused 401 with one identical body, and nothing is read or written
+  ---
+  duration_ms: 153.0393
+  type: 'test'
+  ...
+# Subtest: a counsellor, admin or approver token, validly signed with the student key, is refused 403 on every student route
+ok 8 - a counsellor, admin or approver token, validly signed with the student key, is refused 403 on every student route
+  ---
+  duration_ms: 68.7833
+  type: 'test'
+  ...
+# Subtest: a student whose token names a different student than the path gets 404 (not 403) and nothing is created
+ok 9 - a student whose token names a different student than the path gets 404 (not 403) and nothing is created
+  ---
+  duration_ms: 63.1204
+  type: 'test'
+  ...
+# Subtest: a student starts a thread, asks a sourced question, and reads the exchange back in order
+ok 10 - a student starts a thread, asks a sourced question, and reads the exchange back in order
+  ---
+  duration_ms: 292.9684
+  type: 'test'
+  ...
+# Subtest: a student whose phone retries the same clientTurnId after a dropped response gets the same answer, one model call, one stored exchange and one usage count
+ok 11 - a student whose phone retries the same clientTurnId after a dropped response gets the same answer, one model call, one stored exchange and one usage count
+  ---
+  duration_ms: 91.1391
+  type: 'test'
+  ...
+# Subtest: the same clientTurnId reused with different text is refused 409, and the first answer is kept
+ok 12 - the same clientTurnId reused with different text is refused 409, and the first answer is kept
+  ---
+  duration_ms: 68.8176
+  type: 'test'
+  ...
+# Subtest: a second tab sending the same clientTurnId while the first is still being answered gets 409 turn_in_progress and no second model call
+ok 13 - a second tab sending the same clientTurnId while the first is still being answered gets 409 turn_in_progress and no second model call
+  ---
+  duration_ms: 45.061
+  type: 'test'
+  ...
+# Subtest: a turn without a clientTurnId gets a server-made turn id, and two such turns are two exchanges
+ok 14 - a turn without a clientTurnId gets a server-made turn id, and two such turns are two exchanges
+  ---
+  duration_ms: 160.5817
+  type: 'test'
+  ...
+# Subtest: a model outage gives the apology answer, keeps nothing, and the student's retry with the same clientTurnId runs again
+ok 15 - a model outage gives the apology answer, keeps nothing, and the student's retry with the same clientTurnId runs again
+  ---
+  duration_ms: 104.5963
+  type: 'test'
+  ...
+# Subtest: a body that carries identity or unknown fields, bad JSON, an empty or over-long text, or an oversized body is refused before anything runs
+ok 16 - a body that carries identity or unknown fields, bad JSON, an empty or over-long text, or an oversized body is refused before anything runs
+  ---
+  duration_ms: 28.5597
+  type: 'test'
+  ...
+# Subtest: an unknown thread, or one that belongs to another student of the same tenant, is a 404 that does not say which
+ok 17 - an unknown thread, or one that belongs to another student of the same tenant, is a 404 that does not say which
+  ---
+  duration_ms: 42.7319
+  type: 'test'
+  ...
+# Subtest: a path id with odd characters is refused 404 (path ids are letters, digits, dot, dash, underscore only)
+ok 18 - a path id with odd characters is refused 404 (path ids are letters, digits, dot, dash, underscore only)
+  ---
+  duration_ms: 22.1395
+  type: 'test'
+  ...
+# Subtest: a wrong method on a chat path is 405 with Allow, and a non-chat path is left to the main handler
+ok 19 - a wrong method on a chat path is 405 with Allow, and a non-chat path is left to the main handler
+  ---
+  duration_ms: 40.1985
+  type: 'test'
+  ...
+# Subtest: A23: the 31st request in a minute from one student is 429 with Retry-After, another student is not affected, and the window reopens
+ok 20 - A23: the 31st request in a minute from one student is 429 with Retry-After, another student is not affected, and the window reopens
+  ---
+  duration_ms: 47.9297
+  type: 'test'
+  ...
+# Subtest: A23: a tenant override of requestsPerMinute applies to that tenant only
+ok 21 - A23: a tenant override of requestsPerMinute applies to that tenant only
+  ---
+  duration_ms: 36.9875
+  type: 'test'
+  ...
+# Subtest: A23: a crisis message is never rate limited, even from a student already over the limit
+ok 22 - A23: a crisis message is never rate limited, even from a student already over the limit
+  ---
+  duration_ms: 81.4263
+  type: 'test'
+  ...
+# Subtest: a question the knowledge base cannot answer says so, and adds one text-free count to the day's gap total (no student, thread or text)
+ok 23 - a question the knowledge base cannot answer says so, and adds one text-free count to the day's gap total (no student, thread or text)
+  ---
+  duration_ms: 42.4671
+  type: 'test'
+  ...
+# Subtest: C5: an uncited figure in the spoken answer is flagged to the client and stored on the assistant row, after the audio was already sent
+ok 24 - C5: an uncited figure in the spoken answer is flagged to the client and stored on the assistant row, after the audio was already sent
+  ---
+  duration_ms: 256.0481
+  type: 'test'
+  ...
+# Subtest: C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding
+ok 25 - C5: a listed speaker named aloud is flagged as named_speaker and the name is never repeated in the flag or the stored finding
+  ---
+  duration_ms: 132.2642
+  type: 'test'
+  ...
+# Subtest: C5: a clean spoken answer produces no flag and no stored audit
+ok 26 - C5: a clean spoken answer produces no flag and no stored audit
+  ---
+  duration_ms: 90.616
+  type: 'test'
+  ...
+# Subtest: C5: a figure that a knowledge-base tool returned this session is cited, so it is not flagged; the sources reach the client
+ok 27 - C5: a figure that a knowledge-base tool returned this session is cited, so it is not flagged; the sources reach the client
+  ---
+  duration_ms: 126.7217
+  type: 'test'
+  ...
+# Subtest: C5: an auditor that throws becomes a visible unverified_claim flag, never a silent pass
+ok 28 - C5: an auditor that throws becomes a visible unverified_claim flag, never a silent pass
+  ---
+  duration_ms: 83.7754
+  type: 'test'
+  ...
+# Subtest: C5: for an unconsented minor the flag still reaches the student but no finding or text is stored
+ok 29 - C5: for an unconsented minor the flag still reaches the student but no finding or text is stored
+  ---
+  duration_ms: 106.9407
+  type: 'test'
+  ...
+# Subtest: C18 (a): an unanswered earlier turn, then a crisis with no words of its own -> the text-free marker, never the earlier words
+ok 30 - C18 (a): an unanswered earlier turn, then a crisis with no words of its own -> the text-free marker, never the earlier words
+  ---
+  duration_ms: 288.1261
+  type: 'test'
+  ...
+# Subtest: C18 (b): an unanswered earlier turn, then a crisis WITH words -> those words only
+ok 31 - C18 (b): an unanswered earlier turn, then a crisis WITH words -> those words only
+  ---
+  duration_ms: 92.2958
+  type: 'test'
+  ...
+# Subtest: C18 (c): an answered earlier turn (a seq gap), then a crisis with no words -> the marker
+ok 32 - C18 (c): an answered earlier turn (a seq gap), then a crisis with no words -> the marker
+  ---
+  duration_ms: 176.6125
+  type: 'test'
+  ...
+# Subtest: C18 (d1): the detector throws on an utterance with words -> fail-closed escalation with that utterance's own words only
+ok 33 - C18 (d1): the detector throws on an utterance with words -> fail-closed escalation with that utterance's own words only
+  ---
+  duration_ms: 82.8463
+  type: 'test'
+  ...
+# Subtest: C18 (d2): the detector throws on an utterance with no words -> fail-closed escalation with the marker, never the earlier words
+ok 34 - C18 (d2): the detector throws on an utterance with no words -> fail-closed escalation with the marker, never the earlier words
+  ---
+  duration_ms: 132.2457
+  type: 'test'
+  ...
+# Subtest: C18 (e): two crises in a row each carry their own utterance's words (the first's words never leak into the second)
+ok 35 - C18 (e): two crises in a row each carry their own utterance's words (the first's words never leak into the second)
+  ---
+  duration_ms: 1597.3552
+  type: 'test'
+  ...
+# Subtest: C6/A19: voice turns interleave in order with text turns in one thread, survive a reconnect, and carry channel voice
+ok 36 - C6/A19: voice turns interleave in order with text turns in one thread, survive a reconnect, and carry channel voice
+  ---
+  duration_ms: 706.4382
+  type: 'test'
+  ...
+# Subtest: C6: an assistant answer that was cut off (user spoke twice, no reply) is stored on its own and ordering stays stable
+ok 37 - C6: an assistant answer that was cut off (user spoke twice, no reply) is stored on its own and ordering stays stable
+  ---
+  duration_ms: 166.0587
+  type: 'test'
+  ...
+# Subtest: C6/D-086 Q4: transcripts are stored but audio is not: no collection holds any PCM bytes
+ok 38 - C6/D-086 Q4: transcripts are stored but audio is not: no collection holds any PCM bytes
+  ---
+  duration_ms: 120.0448
+  type: 'test'
+  ...
+# Subtest: C6/A19: the student export contains the voice turns (channel voice) and erasure removes them, leaving another student's voice history alone
+ok 39 - C6/A19: the student export contains the voice turns (channel voice) and erasure removes them, leaving another student's voice history alone
+  ---
+  duration_ms: 267.6784
+  type: 'test'
+  ...
+# Subtest: C6/D-093 6A: the stored transcript is redacted (email, phone, self-stated and profile names); the live transcript to the owner is not
+ok 40 - C6/D-093 6A: the stored transcript is redacted (email, phone, self-stated and profile names); the live transcript to the owner is not
+  ---
+  duration_ms: 143.0954
+  type: 'test'
+  ...
+# Subtest: C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay
+ok 41 - C6/D-093 4A: an under-18 student with no boolean-true guardian consent stores no turn, no audit and no fact; only ids-and-time rows stay
+  ---
+  duration_ms: 183.5117
+  type: 'test'
+  ...
+# Subtest: C6/D-093 4A: a guardianConsent claim that is not the boolean true (the string 'true') is not consent; a boolean true stores the turns
+ok 42 - C6/D-093 4A: a guardianConsent claim that is not the boolean true (the string 'true') is not consent; a boolean true stores the turns
+  ---
+  duration_ms: 173.3495
+  type: 'test'
+  ...
+# Subtest: C6: a failure to store a transcript is reported as a fixed persist_failed event and the session keeps going
+ok 43 - C6: a failure to store a transcript is reported as a fixed persist_failed event and the session keeps going
+  ---
+  duration_ms: 109.0334
+  type: 'test'
+  ...
+# Subtest: C7: a student at 60 voice minutes gets 429 voice_quota_exceeded with Retry-After, and text chat on the same thread continues
+ok 44 - C7: a student at 60 voice minutes gets 429 voice_quota_exceeded with Retry-After, and text chat on the same thread continues
+  ---
+  duration_ms: 432.5497
+  type: 'test'
+  ...
+# Subtest: C7: a token minted before the limit was reached is still refused at start (the check runs twice), with a fixed message that points to text
+ok 45 - C7: a token minted before the limit was reached is still refused at start (the check runs twice), with a fixed message that points to text
+  ---
+  duration_ms: 144.1583
+  type: 'test'
+  ...
+# Subtest: C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it
+ok 46 - C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it
+  ---
+  duration_ms: 163.8697
+  type: 'test'
+  ...
+# Subtest: C7: minutes are recorded when the connection ends (end, abort), accumulate across sessions, and a connection that never started records nothing
+ok 47 - C7: minutes are recorded when the connection ends (end, abort), accumulate across sessions, and a connection that never started records nothing
+  ---
+  duration_ms: 225.4827
+  type: 'test'
+  ...
+# Subtest: C7: a per-tenant override changes the limits for that tenant only
+ok 48 - C7: a per-tenant override changes the limits for that tenant only
+  ---
+  duration_ms: 169.5062
+  type: 'test'
+  ...
+# Subtest: C7: a student under erasure is not charged: the minutes write is refused by the fence, nothing is forced, the session closes cleanly
+ok 49 - C7: a student under erasure is not charged: the minutes write is refused by the fence, nothing is forced, the session closes cleanly
+  ---
+  duration_ms: 94.6551
+  type: 'test'
+  ...
+# Subtest: C11: the session route is limited per student (requestsPerMinute, D-088 Q5): the next mint is 429 rate_limited with Retry-After, another student is unaffected, and the window reopens
+ok 50 - C11: the session route is limited per student (requestsPerMinute, D-088 Q5): the next mint is 429 rate_limited with Retry-After, another student is unaffected, and the window reopens
+  ---
+  duration_ms: 68.6062
+  type: 'test'
+  ...
+# Subtest: C11: a refused (not-yours) session request does not spend the student's budget
+ok 51 - C11: a refused (not-yours) session request does not spend the student's budget
+  ---
+  duration_ms: 80.8428
+  type: 'test'
+  ...
+# Subtest: C11: one student can hold only 2 sockets that have not started; a third is refused 429 at the upgrade, another student still connects, and a slot reopens when one closes
+ok 52 - C11: one student can hold only 2 sockets that have not started; a third is refused 429 at the upgrade, another student still connects, and a slot reopens when one closes
+  ---
+  duration_ms: 104.0369
+  type: 'test'
+  ...
+# Subtest: C15: usage 50 min, A runs 10 min, B supersedes A: the month is read again after A's minutes are written and B is refused voice_quota_exceeded with no provider session
+ok 53 - C15: usage 50 min, A runs 10 min, B supersedes A: the month is read again after A's minutes are written and B is refused voice_quota_exceeded with no provider session
+  ---
+  duration_ms: 99.2179
+  type: 'test'
+  ...
+# Subtest: W1: a crisis flag write that dies with FencedWriterDeadlineError (student NOT fenced) is retried, the crisis is still escalated once, the student is not ejected, and the log names the deadline, not a fence
+ok 54 - W1: a crisis flag write that dies with FencedWriterDeadlineError (student NOT fenced) is retried, the crisis is still escalated once, the student is not ejected, and the log names the deadline, not a fence
+  ---
+  duration_ms: 237.9339
+  type: 'test'
+  ...
+# Subtest: W1: a flag write that hits the deadline once and then succeeds stores the flag once and escalates once, logging nothing
+ok 55 - W1: a flag write that hits the deadline once and then succeeds stores the flag once and escalates once, logging nothing
+  ---
+  duration_ms: 108.7097
+  type: 'test'
+  ...
+# Subtest: W1: an escalation port that dies with FencedWriterDeadlineError once is retried and delivered; the student is not ejected
+ok 56 - W1: an escalation port that dies with FencedWriterDeadlineError once is retried and delivered; the student is not ejected
+  ---
+  duration_ms: 92.3452
+  type: 'test'
+  ...
+# Subtest: W2: an escalation still running after the drain timeout is awaited by voice.close(), so a shutdown does not lose it
+ok 57 - W2: an escalation still running after the drain timeout is awaited by voice.close(), so a shutdown does not lose it
+  ---
+  duration_ms: 774.9736
+  type: 'test'
+  ...
+# Subtest: W2: the wait for late work at shutdown is bounded: a write that never settles delays close() by at most drainTimeoutMs and is logged
+ok 58 - W2: the wait for late work at shutdown is bounded: a write that never settles delays close() by at most drainTimeoutMs and is logged
+  ---
+  duration_ms: 279.4954
+  type: 'test'
+  ...
+# Subtest: W3: a start superseded while its provider connect is still in flight is closed before the newer start opens its own provider session (never two paid sessions at once)
+ok 59 - W3: a start superseded while its provider connect is still in flight is closed before the newer start opens its own provider session (never two paid sessions at once)
+  ---
+  duration_ms: 264.3745
+  type: 'test'
+  ...
+# Subtest: W3: if the superseded connect never returns, the newer start waits at most connectOverlapWaitMs, the overlap is logged, and it still becomes the live session
+ok 60 - W3: if the superseded connect never returns, the newer start waits at most connectOverlapWaitMs, the overlap is logged, and it still becomes the live session
+  ---
+  duration_ms: 171.6344
+  type: 'test'
+  ...
+# Subtest: W4: the retry after a delivered-then-thrown escalation reuses the same session and turn id, and the real escalateTurns port writes each recipient record once
+ok 61 - W4: the retry after a delivered-then-thrown escalation reuses the same session and turn id, and the real escalateTurns port writes each recipient record once
+  ---
+  duration_ms: 76.2331
+  type: 'test'
+  ...
+# Subtest: W5: VC_VOICE_ENABLED unset, empty or 'false' -> no voice route, an upgrade is refused, no gate is read, nothing voice-related is built or connected
+ok 62 - W5: VC_VOICE_ENABLED unset, empty or 'false' -> no voice route, an upgrade is refused, no gate is read, nothing voice-related is built or connected
+  ---
+  duration_ms: 128.5458
+  type: 'test'
+  ...
+# Subtest: W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' are off; padded, cased or other values throw VoiceConfigError (never on)
+ok 63 - W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' are off; padded, cased or other values throw VoiceConfigError (never on)
+  ---
+  duration_ms: 1.8426
+  type: 'test'
+  ...
+# Subtest: W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value
+ok 64 - W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value
+  ---
+  duration_ms: 200.7732
+  type: 'test'
+  ...
+# Subtest: W7: flag on and gates open -> in a started process the session route mints a token, the WebSocket upgrades, a start reaches the provider, and a wrong token is refused
+ok 65 - W7: flag on and gates open -> in a started process the session route mints a token, the WebSocket upgrades, a start reaches the provider, and a wrong token is refused
+  ---
+  duration_ms: 89.3009
+  type: 'test'
+  ...
+# Subtest: W7: the WebSocket secret and base URL default to VC_VOICE_WS_SECRET and VC_VOICE_WS_BASE_URL when the options are not supplied
+ok 66 - W7: the WebSocket secret and base URL default to VC_VOICE_WS_SECRET and VC_VOICE_WS_BASE_URL when the options are not supplied
+  ---
+  duration_ms: 53.003
+  type: 'test'
+  ...
+# Subtest: W8: stop() finalizes a live voice session before the database client closes, and its usage is recorded
+ok 67 - W8: stop() finalizes a live voice session before the database client closes, and its usage is recorded
+  ---
+  duration_ms: 86.69
+  type: 'test'
+  ...
+# Subtest: W9: a voice crisis in a started process reaches the SAME escalateForTenant port the text chat uses (one flag, one escalation)
+ok 68 - W9: a voice crisis in a started process reaches the SAME escalateForTenant port the text chat uses (one flag, one escalation)
+  ---
+  duration_ms: 184.0976
+  type: 'test'
+  ...
+# {"event":"escalation_unrouted","escalationId":"th-w:v46d1048d000001","sessionId":"th-w"}
+# Subtest: W9: with chat off, a voice crisis goes through the engine's escalateTurns exactly like the text path default (notification records are written)
+ok 69 - W9: with chat off, a voice crisis goes through the engine's escalateTurns exactly like the text path default (notification records are written)
+  ---
+  duration_ms: 71.4521
+  type: 'test'
+  ...
+# Subtest: C1: POST voice/sessions mints a short-lived token with the D-088 audio format and no token in the URL
+ok 70 - C1: POST voice/sessions mints a short-lived token with the D-088 audio format and no token in the URL
+  ---
+  duration_ms: 141.3427
+  type: 'test'
+  ...
+# Subtest: C1: session route refusals: no token, wrong role, other student's path, unknown thread, other tenant's thread, bad body, bad method, fenced
+ok 71 - C1: session route refusals: no token, wrong role, other student's path, unknown thread, other tenant's thread, bad body, bad method, fenced
+  ---
+  duration_ms: 105.299
+  type: 'test'
+  ...
+# Subtest: C1: a fenced (erasure in progress) student gets 409 student_fenced and no token
+ok 72 - C1: a fenced (erasure in progress) student gets 409 student_fenced and no token
+  ---
+  duration_ms: 77.1143
+  type: 'test'
+  ...
+# Subtest: A6: the sandbox tenant accepts only syn- student ids at the voice session route
+ok 73 - A6: the sandbox tenant accepts only syn- student ids at the voice session route
+  ---
+  duration_ms: 76.4408
+  type: 'test'
+  ...
+# Subtest: C2: no token, a garbage token and a token in the URL query are each refused with 401
+ok 74 - C2: no token, a garbage token and a token in the URL query are each refused with 401
+  ---
+  duration_ms: 116.1946
+  type: 'test'
+  ...
+# Subtest: C2: a token with the wrong audience (a student JWT, or any other aud) is refused
+ok 75 - C2: a token with the wrong audience (a student JWT, or any other aud) is refused
+  ---
+  duration_ms: 163.061
+  type: 'test'
+  ...
+# Subtest: C2: a token signed with another key, another algorithm, or alg none is refused
+ok 76 - C2: a token signed with another key, another algorithm, or alg none is refused
+  ---
+  duration_ms: 69.8289
+  type: 'test'
+  ...
+# Subtest: C2: an expired token is refused (fake clock), and a token without exp or jti is refused
+ok 77 - C2: an expired token is refused (fake clock), and a token without exp or jti is refused
+  ---
+  duration_ms: 215.8894
+  type: 'test'
+  ...
+# Subtest: C2: a token is single use: a replay is refused, and two concurrent upgrades with one token admit exactly one
+ok 78 - C2: a token is single use: a replay is refused, and two concurrent upgrades with one token admit exactly one
+  ---
+  duration_ms: 59.9015
+  type: 'test'
+  ...
+# Subtest: C2: a token minted for one student or thread is refused on another student's or thread's path (same 401)
+ok 79 - C2: a token minted for one student or thread is refused on another student's or thread's path (same 401)
+  ---
+  duration_ms: 151.2148
+  type: 'test'
+  ...
+# Subtest: C2: the token is accepted from the Authorization header or the vc-token subprotocol, and the server selects vc-voice-v1
+ok 80 - C2: the token is accepted from the Authorization header or the vc-token subprotocol, and the server selects vc-voice-v1
+  ---
+  duration_ms: 51.496
+  type: 'test'
+  ...
+# Subtest: C2: another path or method is 404 and an Origin outside the allowed list is 403 (no token read)
+ok 81 - C2: another path or method is 404 and an Origin outside the allowed list is 403 (no token read)
+  ---
+  duration_ms: 54.5134
+  type: 'test'
+  ...
+# Subtest: C2: no token and no raw frame text reaches the server log, on refusals or on a normal session
+ok 82 - C2: no token and no raw frame text reaches the server log, on refusals or on a normal session
+  ---
+  duration_ms: 71.8093
+  type: 'test'
+  ...
+# Subtest: C3: audio in reaches the provider; model audio comes back as binary; transcripts are events with monotonic ids; state follows the finals
+ok 83 - C3: audio in reaches the provider; model audio comes back as binary; transcripts are events with monotonic ids; state follows the finals
+  ---
+  duration_ms: 128.6724
+  type: 'test'
+  ...
+# Subtest: C3: odd-length audio is refused with bad_audio and the session continues
+ok 84 - C3: odd-length audio is refused with bad_audio and the session continues
+  ---
+  duration_ms: 99.6999
+  type: 'test'
+  ...
+# Subtest: C3: interrupt reaches the provider, end closes the socket and the provider session
+ok 85 - C3: interrupt reaches the provider, end closes the socket and the provider session
+  ---
+  duration_ms: 91.9223
+  type: 'test'
+  ...
+# Subtest: C3: control-message misuse: junk, extra fields, audio before start, a second start, a wrong thread, too many bad messages
+ok 86 - C3: control-message misuse: junk, extra fields, audio before start, a second start, a wrong thread, too many bad messages
+  ---
+  duration_ms: 113.9158
+  type: 'test'
+  ...
+# Subtest: C3: start with a thread other than the token's is refused (forbidden) and the socket closes
+ok 87 - C3: start with a thread other than the token's is refused (forbidden) and the socket closes
+  ---
+  duration_ms: 54.6445
+  type: 'test'
+  ...
+# Subtest: C3: a frame over the size limit closes the socket (1009) and nothing buffers without limit
+ok 88 - C3: a frame over the size limit closes the socket (1009) and nothing buffers without limit
+  ---
+  duration_ms: 99.9716
+  type: 'test'
+  ...
+# Subtest: C3: a numeric fact heard in speech is read back for confirmation; accept uses it, reject erases it; a non-numeric fact is only proposed
+ok 89 - C3: a numeric fact heard in speech is read back for confirmation; accept uses it, reject erases it; a non-numeric fact is only proposed
+  ---
+  duration_ms: 135.422
+  type: 'test'
+  ...
+# Subtest: C3: rejecting a read-back figure erases the proposed fact
+ok 90 - C3: rejecting a read-back figure erases the proposed fact
+  ---
+  duration_ms: 81.3172
+  type: 'test'
+  ...
+# Subtest: D-096 item 3: after a crisis the fixed audio and flag are forwarded, model audio is dropped, and nothing is synthesised here
+ok 91 - D-096 item 3: after a crisis the fixed audio and flag are forwarded, model audio is dropped, and nothing is synthesised here
+  ---
+  duration_ms: 106.3001
+  type: 'test'
+  ...
+# Subtest: C4: resume with lastEventId replays the events the client missed, with their original ids, for the same student and thread only
+ok 92 - C4: resume with lastEventId replays the events the client missed, with their original ids, for the same student and thread only
+  ---
+  duration_ms: 125.5191
+  type: 'test'
+  ...
+# Subtest: C4: resume of an expired, unknown or someone else's session id replays nothing
+ok 93 - C4: resume of an expired, unknown or someone else's session id replays nothing
+  ---
+  duration_ms: 199.5809
+  type: 'test'
+  ...
+# Subtest: C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable
+ok 94 - C4: 60 s of silence ends the session with a fixed message; speech and model output restart the clock; the timeout is configurable
+  ---
+  duration_ms: 295.4072
+  type: 'test'
+  ...
+# Subtest: C4/D-088: a session ends at the 20-minute cap with a fixed message, and exactly 20 minutes are recorded
+ok 95 - C4/D-088: a session ends at the 20-minute cap with a fixed message, and exactly 20 minutes are recorded
+  ---
+  duration_ms: 60.5557
+  type: 'test'
+  ...
+# Subtest: C4: text fallback: after a voice failure, a cap or a silence end, text chat continues in the same thread
+ok 96 - C4: text fallback: after a voice failure, a cap or a silence end, text chat continues in the same thread
+  ---
+  duration_ms: 168.1307
+  type: 'test'
+  ...
+# Subtest: C8/A12: LiveConfigError is its own fixed error event (live_config), the socket closes, and no provider detail leaks
+ok 97 - C8/A12: LiveConfigError is its own fixed error event (live_config), the socket closes, and no provider detail leaks
+  ---
+  duration_ms: 55.539
+  type: 'test'
+  ...
+# Subtest: C8/A12: a provider error mid-session is an error event and the session continues; a backend close ends the session with live_closed
+ok 98 - C8/A12: a provider error mid-session is an error event and the session continues; a backend close ends the session with live_closed
+  ---
+  duration_ms: 102.7535
+  type: 'test'
+  ...
+# Subtest: C9: a socket that closes while the provider connect is still in flight leaves no provider session behind
+ok 99 - C9: a socket that closes while the provider connect is still in flight leaves no provider session behind
+  ---
+  duration_ms: 74.8597
+  type: 'test'
+  ...
+# Subtest: C8/A20: default off: no flag builds nothing, no route is mounted, and the upgrade path does not exist
+ok 100 - C8/A20: default off: no flag builds nothing, no route is mounted, and the upgrade path does not exist
+  ---
+  duration_ms: 32.494
+  type: 'test'
+  ...
+# Subtest: C8/A20: enabled without the go-live records (or the passing A10 record) is refused, and tracing on is refused
+ok 101 - C8/A20: enabled without the go-live records (or the passing A10 record) is refused, and tracing on is refused
+  ---
+  duration_ms: 88.908
+  type: 'test'
+  ...
+# Subtest: C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume across tenants replays nothing, and usage is per tenant
+ok 102 - C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume across tenants replays nothing, and usage is per tenant
+  ---
+  duration_ms: 189.6596
+  type: 'test'
+  ...
+# Subtest: C9: a student has one voice session: a second start replaces the first, which is told it was superseded
+ok 103 - C9: a student has one voice session: a second start replaces the first, which is told it was superseded
+  ---
+  duration_ms: 61.9279
+  type: 'test'
+  ...
+# Subtest: C9: the socket cap refuses more connections with 503 without opening anything
+ok 104 - C9: the socket cap refuses more connections with 503 without opening anything
+  ---
+  duration_ms: 78.0461
+  type: 'test'
+  ...
+# Subtest: C9: 50 connect/abort cycles (before start, mid-session, after speech, at the cap) leak no socket, timer, provider session, slot or retained state beyond the resume log
+ok 105 - C9: 50 connect/abort cycles (before start, mid-session, after speech, at the cap) leak no socket, timer, provider session, slot or retained state beyond the resume log
+  ---
+  duration_ms: 1069.0518
+  type: 'test'
+  ...
+# Subtest: C9: closing the API closes every open connection and its provider session (shutdown does not strand a session)
+ok 106 - C9: closing the API closes every open connection and its provider session (shutdown does not strand a session)
+  ---
+  duration_ms: 63.5835
+  type: 'test'
+  ...
+# Subtest: C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded
+ok 107 - C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded
+  ---
+  duration_ms: 322.2797
+  type: 'test'
+  ...
+# Subtest: C10: a connection closed while it waits to supersede the old session never takes the student's slot (activeSessions returns to 0)
+ok 108 - C10: a connection closed while it waits to supersede the old session never takes the student's slot (activeSessions returns to 0)
+  ---
+  duration_ms: 201.3073
+  type: 'test'
+  ...
+# Subtest: C10: a start whose provider connect never returns is closed by the start timer, and the socket slot and the student's lock are freed
+ok 109 - C10: a start whose provider connect never returns is closed by the start timer, and the socket slot and the student's lock are freed
+  ---
+  duration_ms: 2094.3769
+  type: 'test'
+  ...
+# Subtest: C10: a start that arrived late gets its own budget: a slow but finishing connect is not cut short by the connection's first timer
+ok 110 - C10: a start that arrived late gets its own budget: a slow but finishing connect is not cut short by the connection's first timer
+  ---
+  duration_ms: 183.9832
+  type: 'test'
+  ...
+# Subtest: C10: the start timer still closes a socket that never sent start
+ok 111 - C10: the start timer still closes a socket that never sent start
+  ---
+  duration_ms: 57.546
+  type: 'test'
+  ...
+# Subtest: C12: a crisis flag write that fails once is retried once and stored; nothing is logged and the session continues
+ok 112 - C12: a crisis flag write that fails once is retried once and stored; nothing is logged and the session continues
+  ---
+  duration_ms: 77.7774
+  type: 'test'
+  ...
+# Subtest: C12: a crisis flag write that keeps failing is tried twice, logged as voice_crisis_flag_failed (text-free) and never ends the session
+ok 113 - C12: a crisis flag write that keeps failing is tried twice, logged as voice_crisis_flag_failed (text-free) and never ends the session
+  ---
+  duration_ms: 76.3603
+  type: 'test'
+  ...
+# Subtest: C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED words, like the text path
+ok 114 - C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED words, like the text path
+  ---
+  duration_ms: 77.8533
+  type: 'test'
+  ...
+# Subtest: C12: no escalation port -> behaviour is exactly as before (the flag only)
+ok 115 - C12: no escalation port -> behaviour is exactly as before (the flag only)
+  ---
+  duration_ms: 75.1944
+  type: 'test'
+  ...
+# Subtest: C12: an under-18 student without guardian consent is flagged (ids and time) but never escalated: no text is kept for them
+ok 116 - C12: an under-18 student without guardian consent is flagged (ids and time) but never escalated: no text is kept for them
+  ---
+  duration_ms: 415.1718
+  type: 'test'
+  ...
+# Subtest: C12: a minor WITH guardian consent is escalated, like the text path
+ok 117 - C12: a minor WITH guardian consent is escalated, like the text path
+  ---
+  duration_ms: 130.5025
+  type: 'test'
+  ...
+# Subtest: C12: an escalation that keeps failing is tried twice and logged as voice_crisis_escalate_failed (text-free); the flag does not depend on it
+ok 118 - C12: an escalation that keeps failing is tried twice and logged as voice_crisis_escalate_failed (text-free); the flag does not depend on it
+  ---
+  duration_ms: 331.1959
+  type: 'test'
+  ...
+# Subtest: C12: an escalation that fails once is retried once and delivered, with nothing logged
+ok 119 - C12: an escalation that fails once is retried once and delivered, with nothing logged
+  ---
+  duration_ms: 305.3096
+  type: 'test'
+  ...
+# Subtest: C13: an expired resume log is dropped when a reconnect asks for it (read), and replays nothing
+ok 120 - C13: an expired resume log is dropped when a reconnect asks for it (read), and replays nothing
+  ---
+  duration_ms: 157.7323
+  type: 'test'
+  ...
+# Subtest: C13: the prune timer drops an expired resume log although nobody reads it, and is not counted in the per-connection timers
+ok 121 - C13: the prune timer drops an expired resume log although nobody reads it, and is not counted in the per-connection timers
+  ---
+  duration_ms: 138.8395
+  type: 'test'
+  ...
+# Subtest: C13: shutdown drops every retained resume log (no transcript events are kept after close)
+ok 122 - C13: shutdown drops every retained resume log (no transcript events are kept after close)
+  ---
+  duration_ms: 229.8613
+  type: 'test'
+  ...
+# Subtest: C14: a crisis whose flag write is still in flight when the socket drops is flagged once and escalated once
+ok 123 - C14: a crisis whose flag write is still in flight when the socket drops is flagged once and escalated once
+  ---
+  duration_ms: 418.3021
+  type: 'test'
+  ...
+# Subtest: C14: a crisis whose flag write is still in flight when the socket ends gracefully is flagged once and escalated once
+ok 124 - C14: a crisis whose flag write is still in flight when the socket ends gracefully is flagged once and escalated once
+  ---
+  duration_ms: 159.0254
+  type: 'test'
+  ...
+# Subtest: C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_fenced)
+ok 125 - C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_fenced)
+  ---
+  duration_ms: 144.2478
+  type: 'test'
+  ...
+# Subtest: C14: an unconsented minor is flagged, not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_text_not_stored)
+ok 126 - C14: an unconsented minor is flagged, not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_text_not_stored)
+  ---
+  duration_ms: 106.5548
+  type: 'test'
+  ...
+# Subtest: C16: A active with a slow drain, B starts, C starts and then aborts: B (the only waiter left) becomes the one live session and is not told superseded
+ok 127 - C16: A active with a slow drain, B starts, C starts and then aborts: B (the only waiter left) becomes the one live session and is not told superseded
+  ---
+  duration_ms: 378.5319
+  type: 'test'
+  ...
+# Subtest: C16: the supersede loop's second pass is needed: a start that took the slot while B re-read the month is superseded before B opens its provider session
+ok 128 - C16: the supersede loop's second pass is needed: a start that took the slot while B re-read the month is superseded before B opens its provider session
+  ---
+  duration_ms: 433.0141
+  type: 'test'
+  ...
+# Subtest: C17: an escalateForTenant factory that throws synchronously is retried, logged as voice_crisis_escalate_failed (text-free), and is never a persist_failed event
+ok 129 - C17: an escalateForTenant factory that throws synchronously is retried, logged as voice_crisis_escalate_failed (text-free), and is never a persist_failed event
+  ---
+  duration_ms: 62.5451
+  type: 'test'
+  ...
+# Subtest: C17: a factory that throws once is retried and the escalation is delivered, with nothing logged
+ok 130 - C17: a factory that throws once is retried and the escalation is delivered, with nothing logged
+  ---
+  duration_ms: 127.506
+  type: 'test'
+  ...
+# Subtest: C18: a crisis with no words of its own is escalated with the fixed text-free marker, never with an earlier turn's words
+ok 131 - C18: a crisis with no words of its own is escalated with the fixed text-free marker, never with an earlier turn's words
+  ---
+  duration_ms: 201.799
+  type: 'test'
+  ...
+# Subtest: C18: the crisis utterance's own redacted words are escalated even when an earlier student turn was never answered
+ok 132 - C18: the crisis utterance's own redacted words are escalated even when an earlier student turn was never answered
+  ---
+  duration_ms: 389.8151
+  type: 'test'
+  ...
+# Subtest: C19: a crisis sink write that never settles cannot hold the slot: finalize waits at most drainTimeoutMs, logs voice_drain_timeout and frees the socket, the provider session and the student's slot
+ok 133 - C19: a crisis sink write that never settles cannot hold the slot: finalize waits at most drainTimeoutMs, logs voice_drain_timeout and frees the socket, the provider session and the student's slot
+  ---
+  duration_ms: 482.6782
+  type: 'test'
+  ...
+1..133
+# tests 133
+# suites 0
+# pass 133
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 22813.2361
+[testlock] release: lock dir token changed (ours [1792382402293441300-294082-32508], now [1792382426526749000-295637-19823]) -- not removing, it is no longer ours
+EXIT=0

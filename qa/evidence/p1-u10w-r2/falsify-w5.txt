@@ -1,0 +1,28 @@
+[testlock] running slot 1 (free RAM 3.21 GB): pnpm -C D:/vc/.worktrees/p1-u10w-fals/apps/api exec tsx --test --test-reporter=tap --test-name-pattern=W5: voiceEnabledFromEnv tests/voice-wiring.test.ts
+TAP version 13
+# Subtest: W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' are off; padded, cased or other values throw VoiceConfigError (never on)
+not ok 1 - W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' are off; padded, cased or other values throw VoiceConfigError (never on)
+  ---
+  duration_ms: 2.2326
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\p1-u10w-fals\\apps\\api\\tests\\voice-wiring.test.ts:422:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected exception (VoiceConfigError): " true"'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    TestContext.<anonymous> (D:\vc\.worktrees\p1-u10w-fals\apps\api\tests\voice-wiring.test.ts:426:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1103:25)
+    Test.start (node:internal/test_runner/test:1000:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2944.3681

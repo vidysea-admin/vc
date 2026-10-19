@@ -1,0 +1,6 @@
+file: apps/api/src/voice.ts
+--- OLD ---
+  if (raw === "true") return true;
+  throw new VoiceConfigError(`${VOICE_FLAG_ENV} must be "true" or "false" (got a different value)`);
+--- NEW ---
+  return true;

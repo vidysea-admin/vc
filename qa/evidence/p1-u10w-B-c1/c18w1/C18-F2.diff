@@ -1,0 +1,13 @@
+diff --git a/apps/api/src/voice.ts b/apps/api/src/voice.ts
+index 3d40047..8850e66 100644
+--- a/apps/api/src/voice.ts
++++ b/apps/api/src/voice.ts
+@@ -798,7 +798,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
+    */
+   async function onCrisisRecord(c: Conn, r: LiveCrisisRecord): Promise<void> {
+     // The words of THIS crisis utterance, captured when it was detected (consumed here, so a later crisis never sees them).
+-    const raw = c.crisisUtterances.shift();
++    const raw = c.crisisUtterances[0];
+     const words = raw !== undefined && raw !== "" && c.persistText ? clamp(redact(c, raw), 2000) : undefined;
+     // Ids and time only: kept even for an unconsented minor, exactly like the text path's crisis flag.
+     const turnId = c.lastUser?.turnId ?? `v${c.claims.sid.slice(0, 8)}crisis`;

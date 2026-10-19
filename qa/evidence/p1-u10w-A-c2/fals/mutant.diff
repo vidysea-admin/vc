@@ -1,0 +1,13 @@
+diff --git a/apps/api/src/voice.ts b/apps/api/src/voice.ts
+index 4b44bf4..ed2ec61 100644
+--- a/apps/api/src/voice.ts
++++ b/apps/api/src/voice.ts
+@@ -157,7 +157,7 @@ export class VoiceConfigError extends Error {
+ 
+ /** Reads the flag: unset, empty and "false" are off; exactly "true" is on (no trimming: " true", "TRUE", "1" are not "true"); anything else is a config error (never a silent on or off). */
+ export function voiceEnabledFromEnv(env: Record<string, string | undefined>): boolean {
+-  const raw = env[VOICE_FLAG_ENV];
++  const raw = env[VOICE_FLAG_ENV]?.trim();
+   if (raw === undefined || raw === "" || raw === "false") return false;
+   if (raw === "true") return true;
+   throw new VoiceConfigError(`${VOICE_FLAG_ENV} must be "true" or "false" (got a different value)`);

@@ -1,0 +1,16 @@
+[testlock] running slot 0 (free RAM 7.08 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-name-pattern ^C8[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2218.006ms)
+✔ tests\voice-history.test.ts (2148.2347ms)
+✔ tests\voice-limits.test.ts (2188.5609ms)
+✔ C8/A12: LiveConfigError is its own fixed error event (live_config), the socket closes, and no provider detail leaks (55.3623ms)
+✔ C8/A12: a provider error mid-session is an error event and the session continues; a backend close ends the session with live_closed (65.0166ms)
+✔ C8/A20: default off: no flag builds nothing, no route is mounted, and the upgrade path does not exist (17.7066ms)
+✔ C8/A20: enabled without the go-live records (or the passing A10 record) is refused, and tracing on is refused (41.6819ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2364.0842

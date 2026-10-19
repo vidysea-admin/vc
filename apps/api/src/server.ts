@@ -20,6 +20,7 @@
  * (name + code only, B13) and the route id.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import type { Duplex } from "node:stream";
 import { ZodError, z, type ZodTypeAny } from "zod";
 
 import {
@@ -882,9 +883,12 @@ function readLimited(req: IncomingMessage, maxBytes: number = MAX_BODY_BYTES): P
   });
 }
 
+/** P1 U10: a handler for HTTP `Upgrade` requests (the voice WebSocket). Without one, the server answers no upgrade. */
+export type ApiUpgradeHandler = (req: IncomingMessage, socket: Duplex, head: Buffer) => void;
+
 /** The node:http adapter. Listening is the caller's job (startApi), so creating one opens nothing. */
-export function createApiServer(handler: ApiHandler): Server {
-  return createServer((req: IncomingMessage, res: ServerResponse) => {
+export function createApiServer(handler: ApiHandler, options: { onUpgrade?: ApiUpgradeHandler } = {}): Server {
+  const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     const apiReq: ApiRequest = {
       method: req.method ?? "GET",
       url: req.url ?? "/",
@@ -903,6 +907,17 @@ export function createApiServer(handler: ApiHandler): Server {
       },
     );
   });
+  const { onUpgrade } = options;
+  if (onUpgrade) {
+    server.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
+      try {
+        onUpgrade(req, socket, head);
+      } catch {
+        socket.destroy();
+      }
+    });
+  }
+  return server;
 }
 
 export interface TenantWiringDeps {

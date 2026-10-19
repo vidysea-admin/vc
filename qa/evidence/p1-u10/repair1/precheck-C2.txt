@@ -1,0 +1,21 @@
+[testlock] running slot 0 (free RAM 6.28 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-name-pattern ^C2[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2610.3402ms)
+✔ tests\voice-history.test.ts (2621.4646ms)
+✔ tests\voice-limits.test.ts (2619.8496ms)
+✔ C2: no token, a garbage token and a token in the URL query are each refused with 401 (72.1449ms)
+✔ C2: a token with the wrong audience (a student JWT, or any other aud) is refused (34.6628ms)
+✔ C2: a token signed with another key, another algorithm, or alg none is refused (23.9529ms)
+✔ C2: an expired token is refused (fake clock), and a token without exp or jti is refused (29.0572ms)
+✔ C2: a token is single use: a replay is refused, and two concurrent upgrades with one token admit exactly one (32.3146ms)
+✔ C2: a token minted for one student or thread is refused on another student's or thread's path (same 401) (25.8453ms)
+✔ C2: the token is accepted from the Authorization header or the vc-token subprotocol, and the server selects vc-voice-v1 (23.9533ms)
+✔ C2: another path or method is 404 and an Origin outside the allowed list is 403 (no token read) (24.5241ms)
+✔ C2: no token and no raw frame text reaches the server log, on refusals or on a normal session (48.5044ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2968.3726

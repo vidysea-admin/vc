@@ -1,0 +1,140 @@
+[
+ [
+  "W1a",
+  "W1",
+  "pass=12 fail=3",
+  "W1: a crisis flag write that dies with FencedWriterDeadlineError "
+ ],
+ [
+  "W1b",
+  "W1",
+  "pass=14 fail=1",
+  "W1: a crisis flag write that dies with FencedWriterDeadlineError "
+ ],
+ [
+  "W1c",
+  "W1",
+  "pass=11 fail=4",
+  "W1: a crisis flag write that dies with FencedWriterDeadlineError "
+ ],
+ [
+  "W2a",
+  "W2",
+  "pass=13 fail=2",
+  "W2: an escalation still running after the drain timeout is awaited by voice.close"
+ ],
+ [
+  "W2b",
+  "W2",
+  "pass=14 fail=0",
+  "W2: the wait for late work at shutdown is bounded: a write that never settles delays close"
+ ],
+ [
+  "W2c",
+  "W2",
+  "pass=14 fail=1",
+  "W2: the wait for late work at shutdown is bounded: a write that never settles delays close"
+ ],
+ [
+  "W3a",
+  "W3",
+  "pass=13 fail=2",
+  "W3: a start superseded while its provider connect is still in flight is closed before the newer start opens its "
+ ],
+ [
+  "W3b",
+  "W3",
+  "pass=14 fail=1",
+  "W3: if the superseded connect never returns, the newer start waits at most connectOverlapWaitMs, the overlap is "
+ ],
+ [
+  "W3c",
+  "W3",
+  "pass=13 fail=2",
+  "W3: a start superseded while its provider connect is still in flight is closed before the newer start opens its "
+ ],
+ [
+  "W3d",
+  "W3",
+  "pass=14 fail=1",
+  "W3: if the superseded connect never returns, the newer start waits at most connectOverlapWaitMs, the overlap is "
+ ],
+ [
+  "W4a",
+  "W4",
+  "pass=14 fail=1",
+  "W4: the retry after a delivered-then-thrown escalation reuses the same session and turn id, and the real escalat"
+ ],
+ [
+  "W5a",
+  "W5",
+  "pass=13 fail=2",
+  "W5: VC_VOICE_ENABLED unset, empty or 'false' -> no voice route, an upgrade is refused, no gate is read, nothing "
+ ],
+ [
+  "W6a",
+  "W6",
+  "pass=14 fail=1",
+  "W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, trac"
+ ],
+ [
+  "W6b",
+  "W6",
+  "pass=14 fail=1",
+  "W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, trac"
+ ],
+ [
+  "W6c",
+  "W6",
+  "pass=14 fail=1",
+  "W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, trac"
+ ],
+ [
+  "W6d",
+  "W6",
+  "pass=15 fail=0",
+  ""
+ ],
+ [
+  "W7a",
+  "W7",
+  "pass=11 fail=4",
+  "W7: flag on and gates open -> in a started process the session route mints a token, the WebSocket upgrades, a st"
+ ],
+ [
+  "W7b",
+  "W7",
+  "pass=10 fail=5",
+  "W7: flag on and gates open -> in a started process the session route mints a token, the WebSocket upgrades, a st"
+ ],
+ [
+  "W7c",
+  "W7",
+  "pass=14 fail=1",
+  "W7: the WebSocket secret and base URL default to VC_VOICE_WS_SECRET and VC_VOICE_WS_BASE_URL when the options ar"
+ ],
+ [
+  "W7d",
+  "W7",
+  "pass=14 fail=1",
+  "W7: the WebSocket secret and base URL default to VC_VOICE_WS_SECRET and VC_VOICE_WS_BASE_URL when the options ar"
+ ],
+ [
+  "W8a",
+  "W8",
+  "pass=14 fail=0",
+  "W8: stop"
+ ],
+ [
+  "W9a",
+  "W9",
+  "pass=14 fail=1",
+  "W9: a voice crisis in a started process reaches the SAME escalateForTenant port the text chat uses "
+ ],
+ [
+  "W9b",
+  "W9",
+  "pass=15 fail=0",
+  ""
+ ]
+]

@@ -1,0 +1,13 @@
+diff --git a/apps/api/src/voice.ts b/apps/api/src/voice.ts
+index 3d40047..7ae0381 100644
+--- a/apps/api/src/voice.ts
++++ b/apps/api/src/voice.ts
+@@ -1481,7 +1481,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
+     // A23: a student at the monthly limit gets no session (text continues). The same check runs again at `start`.
+     const limits = resolveLimits(deps.limitsForTenant?.(ctx.tenantId));
+     const used = (await getStudentUsage(db, { studentId: ctx.studentId, month: usageMonth(now) })).voiceMs;
+-    const remainingMs = limits.voiceMinutesPerMonth * 60_000 - used;
++    const remainingMs = limits.voiceMinutesPerMonth * 60_000 - 0 * used;
+     if (remainingMs <= 0) {
+       const nextMonth = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
+       return fail(429, "voice_quota_exceeded", { "retry-after": String(Math.max(1, Math.ceil((nextMonth - now.getTime()) / 1000))) });

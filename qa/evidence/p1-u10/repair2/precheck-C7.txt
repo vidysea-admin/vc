@@ -1,0 +1,18 @@
+[testlock] running slot 0 (free RAM 5.21 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^C7[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2235.6273ms)
+✔ tests\voice-history.test.ts (2284.4238ms)
+✔ C7: a student at 60 voice minutes gets 429 voice_quota_exceeded with Retry-After, and text chat on the same thread continues (124.0272ms)
+✔ C7: a token minted before the limit was reached is still refused at start (the check runs twice), with a fixed message that points to text (48.5948ms)
+✔ C7: the session limit is the smaller of 20 minutes and what is left of the month, and the cap enforces it (79.1904ms)
+✔ C7: minutes are recorded when the connection ends (end, abort), accumulate across sessions, and a connection that never started records nothing (91.8601ms)
+✔ C7: a per-tenant override changes the limits for that tenant only (94.9482ms)
+✔ C7: a student under erasure is not charged: the minutes write is refused by the fence, nothing is forced, the session closes cleanly (46.4421ms)
+✔ tests\voice.test.ts (2338.6337ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2761.3626

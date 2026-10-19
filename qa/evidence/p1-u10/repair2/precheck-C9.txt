@@ -1,0 +1,18 @@
+[testlock] running slot 0 (free RAM 6.02 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^C9[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2225.4213ms)
+✔ tests\voice-history.test.ts (2240.0297ms)
+✔ tests\voice-limits.test.ts (2197.8077ms)
+✔ C9: a socket that closes while the provider connect is still in flight leaves no provider session behind (91.7536ms)
+✔ C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume across tenants replays nothing, and usage is per tenant (156.0836ms)
+✔ C9: a student has one voice session: a second start replaces the first, which is told it was superseded (46.1071ms)
+✔ C9: the socket cap refuses more connections with 503 without opening anything (26.8694ms)
+✔ C9: 50 connect/abort cycles (before start, mid-session, after speech, at the cap) leak no socket, timer, provider session, slot or retained state beyond the resume log (835.4975ms)
+✔ C9: closing the API closes every open connection and its provider session (shutdown does not strand a session) (47.2034ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3473.5867

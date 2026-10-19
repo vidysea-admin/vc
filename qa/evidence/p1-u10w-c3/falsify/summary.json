@@ -1,0 +1,73 @@
+{
+ "C18a": {
+  "desc": "drop the capture on a throwing detector",
+  "file": "tests/voice-crisis-turn.test.ts",
+  "pass": 5,
+  "fail": 1,
+  "failing": [
+   "C18 (d1): the detector throws on an utterance with words -> fail-closed escalation with that utterance's own words only"
+  ]
+ },
+ "C18b": {
+  "desc": "escalation ignores the captured words (always the marker)",
+  "file": "tests/voice-crisis-turn.test.ts",
+  "pass": 3,
+  "fail": 3,
+  "failing": [
+   "C18 (b): an unanswered earlier turn, then a crisis WITH words -> those words only",
+   "C18 (d1): the detector throws on an utterance with words -> fail-closed escalation with that utterance's own words only",
+   "C18 (e): two crises in a row each carry their own utterance's words (the first's words never leak into the second)"
+  ]
+ },
+ "C18c": {
+  "desc": "capture not trimmed (a whitespace-only utterance counts as words)",
+  "file": "tests/voice-crisis-turn.test.ts",
+  "pass": 6,
+  "fail": 0,
+  "failing": []
+ },
+ "C18d": {
+  "desc": "captured words not consumed (peek, not shift)",
+  "file": "tests/voice-crisis-turn.test.ts",
+  "pass": 5,
+  "fail": 1,
+  "failing": [
+   "C18 (e): two crises in a row each carry their own utterance's words (the first's words never leak into the second)"
+  ]
+ },
+ "C18e": {
+  "desc": "back to seq adjacency: escalate the latest student turn's words",
+  "file": "tests/voice-crisis-turn.test.ts",
+  "pass": 2,
+  "fail": 4,
+  "failing": [
+   "C18 (a): an unanswered earlier turn, then a crisis with no words of its own -> the text-free marker, never the earlier words",
+   "C18 (c): an answered earlier turn (a seq gap), then a crisis with no words -> the marker",
+   "C18 (d2): the detector throws on an utterance with no words -> fail-closed escalation with the marker, never the earlier words",
+   "C18 (e): two crises in a row each carry their own utterance's words (the first's words never leak into the second)"
+  ]
+ },
+ "C18f": {
+  "desc": "words escalated unredacted",
+  "file": "tests/voice.test.ts",
+  "pass": 63,
+  "fail": 1,
+  "failing": [
+   "C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED words, like the text path"
+  ]
+ },
+ "C18g": {
+  "desc": "capture only when the detector does NOT report a crisis (inverted)",
+  "file": "tests/voice-crisis-turn.test.ts",
+  "pass": 0,
+  "fail": 6,
+  "failing": [
+   "C18 (a): an unanswered earlier turn, then a crisis with no words of its own -> the text-free marker, never the earlier words",
+   "C18 (b): an unanswered earlier turn, then a crisis WITH words -> those words only",
+   "C18 (c): an answered earlier turn (a seq gap), then a crisis with no words -> the marker",
+   "C18 (d1): the detector throws on an utterance with words -> fail-closed escalation with that utterance's own words only",
+   "C18 (d2): the detector throws on an utterance with no words -> fail-closed escalation with the marker, never the earlier words",
+   "C18 (e): two crises in a row each carry their own utterance's words (the first's words never leak into the second)"
+  ]
+ }
+}

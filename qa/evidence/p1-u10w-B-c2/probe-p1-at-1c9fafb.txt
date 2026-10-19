@@ -1,0 +1,167 @@
+[testlock] owner PID 30064 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running slot 0 (free RAM 2.13 GB): pnpm -C D:/vc/.worktrees/p1-u10w-chkB-s1/apps/api exec tsx --test --test-reporter=tap --test-name-pattern=p1 flag tests/zz-flag-probe.test.ts
+TAP version 13
+# PROBE p1 undefined -> OFF (session route 404); providerConnects=0
+# Subtest: p1 flag undefined: must be off or refuse (only exactly "true" may enable voice)
+ok 1 - p1 flag undefined: must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 119.8748
+  type: 'test'
+  ...
+# PROBE p1 "" -> OFF (session route 404); providerConnects=0
+# Subtest: p1 flag "": must be off or refuse (only exactly "true" may enable voice)
+ok 2 - p1 flag "": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 35.5743
+  type: 'test'
+  ...
+# PROBE p1 "false" -> OFF (session route 404); providerConnects=0
+# Subtest: p1 flag "false": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "0" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 3 - p1 flag "false": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 25.5674
+  type: 'test'
+  ...
+# PROBE p1 "1" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag "0": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "TRUE" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 4 - p1 flag "0": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 10.3634
+  type: 'test'
+  ...
+# PROBE p1 "True" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag "1": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 " true" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 5 - p1 flag "1": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 9.7323
+  type: 'test'
+  ...
+# PROBE p1 "true " -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag "TRUE": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "\\ttrue\\n" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 6 - p1 flag "TRUE": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 10.9544
+  type: 'test'
+  ...
+# PROBE p1 "yes" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag "True": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "on" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 7 - p1 flag "True": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 9.1684
+  type: 'test'
+  ...
+# PROBE p1 "tru" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag " true": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "truee" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 8 - p1 flag " true": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 9.8234
+  type: 'test'
+  ...
+# PROBE p1 "false " -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag "true ": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "FALSE" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 9 - p1 flag "true ": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 10.1155
+  type: 'test'
+  ...
+# PROBE p1 "true " -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag "\\ttrue\\n": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 " true" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 10 - p1 flag "\\ttrue\\n": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 9.6459
+  type: 'test'
+  ...
+# PROBE p1 "tRue" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag "yes": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "true\\r\\n" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 11 - p1 flag "yes": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 10.3428
+  type: 'test'
+  ...
+# PROBE p1 "﻿true" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag "on": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "true\\u0000" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 12 - p1 flag "on": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 8.0608
+  type: 'test'
+  ...
+# Subtest: p1 flag "tru": must be off or refuse (only exactly "true" may enable voice)
+ok 13 - p1 flag "tru": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 10.6375
+  type: 'test'
+  ...
+# Subtest: p1 flag "truee": must be off or refuse (only exactly "true" may enable voice)
+ok 14 - p1 flag "truee": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 8.4558
+  type: 'test'
+  ...
+# Subtest: p1 flag "false ": must be off or refuse (only exactly "true" may enable voice)
+ok 15 - p1 flag "false ": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 9.9117
+  type: 'test'
+  ...
+# Subtest: p1 flag "FALSE": must be off or refuse (only exactly "true" may enable voice)
+ok 16 - p1 flag "FALSE": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 10.8452
+  type: 'test'
+  ...
+# Subtest: p1 flag "true ": must be off or refuse (only exactly "true" may enable voice)
+ok 17 - p1 flag "true ": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 10.018
+  type: 'test'
+  ...
+# Subtest: p1 flag " true": must be off or refuse (only exactly "true" may enable voice)
+ok 18 - p1 flag " true": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 10.165
+  type: 'test'
+  ...
+# Subtest: p1 flag "tRue": must be off or refuse (only exactly "true" may enable voice)
+ok 19 - p1 flag "tRue": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 8.9602
+  type: 'test'
+  ...
+# Subtest: p1 flag "true\\r\\n": must be off or refuse (only exactly "true" may enable voice)
+ok 20 - p1 flag "true\\r\\n": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 9.5967
+  type: 'test'
+  ...
+# Subtest: p1 flag "﻿true": must be off or refuse (only exactly "true" may enable voice)
+ok 21 - p1 flag "﻿true": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 9.5288
+  type: 'test'
+  ...
+# Subtest: p1 flag "true\\u0000": must be off or refuse (only exactly "true" may enable voice)
+ok 22 - p1 flag "true\\u0000": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 8.8439
+  type: 'test'
+  ...
+1..22
+# tests 22
+# suites 0
+# pass 22
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6301.0309

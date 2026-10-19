@@ -1,0 +1,44 @@
+START 2026-10-19T05:39:47+05:30
+[testlock] running slot 0 (free RAM 4.82 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10 -r typecheck
+No projects matched the filters "D:\vc\C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10" in "C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\p1-u10"
+Scope: all 10 workspace projects
+. typecheck$ pnpm -r typecheck
+packages/observability typecheck$ tsc --noEmit
+packages/schemas typecheck$ tsc --noEmit
+. typecheck: Scope: 9 of 10 workspace projects
+. typecheck: packages/observability typecheck$ tsc --noEmit
+. typecheck: packages/schemas typecheck$ tsc --noEmit
+packages/observability typecheck: Done
+packages/schemas typecheck: Done
+. typecheck: packages/observability typecheck: Done
+. typecheck: packages/schemas typecheck: Done
+. typecheck: packages/db typecheck$ tsc --noEmit
+. typecheck: packages/providers typecheck$ tsc --noEmit
+. typecheck: packages/providers typecheck: Done
+. typecheck: packages/db typecheck: Done
+. typecheck: packages/engine typecheck$ tsc --noEmit && tsc --noEmit -p evals/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json
+. typecheck: mcp/student-profile typecheck$ tsc --noEmit
+. typecheck: mcp/university-kb typecheck$ tsc --noEmit
+. typecheck: mcp/student-profile typecheck: Done
+. typecheck: mcp/university-kb typecheck: Done
+. typecheck: packages/engine typecheck: Done
+. typecheck: apps/web typecheck$ tsc --noEmit
+. typecheck: apps/api typecheck$ tsc --noEmit
+. typecheck: apps/api typecheck: Done
+. typecheck: apps/web typecheck: Done
+. typecheck: Done
+packages/db typecheck$ tsc --noEmit
+packages/providers typecheck$ tsc --noEmit
+packages/providers typecheck: Done
+packages/db typecheck: Done
+mcp/university-kb typecheck$ tsc --noEmit
+packages/engine typecheck$ tsc --noEmit && tsc --noEmit -p evals/tsconfig.json && tsc --noEmit -p scripts/tsconfig.json
+mcp/student-profile typecheck$ tsc --noEmit
+mcp/student-profile typecheck: Done
+mcp/university-kb typecheck: Done
+packages/engine typecheck: Done
+apps/api typecheck$ tsc --noEmit
+apps/web typecheck$ tsc --noEmit
+apps/api typecheck: Done
+apps/web typecheck: Done
+EXIT 0 2026-10-19T05:40:28+05:30

@@ -1,0 +1,18 @@
+[testlock] running slot 0 (free RAM 4.94 GB): pnpm -C apps/api exec tsx --test --test-name-pattern ^C9[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (1604.6005ms)
+✔ tests\voice-history.test.ts (1632.0917ms)
+✔ tests\voice-limits.test.ts (1659.5135ms)
+✔ C9: a socket that closes while the provider connect is still in flight leaves no provider session behind (80.2277ms)
+✔ C9: tenants are isolated: a tenant-b token for tenant-a's thread finds nothing, resume across tenants replays nothing, and usage is per tenant (154.2801ms)
+✔ C9: a student has one voice session: a second start replaces the first, which is told it was superseded (45.3485ms)
+✔ C9: the socket cap refuses more connections with 503 without opening anything (21.8461ms)
+✔ C9: 50 connect/abort cycles (before start, mid-session, after speech, at the cap) leak no socket, timer, provider session, slot or retained state beyond the resume log (807.752ms)
+✔ C9: closing the API closes every open connection and its provider session (shutdown does not strand a session) (46.879ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2898.8583

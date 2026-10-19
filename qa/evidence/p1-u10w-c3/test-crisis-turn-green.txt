@@ -1,0 +1,47 @@
+[testlock] running slot 0 (free RAM 4.5 GB): npx tsx --test --test-reporter=tap tests/voice-crisis-turn.test.ts
+TAP version 13
+# Subtest: C18 (a): an unanswered earlier turn, then a crisis with no words of its own -> the text-free marker, never the earlier words
+ok 1 - C18 (a): an unanswered earlier turn, then a crisis with no words of its own -> the text-free marker, never the earlier words
+  ---
+  duration_ms: 55.0549
+  type: 'test'
+  ...
+# Subtest: C18 (b): an unanswered earlier turn, then a crisis WITH words -> those words only
+ok 2 - C18 (b): an unanswered earlier turn, then a crisis WITH words -> those words only
+  ---
+  duration_ms: 28.0832
+  type: 'test'
+  ...
+# Subtest: C18 (c): an answered earlier turn (a seq gap), then a crisis with no words -> the marker
+ok 3 - C18 (c): an answered earlier turn (a seq gap), then a crisis with no words -> the marker
+  ---
+  duration_ms: 31.9811
+  type: 'test'
+  ...
+# Subtest: C18 (d1): the detector throws on an utterance with words -> fail-closed escalation with that utterance's own words only
+ok 4 - C18 (d1): the detector throws on an utterance with words -> fail-closed escalation with that utterance's own words only
+  ---
+  duration_ms: 41.3251
+  type: 'test'
+  ...
+# Subtest: C18 (d2): the detector throws on an utterance with no words -> fail-closed escalation with the marker, never the earlier words
+ok 5 - C18 (d2): the detector throws on an utterance with no words -> fail-closed escalation with the marker, never the earlier words
+  ---
+  duration_ms: 24.4163
+  type: 'test'
+  ...
+# Subtest: C18 (e): two crises in a row each carry their own utterance's words (the first's words never leak into the second)
+ok 6 - C18 (e): two crises in a row each carry their own utterance's words (the first's words never leak into the second)
+  ---
+  duration_ms: 1552.0218
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3526.025

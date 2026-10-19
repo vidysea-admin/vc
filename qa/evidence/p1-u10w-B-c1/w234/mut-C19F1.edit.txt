@@ -1,0 +1,9 @@
+MUTANT C19F1
+FILE apps/api/src/voice.ts
+OLD: drainTimer = setTimeout(() => resolve(true), drainTimeoutMs);
+NEW: drainTimer = setTimeout(() => resolve(true), 2147483647);
+TEST voice.test.ts pattern=C19 extra=--test-timeout=8000 --test-force-exit
+2026-10-19T08:39:37+05:30
+APPLIED
+2026-10-19T08:42:03+05:30
+?? apps/api/tests/probe-w234.test.ts

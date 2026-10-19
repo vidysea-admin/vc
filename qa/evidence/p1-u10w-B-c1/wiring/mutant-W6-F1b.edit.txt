@@ -1,0 +1,10 @@
+file: apps/api/src/index.ts
+--- OLD ---
+  const { client, db } = connectFromEnv(env, clientFactory);
+  counterRef.writer = createMongoAnonymousCounter(anonymousCountersCollection(db), http?.anonymous?.now);
+
+--- NEW ---
+  const { client, db } = connectFromEnv(env, clientFactory);
+  counterRef.writer = createMongoAnonymousCounter(anonymousCountersCollection(db), http?.anonymous?.now);
+  await client.connect();
+

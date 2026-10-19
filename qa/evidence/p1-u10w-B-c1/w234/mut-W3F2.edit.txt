@@ -1,0 +1,9 @@
+MUTANT W3F2
+FILE apps/api/src/voice.ts
+OLD: timer = setTimeout(() => resolve(true), connectOverlapWaitMs);
+NEW: timer = setTimeout(() => resolve(true), 2147483647);
+TEST voice-wiring.test.ts pattern=W3 extra=--test-timeout=8000 --test-force-exit
+2026-10-19T08:36:12+05:30
+APPLIED
+2026-10-19T08:39:21+05:30
+?? apps/api/tests/probe-w234.test.ts

@@ -1,0 +1,256 @@
+[testlock] running slot 0 (free RAM 1.33 GB): pnpm -C D:/vc/.worktrees/p1-u10w-chkB-s1/apps/api exec tsx --test --test-reporter=tap --test-name-pattern=p1 flag tests/zz-flag-probe.test.ts
+TAP version 13
+# PROBE p1 undefined -> OFF (session route 404); providerConnects=0
+# Subtest: p1 flag undefined: must be off or refuse (only exactly "true" may enable voice)
+ok 1 - p1 flag undefined: must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 115.6353
+  type: 'test'
+  ...
+# PROBE p1 "" -> OFF (session route 404); providerConnects=0
+# Subtest: p1 flag "": must be off or refuse (only exactly "true" may enable voice)
+ok 2 - p1 flag "": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 490.3876
+  type: 'test'
+  ...
+# PROBE p1 "false" -> OFF (session route 404); providerConnects=0
+# Subtest: p1 flag "false": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "0" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 3 - p1 flag "false": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 32.4505
+  type: 'test'
+  ...
+# PROBE p1 "1" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag "0": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "TRUE" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 4 - p1 flag "0": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 10.0366
+  type: 'test'
+  ...
+# PROBE p1 "True" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag "1": must be off or refuse (only exactly "true" may enable voice)
+ok 5 - p1 flag "1": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 8.8398
+  type: 'test'
+  ...
+# Subtest: p1 flag "TRUE": must be off or refuse (only exactly "true" may enable voice)
+ok 6 - p1 flag "TRUE": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 8.5049
+  type: 'test'
+  ...
+# Subtest: p1 flag "True": must be off or refuse (only exactly "true" may enable voice)
+ok 7 - p1 flag "True": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 10.4322
+  type: 'test'
+  ...
+# PROBE p1 " true" -> ENABLED (session minted 201; ws upgraded); providerConnects=0
+# Subtest: p1 flag " true": must be off or refuse (only exactly "true" may enable voice)
+not ok 8 - p1 flag " true": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 82.0521
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\p1-u10w-chkB-s1\\apps\\api\\tests\\zz-flag-probe.test.ts:139:3'
+  failureType: 'testCodeFailure'
+  error: 'value " true" enabled voice although it is not exactly "true": ENABLED (session minted 201; ws upgraded)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (D:\vc\.worktrees\p1-u10w-chkB-s1\apps\api\tests\zz-flag-probe.test.ts:166:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# PROBE p1 "true " -> ENABLED (session minted 201; ws upgraded); providerConnects=0
+# Subtest: p1 flag "true ": must be off or refuse (only exactly "true" may enable voice)
+not ok 9 - p1 flag "true ": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 47.7844
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\p1-u10w-chkB-s1\\apps\\api\\tests\\zz-flag-probe.test.ts:139:3'
+  failureType: 'testCodeFailure'
+  error: 'value "true " enabled voice although it is not exactly "true": ENABLED (session minted 201; ws upgraded)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (D:\vc\.worktrees\p1-u10w-chkB-s1\apps\api\tests\zz-flag-probe.test.ts:166:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# PROBE p1 "\\ttrue\\n" -> ENABLED (session minted 201; ws upgraded); providerConnects=0
+# Subtest: p1 flag "\\ttrue\\n": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "yes" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+not ok 10 - p1 flag "\\ttrue\\n": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 52.6671
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\p1-u10w-chkB-s1\\apps\\api\\tests\\zz-flag-probe.test.ts:139:3'
+  failureType: 'testCodeFailure'
+  error: 'value "\\ttrue\\n" enabled voice although it is not exactly "true": ENABLED (session minted 201; ws upgraded)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (D:\vc\.worktrees\p1-u10w-chkB-s1\apps\api\tests\zz-flag-probe.test.ts:166:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# PROBE p1 "on" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag "yes": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "tru" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 11 - p1 flag "yes": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 12.6297
+  type: 'test'
+  ...
+# PROBE p1 "truee" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+# Subtest: p1 flag "on": must be off or refuse (only exactly "true" may enable voice)
+ok 12 - p1 flag "on": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 8.8715
+  type: 'test'
+  ...
+# Subtest: p1 flag "tru": must be off or refuse (only exactly "true" may enable voice)
+ok 13 - p1 flag "tru": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 7.8401
+  type: 'test'
+  ...
+# Subtest: p1 flag "truee": must be off or refuse (only exactly "true" may enable voice)
+ok 14 - p1 flag "truee": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 17.8878
+  type: 'test'
+  ...
+# PROBE p1 "false " -> OFF (session route 404); providerConnects=0
+# Subtest: p1 flag "false ": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "FALSE" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+ok 15 - p1 flag "false ": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 46.6595
+  type: 'test'
+  ...
+# Subtest: p1 flag "FALSE": must be off or refuse (only exactly "true" may enable voice)
+ok 16 - p1 flag "FALSE": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 20.4393
+  type: 'test'
+  ...
+# PROBE p1 "true " -> ENABLED (session minted 201; ws upgraded); providerConnects=0
+# Subtest: p1 flag "true ": must be off or refuse (only exactly "true" may enable voice)
+not ok 17 - p1 flag "true ": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 57.9317
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\p1-u10w-chkB-s1\\apps\\api\\tests\\zz-flag-probe.test.ts:139:3'
+  failureType: 'testCodeFailure'
+  error: 'value "true " enabled voice although it is not exactly "true": ENABLED (session minted 201; ws upgraded)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (D:\vc\.worktrees\p1-u10w-chkB-s1\apps\api\tests\zz-flag-probe.test.ts:166:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# PROBE p1 " true" -> ENABLED (session minted 201; ws upgraded); providerConnects=0
+# Subtest: p1 flag " true": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "tRue" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+not ok 18 - p1 flag " true": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 114.9554
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\p1-u10w-chkB-s1\\apps\\api\\tests\\zz-flag-probe.test.ts:139:3'
+  failureType: 'testCodeFailure'
+  error: 'value " true" enabled voice although it is not exactly "true": ENABLED (session minted 201; ws upgraded)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (D:\vc\.worktrees\p1-u10w-chkB-s1\apps\api\tests\zz-flag-probe.test.ts:166:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: p1 flag "tRue": must be off or refuse (only exactly "true" may enable voice)
+ok 19 - p1 flag "tRue": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 10.8305
+  type: 'test'
+  ...
+# PROBE p1 "true\\r\\n" -> ENABLED (session minted 201; ws upgraded); providerConnects=0
+# Subtest: p1 flag "true\\r\\n": must be off or refuse (only exactly "true" may enable voice)
+not ok 20 - p1 flag "true\\r\\n": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 48.9473
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\p1-u10w-chkB-s1\\apps\\api\\tests\\zz-flag-probe.test.ts:139:3'
+  failureType: 'testCodeFailure'
+  error: 'value "true\\r\\n" enabled voice although it is not exactly "true": ENABLED (session minted 201; ws upgraded)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (D:\vc\.worktrees\p1-u10w-chkB-s1\apps\api\tests\zz-flag-probe.test.ts:166:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# PROBE p1 "﻿true" -> ENABLED (session minted 201; ws upgraded); providerConnects=0
+# Subtest: p1 flag "﻿true": must be off or refuse (only exactly "true" may enable voice)
+# PROBE p1 "true\\u0000" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+not ok 21 - p1 flag "﻿true": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 52.1881
+  type: 'test'
+  location: 'D:\\vc\\.worktrees\\p1-u10w-chkB-s1\\apps\\api\\tests\\zz-flag-probe.test.ts:139:3'
+  failureType: 'testCodeFailure'
+  error: 'value "﻿true" enabled voice although it is not exactly "true": ENABLED (session minted 201; ws upgraded)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (D:\vc\.worktrees\p1-u10w-chkB-s1\apps\api\tests\zz-flag-probe.test.ts:166:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: p1 flag "true\\u0000": must be off or refuse (only exactly "true" may enable voice)
+ok 22 - p1 flag "true\\u0000": must be off or refuse (only exactly "true" may enable voice)
+  ---
+  duration_ms: 18.7568
+  type: 'test'
+  ...
+1..22
+# tests 22
+# suites 0
+# pass 15
+# fail 7
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 11921.1862

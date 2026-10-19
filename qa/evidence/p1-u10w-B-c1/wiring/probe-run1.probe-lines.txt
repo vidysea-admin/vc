@@ -1,0 +1,50 @@
+4:# PROBE p1 undefined -> OFF (session route 404); providerConnects=0
+11:# PROBE p1 "" -> OFF (session route 404); providerConnects=0
+18:# PROBE p1 "false" -> OFF (session route 404); providerConnects=0
+20:# PROBE p1 "0" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+26:# PROBE p1 "1" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+28:# PROBE p1 "TRUE" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+34:# PROBE p1 "True" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+53:# PROBE p1 " true" -> ENABLED (session minted 201; ws upgraded); providerConnects=0
+73:# PROBE p1 "true " -> ENABLED (session minted 201; ws upgraded); providerConnects=0
+93:# PROBE p1 "\\ttrue\\n" -> ENABLED (session minted 201; ws upgraded); providerConnects=0
+95:# PROBE p1 "yes" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+114:# PROBE p1 "on" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+116:# PROBE p1 "tru" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+122:# PROBE p1 "truee" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+141:# PROBE p1 "false " -> OFF (session route 404); providerConnects=0
+143:# PROBE p1 "FALSE" -> REFUSED-AT-STARTUP VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED must be "true" or "false" (got a different value); providerConnects=0
+155:# PROBE p2 real gates: err=GoLiveRefusedError msg=go-live refused for voice: p1-u0-amendment-signatures.md: B13-signed is not "SIGNED <ISO instant> by <approver name>" (found "PENDING"); g-publish.md: no Answer mongoConnect=0 listening=false
+156:# PROBE p2b default gatesDir: err=GoLiveRefusedError msg=go-live refused for voice: p1-u0-amendment-signatures.md: B13-signed is not "SIGNED <ISO instant> by <approver name>" (found "PENDING"); g-publish.md: no Answer listening=false
+163:# PROBE p3 no live -> err=VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED is true but no Live provider and cr mongoConnect=0 liveConnects=0 listening=false
+170:# PROBE p3 no crisis -> err=VoiceConfigError: VoiceConfigError: VC_VOICE_ENABLED is true but no Live provider and cr mongoConnect=0 liveConnects=0 listening=false
+177:# PROBE p3 no voice options at all -> err=GoLiveRefusedError: go-live refused for voice: p1-u0-amendment-signatures.md: B13-signed i mongoConnect=0 liveConnects=0 listening=false
+184:# PROBE p3 secret 31 bytes -> err=VoiceConfigError: VoiceConfigError: wsSecret must be at least 32 bytes mongoConnect=0 liveConnects=0 listening=false
+191:# PROBE p3 secret 0 bytes -> err=VoiceConfigError: VoiceConfigError: wsSecret must be at least 32 bytes mongoConnect=0 liveConnects=0 listening=false
+198:# PROBE p3 secret not Uint8Array (string) -> err=VoiceConfigError: VoiceConfigError: wsSecret must be at least 32 bytes mongoConnect=0 liveConnects=0 listening=false
+205:# PROBE p3 tracing LANGSMITH_TRACING=true -> err=VoiceConfigError: VoiceConfigError: LANGSMITH_TRACING switches request tracing on; voice mongoConnect=0 liveConnects=0 listening=false
+212:# PROBE p3 tracing LANGSMITH_TRACING_V2=1 -> err=VoiceConfigError: VoiceConfigError: LANGSMITH_TRACING_V2 switches request tracing on; vo mongoConnect=0 liveConnects=0 listening=false
+219:# PROBE p3 tracing LANGCHAIN_TRACING=yes -> err=VoiceConfigError: VoiceConfigError: LANGCHAIN_TRACING switches request tracing on; voice mongoConnect=0 liveConnects=0 listening=false
+226:# PROBE p3 tracing LANGCHAIN_TRACING_V2=ON -> err=VoiceConfigError: VoiceConfigError: LANGCHAIN_TRACING_V2 switches request tracing on; vo mongoConnect=0 liveConnects=0 listening=false
+233:# PROBE p3 tracing LANGCHAIN_TRACING_V2=' true ' -> err=VoiceConfigError: VoiceConfigError: LANGCHAIN_TRACING_V2 switches request tracing on; vo mongoConnect=0 liveConnects=0 listening=false
+240:# PROBE p3 base url http:// -> err=VoiceConfigError: VoiceConfigError: wsBaseUrl must be a ws:// or wss:// URL mongoConnect=0 liveConnects=0 listening=false
+247:# PROBE p3 base url https:// -> err=VoiceConfigError: VoiceConfigError: wsBaseUrl must be a ws:// or wss:// URL mongoConnect=0 liveConnects=0 listening=false
+254:# PROBE p3 base url empty -> err=VoiceConfigError: VoiceConfigError: wsBaseUrl must be a ws:// or wss:// URL mongoConnect=0 liveConnects=0 listening=false
+261:# PROBE p3 base url ws:// bare -> err=VoiceConfigError: VoiceConfigError: wsBaseUrl must be a ws:// or wss:// URL mongoConnect=0 liveConnects=0 listening=false
+268:# PROBE p3 base url with space -> err=VoiceConfigError: VoiceConfigError: wsBaseUrl must be a ws:// or wss:// URL mongoConnect=0 liveConnects=0 listening=false
+275:# PROBE p3 base url ftp -> err=VoiceConfigError: VoiceConfigError: wsBaseUrl must be a ws:// or wss:// URL mongoConnect=0 liveConnects=0 listening=false
+277:# PROBE p3env env secret unset -> VoiceConfigError
+283:# PROBE p3env env secret short -> VoiceConfigError
+284:# PROBE p3env env base unset -> VoiceConfigError
+291:# PROBE p4 {} -> sessionRoute=404 wsUpgrade=404 rawUpgradeGET=err:UND_ERR_INVALID_ARG liveConnects=0
+292:# PROBE p4 {"VC_VOICE_ENABLED":"false"} -> sessionRoute=404 wsUpgrade=404 rawUpgradeGET=err:UND_ERR_INVALID_ARG liveConnects=0
+299:# PROBE p5 wrongSecret=401 rightSecretForged=upgraded algNone=401 pathMismatch=401 providerBackendsBeforeStart=0
+300:# PROBE p5b validTokenReachesProvider backends=1; reuseOfSpentToken=401
+307:# PROBE p6a events=stop-called > db-close(usage=64) > stop-returned > ws-closed wsCode=1001 providerClosed=true
+314:# PROBE p6b mode=released took=261ms events=esc-start > stop-called > release > esc-delivered > db-close > stop-returned
+317:# PROBE p6b mode=never took=1209ms events=esc-start > stop-called > db-close > stop-returned
+325:# PROBE p6c stop() during gated connect -> resolved (stop resolved in 2ms)
+326:# PROBE p6c2 after release: provider sessions created=1 closedFlags=[true] liveSessionsStats(not exposed)
+333:# PROBE p7a calls=1 tenantId=tenant-a sessionId=th-w threadId=th-w defaultNotifications=0 flags=1
+341:# PROBE p7b notifications=2 uniqueIds=2 kinds=crisis_escalation sessionIds=th-w flags=1
+349:# PROBE p7c notifications=2 uniqueIds=2
