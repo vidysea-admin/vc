@@ -3,7 +3,7 @@
 **Criteria:** one per row of `qa/evidence/p1-u12/trace.md` (30 rows: 24 MOCK, 5 REAL out of scope, A2a NOT PROVEN)
 **Goal task:** none
 **Date:** 2026-10-19
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 0 FAIL, verdict 8b3f52f; cycle 1 PASS, verdict 9a0016a)
 **Fix cycle:** 1 of max 2
 **Policy-Version:** proportional-verification/2026-10-18.15
 **Tier:** M (verification unit, no product code changed)
