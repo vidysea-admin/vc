@@ -1,0 +1,153 @@
+/** CHECKER scratch (p1-iss330-check): BOM outcome proof through the REAL runner entries. Not product code. */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, existsSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { parseP1Args, type P1Args } from "./run-eval.js";
+import { runKb } from "./run-kb.js";
+import { runH2h } from "./run-h2h.js";
+import { runProbes } from "./run-probes.js";
+import { runLatency } from "./run-latency.js";
+import { readLedger } from "./budget.js";
+
+const BOM = "﻿";
+const NOW = () => new Date("2026-10-17T10:00:00Z");
+const GATE = (() => {
+  const path = join(mkdtempSync(join(tmpdir(), "vc-gate-")), "g-real.md");
+  writeFileSync(path, "# G-REAL\n\nAnswered: 2026-10-17T00:00:00+05:30 - A - Umesh\n", "utf-8");
+  return path;
+})();
+const ENV = { VC_G_REAL: "1", VC_REAL_MODEL: "ollama:glm-5.3-flash", OLLAMA_API_KEY: "k" };
+const hit = (turnId: string, sessionId = "s-1") => ({ turnId, sessionId, score: 0.9, turn: { text: `passage ${turnId}` }, session: {} });
+
+function fakeOllama() {
+  const seen: unknown[] = [];
+  const fetchImpl = (async (_u: unknown, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
+    seen.push(body.messages.map((m) => m.content));
+    const user = JSON.parse(body.messages[1]!.content) as Record<string, unknown>;
+    const passages = user["passages"] as { node_id: string }[] | undefined;
+    const out = passages
+      ? passages.length > 0
+        ? { answer: "grounded", verdict: "correct", insufficient_coverage: false, web_used: false, source_node_ids: [passages[0]!.node_id] }
+        : { answer: "x", verdict: "insufficient", insufficient_coverage: true, web_used: false, source_node_ids: [] }
+      : { english: "how does a student get a germany visa", answer: "a" };
+    return new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify(out) }, done: true }), { status: 200 });
+  }) as typeof fetch;
+  return { fetchImpl, seen };
+}
+
+const GOLD_Q = [
+  { id: "g-en", lang: "en", country: "USA", theme: "tuition", question: "SYNTHETIC english tuition question", expectedTurnIds: ["t-en"], expectedSessionIds: [] },
+  { id: "g-hi", lang: "hinglish", country: "Germany", theme: "visa", question: "SYNTHETIC-HI germany visa kaise milta hai", expectedTurnIds: ["t-hi"], expectedSessionIds: [] },
+];
+const goldenText = (header: string | undefined, nl = "\n") => [...(header === undefined ? [] : [header]), ...GOLD_Q.map((q) => JSON.stringify(q))].join(nl);
+const FIXTURE = {
+  schemaVersion: 1, source: "synthetic", recordedAt: "2026-10-17T00:00:00Z",
+  search: [{ query: "SYNTHETIC english tuition question", hits: [hit("t-en")] }, { query: "how does a student get a germany visa", hits: [hit("t-hi", "s-2")] }],
+};
+const ask = (internal: string[]) => ({ answer: "ra", verdict: "correct", insufficient_coverage: false, web_used: false, sources: { internal: internal.map((node_id) => ({ node_id, text: `KB passage ${node_id}` })), web: [] } });
+const PROBES = { schemaVersion: 1, source: "synthetic", cases: [{ id: "p-ok", question: "SYNTHETIC in-KB question", expectServed: true, ask: ask(["n-1"]) }] };
+const EXPERTS = { source: "synthetic", experts: [{ questionId: "g-en", text: "x", author: "author-1" }, { questionId: "g-hi", text: "y", author: "author-2" }] };
+
+function harness() {
+  const dir = mkdtempSync(join(tmpdir(), "vc-chk330-"));
+  const outDir = join(dir, "reports"); const ledger = join(dir, "ledger.jsonl");
+  const { fetchImpl, seen } = fakeOllama();
+  const deps = { env: ENV, gateFile: GATE, now: NOW, fetchImpl };
+  const w = (name: string, content: string | Buffer): string => { const p = join(dir, name); writeFileSync(p, content); return p; };
+  const args = (extra: string[]): P1Args => ({ ...parseP1Args(["--real", ...extra]), outDir, ledger });
+  const untouched = (label: string): void => { assert.equal(existsSync(ledger), false, `${label}: no ledger`); assert.equal(seen.length, 0, `${label}: no request`); };
+  return { dir, outDir, ledger, seen, deps, w, args, untouched };
+}
+const pick = (o: { status: string; mode: string; report: unknown }) => JSON.stringify({ s: o.status, m: o.mode, r: o.report });
+
+test("C1/C2 equivalence: BOM-prefixed golden/fixture/probes/experts give the same outcome as BOM-less through the real runners", async () => {
+  const run = async (bom: boolean) => {
+    const h = harness();
+    const p = bom ? BOM : "";
+    const golden = h.w("g.jsonl", p + goldenText('{"source":"synthetic"}'));
+    const goldenCrlf = h.w("gc.jsonl", p + goldenText('{"source":"synthetic"}', "\r\n"));
+    const fixture = h.w("f.json", p + JSON.stringify(FIXTURE));
+    const cases = h.w("p.json", p + JSON.stringify(PROBES));
+    const experts = h.w("e.json", p + JSON.stringify(EXPERTS));
+    const out: string[] = [];
+    const kb = await runKb(h.args([`--golden=${golden}`, `--fixture=${fixture}`]), h.deps); out.push(pick(kb));
+    const kb2 = await runKb(h.args([`--golden=${goldenCrlf}`, `--fixture=${fixture}`]), h.deps); out.push(pick(kb2));
+    const lat = await runLatency(h.args([`--golden=${golden}`, `--fixture=${fixture}`]), h.deps); out.push(lat.status);
+    const hh = await runH2h(h.args([`--golden=${golden}`, `--fixture=${fixture}`, `--experts=${experts}`]), h.deps); out.push(hh.status);
+    const pr = await runProbes(h.args([`--cases=${cases}`]), h.deps); out.push(pick(pr));
+    return { out, reqs: h.seen.length, charges: readLedger(h.ledger).filter((e) => e.kind === "charge").length };
+  };
+  const plain = await run(false);
+  const bom = await run(true);
+  assert.ok(plain.reqs > 0 && plain.charges > 0, "the plain run really exercised the provider");
+  assert.equal(JSON.stringify(bom.out), JSON.stringify(plain.out), "BOM outcome identical to BOM-less");
+  assert.equal(bom.reqs, plain.reqs);
+  assert.equal(bom.charges, plain.charges);
+});
+
+test("C1 bad provenance after a BOM is refused before any ledger line or request (golden, all three golden runners)", async () => {
+  const h = harness();
+  const mixed = h.w("mixed.jsonl", BOM + goldenText('{"source":"Recorded"}'));
+  const rec = h.w("rec.jsonl", BOM + goldenText('{"source":"recorded"}'));
+  const none = h.w("none.jsonl", BOM + goldenText(undefined));
+  const crlfMixed = h.w("cm.jsonl", BOM + goldenText('{"source":"Recorded"}', "\r\n"));
+  for (const [name, run] of [["run-kb", runKb], ["run-latency", runLatency], ["run-h2h", runH2h]] as const) {
+    const extra = name === "run-h2h" ? ["--allow-placeholder-experts"] : [];
+    const fx = h.w(`fx-${name}.json`, JSON.stringify(FIXTURE));
+    await assert.rejects(run(h.args([...extra, `--golden=${mixed}`, `--fixture=${fx}`]), h.deps), /must be exactly "synthetic" or "recorded"/, `${name} bom+bad`);
+    await assert.rejects(run(h.args([...extra, `--golden=${crlfMixed}`, `--fixture=${fx}`]), h.deps), /must be exactly "synthetic" or "recorded"/, `${name} bom+crlf+bad`);
+    await assert.rejects(run(h.args([...extra, `--golden=${rec}`, `--fixture=${fx}`]), h.deps), /source "recorded".*--anonymised/s, `${name} bom+recorded w/o anonymised`);
+    await assert.rejects(run(h.args([...extra, `--golden=${none}`, `--fixture=${fx}`]), h.deps), /declares no provenance/, `${name} bom+headerless`);
+  }
+  h.untouched("golden");
+});
+
+test("C2 bad provenance after a BOM refused for fixture, probe set and experts", async () => {
+  const h = harness();
+  const golden = h.w("g.jsonl", goldenText('{"source":"synthetic"}'));
+  const fxBad = h.w("fxbad.json", BOM + JSON.stringify({ ...FIXTURE, source: "Recorded" }));
+  const fxRec = h.w("fxrec.json", BOM + JSON.stringify({ ...FIXTURE, source: "recorded" }));
+  await assert.rejects(runKb(h.args([`--golden=${golden}`, `--fixture=${fxBad}`]), h.deps), /Recorded|synthetic/);
+  await assert.rejects(runKb(h.args([`--golden=${golden}`, `--fixture=${fxRec}`]), h.deps), /recorded|anonymised/i);
+  const prBad = h.w("prbad.json", BOM + JSON.stringify({ ...PROBES, source: "Recorded" }));
+  await assert.rejects(runProbes(h.args([`--cases=${prBad}`]), h.deps), /Recorded|synthetic/);
+  const fx = h.w("fx.json", JSON.stringify(FIXTURE));
+  const exBare = h.w("exbare.json", BOM + JSON.stringify(EXPERTS.experts));
+  const exBad = h.w("exbad.json", BOM + JSON.stringify({ ...EXPERTS, source: "Recorded" }));
+  await assert.rejects(runH2h(h.args([`--golden=${golden}`, `--fixture=${fx}`, `--experts=${exBare}`]), h.deps), /declares no source/);
+  await assert.rejects(runH2h(h.args([`--golden=${golden}`, `--fixture=${fx}`, `--experts=${exBad}`]), h.deps), /Recorded|synthetic/);
+  h.untouched("c2");
+});
+
+test("hostile: double BOM, BOM mid-file / mid-line, UTF-16 BOM, BOM-only are all refused (never silently accepted) with nothing sent", async () => {
+  const h = harness();
+  const fx = h.w("fx.json", JSON.stringify(FIXTURE));
+  const msgs: Record<string, string> = {};
+  const attempt = async (label: string, golden: string) => {
+    try { await runKb(h.args([`--golden=${golden}`, `--fixture=${fx}`]), h.deps); msgs[label] = "ACCEPTED"; }
+    catch (e) { msgs[label] = (e as Error).message.replace(/\\/g, "/").replace(/^.*?:(\d+)/, "<path>:$1").slice(0, 140); }
+  };
+  await attempt("double-bom", h.w("d.jsonl", BOM + BOM + goldenText('{"source":"synthetic"}')));
+  await attempt("bom-line2-start", h.w("m2.jsonl", '{"source":"synthetic"}\n' + BOM + goldenText(undefined)));
+  await attempt("bom-mid-line", h.w("m3.jsonl", '{"source":"synthetic"}\n' + JSON.stringify(GOLD_Q[0]).replace('"lang"', BOM + '"lang"') + "\n" + JSON.stringify(GOLD_Q[1])));
+  await attempt("bom-mid-header", h.w("m4.jsonl", BOM + '{"source":"syn' + BOM + 'thetic"}\n' + goldenText(undefined)));
+  await attempt("bom-only", h.w("bo.jsonl", BOM));
+  const u16 = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(goldenText('{"source":"synthetic"}'), "utf16le")]);
+  await attempt("utf16le-bom", h.w("u16.jsonl", u16));
+  const u16be = Buffer.from(goldenText('{"source":"synthetic"}'), "utf16le").swap16();
+  await attempt("utf16be-bom", h.w("u16be.jsonl", Buffer.concat([Buffer.from([0xfe, 0xff]), u16be])));
+  console.log("HOSTILE_RESULTS " + JSON.stringify(msgs, null, 1));
+  for (const [k, v] of Object.entries(msgs)) assert.notEqual(v, "ACCEPTED", k);
+  h.untouched("hostile-golden");
+  const dFx = h.w("dfx.json", BOM + BOM + JSON.stringify(FIXTURE));
+  const g = h.w("g.jsonl", goldenText('{"source":"synthetic"}'));
+  await assert.rejects(runKb(h.args([`--golden=${g}`, `--fixture=${dFx}`]), h.deps), /invalid JSON/);
+  await assert.rejects(runProbes(h.args([`--cases=${h.w("dp.json", BOM + BOM + JSON.stringify(PROBES))}`]), h.deps), /invalid JSON/);
+  await assert.rejects(runH2h(h.args([`--golden=${g}`, `--fixture=${fx}`, `--experts=${h.w("de.json", BOM + BOM + JSON.stringify(EXPERTS))}`]), h.deps), /invalid JSON|JSON/);
+  const u16Fx = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(JSON.stringify(FIXTURE), "utf16le")]);
+  await assert.rejects(runKb(h.args([`--golden=${g}`, `--fixture=${h.w("u16fx.json", u16Fx)}`]), h.deps), /invalid JSON/);
+  h.untouched("hostile-others");
+});

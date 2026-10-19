@@ -3,8 +3,17 @@ import { readFileSync } from "node:fs";
 import { z } from "zod";
 import { GoldSessionSchema, type GoldSession } from "./types.js";
 
+/**
+ * ISS-330: a Windows editor saves JSON/JSONL with a leading UTF-8 BOM, and readFileSync("utf-8") keeps it as U+FEFF,
+ * which JSON.parse refuses (and which hid the golden provenance header). The one shared helper: every eval input
+ * parser strips exactly one leading BOM from the file text before it splits lines or JSON-parses.
+ */
+export function stripBom(raw: string): string {
+  return raw.replace(/^\uFEFF/, "");
+}
+
 export function parseDataset(raw: string, sourceLabel: string): GoldSession[] {
-  const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  const lines = stripBom(raw).split(/\r?\n/).filter((line) => line.trim().length > 0);
   const sessions: GoldSession[] = [];
   const seenIds = new Set<string>();
   for (const [i, line] of lines.entries()) {
@@ -78,7 +87,7 @@ export interface GoldenFile {
 }
 
 export function parseGoldenFile(raw: string, sourceLabel: string): GoldenFile {
-  const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  const lines = stripBom(raw).split(/\r?\n/).filter((line) => line.trim().length > 0);
   const questions: GoldenQuestion[] = [];
   const seen = new Set<string>();
   let source: Provenance | undefined;
@@ -148,7 +157,7 @@ export type KbFixture = z.infer<typeof KbFixtureSchema>;
 export function parseKbFixture(raw: string, sourceLabel: string): KbFixture {
   let json: unknown;
   try {
-    json = JSON.parse(raw);
+    json = JSON.parse(stripBom(raw));
   } catch (err) {
     throw new Error(`${sourceLabel}: invalid JSON (${(err as Error).message})`);
   }

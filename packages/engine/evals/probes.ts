@@ -8,7 +8,7 @@
  * runtime rule in `mcp/university-kb` and is judged against it).
  */
 import { z } from "zod";
-import { ProvenanceSchema } from "./dataset.js";
+import { ProvenanceSchema, stripBom } from "./dataset.js";
 
 /** Placeholder fixed text; U6 owns the real wording, the probes only require it be constant. */
 export const NO_SOURCED_ANSWER_TEXT = "I don't have a sourced answer for that yet.";
@@ -72,7 +72,7 @@ export type ProbeSet = z.infer<typeof ProbeSetSchema>;
 export function parseProbeSet(raw: string, label: string): ProbeSet {
   let json: unknown;
   try {
-    json = JSON.parse(raw);
+    json = JSON.parse(stripBom(raw));
   } catch (err) {
     throw new Error(`${label}: invalid JSON (${(err as Error).message})`);
   }

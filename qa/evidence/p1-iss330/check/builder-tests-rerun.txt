@@ -1,0 +1,46 @@
+[testlock] running slot 1 (free RAM 2.99 GB): pnpm -C packages/engine exec tsx --test evals/dataset.test.ts evals/real-bodies.test.ts
+✔ the dataset has at least 20 sessions (22.0392ms)
+✔ the dataset covers every required stratum from the T-009 brief (12.5036ms)
+✔ at least 3 sessions carry distractor chatter (8.5944ms)
+✔ every session id is unique (11.0351ms)
+✔ every gold fact's quote is a verbatim substring (whitespace-collapsed) of its cited turn (10.1382ms)
+✔ a crisis/concern session names its expectedEscalationTurnId, and that turn exists (10.4339ms)
+✔ parseDataset refuses invalid JSON with a line number (1.4705ms)
+✔ parseDataset refuses a duplicate session id (11.8048ms)
+✔ stripBom removes exactly one leading U+FEFF and nothing else (0.4282ms)
+✔ parseGoldenFile: a header line with a leading BOM still parses as source=synthetic (ISS-330) (1.1315ms)
+✔ parseGoldenFile: BOM + CRLF line endings still parse as source=synthetic (ISS-330) (0.4225ms)
+✔ parseGoldenFile: a blank first line (with and without BOM) before the header still parses as source=synthetic (ISS-330) (1.484ms)
+✔ parseGoldenFile: a BOM on a header-less file parses and declares no provenance (ISS-330) (0.5353ms)
+✔ parseGoldenFile: a BOM does not weaken the provenance check (bad source still refused) (1.7799ms)
+✔ parseDataset: a BOM before the first session line is stripped (ISS-330) (30.2054ms)
+✔ parseKbFixture / parseProbeSet / parseCoverageFixture / parseKbGaps: a leading BOM is stripped (ISS-330) (1.9516ms)
+✔ run-kb REAL (ollama): English is scored from the fixture with no model call; Hindi/Hinglish is rewritten through the provider, charged first, and scored with the same hit@3 scorer (394.4596ms)
+✔ run-kb REAL (ollama): a rewrite that matches no recorded query is an unrecorded miss, not a hit (26.5213ms)
+✔ run-probes REAL (ollama): an honest model passes the serve rule; the model sees ONLY the recorded internal passages (none for the out-of-KB probe) (37.523ms)
+✔ run-probes REAL (ollama): a model that fabricates an answer for the out-of-KB probe is a recorded violation, not a quiet refusal (41.0052ms)
+✔ run-probes REAL (B1): a 30-case SYNTHETIC probe set with 0 violations is NOT PROVEN, never PASS; the same 30 cases declared 'recorded' (and --anonymised) can PASS (450.571ms)
+✔ run-probes REAL (B2): the model is shown the probe's retrieved passage text, never the recorded /ask answer; a probe with internal sources but no passage text makes 0 requests and is counted as excluded (29.7457ms)
+✔ run-probes REAL (B2): an honest model no longer mis-scores the shipped sample set (its probes have no passage text, so they are excluded, not failed) (56.3007ms)
+✔ G1: a REAL run refuses a source:'recorded' --fixture / --cases / --experts without --anonymised, before any ledger line or request; --anonymised lets it through (64.2516ms)
+✔ run-latency REAL (ollama): 20 sequential answers through the provider, each charged; first-token is recorded as the full-answer bound (92.2595ms)
+✔ run-latency REAL (ollama): a delayed provider shows up in BOTH first-token and full time (a fabricated early first-token would be caught); the verdict is labelled model-hop only (1455.7002ms)
+✔ run-latency REAL (ollama): an empty golden set is refused before the run starts (no ledger, no request) (5.0536ms)
+✔ run-h2h REAL (ollama): VC answers come from the provider, pairs stay blind, the key holds a random seed, and the tally is NOT PROVEN without ratings (50.4971ms)
+✔ run-h2h REAL (ollama): without --experts the run is refused (ISS-294) unless --allow-placeholder-experts, and then no placeholder text reaches the pairs or sheets; an --experts file missing a question is refused before any spend (48.4503ms)
+✔ A24: the per-run cap stops a default REAL body mid-run (run-latency at an absurd price): aborted-budget report, requests stop (30.6342ms)
+✔ default unchanged: Gemini selected (unset or 'gemini') keeps the REAL text bodies NOT WIRED for every runner; run-live refuses non-Gemini (A10 LiveRefusedError) (25.016ms)
+✔ a bad Ollama config or a missing fixture refuses BEFORE the budget run starts (no ledger entry, no request) (6.3312ms)
+✔ golden provenance (B13/D-100): a REAL run refuses a --golden with no source header, a 'recorded' one without --anonymised, and a bad source value; mock mode and an anonymised recorded set are unchanged (83.092ms)
+✔ ISS-296: a bare-array --experts is refused under --real with a message that asks for {source, experts}, before any ledger line or request (64.521ms)
+✔ ISS-297: a mixed-case or unknown source gives one clear refusal (not a raw schema dump) for the fixture, the probe set and the experts file (102.4371ms)
+✔ run-kb words() keeps Devanagari combining marks: two different words no longer collapse to the same consonant fragments (3.804ms)
+✔ ISS-330: a BOM-prefixed golden header, KB fixture and --experts file are all read under --real (no 'invalid JSON', no lost provenance) (175.0827ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20083.1362
