@@ -24,3 +24,17 @@ State: ALL mandatory checks complete. Verdict FAIL (W5, low). Nothing left to re
 - W6-F1a equivalent survivor; W2-F2/C19-F1 killed only by runner timeout (P5).
 - agent_min is gross (includes test-lock waits).
 - Did not read the other coordinator's verdict, checkpoint or evidence.
+
+---
+# Cycle 2 (repair check) - 2026-10-19T09:41:04+05:30
+
+Code identity: head 1c9fafb (code 6addcba), repair base 0c2b981, whole-unit base 76b89c5. Policy proportional-verification/2026-10-18.15, tier L, Mode A repair.
+State: ALL mandatory checks complete. Verdict PASS. Nothing to resume.
+
+## Evidence identities (cycle 2)
+11. api voice+chat 7 test files, 133/133 | C1-C19, W1-W10 | bound tree @1c9fafb (code 6addcba), testlock, TMP/TEMP on D: | me | qa/evidence/p1-u10w-B-c2/main-run.txt
+12. flag probe, 22 values through real startApi, 22/22 pass, providerConnects=0 | W5/W6 | scratch tree p1-u10w-chkB-s1 @1c9fafb | me | probe-p1-at-1c9fafb.txt
+13. falsification W5: trim restored in scratch copy -> tests 2 (W5 unit, ERR_ASSERTION) and 3 (W6) red, probe 7/22 red; restored | me | falsify-w5.txt, probe-p1-trim-restored.txt
+14. repair diff 0c2b981..1c9fafb (apps/packages): voice.ts:160, voice-wiring.test.ts; whole-unit scope scan clean | me
+15. manifest lint: ERROR no-pre-check is a parser artifact of '132 -> 133' in the Pre-check notes (PROPOSED-ISSUE in the verdict)
+Reused from cycle 1: identities 1-10 for criteria whose inputs are unchanged.
