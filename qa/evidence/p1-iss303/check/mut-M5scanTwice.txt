@@ -1,0 +1,5 @@
+  AssertionError [ERR_ASSERTION]: benign short: handleTurn scans once
+ℹ fail 2
+ℹ pass 7
+✖ CHK2 64 KiB + 1 and larger: 413 with helpline, never scanned, no model call, nothing stored (1106.0903ms)
+✖ CHK8 crisis scan count per turn (instrumented copy) (650.2645ms)

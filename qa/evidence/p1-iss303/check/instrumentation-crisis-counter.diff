@@ -1,0 +1,12 @@
+diff --git a/packages/engine/src/guards/crisis.ts b/packages/engine/src/guards/crisis.ts
+index ab20695..757aedd 100644
+--- a/packages/engine/src/guards/crisis.ts
++++ b/packages/engine/src/guards/crisis.ts
+@@ -746,6 +746,7 @@ function matchAll(text: string, patterns: readonly RegExp[]): string[] {
+  * pattern runs once against the whole squeezed turn, at the pattern's own level.
+  */
+ export function crisisGuard(text: string): CrisisCheckResult {
++  { const g = globalThis as any; if (g.__cg) g.__cg.push(String(new Error().stack).split(String.fromCharCode(10))[2].trim() + ' len=' + text.length); }
+   if (!text || text.trim().length === 0) {
+     return { level: "none", matched: [] };
+   }

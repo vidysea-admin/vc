@@ -88,6 +88,7 @@ import {
 } from "@vc/schemas";
 import {
   StudentInputInvalidError,
+  TELE_MANAS_LINE,
   crisisGuard,
   rankOptions,
   runStudentTurn,
@@ -108,8 +109,13 @@ type Db = ReturnType<typeof tenantScopedDb>;
 
 /** The explicit A20 config flag. Default off. */
 export const CHAT_FLAG_ENV = "VC_CHAT_ENABLED";
-/** 256 KiB: far above the 4000-character turn limit, so a crisis phrase anywhere in an over-long message is still scanned. */
-export const MAX_CHAT_BODY_BYTES = 256 * 1024;
+/**
+ * ISS-303 (D-103): 64 KiB, the same scan budget as the anonymous route (MAX_ANONYMOUS_BODY_BYTES, ISS-135/ISS-300): about 16 times the
+ * 4000-character turn limit, so a crisis phrase anywhere in an over-long message is still scanned. The crisis scan runs before the limiter
+ * (A23), so it is unlimited per student; the cap bounds its CPU per request (it was 256 KiB, 40-210 ms each). A larger body is a 413 on the
+ * turn route that still carries the helpline, and is never scanned.
+ */
+export const MAX_CHAT_BODY_BYTES = 64 * 1024;
 export const CHAT_WINDOW_MS = 60_000;
 export const CHAT_MAX_LIMITER_KEYS = 100_000;
 /** p1-u8r M2: per student and thread, one crisis turn in this window is stored, flagged, escalated and counted (a turn of a higher level than the holder's runs in full and takes over the slot: cycle 1 H1). */
@@ -477,15 +483,17 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     return facts.map((f) => ({ key: f.key, value: f.value, source: "pathlynks" as const }));
   }
 
-  async function readJson(req: ApiRequest): Promise<{ ok: true; value: unknown } | { ok: false; res: ApiResponse }> {
+  async function readJson(req: ApiRequest, opts: { helpline?: boolean } = {}): Promise<{ ok: true; value: unknown } | { ok: false; res: ApiResponse }> {
+    // ISS-303: on the turn route a refused (too large) body is not scanned, so the 413 itself carries the static helpline, as on the anonymous route.
+    const tooLarge = (): { ok: false; res: ApiResponse } => ({ ok: false, res: opts.helpline ? respond(413, { error: "body_too_large", helpline: TELE_MANAS_LINE }) : fail(413, "body_too_large") });
     let raw: string;
     try {
       raw = await req.readBody(MAX_CHAT_BODY_BYTES);
     } catch (err) {
-      if (err instanceof BodyTooLargeError) return { ok: false, res: fail(413, "body_too_large") };
+      if (err instanceof BodyTooLargeError) return tooLarge();
       throw err;
     }
-    if (Buffer.byteLength(raw, "utf8") > MAX_CHAT_BODY_BYTES) return { ok: false, res: fail(413, "body_too_large") };
+    if (Buffer.byteLength(raw, "utf8") > MAX_CHAT_BODY_BYTES) return tooLarge();
     try {
       return { ok: true, value: JSON.parse(raw) };
     } catch {
@@ -539,22 +547,23 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
   async function handleTurn(req: ApiRequest, who: Who, params: Record<string, string>): Promise<ApiResponse> {
     const { ctx, db, now } = who;
     const threadId = params.threadId!;
-    const body = await readJson(req);
+    const body = await readJson(req, { helpline: true });
     if (!body.ok) return body.res;
     const obj = body.value;
     if (typeof obj !== "object" || obj === null || Array.isArray(obj)) return fail(400, "invalid_request");
     const text = (obj as { text?: unknown }).text;
     if (typeof text !== "string") return fail(400, "invalid_request");
     // An over-long message is refused, EXCEPT that a crisis phrase anywhere in it still gets the fixed crisis answer (U6h L5). That turn is never stored.
+    // ISS-303: one scan of the full text serves both the over-long exception and the rate-limit exemption below (it was two scans of up to the cap).
+    const level = crisisGuard(text).level;
     const overlong = text.length > MAX_TURN_TEXT_LENGTH;
-    if (overlong && crisisGuard(text).level === "none") return fail(400, "invalid_request");
+    if (overlong && level === "none") return fail(400, "invalid_request");
     const parsed = TurnRequestSchema.safeParse({ ...(obj as object), text: overlong ? text.slice(0, MAX_TURN_TEXT_LENGTH) : text });
     if (!parsed.success) return fail(400, "invalid_request");
     const clientTurnId = parsed.data.clientTurnId;
     if (clientTurnId !== undefined && !PATH_ID_PATTERN.test(clientTurnId)) return fail(400, "invalid_request");
 
     // A23: a crisis message is never rate limited; the scan runs on the full text before the limiter is consulted.
-    const level = crisisGuard(text).level;
     const crisis = level !== "none";
     if (!crisis) {
       const limited = limitCheck(ctx);
