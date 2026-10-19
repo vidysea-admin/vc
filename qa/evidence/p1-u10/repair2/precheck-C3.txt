@@ -1,0 +1,21 @@
+[testlock] running slot 0 (free RAM 5.93 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^(C3[:/]|D-096) tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2165.1351ms)
+✔ tests\voice-history.test.ts (2177.6455ms)
+✔ tests\voice-limits.test.ts (2226.5805ms)
+✔ C3: audio in reaches the provider; model audio comes back as binary; transcripts are events with monotonic ids; state follows the finals (96.7377ms)
+✔ C3: odd-length audio is refused with bad_audio and the session continues (72.656ms)
+✔ C3: interrupt reaches the provider, end closes the socket and the provider session (61.8987ms)
+✔ C3: control-message misuse: junk, extra fields, audio before start, a second start, a wrong thread, too many bad messages (92.1223ms)
+✔ C3: start with a thread other than the token's is refused (forbidden) and the socket closes (31.2551ms)
+✔ C3: a frame over the size limit closes the socket (1009) and nothing buffers without limit (47.1191ms)
+✔ C3: a numeric fact heard in speech is read back for confirmation; accept uses it, reject erases it; a non-numeric fact is only proposed (80.9749ms)
+✔ C3: rejecting a read-back figure erases the proposed fact (63.1609ms)
+✔ D-096 item 3: after a crisis the fixed audio and flag are forwarded, model audio is dropped, and nothing is synthesised here (76.0773ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2803.5767

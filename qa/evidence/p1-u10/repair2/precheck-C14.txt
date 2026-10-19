@@ -1,0 +1,16 @@
+[testlock] running slot 0 (free RAM 5.8 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^C14[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2265.1295ms)
+✔ tests\voice-history.test.ts (2311.2428ms)
+✔ tests\voice-limits.test.ts (2294.4537ms)
+✔ C14: a crisis whose flag write is still in flight when the socket drops is flagged once and escalated once (176.4658ms)
+✔ C14: a crisis whose flag write is still in flight when the socket ends gracefully is flagged once and escalated once (139.919ms)
+✔ C14: a student fenced for erasure is the one crisis that is not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_fenced) (47.7261ms)
+✔ C14: an unconsented minor is flagged, not escalated, and the skip is logged text-free (voice_crisis_escalate_skipped_text_not_stored) (47.0325ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2734.8201

@@ -1,0 +1,14 @@
+[testlock] running slot 0 (free RAM 5.86 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^C17[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2194.5232ms)
+✔ tests\voice-history.test.ts (2139.2662ms)
+✔ tests\voice-limits.test.ts (2190.4017ms)
+✔ C17: an escalateForTenant factory that throws synchronously is retried, logged as voice_crisis_escalate_failed (text-free), and is never a persist_failed event (83.5229ms)
+✔ C17: a factory that throws once is retried and the escalation is delivered, with nothing logged (55.4064ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2310.3071

@@ -1,0 +1,15 @@
+[testlock] running slot 0 (free RAM 5.82 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^C13[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2292.7808ms)
+✔ tests\voice-history.test.ts (2230.2905ms)
+✔ tests\voice-limits.test.ts (2152.5327ms)
+✔ C13: an expired resume log is dropped when a reconnect asks for it (read), and replays nothing (171.9579ms)
+✔ C13: the prune timer drops an expired resume log although nobody reads it, and is not counted in the per-connection timers (60.5745ms)
+✔ C13: shutdown drops every retained resume log (no transcript events are kept after close) (63.1845ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2458.812

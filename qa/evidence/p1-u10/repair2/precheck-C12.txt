@@ -1,0 +1,20 @@
+[testlock] running slot 0 (free RAM 5.89 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^C12[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2511.4206ms)
+✔ tests\voice-history.test.ts (2531.5635ms)
+✔ tests\voice-limits.test.ts (2504.4137ms)
+✔ C12: a crisis flag write that fails once is retried once and stored; nothing is logged and the session continues (85.4419ms)
+✔ C12: a crisis flag write that keeps failing is tried twice, logged as voice_crisis_flag_failed (text-free) and never ends the session (56.4226ms)
+✔ C12: a crisis is escalated through the optional escalateForTenant port with the REDACTED words, like the text path (46.7729ms)
+✔ C12: no escalation port -> behaviour is exactly as before (the flag only) (47.1727ms)
+✔ C12: an under-18 student without guardian consent is flagged (ids and time) but never escalated: no text is kept for them (108.9657ms)
+✔ C12: a minor WITH guardian consent is escalated, like the text path (46.6336ms)
+✔ C12: an escalation that keeps failing is tried twice and logged as voice_crisis_escalate_failed (text-free); the flag does not depend on it (46.1092ms)
+✔ C12: an escalation that fails once is retried once and delivered, with nothing logged (46.0959ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3104.9183

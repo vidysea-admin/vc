@@ -1,0 +1,17 @@
+[testlock] running slot 0 (free RAM 6.12 GB): pnpm -C C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p1-u10/apps/api exec tsx --test --test-timeout=30000 --test-name-pattern ^C10[:/] tests/voice.test.ts tests/voice-audit.test.ts tests/voice-history.test.ts tests/voice-limits.test.ts
+✔ tests\voice-audit.test.ts (2351.6751ms)
+✔ tests\voice-history.test.ts (2231.1419ms)
+✔ tests\voice-limits.test.ts (2216.9847ms)
+✔ C10: B and C start together while A is active and A's drain is slow -> exactly one live provider session at the end, and the loser is told superseded (326.1573ms)
+✔ C10: a connection closed while it waits to supersede the old session never takes the student's slot (activeSessions returns to 0) (198.1183ms)
+✔ C10: a start whose provider connect never returns is closed by the start timer, and the socket slot and the student's lock are freed (63.0696ms)
+✔ C10: a start that arrived late gets its own budget: a slow but finishing connect is not cut short by the connection's first timer (77.4355ms)
+✔ C10: the start timer still closes a socket that never sent start (31.0659ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2945.7551
