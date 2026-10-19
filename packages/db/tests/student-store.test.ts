@@ -196,3 +196,66 @@ test("exporting a student returns their chat threads, turns, facts, usage and fl
   assert.equal(out.flags.length, 1);
   assert.ok(!JSON.stringify(out).includes("stu-2"));
 });
+
+// ---------------------------------------------------------------------------
+// p1-lk6 (D-104, D-105): the English KG keeps the original-language quote and the language label, both optional and additive.
+// ---------------------------------------------------------------------------
+
+test("p1-lk6: a proposed fact keeps the original-language quote and sourceLang next to its English value, and the quote is redacted like the value", async () => {
+  const { a, fakeDb } = setup();
+  const f = await proposeProfileFact(a, {
+    studentId: "stu-1",
+    key: "target_country",
+    value: "Germany",
+    quote: "मुझे जर्मनी जाना है, मेरा फोन 9876543210 है",
+    sourceLang: "hi",
+    threadId: "th-1",
+    turnId: "t1",
+  });
+  assert.equal(f.value, "Germany");
+  assert.equal(f.quote, "मुझे जर्मनी जाना है, मेरा फोन [PHONE] है");
+  assert.equal(f.sourceLang, "hi");
+  const stored = JSON.stringify(fakeDb.collection(COLLECTION_NAMES.profile_facts).all());
+  assert.ok(!stored.includes("9876543210"), "the stored quote carries no phone number");
+  const listed = (await listProfileFacts(a, { studentId: "stu-1" }))[0]!;
+  assert.deepEqual([listed.quote, listed.sourceLang], [f.quote, "hi"]);
+});
+
+test("p1-lk6: quote and sourceLang are optional: a fact proposed without them has neither field (old rows and old callers are unchanged)", async () => {
+  const { a } = setup();
+  const f = await proposeProfileFact(a, { studentId: "stu-1", key: "budget", value: "10 lakh" });
+  assert.ok(!("quote" in f) && !("sourceLang" in f));
+});
+
+test("p1-lk6: an unusable quote or language label (empty, over-long, not a language tag) is left out of the row and never fails the proposal", async () => {
+  const { a } = setup();
+  for (const [i, bad] of [{ quote: "   " }, { quote: "x".repeat(1001) }, { sourceLang: "not a tag!" }, { sourceLang: "" }].entries()) {
+    const f = await proposeProfileFact(a, { studentId: "stu-1", key: `k${i}`, value: "v", ...bad });
+    assert.ok(!("quote" in f) && !("sourceLang" in f), JSON.stringify(bad));
+  }
+});
+
+test("p1-lk6: proposing the same key again replaces the quote with the newer value's quote; without one the stale quote is removed; a confirmed fact keeps its own", async () => {
+  const { a } = setup();
+  await proposeProfileFact(a, { studentId: "stu-1", key: "budget", value: "10 lakh", quote: "दस लाख", sourceLang: "hi" });
+  const second = await proposeProfileFact(a, { studentId: "stu-1", key: "budget", value: "15 lakh", quote: "पंद्रह लाख", sourceLang: "hi" });
+  assert.deepEqual([second.value, second.quote], ["15 lakh", "पंद्रह लाख"]);
+  const third = await proposeProfileFact(a, { studentId: "stu-1", key: "budget", value: "20 lakh" });
+  assert.equal(third.value, "20 lakh");
+  assert.ok(!("quote" in third) && !("sourceLang" in third), "a quote of the old value must not stay beside the new one");
+  const confirmed = await proposeProfileFact(a, { studentId: "stu-1", key: "city", value: "Pune", quote: "पुणे" });
+  await decideProfileFact(a, { studentId: "stu-1", factId: confirmed.factId, action: "confirm" });
+  const again = await proposeProfileFact(a, { studentId: "stu-1", key: "city", value: "Delhi", quote: "दिल्ली" });
+  assert.deepEqual([again.value, again.quote, again.status], ["Pune", "पुणे", "confirmed"]);
+});
+
+test("p1-lk6: a student correcting a fact whose quote supports the old value drops the quote (the corrected value is the student's own words)", async () => {
+  const { a } = setup();
+  const f = await proposeProfileFact(a, { studentId: "stu-1", key: "budget", value: "10 lakh", quote: "दस लाख", sourceLang: "hi" });
+  const done = await decideProfileFact(a, { studentId: "stu-1", factId: f.factId, action: "correct", value: "12 lakh" });
+  assert.equal(done?.value, "12 lakh");
+  assert.ok(!("quote" in done!), "the old quote no longer supports the corrected value");
+  const kept = await proposeProfileFact(a, { studentId: "stu-1", key: "city", value: "Pune", quote: "पुणे" });
+  const confirmed = await decideProfileFact(a, { studentId: "stu-1", factId: kept.factId, action: "confirm" });
+  assert.equal(confirmed?.quote, "पुणे", "confirming keeps the quote");
+});

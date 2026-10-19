@@ -6,7 +6,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { SignJWT } from "jose";
 import { WebSocket } from "ws";
-import { LiveConfigError, LiveSession, MockLiveProvider, type LiveProvider } from "@vc/providers";
+import { LiveConfigError, LiveSession, MockLiveProvider, MockProvider, type LiveProvider } from "@vc/providers";
+import { createStudentFactExtractor } from "@vc/engine";
 import { confirmErasure, createChatThread, getStudentUsage, listChatTurns, requestErasure, usageMonth } from "@vc/db";
 import { VoiceSessionResponseSchema } from "@vc/schemas";
 import { GoLiveRefusedError } from "../src/go-live-gate.js";
@@ -41,7 +42,7 @@ import {
   type VoiceWorld,
   type VoiceWorldOptions,
 } from "./voice-fixtures.js";
-import { APPROVER, NOW, GERMANY_QUESTION, minor, profilePath } from "./chat-fixtures.js";
+import { APPROVER, NOW, GERMANY_QUESTION, SKILLS_DIR, minor, profilePath } from "./chat-fixtures.js";
 
 async function withWorld(fn: (w: VoiceWorld, threadId: string) => Promise<void>, opts?: VoiceWorldOptions): Promise<void> {
   const w = await voiceWorld(opts);
@@ -1642,5 +1643,64 @@ test("C19: a crisis sink write that never settles cannot hold the slot: finalize
       assert.equal(again.client.closed, false, "the student can start again");
     },
     { deps: { drainTimeoutMs: 100, escalateForTenant: () => () => new Promise<never>(() => undefined) } as Partial<VoiceApiDeps> },
+  );
+});
+
+// ---------------------------------------------------------------------------
+// p1-lk6 (D-104, D-105): voice facts go into the English KG with the original-language quote
+// ---------------------------------------------------------------------------
+
+const lk6Hindi = "मैं जर्मनी में एमबीए करना चाहता हूँ";
+const lk6Provider = (facts: unknown[] | (() => never)) =>
+  new MockProvider({ responses: { "fact-extraction": typeof facts === "function" ? (facts as never) : { facts } } });
+const lk6Cand = (key: string, value: unknown, quote: string) => ({ key, value, source: { type: "transcript", quote, turnId: "ignored" }, confidence: 0.8, purposeTags: ["profile_synthesis"], sensitivity: "low" });
+
+test("p1-lk6: a Hindi spoken turn becomes an English proposed fact with the Devanagari quote kept as its source", async () => {
+  const text = lk6Provider([]);
+  // The turn id is assigned by the voice API; the candidate must cite it, so answer from the input.
+  text.setResponse("fact-extraction", (input: unknown) => ({
+    facts: [lk6Cand("target_country", "Germany", "जर्मनी में एमबीए")].map((c) => ({ ...c, source: { ...c.source, turnId: (input as { turns: { turnId: string }[] }).turns[0]!.turnId } })),
+  }));
+  await withWorld(
+    async (w, threadId) => {
+      await w.open(adult(), threadId);
+      speak(w, 0, lk6Hindi);
+      await until(() => w.fakeDb.collection<any>("profile_facts").all().length === 1, "fact proposed");
+      const row = w.fakeDb.collection<any>("profile_facts").all()[0];
+      assert.deepEqual([row.key, row.value, row.quote, row.sourceLang, row.status], ["target_country", "Germany", "जर्मनी में एमबीए", "hi", "proposed"]);
+      assert.equal(text.calls.length, 1);
+      assert.equal((text.calls[0]!.input as { turns: { text: string; translatedText: string }[] }).turns[0]!.text, lk6Hindi, "the model read the original words");
+    },
+    { deps: { extractFacts: createStudentFactExtractor({ provider: text, skillsDir: SKILLS_DIR }) } },
+  );
+});
+
+test("p1-lk6: an under-18 student without guardian consent makes no extraction call at all (no text is stored, so none is read)", async () => {
+  const text = lk6Provider([lk6Cand("target_country", "Germany", "जर्मनी में एमबीए")]);
+  await withWorld(
+    async (w, threadId) => {
+      await w.open(minorNoConsent(), threadId);
+      speak(w, 0, lk6Hindi);
+      await w.voice.settled().catch(() => undefined);
+      await new Promise((r) => setTimeout(r, 50));
+      assert.equal(text.calls.length, 0);
+      assert.equal(w.fakeDb.collection<any>("profile_facts").all().length, 0);
+    },
+    { deps: { extractFacts: createStudentFactExtractor({ provider: text, skillsDir: SKILLS_DIR }) } },
+  );
+});
+
+test("p1-lk6: a failing extraction never ends the voice session and logs the event name and error class only, never the student's words", async () => {
+  const text = lk6Provider((() => { throw new Error(`upstream echoed: ${lk6Hindi} 9876543210`); }) as () => never);
+  await withWorld(
+    async (w, threadId) => {
+      const { client } = await w.open(adult(), threadId);
+      speak(w, 0, lk6Hindi);
+      await until(() => w.logs.some((l: any) => l.event === "voice_fact_extraction_failed"), "failure logged");
+      assert.ok(!client.closed, "the session is still open");
+      const logged = JSON.stringify(w.logs);
+      assert.ok(!logged.includes("जर्मनी") && !logged.includes("9876543210"), "no student words in the log");
+    },
+    { deps: { extractFacts: createStudentFactExtractor({ provider: text, skillsDir: SKILLS_DIR }) } },
   );
 });

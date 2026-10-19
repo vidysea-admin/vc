@@ -1,0 +1,151 @@
+/**
+ * P1 U10w: (A) the four voice.ts fixes from the U10 cycle-2 senior review (W1 crisis deadline, W2 late work at shutdown, W3 connect
+ * overlap, W4 escalation retry idempotency) and (B) the wiring of the voice WebSocket into a real `startApi` process (W5 flag off,
+ * W6 fail closed, W7 reachable, W8 shutdown, W9 one flag / one escalation). SYNTHETIC only: loopback sockets, MockLiveProvider, the in-memory
+ * fake Mongo client; no network, no real provider, no paid call (G-REAL is not granted).
+ */
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
+import { generateKeyPairSync, randomBytes } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { WebSocket } from "ws";
+import type { Db } from "mongodb";
+import { COLLECTION_NAMES, FencedWriterDeadlineError, VC_DB_NAME, createChatThread, getStudentUsage, tenantScopedDb, usageMonth } from "@vc/db";
+import { createFakeMongoClient } from "@vc/db/testing";
+import { escalateTurns, loadConcernClassifierConfig, loadSkill, CONCERN_CLASSIFIER_SKILL } from "@vc/engine";
+import { MockLiveProvider, type LiveProvider } from "@vc/providers";
+import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
+import { GoLiveRefusedError } from "../src/go-live-gate.js";
+import { startApi } from "../src/index.js";
+import { VoiceConfigError, voiceEnabledFromEnv, type VoiceApiDeps } from "../src/voice.js";
+import { CRISIS_AUDIO, CRISIS_PHRASE, CRISIS_TEXT_FIXED, adult, newThread, studentToken, until, voiceWorld, type VoiceWorld, type VoiceWorldOptions } from "./voice-fixtures.js";
+import { SKILLS_DIR, SPEAKERS, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb, studentVerifier } from "./chat-fixtures.js";
+
+
+const VOICE_GATES = { gProd: "Answered: 2026-10-16T10:10:00+05:30 - c - all three including voice\n" };
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const PEM = keys.publicKey.export({ type: "spki", format: "pem" }).toString();
+const counsellorVerifier = createJwtVerifier(jwtConfigFromEnv({ VC_JWT_ISSUER: "https://issuer.synthetic.test", VC_JWT_PUBLIC_KEY: PEM }));
+const CRISIS = { message: { text: CRISIS_TEXT_FIXED, audio: CRISIS_AUDIO } };
+
+async function freePort(): Promise<number> {
+  const s: Server = createServer();
+  await new Promise<void>((r) => s.listen(0, "127.0.0.1", r));
+  const port = (s.address() as AddressInfo).port;
+  await new Promise<void>((r) => s.close(() => r()));
+  return port;
+}
+
+interface Boot {
+  api: Awaited<ReturnType<typeof startApi>>;
+  fake: ReturnType<typeof createFakeMongoClient>;
+  provider: MockLiveProvider;
+  port: number;
+  db: Db;
+  gates: ReturnType<typeof gatesFixture>;
+  stop(): Promise<void>;
+}
+
+async function boot(env: Record<string, string | undefined>, voice: Record<string, unknown> | undefined, extra: { chat?: Record<string, unknown>; fake?: ReturnType<typeof createFakeMongoClient> } = {}): Promise<Boot> {
+  const fake = extra.fake ?? createFakeMongoClient();
+  const gates = gatesFixture(VOICE_GATES);
+  const provider = new MockLiveProvider();
+  const port = await freePort();
+  const api = await startApi(
+    { MONGODB_URL: "mongodb://fake-host/ignored", ...env },
+    {
+      clientFactory: () => fake.client,
+      http: {
+        port,
+        verifier: counsellorVerifier,
+        provider: kbAnswerProvider(),
+        skillsDir: SKILLS_DIR,
+        ...(voice
+          ? { voice: { live: provider, crisis: CRISIS, wsSecret: new Uint8Array(randomBytes(32)), wsBaseUrl: `ws://127.0.0.1:${port}`, verifier: studentVerifier(), gatesDir: gates.gates, ...voice } }
+          : {}),
+        ...(extra.chat ? { chat: { gatesDir: gates.gates, ...extra.chat } } : {}),
+      } as any,
+    },
+  );
+  const db = tenantScopedDb(fake.dbFor(VC_DB_NAME) as unknown as Db, "tenant-a");
+  let stopped = false;
+  return {
+    api,
+    fake,
+    provider,
+    port,
+    db,
+    gates,
+    async stop() {
+      if (!stopped) {
+        stopped = true;
+        await api.stop();
+      }
+      cleanupGates(gates);
+    },
+  };
+}
+
+const sessionUrl = (port: number, threadId: string) => `http://127.0.0.1:${port}/v1/students/stu-1/chat/threads/${threadId}/voice/sessions`;
+const streamUrl = (port: number, threadId: string) => `ws://127.0.0.1:${port}/v1/students/stu-1/chat/threads/${threadId}/voice/stream`;
+
+async function mintToken(b: Boot, threadId: string): Promise<{ status: number; token?: string }> {
+  const jwt = await studentToken(adult());
+  const res = await fetch(sessionUrl(b.port, threadId), { method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: "{}" });
+  const json: any = await res.json().catch(() => ({}));
+  return { status: res.status, token: json.token };
+}
+
+function openSocket(b: Boot, threadId: string, token: string): Promise<{ ws: WebSocket; events: any[] } | { status: number }> {
+  return new Promise((resolve) => {
+    const events: any[] = [];
+    const ws = new WebSocket(streamUrl(b.port, threadId), ["vc-voice-v1"], { headers: { authorization: `Bearer ${token}` } });
+    ws.on("message", (data, isBinary) => {
+      if (!isBinary) events.push(JSON.parse((data as Buffer).toString("utf8")));
+    });
+    ws.on("unexpected-response", (_q, res) => {
+      res.resume();
+      resolve({ status: res.statusCode ?? 0 });
+    });
+    ws.on("open", () => resolve({ ws, events }));
+    ws.on("error", () => resolve({ status: 0 }));
+  });
+}
+
+async function startedSession(b: Boot): Promise<{ ws: WebSocket; events: any[]; threadId: string }> {
+  const threadId = "th-w";
+  await createChatThread(b.db, { studentId: "stu-1", textStored: true, threadId });
+  const m = await mintToken(b, threadId);
+  assert.equal(m.status, 201);
+  const sock = await openSocket(b, threadId, m.token!);
+  assert.ok("ws" in sock, "the upgrade was accepted");
+  if (!("ws" in sock)) throw new Error("unreachable");
+  sock.ws.send(JSON.stringify({ type: "start", threadId }));
+  await until(() => b.provider.backends.length === 1, "the provider session after start");
+  return { ws: sock.ws, events: sock.events, threadId };
+}
+
+
+const cand = (key: string, value: unknown, quote: string, turnId: string) => ({ key, value, source: { type: "transcript", quote, turnId }, confidence: 0.8, purposeTags: ["profile_synthesis"], sensitivity: "low" });
+test("CHK: voice default extractor via startApi (no injected extractFacts): a Hindi utterance lands as an English proposed fact with quote", async () => {
+  const text = kbAnswerProvider();
+  text.setResponse("fact-extraction", ((input: any) => ({ facts: [cand("target_country", "Germany", "जर्मनी में", input.turns[0].turnId)] })) as never);
+  const fake = createFakeMongoClient();
+  const gates = gatesFixture(VOICE_GATES);
+  const live = new MockLiveProvider();
+  const port = await freePort();
+  const api = await startApi({ MONGODB_URL: "mongodb://fake-host/ignored", VC_VOICE_ENABLED: "true" }, { clientFactory: () => fake.client, http: { port, verifier: counsellorVerifier, provider: text, skillsDir: SKILLS_DIR, voice: { live, crisis: CRISIS, wsSecret: new Uint8Array(randomBytes(32)), wsBaseUrl: `ws://127.0.0.1:${port}`, verifier: studentVerifier(), gatesDir: gates.gates } } as any });
+  const b: any = { port, provider: live, db: tenantScopedDb(fake.dbFor(VC_DB_NAME) as unknown as Db, "tenant-a") };
+  try {
+    const s = await startedSession(b);
+    live.backends[0]!.emitInputTranscript("मैं जर्मनी में एमबीए करना चाहता हूँ", true);
+    let rows: any[] = [];
+    for (let i = 0; i < 100 && rows.length === 0; i++) { await sleep(20); rows = fake.dbFor(VC_DB_NAME).collection<any>("profile_facts").all(); }
+    console.log("VOICE-DEFAULT rows:", JSON.stringify(rows.map((r: any) => [r.key, r.value, r.quote, r.sourceLang])));
+    assert.equal(rows.length, 1);
+    s.ws.close();
+  } finally { await api.stop(); cleanupGates(gates); }
+});

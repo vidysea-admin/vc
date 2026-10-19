@@ -23,8 +23,12 @@ export interface ProfileFactDoc {
   factId: string;
   studentId: string;
   key: string;
-  /** Redacted. */
+  /** Redacted. English by definition (D-104): the student knowledge graph is English. */
   value: string;
+  /** p1-lk6 (additive, optional): the student's own words the value came from, in their ORIGINAL language and script. Redacted like `value`. */
+  quote?: string;
+  /** p1-lk6 (additive, optional): the language label of `quote` (a BCP 47 style tag such as "hi"). Absent when unknown. */
+  sourceLang?: string;
   status: ProfileFactStatus;
   source: "chat";
   threadId?: string;
@@ -53,10 +57,28 @@ function checkValue(raw: string, caller: string): string {
   return value;
 }
 
+/** Longest quote kept after redaction; a longer one is not a snippet and is left out. */
+export const MAX_PROFILE_FACT_QUOTE = 1000;
+const SOURCE_LANG_RE = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
+
+/** The optional quote and language label as stored fields: redacted, and left out (never an error) when unusable, so a bad quote cannot cost the fact. */
+function checkSource(input: { quote?: string; sourceLang?: string }): { quote?: string; sourceLang?: string } {
+  const quote = typeof input.quote === "string" ? redactPii(input.quote.trim()).text : "";
+  if (quote === "" || quote.length > MAX_PROFILE_FACT_QUOTE) return {};
+  return {
+    quote,
+    ...(typeof input.sourceLang === "string" && input.sourceLang.length <= 35 && SOURCE_LANG_RE.test(input.sourceLang) ? { sourceLang: input.sourceLang } : {}),
+  };
+}
+
 export interface ProposeProfileFactInput {
   studentId: string;
   key: string;
   value: string;
+  /** p1-lk6: the student's original-language words behind `value`. Optional; redacted before it is stored. */
+  quote?: string;
+  /** p1-lk6: the language label of `quote`. Optional; stored only together with a usable quote. */
+  sourceLang?: string;
   threadId?: string;
   turnId?: string;
 }
@@ -75,6 +97,7 @@ export async function proposeProfileFact(db: Db, input: ProposeProfileFactInput,
     ...(input.threadId === undefined ? {} : { threadId: input.threadId }),
     ...(input.turnId === undefined ? {} : { turnId: input.turnId }),
   };
+  const source = checkSource(input);
   const created: string[] = [];
   await fencedStudentWrite(
     db,
@@ -82,7 +105,7 @@ export async function proposeProfileFact(db: Db, input: ProposeProfileFactInput,
     async (op) => {
       const res = await factsOf(db).updateOne(
         { _id: factId, studentId: input.studentId } as never,
-        { $setOnInsert: { factId, key, value, status: "proposed", source: "chat", proposedAt: at, ...origin } } as never,
+        { $setOnInsert: { factId, key, value, ...source, status: "proposed", source: "chat", proposedAt: at, ...origin } } as never,
         { upsert: true, ...op },
       );
       if (res.upsertedCount === 1) {
@@ -91,7 +114,8 @@ export async function proposeProfileFact(db: Db, input: ProposeProfileFactInput,
       }
       await factsOf(db).updateOne(
         { _id: factId, studentId: input.studentId, status: "proposed" } as never,
-        { $set: { value, proposedAt: at, ...origin } } as never,
+        // The quote belongs to the value it supports: the newer value brings its own, or none (a stale quote must not stay beside it).
+        { $set: { value, ...source, proposedAt: at, ...origin }, ...(source.quote === undefined ? { $unset: { quote: "", sourceLang: "" } } : {}) } as never,
         op,
       );
     },
@@ -129,10 +153,13 @@ export async function decideProfileFact(db: Db, input: DecideProfileFactInput, o
     return null;
   }
   const set: Record<string, unknown> = { status: "confirmed", decidedAt: at };
+  let corrected = false;
   if (input.action === "correct") {
     if (input.value === undefined) throw new Error("decideProfileFact: correct needs a value");
     set.value = checkValue(input.value, "decideProfileFact");
+    corrected = true;
   }
-  await fencedStudentWrite(db, input.studentId, (op) => factsOf(db).updateOne(filter, { $set: set } as never, op), async () => undefined);
+  // p1-lk6: the stored quote supports the value the model heard; a corrected value is the student's own words, so that quote no longer applies.
+  await fencedStudentWrite(db, input.studentId, (op) => factsOf(db).updateOne(filter, { $set: set, ...(corrected ? { $unset: { quote: "", sourceLang: "" } } : {}) } as never, op), async () => undefined);
   return factsOf(db).findOne(filter);
 }
