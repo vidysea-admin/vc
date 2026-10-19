@@ -131,3 +131,63 @@ test("C18 (e): two crises in a row each carry their own utterance's words (the f
     assert.equal(escalations[1].turns[0].text, VOICE_CRISIS_NO_WORDS_TEXT);
   });
 });
+
+// ---- U10s (voice hardening before go-live) -----------------------------------------------------------------------------------------
+
+/** A profile name that is not a string makes `redactPii` throw (`n.trim is not a function`): a reachable redaction failure, no mocking. */
+const throwingNames = (): any => ({ profileNames: async () => [123 as unknown as string] });
+
+async function runWith(
+  extraDeps: Record<string, unknown>,
+  body: (w: VoiceWorld, escalations: any[]) => Promise<void>,
+): Promise<void> {
+  const escalations: any[] = [];
+  const w = await voiceWorld({
+    deps: {
+      crisis: { message: { text: CRISIS_TEXT_FIXED, audio: CRISIS_AUDIO }, detect: detectEmptyFires },
+      escalateForTenant: () => async (input: any) => void escalations.push(input),
+      ...extraDeps,
+    } as any,
+  });
+  try {
+    const threadId = await newThread(w.chat, await studentToken(adult()));
+    await w.open(adult(), threadId);
+    await body(w, escalations);
+  } finally {
+    await w.cleanup();
+  }
+}
+
+test("H1: redaction throws on the crisis words -> the flag is still written and the crisis is still escalated with the text-free marker, never the raw words", async () => {
+  await runWith(throwingNames(), async (w, escalations) => {
+    speak(w, `${CRISIS_PHRASE} secret-detail-xyz`);
+    await until(() => escalations.length === 1, "escalated despite the redaction failure");
+    await w.voice.settled();
+    const text = escalatedText(escalations);
+    assert.equal(text, VOICE_CRISIS_NO_WORDS_TEXT);
+    assert.ok(!text.includes("kill") && !text.includes("secret-detail-xyz"), "raw words never escalated");
+    assert.equal(w.fakeDb.collection<any>("student_flags").all().length, 1, "the crisis flag was written");
+    const logged = JSON.stringify(w.logs);
+    assert.ok(logged.includes("voice_crisis_redact_failed"), "the redaction failure is logged");
+    assert.ok(!logged.includes("secret-detail-xyz") && !logged.includes("kill myself"), "the log carries no words");
+  });
+});
+
+test("H3: two crises with no words in one session each escalate under their own turn id (not deduped into one)", async () => {
+  await runWith({}, async (w, escalations) => {
+    speak(w, EARLIER);
+    answer(w, "Here is an answer about Germany.");
+    speak(w, "   ");
+    await until(() => escalations.length === 1, "first no-words crisis escalated");
+    w.provider.backends[0]!.emitTurnComplete();
+    await new Promise((r) => setTimeout(r, CRISIS_RESUME_GAP_MS_DEFAULT + 300));
+    speak(w, "   ");
+    await until(() => escalations.length === 2, "second no-words crisis escalated");
+    await w.voice.settled();
+    assert.equal(escalations[0].turns[0].text, VOICE_CRISIS_NO_WORDS_TEXT);
+    assert.equal(escalations[1].turns[0].text, VOICE_CRISIS_NO_WORDS_TEXT);
+    // The real port keys each record on sessionId:turnId:role:recipient: one id per crisis, or the second is a silent no-op upsert.
+    assert.notEqual(escalations[0].turns[0].turnId, escalations[1].turns[0].turnId, "each crisis escalation has its own turn id");
+    assert.equal(w.fakeDb.collection<any>("student_flags").all().length, 2, "and each crisis has its own flag");
+  });
+});
