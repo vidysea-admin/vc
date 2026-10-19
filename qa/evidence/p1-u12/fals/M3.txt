@@ -1,0 +1,6 @@
+ℹ fail 1
+ℹ pass 2
+✔ acceptance A5/A6/A7: a signed-in student's real turn validates against the published response schema, is stored redacted and tenant-stamped, shows in the export, and erasure leaves read-back zero through the API (674.3374ms)
+✔ acceptance hostile: 35 crisis messages in a row from one student are all answered with the fixed message, never reach the model, are never rate limited and each write one text-free flag (2598.925ms)
+✖ acceptance hostile: a student of tenant-b cannot read, write to or erase-probe tenant-a's thread, and an under-18 student without guardian consent is answered but nothing of the text is kept (351.9831ms)
+✖ failing tests:
