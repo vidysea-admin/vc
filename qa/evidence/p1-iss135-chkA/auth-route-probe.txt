@@ -1,0 +1,10 @@
+[testlock] running slot 0 (free RAM 3.69 GB): pnpm -C apps/api exec tsx --test tests/chkA-auth.test.ts
+✔ authenticated chat turn: 100 KiB and 255 KiB bodies are not a 413; 257 KiB and 300 KiB are (640.158ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8434.0484
