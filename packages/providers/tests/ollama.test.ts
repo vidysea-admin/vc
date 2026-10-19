@@ -252,6 +252,46 @@ test("prepareOllamaProvider: price override env works, bad overrides are refused
 });
 
 // ---------------------------------------------------------------------------
+// p1-deepseek-id: the price table is keyed by Ollama's REAL ids (GET /api/tags, 2026-10-19).
+// ---------------------------------------------------------------------------
+
+test("p1-deepseek-id: ollama:deepseek-v4.1-flash resolves a price with no override; the old wrong id 'deepseek-4.1-flash' no longer does", async () => {
+  assert.ok(Object.hasOwn(OLLAMA_PRICE_TABLE_USD_PER_MTOK, "deepseek-v4.1-flash"));
+  assert.ok(!Object.hasOwn(OLLAMA_PRICE_TABLE_USD_PER_MTOK, "deepseek-4.1-flash"));
+  assert.ok(Object.hasOwn(OLLAMA_PRICE_TABLE_USD_PER_MTOK, "glm-5.3-flash"));
+  const { fetchImpl, calls } = mockFetch(() => okChat({ answer: "x" }));
+  const seen: OllamaRequestEstimate[] = [];
+  const make = prepareOllamaProvider({ VC_REAL_MODEL: "ollama:deepseek-v4.1-flash", OLLAMA_API_KEY: SECRET }, { fetchImpl })!;
+  assert.ok(make);
+  const p = make((e) => void seen.push(e));
+  await p.generate(req());
+  assert.equal(JSON.parse(String(calls[0]!.init.body)).model, "deepseek-v4.1-flash");
+  // Priced from the table (USD 1 in / 4 out per MTok), not zero and not an override.
+  const want = (seen[0]!.estimatedInputTokens * 1 + seen[0]!.maxOutputTokens * 4) / 1e6;
+  assert.ok(seen[0]!.estimatedCostUsd > 0);
+  assert.ok(Math.abs(seen[0]!.estimatedCostUsd - want) < 1e-12, "uses the table price");
+  assert.throws(() => prepareOllamaProvider({ VC_REAL_MODEL: "ollama:deepseek-4.1-flash", OLLAMA_API_KEY: SECRET }), (e: unknown) => {
+    assert.ok(e instanceof OllamaRefusedError);
+    assert.match((e as Error).message, /no price/);
+    return true;
+  });
+});
+
+test("p1-deepseek-id: a pinned ':<tag>' id (deepseek-v4.1-flash:1017) is priced from its base id; the full id is still what is sent; unknown bases stay refused", async () => {
+  const { fetchImpl, calls } = mockFetch(() => okChat({ answer: "x" }));
+  const make = prepareOllamaProvider({ VC_REAL_MODEL: "ollama:deepseek-v4.1-flash:1017", OLLAMA_API_KEY: SECRET }, { fetchImpl })!;
+  assert.ok(make);
+  const p = make(() => {});
+  assert.equal(p.model, "deepseek-v4.1-flash:1017");
+  await p.generate(req());
+  assert.equal(JSON.parse(String(calls[0]!.init.body)).model, "deepseek-v4.1-flash:1017");
+  assert.ok(prepareOllamaProvider({ VC_REAL_MODEL: "ollama:glm-5.3-flash:latest", OLLAMA_API_KEY: SECRET }));
+  for (const bad of ["mystery-model:1017", "deepseek-4.1-flash:1017", "constructor:x", "deepseek-v4.1-flash:", ":1017", "deepseek-v4.1-flashx:1"]) {
+    assert.throws(() => prepareOllamaProvider({ VC_REAL_MODEL: `ollama:${bad}`, OLLAMA_API_KEY: SECRET }), /no price/, bad);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // U13b before-first-paid-run fixes (ISS-270..274).
 // ---------------------------------------------------------------------------
 

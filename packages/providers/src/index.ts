@@ -1041,15 +1041,16 @@ export interface OllamaPrice {
 }
 
 /**
- * Per-model price table (USD per million tokens). [ASSUMPTION - UNVERIFIED]: neither the model ids
- * nor the prices below come from Ollama's price list; they are deliberately conservative
- * placeholders so the budget cap over-counts rather than under-counts. A model id that is not in
+ * Per-model price table (USD per million tokens). The model ids are Ollama's real ids (GET /api/tags,
+ * 2026-10-19); a pinned `:<tag>` (e.g. `deepseek-v4.1-flash:1017`) is priced from its base id. The prices
+ * below are [ASSUMPTION - UNVERIFIED]: they do not come from Ollama's price list; they are deliberately
+ * conservative placeholders so the budget cap over-counts rather than under-counts. A model id that is not in
  * this table (and has no `OLLAMA_PRICE_USD_PER_MTOK="<in>,<out>"` override) is REFUSED: an unknown
  * price is never treated as zero. Replace with the real ids/prices before the first paid run.
  */
 export const OLLAMA_PRICE_TABLE_USD_PER_MTOK: Readonly<Record<string, OllamaPrice>> = {
   "glm-5.3-flash": { inputUsdPerMTok: 1, outputUsdPerMTok: 4 },
-  "deepseek-4.1-flash": { inputUsdPerMTok: 1, outputUsdPerMTok: 4 },
+  "deepseek-v4.1-flash": { inputUsdPerMTok: 1, outputUsdPerMTok: 4 },
 };
 
 /** A REAL-run config problem (missing key, unknown model price, bad VC_REAL_MODEL) found before any request. */
@@ -1246,7 +1247,10 @@ function resolveOllamaPrice(model: string, env: ProviderEnv): OllamaPrice {
     }
     return { inputUsdPerMTok: i, outputUsdPerMTok: o };
   }
-  const known = Object.hasOwn(OLLAMA_PRICE_TABLE_USD_PER_MTOK, model) ? OLLAMA_PRICE_TABLE_USD_PER_MTOK[model] : undefined;
+  // Exact id first, then the base id with a pinned ":<tag>" suffix dropped (the full id is still what is sent).
+  const base = /^([^:]+):[^:]+$/.exec(model)?.[1] ?? model;
+  const key = Object.hasOwn(OLLAMA_PRICE_TABLE_USD_PER_MTOK, model) ? model : base;
+  const known = Object.hasOwn(OLLAMA_PRICE_TABLE_USD_PER_MTOK, key) ? OLLAMA_PRICE_TABLE_USD_PER_MTOK[key] : undefined;
   if (!known) {
     throw new OllamaRefusedError(`no price for ollama model "${model}": add it to OLLAMA_PRICE_TABLE_USD_PER_MTOK or set ${OLLAMA_PRICE_ENV}; REAL runs never assume a zero price`);
   }

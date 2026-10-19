@@ -1,0 +1,19 @@
+// Checker probe (ran in detached copy of 260aaa9 as packages/providers/tests/chk-probe.test.ts; copy removed afterwards).
+import { z } from "zod";
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { prepareOllamaProvider, OllamaRefusedError, OLLAMA_PRICE_TABLE_USD_PER_MTOK } from "../src/index.js";
+const SECRET = "k-xyz";
+function mf() {
+  const calls: { url: string; init: RequestInit }[] = [];
+  const fetchImpl = (async (url: string, init: RequestInit) => {
+    calls.push({ url: String(url), init });
+    return new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify({ answer: "x" }) }, done: true, prompt_eval_count: 5, eval_count: 5 }), { status: 200, headers: { "content-type": "application/json" } });
+  }) as unknown as typeof fetch;
+  return { fetchImpl, calls };
+}
+const rq = () => ({ skillName: "s", skillPrompt: "SYS", outputSchema: z.object({ answer: z.string().min(1) }), input: { q: "hello" } }) as never;
+// tests: real id priced (no override) + wire model id; old id refused /no price/; tag form priced from base, full id on wire;
+// hostile list [a:b:c, :x, x:, constructor, __proto__:x, toString:x, __proto__, hasOwnProperty:1, valueOf, DEEPSEEK-V4.1-FLASH,
+// Deepseek-v4.1-flash:1017, "deepseek-v4.1-flash :1017", deepseek-v4.1-flash:1017:2, deepseek-v4.1-flash::, constructor:, prototype:x]
+// each must throw OllamaRefusedError; table keys == [deepseek-v4.1-flash, glm-5.3-flash]. (Full text as run: see probe-run.txt.)
