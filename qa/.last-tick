@@ -1620,3 +1620,5 @@ NO OTHER UNIT DISPATCHED: 41/41 root manifests checked-PASS, 0 pending, and the
 2026-10-20T01:42:58+05:30 ADVANCED p1-lk5 built e5b5d6f (structural rule a); cycle-3 checker + senior review dispatched in parallel evidence=e5b5d6fdfaa742bb2e63662035b61f8619919eb9
 2026-10-20T01:56:57+05:30 ADVANCED p1-lk5 checker PASS (cycle 3), merged f53f20c, closed 8c8458f; 6c + lk5b follow-up dispatched in parallel evidence=8c8458fffeeb33ed3ab37b4d50d879f12700bdcc
 2026-10-20T02:01:59+05:30 ADVANCED p1-lk5 pushed (6c PASS 6fd8a1d, push-gate green 9d1c39e) evidence=6fd8a1d22d669d80060c165abba98c85ad8a3fad
+2026-10-20T02:14:21+05:30 ADVANCED p1-lk5b pushed (6c PASS a11653e, push-gate green 96d1405); P1 LK queue drained evidence=a11653eee281394edf2a57906796690c69f30a98
+2026-10-20T02:46:12+05:30 HUMAN_GATE heartbeat 1/8 - waiting on Umesh: PID 47984, DeepSeek-first, anon safety screen, khudkushi, chain spend cap, LK6 latency, Hindi crisis text
