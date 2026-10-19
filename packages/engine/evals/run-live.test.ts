@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LiveSession, type LiveBackend, type LiveProvider, type LiveSessionConfig, type LiveToolCall } from "@vc/providers";
@@ -63,25 +63,70 @@ function scriptedProvider(script: ScriptFn): LiveProvider & { connects: number }
   return p;
 }
 
-/** A synthetic-audio manifest in a temp dir: 20 clips of 3 chunks each, first byte = the clip index. */
-function writeManifest(over: { provenance?: string; clipProvenance?: string; drop?: number; badHash?: boolean; file?: string; generator?: string | null } = {}): string {
+const CLIP_MS = 300;
+const SPEECH_END_MS = 200; // the last loud sample is at 200 ms; the last 100 ms is trailing silence
+
+/** One synthetic clip: 300 ms of 16 kHz PCM16 mono, a loud sample at the end of speech, first byte = the clip index. */
+function clipPcm(i: number): Uint8Array {
+  const pcm = new Uint8Array(CHUNK * 3);
+  new DataView(pcm.buffer).setInt16((SPEECH_END_MS * 16 - 1) * 2, 9000, true);
+  pcm[0] = i;
+  return pcm;
+}
+
+interface ManifestOver {
+  provenance?: string;
+  clipProvenance?: string;
+  drop?: number;
+  badHash?: boolean;
+  file?: string;
+  generator?: string | null;
+  /** Every clip is the same audio (20 duplicate clips). */
+  dupe?: boolean;
+  /** Clip 4 starts with a RIFF/WAV header instead of raw PCM. */
+  wav?: boolean;
+  /** Clip 4 is digital silence. */
+  silent?: boolean;
+  /** Clip 4 declares this speechEndMs (null = omitted). */
+  speechEndMs?: number | null;
+  /** Clip 4 declares this durationMs. */
+  durationMs?: number;
+  /** Clip 2 gets this id / lang / text instead of the fixture's. */
+  id?: string;
+  lang?: string;
+  text?: string;
+  sampleRateHz?: unknown;
+}
+
+/** A synthetic-audio manifest in a temp dir: 20 clips of 3 chunks each, first byte = the clip index; ids/langs/text from the phrases fixture. */
+function writeManifest(over: ManifestOver = {}): string {
   const dir = mkdtempSync(join(tmpdir(), "vc-live-audio-"));
   const clips = PHRASES.slice(0, 20 - (over.drop ?? 0)).map((p, i) => {
-    const pcm = new Uint8Array(CHUNK * 3);
-    pcm[0] = i;
+    let pcm = clipPcm(over.dupe ? 0 : i);
+    if (i === 3 && over.wav) pcm.set(new TextEncoder().encode("RIFF"), 0);
+    if (i === 3 && over.silent) pcm = new Uint8Array(CHUNK * 3);
     const file = `${p.id}.pcm`;
     writeFileSync(join(dir, file), pcm);
+    const mine = i === 3;
     return {
-      id: p.id,
-      lang: p.lang,
-      text: p.text,
+      id: i === 1 && over.id ? over.id : p.id,
+      lang: i === 1 && over.lang ? over.lang : p.lang,
+      text: i === 1 && over.text ? over.text : p.text,
       file: i === 0 && over.file ? over.file : file,
       sha256: over.badHash && i === 3 ? "0".repeat(64) : createHash("sha256").update(pcm).digest("hex"),
+      durationMs: mine && over.durationMs !== undefined ? over.durationMs : CLIP_MS,
+      ...(mine && over.speechEndMs === null ? {} : { speechEndMs: mine && over.speechEndMs !== undefined ? over.speechEndMs : SPEECH_END_MS }),
       ...(over.clipProvenance && i === 5 ? { provenance: over.clipProvenance } : {}),
     };
   });
   const generator = over.generator === undefined ? "test-tts 1.0" : over.generator;
-  const manifest = { provenance: over.provenance ?? "synthetic", ...(generator === null ? {} : { generator }), sampleRateHz: 16000, clips };
+  const manifest = {
+    provenance: over.provenance ?? "synthetic",
+    ...(generator === null ? {} : { generator }),
+    sampleRateHz: over.sampleRateHz ?? 16000,
+    format: "raw PCM16 little-endian mono",
+    clips,
+  };
   const path = join(dir, "manifest.json");
   writeFileSync(path, JSON.stringify(manifest), "utf-8");
   return path;
@@ -325,6 +370,103 @@ test("synthetic-only guard: recorded or unlabelled audio, missing/short/tampered
     assert.equal(existsSync(s.ledger), false, name);
     assert.equal(s.provider.connects, 0, name);
   }
+});
+
+test("M2: the manifest must match fixtures/live-crisis.phrases.json (ids, langs, text) and every clip must be distinct audio", async () => {
+  const cases: [string, ManifestOver, RegExp][] = [
+    ["renamed id", { id: "crisis-99" }, /fixture/i],
+    ["swapped language", { lang: "hi" }, /fixture/i],
+    ["different text", { text: "tell me about hostels" }, /fixture/i],
+    ["20 duplicate clips", { dupe: true }, /duplicate|distinct/i],
+  ];
+  for (const [name, over, re] of cases) {
+    const s = setup({ manifest: writeManifest(over) });
+    await assert.rejects(runLive(s.args, s.deps), re, name);
+    assert.equal(existsSync(s.ledger), false, name);
+    assert.equal(s.provider.connects, 0, name);
+  }
+});
+
+test("M2/low: audio format is verified - a WAV header, a wrong sample rate, a wrong duration, or silence is refused", async () => {
+  const cases: [string, ManifestOver, RegExp][] = [
+    ["WAV header", { wav: true }, /WAV|RIFF/i],
+    ["manifest sample rate 24000", { sampleRateHz: 24000 }, /16000/],
+    ["declared duration disagrees with the bytes", { durationMs: 450 }, /duration/i],
+    ["silent clip", { silent: true, speechEndMs: 0 }, /silent|speech/i],
+  ];
+  for (const [name, over, re] of cases) {
+    const s = setup({ manifest: writeManifest(over) });
+    await assert.rejects(runLive(s.args, s.deps), re, name);
+    assert.equal(existsSync(s.ledger), false, name);
+    assert.equal(s.provider.connects, 0, name);
+  }
+});
+
+test("M3: every clip declares speechEndMs and it must match the audio (measured last non-silent sample)", async () => {
+  const cases: [string, ManifestOver, RegExp][] = [
+    ["speechEndMs missing", { speechEndMs: null }, /speechEndMs/],
+    ["speechEndMs claims the end of the file but the speech ends at 200 ms", { speechEndMs: 300 }, /speechEndMs/],
+    ["speechEndMs beyond the clip", { speechEndMs: 900 }, /speechEndMs/],
+  ];
+  for (const [name, over, re] of cases) {
+    const s = setup({ manifest: writeManifest(over) });
+    await assert.rejects(runLive(s.args, s.deps), re, name);
+    assert.equal(existsSync(s.ledger), false, name);
+    assert.equal(s.provider.connects, 0, name);
+  }
+});
+
+test("M3: the report times from the end of speech (the 100 ms of trailing silence is not credited)", async () => {
+  const s = setup({ bound: 1000 });
+  let clock = 0;
+  const inner = scriptedProvider(healthy);
+  s.deps.nowMs = () => clock;
+  s.deps.liveProviderFactory = async () => ({
+    kind: "mock" as const,
+    connect: (config: LiveSessionConfig) => {
+      clock = 0;
+      return inner.connect(config).then((session) => {
+        const send = session.sendAudio.bind(session);
+        session.sendAudio = (chunk: Uint8Array) => {
+          clock += 100; // stand-in for real-time pacing of a 100 ms chunk
+          send(chunk);
+        };
+        return session;
+      });
+    },
+  });
+  // The scripted model transcribes ~5 ms after the first chunk, so the crisis lands after the loop with the clock at 300 (end of file);
+  // speech ended at 200, so the measured escalation is 100 ms, not 0.
+  await runLive(s.args, s.deps);
+  const r = readReport(s.outDir).json.result;
+  assert.equal(r.results[0].escalationMs, 100);
+});
+
+test("symlink escape: a clip file that is a symlink to a file outside the manifest directory is refused", async (t) => {
+  const manifest = writeManifest();
+  const dir = join(manifest, "..");
+  const outside = join(mkdtempSync(join(tmpdir(), "vc-outside-")), "evil.pcm");
+  writeFileSync(outside, clipPcm(0));
+  const link = join(dir, "crisis-01.pcm");
+  try {
+    rmSync(link); // replace the real clip file with a symlink to the outside one
+    symlinkSync(outside, link);
+  } catch (err) {
+    t.skip(`cannot create symlinks here (${(err as Error).message})`);
+    return;
+  }
+  const s = setup({ manifest });
+  await assert.rejects(runLive(s.args, s.deps), /outside/i);
+  assert.equal(s.provider.connects, 0);
+});
+
+test("M1: the markdown labels the fixed-message and post-trigger-audio columns structural", async () => {
+  const s = setup();
+  await runLive(s.args, s.deps);
+  const { md } = readReport(s.outDir);
+  assert.match(md, /Fixed message \(structural\)/);
+  assert.match(md, /Model audio after trigger ms \(structural\)/);
+  assert.match(md, /Escalation ms/);
 });
 
 test("synthetic-only guard: no manifest at all records the gap and refuses", async () => {

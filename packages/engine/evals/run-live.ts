@@ -11,12 +11,14 @@
  *   - GEMINI_API_KEY (never logged or written), VC_LIVE_MODEL, VC_LIVE_PRICE_USD_PER_MIN ([ASSUMPTION], no default:
  *     an unknown price refuses, every session is charged before it starts);
  *   - a manifest of SYNTHETIC audio (`--cases=`, default qa/evals/p1/live-audio/manifest.json): recorded or unlabelled
- *     audio is refused. The 20 phrases to synthesise are in fixtures/live-crisis.phrases.json. None exist yet: that gap
- *     is recorded here and the real run refuses until the clips are generated.
+ *     audio is refused, and the manifest must match fixtures/live-crisis.phrases.json (ids, langs, text), carry distinct
+ *     raw 16 kHz PCM16 mono clips (no WAV headers) and a measured per-clip `speechEndMs` (timing starts there).
+ *     `pnpm --filter @vc/engine gen:live-audio` regenerates the clips offline (A10 enablement unit); when a language has
+ *     no local voice the manifest records the gap and the loader refuses rather than passing a short set.
  * Every config refusal happens before the budget guard starts, so a refused run never touches the spend ledger.
  */
 import { fileURLToPath } from "node:url";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { GeminiLiveProvider, type GeminiLiveConnector, type LiveProvider } from "@vc/providers";
@@ -27,6 +29,7 @@ import {
   A10_MIN_CRISIS,
   LIVE_INPUT_BYTES_PER_MS,
   MockLiveRunner,
+  measureSpeechEndMs,
   runCrisisSet,
   sampleLiveCases,
   scoreCrisisSet,
@@ -37,6 +40,7 @@ import {
 } from "./live-audio.js";
 import { toCrisisLiveMarkdown, toLiveMarkdown } from "./report.js";
 import { crisisGuard, routeBeforeGeneration } from "../src/guards/crisis.js";
+import phrasesFile from "./fixtures/live-crisis.phrases.json" with { type: "json" };
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 export const DEFAULT_LIVE_AUDIO_MANIFEST = join(here, "..", "..", "..", "qa", "evals", "p1", "live-audio", "manifest.json");
@@ -61,16 +65,20 @@ export interface LiveRunDeps extends RunnerDeps {
   nowMs?: () => number;
 }
 
-/** The only place the SDK is touched. It is not a dependency yet, so without it the real path refuses (adapter not wired). */
+/**
+ * The only place the SDK is touched (`@google/genai`, a pinned dependency of this package). It is imported lazily so a
+ * mock run never loads it. The assignment below is a compile-time conformance check: `GoogleGenAI.live` must satisfy
+ * the adapter's `GeminiLiveConnector` (confirmed against the SDK's type definitions in the A10 enablement unit).
+ */
 async function geminiProviderFactory(opts: { apiKey: string; model: string }): Promise<LiveProvider> {
-  const specifier = "@google/genai";
-  let sdk: { GoogleGenAI: new (o: { apiKey: string }) => { live: GeminiLiveConnector } };
+  let sdk: typeof import("@google/genai");
   try {
-    sdk = await import(specifier);
+    sdk = await import("@google/genai");
   } catch {
-    throw new LiveRefusedError("Gemini Live adapter not wired: the @google/genai SDK is not installed");
+    throw new LiveRefusedError("Gemini Live adapter not wired: the @google/genai SDK could not be loaded");
   }
-  return new GeminiLiveProvider({ model: opts.model, connector: new sdk.GoogleGenAI({ apiKey: opts.apiKey }).live });
+  const connector: GeminiLiveConnector = new sdk.GoogleGenAI({ apiKey: opts.apiKey }).live;
+  return new GeminiLiveProvider({ model: opts.model, connector });
 }
 
 interface ManifestClip {
@@ -80,7 +88,14 @@ interface ManifestClip {
   file?: unknown;
   sha256?: unknown;
   provenance?: unknown;
+  durationMs?: unknown;
+  speechEndMs?: unknown;
 }
+
+const FIXTURE = new Map(phrasesFile.phrases.map((ph) => [ph.id, ph]));
+/** Declared vs measured end of speech may differ by this much (the generator and the loader use the same measurement). */
+const SPEECH_END_TOLERANCE_MS = 10;
+const FIXTURE_NAME = "fixtures/live-crisis.phrases.json";
 
 /** Loads and verifies the synthetic-audio manifest. Anything not provably synthetic, complete and untampered is refused. */
 export function loadSyntheticCrisisClips(manifestPath: string): CrisisClip[] {
@@ -104,26 +119,54 @@ export function loadSyntheticCrisisClips(manifestPath: string): CrisisClip[] {
     throw new LiveRefusedError(`audio manifest needs at least ${A10_MIN_CRISIS} crisis clips (A10), got ${Array.isArray(manifest.clips) ? manifest.clips.length : 0}`);
   }
   const dir = dirname(resolve(manifestPath));
+  const realDir = realpathSync(dir);
   const seen = new Set<string>();
-  return (manifest.clips as ManifestClip[]).map((c, i) => {
+  const hashes = new Set<string>();
+  const clips = (manifest.clips as ManifestClip[]).map((c, i) => {
     const where = `audio manifest clip #${i + 1}`;
     if (typeof c.id !== "string" || c.id === "" || seen.has(c.id)) throw new LiveRefusedError(`${where}: id missing or duplicated`);
     seen.add(c.id);
     if (c.provenance !== undefined && c.provenance !== "synthetic") throw new LiveRefusedError(`${where} (${c.id}): provenance must be synthetic, got ${JSON.stringify(c.provenance)}`);
     if (typeof c.lang !== "string" || !LANGS.includes(c.lang)) throw new LiveRefusedError(`${where} (${c.id}): lang must be one of ${LANGS.join(", ")}`);
     if (typeof c.text !== "string" || c.text.trim() === "") throw new LiveRefusedError(`${where} (${c.id}): text missing`);
+    const phrase = FIXTURE.get(c.id);
+    if (!phrase || phrase.lang !== c.lang || phrase.text !== c.text) {
+      throw new LiveRefusedError(`${where} (${c.id}): id, lang and text must match ${FIXTURE_NAME} (the manifest is not the 20-phrase A10 crisis set)`);
+    }
     if (typeof c.file !== "string" || typeof c.sha256 !== "string") throw new LiveRefusedError(`${where} (${c.id}): file and sha256 are required`);
     const file = resolve(dir, c.file);
     const rel = relative(dir, file);
     if (rel.startsWith("..") || isAbsolute(rel)) throw new LiveRefusedError(`${where} (${c.id}): file ${c.file} is outside the manifest directory`);
     if (!existsSync(file)) throw new LiveRefusedError(`${where} (${c.id}): file ${c.file} does not exist`);
+    const realRel = relative(realDir, realpathSync(file));
+    if (realRel.startsWith("..") || isAbsolute(realRel)) throw new LiveRefusedError(`${where} (${c.id}): file ${c.file} resolves (symlink) outside the manifest directory`);
     const pcm = new Uint8Array(readFileSync(file));
-    if (createHash("sha256").update(pcm).digest("hex") !== c.sha256.toLowerCase()) {
+    const sha = createHash("sha256").update(pcm).digest("hex");
+    if (sha !== c.sha256.toLowerCase()) {
       throw new LiveRefusedError(`${where} (${c.id}): sha256 does not match ${c.file} (tampered or replaced audio)`);
     }
+    if (hashes.has(sha)) throw new LiveRefusedError(`${where} (${c.id}): duplicate audio (sha256 ${sha.slice(0, 12)}...); every clip must be distinct`);
+    hashes.add(sha);
     if (pcm.byteLength === 0 || pcm.byteLength % 2 !== 0) throw new LiveRefusedError(`${where} (${c.id}): ${c.file} is not non-empty PCM16`);
-    return { id: c.id, lang: c.lang as LiveLang, text: c.text, pcm };
+    const magic = String.fromCharCode(...pcm.subarray(0, 4));
+    if (magic === "RIFF" || magic === "RIFX" || magic === "FORM" || magic === "fLaC" || magic === "OggS" || magic === "ID3\u0003") {
+      throw new LiveRefusedError(`${where} (${c.id}): ${c.file} has a ${magic} container header (WAV/RIFF or other); the clips must be raw 16 kHz PCM16 mono`);
+    }
+    const durationMs = pcm.byteLength / LIVE_INPUT_BYTES_PER_MS;
+    if (typeof c.durationMs !== "number" || Math.abs(c.durationMs - durationMs) > 1) {
+      throw new LiveRefusedError(`${where} (${c.id}): durationMs ${JSON.stringify(c.durationMs)} does not match ${c.file} at 16 kHz PCM16 mono (${durationMs} ms)`);
+    }
+    if (typeof c.speechEndMs !== "number" || !Number.isFinite(c.speechEndMs)) throw new LiveRefusedError(`${where} (${c.id}): speechEndMs is required (the measured end of speech, ms)`);
+    const measured = measureSpeechEndMs(pcm);
+    if (measured === 0) throw new LiveRefusedError(`${where} (${c.id}): ${c.file} is silent (no speech found)`);
+    if (c.speechEndMs <= 0 || c.speechEndMs > durationMs || Math.abs(c.speechEndMs - measured) > SPEECH_END_TOLERANCE_MS) {
+      throw new LiveRefusedError(`${where} (${c.id}): speechEndMs ${c.speechEndMs} does not match the audio (last non-silent sample at ${measured} ms of ${durationMs} ms)`);
+    }
+    return { id: c.id, lang: c.lang as LiveLang, text: c.text, pcm, speechEndMs: c.speechEndMs };
   });
+  const missing = [...FIXTURE.keys()].filter((id) => !seen.has(id));
+  if (missing.length > 0) throw new LiveRefusedError(`audio manifest is missing fixture phrases: ${missing.join(", ")} (${FIXTURE_NAME})`);
+  return clips;
 }
 
 function positive(value: string | undefined): number | undefined {
@@ -163,7 +206,7 @@ async function prepareRealBody(args: P1Args, deps: LiveRunDeps): Promise<NonNull
       boundMs,
       ...(deps.paceMs !== undefined ? { paceMs: deps.paceMs } : {}),
       ...(deps.nowMs ? { nowMs: deps.nowMs } : {}),
-      // Charge BEFORE the session opens: the audio plus the wait for the escalation, at the configured price per minute.
+      // Charge BEFORE the session opens: the whole clip (speech and trailing silence) plus the wait for the escalation, at the configured price per minute.
       beforeSession: (clip) => run.charge((clip.pcm.byteLength / LIVE_INPUT_BYTES_PER_MS + boundMs) / 1000 / 60 * pricePerMin),
     });
     const safe = results.map((r) => (r.error ? { ...r, error: redact(r.error) } : r));

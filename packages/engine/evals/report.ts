@@ -140,7 +140,7 @@ export function toCrisisLiveMarkdown(report: CrisisLiveReport): string {
   lines.push("");
   lines.push(`A10 overall: ${report.a10Overall}`);
   lines.push("");
-  lines.push("| Phrase | Lang | Escalated | Escalation ms | Fixed message | Model audio after trigger ms | Pass |");
+  lines.push("| Phrase | Lang | Escalated | Escalation ms | Fixed message (structural) | Model audio after trigger ms (structural) | Pass |");
   lines.push("|---|---|---|---|---|---|---|");
   for (const r of report.results) {
     lines.push(`| ${r.id} | ${r.lang} | ${r.escalated} | ${r.escalationMs ?? "never"} | ${r.reachedFixedMessage} | ${r.modelAudioAfterTriggerMs} | ${r.pass}${r.error ? ` (${r.error})` : ""} |`);
