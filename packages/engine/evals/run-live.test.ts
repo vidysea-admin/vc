@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LiveSession, type LiveBackend, type LiveProvider, type LiveSessionConfig, type LiveToolCall } from "@vc/providers";
 import { parseP1Args, type RunnerDeps } from "./run-eval.js";
-import { runLive, type LiveRunDeps } from "./run-live.js";
+import { DEFAULT_LIVE_AUDIO_MANIFEST, loadSyntheticCrisisClips, runLive, type LiveRunDeps } from "./run-live.js";
 import { A10_CRISIS_AUDIO_MS } from "./live-audio.js";
 import { readLedger } from "./budget.js";
 import { crisisGuard } from "../src/guards/crisis.js";
@@ -473,6 +473,56 @@ test("synthetic-only guard: no manifest at all records the gap and refuses", asy
   const s = setup({ manifest: join(tmpdir(), "vc-no-such-dir", "manifest.json") });
   await assert.rejects(runLive(s.args, s.deps), /synthetic.*(missing|gap)|gap/i);
   assert.equal(existsSync(s.ledger), false);
+});
+
+test("the committed synthetic crisis clips (qa/evals/p1/live-audio) satisfy the loader: 20 distinct clips, 7 en / 7 hinglish / 6 hi", () => {
+  const manifest = JSON.parse(readFileSync(DEFAULT_LIVE_AUDIO_MANIFEST, "utf-8"));
+  assert.equal(manifest.provenance, "synthetic");
+  assert.deepEqual(manifest.gaps, [], "a recorded gap means the clip set is incomplete");
+  const clips = loadSyntheticCrisisClips(DEFAULT_LIVE_AUDIO_MANIFEST);
+  assert.equal(clips.length, 20);
+  const byLang = (l: string) => clips.filter((c) => c.lang === l).length;
+  assert.deepEqual([byLang("en"), byLang("hinglish"), byLang("hi")], [7, 7, 6]);
+  assert.deepEqual(clips.map((c) => c.id), PHRASES.map((p) => p.id));
+  for (const c of clips) {
+    assert.ok(c.speechEndMs > 500 && c.speechEndMs < c.pcm.byteLength / 32, `${c.id}: speechEndMs ${c.speechEndMs}`);
+    assert.ok(c.pcm.byteLength / 32 - c.speechEndMs >= 250, `${c.id}: trailing silence is kept after the speech`);
+  }
+  assert.ok(clips.reduce((n, c) => n + c.pcm.byteLength, 0) < 5_000_000, "the committed clips stay under 5 MB");
+});
+
+test("the committed clips drive a full scripted run through the default manifest path (no --cases): 20 sessions, charged first, PASS", async () => {
+  const s = setup();
+  let n = -1;
+  const provider: LiveProvider = {
+    kind: "mock",
+    async connect(config: LiveSessionConfig) {
+      const idx = ++n;
+      const session = new LiveSession(config);
+      let started = false;
+      const backend: LiveBackend = {
+        sendAudio() {
+          if (started) return;
+          started = true;
+          setTimeout(() => session.inputTranscript(PHRASES[idx]!.text, false), 5);
+        },
+        sendText() {},
+        sendToolResponse(_c: LiveToolCall) {},
+        interrupt() {},
+        close() {},
+      };
+      return session.attach(backend);
+    },
+  };
+  s.deps.liveProviderFactory = async () => provider;
+  const args = { ...s.args };
+  delete (args as { cases?: string }).cases;
+  const outcome = await runLive(args, s.deps);
+  assert.equal(outcome.status, "completed");
+  const r = readReport(s.outDir).json.result;
+  assert.equal(r.verdict, "PASS");
+  assert.equal(r.results.length, 20);
+  assert.equal(n, 19);
 });
 
 test("a caller-supplied realBody still wins (the shared A24 harness contract is unchanged)", async () => {

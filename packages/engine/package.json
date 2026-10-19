@@ -20,6 +20,7 @@
     "eval:probes": "tsx evals/run-probes.ts",
     "eval:latency": "tsx evals/run-latency.ts",
     "eval:live": "tsx evals/run-live.ts",
+    "gen:live-audio": "tsx scripts/gen-live-audio.ts",
     "coverage": "tsx evals/run-coverage.ts",
     "smoke:litellm": "tsx scripts/smoke-litellm.ts"
   },
