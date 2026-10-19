@@ -132,6 +132,23 @@ test("C18 (e): two crises in a row each carry their own utterance's words (the f
   });
 });
 
+test("LK4: the voice escalation carries the detected language of the utterance (Devanagari hi, Latin Hinglish hi-Latn, English en), not an inline Devanagari test", async () => {
+  const cases: [string, string][] = [
+    [`${CRISIS_PHRASE} मुझे बहुत बुरा लग रहा है`, "hi"],
+    [`${CRISIS_PHRASE} mujhe bahut bura lag raha hai`, "hi-Latn"],
+    [`${CRISIS_PHRASE} tonight`, "en"],
+  ];
+  for (const [utterance, lang] of cases) {
+    await run(detectEmptyFires, async (w, escalations) => {
+      speak(w, utterance);
+      await until(() => escalations.length === 1, "escalated");
+      await w.voice.settled();
+      assert.equal(escalations[0].turns[0].lang, lang, utterance);
+      assert.equal(escalations[0].turns[0].text, utterance, "the original words are escalated");
+    });
+  }
+});
+
 // ---- U10s (voice hardening before go-live) -----------------------------------------------------------------------------------------
 
 /** A profile name that is not a string makes `redactPii` throw (`n.trim is not a function`): a reachable redaction failure, no mocking. */

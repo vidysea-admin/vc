@@ -24,3 +24,27 @@ export * from "./student/graph.js";
 export * from "./student/claims.js";
 export * from "./student/classify.js";
 export * from "./student/rank.js";
+// LK4 (D-105): language detection, allow-list and catalogs. The fixed texts moved to lang.ts and are re-exported by graph.js above.
+export {
+  CRISIS_MESSAGES,
+  DEFAULT_REPLY_LANGS,
+  FIXED_TEXTS,
+  LANG_DETECT_SKILL,
+  LANG_DETECT_TIMEOUT_MS,
+  crisisMessageFor,
+  createModelLanguageDetector,
+  detectLanguageOffline,
+  detectScript,
+  fixedText,
+  parseReplyLangs,
+  resolveReplyLang,
+  type CrisisCatalog,
+  type CrisisEntry,
+  type DetectedLanguage,
+  type FixedTextKey,
+  type FixedTexts,
+  type LanguageDetector,
+  type ModelLanguageDetectorOptions,
+  type ReplyLang,
+  type Script,
+} from "./student/lang.js";
