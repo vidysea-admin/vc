@@ -1,0 +1,49 @@
+# p1-lk5 repair 2 falsification (copy D:/tmp-lk5/fals/base, junction to the lk5 node_modules; bound tree never mutated)
+baseline ISS-386: ℹ pass 2 ℹ fail 0 
+baseline ISS-387: ℹ pass 1 ℹ fail 0 
+baseline IDN: ℹ pass 1 ℹ fail 0 
+baseline dots: ℹ pass 1 ℹ fail 0 
+ISS-386 words ignored MUTANT: ℹ pass 0 ℹ fail 2 
+(first-run m387/midn/mdot results discarded: shell-escaping in the mutator; midn also confounded by भारत = country. Rerun with a JS mutator:)
+applied m387
+m387 changed lines: 2
+m387 MUTANT: ℹ pass 0 ℹ fail 1 
+baseline IDN: ℹ pass 1 ℹ fail 0 
+applied midn
+midn MUTANT: ℹ pass 0 ℹ fail 1 
+applied mdot
+mdot MUTANT: ℹ pass 0 ℹ fail 1 
+== worktree lk5 full
+ℹ tests 58
+ℹ pass 58
+ℹ fail 0
+
+[exited with code 0]
+--- mutator:
+// usage: node mut.cjs <src> <dst> <name>
+const fs = require("fs");
+const [src, dst, name] = process.argv.slice(2);
+let s = fs.readFileSync(src, "utf8");
+const BS = "\\";
+const muts = {
+  // ISS-387: back to a plain string (backslashes lost) for the boundary parts
+  m387: [["String.raw`(?<![" + BS + "p{L}" + BS + "p{M}])(?:`", '"(?<![' + BS + "p{L}" + BS + 'p{M}])(?:"'],
+         ["String.raw`(?![" + BS + "p{L}" + BS + "p{M}])`", '"(?![' + BS + "p{L}" + BS + 'p{M}])"']],
+  // IDN: drop \p{M} from DOMAIN_RE label classes
+  midn: [[/const DOMAIN_RE = [^\n]*/, null]],
+  // dots: remove the fold
+  mdot: [['.replace(/[。．｡․]/g, ".")', ""]],
+};
+for (const [a, b] of muts[name]) {
+  if (a instanceof RegExp) {
+    const line = s.match(a)[0];
+    const nl = line.split(BS + "p{M}").join("");
+    if (nl === line) throw new Error("no change " + name);
+    s = s.replace(line, nl);
+  } else {
+    if (!s.includes(a)) throw new Error("not found " + name + ": " + a);
+    s = s.split(a).join(b);
+  }
+}
+fs.writeFileSync(dst, s);
+console.log("applied " + name);

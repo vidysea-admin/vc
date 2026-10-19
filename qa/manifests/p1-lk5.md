@@ -11,12 +11,12 @@
 **Goal task:** none
 **Date:** 2026-10-19
 **Status:** ready-for-check
-**Fix cycle:** 1
+**Fix cycle:** 2
 **Policy-Version:** proportional-verification/2026-10-19.16
 **Tier:** L (safety path in graph.ts plus a new live safety screen)
 **Dual check:** brief says single checker; a second look at the crisis-adjacent paths is the orchestrator's call
 **Persona walk:** skip (no human screen)
-**Issues addressed:** ISS-383 (K1, the checker FAIL), ISS-384 (link check narrow); senior review M1, M2, M3. Ledger rows renumbered from ISS-380..382 to ISS-383..385 because main already holds LK4's ISS-380..382. ISS-385 ('und' counts as outside the allow-list) is untouched.
+**Issues addressed:** cycle 2: ISS-386 (K1/M1, the cycle-1 FAIL), ISS-387, cycle-1 review medium (IDN host marks) and low (dot variants). Cycle 1: ISS-383 (K1, the checker FAIL), ISS-384 (link check narrow); senior review M1, M2, M3. Ledger rows renumbered from ISS-380..382 to ISS-383..385 because main already holds LK4's ISS-380..382. ISS-385 ('und' counts as outside the allow-list) is untouched.
 **Executor:** claude-sonnet-subagent (maker/builder p1-lk5-build)
 **Executor rationale:** one coherent change in graph.ts / lang.ts / concern-classifier.ts, all call-site level on top of LK4.
 
@@ -46,6 +46,11 @@ Pre-check[K4]: 13ac9b7 same command as Pre-check[K1] -> green: 53 passed, 0 fail
 Pre-check[K5]: 13ac9b7 same command as Pre-check[K1] -> green: 53 passed, 0 failed
 Pre-check[K6]: 13ac9b7 same command as Pre-check[K1] -> green: 53 passed, 0 failed
 Pre-check[K7]: 13ac9b7 through vc-testlock.sh (TMP/TEMP on D:), ONE file at a time, each inside timeout 600 (qa/evidence/p1-lk5/repair1/k7-*.txt): engine lk5 53, lang 34, student-graph 64, crisis-defaults 17, guard-crisis 580, student-classify 5, coach-first 5, capability-manifest 3, crisis-escalation 42, no-quote 17, concern-classifier 22, claims-guard 33, loader 23, index 2 -> 900 passed, 0 failed; apps/api voice-crisis-turn 14, anonymous-zero-persistence 32, anonymous-route 16, chat 32, chat-privacy 36, acceptance-student-journey 3, voice 64, voice-wiring 16 -> 213 passed, 0 failed
+Pre-check[K1-c2/ISS-386]: 036fc87 VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm -C D:/vc/.worktrees/lk5/packages/engine exec tsx --test --test-timeout=60000 tests/lk5.test.ts (TMP/TEMP on D:) -> green: 58 passed, 0 failed
+Pre-check[ISS-387]: 036fc87 same command -> green 58/0 (test "ISS-387: DEVANAGARI_MAGNITUDE keeps its \p escapes")
+Pre-check[M1-IDN]: 036fc87 same command -> green 58/0 (test "review medium: a Devanagari IDN host ...")
+Pre-check[M1-dots]: 036fc87 same command -> green 58/0 (test "review low: the dot variants ...")
+Pre-check[K7-c2]: f635f13 (lang.ts unchanged since) same wrapper, one file at a time: lang 34/0, student-graph 64/0, claims-guard 33/0, crisis-defaults 17/0; pnpm -C packages/engine exec tsc --noEmit -> exit 0
 Pre-check[types]: 13ac9b7 pnpm -C packages/engine typecheck (tsc over src, evals, scripts); pnpm -C apps/api typecheck -> exit 0, 0 (tc-engine.txt, tc-api.txt in repair1/; the third `pnpm -r --filter` run was not repeated, engine and api cover the changed code)
 Metrics: start=2026-10-19T16:38:00+05:30 end=2026-10-19T18:20:00+05:30 builder_min=102 wall_min=unavailable agent_min=unavailable blocked_min=about 60 (waiting for the shared test lock) suite_runs=0 repeat_runs=2 mutations=12 survivors_final=0 cycle=0 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.16 lane=normal check_s=unavailable mutants=12 defects_unit=0 defects_6c=0
 
@@ -81,6 +86,21 @@ Code commit `13ac9b7` on `p1/lk5`, after merging origin/main (LK4 and LK1) into 
 - Not done by this repair: the live-browser walk (no UI), the PID 47984 lock owner was not touched.
 Metrics (repair): start=2026-10-19T20:30:56+05:30 end=2026-10-19T21:37:48+05:30 blocked_min=about 45 (shared lock held by another session's run, PID 36944 per the lock file, not touched) suite_runs=0 mutations=14 survivors_final=0 cycle=1 policy=proportional-verification/2026-10-19.16
 
+## Repair cycle 2 (checker FAIL on K1/M1, cycle 1: ISS-386)
+Code commits `f635f13` (lang.ts + tests) and `036fc87` (test hosts only) on `p1/lk5`. All edits in place in `packages/engine/src/student/lang.ts` and `packages/engine/tests/lk5.test.ts`; no new module.
+- ISS-386 (lang.ts new `devanagariWordFigures`, called from `localizedClaimOk`): the localized claim is tokenised (nukta removed, candrabindu folded). Devanagari number words 1-99 (common spellings), magnitudes सौ/हज़ार/लाख/करोड़/मिलियन/बिलियन and the fractions डेढ़/ढाई/सवा/पौने are read. A run of number words becomes a value ("पाँच हज़ार" -> 5000), which joins the localized figures for the existing parity check, so an added or different word figure fails. A fraction is never mapped, so it fails. A magnitude right after digits ("3.5 लाख") needs the same magnitude word in English. Currency and unit words (यूरो/रुपये/डॉलर/पाउंड/येन/दिरहम/प्रतिशत/साल/वर्ष/महीने/हफ्ते/दिन/घंटे/सेमेस्टर, with inflections) need the same unit in the English claim. Every check applies whether or not English has a figure, and any failure gives the English reply. A lone एक is treated as the article, not a figure (see risk 15).
+- ISS-387: `DEVANAGARI_MAGNITUDE` is built from `String.raw` parts and exported. Its source carries `\p{L}\p{M}`, and सौंदर्य no longer matches.
+- Review medium: the `DOMAIN_RE` label classes and the TLD (and the `EMAIL_RE` TLD) accept `\p{M}`, so `शिक्षा.संस्थान` and `example.शिक्षा` are links.
+- Review low: `linksIn` folds 。．｡․ to "." before the URL, e-mail and host matching.
+- Tests (lk5.test.ts 53 -> 58): all 7 cycle-1 probes plus 2 more (पांच साल, बीस प्रतिशत, तीन सौ पचास) through the real `runStudentTurn` give the English reply. The controls stay localized: the same figure in Devanagari digits, the figure-free claim, पाँच हज़ार यूरो = 5000 euros, and a bare एक. Also: ISS-387 source and सौंदर्य; IDN hosts; dot variants. Red first: the file failed on the unrepaired source (the import of the then-unexported regex; the new assertions needed the code).
+- Falsification (copy `D:/tmp-lk5/fals/base`, junction to the node_modules; `qa/evidence/p1-lk5/repair2/falsification.txt`). Each mutant was green on the baseline copy:
+  - word figures and unit words ignored -> ISS-386 tests 0 pass / 2 fail
+  - plain-string magnitude regex -> ISS-387 0/1
+  - `\p{M}` removed from DOMAIN_RE -> IDN 0/1
+  - dot fold removed -> dots 0/1
+  - Mutants surviving: 0.
+Metrics (repair 2): end=2026-10-19T22:26:54+05:30 mutations=4 survivors_final=0 cycle=2 policy=proportional-verification/2026-10-19.16; lock waits on the shared test lock, PIDs 47984/36944 not touched.
+
 ## Open risks / not determined
 1. A15b / B24.6 conflict: those lines say no LLM sees anonymous text to classify; D-105 orders a screen on every turn. The option defaults OFF for anonymous turns as the brief says; the contract owner and Umesh decide. The model detector, the rewrite and the answer call still send anonymous text to a model.
 2. Nothing is wired in `apps/api` (`index.ts` / `anonymous.ts`): `safetyScreen` is an optional dep and `createModelLanguageDetector` is still unwired, as in LK4. With no `safetyScreen` option no screen runs, so "default ON for authenticated" holds once the option is supplied, not by mere absence. Wiring (a screen provider, `VC_REPLY_LANGS` through `parseReplyLangs`) is a follow-up.
@@ -95,4 +115,6 @@ Metrics (repair): start=2026-10-19T20:30:56+05:30 end=2026-10-19T21:37:48+05:30 
 11. A `senior-software-engineer` review is still due (orchestrator's single checker); a crisis-adjacent dual check is recommended.
 12. Environment: the shared test lock sat on a stale owner (PID 36944, no child process) for about an hour; runs went through slot 1 once the script's own stale handling released it. I did not touch the lock.
 13. (repair 1) The Devanagari country and magnitude lists are hand-written: a spelling not on the list is not recognised, so a swapped country written in an unlisted spelling still reaches the student (the same limit the English path has for a country it does not list). A false positive only falls back to the English reply.
+15. (repair 2) A lone एक (no magnitude after it) is not counted as a figure, because it is the Hindi article; "एक साल" is still caught by the unit check and "एक लाख" by the value check. A Devanagari number or unit word missing from the hand-written lists is not seen (it fails open, like risk 13). The common words दो (also "give") and दिन/साल/वर्ष fail closed to English when English has no such figure or unit, which costs some faithful translations.
+16. (repair 2) A Devanagari word that contains a "." (for example यू.एस.ए) now matches as an IDN host and falls back to English.
 14. (repair 1) The figure and link comparisons are strict, so a faithful translation that rewrites "five thousand" as "5000" or drops/changes a link now shows the English reply; that is the safe direction.
