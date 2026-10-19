@@ -8,7 +8,7 @@ CHECK-PLAN: outcome proof through loadTextChainConfig -> createProvider -> gener
 SCOREBOARD: C1 PASS, C2 PASS, C3 PASS, C4 PASS, C5 PASS, C6 PASS, C7 PASS, C8 PASS. Checker file 52/52 green; providers package at head 232/232 (52 checker + 180 builder-listed files); integration full suite green; 18/18 mutants killed.
 
 ## Evidence
-Providers (checker file + ollama, failover, litellm, index, rules, live), via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/chk-lk1/packages/providers exec tsx --test ...`, TMP/TEMP on D: -> tests 232, pass 232, fail 0 (qa/evidence/p1-lk1-check/providers-232-run.log). That re-executes the builder's 180 at identical code (27fdb9e == 5310e8f), so Pre-check[C1..C8] is reused only after identity validation and my own run agrees (232 - 52 = 180).
+Providers (checker file + ollama, failover, litellm, index, rules, live), via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh pnpm -C D:/vc/.worktrees/chk-lk1/packages/providers exec tsx --test ...`, TMP/TEMP on D: -> tests 232, pass 232, fail 0 (qa/evidence/p1-lk1-check/providers-232-run.txt). That re-executes the builder's 180 at identical code (27fdb9e == 5310e8f), so Pre-check[C1..C8] is reused only after identity validation and my own run agrees (232 - 52 = 180).
 Outcome, per criterion (mocked fetch, config from env strings, only createProvider/generate called):
 - C1: timeout (signal-honouring hang and a stalled response BODY), 500, 502, 503, 429, network throw, non-JSON body, 200 empty body, 200 `{}`, 200 empty content, content not JSON, wrong-shape (schema), `[]`, `null` each reach hop 2: wire order [glm, deepseek], deepseek's answer returned, no exhaustion alert, hop 2 sent to the same URL with the Bearer key and its own model id.
 - C2: HTTP 400, 401, 403, 404, 405, 408, 413, 418, 422 on hop 1 surface as OllamaHttpError with that status, one request, no alert; hop 1 500 then hop 2 401 surfaces the 401 (not AiUnavailable); a preflight refusal surfaces with zero requests; caller abort mid-flight (on hop 1, and on hop 2 after a hop-1 outage) surfaces OllamaAbortedError; a pre-aborted signal sends nothing.
@@ -26,7 +26,7 @@ Integration (fresh `git fetch origin`, origin/main d05e9d1; worktree D:/vc/.work
 - `pnpm -r --workspace-concurrency=1 test` exit 0, 0 failures; node:test totals in run order: 59, 98, 284, 180 (providers), 12, 72, 1644 (1599 pass, 45 skipped, 0 fail), 355, 44 (qa/evidence/p1-lk1-check/int-test-counts.txt)
 - `node D:/ai_os/.claude/skills/maker/tools/tick.mjs --stamp-6c-green` -> `6c-green: 5ac5ae2029b85914b532213a1d70aeea85d6db56` (qa/.6c-green left uncommitted in int-lk1)
 
-## Falsification (mutants in the detached copy chk-lk1, each reverted; qa/evidence/p1-lk1-check/mutants-run.log, script mutants.py.txt)
+## Falsification (mutants in the detached copy chk-lk1, each reverted; qa/evidence/p1-lk1-check/mutants-run.txt, script mutants.py.txt)
 Each mutant ran the checker file plus ollama.test.ts (C7 also failover, litellm, index). Killed means at least one test failed.
 | mutant | criterion | failing tests |
 |---|---|---|
