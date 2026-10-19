@@ -7,7 +7,7 @@
 - B4 no regression: fact-free sentences (greetings, encouragement) stay localized; lk5, lang, student-graph, claims-guard, crisis-defaults green; crisisGuard untouched; engine tsc green
 **Goal task:** none
 **Date:** 2026-10-20
-**Status:** ready-for-check
+**Status:** checked-PASS (qa/verdicts/p1-lk5b.md, acfdbb4)
 **Fix cycle:** 0
 **Policy-Version:** proportional-verification/2026-10-19.17
 **Tier:** M (lang.ts, graph.ts follow-up), single checker

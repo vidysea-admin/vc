@@ -105,6 +105,7 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 - [ ] TODO · Lead review: a recorded release walkthrough video (checker Playwright run of the full counsellor flow) under `qa/evidence/release-<date>/`, with a Hindi voice-over, plus a 7–8 point pre-release checklist the release verdict cites. Umesh sends it to Sapna ma'am + Gaurav bhaiya; the VC never sends it itself.
 
 ## Candidates (human picks)
+- priority: low · p1-lk5b review follow-ups (qa/evidence/p1-briefs/p1-lk5b-review-result.md): DOMAIN_RE still quadratic when text has "." (58 ms at 2k chars, bounded by the 2000-char cap; fix = start anchor + dotted timing test); missed fact wordings "half of", "a dozen", "a quarter of", "Sept", "decade", "sterling", upper-case "MAY".
 
 - [ ] CANDIDATE · ISS-278 (low, test-flake): apps/api voice.test.ts C16 failed once under the full serial suite (event-ordering race, line 1504); 64/64 pass alone x3, file unchanged since 54cb095. Swap the bare assert for an `until(...)` wait. (backstop sweep 2026-10-19)
 - [ ] CANDIDATE · ISS-279 (low, contract, HUMAN_GATE): counselling-engine.md lacks the D-093 amendments (A11b Hindi/Hinglish list, stress check-in + 14416, guardian-consent under 18, A19 redacted persistence, B21 config-driven JWT); needs Umesh's signature. (backstop sweep 2026-10-19)
