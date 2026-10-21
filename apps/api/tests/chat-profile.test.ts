@@ -14,7 +14,7 @@ import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { CRISIS_TEXT, GERMANY_QUESTION, adult, call, chatWorld, cleanupGates, gatesFixture, kbAnswerProvider, minor, newThread, profilePath, recordingKb, studentToken, studentVerifier, threadsPath, turnsPath, SKILLS_DIR, SPEAKERS } from "./chat-fixtures.js";
 import { generateKeyPairSync } from "node:crypto";
 import { CHAIN_ENV, GOOD_CLAIM, chainRequestInput, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
-import { MockProvider, isRetryableProviderError } from "@vc/providers";
+import { MockProvider, RulesProvider, isRetryableProviderError } from "@vc/providers";
 import { PROVIDER_APOLOGY_TEXT, STUDENT_CRISIS_MESSAGE, createStudentFactExtractor, detectLanguageOffline } from "@vc/engine";
 import { CHAIN_MONTHLY_CAP_ENV, ChainBudgetExhaustedError, ChainSpendCapError, createChainSpendGuard, parseChainMonthlyCap } from "../src/index.js";
 
@@ -768,5 +768,72 @@ test("LK7 X1: when every hop of the chain fails (the whole chain is exhausted) t
     console.error = realError;
     await s.close();
     stub.restore();
+  }
+});
+
+// p1-lk7 fix cycle 1: a screen provider that cannot serve concern-classifier must never reach students as "every turn is a crisis".
+async function startOverBase(provider: MockProvider | RulesProvider, extraChat: Record<string, unknown> = {}, env: Record<string, string | undefined> = {}) {
+  const fake = createFakeMongoClient();
+  let connected = 0;
+  (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
+  const f = gatesFixture();
+  try {
+    const api = await startApi(
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", ...env },
+      { clientFactory: () => fake.client, http: httpBase({ provider, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), ...extraChat } }) },
+    );
+    return { api, connected: () => connected, done: async () => { await api.stop(); cleanupGates(f); } };
+  } catch (e) {
+    cleanupGates(f);
+    return { error: e as Error, connected: () => connected };
+  }
+}
+
+test("LK7 C1-fix R1: chat on + screen on + a rules base provider (no concern-classifier) -> startApi REFUSES with a named error, before connecting, naming no key", async () => {
+  for (const env of [{}, CHAIN_ENV]) {
+    const r = await startOverBase(new RulesProvider(), {}, env);
+    if ("done" in r) {
+      await r.done();
+      assert.fail("startApi started with the screen on over a rules provider");
+    }
+    assert.ok(r.error instanceof ChatConfigError, String(r.error));
+    assert.match(r.error.message, /safety screen/i);
+    assert.match(r.error.message, /concern-classifier/);
+    assert.ok(!r.error.message.includes("synthetic-key-not-real"));
+    assert.equal(r.connected(), 0, "nothing connected");
+  }
+});
+
+test("LK7 C1-fix R2: the same rules base with the screen switched off in code (chat.safetyScreen = false) starts; so does chat off", async () => {
+  const off = await startOverBase(new RulesProvider(), { safetyScreen: false });
+  assert.ok("done" in off, off && "error" in off ? String(off.error) : "");
+  await off.done();
+  const chatOff = await startOverBase(new RulesProvider(), {}, { VC_CHAT_ENABLED: "false" });
+  assert.ok("done" in chatOff, "error" in chatOff ? String(chatOff.error) : "");
+  await chatOff.done();
+});
+
+test("LK7 C1-fix R3: a rules base is fine when the screen has its own classifier-capable provider (the screen's provider is what counts), and a refusal names the screen provider", async () => {
+  const own = new MockProvider({ responses: { "concern-classifier": screenOut("none") } });
+  const ok = await startOverBase(new RulesProvider(), { safetyScreen: { provider: own } });
+  assert.ok("done" in ok, "error" in ok ? String(ok.error) : "");
+  await ok.done();
+  const bad = await startOverBase(new MockProvider({ responses: {} }), { safetyScreen: { provider: new RulesProvider() } });
+  assert.ok("error" in bad, "a rules screen provider must refuse even when the base is a mock");
+  assert.ok(bad.error instanceof ChatConfigError);
+});
+
+test("LK7 C1-fix R4: a classifier-capable base starts and an ordinary question is ANSWERED (not escalated, no crisis message)", async () => {
+  const scribe = kbAnswerProvider();
+  scribe.setResponse("concern-classifier", screenOut("none"));
+  const s = await lk7Session({}, scribe);
+  try {
+    const out = await s.ask(GERMANY_QUESTION);
+    assert.equal(out.status, 200);
+    assert.notEqual(out.json.state, "escalated");
+    assert.notEqual(out.json.message, STUDENT_CRISIS_MESSAGE);
+    assert.equal(classifierCalls(scribe).length, 1);
+  } finally {
+    await s.close();
   }
 });

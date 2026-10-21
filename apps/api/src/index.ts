@@ -533,6 +533,17 @@ export async function startApi(
   // chain the offline script test stays, and the base provider is never asked to classify languages) and the LK5 safety screen (ON by default; `false` opts
   // out). crisisGuard still runs first on the original text inside the graph. VC_REPLY_LANGS is read once here (dropped entries are logged by parseReplyLangs).
   const chatScreenOption = chatSetup?.chat.safetyScreen;
+  // p1-lk7 fix cycle 1 (fail closed, D-105): the screen holds every reply and a screen that errors shows the fixed crisis message. A provider that can never
+  // serve `concern-classifier` (the rules provider) would therefore turn EVERY authenticated turn into the crisis message while startApi looked healthy.
+  // Refuse to start instead (cheap check on the provider's kind: no network probe at startup). There is deliberately no env kill switch: that would be fail-open.
+  if (chatSetup && chatScreenOption !== false) {
+    const screenProvider = chatScreenOption?.provider ?? screenBaseProvider;
+    if (screenProvider?.kind === "rules") {
+      throw new ChatConfigError(
+        "VC_CHAT_ENABLED is true and the safety screen is on, but the screen's provider is the rules provider, which has no concern-classifier handling: every student turn would show the crisis message. Configure a model provider for the concern classifier (VC_LLM_PROVIDER) or supply chat.safetyScreen.provider",
+      );
+    }
+  }
   const chatGraph: ChatApiDeps["graph"] | undefined = chatSetup
     ? {
         ...(httpSetup && textChain ? { detectLanguage: createModelLanguageDetector(httpSetup.studentProvider) } : {}),
