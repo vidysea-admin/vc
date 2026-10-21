@@ -21,9 +21,11 @@
  *    studentId must equal the token's, and the data layer is a tenant-scoped Db, so a tenant cannot reach another's rows (B12).
  *  - D-093 6A: stored text is REDACTED (email, phone, self-stated and Pathlynks-known names) before it is written; the live turn may still go
  *    to the model unredacted. Name redaction is a heuristic: over-redaction is accepted, an unannounced name can be missed.
- *  - D-093 4A: an under-18 student without a boolean-true guardian-consent claim (and any student whose age is not known: fail closed) still
- *    gets answers, but no turn text, answer, extracted fact or escalation record is written; the thread keeps only a text-free marker. Such a
- *    turn has no idempotent replay (a retry runs the model again). Ids-and-time-only rows (safety flags, usage counters, gap counts) are kept.
+ *  - D-093 4A: an under-18 student without a boolean-true guardian-consent claim (and any student whose age is not known: fail closed) gets
+ *    NO model call (p1-lk9 C1): an ordinary text is answered with the fixed guardian-consent reply (`GUARDIAN_CONSENT_REPLY`), and a crisis or
+ *    concern text with the vetted crisis message (the guard runs first, on the original text; the crisis node makes no model call). No turn text,
+ *    answer, extracted fact or escalation record is written; the thread keeps only a text-free marker. Such a turn has no idempotent replay
+ *    (a retry is answered again). Ids-and-time-only rows (safety flags, usage counters, gap counts) are kept.
  *  - A23: 30 requests per minute per student (per-tenant override); crisis text is never limited. The limiter is per process (in memory).
  *  - p1-u8r M2: a crisis message is always answered with the helpline, but its WRITES are bounded: per student and thread, the first crisis
  *    turn in a 10-minute window is stored, flagged, escalated and counted; the rest of the window is answered and stores no text. A turn whose
@@ -124,6 +126,8 @@ export const CRISIS_MAX_TRACKED_THREADS = 100_000;
 /** p1-u8r cycle 2: a crisis turn behind an unconfirmed holder waits at most this long for it, then escalates itself. */
 export const CRISIS_QUIET_WAIT_MS = 5_000;
 const LEVEL_RANK = { none: 0, concern: 1, crisis: 2 } as const;
+/** p1-lk9 C1: the fixed reply to an ordinary turn from a student without guardian consent (no model is called). Student-facing; carries the helpline. */
+export const GUARDIAN_CONSENT_REPLY = `To chat with me, a parent or guardian needs to give consent first. Please ask them to allow it in your account, then come back. ${TELE_MANAS_LINE}`;
 /** Chat-extracted facts kept per turn (a model cannot flood a student's profile). */
 export const MAX_PROPOSED_FACTS_PER_TURN = 5;
 
@@ -656,6 +660,11 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
       } else if (!consentOk && !overlong && thread.textStored !== false) {
         await markChatThreadTextNotStored(db, { studentId: ctx.studentId, threadId });
       }
+
+      // p1-lk9 C1 (fail closed): a turn with no guardian consent (a minor without a boolean-true claim, or no age claim) reaches NO provider. The crisis
+      // guard already ran on the original text (`level`): a crisis or concern text goes on to the graph, whose crisis node answers with the vetted message
+      // and makes no model call (LK4). Every other text gets the fixed consent reply; the graph, the knowledge base and the safety-screen model are not used.
+      if (!consentOk && level === "none") return respond(200, TurnResponseSchema.parse({ turnId, state: "ok", message: GUARDIAN_CONSENT_REPLY, claims: [], sources: [], profileFactsUsed: [] }));
 
       const abandon = async () => {
         if (leaseToken !== undefined) await abandonChatTurn(db, { studentId: ctx.studentId, threadId, turnId, leaseToken }).catch(() => undefined);
