@@ -7,7 +7,7 @@
 - D4 exactly one real run, per-clip causes classified in qa/evidence/p1-a10-diag/a10-diag-report.md; qa/gates/a10-voice-gate.md records the Result honestly
 **Goal task:** none
 **Date:** 2026-10-21
-**Status:** ready-for-check
+**Status:** checked-PASS (verdict c6a6dd1)
 **Fix cycle:** 0
 **Policy-Version:** proportional-verification/2026-10-19.17
 **Tier:** M (voice safety evaluation tooling; no production write)
