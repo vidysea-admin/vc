@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { inspect } from "node:util";
 import { ANONYMOUS_COUNTER_KINDS, DEFAULT_LIMITS } from "@vc/schemas";
 import { ANONYMOUS_COUNTER_FIELDS, COLLECTION_NAMES } from "@vc/db";
-import { ANONYMOUS_CRISIS_MESSAGE, ANONYMOUS_NO_ANSWER_TEXT, ANONYMOUS_SIGN_IN_TEXT, TELE_MANAS_LINE, crisisGuard } from "@vc/engine";
+import { ANONYMOUS_CRISIS_MESSAGE, ANONYMOUS_NO_ANSWER_TEXT, ANONYMOUS_SIGN_IN_TEXT, CRISIS_MESSAGES, TELE_MANAS_LINE, crisisGuard } from "@vc/engine";
 import {
   AnonymousForbiddenWriteError,
   AnonymousRateLimiter,
@@ -22,6 +22,8 @@ import { SEARCH_EMPTY, SPEAKERS, GOOD_CLAIM, SKILLS_DIR, anonWorld, ask, anonReq
 const GENERIC = "What are the tuition fees for public universities in Germany?";
 const CRISIS_EN = "I want to kill myself";
 const CRISIS_HINGLISH = "mujhe ab jeena nahi hai, main mar jaana chahta hoon";
+/** LK10: the anonymous crisis message is language-aware: Latin-script Hinglish gets its own `hi-Latn` entry, English gets the English one (exact strings). */
+const expectedAnonymousCrisis = (text: string): string => (text === CRISIS_HINGLISH ? CRISIS_MESSAGES["hi-Latn"].anonymous : ANONYMOUS_CRISIS_MESSAGE);
 
 // ---------------------------------------------------------------------------
 // A15a: write boundary
@@ -403,7 +405,7 @@ test("crisis (B24.7): English and Hinglish get the fixed message with Tele-MANAS
         const res = await ask(w, t, { ip: "192.0.2.77" });
         assert.equal(res.status, 200);
         assert.equal(res.json.state, "escalated");
-        assert.equal(res.json.message, ANONYMOUS_CRISIS_MESSAGE);
+        assert.equal(res.json.message, expectedAnonymousCrisis(t));
         assert.match(res.json.message, /14416/);
         assert.deepEqual(res.json.claims, []);
       }
@@ -608,7 +610,7 @@ test("U7 repair A: a crisis message is answered with the fixed message and Tele-
       const res = await ask(w, text, { ip: "198.51.100.30" });
       assert.equal(res.status, 200, text);
       assert.equal(res.json.state, "escalated");
-      assert.equal(res.json.message, ANONYMOUS_CRISIS_MESSAGE);
+      assert.equal(res.json.message, expectedAnonymousCrisis(text));
       assert.match(res.json.message, /14416/);
     }
     assert.equal(w.provider.calls.length, 10, "crisis turns call no model");
