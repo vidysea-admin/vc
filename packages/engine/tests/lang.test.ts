@@ -163,42 +163,101 @@ test("C3 allow-list: VC_REPLY_LANGS narrows or is ignored when garbage; en is al
 });
 
 // ---------------------------------------------------------------------------
-// C4: crisis message catalog: en and hi only, every entry passes the substring fixture
+// C4 / LK10: crisis message catalog: en, hi (Devanagari) and hi-Latn (Hinglish), every entry passes its language-aware fixture
 // ---------------------------------------------------------------------------
 
-test("C4 catalog: only en and hi entries; every entry (student and anonymous) passes the substring fixture", () => {
-  assert.deepEqual(Object.keys(CRISIS_MESSAGES).sort(), ["en", "hi"]);
-  for (const [lang, entry] of Object.entries(CRISIS_MESSAGES)) {
+/** The same facts per language (qa/evidence/hindi-crisis-validation.md section 4): the four substring assertions in each script. */
+const CRISIS_FIXTURE: Record<"en" | "hi" | "hi-Latn", { notCounsellor: RegExp; noneConnected: RegExp; safeAdult: string; adultQuestion: RegExp }> = {
+  en: {
+    notCounsellor: /not a counsellor/i,
+    noneConnected: /no counsellor from our side is\s+being connected/i,
+    safeAdult: "safe adult",
+    adultQuestion: /Who is a safe adult/,
+  },
+  hi: {
+    notCounsellor: /AI गाइड हूँ, काउंसलर नहीं,/,
+    noneConnected: /हमारी तरफ़ से अभी कोई काउंसलर नहीं जुड़ रहा है/,
+    safeAdult: "भरोसेमंद बड़े",
+    adultQuestion: /आज आप किस भरोसेमंद बड़े से बात कर सकते हैं/,
+  },
+  "hi-Latn": {
+    notCounsellor: /AI guide hoon, counsellor nahi,/i,
+    noneConnected: /hamari taraf se abhi koi counsellor nahi jud raha hai/i,
+    safeAdult: "bharosemand bade",
+    adultQuestion: /Aaj aap kis bharosemand bade se baat kar sakte hain/,
+  },
+};
+const digits = (s: string) => s.replace(/\D/g, "");
+
+test("C4 catalog: en, hi and hi-Latn entries; every entry (student and anonymous) passes its language-aware substring fixture", () => {
+  assert.deepEqual(Object.keys(CRISIS_MESSAGES).sort(), ["en", "hi", "hi-Latn"]);
+  for (const [lang, entry] of Object.entries(CRISIS_MESSAGES) as [keyof typeof CRISIS_FIXTURE, (typeof CRISIS_MESSAGES)["en"]][]) {
+    const fx = CRISIS_FIXTURE[lang];
     for (const mode of ["student", "anonymous"] as const) {
       const msg = entry[mode];
       assert.ok(msg.includes("14416"), `${lang}/${mode}: helpline number`);
-      assert.match(msg, /not a counsellor/i, `${lang}/${mode}: it is not a counsellor`);
-      assert.match(msg, /no counsellor from our side is\s+being connected/i, `${lang}/${mode}: no counsellor is being connected`);
+      assert.ok(digits(msg).includes("18008914416"), `${lang}/${mode}: toll-free form of the helpline`);
+      assert.match(msg, /(^|[^0-9])112([^0-9]|$)/, `${lang}/${mode}: 112 for immediate danger`);
+      assert.match(msg, fx.notCounsellor, `${lang}/${mode}: it is not a counsellor`);
+      assert.match(msg, fx.noneConnected, `${lang}/${mode}: no counsellor is being connected`);
       assert.ok(CRISIS_FORBIDDEN_PATTERNS.every((p) => !p.test(msg)), `${lang}/${mode}: forbidden phrases`);
+      assert.doesNotMatch(msg, /anytime|trained for exactly this|confidential/i, `${lang}/${mode}: no overclaim`);
     }
-    assert.ok(entry.student.includes("safe adult"), `${lang}: student entry asks the safe-adult question`);
+    assert.ok(entry.student.includes(fx.safeAdult), `${lang}: student entry asks the safe-adult question`);
+    assert.match(entry.student, fx.adultQuestion);
     assert.ok(entry.student.includes("?"));
-    assert.ok(!entry.anonymous.includes("Who is a safe adult"), `${lang}: anonymous entry asks no identity question`);
+    assert.doesNotMatch(entry.anonymous, fx.adultQuestion, `${lang}: anonymous entry asks no identity question`);
+    assert.ok(!entry.anonymous.includes("?"), `${lang}: anonymous entry has no question at all`);
   }
 });
 
-test("C4 catalog: the existing approved wording is the English entry, byte for byte; other languages get English+Hindi (the same message)", () => {
+test("C1/C2 the hi entry is Devanagari and the hi-Latn entry is Latin script; they are separate keys and not the English text", () => {
+  const hi = CRISIS_MESSAGES.hi, hing = CRISIS_MESSAGES["hi-Latn"];
+  for (const mode of ["student", "anonymous"] as const) {
+    assert.notEqual(hi[mode], CRISIS_MESSAGES.en[mode]);
+    assert.notEqual(hing[mode], CRISIS_MESSAGES.en[mode]);
+    assert.notEqual(hi[mode], hing[mode]);
+    assert.equal(detectScript(hi[mode]), "devanagari", `hi/${mode}`);
+    assert.equal(detectScript(hing[mode]), "latin", `hi-Latn/${mode}`);
+    assert.doesNotMatch(hing[mode], /[ऀ-ॿ]/, `hi-Latn/${mode}: no Devanagari`);
+    assert.doesNotMatch(hi[mode], /I'm an AI guide|Please call/, `hi/${mode}: no English sentences`);
+  }
+  assert.match(hi.student, /टेली-मानस/);
+  assert.match(hing.student, /Tele-MANAS/);
+});
+
+test("C2 every language carries a hope line (not a promise), the toll-free form and 112", () => {
+  assert.match(CRISIS_MESSAGES.en.student, /it can get better/);
+  assert.match(CRISIS_MESSAGES.hi.student, /हालात बेहतर हो सकते हैं/);
+  assert.match(CRISIS_MESSAGES["hi-Latn"].student, /halaat behtar ho sakte hain/);
+  for (const [lang, e] of Object.entries(CRISIS_MESSAGES)) {
+    assert.doesNotMatch(e.student, /\bwill (get|be) better\b|होगा|hoga/, `${lang}: hope, not a promise`);
+  }
+  assert.match(CRISIS_MESSAGES.en.student, /1800-891-4416/);
+});
+
+test("C4 catalog: English is the spec text; hi and hi-Latn crisis turns are language-routed, other languages get the English message", () => {
   assert.equal(CRISIS_MESSAGES.en.student, STUDENT_CRISIS_MESSAGE);
   assert.equal(CRISIS_MESSAGES.en.anonymous, ANONYMOUS_CRISIS_MESSAGE);
   for (const lang of ["ta", "bn", "und", "fr"]) {
     assert.equal(crisisMessageFor(lang, "student"), STUDENT_CRISIS_MESSAGE);
     assert.equal(crisisMessageFor(lang, "anonymous"), ANONYMOUS_CRISIS_MESSAGE);
   }
-  assert.match(STUDENT_CRISIS_MESSAGE, /[ऀ-ॿ]/, "the English fixed message carries the Hindi helpline text");
+  assert.equal(crisisMessageFor("hi", "student"), CRISIS_MESSAGES.hi.student);
+  assert.equal(crisisMessageFor("hi-Latn", "student"), CRISIS_MESSAGES["hi-Latn"].student);
+  assert.equal(crisisMessageFor("hinglish", "anonymous"), CRISIS_MESSAGES["hi-Latn"].anonymous);
+  assert.equal(crisisMessageFor("hi-IN", "anonymous"), CRISIS_MESSAGES.hi.anonymous);
+  assert.notEqual(crisisMessageFor("hi-Latn", "student"), crisisMessageFor("hi", "student"), "hi-Latn no longer folds to hi");
 });
 
 test("C4 catalog routing: a vetted entry is returned for its language (hi and hi-Latn), anything else gets the English+Hindi fallback", () => {
   const catalog: CrisisCatalog = {
     en: { student: "EN-S 14416", anonymous: "EN-A 14416" },
     hi: { student: "HI-S 14416", anonymous: "HI-A 14416" },
+    "hi-Latn": { student: "HL-S 14416", anonymous: "HL-A 14416" },
   };
   assert.equal(crisisMessageFor("hi", "student", catalog), "HI-S 14416");
-  assert.equal(crisisMessageFor("hi-Latn", "anonymous", catalog), "HI-A 14416");
+  assert.equal(crisisMessageFor("hi-Latn", "anonymous", catalog), "HL-A 14416");
   assert.equal(crisisMessageFor("en", "student", catalog), "EN-S 14416");
   assert.equal(crisisMessageFor("ta", "student", catalog), STUDENT_CRISIS_MESSAGE);
   assert.equal(crisisMessageFor("ta", "anonymous", catalog), ANONYMOUS_CRISIS_MESSAGE);
@@ -259,9 +318,10 @@ test("C5 crisis turns (English, Hinglish, Hindi; student and anonymous) never re
 test("C5 a crisis turn is never delayed or broken by a detector that would hang or throw", async () => {
   const a = graphDeps({ detectLanguage: () => new Promise<never>(() => {}) });
   const out = await runStudentTurn(a.d, authTurn(CRISIS_HINDI));
-  assert.equal(out.response.message, STUDENT_CRISIS_MESSAGE);
+  assert.equal(out.response.message, CRISIS_MESSAGES.hi.student);
   const b = graphDeps({ detectLanguage: async () => { throw new Error("boom"); } });
   assert.equal((await runStudentTurn(b.d, { mode: "anonymous", text: CRISIS_EN })).response.message, ANONYMOUS_CRISIS_MESSAGE);
+  assert.equal((await runStudentTurn(b.d, { mode: "anonymous", text: CRISIS_HINGLISH })).response.message, CRISIS_MESSAGES["hi-Latn"].anonymous);
 });
 
 test("C5 escalation lang is the detected language: Devanagari hi, Latin Hinglish hi-Latn, English en", async () => {
@@ -280,11 +340,12 @@ test("C5 the crisis message for a language comes from the catalog (injected vett
   const catalog: CrisisCatalog = {
     en: { student: STUDENT_CRISIS_MESSAGE, anonymous: ANONYMOUS_CRISIS_MESSAGE },
     hi: { student: "HI-VETTED-S 14416", anonymous: "HI-VETTED-A 14416" },
+    "hi-Latn": { student: "HL-VETTED-S 14416", anonymous: "HL-VETTED-A 14416" },
   };
   const hi = await runStudentTurn(graphDeps({ crisisMessages: catalog }).d, authTurn(CRISIS_HINDI));
   assert.equal(hi.response.message, "HI-VETTED-S 14416");
   const hing = await runStudentTurn(graphDeps({ crisisMessages: catalog }).d, { mode: "anonymous", text: CRISIS_HINGLISH });
-  assert.equal(hing.response.message, "HI-VETTED-A 14416");
+  assert.equal(hing.response.message, "HL-VETTED-A 14416");
   const en = await runStudentTurn(graphDeps({ crisisMessages: catalog }).d, authTurn(CRISIS_EN));
   assert.equal(en.response.message, STUDENT_CRISIS_MESSAGE);
 });

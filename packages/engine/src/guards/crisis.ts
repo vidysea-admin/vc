@@ -550,7 +550,8 @@ const SQUEEZED_CONCERN_PATTERNS = deriveSqueezed(CONCERN_PATTERNS);
 const CRISIS_MESSAGE = [
   "Hey — what you just shared matters more than this session.",
   "I'd really like you to talk to someone who can help right now.",
-  "iCALL is free, confidential, and trained for exactly this — you can call them at 9152987821 anytime.",
+  "Tele-MANAS is free and open 24x7: call 14416 (or 1800-891-4416).",
+  "iCALL (022-25521111, Mon-Sat 8am-10pm) is a counselling line, not an emergency line.",
   "If you're in immediate danger, please call 112.",
   "Want to pause our session and pick it up another day? You're not alone.",
 ].join(" ");
@@ -558,7 +559,8 @@ const CRISIS_MESSAGE = [
 const CONCERN_MESSAGE = [
   "This turn matched a distress signal — it's not an emergency-level flag, but worth a direct check-in.",
   "Ask the student how they're really doing before moving on to the next topic.",
-  "iCALL (9152987821) is free and confidential if they want to talk to someone outside this session.",
+  "Tele-MANAS (14416, free, 24x7) is there if they want to talk to someone outside this session.",
+  "iCALL (022-25521111, Mon-Sat 8am-10pm) is a counselling line, not an emergency line.",
 ].join(" ");
 
 /**
