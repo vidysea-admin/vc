@@ -6,7 +6,7 @@
 - A3 `.env.example` says DeepSeek first (D-108) and shows `VC_CHAIN_MONTHLY_CAP_USD=50` as the example; `docs/runbook-golive.md` lists the alert names, meaning and first action
 **Goal task:** none
 **Date:** 2026-10-21
-**Status:** ready-for-check
+**Status:** checked-PASS (verdict b081d73, cycle 0)
 **Fix cycle:** 0
 **Policy-Version:** proportional-verification/2026-10-19.17
 **Tier:** M (shared observability wiring)
