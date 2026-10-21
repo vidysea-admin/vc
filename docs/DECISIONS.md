@@ -994,3 +994,10 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Supersedes:** D-103 -- item 5 assumed a separate legal signer; D-108 made Umesh the named B13 owner, and he signed explicitly in chat on 2026-10-21, so the agent writing his own dictated line is no longer an agent self-flip.
 **Links:** D-096, D-103, D-108, B13, A20
 **Changes-authorized:** none
+
+## D-110 | 2026-10-21 | type: decision | status: ACTIVE
+**What:** Student chat no-source behaviour changes. (1) When the KnowledgeBase returns no usable source, the bot no longer refuses: the text chain answers as an expert counsellor from model knowledge, numbers included (fees, deadlines, scholarship amounts, rankings), with a short disclaimer that the answer is general guidance not from a verified Vidysea source and that figures must be checked on the official site. Sourced KB answers keep their citations as before. (2) The Tele-MANAS 14416 sentence is appended only to distress or concern replies; the page footer (14416 / 112) stays on every page. In a distress reply, the empathy line comes first.
+**Why:** Umesh after the localhost demo (2026-10-21): "agar source answer nhi hai tho ai should really give well like an expert insted of saying just a no". He chose "Poora expert jawab, numbers bhi" over the recommended no-numbers option, accepting the stale-number risk, and "Sirf distress pe, footer hamesha" for the helpline line.
+**Result:** Feedback-inbox entry written; maker unit p1-nosource-expert dispatched. Unchanged: the safety screen, crisis routing, and the anonymous route's sign-in redirect for personal questions.
+**Links:** D-108, D-109, B2, B21, p1-nosource-expert
+**Changes-authorized:** none
