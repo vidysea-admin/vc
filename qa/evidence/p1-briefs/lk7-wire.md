@@ -1,0 +1,8 @@
+# Brief LK7: wire chat safety + spend cap into apps/api (maker build unit, policy .17)
+Base: origin/main a11653e. Work in a NEW git worktree D:/vc/.worktrees/lk7 on branch p1/lk7 (git -C D:/vc worktree add). Never touch .claude/**, never git add -A, never kill processes (never PID 47984/36944), never print API keys.
+Scope (one owner of apps/api/src/index.ts and apps/api/src/anonymous.ts):
+1. Wire the LK4 model language detector and the LK5 safetyScreen (both exist as optional deps, see qa/manifests/p1-lk4.md:78, p1-lk5.md:139) into the AUTHENTICATED chat path in index.ts. crisisGuard must still run first on the original text. Anonymous route: leave the screen behind a flag defaulting OFF (open decision A15b vs D-105); do not change anonymous behaviour.
+2. Wire onUsage / beforeRequest / onExhausted into createProvider(textChain) (~index.ts:270): per-month USD cap from env VC_CHAIN_MONTHLY_CAP_USD; if VC_TEXT_CHAIN is set and the cap env is missing or invalid, refuse to start the chain (fail closed, clear log line). Exhausted -> the existing degraded reply, never a crash.
+TDD: failing test first. Pre-check lines per criterion, 1 falsification per criterion in a copy. Run only affected tests, using
+`VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 <cmd>` with TMP/TEMP on D:. Long lock waits are normal, do not quit.
+Deliver: commits on p1/lk7, manifest qa/manifests/p1-lk7.md at Status: ready-for-check (Policy-Version .17, Tier L, Dual check: no unless a security trigger line applies; Tests[] and Pre-check[] lines). Do not merge or push. Report sha + criteria results.
