@@ -101,4 +101,4 @@ Note: the openapi summary change (apps/api/src/openapi.ts:571) is covered by stu
 ## Live browser evidence
 Not UI-touching — no surface changed. Changed paths: packages/engine/src/student/lang.ts, packages/engine/src/student/graph.ts, apps/api/src/openapi.ts (one summary string) and test files; no apps/web path touched.
 
-## Status: ready-for-check
+## Status: checked-PASS (verdict 9a11ec1, cycle 0)
