@@ -972,3 +972,10 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Result:** p1-lk5 STALLED (82d2470) is lifted by a rewritten brief; one Opus build round, then the repair checker, 6c and push under D-096.
 
 **Links:** D-105, D-096, ISS-386, ISS-389, qa/gates/lk5-localized-claims.md, 82d2470
+
+## D-107 | 2026-10-21 | type: decision | status: ACTIVE
+**What:** Umesh approved merging LK9 ("we already have consent so ignore it and go", 2026-10-21): (C1) an authenticated turn whose token carries no guardian consent for an under-18 or unknown-age student gets the fixed GUARDIAN_CONSENT_REPLY with zero model/KB calls, while crisis text still gets the vetted crisis reply with 14416 first; (C2) fact extraction runs detached after the reply. Also recorded: LK7's safety screen fails closed, startApi refuses chat+screen over a `rules` provider, and there is no env kill switch (a kill switch would be fail-open under D-105 and needs Umesh).
+**Why:** Pathlynks already collects guardian consent, so C1 is a fail-closed backstop that does not affect consented students; it narrows D-093 4A ("the turn runs but nothing personal persists") for the rare unconsented token. C2 removes extractFacts from the reply latency path (chat.ts:704-717). Both LK9 parts passed a blind dual check (verdicts 84765b9, 3baadbd).
+**Result:** p1/lk9 merged to main; 6c pre-push check then push under D-096.
+**Links:** D-093, D-096, D-105, p1-lk9, p1-lk7
+**Changes-authorized:** none
