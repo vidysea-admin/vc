@@ -145,4 +145,4 @@ Metrics: start=2026-10-22T03:39:14+05:30 end=2026-10-22T03:44:07+05:30 wall_min=
 ## Live browser evidence
 None: no UI change.
 
-## Status: ready-for-check
+## Status: checked-PASS (cycle 2 verdict ba29361, qa/verdicts/p1-grounding-hardening.md, Cycle checked: 2; senior review c1 Approve)
