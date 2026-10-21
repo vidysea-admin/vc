@@ -30,6 +30,7 @@
  * MAX_ANONYMOUS_BODY_BYTES (64 KiB, ISS-135) so a crisis phrase deep in a long message is still scanned (U6h L5); a larger
  * body is a 413 that still carries the helpline, and is not scanned.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
 import { fileURLToPath } from "node:url";
@@ -47,7 +48,7 @@ import {
   type StudentGraphDeps,
   type StudentKbPort,
 } from "@vc/engine";
-import type { GroundedAnswerer, LlmProvider } from "@vc/providers";
+import type { GroundedAnswerer, GroundingBudget, LlmProvider } from "@vc/providers";
 import { assertGoLive } from "./go-live-gate.js";
 import { BodyTooLargeError, respond, type ApiHandler, type ApiRequest, type ApiRoute } from "./server.js";
 
@@ -257,6 +258,8 @@ export interface AnonymousApiDeps {
   };
   /** p1-nosource-grounded G1: Gemini with Google Search grounding for a no-source question (VC_GROUNDING=gemini). It receives the redacted question only. Absent = off. */
   grounding?: GroundedAnswerer;
+  /** H6: per-client and per-day cap on grounded calls (and the spend guard). Over a cap the turn falls back to the model-only guidance. Absent = uncapped. */
+  groundingBudget?: GroundingBudget;
   config?: Partial<StudentGraphConfig>;
   /** Per-deployment override of the D-088 limits (only `anonymousRequestsPerMinute` is read). */
   limits?: Parameters<typeof resolveLimits>[0];
@@ -357,6 +360,9 @@ function defaultLog(line: AnonymousLogLine): void {
   console.error(JSON.stringify(line));
 }
 
+/** H6: the client the current anonymous turn belongs to, read by the shared grounded-call budget (the graph deps are built once, not per request). */
+const groundingClient = new AsyncLocalStorage<string>();
+
 /** The U6 graph deps for anonymous mode: search-only KB, one counter writer, throwing proxies for every other port. */
 export function buildAnonymousGraphDeps(deps: AnonymousApiDeps, onForbidden?: (port: string) => void): StudentGraphDeps {
   const log = deps.log ?? defaultLog;
@@ -378,7 +384,7 @@ export function buildAnonymousGraphDeps(deps: AnonymousApiDeps, onForbidden?: (p
           return { safetyScreen: { ...screen, anonymous: scope === "no_source" ? ("no_source" as const) : true, authenticated: false } };
         })()
       : {}),
-    ...(deps.grounding ? { grounding: deps.grounding } : {}),
+    ...(deps.grounding ? { grounding: deps.groundingBudget ? deps.groundingBudget.bind(deps.grounding, () => groundingClient.getStore() ?? "unknown") : deps.grounding } : {}),
     recordGap: forbidden("recordGap"),
     logFlag: forbidden("logFlag"),
     escalate: forbidden("escalate"),
@@ -467,7 +473,7 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
 
       let result;
       try {
-        result = await runStudentTurn(graphDeps, { mode: "anonymous", text });
+        result = await groundingClient.run(clientKey(req) || "unknown", () => runStudentTurn(graphDeps, { mode: "anonymous", text }));
       } catch (err) {
         if (err instanceof StudentInputInvalidError) return fail(400, "invalid_request");
         throw err;

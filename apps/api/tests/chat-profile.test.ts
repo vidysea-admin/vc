@@ -1002,3 +1002,38 @@ test("LK7 C1-fix R4: a classifier-capable base starts and an ordinary question i
     await s.close();
   }
 });
+
+// p1-grounding-hardening H2: grounding never runs on a chat path without a classifier-capable safety screen.
+const GROUND_ENV = { VC_GROUNDING: "gemini", GEMINI_API_KEY: "synthetic-gemini-key-not-real" };
+
+test("H2: chat + VC_GROUNDING=gemini + chat.safetyScreen=false, or a rules screen provider, refuses to start with a named GroundingConfigError before connecting", async () => {
+  const cases: [string, MockProvider | RulesProvider, Record<string, unknown>][] = [
+    ["safetyScreen false over a model provider", new MockProvider({ responses: {} }), { safetyScreen: false }],
+    ["safetyScreen false over a rules provider", new RulesProvider(), { safetyScreen: false }],
+    ["rules base provider, default screen", new RulesProvider(), {}],
+    ["model base, rules screen provider", new MockProvider({ responses: {} }), { safetyScreen: { provider: new RulesProvider() } }],
+  ];
+  for (const [label, provider, chat] of cases) {
+    const r = await startOverBase(provider, chat, GROUND_ENV);
+    if ("done" in r) {
+      await r.done();
+      assert.fail(`${label}: started grounded with no usable screen`);
+    }
+    assert.equal(r.error.name, "GroundingConfigError", `${label}: ${r.error.message}`);
+    assert.match(r.error.message, /safety screen/i, label);
+    assert.ok(!r.error.message.includes("synthetic-gemini-key-not-real"), label);
+    assert.equal(r.connected(), 0, `${label}: nothing connected`);
+  }
+});
+
+test("H2: chat + grounding starts when the screen is on over a classifier-capable provider (default, or its own screen provider); without grounding safetyScreen=false still starts", async () => {
+  const own = new MockProvider({ responses: { "concern-classifier": screenOut("none") } });
+  for (const [provider, chat] of [[own, {}], [new RulesProvider(), { safetyScreen: { provider: own } }]] as const) {
+    const ok = await startOverBase(provider, chat, GROUND_ENV);
+    assert.ok("done" in ok, "error" in ok ? String(ok.error) : "");
+    await ok.done();
+  }
+  const off = await startOverBase(new RulesProvider(), { safetyScreen: false });
+  assert.ok("done" in off, "error" in off ? String(off.error) : "");
+  await off.done();
+});

@@ -15,7 +15,7 @@ import { API_ROUTES, BodyTooLargeError, createApiHandler } from "../src/server.j
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { APPROVER, GERMANY_QUESTION, NOW, adult, call, chatRequest, chatWorld, cleanupGates, everythingStored, gatesFixture, kbAnswerProvider, minor, newThread, recordingKb, studentToken, studentVerifier, threadsPath, turnsPath } from "./chat-fixtures.js";
 import { SKILLS_DIR, SPEAKERS } from "./anonymous-fixtures.js";
-import { MockGroundedAnswerer, MockProvider } from "@vc/providers";
+import { GroundingBudget, MockGroundedAnswerer, MockProvider } from "@vc/providers";
 import { TELE_MANAS_LINE, crisisGuard } from "@vc/engine";
 import { createHash, generateKeyPairSync } from "node:crypto";
 
@@ -700,6 +700,29 @@ test("G1 (API): a signed-in student's no-source question with grounding on gets 
     const gaps = w.fakeDb.collection<Record<string, unknown>>(COLLECTION_NAMES.chat_gap_counts).all();
     assert.equal(gaps.length, 1);
     assert.equal(gaps[0]!.kind, "no_sourced_answer");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("H6 (API): the grounded-call cap is per chat thread; the next turn in the same thread falls back to the no-source reply (no crash), a new thread is grounded again", async () => {
+  const GROUNDED = "Student hostels in Lisbon commonly cost 400 to 700 euros a month, and residences run by the university are usually cheaper.";
+  const grounding = new MockGroundedAnswerer({ text: GROUNDED, sources: [] });
+  const w = chatWorld({ kb: recordingKb({ status: "ok", hits: [], dropped: 0 }), deps: { graph: { grounding }, groundingBudget: new GroundingBudget({ maxPerSession: 1, maxPerDay: 50 }) } });
+  try {
+    const token = await studentToken(adult());
+    const t1 = await newThread(w, token);
+    const first = await call(w, "POST", turnsPath("stu-1", t1), { token, body: { text: "Which hostel is best in Lisbon?", clientTurnId: "h6-api-1" } });
+    assert.ok(first.json.message.includes(GROUNDED));
+    const second = await call(w, "POST", turnsPath("stu-1", t1), { token, body: { text: "Which hostel is best in Porto?", clientTurnId: "h6-api-2" } });
+    assert.equal(second.status, 200);
+    assert.equal(second.json.state, "no_sourced_answer");
+    assert.ok(!second.json.message.includes(GROUNDED), second.json.message);
+    assert.equal(grounding.calls.length, 1, "the capped turn never reached the web");
+    const t2 = await newThread(w, token);
+    const third = await call(w, "POST", turnsPath("stu-1", t2), { token, body: { text: "Which hostel is best in Faro?", clientTurnId: "h6-api-3" } });
+    assert.ok(third.json.message.includes(GROUNDED));
+    assert.equal(grounding.calls.length, 2);
   } finally {
     w.cleanup();
   }

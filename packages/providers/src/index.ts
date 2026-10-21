@@ -886,11 +886,114 @@ export function loadGroundedAnswerer(
   if (raw === undefined || raw === "" || raw === "off") return undefined;
   if (raw !== "gemini") throw new GroundingConfigError('VC_GROUNDING must be unset, "off" or "gemini" (got a different value)');
   if (!env.GEMINI_API_KEY) throw new GroundingConfigError("VC_GROUNDING=gemini needs GEMINI_API_KEY");
+  const model = env.VC_GROUNDING_MODEL?.trim() || GROUNDING_DEFAULT_MODEL;
+  // H6: `thinkingBudget: 0` (so the output limit is not eaten by hidden reasoning and the reply is not cut off) is only sent for flash models.
+  // Any other model is unproven here, so it is a startup error rather than a silently truncated or costlier answer.
+  if (!/flash/i.test(model)) throw new GroundingConfigError('VC_GROUNDING_MODEL must be a "flash" model: the thinking budget is only set (and proven) for those');
   return new GeminiGroundedAnswerer({
-    model: env.VC_GROUNDING_MODEL?.trim() || GROUNDING_DEFAULT_MODEL,
+    model,
     apiKey: env.GEMINI_API_KEY,
     ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
     ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
+  });
+}
+
+/** H6: the cap a grounded call ran into. The student graph treats any grounded failure as "fall back to the model-only D-110 guidance". */
+export class GroundingBudgetError extends Error {
+  readonly scope: "session" | "day" | "spend";
+  constructor(scope: "session" | "day" | "spend") {
+    super(`GroundingBudgetError: the grounded-call ${scope} cap is reached`);
+    this.name = "GroundingBudgetError";
+    this.scope = scope;
+  }
+}
+
+export const GROUNDING_DEFAULT_MAX_PER_SESSION = 5;
+export const GROUNDING_DEFAULT_MAX_PER_DAY = 500;
+const GROUNDING_BUDGET_MAX_KEYS = 20_000;
+
+export interface GroundingBudgetOptions {
+  maxPerSession: number;
+  maxPerDay: number;
+  /** UTC day rollover clock (tests). */
+  now?: () => Date;
+  /** Charged once per allowed call, after the counters (the existing spend guard); a throw refuses the call. */
+  spend?: () => void | Promise<void>;
+}
+
+/**
+ * H6: caps grounded calls per caller key (an anonymous client or a chat thread) and per UTC day, and charges the spend guard when one exists.
+ * `bind(answerer, key)` returns an answerer that counts every attempt before it reaches the network; over a cap it throws
+ * `GroundingBudgetError`, which the graph already turns into the model-only guidance. The per-key map is bounded and reset each day.
+ */
+export class GroundingBudget {
+  readonly maxPerSession: number;
+  readonly maxPerDay: number;
+  readonly #now: () => Date;
+  readonly #spend: (() => void | Promise<void>) | undefined;
+  #day = "";
+  #dayCount = 0;
+  #perKey = new Map<string, number>();
+
+  constructor(options: GroundingBudgetOptions) {
+    this.maxPerSession = options.maxPerSession;
+    this.maxPerDay = options.maxPerDay;
+    this.#now = options.now ?? (() => new Date());
+    this.#spend = options.spend;
+  }
+
+  async #charge(key: string): Promise<void> {
+    const day = this.#now().toISOString().slice(0, 10);
+    if (day !== this.#day) {
+      this.#day = day;
+      this.#dayCount = 0;
+      this.#perKey = new Map();
+    }
+    if (this.#dayCount >= this.maxPerDay) throw new GroundingBudgetError("day");
+    const used = this.#perKey.get(key) ?? 0;
+    if (used >= this.maxPerSession) throw new GroundingBudgetError("session");
+    if (this.#spend) {
+      try {
+        await this.#spend();
+      } catch {
+        throw new GroundingBudgetError("spend");
+      }
+    }
+    this.#dayCount += 1;
+    if (!this.#perKey.has(key) && this.#perKey.size >= GROUNDING_BUDGET_MAX_KEYS) this.#perKey.delete(this.#perKey.keys().next().value as string);
+    this.#perKey.set(key, used + 1);
+  }
+
+  /** `key` is the caller (a client or a thread); pass a function to read it from request-scoped state (the graph and its deps are shared across requests). */
+  bind(inner: GroundedAnswerer, key: string | (() => string)): GroundedAnswerer {
+    const charge = (k: string) => this.#charge(k);
+    return {
+      kind: inner.kind,
+      model: inner.model,
+      async answer(request: GroundedAnswerRequest): Promise<GroundedAnswer> {
+        await charge(typeof key === "function" ? key() : key);
+        return inner.answer(request);
+      },
+    };
+  }
+}
+
+function groundingCap(raw: string | undefined, fallback: number, name: string): number {
+  if (raw === undefined || raw.trim() === "") return fallback;
+  if (!/^\d{1,9}$/.test(raw.trim()) || Number(raw.trim()) < 1) throw new GroundingConfigError(`${name} must be a positive whole number`);
+  return Number(raw.trim());
+}
+
+/** H6: `VC_GROUNDING_MAX_PER_SESSION` (default 5) and `VC_GROUNDING_MAX_PER_DAY` (default 500); a malformed value is a startup error. */
+export function loadGroundingBudget(
+  env: { VC_GROUNDING_MAX_PER_SESSION?: string; VC_GROUNDING_MAX_PER_DAY?: string },
+  options: { now?: () => Date; spend?: () => void | Promise<void> } = {},
+): GroundingBudget {
+  return new GroundingBudget({
+    maxPerSession: groundingCap(env.VC_GROUNDING_MAX_PER_SESSION, GROUNDING_DEFAULT_MAX_PER_SESSION, "VC_GROUNDING_MAX_PER_SESSION"),
+    maxPerDay: groundingCap(env.VC_GROUNDING_MAX_PER_DAY, GROUNDING_DEFAULT_MAX_PER_DAY, "VC_GROUNDING_MAX_PER_DAY"),
+    ...(options.now ? { now: options.now } : {}),
+    ...(options.spend ? { spend: options.spend } : {}),
   });
 }
 

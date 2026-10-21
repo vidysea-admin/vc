@@ -30,7 +30,9 @@ import {
   createProvider,
   emitEngineeringAlert,
   emitFailoverAlert,
+  GroundingConfigError,
   loadGroundedAnswerer,
+  loadGroundingBudget,
   loadProviderConfig,
   loadTextChainConfig,
   type EngineeringAlert,
@@ -174,6 +176,10 @@ function defaultChainLog(line: ChainLogLine): void {
   // eslint-disable-next-line no-console
   console.error(JSON.stringify(line));
 }
+
+/** H6: the notional cost one grounded Gemini call reserves against the chain's monthly cap (Google Search grounding is billed per grounded prompt, roughly USD 0.035). */
+const GROUNDED_CALL_ESTIMATED_COST_USD = 0.035;
+const GROUNDED_CALL_ESTIMATED_TOKENS = 1024;
 
 /**
  * The cap, in this process. Spend is the upper-bound reservation of every request sent (a request that fails after it was sent keeps its
@@ -504,6 +510,17 @@ export async function startApi(
   // p1-nosource-grounded G1: Gemini with Google Search grounding for a no-source question. VC_GROUNDING is off unless exactly "gemini"; "gemini" without
   // GEMINI_API_KEY, or any other value, is a startup error before anything connects. The key is read from the environment only (B11).
   const grounding = httpSetup ? loadGroundedAnswerer(env) : undefined;
+  // p1-grounding-hardening H6: grounded calls are capped per caller (an anonymous client, a chat thread) and per UTC day (VC_GROUNDING_MAX_PER_SESSION, default
+  // 5; VC_GROUNDING_MAX_PER_DAY, default 500). With a text chain each allowed call also reserves a notional per-call cost against the same monthly USD cap
+  // (no refund: a conservative figure, since the grounded request has no usage report). Over any cap the turn falls back to the model-only guidance.
+  // A malformed cap is a startup error even when grounding is off, so a typo is never silently the default.
+  const groundingBudget = httpSetup
+    ? loadGroundingBudget(env, {
+        ...(chainGuard && grounding
+          ? { spend: () => chainGuard.beforeRequest({ model: grounding.model, estimatedInputTokens: GROUNDED_CALL_ESTIMATED_TOKENS, maxOutputTokens: GROUNDED_CALL_ESTIMATED_TOKENS, estimatedCostUsd: GROUNDED_CALL_ESTIMATED_COST_USD }) }
+          : {}),
+      })
+    : undefined;
   const counterRef: { writer?: AnonymousCounterWriter } = {};
   let anonymousHandler: ReturnType<typeof createAnonymousApi>;
   if (httpSetup && anonymousFlag) {
@@ -526,7 +543,7 @@ export async function startApi(
           : screenBaseProvider && screenBaseProvider.kind !== "rules"
             ? { safetyScreen: { provider: screenBaseProvider, scope: "no_source" as const } }
             : {}),
-        ...(grounding ? { grounding } : {}),
+        ...(grounding ? { grounding, ...(groundingBudget ? { groundingBudget } : {}) } : {}),
         counter:
           a.counter ??
           {
@@ -574,6 +591,17 @@ export async function startApi(
   // chain the offline script test stays, and the base provider is never asked to classify languages) and the LK5 safety screen (ON by default; `false` opts
   // out). crisisGuard still runs first on the original text inside the graph. VC_REPLY_LANGS is read once here (dropped entries are logged by parseReplyLangs).
   const chatScreenOption = chatSetup?.chat.safetyScreen;
+  // p1-grounding-hardening H2 (fail closed): grounding sends a redacted question to the web, so it never runs unscreened. The screen is on whenever grounding is on;
+  // a configuration that would leave a grounded path without a classifier-capable screen is a startup error, before anything connects.
+  if (grounding) {
+    const unscreened: string[] = [];
+    if (anonymousFlag && screenBaseProvider?.kind === "rules") unscreened.push("the anonymous route's screen provider is the rules provider (no concern-classifier handling)");
+    if (chatSetup && chatScreenOption === false) unscreened.push("chat.safetyScreen is false");
+    if (chatSetup && chatScreenOption !== false && (chatScreenOption?.provider ?? screenBaseProvider)?.kind === "rules") unscreened.push("the chat screen's provider is the rules provider (no concern-classifier handling)");
+    if (unscreened.length > 0) {
+      throw new GroundingConfigError(`VC_GROUNDING=gemini needs the safety screen on for every path that can reach it, but ${unscreened.join(" and ")}. Configure a model provider for the concern classifier or turn VC_GROUNDING off`);
+    }
+  }
   // p1-lk7 fix cycle 1 (fail closed, D-105): the screen holds every reply and a screen that errors shows the fixed crisis message. A provider that can never
   // serve `concern-classifier` (the rules provider) would therefore turn EVERY authenticated turn into the crisis message while startApi looked healthy.
   // Refuse to start instead (cheap check on the provider's kind: no network probe at startup). There is deliberately no env kill switch: that would be fail-open.
@@ -679,6 +707,7 @@ export async function startApi(
               ...(chatSetup.chat.profile ? { profile: chatSetup.chat.profile } : {}),
               ...(chatExtractFacts ? { extractFacts: chatExtractFacts } : {}),
               ...(chatGraph ? { graph: chatGraph } : {}),
+              ...(chatGraph?.grounding && groundingBudget ? { groundingBudget } : {}),
               ...(chatSetup.chat.sandboxTenantId !== undefined ? { sandboxTenantId: chatSetup.chat.sandboxTenantId } : {}),
               ...(chatSetup.chat.limitsForTenant ? { limitsForTenant: chatSetup.chat.limitsForTenant } : {}),
               ...(chatSetup.chat.config ? { config: chatSetup.chat.config } : {}),

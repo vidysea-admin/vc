@@ -201,11 +201,15 @@ test("T-045 raw schema failures preserve typed retry eligibility without exposin
 
 import {
   GeminiGroundedAnswerer,
+  MockGroundedAnswerer,
+  GroundingBudget,
+  GroundingBudgetError,
   GroundingConfigError,
   GroundingFailedError,
   GroundingHttpError,
   GROUNDING_MAX_SOURCES,
   loadGroundedAnswerer,
+  loadGroundingBudget,
   sanitizeGroundingSources,
 } from "../src/index.js";
 
@@ -312,7 +316,67 @@ test("VC_GROUNDING: unset, empty and off are off; gemini needs a key; any other 
   const on = loadGroundedAnswerer({ VC_GROUNDING: "gemini", GEMINI_API_KEY: GKEY });
   assert.equal(on?.kind, "gemini");
   assert.equal(on?.model, "gemini-2.5-flash");
-  assert.equal(loadGroundedAnswerer({ VC_GROUNDING: "gemini", GEMINI_API_KEY: GKEY, VC_GROUNDING_MODEL: "gemini-x" })?.model, "gemini-x");
+  assert.equal(loadGroundedAnswerer({ VC_GROUNDING: "gemini", GEMINI_API_KEY: GKEY, VC_GROUNDING_MODEL: "gemini-3-flash" })?.model, "gemini-3-flash");
+  assert.equal(loadGroundedAnswerer({ VC_GROUNDING: "gemini", GEMINI_API_KEY: GKEY, VC_GROUNDING_MODEL: "gemini-2.5-flash-lite" })?.model, "gemini-2.5-flash-lite");
+});
+
+test("H6: a non-flash VC_GROUNDING_MODEL is a startup error (thinkingBudget is only set and proven for flash models); the message never carries the key", () => {
+  for (const model of ["gemini-2.5-pro", "gemini-x", "gemini-3-pro"]) {
+    assert.throws(
+      () => loadGroundedAnswerer({ VC_GROUNDING: "gemini", GEMINI_API_KEY: GKEY, VC_GROUNDING_MODEL: model }),
+      (e: unknown) => e instanceof GroundingConfigError && !String((e as Error).message).includes(GKEY),
+      model,
+    );
+  }
+});
+
+const okAnswer = { text: "t", sources: [] };
+
+test("H6: GroundingBudget caps grounded calls per session key and per UTC day; the cap error is typed and the inner answerer is not called over the cap", async () => {
+  const inner = new MockGroundedAnswerer(okAnswer);
+  const budget = new GroundingBudget({ maxPerSession: 2, maxPerDay: 3 });
+  const a = budget.bind(inner, "a");
+  const b = budget.bind(inner, "b");
+  await a.answer({ question: "q", systemPrompt: "s" });
+  await a.answer({ question: "q", systemPrompt: "s" });
+  await assert.rejects(a.answer({ question: "q", systemPrompt: "s" }), (e: unknown) => e instanceof GroundingBudgetError && e.scope === "session");
+  await b.answer({ question: "q", systemPrompt: "s" });
+  await assert.rejects(b.answer({ question: "q", systemPrompt: "s" }), (e: unknown) => e instanceof GroundingBudgetError && e.scope === "day");
+  assert.equal(inner.calls.length, 3, "only allowed calls reach the answerer");
+  assert.equal(a.kind, inner.kind);
+  assert.equal(a.model, inner.model);
+});
+
+test("H6: the budget rolls over at the UTC day, and a failing spend guard refuses the call without counting it", async () => {
+  let now = new Date("2026-10-22T23:59:00Z");
+  let spendOk = true;
+  let spent = 0;
+  const inner = new MockGroundedAnswerer(okAnswer);
+  const budget = new GroundingBudget({ maxPerSession: 1, maxPerDay: 1, now: () => now, spend: () => { if (!spendOk) throw new Error("monthly cap"); spent += 1; } });
+  const g = budget.bind(inner, "k");
+  spendOk = false;
+  await assert.rejects(g.answer({ question: "q", systemPrompt: "s" }), (e: unknown) => e instanceof GroundingBudgetError && e.scope === "spend");
+  assert.equal(inner.calls.length, 0);
+  spendOk = true;
+  await g.answer({ question: "q", systemPrompt: "s" });
+  await assert.rejects(g.answer({ question: "q", systemPrompt: "s" }), GroundingBudgetError);
+  now = new Date("2026-10-23T00:00:01Z");
+  await g.answer({ question: "q", systemPrompt: "s" });
+  assert.equal(inner.calls.length, 2);
+  assert.equal(spent, 2);
+});
+
+test("H6: loadGroundingBudget defaults to 5 per session and 500 per day, reads the env, and rejects malformed values at startup", () => {
+  const d = loadGroundingBudget({});
+  assert.equal(d.maxPerSession, 5);
+  assert.equal(d.maxPerDay, 500);
+  const e = loadGroundingBudget({ VC_GROUNDING_MAX_PER_SESSION: "3", VC_GROUNDING_MAX_PER_DAY: "40" });
+  assert.equal(e.maxPerSession, 3);
+  assert.equal(e.maxPerDay, 40);
+  for (const bad of ["0", "-1", "abc", "1.5", "1e3"]) {
+    assert.throws(() => loadGroundingBudget({ VC_GROUNDING_MAX_PER_SESSION: bad }), GroundingConfigError, bad);
+    assert.throws(() => loadGroundingBudget({ VC_GROUNDING_MAX_PER_DAY: bad }), GroundingConfigError, bad);
+  }
 });
 
 test("grounded Gemini: a MAX_TOKENS reply is a typed failure (never shown cut off); a flash model is sent thinkingBudget 0, another model is not; the output limit leaves room for the answer", async () => {

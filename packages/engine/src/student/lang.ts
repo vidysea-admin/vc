@@ -692,12 +692,25 @@ const DOT_WORD_RE = new RegExp(String.raw`(?<=[\p{L}\p{N}])\s+dot\s+(?=(?:${TLD_
 
 /** "daad . de": a space before the dot and a listed TLD straight after it. */
 const SPACED_DOT_RE = new RegExp(String.raw`(?<=[\p{L}\p{N}])\s+\.\s*(?=(?:${TLD_ALT})(?![\p{L}\p{N}]))`, "giu");
+/**
+ * "daad. de": a full stop, then spaces, then a lowercase 2-3 letter TLD, straight after a word of 3+ characters. Capitalised words (a new sentence) and
+ * TLDs that are ordinary English words ("in", "it", "no", "to", "so") are left alone.
+ */
+const DOT_THEN_SPACE_TLDS = BARE_TLDS.filter((t) => t.length <= 3 && !WORD_TLDS.has(t) && !["to", "so", "am", "by", "ar"].includes(t));
+const DOT_THEN_SPACE_RE = new RegExp(String.raw`(?<=[\p{L}\p{N}]{3})\.[ ]+(?=(?:${DOT_THEN_SPACE_TLDS.join("|")})(?![\p{L}\p{N}]))`, "gu");
+/** Abbreviations that run into the next word without a space ("etc.in Germany"): the label before the dot is not a host. */
+const ABBREVIATION_LABELS = new Set(["etc", "eg", "ie", "vs", "approx", "incl", "esp", "viz", "cf", "ca", "min", "max", "est", "no", "fig"]);
+/** A word that carries on a sentence after a missing space ("cities.it depends", "cities.in germany"): the "it" or "in" was prose, not a TLD. */
+const PROSE_FOLLOWERS = new Set([
+  "depends", "depend", "is", "was", "will", "can", "may", "might", "would", "could", "should", "varies", "takes", "seems", "means", "differs", "really", "also", "then",
+  "does", "did", "usually", "often", "always", "never", "just", "only", "still", "all", "not", "becomes", "requires", "costs", "matters", "tends", "looks", "sounds",
+]);
 /** A host of three or more characters, any 2+ letter TLD and a path ("example.study/apply"), whether or not the TLD is in the list. */
 const HOST_WITH_PATH_RE = /(?<![\p{L}\p{N}@._-])[\p{L}\p{N}-]{3,}\.\p{L}{2,}\/\S/u;
 
 function hasBareDomain(text: string): boolean {
   if (HOST_WITH_PATH_RE.test(text)) return true;
-  const t = text.replace(DOT_OBFUSCATION_RE, ".").replace(DOT_WORD_RE, ".").replace(SPACED_DOT_RE, ".");
+  const t = text.replace(DOT_OBFUSCATION_RE, ".").replace(DOT_WORD_RE, ".").replace(SPACED_DOT_RE, ".").replace(DOT_THEN_SPACE_RE, ".");
   for (const m of t.matchAll(BARE_DOMAIN_RE)) {
     const labels = m[1]!.slice(0, -1).split(".");
     const tld = m[2]!;
@@ -706,6 +719,12 @@ function hasBareDomain(text: string): boolean {
     // A capitalised word-like TLD straight after a full stop is the start of the next sentence.
     const next = t[(m.index ?? 0) + m[0].length];
     if (/^[A-Z][a-z]+$/u.test(tld) && WORD_TLDS.has(tld.toLowerCase()) && next !== "/") continue;
+    // p1-grounding-hardening H5: a lowercase word-like TLD after a single label is prose when the label is an abbreviation ("etc.in Germany") or the next
+    // word carries the sentence on ("cities.it depends"). "visit unimi.it for details" is still a link.
+    if (labels.length === 1 && WORD_TLDS.has(tld.toLowerCase()) && next !== "/") {
+      const following = t.slice((m.index ?? 0) + m[0].length).match(/^\s+([\p{L}]+)/u)?.[1]?.toLowerCase();
+      if (ABBREVIATION_LABELS.has(labels[0]!.toLowerCase()) || (following !== undefined && PROSE_FOLLOWERS.has(following))) continue;
+    }
     return true;
   }
   return false;
@@ -723,6 +742,130 @@ export function hasExplicitLink(text: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Outbound redaction for the grounded web question (p1-grounding-hardening H1)
+// ---------------------------------------------------------------------------
+
+/** Words that are never a person's name or a school's name when they follow an introduction ("I am interested", "from a college"). Lower case. */
+const NAME_STOP_WORDS = new Set([
+  "a", "an", "the", "and", "or", "but", "so", "i", "im", "i'm", "me", "my", "we", "you", "it", "this", "that", "to", "of", "in", "on", "at", "for", "with", "from", "by", "as", "if", "not", "no", "yes",
+  "am", "is", "are", "was", "were", "be", "been", "do", "does", "did", "have", "has", "had", "will", "would", "can", "could", "should", "may", "might", "want", "wants", "wanted", "wish", "need",
+  "like", "love", "looking", "planning", "interested", "confused", "worried", "unsure", "sure", "trying", "hoping", "applying", "going", "preparing", "thinking", "wondering", "currently", "studying",
+  "study", "student", "students", "graduate", "also", "just", "very", "really", "still", "already", "now", "here", "there", "new", "good", "best", "any", "some", "all", "which", "what",
+  "who", "when", "where", "why", "how", "age", "aged", "class", "grade", "std", "born", "live", "living", "indian", "nepali", "foreign", "international", "expecting", "waiting", "ready", "eligible",
+  "hai", "hain", "hun", "hoon", "hu", "ho", "aur", "par", "mai", "main", "mein", "se", "ka", "ki", "ke", "ko", "ne", "mujhe", "mera", "meri", "mere", "hum", "tum", "aap", "yeh", "woh", "nahi", "nahin",
+  "chahta", "chahti", "chahte", "padhna", "padh", "karna", "kar", "raha", "rahi", "rahe", "ek", "kya", "kaise", "kab", "kahan", "kyun", "engineer", "doctor", "pareshan", "khush",
+]);
+const isNameStop = (token: string): boolean => NAME_STOP_WORDS.has(token.toLowerCase().replace(/[.,;:]+$/u, ""));
+const isCapitalised = (token: string): boolean => /^\p{Lu}/u.test(token);
+const NAME_TOKEN = String.raw`(?:\p{L}\.|\p{L}[\p{L}'’-]*)`;
+
+/**
+ * "my name is riya and ...": the first word after the introduction is the name, and so are up to two more that are capitalised (the second may be
+ * lower case if it is not an ordinary function word). A stop word ends the name. Works in any case.
+ */
+function redactNameRun(run: string, requireCapital: boolean): string {
+  const tokens = run.split(/(\s+)/u); // words at even indexes, whitespace at odd
+  let taken = 0;
+  for (let i = 0; i * 2 < tokens.length && i < 3; i++) {
+    const w = tokens[i * 2]!;
+    if (isNameStop(w)) break;
+    if ((requireCapital || i === 2) && !isCapitalised(w)) break;
+    taken++;
+  }
+  if (taken === 0) return run;
+  return `[name]${tokens.slice(taken * 2 - 1).join("")}`;
+}
+
+const INTRO_ANY_CASE_RE = new RegExp(
+  String.raw`(\b(?:my name is|my name's|my name’s|name is|i am called|i'm called|i’m called|call me|mera naam(?: hai)?|mera nam|myself)\s+)(${NAME_TOKEN}(?:\s+${NAME_TOKEN}){0,2})`,
+  "giu",
+);
+const INTRO_I_AM_RE = new RegExp(String.raw`(\b(?:[Ii]\s+[Aa][Mm]|[Ii]['’][Mm]|[Ii][Mm])\s+)(\p{Lu}[\p{L}'’-]*(?:\s+\p{Lu}[\p{L}'’-]*){0,2})`, "gu");
+const INTRO_MAIN_RE = new RegExp(String.raw`(\b(?:main|mai|mein)\s+)(${NAME_TOKEN}(?:\s+${NAME_TOKEN}){0,2})(\s+(?:hoon|hun|hu|hoo)\b)`, "giu");
+
+const MONTH = String.raw`(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)`;
+/** Birth years of a school or university applicant. A deadline such as "15 January 2027" is a date but not a date of birth, so it stays. */
+const BIRTH_YEAR = String.raw`(?:19[789]\d|20[01]\d)`;
+const BIRTH_CONTEXT = String.raw`(?:born|dob|d\.o\.b\.?|birthday|date of birth|birth date|birthdate)\s*(?:on|in|is|was|:|-)?\s*`;
+const DATE_RES: RegExp[] = [
+  new RegExp(String.raw`\b\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?${MONTH}\.?,?\s+${BIRTH_YEAR}\b`, "giu"),
+  new RegExp(String.raw`\b${MONTH}\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+${BIRTH_YEAR}\b`, "giu"),
+  new RegExp(String.raw`\b\d{1,2}[/.-]\d{1,2}[/.-]${BIRTH_YEAR}\b`, "gu"),
+  new RegExp(String.raw`\b${BIRTH_YEAR}[/.-]\d{1,2}[/.-]\d{1,2}\b`, "gu"),
+  // After "born" or "dob" a date in any form, including two-digit years and a day and month with no year.
+  new RegExp(String.raw`\b${BIRTH_CONTEXT}(?:\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?${MONTH}\b|${MONTH}\s+\d{1,2}(?:st|nd|rd|th)?\b|(?:19|20)\d{2}\b)`, "giu"),
+];
+
+const AGE_RES: RegExp[] = [
+  /\b(?:age[d]?|umar|umra|उम्र)\s*(?:is|of|:|-|=)?\s*\d{1,2}(?![\p{L}\p{N}%]|[.,]\d)/giu,
+  /\b\d{1,2}[\s-]*(?:years?|yrs?)[\s-]*old\b/giu,
+  /\b\d{1,2}\s*(?:y\/o|yo|yr old|साल|वर्ष)(?![\p{L}\p{N}])/giu,
+  /\b\d{1,2}\s*(?:saal|sal|varsh)(?:\s+(?:ka|ki|ke|ho|hoon|hun|hu))?(?![\p{L}\p{N}])/giu,
+  /\b(?:i am|i'm|i’m|im|main|mai)\s+(?:a\s+)?\d{1,2}(?![\p{L}\p{N}%]|[.,]\d)(?!\s*(?:%|percent|lakh|lpa|k\b|years? (?:of|experience)))/giu,
+];
+
+const STREET_WORDS = String.raw`(?:Road|Rd|Street|Lane|Marg|Nagar|Colony|Sector|Avenue|Ave|Society|Apartments?|Layout|Chowk|Vihar|Enclave|Bagh|Gali|Drive|Boulevard|Blvd)`;
+const ADDRESS_RES: RegExp[] = [
+  new RegExp(String.raw`\b\d{1,5}[A-Za-z]?(?:[/-]\d{1,4})?,?\s+(?:[\p{L}.'’-]+\s+){0,3}?${STREET_WORDS}\b\.?`, "giu"),
+  /\b(?:house|flat|plot|door)\s*(?:no\.?|number|#)?\s*[:#-]?\s*\d[\w/-]*(?:,?\s+(?:[\p{L}.'’-]+\s+){0,3}?(?:Society|Apartments?|Colony|Nagar|Road|Street|Layout|Park|Residency|Heights|Tower)s?\b)?/giu,
+  /\bh\.?\s?no\.?\s*\d[\w/-]*/giu,
+  /\bsector\s+\d+\b/giu,
+  /\b(?:\p{Lu}[\p{L}.'’-]*\s+){1,3}(?:Society|Apartments?|Colony|Residency|Heights|Enclave|Nagar)\b/gu,
+];
+
+const SCHOOL_WORDS = String.raw`(?:school|college|vidyalaya|vidyalay|vidya\s+(?:mandir|niketan|bhavan|peeth)|convent|academy|gurukul|polytechnic|pathshala|mahavidyalaya)`;
+/** After one of these the name of the student's OWN school or college follows ("from Delhi Public School Rohini"); a school named without it ("Harvard Business School") is a study target and stays. */
+const SCHOOL_CONTEXT = String.raw`(?:from|(?:i|we)\s+(?:study|studied|am studying|was studying|go|went|attend|attended)\s+(?:in|at|to)|studying\s+(?:in|at)|studied\s+(?:in|at)|currently\s+(?:at|in)|passed\s+out\s+(?:of|from)|graduated\s+from|alumn\w+\s+of|my\s+(?:school|college)\s+is|(?:school|college)\s*(?:name)?\s*(?:is|:|-))`;
+const SCHOOL_CONTEXT_RE = new RegExp(String.raw`(\b${SCHOOL_CONTEXT}\s+)((?:[\p{L}.'’&-]+\s+){0,6}?)${SCHOOL_WORDS}\b(\s+[\p{L}][\p{L}'’-]*)?`, "giu");
+const SCHOOL_NAME_RE = /\b(?:\p{Lu}[\p{L}.'’&-]*\s+){0,3}(?:Vidyalaya|Vidyalay|Mahavidyalaya|Convent)\b(?:\s+\p{Lu}[\p{L}'’-]*)?/gu;
+const SCHOOL_ABBREVIATION_RE = /\b(?:DPS|KVS?|DAV|JNV|NPS|PSBB|APS|MPS|SBOA|BVB|SPS|RPS)\b(?:\s+(?!The\b|And\b|In\b)\p{Lu}[\p{L}'’-]*){0,3}/gu;
+
+const PIN_LABELLED_RE = /\b(?:pin\s*code|pincode|pin|zip\s*code|zip|postal\s*code|postcode)\s*[:\-#]?\s*\d{4,6}\b/giu;
+const PIN_CITY_RE = /\b(\p{Lu}[\p{L}.'’-]+),?\s+([1-9]\d{2}\s?\d{3})\b(?!\s*(?:rupees?|inr|rs\b|lakhs?|usd|eur|euros?|dollars?|per\b|\/|%|k\b|marks|points|students?))/gu;
+const NOT_A_PLACE = new Set(["inr", "rs", "usd", "eur", "gbp", "cad", "aud", "nzd", "sgd", "budget", "fees", "fee", "cost", "costs", "salary", "income", "rank", "score", "total", "around", "about", "approx", "of", "tuition", "loan", "package", "ctc", "lpa", "price", "amount", "savings", "funds"]);
+
+const ID_RES: RegExp[] = [
+  /\b[A-Z]{1,2}\d{6,9}\b|\b\d{8,}\b/gu,
+  /\b\d{4}\s\d{4}\s\d{4}\b/gu,
+  /\b(?:roll|enrol?l?ment|registration|reg|passport|aadhaa?r|student|admission|application|pan|uid)\s*(?:no\.?|number|num|id|#|:)\s*[:#-]?\s*(?=[A-Za-z0-9-]*\d)[A-Za-z0-9-]{4,}\b/giu,
+];
+
+/**
+ * p1-grounding-hardening H1: the deterministic floor for what may leave for the web. Replaces self-introduced names ("I am Riya Sharma", "my name is
+ * riya", "main Riya hoon", any case), age, the student's own school or college, street address, PIN code, date of birth (numeric and "4 March 2008")
+ * and id numbers with placeholders. Ordinary lowercase words, budgets, intake years and marks survive. It is a floor, not a guarantee that free text
+ * holds no personal detail; the caller also removes listed speakers, phone numbers, e-mail addresses and links.
+ */
+export function redactStudentDetails(text: string): string {
+  let t = text.normalize("NFKC");
+  for (const re of DATE_RES) t = t.replace(re, "[date]");
+  t = t.replace(INTRO_ANY_CASE_RE, (_m, intro: string, run: string) => `${intro}${redactNameRun(run, false)}`);
+  t = t.replace(INTRO_I_AM_RE, (_m, intro: string, run: string) => `${intro}${redactNameRun(run, true)}`);
+  t = t.replace(INTRO_MAIN_RE, (m, intro: string, run: string, tail: string) => {
+    const words = run.split(/\s+/u);
+    const single = words.length === 1 && !isCapitalised(words[0]!);
+    if (isNameStop(words[0]!) || (!single && !isCapitalised(words[0]!))) return m;
+    return `${intro}${redactNameRun(run, !single)}${tail}`;
+  });
+  // "I am Riya Sharma, 16, from ...": a bare number right after the name is the age.
+  t = t.replace(/(\[name\])(\s*,?\s*)\d{1,2}\b(?![\d%.]|\s*(?:%|th\b|st\b|nd\b|rd\b|k\b|lpa|lakh|percent))/gu, "$1$2[age]");
+  for (const re of AGE_RES) t = t.replace(re, "[age]");
+  t = t.replace(SCHOOL_CONTEXT_RE, (m, lead: string, name: string, locality: string | undefined) => {
+    const words = name.trim().split(/\s+/u).filter(Boolean);
+    if (words.length === 0 || words.every((w) => isNameStop(w))) return m;
+    const keep = locality !== undefined && isNameStop(locality.trim()) ? locality : "";
+    return `${lead}[school]${keep}`;
+  });
+  t = t.replace(SCHOOL_NAME_RE, "[school]");
+  t = t.replace(SCHOOL_ABBREVIATION_RE, "[school]");
+  for (const re of ADDRESS_RES) t = t.replace(re, "[address]");
+  t = t.replace(PIN_LABELLED_RE, "[pin]");
+  t = t.replace(PIN_CITY_RE, (m, place: string, pin: string) => (NOT_A_PLACE.has(place.toLowerCase()) ? m : m.replace(pin, "[pin]")));
+  for (const re of ID_RES) t = t.replace(re, "[id]");
+  return t;
+}
+
+// ---------------------------------------------------------------------------
 // Topic boundary (G4): deterministic screen for obvious abuse; the prompts carry the rest
 // ---------------------------------------------------------------------------
 
@@ -732,22 +875,53 @@ const HOW_TO_ADVICE = /\bhow\s+(?:do|to|can|should|would|could|does|did)\b|\b(?:
 const WRITE_VERBS = String.raw`(?:write|draft|compose|generate|create|prepare|make|rewrite)`;
 const OUT_OF_SCOPE_RULES: RegExp[] = [
   // Prompt injection and prompt extraction.
-  /\b(?:ignore|ign0re|disregard|forget|override|bypass)\b[^.?!]{0,40}\b(?:above|previous|prior|earlier|preceding|instructions?|prompts?|rules?|guidelines?|everything (?:you|i)(?: were| was| have been)? (?:told|said))\b/iu,
+  // H4: "ignore ... rules" is an injection only when it targets the assistant's own instructions ("your / all / these rules", "previous instructions", "the above"),
+  // not "will universities ignore my previous backlogs" or "can a university override credit transfer rules".
+  /\b(?:ignore|ign0re|disregard|forget|override|bypass)\b[^.?!]{0,40}\b(?:above\b|(?:previous|prior|earlier|preceding)\s+(?:\w+\s+){0,2}(?:instructions?|prompts?|rules|guidelines|messages?|context|directions?|commands?)\b|(?:your|all|any|these|those|the|system|safety|developer|original|initial)\s+(?:\w+\s+){0,2}(?:instructions?|prompts?)\b|(?:your|all|these|those|system|safety|developer|original|initial)\s+(?:\w+\s+){0,2}(?:rules|guidelines)\b|everything (?:you|i)(?: were| was| have been)? (?:told|said)\b)/iu,
+  // H4: the same injection in Devanagari ("पिछले निर्देश अनदेखा करो") and in Hinglish ("pichle instructions ignore karo"). Patterns are in NFKC form (nukta decomposed).
+  /(?:पिछले|पिछली|पिछला|पहले\s?के|ऊपर\s?(?:के|दिए|दिये|लिखे)|सभी|सारे|अपने)[^.?!।]{0,30}(?:निर्देश|आदेश|नियम|प्रॉम्प्ट)[^.?!।]{0,30}(?:अनदेख|नज\u093C?रअंदाज\u093C?|नज\u093C?रंदाज\u093C?|भूल|इग्नोर)|(?:अनदेख|नज\u093C?रअंदाज\u093C?|भूल\s?जा|इग्नोर)[^.?!।]{0,30}(?:पिछले|पिछली|ऊपर|सभी|सारे|अपने)[^.?!।]{0,30}(?:निर्देश|आदेश|नियम|प्रॉम्प्ट)|सिस्टम\s?प्रॉम्प्ट/u,
+  /\b(?:pichh?le|pehle ke|upar ke|saare|sare|saari|sabhi|apne)\b[^.?!]{0,25}\b(?:instructions?|nirdesh|rules?|prompt)\b[^.?!]{0,25}\b(?:ignore|bhul\w*|bhool\w*|nazarandaz\w*|andekha|anadekha)\b|\b(?:ignore|bhul\w*|bhool\w*|nazarandaz\w*)\b[^.?!]{0,25}\b(?:pichh?le|pehle ke|upar ke|saare|sare|saari|sabhi|apne)\b[^.?!]{0,25}\b(?:instructions?|nirdesh|rules?|prompt)\b/iu,
   /\bforget everything\b|\b(?:repeat|print|show|say) (?:the |all )?(?:words|text|everything) (?:above|before)\b/iu,
   /\b(?:reveal|show|print|repeat|display|leak|output|share|tell me|give me|what(?:'s| is| are))\b[^.?!]{0,30}\b(?:system prompt|developer message|(?:your|hidden|initial|original|secret) (?:prompt|instructions?|rules|guidelines|system message))\b/iu,
   /\b(?:system prompt|developer message|jailbreak|dan mode|you are now (?:a|an|the|my|free|unrestricted|dan|no longer)|from now on you(?: are|'re| will)|act as (?:an? )?(?:unrestricted|unfiltered|jailbroken)|pretend (?:you are|to be|you're))\b/iu,
   // Harmful.
-  /\b(?:make|build|assemble|craft|manufacture|synthesi[sz]e|cook|buy)\b[^.?!]{0,30}\b(?:bombs?|explosives?|weapons?|guns?|poison|meth|cocaine|heroin|drugs|malware|ransomware|keylogger)\b(?!(?:\s+systems?)?\s+(?:engineering|science|research|safety|degree|course|program(?:me)?|studies|technology|industry|policy|law|careers?))/iu,
-  /\b(?:hack|crack|break into|steal)\b[^.?!]{0,30}\b(?:accounts?|passwords?|wifi|websites?|systems?|phones?|databases?|portals?)\b/iu,
+  /\b(?:make|build|assemble|craft|manufacture|synthesi[sz]e|cook|buy)\b[^.?!]{0,30}\b(?:bombs?|explosives?|weapons?|guns?|poison|meth|cocaine|heroin|drugs|malware|ransomware|keylogger)\b(?!(?:\s+systems?)?\s+(?:engineering|science|research|safety|degree|course|program(?:me)?|studies|technology|industry|policy|law|careers?)|-?proof\b)/iu,
+  /\b(?:hack|crack|steal)\b[^.?!]{0,30}\b(?:accounts?|passwords?|wifi|websites?|systems?|phones?|databases?|portals?)\b/iu,
+  // H4: "break into systems engineering after BCA" is a career question; the sentence-level lookahead exempts career and degree vocabulary.
+  /^(?![^.?!]*\b(?:careers?|industry|field|jobs?|roles?|bca|bba|mca|btech|b\.tech|msc|bsc|masters?|domain|sector|engineering|analytics|data science|companies)\b)[^]*\bbreak into\b[^.?!]{0,30}\b(?:accounts?|passwords?|wifi|websites?|systems?|phones?|databases?|portals?)\b/iu,
   /\b(?:kill|murder|poison|stalk|dox)\b[^.?!]{0,20}\b(?:someone|somebody|him|her|them|my (?:teacher|professor|classmate|roommate|friend))\b/iu,
   // Adult.
   /\bsex(?:ual)?[ -](?:story|stories|chat|scene|roleplay|role-play)\b|\bexplicit (?:story|stories|content|scene)\b|\berotic\w*|\bporn\w*|\bnsfw\b|\bnude (?:photos?|pics?)\b/iu,
-  // Fraud and cheating.
-  /\b(?:fake|forged?|forge|counterfeit|fabricat\w+)\b[^.?!]{0,30}\b(?:degrees?|certificates?|transcripts?|marksheets?|mark sheets?|bank statements?|passports?|visas?|documents?|ielts|toefl|offer letters?|ids?)\b/iu,
+  // Fraud and cheating (a request for a fake or forged document is `isFraudRequest`; cheating on an exam is the rule below).
   /^(?![^.?!]*\b(?:penalt\w*|consequences?|caught|punish\w*|policy|policies|what happens|is it)\b)[^]*\b(?:cheat|cheating|proxy)\b[^.?!]{0,30}\b(?:exams?|tests?|ielts|toefl|gre|gmat|sat)\b/iu,
   // Homework and creative writing unrelated to study planning.
   new RegExp(String.raw`\b(?:write|compose|generate|create|draft)\b[^.?!]{0,15}\b(?:poems?|songs?|jokes?|stories|story|raps?|lyrics)\b`, "iu"),
+  // H4: Hinglish creative requests ("mujhe poem likh do", "ek kahani likh do", "gaana bana do").
+  /\b(?:poems?|kavita|kavitayein|shayari|gaana|gana|gaane|songs?|jokes?|story|kahani|raps?|lyrics)\b[^.?!]{0,15}\b(?:likh\w*|bana\w*|suna\w*)\b|\b(?:likh\w*|bana\w*)\b[^.?!]{0,15}\b(?:poems?|kavita|shayari|gaana|gana|gaane|songs?|jokes?|story|kahani|raps?|lyrics)\b/iu,
 ];
+
+const FAKE_DOC = String.raw`(?:fake|forged?|counterfeit|fabricat\w+)\b[^.?!]{0,30}\b(?:degrees?|certificates?|transcripts?|marksheets?|mark sheets?|bank statements?|passports?|visas?|documents?|ielts|toefl|offer letters?|ids?)\b`;
+const FAKE_DOC_RE = new RegExp(String.raw`\b${FAKE_DOC}`, "iu");
+/** The student asks for the forgery: a producing verb in front of it, or Hinglish "... bana do / chahiye". */
+const FRAUD_CREATE_RES: RegExp[] = [
+  new RegExp(String.raw`\b(?:make|making|create|creating|generate|prepare|produce|forge|forging|print|edit|photoshop|arrange|get|buy|need|want|give|provide|send|write|bana\w*|banwa\w*)\b[^.?!]{0,25}\b${FAKE_DOC}`, "iu"),
+  new RegExp(String.raw`\b${FAKE_DOC}[^.?!]{0,30}\b(?:chahiye|bana\w*|banwa\w*|karwa\w*|dena|de do|for me)\b`, "iu"),
+];
+/** The question is about the consequences: a penalty, a policy, being caught. Overrides a producing verb ("what happens if I get caught making a fake degree"). */
+const FRAUD_CONSEQUENCE_RE = /\b(?:what happens|penalt\w*|consequences?|caught|punish\w*|banned?|blacklist\w*|policy|policies|is it (?:legal|illegal|allowed|ok)|legal)\b/iu;
+/** The question is about spotting or avoiding fraud, or names the other side of it (an agent, a consultancy, a university, a website). */
+const FRAUD_AWARENESS_RE = /\b(?:spot|identify|recogni[sz]e|detect|avoid|report|verify|check|beware|warning|scams?|agents?|consultan\w+|universit\w+|colleges?|websites?|portals?|compan\w+|firms?|reject\w*|cancel\w*|risks?|common|safe|legit\w*|genuine)\b/iu;
+
+/**
+ * p1-grounding-hardening H4: a request to PRODUCE a fake or forged document is out of scope; a question about fake agents, fake offers, the
+ * penalty for a forged marksheet or how to spot a forged certificate is a genuine student question and is not.
+ */
+function isFraudRequest(t: string): boolean {
+  if (!FAKE_DOC_RE.test(t)) return false;
+  if (FRAUD_CONSEQUENCE_RE.test(t)) return false;
+  if (FRAUD_CREATE_RES.some((re) => re.test(t))) return true;
+  return !FRAUD_AWARENESS_RE.test(t);
+}
 const DRAFT_REQUEST_RULES: RegExp[] = [
   /\b(?:solve|answer|do|complete|finish)\b[^.?!]{0,20}\b(?:my|this|the following)\b[^.?!]{0,25}\b(?:homework|assignment|worksheet|problem set|exam questions?|quiz|calculus|equations?)\b/iu,
   new RegExp(
@@ -765,7 +939,7 @@ const DRAFT_REQUEST_RULES: RegExp[] = [
  */
 export function isOutOfScopeQuestion(text: string): boolean {
   const t = text.normalize("NFKC");
-  if (OUT_OF_SCOPE_RULES.some((re) => re.test(t))) return true;
+  if (OUT_OF_SCOPE_RULES.some((re) => re.test(t)) || isFraudRequest(t)) return true;
   return !HOW_TO_ADVICE.test(t) && !QUESTION_START.test(t) && DRAFT_REQUEST_RULES.some((re) => re.test(t));
 }
 
