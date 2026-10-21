@@ -1,0 +1,20 @@
+﹣ A20: the real repo qa/gates refuses every target while B13 is not signed (1.5114ms) # SKIP
+✔ A20: today's U0 gate files (B13-signed: PENDING, gates open, interim Nights mode) are refused, with Nights the only satisfied record (21.8761ms)
+✔ A20: with every record (g-prod option c, A10 pass) every target is allowed (24.8416ms)
+✔ A20: B13, g-publish and Nights are each required by every target; g-prod by the three student targets, not by publish (51.234ms)
+✔ A20: g-prod option scopes what may go live (a: auth text, b: + anonymous, c: + voice, d: hold) (67.546ms)
+✔ A20: g-publish option c (hold) refuses; a (publish) and b (text only) allow; '(a)' and en/em dash separators parse (62.5146ms)
+✔ A20: the LAST Answered line counts (an append-only later hold withdraws an earlier go) (6.182ms)
+✔ A20: voice alone needs the passing A10 record and its evidence file; the text targets do not (68.6042ms)
+✔ A20 hostile: placeholders, wrong signer, bad or future dates, wrong mode, duplicates and fenced or quoted text do not count (158.5021ms)
+✔ A20: both Nights modes are accepted, and a backtick-wrapped B13 line is read (26.2342ms)
+✔ A20: the B13 signer must be a personal name (never a role) and, when an approver is configured, exactly that name (116.0926ms)
+✔ A20: a gate path that is a directory, or a missing gates dir, refuses instead of throwing (5.919ms)
+✔ A20: an unknown target is refused, never treated as allowed (4.8392ms)
+✖ A20 CLI: exits 1 naming each missing record against the real qa/gates; 0 on a complete directory; 2 on bad usage (211.6945ms)
+ℹ tests 14
+ℹ pass 12
+ℹ fail 1
+ℹ skipped 1
+✖ failing tests:
+✖ A20 CLI: exits 1 naming each missing record against the real qa/gates; 0 on a complete directory; 2 on bad usage (211.6945ms)
