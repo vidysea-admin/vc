@@ -21,9 +21,11 @@
  *    studentId must equal the token's, and the data layer is a tenant-scoped Db, so a tenant cannot reach another's rows (B12).
  *  - D-093 6A: stored text is REDACTED (email, phone, self-stated and Pathlynks-known names) before it is written; the live turn may still go
  *    to the model unredacted. Name redaction is a heuristic: over-redaction is accepted, an unannounced name can be missed.
- *  - D-093 4A: an under-18 student without a boolean-true guardian-consent claim (and any student whose age is not known: fail closed) still
- *    gets answers, but no turn text, answer, extracted fact or escalation record is written; the thread keeps only a text-free marker. Such a
- *    turn has no idempotent replay (a retry runs the model again). Ids-and-time-only rows (safety flags, usage counters, gap counts) are kept.
+ *  - D-093 4A: an under-18 student without a boolean-true guardian-consent claim (and any student whose age is not known: fail closed) gets
+ *    NO model call (p1-lk9 C1): an ordinary text is answered with the fixed guardian-consent reply (`GUARDIAN_CONSENT_REPLY`), and a crisis or
+ *    concern text with the vetted crisis message (the guard runs first, on the original text; the crisis node makes no model call). No turn text,
+ *    answer, extracted fact or escalation record is written; the thread keeps only a text-free marker. Such a turn has no idempotent replay
+ *    (a retry is answered again). Ids-and-time-only rows (safety flags, usage counters, gap counts) are kept.
  *  - A23: 30 requests per minute per student (per-tenant override); crisis text is never limited. The limiter is per process (in memory).
  *  - p1-u8r M2: a crisis message is always answered with the helpline, but its WRITES are bounded: per student and thread, the first crisis
  *    turn in a 10-minute window is stored, flagged, escalated and counted; the rest of the window is answered and stores no text. A turn whose
@@ -38,6 +40,9 @@
  *    name is unknown, so a profile-only name in that text can reach the escalation path and the classifier rationale it stores.
  *  - p1-u8r item 5: the escalation path (and so the classifier rationale it stores) is handed REDACTED text; if redacting would hide the
  *    crisis wording from the guard, the least-redacted text that still shows it is used (an escalation is never lost for privacy).
+ *  - p1-lk9 C2: fact extraction (a model call) runs AFTER the reply, detached: the reply does not wait for it, and its failure (including a fence
+ *    refusal after an erasure began) is one text-free log line (`chat_fact_extraction_failed` / `chat_fact_extraction_fenced`), never a turn error.
+ *    A proposed fact therefore shows on GET .../chat/profile a moment after the turn, not with it.
  *  - The Pathlynks profile arrives through a port; there is no real integration here, and no voice route (U10).
  *  - p1-u6w: when the graph picks `rank_options`, the reply is ranked by the U6b `rankOptions` over THIS tenant's and THIS student's facts (their
  *    confirmed chat facts and the Pathlynks profile), through `deps.ranking`. Absent `deps.ranking`, the reply is the plain graph answer. The db
@@ -124,6 +129,8 @@ export const CRISIS_MAX_TRACKED_THREADS = 100_000;
 /** p1-u8r cycle 2: a crisis turn behind an unconfirmed holder waits at most this long for it, then escalates itself. */
 export const CRISIS_QUIET_WAIT_MS = 5_000;
 const LEVEL_RANK = { none: 0, concern: 1, crisis: 2 } as const;
+/** p1-lk9 C1: the fixed reply to an ordinary turn from a student without guardian consent (no model is called). Student-facing; carries the helpline. */
+export const GUARDIAN_CONSENT_REPLY = `To chat with me, a parent or guardian needs to give consent first. Please ask them to allow it in your account, then come back. ${TELE_MANAS_LINE}`;
 /** Chat-extracted facts kept per turn (a model cannot flood a student's profile). */
 export const MAX_PROPOSED_FACTS_PER_TURN = 5;
 
@@ -544,6 +551,31 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     }
   }
 
+  /**
+   * p1-lk9 C2: fact extraction for a completed, stored turn, detached from the reply. It can never fail, delay or reject the turn: every error
+   * (the extractor, a fact write, a fence refusal after an erasure started, even the logger) ends in one text-free log line and nothing else.
+   * The fence still protects the student: `proposeProfileFact` is a fenced writer, so an erasure that begins after the reply refuses the write.
+   * `now` is the turn's own clock reading. The returned promise is never awaited (`void`) and always settles without a rejection.
+   */
+  function proposeFactsDetached(db: Db, now: Date, extract: FactExtractor, turn: Parameters<FactExtractor>[0]): void {
+    const run = async (): Promise<void> => {
+      try {
+        const facts = await extract(turn);
+        for (const f of facts.slice(0, MAX_PROPOSED_FACTS_PER_TURN)) {
+          // p1-lk6: the English value is kept with the student's original-language quote (redacted by the db); neither is logged.
+          await proposeProfileFact(
+            db,
+            { studentId: turn.studentId, key: f.key, value: f.value, ...(f.quote !== undefined ? { quote: f.quote } : {}), ...(f.sourceLang !== undefined ? { sourceLang: f.sourceLang } : {}), threadId: turn.threadId, turnId: turn.turnId },
+            { now },
+          );
+        }
+      } catch (err) {
+        logEvent(err instanceof StudentFencedError || err instanceof FencedWriterDeadlineError ? "chat_fact_extraction_fenced" : "chat_fact_extraction_failed");
+      }
+    };
+    void run().catch(() => undefined);
+  }
+
   async function handleTurn(req: ApiRequest, who: Who, params: Record<string, string>): Promise<ApiResponse> {
     const { ctx, db, now } = who;
     const threadId = params.threadId!;
@@ -657,6 +689,11 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
         await markChatThreadTextNotStored(db, { studentId: ctx.studentId, threadId });
       }
 
+      // p1-lk9 C1 (fail closed): a turn with no guardian consent (a minor without a boolean-true claim, or no age claim) reaches NO provider. The crisis
+      // guard already ran on the original text (`level`): a crisis or concern text goes on to the graph, whose crisis node answers with the vetted message
+      // and makes no model call (LK4). Every other text gets the fixed consent reply; the graph, the knowledge base and the safety-screen model are not used.
+      if (!consentOk && level === "none") return respond(200, TurnResponseSchema.parse({ turnId, state: "ok", message: GUARDIAN_CONSENT_REPLY, claims: [], sources: [], profileFactsUsed: [] }));
+
       const abandon = async () => {
         if (leaseToken !== undefined) await abandonChatTurn(db, { studentId: ctx.studentId, threadId, turnId, leaseToken }).catch(() => undefined);
       };
@@ -704,6 +741,7 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
       // A turn that stores no text (an unconsented minor, an over-long message) never reaches the option port; a turn with no student text cannot pick rank_options.
       if (result.selectedTool === "rank_options" && persistText) response = await withRanking(who, response);
 
+      let startAfterReply: (() => void) | undefined;
       if (leaseToken !== undefined) {
         const stored = TurnResponseSchema.parse({
           ...response,
@@ -713,28 +751,20 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
           ...(response.profileFactsUsed !== undefined ? { profileFactsUsed: response.profileFactsUsed.map((f) => ({ ...f, value: redact(f.value) })) } : {}),
         });
         await completeChatTurn(db, { studentId: ctx.studentId, threadId, turnId, leaseToken, channel: "text", assistantText: stored.message ?? "", response: stored as Record<string, unknown> }, { now });
+        // p1-lk9 C2: extraction (a model call) is off the reply path. It starts after the reply is ready (below), only for a turn that stores text.
         if (deps.extractFacts) {
-          try {
-            const facts = await deps.extractFacts({ tenantId: ctx.tenantId, studentId: ctx.studentId, threadId, turnId, text, response });
-            for (const f of facts.slice(0, MAX_PROPOSED_FACTS_PER_TURN)) {
-              // p1-lk6: the English value is kept with the student's original-language quote (redacted by the db); neither is logged.
-              await proposeProfileFact(
-                db,
-                { studentId: ctx.studentId, key: f.key, value: f.value, ...(f.quote !== undefined ? { quote: f.quote } : {}), ...(f.sourceLang !== undefined ? { sourceLang: f.sourceLang } : {}), threadId, turnId },
-                { now },
-              );
-            }
-          } catch (err) {
-            if (err instanceof StudentFencedError || err instanceof FencedWriterDeadlineError) throw err;
-            logEvent("chat_fact_extraction_failed");
-          }
+          const extract = deps.extractFacts;
+          const turn = { tenantId: ctx.tenantId, studentId: ctx.studentId, threadId, turnId, text, response };
+          startAfterReply = () => proposeFactsDetached(db, now, extract, turn);
         }
       }
 
       await recordStudentUsage(db, { studentId: ctx.studentId, textTurns: 1 }, { now });
       if (response.state === "concern") await recordStudentFlag(db, { studentId: ctx.studentId, threadId, turnId, kind: "concern" }, { now });
       if (response.claims.some((c) => c.status === "unverified")) await incrementGapCount(db, { kind: "unverified_claim" }, { now });
-      return respond(200, response);
+      const reply = respond(200, response);
+      startAfterReply?.();
+      return reply;
     };
     try {
       return await runTurn();

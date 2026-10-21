@@ -109,6 +109,14 @@ export async function newThread(w: { handler: ApiHandler }, token: string, stude
   return res.json.threadId as string;
 }
 
+/**
+ * p1-lk9 C2: fact extraction runs detached, after the reply. A test that reads what it wrote (a fact row, a log line) first lets the event loop
+ * drain: the Db fake and the mock provider settle in microtasks, so a few turns of the loop are enough.
+ */
+export async function settle(rounds = 8): Promise<void> {
+  for (let i = 0; i < rounds; i++) await new Promise<void>((r) => setImmediate(r));
+}
+
 /** The JSON of every document in every collection of the fake Db, as one string (for "no raw text anywhere" checks). */
 export function everythingStored(fakeDb: FakeDb): string {
   const out: unknown[] = [];

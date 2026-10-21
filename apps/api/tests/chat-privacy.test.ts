@@ -72,7 +72,7 @@ test("D-093 6A: a model answer that carries an email address is stored and repla
 // 4A: under 18
 // ---------------------------------------------------------------------------
 
-test("D-093 4A: an under-18 student with no guardian-consent claim still gets the answer, and no turn text, answer or redacted copy is stored anywhere", async () => {
+test("p1-lk9 C1: an under-18 student with no guardian-consent claim gets the fixed consent reply, no model call, and no turn text or answer is stored anywhere", async () => {
   const w = chatWorld();
   try {
     const token = await studentToken(minor());
@@ -80,16 +80,88 @@ test("D-093 4A: an under-18 student with no guardian-consent claim still gets th
     const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: "m-1" } });
     assert.equal(res.status, 200);
     assert.equal(res.json.state, "ok");
-    assert.ok(res.json.claims.length >= 1, "the answer is the same quality");
+    assert.equal(w.provider.calls.length, 0, "an unconsented minor's turn makes ZERO provider calls");
+    assert.equal(w.kb.calls.length, 0, "and does not search the knowledge base for them either");
+    assert.deepEqual(res.json.claims, []);
+    assert.deepEqual(res.json.sources, []);
+    assert.match(res.json.message, /guardian/i, "the reply asks for guardian consent");
     assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0);
     const stored = everythingStored(w.fakeDb);
-    assert.ok(!/Germany|tuition|universit/i.test(stored), "nothing the student asked or was told is stored");
+    assert.ok(!/Germany|tuition|universit/i.test(stored), "nothing the student asked is stored");
     const thread = w.fakeDb.collection<Record<string, unknown>>(COLLECTION_NAMES.chat_threads).all();
     assert.equal(thread.length, 1);
     assert.equal(thread[0]!.textStored, false);
     const hist = await call(w, "GET", `${threadsPath("stu-1")}/${threadId}`, { token });
     assert.deepEqual(hist.json.turns, []);
     assert.equal(hist.json.textStored, false);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-lk9 C1: a minor whose guardianConsent claim is explicitly false, or a token with no age claim at all, makes zero provider calls (fail closed)", async () => {
+  const w = chatWorld();
+  try {
+    const explicit = await studentToken(minor("stu-1", "tenant-a", { guardianConsent: false }));
+    const noAge = await studentToken({ tenant: "tenant-a", studentId: "stu-2", role: "student" });
+    const stringTrue = await studentToken(minor("stu-3", "tenant-a", { guardianConsent: "true" }));
+    for (const [id, token] of [["stu-1", explicit], ["stu-2", noAge], ["stu-3", stringTrue]] as const) {
+      const threadId = await newThread(w, token, id);
+      const res = await call(w, "POST", turnsPath(id, threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: `c1-${id}` } });
+      assert.equal(res.status, 200, id);
+      assert.match(res.json.message, /guardian/i, id);
+      assert.deepEqual(res.json.claims, [], id);
+      assert.equal(w.provider.calls.length, 0, `${id}: no provider call`);
+    }
+    assert.equal(w.kb.calls.length, 0);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-lk9 C1: control, an adult and a minor WITH guardian consent are answered normally by the model", async () => {
+  const w = chatWorld();
+  try {
+    const a = await studentToken(adult("stu-1"));
+    const ta = await newThread(w, a, "stu-1");
+    const ra = await call(w, "POST", turnsPath("stu-1", ta), { token: a, body: { text: GERMANY_QUESTION, clientTurnId: "c1-a" } });
+    assert.equal(ra.json.state, "ok");
+    assert.ok(ra.json.claims.length >= 1);
+    const callsAfterAdult = w.provider.calls.length;
+    assert.ok(callsAfterAdult > 0, "control: the provider spy is live");
+    const m = await studentToken(minor("stu-2", "tenant-a", { guardianConsent: true }));
+    const tm = await newThread(w, m, "stu-2");
+    const rm = await call(w, "POST", turnsPath("stu-2", tm), { token: m, body: { text: GERMANY_QUESTION, clientTurnId: "c1-m" } });
+    assert.ok(rm.json.claims.length >= 1);
+    assert.ok(w.provider.calls.length > callsAfterAdult);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-lk9 C1: a crisis or concern text from an unconsented minor is still answered with the vetted crisis reply, with zero provider calls and no text kept", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(minor());
+    const threadId = await newThread(w, token);
+    const cr = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: "c1-cr" } });
+    assert.equal(cr.status, 200);
+    assert.equal(cr.json.state, "escalated");
+    assert.match(cr.json.message, /14416/);
+    const noAge = await studentToken({ tenant: "tenant-a", studentId: "stu-9", role: "student" });
+    const t9 = await newThread(w, noAge, "stu-9");
+    const cr2 = await call(w, "POST", turnsPath("stu-9", t9), { token: noAge, body: { text: CRISIS_TEXT, clientTurnId: "c1-cr2" } });
+    assert.equal(cr2.json.state, "escalated");
+    assert.match(cr2.json.message, /14416/);
+    const th2 = await newThread(w, token);
+    w.clock.ms += 60_000;
+    const co = await call(w, "POST", turnsPath("stu-1", th2), { token, body: { text: "I feel hopeless about my marks", clientTurnId: "c1-co" } });
+    assert.equal(co.status, 200);
+    assert.equal(co.json.state, "escalated", "the guard treats an unsure or indirect text as the higher level (B24.7)");
+    assert.match(co.json.message, /14416/);
+    assert.equal(w.provider.calls.length, 0, "no provider call for any of the three");
+    assert.equal(w.escalations.length, 0, "an unconsented minor's text is not handed to escalation");
+    assert.ok(!/kill|myself|hopeless/i.test(everythingStored(w.fakeDb)));
   } finally {
     w.cleanup();
   }

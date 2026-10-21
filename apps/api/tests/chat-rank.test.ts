@@ -11,7 +11,7 @@ import { rankOptions, type OptionData, type OptionDataPort } from "@vc/engine";
 import { TurnResponseSchema } from "@vc/schemas";
 import { createChatApi, rankFactFromStored, type ChatApiDeps } from "../src/chat.js";
 import { anonWorld, ask } from "./anonymous-fixtures.js";
-import { GERMANY_QUESTION, adult, call, chatWorld, everythingStored, minor, newThread, profilePath, studentToken, threadsPath, turnsPath, type ChatWorld } from "./chat-fixtures.js";
+import { GERMANY_QUESTION, adult, call, chatWorld, everythingStored, minor, newThread, profilePath, settle, studentToken, threadsPath, turnsPath, type ChatWorld } from "./chat-fixtures.js";
 
 const FIX = JSON.parse(readFileSync(fileURLToPath(new URL("../../../packages/engine/tests/fixtures/ranking-profiles.json", import.meta.url)), "utf8")) as {
   optionIds: string[];
@@ -60,6 +60,7 @@ async function sayAndConfirm(ctx: { w: ChatWorld; proposals: Map<string, Fact[]>
   ctx.proposals.set(`${tenant}|${studentId}`, facts);
   const said = await call(ctx.w, "POST", turnsPath(studentId, threadId), { token, body: { text: GERMANY_QUESTION } });
   assert.equal(said.status, 200);
+  await settle(); // p1-lk9 C2: extraction runs after the reply
   if (confirm) {
     const prof = await call(ctx.w, "GET", profilePath(studentId), { token });
     for (const p of prof.json.proposed) {
