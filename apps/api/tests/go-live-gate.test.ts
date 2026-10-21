@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -58,11 +58,16 @@ function fixture(files: Partial<Record<Key, string | null>> = {}, defaults: Reco
 const cleanup = (f: Fixture) => rmSync(f.root, { recursive: true, force: true });
 const only = (r: { failures: string[] }) => r.failures.map((f) => f.split(":")[0]);
 
-test("A20: the real repo qa/gates refuses every target today (B13 not signed, gates unanswered)", () => {
+// The real gate files change as Umesh answers gates, so this test pins only the one invariant the
+// agent never moves: while the real B13-signed line is PENDING (D-103, owned by the legal team),
+// every target is refused and B13 is named. Once B13 is signed the real state is the human's call.
+const REAL_B13_PENDING = /^`?B13-signed:\s*PENDING`?\s*$/m.test(readFileSync(join(REPO_GATES, GATE_FILES.b13), "utf8"));
+
+test("A20: the real repo qa/gates refuses every target while B13 is not signed", { skip: !REAL_B13_PENDING }, () => {
   for (const target of GO_LIVE_TARGETS) {
     const r = evaluateGoLive(REPO_GATES, target, NOW, APPROVER);
     assert.equal(r.allowed, false, target);
-    assert.ok(r.failures.length >= 2, `${target}: ${r.failures.join(" | ")}`);
+    assert.ok(r.failures.some((f) => f.includes("B13-signed")), `${target}: ${r.failures.join(" | ")}`);
     assert.throws(() => assertGoLive(REPO_GATES, target, NOW, APPROVER), GoLiveRefusedError);
   }
 });
