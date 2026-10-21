@@ -4,14 +4,14 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COLLECTION_NAMES, VC_DB_NAME } from "@vc/db";
+import { COLLECTION_NAMES, VC_DB_NAME, confirmErasure, requestErasure } from "@vc/db";
 import { createFakeMongoClient } from "@vc/db/testing";
 import { GoLiveRefusedError } from "../src/go-live-gate.js";
 import { ChatConfigError } from "../src/chat.js";
 import { JwtConfigError } from "../src/auth.js";
 import { startApi } from "../src/index.js";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
-import { GERMANY_QUESTION, adult, call, chatWorld, cleanupGates, gatesFixture, kbAnswerProvider, minor, newThread, profilePath, recordingKb, studentToken, studentVerifier, threadsPath, turnsPath, SKILLS_DIR, SPEAKERS } from "./chat-fixtures.js";
+import { GERMANY_QUESTION, adult, call, chatWorld, cleanupGates, gatesFixture, kbAnswerProvider, minor, newThread, profilePath, recordingKb, settle, studentToken, studentVerifier, threadsPath, turnsPath, SKILLS_DIR, SPEAKERS } from "./chat-fixtures.js";
 import { generateKeyPairSync } from "node:crypto";
 import { CHAIN_ENV, GOOD_CLAIM, stubOllamaFetch } from "./anonymous-fixtures.js";
 import { MockProvider } from "@vc/providers";
@@ -36,6 +36,7 @@ async function mustRefuse(p: Promise<{ stop(): Promise<void> }>, err: new (...a:
 async function askOnce(w: ReturnType<typeof chatWorld>, token: string, threadId: string, id: string) {
   const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: id } });
   assert.equal(res.status, 200);
+  await settle(); // p1-lk9 C2: extraction runs after the reply
   return res;
 }
 
@@ -342,6 +343,7 @@ test("p1-lk6: a Devanagari chat turn is stored as written, and the proposed fact
     const threadId = await newThread(w, token);
     const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: HINDI_Q, clientTurnId: "lk6-1" } });
     assert.equal(res.status, 200);
+    await settle();
     const rows = w.fakeDb.collection<any>(COLLECTION_NAMES.profile_facts).all().sort((x, y) => x.key.localeCompare(y.key));
     assert.deepEqual(rows.map((r) => [r.key, r.value, r.quote, r.sourceLang, r.status]), [
       ["intended_degree", "MBA", "एमबीए करना चाहता हूँ", "hi", "proposed"],
@@ -364,6 +366,7 @@ test("p1-lk6: a fact whose quote is not in the student's words is never proposed
     const token = await studentToken(adult());
     const threadId = await newThread(w, token);
     assert.equal((await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: HINDI_Q, clientTurnId: "lk6-2" } })).status, 200);
+    await settle();
     assert.equal(w.fakeDb.collection(COLLECTION_NAMES.profile_facts).all().length, 0);
   } finally {
     w.cleanup();
@@ -397,6 +400,7 @@ test("p1-lk6: extraction failure never fails the turn; the log has the event nam
     const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: HINDI_Q, clientTurnId: "lk6-4" } });
     assert.equal(res.status, 200);
     assert.equal(res.json.state, "ok");
+    await settle();
     assert.ok(w.logs.some((l: any) => l.event === "chat_fact_extraction_failed"));
     const logged = JSON.stringify(w.logs);
     assert.ok(!logged.includes("जर्मनी") && !logged.includes("9876543210"));
@@ -420,6 +424,7 @@ test("p1-lk6: startApi wires the default extractor for chat when none is injecte
     const { threadId } = (await (await fetch(`${base}${threadsPath("stu-1")}`, { method: "POST", headers })).json()) as { threadId: string };
     const turn = await fetch(`${base}${turnsPath("stu-1", threadId)}`, { method: "POST", headers, body: JSON.stringify({ text: HINDI_Q, clientTurnId: "lk6-5" }) });
     assert.equal(turn.status, 200);
+    await settle();
     const rows = fake.dbFor(VC_DB_NAME).collection<any>("profile_facts").all();
     assert.deepEqual(rows.map((r) => [r.key, r.value, r.quote, r.sourceLang]), [["target_country", "Germany", "जर्मनी में", "hi"]]);
   } finally {
@@ -441,6 +446,7 @@ test("p1-lk6: an injected extractFacts still wins over the default", async () =>
     const headers = { authorization: `Bearer ${await studentToken(adult())}`, "content-type": "application/json" };
     const { threadId } = (await (await fetch(`${base}${threadsPath("stu-1")}`, { method: "POST", headers })).json()) as { threadId: string };
     await fetch(`${base}${turnsPath("stu-1", threadId)}`, { method: "POST", headers, body: JSON.stringify({ text: HINDI_Q, clientTurnId: "lk6-6" }) });
+    await settle();
     assert.deepEqual(fake.dbFor(VC_DB_NAME).collection<any>("profile_facts").all().map((r) => r.key), ["city"]);
     assert.ok(!provider.calls.some((c) => c.skillName === "fact-extraction"));
   } finally {
@@ -461,6 +467,165 @@ test("p1-lk6: a crisis turn is answered with the fixed helpline text and is neve
     assert.equal(res.json.state, "escalated");
     assert.equal(calls, 0);
     assert.equal(w.fakeDb.collection(COLLECTION_NAMES.profile_facts).all().length, 0);
+  } finally {
+    w.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// p1-lk9 C2: fact extraction runs detached, after the reply
+// ---------------------------------------------------------------------------
+
+/** Records every unhandled rejection while the test runs (an extraction that rejects after the reply must never become one). */
+function watchUnhandled() {
+  const seen: unknown[] = [];
+  const h = (e: unknown) => void seen.push(e);
+  process.on("unhandledRejection", h);
+  return { seen, stop: () => void process.off("unhandledRejection", h) };
+}
+/** Fails (instead of hanging the suite) when `p` has not settled within `ms`. */
+function within<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const t = new Promise<never>((_, rej) => {
+    timer = setTimeout(() => rej(new Error(`${what} did not return within ${ms} ms`)), ms);
+  });
+  return Promise.race([p, t]).finally(() => clearTimeout(timer));
+}
+function deferred() {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  return { gate, release };
+}
+
+test("p1-lk9 C2: an extractor that never resolves does not block the reply, and the reply is complete", async () => {
+  let started = 0;
+  const w = chatWorld({ deps: { extractFacts: () => (started++, new Promise(() => undefined)) } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await within(call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: "c2-1" } }), 3000, "the turn");
+    assert.equal(res.status, 200);
+    assert.equal(res.json.state, "ok");
+    assert.ok(res.json.claims.length >= 1);
+    await settle();
+    assert.equal(started, 1, "control: the extractor was started (this is not a turn that skipped extraction)");
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 2, "the turn was stored");
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.student_usage).all().length, 1, "and counted");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-lk9 C2: an extractor that rejects is logged text-free and is never an unhandled rejection; the turn is unaffected", async () => {
+  const watch = watchUnhandled();
+  const w = chatWorld({
+    deps: {
+      extractFacts: async () => {
+        throw new Error(`extractor echoed: ${GERMANY_QUESTION} 9876543210`);
+      },
+    },
+  });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: "c2-2" } });
+    assert.equal(res.status, 200);
+    await settle();
+    assert.ok(w.logs.some((l: any) => l.event === "chat_fact_extraction_failed"), "the failure is logged");
+    assert.ok(!JSON.stringify(w.logs).includes("9876543210") && !JSON.stringify(w.logs).includes("Germany"), "the log has no student words");
+    assert.deepEqual(watch.seen, [], "no unhandled rejection");
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.profile_facts).all().length, 0);
+  } finally {
+    watch.stop();
+    w.cleanup();
+  }
+});
+
+test("p1-lk9 C2: a throwing logger and a synchronous extractor throw are also never an unhandled rejection", async () => {
+  const watch = watchUnhandled();
+  const w = chatWorld({
+    deps: {
+      extractFacts: (() => {
+        throw new Error("sync boom");
+      }) as never,
+      log: () => {
+        throw new Error("logger down");
+      },
+    },
+  });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: "c2-3" } });
+    assert.equal(res.status, 200);
+    await settle();
+    assert.deepEqual(watch.seen, []);
+  } finally {
+    watch.stop();
+    w.cleanup();
+  }
+});
+
+test("p1-lk9 C2: an erasure that starts after the reply but before extraction resolves still prevents the fact write (StudentFencedError on the detached path)", async () => {
+  const watch = watchUnhandled();
+  const d = deferred();
+  const w = chatWorld({ deps: { extractFacts: async () => (await d.gate, proposeGermany()) } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await within(call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: "c2-4" } }), 3000, "the turn");
+    assert.equal(res.status, 200);
+    const db = w.deps.dbForTenant("tenant-a");
+    const { requestId } = await requestErasure(db, { studentId: "stu-1", requestedBy: "counsellor-7", reason: "student_request" });
+    await confirmErasure(db, { requestId, confirmedBy: "admin-2" });
+    d.release();
+    await settle();
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.profile_facts).all().length, 0, "no fact row exists for an erased student");
+    assert.deepEqual(watch.seen, [], "the fence refusal is not an unhandled rejection");
+  } finally {
+    watch.stop();
+    w.cleanup();
+  }
+});
+
+test("p1-lk9 C2: proposed facts are absent from GET chat/profile while extraction is pending and appear once it resolves", async () => {
+  const d = deferred();
+  const w = chatWorld({ deps: { extractFacts: async () => (await d.gate, proposeGermany()) } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await within(call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: GERMANY_QUESTION, clientTurnId: "c2-5" } }), 3000, "the turn");
+    assert.equal(res.status, 200);
+    assert.deepEqual((await call(w, "GET", profilePath("stu-1"), { token })).json.proposed, [], "pending: nothing proposed yet");
+    d.release();
+    await settle();
+    const after = (await call(w, "GET", profilePath("stu-1"), { token })).json;
+    assert.deepEqual(
+      after.proposed.map((p: { key: string; value: string; status: string }) => [p.key, p.value, p.status]),
+      [["target_country", "Germany", "proposed"]],
+    );
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("p1-lk9 C2: extraction still happens only in the stores-text branch (a replay and an unconsented minor never start it)", async () => {
+  let started = 0;
+  const w = chatWorld({ deps: { extractFacts: async () => (started++, proposeGermany()) } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const body = { text: GERMANY_QUESTION, clientTurnId: "c2-6" };
+    await call(w, "POST", turnsPath("stu-1", threadId), { token, body });
+    await settle();
+    assert.equal(started, 1);
+    const replay = await call(w, "POST", turnsPath("stu-1", threadId), { token, body });
+    assert.equal(replay.status, 200);
+    const kid = await studentToken(minor("stu-2", "tenant-a"));
+    const kt = await newThread(w, kid, "stu-2");
+    await call(w, "POST", turnsPath("stu-2", kt), { token: kid, body: { text: GERMANY_QUESTION, clientTurnId: "c2-8" } });
+    await settle();
+    assert.equal(started, 1, "a replay and an unconsented turn started no extraction");
   } finally {
     w.cleanup();
   }

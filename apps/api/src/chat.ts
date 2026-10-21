@@ -40,6 +40,9 @@
  *    name is unknown, so a profile-only name in that text can reach the escalation path and the classifier rationale it stores.
  *  - p1-u8r item 5: the escalation path (and so the classifier rationale it stores) is handed REDACTED text; if redacting would hide the
  *    crisis wording from the guard, the least-redacted text that still shows it is used (an escalation is never lost for privacy).
+ *  - p1-lk9 C2: fact extraction (a model call) runs AFTER the reply, detached: the reply does not wait for it, and its failure (including a fence
+ *    refusal after an erasure began) is one text-free log line (`chat_fact_extraction_failed` / `chat_fact_extraction_fenced`), never a turn error.
+ *    A proposed fact therefore shows on GET .../chat/profile a moment after the turn, not with it.
  *  - The Pathlynks profile arrives through a port; there is no real integration here, and no voice route (U10).
  *  - p1-u6w: when the graph picks `rank_options`, the reply is ranked by the U6b `rankOptions` over THIS tenant's and THIS student's facts (their
  *    confirmed chat facts and the Pathlynks profile), through `deps.ranking`. Absent `deps.ranking`, the reply is the plain graph answer. The db
@@ -548,6 +551,31 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     }
   }
 
+  /**
+   * p1-lk9 C2: fact extraction for a completed, stored turn, detached from the reply. It can never fail, delay or reject the turn: every error
+   * (the extractor, a fact write, a fence refusal after an erasure started, even the logger) ends in one text-free log line and nothing else.
+   * The fence still protects the student: `proposeProfileFact` is a fenced writer, so an erasure that begins after the reply refuses the write.
+   * `now` is the turn's own clock reading. The returned promise is never awaited (`void`) and always settles without a rejection.
+   */
+  function proposeFactsDetached(db: Db, now: Date, extract: FactExtractor, turn: Parameters<FactExtractor>[0]): void {
+    const run = async (): Promise<void> => {
+      try {
+        const facts = await extract(turn);
+        for (const f of facts.slice(0, MAX_PROPOSED_FACTS_PER_TURN)) {
+          // p1-lk6: the English value is kept with the student's original-language quote (redacted by the db); neither is logged.
+          await proposeProfileFact(
+            db,
+            { studentId: turn.studentId, key: f.key, value: f.value, ...(f.quote !== undefined ? { quote: f.quote } : {}), ...(f.sourceLang !== undefined ? { sourceLang: f.sourceLang } : {}), threadId: turn.threadId, turnId: turn.turnId },
+            { now },
+          );
+        }
+      } catch (err) {
+        logEvent(err instanceof StudentFencedError || err instanceof FencedWriterDeadlineError ? "chat_fact_extraction_fenced" : "chat_fact_extraction_failed");
+      }
+    };
+    void run().catch(() => undefined);
+  }
+
   async function handleTurn(req: ApiRequest, who: Who, params: Record<string, string>): Promise<ApiResponse> {
     const { ctx, db, now } = who;
     const threadId = params.threadId!;
@@ -713,6 +741,7 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
       // A turn that stores no text (an unconsented minor, an over-long message) never reaches the option port; a turn with no student text cannot pick rank_options.
       if (result.selectedTool === "rank_options" && persistText) response = await withRanking(who, response);
 
+      let startAfterReply: (() => void) | undefined;
       if (leaseToken !== undefined) {
         const stored = TurnResponseSchema.parse({
           ...response,
@@ -722,28 +751,20 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
           ...(response.profileFactsUsed !== undefined ? { profileFactsUsed: response.profileFactsUsed.map((f) => ({ ...f, value: redact(f.value) })) } : {}),
         });
         await completeChatTurn(db, { studentId: ctx.studentId, threadId, turnId, leaseToken, channel: "text", assistantText: stored.message ?? "", response: stored as Record<string, unknown> }, { now });
+        // p1-lk9 C2: extraction (a model call) is off the reply path. It starts after the reply is ready (below), only for a turn that stores text.
         if (deps.extractFacts) {
-          try {
-            const facts = await deps.extractFacts({ tenantId: ctx.tenantId, studentId: ctx.studentId, threadId, turnId, text, response });
-            for (const f of facts.slice(0, MAX_PROPOSED_FACTS_PER_TURN)) {
-              // p1-lk6: the English value is kept with the student's original-language quote (redacted by the db); neither is logged.
-              await proposeProfileFact(
-                db,
-                { studentId: ctx.studentId, key: f.key, value: f.value, ...(f.quote !== undefined ? { quote: f.quote } : {}), ...(f.sourceLang !== undefined ? { sourceLang: f.sourceLang } : {}), threadId, turnId },
-                { now },
-              );
-            }
-          } catch (err) {
-            if (err instanceof StudentFencedError || err instanceof FencedWriterDeadlineError) throw err;
-            logEvent("chat_fact_extraction_failed");
-          }
+          const extract = deps.extractFacts;
+          const turn = { tenantId: ctx.tenantId, studentId: ctx.studentId, threadId, turnId, text, response };
+          startAfterReply = () => proposeFactsDetached(db, now, extract, turn);
         }
       }
 
       await recordStudentUsage(db, { studentId: ctx.studentId, textTurns: 1 }, { now });
       if (response.state === "concern") await recordStudentFlag(db, { studentId: ctx.studentId, threadId, turnId, kind: "concern" }, { now });
       if (response.claims.some((c) => c.status === "unverified")) await incrementGapCount(db, { kind: "unverified_claim" }, { now });
-      return respond(200, response);
+      const reply = respond(200, response);
+      startAfterReply?.();
+      return reply;
     };
     try {
       return await runTurn();
