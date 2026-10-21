@@ -17,6 +17,7 @@ import {
   normalizeClientAddress,
   MAX_ANONYMOUS_BODY_BYTES,
 } from "../src/anonymous.js";
+import { MockGroundedAnswerer } from "@vc/providers";
 import { SEARCH_EMPTY, SPEAKERS, GOOD_CLAIM, SKILLS_DIR, anonWorld, ask, anonRequest, captureOutput, kbAnswerProvider, nonEmptyCollections, recordingKb, tooLargeBody } from "./anonymous-fixtures.js";
 
 const GENERIC = "What are the tuition fees for public universities in Germany?";
@@ -868,5 +869,80 @@ test("ISS-350: the anonymous route scans an extra-key crisis body exactly as oft
   } finally {
     String.prototype.trim = original;
     w.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// p1-nosource-grounded (G1, G2, G5 over the route)
+// ---------------------------------------------------------------------------
+
+const GROUNDED_TEXT = "Public universities in Germany mostly charge no tuition, but a semester contribution of roughly 300 euros applies.";
+const GROUNDED_SOURCES = [
+  { title: "daad.de", url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AAA" },
+  { title: "Make it in Germany", url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/BBB" },
+];
+
+test("G1 (API): an anonymous no-source generic question with grounding on gets the disclaimer plus the grounded answer; web sources are structured, the text has no link; only the question text reaches the web; counter no_answer; the KB is searched once", async () => {
+  const grounding = new MockGroundedAnswerer({ text: GROUNDED_TEXT, sources: GROUNDED_SOURCES });
+  const w = anonWorld({ kb: recordingKb(SEARCH_EMPTY), deps: { grounding } });
+  try {
+    const res = await ask(w, GENERIC);
+    assert.equal(res.json.state, "no_sourced_answer");
+    assert.equal(res.json.message, `General guidance — I couldn't find this in Vidysea's verified sources, so please confirm fees, deadlines and amounts on the official website. ${GROUNDED_TEXT}`);
+    assert.doesNotMatch(res.json.message, /https?:|daad\.de/i);
+    assert.deepEqual(res.json.claims, []);
+    assert.deepEqual(res.json.sources.map((s: { kind: string; url: string }) => [s.kind, s.url]), GROUNDED_SOURCES.map((s) => ["web", s.url]));
+    assert.deepEqual(w.kb.calls.map((c) => c.tool), ["search_kb"]);
+    assert.deepEqual(w.counterCalls, ["no_answer"]);
+    assert.equal(grounding.calls.length, 1);
+    assert.equal(grounding.calls[0]!.question, GENERIC);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("G2 (API): a grounding failure falls back to the D-110 model-only answer, never a crash", async () => {
+  const GUIDANCE = "Most German public universities charge no tuition, but expect a semester contribution of around 300 euros.";
+  const provider = kbAnswerProvider();
+  provider.setResponse("kb-general-guidance", { answer: GUIDANCE });
+  const grounding = new MockGroundedAnswerer(new Error("synthetic grounding outage"));
+  const w = anonWorld({ kb: recordingKb(SEARCH_EMPTY), provider, deps: { grounding } });
+  try {
+    const res = await ask(w, GENERIC);
+    assert.equal(res.status, 200);
+    assert.equal(res.json.state, "no_sourced_answer");
+    assert.match(res.json.message, new RegExp(GUIDANCE.slice(0, 40)));
+    assert.deepEqual(res.json.sources, []);
+    assert.equal(grounding.calls.length, 1);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("G5 (API): scope no_source -> a 'possible' screen verdict on a no-source anonymous turn is the fixed crisis answer with zero grounded calls and zero guidance calls; counters no_answer then crisis; a sourced turn is not screened", async () => {
+  const provider = kbAnswerProvider();
+  provider.setResponse("concern-classifier", { severity: "high", likelyBenign: false, rationale: "synthetic" });
+  provider.setResponse("kb-general-guidance", { answer: "should never be asked" });
+  const grounding = new MockGroundedAnswerer({ text: GROUNDED_TEXT, sources: GROUNDED_SOURCES });
+  const w = anonWorld({ kb: recordingKb(SEARCH_EMPTY), provider, deps: { grounding, safetyScreen: { provider, scope: "no_source" } } });
+  try {
+    const res = await ask(w, GENERIC);
+    assert.equal(res.json.state, "escalated");
+    assert.equal(grounding.calls.length, 0, "nothing went to the web");
+    assert.equal(provider.calls.filter((c) => c.skillName === "kb-general-guidance").length, 0, "nothing went to the guidance model");
+    assert.equal(provider.calls.filter((c) => c.skillName === "concern-classifier").length, 1);
+    assert.ok(w.counterCalls.includes("crisis"), JSON.stringify(w.counterCalls));
+  } finally {
+    w.cleanup();
+  }
+  const clear = kbAnswerProvider();
+  clear.setResponse("concern-classifier", { severity: "high", likelyBenign: false, rationale: "synthetic" });
+  const sourced = anonWorld({ provider: clear, deps: { safetyScreen: { provider: clear, scope: "no_source" } } });
+  try {
+    const res = await ask(sourced, GENERIC);
+    assert.equal(res.json.state, "ok");
+    assert.equal(clear.calls.filter((c) => c.skillName === "concern-classifier").length, 0, "a sourced answer is not screened under no_source scope");
+  } finally {
+    sourced.cleanup();
   }
 });

@@ -30,6 +30,7 @@ import {
   createProvider,
   emitEngineeringAlert,
   emitFailoverAlert,
+  loadGroundedAnswerer,
   loadProviderConfig,
   loadTextChainConfig,
   type EngineeringAlert,
@@ -500,6 +501,9 @@ export async function startApi(
   // is OFF unless VC_ANONYMOUS_SAFETY_SCREEN is exactly "true" (open decision A15b / B24.6 vs D-105); a bad value is a startup error.
   const screenBaseProvider = httpSetup ? (classifierProvider ?? httpSetup.provider) : undefined;
   const anonymousScreen = anonymousFlag ? anonymousSafetyScreenFromEnv(env) : false;
+  // p1-nosource-grounded G1: Gemini with Google Search grounding for a no-source question. VC_GROUNDING is off unless exactly "gemini"; "gemini" without
+  // GEMINI_API_KEY, or any other value, is a startup error before anything connects. The key is read from the environment only (B11).
+  const grounding = httpSetup ? loadGroundedAnswerer(env) : undefined;
   const counterRef: { writer?: AnonymousCounterWriter } = {};
   let anonymousHandler: ReturnType<typeof createAnonymousApi>;
   if (httpSetup && anonymousFlag) {
@@ -514,7 +518,15 @@ export async function startApi(
         provider: httpSetup.studentProvider,
         skillsDir: httpSetup.skillsDir,
         speakers: a.speakers,
-        ...(anonymousScreen ? { safetyScreen: { provider: screenBaseProvider! } } : {}),
+        // G5: with VC_ANONYMOUS_SAFETY_SCREEN=true every cleared anonymous turn is screened; otherwise a turn that reaches the no-source reply (the only
+        // one that sends the text to a model or the web) is screened first. The rules provider has no concern-classifier handling and makes no model call,
+        // so there the no-source screen is left off rather than turning every such turn into the crisis message.
+        ...(anonymousScreen
+          ? { safetyScreen: { provider: screenBaseProvider! } }
+          : screenBaseProvider && screenBaseProvider.kind !== "rules"
+            ? { safetyScreen: { provider: screenBaseProvider, scope: "no_source" as const } }
+            : {}),
+        ...(grounding ? { grounding } : {}),
         counter:
           a.counter ??
           {
@@ -577,6 +589,7 @@ export async function startApi(
     ? {
         ...(httpSetup && textChain ? { detectLanguage: createModelLanguageDetector(httpSetup.studentProvider) } : {}),
         replyLangs: parseReplyLangs(env.VC_REPLY_LANGS),
+        ...(grounding ? { grounding } : {}),
         ...(chatScreenOption === false
           ? {}
           : { safetyScreen: { ...(chatScreenOption ?? {}), provider: chatScreenOption?.provider ?? screenBaseProvider!, authenticated: true, anonymous: false } }),

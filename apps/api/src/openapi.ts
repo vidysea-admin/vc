@@ -369,6 +369,7 @@ export const STUDENT_API_DRAFT = {
           id: str({ minLength: 1, maxLength: 256 }),
           kind: { enum: [...SOURCE_KINDS] },
           title: str({ maxLength: 500 }),
+          url: str({ maxLength: 2048, pattern: "^https://" }),
           stale: { type: "boolean" },
           dateUnknown: { type: "boolean" },
         },
@@ -568,7 +569,7 @@ export const STUDENT_API_DRAFT = {
     "/v1/students/{studentId}/chat/threads/{threadId}/turns": {
       post: draftOp(["student"], {
         operationId: "postChatTurn",
-        summary: "Send a text turn; idempotent on clientTurnId. Sourced answers come from the knowledge base; with no servable source the state is no_sourced_answer (no claims, no sources) and the message is a short disclaimer plus general expert guidance, or the fixed refusal text if the model chain fails",
+        summary: "Send a text turn; idempotent on clientTurnId. Sourced answers come from the knowledge base; with no servable source the state is no_sourced_answer (no claims) and the message is a short disclaimer plus general expert guidance (with VC_GROUNDING=gemini, an answer grounded in Google Search whose links come back as sources of kind web, never inside the message), or the fixed refusal text if the model chain fails",
         parameters: [studentId, threadId],
         requestBody: { required: true, ...json(ref("TurnRequest")) },
         responses: { "200": ok("The answer", ref("TurnResponse")), ...studentErrors, "413": { description: "Body larger than 64 KiB (never scanned; carries the static Tele-MANAS line)", ...json(ref("AnonymousError")) } },

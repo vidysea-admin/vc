@@ -15,7 +15,7 @@ import { API_ROUTES, BodyTooLargeError, createApiHandler } from "../src/server.j
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { APPROVER, GERMANY_QUESTION, NOW, adult, call, chatRequest, chatWorld, cleanupGates, everythingStored, gatesFixture, kbAnswerProvider, minor, newThread, recordingKb, studentToken, studentVerifier, threadsPath, turnsPath } from "./chat-fixtures.js";
 import { SKILLS_DIR, SPEAKERS } from "./anonymous-fixtures.js";
-import { MockProvider } from "@vc/providers";
+import { MockGroundedAnswerer, MockProvider } from "@vc/providers";
 import { TELE_MANAS_LINE, crisisGuard } from "@vc/engine";
 import { createHash, generateKeyPairSync } from "node:crypto";
 
@@ -674,6 +674,32 @@ test("a question the knowledge base cannot answer says so, and adds one text-fre
     assert.equal(gaps[0]!.kind, "no_sourced_answer");
     assert.equal(gaps[0]!.count, 1);
     assert.ok(!JSON.stringify(gaps).includes("hostel"));
+  } finally {
+    w.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// p1-nosource-grounded G1 (API): grounded first for a signed-in student's no-source question
+// ---------------------------------------------------------------------------
+
+test("G1 (API): a signed-in student's no-source question with grounding on gets the disclaimer plus the grounded answer; web sources are structured; the gap is still counted; only the redacted question reaches the web", async () => {
+  const GROUNDED = "Student hostels in Lisbon commonly cost 400 to 700 euros a month, and residences run by the university are usually cheaper.";
+  const grounding = new MockGroundedAnswerer({ text: GROUNDED, sources: [{ title: "Lisbon housing", url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/CCC" }] });
+  const w = chatWorld({ kb: recordingKb({ status: "ok", hits: [], dropped: 0 }), deps: { graph: { grounding } } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: "Which hostel is best in Lisbon?", clientTurnId: "g1-api-1" } });
+    assert.equal(res.json.state, "no_sourced_answer");
+    assert.equal(res.json.message, `General guidance — I couldn't find this in Vidysea's verified sources, so please confirm fees, deadlines and amounts on the official website. ${GROUNDED}`);
+    assert.deepEqual(res.json.claims, []);
+    assert.deepEqual(res.json.sources.map((s: { kind: string; url: string; title: string }) => [s.kind, s.title, s.url]), [["web", "Lisbon housing", "https://vertexaisearch.cloud.google.com/grounding-api-redirect/CCC"]]);
+    assert.equal(grounding.calls.length, 1);
+    assert.equal(grounding.calls[0]!.question, "Which hostel is best in Lisbon?");
+    const gaps = w.fakeDb.collection<Record<string, unknown>>(COLLECTION_NAMES.chat_gap_counts).all();
+    assert.equal(gaps.length, 1);
+    assert.equal(gaps[0]!.kind, "no_sourced_answer");
   } finally {
     w.cleanup();
   }

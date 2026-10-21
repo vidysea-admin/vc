@@ -47,7 +47,7 @@ import {
   type StudentGraphDeps,
   type StudentKbPort,
 } from "@vc/engine";
-import type { LlmProvider } from "@vc/providers";
+import type { GroundedAnswerer, LlmProvider } from "@vc/providers";
 import { assertGoLive } from "./go-live-gate.js";
 import { BodyTooLargeError, respond, type ApiHandler, type ApiRequest, type ApiRoute } from "./server.js";
 
@@ -248,7 +248,15 @@ export interface AnonymousApiDeps {
    * P1 LK7: the LK5 model safety screen. Absent = no screen (the default, see ANONYMOUS_SAFETY_SCREEN_ENV). Supplying it turns the screen ON for
    * anonymous turns. There is deliberately no language-detector option: the anonymous route never sends a text to a model to classify its language.
    */
-  safetyScreen?: Omit<NonNullable<StudentGraphDeps["safetyScreen"]>, "anonymous" | "authenticated">;
+  safetyScreen?: Omit<NonNullable<StudentGraphDeps["safetyScreen"]>, "anonymous" | "authenticated"> & {
+    /**
+     * p1-nosource-grounded G5: "all" (default) screens every cleared anonymous turn; "no_source" screens only a turn that reaches the no-source reply,
+     * before anything is sent to a model or the web (the production default when VC_ANONYMOUS_SAFETY_SCREEN is not "true").
+     */
+    scope?: "all" | "no_source";
+  };
+  /** p1-nosource-grounded G1: Gemini with Google Search grounding for a no-source question (VC_GROUNDING=gemini). It receives the redacted question only. Absent = off. */
+  grounding?: GroundedAnswerer;
   config?: Partial<StudentGraphConfig>;
   /** Per-deployment override of the D-088 limits (only `anonymousRequestsPerMinute` is read). */
   limits?: Parameters<typeof resolveLimits>[0];
@@ -364,7 +372,13 @@ export function buildAnonymousGraphDeps(deps: AnonymousApiDeps, onForbidden?: (p
     speakers: deps.speakers,
     ...(deps.config ? { config: deps.config } : {}),
     ...(deps.now ? { now: deps.now } : {}),
-    ...(deps.safetyScreen ? { safetyScreen: { ...deps.safetyScreen, anonymous: true, authenticated: false } } : {}),
+    ...(deps.safetyScreen
+      ? (() => {
+          const { scope, ...screen } = deps.safetyScreen;
+          return { safetyScreen: { ...screen, anonymous: scope === "no_source" ? ("no_source" as const) : true, authenticated: false } };
+        })()
+      : {}),
+    ...(deps.grounding ? { grounding: deps.grounding } : {}),
     recordGap: forbidden("recordGap"),
     logFlag: forbidden("logFlag"),
     escalate: forbidden("escalate"),

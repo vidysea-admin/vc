@@ -34,17 +34,21 @@ export const ClaimSchema = z
   });
 export type Claim = z.infer<typeof ClaimSchema>;
 
-export const SOURCE_KINDS = ["internal-seminar", "toc", "whatsapp", "unknown"] as const;
+/** "web" is a Google Search grounding link on a no-source answer (p1-nosource-grounded); it always carries `url`. */
+export const SOURCE_KINDS = ["internal-seminar", "toc", "whatsapp", "unknown", "web"] as const;
 
 export const SourceSchema = z
   .object({
     id: z.string().min(1).max(256),
     kind: z.enum(SOURCE_KINDS),
     title: z.string().max(500).optional(),
+    /** https only; set on `web` sources (grounding links) and on nothing else. */
+    url: z.string().url().max(2048).startsWith("https://").optional(),
     stale: z.boolean().optional(),
     dateUnknown: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .refine((s) => (s.kind === "web") === (s.url !== undefined), { message: "a web source needs a url and only a web source may carry one", path: ["url"] });
 export type Source = z.infer<typeof SourceSchema>;
 
 // ---------------------------------------------------------------------------

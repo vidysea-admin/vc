@@ -25,6 +25,7 @@ import {
   createAnonymousApi,
   withAnonymousRoutes,
 } from "../src/anonymous.js";
+import { MockGroundedAnswerer } from "@vc/providers";
 import { createFakeMongoClient } from "@vc/db/testing";
 import { VC_DB_NAME } from "@vc/db";
 import { APPROVER, CHAIN_ENV, GOOD_CLAIM, NOW, SKILLS_DIR, SPEAKERS, anonRequest, anonWorld, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
@@ -449,4 +450,64 @@ test("LK7 A5: buildAnonymousGraphDeps passes a screen through only when one is s
   const withScreen = buildAnonymousGraphDeps({ ...baseDeps(), safetyScreen: { provider } });
   assert.equal(withScreen.safetyScreen?.provider, provider);
   assert.equal(withScreen.safetyScreen?.anonymous, true);
+});
+
+// ---------------------------------------------------------------------------
+// p1-nosource-grounded (G1/G5 wiring)
+// ---------------------------------------------------------------------------
+
+test("G5: buildAnonymousGraphDeps maps scope no_source to anonymous: 'no_source' and passes grounding through; scope all or absent stays anonymous: true", () => {
+  const provider = kbAnswerProvider();
+  const grounding = new MockGroundedAnswerer({ text: "x", sources: [] });
+  const ns = buildAnonymousGraphDeps({ ...baseDeps(), safetyScreen: { provider, scope: "no_source" }, grounding });
+  assert.equal(ns.safetyScreen?.anonymous, "no_source");
+  assert.equal(ns.grounding, grounding);
+  assert.equal(buildAnonymousGraphDeps({ ...baseDeps(), safetyScreen: { provider, scope: "all" } }).safetyScreen?.anonymous, true);
+  assert.equal(buildAnonymousGraphDeps({ ...baseDeps(), safetyScreen: { provider } }).safetyScreen?.anonymous, true);
+  assert.equal(buildAnonymousGraphDeps({ ...baseDeps() }).grounding, undefined);
+});
+
+async function anonymousNoSourceOverHttp(env: Record<string, string | undefined>, text: string, scribe: ReturnType<typeof kbAnswerProvider>) {
+  const fake = createFakeMongoClient();
+  const f = gatesFixture();
+  const api = await startApi(
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true", ...env },
+    { clientFactory: () => fake.client, http: { port: 0, verifier, provider: scribe, skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb({ status: "ok", hits: [], dropped: 0 }), speakers: SPEAKERS, gatesDir: f.gates, trustSocketAddress: true } } },
+  );
+  try {
+    const res = await fetch(`http://127.0.0.1:${api.port}${ANONYMOUS_PATH}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
+    assert.equal(res.status, 200);
+    return (await res.json()) as { state: string };
+  } finally {
+    await api.stop();
+    cleanupGates(f);
+  }
+}
+
+test("G5: by default (screen flag unset) a no-source anonymous turn is safety-screened before any model call; a 'possible' verdict is the crisis answer and the guidance model is never called", async () => {
+  const high = kbAnswerProvider();
+  high.setResponse("concern-classifier", { severity: "high", likelyBenign: false, rationale: "synthetic" });
+  high.setResponse("kb-general-guidance", { answer: "should never be asked" });
+  const out = await anonymousNoSourceOverHttp({}, GERMANY_Q, high);
+  assert.equal(out.state, "escalated");
+  assert.equal(classifierCallsOf(high).length, 1);
+  assert.equal(high.calls.filter((c) => c.skillName === "kb-general-guidance").length, 0);
+  const clear = kbAnswerProvider();
+  clear.setResponse("kb-general-guidance", { answer: "Public universities in Germany mostly charge no tuition." });
+  const ok = await anonymousNoSourceOverHttp({}, GERMANY_Q, clear);
+  assert.equal(ok.state, "no_sourced_answer");
+  assert.equal(classifierCallsOf(clear).length, 1);
+});
+
+test("G1: VC_GROUNDING set to anything but off/gemini, or gemini without GEMINI_API_KEY, is a startup error before anything connects", async () => {
+  for (const env of [{ VC_GROUNDING: "bing" }, { VC_GROUNDING: "gemini" }, { VC_GROUNDING: "GEMINI", GEMINI_API_KEY: "k" }]) {
+    let connected = false;
+    const fake = createFakeMongoClient();
+    await assert.rejects(
+      startApi({ MONGODB_URL: "mongodb://fake-host/ignored", ...env }, { clientFactory: () => { connected = true; return fake.client; }, http: { port: 0, verifier, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR } }),
+      /GroundingConfigError/,
+      JSON.stringify(Object.keys(env)),
+    );
+    assert.equal(connected, false);
+  }
 });
