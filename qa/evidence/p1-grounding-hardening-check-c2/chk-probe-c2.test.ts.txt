@@ -1,0 +1,149 @@
+// Checker-owned c2 probes (copy outside the bound tree). Fake providers only.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { MockProvider, MockGroundedAnswerer, type GroundedAnswer } from "@vc/providers";
+import { runStudentTurn, NO_SOURCED_ANSWER_TEXT, type StudentGraphDeps } from "../src/student/graph.js";
+import { redactStudentDetails } from "../src/student/lang.js";
+import { NOW, SKILLS_DIR, SPEAKERS, NO_PRIOR_FLAG, fakeKb, studentProvider } from "./student-fixtures.js";
+
+const NO_HITS = { status: "ok" as const, hits: [], dropped: 0 };
+const NOT_SERVED = { status: "no_sourced_answer" as const, answer: NO_SOURCED_ANSWER_TEXT, citations: { internal: [], web: [] }, verdict: "incorrect" as const, reason: "", withheld: ["verdict_not_correct", "insufficient_coverage"] };
+const noSourceKb = (anonymous = false) => fakeKb({ search: NO_HITS, ...(anonymous ? { anonymous: true } : { ask: NOT_SERVED as never }) });
+const guidanceProvider = () => new MockProvider({ responses: { "kb-general-guidance": { answer: "Public universities in Germany usually charge no tuition." } as never } });
+const groundedOk = (): GroundedAnswer => ({ text: "Most German public universities charge no tuition.", sources: [{ title: "daad.de", url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AAA" }] });
+const AUTH = { role: "student" as const, studentId: "syn-stu-3", tenantId: "sandbox" };
+const turn = (text: string) => ({ mode: "authenticated" as const, auth: AUTH, threadId: "th-g", turnId: "tu-g", text });
+function deps(over: Partial<StudentGraphDeps> = {}) {
+  return { kb: fakeKb(), provider: studentProvider(), skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG,
+    recordGap: async () => {}, countAnonymous: async () => {}, onWriteError: () => {}, ...over } as StudentGraphDeps;
+}
+async function wire(text: string, anon = false): Promise<string | null> {
+  const grounded = new MockGroundedAnswerer(groundedOk());
+  await runStudentTurn(deps({ kb: noSourceKb(anon), provider: guidanceProvider(), grounding: grounded }), anon ? { mode: "anonymous", text } : turn(text));
+  return grounded.calls.length ? grounded.calls[0]!.question : null;
+}
+
+// [text, tokens that must NOT survive]
+const MUST_REDACT: Array<[string, string[]]> = [
+  // brief hostile list
+  ["pincode-411001, german fees?", ["411001"]],
+  ["PIN:411001. german fees?", ["411001"]],
+  ["my area code 411001, german fees?", ["411001"]],
+  ["411001 pune, german fees?", ["411001"]],
+  ["4 1 1 0 0 1 is my pin, german fees?", ["4 1 1 0 0 1"]],
+  ["my pin is 4 1 1 0 0 1, german fees?", ["4 1 1 0 0 1"]],
+  ["pin 4 1 1 0 0 1, german fees?", ["4 1 1 0 0 1"]],
+  ["४११००१ is my pin, german fees?", ["४११००१"]],
+  ["mera pin ४११००१ hai, german fees?", ["४११००१"]],
+  ["pin is four one one zero zero one, german fees?", ["four one one zero zero one"]],
+  ["Naam - riya, germany fees?", ["riya"]],
+  ["Naam: riya, germany fees?", ["riya"]],
+  ["naam riya sharma hai, germany fees?", ["riya", "sharma"]],
+  ["riya sharma, age 16, germany fees?", ["riya", "sharma"]],
+  ["riya sharma, 16, germany fees?", ["riya", "sharma"]],
+  // cycle-1 failing phrasings
+  ["I'm riya sharma from pune 411001. Which German universities suit PCM?", ["riya", "sharma", "411001"]],
+  ["my pin number is 411001, what is the german semester fee?", ["411001"]],
+  ["PIN No: 411001 - which german course is best?", ["411001"]],
+  ["pin no. 411001, german visa?", ["411001"]],
+  ["pin no 560037, german visa?", ["560037"]],
+  ["PIN number 411001, german visa?", ["411001"]],
+  ["PIN code number is 560037, german visa?", ["560037"]],
+  ["the pin of my area is 411001, german fees?", ["411001"]],
+  ["pin code of my city is 411001, german fees?", ["411001"]],
+  ["pin (411001), german fees?", ["411001"]],
+  ["Naam: Riya Sharma. germany fees kitni hai?", ["Riya", "Sharma"]],
+  ["i am Riya Sharma (16). Which course in Germany?", ["Riya", "Sharma", "(16)"]],
+  // more hostile PIN shapes
+  ["from Pune-411001, german fees?", ["411001"]],
+  ["from pune,411001 german fees?", ["411001"]],
+  ["Pune 411 001 german fees?", ["411 001"]],
+  ["411-001 is my pin, german fees?", ["411-001"]],
+  ["411 001 pune, german fees?", ["411 001"]],
+  ["(411001) german fees?", ["411001"]],
+  ["pin=411001 german fees?", ["411001"]],
+  ["Pin411001 german fees?", ["411001"]],
+  ["zip 411001 german fees?", ["411001"]],
+  ["postal code: 411001 german fees?", ["411001"]],
+  ["my address is Flat 4, Baner Road, Pune 411045, german fees?", ["411045"]],
+  ["Address: Fees Road, Pune 411001, german fees?", ["411001"]],
+  ["I live in Pune, 411001 marks my area, german fees?", ["411001"]],
+  ["411001.", ["411001"]],
+  ["it is 411001!", ["411001"]],
+  ["pin 411001, marks 560037", ["411001"]],
+  ["560037 is my pincode", ["560037"]],
+  ["my locality is 411001", ["411001"]],
+  ["i live in 411001", ["411001"]],
+  ["area 411001 baner, german fees", ["411001"]],
+  ["411001pune german fees", ["411001"]],
+  ["PIN\n411001 german fees", ["411001"]],
+  ["PIN 411001 german fees", ["411001"]],
+  ["pin 411001 and phone 9876543210", ["411001"]],
+  ["my school is in 411001 and it is hard, german fees", ["411001"]],
+  ["i stay at 411001 pune india", ["411001"]],
+  ["pin code 411001, 560037 marks", ["411001"]],
+  ["pin ४११००१ hai", ["४११००१"]],
+];
+// must stay (quantity cases)
+const MUST_KEEP: Array<[string, string[]]> = [
+  ["I scored 560037 marks in the exam", ["560037"]],
+  ["my fees ₹350000 per year", ["350000"]],
+  ["fees ₹350000", ["350000"]],
+  ["Rs. 450000 is my budget", ["450000"]],
+  ["Rs 450000", ["450000"]],
+  ["rank 120345 in JEE", ["120345"]],
+  ["my rank is 120345", ["120345"]],
+  ["AIR 120345", ["120345"]],
+  ["budget is 500000", ["500000"]],
+  ["salary of 600000 per year", ["600000"]],
+  ["350000 INR", ["350000"]],
+  ["around 350000 per year", ["350000"]],
+  ["I can pay 120000 euros", ["120000"]],
+  ["1,20,000 rupees", ["1,20,000"]],
+  ["120000.50", ["120000.50"]],
+  ["GRE 320 and IELTS 7.5, loan of 2000000", ["2000000"]],
+  ["$250000 total cost", ["250000"]],
+  ["total cost 350000", ["350000"]],
+  ["i have 400000 in savings", ["400000"]],
+  ["scholarship 300000", ["300000"]],
+];
+
+test("CHK C2 direct redact", () => {
+  const fails: string[] = [];
+  for (const [t, toks] of MUST_REDACT) {
+    const o = redactStudentDetails(t);
+    const leaked = toks.filter((k) => o.toLowerCase().includes(k.toLowerCase()));
+    console.log(`DIRECT|${leaked.length ? "LEAK" : "ok  "}|${JSON.stringify(t)} => ${JSON.stringify(o)}`);
+    if (leaked.length) fails.push(t);
+  }
+  for (const [t, toks] of MUST_KEEP) {
+    const o = redactStudentDetails(t);
+    const lost = toks.filter((k) => !o.includes(k));
+    console.log(`KEEP|${lost.length ? "LOST" : "ok  "}|${JSON.stringify(t)} => ${JSON.stringify(o)}`);
+  }
+  console.log("DIRECT_LEAK_COUNT=" + fails.length);
+});
+
+test("CHK C2 wire", async () => {
+  let leaks = 0;
+  for (const [t, toks] of MUST_REDACT) {
+    for (const anon of [false]) {
+      const q = await wire(t, anon);
+      if (q === null) { console.log(`WIRE|nocall|${JSON.stringify(t)}`); continue; }
+      const leaked = toks.filter((k) => q.toLowerCase().includes(k.toLowerCase()));
+      console.log(`WIRE|${leaked.length ? "LEAK" : "ok  "}|${JSON.stringify(t)} => ${JSON.stringify(q)}`);
+      if (leaked.length) leaks++;
+    }
+  }
+  for (const [t, toks] of MUST_KEEP) {
+    const q = await wire("german fees question: " + t);
+    const lost = q === null ? ["nocall"] : toks.filter((k) => !q.includes(k));
+    console.log(`WIREKEEP|${lost.length ? "LOST" : "ok  "}|${JSON.stringify(t)} => ${JSON.stringify(q)}`);
+  }
+  // anonymous path wire for the headline cases
+  for (const t of ["I'm riya sharma from pune 411001. Which German universities suit PCM?", "my pin number is 411001, german fees?"]) {
+    const q = await wire(t, true);
+    console.log(`WIREANON|${q === null ? "nocall" : /411001|riya|sharma/i.test(q) ? "LEAK" : "ok  "}|${JSON.stringify(t)} => ${JSON.stringify(q)}`);
+  }
+  console.log("WIRE_LEAK_COUNT=" + leaks);
+});

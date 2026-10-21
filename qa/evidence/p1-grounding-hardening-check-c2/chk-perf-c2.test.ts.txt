@@ -1,0 +1,20 @@
+import { test } from "node:test";
+import { redactStudentDetails } from "../src/student/lang.js";
+test("CHK C2 perf", () => {
+  const cases: Array<[string, string]> = [
+    ["digits+space x20000", "1 ".repeat(20000)],
+    ["411001 x5000", "411001 ".repeat(5000)],
+    ["rs  x20000", "rs ".repeat(20000)],
+    ["spaces x50000 then 411001", " ".repeat(50000) + "411001"],
+    ["budget is x5000 411001", "budget is ".repeat(5000) + "411001"],
+    ["1234567 x5000", "1234567 ".repeat(5000)],
+    ["mixed", "pin ".repeat(5000) + "4 1 ".repeat(5000)],
+  ];
+  for (const [n, s] of cases) {
+    const t0 = Date.now();
+    redactStudentDetails(s);
+    console.log(`PERF|${n}|len=${s.length}|ms=${Date.now() - t0}`);
+  }
+  const extra = ["Naam-Riya, fees?", "NAAM: riya, fees?", "naam : riya sharma, fees?", "Naam – Riya Sharma (16) fees?", "name: riya (16), fees", "i am riya (16), fees", "i am Riya Sharma [16] fees", "i am Riya Sharma, aged 16, fees"];
+  for (const t of extra) console.log(`EXTRA|${JSON.stringify(t)} => ${JSON.stringify(redactStudentDetails(t))}`);
+});

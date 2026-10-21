@@ -1,0 +1,69 @@
+##### M1pin green-before 2026-10-22T03:47:19+05:30
+lang green rc=0 ℹ pass 3 ℹ fail 0 
+graph green rc=0 ℹ pass 1 ℹ fail 0 
+1,1046c1,1046
+< /**
+<  * P1 LK4 (D-104, D-105): language detection, the reply-language allow-list, the fixed-text catalog and the crisis message catalog.
+<  * Approved as a new file by D-105 Q3; it replaces the two inline `isDevanagari` copies (student graph, voice escalation).
+<  *
+<  *  - Detection is MODEL-based (D-105 "intelligent, not rule-based"): `createModelLanguageDetector` asks the cheap text chain for
+lang red rc=1 ℹ pass 2 ℹ fail 1 
+✖ H1 F2-G1: a standalone 6-digit PIN is redacted whatever the label or connector, and after a lower-case city (10.6637ms)
+✖ failing tests:
+graph red rc=1 ℹ pass 0 ℹ fail 1 
+✖ H1 F2: PIN with any label/connector, lower-case city + PIN, 'Naam:' and '(16)' after a name do not reach the grounded wire; marks/fees/rank numbers do (115.5642ms)
+✖ failing tests:
+lang restored rc=0 ℹ pass 3 ℹ fail 0 
+graph restored rc=0 ℹ pass 1 ℹ fail 0 
+##### M2qty green-before 2026-10-22T03:47:45+05:30
+lang green rc=0 ℹ pass 3 ℹ fail 0 
+graph green rc=0 ℹ pass 1 ℹ fail 0 
+1,1046c1,1046
+< /**
+<  * P1 LK4 (D-104, D-105): language detection, the reply-language allow-list, the fixed-text catalog and the crisis message catalog.
+<  * Approved as a new file by D-105 Q3; it replaces the two inline `isDevanagari` copies (student graph, voice escalation).
+<  *
+<  *  - Detection is MODEL-based (D-105 "intelligent, not rule-based"): `createModelLanguageDetector` asks the cheap text chain for
+lang red rc=1 ℹ pass 2 ℹ fail 1 
+✖ H1 F2-G1: a 6-digit number marked as a quantity (currency, marks, rank, fees, per year) or part of a longer number stays (14.3662ms)
+✖ failing tests:
+graph red rc=1 ℹ pass 0 ℹ fail 1 
+✖ H1 F2: PIN with any label/connector, lower-case city + PIN, 'Naam:' and '(16)' after a name do not reach the grounded wire; marks/fees/rank numbers do (269.9089ms)
+✖ failing tests:
+lang restored rc=0 ℹ pass 3 ℹ fail 0 
+graph restored rc=0 ℹ pass 1 ℹ fail 0 
+##### M3naam green-before 2026-10-22T03:48:08+05:30
+lang green rc=0 ℹ pass 3 ℹ fail 0 
+graph green rc=0 ℹ pass 1 ℹ fail 0 
+1,1046c1,1046
+< /**
+<  * P1 LK4 (D-104, D-105): language detection, the reply-language allow-list, the fixed-text catalog and the crisis message catalog.
+<  * Approved as a new file by D-105 Q3; it replaces the two inline `isDevanagari` copies (student graph, voice escalation).
+<  *
+<  *  - Detection is MODEL-based (D-105 "intelligent, not rule-based"): `createModelLanguageDetector` asks the cheap text chain for
+lang red rc=1 ℹ pass 2 ℹ fail 1 
+✖ H1 F2-G2/G3: 'Naam: Riya Sharma' is redacted like 'name:', and an age in brackets after a redacted name is redacted (0.7453ms)
+✖ failing tests:
+graph red rc=1 ℹ pass 0 ℹ fail 1 
+✖ H1 F2: PIN with any label/connector, lower-case city + PIN, 'Naam:' and '(16)' after a name do not reach the grounded wire; marks/fees/rank numbers do (206.5509ms)
+✖ failing tests:
+lang restored rc=0 ℹ pass 3 ℹ fail 0 
+graph restored rc=0 ℹ pass 1 ℹ fail 0 
+##### M4age green-before 2026-10-22T03:48:32+05:30
+lang green rc=0 ℹ pass 3 ℹ fail 0 
+graph green rc=0 ℹ pass 1 ℹ fail 0 
+1,1046c1,1046
+< /**
+<  * P1 LK4 (D-104, D-105): language detection, the reply-language allow-list, the fixed-text catalog and the crisis message catalog.
+<  * Approved as a new file by D-105 Q3; it replaces the two inline `isDevanagari` copies (student graph, voice escalation).
+<  *
+<  *  - Detection is MODEL-based (D-105 "intelligent, not rule-based"): `createModelLanguageDetector` asks the cheap text chain for
+lang red rc=1 ℹ pass 2 ℹ fail 1 
+✖ H1 F2-G2/G3: 'Naam: Riya Sharma' is redacted like 'name:', and an age in brackets after a redacted name is redacted (0.8291ms)
+✖ failing tests:
+graph red rc=1 ℹ pass 0 ℹ fail 1 
+✖ H1 F2: PIN with any label/connector, lower-case city + PIN, 'Naam:' and '(16)' after a name do not reach the grounded wire; marks/fees/rank numbers do (217.1619ms)
+✖ failing tests:
+lang restored rc=0 ℹ pass 3 ℹ fail 0 
+graph restored rc=0 ℹ pass 1 ℹ fail 0 
+FALSDONE 2026-10-22T03:48:55+05:30

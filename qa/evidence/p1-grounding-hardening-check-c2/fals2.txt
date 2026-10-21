@@ -1,0 +1,37 @@
+##### M2qty green-before 2026-10-22T03:49:33+05:30
+lang green rc=0 ℹ pass 3 ℹ fail 0 
+graph green rc=0 ℹ pass 1 ℹ fail 0 
+MUTATION APPLIED: "|\\b(?:rs\\.?|inr|usd|eur|gbp|rank(?:ed)?|air|score[ds]?|marks?|percentile|budget|fees?|" -> "|\\b(?:ZZNEVER|"
+lang red rc=1 ℹ pass 2 ℹ fail 1 
+✖ H1 F2-G1: a 6-digit number marked as a quantity (currency, marks, rank, fees, per year) or part of a longer number stays (14.8393ms)
+✖ failing tests:
+graph red rc=1 ℹ pass 0 ℹ fail 1 
+✖ H1 F2: PIN with any label/connector, lower-case city + PIN, 'Naam:' and '(16)' after a name do not reach the grounded wire; marks/fees/rank numbers do (294.2118ms)
+✖ failing tests:
+lang restored rc=0 ℹ pass 3 ℹ fail 0 
+graph restored rc=0 ℹ pass 1 ℹ fail 0 
+##### M3naam green-before 2026-10-22T03:49:57+05:30
+lang green rc=0 ℹ pass 3 ℹ fail 0 
+graph green rc=0 ℹ pass 1 ℹ fail 0 
+MUTATION APPLIED: "|naam\\s*[:=–-]" -> ""
+lang red rc=1 ℹ pass 2 ℹ fail 1 
+✖ H1 F2-G2/G3: 'Naam: Riya Sharma' is redacted like 'name:', and an age in brackets after a redacted name is redacted (0.7904ms)
+✖ failing tests:
+graph red rc=1 ℹ pass 0 ℹ fail 1 
+✖ H1 F2: PIN with any label/connector, lower-case city + PIN, 'Naam:' and '(16)' after a name do not reach the grounded wire; marks/fees/rank numbers do (202.0552ms)
+✖ failing tests:
+lang restored rc=0 ℹ pass 3 ℹ fail 0 
+graph restored rc=0 ℹ pass 1 ℹ fail 0 
+##### M4age green-before 2026-10-22T03:50:20+05:30
+lang green rc=0 ℹ pass 3 ℹ fail 0 
+graph green rc=0 ℹ pass 1 ℹ fail 0 
+MUTATION APPLIED: "(\\s*,?\\s*\\(?\\s*)\\d{1,2}" -> "(\\s*,?\\s*)\\d{1,2}"
+lang red rc=1 ℹ pass 2 ℹ fail 1 
+✖ H1 F2-G2/G3: 'Naam: Riya Sharma' is redacted like 'name:', and an age in brackets after a redacted name is redacted (0.8356ms)
+✖ failing tests:
+graph red rc=1 ℹ pass 0 ℹ fail 1 
+✖ H1 F2: PIN with any label/connector, lower-case city + PIN, 'Naam:' and '(16)' after a name do not reach the grounded wire; marks/fees/rank numbers do (208.8488ms)
+✖ failing tests:
+lang restored rc=0 ℹ pass 3 ℹ fail 0 
+graph restored rc=0 ℹ pass 1 ℹ fail 0 
+FALSDONE 2026-10-22T03:50:43+05:30
