@@ -675,6 +675,226 @@ export class LiteLlmProvider implements LlmProvider {
 }
 
 // ---------------------------------------------------------------------------
+// Grounded answers (p1-nosource-grounded, D-110 follow-up): Gemini with Google Search grounding. The question has no verified
+// source in the knowledge base, so one model call may search the public web and answer from it. This is the only Gemini call that
+// makes a real request; `GeminiProvider.generate` above stays a stub. No SDK: the REST `generateContent` endpoint over fetch, like
+// the litellm provider. B13: Gemini is a listed processor; the caller sends ONLY the redacted question text (see the student graph).
+// ---------------------------------------------------------------------------
+
+export const GROUNDING_MAX_SOURCES = 5;
+export const GROUNDING_DEFAULT_MODEL = "gemini-2.5-flash";
+export const GROUNDING_DEFAULT_TIMEOUT_MS = 20_000;
+const GROUNDING_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+// Room for the answer (about 150 words) AND any thinking tokens, which count against this limit on the 2.5 models (the first live probe was cut mid-sentence at 700).
+const GROUNDING_MAX_OUTPUT_TOKENS = 2048;
+
+/** One grounding source as the student sees it: a title and an https link. */
+export interface GroundedSource {
+  title: string;
+  url: string;
+}
+
+export interface GroundedAnswer {
+  /** Plain prose from the model. The caller applies every output guard; this layer only extracts it. */
+  text: string;
+  sources: GroundedSource[];
+}
+
+export interface GroundedAnswerRequest {
+  /** The already-redacted question. Nothing else about the student is accepted by this seam. */
+  question: string;
+  /** The fixed system prompt (a constant of the caller, never student text). */
+  systemPrompt: string;
+  signal?: AbortSignal;
+  /** Same gate hook as `GenerateRequest.preflight` (spend guard, B13 per-use gate). */
+  preflight?: () => Promise<void>;
+}
+
+export interface GroundedAnswerer {
+  readonly kind: "gemini" | "mock";
+  readonly model: string;
+  answer(request: GroundedAnswerRequest): Promise<GroundedAnswer>;
+}
+
+export class GroundingHttpError extends Error {
+  readonly status: number;
+  constructor(status: number, model: string) {
+    super(`GroundingHttpError: the grounded Gemini request (model "${model}") failed with HTTP ${status}`);
+    this.name = "GroundingHttpError";
+    this.status = status;
+  }
+}
+
+export class GroundingFailedError extends Error {
+  constructor(model: string, reason: string) {
+    super(`GroundingFailedError: the grounded Gemini request (model "${model}") failed: ${reason}`);
+    this.name = "GroundingFailedError";
+  }
+}
+
+/**
+ * Grounding links as structured entries: https only (no userinfo, no other scheme), unique by URL, a bounded title, at most
+ * GROUNDING_MAX_SOURCES. Anything malformed is dropped, never repaired.
+ */
+export function sanitizeGroundingSources(raw: unknown): GroundedSource[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: GroundedSource[] = [];
+  for (const item of raw) {
+    if (out.length >= GROUNDING_MAX_SOURCES) break;
+    const web = (item as { web?: { uri?: unknown; title?: unknown } } | null)?.web;
+    if (typeof web?.uri !== "string" || web.uri.length > 2048) continue;
+    let parsed: URL;
+    try {
+      parsed = new URL(web.uri.trim());
+    } catch {
+      continue;
+    }
+    if (parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "" || parsed.hostname === "") continue;
+    const url = parsed.toString();
+    if (seen.has(url)) continue;
+    seen.add(url);
+    // eslint-disable-next-line no-control-regex
+    const cleanTitle = typeof web.title === "string" ? web.title.replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 200) : "";
+    out.push({ title: cleanTitle || parsed.hostname, url });
+  }
+  return out;
+}
+
+export interface GeminiGroundedAnswererOptions {
+  model: string;
+  apiKey: string;
+  baseUrl?: string;
+  timeoutMs?: number;
+  /** Tests inject a fake; production uses the global fetch. */
+  fetchImpl?: typeof fetch;
+}
+
+export class GeminiGroundedAnswerer implements GroundedAnswerer {
+  readonly kind = "gemini" as const;
+  readonly model: string;
+  readonly #apiKey: string;
+  readonly #baseUrl: string;
+  readonly #timeoutMs: number;
+  readonly #fetch: typeof fetch;
+
+  constructor(options: GeminiGroundedAnswererOptions) {
+    this.model = options.model;
+    this.#apiKey = options.apiKey;
+    this.#baseUrl = (options.baseUrl ?? GROUNDING_DEFAULT_BASE_URL).replace(/\/+$/, "");
+    this.#timeoutMs = options.timeoutMs ?? GROUNDING_DEFAULT_TIMEOUT_MS;
+    this.#fetch = options.fetchImpl ?? ((input, init) => fetch(input, init));
+  }
+
+  toString(): string {
+    return `GeminiGroundedAnswerer(model=${this.model})`;
+  }
+
+  async answer(request: GroundedAnswerRequest): Promise<GroundedAnswer> {
+    if (request.signal?.aborted) throw new GroundingFailedError(this.model, "cancelled");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.#timeoutMs);
+    const onExternalAbort = (): void => controller.abort();
+    request.signal?.addEventListener("abort", onExternalAbort, { once: true });
+    let res: Response;
+    try {
+      await authorizeExecution({ preflight: request.preflight, signal: controller.signal });
+      res = await this.#fetch(`${this.#baseUrl}/models/${encodeURIComponent(this.model)}:generateContent`, {
+        method: "POST",
+        // The key travels in a header, never in the URL, so no log of the URL can carry it (B11).
+        headers: { "content-type": "application/json", "x-goog-api-key": this.#apiKey },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: request.systemPrompt }] },
+          contents: [{ role: "user", parts: [{ text: request.question }] }],
+          tools: [{ google_search: {} }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: GROUNDING_MAX_OUTPUT_TOKENS,
+            // A flash model may skip thinking, which keeps the answer short and quick; other models are left on their own default.
+            ...(/flash/i.test(this.model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+          },
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      request.signal?.removeEventListener("abort", onExternalAbort);
+      if (err instanceof ProviderAuthorizationRefusedError) throw err;
+      throw new GroundingFailedError(this.model, (err as { name?: unknown } | null)?.name === "AbortError" ? "timeout or cancelled" : "network error");
+    }
+    // The timer and the abort listener stay armed until the body has been read, so a stalled body is cut off too.
+    let body: unknown;
+    try {
+      if (!res.ok) throw new GroundingHttpError(res.status, this.model);
+      body = await res.json();
+    } catch (err) {
+      if (err instanceof GroundingHttpError) throw err;
+      throw new GroundingFailedError(this.model, "response body was not valid JSON or was cut off");
+    } finally {
+      clearTimeout(timer);
+      request.signal?.removeEventListener("abort", onExternalAbort);
+    }
+    const candidate = (body as { candidates?: Array<{ finishReason?: unknown; content?: { parts?: Array<{ text?: unknown }> }; groundingMetadata?: { groundingChunks?: unknown } }> } | null)?.candidates?.[0];
+    // A reply cut off by the token limit is never shown (it would end mid-sentence): the caller falls back to the model-only path.
+    if (candidate?.finishReason !== undefined && candidate.finishReason !== "STOP") throw new GroundingFailedError(this.model, `the answer did not finish normally (${typeof candidate.finishReason === "string" ? candidate.finishReason.slice(0, 40) : "unknown"})`);
+    const text = (candidate?.content?.parts ?? [])
+      .map((p) => (typeof p?.text === "string" ? p.text : ""))
+      .join("")
+      .trim();
+    if (text === "") throw new GroundingFailedError(this.model, "no text in the response");
+    return { text, sources: sanitizeGroundingSources(candidate?.groundingMetadata?.groundingChunks) };
+  }
+}
+
+/** A deterministic fake for tests: returns the canned answer (or throws the canned error) and records every request. */
+export class MockGroundedAnswerer implements GroundedAnswerer {
+  readonly kind = "mock" as const;
+  readonly model: string;
+  readonly calls: GroundedAnswerRequest[] = [];
+  readonly #result: GroundedAnswer | Error | ((r: GroundedAnswerRequest) => Promise<GroundedAnswer>);
+
+  constructor(result: GroundedAnswer | Error | ((r: GroundedAnswerRequest) => Promise<GroundedAnswer>), model = "mock-grounded") {
+    this.#result = result;
+    this.model = model;
+  }
+
+  async answer(request: GroundedAnswerRequest): Promise<GroundedAnswer> {
+    this.calls.push(request);
+    if (typeof this.#result === "function") return this.#result(request);
+    if (this.#result instanceof Error) throw this.#result;
+    return this.#result;
+  }
+}
+
+export class GroundingConfigError extends Error {
+  constructor(message: string) {
+    super(`GroundingConfigError: ${message}`);
+    this.name = "GroundingConfigError";
+  }
+}
+
+/**
+ * `VC_GROUNDING` (default off): unset, empty or "off" -> undefined; exactly "gemini" -> a Gemini grounded answerer from
+ * `GEMINI_API_KEY` (B11: keys only from the environment) and optional `VC_GROUNDING_MODEL`. Any other value, or "gemini" without a
+ * key, is a configuration error at startup, never a silent off.
+ */
+export function loadGroundedAnswerer(
+  env: { VC_GROUNDING?: string; VC_GROUNDING_MODEL?: string; GEMINI_API_KEY?: string },
+  options: { fetchImpl?: typeof fetch; timeoutMs?: number } = {},
+): GroundedAnswerer | undefined {
+  const raw = env.VC_GROUNDING?.trim();
+  if (raw === undefined || raw === "" || raw === "off") return undefined;
+  if (raw !== "gemini") throw new GroundingConfigError('VC_GROUNDING must be unset, "off" or "gemini" (got a different value)');
+  if (!env.GEMINI_API_KEY) throw new GroundingConfigError("VC_GROUNDING=gemini needs GEMINI_API_KEY");
+  return new GeminiGroundedAnswerer({
+    model: env.VC_GROUNDING_MODEL?.trim() || GROUNDING_DEFAULT_MODEL,
+    apiKey: env.GEMINI_API_KEY,
+    ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+    ...(options.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // FailoverProvider (T-021, D-020, contract B6 "runtime failover") — cycles a config-ordered
 // chain of providers within a total attempt budget, retrying only retryable failures, and NEVER
 // auto-dropping to the `rules` provider (that decision belongs to the deployment's config, not to

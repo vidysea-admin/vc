@@ -12,6 +12,25 @@
     d.textContent = text; // never innerHTML
     log.appendChild(d);
     log.scrollTop = log.scrollHeight;
+    return d;
+  }
+
+  // Grounding links on a no-source answer (kind "web", https only). Built with DOM calls, never innerHTML; the link text is the source title.
+  function webLinks(r, parent) {
+    var list = (r.sources || []).filter(function (s) { return s && s.kind === "web" && typeof s.url === "string" && /^https:\/\//i.test(s.url); });
+    if (!list.length) return;
+    var box = document.createElement("div");
+    box.appendChild(document.createTextNode("Sources: "));
+    list.forEach(function (s, i) {
+      if (i) box.appendChild(document.createTextNode(" \u00b7 "));
+      var a = document.createElement("a");
+      a.href = s.url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = s.title || s.url;
+      box.appendChild(a);
+    });
+    parent.appendChild(box);
   }
 
   function sources(r) {
@@ -22,7 +41,7 @@
   function show(r) {
     var m = typeof r.message === "string" ? r.message : "";
     if (r.state === "escalated") add("crisis", (m || "It sounds like you may be going through a hard time.") + "\n" + HELP);
-    else if (r.state === "no_sourced_answer") add("note", m || "I could not find a sourced answer to that. Please ask a counsellor, or try rephrasing.");
+    else if (r.state === "no_sourced_answer") webLinks(r, add("note", m || "I could not find a sourced answer to that. Please ask a counsellor, or try rephrasing."));
     else if (r.state === "sign_in_required") add("note", m || "Please sign in to continue with this question.");
     else add("bot", (m || "(no reply)") + sources(r));
   }

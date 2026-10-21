@@ -238,7 +238,7 @@ export interface ChatApiDeps {
    * P1 LK7 (D-105): the language and safety parts of the student graph's deps, passed through unchanged to every variant of the graph
    * (the model language detector, the reply-language allow-list, the LK5 safety screen). Absent = the offline script test and no screen.
    */
-  graph?: Pick<StudentGraphDeps, "detectLanguage" | "replyLangs" | "safetyScreen">;
+  graph?: Pick<StudentGraphDeps, "detectLanguage" | "replyLangs" | "safetyScreen" | "grounding">;
   now?: () => Date;
   nowMs?: () => number;
   /** p1-u8r cycle 2: how long a crisis turn waits for an unconfirmed slot holder before it escalates itself (default CRISIS_QUIET_WAIT_MS). */
@@ -490,6 +490,7 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
         ...(deps.graph?.detectLanguage ? { detectLanguage: deps.graph.detectLanguage } : {}),
         ...(deps.graph?.replyLangs ? { replyLangs: deps.graph.replyLangs } : {}),
         ...(deps.graph?.safetyScreen ? { safetyScreen: deps.graph.safetyScreen } : {}),
+        ...(deps.graph?.grounding ? { grounding: deps.graph.grounding } : {}),
         ...(deps.now ? { now: deps.now } : {}),
         ...(variant === "quiet" ? {} : { recordGap: () => incrementGapCount(db, { kind: "no_sourced_answer" }, { now: nowDate() }) }),
         ...(variant === "quiet"

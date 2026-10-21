@@ -1,0 +1,79 @@
+{
+  "date": "2026-10-21T18:48:23.353Z",
+  "data": {
+    "msgs": [
+      {
+        "cls": "m me",
+        "text": "grounded please",
+        "links": [],
+        "childTags": []
+      },
+      {
+        "cls": "m note",
+        "text": "General guidance — confirm on the official site. Most German public universities charge no tuition.Sources: <script>window.__pwned=1</script> · <img src=x onerror=window.__pwned=2>Make it in Germany · https://notitle.example.test/path",
+        "links": [
+          {
+            "href": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AAA",
+            "target": "_blank",
+            "rel": "noopener noreferrer",
+            "text": "<script>window.__pwned=1</script>"
+          },
+          {
+            "href": "https://example.test/a?b=1&c=\"onmouseover=\"window.__pwned=3",
+            "target": "_blank",
+            "rel": "noopener noreferrer",
+            "text": "<img src=x onerror=window.__pwned=2>Make it in Germany"
+          },
+          {
+            "href": "https://notitle.example.test/path",
+            "target": "_blank",
+            "rel": "noopener noreferrer",
+            "text": "https://notitle.example.test/path"
+          }
+        ],
+        "childTags": [
+          "DIV",
+          "A",
+          "A",
+          "A"
+        ]
+      },
+      {
+        "cls": "m me",
+        "text": "plain please",
+        "links": [],
+        "childTags": []
+      },
+      {
+        "cls": "m note",
+        "text": "I could not find a sourced answer.",
+        "links": [],
+        "childTags": []
+      },
+      {
+        "cls": "m me",
+        "text": "sourced please",
+        "links": [],
+        "childTags": []
+      },
+      {
+        "cls": "m bot",
+        "text": "Sourced answer.\nSources: Seminar <b>x</b>",
+        "links": [],
+        "childTags": []
+      }
+    ],
+    "pwned": null,
+    "injected": 0
+  },
+  "focusable": true,
+  "popupInfo": {
+    "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AAA",
+    "openerNull": true
+  },
+  "pwnedAfter": null,
+  "consoleErrorCount": 0,
+  "errors": [],
+  "dialogs": [],
+  "viewport": "390x800"
+}

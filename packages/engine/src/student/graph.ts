@@ -42,8 +42,8 @@
  */
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { z } from "zod";
-import type { LlmProvider } from "@vc/providers";
-import { TurnResponseSchema, type Claim, type TurnResponse } from "@vc/schemas";
+import type { GroundedAnswerer, GroundedSource, LlmProvider } from "@vc/providers";
+import { TurnResponseSchema, type Claim, type Source, type TurnResponse } from "@vc/schemas";
 import { STRESS_CHECK_IN, crisisGuard, stressSignal, type CrisisLevel } from "../guards/crisis.js";
 import { CONCERN_CLASSIFIER_SKILL, safetyScreen, type SafetyScreenVerdict, type Severity } from "../guards/concern-classifier.js";
 import { noScriptGuard } from "../guards/no-script.js";
@@ -55,7 +55,9 @@ import {
   ANONYMOUS_SIGN_IN_TEXT,
   CRISIS_MESSAGES,
   DEFAULT_REPLY_LANGS,
+  GENERAL_GUIDANCE_PROMPT,
   GENERAL_GUIDANCE_TIMEOUT_MS,
+  GROUNDED_GUIDANCE_PROMPT,
   HELPLINE_GLOSS,
   HELPLINE_LINE_EN_HI,
   LANG_DETECT_TIMEOUT_MS,
@@ -68,8 +70,10 @@ import {
   detectLanguageOffline,
   fixedText,
   generalGuidance,
+  groundedGuidance,
   hasExplicitLink,
   isNonEnglish,
+  isOutOfScopeQuestion,
   isOutsideAllowList,
   countriesInLocalized,
   localizedClaimText,
@@ -148,6 +152,11 @@ export const CRISIS_FORBIDDEN_PATTERNS: readonly RegExp[] = [
 const FOLLOW_UP_MAX_CHARS = 200;
 /** TurnResponse.message is bounded at 8000 characters (schemas/student-api.ts); the soft stress note is skipped rather than overflow it. */
 const STUDENT_MESSAGE_MAX = 8000;
+/** p1-nosource-grounded G1: the longest question that may leave for the web, and the most grounding links shown. */
+const WEB_QUESTION_MAX_CHARS = 1000;
+const WEB_SOURCES_MAX = 5;
+/** The grounded call gets at most this long, so a grounded timeout plus the model-only fallback stays near half a minute. */
+const GROUNDED_TIMEOUT_MAX_MS = 12_000;
 
 const violatesCrisisRules = (text: string) => CRISIS_FORBIDDEN_PATTERNS.some((p) => p.test(text));
 
@@ -301,8 +310,16 @@ export interface StudentGraphDeps {
    * answer; nothing is released until it returns; "possible" (severity at or above `blockAt`, default the escalation line), an error,
    * a timeout or invalid output is the fixed crisis message. Absent = no screen. `authenticated` defaults to ON, `anonymous` to OFF
    * (contract A15b/B24.6 say no model sees anonymous text to classify; that question is with Umesh).
+   * p1-nosource-grounded G5: anonymous "no_source" screens an anonymous turn ONLY when it reaches the no-source reply, and BEFORE the grounded / guidance
+   * call (a "possible" verdict or an outage is the fixed crisis message and nothing leaves for a model or the web); true screens every cleared turn.
    */
-  safetyScreen?: { provider: LlmProvider; timeoutMs?: number; blockAt?: Severity; authenticated?: boolean; anonymous?: boolean };
+  safetyScreen?: { provider: LlmProvider; timeoutMs?: number; blockAt?: Severity; authenticated?: boolean; anonymous?: boolean | "no_source" };
+  /**
+   * p1-nosource-grounded G1 (D-110 follow-up): Gemini with Google Search grounding, tried FIRST on a no-source question (flag `VC_GROUNDING=gemini`).
+   * It receives the redacted question only. Absent = the D-110 model-only path. An error, a timeout (`expertTimeoutMs`), an empty or guard-failing
+   * answer falls back to that path. The grounding links come back as `sources` entries of kind `web`, never inside the message.
+   */
+  grounding?: GroundedAnswerer;
   /** LK5: hard stop for the English search-query rewrite of a non-English turn (default 2 s); a miss searches with the original text. */
   rewriteTimeoutMs?: number;
   /** D-110: hard stop for the no-source expert answer call (default 20 s); a miss shows the fixed refusal text. */
@@ -603,7 +620,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
 
   const screenCfg = deps.safetyScreen;
   const screenPrompt = screenCfg ? loadSkill(deps.skillsDir, CONCERN_CLASSIFIER_SKILL) : "";
-  const screenOn = (mode: StudentTurnInput["mode"]) => Boolean(screenCfg) && (mode === "authenticated" ? screenCfg!.authenticated ?? true : screenCfg!.anonymous ?? false);
+  const screenOn = (mode: StudentTurnInput["mode"]) => Boolean(screenCfg) && (mode === "authenticated" ? screenCfg!.authenticated ?? true : screenCfg!.anonymous === true);
 
   const finish = (input: StudentTurnInput, result: StudentTurnResult, priorFlag: boolean, outsideAllowList: boolean): StudentTurnResult => {
     let response = result.response;
@@ -674,7 +691,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       }
       return { ...langState, tool: classifyIntent(input.text), priorFlag: await readPriorFlag(input) };
     })
-    .addNode(STUDENT_NODES.answer, async (s: State) => ({ result: await answerFromKb(s.input, Boolean(s.priorFlag), { detected: s.detectedLang, reply: s.replyLang ?? "en" }) }))
+    .addNode(STUDENT_NODES.answer, async (s: State) => ({ result: await answerFromKb(s.input, Boolean(s.priorFlag), { detected: s.detectedLang, reply: s.replyLang ?? "en" }, s.screen) }))
     .addNode(STUDENT_NODES.coach, async (s: State) => ({ result: await coach(s.input, Boolean(s.priorFlag)) }))
     .addNode(STUDENT_NODES.tool, (s: State) => {
       const tool = s.tool as keyof typeof TOOL_MESSAGES;
@@ -708,11 +725,14 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     .addEdge(STUDENT_NODES.finish, END);
 
   /**
-   * D-110: the reply when the knowledge base gives no servable source. The gap is counted first (unchanged). The reply is the vetted
-   * disclaimer plus an expert answer from the text chain; the state stays `no_sourced_answer` with no claims and no sources. A chain
-   * failure, a timeout or an output the guards refuse is the fixed refusal text, so the turn never errors.
+   * D-110 + p1-nosource-grounded: the reply when the knowledge base gives no servable source. The gap is counted first (unchanged). Then, in order:
+   * (G4) a question outside the topic boundary gets the short fixed decline with no model call; (G5) on an anonymous turn with the `no_source` screen
+   * the model safety screen answers before anything leaves for a model or the web; then the guarded expert answer (grounded first when configured,
+   * else the model-only text chain). The reply is the vetted disclaimer plus that answer; the state stays `no_sourced_answer` with no claims, and
+   * grounding links (if any) are `sources` entries of kind `web`. A failure, a timeout or an output the guards refuse is the fixed refusal text,
+   * so the turn never errors.
    */
-  async function noAnswer(input: StudentTurnInput, priorFlag: boolean, replyLang: ReplyLang): Promise<StudentTurnResult> {
+  async function noAnswer(input: StudentTurnInput, priorFlag: boolean, replyLang: ReplyLang, screen?: Promise<SafetyScreenVerdict>): Promise<StudentTurnResult> {
     if (input.mode === "authenticated") {
       const gap: GapRecord = { tenantId: input.auth.tenantId, studentId: input.auth.studentId, threadId: input.threadId, turnId: input.turnId, at: now().toISOString() };
       await safeWrite("gap", deps.recordGap ? () => deps.recordGap!(gap) : undefined);
@@ -720,20 +740,72 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       await count("no_answer");
     }
     const refusal = input.mode === "authenticated" ? NO_SOURCED_ANSWER_TEXT : ANONYMOUS_NO_ANSWER_TEXT;
+    const reply = (message: string, sources: Source[] = []): StudentTurnResult => ({
+      response: { ...emptyResponse(input, "no_sourced_answer", message), sources },
+      selectedTool: "search_kb",
+      claimSourceKinds: [],
+    });
+    if (isOutOfScopeQuestion(input.text)) return reply(fixedText(replyLang, "topicDecline"));
+    if (screen) {
+      // The screen the route started for this turn (authenticated, or anonymous with anonymous: true) must answer before the text leaves for a
+      // model or the web. A "possible" verdict sends nothing: `finish` awaits the same verdict and replaces this placeholder with the crisis message.
+      if ((await screen).verdict === "possible") return reply(refusal);
+    } else if (input.mode === "anonymous" && screenCfg?.anonymous === "no_source") {
+      const lang = detectLanguageOffline(input.text).lang;
+      const verdict = await safetyScreen(
+        { text: input.text, lang },
+        { provider: screenCfg.provider, skillPrompt: screenPrompt, ...(screenCfg.timeoutMs !== undefined ? { timeoutMs: screenCfg.timeoutMs } : {}), ...(screenCfg.blockAt !== undefined ? { blockAt: screenCfg.blockAt } : {}) },
+      );
+      if (verdict.verdict === "possible") {
+        if (verdict.basis === "unavailable") report("safety_screen", Object.assign(new Error("safety screen unavailable"), { name: verdict.errorName }));
+        return crisisResult(input, undefined, lang, verdict.basis === "classified");
+      }
+    }
     const guidance = await expertGuidance(input, priorFlag, replyLang);
-    return { response: emptyResponse(input, "no_sourced_answer", guidance ?? refusal), selectedTool: "search_kb", claimSourceKinds: [] };
+    if (guidance === "declined") return reply(fixedText(replyLang, "topicDecline"));
+    return guidance ? reply(guidance.message, guidance.sources) : reply(refusal);
+  }
+
+  /** G1: the question as it may leave for the web: listed speakers, "my name is X" introductions, phone and ID numbers, dates of birth, e-mail addresses and links replaced, bounded. This is a deterministic floor, not a guarantee that free text holds no personal detail; nothing else about the student goes with it. */
+  function webQuestion(text: string): string {
+    return redactPersonalIdentifiers(text, deps.speakers, [])
+      .replace(/(?:https?|ftps?):\/\/\S+|www\.\S+/giu, "[link]")
+      .replace(/[^\s@<>()"',;]+@[^\s@<>()"',;]+\.\p{L}{2,}/gu, "[email]")
+      .replace(/\b(?:my name is|i am called|i'm called|mera naam|my name's)\s+\p{Lu}[\p{L}'.-]*(?:\s+\p{Lu}[\p{L}'.-]*){0,3}/giu, "[name]")
+      .replace(/\b\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2})\b/gu, "[date]")
+      .replace(/\b[A-Z]{1,2}\d{6,9}\b|\b\d{8,}\b/gu, "[id]")
+      .slice(0, WEB_QUESTION_MAX_CHARS);
+  }
+
+  /** G1: grounding links re-checked on this side of the seam (https only, no credentials, unique, at most 5), as `web` sources. */
+  function webSources(raw: readonly GroundedSource[]): Source[] {
+    const out: Source[] = [];
+    const seen = new Set<string>();
+    for (const item of raw) {
+      if (out.length >= WEB_SOURCES_MAX) break;
+      if (typeof item?.url !== "string" || item.url.length > 2048) continue;
+      let u: URL;
+      try {
+        u = new URL(item.url);
+      } catch {
+        continue;
+      }
+      if (u.protocol !== "https:" || u.username !== "" || u.password !== "" || u.hostname === "" || seen.has(u.toString())) continue;
+      seen.add(u.toString());
+      const title = typeof item.title === "string" ? item.title.replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 200) : "";
+      out.push({ id: `web:${out.length + 1}`, kind: "web", title: title || u.hostname, url: u.toString() });
+    }
+    return out;
   }
 
   /**
-   * The disclaimer plus the guarded expert answer, or undefined for "show the refusal". The answer gets the redaction and output checks
-   * the sourced answer gets: names and phone numbers removed (every listed speaker, permitted or not), the no-quote guard, no link or
-   * e-mail, never a draft SOP/essay (B1), and on a flagged thread the forbidden crisis wording. Numbers are allowed. The model safety
-   * screen still runs on the student's text in `finish`, and a "possible" verdict replaces this reply with the fixed crisis message.
+   * The output checks every model-written no-source answer gets, grounded or not: no link, bare domain or e-mail, never a draft SOP/essay (B1), no
+   * repeat of the system prompts, names and phone numbers removed (every listed speaker), the no-quote guard, on a flagged thread the forbidden
+   * crisis wording. Numbers are allowed. Returns the disclaimer plus the answer, or undefined for "refuse this one".
    */
-  async function expertGuidance(input: StudentTurnInput, priorFlag: boolean, replyLang: ReplyLang): Promise<string | undefined> {
-    const raw = await generalGuidance(deps.provider, { question: input.text, replyLang }, deps.expertTimeoutMs ?? GENERAL_GUIDANCE_TIMEOUT_MS);
-    if (raw === undefined) return undefined;
+  function guardedGuidance(raw: string, input: StudentTurnInput, priorFlag: boolean, replyLang: ReplyLang): string | undefined {
     if (hasExplicitLink(raw) || isDraftLike(raw, Number.POSITIVE_INFINITY)) return undefined;
+    if ([GENERAL_GUIDANCE_PROMPT, GROUNDED_GUIDANCE_PROMPT].some((prompt) => hasVerbatimRun(raw, prompt))) return undefined;
     const answer = noQuoteGuard(redactPersonalIdentifiers(raw, deps.speakers, []), deps.speakers).text.trim();
     if (answer === "") return undefined;
     const message = `${fixedText(replyLang, "guidanceDisclaimer")} ${answer}`;
@@ -741,6 +813,31 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     if (message.length > STUDENT_MESSAGE_MAX - 400) return undefined;
     if (input.mode === "authenticated" && priorFlag && violatesCrisisRules(message)) return undefined;
     return message;
+  }
+
+  /**
+   * The disclaimer plus the guarded expert answer (and its web sources), "declined" when a model judged the question outside the topic boundary, or
+   * undefined for "show the refusal". Grounded first when `deps.grounding` is set; any failure there falls through to the model-only text chain
+   * (D-110), unchanged. A grounded decline is final. The model safety screen still runs on the student's text in `finish`, and a "possible" verdict
+   * replaces this reply with the fixed crisis message.
+   */
+  async function expertGuidance(input: StudentTurnInput, priorFlag: boolean, replyLang: ReplyLang): Promise<{ message: string; sources: Source[] } | "declined" | undefined> {
+    const timeoutMs = deps.expertTimeoutMs ?? GENERAL_GUIDANCE_TIMEOUT_MS;
+    if (deps.grounding) {
+      const grounded = await groundedGuidance(deps.grounding, { question: webQuestion(input.text), replyLang }, Math.min(timeoutMs, GROUNDED_TIMEOUT_MAX_MS));
+      if (grounded?.kind === "declined") return "declined";
+      if (grounded?.kind === "answer") {
+        const message = guardedGuidance(grounded.text, input, priorFlag, replyLang);
+        if (message !== undefined) return { message, sources: webSources(grounded.sources) };
+      }
+    }
+    const plain = await generalGuidance(deps.provider, { question: input.text, replyLang }, timeoutMs);
+    if (plain?.kind === "declined") return "declined";
+    if (plain?.kind === "answer") {
+      const message = guardedGuidance(plain.text, input, priorFlag, replyLang);
+      if (message !== undefined) return { message, sources: [] };
+    }
+    return undefined;
   }
 
   /**
@@ -814,7 +911,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     return restricted.texts.some((t) => hasVerbatimRun(message, t)) ? undefined : message;
   }
 
-  async function answerFromKb(input: StudentTurnInput, priorFlag: boolean, lang: { detected: string | undefined; reply: ReplyLang }): Promise<StudentTurnResult> {
+  async function answerFromKb(input: StudentTurnInput, priorFlag: boolean, lang: { detected: string | undefined; reply: ReplyLang }, screen?: Promise<SafetyScreenVerdict>): Promise<StudentTurnResult> {
     const authenticated = input.mode === "authenticated";
     // Anonymous: structurally search-only, whatever the port offers (A15c, B24.6).
     const searchKb = deps.kb.searchKb.bind(deps.kb);
@@ -838,15 +935,15 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
 
     let ask: AskToolOutput | undefined;
     if (hits.length === 0) {
-      if (!askKb) return noAnswer(input, priorFlag, lang.reply);
+      if (!askKb) return noAnswer(input, priorFlag, lang.reply, screen);
       try {
         ask = await askKb(input.text);
       } catch {
-        return noAnswer(input, priorFlag, lang.reply);
+        return noAnswer(input, priorFlag, lang.reply, screen);
       }
       // Serve rule re-checked on the engine side (U6h P4): answered, verdict "correct", insufficient_coverage
       // false, internal sources, no web. Anything the engine cannot confirm is the fixed no-answer.
-      if (!isServedAsk(ask)) return noAnswer(input, priorFlag, lang.reply);
+      if (!isServedAsk(ask)) return noAnswer(input, priorFlag, lang.reply, screen);
     }
 
     // U6h M3: names and phones are redacted from WhatsApp/unknown hit text and from the /ask answer BEFORE they are
@@ -881,13 +978,13 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     });
     // D-092: anonymous mode never shows an unverified claim; authenticated mode flags it (spec item 4).
     const shown = authenticated ? guarded.claims : guarded.claims.filter((c) => c.status !== "unverified");
-    if (!shown.some((c) => c.status !== "unverified")) return noAnswer(input, priorFlag, lang.reply);
+    if (!shown.some((c) => c.status !== "unverified")) return noAnswer(input, priorFlag, lang.reply, screen);
 
     // U7 repair C: an anonymous reply never carries a model-written follow-up (it could solicit marks, a school or a link).
     const followUp = authenticated ? safeFollowUp(draft.followUp, guarded.restricted) : undefined;
     let message = [...shown.map((c) => (c.status === "unverified" ? `${c.text} (unverified)` : c.text)), ...(followUp ? [followUp] : [])].join(" ");
     // Repair R2a: the FINAL message is checked against every restricted text of the turn (fail closed).
-    if (guarded.restricted.texts.some((t) => hasVerbatimRun(message, t))) return noAnswer(input, priorFlag, lang.reply);
+    if (guarded.restricted.texts.some((t) => hasVerbatimRun(message, t))) return noAnswer(input, priorFlag, lang.reply, screen);
     message = noQuoteGuard(message, deps.speakers, guarded.restricted.labels).text;
     const englishViolatesCrisisRules = authenticated && priorFlag && violatesCrisisRules(message);
     message = localizedMessage(draft, shown, followUp, guarded.restricted, lang.reply) ?? message;
