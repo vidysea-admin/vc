@@ -979,3 +979,10 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Result:** p1/lk9 merged to main; 6c pre-push check then push under D-096.
 **Links:** D-093, D-096, D-105, p1-lk9, p1-lk7
 **Changes-authorized:** none
+
+## D-108 | 2026-10-21 | type: decision | status: ACTIVE
+**What:** Umesh's go-live answers (2026-10-21): (1) Umesh is the interim clinical safety owner and signs off the LK10 Hindi/Hinglish/English crisis wording, so LK10 merges; (2) VC_CHAIN_MONTHLY_CAP_USD=50 for the text chain; (3) text chain order DeepSeek first: VC_TEXT_CHAIN=ollama:deepseek-v4.1-flash,ollama:glm-5.3-flash (supersedes the GLM-first order of D-105 for this setting only); (4) Umesh is the named person in the B13 consent text (grievance officer / contact) for now; legal entity details and legal signature stay open; (5) Umesh owns obtaining Ollama Cloud's privacy terms and DPA; (6) Tele-MANAS 14416 test call done by the team; (7) build the two go-live alerts (safety-screen outage, chain spend cap exhausted) now.
+**Why:** Umesh's explicit answers to the go-live list ("go now if all set"). DeepSeek p50 1.23 s / p95 2.67 s vs GLM p50 5.35 s / p95 9.31 s (over the 8 s hop timeout).
+**Result:** LK10 merged; alerts unit and B13 fill dispatched; env set locally; push after 6c.
+**Links:** D-093, D-096, D-105, D-107, p1-lk10, B13
+**Changes-authorized:** none
