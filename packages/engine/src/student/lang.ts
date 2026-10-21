@@ -785,7 +785,7 @@ function redactNameRun(run: string, requireCapital: boolean): string {
 }
 
 const INTRO_ANY_CASE_RE = new RegExp(
-  String.raw`(\b(?:my name is|my name's|my name’s|name is|name\s*[:=–-]|i am called|i'm called|i’m called|call me|mera naam(?: hai)?|mera nam|myself)\s+)(${NAME_TOKEN}(?:\s+${NAME_TOKEN}){0,2})`,
+  String.raw`(\b(?:my name is|my name's|my name’s|name is|name\s*[:=–-]|i am called|i'm called|i’m called|call me|mera naam(?: hai)?|mera nam|naam\s*[:=–-]|myself)\s+)(${NAME_TOKEN}(?:\s+${NAME_TOKEN}){0,2})`,
   "giu",
 );
 // F1: any case ("i am riya sharma"); an ordinary state word after it ("i am interested / from / a student") ends the name, see NAME_STOP_WORDS.
@@ -840,8 +840,15 @@ const SCHOOL_ABBREVIATION_RE = /\b(?:DPS|KVS?|DAV|JNV|NPS|PSBB|APS|MPS|SBOA|BVB|
 const PIN_LABEL = String.raw`(?:pin(?:[\s-]*code)?|zip(?:[\s-]*code)?|postal[\s-]*code|postcode)`;
 const PIN_LABELLED_RE = new RegExp(String.raw`\b${PIN_LABEL}(?:\s*(?:\b(?:is|was)\b|[:=#\-–—]))*\s*(?:[1-9]\d{2}\s?\d{3}|\d{4,6})(?!\d)`, "giu");
 const PIN_TRAILING_RE = new RegExp(String.raw`\b[1-9]\d{2}\s?\d{3}\s+(?:is|was)\s+(?:my|the|our|his|her)\s+${PIN_LABEL}\b`, "giu");
-const PIN_CITY_RE = /\b(\p{Lu}[\p{L}.'’-]+),?(?:\s+[-–—]+)?\s+([1-9]\d{2}\s?\d{3})\b(?!\s*(?:rupees?|inr|rs\b|lakhs?|usd|eur|euros?|dollars?|per\b|\/|%|k\b|marks|points|students?))/gu;
-const NOT_A_PLACE = new Set(["inr", "rs", "usd", "eur", "gbp", "cad", "aud", "nzd", "sgd", "budget", "fees", "fee", "cost", "costs", "salary", "income", "rank", "score", "total", "around", "about", "approx", "of", "tuition", "loan", "package", "ctc", "lpa", "price", "amount", "savings", "funds"]);
+/**
+ * F2 (fix cycle 2, G1): EVERY standalone Indian-PIN-shaped token ("411001", "411 001") is redacted by default, whatever label, connector or city
+ * precedes it ("pin no 411001", "the pin of my area is 411001", "from pune 411001"). It stays only when its immediate context marks it as a quantity:
+ * a currency marker or a quantity word right before it ("₹350000", "Rs. 450000", "rank 120345", "budget is 500000"), a unit right after it
+ * ("560037 marks", "350000 per year", "120000 euros"), or it is part of a longer, decimal or comma-grouped number.
+ */
+const PIN_QUANTITY_BEFORE = String.raw`(?:[₹$€£]|\b(?:rs\.?|inr|usd|eur|gbp|rank(?:ed)?|air|score[ds]?|marks?|percentile|budget|fees?|costs?|salary|income|tuition|loan|price|amount|savings|funds|ctc|package|stipend|scholarship)(?:\s*(?:is|was|of|around|about|approx\.?|[:=-]))?)\s*`;
+const PIN_QUANTITY_AFTER = String.raw`\s*(?:marks?\b|scores?\b|rank\b|points?\b|pts\b|lakhs?\b|lacs?\b|rupees?\b|euros?\b|dollars?\b|pounds?\b|per\b|fees?\b|inr\b|rs\b|usd\b|eur\b|gbp\b|percent\b|%|k\b|\/|students?\b)`;
+const PIN_TOKEN_RE = new RegExp(String.raw`(?<![\p{L}\p{N}_]|\d[.,])(?<!${PIN_QUANTITY_BEFORE})[1-9]\d{2}\s?\d{3}(?![\p{N}_]|[.,]\d)(?!${PIN_QUANTITY_AFTER})`, "giu");
 
 const ID_RES: RegExp[] = [
   /\b[A-Z]{1,2}\d{6,9}\b|\b\d{8,}\b/gu,
@@ -870,8 +877,8 @@ export function redactStudentDetails(text: string): string {
     if (isNameStop(words[0]!) || (!single && !isCapitalised(words[0]!))) return m;
     return `${intro}${redactNameRun(run, !single)}${tail}`;
   });
-  // "I am Riya Sharma, 16, from ...": a bare number right after the name is the age.
-  t = t.replace(/(\[name\])(\s*,?\s*)\d{1,2}\b(?![\d%.]|\s*(?:%|th\b|st\b|nd\b|rd\b|k\b|lpa|lakh|percent))/gu, "$1$2[age]");
+  // "I am Riya Sharma, 16, from ..." / "i am Riya Sharma (16)": a bare or bracketed number right after the name is the age (F2 G3).
+  t = t.replace(/(\[name\])(\s*,?\s*\(?\s*)\d{1,2}\b(?![\d%.]|\s*(?:%|th\b|st\b|nd\b|rd\b|k\b|lpa|lakh|percent))/gu, "$1$2[age]");
   for (const re of AGE_RES) t = t.replace(re, "[age]");
   t = t.replace(SCHOOL_CONTEXT_RE, (m, lead: string, name: string, locality: string | undefined) => {
     const words = name.trim().split(/\s+/u).filter(Boolean);
@@ -883,7 +890,7 @@ export function redactStudentDetails(text: string): string {
   t = t.replace(SCHOOL_ABBREVIATION_RE, "[school]");
   for (const re of ADDRESS_RES) t = t.replace(re, "[address]");
   t = t.replace(PIN_LABELLED_RE, "[pin]").replace(PIN_TRAILING_RE, "[pin]");
-  t = t.replace(PIN_CITY_RE, (m, place: string, pin: string) => (NOT_A_PLACE.has(place.toLowerCase()) ? m : m.replace(pin, "[pin]")));
+  t = t.replace(PIN_TOKEN_RE, "[pin]");
   for (const re of ID_RES) t = t.replace(re, "[id]");
   return t;
 }
