@@ -15,4 +15,4 @@ Pre-check[C1]: 15e55ec pnpm -C apps/api exec tsx --test tests/go-live-gate.test.
 Metrics: start=2026-10-21T16:30:00+05:30 end=2026-10-21T16:36:00+05:30 wall_min=6 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=0 mutations=0 cycle=0 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.17 check_s=0 mutants=0 defects_unit=0 defects_6c=0
 ## Live browser evidence
 Not UI-touching - only a test file changed.
-**Status:** ready-for-check
+**Status:** checked-PASS (qa/verdicts/golive-a20.md, 5fa050c)
