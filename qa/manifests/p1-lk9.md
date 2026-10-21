@@ -5,7 +5,7 @@
 - C2 (latency, droppable) `deps.extractFacts` is off the reply path: `respond(200)` is returned without waiting for it; it runs detached (`void ... .catch`), only in the stores-text branch; a never-resolving extractor does not block the reply; an extractor rejection (or a sync throw, or a throwing logger) is logged text-free and is never an unhandled rejection; a `StudentFencedError` (erasure begun after the reply) on the detached path still prevents the fact write; proposed facts appear on `GET .../chat/profile` once extraction resolves
 **Goal task:** none
 **Date:** 2026-10-21
-**Status:** ready-for-check
+**Status:** checked-PASS (dual: a 84765b9, b 3baadbd) - MERGE-HOLD Umesh: C1 vs D-093 4A, C2 go
 **Fix cycle:** 0
 **Policy-Version:** proportional-verification/2026-10-19.17
 **Tier:** L (safety: consent gate for minors; reply latency)
