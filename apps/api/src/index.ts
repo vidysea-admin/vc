@@ -285,7 +285,7 @@ export interface StartApiHttpOptions {
   /**
    * P1 U7: the public anonymous text route. Whether it is served is decided ONLY by the explicit flag
    * VC_ANONYMOUS_ENABLED (default off) AND the A20 go-live gate; supplying this object never turns it on. The
-   * production KB port is injected by the deployment (apps/api does not depend on mcp/university-kb).
+   * production KB port is injected by the deployment (startApi does not depend on mcp/university-kb; the launcher, main.ts, builds it).
    */
   anonymous?: StartApiAnonymousOptions;
   /** P1 U8: the authenticated student chat routes (flag VC_CHAT_ENABLED plus the A20 gate). */
@@ -354,7 +354,7 @@ export type StartApiSafetyScreenOptions = Omit<NonNullable<StudentGraphDeps["saf
 /**
  * P1 U8: the authenticated student chat routes. Whether they are served is decided ONLY by the explicit flag VC_CHAT_ENABLED (default
  * off) AND the A20 go-live gate; supplying this object never turns them on. The production KB port and the Pathlynks profile port are
- * injected by the deployment (apps/api depends on neither mcp/university-kb nor a Pathlynks client).
+ * injected by the deployment (startApi depends on neither mcp/university-kb nor a Pathlynks client; the launcher, main.ts, builds the KB port).
  */
 export interface StartApiChatOptions {
   /** Knowledge-base port. Required when the flag is on. */

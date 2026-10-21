@@ -40,7 +40,22 @@ import {
   type KnowledgeBaseClient,
   type KnowledgeBaseReadClient,
 } from "./kb-client.js";
-import { createSourceKindResolver, type SourceKind, type SourceKindConfig } from "./source-kind.js";
+import {
+  createSourceKindResolver,
+  mapSearchHits,
+  mapSessionTurns,
+  type SourceKind,
+  type SourceKindConfig,
+} from "./source-kind.js";
+
+// The launcher (apps/api/src/main.ts) builds its in-process KB port from these; the MCP handlers below use the same mapping.
+export { createStudentKbPort, type StudentKbPortClient } from "./source-kind.js";
+export {
+  createAnonymousKbClient,
+  createKnowledgeBaseClient,
+  loadAnonymousKbConfigFromEnv,
+  loadKbConfigFromEnv,
+} from "./kb-client.js";
 
 // ---------------------------------------------------------------------------
 // Course shape -- local to this unit (ARCHITECTURE Q1 leaves the KB shape
@@ -249,7 +264,6 @@ export function createUniversityKbServer(deps: UniversityKbServerDeps): McpServe
       : null;
     const kindOf = async (subject: { sourceId: string; title?: string }): Promise<SourceKind> =>
       resolver ? resolver.tag(subject) : "unknown";
-    const labelAllowed = (kind: SourceKind): boolean => kind === "internal-seminar" || kind === "toc";
 
     if (kbClient.search) {
       const search = kbClient.search.bind(kbClient);
@@ -292,24 +306,7 @@ export function createUniversityKbServer(deps: UniversityKbServerDeps): McpServe
         async ({ query, k }) => {
           const result = await search(query, k);
           if (result.status !== "ok") return unavailable(result, "search_kb");
-          const hits = await Promise.all(
-            result.hits.map(async (h) => {
-              const sourceKind = await kindOf({ sourceId: h.session.sourceId, title: h.session.title });
-              return {
-                turnId: h.turnId,
-                sessionId: h.sessionId,
-                score: h.score,
-                text: h.turn.text,
-                // A speaker label is a person's name: only seminar/toc material may carry it (WhatsApp / unknown never).
-                ...(h.turn.speakerLabel !== undefined && labelAllowed(sourceKind) ? { speakerLabel: h.turn.speakerLabel } : {}),
-                ...(h.turn.occurredAt !== undefined ? { occurredAt: h.turn.occurredAt } : {}),
-                sessionDate: h.session.date,
-                ...(h.session.title !== undefined ? { sessionTitle: h.session.title } : {}),
-                sourceId: h.session.sourceId,
-                sourceKind,
-              };
-            }),
-          );
+          const hits = await mapSearchHits(result.hits, kindOf);
           return {
             content: [{ type: "text" as const, text: `search_kb: ${hits.length} hit(s) (${result.dropped} dropped).` }],
             structuredContent: { status: "ok" as const, hits, dropped: result.dropped },
@@ -357,14 +354,7 @@ export function createUniversityKbServer(deps: UniversityKbServerDeps): McpServe
           const result = await getSession(sessionId);
           if (result.status !== "ok") return unavailable(result, "get_session");
           const sourceKind = await kindOf({ sourceId: result.session.sourceId, title: result.session.title });
-          const turns = result.turns.map((t) => ({
-            turnId: t._id,
-            text: t.text,
-            ...(t.speakerLabel !== undefined && labelAllowed(sourceKind) ? { speakerLabel: t.speakerLabel } : {}),
-            ...(t.tStart !== undefined ? { tStart: t.tStart } : {}),
-            ...(t.tEnd !== undefined ? { tEnd: t.tEnd } : {}),
-            ...(t.occurredAt !== undefined ? { occurredAt: t.occurredAt } : {}),
-          }));
+          const turns = mapSessionTurns(result.turns, sourceKind);
           return {
             content: [{ type: "text" as const, text: `get_session: ${turns.length} turn(s).` }],
             structuredContent: {
