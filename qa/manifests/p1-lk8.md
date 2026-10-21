@@ -46,5 +46,5 @@ Metrics: start=2026-10-21T12:08:00+05:30 end=2026-10-21T12:18:37+05:30 builder_m
 
 ## Open risks
 1. D-020 residual: ordinary "khud khushi" / "खुद खुशी" (own happiness) flags via the squeezed twin (safe direction, documented in tests and comment). The same squeezed twin means any run "...khud" + "kushi..." across a word gap flags.
-2. Vocabulary only: other Hinglish suicide spellings (e.g. "khudkushi" typed as "khud kushii", "aatmahatya") are not extended here beyond what existed; "aatmahatya" romanised was not in scope.
+2. Vocabulary scope: only the khudkushi family was added; other romanised spellings of suicide (e.g. "aatmahatya") were not in scope and are unchanged.
 3. Hindi reply text vetting remains a separate human decision (not touched).
