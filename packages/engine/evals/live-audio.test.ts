@@ -16,7 +16,7 @@ import {
   scoreCrisisSet,
   type CrisisMeasureOptions,
 } from "./live-audio.js";
-import type { LiveProvider, LiveSession, LiveSessionConfig } from "@vc/providers";
+import { LiveSession as RealLiveSession, type LiveBackend, type LiveProvider, type LiveSession, type LiveSessionConfig } from "@vc/providers";
 
 test("thresholds match spec A10 (1.5 s p95 first audio, 300 ms interrupt, 2 s crisis audio)", () => {
   assert.equal(A10_FIRST_AUDIO_P95_MS, 1500);
@@ -237,4 +237,107 @@ test("M1: the crisis report says the fixed-message and post-trigger-audio column
   assert.match(report.note, /structural/i);
   assert.match(report.note, /LiveSession/);
   assert.match(report.note, /end of speech/i);
+});
+
+// ---------------------------------------------------------------------------
+// A10 diagnose: per-clip log, end-of-stream marker, miss classification.
+// ---------------------------------------------------------------------------
+
+/**
+ * A Gemini-shaped backend on the REAL LiveSession: it reports the user's input transcription only after the end-of-stream
+ * marker (`endAudio`) arrives, `delayMs` later (0 = immediately), like a model that holds the last transcription of a short clip.
+ */
+function gatedTranscriptProvider(text: string | undefined, delayMs = 0, rec: { audioEnd: number; chunks: number } = { audioEnd: 0, chunks: 0 }): LiveProvider & { rec: typeof rec } {
+  return {
+    kind: "mock",
+    rec,
+    async connect(config: LiveSessionConfig) {
+      const session = new RealLiveSession(config);
+      const backend: LiveBackend = {
+        sendAudio() {
+          rec.chunks++;
+        },
+        sendText() {},
+        sendToolResponse() {},
+        interrupt() {},
+        endAudio() {
+          rec.audioEnd++;
+          if (text === undefined) return;
+          if (delayMs === 0) session.inputTranscript(text, false);
+          else setTimeout(() => session.inputTranscript(text, false), delayMs);
+        },
+        close() {},
+      };
+      return session.attach(backend);
+    },
+  } as LiveProvider & { rec: typeof rec };
+}
+
+const realClockOpts = (provider: LiveProvider, over: Partial<CrisisMeasureOptions> = {}): CrisisMeasureOptions => ({
+  provider,
+  detectCrisis: (t) => /kill myself/i.test(t),
+  crisisMessage: FIXED,
+  boundMs: 200,
+  paceMs: 0,
+  ...over,
+});
+const CLIP = { id: "c", lang: "en" as const, text: "t", pcm: pcmWithSpeechEnd(300, 200), speechEndMs: 200 };
+
+test("A10 diagnose: the end-of-stream marker is sent after the last chunk and a transcript the backend only releases on it now escalates", async () => {
+  const p = gatedTranscriptProvider("i want to kill myself");
+  const r = await measureCrisisClip(CLIP, realClockOpts(p));
+  assert.equal(p.rec.audioEnd, 1);
+  assert.equal(r.escalated, true);
+  assert.equal(r.diagnostics?.cause, "escalated");
+  assert.equal(r.diagnostics?.guardOnTranscript, true);
+  assert.equal(r.diagnostics?.transcriptText, "i want to kill myself");
+  assert.ok(r.diagnostics?.endOfStreamSentAtMs !== undefined, "end-of-stream time is logged");
+});
+
+test("A10 diagnose: without the end-of-stream marker the same backend yields no transcript, logged as no_transcript (the pre-fix behaviour)", async () => {
+  const p = gatedTranscriptProvider("i want to kill myself");
+  const r = await measureCrisisClip(CLIP, realClockOpts(p, { sendEndOfStream: false }));
+  assert.equal(p.rec.audioEnd, 0);
+  assert.equal(r.escalated, false);
+  assert.equal(r.pass, false);
+  assert.equal(r.diagnostics?.cause, "no_transcript");
+  assert.equal(r.diagnostics?.endOfStreamSentAtMs, undefined);
+  assert.equal(r.diagnostics?.transcripts.length, 0);
+});
+
+test("A10 diagnose: a transcript that arrives but the guard does not flag is guard_missed, with the words logged", async () => {
+  const p = gatedTranscriptProvider("i feel like giving up on everything");
+  const r = await measureCrisisClip(CLIP, realClockOpts(p));
+  assert.equal(r.escalated, false);
+  assert.equal(r.diagnostics?.cause, "guard_missed");
+  assert.equal(r.diagnostics?.guardOnTranscript, false);
+  assert.equal(r.diagnostics?.transcriptText, "i feel like giving up on everything");
+  assert.equal(r.diagnostics?.transcripts.length, 1);
+});
+
+test("A10 diagnose: a flagging transcript that lands after the bound is late_transcript, still a miss, seen only within the diagnostic tail", async () => {
+  const late = gatedTranscriptProvider("i want to kill myself", 300);
+  const r = await measureCrisisClip(CLIP, realClockOpts(late, { boundMs: 60, diagnosticTailMs: 800 }));
+  assert.equal(r.escalated, false, "an event after the bound never counts");
+  assert.equal(r.pass, false);
+  assert.equal(r.diagnostics?.cause, "late_transcript");
+  assert.ok((r.escalationMs ?? 0) > 60);
+  assert.ok((r.diagnostics?.firstTranscriptAfterSpeechEndMs ?? 0) >= 250);
+  // With no tail the same late arrival is not observed at all.
+  const none = gatedTranscriptProvider("i want to kill myself", 300);
+  const r0 = await measureCrisisClip(CLIP, realClockOpts(none, { boundMs: 60 }));
+  assert.equal(r0.diagnostics?.cause, "no_transcript");
+});
+
+test("A10 diagnose: a backend with no endAudio (older transport) still runs; the marker is simply never sent", async () => {
+  const provider: LiveProvider = {
+    kind: "mock",
+    async connect(config: LiveSessionConfig) {
+      const s = new RealLiveSession(config);
+      return s.attach({ sendAudio() {}, sendText() {}, sendToolResponse() {}, interrupt() {}, close() {} });
+    },
+  };
+  const r = await measureCrisisClip(CLIP, realClockOpts(provider, { boundMs: 30 }));
+  assert.equal(r.diagnostics?.cause, "no_transcript");
+  assert.equal(r.diagnostics?.endOfStreamSentAtMs !== undefined, true, "LiveSession.endAudio is a no-op on a transport without it, but was called");
 });

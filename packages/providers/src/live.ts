@@ -210,6 +210,11 @@ export interface LiveBackend {
   sendToolResponse(call: LiveToolCall, result: unknown): void;
   /** Stop the model speaking now. */
   interrupt(): void;
+  /**
+   * The input audio stream has ended (A10 diagnose): tells the backend no more audio is coming, so it can finalise
+   * a pending input transcription. Optional; a transport without it simply never gets the marker.
+   */
+  endAudio?(): void;
   close(): void;
 }
 
@@ -315,6 +320,16 @@ export class LiveSession implements LiveBackendSink {
     if (chunk.byteLength === 0) throw new LiveAudioFormatError("empty audio chunk");
     if (chunk.byteLength % 2 !== 0) throw new LiveAudioFormatError(`PCM16 needs an even byte length, got ${chunk.byteLength}`);
     this.backend!.sendAudio(chunk);
+  }
+
+  /**
+   * Marks the end of the input audio stream (Gemini: `audioStreamEnd`). Without it the backend may hold the final
+   * input transcription of a short clip until the connection is closed. Not an interrupt: it does not mute the model.
+   * A no-op when the transport has no such marker.
+   */
+  endAudio(): void {
+    this.assertOpen();
+    this.backend!.endAudio?.();
   }
 
   sendText(text: string): void {
@@ -665,6 +680,7 @@ export type MockLiveCall =
   | { type: "text"; text: string }
   | { type: "tool_response"; id: string; name: string; result: unknown }
   | { type: "interrupt" }
+  | { type: "audio_end" }
   | { type: "close" };
 
 /** Scriptable transport. Tests call the `say*` / `emit*` methods to play the model's side. */
@@ -688,6 +704,9 @@ export class MockLiveBackend implements LiveBackend {
   }
   interrupt(): void {
     this.calls.push({ type: "interrupt" });
+  }
+  endAudio(): void {
+    this.calls.push({ type: "audio_end" });
   }
   close(): void {
     this.calls.push({ type: "close" });
@@ -845,6 +864,9 @@ class GeminiLiveBackend implements LiveBackend {
     // dedicated client-side "stop speaking" call. `LiveSession` mutes model audio locally the instant
     // interrupt() is called, so the student never hears more; here we only flush the input stream so
     // the backend ends the current activity.
+    this.connection.sendRealtimeInput({ audioStreamEnd: true });
+  }
+  endAudio(): void {
     this.connection.sendRealtimeInput({ audioStreamEnd: true });
   }
   close(): void {

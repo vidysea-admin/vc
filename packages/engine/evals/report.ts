@@ -153,6 +153,21 @@ export function toCrisisLiveMarkdown(report: CrisisLiveReport): string {
   for (const r of report.results) {
     lines.push(`| ${r.id} | ${r.lang} | ${r.escalated} | ${r.escalationMs ?? "never"} | ${r.reachedFixedMessage} | ${r.modelAudioAfterTriggerMs} | ${r.pass}${r.error ? ` (${r.error})` : ""} |`);
   }
+  const withDiag = report.results.filter((r) => r.diagnostics);
+  if (withDiag.length > 0) {
+    lines.push("");
+    lines.push("## Per-clip diagnostics (times in ms from the first chunk sent)");
+    lines.push("");
+    lines.push("| Phrase | Cause | Transcript chunks | First transcript vs end of speech | Guard on whole transcript | End-of-stream sent at | Speech end at | Crisis at | Transcript text |");
+    lines.push("|---|---|---|---|---|---|---|---|---|");
+    for (const r of withDiag) {
+      const d = r.diagnostics!;
+      const text = d.transcriptText.replace(/\|/g, "/").replace(/\s+/g, " ").slice(0, 120);
+      lines.push(
+        `| ${r.id} | ${d.cause} | ${d.transcripts.length} | ${d.firstTranscriptAfterSpeechEndMs ?? "none"} | ${d.guardOnTranscript ?? "n/a"} | ${d.endOfStreamSentAtMs ?? "never"} | ${d.speechEndAtMs ?? "n/a"} | ${d.crisisAtMs ?? "never"} | ${text} |`,
+      );
+    }
+  }
   lines.push("");
   lines.push(report.note);
   lines.push("");
