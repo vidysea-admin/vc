@@ -1,0 +1,6 @@
+import { test } from "node:test";
+import { redactStudentDetails as r } from "../src/student/lang.js";
+test("p", () => {
+  for (const t of ["411001 is my PIN", "PIN 411 001", "pin-code: 411001", "Pin code - 411001", "my area pin is 411001", "pincode 411001", "budget is 500000 rupees", "I am Riya Sharma", "I'm Riya", "i'm Riya Sharma", "Im Riya", "I AM RIYA", "mera naam Riya hai", "main Riya hoon", "My name is Riya Sharma, 16 years old"])
+    console.log("P3|", JSON.stringify(t), "=>", JSON.stringify(r(t)));
+});

@@ -1,0 +1,49 @@
+##### H1 green-before
+green rc=0 ℹ pass 4 ℹ fail 0 
+mut rc=3
+red rc=0 ℹ pass 4 ℹ fail 0 
+##### H3 green-before
+green rc=0 ℹ pass 4 ℹ fail 0 
+mut rc=0
+red rc=1 ℹ pass 2 ℹ fail 2 
+✖ H3: an outage keeps a topic decline as the decline; a KB-answered turn with the screen down still gets the crisis message (fail closed) (11.8692ms)
+✖ H3: screen unavailable on a no-source turn (anonymous no_source scope, anonymous: true, authenticated) -> the plain refusal text, no grounded or guidance call, safety_screen still reported (32.7747ms)
+✖ failing tests:
+##### H4 green-before
+green rc=0 ℹ pass 4 ℹ fail 0 
+mut rc=0
+red rc=1 ℹ pass 2 ℹ fail 2 
+✖ H4 (grounded path): genuine questions on fraud, backlogs, credit transfer, systems engineering and budgets are answered, not declined (159.6855ms)
+✖ H4 (model-only path): genuine questions on fraud, backlogs, credit transfer, systems engineering and budgets are answered, not declined (40.5974ms)
+✖ failing tests:
+##### H5 green-before
+green rc=0 ℹ pass 1 ℹ fail 0 
+mut rc=0
+red rc=1 ℹ pass 0 ℹ fail 1 
+✖ H5: the bare-domain guard catches 'daad. de' and does not flag prose run-ons like 'cities.it depends' or 'etc.in Germany' (4.9568ms)
+✖ failing tests:
+##### H6 green-before
+green rc=0 ℹ pass 4 ℹ fail 0 
+mut rc=0
+red rc=1 ℹ pass 3 ℹ fail 1 
+✖ H6: GroundingBudget caps grounded calls per session key and per UTC day; the cap error is typed and the inner answerer is not called over the cap (1.6322ms)
+✖ failing tests:
+##### H6b green-before
+green rc=0 ℹ pass 4 ℹ fail 0 
+mut rc=0
+red rc=1 ℹ pass 3 ℹ fail 1 
+✖ H6: a non-flash VC_GROUNDING_MODEL is a startup error (thinkingBudget is only set and proven for flash models); the message never carries the key (1.5182ms)
+✖ failing tests:
+##### H2 green-before
+green rc=0 ℹ pass 2 ℹ fail 0 
+mut rc=3
+red rc=0 ℹ pass 2 ℹ fail 0 
+##### H2b green-before
+green rc=0 ℹ pass 2 ℹ fail 0 
+mut rc=3
+red rc=0 ℹ pass 2 ℹ fail 0 
+##### H7 green-before
+green rc=0 ℹ pass 65 ℹ fail 0 
+mut rc=3
+red rc=0 ℹ pass 65 ℹ fail 0 
+FALDONE
