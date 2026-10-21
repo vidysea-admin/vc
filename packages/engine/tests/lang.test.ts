@@ -175,13 +175,13 @@ const CRISIS_FIXTURE: Record<"en" | "hi" | "hi-Latn", { notCounsellor: RegExp; n
     adultQuestion: /Who is a safe adult/,
   },
   hi: {
-    notCounsellor: /काउंसलर नहीं/,
+    notCounsellor: /AI गाइड हूँ, काउंसलर नहीं,/,
     noneConnected: /हमारी तरफ़ से अभी कोई काउंसलर नहीं जुड़ रहा है/,
     safeAdult: "भरोसेमंद बड़े",
     adultQuestion: /आज आप किस भरोसेमंद बड़े से बात कर सकते हैं/,
   },
   "hi-Latn": {
-    notCounsellor: /counsellor nahi/i,
+    notCounsellor: /AI guide hoon, counsellor nahi,/i,
     noneConnected: /hamari taraf se abhi koi counsellor nahi jud raha hai/i,
     safeAdult: "bharosemand bade",
     adultQuestion: /Aaj aap kis bharosemand bade se baat kar sakte hain/,
