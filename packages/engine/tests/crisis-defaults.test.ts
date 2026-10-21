@@ -25,7 +25,8 @@ import {
   type CrisisFlagRecord,
   type StudentGraphDeps,
 } from "../src/student/graph.js";
-import { CRISIS_MESSAGES, crisisMessageFor, detectLanguageOffline } from "../src/student/lang.js";
+import { CRISIS_MESSAGES, TELE_MANAS_LINE, crisisMessageFor, detectLanguageOffline } from "../src/student/lang.js";
+import { STRESS_CHECK_IN } from "../src/guards/crisis.js";
 import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
 
 /** LK10: the crisis message is language-aware (Devanagari -> hi, Latin Hinglish -> hi-Latn, else en); the expected text follows the turn text. */
@@ -389,7 +390,10 @@ test("D-093 3A: a stress phrase on a normal question still gets the answer, then
     const d = deps();
     const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "th-s", turnId: "tu-s1", text: `${stress}. ${TUITION_Q}` });
     assert.equal(out.response.state, "ok", stress);
-    assert.ok((out.response.message ?? "").startsWith(plain.response.message ?? "<none>"), `${stress}: the normal answer comes first`);
+    // D-110 C3: the empathy line comes first, then the normal answer, then the helpline (D-093 3A had the answer first).
+    assert.ok((out.response.message ?? "").startsWith(STRESS_CHECK_IN), `${stress}: the empathy line comes first`);
+    assert.ok((out.response.message ?? "").includes(plain.response.message ?? "<none>"), `${stress}: the normal answer follows it`);
+    assert.ok((out.response.message ?? "").endsWith(TELE_MANAS_LINE), `${stress}: the helpline comes last`);
     assert.match(out.response.message ?? "", /lot of pressure/, stress);
     assert.equal(count14416(out.response.message), 1, stress);
     assert.match(out.response.message ?? "", /Tele-MANAS/);
@@ -414,7 +418,7 @@ test("D-093 3A: a stress phrase alone (no question) still runs the normal turn a
     assert.notEqual(anon.response.state, "escalated", stress);
     assert.equal(count14416(anon.response.message), 1, `${stress}: anonymous reply, one helpline line`);
     assert.match(anon.response.message ?? "", /lot of pressure/);
-    assert.equal((a.provider as MockProvider).calls.length, 0, "no model call on a no-answer turn");
+    assert.ok((a.provider as MockProvider).calls.every((c) => c.skillName === "kb-general-guidance"), "D-110: the only model call on a no-answer turn is the guidance attempt (it fails here, so the fixed text)");
   }
 });
 

@@ -710,13 +710,13 @@ test("R4 a Tamil turn (outside the allow-list) gets an English reply that carrie
   assert.ok(out.response.message!.endsWith(HELPLINE_LINE_EN_HI), out.response.message);
 });
 
-test("R4 a no-answer and a provider failure in an uncovered language carry it too; an anonymous non-answer gets the Hindi gloss added once", async () => {
+test("R4 a no-answer and a provider failure in an uncovered language carry it too; an anonymous non-answer gets the English+Hindi helpline line once (D-110)", async () => {
   const empty = build({ detectLanguage: TA, kb: fakeKb({ search: { status: "ok", hits: [], dropped: 0 }, anonymous: true }) });
   const anon = await runStudentTurn(empty.d, { mode: "anonymous", text: EN_Q }); // detector says ta; the rule classifier reads the English question as generic
-  assert.equal(anon.response.message, `${ANONYMOUS_NO_ANSWER_TEXT} ${HELPLINE_GLOSS}`);
+  assert.equal(anon.response.message, `${ANONYMOUS_NO_ANSWER_TEXT} ${HELPLINE_LINE_EN_HI}`, "D-110: no helpline of its own any more, so the uncovered-language rule adds the whole English+Hindi line");
   const signIn = await runStudentTurn(build({ detectLanguage: TA, kb: fakeKb({ anonymous: true }) }).d, { mode: "anonymous", text: TA_Q });
   assert.equal(signIn.response.state, "sign_in_required");
-  assert.equal(signIn.response.message, `${ANONYMOUS_SIGN_IN_TEXT} ${HELPLINE_GLOSS}`);
+  assert.equal(signIn.response.message, `${ANONYMOUS_SIGN_IN_TEXT} ${HELPLINE_LINE_EN_HI}`);
   const auth = build({ detectLanguage: TA, kb: fakeKb({ search: { status: "ok", hits: [], dropped: 0 } }) });
   auth.d.kb.askKnowledgeBase = async () => { throw new Error("down"); };
   const out = await runStudentTurn(auth.d, authTurn(TA_Q));
