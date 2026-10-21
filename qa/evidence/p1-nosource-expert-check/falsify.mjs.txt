@@ -1,0 +1,30 @@
+import { readFileSync, writeFileSync, copyFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+
+const ENG = "D:/vc_tmp_chk/copy/packages/engine";
+const G = `${ENG}/src/student/graph.ts`;
+const ORIG = readFileSync("D:/vc/.worktrees/p1-nosource-expert/packages/engine/src/student/graph.ts", "utf8");
+if (readFileSync(G, "utf8") !== ORIG) throw new Error("copy differs from bound graph.ts");
+
+const muts = [
+  ["C1 drop the disclaimer", "const message = `${fixedText(replyLang, \"guidanceDisclaimer\")} ${answer}`;", "const message = `${answer}`;"],
+  ["C2 helpline on every no-source reply", "return { response: emptyResponse(input, \"no_sourced_answer\", guidance ?? refusal), selectedTool: \"search_kb\", claimSourceKinds: [] };", "return { response: emptyResponse(input, \"no_sourced_answer\", `${guidance ?? refusal} ${TELE_MANAS_LINE}`), selectedTool: \"search_kb\", claimSourceKinds: [] };"],
+  ["C3 helpline before the reply", "[STRESS_CHECK_IN, message, message.includes(\"14416\") ? \"\" : TELE_MANAS_LINE]", "[STRESS_CHECK_IN, message.includes(\"14416\") ? \"\" : TELE_MANAS_LINE, message]"],
+  ["C4 anonymous personal-question redirect off", "if (classifyQuestion(input.text).class !== \"generic\") {", "if (false && classifyQuestion(input.text).class !== \"generic\") {"],
+];
+const run = () => {
+  const r = spawnSync("bash", ["/d/vc/scripts/vc-testlock.sh", "timeout", "300", "npx", "tsx", "--test", "--test-name-pattern", "D-110|D-093|U7", "tests/student-graph.test.ts", "tests/crisis-defaults.test.ts"], { cwd: ENG, encoding: "utf8", env: { ...process.env, TMP: "D:/vc_tmp_chk", TEMP: "D:/vc_tmp_chk", VC_TESTLOCK_TIMEOUT_SECS: "7200" } });
+  const out = r.stdout + r.stderr;
+  const g = (k) => (out.match(new RegExp(`^ℹ ${k} (\\d+)`, "m")) || [])[1];
+  const first = (out.match(/^✖ (.+?) \(/m) || [])[1];
+  return `exit=${r.status} pass=${g("pass")} fail=${g("fail")}${first ? ` first-red="${first.slice(0, 110)}"` : ""}`;
+};
+console.log("BASELINE green:", run());
+for (const [name, from, to] of muts) {
+  if (!ORIG.includes(from)) { console.log(name, "PATTERN NOT FOUND"); continue; }
+  writeFileSync(G, ORIG.replace(from, to));
+  console.log(name, "-> mutated:", run());
+  writeFileSync(G, ORIG);
+  console.log(name, "-> restored:", run());
+}
+console.log("copy equals bound graph.ts:", readFileSync(G, "utf8") === ORIG);

@@ -1,0 +1,42 @@
+=== engine student-graph 2026-10-21T20:02:46+05:30
+ℹ tests 75
+ℹ pass 75
+ℹ fail 0
+=== engine lk5 2026-10-21T20:02:56+05:30
+ℹ tests 65
+ℹ pass 65
+ℹ fail 0
+=== engine crisis-defaults 2026-10-21T20:03:06+05:30
+ℹ tests 19
+ℹ pass 19
+ℹ fail 0
+=== engine lang 2026-10-21T20:03:14+05:30
+ℹ tests 36
+ℹ pass 36
+ℹ fail 0
+=== tsc engine
+[testlock] running slot 0 (free RAM 4.49 GB): timeout 600 npx tsc --noEmit
+exit=0
+=== tsc api
+[testlock] running slot 0 (free RAM 4.78 GB): timeout 600 npx tsc --noEmit
+exit=0
+=== api anonymous-zero-persistence 2026-10-21T20:03:37+05:30
+ℹ tests 33
+ℹ pass 33
+ℹ fail 0
+=== api acceptance-student-journey 2026-10-21T20:03:46+05:30
+ℹ tests 3
+ℹ pass 3
+ℹ fail 0
+=== api student-openapi 2026-10-21T20:03:51+05:30
+ℹ tests 10
+ℹ pass 10
+ℹ fail 0
+=== api chat 2026-10-21T20:03:57+05:30
+✖ A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes (8.0488ms)
+ℹ tests 33
+ℹ pass 32
+ℹ fail 1
+✖ failing tests:
+✖ A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes (8.0488ms)
+DONE 2026-10-21T20:04:04+05:30

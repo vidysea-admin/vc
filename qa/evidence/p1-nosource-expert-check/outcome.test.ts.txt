@@ -1,0 +1,148 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import type { z } from "zod";
+import { NO_SOURCED_ANSWER_TEXT, STUDENT_CRISIS_MESSAGE, ANONYMOUS_CRISIS_MESSAGE, runStudentTurn, type StudentGraphDeps } from "../src/student/graph.js";
+import { STRESS_CHECK_IN } from "../src/guards/crisis.js";
+import { TELE_MANAS_LINE } from "../src/student/lang.js";
+import { NOW, SKILLS_DIR, SPEAKERS, fakeKb, NO_PRIOR_FLAG } from "./student-fixtures.js";
+
+const AUTH = { role: "student" as const, studentId: "syn-stu-3", tenantId: "sandbox" };
+const NO_HITS = { status: "ok" as const, hits: [], dropped: 0 };
+const NOT_SERVED = { status: "no_sourced_answer", answer: NO_SOURCED_ANSWER_TEXT, citations: { internal: [], web: [] }, verdict: "incorrect", reason: "", withheld: ["verdict_not_correct"] } as never;
+const DISC = "General guidance — I couldn't find this in Vidysea's verified sources, so please confirm fees, deadlines and amounts on the official website.";
+const log = (...a: unknown[]) => console.log("OUT", ...a);
+
+/** fake LLM: returns whatever `reply` is for the guidance skill; mirrors a real provider by schema-parsing when `validate`. */
+function fake(reply: unknown, validate = true) {
+  const calls: string[] = [];
+  const p = {
+    kind: "mock",
+    model: "fake",
+    generate: async (req: { skillName: string; outputSchema: z.ZodTypeAny }) => {
+      calls.push(req.skillName);
+      if (reply instanceof Error) throw reply;
+      return validate ? req.outputSchema.parse(reply) : (reply as never);
+    },
+  };
+  return { p: p as never, calls };
+}
+function mk(provider: unknown, anonymous: boolean, over: Partial<StudentGraphDeps> = {}) {
+  const gaps: unknown[] = [];
+  const counter: string[] = [];
+  const d = {
+    kb: fakeKb({ search: NO_HITS, ...(anonymous ? { anonymous: true } : { ask: NOT_SERVED }) }),
+    provider,
+    skillsDir: SKILLS_DIR,
+    speakers: SPEAKERS,
+    now: () => NOW,
+    hasPriorFlag: NO_PRIOR_FLAG,
+    recordGap: async (g: unknown) => void gaps.push(g),
+    countAnonymous: async (k: string) => void counter.push(k),
+    ...over,
+  } as unknown as StudentGraphDeps;
+  return { d, gaps, counter };
+}
+const run = (d: StudentGraphDeps, anonymous: boolean, text: string) =>
+  runStudentTurn(d, anonymous ? { mode: "anonymous", text } : { mode: "authenticated", auth: AUTH, threadId: "th", turnId: "tu", text });
+const NEUTRAL = ["What is the average monthly cost of living for a student in Lisbon?", "How long does the Canadian post-study work permit last?", "Germany mein tuition fees kitni hoti hai aur kab apply karna hota hai?"];
+const DISTRESS = ["Mujhe bahut stress hai, kuch accha nahi lag raha", "I am so stressed about the pressure, how much is tuition in Germany?", "bahut pressure hai yaar, Lisbon mein cost of living kitna hai?"];
+const GOOD = { answer: "A typical budget in Lisbon is about 700 to 1,000 euros a month for a shared flat; fees and amounts vary." };
+
+for (const anon of [false, true]) {
+  const who = anon ? "anonymous" : "authenticated";
+  test(`C1 ${who}: good reply`, async () => {
+    for (const q of NEUTRAL) {
+      const f = fake(GOOD);
+      const { d, gaps, counter } = mk(f.p, anon);
+      const out = await run(d, anon, q);
+      assert.equal(out.response.state, "no_sourced_answer");
+      assert.deepEqual(out.response.claims, []);
+      assert.deepEqual(out.response.sources, []);
+      assert.equal(out.response.message, `${DISC} ${GOOD.answer}`);
+      assert.doesNotMatch(out.response.message!, /14416|Tele-MANAS/);
+      assert.equal(anon ? counter.length : gaps.length, 1);
+      assert.equal(f.calls.filter((c) => c === "kb-general-guidance").length, 1);
+      log("C1 good", who, JSON.stringify(q).slice(0, 40), "->", out.response.state, out.response.message!.length);
+    }
+  });
+  test(`C1 ${who}: hostile replies`, async () => {
+    const cases: [string, unknown, boolean][] = [
+      ["prose string not JSON", "Lisbon costs about 900 euros.", true],
+      ["Error malformed", Object.assign(new Error("malformed"), { name: "OllamaMalformedResponseError" }), true],
+      ["empty string answer", { answer: "" }, true],
+      ["whitespace answer", { answer: "   \n " }, true],
+      ["null", null, false],
+      ["undefined", undefined, false],
+      ["wrong shape", { text: "hi" }, false],
+      ["answer number", { answer: 42 }, false],
+      ["URL", { answer: "See https://www.studyportugal.example/costs for amounts of about 900 euros." }, true],
+      ["www only", { answer: "See www.studyportugal.example for amounts of about 900 euros." }, true],
+      ["email", { answer: "Write to info@uni.example.pt for the fee table." }, true],
+      ["over 1500 (schema)", { answer: "x ".repeat(800) }, true],
+      ["over cap but unvalidated provider", { answer: "Costs are about 900 euros. ".repeat(400) }, false],
+    ];
+    for (const [name, reply, validate] of cases) {
+      const f = fake(reply, validate);
+      const { d, gaps, counter } = mk(f.p, anon);
+      const out = await run(d, anon, NEUTRAL[0]!);
+      log("C1 hostile", who, name, "->", out.response.state, JSON.stringify(out.response.message!.slice(0, 70)), "len", out.response.message!.length);
+      assert.equal(out.response.state, "no_sourced_answer");
+      assert.deepEqual(out.response.claims, []);
+      assert.deepEqual(out.response.sources, []);
+      assert.equal(out.response.message, NO_SOURCED_ANSWER_TEXT, name);
+      assert.equal(anon ? counter.length : gaps.length, 1);
+    }
+  });
+  test(`C1/C2 ${who}: fake citation / helpline inside the reply (observe)`, async () => {
+    const cases: [string, string][] = [
+      ["prose citation", "According to the QS World University Rankings 2026 (Source: Vidysea KB, doc #4411), Lisbon costs about 900 euros."],
+      ["bracket cite", "Lisbon costs about 900 euros a month [1]. [1] Vidysea Verified Source, session sem-2."],
+      ["helpline in reply", "Costs are about 900 euros. If things feel heavy, Tele-MANAS on 14416 is free and open 24x7."],
+      ["bare 14416", "Call 14416 for help; the budget is about 900 euros."],
+    ];
+    for (const [name, answer] of cases) {
+      const f = fake({ answer });
+      const { d } = mk(f.p, anon);
+      const out = await run(d, anon, NEUTRAL[0]!);
+      log("C1/C2 observe", who, name, "->", out.response.state, "sources", out.response.sources.length, "claims", out.response.claims.length, "has14416", /14416|Tele-MANAS/.test(out.response.message!), JSON.stringify(out.response.message!.slice(DISC.length, DISC.length + 90)));
+    }
+  });
+  test(`C2/C3 ${who}: helpline only on distress`, async () => {
+    for (const q of NEUTRAL) {
+      const f = fake(GOOD);
+      const { d } = mk(f.p, anon);
+      const out = await run(d, anon, q);
+      assert.doesNotMatch(out.response.message!, /14416|Tele-MANAS/, q);
+    }
+    for (const q of DISTRESS) {
+      const f = fake(GOOD);
+      const { d } = mk(f.p, anon);
+      const out = await run(d, anon, q);
+      const m = out.response.message!;
+      log("C2/C3 distress", who, JSON.stringify(q.slice(0, 40)), "->", out.response.state, JSON.stringify(m.slice(0, 60)), "...", JSON.stringify(m.slice(-60)));
+      assert.ok(m.startsWith(STRESS_CHECK_IN), m);
+      assert.ok(m.endsWith(TELE_MANAS_LINE), m);
+      assert.equal(m.split("14416").length - 1, 1);
+      assert.ok(m.indexOf(STRESS_CHECK_IN) < m.indexOf("14416"));
+      if (out.response.state === "no_sourced_answer") assert.ok(m.indexOf(DISC) > STRESS_CHECK_IN.length - 1 && m.indexOf(DISC) < m.indexOf("14416"));
+    }
+  });
+}
+test("C2: crisis still first, no guidance call, wording equals the exported constants", async () => {
+  for (const anon of [false, true])
+    for (const q of ["I want to kill myself", "mujhe marna hai, main apni jaan dena chahta hoon", "main khud ko khatam kar dunga"]) {
+      const f = fake(GOOD);
+      const { d } = mk(f.p, anon);
+      const out = await run(d, anon, q);
+      log("crisis", anon, JSON.stringify(q), out.response.state, f.calls.length);
+      assert.equal(out.response.state, "escalated");
+      assert.equal(f.calls.length, 0);
+    }
+  const f = fake(GOOD);
+  const { d } = mk(f.p, false);
+  assert.equal((await run(d, false, "I want to kill myself")).response.message, STUDENT_CRISIS_MESSAGE);
+  const g = fake(GOOD);
+  const a = mk(g.p, true);
+  assert.equal((await run(a.d, true, "I want to kill myself")).response.message, ANONYMOUS_CRISIS_MESSAGE);
+  console.log("OUT CRISIS", JSON.stringify({ s: STUDENT_CRISIS_MESSAGE, a: ANONYMOUS_CRISIS_MESSAGE }));
+});
