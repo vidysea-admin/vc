@@ -174,6 +174,11 @@ export class AnonymousRateLimiter {
     if (![opts.limit, opts.windowMs, opts.maxKeys].every((n) => Number.isInteger(n) && n >= 1)) throw new RangeError("AnonymousRateLimiter: limit, windowMs and maxKeys must be positive integers");
   }
 
+  /** The salted digest this limiter keys on; the grounded-call budget uses it too, so the raw address is never stored anywhere. */
+  keyOf(raw: string | undefined): string {
+    return this.digest(raw);
+  }
+
   private digest(raw: string | undefined): string {
     return createHash("sha256").update(this.salt).update(raw ?? "\u0000unknown").digest("base64url");
   }
@@ -232,7 +237,8 @@ export class AnonymousRateLimiter {
 export type AnonymousLogLine =
   | { level: "error"; event: "api_request_failed"; status: number; error: string; ts: string }
   | { level: "error"; event: "anonymous_counter_failed"; kind: string; ts: string }
-  | { level: "error"; event: "anonymous_forbidden_write"; write: string; ts: string };
+  | { level: "error"; event: "anonymous_forbidden_write"; write: string; ts: string }
+  | { level: "warn"; event: "anonymous_client_key_missing"; ts: string };
 
 /**
  * Everything the anonymous handler may be built with. There is deliberately no Db, checkpointer, outbox or tracer here.
@@ -424,6 +430,7 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
       nowMs: deps.nowMs ?? Date.now,
     });
   const clientKey = deps.clientKey ?? ((req: ApiRequest) => normalizeClientAddress(req.remoteAddress));
+  let missingKeyLogged = false;
   // Every non-200 body carries the static helpline (AI review A): a student in distress who meets any refusal still sees it.
   const fail = (status: number, error: string, headers?: Record<string, string>) => respond(status, { error, helpline: TELE_MANAS_LINE }, headers);
 
@@ -473,7 +480,18 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
 
       let result;
       try {
-        result = await groundingClient.run(clientKey(req) || "unknown", () => runStudentTurn(graphDeps, { mode: "anonymous", text }));
+        // F3: the grounded-call budget is keyed on the limiter's salted digest, not the raw address. A request with no usable key falls back to ONE
+        // shared (fail-safe, still capped) bucket and says so once in the text-free log, so the missing key does not go unnoticed.
+        const rawKey = clientKey(req);
+        if (!rawKey && !missingKeyLogged) {
+          missingKeyLogged = true;
+          try {
+            log({ level: "warn", event: "anonymous_client_key_missing", ts: new Date().toISOString() });
+          } catch {
+            // never fail the response because the logger failed
+          }
+        }
+        result = await groundingClient.run(limiter.keyOf(rawKey || undefined), () => runStudentTurn(graphDeps, { mode: "anonymous", text }));
       } catch (err) {
         if (err instanceof StudentInputInvalidError) return fail(400, "invalid_request");
         throw err;

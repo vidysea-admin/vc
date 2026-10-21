@@ -627,3 +627,53 @@ test("H6: startApi refuses a malformed grounded-call cap and a non-flash VC_GROU
     assert.equal(r.connected(), 0);
   }
 });
+
+// p1-grounding-hardening fix cycle 1, F3 (H6 privacy): the grounded-call budget is keyed on the salted digest the rate limiter uses, never the raw address.
+class SpyBudget extends GroundingBudget {
+  readonly seen: string[] = [];
+  override bind(inner: Parameters<GroundingBudget["bind"]>[0], key: string | (() => string)) {
+    return super.bind(inner, () => {
+      const k = typeof key === "function" ? key() : key;
+      this.seen.push(k);
+      return k;
+    });
+  }
+}
+
+test("H6 F3: the grounded-call budget key is a salted digest, never the raw client address; the same client keeps one bucket and clients stay apart", async () => {
+  const spy = new SpyBudget({ maxPerSession: 5, maxPerDay: 100 });
+  const grounded = new MockGroundedAnswerer(GROUNDED_REPLY);
+  const w = capWorld(spy, grounded);
+  try {
+    await ask(w, GERMANY_Q, { ip: "203.0.113.50" });
+    await ask(w, GERMANY_Q, { ip: "203.0.113.50" });
+    await ask(w, GERMANY_Q, { ip: "203.0.113.51" });
+    assert.equal(spy.seen.length, 3);
+    for (const k of spy.seen) {
+      assert.ok(!k.includes("203.0.113"), `raw address in the budget key: ${k}`);
+      assert.match(k, /^[A-Za-z0-9_-]{43}$/, "a base64url SHA-256 digest");
+    }
+    assert.equal(spy.seen[0], spy.seen[1]);
+    assert.notEqual(spy.seen[0], spy.seen[2]);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("H6 F3: a request with no client key falls back to ONE shared, still-capped bucket (fail safe), and the missing key is logged once, text-free", async () => {
+  const spy = new SpyBudget({ maxPerSession: 2, maxPerDay: 100 });
+  const grounded = new MockGroundedAnswerer(GROUNDED_REPLY);
+  const provider = kbAnswerProvider();
+  provider.setResponse("kb-general-guidance", { answer: "Model-only guidance: German public universities usually charge no tuition fees." });
+  const w = anonWorld({ kb: NO_HITS_KB(), provider, deps: { grounding: grounded, groundingBudget: spy, clientKey: () => undefined, limits: { anonymousRequestsPerMinute: 100 } } });
+  try {
+    for (let i = 0; i < 4; i += 1) await ask(w, GERMANY_Q, { ip: `203.0.113.${80 + i}` });
+    assert.equal(new Set(spy.seen).size, 1, "every keyless request shares one bucket");
+    assert.equal(grounded.calls.length, 2, "and that bucket is capped, not unlimited");
+    const missing = (w.logs as Array<{ event?: string }>).filter((l) => l.event === "anonymous_client_key_missing");
+    assert.equal(missing.length, 1, "logged once");
+    assert.ok(!JSON.stringify(missing).includes("203.0.113"));
+  } finally {
+    w.cleanup();
+  }
+});

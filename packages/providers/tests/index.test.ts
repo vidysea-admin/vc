@@ -407,3 +407,37 @@ test("grounded Gemini: only a normal STOP finish is accepted (SAFETY, RECITATION
   const a = new GeminiGroundedAnswerer({ model: "gemini-test", apiKey: GKEY, fetchImpl: stalled, timeoutMs: 50 });
   await assert.rejects(a.answer({ question: "q", systemPrompt: "SYS" }), (e: unknown) => e instanceof GroundingFailedError);
 });
+
+// p1-grounding-hardening fix cycle 1, F2 (H6): the counters are reserved BEFORE the async spend is awaited, so parallel calls cannot all pass the check.
+test("H6 F2: 10 parallel answer() calls with an async spend and a cap of 5 allow exactly 5 (per session key and per day)", async () => {
+  const slowSpend = () => new Promise<void>((resolve) => setTimeout(resolve, 15));
+  const inner = new MockGroundedAnswerer(okAnswer);
+  const budget = new GroundingBudget({ maxPerSession: 5, maxPerDay: 100, spend: slowSpend });
+  const g = budget.bind(inner, "same-client");
+  const res = await Promise.allSettled(Array.from({ length: 10 }, () => g.answer({ question: "q", systemPrompt: "s" })));
+  assert.equal(res.filter((r) => r.status === "fulfilled").length, 5);
+  assert.equal(res.filter((r) => r.status === "rejected" && r.reason instanceof GroundingBudgetError && r.reason.scope === "session").length, 5);
+  assert.equal(inner.calls.length, 5);
+
+  const inner2 = new MockGroundedAnswerer(okAnswer);
+  const dayBudget = new GroundingBudget({ maxPerSession: 100, maxPerDay: 5, spend: slowSpend });
+  const res2 = await Promise.allSettled(Array.from({ length: 10 }, (_, i) => dayBudget.bind(inner2, `client-${i}`).answer({ question: "q", systemPrompt: "s" })));
+  assert.equal(res2.filter((r) => r.status === "fulfilled").length, 5);
+  assert.equal(res2.filter((r) => r.status === "rejected" && r.reason instanceof GroundingBudgetError && r.reason.scope === "day").length, 5);
+  assert.equal(inner2.calls.length, 5);
+});
+
+test("H6 F2: a spend that throws (async) rolls the reserved day and per-key counts back, so refused calls do not eat the cap", async () => {
+  let deny = true;
+  const inner = new MockGroundedAnswerer(okAnswer);
+  const budget = new GroundingBudget({ maxPerSession: 2, maxPerDay: 2, spend: async () => { await new Promise((r) => setTimeout(r, 5)); if (deny) throw new Error("monthly cap"); } });
+  const g = budget.bind(inner, "k");
+  const refused = await Promise.allSettled(Array.from({ length: 6 }, () => g.answer({ question: "q", systemPrompt: "s" })));
+  assert.ok(refused.every((r) => r.status === "rejected" && r.reason instanceof GroundingBudgetError));
+  assert.equal(inner.calls.length, 0);
+  deny = false;
+  await g.answer({ question: "q", systemPrompt: "s" });
+  await g.answer({ question: "q", systemPrompt: "s" });
+  await assert.rejects(g.answer({ question: "q", systemPrompt: "s" }), GroundingBudgetError);
+  assert.equal(inner.calls.length, 2, "both caps were fully intact after the refused spends");
+});

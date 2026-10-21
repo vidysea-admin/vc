@@ -952,16 +952,25 @@ export class GroundingBudget {
     if (this.#dayCount >= this.maxPerDay) throw new GroundingBudgetError("day");
     const used = this.#perKey.get(key) ?? 0;
     if (used >= this.maxPerSession) throw new GroundingBudgetError("session");
+    // F2: reserve both counts synchronously, BEFORE the async spend is awaited, so parallel calls cannot all pass the checks above.
+    const keys = this.#perKey;
+    this.#dayCount += 1;
+    if (!keys.has(key) && keys.size >= GROUNDING_BUDGET_MAX_KEYS) keys.delete(keys.keys().next().value as string);
+    keys.set(key, used + 1);
     if (this.#spend) {
       try {
         await this.#spend();
       } catch {
+        // Roll the reservation back (only if the day has not rolled over meanwhile), so a refused spend does not eat the caps.
+        if (this.#day === day) this.#dayCount = Math.max(0, this.#dayCount - 1);
+        const n = keys.get(key);
+        if (n !== undefined) {
+          if (n <= 1) keys.delete(key);
+          else keys.set(key, n - 1);
+        }
         throw new GroundingBudgetError("spend");
       }
     }
-    this.#dayCount += 1;
-    if (!this.#perKey.has(key) && this.#perKey.size >= GROUNDING_BUDGET_MAX_KEYS) this.#perKey.delete(this.#perKey.keys().next().value as string);
-    this.#perKey.set(key, used + 1);
   }
 
   /** `key` is the caller (a client or a thread); pass a function to read it from request-scoped state (the graph and its deps are shared across requests). */

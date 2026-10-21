@@ -1269,6 +1269,31 @@ test("H1: 'my name is riya and i want to study in germany' keeps 'want to study 
   assert.ok(!/RIYA|SHARMA/.test(grounded2.calls[0]!.question));
 });
 
+// F1 (checker FAIL H1): lower-case "i am <name>", natural PIN phrasings, "name: X", a locality and a relative's name never reach the grounded wire.
+test("H1 F1: lower-case 'i am <name>', 'my pin code is', '411001 is my PIN', 'name: Riya Sharma', 'I live in Baner, Pune - 411045' and 'my father Rakesh Kumar' do not reach the grounded wire; the study question does", async () => {
+  const cases: [string, string[], RegExp][] = [
+    ["i am riya sharma and I want to study in germany", ["riya", "sharma"], /want to study in germany/],
+    ["im priyanka verma, which german intake is next?", ["priyanka", "verma"], /which german intake is next/],
+    ["My pin code is 560037, want to study in germany", ["560037"], /want to study in germany/],
+    ["pincode is 560037. want to study in germany", ["560037"], /want to study in germany/],
+    ["my pin is 560037 and I want to study in germany", ["560037"], /want to study in germany/],
+    ["411001 is my PIN, want to study in germany", ["411001"], /want to study in germany/],
+    ["pin-code: 411001, want to study in germany", ["411001"], /want to study in germany/],
+    ["name: Riya Sharma. Want to study in germany", ["Riya", "Sharma"], /Want to study in germany/],
+    ["I live in Baner, Pune - 411045 and want to study in germany", ["Baner", "411045"], /want to study in germany/],
+    ["my father Rakesh Kumar works abroad, want to study in germany", ["Rakesh", "Kumar"], /want to study in germany/],
+  ];
+  for (const [text, gone, kept] of cases) {
+    const grounded = new MockGroundedAnswerer(groundedOk());
+    const { d } = deps({ kb: noSourceKb(), provider: guidanceProvider(), grounding: grounded });
+    await runStudentTurn(d, turn(text));
+    assert.equal(grounded.calls.length, 1, text);
+    const wire = JSON.stringify({ question: grounded.calls[0]!.question, systemPrompt: grounded.calls[0]!.systemPrompt });
+    for (const token of gone) assert.ok(!wire.includes(token), `${token} must not be on the wire for "${text}": ${wire}`);
+    assert.match(grounded.calls[0]!.question, kept, text);
+  }
+});
+
 // H3: a classifier outage on a no-source turn is the plain fixed refusal, never the crisis message, and nothing leaves for the web or the model.
 test("H3: screen unavailable on a no-source turn (anonymous no_source scope, anonymous: true, authenticated) -> the plain refusal text, no grounded or guidance call, safety_screen still reported", async () => {
   const cases: { label: string; anon: boolean; screenCfg: (p: LlmProvider) => NonNullable<StudentGraphDeps["safetyScreen"]>; refusal: string; crisis: string }[] = [
