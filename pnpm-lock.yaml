@@ -26,6 +26,9 @@ importers:
       '@vc/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@vc/mcp-university-kb':
+        specifier: workspace:*
+        version: link:../../mcp/university-kb
       '@vc/providers':
         specifier: workspace:*
         version: link:../../packages/providers
@@ -143,6 +146,9 @@ importers:
       '@vc/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@vc/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       mongodb:
         specifier: ^6.21.0
         version: 6.21.0

@@ -14,7 +14,17 @@
  * logs anything.
  */
 import { z } from "zod";
-import type { KbSourceKindRow, KbSourcesResult } from "./kb-client.js";
+import type { SearchHit, StudentKbPort } from "@vc/engine";
+import {
+  applyServeRule,
+  type KbAskResult,
+  type KbSearchHit,
+  type KbSearchResult,
+  type KbSessionResult,
+  type KbSessionTurn,
+  type KbSourceKindRow,
+  type KbSourcesResult,
+} from "./kb-client.js";
 
 export type SourceKind = "internal-seminar" | "toc" | "whatsapp" | "unknown";
 
@@ -113,4 +123,98 @@ export function createSourceKindResolver(deps: {
       return kinds ? [...kinds].map(([id, kind]) => ({ id, kind })) : [];
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// The KnowledgeBase -> student-graph mapping (golive-launcher). ONE place: the MCP `search_kb` / `get_session`
+// handlers (index.ts) and the in-process `StudentKbPort` the API launcher builds (createStudentKbPort) both call
+// these, so a hit is source-kind tagged and speaker-label-gated identically on every path.
+// ---------------------------------------------------------------------------
+
+/** A speaker label is a person's name: only seminar/toc material may carry it (WhatsApp / unknown never). */
+export const labelAllowed = (kind: SourceKind): boolean => kind === "internal-seminar" || kind === "toc";
+
+/** Tags one KB subject (a hit's or session's source). Unknown = restricted. */
+export type SourceKindOf = (subject: SourceKindSubject) => Promise<SourceKind>;
+
+/** Maps raw KB /search hits to the student graph's `SearchHit`s (source-kind tagged, label-gated). */
+export async function mapSearchHits(hits: readonly KbSearchHit[], kindOf: SourceKindOf): Promise<SearchHit[]> {
+  return Promise.all(
+    hits.map(async (h) => {
+      const sourceKind = await kindOf({ sourceId: h.session.sourceId, title: h.session.title });
+      return {
+        turnId: h.turnId,
+        sessionId: h.sessionId,
+        score: h.score,
+        text: h.turn.text,
+        ...(h.turn.speakerLabel !== undefined && labelAllowed(sourceKind) ? { speakerLabel: h.turn.speakerLabel } : {}),
+        ...(h.turn.occurredAt !== undefined ? { occurredAt: h.turn.occurredAt } : {}),
+        sessionDate: h.session.date,
+        ...(h.session.title !== undefined ? { sessionTitle: h.session.title } : {}),
+        sourceId: h.session.sourceId,
+        sourceKind,
+      };
+    }),
+  );
+}
+
+/** Maps a raw KB session's turns (label-gated by the session's source kind). */
+export function mapSessionTurns(
+  turns: readonly KbSessionTurn[],
+  sourceKind: SourceKind,
+): { turnId: string; text: string; speakerLabel?: string; tStart?: number; tEnd?: number; occurredAt?: string }[] {
+  return turns.map((t) => ({
+    turnId: t._id,
+    text: t.text,
+    ...(t.speakerLabel !== undefined && labelAllowed(sourceKind) ? { speakerLabel: t.speakerLabel } : {}),
+    ...(t.tStart !== undefined ? { tStart: t.tStart } : {}),
+    ...(t.tEnd !== undefined ? { tEnd: t.tEnd } : {}),
+    ...(t.occurredAt !== undefined ? { occurredAt: t.occurredAt } : {}),
+  }));
+}
+
+/** What a KB client must offer to back a port: search always; ask / getSession / sources when present. */
+export interface StudentKbPortClient {
+  search(query: string, k?: number): Promise<KbSearchResult>;
+  sources?(): Promise<KbSourcesResult>;
+  ask?(query: string): Promise<KbAskResult>;
+  getSession?(sessionId: string): Promise<KbSessionResult>;
+}
+
+/**
+ * Builds the in-process `StudentKbPort` from a KB client. `searchKb` is always there; `askKnowledgeBase` only when the
+ * client can ask (the anonymous client cannot, so an anonymous port is structurally search-only) and `getSession` only
+ * when it can read a session. `/ask` goes through `applyServeRule`; a served answer is marked
+ * `insufficient_coverage: false` because the serve rule has just proven it (the engine's `isServedAsk` requires the
+ * field to be explicitly false). An outage is `status: "unavailable"`, never a thrown error.
+ */
+export function createStudentKbPort(deps: { client: StudentKbPortClient; sourceKinds?: SourceKindConfig }): StudentKbPort {
+  const { client } = deps;
+  const read = client.sources?.bind(client);
+  const resolver = read ? createSourceKindResolver({ client: { sources: read }, config: deps.sourceKinds }) : null;
+  const kindOf: SourceKindOf = async (subject) => (resolver ? resolver.tag(subject) : "unknown");
+  const port: StudentKbPort = {
+    async searchKb(query) {
+      const result = await client.search(query);
+      if (result.status !== "ok") return { status: "unavailable", unavailableReason: result.reason, detail: result.detail };
+      return { status: "ok", hits: await mapSearchHits(result.hits, kindOf), dropped: result.dropped };
+    },
+  };
+  if (client.ask) {
+    const ask = client.ask.bind(client);
+    port.askKnowledgeBase = async (query) => {
+      const served = applyServeRule(await ask(query));
+      return served.status === "answered" ? { ...served, insufficient_coverage: false } : served;
+    };
+  }
+  if (client.getSession) {
+    const getSession = client.getSession.bind(client);
+    port.getSession = async (sessionId) => {
+      const result = await getSession(sessionId);
+      if (result.status !== "ok") return { status: "unavailable", unavailableReason: result.reason, detail: result.detail };
+      const sourceKind = await kindOf({ sourceId: result.session.sourceId, title: result.session.title });
+      return { status: "ok", session: result.session, sourceKind, turns: mapSessionTurns(result.turns, sourceKind), dropped: result.dropped };
+    };
+  }
+  return port;
 }

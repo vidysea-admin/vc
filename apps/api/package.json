@@ -9,6 +9,7 @@
   },
   "types": "./src/index.ts",
   "scripts": {
+    "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "go-live-gate": "tsx scripts/go-live-gate.ts"
@@ -16,6 +17,7 @@
   "dependencies": {
     "@vc/db": "workspace:*",
     "@vc/engine": "workspace:*",
+    "@vc/mcp-university-kb": "workspace:*",
     "@vc/providers": "workspace:*",
     "@vc/schemas": "workspace:*",
     "jose": "6.2.12",

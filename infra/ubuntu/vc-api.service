@@ -1,0 +1,27 @@
+# systemd unit for the Virtual Counsellor API (golive-launcher). Install to /etc/systemd/system/vc-api.service.
+# The API binds 127.0.0.1 only; nginx (nginx-vc.conf) is the only public listener.
+[Unit]
+Description=Virtual Counsellor API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vc
+Group=vc
+WorkingDirectory=/opt/vc
+# Secrets and flags live here (chmod 600, owner root:vc). Names are in .env.example; values are never in git.
+EnvironmentFile=/etc/vc/vc.env
+ExecStart=/usr/bin/env pnpm -C apps/api start
+Restart=on-failure
+RestartSec=5
+# A SIGTERM runs api.stop() (closes the HTTP server, the sweep and the Mongo client); give it time to drain.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
