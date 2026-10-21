@@ -88,4 +88,4 @@ Metrics: start=2026-10-21T22:58:06+05:30 end=2026-10-21T23:59:01+05:30 wall_min=
 ## Live browser evidence
 UI-touching: apps/student/app.js now renders `web` sources as links under a no-source reply. Not exercised in a browser here (`node --check` only, and the DOM code is the same createElement/textContent pattern as the rest of the file). The checker should load the student page against a stubbed response with one `web` source.
 
-## Status: ready-for-check
+## Status: checked-PASS (verdict 25fa7ec, cycle 0)
