@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (student chat reply behaviour) criteria H1 H2 H3 H4 H5 H6 H7 of the brief; brief qa/evidence/p1-briefs/p1-grounding-hardening.md; sources of the findings: qa/evidence/p1-briefs/p1-nosource-grounded-ai-review-result.md (W1-W4, W6, W7) and qa/verdicts/p1-nosource-grounded.md. W5 (Search Suggestions / searchEntryPoint) is out of scope.
 **Goal task:** none
 **Date:** 2026-10-22
-**Fix cycle:** 0 of max 2
+**Fix cycle:** 1 of max 2
 **Dual check:** no
 **Persona walk:** skip (no screen, navigation or flow added; reply text and startup/config behaviour only)
 **Issues addressed:** none
@@ -78,7 +78,41 @@ Metrics: start=2026-10-22T00:21:19+05:30 end=2026-10-22T01:10:19+05:30 wall_min=
 ## Independent reviews
 Not run by the maker. The orchestrator should dispatch senior-software-engineer (all code) and ai-engineer (redaction, floor and screen behaviour).
 
+## Fix cycle 1 (repair of checker FAIL H1 plus ai-engineer and senior review findings)
+Repair base: 7247d5f
+Repair commit (code + tests): bc75b12. Final SHA for every Pre-check line below: bc75b12.
+Round: 7 files, 5 criteria (F1-F5), est 35 min — small edits in lang.ts, providers/index.ts, anonymous.ts plus tests; test lock waits dominate (a previous c1 builder died mid-work; this continuation kept its uncommitted edits and removed one duplicated GroundingBudget test block at the end of providers/tests/index.test.ts).
+- F1 (H1) packages/engine/src/student/lang.ts — INTRO_I_AM_RE now matches any case after "i am / i'm / im" (state words such as "interested / from / a student / planning" end the name via NAME_STOP_WORDS; over-redaction of an odd lower-case word is accepted); PIN_LABELLED_RE takes "pin code is 560037", "pincode is", "my pin is", "pin-code: 411001", "Pin code - 411001"; new PIN_TRAILING_RE for "411001 is my PIN"; PIN_CITY_RE accepts a dash ("Baner, Pune - 411045"); INTRO_ANY_CASE_RE gains "name: / name - X"; new RELATIVE_NAME_RE ("my father Rakesh Kumar") and LIVE_LOCALITY_RE ("I live in Baner, Pune" redacts the locality, a bare city stays). "want to study in germany" survives.
+- F2 (H6) packages/providers/src/index.ts GroundingBudget.#charge — day and per-key counts are reserved synchronously BEFORE the async spend is awaited and rolled back (only if the UTC day has not rolled over) when the spend throws.
+- F3 (H6 privacy) apps/api/src/anonymous.ts — new AnonymousRateLimiter.keyOf(); the budget is keyed on the limiter's salted digest, never the raw address. A request with no usable client key keeps the fail-safe behaviour (it falls into ONE shared, still-capped "unknown" bucket) and now logs a text-free `anonymous_client_key_missing` warning once per handler, so the shared bucket is not silent. Note for the checker: behind a proxy that yields no key every client shares five calls — that is the safe direction.
+- F4 (H4/H7) lang.ts isOutOfScopeQuestion — bare "ignore / disregard / forget (all) previous|prior|earlier|above" is declined again when it ends the clause or is followed by an instruction noun (so "ignore my previous backlogs" and "ignore the previous semester marks" stay answered), the bare "ignore rules / bypass the rules" form, and "forget what I told you before and act as ..." are back; every pattern of base 3772f4a is covered. New FRAUD_ASK_RES: a producing or obtaining verb aimed at the asker ("give me a fake degree certificate", "photoshop my marksheet", "how can I make a fake degree and avoid detection") is declined even with a consequence or awareness clause; "are consultancies making fake offer letters", "how can I get a fake degree detected" and the 7 H4 genuine questions are still answered. "hack/crack ... systems" has a lookahead so "how to crack systems design interviews" is answered.
+- F5 (H5) lang.ts hasBareDomain — DOT_THEN_SPACE_RE is case-insensitive; a non-lower-case TLD after a full stop counts only for TLDs that are not sentence openers (de, nl, com, org, edu, ch ...), so "DAAD. DE" and "tum. De" are flagged while "low. EU students", "cities.it depends", "etc.in Germany" are not.
+- Not changed: crisisGuard, LK10 wording, H3 outage behaviour (Umesh decision on a helpline line pending), D-110 Tele-MANAS rule.
+Tests[F1]: packages/engine/tests/lang.test.ts::"H1 F1: ..." (3 tests) and packages/engine/tests/student-graph.test.ts::"H1 F1: ..." (10 phrasings; none of the tokens on the grounded wire, "want to study in germany" survives)
+Tests[F2]: packages/providers/tests/index.test.ts::"H6 F2: 10 parallel answer() calls ..." (cap 5 of 10 parallel, per session and per day) and "H6 F2: a spend that throws ... rolls the reserved ... counts back"
+Tests[F3]: apps/api/tests/anonymous-route.test.ts::"H6 F3: ..." (2 tests: salted digest key never contains the raw address, same client one bucket; keyless request shares one capped bucket and logs once)
+Tests[F4]: packages/engine/tests/lang.test.ts::"H4 F4: ..." (2 tests: injections declined, genuine backlog and credit-transfer questions, fraud requests declined, fraud questions and "crack systems design interviews" answered)
+Tests[F5]: packages/engine/tests/lang.test.ts::"H5 F5: ..."
+Falsification[F1]: lang.ts reverted to base 7247d5f in a scratch copy outside the tree (D:/vc/.tmp-c1/fals, deleted after) -> lang "H1 F1" x3 and student-graph "H1 F1" wire test fail (4 fail), restored tree green
+Falsification[F2]: providers/src/index.ts reverted to base in the scratch copy -> providers index.test "H6 F2: 10 parallel ..." fails (1 fail, 27 pass)
+Falsification[F3]: anonymous.ts reverted to base in the scratch copy -> anonymous-route "H6 F3" x2 fail (2 fail, 3 pass)
+Falsification[F4]: lang.ts reverted to base in the scratch copy -> lang "H4 F4" x2 fail
+Falsification[F5]: lang.ts reverted to base in the scratch copy -> lang "H5 F5" fails (the scratch run had one extra environmental failure, B24.2, because the copy has no mcp/ directory; not a code defect)
+Pre-check[F1]: bc75b12 `npx tsx --test tests/lang.test.ts` (packages/engine) -> exit 0, 54 passed, 0 failed blobs=packages/engine/tests/lang.test.ts:c70fae0
+Pre-check[F1]: bc75b12 `npx tsx --test tests/student-graph.test.ts` (packages/engine) -> exit 0, 112 passed, 0 failed blobs=packages/engine/tests/student-graph.test.ts:d14c2ec
+Pre-check[F2]: bc75b12 `npx tsx --test tests/index.test.ts` (packages/providers) -> exit 0, 28 passed, 0 failed blobs=packages/providers/tests/index.test.ts:9069bf5
+Pre-check[F3]: bc75b12 `npx tsx --test --test-name-pattern="H2|H6|G5" tests/anonymous-route.test.ts` (apps/api) -> exit 0, 9 passed, 0 failed blobs=apps/api/tests/anonymous-route.test.ts:8989c62
+Pre-check[F3]: bc75b12 `npx tsx --test --test-name-pattern=H2 tests/chat-profile.test.ts` (apps/api) -> exit 0, 2 passed, 0 failed blobs=apps/api/tests/chat-profile.test.ts:05c1bd5
+Pre-check[F3]: bc75b12 `npx tsx --test tests/chat.test.ts` (apps/api) -> exit 1, 34 passed, 1 failed (baseline red "A20 flag on but gate closed", not this change) blobs=apps/api/tests/chat.test.ts:a462a2b
+Pre-check[F4]: bc75b12 `npx tsx --test tests/lang.test.ts` (packages/engine) -> exit 0, 54 passed, 0 failed blobs=packages/engine/tests/lang.test.ts:c70fae0
+Pre-check[F4]: bc75b12 `npx tsx --test tests/lk5.test.ts` (packages/engine) -> exit 0, 65 passed, 0 failed blobs=packages/engine/tests/lk5.test.ts:734ebf6
+Pre-check[F5]: bc75b12 `npx tsx --test tests/lang.test.ts` (packages/engine) -> exit 0, 54 passed, 0 failed blobs=packages/engine/tests/lang.test.ts:c70fae0
+Pre-check[F5]: bc75b12 `npx tsc --noEmit` in packages/engine, packages/providers and apps/api -> no output (exit 0)
+Also run: packages/engine tests/student-classify.test.ts 5/5. No full suite and no live LLM or Gemini call.
+Metrics: start=2026-10-22T03:22:58+05:30 end=2026-10-22T03:27:04+05:30 wall_min=4 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=2 mutations=5 cycle=1 resumes=1 tokens=unavailable policy=proportional-verification/2026-10-19.17 check_s=0 mutants=5 defects_unit=0 defects_6c=0
+
 ## Open risks for the checker
+0. (cycle 1) F1 redaction stays deterministic: an over-redacted odd lower-case word after "i am" is accepted by design; an unusual name form without a lead-in phrase can still pass. F4 fraud/injection rules remain regex tuned on the review's lists. F3: with no client key every request shares one capped bucket (fail safe, logged once).
 1. H3 is an [ASSUMPTION] (brief): on a screen outage a no-source turn shows the plain fixed refusal, not the crisis message. A real crisis phrase is still caught by crisisGuard (first, unchanged) and a classified "possible" is still the crisis message. A student in distress whose message the offline guard misses and whose classifier call fails sees an ordinary refusal; Umesh may override.
 2. H2 is enforced at the startApi composition root only, not inside the graph (existing graph tests use `grounding` without a screen). Code that builds the graph directly can still run grounding with no screen.
 3. H6 "per session": the anonymous route is stateless with no session id, so its key is the client key (IP based, the same as the rate limiter); behind a shared NAT many students share five calls. Caps and the per-key map live in memory per process (reset on restart and per replica). The spend charge is a notional USD 0.035 per grounded call reserved against the chain monthly cap (no refund, no usage report for the grounded request), and only exists when VC_TEXT_CHAIN is set.
