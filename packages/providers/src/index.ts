@@ -811,6 +811,34 @@ export function emitFailoverAlert(info: FailoverExhaustedInfo): void {
   });
 }
 
+/** A go-live engineering alert (P1 alerts, D-108 item 7). `attributes` are figures and names only: never a student's words, a key or a transcript. */
+export interface EngineeringAlert {
+  /** `alert_<what>`, e.g. "alert_safety_screen_outage". */
+  event: string;
+  attributes?: Record<string, string | number | boolean>;
+}
+
+/**
+ * The same alert mechanism as `emitFailoverAlert` (a structured, text-free console.error line PLUS a Langfuse-visible OTel error span through
+ * the existing @vc/observability `recordErrorSpan`), for alerts that are not a provider-chain exhaustion. No new transport: no email, Slack or
+ * webhook. The caller owns rate limiting and must pass only key-free, transcript-free attributes.
+ */
+export function emitEngineeringAlert(alert: EngineeringAlert): void {
+  const attributes = alert.attributes ?? {};
+  console.error(JSON.stringify({ level: "error", event: alert.event, ...attributes }));
+  recordErrorSpan({
+    name: `vc.${alert.event}`,
+    attributes: {
+      // "gen_ai.*" so the Langfuse span filter forwards the span (see emitFailoverAlert).
+      "gen_ai.system": "vc",
+      "alert.event": alert.event,
+      ...Object.fromEntries(Object.entries(attributes).map(([k, v]) => [`alert.${k}`, v])),
+    },
+    errorName: alert.event,
+    errorMessage: `engineering alert ${alert.event}`,
+  });
+}
+
 export interface FailoverProviderOptions {
   /** Providers in config order — the chain FailoverProvider cycles through on a retryable failure. */
   chain: LlmProvider[];
