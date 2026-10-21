@@ -1,0 +1,6 @@
+import { test } from "node:test";
+import { redactStudentDetails as r } from "../src/student/lang.js";
+test("p", () => {
+  for (const t of ["i am riya sharma and i want germany", "I am riya sharma and I want germany", "im riya, 16, from pune", "i'm riya and need fees", "I am Riya", "i am Riya Sharma", "My pin code is 560037", "pincode is 560037", "my pin is 560037", "postal code 560037", "zip code is 94110", "I live in Pune, 411001", "address: Flat 4B Green Park Pune 411001", "i am studying in 11th", "i am from delhi", "i am nervous about visa", "i am vikram", "myself Rahul Verma, 12th pass", "this is Riya Sharma writing", "naam riya hai", "Riya here, 16", "I am a student of Delhi Public School", "I go to Presidency School Bangalore", "I study in Ryan International School", "i am 16", "I am sixteen years old", "my age is sixteen", "16 saal ka hoon", "born in 2008", "birth year 2008"])
+    console.log("P2|", JSON.stringify(t), "=>", JSON.stringify(r(t)));
+});

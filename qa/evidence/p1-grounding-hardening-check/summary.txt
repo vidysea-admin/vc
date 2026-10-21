@@ -1,0 +1,55 @@
+=== eng-graph START 2026-10-22T01:16:20+05:30
+=== eng-graph END rc=0 2026-10-22T01:16:26+05:30 pass= fail=
+=== eng-lang START 2026-10-22T01:16:26+05:30
+=== eng-lang END rc=0 2026-10-22T01:16:31+05:30 pass= fail=
+=== eng-lk5 START 2026-10-22T01:16:31+05:30
+=== eng-lk5 END rc=0 2026-10-22T01:16:37+05:30 pass= fail=
+=== prov-index START 2026-10-22T01:16:37+05:30
+=== prov-index END rc=0 2026-10-22T01:16:40+05:30 pass= fail=
+=== api-anon-H START 2026-10-22T01:16:40+05:30
+=== api-anon-H END rc=0 2026-10-22T01:16:45+05:30 pass= fail=
+=== api-prof-H START 2026-10-22T01:16:45+05:30
+=== api-prof-H END rc=0 2026-10-22T01:16:49+05:30 pass= fail=
+=== api-chat START 2026-10-22T01:16:49+05:30
+=== api-chat END rc=1 2026-10-22T01:16:54+05:30 pass= fail=
+=== api-openapi START 2026-10-22T01:16:55+05:30
+=== api-openapi END rc=0 2026-10-22T01:16:59+05:30 pass= fail=
+=== api-index START 2026-10-22T01:16:59+05:30
+=== api-index END rc=0 2026-10-22T01:17:03+05:30 pass= fail=
+=== api-server START 2026-10-22T01:17:03+05:30
+=== api-server END rc=0 2026-10-22T01:17:08+05:30 pass= fail=
+=== api-zero START 2026-10-22T01:17:08+05:30
+=== api-zero END rc=0 2026-10-22T01:17:14+05:30 pass= fail=
+=== eng-crisis-defaults START 2026-10-22T01:17:14+05:30
+=== eng-crisis-defaults END rc=0 2026-10-22T01:17:19+05:30 pass= fail=
+=== eng-crisis-escalation START 2026-10-22T01:17:19+05:30
+=== eng-crisis-escalation END rc=0 2026-10-22T01:17:25+05:30 pass= fail=
+=== eng-coach-first START 2026-10-22T01:17:25+05:30
+=== eng-coach-first END rc=0 2026-10-22T01:17:29+05:30 pass= fail=
+=== eng-index START 2026-10-22T01:17:29+05:30
+=== eng-index END rc=0 2026-10-22T01:17:33+05:30 pass= fail=
+=== eng-capability-manifest START 2026-10-22T01:17:33+05:30
+=== eng-capability-manifest END rc=0 2026-10-22T01:17:37+05:30 pass= fail=
+=== eng-student-fact-extractor START 2026-10-22T01:17:37+05:30
+=== eng-student-fact-extractor END rc=0 2026-10-22T01:17:41+05:30 pass= fail=
+=== eng-rank START 2026-10-22T01:17:41+05:30
+=== eng-rank END rc=0 2026-10-22T01:17:45+05:30 pass= fail=
+=== api-voice START 2026-10-22T01:17:45+05:30
+=== api-voice END rc=0 2026-10-22T01:17:57+05:30 pass= fail=
+=== api-voice-wiring START 2026-10-22T01:17:57+05:30
+=== api-voice-wiring END rc=0 2026-10-22T01:18:03+05:30 pass= fail=
+=== api-voice-crisis-turn START 2026-10-22T01:18:03+05:30
+=== api-voice-crisis-turn END rc=0 2026-10-22T01:18:17+05:30 pass= fail=
+=== api-chat-privacy START 2026-10-22T01:18:17+05:30
+=== api-chat-privacy END rc=0 2026-10-22T01:18:27+05:30 pass= fail=
+=== api-go-live-gate START 2026-10-22T01:18:27+05:30
+=== api-go-live-gate END rc=0 2026-10-22T01:18:31+05:30 pass= fail=
+=== tsc-providers START 2026-10-22T01:18:31+05:30
+=== tsc-providers END rc=0 2026-10-22T01:18:35+05:30 pass= fail=
+=== tsc-schemas START 2026-10-22T01:18:35+05:30
+=== tsc-schemas END rc=0 2026-10-22T01:18:38+05:30 pass= fail=
+=== tsc-engine START 2026-10-22T01:18:38+05:30
+=== tsc-engine END rc=0 2026-10-22T01:18:44+05:30 pass= fail=
+=== tsc-api START 2026-10-22T01:18:44+05:30
+=== tsc-api END rc=0 2026-10-22T01:18:49+05:30 pass= fail=
+ALLDONE

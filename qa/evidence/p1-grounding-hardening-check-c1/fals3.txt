@@ -1,0 +1,7 @@
+##### F1pin2 green-before 2026-10-22T03:36:45+05:30
+green rc=0 ℹ pass 3 ℹ fail 0 
+mutation applied at line 841
+red rc=1 ℹ pass 2 ℹ fail 1 
+✖ H1 F1: labelled PIN codes in natural phrasings are redacted ('pin code is', 'pin-code:', '411001 is my PIN'); a PIN after a city with a dash too (0.7036ms)
+✖ failing tests:
+restored rc=0 ℹ pass 3 ℹ fail 0 

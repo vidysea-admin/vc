@@ -1,0 +1,30 @@
+##### H1 green-before
+green rc=0 ℹ pass 4 ℹ fail 0 
+mut rc=0
+red rc=1 ℹ pass 2 ℹ fail 2 
+✖ H1: 'my name is riya and i want to study in germany' keeps 'want to study in germany' on the wire (no over-redaction of lowercase words) (12.4555ms)
+✖ H1: the outbound body of the grounded call carries no name, age, school, address, PIN, date of birth, phone, e-mail or id of a minor-style introduction, and keeps the study question (18.724ms)
+✖ failing tests:
+##### H2 green-before
+green rc=0 ℹ pass 2 ℹ fail 0 
+mut rc=0
+red rc=1 ℹ pass 1 ℹ fail 1 
+✖ H2: VC_GROUNDING=gemini with the anonymous route over a rules provider (no classifier, so no screen) refuses to start, before connecting, naming no key (21.7057ms)
+✖ failing tests:
+##### H2b green-before
+green rc=0 ℹ pass 2 ℹ fail 0 
+mut rc=0
+red rc=1 ℹ pass 1 ℹ fail 1 
+✖ H2: chat + VC_GROUNDING=gemini + chat.safetyScreen=false, or a rules screen provider, refuses to start with a named GroundingConfigError before connecting (18.8457ms)
+✖ failing tests:
+##### H7 green-before
+green rc=0 ℹ pass 65 ℹ fail 0 
+mut rc=0
+red rc=1 ℹ pass 59 ℹ fail 6 
+✖ R3 'possible' (severity at or above the escalation threshold) returns the fixed crisis message and nothing of the answer; flag log and escalation run (7.5841ms)
+✖ R3 a screen error returns the fixed crisis message (fail closed), without a flag log or an escalation for an outage (6.9395ms)
+✖ R3 a screen that never answers times out to the fixed crisis message (61.9935ms)
+✖ R3 an anonymous 'possible' gives the anonymous crisis message and counts a crisis, not an answer (5.8032ms)
+✖ R3 invalid screen output (schema) is an error too: fixed crisis message (6.9392ms)
+✖ R3 the answer is HELD until the screen returns: a finished answer is not released while the screen is pending, and 'possible' replaces it (307.4416ms)
+FAL2DONE

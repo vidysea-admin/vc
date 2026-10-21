@@ -1,0 +1,52 @@
+import { test } from "node:test";
+import { redactStudentDetails, hasExplicitLink, isOutOfScopeQuestion } from "../src/student/lang.js";
+test("chk probe print", () => {
+  const R = [
+    "I'm riya sharma from pune 411001",
+    "Mera naam Riya hai",
+    "mera naam riya hai, germany fees kitni hai?",
+    "PIN-411001",
+    "pin no 411001",
+    "Pin Code No. 411001",
+    "PIN number is 411001",
+    "my pincode: 411 001 and I want fees info",
+    "postal code 411001",
+    "zip: 411001",
+    "area pincode 411001",
+    "I'm Riya, 16, from Pune. Which German univ?",
+    "i am riya from pune and need visa info",
+    "name: riya sharma, which course?",
+    "Naam: Riya Sharma",
+    "Hi, I'm Aarav Mehta and I'd like fees info",
+    "this is riya here, need help with fees",
+    "myself Riya Sharma, need germany help",
+    "my sister Anita Rao wants to study in Germany",
+    "my father Rakesh Kumar is a farmer, can I get a scholarship?",
+    "I live in Baner, Pune and want german visa info",
+    "i stay in Kothrud Pune, ielts?",
+    "I'm Riya Sharma (16) of Pune 411001",
+    "im riya & my dob 04.03.2008",
+    "i am riya sharma. i study in class 11 at Symbiosis School Pune",
+    "Hello, I am Priya.",
+    "I'M RIYA SHARMA FROM PUNE",
+    "i am looking for scholarships in germany",
+    "i am from india and want to study there",
+    "I am a 12th pass student, what next?",
+    "i am planning a masters in germany",
+    "i am worried about fees in germany",
+    "I am not sure whether a blocked account is needed",
+    "I am vegetarian, are there vegetarian mensas in Germany?",
+    "i am an engineering graduate with 7 cgpa",
+    "i am applying to TU Munich for ws2027",
+    "I am Indian, do I need APS?",
+    "i am going to germany next year, need accommodation tips",
+    "I am a minor, can I apply?",
+    "I'm currently in 12th, can I apply to Germany?",
+    "I'm good at maths and physics, which course suits me?",
+    "I am interested in AI and robotics",
+    "Im confused between UK and Germany",
+  ];
+  for (const t of R) console.log("RED|" + t + "  =>  " + redactStudentDetails(t));
+  const L = ["visit daad.de.", "visit daad.de", "see DAAD.DE.", "Daad.De", "visit DAAD. DE.", "tum.de.", "(daad.de)", "daad.de, then", "daad.de/en", "go to www.daad.de.", "U.S. universities are costly", "U.K. universities", "Ph.D. in Germany", "M.Sc. in Germany", "B.Tech. in India then masters", "e.g. TU Munich", "i.e. no tuition", "St. Gallen is in Switzerland", "Dr. Müller", "No. 5 ranked", "approx. 300 euros", "Fees are low. NL universities charge more", "Tuition is low. DE universities are free", "Costs are low. EU students pay less", "Germany is nice.DE", "visit Daad. de for details", "Mr. Singh said so", "U.S.A. is costly", "u.s. universities", "She studied B.A. in Germany", "tuition fees. it depends", "Visit https://www.daad.de/en/", "DAAD . DE", "daad dot de.", "uni-bonn.de.", "study in Germany. De facto it is free"];
+  for (const t of L) console.log("LNK|" + t + "  =>  " + hasExplicitLink(t));
+});

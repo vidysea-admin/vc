@@ -74,6 +74,7 @@ import {
   hasExplicitLink,
   isNonEnglish,
   isOutOfScopeQuestion,
+  redactStudentDetails,
   isOutsideAllowList,
   countriesInLocalized,
   localizedClaimText,
@@ -425,6 +426,8 @@ export interface StudentTurnResult {
   claimSourceKinds: SourceKind[];
   /** A flag-log or escalation write failed; the fixed message was still shown. */
   flagWriteFailed?: boolean;
+  /** H3 (internal, removed in `finish`): the reply is a no-source reply, so a safety-screen OUTAGE keeps it instead of becoming the crisis message. */
+  noSourceReply?: boolean;
   /** LK4: the language detected for this turn (a crisis turn: the offline script result). */
   detectedLang?: string;
   /** LK4: the language the reply is written in: the detected language when allow-listed, else en. */
@@ -699,13 +702,18 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     })
     .addNode(STUDENT_NODES.finish, async (s: State) => {
       if (!s.result) throw new Error("student graph reached finish without a result");
-      let result = s.result;
+      const { noSourceReply, ...held } = s.result;
+      let result: StudentTurnResult = held;
       // LK5: nothing is released before the screen has answered. "Possible", an error, a timeout or invalid output replaces the reply
       // with the fixed crisis message. Only a real "possible" raises the flag log and the escalation; an outage is reported text-free.
       const verdict = s.screen ? await s.screen : undefined;
       if (verdict && verdict.verdict === "possible") {
         if (verdict.basis === "unavailable") report("safety_screen", Object.assign(new Error("safety screen unavailable"), { name: verdict.errorName }));
-        result = await crisisResult(s.input, undefined, s.detectedLang ?? detectLanguageOffline(s.input.text).lang, verdict.basis === "classified");
+        // H3: a classifier OUTAGE on a no-source turn is not evidence of distress. Nothing left for the web or a model (noAnswer sent nothing),
+        // so the student keeps the plain fixed refusal (or topic decline); a real classified "possible" is still the crisis message.
+        if (!(noSourceReply && verdict.basis === "unavailable")) {
+          result = await crisisResult(s.input, undefined, s.detectedLang ?? detectLanguageOffline(s.input.text).lang, verdict.basis === "classified");
+        }
       }
       const outside = s.detectedLang !== undefined && isOutsideAllowList({ lang: s.detectedLang }, replyLangs);
       const done = finish(s.input, result, Boolean(s.priorFlag), outside);
@@ -744,6 +752,7 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
       response: { ...emptyResponse(input, "no_sourced_answer", message), sources },
       selectedTool: "search_kb",
       claimSourceKinds: [],
+      noSourceReply: true,
     });
     if (isOutOfScopeQuestion(input.text)) return reply(fixedText(replyLang, "topicDecline"));
     if (screen) {
@@ -757,8 +766,12 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
         { provider: screenCfg.provider, skillPrompt: screenPrompt, ...(screenCfg.timeoutMs !== undefined ? { timeoutMs: screenCfg.timeoutMs } : {}), ...(screenCfg.blockAt !== undefined ? { blockAt: screenCfg.blockAt } : {}) },
       );
       if (verdict.verdict === "possible") {
-        if (verdict.basis === "unavailable") report("safety_screen", Object.assign(new Error("safety screen unavailable"), { name: verdict.errorName }));
-        return crisisResult(input, undefined, lang, verdict.basis === "classified");
+        if (verdict.basis === "unavailable") {
+          // H3: an outage is reported text-free; the student gets the plain refusal and nothing leaves (no grounded or guidance call).
+          report("safety_screen", Object.assign(new Error("safety screen unavailable"), { name: verdict.errorName }));
+          return reply(refusal);
+        }
+        return crisisResult(input, undefined, lang, true);
       }
     }
     const guidance = await expertGuidance(input, priorFlag, replyLang);
@@ -766,15 +779,13 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     return guidance ? reply(guidance.message, guidance.sources) : reply(refusal);
   }
 
-  /** G1: the question as it may leave for the web: listed speakers, "my name is X" introductions, phone and ID numbers, dates of birth, e-mail addresses and links replaced, bounded. This is a deterministic floor, not a guarantee that free text holds no personal detail; nothing else about the student goes with it. */
+  /** G1 + H1: the question as it may leave for the web: listed speakers, self-introduced names (any case), ages, schools and colleges, street addresses, PIN codes, dates of birth, phone and ID numbers, e-mail addresses and links replaced, bounded. This is a deterministic floor, not a guarantee that free text holds no personal detail; nothing else about the student goes with it. */
   function webQuestion(text: string): string {
-    return redactPersonalIdentifiers(text, deps.speakers, [])
-      .replace(/(?:https?|ftps?):\/\/\S+|www\.\S+/giu, "[link]")
-      .replace(/[^\s@<>()"',;]+@[^\s@<>()"',;]+\.\p{L}{2,}/gu, "[email]")
-      .replace(/\b(?:my name is|i am called|i'm called|mera naam|my name's)\s+\p{Lu}[\p{L}'.-]*(?:\s+\p{Lu}[\p{L}'.-]*){0,3}/giu, "[name]")
-      .replace(/\b\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2})\b/gu, "[date]")
-      .replace(/\b[A-Z]{1,2}\d{6,9}\b|\b\d{8,}\b/gu, "[id]")
-      .slice(0, WEB_QUESTION_MAX_CHARS);
+    return redactStudentDetails(
+      redactPersonalIdentifiers(text, deps.speakers, [])
+        .replace(/(?:https?|ftps?):\/\/\S+|www\.\S+/giu, "[link]")
+        .replace(/[^\s@<>()"',;]+@[^\s@<>()"',;]+\.\p{L}{2,}/gu, "[email]"),
+    ).slice(0, WEB_QUESTION_MAX_CHARS);
   }
 
   /** G1: grounding links re-checked on this side of the seam (https only, no credentials, unique, at most 5), as `web` sources. */

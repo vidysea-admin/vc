@@ -1,0 +1,37 @@
+test("CHK F3 hostile: IPv6 and mapped-IPv4 clients, raw text never in key or logs, /64 and mapped forms share one bucket", async () => {
+  const spy = new SpyBudget({ maxPerSession: 5, maxPerDay: 100 });
+  const grounded = new MockGroundedAnswerer(GROUNDED_REPLY);
+  const w = capWorld(spy, grounded);
+  try {
+    const ips = ["2001:db8:85a3:1:2:3:4:5", "2001:db8:85a3:1::7", "::ffff:203.0.113.50", "203.0.113.50", "198.51.100.77"];
+    for (const ip of ips) await ask(w, GERMANY_Q, { ip });
+    console.log("F3KEYS|" + JSON.stringify(spy.seen));
+    assert.equal(spy.seen.length, 5);
+    for (const k of spy.seen) {
+      assert.match(k, /^[A-Za-z0-9_-]{43}$/);
+      assert.ok(!/203\.0\.113|2001|db8|198\.51/i.test(k));
+    }
+    assert.equal(spy.seen[0], spy.seen[1], "same /64 one bucket");
+    assert.equal(spy.seen[2], spy.seen[3], "mapped v4 equals v4");
+    assert.notEqual(spy.seen[3], spy.seen[4]);
+    const logs = JSON.stringify(w.logs);
+    assert.ok(!/203\.0\.113|2001:db8|198\.51\.100/.test(logs), "raw address in logs: " + logs.slice(0, 300));
+  } finally { w.cleanup(); }
+});
+
+test("CHK F3 hostile: a custom clientKey that is an e-mail / empty string / whitespace: no raw value in key; empty and whitespace-only is handled without crash", async () => {
+  for (const ck of ["riya@example.com", "", "   "]) {
+    const spy = new SpyBudget({ maxPerSession: 2, maxPerDay: 100 });
+    const grounded = new MockGroundedAnswerer(GROUNDED_REPLY);
+    const provider = kbAnswerProvider();
+    provider.setResponse("kb-general-guidance", { answer: "Model-only guidance: German public universities usually charge no tuition fees." });
+    const w = anonWorld({ kb: NO_HITS_KB(), provider, deps: { grounding: grounded, groundingBudget: spy, clientKey: () => ck, limits: { anonymousRequestsPerMinute: 100 } } });
+    try {
+      for (let i = 0; i < 3; i += 1) { const out = await ask(w, GERMANY_Q, { ip: "203.0.113.9" }); assert.equal(out.status, 200); }
+      console.log("F3CK|" + JSON.stringify(ck) + "|keys=" + new Set(spy.seen).size + "|grounded=" + grounded.calls.length + "|missingLogs=" + (w.logs as Array<{ event?: string }>).filter((l) => l.event === "anonymous_client_key_missing").length);
+      assert.ok(!spy.seen.some((k) => k.includes("riya") || k.includes("example")));
+      assert.equal(grounded.calls.length, 2);
+      assert.ok(!JSON.stringify(w.logs).includes("riya@example"));
+    } finally { w.cleanup(); }
+  }
+});

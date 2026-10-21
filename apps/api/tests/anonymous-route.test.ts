@@ -25,10 +25,10 @@ import {
   createAnonymousApi,
   withAnonymousRoutes,
 } from "../src/anonymous.js";
-import { MockGroundedAnswerer } from "@vc/providers";
+import { GroundingBudget, MockGroundedAnswerer, MockProvider, RulesProvider } from "@vc/providers";
 import { createFakeMongoClient } from "@vc/db/testing";
 import { VC_DB_NAME } from "@vc/db";
-import { APPROVER, CHAIN_ENV, GOOD_CLAIM, NOW, SKILLS_DIR, SPEAKERS, anonRequest, anonWorld, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
+import { APPROVER, CHAIN_ENV, GOOD_CLAIM, NOW, SKILLS_DIR, SPEAKERS, ask, anonRequest, anonWorld, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
 
 const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
 const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -509,5 +509,171 @@ test("G1: VC_GROUNDING set to anything but off/gemini, or gemini without GEMINI_
       JSON.stringify(Object.keys(env)),
     );
     assert.equal(connected, false);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// p1-grounding-hardening (H2 grounding never runs unscreened, H6 caps)
+// ---------------------------------------------------------------------------
+
+const GROUND_ENV = { VC_GROUNDING: "gemini", GEMINI_API_KEY: "synthetic-gemini-key-not-real" };
+
+async function startAnonymous(provider: MockProvider | RulesProvider, env: Record<string, string | undefined>) {
+  const fake = createFakeMongoClient();
+  let connected = 0;
+  (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
+  const f = gatesFixture();
+  try {
+    const api = await startApi(
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true", ...env },
+      { clientFactory: () => fake.client, http: { port: 0, verifier, provider, skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb({ status: "ok", hits: [], dropped: 0 }), speakers: SPEAKERS, gatesDir: f.gates, trustSocketAddress: true } } },
+    );
+    return { api, connected: () => connected, done: async () => { await api.stop(); cleanupGates(f); } };
+  } catch (e) {
+    cleanupGates(f);
+    return { error: e as Error, connected: () => connected };
+  }
+}
+
+test("H2: VC_GROUNDING=gemini with the anonymous route over a rules provider (no classifier, so no screen) refuses to start, before connecting, naming no key", async () => {
+  for (const extra of [{}, { VC_ANONYMOUS_SAFETY_SCREEN: "true" }, CHAIN_ENV]) {
+    const r = await startAnonymous(new RulesProvider(), { ...GROUND_ENV, ...extra });
+    if ("done" in r) {
+      await r.done();
+      assert.fail(`started grounded with no screen: ${JSON.stringify(Object.keys(extra))}`);
+    }
+    assert.match(r.error.message, /GroundingConfigError/);
+    assert.match(r.error.message, /safety screen/i);
+    assert.ok(!r.error.message.includes("synthetic-gemini-key-not-real"));
+    assert.equal(r.connected(), 0, "nothing connected");
+  }
+});
+
+test("H2: the same rules provider WITHOUT grounding still starts (the existing behaviour), and grounding over a classifier-capable provider starts with the screen on", async () => {
+  const off = await startAnonymous(new RulesProvider(), {});
+  assert.ok("done" in off, "error" in off ? String(off.error) : "");
+  await off.done();
+  for (const extra of [{}, { VC_ANONYMOUS_SAFETY_SCREEN: "true" }]) {
+    const ok = await startAnonymous(kbAnswerProvider(), { ...GROUND_ENV, ...extra });
+    assert.ok("done" in ok, "error" in ok ? String(ok.error) : "");
+    await ok.done();
+  }
+});
+
+const NO_HITS_KB = () => recordingKb({ status: "ok", hits: [], dropped: 0 });
+const GROUNDED_REPLY = { text: "Public universities in Germany mostly charge no tuition, with a semester contribution of about 300 euros.", sources: [] };
+function capWorld(budget: GroundingBudget, grounded: MockGroundedAnswerer) {
+  const provider = kbAnswerProvider();
+  provider.setResponse("kb-general-guidance", { answer: "Model-only guidance: German public universities usually charge no tuition fees." });
+  return anonWorld({ kb: NO_HITS_KB(), provider, deps: { grounding: grounded, groundingBudget: budget, limits: { anonymousRequestsPerMinute: 100 } } });
+}
+
+test("H6: grounded calls are capped per anonymous client; over the cap the turn falls back to the model-only guidance (D-110), no crash, and other clients are unaffected", async () => {
+  const grounded = new MockGroundedAnswerer(GROUNDED_REPLY);
+  const w = capWorld(new GroundingBudget({ maxPerSession: 2, maxPerDay: 100 }), grounded);
+  try {
+    const messages: string[] = [];
+    for (let i = 0; i < 4; i += 1) {
+      const out = await ask(w, GERMANY_Q, { ip: "203.0.113.50" });
+      assert.equal(out.status, 200);
+      assert.equal(out.json.state, "no_sourced_answer");
+      messages.push(out.json.message);
+    }
+    assert.equal(grounded.calls.length, 2, "only the first two reached the web");
+    assert.ok(messages[0]!.includes("semester contribution"), messages[0]);
+    assert.ok(messages[2]!.includes("Model-only guidance"), messages[2]);
+    assert.ok(messages[3]!.includes("Model-only guidance"), messages[3]);
+    const other = await ask(w, GERMANY_Q, { ip: "203.0.113.51" });
+    assert.ok(other.json.message.includes("semester contribution"));
+    assert.equal(grounded.calls.length, 3);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("H6: grounded calls are capped per day across clients; a refused spend guard is the same fallback", async () => {
+  const grounded = new MockGroundedAnswerer(GROUNDED_REPLY);
+  const w = capWorld(new GroundingBudget({ maxPerSession: 10, maxPerDay: 2 }), grounded);
+  try {
+    for (const ip of ["203.0.113.60", "203.0.113.61", "203.0.113.62"]) {
+      const out = await ask(w, GERMANY_Q, { ip });
+      assert.equal(out.status, 200);
+      assert.equal(out.json.state, "no_sourced_answer");
+    }
+    assert.equal(grounded.calls.length, 2);
+  } finally {
+    w.cleanup();
+  }
+  const g2 = new MockGroundedAnswerer(GROUNDED_REPLY);
+  const spendDenied = capWorld(new GroundingBudget({ maxPerSession: 10, maxPerDay: 10, spend: () => { throw new Error("monthly cap"); } }), g2);
+  try {
+    const out = await ask(spendDenied, GERMANY_Q, { ip: "203.0.113.70" });
+    assert.equal(out.status, 200);
+    assert.ok(out.json.message.includes("Model-only guidance"), out.json.message);
+    assert.equal(g2.calls.length, 0);
+  } finally {
+    spendDenied.cleanup();
+  }
+});
+
+test("H6: startApi refuses a malformed grounded-call cap and a non-flash VC_GROUNDING_MODEL before connecting", async () => {
+  for (const bad of [{ VC_GROUNDING_MAX_PER_SESSION: "0" }, { VC_GROUNDING_MAX_PER_DAY: "many" }, { VC_GROUNDING_MODEL: "gemini-2.5-pro" }]) {
+    const r = await startAnonymous(kbAnswerProvider(), { ...GROUND_ENV, ...bad });
+    if ("done" in r) {
+      await r.done();
+      assert.fail(JSON.stringify(bad));
+    }
+    assert.match(r.error.message, /GroundingConfigError/);
+    assert.equal(r.connected(), 0);
+  }
+});
+
+// p1-grounding-hardening fix cycle 1, F3 (H6 privacy): the grounded-call budget is keyed on the salted digest the rate limiter uses, never the raw address.
+class SpyBudget extends GroundingBudget {
+  readonly seen: string[] = [];
+  override bind(inner: Parameters<GroundingBudget["bind"]>[0], key: string | (() => string)) {
+    return super.bind(inner, () => {
+      const k = typeof key === "function" ? key() : key;
+      this.seen.push(k);
+      return k;
+    });
+  }
+}
+
+test("H6 F3: the grounded-call budget key is a salted digest, never the raw client address; the same client keeps one bucket and clients stay apart", async () => {
+  const spy = new SpyBudget({ maxPerSession: 5, maxPerDay: 100 });
+  const grounded = new MockGroundedAnswerer(GROUNDED_REPLY);
+  const w = capWorld(spy, grounded);
+  try {
+    await ask(w, GERMANY_Q, { ip: "203.0.113.50" });
+    await ask(w, GERMANY_Q, { ip: "203.0.113.50" });
+    await ask(w, GERMANY_Q, { ip: "203.0.113.51" });
+    assert.equal(spy.seen.length, 3);
+    for (const k of spy.seen) {
+      assert.ok(!k.includes("203.0.113"), `raw address in the budget key: ${k}`);
+      assert.match(k, /^[A-Za-z0-9_-]{43}$/, "a base64url SHA-256 digest");
+    }
+    assert.equal(spy.seen[0], spy.seen[1]);
+    assert.notEqual(spy.seen[0], spy.seen[2]);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("H6 F3: a request with no client key falls back to ONE shared, still-capped bucket (fail safe), and the missing key is logged once, text-free", async () => {
+  const spy = new SpyBudget({ maxPerSession: 2, maxPerDay: 100 });
+  const grounded = new MockGroundedAnswerer(GROUNDED_REPLY);
+  const provider = kbAnswerProvider();
+  provider.setResponse("kb-general-guidance", { answer: "Model-only guidance: German public universities usually charge no tuition fees." });
+  const w = anonWorld({ kb: NO_HITS_KB(), provider, deps: { grounding: grounded, groundingBudget: spy, clientKey: () => undefined, limits: { anonymousRequestsPerMinute: 100 } } });
+  try {
+    for (let i = 0; i < 4; i += 1) await ask(w, GERMANY_Q, { ip: `203.0.113.${80 + i}` });
+    assert.equal(new Set(spy.seen).size, 1, "every keyless request shares one bucket");
+    assert.equal(grounded.calls.length, 2, "and that bucket is capped, not unlimited");
+    const missing = (w.logs as Array<{ event?: string }>).filter((l) => l.event === "anonymous_client_key_missing");
+    assert.equal(missing.length, 1, "logged once");
+    assert.ok(!JSON.stringify(missing).includes("203.0.113"));
+  } finally {
+    w.cleanup();
   }
 });

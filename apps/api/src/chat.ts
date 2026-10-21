@@ -104,7 +104,7 @@ import {
   type StudentGraphDeps,
   type StudentKbPort,
 } from "@vc/engine";
-import { emitEngineeringAlert, type EngineeringAlert, type LlmProvider } from "@vc/providers";
+import { emitEngineeringAlert, type EngineeringAlert, type GroundingBudget, type LlmProvider } from "@vc/providers";
 import { AnonymousRateLimiter } from "./anonymous.js";
 import { AuthError, bearerToken, type StudentAuthContext, type StudentJwtVerifier } from "./auth.js";
 import { assertGoLive } from "./go-live-gate.js";
@@ -239,6 +239,8 @@ export interface ChatApiDeps {
    * (the model language detector, the reply-language allow-list, the LK5 safety screen). Absent = the offline script test and no screen.
    */
   graph?: Pick<StudentGraphDeps, "detectLanguage" | "replyLangs" | "safetyScreen" | "grounding">;
+  /** H6: per-thread and per-day cap on grounded calls (and the spend guard); over a cap the turn falls back to the model-only guidance. Absent = uncapped. */
+  groundingBudget?: GroundingBudget;
   now?: () => Date;
   nowMs?: () => number;
   /** p1-u8r cycle 2: how long a crisis turn waits for an unconfirmed slot holder before it escalates itself (default CRISIS_QUIET_WAIT_MS). */
@@ -455,6 +457,7 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
   // Cycle 2: the same per-turn scope records whether this turn's escalate port was really called and succeeded.
   type Redactors = { full: (s: string) => string; minimal: (s: string) => string; escalated?: boolean };
   const redactionScope = new AsyncLocalStorage<Redactors>();
+  const groundingThread = new AsyncLocalStorage<string>();
   /** The most redacted text that the crisis guard still reads as at least as serious as the original; the original only as a last resort. */
   const escalationText = (raw: string): string => {
     const r = redactionScope.getStore() ?? { full: (s: string) => redactPii(s).text, minimal: (s: string) => redactPii(s, { introductions: false }).text };
@@ -490,7 +493,9 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
         ...(deps.graph?.detectLanguage ? { detectLanguage: deps.graph.detectLanguage } : {}),
         ...(deps.graph?.replyLangs ? { replyLangs: deps.graph.replyLangs } : {}),
         ...(deps.graph?.safetyScreen ? { safetyScreen: deps.graph.safetyScreen } : {}),
-        ...(deps.graph?.grounding ? { grounding: deps.graph.grounding } : {}),
+        ...(deps.graph?.grounding
+          ? { grounding: deps.groundingBudget ? deps.groundingBudget.bind(deps.graph.grounding, () => groundingThread.getStore() ?? "unknown") : deps.graph.grounding }
+          : {}),
         ...(deps.now ? { now: deps.now } : {}),
         ...(variant === "quiet" ? {} : { recordGap: () => incrementGapCount(db, { kind: "no_sourced_answer" }, { now: nowDate() }) }),
         ...(variant === "quiet"
@@ -732,13 +737,15 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
       let result;
       try {
         result = await redactionScope.run(redactors, () =>
-          runStudentTurn(graphDepsFor(ctx.tenantId, db, variant), {
-            mode: "authenticated",
-            auth: { role: "student", studentId: ctx.studentId, tenantId: ctx.tenantId },
-            threadId,
-            turnId,
-            text,
-          }),
+          groundingThread.run(`${ctx.tenantId}|${ctx.studentId}|${threadId}`, () =>
+            runStudentTurn(graphDepsFor(ctx.tenantId, db, variant), {
+              mode: "authenticated",
+              auth: { role: "student", studentId: ctx.studentId, tenantId: ctx.tenantId },
+              threadId,
+              turnId,
+              text,
+            }),
+          ),
         );
       } catch (err) {
         await abandon();

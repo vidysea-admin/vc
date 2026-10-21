@@ -30,6 +30,7 @@
  * MAX_ANONYMOUS_BODY_BYTES (64 KiB, ISS-135) so a crisis phrase deep in a long message is still scanned (U6h L5); a larger
  * body is a 413 that still carries the helpline, and is not scanned.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
 import { fileURLToPath } from "node:url";
@@ -47,7 +48,7 @@ import {
   type StudentGraphDeps,
   type StudentKbPort,
 } from "@vc/engine";
-import type { GroundedAnswerer, LlmProvider } from "@vc/providers";
+import type { GroundedAnswerer, GroundingBudget, LlmProvider } from "@vc/providers";
 import { assertGoLive } from "./go-live-gate.js";
 import { BodyTooLargeError, respond, type ApiHandler, type ApiRequest, type ApiRoute } from "./server.js";
 
@@ -173,6 +174,11 @@ export class AnonymousRateLimiter {
     if (![opts.limit, opts.windowMs, opts.maxKeys].every((n) => Number.isInteger(n) && n >= 1)) throw new RangeError("AnonymousRateLimiter: limit, windowMs and maxKeys must be positive integers");
   }
 
+  /** The salted digest this limiter keys on; the grounded-call budget uses it too, so the raw address is never stored anywhere. */
+  keyOf(raw: string | undefined): string {
+    return this.digest(raw);
+  }
+
   private digest(raw: string | undefined): string {
     return createHash("sha256").update(this.salt).update(raw ?? "\u0000unknown").digest("base64url");
   }
@@ -231,7 +237,8 @@ export class AnonymousRateLimiter {
 export type AnonymousLogLine =
   | { level: "error"; event: "api_request_failed"; status: number; error: string; ts: string }
   | { level: "error"; event: "anonymous_counter_failed"; kind: string; ts: string }
-  | { level: "error"; event: "anonymous_forbidden_write"; write: string; ts: string };
+  | { level: "error"; event: "anonymous_forbidden_write"; write: string; ts: string }
+  | { level: "warn"; event: "anonymous_client_key_missing"; ts: string };
 
 /**
  * Everything the anonymous handler may be built with. There is deliberately no Db, checkpointer, outbox or tracer here.
@@ -257,6 +264,8 @@ export interface AnonymousApiDeps {
   };
   /** p1-nosource-grounded G1: Gemini with Google Search grounding for a no-source question (VC_GROUNDING=gemini). It receives the redacted question only. Absent = off. */
   grounding?: GroundedAnswerer;
+  /** H6: per-client and per-day cap on grounded calls (and the spend guard). Over a cap the turn falls back to the model-only guidance. Absent = uncapped. */
+  groundingBudget?: GroundingBudget;
   config?: Partial<StudentGraphConfig>;
   /** Per-deployment override of the D-088 limits (only `anonymousRequestsPerMinute` is read). */
   limits?: Parameters<typeof resolveLimits>[0];
@@ -357,6 +366,9 @@ function defaultLog(line: AnonymousLogLine): void {
   console.error(JSON.stringify(line));
 }
 
+/** H6: the client the current anonymous turn belongs to, read by the shared grounded-call budget (the graph deps are built once, not per request). */
+const groundingClient = new AsyncLocalStorage<string>();
+
 /** The U6 graph deps for anonymous mode: search-only KB, one counter writer, throwing proxies for every other port. */
 export function buildAnonymousGraphDeps(deps: AnonymousApiDeps, onForbidden?: (port: string) => void): StudentGraphDeps {
   const log = deps.log ?? defaultLog;
@@ -378,7 +390,7 @@ export function buildAnonymousGraphDeps(deps: AnonymousApiDeps, onForbidden?: (p
           return { safetyScreen: { ...screen, anonymous: scope === "no_source" ? ("no_source" as const) : true, authenticated: false } };
         })()
       : {}),
-    ...(deps.grounding ? { grounding: deps.grounding } : {}),
+    ...(deps.grounding ? { grounding: deps.groundingBudget ? deps.groundingBudget.bind(deps.grounding, () => groundingClient.getStore() ?? "unknown") : deps.grounding } : {}),
     recordGap: forbidden("recordGap"),
     logFlag: forbidden("logFlag"),
     escalate: forbidden("escalate"),
@@ -418,6 +430,7 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
       nowMs: deps.nowMs ?? Date.now,
     });
   const clientKey = deps.clientKey ?? ((req: ApiRequest) => normalizeClientAddress(req.remoteAddress));
+  let missingKeyLogged = false;
   // Every non-200 body carries the static helpline (AI review A): a student in distress who meets any refusal still sees it.
   const fail = (status: number, error: string, headers?: Record<string, string>) => respond(status, { error, helpline: TELE_MANAS_LINE }, headers);
 
@@ -467,7 +480,18 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
 
       let result;
       try {
-        result = await runStudentTurn(graphDeps, { mode: "anonymous", text });
+        // F3: the grounded-call budget is keyed on the limiter's salted digest, not the raw address. A request with no usable key falls back to ONE
+        // shared (fail-safe, still capped) bucket and says so once in the text-free log, so the missing key does not go unnoticed.
+        const rawKey = clientKey(req);
+        if (!rawKey && !missingKeyLogged) {
+          missingKeyLogged = true;
+          try {
+            log({ level: "warn", event: "anonymous_client_key_missing", ts: new Date().toISOString() });
+          } catch {
+            // never fail the response because the logger failed
+          }
+        }
+        result = await groundingClient.run(limiter.keyOf(rawKey || undefined), () => runStudentTurn(graphDeps, { mode: "anonymous", text }));
       } catch (err) {
         if (err instanceof StudentInputInvalidError) return fail(400, "invalid_request");
         throw err;

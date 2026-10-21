@@ -1,0 +1,75 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { GroundingBudget, GroundingBudgetError, MockGroundedAnswerer } from "../src/index.js";
+const okAnswer = { text: "t", sources: [] };
+const Q = { question: "q", systemPrompt: "s" };
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+test("CHK F2a: SYNCHRONOUS throwing spend then retry: caps intact", async () => {
+  let deny = true;
+  const inner = new MockGroundedAnswerer(okAnswer);
+  const b = new GroundingBudget({ maxPerSession: 1, maxPerDay: 1, spend: (() => { if (deny) throw new Error("sync no"); }) as never });
+  const g = b.bind(inner, "k");
+  await assert.rejects(g.answer(Q), (e: unknown) => e instanceof GroundingBudgetError && e.scope === "spend");
+  deny = false;
+  await g.answer(Q); // retry must succeed with cap 1/1
+  await assert.rejects(g.answer(Q), GroundingBudgetError);
+  assert.equal(inner.calls.length, 1);
+});
+
+test("CHK F2b: random delays + random throws under concurrency never over-grant and never leak reservations", async () => {
+  for (let round = 0; round < 20; round += 1) {
+    const CAP = 5;
+    let n = 0;
+    const inner = new MockGroundedAnswerer(okAnswer);
+    const b = new GroundingBudget({ maxPerSession: CAP, maxPerDay: 1000, spend: async () => { const i = n++; await sleep((i * 7) % 11); if (i % 3 === 1) throw new Error("denied"); } });
+    const g = b.bind(inner, "same");
+    const res = await Promise.allSettled(Array.from({ length: 24 }, () => g.answer(Q)));
+    const ok = res.filter((r) => r.status === "fulfilled").length;
+    assert.ok(ok <= CAP, `round ${round}: over-granted ${ok}`);
+    // after everything settled the remaining capacity must be exactly CAP - ok (no leaked reservations), probing with a spend-free budget is impossible, so use sequential retries
+    let more = 0;
+    for (let i = 0; i < 40; i += 1) { try { await g.answer(Q); more += 1; } catch { /* spend denial or cap */ } }
+    assert.equal(ok + more, CAP, `round ${round}: ok=${ok} more=${more} (a leaked reservation would make this < ${CAP})`);
+    assert.equal(inner.calls.length, CAP);
+  }
+});
+
+test("CHK F2c: exactly-at-cap under concurrency, three clients interleaved, day cap and session cap both exact", async () => {
+  const inner = new MockGroundedAnswerer(okAnswer);
+  const b = new GroundingBudget({ maxPerSession: 5, maxPerDay: 12, spend: async () => { await sleep(3); } });
+  const calls: Promise<unknown>[] = [];
+  const perKey: Record<string, number> = { a: 0, b: 0, c: 0 };
+  const results: Array<{ k: string; p: Promise<unknown> }> = [];
+  for (let i = 0; i < 30; i += 1) { const k = ["a", "b", "c"][i % 3]!; results.push({ k, p: b.bind(inner, k).answer(Q).then(() => { perKey[k]! += 1; }, () => {}) }); }
+  await Promise.all(results.map((r) => r.p)); void calls;
+  const total = perKey.a! + perKey.b! + perKey.c!;
+  assert.equal(total, 12, JSON.stringify(perKey));
+  for (const k of Object.keys(perKey)) assert.ok(perKey[k]! <= 5);
+  assert.equal(inner.calls.length, 12);
+});
+
+test("CHK F2d: spend rejects AFTER the UTC day rolled over: the new day's count is not decremented", async () => {
+  let t = Date.parse("2026-10-22T23:59:59.000Z");
+  let release!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  let first = true;
+  const inner = new MockGroundedAnswerer(okAnswer);
+  const b = new GroundingBudget({ maxPerSession: 100, maxPerDay: 2, now: () => new Date(t), spend: async () => { if (first) { first = false; await gate; throw new Error("late deny"); } } });
+  const a = b.bind(inner, "k1").answer(Q); // day 1, pending
+  await sleep(5);
+  t = Date.parse("2026-10-23T00:00:01.000Z");
+  await b.bind(inner, "k2").answer(Q); // day 2 count 1
+  release();
+  await assert.rejects(a, (e: unknown) => e instanceof GroundingBudgetError && e.scope === "spend");
+  await b.bind(inner, "k3").answer(Q); // day 2 count 2
+  await assert.rejects(b.bind(inner, "k4").answer(Q), (e: unknown) => e instanceof GroundingBudgetError && e.scope === "day"); // a wrong rollback would let this through
+});
+
+test("CHK F2e: inner failure still counts the attempt (cost was incurred)", async () => {
+  const bad = { kind: "x", model: "m", async answer() { throw new Error("net"); } } as never;
+  const b = new GroundingBudget({ maxPerSession: 1, maxPerDay: 10 });
+  const g = b.bind(bad, "k");
+  await assert.rejects(g.answer(Q), /net/);
+  await assert.rejects(g.answer(Q), GroundingBudgetError);
+});
