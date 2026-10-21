@@ -105,6 +105,7 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 - [ ] TODO · Lead review: a recorded release walkthrough video (checker Playwright run of the full counsellor flow) under `qa/evidence/release-<date>/`, with a Hindi voice-over, plus a 7–8 point pre-release checklist the release verdict cites. Umesh sends it to Sapna ma'am + Gaurav bhaiya; the VC never sends it itself.
 
 ## Candidates (human picks)
+- [ ] db-ttl-scanner-next (low, from 6c 2026-10-21): packages/db/tests/db-init.test.ts:352 scanner skips node_modules/dist/tests/evals but not .next; a local apps/web dev build makes it red. Add .next to the skip set.
 - priority: low · p1-lk5b review follow-ups (qa/evidence/p1-briefs/p1-lk5b-review-result.md): DOMAIN_RE still quadratic when text has "." (58 ms at 2k chars, bounded by the 2000-char cap; fix = start anchor + dotted timing test); missed fact wordings "half of", "a dozen", "a quarter of", "Sept", "decade", "sterling", upper-case "MAY".
 - [ ] crisis-forbidden-lang (from chk-lk10 137d4dc, low): graph.ts:863 answers a forbidden-pattern hit with English STUDENT_CRISIS_MESSAGE regardless of language; make it language-aware (crisisMessageFor). Also add missed forbidden variants ("kisi ko mat batana", "counsellor aapse sampark karega", ...). files: packages/engine/src/student/graph.ts
 
