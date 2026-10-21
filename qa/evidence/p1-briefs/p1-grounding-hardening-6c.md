@@ -1,0 +1,10 @@
+# 6c pre-push check (policy .13-1 scoped), bound to D:/vc (main, HEAD = the commit that adds this brief; merge 722c8ee)
+You are /checker running maker step 6c for the merge of p1-grounding-hardening (checker PASS ba29361 cycle 2, merge 722c8ee). Code changed since the last pushed head 3772f4a: verify with `git diff --stat 3772f4a..HEAD -- . ':!qa' ':!docs'` (12 files: providers index, engine student graph/lang, api anonymous/chat/index, tests).
+Run every command as `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 900 <cmd>` (long lock waits are normal; wait), TMP/TEMP set to D:/tmp/6c-gh, ONE test file per command:
+1. Providers: index test. Schemas: all test files. Engine: student-graph, lk5, crisis-defaults, lang, student-classify tests.
+2. Api: anonymous-zero-persistence, acceptance-student-journey, student-openapi, chat-privacy, chat -> green, except the KNOWN baseline red chat "A20 flag on but gate closed" (B13 signed, D-109). Do NOT run anonymous-route or chat-profile in full (baseline hangs); run anonymous-route with `--test-name-pattern="H2|H6|G5"` and chat-profile with `--test-name-pattern="H2|LK7 C1-fix"`.
+3. Typecheck (tsc --noEmit) in providers, schemas, engine, api -> rc 0.
+4. Collection check: every apps/api, packages/engine, packages/providers, packages/schemas test file loads (import only).
+If ALL green apart from that one named known red, and `git status --porcelain` shows only qa/.6c-green and qa/.last-tick (.codex/ and AGENTS.md are in .git/info/exclude): run `node D:/ai_os/.claude/skills/maker/tools/tick.mjs --stamp-6c-green` once and report its output verbatim. No git stash. Do not commit qa/.6c-green. Any other red or dirty path: name it and do NOT stamp. Delete D:/tmp/6c-gh when done; leave no untracked files in D:/vc.
+Never push or merge, never edit code, never kill processes (never PID 36944, never by image name, never the servers on 8080/8787/3399). Never pipe a heredoc into python. Metrics: prepush_wall_min, tests, mode=scoped.
+Report GREEN plus the stamp line, or RED plus the failures, in max 8 lines.
