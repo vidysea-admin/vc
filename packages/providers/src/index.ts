@@ -529,6 +529,27 @@ export class LiteLlmMalformedResponseError extends Error {
   }
 }
 
+/**
+ * golive-json-robust: some models on the litellm/ollama path answer HTTP 200 with JSON inside a
+ * ```json fence, or with JS-style unquoted keys. Bounded tolerance, nothing more: (1) strip ONE
+ * leading ``` / ```json fence and ONE trailing ```; (2) if the parse still fails, quote bare
+ * identifier keys OUTSIDE string literals and parse once more. Anything else throws as before; the
+ * caller's Zod schema still judges the result (B5).
+ */
+function parseModelJson(content: string): unknown {
+  const text = content.trim().replace(/^```[A-Za-z]*[ \t]*\r?\n?/, "").replace(/\r?\n?```$/, "").trim();
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Split into string literals and the rest; the key-quoting regex only ever touches the rest.
+    const repaired = text
+      .split(/("(?:[^"\\]|\\.)*")/)
+      .map((part, i) => (i % 2 === 1 ? part : part.replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":')))
+      .join("");
+    return JSON.parse(repaired);
+  }
+}
+
 /** The request could not be sent at all (DNS, connection refused, TLS, ...). Never the abort/timeout case. */
 export class LiteLlmNetworkError extends Error {
   constructor(model: string, reason: string) {
@@ -644,7 +665,7 @@ export class LiteLlmProvider implements LlmProvider {
     }
     let parsed: unknown;
     try {
-      parsed = JSON.parse(content);
+      parsed = parseModelJson(content);
     } catch {
       throw new LiteLlmMalformedResponseError(this.model, "choices[0].message.content was not valid JSON");
     }
