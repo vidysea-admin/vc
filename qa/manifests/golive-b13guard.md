@@ -20,7 +20,7 @@ Gate answers: none applicable (the B13 line itself is owned by Umesh/legal; this
 Affected tests / full-suite trigger: apps/api/tests/go-live-gate.test.ts; none
 Tests[C1]: apps/api/tests/go-live-gate.test.ts — the only file holding the A20 CLI test and the REAL_B13_PENDING guard
 Sibling: apps/api/tests/go-live-gate.test.ts:~180 — already guarded (golive-a20, verdict qa/verdicts/golive-a20.md)
-Pre-check[C1]: 98de1ee1e9 node --import tsx --test apps/api/tests/go-live-gate.test.ts -> exit 0 (14 pass, 0 fail, 0 skipped) t=3 blobs=apps/api/tests/go-live-gate.test.ts:2646806
+Pre-check[C1]: 98de1ee1e9 node --import tsx --test apps/api/tests/go-live-gate.test.ts -> exit 0 (14 pass, 0 skipped) t=3 blobs=apps/api/tests/go-live-gate.test.ts:2646806
 Metrics: start=2026-10-21T17:15:55+05:30 end=2026-10-21T17:15:55+05:30 wall_min=2 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=0 mutations=0 cycle=0 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.17 check_s=0 mutants=0 defects_unit=0 defects_6c=0
 
 ## Acceptance
