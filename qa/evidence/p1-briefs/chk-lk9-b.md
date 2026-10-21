@@ -1,0 +1,8 @@
+# Checker brief: /checker Mode A for p1-lk9, coordinator b of a BLIND dual check (policy .17, Tier L, dual-trigger security apps/api/src/chat.ts:695)
+Manifest D:/vc/.worktrees/lk9/qa/manifests/p1-lk9.md, branch p1/lk9 (C1 9f3de14, C2 1f63e76, manifest 5bf2d7f, base 8b485a2). Worktree D:/vc/.worktrees/lk9. Read-only toward the artifact. Write ONLY qa/verdicts/p1-lk9.b.md (Cycle checked: 0) and commit it on p1/lk9. Do NOT read qa/verdicts/p1-lk9.*.md written by the other coordinator.
+Prove outcomes, not construction, with hostile variants:
+- C1: unconsented minor / unknown age + non-crisis text -> fixed GUARDIAN_CONSENT_REPLY, ZERO provider calls (count every provider incl. safety screen, detector, KB search). Crisis text from the same student (English, Hindi Devanagari, Hinglish incl. variants crisisGuard catches) still gets the vetted crisis reply with 14416, before any consent branch. Consented adult unchanged. Try edge inputs: consentOk undefined/null, age missing, age string, replayed turn.
+- C2: reply returns before extraction finishes (never-resolving extractor); no unhandled rejection; fenced/erased student never gets a fact written; replay/minor never extract; log lines carry no student text.
+- Replaced protected test (under-18 still gets answer): confirm the replacement is the intended behaviour change, not a weakening elsewhere.
+Run affected tests + apps/api typecheck; one falsification per criterion in a copy. Tests via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 <cmd>` (long lock waits normal), TMP/TEMP on D:. Never kill processes, never touch .claude/**, never push/merge.
+Report PASS/FAIL, findings file:line, verdict sha.
