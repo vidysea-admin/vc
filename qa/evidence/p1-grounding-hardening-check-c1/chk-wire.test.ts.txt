@@ -1,0 +1,65 @@
+// Checker-owned outcome proofs (copy outside the bound tree). Fake providers only.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { MockProvider, MockGroundedAnswerer, type GroundedAnswer } from "@vc/providers";
+import { runStudentTurn, buildStudentGraph, ANONYMOUS_CRISIS_MESSAGE, STUDENT_CRISIS_MESSAGE, NO_SOURCED_ANSWER_TEXT, ANONYMOUS_NO_ANSWER_TEXT, type StudentGraphDeps } from "../src/student/graph.js";
+import { TOPIC_DECLINE_TEXT, isOutOfScopeQuestion, hasExplicitLink, redactStudentDetails } from "../src/student/lang.js";
+import { NOW, SKILLS_DIR, SPEAKERS, NO_PRIOR_FLAG, fakeKb, studentProvider } from "./student-fixtures.js";
+
+const NO_HITS = { status: "ok" as const, hits: [], dropped: 0 };
+const NOT_SERVED = { status: "no_sourced_answer" as const, answer: NO_SOURCED_ANSWER_TEXT, citations: { internal: [], web: [] }, verdict: "incorrect" as const, reason: "", withheld: ["verdict_not_correct", "insufficient_coverage"] };
+const noSourceKb = (anonymous = false) => fakeKb({ search: NO_HITS, ...(anonymous ? { anonymous: true } : { ask: NOT_SERVED as never }) });
+const GUIDE = "Public universities in Germany usually charge no tuition.";
+const guidanceProvider = (answer: unknown = { answer: GUIDE }) => new MockProvider({ responses: { "kb-general-guidance": answer as never } });
+const guidanceCalls = (p: MockProvider) => p.calls.filter((c) => c.skillName === "kb-general-guidance");
+const groundedOk = (): GroundedAnswer => ({ text: "Most German public universities charge no tuition, but expect a semester contribution of around 300 euros.", sources: [{ title: "daad.de", url: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AAA" }] });
+const AUTH = { role: "student" as const, studentId: "syn-stu-3", tenantId: "sandbox" };
+const turn = (text: string) => ({ mode: "authenticated" as const, auth: AUTH, threadId: "th-g", turnId: "tu-g", text });
+
+function deps(over: Partial<StudentGraphDeps> = {}) {
+  const writes: string[] = [];
+  const d: StudentGraphDeps = {
+    kb: fakeKb(), provider: studentProvider(), skillsDir: SKILLS_DIR, speakers: SPEAKERS, now: () => NOW, hasPriorFlag: NO_PRIOR_FLAG,
+    recordGap: async () => {}, countAnonymous: async () => {}, onWriteError: (k) => void writes.push(String(k)), ...over,
+  } as StudentGraphDeps;
+  return { d, writes };
+}
+
+async function wire(text: string, anon = false): Promise<string> {
+  const grounded = new MockGroundedAnswerer(groundedOk());
+  const { d } = deps({ kb: noSourceKb(anon), provider: guidanceProvider(), grounding: grounded });
+  await runStudentTurn(d, anon ? { mode: "anonymous", text } : turn(text));
+  assert.equal(grounded.calls.length, 1, `grounded call expected for: ${text}`);
+  return grounded.calls[0]!.question;
+}
+
+
+const CASES: Array<[string,string[],string[]]> = [
+  ["I'm riya sharma from pune 411001. Which German universities suit PCM?", ["riya","sharma","411001"], ["Which German universities suit PCM"]],
+  ["Mera naam Riya hai. Germany visa kaise milta hai?", ["Riya"], ["Germany visa kaise milta hai"]],
+  ["PIN-411001 is mine. What is the blocked account amount?", ["411001"], ["blocked account amount"]],
+  ["my pin number is 411001, what is the german semester fee?", ["411001"], ["german semester fee"]],
+  ["PIN No: 411001 - which german course is best?", ["411001"], ["which german course is best"]],
+  ["pin no 560037, german visa?", ["560037"], ["german visa"]],
+  ["the pin of my area is 411001, german fees?", ["411001"], ["german fees"]],
+  ["Naam: Riya Sharma. germany fees kitni hai?", ["Riya","Sharma"], ["germany fees kitni hai"]],
+  ["i am Riya Sharma (16). Which course in Germany?", ["Riya","Sharma","(16)"], ["Which course in Germany"]],
+  ["Hi, I'm Aarav Mehta and I'd like fees info for Germany", ["Aarav","Mehta"], ["fees info for Germany"]],
+  ["my father Rakesh Kumar is a farmer, can I get a scholarship in Germany?", ["Rakesh","Kumar"], ["can I get a scholarship in Germany"]],
+  ["I live in Baner, Pune and want german visa info", ["Baner"], ["want german visa info"]],
+  ["I'm Riya, 16, from Pune. Which German univ?", ["Riya","16"], ["Which German univ"]],
+  ["Im Riya sharma, PIN 411 001, need german visa info", ["Riya","sharma","411"], ["need german visa info"]],
+  ["i am looking for scholarships in germany; i am worried about fees", [], ["i am looking for scholarships in germany","fees"]],
+];
+test("CHK F1 wire hostile", async () => {
+  const leaks: string[] = [];
+  for (const [text, absent, present] of CASES) {
+    const q = await wire(text);
+    const bad: string[] = [];
+    for (const a of absent) if (q.toLowerCase().includes(a.toLowerCase())) bad.push("LEAK "+a);
+    for (const p of present) if (!q.includes(p)) bad.push("LOST "+p);
+    console.log("WIRE|" + (bad.length ? "FAIL" : "ok  ") + "|" + text + "  =>  " + q + (bad.length ? "   <<" + bad.join(",") : ""));
+    if (bad.length) leaks.push(text);
+  }
+  assert.equal(leaks.length, 0);
+});

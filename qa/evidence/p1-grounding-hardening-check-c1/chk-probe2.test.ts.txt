@@ -1,0 +1,15 @@
+import { test } from "node:test";
+import { redactStudentDetails } from "../src/student/lang.js";
+test("chk probe2 print", () => {
+  const R = [
+    "my pin number is 411001", "PIN No: 411001", "pin no. 411001", "PIN number 411001", "pincode no 411001", "the pin of my area is 411001", "pin (411001)", "PIN – 411001", "PIN code number is 560037", "pin/zip: 560037",
+    "my zip is 560037", "my postcode is 560037", "pin code of my city is 411001", "411001 (pune)", "address: Flat 5, Shivaji Nagar, Pune 411005",
+    "Name - Riya Sharma", "Name Riya Sharma, class 11", "Student name: Riya", "I go by Riya Sharma", "people call me Riya", "you can call me Riya Sharma", "Riya here", "naam Riya Sharma hai", "mera naam riya sharma hai", "my full name is Riya Sharma", "my first name is riya",
+    "i am Riya Sharma (16)", "I am 16.", "i'm 16 and in 11th", "I'm sixteen", "my age is 16", "16 yrs", "16 y/o", "I turned 16 last month", "I am 16 years and 3 months old",
+    "I study in Delhi Public School", "I study at Modern School Pune", "studying in Don Bosco High School, Pune", "I'm in Symbiosis School Pune", "I go to Ryan International School", "my school is St Mary's Convent",
+    "my college is Fergusson College", "I am a student of Fergusson College Pune",
+    "my number is 9876543210", "WhatsApp +91-98765-43210", "ph: 020 2567 1234",
+    "I live at 12 MG Road Pune", "my home is at Plot 14, Sector 5, Noida", "i live in sector 62 noida",
+  ];
+  for (const t of R) console.log("RED2|" + t + "  =>  " + redactStudentDetails(t));
+});

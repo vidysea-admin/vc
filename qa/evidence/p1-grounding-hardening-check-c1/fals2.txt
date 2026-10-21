@@ -1,0 +1,48 @@
+##### F1name green-before 2026-10-22T03:35:15+05:30
+green rc=0 ℹ pass 3 ℹ fail 0 
+mutation applied at line 862
+red rc=1 ℹ pass 2 ℹ fail 1 
+✖ H1 F1: a lower-case name after 'i am / i'm / im' is redacted (any case), with the age that follows it; state words survive (10.869ms)
+✖ failing tests:
+restored rc=0 ℹ pass 3 ℹ fail 0 
+##### F1pin green-before 2026-10-22T03:35:27+05:30
+green rc=0 ℹ pass 3 ℹ fail 0 
+mutation applied at line 842
+red rc=0 ℹ pass 3 ℹ fail 0 
+restored rc=0 ℹ pass 3 ℹ fail 0 
+##### F2 green-before 2026-10-22T03:35:38+05:30
+green rc=0 ℹ pass 2 ℹ fail 0 
+mutation applied at line 959
+red rc=1 ℹ pass 1 ℹ fail 1 
+✖ H6 F2: 10 parallel answer() calls with an async spend and a cap of 5 allow exactly 5 (per session key and per day) (28.1584ms)
+✖ failing tests:
+restored rc=0 ℹ pass 2 ℹ fail 0 
+##### F3 green-before 2026-10-22T03:35:49+05:30
+green rc=0 ℹ pass 2 ℹ fail 0 
+mutation applied at line 494
+red rc=1 ℹ pass 1 ℹ fail 1 
+✖ H6 F3: the grounded-call budget key is a salted digest, never the raw client address; the same client keeps one bucket and clients stay apart (158.4438ms)
+✖ failing tests:
+restored rc=0 ℹ pass 2 ℹ fail 0 
+##### F4fraud green-before 2026-10-22T03:36:02+05:30
+green rc=0 ℹ pass 2 ℹ fail 0 
+mutation applied at line 963
+red rc=1 ℹ pass 1 ℹ fail 1 
+✖ H4 F4: a request to produce or obtain a fake document is declined even with a consequence or awareness clause; questions about fraud are still answered (3.3465ms)
+✖ failing tests:
+restored rc=0 ℹ pass 2 ℹ fail 0 
+##### F4inj green-before 2026-10-22T03:36:14+05:30
+green rc=0 ℹ pass 2 ℹ fail 0 
+mutation applied at line 906
+red rc=1 ℹ pass 1 ℹ fail 1 
+✖ H4 F4: bare 'ignore / disregard / forget previous|prior' injections are declined again; the genuine backlog / credit-transfer questions are still not (14.5235ms)
+✖ failing tests:
+restored rc=0 ℹ pass 2 ℹ fail 0 
+##### F5 green-before 2026-10-22T03:36:25+05:30
+green rc=0 ℹ pass 1 ℹ fail 0 
+mutation applied at line 700
+red rc=1 ℹ pass 0 ℹ fail 1 
+✖ H5 F5: the 'daad. de' guard is case-insensitive ('DAAD. DE', 'tum. De'); prose run-ons and sentence starts are still not flagged (4.4178ms)
+✖ failing tests:
+restored rc=0 ℹ pass 1 ℹ fail 0 
+FALSDONE 2026-10-22T03:36:37+05:30
