@@ -1,0 +1,5 @@
+# Checker brief: /checker Mode A for p1-lk8 (policy .17, Tier L, single checker)
+Manifest: qa/manifests/p1-lk8.md on branch p1/lk8 (head b9dfdaa, code 8def260, base a11653e), worktree D:/vc/.worktrees/lk8. Read-only toward the artifact; write only the verdict qa/verdicts/p1-lk8.md (Cycle checked: 0) and commit it on p1/lk8 in that worktree.
+Prove the OUTCOME, not construction: call the real crisisGuard entry the API uses (not just the regex) with hostile variants: mixed case, extra spaces/zero-width chars, nukta and non-nukta Devanagari, khudkushi inside a longer sentence in Hinglish, punctuation-trailing ("khudkushi."), and confirm level = crisis and the reply text is unchanged. Confirm common non-crisis words (khud, khushi, khud se) do not trigger. Reuse maker evidence only if identity matches; run affected tests via
+`VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 <cmd>` with TMP/TEMP on D:. Long lock waits are normal. Never kill processes, never touch .claude/**, never push.
+Report: PASS/FAIL, findings with file:line, verdict commit sha.

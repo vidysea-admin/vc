@@ -1411,3 +1411,80 @@ test("ISS-340: a 200k-character Devanagari turn of near-miss prefixes runs in li
   assert.ok(large < 4000, `100k chars took ${large.toFixed(1)} ms`);
   assert.ok(large / Math.max(small, 1) < 8, `ratio ${(large / Math.max(small, 1)).toFixed(2)} for 4x the input`);
 });
+
+// -------------------------------------------------------------------------------------------
+// P1 LK8 (policy .17, Tier L safety) — the Hindi/Hinglish word for suicide, "khudkushi" / "खुदकुशी".
+// qa/verdicts/p1-lk6.md finding 1: crisisGuard returned level 'none' for it, so a model-free turn
+// carrying the commonest everyday word for suicide was never escalated. Same level as the existing
+// English "suicide" / Devanagari "आत्महत्या" patterns (crisis). The escalation reply text is untouched.
+// -------------------------------------------------------------------------------------------
+
+const LK8_CRISIS_TURNS: ReadonlyArray<string> = [
+  "main khudkushi karunga",
+  "khudkushi",
+  "Khudkushi karne ka man hai",
+  "main khudkhushi karna chahta hoon",
+  "mujhe khud kushi karni hai",
+  "khud-kushi ke baare mein soch raha hoon",
+  "KHUDKUSHI",
+  "khudkusi kar lunga",
+  "khudkushee karne wala hoon",
+  "मैं खुदकुशी करना चाहता हूँ",
+  "खुदकुशी",
+  "ख़ुदकुशी कर लूंगा",
+  "ख़ुदकुशी", // precomposed nukta letter ख़ (U+0959)
+  "खुद कुशी कर लूंगा",
+  "खुदकशी का ख्याल आता है",
+  "खुदखुशी करनी है",
+  "main खुदकुशी karunga", // mixed script
+  "k h u d k u s h i", // letter-spaced evasion
+  "khud\u200Bkushi", // zero-width space inside the word
+];
+
+for (const text of LK8_CRISIS_TURNS) {
+  test(`LK8: ${JSON.stringify(text)} is level 'crisis' and escalates before generation`, () => {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+    assert.equal(routeBeforeGeneration(text).route, "escalate", text);
+  });
+}
+
+// Negatives: nothing here asserts or names suicide. "khushi" (happiness), "khud" (self) and "khush" (happy)
+// are everyday words that share letters with the new patterns.
+const LK8_NEGATIVES: ReadonlyArray<string> = [
+  "mujhe bahut khushi hui ye sunke",
+  "main khud khush hoon apne result se",
+  "apni khud ki khushi ke liye padhna chahta hoon",
+  "khud padhunga main, coaching nahi chahiye",
+  "khushi mere college ki senior hai",
+  "kushal sir ne bola khud se apply karo",
+  "khud kush hoon ab",
+  "मुझे बहुत खुशी हुई",
+  "मैं खुद पढ़ूंगा",
+  "खुद कशिश है इस कोर्स में",
+  "कुशी नगर में कॉलेज है",
+  "खुदा का शुक्र है",
+];
+
+for (const text of LK8_NEGATIVES) {
+  test(`LK8 negative stays 'none': ${JSON.stringify(text)}`, () => {
+    assert.equal(crisisGuard(text).level, "none", text);
+    assert.deepEqual(routeBeforeGeneration(text), { route: "continue" }, text);
+  });
+}
+
+test("LK8: the crisis reply text is unchanged by the vocabulary addition", () => {
+  const routed = routeBeforeGeneration("main khudkushi karunga");
+  assert.equal(routed.route, "escalate");
+  if (routed.route === "escalate") {
+    assert.equal(routed.card.level, "crisis");
+    assert.equal(routed.card.message, (routeBeforeGeneration("I just want to kill myself") as { card: { message: string } }).card.message);
+  }
+});
+
+// D-020 accepted residual (safe direction): the squeezed twin of the khudkushi patterns has no word gap, so the ordinary two
+// words "khud khushi" / "खुद खुशी" ("own happiness") flag. Documented, never suppressed.
+for (const text of ["apni khud khushi se aaya hoon", "मैं खुद खुशी से आया"]) {
+  test(`D-020 accepted residual (LK8 khudkushi squeezed twin): ${JSON.stringify(text)} -> crisis`, () => {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  });
+}
