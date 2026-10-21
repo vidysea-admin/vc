@@ -312,11 +312,14 @@ test("A20: an unknown target is refused, never treated as allowed", () => {
 
 test("A20 CLI: exits 1 naming each missing record against the real qa/gates; 0 on a complete directory; 2 on bad usage", () => {
   const run = (args: string[]) => spawnSync(process.execPath, ["--import", "tsx", CLI, ...args], { encoding: "utf8" });
-  const refused = run(["student-routes", "--gates-dir", REPO_GATES]);
-  assert.equal(refused.status, 1, refused.stderr);
-  assert.match(refused.stdout, /REFUSED/);
-  assert.ok(refused.stdout.includes(GATE_FILES.b13), refused.stdout);
-  assert.ok(refused.stdout.includes(GATE_FILES.gPublish), refused.stdout);
+  // Real-gate refusal holds only while B13 is unsigned; once Umesh signs, student-routes is allowed (go-live).
+  if (REAL_B13_PENDING) {
+    const refused = run(["student-routes", "--gates-dir", REPO_GATES]);
+    assert.equal(refused.status, 1, refused.stderr);
+    assert.match(refused.stdout, /REFUSED/);
+    assert.ok(refused.stdout.includes(GATE_FILES.b13), refused.stdout);
+    assert.ok(refused.stdout.includes(GATE_FILES.gPublish), refused.stdout);
+  }
   const voice = run(["voice", "--gates-dir", REPO_GATES]);
   assert.equal(voice.status, 1);
   assert.ok(voice.stdout.includes(GATE_FILES.a10));
@@ -329,5 +332,5 @@ test("A20 CLI: exits 1 naming each missing record against the real qa/gates; 0 o
     cleanup(f);
   }
   assert.equal(run(["nonsense"]).status, 2);
-  assert.equal(run([]).status, 1, "default target is student-routes against the real qa/gates");
+  if (REAL_B13_PENDING) assert.equal(run([]).status, 1, "default target is student-routes against the real qa/gates");
 });

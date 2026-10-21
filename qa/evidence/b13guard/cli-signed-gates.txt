@@ -1,0 +1,15 @@
+== student-routes
+go-live gate (A20) target=student-routes: ALLOWED
+  ok       p1-u0-amendment-signatures.md
+  ok       g-publish.md
+  ok       g-prod.md
+  ok       nights.md
+exit=0
+== voice
+go-live gate (A20) target=voice: REFUSED
+  ok       p1-u0-amendment-signatures.md
+  ok       g-publish.md
+  ok       g-prod.md
+  ok       nights.md
+  MISSING  a10-voice-gate.md: Result is not PASS
+exit=1
