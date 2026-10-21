@@ -1,0 +1,186 @@
+[testlock] running slot 0 (free RAM 3.39 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk7/apps/api exec tsx --test --test-timeout=60000 tests/chat-profile.test.ts
+✔ A16b: the profile shows the Pathlynks-supplied facts as in use and nothing else when the student has said nothing storable (22.7029ms)
+✔ A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it (114.5703ms)
+✔ A16b: a student corrects a wrongly heard fact (the corrected value is redacted and confirmed) and erases another (35.2351ms)
+✔ A16b: a decision on a fact that does not exist, or on another student's fact, is 404; a bad decision body is 400 (20.8382ms)
+✔ D-093 4A: for an under-18 student without consent nothing is extracted or proposed, so no fact row is created (17.1279ms)
+✔ a Pathlynks profile outage is a 503 profile_unavailable (never an empty profile that hides what is in use), with no cause in the body (7.1877ms)
+✔ startApi: flag off -> a chat path answers exactly like an unknown /v1 path over real HTTP, and no gate file is read (29.6616ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (9.2952ms)
+✔ startApi: flag on with the gate open but no student JWT configuration is a config error before connecting (no silent fall-back to the counsellor key) (15.2764ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:22.908Z"}
+✔ startApi: flag on and gate open -> a student creates a thread and asks a question over real HTTP; the rows land in virtual_counsellor under the student's tenant; a counsellor-key token is refused (44.3918ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:22.984Z"}
+✔ LK1w: VC_TEXT_CHAIN set -> a student chat turn is answered by the chain (Ollama hop on the wire) and the injected scribe/classifier provider is not called (72.2739ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.017Z"}
+✔ LK1w: VC_TEXT_CHAIN unset -> the student chat turn uses the current provider and nothing is sent to Ollama (31.5875ms)
+✔ LK1w: VC_TEXT_CHAIN does not replace the scribe provider config: with no injected provider, no VC_LLM_PROVIDER and the classifier injected (so only the scribe base is read), startApi still refuses before connecting (0.5772ms)
+✔ LK1w: a bad chain (no OLLAMA_API_KEY) is a startup config error before connecting, and its message never carries a key (0.2563ms)
+✔ p1-lk6: a Devanagari chat turn is stored as written, and the proposed fact is English with the Devanagari quote kept as its source (47.0552ms)
+✔ p1-lk6: a fact whose quote is not in the student's words is never proposed (19.1508ms)
+✔ p1-lk6: an under-18 student without guardian consent makes no extraction call (16.7937ms)
+✔ p1-lk6: extraction failure never fails the turn; the log has the event name, no student words or quote (18.0722ms)
+✔ p1-lk6: startApi wires the default extractor for chat when none is injected, over the default text provider (26.5418ms)
+✔ p1-lk6: an injected extractFacts still wins over the default (24.4185ms)
+✔ p1-lk6: a crisis turn is answered with the fixed helpline text and is never sent to the fact extractor model (14.875ms)
+✖ LK7 L1: with VC_TEXT_CHAIN set, an authenticated turn's language comes from the MODEL detector (on the chain wire), and the answer call is told that reply language (1.5064ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.214Z"}
+✔ LK7 L2: VC_TEXT_CHAIN unset -> no model detector call exists anywhere (offline script test only) and nothing is sent to Ollama (27.2322ms)
+{"event":"escalation_unrouted","escalationId":"97c8d80a-fb65-4744-8588-4d5bfca0a39f:lk7-1","sessionId":"97c8d80a-fb65-4744-8588-4d5bfca0a39f"}
+✔ LK7 C1: crisisGuard still runs FIRST on the original text: a crisis turn makes no detector, screen or chain call and gets the fixed message (25.6495ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.269Z"}
+✖ LK7 S1: the safety screen is on for authenticated turns by default: 'possible' returns the fixed crisis message with no answer; the screen saw the original text (29.935ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.295Z"}
+✖ LK7 S2: a clear screen releases the normal answer; a screen outage fails closed to the fixed crisis message (D-105) (25.7017ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.327Z"}
+✖ LK7 S3: with the chain set, the screen still runs on the classifier's base provider (D-105 Q4: a task moves to the chain only after its own eval), never on the chain (31.3178ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.358Z"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.385Z"}
+✖ LK7 S4: chat.safetyScreen = false turns the authenticated screen off (no classifier call); a supplied screen provider is the one used (58.6803ms)
+✔ LK7 P1: VC_TEXT_CHAIN set and the cap missing or invalid -> startApi refuses (fail closed) BEFORE connecting, naming the variable and never a key (1.1076ms)
+✔ LK7 P2: a valid cap starts the chain; with VC_TEXT_CHAIN unset the cap is not required (4.7106ms)
+✔ LK7 G1: the guard reserves the estimate before a request, refuses one that would pass the cap with a NON-retryable error, and settles a reported usage to the actual figure (0.4754ms)
+✔ LK7 G2: the cap is per UTC calendar month: a new month starts at zero, and a usage settled after the month turned does not touch the new month (0.2695ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.436Z"}
+✖ LK7 E1: when the cap runs out mid-month, student turns get the existing degraded reply over real HTTP (200, never a 500), no request leaves after the stop, and spend never passes the cap (90.0979ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.516Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.531Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.561Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.593Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T06:50:23.609Z"}
+✖ LK7 E2: reported token usage settles the spend to the actual figure, so the same cap serves more turns than the reservation alone would (127.9669ms)
+✖ LK7 X1: when every hop of the chain fails (the whole chain is exhausted) the turn is the degraded reply, the failover alert still fires, and the exhaustion is counted (49.4393ms)
+ℹ tests 35
+ℹ suites 0
+ℹ pass 27
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 29405.8701
+
+✖ failing tests:
+
+test at tests\chat-profile.test.ts:503:1
+✖ LK7 L1: with VC_TEXT_CHAIN set, an authenticated turn's language comes from the MODEL detector (on the chain wire), and the answer call is told that reply language (1.5064ms)
+  AssertionError [ERR_ASSERTION]: precondition: the offline script test alone would say en
+  
+  'hi-Latn' !== 'en'
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk7\apps\api\tests\chat-profile.test.ts:504:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'hi-Latn',
+    expected: 'en',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chat-profile.test.ts:553:1
+✖ LK7 S1: the safety screen is on for authenticated turns by default: 'possible' returns the fixed crisis message with no answer; the screen saw the original text (29.935ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'ok' !== 'escalated'
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk7\apps\api\tests\chat-profile.test.ts:559:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'ok',
+    expected: 'escalated',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chat-profile.test.ts:570:1
+✖ LK7 S2: a clear screen releases the normal answer; a screen outage fails closed to the fixed crisis message (D-105) (25.7017ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk7\apps\api\tests\chat-profile.test.ts:575:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chat-profile.test.ts:591:1
+✖ LK7 S3: with the chain set, the screen still runs on the classifier's base provider (D-105 Q4: a task moves to the chain only after its own eval), never on the chain (31.3178ms)
+  AssertionError [ERR_ASSERTION]: the screen ran on the base provider
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk7\apps\api\tests\chat-profile.test.ts:597:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chat-profile.test.ts:606:1
+✖ LK7 S4: chat.safetyScreen = false turns the authenticated screen off (no classifier call); a supplied screen provider is the one used (58.6803ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'ok' !== 'escalated'
+  
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk7\apps\api\tests\chat-profile.test.ts:620:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'ok',
+    expected: 'escalated',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\chat-profile.test.ts:707:1
+✖ LK7 E1: when the cap runs out mid-month, student turns get the existing degraded reply over real HTTP (200, never a 500), no request leaves after the stop, and spend never passes the cap (90.0979ms)
+  TypeError: s.api.chainSpend is not a function
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk7\apps\api\tests\chat-profile.test.ts:725:24)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at tests\chat-profile.test.ts:737:1
+✖ LK7 E2: reported token usage settles the spend to the actual figure, so the same cap serves more turns than the reservation alone would (127.9669ms)
+  TypeError: s.api.chainSpend is not a function
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk7\apps\api\tests\chat-profile.test.ts:746:24)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+
+test at tests\chat-profile.test.ts:754:1
+✖ LK7 X1: when every hop of the chain fails (the whole chain is exhausted) the turn is the degraded reply, the failover alert still fires, and the exhaustion is counted (49.4393ms)
+  TypeError: s.api.chainSpend is not a function
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk7\apps\api\tests\chat-profile.test.ts:765:21)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)

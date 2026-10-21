@@ -1,0 +1,32 @@
+[testlock] running slot 1 (free RAM 5.28 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk7/apps/api exec tsx --test --test-timeout=60000 tests/anonymous-route.test.ts
+✔ A20: the anonymous route is OFF by default - unset, empty and 'false' all read as disabled; only the exact word 'true' enables (3.372ms)
+✔ A20 state OFF: with the flag off nothing is built and the path answers exactly like an unknown path (404), for every method (8.7123ms)
+✔ A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route (9.0009ms)
+✔ A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed (59.807ms)
+✔ A20 state ON and gate open: the route is served (109.4428ms)
+✔ no student text is traced: an env that switches LangChain/LangSmith tracing on refuses to build the route (29.246ms)
+✔ B21 exception: the closed list is exactly one text route, equals the draft's security:[] operations, and contains no voice route (0.6633ms)
+✔ B21 exception: with the anonymous route ON, every other registered route still answers 401 with no token, and the main handler touches no Db (14.7113ms)
+✔ B21 exception: the anonymous route ignores identity - a valid-looking Authorization header changes nothing and no tenant or student id is read (46.0577ms)
+✔ startApi: flag off -> the anonymous path is a 404 over real HTTP and no gate file is read (35.828ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (4.0697ms)
+✔ startApi: flag on without a KB or speakers supplied is a config error, before connecting (3.6335ms)
+✔ startApi: flag on and gate open -> a real HTTP POST is answered and ONLY the text-free counter is written to virtual_counsellor; other routes still 401 (44.8051ms)
+✔ the node:http adapter hands the socket address to the limiter (10 per minute per real client) (107.1863ms)
+✔ U7 repair 2: with the flag on, startApi refuses to start unless the deployment states how clients are told apart - an explicit clientKey or trustSocketAddress: true (18.7642ms)
+✔ U7 repair 5: the draft OpenAPI operation documents the 405, 413 and 500 the route can return, and the AnonymousError schema carries the helpline field (0.2209ms)
+✔ LK1w: VC_TEXT_CHAIN set -> an anonymous question is answered by the chain and not by the injected provider; a crisis text still escalates with zero model calls (42.0755ms)
+✔ LK1w: VC_TEXT_CHAIN unset -> the anonymous route uses the current provider and nothing goes to Ollama (19.935ms)
+✔ LK7 A1: flag unset (default OFF) -> an anonymous turn makes no safety-screen call and no model language-detector call, even with the chain set; a 'high' screen would not matter (66.4382ms)
+✔ LK7 A2: VC_ANONYMOUS_SAFETY_SCREEN=true -> the screen runs on the anonymous turn (base provider, original text); 'possible' is the fixed crisis answer, a clear screen releases the answer (36.8459ms)
+✔ LK7 A3: with the flag on, a crisis text is still answered by crisisGuard first: the screen is never called (17.1289ms)
+✔ LK7 A4: the flag reads like the other flags: unset, empty and 'false' are off, exactly 'true' is on, anything else is a config error (never a silent on or off) (0.3117ms)
+✔ LK7 A5: buildAnonymousGraphDeps passes a screen through only when one is supplied, and then marks it on for anonymous turns (0.1574ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3143.6002
