@@ -104,7 +104,7 @@ import {
   type StudentGraphDeps,
   type StudentKbPort,
 } from "@vc/engine";
-import type { LlmProvider } from "@vc/providers";
+import { emitEngineeringAlert, type EngineeringAlert, type LlmProvider } from "@vc/providers";
 import { AnonymousRateLimiter } from "./anonymous.js";
 import { AuthError, bearerToken, type StudentAuthContext, type StudentJwtVerifier } from "./auth.js";
 import { assertGoLive } from "./go-live-gate.js";
@@ -245,7 +245,12 @@ export interface ChatApiDeps {
   quietWaitMs?: number;
   /** Text-free server-side failure log. Default: one JSON line on stderr. */
   log?: (line: ChatLogLine) => void;
+  /** P1 alerts A1 (D-108 item 7): the engineering-alert sink. Default: the T-021 mechanism (`emitEngineeringAlert`: stderr line plus a Langfuse error span). */
+  alert?: (alert: EngineeringAlert) => void;
 }
+
+/** A1: at most one safety-screen outage alert per this many ms per process, so a long outage is one page, not one per student turn. */
+export const SAFETY_SCREEN_ALERT_INTERVAL_MS = 5 * 60_000;
 
 export interface ChatRouteConfig {
   /** From `chatEnabledFromEnv`. False -> `createChatApi` builds nothing. */
@@ -368,6 +373,19 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
   };
   const nowDate = () => (deps.now ? deps.now() : new Date());
   const logEvent = (event: string, extra: Partial<ChatLogLine> = {}) => log({ level: "error", event, ts: nowDate().toISOString(), ...extra });
+  // A1: the authenticated safety screen is down (every such student turn gets the fixed crisis message). The engineering alert carries no student
+  // text and is rate limited per process; a throwing sink must not fail the turn, and the window opens even then so a broken sink is not retried per turn.
+  let lastScreenAlertAt: number | undefined;
+  const alertScreenOutage = () => {
+    const at = nowDate().getTime();
+    if (lastScreenAlertAt !== undefined && at - lastScreenAlertAt < SAFETY_SCREEN_ALERT_INTERVAL_MS) return;
+    lastScreenAlertAt = at;
+    try {
+      (deps.alert ?? emitEngineeringAlert)({ event: "alert_safety_screen_outage", attributes: { write: "safety_screen" } });
+    } catch {
+      // alerting must never fail a student turn
+    }
+  };
 
   // One limiter per distinct limit value (a tenant override makes a new one); the key is tenant + student, salted and hashed in the limiter.
   const limiters = new Map<number, AnonymousRateLimiter>();
@@ -479,7 +497,10 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
           : { logFlag: (r: Parameters<NonNullable<StudentGraphDeps["logFlag"]>>[0]) => recordStudentFlag(db, { studentId: r.studentId, threadId: r.threadId, turnId: r.turnId, kind: "crisis" }, { now: new Date(r.at) }) }),
         ...(escalate ? { escalate } : {}),
         hasPriorFlag: async (t) => (await listStudentFlags(db, { studentId: t.studentId, threadId: t.threadId })).length > 0,
-        onWriteError: (write) => logEvent("chat_write_failed", { write }),
+        onWriteError: (write) => {
+          logEvent("chat_write_failed", { write });
+          if (write === "safety_screen") alertScreenOutage();
+        },
       };
       graphDepsCache.set(key, g);
     }

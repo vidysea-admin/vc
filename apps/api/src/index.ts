@@ -28,9 +28,11 @@ import {
 import { createModelLanguageDetector, createStudentFactExtractor, escalateTurns, initScribeCheckpointer, parseReplyLangs, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentGraphDeps, type StudentKbPort } from "@vc/engine";
 import {
   createProvider,
+  emitEngineeringAlert,
   emitFailoverAlert,
   loadProviderConfig,
   loadTextChainConfig,
+  type EngineeringAlert,
   type FailoverExhaustedInfo,
   type LiveProvider,
   type LlmProvider,
@@ -158,7 +160,12 @@ export interface ChainSpendGuardOptions {
   capUsd: number;
   now?: () => Date;
   log?: (line: ChainLogLine) => void;
+  /** P1 alerts (D-108 item 7): the engineering-alert sink. Default: the T-021 mechanism (`emitEngineeringAlert`: stderr line plus a Langfuse error span). */
+  alert?: (alert: EngineeringAlert) => void;
 }
+
+/** The share of the monthly cap at which the one-time-per-month warning alert fires. */
+export const CHAIN_CAP_WARN_FRACTION = 0.8;
 
 const monthOf = (d: Date): string => d.toISOString().slice(0, 7);
 
@@ -178,13 +185,30 @@ export function createChainSpendGuard(options: ChainSpendGuardOptions): ChainSpe
   if (!Number.isFinite(capUsd) || capUsd <= 0) throw new ChainSpendCapError("the cap must be a positive, finite USD amount");
   const now = options.now ?? (() => new Date());
   const log = options.log ?? defaultChainLog;
+  const sink = options.alert ?? emitEngineeringAlert;
   let month = monthOf(now());
   let spent = 0;
   let loggedFor: string | undefined;
+  let warnedFor: string | undefined;
   let capRefusals = 0;
   let chainExhausted = 0;
   // The month each reservation was made in, keyed by the estimate object the provider hands back inside its usage.
   const reservedIn = new WeakMap<OllamaRequestEstimate, string>();
+  const money = (usd: number): number => Math.round(usd * 1e6) / 1e6;
+  // P1 alerts A2: figures only (month, cap, spend), never text. A failing sink must not turn a reservation or a refusal into a crash.
+  const raise = (event: "alert_chain_cap_80pct" | "alert_chain_cap_exhausted"): void => {
+    try {
+      sink({ event, attributes: { month, capUsd, spentUsd: money(spent) } });
+    } catch {
+      // alerting must never fail a student turn
+    }
+  };
+  const warnIfNear = (): void => {
+    if (warnedFor !== month && spent >= capUsd * CHAIN_CAP_WARN_FRACTION - 1e-9) {
+      warnedFor = month;
+      raise("alert_chain_cap_80pct");
+    }
+  };
   const roll = (): void => {
     const current = monthOf(now());
     if (current !== month) {
@@ -206,11 +230,13 @@ export function createChainSpendGuard(options: ChainSpendGuardOptions): ChainSpe
           } catch {
             // a failing logger must not turn a refusal into a crash
           }
+          raise("alert_chain_cap_exhausted");
         }
         throw new ChainBudgetExhaustedError(capUsd, month);
       }
       spent += cost;
       reservedIn.set(estimate, month);
+      warnIfNear();
     },
     onUsage(usage) {
       try {
@@ -218,6 +244,7 @@ export function createChainSpendGuard(options: ChainSpendGuardOptions): ChainSpe
         if (usage.actual !== "reported" || usage.usd === undefined || !Number.isFinite(usage.usd) || usage.usd < 0) return;
         if (reservedIn.get(usage.estimate) !== month) return; // reserved in an earlier month: that month's figure is closed
         spent = Math.max(0, spent + (usage.usd - usage.estimate.estimatedCostUsd));
+        warnIfNear();
       } catch {
         // the response is already paid for: accounting must never fail the turn
       }
@@ -266,7 +293,7 @@ export interface StartApiHttpOptions {
   /** P1 U10w: the voice WebSocket (flag VC_VOICE_ENABLED plus the A20 `voice` gate). */
   voice?: StartApiVoiceOptions;
   /** P1 LK7: the text chain's spend guard (only built when VC_TEXT_CHAIN is set). Tests inject a clock and a log; the cap itself is only ever VC_CHAIN_MONTHLY_CAP_USD. */
-  chainSpend?: Pick<ChainSpendGuardOptions, "now" | "log">;
+  chainSpend?: Pick<ChainSpendGuardOptions, "now" | "log" | "alert">;
 }
 
 /** P1 U10w: environment names for the voice WebSocket secrets, used when the option is not supplied. */
@@ -354,6 +381,8 @@ export interface StartApiChatOptions {
   now?: ChatApiDeps["now"];
   nowMs?: ChatApiDeps["nowMs"];
   log?: ChatApiDeps["log"];
+  /** P1 alerts A1: the engineering-alert sink for the safety-screen outage alert (default: the T-021 mechanism). */
+  alert?: ChatApiDeps["alert"];
 }
 
 export interface Api {
@@ -643,6 +672,7 @@ export async function startApi(
               ...(chatSetup.chat.now ? { now: chatSetup.chat.now } : {}),
               ...(chatSetup.chat.nowMs ? { nowMs: chatSetup.chat.nowMs } : {}),
               ...(chatSetup.chat.log ? { log: chatSetup.chat.log } : {}),
+              ...(chatSetup.chat.alert ? { alert: chatSetup.chat.alert } : {}),
             },
             { enabled: true, gatesDir: chatSetup.chat.gatesDir ?? DEFAULT_GATES_DIR, env },
           )
