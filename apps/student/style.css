@@ -1,0 +1,22 @@
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{display:flex;flex-direction:column;font:16px/1.45 system-ui,sans-serif;color:#1b1f23;background:#f5f6f8}
+header{padding:10px 14px;background:#fff;border-bottom:1px solid #d9dde3}
+h1{margin:0;font-size:1.15rem}
+header p{margin:2px 0 0;font-size:.85rem;color:#555}
+main{flex:1;display:flex;flex-direction:column;min-height:0;padding:10px 14px}
+#log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:6px}
+.m{max-width:88%;padding:8px 12px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.me{align-self:flex-end;background:#1f5fbf;color:#fff}
+.bot{align-self:flex-start;background:#fff;border:1px solid #d9dde3}
+.note{align-self:flex-start;background:#fff4d6;border:1px solid #e3c25a}
+.crisis{align-self:flex-start;background:#fde7e7;border:2px solid #b3261e}
+.err{align-self:flex-start;background:#fff;border:1px solid #b3261e;color:#8c1d18}
+#status{min-height:1.3em;margin:2px 0;font-size:.85rem;color:#555}
+form{display:flex;flex-direction:column;gap:6px}
+label{font-size:.85rem;font-weight:600}
+textarea{width:100%;font:inherit;padding:8px;border:1px solid #9aa3ad;border-radius:8px;resize:vertical}
+button{align-self:flex-end;min-height:44px;padding:0 22px;font:inherit;font-weight:600;color:#fff;background:#1f5fbf;border:0;border-radius:8px}
+button:disabled{background:#8a99b0}
+:focus-visible{outline:3px solid #f0a100;outline-offset:2px}
+footer{padding:8px 14px;font-size:.85rem;font-weight:600;text-align:center;background:#fff;border-top:1px solid #d9dde3}
