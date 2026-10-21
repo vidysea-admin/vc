@@ -1,0 +1,125 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { createServer, type Server } from "node:http";
+import { LiteLlmProvider, ProviderAuthorizationRefusedError, type GenerateRequest, type LlmProvider } from "@vc/providers";
+import { classifyConcern, safetyScreen } from "../src/guards/concern-classifier.js";
+
+async function stubSeq(replies: Array<string>) {
+  let n = 0;
+  const server: Server = createServer((req, res) => {
+    req.on("data", () => {});
+    req.on("end", () => {
+      const r = replies[Math.min(n, replies.length - 1)]; n++;
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ choices: [{ message: { content: r } }] }));
+    });
+  });
+  await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok));
+  const port = (server.address() as { port: number }).port;
+  return { baseUrl: `http://127.0.0.1:${port}/v1`, server, count: () => n };
+}
+const OK = '{"severity":"critical","likelyBenign":false,"rationale":"r"}';
+const NONE = '{"severity":"none","likelyBenign":true,"rationale":"r"}';
+const T = { text: "I do not want to live anymore", lang: "en" };
+const IN = { text: T.text, translatedText: T.text, lang: "en", guardLevel: "none" as const, guardMatched: [] as string[] };
+async function screen(replies: Array<string>, timeoutMs = 3000) {
+  const s = await stubSeq(replies);
+  try {
+    const provider = new LiteLlmProvider({ model: "m", baseUrl: s.baseUrl });
+    const v = await safetyScreen(T, { provider, skillPrompt: "p", timeoutMs });
+    return { v, calls: s.count() };
+  } finally { await new Promise((r) => s.server.close(r)); }
+}
+
+const garbage: Array<[string, string]> = [
+  ["prose-before-fence", "Here you go:\n```json\n" + OK + "\n```"],
+  ["trailing-junk-after-fence", "```json\n" + OK + "\n```\nHope that helps"],
+  ["trailing-junk-no-fence", OK + " thanks"],
+  ["double-fence", "```json\n```json\n" + OK + "\n```\n```"],
+  ["single-quotes", "{'severity':'critical','likelyBenign':false,'rationale':'r'}"],
+  ["unquoted-value", "{severity: critical, likelyBenign: false, rationale: r}"],
+  ["truncated", '{severity: "critical", likelyBenign: false, rationale: "abc'],
+  ["empty-fence", "```\n```"],
+  ["trailing-comma", '{severity: "critical", likelyBenign: false, rationale: "r",}'],
+  ["comment", '{severity: "critical", // c\n likelyBenign: false, rationale: "r"}'],
+  ["two-objects", OK + OK],
+  ["only-prose", "I cannot help with that."],
+];
+for (const [name, body] of garbage) {
+  test(`garbage:${name} -> fail closed after exactly 2 calls, never clear`, async () => {
+    const { v, calls } = await screen([body, body]);
+    assert.equal(v.verdict, "possible");
+    assert.equal((v as { basis: string }).basis, "unavailable");
+    assert.equal((v as { errorName: string }).errorName, "LiteLlmMalformedResponseError");
+    assert.equal(calls, 2);
+  });
+}
+test("e2e: fenced -> classified in 1 call (no retry needed)", async () => {
+  const { v, calls } = await screen(["```json\n" + OK + "\n```"]);
+  assert.deepEqual(v, { verdict: "possible", basis: "classified", severity: "critical" }); assert.equal(calls, 1);
+});
+test("e2e: garbage then unquoted-valid -> classified after 2 calls", async () => {
+  const { v, calls } = await screen(["nope", '{severity: "critical", likelyBenign: false, rationale: "r"}']);
+  assert.deepEqual(v, { verdict: "possible", basis: "classified", severity: "critical" }); assert.equal(calls, 2);
+});
+test("e2e: garbage, garbage, valid -> only 2 calls (third never made) and unavailable", async () => {
+  const { v, calls } = await screen(["nope", "nope", OK]);
+  assert.equal((v as { basis: string }).basis, "unavailable"); assert.equal(calls, 2);
+});
+test("e2e: valid clear stays clear; valid critical stays possible (valid JSON unchanged)", async () => {
+  assert.deepEqual((await screen([NONE])).v, { verdict: "clear" });
+  assert.equal((await screen([OK])).v.verdict, "possible");
+});
+test("escaped quote + colon inside value survives repair", async () => {
+  const { v } = await screen(['{severity: "critical", likelyBenign: false, rationale: "he said \\"a, b: c\\" ok"}']);
+  assert.equal(v.verdict, "possible"); assert.equal((v as { basis: string }).basis, "classified");
+});
+test("DUP-KEY: mixed-quoted duplicate severity - what does it classify as?", async () => {
+  const { v } = await screen(['{"severity":"critical","likelyBenign":false,"rationale":"r", severity:"none"}']);
+  console.log("DUPKEY mixed-quote verdict:", JSON.stringify(v));
+  const base = await screen(['{"severity":"critical","likelyBenign":false,"rationale":"r","severity":"none"}']);
+  console.log("DUPKEY pure-JSON (same on base):", JSON.stringify(base.v));
+});
+test("regex perf: large adversarial inputs fail fast", async () => {
+  const body = "{" + ", ".repeat(200000) + "}";
+  const t = Date.now(); const { v } = await screen([body, body]);
+  console.log("perf ms", Date.now() - t); assert.equal(v.verdict, "possible");
+  const body2 = "{a:" + " ".repeat(400000) + ",";
+  const t2 = Date.now(); await screen([body2, body2]); console.log("perf2 ms", Date.now() - t2);
+});
+
+function fake(fn: (n: number, r: GenerateRequest<unknown>) => Promise<unknown>) {
+  let n = 0;
+  const p = { kind: "mock", model: "m", n: () => n, generate: async (r: any) => fn(++n, r) } as any;
+  return p as LlmProvider & { n: () => number };
+}
+const malformed = () => { const e = new Error("bad"); e.name = "LiteLlmMalformedResponseError"; return e; };
+test("deadline shared: slow malformed then hang -> timeout within ~timeoutMs, 2 calls, unavailable/timeout", async () => {
+  const p = fake(async (n, r) => {
+    if (n === 1) { await new Promise((x) => setTimeout(x, 150)); throw malformed(); }
+    return new Promise((_, rej) => r.signal?.addEventListener("abort", () => rej(Object.assign(new Error("a"), { name: "LiteLlmAbortedError" }))));
+  });
+  const t = Date.now();
+  const out = await classifyConcern(IN, { provider: p, skillPrompt: "p", timeoutMs: 300 });
+  const dt = Date.now() - t; console.log("deadline dt", dt, JSON.stringify(out));
+  assert.equal(out.status, "unavailable"); assert.equal((out as any).reason, "timeout"); assert.ok(dt < 450); assert.equal(p.n(), 2);
+});
+test("external abort during 2nd attempt -> ProviderAuthorizationRefusedError rethrown, no 3rd call", async () => {
+  const ac = new AbortController();
+  const p = fake(async (n) => { if (n === 1) throw malformed(); setTimeout(() => ac.abort(), 20); return new Promise(() => {}); });
+  await assert.rejects(() => classifyConcern(IN, { provider: p, skillPrompt: "p", timeoutMs: 2000, signal: ac.signal }), (e) => e instanceof ProviderAuthorizationRefusedError);
+  assert.equal(p.n(), 2);
+});
+test("abort fired between attempts: rejects as refusal, 2nd generate sees aborted signal", async () => {
+  const ac = new AbortController();
+  let sawAborted: boolean | undefined;
+  const p = fake(async (n, r) => { if (n === 1) { ac.abort(); throw malformed(); } sawAborted = r.signal?.aborted; return OK; });
+  await assert.rejects(() => classifyConcern(IN, { provider: p, skillPrompt: "p", timeoutMs: 2000, signal: ac.signal }));
+  console.log("sawAborted on 2nd call:", sawAborted, "calls", p.n());
+});
+test("preflight forwarded on both attempts", async () => {
+  const seen: unknown[] = [];
+  const p = fake(async (n, r) => { seen.push((r as any).preflight); if (n === 1) throw malformed(); return { severity: "low", likelyBenign: true, rationale: "r" }; });
+  const out = await classifyConcern(IN, { provider: p, skillPrompt: "p", timeoutMs: 1000, preflight: async () => {} });
+  assert.equal(out.status, "classified"); assert.equal(seen.length, 2); assert.ok(seen.every((x) => typeof x === "function"));
+});
