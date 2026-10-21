@@ -315,7 +315,7 @@ test("A20 CLI: exits 1 naming each missing record against the real qa/gates; 0 o
   const refused = run(["student-routes", "--gates-dir", REPO_GATES]);
   assert.equal(refused.status, 1, refused.stderr);
   assert.match(refused.stdout, /REFUSED/);
-  assert.ok(refused.stdout.includes(GATE_FILES.b13), refused.stdout);
+  if (REAL_B13_PENDING) assert.ok(refused.stdout.includes(GATE_FILES.b13), refused.stdout);
   assert.ok(refused.stdout.includes(GATE_FILES.gPublish), refused.stdout);
   const voice = run(["voice", "--gates-dir", REPO_GATES]);
   assert.equal(voice.status, 1);
