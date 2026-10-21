@@ -7,7 +7,7 @@
 - L4 the crisis reply text is unchanged (no edit to REDIRECT/escalation message), and no existing crisis test regresses
 **Goal task:** none
 **Date:** 2026-10-21
-**Status:** ready-for-check
+**Status:** checked-PASS (verdict a36e74a)
 **Fix cycle:** 0
 **Policy-Version:** proportional-verification/2026-10-19.17
 **Tier:** L (safety: crisis detection)
