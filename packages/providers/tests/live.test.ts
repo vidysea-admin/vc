@@ -638,6 +638,31 @@ test("C3 gemini: the student's mic audio is sent to Gemini as base64 PCM16 at 16
   assert.equal(f.conn.closed, 1);
 });
 
+test("A10 diagnose: endAudio() sends Gemini's audioStreamEnd once, without muting the model or closing the session", async () => {
+  const f = fakeConnector();
+  const events: LiveEvent[] = [];
+  const session = await new GeminiLiveProvider({ model: "m", connector: f.connector }).connect({ onEvent: (e) => events.push(e) });
+  session.sendAudio(pcm(32, 2));
+  session.endAudio();
+  assert.deepEqual(f.conn.sent[f.conn.sent.length - 1], { rt: { audioStreamEnd: true } });
+  assert.equal(f.conn.sent.filter((m) => JSON.stringify(m) === JSON.stringify({ rt: { audioStreamEnd: true } })).length, 1);
+  assert.equal(session.closed, false);
+  assert.equal(f.conn.closed, 0);
+  // Not an interrupt: the model's reply still reaches the student.
+  f.cb().onmessage({ serverContent: { modelTurn: { parts: [{ inlineData: { data: b64(pcm(8)), mimeType: "audio/pcm;rate=24000" } }] } } });
+  assert.equal(of(events, "audio").length, 1);
+  assert.equal(of(events, "interrupted").length, 0);
+});
+
+test("A10 diagnose: endAudio() on a mock session records audio_end; on a closed session it throws like every other send", async () => {
+  const p = new MockLiveProvider();
+  const s = await p.connect({ onEvent: () => {} });
+  s.endAudio();
+  assert.deepEqual(p.last.calls, [{ type: "audio_end" }]);
+  s.close();
+  assert.throws(() => s.endAudio(), LiveSessionClosedError);
+});
+
 test("C3 gemini: the model returns audio at the wrong sample rate; an error is raised and the audio is not played", async () => {
   const f = fakeConnector();
   const events: LiveEvent[] = [];

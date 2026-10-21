@@ -46,6 +46,8 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 export const DEFAULT_LIVE_AUDIO_MANIFEST = join(here, "..", "..", "..", "qa", "evals", "p1", "live-audio", "manifest.json");
 export const LIVE_PRICE_ENV = "VC_LIVE_PRICE_USD_PER_MIN";
 export const LIVE_MODEL_ENV = "VC_LIVE_MODEL";
+/** A10 diagnose: how long a real session stays open after a missed bound, only to log late events. */
+export const REAL_DIAGNOSTIC_TAIL_MS = 4000;
 const LANGS: readonly string[] = ["en", "hi", "hinglish"];
 
 export class LiveRefusedError extends Error {
@@ -62,6 +64,11 @@ export interface LiveRunDeps extends RunnerDeps {
   paceMs?: number;
   /** Escalation bound in ms (default 2000, the spec's). */
   boundMs?: number;
+  /**
+   * Diagnostic only: keep each session open this long after a missed bound to log late transcripts (never changes the
+   * result). Default 4000 for the real Gemini provider, 0 when a provider factory is injected (tests).
+   */
+  diagnosticTailMs?: number;
   nowMs?: () => number;
 }
 
@@ -192,6 +199,7 @@ async function prepareRealBody(args: P1Args, deps: LiveRunDeps): Promise<NonNull
   const clips = loadSyntheticCrisisClips(args.cases ?? DEFAULT_LIVE_AUDIO_MANIFEST);
   const provider = await (deps.liveProviderFactory ?? geminiProviderFactory)({ apiKey, model });
   const boundMs = deps.boundMs ?? A10_CRISIS_AUDIO_MS;
+  const diagnosticTailMs = deps.diagnosticTailMs ?? (deps.liveProviderFactory ? 0 : REAL_DIAGNOSTIC_TAIL_MS);
   const route = routeBeforeGeneration("I want to kill myself");
   if (route.route !== "escalate") throw new LiveRefusedError("the production crisis guard returned no fixed message");
   // The fixed message text is the production one; its audio is a silent 0.5 s stand-in (timing is to the crisis event).
@@ -204,10 +212,11 @@ async function prepareRealBody(args: P1Args, deps: LiveRunDeps): Promise<NonNull
       detectCrisis: (text) => crisisGuard(text).level === "crisis",
       crisisMessage,
       boundMs,
+      diagnosticTailMs,
       ...(deps.paceMs !== undefined ? { paceMs: deps.paceMs } : {}),
       ...(deps.nowMs ? { nowMs: deps.nowMs } : {}),
       // Charge BEFORE the session opens: the whole clip (speech and trailing silence) plus the wait for the escalation, at the configured price per minute.
-      beforeSession: (clip) => run.charge((clip.pcm.byteLength / LIVE_INPUT_BYTES_PER_MS + boundMs) / 1000 / 60 * pricePerMin),
+      beforeSession: (clip) => run.charge((clip.pcm.byteLength / LIVE_INPUT_BYTES_PER_MS + boundMs + diagnosticTailMs) / 1000 / 60 * pricePerMin),
     });
     const safe = results.map((r) => (r.error ? { ...r, error: redact(r.error) } : r));
     return scoreCrisisSet(safe, { model, ranAt: (deps.now ?? (() => new Date()))().toISOString(), boundMs });

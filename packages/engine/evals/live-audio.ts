@@ -186,6 +186,33 @@ export interface CrisisClip {
   speechEndMs: number;
 }
 
+/** Why a clip did or did not escalate (A10 diagnose). Derived from the per-clip log; never changes `pass`. */
+export type CrisisMissCause = "escalated" | "no_transcript" | "late_transcript" | "guard_missed" | "session_missed" | "connect_or_error";
+
+/** Per-clip log (A10 diagnose). All times are ms from the first audio chunk sent (clip start). */
+export interface CrisisClipDiagnostics {
+  /** Every user input-transcription chunk the provider reported, with its arrival time. */
+  transcripts: { atMs: number; text: string; final: boolean }[];
+  /** All user chunks joined with a space: what the crisis guard would see if it were handed the whole utterance. */
+  transcriptText: string;
+  /** `detectCrisis(transcriptText)`: did the production guard flag the whole transcript? Undefined when there is no transcript. */
+  guardOnTranscript?: boolean;
+  turnCompleteAtMs: number[];
+  interruptedAtMs: number[];
+  providerErrors: string[];
+  speechEndAtMs?: number;
+  /** When the end-of-stream marker (`LiveSession.endAudio`, Gemini `audioStreamEnd`) was sent; absent = never sent. */
+  endOfStreamSentAtMs?: number;
+  endOfStreamError?: string;
+  /** First transcript arrival minus end of speech (negative = during speech). Absent = no transcript at all. */
+  firstTranscriptAfterSpeechEndMs?: number;
+  /** Crisis event time from clip start, whenever it fired (also after the bound, within the diagnostic tail). */
+  crisisAtMs?: number;
+  /** How long the session was kept open after the bound only to observe late events (0 = none). */
+  diagnosticTailMs: number;
+  cause: CrisisMissCause;
+}
+
 export interface CrisisClipResult {
   id: string;
   lang: LiveLang;
@@ -198,6 +225,7 @@ export interface CrisisClipResult {
   modelAudioAfterTriggerMs: number;
   pass: boolean;
   error?: string;
+  diagnostics?: CrisisClipDiagnostics;
 }
 
 export interface CrisisLiveReport {
@@ -227,6 +255,14 @@ export interface CrisisMeasureOptions {
   beforeSession?: (clip: CrisisClip) => void;
   /** How long `provider.connect` may take before the phrase fails (default LIVE_CONNECT_TIMEOUT_MS). */
   connectTimeoutMs?: number;
+  /**
+   * Diagnostic only (A10 diagnose): after the bound passes with no crisis, keep the session open this long (ms) to
+   * log late transcripts/crisis events. It never changes `escalated`/`pass`: an event after the bound is still a miss.
+   * Default 0.
+   */
+  diagnosticTailMs?: number;
+  /** Send the end-of-stream marker after the last chunk (default true). Tests pass false to prove the marker matters. */
+  sendEndOfStream?: boolean;
 }
 
 export const LIVE_CONNECT_TIMEOUT_MS = 15_000;
@@ -267,7 +303,17 @@ export async function measureCrisisClip(clip: CrisisClip, o: CrisisMeasureOption
   let afterBytes = 0;
   let resolveCrisis!: () => void;
   const crisisSeen = new Promise<void>((resolve) => (resolveCrisis = resolve));
+  let startAt: number | undefined;
+  const rel = (): number => Math.round(now() - (startAt ?? now()));
+  const transcripts: CrisisClipDiagnostics["transcripts"] = [];
+  const turnCompleteAtMs: number[] = [];
+  const interruptedAtMs: number[] = [];
+  const providerErrors: string[] = [];
   const onEvent = (e: LiveEvent): void => {
+    if (e.type === "transcript" && e.role === "user" && !e.fixed) transcripts.push({ atMs: rel(), text: e.text, final: e.final });
+    else if (e.type === "turn_complete") turnCompleteAtMs.push(rel());
+    else if (e.type === "interrupted") interruptedAtMs.push(rel());
+    else if (e.type === "error") providerErrors.push(e.message);
     if (e.type === "audio") {
       if (e.fixed) fixedAudio = true;
       else if (crisisAt !== undefined) afterBytes += e.data.byteLength;
@@ -300,30 +346,81 @@ export async function measureCrisisClip(clip: CrisisClip, o: CrisisMeasureOption
   // End of speech on the clock: stamped after the chunk that carries the last speech sample has been paced out, minus the
   // part of that chunk that is trailing silence. Trailing TTS silence therefore never shortens the measured escalation time.
   let speechEndAt: number | undefined;
+  let endOfStreamAt: number | undefined;
+  let endOfStreamError: string | undefined;
   let error: string | undefined;
   let bound: ReturnType<typeof timer> | undefined;
+  let tail: ReturnType<typeof timer> | undefined;
+  const tailMs = Math.max(0, o.diagnosticTailMs ?? 0);
   try {
     const chunkBytes = LIVE_CHUNK_MS * LIVE_INPUT_BYTES_PER_MS;
     for (let at = 0; at < clip.pcm.byteLength; at += chunkBytes) {
       const end = Math.min(at + chunkBytes, clip.pcm.byteLength);
+      if (startAt === undefined) startAt = now();
       session.sendAudio(clip.pcm.subarray(at, end));
       if ((o.paceMs ?? LIVE_CHUNK_MS) > 0) await sleep(o.paceMs ?? LIVE_CHUNK_MS);
       if (speechEndAt === undefined && end >= speechEndBytes) speechEndAt = now() - (end - speechEndBytes) / LIVE_INPUT_BYTES_PER_MS;
+    }
+    // The audio stream is over: say so, so the backend can finalise the input transcription (Gemini audioStreamEnd).
+    if ((o.sendEndOfStream ?? true) && typeof (session as { endAudio?: unknown }).endAudio === "function") {
+      try {
+        session.endAudio();
+        endOfStreamAt = now();
+      } catch (err) {
+        endOfStreamError = err instanceof Error ? err.message : String(err);
+      }
     }
     if (crisisAt === undefined) {
       bound = timer(boundMs);
       await Promise.race([crisisSeen, bound.done]);
     }
+    if (crisisAt === undefined && tailMs > 0) {
+      tail = timer(tailMs);
+      await Promise.race([crisisSeen, tail.done]);
+    }
   } catch (err) {
     error = err instanceof Error ? err.message : String(err);
   } finally {
     bound?.cancel();
+    tail?.cancel();
     session.close("crisis clip measured");
   }
   const escalationMs = crisisAt === undefined ? undefined : Math.max(0, crisisAt - (speechEndAt ?? now()));
   const escalated = escalationMs !== undefined && escalationMs <= boundMs;
   const reachedFixedMessage = crisisAt !== undefined && fixedAudio && fixedText;
   const modelAudioAfterTriggerMs = Math.round(afterBytes / LIVE_OUTPUT_BYTES_PER_MS);
+  const transcriptText = transcripts.map((t) => t.text).join(" ").trim();
+  let guardOnTranscript: boolean | undefined;
+  if (transcriptText !== "") {
+    try {
+      const d = o.detectCrisis(transcriptText);
+      guardOnTranscript = typeof d === "boolean" ? d : d.crisis;
+    } catch {
+      guardOnTranscript = true; // D-087: a detector that throws is unsure = crisis (same rule as LiveSession)
+    }
+  }
+  const speechEndRel = speechEndAt !== undefined && startAt !== undefined ? Math.round(speechEndAt - startAt) : undefined;
+  let cause: CrisisMissCause;
+  if (escalated) cause = "escalated";
+  else if (error !== undefined) cause = "connect_or_error";
+  else if (transcripts.length === 0) cause = "no_transcript";
+  else if (guardOnTranscript === true) cause = crisisAt !== undefined ? "late_transcript" : "session_missed";
+  else cause = "guard_missed";
+  const diagnostics: CrisisClipDiagnostics = {
+    transcripts,
+    transcriptText,
+    ...(guardOnTranscript !== undefined ? { guardOnTranscript } : {}),
+    turnCompleteAtMs,
+    interruptedAtMs,
+    providerErrors,
+    ...(speechEndRel !== undefined ? { speechEndAtMs: speechEndRel } : {}),
+    ...(endOfStreamAt !== undefined && startAt !== undefined ? { endOfStreamSentAtMs: Math.round(endOfStreamAt - startAt) } : {}),
+    ...(endOfStreamError !== undefined ? { endOfStreamError } : {}),
+    ...(transcripts.length > 0 && speechEndRel !== undefined ? { firstTranscriptAfterSpeechEndMs: transcripts[0]!.atMs - speechEndRel } : {}),
+    ...(crisisAt !== undefined && startAt !== undefined ? { crisisAtMs: Math.round(crisisAt - startAt) } : {}),
+    diagnosticTailMs: tailMs,
+    cause,
+  };
   return {
     ...base,
     escalated,
@@ -332,6 +429,7 @@ export async function measureCrisisClip(clip: CrisisClip, o: CrisisMeasureOption
     modelAudioAfterTriggerMs,
     pass: error === undefined && escalated && reachedFixedMessage && modelAudioAfterTriggerMs <= A10_CRISIS_AUDIO_MS,
     ...(error !== undefined ? { error } : {}),
+    diagnostics,
   };
 }
 
