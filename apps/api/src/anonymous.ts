@@ -57,6 +57,11 @@ export const ANONYMOUS_ROUTES: readonly ApiRoute[] = Object.freeze([{ id: "postA
 
 /** The explicit A20 config flag. Default off. */
 export const ANONYMOUS_FLAG_ENV = "VC_ANONYMOUS_ENABLED";
+/**
+ * P1 LK7: whether the LK5 model safety screen also runs on anonymous turns. Default OFF: contract A15b / B24.6 say no model sees an anonymous
+ * text to classify it, and D-105 orders a screen on every student turn; which wins is an open decision for Umesh, so nothing changes until he says.
+ */
+export const ANONYMOUS_SAFETY_SCREEN_ENV = "VC_ANONYMOUS_SAFETY_SCREEN";
 /** Repo qa/gates (apps/api/src -> repo root): where the A20 gate records live. */
 export const DEFAULT_GATES_DIR = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
 /**
@@ -93,6 +98,14 @@ export function anonymousEnabledFromEnv(env: Record<string, string | undefined>)
   if (raw === undefined || raw === "" || raw === "false") return false;
   if (raw === "true") return true;
   throw new AnonymousConfigError(`${ANONYMOUS_FLAG_ENV} must be "true" or "false" (got a different value)`);
+}
+
+/** Reads the anonymous safety-screen flag like `anonymousEnabledFromEnv`: unset, empty and "false" are off, exactly "true" is on, anything else is a config error. */
+export function anonymousSafetyScreenFromEnv(env: Record<string, string | undefined>): boolean {
+  const raw = env[ANONYMOUS_SAFETY_SCREEN_ENV]?.trim();
+  if (raw === undefined || raw === "" || raw === "false") return false;
+  if (raw === "true") return true;
+  throw new AnonymousConfigError(`${ANONYMOUS_SAFETY_SCREEN_ENV} must be "true" or "false" (got a different value)`);
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +244,11 @@ export interface AnonymousApiDeps {
   speakers: SpeakersFile;
   /** The single permitted writer: a text-free aggregate counter. */
   counter: AnonymousCounterWriter;
+  /**
+   * P1 LK7: the LK5 model safety screen. Absent = no screen (the default, see ANONYMOUS_SAFETY_SCREEN_ENV). Supplying it turns the screen ON for
+   * anonymous turns. There is deliberately no language-detector option: the anonymous route never sends a text to a model to classify its language.
+   */
+  safetyScreen?: Omit<NonNullable<StudentGraphDeps["safetyScreen"]>, "anonymous" | "authenticated">;
   config?: Partial<StudentGraphConfig>;
   /** Per-deployment override of the D-088 limits (only `anonymousRequestsPerMinute` is read). */
   limits?: Parameters<typeof resolveLimits>[0];
@@ -346,6 +364,7 @@ export function buildAnonymousGraphDeps(deps: AnonymousApiDeps, onForbidden?: (p
     speakers: deps.speakers,
     ...(deps.config ? { config: deps.config } : {}),
     ...(deps.now ? { now: deps.now } : {}),
+    ...(deps.safetyScreen ? { safetyScreen: { ...deps.safetyScreen, anonymous: true, authenticated: false } } : {}),
     recordGap: forbidden("recordGap"),
     logFlag: forbidden("logFlag"),
     escalate: forbidden("escalate"),

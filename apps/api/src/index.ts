@@ -25,14 +25,25 @@ import {
   type MongoClientFactory,
   type ErasureFenceSweepOptions,
 } from "@vc/db";
-import { createStudentFactExtractor, escalateTurns, initScribeCheckpointer, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentKbPort } from "@vc/engine";
-import { createProvider, loadProviderConfig, loadTextChainConfig, type LiveProvider, type LlmProvider } from "@vc/providers";
+import { createModelLanguageDetector, createStudentFactExtractor, escalateTurns, initScribeCheckpointer, parseReplyLangs, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentGraphDeps, type StudentKbPort } from "@vc/engine";
+import {
+  createProvider,
+  emitFailoverAlert,
+  loadProviderConfig,
+  loadTextChainConfig,
+  type FailoverExhaustedInfo,
+  type LiveProvider,
+  type LlmProvider,
+  type OllamaActualUsage,
+  type OllamaRequestEstimate,
+} from "@vc/providers";
 import { createJwtVerifier, createStudentJwtVerifier, jwtConfigFromEnv, studentJwtConfigFromEnv, type JwtVerifier, type StudentJwtVerifier } from "./auth.js";
 import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
 import {
   AnonymousConfigError,
   DEFAULT_GATES_DIR,
   anonymousEnabledFromEnv,
+  anonymousSafetyScreenFromEnv,
   createAnonymousApi,
   createMongoAnonymousCounter,
   withAnonymousRoutes,
@@ -73,6 +84,159 @@ export function apiStatus(): string {
 export const DEFAULT_SKILLS_DIR = fileURLToPath(new URL("../../../skills", import.meta.url));
 export const DEFAULT_API_PORT = 8080;
 
+// ---------------------------------------------------------------------------
+// P1 LK7 (D-105): the monthly USD cap on the text chain (VC_TEXT_CHAIN).
+// ---------------------------------------------------------------------------
+
+/** The per-calendar-month (UTC) USD cap on what the text chain may spend. REQUIRED whenever VC_TEXT_CHAIN is set. */
+export const CHAIN_MONTHLY_CAP_ENV = "VC_CHAIN_MONTHLY_CAP_USD";
+
+/** A bad or missing cap while VC_TEXT_CHAIN is set: the chain is refused at startup (fail closed). Names the variable, never a value. */
+export class ChainSpendCapError extends Error {
+  constructor(reason: string) {
+    super(`ChainSpendCapError: ${reason}`);
+    this.name = "ChainSpendCapError";
+  }
+}
+
+/**
+ * Thrown from the chain's `beforeRequest` hook when a request would take the month past the cap. The Ollama provider lets a hook's throw
+ * surface unchanged and `isRetryableProviderError` is false for it, so the failover chain neither retries it nor tries the next hop (the next
+ * hop would cost the same). The student graph turns it into the existing degraded reply.
+ */
+export class ChainBudgetExhaustedError extends Error {
+  constructor(
+    readonly capUsd: number,
+    readonly month: string,
+  ) {
+    super(`ChainBudgetExhaustedError: the text chain's monthly cap of USD ${capUsd} (${month}) has no room for this request`);
+    this.name = "ChainBudgetExhaustedError";
+  }
+}
+
+/**
+ * Reads VC_CHAIN_MONTHLY_CAP_USD: a plain positive decimal ("50", "12.5"). Anything else (unset, empty, zero, negative, NaN, Infinity,
+ * an exponent or hex form, a currency symbol, a number too large to be finite) throws. A missing cap is never "unlimited".
+ */
+export function parseChainMonthlyCap(env: Record<string, string | undefined>): number {
+  const raw = env[CHAIN_MONTHLY_CAP_ENV]?.trim();
+  if (raw === undefined || raw === "") {
+    throw new ChainSpendCapError(`${CHAIN_MONTHLY_CAP_ENV} is required when VC_TEXT_CHAIN is set (a positive USD amount per calendar month)`);
+  }
+  const value = /^\d+(\.\d+)?$/.test(raw) ? Number(raw) : Number.NaN;
+  if (!Number.isFinite(value) || value <= 0) throw new ChainSpendCapError(`${CHAIN_MONTHLY_CAP_ENV} must be a positive USD amount such as 50 or 12.5`);
+  return value;
+}
+
+/** Text-free chain accounting lines: a month, a cap and figures, never a student's words. */
+export type ChainLogLine = { level: "error"; event: "chain_cap_exhausted"; capUsd: number; month: string; spentUsd: number; ts: string };
+
+export interface ChainSpendSnapshot {
+  /** UTC calendar month the figures belong to, "YYYY-MM". */
+  month: string;
+  capUsd: number;
+  /** Reservations plus settled actuals this month. */
+  spentUsd: number;
+  /** Requests refused because the cap had no room (this process). */
+  capRefusals: number;
+  /** Times the whole chain was exhausted by failures, not by the cap (this process). */
+  chainExhausted: number;
+}
+
+export interface ChainSpendGuard {
+  /** `createProvider`'s `beforeRequest`: reserves the request's upper-bound cost, or throws ChainBudgetExhaustedError. Synchronous, so check-and-reserve is atomic. */
+  beforeRequest(estimate: OllamaRequestEstimate): void;
+  /** `createProvider`'s `onUsage`: settles a reported usage to the actual figure; an unreported one keeps its reservation. Never throws. */
+  onUsage(usage: OllamaActualUsage): void;
+  /** `createProvider`'s `onExhausted`: counts the exhaustion and keeps the default failover alert. */
+  onExhausted(info: FailoverExhaustedInfo): void;
+  spentUsd(): number;
+  snapshot(): ChainSpendSnapshot;
+}
+
+export interface ChainSpendGuardOptions {
+  capUsd: number;
+  now?: () => Date;
+  log?: (line: ChainLogLine) => void;
+}
+
+const monthOf = (d: Date): string => d.toISOString().slice(0, 7);
+
+function defaultChainLog(line: ChainLogLine): void {
+  // eslint-disable-next-line no-console
+  console.error(JSON.stringify(line));
+}
+
+/**
+ * The cap, in this process. Spend is the upper-bound reservation of every request sent (a request that fails after it was sent keeps its
+ * reservation: no hook says it was cheaper), settled DOWN to the provider-reported actual when a response reports its token counts, so a month of
+ * ordinary replies is not counted at the 2048-token worst case. A request that would pass the cap is refused before it is sent. The month is the
+ * UTC calendar month and the counter starts at zero in each. It is NOT persisted: a restart or a second replica starts from zero.
+ */
+export function createChainSpendGuard(options: ChainSpendGuardOptions): ChainSpendGuard {
+  const { capUsd } = options;
+  if (!Number.isFinite(capUsd) || capUsd <= 0) throw new ChainSpendCapError("the cap must be a positive, finite USD amount");
+  const now = options.now ?? (() => new Date());
+  const log = options.log ?? defaultChainLog;
+  let month = monthOf(now());
+  let spent = 0;
+  let loggedFor: string | undefined;
+  let capRefusals = 0;
+  let chainExhausted = 0;
+  // The month each reservation was made in, keyed by the estimate object the provider hands back inside its usage.
+  const reservedIn = new WeakMap<OllamaRequestEstimate, string>();
+  const roll = (): void => {
+    const current = monthOf(now());
+    if (current !== month) {
+      month = current;
+      spent = 0;
+    }
+  };
+  return {
+    beforeRequest(estimate) {
+      roll();
+      const cost = estimate.estimatedCostUsd;
+      // A non-finite or negative estimate is not a number a cap can reason about: refuse rather than under-count.
+      if (!Number.isFinite(cost) || cost < 0 || spent + cost > capUsd) {
+        capRefusals += 1;
+        if (loggedFor !== month) {
+          loggedFor = month;
+          try {
+            log({ level: "error", event: "chain_cap_exhausted", capUsd, month, spentUsd: spent, ts: new Date().toISOString() });
+          } catch {
+            // a failing logger must not turn a refusal into a crash
+          }
+        }
+        throw new ChainBudgetExhaustedError(capUsd, month);
+      }
+      spent += cost;
+      reservedIn.set(estimate, month);
+    },
+    onUsage(usage) {
+      try {
+        roll();
+        if (usage.actual !== "reported" || usage.usd === undefined || !Number.isFinite(usage.usd) || usage.usd < 0) return;
+        if (reservedIn.get(usage.estimate) !== month) return; // reserved in an earlier month: that month's figure is closed
+        spent = Math.max(0, spent + (usage.usd - usage.estimate.estimatedCostUsd));
+      } catch {
+        // the response is already paid for: accounting must never fail the turn
+      }
+    },
+    onExhausted(info) {
+      chainExhausted += 1;
+      emitFailoverAlert(info);
+    },
+    spentUsd() {
+      roll();
+      return spent;
+    },
+    snapshot() {
+      roll();
+      return { month, capUsd, spentUsd: spent, capRefusals, chainExhausted };
+    },
+  };
+}
+
 /**
  * T-025: the HTTP server, OPT-IN. Without `http`, startApi only runs the fence sweep (as before),
  * so importing or starting this package never opens a port by accident.
@@ -101,6 +265,8 @@ export interface StartApiHttpOptions {
   chat?: StartApiChatOptions;
   /** P1 U10w: the voice WebSocket (flag VC_VOICE_ENABLED plus the A20 `voice` gate). */
   voice?: StartApiVoiceOptions;
+  /** P1 LK7: the text chain's spend guard (only built when VC_TEXT_CHAIN is set). Tests inject a clock and a log; the cap itself is only ever VC_CHAIN_MONTHLY_CAP_USD. */
+  chainSpend?: Pick<ChainSpendGuardOptions, "now" | "log">;
 }
 
 /** P1 U10w: environment names for the voice WebSocket secrets, used when the option is not supplied. */
@@ -155,6 +321,9 @@ export interface StartApiAnonymousOptions {
   log?: AnonymousApiDeps["log"];
 }
 
+/** P1 LK7: the overridable parts of the authenticated safety screen. */
+export type StartApiSafetyScreenOptions = Omit<NonNullable<StudentGraphDeps["safetyScreen"]>, "provider" | "authenticated" | "anonymous"> & { provider?: LlmProvider };
+
 /**
  * P1 U8: the authenticated student chat routes. Whether they are served is decided ONLY by the explicit flag VC_CHAT_ENABLED (default
  * off) AND the A20 go-live gate; supplying this object never turns them on. The production KB port and the Pathlynks profile port are
@@ -163,6 +332,12 @@ export interface StartApiAnonymousOptions {
 export interface StartApiChatOptions {
   /** Knowledge-base port. Required when the flag is on. */
   kb?: StudentKbPort;
+  /**
+   * P1 LK7 (D-105): the LK5 model safety screen on authenticated turns. ON by default: it runs on the concern classifier's provider (D-105 Q4: the
+   * classifier moves to the chain only after its own eval), with the engine's defaults for timeout and threshold. `false` turns it off; an object
+   * overrides the provider, `timeoutMs` or `blockAt`. A slow or down screen provider shows the fixed crisis message (D-105, fail closed).
+   */
+  safetyScreen?: false | StartApiSafetyScreenOptions;
   /** Speakers file for the no-quote guard. Required when the flag is on. */
   speakers?: SpeakersFile;
   /** Default: the repo's qa/gates. */
@@ -182,6 +357,8 @@ export interface StartApiChatOptions {
 }
 
 export interface Api {
+  /** P1 LK7: the text chain's monthly spend figures; present only when VC_TEXT_CHAIN is set. */
+  chainSpend?: () => ChainSpendSnapshot;
   /** Closes voice (live sessions finalized, usage written), stops the HTTP server (when started) and the fence sweep, then closes the Mongo client. Await once. */
   stop: () => Promise<void>;
   /** The bound port, when `http` was requested. */
@@ -267,7 +444,17 @@ export async function startApi(
   // `studentProvider` serves the student surfaces (chat turn, anonymous route): the VC_TEXT_CHAIN chain when set, else that same current provider.
   // A bad chain (no OLLAMA_API_KEY, unknown price) throws here, before anything connects.
   const textChain = httpBase ? loadTextChainConfig(env) : undefined;
-  const httpSetup = httpBase ? { ...httpBase, studentProvider: textChain ? createProvider(textChain) : httpBase.provider } : undefined;
+  // P1 LK7: a chain spends real money, so it never starts without a valid monthly cap (fail closed, before anything connects). Every hop of the
+  // chain is charged through this one guard; a refused request is the existing degraded reply, never a crash.
+  const chainGuard = textChain ? createChainSpendGuard({ capUsd: parseChainMonthlyCap(env), ...(http?.chainSpend ?? {}) }) : undefined;
+  const httpSetup = httpBase
+    ? {
+        ...httpBase,
+        studentProvider: textChain
+          ? createProvider(textChain, { beforeRequest: chainGuard!.beforeRequest, onUsage: chainGuard!.onUsage, onExhausted: chainGuard!.onExhausted })
+          : httpBase.provider,
+      }
+    : undefined;
   const classifierConfig = httpSetup ? loadConcernClassifierConfig(env) : undefined;
   const classifierProvider = httpSetup && !http?.escalationForTenant
     ? (http?.provider ?? createProvider(concernClassifierProviderConfig(loadProviderConfig(env), classifierConfig!))) : undefined;
@@ -280,6 +467,10 @@ export async function startApi(
   // P1 U7: the anonymous route. The flag, the config and the A20 go-live gate are all checked BEFORE anything connects; the
   // default counter writer is bound to the Db only after connect (it is not called before the first request).
   const anonymousFlag = httpSetup ? anonymousEnabledFromEnv(env) : false;
+  // P1 LK7: the safety screen's provider is the concern classifier's (D-105 Q4: it moves to the chain only after its own eval). The anonymous screen
+  // is OFF unless VC_ANONYMOUS_SAFETY_SCREEN is exactly "true" (open decision A15b / B24.6 vs D-105); a bad value is a startup error.
+  const screenBaseProvider = httpSetup ? (classifierProvider ?? httpSetup.provider) : undefined;
+  const anonymousScreen = anonymousFlag ? anonymousSafetyScreenFromEnv(env) : false;
   const counterRef: { writer?: AnonymousCounterWriter } = {};
   let anonymousHandler: ReturnType<typeof createAnonymousApi>;
   if (httpSetup && anonymousFlag) {
@@ -294,6 +485,7 @@ export async function startApi(
         provider: httpSetup.studentProvider,
         skillsDir: httpSetup.skillsDir,
         speakers: a.speakers,
+        ...(anonymousScreen ? { safetyScreen: { provider: screenBaseProvider! } } : {}),
         counter:
           a.counter ??
           {
@@ -337,6 +529,19 @@ export async function startApi(
   // is stored, and a failure never fails the turn (chat.ts and voice.ts catch it and log the event name only).
   const defaultExtractFacts = httpSetup ? createStudentFactExtractor({ provider: httpSetup.studentProvider, skillsDir: httpSetup.skillsDir }) : undefined;
   const chatExtractFacts = chatSetup?.chat.extractFacts ?? defaultExtractFacts;
+  // P1 LK7 (D-105): the authenticated chat path gets the model language detector (only when the chain is set: it is the "cheap chain" detector; with no
+  // chain the offline script test stays, and the base provider is never asked to classify languages) and the LK5 safety screen (ON by default; `false` opts
+  // out). crisisGuard still runs first on the original text inside the graph. VC_REPLY_LANGS is read once here (dropped entries are logged by parseReplyLangs).
+  const chatScreenOption = chatSetup?.chat.safetyScreen;
+  const chatGraph: ChatApiDeps["graph"] | undefined = chatSetup
+    ? {
+        ...(httpSetup && textChain ? { detectLanguage: createModelLanguageDetector(httpSetup.studentProvider) } : {}),
+        replyLangs: parseReplyLangs(env.VC_REPLY_LANGS),
+        ...(chatScreenOption === false
+          ? {}
+          : { safetyScreen: { ...(chatScreenOption ?? {}), provider: chatScreenOption?.provider ?? screenBaseProvider!, authenticated: true, anonymous: false } }),
+      }
+    : undefined;
   const { client, db } = connectFromEnv(env, clientFactory);
   counterRef.writer = createMongoAnonymousCounter(anonymousCountersCollection(db), http?.anonymous?.now);
   // Built before connecting so every voice configuration error (secret length, base URL) is a startup error with nothing connected.
@@ -420,6 +625,7 @@ export async function startApi(
               escalateForTenant: sharedEscalateForTenant,
               ...(chatSetup.chat.profile ? { profile: chatSetup.chat.profile } : {}),
               ...(chatExtractFacts ? { extractFacts: chatExtractFacts } : {}),
+              ...(chatGraph ? { graph: chatGraph } : {}),
               ...(chatSetup.chat.sandboxTenantId !== undefined ? { sandboxTenantId: chatSetup.chat.sandboxTenantId } : {}),
               ...(chatSetup.chat.limitsForTenant ? { limitsForTenant: chatSetup.chat.limitsForTenant } : {}),
               ...(chatSetup.chat.config ? { config: chatSetup.chat.config } : {}),
@@ -447,6 +653,7 @@ export async function startApi(
     const liveServer = server;
     return {
       ...(port !== undefined ? { port } : {}),
+      ...(chainGuard ? { chainSpend: () => chainGuard.snapshot() } : {}),
       stop: async () => {
         // Voice first: it finalizes every live session (usage written, provider sessions closed) and drains within its own timeout, which
         // also lets the HTTP server close (an upgraded socket would otherwise keep it open) and keeps the database open until it is done.

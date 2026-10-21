@@ -11,11 +11,12 @@ import { ChatConfigError } from "../src/chat.js";
 import { JwtConfigError } from "../src/auth.js";
 import { startApi } from "../src/index.js";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
-import { GERMANY_QUESTION, adult, call, chatWorld, cleanupGates, gatesFixture, kbAnswerProvider, minor, newThread, profilePath, recordingKb, studentToken, studentVerifier, threadsPath, turnsPath, SKILLS_DIR, SPEAKERS } from "./chat-fixtures.js";
+import { CRISIS_TEXT, GERMANY_QUESTION, adult, call, chatWorld, cleanupGates, gatesFixture, kbAnswerProvider, minor, newThread, profilePath, recordingKb, studentToken, studentVerifier, threadsPath, turnsPath, SKILLS_DIR, SPEAKERS } from "./chat-fixtures.js";
 import { generateKeyPairSync } from "node:crypto";
-import { CHAIN_ENV, GOOD_CLAIM, stubOllamaFetch } from "./anonymous-fixtures.js";
-import { MockProvider } from "@vc/providers";
-import { createStudentFactExtractor } from "@vc/engine";
+import { CHAIN_ENV, GOOD_CLAIM, chainRequestInput, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
+import { MockProvider, isRetryableProviderError } from "@vc/providers";
+import { PROVIDER_APOLOGY_TEXT, STUDENT_CRISIS_MESSAGE, createStudentFactExtractor, detectLanguageOffline } from "@vc/engine";
+import { CHAIN_MONTHLY_CAP_ENV, ChainBudgetExhaustedError, ChainSpendCapError, createChainSpendGuard, parseChainMonthlyCap } from "../src/index.js";
 
 const PATHLYNKS = [{ key: "grade", value: "Grade 12, CBSE", source: "pathlynks" as const }];
 const proposeGermany = () => [{ key: "target_country", value: "Germany" }];
@@ -283,7 +284,8 @@ test("LK1w: VC_TEXT_CHAIN set -> a student chat turn is answered by the chain (O
     assert.ok(stub.calls.length >= 1, "the chain hop was called");
     assert.match(stub.calls[0]!.url, /^http:\/\/ollama\.synthetic\.test\/api\/chat$/);
     assert.equal(JSON.parse(stub.calls[0]!.body).model, "glm-5.3-flash", "the chain's first hop, in config order");
-    assert.equal(scribe.calls.length, 0, "the current provider (scribe/classifier base) never served the student turn");
+    // P1 LK7: the LK5 safety screen runs on the classifier's base provider (D-105 Q4), so that provider is asked for the screen and for nothing else.
+    assert.deepEqual(scribe.calls.filter((c) => c.skillName !== "concern-classifier"), [], "the current provider (scribe/classifier base) never served the student turn (only the safety screen ran on it)");
   } finally {
     stub.restore();
   }
@@ -463,5 +465,308 @@ test("p1-lk6: a crisis turn is answered with the fixed helpline text and is neve
     assert.equal(w.fakeDb.collection(COLLECTION_NAMES.profile_facts).all().length, 0);
   } finally {
     w.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// P1 LK7 (D-105): the model language detector and the safety screen on the authenticated chat path; the monthly spend cap on the text chain
+// ---------------------------------------------------------------------------
+
+/** A chat session over real HTTP through startApi. `scribe` is the injected base provider (the concern classifier's base). */
+async function lk7Session(env: Record<string, string | undefined>, scribe: MockProvider, extra: { chat?: Record<string, unknown>; http?: Record<string, unknown> } = {}) {
+  const fake = createFakeMongoClient();
+  const f = gatesFixture();
+  const api = await startApi(
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", ...env },
+    { clientFactory: () => fake.client, http: httpBase({ provider: scribe, ...(extra.http ?? {}), chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), ...(extra.chat ?? {}) } }) },
+  );
+  const base = `http://127.0.0.1:${api.port}`;
+  const headers = { authorization: `Bearer ${await studentToken(adult())}`, "content-type": "application/json" };
+  const { threadId } = (await (await fetch(`${base}${threadsPath("stu-1")}`, { method: "POST", headers })).json()) as { threadId: string };
+  let n = 0;
+  return {
+    api,
+    async ask(text: string) {
+      const res = await fetch(`${base}${turnsPath("stu-1", threadId)}`, { method: "POST", headers, body: JSON.stringify({ text, clientTurnId: `lk7-${++n}` }) });
+      return { status: res.status, json: (await res.json()) as { state: string; message?: string } };
+    },
+    async close() {
+      await api.stop();
+      cleanupGates(f);
+    },
+  };
+}
+const classifierCalls = (p: MockProvider) => p.calls.filter((c) => c.skillName === "concern-classifier");
+const screenOut = (severity: string) => ({ severity, likelyBenign: false, rationale: "synthetic" });
+/** One Latin-script word of Hinglish: the offline detector reads this as English, so only the model can say hi-Latn. */
+const ONE_MARKER_HINGLISH = "Germany fees kitni";
+
+test("LK7 L1: with VC_TEXT_CHAIN set, an authenticated turn's language comes from the MODEL detector (on the chain wire), and the answer call is told that reply language", async () => {
+  assert.equal(detectLanguageOffline(ONE_MARKER_HINGLISH).lang, "en", "precondition: the offline script test alone would say en");
+  const stub = stubOllamaRouted({ detect: { lang: "hi-Latn", confidence: 0.9 } });
+  const s = await lk7Session(CHAIN_ENV, kbAnswerProvider());
+  try {
+    const out = await s.ask(ONE_MARKER_HINGLISH);
+    assert.equal(out.status, 200);
+    const detect = stub.calls.filter((c) => c.kind === "lang-detect");
+    assert.equal(detect.length, 1, "exactly one detector call on the chain");
+    assert.equal((chainRequestInput(detect[0]!) as { text: string }).text, ONE_MARKER_HINGLISH);
+    const answer = stub.calls.filter((c) => c.kind === "other").map(chainRequestInput).find((i) => "evidence" in i);
+    assert.equal((answer as { replyLang?: string } | undefined)?.replyLang, "hi-Latn", "the model's language reached the answer call");
+  } finally {
+    await s.close();
+    stub.restore();
+  }
+});
+
+test("LK7 L2: VC_TEXT_CHAIN unset -> no model detector call exists anywhere (offline script test only) and nothing is sent to Ollama", async () => {
+  const stub = stubOllamaRouted();
+  const scribe = kbAnswerProvider();
+  const s = await lk7Session({}, scribe);
+  try {
+    assert.equal((await s.ask(ONE_MARKER_HINGLISH)).status, 200);
+    assert.equal(stub.calls.length, 0);
+    assert.equal(scribe.calls.filter((c) => c.skillName === "lang-detect").length, 0, "the base provider is not used as a detector");
+  } finally {
+    await s.close();
+    stub.restore();
+  }
+});
+
+test("LK7 C1: crisisGuard still runs FIRST on the original text: a crisis turn makes no detector, screen or chain call and gets the fixed message", async () => {
+  const stub = stubOllamaRouted();
+  const scribe = kbAnswerProvider();
+  scribe.setResponse("concern-classifier", screenOut("none"));
+  const s = await lk7Session(CHAIN_ENV, scribe);
+  try {
+    const out = await s.ask(CRISIS_TEXT);
+    assert.equal(out.status, 200);
+    assert.equal(out.json.state, "escalated");
+    assert.equal(out.json.message, STUDENT_CRISIS_MESSAGE);
+    assert.equal(stub.calls.length, 0, "no chain request of any kind");
+    assert.equal(scribe.calls.length, 0, "no screen request either");
+  } finally {
+    await s.close();
+    stub.restore();
+  }
+});
+
+test("LK7 S1: the safety screen is on for authenticated turns by default: 'possible' returns the fixed crisis message with no answer; the screen saw the original text", async () => {
+  const scribe = kbAnswerProvider();
+  scribe.setResponse("concern-classifier", screenOut("high"));
+  const s = await lk7Session({}, scribe);
+  try {
+    const out = await s.ask(GERMANY_QUESTION);
+    assert.equal(out.json.state, "escalated");
+    assert.equal(out.json.message, STUDENT_CRISIS_MESSAGE);
+    const calls = classifierCalls(scribe);
+    assert.equal(calls.length, 1);
+    assert.equal((calls[0]!.input as { text: string; guardLevel: string }).text, GERMANY_QUESTION);
+    assert.equal((calls[0]!.input as { guardLevel: string }).guardLevel, "none");
+  } finally {
+    await s.close();
+  }
+});
+
+test("LK7 S2: a clear screen releases the normal answer; a screen outage fails closed to the fixed crisis message (D-105)", async () => {
+  const clear = kbAnswerProvider();
+  const s1 = await lk7Session({}, clear);
+  try {
+    assert.equal((await s1.ask(GERMANY_QUESTION)).json.state, "ok");
+    assert.equal(classifierCalls(clear).length, 1);
+  } finally {
+    await s1.close();
+  }
+  const down = kbAnswerProvider();
+  down.setResponse("concern-classifier", (() => { throw new Error("classifier down"); }) as never);
+  const s2 = await lk7Session({}, down);
+  try {
+    const out = await s2.ask(GERMANY_QUESTION);
+    assert.equal(out.json.state, "escalated");
+    assert.equal(out.json.message, STUDENT_CRISIS_MESSAGE);
+  } finally {
+    await s2.close();
+  }
+});
+
+test("LK7 S3: with the chain set, the screen still runs on the classifier's base provider (D-105 Q4: a task moves to the chain only after its own eval), never on the chain", async () => {
+  const stub = stubOllamaRouted();
+  const scribe = kbAnswerProvider();
+  const s = await lk7Session(CHAIN_ENV, scribe);
+  try {
+    assert.equal((await s.ask(GERMANY_QUESTION)).json.state, "ok");
+    assert.equal(classifierCalls(scribe).length, 1, "the screen ran on the base provider");
+    assert.ok(stub.calls.length >= 1, "the answer ran on the chain");
+    assert.ok(stub.calls.every((c) => !JSON.parse(c.body).messages[0].content.includes("concern")), "no chain request carries the concern-classifier prompt");
+  } finally {
+    await s.close();
+    stub.restore();
+  }
+});
+
+test("LK7 S4: chat.safetyScreen = false turns the authenticated screen off (no classifier call); a supplied screen provider is the one used", async () => {
+  const off = kbAnswerProvider();
+  off.setResponse("concern-classifier", screenOut("high"));
+  const s1 = await lk7Session({}, off, { chat: { safetyScreen: false } });
+  try {
+    assert.equal((await s1.ask(GERMANY_QUESTION)).json.state, "ok");
+    assert.equal(classifierCalls(off).length, 0);
+  } finally {
+    await s1.close();
+  }
+  const base = kbAnswerProvider();
+  const own = new MockProvider({ responses: { "concern-classifier": screenOut("high") } });
+  const s2 = await lk7Session({}, base, { chat: { safetyScreen: { provider: own } } });
+  try {
+    assert.equal((await s2.ask(GERMANY_QUESTION)).json.state, "escalated");
+    assert.equal(own.calls.length, 1);
+    assert.equal(classifierCalls(base).length, 0);
+  } finally {
+    await s2.close();
+  }
+});
+
+// -- the monthly spend cap ---------------------------------------------------
+
+test("LK7 P1: VC_TEXT_CHAIN set and the cap missing or invalid -> startApi refuses (fail closed) BEFORE connecting, naming the variable and never a key", async () => {
+  for (const bad of [undefined, "", "   ", "abc", "0", "-5", "NaN", "Infinity", "1e999", "0x10", "5 USD", "1,5", "50;"]) {
+    const fake = createFakeMongoClient();
+    let connected = 0;
+    (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
+    const env: Record<string, string | undefined> = { MONGODB_URL: "mongodb://fake-host/ignored", ...CHAIN_ENV };
+    if (bad === undefined) delete env.VC_CHAIN_MONTHLY_CAP_USD;
+    else env.VC_CHAIN_MONTHLY_CAP_USD = bad;
+    let started: { stop(): Promise<void> } | undefined;
+    try {
+      started = await startApi(env, { clientFactory: () => fake.client, http: httpBase() });
+    } catch (e) {
+      assert.ok(e instanceof ChainSpendCapError, `${JSON.stringify(bad)}: ${String(e)}`);
+      assert.match((e as Error).message, /VC_CHAIN_MONTHLY_CAP_USD/);
+      assert.ok(!(e as Error).message.includes("synthetic-key-not-real"));
+    }
+    if (started) {
+      await started.stop();
+      assert.fail(`startApi started with the cap ${JSON.stringify(bad)}`);
+    }
+    assert.equal(connected, 0, `${JSON.stringify(bad)}: nothing connected`);
+  }
+});
+
+test("LK7 P2: a valid cap starts the chain; with VC_TEXT_CHAIN unset the cap is not required", async () => {
+  assert.equal(CHAIN_MONTHLY_CAP_ENV, "VC_CHAIN_MONTHLY_CAP_USD");
+  assert.equal(parseChainMonthlyCap({ VC_CHAIN_MONTHLY_CAP_USD: "50" }), 50);
+  assert.equal(parseChainMonthlyCap({ VC_CHAIN_MONTHLY_CAP_USD: " 12.5 " }), 12.5);
+  for (const env of [{ ...CHAIN_ENV }, {}]) {
+    const fake = createFakeMongoClient();
+    const api = await startApi({ MONGODB_URL: "mongodb://fake-host/ignored", ...env }, { clientFactory: () => fake.client, http: httpBase() });
+    await api.stop();
+  }
+});
+
+test("LK7 G1: the guard reserves the estimate before a request, refuses one that would pass the cap with a NON-retryable error, and settles a reported usage to the actual figure", () => {
+  const clock = { d: new Date("2026-11-03T10:00:00.000Z") };
+  const lines: unknown[] = [];
+  const g = createChainSpendGuard({ capUsd: 1, now: () => clock.d, log: (l) => lines.push(l) });
+  const est = (usd: number) => ({ model: "m", estimatedInputTokens: 1, maxOutputTokens: 1, estimatedCostUsd: usd });
+  const a = est(0.4);
+  g.beforeRequest(a);
+  assert.equal(g.spentUsd(), 0.4);
+  g.onUsage({ model: "m", estimate: a, actual: "reported", inputTokens: 1, outputTokens: 1, usd: 0.1 });
+  assert.ok(Math.abs(g.spentUsd() - 0.1) < 1e-12, "settled to the actual spend");
+  const b = est(0.6);
+  g.beforeRequest(b);
+  g.onUsage({ model: "m", estimate: b, actual: "unreported" });
+  assert.ok(Math.abs(g.spentUsd() - 0.7) < 1e-12, "unreported keeps the reservation");
+  g.beforeRequest(est(0.3)); // 0.7 + 0.3 = 1.0 is exactly the cap: allowed
+  let err: unknown;
+  try {
+    g.beforeRequest(est(0.0001));
+  } catch (e) {
+    err = e;
+  }
+  assert.ok(err instanceof ChainBudgetExhaustedError);
+  assert.equal(isRetryableProviderError(err), false, "a budget stop must not fail over to the next hop");
+  assert.ok(Math.abs(g.spentUsd() - 1.0) < 1e-12, "a refused request reserves nothing");
+  try { g.beforeRequest(est(0.5)); } catch { /* second refusal */ }
+  assert.equal(lines.filter((l) => (l as { event: string }).event === "chain_cap_exhausted").length, 1, "one text-free line per month, not per request");
+});
+
+test("LK7 G2: the cap is per UTC calendar month: a new month starts at zero, and a usage settled after the month turned does not touch the new month", () => {
+  const clock = { d: new Date("2026-11-30T23:59:59.000Z") };
+  const g = createChainSpendGuard({ capUsd: 1, now: () => clock.d, log: () => undefined });
+  const est = (usd: number) => ({ model: "m", estimatedInputTokens: 1, maxOutputTokens: 1, estimatedCostUsd: usd });
+  const old = est(0.9);
+  g.beforeRequest(old);
+  assert.throws(() => g.beforeRequest(est(0.2)), ChainBudgetExhaustedError);
+  clock.d = new Date("2026-12-01T00:00:00.000Z");
+  g.beforeRequest(est(0.5));
+  g.onUsage({ model: "m", estimate: old, actual: "reported", inputTokens: 1, outputTokens: 1, usd: 0.01 });
+  assert.equal(g.spentUsd(), 0.5, "the November settle did not change December");
+  assert.equal(g.snapshot().month, "2026-12");
+});
+
+test("LK7 E1: when the cap runs out mid-month, student turns get the existing degraded reply over real HTTP (200, never a 500), no request leaves after the stop, and spend never passes the cap", async () => {
+  const stub = stubOllamaRouted();
+  const lines: unknown[] = [];
+  const s = await lk7Session({ ...CHAIN_ENV, VC_CHAIN_MONTHLY_CAP_USD: "0.03" }, kbAnswerProvider(), { http: { chainSpend: { log: (l: unknown) => lines.push(l) } } });
+  try {
+    const results: { status: number; message?: string; state: string; callsAfter: number }[] = [];
+    for (let i = 0; i < 5; i++) {
+      const out = await s.ask(GERMANY_QUESTION);
+      results.push({ status: out.status, state: out.json.state, message: out.json.message, callsAfter: stub.calls.length });
+    }
+    assert.ok(results.every((r) => r.status === 200), JSON.stringify(results));
+    assert.equal(results[0]!.message?.includes(PROVIDER_APOLOGY_TEXT), false, "the first turn was served");
+    const firstDegraded = results.findIndex((r) => r.message?.includes(PROVIDER_APOLOGY_TEXT));
+    assert.ok(firstDegraded > 0, `a later turn is degraded: ${JSON.stringify(results)}`);
+    for (let i = firstDegraded; i < results.length; i++) {
+      assert.ok(results[i]!.message?.includes(PROVIDER_APOLOGY_TEXT), `turn ${i} stays degraded`);
+      assert.equal(results[i]!.callsAfter, results[firstDegraded]!.callsAfter, "no request left after the stop");
+    }
+    const snap = s.api.chainSpend!();
+    assert.equal(snap.capUsd, 0.03);
+    assert.ok(snap.spentUsd <= 0.03 + 1e-12, `spent ${snap.spentUsd}`);
+    assert.ok(snap.capRefusals >= 1);
+    assert.ok(lines.some((l) => (l as { event: string }).event === "chain_cap_exhausted"));
+    assert.ok(!JSON.stringify(lines).includes("Germany"), "text-free");
+  } finally {
+    await s.close();
+    stub.restore();
+  }
+});
+
+test("LK7 E2: reported token usage settles the spend to the actual figure, so the same cap serves more turns than the reservation alone would", async () => {
+  const stub = stubOllamaRouted({ usage: { prompt_eval_count: 100, eval_count: 50 } });
+  const s = await lk7Session({ ...CHAIN_ENV, VC_CHAIN_MONTHLY_CAP_USD: "0.03" }, kbAnswerProvider());
+  try {
+    for (let i = 0; i < 5; i++) {
+      const out = await s.ask(GERMANY_QUESTION);
+      assert.equal(out.status, 200);
+      assert.equal(out.json.message?.includes(PROVIDER_APOLOGY_TEXT), false, `turn ${i} still served`);
+    }
+    const snap = s.api.chainSpend!();
+    assert.ok(snap.spentUsd > 0 && snap.spentUsd < 0.03, `spent ${snap.spentUsd}`);
+  } finally {
+    await s.close();
+    stub.restore();
+  }
+});
+
+test("LK7 X1: when every hop of the chain fails (the whole chain is exhausted) the turn is the degraded reply, the failover alert still fires, and the exhaustion is counted", async () => {
+  const stub = stubOllamaRouted({ status: 503 });
+  const errors: string[] = [];
+  const realError = console.error;
+  console.error = (...a: unknown[]) => { errors.push(a.map(String).join(" ")); };
+  const s = await lk7Session(CHAIN_ENV, kbAnswerProvider());
+  try {
+    const out = await s.ask(GERMANY_QUESTION);
+    assert.equal(out.status, 200);
+    assert.ok(out.json.message?.includes(PROVIDER_APOLOGY_TEXT));
+    assert.ok(errors.some((e) => e.includes("provider_failover_exhausted")), "the default alert is kept");
+    assert.ok(s.api.chainSpend!().chainExhausted >= 1);
+  } finally {
+    console.error = realError;
+    await s.close();
+    stub.restore();
   }
 });
