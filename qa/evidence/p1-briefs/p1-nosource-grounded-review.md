@@ -1,0 +1,4 @@
+# ai-engineer review (read-only): p1-nosource-grounded
+Repo D:/vc/.worktrees/p1-nosource-grounded, diff 8d0d529..6a501bd. Brief qa/evidence/p1-briefs/p1-nosource-grounded.md (G1-G6; G3-G5 are your earlier W1/W3/W4 findings on p1-nosource-expert).
+Audience includes minors 13-18. Review: Gemini grounding call (what leaves the system; redaction strength; thinkingBudget/maxOutputTokens handling; non-STOP fallback), sources handling (https-only, count, rendering in apps/student/app.js - XSS), bare-domain guard false positives/evasions, topic boundary prompt and decline (over-blocking genuine study questions; harmful/injection coverage), anonymous safety screen default and its failure mode (classifier outage -> crisis message: acceptable?), crisisGuard ordering.
+Return Approve / Warning / Block with file:line evidence, max 15 lines, plus the top 3 eval cases to add before go-live. Never edit, never run live LLM calls.
