@@ -106,6 +106,7 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 
 ## Candidates (human picks)
 - priority: low · p1-lk5b review follow-ups (qa/evidence/p1-briefs/p1-lk5b-review-result.md): DOMAIN_RE still quadratic when text has "." (58 ms at 2k chars, bounded by the 2000-char cap; fix = start anchor + dotted timing test); missed fact wordings "half of", "a dozen", "a quarter of", "Sept", "decade", "sterling", upper-case "MAY".
+- [ ] crisis-forbidden-lang (from chk-lk10 137d4dc, low): graph.ts:863 answers a forbidden-pattern hit with English STUDENT_CRISIS_MESSAGE regardless of language; make it language-aware (crisisMessageFor). Also add missed forbidden variants ("kisi ko mat batana", "counsellor aapse sampark karega", ...). files: packages/engine/src/student/graph.ts
 
 - [ ] CANDIDATE · ISS-278 (low, test-flake): apps/api voice.test.ts C16 failed once under the full serial suite (event-ordering race, line 1504); 64/64 pass alone x3, file unchanged since 54cb095. Swap the bare assert for an `until(...)` wait. (backstop sweep 2026-10-19)
 - [ ] CANDIDATE · ISS-279 (low, contract, HUMAN_GATE): counselling-engine.md lacks the D-093 amendments (A11b Hindi/Hinglish list, stress check-in + 14416, guardian-consent under 18, A19 redacted persistence, B21 config-driven JWT); needs Umesh's signature. (backstop sweep 2026-10-19)
