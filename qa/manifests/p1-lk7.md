@@ -16,7 +16,7 @@
 - X1 `onExhausted` is wired: a fully failed chain is the degraded reply, the default failover alert still fires, and the exhaustion is counted (`Api.chainSpend().chainExhausted`)
 **Goal task:** none
 **Date:** 2026-10-21
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 1 verdict e7f4171)
 **Fix cycle:** 1
 **Policy-Version:** proportional-verification/2026-10-19.17
 **Tier:** L (safety path wiring: the screen and the detector sit on every authenticated student turn; plus a spend cap)
