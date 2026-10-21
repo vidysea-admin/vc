@@ -1,0 +1,1 @@
+[testlock] running slot 0 (free RAM 4.61 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk7/apps/api exec tsc --noEmit

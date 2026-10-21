@@ -1,0 +1,19 @@
+{"id": "F-L1", "crit": "L1", "desc": "detector no longer handed to the chat graph", "tests": 35, "fail": 1, "failed": ["LK7 L1", "failing tests:"]}
+{"id": "F-L2", "crit": "L2", "desc": "detector built even with no chain (base provider asked to classify languages)", "tests": 35, "fail": 1, "failed": ["LK7 L2", "failing tests:"]}
+{"id": "F-C1", "crit": "C1", "desc": "engine crisis node no longer short-circuits (crisisGuard not first)", "tests": 35, "fail": 2, "failed": ["LK7 C1", "failing tests:", "p1-lk6: a crisis turn is answered with t"]}
+{"id": "F-S1", "crit": "S1", "desc": "safety screen no longer handed to the chat graph", "tests": 35, "fail": 4, "failed": ["LK7 S1", "LK7 S2", "LK7 S3", "LK7 S4", "failing tests:"]}
+{"id": "F-S3", "crit": "S3", "desc": "screen runs on the chain provider instead of the classifier base", "tests": 35, "fail": 4, "failed": ["LK1w: VC_TEXT_CHAIN set -> a student cha", "LK7 E1", "LK7 S3", "LK7 X1", "failing tests:"]}
+{"id": "F-S4", "crit": "S4", "desc": "safetyScreen=false ignored (always on)", "tests": 35, "fail": 1, "failed": ["LK7 S4", "failing tests:"]}
+{"id": "F-P1", "crit": "P1", "desc": "cap is not required (constant used)", "tests": 35, "fail": 2, "failed": ["LK7 E1", "LK7 P1", "failing tests:"]}
+{"id": "F-P1b", "crit": "P1", "desc": "cap parsed loosely with Number()", "tests": 35, "fail": 1, "failed": ["LK7 P1", "failing tests:"]}
+{"id": "F-G1", "crit": "G1", "desc": "guard never refuses", "tests": 35, "fail": 3, "failed": ["LK7 E1", "LK7 G1", "LK7 G2", "failing tests:"]}
+{"id": "F-G1c", "crit": "G1", "desc": "guard reserves nothing before the request", "tests": 35, "fail": 4, "failed": ["LK7 E1", "LK7 E2", "LK7 G1", "LK7 G2", "failing tests:"]}
+{"id": "F-G2", "crit": "G2", "desc": "month rollover does not reset spend", "tests": 35, "fail": 1, "failed": ["LK7 G2", "failing tests:"]}
+{"id": "F-E2", "crit": "E2", "desc": "reported usage no longer settles the spend", "tests": 35, "fail": 2, "failed": ["LK7 E2", "LK7 G1", "failing tests:"]}
+{"id": "F-E1", "crit": "E1", "desc": "beforeRequest not wired into createProvider", "tests": 35, "fail": 2, "failed": ["LK7 E1", "LK7 E2", "failing tests:"]}
+{"id": "F-X1", "crit": "X1", "desc": "onExhausted not wired into createProvider", "tests": 35, "fail": 1, "failed": ["LK7 X1", "failing tests:"]}
+{"id": "F-A1", "crit": "A1", "desc": "anonymous screen forced on", "tests": 23, "fail": 2, "failed": ["LK1w: VC_TEXT_CHAIN set -> an anonymous ", "LK7 A1", "failing tests:"]}
+{"id": "F-A2", "crit": "A2", "desc": "anonymous screen never wired", "tests": 23, "fail": 1, "failed": ["LK7 A2", "failing tests:"]}
+{"id": "F-A5", "crit": "A5", "desc": "anonymous graph deps mark the screen off", "tests": 23, "fail": 2, "failed": ["LK7 A2", "LK7 A5", "failing tests:"]}
+{"id": "F-AD", "crit": "A1", "desc": "model detector added to the anonymous graph deps", "tests": 23, "fail": 2, "failed": ["LK7 A1", "LK7 A5", "failing tests:"]}
+exit 0

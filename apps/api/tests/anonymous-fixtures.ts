@@ -97,12 +97,14 @@ export function kbAnswerProvider(claims: unknown[] = [GOOD_CLAIM], followUp?: st
     responses: {
       "kb-answer": { claims, ...(followUp ? { followUp } : {}) },
       "vc-capabilities": { reply: "unused", questions: ["a?", "b?"] },
+      // P1 LK7: the authenticated safety screen runs on this provider (the concern classifier's base); a clean classification by default.
+      "concern-classifier": { severity: "none", likelyBenign: true, rationale: "synthetic: nothing of concern" },
     },
   });
 }
 
 /** P1 LK1w: the env that selects the Ollama text chain. The key is invented; the host is never contacted (see stubOllamaFetch). */
-export const CHAIN_ENV = { VC_TEXT_CHAIN: "ollama:glm-5.3-flash,ollama:deepseek-v4.1-flash", OLLAMA_API_KEY: "synthetic-key-not-real", OLLAMA_BASE_URL: "http://ollama.synthetic.test" };
+export const CHAIN_ENV = { VC_TEXT_CHAIN: "ollama:glm-5.3-flash,ollama:deepseek-v4.1-flash", OLLAMA_API_KEY: "synthetic-key-not-real", OLLAMA_BASE_URL: "http://ollama.synthetic.test", VC_CHAIN_MONTHLY_CAP_USD: "50" };
 
 /**
  * P1 LK1w: replaces globalThis.fetch with a mock that answers CHAIN_ENV's Ollama host with `content` as the model reply and passes every other
@@ -118,6 +120,46 @@ export function stubOllamaFetch(content: unknown): { calls: { url: string; body:
     return new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify(content) }, done: true }), { status: 200 });
   }) as typeof fetch;
   return { calls, restore: () => { globalThis.fetch = real; } };
+}
+
+/** P1 LK7: what the routed Ollama stub answers. `detect` is the lang-detect reply, `answer` every other call; `status` overrides both; `usage` adds reported token counts. */
+export interface OllamaRoutes {
+  detect?: unknown;
+  answer?: unknown;
+  status?: number;
+  usage?: { prompt_eval_count: number; eval_count: number };
+}
+export interface RoutedOllamaCall {
+  url: string;
+  body: string;
+  kind: "lang-detect" | "other";
+}
+
+/**
+ * P1 LK7: like stubOllamaFetch, but a request is classified by its system prompt ("lang-detect" or "other") and answered per `routes`, so a test
+ * can see the model language detector on the wire. `routes` is read per call, so a test may change it between turns.
+ */
+export function stubOllamaRouted(routes: OllamaRoutes = {}): { calls: RoutedOllamaCall[]; routes: OllamaRoutes; restore(): void } {
+  const real = globalThis.fetch;
+  const calls: RoutedOllamaCall[] = [];
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (!url.startsWith(CHAIN_ENV.OLLAMA_BASE_URL)) return real(input, init);
+    const body = String(init?.body ?? "");
+    const system = String((JSON.parse(body) as { messages: { content: string }[] }).messages[0]?.content ?? "");
+    const kind = system.includes("Identify the language of the student's message") ? "lang-detect" : "other";
+    calls.push({ url, body, kind });
+    if (routes.status !== undefined && routes.status !== 200) return new Response("{}", { status: routes.status });
+    const content = kind === "lang-detect" ? (routes.detect ?? { lang: "en", confidence: 0.9 }) : (routes.answer ?? { claims: [GOOD_CLAIM] });
+    return new Response(JSON.stringify({ message: { role: "assistant", content: JSON.stringify(content) }, done: true, ...(routes.usage ?? {}) }), { status: 200 });
+  }) as typeof fetch;
+  return { calls, routes, restore: () => { globalThis.fetch = real; } };
+}
+
+/** The `input` object a chain request carried (the user message is the JSON of the skill input). */
+export function chainRequestInput(call: RoutedOllamaCall): Record<string, unknown> {
+  const messages = (JSON.parse(call.body) as { messages: { content: string }[] }).messages;
+  return JSON.parse(messages[1]!.content) as Record<string, unknown>;
 }
 
 export interface AnonWorld {

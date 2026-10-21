@@ -17,14 +17,17 @@ import {
   ANONYMOUS_FLAG_ENV,
   ANONYMOUS_PATH,
   ANONYMOUS_ROUTES,
+  ANONYMOUS_SAFETY_SCREEN_ENV,
   AnonymousConfigError,
   anonymousEnabledFromEnv,
+  anonymousSafetyScreenFromEnv,
+  buildAnonymousGraphDeps,
   createAnonymousApi,
   withAnonymousRoutes,
 } from "../src/anonymous.js";
 import { createFakeMongoClient } from "@vc/db/testing";
 import { VC_DB_NAME } from "@vc/db";
-import { APPROVER, CHAIN_ENV, GOOD_CLAIM, NOW, SKILLS_DIR, SPEAKERS, anonRequest, anonWorld, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb, stubOllamaFetch } from "./anonymous-fixtures.js";
+import { APPROVER, CHAIN_ENV, GOOD_CLAIM, NOW, SKILLS_DIR, SPEAKERS, anonRequest, anonWorld, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
 
 const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
 const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -381,4 +384,69 @@ test("LK1w: VC_TEXT_CHAIN unset -> the anonymous route uses the current provider
   } finally {
     stub.restore();
   }
+});
+
+// ---------------------------------------------------------------------------
+// P1 LK7 (D-105 vs contract A15b / B24.6, an OPEN decision): the model safety screen on the anonymous route sits behind a flag that defaults OFF,
+// and the model language detector is not wired for anonymous turns at all. Anonymous behaviour is unchanged unless the flag is "true".
+// ---------------------------------------------------------------------------
+
+const GERMANY_Q = "What are the tuition fees for public universities in Germany?";
+const classifierCallsOf = (p: ReturnType<typeof kbAnswerProvider>) => p.calls.filter((c) => c.skillName === "concern-classifier");
+
+test("LK7 A1: flag unset (default OFF) -> an anonymous turn makes no safety-screen call and no model language-detector call, even with the chain set; a 'high' screen would not matter", async () => {
+  const stub = stubOllamaRouted();
+  const scribe = kbAnswerProvider();
+  scribe.setResponse("concern-classifier", { severity: "high", likelyBenign: false, rationale: "synthetic" });
+  try {
+    const out = await anonymousOverHttp(CHAIN_ENV, GERMANY_Q, scribe);
+    assert.equal(out.state, "ok");
+    assert.equal(classifierCallsOf(scribe).length, 0, "no screen");
+    assert.equal(stub.calls.filter((c) => c.kind === "lang-detect").length, 0, "no model detector on the anonymous route (A15b)");
+    assert.ok(stub.calls.length >= 1, "the answer itself still ran on the chain (LK1w, unchanged)");
+  } finally {
+    stub.restore();
+  }
+  for (const off of ["", "false"]) {
+    const s2 = kbAnswerProvider();
+    s2.setResponse("concern-classifier", { severity: "high", likelyBenign: false, rationale: "synthetic" });
+    assert.equal((await anonymousOverHttp({ VC_ANONYMOUS_SAFETY_SCREEN: off }, GERMANY_Q, s2)).state, "ok", JSON.stringify(off));
+    assert.equal(classifierCallsOf(s2).length, 0);
+  }
+});
+
+test("LK7 A2: VC_ANONYMOUS_SAFETY_SCREEN=true -> the screen runs on the anonymous turn (base provider, original text); 'possible' is the fixed crisis answer, a clear screen releases the answer", async () => {
+  assert.equal(ANONYMOUS_SAFETY_SCREEN_ENV, "VC_ANONYMOUS_SAFETY_SCREEN");
+  const high = kbAnswerProvider();
+  high.setResponse("concern-classifier", { severity: "high", likelyBenign: false, rationale: "synthetic" });
+  const out = await anonymousOverHttp({ VC_ANONYMOUS_SAFETY_SCREEN: "true" }, GERMANY_Q, high);
+  assert.equal(out.state, "escalated");
+  assert.equal(classifierCallsOf(high).length, 1);
+  assert.equal((classifierCallsOf(high)[0]!.input as { text: string }).text, GERMANY_Q);
+  const clear = kbAnswerProvider();
+  assert.equal((await anonymousOverHttp({ VC_ANONYMOUS_SAFETY_SCREEN: "true" }, GERMANY_Q, clear)).state, "ok");
+  assert.equal(classifierCallsOf(clear).length, 1);
+});
+
+test("LK7 A3: with the flag on, a crisis text is still answered by crisisGuard first: the screen is never called", async () => {
+  const scribe = kbAnswerProvider();
+  const out = await anonymousOverHttp({ VC_ANONYMOUS_SAFETY_SCREEN: "true" }, "I want to kill myself", scribe);
+  assert.equal(out.state, "escalated");
+  assert.equal(scribe.calls.length, 0);
+});
+
+test("LK7 A4: the flag reads like the other flags: unset, empty and 'false' are off, exactly 'true' is on, anything else is a config error (never a silent on or off)", () => {
+  for (const env of [{}, { VC_ANONYMOUS_SAFETY_SCREEN: "" }, { VC_ANONYMOUS_SAFETY_SCREEN: "false" }]) assert.equal(anonymousSafetyScreenFromEnv(env), false, JSON.stringify(env));
+  assert.equal(anonymousSafetyScreenFromEnv({ VC_ANONYMOUS_SAFETY_SCREEN: "true" }), true);
+  for (const bad of ["1", "yes", "TRUE", "on"]) assert.throws(() => anonymousSafetyScreenFromEnv({ VC_ANONYMOUS_SAFETY_SCREEN: bad }), AnonymousConfigError, bad);
+});
+
+test("LK7 A5: buildAnonymousGraphDeps passes a screen through only when one is supplied, and then marks it on for anonymous turns", () => {
+  const without = buildAnonymousGraphDeps({ ...baseDeps() });
+  assert.equal(without.safetyScreen, undefined);
+  assert.equal(without.detectLanguage, undefined);
+  const provider = kbAnswerProvider();
+  const withScreen = buildAnonymousGraphDeps({ ...baseDeps(), safetyScreen: { provider } });
+  assert.equal(withScreen.safetyScreen?.provider, provider);
+  assert.equal(withScreen.safetyScreen?.anonymous, true);
 });
