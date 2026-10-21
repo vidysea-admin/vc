@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Career Counsellor Chat</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>Career Counsellor Chat</h1><p>Ask about careers, courses and colleges. Text only. Nothing you type is saved on this device.</p></header>
+<main>
+  <div id="log" role="log" aria-live="polite" aria-label="Conversation"></div>
+  <p id="status" role="status" aria-live="polite"></p>
+  <form id="form" autocomplete="off">
+    <label for="msg">Your message</label>
+    <textarea id="msg" rows="2" maxlength="4000" required></textarea>
+    <button id="send" type="submit">Send</button>
+  </form>
+</main>
+<footer>Not a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) &middot; Emergency 112</footer>
+<script src="app.js"></script>
+</body>
+</html>

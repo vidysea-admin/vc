@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-21",
+  "tool": "Playwright MCP (chromium), throwaway local mock of POST /v1/public/chat/turns serving apps/student statically on 127.0.0.1:8765",
+  "viewport": "360x640",
+  "pages": [{"url": "http://127.0.0.1:8765/", "title": "Career Counsellor Chat", "screenshot": "360px.png", "horizontalScroll": false, "footerVisible": true}],
+  "consoleErrors": {
+    "uncaughtJsErrors": 0,
+    "pageErrorsFromOurCode": 0,
+    "note": "Chromium logs 'Failed to load resource' for the two deliberately injected HTTP failures (429, 500). One favicon.ico 404 appeared on the first load and was fixed with an inline data: icon; the reload produced no console entries.",
+    "entriesAfterAllInteractions": ["429 /v1/public/chat/turns (deliberate)", "500 /v1/public/chat/turns (deliberate)"]
+  },
+  "interactions": [
+    {"did": "turn 1 normal message", "expected": "bot reply as plain text with source title", "observed": "'Reply 1 to: What can I do after 12th in science?' + 'Sources: Engineering careers guide'", "pass": true},
+    {"did": "turn 2 normal message", "expected": "second reply appended", "observed": "'Reply 2 to: Tell me about engineering'", "pass": true},
+    {"did": "state no_sourced_answer with no message field", "expected": "readable fallback note", "observed": "'I could not find a sourced answer to that. Please ask a counsellor, or try rephrasing.' (class note)", "pass": true},
+    {"did": "HTTP 429 with retry-after: 42", "expected": "readable rate-limit message", "observed": "'You are sending messages too fast. Please wait about 42 seconds and try again.'", "pass": true},
+    {"did": "crisis-shaped reply (state escalated)", "expected": "distinct crisis block with the helpline", "observed": "class crisis: API message + 'Tele-MANAS 14416 (24x7) / Emergency 112'", "pass": true},
+    {"did": "HTTP 500 with helpline body", "expected": "readable error plus helpline from body", "observed": "'Something went wrong (500). Please try again.' + API helpline text", "pass": true},
+    {"did": "reply message containing <img onerror> and <b>", "expected": "rendered as inert text (textContent)", "observed": "literal markup shown, 0 img elements in #log, window.__pwned undefined", "pass": true},
+    {"did": "submit while a request is in flight", "expected": "send disabled and status shown, re-enabled after", "observed": "disabledDuring=true, status 'Waiting for a reply...', disabledAfter=false", "pass": true},
+    {"did": "request body shape", "expected": "exactly {text} (server rejects extra keys)", "observed": "app.js sends JSON.stringify({text}) only; mock accepted all 8 turns", "pass": true},
+    {"did": "footer at 360px", "expected": "helpline footer always visible, no horizontal scroll", "observed": "footer text present, bottom edge at viewport bottom, scrollWidth<=innerWidth", "pass": true},
+    {"did": "no storage of message text", "expected": "app.js does not touch storage", "observed": "grep localStorage|sessionStorage apps/student/app.js = 0 matches (the 127.0.0.1:8765 origin already held 4 unrelated localStorage keys from other apps in the shared browser profile)", "pass": true}
+  ]
+}

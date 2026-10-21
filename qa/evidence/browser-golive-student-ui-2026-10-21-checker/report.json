@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-21",
+  "mode": "D (checker own browser, Playwright MCP chromium 360x640, own mock written from packages/schemas/src/student-api.ts + apps/api/src/anonymous.ts; mock source: mock-from-real-schema.mjs, strict body {text:1..4000}, 400+helpline otherwise)",
+  "pages": [{"url": "http://127.0.0.1:8791/", "title": "Career Counsellor Chat", "screenshot": "360px.png", "horizontalScroll": false, "footerVisible": true}],
+  "console": {"jsErrors": 0, "pageErrors": 0, "externalRequests": 0, "note": "only Chromium 'Failed to load resource' lines for deliberately injected 429/500/502/413/dropped connection"},
+  "interactions": [
+    {"did": "load 360px", "expected": "exact footer text visible, no h-scroll", "observed": "footer text exact, bottom<=viewport, scrollWidth 360=innerWidth", "pass": true},
+    {"did": "2 normal turns", "expected": "replies as text + 'Sources: <title>'", "observed": "4 messages, both replies with source title", "pass": true},
+    {"did": "no_sourced_answer, no message field", "expected": "fallback note", "observed": "class note, readable fallback", "pass": true},
+    {"did": "sign_in_required with message", "expected": "note shows server message", "observed": "class note 'Sign in to get personal advice.'", "pass": true},
+    {"did": "escalated with message", "expected": "crisis block + fixed Tele-MANAS/112 line", "observed": "class crisis, server message + 'Tele-MANAS 14416 (24x7) / Emergency 112'", "pass": true},
+    {"did": "escalated, message absent", "expected": "fallback crisis text + fixed line", "observed": "'It sounds like you may be going through a hard time.' + fixed line", "pass": true},
+    {"did": "429 retry-after 7", "expected": "readable message with seconds", "observed": "'wait about 7 seconds'", "pass": true},
+    {"did": "500 JSON with helpline", "expected": "readable error + helpline from body", "observed": "'Something went wrong (500)' + helpline text", "pass": true},
+    {"did": "502 non-JSON HTML", "expected": "readable error, no crash", "observed": "'Something went wrong (502)'", "pass": true},
+    {"did": "413 body_too_large", "expected": "too-long message", "observed": "'That message is too long' + helpline", "pass": true},
+    {"did": "connection dropped", "expected": "could-not-reach message, send re-enabled", "observed": "'Could not reach the service', send enabled", "pass": true},
+    {"did": "ok with no message", "expected": "no crash", "observed": "'(no reply)'", "pass": true},
+    {"did": "XSS: img onerror, script, b in message AND source title", "expected": "inert text", "observed": "literal markup shown; 0 img/script/b in #log; window.__pwned undefined", "pass": true},
+    {"did": "request during in-flight (Enter + forced click)", "expected": "send disabled, status 'Waiting for a reply...', no second request, typed text kept", "observed": "disabled=true; slow turn requests=1; second text requests=0; text kept", "pass": true},
+    {"did": "every request body", "expected": "content-type json, keys exactly [text]", "observed": "all page requests keys=[text], application/json", "pass": true},
+    {"did": "Enter submits / Shift+Enter newline / whitespace-only ignored / maxlength 4000", "expected": "as named", "observed": "all as expected", "pass": true},
+    {"did": "7000-char unbroken reply", "expected": "no h-scroll, footer visible", "observed": "scrollWidth=360, footer in viewport", "pass": true},
+    {"did": "storage / cookies / indexedDB / reload", "expected": "no message text stored; log empty after reload", "observed": "no message text in localStorage (1 unrelated pre-existing key from shared browser origin), sessionStorage empty, cookie empty, no IDB, 0 messages after reload", "pass": true},
+    {"did": "a11y", "expected": "label for textarea, role=log, lang=en, role=status", "observed": "present", "pass": true}
+  ],
+  "falsification": "6 mutants in copies outside the worktree, see verdict"
+}
