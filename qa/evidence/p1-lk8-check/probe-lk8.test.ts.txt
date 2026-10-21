@@ -1,0 +1,39 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { crisisGuard, routeBeforeGeneration } from "file:///D:/vc/.worktrees/lk8/packages/engine/src/index.ts";
+const ZW = "\u200b", ZWJ = "\u200d", ZWNJ = "\u200c", SHY="\u00ad";
+const pos: [string,string][] = [
+ ["plain","khudkushi"],["upper","KHUDKUSHI"],["mixed","KhUdKuShI"],["spaces","khud   kushi"],["tab","khud\tkushi"],
+ ["trailing dot","khudkushi."],["trailing excl","khudkushi!!"],["comma","khudkushi, please help"],
+ ["zwsp","khud"+ZW+"kushi"],["zwj","khu"+ZWJ+"dkushi"],["zwnj","khudku"+ZWNJ+"shi"],["shy","khud"+SHY+"kushi"],
+ ["lettered","k h u d k u s h i"],["hyphen","khud-kushi"],["underscore","khud_kushi"],
+ ["hinglish sentence","mujhe lagta hai ki main khudkushi kar loon, kuch samajh nahi aa raha"],
+ ["sentence mid","yaar aaj kal khudkushi ke khayal aate hain"],["sentence end dot","mere dimaag me khudkushi."],
+ ["khudkhushi","khudkhushi"],["khudkusi","khudkusi"],["khudkushee","khudkushee"],["khud kushi","khud kushi"],
+ ["dev plain","मुझे खुदकुशी के ख्याल आते हैं"],["dev nukta","मुझे ख़ुदकुशी के ख्याल आते हैं"],
+ ["dev nukta decomposed","मुझे ख\u093cुदकुशी करनी है"],["dev spaced","खुद कुशी"],["dev punct","खुदकुशी।"],["dev punct2","खुदकुशी."],
+ ["dev zwj","खुद"+ZWJ+"कुशी"],["dev zwnj","खुदकु"+ZWNJ+"शी"],["dev kashi","खुदकशी"],["dev khushi","खुदखुशी"],
+ ["mixed script","main खुदकुशी karna chahta hoon"],["mixed2","khud कुशी"],
+ ["hinglish dev sentence","कल से बहुत परेशान हूँ, खुदकुशी का मन करता है"],
+ ["fullwidth","ｋｈｕｄｋｕｓｈｉ"],
+];
+const neg: [string,string][] = [
+ ["khud","khud"],["khushi","khushi"],["khud se","khud se"],["khud se padhunga","main khud se padhunga"],
+ ["khud ki khushi","khud ki khushi"],["khushi plain sentence","mujhe bahut khushi hai"],["khud khush","main khud khush hoon"],
+ ["kushal","kushal"],["dev khushi","खुशी"],["dev khud","खुद"],["dev khud se","मैं खुद से पढ़ूंगा"],["khuda","khuda"],["खुदा","खुदा"],
+ ["kushi nagar","kushi nagar"],["खुद पढ़ूंगा","खुद पढ़ूंगा"],["khudh","khudh"],
+];
+for (const [n,t] of pos) test("POS "+n, () => {
+  const r = crisisGuard(t); assert.equal(r.level,"crisis",JSON.stringify(t)+" -> "+JSON.stringify(r));
+  const g = routeBeforeGeneration(t); assert.equal(g.route,"escalate");
+  if (g.route==="escalate") assert.equal(g.card.level,"crisis");
+});
+for (const [n,t] of neg) test("NEG "+n, () => {
+  const r = crisisGuard(t); assert.equal(r.level,"none",JSON.stringify(t)+" -> "+JSON.stringify(r));
+  assert.equal(routeBeforeGeneration(t).route,"continue");
+});
+test("reply text identical to suicide's", () => {
+  const a = routeBeforeGeneration("khudkushi"), b = routeBeforeGeneration("I want to commit suicide");
+  assert.ok(a.route==="escalate" && b.route==="escalate");
+  if (a.route==="escalate" && b.route==="escalate") { assert.equal(a.card.message,b.card.message); console.log("MSGLEN", a.card.message.length); }
+});
