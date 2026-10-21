@@ -7,7 +7,7 @@
 - C4 Deployment files: apps/api package.json "start": "tsx src/main.ts" (+ workspace deps), SIGTERM/SIGINT run api.stop(), .env.example launch block (placeholders only), infra/ubuntu/{vc-api.service,nginx-vc.conf,README.md} (8 install steps). Boot smoke: launch() on a free port with a fake Mongo client, mock provider and a gates fixture answers POST /v1/public/chat/turns with 200 and stops cleanly.
 **Goal task:** none
 **Date:** 2026-10-21
-**Status:** ready-for-check
+**Status:** checked-PASS (qa/verdicts/golive-launcher.md, e73629a, cycle 0)
 **Fix cycle:** 0
 **Policy-Version:** proportional-verification/2026-10-19.17
 **Tier:** L (config/flags and the process entrypoint; no auth change: the JWT verifiers are still built by startApi)
