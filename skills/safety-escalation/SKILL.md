@@ -39,7 +39,7 @@ diagnosis.
 ## Examples
 
 **Good:** "This turn matched a distress signal — before continuing, please check in directly with the
-student. iCALL (9152987821) is free, confidential, and available now if needed."
+student. Tele-MANAS (14416, free, 24x7) is there if needed. iCALL (022-25521111, Mon-Sat 8am-10pm) is a counselling line, not an emergency line."
 
 **Bad:** "The student seems a bit down today, might be worth asking how they're doing." (minimizes a
 flagged crisis-level signal into a casual aside — wrong register for what B9 requires)

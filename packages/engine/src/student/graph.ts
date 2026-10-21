@@ -119,6 +119,26 @@ export const CRISIS_FORBIDDEN_PATTERNS: readonly RegExp[] = [
   /\b(therapy|therapist|therapeutic|psychotherapy)\b/i,
   /\b(a|our|the|your) counsellor (will|is going to) (call|contact|reach|join|be with)\b/i,
   /\bcounsellor (is|will be) (on the way|coming|calling)\b/i,
+  // LK10 C4: Hindi (Devanagari) and Hinglish forms (spec section 6). JS \b is ASCII-only, so Devanagari uses Unicode letter/mark lookarounds.
+  // secret / confidential
+  /(?<![\p{L}\p{M}])(?:गुप्त|गोपनीय|सीक्रेट|कॉन्फ(?:\u093C|\u095E)?िडेंशियल|राज\u093C?|राज\u095B)(?![\p{L}\p{M}])/u,
+  /\b(?:gupt|gopniya|gopaniya|raa?z)\b/i,
+  // between us
+  /(?:हमारे|हम दोनों के)\s*बीच/u,
+  /\b(?:hamare|humare|hum dono ke)\s+beech\b/i,
+  // "won't tell anyone"
+  /किसी\s*(?:को|से)\s*(?:भी\s*)?नहीं\s*(?:बताऊँ|बताऊं|बताउँ|बताउं|कहूँ|कहूं)/u,
+  /\bkisi\s+(?:ko|se)\s+(?:bhi\s+)?(?:nahi|nahin)\s+(?:bata|kah|keh)(?:unga|ungi|oonga|oongi|ounga|aungi)\b/i,
+  // nothing will happen to you
+  /(?:आपको|तुम्हें|तुझे)\s*कुछ\s*(?:भी\s*)?नहीं\s*होगा/u,
+  /\b(?:aapko|tumhe|tumhein|tujhe)\s+kuch\s+(?:bhi\s+)?(?:nahi|nahin)\s+hoga\b/i,
+  // therapy
+  /(?:थेरेपी|थैरेपी|थेरेपिस्ट|थैरेपिस्ट|मनोचिकित्सा)/u,
+  // a counsellor will call / join / is on the way (the vetted "no counsellor is connecting" line must stay allowed)
+  /काउंसलर\s+(?:आपको\s+)?(?:[फ\u095E]\u093C?ोन|कॉल|संपर्क)\s+(?:करेगा|करेगी|करेंगे|करेंगी)/u,
+  /काउंसलर\s+(?:जल्द\s+)?(?:जुड़ेगा|जुड़ेगी|जुड़ेंगे|जुड़ेंगी|आएगा|आएगी|आएंगे|आएँगे|आ\s+रहा|आ\s+रही|आ\s+रहे)/u,
+  /\bcounsellor\s+(?:aapko\s+)?(?:call|phone|fone|sampark)\s+(?:karega|karegi|karenge|karengi)\b/i,
+  /\bcounsellor\s+(?:jald\s+)?(?:judega|jud\s+jayega|jud\s+jaayega|aayega|aaega|aa\s+raha|aa\s+rahi|aa\s+rahe)\b/i,
 ];
 
 const FOLLOW_UP_MAX_CHARS = 200;

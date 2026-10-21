@@ -9,10 +9,10 @@
  *  - A crisis turn never reaches the model detector: the student graph runs `crisisGuard` on the original text first, and a crisis
  *    turn takes its language from `detectLanguageOffline` (no network call may stand between a crisis and its message).
  *  - `VC_REPLY_LANGS` is the rollout lever: the reply language is the detected language when it is allow-listed, else English.
- *  - Crisis messages are human-vetted and never generated at runtime. Only wording already approved in the repo is used here (the
- *    English fixed message, which already carries the Hindi helpline text). A language with no vetted entry gets that same
- *    English+Hindi message. A fully Hindi message is a drop-in change of `CRISIS_MESSAGES.hi` once a person has vetted it; every
- *    entry must pass the substring fixture in tests/lang.test.ts.
+ *  - Crisis messages are fixed text, never generated at runtime. en, hi (Devanagari) and hi-Latn (Hinglish) are separate catalog keys
+ *    (LK10); the hi and hi-Latn wording is drafted in qa/evidence/hindi-crisis-validation.md and is held for the clinical safety
+ *    owner's sign-off. A language with no entry gets the English message. Every entry must pass the per-language substring fixture in
+ *    tests/lang.test.ts.
  */
 import { z } from "zod";
 import type { LlmProvider } from "@vc/providers";
@@ -43,20 +43,36 @@ export const HELPLINE_LINE_EN_HI = `${TELE_MANAS_LINE} ${HELPLINE_GLOSS}`;
 export const ANONYMOUS_SIGN_IN_TEXT = `${SIGN_IN_REQUIRED_TEXT} ${TELE_MANAS_LINE}`;
 export const ANONYMOUS_NO_ANSWER_TEXT = `${NO_SOURCED_ANSWER_TEXT} ${TELE_MANAS_LINE}`;
 
-const CRISIS_CORE =
-  "I'm really glad you told me. What you're going through matters, and you deserve support right now. " +
-  "Please call Tele-MANAS on 14416. It is free, open 24x7, and the people there are trained for exactly this " +
-  HELPLINE_GLOSS + ". I'm an AI guide, not a counsellor, and no counsellor from our side is " +
-  "being connected right now, so Tele-MANAS is the best next step. If you are in danger right now, please tell " +
-  "a trusted adult near you.";
+/**
+ * LK10: the crisis wording is the text proposed in qa/evidence/hindi-crisis-validation.md section 4 (A English, B Hindi, C Hinglish),
+ * pending the clinical safety owner's sign-off. The same facts in every language: Tele-MANAS (short code and toll-free form), "you can
+ * ask for your own language", an honest AI-not-a-counsellor / none-connected statement, 112 for immediate danger, one hope line.
+ */
+const CRISIS_CORE_EN =
+  "Thank you for telling me. What you're feeling matters, and with the right support it can get better. Please call Tele-MANAS now on 14416 (or 1800-891-4416). It's free and open 24x7, and you can ask to talk in your own language. I'm an AI guide, not a counsellor, and no counsellor from our side is being connected right now, so Tele-MANAS is the best next step. If you are in danger right now, call 112 or go to a trusted adult near you.";
+const CRISIS_CORE_HI =
+  "मुझे बताने के लिए शुक्रिया। आप जो महसूस कर रहे हैं, वह मायने रखता है, और सही मदद से हालात बेहतर हो सकते हैं। कृपया अभी टेली-मानस (Tele-MANAS) को 14416 पर फ़ोन करें, या 1800-891-4416 पर। यह मुफ़्त है, हर समय खुला रहता है, और आप अपनी भाषा में बात करने को कह सकते हैं। मैं एक AI गाइड हूँ, काउंसलर नहीं, और हमारी तरफ़ से अभी कोई काउंसलर नहीं जुड़ रहा है। इसलिए टेली-मानस सबसे अच्छा अगला कदम है। अगर आप अभी ख़तरे में हैं, तो 112 पर फ़ोन करें या अपने पास किसी भरोसेमंद बड़े को बताएँ।";
+const CRISIS_CORE_HI_LATN =
+  "Mujhe batane ke liye shukriya. Aap jo mehsoos kar rahe hain, woh maayne rakhta hai, aur sahi madad se halaat behtar ho sakte hain. Please abhi Tele-MANAS ko 14416 par call karein, ya 1800-891-4416 par. Yeh free hai, hamesha khula rehta hai, aur aap apni bhasha mein baat karne ko keh sakte hain. Main ek AI guide hoon, counsellor nahi, aur hamari taraf se abhi koi counsellor nahi jud raha hai. Isliye Tele-MANAS sabse achha agla kadam hai. Agar aap abhi khatre mein hain, toh 112 par call karein ya apne paas kisi bharosemand bade ko batayein.";
 
-/** Authenticated student, Nights mode `tele-manas-disclosed` (qa/gates/nights.md): asks for the safe adult. */
-export const STUDENT_CRISIS_MESSAGE =
-  `${CRISIS_CORE} Who is a safe adult you could talk to today, like a parent, relative or teacher? ` +
-  "I'm still here, and you can keep talking to me.";
+/** The safe-adult question: authenticated student only (Nights mode `tele-manas-disclosed`, qa/gates/nights.md). */
+const SAFE_ADULT_QUESTION_EN = "Who is a safe adult you could talk to today, like a parent, relative or teacher?";
+const SAFE_ADULT_QUESTION_HI = "आज आप किस भरोसेमंद बड़े से बात कर सकते हैं, जैसे माता-पिता, कोई रिश्तेदार या टीचर?";
+const SAFE_ADULT_QUESTION_HI_LATN = "Aaj aap kis bharosemand bade se baat kar sakte hain, jaise mummy-papa, koi rishtedaar ya teacher?";
+const CRISIS_CLOSE_EN = "I'm still here, and you can keep talking to me.";
+const CRISIS_CLOSE_HI = "मैं यहीं हूँ, आप मुझसे बात करते रह सकते हैं।";
+const CRISIS_CLOSE_HI_LATN = "Main yahin hoon, aap mujhse baat karte reh sakte hain.";
+
+/** Authenticated student: asks for the safe adult. */
+export const STUDENT_CRISIS_MESSAGE = `${CRISIS_CORE_EN} ${SAFE_ADULT_QUESTION_EN} ${CRISIS_CLOSE_EN}`;
 
 /** Anonymous mode: the same hand-off, no identity questions. */
-export const ANONYMOUS_CRISIS_MESSAGE = `${CRISIS_CORE} I'm still here, and you can keep talking to me.`;
+export const ANONYMOUS_CRISIS_MESSAGE = `${CRISIS_CORE_EN} ${CRISIS_CLOSE_EN}`;
+
+const STUDENT_CRISIS_MESSAGE_HI = `${CRISIS_CORE_HI} ${SAFE_ADULT_QUESTION_HI} ${CRISIS_CLOSE_HI}`;
+const ANONYMOUS_CRISIS_MESSAGE_HI = `${CRISIS_CORE_HI} ${CRISIS_CLOSE_HI}`;
+const STUDENT_CRISIS_MESSAGE_HI_LATN = `${CRISIS_CORE_HI_LATN} ${SAFE_ADULT_QUESTION_HI_LATN} ${CRISIS_CLOSE_HI_LATN}`;
+const ANONYMOUS_CRISIS_MESSAGE_HI_LATN = `${CRISIS_CORE_HI_LATN} ${CRISIS_CLOSE_HI_LATN}`;
 
 // ---------------------------------------------------------------------------
 // Languages, scripts, allow-list
@@ -550,22 +566,24 @@ export interface CrisisEntry {
   student: string;
   anonymous: string;
 }
-export type CrisisCatalog = { en: CrisisEntry; hi: CrisisEntry };
+export type CrisisCatalog = { en: CrisisEntry; hi: CrisisEntry; "hi-Latn": CrisisEntry };
 
 /**
- * Vetted crisis messages, en and hi only (D-105). Both entries are the already-approved English fixed message, which carries the
- * Hindi helpline text: no new clinical wording is written here. Replace `hi` with a vetted fully-Hindi message when one exists; the
- * substring fixture (14416, the not-a-counsellor and no-counsellor-connected statements, the safe-adult question) must still pass.
+ * Crisis messages: en, hi (Devanagari) and hi-Latn (Roman-script Hindi) are separate keys (LK10), so a student who types Hinglish is
+ * answered in Hinglish and a Devanagari student in Devanagari. The Hindi and Hinglish wording is the drafted text from
+ * qa/evidence/hindi-crisis-validation.md and is HELD for the clinical safety owner and a native-speaker read before it ships. The
+ * per-language substring fixture (tests/lang.test.ts) must pass for every entry.
  */
 export const CRISIS_MESSAGES: CrisisCatalog = {
   en: { student: STUDENT_CRISIS_MESSAGE, anonymous: ANONYMOUS_CRISIS_MESSAGE },
-  hi: { student: STUDENT_CRISIS_MESSAGE, anonymous: ANONYMOUS_CRISIS_MESSAGE },
+  hi: { student: STUDENT_CRISIS_MESSAGE_HI, anonymous: ANONYMOUS_CRISIS_MESSAGE_HI },
+  "hi-Latn": { student: STUDENT_CRISIS_MESSAGE_HI_LATN, anonymous: ANONYMOUS_CRISIS_MESSAGE_HI_LATN },
 };
 
-/** The crisis message for a detected language: the vetted entry for en / hi / hi-Latn, else the English+Hindi message. */
+/** The crisis message for a detected language: the vetted entry for en / hi / hi-Latn (separate keys), else the English message. */
 export function crisisMessageFor(lang: string, mode: "student" | "anonymous", catalog: CrisisCatalog = CRISIS_MESSAGES): string {
   const l = normaliseLang(lang);
-  const key = l === "hi" || l === "hi-Latn" ? "hi" : l === "en" ? "en" : undefined;
+  const key = l === "hi" || l === "hi-Latn" || l === "en" ? l : undefined;
   if (key) return catalog[key][mode];
   return mode === "student" ? STUDENT_CRISIS_MESSAGE : ANONYMOUS_CRISIS_MESSAGE;
 }

@@ -25,7 +25,11 @@ import {
   type CrisisFlagRecord,
   type StudentGraphDeps,
 } from "../src/student/graph.js";
+import { CRISIS_MESSAGES, crisisMessageFor, detectLanguageOffline } from "../src/student/lang.js";
 import { NOW, NO_PRIOR_FLAG, SKILLS_DIR, SPEAKERS, fakeKb, studentProvider } from "./student-fixtures.js";
+
+/** LK10: the crisis message is language-aware (Devanagari -> hi, Latin Hinglish -> hi-Latn, else en); the expected text follows the turn text. */
+const crisisFor = (text: string, mode: "student" | "anonymous") => crisisMessageFor(detectLanguageOffline(text).lang, mode);
 
 const AUTH = { role: "student" as const, studentId: "syn-stu-1", tenantId: "sandbox" };
 
@@ -85,13 +89,48 @@ test("A11b: neither fixed message contains anything on the forbidden list (secre
   for (const b of bad) assert.ok(CRISIS_FORBIDDEN_PATTERNS.some((p) => p.test(b)), `forbidden list misses: ${b}`);
 });
 
+test("LK10 C4: the forbidden list also covers Hindi (Devanagari) and Hinglish forms of secrecy, no-telling, therapy and 'a counsellor will call'", () => {
+  const badHi = [
+    "यह बात गुप्त रहेगी।",
+    "आपकी बात पूरी तरह गोपनीय है।",
+    "यह सिर्फ़ हमारे बीच रहेगा।",
+    "मैं किसी को नहीं बताऊँगा।",
+    "मैं किसी को नहीं बताऊंगी।",
+    "आपको कुछ नहीं होगा।",
+    "आपको थेरेपी की ज़रूरत है।",
+    "थेरेपिस्ट से बात कीजिए।",
+    "एक काउंसलर आपको फ़ोन करेगा।",
+    "काउंसलर आपको कॉल करेंगे।",
+    "काउंसलर आ रहा है।",
+    "काउंसलर जल्द जुड़ेगा।",
+  ];
+  const badHing = [
+    "Yeh baat gupt rahegi.",
+    "Yeh bilkul gopniya hai.",
+    "Yeh sirf hamare beech rahega.",
+    "Main kisi ko nahi bataunga.",
+    "Main kisi ko nahi bataungi.",
+    "Aapko kuch nahi hoga.",
+    "Ek counsellor aapko call karega.",
+    "Counsellor aapko phone karenge.",
+    "Counsellor aa raha hai.",
+    "Counsellor jald judega.",
+    "Yeh raaz hai.",
+  ];
+  for (const b of [...badHi, ...badHing]) assert.ok(CRISIS_FORBIDDEN_PATTERNS.some((p) => p.test(b)), `forbidden list misses: ${b}`);
+  // look-alike benign Hindi / Hinglish (and the vetted texts themselves) must not trip a pattern
+  const ok = ["राजस्थान के कॉलेज", "मैं यहीं हूँ।", "Main yahin hoon.", "koi counsellor nahi jud raha hai", "हमारी तरफ़ से अभी कोई काउंसलर नहीं जुड़ रहा है।"];
+  for (const g of ok) for (const pat of CRISIS_FORBIDDEN_PATTERNS) assert.doesNotMatch(g, pat, `${pat} false positive on: ${g}`);
+  for (const e of Object.values(CRISIS_MESSAGES)) for (const m of [e.student, e.anonymous]) for (const pat of CRISIS_FORBIDDEN_PATTERNS) assert.doesNotMatch(m, pat, `${pat}`);
+});
+
 test("A11/A11b: crisis phrases (English, Hinglish, Hindi) on an authenticated turn get the fixed message, no model/KB call, a flag log record and the existing escalation path", async () => {
   for (const [i, text] of [CRISIS_EN, CRISIS_HINGLISH, CRISIS_HINDI].entries()) {
     const d = deps();
     const provider = d.provider as MockProvider;
     const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "th-1", turnId: `tu-${i}`, text });
     assert.equal(out.response.state, "escalated", text);
-    assert.equal(out.response.message, STUDENT_CRISIS_MESSAGE);
+    assert.equal(out.response.message, crisisFor(text, "student"));
     assert.deepEqual(out.response.claims, []);
     assert.equal(provider.calls.length, 0);
     assert.equal((d.kb as ReturnType<typeof fakeKb>).calls.length, 0);
@@ -132,7 +171,26 @@ test("A11b: the existing counsellor-path crisis card is unchanged (routeBeforeGe
   assert.equal(r.route, "escalate");
   if (r.route === "escalate") {
     assert.notEqual(r.card.message, STUDENT_CRISIS_MESSAGE);
-    assert.match(r.card.message, /9152987821/);
+    // LK10 C3 (spec 4E): the card names Tele-MANAS and 112, and no longer claims iCALL is available "anytime" / "trained for exactly this"
+    assert.match(r.card.message, /Tele-MANAS/);
+    assert.match(r.card.message, /14416/);
+    assert.match(r.card.message, /112/);
+    assert.match(r.card.message, /iCALL \(022-25521111, Mon-Sat 8am-10pm\) is a counselling line, not an emergency line/);
+    assert.doesNotMatch(r.card.message, /anytime|trained for exactly this|9152987821|confidential/i);
+    for (const p of CRISIS_FORBIDDEN_PATTERNS) assert.doesNotMatch(r.card.message, p);
+  }
+});
+
+test("LK10 C3: the counsellor-side concern card corrects the iCALL facts (022-25521111, Mon-Sat 8am-10pm, not an emergency line) and adds Tele-MANAS", () => {
+  const r = routeBeforeGeneration(CONCERN_EN);
+  assert.equal(r.route, "escalate");
+  if (r.route === "escalate") {
+    assert.equal(r.card.level, "concern");
+    const m = r.card.message;
+    assert.match(m, /Tele-MANAS \(14416, free, 24x7\)/);
+    assert.match(m, /iCALL \(022-25521111, Mon-Sat 8am-10pm\)/);
+    assert.match(m, /not an emergency line/);
+    assert.doesNotMatch(m, /9152987821|anytime|confidential/i);
   }
 });
 
@@ -244,14 +302,14 @@ test("U6h L5: the missed recall phrases are crisis for the guard, and the studen
     const d = deps();
     const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "th-l5", turnId: "tu-l5", text });
     assert.equal(out.response.state, "escalated", text);
-    assert.equal(out.response.message, STUDENT_CRISIS_MESSAGE, text);
+    assert.equal(out.response.message, crisisFor(text, "student"), text);
     assert.match(out.response.message ?? "", /14416/);
     assert.equal(d.flags.length, 1, text);
     assert.equal((d.kb as ReturnType<typeof fakeKb>).calls.length, 0);
     assert.equal((d.provider as MockProvider).calls.length, 0);
     const a = deps({ kb: fakeKb({ anonymous: true }) });
     const anon = await runStudentTurn(a, { mode: "anonymous", text });
-    assert.equal(anon.response.message, ANONYMOUS_CRISIS_MESSAGE, text);
+    assert.equal(anon.response.message, crisisFor(text, "anonymous"), text);
   }
 });
 
@@ -291,7 +349,7 @@ test("D-093 2A: the new crisis phrases get the fixed message + Tele-MANAS 14416 
     const d = deps();
     const out = await runStudentTurn(d, { mode: "authenticated", auth: AUTH, threadId: "th-93", turnId: "tu-93", text });
     assert.equal(out.response.state, "escalated", text);
-    assert.equal(out.response.message, STUDENT_CRISIS_MESSAGE, text);
+    assert.equal(out.response.message, crisisFor(text, "student"), text);
     assert.match(out.response.message ?? "", /14416/);
     assert.equal(d.flags.length, 1, text);
     assert.equal(d.escalations.length, 1, text);
@@ -300,7 +358,7 @@ test("D-093 2A: the new crisis phrases get the fixed message + Tele-MANAS 14416 
     const a = deps({ kb: fakeKb({ anonymous: true }) });
     const anon = await runStudentTurn(a, { mode: "anonymous", text });
     assert.equal(anon.response.state, "escalated", text);
-    assert.equal(anon.response.message, ANONYMOUS_CRISIS_MESSAGE, text);
+    assert.equal(anon.response.message, crisisFor(text, "anonymous"), text);
     assert.deepEqual(a.counter, ["crisis"], text);
     assert.equal((a.kb as ReturnType<typeof fakeKb>).calls.length, 0, text);
     assert.equal((a.provider as MockProvider).calls.length, 0, text);
