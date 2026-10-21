@@ -212,6 +212,10 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /\bkhud\s+ko\s+(khatam|maar|marne|mara|maarn)\w*\b/i,
   /\bzindagi\s+(khatam|bekaar|bekar|bekār)\b/i,
   /\bsab\s+kuch\s+khatam\b/i,
+  // P1 LK8 (policy .17, qa/verdicts/p1-lk6.md finding 1): "khudkushi", the everyday Hindi/Hinglish word for suicide, at the
+  // same level as English "suicide". Spellings: khudkushi / khud kushi / khudkhushi (+ "-kusi", "-kushee"). A spaced "khud khushi"
+  // ("own happiness") is not in the plain form, but its derived squeezed twin flags it: a documented D-020 false alarm, never suppressed.
+  /\bkhud(?:\s*kush?(?:i|ee)|khush?(?:i|ee))\b/i,
   // Abuse signals (more conservative — single keyword w/ context)
   /\b(beats|beating|hits|hitting)\s+me\b/i,
   /\bbeing\s+abused\b/i,
@@ -280,6 +284,9 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   // matching (with \s+ only for the internal word gap) is safe.
   /मरना\s+चाहत[ाी]/, // "marna chahta/chahti" — want to die
   /आत्महत्या/, // "aatmahatya" — suicide
+  /खुद\s*क[ुू]श[ीि]/, // P1 LK8: "khudkushi" / "khud kushi" - suicide (the nukta form ख़ुदकुशी is folded to this before matching)
+  /खुदकशी/, // P1 LK8: "khudkashi" - the vowel-less spelling of the same word
+  /खुदखुश[ीि]/, // P1 LK8: "khudkhushi" - the aspirated misspelling (unspaced in the plain form; spaced "खुद खुशी", "own happiness", is a D-020 squeezed-twin false alarm)
   /खुद\s+को\s+खत्म/, // "khud ko khatam" — end oneself
   /जीना\s+नहीं\s+चाहत[ाी]/, // "jeena nahi chahta/chahti" — don't want to live
   /जान\s+(दे|ले)\s+((दे|ले)\s+)?(दू[ंँ]?ग[ाी]|लू[ंँ]?ग[ाी])/, // U6h L5: "jaan de dunga" - (I will) give up my life
@@ -426,6 +433,8 @@ export const CONCERN_PATTERNS: readonly RegExp[] = [
 // | मरना चाहता/चाहती (marna chahta/chahti)        | Devanagari | crisis  | explicit "want to die"                       |
 // | आत्महत्या (aatmahatya)                       | Devanagari | crisis  | direct word for suicide                      |
 // | खुद को खत्म (khud ko khatam)                  | Devanagari | crisis  | explicit "end myself", mirrors existing Hinglish pattern |
+// | khudkushi / khud kushi / khudkhushi          | Hinglish   | crisis  | P1 LK8: direct everyday word for suicide, same level as "suicide" |
+// | खुदकुशी / खुदकशी / खुदखुशी (khudkushi)         | Devanagari | crisis  | P1 LK8: same word in Devanagari (nukta form folded) |
 // | जीना नहीं चाहता/चाहती (jeena nahi chahta/chahti) | Devanagari | crisis  | explicit "don't want to live"                |
 // | बहुत टेंशन (bahut tension)                    | Devanagari | concern | academic-stress language, mirrors Hinglish "bahut tension" — no death assertion |
 //
