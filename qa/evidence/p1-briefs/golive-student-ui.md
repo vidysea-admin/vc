@@ -1,0 +1,11 @@
+# Brief: golive-student-ui (minimal student chat page) — You are a /maker build subagent
+Policy-Version: proportional-verification/2026-10-19.17 · Tier M (new UI surface, public) · one checker later (not you).
+Base: main HEAD. Work ONLY in a new worktree: `git -C D:/vc worktree add D:/vc/.worktrees/golive-student-ui -b wave/golive-student-ui main`. Commit there only (narrow pathspecs). Never touch D:/vc main tree files. No pushes, no deploys, no paid calls. Kill only PIDs you start; never by image name; never PID 36944.
+Gate answers: golive-launch Q2 "a (own minimal student UI)", Q3 nginx serves `/` static and proxies `/v1/` to the API (same origin, no CORS). g-publish b: text only, no voice. Umesh: "stop over engineering".
+Build: ONE static page, no framework, no build step: apps/student/index.html (+ optional app.js, style.css), ~150-250 lines total. Read apps/api/src/anonymous.ts (POST /v1/public/chat/turns, ~:54) and its request/response schema (zod/openapi in apps/api) for the exact body and reply fields; use them exactly.
+- Chat box + send; show replies as plain text (textContent, never innerHTML — XSS); keep the session/thread id the API returns and send it on the next turn if the API supports it.
+- Show the API's crisis / no_sourced_answer / rate-limit (429) / error states with a readable message; disable send while waiting.
+- Footer always visible: "Not a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112". Mobile-first, works at 360px width, accessible labels. English only.
+- No analytics, no external scripts/fonts, no localStorage of message text.
+Verify: serve the folder plus a tiny local mock of the endpoint (a throwaway node script in the scratchpad, not committed) and drive it in a real browser (Playwright MCP tools): send 2 turns, trigger a 429 and a crisis-shaped reply, check 0 console errors, 360px screenshot. Write qa/evidence/browser-golive-student-ui-<date>/report.json (pages, console errors, interactions {did, expected, observed, pass}).
+Write qa/manifests/golive-student-ui.md (Pre-check lines, Live browser evidence section, Metrics line, Status: ready-for-check). Commit on wave/golive-student-ui. Return ONE line: `golive-student-ui <sha> ready` (or `BLOCKED <reason>`).

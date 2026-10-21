@@ -11,3 +11,4 @@ Q6 Records for the gate: B13-signed line (human only, D-103) and g-publish answe
 Q7 Hosting: which server/domain runs it, who owns TLS.
 
 Answer format: Q1 yes · Q2 a|b · Q3 proxy|direct · ... appended as `Answered: <ISO> - <answers> - <where>`.
+Answered: 2026-10-21T15:42:38+05:30 - Q1 yes (create apps/api/src/main.ts) · Q2 a (own minimal student UI) · Q3 nginx proxy (clientKey from X-Forwarded-For) · Q4 Umesh provides KB keys in server .env · Q5 speakers from KnowledgeBase team, empty until then · Q6 g-publish b; B13 signature still Umesh's own line (D-103) · Q7 Ubuntu server - Umesh chat

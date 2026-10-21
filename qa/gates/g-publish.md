@@ -19,3 +19,4 @@ Voice is documented in the contract only as "disabled" unless its own gate (A10,
 
 **Blocks:** unit U5b only. U5a (the internal contract) is not blocked.
 **Answer format:** chat reply. The maker appends `Answered: <ISO> - <option>` here.
+Answered: 2026-10-21T15:42:38+05:30 - b - Umesh chat 2026-10-21 ("go" on option b, text only)
