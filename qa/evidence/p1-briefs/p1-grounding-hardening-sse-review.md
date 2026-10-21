@@ -1,0 +1,4 @@
+# senior-software-engineer review (read-only): p1-grounding-hardening
+Repo D:/vc/.worktrees/p1-grounding-hardening, diff 3772f4a..00a671a, tier L (config/flags + privacy). Brief qa/evidence/p1-briefs/p1-grounding-hardening.md.
+Review correctness: GroundingConfigError in apps/api/src/index.ts startApi (fires before connect, all three conditions, no bypass via the graph), GroundingBudget/loadGroundingBudget in packages/providers/src/index.ts (env parsing, NaN/negative values, day rollover, per-process state, concurrency of increments, chainGuard spend wiring), wiring in anonymous.ts and chat.ts (fallback path, no double charge, no crash over cap), and test changes (any weakened assertion, especially the changed G5 test).
+Return Approve / Warning / Block with file:line evidence at >80% confidence, max 15 lines. Never edit.

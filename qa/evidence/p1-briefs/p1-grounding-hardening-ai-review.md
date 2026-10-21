@@ -1,0 +1,4 @@
+# ai-engineer review (read-only): p1-grounding-hardening
+Repo D:/vc/.worktrees/p1-grounding-hardening, diff 3772f4a..00a671a. Brief qa/evidence/p1-briefs/p1-grounding-hardening.md (H1-H7 = your W1-W4, W6, W7 findings on p1-nosource-grounded; result file qa/evidence/p1-briefs/p1-nosource-grounded-ai-review-result.md).
+Audience includes minors 13-18. Judge whether each earlier finding is actually closed: redactStudentDetails strength and over-redaction (lang.ts, graph.ts webQuestion), startup refusal without a screen, screen-outage -> refusal instead of crisis text (H3 is an assumption: is it safe for a distressed student whose classifier call fails?), topic floor over-blocking vs Devanagari/Hinglish coverage, bare-domain guard, grounded-call caps (IP-keyed anonymous session cap, per-process counters) and non-flash guard.
+Return Approve / Warning / Block with file:line evidence, max 15 lines, plus any new eval case to add. Never edit, never run live LLM calls.
