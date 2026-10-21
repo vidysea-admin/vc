@@ -17,6 +17,7 @@ import {
   escalationDecision,
   loadConcernClassifierConfig,
   reviewedFlagView,
+  safetyScreen,
   sampleStratum,
   selectForReview,
   type ClassifierAnnotation,
@@ -388,4 +389,54 @@ test("classifier config: malformed timeout and sample errors never echo syntheti
   }
   assert.deepEqual(loadConcernClassifierConfig({ VC_CONCERN_SAMPLE_RATES: "other=1,latin=0" }).sampleRates,
     { ...DEFAULT_SAMPLE_RATES, other: 1, latin: 0 });
+});
+
+// ---------------------------------------------------------------------------
+// golive-json-robust: a malformed model reply is retried once, then fails closed
+// ---------------------------------------------------------------------------
+
+/** Fails with a LiteLlmMalformedResponseError-named error for the first `failures` calls, then answers. */
+class MalformedThenValidProvider implements LlmProvider {
+  readonly kind = "mock" as const;
+  readonly model = "flash-lite";
+  calls = 0;
+  constructor(private readonly failures: number) {}
+  async generate<T>(_request: GenerateRequest<T>): Promise<T> {
+    this.calls++;
+    if (this.calls <= this.failures) {
+      const err = new Error("choices[0].message.content was not valid JSON");
+      err.name = "LiteLlmMalformedResponseError";
+      throw err;
+    }
+    return { severity: "critical", likelyBenign: false, rationale: "synthetic" } as unknown as T;
+  }
+}
+
+test("golive-json-robust: malformed once then valid -> classified, after exactly one retry", async () => {
+  const provider = new MalformedThenValidProvider(1);
+  const out = await classifyConcern(INPUT, { provider, skillPrompt: "p", timeoutMs: 1000, now });
+  assert.equal(out.status, "classified");
+  assert.equal(provider.calls, 2);
+});
+
+test("golive-json-robust: malformed twice -> unavailable with errorName recorded, bounded to two calls", async () => {
+  const provider = new MalformedThenValidProvider(5);
+  const out = await classifyConcern(INPUT, { provider, skillPrompt: "p", timeoutMs: 1000, now });
+  assert.deepEqual(out, { status: "unavailable", model: "flash-lite", reason: "error", errorName: "LiteLlmMalformedResponseError", attemptedAt: AT });
+  assert.equal(provider.calls, 2);
+});
+
+test("golive-json-robust: safetyScreen fails closed on two malformed replies (possible/unavailable, never clear) and passes after a retry", async () => {
+  const bad = await safetyScreen({ text: "I don't want to live anymore", lang: "en" }, { provider: new MalformedThenValidProvider(5), skillPrompt: "p", timeoutMs: 1000 });
+  assert.deepEqual(bad, { verdict: "possible", basis: "unavailable", errorName: "LiteLlmMalformedResponseError" });
+  const good = await safetyScreen({ text: "I don't want to live anymore", lang: "en" }, { provider: new MalformedThenValidProvider(1), skillPrompt: "p", timeoutMs: 1000 });
+  assert.deepEqual(good, { verdict: "possible", basis: "classified", severity: "critical" });
+});
+
+test("golive-json-robust: other errors are NOT retried (an HTTP error is one call)", async () => {
+  let calls = 0;
+  const provider: LlmProvider = { kind: "mock", model: "flash-lite", generate: async () => { calls++; const e = new Error("x"); e.name = "LiteLlmHttpError"; throw e; } };
+  const out = await classifyConcern(INPUT, { provider, skillPrompt: "p", timeoutMs: 1000, now });
+  assert.equal(out.status, "unavailable");
+  assert.equal(calls, 1);
 });

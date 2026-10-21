@@ -297,7 +297,10 @@ export async function classifyConcern(rawInput: ConcernClassifierInput, deps: Cl
     void timeout.catch(() => undefined);
     if (deps.signal?.aborted) throw new ProviderAuthorizationRefusedError();
     if (deps.deadlineAt !== undefined && Date.now() >= deps.deadlineAt) throw new ConcernClassifierTimeoutError(deps.timeoutMs);
-    const call = deps.provider.generate({
+    // golive-json-robust: a model that answers 200 with unparseable JSON is retried ONCE (same input,
+    // same deadline and abort signal). Only that one error name is retried; everything else, and a
+    // second malformed reply, falls through to the unchanged fail-closed "unavailable" below.
+    const attempt = () => deps.provider.generate({
       skillName: CONCERN_CLASSIFIER_SKILL,
       skillPrompt: deps.skillPrompt,
       outputSchema: ConcernClassifierOutputSchema,
@@ -305,7 +308,14 @@ export async function classifyConcern(rawInput: ConcernClassifierInput, deps: Cl
       signal: controller.signal,
       preflight: deps.preflight,
     });
-    const out = ConcernClassifierOutputSchema.parse(await Promise.race([call, timeout]));
+    let raw: unknown;
+    try {
+      raw = await Promise.race([attempt(), timeout]);
+    } catch (first) {
+      if (!(first instanceof Error && first.name === "LiteLlmMalformedResponseError")) throw first;
+      raw = await Promise.race([attempt(), timeout]);
+    }
+    const out = ConcernClassifierOutputSchema.parse(raw);
     return { status: "classified", model, ...out, classifiedAt: now().toISOString() };
   } catch (err) {
     if (err instanceof ProviderAuthorizationRefusedError) throw err;
@@ -314,7 +324,7 @@ export async function classifyConcern(rawInput: ConcernClassifierInput, deps: Cl
       model,
       reason: err instanceof ConcernClassifierTimeoutError ? "timeout" : "error",
       errorName: err instanceof ConcernClassifierTimeoutError ? "ConcernClassifierTimeoutError"
-        : err instanceof Error && ["LiteLlmHttpError", "LiteLlmNetworkError", "LiteLlmAbortedError", "ProviderAuthorizationRefusedError", "ModelOutputSchemaError", "ZodError"].includes(err.name) ? err.name : "Error",
+        : err instanceof Error && ["LiteLlmHttpError", "LiteLlmNetworkError", "LiteLlmAbortedError", "LiteLlmMalformedResponseError", "ProviderAuthorizationRefusedError", "ModelOutputSchemaError", "ZodError"].includes(err.name) ? err.name : "Error",
       attemptedAt: now().toISOString(),
     };
   } finally {

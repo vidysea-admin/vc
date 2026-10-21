@@ -289,3 +289,84 @@ test("kind and model are exposed for logging/observability", () => {
   assert.equal(provider.kind, "litellm");
   assert.equal(provider.model, "smart-coding");
 });
+
+// ---------------------------------------------------------------------------
+// golive-json-robust: models on the litellm/ollama path sometimes wrap JSON in a ```json fence or
+// emit JS-style unquoted keys. A bounded repair makes those parse; garbage still fails typed.
+// ---------------------------------------------------------------------------
+
+function rawContent(content: string) {
+  return { status: 200, body: { choices: [{ message: { content } }] } };
+}
+
+test("golive-json-robust: JSON inside a ```json fence parses and validates against the caller's schema", async () => {
+  const stub = await startStub(() => rawContent('```json\n{"answer": "fenced"}\n```'));
+  try {
+    const provider = new LiteLlmProvider({ model: "balanced", baseUrl: stub.baseUrl });
+    const out = await provider.generate({ skillName: "s", skillPrompt: "p", outputSchema: OutSchema, input: {} });
+    assert.deepEqual(out, { answer: "fenced" });
+  } finally {
+    await stop(stub.server);
+  }
+});
+
+test("golive-json-robust: a bare ``` fence (no language tag) also parses", async () => {
+  const stub = await startStub(() => rawContent('```\n{"answer": "bare"}\n```'));
+  try {
+    const provider = new LiteLlmProvider({ model: "balanced", baseUrl: stub.baseUrl });
+    const out = await provider.generate({ skillName: "s", skillPrompt: "p", outputSchema: OutSchema, input: {} });
+    assert.deepEqual(out, { answer: "bare" });
+  } finally {
+    await stop(stub.server);
+  }
+});
+
+test("golive-json-robust: JS-style unquoted keys parse after the bounded repair", async () => {
+  const stub = await startStub(() => rawContent('{answer: "unquoted", other_key: 1}'));
+  try {
+    const provider = new LiteLlmProvider({ model: "balanced", baseUrl: stub.baseUrl });
+    const out = await provider.generate({ skillName: "s", skillPrompt: "p", outputSchema: OutSchema, input: {} });
+    assert.deepEqual(out, { answer: "unquoted" });
+  } finally {
+    await stop(stub.server);
+  }
+});
+
+test("golive-json-robust: the repair never rewrites inside a string value (a colon in a value survives)", async () => {
+  const stub = await startStub(() => rawContent('{answer: "see, note: this"}'));
+  try {
+    const provider = new LiteLlmProvider({ model: "balanced", baseUrl: stub.baseUrl });
+    const out = await provider.generate({ skillName: "s", skillPrompt: "p", outputSchema: OutSchema, input: {} });
+    assert.deepEqual(out, { answer: "see, note: this" });
+  } finally {
+    await stop(stub.server);
+  }
+});
+
+test("golive-json-robust: garbage still throws LiteLlmMalformedResponseError, including a fenced garbage body", async () => {
+  for (const content of ["not json {{{", "```json\nnot json at all\n```", "{answer: }"]) {
+    const stub = await startStub(() => rawContent(content));
+    try {
+      const provider = new LiteLlmProvider({ model: "balanced", baseUrl: stub.baseUrl });
+      await assert.rejects(
+        provider.generate({ skillName: "s", skillPrompt: "p", outputSchema: OutSchema, input: {} }),
+        (err: unknown) => err instanceof LiteLlmMalformedResponseError,
+      );
+    } finally {
+      await stop(stub.server);
+    }
+  }
+});
+
+test("golive-json-robust: repaired-but-schema-invalid output is still rejected by the caller's schema", async () => {
+  const stub = await startStub(() => rawContent('```json\n{wrong: "x"}\n```'));
+  try {
+    const provider = new LiteLlmProvider({ model: "balanced", baseUrl: stub.baseUrl });
+    await assert.rejects(
+      provider.generate({ skillName: "s", skillPrompt: "p", outputSchema: OutSchema, input: {} }),
+      (err: unknown) => err instanceof ModelOutputSchemaError,
+    );
+  } finally {
+    await stop(stub.server);
+  }
+});
