@@ -1,0 +1,108 @@
+[testlock] running slot 1 (free RAM 3.26 GB): timeout 600 pnpm -C D:/vc/.worktrees/lk7/apps/api exec tsx --test --test-timeout=60000 tests/chat-profile.test.ts
+✔ A16b: the profile shows the Pathlynks-supplied facts as in use and nothing else when the student has said nothing storable (113.7577ms)
+✔ A16b: a fact heard in chat is proposed back, is NOT in the facts in use, and only becomes one after the student confirms it (344.0608ms)
+✔ A16b: a student corrects a wrongly heard fact (the corrected value is redacted and confirmed) and erases another (111.4635ms)
+✔ A16b: a decision on a fact that does not exist, or on another student's fact, is 404; a bad decision body is 400 (57.1427ms)
+✔ D-093 4A: for an under-18 student without consent nothing is extracted or proposed, so no fact row is created (51.6912ms)
+✔ a Pathlynks profile outage is a 503 profile_unavailable (never an empty profile that hides what is in use), with no cause in the body (18.4965ms)
+✔ startApi: flag off -> a chat path answers exactly like an unknown /v1 path over real HTTP, and no gate file is read (71.8806ms)
+✔ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (14.1681ms)
+✔ startApi: flag on with the gate open but no student JWT configuration is a config error before connecting (no silent fall-back to the counsellor key) (24.9646ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:23:58.684Z"}
+✔ startApi: flag on and gate open -> a student creates a thread and asks a question over real HTTP; the rows land in virtual_counsellor under the student's tenant; a counsellor-key token is refused (105.7472ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:23:58.825Z"}
+✔ LK1w: VC_TEXT_CHAIN set -> a student chat turn is answered by the chain (Ollama hop on the wire) and the injected scribe/classifier provider is not called (131.1673ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:23:58.907Z"}
+✔ LK1w: VC_TEXT_CHAIN unset -> the student chat turn uses the current provider and nothing is sent to Ollama (83.489ms)
+✔ LK1w: VC_TEXT_CHAIN does not replace the scribe provider config: with no injected provider, no VC_LLM_PROVIDER and the classifier injected (so only the scribe base is read), startApi still refuses before connecting (1.1339ms)
+✔ LK1w: a bad chain (no OLLAMA_API_KEY) is a startup config error before connecting, and its message never carries a key (0.6429ms)
+✔ p1-lk6: a Devanagari chat turn is stored as written, and the proposed fact is English with the Devanagari quote kept as its source (186.3254ms)
+✔ p1-lk6: a fact whose quote is not in the student's words is never proposed (85.2207ms)
+✔ p1-lk6: an under-18 student without guardian consent makes no extraction call (48.8931ms)
+✔ p1-lk6: extraction failure never fails the turn; the log has the event name, no student words or quote (48.4431ms)
+✔ p1-lk6: startApi wires the default extractor for chat when none is injected, over the default text provider (101.1875ms)
+✔ p1-lk6: an injected extractFacts still wins over the default (94.4349ms)
+✔ p1-lk6: a crisis turn is answered with the fixed helpline text and is never sent to the fact extractor model (39.1887ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:23:59.602Z"}
+✔ LK7 L1: with VC_TEXT_CHAIN set, an authenticated turn's language comes from the MODEL detector (on the chain wire), and the answer call is told that reply language (88.4287ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:23:59.667Z"}
+✔ LK7 L2: VC_TEXT_CHAIN unset -> no model detector call exists anywhere (offline script test only) and nothing is sent to Ollama (62.5382ms)
+{"event":"escalation_unrouted","escalationId":"019bc72f-1169-40f3-898f-89dcfbbda400:lk7-1","sessionId":"019bc72f-1169-40f3-898f-89dcfbbda400"}
+✔ LK7 C1: crisisGuard still runs FIRST on the original text: a crisis turn makes no detector, screen or chain call and gets the fixed message (55.8061ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:23:59.782Z"}
+✔ LK7 S1: the safety screen is on for authenticated turns by default: 'possible' returns the fixed crisis message with no answer; the screen saw the original text (58.0695ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:23:59.837Z"}
+{"level":"error","event":"chat_write_failed","ts":"2026-10-21T07:23:59.888Z","write":"safety_screen"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:23:59.893Z"}
+✔ LK7 S2: a clear screen releases the normal answer; a screen outage fails closed to the fixed crisis message (D-105) (110.5113ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:23:59.954Z"}
+✔ LK7 S3: with the chain set, the screen still runs on the classifier's base provider (D-105 Q4: a task moves to the chain only after its own eval), never on the chain (61.7569ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:24:00.026Z"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:24:00.124Z"}
+✔ LK7 S4: chat.safetyScreen = false turns the authenticated screen off (no classifier call); a supplied screen provider is the one used (172.9347ms)
+✔ LK7 P1: VC_TEXT_CHAIN set and the cap missing or invalid -> startApi refuses (fail closed) BEFORE connecting, naming the variable and never a key (3.3983ms)
+✔ LK7 P2: a valid cap starts the chain; with VC_TEXT_CHAIN unset the cap is not required (20.9605ms)
+✔ LK7 G1: the guard reserves the estimate before a request, refuses one that would pass the cap with a NON-retryable error, and settles a reported usage to the actual figure (0.9432ms)
+✔ LK7 G2: the cap is per UTC calendar month: a new month starts at zero, and a usage settled after the month turned does not touch the new month (0.7483ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:24:00.277Z"}
+✔ LK7 E1: when the cap runs out mid-month, student turns get the existing degraded reply over real HTTP (200, never a 500), no request leaves after the stop, and spend never passes the cap (216.6691ms)
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:24:00.446Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:24:00.482Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:24:00.532Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:24:00.581Z"}
+{"event":"provider_failover_exhausted","models":["glm-5.3-flash","deepseek-v4.1-flash"],"attempts":2,"lastErrorName":"ModelOutputSchemaError"}
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:24:00.679Z"}
+✔ LK7 E2: reported token usage settles the spend to the actual figure, so the same cap serves more turns than the reservation alone would (306.3351ms)
+✔ LK7 X1: when every hop of the chain fails (the whole chain is exhausted) the turn is the degraded reply, the failover alert still fires, and the exhaustion is counted (184.8521ms)
+✖ LK7 C1-fix R1: chat on + screen on + a rules base provider (no concern-classifier) -> startApi REFUSES with a named error, before connecting, naming no key (43.3855ms)
+✔ LK7 C1-fix R2: the same rules base with the screen switched off in code (chat.safetyScreen = false) starts; so does chat off (53.4165ms)
+✖ LK7 C1-fix R3: a rules base is fine when the screen has its own classifier-capable provider (the screen's provider is what counts), and a refusal names the screen provider (0.6ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-21T07:24:01.043Z"}
+✔ LK7 C1-fix R4: a classifier-capable base starts and an ordinary question is ANSWERED (not escalated, no crisis message) (80.3603ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 37
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 21773.5015
+
+✖ failing tests:
+
+test at tests\chat-profile.test.ts:792:1
+✖ LK7 C1-fix R1: chat on + screen on + a rules base provider (no concern-classifier) -> startApi REFUSES with a named error, before connecting, naming no key (43.3855ms)
+  AssertionError [ERR_ASSERTION]: startApi started with the screen on over a rules provider
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk7\apps\api\tests\chat-profile.test.ts:797:14)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'fail',
+    diff: 'simple'
+  }
+
+test at tests\chat-profile.test.ts:816:1
+✖ LK7 C1-fix R3: a rules base is fine when the screen has its own classifier-capable provider (the screen's provider is what counts), and a refusal names the screen provider (0.6ms)
+  TypeError: Cannot read properties of undefined (reading 'model')
+      at new MockProvider (D:\vc\.worktrees\lk7\packages\providers\src\index.ts:403:26)
+      at TestContext.<anonymous> (D:\vc\.worktrees\lk7\apps\api\tests\chat-profile.test.ts:817:15)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7)

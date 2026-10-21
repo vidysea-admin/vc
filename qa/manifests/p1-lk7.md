@@ -12,11 +12,12 @@
 - P1 `VC_TEXT_CHAIN` set and `VC_CHAIN_MONTHLY_CAP_USD` missing or invalid (empty, 0, negative, NaN, Infinity, 1e999, hex, "5 USD", "1,5", "50;") -> `startApi` refuses with `ChainSpendCapError` naming the variable, before connecting; P2 a valid cap starts; with no chain no cap is needed
 - G1 the spend guard reserves each request's upper-bound cost before it is sent, refuses one that would pass the cap with a NON-retryable error (no failover to the next hop), logs one text-free line per month; G2 the cap is per UTC calendar month, resets, and a usage settled after the month turned does not touch the new month
 - E1 cap exhausted mid-month: student turns get the existing degraded reply (HTTP 200, `PROVIDER_APOLOGY_TEXT`), no request leaves after the stop, spend never passes the cap, never a 500; E2 a reported token usage settles the reservation to the actual figure
+- R1..R4 (fix cycle 1, checker finding 1): chat on + safety screen on + a screen provider of kind `rules` (no concern-classifier handling) -> `startApi` REFUSES with `ChatConfigError` (names the screen and `concern-classifier`, no key), before connecting; R2 the same base starts with `chat.safetyScreen = false` or with chat off; R3 the screen's own provider is what is checked (a rules base with a capable `safetyScreen.provider` starts; a rules screen provider over a mock base refuses); R4 a classifier-capable base starts and an ordinary question is answered, not escalated
 - X1 `onExhausted` is wired: a fully failed chain is the degraded reply, the default failover alert still fires, and the exhaustion is counted (`Api.chainSpend().chainExhausted`)
 **Goal task:** none
 **Date:** 2026-10-21
 **Status:** ready-for-check
-**Fix cycle:** 0
+**Fix cycle:** 1
 **Policy-Version:** proportional-verification/2026-10-19.17
 **Tier:** L (safety path wiring: the screen and the detector sit on every authenticated student turn; plus a spend cap)
 **Dual check:** no. No security trigger line applies (no JWT / auth, crypto, tenant-isolation or PII-store change; the screen and detector are call-site wiring over engine code that already passed its own checks). A second look at the crisis-adjacent paths (S1, S2, C1, Open risk 3) is the orchestrator's call.
@@ -85,9 +86,32 @@ All 18 killed, 0 survivors. Not falsified: that `ChainBudgetExhaustedError` is n
 
 Metrics: start=2026-10-21T12:10:19+05:30 end=2026-10-21T12:31:30+05:30 builder_min=21 wall_min=unavailable agent_min=unavailable blocked_min=0 suite_runs=1 repeat_runs=0 mutations=18 survivors_final=0 cycle=0 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.17 lane=normal check_s=unavailable mutants=18 defects_unit=0 defects_6c=0
 
+## Fix cycle 1 (checker FAIL e4d93d6, finding 1)
+Defect: with the authenticated screen ON (default) and a base provider that cannot serve `concern-classifier` (RulesProvider), every authenticated turn returned the fixed crisis message while `startApi` started normally.
+Fix, in place at `apps/api/src/index.ts` (the `chatScreenOption` block, before `connectFromEnv`): when chat is enabled and the screen is on and the screen's provider (`chatScreenOption.provider ?? screenBaseProvider`) has `kind === "rules"`, throw `ChatConfigError` (fail closed, nothing connected). The capability check is the provider's `kind` only: no network probe at startup. No env kill switch (fail-open under D-105; needs Umesh). `chat.safetyScreen = false` unchanged. Code commit `d55bbad` (index.ts +12 lines, chat-profile.test.ts +4 tests).
+Tests[R1..R4]: tests/chat-profile.test.ts "LK7 C1-fix R1".."R4" (helper `startOverBase`)
+Red-before: R1 and R3 failed on `6d7ecdc` code with the new tests (R2, R4 hold the unchanged behaviour: already green, by design); R3 and R1 are also killed by F-R1 below.
+Pre-check[R1..R4]: d55bbad `tsx --test tests/chat-profile.test.ts` -> 39 tests, 39 passed, 0 failed (`c1/g-chat-profile.txt`)
+Pre-check[no regression]: d55bbad `tsx --test "tests/*.test.ts"` over apps/api -> 395 tests, 395 passed, 0 failed (`c1/g-full.txt`); `tests/anonymous-route.test.ts` -> 23 tests, 23 passed, 0 failed (`c1/g-anon.txt`); `pnpm -C apps/api exec tsc --noEmit` -> exit 0 (`c1/tsc.txt`)
+Falsification (detached copy of d55bbad, restored after each row; summary `c1/falsification-summary.json`):
+| id | crit | falsifying edit | result |
+|---|---|---|---|
+| F-R1 | R1 | refusal never fires | 2 fail of 39 (R1, R3) |
+| F-R2 | R2 | refuses even with `safetyScreen = false` | 1 fail (R2) |
+| F-R3 | R3 | ignores the screen option's provider | 1 fail (R3) |
+| F-R4 | R4 | refuses every provider kind | 17 fail (R3, R4, C1, E1, E2, L1, L2, S1-S4, X1 ...) |
+| F-R5 | R1 | check guarded by `!chatSetup` (never runs on the chat path) | 3 named fails (R1, R2, R3); the run ended without a TAP summary, the named failures are what is counted |
+All 5 killed, 0 survivors.
+Metrics (cycle 1): start=2026-10-21T12:52:49+05:30 end=2026-10-21T13:22:13+05:30 mutations=5 survivors_final=0 cycle=1 defects_unit=1
+
+Non-blocking risks from the verdict (recorded, not fixed here):
+- (verdict 2) an outage burns the cap: every failed request keeps its upper-bound reservation (about USD 0.0097 each at the placeholder prices; 12 turns against 503 hops used 97% of a 0.05 cap), so chat can stay degraded after the provider recovers until the UTC month turns or the process restarts. Needs the settled/durable counter follow-up. An operator alert on `chain_cap_exhausted` belongs in the go-live runbook.
+- (verdict 3) a runtime screen outage (classifier down, wrong key, timeout) is logged as `chat_write_failed` with `write: "safety_screen"`, text-free, and every student then gets the crisis message by design (D-105). An alert on that event is the only way anyone learns of it; it belongs in the go-live runbook.
+- The startup refusal covers the `rules` kind only. A base `mock` provider with no `concern-classifier` response, or a real provider with a wrong model, key or a down proxy, still starts and then fails closed at runtime (see the previous point); a startup probe was ruled out by the brief.
+
 ## Open risks / not determined
 1. A15b / B24.6 versus D-105 stays open and is NOT decided here. Anonymous: the screen is behind `VC_ANONYMOUS_SAFETY_SCREEN` (default off) and the model detector is not wired at all. The anonymous route still sends text to a model for the LK5 English query rewrite of a non-English turn and for the answer, as before.
-2. `VC_CHAT_ENABLED=true` now needs a REAL concern-classifier provider. The screen fails closed, so a base provider that cannot serve `concern-classifier` (for example `VC_LLM_PROVIDER=rules`, or a missing key) shows the fixed crisis message on every authenticated turn. The only opt-out is in code (`chat.safetyScreen = false`); an env kill switch is a one-line follow-up if Umesh wants it before the first deployment. The chat go-live gate (A20) does not check this.
+2. (cycle 1: the `rules` case is now a startup refusal, see above.) `VC_CHAT_ENABLED=true` needs a REAL concern-classifier provider. Other incapable providers (wrong key, down proxy, a mock) still fail closed at runtime with the crisis message. The only opt-out is in code (`chat.safetyScreen = false`); an env kill switch is fail-open under D-105 and needs Umesh. The chat go-live gate (A20) does not check this.
 3. LK5 risks 3 and 4 stand: "possible" = severity at or above `high`; the default 8 s screen timeout against a slow classifier provider means crisis messages to healthy students. Needs LK9 latency data before it is switched on in production.
 4. The cap lives in one process: not persisted, not shared. A restart or a second replica starts the month at zero, so the effective ceiling is `cap x replicas x restarts`. A durable counter needs a `packages/db` collection and is a separate unit.
 5. A request that fails after it was sent (timeout, 5xx) keeps its full reservation (no hook says it was cheaper), so a long chain outage burns the cap faster than real spend. At the table's prices that is about USD 0.01 per failed hop. A cap stop is also all-or-nothing for the chain: the language detector, the rewrite and the answer all fall back at once (offline language, original-text search, the apology).

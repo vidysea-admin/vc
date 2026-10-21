@@ -1,0 +1,66 @@
+[
+ {
+  "id": "F-R1",
+  "crit": "R1",
+  "desc": "refusal never fires",
+  "tests": 39,
+  "fail": 2,
+  "failed": [
+   "LK7 C1-fix R1: chat on + screen on + a rules base",
+   "LK7 C1-fix R3: a rules base is fine when the scre"
+  ]
+ },
+ {
+  "id": "F-R2",
+  "crit": "R2",
+  "desc": "refuses even when chat.safetyScreen is false",
+  "tests": 39,
+  "fail": 1,
+  "failed": [
+   "LK7 C1-fix R2: the same rules base with the scree"
+  ]
+ },
+ {
+  "id": "F-R3",
+  "crit": "R3",
+  "desc": "ignores the screen option provider (checks the base only)",
+  "tests": 39,
+  "fail": 1,
+  "failed": [
+   "LK7 C1-fix R3: a rules base is fine when the scre"
+  ]
+ },
+ {
+  "id": "F-R4",
+  "crit": "R4",
+  "desc": "refuses every provider kind",
+  "tests": 39,
+  "fail": 17,
+  "failed": [
+   "LK7 C1-fix R3: a rules base is fine when the scre",
+   "LK7 C1-fix R4: a classifier-capable base starts a",
+   "LK7 C1: crisisGuard still runs FIRST on the origi",
+   "LK7 E1: when the cap runs out mid-month, student ",
+   "LK7 E2: reported token usage settles the spend to",
+   "LK7 L1: with VC_TEXT_CHAIN set, an authenticated ",
+   "LK7 L2: VC_TEXT_CHAIN unset -> no model detector ",
+   "LK7 S1: the safety screen is on for authenticated",
+   "LK7 S2: a clear screen releases the normal answer",
+   "LK7 S3: with the chain set, the screen still runs",
+   "LK7 S4: chat.safetyScreen = false turns the authe",
+   "LK7 X1: when every hop of the chain fails "
+  ]
+ },
+ {
+  "id": "F-R5",
+  "crit": "R1",
+  "desc": "refuses only when chat is off-path (check moved outside chatSetup)",
+  "tests": null,
+  "fail": null,
+  "failed": [
+   "LK7 C1-fix R1: chat on + screen on + a rules base",
+   "LK7 C1-fix R2: the same rules base with the scree",
+   "LK7 C1-fix R3: a rules base is fine when the scre"
+  ]
+ }
+]
