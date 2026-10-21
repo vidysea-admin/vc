@@ -986,3 +986,11 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Result:** LK10 merged; alerts unit and B13 fill dispatched; env set locally; push after 6c.
 **Links:** D-093, D-096, D-105, D-107, p1-lk10, B13
 **Changes-authorized:** none
+
+## D-109 | 2026-10-21 | type: decision | status: ACTIVE
+**What:** B13 signed by Umesh: qa/gates/p1-u0-amendment-signatures.md line 13 reads `B13-signed: SIGNED 2026-10-21T18:10:00+05:30 by Umesh`. Umesh gave the signature line in chat ("tu krr dee") and the agent wrote it at his instruction. This supersedes D-103 item 5 (agent never flips B13-signed) for this one signature only.
+**Why:** Umesh is the named B13 owner (D-108 item 4) and asked for the text go-live now. With B13 signed, the A20 go-live gate for student-routes is ALLOWED (g-publish, g-prod and nights were already ok).
+**Result:** `pnpm -C apps/api go-live-gate student-routes --gates-dir ../../qa/gates` -> ALLOWED, rc=0. Commit, 6c pre-push check, push under D-096. Domain, TLS, server env and deploy stay with the devops team.
+**Supersedes:** D-103 -- item 5 assumed a separate legal signer; D-108 made Umesh the named B13 owner, and he signed explicitly in chat on 2026-10-21, so the agent writing his own dictated line is no longer an agent self-flip.
+**Links:** D-096, D-103, D-108, B13, A20
+**Changes-authorized:** none

@@ -10,7 +10,7 @@ this sheet is where the written text is signed off, so that "approved in chat" a
 same thing. Reply `sign all`, or name the items to change.
 
 ## A. Required before any production exposure
-`B13-signed: PENDING`
+`B13-signed: SIGNED 2026-10-21T18:10:00+05:30 by Umesh`
 
 | Item | Contract | What the text now says | Basis |
 |---|---|---|---|
@@ -52,3 +52,4 @@ then flips `B13-signed:` to `SIGNED <ISO> by Umesh` and fills in the register as
 Answered: 2026-10-17T14:11:30+05:30 — P-1..P-8 — accepted as defaults (P-7 staleness 24 months and P-8 weights 0.40/0.25/0.20/0.15 are configurable placeholders; P-1 token format is a draft until Pathlynks confirms) — Umesh in chat ("Accept all as defaults")
 Answered: 2026-10-17T14:11:30+05:30 — Tavily — REMOVED from the B13 processor list. Umesh asked why Tavily is needed when Gemini is already used; VC drops every web_used answer (B24.1 serve rule), so Tavily adds no value and only exposes query text. Operating rule: the KnowledgeBase TAVILY_API_KEY stays unset for any deployment that VC calls (ask-web-fallback.ts:57-60: no key = no web call). B13 processors: Gemini (VC) + the KB's LLM provider (to be named in the register). B13-signed stays PENDING until go-live.
 Owner-note: 2026-10-19T14:54:12+05:30 - B13 legal review, consent text and the B13-signed flip are owned and managed by the legal/consent team (Umesh in chat 2026-10-19; D-103). The agent does not track or flip this line.
+Answered: 2026-10-21T18:10:00+05:30 — B13 signed by Umesh (chat: "tu krr dee") — docs/DECISIONS.md D-109
