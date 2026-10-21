@@ -2,7 +2,7 @@
 **Contract:** qa/contracts/counselling-engine.md (student chat reply behaviour) criteria H1 H2 H3 H4 H5 H6 H7 of the brief; brief qa/evidence/p1-briefs/p1-grounding-hardening.md; sources of the findings: qa/evidence/p1-briefs/p1-nosource-grounded-ai-review-result.md (W1-W4, W6, W7) and qa/verdicts/p1-nosource-grounded.md. W5 (Search Suggestions / searchEntryPoint) is out of scope.
 **Goal task:** none
 **Date:** 2026-10-22
-**Fix cycle:** 1 of max 2
+**Fix cycle:** 2 of max 2
 **Dual check:** no
 **Persona walk:** skip (no screen, navigation or flow added; reply text and startup/config behaviour only)
 **Issues addressed:** none
@@ -111,7 +111,28 @@ Pre-check[F5]: bc75b12 `npx tsc --noEmit` in packages/engine, packages/providers
 Also run: packages/engine tests/student-classify.test.ts 5/5. No full suite and no live LLM or Gemini call.
 Metrics: start=2026-10-22T03:22:58+05:30 end=2026-10-22T03:27:04+05:30 wall_min=4 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=2 mutations=5 cycle=1 resumes=1 tokens=unavailable policy=proportional-verification/2026-10-19.17 check_s=0 mutants=5 defects_unit=0 defects_6c=0
 
+## Fix cycle 2 (repair of checker FAIL H1, cycle 1; H1 only)
+Repair base: 1bfd97f
+Repair commit (code + tests): 8e748a8. Final SHA for every Pre-check line below: 8e748a8.
+Round: 3 files, 1 criterion (H1), est 20 min. Root cause of the cycle-1 FAIL: PIN redaction was a list of exact label connectors plus a capitalised-city rule, so any unlisted wording leaked the PIN. The connector approach is replaced, not extended.
+- G1 packages/engine/src/student/lang.ts:843-851 (PIN_QUANTITY_BEFORE, PIN_QUANTITY_AFTER, PIN_TOKEN_RE) and redactStudentDetails lang.ts:893 — EVERY standalone PIN-shaped token (`[1-9]\d{2}\s?\d{3}`, so "411001" and "411 001") is redacted by default, whatever label, connector or city precedes it. It stays only when the immediate context marks it as a quantity: a currency marker or quantity word right before it (₹ $ € £ Rs INR USD EUR GBP, rank, score(d), marks, budget, fees, cost, salary, tuition, loan ...; optionally "is/of/:/="), a unit right after it (marks, score, rank, points, lakh, rupees, euros, dollars, per, fees, %, k, /, students), or it is part of a longer, decimal or comma-grouped number. PIN_CITY_RE and NOT_A_PLACE are removed (subsumed); PIN_LABELLED_RE (4-6 digit zip after a label) and PIN_TRAILING_RE stay.
+- G2 lang.ts:788 INTRO_ANY_CASE_RE — "naam:" / "Naam -" (Hindi label) redacted like "name:" ("mera naam" was already covered).
+- G3 lang.ts:880-881 — the age after a redacted name may be bracketed: "i am Riya Sharma (16)" -> "i am [name] ([age])".
+- Side effect (intended): "Rs. 450000 is my budget" was over-redacted by the old PIN_CITY_RE ("Rs." read as a place); it now stays.
+- Out of scope, ledger candidate only: "I am Indian, do I need APS?" -> "[school]" (SCHOOL_ABBREVIATION_RE lists APS; predates this unit, not changed).
+- Not changed: crisisGuard, LK10 wording, H3 outage behaviour, D-110 Tele-MANAS rule, F2/F3/F4/F5 code (graph.ts, providers, anonymous.ts untouched; `git diff 1bfd97f 8e748a8 --stat` = lang.ts, lang.test.ts, student-graph.test.ts only).
+Tests[H1]: packages/engine/tests/lang.test.ts::"H1 F2-G1: a standalone 6-digit PIN is redacted ..." (every cycle-1 checker hostile phrasing incl. "I'm riya sharma from pune 411001", "pin no 411001", "PIN No: 411001", "pin no. 411001", "pin no 560037", "PIN number 411001", "my pin number is 411001", "PIN code number is 560037", "the pin of my area is 411001", "pin code of my city is 411001", "pin (411001)", "from pune 411001", "411 001", "Pune,411001"), "H1 F2-G1: a 6-digit number marked as a quantity ... stays" ("I scored 560037 marks", "fees are ₹350000 per year", "rank 120345 in JEE", Rs/INR/$/€ amounts, "120000 euros", 10-digit phone, "1,20,000", "120000.50"), "H1 F2-G2/G3: 'Naam: Riya Sharma' ... age in brackets" ; packages/engine/tests/student-graph.test.ts::"H1 F2: PIN with any label/connector ..." (one wire test through MockGroundedAnswerer: 11 phrasings, none of the tokens on the grounded wire, the question and the marks/rank/fees numbers survive)
+TDD: the three lang "H1 F2" tests ran RED before the lang.ts change (3 fail: "from pune 411001" kept the PIN; "Rs. 450000 is my budget" over-redacted), GREEN after.
+Falsification[H1]: copy of 8e748a8 at D:/tmp-chk/m2/fal (outside the tree, node_modules symlinked); lang.ts:893 `t = t.replace(PIN_TOKEN_RE, "[pin]");` replaced by `t = t;` -> lang "H1 F2" 1 fail 2 pass and student-graph "H1 F2" wire test 1 fail ("I'm [name] from pune 411001" on the wire); green before (3/0, 1/0), restored from `git show 8e748a8:` green again (3/0, 1/0). Log D:/tmp-chk/m2/logs/fals.txt, 2026-10-22T03:42:35+05:30 to 03:42:58+05:30.
+Pre-check[H1]: 8e748a8 `npx tsx --test tests/lang.test.ts` (packages/engine) -> exit 0, 57 passed, 0 failed blobs=packages/engine/tests/lang.test.ts:427fa84
+Pre-check[H1]: 8e748a8 `npx tsx --test tests/student-graph.test.ts` (packages/engine) -> exit 0, 113 passed, 0 failed blobs=packages/engine/tests/student-graph.test.ts:409c114
+Pre-check[H1]: 8e748a8 `npx tsx --test tests/lk5.test.ts` (packages/engine) -> exit 0, 65 passed, 0 failed blobs=packages/engine/tests/lk5.test.ts:734ebf6
+Pre-check[H1]: 8e748a8 `npx tsc --noEmit` (packages/engine) -> exit 0, no output
+All runs through `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 <cmd>`, one file at a time. No full suite, no live LLM or Gemini call.
+Metrics: start=2026-10-22T03:39:14+05:30 end=2026-10-22T03:44:07+05:30 wall_min=5 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=1 mutations=1 cycle=2 resumes=0 tokens=unavailable policy=proportional-verification/2026-10-19.17 check_s=0 mutants=1 defects_unit=0 defects_6c=0
+
 ## Open risks for the checker
+0b. (cycle 2) G1 is privacy-first: an unlabelled 6-digit amount with no currency or unit nearby ("I have around 500000 saved") is now redacted as [pin] (over-redaction, accepted); a quantity word before it ("budget is 500000", "rank 120345") or a unit after it keeps it. A PIN written with a currency or unit right next to it would stay (not a natural PIN phrasing).
 0. (cycle 1) F1 redaction stays deterministic: an over-redacted odd lower-case word after "i am" is accepted by design; an unusual name form without a lead-in phrase can still pass. F4 fraud/injection rules remain regex tuned on the review's lists. F3: with no client key every request shares one capped bucket (fail safe, logged once).
 1. H3 is an [ASSUMPTION] (brief): on a screen outage a no-source turn shows the plain fixed refusal, not the crisis message. A real crisis phrase is still caught by crisisGuard (first, unchanged) and a classified "possible" is still the crisis message. A student in distress whose message the offline guard misses and whose classifier call fails sees an ordinary refusal; Umesh may override.
 2. H2 is enforced at the startApi composition root only, not inside the graph (existing graph tests use `grounding` without a screen). Code that builds the graph directly can still run grounding with no screen.
