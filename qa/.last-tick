@@ -1634,3 +1634,4 @@ NO OTHER UNIT DISPATCHED: 41/41 root manifests checked-PASS, 0 pending, and the
 2026-10-21T13:10:25+05:30 tick: in flight lk7-c1 build (d55bbad), chk-lk9 a+b, chk-lk10; SERIAL: sweep waits on test lock (4 agents hold it); nothing else ready
 2026-10-21T13:34:20+05:30 lk9 dual PASS merged 69cff43 (D-107); SERIAL: 6c waits on chk-lk7-c1 (one full-suite 6c for a10+lk9+lk7, .13-2a)
 2026-10-21T13:52:00+05:30 ADVANCED pushed dca99c6 13:51:39 (reflog): a10-diag + lk9 + lk7; push-gate green 764bbd3e; lk10 merge-hold clinical evidence=dca99c6a0fbc3325d257b7423ab99827dbbc468c
+2026-10-21T14:25:54+05:30 ADVANCED: pushed dc2bc97 (lk10 crisis langs, go-live alerts PASS b081d73, b13 fill); 6c scoped green 2378/0 fail evidence=dc2bc974d87e621466941d35b530d6171c8efec9
