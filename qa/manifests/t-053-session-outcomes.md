@@ -1,5 +1,5 @@
 # T-053 session outcome UI — historical bounded acceptance integrated
-Status: integrated (historical bounded checker PASS; current release pending)
+Status: checked-PASS (verdict qa/verdicts/t-053-session-outcomes.md, cycle 0)
 Fix cycle: 0
 Scope: existing NewSessionForm Screen/submit/render and existing browser-evidence-failover-c1.ts main.
 Approval: fresh hindi_voice_quality_plan APPROVE, root dispatch.

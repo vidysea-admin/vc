@@ -75,7 +75,7 @@ No dedicated doNotAsk/destination policy, cards, voice/avatar or application com
 - packages/schemas/src/schemas.ts SHA256=7d1598ccd58576387c76e1ea83128a00d76d3eeb7c749f0abc0ed201da620437
 - packages/schemas/tests/fact-source.test.ts SHA256=02f5aa96538f6289eb690b90f771b740b1abe4edc6bf525cdd52d34b75c9fe34
 
-## Status: integrated (historical bounded checker PASS; current release pending)
+## Status: checked-PASS (verdict qa/verdicts/t-046-canonical-edit-provenance.md, cycle 0)
 
 ## Closeout reconciliation — 2026-10-13
 Historical cycle0 bounded PASS qa/verdicts/t-046-canonical-edit-provenance.md on f61ce5d; actual current git diff f61ce5d 4e71afe across16 product paths returned0 differences, integrated4e71afe is ancestorofHEAD. Actual source commit is4e71afe; TASKS source/hash spacing normalized. Later T052 graph/DB changes require currentrelease acceptance; this closeout is not a new execution PASS.

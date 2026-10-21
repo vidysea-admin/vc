@@ -1,6 +1,6 @@
 # Manifest — t-047-crisis-privacy
 
-**Status:** integrated (historical bounded checker PASS; current release pending)
+**Status:** checked-PASS (verdict qa/verdicts/t-047-crisis-privacy.md + t-047-crisis-privacy.b.md, cycle 0)
 **Goal task:** T-047
 **Contract:** qa/contracts/counselling-engine.md (B13/B16/B21), ARCHITECTURE.md, root docs/plan.md independently approved T047 reconciliation and budget/D016 refinements
 **Fix cycle:** 0 of max 3

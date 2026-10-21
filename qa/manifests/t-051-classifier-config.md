@@ -1,6 +1,6 @@
 # T-051 — classifier configuration loader hardening
 
-Status: integrated (historical bounded checker PASS; current release pending)
+Status: checked-PASS (verdict qa/verdicts/t-051-classifier-config.md, cycle 0)
 Fix cycle: 0
 Bound root: D:/vc
 Approval: docs/plan.md loader-only approval from classifier_config_quality_plan (recorded c912705).
