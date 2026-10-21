@@ -6,7 +6,7 @@
 - C2 apps/api/src/main.ts: the startup-failure line is built by the new exported `describeStartupError` (error name + message; `mongodb(+srv)?://...@` userinfo redacted to `mongodb://***@`, `\b(sk|key|token)[-_A-Za-z0-9]{16,}` runs redacted to `[redacted]`; a LauncherConfigError/GoLiveRefusedError message passes through unchanged because it contains none of those). main() calls it (main.ts:~167). The Mongo regex is stricter than the brief's (`[^\s/]*@`, greedy to the last "@" before "/"), so a raw "@" in a password cannot end the match early.
 **Goal task:** none
 **Date:** 2026-10-21
-**Status:** ready-for-check
+## Status: checked-PASS (qa/verdicts/golive-harden.md, a44eafc)
 **Fix cycle:** 0
 **Policy-Version:** proportional-verification/2026-10-19.17
 **Tier:** L (config + error-message redaction; no auth change)
