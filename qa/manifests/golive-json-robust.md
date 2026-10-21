@@ -1,6 +1,6 @@
 # golive-json-robust — tolerate fenced / unquoted-key JSON from the litellm path; retry one malformed reply in the safety classifier
 
-Status: ready-for-check
+Status: checked-PASS (qa/verdicts/golive-json-robust.md, 1edda6a, cycle 0)
 Fix cycle: 0
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: M (shared provider module, safety path); one checker later
@@ -40,3 +40,5 @@ Live unavailable rate on synthetic crisis text: 0/6 after fix (brief: ~25% befor
 - Live n=6 is small; the 25% figure is the screen-verify agent's, not re-measured here on base.
 - The retry shares the original timeoutMs deadline: a slow first attempt leaves little time for the retry, which then times out to unavailable (fail closed, safe).
 - Unquoted-key repair does not handle single-quoted strings, trailing commas, or comments; those still throw and fall to the retry then fail-closed.
+
+Format-fixup: lint gaps (no-pre-check, no-test-selection, live-before-fake, no Metrics line) noted at close-out; checker re-ran all product checks itself (verdict 1edda6a). (1)
