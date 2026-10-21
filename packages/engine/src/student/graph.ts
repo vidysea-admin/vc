@@ -55,6 +55,7 @@ import {
   ANONYMOUS_SIGN_IN_TEXT,
   CRISIS_MESSAGES,
   DEFAULT_REPLY_LANGS,
+  GENERAL_GUIDANCE_TIMEOUT_MS,
   HELPLINE_GLOSS,
   HELPLINE_LINE_EN_HI,
   LANG_DETECT_TIMEOUT_MS,
@@ -65,6 +66,9 @@ import {
   TELE_MANAS_LINE,
   crisisMessageFor,
   detectLanguageOffline,
+  fixedText,
+  generalGuidance,
+  hasExplicitLink,
   isNonEnglish,
   isOutsideAllowList,
   countriesInLocalized,
@@ -221,10 +225,10 @@ function assertManifestMatches(body: string): void {
 // Draft detection (A21(a))
 // ---------------------------------------------------------------------------
 
-/** Essay/SOP-shaped text: long prose, a salutation, a sign-off, or a document heading over prose. */
-export function isDraftLike(text: string): boolean {
+/** Essay/SOP-shaped text: long prose, a salutation, a sign-off, or a document heading over prose. `maxWords` is the length bar (default 150). */
+export function isDraftLike(text: string, maxWords = 150): boolean {
   const words = text.split(/\s+/).filter(Boolean).length;
-  if (words > 150) return true;
+  if (words > maxWords) return true;
   if (/^\s*(dear|respected|to whom it may concern)\b/im.test(text)) return true;
   if (/^\s*(sincerely|yours (sincerely|faithfully|truly)|warm regards|best regards|regards),?\s*$/im.test(text)) return true;
   if (/^\s*(statement of purpose|personal statement|motivation letter|cover letter|essay)\s*:?\s*$/im.test(text) && words > 40) return true;
@@ -301,6 +305,8 @@ export interface StudentGraphDeps {
   safetyScreen?: { provider: LlmProvider; timeoutMs?: number; blockAt?: Severity; authenticated?: boolean; anonymous?: boolean };
   /** LK5: hard stop for the English search-query rewrite of a non-English turn (default 2 s); a miss searches with the original text. */
   rewriteTimeoutMs?: number;
+  /** D-110: hard stop for the no-source expert answer call (default 20 s); a miss shows the fixed refusal text. */
+  expertTimeoutMs?: number;
   /** The anonymous text-free aggregate counter (B24.6); U7 wires the single counter writer. */
   countAnonymous?: (kind: AnonymousCounterKind) => Promise<void>;
   /**
@@ -601,14 +607,15 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
 
   const finish = (input: StudentTurnInput, result: StudentTurnResult, priorFlag: boolean, outsideAllowList: boolean): StudentTurnResult => {
     let response = result.response;
-    // P1 W3 / D-093 3A: ordinary stress language ("pressure bahut hai") is not a crisis flag. The turn is answered as usual and
-    // a soft check-in plus Tele-MANAS 14416 is appended. An anonymous non-answer already carries the helpline line, so only the
-    // check-in is added there. The fixed crisis message (state "escalated") is never touched.
+    // P1 W3 / D-093 3A: ordinary stress language ("pressure bahut hai") is not a crisis flag. The turn is answered as usual with a
+    // soft check-in and Tele-MANAS 14416. D-110: the order is the empathy line first, then the reply (the answer, the sign-in or the
+    // help sentence), then the helpline; a reply that already carries 14416 gets only the check-in in front. The helpline is added
+    // ONLY on a distress or concern signal (this one, a flagged thread below, or an uncovered language below): ordinary replies
+    // carry none. The fixed crisis message (state "escalated") is never touched.
     let softNote = false;
     if (response.state !== "escalated" && stressSignal(input.text)) {
       const message = response.message ?? "";
-      const note = message.includes("14416") ? STRESS_CHECK_IN : `${STRESS_CHECK_IN} ${TELE_MANAS_LINE}`;
-      const withNote = `${message} ${note}`.trim();
+      const withNote = [STRESS_CHECK_IN, message, message.includes("14416") ? "" : TELE_MANAS_LINE].filter((part) => part !== "").join(" ");
       if (withNote.length <= STUDENT_MESSAGE_MAX) {
         response = { ...response, message: withNote };
         softNote = true;
@@ -700,14 +707,40 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     .addEdge(STUDENT_NODES.tool, STUDENT_NODES.finish)
     .addEdge(STUDENT_NODES.finish, END);
 
-  async function noAnswer(input: StudentTurnInput): Promise<StudentTurnResult> {
+  /**
+   * D-110: the reply when the knowledge base gives no servable source. The gap is counted first (unchanged). The reply is the vetted
+   * disclaimer plus an expert answer from the text chain; the state stays `no_sourced_answer` with no claims and no sources. A chain
+   * failure, a timeout or an output the guards refuse is the fixed refusal text, so the turn never errors.
+   */
+  async function noAnswer(input: StudentTurnInput, priorFlag: boolean, replyLang: ReplyLang): Promise<StudentTurnResult> {
     if (input.mode === "authenticated") {
       const gap: GapRecord = { tenantId: input.auth.tenantId, studentId: input.auth.studentId, threadId: input.threadId, turnId: input.turnId, at: now().toISOString() };
       await safeWrite("gap", deps.recordGap ? () => deps.recordGap!(gap) : undefined);
     } else {
       await count("no_answer");
     }
-    return { response: emptyResponse(input, "no_sourced_answer", input.mode === "authenticated" ? NO_SOURCED_ANSWER_TEXT : ANONYMOUS_NO_ANSWER_TEXT), selectedTool: "search_kb", claimSourceKinds: [] };
+    const refusal = input.mode === "authenticated" ? NO_SOURCED_ANSWER_TEXT : ANONYMOUS_NO_ANSWER_TEXT;
+    const guidance = await expertGuidance(input, priorFlag, replyLang);
+    return { response: emptyResponse(input, "no_sourced_answer", guidance ?? refusal), selectedTool: "search_kb", claimSourceKinds: [] };
+  }
+
+  /**
+   * The disclaimer plus the guarded expert answer, or undefined for "show the refusal". The answer gets the redaction and output checks
+   * the sourced answer gets: names and phone numbers removed (every listed speaker, permitted or not), the no-quote guard, no link or
+   * e-mail, never a draft SOP/essay (B1), and on a flagged thread the forbidden crisis wording. Numbers are allowed. The model safety
+   * screen still runs on the student's text in `finish`, and a "possible" verdict replaces this reply with the fixed crisis message.
+   */
+  async function expertGuidance(input: StudentTurnInput, priorFlag: boolean, replyLang: ReplyLang): Promise<string | undefined> {
+    const raw = await generalGuidance(deps.provider, { question: input.text, replyLang }, deps.expertTimeoutMs ?? GENERAL_GUIDANCE_TIMEOUT_MS);
+    if (raw === undefined) return undefined;
+    if (hasExplicitLink(raw) || isDraftLike(raw, Number.POSITIVE_INFINITY)) return undefined;
+    const answer = noQuoteGuard(redactPersonalIdentifiers(raw, deps.speakers, []), deps.speakers).text.trim();
+    if (answer === "") return undefined;
+    const message = `${fixedText(replyLang, "guidanceDisclaimer")} ${answer}`;
+    // Room for the empathy line and the helpline that `finish` may add, so a long answer is refused rather than cut mid-sentence.
+    if (message.length > STUDENT_MESSAGE_MAX - 400) return undefined;
+    if (input.mode === "authenticated" && priorFlag && violatesCrisisRules(message)) return undefined;
+    return message;
   }
 
   /**
@@ -805,15 +838,15 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
 
     let ask: AskToolOutput | undefined;
     if (hits.length === 0) {
-      if (!askKb) return noAnswer(input);
+      if (!askKb) return noAnswer(input, priorFlag, lang.reply);
       try {
         ask = await askKb(input.text);
       } catch {
-        return noAnswer(input);
+        return noAnswer(input, priorFlag, lang.reply);
       }
       // Serve rule re-checked on the engine side (U6h P4): answered, verdict "correct", insufficient_coverage
       // false, internal sources, no web. Anything the engine cannot confirm is the fixed no-answer.
-      if (!isServedAsk(ask)) return noAnswer(input);
+      if (!isServedAsk(ask)) return noAnswer(input, priorFlag, lang.reply);
     }
 
     // U6h M3: names and phones are redacted from WhatsApp/unknown hit text and from the /ask answer BEFORE they are
@@ -848,13 +881,13 @@ export function buildStudentGraph(deps: StudentGraphDeps) {
     });
     // D-092: anonymous mode never shows an unverified claim; authenticated mode flags it (spec item 4).
     const shown = authenticated ? guarded.claims : guarded.claims.filter((c) => c.status !== "unverified");
-    if (!shown.some((c) => c.status !== "unverified")) return noAnswer(input);
+    if (!shown.some((c) => c.status !== "unverified")) return noAnswer(input, priorFlag, lang.reply);
 
     // U7 repair C: an anonymous reply never carries a model-written follow-up (it could solicit marks, a school or a link).
     const followUp = authenticated ? safeFollowUp(draft.followUp, guarded.restricted) : undefined;
     let message = [...shown.map((c) => (c.status === "unverified" ? `${c.text} (unverified)` : c.text)), ...(followUp ? [followUp] : [])].join(" ");
     // Repair R2a: the FINAL message is checked against every restricted text of the turn (fail closed).
-    if (guarded.restricted.texts.some((t) => hasVerbatimRun(message, t))) return noAnswer(input);
+    if (guarded.restricted.texts.some((t) => hasVerbatimRun(message, t))) return noAnswer(input, priorFlag, lang.reply);
     message = noQuoteGuard(message, deps.speakers, guarded.restricted.labels).text;
     const englishViolatesCrisisRules = authenticated && priorFlag && violatesCrisisRules(message);
     message = localizedMessage(draft, shown, followUp, guarded.restricted, lang.reply) ?? message;

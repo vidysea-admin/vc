@@ -568,7 +568,7 @@ export const STUDENT_API_DRAFT = {
     "/v1/students/{studentId}/chat/threads/{threadId}/turns": {
       post: draftOp(["student"], {
         operationId: "postChatTurn",
-        summary: "Send a text turn; idempotent on clientTurnId. Answers come only from the knowledge base, else state no_sourced_answer",
+        summary: "Send a text turn; idempotent on clientTurnId. Sourced answers come from the knowledge base; with no servable source the state is no_sourced_answer (no claims, no sources) and the message is a short disclaimer plus general expert guidance, or the fixed refusal text if the model chain fails",
         parameters: [studentId, threadId],
         requestBody: { required: true, ...json(ref("TurnRequest")) },
         responses: { "200": ok("The answer", ref("TurnResponse")), ...studentErrors, "413": { description: "Body larger than 64 KiB (never scanned; carries the static Tele-MANAS line)", ...json(ref("AnonymousError")) } },

@@ -632,6 +632,32 @@ test("ISS-350: the fix adds no scan: a malformed crisis turn scans exactly as of
 });
 
 // ---------------------------------------------------------------------------
+// D-110: no servable source -> disclaimer + expert answer
+// ---------------------------------------------------------------------------
+
+test("D-110: a signed-in student's question with no servable source gets the disclaimer plus an expert answer; the state is still no_sourced_answer, claims and sources are empty, the gap is still counted", async () => {
+  const GUIDANCE = "Hostels in Lisbon usually cost about 400 to 700 euros a month, and student residences near the university are often cheaper.";
+  const provider = kbAnswerProvider();
+  provider.setResponse("kb-general-guidance", { answer: GUIDANCE });
+  const w = chatWorld({ kb: recordingKb({ status: "ok", hits: [], dropped: 0 }), provider });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: "Which hostel is best in Lisbon?", clientTurnId: "d110-1" } });
+    assert.equal(res.json.state, "no_sourced_answer");
+    assert.equal(res.json.message, `General guidance — I couldn't find this in Vidysea's verified sources, so please confirm fees, deadlines and amounts on the official website. ${GUIDANCE}`);
+    assert.deepEqual(res.json.claims, []);
+    assert.deepEqual(res.json.sources, []);
+    assert.doesNotMatch(res.json.message, /14416/);
+    const gaps = w.fakeDb.collection<Record<string, unknown>>(COLLECTION_NAMES.chat_gap_counts).all();
+    assert.equal(gaps.length, 1);
+    assert.equal(gaps[0]!.kind, "no_sourced_answer");
+  } finally {
+    w.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Gap counts
 // ---------------------------------------------------------------------------
 

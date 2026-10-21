@@ -1,0 +1,23 @@
+✖ A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes (8.1867ms)
+ℹ tests 32
+ℹ pass 31
+ℹ fail 1
+✖ failing tests:
+✖ A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes (8.1867ms)
+--
+✖ A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route (15.3773ms)
+✖ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (10.2787ms)
+ℹ tests 23
+ℹ pass 21
+ℹ fail 2
+✖ failing tests:
+✖ A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route (15.3773ms)
+✖ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (10.2787ms)
+--
+✖ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (8.8529ms)
+ℹ tests 45
+ℹ pass 44
+ℹ fail 1
+✖ failing tests:
+✖ startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo (8.8529ms)
+--

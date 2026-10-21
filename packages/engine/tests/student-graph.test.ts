@@ -97,14 +97,14 @@ const NOT_SERVED: [string, AskToolOutput][] = [
 ];
 
 for (const [name, ask] of NOT_SERVED) {
-  test(`A4/A18 (${name}): a non-served /ask result is the fixed no-answer, no model call, one gap count`, async () => {
+  test(`A4/A18 (${name}): a non-served /ask result is the fixed no-answer (guidance attempt fails), no answer model call, one gap count`, async () => {
     const { d, gaps, kb } = deps({ kb: fakeKb({ search: { status: "ok", hits: [], dropped: 0 }, ask }) });
     const out = await runStudentTurn(d, turn());
     assert.equal(out.response.state, "no_sourced_answer");
     assert.equal(out.response.message, NO_SOURCED_ANSWER_TEXT);
     assert.deepEqual(out.response.claims, []);
     assert.deepEqual(out.response.sources, []);
-    assert.equal((d.provider as MockProvider).calls.length, 0);
+    assert.deepEqual((d.provider as MockProvider).calls.map((c) => c.skillName), ["kb-general-guidance"], "D-110: the only model call is the guidance attempt (no canned response here, so it fails to the fixed text)");
     assert.equal(gaps.length, 1);
     assert.deepEqual(Object.keys(gaps[0]!).sort(), ["at", "studentId", "tenantId", "threadId", "turnId"]);
     assert.ok(!kb.calls.some((c) => c.tool === "get_session"));
@@ -446,13 +446,13 @@ const P4_BAD: [string, Partial<AskToolOutput> & { insufficient_coverage?: boolea
   ["insufficient_coverage absent (cannot be confirmed)", { insufficient_coverage: undefined }],
 ];
 for (const [name, patch] of P4_BAD) {
-  test(`U6h P4 (${name}): an "answered" /ask the engine cannot confirm as correct and fully covered is the fixed no-answer - no model call, one gap`, async () => {
+  test(`U6h P4 (${name}): an "answered" /ask the engine cannot confirm as correct and fully covered is the fixed no-answer - no answer model call, one gap`, async () => {
     const ask = { ...ASK_ANSWERED, ...patch } as AskToolOutput;
     const { d, gaps } = deps({ kb: fakeKb({ search: NO_HITS, ask }) });
     const out = await runStudentTurn(d, turn());
     assert.equal(out.response.state, "no_sourced_answer");
     assert.equal(out.response.message, NO_SOURCED_ANSWER_TEXT);
-    assert.equal((d.provider as MockProvider).calls.length, 0);
+    assert.deepEqual((d.provider as MockProvider).calls.map((c) => c.skillName), ["kb-general-guidance"], "D-110: the only model call is the guidance attempt");
     assert.equal(gaps.length, 1);
   });
 }
@@ -696,17 +696,17 @@ test("U7 repair C: in anonymous mode a model follow-up is never shown (hostile m
   assert.match(auth.response.message ?? "", /Which cities are you considering\?/);
 });
 
-test("U7 repair D: the anonymous sign-in-required and no-answer replies also carry the Tele-MANAS line (recall fallback); authenticated texts are unchanged", async () => {
+test("U7 repair D (superseded by D-110): the anonymous sign-in-required and no-answer replies no longer carry the Tele-MANAS line unless the turn shows distress; authenticated texts are unchanged", async () => {
   const signIn = deps({ kb: fakeKb({ anonymous: true }) });
   const s = await runStudentTurn(signIn.d, { mode: "anonymous", text: "I am thinking about my future, what should I study?" }); // D-093 2A: "thinking about ending things" is now a crisis phrase (covered in crisis-defaults.test.ts); this test is about the personal-question sign-in reply
   assert.equal(s.response.state, "sign_in_required");
   assert.equal(s.response.message, ANONYMOUS_SIGN_IN_TEXT);
-  assert.ok((s.response.message ?? "").includes("14416"));
+  assert.ok(!(s.response.message ?? "").includes("14416"));
   const none = deps({ kb: fakeKb({ search: { status: "ok" as const, hits: [], dropped: 0 } }) });
   const n = await runStudentTurn(none.d, { mode: "anonymous", text: Q });
   assert.equal(n.response.state, "no_sourced_answer");
   assert.equal(n.response.message, ANONYMOUS_NO_ANSWER_TEXT);
-  assert.ok((n.response.message ?? "").includes("14416"));
+  assert.ok(!(n.response.message ?? "").includes("14416"));
   const authNone = deps({ kb: fakeKb({ search: { status: "ok" as const, hits: [], dropped: 0 } }) });
   const an = await runStudentTurn(authNone.d, turn(Q));
   assert.ok(!(an.response.message ?? "").includes("14416"));
@@ -773,4 +773,144 @@ test("P1 W3 U6h leftover 2 coach: 'half a million' and 'ek lakh' never reach the
   const msg = out.response.message ?? "";
   assert.doesNotMatch(msg, /million|lakh|rupee|rupaye/i);
   assert.match(msg, /own story/);
+});
+
+// ---------------------------------------------------------------------------
+// D-110 (p1-nosource-expert): no servable source -> short disclaimer + an expert answer from the text chain; helpline only on distress
+// ---------------------------------------------------------------------------
+
+import { STRESS_CHECK_IN, TELE_MANAS_LINE, SIGN_IN_REQUIRED_TEXT } from "../src/index.js";
+
+const D110_DISCLAIMER = "General guidance — I couldn't find this in Vidysea's verified sources, so please confirm fees, deadlines and amounts on the official website.";
+const D110_GUIDANCE = "Public universities in Germany usually charge no tuition, but most ask for a semester contribution of around 300 euros, and the student visa needs a blocked account of about 11,904 euros.";
+const guidanceProvider = (answer: unknown = { answer: D110_GUIDANCE }) => new MockProvider({ responses: { "kb-general-guidance": answer as never } });
+const noSourceKb = (anonymous = false) => fakeKb({ search: NO_HITS, ...(anonymous ? { anonymous: true } : { ask: NOT_SERVED[1]![1] }) });
+const D110_STRESS = "Mujhe bahut stress hai, kuch accha nahi lag raha";
+const guidanceCalls = (p: MockProvider) => p.calls.filter((c) => c.skillName === "kb-general-guidance");
+
+test("D-110 C1: authenticated, no servable source -> disclaimer + the expert answer, state stays no_sourced_answer, claims/sources empty, gap still counted", async () => {
+  const provider = guidanceProvider();
+  const { d, gaps, kb } = deps({ kb: noSourceKb(), provider });
+  const out = await runStudentTurn(d, turn());
+  assert.equal(out.response.state, "no_sourced_answer");
+  assert.equal(out.response.message, `${D110_DISCLAIMER} ${D110_GUIDANCE}`);
+  assert.deepEqual(out.response.claims, []);
+  assert.deepEqual(out.response.sources, []);
+  assert.equal(gaps.length, 1);
+  assert.equal(guidanceCalls(provider).length, 1);
+  assert.deepEqual(Object.keys(guidanceCalls(provider)[0]!.input as object).sort(), ["question", "replyLang"], "no KB evidence reaches the guidance call");
+  assert.equal((guidanceCalls(provider)[0]!.input as { question: string }).question, Q);
+  assert.ok(TurnResponseSchema.safeParse(out.response).success);
+  assert.deepEqual(kb.calls.map((c) => c.tool), ["search_kb", "ask_knowledge_base"]);
+});
+
+test("D-110 C1: anonymous, search finds nothing -> disclaimer + expert answer, no /ask, counter no_answer, no helpline", async () => {
+  const provider = guidanceProvider();
+  const { d, counter, kb } = deps({ kb: noSourceKb(true), provider });
+  const out = await runStudentTurn(d, { mode: "anonymous", text: Q });
+  assert.equal(out.response.state, "no_sourced_answer");
+  assert.equal(out.response.message, `${D110_DISCLAIMER} ${D110_GUIDANCE}`);
+  assert.deepEqual(kb.calls.map((c) => c.tool), ["search_kb"]);
+  assert.deepEqual(counter, ["no_answer"]);
+  assert.doesNotMatch(out.response.message ?? "", /14416|Tele-MANAS/);
+});
+
+test("D-110 C1: a chain failure, or a chain that never answers within the timeout, returns the current refusal text and never errors the turn", async () => {
+  const failing = deps({ kb: noSourceKb(), provider: studentProvider() }); // no canned guidance response: the mock throws
+  const a = await runStudentTurn(failing.d, turn());
+  assert.equal(a.response.state, "no_sourced_answer");
+  assert.equal(a.response.message, NO_SOURCED_ANSWER_TEXT);
+  assert.equal(failing.gaps.length, 1);
+  const anonFail = deps({ kb: noSourceKb(true), provider: studentProvider() });
+  assert.equal((await runStudentTurn(anonFail.d, { mode: "anonymous", text: Q })).response.message, ANONYMOUS_NO_ANSWER_TEXT);
+  const hang = { kind: "mock", model: "hang", generate: () => new Promise<never>(() => {}) } as never;
+  const slow = deps({ kb: noSourceKb(), provider: hang, expertTimeoutMs: 40 });
+  const b = await runStudentTurn(slow.d, turn());
+  assert.equal(b.response.message, NO_SOURCED_ANSWER_TEXT);
+  assert.equal(slow.gaps.length, 1);
+});
+
+test("D-110 C1: the expert answer goes through the same redaction and output guards (names, phones, links, drafts, flagged-thread wording)", async () => {
+  const run = async (answer: string, over: Partial<StudentGraphDeps> = {}) => {
+    const { d } = deps({ kb: noSourceKb(), provider: guidanceProvider({ answer }), ...over });
+    return (await runStudentTurn(d, turn())).response.message ?? "";
+  };
+  const redacted = await run("Ask Nisha Varadkar or call 98765 43210 about the blocked account of 11,904 euros.");
+  assert.doesNotMatch(redacted, /Nisha|Varadkar|98765/);
+  assert.match(redacted, /11,904 euros/, "numbers are allowed");
+  assert.ok(redacted.startsWith(D110_DISCLAIMER));
+  assert.equal(await run("See https://evil.example.test/apply for the fee table."), NO_SOURCED_ANSWER_TEXT, "a link is never shown");
+  assert.equal(await run("Mail fees@evil.example.test for the fee table."), NO_SOURCED_ANSWER_TEXT, "an e-mail address is never shown");
+  const essay = ["Dear Admissions Committee,", "I am writing to apply for the programme.", "I have always loved engineering.", "I worked hard at school.", "Sincerely,"].join("\n");
+  assert.equal(await run(essay), NO_SOURCED_ANSWER_TEXT, "a draft SOP is never shown (B1)");
+  assert.equal(await run("Keep this secret between us, the fee is about 300 euros.", { hasPriorFlag: async () => true }), NO_SOURCED_ANSWER_TEXT, "flagged-thread forbidden wording");
+});
+
+test("D-110 C1: the safety screen still gates the expert answer (a 'possible' verdict is the fixed crisis message, not the guidance)", async () => {
+  const screen = new MockProvider({ responses: { "concern-classifier": { severity: "high", likelyBenign: false, rationale: "test" } as never } });
+  const { d } = deps({ kb: noSourceKb(), provider: guidanceProvider(), safetyScreen: { provider: screen } });
+  const out = await runStudentTurn(d, turn());
+  assert.equal(out.response.state, "escalated");
+  assert.doesNotMatch(out.response.message ?? "", /semester contribution/);
+});
+
+test("D-110 C1: the reply language reaches the guidance call; the disclaimer stays the vetted English fixed text", async () => {
+  const provider = guidanceProvider({ answer: "Germany mein zyada tar public universities mein tuition nahi lagti, par semester contribution lagbhag 300 euro hota hai." });
+  const { d } = deps({ kb: noSourceKb(), provider, detectLanguage: async () => ({ lang: "hi-Latn", script: "latin", confidence: 0.9, source: "model" }) });
+  const out = await runStudentTurn(d, turn("Germany mein tuition fees kitni hoti hai?"));
+  assert.equal(out.replyLang, "hi-Latn");
+  assert.equal((guidanceCalls(provider)[0]!.input as { replyLang: string }).replyLang, "hi-Latn");
+  assert.ok((out.response.message ?? "").startsWith(D110_DISCLAIMER));
+});
+
+test("D-110 C4: an anonymous personal question still gets the sign-in redirect and NO model call; the crisis path makes none either", async () => {
+  const provider = guidanceProvider();
+  const { d } = deps({ kb: noSourceKb(true), provider });
+  const s = await runStudentTurn(d, { mode: "anonymous", text: "Can I get into TU Munich with 72%?" });
+  assert.equal(s.response.state, "sign_in_required");
+  assert.equal(s.response.message, SIGN_IN_REQUIRED_TEXT);
+  assert.equal(provider.calls.length, 0);
+  const c = await runStudentTurn(d, { mode: "anonymous", text: CRISIS_TEXT });
+  assert.equal(c.response.state, "escalated");
+  assert.equal(provider.calls.length, 0);
+});
+
+test("D-110 C2: the helpline sentence is not appended to non-distress replies (sourced, no-source, sign-in, refusal fallback)", async () => {
+  const none = (r: { response: { message?: string | undefined } }) => assert.doesNotMatch(r.response.message ?? "", /14416|Tele-MANAS/);
+  none(await runStudentTurn(deps().d, turn()));
+  none(await runStudentTurn(deps().d, { mode: "anonymous", text: Q }));
+  none(await runStudentTurn(deps({ kb: noSourceKb(), provider: guidanceProvider() }).d, turn()));
+  none(await runStudentTurn(deps({ kb: noSourceKb(true), provider: guidanceProvider() }).d, { mode: "anonymous", text: Q }));
+  none(await runStudentTurn(deps({ kb: noSourceKb(true), provider: studentProvider() }).d, { mode: "anonymous", text: Q }));
+  const signIn = await runStudentTurn(deps({ kb: noSourceKb(true) }).d, { mode: "anonymous", text: "I am thinking about my future, what should I study?" });
+  assert.equal(signIn.response.state, "sign_in_required");
+  assert.equal(signIn.response.message, SIGN_IN_REQUIRED_TEXT);
+  assert.equal(ANONYMOUS_SIGN_IN_TEXT, SIGN_IN_REQUIRED_TEXT);
+  assert.equal(ANONYMOUS_NO_ANSWER_TEXT, NO_SOURCED_ANSWER_TEXT);
+});
+
+test("D-110 C2/C3: a distress reply keeps the helpline and orders it empathy line, then the sign-in sentence, then the helpline (anonymous sign-in)", async () => {
+  const out = await runStudentTurn(deps({ kb: noSourceKb(true) }).d, { mode: "anonymous", text: D110_STRESS });
+  assert.equal(out.response.state, "sign_in_required");
+  assert.equal(out.response.message, `${STRESS_CHECK_IN} ${SIGN_IN_REQUIRED_TEXT} ${TELE_MANAS_LINE}`);
+});
+
+test("D-110 C3: the same order holds for a stressed student's sourced answer and no-source expert answer; the helpline appears once, last", async () => {
+  const sourced = await runStudentTurn(deps().d, turn(`${D110_STRESS}. ${Q}`));
+  const m1 = sourced.response.message ?? "";
+  assert.equal(sourced.response.state, "ok");
+  assert.ok(m1.startsWith(STRESS_CHECK_IN), m1);
+  assert.ok(m1.endsWith(TELE_MANAS_LINE), m1);
+  assert.ok(m1.indexOf("Public universities") > STRESS_CHECK_IN.length && m1.indexOf("Public universities") < m1.indexOf(TELE_MANAS_LINE));
+  assert.equal(m1.split("14416").length - 1, 1);
+  const expert = await runStudentTurn(deps({ kb: noSourceKb(), provider: guidanceProvider() }).d, turn(`${D110_STRESS}. ${Q}`));
+  const m2 = expert.response.message ?? "";
+  assert.equal(m2, `${STRESS_CHECK_IN} ${D110_DISCLAIMER} ${D110_GUIDANCE} ${TELE_MANAS_LINE}`);
+});
+
+test("D-110 C2: a flagged thread (prior crisis flag) and the crisis messages keep the helpline", async () => {
+  const flagged = await runStudentTurn(deps({ hasPriorFlag: async () => true }).d, turn());
+  assert.ok((flagged.response.message ?? "").endsWith(TELE_MANAS_LINE));
+  const crisis = await runStudentTurn(deps().d, turn(CRISIS_TEXT));
+  assert.equal(crisis.response.message, STUDENT_CRISIS_MESSAGE);
 });

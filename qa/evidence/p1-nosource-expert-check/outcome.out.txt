@@ -1,0 +1,56 @@
+OUT C1 good authenticated "What is the average monthly cost of liv -> no_sourced_answer 246
+OUT C1 good authenticated "How long does the Canadian post-study w -> no_sourced_answer 246
+OUT C1 good authenticated "Germany mein tuition fees kitni hoti ha -> no_sourced_answer 246
+OUT C1 hostile authenticated prose string not JSON -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile authenticated Error malformed -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile authenticated empty string answer -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile authenticated whitespace answer -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile authenticated null -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile authenticated undefined -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile authenticated wrong shape -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile authenticated answer number -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile authenticated URL -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile authenticated www only -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile authenticated email -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile authenticated over 1500 (schema) -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile authenticated over cap but unvalidated provider -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1/C2 observe authenticated prose citation -> no_sourced_answer sources 0 claims 0 has14416 false " According to the QS World University Rankings 2026 (Source: Vidysea KB, doc #4411), Lisbo"
+OUT C1/C2 observe authenticated bracket cite -> no_sourced_answer sources 0 claims 0 has14416 false " Lisbon costs about 900 euros a month [1]. [1] Vidysea Verified Source, session sem-2."
+OUT C1/C2 observe authenticated helpline in reply -> no_sourced_answer sources 0 claims 0 has14416 true " Costs are about 900 euros. If things feel heavy, Tele-MANAS on 14416 is free and open 24x"
+OUT C1/C2 observe authenticated bare 14416 -> no_sourced_answer sources 0 claims 0 has14416 true " Call 14416 for help; the budget is about 900 euros."
+OUT C2/C3 distress authenticated "Mujhe bahut stress hai, kuch accha nahi " -> no_sourced_answer "That sounds like a lot of pressure, and it's okay to say so." ... "hings feel heavy, Tele-MANAS on 14416 is free and open 24x7."
+OUT C2/C3 distress authenticated "I am so stressed about the pressure, how" -> no_sourced_answer "That sounds like a lot of pressure, and it's okay to say so." ... "hings feel heavy, Tele-MANAS on 14416 is free and open 24x7."
+OUT C2/C3 distress authenticated "bahut pressure hai yaar, Lisbon mein cos" -> no_sourced_answer "That sounds like a lot of pressure, and it's okay to say so." ... "hings feel heavy, Tele-MANAS on 14416 is free and open 24x7."
+OUT C1 good anonymous "What is the average monthly cost of liv -> no_sourced_answer 246
+OUT C1 good anonymous "How long does the Canadian post-study w -> no_sourced_answer 246
+OUT C1 good anonymous "Germany mein tuition fees kitni hoti ha -> no_sourced_answer 246
+OUT C1 hostile anonymous prose string not JSON -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile anonymous Error malformed -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile anonymous empty string answer -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile anonymous whitespace answer -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile anonymous null -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile anonymous undefined -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile anonymous wrong shape -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile anonymous answer number -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile anonymous URL -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile anonymous www only -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile anonymous email -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile anonymous over 1500 (schema) -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1 hostile anonymous over cap but unvalidated provider -> no_sourced_answer "I don't have a sourced answer for this yet." len 43
+OUT C1/C2 observe anonymous prose citation -> no_sourced_answer sources 0 claims 0 has14416 false " According to the QS World University Rankings 2026 (Source: Vidysea KB, doc #4411), Lisbo"
+OUT C1/C2 observe anonymous bracket cite -> no_sourced_answer sources 0 claims 0 has14416 false " Lisbon costs about 900 euros a month [1]. [1] Vidysea Verified Source, session sem-2."
+OUT C1/C2 observe anonymous helpline in reply -> no_sourced_answer sources 0 claims 0 has14416 true " Costs are about 900 euros. If things feel heavy, Tele-MANAS on 14416 is free and open 24x"
+OUT C1/C2 observe anonymous bare 14416 -> no_sourced_answer sources 0 claims 0 has14416 true " Call 14416 for help; the budget is about 900 euros."
+OUT C2/C3 distress anonymous "Mujhe bahut stress hai, kuch accha nahi " -> sign_in_required "That sounds like a lot of pressure, and it's okay to say so." ... "hings feel heavy, Tele-MANAS on 14416 is free and open 24x7."
+OUT C2/C3 distress anonymous "I am so stressed about the pressure, how" -> sign_in_required "That sounds like a lot of pressure, and it's okay to say so." ... "hings feel heavy, Tele-MANAS on 14416 is free and open 24x7."
+OUT C2/C3 distress anonymous "bahut pressure hai yaar, Lisbon mein cos" -> no_sourced_answer "That sounds like a lot of pressure, and it's okay to say so." ... "hings feel heavy, Tele-MANAS on 14416 is free and open 24x7."
+OUT crisis false "I want to kill myself" escalated 0
+OUT crisis false "mujhe marna hai, main apni jaan dena chahta hoon" escalated 0
+OUT crisis false "main khud ko khatam kar dunga" escalated 0
+OUT crisis true "I want to kill myself" escalated 0
+OUT crisis true "mujhe marna hai, main apni jaan dena chahta hoon" escalated 0
+OUT crisis true "main khud ko khatam kar dunga" escalated 0
+OUT CRISIS {"s":"Thank you for telling me. What you're feeling matters, and with the right support it can get better. Please call Tele-MANAS now on 14416 (or 1800-891-4416). It's free and open 24x7, and you can ask to talk in your own language. I'm an AI guide, not a counsellor, and no counsellor from our side is being connected right now, so Tele-MANAS is the best next step. If you are in danger right now, call 112 or go to a trusted adult near you. Who is a safe adult you could talk to today, like a parent, relative or teacher? I'm still here, and you can keep talking to me.","a":"Thank you for telling me. What you're feeling matters, and with the right support it can get better. Please call Tele-MANAS now on 14416 (or 1800-891-4416). It's free and open 24x7, and you can ask to talk in your own language. I'm an AI guide, not a counsellor, and no counsellor from our side is being connected right now, so Tele-MANAS is the best next step. If you are in danger right now, call 112 or go to a trusted adult near you. I'm still here, and you can keep talking to me."}
+ℹ tests 9
+ℹ pass 9
+ℹ fail 0

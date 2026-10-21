@@ -87,7 +87,10 @@ test("A15a: 50 text turns through the real route (crisis, PII, borderline, gener
       assert.equal(haystack.includes(needle), false, `leaked: ${needle}`);
     }
     // personal and crisis turns never reach the model or the KB (only generic questions do)
-    assert.equal(w.provider.calls.length, 20, "the model sees generic answerable questions only");
+    // D-110: a generic question with no servable source also gets one guidance call (question + reply language only); nothing else reaches the model.
+    const noAnswerCount = turns.filter((t) => t.expect === "no_answer").length;
+    assert.equal(w.provider.calls.length, 20 + noAnswerCount, "the model sees generic questions only: 20 answered plus one guidance call per no-answer turn");
+    assert.equal(w.provider.calls.filter((c) => c.skillName === "kb-general-guidance").length, noAnswerCount);
     const modelSaw = JSON.stringify(w.provider.calls.map((c) => c.input));
     for (const needle of ["Priya", "98765", "kill myself", "Zainab"]) assert.equal(modelSaw.includes(needle), false, `model input leaked: ${needle}`);
     assert.deepEqual(w.logs, [], "a clean run logs nothing at all");
@@ -658,17 +661,51 @@ test("U7 repair A: every non-200 anonymous body (400, 405, 413, 429, 500) carrie
   }
 });
 
-test("U7 repair D (API): the sign-in and no-answer replies over the real route carry the helpline line too", async () => {
+test("U7 repair D (API), superseded by D-110: the sign-in and no-answer replies carry the helpline line only when the turn shows distress", async () => {
   const w = anonWorld({ kb: recordingKb(SEARCH_EMPTY) });
   try {
     const signIn = await ask(w, "I am thinking about my future, what should I study?", { ip: "198.51.100.60" }); // D-093 2A: "thinking about ending things" is now a crisis phrase (engine crisis-defaults.test.ts); this test is about the personal-question sign-in reply
     assert.equal(signIn.json.state, "sign_in_required");
     assert.equal(signIn.json.message, ANONYMOUS_SIGN_IN_TEXT);
+    assert.doesNotMatch(signIn.json.message, /14416|Tele-MANAS/);
     const none = await ask(w, GENERIC, { ip: "198.51.100.61" });
     assert.equal(none.json.state, "no_sourced_answer");
     assert.equal(none.json.message, ANONYMOUS_NO_ANSWER_TEXT);
+    assert.doesNotMatch(none.json.message, /14416|Tele-MANAS/);
+    // D-110 C2/C3: a distress signal keeps the helpline, in the order empathy line, sign-in sentence, helpline.
+    const stressed = await ask(w, "Mujhe bahut stress hai, kuch accha nahi lag raha", { ip: "198.51.100.62" });
+    assert.equal(stressed.json.state, "sign_in_required");
+    assert.equal(stressed.json.message, `That sounds like a lot of pressure, and it's okay to say so. ${ANONYMOUS_SIGN_IN_TEXT} ${TELE_MANAS_LINE}`);
   } finally {
     w.cleanup();
+  }
+});
+
+test("D-110 (API): an anonymous generic question with no servable source gets the disclaimer plus an expert answer from the text chain; the KB is searched once, never /ask; claims and sources stay empty; a chain failure is the fixed refusal", async () => {
+  const GUIDANCE = "Most German public universities charge no tuition, but expect a semester contribution of around 300 euros.";
+  const provider = kbAnswerProvider();
+  provider.setResponse("kb-general-guidance", { answer: GUIDANCE });
+  const w = anonWorld({ kb: recordingKb(SEARCH_EMPTY), provider });
+  try {
+    const res = await ask(w, GENERIC);
+    assert.equal(res.json.state, "no_sourced_answer");
+    assert.equal(res.json.message, `General guidance — I couldn't find this in Vidysea's verified sources, so please confirm fees, deadlines and amounts on the official website. ${GUIDANCE}`);
+    assert.deepEqual(res.json.claims, []);
+    assert.deepEqual(res.json.sources, []);
+    assert.deepEqual(w.kb.calls.map((c) => c.tool), ["search_kb"]);
+    assert.deepEqual(w.counterCalls, ["no_answer"]);
+    assert.doesNotMatch(res.body, /14416/);
+  } finally {
+    w.cleanup();
+  }
+  const failing = anonWorld({ kb: recordingKb(SEARCH_EMPTY) }); // no canned guidance response: the chain call fails
+  try {
+    const res = await ask(failing, GENERIC);
+    assert.equal(res.status, 200);
+    assert.equal(res.json.state, "no_sourced_answer");
+    assert.equal(res.json.message, ANONYMOUS_NO_ANSWER_TEXT);
+  } finally {
+    failing.cleanup();
   }
 });
 
