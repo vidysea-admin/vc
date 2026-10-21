@@ -142,14 +142,29 @@ export async function launch(env: Env = process.env, overrides: Partial<StartApi
   return startApi(env, { ...rest, http });
 }
 
+/** A Mongo URI's userinfo (user:password@) up to the LAST "@" before the first "/" (a raw "@" in a password must not end the match early). */
+const MONGO_USERINFO = /mongodb(\+srv)?:\/\/[^\s/]*@/gi;
+/** A credential-shaped run: sk-..., key..., token... followed by 16 or more id characters. */
+const SECRET_RUN = /\b(sk|key|token)[-_A-Za-z0-9]{16,}/g;
+
+/**
+ * What the process prints when it fails to start: the error name and message only (never the environment), with any
+ * Mongo URI credentials and credential-shaped runs redacted. A third-party error (the Mongo driver, a provider loader) can
+ * echo a value it was handed, e.g. `VC_LLM_PROVIDER must be ... (got "mongodb+srv://user:pw@host")`; a config error
+ * already names the variable and never a value, and passes through unchanged.
+ */
+export function describeStartupError(err: unknown): string {
+  if (!(err instanceof Error)) return "unknown error";
+  const raw = err.message.startsWith(err.name) ? err.message : `${err.name}: ${err.message}`;
+  return raw.replace(MONGO_USERINFO, "mongodb://***@").replace(SECRET_RUN, "[redacted]");
+}
+
 async function main(): Promise<void> {
   let api: Api;
   try {
     api = await launch(process.env);
   } catch (err) {
-    // The error class and message only (never the environment); a config error already names the variable.
-    const what = err instanceof Error ? (err.message.startsWith(err.name) ? err.message : `${err.name}: ${err.message}`) : "unknown error";
-    console.error(`vc-api failed to start: ${what}`);
+    console.error(`vc-api failed to start: ${describeStartupError(err)}`);
     process.exit(1);
   }
   console.error(JSON.stringify({ level: "info", event: "vc_api_listening", port: api.port, ts: new Date().toISOString() }));

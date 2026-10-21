@@ -4,9 +4,10 @@
  * socket except the loopback test server that startApi opens on port 0.
  */
 import { test } from "node:test";
+import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
 import { createFakeMongoClient } from "@vc/db/testing";
-import { CLIENT_KEY_HEADER, LauncherConfigError, buildLauncherConfig, clientKeyFromRequest, launch, loadSpeakers } from "../src/main.js";
+import { CLIENT_KEY_HEADER, LauncherConfigError, buildLauncherConfig, clientKeyFromRequest, describeStartupError, launch, loadSpeakers } from "../src/main.js";
 import { ANONYMOUS_PATH } from "../src/anonymous.js";
 import { SKILLS_DIR, cleanupGates, gatesFixture, kbAnswerProvider } from "./anonymous-fixtures.js";
 
@@ -129,4 +130,37 @@ test("d: VC_CHAT_ENABLED=true refuses to start when its config is missing, namin
 
 test("d: chat config present but the flag unset serves no chat", () => {
   assert.equal(buildLauncherConfig({ ...KB, ...STUDENT_JWT }).chat, undefined);
+});
+
+// (e) the startup failure line never carries a credential
+test("e: describeStartupError redacts Mongo URI credentials and credential-shaped runs, and leaves a config error unchanged", () => {
+  const leak = describeStartupError(new Error("connect failed for mongodb+srv://user:SENTINELPW@host/db?x=1"));
+  assert.ok(!/SENTINELPW/.test(leak) && !/user:/.test(leak), leak);
+  assert.equal(leak, "Error: connect failed for mongodb://***@host/db?x=1");
+  // hostile variants: raw "@" in the password, upper-case scheme, a second URI, a secret run
+  assert.ok(!/SENTINELPW|TAIL/.test(describeStartupError(new Error("x mongodb://u:SENTINELPW@TAIL@h:1/d"))));
+  assert.ok(!/SENTINELPW/.test(describeStartupError(new Error("x MONGODB+SRV://u:SENTINELPW@h/d and mongodb://a:b@h2/d"))));
+  assert.ok(!/SENTINELPW/.test(describeStartupError(new Error("bad key sk-SENTINELPW0123456789abcdef or token_SENTINELPW0123456789abcdef"))));
+  assert.ok(!/SENTINELPW/.test(describeStartupError(Object.assign(new Error("m"), { name: "mongodb://u:SENTINELPW@h" }))));
+  // a config error already names the variable and never a value; it passes through
+  const cfg = new LauncherConfigError("VC_ANONYMOUS_ENABLED is enabled but VC_KB_BASE_URL is not set");
+  assert.equal(describeStartupError(cfg), cfg.message);
+  assert.equal(describeStartupError("a string"), "unknown error");
+});
+
+test("e: the real entrypoint prints no credential when a non-config startup error echoes a Mongo URI", () => {
+  const env = {
+    PATH: process.env.PATH ?? "",
+    ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
+    VC_JWT_ISSUER: "https://issuer.synthetic.test",
+    VC_JWT_ALGORITHMS: "HS256",
+    VC_JWT_HS256_SECRET: "j".repeat(40),
+    VC_LLM_PROVIDER: "mongodb+srv://user:SENTINELPW@host", // loadProviderConfig echoes the bad value in its message
+  };
+  const r = spawnSync(process.execPath, ["--import", "tsx", "src/main.ts"], { cwd: new URL("..", import.meta.url), env, encoding: "utf8", timeout: 60_000 });
+  const out = `${r.stdout}${r.stderr}`;
+  assert.equal(r.status, 1, out);
+  assert.match(out, /vc-api failed to start: Error: loadProviderConfig: VC_LLM_PROVIDER must be/);
+  assert.match(out, /mongodb:\/\/\*\*\*@host/);
+  assert.ok(!/SENTINELPW/.test(out), out);
 });
