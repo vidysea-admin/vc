@@ -91,4 +91,4 @@ Sessions: 2b04f90e-6b56-4682-a76c-d8515b93405c
 - The real-gates assertions (go-live-gate.test.ts: the CLI test and "V1 real gates") now evaluate the real qa/gates and require voice ALLOWED with the D-111 note while the A10 record carries the override line; they are no longer skipped (cycle 1).
 - Node 24 does not accept a bare directory for `node --test`; the glob form is used.
 
-Status: ready-for-check
+Status: checked-PASS (dual, cycle 1: A a4355e2, B a2163a7)
