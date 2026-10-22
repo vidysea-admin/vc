@@ -58,12 +58,16 @@ import {
 import {
   PartnerConfigError,
   PARTNER_KEY_REQUIRED_ENV,
+  PARTNER_OWN_TENANTS_ENV,
   PARTNER_PEPPER_ENV,
+  RESERVED_TENANT_IDS_ENV,
   createMongoPartnerStore,
   createPartnerRegistry,
   partnerKeyRequiredFromEnv,
+  partnerOwnTenantsFromEnv,
   partnerPepperFromEnv,
   reservedTenantIdsFromEnv,
+  reservedTenantIdsWarning,
   withPartnerRoutes,
   type PartnerStore,
 } from "./partners.js";
@@ -438,6 +442,12 @@ function resolvePort(env: Record<string, string | undefined>, requested: number 
   return raw;
 }
 
+/** pc-reserved-ids-2: one structured JSON line on stderr for a partner-config warning or note (names the variable, never a value). */
+function logPartnerNote(event: string, message: string): void {
+  // eslint-disable-next-line no-console
+  console.error(JSON.stringify({ level: "warn", event, message, ts: new Date().toISOString() }));
+}
+
 /**
  * T-015 / ISS-t-014-rev-2: startErasureFenceSweep's own `onError` default is a no-op BY DESIGN
  * (packages/db does not own a logger or a process's stdout/stderr). `startApi` is the process that
@@ -529,10 +539,26 @@ export async function startApi(
   };
   // pc-reserved-ids (R2): the tenant ids a partner key may never carry as its partner id = the operator's VC_RESERVED_TENANT_IDS (a bad list throws here, before anything
   // connects) plus the sandbox tenant id. The registry checks them on every request, so a partner record made earlier is refused too.
-  const partnerReservedIds = httpSetup ? [...reservedTenantIdsFromEnv(env), ...(http?.chat?.sandboxTenantId !== undefined ? [http.chat.sandboxTenantId] : [])] : [];
+  // S3: both lists matter only when partners are enabled (pepper set). With the pepper unset they are not parsed, so a malformed one cannot stop a server that has no partners;
+  // one note says so (the value is never echoed). S1: with partners on and the list empty, one warning names the variable and the consequence; the server still starts.
+  let partnerReservedIds: string[] = [];
+  let partnerOwnTenants: string[] = [];
+  if (partnerPepper !== undefined) {
+    partnerReservedIds = reservedTenantIdsFromEnv(env);
+    partnerOwnTenants = partnerOwnTenantsFromEnv(env);
+    if (partnerReservedIds.length === 0) logPartnerNote("reserved_tenant_ids_empty", reservedTenantIdsWarning());
+    const sandbox = http?.chat?.sandboxTenantId;
+    if (sandbox !== undefined) {
+      // the sandbox tenant can never be exempted, like the built-in names
+      if (partnerOwnTenants.includes(sandbox)) throw new PartnerConfigError(`${PARTNER_OWN_TENANTS_ENV} cannot bind the configured sandbox tenant`);
+      partnerReservedIds.push(sandbox);
+    }
+  } else if (httpSetup && [RESERVED_TENANT_IDS_ENV, PARTNER_OWN_TENANTS_ENV].some((name) => (env[name] ?? "").trim() !== "")) {
+    logPartnerNote("reserved_tenant_ids_ignored", `${RESERVED_TENANT_IDS_ENV} and ${PARTNER_OWN_TENANTS_ENV} are ignored: ${PARTNER_PEPPER_ENV} is not set, so partner keys are off`);
+  }
   const partnerRegistry =
     partnerPepper !== undefined
-      ? createPartnerRegistry({ store: partnerStore, pepper: partnerPepper, reservedIds: partnerReservedIds, ...(http?.partners?.nowMs ? { nowMs: http.partners.nowMs } : {}) })
+      ? createPartnerRegistry({ store: partnerStore, pepper: partnerPepper, reservedIds: partnerReservedIds, ownTenants: partnerOwnTenants, ...(http?.partners?.nowMs ? { nowMs: http.partners.nowMs } : {}) })
       : undefined;
   const classifierConfig = httpSetup ? loadConcernClassifierConfig(env) : undefined;
   const classifierProvider = httpSetup && !http?.escalationForTenant
