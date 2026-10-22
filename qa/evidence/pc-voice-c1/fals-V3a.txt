@@ -1,0 +1,60 @@
+✔ mic permission denied: no session is minted, no socket is opened, and the widget falls back to text with the reason (0.4296ms)
+✔ no microphone at all (NotFoundError) or no getUserMedia in the browser also falls back to text (0.1726ms)
+✔ a refused mint falls back to text and frees the mic: 401/403 unavailable, 429 waits as told, 5xx and offline are errors (0.5483ms)
+✔ a malformed mint answer is refused before any socket: no token, a non-ws URL, a javascript: URL, a plain http URL (0.2966ms)
+✔ a socket that never opens (error before open) falls back to text and frees the mic (0.1521ms)
+✔ the not_started error for the first frames before the provider is ready is ignored; real errors are shown with the helpline (0.1804ms)
+✔ tapping stop sends end, closes the socket, releases the mic and the audio, and a second stop is harmless (0.2317ms)
+✔ the server ending the session (time cap, idle, superseded) releases the mic and reports it once (0.1503ms)
+✔ tapping stop while still connecting cancels cleanly: the mic is released and no socket is left open (7.4333ms)
+✖ cancel then restart while the first mic prompt is pending: the stale prompt's stream is stopped when it resolves, in either resolve order (1.4802ms)
+✖ a stale start never stops the newer start's microphone (1.1744ms)
+✔ a second tap on start while a session is running does nothing (0.2903ms)
+✔ bad frames from the server (not JSON, not an object) are ignored, not thrown (0.2145ms)
+✔ voice needs key mode: proxy and open mode have no session URL, so the mic is not offered there (0.1766ms)
+✔ the mic add-on is fetched from the folder the widget was loaded from, under the versioned name (0.1077ms)
+✔ mic samples are downsampled to 16 kHz PCM16 little-endian, clamped, with no NaN leaking through (0.2219ms)
+✔ counsellor PCM16 is decoded to floats, an odd trailing byte is dropped (0.1008ms)
+✔ voice.js keeps nothing: no storage, cookie, IndexedDB or innerHTML, and no eval (0.4389ms)
+✔ the shared constants: the exported helpline matches the footer's helpline, and the version has a major for the file name (0.0881ms)
+✔ nginx-vc.conf serves the widget script under its versioned name and the vc-widget.js alias, ahead of the /widget/ 404 and the /v1/ 404 (0.167ms)
+✔ nginx-vc.conf proxies the anonymous voice session route and the voice stream with the WebSocket upgrade, and sets the client address itself (0.1999ms)
+✔ the snippet and nginx-vc.conf agree on the widget locations (0.2564ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 30
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 104.7575
+
+✖ failing tests:
+
+test at apps\widget\tests\voice.test.js:387:1
+✖ cancel then restart while the first mic prompt is pending: the stale prompt's stream is stopped when it resolves, in either resolve order (1.4802ms)
+  AssertionError [ERR_ASSERTION]: newer-first: no microphone stream is left live after stop
+  
+  1 !== 0
+  
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at apps\widget\tests\voice.test.js:406:1
+✖ a stale start never stops the newer start's microphone (1.1744ms)
+  AssertionError [ERR_ASSERTION]: the stale stream is stopped
+  
+  false !== true
+  
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

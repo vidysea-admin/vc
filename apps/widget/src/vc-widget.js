@@ -2,7 +2,7 @@
  * One script tag, no dependencies, no build step. Renders a floating bubble inside a shadow DOM.
  *   <script src=".../widget/vc-widget.v1.js" data-vc-key="vck_..." defer></script>   key mode
  *   <script src=".../widget/vc-widget.v1.js" data-vc-proxy="/api/vc" defer></script> proxy mode
- * Options: data-vc-key, data-vc-api, data-vc-proxy, data-vc-title, data-vc-color, data-vc-voice (reserved).
+ * Options: data-vc-key, data-vc-api, data-vc-proxy, data-vc-title, data-vc-color, data-vc-voice ("on" adds a mic button; key mode only).
  * Safety: model text is only ever written with textContent; links are limited to http/https; nothing is stored
  * (no localStorage, sessionStorage, cookies or IndexedDB); the conversation lives in memory only.
  */
@@ -18,7 +18,8 @@
   var DEFAULT_COLOR = "#1f5fbf";
   var DEFAULT_TITLE = "Career Counsellor";
   var MAX_TEXT = 4000;
-  var VOICE_RENDERED = false; // pc-voice (V3) owns the mic; until then data-vc-voice is parsed and ignored.
+  var VOICE_RENDERED = true; // pc-voice (V3): data-vc-voice="on" (key mode) loads the mic add-on, voice.js, from the folder this script came from.
+  var VOICE_MAJOR = "1"; // the add-on's file name carries its major version: vc-widget-voice.v1.js
 
   // ---- config -----------------------------------------------------------------------------------------------
 
@@ -86,6 +87,27 @@
     var L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
     return L > 0.4 ? "#1b1f23" : "#ffffff";
   }
+
+  // ---- voice hook (pc-voice V3) -----------------------------------------------------------------------------
+
+  // The mic is offered only with data-vc-voice="on" AND a page key: the voice session is minted with the key (proxy and open modes have none).
+  function voiceAvailable(cfg) {
+    return !!(cfg && cfg.voice && cfg.mode === "key" && cfg.key);
+  }
+
+  // Where the add-on lives: next to the script that is running, under the versioned name. "" when the script URL is unusable.
+  function voiceScriptUrl(scriptSrc) {
+    var p = httpUrl(scriptSrc);
+    if (!p || !p.hostname) return "";
+    try { return new URL("vc-widget-voice.v" + VOICE_MAJOR + ".js", p).href; } catch (e) { return ""; }
+  }
+
+  var VOICE_FALLBACK_TEXT = {
+    permission: "Microphone access is blocked, so voice is off. You can keep typing here, or allow the microphone in your browser settings and try again.",
+    no_mic: "No microphone was found, so voice is off. You can keep typing here.",
+    unsupported: "Voice is not supported in this browser. You can keep typing here.",
+    unavailable: "Voice is unavailable right now. You can keep typing here."
+  };
 
   // ---- transport --------------------------------------------------------------------------------------------
 
@@ -206,6 +228,10 @@
       "textarea{flex:1;min-width:0;font:inherit;font-size:16px;padding:8px;border:1px solid #8c96a3;border-radius:8px;resize:none;height:44px;max-height:96px;background:#fff;color:#1b1f23}",
       ".send{min-width:64px;min-height:44px;padding:0 14px;font:inherit;font-weight:600;color:var(--ct);background:var(--c);border:0;border-radius:8px;cursor:pointer}",
       ".send:disabled,textarea:disabled{opacity:.55;cursor:not-allowed}",
+      ".mic{min-width:44px;min-height:44px;padding:0 10px;border:1px solid #8c96a3;border-radius:8px;background:#fff;color:#1b1f23;cursor:pointer;font:inherit;font-weight:600}",
+      ".mic[hidden]{display:none}",
+      ".mic[aria-pressed=true]{background:#b3261e;border-color:#b3261e;color:#fff}",
+      ".mic svg{width:20px;height:20px;fill:currentColor;vertical-align:middle}",
       ".foot{padding:6px 10px;font-size:.8rem;font-weight:600;text-align:center;background:#fff;border-top:1px solid #d9dde3}",
       "button:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid #f0a100;outline-offset:2px}",
       "@media (max-width:480px){.panel{left:8px;right:8px;width:auto;bottom:80px}.root{right:12px;bottom:12px}}"
@@ -414,7 +440,70 @@
       if (!greeted) { greeted = true; add("bot", GREETING); }
       if (!input.disabled) input.focus(); else close.focus();
     }
+    // pc-voice V3: the mic button. Added only when the add-on has loaded (voice.js) and the config allows voice; the text chat works either way.
+    var voiceCtl = null, micBtn = null, liveLine = { user: null, assistant: null }, lastBot = null;
+    function attachVoice(lib, deps) {
+      if (micBtn || !lib || typeof lib.create !== "function" || !voiceAvailable(cfg)) return false;
+      micBtn = el(doc, "button", "mic");
+      micBtn.type = "button";
+      micBtn.setAttribute("aria-pressed", "false");
+      micBtn.setAttribute("aria-label", "Start voice conversation");
+      var ns = "http://www.w3.org/2000/svg";
+      var svg = doc.createElementNS(ns, "svg");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      svg.setAttribute("aria-hidden", "true");
+      var pth = doc.createElementNS(ns, "path");
+      pth.setAttribute("d", "M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2z");
+      svg.appendChild(pth);
+      micBtn.appendChild(svg);
+      form.insertBefore(micBtn, sendBtn);
+      var on = {
+        state: function (s) {
+          var active = s !== "idle";
+          micBtn.setAttribute("aria-pressed", active ? "true" : "false");
+          micBtn.setAttribute("aria-label", active ? "Stop voice conversation" : "Start voice conversation");
+          if (s === "connecting") status.textContent = "Starting voice...";
+          else if (s === "listening") status.textContent = "Listening. Speak now; tap the mic to stop.";
+          else if (!busy && !waitTimer && !dead) status.textContent = "";
+        },
+        transcript: function (t) {
+          var line = liveLine[t.role];
+          if (!line) {
+            line = add(t.role === "user" ? "me" : "bot", t.text);
+            liveLine[t.role] = line;
+            if (t.role === "assistant") lastBot = line;
+          } else {
+            line.textContent = t.text; // textContent only, as everywhere else
+          }
+          if (t.final) liveLine[t.role] = null;
+          log.scrollTop = log.scrollHeight;
+        },
+        sources: function (list) {
+          var box = lastBot && list.length ? linksBlock(list) : null;
+          if (box) lastBot.appendChild(box);
+        },
+        crisis: function (c) { add("crisis", c.help); },
+        error: function (e) { add("err", (e.message || "Voice had a problem.") + "\n" + e.help); },
+        fallback: function (d) {
+          var text = VOICE_FALLBACK_TEXT[d.reason];
+          if (d.reason === "rate") text = "Too many voice requests. Please wait " + d.wait + " seconds, or type your question.";
+          else if (!text) text = "Voice could not start. You can keep typing here." + (d.helpline ? "\n" + d.helpline : "");
+          add("note", text);
+          if (!input.disabled) input.focus();
+        },
+        ended: function () {
+          liveLine.user = liveLine.assistant = null;
+          if (!busy && !waitTimer && !dead) status.textContent = "Voice ended.";
+        }
+      };
+      voiceCtl = lib.create(Object.assign({ cfg: cfg, on: on }, deps || {}));
+      micBtn.addEventListener("click", function () {
+        if (voiceCtl.state() === "idle") voiceCtl.start(); else voiceCtl.stop();
+      });
+      return true;
+    }
     function shut() {
+      if (voiceCtl) voiceCtl.stop(); // closing the panel ends the call and releases the mic
       panel.hidden = true;
       bubble.setAttribute("aria-expanded", "false");
       bubble.setAttribute("aria-label", "Open chat: " + cfg.title);
@@ -432,7 +521,7 @@
     });
 
     (doc.body || doc.documentElement).appendChild(host);
-    return { host: host, open: open, close: shut };
+    return { host: host, open: open, close: shut, attachVoice: attachVoice };
   }
 
   // ---- bootstrap --------------------------------------------------------------------------------------------
@@ -447,7 +536,19 @@
     }
     if (cfg.mode === "open" && root.console) root.console.warn("vc-widget: no data-vc-key or data-vc-proxy set; sending without a partner key.");
     root.__vcWidgetMounted = true;
-    var go = function () { mount(cfg, doc); };
+    var go = function () {
+      var handle = mount(cfg, doc);
+      if (!voiceAvailable(cfg)) return;
+      if (root.VCWidgetVoice) { handle.attachVoice(root.VCWidgetVoice); return; }
+      var url = voiceScriptUrl(scriptEl && scriptEl.src);
+      if (!url) return;
+      var s = doc.createElement("script");
+      s.src = url;
+      s.async = true;
+      s.onload = function () { if (root.VCWidgetVoice) handle.attachVoice(root.VCWidgetVoice); };
+      s.onerror = function () { if (root.console) root.console.warn("vc-widget: the voice add-on did not load; text chat only."); };
+      (doc.head || doc.documentElement).appendChild(s);
+    };
     if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", go); else go();
     return cfg;
   }
@@ -455,7 +556,8 @@
   var api = {
     VERSION: VERSION, HELP: HELP, FOOTER: FOOTER, UNAVAILABLE_TEXT: UNAVAILABLE_TEXT, VOICE_RENDERED: VOICE_RENDERED,
     parseConfig: parseConfig, buildRequest: buildRequest, parseRetryAfter: parseRetryAfter, sanitizeUrl: sanitizeUrl,
-    normalizeReply: normalizeReply, send: send, contrastText: contrastText, mount: mount, init: init
+    normalizeReply: normalizeReply, send: send, contrastText: contrastText, mount: mount, init: init,
+    voiceAvailable: voiceAvailable, voiceScriptUrl: voiceScriptUrl
   };
 
   if (typeof module === "object" && module && module.exports) module.exports = api;

@@ -27,7 +27,7 @@ test("the alias vc-widget.js is the same file with a short cache", () => {
   assert.match(b, /Cache-Control "public, max-age=300"/);
 });
 
-test("a location /widget/ exists and publishes nothing else; nosniff on both files", () => {
+test("a location /widget/ exists and publishes nothing else; nosniff on every file (the widget twice, the voice add-on once)", () => {
   assert.match(block("location /widget/ {"), /return 404;/);
-  assert.equal((snippet.match(/X-Content-Type-Options "nosniff"/g) || []).length, 2);
+  assert.equal((snippet.match(/X-Content-Type-Options "nosniff"/g) || []).length, 3);
 });

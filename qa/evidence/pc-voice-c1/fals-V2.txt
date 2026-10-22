@@ -1,0 +1,60 @@
+✔ V2: an anonymous voice session ends at the per-session time cap with the same message as a student session, and the mint tells the widget the cap (61.4033ms)
+✔ V2: two anonymous visitors talk at once without superseding each other (a shared office address is not one student) (59.363ms)
+✖ V2 wiring: a started process with a partner pepper and a client-key source mints an anonymous voice session for the page key and opens the stream from the partner's site (56.1196ms)
+✖ V2 wiring: without VC_PARTNER_KEY_PEPPER, or without a way to tell visitors apart, the anonymous voice routes are not served at all (39.2625ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 28
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3420.778
+
+✖ failing tests:
+
+test at tests\partner-voice.test.ts:561:1
+✖ V2 active cap (review 2): a visitor may hold only two ACTIVE anonymous voice sessions; the third is a 429 with Retry-After, and a slot frees when one ends (58.154ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\partner-voice.test.ts:587:1
+✖ V2 active cap (review 2): a partner's anonymous sessions are capped across all its visitors (configurable); the refusal is the same 429 + Retry-After, and the default is sane (29.5603ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\partner-voice.test.ts:866:1
+✖ V2 wiring: a started process with a partner pepper and a client-key source mints an anonymous voice session for the page key and opens the stream from the partner's site (56.1196ms)
+  Error: ENOENT: no such file or directory, lstat 'C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\copyC1\skills'
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'lstat',
+    path: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\copyC1\\skills'
+  }
+
+test at tests\partner-voice.test.ts:889:1
+✖ V2 wiring: without VC_PARTNER_KEY_PEPPER, or without a way to tell visitors apart, the anonymous voice routes are not served at all (39.2625ms)
+  Error: ENOENT: no such file or directory, lstat 'C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\copyC1\skills'
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'lstat',
+    path: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\copyC1\\skills'
+  }

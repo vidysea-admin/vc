@@ -9,7 +9,6 @@ import test from "node:test";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { generateKeyPairSync, randomBytes } from "node:crypto";
-import { fileURLToPath } from "node:url";
 import { WebSocket } from "ws";
 import type { Db } from "mongodb";
 import { COLLECTION_NAMES, FencedWriterDeadlineError, VC_DB_NAME, createChatThread, getStudentUsage, tenantScopedDb, usageMonth } from "@vc/db";
@@ -296,7 +295,6 @@ test("W4: the retry after a delivered-then-thrown escalation reuses the same ses
 // (B) startApi wiring
 // ---------------------------------------------------------------------------
 
-const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
 const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const PEM = keys.publicKey.export({ type: "spki", format: "pem" }).toString();
 const counsellorVerifier = createJwtVerifier(jwtConfigFromEnv({ VC_JWT_ISSUER: "https://issuer.synthetic.test", VC_JWT_PUBLIC_KEY: PEM }));
@@ -428,8 +426,9 @@ test("W5: voiceEnabledFromEnv - exactly 'true' is on; unset, empty and 'false' a
 });
 
 test("W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listening, for each of: no go-live gate, tracing on, no live provider, no crisis message, short secret, bad base URL, bad flag value", async () => {
-  const cases: Array<{ name: string; env: Record<string, string>; voice: Record<string, unknown> | "real-gates"; want: new (...a: never[]) => Error }> = [
-    { name: "real repo gates (A20 gate not satisfied)", env: { VC_VOICE_ENABLED: "true" }, voice: "real-gates", want: GoLiveRefusedError },
+  const cases: Array<{ name: string; env: Record<string, string>; voice: Record<string, unknown> | "failed-a10"; want: new (...a: never[]) => Error }> = [
+    // The repo's real qa/gates now carry the D-111 owner override (voice is allowed there, see go-live-gate.test.ts), so the closed-gate case uses a gates directory whose A10 record FAILED with no override.
+    { name: "A10 FAIL and no owner override (A20 gate not satisfied)", env: { VC_VOICE_ENABLED: "true" }, voice: "failed-a10", want: GoLiveRefusedError },
     { name: "tracing on", env: { VC_VOICE_ENABLED: "true", LANGSMITH_TRACING: "true" }, voice: {}, want: VoiceConfigError },
     { name: "no live provider", env: { VC_VOICE_ENABLED: "true" }, voice: { live: undefined }, want: VoiceConfigError },
     { name: "no crisis message", env: { VC_VOICE_ENABLED: "true" }, voice: { crisis: undefined }, want: VoiceConfigError },
@@ -450,12 +449,12 @@ test("W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listeni
     (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => {
       connected += 1;
     };
-    const gates = gatesFixture(VOICE_GATES);
+    const gates = gatesFixture(c.voice === "failed-a10" ? { ...VOICE_GATES, a10: "# A10\nResult: FAIL\n" } : VOICE_GATES);
     const port = await freePort();
     try {
       const voice =
-        c.voice === "real-gates"
-          ? { live: new MockLiveProvider(), crisis: CRISIS, wsSecret: new Uint8Array(randomBytes(32)), wsBaseUrl: `ws://127.0.0.1:${port}`, verifier: studentVerifier(), gatesDir: REPO_GATES }
+        c.voice === "failed-a10"
+          ? { live: new MockLiveProvider(), crisis: CRISIS, wsSecret: new Uint8Array(randomBytes(32)), wsBaseUrl: `ws://127.0.0.1:${port}`, verifier: studentVerifier(), gatesDir: gates.gates }
           : { live: new MockLiveProvider(), crisis: CRISIS, wsSecret: new Uint8Array(randomBytes(32)), wsBaseUrl: `ws://127.0.0.1:${port}`, verifier: studentVerifier(), gatesDir: gates.gates, ...c.voice };
       await assert.rejects(
         startApi(

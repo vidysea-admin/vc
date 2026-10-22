@@ -9,7 +9,9 @@
  *     "hold" option refuses; g-prod's option also scopes what may go live: a = authenticated text, b = plus the
  *     anonymous route, c = plus voice, d = hold),
  *   - `Nights-mode: funded | tele-manas-disclosed` in nights.md (the interim mode counts, spec A20),
- *   - and, for voice only, a passing A10 report record (a10-voice-gate.md, pointing at an existing qa/evidence file).
+ *   - and, for voice only, a passing A10 report record (a10-voice-gate.md, pointing at an existing qa/evidence file), or, in its place,
+ *     the owner's recorded risk acceptance `Owner-override: <ISO instant> - <owner> - D-111` (pc-voice V1); the gate output then says
+ *     "A10 OVERRIDDEN by owner (D-111)". Without that line a record that is not `Result: PASS` still refuses.
  *
  * Targets: student-routes, anonymous, voice need B13, g-publish, g-prod and Nights (g-prod.md precondition 3);
  * anonymous additionally needs g-prod option b or c, voice needs option c and A10. publish needs B13, an
@@ -49,6 +51,8 @@ export interface GoLiveResult {
   failures: string[];
   /** Records that were satisfied. */
   satisfied: string[];
+  /** pc-voice V1: records satisfied by a recorded owner override instead of a pass, as `<file>: <note>` (empty unless an override was used). */
+  overridden: string[];
 }
 
 export class GoLiveRefusedError extends Error {
@@ -103,7 +107,8 @@ interface Ctx {
   gatesDir: string;
   approver: string | undefined;
 }
-type Checker = (lines: string[], ctx: Ctx) => string | null;
+/** null = satisfied; a string = the reason it is not; `{ note }` = satisfied by a recorded owner override (the note is shown in the gate output). */
+type Checker = (lines: string[], ctx: Ctx) => string | null | { note: string };
 
 const b13Signed: Checker = (lines, { now, approver }) => {
   const v = onlyValue(lines, "B13-signed");
@@ -138,8 +143,38 @@ const nights: Checker = (lines) => {
   return (NIGHTS_MODES as readonly string[]).includes(v) ? null : `Nights-mode is not one of ${NIGHTS_MODES.join(" | ")}`;
 };
 
-const a10: Checker = (lines, { now, gatesDir }) => {
-  if (onlyValue(lines, "Result") !== "PASS") return "Result is not PASS";
+/** pc-voice V1 (D-111): the decision an A10 owner override must cite, and the words the gate output carries when it is used. */
+export const A10_OVERRIDE_DECISION = "D-111";
+/** The D-111 owner and the repo's named Approver; the override signer when VC_GATE_APPROVER is unset. */
+export const A10_OVERRIDE_DEFAULT_OWNER = "Umesh";
+export const A10_OVERRIDE_NOTE = `A10 OVERRIDDEN by owner (${A10_OVERRIDE_DECISION})`;
+const OVERRIDE_RE = new RegExp(`^(${ISO_INSTANT}) (?:\\u2014|\\u2013|--|-) (\\p{Lu}[\\p{L} .'-]{1,40}?) (?:\\u2014|\\u2013|--|-) ${A10_OVERRIDE_DECISION}$`, "u");
+
+/**
+ * `Owner-override: <ISO instant> - <owner name> - D-111` (em dash in the record). Valid when it appears exactly once at the start of a live line, the
+ * instant is a real past instant, the signer is a personal name (never a role, and the repo approver; Umesh when none is configured) and the decision is D-111.
+ * Like B13-signed this is an executable refusal, not an identity proof: the file stays under the Approver's process.
+ */
+function ownerOverrideProblem(lines: string[], { now, approver }: Ctx): string | null {
+  const v = onlyValue(lines, "Owner-override");
+  if (v === null) return "no single Owner-override line";
+  const m = OVERRIDE_RE.exec(v);
+  if (!m) return `Owner-override is not "<ISO instant> - <owner name> - ${A10_OVERRIDE_DECISION}" (found "${v.slice(0, 50)}")`;
+  if (ROLE_WORDS.test(m[2]!)) return "Owner-override signer is a role, not a person";
+  // No approver configured: fail closed to the named repo Approver (project CLAUDE.md), never "any personal name".
+  const signer = approver !== undefined && approver !== "" ? approver : A10_OVERRIDE_DEFAULT_OWNER;
+  if (m[2] !== signer) return "Owner-override signer is not the repo approver";
+  return validInstant(m[1]!, now) ? null : "Owner-override instant is in the future";
+}
+
+const a10: Checker = (lines, ctx) => {
+  const { now, gatesDir } = ctx;
+  if (onlyValue(lines, "Result") !== "PASS") {
+    // D-111: Umesh accepted the A10 risk; a valid owner-override line stands in for `Result: PASS` (and its Run-at / Evidence lines).
+    const override = ownerOverrideProblem(lines, ctx);
+    if (override === null) return { note: A10_OVERRIDE_NOTE };
+    return keyValues(lines, "Owner-override").length > 0 ? `Result is not PASS, and ${override}` : "Result is not PASS";
+  }
   if (!validInstant(onlyValue(lines, "Run-at"), now)) return "Run-at is not a valid past ISO 8601 instant with a zone";
   const evidence = onlyValue(lines, "Evidence");
   if (evidence === null || !/^qa\/evidence\/[^\s.]\S*$/.test(evidence) || evidence.includes("..")) {
@@ -179,21 +214,31 @@ export function evaluateGoLive(
 ): GoLiveResult {
   const failures: string[] = [];
   const satisfied: string[] = [];
+  const overridden: string[] = [];
   for (const [file, check] of requirements(target)) {
     const path = join(gatesDir, file);
     let problem: string | null;
+    let note: string | undefined;
     try {
       if (!existsSync(path)) problem = "missing";
       else if (!statSync(path).isFile()) problem = "not a regular file";
       else if (statSync(path).size > MAX_GATE_FILE_BYTES) problem = `larger than ${MAX_GATE_FILE_BYTES} bytes`;
-      else problem = check(liveLines(readFileSync(path, "utf8")), { now, gatesDir, approver });
+      else {
+        const out = check(liveLines(readFileSync(path, "utf8")), { now, gatesDir, approver });
+        if (out !== null && typeof out === "object") {
+          problem = null;
+          note = out.note;
+        } else problem = out;
+      }
     } catch (error) {
       problem = `unreadable (${error instanceof Error ? error.name : "error"})`;
     }
-    if (problem === null) satisfied.push(file);
-    else failures.push(`${file}: ${problem}`);
+    if (problem === null) {
+      satisfied.push(file);
+      if (note !== undefined) overridden.push(`${file}: ${note}`);
+    } else failures.push(`${file}: ${problem}`);
   }
-  return { target, allowed: failures.length === 0, failures, satisfied };
+  return { target, allowed: failures.length === 0, failures, satisfied, overridden };
 }
 
 /** Throws GoLiveRefusedError unless every record for `target` is present and valid. Call before enabling a route. */
@@ -211,6 +256,7 @@ export function assertGoLive(
 export function formatGoLiveReport(result: GoLiveResult): string {
   const lines = [`go-live gate (A20) target=${result.target}: ${result.allowed ? "ALLOWED" : "REFUSED"}`];
   for (const f of result.satisfied) lines.push(`  ok       ${f}`);
+  for (const o of result.overridden) lines.push(`  NOTE     ${o}`);
   for (const f of result.failures) lines.push(`  MISSING  ${f}`);
   return lines.join("\n");
 }

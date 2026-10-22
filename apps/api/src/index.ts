@@ -670,9 +670,30 @@ export async function startApi(
     const { voice: v, live, crisis, verifier } = voiceSetup;
     const { gatesDir, live: _live, crisis: _crisis, wsSecret, wsBaseUrl, verifier: _verifier, escalateForTenant, ...passThrough } = v;
     const secretRaw = env[VOICE_WS_ENV.secret];
+    // pc-voice V2 (D-111): partner keys reach voice. With a registry (VC_PARTNER_KEY_PEPPER) the student session route also takes a partner server key, and the
+    // anonymous voice routes (page key) are served when the deployment has said how visitors are told apart, exactly as the anonymous text route requires: a
+    // clientKey (here or on `anonymous`) or trustSocketAddress. Their crisis counter is the same text-free aggregate counter.
+    const anonymousVoiceClientKey = passThrough.anonymous?.clientKey ?? http?.anonymous?.clientKey;
+    const anonymousVoice: VoiceApiDeps["anonymous"] | undefined =
+      partnerRegistry && (anonymousVoiceClientKey !== undefined || http?.anonymous?.trustSocketAddress === true)
+        ? {
+            ...passThrough.anonymous,
+            ...(anonymousVoiceClientKey ? { clientKey: anonymousVoiceClientKey } : {}),
+            counter:
+              passThrough.anonymous?.counter ??
+              http?.anonymous?.counter ?? {
+                increment: (kind) => {
+                  if (!counterRef.writer) throw new AnonymousConfigError("anonymous counter used before the database connected");
+                  return counterRef.writer.increment(kind);
+                },
+              },
+          }
+        : undefined;
     voice = createVoiceApi(
       {
         ...passThrough,
+        ...(partnerRegistry ? { partners: partnerRegistry } : {}),
+        ...(anonymousVoice ? { anonymous: anonymousVoice } : { anonymous: undefined }),
         ...(passThrough.extractFacts === undefined && defaultExtractFacts ? { extractFacts: defaultExtractFacts } : {}),
         verifier,
         dbForTenant: (tenantId) => tenantScopedDb(db, tenantId),

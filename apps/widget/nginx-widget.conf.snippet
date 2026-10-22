@@ -22,7 +22,15 @@ location = /widget/vc-widget.js {
     add_header X-Content-Type-Options "nosniff" always;
 }
 
-# Nothing else is published under /widget/ (voice.js is added by pc-voice if it ships as a separate file).
+# The mic add-on, apps/widget/src/voice.js, which vc-widget.js loads only when the page sets data-vc-voice="on" (pc-voice V3). Versioned name only.
+location = /widget/vc-widget-voice.v1.js {
+    alias /opt/vc/apps/widget/src/voice.js;
+    default_type application/javascript;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    add_header X-Content-Type-Options "nosniff" always;
+}
+
+# Nothing else is published under /widget/.
 location /widget/ {
     return 404;
 }

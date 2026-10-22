@@ -58,10 +58,11 @@ test("title and colour have defaults, are trimmed and capped, and a bad colour f
   assert.equal(W.parseConfig({ vcTitle: "x".repeat(200) }, SRC).title.length, 60);
 });
 
-test("data-vc-voice is reserved: parsed but renders no mic yet", () => {
+test("data-vc-voice=on is parsed (the mic itself is covered by voice.test.js); anything else is off", () => {
   assert.equal(W.parseConfig({ vcVoice: "on" }, SRC).voice, true);
   assert.equal(W.parseConfig({}, SRC).voice, false);
-  assert.equal(W.VOICE_RENDERED, false);
+  assert.equal(W.parseConfig({ vcVoice: "yes" }, SRC).voice, false);
+  assert.equal(W.VOICE_RENDERED, true, "pc-voice ships the mic");
 });
 
 test("contrastText picks readable text for the bubble colour", () => {
