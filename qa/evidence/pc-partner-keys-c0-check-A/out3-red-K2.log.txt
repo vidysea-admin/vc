@@ -1,0 +1,55 @@
+[testlock] running slot 0 (free RAM 1.96 GB): timeout 600 pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK2/apps/api exec tsx --test --test-name-pattern=K2 tests/partners.test.ts
+✔ K2: the Vidysea website widget sends its active key and is answered; the partner id reaches the usage count and the log, and no turn text is stored (92.262ms)
+✖ K2: a malformed, unknown, revoked or repeated key all get the same 401, and the route is not reached (21.3725ms)
+✔ K2: a refused key still carries the static helpline in the 401 body, like every other refusal on this route (7.488ms)
+✔ K2: a visitor whose site sends no key is unchanged unless VC_PARTNER_KEY_REQUIRED is on, and then gets 401 (40.8045ms)
+✔ K2: a key sent to a server that has no partner registry configured is refused (fail closed), not silently ignored (8.558ms)
+✔ K2: the limit is per partner and client: one partner exhausting its 10 a minute from one address does not limit another partner or another address (91.7973ms)
+✔ K2: a crisis message from a keyed visitor is answered with the fixed message and is never rate limited (76.6137ms)
+✖ K2: a partner revoked while a widget page is open is refused within 60 s of the revoke (17.2222ms)
+✔ K2: when the partner store is down, a keyed turn fails closed with a 503 that carries the helpline and no cause, never an answer (9.6645ms)
+✔ K2: the registry looks a key up through one cached list (at most one store read per 60 s), however many keys are presented (0.9051ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 8
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2596.368
+
+✖ failing tests:
+
+test at tests\partners.test.ts:352:1
+✖ K2: a malformed, unknown, revoked or repeated key all get the same 401, and the route is not reached (21.3725ms)
+  AssertionError [ERR_ASSERTION]: "vck_pub_gone_5_MKNsYnWchMkI7bcnUkGFgjVUcEs_VEAOy_BxyHlxs"
+  
+  200 !== 401
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\pckA-fK2\apps\api\tests\partners.test.ts:366:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 401,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\partners.test.ts:461:1
+✖ K2: a partner revoked while a widget page is open is refused within 60 s of the revoke (17.2222ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  200 !== 401
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\pckA-fK2\apps\api\tests\partners.test.ts:469:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 401,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

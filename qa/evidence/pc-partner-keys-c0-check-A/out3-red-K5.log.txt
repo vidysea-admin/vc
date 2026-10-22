@@ -1,0 +1,44 @@
+[testlock] running slot 0 (free RAM 2.11 GB): timeout 600 pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK5/apps/api exec tsx --test --test-name-pattern=K5 tests/partners.test.ts
+✔ K5: a partner developer fetches /v1/partner/openapi.json and gets PARTNER_OPENAPI, which is the student draft until pc-docs-openapi fills it in (5.7761ms)
+✖ K5: nginx proxies the public chat route, the student chat routes, the partner openapi route and the voice stream; everything else under /v1/ is still 404 (1.6714ms)
+✔ K5 (clarified default 5): nginx serves the widget statically with a one-year immutable cache for the versioned file and 300 s for the alias (0.3241ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2652.9102
+
+✖ failing tests:
+
+test at tests\partners.test.ts:837:1
+✖ K5: nginx proxies the public chat route, the student chat routes, the partner openapi route and the voice stream; everything else under /v1/ is still 404 (1.6714ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /proxy_set_header\s+Upgrade\s+\$http_upgrade;/. Input:
+  
+  '{\r\n' +
+    '        proxy_pass http://127.0.0.1:8080;\r\n' +
+    '        proxy_http_version 1.1;\r\n' +
+    '        proxy_set_header Host $host;\r\n' +
+    '        proxy_set_header X-Real-IP $remote_addr;\r\n' +
+    '        proxy_set_header X-Forwarded-For $remote_addr;\r\n' +
+    '        proxy_set_header X-Forwarded-Proto $scheme;\r\n' +
+    '        proxy_set_header Connection "upgrade";\r\n' +
+    '        proxy_read_timeout 3600s;\r\n' +
+    '    }'
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\pckA-fK5\apps\api\tests\partners.test.ts:853:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '{\r\n        proxy_pass http://127.0.0.1:8080;\r\n        proxy_http_version 1.1;\r\n        proxy_set_header Host $host;\r\n        proxy_set_header X-Real-IP $remote_addr;\r\n        proxy_set_header X-Forwarded-For $remote_addr;\r\n        proxy_set_header X-Forwarded-Proto $scheme;\r\n        proxy_set_header Connection "upgrade";\r\n        proxy_read_timeout 3600s;\r\n    }',
+    expected: /proxy_set_header\s+Upgrade\s+\$http_upgrade;/,
+    operator: 'match',
+    diff: 'simple'
+  }

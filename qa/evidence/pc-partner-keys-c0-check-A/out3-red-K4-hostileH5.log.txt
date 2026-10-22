@@ -1,0 +1,31 @@
+[testlock] running slot 0 (free RAM 1.99 GB): timeout 600 pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK4/apps/api exec tsx --test --test-name-pattern=H5 tests/hostile-A.test.ts
+✖ H5 CORS lookalikes: preflight and real request with 14 lookalike origins get no ACAO; the exact origin gets exactly itself with Vary; partner A's page key with partner B's origin is the 401 (19.5775ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2047.2775
+
+✖ failing tests:
+
+test at tests\hostile-A.test.ts:206:1
+✖ H5 CORS lookalikes: preflight and real request with 14 lookalike origins get no ACAO; the exact origin gets exactly itself with Vary; partner A's page key with partner B's origin is the 401 (19.5775ms)
+  AssertionError [ERR_ASSERTION]: real https://vidysea.com.evil.io
+  + actual - expected
+  
+  + 'https://vidysea.com.evil.io'
+  - undefined
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\pckA-fK4\apps\api\tests\hostile-A.test.ts:236:14)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'https://vidysea.com.evil.io',
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

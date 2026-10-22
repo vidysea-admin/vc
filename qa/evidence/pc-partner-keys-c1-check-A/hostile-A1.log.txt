@@ -1,0 +1,24 @@
+=== H start 2026-10-22T08:39:42+05:30
+[testlock] waiting for lock held by: PID=39368 STARTED=639282548324784600 ACQUIRED_AT=1792638232 TOKEN=1792638232646577700-296110-6994 DESC=timeout 600 pnpm exec tsx --test tests/chat-profile.test.ts --test-name-pattern=H2|LK7 C1-fix 
+[testlock] owner PID 8072 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running slot 0 (free RAM 2.84 GB): timeout 600 pnpm exec tsx --test tests/hostile-A1.test.ts
+✔ H1 different scopes, 60 random read/write timings and both launch orders: both printed keys always work, both old keys always dead (1758.3033ms)
+✔ H2 same scope x3 plus the other scope x1, all overlapping: old keys dead, exactly one printed key per scope works (last writer), nothing else does (30.6789ms)
+✔ H3 rotate overlapping revoke, every interleaving: a revoked partner never ends with a working key (old, new, either scope), even after the 60 s window (564.0273ms)
+✔ H4 a store write that FAILS after the read (reject, and resolves-false): the old key still works, no new key works, the other scope is intact (1.2472ms)
+H5 observation: sandbox-1 accepted -> sandbox-1 | CLI wiring of reservedIds: none (scripts/partner.ts passes no reservedIds)
+✔ H4b two concurrent rotates where ONE write fails: the successful one is whole, the failed scope keeps its old key (14.6013ms)
+✔ H5 reserved ids: exact reserved names refused in every entry path; case/whitespace variants refused by the pattern; sandbox-1 is NOT reserved (observation) (2.108ms)
+✔ H6 registry load: a synchronous throw, an async rejection, and a throw on a later reload all recover; concurrent callers during the failure all fail closed, then the next call succeeds (0.8185ms)
+✔ H7 K2 cache bound unchanged by the load rewrite: a rotated-away key works at +59 999 ms and not at +60 000; revoke the same; 100 concurrent callers and a flood of random ids cost ONE read per window (4.253ms)
+✔ H8 fake Db dotted $set: sets one nested field, keeps siblings, keeps unrelated top-level fields; a plain key still assigns top-level (1.2211ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5523.0352
+=== exit 0 2026-10-22T08:44:25+05:30

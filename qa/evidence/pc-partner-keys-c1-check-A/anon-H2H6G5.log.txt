@@ -1,0 +1,21 @@
+=== anon-H2H6G5 start 2026-10-22T09:16:21+05:30
+[testlock] waiting for lock held by: PID=31812 STARTED=639282556036309469 ACQUIRED_AT=1792639003 TOKEN=1792639003875376800-312058-18936 DESC=npx tsx --test tests/anonymous-route.test.ts 
+[testlock] running slot 1 (free RAM 4.78 GB): timeout 600 pnpm exec tsx --test --test-name-pattern=H2|H6|G5 tests/anonymous-route.test.ts
+✔ G5: buildAnonymousGraphDeps maps scope no_source to anonymous: 'no_source' and passes grounding through; scope all or absent stays anonymous: true (3.2067ms)
+✔ G5: by default (screen flag unset) a no-source anonymous turn is safety-screened before any model call; a 'possible' verdict is the crisis answer and the guidance model is never called (290.7943ms)
+✔ H2: VC_GROUNDING=gemini with the anonymous route over a rules provider (no classifier, so no screen) refuses to start, before connecting, naming no key (64.7428ms)
+✔ H2: the same rules provider WITHOUT grounding still starts (the existing behaviour), and grounding over a classifier-capable provider starts with the screen on (65.9558ms)
+✔ H6: grounded calls are capped per anonymous client; over the cap the turn falls back to the model-only guidance (D-110), no crash, and other clients are unaffected (136.091ms)
+✔ H6: grounded calls are capped per day across clients; a refused spend guard is the same fallback (100.4084ms)
+✔ H6: startApi refuses a malformed grounded-call cap and a non-flash VC_GROUNDING_MODEL before connecting (30.9672ms)
+✔ H6 F3: the grounded-call budget key is a salted digest, never the raw client address; the same client keeps one bucket and clients stay apart (59.4694ms)
+✔ H6 F3: a request with no client key falls back to ONE shared, still-capped bucket (fail safe), and the missing key is logged once, text-free (57.4483ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4578.5497
+=== exit 0 2026-10-22T09:17:44+05:30

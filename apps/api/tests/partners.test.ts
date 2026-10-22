@@ -948,3 +948,120 @@ test("wiring: VC_PARTNER_KEY_REQUIRED=true with no pepper, or a short pepper, re
     cleanupGates(gates);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Fix cycle 1: K1 concurrent rotate, registry load, reserved ids, lookalike Origin
+// ---------------------------------------------------------------------------
+
+/** A store whose get() holds every caller until `n` of them have read, so n operations are all past their read before any writes. */
+function readBarrierStore(real: PartnerStore, n: number): PartnerStore {
+  let waiting = 0;
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  return {
+    ...real,
+    get: async (id) => {
+      const d = await real.get(id);
+      if (++waiting === n) release();
+      await gate;
+      return d;
+    },
+  };
+}
+
+test("K1 (c1): two operators rotate the page key and the server key of one partner at the same moment: both new keys work and both old keys are dead", async () => {
+  const w = partnerWorld();
+  const old = await w.add("Race Co", ["https://race.example"], "race-co");
+  const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
+  const store = readBarrierStore(w.store, 2);
+  const [a, b] = await Promise.all([rotatePartner(store, "race-co", "pub", ctx), rotatePartner(store, "race-co", "srv", ctx)]);
+  const fresh = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => w.clock.ms });
+  assert.equal((await fresh.authenticate(a.key, "pub"))?.partnerId, "race-co", "the new page key works");
+  assert.equal((await fresh.authenticate(b.key, "srv"))?.partnerId, "race-co", "the new server key works");
+  assert.equal(await fresh.authenticate(old.pub, "pub"), undefined, "the old page key is dead");
+  assert.equal(await fresh.authenticate(old.srv, "srv"), undefined, "the old server key is dead");
+  const stored = (await w.store.get("race-co"))!;
+  assert.deepEqual(Object.keys(stored.keys).sort(), ["pub", "srv"], "the keys object holds exactly the two scopes (no literal dotted field)");
+  assert.deepEqual(Object.keys(stored).sort(), ["_id", "allowedOrigins", "createdAt", "keys", "name", "partnerId", "status"]);
+});
+
+test("K1 (c1): two overlapping rotates of the SAME scope leave exactly one printed key working (the last writer), and never the old key", async () => {
+  const w = partnerWorld();
+  const old = await w.add("Race Co", [], "race-co");
+  const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
+  const store = readBarrierStore(w.store, 2);
+  const [a, b] = await Promise.all([rotatePartner(store, "race-co", "pub", ctx), rotatePartner(store, "race-co", "pub", ctx)]);
+  assert.notEqual(a.key, b.key);
+  const fresh = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => w.clock.ms });
+  const works = [!!(await fresh.authenticate(a.key, "pub")), !!(await fresh.authenticate(b.key, "pub"))];
+  assert.equal(works.filter(Boolean).length, 1, `exactly one of the two printed keys works (got ${JSON.stringify(works)})`);
+  assert.equal(await fresh.authenticate(old.pub, "pub"), undefined, "the old page key is dead");
+  assert.equal((await fresh.authenticate(old.srv, "srv"))?.partnerId, "race-co", "the other scope is untouched");
+});
+
+test("K1 (c1): rotate sends the store only the one scope's dotted path, never the whole keys object", async () => {
+  const w = partnerWorld();
+  await w.add("Race Co", [], "race-co");
+  const patches: string[][] = [];
+  const spy: PartnerStore = { ...w.store, update: async (id, patch) => (patches.push(Object.keys(patch)), w.store.update(id, patch)) };
+  const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
+  await rotatePartner(spy, "race-co", "pub", ctx);
+  await rotatePartner(spy, "race-co", "srv", ctx);
+  assert.deepEqual(patches, [["keys.pub"], ["keys.srv"]]);
+});
+
+test("registry (c1): a store.list() that throws synchronously once does not poison the registry: the next call reads again and authenticates", async () => {
+  const w = partnerWorld();
+  const { pub } = await w.add("Pathlynks", ["https://pathlynks.example"]);
+  let calls = 0;
+  const flaky: PartnerStore = {
+    ...w.store,
+    list: (() => {
+      calls++;
+      if (calls === 1) throw new Error("sync boom"); // a plain (non-async) throw, before any promise exists
+      return w.store.list();
+    }) as PartnerStore["list"],
+  };
+  const registry = createPartnerRegistry({ store: flaky, pepper: PEPPER, nowMs: () => w.clock.ms });
+  await assert.rejects(() => registry.authenticate(pub, "pub"), (e: unknown) => e instanceof PartnerRegistryUnavailableError);
+  assert.equal((await registry.authenticate(pub, "pub"))?.partnerId, "pathlynks", "the next call is not stuck on the first failure");
+  assert.equal(calls, 2);
+});
+
+test("K1 (c1): a partner id equal to the sandbox tenant id (or another reserved or configured tenant id) is refused, naming only the id, and nothing is written", async () => {
+  const w = partnerWorld();
+  for (const id of ["sandbox", "admin", "system"]) {
+    await assert.rejects(
+      () => w.add("Anything", [], id),
+      (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id" && e.message.includes(`"${id}"`) && !ANY_KEY_RE.test(e.message),
+      id,
+    );
+    assert.equal(await w.store.get(id), null);
+  }
+  await assert.rejects(() => addPartner(w.store, { name: "Sandbox" }, { pepper: PEPPER }), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id", "the slug of the name is checked too");
+  await assert.rejects(() => runPartnerCli(["add", "Sandbox"], { store: w.store, pepper: PEPPER }), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id");
+  await assert.rejects(() => addPartner(w.store, { name: "Acme", id: "acme-tenant" }, { pepper: PEPPER, reservedIds: ["acme-tenant"] }), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id", "a caller-supplied tenant id");
+  assert.equal(await w.store.get("acme-tenant"), null);
+  assert.equal((await w.add("Pathlynks")).id, "pathlynks", "an ordinary id is unaffected");
+});
+
+test("K4 (c1): a look-alike Origin on the actual request path (vidysea.com.evil.io, evil-vidysea.com) gets no Allow-Origin and the real anonymous route answers 401", async () => {
+  const p = partnerWorld();
+  const site = await p.add("Vidysea Website", ["https://vidysea.com"], "vidysea-web");
+  const w = anonWorld({ deps: { partners: p.registry } });
+  try {
+    const h = withPartnerRoutes(w.handler, p.registry);
+    for (const origin of ["https://vidysea.com.evil.io", "https://evil-vidysea.com", "https://vidysea.com.", "https://sub.vidysea.com"]) {
+      const res = await h(anonRequest({ text: GERMANY_QUESTION }, { headers: { "x-vc-key": site.pub, origin } }));
+      assert.equal(res.status, 401, origin);
+      assert.equal(res.headers["access-control-allow-origin"], undefined, `no Allow-Origin for ${origin}`);
+      assert.deepEqual(cors(res), {}, `no CORS header at all for ${origin}`);
+    }
+    assert.equal(w.kb.calls.length, 0, "the route was never reached");
+    const ok = await h(anonRequest({ text: GERMANY_QUESTION }, { headers: { "x-vc-key": site.pub, origin: "https://vidysea.com" } }));
+    assert.equal(ok.status, 200);
+    assert.equal(ok.headers["access-control-allow-origin"], "https://vidysea.com", "the listed origin still works");
+  } finally {
+    w.cleanup();
+  }
+});

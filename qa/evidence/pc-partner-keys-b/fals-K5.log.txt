@@ -1,0 +1,1464 @@
+##### K5 green-before (copy) 2026-10-22T08:15:51+05:30
+[testlock] running slot 0 (free RAM 2.05 GB): timeout 600 node node_modules/tsx/dist/cli.mjs --test --test-name-pattern=K5: a partner developer fetches tests/partners.test.ts
+✔ K5: a partner developer fetches /v1/partner/openapi.json and gets PARTNER_OPENAPI, which is the student draft until pc-docs-openapi fills it in (4.6406ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2239.9525
+exit=0
+588c588
+<     if (pathname === PARTNER_OPENAPI_PATH) {
+---
+>     if (false) {
+##### K5 red-after (copy) 2026-10-22T08:15:55+05:30
+[testlock] running slot 0 (free RAM 2.02 GB): timeout 600 node node_modules/tsx/dist/cli.mjs --test --test-name-pattern=K5: a partner developer fetches tests/partners.test.ts
+✖ K5: a partner developer fetches /v1/partner/openapi.json and gets PARTNER_OPENAPI, which is the student draft until pc-docs-openapi fills it in (18.3423ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2145.3978
+
+✖ failing tests:
+
+test at tests\partners.test.ts:805:1
+✖ K5: a partner developer fetches /v1/partner/openapi.json and gets PARTNER_OPENAPI, which is the student draft until pc-docs-openapi fills it in (18.3423ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   ok: true
+  -   'x-gate': 'A20 go-live gate (apps/api/src/go-live-gate.ts): signed B13 amendment, G-PUBLISH, G-PROD, Nights mode; voice also A10',
+  -   'x-status': 'draft-not-enabled',
+  -   'x-syntheticStudentIdPrefix': 'syn-',
+  -   'x-websocket': {
+  -     audio: {
+  -       format: 'pcm16',
+  -       framing: 'binary',
+  -       inputSampleRateHz: 16000,
+  -       outputSampleRateHz: 24000
+  -     },
+  -     clientEvents: {
+  -       confirm: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           accepted: {
+  -             type: 'boolean'
+  -           },
+  -           key: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           type: {
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'type',
+  -           'key',
+  -           'accepted'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       end: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           type: {
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'type'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       interrupt: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           type: {
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'type'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       start: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           lastEventId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           threadId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           type: {
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'type',
+  -           'threadId'
+  -         ],
+  -         type: 'object'
+  -       }
+  -     },
+  -     description: 'Connect to wsUrl with the voice-session token. Client sends JSON control messages and binary PCM16 frames; server sends JSON events and binary PCM16 frames. Every server event has an eventId; reconnect with start.lastEventId to resume. Spoken output is audited after the fact (A9b), not enforced pre-send.',
+  -     serverEvents: {
+  -       'answer.sources': {
+  -         additionalProperties: false,
+  -         properties: {
+  -           claims: {
+  -             items: {
+  -               '$ref': '#/components/schemas/Claim'
+  -             },
+  -             type: 'array'
+  -           },
+  -           eventId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           sources: {
+  -             items: {
+  -               '$ref': '#/components/schemas/Source'
+  -             },
+  -             type: 'array'
+  -           },
+  -           type: {
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'type',
+  -           'eventId',
+  -           'sources',
+  -           'claims'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       'transcript.final': {
+  -         additionalProperties: false,
+  -         properties: {
+  -           eventId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           role: {
+  -             enum: [
+  -               'user',
+  -               'assistant'
+  -             ]
+  -           },
+  -           text: {
+  -             maxLength: 8000,
+  -             type: 'string'
+  -           },
+  -           turnId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           type: {
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'type',
+  -           'eventId',
+  -           'role',
+  -           'text'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       'transcript.partial': {
+  -         additionalProperties: false,
+  -         properties: {
+  -           eventId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           role: {
+  -             enum: [
+  -               'user',
+  -               'assistant'
+  -             ]
+  -           },
+  -           text: {
+  -             maxLength: 8000,
+  -             type: 'string'
+  -           },
+  -           type: {
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'type',
+  -           'eventId',
+  -           'role',
+  -           'text'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       confirm: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           eventId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           fact: {
+  -             additionalProperties: false,
+  -             properties: {
+  -               key: {
+  -                 maxLength: 128,
+  -                 minLength: 1,
+  -                 type: 'string'
+  -               },
+  -               value: {
+  -                 maxLength: 1000,
+  -                 minLength: 1,
+  -                 type: 'string'
+  -               }
+  -             },
+  -             required: [
+  -               'key',
+  -               'value'
+  -             ],
+  -             type: 'object'
+  -           },
+  -           type: {
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'type',
+  -           'eventId',
+  -           'fact'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       error: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           code: {
+  -             maxLength: 64,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           eventId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           message: {
+  -             maxLength: 500,
+  -             type: 'string'
+  -           },
+  -           type: {
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'type',
+  -           'eventId',
+  -           'code',
+  -           'message'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       flag: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           detail: {
+  -             maxLength: 500,
+  -             type: 'string'
+  -           },
+  -           eventId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           reason: {
+  -             '$ref': '#/components/schemas/VoiceFlagReason'
+  -           },
+  -           type: {
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'type',
+  -           'eventId',
+  -           'reason'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       state: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           eventId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           state: {
+  -             enum: [
+  -               'ok',
+  -               'concern',
+  -               'escalated',
+  -               'no_sourced_answer',
+  -               'sign_in_required'
+  -             ]
+  -           },
+  -           type: {
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'type',
+  -           'eventId',
+  -           'state'
+  -         ],
+  -         type: 'object'
+  -       }
+  -     }
+  -   },
+  -   components: {
+  -     responses: {
+  -       BadRequest: {
+  -         content: {
+  -           'application/json': {
+  -             schema: {
+  -               '$ref': '#/components/schemas/Error'
+  -             }
+  -           }
+  -         },
+  -         description: 'Invalid path id, query or body'
+  -       },
+  -       Conflict: {
+  -         content: {
+  -           'application/json': {
+  -             schema: {
+  -               '$ref': '#/components/schemas/Error'
+  -             }
+  -           }
+  -         },
+  -         description: 'The request conflicts with the current state'
+  -       },
+  -       Forbidden: {
+  -         content: {
+  -           'application/json': {
+  -             schema: {
+  -               '$ref': '#/components/schemas/Error'
+  -             }
+  -           }
+  -         },
+  -         description: "The token's role may not call this route, or consent is missing"
+  -       },
+  -       NotFound: {
+  -         content: {
+  -           'application/json': {
+  -             schema: {
+  -               '$ref': '#/components/schemas/Error'
+  -             }
+  -           }
+  -         },
+  -         description: "Nothing with this id in the caller's tenant"
+  -       },
+  -       TooManyRequests: {
+  -         content: {
+  -           'application/json': {
+  -             schema: {
+  -               '$ref': '#/components/schemas/Error'
+  -             }
+  -           }
+  -         },
+  -         description: 'Rate or voice-minute limit reached (limits are per tenant, defaults in LimitsConfig)',
+  -         headers: {
+  -           'Retry-After': {
+  -             description: 'Seconds until the next request is accepted',
+  -             schema: {
+  -               minimum: 1,
+  -               type: 'integer'
+  -             }
+  -           }
+  -         }
+  -       },
+  -       Unauthorized: {
+  -         content: {
+  -           'application/json': {
+  -             schema: {
+  -               '$ref': '#/components/schemas/Error'
+  -             }
+  -           }
+  -         },
+  -         description: 'Missing or invalid bearer token (one identical response for every cause)'
+  -       }
+  -     },
+  -     schemas: {
+  -       AnonymousError: {
+  -         additionalProperties: false,
+  -         description: 'Every non-200 answer from the anonymous route carries the static Tele-MANAS line, so a refusal never leaves a student in distress without it.',
+  -         properties: {
+  -           error: {
+  -             type: 'string'
+  -           },
+  -           helpline: {
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'error',
+  -           'helpline'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       AnonymousTurnRequest: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           text: {
+  -             maxLength: 4000,
+  -             minLength: 1,
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'text'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       AnonymousTurnResponse: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           claims: {
+  -             items: {
+  -               '$ref': '#/components/schemas/Claim'
+  -             },
+  -             type: 'array'
+  -           },
+  -           message: {
+  -             maxLength: 8000,
+  -             type: 'string'
+  -           },
+  -           sources: {
+  -             items: {
+  -               '$ref': '#/components/schemas/Source'
+  -             },
+  -             type: 'array'
+  -           },
+  -           state: {
+  -             enum: [
+  -               'ok',
+  -               'no_sourced_answer',
+  -               'sign_in_required',
+  -               'escalated'
+  -             ]
+  -           }
+  -         },
+  -         required: [
+  -           'state',
+  -           'claims',
+  -           'sources'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       AudioFormat: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           format: {
+  -             const: 'pcm16'
+  -           },
+  -           inputSampleRateHz: {
+  -             const: 16000
+  -           },
+  -           outputSampleRateHz: {
+  -             const: 24000
+  -           }
+  -         },
+  -         required: [
+  -           'format',
+  -           'inputSampleRateHz',
+  -           'outputSampleRateHz'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       Claim: {
+  -         additionalProperties: false,
+  -         description: 'verified: source text supports it. attributed: source present, text not proven. unverified: shown flagged. verified and attributed need at least one sourceId.',
+  -         properties: {
+  -           kind: {
+  -             enum: [
+  -               'number',
+  -               'country',
+  -               'fact'
+  -             ]
+  -           },
+  -           sourceIds: {
+  -             items: {
+  -               maxLength: 256,
+  -               minLength: 1,
+  -               type: 'string'
+  -             },
+  -             maxItems: 20,
+  -             type: 'array'
+  -           },
+  -           status: {
+  -             enum: [
+  -               'verified',
+  -               'attributed',
+  -               'unverified'
+  -             ]
+  -           },
+  -           text: {
+  -             maxLength: 2000,
+  -             minLength: 1,
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'text',
+  -           'kind',
+  -           'sourceIds',
+  -           'status'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       Error: {
+  -         properties: {
+  -           error: {
+  -             type: 'string'
+  -           },
+  -           issues: {
+  -             items: {
+  -               type: 'object'
+  -             },
+  -             type: 'array'
+  -           }
+  -         },
+  -         required: [
+  -           'error'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       FactDecisionRequest: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           action: {
+  -             enum: [
+  -               'confirm',
+  -               'correct',
+  -               'erase'
+  -             ]
+  -           },
+  -           value: {
+  -             description: 'Required for correct',
+  -             maxLength: 1000,
+  -             minLength: 1,
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'action'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       LimitsConfig: {
+  -         additionalProperties: false,
+  -         default: {
+  -           anonymousRequestsPerMinute: 10,
+  -           audio: {
+  -             format: 'pcm16',
+  -             inputSampleRateHz: 16000,
+  -             outputSampleRateHz: 24000
+  -           },
+  -           crisisMaxAudioMsAfterTrigger: 2000,
+  -           requestsPerMinute: 30,
+  -           voiceMinutesPerMonth: 60,
+  -           voiceSessionMaxMinutes: 20
+  -         },
+  -         description: 'Per-tenant configurable; the defaults are the D-088 numbers',
+  -         properties: {
+  -           anonymousRequestsPerMinute: {
+  -             minimum: 1,
+  -             type: 'integer'
+  -           },
+  -           audio: {
+  -             '$ref': '#/components/schemas/AudioFormat'
+  -           },
+  -           crisisMaxAudioMsAfterTrigger: {
+  -             minimum: 1,
+  -             type: 'integer'
+  -           },
+  -           requestsPerMinute: {
+  -             minimum: 1,
+  -             type: 'integer'
+  -           },
+  -           voiceMinutesPerMonth: {
+  -             minimum: 1,
+  -             type: 'integer'
+  -           },
+  -           voiceSessionMaxMinutes: {
+  -             minimum: 1,
+  -             type: 'integer'
+  -           }
+  -         },
+  -         required: [
+  -           'requestsPerMinute',
+  -           'anonymousRequestsPerMinute',
+  -           'voiceMinutesPerMonth',
+  -           'voiceSessionMaxMinutes',
+  -           'crisisMaxAudioMsAfterTrigger',
+  -           'audio'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       ProfileFact: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           key: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           source: {
+  -             enum: [
+  -               'pathlynks',
+  -               'student-confirmed'
+  -             ]
+  -           },
+  -           value: {
+  -             maxLength: 1000,
+  -             minLength: 1,
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'key',
+  -           'value',
+  -           'source'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       ProfileResponse: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           facts: {
+  -             items: {
+  -               '$ref': '#/components/schemas/ProfileFact'
+  -             },
+  -             type: 'array'
+  -           },
+  -           proposed: {
+  -             items: {
+  -               '$ref': '#/components/schemas/ProposedFact'
+  -             },
+  -             type: 'array'
+  -           }
+  -         },
+  -         required: [
+  -           'facts',
+  -           'proposed'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       ProposedFact: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           factId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           key: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           status: {
+  -             enum: [
+  -               'proposed',
+  -               'confirmed'
+  -             ]
+  -           },
+  -           value: {
+  -             maxLength: 1000,
+  -             minLength: 1,
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'factId',
+  -           'key',
+  -           'value',
+  -           'status'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       Source: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           dateUnknown: {
+  -             type: 'boolean'
+  -           },
+  -           id: {
+  -             maxLength: 256,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           kind: {
+  -             enum: [
+  -               'internal-seminar',
+  -               'toc',
+  -               'whatsapp',
+  -               'unknown',
+  -               'web'
+  -             ]
+  -           },
+  -           stale: {
+  -             type: 'boolean'
+  -           },
+  -           title: {
+  -             maxLength: 500,
+  -             type: 'string'
+  -           },
+  -           url: {
+  -             maxLength: 2048,
+  -             pattern: '^https://',
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'id',
+  -           'kind'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       Thread: {
+  -         additionalProperties: false,
+  -         description: 'One history of text and voice turns in order',
+  -         properties: {
+  -           textStored: {
+  -             description: 'false when a turn was answered without storing its text (under-18 student with no guardian-consent signal; D-093 4A); such turns have empty text',
+  -             type: 'boolean'
+  -           },
+  -           threadId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           turns: {
+  -             items: {
+  -               '$ref': '#/components/schemas/ThreadTurn'
+  -             },
+  -             type: 'array'
+  -           }
+  -         },
+  -         required: [
+  -           'threadId',
+  -           'turns'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       ThreadCreated: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           threadId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'threadId'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       ThreadTurn: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           at: {
+  -             format: 'date-time',
+  -             type: 'string'
+  -           },
+  -           channel: {
+  -             enum: [
+  -               'text',
+  -               'voice'
+  -             ]
+  -           },
+  -           claims: {
+  -             items: {
+  -               '$ref': '#/components/schemas/Claim'
+  -             },
+  -             type: 'array'
+  -           },
+  -           role: {
+  -             enum: [
+  -               'user',
+  -               'assistant'
+  -             ]
+  -           },
+  -           sources: {
+  -             items: {
+  -               '$ref': '#/components/schemas/Source'
+  -             },
+  -             type: 'array'
+  -           },
+  -           text: {
+  -             maxLength: 8000,
+  -             type: 'string'
+  -           },
+  -           turnId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'turnId',
+  -           'role',
+  -           'channel',
+  -           'text',
+  -           'at'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       TurnRequest: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           clientTurnId: {
+  -             description: 'Idempotency key: a retry returns the same turn',
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           text: {
+  -             maxLength: 4000,
+  -             minLength: 1,
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'text'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       TurnResponse: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           claims: {
+  -             items: {
+  -               '$ref': '#/components/schemas/Claim'
+  -             },
+  -             type: 'array'
+  -           },
+  -           message: {
+  -             maxLength: 8000,
+  -             type: 'string'
+  -           },
+  -           profileFactsUsed: {
+  -             items: {
+  -               '$ref': '#/components/schemas/ProfileFact'
+  -             },
+  -             type: 'array'
+  -           },
+  -           rankingProfile: {
+  -             maxLength: 64,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           sources: {
+  -             items: {
+  -               '$ref': '#/components/schemas/Source'
+  -             },
+  -             type: 'array'
+  -           },
+  -           state: {
+  -             enum: [
+  -               'ok',
+  -               'concern',
+  -               'escalated',
+  -               'no_sourced_answer',
+  -               'sign_in_required'
+  -             ]
+  -           },
+  -           turnId: {
+  -             maxLength: 128,
+  -             minLength: 1,
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'state',
+  -           'claims',
+  -           'sources',
+  -           'profileFactsUsed'
+  -         ],
+  -         type: 'object'
+  -       },
+  -       VoiceFlagReason: {
+  -         enum: [
+  -           'uncited_number',
+  -           'named_speaker',
+  -           'crisis_detected',
+  -           'unverified_claim'
+  -         ]
+  -       },
+  -       VoiceSessionResponse: {
+  -         additionalProperties: false,
+  -         properties: {
+  -           audio: {
+  -             '$ref': '#/components/schemas/AudioFormat'
+  -           },
+  -           expiresAt: {
+  -             format: 'date-time',
+  -             type: 'string'
+  -           },
+  -           sessionMaxMinutes: {
+  -             minimum: 1,
+  -             type: 'integer'
+  -           },
+  -           token: {
+  -             maxLength: 4096,
+  -             minLength: 1,
+  -             type: 'string'
+  -           },
+  -           wsUrl: {
+  -             pattern: '^wss?://\\S+$',
+  -             type: 'string'
+  -           }
+  -         },
+  -         required: [
+  -           'token',
+  -           'wsUrl',
+  -           'expiresAt',
+  -           'sessionMaxMinutes',
+  -           'audio'
+  -         ],
+  -         type: 'object'
+  -       }
+  -     },
+  -     securitySchemes: {
+  -       bearerAuth: {
+  -         bearerFormat: 'JWT',
+  -         scheme: 'bearer',
+  -         type: 'http'
+  -       }
+  -     }
+  -   },
+  -   info: {
+  -     description: 'Student-facing text chat, live voice, anonymous mode, profile and fact confirmation (P1, D-089). Internal contract only until the A20 gate passes. Authenticated routes need a Pathlynks-issued student JWT.',
+  -     title: 'Virtual Counsellor student API (draft, not enabled)',
+  -     version: '0.0.1-draft'
+  -   },
+  -   openapi: '3.1.0',
+  -   paths: {
+  -     '/v1/public/chat/turns': {
+  -       post: {
+  -         'x-enabled': false,
+  -         'x-roles': [],
+  -         operationId: 'postAnonymousTurn',
+  -         requestBody: {
+  -           content: {
+  -             'application/json': {
+  -               schema: {
+  -                 '$ref': '#/components/schemas/AnonymousTurnRequest'
+  -               }
+  -             }
+  -           },
+  -           required: true
+  -         },
+  -         responses: {
+  -           '200': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/AnonymousTurnResponse'
+  -                 }
+  -               }
+  -             },
+  -             description: 'The answer'
+  -           },
+  -           '400': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/AnonymousError'
+  -                 }
+  -               }
+  -             },
+  -             description: 'Malformed body, unknown field or over-long text'
+  -           },
+  -           '405': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/AnonymousError'
+  -                 }
+  -               }
+  -             },
+  -             description: 'Only POST is served',
+  -             headers: {
+  -               Allow: {
+  -                 schema: {
+  -                   type: 'string'
+  -                 }
+  -               }
+  -             }
+  -           },
+  -           '413': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/AnonymousError'
+  -                 }
+  -               }
+  -             },
+  -             description: 'Body larger than 64 KiB'
+  -           },
+  -           '429': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/AnonymousError'
+  -                 }
+  -               }
+  -             },
+  -             description: 'More than the anonymous requests-per-minute limit from this client (crisis messages are never limited)',
+  -             headers: {
+  -               'Retry-After': {
+  -                 schema: {
+  -                   minimum: 1,
+  -                   type: 'integer'
+  -                 }
+  -               }
+  -             }
+  -           },
+  -           '500': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/AnonymousError'
+  -                 }
+  -               }
+  -             },
+  -             description: 'Unexpected failure; the body never carries the cause'
+  -           }
+  -         },
+  -         security: [],
+  -         summary: 'Anonymous text turn (B21 exception): generic knowledge-base questions only; personal or ambiguous questions return sign_in_required; crisis returns the fixed message with Tele-MANAS. Nothing is stored except a text-free daily counter'
+  -       }
+  -     },
+  -     '/v1/students/{studentId}/chat/profile': {
+  -       get: {
+  -         'x-enabled': false,
+  -         'x-roles': [
+  -           'student'
+  -         ],
+  -         operationId: 'getChatProfile',
+  -         parameters: [
+  -           {
+  -             in: 'path',
+  -             name: 'studentId',
+  -             required: true,
+  -             schema: {
+  -               pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$',
+  -               type: 'string'
+  -             }
+  -           }
+  -         ],
+  -         responses: {
+  -           '200': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/ProfileResponse'
+  -                 }
+  -               }
+  -             },
+  -             description: 'The profile'
+  -           },
+  -           '400': {
+  -             '$ref': '#/components/responses/BadRequest'
+  -           },
+  -           '401': {
+  -             '$ref': '#/components/responses/Unauthorized'
+  -           },
+  -           '403': {
+  -             '$ref': '#/components/responses/Forbidden'
+  -           },
+  -           '404': {
+  -             '$ref': '#/components/responses/NotFound'
+  -           },
+  -           '409': {
+  -             '$ref': '#/components/responses/Conflict'
+  -           },
+  -           '429': {
+  -             '$ref': '#/components/responses/TooManyRequests'
+  -           }
+  -         },
+  -         summary: 'Facts in use (Pathlynks-supplied or student-confirmed) and chat-extracted facts proposed for confirmation'
+  -       }
+  -     },
+  -     '/v1/students/{studentId}/chat/profile/facts/{factId}/decision': {
+  -       post: {
+  -         'x-enabled': false,
+  -         'x-roles': [
+  -           'student'
+  -         ],
+  -         operationId: 'decideProfileFact',
+  -         parameters: [
+  -           {
+  -             in: 'path',
+  -             name: 'studentId',
+  -             required: true,
+  -             schema: {
+  -               pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$',
+  -               type: 'string'
+  -             }
+  -           },
+  -           {
+  -             in: 'path',
+  -             name: 'factId',
+  -             required: true,
+  -             schema: {
+  -               pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$',
+  -               type: 'string'
+  -             }
+  -           }
+  -         ],
+  -         requestBody: {
+  -           content: {
+  -             'application/json': {
+  -               schema: {
+  -                 '$ref': '#/components/schemas/FactDecisionRequest'
+  -               }
+  -             }
+  -           },
+  -           required: true
+  -         },
+  -         responses: {
+  -           '200': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/ProfileResponse'
+  -                 }
+  -               }
+  -             },
+  -             description: 'The updated profile'
+  -           },
+  -           '400': {
+  -             '$ref': '#/components/responses/BadRequest'
+  -           },
+  -           '401': {
+  -             '$ref': '#/components/responses/Unauthorized'
+  -           },
+  -           '403': {
+  -             '$ref': '#/components/responses/Forbidden'
+  -           },
+  -           '404': {
+  -             '$ref': '#/components/responses/NotFound'
+  -           },
+  -           '409': {
+  -             '$ref': '#/components/responses/Conflict'
+  -           },
+  -           '429': {
+  -             '$ref': '#/components/responses/TooManyRequests'
+  -           }
+  -         },
+  -         summary: 'Confirm, correct or erase a proposed or stored fact; an unconfirmed chat-extracted fact is never used'
+  -       }
+  -     },
+  -     '/v1/students/{studentId}/chat/threads': {
+  -       post: {
+  -         'x-enabled': false,
+  -         'x-roles': [
+  -           'student'
+  -         ],
+  -         operationId: 'createChatThread',
+  -         parameters: [
+  -           {
+  -             in: 'path',
+  -             name: 'studentId',
+  -             required: true,
+  -             schema: {
+  -               pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$',
+  -               type: 'string'
+  -             }
+  -           }
+  -         ],
+  -         responses: {
+  -           '201': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/ThreadCreated'
+  -                 }
+  -               }
+  -             },
+  -             description: 'The new thread'
+  -           },
+  -           '400': {
+  -             '$ref': '#/components/responses/BadRequest'
+  -           },
+  -           '401': {
+  -             '$ref': '#/components/responses/Unauthorized'
+  -           },
+  -           '403': {
+  -             '$ref': '#/components/responses/Forbidden'
+  -           },
+  -           '404': {
+  -             '$ref': '#/components/responses/NotFound'
+  -           },
+  -           '409': {
+  -             '$ref': '#/components/responses/Conflict'
+  -           },
+  -           '429': {
+  -             '$ref': '#/components/responses/TooManyRequests'
+  -           }
+  -         },
+  -         summary: 'Start a thread for the authenticated student (the JWT student must equal studentId)'
+  -       }
+  -     },
+  -     '/v1/students/{studentId}/chat/threads/{threadId}': {
+  -       get: {
+  -         'x-enabled': false,
+  -         'x-roles': [
+  -           'student'
+  -         ],
+  -         operationId: 'getChatThread',
+  -         parameters: [
+  -           {
+  -             in: 'path',
+  -             name: 'studentId',
+  -             required: true,
+  -             schema: {
+  -               pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$',
+  -               type: 'string'
+  -             }
+  -           },
+  -           {
+  -             in: 'path',
+  -             name: 'threadId',
+  -             required: true,
+  -             schema: {
+  -               pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$',
+  -               type: 'string'
+  -             }
+  -           }
+  -         ],
+  -         responses: {
+  -           '200': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/Thread'
+  -                 }
+  -               }
+  -             },
+  -             description: 'The thread'
+  -           },
+  -           '400': {
+  -             '$ref': '#/components/responses/BadRequest'
+  -           },
+  -           '401': {
+  -             '$ref': '#/components/responses/Unauthorized'
+  -           },
+  -           '403': {
+  -             '$ref': '#/components/responses/Forbidden'
+  -           },
+  -           '404': {
+  -             '$ref': '#/components/responses/NotFound'
+  -           },
+  -           '409': {
+  -             '$ref': '#/components/responses/Conflict'
+  -           },
+  -           '429': {
+  -             '$ref': '#/components/responses/TooManyRequests'
+  -           }
+  -         },
+  -         summary: 'One history of text and voice turns, in order'
+  -       }
+  -     },
+  -     '/v1/students/{studentId}/chat/threads/{threadId}/turns': {
+  -       post: {
+  -         'x-enabled': false,
+  -         'x-roles': [
+  -           'student'
+  -         ],
+  -         operationId: 'postChatTurn',
+  -         parameters: [
+  -           {
+  -             in: 'path',
+  -             name: 'studentId',
+  -             required: true,
+  -             schema: {
+  -               pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$',
+  -               type: 'string'
+  -             }
+  -           },
+  -           {
+  -             in: 'path',
+  -             name: 'threadId',
+  -             required: true,
+  -             schema: {
+  -               pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$',
+  -               type: 'string'
+  -             }
+  -           }
+  -         ],
+  -         requestBody: {
+  -           content: {
+  -             'application/json': {
+  -               schema: {
+  -                 '$ref': '#/components/schemas/TurnRequest'
+  -               }
+  -             }
+  -           },
+  -           required: true
+  -         },
+  -         responses: {
+  -           '200': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/TurnResponse'
+  -                 }
+  -               }
+  -             },
+  -             description: 'The answer'
+  -           },
+  -           '400': {
+  -             '$ref': '#/components/responses/BadRequest'
+  -           },
+  -           '401': {
+  -             '$ref': '#/components/responses/Unauthorized'
+  -           },
+  -           '403': {
+  -             '$ref': '#/components/responses/Forbidden'
+  -           },
+  -           '404': {
+  -             '$ref': '#/components/responses/NotFound'
+  -           },
+  -           '409': {
+  -             '$ref': '#/components/responses/Conflict'
+  -           },
+  -           '413': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/AnonymousError'
+  -                 }
+  -               }
+  -             },
+  -             description: 'Body larger than 64 KiB (never scanned; carries the static Tele-MANAS line)'
+  -           },
+  -           '429': {
+  -             '$ref': '#/components/responses/TooManyRequests'
+  -           }
+  -         },
+  -         summary: 'Send a text turn; idempotent on clientTurnId. Sourced answers come from the knowledge base; with no servable source the state is no_sourced_answer (no claims) and the message is a short disclaimer plus general expert guidance (with VC_GROUNDING=gemini, an answer grounded in Google Search whose links come back as sources of kind web, never inside the message), or the fixed refusal text if the model chain fails'
+  -       }
+  -     },
+  -     '/v1/students/{studentId}/chat/threads/{threadId}/voice/sessions': {
+  -       post: {
+  -         'x-enabled': false,
+  -         'x-roles': [
+  -           'student'
+  -         ],
+  -         operationId: 'createVoiceSession',
+  -         parameters: [
+  -           {
+  -             in: 'path',
+  -             name: 'studentId',
+  -             required: true,
+  -             schema: {
+  -               pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$',
+  -               type: 'string'
+  -             }
+  -           },
+  -           {
+  -             in: 'path',
+  -             name: 'threadId',
+  -             required: true,
+  -             schema: {
+  -               pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$',
+  -               type: 'string'
+  -             }
+  -           }
+  -         ],
+  -         responses: {
+  -           '201': {
+  -             content: {
+  -               'application/json': {
+  -                 schema: {
+  -                   '$ref': '#/components/schemas/VoiceSessionResponse'
+  -                 }
+  -               }
+  -             },
+  -             description: 'The voice session'
+  -           },
+  -           '400': {
+  -             '$ref': '#/components/responses/BadRequest'
+  -           },
+  -           '401': {
+  -             '$ref': '#/components/responses/Unauthorized'
+  -           },
+  -           '403': {
+  -             '$ref': '#/components/responses/Forbidden'
+  -           },
+  -           '404': {
+  -             '$ref': '#/components/responses/NotFound'
+  -           },
+  -           '409': {
+  -             '$ref': '#/components/responses/Conflict'
+  -           },
+  -           '429': {
+  -             '$ref': '#/components/responses/TooManyRequests'
+  -           }
+  -         },
+  -         summary: 'Open a live voice session; returns a short-lived token and the WebSocket URL (see x-websocket). Disabled until A10 passes'
+  -       }
+  -     }
+  -   },
+  -   security: [
+  -     {
+  -       bearerAuth: []
+  -     }
+  -   ],
+  -   servers: [
+  -     {
+  -       url: '/'
+  -     }
+  -   ]
+    }
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\pckB\fals-K5\apps\api\tests\partners.test.ts:812:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { ok: true },
+    expected: { openapi: '3.1.0', 'x-status': 'draft-not-enabled', 'x-gate': 'A20 go-live gate (apps/api/src/go-live-gate.ts): signed B13 amendment, G-PUBLISH, G-PROD, Nights mode; voice also A10', 'x-syntheticStudentIdPrefix': 'syn-', info: { title: 'Virtual Counsellor student API (draft, not enabled)', version: '0.0.1-draft', description: 'Student-facing text chat, live voice, anonymous mode, profile and fact confirmation (P1, D-089). Internal contract only until the A20 gate passes. Authenticated routes need a Pathlynks-issued student JWT.' }, servers: [ [Object] ], security: [ [Object] ], components: { securitySchemes: [Object], responses: [Object], schemas: [Object] }, 'x-websocket': { description: 'Connect to wsUrl with the voice-session token. Client sends JSON control messages and binary PCM16 frames; server sends JSON events and binary PCM16 frames. Every server event has an eventId; reconnect with start.lastEventId to resume. Spoken output is audited after the fact (A9b), not enforced pre-send.', audio: [Object], clientEvents: [Object], serverEvents: [Object] }, paths: { '/v1/students/{studentId}/chat/threads': [Object], '/v1/students/{studentId}/chat/threads/{threadId}': [Object], '/v1/students/{studentId}/chat/threads/{threadId}/turns': [Object], '/v1/students/{studentId}/chat/threads/{threadId}/voice/sessions': [Object], '/v1/students/{studentId}/chat/profile': [Object], '/v1/students/{studentId}/chat/profile/facts/{factId}/decision': [Object], '/v1/public/chat/turns': [Object] } },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+exit=1
+restored: identical to worktree

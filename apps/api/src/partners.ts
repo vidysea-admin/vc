@@ -19,8 +19,8 @@
  *  - A key is checked by comparing HMACs with timingSafeEqual; an unknown id, a revoked partner and a wrong secret cost the same work and give the
  *    same answer (undefined). The caller maps every one of them to one 401.
  *  - CORS is decided per key, never by nginx and never `*`. A browser preflight carries no key, so it is granted when the Origin is in the list of ANY
- *    active partner; the real request is granted only when ITS key is active and the Origin is in THAT key's list. Only the public chat route, the voice
- *    session route and the partner openapi route take part; no other route is ever granted CORS.
+ *    active partner; the real request is granted only when ITS key is active and the Origin is in THAT key's list. Only the public chat route and the partner openapi
+ *    route take part (a later anonymous voice route, pc-voice, joins them); no other route is ever granted CORS, and the student voice routes never do.
  *  - A page key is public by construction (it is in the page source), so it can open nothing but the anonymous public chat route, which anyone can already
  *    call; it can never read or write a student. The server key is the only credential for student data.
  *  - The store is the only thing this module writes, and only from the CLI. The request path only reads.
@@ -42,6 +42,12 @@ export const STUDENT_AGE_HEADER = "x-vc-student-age";
 export const GUARDIAN_CONSENT_HEADER = "x-vc-guardian-consent";
 
 export const PARTNER_ID_PATTERN = /^[a-z0-9-]{2,32}$/;
+/**
+ * A partner id becomes the tenant id of every record its server key writes (K3), so it must never equal a tenant that already exists. The tenants of the
+ * Vidysea JWT path are claims inside signed tokens, not a list in the server config, so they cannot be read here; this module refuses the sandbox tenant id and
+ * a short reserved list of names that look like a platform tenant, and a caller that does know more ids passes them as `PartnerOpContext.reservedIds`.
+ */
+export const RESERVED_PARTNER_IDS: readonly string[] = ["sandbox", "admin", "system", "root", "default", "internal"];
 export const PARTNER_KEY_PREFIX = "vck_";
 /** pub = the page key (public chat route only); srv = the server key (student routes only). */
 export type KeyScope = "pub" | "srv";
@@ -125,9 +131,15 @@ export interface PartnerStore {
   list(): Promise<PartnerDoc[]>;
   /** Rejects with code 11000 (or PartnerError partner_exists) when the id is taken. */
   insert(doc: PartnerDoc): Promise<void>;
-  /** Merges `patch` into the partner; resolves false when there is no such partner. */
-  update(partnerId: string, patch: Partial<Omit<PartnerDoc, "_id" | "partnerId">>): Promise<boolean>;
+  /**
+   * Merges `patch` into the partner; resolves false when there is no such partner. A key record is written by its dotted path (`"keys.pub"`,
+   * `"keys.srv"`), never as the whole `keys` object, so two writers of different scopes cannot overwrite each other (fix cycle 1, K1).
+   */
+  update(partnerId: string, patch: PartnerPatch): Promise<boolean>;
 }
+
+/** What `update` may write: any top-level field except the ids and the whole `keys` object, plus ONE scope's key record by dotted path. */
+export type PartnerPatch = Partial<Omit<PartnerDoc, "_id" | "partnerId" | "keys">> & Partial<Record<`keys.${KeyScope}`, PartnerKeyRecord>>;
 
 /** The slice of the driver's collection this module uses (the fake Db satisfies it too). */
 interface PartnerCollection {
@@ -246,6 +258,8 @@ export interface PartnerOpContext {
   now?: () => Date;
   /** Tests only; default crypto.randomBytes. */
   randomBytes?: (n: number) => Buffer;
+  /** More tenant ids addPartner must refuse (beyond RESERVED_PARTNER_IDS), for a caller that knows the configured tenants. */
+  reservedIds?: readonly string[];
 }
 
 function requirePepper(ctx: PartnerOpContext): void {
@@ -264,6 +278,9 @@ export async function addPartner(
   const partnerId = input.id ?? slugOf(name);
   if (!PARTNER_ID_PATTERN.test(partnerId) || !PATH_ID_PATTERN.test(partnerId)) {
     throw new PartnerError("invalid_partner_id", `the partner id must match ${PARTNER_ID_PATTERN.source} (lower-case letters, digits and hyphens); pass --id to choose one`);
+  }
+  if (RESERVED_PARTNER_IDS.includes(partnerId) || (ctx.reservedIds ?? []).includes(partnerId)) {
+    throw new PartnerError("invalid_partner_id", `the partner id "${partnerId}" is reserved (it is, or looks like, an existing tenant id); choose another with --id`);
   }
   const allowedOrigins = normalizeOrigins(input.origins ?? []);
   if (await store.get(partnerId)) throw new PartnerError("partner_exists", `partner "${partnerId}" already exists (rotate its key, or choose another id)`);
@@ -295,8 +312,10 @@ export async function rotatePartner(
   if (!existing) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
   if (existing.status === "revoked") throw new PartnerError("partner_revoked", `partner "${partnerId}" is revoked; add a new partner instead of rotating`);
   const { key, record } = newKey(scope, partnerId, ctx, (ctx.now?.() ?? new Date()).toISOString());
+  // K1 (fix cycle 1): write ONLY keys.<scope>. The old whole-`keys` write let two overlapping rotates of different scopes restore each other's old key.
+  const patch: PartnerPatch = scope === "pub" ? { "keys.pub": record } : { "keys.srv": record };
+  if (!(await store.update(partnerId, patch))) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
   const keys = { ...existing.keys, [scope]: record } as Record<KeyScope, PartnerKeyRecord>;
-  if (!(await store.update(partnerId, { keys }))) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
   return { partner: summaryOf({ ...existing, keys }), key, scope };
 }
 
@@ -427,7 +446,9 @@ export function createPartnerRegistry(options: PartnerRegistryOptions): PartnerR
   async function partners(): Promise<Map<string, PartnerDoc>> {
     if (snapshot && nowMs() - snapshot.at < ttlMs && nowMs() >= snapshot.at) return snapshot.byId;
     // One read serves every concurrent caller; a flood of random ids costs one read per window, not one per request.
-    inflight ??= (async () => {
+    // The load starts in a microtask (Promise.resolve().then), so a store.list() that throws SYNCHRONOUSLY becomes a rejection of this promise, and the
+    // `finally` that clears `inflight` always runs after the assignment (an immediate throw used to leave a rejected promise pinned in `inflight` forever).
+    const load = async (): Promise<Map<string, PartnerDoc>> => {
       try {
         const at = nowMs();
         const docs = await options.store.list();
@@ -437,10 +458,13 @@ export function createPartnerRegistry(options: PartnerRegistryOptions): PartnerR
       } catch {
         snapshot = undefined; // never serve a stale list past its window (fail closed)
         throw new PartnerRegistryUnavailableError();
-      } finally {
-        inflight = undefined;
       }
-    })();
+    };
+    inflight ??= Promise.resolve()
+      .then(load)
+      .finally(() => {
+        inflight = undefined;
+      });
     return inflight;
   }
 

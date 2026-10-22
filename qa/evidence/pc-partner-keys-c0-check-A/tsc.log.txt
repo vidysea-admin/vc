@@ -1,0 +1,1 @@
+[testlock] running slot 0 (free RAM 2.26 GB): timeout 600 pnpm -C /d/vc/.worktrees/pc-partner-keys/apps/api exec tsc --noEmit

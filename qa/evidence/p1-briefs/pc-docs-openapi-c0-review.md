@@ -1,0 +1,4 @@
+# Review brief: pc-docs-openapi (read-only senior review)
+Review `git -C D:/vc/.worktrees/pc-docs-openapi diff 21f8c73 7019e29 -- apps docs` (apps/api/src/openapi.ts PARTNER_OPENAPI, apps/api/tests/partner-openapi.test.ts, apps/api/tests/partners.test.ts K5 line, docs/partner-integration.md).
+Focus: does the document/guide claim anything the code does not do (key headers, scopes, errors, limits, crisis text); could a partner following the guide leak the server key or student data; shared-object mutation (PARTNER_OPENAPI reusing STUDENT_API_DRAFT schema objects by reference: any mutation risk at serve time); the K5 test change is a legitimate placeholder follow-through, not a weakening.
+Read-only: change no files, run no full suite. Approve / Warning / Block with file:line evidence. Last line: `REVIEW pc-docs-openapi <Approve|Warning|Block>`.

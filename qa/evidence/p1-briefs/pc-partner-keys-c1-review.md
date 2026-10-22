@@ -1,0 +1,3 @@
+# Review brief: pc-partner-keys fix cycle 1 (read-only senior review)
+Review `git -C D:/vc/.worktrees/pc-partner-keys diff 56069f6 4ac5b36 -- apps packages`: rotate dotted-path write and PartnerPatch type, registry inflight fix, RESERVED_PARTNER_IDS, fake Db dotted $set in packages/db/tests/fakes.ts, new tests. Focus: any remaining lost-update or key-revival path (rotate vs revoke, rotate vs add), Mongo semantics of the dotted $set on the real driver path, whether the inflight change alters the 60 s cache / revoke timing, whether fakes.ts change could mask a real-Mongo difference.
+Read-only: change no files, no full suite. Approve / Warning / Block with file:line. Last line: `REVIEW pc-partner-keys-c1 <Approve|Warning|Block>`.

@@ -1,0 +1,485 @@
+/**
+ * Checker A hostile variants for pc-partner-keys cycle 0 (lives OUTSIDE the bound tree; imports the worktree code copy). Not builder-authored.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { createFakeDb, createFakeMongoClient } from "@vc/db/testing";
+import {
+  addPartner,
+  createMongoPartnerStore,
+  createPartnerRegistry,
+  hashPartnerKey,
+  revokePartner,
+  rotatePartner,
+  runPartnerCli,
+  withPartnerRoutes,
+  listPartners,
+  type PartnerStore,
+} from "../src/partners.js";
+import { ANONYMOUS_PATH } from "../src/anonymous.js";
+import { respond, type ApiHandler, type ApiRequest, type ApiResponse } from "../src/server.js";
+import { anonWorld, ask, kbAnswerProvider, gatesFixture, cleanupGates, SKILLS_DIR } from "./anonymous-fixtures.js";
+import { GERMANY_QUESTION, CRISIS_TEXT, call, chatWorld, threadsPath, turnsPath, everythingStored } from "./chat-fixtures.js";
+import { launch } from "../src/main.js";
+
+const PEPPER = "hostile-pepper-".padEnd(48, "z");
+const T0 = Date.parse("2026-11-01T10:00:00.000Z");
+
+function world() {
+  const { db, fakeDb } = createFakeDb();
+  const store = createMongoPartnerStore(db);
+  const clock = { ms: T0 };
+  let reads = 0;
+  const counting: PartnerStore = { ...store, list: async () => (reads++, store.list()) };
+  const registry = createPartnerRegistry({ store: counting, pepper: PEPPER, nowMs: () => clock.ms });
+  return {
+    store,
+    fakeDb,
+    clock,
+    registry,
+    reads: () => reads,
+    async add(name: string, origins: string[], id: string) {
+      const r = await addPartner(store, { name, origins, id }, { pepper: PEPPER, now: () => new Date(clock.ms) });
+      return { id, pub: r.keys.pub, srv: r.keys.srv };
+    },
+  };
+}
+const sig = (r: ApiResponse) => `${r.status} ${JSON.stringify(Object.entries(r.headers).sort())} ${r.body}`;
+const creq = (method: string, url: string, headers: Record<string, string | string[]>): ApiRequest => ({ method, url, headers, remoteAddress: "203.0.113.9", readBody: async () => JSON.stringify({ text: GERMANY_QUESTION }) });
+const studentH = (id: string, extra: Record<string, string> = {}) => ({ "x-vc-student-id": id, "x-vc-student-age": "25", ...extra });
+
+// ---------- H1 cross-partner ----------
+test("H1 cross-partner: srv key of A on B's student/thread/profile/decision/turn replay is 404 on every route, A's own data is untouched; B's page key and A's page key on student routes are the uniform 401", async () => {
+  const p = world();
+  const a = await p.add("Alpha School", [], "alpha");
+  const b = await p.add("Beta School", ["https://beta.example"], "beta");
+  const w = chatWorld({ deps: { partners: p.registry } });
+  try {
+    const t = await call(w, "POST", threadsPath("stu-9"), { token: b.srv, headers: studentH("stu-9") });
+    assert.equal(t.status, 201);
+    const th = t.json.threadId as string;
+    const turn = await call(w, "POST", turnsPath("stu-9", th), { token: b.srv, headers: studentH("stu-9"), body: { text: GERMANY_QUESTION, clientTurnId: "h1-1" } });
+    assert.equal(turn.status, 200);
+    const before = JSON.stringify(w.fakeDb.collection<{ _id: string }>("chat_turns").all());
+    const calls = w.provider.calls.length;
+    const routes: Array<[string, string, unknown?]> = [
+      ["GET", `${threadsPath("stu-9")}/${th}`],
+      ["POST", turnsPath("stu-9", th), { text: GERMANY_QUESTION, clientTurnId: "h1-1" }],
+      ["POST", turnsPath("stu-9", th), { text: "tamper", clientTurnId: "h1-evil" }],
+      ["GET", `/v1/students/stu-9/chat/profile`],
+    ];
+    for (const [m, path, body] of routes) {
+      const r = await call(w, m, path, { token: a.srv, headers: studentH("stu-9"), ...(body ? { body } : {}) });
+      // profile for A's own (empty) view is 200 by design (student header matches path); thread/turn routes must be 404
+      if (path.endsWith("/profile")) {
+        assert.equal(r.status, 200);
+        assert.doesNotMatch(r.body, /beta|Germany|tuition/i);
+      } else assert.equal(r.status, 404, `${m} ${path}`);
+    }
+    assert.equal(w.provider.calls.length, calls, "no model call");
+    assert.equal(JSON.stringify(w.fakeDb.collection<{ _id: string }>("chat_turns").all()), before, "B's turns untouched");
+    // a page key on every student route -> uniform 401, byte-identical to an unknown key
+    const unknown = await call(w, "GET", `${threadsPath("stu-9")}/${th}`, { token: `vck_srv_beta_${"A".repeat(43)}`, headers: studentH("stu-9") });
+    assert.equal(unknown.status, 401);
+    for (const key of [a.pub, b.pub]) {
+      for (const [m, path, body] of [["POST", threadsPath("stu-9")], ["GET", `${threadsPath("stu-9")}/${th}`], ["POST", turnsPath("stu-9", th), { text: "x", clientTurnId: "z" }], ["GET", "/v1/students/stu-9/chat/profile"]] as Array<[string, string, unknown?]>) {
+        const r = await call(w, m, path, { token: key, headers: studentH("stu-9"), ...(body ? { body } : {}) });
+        assert.equal(sig(r), sig(unknown), `${m} ${path}`);
+      }
+    }
+  } finally {
+    w.cleanup();
+  }
+});
+
+// ---------- H2 srv on public route ----------
+test("H2 scope: srv key (X-VC-Key, with and without Origin) on the public route, and a srv key in Authorization, never opens it; page key in Authorization on public route is treated keyless", async () => {
+  const p = world();
+  const a = await p.add("Alpha School", ["https://alpha.example"], "alpha");
+  const w = anonWorld({ deps: { partners: p.registry } });
+  try {
+    const bad = sig(await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": `vck_pub_alpha_${"B".repeat(43)}` } }));
+    for (const headers of [{ "x-vc-key": a.srv }, { "x-vc-key": a.srv, origin: "https://alpha.example" }, { "x-vc-key": a.srv, origin: "null" }]) {
+      assert.equal(sig(await ask(w, GERMANY_QUESTION, { headers })), bad);
+    }
+    assert.equal(w.kb.calls.length, 0);
+    // a srv key in Authorization on the public route is ignored (keyless), the answer is the keyless one
+    const viaAuth = await ask(w, GERMANY_QUESTION, { headers: { authorization: `Bearer ${a.srv}` } });
+    assert.equal(viaAuth.status, 200);
+  } finally {
+    w.cleanup();
+  }
+});
+
+// ---------- H3 rotate/revoke bound ----------
+test("H3 rotate and revoke: old key works only inside the 60 s cache window and is refused from 60 s on; the new key works from then; revoke ends both scopes; boundary exactly 60 000 ms", async () => {
+  const p = world();
+  const a = await p.add("Alpha School", ["https://alpha.example"], "alpha");
+  const w = anonWorld({ deps: { partners: p.registry } });
+  const cw = chatWorld({ deps: { partners: p.registry } });
+  try {
+    assert.equal((await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": a.pub } })).status, 200);
+    assert.equal((await call(cw, "POST", threadsPath("s1"), { token: a.srv, headers: studentH("s1") })).status, 201);
+    const rp = await rotatePartner(p.store, "alpha", "pub", { pepper: PEPPER, now: () => new Date(p.clock.ms) });
+    const rs = await rotatePartner(p.store, "alpha", "srv", { pepper: PEPPER, now: () => new Date(p.clock.ms) });
+    // inside the window the cached list still honours the old keys (documented default 1)
+    p.clock.ms = T0 + 59_999;
+    assert.equal((await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": a.pub }, ip: "198.51.100.1" })).status, 200);
+    // exactly at the bound the list is re-read
+    p.clock.ms = T0 + 60_000;
+    assert.equal((await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": a.pub }, ip: "198.51.100.2" })).status, 401, "old page key refused at +60 s");
+    assert.equal((await call(cw, "POST", threadsPath("s1"), { token: a.srv, headers: studentH("s1") })).status, 401, "old server key refused at +60 s");
+    assert.equal((await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": rp.key }, ip: "198.51.100.3" })).status, 200);
+    assert.equal((await call(cw, "POST", threadsPath("s1"), { token: rs.key, headers: studentH("s1") })).status, 201);
+    // revoke: both die by +60 s after the next refresh
+    await revokePartner(p.store, "alpha");
+    p.clock.ms = T0 + 60_000 + 59_000;
+    assert.equal((await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": rp.key }, ip: "198.51.100.4" })).status, 200, "still inside the window of the last read");
+    p.clock.ms = T0 + 60_000 + 60_000;
+    assert.equal((await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": rp.key }, ip: "198.51.100.5" })).status, 401);
+    assert.equal((await call(cw, "POST", threadsPath("s1"), { token: rs.key, headers: studentH("s1") })).status, 401);
+    // a preflight from the revoked partner's origin gets nothing either
+    const h = withPartnerRoutes(async () => respond(200, {}), p.registry);
+    const pre = await h(creq("OPTIONS", ANONYMOUS_PATH, { origin: "https://alpha.example" }));
+    assert.equal(pre.headers["access-control-allow-origin"], undefined);
+  } finally {
+    w.cleanup();
+    cw.cleanup();
+  }
+});
+
+// ---------- H4 malformed keys ----------
+test("H4 malformed keys: 20 hostile shapes, including a 10 KB header, all give the byte-identical 401, never a 500, and never touch the model, KB or counter", async () => {
+  const p = world();
+  const a = await p.add("Alpha School", [], "alpha");
+  const w = anonWorld({ deps: { partners: p.registry } });
+  const cw = chatWorld({ deps: { partners: p.registry } });
+  const secret = a.pub.split("_").slice(3).join("_");
+  try {
+    const baseline = sig(await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": `vck_pub_alpha_${"C".repeat(43)}` } }));
+    const hostile = [
+      `${a.pub}_extra`,
+      `${a.pub}__`,
+      a.pub + "\u0000",
+      "vck_pub_alpha_" + secret.slice(0, 42),
+      "vck_pub_alpha_" + secret + "A",
+      a.pub.replace("vck_pub_", "VCK_PUB_"),
+      a.pub.replace("alpha", "ALPHA"),
+      a.pub.replace("alpha", "alphaé"),
+      a.pub.replace("_", "＿"),
+      "vck_pub_" + "a_b" + "_" + secret,
+      "vck_pub__" + secret,
+      "vck__alpha_" + secret,
+      "vck_pub_alpha_",
+      "vck_",
+      "vck_pub_" + "a".repeat(33) + "_" + secret,
+      "vck_pub_alpha_" + secret.replace(/./, "а"),
+      "x".repeat(10 * 1024),
+      "vck_pub_alpha_" + "A".repeat(10 * 1024),
+      " ",
+      "\t\t",
+    ];
+    for (const key of hostile) {
+      const r = await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": key } });
+      assert.equal(sig(r), baseline, JSON.stringify(key.slice(0, 40)));
+    }
+    // arrays (repeated header)
+    const arr = await w.handler({ ...creq("POST", ANONYMOUS_PATH, { "x-vc-key": [a.pub, a.pub] }), readBody: async () => JSON.stringify({ text: GERMANY_QUESTION }) });
+    assert.equal(sig(arr), baseline);
+    // trailing space is trimmed: a documented tolerance, not a bypass (still the right key)
+    assert.equal((await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": ` ${a.pub} ` }, ip: "198.51.100.77" })).status, 200);
+    assert.equal(w.kb.calls.length, 1, "only the one valid call reached the KB");
+    // the same set as bearer on student routes
+    const cbase = sig(await call(cw, "POST", threadsPath("s1"), { token: `vck_srv_alpha_${"C".repeat(43)}`, headers: studentH("s1") }));
+    for (const key of hostile.map((k) => k.replace("vck_pub_", "vck_srv_")).filter((k) => !/[\u0000-\u001f\s]/.test(k))) {
+      const r = await call(cw, "POST", threadsPath("s1"), { token: key, headers: studentH("s1") });
+      assert.equal(r.status, 401, key.slice(0, 40));
+    }
+    assert.ok(cbase.startsWith("401"));
+  } finally {
+    w.cleanup();
+    cw.cleanup();
+  }
+});
+
+// ---------- H5 CORS lookalikes ----------
+test("H5 CORS lookalikes: preflight and real request with 14 lookalike origins get no ACAO; the exact origin gets exactly itself with Vary; partner A's page key with partner B's origin is the 401", async () => {
+  const p = world();
+  const a = await p.add("Vidysea Site", ["https://vidysea.com"], "vidysea");
+  const b = await p.add("Beta", ["https://beta.example"], "beta");
+  const inner: ApiHandler = async () => respond(200, { ok: true });
+  const h = withPartnerRoutes(inner, p.registry);
+  const w = anonWorld({ deps: { partners: p.registry } });
+  const lookalikes = [
+    "https://vidysea.com.evil.io",
+    "http://vidysea.com",
+    "https://vidysea.com/",
+    "https://VIDYSEA.COM",
+    "https://vidysea.com:443",
+    "https://vidysea.com:8443",
+    "https://vidysea.com.",
+    "https://sub.vidysea.com",
+    "https://evilvidysea.com",
+    "https://vidysea.com@evil.io",
+    "https://vidysea.co",
+    "null",
+    "*",
+    "https://vidysea.com https://evil.io",
+    "",
+  ];
+  try {
+    for (const origin of lookalikes) {
+      const pre = await h(creq("OPTIONS", ANONYMOUS_PATH, { origin, "access-control-request-method": "POST" }));
+      assert.equal(pre.status, 204, origin);
+      assert.deepEqual(Object.keys(pre.headers).filter((k) => k.startsWith("access-control")), [], `preflight ${origin}`);
+      const real = await h(creq("POST", ANONYMOUS_PATH, { origin, "x-vc-key": a.pub }));
+      assert.equal(real.headers["access-control-allow-origin"], undefined, `real ${origin}`);
+      const anon = await ask(w, GERMANY_QUESTION, { headers: { origin, "x-vc-key": a.pub }, ip: "198.51.100.9" });
+      if (origin !== "") assert.equal(anon.status, 401, `route ${origin}`);
+    }
+    // repeated Origin as array
+    const arr = await h(creq("OPTIONS", ANONYMOUS_PATH, { origin: ["https://vidysea.com", "https://evil.io"] }));
+    assert.equal(arr.headers["access-control-allow-origin"], undefined);
+    // exact
+    const ok = await h(creq("POST", ANONYMOUS_PATH, { origin: "https://vidysea.com", "x-vc-key": a.pub }));
+    assert.equal(ok.headers["access-control-allow-origin"], "https://vidysea.com");
+    assert.match(ok.headers.vary ?? "", /Origin/);
+    // cross: A's key + B's origin (B's origin is on the preflight allow-list, but the real request is bound to A's key)
+    const pre = await h(creq("OPTIONS", ANONYMOUS_PATH, { origin: "https://beta.example" }));
+    assert.equal(pre.headers["access-control-allow-origin"], "https://beta.example", "preflight is union-based, documented");
+    const cross = await h(creq("POST", ANONYMOUS_PATH, { origin: "https://beta.example", "x-vc-key": a.pub }));
+    assert.equal(cross.headers["access-control-allow-origin"], undefined);
+    const crossRoute = await ask(w, GERMANY_QUESTION, { headers: { origin: "https://beta.example", "x-vc-key": a.pub }, ip: "198.51.100.10" });
+    assert.equal(crossRoute.status, 401);
+    // student routes + srv key: never ACAO, even from a listed origin, even preflight on student path
+    for (const path of ["/v1/students/s1/chat/threads", "/v1/students/s1/chat/threads/t/voice/sessions", "/v1/students/s1/chat/profile"]) {
+      const pre2 = await h(creq("OPTIONS", path, { origin: "https://vidysea.com" }));
+      assert.equal(pre2.headers["access-control-allow-origin"], undefined, path);
+      const r2 = await h(creq("POST", path, { origin: "https://vidysea.com", authorization: `Bearer ${a.srv}`, "x-vc-key": a.srv }));
+      assert.equal(r2.headers["access-control-allow-origin"], undefined, path);
+    }
+    // partners' other lookalike scheme on localhost
+    assert.ok(b.id);
+  } finally {
+    w.cleanup();
+  }
+});
+
+// ---------- H6 age/consent ----------
+test("H6 age and consent: missing, garbage, repeated, fullwidth-digit, negative, exponent and 3-digit-over-120 ages are a minor with no stored text; only exact 18..120 digits are adults; consent only for exactly 'true'", async () => {
+  const p = world();
+  const a = await p.add("Alpha School", [], "alpha");
+  const w = chatWorld({ deps: { partners: p.registry } });
+  try {
+    const ages: Array<[string | string[] | undefined, boolean]> = [
+      [undefined, true],
+      ["", true],
+      ["abc", true],
+      ["17", true],
+      ["-30", true],
+      ["1e2", true],
+      ["18.0", true],
+      ["２５", true],
+      [" 25", true],
+      ["025", false],
+      ["121", false], // regex accepts <=3 digits but age>120 is not adult... see assertion below
+      ["999", true],
+      ["18", false],
+      ["25", false],
+    ];
+    let n = 0;
+    for (const [age, expectMinor] of ages) {
+      const sid = `age-${n++}`;
+      const headers: Record<string, string> = { "x-vc-student-id": sid };
+      if (age !== undefined) headers["x-vc-student-age"] = age as string;
+      const r = await call(w, "POST", threadsPath(sid), { token: a.srv, headers });
+      assert.equal(r.status, 201, String(age));
+      const doc = w.fakeDb.collection<{ _id: string; studentId?: string; textStored?: boolean }>("chat_threads").all().find((d) => d.studentId === sid);
+      const stored = doc?.textStored !== false;
+      // adult => stored; minor w/o consent => textStored false
+      if (age === "121") continue; // reported separately
+      assert.equal(!stored, expectMinor, `age=${JSON.stringify(age)} textStored=${doc?.textStored}`);
+    }
+    // consent matrix for a minor
+    for (const [consent, expectStored] of [["true", true], ["True", false], ["TRUE", false], ["1", false], ["yes", false], ["true ", false], ["", false]] as const) {
+      const sid = `cons-${consent.replace(/\W/g, "_")}-${n++}`;
+      const r = await call(w, "POST", threadsPath(sid), { token: a.srv, headers: { "x-vc-student-id": sid, "x-vc-student-age": "12", "x-vc-guardian-consent": consent } });
+      assert.equal(r.status, 201);
+      const doc = w.fakeDb.collection<{ _id: string; studentId?: string; textStored?: boolean }>("chat_threads").all().find((d) => d.studentId === sid);
+      assert.equal(doc?.textStored !== false, expectStored, `consent=${JSON.stringify(consent)}`);
+    }
+    // age 121..: what happens? report
+    const r121 = await call(w, "POST", threadsPath("age-121"), { token: a.srv, headers: { "x-vc-student-id": "age-121", "x-vc-student-age": "121" } });
+    const d121 = w.fakeDb.collection<{ _id: string; studentId?: string; textStored?: boolean }>("chat_threads").all().find((d) => d.studentId === "age-121");
+    console.log("AGE121 status", r121.status, "textStored", d121?.textStored);
+    // duplicate header via array
+    const dup = await w.handler({ ...creq("POST", threadsPath("dup-1"), { authorization: `Bearer ${a.srv}`, "x-vc-student-id": "dup-1", "x-vc-student-age": ["30", "30"] as unknown as string }), readBody: async () => "" });
+    assert.equal(dup.status, 201);
+    const dd = w.fakeDb.collection<{ _id: string; studentId?: string; textStored?: boolean }>("chat_threads").all().find((d) => d.studentId === "dup-1");
+    assert.equal(dd?.textStored, false, "a repeated age header is a minor");
+    // crisis from a minor via partner key still gets the crisis path (not a 4xx)
+    const th = await call(w, "POST", threadsPath("crisis-1"), { token: a.srv, headers: { "x-vc-student-id": "crisis-1" } });
+    const crisis = await call(w, "POST", turnsPath("crisis-1", th.json.threadId), { token: a.srv, headers: { "x-vc-student-id": "crisis-1" }, body: { text: CRISIS_TEXT, clientTurnId: "c1" } });
+    assert.equal(crisis.status, 200);
+    assert.match(crisis.body, /Tele-MANAS|14416|helpline/i);
+  } finally {
+    w.cleanup();
+  }
+});
+
+// ---------- H7 raw key never persisted/logged/listed ----------
+test("H7 a raw key never appears in the Mongo docs, the logs, the CLI list output or any error; only the printed add/rotate lines carry it, once", async () => {
+  const p = world();
+  const lines = await runPartnerCli(["add", "Alpha School", "--origin", "https://alpha.example"], { store: p.store, pepper: PEPPER });
+  const printed = lines.join("\n");
+  const pub = /vck_pub_[a-z0-9-]+_[A-Za-z0-9_-]{43}/.exec(printed)![0];
+  const srv = /vck_srv_[a-z0-9-]+_[A-Za-z0-9_-]{43}/.exec(printed)![0];
+  const secrets = [pub, srv].map((k) => k.split("_").slice(3).join("_"));
+  const w = anonWorld({ deps: { partners: p.registry } });
+  const cw = chatWorld({ deps: { partners: p.registry } });
+  try {
+    const rot = (await runPartnerCli(["rotate", "alpha-school", "--scope", "pub"], { store: p.store, pepper: PEPPER })).join("\n");
+    const pub2 = /vck_pub_[a-z0-9-]+_[A-Za-z0-9_-]{43}/.exec(rot)![0];
+    secrets.push(pub2.split("_").slice(3).join("_"));
+    await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": pub2, origin: "https://alpha.example" } });
+    await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": pub } });
+    await call(cw, "POST", threadsPath("s1"), { token: srv, headers: studentH("s1") });
+    await call(cw, "POST", threadsPath("s1"), { token: `vck_srv_alpha-school_${"Q".repeat(43)}`, headers: studentH("s1") });
+    const list = (await runPartnerCli(["list"], { store: p.store, pepper: PEPPER })).join("\n");
+    const docs = JSON.stringify(p.fakeDb.collection<{ _id: string }>("partners").all());
+    const logs = JSON.stringify([w.logs, cw.logs]);
+    const all = everythingStored(w.fakeDb) + everythingStored(cw.fakeDb) + docs;
+    for (const s of secrets) {
+      for (const [name, hay] of [["list", list], ["docs", docs], ["logs", logs], ["allDb", all]] as const) assert.ok(!hay.includes(s), `${name} leaks a secret`);
+    }
+    // the stored hash is the HMAC and nothing else
+    const doc = p.fakeDb.collection<{ _id: string; keys: { pub: { hash: string; prefix: string }; srv: { hash: string; prefix: string } } }>("partners").all()[0]!;
+    assert.equal(doc.keys.srv.hash, hashPartnerKey(srv, PEPPER));
+    assert.equal(doc.keys.pub.hash, hashPartnerKey(pub2, PEPPER));
+    assert.ok(!JSON.stringify(doc).includes(pub), "old pub gone");
+    // prefix reveals at most 4 secret chars
+    assert.ok(doc.keys.srv.prefix.length <= `vck_srv_alpha-school_`.length + 4);
+    // errors never echo a key
+    for (const argv of [["rotate", srv, "--scope", "srv"], ["revoke", pub], ["add-nothing"]]) {
+      try {
+        await runPartnerCli(argv, { store: p.store, pepper: PEPPER });
+      } catch (e) {
+        assert.ok(!(e as Error).message.includes(srv.split("_").slice(3).join("_")) || argv[1] === srv, "n/a");
+      }
+    }
+    assert.equal((await listPartners(p.store)).length, 1);
+  } finally {
+    w.cleanup();
+    cw.cleanup();
+  }
+});
+
+// ---------- H8 uniformity incl. revoked/unknown-id (timing proxy) ----------
+test("H8 uniform answers: unknown partner, wrong secret, revoked partner, wrong scope are byte-identical on both surfaces", async () => {
+  const p = world();
+  const a = await p.add("Alpha School", [], "alpha");
+  const r = await p.add("Revoked Co", [], "revoked-co");
+  await revokePartner(p.store, "revoked-co");
+  p.clock.ms += 61_000;
+  const w = anonWorld({ deps: { partners: p.registry } });
+  const cw = chatWorld({ deps: { partners: p.registry } });
+  try {
+    const keys = [`vck_pub_nobody_${"E".repeat(43)}`, `vck_pub_alpha_${"E".repeat(43)}`, r.pub, a.srv];
+    const sigs = new Set<string>();
+    for (const k of keys) sigs.add(sig(await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": k } })));
+    assert.equal(sigs.size, 1);
+    const csigs = new Set<string>();
+    for (const k of [`vck_srv_nobody_${"E".repeat(43)}`, `vck_srv_alpha_${"E".repeat(43)}`, r.srv, a.pub]) csigs.add(sig(await call(cw, "POST", threadsPath("s1"), { token: k, headers: studentH("s1") })));
+    assert.equal(csigs.size, 1);
+  } finally {
+    w.cleanup();
+    cw.cleanup();
+  }
+});
+
+// ---------- H9 concurrent rotate (ops race) ----------
+test("H9 ops race: two rotations of different scopes run concurrently - both printed keys must work afterwards", async () => {
+  const p = world();
+  const orig = await p.add("Alpha School", [], "alpha");
+  const ctx = { pepper: PEPPER };
+  // make the store slow on get so the two reads interleave before either write
+  const slow: PartnerStore = { ...p.store, get: async (id) => { const d = await p.store.get(id); await new Promise((r) => setTimeout(r, 5)); return d; } };
+  const [rp, rs] = await Promise.all([rotatePartner(slow, "alpha", "pub", ctx), rotatePartner(slow, "alpha", "srv", ctx)]);
+  p.clock.ms += 61_000;
+  const okPub = await p.registry.authenticate(rp.key, "pub");
+  const okSrv = await p.registry.authenticate(rs.key, "srv");
+  console.log("H9 new pub works:", !!okPub, "new srv works:", !!okSrv, "| OLD pub (rotated away) still works:", !!(await p.registry.authenticate(orig.pub, "pub")), "OLD srv still works:", !!(await p.registry.authenticate(orig.srv, "srv")));
+  assert.ok(okPub && okSrv, "lost update: one of the two freshly printed keys does not work");
+});
+
+// ---------- H10 real HTTP: 10 KB key header, oversize header, duplicated headers ----------
+test("H10 over real HTTP: a 10 KB X-VC-Key is the uniform 401, a duplicated X-VC-Key / Origin is a 401, a preflight from an unlisted origin carries no CORS header, a student-route preflight carries none", async () => {
+  const fake = createFakeMongoClient();
+  const gates = gatesFixture();
+  const env = {
+    MONGODB_URL: "mongodb://fake-host/ignored",
+    VC_JWT_ISSUER: "https://issuer.synthetic.test",
+    VC_JWT_ALGORITHMS: "HS256",
+    VC_JWT_HS256_SECRET: "j".repeat(40),
+    VC_ANONYMOUS_ENABLED: "true",
+    VC_KB_BASE_URL: "http://127.0.0.1:1",
+    VC_KB_ANON_API_KEY: "synthetic-anon-key",
+    VC_PARTNER_KEY_PEPPER: PEPPER,
+  };
+  const clock = { ms: Date.now() };
+  const api = await launch(env, { clientFactory: () => fake.client, http: { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: gates.gates }, partners: { nowMs: () => clock.ms } } });
+  try {
+    const store = createMongoPartnerStore(fake.dbFor("virtual_counsellor") as never);
+    const { keys } = await addPartner(store, { name: "Vidysea Website", origins: ["https://vidysea.example"] }, { pepper: PEPPER });
+    clock.ms += 61_000;
+    const url = `http://127.0.0.1:${api.port}${ANONYMOUS_PATH}`;
+    const body = JSON.stringify({ text: GERMANY_QUESTION });
+    const base = { "content-type": "application/json", "x-real-ip": "203.0.113.50" };
+    const big = await fetch(url, { method: "POST", headers: { ...base, "x-vc-key": "k".repeat(10 * 1024) }, body });
+    const unk = await fetch(url, { method: "POST", headers: { ...base, "x-vc-key": `vck_pub_vidysea-website_${"A".repeat(43)}` }, body });
+    assert.equal(big.status, 401);
+    assert.equal(await big.text(), await unk.text());
+    const good = await fetch(url, { method: "POST", headers: { ...base, "x-vc-key": keys.pub, origin: "https://vidysea.example" }, body });
+    assert.equal(good.status, 200);
+    // duplicated X-VC-Key via raw headers list
+    const dupKey = await fetch(url, { method: "POST", headers: new Headers([["content-type", "application/json"], ["x-real-ip", "203.0.113.51"], ["x-vc-key", keys.pub], ["x-vc-key", keys.pub]]), body });
+    assert.equal(dupKey.status, 401, "duplicated key header");
+    const pre = await fetch(url, { method: "OPTIONS", headers: { origin: "https://vidysea.example.evil.io", "access-control-request-method": "POST" } });
+    assert.equal(pre.status, 204);
+    assert.equal(pre.headers.get("access-control-allow-origin"), null);
+    const sp = await fetch(`http://127.0.0.1:${api.port}/v1/students/s1/chat/threads`, { method: "OPTIONS", headers: { origin: "https://vidysea.example" } });
+    assert.equal(sp.headers.get("access-control-allow-origin"), null);
+    const srvOnPublic = await fetch(url, { method: "POST", headers: { ...base, "x-vc-key": keys.srv, origin: "https://vidysea.example" }, body });
+    assert.equal(srvOnPublic.status, 401);
+    assert.equal(srvOnPublic.headers.get("access-control-allow-origin"), null);
+  } finally {
+    await api.stop();
+    cleanupGates(gates);
+  }
+});
+
+// ---------- H11 store outage fail closed ----------
+test("H11 registry outage after the cache window: keyed requests are 503 (fail closed), a keyless call is unchanged, CORS is not granted", async () => {
+  const { db } = createFakeDb();
+  const real = createMongoPartnerStore(db);
+  const clock = { ms: T0 };
+  let down = false;
+  const store: PartnerStore = { ...real, list: async () => { if (down) throw new Error("mongo down"); return real.list(); } };
+  const registry = createPartnerRegistry({ store, pepper: PEPPER, nowMs: () => clock.ms });
+  const a = await addPartner(real, { name: "Alpha School", origins: ["https://alpha.example"] }, { pepper: PEPPER });
+  const w = anonWorld({ deps: { partners: registry } });
+  try {
+    assert.equal((await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": a.keys.pub } })).status, 200);
+    down = true;
+    clock.ms += 59_000;
+    assert.equal((await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": a.keys.pub }, ip: "198.51.100.3" })).status, 200, "inside window");
+    clock.ms += 2_000;
+    assert.equal((await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": a.keys.pub }, ip: "198.51.100.4" })).status, 503);
+    assert.equal((await ask(w, GERMANY_QUESTION, { ip: "198.51.100.5" })).status, 200, "keyless is unchanged");
+    const h = withPartnerRoutes(async () => respond(200, {}), registry);
+    const pre = await h(creq("OPTIONS", ANONYMOUS_PATH, { origin: "https://alpha.example" }));
+    assert.equal(pre.headers["access-control-allow-origin"], undefined);
+  } finally {
+    w.cleanup();
+  }
+});

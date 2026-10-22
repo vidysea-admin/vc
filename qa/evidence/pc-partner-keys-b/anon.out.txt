@@ -1,0 +1,19 @@
+[testlock] waiting for lock held by: PID=31172 STARTED=639282534613205169 ACQUIRED_AT=1792636861 TOKEN=1792636861488780200-284963-23771 DESC=timeout 600 pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK2/apps/api exec tsx --test --test-name-pattern=K2 tests/partners.test.ts 
+[testlock] running slot 0 (free RAM 2.11 GB): timeout 600 node node_modules/tsx/dist/cli.mjs --test --test-name-pattern=H2|H6|G5 tests/anonymous-route.test.ts
+✔ G5: buildAnonymousGraphDeps maps scope no_source to anonymous: 'no_source' and passes grounding through; scope all or absent stays anonymous: true (1.5443ms)
+✔ G5: by default (screen flag unset) a no-source anonymous turn is safety-screened before any model call; a 'possible' verdict is the crisis answer and the guidance model is never called (170.4073ms)
+✔ H2: VC_GROUNDING=gemini with the anonymous route over a rules provider (no classifier, so no screen) refuses to start, before connecting, naming no key (28.0393ms)
+✔ H2: the same rules provider WITHOUT grounding still starts (the existing behaviour), and grounding over a classifier-capable provider starts with the screen on (26.9498ms)
+✔ H6: grounded calls are capped per anonymous client; over the cap the turn falls back to the model-only guidance (D-110), no crash, and other clients are unaffected (64.0704ms)
+✔ H6: grounded calls are capped per day across clients; a refused spend guard is the same fallback (53.8585ms)
+✔ H6: startApi refuses a malformed grounded-call cap and a non-flash VC_GROUNDING_MODEL before connecting (12.8232ms)
+✔ H6 F3: the grounded-call budget key is a salted digest, never the raw client address; the same client keeps one bucket and clients stay apart (27.3334ms)
+✔ H6 F3: a request with no client key falls back to ONE shared, still-capped bucket (fail safe), and the missing key is logged once, text-free (31.377ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2472.1578

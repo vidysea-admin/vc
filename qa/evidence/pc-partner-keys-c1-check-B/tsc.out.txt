@@ -1,0 +1,2 @@
+[testlock] running slot 0 (free RAM 2.8 GB): timeout 600 pnpm exec tsc --noEmit
+exit 0

@@ -1,0 +1,15 @@
+[testlock] running slot 0 (free RAM 2.08 GB): timeout 600 pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK4/apps/api exec tsx --test --test-name-pattern=K4 tests/partners.test.ts
+✔ K4: a browser preflight from a partner's own site is answered 204 with exactly that origin, never *, on the public chat and openapi routes (4.5007ms)
+✔ K4: a preflight from any other origin gets a 204 with no CORS headers (a look-alike host, another scheme or port, a revoked partner, the null origin) (1.4203ms)
+✔ K4: a preflight for any student route (chat, voice session or stream) or a counsellor route is never granted CORS, because only a server key opens them and a server key never gets CORS (0.5217ms)
+✔ K4: the actual request gets Allow-Origin only when its key is active and the Origin is in THAT key's list; every other combination gets no CORS header (1.0713ms)
+✔ K4: the inner route's own 401 or 429 reaches the browser only for an allowed origin so the widget can read Retry-After; a failure never widens CORS (0.7971ms)
+✔ K4: when the partner store is down the wrapper adds no CORS header and still lets the inner handler answer (0.2813ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1976.1891

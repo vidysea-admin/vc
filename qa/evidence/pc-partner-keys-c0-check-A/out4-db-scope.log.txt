@@ -1,0 +1,20 @@
+[testlock] running slot 0 (free RAM 1.38 GB): timeout 600 pnpm -C /d/vc/.worktrees/pc-partner-keys/packages/db exec tsx --test tests/db-scope.test.ts
+✔ B12: no module outside packages/db/src/client.ts calls `.db(` (28.1014ms)
+✔ B12 scanner: catches `.db(` with whitespace before the call (0.1672ms)
+✔ B12 scanner: catches bracket property access client["db"]( (0.0895ms)
+✔ B12 scanner: catches bracket property access with single quotes client['db']( (0.0669ms)
+✔ B12 scanner: catches bracket property access with backticks and internal whitespace (0.0806ms)
+✔ B12 scanner: does not flag unrelated `.db` usage that isn't a call (e.g. a property read) (0.0924ms)
+✔ B12 scanner: file filter now includes .mts/.cts/.tsx and excludes .test./.spec. variants (0.1048ms)
+✔ sanity: the scanner actually walks packages/db/src (finds at least client.ts + collections.ts) (0.5342ms)
+✔ D-016 / ISS-t-011-c2-rev-2: only allowlisted fence-aware modules write to student-data collections (packages|mcp|apps/**/src) (17.9644ms)
+✔ D-016 scanner: hostile variants are caught (bracket, whitespace, optional chaining, bind alias, raw and dynamic collection(), link(), saver, \u escape, concatenated key) (0.3233ms)
+✔ D-016 scanner: no false positive for read-only access or for a write to a non-student collection (0.1352ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 183.2398
