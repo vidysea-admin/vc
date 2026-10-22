@@ -3,7 +3,7 @@
 **Goal task:** none
 **Date:** 2026-10-22
 **Fix cycle:** 1
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Dual check:** yes
 **Dual-trigger:** auth apps/api/src/partners.ts:436 (the rotate update `store.update(partnerId, patch, expect)` in `rotatePartner`; the expected hash is built at :435)
 **Persona walk:** skip (widget notes and api responses; no new screen or flow)
@@ -104,3 +104,5 @@ Pre-check[R5a]: 6b578a7 same wrapper, files partner-openapi, voice, voice-limits
 Pre-check[R5b]: 6b578a7 `... tsx --test --test-skip-pattern="A20 flag on but gate closed" apps/api/tests/chat.test.ts` -> exit 0, 34 passed, 0 failed
 Pre-check[R5c]: 6b578a7 `... tsx --test --test-name-pattern="H2|H6|G5|K2|K4" apps/api/tests/anonymous-route.test.ts` -> exit 0, 9 passed, 0 failed
 Pre-check[R5d]: 6b578a7 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh pnpm exec tsc --noEmit` (apps/api) -> exit 0, no output
+
+Close-out (2026-10-22T17:06:30+05:30): cycle 1 dual check PASS — A e4e1af1, B 830326f (Cycle checked: 1; cycle 0 FAIL on J1 kept as .r0-1); senior review c0 Approve (qa/evidence/p1-briefs/pc-hardening-2-c0-review-result.md); browser validation c286d74 OK (26/26). Status: checked-PASS
