@@ -1,0 +1,9 @@
+# Explore brief: map VC request flows for an architecture diagram (read-only)
+Repo D:/vc (TypeScript monorepo: apps/api, apps/widget, apps/web, apps/student, packages/engine, packages/db, packages/providers, packages/schemas, packages/observability). Purpose: a tech-team meeting diagram. Change no files. Return a compact structured map (max ~900 words) with file:line for each item:
+1. Entry surfaces: partner widget (apps/widget: embed, vck_pub_ page key, Origin check), partner server API (vck_srv_ Bearer + X-VC-Student-Id / -Age / -Guardian-Consent headers), student web app (JWT), counsellor web (apps/web). HTTP route paths per surface (chat threads/turns, profile, anonymous chat, voice sessions + stream WebSocket, OpenAPI).
+2. Pipeline of one student chat turn, in order: auth (partners.ts registry.authenticate / JWT) -> go-live gate (go-live-gate.ts; qa/gates A10/B13/A20) -> crisis guard (crisisGuard / LK10 helpline) -> redaction/privacy -> retrieval / knowledge base / grounding (no-source path: Gemini grounding then model-only expert answer, VC_GROUNDING) -> LLM provider (packages/providers) -> answer -> persistence (Mongo virtual_counsellor collections; anonymous mode = zero persistence) -> audit/observability (Langfuse).
+3. Voice: session mint -> WebSocket stream -> Gemini Live adapter -> crisis turn handling -> caps (per client 2, per partner 50).
+4. Counsellor scribe flow (packages/engine scribe graph, LangGraph): transcript -> facts -> summary -> profile diff -> counsellor approval -> Student Knowledge Graph in Mongo.
+5. Key env/config that gates behaviour (VC_GATE_APPROVER, VC_RESERVED_TENANT_IDS, VC_PARTNER_OWN_TENANTS, partner pepper, A20 flag, etc.).
+6. Tenancy: partner id = tenant (apps/api/src/chat.ts:842-855, apps/api/src/voice.ts:1698-1712).
+Only report what the code shows; mark anything unverified as [unverified].
