@@ -3,6 +3,7 @@
 **Goal task:** none
 **Date:** 2026-10-22
 **Fix cycle:** 0
+**Status:** ready-for-check
 **Dual check:** yes
 **Dual-trigger:** tenancy apps/api/src/index.ts:551 (the sandbox-tenant exemption guard of the partner id = tenant id binding)
 **Persona walk:** skip (api + widget text; no new screen or flow)
