@@ -9,20 +9,24 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createFakeDb, createFakeMongoClient } from "@vc/db/testing";
 import {
+  KNOWN_TENANT_IDS,
   PARTNER_ID_PATTERN,
   PARTNER_KEY_REQUIRED_ENV,
   PARTNER_PEPPER_ENV,
   PartnerConfigError,
   PartnerError,
   PartnerRegistryUnavailableError,
+  RESERVED_TENANT_IDS_ENV,
   addPartner,
   createMongoPartnerStore,
   createPartnerRegistry,
   hashPartnerKey,
+  isReservedPartnerId,
   listPartners,
   parsePartnerKey,
   partnerKeyRequiredFromEnv,
   partnerPepperFromEnv,
+  reservedTenantIdsFromEnv,
   revokePartner,
   rotatePartner,
   runPartnerCli,
@@ -1064,5 +1068,199 @@ test("K4 (c1): a look-alike Origin on the actual request path (vidysea.com.evil.
     assert.equal(ok.headers["access-control-allow-origin"], "https://vidysea.com", "the listed origin still works");
   } finally {
     w.cleanup();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// pc-reserved-ids (ISS-pc-partner-keys-1, tenancy): a partner id is the tenant id of every record its server key writes (K3), so it must never equal,
+// or look like, a tenant that already exists.
+// ---------------------------------------------------------------------------
+
+/** A partner record as an older build wrote it (before the reserved-id rule): the real key format and HMACs, but no reserved-id check on the id. */
+async function legacyPartner(store: PartnerStore, id: string, origins: string[] = []): Promise<{ pub: string; srv: string }> {
+  const secret = (c: string) => c.repeat(43);
+  const pub = `vck_pub_${id}_${secret("P")}`;
+  const srv = `vck_srv_${id}_${secret("S")}`;
+  const rec = (key: string) => ({ hash: hashPartnerKey(key, PEPPER), prefix: key.slice(0, 20), rotatedAt: null });
+  await store.insert({ _id: id, partnerId: id, name: `Legacy ${id}`, keys: { pub: rec(pub), srv: rec(srv) }, allowedOrigins: origins, status: "active", createdAt: "2026-10-01T00:00:00.000Z" });
+  return { pub, srv };
+}
+
+test("R1: add refuses sandbox-1, SANDBOX, Sandbox-x, admin_2, root.x and every other built-in reserved name or name+separator+suffix, case-insensitively, and writes nothing", async () => {
+  const w = partnerWorld();
+  const refused = ["sandbox", "sandbox-1", "SANDBOX", "Sandbox-x", "SANDBOX-1", "admin_2", "ADMIN_2", "root.x", "system-9", "default-tenant", "internal-api", "root:1", "admin 3"];
+  for (const id of refused) {
+    await assert.rejects(
+      () => w.add("Anything", [], id),
+      (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id" && e.message.includes("reserved") && !ANY_KEY_RE.test(e.message),
+      id,
+    );
+  }
+  assert.equal((await w.store.list()).length, 0, "nothing was written for any refused id");
+  // the same through the CLI and through the slug of a name
+  await assert.rejects(() => runPartnerCli(["add", "x", "--id", "sandbox-1"], { store: w.store, pepper: PEPPER }), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id" && e.message.includes("reserved"));
+  await assert.rejects(() => runPartnerCli(["add", "Sandbox 1"], { store: w.store, pepper: PEPPER }), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id" && e.message.includes("reserved"));
+  assert.equal((await w.store.list()).length, 0);
+  // ids that merely start with the same letters are NOT a reserved family (no separator after the name)
+  for (const id of ["sandboxed", "administrator", "rooted", "systemic", "defaults", "pathlynks", "vidysea-web", "vidysea-website"]) {
+    assert.equal((await w.add("Fine", [], id)).id, id, `${id} still adds`);
+  }
+});
+
+test("R1: add refuses an id equal to any configured tenant id (case-insensitive) and to the repo's own known tenants, but only the exact id", async () => {
+  const w = partnerWorld();
+  const ctx = { pepper: PEPPER, reservedIds: ["Acme-Tenant", "pathlynks-prod"] };
+  for (const id of ["acme-tenant", "pathlynks-prod", ...KNOWN_TENANT_IDS]) {
+    await assert.rejects(() => addPartner(w.store, { name: "X", id }, ctx), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id" && e.message.includes("reserved"), id);
+  }
+  assert.deepEqual([...KNOWN_TENANT_IDS], ["vc-synthetic-demo", "scribe-evaluation"], "the tenants this repo itself writes under (apps/web/demo/seed.ts, packages/engine/evals/score.ts)");
+  assert.equal((await w.store.list()).length, 0);
+  assert.equal((await addPartner(w.store, { name: "Acme", id: "acme-tenant-2" }, ctx)).partner.partnerId, "acme-tenant-2", "a configured id is exact, not a prefix family");
+  assert.equal((await addPartner(w.store, { name: "Pathlynks", id: "pathlynks" }, ctx)).partner.partnerId, "pathlynks");
+});
+
+test("R1: isReservedPartnerId normalises case and width, and ids are ASCII-validated so a unicode look-alike cannot reach the check or a key", async () => {
+  assert.equal(isReservedPartnerId("sandbox-1"), true);
+  assert.equal(isReservedPartnerId("SANDBOX"), true);
+  assert.equal(isReservedPartnerId("ｓandbox"), true, "full-width s folds to sandbox (NFKC)");
+  assert.equal(isReservedPartnerId("sandboxed"), false);
+  assert.equal(isReservedPartnerId("acme", ["ACME"]), true);
+  const w = partnerWorld();
+  for (const id of ["ѕandbox", "sandbоx", "sandbox​", "adminı"]) {
+    await assert.rejects(() => w.add("X", [], id), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id", JSON.stringify(id));
+  }
+  assert.equal((await w.store.list()).length, 0);
+  for (const id of ["ѕandbox", "sandbоx"]) assert.equal(parsePartnerKey(`vck_srv_${id}_${"A".repeat(43)}`), undefined, "a key with a non-ASCII id is not even well-formed");
+  assert.equal(PARTNER_ID_PATTERN.source, "^[a-z0-9-]{2,32}$", "ids stay ASCII-validated");
+});
+
+test("R1: the CLI takes the configured tenant ids from the environment by itself (VC_RESERVED_TENANT_IDS), and a malformed list fails closed naming the variable", async () => {
+  assert.deepEqual(reservedTenantIdsFromEnv({}), []);
+  assert.deepEqual(reservedTenantIdsFromEnv({ [RESERVED_TENANT_IDS_ENV]: "  " }), []);
+  assert.deepEqual(reservedTenantIdsFromEnv({ [RESERVED_TENANT_IDS_ENV]: "tenant-a, Tenant_B  sandbox-1,,tenant-a" }), ["tenant-a", "Tenant_B", "sandbox-1"]);
+  for (const bad of ["ok,bad:id", "has.dot", "-lead", "a$b", "x".repeat(65)]) {
+    assert.throws(() => reservedTenantIdsFromEnv({ [RESERVED_TENANT_IDS_ENV]: bad }), (e: unknown) => e instanceof PartnerConfigError && e.message.includes(RESERVED_TENANT_IDS_ENV), bad);
+  }
+  // the actual CLI entry point passes them: apps/api/scripts/partner.ts must feed reservedTenantIdsFromEnv(process.env) into runPartnerCli's deps
+  const script = readFileSync(fileURLToPath(new URL("../scripts/partner.ts", import.meta.url)), "utf8");
+  assert.match(script, /reservedTenantIdsFromEnv\(process\.env\)/);
+  assert.match(script, /runPartnerCli\(argv, \{[^}]*reservedIds/);
+  // and runPartnerCli forwards deps.reservedIds into addPartner
+  const w = partnerWorld();
+  const reservedIds = reservedTenantIdsFromEnv({ [RESERVED_TENANT_IDS_ENV]: "student-jwt-tenant" });
+  await assert.rejects(() => runPartnerCli(["add", "Student JWT Tenant", "--id", "student-jwt-tenant"], { store: w.store, pepper: PEPPER, reservedIds }), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id");
+  assert.equal(await w.store.get("student-jwt-tenant"), null);
+});
+
+test("R2: a partner record made before the fix (sandbox-1, or an id later configured as a tenant) is refused at request time on the real student chat route: uniform 401, nothing read or written", async () => {
+  const { db } = createFakeDb();
+  const store = createMongoPartnerStore(db);
+  const clock = { ms: T0 };
+  const configured: string[] = [];
+  const registry = createPartnerRegistry({ store, pepper: PEPPER, nowMs: () => clock.ms, reservedIds: () => configured });
+  const ok = await addPartner(store, { name: "Pathlynks" }, { pepper: PEPPER });
+  const legacy = await legacyPartner(store, "sandbox-1");
+  const later = await addPartner(store, { name: "Later Tenant", id: "later-tenant" }, { pepper: PEPPER });
+  const w = chatWorld({ deps: { partners: registry } });
+  try {
+    const bad = await call(w, "POST", threadsPath("stu-1"), { token: "not.a.jwt" });
+    const seen = new Set<string>([UNAUTHORIZED_BODY(bad)]);
+    // 1. a pre-fix partner whose id matches the built-in family
+    for (const token of [legacy.srv, legacy.pub]) {
+      const res = await call(w, "POST", threadsPath("stu-1"), { token, headers: studentHeaders("stu-1") });
+      assert.equal(res.status, 401);
+      seen.add(UNAUTHORIZED_BODY(res));
+    }
+    // 2. a partner that was fine when added, and whose id becomes a configured tenant id afterwards: refused on the very next request, no cache wait
+    assert.equal((await call(w, "POST", threadsPath("stu-1"), { token: later.keys.srv, headers: studentHeaders("stu-1") })).status, 201, "fine before the tenant is configured");
+    configured.push("Later-Tenant");
+    const res = await call(w, "POST", threadsPath("stu-1"), { token: later.keys.srv, headers: studentHeaders("stu-1") });
+    assert.equal(res.status, 401);
+    seen.add(UNAUTHORIZED_BODY(res));
+    assert.equal(seen.size, 1, "every refusal is the same bytes as a bad token");
+    assert.equal((await call(w, "POST", threadsPath("stu-1"), { token: ok.keys.srv, headers: studentHeaders("stu-1") })).status, 201, "an unrelated partner is unaffected");
+    const tenants = new Set(w.fakeDb.collection<{ _id: string; tenantId?: string }>("chat_threads").all().map((d) => d.tenantId));
+    assert.ok(!tenants.has("sandbox-1"), "nothing was created under the reserved tenant");
+    assert.ok(tenants.has("later-tenant"), "the one pre-configuration thread exists, and no second one was added after");
+    assert.equal(w.fakeDb.collection<{ _id: string }>("chat_threads").all().filter((d) => (d as { tenantId?: string }).tenantId === "later-tenant").length, 1);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("R2: the same refusal on the public chat route (vck_pub_), and no CORS is granted to the blocked partner's origin", async () => {
+  const { db } = createFakeDb();
+  const store = createMongoPartnerStore(db);
+  const registry = createPartnerRegistry({ store, pepper: PEPPER, nowMs: () => T0 });
+  const legacy = await legacyPartner(store, "admin-2", ["https://admin2.example"]);
+  const fine = await addPartner(store, { name: "Fine Site", origins: ["https://fine.example"] }, { pepper: PEPPER });
+  assert.equal(await registry.authenticate(legacy.pub, "pub"), undefined);
+  assert.equal(await registry.authenticate(legacy.srv, "srv"), undefined);
+  assert.equal((await registry.authenticate(fine.keys.pub, "pub"))?.partnerId, "fine-site");
+  assert.equal(await registry.originAllowedByAnyPartner("https://admin2.example"), false, "a blocked partner's origin gets no preflight grant");
+  assert.equal(await registry.originAllowedByAnyPartner("https://fine.example"), true);
+  const w = anonWorld({ deps: { partners: registry } });
+  try {
+    const good = await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": fine.keys.pub } });
+    assert.equal(good.status, 200);
+    const calls = w.kb.calls.length;
+    const bad = await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": legacy.pub, origin: "https://admin2.example" } });
+    assert.equal(bad.status, 401);
+    assert.equal(bad.headers["access-control-allow-origin"], undefined);
+    assert.equal(w.kb.calls.length, calls, "the knowledge base was not called");
+    const unknown = await ask(w, GERMANY_QUESTION, { headers: { "x-vc-key": `vck_pub_nobody_${"A".repeat(43)}` } });
+    assert.equal(UNAUTHORIZED_BODY(bad), UNAUTHORIZED_BODY(unknown), "indistinguishable from an unknown key");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("R2 wiring: through launch(), VC_RESERVED_TENANT_IDS and chat.sandboxTenantId both reach the running registry; a bad list refuses to start before connecting", async () => {
+  const fake = createFakeMongoClient();
+  const gates = gatesFixture();
+  const baseEnv = {
+    MONGODB_URL: "mongodb://fake-host/ignored",
+    VC_JWT_ISSUER: "https://issuer.synthetic.test",
+    VC_JWT_ALGORITHMS: "HS256",
+    VC_JWT_HS256_SECRET: "j".repeat(40),
+    VC_ANONYMOUS_ENABLED: "true",
+    VC_KB_BASE_URL: "http://127.0.0.1:1",
+    VC_KB_ANON_API_KEY: "synthetic-anon-key",
+    [PARTNER_PEPPER_ENV]: PEPPER,
+    [RESERVED_TENANT_IDS_ENV]: "jwt-tenant-9",
+  };
+  const clock = { ms: Date.now() };
+  const api = await launch(baseEnv, {
+    clientFactory: () => fake.client,
+    http: { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: gates.gates }, chat: { sandboxTenantId: "sbx-main" } as never, partners: { nowMs: () => clock.ms } },
+  });
+  try {
+    const store = createMongoPartnerStore(fake.dbFor("virtual_counsellor") as never);
+    const fine = await addPartner(store, { name: "Fine Site" }, { pepper: PEPPER });
+    const byEnv = await legacyPartner(store, "jwt-tenant-9");
+    const bySandbox = await legacyPartner(store, "sbx-main");
+    clock.ms += 61_000;
+    const url = `http://127.0.0.1:${api.port}`;
+    const post = (key: string) =>
+      fetch(`${url}${ANONYMOUS_PATH}`, { method: "POST", headers: { "content-type": "application/json", "x-real-ip": "203.0.113.9", "x-vc-key": key }, body: JSON.stringify({ text: GERMANY_QUESTION }) });
+    assert.equal((await post(fine.keys.pub)).status, 200);
+    assert.equal((await post(byEnv.pub)).status, 401, "a tenant id from VC_RESERVED_TENANT_IDS");
+    assert.equal((await post(bySandbox.pub)).status, 401, "the configured sandbox tenant id");
+  } finally {
+    await api.stop();
+  }
+  try {
+    let connected = 0;
+    const f2 = createFakeMongoClient();
+    (f2.client as { connect: () => Promise<void> }).connect = async () => {
+      connected += 1;
+    };
+    await assert.rejects(
+      () => launch({ ...baseEnv, [RESERVED_TENANT_IDS_ENV]: "ok,bad:id" }, { clientFactory: () => f2.client, http: { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: gates.gates } } }),
+      (e: unknown) => e instanceof Error && e.message.includes(RESERVED_TENANT_IDS_ENV),
+    );
+    assert.equal(connected, 0, "refused before anything connected");
+  } finally {
+    cleanupGates(gates);
   }
 });

@@ -4,11 +4,11 @@
  *   tsx scripts/partner.ts rotate <partner-id> --scope pub|srv
  *   tsx scripts/partner.ts revoke <partner-id>
  *   tsx scripts/partner.ts list
- * Reads MONGODB_URL and VC_PARTNER_KEY_PEPPER from the environment and writes only the `partners` collection of the virtual_counsellor database.
+ * Reads MONGODB_URL, VC_PARTNER_KEY_PEPPER and (optional) VC_RESERVED_TENANT_IDS from the environment and writes only the `partners` collection of the virtual_counsellor database.
  * New keys are printed once (add prints a page key and a server key; rotate prints one); they are never stored: the database keeps its HMAC hash only. Exit 0 = done, 1 = refused or failed, 2 = bad usage.
  */
 import { connectFromEnv } from "@vc/db";
-import { PARTNER_PEPPER_ENV, PartnerError, createMongoPartnerStore, partnerPepperFromEnv, runPartnerCli } from "../src/partners.js";
+import { PARTNER_PEPPER_ENV, PartnerConfigError, PartnerError, createMongoPartnerStore, partnerPepperFromEnv, reservedTenantIdsFromEnv, runPartnerCli } from "../src/partners.js";
 
 async function main(): Promise<number> {
   const argv = process.argv.slice(2);
@@ -21,10 +21,21 @@ async function main(): Promise<number> {
     console.error(`${PARTNER_PEPPER_ENV} is not set`);
     return 1;
   }
+  // The configured tenant ids (VC_RESERVED_TENANT_IDS) are read here, before connecting, so `add` refuses an id that is a tenant without any flag. A malformed list is exit 1.
+  let reservedIds: string[];
+  try {
+    reservedIds = reservedTenantIdsFromEnv(process.env);
+  } catch (err) {
+    if (err instanceof PartnerConfigError) {
+      console.error(err.message);
+      return 1;
+    }
+    throw err;
+  }
   const { client, db } = connectFromEnv(process.env);
   try {
     await client.connect();
-    const lines = await runPartnerCli(argv, { store: createMongoPartnerStore(db), pepper });
+    const lines = await runPartnerCli(argv, { store: createMongoPartnerStore(db), pepper, reservedIds });
     for (const line of lines) console.log(line);
     return 0;
   } catch (err) {

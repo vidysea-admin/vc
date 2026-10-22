@@ -45,9 +45,43 @@ export const PARTNER_ID_PATTERN = /^[a-z0-9-]{2,32}$/;
 /**
  * A partner id becomes the tenant id of every record its server key writes (K3), so it must never equal a tenant that already exists. The tenants of the
  * Vidysea JWT path are claims inside signed tokens, not a list in the server config, so they cannot be read here; this module refuses the sandbox tenant id and
- * a short reserved list of names that look like a platform tenant, and a caller that does know more ids passes them as `PartnerOpContext.reservedIds`.
+ * a short reserved list of names that look like a platform tenant (each name alone, and each name + separator + suffix such as `sandbox-1`), the tenants this repo
+ * itself writes under, and the operator-listed VC_RESERVED_TENANT_IDS plus the sandbox tenant id of startApi (`PartnerOpContext.reservedIds` for add,
+ * `PartnerRegistryOptions.reservedIds` for every request, so a partner record made earlier or a tenant configured later is refused at request time too).
  */
 export const RESERVED_PARTNER_IDS: readonly string[] = ["sandbox", "admin", "system", "root", "default", "internal"];
+/** The tenants this repo itself writes under (apps/web/demo/seed.ts `vc-synthetic-demo`, packages/engine/evals/score.ts `scribe-evaluation`): refused as an exact id. */
+export const KNOWN_TENANT_IDS: readonly string[] = ["vc-synthetic-demo", "scribe-evaluation"];
+/**
+ * The configured tenant ids that cannot be read from anywhere else (pc-reserved-ids, ISS-pc-partner-keys-1): a comma- or space-separated list of the tenant ids the
+ * Vidysea JWT path and the sandbox use (`tenant` claims are inside signed tokens, so only the operator knows them). The CLI and the running server both read it.
+ */
+export const RESERVED_TENANT_IDS_ENV = "VC_RESERVED_TENANT_IDS";
+/** A tenant id as @vc/db accepts it (TENANT_ID_PATTERN): the list is validated with the same shape, so a typo fails closed instead of silently reserving nothing. */
+const CONFIGURED_TENANT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+const foldId = (id: string): string => id.normalize("NFKC").toLowerCase();
+
+/**
+ * True when `id` is, or looks like, a tenant that already exists: equal to a built-in reserved name followed by nothing or by a separator (any non-letter,
+ * non-digit) and a suffix (`sandbox`, `sandbox-1`, `admin_2`, `root.x`), to a tenant this repo writes under, or to one of the `extra` configured tenant ids.
+ * Case and width are folded (NFKC, lower-case), so `SANDBOX` and a full-width `ｓandbox` count. A name that merely starts with the same letters (`sandboxed`) does not.
+ */
+export function isReservedPartnerId(id: string, extra: readonly string[] = []): boolean {
+  const f = foldId(id);
+  if (KNOWN_TENANT_IDS.includes(f) || extra.some((e) => foldId(e) === f)) return true;
+  return RESERVED_PARTNER_IDS.some((name) => f === name || (f.startsWith(name) && /^[^a-z0-9]/.test(f.slice(name.length))));
+}
+
+/** The configured tenant ids from VC_RESERVED_TENANT_IDS (empty when unset). A malformed entry is a config error naming the variable, never a silent skip. */
+export function reservedTenantIdsFromEnv(env: Record<string, string | undefined>): string[] {
+  const raw = env[RESERVED_TENANT_IDS_ENV];
+  if (raw === undefined || raw.trim() === "") return [];
+  const ids = raw.split(/[\s,]+/).filter((s) => s !== "");
+  if (ids.some((s) => !CONFIGURED_TENANT_ID_PATTERN.test(s))) {
+    throw new PartnerConfigError(`${RESERVED_TENANT_IDS_ENV} must be a comma- or space-separated list of tenant ids (1-64 characters of letters, digits, "_" and "-")`);
+  }
+  return [...new Set(ids)];
+}
 export const PARTNER_KEY_PREFIX = "vck_";
 /** pub = the page key (public chat route only); srv = the server key (student routes only). */
 export type KeyScope = "pub" | "srv";
@@ -258,7 +292,7 @@ export interface PartnerOpContext {
   now?: () => Date;
   /** Tests only; default crypto.randomBytes. */
   randomBytes?: (n: number) => Buffer;
-  /** More tenant ids addPartner must refuse (beyond RESERVED_PARTNER_IDS), for a caller that knows the configured tenants. */
+  /** More tenant ids addPartner must refuse (beyond RESERVED_PARTNER_IDS), for a caller that knows the configured tenants. The CLI fills it from VC_RESERVED_TENANT_IDS (reservedTenantIdsFromEnv). */
   reservedIds?: readonly string[];
 }
 
@@ -276,11 +310,13 @@ export async function addPartner(
   const name = typeof input.name === "string" ? input.name.trim() : "";
   if (name === "" || name.length > 120 || /[\u0000-\u001f\u007f]/.test(name)) throw new PartnerError("usage", "a partner needs a name of 1 to 120 printable characters");
   const partnerId = input.id ?? slugOf(name);
+  // The reserved check runs first and on the folded id (case, width), so `SANDBOX` is refused as reserved, not just as badly formed. Ids are ASCII-validated right after,
+  // so a look-alike in another script never reaches a key.
+  if (typeof partnerId === "string" && isReservedPartnerId(partnerId, ctx.reservedIds ?? [])) {
+    throw new PartnerError("invalid_partner_id", `the partner id "${partnerId.slice(0, 80)}" is reserved (it is, or looks like, an existing tenant id); choose another with --id`);
+  }
   if (!PARTNER_ID_PATTERN.test(partnerId) || !PATH_ID_PATTERN.test(partnerId)) {
     throw new PartnerError("invalid_partner_id", `the partner id must match ${PARTNER_ID_PATTERN.source} (lower-case letters, digits and hyphens); pass --id to choose one`);
-  }
-  if (RESERVED_PARTNER_IDS.includes(partnerId) || (ctx.reservedIds ?? []).includes(partnerId)) {
-    throw new PartnerError("invalid_partner_id", `the partner id "${partnerId}" is reserved (it is, or looks like, an existing tenant id); choose another with --id`);
   }
   const allowedOrigins = normalizeOrigins(input.origins ?? []);
   if (await store.get(partnerId)) throw new PartnerError("partner_exists", `partner "${partnerId}" already exists (rotate its key, or choose another id)`);
@@ -430,6 +466,11 @@ export interface PartnerRegistryOptions {
   nowMs?: () => number;
   /** At most PARTNER_CACHE_TTL_MS. */
   ttlMs?: number;
+  /**
+   * The configured tenant ids (R2): a key whose partner id is one of these, or is a built-in reserved name or a name+separator+suffix of one (isReservedPartnerId), is
+   * refused as an unknown key, on every request. A function is asked on every request, so a tenant configured after the partner was added is covered at once.
+   */
+  reservedIds?: readonly string[] | (() => readonly string[]);
 }
 
 const DUMMY_HASH = Buffer.alloc(32);
@@ -440,6 +481,7 @@ export function createPartnerRegistry(options: PartnerRegistryOptions): PartnerR
   const ttlMs = Math.min(options.ttlMs ?? PARTNER_CACHE_TTL_MS, PARTNER_CACHE_TTL_MS);
   const pepper = options.pepper;
   const turns = new Map<string, { turns: number }>();
+  const reservedNow = (): readonly string[] => (typeof options.reservedIds === "function" ? options.reservedIds() : (options.reservedIds ?? []));
   let snapshot: { at: number; byId: Map<string, PartnerDoc> } | undefined;
   let inflight: Promise<Map<string, PartnerDoc>> | undefined;
 
@@ -479,10 +521,14 @@ export function createPartnerRegistry(options: PartnerRegistryOptions): PartnerR
       const stored = typeof hash === "string" && /^[0-9a-f]{64}$/.test(hash) ? Buffer.from(hash, "hex") : DUMMY_HASH;
       const equal = timingSafeEqual(presented, stored);
       if (!doc || !equal || doc.status !== "active" || parsed.scope !== scope) return undefined;
+      // R2: the partner id is the tenant id of everything this key reaches, so a record whose id is (or looks like) an existing tenant is refused here even though
+      // its HMAC is right (a record made before addPartner checked, or a tenant configured later). Same undefined as any bad key: the caller sends one uniform 401.
+      if (isReservedPartnerId(doc.partnerId, reservedNow())) return undefined;
       return { partnerId: doc.partnerId, name: doc.name, allowedOrigins: [...doc.allowedOrigins] };
     },
     async originAllowedByAnyPartner(origin) {
-      for (const doc of (await partners()).values()) if (doc.status === "active" && doc.allowedOrigins.includes(origin)) return true;
+      const reserved = reservedNow();
+      for (const doc of (await partners()).values()) if (doc.status === "active" && doc.allowedOrigins.includes(origin) && !isReservedPartnerId(doc.partnerId, reserved)) return true;
       return false;
     },
     noteTurn(partnerId) {
