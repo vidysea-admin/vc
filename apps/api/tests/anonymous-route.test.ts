@@ -8,7 +8,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { API_ROUTES, createApiHandler, createApiServer } from "../src/server.js";
@@ -30,7 +31,7 @@ import {
 import { GroundingBudget, MockGroundedAnswerer, MockProvider, RulesProvider } from "@vc/providers";
 import { createFakeMongoClient } from "@vc/db/testing";
 import { VC_DB_NAME } from "@vc/db";
-import { APPROVER, CHAIN_ENV, GOOD_CLAIM, NOW, SKILLS_DIR, SPEAKERS, ask, anonRequest, anonWorld, cleanupGates, gatesFixture, kbAnswerProvider, realGatesWithB13Pending, recordingKb, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
+import { APPROVER, CHAIN_ENV, GOOD_CLAIM, NOW, SKILLS_DIR, SPEAKERS, ask, anonRequest, anonWorld, assertRefusedNamingB13, cleanupGates, gatesFixture, kbAnswerProvider, realB13IsSigned, realGatesWithB13Pending, recordingKb, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
 
 const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
 const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -133,6 +134,35 @@ test("A20 real gates: the repo's actual qa/gates with VC_GATE_APPROVER unset, em
       },
       JSON.stringify(env),
     );
+  }
+});
+
+test("realGatesWithB13Pending (pc-hardening-8 S1, ISS-pc-hardening-7-1): a source with no usable B13 record throws and leaves no temp dir behind; a good source still yields a usable copy", () => {
+  const parent = mkdtempSync(join(tmpdir(), "vc-s1-parent-"));
+  try {
+    const tmpRoot = join(parent, "tmp");
+    mkdirSync(tmpRoot);
+    const noB13File = join(parent, "src-no-b13-file");
+    mkdirSync(noB13File);
+    writeFileSync(join(noB13File, GATE_FILES.nights), "Nights-mode: tele-manas-disclosed\n");
+    const noB13Line = join(parent, "src-no-b13-line");
+    mkdirSync(noB13Line);
+    writeFileSync(join(noB13Line, GATE_FILES.b13), "# amendments\nthere is no signature line in this record\n");
+    for (const src of [noB13File, noB13Line]) {
+      assert.throws(() => realGatesWithB13Pending(src, tmpRoot), /B13/, src);
+      assert.deepEqual(readdirSync(tmpRoot), [], `a failed helper left a temp dir behind (${src})`);
+    }
+    // positive control: the real (read only) source still yields a usable copy inside tmpRoot, and cleanupGates removes it.
+    const g = realGatesWithB13Pending(REPO_GATES, tmpRoot);
+    try {
+      assert.equal(readdirSync(tmpRoot).length, 1);
+      assert.match(readFileSync(join(g.gates, GATE_FILES.b13), "utf8"), /B13-signed: PENDING/);
+    } finally {
+      cleanupGates(g);
+    }
+    assert.deepEqual(readdirSync(tmpRoot), []);
+  } finally {
+    rmSync(parent, { recursive: true, force: true });
   }
 });
 
@@ -286,12 +316,45 @@ test("startApi: flag on with a temp copy of the real repo gates (B13 set back to
         started = api;
         return api;
       }),
-      GoLiveRefusedError,
+      (e: unknown) => {
+        assertRefusedNamingB13(e); // pc-hardening-8 S2 (ISS-pc-hardening-7-2): B13 is the reason, not some other closed gate in the copy
+        return true;
+      },
     );
     assert.equal(connected, 0);
   } finally {
     await started?.stop();
     cleanupGates(g);
+  }
+});
+
+test("startApi: anonymous flag on, NO gatesDir and VC_GATE_APPROVER unset -> the default gates dir (the real repo qa/gates) refuses to start, BEFORE connecting to Mongo", async () => {
+  // pc-hardening-8 S3 (ISS-pc-hardening-7-3): exercises the DEFAULT_GATES_DIR wiring in startApi (no gatesDir passed). The real B13 record is read only; with no approver in env
+  // the refusal is the needs-VC_GATE_APPROVER reason (any signer), and if B13 were ever reset to pending it must still name B13. A wrongly started server is stopped.
+  const fake = createFakeMongoClient();
+  let connected = 0;
+  (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => {
+    connected += 1;
+  };
+  let started: { stop(): Promise<void> } | undefined;
+  try {
+    await assert.rejects(
+      startApi(
+        { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
+        { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, trustSocketAddress: true } } },
+      ).then((api) => {
+        started = api;
+        return api;
+      }),
+      (e: unknown) => {
+        const b13Failure = assertRefusedNamingB13(e);
+        if (realB13IsSigned()) assert.ok(b13Failure.includes("B13-signed needs VC_GATE_APPROVER (the repo approver) to be set"), b13Failure);
+        return true;
+      },
+    );
+    assert.equal(connected, 0);
+  } finally {
+    await started?.stop();
   }
 });
 
