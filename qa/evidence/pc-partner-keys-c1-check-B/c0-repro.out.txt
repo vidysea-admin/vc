@@ -1,0 +1,15 @@
+[testlock] waiting for lock held by: PID=39368 STARTED=639282548324784600 ACQUIRED_AT=1792638232 TOKEN=1792638232646577700-296110-6994 DESC=timeout 600 pnpm exec tsx --test tests/chat-profile.test.ts --test-name-pattern=H2|LK7 C1-fix 
+[testlock] owner PID 3692 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running slot 0 (free RAM 2.62 GB): timeout 600 pnpm exec tsx --test C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/hostile/c0-repro.test.mts
+H9 RESULT {"newPubWorks":true,"newSrvWorks":true,"oldPubStillWorks":false,"oldSrvStillWorks":false}
+✔ H9 two rotates of different scopes that overlap: both new keys must work and both old keys must be dead (18.2219ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3608.8169
+exit 0

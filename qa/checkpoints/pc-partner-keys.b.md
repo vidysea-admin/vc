@@ -11,3 +11,7 @@ Coordinator B was blind to coordinator A's verdict/checkpoint. One exposure: `gi
 - CLI exits: usage 2, refusal 1, short pepper 1.
 Inputs: apps/api/src/partners.ts, anonymous.ts, chat.ts, index.ts, openapi.ts, apps/api/scripts/partner.ts, infra/ubuntu/nginx-vc.conf, apps/api/tests/partners.test.ts. Checker-run, 2026-10-22T08:19:14+05:30.
 Result: FAIL (K1 rotate lost update, see verdict).
+
+## Cycle 1 (repair check), written 2026-10-22T09:22:00+05:30
+State: verdict qa/verdicts/pc-partner-keys.b.md (PASS); cycle-0 verdict kept as qa/verdicts/pc-partner-keys.b.r0-1.md. Evidence: qa/evidence/pc-partner-keys-c1-check-B/.
+Blindness (cycle 1): I did not open coordinator A's verdict, checkpoint or evidence. Exposure: `git status` in the shared worktree listed the filenames of A's staged rename (qa/verdicts/pc-partner-keys.md -> .r0-1.md) and the untracked directory qa/evidence/pc-partner-keys-c1-check-A/ (names only, no content); `git log --oneline -3` at 09:20 printed A's commit subject (coordinator A verdict PASS, ae39b9f) after all my executed checks and my verdict text were already complete; it did not change my result. I did not open A's files. My commit uses a pathspec.
