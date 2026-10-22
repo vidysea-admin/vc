@@ -46,4 +46,4 @@ Sessions: 2b04f90e-6b56-4682-a76c-d8515b93405c
 - partners.test.ts full file and the full suite were not run (brief: only the three named runs); see finding 1.
 - nginx forwards `Authorization` and the X-VC-* headers to the student routes (pc-partner-keys K5 territory, text-checked there, not re-checked).
 
-Status: ready-for-check
+Status: checked-PASS (cycle 0, verdict 8b62889)
