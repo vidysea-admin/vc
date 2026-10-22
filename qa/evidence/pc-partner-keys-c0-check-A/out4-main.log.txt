@@ -1,0 +1,19 @@
+[testlock] running slot 0 (free RAM 1.98 GB): timeout 600 pnpm -C /d/vc/.worktrees/pc-partner-keys/apps/api exec tsx --test tests/main.test.ts
+✔ a: VC_ANONYMOUS_ENABLED=true without the KB URL or the search-only key refuses to start, naming the variable (6.9206ms)
+✔ a: with both flags off the builder serves nothing and binds loopback (1.4611ms)
+✔ b: the client key is X-Real-IP; X-Forwarded-For (any entry) is ignored (9.1739ms)
+✔ b: over real HTTP through launch(), the limiter keys on X-Real-IP and a rotating X-Forwarded-For does not buy a fresh bucket (491.428ms)
+✔ c: speakers default to an empty list, and a set file is parsed against the schema (2.5686ms)
+✔ c: a speakers file that is set but unreadable or invalid refuses to start (never a silent empty list) (1.447ms)
+✔ d: VC_CHAT_ENABLED=true refuses to start when its config is missing, naming each missing variable (1.7359ms)
+✔ d: chat config present but the flag unset serves no chat (0.2921ms)
+✔ e: describeStartupError redacts Mongo URI credentials and credential-shaped runs, and leaves a config error unchanged (0.5929ms)
+✔ e: the real entrypoint prints no credential when a non-config startup error echoes a Mongo URI (2762.1028ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6695.0099

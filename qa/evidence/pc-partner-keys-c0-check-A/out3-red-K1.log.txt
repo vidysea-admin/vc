@@ -1,0 +1,39 @@
+[testlock] running slot 0 (free RAM 1.97 GB): timeout 600 pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK1/apps/api exec tsx --test --test-name-pattern=K1 tests/partners.test.ts
+✔ K1: ops adds Pathlynks: two keys come back once (vck_pub_ and vck_srv_ form), and only their HMACs and short prefixes are stored (4.7102ms)
+✔ K1: two partners get different keys, and a key is never accepted for a different partner id even with a copied secret (1.2762ms)
+✔ K1: partner ids follow ^[a-z0-9-]{2,32}$ so a key splits on its first three underscores (clarified default 2) (1.0957ms)
+✔ K1: a name with no usable letters, a duplicate id and an unsafe origin are all refused before anything is written (1.1395ms)
+✖ K1: rotating the page key leaves the server key working (and the other way round); the old key stops working within the 60 s cache bound (1.701ms)
+✔ K1: a revoked partner's keys (both) are refused within 60 s on a running server, rotating does not bring them back, and re-adding the id is refused (0.6933ms)
+✔ K1: list shows ids, names, status and the key prefixes but never a hash or a key (0.4758ms)
+✔ K1: the CLI prints both raw keys on add and one on rotate --scope; list and revoke print none (1.5139ms)
+✔ K1: the pepper and the required flag are read strictly: a short pepper is a config error, a mistyped flag is never silently on or off (0.3261ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 8
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2120.9174
+
+✖ failing tests:
+
+test at tests\partners.test.ts:142:1
+✖ K1: rotating the page key leaves the server key working (and the other way round); the old key stops working within the 60 s cache bound (1.701ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + null
+  - '2026-11-01T10:00:05.000Z'
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\pckA-fK1\apps\api\tests\partners.test.ts:152:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: '2026-11-01T10:00:05.000Z',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

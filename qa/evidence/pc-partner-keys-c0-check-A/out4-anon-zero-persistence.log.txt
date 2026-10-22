@@ -1,0 +1,45 @@
+[testlock] running slot 0 (free RAM 1.97 GB): timeout 600 pnpm -C /d/vc/.worktrees/pc-partner-keys/apps/api exec tsx --test tests/anonymous-zero-persistence.test.ts
+✔ A15a: 50 text turns through the real route (crisis, PII, borderline, generic) write nothing but increments of the text-free counter (497.4244ms)
+✔ A15a: the handler is built with throwing proxies for gap log, flag log and escalation, no checkpointer, and the counter as its only writer (0.7576ms)
+✔ A15a: the compiled anonymous graph has no checkpointer (12.6741ms)
+✔ A15a: the counter writer is atomic per (date, kind), uses the injected UTC date, and refuses an unknown kind (17.5691ms)
+✔ A15a: a counter outage never fails the turn and never writes elsewhere (crisis still gets the fixed message) (33.2486ms)
+✔ A15b: >= 40 borderline cases (English, Hinglish, Hindi) through the route: 0 personal or ambiguous questions answered as generic (306.3717ms)
+✔ A15b: a clear generic question (English, Hinglish, Hindi) is answered, with sources (54.2292ms)
+✔ A15b: the limiter allows 10 requests per minute per client, the 11th is 429 with Retry-After, other clients are unaffected, the window then reopens (178.4158ms)
+✔ A15b: the limiter is in-memory and text-free: its key is hashed, never logged, never persisted; expired keys are purged; a full table fails closed (95.0749ms)
+✔ A15c: the KB sees exactly one search call carrying only q; never /ask, never get_session; no identifier or header reaches it (21.3218ms)
+✔ A15c: when search finds nothing the route answers no_sourced_answer and STILL never falls back to /ask or get_session (21.2787ms)
+✔ A15c: a KB outage is the fixed no-answer, not an error and not an uncited answer (19.5364ms)
+✔ D-092: an unverified claim is dropped in anonymous mode and never shown with a flag; only-unverified is the fixed no-answer (38.9298ms)
+✔ crisis (B24.7): English and Hinglish get the fixed message with Tele-MANAS 14416, no model, no KB, only the crisis counter, nothing logged (21.4576ms)
+✔ crisis (B24.7, U6h L5): a crisis phrase beyond the 4000-character limit is still the fixed message, not a 400 (20.0872ms)
+✔ validation: malformed bodies are a bare 400, over-long non-crisis text is 400, an oversized body is 413; no input is echoed (19.0006ms)
+✔ validation: a near-cap body (about 48 KB of text) is scanned for crisis in bounded time and then refused as over-long (44.4827ms)
+✔ ISS-135: the body cap is 64 KiB, and a body over it is a 413 with the helpline, never scanned, never limited, no model, no counter (10.344ms)
+✔ ISS-135: a crisis message within the cap still escalates, and still does so before the limiter for a client already rate limited (70.0793ms)
+✔ errors: an unexpected failure is a bare 500 {error: internal}; the log line carries the error NAME only, never its message or the text (12.4133ms)
+✔ provider failure is the apology text (A12), not an error and not an unsourced answer (20.328ms)
+✔ U7 repair 1/B: a counter that never answers does not delay any reply - crisis, sign-in and answered turns all return within the deadline (268.7627ms)
+✔ U7 repair 1: the default counter deadline is under one second, so a hung database delays the crisis message by less than that, not by the driver's 30 s (766.9803ms)
+✔ U7 repair A: a crisis message is answered with the fixed message and Tele-MANAS even at request 11 (rate limited) and with a full limiter table (141.254ms)
+✔ U7 repair A: every non-200 anonymous body (400, 405, 413, 429, 500) carries the static Tele-MANAS helpline (30.7218ms)
+✔ U7 repair D (API), superseded by D-110: the sign-in and no-answer replies carry the helpline line only when the turn shows distress (27.5447ms)
+✔ D-110 (API): an anonymous generic question with no servable source gets the disclaimer plus an expert answer from the text chain; the KB is searched once, never /ask; claims and sources stay empty; a chain failure is the fixed refusal (34.5261ms)
+✔ U7 repair C/E/F over the route: no follow-up question, opaque source ids and an email address is sign-in-required (26.9313ms)
+✔ U7 repair 3: client addresses are normalised before hashing - IPv4-mapped IPv6 shares the IPv4 bucket and every address in one IPv6 /64 shares one bucket (128.4485ms)
+✔ U7 repair 4: with a full table the O(n) sweep runs at most once a second, however many new keys arrive (3.4926ms)
+✔ ISS-350: an anonymous crisis text with extra keys, Latin or Devanagari, gets the fixed crisis answer and one crisis counter, and the extra keys are never kept (94.374ms)
+✔ ISS-350: an anonymous crisis text with an extra key is answered for a client already rate limited; a benign text with extra keys stays a 400 that carries the helpline (24.01ms)
+✔ ISS-350: the anonymous route scans an extra-key crisis body exactly as often as a well-formed one, and an extra-key benign body once (36.1244ms)
+✔ G1 (API): an anonymous no-source generic question with grounding on gets the disclaimer plus the grounded answer; web sources are structured, the text has no link; only the question text reaches the web; counter no_answer; the KB is searched once (28.687ms)
+✔ G2 (API): a grounding failure falls back to the D-110 model-only answer, never a crash (20.9401ms)
+✔ G5 (API): scope no_source -> a 'possible' screen verdict on a no-source anonymous turn is the fixed crisis answer with zero grounded calls and zero guidance calls; counters no_answer then crisis; a sourced turn is not screened (43.1603ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5402.1817
