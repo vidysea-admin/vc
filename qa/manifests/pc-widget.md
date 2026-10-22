@@ -56,4 +56,4 @@ Sessions: 2b04f90e-6b56-4682-a76c-d8515b93405c
 ## Not verified here (for the checker)
 Real API, real CORS (K4 belongs to pc-partner-keys; the demo is same-origin so no preflight was exercised), nginx snippet loaded into a real nginx (only string-checked), screen-reader pass, browsers other than Chromium, iOS Safari textarea zoom (font-size 16 px is set), a very long reply on a 360 px panel. The 1-year immutable cache on the versioned name relies on bumping the major for any breaking change; same-major fixes keep the name and reach partners via the 300 s alias only.
 
-Status: ready-for-check
+Status: checked-PASS (cycle 0 verdict 20ee438, qa/verdicts/pc-widget.md)
