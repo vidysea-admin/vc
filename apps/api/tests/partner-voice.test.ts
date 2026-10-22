@@ -18,7 +18,7 @@ import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { startApi } from "../src/index.js";
 import { VoiceSessionResponseSchema } from "@vc/schemas";
 import { addPartner, createMongoPartnerStore, createPartnerRegistry, revokePartner, withPartnerRoutes, type PartnerStore } from "../src/partners.js";
-import { ANONYMOUS_VOICE_THREAD_ID, VOICE_RESUME_WINDOW_MS, type VoiceApiDeps } from "../src/voice.js";
+import { ANONYMOUS_VOICE_THREAD_ID, VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT, VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT, VOICE_RESUME_WINDOW_MS, type VoiceApiDeps } from "../src/voice.js";
 import type { ApiHandler, ApiResponse } from "../src/server.js";
 import { nonEmptyCollections } from "./anonymous-fixtures.js";
 import { SKILLS_DIR, chatRequest, cleanupGates, gatesFixture, kbAnswerProvider, studentVerifier } from "./chat-fixtures.js";
@@ -538,6 +538,107 @@ test("V2: a visitor may hold only two sockets that have not started; the third i
     // a different visitor of the same partner is not blocked
     const other = (await mintAnon(pv, { "x-test-client": "client-2" })).json.token as string;
     assert.equal((await connectAnon(pv, other, { origin: ORIGIN })).ok, true);
+  } finally {
+    await pv.close();
+  }
+});
+
+/** Like connectAnon, but also returns the refusal's Retry-After header (a refused upgrade is a plain HTTP response). */
+function connectAnonRaw(pv: PV, token: string): Promise<{ ok: true; client: VoiceClient } | { ok: false; status: number; retryAfter: string | undefined; raw: string }> {
+  return new Promise((resolve) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${pv.w.port}/v1/public/voice/stream`, ["vc-voice-v1"], { headers: { authorization: `Bearer ${token}`, origin: ORIGIN } });
+    pv.sockets.push(ws);
+    ws.on("unexpected-response", (_req, res) => {
+      res.resume();
+      const h = res.headers["retry-after"];
+      resolve({ ok: false, status: res.statusCode ?? 0, retryAfter: typeof h === "string" ? h : undefined, raw: JSON.stringify([res.statusCode, res.statusMessage, Object.entries(res.headers).sort()]) });
+    });
+    ws.on("open", () => resolve({ ok: true, client: new VoiceClient(ws) }));
+    ws.on("error", () => undefined);
+  });
+}
+
+test("V2 active cap (review 2): a visitor may hold only two ACTIVE anonymous voice sessions; the third is a 429 with Retry-After, and a slot frees when one ends", async () => {
+  const pv = await pvWorld();
+  try {
+    const a = await openAnon(pv);
+    await openAnon(pv);
+    assert.equal(pv.w.voice.stats().liveSessions, 2);
+    const third = await connectAnonRaw(pv, (await mintAnon(pv)).json.token as string);
+    assert.equal(third.ok, false);
+    if (!third.ok) {
+      assert.equal(third.status, 429);
+      assert.match(third.retryAfter ?? "", /^[1-9]\d{0,3}$/);
+    }
+    assert.equal(pv.w.voice.stats().liveSessions, 2, "the refused socket never became a session");
+    // another visitor of the same partner is not blocked
+    const other = await connectAnonRaw(pv, (await mintAnon(pv, { "x-test-client": "client-2" })).json.token as string);
+    assert.equal(other.ok, true);
+    // ending one of the first visitor's sessions frees a slot
+    a.client.ws.close(1000);
+    await until(() => pv.w.voice.stats().liveSessions === 1, "the first session ended");
+    const again = await connectAnonRaw(pv, (await mintAnon(pv)).json.token as string);
+    assert.equal(again.ok, true);
+  } finally {
+    await pv.close();
+  }
+});
+
+test("V2 active cap (review 2): a partner's anonymous sessions are capped across all its visitors (configurable); the refusal is the same 429 + Retry-After, and the default is sane", async () => {
+  assert.ok(VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT >= 10 && VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT <= 200);
+  assert.equal(VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT, 2);
+  const pv = await pvWorld({ deps: { anonymous: { clientKey: (req) => (typeof req.headers["x-test-client"] === "string" ? req.headers["x-test-client"] : "client-1"), maxActivePerPartner: 3 } } });
+  try {
+    const open = async (client: string) => {
+      const minted = await mintAnon(pv, { "x-test-client": client });
+      assert.equal(minted.status, 201, minted.body);
+      return connectAnonRaw(pv, minted.json.token as string);
+    };
+    const first = [await open("c1"), await open("c2"), await open("c3")];
+    for (const r of first) {
+      assert.equal(r.ok, true);
+      if (r.ok) r.client.send({ type: "start", threadId: ANONYMOUS_VOICE_THREAD_ID });
+    }
+    await until(() => pv.w.voice.stats().liveSessions === 3, "three started sessions");
+    const fourth = await open("c4");
+    assert.equal(fourth.ok, false);
+    if (!fourth.ok) {
+      assert.equal(fourth.status, 429);
+      assert.match(fourth.retryAfter ?? "", /^[1-9]\d{0,3}$/);
+      // uniform: the per-client refusal looks exactly the same (no oracle for which cap fired)
+      const pv2 = await pvWorld();
+      try {
+        await openAnon(pv2);
+        await openAnon(pv2);
+        const perClient = await connectAnonRaw(pv2, (await mintAnon(pv2)).json.token as string);
+        assert.equal(perClient.ok, false);
+        if (!perClient.ok) assert.equal(perClient.raw, fourth.raw);
+      } finally {
+        await pv2.close();
+      }
+    }
+  } finally {
+    await pv.close();
+  }
+});
+
+test("V2 active cap (review 2): the cap is checked again at start, so a session that slipped under it at the upgrade is refused and closed before any provider session opens", async () => {
+  let cap = 5;
+  const pv = await pvWorld({ deps: { anonymous: { clientKey: (req) => (typeof req.headers["x-test-client"] === "string" ? req.headers["x-test-client"] : "client-1"), maxActivePerPartner: () => cap } } });
+  try {
+    const a = await connectAnonRaw(pv, (await mintAnon(pv, { "x-test-client": "c1" })).json.token as string);
+    const b = await connectAnonRaw(pv, (await mintAnon(pv, { "x-test-client": "c2" })).json.token as string);
+    assert.equal(a.ok && b.ok, true);
+    if (!a.ok || !b.ok) return;
+    a.client.send({ type: "start", threadId: ANONYMOUS_VOICE_THREAD_ID });
+    await until(() => pv.w.provider.backends.length === 1, "the first provider session");
+    cap = 1; // the partner's allowance was lowered while b was connected but not started
+    const before = pv.w.provider.backends.length;
+    b.client.send({ type: "start", threadId: ANONYMOUS_VOICE_THREAD_ID });
+    await until(() => b.client.closed, "the over-cap session closed");
+    assert.equal(b.client.closeCode, 1008);
+    assert.ok(b.client.of("error").some((e) => e.code === "voice_busy"), JSON.stringify(b.client.events));
+    assert.equal(pv.w.provider.backends.length, before, "no provider session (and no paid audio) was opened");
   } finally {
     await pv.close();
   }

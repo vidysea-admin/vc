@@ -1,0 +1,11 @@
+pc-voice fix cycle 1: suite results at the code commit (all through VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh, apps/api unless noted)
+partner-voice 32 pass / 0 fail (29 + 3 new active-cap tests)
+partners 48 / 0
+go-live-gate 20 pass / 0 fail / 1 skipped (REAL_B13_PENDING, pre-existing)
+voice 67 / 0
+voice-wiring 16 / 0 (first run: W6 "real repo gates" case went red because the real gates now ALLOW voice; case re-pointed at an A10-FAIL fixture, see manifest Repair)
+voice-crisis-turn 14 / 0
+anonymous-route --test-name-pattern "H2|H6|G5|K2|K4" 9 / 0
+pnpm exec tsc --noEmit exit 0
+node --test "apps/widget/tests/*.test.js" (repo root) 58 / 0 (55 + 3 new)
+real Chromium smoke (playwright-core 1.63.0, run from a .cjs copy): 10 of 10 PASS, see qa/evidence/browser-pc-voice-2026-10-22/result.txt

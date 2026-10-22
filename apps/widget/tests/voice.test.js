@@ -181,19 +181,32 @@ test("the counsellor's audio frames are played; sources arrive as data for the l
   assert.deepEqual(src, [{ title: "AICTE", href: "https://www.aicte-india.org/" }, { title: "bad", href: null }]);
 });
 
-test("a crisis turn shows the fixed crisis message and the helpline once, whether the flag, the state or both arrive", async () => {
+test("a crisis turn shows the helpline (14416 and 112) once, whether the flag, the state or both arrive, and nothing else: no paraphrase of the server's fixed wording", async () => {
   const s = await started();
   s.wsk.say({ type: "flag", eventId: "e1", reason: "crisis_detected", detail: "x" });
   s.wsk.say({ type: "state", eventId: "e2", state: "escalated" });
   const c = s.of("crisis");
   assert.equal(c.length, 1, "one crisis notice per crisis, not one per event");
-  assert.equal(c[0].text, V.CRISIS_TEXT);
+  assert.deepEqual(Object.keys(c[0]), ["help"], "the crisis notice carries the helpline only (LK10 wording stays the server's, spoken)");
   assert.equal(c[0].help, V.HELP);
+  assert.equal(V.CRISIS_TEXT, undefined, "voice.js owns no crisis wording of its own");
   assert.match(V.HELP, /14416/);
   assert.match(V.HELP, /112/);
   assert.equal(V.HELP, W.HELP, "the voice helpline is the text widget's helpline");
   s.wsk.audio(new Uint8Array([7, 7])); // the fixed crisis audio still plays
   assert.equal(s.o.audio.played.length, 1);
+});
+
+test("the widget renders the voice crisis notice as the helpline line only, exactly like the text chat's escalated reply (14416 and 112 shown, no free text)", () => {
+  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const widget = strip(fs.readFileSync(path.join(__dirname, "..", "src", "vc-widget.js"), "utf8"));
+  const m = /crisis: function \(c\) \{([^}]*)\}/.exec(widget);
+  assert.ok(m, "vc-widget.js has a voice crisis handler");
+  assert.equal(m[1].trim(), 'add("crisis", c.help);');
+  assert.match(V.HELP, /14416/);
+  assert.match(V.HELP, /112/);
+  const voiceSrc = strip(fs.readFileSync(path.join(__dirname, "..", "src", "voice.js"), "utf8"));
+  assert.ok(!/hard time|not alone|help is available/i.test(voiceSrc), "no free-text crisis paraphrase in voice.js");
 });
 
 test("a state escalated on its own (no flag) is also a crisis; an ordinary ok state is not", async () => {
@@ -353,6 +366,61 @@ test("tapping stop while still connecting cancels cleanly: the mic is released a
   assert.equal(mic.stopped, 1);
   assert.ok(FakeWS.all.every((w) => w.readyState === 3), "no socket is left open");
   assert.equal(s.vc.state(), "idle");
+});
+
+// A getUserMedia prompt that resolves after the visitor cancelled must not leave a live microphone (P3), whichever order two prompts resolve in.
+function pendingMic() {
+  const calls = [];
+  const md = {
+    calls,
+    live: () => calls.filter((c) => !c.stopped).length,
+    getUserMedia: () => new Promise((resolve) => {
+      const c = { stopped: false, resolve: null };
+      const stream = { getTracks: () => [{ stop: () => { c.stopped = true; } }] };
+      c.resolve = () => resolve(stream);
+      calls.push(c);
+    }),
+  };
+  return md;
+}
+
+test("cancel then restart while the first mic prompt is pending: the stale prompt's stream is stopped when it resolves, in either resolve order", async () => {
+  for (const order of ["newer-first", "older-first"]) {
+    const mic = pendingMic();
+    const s = setup({ mediaDevices: mic });
+    const first = s.vc.start();
+    await tick();
+    await s.vc.stop(); // cancel while the browser prompt is still open
+    const second = s.vc.start();
+    await tick();
+    assert.equal(mic.calls.length, 2, order);
+    if (order === "newer-first") { mic.calls[1].resolve(); await tick(); mic.calls[0].resolve(); } else { mic.calls[0].resolve(); await tick(); mic.calls[1].resolve(); }
+    await tick();
+    await tick();
+    await s.vc.stop();
+    await Promise.all([first, second]);
+    assert.equal(mic.live(), 0, order + ": no microphone stream is left live after stop");
+  }
+});
+
+test("a stale start never stops the newer start's microphone", async () => {
+  const mic = pendingMic();
+  const s = setup({ mediaDevices: mic });
+  const first = s.vc.start();
+  await tick();
+  await s.vc.stop();
+  const second = s.vc.start();
+  await tick();
+  mic.calls[1].resolve();
+  await tick();
+  mic.calls[0].resolve();
+  await tick();
+  await tick();
+  assert.equal(mic.calls[0].stopped, true, "the stale stream is stopped");
+  assert.equal(mic.calls[1].stopped, false, "the live session's stream keeps running");
+  await s.vc.stop();
+  await Promise.all([first, second]);
+  assert.equal(mic.live(), 0);
 });
 
 test("a second tap on start while a session is running does nothing", async () => {

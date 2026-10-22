@@ -139,6 +139,15 @@ export const VOICE_RATE_WINDOW_MS = 60_000;
 export const VOICE_MAX_LIMITER_KEYS = 100_000;
 /** U10 repair 1: sockets one student may hold that have not yet started (a student must not fill the global socket cap). */
 export const VOICE_MAX_PRESTART_SOCKETS_PER_STUDENT = 2;
+/**
+ * pc-voice review 2: ACTIVE anonymous voice sessions (every connection not yet closed, started or not) one client (partner + visitor address) may hold, and the default
+ * for one partner across all its visitors. An anonymous session has no monthly allowance (remainingMs is unbounded), so these caps are the only bound on paid Live sessions
+ * a public page key can open. The partner cap is configurable (VoiceAnonymousDeps.maxActivePerPartner).
+ */
+export const VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT = 2;
+export const VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT = 50;
+/** Retry-After (seconds) on the 429 an active-session cap refuses with (one value for both caps, so the refusal does not say which fired). */
+export const VOICE_ACTIVE_CAP_RETRY_AFTER_SEC = 30;
 /** U10 repair 1: a crisis flag / escalation write is tried this many times in all (one retry). */
 export const VOICE_CRISIS_WRITE_ATTEMPTS = 2;
 /**
@@ -236,6 +245,10 @@ export interface VoiceAnonymousDeps {
   counter?: AnonymousCounterWriter;
   /** Search-only knowledge-base tools for an anonymous session. Absent: the model has no tools (the student `tools` are never offered to a visitor). */
   tools?: VoiceTools;
+  /** Most active (not yet closed) anonymous sessions one client may hold. Default VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT (2). */
+  maxActivePerClient?: number;
+  /** Most active anonymous sessions one partner may hold across all its visitors; a function reads the partner id on each check. Default VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT (50). */
+  maxActivePerPartner?: number | ((partnerId: string) => number);
   /** Replaces `systemInstruction` for anonymous sessions (the student instruction may speak of a profile the visitor does not have). */
   systemInstruction?: string;
 }
@@ -525,6 +538,7 @@ const ERROR_TEXT: Readonly<Record<string, string>> = Object.freeze({
   silence_timeout: `The voice session ended after a long silence. You can start again, or ${TEXT_CONTINUES.toLowerCase()}`,
   session_time_limit: `This voice session reached its time limit. ${TEXT_CONTINUES}`,
   superseded: "This voice session was replaced by a newer one.",
+  voice_busy: `Voice is busy right now. ${TEXT_CONTINUES}`,
   unknown_confirm: "There is nothing waiting to be confirmed for that item.",
   resume_gap: "Some earlier events are no longer available.",
   internal: `Something went wrong. ${TEXT_CONTINUES}`,
@@ -1255,6 +1269,12 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       void finalize(c, 1008);
       return;
     }
+    // pc-voice review 2: re-checked here (the caps may have moved since the upgrade); nothing paid is opened for an over-cap visitor.
+    if (c.anon && anonymousCapReached(c.claims.tenantId, c.quotaKey, c)) {
+      sendError(c, "voice_busy");
+      void finalize(c, 1008);
+      return;
+    }
     c.state = "starting";
     armStartTimer(c);
     const { tenantId, studentId } = c.claims;
@@ -1551,9 +1571,9 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
 
   // -- the upgrade ----------------------------------------------------------
 
-  function refuse(socket: Duplex, status: number, text: string): void {
+  function refuse(socket: Duplex, status: number, text: string, extraHeaders = ""): void {
     try {
-      socket.write(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n${status === 401 ? 'WWW-Authenticate: Bearer realm="vc-api"\r\n' : ""}\r\n`);
+      socket.write(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n${status === 401 ? 'WWW-Authenticate: Bearer realm="vc-api"\r\n' : ""}${extraHeaders}\r\n`);
     } catch {
       // the peer is already gone
     }
@@ -1573,6 +1593,21 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     let n = 0;
     for (const c of conns) if (c.quotaKey === key && (c.state === "awaiting_start" || c.state === "starting")) n++;
     return n;
+  }
+
+  /** True when an anonymous client or its partner already holds its cap of active (not closed) sessions; `self` is excluded so a start can re-check its own connection. */
+  function anonymousCapReached(tenantId: string, clientKey: string, self?: Conn): boolean {
+    const perClient = Math.max(0, deps.anonymous?.maxActivePerClient ?? VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT);
+    const raw = deps.anonymous?.maxActivePerPartner;
+    const perPartner = Math.max(0, (typeof raw === "function" ? raw(tenantId) : raw) ?? VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT);
+    let client = 0;
+    let partner = 0;
+    for (const c of conns) {
+      if (!c.anon || c === self || c.state === "closed" || c.claims.tenantId !== tenantId) continue;
+      partner++;
+      if (c.quotaKey === clientKey) client++;
+    }
+    return client >= perClient || partner >= perPartner;
   }
 
   async function doUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): Promise<void> {
@@ -1612,6 +1647,10 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     // One student may hold only a few sockets that have not started: the token is not spent when this refuses.
     if (preStartSockets(claims.anon ? `${claims.tenantId}\u0000anon-client\u0000${claims.ck}` : `${claims.tenantId}\u0000${claims.studentId}`) >= VOICE_MAX_PRESTART_SOCKETS_PER_STUDENT) {
       return refuse(socket, 429, "Too Many Requests");
+    }
+    // pc-voice review 2: an anonymous client / partner holds only so many ACTIVE sessions; the token is not spent when this refuses.
+    if (claims.anon && anonymousCapReached(claims.tenantId, `${claims.tenantId}\u0000anon-client\u0000${claims.ck}`)) {
+      return refuse(socket, 429, "Too Many Requests", `Retry-After: ${VOICE_ACTIVE_CAP_RETRY_AFTER_SEC}\r\n`);
     }
     usedTokens.set(claims.jti, claims.exp);
     wss.handleUpgrade(req, socket, head, (ws) => onConnection(ws, claims));

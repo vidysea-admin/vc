@@ -60,7 +60,7 @@ const ok = (name, cond, extra) => { results.push([cond ? "PASS" : "FAIL", name, 
   ok("A5 transcript and reply shown (markup stays text)", logText.includes("Which course suits me?") && logText.includes("<b>Computer Science</b> is a strong option."), JSON.stringify(logText.slice(-120)));
   await page.evaluate(() => { window.__ws.say({ type: "flag", eventId: "4", reason: "crisis_detected" }); window.__ws.say({ type: "state", eventId: "5", state: "escalated" }); });
   logText = await sh(".log").innerText();
-  ok("A6 crisis message plus helpline, once", logText.includes("help is available right now") && logText.includes("14416") && logText.split("help is available right now").length === 2, "");
+  ok("A6 crisis notice is the helpline line only (14416 and 112), once, no paraphrase", logText.includes("14416") && logText.includes("112") && logText.split("14416").length === 2 && !logText.includes("help is available right now"), "");
   await sh(".mic").click();
   await page.waitForFunction(() => window.__closed === 1000, null, { timeout: 3000 });
   const sent2 = await page.evaluate(() => window.__sent.filter((s) => !s.startsWith("bin:")));

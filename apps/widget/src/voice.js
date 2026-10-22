@@ -17,8 +17,8 @@
   var INPUT_RATE = 16000;
   var OUTPUT_RATE = 24000;
   var HELP = "Tele-MANAS 14416 (24x7) · Emergency 112"; // same text as vc-widget.js HELP (a test keeps them equal)
-  // Shown on screen when the server flags a crisis. The spoken message is the server's fixed pre-rendered audio and plays regardless.
-  var CRISIS_TEXT = "It sounds like you may be going through a hard time. You are not alone, and help is available right now.";
+  // On a crisis the screen shows ONLY the helpline line (as the text chat does). The wording of the crisis message is the server's (LK10): it is the fixed
+  // pre-rendered audio, which plays regardless. This file owns no crisis sentence of its own.
 
   // ---- pure helpers -----------------------------------------------------------------------------------------
 
@@ -149,10 +149,20 @@
       state = s;
       emit("state", s);
     }
+    // Stops one microphone stream's tracks, once. A start only ever stops the stream IT obtained (a stale start must not touch a newer start's stream).
+    var stoppedStreams = typeof WeakSet === "function" ? new WeakSet() : null;
+    function stopTracks(st) {
+      if (!st) return;
+      if (stoppedStreams) {
+        if (stoppedStreams.has(st)) return;
+        try { stoppedStreams.add(st); } catch (e) { /* not an object */ }
+      }
+      try { st.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { /* ignore */ }
+    }
     function releaseMic() {
       if (stopCapture) { try { stopCapture(); } catch (e) { /* ignore */ } stopCapture = null; }
       if (stream) {
-        try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { /* ignore */ }
+        stopTracks(stream);
         stream = null;
       }
       if (audio && audio.close) { try { audio.close(); } catch (e) { /* ignore */ } }
@@ -193,24 +203,27 @@
       crisisShown = false;
       opened = false;
       // 1. The microphone first: a visitor who says no never costs a session.
+      var mic; // this start's own stream; the shared `stream` is assigned only while this start is still the current one
       try {
-        stream = await md.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
+        mic = await md.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
       } catch (err) {
         if (mine !== gen) return false;
         setState("idle");
         emit("fallback", { reason: micFailure(err) });
         return false;
       }
-      if (mine !== gen) { releaseMic(); return false; }
+      // A prompt that resolves after the visitor cancelled (or cancelled and restarted) stops its own tracks and nothing else.
+      if (mine !== gen) { stopTracks(mic); return false; }
+      stream = mic;
       // 2. Mint the single-use token with the page key.
       var res;
       try {
         res = await f(url, { method: "POST", headers: { "X-VC-Key": cfg.key }, credentials: "omit" });
       } catch (e) {
-        if (mine !== gen) { releaseMic(); return false; }
+        if (mine !== gen) { stopTracks(mic); return false; }
         return fail({ reason: "network" });
       }
-      if (mine !== gen) { releaseMic(); return false; }
+      if (mine !== gen) { stopTracks(mic); return false; }
       if (res.status === 401 || res.status === 403) return fail({ reason: "unavailable" });
       if (res.status === 429) {
         var ra = res.headers && res.headers.get && res.headers.get("retry-after");
@@ -219,7 +232,7 @@
       }
       var body = null;
       try { body = await res.json(); } catch (e) { /* not JSON */ }
-      if (mine !== gen) { releaseMic(); return false; }
+      if (mine !== gen) { stopTracks(mic); return false; }
       if (!res.ok || res.status !== 201) {
         var d = { reason: "error", status: res.status };
         if (body && typeof body.helpline === "string") d.helpline = body.helpline.slice(0, 300);
@@ -270,7 +283,7 @@
     function crisis() {
       if (crisisShown) return;
       crisisShown = true;
-      emit("crisis", { text: CRISIS_TEXT, help: HELP });
+      emit("crisis", { help: HELP });
     }
 
     function onMessage(data) {
@@ -328,7 +341,7 @@
   }
 
   var api = {
-    VERSION: VERSION, HELP: HELP, CRISIS_TEXT: CRISIS_TEXT, THREAD_ID: THREAD_ID,
+    VERSION: VERSION, HELP: HELP, THREAD_ID: THREAD_ID,
     sessionUrl: sessionUrl, downsampleToPcm16: downsampleToPcm16, pcm16ToFloat32: pcm16ToFloat32, create: create
   };
 

@@ -3,7 +3,7 @@ PASS  A2 start message first, then binary mic frames  {"type":"start","threadId"
 PASS  A3 subprotocols offered  
 PASS  A4 mic pressed state  
 PASS  A5 transcript and reply shown (markup stays text)  "s, so please check important facts with a counsellor.\nWhich course suits me?\n<b>Computer Science</b> is a strong option."
-PASS  A6 crisis message plus helpline, once  
+PASS  A6 crisis notice is the helpline line only (14416 and 112), once, no paraphrase  
 PASS  A7 stop sends end and closes  {"type":"start","threadId":"anonymous"} {"type":"end"}
 PASS  B1 denied mic: text fallback note shown  "ourses and colleges. I can make mistakes, so please check important facts with a counsellor.\nNo microphone was found, so voice is off. You can keep typing here."
 PASS  B2 denied mic: no session minted, no socket  mint hits 0

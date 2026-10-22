@@ -482,7 +482,7 @@
           var box = lastBot && list.length ? linksBlock(list) : null;
           if (box) lastBot.appendChild(box);
         },
-        crisis: function (c) { add("crisis", c.text + "\n" + c.help); },
+        crisis: function (c) { add("crisis", c.help); },
         error: function (e) { add("err", (e.message || "Voice had a problem.") + "\n" + e.help); },
         fallback: function (d) {
           var text = VOICE_FALLBACK_TEXT[d.reason];

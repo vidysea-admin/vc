@@ -145,12 +145,14 @@ const nights: Checker = (lines) => {
 
 /** pc-voice V1 (D-111): the decision an A10 owner override must cite, and the words the gate output carries when it is used. */
 export const A10_OVERRIDE_DECISION = "D-111";
+/** The D-111 owner and the repo's named Approver; the override signer when VC_GATE_APPROVER is unset. */
+export const A10_OVERRIDE_DEFAULT_OWNER = "Umesh";
 export const A10_OVERRIDE_NOTE = `A10 OVERRIDDEN by owner (${A10_OVERRIDE_DECISION})`;
 const OVERRIDE_RE = new RegExp(`^(${ISO_INSTANT}) (?:\\u2014|\\u2013|--|-) (\\p{Lu}[\\p{L} .'-]{1,40}?) (?:\\u2014|\\u2013|--|-) ${A10_OVERRIDE_DECISION}$`, "u");
 
 /**
  * `Owner-override: <ISO instant> - <owner name> - D-111` (em dash in the record). Valid when it appears exactly once at the start of a live line, the
- * instant is a real past instant, the signer is a personal name (never a role, and the repo approver when one is configured) and the decision is D-111.
+ * instant is a real past instant, the signer is a personal name (never a role, and the repo approver; Umesh when none is configured) and the decision is D-111.
  * Like B13-signed this is an executable refusal, not an identity proof: the file stays under the Approver's process.
  */
 function ownerOverrideProblem(lines: string[], { now, approver }: Ctx): string | null {
@@ -159,7 +161,9 @@ function ownerOverrideProblem(lines: string[], { now, approver }: Ctx): string |
   const m = OVERRIDE_RE.exec(v);
   if (!m) return `Owner-override is not "<ISO instant> - <owner name> - ${A10_OVERRIDE_DECISION}" (found "${v.slice(0, 50)}")`;
   if (ROLE_WORDS.test(m[2]!)) return "Owner-override signer is a role, not a person";
-  if (approver !== undefined && approver !== "" && m[2] !== approver) return "Owner-override signer is not the repo approver";
+  // No approver configured: fail closed to the named repo Approver (project CLAUDE.md), never "any personal name".
+  const signer = approver !== undefined && approver !== "" ? approver : A10_OVERRIDE_DEFAULT_OWNER;
+  if (m[2] !== signer) return "Owner-override signer is not the repo approver";
   return validInstant(m[1]!, now) ? null : "Owner-override instant is in the future";
 }
 
