@@ -19,7 +19,7 @@ Proxy mode (Pathlynks and any host with a backend; the host backend adds the key
 | `data-vc-proxy` | URL (absolute http/https, or a path starting with one `/`) that receives the same `{text}` body. No key is sent. |
 | `data-vc-title` | Panel title (max 60 chars). Default `Career Counsellor`. |
 | `data-vc-color` | Bubble and header colour, `#rgb` or `#rrggbb`. Text colour is chosen for contrast. |
-| `data-vc-voice` | Reserved for pc-voice. Parsed, but no mic is rendered yet. |
+| `data-vc-voice` | `on` adds a mic button (key mode only): tap to talk, live transcript, the reply, a crisis notice with the helpline; if the microphone is denied or voice is unavailable the chat stays text. The widget loads `vc-widget-voice.v1.js` from the folder it came from, so nginx must serve it (see `nginx-widget.conf.snippet`). |
 
 Behaviour: Enter sends (Shift+Enter is a new line), Esc closes. 401/403 shows "Chat unavailable" and disables input. 429 shows a countdown for `Retry-After` seconds (1 to 300) and gives the message back to the box. The footer always shows Tele-MANAS 14416 / 112; an `escalated` reply is rendered as a crisis block with the same line. Model text is written with `textContent` only; source links must be http or https.
 

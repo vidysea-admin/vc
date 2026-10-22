@@ -840,7 +840,10 @@ test("K5: nginx proxies the public chat route, the student chat routes, the part
   const chat = locationBlock(/location\s*~\s*\^\/v1\/students\/\[\^\/\]\+\/chat\(\/\|\$\)\s*{/);
   const openapi = locationBlock(/location\s*=\s*\/v1\/partner\/openapi\.json\s*{/);
   const stream = locationBlock(/location\s*~\s*\^\/v1\/students\/\[\^\/\]\+\/chat\/threads\/\[\^\/\]\+\/voice\/stream\$\s*{/);
-  for (const [name, block] of Object.entries({ anon, chat, openapi, stream })) {
+  // pc-voice V2: the anonymous voice session route and its WebSocket stream (page key) are proxied the same way.
+  const pubVoiceSessions = locationBlock(/location\s*=\s*\/v1\/public\/voice\/sessions\s*{/);
+  const pubVoiceStream = locationBlock(/location\s*=\s*\/v1\/public\/voice\/stream\s*{/);
+  for (const [name, block] of Object.entries({ anon, chat, openapi, stream, pubVoiceSessions, pubVoiceStream })) {
     assert.match(block, /proxy_pass\s+http:\/\/127\.0\.0\.1:8080;/, name);
     assert.match(block, /proxy_set_header\s+X-Real-IP\s+\$remote_addr;/, `${name}: X-Real-IP is SET from the socket peer`);
     assert.doesNotMatch(block, /proxy_set_header\s+X-Real-IP\s+\$http_/, name);
@@ -848,7 +851,10 @@ test("K5: nginx proxies the public chat route, the student chat routes, the part
     assert.doesNotMatch(block, /add_header\s+['"]?Access-Control/i, `${name}: CORS is decided by the API per key, never by nginx`);
     assert.doesNotMatch(block, /proxy_set_header\s+X-VC-Key\b/i, `${name}: the key header is passed through unchanged`);
   }
-  for (const block of [anon, chat, openapi]) assert.match(block, /limit_req\s+zone=vcchat/);
+  for (const block of [anon, chat, openapi, pubVoiceSessions, pubVoiceStream]) assert.match(block, /limit_req\s+zone=vcchat/);
+  assert.match(pubVoiceStream, /proxy_http_version\s+1\.1;/);
+  assert.match(pubVoiceStream, /proxy_set_header\s+Upgrade\s+\$http_upgrade;/);
+  assert.match(pubVoiceStream, /proxy_set_header\s+Connection\s+["']?upgrade["']?;/);
   assert.match(stream, /proxy_http_version\s+1\.1;/);
   assert.match(stream, /proxy_set_header\s+Upgrade\s+\$http_upgrade;/);
   assert.match(stream, /proxy_set_header\s+Connection\s+["']?upgrade["']?;/);
@@ -857,9 +863,9 @@ test("K5: nginx proxies the public chat route, the student chat routes, the part
   const rest = locationBlock(/location\s+\/v1\/\s*{/);
   assert.match(rest, /return\s+404;/);
   assert.doesNotMatch(rest, /proxy_pass/);
-  // nothing else under /v1/ is proxied: the only proxied v1 locations are the four above
+  // nothing else under /v1/ is proxied: the only proxied v1 locations are the six above, plus the catch-all 404
   const v1Locations = [...nginxCode.matchAll(/location\s+(?:=\s*|~\s*)?(\^?\/v1\/\S*)/g)].map((m) => m[1]);
-  assert.equal(v1Locations.length, 5, v1Locations.join(" | "));
+  assert.equal(v1Locations.length, 7, v1Locations.join(" | "));
 });
 
 test("K5 (clarified default 5): nginx serves the widget statically with a one-year immutable cache for the versioned file and 300 s for the alias", () => {

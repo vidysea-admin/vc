@@ -10,6 +10,10 @@
  * JWT verifier (auth.ts), the chat store (@vc/db) and server.ts's `respond` / `ApiRoute` / `PATH_ID_PATTERN`, and edits none of them.
  * The route path is the one the U5a contract draft fixed (openapi.ts `createVoiceSession`): the session is bound to a thread.
  *
+ * pc-voice V2 (D-111) adds partner keys: the student session route also takes a partner SERVER key (`vck_srv_`, K3 headers), and, when `anonymous` is supplied,
+ * POST /v1/public/voice/sessions + GET /v1/public/voice/stream serve a visitor holding the partner's PAGE key (`vck_pub_`, the partner's own origins) with the
+ * anonymous text route's rules (no Db reached, no turn text, audio, usage or resume log kept; the fixed crisis message unchanged; per partner + client limit).
+ *
  * What is guaranteed here, and what is not:
  *  - OFF by default. `createVoiceApi` returns `undefined` unless VC_VOICE_ENABLED=true; when on it calls the A20 go-live gate
  *    (`assertGoLive(..., "voice")`, so a passing A10 record is required) and refuses to start with tracing on. Nothing here enables it.
@@ -62,7 +66,7 @@ import {
   type Source,
   type VoiceServerEvent,
 } from "@vc/schemas";
-import { crisisGuard, detectLanguageOffline, type SpeakersFile, type StudentGraphDeps } from "@vc/engine";
+import { TELE_MANAS_LINE, crisisGuard, detectLanguageOffline, type SpeakersFile, type StudentGraphDeps } from "@vc/engine";
 import {
   LiveConfigError,
   createSimpleOutputAuditor,
@@ -81,8 +85,24 @@ import {
   type LiveTranscriptSink,
 } from "@vc/providers";
 import { AuthError, bearerToken, type StudentAuthContext, type StudentJwtVerifier } from "./auth.js";
-import { AnonymousRateLimiter } from "./anonymous.js";
+import {
+  ANONYMOUS_MAX_LIMITER_KEYS,
+  ANONYMOUS_WINDOW_MS,
+  AnonymousForbiddenWriteError,
+  AnonymousRateLimiter,
+  normalizeClientAddress,
+  type AnonymousCounterWriter,
+} from "./anonymous.js";
 import { assertGoLive } from "./go-live-gate.js";
+import {
+  PUBLIC_VOICE_SESSIONS_PATH,
+  PartnerRegistryUnavailableError,
+  isPartnerKeyToken,
+  partnerKeyFromRequest,
+  partnerStudentFromHeaders,
+  singleHeader,
+  type PartnerRegistry,
+} from "./partners.js";
 import { BodyTooLargeError, PATH_ID_PATTERN, respond, type ApiHandler, type ApiRequest, type ApiResponse, type ApiRoute } from "./server.js";
 
 type Db = ReturnType<typeof tenantScopedDb>;
@@ -148,6 +168,19 @@ export const VOICE_ROUTES: readonly ApiRoute[] = Object.freeze([
   { id: "createVoiceSession", method: "POST", path: "/v1/students/{studentId}/chat/threads/{threadId}/voice/sessions", roles: "student" } as unknown as ApiRoute,
 ]);
 
+/**
+ * pc-voice V2 (D-111): the anonymous voice routes. A visitor's browser mints a session with the partner's PAGE key (`X-VC-Key: vck_pub_...`, from the partner's own
+ * origins) and opens the WebSocket with the token. Kept apart from ANONYMOUS_ROUTES on purpose: the anonymous TEXT route list must never mention voice.
+ */
+export const ANONYMOUS_VOICE_ROUTES: readonly ApiRoute[] = Object.freeze([
+  { id: "createAnonymousVoiceSession", method: "POST", path: PUBLIC_VOICE_SESSIONS_PATH, roles: "public" } as unknown as ApiRoute,
+]);
+export const ANONYMOUS_VOICE_STREAM_PATH = "/v1/public/voice/stream";
+/** An anonymous session has no thread; the client's `start` names this id and anything else is refused. It is also the (never stored) student and thread of the token. */
+export const ANONYMOUS_VOICE_THREAD_ID = "anonymous";
+/** A counter write not finished by this deadline counts as failed; a crisis never waits on it for longer. */
+export const VOICE_ANONYMOUS_COUNTER_DEADLINE_MS = 750;
+
 export class VoiceConfigError extends Error {
   constructor(message: string) {
     super(`VoiceConfigError: ${message}`);
@@ -196,9 +229,32 @@ export interface VoiceTimers {
   clearTimeout(handle: unknown): void;
 }
 
+export interface VoiceAnonymousDeps {
+  /** The limiter's client source. Default: the socket peer address through `normalizeClientAddress`. Behind a proxy the deployment supplies its own. */
+  clientKey?: (req: ApiRequest) => string | undefined;
+  /** The text-free aggregate counter the anonymous text route uses; a visitor's crisis adds one to the `crisis` kind. Absent: nothing is counted. */
+  counter?: AnonymousCounterWriter;
+  /** Search-only knowledge-base tools for an anonymous session. Absent: the model has no tools (the student `tools` are never offered to a visitor). */
+  tools?: VoiceTools;
+  /** Replaces `systemInstruction` for anonymous sessions (the student instruction may speak of a profile the visitor does not have). */
+  systemInstruction?: string;
+}
+
 export interface VoiceApiDeps {
   /** The student (Pathlynks) JWT verifier: only the session route uses it. */
   verifier: StudentJwtVerifier;
+  /**
+   * pc-voice V2 (D-111): the partner registry. With it, the student session route also takes a partner SERVER key as the bearer (`vck_srv_`; the partner's backend
+   * vouches for the student in the K3 headers and the tenant is the partner id), and the anonymous routes (see `anonymous`) take a PAGE key. A key of the other
+   * scope, an unknown, revoked or malformed one is the same uniform 401. Absent: a `vck_` bearer is refused like any bad token.
+   */
+  partners?: Pick<PartnerRegistry, "authenticate">;
+  /**
+   * pc-voice V2: serves the anonymous voice routes (needs `partners`; refused at construction otherwise). An anonymous session has the anonymous text route's rules:
+   * no Db is ever reached (the connection holds a Db that throws), no turn text, audio, usage or resume log is kept, a minor-or-adult question never arises because
+   * nothing is stored, the fixed crisis message plays unchanged, and the limit is per partner AND client. Absent: those routes do not exist (404).
+   */
+  anonymous?: VoiceAnonymousDeps;
   /** The tenant-scoped `virtual_counsellor` Db. Called only after a token verified. */
   dbForTenant(tenantId: string): Db;
   /** The Live seam (U9). Production would be GeminiLiveProvider; every test here uses MockLiveProvider. */
@@ -312,18 +368,27 @@ function pathOf(req: Pick<ApiRequest, "url">): string | undefined {
   }
 }
 
-/** Sends the session route to `voice` (when built) and everything else, chat paths included, to `main` untouched. Wrap OUTSIDE withChatRoutes. */
+/** Sends the session routes (student and anonymous) to `voice` (when built) and everything else, chat paths included, to `main` untouched. Wrap OUTSIDE withChatRoutes. */
 export function withVoiceRoutes(main: ApiHandler, voice: ApiHandler | undefined): ApiHandler {
   if (!voice) return main;
   return (req) => {
     const pathname = pathOf(req);
-    return pathname !== undefined && VOICE_PATH_RE.test(pathname) ? voice(req) : main(req);
+    return pathname !== undefined && (VOICE_PATH_RE.test(pathname) || pathname === PUBLIC_VOICE_SESSIONS_PATH) ? voice(req) : main(req);
   };
 }
 
 const fail = (status: number, error: string, headers?: Record<string, string>): ApiResponse => respond(status, { error }, headers);
 const NOT_FOUND = () => fail(404, "not_found");
 const UNAUTHORIZED = () => respond(401, { error: "unauthorized" }, { "www-authenticate": 'Bearer realm="vc-api"' });
+/** Every refusal on the anonymous routes carries the static helpline, like the anonymous text route: a visitor in distress who meets any refusal still sees it. */
+const failAnon = (status: number, error: string, headers?: Record<string, string>): ApiResponse => respond(status, { error, helpline: TELE_MANAS_LINE }, headers);
+const UNAUTHORIZED_ANON = () => respond(401, { error: "unauthorized", helpline: TELE_MANAS_LINE }, { "www-authenticate": 'Bearer realm="vc-api"' });
+/** The Db of an anonymous connection: any use of it is a bug and throws (the structural form of "zero persistence"). */
+const NO_DB: Db = new Proxy({} as Db, {
+  get() {
+    throw new AnonymousForbiddenWriteError("db");
+  },
+});
 
 // ---------------------------------------------------------------------------
 // The WebSocket token (VC-minted, aud-checked, short-lived, single use)
@@ -339,6 +404,37 @@ interface VoiceTokenClaims {
   guardianConsent: boolean;
   jti: string;
   exp: number;
+  /** pc-voice V2: an anonymous (page-key) session. Its tenant is the partner id; its student and thread are the fixed ANONYMOUS_VOICE_THREAD_ID and name no one. */
+  anon: boolean;
+  /** Anonymous only: the browser Origin the session was minted for ("" = minted by a script with no Origin). The WebSocket must come from the same one. */
+  origin: string;
+  /** Anonymous only: the salted digest of partner + client the mint limit counted, so the pre-start socket cap is per partner and client too. */
+  ck: string;
+}
+
+async function mintAnonymousVoiceToken(secret: Uint8Array, partnerId: string, origin: string, ck: string, nowMs: number): Promise<{ token: string; exp: number }> {
+  const iat = Math.floor(nowMs / 1000);
+  const exp = iat + VOICE_WS_TOKEN_TTL_SEC;
+  const token = await new SignJWT({
+    tenant: partnerId,
+    studentId: ANONYMOUS_VOICE_THREAD_ID,
+    threadId: ANONYMOUS_VOICE_THREAD_ID,
+    sid: randomUUID(),
+    // Nothing is stored for an anonymous session whatever the age, so the fail-closed minor flags change nothing; they are set the safe way regardless.
+    minor: true,
+    guardianConsent: false,
+    anon: true,
+    origin,
+    ck,
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuer(VOICE_WS_ISSUER)
+    .setAudience(VOICE_WS_AUDIENCE)
+    .setJti(randomUUID())
+    .setIssuedAt(iat)
+    .setExpirationTime(exp)
+    .sign(secret);
+  return { token, exp };
 }
 
 async function mintVoiceToken(secret: Uint8Array, who: StudentAuthContext, threadId: string, nowMs: number): Promise<{ token: string; exp: number }> {
@@ -381,7 +477,27 @@ async function verifyVoiceToken(secret: Uint8Array, token: string, nowMs: number
     if (typeof sid !== "string" || !/^[0-9a-f-]{36}$/.test(sid)) return undefined;
     if (typeof minor !== "boolean" || typeof guardianConsent !== "boolean") return undefined;
     if (typeof payload.jti !== "string" || typeof payload.exp !== "number") return undefined;
-    return { tenantId: tenant, studentId, threadId, sid, minor, guardianConsent, jti: payload.jti, exp: payload.exp };
+    // pc-voice V2: the anonymous flag is either absent (a student token, as before) or a boolean; an anonymous token must carry the whole anonymous shape.
+    const { anon: anonRaw, origin, ck } = p;
+    if (anonRaw !== undefined && typeof anonRaw !== "boolean") return undefined;
+    const anon = anonRaw === true;
+    if (anon) {
+      if (studentId !== ANONYMOUS_VOICE_THREAD_ID || threadId !== ANONYMOUS_VOICE_THREAD_ID) return undefined;
+      if (typeof origin !== "string" || origin.length > 256 || typeof ck !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(ck)) return undefined;
+    }
+    return {
+      tenantId: tenant,
+      studentId,
+      threadId,
+      sid,
+      minor,
+      guardianConsent,
+      jti: payload.jti,
+      exp: payload.exp,
+      anon,
+      origin: anon ? (origin as string) : "",
+      ck: anon ? (ck as string) : "",
+    };
   } catch {
     return undefined;
   }
@@ -440,6 +556,10 @@ interface Conn {
   claims: VoiceTokenClaims;
   db: Db;
   key: string;
+  /** pc-voice V2: an anonymous session (no Db, nothing stored). */
+  anon: boolean;
+  /** What the pre-start socket cap counts: the student for a student session, the partner + client for an anonymous one. */
+  quotaKey: string;
   state: "awaiting_start" | "starting" | "active" | "closing" | "closed";
   seq: number;
   log: VoiceServerEvent[];
@@ -492,6 +612,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   }
   const wsBase = deps.wsBaseUrl.replace(/\/+$/, "");
   if (!/^wss?:\/\/\S+$/.test(wsBase)) throw new VoiceConfigError("wsBaseUrl must be a ws:// or wss:// URL");
+  if (deps.anonymous && !deps.partners) throw new VoiceConfigError("the anonymous voice routes need the partner registry (a page key is the only credential they take)");
 
   const nowMs = deps.nowMs ?? Date.now;
   const nowDate = () => (deps.now ? deps.now() : new Date(nowMs()));
@@ -573,6 +694,16 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     if (!l) {
       l = new AnonymousRateLimiter({ limit, windowMs: VOICE_RATE_WINDOW_MS, maxKeys: VOICE_MAX_LIMITER_KEYS, nowMs });
       limiters.set(limit, l);
+    }
+    return l;
+  };
+  // The anonymous mint limiter (per partner AND client, the anonymous text route's 10 per minute by default), one per distinct limit value.
+  const anonLimiters = new Map<number, AnonymousRateLimiter>();
+  const anonLimiterFor = (limit: number): AnonymousRateLimiter => {
+    let l = anonLimiters.get(limit);
+    if (!l) {
+      l = new AnonymousRateLimiter({ limit, windowMs: ANONYMOUS_WINDOW_MS, maxKeys: ANONYMOUS_MAX_LIMITER_KEYS, nowMs });
+      anonLimiters.set(limit, l);
     }
     return l;
   };
@@ -806,6 +937,27 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
   async function onCrisisRecord(c: Conn, r: LiveCrisisRecord): Promise<void> {
     // The words of THIS crisis utterance, captured when it was detected (consumed here, so a later crisis never sees them).
     const raw = c.crisisUtterances.shift();
+    if (c.anon) {
+      // pc-voice V2: a visitor has no student, thread or tenant to flag or escalate for, exactly like the anonymous text route. The ONLY write is the text-free
+      // aggregate counter (a failed or slow write is logged by name and never delays or blocks the crisis message, which LiveSession has already played).
+      const counter = deps.anonymous?.counter;
+      if (!counter) return;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          Promise.resolve().then(() => counter.increment("crisis")),
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(() => reject(new Error("AnonymousCounterTimeout")), VOICE_ANONYMOUS_COUNTER_DEADLINE_MS);
+            timer.unref?.();
+          }),
+        ]);
+      } catch (err) {
+        logEvent("voice_anonymous_counter_failed", err);
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+      }
+      return;
+    }
     // U10s H1: a throwing redaction must never lose the flag or the escalation: the words are dropped (the fixed text-free marker is
     // escalated instead, never the raw words) and the failure is logged without text.
     let words: string | undefined;
@@ -909,9 +1061,11 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
       onAudit: (r) => onAudit(c, r),
       onCrisis: (r) => onCrisisRecord(c, r),
     };
-    const tools = deps.tools;
+    // An anonymous session never gets the student tools (they may read a profile); only the anonymous option's search-only ones.
+    const tools = c.anon ? deps.anonymous?.tools : deps.tools;
+    const systemInstruction = c.anon ? (deps.anonymous?.systemInstruction ?? deps.systemInstruction) : deps.systemInstruction;
     return {
-      ...(deps.systemInstruction !== undefined ? { systemInstruction: deps.systemInstruction } : {}),
+      ...(systemInstruction !== undefined ? { systemInstruction } : {}),
       ...(tools ? { tools: [...tools.declarations] } : {}),
       ...(deps.voiceName !== undefined ? { voiceName: deps.voiceName } : {}),
       onEvent: (ev) => onLiveEvent(c, ev),
@@ -1022,7 +1176,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
         liveOpen--;
         c.session = undefined;
       }
-      if (wasStarted) {
+      if (wasStarted && !c.anon) {
         const elapsed = Math.max(0, Math.min(Math.round(nowMs() - c.startedAtMs!), c.capMs ?? Infinity));
         if (elapsed > 0) {
           try {
@@ -1032,7 +1186,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
           }
         }
       }
-      retain(c);
+      if (!c.anon) retain(c); // an anonymous session keeps no events for a resume: nothing of it outlives the socket
       if (activeByStudent.get(c.key) === c) activeByStudent.delete(c.key);
       if (latestStart.get(c.key) === c) latestStart.delete(c.key);
       conns.delete(c);
@@ -1106,26 +1260,29 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     const { tenantId, studentId } = c.claims;
     const now = nowDate();
     const limits = resolveLimits(deps.limitsForTenant?.(tenantId));
-    let used: number;
-    try {
-      if (await isStudentFenced(c.db, studentId, now)) {
-        sendError(c, "student_fenced");
-        void finalize(c, 1008);
+    let used = 0;
+    // pc-voice V2: an anonymous session has no student to fence, no thread to find and no monthly allowance to count; none of those reads exist for it.
+    if (!c.anon) {
+      try {
+        if (await isStudentFenced(c.db, studentId, now)) {
+          sendError(c, "student_fenced");
+          void finalize(c, 1008);
+          return;
+        }
+        if ((await getChatThread(c.db, { studentId, threadId })) === null) {
+          sendError(c, "not_found");
+          void finalize(c, 1008);
+          return;
+        }
+        used = (await getStudentUsage(c.db, { studentId, month: usageMonth(now) })).voiceMs;
+      } catch (err) {
+        logEvent("voice_start_failed", err);
+        sendError(c, "internal");
+        void finalize(c, 1011);
         return;
       }
-      if ((await getChatThread(c.db, { studentId, threadId })) === null) {
-        sendError(c, "not_found");
-        void finalize(c, 1008);
-        return;
-      }
-      used = (await getStudentUsage(c.db, { studentId, month: usageMonth(now) })).voiceMs;
-    } catch (err) {
-      logEvent("voice_start_failed", err);
-      sendError(c, "internal");
-      void finalize(c, 1011);
-      return;
     }
-    let remainingMs = limits.voiceMinutesPerMonth * 60_000 - used;
+    let remainingMs = c.anon ? Number.POSITIVE_INFINITY : limits.voiceMinutesPerMonth * 60_000 - used;
     if (remainingMs <= 0) {
       sendError(c, "voice_quota_exceeded");
       void finalize(c, 1008);
@@ -1189,16 +1346,16 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     }
     if (c.state !== "starting") return;
     activeByStudent.set(c.key, c);
-    if (lastEventId !== undefined) replayFrom(c, lastEventId);
+    if (lastEventId !== undefined && !c.anon) replayFrom(c, lastEventId);
 
-    if (deps.profileNames) {
+    if (deps.profileNames && !c.anon) {
       try {
         c.knownNames = [...(await deps.profileNames({ tenantId, studentId }))];
       } catch {
         c.knownNames = []; // like the text path: a failing profile port only costs name redaction
       }
     }
-    if (!c.persistText) {
+    if (!c.persistText && !c.anon) {
       try {
         await markChatThreadTextNotStored(c.db, { studentId, threadId });
       } catch (err) {
@@ -1335,12 +1492,16 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     const c: Conn = {
       ws,
       claims,
-      db: deps.dbForTenant(claims.tenantId),
-      key: `${claims.tenantId}\u0000${claims.studentId}`,
+      // pc-voice V2: an anonymous connection never reaches a tenant Db (its own is a stand-in that throws on any use). Its slot key is unique per session, so
+      // two visitors behind one address never replace each other the way one student's second tab does.
+      db: claims.anon ? NO_DB : deps.dbForTenant(claims.tenantId),
+      key: claims.anon ? `${claims.tenantId}\u0000anon-session\u0000${claims.sid}` : `${claims.tenantId}\u0000${claims.studentId}`,
+      anon: claims.anon,
+      quotaKey: claims.anon ? `${claims.tenantId}\u0000anon-client\u0000${claims.ck}` : `${claims.tenantId}\u0000${claims.studentId}`,
       state: "awaiting_start",
       seq: 0,
       log: [],
-      persistText: !claims.minor || claims.guardianConsent,
+      persistText: !claims.anon && (!claims.minor || claims.guardianConsent),
       knownNames: [],
       timers: new Set(),
       chain: Promise.resolve(),
@@ -1410,7 +1571,7 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
 
   function preStartSockets(key: string): number {
     let n = 0;
-    for (const c of conns) if (c.key === key && (c.state === "awaiting_start" || c.state === "starting")) n++;
+    for (const c of conns) if (c.quotaKey === key && (c.state === "awaiting_start" || c.state === "starting")) n++;
     return n;
   }
 
@@ -1418,16 +1579,28 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     if (shuttingDown) return refuse(socket, 503, "Service Unavailable");
     const pathname = pathOf({ url: req.url ?? "/" });
     const m = pathname === undefined ? null : STREAM_RE.exec(pathname);
-    if (!m || (req.method ?? "GET").toUpperCase() !== "GET") return refuse(socket, 404, "Not Found");
+    const anonymousPath = pathname === ANONYMOUS_VOICE_STREAM_PATH && deps.anonymous !== undefined;
+    if ((!m && !anonymousPath) || (req.method ?? "GET").toUpperCase() !== "GET") return refuse(socket, 404, "Not Found");
     const origin = req.headers.origin;
-    if (deps.allowedOrigins && deps.allowedOrigins.length > 0 && typeof origin === "string" && !deps.allowedOrigins.includes(origin)) {
+    // The deployment-wide list guards the student stream (a server-to-server caller sends no Origin). The anonymous stream's origin rule is the PAGE KEY's, below.
+    if (!anonymousPath && deps.allowedOrigins && deps.allowedOrigins.length > 0 && typeof origin === "string" && !deps.allowedOrigins.includes(origin)) {
       return refuse(socket, 403, "Forbidden");
     }
     const token = tokenFrom(req);
     if (token === undefined) return refuse(socket, 401, "Unauthorized");
     const claims = await verifyVoiceToken(deps.wsSecret, token, nowMs());
-    // The path names the student and thread the token was minted for. A token for anyone else is the same 401.
-    if (!claims || claims.studentId !== m[1] || claims.threadId !== m[2]) return refuse(socket, 401, "Unauthorized");
+    if (!claims) return refuse(socket, 401, "Unauthorized");
+    if (anonymousPath) {
+      // An anonymous token opens only the anonymous stream (and a student token never does).
+      if (!claims.anon) return refuse(socket, 401, "Unauthorized");
+      // V2: the origin check uses the page key's allowedOrigins. The mint already held the browser's Origin to that list and put it in the token, so here the
+      // socket must come from that same origin; a token minted by a script (no Origin) is not for a browser at all. A caller with no Origin header is not a
+      // browser: it holds its own single-use token (the same stance as the student stream). Refused BEFORE the socket is accepted and before the token is spent.
+      if (origin !== undefined && origin !== claims.origin) return refuse(socket, 403, "Forbidden");
+    } else if (claims.anon || claims.studentId !== m![1] || claims.threadId !== m![2]) {
+      // The path names the student and thread the token was minted for. A token for anyone else (or an anonymous one) is the same 401.
+      return refuse(socket, 401, "Unauthorized");
+    }
     // Single use: checked and marked in one synchronous step, so two concurrent upgrades with one token cannot both pass.
     const nowSec = Math.floor(nowMs() / 1000);
     for (const [jti, exp] of usedTokens) {
@@ -1437,7 +1610,9 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     if (usedTokens.has(claims.jti)) return refuse(socket, 401, "Unauthorized");
     if (usedTokens.size >= VOICE_MAX_USED_TOKENS || conns.size >= maxSockets) return refuse(socket, 503, "Service Unavailable");
     // One student may hold only a few sockets that have not started: the token is not spent when this refuses.
-    if (preStartSockets(`${claims.tenantId}\u0000${claims.studentId}`) >= VOICE_MAX_PRESTART_SOCKETS_PER_STUDENT) return refuse(socket, 429, "Too Many Requests");
+    if (preStartSockets(claims.anon ? `${claims.tenantId}\u0000anon-client\u0000${claims.ck}` : `${claims.tenantId}\u0000${claims.studentId}`) >= VOICE_MAX_PRESTART_SOCKETS_PER_STUDENT) {
+      return refuse(socket, 429, "Too Many Requests");
+    }
     usedTokens.set(claims.jti, claims.exp);
     wss.handleUpgrade(req, socket, head, (ws) => onConnection(ws, claims));
   }
@@ -1481,11 +1656,28 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     const token = bearerToken(typeof header === "string" ? header : undefined);
     if (token === undefined) return UNAUTHORIZED();
     let ctx: StudentAuthContext;
-    try {
-      ctx = await deps.verifier.verify(token);
-    } catch (err) {
-      if (!(err instanceof AuthError)) throw err;
-      return err.reason === "role" ? fail(403, "forbidden") : UNAUTHORIZED();
+    if (isPartnerKeyToken(token)) {
+      // pc-voice V2 (K3 as in chat.ts): a partner SERVER key. A page key, an unknown, revoked, malformed or wrong-secret key, or no registry is one uniform 401, checked
+      // BEFORE the student headers are read. The tenant is the partner id, so a partner can never reach another's students.
+      let partner: Awaited<ReturnType<PartnerRegistry["authenticate"]>>;
+      try {
+        partner = deps.partners ? await deps.partners.authenticate(token, "srv") : undefined;
+      } catch (err) {
+        if (err instanceof PartnerRegistryUnavailableError) return fail(503, "partner_registry_unavailable");
+        throw err;
+      }
+      if (!partner) return UNAUTHORIZED();
+      const student = partnerStudentFromHeaders(req.headers);
+      if (!student.ok) return fail(400, "invalid_request");
+      // Age missing or invalid = minor, and consent counts only when exactly "true" (fail closed).
+      ctx = { tenantId: partner.partnerId, studentId: student.studentId, role: "student", minor: student.minor, guardianConsent: student.guardianConsent };
+    } else {
+      try {
+        ctx = await deps.verifier.verify(token);
+      } catch (err) {
+        if (!(err instanceof AuthError)) throw err;
+        return err.reason === "role" ? fail(403, "forbidden") : UNAUTHORIZED();
+      }
     }
     if (deps.sandboxTenantId !== undefined && ctx.tenantId === deps.sandboxTenantId && !isSyntheticStudentId(ctx.studentId)) return fail(403, "sandbox_synthetic_only");
     // The token's student is the only student this token may act for; anything else looks like a missing resource.
@@ -1524,8 +1716,54 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     );
   }
 
+  /**
+   * POST /v1/public/voice/sessions (pc-voice V2): a visitor's browser mints an anonymous voice session with the partner's PAGE key. The key is checked before anything
+   * else (one uniform 401 for none, blank, repeated, malformed, unknown, revoked, wrong-secret, SERVER-scope, or a browser Origin outside the partner's list), the limit
+   * is per partner AND client, and no Db is read: the token carries the partner id, the origin it was minted for and the limiter digest, and nothing else.
+   */
+  async function handleAnonymousSession(req: ApiRequest): Promise<ApiResponse> {
+    const anon = deps.anonymous;
+    const partners = deps.partners;
+    if (!anon || !partners) return NOT_FOUND();
+    if (req.method.toUpperCase() !== "POST") return failAnon(405, "method_not_allowed", { allow: "POST" });
+
+    const presented = partnerKeyFromRequest(req);
+    let who: Awaited<ReturnType<PartnerRegistry["authenticate"]>>;
+    try {
+      who = presented.kind === "key" ? await partners.authenticate(presented.key, "pub") : undefined;
+    } catch (err) {
+      if (err instanceof PartnerRegistryUnavailableError) return failAnon(503, "partner_registry_unavailable");
+      throw err;
+    }
+    // A page key is public, so from a browser it is good only for the partner's own site. No Origin header = not a browser (a script already holds the key and could
+    // send any Origin it likes, so this is a browser-side control, not a secret).
+    const origin = singleHeader(req.headers, "origin");
+    if (!who || (origin !== undefined && (typeof origin !== "string" || !who.allowedOrigins.includes(origin)))) return UNAUTHORIZED_ANON();
+
+    const limits = resolveLimits(deps.limitsForTenant?.(who.partnerId));
+    const clientRaw = anon.clientKey ? anon.clientKey(req) : normalizeClientAddress(req.remoteAddress);
+    const bucket = `${who.partnerId}\u0000${clientRaw ?? ""}`;
+    const limiter = anonLimiterFor(limits.anonymousRequestsPerMinute);
+    const verdict = limiter.check(bucket);
+    if (!verdict.allowed) return failAnon(429, "rate_limited", { "retry-after": String(verdict.retryAfterSec) });
+    if (!(await readEmptyBody(req))) return failAnon(400, "invalid_request");
+
+    const minted = await mintAnonymousVoiceToken(deps.wsSecret, who.partnerId, typeof origin === "string" ? origin : "", limiter.keyOf(bucket), nowMs());
+    return respond(
+      201,
+      VoiceSessionResponseSchema.parse({
+        token: minted.token,
+        wsUrl: `${wsBase}${ANONYMOUS_VOICE_STREAM_PATH}`,
+        expiresAt: new Date(minted.exp * 1000).toISOString(),
+        sessionMaxMinutes: Math.max(1, limits.voiceSessionMaxMinutes),
+        audio: limits.audio,
+      }),
+    );
+  }
+
   const handler: ApiHandler = async (req) => {
     try {
+      if (pathOf(req) === PUBLIC_VOICE_SESSIONS_PATH) return await handleAnonymousSession(req);
       return await handleSession(req);
     } catch (err) {
       if (err instanceof StudentFencedError) return fail(409, "student_fenced");

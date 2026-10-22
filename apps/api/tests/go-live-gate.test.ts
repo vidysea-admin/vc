@@ -11,7 +11,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { GATE_FILES, GO_LIVE_TARGETS, GoLiveRefusedError, assertGoLive, evaluateGoLive, type GoLiveTarget } from "../src/go-live-gate.js";
+import { GATE_FILES, GO_LIVE_TARGETS, GoLiveRefusedError, assertGoLive, evaluateGoLive, formatGoLiveReport, type GoLiveTarget } from "../src/go-live-gate.js";
 
 const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
 const CLI = fileURLToPath(new URL("../scripts/go-live-gate.ts", import.meta.url));
@@ -301,6 +301,116 @@ test("A20: a gate path that is a directory, or a missing gates dir, refuses inst
   assert.equal(evaluateGoLive(join(tmpdir(), "vc-golive-does-not-exist", "qa", "gates"), "voice", NOW, APPROVER).allowed, false);
 });
 
+// ---------------------------------------------------------------------------
+// pc-voice V1 (D-111): an owner override in place of `Result: PASS`
+// ---------------------------------------------------------------------------
+
+const A10_FAIL_RECORD = `# A10 voice gate record\nResult: FAIL\nRun-at: 2026-10-21T12:39:32+05:30\nEvidence: ${EVIDENCE}\nNote: 10/20 crisis phrases reached the fixed message within 2 s.\n`;
+const OVERRIDE_LINE = "Owner-override: 2026-10-22T08:00:00+05:30 — Umesh — D-111";
+const OVERRIDE_TEXT = "A10 OVERRIDDEN by owner (D-111)";
+
+test("V1: a FAIL record plus the owner-override line allows voice, and the gate output says A10 was overridden", () => {
+  const f = fixture({ a10: `${A10_FAIL_RECORD}${OVERRIDE_LINE}\n` });
+  try {
+    const r = evaluateGoLive(f.gates, "voice", NOW, APPROVER);
+    assert.deepEqual(r.failures, []);
+    assert.equal(r.allowed, true);
+    assert.doesNotThrow(() => assertGoLive(f.gates, "voice", NOW, APPROVER));
+    assert.ok(r.satisfied.includes(GATE_FILES.a10));
+    assert.ok(formatGoLiveReport(r).includes(OVERRIDE_TEXT), formatGoLiveReport(r));
+    // The CLI prints the same words and exits 0.
+    const cli = spawnSync(process.execPath, ["--import", "tsx", CLI, "voice", "--gates-dir", f.gates], { encoding: "utf8" });
+    assert.equal(cli.status, 0, cli.stdout + cli.stderr);
+    assert.ok(cli.stdout.includes(OVERRIDE_TEXT), cli.stdout);
+  } finally {
+    cleanup(f);
+  }
+});
+
+test("V1: the override works even with no evidence file, and a PASS record is not reported as overridden", () => {
+  const f = fixture({ a10: `# A10\nResult: FAIL\n${OVERRIDE_LINE}\n` }, GOOD, false);
+  try {
+    assert.equal(evaluateGoLive(f.gates, "voice", NOW, APPROVER).allowed, true);
+  } finally {
+    cleanup(f);
+  }
+  const pass = fixture({ a10: `${GOOD.a10}${OVERRIDE_LINE}\n` });
+  try {
+    const r = evaluateGoLive(pass.gates, "voice", NOW, APPROVER);
+    assert.equal(r.allowed, true);
+    assert.ok(!formatGoLiveReport(r).includes("OVERRIDDEN"), "a genuine PASS is reported as a pass");
+  } finally {
+    cleanup(pass);
+  }
+});
+
+test("V1: without the override line the gate behaves as before (FAIL refuses, PASS allows), and the override reaches only the voice target's A10 record", () => {
+  const f = fixture({ a10: A10_FAIL_RECORD });
+  try {
+    const r = evaluateGoLive(f.gates, "voice", NOW, APPROVER);
+    assert.equal(r.allowed, false);
+    assert.deepEqual(only(r), [GATE_FILES.a10]);
+    assert.ok(!formatGoLiveReport(r).includes("OVERRIDDEN"));
+  } finally {
+    cleanup(f);
+  }
+  // The override is not a way round B13, g-prod option c or Nights.
+  for (const key of ["b13", "gProd", "nights"] as const) {
+    const d = fixture({ a10: `${A10_FAIL_RECORD}${OVERRIDE_LINE}\n`, [key]: null });
+    try {
+      const r = evaluateGoLive(d.gates, "voice", NOW, APPROVER);
+      assert.equal(r.allowed, false, key);
+      assert.deepEqual(only(r), [GATE_FILES[key]], key);
+    } finally {
+      cleanup(d);
+    }
+  }
+});
+
+test("V1 hostile: a placeholder, wrong signer, wrong decision id, bad or future date, a quoted, fenced or repeated line does not count", () => {
+  const hostile: Array<[string, string]> = [
+    ["placeholder", "Owner-override: <iso> — Umesh — D-111"],
+    ["role signer", "Owner-override: 2026-10-22T08:00:00+05:30 — the maker — D-111"],
+    ["lower-case signer", "Owner-override: 2026-10-22T08:00:00+05:30 — umesh — D-111"],
+    ["other person than the approver", "Owner-override: 2026-10-22T08:00:00+05:30 — Anita — D-111"],
+    ["wrong decision", "Owner-override: 2026-10-22T08:00:00+05:30 — Umesh — D-110"],
+    ["no decision", "Owner-override: 2026-10-22T08:00:00+05:30 — Umesh"],
+    ["decision with a tail", "Owner-override: 2026-10-22T08:00:00+05:30 — Umesh — D-111 and more"],
+    ["date only", "Owner-override: 2026-10-22 — Umesh — D-111"],
+    ["future", "Owner-override: 2031-01-01T00:00:00Z — Umesh — D-111"],
+    ["quoted", `> ${OVERRIDE_LINE}`],
+    ["indented", `    ${OVERRIDE_LINE}`],
+    ["mid-line", `Note: see ${OVERRIDE_LINE}`],
+    ["fenced", `\`\`\`\n${OVERRIDE_LINE}\n\`\`\``],
+    ["repeated", `${OVERRIDE_LINE}\n${OVERRIDE_LINE}`],
+    ["key spelt differently", "Owner-Override: 2026-10-22T08:00:00+05:30 — Umesh — D-111"],
+  ];
+  for (const [name, line] of hostile) {
+    const f = fixture({ a10: `${A10_FAIL_RECORD}${line}\n` });
+    try {
+      const r = evaluateGoLive(f.gates, "voice", NOW, APPROVER);
+      assert.equal(r.allowed, false, name);
+      assert.deepEqual(only(r), [GATE_FILES.a10], name);
+      assert.ok(!formatGoLiveReport(r).includes(OVERRIDE_TEXT), name);
+    } finally {
+      cleanup(f);
+    }
+  }
+});
+
+test("V1: the override line for a different gate target is not read (text targets never need A10)", () => {
+  const f = fixture({ a10: `${A10_FAIL_RECORD}${OVERRIDE_LINE}\n` });
+  try {
+    for (const target of ["student-routes", "anonymous", "publish"] as GoLiveTarget[]) {
+      const r = evaluateGoLive(f.gates, target, NOW, APPROVER);
+      assert.equal(r.allowed, true, target);
+      assert.ok(!formatGoLiveReport(r).includes("OVERRIDDEN"), target);
+    }
+  } finally {
+    cleanup(f);
+  }
+});
+
 test("A20: an unknown target is refused, never treated as allowed", () => {
   const f = fixture();
   try {
@@ -320,9 +430,13 @@ test("A20 CLI: exits 1 naming each missing record against the real qa/gates; 0 o
     assert.ok(refused.stdout.includes(GATE_FILES.b13), refused.stdout);
     assert.ok(refused.stdout.includes(GATE_FILES.gPublish), refused.stdout);
   }
-  const voice = run(["voice", "--gates-dir", REPO_GATES]);
-  assert.equal(voice.status, 1);
-  assert.ok(voice.stdout.includes(GATE_FILES.a10));
+  // The real A10 record refuses voice until a run passes, or until the owner records the D-111 override line (then it is the human's call).
+  const REAL_A10_OVERRIDDEN = /^Owner-override: /m.test(readFileSync(join(REPO_GATES, GATE_FILES.a10), "utf8"));
+  if (!REAL_A10_OVERRIDDEN) {
+    const voice = run(["voice", "--gates-dir", REPO_GATES]);
+    assert.equal(voice.status, 1);
+    assert.ok(voice.stdout.includes(GATE_FILES.a10));
+  }
   const f = fixture();
   try {
     const allowed = run(["voice", "--gates-dir", f.gates]);

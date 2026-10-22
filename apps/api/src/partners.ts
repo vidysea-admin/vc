@@ -520,12 +520,15 @@ const ANONYMOUS_CHAT_PATH = "/v1/public/chat/turns";
 const CORS_METHODS = "POST,GET,OPTIONS";
 const CORS_HEADERS = "Content-Type,X-VC-Key,Authorization";
 
+/** pc-voice V2: where a visitor's browser mints an anonymous voice session (page key only). The voice stream is a WebSocket, which has no CORS. */
+export const PUBLIC_VOICE_SESSIONS_PATH = "/v1/public/voice/sessions";
+
 /**
- * The routes that take part in CORS: the public chat route and the partner openapi route. Student routes (chat, voice session, voice stream) take only a
- * server key, which never gets CORS, so they are not here. A later anonymous voice route (pc-voice) is added to this list when it exists.
+ * The routes that take part in CORS: the public chat route, the public (anonymous) voice session route and the partner openapi route. Student routes
+ * (chat, voice session, voice stream) take only a server key, which never gets CORS, so they are not here.
  */
 export function isCorsEligiblePath(pathname: string): boolean {
-  return pathname === ANONYMOUS_CHAT_PATH || pathname === PARTNER_OPENAPI_PATH;
+  return pathname === ANONYMOUS_CHAT_PATH || pathname === PUBLIC_VOICE_SESSIONS_PATH || pathname === PARTNER_OPENAPI_PATH;
 }
 
 function pathOf(req: Pick<ApiRequest, "url">): string | undefined {
