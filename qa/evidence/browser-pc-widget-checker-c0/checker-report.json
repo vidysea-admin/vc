@@ -1,0 +1,448 @@
+{
+  "passed": 41,
+  "total": 41,
+  "results": [
+    {
+      "name": "W1 shadow DOM host with open shadow root, content not in light DOM",
+      "pass": true,
+      "detail": {
+        "hasShadow": true,
+        "mode": "open",
+        "bg": "rgb(122, 31, 162)",
+        "w": 56,
+        "h": 56,
+        "display": "flex",
+        "h1color": "rgb(0, 128, 0)",
+        "h1fs": "40px",
+        "hostbtnBg": "rgb(0, 255, 0)",
+        "shadowKids": 2,
+        "lightKids": 0,
+        "hostText": ""
+      }
+    },
+    {
+      "name": "W1 hostile page CSS (* display none, font 3px, button lime) does NOT leak in: bubble visible 56px, uses data-vc-color #7a1fa2",
+      "pass": true,
+      "detail": {
+        "hasShadow": true,
+        "mode": "open",
+        "bg": "rgb(122, 31, 162)",
+        "w": 56,
+        "h": 56,
+        "display": "flex",
+        "h1color": "rgb(0, 128, 0)",
+        "h1fs": "40px",
+        "hostbtnBg": "rgb(0, 255, 0)",
+        "shadowKids": 2,
+        "lightKids": 0,
+        "hostText": ""
+      }
+    },
+    {
+      "name": "W1 widget CSS does NOT leak out: host h1 still green 40px, host button still lime",
+      "pass": true,
+      "detail": {
+        "hasShadow": true,
+        "mode": "open",
+        "bg": "rgb(122, 31, 162)",
+        "w": 56,
+        "h": 56,
+        "display": "flex",
+        "h1color": "rgb(0, 128, 0)",
+        "h1fs": "40px",
+        "hostbtnBg": "rgb(0, 255, 0)",
+        "shadowKids": 2,
+        "lightKids": 0,
+        "hostText": ""
+      }
+    },
+    {
+      "name": "W1 click bubble opens dialog; aria-expanded=true",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "W1 360px: panel inside viewport, no horizontal scroll",
+      "pass": true,
+      "detail": {
+        "left": 8,
+        "right": 352,
+        "top": 20,
+        "bottom": 560,
+        "vw": 360,
+        "vh": 640,
+        "sw": 360,
+        "bt": [
+          {
+            "cls": "close",
+            "w": 44,
+            "h": 44,
+            "vis": true
+          },
+          {
+            "cls": "send",
+            "w": 64.1875,
+            "h": 44,
+            "vis": true
+          },
+          {
+            "cls": "bubble",
+            "w": 56,
+            "h": 56,
+            "vis": true
+          }
+        ],
+        "taFs": "16px",
+        "title": "Vidysea <img src=x onerror=window.__t=1> Help",
+        "titleHtml": "Vidysea &lt;img src=x onerror=window.__t=1&gt; Help",
+        "voiceBtn": false,
+        "roleLog": true,
+        "label": "Vidysea <img src=x onerror=window.__t=1> Help",
+        "foot": "Not a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+        "injected": null
+      }
+    },
+    {
+      "name": "W1 touch targets >=44px (close, send)",
+      "pass": true,
+      "detail": [
+        {
+          "cls": "close",
+          "w": 44,
+          "h": 44,
+          "vis": true
+        },
+        {
+          "cls": "send",
+          "w": 64.1875,
+          "h": 44,
+          "vis": true
+        },
+        {
+          "cls": "bubble",
+          "w": 56,
+          "h": 56,
+          "vis": true
+        }
+      ]
+    },
+    {
+      "name": "W1 textarea font-size 16px (no iOS zoom)",
+      "pass": true,
+      "detail": "16px"
+    },
+    {
+      "name": "W1 data-vc-title with HTML is literal text (no img element, no flag)",
+      "pass": true,
+      "detail": {
+        "t": "Vidysea <img src=x onerror=window.__t=1> Help",
+        "h": "Vidysea &lt;img src=x onerror=window.__t=1&gt; Help"
+      }
+    },
+    {
+      "name": "W1 data-vc-voice=on renders no mic yet (pc-voice owns it)",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "W1 aria: role=dialog with label, role=log present",
+      "pass": true,
+      "detail": {
+        "left": 8,
+        "right": 352,
+        "top": 20,
+        "bottom": 560,
+        "vw": 360,
+        "vh": 640,
+        "sw": 360,
+        "bt": [
+          {
+            "cls": "close",
+            "w": 44,
+            "h": 44,
+            "vis": true
+          },
+          {
+            "cls": "send",
+            "w": 64.1875,
+            "h": 44,
+            "vis": true
+          },
+          {
+            "cls": "bubble",
+            "w": 56,
+            "h": 56,
+            "vis": true
+          }
+        ],
+        "taFs": "16px",
+        "title": "Vidysea <img src=x onerror=window.__t=1> Help",
+        "titleHtml": "Vidysea &lt;img src=x onerror=window.__t=1&gt; Help",
+        "voiceBtn": false,
+        "roleLog": true,
+        "label": "Vidysea <img src=x onerror=window.__t=1> Help",
+        "foot": "Not a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+        "injected": null
+      }
+    },
+    {
+      "name": "W2 footer shows 14416 and 112 on open",
+      "pass": true,
+      "detail": "Not a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112"
+    },
+    {
+      "name": "W1 keyboard: opening moves focus to the textarea",
+      "pass": true,
+      "detail": "TEXTAREA"
+    },
+    {
+      "name": "W1 keyboard: Esc closes, focus returns to bubble, aria-expanded=false",
+      "pass": true,
+      "detail": {
+        "hidden": true,
+        "focus": "bubble",
+        "exp": "false"
+      }
+    },
+    {
+      "name": "W1 keyboard: Enter on focused bubble reopens",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "W2 typing indicator shown while waiting",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "W2 double-Enter sends exactly one request",
+      "pass": true,
+      "detail": 1
+    },
+    {
+      "name": "W2 key mode: URL path /v1/public/chat/turns, X-VC-Key header, body exactly {text}",
+      "pass": true,
+      "detail": {
+        "url": "http://127.0.0.1:5191/v1/public/chat/turns",
+        "headers": {
+          "accept": "*/*",
+          "origin": "http://127.0.0.1:5191",
+          "referer": "http://127.0.0.1:5191/iso.html",
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+          "x-vc-key": "vck_demo_key",
+          "content-type": "application/json",
+          "sec-ch-ua": "\"HeadlessChrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": "\"Windows\""
+        },
+        "body": "{\"text\":\"hello counsellor\"}"
+      }
+    },
+    {
+      "name": "W2 key mode: no cookie sent even though the browser holds one for this origin (credentials omit)",
+      "pass": true,
+      "detail": {
+        "path": "/v1/public/chat/turns",
+        "key": "vck_demo_key",
+        "cookie": null,
+        "body": "{\"text\":\"hello counsellor\"}"
+      }
+    },
+    {
+      "name": "W2 renders message + 2 claims (one flagged unverified) + source link (https, noopener, _blank) + non-url source as text",
+      "pass": true,
+      "detail": {
+        "text": "Computer Science is a strong option if you like problem solving. Typical first-year fees vary by college.Fees vary by collegePlacement rates differ by year (unverified)Sources: Course guide · AICTE",
+        "lis": [
+          "Fees vary by college",
+          "Placement rates differ by year (unverified)"
+        ],
+        "flag": true,
+        "links": [
+          {
+            "href": "https://www.aicte-india.org/",
+            "t": "AICTE",
+            "rel": "noopener noreferrer",
+            "target": "_blank"
+          }
+        ],
+        "srcText": "Sources: Course guide · AICTE"
+      }
+    },
+    {
+      "name": "W2 hostile model text (img onerror, script, b, i) renders literal; no element, no execution",
+      "pass": true,
+      "detail": {
+        "xss": null,
+        "imgs": 0,
+        "scripts": 0,
+        "bs": 0,
+        "text": "<img src=x onerror=\"window.__xss=1\"><b>bold</b><script>window.__xss=2</script> (unverified)Sources: <i>title</i>"
+      }
+    },
+    {
+      "name": "W2 hostile long unbroken text at 360px: no horizontal overflow of log/page",
+      "pass": true,
+      "detail": {
+        "logScrollW": 342,
+        "logClientW": 342,
+        "panelW": 344,
+        "msgRight": 307.1875,
+        "panelRight": 352,
+        "docSW": 360,
+        "vw": 360,
+        "hrefs": [
+          "https://example.org/pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+          "http://plain.example.org/x"
+        ]
+      }
+    },
+    {
+      "name": "W2 link policy: only http/https survive (data:, tab-split js:, upper JS:, //host dropped)",
+      "pass": true,
+      "detail": [
+        "https://example.org/pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp",
+        "http://plain.example.org/x"
+      ]
+    },
+    {
+      "name": "W2 escalated state shows crisis block with 14416 / 112",
+      "pass": true,
+      "detail": "I am really sorry you are feeling this way. You are not alone.\nTele-MANAS 14416 (24x7) · Emergency 112"
+    },
+    {
+      "name": "W2 500 shows error with helpline",
+      "pass": true,
+      "detail": "Something went wrong (500). Please try again.\nTele-MANAS 14416 (24x7) · Emergency 112"
+    },
+    {
+      "name": "W2 network failure shows 'Could not reach', input stays usable",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "W3/W2 429: 'Please wait N s' countdown, Send disabled, message returned to input, Enter during wait sends nothing",
+      "pass": true,
+      "detail": {
+        "st1": {
+          "status": "Please wait 3 s before sending again.",
+          "dis": true,
+          "val": "ratelimit"
+        },
+        "before": 7,
+        "after": 7
+      }
+    },
+    {
+      "name": "W2 429 Retry-After:3 -> controls re-enable after ~3s (2.5..5.5)",
+      "pass": true,
+      "detail": 3.032
+    },
+    {
+      "name": "W2 401 -> 'Chat unavailable', input and Send disabled",
+      "pass": true,
+      "detail": {
+        "dis": true,
+        "send": true,
+        "log": "Chat unavailable right now. Please try again later."
+      }
+    },
+    {
+      "name": "W2 nothing persisted (localStorage, sessionStorage, cookies, IndexedDB, Cache API empty)",
+      "pass": true,
+      "detail": {
+        "ls": 0,
+        "ss": 0,
+        "ck": "pl_session=visitor-cookie",
+        "idb": 0,
+        "caches": 0,
+        "shadowHasKey": false,
+        "hostAttrs": false
+      }
+    },
+    {
+      "name": "W2 key not rendered into shadow DOM or host element",
+      "pass": true,
+      "detail": {
+        "ls": 0,
+        "ss": 0,
+        "ck": "pl_session=visitor-cookie",
+        "idb": 0,
+        "caches": 0,
+        "shadowHasKey": false,
+        "hostAttrs": false
+      }
+    },
+    {
+      "name": "Security: key never appears in any console message",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "Security: no JS pageerror",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "W2 in-memory only: after reload only the greeting exists (1 message)",
+      "pass": true,
+      "detail": 1
+    },
+    {
+      "name": "W1 desktop 1280: panel is ~380px wide",
+      "pass": true,
+      "detail": 380
+    },
+    {
+      "name": "W2 proxy mode: posts same body {text} to /api/vc, NO X-VC-Key, session cookie rides to the host backend",
+      "pass": true,
+      "detail": {
+        "q2url": "http://127.0.0.1:5191/api/vc",
+        "lastPx": {
+          "path": "/api/vc",
+          "key": null,
+          "cookie": "present",
+          "body": "{\"text\":\"Which course after class 12?\"}"
+        }
+      }
+    },
+    {
+      "name": "W2 proxy mode: nothing posted to /v1/public/chat/turns",
+      "pass": true,
+      "detail": [
+        "http://127.0.0.1:5191/api/vc"
+      ]
+    },
+    {
+      "name": "Persona(student/proxy): crisis block with 14416/112 in proxy mode",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "W1 Shift+Enter inserts newline, does not send",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "W1 second embed does not mount a second widget",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "W1 invalid data-vc-proxy (//evil) -> no widget mounted, console error does not echo the key",
+      "pass": true,
+      "detail": [
+        "error: vc-widget: data-vc-proxy must be an http(s) URL or a path starting with a single /",
+        "warning: vc-widget: no data-vc-key or data-vc-proxy set; sending without a partner key."
+      ]
+    },
+    {
+      "name": "W1 no attributes: mounts in open mode with a console warning",
+      "pass": true,
+      "detail": [
+        "error: vc-widget: data-vc-proxy must be an http(s) URL or a path starting with a single /",
+        "warning: vc-widget: no data-vc-key or data-vc-proxy set; sending without a partner key."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,173 @@
+{
+  "when": "2026-10-22T07:37:27+05:30",
+  "base": "http://127.0.0.1:5174",
+  "browser": "chromium (playwright-core 1.63.0, headless)",
+  "viewport": "360x640 then 1280x800",
+  "interactions": 24,
+  "passed": 24,
+  "results": [
+    {
+      "name": "bubble visible",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "panel hidden initially",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "panel opens",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "dialog role + aria-expanded",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "greeting shown",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "footer 14416/112 shown",
+      "pass": true,
+      "detail": "Not a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112"
+    },
+    {
+      "name": "normal turn: message + 2 claims (1 flagged) + 1 source link",
+      "pass": true,
+      "detail": "Computer Science is a strong option if you like problem solving. Typical first-year fees vary by college.\nFees vary by college\nPlacement rates differ by year (unverified)\nSources: Course guide · AICTE"
+    },
+    {
+      "name": "source link https + noopener",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "key mode request: X-VC-Key sent, body exactly {text}, no cookie",
+      "pass": true,
+      "detail": {
+        "path": "/v1/public/chat/turns",
+        "key": "vck_demo_key",
+        "cookie": null,
+        "body": "{\"text\":\"which course after 12th\"}"
+      }
+    },
+    {
+      "name": "typing indicator shown and send disabled while waiting",
+      "pass": true,
+      "detail": {
+        "typingShown": true,
+        "sendDis": true
+      }
+    },
+    {
+      "name": "XSS inert: no img/script/b/i elements, no flag set",
+      "pass": true,
+      "detail": {
+        "injected": 0,
+        "noFlag": true,
+        "text": "<img src=x onerror=\"window.__xss=1\"><b>bold</b><script>window.__xss=2</script> (unverified)Sources: <i>title</i>"
+      }
+    },
+    {
+      "name": "no_sourced_answer: https link kept, javascript: link dropped",
+      "pass": true,
+      "detail": [
+        "https://example.org/page"
+      ]
+    },
+    {
+      "name": "escalated renders crisis block with helpline",
+      "pass": true,
+      "detail": "I am really sorry you are feeling this way. You are not alone.\nTele-MANAS 14416 (24x7) · Emergency 112"
+    },
+    {
+      "name": "500 shows error with helpline",
+      "pass": true,
+      "detail": "Something went wrong (500). Please try again.\nTele-MANAS 14416 (24x7) · Emergency 112"
+    },
+    {
+      "name": "429: countdown shown, send disabled, message restored",
+      "pass": true,
+      "detail": {
+        "dis429": true,
+        "restored": "ratelimit",
+        "status": "Please wait 3 s before sending again."
+      }
+    },
+    {
+      "name": "429: send re-enabled after Retry-After (3 s)",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "360px: panel inside viewport, no horizontal scroll",
+      "pass": true,
+      "detail": {
+        "l": 8,
+        "r": 352,
+        "t": 20,
+        "b": 560,
+        "vw": 360,
+        "vh": 640,
+        "scrollW": 360,
+        "bubbleR": 348
+      }
+    },
+    {
+      "name": "Esc closes panel and focus returns to bubble",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "no localStorage, sessionStorage or cookies",
+      "pass": true,
+      "detail": {
+        "ls": 0,
+        "ss": 0,
+        "ck": ""
+      }
+    },
+    {
+      "name": "desktop: panel 380 px wide",
+      "pass": true,
+      "detail": {
+        "w": 380,
+        "h": 560
+      }
+    },
+    {
+      "name": "401 shows 'Chat unavailable' and disables input",
+      "pass": true,
+      "detail": "Chat unavailable right now. Please try again later."
+    },
+    {
+      "name": "proxy mode: posted to /api/vc with no X-VC-Key",
+      "pass": true,
+      "detail": {
+        "path": "/api/vc",
+        "key": null,
+        "cookie": null,
+        "body": "{\"text\":\"hello proxy\"}"
+      }
+    },
+    {
+      "name": "Shift+Enter does not send",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "console errors (JS): none beyond deliberately injected 4xx/5xx resource loads",
+      "pass": true,
+      "detail": [
+        "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)",
+        "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "@vc/widget",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Embeddable VC chat widget: one script tag, a chatbot bubble in a shadow DOM (partner-chatbot, D-111). Plain JS, no dependencies, no build step.",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\""
+  }
+}

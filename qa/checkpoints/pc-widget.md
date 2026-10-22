@@ -1,0 +1,7 @@
+# Checkpoint pc-widget (checker, cycle 0)
+Env fingerprint: Windows 11, node v24.13.1, playwright-core 1.63.0 headless Chromium 153, worktree D:/vc/.worktrees/pc-widget head dc64cdd0084a, base 3a70309.
+Code hashes: vc-widget.js a13be345412d; nginx-widget.conf.snippet 584786babb57; config.test.js adbb9b5b94e3; request.test.js 433b7873b19b; hosting.test.js 7bbe68f99a7e; stub-server.js a47344b1b3bb; demo.html 0ddd3e2b6e2d. No lockfile or config in scope.
+1. `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 node --test "apps/widget/tests/*.test.js"` -> exit 0, tests 26 pass 26 fail 0 (checker, own run, 07:40:53).
+2. Browser: node qa/evidence/browser-pc-widget-checker-c0/checker-browser.js against stub-server.js port 5191 (PID 28020, started and killed by this checker) -> 41/41 (07:44:22). Report: checker-report.json.
+3. Falsification in copies outside the tree (scratchpad/fals/<id>), `node --test --test-name-pattern=<name> <file>`: W1 colour validation off -> green 1/0 then red 0/1; W2 unverified flag forced false -> 1/0 then 0/1; W3 401 branch removed -> 1/0 then 0/1; W4 nosniff removed from alias block -> 1/0 then 0/1. First W2 attempt (httpUrl returns any protocol) survived: equivalent mutant, sanitizeUrl also rejects an empty hostname; replaced.
+4. Lockfile: `pnpm install --frozen-lockfile --lockfile-only --ignore-scripts` on a copy of the manifests -> exit 0 (pnpm adds `apps/widget: {}` on a plain install).

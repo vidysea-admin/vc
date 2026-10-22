@@ -1,0 +1,28 @@
+# VC widget hosting (pc-widget W4). Paste inside the existing `server { ... }` of infra/ubuntu/nginx-vc.conf, ABOVE the
+# catch-all `location /` and the `location /v1/` 404 block. pc-partner-keys owns nginx-vc.conf, so this stays a snippet.
+#
+# The script is one static file, /opt/vc/apps/widget/src/vc-widget.js (no build step at runtime). It is served under two names:
+#   /widget/vc-widget.v1.js  versioned name (major version in the file name), cached for a year, immutable.
+#                            Bump the major (and this location) only for a breaking change; same-major fixes keep the name,
+#                            so partners who need instant updates embed the alias below.
+#   /widget/vc-widget.js     alias for the same file, cached 5 minutes so a fix reaches partners quickly.
+# Script tags need no CORS. nosniff stops a mis-typed upload under /widget/ being run as script.
+
+location = /widget/vc-widget.v1.js {
+    alias /opt/vc/apps/widget/src/vc-widget.js;
+    default_type application/javascript;
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    add_header X-Content-Type-Options "nosniff" always;
+}
+
+location = /widget/vc-widget.js {
+    alias /opt/vc/apps/widget/src/vc-widget.js;
+    default_type application/javascript;
+    add_header Cache-Control "public, max-age=300" always;
+    add_header X-Content-Type-Options "nosniff" always;
+}
+
+# Nothing else is published under /widget/ (voice.js is added by pc-voice if it ships as a separate file).
+location /widget/ {
+    return 404;
+}

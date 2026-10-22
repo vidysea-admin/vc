@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VC widget demo</title>
+<link rel="icon" href="data:,">
+<style>
+  body{font:16px/1.5 system-ui,sans-serif;margin:0;padding:16px;color:#1b1f23}
+  code{background:#eef0f3;padding:1px 4px;border-radius:4px}
+  .box{max-width:640px;margin:0 auto}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Partner site (demo)</h1>
+  <p>This page stands in for a partner website. The chat bubble at the bottom right is the VC widget.</p>
+  <p>Mode: <code id="mode"></code>. Add <code>?mode=proxy</code> for proxy mode (posts to <code>/api/vc</code> with no key).
+     Local API: run <code>node apps/widget/tests/stub-server.js 5174</code> and open <code>http://127.0.0.1:5174/demo.html</code>.
+     To point at a real API instead, set <code>data-vc-api</code> to its origin (the API must allow this page origin, K4).</p>
+  <p>Stub triggers: <code>crisis</code>, <code>nosource</code>, <code>xss</code>, <code>ratelimit</code>, <code>revoke</code>, <code>slow</code>, <code>boom</code>.</p>
+</div>
+<script>
+  // The embed snippet a partner would paste is a single script tag; it is created here so the demo can switch mode.
+  (function () {
+    var q = new URLSearchParams(location.search);
+    var proxy = q.get("mode") === "proxy";
+    document.getElementById("mode").textContent = proxy ? "proxy" : "key";
+    var s = document.createElement("script");
+    s.src = "/widget/vc-widget.v1.js";
+    if (proxy) s.setAttribute("data-vc-proxy", "/api/vc"); else s.setAttribute("data-vc-key", "vck_demo_key");
+    s.setAttribute("data-vc-title", q.get("title") || "Career Counsellor");
+    if (q.get("color")) s.setAttribute("data-vc-color", q.get("color"));
+    s.defer = true;
+    document.body.appendChild(s);
+  })();
+</script>
+</body>
+</html>
