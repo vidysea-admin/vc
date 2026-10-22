@@ -49,7 +49,7 @@ import {
   type StudentKbPort,
 } from "@vc/engine";
 import type { GroundedAnswerer, GroundingBudget, LlmProvider } from "@vc/providers";
-import { assertGoLive } from "./go-live-gate.js";
+import { GATE_APPROVER_ENV, assertGoLive } from "./go-live-gate.js";
 import { PartnerRegistryUnavailableError, partnerKeyFromRequest, singleHeader, type PartnerRegistry } from "./partners.js";
 import { BodyTooLargeError, respond, type ApiHandler, type ApiRequest, type ApiRoute } from "./server.js";
 
@@ -426,8 +426,11 @@ export function buildAnonymousGraphDeps(deps: AnonymousApiDeps, onForbidden?: (p
  */
 export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRouteConfig): ApiHandler | undefined {
   if (!route.enabled) return undefined;
-  assertGoLive(route.gatesDir, "anonymous", route.now, route.approver);
-  assertNoTracing(route.env ?? process.env);
+  // pc-hardening-5 G2 (the anonymous twin of pc-hardening-3 K3 / pc-hardening-4 P1): with B13 now failing closed without an approver, the approver comes from the env the caller passed (the one startApi
+  // reads everything else from); process.env is the fallback only when no env was passed. The "" (never undefined) stops assertGoLive from re-reading process.env itself.
+  const env = route.env ?? process.env;
+  assertGoLive(route.gatesDir, "anonymous", route.now, route.approver ?? env[GATE_APPROVER_ENV] ?? "");
+  assertNoTracing(env);
   const graphDeps = buildAnonymousGraphDeps(deps);
   compileStudentGraph(graphDeps);
   const log = deps.log ?? defaultLog;

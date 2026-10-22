@@ -174,7 +174,7 @@ test("startApi: flag on with the real repo gates refuses to start, BEFORE connec
   };
   await assert.rejects(
     startApi(
-      { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true" },
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true" },
       { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, verifier: studentVerifier() } }) },
     ),
     GoLiveRefusedError,
@@ -192,14 +192,14 @@ test("startApi: flag on with the gate open but no student JWT configuration is a
   try {
     await mustRefuse(
       startApi(
-        { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", VC_JWT_ISSUER: "https://issuer.synthetic.test", VC_JWT_AUDIENCE: "vc-api", VC_JWT_ALGORITHMS: "HS256", VC_JWT_HS256_SECRET: "synthetic-counsellor-secret-0123456789abcdef" },
+        { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true", VC_JWT_ISSUER: "https://issuer.synthetic.test", VC_JWT_AUDIENCE: "vc-api", VC_JWT_ALGORITHMS: "HS256", VC_JWT_HS256_SECRET: "synthetic-counsellor-secret-0123456789abcdef" },
         { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates } }) },
       ),
       JwtConfigError,
     );
     await assert.rejects(
       startApi(
-        { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true" },
+        { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true" },
         { clientFactory: () => fake.client, http: httpBase({ chat: { gatesDir: f.gates, verifier: studentVerifier() } }) },
       ),
       ChatConfigError,
@@ -214,7 +214,7 @@ test("startApi: flag on and gate open -> a student creates a thread and asks a q
   const fake = createFakeMongoClient();
   const f = gatesFixture();
   const api = await startApi(
-    { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true" },
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true" },
     { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
   );
   try {
@@ -261,7 +261,7 @@ async function chatTurnOverHttp(env: Record<string, string | undefined>, scribe:
   const fake = createFakeMongoClient();
   const f = gatesFixture();
   const api = await startApi(
-    { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", ...env },
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true", ...env },
     { clientFactory: () => fake.client, http: httpBase({ provider: scribe, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
   );
   try {
@@ -310,7 +310,7 @@ test("LK1w: VC_TEXT_CHAIN does not replace the scribe provider config: with no i
   const fake = createFakeMongoClient();
   let connected = 0;
   (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
-  await mustRefuseWith(startApi({ MONGODB_URL: "mongodb://fake-host/ignored", ...CHAIN_ENV }, { clientFactory: () => fake.client, http: { port: 0, verifier: counsellorVerifier, skillsDir: SKILLS_DIR, escalationForTenant: (() => ({})) as never } }), /VC_LLM_PROVIDER/);
+  await mustRefuseWith(startApi({ MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", ...CHAIN_ENV }, { clientFactory: () => fake.client, http: { port: 0, verifier: counsellorVerifier, skillsDir: SKILLS_DIR, escalationForTenant: (() => ({})) as never } }), /VC_LLM_PROVIDER/);
   assert.equal(connected, 0);
 });
 
@@ -318,7 +318,7 @@ test("LK1w: a bad chain (no OLLAMA_API_KEY) is a startup config error before con
   const fake = createFakeMongoClient();
   let connected = 0;
   (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
-  await mustRefuseWith(startApi({ MONGODB_URL: "mongodb://fake-host/ignored", VC_TEXT_CHAIN: "default" }, { clientFactory: () => fake.client, http: httpBase() }), /OLLAMA_API_KEY/);
+  await mustRefuseWith(startApi({ MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_TEXT_CHAIN: "default" }, { clientFactory: () => fake.client, http: httpBase() }), /OLLAMA_API_KEY/);
   assert.equal(connected, 0);
 });
 
@@ -418,7 +418,7 @@ test("p1-lk6: startApi wires the default extractor for chat when none is injecte
   const f = gatesFixture();
   const provider = lk6Provider((turnId) => [lk6Cand("target_country", "Germany", "जर्मनी में", turnId)]);
   const api = await startApi(
-    { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true" },
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true" },
     { clientFactory: () => fake.client, http: httpBase({ provider, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier() } }) },
   );
   try {
@@ -441,7 +441,7 @@ test("p1-lk6: an injected extractFacts still wins over the default", async () =>
   const f = gatesFixture();
   const provider = lk6Provider((turnId) => [lk6Cand("target_country", "Germany", "जर्मनी में", turnId)]);
   const api = await startApi(
-    { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true" },
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true" },
     { clientFactory: () => fake.client, http: httpBase({ provider, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), extractFacts: async () => [{ key: "city", value: "Pune" }] } }) },
   );
   try {
@@ -643,7 +643,7 @@ async function lk7Session(env: Record<string, string | undefined>, scribe: MockP
   const fake = createFakeMongoClient();
   const f = gatesFixture();
   const api = await startApi(
-    { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", ...env },
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true", ...env },
     { clientFactory: () => fake.client, http: httpBase({ provider: scribe, ...(extra.http ?? {}), chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), ...(extra.chat ?? {}) } }) },
   );
   const base = `http://127.0.0.1:${api.port}`;
@@ -799,7 +799,7 @@ test("LK7 P1: VC_TEXT_CHAIN set and the cap missing or invalid -> startApi refus
     const fake = createFakeMongoClient();
     let connected = 0;
     (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => { connected += 1; };
-    const env: Record<string, string | undefined> = { MONGODB_URL: "mongodb://fake-host/ignored", ...CHAIN_ENV };
+    const env: Record<string, string | undefined> = { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", ...CHAIN_ENV };
     if (bad === undefined) delete env.VC_CHAIN_MONTHLY_CAP_USD;
     else env.VC_CHAIN_MONTHLY_CAP_USD = bad;
     let started: { stop(): Promise<void> } | undefined;
@@ -824,7 +824,7 @@ test("LK7 P2: a valid cap starts the chain; with VC_TEXT_CHAIN unset the cap is 
   assert.equal(parseChainMonthlyCap({ VC_CHAIN_MONTHLY_CAP_USD: " 12.5 " }), 12.5);
   for (const env of [{ ...CHAIN_ENV }, {}]) {
     const fake = createFakeMongoClient();
-    const api = await startApi({ MONGODB_URL: "mongodb://fake-host/ignored", ...env }, { clientFactory: () => fake.client, http: httpBase() });
+    const api = await startApi({ MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", ...env }, { clientFactory: () => fake.client, http: httpBase() });
     await api.stop();
   }
 });
@@ -945,7 +945,7 @@ async function startOverBase(provider: MockProvider | RulesProvider, extraChat: 
   const f = gatesFixture();
   try {
     const api = await startApi(
-      { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", ...env },
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true", ...env },
       { clientFactory: () => fake.client, http: httpBase({ provider, chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), ...extraChat } }) },
     );
     return { api, connected: () => connected, done: async () => { await api.stop(); cleanupGates(f); } };
@@ -1050,7 +1050,7 @@ test("K1 (pc-hardening-3) startApi: with partners on, a student JWT whose tenant
     const f = gatesFixture();
     await addPartner(createMongoPartnerStore(fake.client.db(VC_DB_NAME)), { name: "Pathlynks" }, { pepper: PEPPER, now: () => new Date() });
     const api = await startApi(
-      { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", VC_PARTNER_KEY_PEPPER: PEPPER, ...extraEnv },
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true", VC_PARTNER_KEY_PEPPER: PEPPER, ...extraEnv },
       { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), profile: { facts: async () => [] } } }) },
     );
     try {

@@ -54,7 +54,7 @@ test("b: over real HTTP through launch(), the limiter keys on X-Real-IP and a ro
   const fake = createFakeMongoClient();
   const gates = gatesFixture();
   const env = {
-    MONGODB_URL: "mongodb://fake-host/ignored",
+    MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh",
     VC_JWT_ISSUER: "https://issuer.synthetic.test",
     VC_JWT_ALGORITHMS: "HS256",
     VC_JWT_HS256_SECRET: "j".repeat(40),

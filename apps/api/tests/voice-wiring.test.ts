@@ -324,7 +324,7 @@ async function boot(env: Record<string, string | undefined>, voice: Record<strin
   const provider = new MockLiveProvider();
   const port = await freePort();
   const api = await startApi(
-    { MONGODB_URL: "mongodb://fake-host/ignored", ...env },
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", ...env },
     {
       clientFactory: () => fake.client,
       http: {
@@ -458,7 +458,7 @@ test("W6: flag on -> startApi fails closed BEFORE connecting to Mongo or listeni
           : { live: new MockLiveProvider(), crisis: CRISIS, wsSecret: new Uint8Array(randomBytes(32)), wsBaseUrl: `ws://127.0.0.1:${port}`, verifier: studentVerifier(), gatesDir: gates.gates, ...c.voice };
       await assert.rejects(
         startApi(
-          { MONGODB_URL: "mongodb://fake-host/ignored", ...c.env },
+          { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", ...c.env },
           { clientFactory: () => fake.client, http: { port, verifier: counsellorVerifier, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, voice } as any },
         ),
         c.want as any,
