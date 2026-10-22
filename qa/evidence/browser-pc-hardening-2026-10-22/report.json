@@ -1,0 +1,171 @@
+{
+  "unit": "pc-hardening",
+  "date": "2026-10-22",
+  "generatedAt": "2026-10-22T16:00:54+05:30",
+  "baseUrl": "http://127.0.0.1:5188",
+  "mode": "key mode (data-vc-voice=on), API intercepted with page.route, fake page key, no API server, no live LLM",
+  "browser": "chromium (playwright-core 1.63.0, headless, --use-fake-ui-for-media-stream --use-fake-device-for-media-stream)",
+  "widgetCode": "ca1d0a2",
+  "passed": 12,
+  "checks": 12,
+  "checkResults": [
+    {
+      "name": "en busy note shown verbatim",
+      "pass": true,
+      "detail": [
+        "Voice is busy right now. Please try again shortly, or keep typing here."
+      ]
+    },
+    {
+      "name": "en mint POSTed once with page key",
+      "pass": true,
+      "detail": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ]
+    },
+    {
+      "name": "en no rate-limit text",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "hi busy note shown verbatim",
+      "pass": true,
+      "detail": [
+        "वॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।"
+      ]
+    },
+    {
+      "name": "hi-IN also gets the Hindi note",
+      "pass": true,
+      "detail": [
+        "वॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।"
+      ]
+    },
+    {
+      "name": "control: rate_limited shows old rate text, not busy note",
+      "pass": true,
+      "detail": [
+        "Too many voice requests. Please wait 30 seconds, or type your question."
+      ]
+    },
+    {
+      "name": "control: crisis chat turn shows HELP / Tele-MANAS text unchanged",
+      "pass": true,
+      "detail": [
+        "I am really sorry you are feeling this way. You are not alone.\nTele-MANAS 14416 (24x7) · Emergency 112"
+      ]
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: en: 429 voice_busy",
+      "pass": true,
+      "detail": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ]
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: hi: 429 voice_busy",
+      "pass": true,
+      "detail": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ]
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: hi-IN: 429 voice_busy",
+      "pass": true,
+      "detail": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ]
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: control en: 429 rate_limited",
+      "pass": true,
+      "detail": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ]
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: control en: chat turn crisis flag",
+      "pass": true,
+      "detail": []
+    }
+  ],
+  "pages": [
+    {
+      "url": "http://127.0.0.1:5188/host?lang=en",
+      "label": "en: 429 voice_busy",
+      "htmlLang": "en",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "messages": [
+        "error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "apiCalls": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nVoice is busy right now. Please try again shortly, or keep typing here.\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "en-busy.png"
+    },
+    {
+      "url": "http://127.0.0.1:5188/host?lang=hi",
+      "label": "hi: 429 voice_busy",
+      "htmlLang": "hi",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "messages": [
+        "error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "apiCalls": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nवॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "hi-busy.png"
+    },
+    {
+      "url": "http://127.0.0.1:5188/host?lang=hi-IN",
+      "label": "hi-IN: 429 voice_busy",
+      "htmlLang": "hi-IN",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "messages": [
+        "error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "apiCalls": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nवॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "hi-IN-busy.png"
+    },
+    {
+      "url": "http://127.0.0.1:5188/host?lang=en",
+      "label": "control en: 429 rate_limited",
+      "htmlLang": "en",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "messages": [
+        "error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "apiCalls": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nToo many voice requests. Please wait 30 seconds, or type your question.\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "en-rate-limited.png"
+    },
+    {
+      "url": "http://127.0.0.1:5188/host?lang=en",
+      "label": "control en: chat turn crisis flag",
+      "htmlLang": "en",
+      "consoleErrors": [],
+      "messages": [],
+      "apiCalls": [
+        "POST /v1/public/chat/turns x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\ncrisis now\nI am really sorry you are feeling this way. You are not alone.\nTele-MANAS 14416 (24x7) · Emergency 112\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "en-crisis-chat.png"
+    }
+  ]
+}
