@@ -59,26 +59,36 @@ export const KNOWN_TENANT_IDS: readonly string[] = ["vc-synthetic-demo", "scribe
 export const RESERVED_TENANT_IDS_ENV = "VC_RESERVED_TENANT_IDS";
 /** A tenant id as @vc/db accepts it (TENANT_ID_PATTERN): the list is validated with the same shape, so a typo fails closed instead of silently reserving nothing. */
 const CONFIGURED_TENANT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
-const foldId = (id: string): string => id.normalize("NFKC").toLowerCase();
+/** The one fold every reserved-id comparison uses (NFKC, lower-case): isReservedPartnerId, the env parsers and startApi's sandbox guard (pc-hardening H4). */
+export const foldId = (id: string): string => id.normalize("NFKC").toLowerCase();
 
 /**
  * True when `id` is, or looks like, a tenant that already exists: equal to a built-in reserved name followed by nothing or by a separator (any non-letter,
  * non-digit) and a suffix (`sandbox`, `sandbox-1`, `admin_2`, `root.x`), to a tenant this repo writes under, or to one of the `extra` configured tenant ids.
  * Case and width are folded (NFKC, lower-case), so `SANDBOX` and a full-width `ｓandbox` count. A name that merely starts with the same letters (`sandboxed`) does not.
+ * Only the built-in names have a name+separator+suffix family: a configured tenant (`extra`) matches by its exact folded id, so listing `pathlynks` does not refuse
+ * `pathlynks-2` (that partner reaches only its own tenant `pathlynks-2`; pc-hardening H6, ISS-pc-reserved-ids-9).
  */
 export function isReservedPartnerId(id: string, extra: readonly string[] = [], ownTenants: readonly string[] = []): boolean {
+  return reservedPartnerIdReason(id, extra, ownTenants) !== undefined;
+}
+
+/** Why an id is reserved: a built-in name or family, a tenant this repo writes under, or an operator-configured tenant (pc-hardening H5, the reason `partner list` prints). */
+export type ReservedIdReason = "builtin" | "repo" | "configured";
+
+export function reservedPartnerIdReason(id: string, extra: readonly string[] = [], ownTenants: readonly string[] = []): ReservedIdReason | undefined {
   const f = foldId(id);
   // Never exemptable (pc-reserved-ids-2 S2): the built-in names and their families, and the tenants this repo writes under.
-  if (KNOWN_TENANT_IDS.includes(f)) return true;
-  if (RESERVED_PARTNER_IDS.some((name) => f === name || (f.startsWith(name) && /^[^a-z0-9]/.test(f.slice(name.length))))) return true;
+  if (KNOWN_TENANT_IDS.includes(f)) return "repo";
+  if (RESERVED_PARTNER_IDS.some((name) => f === name || (f.startsWith(name) && /^[^a-z0-9]/.test(f.slice(name.length))))) return "builtin";
   // A configured tenant id: entries are trimmed and folded like the env parser's (S4); a blank entry reserves nothing. The ONE exemption is an explicit operator binding
   // (`ownTenants`), matched against the EXACT partner id: a partner reaches only the tenant named by its own id (chat.ts:855), so binding `pathlynks` frees that
   // partner and nothing else, and a differently cased or full-width look-alike of it stays refused.
   if (extra.some((e) => {
     const t = foldId(e.trim());
     return t !== "" && t === f;
-  })) return !ownTenants.some((o) => o.trim() === id);
-  return false;
+  })) return ownTenants.some((o) => o.trim() === id) ? undefined : "configured";
+  return undefined;
 }
 
 /** The configured tenant ids from VC_RESERVED_TENANT_IDS (empty when unset). A malformed entry is a config error naming the variable, never a silent skip. */
@@ -139,6 +149,7 @@ export const PARTNER_PREFLIGHT_MAX_AGE_SEC = 600;
 
 export type PartnerErrorCode =
   | "usage"
+  | "reserved_ids"
   | "invalid_partner_id"
   | "invalid_origin"
   | "partner_exists"
@@ -425,10 +436,16 @@ export const PARTNER_USAGE = [
   "  partner add <name> [--id <partner-id>] [--origin <https://site>]...   register a partner; prints its page key and server key once",
   "  partner rotate <partner-id> --scope pub|srv                          new page or server key (printed once); the old one stops working",
   "  partner revoke <partner-id>                                          both keys stop working (within 60 s on a running server)",
-  "  partner list                                                         partners, status and key prefixes (never a key)",
+  "  partner list [--check]                                               partners, status and key prefixes (never a key); an id that is now reserved is marked RESERVED; --check exits 1 when any active partner is",
 ];
 
 const usageError = (extra?: string) => new PartnerError("usage", [...(extra ? [extra] : []), ...PARTNER_USAGE].join("\n"));
+
+const RESERVED_REASON_TEXT: Record<ReservedIdReason, string> = {
+  builtin: "a built-in reserved name or its family",
+  repo: "a tenant this repo writes under",
+  configured: `listed in ${RESERVED_TENANT_IDS_ENV}`,
+};
 
 function row(p: PartnerSummary): string {
   return `${p.partnerId}  ${p.status}  pub ${p.keys.pub.prefix}...  srv ${p.keys.srv.prefix}...  origins: ${p.allowedOrigins.length > 0 ? p.allowedOrigins.join(", ") : "(none)"}  name: ${p.name}`;
@@ -477,9 +494,23 @@ export async function runPartnerCli(argv: readonly string[], deps: { store: Part
       return [`revoked ${row(await revokePartner(deps.store, rest[0]!))}`];
     }
     case "list": {
-      if (rest.length !== 0) throw usageError("list takes no arguments");
+      const check = rest.length === 1 && rest[0] === "--check";
+      if (rest.length !== 0 && !check) throw usageError("list takes no arguments except --check");
       const rows = await listPartners(deps.store);
-      return rows.length === 0 ? ["(no partners)"] : rows.map(row);
+      // pc-hardening H5: mark every partner whose id is reserved by the CURRENT configuration (made before the tenant was listed, or before a built-in name was added), so the
+      // pre-deploy step is this command and not a manual comparison. --check turns an active flagged partner into a failure (exit 1). Ids and reasons only: no key material.
+      const flagged = rows.map((p) => ({ p, reason: reservedPartnerIdReason(p.partnerId, deps.reservedIds ?? [], deps.ownTenants ?? []) })).filter((x) => x.reason !== undefined);
+      if (check) {
+        const active = flagged.filter((x) => x.p.status !== "revoked");
+        if (active.length > 0) {
+          throw new PartnerError(
+            "reserved_ids",
+            `${active.length} active partner(s) have an id that is currently reserved and would be refused on a server with this configuration: ${active.map((x) => `${x.p.partnerId} (${RESERVED_REASON_TEXT[x.reason!]})`).join("; ")}. Bind the partner in ${PARTNER_OWN_TENANTS_ENV} if it IS that tenant, otherwise take the tenant out of ${RESERVED_TENANT_IDS_ENV} or revoke the partner, then run this check again.`,
+          );
+        }
+      }
+      const reasonOf = new Map(flagged.map((x) => [x.p.partnerId, x.reason!]));
+      return rows.length === 0 ? ["(no partners)"] : rows.map((p) => (reasonOf.has(p.partnerId) ? `${row(p)}  ** RESERVED: ${RESERVED_REASON_TEXT[reasonOf.get(p.partnerId)!]} **` : row(p)));
     }
     default:
       throw usageError(command === undefined ? undefined : `unknown command ${command}`);

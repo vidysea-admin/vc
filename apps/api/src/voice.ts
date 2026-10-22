@@ -148,6 +148,14 @@ export const VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT = 2;
 export const VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT = 50;
 /** Retry-After (seconds) on the 429 an active-session cap refuses with (one value for both caps, so the refusal does not say which fired). */
 export const VOICE_ACTIVE_CAP_RETRY_AFTER_SEC = 30;
+/**
+ * pc-hardening H1 (ISS-pc-voice-2): an anonymous active-session cap from config is a whole number >= 0 (0 = no anonymous sessions at all). Anything else (NaN, Infinity,
+ * a string, a negative or a fraction) can never disable the cap: it falls back to the documented default, the way `drainTimeoutMs` and the other numeric deps of this
+ * module fall back. The default is applied on every check, so a function-valued per-partner cap that returns junk is covered too.
+ */
+export function anonymousCapLimit(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : fallback;
+}
 /** U10 repair 1: a crisis flag / escalation write is tried this many times in all (one retry). */
 export const VOICE_CRISIS_WRITE_ATTEMPTS = 2;
 /**
@@ -1597,9 +1605,9 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
 
   /** True when an anonymous client or its partner already holds its cap of active (not closed) sessions; `self` is excluded so a start can re-check its own connection. */
   function anonymousCapReached(tenantId: string, clientKey: string, self?: Conn): boolean {
-    const perClient = Math.max(0, deps.anonymous?.maxActivePerClient ?? VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT);
+    const perClient = anonymousCapLimit(deps.anonymous?.maxActivePerClient, VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT);
     const raw = deps.anonymous?.maxActivePerPartner;
-    const perPartner = Math.max(0, (typeof raw === "function" ? raw(tenantId) : raw) ?? VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT);
+    const perPartner = anonymousCapLimit(typeof raw === "function" ? raw(tenantId) : raw, VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT);
     let client = 0;
     let partner = 0;
     for (const c of conns) {
@@ -1787,7 +1795,14 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     if (!verdict.allowed) return failAnon(429, "rate_limited", { "retry-after": String(verdict.retryAfterSec) });
     if (!(await readEmptyBody(req))) return failAnon(400, "invalid_request");
 
-    const minted = await mintAnonymousVoiceToken(deps.wsSecret, who.partnerId, typeof origin === "string" ? origin : "", limiter.keyOf(bucket), nowMs());
+    // pc-hardening H3 (ISS-pc-voice-6): a visitor whose client or partner is already at its active-session cap is told so HERE, in a readable response, instead of being minted a token
+    // whose upgrade is then refused with a bare 429 the browser cannot read (onclose carries no status and no Retry-After). The upgrade (and the start) keep their own checks for the race
+    // between this mint and the socket. Same status and Retry-After as the upgrade refusal, so neither cap is singled out.
+    const clientCk = limiter.keyOf(bucket);
+    if (anonymousCapReached(who.partnerId, `${who.partnerId}\u0000anon-client\u0000${clientCk}`)) {
+      return failAnon(429, "voice_busy", { "retry-after": String(VOICE_ACTIVE_CAP_RETRY_AFTER_SEC) });
+    }
+    const minted = await mintAnonymousVoiceToken(deps.wsSecret, who.partnerId, typeof origin === "string" ? origin : "", clientCk, nowMs());
     return respond(
       201,
       VoiceSessionResponseSchema.parse({

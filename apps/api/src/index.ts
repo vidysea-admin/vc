@@ -66,6 +66,7 @@ import {
   partnerKeyRequiredFromEnv,
   partnerOwnTenantsFromEnv,
   partnerPepperFromEnv,
+  foldId,
   reservedTenantIdsFromEnv,
   reservedTenantIdsWarning,
   withPartnerRoutes,
@@ -550,7 +551,7 @@ export async function startApi(
     const sandbox = http?.chat?.sandboxTenantId;
     if (sandbox !== undefined) {
       // the sandbox tenant can never be exempted, like the built-in names
-      if (partnerOwnTenants.includes(sandbox)) throw new PartnerConfigError(`${PARTNER_OWN_TENANTS_ENV} cannot bind the configured sandbox tenant`);
+      if (partnerOwnTenants.some((o) => foldId(o.trim()) === foldId(sandbox.trim()))) throw new PartnerConfigError(`${PARTNER_OWN_TENANTS_ENV} cannot bind the configured sandbox tenant`);
       partnerReservedIds.push(sandbox);
     }
   } else if (httpSetup && [RESERVED_TENANT_IDS_ENV, PARTNER_OWN_TENANTS_ENV].some((name) => (env[name] ?? "").trim() !== "")) {
