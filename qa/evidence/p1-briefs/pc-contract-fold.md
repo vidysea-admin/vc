@@ -1,0 +1,4 @@
+# Checker task: contract init for partner-chatbot
+You are /checker (contract maintenance only, no verdict). Protocol: C:/Users/Lenovo/.claude/skills/checker/SKILL.md (contract maintenance section).
+Bound root D:/vc, main branch. Create qa/contracts/partner-chatbot.md from docs/features/partner-chatbot/spec.md: copy acceptance criteria K1-K5, W1-W4, V1-V3, D1-D2 verbatim as [K1]..[D2], each with `(serves: intent#<outcome n>)` from docs/features/partner-chatbot/intent.md, plus the Unchanged invariants as [I1].. and a header citing D-111. Flag (as PROPOSED-ISSUE lines at the end, not edits) any criterion that is not testable as written.
+Commit ONLY that file with a narrow pathspec (`git -C D:/vc add qa/contracts/partner-chatbot.md` then commit). Never git add -A; never touch other files. Return one line: `contract partner-chatbot <sha>`.
