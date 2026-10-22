@@ -15,7 +15,7 @@ Check the current state at any time with `pnpm -C apps/api exec tsx scripts/go-l
 | `VC_ANONYMOUS_ENABLED` | `true` to serve the public anonymous route. Unlike the two above it is trimmed, but write it exactly anyway. |
 | `VC_RESERVED_TENANT_IDS` | Partner keys only (needs `VC_PARTNER_KEY_PEPPER`). Comma- or space-separated: list **every `tenant` value your student JWTs carry** (each Vidysea and Pathlynks tenant id) and the sandbox tenant. A partner id equal to a listed id is refused at `partner add` and on every request. **Empty or unset = only the built-in names (`sandbox`, `admin`, ...) and this repo's own demo and evaluation tenants are protected**; the real JWT tenants are then unprotected, and the server and `partner add`/`partner list` print a warning saying so. A malformed list stops startup when partners are on. Run `pnpm -C apps/api partner list --check` before deploy (it marks and fails on a flagged partner): any existing partner whose id is, or looks like, a listed tenant will start getting `401`. |
 | `VC_PARTNER_OWN_TENANTS` | Optional, with the list above. `<partner>:<tenant>` pairs (both halves the same id, e.g. `pathlynks:pathlynks`) for a partner whose own id is also a real JWT tenant: that exact partner is not blocked by the list, because a partner key reaches only the tenant named by its own id. Any other partner on that tenant stays refused. It can never free `sandbox`, `admin`, ... or the repo's tenants, nor the sandbox tenant. |
-| `VC_GATE_APPROVER` | The repo Approver's name (the go-live gate and the CLI read it). Must be set for the D-111 voice override to apply: with it unset or empty an `Owner-override:` line in `a10-voice-gate.md` is refused and voice stays closed; set, the override signer must equal it exactly (it also pins the B13 signer). |
+| `VC_GATE_APPROVER` | The repo Approver's name (the go-live gate and the CLI read it). **Required for every go-live target (B13):** with it unset, empty or blank (spaces or tabs only) every target (student routes, anonymous, voice, publish) is refused with `B13-signed needs VC_GATE_APPROVER`, even when `B13-signed` is signed. It is matched **exactly**: no surrounding whitespace, and the same case as the signer in `B13-signed` (`umesh` or `UMESH` does not match `Umesh`, and `" Umesh "` or a trailing newline does not match either); the refusal never echoes the value, so check the deploy config for stray spaces. It also applies to the D-111 voice override: with it unset, empty or blank an `Owner-override:` line in `a10-voice-gate.md` is refused (`Owner-override needs VC_GATE_APPROVER`) and voice stays closed; set, the override signer must equal it exactly. |
 
 Padding fails startup, on purpose (ISS-263): `"true "`, `" true"`, `"TRUE"` and `"1"` are not `true`, and the server
 refuses to start with a `ChatConfigError` / `VoiceConfigError` rather than silently turning a flag on or off
@@ -42,3 +42,29 @@ All of these must be on disk in `qa/gates/` before the go-live script enables an
 - [ ] Who owns the clinical-safety policy.
 - [ ] Tele-MANAS 14416 test call for adolescents, and Hindi/Hinglish coverage, done (unverified today).
 - [ ] Whether authenticated-student exposure, the anonymous route and voice go live together or one at a time.
+
+## 4. nginx deploy steps (voice, `infra/ubuntu/nginx-vc.conf`)
+
+Done on the server by a person; the tests only read the conf file, they never run nginx.
+
+- [ ] `sudo nginx -t` after copying the conf (before `systemctl reload nginx`). It must print `syntax is ok` and `test is successful`; reload only then.
+- [ ] Logrotate entry for the voice access log. The two voice stream locations write `/var/log/nginx/vc-voice-stream.access.log` (a path, not the stock `access.log`, so the distro's nginx rotation does not cover it). Create `/etc/logrotate.d/vc-voice-stream` with:
+
+  ```
+  /var/log/nginx/vc-voice-stream.access.log {
+      daily
+      rotate 14
+      missingok
+      notifempty
+      compress
+      delaycompress
+      create 0640 www-data adm
+      sharedscripts
+      postrotate
+          [ ! -f /run/nginx.pid ] || kill -USR1 "$(cat /run/nginx.pid)"
+      endscript
+  }
+  ```
+
+  Check it with `sudo logrotate -d /etc/logrotate.d/vc-voice-stream` (dry run). Adjust the owner and group to the account your nginx runs as.
+- [ ] Keep nginx's `error_log` at its default level (`error`) or higher (`crit`, `alert`, `emerg`). On a `limit_req` rejection nginx's error log prints the request line (the URL with its query string). The two voice stream locations set `limit_req_log_level warn;`, so a rejection is logged below `error` and is NOT written to the error log while `error_log` is at `error` or higher. If an operator sets `error_log ... warn;` (or `notice`, `info`, `debug`) the request line comes back; do not. The 429 is still recorded in the voice access log, which logs the path (`$uri`) and never the query string. Other locations are unchanged and still log rejections at `error`.

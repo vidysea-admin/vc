@@ -156,14 +156,14 @@ const OVERRIDE_RE = new RegExp(`^(${ISO_INSTANT}) (?:\\u2014|\\u2013|--|-) (\\p{
 /**
  * `Owner-override: <ISO instant> - <owner name> - D-111` (em dash in the record). Valid when it appears exactly once at the start of a live line, the
  * instant is a real past instant, the signer is a personal name (never a role) equal to the configured repo approver, and the decision is D-111.
- * Fail closed: with no approver configured (VC_GATE_APPROVER unset or empty, none passed) the override is refused, never "any personal name" and
+ * Fail closed: with no approver configured (VC_GATE_APPROVER unset, empty or blank, none passed) the override is refused, never "any personal name" and
  * never a name hard-coded here (the B21 scanner in auth.test.ts forbids one).
  * Like B13-signed this is an executable refusal, not an identity proof: the file stays under the Approver's process.
  */
 function ownerOverrideProblem(lines: string[], { now, approver }: Ctx): string | null {
   const v = onlyValue(lines, "Owner-override");
   if (v === null) return "no single Owner-override line";
-  if (approver === undefined || approver === "") return "Owner-override needs VC_GATE_APPROVER (the repo approver) to be set";
+  if (approver === undefined || approver.trim() === "") return "Owner-override needs VC_GATE_APPROVER (the repo approver) to be set";
   const m = OVERRIDE_RE.exec(v);
   if (!m) return `Owner-override is not "<ISO instant> - <owner name> - ${A10_OVERRIDE_DECISION}" (found "${v.slice(0, 50)}")`;
   if (ROLE_WORDS.test(m[2]!)) return "Owner-override signer is a role, not a person";

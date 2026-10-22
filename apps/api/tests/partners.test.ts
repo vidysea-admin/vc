@@ -912,6 +912,27 @@ test("K2 (pc-hardening-3): both voice stream locations are rate limited like the
   assert.doesNotMatch('$remote_addr [$time_local] "$request_method $uri $server_protocol" $status $body_bytes_sent', SECRET_VARS, "the shipped format stays clean");
 });
 
+test("H3 (pc-hardening-6, ISS-pc-hardening-3-6): both voice stream locations log a limit_req rejection below the default error_log level (error), so nginx's error log does not print the request line; no other location changes", () => {
+  const streams = {
+    "public stream": locationBlock(/location\s*=\s*\/v1\/public\/voice\/stream\s*{/),
+    "student stream": locationBlock(/location\s*~\s*\^\/v1\/students\/\[\^\/\]\+\/chat\/threads\/\[\^\/\]\+\/voice\/stream\$\s*{/),
+  };
+  // nginx logs a refusal at limit_req_log_level (default error) and a delay one level lower; only info, notice or warn sit below the default error_log level
+  const BELOW_ERROR = /limit_req_log_level\s+(?:info|notice|warn)\s*;/;
+  for (const [name, block] of Object.entries(streams)) {
+    assert.match(block, BELOW_ERROR, `${name}: a limit_req rejection is not logged at error level (the request line stays out of the default error log)`);
+    assert.equal((block.match(/limit_req_log_level/g) ?? []).length, 1, `${name}: set once`);
+    assert.match(block, /limit_req\s+zone=vcchat\s+burst=\d+\s+nodelay;/, `${name}: still rate limited`);
+    assert.match(block, /limit_req_status\s+429;/, `${name}: still 429`);
+  }
+  // the instrument is real: it rejects the default (error) and a missing directive, and accepts the shipped levels
+  assert.doesNotMatch("limit_req_log_level error;", BELOW_ERROR);
+  assert.doesNotMatch("limit_req zone=vcchat burst=10 nodelay;", BELOW_ERROR);
+  for (const level of ["info", "notice", "warn"]) assert.match(`limit_req_log_level ${level};`, BELOW_ERROR);
+  // only the two stream locations change: nowhere else in this file is the level set
+  assert.equal((nginxCode.match(/limit_req_log_level/g) ?? []).length, 2);
+});
+
 test("K5 (clarified default 5): nginx serves the widget statically with a one-year immutable cache for the versioned file and 300 s for the alias", () => {
   const versioned = locationBlock(/location\s*=\s*\/widget\/vc-widget\.v1\.js\s*{/);
   const alias = locationBlock(/location\s*=\s*\/widget\/vc-widget\.js\s*{/);
