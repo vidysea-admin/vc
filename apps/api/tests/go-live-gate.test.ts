@@ -656,10 +656,59 @@ test("G1 (pc-hardening-5, ISS-pc-hardening-4-1): a signed B13 with no approver c
       assert.throws(() => assertChatGoLive({ ...base, env: { VC_GATE_APPROVER: "Mallory" } }), GoLiveRefusedError);
       assert.throws(() => assertVoiceGoLive({ ...base, env: { VC_GATE_APPROVER: "Mallory" } }), GoLiveRefusedError);
       for (const target of GO_LIVE_TARGETS) assert.equal(evaluateGoLive(fu.gates, target, NOW, APPROVER).allowed, true, `${target} matching approver`);
+      // H1 (pc-hardening-6, ISS-pc-hardening-5-2): the signer match is EXACT (no case-fold, no trim). A B13 signed by "Umesh" refuses a signer or approver that differs only in case or padding.
+      const b13By = (who: string) => fixture({ b13: `B13-signed: SIGNED 2026-10-16T10:00:00+05:30 by ${who}\n` });
+      const exact = (who: string, approver: string, target: (typeof GO_LIVE_TARGETS)[number]) => {
+        const f = b13By(who);
+        try {
+          return evaluateGoLive(f.gates, target, NOW, approver);
+        } finally {
+          cleanup(f);
+        }
+      };
+      for (const target of GO_LIVE_TARGETS) {
+        assert.equal(exact("Umesh", "Umesh", target).allowed, true, `${target}: exact match stays allowed`);
+        for (const signer of ["umesh", "UMESH"]) {
+          const r = exact(signer, "Umesh", target);
+          assert.equal(r.allowed, false, `${target}: signer ${JSON.stringify(signer)} vs approver "Umesh"`);
+          assert.ok(r.failures.some((x) => x.startsWith(GATE_FILES.b13)), `${target} ${JSON.stringify(signer)}: ${r.failures.join(" | ")}`);
+        }
+        for (const approver of [" Umesh ", "Umesh\n"]) {
+          const r = exact("Umesh", approver, target);
+          assert.equal(r.allowed, false, `${target}: approver ${JSON.stringify(approver)} vs signer "Umesh"`);
+          assert.ok(r.failures.some((x) => x.startsWith(GATE_FILES.b13) && x.includes("signer is not the repo approver")), `${target} ${JSON.stringify(approver)}: ${r.failures.join(" | ")}`);
+        }
+      }
+      // the same through the env a caller passes (chat and voice)
+      for (const approver of [" Umesh ", "Umesh\n"]) {
+        assert.throws(() => assertChatGoLive({ ...base, env: { VC_GATE_APPROVER: approver } }), GoLiveRefusedError, `chat env ${JSON.stringify(approver)}`);
+        assert.throws(() => assertVoiceGoLive({ ...base, env: { VC_GATE_APPROVER: approver } }), GoLiveRefusedError, `voice env ${JSON.stringify(approver)}`);
+      }
     });
     // process.env is the default only for a caller that passes no env and no approver (evaluateGoLive / the CLI)
     withApproverEnv("   ", () => assert.equal(evaluateGoLive(fu.gates, "student-routes", NOW).allowed, false, "blank process.env approver"));
     withApproverEnv(APPROVER, () => assert.equal(evaluateGoLive(fu.gates, "student-routes", NOW).allowed, true, "process.env approver matches"));
+  } finally {
+    cleanup(fu);
+  }
+});
+
+test("H2 (pc-hardening-6, ISS-pc-hardening-5-4): a blank (whitespace-only) approver is treated like an unset one by the owner override too: the same \"needs VC_GATE_APPROVER\" reason, still refused", () => {
+  const NEEDS = "Owner-override needs VC_GATE_APPROVER (the repo approver) to be set";
+  const fu = fixture({ a10: `${A10_FAIL_RECORD}${OVERRIDE_LINE}\n` });
+  try {
+    withApproverEnv(undefined, () => {
+      for (const blank of [undefined, "", " ", "   ", "\t", " \t "]) {
+        const label = JSON.stringify(blank);
+        const r = evaluateGoLive(fu.gates, "voice", NOW, blank);
+        assert.equal(r.allowed, false, label);
+        assert.ok(r.failures.some((x) => x.startsWith(GATE_FILES.a10) && x.includes(NEEDS)), `${label}: ${r.failures.join(" | ")}`);
+        assert.ok(!r.failures.some((x) => x.includes("Owner-override signer is not the repo approver")), `${label}: not the signer-mismatch message: ${r.failures.join(" | ")}`);
+        assert.ok(!formatGoLiveReport(r).includes(OVERRIDE_TEXT), label);
+      }
+      // set, the override still works for the matching approver (unchanged)
+      assert.ok(!only(evaluateGoLive(fu.gates, "voice", NOW, APPROVER)).includes(GATE_FILES.a10), "matching approver accepts the override");
+    });
   } finally {
     cleanup(fu);
   }
