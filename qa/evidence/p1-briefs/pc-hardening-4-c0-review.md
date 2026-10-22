@@ -1,0 +1,4 @@
+# Review brief: pc-hardening-4 cycle 0 (read-only senior review)
+Review `git -C D:/vc/.worktrees/pc-hardening-4 diff bf48a51 4915760`: assertChatGoLive env (chat.ts, P1), partner_tenant_guard_off log + PartnerNoteSink / http.partners.log option (index.ts, P2), widened K2 nginx regex (partners.test.ts, P3), new tests in go-live-gate.test.ts and partners.test.ts.
+Focus: can P1 make the chat routes go live where they refused before (any env/approver combination, real repo gates); is the B13-signer "skipped when no approver" path pre-existing and safe; does P2 leak anything or fire wrongly; is the new exported type/option a needed surface; test quality (do the P1 tests discriminate the old behaviour).
+Read-only: change no files, tests only through `bash D:/vc/scripts/vc-testlock.sh`, no full suite, no live calls, never run python. Approve / Warning / Block with file:line. Last line: `REVIEW pc-hardening-4-c0 <Approve|Warning|Block>`.
