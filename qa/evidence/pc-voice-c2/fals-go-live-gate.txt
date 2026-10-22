@@ -1,0 +1,103 @@
+[testlock] running slot 0 (free RAM 3.89 GB): timeout 600 pnpm exec tsx --test C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/fals/apps/api/tests/go-live-gate.test.ts
+﹣ A20: the real repo qa/gates refuses every target while B13 is not signed (0.5784ms) # SKIP
+✔ A20: today's U0 gate files (B13-signed: PENDING, gates open, interim Nights mode) are refused, with Nights the only satisfied record (11.6354ms)
+✔ A20: with every record (g-prod option c, A10 pass) every target is allowed (15.8141ms)
+✔ A20: B13, g-publish and Nights are each required by every target; g-prod by the three student targets, not by publish (27.5928ms)
+✔ A20: g-prod option scopes what may go live (a: auth text, b: + anonymous, c: + voice, d: hold) (35.2412ms)
+✔ A20: g-publish option c (hold) refuses; a (publish) and b (text only) allow; '(a)' and en/em dash separators parse (36.3443ms)
+✔ A20: the LAST Answered line counts (an append-only later hold withdraws an earlier go) (3.5823ms)
+✔ A20: voice alone needs the passing A10 record and its evidence file; the text targets do not (37.1166ms)
+✔ A20 hostile: placeholders, wrong signer, bad or future dates, wrong mode, duplicates and fenced or quoted text do not count (86.542ms)
+✔ A20: both Nights modes are accepted, and a backtick-wrapped B13 line is read (12.042ms)
+✔ A20: the B13 signer must be a personal name (never a role) and, when an approver is configured, exactly that name (65.2771ms)
+✔ A20: a gate path that is a directory, or a missing gates dir, refuses instead of throwing (3.8556ms)
+✔ V1: a FAIL record plus the owner-override line allows voice, and the gate output says A10 was overridden (143.6923ms)
+✔ V1: the override works even with no evidence file, and a PASS record is not reported as overridden (10.0597ms)
+✔ V1: without the override line the gate behaves as before (FAIL refuses, PASS allows), and the override reaches only the voice target's A10 record (16.414ms)
+✔ V1 hostile: a placeholder, wrong signer, wrong decision id, bad or future date, a quoted, fenced or repeated line does not count (62.1288ms)
+✖ V1 real gates: the repo's actual qa/gates ALLOW voice with the D-111 note while VC_GATE_APPROVER is the record's signer, and REFUSE voice with it unset (3.137ms)
+✖ V1 signer (fail closed): with no approver configured the override is refused for every signer, Umesh and Mallory included; set, only the matching name is accepted (12.6947ms)
+✔ V1: the override line for a different gate target is not read (text targets never need A10) (8.1564ms)
+✔ A20: an unknown target is refused, never treated as allowed (2.8887ms)
+✖ A20 CLI: exits 1 naming each missing record against the real qa/gates; 0 on a complete directory; 2 on bad usage (136.2191ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 17
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 933.9637
+
+✖ failing tests:
+
+test at C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\fals\apps\api\tests\go-live-gate.test.ts:422:1
+✖ V1 real gates: the repo's actual qa/gates ALLOW voice with the D-111 note while VC_GATE_APPROVER is the record's signer, and REFUSE voice with it unset (3.137ms)
+  AssertionError [ERR_ASSERTION]: fail closed: the real override line does not apply when no approver is configured
+  
+  true !== false
+  
+      at <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\fals\apps\api\tests\go-live-gate.test.ts:432:12)
+      at withApproverEnv (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\fals\apps\api\tests\go-live-gate.test.ts:415:12)
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\fals\apps\api\tests\go-live-gate.test.ts:430:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\fals\apps\api\tests\go-live-gate.test.ts:439:1
+✖ V1 signer (fail closed): with no approver configured the override is refused for every signer, Umesh and Mallory included; set, only the matching name is accepted (12.6947ms)
+  AssertionError [ERR_ASSERTION]: Mallory: a10-voice-gate.md: Result is not PASS, and Owner-override signer is not the repo approver
+      at <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\fals\apps\api\tests\go-live-gate.test.ts:451:18)
+      at withApproverEnv (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\fals\apps\api\tests\go-live-gate.test.ts:415:12)
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\fals\apps\api\tests\go-live-gate.test.ts:445:5)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\fals\apps\api\tests\go-live-gate.test.ts:508:1
+✖ A20 CLI: exits 1 naming each missing record against the real qa/gates; 0 on a complete directory; 2 on bad usage (136.2191ms)
+  AssertionError [ERR_ASSERTION]: go-live gate (A20) target=voice: ALLOWED
+    ok       p1-u0-amendment-signatures.md
+    ok       g-publish.md
+    ok       g-prod.md
+    ok       nights.md
+    ok       a10-voice-gate.md
+    NOTE     a10-voice-gate.md: A10 OVERRIDDEN by owner (D-111)
+  
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\fals\apps\api\tests\go-live-gate.test.ts:525:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

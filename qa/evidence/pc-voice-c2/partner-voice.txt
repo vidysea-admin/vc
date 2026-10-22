@@ -1,0 +1,41 @@
+[testlock] running slot 0 (free RAM 3.55 GB): timeout 600 pnpm exec tsx --test tests/partner-voice.test.ts
+✔ V2: Pathlynks' backend mints a voice session for its adult student with the server key and K3 headers; the student's words are stored under the partner's tenant (71.5829ms)
+✔ V2: a partner backend that sends no age header is treated as a minor without consent: voice answers, but no turn text is stored (61.6135ms)
+✔ V2: a minor whose partner vouches guardian consent 'true' has voice turns stored; the word 'yes' is not consent (111.7156ms)
+✔ V2: the page key (vck_pub_) in public HTML cannot mint a student voice session, and every other bad key gets the same uniform 401 (17.7013ms)
+✔ V2: a server key without the student headers is a 400, and a header naming another student than the path is a 404 (never someone else's thread) (11.0748ms)
+✔ V2: a second partner's server key cannot open the first partner's student thread (tenant is the partner id) (11.8465ms)
+✔ V2: the student voice session route never gets CORS, even for a partner origin with a valid server key (11.4426ms)
+✔ V2: a visitor on the partner's site mints an anonymous voice session with the page key; the response is the session contract and carries CORS for that origin only (11.5601ms)
+✔ V2: the browser's CORS preflight for the anonymous voice route is answered for a partner origin and for no other (12.2745ms)
+✔ V2: on the anonymous voice route the server key, no key, a malformed key, a revoked partner and a foreign Origin are all the same uniform 401 (no session is minted) (12.4192ms)
+✔ V2: a script without an Origin header holding the page key can mint (a browser-side control only), and a registry outage is a 503, never a session (22.7104ms)
+✔ V2: without the anonymous voice option the public voice route does not exist (404), and a visitor with a key gets nothing (10.2871ms)
+✔ V2: one office behind one address cannot flood the partner: the 11th anonymous mint in a minute is a 429 with Retry-After, while another client of the same partner is unaffected (14.2537ms)
+✔ V2: the anonymous limit is per partner AND client: a second partner's visitor behind the same address has a fresh budget (13.6909ms)
+✔ V2: the voice WebSocket origin check uses the page key's allowedOrigins: a connection from the partner's site opens, from a foreign site it is refused 403 before the socket is accepted (16.7889ms)
+✔ V2: a token minted for a browser at one origin is useless from another partner origin, and a token minted by a script (no Origin) is refused for a browser (17.0634ms)
+✔ V2: an anonymous token is single use, works in the subprotocol form too, and a query-string token is refused (20.925ms)
+✔ V2: scopes do not cross at the socket: an anonymous token cannot open a student stream (even a student named 'anonymous'), and a student token cannot open the anonymous stream (13.2062ms)
+✔ V2: a token whose claims were minted without the anonymous flag cannot be turned into one, and a forged anonymous claim without the secret is refused (13.1305ms)
+✔ V2: a visitor may hold only two sockets that have not started; the third is a 429 and the token is not spent (15.7665ms)
+✔ V2 active cap (review 2): a visitor may hold only two ACTIVE anonymous voice sessions; the third is a 429 with Retry-After, and a slot frees when one ends (54.6668ms)
+✔ V2 active cap (review 2): a partner's anonymous sessions are capped across all its visitors (configurable); the refusal is the same 429 + Retry-After, and the default is sane (82.8448ms)
+✔ V2 active cap (review 2): the cap is checked again at start, so a session that slipped under it at the upgrade is refused and closed before any provider session opens (42.3738ms)
+✔ V2: an anonymous voice conversation of several turns leaves nothing in the database and never opens a tenant Db: no turn text, no audio, no usage, no resume log (62.132ms)
+✔ V2: an anonymous visitor cannot resume or replay an earlier anonymous session's events, and the start must name the anonymous thread (155.0156ms)
+✔ V2: an anonymous visitor who says a crisis phrase hears the fixed crisis message and helpline audio, sees the crisis flag, and nothing is stored or escalated to a tenant (95.7747ms)
+✔ V2: a failing anonymous crisis counter is logged text-free and the visitor still gets the crisis message (44.0571ms)
+✔ V2: anonymous voice sessions get no student tools and no student instruction; the student tools see a student session only (47.895ms)
+✔ V2: an anonymous voice session ends at the per-session time cap with the same message as a student session, and the mint tells the widget the cap (47.3809ms)
+✔ V2: two anonymous visitors talk at once without superseding each other (a shared office address is not one student) (45.5902ms)
+✔ V2 wiring: a started process with a partner pepper and a client-key source mints an anonymous voice session for the page key and opens the stream from the partner's site (47.1134ms)
+✔ V2 wiring: without VC_PARTNER_KEY_PEPPER, or without a way to tell visitors apart, the anonymous voice routes are not served at all (93.5162ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2710.0376

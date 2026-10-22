@@ -319,7 +319,7 @@ test("V1: a FAIL record plus the owner-override line allows voice, and the gate 
     assert.ok(r.satisfied.includes(GATE_FILES.a10));
     assert.ok(formatGoLiveReport(r).includes(OVERRIDE_TEXT), formatGoLiveReport(r));
     // The CLI prints the same words and exits 0.
-    const cli = spawnSync(process.execPath, ["--import", "tsx", CLI, "voice", "--gates-dir", f.gates], { encoding: "utf8" });
+    const cli = spawnSync(process.execPath, ["--import", "tsx", CLI, "voice", "--gates-dir", f.gates], { encoding: "utf8", env: { ...process.env, VC_GATE_APPROVER: APPROVER } });
     assert.equal(cli.status, 0, cli.stdout + cli.stderr);
     assert.ok(cli.stdout.includes(OVERRIDE_TEXT), cli.stdout);
   } finally {
@@ -398,45 +398,86 @@ test("V1 hostile: a placeholder, wrong signer, wrong decision id, bad or future 
   }
 });
 
-test("V1 real gates: the repo's actual qa/gates (approver env unset) ALLOW voice with the D-111 note while the A10 record carries the override line", () => {
+/** The signer named on the real A10 record's Owner-override line (the repo Approver the override must be run with). */
+function realOverrideSigner(): string {
   const realA10 = readFileSync(join(REPO_GATES, GATE_FILES.a10), "utf8");
-  assert.match(realA10, /^Owner-override: /m, "the real A10 record has no Owner-override line, so the owner's record is not what this test proves");
-  const r = evaluateGoLive(REPO_GATES, "voice", new Date(), undefined);
-  assert.deepEqual(r.failures, []);
-  assert.equal(r.allowed, true);
-  assert.ok(formatGoLiveReport(r).includes(OVERRIDE_TEXT), formatGoLiveReport(r));
-});
+  const m = /^Owner-override: \S+ (?:\u2014|\u2013|--|-) (.+?) (?:\u2014|\u2013|--|-) D-111$/mu.exec(realA10);
+  assert.ok(m, "the real A10 record has no Owner-override line, so the owner's record is not what this test proves");
+  return m[1]!;
+}
 
-test("V1 signer: with VC_GATE_APPROVER unset the override signer defaults to the named Approver Umesh (Mallory refused); set, it must equal the env value", () => {
-  const mallory = "Owner-override: 2026-10-22T08:00:00+05:30 — Mallory — D-111";
-  const fm = fixture({ a10: `${A10_FAIL_RECORD}${mallory}\n` });
-  const fu = fixture({ a10: `${A10_FAIL_RECORD}${OVERRIDE_LINE}\n` });
+/** Run `body` with VC_GATE_APPROVER set to `value` (or removed when undefined), then restore it. */
+function withApproverEnv<T>(value: string | undefined, body: () => T): T {
   const saved = process.env.VC_GATE_APPROVER;
+  if (value === undefined) delete process.env.VC_GATE_APPROVER;
+  else process.env.VC_GATE_APPROVER = value;
   try {
-    delete process.env.VC_GATE_APPROVER;
-    for (const r of [evaluateGoLive(fm.gates, "voice", NOW, undefined), evaluateGoLive(fm.gates, "voice", NOW), evaluateGoLive(fm.gates, "voice", NOW, "")]) {
-      assert.equal(r.allowed, false);
-      assert.deepEqual(only(r), [GATE_FILES.a10]);
-      assert.ok(!formatGoLiveReport(r).includes(OVERRIDE_TEXT));
-    }
-    assert.throws(() => assertGoLive(fm.gates, "voice", NOW), GoLiveRefusedError);
-    assert.equal(evaluateGoLive(fu.gates, "voice", NOW).allowed, true);
-    const env = { ...process.env };
-    delete env.VC_GATE_APPROVER;
-    const cliM = spawnSync(process.execPath, ["--import", "tsx", CLI, "voice", "--gates-dir", fm.gates], { encoding: "utf8", env });
-    assert.equal(cliM.status, 1, cliM.stdout + cliM.stderr);
-    const cliU = spawnSync(process.execPath, ["--import", "tsx", CLI, "voice", "--gates-dir", fu.gates], { encoding: "utf8", env });
-    assert.equal(cliU.status, 0, cliU.stdout + cliU.stderr);
-    // set: the configured approver decides (explicit parameter and the env default)
-    // (B13 is signed by Umesh, so only the A10 line is judged here)
-    assert.ok(!only(evaluateGoLive(fm.gates, "voice", NOW, "Mallory")).includes(GATE_FILES.a10));
-    assert.ok(only(evaluateGoLive(fu.gates, "voice", NOW, "Mallory")).includes(GATE_FILES.a10));
-    process.env.VC_GATE_APPROVER = "Anita";
-    assert.ok(only(evaluateGoLive(fu.gates, "voice", NOW)).includes(GATE_FILES.a10));
-    assert.ok(only(evaluateGoLive(fm.gates, "voice", NOW)).includes(GATE_FILES.a10));
+    return body();
   } finally {
     if (saved === undefined) delete process.env.VC_GATE_APPROVER;
     else process.env.VC_GATE_APPROVER = saved;
+  }
+}
+
+test("V1 real gates: the repo's actual qa/gates ALLOW voice with the D-111 note while VC_GATE_APPROVER is the record's signer, and REFUSE voice with it unset", () => {
+  const signer = realOverrideSigner();
+  withApproverEnv(signer, () => {
+    const r = evaluateGoLive(REPO_GATES, "voice", new Date());
+    assert.deepEqual(r.failures, []);
+    assert.equal(r.allowed, true);
+    assert.ok(formatGoLiveReport(r).includes(OVERRIDE_TEXT), formatGoLiveReport(r));
+  });
+  withApproverEnv(undefined, () => {
+    const r = evaluateGoLive(REPO_GATES, "voice", new Date());
+    assert.equal(r.allowed, false, "fail closed: the real override line does not apply when no approver is configured");
+    assert.ok(only(r).includes(GATE_FILES.a10));
+    assert.ok(!formatGoLiveReport(r).includes(OVERRIDE_TEXT));
+    assert.ok(formatGoLiveReport(r).includes("VC_GATE_APPROVER"), formatGoLiveReport(r));
+  });
+});
+
+test("V1 signer (fail closed): with no approver configured the override is refused for every signer, Umesh and Mallory included; set, only the matching name is accepted", () => {
+  const mallory = "Owner-override: 2026-10-22T08:00:00+05:30 — Mallory — D-111";
+  const fm = fixture({ a10: `${A10_FAIL_RECORD}${mallory}\n` });
+  const fu = fixture({ a10: `${A10_FAIL_RECORD}${OVERRIDE_LINE}\n` });
+  const NEEDS = "Owner-override needs VC_GATE_APPROVER (the repo approver) to be set";
+  try {
+    withApproverEnv(undefined, () => {
+      for (const [label, f] of [["Mallory", fm], ["Umesh", fu]] as const) {
+        for (const r of [evaluateGoLive(f.gates, "voice", NOW, undefined), evaluateGoLive(f.gates, "voice", NOW), evaluateGoLive(f.gates, "voice", NOW, "")]) {
+          assert.equal(r.allowed, false, label);
+          assert.deepEqual(only(r), [GATE_FILES.a10], label);
+          assert.ok(!formatGoLiveReport(r).includes(OVERRIDE_TEXT), label);
+          assert.ok(r.failures.some((x) => x.includes(NEEDS)), `${label}: ${r.failures.join(" | ")}`);
+        }
+        assert.throws(() => assertGoLive(f.gates, "voice", NOW), GoLiveRefusedError, label);
+      }
+      // CLI with the env removed: both refuse (exit 1).
+      const env = { ...process.env };
+      delete env.VC_GATE_APPROVER;
+      for (const f of [fm, fu]) {
+        const cli = spawnSync(process.execPath, ["--import", "tsx", CLI, "voice", "--gates-dir", f.gates], { encoding: "utf8", env });
+        assert.equal(cli.status, 1, cli.stdout + cli.stderr);
+        assert.ok(!cli.stdout.includes(OVERRIDE_TEXT), cli.stdout);
+      }
+    });
+    // Set: the configured approver decides (explicit parameter and the env default). B13 is signed by Umesh, so with an approver other than
+    // Umesh B13 also refuses; only the A10 line is judged here.
+    assert.ok(!only(evaluateGoLive(fm.gates, "voice", NOW, "Mallory")).includes(GATE_FILES.a10), "explicit approver Mallory accepts the Mallory line");
+    assert.ok(only(evaluateGoLive(fu.gates, "voice", NOW, "Mallory")).includes(GATE_FILES.a10));
+    assert.equal(evaluateGoLive(fu.gates, "voice", NOW, "Umesh").allowed, true);
+    assert.equal(evaluateGoLive(fm.gates, "voice", NOW, "Umesh").allowed, false);
+    withApproverEnv("Anita", () => {
+      assert.ok(only(evaluateGoLive(fu.gates, "voice", NOW)).includes(GATE_FILES.a10));
+      assert.ok(only(evaluateGoLive(fm.gates, "voice", NOW)).includes(GATE_FILES.a10));
+    });
+    withApproverEnv("Umesh", () => {
+      assert.equal(evaluateGoLive(fu.gates, "voice", NOW).allowed, true);
+      const cli = spawnSync(process.execPath, ["--import", "tsx", CLI, "voice", "--gates-dir", fu.gates], { encoding: "utf8", env: { ...process.env } });
+      assert.equal(cli.status, 0, cli.stdout + cli.stderr);
+      assert.ok(cli.stdout.includes(OVERRIDE_TEXT), cli.stdout);
+    });
+  } finally {
     cleanup(fm);
     cleanup(fu);
   }
@@ -476,12 +517,19 @@ test("A20 CLI: exits 1 naming each missing record against the real qa/gates; 0 o
   }
   // The real A10 record: while it holds the D-111 owner-override line the REAL gates must ALLOW voice (never skipped); otherwise voice stays refused until a run passes.
   const realA10 = readFileSync(join(REPO_GATES, GATE_FILES.a10), "utf8");
-  const realVoice = run(["voice", "--gates-dir", REPO_GATES]);
   if (/^Owner-override: /m.test(realA10)) {
+    // D-111 applies only with the repo Approver configured: with VC_GATE_APPROVER unset the real gates refuse voice (exit 1).
+    const unsetEnv = { ...process.env };
+    delete unsetEnv.VC_GATE_APPROVER;
+    const realRefused = spawnSync(process.execPath, ["--import", "tsx", CLI, "voice", "--gates-dir", REPO_GATES], { encoding: "utf8", env: unsetEnv });
+    assert.equal(realRefused.status, 1, realRefused.stdout + realRefused.stderr);
+    assert.ok(!realRefused.stdout.includes(OVERRIDE_TEXT), realRefused.stdout);
+    const realVoice = spawnSync(process.execPath, ["--import", "tsx", CLI, "voice", "--gates-dir", REPO_GATES], { encoding: "utf8", env: { ...process.env, VC_GATE_APPROVER: realOverrideSigner() } });
     assert.equal(realVoice.status, 0, realVoice.stdout + realVoice.stderr);
     assert.match(realVoice.stdout, /ALLOWED/);
     assert.ok(realVoice.stdout.includes(OVERRIDE_TEXT), realVoice.stdout);
   } else if (!/^Result: PASS$/m.test(realA10)) {
+    const realVoice = run(["voice", "--gates-dir", REPO_GATES]);
     assert.equal(realVoice.status, 1);
     assert.ok(realVoice.stdout.includes(GATE_FILES.a10));
   }

@@ -12,6 +12,8 @@
  *   - and, for voice only, a passing A10 report record (a10-voice-gate.md, pointing at an existing qa/evidence file), or, in its place,
  *     the owner's recorded risk acceptance `Owner-override: <ISO instant> - <owner> - D-111` (pc-voice V1); the gate output then says
  *     "A10 OVERRIDDEN by owner (D-111)". Without that line a record that is not `Result: PASS` still refuses.
+ *     The override is fail closed: it applies only when the repo approver is configured (`approver` / VC_GATE_APPROVER) and the signer equals
+ *     it exactly; with none configured it is refused ("Owner-override needs VC_GATE_APPROVER (the repo approver) to be set"), so A10 stays FAIL.
  *
  * Targets: student-routes, anonymous, voice need B13, g-publish, g-prod and Nights (g-prod.md precondition 3);
  * anonymous additionally needs g-prod option b or c, voice needs option c and A10. publish needs B13, an
@@ -145,32 +147,31 @@ const nights: Checker = (lines) => {
 
 /** pc-voice V1 (D-111): the decision an A10 owner override must cite, and the words the gate output carries when it is used. */
 export const A10_OVERRIDE_DECISION = "D-111";
-/** The D-111 owner and the repo's named Approver; the override signer when VC_GATE_APPROVER is unset. */
-export const A10_OVERRIDE_DEFAULT_OWNER = "Umesh";
 export const A10_OVERRIDE_NOTE = `A10 OVERRIDDEN by owner (${A10_OVERRIDE_DECISION})`;
 const OVERRIDE_RE = new RegExp(`^(${ISO_INSTANT}) (?:\\u2014|\\u2013|--|-) (\\p{Lu}[\\p{L} .'-]{1,40}?) (?:\\u2014|\\u2013|--|-) ${A10_OVERRIDE_DECISION}$`, "u");
 
 /**
  * `Owner-override: <ISO instant> - <owner name> - D-111` (em dash in the record). Valid when it appears exactly once at the start of a live line, the
- * instant is a real past instant, the signer is a personal name (never a role, and the repo approver; Umesh when none is configured) and the decision is D-111.
+ * instant is a real past instant, the signer is a personal name (never a role) equal to the configured repo approver, and the decision is D-111.
+ * Fail closed: with no approver configured (VC_GATE_APPROVER unset or empty, none passed) the override is refused, never "any personal name" and
+ * never a name hard-coded here (the B21 scanner in auth.test.ts forbids one).
  * Like B13-signed this is an executable refusal, not an identity proof: the file stays under the Approver's process.
  */
 function ownerOverrideProblem(lines: string[], { now, approver }: Ctx): string | null {
   const v = onlyValue(lines, "Owner-override");
   if (v === null) return "no single Owner-override line";
+  if (approver === undefined || approver === "") return "Owner-override needs VC_GATE_APPROVER (the repo approver) to be set";
   const m = OVERRIDE_RE.exec(v);
   if (!m) return `Owner-override is not "<ISO instant> - <owner name> - ${A10_OVERRIDE_DECISION}" (found "${v.slice(0, 50)}")`;
   if (ROLE_WORDS.test(m[2]!)) return "Owner-override signer is a role, not a person";
-  // No approver configured: fail closed to the named repo Approver (project CLAUDE.md), never "any personal name".
-  const signer = approver !== undefined && approver !== "" ? approver : A10_OVERRIDE_DEFAULT_OWNER;
-  if (m[2] !== signer) return "Owner-override signer is not the repo approver";
+  if (m[2] !== approver) return "Owner-override signer is not the repo approver";
   return validInstant(m[1]!, now) ? null : "Owner-override instant is in the future";
 }
 
 const a10: Checker = (lines, ctx) => {
   const { now, gatesDir } = ctx;
   if (onlyValue(lines, "Result") !== "PASS") {
-    // D-111: Umesh accepted the A10 risk; a valid owner-override line stands in for `Result: PASS` (and its Run-at / Evidence lines).
+    // D-111: the owner accepted the A10 risk; a valid owner-override line stands in for `Result: PASS` (and its Run-at / Evidence lines).
     const override = ownerOverrideProblem(lines, ctx);
     if (override === null) return { note: A10_OVERRIDE_NOTE };
     return keyValues(lines, "Owner-override").length > 0 ? `Result is not PASS, and ${override}` : "Result is not PASS";

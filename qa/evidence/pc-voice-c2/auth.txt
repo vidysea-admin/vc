@@ -1,0 +1,24 @@
+[testlock] running slot 0 (free RAM 4.42 GB): timeout 600 pnpm exec tsx --test tests/auth.test.ts
+✔ T-025 auth: config refuses a missing issuer, 'none', unknown algorithms and unsafe HS256 setups (10.03ms)
+✔ T-025 auth: config narrows a PEM key to its own algorithm and unescapes one-line PEMs (0.778ms)
+✔ T-025 auth: a valid RS256 token yields {tenantId, counsellorId, role} (14.2455ms)
+✔ T-025 auth: a valid ES256 token verifies against an EC P-256 PEM (2.4543ms)
+✔ T-025 auth: signature failures (tampered payload, another key) are refused (3.6089ms)
+✔ T-025 auth: algorithm confusion and 'none' are refused (3.0602ms)
+✔ T-025 auth: exp / nbf honour the clock skew, and exp is required (8.026ms)
+✔ T-025 auth: issuer and audience are enforced (9.1697ms)
+✔ T-025 auth: tenant / counsellorId / role claims are required and validated (30.7372ms)
+✔ T-025 auth: malformed and oversized tokens are refused before parsing (1.043ms)
+✔ T-025 auth: HS256 only when explicitly configured, and then an RS256 token is refused (4.1609ms)
+✔ T-025 auth: a JWKS key source verifies by kid through an injected (offline) fetch (24.9225ms)
+✔ T-025 auth: bearerToken takes only a single-token Bearer header (0.4059ms)
+✔ T-025 B21 contract: the placeholder issuer 'umesh' (local key pair) and a later real issuer differ ONLY in config; each verifier accepts its own tokens and refuses the other's (44.1927ms)
+✔ T-025 B21 contract: no issuer or key is hard-coded in apps/api/src, .env.example lists the JWT names with no values, and no private key is tracked in git (417.5783ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4548.2619
