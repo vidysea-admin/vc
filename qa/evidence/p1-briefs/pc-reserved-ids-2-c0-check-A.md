@@ -8,7 +8,7 @@ Prove the OUTCOME with HOSTILE variants, executed, not read:
 - S3: malformed VC_RESERVED_TENANT_IDS (and malformed VC_PARTNER_OWN_TENANTS) with pepper unset: startup succeeds with a note; with pepper set: startup fails naming the variable.
 - S4: programmatic reservedIds with spaces/case are matched the same as the env path.
 - S5: rotate on a now-reserved partner refuses and mints no key (check the store); revoke works.
-- Docs: go-live-checklist, runbook-golive, partner-integration section 4 and .env.example state what to list, empty = built-ins only, the binding, and  before deploy; check accuracy against the code.
+- Docs: go-live-checklist, runbook-golive, partner-integration section 4 and .env.example state what to list, empty = built-ins only, the binding, and `partner list` before deploy; check accuracy against the code.
 - Regression: partners, partner-voice, partner-openapi, auth, server, index, main, chat (A20 is the known baseline red), anonymous-route "H2|H6|G5|K2|K4"; tsc --noEmit for apps/api.
 One falsification per criterion in a copy under your session scratchpad (green before, red after, restored); delete nothing outside your scratchpad.
 Tests through `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test [--test-name-pattern=...] <file>` (pattern BEFORE the file; long lock waits are normal, wait). No full suite, no live Gemini/LLM calls, never touch real Mongo, never run python from a heredoc or stdin, never kill processes, change no product code.
