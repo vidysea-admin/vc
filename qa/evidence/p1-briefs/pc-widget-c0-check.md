@@ -1,0 +1,8 @@
+# Check brief: pc-widget, cycle 0
+You are /checker running a Mode A feature check. Protocol: C:/Users/Lenovo/.claude/skills/checker/SKILL.md. Policy-Version: proportional-verification/2026-10-19.17. Tier M (new UI app). One checker (Dual check: no). Budget: wall 10 min target (hard checkpoint per policy), agent-minutes 30.
+Project/worktree: D:/vc/.worktrees/pc-widget, branch wave/pc-widget, head dc64cdd, Base 3a70309. Cycle: 0.
+Contract: D:/vc/qa/contracts/partner-chatbot.md (on main, b9f6c76): criteria [W1]-[W4] and invariants [I*]. Spec: docs/features/partner-chatbot/spec.md. Gate defaults applying to W4: last line of D:/vc/qa/feedback-inbox.md, default (5).
+Manifest: qa/manifests/pc-widget.md in the worktree. Verdict path: qa/verdicts/pc-widget.md (in the worktree). Checkpoint: qa/checkpoints/pc-widget.md.
+Hints: UI surface (run Mode D with your OWN browser script; the maker's report is not evidence). Persona walk: required (anonymous Vidysea-website visitor, Pathlynks student in proxy mode). Security read: model text rendered via textContent only, links http/https only, no storage, key never logged.
+Tests: `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 node --test "apps/widget/tests/*.test.js"` from the worktree. Any stub server on a free port NOT 8080/8787/3399; kill only PIDs you started. No live LLM calls. Never pipe a heredoc into python.
+One falsification per criterion W1-W4 in a copy outside the tree. Write the verdict with `Cycle checked: 0` and a Metrics line, commit it on wave/pc-widget with a narrow pathspec, return: `pc-widget <verdict-sha> PASS|FAIL`.
