@@ -108,6 +108,7 @@ import { emitEngineeringAlert, type EngineeringAlert, type GroundingBudget, type
 import { AnonymousRateLimiter } from "./anonymous.js";
 import { AuthError, bearerToken, type StudentAuthContext, type StudentJwtVerifier } from "./auth.js";
 import { assertGoLive } from "./go-live-gate.js";
+import { PartnerRegistryUnavailableError, isPartnerKeyToken, partnerStudentFromHeaders, type PartnerRegistry } from "./partners.js";
 import { BodyTooLargeError, PATH_ID_PATTERN, respond, type ApiHandler, type ApiRequest, type ApiResponse, type ApiRoute } from "./server.js";
 
 type Db = ReturnType<typeof tenantScopedDb>;
@@ -217,6 +218,12 @@ export type ChatLogLine = { level: "error"; event: string; ts: string; status?: 
 
 export interface ChatApiDeps {
   verifier: StudentJwtVerifier;
+  /**
+   * pc-partner-keys K3 (D-111): the partner registry. A bearer that starts with `vck_` is a partner key (never a JWT): the partner's backend vouches for the student
+   * with X-VC-Student-Id / X-VC-Student-Age / X-VC-Guardian-Consent, and the tenant is the partner's id, so one partner can never reach another's students. Absent: a
+   * `vck_` bearer is a 401. The JWT path is unchanged.
+   */
+  partners?: Pick<PartnerRegistry, "authenticate">;
   /** The tenant-scoped `virtual_counsellor` Db. Called only after the student token verified. */
   dbForTenant(tenantId: string): Db;
   kb: StudentKbPort;
@@ -832,11 +839,27 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     const token = bearerToken(typeof header === "string" ? header : undefined);
     if (token === undefined) return respond(401, { error: "unauthorized" }, { "www-authenticate": 'Bearer realm="vc-api"' });
     let ctx: StudentAuthContext;
-    try {
-      ctx = await deps.verifier.verify(token);
-    } catch (err) {
-      if (!(err instanceof AuthError)) throw err;
-      return err.reason === "role" ? fail(403, "forbidden") : respond(401, { error: "unauthorized" }, { "www-authenticate": 'Bearer realm="vc-api"' });
+    if (isPartnerKeyToken(token)) {
+      // K3: a partner SERVER key (a page key is the same uniform 401). One 401 for every bad key (malformed, unknown, revoked, wrong secret, wrong scope, or no registry); the key is checked BEFORE the student headers are read.
+      let partner: Awaited<ReturnType<PartnerRegistry["authenticate"]>>;
+      try {
+        partner = deps.partners ? await deps.partners.authenticate(token, "srv") : undefined;
+      } catch (err) {
+        if (err instanceof PartnerRegistryUnavailableError) return fail(503, "partner_registry_unavailable");
+        throw err;
+      }
+      if (!partner) return respond(401, { error: "unauthorized" }, { "www-authenticate": 'Bearer realm="vc-api"' });
+      const student = partnerStudentFromHeaders(req.headers);
+      if (!student.ok) return fail(400, "invalid_request");
+      // The tenant is the partner id (a valid tenant id by construction). Age missing or invalid = minor, and consent counts only when exactly "true" (fail closed).
+      ctx = { tenantId: partner.partnerId, studentId: student.studentId, role: "student", minor: student.minor, guardianConsent: student.guardianConsent };
+    } else {
+      try {
+        ctx = await deps.verifier.verify(token);
+      } catch (err) {
+        if (!(err instanceof AuthError)) throw err;
+        return err.reason === "role" ? fail(403, "forbidden") : respond(401, { error: "unauthorized" }, { "www-authenticate": 'Bearer realm="vc-api"' });
+      }
     }
 
     // A6: the sandbox tenant takes synthetic students only.
