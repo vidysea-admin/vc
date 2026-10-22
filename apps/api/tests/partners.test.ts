@@ -802,8 +802,9 @@ test("K4: when the partner store is down the wrapper adds no CORS header and sti
 // K5. The partner OpenAPI route and nginx
 // ---------------------------------------------------------------------------
 
-test("K5: a partner developer fetches /v1/partner/openapi.json and gets PARTNER_OPENAPI, which is the student draft until pc-docs-openapi fills it in", async () => {
-  assert.equal(PARTNER_OPENAPI, STUDENT_API_DRAFT);
+test("K5: a partner developer fetches /v1/partner/openapi.json and gets PARTNER_OPENAPI, the partner OpenAPI 3.1 document (not the student draft)", async () => {
+  assert.notEqual(PARTNER_OPENAPI, STUDENT_API_DRAFT);
+  assert.equal((PARTNER_OPENAPI as { openapi?: string }).openapi, "3.1.0");
   const inner = innerSpy();
   for (const registry of [undefined, partnerWorld().registry]) {
     const h = withPartnerRoutes(inner.handler, registry);
