@@ -28,4 +28,4 @@ PROPOSED-ISSUE (info) F5: lang "hi-Latn" gets the Devanagari note (prefix match)
 LIVE-BROWSER: Not run (widget text only; a fake-DOM mount of the real widget was used instead). The upgrade-time-429 race still shows the generic network fallback by design (manifest deviation 2).
 ISSUES-WRITTEN: none (blind dual check); PROPOSED-ISSUE lines above only.
 Not done: no full suite, no real Mongo, no live LLM calls, no process killed, no product code changed; the other coordinator's verdict and checkpoint were not read.
-Metrics: start=2026-10-22T15:48:54+05:30 end=2026-10-22T15:59:00+05:30 wall_min=10 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=14 mutations=11 cycle=0 policy=proportional-verification/2026-10-19.17 tokens=unavailable
+Metrics: start=2026-10-22T15:48:54+05:30 end=2026-10-22T15:58:36+05:30 wall_min=10 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=14 mutations=11 cycle=0 policy=proportional-verification/2026-10-19.17 tokens=unavailable
