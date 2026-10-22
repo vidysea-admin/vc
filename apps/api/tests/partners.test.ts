@@ -928,7 +928,7 @@ test("wiring: over real HTTP through launch(), a keyed browser is answered with 
   const fake = createFakeMongoClient();
   const gates = gatesFixture();
   const baseEnv = {
-    MONGODB_URL: "mongodb://fake-host/ignored",
+    MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh",
     VC_JWT_ISSUER: "https://issuer.synthetic.test",
     VC_JWT_ALGORITHMS: "HS256",
     VC_JWT_HS256_SECRET: "j".repeat(40),
@@ -982,7 +982,7 @@ test("wiring: over real HTTP through launch(), a keyed browser is answered with 
 
 test("wiring: VC_PARTNER_KEY_REQUIRED=true with no pepper, or a short pepper, refuses to start naming the variable and never echoing a value", async () => {
   const gates = gatesFixture();
-  const env = { MONGODB_URL: "mongodb://fake-host/ignored", VC_JWT_ISSUER: "https://i.synthetic.test", VC_JWT_ALGORITHMS: "HS256", VC_JWT_HS256_SECRET: "j".repeat(40), VC_ANONYMOUS_ENABLED: "true", VC_KB_BASE_URL: "http://127.0.0.1:1", VC_KB_ANON_API_KEY: "k" };
+  const env = { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_JWT_ISSUER: "https://i.synthetic.test", VC_JWT_ALGORITHMS: "HS256", VC_JWT_HS256_SECRET: "j".repeat(40), VC_ANONYMOUS_ENABLED: "true", VC_KB_BASE_URL: "http://127.0.0.1:1", VC_KB_ANON_API_KEY: "k" };
   const opts = { clientFactory: () => createFakeMongoClient().client, http: { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: gates.gates } } };
   try {
     await assert.rejects(() => launch({ ...env, [PARTNER_KEY_REQUIRED_ENV]: "true" }, opts), (e: unknown) => e instanceof Error && e.message.includes(PARTNER_PEPPER_ENV));
@@ -1261,7 +1261,7 @@ test("R2 wiring: through launch(), VC_RESERVED_TENANT_IDS and chat.sandboxTenant
   const fake = createFakeMongoClient();
   const gates = gatesFixture();
   const baseEnv = {
-    MONGODB_URL: "mongodb://fake-host/ignored",
+    MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh",
     VC_JWT_ISSUER: "https://issuer.synthetic.test",
     VC_JWT_ALGORITHMS: "HS256",
     VC_JWT_HS256_SECRET: "j".repeat(40),
@@ -1328,7 +1328,7 @@ const warningLines = (lines: string[]) => lines.filter((l) => l.includes(RESERVE
 
 function reservedWiringEnv(extra: Record<string, string | undefined> = {}): Record<string, string | undefined> {
   return {
-    MONGODB_URL: "mongodb://fake-host/ignored",
+    MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh",
     VC_JWT_ISSUER: "https://issuer.synthetic.test",
     VC_JWT_ALGORITHMS: "HS256",
     VC_JWT_HS256_SECRET: "j".repeat(40),

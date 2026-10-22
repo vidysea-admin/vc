@@ -223,7 +223,7 @@ test("A1 wiring: startApi passes http.chat.alert to the chat routes, so an outag
   const fake = createFakeMongoClient();
   const f = gatesFixture();
   const api = await startApi(
-    { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true" },
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true" },
     {
       clientFactory: () => fake.client,
       http: {

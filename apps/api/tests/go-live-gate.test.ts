@@ -261,7 +261,7 @@ test("A20: both Nights modes are accepted, and a backtick-wrapped B13 line is re
   }
 });
 
-test("A20: the B13 signer must be a personal name (never a role) and, when an approver is configured, exactly that name", () => {
+test("A20: the B13 signer must be a personal name (never a role) and exactly the configured approver; with none configured B13 is refused (pc-hardening-5 G1)", () => {
   const signed = (who: string) => `B13-signed: SIGNED 2026-10-16T10:00:00+05:30 by ${who}\n`;
   const ev = (who: string, approver?: string) => {
     const f = fixture({ b13: signed(who) });
@@ -271,10 +271,12 @@ test("A20: the B13 signer must be a personal name (never a role) and, when an ap
       cleanup(f);
     }
   };
-  assert.equal(ev("Umesh"), true);
-  assert.equal(ev("Sapna Rao"), true, "no approver configured: any personal name");
+  assert.equal(ev("Umesh"), false, "no approver configured: fail closed, even for a personal name (pc-hardening-5 G1)");
+  assert.equal(ev("Sapna Rao"), false, "no approver configured: fail closed, never any personal name (pc-hardening-5 G1)");
+  assert.equal(ev("Sapna Rao", "Sapna Rao"), true, "a personal name equal to the configured approver");
+  // the approver is the role/malformed text itself, so only the signer rules can refuse it (before, the unset approver let these through to the signer rules too)
   for (const role of ["Maker", "Checker", "Claude", "Agent", "The maker", "Bot", "PENDING", "Unknown", "umesh", "", "3rd"]) {
-    assert.equal(ev(role), false, `role or malformed signer: ${JSON.stringify(role)}`);
+    assert.equal(ev(role, role), false, `role or malformed signer: ${JSON.stringify(role)}`);
   }
   assert.equal(ev("Umesh", "Umesh"), true);
   assert.equal(ev("Sapna", "Umesh"), false, "configured approver must match exactly");
@@ -448,7 +450,7 @@ test("V1 signer (fail closed): with no approver configured the override is refus
       for (const [label, f] of [["Mallory", fm], ["Umesh", fu]] as const) {
         for (const r of [evaluateGoLive(f.gates, "voice", NOW, undefined), evaluateGoLive(f.gates, "voice", NOW), evaluateGoLive(f.gates, "voice", NOW, "")]) {
           assert.equal(r.allowed, false, label);
-          assert.deepEqual(only(r), [GATE_FILES.a10], label);
+          assert.deepEqual(only(r), [GATE_FILES.b13, GATE_FILES.a10], `${label}: with no approver both the signed B13 and the override are refused (pc-hardening-5 G1)`);
           assert.ok(!formatGoLiveReport(r).includes(OVERRIDE_TEXT), label);
           assert.ok(r.failures.some((x) => x.includes(NEEDS)), `${label}: ${r.failures.join(" | ")}`);
         }
@@ -508,7 +510,7 @@ test("A20: an unknown target is refused, never treated as allowed", () => {
 });
 
 test("A20 CLI: exits 1 naming each missing record against the real qa/gates; 0 on a complete directory; 2 on bad usage", () => {
-  const run = (args: string[]) => spawnSync(process.execPath, ["--import", "tsx", CLI, ...args], { encoding: "utf8" });
+  const run = (args: string[], env?: NodeJS.ProcessEnv) => spawnSync(process.execPath, ["--import", "tsx", CLI, ...args], { encoding: "utf8", ...(env ? { env } : {}) });
   // Real-gate refusal holds only while B13 is unsigned; once Umesh signs, student-routes is allowed (go-live).
   if (REAL_B13_PENDING) {
     const refused = run(["student-routes", "--gates-dir", REPO_GATES]);
@@ -537,9 +539,15 @@ test("A20 CLI: exits 1 naming each missing record against the real qa/gates; 0 o
   }
   const f = fixture();
   try {
-    const allowed = run(["voice", "--gates-dir", f.gates]);
+    // pc-hardening-5 G1/G2: the complete directory is allowed only with the approver configured (B13 is signed by APPROVER); with none it is refused
+    const allowed = run(["voice", "--gates-dir", f.gates], { ...process.env, VC_GATE_APPROVER: APPROVER });
     assert.equal(allowed.status, 0, allowed.stdout + allowed.stderr);
     assert.match(allowed.stdout, /ALLOWED/);
+    const noApprover = { ...process.env };
+    delete noApprover.VC_GATE_APPROVER;
+    const refusedNoApprover = run(["voice", "--gates-dir", f.gates], noApprover);
+    assert.equal(refusedNoApprover.status, 1, refusedNoApprover.stdout + refusedNoApprover.stderr);
+    assert.ok(refusedNoApprover.stdout.includes("B13-signed needs VC_GATE_APPROVER"), refusedNoApprover.stdout);
   } finally {
     cleanup(f);
   }
@@ -577,7 +585,7 @@ test("K3 (pc-hardening-3): assertVoiceGoLive reads the approver from the env it 
 });
 
 test("P1 (pc-hardening-4, ISS-pc-hardening-3-1): assertChatGoLive reads the approver from the env it is passed, and from process.env only when no env is passed (the voice twin of K3)", () => {
-  // student-routes needs no A10; the one approver-dependent record is B13-signed (its signer must equal the configured approver when one is configured), signed here by APPROVER
+  // student-routes needs no A10; the one approver-dependent record is B13-signed (its signer must equal the configured approver, which is now required), signed here by APPROVER
   const fu = fixture();
   try {
     const base = { gatesDir: fu.gates, now: NOW };
@@ -593,7 +601,7 @@ test("P1 (pc-hardening-4, ISS-pc-hardening-3-1): assertChatGoLive reads the appr
     withApproverEnv("Mallory", () => {
       assert.doesNotThrow(() => assertChatGoLive({ ...base, env: { VC_GATE_APPROVER: APPROVER } }), "the passed env approver wins over a mismatching process.env");
       // the passed env lacks the approver: process.env is NOT consulted (same as an unconfigured approver; the gate records alone decide)
-      assert.doesNotThrow(() => assertChatGoLive({ ...base, env: {} }), "process.env approver ignored when an env was passed");
+      assert.throws(() => assertChatGoLive({ ...base, env: {} }), GoLiveRefusedError, "process.env approver ignored when an env was passed, and no approver in that env fails closed (pc-hardening-5 G1)");
       // no env passed: process.env is the fallback (Mallory is not the B13 signer -> refused)
       assert.throws(() => assertChatGoLive(base), GoLiveRefusedError);
       // an explicit approver still decides
@@ -612,6 +620,46 @@ test("P1 (pc-hardening-4, ISS-pc-hardening-3-1): assertChatGoLive reads the appr
     } finally {
       cleanup(broken);
     }
+  } finally {
+    cleanup(fu);
+  }
+});
+
+test("G1 (pc-hardening-5, ISS-pc-hardening-4-1): a signed B13 with no approver configured fails closed on the chat and voice go-live paths and on evaluateGoLive; set, the signer match decides", () => {
+  const NEEDS = "B13-signed needs VC_GATE_APPROVER (the repo approver) to be set";
+  const fu = fixture();
+  try {
+    const base = { gatesDir: fu.gates, now: NOW };
+    withApproverEnv(undefined, () => {
+      // unset, empty and blank approvers all refuse, for chat (student-routes) and voice, whether passed as env, as an explicit approver, or not passed at all
+      for (const unset of [undefined, "", " ", "   ", "\t"]) {
+        const label = JSON.stringify(unset);
+        const env = unset === undefined ? {} : { VC_GATE_APPROVER: unset };
+        assert.throws(() => assertChatGoLive({ ...base, env }), GoLiveRefusedError, `chat env ${label}`);
+        assert.throws(() => assertVoiceGoLive({ ...base, env }), GoLiveRefusedError, `voice env ${label}`);
+        if (unset !== undefined) {
+          assert.throws(() => assertChatGoLive({ ...base, approver: unset, env: { VC_GATE_APPROVER: "Umesh" } }), GoLiveRefusedError, `chat explicit approver ${label}`);
+          assert.throws(() => assertVoiceGoLive({ ...base, approver: unset, env: { VC_GATE_APPROVER: "Umesh" } }), GoLiveRefusedError, `voice explicit approver ${label}`);
+        }
+        for (const target of GO_LIVE_TARGETS) {
+          const r = evaluateGoLive(fu.gates, target, NOW, unset);
+          assert.equal(r.allowed, false, `${target} approver ${label}`);
+          assert.ok(r.failures.some((x) => x.startsWith(GATE_FILES.b13) && x.includes(NEEDS)), `${target} ${label}: ${r.failures.join(" | ")}`);
+        }
+      }
+      assert.throws(() => assertChatGoLive(base), GoLiveRefusedError, "chat: no env passed, none in process.env");
+      assert.throws(() => assertVoiceGoLive(base), GoLiveRefusedError, "voice: no env passed, none in process.env");
+      assert.throws(() => assertChatGoLive({ ...base, env: {} }), (e) => e instanceof GoLiveRefusedError && e.message.includes(NEEDS));
+      // the same signed gate with the matching approver set allows, and any other name refuses (unchanged behaviour)
+      assert.doesNotThrow(() => assertChatGoLive({ ...base, env: { VC_GATE_APPROVER: APPROVER } }));
+      assert.doesNotThrow(() => assertVoiceGoLive({ ...base, env: { VC_GATE_APPROVER: APPROVER } }));
+      assert.throws(() => assertChatGoLive({ ...base, env: { VC_GATE_APPROVER: "Mallory" } }), GoLiveRefusedError);
+      assert.throws(() => assertVoiceGoLive({ ...base, env: { VC_GATE_APPROVER: "Mallory" } }), GoLiveRefusedError);
+      for (const target of GO_LIVE_TARGETS) assert.equal(evaluateGoLive(fu.gates, target, NOW, APPROVER).allowed, true, `${target} matching approver`);
+    });
+    // process.env is the default only for a caller that passes no env and no approver (evaluateGoLive / the CLI)
+    withApproverEnv("   ", () => assert.equal(evaluateGoLive(fu.gates, "student-routes", NOW).allowed, false, "blank process.env approver"));
+    withApproverEnv(APPROVER, () => assert.equal(evaluateGoLive(fu.gates, "student-routes", NOW).allowed, true, "process.env approver matches"));
   } finally {
     cleanup(fu);
   }

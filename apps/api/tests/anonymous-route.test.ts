@@ -56,6 +56,27 @@ test("A20: the anonymous route is OFF by default - unset, empty and 'false' all 
   }
 });
 
+test("G1 (pc-hardening-5, ISS-pc-hardening-4-1): the anonymous go-live gate reads the approver from the env it is passed (process.env only when none is passed) and fails closed when none is configured", () => {
+  const ok = gatesFixture({ a10: null, gProd: "Answered: 2026-10-16T10:10:00+05:30 - b - authenticated text plus anonymous" });
+  const saved = process.env.VC_GATE_APPROVER;
+  try {
+    const route = (env?: Record<string, string | undefined>) => ({ enabled: true, gatesDir: ok.gates, now: NOW, ...(env ? { env } : {}) });
+    delete process.env.VC_GATE_APPROVER;
+    for (const env of [{}, { VC_GATE_APPROVER: "" }, { VC_GATE_APPROVER: "   " }, { VC_GATE_APPROVER: "Mallory" }]) {
+      assert.throws(() => createAnonymousApi(baseDeps(), route(env)), GoLiveRefusedError, JSON.stringify(env));
+    }
+    assert.throws(() => createAnonymousApi(baseDeps(), route()), GoLiveRefusedError, "no env passed, none in process.env");
+    assert.ok(createAnonymousApi(baseDeps(), route({ VC_GATE_APPROVER: APPROVER })), "the passed env approver matches the B13 signer");
+    process.env.VC_GATE_APPROVER = APPROVER;
+    assert.throws(() => createAnonymousApi(baseDeps(), route({})), GoLiveRefusedError, "process.env is not consulted when an env is passed");
+    assert.ok(createAnonymousApi(baseDeps(), route()), "no env passed: process.env is the fallback");
+  } finally {
+    if (saved === undefined) delete process.env.VC_GATE_APPROVER;
+    else process.env.VC_GATE_APPROVER = saved;
+    cleanupGates(ok);
+  }
+});
+
 test("A20 state OFF: with the flag off nothing is built and the path answers exactly like an unknown path (404), for every method", async () => {
   const gates = gatesFixture();
   try {
@@ -225,7 +246,7 @@ test("startApi: flag on with the real repo gates refuses to start, BEFORE connec
   };
   await assert.rejects(
     startApi(
-      { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_ANONYMOUS_ENABLED: "true" },
       { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, trustSocketAddress: true } } },
     ),
     GoLiveRefusedError,
@@ -239,7 +260,7 @@ test("startApi: flag on without a KB or speakers supplied is a config error, bef
   try {
     await assert.rejects(
       startApi(
-        { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
+        { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_ANONYMOUS_ENABLED: "true" },
         { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: f.gates, trustSocketAddress: true } } },
       ),
       AnonymousConfigError,
@@ -253,7 +274,7 @@ test("startApi: flag on and gate open -> a real HTTP POST is answered and ONLY t
   const fake = createFakeMongoClient();
   const f = gatesFixture();
   const api = await startApi(
-    { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_ANONYMOUS_ENABLED: "true" },
     { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, trustSocketAddress: true } } },
   );
   try {
@@ -309,7 +330,7 @@ test("U7 repair 2: with the flag on, startApi refuses to start unless the deploy
     for (const anonymous of [{ kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates }, { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, trustSocketAddress: false }]) {
       await assert.rejects(
         startApi(
-          { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
+          { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_ANONYMOUS_ENABLED: "true" },
           { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous } },
         ),
         (err: unknown) => err instanceof AnonymousConfigError && /clientKey|trustSocketAddress/.test((err as Error).message),
@@ -317,12 +338,12 @@ test("U7 repair 2: with the flag on, startApi refuses to start unless the deploy
     }
     assert.equal(connected, 0, "refused before connecting to Mongo");
     const ok1 = await startApi(
-      { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_ANONYMOUS_ENABLED: "true" },
       { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, clientKey: () => "lb-forwarded-client" } } },
     );
     await ok1.stop();
     const ok2 = await startApi(
-      { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true" },
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_ANONYMOUS_ENABLED: "true" },
       { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, trustSocketAddress: true } } },
     );
     await ok2.stop();
@@ -343,7 +364,7 @@ async function anonymousOverHttp(env: Record<string, string | undefined>, text: 
   const fake = createFakeMongoClient();
   const f = gatesFixture();
   const api = await startApi(
-    { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true", ...env },
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_ANONYMOUS_ENABLED: "true", ...env },
     { clientFactory: () => fake.client, http: { port: 0, verifier, provider: scribe, skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, trustSocketAddress: true } } },
   );
   try {
@@ -471,7 +492,7 @@ async function anonymousNoSourceOverHttp(env: Record<string, string | undefined>
   const fake = createFakeMongoClient();
   const f = gatesFixture();
   const api = await startApi(
-    { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true", ...env },
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_ANONYMOUS_ENABLED: "true", ...env },
     { clientFactory: () => fake.client, http: { port: 0, verifier, provider: scribe, skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb({ status: "ok", hits: [], dropped: 0 }), speakers: SPEAKERS, gatesDir: f.gates, trustSocketAddress: true } } },
   );
   try {
@@ -504,7 +525,7 @@ test("G1: VC_GROUNDING set to anything but off/gemini, or gemini without GEMINI_
     let connected = false;
     const fake = createFakeMongoClient();
     await assert.rejects(
-      startApi({ MONGODB_URL: "mongodb://fake-host/ignored", ...env }, { clientFactory: () => { connected = true; return fake.client; }, http: { port: 0, verifier, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR } }),
+      startApi({ MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", ...env }, { clientFactory: () => { connected = true; return fake.client; }, http: { port: 0, verifier, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR } }),
       /GroundingConfigError/,
       JSON.stringify(Object.keys(env)),
     );
@@ -525,7 +546,7 @@ async function startAnonymous(provider: MockProvider | RulesProvider, env: Recor
   const f = gatesFixture();
   try {
     const api = await startApi(
-      { MONGODB_URL: "mongodb://fake-host/ignored", VC_ANONYMOUS_ENABLED: "true", ...env },
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_ANONYMOUS_ENABLED: "true", ...env },
       { clientFactory: () => fake.client, http: { port: 0, verifier, provider, skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb({ status: "ok", hits: [], dropped: 0 }), speakers: SPEAKERS, gatesDir: f.gates, trustSocketAddress: true } } },
     );
     return { api, connected: () => connected, done: async () => { await api.stop(); cleanupGates(f); } };

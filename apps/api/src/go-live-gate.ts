@@ -4,7 +4,8 @@
  * unless qa/gates holds, as human-written records in the formats U0 created (qa/gates/g-prod.md etc.):
  *
  *   - `B13-signed: SIGNED <ISO instant> by <approver>` in p1-u0-amendment-signatures.md (PENDING or anything else refuses;
- *     the approver must be a capitalised personal name, never a role word, and must equal `approver` / VC_GATE_APPROVER when set),
+ *     the approver must be a capitalised personal name, never a role word, and must equal `approver` / VC_GATE_APPROVER; with none configured
+ *     (unset, empty or blank) B13 is refused, fail closed),
  *   - an `Answered: <ISO> - <option> - ...` line in g-publish.md and g-prod.md (the LAST such line counts; a
  *     "hold" option refuses; g-prod's option also scopes what may go live: a = authenticated text, b = plus the
  *     anonymous route, c = plus voice, d = hold),
@@ -118,7 +119,9 @@ const b13Signed: Checker = (lines, { now, approver }) => {
   const m = new RegExp(`^SIGNED (${ISO_INSTANT}) by (\\p{Lu}[\\p{L} .'-]{1,40})$`, "u").exec(v);
   if (!m) return `B13-signed is not "SIGNED <ISO instant> by <approver name>" (found "${v.slice(0, 40)}")`;
   if (ROLE_WORDS.test(m[2])) return "B13-signed signer is a role, not a person";
-  if (approver !== undefined && approver !== "" && m[2] !== approver) return "B13-signed signer is not the repo approver";
+  // pc-hardening-5 (ISS-pc-hardening-4-1): fail closed like ownerOverrideProblem: with no approver configured (unset, empty or blank) a signed B13 is refused, never "any personal name".
+  if (approver === undefined || approver.trim() === "") return "B13-signed needs VC_GATE_APPROVER (the repo approver) to be set";
+  if (m[2] !== approver) return "B13-signed signer is not the repo approver";
   return validInstant(m[1], now) ? null : "B13-signed instant is in the future";
 };
 

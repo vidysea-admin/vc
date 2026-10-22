@@ -845,7 +845,7 @@ async function bootApi(env: Record<string, string | undefined>, anonymous: Recor
   });
   const added = await addPartner(createMongoPartnerStore(fake.client.db(VC_DB_NAME)), { name: "Pathlynks", origins: [ORIGIN] }, { pepper: PEPPER, now: () => new Date(T0) });
   const api = await startApi(
-    { MONGODB_URL: "mongodb://fake-host/ignored", VC_VOICE_ENABLED: "true", ...env },
+    { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_VOICE_ENABLED: "true", ...env },
     {
       clientFactory: () => fake.client,
       http: {
