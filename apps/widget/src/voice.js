@@ -227,8 +227,15 @@
       if (res.status === 401 || res.status === 403) return fail({ reason: "unavailable" });
       if (res.status === 429) {
         var ra = res.headers && res.headers.get && res.headers.get("retry-after");
-        var wait = /^\d+$/.test(String(ra === null || ra === undefined ? "" : ra).trim()) ? Math.min(300, Math.max(1, parseInt(ra, 10))) : 60;
-        return fail({ reason: "rate", wait: wait });
+        var hasWait = /^\d+$/.test(String(ra === null || ra === undefined ? "" : ra).trim());
+        var told = hasWait ? Math.min(300, Math.max(1, parseInt(ra, 10))) : 0;
+        // pc-hardening H3: the server answers the mint itself with {"error":"voice_busy"} when the visitor's or the partner's active-session cap is reached (a refused
+        // WebSocket upgrade is not readable from onclose). That is "busy, try again shortly", not the generic rate limit; any other 429 body stays the rate fallback.
+        var busy = null;
+        try { busy = await res.json(); } catch (e) { /* not JSON: a plain rate limit */ }
+        if (mine !== gen) { stopTracks(mic); return false; }
+        if (busy && typeof busy === "object" && busy.error === "voice_busy") return fail({ reason: "busy", wait: told || 30 });
+        return fail({ reason: "rate", wait: told || 60 });
       }
       var body = null;
       try { body = await res.json(); } catch (e) { /* not JSON */ }

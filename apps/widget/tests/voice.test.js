@@ -535,3 +535,55 @@ test("the snippet and nginx-vc.conf agree on the widget locations", () => {
     assert.ok(nginx.includes(loc), "nginx-vc.conf: " + loc);
   }
 });
+
+// ---- pc-hardening H3 (ISS-pc-voice-6): a busy voice service gets its own message, not the generic network fallback --------------------------------
+// Signal used: the SESSION-MINT response. A refused WebSocket upgrade (429) is not readable from onclose (no status, no Retry-After), so the API now answers the mint itself
+// with 429 {"error":"voice_busy"} when the visitor's or the partner's active-session cap is reached. The other server signal is the "voice_busy" error frame sent just before a
+// 1008 close at start. The crisis and helpline paths are not touched.
+
+test("H3: a 429 voice_busy from the session mint is a busy fallback (not rate, not network) that waits as told, frees the mic and opens no socket", async () => {
+  const mic = fakeMic();
+  const s = setup({ fetch: fakeFetch(resp(429, { error: "voice_busy", helpline: "Tele-MANAS 14416" }, { "retry-after": "30" })), mediaDevices: mic });
+  assert.equal(await s.vc.start(), false);
+  assert.deepEqual(s.of("fallback"), [{ reason: "busy", wait: 30 }]);
+  assert.equal(mic.stopped, 1);
+  assert.equal(FakeWS.all.length, 0);
+  assert.equal(s.vc.state(), "idle");
+  // busy without a Retry-After uses a short default; an unreadable 429 body stays the generic rate fallback
+  const s2 = setup({ fetch: fakeFetch(resp(429, { error: "voice_busy" })) });
+  await s2.vc.start();
+  assert.deepEqual(s2.of("fallback"), [{ reason: "busy", wait: 30 }]);
+  const s3 = setup({ fetch: fakeFetch(resp(429, undefined, { "retry-after": "5" })) });
+  await s3.vc.start();
+  assert.deepEqual(s3.of("fallback"), [{ reason: "rate", wait: 5 }]);
+});
+
+test("H3: the widget words the busy state in English and Hindi (page language), keeps the other voice fallback texts, and a voice_busy error frame gets the same busy note instead of the raw server text", () => {
+  const en = W.voiceFallbackText({ reason: "busy", wait: 30 }, "en");
+  assert.match(en, /busy/i);
+  assert.match(en, /try again/i);
+  assert.doesNotMatch(en, /network|could not start/i);
+  for (const lang of ["hi", "hi-IN", "HI"]) {
+    const hi = W.voiceFallbackText({ reason: "busy", wait: 30 }, lang);
+    assert.match(hi, /[ऀ-ॿ]/, lang);
+    assert.notEqual(hi, en);
+  }
+  assert.equal(W.voiceFallbackText({ reason: "busy" }, undefined), en, "no language: English");
+  assert.equal(W.voiceFallbackText({ reason: "busy" }, "fr"), en, "an unsupported language: English");
+  // unchanged texts
+  assert.match(W.voiceFallbackText({ reason: "permission" }, "en"), /Microphone access is blocked/);
+  assert.equal(W.voiceFallbackText({ reason: "rate", wait: 7 }, "en"), "Too many voice requests. Please wait 7 seconds, or type your question.");
+  assert.match(W.voiceFallbackText({ reason: "network" }, "en"), /Voice could not start\. You can keep typing here\./);
+  assert.match(W.voiceFallbackText({ reason: "error", helpline: "Tele-MANAS 14416" }, "en"), /Tele-MANAS 14416/);
+  // a voice_busy error frame (the 1008 path) is the same note; any other error frame keeps the server message and the helpline
+  const busyFrame = W.voiceErrorNotice({ code: "voice_busy", message: "Voice is busy right now. You can keep typing.", help: V.HELP }, "hi");
+  assert.deepEqual(busyFrame, { kind: "note", text: W.voiceFallbackText({ reason: "busy" }, "hi") });
+  assert.deepEqual(W.voiceErrorNotice({ code: "live_unavailable", message: "Voice is unavailable.", help: V.HELP }, "en"), { kind: "err", text: "Voice is unavailable.\n" + V.HELP });
+});
+
+test("H3: the busy/ended frames keep the crisis path intact: a crisis flag still shows the helpline only, and the helpline text is unchanged", async () => {
+  const s = await started();
+  s.wsk.say({ type: "flag", eventId: "f1", reason: "crisis_detected" });
+  assert.deepEqual(s.of("crisis"), [{ help: V.HELP }]);
+  assert.equal(V.HELP, W.HELP);
+});

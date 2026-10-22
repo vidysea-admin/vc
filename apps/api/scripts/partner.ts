@@ -3,7 +3,7 @@
  *   tsx scripts/partner.ts add <name> [--id <partner-id>] [--origin <https-origin>]...
  *   tsx scripts/partner.ts rotate <partner-id> --scope pub|srv
  *   tsx scripts/partner.ts revoke <partner-id>
- *   tsx scripts/partner.ts list
+ *   tsx scripts/partner.ts list [--check]   (marks partners whose id is now reserved; --check exits 1 when any active partner is flagged)
  * Reads MONGODB_URL, VC_PARTNER_KEY_PEPPER and (optional) VC_RESERVED_TENANT_IDS and VC_PARTNER_OWN_TENANTS from the environment and writes only the `partners` collection of the virtual_counsellor database.
  * New keys are printed once (add prints a page key and a server key; rotate prints one); they are never stored: the database keeps its HMAC hash only. Exit 0 = done, 1 = refused or failed, 2 = bad usage.
  */
@@ -13,7 +13,7 @@ import { PARTNER_PEPPER_ENV, PartnerConfigError, PartnerError, createMongoPartne
 async function main(): Promise<number> {
   const argv = process.argv.slice(2);
   if (argv.length === 0) {
-    console.error("usage: partner add <name> [--id <id>] [--origin <origin>]... | rotate <id> | revoke <id> | list");
+    console.error("usage: partner add <name> [--id <id>] [--origin <origin>]... | rotate <id> | revoke <id> | list [--check]");
     return 2;
   }
   const pepper = partnerPepperFromEnv(process.env);

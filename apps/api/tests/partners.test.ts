@@ -14,6 +14,7 @@ import {
   PARTNER_KEY_REQUIRED_ENV,
   PARTNER_OWN_TENANTS_ENV,
   PARTNER_PEPPER_ENV,
+  PARTNER_USAGE,
   PartnerConfigError,
   PartnerError,
   PartnerRegistryUnavailableError,
@@ -1500,4 +1501,104 @@ test("S5: partner rotate on a partner whose id is reserved refuses with a clear 
   await addPartner(w.store, { name: "Pathlynks" }, { pepper: PEPPER, reservedIds: ["pathlynks"], ownTenants: ["pathlynks"] });
   const rot = await runPartnerCli(["rotate", "pathlynks", "--scope", "srv"], { store: w.store, pepper: PEPPER, reservedIds: ["pathlynks"], ownTenants: ["pathlynks"] });
   assert.match(rot.join("\n"), SRV_KEY_RE);
+});
+
+// ---------------------------------------------------------------------------
+// pc-hardening: H4 (ISS-pc-reserved-ids-7), H5 (ISS-pc-reserved-ids-8), H6 (ISS-pc-reserved-ids-9)
+// ---------------------------------------------------------------------------
+
+test("H4: the sandbox-tenant exemption guard folds case and width like isReservedPartnerId: a mixed-case sandbox id with a lowercase (or full-width) binding is refused at startup, before anything connects", async () => {
+  const gates = gatesFixture();
+  try {
+    for (const [sandbox, binding] of [["SBX-Main", "sbx-main"], ["sbx-main", "sbx-main"], ["ｓbx-Main", "sbx-main"]] as const) {
+      let connected = 0;
+      const f = createFakeMongoClient();
+      (f.client as { connect: () => Promise<void> }).connect = async () => {
+        connected += 1;
+      };
+      // the binding half must itself parse (lower-case partner id); an upper-case partner half is a parse error of its own, which is also a refusal
+      await assert.rejects(
+        async () => {
+          const api = await launch(reservedWiringEnv({ [PARTNER_PEPPER_ENV]: PEPPER, [PARTNER_OWN_TENANTS_ENV]: `${binding}:${binding}` }), { clientFactory: () => f.client, http: { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: gates.gates }, chat: { sandboxTenantId: sandbox } as never } });
+          await api.stop(); // not refused: do not leave the server open (this is the failing path)
+        },
+        (e: unknown) => e instanceof PartnerConfigError && e.message.includes(PARTNER_OWN_TENANTS_ENV),
+        `${sandbox} vs ${binding}`,
+      );
+      assert.equal(connected, 0, `${sandbox}: refused before connecting`);
+    }
+    // a binding for a different tenant than the sandbox one still starts
+    const f = createFakeMongoClient();
+    const api = await launch(reservedWiringEnv({ [PARTNER_PEPPER_ENV]: PEPPER, [RESERVED_TENANT_IDS_ENV]: "pathlynks", [PARTNER_OWN_TENANTS_ENV]: "pathlynks:pathlynks" }), { clientFactory: () => f.client, http: { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: gates.gates }, chat: { sandboxTenantId: "SBX-Main" } as never } });
+    await api.stop();
+  } finally {
+    cleanupGates(gates);
+  }
+});
+
+test("H5: partner list marks every partner whose id is currently reserved (built-in family, repo tenant, listed tenant) with RESERVED and the reason, and spares a bound or clean partner; list --check exits non-zero (PartnerError reserved_ids) when any is flagged; no key material in the flags", async () => {
+  const w = partnerWorld();
+  await legacyPartner(w.store, "sandbox-1");
+  await legacyPartner(w.store, "vc-synthetic-demo");
+  await addPartner(w.store, { name: "Later", id: "later-tenant" }, { pepper: PEPPER });
+  await addPartner(w.store, { name: "Clean", id: "clean-partner" }, { pepper: PEPPER });
+  await addPartner(w.store, { name: "Pathlynks", id: "pathlynks" }, { pepper: PEPPER });
+  const deps = { store: w.store, pepper: PEPPER, reservedIds: ["later-tenant", "pathlynks"], ownTenants: ["pathlynks"] };
+  const lines = await runPartnerCli(["list"], deps);
+  const lineOf = (id: string) => lines.find((l) => l.startsWith(`${id}  `)) ?? "";
+  for (const id of ["sandbox-1", "vc-synthetic-demo", "later-tenant"]) assert.match(lineOf(id), /RESERVED/, id);
+  assert.match(lineOf("sandbox-1"), /built-in/i);
+  assert.match(lineOf("vc-synthetic-demo"), /repo writes under/i);
+  assert.match(lineOf("later-tenant"), new RegExp(RESERVED_TENANT_IDS_ENV));
+  assert.doesNotMatch(lineOf("clean-partner"), /RESERVED/);
+  assert.doesNotMatch(lineOf("pathlynks"), /RESERVED/, "a bound partner is not flagged");
+  // without --check the listing stays exit 0 (it returns); with --check it fails and names exactly the flagged ids
+  await assert.rejects(
+    () => runPartnerCli(["list", "--check"], deps),
+    (e: unknown) =>
+      e instanceof PartnerError &&
+      e.code === "reserved_ids" &&
+      ["sandbox-1", "vc-synthetic-demo", "later-tenant"].every((id) => e.message.includes(id)) &&
+      !e.message.includes("clean-partner") &&
+      !e.message.includes("pathlynks") &&
+      !ANY_KEY_RE.test(e.message) &&
+      !/[A-Za-z0-9_-]{43}/.test(e.message),
+  );
+  // --check with nothing flagged returns the listing and does not throw; other options stay usage errors
+  const clean = partnerWorld();
+  await addPartner(clean.store, { name: "Clean", id: "clean-partner" }, { pepper: PEPPER });
+  const ok = await runPartnerCli(["list", "--check"], { store: clean.store, pepper: PEPPER, reservedIds: ["x-tenant"] });
+  assert.equal(ok.length, 1);
+  assert.doesNotMatch(ok.join("\n"), /RESERVED/);
+  // a REVOKED partner with a reserved id is still marked in the listing but does not fail the pre-deploy check (its keys are dead already)
+  await legacyPartner(clean.store, "admin-9");
+  await revokePartner(clean.store, "admin-9");
+  const withRevoked = await runPartnerCli(["list", "--check"], { store: clean.store, pepper: PEPPER, reservedIds: ["x-tenant"] });
+  assert.match(withRevoked.find((l) => l.startsWith("admin-9  ")) ?? "", /revoked.*RESERVED/);
+  await assert.rejects(() => runPartnerCli(["list", "--bogus"], deps), (e: unknown) => e instanceof PartnerError && e.code === "usage");
+  await assert.rejects(() => runPartnerCli(["list", "extra"], deps), (e: unknown) => e instanceof PartnerError && e.code === "usage");
+  // the same flag is raised for a partner made BEFORE the tenant was listed (the pre-deploy case), and the script and the runbook use it
+  const script = readFileSync(fileURLToPath(new URL("../scripts/partner.ts", import.meta.url)), "utf8");
+  assert.match(script, /list \[--check\]/);
+  const runbook = readFileSync(fileURLToPath(new URL("../../../docs/runbook-golive.md", import.meta.url)), "utf8");
+  assert.match(runbook, /partner list --check/);
+  assert.ok(PARTNER_USAGE.join(" ").includes("--check"));
+});
+
+test("H6: listing pathlynks in VC_RESERVED_TENANT_IDS does not refuse partner pathlynks-2 (a configured tenant matches by exact id, folded; only built-in names have suffix families), at add and per request, and the integration doc says so", async () => {
+  const { db } = createFakeDb();
+  const store = createMongoPartnerStore(db);
+  const reservedIds = reservedTenantIdsFromEnv({ [RESERVED_TENANT_IDS_ENV]: "pathlynks" });
+  assert.equal(isReservedPartnerId("pathlynks", reservedIds), true);
+  assert.equal(isReservedPartnerId("PathLynks", reservedIds), true, "the exact id is folded");
+  for (const id of ["pathlynks-2", "pathlynks-prod", "pathlynksx", "my-pathlynks"]) {
+    assert.equal(isReservedPartnerId(id, reservedIds), false, id);
+    const added = await addPartner(store, { name: "Other", id }, { pepper: PEPPER, reservedIds });
+    const registry = createPartnerRegistry({ store, pepper: PEPPER, nowMs: () => T0, reservedIds });
+    assert.equal((await registry.authenticate(added.keys.srv, "srv"))?.partnerId, id, `${id} authenticates per request`);
+  }
+  // the built-in names do have a family (the contrast the doc line draws)
+  assert.equal(isReservedPartnerId("sandbox-2", reservedIds), true);
+  const doc = readFileSync(fileURLToPath(new URL("../../../docs/partner-integration.md", import.meta.url)), "utf8");
+  assert.match(doc, /pathlynks-2/);
 });

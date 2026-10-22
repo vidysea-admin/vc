@@ -102,12 +102,44 @@
     try { return new URL("vc-widget-voice.v" + VOICE_MAJOR + ".js", p).href; } catch (e) { return ""; }
   }
 
+  // pc-hardening H3 (ISS-pc-voice-6): the voice-busy note, in English and Hindi. The widget has no language option of its own: the page's <html lang> picks it ("hi", "hi-IN", ...),
+  // anything else is English. Only this note is translated (the voice add-on's other texts stay English, as before).
+  var VOICE_BUSY_TEXT = {
+    en: "Voice is busy right now. Please try again shortly, or keep typing here.",
+    hi: "वॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।"
+  };
+
+  function pageLang(doc) {
+    var l = "";
+    try { l = String((doc && doc.documentElement && doc.documentElement.lang) || ""); } catch (e) { /* no document */ }
+    return l;
+  }
+
+  function busyText(lang) {
+    return /^hi(-|_|$)/i.test(String(lang || "").trim()) ? VOICE_BUSY_TEXT.hi : VOICE_BUSY_TEXT.en;
+  }
+
   var VOICE_FALLBACK_TEXT = {
     permission: "Microphone access is blocked, so voice is off. You can keep typing here, or allow the microphone in your browser settings and try again.",
     no_mic: "No microphone was found, so voice is off. You can keep typing here.",
     unsupported: "Voice is not supported in this browser. You can keep typing here.",
     unavailable: "Voice is unavailable right now. You can keep typing here."
   };
+
+  // What the log shows when the voice add-on falls back to text (the voice.js "fallback" event).
+  function voiceFallbackText(d, lang) {
+    var text = VOICE_FALLBACK_TEXT[d.reason];
+    if (d.reason === "busy") text = busyText(lang);
+    else if (d.reason === "rate") text = "Too many voice requests. Please wait " + d.wait + " seconds, or type your question.";
+    else if (!text) text = "Voice could not start. You can keep typing here." + (d.helpline ? "\n" + d.helpline : "");
+    return text;
+  }
+
+  // What the log shows for a voice "error" event: a voice_busy frame (sent before a 1008 close) is the busy note; any other keeps the server's message and the helpline.
+  function voiceErrorNotice(e, lang) {
+    if (e && e.code === "voice_busy") return { kind: "note", text: busyText(lang) };
+    return { kind: "err", text: ((e && e.message) || "Voice had a problem.") + "\n" + (e && e.help) };
+  }
 
   // ---- transport --------------------------------------------------------------------------------------------
 
@@ -483,12 +515,9 @@
           if (box) lastBot.appendChild(box);
         },
         crisis: function (c) { add("crisis", c.help); },
-        error: function (e) { add("err", (e.message || "Voice had a problem.") + "\n" + e.help); },
+        error: function (e) { var n = voiceErrorNotice(e, pageLang(doc)); add(n.kind, n.text); },
         fallback: function (d) {
-          var text = VOICE_FALLBACK_TEXT[d.reason];
-          if (d.reason === "rate") text = "Too many voice requests. Please wait " + d.wait + " seconds, or type your question.";
-          else if (!text) text = "Voice could not start. You can keep typing here." + (d.helpline ? "\n" + d.helpline : "");
-          add("note", text);
+          add("note", voiceFallbackText(d, pageLang(doc)));
           if (!input.disabled) input.focus();
         },
         ended: function () {
@@ -557,7 +586,7 @@
     VERSION: VERSION, HELP: HELP, FOOTER: FOOTER, UNAVAILABLE_TEXT: UNAVAILABLE_TEXT, VOICE_RENDERED: VOICE_RENDERED,
     parseConfig: parseConfig, buildRequest: buildRequest, parseRetryAfter: parseRetryAfter, sanitizeUrl: sanitizeUrl,
     normalizeReply: normalizeReply, send: send, contrastText: contrastText, mount: mount, init: init,
-    voiceAvailable: voiceAvailable, voiceScriptUrl: voiceScriptUrl
+    voiceAvailable: voiceAvailable, voiceScriptUrl: voiceScriptUrl, voiceFallbackText: voiceFallbackText, voiceErrorNotice: voiceErrorNotice
   };
 
   if (typeof module === "object" && module && module.exports) module.exports = api;

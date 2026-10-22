@@ -18,7 +18,7 @@ import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { startApi } from "../src/index.js";
 import { VoiceSessionResponseSchema } from "@vc/schemas";
 import { addPartner, createMongoPartnerStore, createPartnerRegistry, revokePartner, withPartnerRoutes, type PartnerStore } from "../src/partners.js";
-import { ANONYMOUS_VOICE_THREAD_ID, VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT, VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT, VOICE_RESUME_WINDOW_MS, type VoiceApiDeps } from "../src/voice.js";
+import { ANONYMOUS_VOICE_THREAD_ID, VOICE_ACTIVE_CAP_RETRY_AFTER_SEC, VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT, VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT, VOICE_RESUME_WINDOW_MS, anonymousCapLimit, type VoiceApiDeps } from "../src/voice.js";
 import type { ApiHandler, ApiResponse } from "../src/server.js";
 import { nonEmptyCollections } from "./anonymous-fixtures.js";
 import { SKILLS_DIR, chatRequest, cleanupGates, gatesFixture, kbAnswerProvider, studentVerifier } from "./chat-fixtures.js";
@@ -561,10 +561,12 @@ function connectAnonRaw(pv: PV, token: string): Promise<{ ok: true; client: Voic
 test("V2 active cap (review 2): a visitor may hold only two ACTIVE anonymous voice sessions; the third is a 429 with Retry-After, and a slot frees when one ends", async () => {
   const pv = await pvWorld();
   try {
+    // pc-hardening H3: once the visitor is at the cap the MINT is a readable 429 voice_busy, so the token for the over-cap upgrade (the race the upgrade check still covers) is minted first
+    const thirdToken = (await mintAnon(pv)).json.token as string;
     const a = await openAnon(pv);
     await openAnon(pv);
     assert.equal(pv.w.voice.stats().liveSessions, 2);
-    const third = await connectAnonRaw(pv, (await mintAnon(pv)).json.token as string);
+    const third = await connectAnonRaw(pv, thirdToken);
     assert.equal(third.ok, false);
     if (!third.ok) {
       assert.equal(third.status, 429);
@@ -594,13 +596,15 @@ test("V2 active cap (review 2): a partner's anonymous sessions are capped across
       assert.equal(minted.status, 201, minted.body);
       return connectAnonRaw(pv, minted.json.token as string);
     };
+    // pc-hardening H3: the mint of a visitor of a full partner is a readable 429 voice_busy; the over-cap upgrade (the race) is exercised with a token minted before the cap filled
+    const c4Token = (await mintAnon(pv, { "x-test-client": "c4" })).json.token as string;
     const first = [await open("c1"), await open("c2"), await open("c3")];
     for (const r of first) {
       assert.equal(r.ok, true);
       if (r.ok) r.client.send({ type: "start", threadId: ANONYMOUS_VOICE_THREAD_ID });
     }
     await until(() => pv.w.voice.stats().liveSessions === 3, "three started sessions");
-    const fourth = await open("c4");
+    const fourth = await connectAnonRaw(pv, c4Token);
     assert.equal(fourth.ok, false);
     if (!fourth.ok) {
       assert.equal(fourth.status, 429);
@@ -608,9 +612,10 @@ test("V2 active cap (review 2): a partner's anonymous sessions are capped across
       // uniform: the per-client refusal looks exactly the same (no oracle for which cap fired)
       const pv2 = await pvWorld();
       try {
+        const lateToken = (await mintAnon(pv2)).json.token as string;
         await openAnon(pv2);
         await openAnon(pv2);
-        const perClient = await connectAnonRaw(pv2, (await mintAnon(pv2)).json.token as string);
+        const perClient = await connectAnonRaw(pv2, lateToken);
         assert.equal(perClient.ok, false);
         if (!perClient.ok) assert.equal(perClient.raw, fourth.raw);
       } finally {
@@ -898,5 +903,112 @@ test("V2 wiring: without VC_PARTNER_KEY_PEPPER, or without a way to tell visitor
     assert.equal((await mintOver(noClientKey.port, noClientKey.keys.pub)).status, 404);
   } finally {
     await noClientKey.stop();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// pc-hardening: H1 (ISS-pc-voice-2), H2 (ISS-pc-voice-1), H3 server side (ISS-pc-voice-6)
+// ---------------------------------------------------------------------------
+
+const BAD_CAPS: Array<[string, unknown]> = [
+  ["NaN", Number.NaN],
+  ["Infinity", Number.POSITIVE_INFINITY],
+  ["-Infinity", Number.NEGATIVE_INFINITY],
+  ['"abc"', "abc"],
+  ["-1", -1],
+  ["2.5", 2.5],
+];
+
+test("H1: a non-finite, negative or non-integer anonymous cap value never disables a cap: it falls back to the documented default (like voice.ts's drainTimeoutMs), 0 and whole numbers are kept", () => {
+  for (const [label, bad] of BAD_CAPS) {
+    assert.equal(anonymousCapLimit(bad, VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT), VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT, `per-client ${label}`);
+    assert.equal(anonymousCapLimit(bad, VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT), VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT, `per-partner ${label}`);
+  }
+  assert.equal(anonymousCapLimit(undefined, 7), 7);
+  assert.equal(anonymousCapLimit(0, 7), 0, "0 stays: it means no anonymous sessions at all");
+  assert.equal(anonymousCapLimit(3, 7), 3);
+});
+
+test("H1: through the running voice API, every bad maxActivePerClient still holds the default of two active sessions per visitor (the third is a 429), and a bad per-partner function result does not open the partner gate", async () => {
+  for (const [label, bad] of BAD_CAPS) {
+    const pv = await pvWorld({ deps: { anonymous: { clientKey: () => "client-1", maxActivePerClient: bad as number } } });
+    try {
+      const token = (await mintAnon(pv)).json.token as string;
+      await openAnon(pv);
+      await openAnon(pv);
+      const third = await connectAnonRaw(pv, token);
+      assert.equal(third.ok, false, `per-client ${label}: the cap still holds`);
+      if (!third.ok) assert.equal(third.status, 429, label);
+    } finally {
+      await pv.close();
+    }
+  }
+  // per-partner: a function returning a bad value falls back to the default (50), so a small number of sessions from many visitors all open and the cap is a number, not "no cap"
+  for (const [label, bad] of BAD_CAPS) {
+    const pv = await pvWorld({ deps: { anonymous: { clientKey: (req) => (typeof req.headers["x-test-client"] === "string" ? req.headers["x-test-client"] : "client-1"), maxActivePerPartner: () => bad as number } } });
+    try {
+      const a = await connectAnonRaw(pv, (await mintAnon(pv, { "x-test-client": "c1" })).json.token as string);
+      const b = await connectAnonRaw(pv, (await mintAnon(pv, { "x-test-client": "c2" })).json.token as string);
+      assert.equal(a.ok && b.ok, true, `per-partner ${label}: the default (${VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT}) applies, so two visitors fit`);
+    } finally {
+      await pv.close();
+    }
+  }
+});
+
+test("H2: a capped (429) anonymous voice upgrade leaves the voice token unspent: the same token connects once a slot frees, within its life, and is spent only by that success", async () => {
+  const pv = await pvWorld();
+  try {
+    const token = (await mintAnon(pv)).json.token as string; // minted while the visitor has a free slot, used only after the cap is reached
+    const a = await openAnon(pv);
+    await openAnon(pv);
+    assert.equal(pv.w.voice.stats().liveSessions, 2);
+    const usedBefore = pv.w.voice.stats().usedTokens;
+    const refused = await connectAnonRaw(pv, token);
+    assert.equal(refused.ok, false);
+    if (!refused.ok) assert.equal(refused.status, 429);
+    assert.equal(pv.w.voice.stats().usedTokens, usedBefore, "the refused upgrade did not spend the token");
+    // a slot frees; the SAME token (still within its 60 s life on the fake clock) now opens the stream
+    a.client.ws.close(1000);
+    await until(() => pv.w.voice.stats().liveSessions === 1, "a slot freed");
+    const again = await connectAnonRaw(pv, token);
+    assert.equal(again.ok, true, "the unspent token works after the slot frees");
+    assert.equal(pv.w.voice.stats().usedTokens, usedBefore + 1, "and only that success spends it");
+    // single use is intact: a replay of the now-spent token is a 401
+    const replay = await connectAnonRaw(pv, token);
+    assert.equal(replay.ok, false);
+    if (!replay.ok) assert.equal(replay.status, 401);
+  } finally {
+    await pv.close();
+  }
+});
+
+test("H3 server: when the visitor's or the partner's active cap is reached, the session mint says 429 voice_busy (a readable signal for the widget) with the cap Retry-After, no token is minted, a rate-limit stays rate_limited, and the mint works again after a slot frees", async () => {
+  const pv = await pvWorld({ deps: { anonymous: { clientKey: (req) => (typeof req.headers["x-test-client"] === "string" ? req.headers["x-test-client"] : "client-1"), maxActivePerPartner: 3 } } });
+  try {
+    const a = await openAnon(pv);
+    await openAnon(pv);
+    const busy = await mintAnon(pv);
+    assert.equal(busy.status, 429);
+    assert.equal(busy.json.error, "voice_busy");
+    assert.equal(busy.json.token, undefined, "no token is minted for a busy visitor");
+    assert.equal(busy.headers["retry-after"], String(VOICE_ACTIVE_CAP_RETRY_AFTER_SEC));
+    // the partner cap (3): another visitor opens the third; the fourth visitor's mint is busy too, with the same shape
+    const c2 = await mintAnon(pv, { "x-test-client": "c2" });
+    assert.equal(c2.status, 201);
+    const c2conn = await connectAnonRaw(pv, c2.json.token as string);
+    assert.equal(c2conn.ok, true);
+    if (c2conn.ok) c2conn.client.send({ type: "start", threadId: ANONYMOUS_VOICE_THREAD_ID });
+    await until(() => pv.w.voice.stats().liveSessions === 3, "three started sessions");
+    const busy2 = await mintAnon(pv, { "x-test-client": "c3" });
+    assert.equal(busy2.status, 429);
+    assert.equal(busy2.json.error, "voice_busy");
+    assert.equal(busy2.headers["retry-after"], busy.headers["retry-after"], "both caps refuse the same way");
+    // a slot frees; the first visitor can mint again
+    a.client.ws.close(1000);
+    await until(() => pv.w.voice.stats().liveSessions === 2, "a slot freed");
+    assert.equal((await mintAnon(pv)).status, 201);
+  } finally {
+    await pv.close();
   }
 });
