@@ -1,8 +1,7 @@
-# pc-hardening-2 - checkpoint, coordinator B (blind dual check), cycle 0
-Started 2026-10-22T16:28:14+05:30. Worktree D:/vc/.worktrees/pc-hardening-2, head 76b5a92, code 23ccf93, merge-base with main = 02483f6 (verified).
-1. Read diff 02483f6..23ccf93 (voice.ts, partners.ts, scripts/partner.ts, widget voice.js / vc-widget.js, docs, 3 test files) and the manifest.
-2. Regression set run through vc-testlock (worktree, background): partners 69/0, partner-voice 38/0, partner-openapi 15/0, voice 67/0, voice-limits 10/0, voice-wiring 16/0, auth 15/0, server 34/0, index 8/0, main 10/0, chat 34 pass / 1 fail (A20 baseline only), anonymous-route H2|H6|G5|K2|K4 9/0, tsc --noEmit exit 0, widget node --test 64/0.
-3. LK10 grep for existing Hindi helpline wording: HELPLINE_GLOSS (packages/engine/src/student/lang.ts:36, "taken verbatim from the already-approved crisis wording (no new clinical text)") and the Hindi crisis message (lang.ts:66). The widget's new HELP_HI (apps/widget/src/vc-widget.js:125) matches neither: new divergent Hindi wording, so J1 FAIL.
-4. Hostile probes written in a scratchpad copy (git archive of 23ccf93, node_modules junctioned): J5 error shapes (URI in message, MongoServerError-like with numeric code, thrown string/object, cause chain, hostile name/code, newline in code) and the real script with 4 bad MONGODB_URL shapes (no leak); J2 oracle (no/garbage/srv key, foreign Origin with cap 0 give the same 401 as a normal cap; student mint unaffected; 403 body and CORS headers); J4 (revoke between read and write, three-way same-scope race, pub vs srv under a barrier, loser message).
-5. Mutants in the copy (restored byte-identical, cmp against the pristine extract): J1 x3, J2, J3 x4, J4 x2, J5 x2, plus one gap mutant (403 before the Origin check). All builder mutants red; the gap mutant is green on the builder tests and red on my probe.
-6. Verdict: qa/verdicts/pc-hardening-2.B.md.
+# pc-hardening-2 - checkpoint, coordinator B (blind dual check), cycle 1
+Started 2026-10-22T16:48:03+05:30; finished 2026-10-22T17:00:00+05:30. Worktree D:/vc/.worktrees/pc-hardening-2, head de390e3, code 6b578a7, base 24febaf.
+1. Read the cycle-1 diff 23ccf93..6b578a7 (index.ts, partners.ts, vc-widget.js, 4 test files) and the manifest "Repair cycle 1"; worktree clean.
+2. Widget probes and R1 mutants in a scratchpad copy (chkB-c1/copy): verbatim-fragment check against lang.ts, per-lang texts vs base, 3 mutants, restored.
+3. Probe tests in the copy (zz-probe-B-partners.test.ts, one appended test in partner-voice.test.ts): R4 race variants, R2 store forwarding, R3 wider 401 variants; mutants for R2, R3, R4, J4 red and restored.
+4. Full regression set through vc-testlock in the worktree with counts (see verdict).
+5. Verdict: qa/verdicts/pc-hardening-2.B.md (the cycle-0 verdict is kept as pc-hardening-2.B.r0-1.md).
