@@ -84,6 +84,8 @@ pnpm -C apps/api partner revoke acme                 # both keys stop working
 pnpm -C apps/api partner list                        # status and key prefixes, never a key
 ```
 
+A partner id is lower-case letters, digits and hyphens (2 to 32). It is also the tenant id of everything your server key reaches, so `add` refuses an id that is, or looks like, an existing tenant: `sandbox`, `admin`, `system`, `root`, `default` or `internal` alone or followed by a separator and suffix (`sandbox-1`, `admin_2`), any tenant id listed in `VC_RESERVED_TENANT_IDS` (list every `tenant` your student JWTs carry), and the repo's own demo and evaluation tenants. The running server applies the same rule to every key, so an older partner record with such an id gets the plain `401` too.
+
 Only a hash is stored, so a lost key cannot be shown again: rotate it. A rotate or revoke reaches a running server within 60 seconds. Origins are `https://host[:port]` (or `http://localhost[:port]`); no path and no wildcard.
 
 ## 5. Limits and errors

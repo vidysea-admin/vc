@@ -63,6 +63,7 @@ import {
   createPartnerRegistry,
   partnerKeyRequiredFromEnv,
   partnerPepperFromEnv,
+  reservedTenantIdsFromEnv,
   withPartnerRoutes,
   type PartnerStore,
 } from "./partners.js";
@@ -526,7 +527,13 @@ export async function startApi(
     insert: (doc) => partnerStoreOf(partnerStoreRef).insert(doc),
     update: (id, patch) => partnerStoreOf(partnerStoreRef).update(id, patch),
   };
-  const partnerRegistry = partnerPepper !== undefined ? createPartnerRegistry({ store: partnerStore, pepper: partnerPepper, ...(http?.partners?.nowMs ? { nowMs: http.partners.nowMs } : {}) }) : undefined;
+  // pc-reserved-ids (R2): the tenant ids a partner key may never carry as its partner id = the operator's VC_RESERVED_TENANT_IDS (a bad list throws here, before anything
+  // connects) plus the sandbox tenant id. The registry checks them on every request, so a partner record made earlier is refused too.
+  const partnerReservedIds = httpSetup ? [...reservedTenantIdsFromEnv(env), ...(http?.chat?.sandboxTenantId !== undefined ? [http.chat.sandboxTenantId] : [])] : [];
+  const partnerRegistry =
+    partnerPepper !== undefined
+      ? createPartnerRegistry({ store: partnerStore, pepper: partnerPepper, reservedIds: partnerReservedIds, ...(http?.partners?.nowMs ? { nowMs: http.partners.nowMs } : {}) })
+      : undefined;
   const classifierConfig = httpSetup ? loadConcernClassifierConfig(env) : undefined;
   const classifierProvider = httpSetup && !http?.escalationForTenant
     ? (http?.provider ?? createProvider(concernClassifierProviderConfig(loadProviderConfig(env), classifierConfig!))) : undefined;
