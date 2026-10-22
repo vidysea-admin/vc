@@ -2,7 +2,7 @@
 **Contract:** ISS-pc-hardening-1, -3, -6 and ISS-pc-partner-keys-3, -6 (qa/issues.jsonl); brief qa/evidence/p1-briefs/pc-hardening-2.md, criteria J1-J5 (verbatim below). Not an edit to qa/contracts.
 **Goal task:** none
 **Date:** 2026-10-22
-**Fix cycle:** 0
+**Fix cycle:** 1
 **Status:** ready-for-check
 **Dual check:** yes
 **Dual-trigger:** auth apps/api/src/partners.ts:436 (the rotate update `store.update(partnerId, patch, expect)` in `rotatePartner`; the expected hash is built at :435)
@@ -79,3 +79,28 @@ Note R3f: the skip pattern excludes only the recorded A20 baseline test (ISS-pc-
 Pre-check[R3g]: 23ccf93 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test --test-name-pattern="H2|H6|G5|K2|K4" tests/anonymous-route.test.ts` -> exit 0, 9 passed, 0 failed
 Note R3i: the widget regression (all of apps/widget/tests) is recorded under Pre-check[J1] (64 passed, 0 failed).
 Pre-check[R3h]: 23ccf93 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh pnpm exec tsc --noEmit` (apps/api) -> exit 0, no output
+
+## Repair cycle 1
+Trigger: both blind coordinators FAILed J1 (qa/verdicts/pc-hardening-2.A.md, .B.md): HELP_HI was a new Hindi translation ("आपातकाल 112"), which LK10 forbids. Repair code commit 6b578a7c9f811d5b288fec6bd97583c482b0d8c4 (short 6b578a7), on top of main merged into the branch. Deviation 1 above is superseded: the Hindi helpline line is now "Tele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें", both parts copied verbatim from packages/engine/src/student/lang.ts (HELPLINE_GLOSS inner text, and the 112 phrase of the Hindi crisis text at CRISIS_CORE_HI), joined with the same " · " the English HELP uses. No new Hindi word; lang.ts, crisisGuard, the busy wording, English HELP, the crisis path are untouched.
+
+R1 (J1, LK10): apps/widget/src/vc-widget.js HELP_HI; apps/widget/tests/voice.test.js constant updated and new "R1: the Hindi helpline line is built only from fragments copied verbatim ..." (reads lang.ts from disk, every " · " part of the Hindi line must be a substring of it, same part count as English HELP, "आपातकाल" absent from every file in apps/widget/src).
+R2 (review low): apps/api/src/index.ts, the default PartnerStore wrapper is extracted in place to the exported `deferredPartnerStore(ref)` (so a test can reach it) and its `update` now forwards `expect`; apps/api/tests/index.test.ts "R2: the partner store the server builds ... forwards update's third argument" (mismatched expect: false and nothing written; matching: written).
+R3 (B proposed): apps/api/tests/partner-voice.test.ts "R3: with a cap of 0 ..." byte-compares the 401 (status, sorted headers, body) for a bad key, a missing key and a wrong Origin between the default-cap world and per-client-0 and per-partner-0 worlds; a good request is 201 / 403 respectively. No production change (the order was already correct).
+R4 (A and B proposed): apps/api/src/partners.ts `PartnerExpect` gains `status?: "active"`; `rotatePartner` adds `status: "active"` to its compare-and-set; on a miss it re-reads: vanished = partner_not_found, revoked = new message under the existing `partner_revoked` code ("was revoked while the key was being rotated, so no key was minted"), else rotated_concurrently. apps/api/tests/partners.test.ts "R4: a revoke that lands between rotate's read and rotate's write ..." (interleaved against the fake Db; no key printed; stored hash unchanged; partner stays revoked; old key does not authenticate).
+
+Red runs before each fix (recorded): R1 `node --test --test-name-pattern="R1" apps/widget/tests/voice.test.js` -> 1 fail ("not a verbatim fragment of lang.ts: Tele-MANAS 14416 (24x7)"). R2 `--test-name-pattern="R2" tests/index.test.ts` with the extracted wrapper still dropping `expect` -> 1 fail ("mismatched expect: refused", actual true). R4 `--test-name-pattern="R4" tests/partners.test.ts` -> 1 fail (rotate succeeded, no error). R3 is a characterization pin: green on the unchanged order, proven by its mutant below.
+
+Falsifications (own worktree with the file backed up in the session scratchpad and restored, sha256 verified, git status clean of the mutation afterwards): R1: "112 पर कॉल करें" in the widget -> R1 red ("not a verbatim fragment"). R3: `if (who && anonymousVoiceOff(who.partnerId)) return failAnon(403, ...)` inserted before the Origin check in voice.ts -> R3 red. R2: the pre-fix wrapper (`update: (id, patch)`) is the mutant -> red as recorded. R4: pre-fix rotate (no status filter) is the mutant -> red as recorded.
+
+Tests[R1]: widget voice.test.js "R1: ..." plus whole widget suite
+Tests[R2]: index.test.ts "R2: ..."
+Tests[R3]: partner-voice.test.ts "R3: ..."
+Tests[R4]: partners.test.ts "R4: ..."
+Pre-check[R1]: 6b578a7 `node --test "apps/widget/tests/*.test.js"` (repo root, via vc-testlock.sh) -> exit 0, 65 passed, 0 failed (64 before + R1)
+Pre-check[R2]: 6b578a7 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test apps/api/tests/index.test.ts` -> exit 0, 9 passed, 0 failed (8 + R2)
+Pre-check[R3]: 6b578a7 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test apps/api/tests/partner-voice.test.ts` -> exit 0, 39 passed, 0 failed (38 + R3)
+Pre-check[R4]: 6b578a7 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test apps/api/tests/partners.test.ts` -> exit 0, 70 passed, 0 failed (69 + R4)
+Pre-check[R5a]: 6b578a7 same wrapper, files partner-openapi, voice, voice-limits, voice-wiring, auth, server, main (run per file) -> exit 0 each, 15 + 67 + 10 + 16 + 15 + 34 + 10 passed, 0 failed
+Pre-check[R5b]: 6b578a7 `... tsx --test --test-skip-pattern="A20 flag on but gate closed" apps/api/tests/chat.test.ts` -> exit 0, 34 passed, 0 failed
+Pre-check[R5c]: 6b578a7 `... tsx --test --test-name-pattern="H2|H6|G5|K2|K4" apps/api/tests/anonymous-route.test.ts` -> exit 0, 9 passed, 0 failed
+Pre-check[R5d]: 6b578a7 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh pnpm exec tsc --noEmit` (apps/api) -> exit 0, no output
