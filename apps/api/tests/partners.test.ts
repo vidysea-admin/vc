@@ -888,7 +888,7 @@ test("K2 (pc-hardening-3): both voice stream locations are rate limited like the
   // the log formats this file defines (name -> format string), comments already dropped
   const formats = new Map([...nginxCode.matchAll(/log_format\s+(\S+)\s+([^;]+);/g)].map((m) => [m[1]!, m[2]!] as const));
   // anything that can carry the single-use token, or the query string it could be mis-sent in
-  const SECRET_VARS = /\$(?:request|request_uri|args|query_string|is_args|arg_\w+|http_sec_websocket_protocol|http_authorization|http_cookie|http_x_vc_key|upstream_http_\w+|sent_http_\w+)(?![A-Za-z0-9_])/;
+  const SECRET_VARS = /\$(?:request|request_uri|request_body|request_body_file|args|query_string|is_args|arg_\w+|cookie_\w+|http_\w+|upstream_http_\w+|sent_http_\w+)(?![A-Za-z0-9_])/;
   for (const [name, block] of Object.entries(streams)) {
     assert.match(block, /limit_req\s+zone=vcchat\s+burst=\d+\s+nodelay;/, `${name}: limited like the other public locations`);
     assert.match(block, /limit_req_status\s+429;/, `${name}: 429 like the other public locations`);
@@ -905,6 +905,11 @@ test("K2 (pc-hardening-3): both voice stream locations are rate limited like the
   assert.match('"$request" $status "$http_sec_websocket_protocol"', SECRET_VARS);
   assert.match("$remote_addr $request", SECRET_VARS);
   assert.doesNotMatch("$remote_addr $request_method $uri $status", SECRET_VARS);
+  // pc-hardening-4 P3 (ISS-pc-hardening-3-7): the request body, any cookie variable and any request-header variable are rejected too
+  for (const v of ["$request_body", "$request_body_file", "$cookie_session", "$cookie_vc_token", "$http_sec_websocket_protocol", "$http_authorization", "$http_cookie", "$http_x_vc_key", "$http_user_agent", "$http_x_forwarded_for"]) {
+    assert.match(`$remote_addr ${v} $status`, SECRET_VARS, `${v} is rejected in a voice stream log format`);
+  }
+  assert.doesNotMatch('$remote_addr [$time_local] "$request_method $uri $server_protocol" $status $body_bytes_sent', SECRET_VARS, "the shipped format stays clean");
 });
 
 test("K5 (clarified default 5): nginx serves the widget statically with a one-year immutable cache for the versioned file and 300 s for the alias", () => {
@@ -1488,6 +1493,57 @@ test("S3: a malformed VC_RESERVED_TENANT_IDS is fatal only when partners are ena
     assert.equal(note.length, 1, "one note naming the variable");
     assert.match(note[0]!, /ignored/i);
     assert.ok(!note[0]!.includes("bad:id"), "the value is not echoed");
+  } finally {
+    cleanupGates(gates);
+  }
+});
+
+test("P2 (pc-hardening-4, ISS-pc-hardening-3-4): with VC_PARTNER_KEY_PEPPER unset startApi logs exactly one partner_tenant_guard_off line (no ids, no secrets) through the partners.log sink or, by default, stderr; with the pepper set there is none; startup is not blocked and opens no extra Mongo connection", async () => {
+  const gates = gatesFixture();
+  try {
+    const run = async (env: Record<string, string | undefined>, sink?: (line: Record<string, unknown>) => void) => {
+      let connections = 0;
+      let port = 0;
+      const stderr = await captureStderr(async () => {
+        const api = await launch(env, {
+          clientFactory: () => {
+            connections += 1;
+            return createFakeMongoClient().client;
+          },
+          http: { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: gates.gates }, ...(sink ? { partners: { log: sink } } : {}) },
+        });
+        port = api.port;
+        await api.stop();
+      });
+      return { connections, port, stderr };
+    };
+    const guardLines = (lines: string[]) => lines.filter((l) => l.includes("partner_tenant_guard_off"));
+
+    // injected sink (the fake logger): one line, nothing on stderr for it
+    const got: Record<string, unknown>[] = [];
+    const off = await run(reservedWiringEnv(), (l) => void got.push(l));
+    assert.ok(off.port > 0, "startup is not blocked");
+    assert.equal(off.connections, 1, "the one connection startApi always opens; the note opens none");
+    assert.equal(got.length, 1, "exactly one line");
+    assert.equal(got[0]!.event, "partner_tenant_guard_off");
+    assert.equal(got[0]!.level, "warn");
+    const text = JSON.stringify(got[0]);
+    assert.match(text, /VC_PARTNER_KEY_PEPPER/, "names the switch an operator has to set");
+    assert.doesNotMatch(text, /synthetic-anon-key|j{20}|mongodb:\/\/|fake-host/, "no secret, URI or id in the line");
+    assert.deepEqual(guardLines(off.stderr), [], "an injected sink replaces stderr");
+
+    // default sink: one JSON line on stderr
+    const def = await run(reservedWiringEnv());
+    const lines = guardLines(def.stderr);
+    assert.equal(lines.length, 1, "one stderr line by default");
+    assert.equal((JSON.parse(lines[0]!) as { event: string }).event, "partner_tenant_guard_off");
+
+    // pepper set: the guard is installed, so nothing is said
+    const sink2: Record<string, unknown>[] = [];
+    const on = await run(reservedWiringEnv({ [PARTNER_PEPPER_ENV]: PEPPER, [RESERVED_TENANT_IDS_ENV]: "jwt-tenant" }), (l) => void sink2.push(l));
+    assert.ok(on.port > 0);
+    assert.deepEqual(sink2.filter((l) => l.event === "partner_tenant_guard_off"), [], "no note when the guard is on");
+    assert.deepEqual(guardLines(on.stderr), []);
   } finally {
     cleanupGates(gates);
   }

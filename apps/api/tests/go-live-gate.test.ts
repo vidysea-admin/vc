@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GATE_FILES, GO_LIVE_TARGETS, GoLiveRefusedError, assertGoLive, evaluateGoLive, formatGoLiveReport, type GoLiveTarget } from "../src/go-live-gate.js";
 import { assertVoiceGoLive } from "../src/voice.js";
+import { assertChatGoLive } from "../src/chat.js";
 
 const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
 const CLI = fileURLToPath(new URL("../scripts/go-live-gate.ts", import.meta.url));
@@ -570,6 +571,47 @@ test("K3 (pc-hardening-3): assertVoiceGoLive reads the approver from the env it 
       assert.throws(() => assertVoiceGoLive(base), GoLiveRefusedError);
       assert.throws(() => assertVoiceGoLive({ ...base, env: {} }), GoLiveRefusedError);
     });
+  } finally {
+    cleanup(fu);
+  }
+});
+
+test("P1 (pc-hardening-4, ISS-pc-hardening-3-1): assertChatGoLive reads the approver from the env it is passed, and from process.env only when no env is passed (the voice twin of K3)", () => {
+  // student-routes needs no A10; the one approver-dependent record is B13-signed (its signer must equal the configured approver when one is configured), signed here by APPROVER
+  const fu = fixture();
+  try {
+    const base = { gatesDir: fu.gates, now: NOW };
+    // approver set ONLY in the passed env: it decides (the signer matches -> allowed; a different configured approver -> refused)
+    withApproverEnv(undefined, () => {
+      assert.doesNotThrow(() => assertChatGoLive({ ...base, env: { VC_GATE_APPROVER: APPROVER } }));
+      assert.throws(() => assertChatGoLive({ ...base, env: { VC_GATE_APPROVER: "Mallory" } }), GoLiveRefusedError);
+    });
+    // process.env holds a matching approver but the passed env names a different one: the passed env is the configuration
+    withApproverEnv(APPROVER, () => {
+      assert.throws(() => assertChatGoLive({ ...base, env: { VC_GATE_APPROVER: "Mallory" } }), GoLiveRefusedError, "the passed env approver (Mallory) wins over a matching process.env");
+    });
+    withApproverEnv("Mallory", () => {
+      assert.doesNotThrow(() => assertChatGoLive({ ...base, env: { VC_GATE_APPROVER: APPROVER } }), "the passed env approver wins over a mismatching process.env");
+      // the passed env lacks the approver: process.env is NOT consulted (same as an unconfigured approver; the gate records alone decide)
+      assert.doesNotThrow(() => assertChatGoLive({ ...base, env: {} }), "process.env approver ignored when an env was passed");
+      // no env passed: process.env is the fallback (Mallory is not the B13 signer -> refused)
+      assert.throws(() => assertChatGoLive(base), GoLiveRefusedError);
+      // an explicit approver still decides
+      assert.doesNotThrow(() => assertChatGoLive({ ...base, approver: APPROVER, env: { VC_GATE_APPROVER: "Mallory" } }));
+    });
+    withApproverEnv(APPROVER, () => {
+      assert.doesNotThrow(() => assertChatGoLive(base), "no env passed, process.env approver matches the signer");
+    });
+    // fail closed unchanged: a missing record still refuses whatever the approver
+    const broken = fixture({ gProd: null });
+    try {
+      withApproverEnv(undefined, () => {
+        assert.throws(() => assertChatGoLive({ gatesDir: broken.gates, now: NOW, env: { VC_GATE_APPROVER: APPROVER } }), GoLiveRefusedError);
+        assert.throws(() => assertChatGoLive({ gatesDir: broken.gates, now: NOW }), GoLiveRefusedError);
+      });
+    } finally {
+      cleanup(broken);
+    }
   } finally {
     cleanup(fu);
   }

@@ -323,8 +323,11 @@ export interface StartApiHttpOptions {
    * pc-partner-keys (D-111): per-partner API keys. The registry exists only when VC_PARTNER_KEY_PEPPER is set (>= 32 characters); VC_PARTNER_KEY_REQUIRED=true
    * needs it and refuses to start without. 'store' is for tests (default: the 'partners' collection of the virtual_counsellor Db); 'nowMs' drives the 60 s cache.
    */
-  partners?: { store?: PartnerStore; nowMs?: () => number };
+  partners?: { store?: PartnerStore; nowMs?: () => number; log?: PartnerNoteSink };
 }
+
+/** pc-hardening-4 P2: a partner-config note (names a variable, never a value or an id). Default sink: one JSON line on stderr. */
+export type PartnerNoteSink = (line: { level: "warn"; event: string; message: string; ts: string }) => void;
 
 /** P1 U10w: environment names for the voice WebSocket secrets, used when the option is not supplied. */
 export const VOICE_WS_ENV = { secret: "VC_VOICE_WS_SECRET", baseUrl: "VC_VOICE_WS_BASE_URL" } as const;
@@ -457,9 +460,14 @@ function resolvePort(env: Record<string, string | undefined>, requested: number 
 }
 
 /** pc-reserved-ids-2: one structured JSON line on stderr for a partner-config warning or note (names the variable, never a value). */
-function logPartnerNote(event: string, message: string): void {
+function logPartnerNote(event: string, message: string, sink?: PartnerNoteSink): void {
+  const line = { level: "warn" as const, event, message, ts: new Date().toISOString() };
+  if (sink) {
+    sink(line);
+    return;
+  }
   // eslint-disable-next-line no-console
-  console.error(JSON.stringify({ level: "warn", event, message, ts: new Date().toISOString() }));
+  console.error(JSON.stringify(line));
 }
 
 /**
@@ -555,15 +563,20 @@ export async function startApi(
   if (partnerPepper !== undefined) {
     partnerReservedIds = reservedTenantIdsFromEnv(env);
     partnerOwnTenants = partnerOwnTenantsFromEnv(env);
-    if (partnerReservedIds.length === 0) logPartnerNote("reserved_tenant_ids_empty", reservedTenantIdsWarning());
+    if (partnerReservedIds.length === 0) logPartnerNote("reserved_tenant_ids_empty", reservedTenantIdsWarning(), http?.partners?.log);
     const sandbox = http?.chat?.sandboxTenantId;
     if (sandbox !== undefined) {
       // the sandbox tenant can never be exempted, like the built-in names
       if (partnerOwnTenants.some((o) => foldId(o.trim()) === foldId(sandbox.trim()))) throw new PartnerConfigError(`${PARTNER_OWN_TENANTS_ENV} cannot bind the configured sandbox tenant`);
       partnerReservedIds.push(sandbox);
     }
-  } else if (httpSetup && [RESERVED_TENANT_IDS_ENV, PARTNER_OWN_TENANTS_ENV].some((name) => (env[name] ?? "").trim() !== "")) {
-    logPartnerNote("reserved_tenant_ids_ignored", `${RESERVED_TENANT_IDS_ENV} and ${PARTNER_OWN_TENANTS_ENV} are ignored: ${PARTNER_PEPPER_ENV} is not set, so partner keys are off`);
+  } else if (httpSetup) {
+    if ([RESERVED_TENANT_IDS_ENV, PARTNER_OWN_TENANTS_ENV].some((name) => (env[name] ?? "").trim() !== "")) {
+      logPartnerNote("reserved_tenant_ids_ignored", `${RESERVED_TENANT_IDS_ENV} and ${PARTNER_OWN_TENANTS_ENV} are ignored: ${PARTNER_PEPPER_ENV} is not set, so partner keys are off`, http?.partners?.log);
+    }
+    // pc-hardening-4 P2 (ISS-pc-hardening-3-4): the student-JWT partner-tenant guard (guardStudentVerifier below) exists only with a partner registry, so with the pepper unset it is off. Say so
+    // once, loudly enough for an operator, without ids or secrets; behaviour is unchanged (no connection is opened here, startup is not blocked).
+    logPartnerNote("partner_tenant_guard_off", `${PARTNER_PEPPER_ENV} is not set: partner keys are off, so the student-JWT partner-tenant guard is not installed`, http?.partners?.log);
   }
   const partnerRegistry =
     partnerPepper !== undefined
