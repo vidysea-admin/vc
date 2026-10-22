@@ -1603,11 +1603,23 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     return n;
   }
 
-  /** True when an anonymous client or its partner already holds its cap of active (not closed) sessions; `self` is excluded so a start can re-check its own connection. */
-  function anonymousCapReached(tenantId: string, clientKey: string, self?: Conn): boolean {
+  /** The two anonymous caps in force for a partner (a bad configured value has already fallen back to its default). */
+  function anonymousCaps(tenantId: string): { perClient: number; perPartner: number } {
     const perClient = anonymousCapLimit(deps.anonymous?.maxActivePerClient, VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT);
     const raw = deps.anonymous?.maxActivePerPartner;
     const perPartner = anonymousCapLimit(typeof raw === "function" ? raw(tenantId) : raw, VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT);
+    return { perClient, perPartner };
+  }
+
+  /** pc-hardening-2 J2 (ISS-pc-hardening-3): a cap of 0 means anonymous voice is switched off for this client or partner. That is a permanent state, not "busy". */
+  function anonymousVoiceOff(tenantId: string): boolean {
+    const { perClient, perPartner } = anonymousCaps(tenantId);
+    return perClient === 0 || perPartner === 0;
+  }
+
+  /** True when an anonymous client or its partner already holds its cap of active (not closed) sessions; `self` is excluded so a start can re-check its own connection. */
+  function anonymousCapReached(tenantId: string, clientKey: string, self?: Conn): boolean {
+    const { perClient, perPartner } = anonymousCaps(tenantId);
     let client = 0;
     let partner = 0;
     for (const c of conns) {
@@ -1795,6 +1807,8 @@ export function createVoiceApi(deps: VoiceApiDeps, route: VoiceRouteConfig): Voi
     if (!verdict.allowed) return failAnon(429, "rate_limited", { "retry-after": String(verdict.retryAfterSec) });
     if (!(await readEmptyBody(req))) return failAnon(400, "invalid_request");
 
+    // pc-hardening-2 J2: a cap of 0 is "voice is off here" (403, no Retry-After: retrying cannot help), distinct from the transient 429 busy below.
+    if (anonymousVoiceOff(who.partnerId)) return failAnon(403, "voice_unavailable");
     // pc-hardening H3 (ISS-pc-voice-6): a visitor whose client or partner is already at its active-session cap is told so HERE, in a readable response, instead of being minted a token
     // whose upgrade is then refused with a bare 429 the browser cannot read (onclose carries no status and no Retry-After). The upgrade (and the start) keep their own checks for the race
     // between this mint and the socket. Same status and Retry-After as the upgrade refusal, so neither cap is singled out.

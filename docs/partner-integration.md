@@ -88,7 +88,7 @@ A partner id is lower-case letters, digits and hyphens (2 to 32). It is also the
 
 If a partner's own id is also a real JWT tenant (for example `pathlynks`), the operator binds it explicitly with `VC_PARTNER_OWN_TENANTS=pathlynks:pathlynks`: that exact partner is then not blocked by the list. A partner key reaches only the tenant named by its own id, so the two halves must be equal; any other partner whose id equals or looks like that tenant is still refused, and the built-in names, the repo's tenants and the sandbox tenant can never be bound.
 
-Only a hash is stored, so a lost key cannot be shown again: rotate it. A rotate or revoke reaches a running server within 60 seconds. Origins are `https://host[:port]` (or `http://localhost[:port]`); no path and no wildcard.
+Only a hash is stored, so a lost key cannot be shown again: rotate it. A rotate or revoke reaches a running server within 60 seconds. If two rotates of the same key overlap, only the first takes effect: the other fails with "rotated concurrently, run again" and prints no key. Any other unexpected CLI failure prints only the error class and code, never the driver's message (it can quote the connection string). Origins are `https://host[:port]` (or `http://localhost[:port]`); no path and no wildcard.
 
 ## 5. Limits and errors
 
@@ -96,6 +96,10 @@ Only a hash is stored, so a lost key cannot be shown again: rotate it. A rotate 
 |---|---|---|
 | Public turn (page key) | 10 per partner and client | `429` with `Retry-After` seconds |
 | Student routes (server key) | 30 per partner's student | `429` with `Retry-After` seconds |
+
+### Anonymous voice caps
+
+The page key's voice session is capped per visitor (`maxActivePerClient`, default 2) and per partner (`maxActivePerPartner`, default 50) in the API's voice configuration. At capacity the session request answers `429 {"error":"voice_busy"}` with `Retry-After`: busy, try again shortly, and the widget says so. Set `0` to turn anonymous voice off for that visitor or partner: the session request then answers `403 {"error":"voice_unavailable"}` (no `Retry-After`, it is not transient) and the widget tells the visitor that voice is not available here and to type. A negative or invalid value falls back to the default; it never switches the cap off.
 
 Bodies over 64 KiB get `413`. `400` is a malformed body or student header, `404` an unknown thread or a student that is not yours, `409` a turn still in progress or a student under erasure, `503` a temporary store failure (retry). Always wait the `Retry-After` and retry; do not loop.
 

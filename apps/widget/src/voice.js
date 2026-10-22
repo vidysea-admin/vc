@@ -224,7 +224,15 @@
         return fail({ reason: "network" });
       }
       if (mine !== gen) { stopTracks(mic); return false; }
-      if (res.status === 401 || res.status === 403) return fail({ reason: "unavailable" });
+      if (res.status === 403) {
+        // pc-hardening-2 J2: 403 {"error":"voice_unavailable"} is the server saying voice is switched off here (a cap of 0): permanent, so "off", not the plain unavailable fallback.
+        var off = null;
+        try { off = await res.json(); } catch (e) { /* not JSON */ }
+        if (mine !== gen) { stopTracks(mic); return false; }
+        if (off && typeof off === "object" && off.error === "voice_unavailable") return fail({ reason: "off" });
+        return fail({ reason: "unavailable" });
+      }
+      if (res.status === 401) return fail({ reason: "unavailable" });
       if (res.status === 429) {
         var ra = res.headers && res.headers.get && res.headers.get("retry-after");
         var hasWait = /^\d+$/.test(String(ra === null || ra === undefined ? "" : ra).trim());

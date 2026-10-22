@@ -7,6 +7,8 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { generateKeyPairSync, randomBytes } from "node:crypto";
@@ -1008,6 +1010,102 @@ test("H3 server: when the visitor's or the partner's active cap is reached, the 
     a.client.ws.close(1000);
     await until(() => pv.w.voice.stats().liveSessions === 2, "a slot freed");
     assert.equal((await mintAnon(pv)).status, 201);
+  } finally {
+    await pv.close();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// pc-hardening-2: J2 (ISS-pc-hardening-3) and J3 (ISS-pc-hardening-6)
+// ---------------------------------------------------------------------------
+
+test("J2: a cap of 0 (anonymous voice deliberately off, per client or per partner) is not reported as busy: the mint says 403 voice_unavailable with no Retry-After and no token, positive caps at capacity keep 429 voice_busy, and a negative or invalid value falls back to the default (voice stays on)", async () => {
+  const clientKey = (req: { headers: Record<string, unknown> }) => (typeof req.headers["x-test-client"] === "string" ? (req.headers["x-test-client"] as string) : "client-1");
+  const offCases: Array<[string, Record<string, unknown>]> = [
+    ["per-client 0", { maxActivePerClient: 0 }],
+    ["per-partner 0", { maxActivePerPartner: 0 }],
+    ["per-partner function returning 0", { maxActivePerPartner: () => 0 }],
+  ];
+  for (const [label, caps] of offCases) {
+    const pv = await pvWorld({ deps: { anonymous: { clientKey, ...caps } } as never });
+    try {
+      const off = await mintAnon(pv);
+      assert.equal(off.status, 403, label);
+      assert.equal(off.json.error, "voice_unavailable", label);
+      assert.equal(off.json.token, undefined, `${label}: no token`);
+      assert.equal(off.headers["retry-after"], undefined, `${label}: a permanent state has no Retry-After`);
+      assert.equal(typeof off.json.helpline, "string", `${label}: the helpline stays on the refusal`);
+    } finally {
+      await pv.close();
+    }
+  }
+  // a positive cap at capacity is still busy (transient), never "unavailable"
+  const pv = await pvWorld({ deps: { anonymous: { clientKey, maxActivePerClient: 1 } } as never });
+  try {
+    await openAnon(pv);
+    const busy = await mintAnon(pv);
+    assert.equal(busy.status, 429);
+    assert.equal(busy.json.error, "voice_busy");
+    assert.equal(busy.headers["retry-after"], String(VOICE_ACTIVE_CAP_RETRY_AFTER_SEC));
+  } finally {
+    await pv.close();
+  }
+  // a negative or invalid value is not "off": it falls back to the default, so the mint works
+  for (const [label, bad] of BAD_CAPS) {
+    const pvBad = await pvWorld({ deps: { anonymous: { clientKey, maxActivePerClient: bad as number, maxActivePerPartner: bad as number } } as never });
+    try {
+      assert.equal((await mintAnon(pvBad)).status, 201, `${label} falls back to the default`);
+    } finally {
+      await pvBad.close();
+    }
+  }
+  // the docs say so
+  const doc = readFileSync(fileURLToPath(new URL("../../../docs/partner-integration.md", import.meta.url)), "utf8");
+  assert.match(doc, /set (it to )?`?0`?[^.\n]*(turn|switch)[^.\n]*anonymous voice off/i);
+  assert.match(doc, /negative or invalid value falls back to the default/i);
+  assert.match(doc, /voice_unavailable/);
+});
+
+test("J3: the per-partner anonymous cap is discriminated by the API: with a configured cap of 3, exactly three visitors of the partner open a session and the fourth is refused (429 at the mint and at the upgrade), the cap function is asked for THIS partner, and a mutant with no cap, or with any other number, turns this red", async () => {
+  const asked: string[] = [];
+  const CAP = 3;
+  const pv = await pvWorld({
+    deps: {
+      anonymous: {
+        clientKey: (req) => (typeof req.headers["x-test-client"] === "string" ? req.headers["x-test-client"] : "client-1"),
+        maxActivePerPartner: (partnerId: string) => {
+          asked.push(partnerId);
+          return CAP;
+        },
+      },
+    },
+  });
+  try {
+    const lateToken = (await mintAnon(pv, { "x-test-client": "late" })).json.token as string; // minted while the partner still has room
+    const opened: Array<{ client: VoiceClient }> = [];
+    for (const who of ["v1", "v2", "v3"]) {
+      const minted = await mintAnon(pv, { "x-test-client": who });
+      assert.equal(minted.status, 201, `${who} is within the cap: ${minted.body}`);
+      const conn = await connectAnonRaw(pv, minted.json.token as string);
+      assert.equal(conn.ok, true, who);
+      if (!conn.ok) return;
+      conn.client.send({ type: "start", threadId: ANONYMOUS_VOICE_THREAD_ID });
+      opened.push(conn);
+    }
+    await until(() => pv.w.voice.stats().liveSessions === CAP, `${CAP} started sessions`);
+    // the fourth visitor: refused at the mint (readable) and at the upgrade (the race), by the partner cap and not by the per-visitor one (each visitor holds one session)
+    const fourth = await mintAnon(pv, { "x-test-client": "v4" });
+    assert.equal(fourth.status, 429);
+    assert.equal(fourth.json.error, "voice_busy");
+    const raced = await connectAnonRaw(pv, lateToken);
+    assert.equal(raced.ok, false);
+    if (!raced.ok) assert.equal(raced.status, 429);
+    assert.equal(pv.w.voice.stats().liveSessions, CAP, "no fourth session exists");
+    assert.ok(asked.length > 0 && asked.every((p) => p === pv.partnerId), `the cap function is asked for the partner of the key (${asked.join(",")})`);
+    // exactly at the configured value: freeing ONE slot lets exactly ONE more in
+    opened[0]!.client.ws.close(1000);
+    await until(() => pv.w.voice.stats().liveSessions === CAP - 1, "one slot freed");
+    assert.equal((await mintAnon(pv, { "x-test-client": "v4" })).status, 201);
   } finally {
     await pv.close();
   }

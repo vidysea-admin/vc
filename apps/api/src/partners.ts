@@ -154,7 +154,8 @@ export type PartnerErrorCode =
   | "invalid_origin"
   | "partner_exists"
   | "partner_not_found"
-  | "partner_revoked";
+  | "partner_revoked"
+  | "rotated_concurrently";
 
 /** A refusal of an ops command. The message never holds a key or a hash. */
 export class PartnerError extends Error {
@@ -165,6 +166,18 @@ export class PartnerError extends Error {
     super(`PartnerError: ${message}`);
     this.name = "PartnerError";
   }
+}
+
+/**
+ * The one line the partner CLI prints for a failure it does not recognise (its catch-all). J5 (ISS-pc-partner-keys-6): a fixed message plus the error class and code
+ * only. A driver error's message can quote the connection string (user, password, host), so the message is never printed; the class and code are cut to a short safe
+ * alphabet so even a hostile name or code cannot carry text back in.
+ */
+export function partnerCliFailureLine(err: unknown): string {
+  const safe = (v: unknown): string | undefined => (typeof v === "string" || typeof v === "number" ? (/^[A-Za-z0-9_.-]{1,64}$/.exec(String(v))?.[0] ?? undefined) : undefined);
+  const cls = err instanceof Error ? safe(err.name) : undefined;
+  const code = err instanceof Error ? safe((err as { code?: unknown }).code) : undefined;
+  return cls ? `partner: failed (${cls}${code ? ` ${code}` : ""})` : "partner: failed";
 }
 
 /** A misconfigured pepper or flag: thrown at startup, naming the variable and never its value. */
@@ -221,8 +234,11 @@ export interface PartnerStore {
    * Merges `patch` into the partner; resolves false when there is no such partner. A key record is written by its dotted path (`"keys.pub"`,
    * `"keys.srv"`), never as the whole `keys` object, so two writers of different scopes cannot overwrite each other (fix cycle 1, K1).
    */
-  update(partnerId: string, patch: PartnerPatch): Promise<boolean>;
+  update(partnerId: string, patch: PartnerPatch, expect?: PartnerExpect): Promise<boolean>;
 }
+
+/** pc-hardening-2 J4: an update that applies only while the stored hash of ONE scope is still `hash` (null = the scope has no key record). Compare-and-set; a mismatch resolves false, like a missing partner. */
+export type PartnerExpect = Partial<Record<`keys.${KeyScope}.hash`, string | null>>;
 
 /** What `update` may write: any top-level field except the ids and the whole `keys` object, plus ONE scope's key record by dotted path. */
 export type PartnerPatch = Partial<Omit<PartnerDoc, "_id" | "partnerId" | "keys">> & Partial<Record<`keys.${KeyScope}`, PartnerKeyRecord>>;
@@ -232,7 +248,7 @@ interface PartnerCollection {
   findOne(filter: { _id: string }): Promise<PartnerDoc | null>;
   find(filter: Record<string, never>): { toArray(): Promise<PartnerDoc[]> };
   insertOne(doc: PartnerDoc): Promise<unknown>;
-  updateOne(filter: { _id: string }, update: { $set: Record<string, unknown> }): Promise<{ matchedCount: number }>;
+  updateOne(filter: Record<string, unknown>, update: { $set: Record<string, unknown> }): Promise<{ matchedCount: number }>;
 }
 
 /** The Mongo-backed store over the `partners` collection of the virtual_counsellor Db (the one database this repo may write, B12). */
@@ -249,7 +265,11 @@ export function createMongoPartnerStore(db: VcDb): PartnerStore {
         throw err;
       }
     },
-    update: async (partnerId, patch) => (await partners.updateOne({ _id: partnerId }, { $set: patch })).matchedCount > 0,
+    update: async (partnerId, patch, expect) => {
+      const filter: Record<string, unknown> = { _id: partnerId };
+      for (const [path, hash] of Object.entries(expect ?? {})) filter[path] = hash === null ? { $exists: false } : hash;
+      return (await partners.updateOne(filter, { $set: patch })).matchedCount > 0;
+    },
   };
 }
 
@@ -410,7 +430,13 @@ export async function rotatePartner(
   const { key, record } = newKey(scope, partnerId, ctx, (ctx.now?.() ?? new Date()).toISOString());
   // K1 (fix cycle 1): write ONLY keys.<scope>. The old whole-`keys` write let two overlapping rotates of different scopes restore each other's old key.
   const patch: PartnerPatch = scope === "pub" ? { "keys.pub": record } : { "keys.srv": record };
-  if (!(await store.update(partnerId, patch))) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
+  // J4 (ISS-pc-partner-keys-3): the write is conditional on the hash THIS rotate read, so of two overlapping rotates of one scope only the first commits; the loser learns it lost
+  // (and prints no key) instead of reporting a key that never worked. A miss is either a vanished partner or a lost race: read again to tell which.
+  const expect: PartnerExpect = { [`keys.${scope}.hash`]: existing.keys?.[scope]?.hash ?? null };
+  if (!(await store.update(partnerId, patch, expect))) {
+    if (!(await store.get(partnerId))) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
+    throw new PartnerError("rotated_concurrently", `the ${scope} key of "${partnerId}" was rotated concurrently, run again (no key was minted)`);
+  }
   const keys = { ...existing.keys, [scope]: record } as Record<KeyScope, PartnerKeyRecord>;
   return { partner: summaryOf({ ...existing, keys }), key, scope };
 }

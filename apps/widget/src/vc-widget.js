@@ -115,8 +115,25 @@
     return l;
   }
 
+  // pc-hardening-2 J2 (ISS-pc-hardening-3): voice switched off for this client or partner is permanent, so it is not worded as busy.
+  var VOICE_OFF_TEXT = {
+    en: "Voice is not available here. Please type your question.",
+    hi: "यहाँ वॉइस उपलब्ध नहीं है। कृपया अपना सवाल टाइप करें।"
+  };
+
+  // pc-hardening-2 J1 (ISS-pc-hardening-1): the helpline line the voice notes keep, in the language of the note it follows. The English line is HELP itself; the numbers are the same.
+  var HELP_HI = "Tele-MANAS 14416 (24x7) · आपातकाल 112";
+
+  function isHindi(lang) {
+    return /^hi(-|_|$)/i.test(String(lang || "").trim());
+  }
+
+  function helpText(lang) {
+    return isHindi(lang) ? HELP_HI : HELP;
+  }
+
   function busyText(lang) {
-    return /^hi(-|_|$)/i.test(String(lang || "").trim()) ? VOICE_BUSY_TEXT.hi : VOICE_BUSY_TEXT.en;
+    return isHindi(lang) ? VOICE_BUSY_TEXT.hi : VOICE_BUSY_TEXT.en;
   }
 
   var VOICE_FALLBACK_TEXT = {
@@ -129,7 +146,8 @@
   // What the log shows when the voice add-on falls back to text (the voice.js "fallback" event).
   function voiceFallbackText(d, lang) {
     var text = VOICE_FALLBACK_TEXT[d.reason];
-    if (d.reason === "busy") text = busyText(lang);
+    if (d.reason === "busy") text = busyText(lang) + "\n" + helpText(lang);
+    else if (d.reason === "off") text = (isHindi(lang) ? VOICE_OFF_TEXT.hi : VOICE_OFF_TEXT.en) + "\n" + helpText(lang);
     else if (d.reason === "rate") text = "Too many voice requests. Please wait " + d.wait + " seconds, or type your question.";
     else if (!text) text = "Voice could not start. You can keep typing here." + (d.helpline ? "\n" + d.helpline : "");
     return text;
@@ -137,7 +155,7 @@
 
   // What the log shows for a voice "error" event: a voice_busy frame (sent before a 1008 close) is the busy note; any other keeps the server's message and the helpline.
   function voiceErrorNotice(e, lang) {
-    if (e && e.code === "voice_busy") return { kind: "note", text: busyText(lang) };
+    if (e && e.code === "voice_busy") return { kind: "note", text: busyText(lang) + "\n" + helpText(lang) };
     return { kind: "err", text: ((e && e.message) || "Voice had a problem.") + "\n" + (e && e.help) };
   }
 
