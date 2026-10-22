@@ -1,0 +1,3 @@
+# Review brief: pc-partner-keys (senior-software-engineer, read-only)
+Worktree D:/vc/.worktrees/pc-partner-keys. Review `git diff 3a70309 cfb70c3 -- apps infra .env.example` only. Focus: apps/api/src/partners.ts key parsing/hashing/compare and cache invalidation; scope enforcement in anonymous.ts and chat.ts (every student route path covered, no bypass via header precedence between X-VC-Key, Bearer JWT and Bearer vck_); CORS/preflight logic; the CLI never printing or storing raw keys except on add/rotate; nginx-vc.conf locations (nothing new exposed beyond K5).
+Read-only: no edits, no commits, no test runs that write to the tree. Return Approve / Warning / Block with file:line evidence; last line `REVIEW pc-partner-keys <Approve|Warning|Block>`.
