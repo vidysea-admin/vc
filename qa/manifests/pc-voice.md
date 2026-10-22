@@ -106,4 +106,4 @@ Pre-check[types]: 6e5af5a `... pnpm exec tsc --noEmit` (apps/api) -> exit 0, no 
 Falsification (copy outside the tree, scratchpad fals/, default-owner fallback restored): go-live-gate.test.ts -> 3 failed (V1 real gates, V1 signer, A20 CLI); auth.test.ts -> 1 failed (B21: "go-live-gate.ts: a hard-coded issuer name"). Logs: qa/evidence/pc-voice-c2/fals-go-live-gate.txt, fals-auth.txt. Run logs: qa/evidence/pc-voice-c2/*.txt.
 Not run: full suite (brief), live Gemini/LLM. Known baseline red chat.test A20 is outside this set.
 
-Status: ready-for-check
+Status: checked-PASS
