@@ -107,7 +107,7 @@ import {
 import { emitEngineeringAlert, type EngineeringAlert, type GroundingBudget, type LlmProvider } from "@vc/providers";
 import { AnonymousRateLimiter } from "./anonymous.js";
 import { AuthError, bearerToken, type StudentAuthContext, type StudentJwtVerifier } from "./auth.js";
-import { assertGoLive } from "./go-live-gate.js";
+import { GATE_APPROVER_ENV, assertGoLive } from "./go-live-gate.js";
 import { PartnerRegistryUnavailableError, isPartnerKeyToken, partnerStudentFromHeaders, type PartnerRegistry } from "./partners.js";
 import { BodyTooLargeError, PATH_ID_PATTERN, respond, type ApiHandler, type ApiRequest, type ApiResponse, type ApiRoute } from "./server.js";
 
@@ -275,8 +275,10 @@ const TRACING_VARS = ["LANGSMITH_TRACING", "LANGSMITH_TRACING_V2", "LANGCHAIN_TR
 
 /** The pre-connect checks of `createChatApi` (startApi runs them before it opens a Mongo connection): the A20 gate and tracing off. */
 export function assertChatGoLive(route: Pick<ChatRouteConfig, "gatesDir" | "now" | "approver" | "env">): void {
-  assertGoLive(route.gatesDir, "student-routes", route.now, route.approver);
+  // pc-hardening-4 P1 (ISS-pc-hardening-3-1, the chat twin of pc-hardening-3 K3): the approver comes from the env the caller passed (the one startApi reads everything else from);
+  // process.env is the fallback only when no env was passed. The "" (never undefined) stops assertGoLive's own process.env default from being re-read here.
   const env = route.env ?? process.env;
+  assertGoLive(route.gatesDir, "student-routes", route.now, route.approver ?? env[GATE_APPROVER_ENV] ?? "");
   for (const name of TRACING_VARS) {
     if (/^(true|1|yes|on)$/i.test(env[name]?.trim() ?? "")) {
       throw new ChatConfigError(`${name} switches request tracing on; chat stores redacted text only, and a trace would hold the unredacted text, so the routes will not start`);
