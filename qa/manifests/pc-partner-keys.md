@@ -87,4 +87,4 @@ Sessions: 2b04f90e-6b56-4682-a76c-d8515b93405c
 - Partner usage counters are in memory per process.
 - Full suite not run (brief: only the named tests); OOM/C: fullness not hit.
 
-Status: ready-for-check
+Status: checked-PASS (A qa/verdicts/pc-partner-keys.md ae39b9f, B qa/verdicts/pc-partner-keys.b.md e9860e8, cycle 1)
