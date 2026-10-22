@@ -12,7 +12,8 @@
     "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "go-live-gate": "tsx scripts/go-live-gate.ts"
+    "go-live-gate": "tsx scripts/go-live-gate.ts",
+    "partner": "tsx scripts/partner.ts"
   },
   "dependencies": {
     "@vc/db": "workspace:*",
