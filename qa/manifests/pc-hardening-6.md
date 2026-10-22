@@ -3,7 +3,7 @@
 **Goal task:** none
 **Date:** 2026-10-22
 **Fix cycle:** 0
-**Status:** ready-for-check
+**Status:** checked-PASS (qa/verdicts/pc-hardening-6.md, bf28af9; merged 68b77a9)
 **Dual check:** no
 **Dual-check reason:** no request authentication, tenancy or production-write behaviour change: H1 is test-only, H2 makes the go-live owner-override check treat a blank approver like an unset one (it already refused; only the reason text changes), H3 is a deploy doc plus a log-level line in the nginx conf (a rejection is logged below error). Nothing on the request path changes.
 **Persona walk:** skip (no new screen or flow)
