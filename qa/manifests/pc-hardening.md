@@ -52,20 +52,31 @@ Tests[H6]: "H6: listing pathlynks in VC_RESERVED_TENANT_IDS does not refuse part
 
 Red runs before the fix (recorded): partner-voice `--test-name-pattern="^H[123]"` -> exit 1, 4 tests, 1 pass (H2), 3 fail (H1 x2, H3 server); partners `^H[456]` -> 3 fail (H4: missing rejection; H5: sandbox-1 not marked; H6 failed on a test-data error (pathlynks_2 is not a valid partner id) which I then fixed; H6 is a pin so it passes on the old code by design); widget `node --test "tests/*.test.js"` -> 61 tests, 2 fail (H3), 59 pass.
 
-Pre-check[H1]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test --test-name-pattern="^H" tests/partner-voice.test.ts` (apps/api) -> exit 0, 4 passed, 0 failed (the unmutated control of the falsification copy; the same 4 pass in the full file run)
-Pre-check[H2]: same run as H1 (H2 is one of the 4)
-Pre-check[H3]: same run (H3 server) plus `node --test "apps/widget/tests/*.test.js"` -> exit 0, 61 passed, 0 failed
-Pre-check[H4]: ca1d0a2 same command with `--test-name-pattern="^H"` tests/partners.test.ts -> exit 0, 3 passed, 0 failed (H4, H5, H6)
-Pre-check[H5]: same run as H4
-Pre-check[H6]: same run as H4
-Pre-check[R3a]: ca1d0a2 `... tsx --test tests/partners.test.ts` -> exit 0, 66 passed, 0 failed
-Pre-check[R3b]: `... tests/partner-voice.test.ts` -> exit 0, 36 passed, 0 failed
-Pre-check[R3c]: `... tests/partner-openapi.test.ts` -> exit 0, 15 passed, 0 failed
-Pre-check[R3d]: `... tests/voice.test.ts` -> exit 0, 67 passed, 0 failed; `tests/voice-limits.test.ts` -> 10 passed, 0 failed; `tests/voice-wiring.test.ts` -> 16 passed, 0 failed
-Pre-check[R3e]: `... tests/auth.test.ts` -> 15 passed, 0 failed; `tests/server.test.ts` -> 34 passed, 0 failed; `tests/index.test.ts` -> 8 passed, 0 failed; `tests/main.test.ts` -> 10 passed, 0 failed
-Pre-check[R3f]: `... tests/chat.test.ts` -> exit 1, 34 passed, 1 failed (the known A20 baseline red "A20 flag on but gate closed: the real repo qa/gates (B13 pending) ...", nothing else)
-Pre-check[R3g]: `... tsx --test --test-name-pattern="H2|H6|G5|K2|K4" tests/anonymous-route.test.ts` -> exit 0, 9 passed, 0 failed
-Pre-check[R3h]: `pnpm exec tsc --noEmit` (apps/api) -> exit 0, no output
+Round: 13 files, 6 criteria, est 30 min — diff of ca1d0a2 vs 350b4eb
+Tests[R3a]: partners.test.ts whole file — regression for partners.ts/index.ts changes
+Tests[R3b]: partner-voice.test.ts whole file — regression for voice.ts cap/mint changes
+Tests[R3c]: partner-openapi.test.ts whole file — public mint response shape (429 voice_busy)
+Tests[R3d]: voice.test.ts, voice-limits.test.ts, voice-wiring.test.ts — voice.ts importers
+Tests[R3e]: auth.test.ts, server.test.ts, index.test.ts, main.test.ts — index.ts importers
+Tests[R3f]: chat.test.ts — partner tenancy importer (A20 baseline red)
+Tests[R3g]: anonymous-route.test.ts H2|H6|G5|K2|K4 — anonymous Origin/partner path
+Tests[R3h]: tsc --noEmit (apps/api) — type check of changed signatures
+Pre-check[H1]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test --test-name-pattern="^H" tests/partner-voice.test.ts` (apps/api) -> exit 0, 4 passed, 0 failed
+Pre-check[H2]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test --test-name-pattern="^H" tests/partner-voice.test.ts` (apps/api) -> exit 0, 4 passed, 0 failed (H2 is one of the 4)
+Pre-check[H3]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test --test-name-pattern="^H" tests/partner-voice.test.ts` -> exit 0, 4 passed; `node --test apps/widget/tests/voice.test.js` via `node --test "apps/widget/tests/*.test.js"` -> exit 0, 61 passed, 0 failed
+Pre-check[H4]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test --test-name-pattern="^H" tests/partners.test.ts` (apps/api) -> exit 0, 3 passed, 0 failed
+Pre-check[H5]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test --test-name-pattern="^H" tests/partners.test.ts` (apps/api) -> exit 0, 3 passed, 0 failed
+Pre-check[H6]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test --test-name-pattern="^H" tests/partners.test.ts` (apps/api) -> exit 0, 3 passed, 0 failed
+Pre-check[R3a]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test tests/partners.test.ts` -> exit 0, 66 passed, 0 failed
+Pre-check[R3b]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test tests/partner-voice.test.ts` -> exit 0, 36 passed, 0 failed
+Pre-check[R3c]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test tests/partner-openapi.test.ts` -> exit 0, 15 passed, 0 failed
+Pre-check[R3d]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test tests/voice.test.ts tests/voice-limits.test.ts tests/voice-wiring.test.ts` (run per file) -> exit 0 each, 67 + 10 + 16 passed, 0 failed
+Pre-check[R3e]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test tests/auth.test.ts tests/server.test.ts tests/index.test.ts tests/main.test.ts` (run per file) -> exit 0 each, 15 + 34 + 8 + 10 passed, 0 failed
+Pre-check[R3f]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test --test-skip-pattern="A20 flag on but gate closed" tests/chat.test.ts` -> exit 0, 34 passed, 0 failed
+Note R3f: the skip pattern excludes only the recorded A20 baseline test (ISS-pc-partner-keys-8); the full-file run is 34 pass plus that one known baseline.
+Pre-check[R3g]: ca1d0a2 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test --test-name-pattern="H2|H6|G5|K2|K4" tests/anonymous-route.test.ts` -> exit 0, 9 passed, 0 failed
+Pre-check[R3h]: ca1d0a2 `pnpm exec tsc --noEmit` (apps/api) -> exit 0, no output
+
 
 Falsify[H1]: in a copy outside the repo (session scratchpad `ph/fals/`, git archive of ca1d0a2, install offline with the D: store) `anonymousCapLimit` back to `Math.max(0, value ?? fallback)` -> red (2 failing: both H1 tests).
 Falsify[H2]: the spend-before-cap mutant ( `usedTokens.set(claims.jti, claims.exp)` moved to before the active-cap check) -> red (1 failing: H2). The second mutant (spend removed altogether) is red as well (H2: the replay is no longer a 401).
