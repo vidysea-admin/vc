@@ -32,3 +32,10 @@ Answered: 2026-09-26T20:12:31+05:30 — plan — approved (docs/plan.md + TASKS.
 Answered: 2026-10-17T13:57:53+05:30 — intent — approved (qa/evidence/p1-plan-draft-20261017/intent.md + user-types.md) — Umesh in chat ("Approve all")
 Answered: 2026-10-17T13:57:53+05:30 — spec — approved (spec.md v8 e183ee9a) — Umesh in chat ("Approve all")
 Answered: 2026-10-17T13:57:53+05:30 — plan — approved (plan.md v8 3ab92f77) — Umesh in chat ("Approve all")
+
+---
+
+## partner-chatbot (opened 2026-10-22T07:29:11+05:30)
+Answered: 2026-10-22T07:29:11+05:30 — intent — approved via mini-grill answers (Widget + API; simple api key; Voice without A10; Vidysea website + Pathlynks) — Umesh in chat, D-111
+Answered: 2026-10-22T07:29:11+05:30 — spec — docs/features/partner-chatbot/spec.md drafted verbatim from those answers; Umesh "continue now" — D-111
+Answered: 2026-10-22T07:29:11+05:30 — plan — docs/features/partner-chatbot/plan.md; Umesh "continue now" — D-111

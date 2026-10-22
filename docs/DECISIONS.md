@@ -1001,3 +1001,10 @@ No new named helper/function/module/file/scenario outside the approved inline te
 **Result:** Feedback-inbox entry written; maker unit p1-nosource-expert dispatched. Unchanged: the safety screen, crisis routing, and the anonymous route's sign-in redirect for personal questions.
 **Links:** D-108, D-109, B2, B21, p1-nosource-expert
 **Changes-authorized:** none
+
+## D-111 | 2026-10-22 | type: decision | status: ACTIVE
+**What:** New feature partner-chatbot (docs/features/partner-chatbot/{intent,spec,plan}.md). (1) VC ships an embeddable chat widget (one script tag, chatbot bubble) plus the same API for teams with their own UI. (2) Many partners connect at once, each with a simple per-partner API key (hashed in a `partners` collection, add/rotate/revoke CLI, per-key origin allowlist and CORS); Pathlynks uses the key server-to-server through its backend proxy with student headers. (3) Voice chat ships in the widget WITHOUT an A10 PASS: go-live-gate accepts an owner override line citing this entry. First partners: Vidysea website and Pathlynks.
+**Why:** Umesh 2026-10-22: "hmari team ko isko apne system mai integrate krna hoga ... show it like a chatbot and multiple partners ... vocie chat se bhi". Mini-grill answers: Widget + API; "simple api key" (over the recommended per-partner JWT registry); "Voice without A10" chosen over the recommended text-first option, accepting the recorded A10 risk (10/20 crisis phrases reached the fixed message within 2 s, qa/gates/a10-voice-gate.md).
+**Result:** Plan trio written; maker units pc-partner-keys and pc-widget dispatched (wave 1), pc-voice and pc-docs-openapi after. Unchanged: crisisGuard, LK10 wording, D-110 helpline rule, anonymous zero persistence. Production deploy remains a separate Umesh gate.
+**Links:** D-109, D-110, A10, pc-partner-keys, pc-widget, pc-voice, pc-docs-openapi
+**Changes-authorized:** none
