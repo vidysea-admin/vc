@@ -708,6 +708,14 @@ test("H2 (pc-hardening-6, ISS-pc-hardening-5-4): a blank (whitespace-only) appro
       }
       // set, the override still works for the matching approver (unchanged)
       assert.ok(!only(evaluateGoLive(fu.gates, "voice", NOW, APPROVER)).includes(GATE_FILES.a10), "matching approver accepts the override");
+      // pc-hardening-7 R3 (ISS-pc-hardening-6-1): the signer compare is exact, so a PADDED approver is refused against an override signed "Umesh" (no trim before the compare)
+      for (const padded of [" Umesh ", "Umesh ", " Umesh", "Umesh\n"]) {
+        const label = JSON.stringify(padded);
+        const r = evaluateGoLive(fu.gates, "voice", NOW, padded);
+        assert.equal(r.allowed, false, label);
+        assert.ok(r.failures.some((x) => x.startsWith(GATE_FILES.a10) && x.includes("Owner-override signer is not the repo approver")), `${label}: ${r.failures.join(" | ")}`);
+        assert.ok(!formatGoLiveReport(r).includes(OVERRIDE_TEXT), label);
+      }
     });
   } finally {
     cleanup(fu);

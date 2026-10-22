@@ -2,7 +2,7 @@
  * P1 U7 shared SYNTHETIC fixtures for the anonymous-mode tests (not a test file: `tsx --test tests/*.test.ts` skips it).
  * Invented KB text and gate records only (B13); no real person, no KB content.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { inspect } from "node:util";
@@ -55,6 +55,36 @@ export function gatesFixture(overrides: Partial<Record<keyof typeof GATE_FILES, 
   return { root, gates };
 }
 export const cleanupGates = (f: GatesFixture) => rmSync(f.root, { recursive: true, force: true });
+
+/** The repo's real qa/gates (read only). */
+export const REAL_REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
+
+/**
+ * pc-hardening-7 (ISS-pc-partner-keys-8, ISS-pc-hardening-3-2, ISS-pc-hardening-5-1): a temp copy of the five REAL gate records with the B13 line
+ * set back to `B13-signed: PENDING`, so a "gate closed" test keeps protecting the refusal without depending on the live state of the repo's qa/gates
+ * (B13 is signed there since D-109). The copy is the only thing the test opens; the real files are never written. Throws if the real B13 record no
+ * longer has a `B13-signed:` line to reset, so the test goes red instead of silently testing an open gate.
+ */
+export function realGatesWithB13Pending(): GatesFixture {
+  const root = mkdtempSync(join(tmpdir(), "vc-real-gates-pending-"));
+  const gates = join(root, "qa", "gates");
+  mkdirSync(gates, { recursive: true });
+  for (const file of Object.values(GATE_FILES)) {
+    let body: string;
+    try {
+      body = readFileSync(join(REAL_REPO_GATES, file), "utf8");
+    } catch {
+      continue; // a record absent from the real gates is absent from the copy (the gate refuses a missing record anyway)
+    }
+    if (file === GATE_FILES.b13) {
+      const reset = body.replace(/^(`?)B13-signed:.*$/mu, "$1B13-signed: PENDING$1");
+      if (reset === body && !/^`?B13-signed: PENDING`?\s*$/mu.test(body)) throw new Error("the real B13 record has no B13-signed line to reset to PENDING");
+      body = reset;
+    }
+    writeFileSync(join(gates, file), body);
+  }
+  return { root, gates };
+}
 
 export const HIT: SearchHit = {
   turnId: "t-sem-1",

@@ -14,7 +14,7 @@ import { addPartner, createMongoPartnerStore } from "../src/partners.js";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { CRISIS_TEXT, GERMANY_QUESTION, adult, call, chatWorld, cleanupGates, gatesFixture, kbAnswerProvider, minor, newThread, profilePath, recordingKb, settle, studentToken, studentVerifier, threadsPath, turnsPath, SKILLS_DIR, SPEAKERS } from "./chat-fixtures.js";
 import { generateKeyPairSync } from "node:crypto";
-import { CHAIN_ENV, GOOD_CLAIM, chainRequestInput, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
+import { CHAIN_ENV, GOOD_CLAIM, chainRequestInput, realGatesWithB13Pending, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
 import { MockProvider, RulesProvider, isRetryableProviderError } from "@vc/providers";
 import { PROVIDER_APOLOGY_TEXT, STUDENT_CRISIS_MESSAGE, createStudentFactExtractor, detectLanguageOffline } from "@vc/engine";
 import { CHAIN_MONTHLY_CAP_ENV, ChainBudgetExhaustedError, ChainSpendCapError, createChainSpendGuard, parseChainMonthlyCap } from "../src/index.js";
@@ -166,20 +166,26 @@ test("startApi: flag off -> a chat path answers exactly like an unknown /v1 path
   }
 });
 
-test("startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo", async () => {
+test("startApi: flag on with a temp copy of the real repo gates (B13 set back to pending) refuses to start, BEFORE connecting to Mongo", async () => {
+  // pc-hardening-7 (ISS-pc-hardening-3-2): the gates dir is passed explicitly (no live repo state), and mustRefuse stops a server that wrongly started, so a failure is a clean red, not a hung file run.
   const fake = createFakeMongoClient();
+  const g = realGatesWithB13Pending();
   let connected = 0;
   (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => {
     connected += 1;
   };
-  await assert.rejects(
-    startApi(
-      { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true" },
-      { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, verifier: studentVerifier() } }) },
-    ),
-    GoLiveRefusedError,
-  );
-  assert.equal(connected, 0);
+  try {
+    await mustRefuse(
+      startApi(
+        { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_CHAT_ENABLED: "true" },
+        { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: g.gates, verifier: studentVerifier() } }) },
+      ),
+      GoLiveRefusedError,
+    );
+    assert.equal(connected, 0);
+  } finally {
+    cleanupGates(g);
+  }
 });
 
 test("startApi: flag on with the gate open but no student JWT configuration is a config error before connecting (no silent fall-back to the counsellor key)", async () => {

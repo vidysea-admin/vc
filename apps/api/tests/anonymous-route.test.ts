@@ -8,10 +8,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { API_ROUTES, createApiHandler, createApiServer } from "../src/server.js";
 import { STUDENT_API_DRAFT } from "../src/openapi.js";
-import { GoLiveRefusedError } from "../src/go-live-gate.js";
+import { GATE_FILES, GoLiveRefusedError } from "../src/go-live-gate.js";
 import { startApi } from "../src/index.js";
 import {
   ANONYMOUS_FLAG_ENV,
@@ -28,7 +30,7 @@ import {
 import { GroundingBudget, MockGroundedAnswerer, MockProvider, RulesProvider } from "@vc/providers";
 import { createFakeMongoClient } from "@vc/db/testing";
 import { VC_DB_NAME } from "@vc/db";
-import { APPROVER, CHAIN_ENV, GOOD_CLAIM, NOW, SKILLS_DIR, SPEAKERS, ask, anonRequest, anonWorld, cleanupGates, gatesFixture, kbAnswerProvider, recordingKb, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
+import { APPROVER, CHAIN_ENV, GOOD_CLAIM, NOW, SKILLS_DIR, SPEAKERS, ask, anonRequest, anonWorld, cleanupGates, gatesFixture, kbAnswerProvider, realGatesWithB13Pending, recordingKb, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
 
 const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
 const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -102,8 +104,36 @@ test("A20 state OFF: with the flag off nothing is built and the path answers exa
 // The gate
 // ---------------------------------------------------------------------------
 
-test("A20 state ON but gate closed: the real repo qa/gates (B13 PENDING, gates unanswered) refuses to build the route", () => {
-  assert.throws(() => createAnonymousApi(baseDeps(), { enabled: true, gatesDir: REPO_GATES, now: NOW, approver: APPROVER, env: {} }), GoLiveRefusedError);
+test("A20 state ON but gate closed: a temp copy of the real repo qa/gates with B13 set back to pending refuses to build the route", () => {
+  // pc-hardening-7 (ISS-pc-hardening-5-1): no longer depends on the live B13 state of the repo (signed since D-109).
+  const g = realGatesWithB13Pending();
+  try {
+    assert.throws(
+      () => createAnonymousApi(baseDeps(), { enabled: true, gatesDir: g.gates, now: NOW, approver: APPROVER, env: {} }),
+      (e: unknown) => e instanceof GoLiveRefusedError && e.result.failures.some((x) => x.startsWith(GATE_FILES.b13)),
+    );
+  } finally {
+    cleanupGates(g);
+  }
+});
+
+test("A20 real gates: the repo's actual qa/gates with VC_GATE_APPROVER unset, empty or blank refuse to build the anonymous route with the needs-VC_GATE_APPROVER reason, whoever signed B13", () => {
+  // pc-hardening-7 (R2): reads the REAL gates (read only). The reason holds for any signer; if B13 were ever reset to pending the refusal still names B13.
+  const b13 = readFileSync(join(REPO_GATES, GATE_FILES.b13), "utf8");
+  const signed = /^`?B13-signed: SIGNED \S+ by \p{Lu}/mu.test(b13);
+  for (const env of [{}, { VC_GATE_APPROVER: "" }, { VC_GATE_APPROVER: "   " }]) {
+    assert.throws(
+      () => createAnonymousApi(baseDeps(), { enabled: true, gatesDir: REPO_GATES, now: NOW, env }),
+      (e: unknown) => {
+        assert.ok(e instanceof GoLiveRefusedError, "GoLiveRefusedError");
+        const b13Failure = e.result.failures.find((x) => x.startsWith(GATE_FILES.b13));
+        assert.ok(b13Failure, e.result.failures.join(" | "));
+        if (signed) assert.ok(b13Failure.includes("B13-signed needs VC_GATE_APPROVER (the repo approver) to be set"), b13Failure);
+        return true;
+      },
+      JSON.stringify(env),
+    );
+  }
 });
 
 test("A20: every gate record is required - an unsigned B13, an open g-publish, a g-prod without option b/c, a missing Nights mode each refuse; voice's A10 is NOT needed", () => {
@@ -238,20 +268,31 @@ test("startApi: flag off -> the anonymous path is a 404 over real HTTP and no ga
   }
 });
 
-test("startApi: flag on with the real repo gates refuses to start, BEFORE connecting to Mongo", async () => {
+test("startApi: flag on with a temp copy of the real repo gates (B13 set back to pending) refuses to start, BEFORE connecting to Mongo", async () => {
+  // pc-hardening-7 (ISS-pc-hardening-5-1): the gates dir is passed explicitly (no live repo state), and a server that wrongly started is stopped, so a failure is a clean red, not a hung file run.
   const fake = createFakeMongoClient();
+  const g = realGatesWithB13Pending();
   let connected = 0;
   (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => {
     connected += 1;
   };
-  await assert.rejects(
-    startApi(
-      { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_ANONYMOUS_ENABLED: "true" },
-      { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, trustSocketAddress: true } } },
-    ),
-    GoLiveRefusedError,
-  );
-  assert.equal(connected, 0);
+  let started: { stop(): Promise<void> } | undefined;
+  try {
+    await assert.rejects(
+      startApi(
+        { MONGODB_URL: "mongodb://fake-host/ignored", VC_GATE_APPROVER: "Umesh", VC_ANONYMOUS_ENABLED: "true" },
+        { clientFactory: () => fake.client, http: { port: 0, verifier, provider: mockProvider(), skillsDir: SKILLS_DIR, anonymous: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: g.gates, trustSocketAddress: true } } },
+      ).then((api) => {
+        started = api;
+        return api;
+      }),
+      GoLiveRefusedError,
+    );
+    assert.equal(connected, 0);
+  } finally {
+    await started?.stop();
+    cleanupGates(g);
+  }
 });
 
 test("startApi: flag on without a KB or speakers supplied is a config error, before connecting", async () => {

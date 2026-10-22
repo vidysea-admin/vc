@@ -6,15 +6,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { COLLECTION_NAMES, claimChatTurn, tenantScopedDb } from "@vc/db";
 import { createFakeDb } from "@vc/db/testing";
 import { STUDENT_API_DRAFT } from "../src/openapi.js";
-import { GoLiveRefusedError } from "../src/go-live-gate.js";
+import { GATE_FILES, GoLiveRefusedError } from "../src/go-live-gate.js";
 import { CHAT_FLAG_ENV, CHAT_ROUTES, ChatConfigError, MAX_CHAT_BODY_BYTES, chatEnabledFromEnv, createChatApi, withChatRoutes } from "../src/chat.js";
 import { API_ROUTES, BodyTooLargeError, createApiHandler } from "../src/server.js";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { APPROVER, GERMANY_QUESTION, NOW, adult, call, chatRequest, chatWorld, cleanupGates, everythingStored, gatesFixture, kbAnswerProvider, minor, newThread, recordingKb, studentToken, studentVerifier, threadsPath, turnsPath } from "./chat-fixtures.js";
-import { SKILLS_DIR, SPEAKERS } from "./anonymous-fixtures.js";
+import { SKILLS_DIR, SPEAKERS, realGatesWithB13Pending } from "./anonymous-fixtures.js";
 import { GroundingBudget, MockGroundedAnswerer, MockProvider } from "@vc/providers";
 import { TELE_MANAS_LINE, crisisGuard } from "@vc/engine";
 import { createHash, generateKeyPairSync } from "node:crypto";
@@ -65,8 +67,36 @@ test("A20 flag off: nothing is built and every chat path answers exactly like an
   }
 });
 
-test("A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes", () => {
-  assert.throws(() => createChatApi(baseDeps(), { enabled: true, gatesDir: REPO_GATES, now: NOW, approver: APPROVER, env: {} }), GoLiveRefusedError);
+test("A20 flag on but gate closed: a temp copy of the real repo qa/gates with B13 set back to pending refuses to build the chat routes", () => {
+  // pc-hardening-7 (ISS-pc-partner-keys-8): no longer depends on the live B13 state of the repo (signed since D-109).
+  const g = realGatesWithB13Pending();
+  try {
+    assert.throws(
+      () => createChatApi(baseDeps(), { enabled: true, gatesDir: g.gates, now: NOW, approver: APPROVER, env: {} }),
+      (e: unknown) => e instanceof GoLiveRefusedError && e.result.failures.some((x) => x.startsWith(GATE_FILES.b13)),
+    );
+  } finally {
+    cleanupGates(g);
+  }
+});
+
+test("A20 real gates: the repo's actual qa/gates with VC_GATE_APPROVER unset, empty or blank refuse to build the chat routes with the needs-VC_GATE_APPROVER reason, whoever signed B13", () => {
+  // pc-hardening-7 (R2): reads the REAL gates (read only). The reason holds for any signer; if B13 were ever reset to pending the refusal still names B13.
+  const b13 = readFileSync(join(REPO_GATES, GATE_FILES.b13), "utf8");
+  const signed = /^`?B13-signed: SIGNED \S+ by \p{Lu}/mu.test(b13);
+  for (const env of [{}, { VC_GATE_APPROVER: "" }, { VC_GATE_APPROVER: "   " }]) {
+    assert.throws(
+      () => createChatApi(baseDeps(), { enabled: true, gatesDir: REPO_GATES, now: NOW, env }),
+      (e: unknown) => {
+        assert.ok(e instanceof GoLiveRefusedError, "GoLiveRefusedError");
+        const b13Failure = e.result.failures.find((x) => x.startsWith(GATE_FILES.b13));
+        assert.ok(b13Failure, e.result.failures.join(" | "));
+        if (signed) assert.ok(b13Failure.includes("B13-signed needs VC_GATE_APPROVER (the repo approver) to be set"), b13Failure);
+        return true;
+      },
+      JSON.stringify(env),
+    );
+  }
 });
 
 test("A20: each missing gate record refuses; voice's A10 and anonymous option b are NOT needed for authenticated chat", () => {
