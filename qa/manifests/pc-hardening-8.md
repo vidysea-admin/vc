@@ -3,7 +3,7 @@
 **Goal task:** none
 **Date:** 2026-10-22
 **Fix cycle:** 0
-**Status:** ready-for-check
+**Status:** merged-no-check (test-lane; merged 173bd45)
 **Dual check:** no
 **Dual-check reason:** test-only change (four files under apps/api/tests); apps/api/src is untouched, so no request authentication, tenancy, gate or production-write behaviour changes. Tier L only because existing assertions about the real repo gates are rewritten.
 **Persona walk:** skip (no new screen or flow)
