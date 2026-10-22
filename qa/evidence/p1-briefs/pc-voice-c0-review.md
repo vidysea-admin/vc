@@ -1,0 +1,3 @@
+# Review brief: pc-voice cycle 0 (read-only senior review)
+Review `git -C D:/vc/.worktrees/pc-voice diff ad37372 0bb519e -- apps infra`: the voice session and stream routes and their key-scope / Origin checks in voice.ts and partners.ts, the go-live-gate Owner-override parsing, widget voice.js and vc-widget.js mic path, nginx voice stream location. Focus: any way a server key reaches a browser route or a page key reaches student data, token replay or leaking into logs, a crisis turn that persists anything or changes the LK10 wording, an override line that can be spoofed, resource leaks on the WebSocket path.
+Read-only: change no files, no full suite, no live calls. Approve / Warning / Block with file:line. Last line: `REVIEW pc-voice-c0 <Approve|Warning|Block>`.
