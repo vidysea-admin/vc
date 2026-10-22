@@ -431,6 +431,19 @@ export interface StartApiOptions extends ErasureFenceSweepOptions {
   http?: StartApiHttpOptions;
 }
 
+/**
+ * The default partner store handed to the registry before the Db exists: every call goes to the store bound after connect. (Extracted in place from startApi so a test can
+ * reach it; pc-hardening-2 fix cycle 1 R2 is the `update` line below.)
+ */
+export function deferredPartnerStore(ref: { store?: PartnerStore }): PartnerStore {
+  return {
+    get: (id) => partnerStoreOf(ref).get(id),
+    list: () => partnerStoreOf(ref).list(),
+    insert: (doc) => partnerStoreOf(ref).insert(doc),
+    update: (id, patch, expect) => partnerStoreOf(ref).update(id, patch, expect),
+  };
+}
+
 /** The partner store once the Db is connected; a request before that is a registry outage (fail closed), never a guess. */
 function partnerStoreOf(ref: { store?: PartnerStore }): PartnerStore {
   if (!ref.store) throw new Error("partner store used before the database connected");
@@ -532,12 +545,7 @@ export async function startApi(
   const partnerKeyRequired = httpSetup ? partnerKeyRequiredFromEnv(env) : false;
   if (partnerKeyRequired && partnerPepper === undefined) throw new PartnerConfigError(`${PARTNER_KEY_REQUIRED_ENV} is true but ${PARTNER_PEPPER_ENV} is not set`);
   const partnerStoreRef: { store?: PartnerStore } = {};
-  const partnerStore: PartnerStore = http?.partners?.store ?? {
-    get: (id) => partnerStoreOf(partnerStoreRef).get(id),
-    list: () => partnerStoreOf(partnerStoreRef).list(),
-    insert: (doc) => partnerStoreOf(partnerStoreRef).insert(doc),
-    update: (id, patch) => partnerStoreOf(partnerStoreRef).update(id, patch),
-  };
+  const partnerStore: PartnerStore = http?.partners?.store ?? deferredPartnerStore(partnerStoreRef);
   // pc-reserved-ids (R2): the tenant ids a partner key may never carry as its partner id = the operator's VC_RESERVED_TENANT_IDS (a bad list throws here, before anything
   // connects) plus the sandbox tenant id. The registry checks them on every request, so a partner record made earlier is refused too.
   // S3: both lists matter only when partners are enabled (pepper set). With the pepper unset they are not parsed, so a malformed one cannot stop a server that has no partners;

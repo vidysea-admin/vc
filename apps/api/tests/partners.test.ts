@@ -5,6 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createFakeDb, createFakeMongoClient } from "@vc/db/testing";
@@ -26,6 +27,7 @@ import {
   isReservedPartnerId,
   listPartners,
   parsePartnerKey,
+  partnerCliFailureLine,
   partnerOwnTenantsFromEnv,
   partnerKeyRequiredFromEnv,
   partnerPepperFromEnv,
@@ -994,16 +996,19 @@ test("K1 (c1): two operators rotate the page key and the server key of one partn
   assert.deepEqual(Object.keys(stored).sort(), ["_id", "allowedOrigins", "createdAt", "keys", "name", "partnerId", "status"]);
 });
 
-test("K1 (c1): two overlapping rotates of the SAME scope leave exactly one printed key working (the last writer), and never the old key", async () => {
+test("K1 (c1, J4): two overlapping rotates of the SAME scope leave exactly one printed key working (the first to commit; the other fails visibly and prints none), and never the old key", async () => {
   const w = partnerWorld();
   const old = await w.add("Race Co", [], "race-co");
   const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
   const store = readBarrierStore(w.store, 2);
-  const [a, b] = await Promise.all([rotatePartner(store, "race-co", "pub", ctx), rotatePartner(store, "race-co", "pub", ctx)]);
-  assert.notEqual(a.key, b.key);
+  // pc-hardening-2 J4 (ISS-pc-partner-keys-3): the old behaviour was "both report success, only the last writer's key works"; now the write is compare-and-set on the hash that was read, so
+  // only one rotate reports success and the key it prints is the one that works.
+  const settled = await Promise.allSettled([rotatePartner(store, "race-co", "pub", ctx), rotatePartner(store, "race-co", "pub", ctx)]);
+  const won = settled.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof rotatePartner>>> => r.status === "fulfilled");
+  assert.equal(won.length, 1, "exactly one rotate reports success");
+  assert.ok(settled.some((r) => r.status === "rejected" && r.reason instanceof PartnerError && r.reason.code === "rotated_concurrently"));
   const fresh = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => w.clock.ms });
-  const works = [!!(await fresh.authenticate(a.key, "pub")), !!(await fresh.authenticate(b.key, "pub"))];
-  assert.equal(works.filter(Boolean).length, 1, `exactly one of the two printed keys works (got ${JSON.stringify(works)})`);
+  assert.equal((await fresh.authenticate(won[0]!.value.key, "pub"))?.partnerId, "race-co", "the one printed key works");
   assert.equal(await fresh.authenticate(old.pub, "pub"), undefined, "the old page key is dead");
   assert.equal((await fresh.authenticate(old.srv, "srv"))?.partnerId, "race-co", "the other scope is untouched");
 });
@@ -1012,7 +1017,7 @@ test("K1 (c1): rotate sends the store only the one scope's dotted path, never th
   const w = partnerWorld();
   await w.add("Race Co", [], "race-co");
   const patches: string[][] = [];
-  const spy: PartnerStore = { ...w.store, update: async (id, patch) => (patches.push(Object.keys(patch)), w.store.update(id, patch)) };
+  const spy: PartnerStore = { ...w.store, update: async (id, patch, expect) => (patches.push(Object.keys(patch)), w.store.update(id, patch, expect)) };
   const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
   await rotatePartner(spy, "race-co", "pub", ctx);
   await rotatePartner(spy, "race-co", "srv", ctx);
@@ -1601,4 +1606,128 @@ test("H6: listing pathlynks in VC_RESERVED_TENANT_IDS does not refuse partner pa
   assert.equal(isReservedPartnerId("sandbox-2", reservedIds), true);
   const doc = readFileSync(fileURLToPath(new URL("../../../docs/partner-integration.md", import.meta.url)), "utf8");
   assert.match(doc, /pathlynks-2/);
+});
+
+// ---------------------------------------------------------------------------
+// pc-hardening-2: J4 (ISS-pc-partner-keys-3) and J5 (ISS-pc-partner-keys-6)
+// ---------------------------------------------------------------------------
+
+test("J4: two overlapping rotates of the same key scope cannot both report success: the loser's update is refused (compare-and-set on the hash it read), it says to run again and prints no key, and the winner's printed key is the one that authenticates", async () => {
+  const w = partnerWorld();
+  const { id, pub: original } = await w.add("Race Site", ["https://race.example"], "race-site");
+  // Both rotates read the partner (and so the old hash) before either writes: the interleaving of two ops terminals.
+  let reads = 0;
+  let open!: () => void;
+  const bothRead = new Promise<void>((resolve) => (open = resolve));
+  const racing: PartnerStore = {
+    ...w.store,
+    get: async (partnerId) => {
+      const doc = await w.store.get(partnerId);
+      if (++reads === 2) open();
+      await bothRead;
+      return doc;
+    },
+  };
+  const rotate = () => runPartnerCli(["rotate", id, "--scope", "pub"], { store: racing, pepper: PEPPER, reservedIds: [], now: () => new Date(T0) });
+  const settled = await Promise.allSettled([rotate(), rotate()]);
+  const won = settled.filter((s): s is PromiseFulfilledResult<string[]> => s.status === "fulfilled");
+  const lost = settled.filter((s): s is PromiseRejectedResult => s.status === "rejected");
+  assert.equal(won.length, 1, "exactly one rotate reports success");
+  assert.equal(lost.length, 1, "the other one fails visibly");
+  const err = lost[0]!.reason as unknown;
+  assert.ok(err instanceof PartnerError, String(err));
+  assert.equal(err.code, "rotated_concurrently");
+  assert.match(err.message, /rotated concurrently, run again/);
+  assert.doesNotMatch(String(err.message), ANY_KEY_RE, "the loser prints no key");
+  // the winner printed exactly one key, it authenticates, and it is what the store holds; the old key is gone
+  const printed = won[0]!.value.join("\n").match(new RegExp(PUB_KEY_RE.source, "g")) ?? [];
+  assert.equal(printed.length, 1);
+  const fresh = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => T0 });
+  assert.equal((await fresh.authenticate(printed[0]!, "pub"))?.partnerId, id, "the printed key of the winner authenticates");
+  assert.equal(await fresh.authenticate(original, "pub"), undefined, "the original key no longer works");
+  assert.equal((await w.store.get(id))!.keys.pub.hash, hashPartnerKey(printed[0]!, PEPPER));
+  // running it again (no overlap) works
+  const again = await runPartnerCli(["rotate", id, "--scope", "pub"], { store: w.store, pepper: PEPPER, reservedIds: [] });
+  assert.match(again.join("\n"), PUB_KEY_RE);
+});
+
+test("J4: a rotate of an unknown or vanished partner is still partner_not_found, and overlapping rotates of DIFFERENT scopes both succeed (the K1 guarantee is kept)", async () => {
+  const w = partnerWorld();
+  const { id } = await w.add("Two Scopes", [], "two-scopes");
+  const both = await Promise.all([
+    runPartnerCli(["rotate", id, "--scope", "pub"], { store: w.store, pepper: PEPPER, reservedIds: [] }),
+    runPartnerCli(["rotate", id, "--scope", "srv"], { store: w.store, pepper: PEPPER, reservedIds: [] }),
+  ]);
+  assert.match(both[0]!.join("\n"), PUB_KEY_RE);
+  assert.match(both[1]!.join("\n"), SRV_KEY_RE);
+  await assert.rejects(() => rotatePartner(w.store, "no-such-partner", "pub", { pepper: PEPPER }), (e: unknown) => e instanceof PartnerError && e.code === "partner_not_found");
+  // the partner disappears between the read and the write: not found, not "concurrent"
+  let gets = 0;
+  const vanishing: PartnerStore = { ...w.store, update: async () => false, get: async (p) => (gets++ === 0 ? w.store.get(p) : null) };
+  await assert.rejects(() => rotatePartner(vanishing, id, "pub", { pepper: PEPPER }), (e: unknown) => e instanceof PartnerError && e.code === "partner_not_found");
+});
+
+test("J5: the partner CLI's catch-all prints a fixed message plus the error class and code only, never a raw driver message: a mongodb:// URI with a password in the message appears nowhere on stdout or stderr", () => {
+  const URI = "mongodb://admin:Sup3rS3cretPw@db.internal.example:27017/virtual_counsellor?authSource=admin";
+  const driver = Object.assign(new Error(`getaddrinfo ENOTFOUND db.internal.example (${URI})`), { name: "MongoServerSelectionError", code: "ENOTFOUND" });
+  const line = partnerCliFailureLine(driver);
+  assert.doesNotMatch(line, /mongodb:\/\/|Sup3rS3cretPw|admin:|db\.internal/);
+  assert.match(line, /^partner: failed/);
+  assert.match(line, /MongoServerSelectionError/);
+  assert.match(line, /ENOTFOUND/);
+  // a non-Error and an error with an odd name or code stay a fixed line, and a hostile name cannot smuggle the URI back in
+  assert.equal(partnerCliFailureLine("boom"), "partner: failed");
+  const sneaky = Object.assign(new Error("x"), { name: URI, code: URI });
+  assert.doesNotMatch(partnerCliFailureLine(sneaky), /mongodb:\/\/|Sup3rS3cretPw/);
+  // the real script: connectFromEnv rejects a bad MONGO_CLIENT_TIMEOUT_MS and quotes it in its message (no network is touched). Put a URI with a password there.
+  const script = fileURLToPath(new URL("../scripts/partner.ts", import.meta.url));
+  const run = spawnSync(process.execPath, ["--import", "tsx", script, "list"], {
+    encoding: "utf8",
+    cwd: fileURLToPath(new URL("..", import.meta.url)),
+    env: { PATH: process.env.PATH ?? "", SystemRoot: process.env.SystemRoot ?? "", [PARTNER_PEPPER_ENV]: PEPPER, MONGODB_URL: "mongodb://127.0.0.1:1/virtual_counsellor", MONGO_CLIENT_TIMEOUT_MS: URI },
+    timeout: 60_000,
+  });
+  assert.equal(run.status, 1, `${run.stdout}${run.stderr}`);
+  const out = `${run.stdout}\n${run.stderr}`;
+  assert.doesNotMatch(out, /mongodb:\/\/|Sup3rS3cretPw|admin:|db\.internal/, "no URI, host or password reaches stdout or stderr");
+  assert.match(out, /partner: failed/);
+});
+
+// ---------------------------------------------------------------------------
+// pc-hardening-2 fix cycle 1: R4 (rotate must not revive a partner revoked between its read and its write)
+// ---------------------------------------------------------------------------
+
+test("R4: a revoke that lands between rotate's read and rotate's write makes rotate fail with partner_revoked and print no key; the stored key stays the old one and the partner stays revoked", async () => {
+  const w = partnerWorld();
+  const { id, pub: original } = await w.add("Late Revoke", ["https://late.example"], "late-revoke");
+  const before = (await w.store.get(id))!.keys.pub.hash;
+  // rotate reads an active partner; then the revoke commits; only then does rotate's write arrive
+  let revoked = false;
+  const interleaved: PartnerStore = {
+    ...w.store,
+    update: async (partnerId, patch, expect) => {
+      if (!revoked) {
+        revoked = true;
+        await revokePartner(w.store, partnerId);
+      }
+      return w.store.update(partnerId, patch, expect);
+    },
+  };
+  const out: string[] = [];
+  let err: unknown;
+  try {
+    out.push(...(await runPartnerCli(["rotate", id, "--scope", "pub"], { store: interleaved, pepper: PEPPER, reservedIds: [], now: () => new Date(T0) })));
+  } catch (e) {
+    err = e;
+  }
+  assert.ok(revoked, "the revoke really landed between the read and the write");
+  assert.ok(err instanceof PartnerError, String(err));
+  assert.equal(err.code, "partner_revoked");
+  assert.match(err.message, /revoked/);
+  assert.doesNotMatch(`${out.join("\n")}${err.message}`, ANY_KEY_RE, "no key is printed");
+  const stored = (await w.store.get(id))!;
+  assert.equal(stored.status, "revoked");
+  assert.equal(stored.keys.pub.hash, before, "the old key record is untouched (no new key was written)");
+  const fresh = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => T0 });
+  assert.equal(await fresh.authenticate(original, "pub"), undefined, "a revoked partner authenticates with nothing");
 });

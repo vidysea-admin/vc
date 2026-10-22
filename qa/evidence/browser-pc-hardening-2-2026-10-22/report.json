@@ -1,0 +1,351 @@
+{
+  "unit": "pc-hardening-2",
+  "date": "2026-10-22",
+  "generatedAt": "2026-10-22T17:05:57+05:30",
+  "baseUrl": "http://127.0.0.1:5191",
+  "mode": "key mode (data-vc-voice=on), API intercepted with page.route, WebSocket faked via addInitScript for the error-frame scenario, fake page key, no API server, no live LLM",
+  "browser": "chromium (playwright-core 1.63.0, headless, --use-fake-ui-for-media-stream --use-fake-device-for-media-stream)",
+  "widgetCode": "6b578a7c9f811d5b288fec6bd97583c482b0d8c4",
+  "passed": 26,
+  "checks": 26,
+  "checkResults": [
+    {
+      "name": "en busy note shown verbatim",
+      "pass": true,
+      "detail": [
+        "Voice is busy right now. Please try again shortly, or keep typing here.\nTele-MANAS 14416 (24x7) · Emergency 112"
+      ]
+    },
+    {
+      "name": "en busy note followed by the English HELP line (same note element, after the busy text)",
+      "pass": true,
+      "detail": [
+        "Voice is busy right now. Please try again shortly, or keep typing here.\nTele-MANAS 14416 (24x7) · Emergency 112"
+      ]
+    },
+    {
+      "name": "en mint POSTed once with page key",
+      "pass": true,
+      "detail": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ]
+    },
+    {
+      "name": "en no rate-limit text",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "hi busy note shown verbatim",
+      "pass": true,
+      "detail": [
+        "वॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।\nTele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें"
+      ]
+    },
+    {
+      "name": "hi busy note followed by exactly the Hindi helpline line",
+      "pass": true,
+      "detail": [
+        "वॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।\nTele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें"
+      ]
+    },
+    {
+      "name": "hi busy note element does not carry the English HELP line (the static panel footer is English by design)",
+      "pass": true,
+      "detail": [
+        "वॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।\nTele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें"
+      ]
+    },
+    {
+      "name": "hi-IN also gets the Hindi note + Hindi helpline",
+      "pass": true,
+      "detail": [
+        "वॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।\nTele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें"
+      ]
+    },
+    {
+      "name": "control: rate_limited shows old rate text, not busy note",
+      "pass": true,
+      "detail": [
+        "Too many voice requests. Please wait 30 seconds, or type your question."
+      ]
+    },
+    {
+      "name": "control: crisis chat turn shows HELP / Tele-MANAS text unchanged",
+      "pass": true,
+      "detail": [
+        "I am really sorry you are feeling this way. You are not alone.\nTele-MANAS 14416 (24x7) · Emergency 112"
+      ]
+    },
+    {
+      "name": "off en: 'voice is not available here' note followed by English HELP line",
+      "pass": true,
+      "detail": [
+        "Voice is not available here. Please type your question.\nTele-MANAS 14416 (24x7) · Emergency 112"
+      ]
+    },
+    {
+      "name": "off en: no busy wording",
+      "pass": true,
+      "detail": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nVoice is not available here. Please type your question.\nTele-MANAS 14416 (24x7) · Emergency 112\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112"
+    },
+    {
+      "name": "off hi: Hindi 'not available here' note followed by exactly the Hindi helpline",
+      "pass": true,
+      "detail": [
+        "यहाँ वॉइस उपलब्ध नहीं है। कृपया अपना सवाल टाइप करें।\nTele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें"
+      ]
+    },
+    {
+      "name": "off hi: no busy wording (en or hi)",
+      "pass": true,
+      "detail": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nयहाँ वॉइस उपलब्ध नहीं है। कृपया अपना सवाल टाइप करें।\nTele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112"
+    },
+    {
+      "name": "ws en: error-frame path shows busy note followed by English HELP line",
+      "pass": true,
+      "detail": [
+        "Voice is busy right now. Please try again shortly, or keep typing here.\nTele-MANAS 14416 (24x7) · Emergency 112"
+      ]
+    },
+    {
+      "name": "ws hi: error-frame path shows Hindi busy note followed by Hindi helpline",
+      "pass": true,
+      "detail": [
+        "वॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।\nTele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें"
+      ]
+    },
+    {
+      "name": "ws path actually exercised (fake socket constructed, frame delivered, 1008 close)",
+      "pass": true,
+      "detail": [
+        [
+          "construct ws://127.0.0.1:9/v1/public/voice/ws protocols=[\"vc-voice-v1\",\"vc-token.<redacted>\"]",
+          "send",
+          "error frame voice_busy",
+          "close 1008"
+        ],
+        [
+          "construct ws://127.0.0.1:9/v1/public/voice/ws protocols=[\"vc-voice-v1\",\"vc-token.<redacted>\"]",
+          "send",
+          "error frame voice_busy",
+          "close 1008"
+        ]
+      ]
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: en: 429 voice_busy",
+      "pass": true,
+      "detail": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ]
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: hi: 429 voice_busy",
+      "pass": true,
+      "detail": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ]
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: hi-IN: 429 voice_busy",
+      "pass": true,
+      "detail": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ]
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: control en: 429 rate_limited",
+      "pass": true,
+      "detail": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ]
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: control en: chat turn crisis flag",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: off en: 403 voice_unavailable",
+      "pass": true,
+      "detail": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ]
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: off hi: 403 voice_unavailable",
+      "pass": true,
+      "detail": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ]
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: ws en: voice_busy error frame then 1008",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "console JS errors none beyond injected 4xx resource loads: ws hi: voice_busy error frame then 1008",
+      "pass": true,
+      "detail": []
+    }
+  ],
+  "pages": [
+    {
+      "url": "http://127.0.0.1:5191/host?lang=en",
+      "label": "en: 429 voice_busy",
+      "htmlLang": "en",
+      "wsLog": null,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "messages": [
+        "error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "apiCalls": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nVoice is busy right now. Please try again shortly, or keep typing here.\nTele-MANAS 14416 (24x7) · Emergency 112\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "en-busy.png"
+    },
+    {
+      "url": "http://127.0.0.1:5191/host?lang=hi",
+      "label": "hi: 429 voice_busy",
+      "htmlLang": "hi",
+      "wsLog": null,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "messages": [
+        "error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "apiCalls": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nवॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।\nTele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "hi-busy.png"
+    },
+    {
+      "url": "http://127.0.0.1:5191/host?lang=hi-IN",
+      "label": "hi-IN: 429 voice_busy",
+      "htmlLang": "hi-IN",
+      "wsLog": null,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "messages": [
+        "error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "apiCalls": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nवॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।\nTele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "hi-IN-busy.png"
+    },
+    {
+      "url": "http://127.0.0.1:5191/host?lang=en",
+      "label": "control en: 429 rate_limited",
+      "htmlLang": "en",
+      "wsLog": null,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "messages": [
+        "error: Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      ],
+      "apiCalls": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nToo many voice requests. Please wait 30 seconds, or type your question.\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "en-rate-limited.png"
+    },
+    {
+      "url": "http://127.0.0.1:5191/host?lang=en",
+      "label": "control en: chat turn crisis flag",
+      "htmlLang": "en",
+      "wsLog": null,
+      "consoleErrors": [],
+      "messages": [],
+      "apiCalls": [
+        "POST /v1/public/chat/turns x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\ncrisis now\nI am really sorry you are feeling this way. You are not alone.\nTele-MANAS 14416 (24x7) · Emergency 112\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "en-crisis-chat.png"
+    },
+    {
+      "url": "http://127.0.0.1:5191/host?lang=en",
+      "label": "off en: 403 voice_unavailable",
+      "htmlLang": "en",
+      "wsLog": null,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "messages": [
+        "error: Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "apiCalls": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nVoice is not available here. Please type your question.\nTele-MANAS 14416 (24x7) · Emergency 112\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "en-off.png"
+    },
+    {
+      "url": "http://127.0.0.1:5191/host?lang=hi",
+      "label": "off hi: 403 voice_unavailable",
+      "htmlLang": "hi",
+      "wsLog": null,
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "messages": [
+        "error: Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "apiCalls": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nयहाँ वॉइस उपलब्ध नहीं है। कृपया अपना सवाल टाइप करें।\nTele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "hi-off.png"
+    },
+    {
+      "url": "http://127.0.0.1:5191/host?lang=en",
+      "label": "ws en: voice_busy error frame then 1008",
+      "htmlLang": "en",
+      "wsLog": [
+        "construct ws://127.0.0.1:9/v1/public/voice/ws protocols=[\"vc-voice-v1\",\"vc-token.<redacted>\"]",
+        "send",
+        "error frame voice_busy",
+        "close 1008"
+      ],
+      "consoleErrors": [],
+      "messages": [
+        "warning: The ScriptProcessorNode is deprecated. Use AudioWorkletNode instead. (https://bit.ly/audio-worklet)"
+      ],
+      "apiCalls": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nVoice is busy right now. Please try again shortly, or keep typing here.\nTele-MANAS 14416 (24x7) · Emergency 112\n\nVoice ended.\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "en-ws-busy.png"
+    },
+    {
+      "url": "http://127.0.0.1:5191/host?lang=hi",
+      "label": "ws hi: voice_busy error frame then 1008",
+      "htmlLang": "hi",
+      "wsLog": [
+        "construct ws://127.0.0.1:9/v1/public/voice/ws protocols=[\"vc-voice-v1\",\"vc-token.<redacted>\"]",
+        "send",
+        "error frame voice_busy",
+        "close 1008"
+      ],
+      "consoleErrors": [],
+      "messages": [
+        "warning: The ScriptProcessorNode is deprecated. Use AudioWorkletNode instead. (https://bit.ly/audio-worklet)"
+      ],
+      "apiCalls": [
+        "POST /v1/public/voice/sessions x-vc-key=yes"
+      ],
+      "visibleText": "Career Counsellor\n×\nHi, I am an AI career counsellor. Ask me about careers, courses and colleges. I can make mistakes, so please check important facts with a counsellor.\nवॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।\nTele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें\n\nVoice ended.\n\nSend\nNot a substitute for a counsellor. In distress? Tele-MANAS 14416 (24x7) · Emergency 112",
+      "screenshot": "hi-ws-busy.png"
+    }
+  ]
+}

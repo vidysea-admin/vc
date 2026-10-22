@@ -8,7 +8,7 @@
  * New keys are printed once (add prints a page key and a server key; rotate prints one); they are never stored: the database keeps its HMAC hash only. Exit 0 = done, 1 = refused or failed, 2 = bad usage.
  */
 import { connectFromEnv } from "@vc/db";
-import { PARTNER_PEPPER_ENV, PartnerConfigError, PartnerError, createMongoPartnerStore, partnerOwnTenantsFromEnv, partnerPepperFromEnv, reservedTenantIdsFromEnv, runPartnerCli } from "../src/partners.js";
+import { PARTNER_PEPPER_ENV, PartnerConfigError, PartnerError, createMongoPartnerStore, partnerCliFailureLine, partnerOwnTenantsFromEnv, partnerPepperFromEnv, reservedTenantIdsFromEnv, runPartnerCli } from "../src/partners.js";
 
 async function main(): Promise<number> {
   const argv = process.argv.slice(2);
@@ -54,7 +54,7 @@ async function main(): Promise<number> {
 main().then(
   (code) => process.exit(code),
   (err: unknown) => {
-    console.error(err instanceof Error ? `${err.name}: ${err.message}` : "partner: failed");
+    console.error(partnerCliFailureLine(err));
     process.exit(1);
   },
 );

@@ -587,3 +587,89 @@ test("H3: the busy/ended frames keep the crisis path intact: a crisis flag still
   assert.deepEqual(s.of("crisis"), [{ help: V.HELP }]);
   assert.equal(V.HELP, W.HELP);
 });
+
+// ---- pc-hardening-2 J1 (ISS-pc-hardening-1) and J2 (ISS-pc-hardening-3) ----------------------------------------------------------------------------
+
+const BUSY_EN = "Voice is busy right now. Please try again shortly, or keep typing here.";
+const BUSY_HI = "वॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।";
+const HELP_HI = "Tele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें";
+
+test("J1: the voice busy note carries the helpline too, in the note's own language, for both busy signals (the mint 429 voice_busy fallback and the voice_busy error frame), and the busy wording itself is unchanged", () => {
+  // signal 1: the session-mint fallback
+  assert.equal(W.voiceFallbackText({ reason: "busy", wait: 30 }, "en"), BUSY_EN + "\n" + W.HELP);
+  assert.equal(W.voiceFallbackText({ reason: "busy", wait: 30 }, "hi"), BUSY_HI + "\n" + HELP_HI);
+  assert.equal(W.voiceFallbackText({ reason: "busy" }, "hi-IN"), BUSY_HI + "\n" + HELP_HI);
+  assert.equal(W.voiceFallbackText({ reason: "busy" }, undefined), BUSY_EN + "\n" + W.HELP, "no language: English");
+  // signal 2: the voice_busy error frame (before a 1008 close), whatever message and help the server put on it
+  assert.deepEqual(W.voiceErrorNotice({ code: "voice_busy", message: "Voice is busy right now. You can keep typing.", help: V.HELP }, "en"), { kind: "note", text: BUSY_EN + "\n" + W.HELP });
+  assert.deepEqual(W.voiceErrorNotice({ code: "voice_busy", message: "x" }, "hi"), { kind: "note", text: BUSY_HI + "\n" + HELP_HI });
+  // the helpline numbers are the same in both languages, and the English line is the widget's HELP constant, unchanged
+  assert.equal(W.HELP, "Tele-MANAS 14416 (24x7) · Emergency 112");
+  for (const t of [W.voiceFallbackText({ reason: "busy" }, "en"), W.voiceFallbackText({ reason: "busy" }, "hi")]) assert.match(t, /14416/), assert.match(t, /112/);
+  // other texts byte-identical
+  assert.equal(W.voiceFallbackText({ reason: "rate", wait: 7 }, "en"), "Too many voice requests. Please wait 7 seconds, or type your question.");
+  assert.equal(W.voiceFallbackText({ reason: "permission" }, "en"), "Microphone access is blocked, so voice is off. You can keep typing here, or allow the microphone in your browser settings and try again.");
+  assert.equal(W.voiceFallbackText({ reason: "network" }, "en"), "Voice could not start. You can keep typing here.");
+  assert.deepEqual(W.voiceErrorNotice({ code: "live_unavailable", message: "Voice is unavailable.", help: V.HELP }, "en"), { kind: "err", text: "Voice is unavailable.\n" + V.HELP });
+});
+
+test("J1: a voice_busy error frame reaches the widget as an error event carrying its code and the helpline, which the busy notice then renders in full", async () => {
+  const s = await started();
+  s.wsk.say({ type: "error", code: "voice_busy", message: "Voice is busy right now. You can keep typing." });
+  const errs = s.of("error");
+  assert.equal(errs.length, 1);
+  assert.equal(W.voiceErrorNotice(errs[0], "en").text, BUSY_EN + "\n" + W.HELP);
+  assert.equal(errs[0].help, V.HELP, "the voice add-on already hands the helpline to every error event");
+});
+
+test("J2: a mint refused with 403 voice_unavailable (voice switched off for this client or partner) is the off fallback, not unavailable-right-now and not busy: it frees the mic, opens no socket, and the widget says voice is not available here, please type, plus the helpline, in en and hi", async () => {
+  const mic = fakeMic();
+  const s = await setupOff(mic);
+  assert.equal(await s.vc.start(), false);
+  assert.deepEqual(s.of("fallback"), [{ reason: "off" }]);
+  assert.equal(mic.stopped, 1);
+  assert.equal(FakeWS.all.length, 0);
+  assert.equal(s.vc.state(), "idle");
+  const en = W.voiceFallbackText({ reason: "off" }, "en");
+  assert.equal(en, "Voice is not available here. Please type your question.\n" + W.HELP);
+  const hi = W.voiceFallbackText({ reason: "off" }, "hi");
+  assert.equal(hi, "यहाँ वॉइस उपलब्ध नहीं है। कृपया अपना सवाल टाइप करें।\n" + HELP_HI);
+  assert.doesNotMatch(en, /busy|try again|shortly/i, "a permanent state is not worded as busy");
+  assert.equal(W.voiceFallbackText({ reason: "off" }, "fr"), en, "an unsupported language: English");
+  // any other 401/403 stays the plain unavailable fallback, and a 403 with another or no body is not "off"
+  for (const r of [resp(401, undefined), resp(403, undefined), resp(403, { error: "forbidden" })]) {
+    const o = setup({ fetch: fakeFetch(r) });
+    await o.vc.start();
+    assert.deepEqual(o.of("fallback"), [{ reason: "unavailable" }], String(r.status));
+  }
+  // and busy is still busy
+  const b = setup({ fetch: fakeFetch(resp(429, { error: "voice_busy" }, { "retry-after": "30" })) });
+  await b.vc.start();
+  assert.deepEqual(b.of("fallback"), [{ reason: "busy", wait: 30 }]);
+});
+
+function setupOff(mic) {
+  return setup({ fetch: fakeFetch(resp(403, { error: "voice_unavailable", helpline: "Tele-MANAS 14416" })), mediaDevices: mic });
+}
+
+// ---- pc-hardening-2 fix cycle 1 R1 (J1, LK10): the Hindi helpline line adds no new wording -----------------------------------------------------
+
+test("R1: the Hindi helpline line is built only from fragments copied verbatim from the approved Hindi text in packages/engine/src/student/lang.ts (LK10), and no new Hindi word is in the widget source", () => {
+  const lang = fs.readFileSync(path.join(__dirname, "..", "..", "..", "packages", "engine", "src", "student", "lang.ts"), "utf8");
+  const noteHi = W.voiceFallbackText({ reason: "busy", wait: 30 }, "hi");
+  const helpHi = noteHi.split("\n").slice(1).join("\n");
+  assert.ok(helpHi.length > 0, "the Hindi busy note carries a helpline line");
+  assert.match(helpHi, /14416/);
+  assert.match(helpHi, /112/);
+  // the English line is built from " · "-joined parts; the Hindi line uses the same separator and every part is a verbatim substring of lang.ts
+  const parts = helpHi.split(" · ");
+  assert.equal(parts.length, W.HELP.split(" · ").length, "same separator style and part count as the English HELP");
+  for (const p of parts) assert.ok(lang.includes(p), "not a verbatim fragment of lang.ts: " + JSON.stringify(p));
+  // the voice-off note takes the same line
+  assert.ok(W.voiceFallbackText({ reason: "off" }, "hi").endsWith("\n" + helpHi));
+  // the invented word is gone from every widget source file
+  const srcDir = path.join(__dirname, "..", "src");
+  for (const f of fs.readdirSync(srcDir)) {
+    assert.ok(!fs.readFileSync(path.join(srcDir, f), "utf8").includes("आपातकाल"), f + " still has the invented word");
+  }
+});
