@@ -3,7 +3,7 @@
 **Goal task:** none
 **Date:** 2026-10-22
 **Fix cycle:** 0
-**Status:** ready-for-check
+**Status:** checked-PASS (qa/verdicts/pc-hardening-4.md e48762e; review Approve)
 **Dual check:** no
 **Dual-check reason:** no security/auth/tenancy behaviour change and no production write: P1 only moves where the go-live approver is read from (the env startApi already passes; fail closed unchanged, and in production that env IS process.env), P2 adds one log line and an optional log sink (behaviour otherwise unchanged), P3 is a test-instrument change on an unchanged nginx conf.
 **Persona walk:** skip (no new screen or flow)
