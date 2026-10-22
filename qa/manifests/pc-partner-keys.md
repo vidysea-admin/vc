@@ -10,16 +10,16 @@
 **Executor rationale:** one build unit in one worktree (D:/vc/.worktrees/pc-partner-keys, branch wave/pc-partner-keys, base 3a70309).
 
 ## What changed
-Code commit c93deee. Files (all in the brief's owned list; voice.ts, go-live-gate.ts and apps/widget untouched; main.ts needed no edit because launch() calls startApi, which validates the pepper and flag before connecting):
-- apps/api/src/partners.ts (new): key format vck_<partnerId>_<43 b64url> (addPartner :235, rotatePartner :266, revokePartner :279), normalizeOrigin :195, createPartnerRegistry :381 (one cached list read, TTL <= 60 s, in-flight coalescing, timingSafeEqual on HMACs with a dummy hash for unknown ids, fail closed), partnerKeyFromRequest :449, partnerStudentFromHeaders :466, withPartnerRoutes :517 (CORS per key + GET /v1/partner/openapi.json), runPartnerCli, createMongoPartnerStore (collection("partners") only).
-- apps/api/src/anonymous.ts: X-VC-Key check before the body is read (:459-470), per-partner-AND-client limit and grounding budget (:473), partner id on the usage count and log only (:529-533). Zero persistence unchanged.
-- apps/api/src/chat.ts: `vck_` bearer branch (:843-855): key checked first, then student headers; tenant = partnerId; missing/invalid age = minor; consent only if exactly "true". JWT path unchanged.
+Code commits c93deee (cycle-0 build) and 711291c (c0b: two scoped keys, before the first check). Files (all in the brief's owned list; voice.ts, go-live-gate.ts and apps/widget untouched; main.ts needed no edit because launch() calls startApi, which validates the pepper and flag before connecting):
+- apps/api/src/partners.ts (new): TWO keys per partner (c0b). Page key `vck_pub_<partnerId>_<43 b64url>`, server key `vck_srv_<partnerId>_<43 b64url>`; the doc stores `keys: {pub, srv}` each `{hash, prefix, rotatedAt}`. addPartner :256 (returns both keys), rotatePartner :286 (`scope` argument rotates one), revokePartner (status flip ends both), normalizeOrigin, createPartnerRegistry :418 `authenticate(key, scope)` with the scope compared AFTER the HMAC compare (:457, same work and same undefined for a wrong-scope key), one cached list read (TTL <= 60 s, coalesced), timingSafeEqual with a dummy hash, fail closed; partnerKeyFromRequest, partnerStudentFromHeaders, isCorsEligiblePath :527 (public chat route + partner openapi only), withPartnerRoutes :554 (CORS from a PAGE key in X-VC-Key only; a server key, in X-VC-Key or as Bearer, never gets CORS; GET /v1/partner/openapi.json), runPartnerCli (`add` prints both keys once; `rotate <id> --scope pub|srv`; `revoke`; `list`), createMongoPartnerStore (collection("partners") only).
+- apps/api/src/anonymous.ts: X-VC-Key checked as a PAGE key (`authenticate(key, "pub")`, :464) before the body is read; when an Origin header is present it must be in that partner's allowedOrigins (a repeated or unlisted Origin = the same 401, :472); no Origin header (a script) is allowed. Per-partner-AND-client limit and grounding budget; partner id on the usage count and log only. Zero persistence unchanged.
+- apps/api/src/chat.ts: `vck_` bearer branch (:843-855): `authenticate(token, "srv")` (:846), so a page key is the uniform 401; key checked first, then student headers; tenant = partnerId; missing/invalid age = minor; consent only if exactly "true". JWT path unchanged.
 - apps/api/src/index.ts: imports/exports; StartApiHttpOptions.partners (:316); pepper/flag read before connecting and PartnerConfigError if required without pepper (:517-529); store bound after connect (:666); anonymous and chat deps; withPartnerRoutes wrapping (:762).
 - apps/api/src/openapi.ts: `PARTNER_OPENAPI` export only (:624).
 - apps/api/scripts/partner.ts (new) + apps/api/package.json "partner" script: add / rotate / revoke / list.
-- infra/ubuntu/nginx-vc.conf: /v1/partner/openapi.json, voice stream (before the chat regex), student chat regex (now open), widget static locations and /widget/ 404; no Access-Control header, no method restriction, X-VC-Key and Authorization passed through. Every other /v1/ path still 404.
+- infra/ubuntu/nginx-vc.conf (unchanged in c0b): /v1/partner/openapi.json, voice stream (before the chat regex), student chat regex (now open), widget static locations and /widget/ 404; no Access-Control header, no method restriction, X-VC-Key and Authorization passed through. Every other /v1/ path still 404.
 - .env.example: VC_PARTNER_KEY_PEPPER=, VC_PARTNER_KEY_REQUIRED= (names only).
-- apps/api/tests/partners.test.ts (new, 38 tests).
+- apps/api/tests/partners.test.ts (new, 42 tests: the 38 of cycle 0 re-based on scoped keys, plus 4 `scope:` tests).
 Also: `pnpm install --offline --frozen-lockfile` in the worktree (node_modules only, no lockfile change).
 
 ## Gate answers
@@ -30,46 +30,48 @@ Also: `pnpm install --offline --frozen-lockfile` in the worktree (node_modules o
   (3) K4 preflight: 204; Allow-Origin = the origin only if it is in some active partner's allowedOrigins; Allow-Methods POST,GET,OPTIONS; Allow-Headers Content-Type,X-VC-Key,Authorization; Max-Age 600; otherwise 204 with no CORS headers.
   (4) a bearer starting `vck_` is a partner key and never goes to the JWT verifier; anything else goes to JWT.
   (5) applied only as nginx static locations in infra/ubuntu/nginx-vc.conf: /widget/vc-widget.v1.js immutable max-age=31536000, /widget/vc-widget.js max-age=300 (same alias path as apps/widget/nginx-widget.conf.snippet). The widget file itself is pc-widget's.
+- c0b scope rule (coordinator brief qa/evidence/p1-briefs/pc-partner-keys-c0b.md, 2026-10-22, because a page key in public HTML must not open server-to-server student routes; D-111 "simple api key" kept, no JWT): every partner has two keys. Page key vck_pub_<id>_<43>: accepted ONLY on POST /v1/public/chat/turns; when an Origin header is present it must be in allowedOrigins; CORS applies. Server key vck_srv_<id>_<43>: accepted ONLY on the student chat routes (K3) (the partner OpenAPI is public and needs no key); never on the public route; never gets CORS headers. A key used outside its scope gets the same uniform 401 as any bad key. The registry stores a hash per scope; `partner add` prints both once; `rotate <id> --scope pub|srv` rotates one; `revoke` revokes both. The old unscoped vck_<id>_ format no longer exists (nothing was deployed) and is refused as malformed.
+- c0b consequence flagged for the checker/coordinator (spec K4 text): spec K4 lists the voice SESSION route among the CORS routes. That route is a student route (server key only), and a server key never gets CORS, so no browser caller could use it; I therefore removed it from the CORS-eligible set (isCorsEligiblePath: public chat route + partner openapi only). pc-voice adds its anonymous voice route there when it exists. Tests assert student routes (including voice session/stream) never get CORS.
 - Chosen by me, not in the brief: the actual (non-preflight) request gets Allow-Origin only if its own key is active and the Origin is in THAT key's list; CORS-eligible routes are the public chat route, the voice session route and /v1/partner/openapi.json only; keys are HMAC-SHA256(key, VC_PARTNER_KEY_PEPPER), the pepper is >= 32 chars; the Mongo adapter lives in partners.ts because packages/db is not an owned file.
 
 ## Acceptance criteria and evidence
 Policy-Version: proportional-verification/2026-10-19.17
 dual-trigger: auth apps/api/src/partners.ts:381
-Tier: L (authentication and a new tenant-derivation path); dual check. Base 3a70309, code commit c93deee.
-Round: 10 files, 5 criteria (K1-K5), est 40 min — one tightly coupled module; one round.
+Tier: L (authentication and a new tenant-derivation path); dual check. Base 3a70309, code commits c93deee + 711291c (c0b).
+Round: 10 files, 5 criteria (K1-K5), est 40 min — one tightly coupled module; one round (c0b folded in before the first check, same cycle 0).
 
-Tests[K1]: apps/api/tests/partners.test.ts K1 tests — covers (9: add stores only hash+prefix and shows the key once; id pattern; origin validation; duplicate id; rotate; revoke; list; CLI; env strictness).
-Tests[K2]: apps/api/tests/partners.test.ts K2 tests — covers (10: widget with key answered; uniform 401 for malformed/unknown/revoked/repeated; helpline in the 401; keyless unchanged vs REQUIRED; no-registry fail closed; per-partner-and-client limit; crisis never limited; revoke within 60 s; store outage 503; one list read per 60 s) plus the existing anonymous-route H2|H6|G5.
-Tests[K3]: apps/api/tests/partners.test.ts K3 tests — covers (8: tenant = partner id; cross-partner 404; header 400s; age/consent matrix incl. minor no model call; minor crisis; uniform 401; JWT unchanged; invalid tenant id unmintable) plus chat-profile H2|LK7 C1-fix and chat-privacy.
-Tests[K4]: apps/api/tests/partners.test.ts K4 tests — covers (6: preflight allowed, preflight denied matrix, ineligible routes, actual-request matrix, inner 401/429 CORS only for an allowed origin, store outage) and the launch() wiring test over real HTTP.
-Tests[K5]: apps/api/tests/partners.test.ts K5 tests — covers (3: openapi route, nginx text assertions, widget cache) and the two wiring tests (launch over real HTTP; refusing to start without/with a short pepper or a bad flag).
+Tests[K1]: apps/api/tests/partners.test.ts K1 tests and `scope:` independence/rotation — covers (two keys stored as HMAC+prefix only, id pattern and 3-underscore split, duplicate id, origin validation, rotate one scope leaves the other working, revoke ends both, list, CLI add/rotate --scope/revoke, env strictness).
+Tests[K2]: apps/api/tests/partners.test.ts K2 tests and `scope: a server key pasted into a web page` / `scope: a page key sent with an Origin` — covers (page key answered; uniform 401 for malformed/unknown/revoked/repeated/wrong-scope keys; Origin must match; keyless unchanged vs REQUIRED; no-registry fail closed; per-partner-and-client limit; crisis never limited; revoke within 60 s; store outage 503; one list read per 60 s) plus the existing anonymous-route H2|H6|G5.
+Tests[K3]: apps/api/tests/partners.test.ts K3 tests and `scope: a page key copied from the Vidysea website cannot read a Pathlynks student` — covers (tenant = partner id; cross-partner 404; header 400s; age/consent matrix; minor crisis; uniform 401; JWT unchanged; a page key on every student route is the uniform 401) plus chat-profile H2|LK7 C1-fix and chat-privacy.
+Tests[K4]: apps/api/tests/partners.test.ts K4 tests — covers (preflight on public chat + openapi, preflight denied matrix, student/voice routes never granted, actual-request matrix with page keys, a server key never gets CORS, inner 401/429 CORS only for an allowed origin, store outage) and the launch() wiring test over real HTTP.
+Tests[K5]: apps/api/tests/partners.test.ts K5 tests — covers (openapi route, nginx text assertions, widget cache) and the two wiring tests (launch over real HTTP; refusing to start without/with a short pepper or a bad flag).
 
-Pre-check[K1]: c93deee `npx tsx --test tests/partners.test.ts` -> exit 0, 38 passed, 0 failed (K1 tests all green)
-Pre-check[K2]: c93deee `npx tsx --test tests/partners.test.ts` -> exit 0, 38 passed, 0 failed; `tests/anonymous-route.test.ts --test-name-pattern="H2|H6|G5"` -> 9 passed, 0 failed
-Pre-check[K3]: c93deee `npx tsx --test tests/partners.test.ts` -> exit 0, 38 passed, 0 failed; `tests/chat-profile.test.ts --test-name-pattern="H2|LK7 C1-fix"` -> 6 passed, 0 failed; `tests/chat-privacy.test.ts` -> 39 passed, 0 failed
-Pre-check[K4]: c93deee `npx tsx --test tests/partners.test.ts` -> exit 0, 38 passed, 0 failed
-Pre-check[K5]: c93deee `npx tsx --test tests/partners.test.ts` -> exit 0, 38 passed, 0 failed
-Pre-check[all]: c93deee `npx tsc --noEmit` (apps/api) -> exit 0, no output
-Also green: main.test 10/0, index.test 8/0, packages/db db-scope.test 11/0 and client.test 33/0 (B12/D-016 scanners with the new files).
-Note: every run went through VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600. TDD note: the tests were written before the implementation but no failing-first run was captured; the mutants below are the proof the tests bite. One test of mine had a wrong expectation (state "escalated", not "crisis"; existing behaviour) and was corrected.
+Pre-check[K1]: 711291c `npx tsx --test tests/partners.test.ts` -> exit 0, 42 passed, 0 failed
+Pre-check[K2]: 711291c `npx tsx --test tests/partners.test.ts` -> exit 0, 42 passed, 0 failed; `tests/anonymous-route.test.ts --test-name-pattern="H2|H6|G5"` -> 9 passed, 0 failed
+Pre-check[K3]: 711291c `npx tsx --test tests/partners.test.ts` -> exit 0, 42 passed, 0 failed; `tests/chat-profile.test.ts --test-name-pattern="H2|LK7 C1-fix"` -> 6 passed, 0 failed; `tests/chat-privacy.test.ts` -> 39 passed, 0 failed
+Pre-check[K4]: 711291c `npx tsx --test tests/partners.test.ts` -> exit 0, 42 passed, 0 failed
+Pre-check[K5]: 711291c `npx tsx --test tests/partners.test.ts` -> exit 0, 42 passed, 0 failed
+Pre-check[all]: 711291c `npx tsc --noEmit` (apps/api) -> exit 0, no output
+Also green on 711291c: main.test 10/0, index.test 8/0, packages/db db-scope.test 11/0 (B12/D-016 scanners with the new files). (client.test 33/0 was green on c93deee and is not touched by c0b.)
+Note: every run went through VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600. TDD note: for c0b the four new `scope:` tests were run first against the unscoped code and all 4 failed (red) before the scoped keys were implemented; cycle-0's original tests had no captured red run. One test of mine had a wrong expectation (state "escalated", not "crisis"; existing behaviour) and was corrected.
 
-Falsify[K1]: store the raw key as keyHash instead of the HMAC -> red (4 failing K1 tests, incl. "only its HMAC and a short prefix are stored" and rotate/revoke); mutated in a copy outside the tree (scratchpad/fals-pk), restored.
-Falsify[K2]: drop the secret comparison (accept any well-formed key of an active partner) -> red (1 failing: "a malformed, unknown, revoked or repeated key all get the same 401").
-Falsify[K3]: a missing age is an adult (fail open) -> red (1 failing: the age/consent matrix test).
-Falsify[K4]: grant Allow-Origin to any origin for an active key (skip the per-key origin list) -> red (1 failing: "the actual request gets Allow-Origin only when ... THAT key's list").
-Falsify[K5]: rename the openapi nginx location (route disabled) -> red (1 failing: the nginx locations test).
+Falsify[K1]: (on 711291c) store the raw key as the hash instead of the HMAC -> red (5 failing K1 tests); mutated in a copy outside the tree (scratchpad/fals-pk), restored.
+Falsify[K2]: (on 711291c) remove the scope comparison from authenticate (`|| parsed.scope !== scope`) -> red (3 failing: page key on student routes, server key on the public route, key independence). Remove the Origin check in anonymous.ts -> red (1 failing: `a page key sent with an Origin the partner did not list`). These are the c0b scope-check falsifications.
+Falsify[K3]: (on 711291c) a missing age is an adult (fail open) -> red (1 failing: the age/consent matrix test).
+Falsify[K4]: (on 711291c) grant Allow-Origin to any origin for an active page key -> red (1 failing); also let a server key earn CORS (`?? authenticate(key, "srv")`) -> red (1 failing: `a server key pasted into a web page ... gets no CORS`).
+Falsify[K5]: (on 711291c) rename the openapi nginx location (route disabled) -> red (1 failing: the nginx locations test).
 
 ## Live browser evidence
 Not UI-touching. No browser was used; the real-HTTP evidence is the two launch() tests (real socket, fake Mongo), listed above.
 
 ## Metrics
-Metrics: start=2026-10-22T07:30:00+05:30 end=2026-10-22T07:53:00+05:30 builder_min=23 wall_min=23 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=3 mutations=5 cycle=0 policy=proportional-verification/2026-10-19.17 tokens=unavailable
+Metrics: start=2026-10-22T07:30:00+05:30 end=2026-10-22T07:58:30+05:30 builder_min=29 wall_min=29 agent_min=unavailable blocked_min=0 suite_runs=0 repeat_runs=3 mutations=9 cycle=0 policy=proportional-verification/2026-10-19.17 tokens=unavailable
 Sessions: 2b04f90e-6b56-4682-a76c-d8515b93405c
 
 ## Not verified here (for the checker)
 - Real Mongo (only the fake Db): the unique-id duplicate code 11000 path and the whole-list read are exercised against the fake only.
 - nginx loaded into a real nginx (only text-checked; no nginx on this host); the voice stream upgrade headers through a real proxy.
-- OPEN RISK (design, D-111): the widget's page key is the same key that works server-to-server, so anyone holding a page key can call the student chat routes and claim any student id/age/consent of that tenant. Mitigation is out of scope here; recommend key scopes (anon-only widget key vs server key) in a later unit.
+- RESOLVED in c0b: the earlier open risk (one key both in the page and on student routes) is closed by the two-scope design. Remaining by design: a page key is public, so anyone can call the public chat route with it from a script (no Origin); the Origin rule is a browser-side control, and the per-partner-and-client rate limit is the abuse bound.
 - Preflight is granted when ANY active partner lists the origin (no key on a preflight); the real request is still gated by its own key.
 - A bad key sent with crisis text gets only the static helpline 401 (no crisis turn).
 - Partner usage counters are in memory per process.
