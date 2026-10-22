@@ -996,16 +996,19 @@ test("K1 (c1): two operators rotate the page key and the server key of one partn
   assert.deepEqual(Object.keys(stored).sort(), ["_id", "allowedOrigins", "createdAt", "keys", "name", "partnerId", "status"]);
 });
 
-test("K1 (c1): two overlapping rotates of the SAME scope leave exactly one printed key working (the last writer), and never the old key", async () => {
+test("K1 (c1, J4): two overlapping rotates of the SAME scope leave exactly one printed key working (the first to commit; the other fails visibly and prints none), and never the old key", async () => {
   const w = partnerWorld();
   const old = await w.add("Race Co", [], "race-co");
   const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
   const store = readBarrierStore(w.store, 2);
-  const [a, b] = await Promise.all([rotatePartner(store, "race-co", "pub", ctx), rotatePartner(store, "race-co", "pub", ctx)]);
-  assert.notEqual(a.key, b.key);
+  // pc-hardening-2 J4 (ISS-pc-partner-keys-3): the old behaviour was "both report success, only the last writer's key works"; now the write is compare-and-set on the hash that was read, so
+  // only one rotate reports success and the key it prints is the one that works.
+  const settled = await Promise.allSettled([rotatePartner(store, "race-co", "pub", ctx), rotatePartner(store, "race-co", "pub", ctx)]);
+  const won = settled.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof rotatePartner>>> => r.status === "fulfilled");
+  assert.equal(won.length, 1, "exactly one rotate reports success");
+  assert.ok(settled.some((r) => r.status === "rejected" && r.reason instanceof PartnerError && r.reason.code === "rotated_concurrently"));
   const fresh = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => w.clock.ms });
-  const works = [!!(await fresh.authenticate(a.key, "pub")), !!(await fresh.authenticate(b.key, "pub"))];
-  assert.equal(works.filter(Boolean).length, 1, `exactly one of the two printed keys works (got ${JSON.stringify(works)})`);
+  assert.equal((await fresh.authenticate(won[0]!.value.key, "pub"))?.partnerId, "race-co", "the one printed key works");
   assert.equal(await fresh.authenticate(old.pub, "pub"), undefined, "the old page key is dead");
   assert.equal((await fresh.authenticate(old.srv, "srv"))?.partnerId, "race-co", "the other scope is untouched");
 });
@@ -1014,7 +1017,7 @@ test("K1 (c1): rotate sends the store only the one scope's dotted path, never th
   const w = partnerWorld();
   await w.add("Race Co", [], "race-co");
   const patches: string[][] = [];
-  const spy: PartnerStore = { ...w.store, update: async (id, patch) => (patches.push(Object.keys(patch)), w.store.update(id, patch)) };
+  const spy: PartnerStore = { ...w.store, update: async (id, patch, expect) => (patches.push(Object.keys(patch)), w.store.update(id, patch, expect)) };
   const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
   await rotatePartner(spy, "race-co", "pub", ctx);
   await rotatePartner(spy, "race-co", "srv", ctx);
