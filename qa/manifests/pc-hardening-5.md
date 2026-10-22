@@ -3,7 +3,7 @@
 **Goal task:** none
 **Date:** 2026-10-22
 **Fix cycle:** 0
-**Status:** ready-for-check
+**Status:** checked-PASS (qa/verdicts/pc-hardening-5.md, d66d9bd; merged b736e34)
 **Dual check:** no
 **Dual-check reason:** go-live approval gate, not request auth/tenancy: the change only makes the B13 go-live gate stricter (an unset, empty or blank approver now refuses instead of skipping the signer match); no request authentication, tenant scoping or production write is touched.
 **Persona walk:** skip (no new screen or flow)
