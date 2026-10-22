@@ -108,6 +108,8 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 
 - [x] DONE pc-reserved-ids-2 — approved: 2026-10-22 (Umesh, chat "go as per the best recommended" after the follow-up was recommended) — ISS-pc-reserved-ids-1..5: warn on an empty tenant list, go-live docs, a partner's own tenant not self-blocking, malformed list only fatal when partners are on, trim programmatic ids, rotate warning. files: apps/api/src/partners.ts, apps/api/src/index.ts, apps/api/scripts/partner.ts, tests, docs · tier L (tenancy), dual check
 
+- [ ] TODO pc-hardening — approved: 2026-10-22 (Umesh, chat "go as per the best recommended": continue in the recommended order) — ISS-pc-voice-1, -2, -6 and ISS-pc-reserved-ids-7, -8, -9: NaN voice-cap guard, capped-upgrade token test, widget 429 message, fold-compare sandbox guard, partner list flags reserved ids, pin pathlynks-2 behaviour. files: apps/api/src/voice.ts, apps/api/src/index.ts, apps/api/scripts/partner.ts, apps/api/src/partners.ts (read), apps/widget/src/voice.js, tests · tier L (tenancy + config), dual check
+
 ## Candidates (human picks)
 - [ ] db-ttl-scanner-next (low, from 6c 2026-10-21): packages/db/tests/db-init.test.ts:352 scanner skips node_modules/dist/tests/evals but not .next; a local apps/web dev build makes it red. Add .next to the skip set.
 - priority: low · p1-lk5b review follow-ups (qa/evidence/p1-briefs/p1-lk5b-review-result.md): DOMAIN_RE still quadratic when text has "." (58 ms at 2k chars, bounded by the 2000-char cap; fix = start anchor + dotted timing test); missed fact wordings "half of", "a dozen", "a quarter of", "Sept", "decade", "sterling", upper-case "MAY".
