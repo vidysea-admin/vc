@@ -620,5 +620,200 @@ export const STUDENT_API_DRAFT = {
   },
 } as const;
 
-/** pc-partner-keys K5 (D-111): the document GET /v1/partner/openapi.json serves. The first version re-exports the student draft; pc-docs-openapi fills it in. */
-export const PARTNER_OPENAPI = STUDENT_API_DRAFT;
+/**
+ * pc-docs-openapi D1 (D-111; K5 serves it at GET /v1/partner/openapi.json): the OpenAPI 3.1 document for the PARTNER routes: the public chat turn (page key),
+ * the student chat routes (server key + student headers) and this document itself. Voice sessions are not described: they arrive with pc-voice.
+ *
+ * Schemas are NOT copied: each one is the very object STUDENT_API_DRAFT already keeps in step with the Zod schemas of @vc/schemas, so the two documents cannot
+ * diverge, and apps/api/tests/partner-openapi.test.ts re-checks every one against Zod. What is written here is only what the draft does not say: the two key kinds,
+ * the headers, the errors the partner routes really return, and the limits (the D-088 defaults, checked against DEFAULT_LIMITS in the test).
+ *
+ * The auth facts (partners.ts, anonymous.ts, chat.ts): a PAGE key `vck_pub_<partnerId>_<43>` opens only POST /v1/public/chat/turns (header X-VC-Key; from a browser the
+ * Origin must be one of the partner's allowed origins); a SERVER key `vck_srv_<partnerId>_<43>` opens only the student chat routes (Authorization: Bearer, plus the
+ * X-VC-Student-* headers; never CORS, never in a browser). A key of the wrong scope, a malformed, unknown, revoked or rotated-out key, or a page key from a foreign
+ * origin is one uniform 401. A rotate or revoke reaches a running server within 60 s.
+ */
+const PD = STUDENT_API_DRAFT.components.schemas;
+const PARTNER_SCHEMA_NAMES = [
+  "Claim",
+  "Source",
+  "ProfileFact",
+  "ProposedFact",
+  "ProfileResponse",
+  "FactDecisionRequest",
+  "TurnRequest",
+  "TurnResponse",
+  "ThreadCreated",
+  "ThreadTurn",
+  "Thread",
+  "AnonymousTurnRequest",
+  "AnonymousTurnResponse",
+  "AnonymousError",
+] as const;
+const partnerSchemas = Object.fromEntries(PARTNER_SCHEMA_NAMES.map((n) => [n, PD[n]])) as { [K in (typeof PARTNER_SCHEMA_NAMES)[number]]: (typeof PD)[K] };
+
+const hdrParam = (name: string, required: boolean, schema: object, description: string) => ({ name, in: "header", required, schema, description });
+const originParam = hdrParam(
+  "Origin",
+  false,
+  { type: "string" },
+  "Sent by every browser. With a page key it must be one of the partner's allowed origins (otherwise 401). A call with no Origin header (a script, curl) is not a browser and is not origin-checked.",
+);
+const studentHeaders = [
+  hdrParam("X-VC-Student-Id", true, { type: "string", pattern: ID.pattern }, "The student, as your backend knows them. Must equal the {studentId} in the path, otherwise 404. Missing or invalid: 400."),
+  hdrParam("X-VC-Student-Age", false, { type: "integer", minimum: 0, maximum: 120 }, "Whole years. Missing or invalid means the student is treated as a minor (fail closed)."),
+  hdrParam("X-VC-Guardian-Consent", false, { type: "string", enum: ["true"] }, "Only the exact value `true` counts as guardian consent; anything else is no consent. A minor without consent has no text stored."),
+] as const;
+
+const retryAfter = { description: "Seconds until the next request is accepted", schema: { type: "integer", minimum: 1 }, required: true } as const;
+const wwwAuth = { description: 'Always `Bearer realm="vc-api"`', schema: { type: "string" } } as const;
+const errorRes = (description: string, schema: "Error" | "AnonymousError", headers?: object) => ({ description, ...(headers ? { headers } : {}), ...json(ref(schema)) });
+
+const partnerResponses = {
+  StudentBadRequest: errorRes("Invalid path id, body or X-VC-Student-Id (`invalid_request`)", "Error"),
+  StudentUnauthorized: errorRes("One identical answer for a missing bearer, a malformed, unknown, revoked or rotated-out key, or a PAGE key (wrong scope)", "Error", { "WWW-Authenticate": wwwAuth }),
+  StudentNotFound: errorRes("No such thread or fact for this student of this partner, or X-VC-Student-Id is not the {studentId} of the path. A partner can never see another partner's students", "Error"),
+  StudentConflict: errorRes("`turn_in_progress` (retry after 2 s), `turn_id_conflict`, `student_fenced` or `conflict`", "Error"),
+  StudentTooLarge: errorRes("Body larger than 64 KiB (never scanned; carries the static Tele-MANAS line)", "AnonymousError"),
+  StudentTooMany: errorRes("More than 30 requests a minute for this partner's student (the D-088 default)", "Error", { "Retry-After": retryAfter }),
+  StudentUnavailable: errorRes("`partner_registry_unavailable`, `profile_unavailable` or `writer_deadline`: nothing was changed, retry", "Error"),
+  StudentInternal: errorRes("Unexpected failure; the body never carries the cause", "Error"),
+  PublicBadRequest: errorRes("Malformed JSON, an unknown field, a missing `text`, or over-long text (`invalid_request`)", "AnonymousError"),
+  PublicUnauthorized: errorRes(
+    "One identical answer for a malformed, blank, repeated, unknown, revoked or rotated-out key, a SERVER key (wrong scope), a page key sent from an Origin that is not the partner's, or no key when the server requires one. Carries the static Tele-MANAS line",
+    "AnonymousError",
+    { "WWW-Authenticate": wwwAuth },
+  ),
+  PublicMethod: errorRes("Only POST is served", "AnonymousError", { Allow: { schema: { type: "string" } } }),
+  PublicTooLarge: errorRes("Body larger than 64 KiB", "AnonymousError"),
+  PublicTooMany: errorRes("More than 10 requests a minute from this client for this partner (the D-088 default). A crisis message is never limited", "AnonymousError", { "Retry-After": retryAfter }),
+  PublicUnavailable: errorRes("`partner_registry_unavailable`: the key store could not be read (fail closed)", "AnonymousError"),
+  PublicInternal: errorRes("Unexpected failure; the body never carries the cause", "AnonymousError"),
+} as const;
+const pr = (name: keyof typeof partnerResponses) => ({ $ref: `#/components/responses/${name}` });
+
+const studentCommon = {
+  "400": pr("StudentBadRequest"),
+  "401": pr("StudentUnauthorized"),
+  "404": pr("StudentNotFound"),
+  "409": pr("StudentConflict"),
+  "429": pr("StudentTooMany"),
+  "500": pr("StudentInternal"),
+  "503": pr("StudentUnavailable"),
+} as const;
+const studentOp = (op: object) => ({ security: [{ serverKey: [] }], "x-rate-limit": { requests: DEFAULT_LIMITS.requestsPerMinute, windowSeconds: 60, per: "partner + student" }, ...op });
+
+export const PARTNER_OPENAPI = {
+  openapi: "3.1.0",
+  info: {
+    title: "Virtual Counsellor partner API",
+    version: "1.0.0",
+    description:
+      "Chat with the Virtual Counsellor from your own site or backend. Every partner has two keys. " +
+      "The PAGE key (`vck_pub_<partnerId>_<43 characters>`) may sit in public HTML: it opens only POST /v1/public/chat/turns, sent as the X-VC-Key header, and from a browser only for the partner's own origins. " +
+      "The SERVER key (`vck_srv_<partnerId>_<43 characters>`) stays on your backend, never in a browser: it opens only the student chat routes, sent as `Authorization: Bearer`, together with the X-VC-Student-Id, X-VC-Student-Age and X-VC-Guardian-Consent headers (a missing age means a minor). " +
+      "A key used on the wrong route, a malformed, unknown, revoked or rotated-out key, and a page key from a foreign origin all get the same 401. " +
+      "A rotate or revoke takes effect within 60 seconds. Limits (per minute, with a Retry-After on 429): 10 anonymous turns per partner and client, 30 student requests per partner's student. " +
+      "A crisis message always gets the fixed crisis answer (state `escalated`) with Tele-MANAS 14416 (112 in immediate danger), and is never rate limited on the anonymous route.",
+  },
+  servers: [{ url: "/" }],
+  "x-voice": { status: "coming with pc-voice", description: "Voice sessions for partner keys are not part of this document yet; their routes and fields will be added when pc-voice ships." },
+  security: [],
+  components: {
+    securitySchemes: {
+      pageKey: {
+        type: "apiKey",
+        in: "header",
+        name: "X-VC-Key",
+        description: "The PAGE key, `vck_pub_<partnerId>_<43 characters>`. Public by design; works only on POST /v1/public/chat/turns and, from a browser, only from the partner's allowed origins.",
+      },
+      serverKey: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "vck_srv_<partnerId>_<43 characters>",
+        description: "The SERVER key, sent as `Authorization: Bearer vck_srv_...`. Secret: keep it on your backend, never in a browser (it gets no CORS headers). Works only on the student chat routes, which also need the X-VC-Student-* headers. The tenant is your partner id.",
+      },
+    },
+    responses: partnerResponses,
+    schemas: { Error: OPENAPI_DOCUMENT.components.schemas.Error, ...partnerSchemas },
+  },
+  paths: {
+    "/v1/partner/openapi.json": {
+      get: {
+        operationId: "getPartnerOpenApi",
+        summary: "This document. No key needed; CORS is granted to a partner's page key from its allowed origins",
+        security: [],
+        responses: {
+          "200": ok("The OpenAPI 3.1 document"),
+          "405": { description: "Only GET and OPTIONS are served", headers: { Allow: { schema: { type: "string" } } }, ...json({ type: "object", properties: { error: { type: "string" } } }) },
+        },
+      },
+    },
+    "/v1/public/chat/turns": {
+      post: {
+        operationId: "postPartnerPublicTurn",
+        summary:
+          "Anonymous text turn from a web page (page key). Generic knowledge-base questions only; personal or ambiguous questions return `sign_in_required`; a crisis returns the fixed message with Tele-MANAS. Nothing is stored except a text-free daily counter",
+        description:
+          "Send X-VC-Key with the PAGE key. Without a key the route still answers unless the server runs with VC_PARTNER_KEY_REQUIRED=true (then 401). With a key, the limit is per partner and client and your partner id is counted in usage (never the text). A browser needs the Origin to be in the partner's allowed list; the answer then carries Access-Control-Allow-Origin for exactly that origin (never `*`) and exposes Retry-After.",
+        security: [{ pageKey: [] }, {}],
+        "x-rate-limit": { requests: DEFAULT_LIMITS.anonymousRequestsPerMinute, windowSeconds: 60, per: "partner + client", crisisExempt: true },
+        parameters: [originParam],
+        requestBody: { required: true, ...json(ref("AnonymousTurnRequest")) },
+        responses: {
+          "200": ok("The answer", ref("AnonymousTurnResponse")),
+          "400": pr("PublicBadRequest"),
+          "401": pr("PublicUnauthorized"),
+          "405": pr("PublicMethod"),
+          "413": pr("PublicTooLarge"),
+          "429": pr("PublicTooMany"),
+          "500": pr("PublicInternal"),
+          "503": pr("PublicUnavailable"),
+        },
+      },
+    },
+    "/v1/students/{studentId}/chat/threads": {
+      post: studentOp({
+        operationId: "createPartnerChatThread",
+        summary: "Start a thread for one of your students (server key)",
+        parameters: [studentId, ...studentHeaders],
+        responses: { "201": ok("The new thread", ref("ThreadCreated")), ...studentCommon },
+      }),
+    },
+    "/v1/students/{studentId}/chat/threads/{threadId}": {
+      get: studentOp({
+        operationId: "getPartnerChatThread",
+        summary: "One history of turns, in order",
+        parameters: [studentId, threadId, ...studentHeaders],
+        responses: { "200": ok("The thread", ref("Thread")), ...studentCommon },
+      }),
+    },
+    "/v1/students/{studentId}/chat/threads/{threadId}/turns": {
+      post: studentOp({
+        operationId: "postPartnerChatTurn",
+        summary:
+          "Send a text turn; idempotent on clientTurnId. The answer is personalised to the student's profile. A crisis returns state `escalated` with the fixed crisis message and Tele-MANAS 14416 (112 in immediate danger)",
+        parameters: [studentId, threadId, ...studentHeaders],
+        requestBody: { required: true, ...json(ref("TurnRequest")) },
+        responses: { "200": ok("The answer", ref("TurnResponse")), ...studentCommon, "413": pr("StudentTooLarge") },
+      }),
+    },
+    "/v1/students/{studentId}/chat/profile": {
+      get: studentOp({
+        operationId: "getPartnerChatProfile",
+        summary: "Facts in use (supplied by your backend or confirmed by the student) and chat-extracted facts proposed for confirmation",
+        parameters: [studentId, ...studentHeaders],
+        responses: { "200": ok("The profile", ref("ProfileResponse")), ...studentCommon },
+      }),
+    },
+    "/v1/students/{studentId}/chat/profile/facts/{factId}/decision": {
+      post: studentOp({
+        operationId: "decidePartnerProfileFact",
+        summary: "Confirm, correct or erase a proposed or stored fact; an unconfirmed chat-extracted fact is never used",
+        parameters: [studentId, factId, ...studentHeaders],
+        requestBody: { required: true, ...json(ref("FactDecisionRequest")) },
+        responses: { "200": ok("The updated profile", ref("ProfileResponse")), ...studentCommon, "413": errorRes("Body larger than 64 KiB", "Error") },
+      }),
+    },
+  },
+} as const;
