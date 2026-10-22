@@ -3,7 +3,7 @@
 **Goal task:** none
 **Date:** 2026-10-22
 **Fix cycle:** 0
-**Status:** ready-for-check
+**Status:** checked-PASS (qa/verdicts/pc-hardening-3.A.md 896d5ad + qa/verdicts/pc-hardening-3.B.md c139609; review Warning non-blocking, findings ISS-pc-hardening-3-1..8)
 **Dual check:** yes
 **Dual-trigger:** tenancy apps/api/src/auth.ts:435-446 (`refuseTenantClaims`, the wrapper around the student JWT verifier: the verified `tenant` claim is refused at :445 when it collides with a partner id); wired for chat, profile and voice sessions at apps/api/src/index.ts:647
 **Persona walk:** skip (no new screen or flow: server refusal, nginx config, a gate read and a test pin)
