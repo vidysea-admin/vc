@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Virtual Counsellor — System Architecture</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --paper: #ffffff;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --line: #d1d5db;
+    --frame: #c7c9cf;
+    --node: #ffffff;
+    --node-stroke: #4b5563;
+    --diamond: #2563eb;
+    --diamond-fill: #ffffff;
+    --start-end-stroke: #2563eb;
+    --edge: #2563eb;
+    --edge-cond: #db2777;
+    --edge-finalize: #16a34a;
+    --edge-feedback: #f59e0b;
+    --edge-parallel: #0891b2;
+    --code: #be123c;
+    --entry: #1d4ed8;
+    --engine: #7c3aed;
+    --data: #4b5563;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 28px 24px 60px; }
+
+  header.top { margin-bottom: 22px; }
+  header.top h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: -0.01em; }
+  header.top .sub { color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+  .card { background: var(--paper); border: 1px solid var(--frame); border-radius: 14px; padding: 18px; margin-bottom: 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .card h2 { margin: 0 0 4px; font-size: 16px; }
+  .card .csub { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+
+  .frame { border: 2px solid var(--frame); border-radius: 18px; padding: 14px; background: var(--paper); }
+  .frame-title { text-align: center; font-weight: 600; font-size: 16px; margin-bottom: 6px; color: var(--ink); }
+
+  svg .nlabel { fill: var(--ink); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px; font-weight: 500; }
+  svg .nlabel-sm { fill: var(--ink); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10px; }
+  svg .elabel { fill: var(--ink); font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-style: italic; }
+  svg .clabel { fill: var(--code); font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; font-size: 10px; }
+  svg .grouplabel { fill: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+  svg .grouplabel.entry { fill: var(--entry); }
+  svg .grouplabel.engine { fill: var(--engine); }
+  svg .grouplabel.data { fill: var(--data); }
+
+  svg .node { fill: var(--node); stroke: var(--node-stroke); stroke-width: 1.4; rx: 10; }
+  svg .node.guard { stroke: var(--edge-feedback); stroke-width: 2; }
+  svg .node.success { stroke: #16a34a; }
+  svg .diamond { fill: var(--diamond-fill); stroke: var(--diamond); stroke-width: 1.6; }
+  svg .startend { fill: #ffffff; stroke: var(--start-end-stroke); stroke-width: 1.6; }
+
+  svg .group-entry { fill: rgba(29,78,216,0.04); stroke: var(--entry); stroke-width: 1.5; stroke-dasharray: 6 4; rx: 14; }
+  svg .group-engine { fill: rgba(124,58,237,0.04); stroke: var(--engine); stroke-width: 1.5; stroke-dasharray: 6 4; rx: 14; }
+  svg .group-data { fill: rgba(75,85,99,0.04); stroke: var(--data); stroke-width: 1.5; stroke-dasharray: 6 4; rx: 14; }
+
+  svg .edge { fill: none; stroke: var(--edge); stroke-width: 1.6; marker-end: url(#arr-blue); }
+  svg .edge-cond { fill: none; stroke: var(--edge-cond); stroke-width: 1.6; marker-end: url(#arr-pink); }
+  svg .edge-finalize { fill: none; stroke: var(--edge-finalize); stroke-width: 1.8; marker-end: url(#arr-green); }
+  svg .edge-feedback { fill: none; stroke: var(--edge-feedback); stroke-width: 1.6; stroke-dasharray: 4 3; marker-end: url(#arr-amber); }
+  svg .edge-parallel { fill: none; stroke: var(--edge-parallel); stroke-width: 1.6; stroke-dasharray: 5 3; marker-end: url(#arr-cyan); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 18px; padding-top: 12px; border-top: 1px dashed var(--line); margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 28px; height: 2px; border-radius: 2px; }
+  .legend .swatch.dashed { border-top: 2px dashed; border-radius: 0; height: 0; }
+  .legend code { background: #fdf2f8; color: var(--code); padding: 1px 5px; border-radius: 3px; border: 1px solid #fce7f3; font-size: 11px; }
+
+  .notes { color: var(--muted); font-size: 12px; margin-top: 6px; line-height: 1.6; }
+  .notes b { color: var(--ink); }
+  .notes code { color: var(--code); font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>Virtual Counsellor — System Architecture</h1>
+  <div class="sub">Repo <b>D:\vc</b> · state on <b>origin/main c87fb44</b> (pushed 2026-10-22 15:20 IST). North star: Explore → Conclude → Execute; AI assists, the human decides. Four diagrams: ① the whole system, ② one student chat turn, ③ one voice session, ④ the counsellor scribe. Drawn from the code, with file references in red.</div>
+</header>
+
+<!-- ======================= ① SYSTEM OVERVIEW ======================= -->
+<section class="card" id="overview">
+  <h2>① System overview — who connects, what runs, where data lands</h2>
+  <div class="csub">Partners (Vidysea website, Pathlynks) connect with an API key; students can also sign in with a JWT or chat anonymously; counsellors use the web app. One API process serves all public routes behind nginx.</div>
+  <div class="frame">
+    <div class="frame-title">Virtual Counsellor — Components and Request Paths</div>
+    <svg viewBox="0 0 1320 830" width="100%" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arr-blue"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker>
+        <marker id="arr-pink"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#db2777"/></marker>
+        <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#16a34a"/></marker>
+        <marker id="arr-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#f59e0b"/></marker>
+        <marker id="arr-cyan"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#0891b2"/></marker>
+      </defs>
+
+      <!-- ===== ENTRY SURFACES ===== -->
+      <rect class="group-entry" x="10" y="20" width="1300" height="110"/>
+      <text class="grouplabel entry" x="26" y="40">WHO CONNECTS</text>
+
+      <rect class="node" x="40" y="60" width="220" height="50"/>
+      <text class="nlabel" x="150" y="80" text-anchor="middle">Partner website widget</text>
+      <text class="nlabel-sm" x="150" y="96" text-anchor="middle">vck_pub_ page key · Origin allow-list</text>
+
+      <rect class="node" x="290" y="60" width="220" height="50"/>
+      <text class="nlabel" x="400" y="80" text-anchor="middle">Partner backend</text>
+      <text class="nlabel-sm" x="400" y="96" text-anchor="middle">vck_srv_ key · X-VC-Student-* headers</text>
+
+      <rect class="node" x="540" y="60" width="220" height="50"/>
+      <text class="nlabel" x="650" y="80" text-anchor="middle">Student page (apps/student)</text>
+      <text class="nlabel-sm" x="650" y="96" text-anchor="middle">anonymous · no login</text>
+
+      <rect class="node" x="790" y="60" width="220" height="50"/>
+      <text class="nlabel" x="900" y="80" text-anchor="middle">Signed-in student</text>
+      <text class="nlabel-sm" x="900" y="96" text-anchor="middle">student JWT (VC_STUDENT_JWT_*)</text>
+
+      <rect class="node" x="1040" y="60" width="220" height="50"/>
+      <text class="nlabel" x="1150" y="80" text-anchor="middle">Counsellor web (apps/web)</text>
+      <text class="nlabel-sm" x="1150" y="96" text-anchor="middle">Next.js · counsellor JWT</text>
+
+      <!-- nginx -->
+      <rect class="node" x="480" y="160" width="360" height="44"/>
+      <text class="nlabel" x="660" y="180" text-anchor="middle">nginx (TLS) → API on 127.0.0.1</text>
+      <text class="clabel" x="660" y="196" text-anchor="middle">infra/ubuntu/nginx-vc.conf</text>
+
+      <path class="edge" d="M150,110 V128 H520 V158"/>
+      <path class="edge" d="M400,110 V140 H600 V158"/>
+      <line class="edge" x1="650" y1="110" x2="650" y2="158"/>
+      <path class="edge" d="M900,110 V140 H720 V158"/>
+      <path class="edge" d="M1150,110 V182 H842"/>
+
+      <!-- ===== API LAYER ===== -->
+      <rect class="group-entry" x="10" y="235" width="1300" height="215"/>
+      <text class="grouplabel entry" x="26" y="257">API LAYER — apps/api (one process)</text>
+
+      <rect class="node guard" x="40" y="270" width="260" height="50"/>
+      <text class="nlabel" x="170" y="290" text-anchor="middle">Go-live gate (at startup)</text>
+      <text class="nlabel-sm" x="170" y="306" text-anchor="middle">qa/gates A10 · B13 · A20 — refused = no start</text>
+
+      <rect class="node" x="380" y="270" width="320" height="50"/>
+      <text class="nlabel" x="540" y="290" text-anchor="middle">Auth + tenancy</text>
+      <text class="nlabel-sm" x="540" y="306" text-anchor="middle">partner key → tenant = partnerId · or JWT</text>
+
+      <polygon class="diamond" points="850,267 905,295 850,323 795,295"/>
+      <text class="nlabel" x="850" y="299" text-anchor="middle">Route?</text>
+
+      <line class="edge" x1="300" y1="295" x2="378" y2="295"/>
+      <text class="elabel" x="306" y="288">start allowed</text>
+      <path class="edge" d="M660,204 V250 H540 V268"/>
+      <line class="edge" x1="700" y1="295" x2="793" y2="295"/>
+      <text class="clabel" x="708" y="288">partners.ts:580</text>
+
+      <rect class="node" x="40" y="385" width="280" height="50"/>
+      <text class="nlabel" x="180" y="405" text-anchor="middle">Anonymous chat</text>
+      <text class="nlabel-sm" x="180" y="421" text-anchor="middle">/v1/public/chat/turns · no DB, counters only</text>
+
+      <rect class="node" x="360" y="385" width="280" height="50"/>
+      <text class="nlabel" x="500" y="405" text-anchor="middle">Student chat</text>
+      <text class="nlabel-sm" x="500" y="421" text-anchor="middle">/v1/students/{sid}/chat/* · tenant DB</text>
+
+      <rect class="node" x="680" y="385" width="280" height="50"/>
+      <text class="nlabel" x="820" y="405" text-anchor="middle">Voice</text>
+      <text class="nlabel-sm" x="820" y="421" text-anchor="middle">voice/sessions → WebSocket stream</text>
+
+      <rect class="node" x="1000" y="385" width="280" height="50"/>
+      <text class="nlabel" x="1140" y="405" text-anchor="middle">Counsellor routes</text>
+      <text class="nlabel-sm" x="1140" y="421" text-anchor="middle">scribe · approval · erasure · export</text>
+
+      <path class="edge-cond" d="M850,323 V355 H180 V383"/>
+      <path class="edge-cond" d="M850,323 V355 H500 V383"/>
+      <path class="edge-cond" d="M850,323 V355 H820 V383"/>
+      <path class="edge-cond" d="M850,323 V355 H1140 V383"/>
+      <text class="elabel" x="862" y="348">by path</text>
+
+      <!-- ===== ENGINE ===== -->
+      <rect class="group-engine" x="10" y="480" width="1300" height="150"/>
+      <text class="grouplabel engine" x="26" y="502">ENGINE — packages/engine + packages/providers</text>
+
+      <rect class="node guard" x="40" y="530" width="280" height="50"/>
+      <text class="nlabel" x="180" y="550" text-anchor="middle">crisisGuard + safety screen</text>
+      <text class="nlabel-sm" x="180" y="566" text-anchor="middle">fixed Tele-MANAS 14416 reply · no model</text>
+
+      <rect class="node" x="360" y="530" width="440" height="50"/>
+      <text class="nlabel" x="580" y="550" text-anchor="middle">Student answer graph (LangGraph)</text>
+      <text class="nlabel-sm" x="580" y="566" text-anchor="middle">gate → crisis → route → answer | coach | tool → finish</text>
+
+      <rect class="node" x="830" y="530" width="200" height="50"/>
+      <text class="nlabel" x="930" y="550" text-anchor="middle">LiveSession (voice)</text>
+      <text class="nlabel-sm" x="930" y="566" text-anchor="middle">crisis mute · 2 s budget</text>
+
+      <rect class="node" x="1050" y="530" width="240" height="50"/>
+      <text class="nlabel" x="1170" y="550" text-anchor="middle">Scribe graph (LangGraph)</text>
+      <text class="nlabel-sm" x="1170" y="566" text-anchor="middle">consent → crisis → extract → diff → approval</text>
+
+      <path class="edge" d="M180,435 V505 H420 V528"/>
+      <line class="edge" x1="500" y1="435" x2="500" y2="528"/>
+      <path class="edge" d="M820,435 V505 H930 V528"/>
+      <line class="edge" x1="1140" y1="435" x2="1140" y2="528"/>
+      <line class="edge-parallel" x1="360" y1="555" x2="322" y2="555"/>
+      <text class="elabel" x="326" y="546">screen</text>
+
+      <!-- counsellor web in-process path -->
+      <path class="edge" d="M1260,85 H1302 V555 H1292"/>
+      <text class="clabel" x="1296" y="470" text-anchor="end">runtime.ts (in-process)</text>
+
+      <!-- ===== PROVIDERS + DATA ===== -->
+      <rect class="group-data" x="10" y="660" width="1300" height="150"/>
+      <text class="grouplabel data" x="26" y="682">EXTERNAL SERVICES + DATA</text>
+
+      <rect class="node" x="30" y="710" width="185" height="50"/>
+      <text class="nlabel" x="122" y="730" text-anchor="middle">Knowledge Base API</text>
+      <text class="nlabel-sm" x="122" y="746" text-anchor="middle">VC_KB_BASE_URL · search / ask</text>
+
+      <rect class="node" x="230" y="710" width="185" height="50"/>
+      <text class="nlabel" x="322" y="730" text-anchor="middle">LLM chain</text>
+      <text class="nlabel-sm" x="322" y="746" text-anchor="middle">Gemini · LiteLLM · Ollama</text>
+
+      <rect class="node" x="430" y="710" width="185" height="50"/>
+      <text class="nlabel" x="522" y="730" text-anchor="middle">Gemini grounding</text>
+      <text class="nlabel-sm" x="522" y="746" text-anchor="middle">VC_GROUNDING=gemini</text>
+
+      <rect class="node success" x="630" y="710" width="185" height="50"/>
+      <text class="nlabel" x="722" y="730" text-anchor="middle">MongoDB</text>
+      <text class="nlabel-sm" x="722" y="746" text-anchor="middle">virtual_counsellor · per tenant</text>
+
+      <rect class="node" x="835" y="710" width="190" height="50"/>
+      <text class="nlabel" x="930" y="730" text-anchor="middle">Gemini Live</text>
+      <text class="nlabel-sm" x="930" y="746" text-anchor="middle">compile-only · not wired yet</text>
+
+      <rect class="node" x="1045" y="710" width="245" height="50"/>
+      <text class="nlabel" x="1167" y="730" text-anchor="middle">Langfuse (self-hosted)</text>
+      <text class="nlabel-sm" x="1167" y="746" text-anchor="middle">scribe traces · error spans</text>
+
+      <path class="edge" d="M420,580 V640 H122 V708"/>
+      <path class="edge" d="M480,580 V652 H322 V708"/>
+      <line class="edge" x1="540" y1="580" x2="540" y2="708"/>
+      <line class="edge-finalize" x1="700" y1="580" x2="700" y2="708"/>
+      <line class="edge" x1="930" y1="580" x2="930" y2="708"/>
+      <path class="edge-finalize" d="M860,580 V662 H780 V708"/>
+      <line class="edge" x1="1170" y1="580" x2="1170" y2="708"/>
+      <path class="edge-finalize" d="M1290,570 H1312 V790 H722 V762"/>
+      <text class="clabel" x="1060" y="785">approved facts + edges</text>
+    </svg>
+  </div>
+  <div class="legend">
+    <div class="item"><span class="swatch" style="background:#2563eb"></span>solid blue — request / call flow</div>
+    <div class="item"><span class="swatch" style="background:#db2777"></span>solid pink — routing decision</div>
+    <div class="item"><span class="swatch" style="background:#16a34a"></span>solid green — durable write to MongoDB</div>
+    <div class="item"><span class="swatch dashed" style="border-color:#0891b2"></span>dashed cyan — runs in parallel</div>
+    <div class="item"><span class="swatch" style="background:#f59e0b"></span>amber box — safety guard / gate</div>
+  </div>
+  <div class="notes">
+    <b>Tenancy:</b> a partner's server key reaches only the tenant named by its own partner id (<code>chat.ts:854-855</code>, <code>voice.ts:1711-1712</code>). Partner ids that equal or look like a real tenant are refused when added and on every request (<code>VC_RESERVED_TENANT_IDS</code>, <code>VC_PARTNER_OWN_TENANTS</code>).<br/>
+    <b>Go-live gate</b> runs once at startup, not per request: a refused gate means the API does not start (<code>index.ts:636-652</code>).<br/>
+    <b>Counsellor web</b> does not call the API; it runs the scribe graph in-process (<code>apps/web/src/server/runtime.ts</code>), in demo mode unless <code>VC_WEB_MODE=live</code>.<br/>
+    <b>Not production-ready yet:</b> Gemini Live is compile-only and the launcher builds no live voice provider, so real voice needs a wiring step. Rate limits, single-use voice tokens and crisis slots are in memory, so they hold for one process only.
+  </div>
+</section>
+
+<!-- ======================= ② STUDENT CHAT TURN ======================= -->
+<section class="card" id="chat">
+  <h2>② One student chat turn — guards first, then the answer graph</h2>
+  <div class="csub">Same path for a signed-in student and a partner server key. Crisis text always wins: it skips rate limits and gets a fixed helpline reply with no model call. Anonymous chat runs the same graph with search only and stores no text.</div>
+  <div class="frame">
+    <div class="frame-title">POST /v1/students/{sid}/chat/threads/{tid}/turns</div>
+    <svg viewBox="0 0 1320 600" width="100%" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arr-blue"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker>
+        <marker id="arr-pink"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#db2777"/></marker>
+        <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#16a34a"/></marker>
+        <marker id="arr-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#f59e0b"/></marker>
+        <marker id="arr-cyan"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#0891b2"/></marker>
+      </defs>
+
+      <!-- ===== ROW 1: API guards ===== -->
+      <rect class="group-entry" x="10" y="10" width="1300" height="165"/>
+      <text class="grouplabel entry" x="26" y="30">API LAYER — AUTH + GUARDS (apps/api/src/chat.ts)</text>
+
+      <ellipse class="startend" cx="60" cy="72" rx="42" ry="22"/>
+      <text class="nlabel" x="60" y="76" text-anchor="middle">Turn</text>
+
+      <rect class="node" x="120" y="50" width="130" height="44"/>
+      <text class="nlabel" x="185" y="76" text-anchor="middle">Route match</text>
+
+      <polygon class="diamond" points="330,44 380,72 330,100 280,72"/>
+      <text class="nlabel" x="330" y="76" text-anchor="middle">Auth ok?</text>
+
+      <rect class="node" x="420" y="50" width="200" height="44"/>
+      <text class="nlabel" x="520" y="68" text-anchor="middle">Tenant scope</text>
+      <text class="nlabel-sm" x="520" y="84" text-anchor="middle">srv key → tenant = partnerId</text>
+
+      <polygon class="diamond" points="690,44 740,72 690,100 640,72"/>
+      <text class="nlabel" x="690" y="76" text-anchor="middle">Crisis?</text>
+
+      <polygon class="diamond" points="870,44 930,72 870,100 810,72"/>
+      <text class="nlabel" x="870" y="76" text-anchor="middle">Consent ok?</text>
+
+      <rect class="node" x="980" y="50" width="180" height="44"/>
+      <text class="nlabel" x="1070" y="68" text-anchor="middle">Rate limit + length</text>
+      <text class="nlabel-sm" x="1070" y="84" text-anchor="middle">30/min · crisis bypasses</text>
+
+      <line class="edge" x1="102" y1="72" x2="118" y2="72"/>
+      <line class="edge" x1="250" y1="72" x2="278" y2="72"/>
+      <line class="edge-cond" x1="380" y1="72" x2="418" y2="72"/>
+      <text class="elabel" x="388" y="64">yes</text>
+      <line class="edge" x1="620" y1="72" x2="638" y2="72"/>
+      <line class="edge-cond" x1="740" y1="72" x2="808" y2="72"/>
+      <text class="elabel" x="760" y="64">no</text>
+      <line class="edge-cond" x1="930" y1="72" x2="978" y2="72"/>
+      <text class="elabel" x="942" y="64">yes</text>
+
+      <rect class="node" x="270" y="120" width="120" height="44"/>
+      <text class="nlabel" x="330" y="146" text-anchor="middle">401 (uniform)</text>
+      <line class="edge-cond" x1="330" y1="100" x2="330" y2="118"/>
+      <text class="elabel" x="338" y="113">no</text>
+
+      <rect class="node guard" x="590" y="120" width="200" height="44"/>
+      <text class="nlabel" x="690" y="138" text-anchor="middle">Fixed helpline reply</text>
+      <text class="nlabel-sm" x="690" y="154" text-anchor="middle">Tele-MANAS 14416 · flag · no model</text>
+      <line class="edge-cond" x1="690" y1="100" x2="690" y2="118"/>
+      <text class="elabel" x="698" y="113">yes</text>
+
+      <rect class="node" x="800" y="120" width="140" height="44"/>
+      <text class="nlabel" x="870" y="138" text-anchor="middle">Fixed consent reply</text>
+      <text class="nlabel-sm" x="870" y="154" text-anchor="middle">minor, no guardian ok</text>
+      <line class="edge-cond" x1="870" y1="100" x2="870" y2="118"/>
+      <text class="elabel" x="878" y="113">no</text>
+
+      <text class="clabel" x="1070" y="112" text-anchor="middle">chat.ts:632-737</text>
+
+      <!-- connector row1 -> row2 -->
+      <path class="edge" d="M1160,72 H1240 V185 H115 V223"/>
+
+      <!-- ===== ROW 2: store + graph ===== -->
+      <rect class="node" x="40" y="225" width="150" height="44"/>
+      <text class="nlabel" x="115" y="243" text-anchor="middle">Redact PII</text>
+      <text class="nlabel-sm" x="115" y="259" text-anchor="middle">email · phone · names</text>
+
+      <rect class="node success" x="210" y="225" width="160" height="44"/>
+      <text class="nlabel" x="290" y="243" text-anchor="middle">Store user turn</text>
+      <text class="nlabel-sm" x="290" y="259" text-anchor="middle">claimChatTurn (redacted)</text>
+
+      <line class="edge-finalize" x1="190" y1="247" x2="208" y2="247"/>
+
+      <rect class="group-engine" x="390" y="195" width="920" height="200"/>
+      <text class="grouplabel engine" x="406" y="213">STUDENT ANSWER GRAPH (packages/engine/src/student/graph.ts)</text>
+
+      <rect class="node" x="410" y="225" width="150" height="44"/>
+      <text class="nlabel" x="485" y="243" text-anchor="middle">route</text>
+      <text class="nlabel-sm" x="485" y="259" text-anchor="middle">language · tool pick</text>
+
+      <polygon class="diamond" points="650,219 700,247 650,275 600,247"/>
+      <text class="nlabel" x="650" y="251" text-anchor="middle">KB hits?</text>
+
+      <rect class="node" x="740" y="225" width="200" height="44"/>
+      <text class="nlabel" x="840" y="243" text-anchor="middle">Answer with sources</text>
+      <text class="nlabel-sm" x="840" y="259" text-anchor="middle">evidence redacted · claim guards</text>
+
+      <rect class="node" x="980" y="225" width="160" height="44"/>
+      <text class="nlabel" x="1060" y="243" text-anchor="middle">finish</text>
+      <text class="nlabel-sm" x="1060" y="259" text-anchor="middle">waits for safety screen</text>
+
+      <rect class="node guard" x="410" y="315" width="170" height="44"/>
+      <text class="nlabel" x="495" y="333" text-anchor="middle">Safety screen</text>
+      <text class="nlabel-sm" x="495" y="349" text-anchor="middle">concern classifier</text>
+
+      <rect class="node" x="600" y="315" width="260" height="44"/>
+      <text class="nlabel" x="730" y="333" text-anchor="middle">No-source path</text>
+      <text class="nlabel-sm" x="730" y="349" text-anchor="middle">Gemini grounding → expert answer + disclaimer</text>
+
+      <line class="edge" x1="370" y1="247" x2="408" y2="247"/>
+      <line class="edge" x1="560" y1="247" x2="598" y2="247"/>
+      <line class="edge-cond" x1="700" y1="247" x2="738" y2="247"/>
+      <text class="elabel" x="708" y="239">yes</text>
+      <line class="edge" x1="940" y1="247" x2="978" y2="247"/>
+      <line class="edge-cond" x1="650" y1="275" x2="650" y2="313"/>
+      <text class="elabel" x="658" y="298">no</text>
+      <path class="edge" d="M860,337 H1040 V271"/>
+      <line class="edge-parallel" x1="485" y1="269" x2="485" y2="313"/>
+      <text class="elabel" x="492" y="296">parallel</text>
+      <path class="edge" d="M495,359 V380 H1110 V271"/>
+      <text class="elabel" x="1000" y="374">verdict</text>
+      <text class="clabel" x="1180" y="337">graph.ts:743-850</text>
+
+      <!-- connector graph -> row3 -->
+      <path class="edge" d="M1140,247 H1265 V412 H140 V432"/>
+
+      <!-- ===== ROW 3: after the graph ===== -->
+      <polygon class="diamond" points="140,434 195,462 140,490 85,462"/>
+      <text class="nlabel" x="140" y="466" text-anchor="middle">Screen ok?</text>
+
+      <rect class="node" x="240" y="440" width="150" height="44"/>
+      <text class="nlabel" x="315" y="466" text-anchor="middle">Reply to student</text>
+
+      <rect class="node success" x="440" y="440" width="230" height="44"/>
+      <text class="nlabel" x="555" y="458" text-anchor="middle">Persist turn</text>
+      <text class="nlabel-sm" x="555" y="474" text-anchor="middle">completeChatTurn · usage · flags</text>
+
+      <rect class="node" x="730" y="440" width="240" height="44"/>
+      <text class="nlabel" x="850" y="458" text-anchor="middle">Fact extraction (detached)</text>
+      <text class="nlabel-sm" x="850" y="474" text-anchor="middle">proposes profile_facts; student confirms</text>
+
+      <ellipse class="startend" cx="1062" cy="462" rx="42" ry="22"/>
+      <text class="nlabel" x="1062" y="466" text-anchor="middle">Done</text>
+
+      <rect class="node guard" x="60" y="530" width="160" height="44"/>
+      <text class="nlabel" x="140" y="548" text-anchor="middle">Fixed crisis reply</text>
+      <text class="nlabel-sm" x="140" y="564" text-anchor="middle">screen "possible" / timeout</text>
+
+      <line class="edge-cond" x1="195" y1="462" x2="238" y2="462"/>
+      <text class="elabel" x="203" y="454">ok</text>
+      <line class="edge-finalize" x1="390" y1="462" x2="438" y2="462"/>
+      <line class="edge-parallel" x1="670" y1="462" x2="728" y2="462"/>
+      <text class="elabel" x="676" y="454">after reply</text>
+      <line class="edge" x1="970" y1="462" x2="1018" y2="462"/>
+      <line class="edge-cond" x1="140" y1="490" x2="140" y2="528"/>
+      <text class="elabel" x="148" y="513">possible</text>
+      <text class="clabel" x="555" y="502" text-anchor="middle">chat.ts:786-811</text>
+    </svg>
+  </div>
+  <div class="legend">
+    <div class="item"><span class="swatch" style="background:#2563eb"></span>solid blue — next step</div>
+    <div class="item"><span class="swatch" style="background:#db2777"></span>solid pink — decision branch</div>
+    <div class="item"><span class="swatch" style="background:#16a34a"></span>solid green — write to MongoDB</div>
+    <div class="item"><span class="swatch dashed" style="border-color:#0891b2"></span>dashed cyan — runs in parallel / detached</div>
+    <div class="item"><span class="swatch" style="background:#f59e0b"></span>amber box — safety guard</div>
+  </div>
+  <div class="notes">
+    <b>Knowledge order:</b> <code>search_kb</code> first; a signed-in student also gets <code>ask_knowledge_base</code> when search finds nothing. Only when no sourced claim survives does the no-source path run (Gemini grounding when <code>VC_GROUNDING=gemini</code>, else a model-only expert answer), always with a disclaimer.<br/>
+    <b>Minors:</b> a missing age counts as a minor. Without guardian consent the student gets a fixed reply and nothing is stored except ids and timestamps.<br/>
+    <b>Anonymous chat</b> (<code>/v1/public/chat/turns</code>): no tenant and no DB, search only. Only a text-free counter row is written (<code>anonymous.ts:447-541</code>).
+  </div>
+</section>
+
+<!-- ======================= ③ VOICE ======================= -->
+<section class="card" id="voice">
+  <h2>③ One voice session — mint a token, open the stream, mute on crisis</h2>
+  <div class="csub">Every check runs before the WebSocket is accepted. A crisis phrase mutes the model and plays fixed helpline audio. Audio is never stored.</div>
+  <div class="frame">
+    <div class="frame-title">voice/sessions → voice/stream (apps/api/src/voice.ts)</div>
+    <svg viewBox="0 0 1320 400" width="100%" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arr-blue"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker>
+        <marker id="arr-pink"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#db2777"/></marker>
+        <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#16a34a"/></marker>
+        <marker id="arr-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#f59e0b"/></marker>
+        <marker id="arr-cyan"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#0891b2"/></marker>
+      </defs>
+
+      <ellipse class="startend" cx="60" cy="62" rx="42" ry="22"/>
+      <text class="nlabel" x="60" y="66" text-anchor="middle">Start</text>
+
+      <polygon class="diamond" points="200,34 255,62 200,90 145,62"/>
+      <text class="nlabel" x="200" y="66" text-anchor="middle">Who?</text>
+
+      <rect class="node" x="300" y="15" width="240" height="44"/>
+      <text class="nlabel" x="420" y="33" text-anchor="middle">Student mint</text>
+      <text class="nlabel-sm" x="420" y="49" text-anchor="middle">srv key or JWT · quota · erasure fence</text>
+
+      <rect class="node" x="300" y="80" width="240" height="44"/>
+      <text class="nlabel" x="420" y="98" text-anchor="middle">Anonymous mint</text>
+      <text class="nlabel-sm" x="420" y="114" text-anchor="middle">page key + Origin in allow-list</text>
+
+      <rect class="node" x="590" y="40" width="200" height="44"/>
+      <text class="nlabel" x="690" y="58" text-anchor="middle">Voice token</text>
+      <text class="nlabel-sm" x="690" y="74" text-anchor="middle">HS256 · 60 s · single use</text>
+
+      <polygon class="diamond" points="870,34 930,62 870,90 810,62"/>
+      <text class="nlabel" x="870" y="66" text-anchor="middle">Upgrade ok?</text>
+      <text class="clabel" x="870" y="104" text-anchor="middle">doUpgrade :1613</text>
+
+      <rect class="node" x="1000" y="40" width="270" height="44"/>
+      <text class="nlabel" x="1135" y="58" text-anchor="middle">Refused (401 / 429 busy)</text>
+      <text class="nlabel-sm" x="1135" y="74" text-anchor="middle">caps: 2 per client · 50 per partner</text>
+
+      <line class="edge" x1="102" y1="62" x2="143" y2="62"/>
+      <path class="edge-cond" d="M255,62 H275 V37 H298"/>
+      <path class="edge-cond" d="M255,62 H275 V102 H298"/>
+      <text class="elabel" x="260" y="30">student</text>
+      <text class="elabel" x="260" y="120">anonymous</text>
+      <path class="edge" d="M540,37 H565 V62 H588"/>
+      <path class="edge" d="M540,102 H565 V62"/>
+      <line class="edge" x1="790" y1="62" x2="808" y2="62"/>
+      <line class="edge-cond" x1="930" y1="62" x2="998" y2="62"/>
+      <text class="elabel" x="950" y="54">no</text>
+
+      <!-- ===== LIVE SESSION ===== -->
+      <rect class="group-engine" x="20" y="140" width="1290" height="150"/>
+      <text class="grouplabel engine" x="36" y="160">LIVE SESSION (packages/providers/src/live.ts)</text>
+
+      <rect class="node" x="760" y="170" width="220" height="44"/>
+      <text class="nlabel" x="870" y="188" text-anchor="middle">LiveSession</text>
+      <text class="nlabel-sm" x="870" y="204" text-anchor="middle">PCM16 · 16 kHz in · 24 kHz out</text>
+
+      <rect class="node" x="1020" y="170" width="250" height="44"/>
+      <text class="nlabel" x="1145" y="188" text-anchor="middle">Gemini Live backend</text>
+      <text class="nlabel-sm" x="1145" y="204" text-anchor="middle">compile-only · not wired in launcher</text>
+
+      <polygon class="diamond" points="620,164 680,192 620,220 560,192"/>
+      <text class="nlabel" x="620" y="196" text-anchor="middle">Crisis words?</text>
+
+      <rect class="node guard" x="230" y="170" width="280" height="44"/>
+      <text class="nlabel" x="370" y="188" text-anchor="middle">Mute model · play fixed crisis audio</text>
+      <text class="nlabel-sm" x="370" y="204" text-anchor="middle">flag + escalate (never for unconsented minor)</text>
+
+      <line class="edge-cond" x1="870" y1="90" x2="870" y2="168"/>
+      <text class="elabel" x="878" y="130">yes</text>
+      <line class="edge" x1="980" y1="192" x2="1018" y2="192"/>
+      <line class="edge" x1="760" y1="192" x2="682" y2="192"/>
+      <text class="elabel" x="690" y="184">each phrase</text>
+      <line class="edge-cond" x1="560" y1="192" x2="512" y2="192"/>
+      <text class="elabel" x="520" y="184">yes</text>
+      <path class="edge-cond" d="M620,164 V150 H830 V168"/>
+      <text class="elabel" x="700" y="146">no — keep streaming</text>
+      <path class="edge-feedback" d="M370,214 C370,272 840,272 840,216"/>
+      <text class="elabel" x="560" y="268">mute lifts on new student speech</text>
+      <text class="clabel" x="620" y="236" text-anchor="middle">2 s budget</text>
+
+      <!-- ===== CLOSE ===== -->
+      <rect class="node" x="760" y="330" width="220" height="44"/>
+      <text class="nlabel" x="870" y="348" text-anchor="middle">Session close</text>
+      <text class="nlabel-sm" x="870" y="364" text-anchor="middle">audio never stored · transcript redacted</text>
+
+      <rect class="node success" x="1020" y="330" width="250" height="44"/>
+      <text class="nlabel" x="1145" y="348" text-anchor="middle">Mongo: usage minutes</text>
+      <text class="nlabel-sm" x="1145" y="364" text-anchor="middle">student 60 min/month · 20 min/session</text>
+
+      <line class="edge" x1="900" y1="214" x2="900" y2="328"/>
+      <line class="edge-finalize" x1="980" y1="352" x2="1018" y2="352"/>
+    </svg>
+  </div>
+  <div class="legend">
+    <div class="item"><span class="swatch" style="background:#2563eb"></span>solid blue — next step</div>
+    <div class="item"><span class="swatch" style="background:#db2777"></span>solid pink — decision branch</div>
+    <div class="item"><span class="swatch" style="background:#16a34a"></span>solid green — write to MongoDB</div>
+    <div class="item"><span class="swatch dashed" style="border-color:#f59e0b"></span>dashed amber — loop back</div>
+    <div class="item"><span class="swatch" style="background:#f59e0b"></span>amber box — safety guard</div>
+  </div>
+  <div class="notes">
+    <b>Go-live:</b> voice is gated by A10. It runs on Umesh's D-111 owner override only when <code>VC_GATE_APPROVER</code> is set in the environment.<br/>
+    <b>Gap:</b> <code>main.ts</code> builds no Gemini Live provider or crisis audio yet. With <code>VC_VOICE_ENABLED=true</code> and nothing injected, startup refuses (<code>index.ts:650</code>). Real voice needs this wiring plus a real-audio test.<br/>
+    <b>Anonymous voice</b> keeps no turn text, audio, usage or resume log. A crisis only bumps a text-free counter.
+  </div>
+</section>
+
+<!-- ======================= ④ SCRIBE ======================= -->
+<section class="card" id="scribe">
+  <h2>④ Counsellor scribe — session transcript to an approved Student Knowledge Graph</h2>
+  <div class="csub">The AI proposes and the counsellor decides. Nothing reaches the knowledge graph without counsellor approval (a LangGraph interrupt).</div>
+  <div class="frame">
+    <div class="frame-title">Scribe graph (packages/engine/src/scribe/graph.ts)</div>
+    <svg viewBox="0 0 1320 280" width="100%" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arr-blue"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/></marker>
+        <marker id="arr-pink"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#db2777"/></marker>
+        <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#16a34a"/></marker>
+        <marker id="arr-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#f59e0b"/></marker>
+        <marker id="arr-cyan"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#0891b2"/></marker>
+      </defs>
+
+      <ellipse class="startend" cx="60" cy="62" rx="44" ry="22"/>
+      <text class="nlabel" x="60" y="66" text-anchor="middle">Transcript</text>
+
+      <polygon class="diamond" points="200,34 255,62 200,90 145,62"/>
+      <text class="nlabel" x="200" y="66" text-anchor="middle">Consent?</text>
+
+      <polygon class="diamond" points="360,34 415,62 360,90 305,62"/>
+      <text class="nlabel" x="360" y="66" text-anchor="middle">Crisis?</text>
+
+      <rect class="node" x="460" y="40" width="150" height="44"/>
+      <text class="nlabel" x="535" y="58" text-anchor="middle">extract_facts</text>
+      <text class="nlabel-sm" x="535" y="74" text-anchor="middle">model · schema-checked</text>
+
+      <rect class="node" x="640" y="40" width="150" height="44"/>
+      <text class="nlabel" x="715" y="66" text-anchor="middle">summarize_session</text>
+
+      <rect class="node" x="820" y="40" width="140" height="44"/>
+      <text class="nlabel" x="890" y="58" text-anchor="middle">propose_diff</text>
+      <text class="nlabel-sm" x="890" y="74" text-anchor="middle">vs approved profile</text>
+
+      <polygon class="diamond" points="1060,32 1125,62 1060,92 995,62"/>
+      <text class="nlabel" x="1060" y="66" text-anchor="middle">Counsellor?</text>
+
+      <rect class="node success" x="1160" y="40" width="140" height="44"/>
+      <text class="nlabel" x="1230" y="66" text-anchor="middle">write_approved</text>
+
+      <line class="edge" x1="104" y1="62" x2="143" y2="62"/>
+      <line class="edge-cond" x1="255" y1="62" x2="303" y2="62"/>
+      <text class="elabel" x="262" y="54">yes</text>
+      <line class="edge-cond" x1="415" y1="62" x2="458" y2="62"/>
+      <text class="elabel" x="418" y="54">no</text>
+      <line class="edge" x1="610" y1="62" x2="638" y2="62"/>
+      <line class="edge" x1="790" y1="62" x2="818" y2="62"/>
+      <line class="edge" x1="960" y1="62" x2="993" y2="62"/>
+      <line class="edge-cond" x1="1125" y1="62" x2="1158" y2="62"/>
+      <text class="elabel" x="1126" y="30">approve / edit</text>
+      <path class="edge-feedback" d="M590,40 C590,8 480,8 480,38"/>
+      <text class="elabel" x="505" y="14">1 retry</text>
+      <text class="clabel" x="1132" y="104">interrupt()</text>
+
+      <rect class="node" x="145" y="120" width="110" height="40"/>
+      <text class="nlabel" x="200" y="144" text-anchor="middle">Stop: refused</text>
+      <line class="edge-cond" x1="200" y1="90" x2="200" y2="118"/>
+      <text class="elabel" x="208" y="108">no</text>
+
+      <rect class="node guard" x="295" y="120" width="130" height="40"/>
+      <text class="nlabel" x="360" y="138" text-anchor="middle">Stop: escalated</text>
+      <text class="nlabel-sm" x="360" y="152" text-anchor="middle">no provider call</text>
+      <line class="edge-cond" x1="360" y1="90" x2="360" y2="118"/>
+      <text class="elabel" x="368" y="108">yes</text>
+
+      <rect class="node" x="995" y="125" width="130" height="40"/>
+      <text class="nlabel" x="1060" y="149" text-anchor="middle">Nothing written</text>
+      <line class="edge-cond" x1="1060" y1="92" x2="1060" y2="123"/>
+      <text class="elabel" x="1068" y="122">reject</text>
+
+      <!-- ===== ROW 2 ===== -->
+      <rect class="node" x="260" y="200" width="280" height="44"/>
+      <text class="nlabel" x="400" y="218" text-anchor="middle">Langfuse traces</text>
+      <text class="nlabel-sm" x="400" y="234" text-anchor="middle">self-hosted · scribe graph callbacks</text>
+
+      <rect class="node" x="620" y="200" width="280" height="44"/>
+      <text class="nlabel" x="760" y="218" text-anchor="middle">Webhook outbox (optional)</text>
+      <text class="nlabel-sm" x="760" y="234" text-anchor="middle">VC_WEBHOOK_DESTINATION_URL</text>
+
+      <rect class="node success" x="980" y="200" width="320" height="44"/>
+      <text class="nlabel" x="1140" y="218" text-anchor="middle">Student Knowledge Graph (MongoDB)</text>
+      <text class="nlabel-sm" x="1140" y="234" text-anchor="middle">facts + edges with provenance · session summary</text>
+
+      <line class="edge-finalize" x1="1230" y1="84" x2="1230" y2="198"/>
+      <line class="edge" x1="980" y1="222" x2="902" y2="222"/>
+      <text class="elabel" x="910" y="214">fact.approved</text>
+      <path class="edge-parallel" d="M535,84 V180 H400 V198"/>
+      <text class="elabel" x="420" y="176">traced</text>
+    </svg>
+  </div>
+  <div class="legend">
+    <div class="item"><span class="swatch" style="background:#2563eb"></span>solid blue — next step</div>
+    <div class="item"><span class="swatch" style="background:#db2777"></span>solid pink — decision branch</div>
+    <div class="item"><span class="swatch" style="background:#16a34a"></span>solid green — write to MongoDB</div>
+    <div class="item"><span class="swatch dashed" style="border-color:#f59e0b"></span>dashed amber — retry</div>
+    <div class="item"><span class="swatch dashed" style="border-color:#0891b2"></span>dashed cyan — side channel (tracing)</div>
+  </div>
+  <div class="notes">
+    <b>Triggers:</b> the counsellor web app runs this graph in-process; the API exposes the same steps at <code>POST .../scribe</code>, <code>.../scribe/resume</code> and <code>.../approval</code> (<code>server.ts:310-386</code>).<br/>
+    <b>Concern (not crisis)</b> continues and becomes a cited <code>concern_flagged</code> edge. An erasure fence check runs around the write (B15).<br/>
+    <b>Checkpointing:</b> the approval pause is stored in <code>scribe_checkpoints</code>, so a counsellor can approve later.
+  </div>
+</section>
+
+</div>
+</body>
+</html>
