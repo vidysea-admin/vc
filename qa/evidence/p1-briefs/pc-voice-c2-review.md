@@ -1,0 +1,4 @@
+# Review brief: pc-voice fix cycle 2 (read-only senior review)
+Review `git -C D:/vc/.worktrees/pc-voice diff 6e5af5a^ 6e5af5a`: go-live-gate.ts ownerOverrideProblem now fails closed (no approver configured -> override refused), A10_OVERRIDE_DEFAULT_OWNER removed, go-live-gate.test.ts V1 rewrites (real-gates test sets VC_GATE_APPROVER from the record), docs/go-live-checklist.md env row. Trigger: auth.test B21 forbids a hard-coded approver name in apps/api/src.
+Focus: any remaining path where voice is ALLOWED without A10 PASS and without a configured matching approver; env handling (trim, case, empty); test env leaks between tests (save/restore, parallel runs); whether any assertion was weakened; whether the deploy consequence (voice closed when the env is missing) is stated clearly.
+Read-only: change no files, no full suite, no live calls. Approve / Warning / Block with file:line. Last line: `REVIEW pc-voice-c2 <Approve|Warning|Block>`.
