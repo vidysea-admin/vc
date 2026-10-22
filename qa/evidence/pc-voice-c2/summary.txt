@@ -1,0 +1,8 @@
+auth exit=0
+go-live-gate exit=0
+voice-wiring exit=0
+partner-voice exit=0
+voice exit=0
+anon-route exit=0
+tsc exit=0
+done

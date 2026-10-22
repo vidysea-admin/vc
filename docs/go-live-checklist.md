@@ -13,6 +13,7 @@ Check the current state at any time with `pnpm -C apps/api exec tsx scripts/go-l
 | `VC_VOICE_ENABLED` | Exactly the word `true` to serve the voice WebSocket. Unset, empty or `false` = off. |
 | `VC_VOICE_WS_SECRET`, `VC_VOICE_WS_BASE_URL` | Required when voice is on (WebSocket token secret and the public `wss://` base URL). |
 | `VC_ANONYMOUS_ENABLED` | `true` to serve the public anonymous route. Unlike the two above it is trimmed, but write it exactly anyway. |
+| `VC_GATE_APPROVER` | The repo Approver's name (the go-live gate and the CLI read it). Must be set for the D-111 voice override to apply: with it unset or empty an `Owner-override:` line in `a10-voice-gate.md` is refused and voice stays closed; set, the override signer must equal it exactly (it also pins the B13 signer). |
 
 Padding fails startup, on purpose (ISS-263): `"true "`, `" true"`, `"TRUE"` and `"1"` are not `true`, and the server
 refuses to start with a `ChatConfigError` / `VoiceConfigError` rather than silently turning a flag on or off

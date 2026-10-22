@@ -2,7 +2,7 @@
 **Contract:** docs/features/partner-chatbot/spec.md section pc-voice, criteria V1 V2 V3 (verbatim in qa/contracts/partner-chatbot.md); brief qa/evidence/p1-briefs/pc-voice-c0.md; plan docs/features/partner-chatbot/plan.md. Not an edit to qa/contracts.
 **Goal task:** none
 **Date:** 2026-10-22
-**Fix cycle:** 1
+**Fix cycle:** 2
 **Dual check:** yes (authentication: key scopes on the voice session routes, an origin check on the voice WebSocket, and the anonymous no-persistence guarantee on the crisis path). Two independent checkers, one of them hostile on key scope, origin binding and the override line.
 dual-trigger: auth apps/api/src/voice.ts:1703
 **Persona walk:** required (visitor). The visitor on a partner's site taps the mic, speaks, hears and reads the reply, hits a crisis phrase, denies the mic; the partner's backend (server key) is covered by API tests.
@@ -91,4 +91,19 @@ Sessions: 2b04f90e-6b56-4682-a76c-d8515b93405c
 - The real-gates assertions (go-live-gate.test.ts: the CLI test and "V1 real gates") now evaluate the real qa/gates and require voice ALLOWED with the D-111 note while the A10 record carries the override line; they are no longer skipped (cycle 1).
 - Node 24 does not accept a bare directory for `node --test`; the glob form is used.
 
-Status: checked-PASS (dual, cycle 1: A a4355e2, B a2163a7)
+## Repair cycle 2 (6c pre-push RED on main 2373586: apps/api/tests/auth.test.ts "T-025 B21 contract: no issuer or key is hard-coded in apps/api/src")
+Brief: qa/evidence/p1-briefs/pc-voice-c2.md. Code commit 6e5af5a (branch merged with main 54f3a34 first). Cause: `A10_OVERRIDE_DEFAULT_OWNER = "Umesh"` in apps/api/src/go-live-gate.ts (cycle 1 fix of pcv-B3 / ISS-pc-voice-3) matched the protected B21 scanner. auth.test.ts untouched.
+- apps/api/src/go-live-gate.ts `ownerOverrideProblem` (edited in place): fail closed. With no approver (VC_GATE_APPROVER unset or empty, none passed) the override is refused with "Owner-override needs VC_GATE_APPROVER (the repo approver) to be set"; A10 stays FAIL and voice is refused. With an approver the signer must equal it exactly (unchanged). `A10_OVERRIDE_DEFAULT_OWNER` and every use removed; file header and function comments rewritten; no quoted personal-name literal remains in apps/api/src (the B21 quoted-name regex finds no match in apps/api/src).
+- apps/api/tests/go-live-gate.test.ts: "V1 signer" rewritten (unset via undefined, default arg, empty string, assertGoLive throw, CLI with the env removed: Umesh and Mallory both refused with the new problem text; set: only the matching name; env Anita refuses both; env Umesh allows and the CLI exits 0). "V1 real gates" now sets VC_GATE_APPROVER to the signer parsed from the real qa/gates/a10-voice-gate.md for ALLOWED + the D-111 note (saved and restored) and asserts the same real gates REFUSE voice with it unset. The A20 CLI test runs the real voice gate both ways (env removed -> exit 1; env set -> exit 0 with the note). The first V1 CLI test passes the approver in its child env.
+- docs/go-live-checklist.md env table: new row `VC_GATE_APPROVER` (must be set to the repo Approver for the D-111 voice override to apply).
+- Not changed: voice-wiring and other tests (they use fixture gates, not the old default); qa/gates, qa/contracts, auth.test.ts, .claude/**.
+- Operational consequence: the deploy env must set VC_GATE_APPROVER to the Approver, otherwise voice stays closed (D-111 override does not apply). Stated in the checklist row.
+
+Pre-check[V1]: 6e5af5a `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test tests/go-live-gate.test.ts` (apps/api) -> 21 tests, 20 passed, 0 failed, 1 skipped (REAL_B13_PENDING, pre-existing)
+Pre-check[B21]: 6e5af5a `... tsx --test tests/auth.test.ts` (all) -> 15 passed, 0 failed
+Pre-check[V2]: 6e5af5a `... tsx --test tests/partner-voice.test.ts` -> 32 passed, 0 failed; `... tests/voice-wiring.test.ts` -> 16 passed, 0 failed; `... tests/voice.test.ts` -> 67 passed, 0 failed; `... tsx --test --test-name-pattern="H2|H6|G5|K2|K4" tests/anonymous-route.test.ts` -> 9 passed, 0 failed
+Pre-check[types]: 6e5af5a `... pnpm exec tsc --noEmit` (apps/api) -> exit 0, no output
+Falsification (copy outside the tree, scratchpad fals/, default-owner fallback restored): go-live-gate.test.ts -> 3 failed (V1 real gates, V1 signer, A20 CLI); auth.test.ts -> 1 failed (B21: "go-live-gate.ts: a hard-coded issuer name"). Logs: qa/evidence/pc-voice-c2/fals-go-live-gate.txt, fals-auth.txt. Run logs: qa/evidence/pc-voice-c2/*.txt.
+Not run: full suite (brief), live Gemini/LLM. Known baseline red chat.test A20 is outside this set.
+
+Status: checked-PASS
