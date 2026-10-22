@@ -2,7 +2,8 @@
 **Contract:** docs/features/partner-chatbot/spec.md section pc-partner-keys, criteria K1 K2 K3 K4 K5 (verbatim); brief qa/evidence/p1-briefs/pc-partner-keys-c0.md; plan docs/features/partner-chatbot/plan.md. Not an edit to qa/contracts.
 **Goal task:** none
 **Date:** 2026-10-22
-**Fix cycle:** 0
+**Fix cycle:** 1
+**Repair base:** 56069f6
 **Dual check:** yes (authentication: per-partner API keys, tenant derivation from a key, CORS allowlist). Two independent checkers, one of them hostile on the key/CORS paths.
 **Persona walk:** not required (no UI; the widget is pc-widget). Personas by API: Vidysea website widget (key, anonymous route), Pathlynks backend (key + student headers), a hostile site/partner.
 **Issues addressed:** none
@@ -36,7 +37,7 @@ Also: `pnpm install --offline --frozen-lockfile` in the worktree (node_modules o
 
 ## Acceptance criteria and evidence
 Policy-Version: proportional-verification/2026-10-19.17
-dual-trigger: auth apps/api/src/partners.ts:381
+dual-trigger: auth apps/api/src/partners.ts:472
 Tier: L (authentication and a new tenant-derivation path); dual check. Base 3a70309, code commits c93deee + 711291c (c0b).
 Round: 10 files, 5 criteria (K1-K5), est 40 min — one tightly coupled module; one round (c0b folded in before the first check, same cycle 0).
 
@@ -46,7 +47,7 @@ Tests[K3]: apps/api/tests/partners.test.ts K3 tests and `scope: a page key copie
 Tests[K4]: apps/api/tests/partners.test.ts K4 tests — covers (preflight on public chat + openapi, preflight denied matrix, student/voice routes never granted, actual-request matrix with page keys, a server key never gets CORS, inner 401/429 CORS only for an allowed origin, store outage) and the launch() wiring test over real HTTP.
 Tests[K5]: apps/api/tests/partners.test.ts K5 tests — covers (openapi route, nginx text assertions, widget cache) and the two wiring tests (launch over real HTTP; refusing to start without/with a short pepper or a bad flag).
 
-Pre-check[K1]: 711291c `npx tsx --test tests/partners.test.ts` -> exit 0, 42 passed, 0 failed
+Pre-check[K1]: 4ac5b36 `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600 pnpm exec tsx --test tests/partners.test.ts` -> exit 0, 48 passed, 0 failed (42 prior + 6 c1 tests); also on 4ac5b36: `--test-name-pattern="H2|H6|G5" tests/anonymous-route.test.ts` 9/0, `--test-name-pattern="H2|LK7 C1-fix" tests/chat-profile.test.ts` 6/0, `tests/chat-privacy.test.ts` 39/0, `pnpm exec tsc --noEmit` (apps/api) exit 0, packages/db facts+db-scope+chat-threads+tenant 104/0 (fakes.ts touched)
 Pre-check[K2]: 711291c `npx tsx --test tests/partners.test.ts` -> exit 0, 42 passed, 0 failed; `tests/anonymous-route.test.ts --test-name-pattern="H2|H6|G5"` -> 9 passed, 0 failed
 Pre-check[K3]: 711291c `npx tsx --test tests/partners.test.ts` -> exit 0, 42 passed, 0 failed; `tests/chat-profile.test.ts --test-name-pattern="H2|LK7 C1-fix"` -> 6 passed, 0 failed; `tests/chat-privacy.test.ts` -> 39 passed, 0 failed
 Pre-check[K4]: 711291c `npx tsx --test tests/partners.test.ts` -> exit 0, 42 passed, 0 failed
@@ -55,11 +56,20 @@ Pre-check[all]: 711291c `npx tsc --noEmit` (apps/api) -> exit 0, no output
 Also green on 711291c: main.test 10/0, index.test 8/0, packages/db db-scope.test 11/0 (B12/D-016 scanners with the new files). (client.test 33/0 was green on c93deee and is not touched by c0b.)
 Note: every run went through VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 600. TDD note: for c0b the four new `scope:` tests were run first against the unscoped code and all 4 failed (red) before the scoped keys were implemented; cycle-0's original tests had no captured red run. One test of mine had a wrong expectation (state "escalated", not "crisis"; existing behaviour) and was corrected.
 
+Falsification[K1] (c1, on 4ac5b36): in a copy outside the tree (scratchpad/fals-pk, node_modules symlinked) rotatePartner's write was reverted to the whole-object `{ keys: { ...existing.keys, [scope]: record } }` -> red, 2 failing (`K1 (c1): two operators rotate the page key and the server key ... at the same moment` and `rotate sends the store only the one scope's dotted path`), 46 passing; partners.ts restored byte-identical (cmp) and the in-tree run is 48/0.
 Falsify[K1]: (on 711291c) store the raw key as the hash instead of the HMAC -> red (5 failing K1 tests); mutated in a copy outside the tree (scratchpad/fals-pk), restored.
 Falsify[K2]: (on 711291c) remove the scope comparison from authenticate (`|| parsed.scope !== scope`) -> red (3 failing: page key on student routes, server key on the public route, key independence). Remove the Origin check in anonymous.ts -> red (1 failing: `a page key sent with an Origin the partner did not list`). These are the c0b scope-check falsifications.
 Falsify[K3]: (on 711291c) a missing age is an adult (fail open) -> red (1 failing: the age/consent matrix test).
 Falsify[K4]: (on 711291c) grant Allow-Origin to any origin for an active page key -> red (1 failing); also let a server key earn CORS (`?? authenticate(key, "srv")`) -> red (1 failing: `a server key pasted into a web page ... gets no CORS`).
 Falsify[K5]: (on 711291c) rename the openapi nginx location (route disabled) -> red (1 failing: the nginx locations test).
+
+## Repair (fix cycle 1, base 56069f6, code commit 4ac5b36)
+1. K1 lost update. apps/api/src/partners.ts:316 `rotatePartner` now sends `{ "keys.pub": record }` or `{ "keys.srv": record }` (dotted path) instead of the whole `keys` object; the `PartnerStore.update` patch type is `PartnerPatch` (:142), which no longer accepts a whole `keys`. The Mongo store (:154 `$set: patch`) therefore issues a per-scope `$set`. The in-memory store is the fake Db used by every test: packages/db/tests/fakes.ts `applyUpdate` (the `if (update.$set)` block) did a top-level Object.assign, so a dotted key would have become a literal field; it now sets nested paths (a key with no dot is unchanged). That file is outside the c0 owned list (test infrastructure; additive; 104 packages/db tests green on it). Tests (apps/api/tests/partners.test.ts:951 readBarrierStore, :966, :982, :996): pub+srv overlapping rotates with a read barrier as in the checkers' repro -> both new keys work, both old keys 401, `keys` holds exactly pub and srv; two same-scope overlapping rotates -> exactly one printed key works, old key 401, other scope untouched; the store sees only `["keys.pub"]` / `["keys.srv"]`.
+2. Review medium, registry load. apps/api/src/partners.ts:463 `inflight ??= Promise.resolve().then(load).finally(() => { inflight = undefined; })`: the clear can only run after the assignment, so a synchronous throw from `store.list()` is a rejection that is cleared, not a rejected promise pinned forever. Test :1007 (list throws synchronously once, then succeeds): first call rejects PartnerRegistryUnavailableError, the next call authenticates, 2 reads.
+3. Review medium, reserved ids. apps/api/src/partners.ts:50 `RESERVED_PARTNER_IDS` (sandbox, admin, system, root, default, internal), checked in `addPartner` at :282 (also via `PartnerOpContext.reservedIds` :262 for a caller that knows more), error code invalid_partner_id naming only the id, before anything is written. The real JWT tenant ids are NOT knowable from server config (the tenant is a claim inside a signed token, auth.ts:253/409) and the sandbox tenant id is a `sandboxTenantId` dep the caller supplies (index.ts:402), so per the brief the sandbox id plus a reserved list is used; a deployment that knows its tenants can pass them as `reservedIds` (no CLI/env wiring added, nothing invented). Test :1025 (ids, slug of a name, CLI path, caller-supplied id, ordinary id unaffected).
+4. Checker A P2. Test apps/api/tests/partners.test.ts:1042: real anonymous handler wrapped by `withPartnerRoutes`; Origins https://vidysea.com.evil.io, https://evil-vidysea.com (plus trailing-dot and a subdomain) with a valid page key -> 401, no Access-Control-* header at all, route never reached; the listed origin still gets 200 and its own Allow-Origin. Passes against existing behaviour (no source change needed for it).
+5. Low. Header comment in apps/api/src/partners.ts:22-23 no longer claims the voice session route is CORS-eligible (public chat route and partner openapi only; pc-voice joins later).
+Not changed: K2-K5 / I1-I4 behaviour. Process note: an earlier verification attempt put the file before `--test-name-pattern` and ran whole files (anonymous-route hung to the 600 s timeout, exit 124); the numbers above are from the correct form (pattern first, as in the checkers' logs).
 
 ## Live browser evidence
 Not UI-touching. No browser was used; the real-HTTP evidence is the two launch() tests (real socket, fake Mongo), listed above.
@@ -77,4 +87,4 @@ Sessions: 2b04f90e-6b56-4682-a76c-d8515b93405c
 - Partner usage counters are in memory per process.
 - Full suite not run (brief: only the named tests); OOM/C: fullness not hit.
 
-Status: ready-for-check
+Status: checked-PASS (A qa/verdicts/pc-partner-keys.md ae39b9f, B qa/verdicts/pc-partner-keys.b.md e9860e8, cycle 1)

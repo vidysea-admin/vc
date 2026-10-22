@@ -1,0 +1,19 @@
+[testlock] running slot 0 (free RAM 2.03 GB): timeout 600 pnpm -C /d/vc/.worktrees/pc-partner-keys/apps/api exec tsx --test tests/student-openapi.test.ts
+✔ the draft is a separate OpenAPI 3.1 document marked not enabled (0.9362ms)
+✔ U5a: no draft path is in the served document or the route table (routes are not implemented or enabled) (0.2412ms)
+✔ the draft covers chat, voice-session, anonymous, profile and fact-confirm with the expected roles (0.8074ms)
+✔ turn and voice-session and anonymous routes document 429 with Retry-After (A23) (0.1361ms)
+✔ component schemas match the Zod shapes (names, required, strictness) (2.1158ms)
+✔ enums in the draft are the exact Zod values (claim status, kind, state, source kind, fact source) (0.1851ms)
+✔ limits and audio defaults are published as the D-088 numbers (0.1206ms)
+✔ WebSocket events: every Zod event type is documented with matching fields, client and server (0.5826ms)
+✔ every $ref in the draft resolves and the document is plain JSON (1.0807ms)
+✔ the draft carries no tenant or student identity in any request body (identity is the JWT) (0.2186ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2132.5611

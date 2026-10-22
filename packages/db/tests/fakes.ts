@@ -173,7 +173,20 @@ function applyUpdate(
   doc: Record<string, unknown>,
   update: { $set?: unknown; $unset?: Record<string, unknown>; $addToSet?: Record<string, unknown>; $inc?: Record<string, number> },
 ): void {
-  if (update.$set) Object.assign(doc, toStored(update.$set));
+  if (update.$set) {
+    // pc-partner-keys c1: a dotted `$set` key ("keys.pub") sets ONE nested field and leaves its siblings alone, as the server does (a key with no dot is the
+    // unchanged top-level assignment). This is what lets a test model two writers that each own one sub-field.
+    for (const [path, value] of Object.entries(toStored(update.$set) as Record<string, unknown>)) {
+      const parts = path.split(".");
+      let target = doc;
+      for (const part of parts.slice(0, -1)) {
+        const next = target[part];
+        if (next === null || typeof next !== "object" || Array.isArray(next)) target[part] = {};
+        target = target[part] as Record<string, unknown>;
+      }
+      target[parts[parts.length - 1]!] = value;
+    }
+  }
   // P1 U7: `$inc` adds to a numeric field (a missing field starts at 0), as the driver does.
   for (const [field, by] of Object.entries(update.$inc ?? {})) {
     const current = doc[field];

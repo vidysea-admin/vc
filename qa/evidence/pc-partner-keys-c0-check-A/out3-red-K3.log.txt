@@ -1,0 +1,55 @@
+[testlock] running slot 0 (free RAM 1.98 GB): timeout 600 pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK3/apps/api exec tsx --test --test-name-pattern=K3 tests/partners.test.ts
+✖ K3: Pathlynks' backend starts a thread and asks a question for its adult student with its key and the student headers; the tenant is the partner id (123.2651ms)
+✖ K3: Pathlynks' backend sends a key for another partner's student: the thread, the history and the profile answer 404, and nothing of the other partner is written or read (35.9184ms)
+✔ K3: a backend that forgets the student headers, or sends an unsafe student id, is told 400 and nothing is read or written (9.5768ms)
+✔ K3: a missing, blank, non-numeric or out-of-range age is a minor with no model call; an adult age is answered; consent counts only when exactly true (46.5358ms)
+✔ K3: a keyed minor's crisis message still gets the fixed crisis message and helpline (17.0457ms)
+✔ K3: a revoked, unknown or malformed vck_ bearer gets the same 401 as a bad JWT, and never reaches the JWT verifier (8.5452ms)
+✔ K3: without a partner registry a vck_ bearer is a 401, and a real student JWT keeps working unchanged next to the partner path (46.9886ms)
+✔ K3: a key whose partner id is not a valid tenant cannot be minted, so no key can address a tenant that the JWT path could not (0.1711ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 6
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2961.7274
+
+✖ failing tests:
+
+test at tests\partners.test.ts:516:1
+✖ K3: Pathlynks' backend starts a thread and asks a question for its adult student with its key and the student headers; the tenant is the partner id (123.2651ms)
+  AssertionError [ERR_ASSERTION]: the tenant is the partner's id
+  + actual - expected
+  
+  + 'shared-tenant'
+  - 'pathlynks'
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\pckA-fK3\apps\api\tests\partners.test.ts:529:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'shared-tenant',
+    expected: 'pathlynks',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\partners.test.ts:535:1
+✖ K3: Pathlynks' backend sends a key for another partner's student: the thread, the history and the profile answer 404, and nothing of the other partner is written or read (35.9184ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  200 !== 404
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\pckA-fK3\apps\api\tests\partners.test.ts:547:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 404,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

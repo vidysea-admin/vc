@@ -1,0 +1,22 @@
+=== fals-K1-green start 2026-10-22T08:44:59+05:30
+[testlock] waiting for lock held by: PID=45704 STARTED=639282554802641069 ACQUIRED_AT=1792638890 TOKEN=1792638890576337900-309255-12419 DESC=timeout 600 pnpm exec tsc --noEmit 
+[testlock] owner PID 32960 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] write_owner_enrich: lock dir token changed (ours [1792638916795016500-309745-30769], now [1792638917533345000-304903-17964]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] owner PID 21796 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] running slot 0 (free RAM 2.85 GB): timeout 600 pnpm exec tsx --test --test-name-pattern=K1 \(c1\) tests/partners.test.ts
+✔ K1 (c1): two operators rotate the page key and the server key of one partner at the same moment: both new keys work and both old keys are dead (9.4197ms)
+✔ K1 (c1): two overlapping rotates of the SAME scope leave exactly one printed key working (the last writer), and never the old key (2.2646ms)
+✔ K1 (c1): rotate sends the store only the one scope's dotted path, never the whole keys object (1.2832ms)
+✔ K1 (c1): a partner id equal to the sandbox tenant id (or another reserved or configured tenant id) is refused, naming only the id, and nothing is written (1.8771ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2434.7524
+=== exit 0 2026-10-22T08:45:46+05:30

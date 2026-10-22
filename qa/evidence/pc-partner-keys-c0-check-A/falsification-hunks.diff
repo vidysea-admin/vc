@@ -1,0 +1,64 @@
+### fK1
+diff -u -r /d/vc/.worktrees/pc-partner-keys/apps/api/src/partners.ts /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK1/apps/api/src/partners.ts
+--- /d/vc/.worktrees/pc-partner-keys/apps/api/src/partners.ts	2026-10-22 07:55:36.560702800 +0530
++++ /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK1/apps/api/src/partners.ts	2026-10-22 08:09:12.150293200 +0530
+@@ -295,7 +295,8 @@
+   if (!existing) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
+   if (existing.status === "revoked") throw new PartnerError("partner_revoked", `partner "${partnerId}" is revoked; add a new partner instead of rotating`);
+   const { key, record } = newKey(scope, partnerId, ctx, (ctx.now?.() ?? new Date()).toISOString());
+-  const keys = { ...existing.keys, [scope]: record } as Record<KeyScope, PartnerKeyRecord>;
++  void record;
++  const keys = existing.keys;
+   if (!(await store.update(partnerId, { keys }))) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
+   return { partner: summaryOf({ ...existing, keys }), key, scope };
+ }
+### fK2
+diff -u -r /d/vc/.worktrees/pc-partner-keys/apps/api/src/partners.ts /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK2/apps/api/src/partners.ts
+--- /d/vc/.worktrees/pc-partner-keys/apps/api/src/partners.ts	2026-10-22 07:55:36.560702800 +0530
++++ /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK2/apps/api/src/partners.ts	2026-10-22 08:09:13.860601600 +0530
+@@ -454,7 +454,7 @@
+       const hash = doc?.keys?.[parsed.scope]?.hash;
+       const stored = typeof hash === "string" && /^[0-9a-f]{64}$/.test(hash) ? Buffer.from(hash, "hex") : DUMMY_HASH;
+       const equal = timingSafeEqual(presented, stored);
+-      if (!doc || !equal || doc.status !== "active" || parsed.scope !== scope) return undefined;
++      if (!doc || !equal || parsed.scope !== scope) return undefined;
+       return { partnerId: doc.partnerId, name: doc.name, allowedOrigins: [...doc.allowedOrigins] };
+     },
+     async originAllowedByAnyPartner(origin) {
+### fK3
+diff -u -r /d/vc/.worktrees/pc-partner-keys/apps/api/src/chat.ts /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK3/apps/api/src/chat.ts
+--- /d/vc/.worktrees/pc-partner-keys/apps/api/src/chat.ts	2026-10-22 07:55:36.561715500 +0530
++++ /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK3/apps/api/src/chat.ts	2026-10-22 08:09:15.470790500 +0530
+@@ -852,7 +852,7 @@
+       const student = partnerStudentFromHeaders(req.headers);
+       if (!student.ok) return fail(400, "invalid_request");
+       // The tenant is the partner id (a valid tenant id by construction). Age missing or invalid = minor, and consent counts only when exactly "true" (fail closed).
+-      ctx = { tenantId: partner.partnerId, studentId: student.studentId, role: "student", minor: student.minor, guardianConsent: student.guardianConsent };
++      ctx = { tenantId: "shared-tenant", studentId: student.studentId, role: "student", minor: student.minor, guardianConsent: student.guardianConsent };
+     } else {
+       try {
+         ctx = await deps.verifier.verify(token);
+### fK4
+diff -u -r /d/vc/.worktrees/pc-partner-keys/apps/api/src/partners.ts /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK4/apps/api/src/partners.ts
+--- /d/vc/.worktrees/pc-partner-keys/apps/api/src/partners.ts	2026-10-22 07:55:36.560702800 +0530
++++ /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK4/apps/api/src/partners.ts	2026-10-22 08:09:17.160556600 +0530
+@@ -596,7 +596,7 @@
+     if (registry && key !== undefined) {
+       try {
+         const partner = await registry.authenticate(key, "pub");
+-        if (partner && partner.allowedOrigins.includes(origin as string)) {
++        if (partner && partner.allowedOrigins.some((o) => (origin as string).startsWith(o))) {
+           return withHeaders(res, { "access-control-allow-origin": origin as string, vary: "Origin", "access-control-expose-headers": "Retry-After" });
+         }
+       } catch {
+### fK5
+--- /d/vc/.worktrees/pc-partner-keys/infra/ubuntu/nginx-vc.conf	2026-10-22 07:50:30.954604500 +0530
++++ /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-fK5/infra/ubuntu/nginx-vc.conf	2026-10-22 08:09:18.744323800 +0530
+@@ -64,7 +64,6 @@
+         proxy_set_header X-Real-IP $remote_addr;
+         proxy_set_header X-Forwarded-For $remote_addr;
+         proxy_set_header X-Forwarded-Proto $scheme;
+-        proxy_set_header Upgrade $http_upgrade;
+         proxy_set_header Connection "upgrade";
+         proxy_read_timeout 3600s;
+     }

@@ -1,0 +1,63 @@
+[testlock] running slot 0 (free RAM 1.94 GB): timeout 600 pnpm -C /d/vc/.worktrees/pc-partner-keys/apps/api exec tsx --test tests/chat.test.ts
+✔ A20: chat is OFF by default - unset, empty and 'false' read as disabled, only the exact word 'true' enables, anything else is a config error (1.9651ms)
+✔ A20 flag off: nothing is built and every chat path answers exactly like an unknown path (404), for every method, without touching the main handler (48.523ms)
+✖ A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes (5.9056ms)
+✔ A20: each missing gate record refuses; voice's A10 and anonymous option b are NOT needed for authenticated chat (38.0663ms)
+✔ no student text is traced: an environment that switches LangChain/LangSmith tracing on refuses to build the chat routes (10.088ms)
+✔ the chat route list equals the draft student paths (without voice) and none of them is in the counsellor route table (0.9218ms)
+✔ a request with no token, a garbage token or a token signed by a stranger is refused 401 with one identical body, and nothing is read or written (140.9818ms)
+✔ a counsellor, admin or approver token, validly signed with the student key, is refused 403 on every student route (23.9512ms)
+✔ a student whose token names a different student than the path gets 404 (not 403) and nothing is created (8.915ms)
+✔ a student starts a thread, asks a sourced question, and reads the exchange back in order (108.9729ms)
+✔ a student whose phone retries the same clientTurnId after a dropped response gets the same answer, one model call, one stored exchange and one usage count (25.9867ms)
+✔ the same clientTurnId reused with different text is refused 409, and the first answer is kept (21.1458ms)
+✔ a second tab sending the same clientTurnId while the first is still being answered gets 409 turn_in_progress and no second model call (11.5803ms)
+✔ a turn without a clientTurnId gets a server-made turn id, and two such turns are two exchanges (27.4992ms)
+✔ a model outage gives the apology answer, keeps nothing, and the student's retry with the same clientTurnId runs again (36.7935ms)
+✔ a body that carries identity or unknown fields, bad JSON, an empty or over-long text, or an oversized body is refused before anything runs (17.8014ms)
+✔ an unknown thread, or one that belongs to another student of the same tenant, is a 404 that does not say which (12.3246ms)
+✔ a path id with odd characters is refused 404 (path ids are letters, digits, dot, dash, underscore only) (8.1473ms)
+✔ a wrong method on a chat path is 405 with Allow, and a non-chat path is left to the main handler (8.3562ms)
+✔ A23: the 31st request in a minute from one student is 429 with Retry-After, another student is not affected, and the window reopens (18.3052ms)
+✔ A23: a tenant override of requestsPerMinute applies to that tenant only (12.4864ms)
+✔ A23: a crisis message is never rate limited, even from a student already over the limit (26.9031ms)
+✔ ISS-303: the authenticated chat body cap is the 64 KiB scan budget of the anonymous route (ISS-300), not 256 KiB (0.2568ms)
+✔ ISS-303: a turn body over the cap is a 413 that still carries the helpline, never scanned, no model, nothing stored, whatever the crisis phrase position (14.1896ms)
+✔ ISS-303: a crisis phrase at the start, middle or end of a body inside the cap, far over the 4000-character turn limit, gets the fixed crisis answer (176.3296ms)
+✔ ISS-303: a student already over the rate limit who sends a long (inside the cap) crisis message still gets the crisis answer; a plain message is 429 (264.2095ms)
+✔ ISS-350: a crisis text with an unknown key or an invalid clientTurnId, Latin or Devanagari, gets the fixed crisis answer, an escalation and a flag, with no malformed field stored (377.5809ms)
+✔ ISS-350: a crisis text with a bad field is also answered for a student already over the rate limit, and for an over-long crisis text with an unknown key (45.8103ms)
+✔ ISS-350: a benign text with the same unknown key or invalid clientTurnId stays a plain 400, with no model call and nothing stored (207.7305ms)
+✔ ISS-350: non-string text and unparseable JSON stay a plain 400, whatever else the body carries (16.7029ms)
+✔ ISS-350: the fix adds no scan: a malformed crisis turn scans exactly as often as a well-formed one, and a malformed benign turn is scanned once (38.032ms)
+✔ D-110: a signed-in student's question with no servable source gets the disclaimer plus an expert answer; the state is still no_sourced_answer, claims and sources are empty, the gap is still counted (52.366ms)
+✔ a question the knowledge base cannot answer says so, and adds one text-free count to the day's gap total (no student, thread or text) (36.1848ms)
+✔ G1 (API): a signed-in student's no-source question with grounding on gets the disclaimer plus the grounded answer; web sources are structured; the gap is still counted; only the redacted question reaches the web (43.1632ms)
+✔ H6 (API): the grounded-call cap is per chat thread; the next turn in the same thread falls back to the no-source reply (no crash), a new thread is grounded again (56.3364ms)
+ℹ tests 35
+ℹ suites 0
+ℹ pass 34
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4338.6303
+
+✖ failing tests:
+
+test at tests\chat.test.ts:68:1
+✖ A20 flag on but gate closed: the real repo qa/gates (B13 pending) refuses to build the chat routes (5.9056ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception (GoLiveRefusedError).
+      at TestContext.<anonymous> (D:\vc\.worktrees\pc-partner-keys\apps\api\tests\chat.test.ts:69:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }

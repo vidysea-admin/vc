@@ -1,0 +1,64 @@
+=== fals-K1-red start 2026-10-22T08:55:22+05:30
+[testlock] waiting for lock held by: PID=31812 STARTED=639282556036309469 ACQUIRED_AT=1792639003 TOKEN=1792639003875376800-312058-18936 DESC=npx tsx --test tests/anonymous-route.test.ts 
+[testlock] running slot 1 (free RAM 3.07 GB): timeout 600 pnpm exec tsx --test --test-name-pattern=K1 \(c1\) tests/partners.test.ts
+✖ K1 (c1): two operators rotate the page key and the server key of one partner at the same moment: both new keys work and both old keys are dead (7.994ms)
+✔ K1 (c1): two overlapping rotates of the SAME scope leave exactly one printed key working (the last writer), and never the old key (3.0455ms)
+✖ K1 (c1): rotate sends the store only the one scope's dotted path, never the whole keys object (3.15ms)
+✔ K1 (c1): a partner id equal to the sandbox tenant id (or another reserved or configured tenant id) is refused, naming only the id, and nothing is written (2.5102ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3724.3457
+
+✖ failing tests:
+
+test at tests\partners.test.ts:966:1
+✖ K1 (c1): two operators rotate the page key and the server key of one partner at the same moment: both new keys work and both old keys are dead (7.994ms)
+  AssertionError [ERR_ASSERTION]: the new page key works
+  + actual - expected
+  
+  + undefined
+  - 'race-co'
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\copyA\apps\api\tests\partners.test.ts:973:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'race-co',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\partners.test.ts:996:1
+✖ K1 (c1): rotate sends the store only the one scope's dotted path, never the whole keys object (3.15ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      [
+  +     'keys'
+  -     'keys.pub'
+      ],
+      [
+  +     'keys'
+  -     'keys.srv'
+      ]
+    ]
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\copyA\apps\api\tests\partners.test.ts:1004:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ [ 'keys' ], [ 'keys' ] ],
+    expected: [ [ 'keys.pub' ], [ 'keys.srv' ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+=== exit 1 2026-10-22T09:05:13+05:30

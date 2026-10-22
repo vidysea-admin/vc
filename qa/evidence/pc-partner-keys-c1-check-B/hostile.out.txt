@@ -1,0 +1,39 @@
+[testlock] waiting for lock held by: PID=39368 STARTED=639282548324784600 ACQUIRED_AT=1792638232 TOKEN=1792638232646577700-296110-6994 DESC=timeout 600 pnpm exec tsx --test tests/chat-profile.test.ts --test-name-pattern=H2|LK7 C1-fix 
+[testlock] running slot 0 (free RAM 2.71 GB): timeout 600 pnpm exec tsx --test C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/hostile/hostile.test.ts
+✔ H1: three overlapping rotates (pub, srv, pub): srv new works, exactly one pub works, all olds dead (7.075ms)
+✔ H2: staggered: one scope's WRITE is held until the other scope's rotate has fully finished (both orders): both new keys work (38.5718ms)
+✔ H3: rotate overlapping revoke in every interleaving: a revoked partner never ends with a working key (15.2505ms)
+refused sandbox: invalid_partner_id
+refused SANDBOX: invalid_partner_id
+refused  sandbox: invalid_partner_id
+refused sandbox_sp: invalid_partner_id
+refused sandbox_nl: invalid_partner_id
+refused name Sandbox: invalid_partner_id
+refused name '  SANDBOX! ': invalid_partner_id
+refused name sandbox-: invalid_partner_id
+refused name -sandbox-: invalid_partner_id
+refused name Admin: invalid_partner_id
+refused name Root: invalid_partner_id
+refused fullwidth name: invalid_partner_id
+refused sandbox_zw: invalid_partner_id
+refused sand_box: invalid_partner_id
+refused SYSTEM: invalid_partner_id
+refused default: invalid_partner_id
+sandbox-1 allowed: sandbox-1 | reserved list: sandbox,admin,system,root,default,internal
+✔ H3b: revoke whose read precedes a concurrent rotate, with the revoke write held: status still ends revoked and nothing authenticates (5.7713ms)
+✔ H4: store.update fails after the read (reject, and false): old keys stay, nothing half-written, no key leaks in errors (2.6077ms)
+✔ H5: rotate on revoked / unknown / bad scope is clean (0.596ms)
+✔ H6: rotate does not touch other fields (1.7722ms)
+✔ H7: reserved ids: case, whitespace, slug, newline, unicode, zero-width (1.2715ms)
+✔ H8: sandbox-1 is NOT reserved (documented gap: exact ids only) (0.5923ms)
+✔ H9: registry sync throw under concurrency: concurrent callers coalesce into one read and reject; next call reads again; no unhandled rejection (11.0563ms)
+✔ H10: registry K2 window: cached at +59 s, revoked at +61 s; failed reload after expiry fails closed then recovers; rotate-out visible after the window (1.6833ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12530.4939
+exit 0

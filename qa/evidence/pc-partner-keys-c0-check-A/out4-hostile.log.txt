@@ -1,0 +1,40 @@
+[testlock] waiting for lock held by: PID=30792 STARTED=639282535192017664 ACQUIRED_AT=1792636919 TOKEN=1792636919335567800-286263-23382 DESC=timeout 600 node node_modules/tsx/dist/cli.mjs --test --test-name-pattern=K2: a partner revoked while a widget page is open tests/partners.test.ts 
+[testlock] running slot 0 (free RAM 1.94 GB): timeout 600 pnpm -C /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckA-cycle0/apps/api exec tsx --test tests/hostile-A.test.ts
+AGE121 status 201 textStored false
+✔ H1 cross-partner: srv key of A on B's student/thread/profile/decision/turn replay is 404 on every route, A's own data is untouched; B's page key and A's page key on student routes are the uniform 401 (112.2565ms)
+✔ H2 scope: srv key (X-VC-Key, with and without Origin) on the public route, and a srv key in Authorization, never opens it; page key in Authorization on public route is treated keyless (22.697ms)
+✔ H3 rotate and revoke: old key works only inside the 60 s cache window and is refused from 60 s on; the new key works from then; revoke ends both scopes; boundary exactly 60 000 ms (55.7088ms)
+✔ H4 malformed keys: 20 hostile shapes, including a 10 KB header, all give the byte-identical 401, never a 500, and never touch the model, KB or counter (31.384ms)
+✔ H5 CORS lookalikes: preflight and real request with 14 lookalike origins get no ACAO; the exact origin gets exactly itself with Vary; partner A's page key with partner B's origin is the 401 (10.8479ms)
+✔ H6 age and consent: missing, garbage, repeated, fullwidth-digit, negative, exponent and 3-digit-over-120 ages are a minor with no stored text; only exact 18..120 digits are adults; consent only for exactly 'true' (22.8831ms)
+✔ H7 a raw key never appears in the Mongo docs, the logs, the CLI list output or any error; only the printed add/rotate lines carry it, once (26.5642ms)
+✔ H8 uniform answers: unknown partner, wrong secret, revoked partner, wrong scope are byte-identical on both surfaces (13.5596ms)
+H9 pub works: false srv works: true
+✖ H9 ops race: two rotations of different scopes run concurrently - both printed keys must work afterwards (6.3331ms)
+{"level":"info","event":"anonymous_partner_turn","partnerId":"vidysea-website","state":"no_sourced_answer","ts":"2026-10-22T02:42:28.938Z"}
+✔ H10 over real HTTP: a 10 KB X-VC-Key is the uniform 401, a duplicated X-VC-Key / Origin is a 401, a preflight from an unlisted origin carries no CORS header, a student-route preflight carries none (78.8141ms)
+✔ H11 registry outage after the cache window: keyed requests are 503 (fail closed), a keyless call is unchanged, CORS is not granted (27.6703ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2601.7597
+
+✖ failing tests:
+
+test at tests\hostile-A.test.ts:401:1
+✖ H9 ops race: two rotations of different scopes run concurrently - both printed keys must work afterwards (6.3331ms)
+  AssertionError [ERR_ASSERTION]: lost update: one of the two freshly printed keys does not work
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\pckA-cycle0\apps\api\tests\hostile-A.test.ts:412:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
