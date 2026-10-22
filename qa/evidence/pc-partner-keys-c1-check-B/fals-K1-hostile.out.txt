@@ -1,0 +1,55 @@
+[testlock] waiting for lock held by: PID=8072 STARTED=639282551774302460 ACQUIRED_AT=1792638841 TOKEN=1792638841757563600-300368-20815 DESC=timeout 600 pnpm exec tsx --test C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/hostile/hostile.test.ts 
+[testlock] owner PID 21796 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock
+[testlock] write_owner_enrich: lock dir token changed (ours [1792638940738934000-308225-1449], now [1792638940863106700-309745-20591]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] write_owner_enrich: lock dir token changed (ours [1792638971674104200-308225-3345], now [1792638972098055000-310776-29489]) -- not enriching, this directory is no longer ours
+[testlock] acquire: lost the lock immediately after taking it -- retrying
+[testlock] owner PID 15628 is not running (or was recycled onto a different process) -- lock is stale
+[testlock] breaking stale lock at /c/Users/Lenovo/AppData/Local/Temp/claude/vc-testlock.slot-1
+[testlock] running slot 1 (free RAM 4.6 GB): timeout 600 pnpm exec tsx --test --test-name-pattern=H1|H2 C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/hostile/hostile-mut.test.ts
+✖ H1: three overlapping rotates (pub, srv, pub): srv new works, exactly one pub works, all olds dead (18.4812ms)
+✖ H2: staggered: one scope's WRITE is held until the other scope's rotate has fully finished (both orders): both new keys work (11.4553ms)
+✔ H10: registry K2 window: cached at +59 s, revoked at +61 s; failed reload after expiry fails closed then recovers; rotate-out visible after the window (3.8526ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 1
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12272.1147
+
+✖ failing tests:
+
+test at ..\..\..\hostile\hostile-mut.test.ts:35:1
+✖ H1: three overlapping rotates (pub, srv, pub): srv new works, exactly one pub works, all olds dead (18.4812ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(await r.authenticate(b.key, "srv"))
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\hostile\hostile-mut.test.ts:41:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at ..\..\..\hostile\hostile-mut.test.ts:48:1
+✖ H2: staggered: one scope's WRITE is held until the other scope's rotate has fully finished (both orders): both new keys work (11.4553ms)
+  AssertionError [ERR_ASSERTION]: pub new
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\hostile\hostile-mut.test.ts:61:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+exit 1

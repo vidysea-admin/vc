@@ -1,0 +1,17 @@
+[testlock] running slot 0 (free RAM 2.84 GB): timeout 600 pnpm exec tsx --test --test-name-pattern=H2|LK7 C1-fix tests/chat-profile.test.ts
+✔ LK7 C1-fix R1: chat on + screen on + a rules base provider (no concern-classifier) -> startApi REFUSES with a named error, before connecting, naming no key (31.9782ms)
+✔ LK7 C1-fix R2: the same rules base with the screen switched off in code (chat.safetyScreen = false) starts; so does chat off (39.9478ms)
+✔ LK7 C1-fix R3: a rules base is fine when the screen has its own classifier-capable provider (the screen's provider is what counts), and a refusal names the screen provider (30.4112ms)
+{"level":"error","event":"chat_fact_extraction_failed","ts":"2026-10-22T03:15:28.874Z"}
+✔ LK7 C1-fix R4: a classifier-capable base starts and an ordinary question is ANSWERED (not escalated, no crisis message) (275.7442ms)
+✔ H2: chat + VC_GROUNDING=gemini + chat.safetyScreen=false, or a rules screen provider, refuses to start with a named GroundingConfigError before connecting (68.2459ms)
+✔ H2: chat + grounding starts when the screen is on over a classifier-capable provider (default, or its own screen provider); without grounding safetyScreen=false still starts (62.9046ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2755.1962
+exit 0

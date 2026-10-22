@@ -1,0 +1,56 @@
+##### K4 green-before (copy) 2026-10-22T08:15:36+05:30
+[testlock] running slot 0 (free RAM 1.96 GB): timeout 600 node node_modules/tsx/dist/cli.mjs --test --test-name-pattern=K4: a preflight from any other origin tests/partners.test.ts
+✔ K4: a preflight from any other origin gets a 204 with no CORS headers (a look-alike host, another scheme or port, a revoked partner, the null origin) (9.9739ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2872.7041
+exit=0
+461c461
+<       for (const doc of (await partners()).values()) if (doc.status === "active" && doc.allowedOrigins.includes(origin)) return true;
+---
+>       for (const doc of (await partners()).values()) if (doc.status === "active" \&\& doc.allowedOrigins.some((o) => origin.startsWith(o))) return true;
+##### K4 red-after (copy) 2026-10-22T08:15:42+05:30
+[testlock] waiting for lock held by: PID=31436 STARTED=639282537421868986 ACQUIRED_AT=1792637142 TOKEN=1792637142367418300-289451-15017 DESC=timeout 600 node node_modules/tsx/dist/cli.mjs --test /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckB/hostile-B.test.mts 
+[testlock] running slot 0 (free RAM 2.04 GB): timeout 600 node node_modules/tsx/dist/cli.mjs --test --test-name-pattern=K4: a preflight from any other origin tests/partners.test.ts
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+Error: Transform failed with 1 error:
+C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\pckB\fals-K4\apps\api\src\partners.ts:461:82: ERROR: Syntax error "&"
+    at failureErrorWithLog (D:\vc\.worktrees\pc-partner-keys\node_modules\.pnpm\esbuild@0.28.2\node_modules\esbuild\lib\main.js:1752:15)
+    at D:\vc\.worktrees\pc-partner-keys\node_modules\.pnpm\esbuild@0.28.2\node_modules\esbuild\lib\main.js:1019:50
+    at responseCallbacks.<computed> (D:\vc\.worktrees\pc-partner-keys\node_modules\.pnpm\esbuild@0.28.2\node_modules\esbuild\lib\main.js:886:9)
+    at handleIncomingPacket (D:\vc\.worktrees\pc-partner-keys\node_modules\.pnpm\esbuild@0.28.2\node_modules\esbuild\lib\main.js:941:12)
+    at Socket.readFromStdout (D:\vc\.worktrees\pc-partner-keys\node_modules\.pnpm\esbuild@0.28.2\node_modules\esbuild\lib\main.js:864:7)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23) {
+  name: 'TransformError'
+}
+
+Node.js v24.13.1
+✖ tests\partners.test.ts (306.4925ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 314.8678
+
+✖ failing tests:
+
+test at tests\partners.test.ts:1:1
+✖ tests\partners.test.ts (306.4925ms)
+  'test failed'
+exit=1
+restored: identical to worktree

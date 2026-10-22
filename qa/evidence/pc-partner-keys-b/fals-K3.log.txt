@@ -1,0 +1,48 @@
+##### K3 green-before (copy) 2026-10-22T08:13:46+05:30
+[testlock] running slot 0 (free RAM 2.59 GB): timeout 600 node node_modules/tsx/dist/cli.mjs --test --test-name-pattern=K3: Pathlynks. backend sends a key for another tests/partners.test.ts
+✔ K3: Pathlynks' backend sends a key for another partner's student: the thread, the history and the profile answer 404, and nothing of the other partner is written or read (171.0035ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3052.1165
+exit=0
+855c855
+<       ctx = { tenantId: partner.partnerId, studentId: student.studentId, role: "student", minor: student.minor, guardianConsent: student.guardianConsent };
+---
+>       ctx = { tenantId: "shared-tenant", studentId: student.studentId, role: "student", minor: student.minor, guardianConsent: student.guardianConsent };
+##### K3 red-after (copy) 2026-10-22T08:13:51+05:30
+[testlock] running slot 0 (free RAM 2.53 GB): timeout 600 node node_modules/tsx/dist/cli.mjs --test --test-name-pattern=K3: Pathlynks. backend sends a key for another tests/partners.test.ts
+✖ K3: Pathlynks' backend sends a key for another partner's student: the thread, the history and the profile answer 404, and nothing of the other partner is written or read (169.8138ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2855.8628
+
+✖ failing tests:
+
+test at tests\partners.test.ts:535:1
+✖ K3: Pathlynks' backend sends a key for another partner's student: the thread, the history and the profile answer 404, and nothing of the other partner is written or read (169.8138ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  200 !== 404
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\pckB\fals-K3\apps\api\tests\partners.test.ts:547:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 404,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+exit=1
+restored: identical to worktree

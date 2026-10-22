@@ -1,0 +1,49 @@
+##### K2 green-before (copy) 2026-10-22T08:11:59+05:30
+[testlock] running slot 0 (free RAM 1.84 GB): timeout 600 node node_modules/tsx/dist/cli.mjs --test --test-name-pattern=K2: a partner revoked while a widget page is open tests/partners.test.ts
+✔ K2: a partner revoked while a widget page is open is refused within 60 s of the revoke (172.6914ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3404.5646
+exit=0
+457c457
+<       if (!doc || !equal || doc.status !== "active" || parsed.scope !== scope) return undefined;
+---
+>       if (!doc || !equal || parsed.scope !== scope) return undefined;
+##### K2 red-after (copy) 2026-10-22T08:12:04+05:30
+[testlock] waiting for lock held by: PID=34328 STARTED=639282535170613434 ACQUIRED_AT=1792636924 TOKEN=1792636925027711400-286200-9842 DESC=timeout 600 pnpm -C D:/vc/.worktrees/pc-docs-openapi/apps/api exec tsx --test tests/partner-openapi.test.ts 
+[testlock] running slot 0 (free RAM 2.47 GB): timeout 600 node node_modules/tsx/dist/cli.mjs --test --test-name-pattern=K2: a partner revoked while a widget page is open tests/partners.test.ts
+✖ K2: a partner revoked while a widget page is open is refused within 60 s of the revoke (107.0091ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2591.9968
+
+✖ failing tests:
+
+test at tests\partners.test.ts:461:1
+✖ K2: a partner revoked while a widget page is open is refused within 60 s of the revoke (107.0091ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  200 !== 401
+  
+      at TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\pckB\fals-K2\apps\api\tests\partners.test.ts:469:12)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 401,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+exit=1
+restored: identical to worktree

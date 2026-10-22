@@ -619,3 +619,6 @@ export const STUDENT_API_DRAFT = {
     },
   },
 } as const;
+
+/** pc-partner-keys K5 (D-111): the document GET /v1/partner/openapi.json serves. The first version re-exports the student draft; pc-docs-openapi fills it in. */
+export const PARTNER_OPENAPI = STUDENT_API_DRAFT;

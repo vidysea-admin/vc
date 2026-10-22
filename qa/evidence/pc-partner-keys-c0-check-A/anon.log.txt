@@ -1,0 +1,18 @@
+[testlock] running slot 0 (free RAM 2.02 GB): timeout 600 pnpm -C /d/vc/.worktrees/pc-partner-keys/apps/api exec tsx --test --test-name-pattern=H2|H6|G5 tests/anonymous-route.test.ts
+✔ G5: buildAnonymousGraphDeps maps scope no_source to anonymous: 'no_source' and passes grounding through; scope all or absent stays anonymous: true (2.6762ms)
+✔ G5: by default (screen flag unset) a no-source anonymous turn is safety-screened before any model call; a 'possible' verdict is the crisis answer and the guidance model is never called (203.2335ms)
+✔ H2: VC_GROUNDING=gemini with the anonymous route over a rules provider (no classifier, so no screen) refuses to start, before connecting, naming no key (30.1819ms)
+✔ H2: the same rules provider WITHOUT grounding still starts (the existing behaviour), and grounding over a classifier-capable provider starts with the screen on (31.6752ms)
+✔ H6: grounded calls are capped per anonymous client; over the cap the turn falls back to the model-only guidance (D-110), no crash, and other clients are unaffected (74.4375ms)
+✔ H6: grounded calls are capped per day across clients; a refused spend guard is the same fallback (72.062ms)
+✔ H6: startApi refuses a malformed grounded-call cap and a non-flash VC_GROUNDING_MODEL before connecting (16.8485ms)
+✔ H6 F3: the grounded-call budget key is a salted digest, never the raw client address; the same client keeps one bucket and clients stay apart (33.6344ms)
+✔ H6 F3: a request with no client key falls back to ONE shared, still-capped bucket (fail safe), and the missing key is logged once, text-free (38.7013ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2708.3169
