@@ -665,6 +665,14 @@ test("R1: the Hindi helpline line is built only from fragments copied verbatim f
   const parts = helpHi.split(" · ");
   assert.equal(parts.length, W.HELP.split(" · ").length, "same separator style and part count as the English HELP");
   for (const p of parts) assert.ok(lang.includes(p), "not a verbatim fragment of lang.ts: " + JSON.stringify(p));
+  // pc-hardening-3 K4 (ISS-pc-hardening-2-1): pin the EXACT composed line, built from the approved lang.ts strings (not only each part as a substring), so a shortened
+  // fragment goes red. Part 1 is the approved gloss HELPLINE_GLOSS without its parentheses; part 2 is the complete approved Hindi clause "112 पर फ़ोन करें" cut out of
+  // the approved Hindi crisis message (the clause that ends where " या " begins).
+  const glossMatch = /HELPLINE_GLOSS\s*=\s*"\(([^"]+)\)"/.exec(lang);
+  assert.ok(glossMatch, "HELPLINE_GLOSS is in lang.ts");
+  const clauseMatch = /(112 पर \S+ \S+)(?= या )/.exec(lang);
+  assert.ok(clauseMatch, "the approved 112 clause is in lang.ts");
+  assert.equal(helpHi, glossMatch[1] + " · " + clauseMatch[1], "the Hindi helpline line is exactly the approved gloss + the approved 112 clause");
   // the voice-off note takes the same line
   assert.ok(W.voiceFallbackText({ reason: "off" }, "hi").endsWith("\n" + helpHi));
   // the invented word is gone from every widget source file

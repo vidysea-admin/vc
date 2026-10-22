@@ -9,6 +9,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createFakeDb, createFakeMongoClient } from "@vc/db/testing";
+import { AuthError, refuseTenantClaims } from "../src/auth.js";
 import {
   KNOWN_TENANT_IDS,
   PARTNER_ID_PATTERN,
@@ -45,7 +46,7 @@ import { launch } from "../src/main.js";
 import type { ApiHandler, ApiRequest, ApiResponse } from "../src/server.js";
 import { respond } from "../src/server.js";
 import { SKILLS_DIR, anonRequest, anonWorld, ask, cleanupGates, gatesFixture, kbAnswerProvider, nonEmptyCollections } from "./anonymous-fixtures.js";
-import { CRISIS_TEXT, GERMANY_QUESTION, call, chatRequest, chatWorld, studentToken, adult, newThread, threadsPath, turnsPath } from "./chat-fixtures.js";
+import { CRISIS_TEXT, GERMANY_QUESTION, call, chatRequest, chatWorld, studentToken, adult, newThread, studentVerifier, threadsPath, turnsPath } from "./chat-fixtures.js";
 
 const PEPPER = "synthetic-pepper-".padEnd(40, "x");
 const T0 = Date.parse("2026-11-01T10:00:00.000Z");
@@ -877,6 +878,33 @@ test("K5: nginx proxies the public chat route, the student chat routes, the part
   // nothing else under /v1/ is proxied: the only proxied v1 locations are the six above, plus the catch-all 404
   const v1Locations = [...nginxCode.matchAll(/location\s+(?:=\s*|~\s*)?(\^?\/v1\/\S*)/g)].map((m) => m[1]);
   assert.equal(v1Locations.length, 7, v1Locations.join(" | "));
+});
+
+test("K2 (pc-hardening-3): both voice stream locations are rate limited like the other public locations, and their access log never records the Sec-WebSocket-Protocol header or a query string", () => {
+  const streams = {
+    "public stream": locationBlock(/location\s*=\s*\/v1\/public\/voice\/stream\s*{/),
+    "student stream": locationBlock(/location\s*~\s*\^\/v1\/students\/\[\^\/\]\+\/chat\/threads\/\[\^\/\]\+\/voice\/stream\$\s*{/),
+  };
+  // the log formats this file defines (name -> format string), comments already dropped
+  const formats = new Map([...nginxCode.matchAll(/log_format\s+(\S+)\s+([^;]+);/g)].map((m) => [m[1]!, m[2]!] as const));
+  // anything that can carry the single-use token, or the query string it could be mis-sent in
+  const SECRET_VARS = /\$(?:request|request_uri|args|query_string|is_args|arg_\w+|http_sec_websocket_protocol|http_authorization|http_cookie|http_x_vc_key|upstream_http_\w+|sent_http_\w+)(?![A-Za-z0-9_])/;
+  for (const [name, block] of Object.entries(streams)) {
+    assert.match(block, /limit_req\s+zone=vcchat\s+burst=\d+\s+nodelay;/, `${name}: limited like the other public locations`);
+    assert.match(block, /limit_req_status\s+429;/, `${name}: 429 like the other public locations`);
+    const logs = [...block.matchAll(/access_log\s+([^;]+);/g)].map((m) => m[1]!.trim().split(/\s+/));
+    assert.equal(logs.length, 1, `${name}: a location-level access_log is set (otherwise the server-wide combined format, which logs $request with its query string, applies)`);
+    const [target, format] = logs[0]!;
+    if (target !== "off") {
+      assert.ok(format !== undefined && formats.has(format), `${name}: access_log names a log_format this file defines (found ${logs[0]!.join(" ")})`);
+      assert.doesNotMatch(formats.get(format!)!, SECRET_VARS, `${name}: the log_format carries no query string, request line or token-bearing header`);
+      assert.match(formats.get(format!)!, /\$uri\b/, `${name}: the path is logged without its query string`);
+    }
+  }
+  // the instrument is real: the checker below rejects the combined format that logs $request and the WebSocket protocol header
+  assert.match('"$request" $status "$http_sec_websocket_protocol"', SECRET_VARS);
+  assert.match("$remote_addr $request", SECRET_VARS);
+  assert.doesNotMatch("$remote_addr $request_method $uri $status", SECRET_VARS);
 });
 
 test("K5 (clarified default 5): nginx serves the widget statically with a one-year immutable cache for the versioned file and 300 s for the alias", () => {
@@ -1730,4 +1758,46 @@ test("R4: a revoke that lands between rotate's read and rotate's write makes rot
   assert.equal(stored.keys.pub.hash, before, "the old key record is untouched (no new key was written)");
   const fresh = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => T0 });
   assert.equal(await fresh.authenticate(original, "pub"), undefined, "a revoked partner authenticates with nothing");
+});
+
+// ---------------------------------------------------------------------------
+// pc-hardening-3 K1 (ISS-pc-reserved-ids-6): the reverse direction. A student JWT whose tenant claim equals an existing partner id is refused.
+// ---------------------------------------------------------------------------
+
+test("K1 (pc-hardening-3): a student JWT whose tenant equals (or case-folds to) an existing partner id is refused with AuthError, unless that tenant is the partner's own bound tenant; an unrelated tenant is allowed", async () => {
+  const w = partnerWorld();
+  await w.add("Pathlynks"); // id pathlynks
+  await w.add("Acme Corp", [], "acme-corp");
+  const registry = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => T0, ownTenants: ["acme-corp"] });
+  const verifier = refuseTenantClaims(studentVerifier(), (tenantId) => registry.isPartnerTenantClaim(tenantId));
+  const refused = async (tenant: string) => {
+    try {
+      await verifier.verify(await studentToken(adult("stu-1", tenant)));
+      return false;
+    } catch (e) {
+      assert.ok(e instanceof AuthError, String(e));
+      assert.equal(e.reason, "claims");
+      return true;
+    }
+  };
+  assert.equal(await refused("pathlynks"), true, "equal to the partner id");
+  assert.equal(await refused("PATHLYNKS"), true, "case variant");
+  assert.equal(await refused("PathLynks"), true, "mixed case variant");
+  assert.equal(await refused("acme-corp"), false, "the partner's own bound tenant (VC_PARTNER_OWN_TENANTS) is allowed");
+  assert.equal(await refused("ACME-CORP"), true, "the binding is exact: a look-alike of the bound id stays refused");
+  assert.equal(await refused("tenant-a"), false, "an unrelated tenant is allowed");
+  assert.equal(await refused("pathlynks-2"), false, "only the exact (folded) id collides, not a prefix");
+  // the fold is the one isReservedPartnerId uses (NFKC + lower case): a full-width look-alike collides at the registry even though the JWT claim pattern would stop it earlier
+  assert.equal(await registry.isPartnerTenantClaim("ｐathlynks"), true, "NFKC width variant");
+  assert.equal(await registry.isPartnerTenantClaim("acme-corp"), false);
+  assert.equal(await registry.isPartnerTenantClaim("ｐathlynks-2"), false);
+  // a revoked partner's records still live under its tenant: still refused
+  await revokePartner(w.store, "pathlynks");
+  w.clock.ms += 61_000;
+  const later = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => w.clock.ms });
+  assert.equal(await later.isPartnerTenantClaim("pathlynks"), true);
+  // an unreadable store fails closed: the same AuthError, never an allow and never a raw store error
+  const down = createPartnerRegistry({ store: { ...w.store, list: async () => { throw new Error("mongo down"); } }, pepper: PEPPER, nowMs: () => T0 });
+  const closed = refuseTenantClaims(studentVerifier(), (tenantId) => down.isPartnerTenantClaim(tenantId));
+  await assert.rejects(async () => closed.verify(await studentToken(adult("stu-1", "tenant-a"))), (e: unknown) => e instanceof AuthError);
 });

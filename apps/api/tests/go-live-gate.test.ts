@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GATE_FILES, GO_LIVE_TARGETS, GoLiveRefusedError, assertGoLive, evaluateGoLive, formatGoLiveReport, type GoLiveTarget } from "../src/go-live-gate.js";
+import { assertVoiceGoLive } from "../src/voice.js";
 
 const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
 const CLI = fileURLToPath(new URL("../scripts/go-live-gate.ts", import.meta.url));
@@ -543,4 +544,33 @@ test("A20 CLI: exits 1 naming each missing record against the real qa/gates; 0 o
   }
   assert.equal(run(["nonsense"]).status, 2);
   if (REAL_B13_PENDING) assert.equal(run([]).status, 1, "default target is student-routes against the real qa/gates");
+});
+
+test("K3 (pc-hardening-3): assertVoiceGoLive reads the approver from the env it is passed, and from process.env only when no env is passed (fail closed unchanged)", () => {
+  const fu = fixture({ a10: `${A10_FAIL_RECORD}${OVERRIDE_LINE}\n` });
+  try {
+    const base = { gatesDir: fu.gates, now: NOW };
+    // approver set ONLY in the passed env -> allowed
+    withApproverEnv(undefined, () => {
+      assert.doesNotThrow(() => assertVoiceGoLive({ ...base, env: { VC_GATE_APPROVER: "Umesh" } }));
+    });
+    // approver set ONLY in process.env, the passed env lacks it -> refused (the passed env is the configuration)
+    withApproverEnv("Umesh", () => {
+      assert.throws(() => assertVoiceGoLive({ ...base, env: {} }), GoLiveRefusedError);
+      assert.throws(() => assertVoiceGoLive({ ...base, env: { VC_GATE_APPROVER: "" } }), GoLiveRefusedError);
+      // a different approver in the passed env wins over a matching process.env
+      assert.throws(() => assertVoiceGoLive({ ...base, env: { VC_GATE_APPROVER: "Mallory" } }), GoLiveRefusedError);
+      // no env passed: process.env is the fallback
+      assert.doesNotThrow(() => assertVoiceGoLive(base));
+      // an explicit approver still decides
+      assert.throws(() => assertVoiceGoLive({ ...base, approver: "Mallory", env: { VC_GATE_APPROVER: "Umesh" } }), GoLiveRefusedError);
+    });
+    // nothing configured anywhere -> refused
+    withApproverEnv(undefined, () => {
+      assert.throws(() => assertVoiceGoLive(base), GoLiveRefusedError);
+      assert.throws(() => assertVoiceGoLive({ ...base, env: {} }), GoLiveRefusedError);
+    });
+  } finally {
+    cleanup(fu);
+  }
 });
