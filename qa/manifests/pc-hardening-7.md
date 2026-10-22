@@ -3,7 +3,7 @@
 **Goal task:** none
 **Date:** 2026-10-22
 **Fix cycle:** 0
-**Status:** ready-for-check
+**Status:** checked-PASS (qa/verdicts/pc-hardening-7.md, 06a0a69; merged 7839248)
 **Dual check:** no
 **Dual-check reason:** test-only change (five files under apps/api/tests); apps/api/src is untouched, so no request authentication, tenancy, gate or production-write behaviour changes. Tier L only because existing assertions about the real repo gates are rewritten.
 **Persona walk:** skip (no new screen or flow)
