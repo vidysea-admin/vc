@@ -3,7 +3,7 @@
 **Goal task:** none
 **Date:** 2026-10-22
 **Fix cycle:** 0
-**Status:** ready-for-check
+**Status:** checked-PASS
 **Dual check:** yes
 **Dual-trigger:** tenancy apps/api/src/index.ts:551 (the sandbox-tenant exemption guard of the partner id = tenant id binding)
 **Persona walk:** skip (api + widget text; no new screen or flow)
@@ -94,3 +94,5 @@ Sessions: 2b04f90e-6b56-4682-a76c-d8515b93405c
 - A live browser run of the widget busy note (unit-tested against fakes only).
 - The remaining upgrade-time-429 race path still shows the generic network fallback in the widget (not readable by the browser).
 - The per-partner cap with a bad value is proven at the helper level and by "two visitors still fit"; a 50-session saturation run was not done.
+
+Close-out (2026-10-22T16:01:27+05:30): dual check PASS — A 6470ffa, B 4f3f1b7 (Cycle checked: 0); senior review Approve (qa/evidence/p1-briefs/pc-hardening-c0-review-result.md); browser validation c684bec OK (qa/evidence/browser-pc-hardening-2026-10-22/report.json, 12/12). Status: checked-PASS
