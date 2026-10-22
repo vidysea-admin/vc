@@ -1,0 +1,23 @@
+[testlock] running slot 0 (free RAM 1.95 GB): timeout 600 node node_modules/tsx/dist/cli.mjs --test /c/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/pckB/hostile-B.test.mts
+H1 worst rejection ms=0.12 cases=29
+H7 median ms/call {"valid":0.0072000000000116415,"unknown_id":0.007999999999810825,"wrong_secret_firstchar":0.006000000000312866,"wrong_secret_lastchar":0.006199999999807915,"revoked":0.005999999999858119}
+✔ H1 malformed keys: one uniform 401 on the public route and on the student route, fast, nothing reached (41.3375ms)
+✔ H2 cross scope and cross partner: srv key A on partner B's student, pub key on student routes, srv key on the public route and in the wrong header (149.8435ms)
+✔ H3 cache bound: rotate/revoke exactly at the 60 s boundary, clock going backwards, store outage then recovery, coalesced reads (2.6814ms)
+✔ H4 CORS lookalikes end to end (wrapper over the real anonymous handler) (25.1877ms)
+✔ H4b CORS never reaches student, voice or any other route; openapi key-less gets no ACAO (1.8794ms)
+✔ H5 age / consent headers: missing, garbage, repeated, unicode -> minor and no model call; only exact 'true' consents (39.5491ms)
+✔ H6 a raw key / secret appears in no Mongo doc, log line, response body, listing or CLI output across a battery incl. failures (67.8984ms)
+✔ H7 timing: unknown id vs wrong secret vs wrong scope vs revoked have equal cost (statistical, 6000 samples each) (276.1423ms)
+{"level":"info","event":"anonymous_partner_turn","partnerId":"vidysea-website","state":"no_sourced_answer","ts":"2026-10-22T02:45:46.975Z"}
+H8 20KB header -> 431
+{"level":"info","event":"anonymous_partner_turn","partnerId":"vidysea-website","state":"no_sourced_answer","ts":"2026-10-22T02:45:47.005Z"}
+✔ H8 real HTTP through launch(): a 10 KB X-VC-Key, a 10 KB Authorization, a 20 KB header; the server stays up and answers the next request (148.3719ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2890.1653
