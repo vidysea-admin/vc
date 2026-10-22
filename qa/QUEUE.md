@@ -106,7 +106,7 @@ only in chat (the D-006 failure mode). **Reconciled through D-029 (2026-09-30).*
 
 - [x] DONE pc-reserved-ids — approved: 2026-10-22 (Umesh, chat "keep going" after the security follow-up was named top priority) — ISS-pc-partner-keys-1: a partner id must never equal or look like a configured tenant/sandbox id. files: apps/api/src/partners.ts, apps/api/scripts/partner.ts, apps/api/src/partner-auth (key auth path), tests · lanes: code · tier L (tenancy), dual check
 
-- [ ] TODO pc-reserved-ids-2 — approved: 2026-10-22 (Umesh, chat "go as per the best recommended" after the follow-up was recommended) — ISS-pc-reserved-ids-1..5: warn on an empty tenant list, go-live docs, a partner's own tenant not self-blocking, malformed list only fatal when partners are on, trim programmatic ids, rotate warning. files: apps/api/src/partners.ts, apps/api/src/index.ts, apps/api/scripts/partner.ts, tests, docs · tier L (tenancy), dual check
+- [x] DONE pc-reserved-ids-2 — approved: 2026-10-22 (Umesh, chat "go as per the best recommended" after the follow-up was recommended) — ISS-pc-reserved-ids-1..5: warn on an empty tenant list, go-live docs, a partner's own tenant not self-blocking, malformed list only fatal when partners are on, trim programmatic ids, rotate warning. files: apps/api/src/partners.ts, apps/api/src/index.ts, apps/api/scripts/partner.ts, tests, docs · tier L (tenancy), dual check
 
 ## Candidates (human picks)
 - [ ] db-ttl-scanner-next (low, from 6c 2026-10-21): packages/db/tests/db-init.test.ts:352 scanner skips node_modules/dist/tests/evals but not .next; a local apps/web dev build makes it red. Add .next to the skip set.
