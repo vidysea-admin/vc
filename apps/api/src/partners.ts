@@ -66,10 +66,19 @@ const foldId = (id: string): string => id.normalize("NFKC").toLowerCase();
  * non-digit) and a suffix (`sandbox`, `sandbox-1`, `admin_2`, `root.x`), to a tenant this repo writes under, or to one of the `extra` configured tenant ids.
  * Case and width are folded (NFKC, lower-case), so `SANDBOX` and a full-width `ｓandbox` count. A name that merely starts with the same letters (`sandboxed`) does not.
  */
-export function isReservedPartnerId(id: string, extra: readonly string[] = []): boolean {
+export function isReservedPartnerId(id: string, extra: readonly string[] = [], ownTenants: readonly string[] = []): boolean {
   const f = foldId(id);
-  if (KNOWN_TENANT_IDS.includes(f) || extra.some((e) => foldId(e) === f)) return true;
-  return RESERVED_PARTNER_IDS.some((name) => f === name || (f.startsWith(name) && /^[^a-z0-9]/.test(f.slice(name.length))));
+  // Never exemptable (pc-reserved-ids-2 S2): the built-in names and their families, and the tenants this repo writes under.
+  if (KNOWN_TENANT_IDS.includes(f)) return true;
+  if (RESERVED_PARTNER_IDS.some((name) => f === name || (f.startsWith(name) && /^[^a-z0-9]/.test(f.slice(name.length))))) return true;
+  // A configured tenant id: entries are trimmed and folded like the env parser's (S4); a blank entry reserves nothing. The ONE exemption is an explicit operator binding
+  // (`ownTenants`), matched against the EXACT partner id: a partner reaches only the tenant named by its own id (chat.ts:855), so binding `pathlynks` frees that
+  // partner and nothing else, and a differently cased or full-width look-alike of it stays refused.
+  if (extra.some((e) => {
+    const t = foldId(e.trim());
+    return t !== "" && t === f;
+  })) return !ownTenants.some((o) => o.trim() === id);
+  return false;
 }
 
 /** The configured tenant ids from VC_RESERVED_TENANT_IDS (empty when unset). A malformed entry is a config error naming the variable, never a silent skip. */
@@ -81,6 +90,38 @@ export function reservedTenantIdsFromEnv(env: Record<string, string | undefined>
     throw new PartnerConfigError(`${RESERVED_TENANT_IDS_ENV} must be a comma- or space-separated list of tenant ids (1-64 characters of letters, digits, "_" and "-")`);
   }
   return [...new Set(ids)];
+}
+
+/**
+ * The explicit binding of a partner to its OWN tenant (pc-reserved-ids-2 S2, ISS-pc-reserved-ids-2): a comma- or space-separated list of `<partner>:<tenant>`. A partner id IS
+ * the tenant of everything its server key reaches (chat.ts:855, voice.ts:1712; there is no separate tenant field), so a partner can only ever be bound to the tenant of its
+ * own id and the two halves must be equal. The list frees exactly those partners from the VC_RESERVED_TENANT_IDS check (so `pathlynks` can be listed as a real JWT tenant
+ * and still be a partner); it can never free a built-in reserved name or a tenant this repo writes under.
+ */
+export const PARTNER_OWN_TENANTS_ENV = "VC_PARTNER_OWN_TENANTS";
+const OWN_TENANT_ENTRY_PATTERN = /^([a-z0-9-]{2,32}):([A-Za-z0-9][A-Za-z0-9_-]{0,63})$/;
+
+/** The partner ids bound to their own tenant by VC_PARTNER_OWN_TENANTS (empty when unset). A malformed entry is a config error naming the variable, never a silent skip. */
+export function partnerOwnTenantsFromEnv(env: Record<string, string | undefined>): string[] {
+  const raw = env[PARTNER_OWN_TENANTS_ENV];
+  if (raw === undefined || raw.trim() === "") return [];
+  const ids: string[] = [];
+  for (const entry of raw.split(/[\s,]+/).filter((s) => s !== "")) {
+    const m = OWN_TENANT_ENTRY_PATTERN.exec(entry);
+    if (!m || m[1] !== m[2]) {
+      throw new PartnerConfigError(`${PARTNER_OWN_TENANTS_ENV} entries must be <partner>:<tenant> with both halves the same id (a partner reaches only the tenant named by its own id)`);
+    }
+    if (isReservedPartnerId(m[1]!)) {
+      throw new PartnerConfigError(`${PARTNER_OWN_TENANTS_ENV} cannot bind a built-in reserved name or a tenant this repo writes under`);
+    }
+    ids.push(m[1]!);
+  }
+  return [...new Set(ids)];
+}
+
+/** What `partner add` / `partner list` (stderr) and startApi (log) say when VC_RESERVED_TENANT_IDS is empty (pc-reserved-ids-2 S1). */
+export function reservedTenantIdsWarning(): string {
+  return `${RESERVED_TENANT_IDS_ENV} is empty or unset: only the built-in reserved names, this repo's own tenants and the sandbox tenant are protected, so the real student-JWT tenants are unprotected (a partner id equal to one of them would be accepted and its server key would reach that tenant's students). List every "tenant" your student JWTs carry in ${RESERVED_TENANT_IDS_ENV}.`;
 }
 export const PARTNER_KEY_PREFIX = "vck_";
 /** pub = the page key (public chat route only); srv = the server key (student routes only). */
@@ -294,6 +335,10 @@ export interface PartnerOpContext {
   randomBytes?: (n: number) => Buffer;
   /** More tenant ids addPartner must refuse (beyond RESERVED_PARTNER_IDS), for a caller that knows the configured tenants. The CLI fills it from VC_RESERVED_TENANT_IDS (reservedTenantIdsFromEnv). */
   reservedIds?: readonly string[];
+  /** Partner ids explicitly bound to their own tenant (VC_PARTNER_OWN_TENANTS, partnerOwnTenantsFromEnv): exempt from `reservedIds` only, never from the built-in names. */
+  ownTenants?: readonly string[];
+  /** CLI only: where `add` and `list` print the empty-list warning (the script passes stderr). */
+  warn?: (line: string) => void;
 }
 
 function requirePepper(ctx: PartnerOpContext): void {
@@ -312,7 +357,7 @@ export async function addPartner(
   const partnerId = input.id ?? slugOf(name);
   // The reserved check runs first and on the folded id (case, width), so `SANDBOX` is refused as reserved, not just as badly formed. Ids are ASCII-validated right after,
   // so a look-alike in another script never reaches a key.
-  if (typeof partnerId === "string" && isReservedPartnerId(partnerId, ctx.reservedIds ?? [])) {
+  if (typeof partnerId === "string" && isReservedPartnerId(partnerId, ctx.reservedIds ?? [], ctx.ownTenants ?? [])) {
     throw new PartnerError("invalid_partner_id", `the partner id "${partnerId.slice(0, 80)}" is reserved (it is, or looks like, an existing tenant id); choose another with --id`);
   }
   if (!PARTNER_ID_PATTERN.test(partnerId) || !PATH_ID_PATTERN.test(partnerId)) {
@@ -347,6 +392,10 @@ export async function rotatePartner(
   const existing = await store.get(partnerId);
   if (!existing) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
   if (existing.status === "revoked") throw new PartnerError("partner_revoked", `partner "${partnerId}" is revoked; add a new partner instead of rotating`);
+  // S5: a key for a reserved partner id could never authenticate (the registry refuses it on every request), so none is minted. Revoke still works.
+  if (isReservedPartnerId(existing.partnerId, ctx.reservedIds ?? [], ctx.ownTenants ?? [])) {
+    throw new PartnerError("invalid_partner_id", `the partner id "${partnerId.slice(0, 80)}" is reserved (it is, or looks like, an existing tenant id), so its keys are refused on every request and no key was minted; revoke it and add the partner under another id with --id`);
+  }
   const { key, record } = newKey(scope, partnerId, ctx, (ctx.now?.() ?? new Date()).toISOString());
   // K1 (fix cycle 1): write ONLY keys.<scope>. The old whole-`keys` write let two overlapping rotates of different scopes restore each other's old key.
   const patch: PartnerPatch = scope === "pub" ? { "keys.pub": record } : { "keys.srv": record };
@@ -388,6 +437,8 @@ function row(p: PartnerSummary): string {
 /** Runs one CLI command and returns the lines to print. Throws PartnerError (code "usage" for a bad command line). */
 export async function runPartnerCli(argv: readonly string[], deps: { store: PartnerStore } & PartnerOpContext): Promise<string[]> {
   const [command, ...rest] = argv;
+  // S1: an empty VC_RESERVED_TENANT_IDS leaves the real JWT tenants unprotected, so the two commands that choose or show ids say so, on stderr.
+  if ((command === "add" || command === "list") && (deps.reservedIds ?? []).length === 0) deps.warn?.(reservedTenantIdsWarning());
   switch (command) {
     case "add": {
       const positional: string[] = [];
@@ -471,6 +522,8 @@ export interface PartnerRegistryOptions {
    * refused as an unknown key, on every request. A function is asked on every request, so a tenant configured after the partner was added is covered at once.
    */
   reservedIds?: readonly string[] | (() => readonly string[]);
+  /** Partner ids explicitly bound to their own tenant (VC_PARTNER_OWN_TENANTS): exempt from `reservedIds`, never from the built-in names or the repo tenants. */
+  ownTenants?: readonly string[];
 }
 
 const DUMMY_HASH = Buffer.alloc(32);
@@ -480,6 +533,7 @@ export function createPartnerRegistry(options: PartnerRegistryOptions): PartnerR
   const nowMs = options.nowMs ?? Date.now;
   const ttlMs = Math.min(options.ttlMs ?? PARTNER_CACHE_TTL_MS, PARTNER_CACHE_TTL_MS);
   const pepper = options.pepper;
+  const ownTenants = options.ownTenants ?? [];
   const turns = new Map<string, { turns: number }>();
   const reservedNow = (): readonly string[] => (typeof options.reservedIds === "function" ? options.reservedIds() : (options.reservedIds ?? []));
   let snapshot: { at: number; byId: Map<string, PartnerDoc> } | undefined;
@@ -523,12 +577,12 @@ export function createPartnerRegistry(options: PartnerRegistryOptions): PartnerR
       if (!doc || !equal || doc.status !== "active" || parsed.scope !== scope) return undefined;
       // R2: the partner id is the tenant id of everything this key reaches, so a record whose id is (or looks like) an existing tenant is refused here even though
       // its HMAC is right (a record made before addPartner checked, or a tenant configured later). Same undefined as any bad key: the caller sends one uniform 401.
-      if (isReservedPartnerId(doc.partnerId, reservedNow())) return undefined;
+      if (isReservedPartnerId(doc.partnerId, reservedNow(), ownTenants)) return undefined;
       return { partnerId: doc.partnerId, name: doc.name, allowedOrigins: [...doc.allowedOrigins] };
     },
     async originAllowedByAnyPartner(origin) {
       const reserved = reservedNow();
-      for (const doc of (await partners()).values()) if (doc.status === "active" && doc.allowedOrigins.includes(origin) && !isReservedPartnerId(doc.partnerId, reserved)) return true;
+      for (const doc of (await partners()).values()) if (doc.status === "active" && doc.allowedOrigins.includes(origin) && !isReservedPartnerId(doc.partnerId, reserved, ownTenants)) return true;
       return false;
     },
     noteTurn(partnerId) {

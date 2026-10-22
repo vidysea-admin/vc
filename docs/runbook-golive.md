@@ -15,6 +15,15 @@ Watch stderr (or Langfuse error traces) for `"event":"alert_`.
 Existing alert for reference: `provider_failover_exhausted` (every model in the chain failed). First action: check the provider status and
 `OLLAMA_API_KEY`.
 
+## Before deploy: partner ids against tenants (pc-reserved-ids)
+
+A partner id is the tenant id of everything its server key reaches, so a partner id equal to a real student-JWT tenant would let that partner read those students.
+
+1. Set `VC_RESERVED_TENANT_IDS` to every `tenant` your student JWTs carry (and the sandbox tenant). **Empty means built-ins only**: `sandbox`, `admin`, `system`, `root`, `default`, `internal` (alone or followed by a separator and suffix) and this repo's demo and evaluation tenants. With the list empty the server logs `reserved_tenant_ids_empty` at startup and `partner add`/`partner list` print the same warning to stderr: treat it as a deploy blocker.
+2. Run `pnpm -C apps/api partner list` first. Any existing partner whose id equals a listed tenant (for example `pathlynks` when `pathlynks` is also a JWT tenant) is refused on every request after the deploy. If that partner really is meant to serve its own tenant, bind it explicitly: `VC_PARTNER_OWN_TENANTS=pathlynks:pathlynks`. Otherwise revoke it and add it under another id.
+3. `partner rotate` on a partner whose id is reserved refuses (no key is minted); `partner revoke` always works.
+4. Both variables are read only when `VC_PARTNER_KEY_PEPPER` is set; with the pepper unset startup logs `reserved_tenant_ids_ignored` and does not parse them.
+
 Notes
 - All limits are per process. With more than one replica each process alerts and counts on its own.
 - A sink that throws is swallowed; an alert can never fail a student turn or hide a refusal.

@@ -12,6 +12,7 @@ import {
   KNOWN_TENANT_IDS,
   PARTNER_ID_PATTERN,
   PARTNER_KEY_REQUIRED_ENV,
+  PARTNER_OWN_TENANTS_ENV,
   PARTNER_PEPPER_ENV,
   PartnerConfigError,
   PartnerError,
@@ -24,9 +25,11 @@ import {
   isReservedPartnerId,
   listPartners,
   parsePartnerKey,
+  partnerOwnTenantsFromEnv,
   partnerKeyRequiredFromEnv,
   partnerPepperFromEnv,
   reservedTenantIdsFromEnv,
+  reservedTenantIdsWarning,
   revokePartner,
   rotatePartner,
   runPartnerCli,
@@ -1263,4 +1266,238 @@ test("R2 wiring: through launch(), VC_RESERVED_TENANT_IDS and chat.sandboxTenant
   } finally {
     cleanupGates(gates);
   }
+});
+
+// ---------------------------------------------------------------------------
+// pc-reserved-ids-2 (ISS-pc-reserved-ids-1..5): S1 empty list is loud, S2 a partner's own tenant is bound explicitly, S3 a malformed list is fatal only with
+// partners on, S4 programmatic entries are trimmed and folded, S5 rotate refuses a reserved id.
+// ---------------------------------------------------------------------------
+
+/** Runs `fn` with console.error captured; returns the lines. */
+async function captureStderr(fn: () => Promise<void>): Promise<string[]> {
+  const lines: string[] = [];
+  const real = console.error;
+  console.error = (...args: unknown[]) => void lines.push(args.map(String).join(" "));
+  try {
+    await fn();
+  } finally {
+    console.error = real;
+  }
+  return lines;
+}
+const warningLines = (lines: string[]) => lines.filter((l) => l.includes(RESERVED_TENANT_IDS_ENV));
+
+function reservedWiringEnv(extra: Record<string, string | undefined> = {}): Record<string, string | undefined> {
+  return {
+    MONGODB_URL: "mongodb://fake-host/ignored",
+    VC_JWT_ISSUER: "https://issuer.synthetic.test",
+    VC_JWT_ALGORITHMS: "HS256",
+    VC_JWT_HS256_SECRET: "j".repeat(40),
+    VC_ANONYMOUS_ENABLED: "true",
+    VC_KB_BASE_URL: "http://127.0.0.1:1",
+    VC_KB_ANON_API_KEY: "synthetic-anon-key",
+    ...extra,
+  };
+}
+
+test("S1: partner add and partner list warn on stderr when VC_RESERVED_TENANT_IDS is empty or unset, and say nothing when it is set", async () => {
+  const w = partnerWorld();
+  const warned: string[] = [];
+  const deps = { store: w.store, pepper: PEPPER, warn: (l: string) => void warned.push(l) };
+  assert.ok(reservedTenantIdsWarning().includes(RESERVED_TENANT_IDS_ENV), "names the variable");
+  assert.match(reservedTenantIdsWarning(), /unprotected/i, "names the consequence");
+  await runPartnerCli(["add", "Acme"], { ...deps, reservedIds: [] });
+  assert.deepEqual(warned, [reservedTenantIdsWarning()], "add warns once");
+  await runPartnerCli(["list"], deps);
+  assert.deepEqual(warned, [reservedTenantIdsWarning(), reservedTenantIdsWarning()], "list warns too (reservedIds unset)");
+  warned.length = 0;
+  await runPartnerCli(["add", "Beta"], { ...deps, reservedIds: ["jwt-tenant"] });
+  await runPartnerCli(["list"], { ...deps, reservedIds: ["jwt-tenant"] });
+  assert.deepEqual(warned, [], "no warning when the list is set");
+  // the real script wires the warning to stderr
+  const script = readFileSync(fileURLToPath(new URL("../scripts/partner.ts", import.meta.url)), "utf8");
+  assert.match(script, /warn:\s*\(?\w*\)?\s*=>\s*console\.error/);
+});
+
+test("S1: startApi logs one warning naming VC_RESERVED_TENANT_IDS when partners are on and the list is empty or unset; none when set or when partners are off; the server still starts", async () => {
+  const gates = gatesFixture();
+  const opts = (): Parameters<typeof launch>[1] => ({ clientFactory: () => createFakeMongoClient().client, http: { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: gates.gates } } });
+  try {
+    for (const empty of [undefined, "", "  "]) {
+      let started = false;
+      const lines = await captureStderr(async () => {
+        const api = await launch(reservedWiringEnv({ [PARTNER_PEPPER_ENV]: PEPPER, [RESERVED_TENANT_IDS_ENV]: empty }), opts());
+        started = api.port > 0;
+        await api.stop();
+      });
+      assert.equal(started, true, "the server still starts");
+      const w = warningLines(lines);
+      assert.equal(w.length, 1, `exactly one warning for ${JSON.stringify(empty)}`);
+      assert.match(w[0]!, /unprotected/i);
+    }
+    const set = await captureStderr(async () => {
+      const api = await launch(reservedWiringEnv({ [PARTNER_PEPPER_ENV]: PEPPER, [RESERVED_TENANT_IDS_ENV]: "jwt-tenant" }), opts());
+      await api.stop();
+    });
+    assert.deepEqual(warningLines(set), [], "no warning when the list is set");
+    const off = await captureStderr(async () => {
+      const api = await launch(reservedWiringEnv(), opts());
+      await api.stop();
+    });
+    assert.deepEqual(warningLines(off), [], "no partner registry, no warning");
+  } finally {
+    cleanupGates(gates);
+  }
+});
+
+test("S2: an operator can list a tenant equal to an existing partner's own id and bind it, and only that exact partner stays usable; any other partner on that tenant is refused at add and per request", async () => {
+  const { db } = createFakeDb();
+  const store = createMongoPartnerStore(db);
+  const reservedIds = ["pathlynks", "acme-tenant"];
+  const ownTenants = ["pathlynks"];
+  // bound partner: adds and authenticates although its id is a listed tenant
+  const pl = await addPartner(store, { name: "Pathlynks" }, { pepper: PEPPER, reservedIds, ownTenants });
+  assert.equal(pl.partner.partnerId, "pathlynks");
+  const registry = createPartnerRegistry({ store, pepper: PEPPER, nowMs: () => T0, reservedIds, ownTenants });
+  assert.equal((await registry.authenticate(pl.keys.srv, "srv"))?.partnerId, "pathlynks");
+  assert.equal((await registry.authenticate(pl.keys.pub, "pub"))?.partnerId, "pathlynks");
+  // without the binding the same id is blocked (the ISS-pc-reserved-ids-2 trap) at add and per request
+  await assert.rejects(() => addPartner(createMongoPartnerStore(createFakeDb().db), { name: "Pathlynks" }, { pepper: PEPPER, reservedIds }), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id");
+  const unbound = createPartnerRegistry({ store, pepper: PEPPER, nowMs: () => T0, reservedIds });
+  assert.equal(await unbound.authenticate(pl.keys.srv, "srv"), undefined, "no binding, no exemption");
+  // another listed tenant is NOT exempted by pathlynks' binding, at add and per request
+  await assert.rejects(() => addPartner(store, { name: "Acme", id: "acme-tenant" }, { pepper: PEPPER, reservedIds, ownTenants }), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id");
+  const legacyAcme = await legacyPartner(store, "acme-tenant");
+  assert.equal(await registry.authenticate(legacyAcme.srv, "srv"), undefined);
+  // the binding is exact: it does not exempt a look-alike (case/width), nor another id
+  assert.equal(isReservedPartnerId("pathlynks", reservedIds, ownTenants), false);
+  assert.equal(isReservedPartnerId("PATHLYNKS", reservedIds, ownTenants), true, "a differently cased id is not the bound partner");
+  assert.equal(isReservedPartnerId("ｐathlynks", reservedIds, ownTenants), true, "a full-width look-alike is not the bound partner");
+  assert.equal(isReservedPartnerId("pathlynks", reservedIds, []), true);
+  assert.equal(isReservedPartnerId("pathlynks", reservedIds, ["pathlynks-2"]), true, "binding another id exempts nothing");
+});
+
+test("S2: built-in names, the repo tenants and the sandbox tenant can never be exempted, in the env parser, in addPartner, in the registry and at startApi", async () => {
+  // env parser
+  assert.deepEqual(partnerOwnTenantsFromEnv({}), []);
+  assert.deepEqual(partnerOwnTenantsFromEnv({ [PARTNER_OWN_TENANTS_ENV]: " pathlynks:pathlynks, acme:acme pathlynks:pathlynks" }), ["pathlynks", "acme"]);
+  for (const bad of ["pathlynks", "pathlynks:", ":pathlynks", "pathlynks:other", "Pathlynks:Pathlynks", "a:a", "x:y:z", "sandbox:sandbox", "sandbox-1:sandbox-1", "admin:admin", "vc-synthetic-demo:vc-synthetic-demo", "scribe-evaluation:scribe-evaluation", "bad$id:bad$id"]) {
+    assert.throws(() => partnerOwnTenantsFromEnv({ [PARTNER_OWN_TENANTS_ENV]: bad }), (e: unknown) => e instanceof PartnerConfigError && e.message.includes(PARTNER_OWN_TENANTS_ENV), bad);
+  }
+  // programmatic: a binding never lifts a built-in or repo tenant, whatever the caller passes
+  const w = partnerWorld();
+  for (const id of ["sandbox", "sandbox-1", "admin_2", ...KNOWN_TENANT_IDS]) {
+    assert.equal(isReservedPartnerId(id, [id], [id]), true, id);
+    await assert.rejects(() => addPartner(w.store, { name: "X", id }, { pepper: PEPPER, reservedIds: [id], ownTenants: [id] }), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id", id);
+  }
+  const registry = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => T0, reservedIds: ["sandbox-1"], ownTenants: ["sandbox-1", "admin-2"] });
+  const legacy = await legacyPartner(w.store, "sandbox-1");
+  const legacy2 = await legacyPartner(w.store, "admin-2");
+  assert.equal(await registry.authenticate(legacy.srv, "srv"), undefined);
+  assert.equal(await registry.authenticate(legacy2.srv, "srv"), undefined);
+  // startApi: binding the configured sandbox tenant is a config error before anything connects
+  const gates = gatesFixture();
+  try {
+    let connected = 0;
+    const f = createFakeMongoClient();
+    (f.client as { connect: () => Promise<void> }).connect = async () => {
+      connected += 1;
+    };
+    await assert.rejects(
+      () => launch(reservedWiringEnv({ [PARTNER_PEPPER_ENV]: PEPPER, [PARTNER_OWN_TENANTS_ENV]: "sbx-main:sbx-main" }), { clientFactory: () => f.client, http: { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: gates.gates }, chat: { sandboxTenantId: "sbx-main" } as never } }),
+      (e: unknown) => e instanceof PartnerConfigError && e.message.includes(PARTNER_OWN_TENANTS_ENV),
+    );
+    assert.equal(connected, 0);
+  } finally {
+    cleanupGates(gates);
+  }
+});
+
+test("S2 wiring: through launch(), VC_PARTNER_OWN_TENANTS lets the bound partner (id = listed JWT tenant) in on the running server, and keeps every other listed tenant out", async () => {
+  const fake = createFakeMongoClient();
+  const gates = gatesFixture();
+  const env = reservedWiringEnv({ [PARTNER_PEPPER_ENV]: PEPPER, [RESERVED_TENANT_IDS_ENV]: "pathlynks, acme-tenant", [PARTNER_OWN_TENANTS_ENV]: "pathlynks:pathlynks" });
+  const clock = { ms: Date.now() };
+  const api = await launch(env, { clientFactory: () => fake.client, http: { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: gates.gates }, partners: { nowMs: () => clock.ms } } });
+  try {
+    const store = createMongoPartnerStore(fake.dbFor("virtual_counsellor") as never);
+    const bound = await addPartner(store, { name: "Pathlynks" }, { pepper: PEPPER, reservedIds: ["pathlynks"], ownTenants: ["pathlynks"] });
+    const other = await legacyPartner(store, "acme-tenant");
+    clock.ms += 61_000;
+    const post = (key: string) =>
+      fetch(`http://127.0.0.1:${api.port}${ANONYMOUS_PATH}`, { method: "POST", headers: { "content-type": "application/json", "x-real-ip": "203.0.113.9", "x-vc-key": key }, body: JSON.stringify({ text: GERMANY_QUESTION }) });
+    assert.equal((await post(bound.keys.pub)).status, 200, "the bound partner is answered");
+    assert.equal((await post(other.pub)).status, 401, "an unbound partner on another listed tenant is refused");
+  } finally {
+    await api.stop();
+    cleanupGates(gates);
+  }
+});
+
+test("S3: a malformed VC_RESERVED_TENANT_IDS is fatal only when partners are enabled; with the pepper unset startup ignores it and logs a note, no throw", async () => {
+  const gates = gatesFixture();
+  const opts = () => ({ clientFactory: () => createFakeMongoClient().client, http: { port: 0, provider: kbAnswerProvider(), skillsDir: SKILLS_DIR, anonymous: { gatesDir: gates.gates } } });
+  try {
+    await assert.rejects(
+      () => launch(reservedWiringEnv({ [PARTNER_PEPPER_ENV]: PEPPER, [RESERVED_TENANT_IDS_ENV]: "ok,bad:id" }), opts()),
+      (e: unknown) => e instanceof Error && e.message.includes(RESERVED_TENANT_IDS_ENV),
+      "still fatal with partners on",
+    );
+    let started = false;
+    const lines = await captureStderr(async () => {
+      const api = await launch(reservedWiringEnv({ [RESERVED_TENANT_IDS_ENV]: "ok,bad:id", [PARTNER_OWN_TENANTS_ENV]: "x:y" }), opts());
+      started = api.port > 0;
+      await api.stop();
+    });
+    assert.equal(started, true, "starts with the pepper unset");
+    const note = warningLines(lines);
+    assert.equal(note.length, 1, "one note naming the variable");
+    assert.match(note[0]!, /ignored/i);
+    assert.ok(!note[0]!.includes("bad:id"), "the value is not echoed");
+  } finally {
+    cleanupGates(gates);
+  }
+});
+
+test("S4: programmatic reservedIds entries are trimmed and case-folded like the env parser, in isReservedPartnerId, addPartner and createPartnerRegistry", async () => {
+  assert.equal(isReservedPartnerId("acme", ["  ACME\t"]), true);
+  assert.equal(isReservedPartnerId("acme", [" \n"]), false, "a blank entry reserves nothing");
+  assert.equal(isReservedPartnerId("a-b", [""]), false);
+  const w = partnerWorld();
+  await assert.rejects(() => addPartner(w.store, { name: "Acme", id: "acme-tenant" }, { pepper: PEPPER, reservedIds: ["  Acme-Tenant \n"] }), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id");
+  assert.equal(await w.store.get("acme-tenant"), null);
+  const ok = await addPartner(w.store, { name: "Later", id: "later-tenant" }, { pepper: PEPPER });
+  const reg = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => T0, reservedIds: ["\t Later-Tenant  "] });
+  assert.equal(await reg.authenticate(ok.keys.srv, "srv"), undefined, "array form");
+  const fn = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => T0, reservedIds: () => [" LATER-TENANT "] });
+  assert.equal(await fn.authenticate(ok.keys.srv, "srv"), undefined, "function form");
+  // a padded binding still binds the exact id
+  assert.equal(isReservedPartnerId("pathlynks", [" Pathlynks "], [" pathlynks "]), false);
+  assert.equal(isReservedPartnerId("pathlynks", [" Pathlynks "], []), true);
+});
+
+test("S5: partner rotate on a partner whose id is reserved refuses with a clear message and mints no key; revoke still works", async () => {
+  const w = partnerWorld();
+  await legacyPartner(w.store, "sandbox-1");
+  await addPartner(w.store, { name: "Later", id: "later-tenant" }, { pepper: PEPPER });
+  const before = JSON.stringify(await w.store.get("sandbox-1"));
+  const beforeLater = JSON.stringify(await w.store.get("later-tenant"));
+  const deps = { store: w.store, pepper: PEPPER, reservedIds: ["later-tenant"] };
+  for (const [id, scope] of [["sandbox-1", "srv"], ["sandbox-1", "pub"], ["later-tenant", "srv"]] as const) {
+    await assert.rejects(
+      () => runPartnerCli(["rotate", id, "--scope", scope], deps),
+      (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id" && /reserved/.test(e.message) && /no key/i.test(e.message) && e.message.includes(`"${id}"`) && !ANY_KEY_RE.test(e.message),
+      `${id} ${scope}`,
+    );
+  }
+  await assert.rejects(() => rotatePartner(w.store, "sandbox-1", "srv", deps), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id");
+  assert.equal(JSON.stringify(await w.store.get("sandbox-1")), before, "no key was minted or stored");
+  assert.equal(JSON.stringify(await w.store.get("later-tenant")), beforeLater);
+  // revoke still works, and a bound partner can still rotate
+  const out = await runPartnerCli(["revoke", "sandbox-1"], deps);
+  assert.match(out.join("\n"), /revoked sandbox-1/);
+  assert.equal((await w.store.get("sandbox-1"))?.status, "revoked");
+  await addPartner(w.store, { name: "Pathlynks" }, { pepper: PEPPER, reservedIds: ["pathlynks"], ownTenants: ["pathlynks"] });
+  const rot = await runPartnerCli(["rotate", "pathlynks", "--scope", "srv"], { store: w.store, pepper: PEPPER, reservedIds: ["pathlynks"], ownTenants: ["pathlynks"] });
+  assert.match(rot.join("\n"), SRV_KEY_RE);
 });
