@@ -1,0 +1,253 @@
+/**
+ * Checker A hostile variants for pc-partner-keys fix cycle 1 (lives OUTSIDE the bound tree: a copy; not builder-authored).
+ * Prove the OUTCOME of the K1 repair, the registry-load repair and the reserved-id repair with timings and orders the builder did not test.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { createFakeDb } from "@vc/db/testing";
+import {
+  PartnerError,
+  PartnerRegistryUnavailableError,
+  addPartner,
+  createMongoPartnerStore,
+  createPartnerRegistry,
+  revokePartner,
+  rotatePartner,
+  runPartnerCli,
+  RESERVED_PARTNER_IDS,
+  type PartnerStore,
+} from "../src/partners.js";
+
+const PEPPER = "hostile-pepper-".padEnd(48, "z");
+const T0 = Date.parse("2026-11-01T10:00:00.000Z");
+
+function world() {
+  const { db, fakeDb } = createFakeDb();
+  const store = createMongoPartnerStore(db);
+  const clock = { ms: T0 };
+  const fresh = () => createPartnerRegistry({ store, pepper: PEPPER, nowMs: () => clock.ms });
+  return {
+    store,
+    clock,
+    fakeDb,
+    fresh,
+    async add(name: string, id: string) {
+      const r = await addPartner(store, { name, origins: [], id }, { pepper: PEPPER, now: () => new Date(clock.ms) });
+      return { pub: r.keys.pub, srv: r.keys.srv };
+    },
+  };
+}
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Deterministic pseudo-random so a failing order is reproducible. */
+function rng(seed: number) {
+  let s = seed >>> 0;
+  return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+}
+/** A store whose get() and update() are each delayed by their own amount, per call index. */
+function jitterStore(real: PartnerStore, getDelays: number[], updDelays: number[]): PartnerStore {
+  let g = 0;
+  let u = 0;
+  return {
+    ...real,
+    get: async (id) => {
+      const d = await real.get(id);
+      await sleep(getDelays[g++ % getDelays.length]!);
+      return d;
+    },
+    update: async (id, patch) => {
+      await sleep(updDelays[u++ % updDelays.length]!);
+      return real.update(id, patch);
+    },
+  };
+}
+
+test("H1 different scopes, 60 random read/write timings and both launch orders: both printed keys always work, both old keys always dead", async () => {
+  const r = rng(7);
+  for (let i = 0; i < 60; i++) {
+    const w = world();
+    const old = await w.add("Race", "race");
+    const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
+    const s = jitterStore(w.store, [Math.floor(r() * 12), Math.floor(r() * 12)], [Math.floor(r() * 12), Math.floor(r() * 12)]);
+    const order = r() < 0.5 ? (["pub", "srv"] as const) : (["srv", "pub"] as const);
+    const results = await Promise.all(order.map((sc) => rotatePartner(s, "race", sc, ctx)));
+    const byScope = Object.fromEntries(results.map((x) => [x.scope, x.key])) as Record<"pub" | "srv", string>;
+    const reg = w.fresh();
+    assert.ok(await reg.authenticate(byScope.pub, "pub"), `iter ${i} new pub`);
+    assert.ok(await reg.authenticate(byScope.srv, "srv"), `iter ${i} new srv`);
+    assert.equal(await reg.authenticate(old.pub, "pub"), undefined, `iter ${i} old pub dead`);
+    assert.equal(await reg.authenticate(old.srv, "srv"), undefined, `iter ${i} old srv dead`);
+  }
+});
+
+test("H2 same scope x3 plus the other scope x1, all overlapping: old keys dead, exactly one printed key per scope works (last writer), nothing else does", async () => {
+  const w = world();
+  const old = await w.add("Race", "race");
+  const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
+  const s = jitterStore(w.store, [3, 1, 4, 2], [2, 6, 1, 5]);
+  const rs = await Promise.all([rotatePartner(s, "race", "pub", ctx), rotatePartner(s, "race", "pub", ctx), rotatePartner(s, "race", "srv", ctx), rotatePartner(s, "race", "pub", ctx)]);
+  const reg = w.fresh();
+  const pubs = rs.filter((x) => x.scope === "pub").map((x) => x.key);
+  const srvs = rs.filter((x) => x.scope === "srv").map((x) => x.key);
+  const pubWorks = (await Promise.all(pubs.map((k) => reg.authenticate(k, "pub")))).filter(Boolean).length;
+  const srvWorks = (await Promise.all(srvs.map((k) => reg.authenticate(k, "srv")))).filter(Boolean).length;
+  assert.equal(pubWorks, 1, "exactly one of three printed page keys works");
+  assert.equal(srvWorks, 1);
+  assert.equal(await reg.authenticate(old.pub, "pub"), undefined);
+  assert.equal(await reg.authenticate(old.srv, "srv"), undefined);
+});
+
+test("H3 rotate overlapping revoke, every interleaving: a revoked partner never ends with a working key (old, new, either scope), even after the 60 s window", async () => {
+  for (const revokeFirst of [false, true]) {
+    for (const scope of ["pub", "srv"] as const) {
+      for (const gap of [0, 3, 12]) {
+        const w = world();
+        const old = await w.add("Race", "race");
+        const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
+        const s = jitterStore(w.store, [4], [8]);
+        const rot = async () => (await sleep(revokeFirst ? gap : 0), rotatePartner(s, "race", scope, ctx));
+        const rev = async () => (await sleep(revokeFirst ? 0 : gap), revokePartner(s, "race"));
+        const settled = await Promise.allSettled([rot(), rev()]);
+        const rotated = settled[0]!.status === "fulfilled" ? (settled[0] as PromiseFulfilledResult<{ key: string }>).value.key : undefined;
+        w.clock.ms += 61_000;
+        const reg = w.fresh();
+        const doc = (await w.store.get("race"))!;
+        assert.equal(doc.status, "revoked", `revoked wins (revokeFirst=${revokeFirst} scope=${scope} gap=${gap})`);
+        for (const k of [old.pub, old.srv, rotated].filter((x): x is string => !!x)) {
+          for (const sc of ["pub", "srv"] as const) assert.equal(await reg.authenticate(k, sc), undefined, `no working key (${revokeFirst}/${scope}/${gap})`);
+        }
+      }
+    }
+  }
+});
+
+test("H4 a store write that FAILS after the read (reject, and resolves-false): the old key still works, no new key works, the other scope is intact", async () => {
+  const w = world();
+  const old = await w.add("Race", "race");
+  const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
+  const boom: PartnerStore = { ...w.store, update: async () => { throw new Error("mongo down"); } };
+  let printed: string | undefined;
+  await assert.rejects(async () => { printed = (await rotatePartner(boom, "race", "pub", ctx)).key; }, /mongo down/);
+  assert.equal(printed, undefined, "no key was printed");
+  const gone: PartnerStore = { ...w.store, update: async () => false };
+  await assert.rejects(() => rotatePartner(gone, "race", "srv", ctx), (e: unknown) => e instanceof PartnerError && e.code === "partner_not_found");
+  const reg = w.fresh();
+  assert.ok(await reg.authenticate(old.pub, "pub"), "old pub still works");
+  assert.ok(await reg.authenticate(old.srv, "srv"), "old srv still works");
+  const doc = (await w.store.get("race"))!;
+  assert.equal(doc.keys.pub.rotatedAt, null);
+  assert.equal(doc.keys.srv.rotatedAt, null);
+});
+
+test("H4b two concurrent rotates where ONE write fails: the successful one is whole, the failed scope keeps its old key", async () => {
+  const w = world();
+  const old = await w.add("Race", "race");
+  const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
+  const s: PartnerStore = {
+    ...w.store,
+    update: async (id, patch) => {
+      await sleep(5);
+      if ("keys.srv" in patch) throw new Error("write failed");
+      return w.store.update(id, patch);
+    },
+  };
+  const [a, b] = await Promise.allSettled([rotatePartner(s, "race", "pub", ctx), rotatePartner(s, "race", "srv", ctx)]);
+  assert.equal(a.status, "fulfilled");
+  assert.equal(b.status, "rejected");
+  const reg = w.fresh();
+  assert.ok(await reg.authenticate((a as PromiseFulfilledResult<{ key: string }>).value.key, "pub"));
+  assert.equal(await reg.authenticate(old.pub, "pub"), undefined);
+  assert.ok(await reg.authenticate(old.srv, "srv"), "the failed scope keeps its old key");
+});
+
+test("H5 reserved ids: exact reserved names refused in every entry path; case/whitespace variants refused by the pattern; sandbox-1 is NOT reserved (observation)", async () => {
+  const w = world();
+  const ctx = { pepper: PEPPER };
+  for (const id of RESERVED_PARTNER_IDS) {
+    await assert.rejects(() => addPartner(w.store, { name: "X", id }, ctx), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id", id);
+    await assert.rejects(() => runPartnerCli(["add", "X", "--id", id], { store: w.store, ...ctx }), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id", `cli ${id}`);
+    assert.equal(await w.store.get(id), null, `nothing written for ${id}`);
+  }
+  for (const id of ["Sandbox", "SANDBOX", " sandbox", "sandbox ", "sandbox\n", "\nsandbox", "sand\u0000box", "sandb​ox", "ѕandbox", "sandbox\t"]) {
+    await assert.rejects(() => addPartner(w.store, { name: "X", id }, ctx), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id", JSON.stringify(id));
+    assert.equal(await w.store.get(id), null);
+  }
+  for (const name of ["Sandbox", " SANDBOX ", "System", "Root!!", "Default"]) {
+    await assert.rejects(() => addPartner(w.store, { name }, ctx), (e: unknown) => e instanceof PartnerError && e.code === "invalid_partner_id", `slug of ${name}`);
+  }
+  // caller-supplied extra ids, including the actual sandbox tenant id a deployment would pass
+  await assert.rejects(() => addPartner(w.store, { name: "T", id: "tenant-zero" }, { ...ctx, reservedIds: ["tenant-zero"] }), (e: unknown) => e instanceof PartnerError);
+  const ok = await addPartner(w.store, { name: "S", id: "sandbox-1" }, ctx);
+  console.log("H5 observation: sandbox-1 accepted ->", ok.partner.partnerId, "| CLI wiring of reservedIds: none (scripts/partner.ts passes no reservedIds)");
+});
+
+test("H6 registry load: a synchronous throw, an async rejection, and a throw on a later reload all recover; concurrent callers during the failure all fail closed, then the next call succeeds", async () => {
+  const w = world();
+  const { pub } = await w.add("Pathlynks", "pathlynks");
+  let mode: "ok" | "sync" | "async" = "sync";
+  let reads = 0;
+  const flaky: PartnerStore = {
+    ...w.store,
+    list: (() => {
+      reads++;
+      if (mode === "sync") throw new Error("sync");
+      if (mode === "async") return Promise.reject(new Error("async"));
+      return w.store.list();
+    }) as PartnerStore["list"],
+  };
+  const reg = createPartnerRegistry({ store: flaky, pepper: PEPPER, nowMs: () => w.clock.ms });
+  const burst = await Promise.allSettled(Array.from({ length: 20 }, () => reg.authenticate(pub, "pub")));
+  assert.ok(burst.every((x) => x.status === "rejected" && x.reason instanceof PartnerRegistryUnavailableError), "all 20 fail closed");
+  assert.equal(reads, 1, "the 20 shared one failed read");
+  mode = "async";
+  await assert.rejects(() => reg.authenticate(pub, "pub"), PartnerRegistryUnavailableError);
+  mode = "ok";
+  assert.equal((await reg.authenticate(pub, "pub"))?.partnerId, "pathlynks");
+  // later reload after the window, with a stale-but-valid snapshot present: a sync throw must fail closed, not serve the old list
+  mode = "sync";
+  w.clock.ms += 61_000;
+  await assert.rejects(() => reg.authenticate(pub, "pub"), PartnerRegistryUnavailableError);
+  mode = "ok";
+  assert.ok(await reg.authenticate(pub, "pub"), "recovers");
+});
+
+test("H7 K2 cache bound unchanged by the load rewrite: a rotated-away key works at +59 999 ms and not at +60 000; revoke the same; 100 concurrent callers and a flood of random ids cost ONE read per window", async () => {
+  const w = world();
+  const old = await w.add("Pathlynks", "pathlynks");
+  let reads = 0;
+  const counted: PartnerStore = { ...w.store, list: async () => (reads++, w.store.list()) };
+  const reg = createPartnerRegistry({ store: counted, pepper: PEPPER, nowMs: () => w.clock.ms });
+  assert.ok(await reg.authenticate(old.pub, "pub"));
+  assert.equal(reads, 1);
+  const ctx = { pepper: PEPPER, now: () => new Date(w.clock.ms) };
+  const { key: fresh } = await rotatePartner(w.store, "pathlynks", "pub", ctx);
+  await revokePartner(w.store, "pathlynks");
+  w.clock.ms += 59_999;
+  assert.ok(await reg.authenticate(old.pub, "pub"), "still cached at +59 999");
+  assert.equal(reads, 1);
+  w.clock.ms += 1;
+  assert.equal(await reg.authenticate(old.pub, "pub"), undefined, "refused at +60 000");
+  assert.equal(await reg.authenticate(fresh, "pub"), undefined, "revoked: new key dead too");
+  assert.equal(reads, 2);
+  const many = await Promise.all(Array.from({ length: 100 }, (_, i) => reg.authenticate(`vck_pub_nobody-${i}_${"A".repeat(43)}`, "pub")));
+  assert.ok(many.every((x) => x === undefined));
+  assert.equal(reads, 2, "flood of random ids: no extra read inside the window");
+  w.clock.ms += 60_000;
+  await Promise.all(Array.from({ length: 100 }, () => reg.authenticate(old.pub, "pub")));
+  assert.equal(reads, 3, "100 concurrent callers after expiry share one read");
+});
+
+test("H8 fake Db dotted $set: sets one nested field, keeps siblings, keeps unrelated top-level fields; a plain key still assigns top-level", async () => {
+  const { db } = createFakeDb();
+  const c = db.collection<{ _id: string; keys?: Record<string, unknown>; status?: string; flat?: string }>("probe") as never as {
+    insertOne(d: unknown): Promise<unknown>;
+    updateOne(f: unknown, u: unknown): Promise<{ matchedCount: number }>;
+    findOne(f: unknown): Promise<Record<string, unknown> | null>;
+  };
+  await c.insertOne({ _id: "a", keys: { pub: { hash: "h1" }, srv: { hash: "h2" } }, status: "active" });
+  await c.updateOne({ _id: "a" }, { $set: { "keys.pub": { hash: "NEW" } } });
+  assert.deepEqual(await c.findOne({ _id: "a" }), { _id: "a", keys: { pub: { hash: "NEW" }, srv: { hash: "h2" } }, status: "active" });
+  await c.updateOne({ _id: "a" }, { $set: { status: "revoked", "keys.srv.hash": "H3" } });
+  assert.deepEqual(await c.findOne({ _id: "a" }), { _id: "a", keys: { pub: { hash: "NEW" }, srv: { hash: "H3" } }, status: "revoked" });
+  await c.updateOne({ _id: "a" }, { $set: { "deep.a.b": 1 } });
+  assert.deepEqual((await c.findOne({ _id: "a" }))!.deep, { a: { b: 1 } });
+});

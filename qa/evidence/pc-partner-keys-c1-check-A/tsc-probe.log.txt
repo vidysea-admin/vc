@@ -1,0 +1,4 @@
+=== tsc-probe 2026-10-22T09:18:33+05:30
+[testlock] waiting for lock held by: PID=31812 STARTED=639282556036309469 ACQUIRED_AT=1792639003 TOKEN=1792639003875376800-312058-18936 DESC=npx tsx --test tests/anonymous-route.test.ts 
+[testlock] running slot 1 (free RAM 4.91 GB): timeout 600 pnpm exec tsc --noEmit
+=== exit 0

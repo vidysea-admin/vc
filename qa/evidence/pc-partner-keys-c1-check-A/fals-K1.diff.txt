@@ -1,0 +1,4 @@
+316c316
+<   const patch: PartnerPatch = scope === "pub" ? { "keys.pub": record } : { "keys.srv": record };
+---
+>   const patch = { keys: { ...existing.keys, [scope]: record } } as unknown as PartnerPatch;

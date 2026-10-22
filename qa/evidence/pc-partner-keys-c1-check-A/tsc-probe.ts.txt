@@ -1,0 +1,8 @@
+import type { PartnerPatch, PartnerKeyRecord } from "./partners.js";
+declare const rec: PartnerKeyRecord;
+export const okPub: PartnerPatch = { "keys.pub": rec };
+export const okStatus: PartnerPatch = { status: "revoked" };
+// @ts-expect-error the whole keys object is no longer a legal patch
+export const badWhole: PartnerPatch = { keys: { pub: rec, srv: rec } };
+// @ts-expect-error ids are not patchable
+export const badId: PartnerPatch = { partnerId: "x" };
