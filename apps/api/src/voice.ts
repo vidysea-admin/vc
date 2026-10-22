@@ -93,7 +93,7 @@ import {
   normalizeClientAddress,
   type AnonymousCounterWriter,
 } from "./anonymous.js";
-import { assertGoLive } from "./go-live-gate.js";
+import { GATE_APPROVER_ENV, assertGoLive } from "./go-live-gate.js";
 import {
   PUBLIC_VOICE_SESSIONS_PATH,
   PartnerRegistryUnavailableError,
@@ -341,8 +341,10 @@ export interface VoiceRouteConfig {
 
 /** The pre-connect checks of `createVoiceApi`: the A20 `voice` gate (which includes the passing A10 record) and tracing off. */
 export function assertVoiceGoLive(route: Pick<VoiceRouteConfig, "gatesDir" | "now" | "approver" | "env">): void {
-  assertGoLive(route.gatesDir, "voice", route.now, route.approver);
+  // pc-hardening-3 K3 (ISS-pc-voice-9): the approver comes from the env the caller passed (the one startApi reads everything else from); process.env is the fallback only
+  // when no env was passed. An empty string (not undefined) is what falls through to assertGoLive, so its own process.env default can never be re-read here: unset = "" = refused.
   const env = route.env ?? process.env;
+  assertGoLive(route.gatesDir, "voice", route.now, route.approver ?? env[GATE_APPROVER_ENV] ?? "");
   for (const name of TRACING_VARS) {
     if (/^(true|1|yes|on)$/i.test(env[name]?.trim() ?? "")) {
       throw new VoiceConfigError(`${name} switches request tracing on; voice stores redacted text only, and a trace would hold the unredacted transcript, so the routes will not start`);

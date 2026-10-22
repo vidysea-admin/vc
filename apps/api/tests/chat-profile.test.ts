@@ -10,6 +10,7 @@ import { GoLiveRefusedError } from "../src/go-live-gate.js";
 import { ChatConfigError } from "../src/chat.js";
 import { JwtConfigError } from "../src/auth.js";
 import { startApi } from "../src/index.js";
+import { addPartner, createMongoPartnerStore } from "../src/partners.js";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { CRISIS_TEXT, GERMANY_QUESTION, adult, call, chatWorld, cleanupGates, gatesFixture, kbAnswerProvider, minor, newThread, profilePath, recordingKb, settle, studentToken, studentVerifier, threadsPath, turnsPath, SKILLS_DIR, SPEAKERS } from "./chat-fixtures.js";
 import { generateKeyPairSync } from "node:crypto";
@@ -1036,4 +1037,44 @@ test("H2: chat + grounding starts when the screen is on over a classifier-capabl
   const off = await startOverBase(new RulesProvider(), { safetyScreen: false });
   assert.ok("done" in off, "error" in off ? String(off.error) : "");
   await off.done();
+});
+
+// ---------------------------------------------------------------------------
+// pc-hardening-3 K1 (ISS-pc-reserved-ids-6): a student JWT tenant equal to an existing partner id is refused on the chat and profile routes of a started process.
+// ---------------------------------------------------------------------------
+
+test("K1 (pc-hardening-3) startApi: with partners on, a student JWT whose tenant is (a case variant of) an existing partner id gets the uniform 401 on chat, thread and profile routes; the partner's bound tenant and an unrelated tenant pass", async () => {
+  const PEPPER = "synthetic-pepper-".padEnd(40, "x");
+  const run = async (extraEnv: Record<string, string>, tenant: string) => {
+    const fake = createFakeMongoClient();
+    const f = gatesFixture();
+    await addPartner(createMongoPartnerStore(fake.client.db(VC_DB_NAME)), { name: "Pathlynks" }, { pepper: PEPPER, now: () => new Date() });
+    const api = await startApi(
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true", VC_PARTNER_KEY_PEPPER: PEPPER, ...extraEnv },
+      { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: f.gates, verifier: studentVerifier(), profile: { facts: async () => [] } } }) },
+    );
+    try {
+      const base = `http://127.0.0.1:${api.port}`;
+      const headers = { authorization: `Bearer ${await studentToken(adult("stu-1", tenant))}`, "content-type": "application/json" };
+      const thread = await fetch(`${base}${threadsPath("stu-1")}`, { method: "POST", headers });
+      const profile = await fetch(`${base}${profilePath("stu-1")}`, { headers });
+      const turn = await fetch(`${base}${turnsPath("stu-1", "00000000-0000-4000-8000-000000000000")}`, { method: "POST", headers, body: JSON.stringify({ text: GERMANY_QUESTION, clientTurnId: "k1-1" }) });
+      return { thread: thread.status, profile: profile.status, turn: turn.status, body: await thread.text(), rows: fake.dbFor(VC_DB_NAME).collection("chat_threads").all().length };
+    } finally {
+      await api.stop();
+      cleanupGates(f);
+    }
+  };
+  for (const tenant of ["pathlynks", "PathLynks"]) {
+    const r = await run({}, tenant);
+    assert.deepEqual([r.thread, r.profile, r.turn], [401, 401, 401], `${tenant}: every student JWT route refuses`);
+    assert.equal(r.rows, 0, "nothing was written");
+    assert.doesNotMatch(r.body, /pathlynks|partner/i, "the 401 does not say why");
+  }
+  const bound = await run({ VC_PARTNER_OWN_TENANTS: "pathlynks:pathlynks" }, "pathlynks");
+  assert.equal(bound.thread, 201, "the partner's own bound tenant is allowed");
+  assert.equal(bound.profile, 200);
+  const other = await run({}, "tenant-a");
+  assert.equal(other.thread, 201, "an unrelated tenant is allowed");
+  assert.equal(other.profile, 200);
 });

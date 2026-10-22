@@ -42,7 +42,7 @@ import {
   type OllamaActualUsage,
   type OllamaRequestEstimate,
 } from "@vc/providers";
-import { createJwtVerifier, createStudentJwtVerifier, jwtConfigFromEnv, studentJwtConfigFromEnv, type JwtVerifier, type StudentJwtVerifier } from "./auth.js";
+import { createJwtVerifier, createStudentJwtVerifier, jwtConfigFromEnv, refuseTenantClaims, studentJwtConfigFromEnv, type JwtVerifier, type StudentJwtVerifier } from "./auth.js";
 import { createApiHandler, createApiServer, createTenantWiring, type ApiLogLine } from "./server.js";
 import {
   AnonymousConfigError,
@@ -642,12 +642,15 @@ export async function startApi(
       { enabled: true, gatesDir: a.gatesDir ?? DEFAULT_GATES_DIR, env },
     );
   }
+  // pc-hardening-3 K1 (ISS-pc-reserved-ids-6): with partners on, every student JWT verifier (chat, profile, voice sessions; injected or default) also refuses a token whose tenant
+  // claim equals an existing partner id (auth.ts refuseTenantClaims), read from the partner store the registry already holds (no new connection). Partners off: unchanged.
+  const guardStudentVerifier = (v: StudentJwtVerifier): StudentJwtVerifier => (partnerRegistry ? refuseTenantClaims(v, (tenantId) => partnerRegistry.isPartnerTenantClaim(tenantId)) : v);
   // P1 U8: the chat flag, the A20 gate, the tracing check, the student JWT config and the required ports are all checked BEFORE anything connects.
   let chatSetup: { chat: StartApiChatOptions; verifier: StudentJwtVerifier; kb: StudentKbPort; speakers: SpeakersFile } | undefined;
   if (httpSetup && chatEnabledFromEnv(env)) {
     const c = http?.chat;
     assertChatGoLive({ gatesDir: c?.gatesDir ?? DEFAULT_GATES_DIR, env });
-    const verifier = c?.verifier ?? createStudentJwtVerifier(studentJwtConfigFromEnv(env));
+    const verifier = guardStudentVerifier(c?.verifier ?? createStudentJwtVerifier(studentJwtConfigFromEnv(env)));
     if (!c?.kb || !c.speakers) throw new ChatConfigError("VC_CHAT_ENABLED is true but no knowledge-base port and speakers file were supplied");
     chatSetup = { chat: c, verifier, kb: c.kb, speakers: c.speakers };
   }
@@ -657,7 +660,7 @@ export async function startApi(
     const v = http?.voice;
     assertVoiceGoLive({ gatesDir: v?.gatesDir ?? DEFAULT_GATES_DIR, env });
     if (!v?.live || !v.crisis) throw new VoiceConfigError("VC_VOICE_ENABLED is true but no Live provider and crisis message were supplied");
-    voiceSetup = { voice: v, live: v.live, crisis: v.crisis, verifier: v.verifier ?? createStudentJwtVerifier(studentJwtConfigFromEnv(env)) };
+    voiceSetup = { voice: v, live: v.live, crisis: v.crisis, verifier: guardStudentVerifier(v.verifier ?? createStudentJwtVerifier(studentJwtConfigFromEnv(env))) };
   }
   // The escalation port chat and voice share (one flag, one escalation): an explicit chat port, else the engine's escalateTurns over the tenant's deps.
   const defaultEscalateForTenant: NonNullable<ChatApiDeps["escalateForTenant"]> = (tenantId, tenantDb) => (input) => escalateTurns(tenantDb, input, escalationForTenant!(tenantId));

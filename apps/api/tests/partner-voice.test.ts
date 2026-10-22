@@ -23,7 +23,7 @@ import { addPartner, createMongoPartnerStore, createPartnerRegistry, revokePartn
 import { ANONYMOUS_VOICE_THREAD_ID, VOICE_ACTIVE_CAP_RETRY_AFTER_SEC, VOICE_MAX_ACTIVE_ANONYMOUS_PER_CLIENT, VOICE_MAX_ACTIVE_ANONYMOUS_PER_PARTNER_DEFAULT, VOICE_RESUME_WINDOW_MS, anonymousCapLimit, type VoiceApiDeps } from "../src/voice.js";
 import type { ApiHandler, ApiResponse } from "../src/server.js";
 import { nonEmptyCollections } from "./anonymous-fixtures.js";
-import { SKILLS_DIR, chatRequest, cleanupGates, gatesFixture, kbAnswerProvider, studentVerifier } from "./chat-fixtures.js";
+import { SKILLS_DIR, chatRequest, cleanupGates, gatesFixture, kbAnswerProvider, studentToken, studentVerifier } from "./chat-fixtures.js";
 import { CRISIS_AUDIO, CRISIS_PHRASE, CRISIS_TEXT_FIXED, VoiceClient, until, voiceWorld, type ConnectResult, type VoiceWorld } from "./voice-fixtures.js";
 
 const PEPPER = "synthetic-pepper-".padEnd(40, "x");
@@ -1146,5 +1146,21 @@ test("R3: with a cap of 0 (voice off) a bad key, a missing key and a wrong Origi
     } finally {
       await off.close();
     }
+  }
+});
+
+test("K1 (pc-hardening-3) wiring: with partners on, a student JWT whose tenant is an existing partner id gets the uniform 401 on the voice session route; an unrelated tenant is not refused by the tenant check", async () => {
+  const b = await bootApi({ VC_PARTNER_KEY_PEPPER: PEPPER }, { clientKey: () => "client-1" });
+  try {
+    const path = `http://127.0.0.1:${b.port}/v1/students/${STUDENT}/chat/threads/00000000-0000-4000-8000-000000000000/voice/sessions`;
+    const mint = async (tenant: string) => fetch(path, { method: "POST", headers: { authorization: `Bearer ${await studentToken({ tenant, studentId: STUDENT, role: "student", isMinor: false })}` } });
+    const collide = await mint("pathlynks");
+    assert.equal(collide.status, 401);
+    assert.equal((await mint("PATHLYNKS")).status, 401);
+    const other = await mint("tenant-a");
+    assert.notEqual(other.status, 401, "an unrelated tenant gets past authentication (here: no such thread)");
+    assert.equal(other.status, 404);
+  } finally {
+    await b.stop();
   }
 });

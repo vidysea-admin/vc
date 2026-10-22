@@ -427,6 +427,28 @@ export function createStudentJwtVerifier(config: StudentJwtConfig, options: JwtV
 }
 
 /**
+ * pc-hardening-3 K1 (ISS-pc-reserved-ids-6): the reverse of the reserved-partner-id rule. A partner id IS the tenant of everything its server key reaches (chat.ts:855),
+ * so a signed student token whose `tenant` claim equals an existing partner id would read and write that partner's students. `refuse` is asked with the verified
+ * tenant claim (production: the partner registry's `isPartnerTenantClaim`); when it answers true, or throws (the partner list could not be read: fail closed), the token
+ * is refused with AuthError("claims"), which every student route (chat, profile, voice sessions) already maps to the uniform 401. The wrapped verifier is otherwise unchanged.
+ */
+export function refuseTenantClaims(inner: StudentJwtVerifier, refuse: (tenantId: string) => boolean | Promise<boolean>): StudentJwtVerifier {
+  return {
+    async verify(token: string): Promise<StudentAuthContext> {
+      const ctx = await inner.verify(token);
+      let refused: boolean;
+      try {
+        refused = await refuse(ctx.tenantId);
+      } catch {
+        refused = true;
+      }
+      if (refused) throw new AuthError("claims");
+      return ctx;
+    },
+  };
+}
+
+/**
  * The token from an `Authorization: Bearer <token>` header value, or undefined. The scheme is
  * case-insensitive (RFC 7235); anything else (Basic, a bare token, extra parts) is undefined.
  */

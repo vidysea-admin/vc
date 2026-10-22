@@ -568,6 +568,12 @@ export interface PartnerRegistry {
   authenticate(key: string, scope: KeyScope): Promise<PartnerIdentity | undefined>;
   /** True when `origin` is in the allowed list of at least one active partner (a preflight carries no key). */
   originAllowedByAnyPartner(origin: string): Promise<boolean>;
+  /**
+   * pc-hardening-3 K1 (ISS-pc-reserved-ids-6): true when a student-JWT `tenant` claim equals (NFKC + lower-case fold, as isReservedPartnerId) the id of an existing partner
+   * of any status, because a partner id IS the tenant of everything its server key reaches. The one exemption is the partner's own bound tenant: the claim is exactly the
+   * partner id AND that id is listed in VC_PARTNER_OWN_TENANTS. Reads the same cached partner list as authenticate. Rejects with PartnerRegistryUnavailableError when the store cannot be read.
+   */
+  isPartnerTenantClaim(tenantId: string): Promise<boolean>;
   /** Counts one answered turn for a partner (in memory, text-free). */
   noteTurn(partnerId: string): void;
   /** Turns answered per partner since this process started. */
@@ -646,6 +652,16 @@ export function createPartnerRegistry(options: PartnerRegistryOptions): PartnerR
     async originAllowedByAnyPartner(origin) {
       const reserved = reservedNow();
       for (const doc of (await partners()).values()) if (doc.status === "active" && doc.allowedOrigins.includes(origin) && !isReservedPartnerId(doc.partnerId, reserved, ownTenants)) return true;
+      return false;
+    },
+    async isPartnerTenantClaim(tenantId) {
+      if (typeof tenantId !== "string") return true;
+      const folded = foldId(tenantId);
+      for (const doc of (await partners()).values()) {
+        if (foldId(doc.partnerId) !== folded) continue;
+        if (tenantId === doc.partnerId && ownTenants.some((o) => o.trim() === doc.partnerId)) continue;
+        return true;
+      }
       return false;
     },
     noteTurn(partnerId) {
