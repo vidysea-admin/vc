@@ -122,7 +122,7 @@
   };
 
   // pc-hardening-2 J1 (ISS-pc-hardening-1): the helpline line the voice notes keep, in the language of the note it follows. The English line is HELP itself; the numbers are the same.
-  var HELP_HI = "Tele-MANAS 14416 (24x7) · आपातकाल 112";
+  var HELP_HI = "Tele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें";
 
   function isHindi(lang) {
     return /^hi(-|_|$)/i.test(String(lang || "").trim());

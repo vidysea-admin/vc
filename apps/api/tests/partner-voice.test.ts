@@ -1110,3 +1110,41 @@ test("J3: the per-partner anonymous cap is discriminated by the API: with a conf
     await pv.close();
   }
 });
+
+// ---------------------------------------------------------------------------
+// pc-hardening-2 fix cycle 1: R3 (J2 ordering)
+// ---------------------------------------------------------------------------
+
+test("R3: with a cap of 0 (voice off) a bad key, a missing key and a wrong Origin each get byte-for-byte the same 401 as with the default cap, so the 403 voice_unavailable can never move ahead of the key or Origin check and tell a stranger the switch state", async () => {
+  const clientKey = (req: { headers: Record<string, unknown> }) => (typeof req.headers["x-test-client"] === "string" ? (req.headers["x-test-client"] as string) : "client-1");
+  const probe = async (pv: PV): Promise<string[]> => {
+    const flipped = pv.pub.slice(0, -1) + (pv.pub.endsWith("A") ? "B" : "A");
+    const replies = [
+      await send(pv, "POST", ANON_SESSIONS, { headers: { "x-vc-key": flipped, origin: ORIGIN } }), // a key with the wrong secret
+      await send(pv, "POST", ANON_SESSIONS, { headers: { origin: ORIGIN } }), // no key at all
+      await mintAnon(pv, { origin: EVIL }), // a good key from an Origin outside the partner's list
+    ];
+    for (const r of replies) assert.equal(r.status, 401, r.body);
+    return replies.map((r) => `${r.status} ${JSON.stringify(Object.entries(r.headers).sort())} ${r.body}`);
+  };
+  const base = await pvWorld({ deps: { anonymous: { clientKey } } as never });
+  let reference: string[];
+  try {
+    reference = await probe(base);
+    assert.equal((await mintAnon(base)).status, 201, "default cap: a good request mints");
+  } finally {
+    await base.close();
+  }
+  for (const [label, caps] of [
+    ["per-client 0", { maxActivePerClient: 0 }],
+    ["per-partner 0", { maxActivePerPartner: 0 }],
+  ] as Array<[string, Record<string, unknown>]>) {
+    const off = await pvWorld({ deps: { anonymous: { clientKey, ...caps } } as never });
+    try {
+      assert.deepEqual(await probe(off), reference, `${label}: unauthenticated probes see the same bytes as with the default cap`);
+      assert.equal((await mintAnon(off)).status, 403, `${label}: the switch really is off for a good request`);
+    } finally {
+      await off.close();
+    }
+  }
+});

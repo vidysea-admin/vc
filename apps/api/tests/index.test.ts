@@ -1,7 +1,8 @@
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
-import { apiStatus, startApi } from "../src/index.js";
-import { createFakeMongoClient } from "@vc/db/testing";
+import { apiStatus, createMongoPartnerStore, deferredPartnerStore, startApi } from "../src/index.js";
+import type { PartnerDoc, PartnerStore } from "../src/index.js";
+import { createFakeDb, createFakeMongoClient } from "@vc/db/testing";
 import { COLLECTION_NAMES, erasureFenceKey, MINIMUM_FENCE_HOLD_MS } from "@vc/db";
 
 test("apiStatus reports the T-025 HTTP API (opt-in)", () => {
@@ -275,4 +276,24 @@ test("T-015/ISS-t-014-rev-3 (regression): a SUCCESSFUL startApi does not close t
   assert.equal(closed, 0, "startApi itself must not close a client it successfully started");
   await api.stop();
   assert.equal(closed, 1);
+});
+
+// ---------------------------------------------------------------------------
+// pc-hardening-2 fix cycle 1 R2: the server-built partner store keeps compare-and-set
+// ---------------------------------------------------------------------------
+
+test("R2: the partner store the server builds (before the Db exists) forwards update's third argument: a mismatched expect writes nothing and resolves false, a matching one writes", async () => {
+  const { db } = createFakeDb();
+  const ref: { store?: PartnerStore } = {};
+  const store = deferredPartnerStore(ref);
+  assert.throws(() => store.get("acme"), /before the database connected/, "unbound: fails closed");
+  ref.store = createMongoPartnerStore(db);
+  const rec = (hash: string) => ({ hash, prefix: hash.slice(0, 6), rotatedAt: null });
+  await store.insert({
+    _id: "acme", partnerId: "acme", name: "Acme", keys: { pub: rec("hash-pub-0"), srv: rec("hash-srv-0") }, allowedOrigins: [], status: "active", createdAt: "2026-11-01T10:00:00.000Z",
+  } as PartnerDoc);
+  assert.equal(await store.update("acme", { "keys.pub": rec("hash-pub-1") }, { "keys.pub.hash": "not-the-stored-hash" }), false, "mismatched expect: refused");
+  assert.equal((await store.get("acme"))!.keys.pub.hash, "hash-pub-0", "and nothing was written");
+  assert.equal(await store.update("acme", { "keys.pub": rec("hash-pub-1") }, { "keys.pub.hash": "hash-pub-0" }), true, "matching expect: written");
+  assert.equal((await store.get("acme"))!.keys.pub.hash, "hash-pub-1");
 });

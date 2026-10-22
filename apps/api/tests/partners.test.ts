@@ -1692,3 +1692,42 @@ test("J5: the partner CLI's catch-all prints a fixed message plus the error clas
   assert.doesNotMatch(out, /mongodb:\/\/|Sup3rS3cretPw|admin:|db\.internal/, "no URI, host or password reaches stdout or stderr");
   assert.match(out, /partner: failed/);
 });
+
+// ---------------------------------------------------------------------------
+// pc-hardening-2 fix cycle 1: R4 (rotate must not revive a partner revoked between its read and its write)
+// ---------------------------------------------------------------------------
+
+test("R4: a revoke that lands between rotate's read and rotate's write makes rotate fail with partner_revoked and print no key; the stored key stays the old one and the partner stays revoked", async () => {
+  const w = partnerWorld();
+  const { id, pub: original } = await w.add("Late Revoke", ["https://late.example"], "late-revoke");
+  const before = (await w.store.get(id))!.keys.pub.hash;
+  // rotate reads an active partner; then the revoke commits; only then does rotate's write arrive
+  let revoked = false;
+  const interleaved: PartnerStore = {
+    ...w.store,
+    update: async (partnerId, patch, expect) => {
+      if (!revoked) {
+        revoked = true;
+        await revokePartner(w.store, partnerId);
+      }
+      return w.store.update(partnerId, patch, expect);
+    },
+  };
+  const out: string[] = [];
+  let err: unknown;
+  try {
+    out.push(...(await runPartnerCli(["rotate", id, "--scope", "pub"], { store: interleaved, pepper: PEPPER, reservedIds: [], now: () => new Date(T0) })));
+  } catch (e) {
+    err = e;
+  }
+  assert.ok(revoked, "the revoke really landed between the read and the write");
+  assert.ok(err instanceof PartnerError, String(err));
+  assert.equal(err.code, "partner_revoked");
+  assert.match(err.message, /revoked/);
+  assert.doesNotMatch(`${out.join("\n")}${err.message}`, ANY_KEY_RE, "no key is printed");
+  const stored = (await w.store.get(id))!;
+  assert.equal(stored.status, "revoked");
+  assert.equal(stored.keys.pub.hash, before, "the old key record is untouched (no new key was written)");
+  const fresh = createPartnerRegistry({ store: w.store, pepper: PEPPER, nowMs: () => T0 });
+  assert.equal(await fresh.authenticate(original, "pub"), undefined, "a revoked partner authenticates with nothing");
+});

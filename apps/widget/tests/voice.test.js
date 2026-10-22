@@ -592,7 +592,7 @@ test("H3: the busy/ended frames keep the crisis path intact: a crisis flag still
 
 const BUSY_EN = "Voice is busy right now. Please try again shortly, or keep typing here.";
 const BUSY_HI = "वॉइस अभी व्यस्त है। कृपया थोड़ी देर में फिर कोशिश करें, या यहीं टाइप करें।";
-const HELP_HI = "Tele-MANAS 14416 (24x7) · आपातकाल 112";
+const HELP_HI = "Tele-MANAS: 14416, मुफ़्त, 24x7 · 112 पर फ़ोन करें";
 
 test("J1: the voice busy note carries the helpline too, in the note's own language, for both busy signals (the mint 429 voice_busy fallback and the voice_busy error frame), and the busy wording itself is unchanged", () => {
   // signal 1: the session-mint fallback
@@ -651,3 +651,25 @@ test("J2: a mint refused with 403 voice_unavailable (voice switched off for this
 function setupOff(mic) {
   return setup({ fetch: fakeFetch(resp(403, { error: "voice_unavailable", helpline: "Tele-MANAS 14416" })), mediaDevices: mic });
 }
+
+// ---- pc-hardening-2 fix cycle 1 R1 (J1, LK10): the Hindi helpline line adds no new wording -----------------------------------------------------
+
+test("R1: the Hindi helpline line is built only from fragments copied verbatim from the approved Hindi text in packages/engine/src/student/lang.ts (LK10), and no new Hindi word is in the widget source", () => {
+  const lang = fs.readFileSync(path.join(__dirname, "..", "..", "..", "packages", "engine", "src", "student", "lang.ts"), "utf8");
+  const noteHi = W.voiceFallbackText({ reason: "busy", wait: 30 }, "hi");
+  const helpHi = noteHi.split("\n").slice(1).join("\n");
+  assert.ok(helpHi.length > 0, "the Hindi busy note carries a helpline line");
+  assert.match(helpHi, /14416/);
+  assert.match(helpHi, /112/);
+  // the English line is built from " · "-joined parts; the Hindi line uses the same separator and every part is a verbatim substring of lang.ts
+  const parts = helpHi.split(" · ");
+  assert.equal(parts.length, W.HELP.split(" · ").length, "same separator style and part count as the English HELP");
+  for (const p of parts) assert.ok(lang.includes(p), "not a verbatim fragment of lang.ts: " + JSON.stringify(p));
+  // the voice-off note takes the same line
+  assert.ok(W.voiceFallbackText({ reason: "off" }, "hi").endsWith("\n" + helpHi));
+  // the invented word is gone from every widget source file
+  const srcDir = path.join(__dirname, "..", "src");
+  for (const f of fs.readdirSync(srcDir)) {
+    assert.ok(!fs.readFileSync(path.join(srcDir, f), "utf8").includes("आपातकाल"), f + " still has the invented word");
+  }
+});

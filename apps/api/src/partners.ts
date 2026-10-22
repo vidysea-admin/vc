@@ -238,7 +238,10 @@ export interface PartnerStore {
 }
 
 /** pc-hardening-2 J4: an update that applies only while the stored hash of ONE scope is still `hash` (null = the scope has no key record). Compare-and-set; a mismatch resolves false, like a missing partner. */
-export type PartnerExpect = Partial<Record<`keys.${KeyScope}.hash`, string | null>>;
+export type PartnerExpect = Partial<Record<`keys.${KeyScope}.hash`, string | null>> & {
+  /** Fix cycle 1 R4: the update also applies only while the partner is still active (a revoke that landed since the read makes it resolve false). */
+  status?: "active";
+};
 
 /** What `update` may write: any top-level field except the ids and the whole `keys` object, plus ONE scope's key record by dotted path. */
 export type PartnerPatch = Partial<Omit<PartnerDoc, "_id" | "partnerId" | "keys">> & Partial<Record<`keys.${KeyScope}`, PartnerKeyRecord>>;
@@ -432,9 +435,12 @@ export async function rotatePartner(
   const patch: PartnerPatch = scope === "pub" ? { "keys.pub": record } : { "keys.srv": record };
   // J4 (ISS-pc-partner-keys-3): the write is conditional on the hash THIS rotate read, so of two overlapping rotates of one scope only the first commits; the loser learns it lost
   // (and prints no key) instead of reporting a key that never worked. A miss is either a vanished partner or a lost race: read again to tell which.
-  const expect: PartnerExpect = { [`keys.${scope}.hash`]: existing.keys?.[scope]?.hash ?? null };
+  // R4: it is also conditional on the partner still being active, so a revoke landing between the read and this write cannot be undone by a rotate that then prints a key.
+  const expect: PartnerExpect = { [`keys.${scope}.hash`]: existing.keys?.[scope]?.hash ?? null, status: "active" };
   if (!(await store.update(partnerId, patch, expect))) {
-    if (!(await store.get(partnerId))) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
+    const now = await store.get(partnerId);
+    if (!now) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
+    if (now.status === "revoked") throw new PartnerError("partner_revoked", `partner "${partnerId}" was revoked while the key was being rotated, so no key was minted; add a new partner instead of rotating`);
     throw new PartnerError("rotated_concurrently", `the ${scope} key of "${partnerId}" was rotated concurrently, run again (no key was minted)`);
   }
   const keys = { ...existing.keys, [scope]: record } as Record<KeyScope, PartnerKeyRecord>;
