@@ -50,7 +50,7 @@ import {
 } from "@vc/engine";
 import type { GroundedAnswerer, GroundingBudget, LlmProvider } from "@vc/providers";
 import { assertGoLive } from "./go-live-gate.js";
-import { PartnerRegistryUnavailableError, partnerKeyFromRequest, type PartnerRegistry } from "./partners.js";
+import { PartnerRegistryUnavailableError, partnerKeyFromRequest, singleHeader, type PartnerRegistry } from "./partners.js";
 import { BodyTooLargeError, respond, type ApiHandler, type ApiRequest, type ApiRoute } from "./server.js";
 
 export const ANONYMOUS_PATH = "/v1/public/chat/turns";
@@ -461,12 +461,15 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
       if (presented.kind !== "none" || deps.partnerKeyRequired === true) {
         let who: Awaited<ReturnType<PartnerRegistry["authenticate"]>>;
         try {
-          who = presented.kind === "key" && deps.partners ? await deps.partners.authenticate(presented.key) : undefined;
+          who = presented.kind === "key" && deps.partners ? await deps.partners.authenticate(presented.key, "pub") : undefined;
         } catch (err) {
           if (err instanceof PartnerRegistryUnavailableError) return fail(503, "partner_registry_unavailable");
           throw err;
         }
-        if (!who) return respond(401, { error: "unauthorized", helpline: TELE_MANAS_LINE }, { "www-authenticate": 'Bearer realm="vc-api"' });
+        // A page key is public, so from a browser it is good only for the partner's own site: an Origin header that is absent from the partner's list (or repeated) is the same 401.
+        // No Origin header = not a browser (a script already holds the key and could send any Origin it likes, so this is a browser-side control, not a secret).
+        const origin = singleHeader(req.headers, "origin");
+        if (!who || (origin !== undefined && (typeof origin !== "string" || !who.allowedOrigins.includes(origin)))) return respond(401, { error: "unauthorized", helpline: TELE_MANAS_LINE }, { "www-authenticate": 'Bearer realm="vc-api"' });
         partnerId = who.partnerId;
       }
       // K2: with a key the limit (and the grounded-call budget) is per partner AND client; without one the key is the client alone, exactly as before.

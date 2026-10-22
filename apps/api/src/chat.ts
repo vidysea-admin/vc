@@ -840,10 +840,10 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     if (token === undefined) return respond(401, { error: "unauthorized" }, { "www-authenticate": 'Bearer realm="vc-api"' });
     let ctx: StudentAuthContext;
     if (isPartnerKeyToken(token)) {
-      // K3: a partner key. One 401 for every bad key (malformed, unknown, revoked, wrong secret, or no registry); the key is checked BEFORE the student headers are read.
+      // K3: a partner SERVER key (a page key is the same uniform 401). One 401 for every bad key (malformed, unknown, revoked, wrong secret, wrong scope, or no registry); the key is checked BEFORE the student headers are read.
       let partner: Awaited<ReturnType<PartnerRegistry["authenticate"]>>;
       try {
-        partner = deps.partners ? await deps.partners.authenticate(token) : undefined;
+        partner = deps.partners ? await deps.partners.authenticate(token, "srv") : undefined;
       } catch (err) {
         if (err instanceof PartnerRegistryUnavailableError) return fail(503, "partner_registry_unavailable");
         throw err;

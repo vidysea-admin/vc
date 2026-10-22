@@ -4,8 +4,11 @@
  * New file, on purpose: this is genuinely new functionality (apps/api had JWT auth and one anonymous route, no partner registry). It owns
  *   - the `partners` collection of the virtual_counsellor database (one document per partner, `_id` = partnerId), and the add / rotate / revoke / list
  *     operations the CLI (apps/api/scripts/partner.ts) runs;
- *   - the key format `vck_<partnerId>_<43-char base64url>` and its storage: only HMAC-SHA256(key, VC_PARTNER_KEY_PEPPER) and a short prefix are
- *     kept. The raw key is returned once, by add and rotate, and is in no log, document or listing;
+ *   - the key format and its storage. Every partner has TWO keys with scopes: a PAGE key `vck_pub_<partnerId>_<43-char base64url>` (sits in public HTML;
+ *     opens only the public chat route, and from a browser only for the partner's own origins) and a SERVER key `vck_srv_<partnerId>_<43-char base64url>`
+ *     (stays on the partner's backend; opens only the student chat routes, never gets CORS). A key used outside its scope is the same uniform 401 as any bad key.
+ *     Only HMAC-SHA256(key, VC_PARTNER_KEY_PEPPER) and a short prefix are kept, per scope. A raw key is returned once, by add and rotate, and is in no log,
+ *     document or listing;
  *   - the in-process registry the routes ask ("whose key is this?"): one cached read of the whole partner list, at most 60 s old, so a revoke or a
  *     rotate takes effect on a running server within 60 s (clarified default 1; a freshly started server sees it at once);
  *   - `withPartnerRoutes`: the outermost wrapper of the HTTP handler. It answers CORS preflights and adds Access-Control-Allow-Origin to a keyed
@@ -18,8 +21,8 @@
  *  - CORS is decided per key, never by nginx and never `*`. A browser preflight carries no key, so it is granted when the Origin is in the list of ANY
  *    active partner; the real request is granted only when ITS key is active and the Origin is in THAT key's list. Only the public chat route, the voice
  *    session route and the partner openapi route take part; no other route is ever granted CORS.
- *  - The raw partner key is a bearer secret. A key put in a public web page (the widget's key mode) is public by construction; the same key also
- *    authenticates the server-to-server student routes (K3). That is the "one simple key per partner" of D-111, and it is listed as an open risk.
+ *  - A page key is public by construction (it is in the page source), so it can open nothing but the anonymous public chat route, which anyone can already
+ *    call; it can never read or write a student. The server key is the only credential for student data.
  *  - The store is the only thing this module writes, and only from the CLI. The request path only reads.
  */
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
@@ -40,8 +43,11 @@ export const GUARDIAN_CONSENT_HEADER = "x-vc-guardian-consent";
 
 export const PARTNER_ID_PATTERN = /^[a-z0-9-]{2,32}$/;
 export const PARTNER_KEY_PREFIX = "vck_";
+/** pub = the page key (public chat route only); srv = the server key (student routes only). */
+export type KeyScope = "pub" | "srv";
+export const KEY_SCOPES: readonly KeyScope[] = ["pub", "srv"];
 const SECRET_LENGTH = 43; // base64url of 32 random bytes
-const PARTNER_KEY_PATTERN = new RegExp(`^vck_([a-z0-9-]{2,32})_([A-Za-z0-9_-]{${SECRET_LENGTH}})$`);
+const PARTNER_KEY_PATTERN = new RegExp(`^vck_(pub|srv)_([a-z0-9-]{2,32})_([A-Za-z0-9_-]{${SECRET_LENGTH}})$`);
 /** How many characters of the secret are kept, with `vck_<id>_`, as the listing prefix. */
 const PREFIX_SECRET_CHARS = 4;
 export const MIN_PEPPER_LENGTH = 32;
@@ -85,22 +91,34 @@ export class PartnerRegistryUnavailableError extends Error {
   }
 }
 
+/** One scope's stored key: only the HMAC and a prefix, never the key. */
+export interface PartnerKeyRecord {
+  /** HMAC-SHA256(key, pepper), hex. */
+  hash: string;
+  /** `vck_<scope>_<partnerId>_` plus the first characters of the secret: enough to tell keys apart in a listing, useless as a credential. */
+  prefix: string;
+  rotatedAt: string | null;
+}
+
 export interface PartnerDoc {
   _id: string;
   partnerId: string;
   name: string;
-  /** HMAC-SHA256(key, pepper), hex. */
-  keyHash: string;
-  /** `vck_<partnerId>_` plus the first characters of the secret: enough to tell keys apart in a listing, useless as a credential. */
-  keyPrefix: string;
+  keys: Record<KeyScope, PartnerKeyRecord>;
   allowedOrigins: string[];
   status: "active" | "revoked";
   createdAt: string;
-  rotatedAt: string | null;
 }
 
-/** What a listing and a command result show: a partner without its hash. */
-export type PartnerSummary = Omit<PartnerDoc, "_id" | "keyHash">;
+/** What a listing and a command result show: a partner without its hashes. */
+export interface PartnerSummary {
+  partnerId: string;
+  name: string;
+  keys: Record<KeyScope, { prefix: string; rotatedAt: string | null }>;
+  allowedOrigins: string[];
+  status: "active" | "revoked";
+  createdAt: string;
+}
 
 export interface PartnerStore {
   get(partnerId: string): Promise<PartnerDoc | null>;
@@ -161,10 +179,10 @@ export function partnerKeyRequiredFromEnv(env: Record<string, string | undefined
 // Keys
 // ---------------------------------------------------------------------------
 
-/** The partner id and secret of a well-formed key, or undefined. A key splits on its first two underscores; an id has none. */
-export function parsePartnerKey(key: string): { partnerId: string; secret: string } | undefined {
+/** The partner id and secret of a well-formed key, or undefined. A key splits on its first three underscores; an id has none. */
+export function parsePartnerKey(key: string): { scope: KeyScope; partnerId: string; secret: string } | undefined {
   const m = PARTNER_KEY_PATTERN.exec(key);
-  return m ? { partnerId: m[1]!, secret: m[2]! } : undefined;
+  return m ? { scope: m[1] as KeyScope, partnerId: m[2]!, secret: m[3]! } : undefined;
 }
 
 /** HMAC-SHA256(key, pepper) as hex: the only form of a key that is ever stored. */
@@ -172,20 +190,23 @@ export function hashPartnerKey(key: string, pepper: string): string {
   return createHmac("sha256", pepper).update(key).digest("hex");
 }
 
-function newKey(partnerId: string, random: (n: number) => Buffer): { key: string; keyPrefix: string } {
-  const secret = random(32).toString("base64url");
-  const head = `${PARTNER_KEY_PREFIX}${partnerId}_`;
-  return { key: `${head}${secret}`, keyPrefix: `${head}${secret.slice(0, PREFIX_SECRET_CHARS)}` };
+function newKey(scope: KeyScope, partnerId: string, ctx: PartnerOpContext, at: string): { key: string; record: PartnerKeyRecord } {
+  const secret = (ctx.randomBytes ?? randomBytes)(32).toString("base64url");
+  const head = `${PARTNER_KEY_PREFIX}${scope}_${partnerId}_`;
+  const key = `${head}${secret}`;
+  return { key, record: { hash: hashPartnerKey(key, ctx.pepper), prefix: `${head}${secret.slice(0, PREFIX_SECRET_CHARS)}`, rotatedAt: at === "" ? null : at } };
 }
 
 const summaryOf = (doc: PartnerDoc): PartnerSummary => ({
   partnerId: doc.partnerId,
   name: doc.name,
-  keyPrefix: doc.keyPrefix,
+  keys: {
+    pub: { prefix: doc.keys?.pub?.prefix ?? "(none)", rotatedAt: doc.keys?.pub?.rotatedAt ?? null },
+    srv: { prefix: doc.keys?.srv?.prefix ?? "(none)", rotatedAt: doc.keys?.srv?.rotatedAt ?? null },
+  },
   allowedOrigins: [...doc.allowedOrigins],
   status: doc.status,
   createdAt: doc.createdAt,
-  rotatedAt: doc.rotatedAt,
 });
 
 /**
@@ -231,12 +252,12 @@ function requirePepper(ctx: PartnerOpContext): void {
   if (typeof ctx.pepper !== "string" || ctx.pepper.length < MIN_PEPPER_LENGTH) throw new PartnerConfigError(`${PARTNER_PEPPER_ENV} must be at least ${MIN_PEPPER_LENGTH} characters`);
 }
 
-/** Adds a partner and returns its raw key. The key is shown to the caller once; only its HMAC and a prefix are stored. */
+/** Adds a partner and returns its two raw keys (page and server). They are shown to the caller once; only their HMACs and prefixes are stored. */
 export async function addPartner(
   store: PartnerStore,
   input: { name: string; origins?: readonly string[]; id?: string },
   ctx: PartnerOpContext,
-): Promise<{ partner: PartnerSummary; key: string }> {
+): Promise<{ partner: PartnerSummary; keys: Record<KeyScope, string> }> {
   requirePepper(ctx);
   const name = typeof input.name === "string" ? input.name.trim() : "";
   if (name === "" || name.length > 120 || /[\u0000-\u001f\u007f]/.test(name)) throw new PartnerError("usage", "a partner needs a name of 1 to 120 printable characters");
@@ -246,36 +267,40 @@ export async function addPartner(
   }
   const allowedOrigins = normalizeOrigins(input.origins ?? []);
   if (await store.get(partnerId)) throw new PartnerError("partner_exists", `partner "${partnerId}" already exists (rotate its key, or choose another id)`);
-  const { key, keyPrefix } = newKey(partnerId, ctx.randomBytes ?? randomBytes);
+  const pub = newKey("pub", partnerId, ctx, "");
+  const srv = newKey("srv", partnerId, ctx, "");
   const doc: PartnerDoc = {
     _id: partnerId,
     partnerId,
     name,
-    keyHash: hashPartnerKey(key, ctx.pepper),
-    keyPrefix,
+    keys: { pub: pub.record, srv: srv.record },
     allowedOrigins,
     status: "active",
     createdAt: (ctx.now?.() ?? new Date()).toISOString(),
-    rotatedAt: null,
   };
   await store.insert(doc);
-  return { partner: summaryOf(doc), key };
+  return { partner: summaryOf(doc), keys: { pub: pub.key, srv: srv.key } };
 }
 
-/** Replaces an active partner's key. The old hash is gone from the store at once. */
-export async function rotatePartner(store: PartnerStore, partnerId: string, ctx: PartnerOpContext): Promise<{ partner: PartnerSummary; key: string }> {
+/** Replaces ONE scope's key of an active partner; the other scope's key is untouched. The old hash is gone from the store at once. */
+export async function rotatePartner(
+  store: PartnerStore,
+  partnerId: string,
+  scope: KeyScope,
+  ctx: PartnerOpContext,
+): Promise<{ partner: PartnerSummary; key: string; scope: KeyScope }> {
   requirePepper(ctx);
+  if (!KEY_SCOPES.includes(scope)) throw new PartnerError("usage", "rotate needs --scope pub or --scope srv");
   const existing = await store.get(partnerId);
   if (!existing) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
   if (existing.status === "revoked") throw new PartnerError("partner_revoked", `partner "${partnerId}" is revoked; add a new partner instead of rotating`);
-  const { key, keyPrefix } = newKey(partnerId, ctx.randomBytes ?? randomBytes);
-  const rotatedAt = (ctx.now?.() ?? new Date()).toISOString();
-  const keyHash = hashPartnerKey(key, ctx.pepper);
-  if (!(await store.update(partnerId, { keyHash, keyPrefix, rotatedAt }))) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
-  return { partner: summaryOf({ ...existing, keyHash, keyPrefix, rotatedAt }), key };
+  const { key, record } = newKey(scope, partnerId, ctx, (ctx.now?.() ?? new Date()).toISOString());
+  const keys = { ...existing.keys, [scope]: record } as Record<KeyScope, PartnerKeyRecord>;
+  if (!(await store.update(partnerId, { keys }))) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
+  return { partner: summaryOf({ ...existing, keys }), key, scope };
 }
 
-/** Revokes a partner (idempotent). Its key stops working on a running server within PARTNER_CACHE_TTL_MS. */
+/** Revokes a partner (idempotent): BOTH keys stop working on a running server within PARTNER_CACHE_TTL_MS. */
 export async function revokePartner(store: PartnerStore, partnerId: string): Promise<PartnerSummary> {
   const existing = await store.get(partnerId);
   if (!existing) throw new PartnerError("partner_not_found", `no partner "${partnerId}"`);
@@ -293,16 +318,16 @@ export async function listPartners(store: PartnerStore): Promise<PartnerSummary[
 
 export const PARTNER_USAGE = [
   "usage:",
-  "  partner add <name> [--id <partner-id>] [--origin <https://site>]...   register a partner; prints its key once",
-  "  partner rotate <partner-id>                                          new key (printed once); the old key stops working",
-  "  partner revoke <partner-id>                                          the key stops working (within 60 s on a running server)",
-  "  partner list                                                         partners, status and key prefix (never a key)",
+  "  partner add <name> [--id <partner-id>] [--origin <https://site>]...   register a partner; prints its page key and server key once",
+  "  partner rotate <partner-id> --scope pub|srv                          new page or server key (printed once); the old one stops working",
+  "  partner revoke <partner-id>                                          both keys stop working (within 60 s on a running server)",
+  "  partner list                                                         partners, status and key prefixes (never a key)",
 ];
 
 const usageError = (extra?: string) => new PartnerError("usage", [...(extra ? [extra] : []), ...PARTNER_USAGE].join("\n"));
 
 function row(p: PartnerSummary): string {
-  return `${p.partnerId}  ${p.status}  ${p.keyPrefix}...  origins: ${p.allowedOrigins.length > 0 ? p.allowedOrigins.join(", ") : "(none)"}  name: ${p.name}`;
+  return `${p.partnerId}  ${p.status}  pub ${p.keys.pub.prefix}...  srv ${p.keys.srv.prefix}...  origins: ${p.allowedOrigins.length > 0 ? p.allowedOrigins.join(", ") : "(none)"}  name: ${p.name}`;
 }
 
 /** Runs one CLI command and returns the lines to print. Throws PartnerError (code "usage" for a bad command line). */
@@ -324,13 +349,22 @@ export async function runPartnerCli(argv: readonly string[], deps: { store: Part
         else positional.push(a);
       }
       if (positional.length !== 1) throw usageError("add needs exactly one <name>");
-      const { partner, key } = await addPartner(deps.store, { name: positional[0]!, origins, ...(id !== undefined ? { id } : {}) }, deps);
-      return [`added ${row(partner)}`, `key: ${key}`, "This key is shown once and is not stored. Copy it now; to replace it run: partner rotate " + partner.partnerId];
+      const { partner, keys } = await addPartner(deps.store, { name: positional[0]!, origins, ...(id !== undefined ? { id } : {}) }, deps);
+      return [
+        `added ${row(partner)}`,
+        `page key (public: goes in the web page; works only on the public chat route, only from the origins above): ${keys.pub}`,
+        `server key (secret: stays on the partner's backend; works only on the student chat routes): ${keys.srv}`,
+        "Both keys are shown once and are not stored. Copy them now; to replace one run: partner rotate " + partner.partnerId + " --scope pub|srv",
+      ];
     }
     case "rotate": {
-      if (rest.length !== 1) throw usageError("rotate needs exactly one <partner-id>");
-      const { partner, key } = await rotatePartner(deps.store, rest[0]!, deps);
-      return [`rotated ${row(partner)}`, `key: ${key}`, "This key is shown once and is not stored. The old key stops working (within 60 s on a running server)."];
+      const args = [...rest];
+      const at = args.indexOf("--scope");
+      const scope = at >= 0 ? args[at + 1] : undefined;
+      if (at >= 0) args.splice(at, 2);
+      if (args.length !== 1 || (scope !== "pub" && scope !== "srv")) throw usageError("rotate needs exactly one <partner-id> and --scope pub or --scope srv");
+      const { partner, key } = await rotatePartner(deps.store, args[0]!, scope, deps);
+      return [`rotated ${scope} key of ${row(partner)}`, `${scope === "pub" ? "page" : "server"} key: ${key}`, "This key is shown once and is not stored. The old one stops working (within 60 s on a running server); the partner's other key is unchanged."];
     }
     case "revoke": {
       if (rest.length !== 1) throw usageError("revoke needs exactly one <partner-id>");
@@ -358,8 +392,11 @@ export interface PartnerIdentity {
 }
 
 export interface PartnerRegistry {
-  /** The partner a key belongs to, or undefined (malformed, unknown, revoked and wrong-secret are indistinguishable). Rejects with PartnerRegistryUnavailableError when the store cannot be read. */
-  authenticate(key: string): Promise<PartnerIdentity | undefined>;
+  /**
+   * The partner a key belongs to when the key is valid AND of the given scope, or undefined (malformed, unknown, revoked, wrong-secret and wrong-scope are
+   * indistinguishable). Rejects with PartnerRegistryUnavailableError when the store cannot be read.
+   */
+  authenticate(key: string, scope: KeyScope): Promise<PartnerIdentity | undefined>;
   /** True when `origin` is in the allowed list of at least one active partner (a preflight carries no key). */
   originAllowedByAnyPartner(origin: string): Promise<boolean>;
   /** Counts one answered turn for a partner (in memory, text-free). */
@@ -408,15 +445,16 @@ export function createPartnerRegistry(options: PartnerRegistryOptions): PartnerR
   }
 
   return {
-    async authenticate(key) {
+    async authenticate(key, scope) {
       const parsed = typeof key === "string" ? parsePartnerKey(key) : undefined;
       if (!parsed) return undefined;
       const doc = (await partners()).get(parsed.partnerId);
-      // The same work whether or not the partner exists: one HMAC and one constant-time compare.
+      // The same work whether or not the partner exists or the scope fits: one HMAC and one constant-time compare against the key's OWN scope's hash.
       const presented = createHmac("sha256", pepper).update(key).digest();
-      const stored = doc && /^[0-9a-f]{64}$/.test(doc.keyHash) ? Buffer.from(doc.keyHash, "hex") : DUMMY_HASH;
+      const hash = doc?.keys?.[parsed.scope]?.hash;
+      const stored = typeof hash === "string" && /^[0-9a-f]{64}$/.test(hash) ? Buffer.from(hash, "hex") : DUMMY_HASH;
       const equal = timingSafeEqual(presented, stored);
-      if (!doc || !equal || doc.status !== "active") return undefined;
+      if (!doc || !equal || doc.status !== "active" || parsed.scope !== scope) return undefined;
       return { partnerId: doc.partnerId, name: doc.name, allowedOrigins: [...doc.allowedOrigins] };
     },
     async originAllowedByAnyPartner(origin) {
@@ -479,13 +517,15 @@ export function partnerStudentFromHeaders(headers: ApiRequest["headers"]): Partn
 
 export const PARTNER_OPENAPI_PATH = "/v1/partner/openapi.json";
 const ANONYMOUS_CHAT_PATH = "/v1/public/chat/turns";
-const VOICE_SESSION_PATH = /^\/v1\/students\/[^/]+\/chat\/threads\/[^/]+\/voice\/sessions$/;
 const CORS_METHODS = "POST,GET,OPTIONS";
 const CORS_HEADERS = "Content-Type,X-VC-Key,Authorization";
 
-/** The routes that take part in CORS: the public chat route, the voice session route and the partner openapi route. */
+/**
+ * The routes that take part in CORS: the public chat route and the partner openapi route. Student routes (chat, voice session, voice stream) take only a
+ * server key, which never gets CORS, so they are not here. A later anonymous voice route (pc-voice) is added to this list when it exists.
+ */
 export function isCorsEligiblePath(pathname: string): boolean {
-  return pathname === ANONYMOUS_CHAT_PATH || pathname === PARTNER_OPENAPI_PATH || VOICE_SESSION_PATH.test(pathname);
+  return pathname === ANONYMOUS_CHAT_PATH || pathname === PARTNER_OPENAPI_PATH;
 }
 
 function pathOf(req: Pick<ApiRequest, "url">): string | undefined {
@@ -500,17 +540,14 @@ function withHeaders(res: ApiResponse, extra: Record<string, string>): ApiRespon
   return { ...res, headers: { ...res.headers, ...extra } };
 }
 
-/** The key a CORS decision is made from: X-VC-Key, else a `Bearer vck_...` token. */
+/** The key a CORS decision is made from: the page key in X-VC-Key. A server key (X-VC-Key or Bearer) never gets CORS, so nothing else is read. */
 function keyForCors(req: ApiRequest): string | undefined {
   const k = partnerKeyFromRequest(req);
-  if (k.kind === "key") return k.key;
-  const auth = singleHeader(req.headers, "authorization");
-  const m = typeof auth === "string" ? /^Bearer +(vck_[^\s]+)\s*$/i.exec(auth) : null;
-  return m ? m[1] : undefined;
+  return k.kind === "key" ? k.key : undefined;
 }
 
 /**
- * Wraps the whole handler (outermost). With a registry it answers preflights and adds Access-Control-Allow-Origin to a keyed response; without
+ * Wraps the whole handler (outermost). With a registry it answers preflights and adds Access-Control-Allow-Origin to a page-keyed response; without
  * one nothing is ever granted CORS. In both cases it serves GET /v1/partner/openapi.json. It never swallows an error from the inner handler, and a
  * registry that cannot be read only means no CORS header (the inner handler still answers).
  */
@@ -558,7 +595,7 @@ export function withPartnerRoutes(inner: ApiHandler, registry: PartnerRegistry |
     const key = registry && typeof origin === "string" && origin !== "" ? keyForCors(req) : undefined;
     if (registry && key !== undefined) {
       try {
-        const partner = await registry.authenticate(key);
+        const partner = await registry.authenticate(key, "pub");
         if (partner && partner.allowedOrigins.includes(origin as string)) {
           return withHeaders(res, { "access-control-allow-origin": origin as string, vary: "Origin", "access-control-expose-headers": "Retry-After" });
         }
