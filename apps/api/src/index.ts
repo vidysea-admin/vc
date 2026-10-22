@@ -56,6 +56,17 @@ import {
   type AnonymousCounterWriter,
 } from "./anonymous.js";
 import {
+  PartnerConfigError,
+  PARTNER_KEY_REQUIRED_ENV,
+  PARTNER_PEPPER_ENV,
+  createMongoPartnerStore,
+  createPartnerRegistry,
+  partnerKeyRequiredFromEnv,
+  partnerPepperFromEnv,
+  withPartnerRoutes,
+  type PartnerStore,
+} from "./partners.js";
+import {
   ChatConfigError,
   assertChatGoLive,
   chatEnabledFromEnv,
@@ -75,7 +86,8 @@ import {
 
 export * from "./auth.js";
 export * from "./server.js";
-export { OPENAPI_DOCUMENT, STUDENT_API_DRAFT } from "./openapi.js";
+export { OPENAPI_DOCUMENT, PARTNER_OPENAPI, STUDENT_API_DRAFT } from "./openapi.js";
+export * from "./partners.js";
 export * from "./go-live-gate.js";
 export * from "./anonymous.js";
 export * from "./chat.js";
@@ -301,6 +313,11 @@ export interface StartApiHttpOptions {
   voice?: StartApiVoiceOptions;
   /** P1 LK7: the text chain's spend guard (only built when VC_TEXT_CHAIN is set). Tests inject a clock and a log; the cap itself is only ever VC_CHAIN_MONTHLY_CAP_USD. */
   chainSpend?: Pick<ChainSpendGuardOptions, "now" | "log" | "alert">;
+  /**
+   * pc-partner-keys (D-111): per-partner API keys. The registry exists only when VC_PARTNER_KEY_PEPPER is set (>= 32 characters); VC_PARTNER_KEY_REQUIRED=true
+   * needs it and refuses to start without. 'store' is for tests (default: the 'partners' collection of the virtual_counsellor Db); 'nowMs' drives the 60 s cache.
+   */
+  partners?: { store?: PartnerStore; nowMs?: () => number };
 }
 
 /** P1 U10w: environment names for the voice WebSocket secrets, used when the option is not supplied. */
@@ -408,6 +425,12 @@ export interface StartApiOptions extends ErasureFenceSweepOptions {
   http?: StartApiHttpOptions;
 }
 
+/** The partner store once the Db is connected; a request before that is a registry outage (fail closed), never a guess. */
+function partnerStoreOf(ref: { store?: PartnerStore }): PartnerStore {
+  if (!ref.store) throw new Error("partner store used before the database connected");
+  return ref.store;
+}
+
 function resolvePort(env: Record<string, string | undefined>, requested: number | undefined): number {
   const raw = requested ?? (env.VC_API_PORT !== undefined && env.VC_API_PORT.trim() !== "" ? Number(env.VC_API_PORT) : DEFAULT_API_PORT);
   if (!Number.isInteger(raw) || raw < 0 || raw > 65535) throw new RangeError("startApi: VC_API_PORT must be a port number (0-65535)");
@@ -491,6 +514,19 @@ export async function startApi(
           : httpBase.provider,
       }
     : undefined;
+  // pc-partner-keys: the pepper and the required flag are checked BEFORE anything connects. The store is bound to the Db only after connect (the registry reads
+  // it on the first keyed request, never before).
+  const partnerPepper = httpSetup ? partnerPepperFromEnv(env) : undefined;
+  const partnerKeyRequired = httpSetup ? partnerKeyRequiredFromEnv(env) : false;
+  if (partnerKeyRequired && partnerPepper === undefined) throw new PartnerConfigError(`${PARTNER_KEY_REQUIRED_ENV} is true but ${PARTNER_PEPPER_ENV} is not set`);
+  const partnerStoreRef: { store?: PartnerStore } = {};
+  const partnerStore: PartnerStore = http?.partners?.store ?? {
+    get: (id) => partnerStoreOf(partnerStoreRef).get(id),
+    list: () => partnerStoreOf(partnerStoreRef).list(),
+    insert: (doc) => partnerStoreOf(partnerStoreRef).insert(doc),
+    update: (id, patch) => partnerStoreOf(partnerStoreRef).update(id, patch),
+  };
+  const partnerRegistry = partnerPepper !== undefined ? createPartnerRegistry({ store: partnerStore, pepper: partnerPepper, ...(http?.partners?.nowMs ? { nowMs: http.partners.nowMs } : {}) }) : undefined;
   const classifierConfig = httpSetup ? loadConcernClassifierConfig(env) : undefined;
   const classifierProvider = httpSetup && !http?.escalationForTenant
     ? (http?.provider ?? createProvider(concernClassifierProviderConfig(loadProviderConfig(env), classifierConfig!))) : undefined;
@@ -558,6 +594,8 @@ export async function startApi(
         ...(a.now ? { now: a.now } : {}),
         ...(a.nowMs ? { nowMs: a.nowMs } : {}),
         ...(a.log ? { log: a.log } : {}),
+        ...(partnerRegistry ? { partners: partnerRegistry } : {}),
+        ...(partnerKeyRequired ? { partnerKeyRequired } : {}),
       },
       { enabled: true, gatesDir: a.gatesDir ?? DEFAULT_GATES_DIR, env },
     );
@@ -625,6 +663,7 @@ export async function startApi(
     : undefined;
   const { client, db } = connectFromEnv(env, clientFactory);
   counterRef.writer = createMongoAnonymousCounter(anonymousCountersCollection(db), http?.anonymous?.now);
+  partnerStoreRef.store = createMongoPartnerStore(db);
   // Built before connecting so every voice configuration error (secret length, base URL) is a startup error with nothing connected.
   let voice: VoiceApi | undefined;
   if (voiceSetup) {
@@ -698,6 +737,7 @@ export async function startApi(
         ? createChatApi(
             {
               verifier: chatSetup.verifier,
+              ...(partnerRegistry ? { partners: partnerRegistry } : {}),
               dbForTenant: wiring.dbForTenant,
               kb: chatSetup.kb,
               provider: httpSetup.studentProvider,
@@ -719,7 +759,7 @@ export async function startApi(
             { enabled: true, gatesDir: chatSetup.chat.gatesDir ?? DEFAULT_GATES_DIR, env },
           )
         : undefined;
-      const s = createApiServer(withVoiceRoutes(withChatRoutes(withAnonymousRoutes(handler, anonymousHandler), chatHandler), voice?.handler), {
+      const s = createApiServer(withPartnerRoutes(withVoiceRoutes(withChatRoutes(withAnonymousRoutes(handler, anonymousHandler), chatHandler), voice?.handler), partnerRegistry), {
         ...(voice ? { onUpgrade: voice.upgrade } : {}),
       });
       server = s;

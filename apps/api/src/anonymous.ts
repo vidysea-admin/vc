@@ -50,6 +50,7 @@ import {
 } from "@vc/engine";
 import type { GroundedAnswerer, GroundingBudget, LlmProvider } from "@vc/providers";
 import { assertGoLive } from "./go-live-gate.js";
+import { PartnerRegistryUnavailableError, partnerKeyFromRequest, singleHeader, type PartnerRegistry } from "./partners.js";
 import { BodyTooLargeError, respond, type ApiHandler, type ApiRequest, type ApiRoute } from "./server.js";
 
 export const ANONYMOUS_PATH = "/v1/public/chat/turns";
@@ -235,7 +236,8 @@ export class AnonymousRateLimiter {
 // ---------------------------------------------------------------------------
 
 export type AnonymousLogLine =
-  | { level: "error"; event: "api_request_failed"; status: number; error: string; ts: string }
+  | { level: "error"; event: "api_request_failed"; status: number; error: string; ts: string; partnerId?: string }
+  | { level: "info"; event: "anonymous_partner_turn"; partnerId: string; state: string; ts: string }
   | { level: "error"; event: "anonymous_counter_failed"; kind: string; ts: string }
   | { level: "error"; event: "anonymous_forbidden_write"; write: string; ts: string }
   | { level: "warn"; event: "anonymous_client_key_missing"; ts: string };
@@ -279,6 +281,14 @@ export interface AnonymousApiDeps {
   clientKey?: (req: ApiRequest) => string | undefined;
   /** Text-free server-side failure log. Default: one JSON line on stderr. */
   log?: (line: AnonymousLogLine) => void;
+  /**
+   * pc-partner-keys K2 (D-111): the partner registry. With it, an `X-VC-Key` header is checked (a malformed, unknown or revoked key is one uniform 401, before the body
+   * is read), the limit becomes per partner AND client, and the partner id reaches the usage count and the log (never the text). Absent: a key header is refused
+   * (fail closed) and the route behaves exactly as before. Nothing partner-related is ever stored with a turn.
+   */
+  partners?: Pick<PartnerRegistry, "authenticate" | "noteTurn">;
+  /** K2: VC_PARTNER_KEY_REQUIRED. True: a request with no key is a 401. Default false (a keyless visitor is unchanged). */
+  partnerKeyRequired?: boolean;
 }
 
 export interface AnonymousRouteConfig {
@@ -435,6 +445,7 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
   const fail = (status: number, error: string, headers?: Record<string, string>) => respond(status, { error, helpline: TELE_MANAS_LINE }, headers);
 
   return async (req) => {
+    let partnerId: string | undefined;
     try {
       let pathname: string;
       try {
@@ -444,6 +455,25 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
       }
       if (pathname !== ANONYMOUS_PATH) return respond(404, { error: "not_found" });
       if (req.method.toUpperCase() !== "POST") return fail(405, "method_not_allowed", { allow: "POST" });
+
+      // K2: the partner key, before the body is read. One 401 for every bad key (malformed, blank, repeated, unknown, revoked, wrong secret, or no registry).
+      const presented = partnerKeyFromRequest(req);
+      if (presented.kind !== "none" || deps.partnerKeyRequired === true) {
+        let who: Awaited<ReturnType<PartnerRegistry["authenticate"]>>;
+        try {
+          who = presented.kind === "key" && deps.partners ? await deps.partners.authenticate(presented.key, "pub") : undefined;
+        } catch (err) {
+          if (err instanceof PartnerRegistryUnavailableError) return fail(503, "partner_registry_unavailable");
+          throw err;
+        }
+        // A page key is public, so from a browser it is good only for the partner's own site: an Origin header that is absent from the partner's list (or repeated) is the same 401.
+        // No Origin header = not a browser (a script already holds the key and could send any Origin it likes, so this is a browser-side control, not a secret).
+        const origin = singleHeader(req.headers, "origin");
+        if (!who || (origin !== undefined && (typeof origin !== "string" || !who.allowedOrigins.includes(origin)))) return respond(401, { error: "unauthorized", helpline: TELE_MANAS_LINE }, { "www-authenticate": 'Bearer realm="vc-api"' });
+        partnerId = who.partnerId;
+      }
+      // K2: with a key the limit (and the grounded-call budget) is per partner AND client; without one the key is the client alone, exactly as before.
+      const bucketKey = (raw: string | undefined): string | undefined => (partnerId === undefined ? raw : `${partnerId}\u0000${raw ?? ""}`);
 
       let raw: string;
       try {
@@ -474,7 +504,7 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
       // AI review A: a crisis message is never rate limited. The scan runs on the FULL text before the limiter is consulted; the graph
       // then answers it with the fixed message (no model, no KB, one text-free counter write), so it costs nothing worth limiting.
       if (level === "none") {
-        const verdict = limiter.check(clientKey(req));
+        const verdict = limiter.check(bucketKey(clientKey(req)));
         if (!verdict.allowed) return fail(429, "rate_limited", { "retry-after": String(verdict.retryAfterSec) });
       }
 
@@ -491,7 +521,7 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
             // never fail the response because the logger failed
           }
         }
-        result = await groundingClient.run(limiter.keyOf(rawKey || undefined), () => runStudentTurn(graphDeps, { mode: "anonymous", text }));
+        result = await groundingClient.run(limiter.keyOf(bucketKey(rawKey || undefined)), () => runStudentTurn(graphDeps, { mode: "anonymous", text }));
       } catch (err) {
         if (err instanceof StudentInputInvalidError) return fail(400, "invalid_request");
         throw err;
@@ -499,10 +529,19 @@ export function createAnonymousApi(deps: AnonymousApiDeps, route: AnonymousRoute
       const r = result.response;
       const parsed = AnonymousTurnResponseSchema.safeParse({ state: r.state, ...(r.message !== undefined ? { message: r.message } : {}), claims: r.claims, sources: r.sources });
       if (!parsed.success) throw new TypeError("AnonymousResponseInvalid");
+      if (partnerId !== undefined) {
+        // K2: usage and log carry the partner id, never the text or the key.
+        deps.partners?.noteTurn(partnerId);
+        try {
+          log({ level: "info", event: "anonymous_partner_turn", partnerId, state: parsed.data.state, ts: new Date().toISOString() });
+        } catch {
+          // never fail the response because the logger failed
+        }
+      }
       return respond(200, parsed.data);
     } catch (err) {
       try {
-        log({ level: "error", event: "api_request_failed", status: 500, error: err instanceof Error ? err.name : "error", ts: new Date().toISOString() });
+        log({ level: "error", event: "api_request_failed", status: 500, error: err instanceof Error ? err.name : "error", ts: new Date().toISOString(), ...(partnerId !== undefined ? { partnerId } : {}) });
       } catch {
         // never fail the response because the logger failed
       }
