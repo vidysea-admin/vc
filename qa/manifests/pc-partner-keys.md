@@ -37,7 +37,7 @@ Also: `pnpm install --offline --frozen-lockfile` in the worktree (node_modules o
 
 ## Acceptance criteria and evidence
 Policy-Version: proportional-verification/2026-10-19.17
-dual-trigger: auth apps/api/src/partners.ts:381
+dual-trigger: auth apps/api/src/partners.ts:472
 Tier: L (authentication and a new tenant-derivation path); dual check. Base 3a70309, code commits c93deee + 711291c (c0b).
 Round: 10 files, 5 criteria (K1-K5), est 40 min — one tightly coupled module; one round (c0b folded in before the first check, same cycle 0).
 
