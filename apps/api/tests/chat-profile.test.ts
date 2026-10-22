@@ -14,7 +14,7 @@ import { addPartner, createMongoPartnerStore } from "../src/partners.js";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { CRISIS_TEXT, GERMANY_QUESTION, adult, call, chatWorld, cleanupGates, gatesFixture, kbAnswerProvider, minor, newThread, profilePath, recordingKb, settle, studentToken, studentVerifier, threadsPath, turnsPath, SKILLS_DIR, SPEAKERS } from "./chat-fixtures.js";
 import { generateKeyPairSync } from "node:crypto";
-import { CHAIN_ENV, GOOD_CLAIM, chainRequestInput, realGatesWithB13Pending, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
+import { CHAIN_ENV, GOOD_CLAIM, assertRefusedNamingB13, chainRequestInput, realB13IsSigned, realGatesWithB13Pending, stubOllamaFetch, stubOllamaRouted } from "./anonymous-fixtures.js";
 import { MockProvider, RulesProvider, isRetryableProviderError } from "@vc/providers";
 import { PROVIDER_APOLOGY_TEXT, STUDENT_CRISIS_MESSAGE, createStudentFactExtractor, detectLanguageOffline } from "@vc/engine";
 import { CHAIN_MONTHLY_CAP_ENV, ChainBudgetExhaustedError, ChainSpendCapError, createChainSpendGuard, parseChainMonthlyCap } from "../src/index.js";
@@ -22,13 +22,14 @@ import { CHAIN_MONTHLY_CAP_ENV, ChainBudgetExhaustedError, ChainSpendCapError, c
 const PATHLYNKS = [{ key: "grade", value: "Grade 12, CBSE", source: "pathlynks" as const }];
 const proposeGermany = () => [{ key: "target_country", value: "Germany" }];
 
-/** Like assert.rejects for startApi, but if it wrongly starts, stop the server first so the failure is a clean red and not a hung process. */
-async function mustRefuse(p: Promise<{ stop(): Promise<void> }>, err: new (...a: never[]) => Error): Promise<void> {
+/** Like assert.rejects for startApi, but if it wrongly starts, stop the server first so the failure is a clean red and not a hung process. `check` may assert more about the refusal. */
+async function mustRefuse(p: Promise<{ stop(): Promise<void> }>, err: new (...a: never[]) => Error, check?: (e: unknown) => void): Promise<void> {
   let api: { stop(): Promise<void> } | undefined;
   try {
     api = await p;
   } catch (e) {
     assert.ok(e instanceof err, `expected ${err.name}`);
+    check?.(e);
     return;
   }
   await api.stop();
@@ -181,11 +182,34 @@ test("startApi: flag on with a temp copy of the real repo gates (B13 set back to
         { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, gatesDir: g.gates, verifier: studentVerifier() } }) },
       ),
       GoLiveRefusedError,
+      assertRefusedNamingB13, // pc-hardening-8 S2 (ISS-pc-hardening-7-2): B13 is the reason, not some other closed gate in the copy
     );
     assert.equal(connected, 0);
   } finally {
     cleanupGates(g);
   }
+});
+
+test("startApi: chat flag on, NO gatesDir and VC_GATE_APPROVER unset -> the default gates dir (the real repo qa/gates) refuses to start, BEFORE connecting to Mongo", async () => {
+  // pc-hardening-8 S3 (ISS-pc-hardening-7-3): exercises the DEFAULT_GATES_DIR wiring in startApi (no gatesDir passed). The real B13 record is read only; with no approver in env
+  // the refusal is the needs-VC_GATE_APPROVER reason (any signer), and if B13 were ever reset to pending it must still name B13. mustRefuse stops a wrongly started server.
+  const fake = createFakeMongoClient();
+  let connected = 0;
+  (fake.client as unknown as { connect: () => Promise<void> }).connect = async () => {
+    connected += 1;
+  };
+  await mustRefuse(
+    startApi(
+      { MONGODB_URL: "mongodb://fake-host/ignored", VC_CHAT_ENABLED: "true" },
+      { clientFactory: () => fake.client, http: httpBase({ chat: { kb: recordingKb(), speakers: SPEAKERS, verifier: studentVerifier() } }) },
+    ),
+    GoLiveRefusedError,
+    (e) => {
+      const b13Failure = assertRefusedNamingB13(e);
+      if (realB13IsSigned()) assert.ok(b13Failure.includes("B13-signed needs VC_GATE_APPROVER (the repo approver) to be set"), b13Failure);
+    },
+  );
+  assert.equal(connected, 0);
 });
 
 test("startApi: flag on with the gate open but no student JWT configuration is a config error before connecting (no silent fall-back to the counsellor key)", async () => {

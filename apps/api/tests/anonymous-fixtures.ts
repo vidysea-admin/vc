@@ -5,12 +5,13 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import assert from "node:assert/strict";
 import { inspect } from "node:util";
 import { MockProvider } from "@vc/providers";
 import { SpeakersFileSchema, type SearchHit, type SearchToolOutput, type SpeakersFile } from "@vc/engine";
 import { COLLECTION_NAMES, anonymousCountersCollection } from "@vc/db";
 import { createFakeDb, type FakeDb } from "@vc/db/testing";
-import { GATE_FILES } from "../src/go-live-gate.js";
+import { GATE_FILES, GoLiveRefusedError } from "../src/go-live-gate.js";
 import { BodyTooLargeError, type ApiHandler, type ApiRequest, type ApiResponse } from "../src/server.js";
 import {
   ANONYMOUS_PATH,
@@ -63,27 +64,51 @@ export const REAL_REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import
  * pc-hardening-7 (ISS-pc-partner-keys-8, ISS-pc-hardening-3-2, ISS-pc-hardening-5-1): a temp copy of the five REAL gate records with the B13 line
  * set back to `B13-signed: PENDING`, so a "gate closed" test keeps protecting the refusal without depending on the live state of the repo's qa/gates
  * (B13 is signed there since D-109). The copy is the only thing the test opens; the real files are never written. Throws if the real B13 record no
- * longer has a `B13-signed:` line to reset, so the test goes red instead of silently testing an open gate.
+ * longer exists or has no `B13-signed:` line to reset, so the test goes red instead of silently testing an open gate.
+ * pc-hardening-8 (ISS-pc-hardening-7-1): if it throws after the temp dir exists, the dir is removed before the error propagates (no leak). `source` and
+ * `tmpParent` default to the real gates and the OS temp dir; a test may point them elsewhere to prove the failure path.
  */
-export function realGatesWithB13Pending(): GatesFixture {
-  const root = mkdtempSync(join(tmpdir(), "vc-real-gates-pending-"));
-  const gates = join(root, "qa", "gates");
-  mkdirSync(gates, { recursive: true });
-  for (const file of Object.values(GATE_FILES)) {
-    let body: string;
-    try {
-      body = readFileSync(join(REAL_REPO_GATES, file), "utf8");
-    } catch {
-      continue; // a record absent from the real gates is absent from the copy (the gate refuses a missing record anyway)
+export function realGatesWithB13Pending(source: string = REAL_REPO_GATES, tmpParent: string = tmpdir()): GatesFixture {
+  const root = mkdtempSync(join(tmpParent, "vc-real-gates-pending-"));
+  try {
+    const gates = join(root, "qa", "gates");
+    mkdirSync(gates, { recursive: true });
+    for (const file of Object.values(GATE_FILES)) {
+      let body: string;
+      try {
+        body = readFileSync(join(source, file), "utf8");
+      } catch {
+        if (file === GATE_FILES.b13) throw new Error("the real B13 record is missing, so there is no B13-signed line to reset to PENDING");
+        continue; // any other record absent from the real gates is absent from the copy (the gate refuses a missing record anyway)
+      }
+      if (file === GATE_FILES.b13) {
+        const reset = body.replace(/^(`?)B13-signed:.*$/mu, "$1B13-signed: PENDING$1");
+        if (reset === body && !/^`?B13-signed: PENDING`?\s*$/mu.test(body)) throw new Error("the real B13 record has no B13-signed line to reset to PENDING");
+        body = reset;
+      }
+      writeFileSync(join(gates, file), body);
     }
-    if (file === GATE_FILES.b13) {
-      const reset = body.replace(/^(`?)B13-signed:.*$/mu, "$1B13-signed: PENDING$1");
-      if (reset === body && !/^`?B13-signed: PENDING`?\s*$/mu.test(body)) throw new Error("the real B13 record has no B13-signed line to reset to PENDING");
-      body = reset;
-    }
-    writeFileSync(join(gates, file), body);
+    return { root, gates };
+  } catch (e) {
+    rmSync(root, { recursive: true, force: true });
+    throw e;
   }
-  return { root, gates };
+}
+
+/**
+ * pc-hardening-8 (ISS-pc-hardening-7-2): asserts `e` is a GoLiveRefusedError whose failure list names the B13 record, so a "B13 is the closed gate" test cannot be
+ * satisfied by some other closed gate in the copy. Returns the B13 failure line for further checks.
+ */
+export function assertRefusedNamingB13(e: unknown): string {
+  assert.ok(e instanceof GoLiveRefusedError, `expected GoLiveRefusedError, got ${String(e)}`);
+  const failure = e.result.failures.find((x) => x.startsWith(GATE_FILES.b13));
+  assert.ok(failure, `the refusal does not name the B13 record: ${e.result.failures.join(" | ")}`);
+  return failure;
+}
+
+/** pc-hardening-8 (ISS-pc-hardening-7-3): whether the REAL repo B13 record is signed by a person right now (read only). */
+export function realB13IsSigned(): boolean {
+  return /^`?B13-signed: SIGNED \S+ by \p{Lu}/mu.test(readFileSync(join(REAL_REPO_GATES, GATE_FILES.b13), "utf8"));
 }
 
 export const HIT: SearchHit = {

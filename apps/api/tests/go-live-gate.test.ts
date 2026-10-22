@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { GATE_FILES, GO_LIVE_TARGETS, GoLiveRefusedError, assertGoLive, evaluateGoLive, formatGoLiveReport, type GoLiveTarget } from "../src/go-live-gate.js";
 import { assertVoiceGoLive } from "../src/voice.js";
 import { assertChatGoLive } from "../src/chat.js";
+import { cleanupGates, realGatesWithB13Pending } from "./anonymous-fixtures.js";
 
 const REPO_GATES = fileURLToPath(new URL("../../../qa/gates", import.meta.url));
 const CLI = fileURLToPath(new URL("../scripts/go-live-gate.ts", import.meta.url));
@@ -60,17 +61,22 @@ function fixture(files: Partial<Record<Key, string | null>> = {}, defaults: Reco
 const cleanup = (f: Fixture) => rmSync(f.root, { recursive: true, force: true });
 const only = (r: { failures: string[] }) => r.failures.map((f) => f.split(":")[0]);
 
-// The real gate files change as Umesh answers gates, so this test pins only the one invariant the
-// agent never moves: while the real B13-signed line is PENDING (D-103, owned by the legal team),
-// every target is refused and B13 is named. Once B13 is signed the real state is the human's call.
+// The real gate files change as Umesh answers gates (B13 is signed there since D-109), so the "B13 pending refuses everything" invariant below runs on a temp copy of the real
+// records with B13 set back to PENDING (pc-hardening-8 S4, ISS-pc-hardening-7-4), never skipped. REAL_B13_PENDING is still read for the CLI checks that branch on the live state.
 const REAL_B13_PENDING = /^`?B13-signed:\s*PENDING`?\s*$/m.test(readFileSync(join(REPO_GATES, GATE_FILES.b13), "utf8"));
 
-test("A20: the real repo qa/gates refuses every target while B13 is not signed", { skip: !REAL_B13_PENDING }, () => {
-  for (const target of GO_LIVE_TARGETS) {
-    const r = evaluateGoLive(REPO_GATES, target, NOW, APPROVER);
-    assert.equal(r.allowed, false, target);
-    assert.ok(r.failures.some((f) => f.includes("B13-signed")), `${target}: ${r.failures.join(" | ")}`);
-    assert.throws(() => assertGoLive(REPO_GATES, target, NOW, APPROVER), GoLiveRefusedError);
+test("A20: a temp copy of the real repo qa/gates with B13 set back to pending refuses every target and names B13", () => {
+  const g = realGatesWithB13Pending();
+  try {
+    assert.ok(GO_LIVE_TARGETS.length > 0, "no go-live targets to check");
+    for (const target of GO_LIVE_TARGETS) {
+      const r = evaluateGoLive(g.gates, target, NOW, APPROVER);
+      assert.equal(r.allowed, false, target);
+      assert.ok(r.failures.some((f) => f.includes("B13-signed")), `${target}: ${r.failures.join(" | ")}`);
+      assert.throws(() => assertGoLive(g.gates, target, NOW, APPROVER), GoLiveRefusedError, target);
+    }
+  } finally {
+    cleanupGates(g);
   }
 });
 
