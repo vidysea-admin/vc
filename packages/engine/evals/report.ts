@@ -4,7 +4,7 @@ import type { KbEvalReport } from "./kb-eval.js";
 import type { ProbeReport } from "./probes.js";
 import type { A8Result, LatencySummary } from "./latency.js";
 import type { CrisisLiveReport, LiveReport } from "./live-audio.js";
-import type { H2hTally, JudgeSheet } from "./h2h.js";
+import type { B22Result, H2hTally, JudgeSheet } from "./h2h.js";
 
 function pct(n: number | null): string {
   return n === null ? "n/a" : `${(n * 100).toFixed(1)}%`;
@@ -193,6 +193,28 @@ export function toH2hMarkdown(tally: H2hTally, meta: { mode: "mock" | "real" }):
   lines.push(`| Companions A1 / A3 met | ${tally.a1Met} / ${tally.a3Met} |`);
   lines.push("");
   for (const r of tally.reasons) lines.push(`- ${r}`);
+  lines.push("");
+  return lines.join("\n");
+}
+
+/** B22 (novice + VC vs expert). Without a recorded reference rubric this prints NOT-YET-MEASURABLE and no score row at all. */
+export function toB22Markdown(result: B22Result): string {
+  const lines: string[] = [];
+  lines.push("# B22: novice + VC vs the expert benchmark");
+  lines.push("");
+  if (result.verdict === "NOT-YET-MEASURABLE" || result.score === null) {
+    lines.push(`Cases: ${result.cases} · **NOT-YET-MEASURABLE** (not a pass; it does not block release)`);
+    lines.push("");
+    lines.push("No score is reported until Sapna ma'am's reference rubric is recorded and every persona has walked every case.");
+  } else {
+    lines.push(`Cases: ${result.cases} · bar ${pct(result.target)} of the expert benchmark per persona · **${result.verdict}**${result.blocksRelease ? " (blocks release)" : ""}`);
+    lines.push("");
+    lines.push("| Persona | Share of expert benchmark |");
+    lines.push("|---|---|");
+    for (const [persona, share] of Object.entries(result.score.byPersona)) lines.push(`| ${persona} | ${pct(share)} |`);
+  }
+  lines.push("");
+  for (const r of result.reasons) lines.push(`- ${r}`);
   lines.push("");
   return lines.join("\n");
 }
