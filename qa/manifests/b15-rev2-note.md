@@ -4,7 +4,7 @@
 **Executor:** claude-sonnet-5-5 (maker build subagent), worktree D:/vc/.worktrees/b15-rev2-note, branch wave/b15-rev2-note (from main 852e0e8)
 Policy-Version: proportional-verification/2026-10-19.17
 Tier: docs-lane (one documentation row, no code, no DB query)
-Status: merged-no-check (docs-lane)
+Status: merged-no-check (docs-lane, merged 22e2134; maker corrected the erasure.ts cite 1587->1711 on read-through)
 ## What changed
 - docs/go-live-checklist.md, section 5 "Still OPEN before production": one appended table row (owner Umesh) for ISS-t-029-rev-2. Legacy erasure request rows with status `failed` lack `approvedBy`; before live cutover they need re-approval or a gated migration. A migration is a production write and so a human gate; nothing runs now.
 ## Sources for the changed lines
