@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { SignJWT, type JWTPayload } from "jose";
-import { COLLECTION_NAMES, VC_DB_NAME, erasureFenceKey, getVcDb, tenantScopedDb } from "@vc/db";
+import { COLLECTION_NAMES, ERASURE_PENDING_TTL_MS, VC_DB_NAME, erasureFenceKey, getVcDb, tenantScopedDb } from "@vc/db";
 import { createFakeMongoClient, INDEX_PLAN, TEST_ERASURE_CONFIG, type FakeDb } from "@vc/db/testing";
 import { MockProvider } from "@vc/providers";
 import { InMemoryWebhookEmitGapLedger, InMemoryWebhookOutbox, type WebhookEmitGapLedger, type WebhookEvent, type WebhookOutbox } from "@vc/engine";
@@ -1187,4 +1187,33 @@ test("ISS-t-034-concern-hook api: a fenced student's start announces nothing, ev
   assert.equal(fenced.status, 200, fenced.body);
   assert.equal(fenced.json.kind, "fenced", fenced.body);
   assert.equal((await outbox.list()).length, 0, "a fenced start emits no webhook event (B15)");
+});
+test("w1-erasure-outbox E3 api: a never-confirmed pending request older than the TTL no longer holds the student's slot (201), a fresh one still does (409), and an unconfigured workflow keeps refusing (fail safe)", async () => {
+  const counsellor = await as("tenant-a", "counsellor-1", "counsellor");
+  const post = (w: World) => call(w, "POST", `/v1/students/${STUDENT}/erasure-requests`, { token: counsellor, body: { reason: "student_request" } });
+  const backdate = async (w: World) => {
+    const requests = w.fakeDb.collection<AnyDoc>(COLLECTION_NAMES.erasure_requests);
+    const [open] = requests.all();
+    await requests.updateOne({ _id: open!._id }, { $set: { requestedAt: new Date(Date.now() - 2 * ERASURE_PENDING_TTL_MS).toISOString() } });
+    return open!._id;
+  };
+
+  const w = world();
+  const first = await post(w);
+  assert.equal(first.status, 201, first.body);
+  assert.equal((await post(w)).status, 409, "a fresh pending request holds the slot");
+  const oldId = await backdate(w);
+  const second = await post(w);
+  assert.equal(second.status, 201, second.body);
+  assert.notEqual(second.json.requestId, first.json.requestId);
+  const closed = w.fakeDb.collection<AnyDoc>(COLLECTION_NAMES.erasure_requests).all().find((r) => r._id === oldId);
+  assert.equal(closed?.status, "expired");
+  assert.equal(closed?.studentId, undefined, "the clear student id is gone from the expired row");
+
+  const bare = world({ erasureConfig: undefined });
+  assert.equal((await post(bare)).status, 201);
+  await backdate(bare);
+  const refused = await post(bare);
+  assert.equal(refused.status, 409);
+  assert.deepEqual(refused.json, { error: "erasure_already_open" });
 });

@@ -292,6 +292,13 @@ export const ERASURE_CONFIRM_TOKEN_TTL_MS = 15 * 60 * 1000;
 /** T-029: how long an approval request waits for the approver before it expires (purging nothing). */
 export const ERASURE_APPROVAL_TTL_MS = 7 * 24 * 3600 * 1000;
 
+/**
+ * w1-erasure-outbox E3 (ISS-t-029-rev-1): how long a request may sit `pending` (opened, never
+ * confirmed) before it stops holding the student's one-open-request slot. Default 24h. Only a
+ * `pending` row expires on this clock; confirmed / awaiting_approval keep their own TTLs above.
+ */
+export const ERASURE_PENDING_TTL_MS = 24 * 3600 * 1000;
+
 /** The actor recorded as approver when autoDelete skipped the approval step. */
 export const AUTO_DELETE_APPROVER = "system:auto-delete";
 
@@ -1054,6 +1061,18 @@ export interface RequestErasureInput {
   reason: ErasureReason;
 }
 
+export interface RequestErasureOptions {
+  /** Injected clock (tests); defaults to the wall clock. */
+  now?: Date;
+  /**
+   * w1-erasure-outbox E3: with the audit key, a request that finds the student's slot held by a
+   * `pending` row older than ERASURE_PENDING_TTL_MS closes that row as `expired` (pseudonymised,
+   * nothing purged: a pending request fenced nothing) and opens the new request. Without it the
+   * slot stays held (fail safe, like the fence sweep: closing needs the key).
+   */
+  auditHmacKey?: string;
+}
+
 /**
  * Creates a PENDING erasure request. Deletes nothing and fences nothing. Throws
  * ErasureRequestAlreadyOpenError if the student already has an open (pending / confirmed /
@@ -1061,7 +1080,11 @@ export interface RequestErasureInput {
  * `erasure_requests_open_tenantId_studentKey_unique` makes that atomic across processes (D-016; per tenant since T-025).
  * T-029: needs no audit key; the HMAC pseudonym is written at the second confirmation.
  */
-export async function requestErasure(db: Db, input: RequestErasureInput): Promise<{ requestId: string }> {
+export async function requestErasure(
+  db: Db,
+  input: RequestErasureInput,
+  options: RequestErasureOptions = {},
+): Promise<{ requestId: string }> {
   if (typeof input.studentId !== "string" || input.studentId.trim() === "") {
     throw new Error("requestErasure: studentId must be a non-empty string");
   }
@@ -1069,24 +1092,53 @@ export async function requestErasure(db: Db, input: RequestErasureInput): Promis
   const reason = ErasureReasonSchema.parse(input.reason);
   const hashSalt = randomBytes(16).toString("hex");
   const requestId = new ObjectId().toHexString();
-  try {
-    await erasureRequests(db).insertOne({
+  const now = options.now ?? new Date();
+  const studentKey = erasureFenceKey(input.studentId);
+  const insert = () =>
+    erasureRequests(db).insertOne({
       _id: requestId,
       hashSalt,
       studentId: input.studentId,
-      studentKey: erasureFenceKey(input.studentId),
+      studentKey,
       requestedBy,
       reason,
-      requestedAt: new Date().toISOString(),
+      requestedAt: now.toISOString(),
       status: "pending",
       attempts: 0,
     });
+  try {
+    await insert();
   } catch (err) {
     // The _id is a fresh ObjectId, so a duplicate key here is the one-open-request index.
-    if ((err as { code?: unknown } | null)?.code === 11000) throw new ErasureRequestAlreadyOpenError();
-    throw err;
+    if ((err as { code?: unknown } | null)?.code !== 11000) throw err;
+    // w1-erasure-outbox E3: a stale never-confirmed `pending` row frees the slot; anything else holds it.
+    if (options.auditHmacKey === undefined || !(await expireStalePending(db, studentKey, now, options.auditHmacKey))) {
+      throw new ErasureRequestAlreadyOpenError();
+    }
+    try {
+      await insert();
+    } catch (retryErr) {
+      if ((retryErr as { code?: unknown } | null)?.code === 11000) throw new ErasureRequestAlreadyOpenError();
+      throw retryErr;
+    }
   }
   return { requestId };
+}
+
+/**
+ * w1-erasure-outbox E3: closes the student's open row as `expired` iff it is a `pending` row past
+ * ERASURE_PENDING_TTL_MS. True when the slot was freed. A lost race (the row was confirmed or closed
+ * meanwhile) or an unusable key reports false, so the caller keeps refusing (fail safe).
+ */
+async function expireStalePending(db: Db, studentKey: string, now: Date, auditHmacKey: string): Promise<boolean> {
+  const row = await erasureRequests(db).findOne({ studentKey, status: "pending" });
+  if (!row || staleness(row, now) !== "pending") return false;
+  try {
+    await closeUnpurged(db, row, "expired", "system:pending-expiry", auditHmacKey, now, {}, false);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -1306,7 +1358,11 @@ export async function rejectErasure(
 }
 
 /** T-029: why an open request has gone stale, if it has (its token or its approval request expired). */
-function staleness(row: ErasureRequestDoc, now: Date): "confirm_token" | "approval" | undefined {
+function staleness(row: ErasureRequestDoc, now: Date): "pending" | "confirm_token" | "approval" | undefined {
+  // w1-erasure-outbox E3: a request opened and never confirmed (no fence, but it holds the unique slot).
+  if (row.status === "pending" && parseTime(row.requestedAt, now.getTime()) + ERASURE_PENDING_TTL_MS <= now.getTime()) {
+    return "pending";
+  }
   if (row.status === "confirmed" && row.confirmTokenExpiresAt !== undefined && parseTime(row.confirmTokenExpiresAt, 0) <= now.getTime()) {
     return "confirm_token";
   }
@@ -1381,6 +1437,12 @@ export interface ErasureStep {
   filter: (s: ErasureSelectors) => Filter<Document>;
   /** The read-back selector. Anchors are read back broadly (by studentId) so a late arrival is seen. */
   residue: (s: ErasureSelectors) => Filter<Document>;
+  /**
+   * w1-erasure-outbox E1 (D-112 Q9): rows that must NOT be deleted yet. When set, `filter` already
+   * excludes them; if any exist the step is reported `failed` with `held:<n>` (the request becomes
+   * `failed`, retryable, fence kept) so the erasure waits for them instead of dropping them.
+   */
+  hold?: (s: ErasureSelectors) => Filter<Document>;
 }
 
 function edgeFilter(s: ErasureSelectors): Filter<Document> {
@@ -1415,6 +1477,22 @@ const claimsByThread = (s: ErasureSelectors): Filter<Document> => ({ studentId: 
 // `event.data.studentId` (the WebhookEvent envelope), not at the document's own top level, so it
 // needs its own dotted-path filter rather than the plain `byStudent` shape.
 const byEventStudent = (s: ErasureSelectors): Filter<Document> => ({ "event.data.studentId": s.studentId });
+// w1-erasure-outbox E1 (D-112 Q9, ISS-t-034-de-2): a webhook_outbox row is purged only once SETTLED
+// (delivered / dead). A pending or failed (undelivered) row holds the erasure: dropping it would lose
+// the erasure.requested / fact.approved event Pathlynks needs to erase its own copy (a DPDP gap).
+// Erasure cannot deliver (packages/db has no network), so it holds; the outbox drain delivers or kills
+// the row, and a retry of executeErasure then completes. `failed` rows are real rejections the drain
+// retries only on an operator sweep (drainWebhookOutbox includeFailed), so they hold until that sweep.
+const OUTBOX_SETTLED_STATUSES = ["delivered", "dead"];
+const OUTBOX_UNDELIVERED_STATUSES = ["pending", "failed"];
+const settledEventStudent = (s: ErasureSelectors): Filter<Document> => ({
+  "event.data.studentId": s.studentId,
+  status: { $in: OUTBOX_SETTLED_STATUSES },
+});
+const undeliveredEventStudent = (s: ErasureSelectors): Filter<Document> => ({
+  "event.data.studentId": s.studentId,
+  status: { $in: OUTBOX_UNDELIVERED_STATUSES },
+});
 
 /** Ordered: consents first (blocks processing, B4), anchors last (see the module docstring). */
 export const ERASURE_PLAN: readonly ErasureStep[] = [
@@ -1430,9 +1508,11 @@ export const ERASURE_PLAN: readonly ErasureStep[] = [
   { collection: COLLECTION_NAMES.session_transcripts, phase: 1, filter: byStudent, residue: byStudent },
   // T-034: queued fact-approved / erasure-requested / concern-flagged webhook events. A direct row
   // (not an anchor: nothing else resolves ids FROM it), deleted and read back by the nested
-  // studentId regardless of delivery status (pending/delivered/failed/dead) — an undelivered event
-  // referencing an erased student is exactly the residue B15 must not leave behind.
-  { collection: COLLECTION_NAMES.webhook_outbox, phase: 1, filter: byEventStudent, residue: byEventStudent },
+  // studentId. Read back regardless of delivery status (an event referencing an erased student is
+  // residue B15 must not leave behind); deleted only once delivered/dead -- an undelivered event
+  // holds the erasure instead (w1-erasure-outbox E1, below).
+  // w1-erasure-outbox E1: settled rows only are deleted; undelivered rows hold the erasure (see above).
+  { collection: COLLECTION_NAMES.webhook_outbox, phase: 1, filter: settledEventStudent, residue: byEventStudent, hold: undeliveredEventStudent },
   // T-042 (ISS-085): the recoverable webhook-emit-gap ledger. Unlike webhook_outbox, `studentId` is
   // a flat top-level field here (packages/engine/src/webhooks/gaps.ts), so the plain `byStudent`
   // filter applies directly -- a direct row, deleted and read back by studentId regardless of kind
@@ -1699,6 +1779,11 @@ export async function executeErasure(db: Db, requestId: string, options: Execute
           // (D-016's fence margin, sized for a different purpose) — see ERASURE_PURGE_OP_TIMEOUT_MS.
           const res = await db.collection(step.collection).deleteMany(step.filter(selectors), { timeoutMS: ERASURE_PURGE_OP_TIMEOUT_MS });
           deleted.set(step.collection, (deleted.get(step.collection) ?? 0) + (res.deletedCount ?? 0));
+          if (step.hold) {
+            // w1-erasure-outbox E1: counted AFTER the settled rows went, so a row that settled in between is purged next round.
+            const held = await db.collection(step.collection).countDocuments(step.hold(selectors), { timeoutMS: ERASURE_PURGE_OP_TIMEOUT_MS });
+            if (held > 0) failed.set(step.collection, `held:${held}_undelivered`);
+          }
         } catch (err) {
           failed.set(step.collection, errorLabel(err));
         }
