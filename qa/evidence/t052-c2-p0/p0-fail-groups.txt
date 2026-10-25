@@ -1,0 +1,7 @@
+scribe-checkpointer:308      34,35,36,37,38,39,40,41
+scribe-checkpointer:309      42,44,46,48
+scribe-checkpointer:314      43,45,47,49
+scribe-per-fact:1562         64,65
+scribe-persistence:662       104,105,106,107,108,109
+scribe-persistence:789       120
+scribe-persistence:933       128

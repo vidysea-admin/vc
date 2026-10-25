@@ -1,0 +1,63 @@
+diff --git a/D:/vc/.worktrees/t052-c2/packages/engine/tests/scribe-checkpointer.test.ts b/p0cap/packages/engine/tests/scribe-checkpointer.test.ts
+index 5622214..113f7b9 100644
+--- a/D:/vc/.worktrees/t052-c2/packages/engine/tests/scribe-checkpointer.test.ts
++++ b/p0cap/packages/engine/tests/scribe-checkpointer.test.ts
+@@ -128,6 +128,7 @@ for (const operation of ["normal", "start", "resume"] as const) {
+   }
+   seedConsent(fakeDb.collection(COLLECTION_NAMES.consents), { _id: "scribe-test:consent-student-synthetic-1", tenantId: "scribe-test" } as never);
+   const deps = { db, provider: mockProvider(), skillsDir: SKILLS_DIR };
++  { const __g = deps.provider.generate.bind(deps.provider); (deps.provider as any).generate = (req: any) => { try { const d = (globalThis as any).__diagDeadline; console.error("DIAG-PROV " + JSON.stringify({ skill: req?.skillName, n: deps.provider.calls.length, signalAborted: req?.signal?.aborted ?? null, deadlineAborted: d?.signal?.aborted ?? null, msPastExpiry: d ? Date.now() - d.expiresAt : null, frames: (new Error().stack ?? "").split("\n").filter(l => /[\\/]src[\\/]/.test(l)).slice(0, 8).map(l => l.trim()) })); } catch {} return __g(req); }; }
+   const first = compileScribeGraph(deps, { checkpointer: createScribeCheckpointer(tenantScopedClient(fake.client, "scribe-test")) });
+   const started = await startScribe(first, baseInput(), { threadId: "thread-durable" });
+   assert.equal(started.kind, "awaiting_approval");
+@@ -183,7 +184,7 @@ for (const operation of ["normal", "start", "resume"] as const) {
+     WriterDeadline.prototype.run = function<T>(this: WriterDeadline, work: Promise<T>): Promise<T> {
+       const result = deadlineRun.call(this, work) as Promise<T>;
+       if (work === facade) {
+-        runHits++; selectedDeadline = this;
++        runHits++; selectedDeadline = this; (globalThis as any).__diagDeadline = this;
+         try { diagnosticEvents.push(["selected-run-enter", this, Date.now(), this.expiresAt, this.signal.aborted, rawFinished, facadeFinished, entered, runHits, this === selectedDeadline]); } catch {}
+         void result.then(() => {
+           try { diagnosticEvents.push(["selected-run-fulfill", this, Date.now(), this.expiresAt, this.signal.aborted, rawFinished, facadeFinished, entered, runHits, this === selectedDeadline]); } catch {}
+@@ -294,6 +295,7 @@ for (const operation of ["normal", "start", "resume"] as const) {
+           const heldPresence: unknown[] = []; const heldQueue: Array<[string, unknown]> = [["$", heldInventory]];
+           for (let index = 0; index < heldQueue.length; index++) { const [path, value] = heldQueue[index]!; if (value !== null && typeof value === "object") { heldPresence.push([path, Object.getPrototypeOf(value)?.constructor?.name ?? null, Array.isArray(value), value instanceof Date ? value.getTime() : null]); for (const property of Reflect.ownKeys(value)) { assert.equal(typeof property, "string"); const descriptor = Object.getOwnPropertyDescriptor(value, property)!; assert.ok(Object.hasOwn(descriptor, "value")); heldPresence.push([path, property, descriptor.enumerable, descriptor.configurable, descriptor.writable]); heldQueue.push([`${path}/${String(property)}`, descriptor.value]); } } else heldPresence.push([path, typeof value, value === undefined ? "undefined" : value === null ? "null" : typeof value === "number" && Object.is(value, -0) ? "-0" : value]); }
+           inventories.push({ phase: "held", bytes: Buffer.from(BSON.serialize(heldInventory, { ignoreUndefined: false })), presence: heldPresence });
++          try { console.error("DIAG-HOLD " + JSON.stringify({ providerAtHold: deps.provider.calls.length, msPastExpiry: selectedDeadline ? Date.now() - selectedDeadline.expiresAt : null })); } catch {}
+           const providerAtHold = deps.provider.calls.length; const result = await attempt;
+           assert.ok("error" in result && result.error instanceof FencedWriterDeadlineError); if (!("error" in result) || !(result.error instanceof FencedWriterDeadlineError)) throw new Error("expired adapter published"); exposed = result.error;
+           assert.equal(runHits, 1); assert.ok(selectedDeadline?.signal.aborted); assert.ok(selectedExpiry instanceof FencedWriterDeadlineError);
+diff --git a/D:/vc/.worktrees/t052-c2/packages/engine/tests/scribe-per-fact.test.ts b/p0cap/packages/engine/tests/scribe-per-fact.test.ts
+index 562d57b..13b1ba8 100644
+--- a/D:/vc/.worktrees/t052-c2/packages/engine/tests/scribe-per-fact.test.ts
++++ b/p0cap/packages/engine/tests/scribe-per-fact.test.ts
+@@ -1559,6 +1559,7 @@ for (const [row, name] of [
+             originalCount: rawOriginals.length, ownedCount: owned.length, receiptCount: receipts.length,
+           } };
+         }
++        try { const r: any = failedFixtureDiagnostic?.root; console.error("DIAG-NB " + JSON.stringify({ row, reached: reached.reached, rootCtor: r?.constructor?.name, causeCtor: r?.cause?.constructor?.name, causeMessage: String(r?.cause?.message ?? ""), causeFrames: String(r?.cause?.stack ?? "").split("\n").filter(l => /tests[\\/]|[\\/]src[\\/]/.test(l)).slice(0, 8).map(l => l.trim()), deadlineMsLeft: deadlineExpiresAt - Date.now() })); } catch {}
+         assert.equal(reached.reached, true, "SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached");
+         assert.equal(secondReadEntered, true); assert.equal(secondReadTerminal, true); assert.match(postcheckFrame!, /compensateIfFenced/);
+         assert.ok(postcheckRaw); assert.ok(postcheckFacade); assert.notEqual(postcheckFacade, postcheckRaw); assert.equal(postcheckTerminal, false);
+diff --git a/D:/vc/.worktrees/t052-c2/packages/engine/tests/scribe-persistence.test.ts b/p0cap/packages/engine/tests/scribe-persistence.test.ts
+index ba63116..8f15792 100644
+--- a/D:/vc/.worktrees/t052-c2/packages/engine/tests/scribe-persistence.test.ts
++++ b/p0cap/packages/engine/tests/scribe-persistence.test.ts
+@@ -650,6 +650,7 @@ for (const origin of ["session", "grant", "fence"] as const) {
+       target.findOne = ((...args: Parameters<typeof find>) => {
+         const frames = (new Error().stack ?? "").split("\n").filter(line => /[\\/]packages[\\/].*[\\/]src[\\/]/.test(line));
+         const direct = origin === "fence" ? /isStudentFenced/.test(frames[1] ?? "") && /resumeUnderDeadline/.test(frames[2] ?? "") : /resumeUnderDeadline/.test(frames[1] ?? "");
++        try { console.error("DIAG-PA " + JSON.stringify({ origin, rejectRead, once, direct, filter: args[0], frames: frames.slice(0, 5).map(f => f.trim()) })); } catch {}
+         if (!once || !direct) return find(...args); once = false;
+         const operation = (async () => { reached.open(); await held.opened; if (rejectRead) throw sentinel; return find(...args); })(); raw = operation; void operation.catch(() => undefined); return operation;
+       }) as typeof target.findOne;
+@@ -930,7 +931,8 @@ test(`D068 PUBLIC own helper FWD: ${rejectPostcheck ? "unexpected postcheck desc
+     let ended = false; void deadlineError.settled.then(() => { ended = true; }, () => { ended = true; }); await Promise.resolve(); assert.equal(ended, false); held.open();
+     if (rejectPostcheck) {
+       await assert.rejects(raw, error => error === sentinel); const failure = await deadlineError.settled.then(() => assert.fail("source-produced own FWD must not hide its unexpected causal descendant"), error => { diagnosticRoots.push({ phase: "public-settlement-rejection", error }); return error; });
+-      assert.ok(failure instanceof AggregateError); assert.equal(failure.message, "Scribe original settlement and owned cleanup failed."); assert.ok(produced instanceof FencedWriterDeadlineError, "actual compiled graph propagates its source-produced helper/node FWD root");
++      assert.ok(failure instanceof AggregateError); assert.equal(failure.message, "Scribe original settlement and owned cleanup failed."); try { const pe = produced as any; console.error("DIAG-128 " + JSON.stringify({ ctor: pe?.constructor?.name, name: pe?.name, message: String(pe?.message), hasPregelTaskId: pe != null && Object.hasOwn(pe, "pregelTaskId"), causeCtor: pe?.cause?.constructor?.name, frames: String(pe?.stack ?? "").split("\n").filter(l => /[\\/]src[\\/]/.test(l) || /langgraph|langchain/.test(l)).slice(0, 8).map(l => l.trim()) })); } catch {}
++      assert.ok(produced instanceof FencedWriterDeadlineError, "actual compiled graph propagates its source-produced helper/node FWD root");
+       const errors: unknown[] = [failure]; const seen = new Set<unknown>(); while (errors.length) { const error = errors.pop(); if (seen.has(error)) continue; seen.add(error); if (error instanceof AggregateError) errors.push(...error.errors); if (error instanceof Error && error.cause !== undefined) errors.push(error.cause); }
+       assert.ok(seen.has(sentinel)); assert.ok(seen.has(produced), "actual source root stays intact, not flattened into raw leaf");
+     } else { await raw; await deadlineError.settled; assert.ok(produced instanceof FencedWriterDeadlineError, "clean positive executes the same genuine helper expiry producer path"); }

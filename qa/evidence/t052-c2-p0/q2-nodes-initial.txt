@@ -1,0 +1,11 @@
+21488 start=2026-10-25T03:20:33 C:\Users\Lenovo\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe C:\Users\Lenovo\.cache\codex-runtimes\codex-primary-runtime\dependenc
+27552 start=2026-10-25T03:20:42 "C:\Users\Lenovo\AppData\Local\OpenAI\Codex\runtimes\cua_node\1fb7137c46617d50\bin\node.exe" C:\Users\Lenovo\AppData\Local\OpenAI\Codex\runtimes\cua_node\1fb713
+26796 start=2026-10-25T03:20:42 "C:\Users\Lenovo\AppData\Local\OpenAI\Codex\runtimes\cua_node\1fb7137c46617d50\bin\node.exe" ./server.mjs
+23640 start=2026-10-25T03:20:42 "C:\Program Files\nodejs\\node.exe" "C:\Program Files\nodejs\\node_modules\npm\bin\npx-cli.js" -y @modelcontextprotocol/server-memory@2026.1.26
+23348 start=2026-10-25T03:20:42 "C:\Program Files\nodejs\\node.exe" "C:\Program Files\nodejs\\node_modules\npm\bin\npx-cli.js" -y @modelcontextprotocol/server-sequential-thinking@2025.12.18
+5796 start=2026-10-25T03:20:42 "C:\Program Files\nodejs\\node.exe" "C:\Program Files\nodejs\\node_modules\npm\bin\npx-cli.js" @playwright/mcp@latest
+29900 start=2026-10-25T03:20:58 "node" "C:\Users\Lenovo\AppData\Local\npm-cache\_npx\9833c18b2d85bc59\node_modules\.bin\\..\@playwright\mcp\cli.js" 
+30020 start=2026-10-25T03:20:58 "node" "C:\Users\Lenovo\AppData\Local\npm-cache\_npx\a5ef1724d9b0391f\node_modules\.bin\\..\@modelcontextprotocol\server-sequential-thinking\dist\index.js" 
+30168 start=2026-10-25T03:20:58 "node" "C:\Users\Lenovo\AppData\Local\npm-cache\_npx\f0415454dfb4e463\node_modules\.bin\\..\@modelcontextprotocol\server-memory\dist\index.js" 
+34324 start=2026-10-25T03:24:51 "C:\Program Files\nodejs\\node.exe" "C:\Program Files\nodejs\\node_modules\npm\bin\npx-cli.js" "@playwright/mcp@latest"
+33368 start=2026-10-25T03:25:05 "node" "C:\Users\Lenovo\AppData\Local\npm-cache\_npx\9833c18b2d85bc59\node_modules\.bin\\..\@playwright\mcp\cli.js" 
