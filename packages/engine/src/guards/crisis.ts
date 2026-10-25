@@ -126,9 +126,11 @@ const S_SELF = `(?:${S_KHUD}\\s+${S_KO}|${slot(["apne"], ["अपने"])}\\s+$
 // "मार्केट", "पीटर" (Peter), "पीटी" (PT) and "पिटारा" (a box) by listing the verb forms.
 const S_ME = slot(["mujhe", String.raw`mere\s+saath`], ["मुझे", "मुझको", String.raw`मेरे\s+साथ`, String.raw`मेरे\s+saath`, String.raw`mere\s+साथ`], "start");
 const S_HIT = slot(
-  [String.raw`maarta\w*`, String.raw`maarti\w*`, String.raw`peetata\w*`, String.raw`peet\w*`],
+  [String.raw`maarta\w*`, String.raw`maarti\w*`, String.raw`maarte\w*`, String.raw`peetata\w*`, String.raw`peet\w*`],
   ["मार(?:ता|ती|ते|ा)", String.raw`मार\s*पीट`, "प[िी]टाई", "प[िी]ट(?:ता|ती|ते|ना)", "पीटा"],
 );
+// W1 ISS-185: an optional frequency word between the object and the hitting verb ("mujhe roz maarte hain", "मुझे रोज़ मारते हैं"; the nukta is folded away).
+const S_HIT_ADV = String.raw`(?:(?:roz|rozana|daily|hamesha|aksar|रोज|रोजाना|डेली|हमेशा|अक्सर)\s+)?`;
 const D_TENSION = "(?:टेंशन|टेन्शन|टैंशन|टेनशन)";
 
 const ISS340_CRISIS_PATTERNS: readonly RegExp[] = [
@@ -161,7 +163,7 @@ const ISS340_CRISIS_PATTERNS: readonly RegExp[] = [
   // "khatam ho jana / jaunga"
   phrase(S_KHATAM, slot(["ho"], ["हो"]), slot(["jana", "jaana", "jaun", "jaaun", "jaunga", "jaungi", "jaaunga", "jaaungi"], ["जाना", "जा[उऊ]"], "end")),
   // Abuse: "mujhe maarta hai", "mere saath peetai hoti hai" ("पिटाई", "पीटाई", "मारपीट"); and the Hindi word order "मेरी पिटाई होती है"
-  phrase(S_ME, S_HIT),
+  new RegExp([S_ME, S_HIT_ADV + S_HIT].join(String.raw`\s+`), "i"),
   /मेरी\s+(?:प[िी]टाई|मार\s*पीट)/,
   // T-033 families, Devanagari spelling variants the existing patterns do not take (short u instead of long u, na/n for nahi)
   phrase(slot(["main", "mai"], ["मैं"], "start"), slot(["nahi", "nahin", "na"], ["नहीं", "ना", "न"]), slot(["rahunga", "rahungi", "rahoonga", "rahoongi", "bachunga", "bachungi"], ["(?:रह|बच)[ुू]ं?ग[ाी]"], "end")),
@@ -207,8 +209,9 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /\bend\s+(it\s+all|my\s+life)\b/i,
   /\b(cut|cutting|hurt|hurting|harm|harming)\s+myself\b/i,
   // Romanised Hindi (Hinglish) — common patterns
-  /\b(marna|maut)\s+(chah|chahta|chahti|chahiye)\b/i,
-  /\bjeene?\s+ka\s+(mann|man|dil|fayda)\s+(nahi|nahin|na|nai)\b/i,
+  // W1 ISS-185: "maarna", "marnaa" and the short chata/chati/chaiye spellings of the same phrase.
+  /\b(ma+rr?na+|maut)\s+(chah|chahta|chahti|chahata|chahati|chata|chati|chahiye|chaiye)\b/i,
+  /\bjeene?\s+ka\s+(mann|man|dil|fayda)\s+(nahi|nahin|na|nai|nhi)\b/i,
   /\bkhud\s+ko\s+(khatam|maar|marne|mara|maarn)\w*\b/i,
   /\bzindagi\s+(khatam|bekaar|bekar|bekār)\b/i,
   /\bsab\s+kuch\s+khatam\b/i,
@@ -219,7 +222,8 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   // Abuse signals (more conservative — single keyword w/ context)
   /\b(beats|beating|hits|hitting)\s+me\b/i,
   /\bbeing\s+abused\b/i,
-  /\b(mujhe|mere\s+saath)\s+(maarta|maarti|peetata|peet)\w*\b/i,
+  // W1 ISS-185 / ISS-t-012-rev-4: "maarte hain" (plural/respectful verb) and a frequency word between ("mujhe roz maarte hain").
+  /\b(mujhe|mere\s+saath)\s+((roz|rozana|daily|hamesha|aksar)\s+)?(maarta|maarti|maarte|peetata|peet)\w*\b/i,
 
   // --- ISS-023: indirect romanised Hinglish -----------------------------------------------------
   // "sab khatam kar dunga/dungi" — an explicit first-person intent to end everything, distinct
@@ -230,11 +234,13 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /\bmarne\s+ka\s+man+\b/i,
   // "jeena nahi chahta/chahti" — an explicit "don't want to live" statement.
   /\bjeena\s+nahi[n]?\s+chaht[ai]\b/i,
+  // W1 ISS-185: the short spellings "jina nhi chahta", "jeena nhi chahti", "jeena nhi h".
+  /\bj(ee?|i)na\s+(nahi[n]?|nhi|nai)\s+(chaht[ai]|chat[ai]|hai|h)\b/i,
   // ISS-t-005c-c0-2: "mar jaunga/jaungi/jaaunga/jaoonga" (I will die) and "mar jaana hai / mar
   // jaana chahta" — a first-person statement of dying, distinct from "marna chahta" above. The
   // idiomatic "mar jaunga hanste hanste" (I'll die laughing) also flags: an accepted false alarm
   // (D-020). "mar gaye yaar" (past tense, a common idiom) still does not match.
-  /\bmar\s+(ja+[ou]+n?g[ai]|ja+na?\s+(hai|chaht[ai]))\b/i,
+  /\bmar\s+(ja+[ou]+n?g[ai]|ja+na?\s+(hai|hain|h|chaht[ai]))\b/i,
 
   // --- U6h L5: phrases the U6 review found missed (recall-only, D-020; see the L5 table below) ----
   // "jaan de dunga / jaan le lunga" - a first-person intent to give up / take one's own life.
@@ -253,7 +259,8 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   // inside "work ms" / "think ms".
   // "mujhe marna hai / marna hi hai" - a stated wish to die, the verb "marna" with no "chahta" (the
   // "marna chahta" family is matched above).
-  /\bmarna+\s+(hi\s+)?(hai|hain|h)\b/i,
+  // W1 ISS-185: also "maarna hai" / "maarnaa h" (the long-vowel spelling); "mrna hai" is a whole-token check (matchTokenPairs below).
+  /\bma+r+na+\s+(hi\s+)?(hai|hain|h)\b/i,
   // "mai khatam ho jana chahta hu / khatam ho jaunga" - "I want to cease to exist", distinct from
   // "sab kuch khatam" (a bare hopelessness statement).
   /\bkhatam\s+ho\s+(jana|jaana|jaun|jaaun|jaunga|jaungi|jaaunga|jaaungi)\b/i,
@@ -276,6 +283,21 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /\b(thinking|thought|thoughts|think|planning|plan|plans|want|wanna|going|gonna|decided|ready|trying)\s+((about|of|to)\s+)?end(ing)?\s+(things|everything)\b/i,
   /\bend(ing)?\s+(things|everything)\s+(for\s+good|tonight|today|right\s+now|soon)\b/i,
   /\bend(ing)?\s+it\s+(tonight|today|soon|for\s+good|right\s+now)\b/i,
+
+  // --- W1 ISS-185 (D-112, Umesh 2026-10-25): common misspellings of phrases the list above already catches --------
+  // Recall-only (D-020). Each line is the SAME phrase as an existing pattern, spelled the way a phone keyboard or a quick
+  // typist spells it; none of them adds a new meaning.
+  // "sucide", "suiside", "suicde", "sucidal" (the base pattern needs the exact word "suicide" / "suicidal").
+  /\b(sucide|suiside|suicde|sucidal|suisidal)\b/i,
+  // "kil myself", "kill my self", "kil my self", "kill myslef" (the base pattern needs "kill" + "myself" exactly).
+  /\bkil+\s+(myself|my\s+self|myslef|myslf|mysefl|mself)\b/i,
+  // "wanna die", "wanting to die", "wnt to die" (the base pattern needs "want to die" / "wanna to die").
+  /\b(wanna|wana|wnna|wnt|wanting)\s+(to\s+)?die\b/i,
+  // Romanised "aatmahatya" / "atmahatya" / "aatmhatya" (the Devanagari word above has no Latin twin in the base list).
+  /\baa?tma?hatya\b/i,
+  // "khud ko khtm / khatm / khtam", "zindgi / jindagi khtm" - dropped-vowel spellings of the khatam phrases above.
+  /\bkhud\s+ko\s+(khtm|khatm|khtam)\w*\b/i,
+  /\b(zindagi|zindgi|jindagi|jindgi|zindagee)\s+(khtm|khatm|khtam|khatam|bekaar|bekar)\b/i,
 
   // --- ISS-023: Devanagari -----------------------------------------------------------------------
   // \b is not used here — JS's default \b is defined over ASCII word chars ([A-Za-z0-9_]) and does
@@ -395,6 +417,45 @@ export const CRISIS_PATTERNS: readonly RegExp[] = [
   /(सबको|सब\s+को|आप\s+सबको|तुम\s+सबको|आपको|तुम्हें|तुमको)\s+अलविदा/, // "sabko alvida" — goodbye everyone
   /अलविदा\s+(दोस्तों|दोस्तो|दुनिया|सबको|हमेशा)/, // "alvida duniya" — goodbye world
   /आख़?िरी\s+बार\s+(बात\s+कर|मिल)\s+(रहा|रही|रहे)/, // "aakhri baar baat kar raha" — talking for the last time
+  // --- W1 ISS-381 (D-112): Tamil and Bengali script ----------------------------------------------------------
+  // A student who types or speaks Tamil or Bengali reached the guard in a script no pattern above spelled, so a clear
+  // suicide or self-harm sentence was answered as an ordinary turn. These are the clearest first-person phrases in each
+  // script (suicide; want to die / am going to die; do not want to live; end my life; kill / hang / poison myself; a parent
+  // hitting me). Like the Devanagari block: no \b (JS's \b is ASCII-only), literal substrings with \s* for the word gap,
+  // star-height 1. Vowel signs and viramas are kept by `stripForeignMarks`, and the literals are NFKC-stable (a Bengali
+  // ya-nukta is written decomposed). Recall-only (D-020): "die laughing" style idioms and "do not die" reassurance share
+  // words with a few of these and flag; that is the accepted direction.
+  // Tamil: suicide; "I will / want to die"; "I do not want to live"; "end my life"; "kill / hang / poison myself"; "my father hits me".
+  /தற்(?:க்)?கொலை/, // tarkolai - suicide (with or without the doubled k)
+  /சாக(?:ப்)?\s*(?:போ|வேண்டும்|விரும்ப|ஆசை)/, // saaga(p) po / vendum / virumba / aasai - I am going to / want to die
+  /சாகணும்/, // saaganum - (I) want to die, colloquial
+  /வாழ(?:வே)?\s*(?:பிடிக்கவில்லை|விருப்பமில்லை|விருப்பம்\s*இல்லை|விரும்பவில்லை|வேண்டாம்)/, // vaazha(ve) pidikkavillai - do not want to live
+  /வாழ்க்கை(?:யே)?\s*(?:வேண்டாம்|வெறுத்து|வெறுப்பு)/, // vaazhkkai(ye) vendaam / veruthu - fed up with / do not want life
+  /உயிரை\s*மாய்த்து/, // uyirai maaythu - end my life
+  /இறக்க\s*(?:வேண்டும்|விரும்ப|ஆசை|போகிறேன்)/, // irakka vendum - I want to die
+  /இறந்து\s*(?:விடலாம்|விடுவேன்|போகலாம்|போகிறேன்|போவேன்)/, // irandhu vidalaam / poven - I may / will die
+  /என்னையே\s*(?:நானே\s*)?கொன்று/, // ennaiye konru - kill myself
+  /தன்னைத்தானே\s*கொன்று/, // thannaithaane konru - kill oneself
+  /தூக்கு\s*மாட்டி/, // thookku maatti - hang myself
+  /தூக்கில்\s*தொங்க/, // thookkil thonga - hang
+  /விஷம்\s*(?:குடிக்க|சாப்பிட)/, // visham kudikka - drink poison
+  /வாழ்க்கையை\s*முடித்து/, // vaazhkkaiyai mudithu - end my life
+  /என்னையே\s*காயப்படுத்த/, // ennaiye kaayappadutha - hurt myself
+  /என்னை\s*(?:தினமும்\s*|தினம்\s*|அடிக்கடி\s*)?அடிக்கிற/, // ennai (dinamum) adikkira - (he / she) hits me (every day)
+  // Bengali: suicide; "I want to die"; "I do not want to live"; "end / kill myself"; "rope round my neck"; "poison"; "my father hits me".
+  /আত্মহত্যা/, // atmohotya - suicide
+  /আত্মহনন/, // atmohonon - suicide (literary)
+  /মর(?:তে|ে\s*যেতে)\s*(?:চাই|চাইছি|ইচ্ছে|ইচ্ছা)/, // morte / more jete chai - I want to die
+  /মরে\s*যাবো?/, // more jabo - I will die
+  /বা(?:ঁ)?চতে\s*(?:চাই\s*না|ইচ্ছে\s*করে\s*না|ইচ্ছা\s*নেই|ভালো\s*লাগে\s*না)/, // banchte chai na - do not want to live
+  /বে(?:ঁ)?চে\s*থাকতে\s*(?:চাই\s*না|ইচ্ছে\s*করে\s*না|ভালো\s*লাগে\s*না)/, // benche thakte chai na
+  /(?:বা(?:ঁ)?চার|বে(?:ঁ)?চে\s*থাকার)\s*(?:আর\s*)?(?:কোনো\s*|কোন\s*)?(?:ইচ্ছে|ইচ্ছা|মানে|কারণ)\s*(?:নেই|নাই)/, // no wish / meaning / reason to live
+  /নিজেকে\s*(?:শেষ\s*কর|মেরে\s*ফেল|খুন\s*কর|আঘাত)/, // nijeke shesh kor / more phel / aghat - end / kill / hurt myself
+  /(?:নিজের|আমার)\s*জীবন\s*শেষ/, // nijer jibon shesh - end my life
+  /সব(?:কিছু)?\s*শেষ\s*করে\s*দেবো?/, // sob shesh kore debo - I will end everything
+  /গলায়\s*দড়ি/, // golay dori - a rope round my neck
+  /বিষ\s*খে(?:য়ে|তে)/, // bish kheye - eat poison
+  /আমাকে\s*(?:রোজ\s*|প্রতিদিন\s*|সবসময়\s*)?(?:মারে|মারধর|পেটায়|পেটান)/, // amake (roj) mare / mardhor / petay - (he / she) hits me
   // ISS-340 (D-103): the Devanagari / mixed-script counterparts of the romanised Hinglish phrases (defined above).
   ...ISS340_CRISIS_PATTERNS,
 ];
@@ -686,10 +747,12 @@ function foldDevanagariSpelling(text: string): string {
     .replace(DEVA_MAIN_NO_BINDU, "मैं");
 }
 
-const DEVANAGARI_RUN_OR_MARK =/\p{Script=Devanagari}+|\p{M}/gu;
-const IS_DEVANAGARI = /^\p{Script=Devanagari}/u;
+// W1 ISS-381 (D-112): Tamil and Bengali are kept like Devanagari. Their vowel signs and viramas are \p{M} too, so deleting them
+// as "foreign marks" turned every Tamil/Bengali word into a bare consonant string no pattern could spell.
+const DEVANAGARI_RUN_OR_MARK = /[\p{Script=Devanagari}\p{Script=Tamil}\p{Script=Bengali}]+|\p{M}/gu;
+const IS_DEVANAGARI = /^[\p{Script=Devanagari}\p{Script=Tamil}\p{Script=Bengali}]/u;
 function stripForeignMarks(text: string): string {
-  // The first alternative wins at any Devanagari character, so a lone-mark match is never Devanagari.
+  // The first alternative wins at any Indic-script character, so a lone-mark match is never one of those scripts.
   return text.replace(DEVANAGARI_RUN_OR_MARK, (run) => (IS_DEVANAGARI.test(run) ? run : ""));
 }
 
@@ -828,6 +891,29 @@ function matchTokens(view: string): string[] {
 }
 
 /**
+ * W1 ISS-185 (D-112): two spellings that are only safe as a pair of whole tokens, so neither has a squeezed twin.
+ *   - "mrna hai / mrna hi hai" - "marna hai" with the vowels dropped. As a pattern its twin would match inside
+ *     "mRNA helps ..." ("mrnah"), a biology student's ordinary sentence; as a token pair only a bare "mrna" directly followed by
+ *     the verb "hai / hain" flags ("mRNA hai kya" is the one accepted false alarm, D-020).
+ *   - "k ms" - "kms" typed with a space. Same unit-of-distance reading as the plain token: a number or quantity word before the
+ *     "k" ("50 k ms") suppresses, nothing else does.
+ */
+function matchTokenPairs(view: string): string[] {
+  const tokens = view.split(" ");
+  const found: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i] === "mrna") {
+      const next = tokens[i + 1] === "hi" ? tokens[i + 2] : tokens[i + 1];
+      if (next === "hai" || next === "hain") found.push("token:mrna-hai");
+    } else if (tokens[i] === "k" && tokens[i + 1] !== undefined && /^ms+$/.test(tokens[i + 1])) {
+      const before = tokens[i - 1];
+      if (!(isDistanceQuantity(before) || (before === "of" && isDistanceQuantity(tokens[i - 2])))) found.push("token:k-ms");
+    }
+  }
+  return found;
+}
+
+/**
  * Review W1 + cycle-1 Block (P1 W3 eng3, D-020 recall over precision): "I don't see the point in going on / continuing" is a
  * crisis statement BY DEFAULT: at the end of the turn, before punctuation (`matchPointContinuingPunctuated`) and before any next
  * word ("... at all", "... without her", "... today", "... lol", "... my family would be better off"). It is study talk, and
@@ -859,7 +945,7 @@ const POINT_REST_WINDOW = 240;
 /** After this many study-suppressed matches in one view the turn is flagged: a turn that repeats the phrase is not plain study talk. */
 const POINT_MAX_SUPPRESSED = 20;
 const POINT_DISTRESS =
-  /\b(?:hate[ds]?\s+(?:myself|my\s*self|me|my\s+life|everything|being\s+alive)|worthless|hopeless|helpless|useless\s+(?:person|human|to\s+everyone)|burden|depress(?:ed|ion|ing)|miserable|hurts?|hurting|pain(?:ful)?|suffer(?:ing)?|suffocat(?:ing|ed)|drowning|crying|alone|lonely|empty|numb|dead|die|dying|death|suicid(?:e|al)|kill(?:ing)?|nobody|no\s*one|nothing\s+matters|everything\s+is\s+(?:pointless|meaningless)|give\s+up|gave\s+up|ashamed|failure|loser)\b/u;
+  /\b(?:hate[ds]?\s+(?:myself|my\s*self|me|my\s+life|everything|being\s+alive)|worthless|hopeless|helpless|useless\s+(?:person|human|to\s+everyone)|burden|depress(?:ed|ion|ing)|miserable|hurts?|hurting|pain(?:ful)?|suffer(?:ing)?|suffocat(?:ing|ed)|drowning|crying|alone|lonely|empty|numb|dead|die|dying|death|suicid(?:e|al)|kill(?:ing)?|nobody|no\s*one|nothing\s+matters|everything\s+is\s+(?:pointless|meaningless)|give\s+up|gave\s+up|ashamed|failure|loser|(?:feel|feeling|felt|am|i'?m|im)\s+(?:so\s+|really\s+|very\s+)?(?:lost|trapped|exhausted|broken)|tired\s+of\s+(?:everything|life|living|being\s+alive|it\s+all)|nothing\s+(?:is\s+|feels\s+|seems\s+)?worth\s+(?:it|anything)|done\s+with\s+(?:everything|life|it\s+all)|waste\s+of\s+space|better\s+off|(?:everything|it\s+all)\s+(?:all\s+)?(?:to\s+stop|feels?\s+like\s+a\s+waste|seems?\s+like\s+a\s+waste|is\s+a\s+waste)|can'?t\s+breathe|cannot\s+breathe)\b/u;
 function pointRestHasDistress(rest: string, tokens: readonly string[]): boolean {
   return (
     tokens.some((t) => POINT_LIFE_WORDS.has(t)) ||
@@ -931,6 +1017,7 @@ export function crisisGuard(text: string): CrisisCheckResult {
     for (const source of matchAll(view, CRISIS_PATTERNS)) crisisMatched.add(source);
     for (const source of matchAll(view, CONCERN_PATTERNS)) concernMatched.add(source);
     for (const token of matchTokens(view)) crisisMatched.add(`token:${token}`);
+    for (const token of matchTokenPairs(view)) crisisMatched.add(token);
     if (matchPointContinuing(view)) crisisMatched.add("token:point-in-continuing");
   }
   if (matchPointContinuingPunctuated(text)) crisisMatched.add("token:point-in-continuing");
