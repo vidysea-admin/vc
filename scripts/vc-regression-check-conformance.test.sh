@@ -377,6 +377,158 @@ if command -v npx >/dev/null 2>&1; then
 fi
 rm -rf "$ROOT"
 
+
+# ---------------------------------------------------------------------------------------------
+# W1 (wave 1, w1-conformance): ISS-093 decorative, ISS-099 coverage-absence + empty test file,
+# ISS-100 cross-branch duplicate rows, ISS-076 verified vs named-unverified split.
+# ---------------------------------------------------------------------------------------------
+
+echo "== Test 25 (Q1, ISS-093 DECORATIVE): a fixed row whose regression_check is the subject of an OPEN decorative-regression-check finding is reported non-conforming, even though its shape and file are fine =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+write_issues "$ROOT" '{"id":"ISS-25","status":"fixed","title":"widget bug","regression_check":"npx tsx --test packages/foo/tests/sample.test.ts"}
+{"id":"ISS-25D","status":"open","type":"decorative-regression-check","title":"ISS-25'"'"'s remapped regression_check does NOT fail when the fix is reverted"}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_eq "decorative: exit 1" "1" "$RC"
+assert_contains "decorative: names the row" "$OUT" "FAIL  ISS-25 [fixed]"
+assert_contains "decorative: reason says decorative and cites the finding" "$OUT" "decorative regression_check (ISS-25D)"
+rm -rf "$ROOT"
+
+echo "== Test 25b (Q1): explicit targets field on the finding (no title parsing) also marks the row decorative =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+write_issues "$ROOT" '{"id":"ISS-25","status":"verified","title":"widget bug","regression_check":"npx tsx --test packages/foo/tests/sample.test.ts"}
+{"id":"ISS-25D","status":"open","type":"decorative-regression-check","targets":["ISS-25"],"title":"a check that proves nothing"}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_eq "decorative via targets: exit 1" "1" "$RC"
+assert_contains "decorative via targets: reason" "$OUT" "decorative regression_check (ISS-25D)"
+rm -rf "$ROOT"
+
+echo "== Test 25c (Q1 NEGATIVE): once the decorative finding is itself fixed, the row is no longer reported decorative =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+write_issues "$ROOT" '{"id":"ISS-25","status":"fixed","title":"widget bug","regression_check":"npx tsx --test packages/foo/tests/sample.test.ts"}
+{"id":"ISS-25D","status":"open","type":"decorative-regression-check","title":"ISS-25'"'"'s remapped regression_check does NOT fail when the fix is reverted"}
+{"id":"ISS-25D","status":"closed","update":true}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_eq "decorative finding fixed: row conforms, exit 0" "0" "$RC"
+assert_not_contains "decorative finding fixed: no decorative report" "$OUT" "decorative regression_check"
+rm -rf "$ROOT"
+
+echo "== Test 26 (Q2, ISS-099 COVERAGE-ABSENCE): a real, non-empty test file with NO test touching the row's cited symbol is reported coverage-absence =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+write_issues "$ROOT" '{"id":"ISS-26","status":"fixed","title":"computeWidgetTotal drops the last item","fix":"loop bound in computeWidgetTotal","regression_check":"npx tsx --test packages/foo/tests/sample.test.ts"}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_eq "coverage-absence (symbol): exit 1" "1" "$RC"
+assert_contains "coverage-absence (symbol): reason" "$OUT" "coverage-absence"
+assert_contains "coverage-absence (symbol): names the uncovered symbol" "$OUT" "computeWidgetTotal"
+rm -rf "$ROOT"
+
+echo "== Test 26b (Q2 NEGATIVE): same row, but the test file DOES touch the cited symbol -> conforms =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+cat > "$ROOT/packages/foo/tests/widget.test.ts" <<'EOF'
+import { test } from "node:test";
+import { computeWidgetTotal } from "../src/widget";
+test("computeWidgetTotal includes the last item", () => { computeWidgetTotal([1, 2]); });
+EOF
+write_issues "$ROOT" '{"id":"ISS-26b","status":"fixed","title":"computeWidgetTotal drops the last item","regression_check":"npx tsx --test packages/foo/tests/widget.test.ts"}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_eq "coverage present: exit 0" "0" "$RC"
+assert_not_contains "coverage present: no coverage-absence report" "$OUT" "coverage-absence"
+rm -rf "$ROOT"
+
+echo "== Test 26c (Q2, the real ISS-t-013-c2-rev-3 shape): the cited defect is a quoted phrase + a number, no identifier or file; a test file with neither is coverage-absence =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+write_issues "$ROOT" '{"id":"ISS-26c","status":"fixed","title":"\"five six lakh\" keeps value 600000 at verbatim tier with no needsReview","regression_check":"npx tsx --test packages/foo/tests/sample.test.ts"}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_eq "coverage-absence (quoted phrase/number): exit 1" "1" "$RC"
+assert_contains "coverage-absence (quoted phrase/number): reason" "$OUT" "coverage-absence"
+rm -rf "$ROOT"
+
+echo "== Test 26d (Q2): a row that cites nothing extractable is not guessed at -- it conforms and is counted as coverage-unassessable =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+write_issues "$ROOT" '{"id":"ISS-26d","status":"fixed","title":"it is broken","regression_check":"npx tsx --test packages/foo/tests/sample.test.ts"}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_eq "nothing cited: exit 0" "0" "$RC"
+assert_contains "nothing cited: reported unassessable" "$OUT" "coverage-unassessable: 1"
+rm -rf "$ROOT"
+
+echo "== Test 26e (Q2): explicit cited_symbols field overrides text extraction =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+write_issues "$ROOT" '{"id":"ISS-26e","status":"fixed","title":"it is broken","cited_symbols":["parseTheThing"],"regression_check":"npx tsx --test packages/foo/tests/sample.test.ts"}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_eq "explicit cited_symbols uncovered: exit 1" "1" "$RC"
+assert_contains "explicit cited_symbols uncovered: names symbol" "$OUT" "parseTheThing"
+rm -rf "$ROOT"
+
+echo "== Test 27 (Q2, ISS-094 companion): a ZERO-BYTE test file never passes, whether or not the row cites anything =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+: > "$ROOT/packages/foo/tests/zero.test.ts"
+write_issues "$ROOT" '{"id":"ISS-27","status":"fixed","title":"it is broken","regression_check":"npx tsx --test packages/foo/tests/zero.test.ts"}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_eq "zero-byte test file: exit 1" "1" "$RC"
+assert_contains "zero-byte test file: reason says empty" "$OUT" "empty test file"
+assert_not_contains "zero-byte test file: not counted conforming" "$OUT" "conforming: 1/1"
+rm -rf "$ROOT"
+
+echo "== Test 27b (Q2): a whitespace-and-comments-only test file never passes either =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+printf '\n  \n// nothing here\n/* nor here */\n' > "$ROOT/packages/foo/tests/blank.test.ts"
+write_issues "$ROOT" '{"id":"ISS-27b","status":"fixed","title":"computeWidgetTotal wrong","regression_check":"npx tsx --test packages/foo/tests/blank.test.ts"}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_eq "comments-only test file: exit 1" "1" "$RC"
+assert_contains "comments-only test file: reason says empty" "$OUT" "empty test file"
+rm -rf "$ROOT"
+
+echo "== Test 28 (Q3, ISS-100 DUPLICATES): the same row (same id, identical body) copied across branches is detected and reported ONCE, not counted twice =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+ROW='{"id":"ISS-28","status":"fixed","title":"it is broken","regression_check":"pnpm --filter @vc/foo test"}'
+write_issues "$ROOT" "$ROW
+$ROW
+$ROW"
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_eq "duplicate rows: exit 0" "0" "$RC"
+assert_contains "duplicate rows: header counts raw lines and the unique row" "$OUT" "3 ledger lines (1 unique rows after collapsing 2 duplicate copies)"
+assert_contains "duplicate rows: one fixed/verified row, not three" "$OUT" "1 fixed/verified rows"
+assert_contains "duplicate rows: conforming counted once" "$OUT" "conforming: 1/1"
+assert_contains "duplicate rows: reported once with its copy count" "$OUT" "DUP   ISS-28: 2 extra copies"
+N=$(printf '%s\n' "$OUT" | grep -c "DUP   ISS-28")
+assert_eq "duplicate rows: the id appears in the report exactly once" "1" "$N"
+rm -rf "$ROOT"
+
+echo "== Test 28b (Q3): no duplicates -> no duplicate section =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+write_issues "$ROOT" '{"id":"ISS-28b","status":"fixed","title":"it is broken","regression_check":"pnpm --filter @vc/foo test"}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_not_contains "no duplicates: no DUP section" "$OUT" "DUPLICATE LEDGER ROWS"
+assert_contains "no duplicates: zero collapsed" "$OUT" "1 ledger lines (1 unique rows after collapsing 0 duplicate copies)"
+rm -rf "$ROOT"
+
+echo "== Test 28c (Q3, ISS-100 hazard): an identical copy that re-lands AFTER a newer, different row for the same id is flagged as a stale-state revert =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+write_issues "$ROOT" '{"id":"ISS-28c","status":"open","title":"it is broken"}
+{"id":"ISS-28c","status":"fixed","update":true,"regression_check":"pnpm --filter @vc/foo test"}
+{"id":"ISS-28c","status":"open","title":"it is broken"}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_contains "stale copy: flagged" "$OUT" "STALE ISS-28c"
+assert_contains "stale copy: names the hazard" "$OUT" "state-revert hazard"
+rm -rf "$ROOT"
+
+echo "== Test 29 (Q4, ISS-076 SPLIT): fixed->verified rows are listed separately from named-unverified rows, both counts printed =="
+ROOT=$(mktemp -d); build_fixture_repo "$ROOT"
+write_issues "$ROOT" '{"id":"ISS-29a","status":"verified","title":"a","regression_check":"pnpm --filter @vc/foo test"}
+{"id":"ISS-29b","status":"verified","title":"b","regression_check":"pnpm --filter @vc/foo test"}
+{"id":"ISS-29c","status":"fixed","title":"c","regression_check":"pnpm --filter @vc/foo test"}
+{"id":"ISS-29d","status":"fixed","title":"d","regression_check":"pnpm -C apps/bar test"}
+{"id":"ISS-29e","status":"fixed","title":"e","regression_check":"pnpm -C apps/bar typecheck"}
+{"id":"ISS-29f","status":"fixed","title":"process hygiene","note":"doc only, no code","regression_check":null}'
+OUT=$(run_checker "$ROOT"); RC=$?
+assert_contains "split: fixed->verified count" "$OUT" "fixed->verified (status verified): 2"
+assert_contains "split: named-unverified count" "$OUT" "named-unverified (status fixed, regression_check named): 3"
+assert_contains "split: fixed with no named check count" "$OUT" "fixed, no named check (null/missing): 1"
+assert_contains "split: verified ids listed" "$OUT" "ISS-29a, ISS-29b"
+assert_contains "split: named-unverified ids listed" "$OUT" "ISS-29c, ISS-29d, ISS-29e"
+VLINE=$(printf '%s\n' "$OUT" | grep "ISS-29a")
+assert_not_contains "split: verified list does not contain a named-unverified id" "$VLINE" "ISS-29c"
+rm -rf "$ROOT"
+
 echo
 echo "== Summary: $PASS passed, $FAIL failed =="
 if [ "$FAIL" -gt 0 ]; then

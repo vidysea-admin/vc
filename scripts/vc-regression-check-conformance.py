@@ -33,6 +33,9 @@ import re
 import sys
 from pathlib import Path
 
+# Statuses at which a finding row no longer blocks the rows it targets (ISS-093 decorative check).
+RESOLVED_STATUSES = {"fixed", "verified", "verified-resolved", "closed", "wontfix", "wontfix-accepted", "resolved-for-now"}
+
 WHOLE_MONOREPO = {"pnpm -r typecheck", "pnpm -r test", "python contracts/verify_contracts.py"}
 
 # Trailing args (a 3rd+ token) are allowed -- real usage includes both "eval:scribe
@@ -84,12 +87,23 @@ RE_RUBRIC_REF = re.compile(r"^rubric_ref:(.+)$")
 
 def merge_ledger(issues_path: Path):
     """Field-level latest-row-per-id merge (see module docstring). Returns dict id -> merged row,
-    plus the ordered list of ids in first-seen order (for stable, deterministic output)."""
+    the ordered list of ids in first-seen order (for stable, deterministic output), the raw
+    non-blank line count, and a ledger-hygiene dict (ISS-100):
+      dupes: {id: [line numbers of repeats of an earlier row for that id with an identical body]}
+      stale: [(id, line number)] -- an identical earlier row re-landing AFTER a different row for
+             the same id (a cross-branch copy that silently reverts that id's state).
+    Copies are detected by (id, canonical JSON body), so whitespace/key-order differences do not hide
+    one. The merge itself still applies every line in file order (that is what every other reader of
+    the ledger does); duplicates are collapsed only in the counts and reported once."""
     merged = {}
     order = []
     total_lines = 0
+    seen = {}
+    last_sig = {}
+    dupes = {}
+    stale = []
     with issues_path.open(encoding="utf-8") as f:
-        for line in f:
+        for lineno, line in enumerate(f, 1):
             line = line.strip()
             if not line:
                 continue
@@ -98,11 +112,18 @@ def merge_ledger(issues_path: Path):
             rid = row.get("id")
             if rid is None:
                 continue
+            sig = json.dumps(row, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+            if sig in seen.setdefault(rid, set()):
+                dupes.setdefault(rid, []).append(lineno)
+                if last_sig.get(rid) != sig:
+                    stale.append((rid, lineno))
+            seen[rid].add(sig)
+            last_sig[rid] = sig
             if rid not in merged:
                 merged[rid] = {}
                 order.append(rid)
             merged[rid].update(row)
-    return merged, order, total_lines
+    return merged, order, total_lines, {"dupes": dupes, "stale": stale}
 
 
 def load_workspace_packages(repo_root: Path):
@@ -149,6 +170,68 @@ def load_scenario_ids(repo_root: Path, adapter: dict):
     return ids, feature
 
 
+# ISS-093: a finding row of this type, while unresolved, says the regression_check of the row(s) it
+# targets runs a test that does not exercise the cited defect. Targets come from an explicit
+# `targets` (list) / `target` field, else from the leading "<id>'s" of the finding's title.
+RE_FINDING_TARGET = re.compile(r"^\s*(ISS-[\w.-]+?)'s\b")
+
+
+def decorative_findings(merged: dict, order: list):
+    """Map target id -> finding id for every UNRESOLVED decorative-regression-check finding."""
+    out = {}
+    for fid in order:
+        f = merged[fid]
+        if f.get("type") != "decorative-regression-check" or f.get("status") in RESOLVED_STATUSES:
+            continue
+        targets = f.get("targets", f.get("target"))
+        if isinstance(targets, str):
+            targets = [targets]
+        if not targets:
+            m = RE_FINDING_TARGET.match(str(f.get("title", "")))
+            targets = [m.group(1)] if m else []
+        for tid in targets:
+            out.setdefault(tid, fid)
+    return out
+
+
+# ISS-099 coverage-absence. What a row "cites", most specific first:
+#   1. explicit `cited_symbols` / `cited_files` fields (a row author can state it outright);
+#   2. scenario literals in the title/fix: double-quoted or backticked strings (the defect's own example
+#      data -- e.g. "five six lakh"); 3+ digit numbers (600000) join them ONLY alongside such a quoted
+#      literal, because a bare number in a title is as often a count or line number as example data;
+#   3. otherwise the cited code: file names (stem) and identifiers (camelCase, PascalCase, snake_case).
+# Tier 2 outranks tier 3 on purpose: a row whose defect is a specific scenario is not covered just
+# because its test file mentions a ubiquitous identifier such as needsReview. Ledger ids (ISS-12,
+# T-043, D-020) are stripped first so they never count as a cited number. A row that cites nothing
+# is "unassessable" -- never guessed at.
+RE_LEDGER_ID = re.compile(r"\b(?:ISS|T|D)-[\w.-]*\d[\w.-]*")
+RE_LITERAL = re.compile(r'"([^"\n]{3,80})"|`([^`\n]{2,80})`')
+RE_NUMBER = re.compile(r"(?<![\w.])\d{3,}(?![\w.])")
+RE_CITED_FILE = re.compile(r"(?<![\w])([\w-]+)\.(?:tsx?|jsx?|mjs|py|sh)\b")
+RE_IDENT = re.compile(r"\b(?:[a-z][a-z0-9]*(?:[A-Z][a-z0-9]*)+|(?:[A-Z][a-z0-9]+){2,}|[a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b")
+
+
+def _as_list(v):
+    if v is None:
+        return []
+    return [v] if isinstance(v, str) else [str(x) for x in v]
+
+
+def cited_tokens(row: dict):
+    """Return (tier, tokens, case_sensitive) for what the row says is its defect (no tokens = nothing cited)."""
+    explicit = _as_list(row.get("cited_symbols")) + _as_list(row.get("cited_files"))
+    if explicit:
+        return "explicit", explicit, True
+    text = RE_LEDGER_ID.sub(" ", " ".join(str(row.get(k, "")) for k in ("title", "fix")))
+    literals = [a or b for a, b in RE_LITERAL.findall(text)]
+    if literals:
+        literals += RE_NUMBER.findall(text)
+    if literals:
+        return "literal", list(dict.fromkeys(literals)), False
+    code = list(dict.fromkeys(RE_CITED_FILE.findall(text) + RE_IDENT.findall(text)))
+    return ("code", code, True) if code else ("none", [], True)
+
+
 class Checker:
     def __init__(self, repo_root: Path, adapter: dict):
         self.repo_root = repo_root
@@ -167,6 +250,42 @@ class Checker:
         except OSError:
             return False
         return bool(RE_TEST_DECL.search(_strip_js_comments(content)))
+
+    def _is_empty_test_file(self, rel: str) -> bool:
+        """True for a zero-byte file or one holding only whitespace and comments."""
+        try:
+            content = (self.repo_root / rel).read_text(encoding="utf-8")
+        except OSError:
+            return False
+        return not _strip_js_comments(content).strip()
+
+    def coverage_absence(self, row: dict, rc: str):
+        """ISS-099. For a row whose regression_check names direct-tsx test file(s): does any of them
+        touch what the row cites? Returns ('n/a'|'unassessable'|'covered'|'absent', detail)."""
+        files = []
+        for part in re.split(r"&&|;", rc):
+            m = RE_DIRECT_TSX.match(part.strip())
+            if m:
+                files.append(m.group(2))
+        if not files:
+            return "n/a", ""
+        tier, tokens, case_sensitive = cited_tokens(row)
+        if not tokens:
+            return "unassessable", ""
+        body = ""
+        for rel in files:
+            try:
+                body += _strip_js_comments((self.repo_root / rel).read_text(encoding="utf-8")) + "\n"
+            except OSError:
+                pass
+        hay = body if case_sensitive else body.lower()
+        if any((tok if case_sensitive else tok.lower()) in hay for tok in tokens):
+            return "covered", ""
+        shown = ", ".join(repr(t) for t in tokens[:6]) + (" ..." if len(tokens) > 6 else "")
+        return "absent", (
+            f"coverage-absence (ISS-099): {', '.join(files)} exists and has tests, but none touches "
+            f"what the row cites ({tier}: {shown})"
+        )
 
     def _workspace_dir_of(self, rel: str):
         """Return the (apps|packages|mcp)/<dir> workspace prefix that `rel` lives under, or None.
@@ -224,6 +343,11 @@ class Checker:
             tsconfig, rel = m.group(1), m.group(2)
             if not self.path_exists(rel):
                 return False, f"path does not exist: {rel}"
+            if self._is_empty_test_file(rel):
+                return False, (
+                    f"empty test file {rel} (nothing but whitespace/comments; ISS-094/ISS-099): an "
+                    f"empty test file never passes, whether or not the row cites anything"
+                )
             if not self.has_real_test_declaration(rel):
                 return False, (
                     f"{rel} contains no real test()/it()/describe() declaration (ISS-094): "
@@ -325,14 +449,18 @@ def main():
         return 2
 
     adapter = json.loads(adapter_path.read_text(encoding="utf-8"))
-    merged, order, total_lines = merge_ledger(issues_path)
+    merged, order, total_lines, hygiene = merge_ledger(issues_path)
     checker = Checker(repo_root, adapter)
+    decorative = decorative_findings(merged, order)
+    dupes, stale = hygiene["dupes"], hygiene["stale"]
+    extra_copies = sum(len(v) for v in dupes.values())
 
     fv_rows = [(rid, merged[rid]) for rid in order if merged[rid].get("status") in ("fixed", "verified")]
 
     nonconforming = []
     weak_null = []
     conforming = 0
+    unassessable = 0
 
     for rid, row in fv_rows:
         has_key = "regression_check" in row
@@ -341,7 +469,18 @@ def main():
             nonconforming.append((rid, row.get("status"), rc, "regression_check key absent"))
             continue
         status, reason = checker.conforms(rc)
-        if status == "conforms":
+        if status == "conforms" and rid in decorative:
+            # ISS-093: right shape, real file, but an unresolved finding says it proves nothing.
+            nonconforming.append((rid, row.get("status"), rc, (
+                f"decorative regression_check ({decorative[rid]}): it runs a test that does not "
+                f"exercise the cited defect (still green with the fix reverted)")))
+        elif status == "conforms":
+            cov, detail = checker.coverage_absence(row, rc)
+            if cov == "absent":
+                nonconforming.append((rid, row.get("status"), rc, detail))
+                continue
+            if cov == "unassessable":
+                unassessable += 1
             conforming += 1
         elif status == "null":
             conforming += 1
@@ -353,9 +492,38 @@ def main():
     total = len(fv_rows)
     rate = (conforming / total * 100.0) if total else 100.0
 
-    print(f"vc-regression-check-conformance: {total_lines} ledger lines, {len(order)} distinct ids "
-          f"(field-level merge), {total} fixed/verified rows")
+    # ISS-076: "fixed" is a claim, "verified" is a checker's revert-and-restore. Keep them apart.
+    verified_ids = [rid for rid, r in fv_rows if r.get("status") == "verified"]
+    named_unverified = [rid for rid, r in fv_rows if r.get("status") == "fixed"
+                        and isinstance(r.get("regression_check"), str) and r["regression_check"].strip()]
+    unnamed_fixed = [rid for rid, r in fv_rows if r.get("status") == "fixed" and rid not in set(named_unverified)]
+
+    print(f"vc-regression-check-conformance: {total_lines} ledger lines ({total_lines - extra_copies} unique rows "
+          f"after collapsing {extra_copies} duplicate cop{'y' if extra_copies == 1 else 'ies'}), "
+          f"{len(order)} distinct ids (field-level merge), {total} fixed/verified rows")
     print(f"conforming: {conforming}/{total} ({rate:.1f}%)")
+    print(f"coverage-unassessable: {unassessable} (conforming direct-tsx rows citing nothing extractable)")
+    print(f"fixed->verified (status verified): {len(verified_ids)}")
+    print(f"named-unverified (status fixed, regression_check named): {len(named_unverified)}")
+    print(f"fixed, no named check (null/missing): {len(unnamed_fixed)}")
+    for label, ids in (("VERIFIED", verified_ids), ("NAMED-UNVERIFIED", named_unverified),
+                       ("FIXED-NO-NAMED-CHECK", unnamed_fixed)):
+        if ids:
+            print(f"\n{label} -- {len(ids)} row(s):")
+            print("  " + ", ".join(ids))
+
+    if dupes:
+        print(f"\nDUPLICATE LEDGER ROWS -- {len(dupes)} id(s), {extra_copies} extra cop"
+              f"{'y' if extra_copies == 1 else 'ies'} (identical body; collapsed in the counts, reported once):")
+        for rid, lines in dupes.items():
+            n = len(lines)
+            print(f"  DUP   {rid}: {n} extra cop{'y' if n == 1 else 'ies'} at line(s) "
+                  f"{', '.join(str(x) for x in lines)}")
+    if stale:
+        print(f"\nSTALE COPIES -- {len(stale)} identical copy(ies) re-landing after a different row for the same id:")
+        for rid, lineno in stale:
+            print(f"  STALE {rid}: line {lineno} repeats an earlier row after a newer one -- "
+                  f"state-revert hazard (ISS-100)")
 
     if weak_null:
         print(f"\nWEAK NULL (null regression_check, note does not name a no-code-change class) -- "
