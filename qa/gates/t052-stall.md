@@ -19,5 +19,16 @@ How should t-052 continue?
 - **C.** Change the protected oracle of rows 64-66 (D-082/D10). Not recommended: it hides the W1 gap.
 - **D.** Park t-052 and pull the other P2 units first.
 
+## Stall diagnosis (qa/debug/t-052-cycle2.md, b97b6fd)
+The cause is in the loop design, not in execution. Each round approved a design on a reviewer's reading, and only afterwards did a probe measure it. The scope also grew from one defect, ISS-119, to 28 files and 118 hunks.
+
+The recommended form of A is plan-v3 built in a scratchpad copy, with the full 128 controls, erasure.test and the F-set results attached, so that the reviewer judges a measured diff.
+
+**Also answer, in the same reply:**
+- (a) Which counts as t-052 acceptance:
+  - only ISS-119..122 closure, which plan-v2 R2 showed 14/14 green; or
+  - also the D068/D072 deadline-envelope conformance rows?
+- (b) D10: may protected-test edits under D-082 be made (persistence:652, H-D05, the repin literals)? Recommended default: yes, but only stack-proven repins, with no assertion weakened.
+
 ## Answer format
 Reply `t052: A|B|C|D` (plus notes). The maker records it below as `Answered:` before acting.
