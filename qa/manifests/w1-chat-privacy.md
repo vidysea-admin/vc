@@ -86,4 +86,4 @@ Sessions: 2b04f90e-6b56-4682-a76c-d8515b93405c
 - No fresh-context senior-software-engineer review was run by the maker (a subagent cannot dispatch one); the dual checker covers review. Real Mongo and any live model were not used (fakes only).
 
 **Fix cycle:** 2
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 2, verdicts a88785b A + d786d19 B, merged 4df4a0e)
