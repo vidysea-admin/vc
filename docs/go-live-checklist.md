@@ -1,7 +1,9 @@
 # Go-live checklist (P1 student surface)
 
 Short list for whoever flips the switches. Gate G-PROD is answered option (c), all three including voice (D-101,
-2026-10-19), but the prerequisites below are still open. Nothing here is done by the build; each item is a human record.
+2026-10-19; restated in parser format 2026-10-21, `qa/gates/g-prod.md`). The four G-PROD records in section 2 are now on disk
+(B13 signed, g-publish answered, Nights recorded, A10 voice by owner override); the production-deploy items in sections 3 to 5
+are still open, each with an owner. Nothing here is done by the build; each item is a human record.
 Check the current state at any time with `pnpm -C apps/api exec tsx scripts/go-live-gate.ts <student-routes|anonymous|voice|publish>`
 (read-only; exit 0 = allowed, 1 = refused with the missing records named).
 
@@ -27,21 +29,27 @@ or startup fails, and each flag additionally passes the A20 go-live gate below.
 
 All of these must be on disk in `qa/gates/` before the go-live script enables anything:
 
-- [ ] B13 signed: a `B13-signed: SIGNED <ISO instant> by <Approver name>` line in `p1-u0-amendment-signatures.md`
-      (minors' text and voice to Gemini and the KB's LLM provider, processor register filled in). Today: PENDING.
-- [ ] A10 voice report passing: `a10-voice-gate.md` with `Result: PASS`, `Run-at: <ISO>` and an `Evidence:` path to a
-      `qa/evidence/` report (real Gemini Live, synthetic audio, 20-phrase crisis set, 2 s bound). Voice only.
-- [ ] `g-publish.md` answered (`Answered: <ISO> - <a|b>`). Today: unanswered.
-- [ ] Nights mode recorded in `nights.md`: `Nights-mode: funded` or `tele-manas-disclosed`. Today: interim
-      `tele-manas-disclosed`; the CEO's answer is still pending.
+- [x] B13 signed: a `B13-signed: SIGNED <ISO instant> by <Approver name>` line in `p1-u0-amendment-signatures.md`
+      (minors' text and voice to Gemini and the KB's LLM provider, processor register filled in). Today: SIGNED
+      2026-10-21T18:10:00+05:30 by Umesh (D-109, `qa/gates/p1-u0-amendment-signatures.md` line 13).
+- [x] A10 voice: the report itself still reads `Result: FAIL` (10/20 crisis phrases reached the fixed message within 2 s).
+      Voice is allowed by an owner override instead: `Owner-override: 2026-10-22T09:42:10+05:30 - Umesh - D-111` in
+      `qa/gates/a10-voice-gate.md`, risk accepted. A10 stays NOT PROVEN; the override needs `VC_GATE_APPROVER` (section 1).
+- [x] `g-publish.md` answered: `Answered: 2026-10-21T15:42:38+05:30 - b` (publish text only, voice and WebSocket schema left
+      out of the partner copy), Umesh chat (`qa/gates/g-publish.md`; also `qa/gates/golive-launch.md` Q6).
+- [x] Nights mode recorded in `nights.md`: `Nights-mode: tele-manas-disclosed`, `Mode-status: FINAL` (Umesh 2026-10-19, D-102,
+      `qa/gates/nights.md`). Human-alert route NOT ENABLED.
 
 ## 3. Open owner decisions recorded with the go (not asserted by the contract)
 
-- [ ] Whether minors are served before counsel clears DPDP, and whether the Q3 DPDP legal review must finish before a
-      Pathlynks-supplied profile reaches VC.
-- [ ] Who owns the clinical-safety policy.
-- [ ] Tele-MANAS 14416 test call for adolescents, and Hindi/Hinglish coverage, done (unverified today).
-- [ ] Whether authenticated-student exposure, the anonymous route and voice go live together or one at a time.
+- [x] Whether minors are served before counsel clears DPDP: anyone can use; verifiable parental consent (DPDP s.9) is owned by
+      the consent team (`qa/gates/g-prod.md`, Answered 2026-10-19, D-102).
+- [ ] Whether the Q3 DPDP legal review must finish before a Pathlynks-supplied profile reaches VC. Not recorded: OPEN, owner Umesh.
+- [x] Who owns the clinical-safety policy: Umesh, interim owner; signs off the LK10 Hindi/Hinglish/English crisis wording (D-108 item 1).
+- [ ] Tele-MANAS 14416 test call for adolescents, and Hindi/Hinglish coverage. D-108 item 6 says the team did the call, but no
+      record or evidence is on disk. OPEN, owner: Umesh (the team's test-call record is the missing artifact).
+- [ ] Whether authenticated-student exposure, the anonymous route and voice go live together or one at a time. OPEN, owner: Umesh
+      (voice is allowed by override D-111, but its own flag and the order of switching are not recorded).
 
 ## 4. nginx deploy steps (voice, `infra/ubuntu/nginx-vc.conf`)
 
@@ -68,3 +76,19 @@ Done on the server by a person; the tests only read the conf file, they never ru
 
   Check it with `sudo logrotate -d /etc/logrotate.d/vc-voice-stream` (dry run). Adjust the owner and group to the account your nginx runs as.
 - [ ] Keep nginx's `error_log` at its default level (`error`) or higher (`crit`, `alert`, `emerg`). On a `limit_req` rejection nginx's error log prints the request line (the URL with its query string). The two voice stream locations set `limit_req_log_level warn;`, so a rejection is logged below `error` and is NOT written to the error log while `error_log` is at `error` or higher. If an operator sets `error_log ... warn;` (or `notice`, `info`, `debug`) the request line comes back; do not. The 429 is still recorded in the voice access log, which logs the path (`$uri`) and never the query string. Other locations are unchanged and still log rejections at `error`.
+
+## 5. Still OPEN before production (owner named; none is done by the build)
+
+Per D-109 (domain, TLS, server env and deploy stay with the devops team) and D-111 (production deploy is a separate Umesh gate).
+Today's answers (D-112, 2026-10-25) closed code and policy questions only; they did not close any item below.
+
+| Item | Owner | Source |
+|---|---|---|
+| KB keys: `VC_KB_BASE_URL`, `VC_KB_API_KEY`, `VC_KB_ANON_API_KEY` (anonymous key search-only) in the server `.env`. Without them every answer is `no_sourced_answer`. | Umesh provides the keys | `qa/gates/golive-launch.md` Q4, `qa/gates/g-kb.md` Q2 |
+| Mongo allowlist: the production Mongo host is IP-protected; the deploy server's address must be on it. Writes only inside `virtual_counsellor`. | Umesh / server owner | `qa/gates/mongo-host.md` (answered 2026-09-25) |
+| Domain and TLS for the Ubuntu server behind nginx. | devops team | D-109, `qa/gates/golive-launch.md` Q7 |
+| Pathlynks JWT format: the `tenant` claim values the student JWTs carry (feeds `VC_RESERVED_TENANT_IDS`, section 1) and the claim shape the verifier expects. | Pathlynks team with Umesh | `qa/gates/counsellor-jwt-partner-tenant.md` (D-112 answer a covers the counsellor/admin verifier only) |
+| Environment variables on the server (section 1), including `VC_GATE_APPROVER=Umesh` exactly, the text chain `VC_TEXT_CHAIN` and `VC_CHAIN_MONTHLY_CAP_USD=50` (D-108 items 2 and 3). | devops team | D-108, D-109 |
+| `nginx -t` and `logrotate -d` output (section 4) pasted as evidence. | devops team | section 4 |
+| Tele-MANAS 14416 test call record (section 3). | Umesh | D-108 item 6 |
+| Hindi text sign-off: Umesh signed off the LK10 crisis wording (D-108 item 1); any other Hindi or Hinglish student-facing text still needs a named sign-off. | Umesh | D-108 item 1 |
