@@ -1,0 +1,10 @@
+# Read-only readiness pass: post-wave-1 queue rows (fact agent, .9-12)
+You are a read-only fact agent for D:/vc at main 1142e8b. Edit NOTHING; write only your answer file C:/Users/Lenovo/AppData/Local/Temp/claude/d--vc/2b04f90e-6b56-4682-a76c-d8515b93405c/scratchpad/p2-readiness.md. No python, no tests, no live calls, no Mongo.
+Rows to assess (qa/QUEUE.md TODO section, lines 74-115): T-052 repair (ISS-119, ISS-120, ISS-121, ISS-122; see qa/manifests/t-052*.md, branch wip/t052-cycle2 if present), B18/O8 do-not-ask/already-approved (line ~105, ISS-077, ISS-t-010-c0-2), Lead review student activity timeline (line ~103) + ISS-t-025-rev-2, B17 gaurav-bhaiya Hindi labels + counsellor voice edits (line ~102), B22 golden-session eval harness (line ~104), Lead review release walkthrough video (line ~113), Lead review second-opinion tester (line ~112), T-035 (line ~92), B15 follow-ups ISS-t-029-rev-1/-2 (line ~100), T-010 remainder candidate (Candidates: MISSING B17,B19; PARTIAL B1,B9,B12,B18,B21).
+For EACH row return one block:
+- source: is it human-asked (lead review / Umesh / D-entry) or sweep-written? cite line + any `approved:` mark or D-entry (grep docs/DECISIONS.md for D-108..D-112 and the row's ids).
+- spec: does an approved spec cover it? (docs/spec.md, docs/plan.md, docs/features/<slug>/{intent,spec,plan}.md, qa/gates/plan-approved.md Answered lines). If it adds a screen/flow/user type with no covering spec, say NEEDS-TRIO.
+- blockers: human inputs it waits on (e.g. Sapna ma'am rubric for B22, Hindi sign-off, KB keys), open gates in qa/gates/*.md without Answered.
+- facts: files (predicted paths), schema yes/no, surface, consumes, lanes, after, owner, tier (S/M/L + trigger), dual trigger if security/tenancy/prod-write.
+- verdict: READY-NOW | NEEDS-TRIO | BLOCKED-HUMAN(<what>) | ALREADY-DONE(<evidence>).
+End with a dependency DAG (which rows can run in parallel, which share files) and a recommended wave 2 (READY-NOW rows only). Return to the caller ONE line: `readiness done <n READY-NOW> <path>`.
