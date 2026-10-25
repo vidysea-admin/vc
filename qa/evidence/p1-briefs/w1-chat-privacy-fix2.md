@@ -1,0 +1,10 @@
+# Repair brief: w1-chat-privacy, Fix cycle 2 (LAST allowed cycle; a further FAIL goes to a HUMAN_GATE)
+Same worktree D:/vc/.worktrees/w1-chat-privacy, branch wave/w1-chat-privacy, same rules as qa/evidence/p1-briefs/w1-common-rules.md and w1-chat-privacy-fix1.md. Repair base 8835203 (code 4135e1c). Policy-Version: proportional-verification/2026-10-19.17.
+Failed criteria (union of both coordinators, cycle 1): C1 only, from coordinator A (qa/verdicts/w1-chat-privacy.A.md, commit 9637cba). Coordinator B passed.
+Defect: apps/api/src/chat.ts:727 keys the crisis budget by slotRank, and slotRank is 0 for every turn of an unconsented minor (and every over-long turn). So for an unconsented minor, 12 concern turns (separate threads) then a crisis turn -> helpline 200 but NO flag row. That flag is the only crisis record on the textless path. Before this unit that turn was flagged.
+Fix: key the budget by the turn's crisis level as well as its write path (e.g. `${writePath}${level}` where writePath distinguishes full write vs textless/over-long), so a concern-level turn can never consume a crisis-level turn's slot on any path. Edit in place at chat.ts:727 (cite file:line). Keep: the per-kind cap of 10, the overall bound, the unchanged LK10 helpline on every turn, D-110, anonymous zero persistence.
+Tests first (red before the fix): unconsented minor, 12 concern turns on separate threads, then a crisis turn -> that crisis turn has its own flag row; the same with over-long concern turns; plus keep all fix1 tests green. Add a consenting-minor case too.
+Do NOT fold in: the no-refund-on-failed-write issue (budget unit spent before writes succeed), the in-memory per-process budget, the window edge. Those become ledger rows.
+Pre-check lines per criterion, one falsification for C1 in a copy, manifest to Fix cycle 2 + Round line + ready-for-check, tick.mjs --lint-manifest exit 0.
+Regression: chat-privacy, chat, chat-profile, voice-crisis-turn, anonymous-route, anonymous-zero-persistence; tsc --noEmit in apps/api. Via vc-testlock (long waits normal).
+Return `READY w1-chat-privacy <sha>`.
