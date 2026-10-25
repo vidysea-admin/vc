@@ -5,7 +5,7 @@ Policy-Version: proportional-verification/2026-10-19.17
 **Date:** 2026-10-25
 **Fix cycle:** 0
 **Dual check:** no (documentation only; no auth, persistence or safety code touched)
-**Status:** merged-no-check (docs-lane) - candidate text; the orchestrator sets the final status.
+**Status:** merged-no-check (docs-lane), merged a2daf26 after maker read-through 2026-10-25
 
 ## Lines changed in docs/go-live-checklist.md (each with its source)
 1. Intro paragraph (lines 3-6): states that the four G-PROD records are on disk and that sections 3 to 5 stay open with owners. Sources: `qa/gates/g-prod.md` (D-101, restated 2026-10-21), D-109, D-111.
