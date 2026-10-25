@@ -490,3 +490,74 @@ test("T-010 B1 / ISS-t-010-c2-3: legitimate elliptical cards are not over-suppre
   assert.notEqual(liveScriptReason("Germany suits her budget better?", "widen"), null);
   assert.notEqual(liveScriptReason("The UK is too expensive?", "widen"), null);
 });
+
+// --- w1-cards-b1 / ISS-t-010-c0-1 (B1) on main's T-049 code ------------------------------------
+// Scenario: the planner (or a prompt-injected transcript) emits a widen / clarify / check-in card
+// that is an INSTRUCTION to the counsellor (or a Hinglish line to deliver) whose only claim to
+// being a question is a trailing "?". Each row below reached the fragment hatch of
+// `isInterrogativeForm` or the clause-anywhere wh-word test before this unit and was SHOWN.
+const IMPERATIVE_ENDING_IN_QUESTION_MARK_EN: [string, string][] = [
+  ["widen", "Plan her intake first?"],
+  ["widen", "Cost the whole degree?"],
+  ["widen", "Caution the family about visas?"],
+  ["clarify", "Sanction one more year of preparation?"],
+  ["clarify", "Open the fees conversation?"],
+  ["widen", "Board her onto the January intake?"],
+  ["clarify", "Reference the tuition note?"],
+  ["widen", "Enable the parents to compare?"],
+  ["clarify", "Question how much she can afford?"],
+  ["widen", "Caution about how much she can afford?"],
+  ["check-in", "Note the 20 lakh ceiling for the parents?"],
+  ["clarify", "Test the family's appetite for Ireland?"],
+  ["clarify", "Profile her strengths for the parents?"],
+];
+const IMPERATIVE_ENDING_IN_QUESTION_MARK_HINGLISH: [string, string][] = [
+  ["widen", "Parents ko fees ka breakdown dikhao?"],
+  ["clarify", "Student ko Canada ke options batana?"],
+  ["widen", "Family se budget confirm kar lo?"],
+  ["clarify", "Student ko dikhao ki kitna lagega?"],
+  ["widen", "Parents se budget pooch lijiye?"],
+  ["widen", "Budget ke bare mein parents se baat karo?"],
+  ["widen", "Course ke baare mein uske parents ko likh do?"],
+  ["widen", "Usse intake decide karne ko bolna?"],
+];
+
+test("w1-cards-b1 / B1: an English imperative that only ends in '?' is never shown as a question card", () => {
+  for (const [type, prompt] of IMPERATIVE_ENDING_IN_QUESTION_MARK_EN) {
+    assert.notEqual(liveScriptReason(prompt, type as never), null, `B1 leak: ${type} | ${prompt}`);
+  }
+  const out = verify(IMPERATIVE_ENDING_IN_QUESTION_MARK_EN.map(([type, prompt]) => card(type, prompt)));
+  assert.equal(out.kept.length, 0, `shown as cards: ${out.kept.map((c) => c.prompt).join(" | ")}`);
+});
+
+test("w1-cards-b1 / B1: a Hinglish instruction that only ends in '?' is never shown as a question card", () => {
+  for (const [type, prompt] of IMPERATIVE_ENDING_IN_QUESTION_MARK_HINGLISH) {
+    assert.notEqual(liveScriptReason(prompt, type as never), null, `B1 leak (Hinglish): ${type} | ${prompt}`);
+  }
+  const out = verify(IMPERATIVE_ENDING_IN_QUESTION_MARK_HINGLISH.map(([type, prompt]) => card(type, prompt)));
+  assert.equal(out.kept.length, 0, `shown as cards: ${out.kept.map((c) => c.prompt).join(" | ")}`);
+});
+
+test("w1-cards-b1 / B1: genuine English and Hinglish questions, and elliptical topic questions, stay shown", () => {
+  const genuine: [string, string][] = [
+    ["widen", "Besides the UK, has the student looked at Ireland?"],
+    ["widen", "Which other Indian cities has the student considered?"],
+    ["clarify", "Does she know what the visa requirements are?"],
+    ["clarify", "For the Canada route, what is her fallback?"],
+    ["widen", "What if the budget does not cover the full degree?"],
+    ["clarify", "In which month does the family want her to start?"],
+    ["clarify", "Tuition fees per year?"],
+    ["clarify", "Accommodation costs in Canada?"],
+    ["widen", "Other countries within her budget?"],
+    ["clarify", "Her intake year?"],
+    ["widen", "Parents ka budget kitna hai?"],
+    ["clarify", "Konsa intake chahiye?"],
+    ["clarify", "Kya course decide ho gaya hai?"],
+    ["widen", "Kya parents ko UK ke baare mein pata hai?"],
+    ["clarify", "Student ka favourite subject kaun sa hai?"],
+    ["widen", "Parents ko budget ke baare mein kya lagta hai?"],
+    ["clarify", "Student ne IELTS diya hai kya?"],
+    ["widen", "Kab tak decide karna hai?"],
+  ];
+  for (const [type, prompt] of genuine) assert.equal(liveScriptReason(prompt, type as never), null, `over-suppressed: ${type} | ${prompt}`);
+});
