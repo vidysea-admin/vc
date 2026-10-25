@@ -5,8 +5,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { COLLECTION_NAMES, confirmErasure, requestErasure } from "@vc/db";
+import { CONCERN_CLASSIFIER_SKILL, escalateTurns, loadConcernClassifierConfig, loadSkill } from "@vc/engine";
+import { MockProvider } from "@vc/providers";
 import { HIT } from "./anonymous-fixtures.js";
-import { CRISIS_TEXT, GERMANY_QUESTION, adult, call, chatWorld, everythingStored, kbAnswerProvider, minor, newThread, recordingKb, studentToken, threadsPath, turnsPath } from "./chat-fixtures.js";
+import { CRISIS_TEXT, GERMANY_QUESTION, SKILLS_DIR, adult, call, chatWorld, everythingStored, kbAnswerProvider, minor, newThread, recordingKb, studentToken, threadsPath, turnsPath } from "./chat-fixtures.js";
 
 const PII_TEXT = "My name is Priya Sharma, call me on 9876543210 or mail priya.sharma@example.com. What are the tuition fees for public universities in Germany?";
 
@@ -885,6 +887,346 @@ test("p1-u8r cycle 2 item 3: the wait is bounded; a holder that hangs past it do
     await holder;
   } finally {
     gate.resolve();
+    w.cleanup();
+  }
+});
+
+// ---- w1-chat-privacy (D-112): ISS-157 / ISS-147 / ISS-148 / ISS-156 / ISS-198 / ISS-152 ---------------------------------------------
+
+const helplineOk = (res: { json: any }) => res.json.state === "escalated" && /14416/.test(res.json.message);
+
+test("w1 C1 (ISS-157): one student's crisis turns spread over 25 threads are all answered with the helpline, but stored, flagged and escalated at most 10 times per window", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    for (let i = 0; i < 25; i++) {
+      const threadId = await newThread(w, token);
+      const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: CRISIS_TEXT, clientTurnId: `w1c1-${i}` } });
+      assert.equal(res.status, 200, `crisis turn ${i} is never refused`);
+      assert.ok(helplineOk(res), `crisis turn ${i} gets the fixed crisis reply`);
+    }
+    assert.ok(w.escalations.length >= 1, "the first crisis turn is never blocked");
+    assert.ok(w.escalations.length <= 10, `escalations capped, got ${w.escalations.length}`);
+    assert.ok(flagRows(w).length <= 10, `flags capped, got ${flagRows(w).length}`);
+    assert.ok(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length <= 20, "stored chat_turns capped");
+    const usage = w.fakeDb.collection<{ textTurns: number }>(COLLECTION_NAMES.student_usage).all();
+    assert.ok(usage.reduce((n, u) => n + u.textTurns, 0) <= 10, "usage writes capped");
+    // The window ends: the next crisis turn is escalated again.
+    w.clock.ms += 11 * 60_000;
+    const before = w.escalations.length;
+    const later = await call(w, "POST", turnsPath("stu-1", await newThread(w, token)), { token, body: { text: CRISIS_TEXT, clientTurnId: "w1c1-later" } });
+    assert.ok(helplineOk(later));
+    assert.equal(w.escalations.length, before + 1);
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("w1 C1 (ISS-157): one student hitting the crisis cap does not block another student's first crisis turn", async () => {
+  const w = chatWorld();
+  try {
+    const t1 = await studentToken(adult("stu-1"));
+    for (let i = 0; i < 20; i++) await call(w, "POST", turnsPath("stu-1", await newThread(w, t1)), { token: t1, body: { text: CRISIS_TEXT, clientTurnId: `w1c1b-${i}` } });
+    const capped = w.escalations.length;
+    assert.ok(capped <= 10);
+    const t2 = await studentToken(adult("stu-2"));
+    const res = await call(w, "POST", turnsPath("stu-2", await newThread(w, t2, "stu-2")), { token: t2, body: { text: CRISIS_TEXT, clientTurnId: "w1c1b-other" } });
+    assert.ok(helplineOk(res));
+    assert.equal(w.escalations.length, capped + 1, "the second student's first crisis turn is escalated");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("w1 C1 (ISS-157, U8r checker A P1): 40 over-long crisis turns (which cannot escalate) in one thread are all answered, but write at most 10 flag rows", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    for (let i = 0; i < 40; i++) {
+      const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: OVERLONG_CRISIS, clientTurnId: `w1ol-${i}` } });
+      assert.ok(helplineOk(res), `over-long crisis turn ${i} gets the helpline`);
+    }
+    assert.ok(flagRows(w).length >= 1, "the first over-long crisis turn is flagged");
+    assert.ok(flagRows(w).length <= 10, `flags capped, got ${flagRows(w).length}`);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0, "no text stored");
+  } finally {
+    w.cleanup();
+  }
+});
+
+// Fix cycle 1 (checkers A and B on w1-chat-privacy): the budget is kept per kind of turn, so a concern-level, textless or over-long turn can never spend what an
+// escalation-capable crisis turn needs (the p1-u8r cycle 2 guarantee), while the number of writes per kind stays capped.
+// (Thread creation has its own per-minute limit; the fake clock moves 61 s after every 15 new threads, far inside the 10-minute crisis window.)
+const threadsMade = new WeakMap<object, number>();
+const freshThreadTurn = async (w: ReturnType<typeof chatWorld>, token: string, text: string, clientTurnId: string) => {
+  const n = (threadsMade.get(w) ?? 0) + 1;
+  threadsMade.set(w, n);
+  if (n % 15 === 0) w.clock.ms += 61_000;
+  return call(w, "POST", turnsPath("stu-1", await newThread(w, token)), { token, body: { text, clientTurnId } });
+};
+
+test("w1 C1 fix1: 12 concern turns on separate threads do not silence the next real crisis turn", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    for (let i = 0; i < 12; i++) assert.equal((await freshThreadTurn(w, token, CONCERN_TEXT, `f1-cn-${i}`)).status, 200);
+    const before = w.escalations.length;
+    const flagsBefore = flagRows(w).length;
+    const res = await freshThreadTurn(w, token, CRISIS_TEXT, "f1-cn-crisis");
+    assert.ok(helplineOk(res), "the crisis turn gets the unchanged helpline");
+    assert.equal(w.escalations.length, before + 1, "the crisis turn escalated");
+    assert.equal(flagRows(w).length, flagsBefore + 1, "and was flagged");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("w1 C1 fix1: 10 and 12 over-long crisis turns (separate threads, then one thread) do not silence a short real crisis turn", async () => {
+  for (const mode of ["separate threads", "one thread"] as const) {
+    const w = chatWorld();
+    try {
+      const token = await studentToken(adult());
+      const one = await newThread(w, token);
+      for (let i = 0; i < 12; i++) {
+        const res =
+          mode === "one thread"
+            ? await call(w, "POST", turnsPath("stu-1", one), { token, body: { text: OVERLONG_CRISIS, clientTurnId: `f1-ol-${i}` } })
+            : await freshThreadTurn(w, token, OVERLONG_CRISIS, `f1-ol-${i}`);
+        assert.ok(helplineOk(res));
+      }
+      const before = w.escalations.length;
+      const res = await freshThreadTurn(w, token, CRISIS_TEXT, "f1-ol-crisis");
+      assert.ok(helplineOk(res));
+      assert.equal(w.escalations.length, before + 1, `${mode}: the short crisis turn escalated`);
+    } finally {
+      w.cleanup();
+    }
+  }
+});
+
+test("w1 C1 fix1: interleaved concern, over-long and crisis turns: the first crisis turn escalates whatever came before, and all writes stay capped", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    // Each kind of turn is flooded in turn, interleaved: concern, over-long, concern, over-long ... then crisis, concern, crisis ...
+    for (let i = 0; i < 14; i++) {
+      await freshThreadTurn(w, token, CONCERN_TEXT, `f1-mx-c-${i}`);
+      await freshThreadTurn(w, token, OVERLONG_CRISIS, `f1-mx-o-${i}`);
+    }
+    const before = w.escalations.length;
+    for (let i = 0; i < 25; i++) {
+      const c = await freshThreadTurn(w, token, CRISIS_TEXT, `f1-mx-k-${i}`);
+      assert.ok(helplineOk(c), `crisis turn ${i} is answered`);
+      await freshThreadTurn(w, token, CONCERN_TEXT, `f1-mx-c2-${i}`);
+    }
+    assert.ok(w.escalations.length > before, "a crisis turn after the flood still escalated");
+    assert.ok(w.escalations.length <= 30, `escalations capped, got ${w.escalations.length}`);
+    assert.ok(flagRows(w).length <= 30, `flags capped, got ${flagRows(w).length}`);
+    assert.ok(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length <= 60, "stored chat_turns capped");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("w1 C1 fix1: a flood of crisis turns still leaves the budget for a concern turn, and the crisis writes alone stay at 10", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    for (let i = 0; i < 30; i++) await freshThreadTurn(w, token, CRISIS_TEXT, `f1-fl-${i}`);
+    assert.ok(w.escalations.length <= 10, `crisis escalations capped at 10, got ${w.escalations.length}`);
+    assert.ok(flagRows(w).length <= 10);
+  } finally {
+    w.cleanup();
+  }
+});
+
+// Fix cycle 2 (coordinator A): the budget key must carry the turn's crisis LEVEL as well as its write path. On the textless path (an unconsented minor,
+// an over-long turn) the flag row is the only crisis record, so concern-level turns there must never spend a crisis-level turn's budget.
+const OVERLONG_CONCERN = "I feel hopeless about my marks. " + "x ".repeat(3000);
+for (const [label, who, concernText] of [
+  ["an unconsented minor", () => minor(), CONCERN_TEXT],
+  ["an unconsented minor with over-long concern turns", () => minor(), OVERLONG_CONCERN],
+  ["a consenting minor", () => minor("stu-1", "tenant-a", { guardianConsent: true }), CONCERN_TEXT],
+  ["an adult with over-long concern turns", () => adult(), OVERLONG_CONCERN],
+] as const) {
+  test(`w1 C1 fix2: for ${label}, 12 concern turns on separate threads do not take the flag row of the next crisis turn`, async () => {
+    const w = chatWorld();
+    try {
+      const token = await studentToken(who());
+      for (let i = 0; i < 12; i++) assert.equal((await freshThreadTurn(w, token, concernText, `f2-cn-${i}`)).status, 200);
+      const flagsBefore = flagRows(w).length;
+      const res = await freshThreadTurn(w, token, CRISIS_TEXT, "f2-crisis");
+      assert.ok(helplineOk(res), "the crisis turn gets the unchanged helpline");
+      assert.equal(flagRows(w).length, flagsBefore + 1, "the crisis turn has its own flag row");
+    } finally {
+      w.cleanup();
+    }
+  });
+}
+
+test("w1 C1 fix2: an unconsented minor's crisis turns on the textless path stay capped at 10 flag rows and store no text", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(minor());
+    for (let i = 0; i < 30; i++) assert.ok(helplineOk(await freshThreadTurn(w, token, CRISIS_TEXT, `f2-fl-${i}`)));
+    assert.ok(flagRows(w).length >= 1 && flagRows(w).length <= 10, `crisis flags capped, got ${flagRows(w).length}`);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0, "no text stored for an unconsented minor");
+  } finally {
+    w.cleanup();
+  }
+});
+
+// C2 / ISS-198: a lower-case one-letter initial before a surname.
+for (const [intro, leaked] of [
+  ["my name is s. kumar", ["kumar"]],
+  ["i am j. r. d. tata", ["tata"]],
+  ["my name is a. p. j. abdul kalam", ["abdul", "kalam"]],
+  ["my name is dr. s. kumar", ["kumar"]],
+  ["call me k. v. rao", ["rao"]],
+] as const) {
+  test(`w1 C2 (ISS-198): '${intro}' leaves the surname in nothing that is stored or read back`, async () => {
+    const w = chatWorld();
+    try {
+      const token = await studentToken(adult());
+      const threadId = await newThread(w, token);
+      const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: `${intro}. ${GERMANY_QUESTION}`, clientTurnId: "w1c2-i" } });
+      assert.equal(res.status, 200);
+      const hist = await call(w, "GET", `${threadsPath("stu-1")}/${threadId}`, { token });
+      for (const name of leaked) {
+        assert.ok(!new RegExp(`\\b${name}\\b`, "i").test(everythingStored(w.fakeDb)), `${name} must not be stored`);
+        assert.ok(!new RegExp(`\\b${name}\\b`, "i").test(hist.body), `${name} must not be read back`);
+      }
+      assert.ok(everythingStored(w.fakeDb).includes("[NAME]"));
+    } finally {
+      w.cleanup();
+    }
+  });
+}
+
+test("w1 C2 (ISS-148): a name the Pathlynks profile supplies and the model echoes in lower case, as a first name, a surname or a possessive, is stored and replayed redacted", async () => {
+  const text = "Welcome meera kulkarni. Meera's best option is Germany, and kulkarni families often ask about tuition fees.";
+  const kb = recordingKb({ status: "ok", hits: [{ ...HIT, text }], dropped: 0 });
+  const w = chatWorld({ kb, provider: kbAnswerProvider([{ text, kind: "fact", sourceIds: ["t-sem-1"] }]), deps: { profile: { facts: async () => [{ key: "full_name", value: "Meera Kulkarni", source: "pathlynks" }] } } });
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const body = { text: GERMANY_QUESTION, clientTurnId: "w1c2-echo" };
+    const live = await call(w, "POST", turnsPath("stu-1", threadId), { token, body });
+    assert.equal(live.status, 200);
+    assert.ok(/meera/i.test(live.body), "the live answer is unchanged");
+    assert.ok(!/meera|kulkarni/i.test(everythingStored(w.fakeDb)), "no variant of the profile name is stored");
+    const replay = await call(w, "POST", turnsPath("stu-1", threadId), { token, body });
+    assert.ok(!/meera|kulkarni/i.test(replay.body), "nor replayed");
+    const hist = await call(w, "GET", `${threadsPath("stu-1")}/${threadId}`, { token });
+    assert.ok(!/meera|kulkarni/i.test(hist.body), "nor read back");
+  } finally {
+    w.cleanup();
+  }
+});
+
+// C3 / ISS-156: the Pathlynks profile port throws in every way a port can.
+const THROWERS: Array<[string, () => Promise<never>]> = [
+  ["an async Error", async () => Promise.reject(new Error("pathlynks is down"))],
+  ["a rejected string", () => Promise.reject("boom")],
+  ["a rejected undefined", () => Promise.reject(undefined)],
+  [
+    "a synchronous throw",
+    (() => {
+      throw new Error("sync throw");
+    }) as () => Promise<never>,
+  ],
+];
+for (const [label, thrower] of THROWERS) {
+  test(`w1 C3 (ISS-156): when the profile port fails with ${label}, an ordinary turn is refused 503 and a crisis turn is answered; the profile name is stored nowhere`, async () => {
+    let down = true;
+    const w = chatWorld({ deps: { profile: { facts: () => (down ? thrower() : Promise.resolve([{ key: "full_name", value: "Meera Kulkarni", source: "pathlynks" as const }])) } } });
+    try {
+      const token = await studentToken(adult());
+      const threadId = await newThread(w, token);
+      const ordinary = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: `${GERMANY_QUESTION} Asking for Meera Kulkarni.`, clientTurnId: "w1c3-a" } });
+      assert.equal(ordinary.status, 503);
+      assert.equal(w.provider.calls.length, 0, "no model call");
+      assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0);
+      const crisis = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: `I am Meera Kulkarni and ${CRISIS_TEXT}`, clientTurnId: "w1c3-b" } });
+      assert.equal(crisis.status, 200);
+      assert.ok(helplineOk(crisis));
+      assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0, "the crisis text is not stored raw");
+      const hist = await call(w, "GET", `${threadsPath("stu-1")}/${threadId}`, { token });
+      assert.ok(!/meera|kulkarni/i.test(everythingStored(w.fakeDb) + hist.body), "the name is nowhere");
+      down = false;
+      const back = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: `${GERMANY_QUESTION} Asking for Meera Kulkarni.`, clientTurnId: "w1c3-a" } });
+      assert.equal(back.status, 200, "works once the port is back");
+      assert.ok(!/meera|kulkarni/i.test(everythingStored(w.fakeDb)));
+    } finally {
+      w.cleanup();
+    }
+  });
+}
+
+// C4 / ISS-152: the real escalateTurns with a classifier that restates whatever text it is given.
+async function echoClassifierWorld(profileName?: string) {
+  const classifier = new MockProvider({
+    responses: { [CONCERN_CLASSIFIER_SKILL]: (input: any) => ({ severity: "critical", likelyBenign: false, rationale: `The student wrote: ${input.text} / ${input.translatedText}`.slice(0, 500) }) } as any,
+  });
+  const reviews: Promise<unknown>[] = [];
+  const w = chatWorld({
+    deps: {
+      ...(profileName !== undefined ? { profile: { facts: async () => [{ key: "full_name", value: profileName, source: "pathlynks" as const }] } } : {}),
+      escalateForTenant: (_tenantId, db) => async (input) => {
+        await escalateTurns(db, input, {
+          recipients: async () => ({ adminIds: ["admin-1"], counsellorIds: ["counsellor-1"] }),
+          classifier: { provider: classifier, skillPrompt: loadSkill(SKILLS_DIR, CONCERN_CLASSIFIER_SKILL), config: loadConcernClassifierConfig({}) },
+          onReview: (r) => reviews.push(r),
+          alert: () => undefined,
+        });
+      },
+    },
+  });
+  await w.deps.dbForTenant("tenant-a").collection<any>(COLLECTION_NAMES.consents).insertOne({ studentId: "stu-1", guardianConsent: false, purposes: ["profile_synthesis"], recordedAt: "2026-10-01T00:00:00.000Z", minor: false });
+  return { w, classifier, reviews };
+}
+const reviewDocs = (w: ReturnType<typeof chatWorld>) => w.fakeDb.collection<any>(COLLECTION_NAMES.crisis_flag_reviews).all();
+
+test("w1 C4 (ISS-152): the classifier is never handed the student's name, phone or email, so the stored rationale restates none of them", async () => {
+  const { w, classifier, reviews } = await echoClassifierWorld("Meera Kulkarni");
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const raw = "my name is priya sharma, mail priya@example.com or 9876543210, my friend Meera Kulkarni knows. " + CRISIS_TEXT;
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: raw, clientTurnId: "w1c4-1" } });
+    assert.ok(helplineOk(res));
+    await Promise.all(reviews);
+    assert.equal(classifier.calls.length, 1, "the classifier did run");
+    const docs = reviewDocs(w);
+    assert.equal(docs.length, 1);
+    const rationale = String(docs[0].classifier?.rationale);
+    assert.ok(rationale.length > 0, "a rationale is stored");
+    assert.ok(!rationale.includes(raw), "the raw text is not restated");
+    for (const bad of ["priya", "sharma", "priya@example.com", "9876543210", "meera", "kulkarni"]) {
+      assert.ok(!rationale.toLowerCase().includes(bad), `${bad} must not be in the stored rationale`);
+      assert.ok(!JSON.stringify(classifier.calls).toLowerCase().includes(bad), `${bad} must not reach the classifier`);
+    }
+    assert.ok(/kill myself/i.test(rationale), "the crisis wording itself is still visible to the reviewer");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("w1 C4 (ISS-152): even when a profile-name token would hide the crisis wording, the email and phone are still never passed on", async () => {
+  // The profile name "Kill" would turn "kill myself" into "[NAME] myself" in the name-redacted views; the last-resort view used to be the RAW text.
+  const { w, classifier, reviews } = await echoClassifierWorld("Kill Bill");
+  try {
+    const token = await studentToken(adult());
+    const threadId = await newThread(w, token);
+    const res = await call(w, "POST", turnsPath("stu-1", threadId), { token, body: { text: `mail me at hidden.person@example.com or 9876543210. ${CRISIS_TEXT}`, clientTurnId: "w1c4-2" } });
+    assert.ok(helplineOk(res));
+    await Promise.all(reviews);
+    assert.equal(classifier.calls.length, 1, "the crisis is still escalated and reviewed");
+    const handed = JSON.stringify(classifier.calls) + JSON.stringify(reviewDocs(w));
+    for (const bad of ["hidden.person@example.com", "9876543210"]) assert.ok(!handed.includes(bad), `${bad} must not be passed on`);
+    assert.ok(/kill myself/i.test(handed), "the crisis wording reached the guard and the classifier");
+  } finally {
     w.cleanup();
   }
 });

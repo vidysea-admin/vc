@@ -170,3 +170,27 @@ test("p1-u8r cycle 2 item 4: a title and initials do not use up the name-token b
   redactPii("My name is " + "Dr. ".repeat(50_000));
   assert.ok(performance.now() - t0 < 500, "a run of titles redacts quickly");
 });
+
+test("w1 ISS-198: a lower-case one-letter initial before a surname is part of the name, so 'my name is s. kumar' keeps no part of it", () => {
+  const cases: Array<[string, string[]]> = [
+    ["my name is s. kumar", ["kumar"]],
+    ["i am a. kumar", ["kumar"]],
+    ["i am j. r. d. tata", ["tata"]],
+    ["call me k. v. rao please", ["rao"]],
+    ["my name is a. p. j. abdul kalam", ["abdul", "kalam"]],
+    ["my name is dr. s. kumar", ["kumar"]],
+  ];
+  for (const [input, gone] of cases) {
+    const out = redactPii(input);
+    for (const word of gone) assert.equal(new RegExp(`\b${word}\b`).test(out.text), false, `${input} -> ${out.text}`);
+    assert.ok(out.text.includes("[NAME]"), `${input} -> ${out.text}`);
+    assert.ok(out.names.length === 1, "the stated name is returned for the reply redaction");
+  }
+  assert.equal(redactPii("please call me k. v. rao tomorrow").text.includes("tomorrow"), true, "text after the name survives");
+});
+
+test("w1 ISS-198: a lone lower-case initial that is not followed by a name is not redacted (no over-redaction of ordinary sentences)", () => {
+  for (const keep of ["i am a student", "i am a. i want to study in germany", "i am s. and i want to study", "i am 17 years old", "my name is a."]) {
+    assert.equal(redactPii(keep).text, keep, keep);
+  }
+});

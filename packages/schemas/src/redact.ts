@@ -67,6 +67,8 @@ const EN_LEAD = String.raw`(?:my\s+name\s+is|my\s+name['’]s|name\s+is|i\s+am|i
 // Leads after which a lower-case word may be a name. "this is" and "myself" are ordinary English in lower case, so they need a capital.
 const LOWER_OK_LEAD = /^(?:my\s+name\s+is|my\s+name['’]s|name\s+is|i\s+am|i['’]m|call\s+me)$/i;
 const MAX_LOWER_NAME_TOKENS = 3;
+// ISS-198: a lower-case one-letter initial with its full stop ("s.", "j.").
+const LOWER_INITIAL = /^\p{Ll}\.$/u;
 // Words that follow these leads and are NOT names: function words, feelings, roles, places-prepositions, adverbs, time words.
 const LOWER_NOT_NAME = new Set(
   (
@@ -143,21 +145,35 @@ export function redactPii(input: string, options: RedactOptions = {}): RedactRes
     let used = "";
     let consumed = 0;
     let lowerRun = 0;
+    // ISS-198: the used text and token count as of the last token that is not a lower-case initial, so a run of initials with no name behind it
+    // ("i am a. i want to study") is never redacted and trailing initials are left out.
+    let realUsed = "";
+    let realConsumed = 0;
     for (let i = 0; i < tokens.length; i += 2) {
       const tok = tokens[i]!;
+      let lowerInitial = false;
       if (isUpper(tok)) {
         // a capitalised token always counts
       } else if (lowerOk && TITLES.has(trimTail(tok).toLowerCase())) {
         // cycle 2 item 4: a lower-case title ("dr.") continues the name and does not count against the lower-case budget
+      } else if (lowerOk && LOWER_INITIAL.test(tok)) {
+        // ISS-198: a lower-case one-letter initial ("s.") continues the name like a capitalised one and does not count against the budget
+        lowerInitial = true;
       } else if (lowerOk && lowerRun < MAX_LOWER_NAME_TOKENS && isLowerNameToken(tok)) {
         lowerRun++;
       } else break;
       used += (i > 0 ? tokens[i - 1]! : "") + tok;
       consumed = i + 1;
+      if (!lowerInitial) {
+        realUsed = used;
+        realConsumed = consumed;
+      }
       // A word that ends in a full stop closes the sentence, so the next capitalised word ("My name is Anita Verma. What ...") is not part of the name.
       // A one-letter initial ("A. Verma") does not.
       if (/\.$/.test(tok) && [...trimTail(tok)].length > 1 && !TITLES.has(trimTail(tok).toLowerCase())) break;
     }
+    used = realUsed;
+    consumed = realConsumed;
     if (used === "") return whole;
     counts.name++;
     names.push(used.split(/\s+/).map(trimTail).join(" "));

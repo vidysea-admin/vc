@@ -40,6 +40,9 @@
  *    name is unknown, so a profile-only name in that text can reach the escalation path and the classifier rationale it stores.
  *  - p1-u8r item 5: the escalation path (and so the classifier rationale it stores) is handed REDACTED text; if redacting would hide the
  *    crisis wording from the guard, the least-redacted text that still shows it is used (an escalation is never lost for privacy).
+ *  - w1-chat-privacy (ISS-157, ISS-152): crisis writes are also bounded PER STUDENT across threads (CRISIS_MAX_WRITES_PER_STUDENT per window, including
+ *    textless turns); past the budget a turn is answered with the helpline and writes nothing, and the first crisis turn of a window is never blocked.
+ *    The escalation text is never the raw text: its last resort keeps only the email and phone redaction.
  *  - p1-lk9 C2: fact extraction (a model call) runs AFTER the reply, detached: the reply does not wait for it, and its failure (including a fence
  *    refusal after an erasure began) is one text-free log line (`chat_fact_extraction_failed` / `chat_fact_extraction_fenced`), never a turn error.
  *    A proposed fact therefore shows on GET .../chat/profile a moment after the turn, not with it.
@@ -127,6 +130,13 @@ export const CHAT_MAX_LIMITER_KEYS = 100_000;
 /** p1-u8r M2: per student and thread, one crisis turn in this window is stored, flagged, escalated and counted (a turn of a higher level than the holder's runs in full and takes over the slot: cycle 1 H1). */
 export const CRISIS_WRITE_WINDOW_MS = 10 * 60_000;
 export const CRISIS_MAX_TRACKED_THREADS = 100_000;
+/**
+ * w1-chat-privacy (ISS-157): a separate, per-student crisis write budget over the same window, across threads. The per-thread slot alone leaves crisis
+ * writes unbounded (a student can open a thread per request, and a textless crisis turn never confirms a slot). A turn that would write (store, flag,
+ * escalate, count) spends one unit of its own kind (fix cycle 1: crisis that can escalate, concern that can escalate, textless); past the budget the turn is
+ * answered with the helpline and writes nothing. The first turn of each kind in a window is never blocked.
+ */
+export const CRISIS_MAX_WRITES_PER_STUDENT = 10;
 /** p1-u8r cycle 2: a crisis turn behind an unconfirmed holder waits at most this long for it, then escalates itself. */
 export const CRISIS_QUIET_WAIT_MS = 5_000;
 const LEVEL_RANK = { none: 0, concern: 1, crisis: 2 } as const;
@@ -252,6 +262,8 @@ export interface ChatApiDeps {
   nowMs?: () => number;
   /** p1-u8r cycle 2: how long a crisis turn waits for an unconfirmed slot holder before it escalates itself (default CRISIS_QUIET_WAIT_MS). */
   quietWaitMs?: number;
+  /** w1-chat-privacy (ISS-157): crisis turns per student per window that may write (default CRISIS_MAX_WRITES_PER_STUDENT). */
+  crisisWritesPerStudent?: number;
   /** Text-free server-side failure log. Default: one JSON line on stderr. */
   log?: (line: ChatLogLine) => void;
   /** P1 alerts A1 (D-108 item 7): the engineering-alert sink. Default: the T-021 mechanism (`emitEngineeringAlert`: stderr line plus a Langfuse error span). */
@@ -447,6 +459,23 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     crisisSlots.delete(key);
     if (prev !== undefined && !prev.released && prev.until > nowMs()) crisisSlots.set(key, prev);
   };
+  // w1-chat-privacy (ISS-157): the per-student, per-kind-of-turn write budget (the key carries the kind, see handleTurn). Fixed window, oldest evicted (an eviction can only hand a student a fresh budget, never block one).
+  const crisisBudgets = new Map<string, { used: number; until: number }>();
+  const crisisWritesMax = Math.max(1, Math.floor(deps.crisisWritesPerStudent ?? CRISIS_MAX_WRITES_PER_STUDENT));
+  /** Spends one write unit for this student; false when the window's budget is used up. */
+  const takeCrisisBudget = (key: string): boolean => {
+    const t = nowMs();
+    const found = crisisBudgets.get(key);
+    if (found !== undefined && found.until > t) {
+      if (found.used >= crisisWritesMax) return false;
+      found.used++;
+      return true;
+    }
+    crisisBudgets.delete(key);
+    while (crisisBudgets.size >= CRISIS_MAX_TRACKED_THREADS) crisisBudgets.delete(crisisBudgets.keys().next().value as string);
+    crisisBudgets.set(key, { used: 1, until: t + CRISIS_WRITE_WINDOW_MS });
+    return true;
+  };
   /** True when the holder escalated within the bounded wait; false when it failed or is still in flight after it. */
   const awaitHolder = async (slot: CrisisSlot): Promise<boolean> => {
     if (slot.confirmed) return true;
@@ -472,7 +501,9 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     const r = redactionScope.getStore() ?? { full: (s: string) => redactPii(s).text, minimal: (s: string) => redactPii(s, { introductions: false }).text };
     const need = LEVEL_RANK[crisisGuard(raw).level];
     for (const candidate of [r.full(raw), r.minimal(raw)]) if (LEVEL_RANK[crisisGuard(candidate).level] >= need) return candidate;
-    return raw;
+    // w1-chat-privacy (ISS-152): never the raw text. A known-name token can itself be the crisis wording ("Kill"), which hides it from the guard in both
+    // views above; the last resort keeps only the email and phone redaction (which cannot hide wording), so those never reach the classifier or its rationale.
+    return redactPii(raw, { introductions: false }).text;
   };
 
   // The U6 graph deps, cached per tenant and per variant (the compiled graph is cached per deps object). `escalate` is absent in the
@@ -689,7 +720,13 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
       if (!taken.holds && !taken.slot.confirmed) loose = true;
     }
     const holdsSlot = taken?.holds === true;
-    const quiet = taken !== undefined && !taken.holds && !loose;
+    // w1-chat-privacy (ISS-157): a turn that would write spends the student's window budget (tenant + student, across threads). Past it the turn is
+    // quiet: answered with the helpline, nothing written, and a slot it took is given back below.
+    // Fix cycles 1-2: the budget is kept per KIND of turn: its write path (full, or textless for an over-long turn or an unconsented minor, where the flag row
+    // is the only crisis record) AND its crisis level, so a concern-level turn can never spend what a crisis-level turn needs on any path; the writes per
+    // kind, and so in all, stay capped.
+    const overBudget = slotKey !== undefined && (holdsSlot || loose) && !takeCrisisBudget(sha256(`budget\u0000${ctx.tenantId}\u0000${ctx.studentId}\u0000${slotRank === 0 ? "textless" : "full"}\u0000${level}`));
+    const quiet = (taken !== undefined && !taken.holds && !loose) || overBudget;
     let slotConfirmed = false;
     const runTurn = async (): Promise<ApiResponse> => {
       const persistText = consentOk && !overlong && !profileDown && !quiet;
