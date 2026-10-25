@@ -1,0 +1,62 @@
+===== v2-f5-r43-1
+DIAGT1 Scribe original settlement and owned cleanup failed. roots 4
+  FencedWriterDeadlineError "FencedWriterDeadlineError: the write did not finish within the fenced-writer dea" R acc  unexp F packages\\engine\\src\\scribe\\graph.ts:1288:20) <- packages\\engine\\src\\scribe\\graph.ts:3020:20)
+    FencedWriterDeadlineError "FencedWriterDeadlineError: the write did not finish within the fenced-writer dea" R acc born EXP  packages\\db\\src\\erasure.ts:879:23) <- packages\\db\\src\\erasure.ts:889:12)
+  Error "PRIVATE_D068_ADAPTER_resume_checkpoint primary_MARKER" -   unexp  
+  AggregateError "Scribe original settlement and owned compensation failed." R acc  unexp F packages\\engine\\src\\scribe\\graph.ts:1281:24)
+    AggregateError "Scribe owned compensation failed." R acc  unexp F packages\\engine\\src\\scribe\\graph.ts:1229:30) <- packages\\engine\\src\\scribe\\graph.ts:1278:11)
+      (dup Error)
+  (dup AggregateError)
+not ok 1 - D068 Mongo adapter original observation resume checkpoint primary reject
+===== v2-f8-r116x-1
+DIAGT1 Scribe original settlement and owned cleanup failed. roots 7
+  FencedWriterDeadlineError "FencedWriterDeadlineError: the write did not finish within the fenced-writer dea" R acc  unexp F packages\\engine\\src\\scribe\\graph.ts:1288:20) <- packages\\engine\\src\\scribe\\graph.ts:3020:20)
+    FencedWriterDeadlineError "FencedWriterDeadlineError: the write did not finish within the fenced-writer dea" R acc born EXP  packages\\db\\src\\erasure.ts:879:23) <- packages\\db\\src\\erasure.ts:889:12)
+  FencedWriterDeadlineError "FencedWriterDeadlineError: the write did not finish within the fenced-writer dea" R acc  unexp F packages\\engine\\src\\scribe\\nodes.ts:1887:22)
+    FencedWriterDeadlineError "FencedWriterDeadlineError: the write did not finish within the fenced-writer dea" R acc  unexp F packages\\db\\src\\facts.ts:2144:23)
+      FencedWriterDeadlineError "FencedWriterDeadlineError: the write did not finish within the fenced-writer dea" R acc born EXP  packages\\db\\src\\erasure.ts:909:23) <- packages\\engine\\src\\scribe\\graph.ts:901:20)
+  AggregateError "writeApproved: owned cleanup failed" -   unexp F packages\\engine\\src\\scribe\\nodes.ts:1880:32)
+    (dup FencedWriterDeadlineError)
+    (dup FencedWriterDeadlineError)
+    AggregateError "recordApprovedSessionSummary: owned writer settlement failed" -   unexp F packages\\db\\src\\facts.ts:1938:23)
+      (dup FencedWriterDeadlineError)
+    AggregateError "recordApprovedSessionSummary: owned writer settlement failed" -   unexp  packages\\db\\src\\facts.ts:1938:23)
+      (dup FencedWriterDeadlineError)
+  (dup AggregateError)
+  AggregateError "Scribe original settlement and owned compensation failed." R acc  unexp F packages\\engine\\src\\scribe\\graph.ts:1281:24)
+    AggregateError "Scribe owned compensation failed." R acc  unexp F packages\\engine\\src\\scribe\\graph.ts:1229:30) <- packages\\engine\\src\\scribe\\graph.ts:1278:11)
+      (dup FencedWriterDeadlineError)
+      (dup AggregateError)
+      (dup AggregateError)
+      AggregateError "recordApprovedSessionSummary: owned writer settlement failed" -   unexp  packages\\db\\src\\facts.ts:1938:23)
+        (dup FencedWriterDeadlineError)
+  (dup AggregateError)
+not ok 1 - D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes
+===== v2-f7a-z-t046-1
+T046 AggregateError | AggregateError | "Scribe failure and owned lease cleanup failed." | packages\\engine\\src\\scribe\\graph.ts:2315:50) <- packages\\engine\\src\\scribe\\graph.ts:3030:20) <- packages\\engine\\src\\scribe\\graph.ts:2620:20)
+T046   AggregateError | AggregateError | "Scribe authority loss and owned compensation failed." | packages\\engine\\src\\scribe\\graph.ts:1302:24) <- packages\\engine\\src\\scribe\\graph.ts:3020:20)
+T046     ProviderAuthorizationRefusedError | ProviderAuthorizationRefusedError | "Provider execution was refused because authorization could not be verified." | packages\\engine\\src\\scribe\\graph.ts:344:126)
+T046     AggregateError | AggregateError | "Scribe owned compensation failed." | packages\\engine\\src\\scribe\\graph.ts:1229:30)
+not ok 1 - T046 private invocation metadata cannot authorize nested second graph sharing DB student and thread
+ok 2 - packages\\engine\\tests\\scribe-persistence.test.ts
+===== v2-f7a-r-t046-1
+T046 AggregateError | AggregateError | "Scribe failure and owned lease cleanup failed." | packages\\engine\\src\\scribe\\graph.ts:1769:50) <- packages\\engine\\src\\scribe\\graph.ts:2393:10) <- packages\\engine\\src\\scribe\\graph.ts:2007:20)
+T046   AggregateError | AggregateError | "Scribe authority loss and owned compensation failed." | packages\\engine\\src\\scribe\\graph.ts:1055:24) <- packages\\engine\\src\\scribe\\graph.ts:2383:20) <- packages\\engine\\src\\scribe\\graph.ts:1590:14)
+T046     ProviderAuthorizationRefusedError | ProviderAuthorizationRefusedError | "Provider execution was refused because authorization could not be verified." | packages\\engine\\src\\scribe\\graph.ts:255:126)
+T046     AggregateError | AggregateError | "Scribe owned compensation failed." | packages\\engine\\src\\scribe\\graph.ts:995:30)
+not ok 1 - T046 private invocation metadata cannot authorize nested second graph sharing DB student and thread
+ok 2 - packages\\engine\\tests\\scribe-persistence.test.ts
+===== v2-f7a-z-d055-1
+ok 1 - packages\\db\\tests\\decisions.test.ts
+ok 2 - packages\\db\\tests\\facts.test.ts
+ok 3 - packages\\engine\\tests\\scribe-checkpointer.test.ts
+ok 4 - packages\\engine\\tests\\scribe-per-fact.test.ts
+D055UNDO {"driver":"rollback","rejectDriver":true,"k":0,"of":1,"isSentinel":true,"msg":"D055 actual rollback cleanup rejection sentinel"}
+not ok 5 - D055 prompt original deadline: actual early rollback rejects observably after every cleanup
+===== v2-f7a-r-d055-1
+ok 1 - packages\\db\\tests\\decisions.test.ts
+ok 2 - packages\\db\\tests\\facts.test.ts
+ok 3 - packages\\engine\\tests\\scribe-checkpointer.test.ts
+ok 4 - packages\\engine\\tests\\scribe-per-fact.test.ts
+D055UNDO {"driver":"rollback","rejectDriver":true,"k":0,"of":1,"isSentinel":true,"msg":"D055 actual rollback cleanup rejection sentinel"}
+not ok 5 - D055 prompt original deadline: actual early rollback rejects observably after every cleanup

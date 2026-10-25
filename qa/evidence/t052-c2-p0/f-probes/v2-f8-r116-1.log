@@ -1,0 +1,17 @@
+[testlock] running slot 0 (free RAM 6.6 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 --test-reporter=tap --test-name-pattern ^D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes$ packages/engine/tests/scribe-persistence.test.ts
+TAP version 13
+# Subtest: D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes
+ok 1 - D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes
+  ---
+  duration_ms: 604.0702
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2182.7908

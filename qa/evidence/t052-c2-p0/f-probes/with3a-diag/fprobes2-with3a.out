@@ -1,0 +1,24 @@
+#### F3 3a at 2026-10-25T12:37:47+05:30
+AR-4' applied, CRLF=true
+erasure.ts LF sha 609206f3965a56e9
+erasure.test.ts LF sha 12948475c2f88fe6
+graph.ts LF sha d7196ec548d235f8
+#### F5/F8/F7a on ad60624 (base erasure) at 2026-10-25T12:37:47+05:30
+patched 2
+t046 dump inserted at line 758
+d055 instrumented (CRLF=false)
+erasure.ts LF sha 609206f3965a56e9
+graph.ts LF sha d3b452abd3f77ec4
+per-fact LF sha bae261fccdaa0cbb
+persistence LF sha 7220bd0e5022546e
+run 1 exit=1 # tests 1 # pass 0 # fail 1  sha=78025df3
+run 1 exit=1 # tests 1 # pass 0 # fail 1  sha=a0b6a90a
+run 1 exit=1 # tests 2 # pass 1 # fail 1  sha=06aed111
+run 1 exit=1 # tests 5 # pass 4 # fail 1  sha=3333f6a9
+restored fz: erasure.ts LF sha 609206f3965a56e9 graph.ts LF sha d7196ec548d235f8 erasure.test LF sha 12948475c2f88fe6 per-fact LF sha c6a470b13d9dd984 persistence LF sha c06f99937b8c9752
+#### F7a on frozen fr at 2026-10-25T12:38:11+05:30
+t046 dump inserted at line 758
+d055 instrumented (CRLF=true)
+run 1 exit=1 # tests 2 # pass 1 # fail 1  sha=d2c7440f
+run 1 exit=1 # tests 5 # pass 4 # fail 1  sha=f943b6c7
+#### done 2026-10-25T12:38:24+05:30

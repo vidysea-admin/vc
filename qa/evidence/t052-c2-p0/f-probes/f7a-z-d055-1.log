@@ -1,0 +1,117 @@
+[testlock] running slot 0 (free RAM 6.66 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 --test-reporter=tap --test-name-pattern ^D055 prompt original deadline: actual early rollback rejects observably after every cleanup$ packages/db/tests/facts.test.ts packages/db/tests/decisions.test.ts packages/engine/tests/scribe-persistence.test.ts packages/engine/tests/scribe-checkpointer.test.ts packages/engine/tests/scribe-per-fact.test.ts
+TAP version 13
+1..0
+# Subtest: packages\\db\\tests\\decisions.test.ts
+ok 1 - packages\\db\\tests\\decisions.test.ts
+  ---
+  duration_ms: 427.3477
+  type: 'test'
+  ...
+1..0
+# Subtest: packages\\db\\tests\\facts.test.ts
+ok 2 - packages\\db\\tests\\facts.test.ts
+  ---
+  duration_ms: 437.2548
+  type: 'test'
+  ...
+# node:internal/modules/run_main:107
+#     triggerUncaughtException(
+#     ^
+# Error: Transform failed with 2 errors:
+# C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\src\\scribe\\graph.ts:2155:367: ERROR: Unexpected ")" in regular expression
+# C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\src\\scribe\\graph.ts:3197:432: ERROR: Unexpected ")" in regular expression
+#     at failureErrorWithLog (D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:1752:15)
+#     at D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:1019:50
+#     at responseCallbacks.<computed> (D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:886:9)
+#     at handleIncomingPacket (D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:941:12)
+#     at Socket.readFromStdout (D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:864:7)
+#     at Socket.emit (node:events:508:28)
+#     at addChunk (node:internal/streams/readable:559:12)
+#     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+#     at Readable.push (node:internal/streams/readable:390:5)
+#     at Pipe.onStreamRead (node:internal/stream_base_commons:189:23) {
+#   name: 'TransformError'
+# }
+# Node.js v24.13.1
+# Subtest: packages\\engine\\tests\\scribe-checkpointer.test.ts
+not ok 3 - packages\\engine\\tests\\scribe-checkpointer.test.ts
+  ---
+  duration_ms: 859.6068
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# node:internal/modules/run_main:107
+#     triggerUncaughtException(
+#     ^
+# Error: Transform failed with 1 error:
+# C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-per-fact.test.ts:758:400: ERROR: Unexpected ")" in regular expression
+#     at failureErrorWithLog (D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:1752:15)
+#     at D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:1019:50
+#     at responseCallbacks.<computed> (D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:886:9)
+#     at handleIncomingPacket (D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:941:12)
+#     at Socket.readFromStdout (D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:864:7)
+#     at Socket.emit (node:events:508:28)
+#     at addChunk (node:internal/streams/readable:559:12)
+#     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+#     at Readable.push (node:internal/streams/readable:390:5)
+#     at Pipe.onStreamRead (node:internal/stream_base_commons:189:23) {
+#   name: 'TransformError'
+# }
+# Node.js v24.13.1
+# Subtest: packages\\engine\\tests\\scribe-per-fact.test.ts
+not ok 4 - packages\\engine\\tests\\scribe-per-fact.test.ts
+  ---
+  duration_ms: 156.9642
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-per-fact.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# node:internal/modules/run_main:107
+#     triggerUncaughtException(
+#     ^
+# Error: Transform failed with 2 errors:
+# C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\src\\scribe\\graph.ts:2155:367: ERROR: Unexpected ")" in regular expression
+# C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\src\\scribe\\graph.ts:3197:432: ERROR: Unexpected ")" in regular expression
+#     at failureErrorWithLog (D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:1752:15)
+#     at D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:1019:50
+#     at responseCallbacks.<computed> (D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:886:9)
+#     at handleIncomingPacket (D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:941:12)
+#     at Socket.readFromStdout (D:\\vc\\node_modules\\.pnpm\\esbuild@0.28.2\\node_modules\\esbuild\\lib\\main.js:864:7)
+#     at Socket.emit (node:events:508:28)
+#     at addChunk (node:internal/streams/readable:559:12)
+#     at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+#     at Readable.push (node:internal/streams/readable:390:5)
+#     at Pipe.onStreamRead (node:internal/stream_base_commons:189:23) {
+#   name: 'TransformError'
+# }
+# Node.js v24.13.1
+# Subtest: packages\\engine\\tests\\scribe-persistence.test.ts
+not ok 5 - packages\\engine\\tests\\scribe-persistence.test.ts
+  ---
+  duration_ms: 764.7807
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 2
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2654.9862

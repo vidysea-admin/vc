@@ -1,0 +1,17 @@
+[testlock] running slot 0 (free RAM 6.74 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 --test-reporter=tap --test-name-pattern ^D-016 deadline: the post-check runs AT the abort.*$ packages/db/tests/erasure.test.ts
+TAP version 13
+# Subtest: D-016 deadline: the post-check runs AT the abort (in the finally), not only when the stuck op settles: a fact that landed before the stuck edge write is already gone when the writer returns
+ok 1 - D-016 deadline: the post-check runs AT the abort (in the finally), not only when the stuck op settles: a fact that landed before the stuck edge write is already gone when the writer returns
+  ---
+  duration_ms: 121.8472
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 568.4783

@@ -1,0 +1,27 @@
+[testlock] running slot 0 (free RAM 6.64 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 --test-reporter=tap --test-name-pattern ^D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes$ packages/engine/tests/scribe-persistence.test.ts
+TAP version 13
+# DIAGT1 {"msg":"Scribe original settlement and owned cleanup failed.","roots":7,"tree":[{"d":0,"ctor":"FencedWriterDeadlineError","msg":"FencedWriterDeadlineError: the write did not finish within the fenced-writer dea","receipt":true,"accepted":true,"born":false,"expected":false,"forced":true,"frame":"packages\\\\engine\\\\src\\\\scribe\\\\graph.ts:1288:20) <- packages\\\\engine\\\\src\\\\scribe\\\\graph.ts:3020:20)"},{"d":1,"ctor":"FencedWriterDeadlineError","msg":"FencedWriterDeadlineError: the write did not finish within the fenced-writer dea","receipt":true,"accepted":true,"born":true,"expected":true,"forced":false,"frame":"packages\\\\db\\\\src\\\\erasure.ts:879:23) <- packages\\\\db\\\\src\\\\erasure.ts:889:12)"},{"d":0,"ctor":"FencedWriterDeadlineError","msg":"FencedWriterDeadlineError: the write did not finish within the fenced-writer dea","receipt":true,"accepted":true,"born":false,"expected":false,"forced":true,"frame":"packages\\\\engine\\\\src\\\\scribe\\\\nodes.ts:1887:22)"},{"d":1,"ctor":"FencedWriterDeadlineError","msg":"FencedWriterDeadlineError: the write did not finish within the fenced-writer dea","receipt":true,"accepted":true,"born":false,"expected":false,"forced":true,"frame":"packages\\\\db\\\\src\\\\facts.ts:2144:23)"},{"d":2,"ctor":"FencedWriterDeadlineError","msg":"FencedWriterDeadlineError: the write did not finish within the fenced-writer dea","receipt":true,"accepted":true,"born":true,"expected":true,"forced":false,"frame":"packages\\\\db\\\\src\\\\erasure.ts:909:23) <- packages\\\\engine\\\\src\\\\scribe\\\\graph.ts:901:20)"},{"d":0,"ctor":"AggregateError","msg":"writeApproved: owned cleanup failed","receipt":false,"born":false,"expected":false,"forced":true,"frame":"packages\\\\engine\\\\src\\\\scribe\\\\nodes.ts:1880:32)"},{"d":1,"dup":true,"ctor":"FencedWriterDeadlineError"},{"d":1,"dup":true,"ctor":"FencedWriterDeadlineError"},{"d":1,"ctor":"AggregateError","msg":"recordApprovedSessionSummary: owned writer settlement failed","receipt":false,"born":false,"expected":false,"forced":true,"frame":"packages\\\\db\\\\src\\\\facts.ts:1938:23)"},{"d":2,"dup":true,"ctor":"FencedWriterDeadlineError"},{"d":1,"ctor":"AggregateError","msg":"recordApprovedSessionSummary: owned writer settlement failed","receipt":false,"born":false,"expected":false,"forced":false,"frame":"packages\\\\db\\\\src\\\\facts.ts:1938:23)"},{"d":2,"dup":true,"ctor":"FencedWriterDeadlineError"},{"d":0,"dup":true,"ctor":"AggregateError"},{"d":0,"ctor":"AggregateError","msg":"Scribe original settlement and owned compensation failed.","receipt":true,"accepted":true,"born":false,"expected":false,"forced":true,"frame":"packages\\\\engine\\\\src\\\\scribe\\\\graph.ts:1281:24)"},{"d":1,"ctor":"AggregateError","msg":"Scribe owned compensation failed.","receipt":true,"accepted":true,"born":false,"expected":false,"forced":true,"frame":"packages\\\\engine\\\\src\\\\scribe\\\\graph.ts:1229:30) <- packages\\\\engine\\\\src\\\\scribe\\\\graph.ts:1278:11)"},{"d":2,"dup":true,"ctor":"FencedWriterDeadlineError"},{"d":2,"dup":true,"ctor":"AggregateError"},{"d":2,"dup":true,"ctor":"AggregateError"},{"d":2,"ctor":"AggregateError","msg":"recordApprovedSessionSummary: owned writer settlement failed","receipt":false,"born":false,"expected":false,"forced":false,"frame":"packages\\\\db\\\\src\\\\facts.ts:1938:23)"},{"d":3,"dup":true,"ctor":"FencedWriterDeadlineError"},{"d":0,"dup":true,"ctor":"AggregateError"}]}
+# Subtest: D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes
+not ok 1 - D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes
+  ---
+  duration_ms: 620.9743
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:731:3'
+  failureType: 'testCodeFailure'
+  error: 'Scribe original settlement and owned cleanup failed.'
+  code: 'ERR_TEST_FAILURE'
+  name: 'AggregateError'
+  stack: |-
+    <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\src\scribe\graph.ts:2156:28)
+    runNextTicks (node:internal/process/task_queues:64:5)
+    process.processTimers (node:internal/timers:538:9)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2147.3551

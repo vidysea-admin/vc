@@ -1,0 +1,65 @@
+#### F3 3a at 2026-10-25T12:34:01+05:30
+AR-4' applied, CRLF=true
+erasure.ts LF sha 609206f3965a56e9
+erasure.test.ts LF sha 12948475c2f88fe6
+graph.ts LF sha d7196ec548d235f8
+tsc db exit=0
+tsc engine exit=0
+-- 128
+run 1 exit=1 # tests 128 # pass 111 # fail 17  sha=4f58b804
+not ok 43 -  not ok 45 -  not ok 47 -  not ok 49 -  not ok 64 -  not ok 65 -  not ok 66 -  not ok 104 - not ok 105 - not ok 106 - not ok 107 - not ok 108 - not ok 109 - not ok 116 - not ok 119 - not ok 120 - not ok 127 - 
+-- rows 5-7 x3
+run 1 exit=0 # tests 3 # pass 3 # fail 0  sha=ae60a19b
+run 2 exit=0 # tests 3 # pass 3 # fail 0  sha=81a73316
+run 3 exit=0 # tests 3 # pass 3 # fail 0  sha=67b36c99
+-- rows 64-66 x5
+run 1 exit=1 # tests 3 # pass 0 # fail 3  sha=1d56fa23
+run 2 exit=1 # tests 3 # pass 0 # fail 3  sha=23ed0f33
+run 3 exit=1 # tests 3 # pass 0 # fail 3  sha=feca32e3
+run 4 exit=1 # tests 3 # pass 0 # fail 3  sha=500460da
+run 5 exit=1 # tests 3 # pass 0 # fail 3  sha=532af14d
+   run 1 not-ok: not ok 1 - D068 writeApproved actual local aggregate receipt rejects replacement;not ok 2 - D068 writeApproved actual local aggregate receipt rejects reordered n;not ok 3 - D068 writeApproved actual local aggregate receipt rejects foreign mem;
+   run 2 not-ok: not ok 1 - D068 writeApproved actual local aggregate receipt rejects replacement;not ok 2 - D068 writeApproved actual local aggregate receipt rejects reordered n;not ok 3 - D068 writeApproved actual local aggregate receipt rejects foreign mem;
+   run 3 not-ok: not ok 1 - D068 writeApproved actual local aggregate receipt rejects replacement;not ok 2 - D068 writeApproved actual local aggregate receipt rejects reordered n;not ok 3 - D068 writeApproved actual local aggregate receipt rejects foreign mem;
+   run 4 not-ok: not ok 1 - D068 writeApproved actual local aggregate receipt rejects replacement;not ok 2 - D068 writeApproved actual local aggregate receipt rejects reordered n;not ok 3 - D068 writeApproved actual local aggregate receipt rejects foreign mem;
+   run 5 not-ok: not ok 1 - D068 writeApproved actual local aggregate receipt rejects replacement;not ok 2 - D068 writeApproved actual local aggregate receipt rejects reordered n;not ok 3 - D068 writeApproved actual local aggregate receipt rejects foreign mem;
+-- erasure.test.ts full
+run 1 exit=0 # tests 86 # pass 86 # fail 0  sha=48fc3ffc
+-- AR (D-016 deadline callback: AR-1/AR-4'/AR-5)
+run 1 exit=0 # tests 1 # pass 1 # fail 0  sha=74df10f7
+#### m39 erasure.ts LF sha fc060ce85a2615b4
+run 1 exit=1 # tests 1 # pass 0 # fail 1  sha=eac628f4
+run 1 exit=0 # tests 8 # pass 8 # fail 0  sha=5710627f
+#### m43 erasure.ts LF sha abd4a0136836c090
+run 1 exit=1 # tests 3 # pass 0 # fail 3  sha=f71535cf
+#### m44 erasure.ts LF sha ca91872211293dad
+run 1 exit=1 # tests 1 # pass 0 # fail 1  sha=50d0e018
+   3a-m39-ar-1.log: not ok 1 - D-016 deadline: the post-check runs AT the abort (in the fi; |  error: |-  AR-4: op-declared expiry aborts the signal 
+   3a-m39-start-1.log:  | 
+   3a-m43-r57-1.log: not ok 1 - D068 recordRejectReasons actual direct-op receipt: precheck;not ok 2 - D068 recordRejectReasons actual direct-op receipt: insert o;not ok 3 - D068 recordRejectReasons actual direct-op receipt: duplicat; |  error: |-  error: |- 
+   3a-m44-ar-1.log: not ok 1 - D-016 deadline: the post-check runs AT the abort (in the fi; |  error: |-  AR-4: run() rejects with signal.reason (the overdue timer's E) 
+#### F5/F8/F7a on ad60624 (base erasure) at 2026-10-25T12:35:32+05:30
+patched 2
+t046 dump inserted at line 758
+d055 instrumented (CRLF=false)
+erasure.ts LF sha e1efe6f1bfe65a8d
+graph.ts LF sha 357759afc93ac74b
+per-fact LF sha b76f5aba65e23727
+persistence LF sha 7220bd0e5022546e
+run 1 exit=1 # tests 1 # pass 0 # fail 1  sha=d4f860e3
+run 1 exit=1 # tests 1 # pass 0 # fail 1  sha=ab042f72
+run 1 exit=1 # tests 2 # pass 0 # fail 2  sha=0ddba1e7
+run 1 exit=1 # tests 5 # pass 2 # fail 3  sha=09217d26
+restored fz: erasure.ts LF sha e1efe6f1bfe65a8d graph.ts LF sha d7196ec548d235f8 erasure.test LF sha d93b5d7fc98199c3 per-fact LF sha c6a470b13d9dd984 persistence LF sha c06f99937b8c9752
+#### F7a on frozen fr at 2026-10-25T12:35:45+05:30
+t046 dump inserted at line 758
+d055 instrumented (CRLF=true)
+run 1 exit=1 # tests 2 # pass 1 # fail 1  sha=e3abcc23
+run 1 exit=1 # tests 5 # pass 3 # fail 2  sha=a8d86166
+#### F7b T046 private on 36bae79 at 2026-10-25T12:35:56+05:30; node v24.13.1
+packages/engine/src/scribe/graph.ts LF sha f5e26d2f9b3b150b
+packages/engine/tests/scribe-per-fact.test.ts LF sha 850b033af4b3bfba
+run 1 exit=0 # tests 1 # pass 1 # fail 0  sha=ab3dae5d
+run 2 exit=0 # tests 1 # pass 1 # fail 0  sha=ba976648
+run 3 exit=0 # tests 1 # pass 1 # fail 0  sha=c5c501f2
+#### done 2026-10-25T12:36:06+05:30

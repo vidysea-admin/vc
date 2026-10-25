@@ -1,0 +1,82 @@
+[testlock] running slot 0 (free RAM 6.47 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 --test-reporter=tap --test-name-pattern ^D068 writeApproved actual local aggregate receipt rejects .+$ packages/engine/tests/scribe-per-fact.test.ts
+TAP version 13
+# Subtest: D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array
+not ok 1 - D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array
+  ---
+  duration_ms: 192.6689
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14'
+  failureType: 'testCodeFailure'
+  error: |-
+    SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-per-fact.test.ts:1562:16)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+# {"gate":"postcheck","phases":{"outcomeErrorPresent":true,"outcomeResultPresent":false,"candidateObserved":true,"driverFacadeObserved":true,"driverInnerObserved":false,"candidateGuardStage":0,"nativeGuardStage":12,"driverTerminal":false,"nodeInjection":false,"secondReadEntered":false,"secondReadTerminal":false,"postcheckTerminal":false,"originalCount":61,"ownedCount":2,"receiptCount":0},"nodes":[{"id":0,"kind":"PartialApplyError","links":[{"via":"cause","target":1}]},{"id":1,"kind":"AssertionError","links":[]}]}
+# Subtest: D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities
+not ok 2 - D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities
+  ---
+  duration_ms: 128.4376
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14'
+  failureType: 'testCodeFailure'
+  error: |-
+    clean genuinely witnessed expiry is expected-only
+    + actual - expected
+    
+    + 'rejected'
+    - 'fulfilled'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'fulfilled'
+  actual: 'rejected'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-per-fact.test.ts:1640:18)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append
+not ok 3 - D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append
+  ---
+  duration_ms: 100.9534
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14'
+  failureType: 'testCodeFailure'
+  error: |-
+    clean genuinely witnessed expiry is expected-only
+    + actual - expected
+    
+    + 'rejected'
+    - 'fulfilled'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'fulfilled'
+  actual: 'rejected'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-per-fact.test.ts:1640:18)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 0
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2136.5407

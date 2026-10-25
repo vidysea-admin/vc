@@ -1,0 +1,54 @@
+[testlock] running slot 0 (free RAM 6.62 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 --test-reporter=tap --test-name-pattern ^D055 prompt original deadline: actual early rollback rejects observably after every cleanup$ packages/db/tests/facts.test.ts packages/db/tests/decisions.test.ts packages/engine/tests/scribe-persistence.test.ts packages/engine/tests/scribe-checkpointer.test.ts packages/engine/tests/scribe-per-fact.test.ts
+TAP version 13
+1..0
+# Subtest: packages\\db\\tests\\decisions.test.ts
+ok 1 - packages\\db\\tests\\decisions.test.ts
+  ---
+  duration_ms: 435.1118
+  type: 'test'
+  ...
+1..0
+# Subtest: packages\\db\\tests\\facts.test.ts
+ok 2 - packages\\db\\tests\\facts.test.ts
+  ---
+  duration_ms: 473.4204
+  type: 'test'
+  ...
+1..0
+# Subtest: packages\\engine\\tests\\scribe-checkpointer.test.ts
+ok 3 - packages\\engine\\tests\\scribe-checkpointer.test.ts
+  ---
+  duration_ms: 1550.3981
+  type: 'test'
+  ...
+1..0
+# Subtest: packages\\engine\\tests\\scribe-per-fact.test.ts
+ok 4 - packages\\engine\\tests\\scribe-per-fact.test.ts
+  ---
+  duration_ms: 1638.3233
+  type: 'test'
+  ...
+# D055UNDO {"driver":"rollback","rejectDriver":true,"k":0,"of":1,"isSentinel":true,"msg":"D055 actual rollback cleanup rejection sentinel"}
+# Subtest: D055 prompt original deadline: actual early rollback rejects observably after every cleanup
+not ok 5 - D055 prompt original deadline: actual early rollback rejects observably after every cleanup
+  ---
+  duration_ms: 247.0201
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fr\\packages\\engine\\tests\\scribe-persistence.test.ts:2590:5'
+  failureType: 'testCodeFailure'
+  error: 'D055 actual rollback cleanup rejection sentinel'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fr\packages\engine\tests\scribe-persistence.test.ts:2598:24)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 4
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6117.7193

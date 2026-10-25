@@ -1,0 +1,17 @@
+[testlock] running slot 0 (free RAM 6.71 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 --test-reporter=tap --test-name-pattern ^T046 private invocation metadata cannot authorize nested second graph sharing DB student and thread$ packages/engine/tests/scribe-per-fact.test.ts
+TAP version 13
+# Subtest: T046 private invocation metadata cannot authorize nested second graph sharing DB student and thread
+ok 1 - T046 private invocation metadata cannot authorize nested second graph sharing DB student and thread
+  ---
+  duration_ms: 91.1946
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1891.892
