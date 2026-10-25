@@ -1,49 +1,31 @@
-# Verdict: w1-chat-privacy (coordinator B of a DUAL check)
-**Cycle checked: 0**
+# Verdict: w1-chat-privacy (coordinator B of a DUAL check), repair re-check
+**Cycle checked: 1**
 **Checker:** /checker coordinator B (Mode A), blind to coordinator A
-**Unit:** worktree D:/vc/.worktrees/w1-chat-privacy, branch wave/w1-chat-privacy, head 8c6657e (code 8dba0ac), manifest qa/manifests/w1-chat-privacy.md
-**Checked at:** 2026-10-25T07:28:15+05:30
-**Policy-Version:** proportional-verification/2026-10-19.17 (Tier L, dual-trigger security apps/api/src/chat.ts:724)
+**Unit:** worktree D:/vc/.worktrees/w1-chat-privacy, branch wave/w1-chat-privacy, head 8835203 (code 4135e1c), Fix cycle 1, repair base 8c6657e
+**Checked at:** 2026-10-25T07:45:06+05:30
+**Policy-Version:** proportional-verification/2026-10-19.17 (Tier L, dual-trigger security apps/api/src/chat.ts)
 
-VERDICT: FAIL (C1)
+VERDICT: PASS
 
-In a dual check this verdict has no side effects: findings below are PROPOSED-ISSUE lines; qa/issues.jsonl was not edited.
+In a dual check this verdict has no side effects: findings are PROPOSED-ISSUE lines; qa/issues.jsonl was not edited.
 
-## Re-run of the maker's checks (executed by me, via vc-testlock, worktree at 8c6657e, clean)
-- `tsx --test` chat-privacy, chat, chat-profile, anonymous-route, anonymous-zero-persistence, partners, partner-voice, main, server, plus voice, voice-crisis-turn, voice-history (importers of redactPii): 459 tests, 459 pass, 0 fail.
-- packages/schemas `tsx --test tests/redact.test.ts` (with my benign file): 23 pass, 0 fail. packages/db `tests/student-store.test.ts`: 19 pass, 0 fail.
-- `tsc --noEmit` in apps/api and packages/schemas: exit 0, no output.
-- Importers of redactPii (git grep): chat.ts, voice.ts, db chat-threads.ts, profile-facts.ts, schemas index; their test files are in the runs above.
+## Diff judged
+8c6657e..4135e1c: chat.ts:727 only code change: the per-student budget key now carries `slotRank` (2 crisis that can escalate, 1 concern that can escalate, 0 textless: unconsented minor or over-long), `sha256("budget\0tenant\0student\0rank")`. No other behaviour touched; the reply and LK10 helpline path is not in the diff.
 
-## Hostile probes (my own, outside the tree, scratchpad chk-cp-B/hostile.test.mts, hostile2.test.mts, overredact.test.mts)
-### C1 — FAIL
-Holds: 30 parallel and 25 sequential crisis turns over distinct threads: every turn 200 + helpline, escalations capped at 10, flags 10, chat_turns 20, usage 10. 15 crisis turns in one thread: 1 escalation. Crisis reply byte-identical (modulo turnId) for all 14 turns, over and under budget (LK10 wording unchanged). A concern turn past budget still gets the crisis reply (200). Unconsented minor, 25 threads: 10 flags, 0 stored turns, all helpline. No reset at +9 min; other tenant id (tenant-b, TENANT-A, Tenant-A) gets its own budget, which is correct because tenant comes from the signed token.
-Fails (the "first crisis turn is never blocked" criterion, and a regression of the p1-u8r cycle 2 item 1 guarantee that a textless or lower-level holder never silences a turn that can escalate):
-1. H-C1a: 10 CONCERN turns on 10 threads (10 escalations), then the student's first CRISIS turn on a new thread: helpline only, 0 escalations, 0 new flag rows (flags stay at 10). The budget (chat.ts:724 `takeCrisisBudget`) is spent by concern-level turns because `slotKey` is defined for `level !== "none"` (chat.ts:~706), but the criterion is about crisis turns, and the first crisis turn must still be flagged and escalated.
-2. H-C1b: 10 over-long (textless) crisis turns on 10 threads (10 flag rows, 0 escalations possible), then a short real crisis turn: helpline only, 0 escalations, no flag. H-C1j: same with ONE thread, 12 over-long turns then a real crisis turn: escalations 0 -> 0, flags 10. Before this unit the real turn took over the rank-0 slot and escalated (existing test p1-u8r "An over-long crisis does not silence a concern turn either", chat-privacy.test.ts:720-725 covers only 1 prior turn, so it stays green).
-Both are reproducible with the shipped fixtures in a fresh world; the student is never denied the reply, but a human reviewer never sees the one turn that could have been reviewed. The maker's manifest lists neither case.
-PROPOSED-ISSUE (high, security/safety): w1-chat-privacy per-student crisis write budget is spent by concern-level and textless (over-long, unconsented) turns, so after 10 of them the first escalatable crisis turn in the window is answered but never flagged or escalated. Fix direction: spend/limit the budget separately per kind (escalating vs textless vs concern), or always allow the first escalation-capable turn of each level per window; add the two tests above (10 concern then crisis; 12 over-long then crisis).
+## Executed (all via vc-testlock, worktree clean at 8835203)
+- My hostile suite, scratchpad chk-c1-B/hostile.test.mts: 7 tests, 7 pass (V1-V6, V5b).
+- Same suite against a mutated COPY (budget key without slotRank = the cycle-0 behaviour), scratchpad chk-c1-B/copy: V1 and V5b FAIL, V3 shows the starvation (concern turn after a crisis flood: escalation delta 0, totals esc 10 flags 10) while on the real head it is delta 1. So the tests discriminate the defect and the fix removes it.
+- `tsx --test` chat-privacy, chat, chat-profile, voice-crisis-turn: 157 tests, 157 pass, 0 fail. `tsc --noEmit` in apps/api: exit 0.
 
-### C2 — PASS with proposed issues
-Stated names, 19 variants, checked in stored rows, replay and GET history: upper case, lower case, Hinglish "mera naam priya sharma hai", punctuation ("priya!!", "Priya, and"), initials ("p. r. sharma", "Priya R. Sharma"), name-like common words (will/hope, grace, rose lee), "The name is Bond", "This is Anjali", "I'm"/curly apostrophe, name echoed in reply in upper/lower/possessive/hyphen/underscore/glued/"M. Kulkarni"/"Kulkarni, Meera" (profile and stated): no leak in any. Leaks found (all pre-existing detectors, none introduced here):
-- PROPOSED-ISSUE (low): `main Priya hoon` and `naam hai Priya` (the builder's stated Hinglish residual; U8r P3) store the name. Not in the C2 text, which names lowercase, in-reply and variants; judged PROPOSED-ISSUE, not FAIL.
-- PROPOSED-ISSUE (low-medium): a quoted name `my name is "Priya Sharma".` leaks both tokens (NAME_TOKEN needs a letter first; the quote ends the run). Same for `(Priya)` / `'Priya'` by the same regex.
-- Not a leak but noted: "Verma, Anjali here" (no lead phrase) is outside the heuristic, as documented in redact.ts.
+## C1 outcome, by the checker's questions
+1. Mixed flood (11 each of concern, over-long crisis, over-long concern, unconsented-minor crisis and concern, ~55 threads) then a real crisis turn: escalations +1, flag row +1, unchanged helpline (V1). Same-thread flood (45 turns on one thread) then crisis on that thread and on a new thread: escalated (V2). Parallel flood of 40 concern/over-long turns then crisis: +1 escalation, +1 flag (V5b).
+2. Cross-kind starvation: rank 2 needs `crisisGuard(text).level === crisis` AND consent AND not over-long (chat.ts slotRank), so over-long crisis text and textless turns rank 0 and cannot spend rank-2 slots; a benign text never gets a slot or budget. Reverse direction also holds: 30 crisis turns (10 escalate) leave the concern budget intact (V3: concern after the flood escalates).
+3. Bounds: after 30+ turns of each of 3 kinds (V3): escalations 20 (10 crisis + 10 concern), flags 30, chat_turns 40; 30 parallel crisis: capped at 10 (V3 first phase, V5 parallel mix: esc 20, flags 30). So <=3x10 writes per window per student, 2x at a window edge, as the builder claims; 30+ crisis turns still capped at 10 (V4: 12 crisis -> 10).
+4. Every turn answered 200 with the helpline when crisis (asserted on every crisis-kind turn, in and over budget, in all tests).
+5. Key: tenant and student come from the signed token; thread switching and same-thread alternation after the cap add 0 escalations (V6: stays 10); a different tenant string ("Tenant-A") has its own budget (correct, different identity); no reset at ~9 min, fresh budget after the window (V4).
+C2-C4: diff touches nothing they depend on; their tests are in the 157 green.
 
-### C3 — PASS with a proposed issue
-Port throws (async Error, rejected string/undefined, sync throw): ordinary turn 503, no model call, 0 chat_turns; crisis turn helpline, nothing stored, name nowhere; works after recovery (maker tests re-run green). Malformed port output (null/undefined/{}/[null]) gives 500 and stores nothing (fail closed by error).
-- PROPOSED-ISSUE (medium): a profile port that never settles (the "times out" case) has no deadline in chat.ts (`pathwaysFacts`, chat.ts:~559): my crisis turn was still HUNG after 3 s with no helpline reply and nothing stored. Never raw, so C3's text holds, but a student in crisis gets no answer while the port hangs; a race-timeout there should treat it as `profileDown` (answer crisis, store nothing).
-
-### C4 — PASS with a stated-risk proposed issue
-Real escalateTurns with an echoing classifier, six raw texts (stated lower/upper/Hinglish names, phone `+91 98765 43210`, email, profile name inside the text, profile name that IS the wording "Kill"/"Myself"): in every case the escalate input, classifier calls, stored crisis_flag_reviews rationale and the whole fake Db contain none of the name, phone or email, the raw text is never restated, and the crisis wording is still visible to the classifier. `escalationText` last resort no longer returns raw.
-- PROPOSED-ISSUE (medium, builder's stated residual): profile outage + crisis: a profile-only name inside the crisis text ("Meera Kulkarni is my friend") reaches escalateTurns (leak list [meera, kulkarni]); stated names, phone and email are still redacted. Judged against C4 text ("beyond what D-093 6A allows") as a documented accepted gap unchanged from p1-u8r, not a FAIL; needs the engine to redact the stored rationale.
-
-### redact.ts lower-case initial change
-30 benign English + Hinglish sentences (incl. "i am s. and i want to study", "my name is a.", "call me if the fees change", "mera budget 20 lakh hai"): HEAD output identical to base da2faad on all 30; the only two redacted ("name is required on the form", "mera naam hai kya form mein") are pre-existing and identical in base. Initials still name-continue: "my name is s. kumar", "i am j. r. d. tata", "call me k. v. rao" redacted; trailing/lone initials ("i am a. i want to study", "my name is s.") untouched. 20k-initial run: 49 ms (linear).
-
-### Other residuals judged
-- In-memory per-process budget, fixed window 2x edge: PROPOSED-ISSUE (low), accepted design (restart or second process resets), documented.
-- Brief labels ISS-198 as "fails closed", but the ledger row ISS-198 is the lower-case initial; the unit covered both. No action.
-
-## Commands (all through `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 900 ...`)
-hostile.test.mts 13 tests (11 pass, 2 expected-fail asserts = the C1 findings; the rest print findings), hostile2.test.mts 9 pass (informational), overredact.test.mts + redact.test.ts 23/23, apps/api 12 files 459/459, db student-store 19/19, tsc x2 exit 0.
+## Residuals judged against C1 text ("separate, bounded limiter... first crisis turn never blocked... writes capped")
+- In-memory per-process budget (N processes -> N x the cap) and fixed-window edge (2x): writes stay bounded, first crisis turn is admitted; PROPOSED-ISSUE (low, hardening), not FAIL. The same in-memory design already governs the p1-u8r slots.
+- PROPOSED-ISSUE (low): the budget unit is spent before the graph runs, so a turn that then fails (thrown error, retryable provider failure) consumes a unit without a write. A crisis turn makes no model call (LK4), so I could not drive this from a student; bounded by the same cap.
+- PROPOSED-ISSUE (low, inherent): the 11th genuine crisis turn in a window from one student is answered but not flagged/escalated; by design of the cap.
