@@ -574,9 +574,9 @@ export async function startApi(
     if ([RESERVED_TENANT_IDS_ENV, PARTNER_OWN_TENANTS_ENV].some((name) => (env[name] ?? "").trim() !== "")) {
       logPartnerNote("reserved_tenant_ids_ignored", `${RESERVED_TENANT_IDS_ENV} and ${PARTNER_OWN_TENANTS_ENV} are ignored: ${PARTNER_PEPPER_ENV} is not set, so partner keys are off`, http?.partners?.log);
     }
-    // pc-hardening-4 P2 (ISS-pc-hardening-3-4): the student-JWT partner-tenant guard (guardStudentVerifier below) exists only with a partner registry, so with the pepper unset it is off. Say so
+    // pc-hardening-4 P2 (ISS-pc-hardening-3-4): the student-JWT and counsellor-JWT partner-tenant guards (guardStudentVerifier / guardCounsellorVerifier below) exist only with a partner registry, so with the pepper unset they are off. Say so
     // once, loudly enough for an operator, without ids or secrets; behaviour is unchanged (no connection is opened here, startup is not blocked).
-    logPartnerNote("partner_tenant_guard_off", `${PARTNER_PEPPER_ENV} is not set: partner keys are off, so the student-JWT partner-tenant guard is not installed`, http?.partners?.log);
+    logPartnerNote("partner_tenant_guard_off", `${PARTNER_PEPPER_ENV} is not set: partner keys are off, so the student-JWT and counsellor-JWT partner-tenant guards are not installed`, http?.partners?.log);
   }
   const partnerRegistry =
     partnerPepper !== undefined
@@ -658,6 +658,9 @@ export async function startApi(
   // pc-hardening-3 K1 (ISS-pc-reserved-ids-6): with partners on, every student JWT verifier (chat, profile, voice sessions; injected or default) also refuses a token whose tenant
   // claim equals an existing partner id (auth.ts refuseTenantClaims), read from the partner store the registry already holds (no new connection). Partners off: unchanged.
   const guardStudentVerifier = (v: StudentJwtVerifier): StudentJwtVerifier => (partnerRegistry ? refuseTenantClaims(v, (tenantId) => partnerRegistry.isPartnerTenantClaim(tenantId)) : v);
+  // w1-counsellor-tenant-guard (ISS-pc-hardening-3-3, gate counsellor-jwt-partner-tenant answered (a)): the counsellor/admin/approver verifier (default or injected) gets the same guard, the same
+  // fold and the same registry check, so a counsellor JWT whose tenant claim folds to a partner id gets the uniform 401 on every counsellor route. Partners off: unchanged (the note above says so).
+  const guardCounsellorVerifier = (v: JwtVerifier): JwtVerifier => (partnerRegistry ? refuseTenantClaims(v, (tenantId) => partnerRegistry.isPartnerTenantClaim(tenantId)) : v);
   // P1 U8: the chat flag, the A20 gate, the tracing check, the student JWT config and the required ports are all checked BEFORE anything connects.
   let chatSetup: { chat: StartApiChatOptions; verifier: StudentJwtVerifier; kb: StudentKbPort; speakers: SpeakersFile } | undefined;
   if (httpSetup && chatEnabledFromEnv(env)) {
@@ -792,7 +795,7 @@ export async function startApi(
       // (ApiDeps.webhooks undefined), same as a test that never configures it.
       const webhookDestinationUrl = env.VC_WEBHOOK_DESTINATION_URL;
       const handler = createApiHandler({
-        verifier: httpSetup.verifier,
+        verifier: guardCounsellorVerifier(httpSetup.verifier),
         dbForTenant: wiring.dbForTenant,
         graphForTenant: wiring.graphForTenant,
         ...(http?.log ? { log: http.log } : {}),
