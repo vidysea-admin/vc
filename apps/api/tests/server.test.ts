@@ -11,8 +11,8 @@ import { fileURLToPath } from "node:url";
 import { SignJWT, type JWTPayload } from "jose";
 import { COLLECTION_NAMES, ERASURE_PENDING_TTL_MS, VC_DB_NAME, erasureFenceKey, getVcDb, tenantScopedDb } from "@vc/db";
 import { createFakeMongoClient, INDEX_PLAN, TEST_ERASURE_CONFIG, type FakeDb } from "@vc/db/testing";
-import { MockProvider } from "@vc/providers";
-import { InMemoryWebhookEmitGapLedger, InMemoryWebhookOutbox, type WebhookEmitGapLedger, type WebhookEvent, type WebhookOutbox } from "@vc/engine";
+import { AiUnavailableError, MockProvider, ProviderAuthorizationRefusedError, type MockResponse } from "@vc/providers";
+import { InMemoryWebhookEmitGapLedger, InMemoryWebhookOutbox, runLiveCards, type KnowledgeAsker, type WebhookEmitGapLedger, type WebhookEvent, type WebhookOutbox } from "@vc/engine";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { API_ROUTES, createApiHandler, createApiServer, createTenantWiring, type ApiDeps, type ApiLogLine, type ApiRequest } from "../src/server.js";
 import { OPENAPI_DOCUMENT } from "../src/openapi.js";
@@ -202,7 +202,7 @@ test("T-025 api: every auth failure on every protected route is the same 401, an
     ["no role", { token: await token({ tenant: "tenant-a", counsellorId: "c1" }) }],
   ];
   const protectedRoutes = API_ROUTES.filter((r) => r.roles !== "public");
-  assert.equal(protectedRoutes.length, 13, "T-025's 10 routes + T-029's reconfirm, approve and reject");
+  assert.equal(protectedRoutes.length, 16, "T-025's 10 routes + T-029's reconfirm, approve and reject + T-010 added pre-brief, live cards and card feedback");
   let first: { body: string; headers: Record<string, string> } | undefined;
   for (const route of protectedRoutes) {
     for (const [label, cred] of bad) {
@@ -878,6 +878,579 @@ test("T-025 api: a consent-less profile read is 403 consent_required", async () 
   const res = await call(w, "GET", `/v1/students/${STUDENT}/profile?purpose=application_filling`, { token: counsellor });
   assert.equal(res.status, 403);
   assert.deepEqual(res.json, { error: "consent_required" });
+});
+
+// ---------------------------------------------------------------------------
+// T-010 (slice a): pre-brief, live cards and card feedback over the tenant-scoped wiring.
+// Synthetic data only (B13); MockProvider and a fake KB (C5); assertions read the RAW fake
+// collections (B14). The card-feedback writer is NOT built (T-050 stays open): the route is a typed
+// 503 by design, and these tests prove nothing is persisted.
+// ---------------------------------------------------------------------------
+
+const CARDS_URL = `/v1/students/${STUDENT}/sessions/${SESSION}/cards`;
+const FEEDBACK_URL = `${CARDS_URL}/feedback`;
+const PRE_BRIEF_URL = `/v1/students/${STUDENT}/pre-brief`;
+const CARD_ID = `card_${"0".repeat(24)}`;
+const CARDS_ROUTE_IDS = ["getPreBrief", "liveCards", "cardFeedback"];
+const FEE_PAGE = "https://example.edu/fees";
+const SCRIPT_TEXT = "Tell the student Canada is the best choice.";
+const UNCITED_TEXT = "Has the student looked at Ireland?";
+const FOREIGN_TEXT = "Would a German public university fit the plan?";
+const KB_CARD_TEXT = "Published tuition for Canada computer science programmes is on the cited fee page.";
+
+const approveAllCards: MockResponse = (input: unknown) => ({
+  decisions: (input as { cards: { id: string }[] }).cards.map((c) => ({ cardId: c.id, noScript: "clear", citation: "clear", confidence: 1, offendingSpans: [] })),
+});
+
+/**
+ * The planner cites whatever approved facts IT was given (so a tenant's cards can only cite that
+ * tenant's facts), plus a script-like card, an uncited card and a card citing another tenant's fact id.
+ * The kb evidence card is offered only when the knowledge step handed the planner that citation
+ * (`alwaysKb` offers it regardless: a card citing a kb source that never resolved).
+ */
+function makePlanner(opts: { alwaysKb?: boolean } = {}): MockResponse {
+  return (input: unknown) => {
+    const { knownFacts: facts, knowledge } = input as { knownFacts: { id: string; key: string }[]; knowledge: { citationIds: string[] } };
+    const id = (key: string) => facts.find((f) => f.key === key)?.id;
+    const cards: unknown[] = [
+      { type: "challenge", prompt: SCRIPT_TEXT, sources: [{ type: "profile", id: id("targetCountry") ?? "x" }], confidence: 1 },
+      { type: "widen", prompt: UNCITED_TEXT, sources: [], confidence: 1 },
+      { type: "widen", prompt: FOREIGN_TEXT, sources: [{ type: "profile", id: "fact-from-another-tenant" }], confidence: 1 },
+    ];
+    if (id("targetCountry")) {
+      cards.push({
+        type: "widen",
+        prompt: "Besides Canada, has the student looked at countries where public universities charge little tuition?",
+        sources: [{ type: "profile", id: id("targetCountry") }],
+        confidence: 0.7,
+      });
+    }
+    if (id("budget_inr_per_year")) {
+      cards.push({
+        type: "clarify",
+        prompt: "Is the 20 lakh budget per year or for the whole course?",
+        sources: [{ type: "profile", id: id("budget_inr_per_year") }],
+        confidence: 0.6,
+      });
+    }
+    if (opts.alwaysKb || knowledge.citationIds.includes(FEE_PAGE)) {
+      cards.push({ type: "evidence", prompt: KB_CARD_TEXT, sources: [{ type: "kb", id: FEE_PAGE }], confidence: 0.9 });
+    }
+    return { cards };
+  };
+}
+
+function cardsProvider(opts: { planner?: MockResponse; verifier?: MockResponse } = {}): MockProvider {
+  return new MockProvider({ responses: { "exploration-planner": opts.planner ?? makePlanner(), verifier: opts.verifier ?? approveAllCards } });
+}
+
+const plannerCalls = (p: MockProvider) => p.calls.filter((c) => c.skillName === "exploration-planner");
+const verifierCalls = (p: MockProvider) => p.calls.filter((c) => c.skillName === "verifier");
+
+class FakeKb implements KnowledgeAsker {
+  readonly queries: string[] = [];
+  constructor(private readonly reply: Awaited<ReturnType<KnowledgeAsker["ask"]>> | Error) {}
+  async ask(query: string) {
+    this.queries.push(query);
+    if (this.reply instanceof Error) throw this.reply;
+    return this.reply;
+  }
+}
+const KB_OK = {
+  status: "ok" as const,
+  answer: "Synthetic: published tuition for Canada computer science programmes.",
+  citations: { internal: [{ node_id: "kb-node-1" }], web: [{ url: FEE_PAGE, title: "Fees" }] },
+};
+
+/** Tenant A scribed and approved its student; the cards routes are wired to a fake planner/verifier. */
+async function approvedWorld(opts: { provider?: MockProvider; kb?: KnowledgeAsker; deps?: Partial<ApiDeps> } = {}): Promise<{ w: World; planner: MockProvider }> {
+  const planner = opts.provider ?? cardsProvider();
+  const w = world({ cards: { provider: planner, skillsDir: SKILLS_DIR, ...(opts.kb ? { kb: opts.kb } : {}) }, ...(opts.deps ?? {}) });
+  await scribeToApproval(w, "tenant-a");
+  const decided = await call(w, "POST", `/v1/students/${STUDENT}/sessions/${SESSION}/approval`, {
+    token: await as("tenant-a", "counsellor-1", "counsellor"),
+    body: { action: "approve" },
+  });
+  assert.equal(decided.status, 200, decided.body);
+  w.calls.db.length = 0;
+  w.calls.graph.length = 0;
+  return { w, planner };
+}
+
+/** The raw fence row the erasure workflow writes (stamped like any tenant-scoped document). */
+function plantFence(w: World, tenant: string, studentId = STUDENT): void {
+  w.fakeDb.collection<{ _id: string }>(COLLECTION_NAMES.erasure_fences).seed({
+    _id: `${tenant}:${erasureFenceKey(studentId)}`,
+    tenantId: tenant,
+    createdAt: new Date().toISOString(),
+  } as never);
+}
+
+/** Counts reads of the fence collection and plants the fence on the `nth` one (Infinity: count only). */
+function fenceOnNthRead(w: World, tenant: string, nth: number): { reads: () => number } {
+  const coll = w.fakeDb.collection<{ _id: string }>(COLLECTION_NAMES.erasure_fences);
+  const original = coll.findOne.bind(coll);
+  let n = 0;
+  coll.findOne = (async (...args: Parameters<typeof original>) => {
+    n += 1;
+    if (n === nth) plantFence(w, tenant);
+    return original(...args);
+  }) as typeof coll.findOne;
+  return { reads: () => n };
+}
+
+const factIdsOf = (w: World, tenant: string): string[] =>
+  w.fakeDb
+    .collection<{ _id: string; tenantId?: string }>("facts")
+    .all()
+    .filter((f) => f.tenantId === tenant)
+    // Stored ids carry the "<tenant>:" prefix (packages/db tenant.ts qualifyId); callers see them bare.
+    .map((f) => f._id.replace(new RegExp(`^${tenant}:`), ""));
+
+const cardRows = (w: World) =>
+  w.fakeDb
+    .collection<AnyDoc & { _id: string }>("decisions")
+    .all()
+    .filter((d) => d.kind === "card_feedback");
+
+test("T-010 api: the cards routes are counsellor/admin only (approver 403, student-role or foreign-key token 401), and no Db is touched", async () => {
+  const { w } = await approvedWorld();
+  const expected: Record<string, [string, string]> = {
+    getPreBrief: ["GET", "/v1/students/{studentId}/pre-brief"],
+    liveCards: ["POST", "/v1/students/{studentId}/sessions/{sessionId}/cards"],
+    cardFeedback: ["POST", "/v1/students/{studentId}/sessions/{sessionId}/cards/feedback"],
+  };
+  const protectedIds = API_ROUTES.filter((r) => r.roles !== "public").map((r) => r.id);
+  for (const id of CARDS_ROUTE_IDS) {
+    assert.ok(protectedIds.includes(id), `${id} is a protected route`);
+    const route = API_ROUTES.find((r) => r.id === id)!;
+    assert.deepEqual(route.roles, ["counsellor", "admin"], id);
+    assert.deepEqual([route.method, route.path], expected[id], id);
+    const body = route.body ? { turns: START_BODY.turns } : undefined;
+    const approver = await call(w, route.method, concrete(route.path), { token: await as("tenant-a", "approver-1", "approver"), body });
+    assert.equal(approver.status, 403, `approver on ${id}`);
+    assert.deepEqual(approver.json, { error: "forbidden" });
+    for (const [label, tok] of [
+      ["student-role claim", await token({ tenant: "tenant-a", counsellorId: "s1", role: "student" })],
+      ["counsellor claim signed with a foreign key", await token({ tenant: "tenant-a", counsellorId: "c1", role: "counsellor" }, { key: otherKeys.privateKey })],
+    ] as const) {
+      const res = await call(w, route.method, concrete(route.path), { token: tok, body });
+      assert.equal(res.status, 401, `${label} on ${id}`);
+      assert.equal(res.body, '{"error":"unauthorized"}');
+    }
+  }
+  assert.deepEqual(w.calls, { db: [], graph: [] }, "no Db and no graph for any refused role");
+});
+
+test("T-010 api: live cards show only verified, cited cards (<=3) built on the token tenant's approved facts, and write nothing", async () => {
+  const { w, planner } = await approvedWorld();
+  const a = await as("tenant-a", "counsellor-1", "counsellor");
+  const rawBefore = rawAll(w.fakeDb);
+  const res = await call(w, "POST", CARDS_URL, { token: a, body: { turns: START_BODY.turns } });
+  assert.equal(res.status, 200, res.body);
+  assert.equal(res.json.status, "ok");
+  const cards = res.json.cards as { id: string; type: string; prompt: string; sources: { type: string; id: string }[] }[];
+  assert.ok(cards.length >= 1 && cards.length <= 3, `1..3 cards, got ${cards.length}`);
+  const factIds = new Set(factIdsOf(w, "tenant-a"));
+  assert.ok(factIds.size > 0);
+  for (const c of cards) {
+    assert.ok(c.sources.length >= 1, `${c.id} carries a source (B2)`);
+    for (const s of c.sources) assert.ok(s.type === "profile" && factIds.has(s.id), `${s.id} is a tenant-a approved fact`);
+  }
+  const dropped = (res.json.dropped as { reason: string }[]).map((d) => d.reason);
+  assert.ok(dropped.includes("script_like") && dropped.includes("uncited") && dropped.includes("unresolved_source"), `dropped reasons: ${dropped}`);
+  assert.equal(res.json.droppedCount, dropped.length);
+  assert.doesNotMatch(res.body, /Tell the student|Ireland|German public/, "a dropped card's text is never returned");
+  assert.equal(plannerCalls(planner).length, 1);
+  assert.equal(verifierCalls(planner).length, 1, "the mandatory semantic verifier ran once");
+  // The provider saw tenant A's approved facts only.
+  assert.deepEqual(
+    (plannerCalls(planner)[0]!.input as { knownFacts: { id: string }[] }).knownFacts.map((f) => f.id).sort(),
+    [...factIds].sort(),
+  );
+  // Read-only: the call (and a quiet second call) wrote nothing.
+  await call(w, "POST", CARDS_URL, { token: a, body: { turns: START_BODY.turns, quiet: true } });
+  assert.deepEqual(rawAll(w.fakeDb), rawBefore);
+});
+
+test("T-010 api: the API body IS the engine result (no field is rewritten, filtered or re-derived in server.ts)", async () => {
+  const { w } = await approvedWorld();
+  const res = await call(w, "POST", CARDS_URL, { token: await as("tenant-a", "counsellor-1", "counsellor"), body: { turns: START_BODY.turns } });
+  assert.equal(res.status, 200, res.body);
+  const engine = await runLiveCards(
+    { db: tenantScopedDb(w.fakeDb as unknown as Parameters<typeof tenantScopedDb>[0], "tenant-a"), provider: cardsProvider(), skillsDir: SKILLS_DIR },
+    { sessionId: SESSION, studentId: STUDENT, turns: START_BODY.turns, quiet: false },
+  );
+  assert.deepEqual(res.json, JSON.parse(JSON.stringify(engine)));
+});
+
+test("T-010 api: tenant B, with or without its own consent, can neither read nor change tenant A's student on any cards route", async () => {
+  const { w, planner } = await approvedWorld();
+  const b = await as("tenant-b", "counsellor-9", "counsellor");
+  const aFactIds = factIdsOf(w, "tenant-a");
+  const rawBefore = rawAll(w.fakeDb);
+
+  // No consent in B: 403 on all three, no provider call.
+  const refused = [
+    await call(w, "POST", CARDS_URL, { token: b, body: { turns: START_BODY.turns } }),
+    await call(w, "GET", PRE_BRIEF_URL, { token: b }),
+    await call(w, "POST", FEEDBACK_URL, { token: b, body: { cardId: CARD_ID, action: "up" } }),
+  ];
+  for (const r of refused) {
+    assert.equal(r.status, 403);
+    assert.deepEqual(r.json, { error: "consent_required" });
+  }
+  assert.equal(planner.calls.length, 0, "no provider call for a refused request");
+  assert.deepEqual(rawAll(w.fakeDb), rawBefore);
+
+  // With B's own consent (tenant A's student id, B has no facts): the boundary is the tenant, not consent.
+  await seedConsent(w, "tenant-b");
+  const rawWithConsent = rawAll(w.fakeDb);
+  const cards = await call(w, "POST", CARDS_URL, { token: b, body: { turns: START_BODY.turns } });
+  assert.equal(cards.status, 200, cards.body);
+  assert.deepEqual(cards.json.cards, [], "tenant B's planner saw no facts, and A's ids do not resolve in B");
+  assert.deepEqual((plannerCalls(planner)[0]!.input as { knownFacts: unknown[] }).knownFacts, []);
+  const dropped = (cards.json.dropped as { reason: string }[]).map((d) => d.reason);
+  assert.ok(dropped.includes("unresolved_source"), "a planted foreign fact id does not resolve");
+  const brief = await call(w, "GET", PRE_BRIEF_URL, { token: b });
+  assert.equal(brief.status, 200, brief.body);
+  assert.deepEqual(brief.json.knownFacts, []);
+  assert.deepEqual(brief.json.doNotAsk, []);
+  const feedback = await call(w, "POST", FEEDBACK_URL, { token: b, body: { cardId: CARD_ID, action: "down" } });
+  assert.equal(feedback.status, 503, feedback.body);
+  for (const res of [cards, brief, feedback]) {
+    assert.doesNotMatch(res.body, /Canada|2000000/, "no tenant-A fact value in tenant B's response");
+    for (const id of aFactIds) assert.ok(!res.body.includes(id), `tenant-A fact id ${id} absent from tenant B's response`);
+  }
+  assert.deepEqual(rawAll(w.fakeDb), rawWithConsent, "nothing was written in either tenant");
+  assert.equal(cardRows(w).length, 0);
+});
+
+test("T-010 api: without consent (none, revoked, or not covering profile_synthesis) all three routes are the same 403 and no provider is called", async () => {
+  const noConsentBodies: string[] = [];
+  const variants: [string, World, MockProvider][] = [];
+  const first = await approvedWorld();
+  await first.w.fakeDb.collection(COLLECTION_NAMES.consents).deleteMany({});
+  variants.push(["revoked after approval", first.w, first.planner]);
+  const second = await approvedWorld();
+  await second.w.fakeDb.collection(COLLECTION_NAMES.consents).deleteMany({});
+  await seedConsent(second.w, "tenant-a");
+  const consentRow = second.w.fakeDb.collection<{ _id: string; purposes?: string[] }>(COLLECTION_NAMES.consents).all()[0]!;
+  second.w.fakeDb.collection<{ _id: string; purposes?: string[] }>(COLLECTION_NAMES.consents).seed({ ...consentRow, purposes: ["counselling_session"] });
+  variants.push(["purpose profile_synthesis missing", second.w, second.planner]);
+  for (const [label, w, planner] of variants) {
+    const a = await as("tenant-a", "counsellor-1", "counsellor");
+    const before = rawAll(w.fakeDb);
+    for (const res of [
+      await call(w, "POST", CARDS_URL, { token: a, body: { turns: START_BODY.turns } }),
+      await call(w, "GET", PRE_BRIEF_URL, { token: a }),
+      await call(w, "POST", FEEDBACK_URL, { token: a, body: { cardId: CARD_ID, action: "up" } }),
+    ]) {
+      assert.equal(res.status, 403, label);
+      assert.equal(res.body, '{"error":"consent_required"}', label);
+      noConsentBodies.push(res.body);
+    }
+    assert.equal(planner.calls.length, 0, `${label}: zero provider calls`);
+    assert.deepEqual(rawAll(w.fakeDb), before, `${label}: nothing written`);
+  }
+  assert.equal(new Set(noConsentBodies).size, 1, "one constant refusal body");
+});
+
+test("T-010 api: a fenced student (erasure running) is the SAME 403 consent_required on all three routes, byte-identical to the no-consent body", async () => {
+  const { w, planner } = await approvedWorld();
+  const a = await as("tenant-a", "counsellor-1", "counsellor");
+  plantFence(w, "tenant-a");
+  const before = rawAll(w.fakeDb);
+  for (const res of [
+    await call(w, "POST", CARDS_URL, { token: a, body: { turns: START_BODY.turns } }),
+    await call(w, "GET", PRE_BRIEF_URL, { token: a }),
+    await call(w, "POST", FEEDBACK_URL, { token: a, body: { cardId: CARD_ID, action: "up" } }),
+  ]) {
+    assert.equal(res.status, 403);
+    assert.equal(res.body, '{"error":"consent_required"}', "no erasure-in-progress oracle (ISS-043 / D-015)");
+  }
+  assert.equal(planner.calls.length, 0);
+  assert.deepEqual(rawAll(w.fakeDb), before);
+});
+
+test("T-010 api: a fence or a consent revocation that lands MID-run is refused with a constant body (pre-brief and feedback 409, live cards 403 authorization_refused)", async () => {
+  // Pre-brief and feedback: count the fence reads on a clean run, then land the fence on the LAST read
+  // (after requireConsent passed: only assertStudentNotFenced is left to see it).
+  for (const [label, run] of [
+    ["pre-brief", (w: World, t: string) => call(w, "GET", PRE_BRIEF_URL, { token: t })],
+    ["feedback", (w: World, t: string) => call(w, "POST", FEEDBACK_URL, { token: t, body: { cardId: CARD_ID, action: "up" } })],
+  ] as const) {
+    const clean = await approvedWorld();
+    const counter = fenceOnNthRead(clean.w, "tenant-a", Infinity);
+    const a = await as("tenant-a", "counsellor-1", "counsellor");
+    await run(clean.w, a);
+    const reads = counter.reads();
+    assert.ok(reads >= 2, `${label}: consent check and fence check both read the fence (${reads})`);
+    const raced = await approvedWorld();
+    fenceOnNthRead(raced.w, "tenant-a", reads);
+    const res = await run(raced.w, a);
+    assert.equal(res.status, 409, `${label}: ${res.body}`);
+    assert.deepEqual(res.json, { error: "student_fenced" });
+  }
+  // Live cards: the fence / the revocation appears while the planner is running.
+  for (const [label, trip] of [
+    ["fence", (w: World) => plantFence(w, "tenant-a")],
+    ["consent revoked", (w: World) => void w.fakeDb.collection(COLLECTION_NAMES.consents).deleteMany({})],
+  ] as const) {
+    let w!: World;
+    const planner = cardsProvider({
+      planner: (input: unknown) => {
+        trip(w);
+        return (makePlanner() as (i: unknown) => unknown)(input);
+      },
+    });
+    ({ w } = await approvedWorld({ provider: planner }));
+    const res = await call(w, "POST", CARDS_URL, { token: await as("tenant-a", "counsellor-1", "counsellor"), body: { turns: START_BODY.turns } });
+    assert.equal(res.status, 403, `${label}: ${res.body}`);
+    assert.deepEqual(res.json, { error: "authorization_refused" });
+    assert.doesNotMatch(res.body, /Canada|Besides|budget/i, `${label}: no card text or fact value leaks`);
+  }
+});
+
+test("T-010 api: the pre-brief lists known facts, open questions and do-not-ask from the approved profile, with no provider call", async () => {
+  const { w, planner } = await approvedWorld();
+  const res = await call(w, "GET", PRE_BRIEF_URL, { token: await as("tenant-a", "counsellor-1", "counsellor") });
+  assert.equal(res.status, 200, res.body);
+  assert.deepEqual((res.json.knownFacts as { key: string }[]).map((f) => f.key).sort(), ["budget_inr_per_year", "targetCountry"]);
+  assert.ok((res.json.doNotAsk as string[]).includes("budget"));
+  assert.ok(!(res.json.openQuestions as string[]).some((q) => /budget|destination/i.test(q)));
+  assert.equal(planner.calls.length, 0);
+});
+
+test("T-010 api: card feedback is honest: it never persists, never returns a feedbackId, and answers a typed 503 (T-050 stays open)", async () => {
+  const { w } = await approvedWorld();
+  const a = await as("tenant-a", "counsellor-1", "counsellor");
+  const before = rawAll(w.fakeDb);
+  for (const body of [{ cardId: CARD_ID, action: "up" }, { cardId: CARD_ID, action: "down", note: "already covered" }]) {
+    const res = await call(w, "POST", FEEDBACK_URL, { token: a, body });
+    assert.equal(res.status, 503, res.body);
+    assert.deepEqual(res.json, { error: "card_feedback_unavailable" });
+    assert.ok(!("feedbackId" in res.json));
+  }
+  assert.deepEqual(rawAll(w.fakeDb), before, "no document of any collection changed");
+  assert.equal(cardRows(w).length, 0, "no card_feedback decision row");
+  // 400 before any Db access (w.calls stays empty): bad card id, bad action, long note, client-set ts, unknown key, bad JSON.
+  w.calls.db.length = 0;
+  for (const body of [
+    { cardId: "not-a-card", action: "up" },
+    { cardId: CARD_ID, action: "love" },
+    { cardId: CARD_ID, action: "up", note: "x".repeat(501) },
+    { cardId: CARD_ID, action: "up", ts: 1 },
+    { cardId: CARD_ID, action: "up", counsellorId: "someone-else" },
+    "{not json",
+  ]) {
+    const res = await call(w, "POST", FEEDBACK_URL, { token: a, body });
+    assert.equal(res.status, 400, JSON.stringify(body).slice(0, 60));
+  }
+  assert.deepEqual(w.calls.db, [], "every 400 happened before the Db was requested");
+  assert.deepEqual(rawAll(w.fakeDb), before);
+});
+
+test("T-010 api: bad bodies and path ids are 400 with issue paths only, before any provider call or Db access", async () => {
+  const { w, planner } = await approvedWorld();
+  const a = await as("tenant-a", "counsellor-1", "counsellor");
+  const turn = START_BODY.turns[0]!;
+  const many = Array.from({ length: 201 }, (_, i) => ({ ...turn, turnId: `m${i}`, ts: i + 1 }));
+  const bodies: [string, unknown][] = [
+    ["empty turns", { turns: [] }],
+    ["missing turns", {}],
+    ["over 200 turns", { turns: many }],
+    ["duplicate turnId", { turns: [turn, { ...turn, ts: 9 }] }],
+    ["quiet not boolean", { turns: START_BODY.turns, quiet: "yes" }],
+    ["body studentId", { turns: START_BODY.turns, studentId: "someone-else" }],
+    ["body sessionId", { turns: START_BODY.turns, sessionId: "other-session" }],
+    ["not json", "{not json"],
+  ];
+  for (const [label, body] of bodies) {
+    const res = await call(w, "POST", CARDS_URL, { token: a, body });
+    assert.equal(res.status, 400, label);
+    assert.doesNotMatch(res.body, /someone-else|other-session|I want to study/, `${label}: issue paths only, never values`);
+  }
+  for (const id of ["-bad", "a%2Fb", "x".repeat(129)]) {
+    for (const [method, path, body] of [
+      ["GET", `/v1/students/${id}/pre-brief`, undefined],
+      ["POST", `/v1/students/${id}/sessions/${SESSION}/cards`, { turns: START_BODY.turns }],
+      ["POST", `/v1/students/${STUDENT}/sessions/${id}/cards/feedback`, { cardId: CARD_ID, action: "up" }],
+    ] as const) {
+      assert.equal((await call(w, method, path, { token: a, body })).status, 400, `${method} ${path.slice(0, 50)}`);
+    }
+  }
+  assert.equal(planner.calls.length, 0);
+  assert.deepEqual(w.calls, { db: [], graph: [] });
+});
+
+test("T-010 api: a crisis turn is 200 'escalated' with no card and no provider call (English and Devanagari), writing nothing", async () => {
+  const { w, planner } = await approvedWorld();
+  const a = await as("tenant-a", "counsellor-1", "counsellor");
+  const before = rawAll(w.fakeDb);
+  for (const t of [
+    { turnId: "t4", speaker: "student", lang: "en", text: "Honestly I just want to kill myself.", translatedText: "Honestly I just want to kill myself.", ts: 4 },
+    { turnId: "t4", speaker: "student", lang: "hi", text: "मैं मरना चाहता हूं, अब कुछ अच्छा नहीं लगता", translatedText: "", ts: 4 },
+  ]) {
+    const res = await call(w, "POST", CARDS_URL, { token: a, body: { turns: [...START_BODY.turns, t] } });
+    assert.equal(res.status, 200, res.body);
+    assert.equal(res.json.status, "escalated");
+    assert.deepEqual(res.json.cards, []);
+  }
+  assert.equal(planner.calls.length, 0);
+  assert.deepEqual(rawAll(w.fakeDb), before);
+});
+
+test("T-010 api: unconfigured cards is 503 cards_unavailable only after the body is valid and before any Db access", async () => {
+  const w = world();
+  await seedConsent(w, "tenant-a");
+  w.calls.db.length = 0;
+  const a = await as("tenant-a", "counsellor-1", "counsellor");
+  const off = await call(w, "POST", CARDS_URL, { token: a, body: { turns: START_BODY.turns } });
+  assert.equal(off.status, 503);
+  assert.deepEqual(off.json, { error: "cards_unavailable" });
+  assert.equal((await call(w, "POST", CARDS_URL, { token: a, body: { turns: [] } })).status, 400, "a bad body is still 400 when unconfigured");
+  assert.deepEqual(w.calls.db, [], "no Db was requested");
+  // The pre-brief and feedback routes need no provider: they do not depend on the cards wiring.
+  assert.equal((await call(w, "GET", PRE_BRIEF_URL, { token: a })).status, 200);
+  assert.equal((await call(w, "POST", FEEDBACK_URL, { token: a, body: { cardId: CARD_ID, action: "up" } })).status, 503);
+});
+
+test("T-010 api: knowledge outages degrade to 'unavailable' and never produce an uncited evidence card; a working KB carries its citation through", async () => {
+  for (const [label, reply] of [
+    ["asker throws", new Error("kb down")],
+    ["status unavailable", { status: "unavailable" as const, reason: "timeout", detail: "synthetic" }],
+    ["ok with no citations", { status: "ok" as const, answer: "uncited answer", citations: { internal: [], web: [] } }],
+  ] as const) {
+    const kb = new FakeKb(reply);
+    const { w } = await approvedWorld({ provider: cardsProvider({ planner: makePlanner({ alwaysKb: true }) }), kb });
+    const res = await call(w, "POST", CARDS_URL, { token: await as("tenant-a", "counsellor-1", "counsellor"), body: { turns: START_BODY.turns } });
+    assert.equal(res.status, 200, `${label}: ${res.body}`);
+    assert.equal(res.json.knowledge, "unavailable", label);
+    assert.equal(kb.queries.length, 1, `${label}: the KB was asked`);
+    assert.doesNotMatch(res.body, /Published tuition/, `${label}: no kb evidence card is shown`);
+    for (const c of res.json.cards as { sources: { type: string }[] }[]) assert.ok(c.sources.every((s) => s.type !== "kb"), label);
+  }
+  // No KB wired at all, and a planner that cites a kb source anyway: dropped, knowledge not_configured.
+  const bare = await approvedWorld({ provider: cardsProvider({ planner: makePlanner({ alwaysKb: true }) }) });
+  const none = await call(bare.w, "POST", CARDS_URL, { token: await as("tenant-a", "counsellor-1", "counsellor"), body: { turns: START_BODY.turns } });
+  assert.equal(none.status, 200, none.body);
+  assert.equal(none.json.knowledge, "not_configured");
+  assert.doesNotMatch(none.body, /Published tuition/);
+  // A working KB: the evidence card is shown WITH its kb citation id.
+  const kb = new FakeKb(KB_OK);
+  const ok = await approvedWorld({ kb });
+  const shown = await call(ok.w, "POST", CARDS_URL, { token: await as("tenant-a", "counsellor-1", "counsellor"), body: { turns: START_BODY.turns } });
+  assert.equal(shown.json.knowledge, "ok");
+  const evidence = (shown.json.cards as { type: string; sources: { type: string; id: string }[] }[]).filter((c) => c.sources.some((s) => s.type === "kb"));
+  assert.ok(evidence.length >= 1 && evidence.every((c) => c.sources.some((s) => s.type === "kb" && s.id === FEE_PAGE)), shown.body);
+});
+
+test("T-010 api: the semantic verifier is mandatory through the API: with no usable verdict no card is shown", async () => {
+  for (const verifier of [{}, { decisions: [] }] as const) {
+    const { w, planner } = await approvedWorld({ provider: cardsProvider({ verifier }) });
+    const res = await call(w, "POST", CARDS_URL, { token: await as("tenant-a", "counsellor-1", "counsellor"), body: { turns: START_BODY.turns } });
+    assert.equal(res.status, 200, res.body);
+    assert.deepEqual(res.json.cards, [], "unjudged model cards never release");
+    const reasons = (res.json.dropped as { reason: string }[]).map((d) => d.reason);
+    assert.ok(reasons.includes("verifier_rejected"), `dropped: ${reasons}`);
+    assert.ok(verifierCalls(planner).length >= 1);
+  }
+});
+
+test("T-010 api: provider failures map to fixed bodies on the cards routes only (AbortError 503 cards_deadline, AI down is the engine's 200 body)", async () => {
+  const a = await as("tenant-a", "counsellor-1", "counsellor");
+  const abort = await approvedWorld({
+    provider: cardsProvider({
+      planner: () => {
+        throw new DOMException("Card execution cancelled.", "AbortError");
+      },
+    }),
+  });
+  const timedOut = await call(abort.w, "POST", CARDS_URL, { token: a, body: { turns: START_BODY.turns } });
+  assert.equal(timedOut.status, 503, timedOut.body);
+  assert.deepEqual(timedOut.json, { error: "cards_deadline" });
+  assert.equal(abort.w.logs.at(-1)?.route, "liveCards");
+
+  const down = await approvedWorld({
+    provider: cardsProvider({
+      planner: () => {
+        throw new AiUnavailableError(["mock"], 1, "Error");
+      },
+    }),
+  });
+  const aiDown = await call(down.w, "POST", CARDS_URL, { token: a, body: { turns: START_BODY.turns } });
+  assert.equal(aiDown.status, 200, aiDown.body);
+  assert.equal(aiDown.json.status, "ai_unavailable");
+  assert.deepEqual(aiDown.json.cards, []);
+});
+
+test("T-010 api: the new error mappings are scoped to the cards routes; other routes keep their old behaviour (AbortError / feedback-name stay 500), authorization_refused is a constant 403 everywhere", async () => {
+  const mk = (err: () => Error) => world({ graphForTenant: () => { throw err(); } });
+  const a = await as("tenant-a", "counsellor-1", "counsellor");
+  const scribeUrl = `/v1/students/${STUDENT}/sessions/${SESSION}/scribe`;
+  const unavailable = () => Object.assign(new Error("secret detail"), { name: "CardFeedbackUnavailableError" });
+  for (const make of [() => new DOMException("cancelled", "AbortError"), unavailable]) {
+    const w = mk(make);
+    const res = await call(w, "POST", scribeUrl, { token: a, body: START_BODY });
+    assert.equal(res.status, 500, "a non-cards route is NOT remapped");
+    assert.deepEqual(res.json, { error: "internal" });
+    assert.equal(w.logs.at(-1)?.route, "startScribe");
+  }
+  const refused = mk(() => new ProviderAuthorizationRefusedError());
+  const res = await call(refused, "POST", scribeUrl, { token: a, body: START_BODY });
+  assert.equal(res.status, 403);
+  assert.deepEqual(res.json, { error: "authorization_refused" });
+});
+
+test("T-010 api: startApi wires the cards routes to the counsellor provider and the injected KB (outcome over real HTTP); no kb means knowledge not_configured", async () => {
+  for (const withKb of [true, false]) {
+    const fake = createFakeMongoClient();
+    getVcDb(fake.client); // creates the virtual_counsellor fake db, as world() does
+    const scoped = tenantScopedDb(fake.dbFor(VC_DB_NAME) as unknown as Parameters<typeof tenantScopedDb>[0], "tenant-a");
+    await scoped.collection(COLLECTION_NAMES.consents).insertOne({
+      _id: `consent-${STUDENT}`,
+      studentId: STUDENT,
+      guardianConsent: true,
+      purposes: ["profile_synthesis"],
+      recordedAt: "2026-09-01T00:00:00.000Z",
+      minor: true,
+    } as never);
+    await scoped.collection(COLLECTION_NAMES.facts).insertOne({
+      _id: "f-dest",
+      studentId: STUDENT,
+      key: "targetCountry",
+      value: "Canada",
+      source: { type: "transcript", quote: "synthetic", turnId: "prior-t1" },
+      confidence: 0.9,
+      validFrom: "2026-09-01T00:00:00.000Z",
+      purposeTags: ["profile_synthesis"],
+      sensitivity: "low",
+      active: true,
+    } as never);
+    const provider = cardsProvider();
+    const kb = new FakeKb(KB_OK);
+    const api = await startApi(
+      { MONGODB_URL: "mongodb://fake-host/ignored" },
+      { clientFactory: () => fake.client, http: { port: 0, verifier, provider, skillsDir: SKILLS_DIR, ...(withKb ? { kb } : {}) } },
+    );
+    try {
+      const headers = { authorization: `Bearer ${await as("tenant-a", "counsellor-1", "counsellor")}`, "content-type": "application/json" };
+      const res = await fetch(`http://127.0.0.1:${api.port}${CARDS_URL}`, { method: "POST", headers, body: JSON.stringify({ turns: START_BODY.turns }) });
+      assert.equal(res.status, 200);
+      const json = (await res.json()) as AnyDoc;
+      assert.equal(plannerCalls(provider).length, 1, "the injected counsellor provider served the request");
+      assert.equal(json.knowledge, withKb ? "ok" : "not_configured");
+      assert.equal(kb.queries.length, withKb ? 1 : 0);
+      if (withKb) assert.ok((json.cards as { sources: { type: string }[] }[]).some((c) => c.sources.some((s) => s.type === "kb")));
+      else assert.ok((json.cards as { sources: { type: string }[] }[]).every((c) => c.sources.every((s) => s.type !== "kb")));
+      const brief = await fetch(`http://127.0.0.1:${api.port}${PRE_BRIEF_URL}`, { headers });
+      assert.equal(brief.status, 200);
+      assert.deepEqual([...new Set(fake.dbCalls)], ["virtual_counsellor"]);
+    } finally {
+      await api.stop();
+    }
+  }
 });
 
 // ---------------------------------------------------------------------------

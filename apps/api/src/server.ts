@@ -58,6 +58,7 @@ import {
 import {
   ApprovalResponseError,
   ApprovalResponseSchema,
+  LiveCardsInputSchema,
   ScribeInputSchema,
   ScribeResultSchema,
   CONCERN_CLASSIFIER_SKILL,
@@ -69,19 +70,23 @@ import {
   buildConcernFlaggedEvent,
   buildErasureRequestedEvent,
   buildFactApprovedEvent,
+  buildPreBriefFor,
   compileScribeGraph,
   createScribeCheckpointer,
   inspectScribe,
   readStudentConcerns,
+  recordLiveCardFeedback,
   resumeScribe,
+  runLiveCards,
   scribeThreadId,
   startScribe,
+  type KnowledgeAsker,
   type ScribeGraph,
   type WebhookEmitGapLedger,
   type WebhookEvent,
   type WebhookOutbox,
 } from "@vc/engine";
-import { AiUnavailableError, type LlmProvider } from "@vc/providers";
+import { AiUnavailableError, ProviderAuthorizationRefusedError, type LlmProvider } from "@vc/providers";
 import { ErasureReasonSchema } from "@vc/schemas";
 import { bearerToken, type ApiRole, type AuthContext, type JwtVerifier } from "./auth.js";
 import { OPENAPI_DOCUMENT } from "./openapi.js";
@@ -167,6 +172,22 @@ export interface ApiDeps {
     destinationUrl: string;
     gapsForTenant?: (tenantId: string) => WebhookEmitGapLedger;
   };
+  /**
+   * T-010 (slice a): what the live-cards graph needs besides the tenant's Db (the counsellor provider
+   * seam, the skills directory, and the KnowledgeBase client when configured). Absent: POST .../cards
+   * answers 503 cards_unavailable (the pre-brief and card-feedback routes need no provider).
+   */
+  cards?: LiveCardsWiring;
+}
+
+/**
+ * T-010: the live-cards dependencies. `semanticVerifier` is deliberately NOT a field: the engine's
+ * semantic verification is mandatory (packages/engine cards/nodes.ts), so the API offers no knob for it.
+ */
+export interface LiveCardsWiring {
+  provider: LlmProvider;
+  skillsDir: string;
+  kb?: KnowledgeAsker;
 }
 
 export class BodyTooLargeError extends Error {
@@ -201,6 +222,8 @@ interface RouteContext {
   store: () => Db;
   graph: () => ScribeGraph;
   writerDeadlineMs?: number;
+  /** T-010: the live-cards wiring; absent = POST .../cards is 503 cards_unavailable. */
+  cards?: LiveCardsWiring;
   /** T-029: throws ErasureConfigError when the workflow is not configured. */
   erasureConfig: () => ErasureWorkflowConfig;
   /**
@@ -264,6 +287,14 @@ const APPROVER = ["approver"] as const;
 const StartBodySchema = z.object({ sessionEndedAt: z.unknown(), turns: z.unknown() }).strict();
 const ErasureBodySchema = z.object({ reason: ErasureReasonSchema }).strict();
 const ReconfirmBodySchema = z.object({ confirmToken: z.string().min(1).max(256) }).strict();
+/** T-010: the live window; the ids come from the path, never the body. */
+const LiveCardsBodySchema = z.object({ turns: z.unknown(), quiet: z.boolean().optional() }).strict();
+/** A card id as the Verifier makes it (packages/engine cards/verifier.ts: `card_` + 24 hex). */
+export const CARD_ID_PATTERN = /^card_[0-9a-f]{24}$/;
+/** T-010: a thumbs up/down. `ts` is set by the server and `counsellorId` comes from the token, never the body. */
+const CardFeedbackBodySchema = z
+  .object({ cardId: z.string().regex(CARD_ID_PATTERN), action: z.enum(["up", "down"]), note: z.string().max(500).optional() })
+  .strict();
 
 function parseWith<T extends ZodTypeAny>(schema: T, value: unknown): z.infer<T> {
   const parsed = schema.safeParse(value);
@@ -288,6 +319,11 @@ async function requireSession(ctx: RouteContext): Promise<boolean> {
 }
 
 const NOT_FOUND: Result = { status: 404, body: { error: "not_found" } };
+/** T-010: the one consent refusal body (the same literal mapError gives a ConsentRequiredError). */
+const CONSENT_REQUIRED: Result = { status: 403, body: { error: "consent_required" } };
+const CARDS_UNAVAILABLE: Result = { status: 503, body: { error: "cards_unavailable" } };
+/** T-010 / T-050: card feedback is NOT persisted (no writer is built); the route says so, always. */
+const CARD_FEEDBACK_UNAVAILABLE: Result = { status: 503, body: { error: "card_feedback_unavailable" } };
 
 function scribeOpts(ctx: RouteContext) {
   return {
@@ -450,6 +486,68 @@ const ROUTES: RouteDef[] = [
       }
       const facts = await readActiveProfile(ctx.store(), ctx.params.studentId!, purpose);
       return { status: 200, body: { purpose, facts } };
+    },
+  },
+  {
+    id: "getPreBrief",
+    method: "GET",
+    path: "/v1/students/{studentId}/pre-brief",
+    roles: ANY_ROLE,
+    // T-010: known facts, open questions, do-not-ask from the approved profile. Consent and erasure
+    // fence checked inside the engine (403 consent_required); no provider call, no write.
+    run: async (ctx) => ({ status: 200, body: await buildPreBriefFor({ db: ctx.store() }, { studentId: ctx.params.studentId! }) }),
+  },
+  {
+    id: "liveCards",
+    method: "POST",
+    path: "/v1/students/{studentId}/sessions/{sessionId}/cards",
+    roles: ANY_ROLE,
+    body: LiveCardsBodySchema,
+    // T-010: at most 3 verified cards for the live window. Read-only. No requireSession: a live window is
+    // read DURING a session, before the scribe has written the sessions row; cross-tenant reads are
+    // stopped by the tenant-scoped Db and the engine's consent gate instead.
+    run: async (ctx) => {
+      const body = ctx.body as z.infer<typeof LiveCardsBodySchema>;
+      // The ids are the path's; the engine would throw a bare ZodError (a logged 500) on a bad window.
+      const input = parseWith(LiveCardsInputSchema, {
+        sessionId: ctx.params.sessionId,
+        studentId: ctx.params.studentId,
+        turns: body.turns,
+        ...(body.quiet !== undefined ? { quiet: body.quiet } : {}),
+      });
+      if (!ctx.cards) return CARDS_UNAVAILABLE;
+      const result = await runLiveCards(
+        { db: ctx.store(), provider: ctx.cards.provider, skillsDir: ctx.cards.skillsDir, ...(ctx.cards.kb ? { kb: ctx.cards.kb } : {}) },
+        input,
+      );
+      // The engine result is returned unchanged: no field is rewritten, filtered or re-derived here.
+      if (result.status === "refused") return CONSENT_REQUIRED;
+      return { status: 200, body: result };
+    },
+  },
+  {
+    id: "cardFeedback",
+    method: "POST",
+    path: "/v1/students/{studentId}/sessions/{sessionId}/cards/feedback",
+    roles: ANY_ROLE,
+    body: CardFeedbackBodySchema,
+    // T-010 / T-050: consent, then fence, then the engine's typed "unavailable" (no writer exists). Never 201,
+    // never a feedbackId, nothing stored; the T-050 writer will change only the outcome of this call.
+    run: async (ctx) => {
+      const body = ctx.body as z.infer<typeof CardFeedbackBodySchema>;
+      await recordLiveCardFeedback(
+        ctx.store(),
+        {
+          studentId: ctx.params.studentId!,
+          sessionId: ctx.params.sessionId!,
+          counsellorId: ctx.auth.counsellorId,
+          event: { cardId: body.cardId, action: body.action, ts: Date.now(), ...(body.note !== undefined ? { note: body.note } : {}) },
+        },
+        ctx.writerDeadlineMs !== undefined ? { deadlineMs: ctx.writerDeadlineMs } : {},
+      );
+      // The engine throws CardFeedbackUnavailableError today; if a writer ever returns, this route still
+      // claims nothing until T-050 changes it deliberately.
+      return CARD_FEEDBACK_UNAVAILABLE;
     },
   },
   {
@@ -631,8 +729,11 @@ function eventStudentId(event: WebhookEvent): string {
   return (event.data as { studentId: string }).studentId;
 }
 
+/** T-010: the routes whose engine errors get the cards-only mappings in mapError. */
+const CARDS_ROUTE_IDS: ReadonlySet<string> = new Set(["getPreBrief", "liveCards", "cardFeedback"]);
+
 /** Known errors to fixed responses. Returns null for an unexpected error (a logged 500). */
-function mapError(err: unknown): Result | null {
+function mapError(err: unknown, routeId: string): Result | null {
   if (err instanceof BadRequest) return { status: 400, body: { error: err.code, ...(err.issues ? { issues: err.issues } : {}) } };
   if (err instanceof ApprovalResponseError) return { status: 400, body: { error: "invalid_approval" } };
   if (err instanceof ConsentRequiredError) return { status: 403, body: { error: "consent_required" } };
@@ -649,6 +750,14 @@ function mapError(err: unknown): Result | null {
   if ((err as { code?: unknown } | null)?.code === 11000) return { status: 409, body: { error: "conflict" } };
   if (err instanceof FencedWriterDeadlineError) return { status: 503, body: { error: "writer_deadline" } };
   if (err instanceof AiUnavailableError) return { status: 503, body: { error: "ai_unavailable" } };
+  // T-010: a provider authorization refusal (fence or consent lost mid-run) is a constant 403 on every route.
+  if (err instanceof ProviderAuthorizationRefusedError) return { status: 403, body: { error: "authorization_refused" } };
+  // T-010: the next two are matched by exact name on an Error and ONLY for the cards routes, so no other
+  // route's (logged 500) behaviour changes. CardFeedbackUnavailableError is a plain Error with .name set.
+  if (CARDS_ROUTE_IDS.has(routeId) && err instanceof Error) {
+    if (err.name === "AbortError") return { status: 503, body: { error: "cards_deadline" } };
+    if (err.name === "CardFeedbackUnavailableError") return CARD_FEEDBACK_UNAVAILABLE;
+  }
   // Counts-only receipt (no ids, no values): the request stays retryable.
   if (err instanceof ErasureIncompleteError) return { status: 500, body: { error: "erasure_incomplete", receipt: err.receipt } };
   return null;
@@ -715,6 +824,7 @@ export function createApiHandler(deps: ApiDeps): ApiHandler {
         store: () => deps.dbForTenant(tenantId!),
         graph: () => deps.graphForTenant(tenantId!),
         ...(deps.writerDeadlineMs !== undefined ? { writerDeadlineMs: deps.writerDeadlineMs } : {}),
+        ...(deps.cards ? { cards: deps.cards } : {}),
         erasureConfig: () => {
           if (!deps.erasureConfig) throw new ErasureConfigError("the erasure approver workflow is not configured");
           return deps.erasureConfig();
@@ -850,7 +960,7 @@ export function createApiHandler(deps: ApiDeps): ApiHandler {
       return respond(out.status, out.body);
     } catch (err) {
       if (err instanceof BodyTooLargeError) return respond(413, { error: "body_too_large" });
-      const mapped = mapError(err);
+      const mapped = mapError(err, route.id);
       if (mapped && mapped.status < 500) return respond(mapped.status, mapped.body);
       const status = mapped?.status ?? 500;
       log({ level: "error", event: "api_request_failed", route: route.id, status, error: errorLabel(err), ts: new Date().toISOString() });

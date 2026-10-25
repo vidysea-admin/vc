@@ -182,6 +182,88 @@ export const OPENAPI_DOCUMENT = {
         responses: { "200": ok("The active facts, sorted by key"), ...errors },
       },
     },
+    "/v1/students/{studentId}/pre-brief": {
+      get: {
+        operationId: "getPreBrief",
+        summary: "T-010: the pre-brief card (known facts, open questions, do-not-ask) from the approved profile",
+        "x-roles": ["counsellor", "admin"],
+        parameters: [studentId],
+        responses: {
+          "200": ok("The pre-brief card", {
+            type: "object",
+            required: ["knownFacts", "openQuestions", "doNotAsk"],
+            properties: { knownFacts: { type: "array" }, openQuestions: { type: "array" }, doNotAsk: { type: "array" } },
+          }),
+          ...errors,
+        },
+      },
+    },
+    "/v1/students/{studentId}/sessions/{sessionId}/cards": {
+      post: {
+        operationId: "liveCards",
+        summary: "T-010: at most 3 verified live cards for the recent window (read-only; uncited and script-like cards are dropped)",
+        "x-roles": ["counsellor", "admin"],
+        parameters: [studentId, sessionId],
+        requestBody: {
+          required: true,
+          ...json({
+            type: "object",
+            required: ["turns"],
+            additionalProperties: false,
+            properties: { turns: { type: "array", minItems: 1, maxItems: 200 }, quiet: { type: "boolean" } },
+          }),
+        },
+        responses: {
+          "200": ok("The live-cards result (the engine result, unchanged)", {
+            type: "object",
+            required: ["status", "cards"],
+            properties: {
+              status: { enum: ["ok", "ai_unavailable", "planner_failed", "escalated"] },
+              cards: { type: "array", maxItems: 3 },
+              held: { type: "integer", minimum: 0 },
+              suppressedByQuiet: { type: "integer", minimum: 0 },
+              droppedCount: { type: "integer", minimum: 0 },
+              dropped: { type: "array" },
+              knowledge: { enum: ["ok", "unavailable", "not_configured", "no_query"] },
+              quiet: { type: "boolean" },
+              preBrief: { type: "object" },
+              escalation: { type: "object" },
+            },
+          }),
+          "503": {
+            description: "Live cards are not configured on this server (cards_unavailable), or the 45 s card deadline passed (cards_deadline)",
+            ...json({ $ref: "#/components/schemas/Error" }),
+          },
+          ...errors,
+        },
+      },
+    },
+    "/v1/students/{studentId}/sessions/{sessionId}/cards/feedback": {
+      post: {
+        operationId: "cardFeedback",
+        summary:
+          "T-010: a thumbs up/down on a live card. NOT persisted: no feedback writer exists yet (T-050), so a consented, un-fenced request is always 503 card_feedback_unavailable and nothing is stored",
+        "x-roles": ["counsellor", "admin"],
+        parameters: [studentId, sessionId],
+        requestBody: {
+          required: true,
+          ...json({
+            type: "object",
+            required: ["cardId", "action"],
+            additionalProperties: false,
+            properties: {
+              cardId: { type: "string", pattern: "^card_[0-9a-f]{24}$" },
+              action: { enum: ["up", "down"] },
+              note: { type: "string", maxLength: 500 },
+            },
+          }),
+        },
+        responses: {
+          "503": { description: "Card feedback is not persisted (T-050 is open); nothing was stored", ...json({ $ref: "#/components/schemas/Error" }) },
+          ...errors,
+        },
+      },
+    },
     "/v1/students/{studentId}/erasure-requests": {
       post: {
         operationId: "requestErasure",
