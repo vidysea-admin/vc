@@ -9,7 +9,7 @@ Policy-Version: proportional-verification/2026-10-19.17
 **Fix cycle:** 0
 **Dual check:** no
 **Dual-check reason:** an offline eval grader and a markdown renderer; no auth, tenancy, gate or production-write behaviour.
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 0, verdict d019c92, merged 8b5c49b)
 **Persona walk:** skip (no screen or flow)
 **Live browser:** Not run (eval tooling only)
 
