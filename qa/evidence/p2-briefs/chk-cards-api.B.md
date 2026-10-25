@@ -1,0 +1,13 @@
+# Checker brief: cards-api (/checker, Mode A, tier L, DUAL check coordinator B)
+Policy-Version: proportional-verification/2026-10-19.17. You are one of two BLIND coordinators: never read the other coordinator's verdict, checkpoint or evidence (qa/verdicts/cards-api.A.md, scratch dirs), and count only your own evidence.
+Artifact: worktree D:/vc/.worktrees/cards-api, branch wave/cards-api, head f046a36 (code c569094 + 55c72b4), base 6b2f99a. Manifest qa/manifests/cards-api.md in the worktree (Fix cycle 0, Dual check: required, dual-trigger tenancy server.ts:824, auth :797). Plan qa/evidence/p2-cards-api/plan.md; approval review-1.md (8 binding conditions); build brief qa/evidence/p2-briefs/cards-api-build.md; contract rows cited in the plan.
+Read-only toward the artifact. Write ONLY qa/verdicts/cards-api.B.md on main in D:/vc (`Cycle checked: 0`, Metrics line). In a dual check your PASS has no side effects: findings go in as PROPOSED-ISSUE lines only. Budget L: 45 min wall.
+## Prove the outcome, not the construction
+- Validate the builder's run identity before any reuse; otherwise rerun apps/api/tests/server.test.ts + tsc for apps/api via `VC_TESTLOCK_TIMEOUT_SECS=7200 bash D:/vc/scripts/vc-testlock.sh timeout 900 pnpm exec tsx --test <file>` (long lock waits are normal).
+- Hostile tenancy probes of your own (in a scratch test outside the tree or a copy): tenant-B token with valid consent on each of the 3 routes against tenant-A student/session ids; missing/expired/forged JWT; wrong role (student token on counsellor routes); no consent; fenced student (must be 403 consent_required, never revealing an erasure); id-probing on liveCards (no existence oracle between "other tenant's student" and "no such student").
+- mapError scope: show scribe/approval/erasure routes keep their prior responses for AbortError and the other new mappings (condition 2).
+- Engine path: semantic verifier and crisis guard still run on liveCards/getPreBrief; a crisis-bearing input never returns plain cards.
+- cardFeedback: typed 503, persists nothing (prove no DB write in the fake), OpenAPI says so. Judge the unchecked cardId-to-session ownership as a finding.
+- One falsification per changed criterion, in a copy, your own (not the builder's).
+- Spend/rate guard absence and the main.ts http.kb gap: record as PROPOSED-ISSUE with severity; FAIL only if a contract line requires them in this slice.
+Verdict: PASS or FAIL with criterion ids. Never edit code, .claude/**, gates, contracts, qa/issues.jsonl; no python; no live calls; no Mongo; no git add -A; no push; kill only processes you started. Commit only your verdict file by name, message ending Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>. Return `VERDICT <PASS|FAIL> <sha>` + max 6 lines.
