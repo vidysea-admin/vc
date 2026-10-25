@@ -130,3 +130,21 @@ test("ISS-t-002b-2: false-positive guards from the earlier fix stay false", () =
     false,
   );
 });
+
+// w1-cards-b1 / ISS-t-010-c0-1 (B1): the widen/clarify/check-in guard asked only "does it end in '?'".
+// Scenario: a planner card that leads with an instruction verb and merely ends in "?" must not pass.
+test("widen/clarify/check-in: an instruction-led prompt is script-like even with a trailing '?'", () => {
+  for (const type of ["widen", "clarify", "check-in"] as const) {
+    assert.equal(isScriptLike("Explain the tuition difference to the family?", type), true, type);
+    assert.equal(isScriptLike("Please summarise the budget for the parents?", type), true, type);
+    assert.equal(isScriptLike("Walk her through the January intake?", type), true, type);
+    assert.equal(isScriptLike("Mention the visa backlog?", type), true, type);
+    assert.equal(isScriptLike("Describe the scholarship options?", type), true, type);
+  }
+});
+
+test("widen/clarify/check-in: a genuine question that merely contains an instruction verb is not flagged", () => {
+  assert.equal(isScriptLike("Has the student asked about scholarships?", "widen"), false);
+  assert.equal(isScriptLike("Would it help to explain the fee structure first?", "clarify"), false);
+  assert.equal(isScriptLike("Let's check: is the budget per year?", "clarify"), false);
+});

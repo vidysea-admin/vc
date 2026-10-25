@@ -74,6 +74,19 @@ const DEFINITIVE_TAG_QUESTION =
 const COMPARISON_MARKERS = ["Compare", "vs", "Evidence:"] as const;
 
 const QUESTION_TYPES: ReadonlySet<CardType> = new Set(["widen", "clarify", "check-in"]);
+
+// w1-cards-b1 (ISS-t-010-c0-1): "ends with ?" tests punctuation, not interrogative form, so an
+// instruction to the counsellor became a question card the moment a "?" was appended. These are
+// the verbs that open an instruction aimed at the counsellor ("Explain the fees to the family").
+// Exported so the live-cards verifier (packages/engine/src/cards/verifier.ts) uses the same list.
+export const INSTRUCTION_VERB_ALTERNATION =
+  "advise|ask|assure|brief|clarify|convince|describe|discuss|emphasi[sz]e|encourage|explain|highlight|inform|let|mention|outline|persuade|reassure|remind|say|share|show|spell|stress|summari[sz]e|tell|walk|warn";
+const INSTRUCTION_LEAD = new RegExp(
+  "^(?:(?:please|kindly|now|first|then|next|also|maybe|perhaps|just)[,\\s]+)*(?:" +
+    INSTRUCTION_VERB_ALTERNATION +
+    ")(?![\\p{L}\\p{N}'-])",
+  "iu",
+);
 const STATEMENT_TYPES: ReadonlySet<CardType> = new Set(["compare", "challenge", "evidence"]);
 
 export function isScriptLike(prompt: string, type?: CardType): boolean {
@@ -87,8 +100,9 @@ export function isScriptLike(prompt: string, type?: CardType): boolean {
   const endsWithQuestion = trimmed.endsWith("?");
 
   if (type && QUESTION_TYPES.has(type)) {
-    // widen/clarify cards must be genuine questions.
-    return !endsWithQuestion;
+    // widen/clarify cards must be genuine questions: a "?" is necessary, not sufficient - an
+    // instruction-led prompt ("Explain the fees to the family?") is still an instruction.
+    return !endsWithQuestion || INSTRUCTION_LEAD.test(trimmed);
   }
 
   if (type && STATEMENT_TYPES.has(type)) {

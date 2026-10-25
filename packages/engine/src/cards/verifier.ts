@@ -19,7 +19,7 @@
  * The optional semantic pass (skills/verifier, Flash-Lite in plan.md) can only DROP more; it is run
  * by nodes.ts after this, never instead of it.
  */
-import { CardSchema, CardTypeSchema, type Card, type CardSource } from "@vc/schemas";
+import { CardSchema, CardTypeSchema, INSTRUCTION_VERB_ALTERNATION, type Card, type CardSource } from "@vc/schemas";
 import { createHash } from "node:crypto";
 import type { ScribeTurn } from "../scribe/schemas.js";
 import { relevanceDrop, topicOfKey, withoutQuotes, type RelevanceContext, type Topic } from "./relevance.js";
@@ -127,8 +127,9 @@ const MAX_SENTENCES = 2;
 // an object. The 26 known instruction verbs are kept as a guaranteed positive set, but they are no
 // longer the test: ANY leading token that is morphologically a bare verb and is not a known
 // non-verb opener counts, whatever follows it.
-const INSTRUCTION_VERB =
-  "advise|ask|assure|brief|clarify|convince|describe|discuss|emphasi[sz]e|encourage|explain|highlight|inform|let|mention|outline|persuade|reassure|remind|say|share|show|spell|stress|summari[sz]e|tell|walk|warn";
+// w1-cards-b1: the list now lives in packages/schemas/src/guards.ts (INSTRUCTION_VERB_ALTERNATION),
+// shared with the schema-level question-type guard instead of duplicated here.
+const INSTRUCTION_VERB = INSTRUCTION_VERB_ALTERNATION;
 const INSTRUCTION_TO_COUNSELLOR = new RegExp(
   "^(?:(?:please|kindly|now|first|then|next|also|maybe|perhaps|just)[,\\s]+)*(?:" + INSTRUCTION_VERB + ")(?![\\p{L}\\p{N}'-])",
   "iu",
@@ -312,7 +313,24 @@ function isDevanagariRecital(own: string): boolean {
 // word) or a noun-phrase FRAGMENT ("Intake year?", "Course or field of study?" - the pre-brief's
 // own open questions). Cycle 1's hatch was a pure word count, which made every declarative of six
 // words or fewer a question by fiat; the fragment test below asks about SHAPE instead.
-const WH_WORD = /(?<![\p{L}\p{N}'-])(?:what|which|who|whom|whose|when|where|why|how)(?![\p{L}\p{N}'-])/iu;
+// w1-cards-b1 (ISS-t-010-c0-1): a wh-word is an interrogative MARKER where it opens a clause - at
+// the start of the prompt (after discourse words), after a comma/semicolon/colon/dash, or right after
+// a preposition ("In which month ...?", "By when ...?") - or EMBEDDED anywhere when the prompt itself
+// opens with a function word ("Any idea what the course looks like for her?", determiner head). An
+// embedded wh after a CONTENT-word head is an instruction whose object is a wh-clause, not a
+// question: "Question how much she can afford?" / "Caution about how much she can afford?".
+const WH = "what|which|who|whom|whose|when|where|why|how";
+const WH_PREPOSITION =
+  "about|above|across|after|against|along|among|around|at|before|behind|below|beside|between|beyond|by|during|for|from|in|inside|into|near|of|on|onto|outside|over|per|since|through|throughout|to|toward|towards|under|until|upon|with|within|without";
+const WH_ANYWHERE = /(?<![\p{L}\p{N}'-])(?:what|which|who|whom|whose|when|where|why|how)(?![\p{L}\p{N}'-])/iu;
+const WH_CLAUSE_INITIAL = new RegExp(
+  "(?:^(?:(?:so|and|but|now|then|also|ok(?:ay)?)[,\\s]+)*|[,;:—–]\\s*|\\s[-—–]\\s+)(?:(?:" +
+    WH_PREPOSITION +
+    ")\\s+)?(?:" +
+    WH +
+    ")(?![\\p{L}\\p{N}'-])",
+  "iu",
+);
 // AUXILIARY is declared with NOT_AN_OBJECT above (rule (a) needs it first).
 /**
  * Subject-auxiliary inversion, anchored to the CLAUSE. Cycle 1's prefix was `(?:^|[,;:]\s*)`, so
@@ -362,6 +380,40 @@ const PLURAL_NOUN_EXCEPTIONS: ReadonlySet<string> = new Set([
   "universities", "countries", "courses", "colleges", "subjects", "intakes", "cities", "programmes", "programs",
   "degrees", "majors", "streams", "details", "basics", "studies", "others", "campuses", "schools", "boards",
 ]);
+/**
+ * w1-cards-b1 (ISS-t-010-c0-1): STRUCTURAL verb + object test for the fragment hatch. A content word
+ * (anything that is not a preposition, conjunction, auxiliary, pronoun or determiner) directly
+ * followed by an object determiner or object pronoun is a transitive verb with its object, whatever
+ * the verb is: "Plan her intake first?", "Cost the whole degree?", "Caution the family about visas?",
+ * "Sanction one more year ...?". A noun phrase never has that junction ("Her intake year", "Funding
+ * options for the family": there the determiner follows a PREPOSITION, which is exempt). It consults
+ * no verb list, so it holds for the noun/verb homographs and the -tion/-able heads that the
+ * NON_VERB_OPENERS / NOT_BARE_FORM escape hatches wave through. DISCLOSED RESIDUAL: a homograph verb
+ * whose object is a bare noun ("Question parents about fees?") has no such junction; the mandatory
+ * semantic verifier (nodes.ts) is the only defence there.
+ */
+const OBJECT_DETERMINER: ReadonlySet<string> = new Set([
+  "the", "a", "an", "this", "these", "those", "her", "his", "their", "its", "our", "my", "your",
+  "them", "him", "us", "me", "one", "another", "any", "some", "every", "each",
+]);
+const FUNCTION_WORD: ReadonlySet<string> = new Set([
+  ...OBJECT_DETERMINER, "that", "all", "both", "no", "i", "you", "he", "she", "it", "we", "they",
+  "is", "are", "was", "were", "am", "be", "been", "do", "does", "did", "can", "could", "will", "would",
+  "shall", "should", "may", "might", "must", "has", "have", "had", "and", "or", "but", "nor", "so", "if",
+  "than", "as", "like", "because", "while", "though", "although", "unless", "whether", "versus", "vs",
+  ...WH_PREPOSITION.split("|"), "besides", "despite", "except", "given", "including", "instead", "rather",
+  "beneath", "amid", "till", "via", "off", "up", "out", "down",
+]);
+function hasVerbObjectJunction(tokens: readonly string[]): boolean {
+  const norm = tokens.map((t) => t.replace(/[^\p{L}\p{N}'-]/gu, "").toLowerCase());
+  for (let i = 0; i < norm.length - 1; i += 1) {
+    const word = norm[i] ?? "";
+    if (word.length === 0 || FUNCTION_WORD.has(word)) continue;
+    if (OBJECT_DETERMINER.has(norm[i + 1] ?? "")) return true;
+  }
+  return false;
+}
+
 /** A fragment stays short by nature; the shape test above is what decides, this is a sanity bound. */
 const MAX_ELLIPTICAL_QUESTION_WORDS = 6;
 /** The card types the contract requires to BE questions (guards.ts QUESTION_TYPES). */
@@ -386,6 +438,7 @@ function isNounPhraseFragment(own: string): boolean {
   const tokens = own.trim().split(/\s+/).filter((w) => w.length > 0);
   if (tokens.length === 0 || tokens.length > MAX_ELLIPTICAL_QUESTION_WORDS) return false;
   if (leadsWithBareVerb(tokens)) return false;
+  if (hasVerbObjectJunction(tokens)) return false;
   for (let i = 0; i < tokens.length; i += 1) {
     const word = (tokens[i] ?? "").replace(/[^\p{L}\p{N}'-]/gu, "").toLowerCase();
     if (word.length === 0) continue;
@@ -398,8 +451,25 @@ function isNounPhraseFragment(own: string): boolean {
   return true;
 }
 
+// w1-cards-b1 (ISS-t-010-c0-1): Romanised Hindi. The fragment hatch above is an ENGLISH noun-phrase
+// test; a Hinglish prompt ("Parents ko fees ka breakdown dikhao?") parses as a "fragment" because none
+// of its tokens is an English verb. A Hinglish prompt (it carries a postposition or copula - a closed
+// grammatical class, not a verb lexicon) is therefore a question only on an explicit Hindi
+// interrogative word AND only if it is not itself imperative: a polite/plural imperative ending
+// (-ao, -iye, -ijiye, -iyega), a light verb "do/lo/dena/lena" after a stem, or a "-na" infinitive used
+// as an instruction ("batana"). "chahiye" ("should/need") ends in -iye but is not an imperative.
+const HINGLISH_MARKER =
+  /(?<![\p{L}])(?:ko|ka|ki|ke|se|mein|pe|ne|tak|liye|baare|hai|hain|tha|thi|hoga|hogi|nahi|nahin|aur|bhi|toh|karo|kiya|kya)(?![\p{L}])/iu;
+const HINGLISH_IMPERATIVE =
+  /(?<![\p{L}])(?:(?!chahi)\p{L}{2,}(?:ao|iye|ijiye|iyega|ijiyega|iyo)|(?:kar|de|bata|bol|likh|dikha|samjha|puch|pooch|bhej|dekh|sun)\s+(?:do|dena|lo|lena)|(?:bata|bol|likh|dikha|samjha|puch|pooch|bhej|dekh)na|karo|bolo|likho|dekho|suno|pucho|poocho|bhejo|chalo|rakho|kaho)(?![\p{L}])/iu;
+
 function isInterrogativeForm(own: string): boolean {
-  if (WH_WORD.test(own) || SUBJECT_AUX_INVERSION.test(own.trim()) || HINDI_INTERROGATIVE.test(own)) return true;
+  const hinglish = HINGLISH_MARKER.test(own);
+  if (hinglish && HINGLISH_IMPERATIVE.test(own)) return false;
+  const head = (own.trim().split(/\s+/)[0] ?? "").replace(/[^\p{L}\p{N}'-]/gu, "").toLowerCase();
+  const whMarker = WH_CLAUSE_INITIAL.test(own) || (FUNCTION_WORD.has(head) && WH_ANYWHERE.test(own));
+  if (whMarker || SUBJECT_AUX_INVERSION.test(own.trim()) || HINDI_INTERROGATIVE.test(own)) return true;
+  if (hinglish) return false;
   return isNounPhraseFragment(own);
 }
 
