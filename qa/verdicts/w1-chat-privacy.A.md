@@ -1,34 +1,36 @@
 # Verdict (dual check, coordinator A) - w1-chat-privacy, repair check C1
-**Cycle checked:** 1
-**Unit:** worktree D:/vc/.worktrees/w1-chat-privacy, branch wave/w1-chat-privacy, head 8835203 (code 4135e1c), repair base 8c6657e
+**Cycle checked:** 2
+**Unit:** worktree D:/vc/.worktrees/w1-chat-privacy, branch wave/w1-chat-privacy, head 2b479b4 (code a835593), repair base 8835203
 **Policy-Version:** proportional-verification/2026-10-19.17 (Tier L, dual-trigger: security apps/api/src/chat.ts)
-**Checked:** 2026-10-25T07:45+05:30 (read from `date -Iseconds`)
+**Checked:** 2026-10-25T07:54+05:30 (read from `date -Iseconds`)
 
-VERDICT: FAIL (C1)
+VERDICT: PASS
 
-Dual check: no side effects; findings are PROPOSED-ISSUE lines, qa/issues.jsonl untouched. The cycle-0 verdict is kept as qa/verdicts/w1-chat-privacy.A.r0-1.md. C2-C4 re-checked only as regressions of the diff 8c6657e..4135e1c (chat.ts 3 lines, tests only): none (the diff touches only the budget key, a comment and tests).
+Dual check: no side effects; findings are PROPOSED-ISSUE lines, qa/issues.jsonl untouched. Earlier verdicts kept as qa/verdicts/w1-chat-privacy.A.r0-1.md and .r1-1.md. The other coordinator's files were not read.
+
+## Change judged (git diff 8835203..a835593: chat.ts 3 lines, tests only)
+chat.ts:728 budget key = tenant + student + (`slotRank === 0 ? "textless" : "full"`) + `level`. Level is never "none" when a slot key exists, so the key space is {full, textless} x {concern, crisis}; the thread is not in the key. C2-C4: the diff touches only the budget key, a comment and tests: no regression path found.
 
 ## Commands run (all through vc-testlock, long waits normal)
-- apps/api `tsx --test tests/chat-privacy.test.ts` (worktree) -> 58 pass, 0 fail (matches manifest).
-- Hostile suite, own file (scratchpad chk-c1-A/hostile.test.ts, importing the worktree fixtures; and a copy under chk-c1-A/copy with a junctioned node_modules): 10 tests X1-X10. Unmutated copy: 9 pass, 1 fail (X10 below; X2 only prints the observation).
-- Falsification in the COPY (chat.ts restored byte-identical afterwards, `cmp` same): (a) budget key without the kind (cycle-0 behaviour) -> X1, X5, X10 fail (so the instrument sees the cycle-0 defect); (b) key = consent/over-long x level instead of slotRank -> all pass, including X10 (so the gap below is real and a one-line change closes it).
+- worktree apps/api `tsx --test tests/chat-privacy.test.ts tests/chat.test.ts tests/chat-profile.test.ts tests/voice-crisis-turn.test.ts tests/anonymous-route.test.ts tests/anonymous-zero-persistence.test.ts` -> 235 pass, 0 fail (5 "w1 C1 fix2" tests among them).
+- worktree apps/api `pnpm exec tsc --noEmit` -> exit 0.
+- Own hostile suite (scratchpad chk-c2-A/copy/apps/api/tests/hostile2.test.ts, run in a COPY of the unit at 2b479b4): 44 tests, 44 pass, 0 fail.
+- Falsification in the COPY (chat.ts restored byte-identical, `cmp` same as the worktree): key = fix1 `slotRank` -> 16 fail (all unconsented-minor flood cases + overlong cases, so the instrument sees the cycle-1 defect); key = path only (no level) -> 24 fail (concern flood starves crisis on every kind); key = level only (no path) -> 9 fail (overlong crisis starves short crisis, adult/consenting). The three mutants are killed; the unmutated code passes.
 
-## What held (adult / consenting student)
-- X1: 15 rounds of {concern on new thread, over-long concern, over-long crisis, concern on one thread, over-long crisis on one thread} (75 non-crisis writing turns), then a short crisis on a new thread -> 200, helpline 14416, +1 escalation (11 total), +1 flag row of kind crisis. PASS.
-- X5: 60 concurrent mixed turns (concern / over-long crisis / over-long concern) over 60 threads, then a crisis -> escalated (+1) and flagged. PASS.
-- X3: consenting minor (guardianConsent true), 12 concern turns then crisis -> escalated (10 -> 11). PASS.
-- Bound (X4): 40 crisis + 40 concern + 40 over-long crisis turns interleaved in one window: escalations 20, flags 30, chat_turns 40, usage 30, every turn 200 and every crisis-class answer carries the unchanged helpline. Writes per kind capped at 10 (<=30 total), 2x at a window edge as the builder says. PASS.
-- X8: 25 crisis turns with a malformed body (unknown key, ISS-350 salvage) over 25 threads: all helpline, escalations capped at 10. PASS. X7: window rollover escalates again (20 -> 21). PASS.
-- Starvation by rank: a non-crisis text cannot rank 2 (`slotRank` is `LEVEL_RANK[level]` of the server-side guard scan of the same text, and 0 for over-long or unconsented turns), and over-long crisis text spends only the kind-0 budget. The budget key carries tenant + student + kind and not the thread, so a thread switch does not reset it; another tenant or student id is a separate identity (separate token).
+## What held, per brief point (adult, consenting minor, unconsented minor; short and over-long paths)
+1. Flood of 14 non-crisis writing turns (short concern, over-long concern, spread over threads; mixed on one thread; 60 concurrent mixed), then a crisis turn (short, over-long, same thread, new thread): helpline (14416) every time, own flag row of kind crisis (+1) every time, for all three student kinds. Short crisis escalated (+1) for adult and consenting minor; the textless paths (unconsented minor, over-long) have no escalate port, esc stays as before. The unconsented minor case that failed in cycle 1 now gets +1 flag.
+2. No cross-starvation: exhausting any one of the four (path, level) keys (14 turns) leaves every other key still flagged (+1) for adult and consenting minor. For the unconsented minor short and over-long share one textless key per level (by design): crisis-vs-concern still separate, so no concern turn lands in a crisis slot and no level starves the other.
+3. Bounds: 40 short crisis turns -> 10 flag rows (adult, consenting, unconsented), unconsented minor stores 0 chat_turns; 25x4 interleaved combos in one window -> flags 40 (adult/consenting, 10 per key) and 20 (unconsented, 2 keys), usage equals flags, nothing unbounded.
+4. Every crisis-class turn answered 200 with the unchanged helpline, including every quiet one past the cap; 25 concern turns on each kind return the identical reply as the first (no quiet/loud difference visible).
+5. Thread switch: 12 crisis turns on one thread then new threads stay within the cap of 10 (unconsented 10 -> 10); thread id in upper case and student id in upper case in the path both 404 (no budget reset path). Window rollover (+11 min) flags the unconsented minor again.
 
-## C1 - FAIL: a concern flood still silences an unconsented minor's crisis turn
-Repro (X10 / X2, chat.ts:727 `takeCrisisBudget(... ${slotRank})`): an UNCONSENTED minor (`minor()` with no guardianConsent) sends 12 concern turns, each on its own thread, then "I want to kill myself" on a new thread. The crisis turn is answered with the helpline (200, state escalated) but writes NO flag row: flag rows 10 before and 10 after, and no row carries the crisis turn's turnId. Control (X9): the same crisis turn with no flood is flagged. Cause: for an unconsented minor every turn has `slotRank` 0 (chat.ts:~712 `consentOk && !overlong ? LEVEL_RANK[level] : 0`), so concern-level and crisis-level turns share the one kind-0 budget; the fix groups "textless" turns by who cannot escalate, not by severity. (Over-long crisis flood then a short crisis, both crisis level, share a budget and stay capped: acceptable; the defect is the concern/crisis mix inside kind 0.)
-Why it fails C1 here: the brief for this check names "unconsented-minor" turns in the mix and requires the crisis turn to be flagged. For this student the flag row is the only record of the crisis (the textless variant has no escalate port), the student is the most protected population, and before this unit (no budget, or the p1-u8r thread slot) the same crisis turn was flagged. It is the cycle-0 defect (low severity silencing high severity) left in one population. The builder tests use adult students only (`adult()`), so they cannot see it.
-Fix, verified in the copy: key the budget by (consentOk && !overlong) and `level` instead of `slotRank`, e.g. `${consentOk && !overlong ? "f" : "t"}${level}` at chat.ts:727; writes stay capped per key (at most 4 keys, 40 per window). Add a test: unconsented minor, 12 concern turns across threads, then a crisis turn -> a flag row with that turnId, helpline unchanged.
+## Residuals judged against C1's text
+- 11th crisis turn on a key is unflagged (cap of 10 per kind per window; e.g. unconsented minor: 12 over-long crisis then a short crisis -> flags 10 -> 10, helpline still given, the earlier 10 crisis turns are on record): cap design, not a FAIL.
+- Window edge (up to 2x the cap at a boundary), in-memory per-process budget (restart or second process resets it; an eviction only hands out a fresh budget): acceptable, "capped per window" is met; not a FAIL.
+- No refund on a failed write (R3: escalate port throws on the first 10 crisis turns, then recovers: the 11th is 200 + helpline but quiet, attempts stay 10, flags 10): not C1's text; PROPOSED-ISSUE below.
 
 ## PROPOSED-ISSUE lines (not written to the ledger)
-- PROPOSED-ISSUE (high, safety, C1): an unconsented minor's concern flood spends the shared kind-0 budget, so the next crisis turn gets the helpline but no flag row (details above). Test: minor, 12 concern turns on separate threads, then a crisis turn -> flag row with that turnId.
-- PROPOSED-ISSUE (medium, safety): a budget unit is spent before the writes succeed and is never refunded. X6: the escalate port throws on the first 10 crisis turns (outage; each turn still 200 + helpline), then the port recovers: the 11th crisis turn is quiet (no escalation attempt, no flag row; attempts stay 10). An outage of 10 crisis turns therefore blocks escalation for the rest of the 10 minute window after recovery. Refund the unit when the holder releases its slot (releaseCrisisSlot) or only count units for confirmed writes. Same on cycle 0; not part of the failed criterion text, so not a FAIL by itself.
-- PROPOSED-ISSUE (low): builder residuals judged. In-memory per-process budget (restart or second process resets it) and the fixed window edge (up to 2x the cap, 60 writes at an edge): acceptable against C1 ("capped" is met per window; the exact bound is documented in the manifest), no FAIL. After 10 crisis turns the 11th crisis writes nothing; the earlier 10 are on record: acceptable.
+- PROPOSED-ISSUE (medium, safety): a budget unit is spent before the writes succeed and never refunded; an escalate-port outage of 10 crisis turns blocks escalation and the flag row for the rest of the 10 minute window after recovery. Refund the unit in releaseCrisisSlot or count units only for confirmed writes. Unchanged from cycles 0-1; not a C1 FAIL.
+- PROPOSED-ISSUE (low): in-memory per-process budget and fixed window edge (see above); document, or move to the shared store when one exists.
 
-Return: `VERDICT FAIL 8835203`
+Return: `VERDICT PASS 2b479b4`
