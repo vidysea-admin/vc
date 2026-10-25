@@ -133,7 +133,8 @@ export const CRISIS_MAX_TRACKED_THREADS = 100_000;
 /**
  * w1-chat-privacy (ISS-157): a separate, per-student crisis write budget over the same window, across threads. The per-thread slot alone leaves crisis
  * writes unbounded (a student can open a thread per request, and a textless crisis turn never confirms a slot). A turn that would write (store, flag,
- * escalate, count) spends one unit; past the budget the turn is answered with the helpline and writes nothing. The first crisis turn of a window is never blocked.
+ * escalate, count) spends one unit of its own kind (fix cycle 1: crisis that can escalate, concern that can escalate, textless); past the budget the turn is
+ * answered with the helpline and writes nothing. The first turn of each kind in a window is never blocked.
  */
 export const CRISIS_MAX_WRITES_PER_STUDENT = 10;
 /** p1-u8r cycle 2: a crisis turn behind an unconfirmed holder waits at most this long for it, then escalates itself. */
@@ -458,7 +459,7 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     crisisSlots.delete(key);
     if (prev !== undefined && !prev.released && prev.until > nowMs()) crisisSlots.set(key, prev);
   };
-  // w1-chat-privacy (ISS-157): the per-student write budget. Fixed window, oldest evicted (an eviction can only hand a student a fresh budget, never block one).
+  // w1-chat-privacy (ISS-157): the per-student, per-kind-of-turn write budget (the key carries the kind, see handleTurn). Fixed window, oldest evicted (an eviction can only hand a student a fresh budget, never block one).
   const crisisBudgets = new Map<string, { used: number; until: number }>();
   const crisisWritesMax = Math.max(1, Math.floor(deps.crisisWritesPerStudent ?? CRISIS_MAX_WRITES_PER_STUDENT));
   /** Spends one write unit for this student; false when the window's budget is used up. */
@@ -721,7 +722,9 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     const holdsSlot = taken?.holds === true;
     // w1-chat-privacy (ISS-157): a turn that would write spends the student's window budget (tenant + student, across threads). Past it the turn is
     // quiet: answered with the helpline, nothing written, and a slot it took is given back below.
-    const overBudget = slotKey !== undefined && (holdsSlot || loose) && !takeCrisisBudget(sha256(`budget\u0000${ctx.tenantId}\u0000${ctx.studentId}`));
+    // Fix cycle 1: the budget is kept per KIND of turn (slotRank: 2 crisis that can escalate, 1 concern that can escalate, 0 textless), so a concern-level,
+    // over-long or unconsented turn can never spend what an escalation-capable crisis turn needs; the writes per kind, and so in all, stay capped.
+    const overBudget = slotKey !== undefined && (holdsSlot || loose) && !takeCrisisBudget(sha256(`budget\u0000${ctx.tenantId}\u0000${ctx.studentId}\u0000${slotRank}`));
     const quiet = (taken !== undefined && !taken.holds && !loose) || overBudget;
     let slotConfirmed = false;
     const runTurn = async (): Promise<ApiResponse> => {

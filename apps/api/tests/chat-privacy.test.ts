@@ -955,6 +955,92 @@ test("w1 C1 (ISS-157, U8r checker A P1): 40 over-long crisis turns (which cannot
   }
 });
 
+// Fix cycle 1 (checkers A and B on w1-chat-privacy): the budget is kept per kind of turn, so a concern-level, textless or over-long turn can never spend what an
+// escalation-capable crisis turn needs (the p1-u8r cycle 2 guarantee), while the number of writes per kind stays capped.
+// (Thread creation has its own per-minute limit; the fake clock moves 61 s after every 15 new threads, far inside the 10-minute crisis window.)
+const threadsMade = new WeakMap<object, number>();
+const freshThreadTurn = async (w: ReturnType<typeof chatWorld>, token: string, text: string, clientTurnId: string) => {
+  const n = (threadsMade.get(w) ?? 0) + 1;
+  threadsMade.set(w, n);
+  if (n % 15 === 0) w.clock.ms += 61_000;
+  return call(w, "POST", turnsPath("stu-1", await newThread(w, token)), { token, body: { text, clientTurnId } });
+};
+
+test("w1 C1 fix1: 12 concern turns on separate threads do not silence the next real crisis turn", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    for (let i = 0; i < 12; i++) assert.equal((await freshThreadTurn(w, token, CONCERN_TEXT, `f1-cn-${i}`)).status, 200);
+    const before = w.escalations.length;
+    const flagsBefore = flagRows(w).length;
+    const res = await freshThreadTurn(w, token, CRISIS_TEXT, "f1-cn-crisis");
+    assert.ok(helplineOk(res), "the crisis turn gets the unchanged helpline");
+    assert.equal(w.escalations.length, before + 1, "the crisis turn escalated");
+    assert.equal(flagRows(w).length, flagsBefore + 1, "and was flagged");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("w1 C1 fix1: 10 and 12 over-long crisis turns (separate threads, then one thread) do not silence a short real crisis turn", async () => {
+  for (const mode of ["separate threads", "one thread"] as const) {
+    const w = chatWorld();
+    try {
+      const token = await studentToken(adult());
+      const one = await newThread(w, token);
+      for (let i = 0; i < 12; i++) {
+        const res =
+          mode === "one thread"
+            ? await call(w, "POST", turnsPath("stu-1", one), { token, body: { text: OVERLONG_CRISIS, clientTurnId: `f1-ol-${i}` } })
+            : await freshThreadTurn(w, token, OVERLONG_CRISIS, `f1-ol-${i}`);
+        assert.ok(helplineOk(res));
+      }
+      const before = w.escalations.length;
+      const res = await freshThreadTurn(w, token, CRISIS_TEXT, "f1-ol-crisis");
+      assert.ok(helplineOk(res));
+      assert.equal(w.escalations.length, before + 1, `${mode}: the short crisis turn escalated`);
+    } finally {
+      w.cleanup();
+    }
+  }
+});
+
+test("w1 C1 fix1: interleaved concern, over-long and crisis turns: the first crisis turn escalates whatever came before, and all writes stay capped", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    // Each kind of turn is flooded in turn, interleaved: concern, over-long, concern, over-long ... then crisis, concern, crisis ...
+    for (let i = 0; i < 14; i++) {
+      await freshThreadTurn(w, token, CONCERN_TEXT, `f1-mx-c-${i}`);
+      await freshThreadTurn(w, token, OVERLONG_CRISIS, `f1-mx-o-${i}`);
+    }
+    const before = w.escalations.length;
+    for (let i = 0; i < 25; i++) {
+      const c = await freshThreadTurn(w, token, CRISIS_TEXT, `f1-mx-k-${i}`);
+      assert.ok(helplineOk(c), `crisis turn ${i} is answered`);
+      await freshThreadTurn(w, token, CONCERN_TEXT, `f1-mx-c2-${i}`);
+    }
+    assert.ok(w.escalations.length > before, "a crisis turn after the flood still escalated");
+    assert.ok(w.escalations.length <= 30, `escalations capped, got ${w.escalations.length}`);
+    assert.ok(flagRows(w).length <= 30, `flags capped, got ${flagRows(w).length}`);
+    assert.ok(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length <= 60, "stored chat_turns capped");
+  } finally {
+    w.cleanup();
+  }
+});
+
+test("w1 C1 fix1: a flood of crisis turns still leaves the budget for a concern turn, and the crisis writes alone stay at 10", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(adult());
+    for (let i = 0; i < 30; i++) await freshThreadTurn(w, token, CRISIS_TEXT, `f1-fl-${i}`);
+    assert.ok(w.escalations.length <= 10, `crisis escalations capped at 10, got ${w.escalations.length}`);
+    assert.ok(flagRows(w).length <= 10);
+  } finally {
+    w.cleanup();
+  }
+});
+
 // C2 / ISS-198: a lower-case one-letter initial before a surname.
 for (const [intro, leaked] of [
   ["my name is s. kumar", ["kumar"]],
