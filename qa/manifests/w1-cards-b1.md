@@ -59,4 +59,4 @@ Falsifications (in a throwaway detached worktree under scratchpad build-w1-cards
 Metrics: 4 code/test files changed (+175 lines, 6 removed), 5 new tests, 1 evidence file, 0 files deleted, 0 tests deleted or weakened. Wall time about 55 min including blocked-lock waits.
 
 **Fix cycle:** 0
-**Status:** ready-for-check
+**Hand-in state (superseded by the Status line at the top):** ready-for-check
