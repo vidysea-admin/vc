@@ -3,7 +3,7 @@
 **Goal task:** none
 **Date:** 2026-10-25
 **Fix cycle:** 0
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 0, verdicts 087fc1e A + 7d20e53 B, merged 81f8e00)
 **Dual check:** required
 dual-trigger: tenancy apps/api/src/index.ts:522
 **Persona walk:** skip (no new screen or flow)
