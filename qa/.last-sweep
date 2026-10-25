@@ -1,2 +1,3 @@
 backstop: 2026-10-19T12:18:29+05:30 8dd6890889b37cef24258b0d3d61c2b5c8848ee6 (origin/main d7319b9; suites green except ISS-278 load flake; no HOLD; bypass list: 36bae79)
 backstop: 2026-10-22T22:17:04+05:30 7545b34f9adb59f21a222759d14747e293c4112b (origin/main da227b2; suites green except guard-crisis timing load flake ISS-sweep-20261022-1; no HOLD; bypass list: none beyond test-only 98de1ee, 6d25177)
+backstop: 2026-10-25T09:01:21+05:30 25fa9c63718afe2f2326247322a628ca575e4084 (origin/main 1142e8b; suites green 128 files 3446 tests 0 fail 45 skip, tsc 9/9, reused from 6c; no HOLD; bypass list: none, 8 wave-1 merges all checked-PASS or docs-lane; lows ISS-sweep-20261025-1..3)
