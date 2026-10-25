@@ -1,0 +1,66 @@
+[testlock] running slot 0 (free RAM 7.58 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-reporter=tap --test-name-pattern ^D068 writeApproved actual local aggregate receipt packages/engine/tests/scribe-per-fact.test.ts
+TAP version 13
+# DIAG-NB2 {"row":14,"budget":21,"now":1792904648081,"E":1792904648102,"excessMs":0}
+# DIAG-NB {"row":14,"reached":true,"causeMessage":"","causeFrames":[],"deadlineMsLeft":-2}
+# DIAG-NB2 {"row":14,"budget":26,"now":1792904648180,"E":1792904648206,"excessMs":0}
+# DIAG-NB {"row":14,"reached":true,"causeMessage":"","causeFrames":[],"deadlineMsLeft":-1}
+# DIAG-NB2 {"row":15,"budget":26,"now":1792904648279,"E":1792904648305,"excessMs":0}
+# DIAG-NB {"row":15,"reached":true,"causeMessage":"","causeFrames":[],"deadlineMsLeft":-1}
+# Subtest: D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array
+ok 1 - D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array
+  ---
+  duration_ms: 304.2831
+  type: 'test'
+  ...
+# D068 row 15/unchanged: reached candidate=summary-write:c4d5a2c6-2ed1-4ce2-9af5-676d26800fc3, original callbacks=61, owned=2, actual receipts=7.
+# D068 row 15/mutate: reached candidate=summary-write:ae055fa8-24f6-43bc-bd4a-2369acb97a9f, original callbacks=61, owned=2, actual receipts=7.
+# DIAG-NB2 {"row":15,"budget":26,"now":1792904648377,"E":1792904648403,"excessMs":0}
+# DIAG-NB {"row":15,"reached":true,"causeMessage":"","causeFrames":[],"deadlineMsLeft":-18}
+# DIAG-NB2 {"row":16,"budget":26,"now":1792904648478,"E":1792904648504,"excessMs":0}
+# DIAG-NB {"row":16,"reached":true,"causeMessage":"","causeFrames":[],"deadlineMsLeft":-1}
+# Subtest: D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities
+ok 2 - D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities
+  ---
+  duration_ms: 200.7965
+  type: 'test'
+  ...
+# D068 row 16/unchanged: reached candidate=summary-write:7a290b1e-fc29-46e8-9885-daa088cfdb3e, original callbacks=61, owned=2, actual receipts=7.
+# D068 row 16/mutate: reached candidate=summary-write:378d1f66-059d-4252-b6a5-47a22f68f824, original callbacks=61, owned=2, actual receipts=7.
+# DIAG-NB2 {"row":16,"budget":26,"now":1792904648567,"E":1792904648593,"excessMs":0}
+# DIAG-NB {"row":16,"reached":true,"causeMessage":"","causeFrames":[],"deadlineMsLeft":-1}
+# DIAG-NB2 {"row":16,"budget":27,"now":1792904648674,"E":1792904648700,"excessMs":1}
+# DIAG-NB {"row":16,"reached":false,"rootCtor":"PartialApplyError","causeCtor":"AssertionError","causeMessage":"actual child read remaining budget belongs to the one original30ms invocation","causeFrames":["at FakeCollection.findOne (C:\\\\Users\\\\Lenovo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--vc\\\\2b04f90e-6b56-4682-a76c-d8515b93405c\\\\scratchpad\\\\t052c2\\\\p0cap\\\\packages\\\\engine\\\\tests\\\\scribe-per-fact.test.ts:1237:18)","at Proxy.findOne (C:\\\\Users\\\\Lenovo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--vc\\\\2b04f90e-6b56-4682-a76c-d8515b93405c\\\\scratchpad\\\\t052c2\\\\p0cap\\\\packages\\\\db\\\\src\\\\tenant.ts:309:50)","at writeAll (C:\\\\Users\\\\Lenovo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--vc\\\\2b04f90e-6b56-4682-a76c-d8515b93405c\\\\scratchpad\\\\t052c2\\\\p0cap\\\\packages\\\\db\\\\src\\\\facts.ts:655:44)"],"deadlineMsLeft":25}
+# Subtest: D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append
+not ok 3 - D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append
+  ---
+  duration_ms: 247.9545
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\p0cap\\packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14'
+  failureType: 'testCodeFailure'
+  error: |-
+    SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\p0cap\packages\engine\tests\scribe-per-fact.test.ts:1563:16)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# D068 row 17/unchanged: reached candidate=summary-write:1cba85c2-92c7-422f-8bb1-f177edf47c00, original callbacks=61, owned=2, actual receipts=7.
+# D068 row 17/replace: reached candidate=summary-write:ff9788fc-ee57-47af-ba3e-3183f3ecc12d, original callbacks=61, owned=2, actual receipts=7.
+# {"gate":"postcheck","phases":{"outcomeErrorPresent":true,"outcomeResultPresent":false,"candidateObserved":true,"driverFacadeObserved":true,"driverInnerObserved":false,"candidateGuardStage":0,"nativeGuardStage":12,"driverTerminal":false,"nodeInjection":false,"secondReadEntered":false,"secondReadTerminal":false,"postcheckTerminal":false,"originalCount":61,"ownedCount":2,"receiptCount":0},"nodes":[{"id":0,"kind":"PartialApplyError","links":[{"via":"cause","target":1}]},{"id":1,"kind":"AssertionError","links":[]}]}
+1..3
+# tests 3
+# suites 0
+# pass 2
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2011.6072
