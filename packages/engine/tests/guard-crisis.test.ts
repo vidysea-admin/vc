@@ -1488,3 +1488,241 @@ for (const text of ["apni khud khushi se aaya hoon", "मैं खुद खु
     assert.equal(crisisGuard(text).level, "crisis", text);
   });
 }
+
+// -------------------------------------------------------------------------------------------
+// W1 crisis recall (D-112, w1-crisis-recall): Tamil and Bengali script (ISS-381), Hinglish / English spelling variants
+// (ISS-185) and the study-then-distress rescue vocabulary (ISS-194). Recall only (D-020): nothing is suppressed, and the
+// crisis reply text is unchanged. Every fixture below is a sentence a student could type or say into the chat.
+// -------------------------------------------------------------------------------------------
+
+/** ISS-381: self-harm / suicide-intent sentences written ONLY in Tamil script. */
+const W1_TAMIL_CRISIS: ReadonlyArray<readonly [string, string]> = [
+  ["I am going to commit suicide", "நான் தற்கொலை செய்து கொள்ளப் போகிறேன்"],
+  ["I feel like I must die", "எனக்கு சாக வேண்டும் போல இருக்கிறது"],
+  ["I am going to die", "நான் சாகப் போகிறேன்"],
+  ["I do not like living at all", "எனக்கு வாழவே பிடிக்கவில்லை"],
+  ["I will end my life", "நான் என் உயிரை மாய்த்துக் கொள்ளப் போகிறேன்"],
+  ["I will kill myself", "நான் என்னையே கொன்று விடுவேன்"],
+  ["I no longer want to live", "இனி நான் வாழ விரும்பவில்லை"],
+  ["I will hang myself", "நான் தூக்கு மாட்டிக் கொள்ளப் போகிறேன்"],
+  ["I want to die", "நான் இறக்க விரும்புகிறேன்"],
+  ["my father beats me every day (abuse)", "அப்பா என்னை தினமும் அடிக்கிறார்"],
+];
+
+/** ISS-381: self-harm / suicide-intent sentences written ONLY in Bengali script. */
+const W1_BENGALI_CRISIS: ReadonlyArray<readonly [string, string]> = [
+  ["I want to commit suicide", "আমি আত্মহত্যা করতে চাই"],
+  ["I want to go and die", "আমি মরে যেতে চাই"],
+  ["I do not want to live any more", "আমি আর বাঁচতে চাই না"],
+  ["I will end myself", "আমি নিজেকে শেষ করে দেব"],
+  ["I will kill myself", "আমি নিজেকে মেরে ফেলব"],
+  ["I will put a rope round my neck", "আমি গলায় দড়ি দেব"],
+  ["there is no meaning in my staying alive", "আমার বেঁচে থাকার কোনো মানে নেই"],
+  ["my father beats me every day (abuse)", "বাবা আমাকে রোজ মারধর করে"],
+  ["I want to die", "আমি মরতে চাই"],
+  ["I will eat poison and die", "আমি বিষ খেয়ে মরব"],
+];
+
+const W1_BASE_CARD = routeBeforeGeneration("I just want to kill myself");
+
+for (const [meaning, text] of [...W1_TAMIL_CRISIS, ...W1_BENGALI_CRISIS]) {
+  test(`W1 ISS-381: Tamil/Bengali-only "${meaning}" -> crisis and escalates: ${JSON.stringify(text)}`, () => {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+    const routed = routeBeforeGeneration(text);
+    assert.equal(routed.route, "escalate");
+    if (routed.route === "escalate" && W1_BASE_CARD.route === "escalate") {
+      assert.equal(routed.card.message, W1_BASE_CARD.card.message);
+    }
+  });
+}
+
+// A sentence in the middle of an ordinary turn, a zero-width character inside the word, and a mixed-script turn still flag.
+test("W1 ISS-381: Tamil/Bengali crisis inside a longer turn, with a zero-width joiner, and in a mixed-script turn still flags", () => {
+  for (const text of [
+    "நான் கனடா செல்ல வேண்டும். ஆனால் நான் தற்கொலை செய்து கொள்ளப் போகிறேன்",
+    "த‍ற்கொலை செய்து கொள்வேன்",
+    "ok so aaj phir se আমি আত্মহত্যা করতে চাই",
+    "I think நான் சாகப் போகிறேன் tonight",
+    "পরীক্ষার পর আমি নিজেকে শেষ করে দেব।",
+  ]) {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+  }
+});
+
+/** ISS-381: ordinary Tamil study-abroad / daily-life sentences. */
+const W1_TAMIL_BENIGN: ReadonlyArray<string> = [
+  "நான் கனடாவில் மேற்படிப்பு படிக்க விரும்புகிறேன்",
+  "எனக்கு விசா எப்போது கிடைக்கும்?",
+  "கல்லூரி கட்டணம் எவ்வளவு?",
+  "இந்த படிப்பு எத்தனை ஆண்டுகள்?",
+  "நான் நாளை தேர்வு எழுதப் போகிறேன்",
+  "உதவித்தொகை பற்றி சொல்லுங்கள்",
+  "எனக்கு கணினி அறிவியல் படிக்க ஆசை",
+  "ஐஇஎல்டிஎஸ் தேர்வுக்கு எப்படி தயாராவது?",
+  "என் நண்பன் லண்டனில் படிக்கிறான்",
+  "இன்று மழை பெய்கிறது",
+  "வாழ்க்கை மிகவும் அழகானது",
+  "நான் வீட்டுக்கு போகிறேன்",
+  "இந்த பல்கலைக்கழகத்தில் விடுதி வசதி உள்ளதா?",
+  "என் அப்பா என்னை விமான நிலையத்தில் விட்டார்",
+  "எனக்கு தூக்கம் வருகிறது",
+  "நான் காலையில் எழுந்து படிப்பேன்",
+  "பாடத்திட்டம் மிகவும் கடினமாக உள்ளது",
+  "என் அம்மா சமையல் செய்கிறார்",
+  "அவர் மருத்துவம் படிக்க விரும்புகிறார்",
+  "வேலை வாய்ப்புகள் எப்படி இருக்கும்?",
+  "மதிப்பெண் அட்டை எப்போது வரும்?",
+  "என் தம்பி கிரிக்கெட் விளையாடுகிறான்",
+];
+
+/** ISS-381: ordinary Bengali study-abroad / daily-life sentences. */
+const W1_BENGALI_BENIGN: ReadonlyArray<string> = [
+  "আমি কানাডায় পড়াশোনা করতে চাই",
+  "ভিসার জন্য কী কী কাগজ লাগবে?",
+  "কলেজের ফি কত?",
+  "আমি আগামীকাল পরীক্ষা দেব",
+  "বৃত্তির জন্য কীভাবে আবেদন করব?",
+  "আমার কম্পিউটার সায়েন্স পড়তে ভালো লাগে",
+  "আজ খুব বৃষ্টি হচ্ছে",
+  "আমার বন্ধু লন্ডনে থাকে",
+  "এই বিশ্ববিদ্যালয়ে হোস্টেলের সুবিধা আছে কি?",
+  "আমি সকালে উঠে পড়াশোনা করি",
+  "জীবন অনেক সুন্দর",
+  "মা রান্না করছেন",
+  "আমি আইইএলটিএস পরীক্ষার জন্য প্রস্তুতি নিচ্ছি",
+  "চাকরির সুযোগ কেমন হবে?",
+  "আমি মেডিকেল পড়তে চাই",
+  "মার্কশিট কবে পাওয়া যাবে?",
+  "আমার বাবা আমাকে স্টেশনে পৌঁছে দিলেন",
+  "এই কোর্সটা কত বছরের?",
+  "আমরা কাল মার্কেটে যাব",
+  "পরীক্ষার ফল কবে বের হবে?",
+  "শেষ সেমিস্টারে কী কী বিষয় আছে?",
+  "আমি প্রতিদিন সকালে দৌড়াই",
+];
+
+for (const text of [...W1_TAMIL_BENIGN, ...W1_BENGALI_BENIGN]) {
+  test(`W1 ISS-381 benign Tamil/Bengali stays 'none': ${JSON.stringify(text)}`, () => {
+    assert.equal(crisisGuard(text).level, "none", text);
+    assert.deepEqual(routeBeforeGeneration(text), { route: "continue" }, text);
+  });
+}
+
+test("W1 ISS-381: the benign Tamil and Bengali sets each hold at least 20 sentences, the crisis sets at least 5", () => {
+  assert.ok(W1_TAMIL_BENIGN.length >= 20 && W1_BENGALI_BENIGN.length >= 20);
+  assert.ok(W1_TAMIL_CRISIS.length >= 5 && W1_BENGALI_CRISIS.length >= 5);
+});
+
+/** ISS-185 named variants plus the common Hinglish / English misspellings of the same phrases (ISS-194's tails are below). */
+const W1_SPELLING_CRISIS: ReadonlyArray<string> = [
+  // ISS-185 named
+  "mujhe marna h",
+  "marnaa hai",
+  "mujhe maarna hai",
+  "mujhe mrna hai",
+  "kmss",
+  "wanna kmsss",
+  "k ms",
+  "K MS!!",
+  // the same phrases, other spellings
+  "mujhe maarna h ab",
+  "maarnaa hi hai",
+  "mujhe marna chata hu",
+  "maarna chahta hu",
+  "mujhe maut chaiye",
+  "mar jana h",
+  "mar jaana hain",
+  "jina nhi chahta",
+  "jeena nhi chahti",
+  "jeena nhi h",
+  "jeene ka mann nhi",
+  "khud ko khtm kar lunga",
+  "zindgi khtm",
+  "jindagi khatam",
+  "i want to sucide",
+  "feeling suiside",
+  "kil my self",
+  "kill my self",
+  "kil myself",
+  "wanna die",
+  "wanting to die",
+  "i wnt to die",
+  "aatmahatya karunga",
+  "atmahatya",
+  "papa mujhe roz maarte hain",
+  "mujhe maarte hain",
+  "मुझे रोज़ मारते हैं",
+  "पापा मुझे रोज़ मारते हैं",
+];
+
+for (const text of W1_SPELLING_CRISIS) {
+  test(`W1 ISS-185: spelling variant ${JSON.stringify(text)} -> crisis`, () => {
+    assert.equal(crisisGuard(text).level, "crisis", text);
+    assert.equal(routeBeforeGeneration(text).route, "escalate");
+  });
+}
+
+/** Ordinary text that shares letters with the new variants: these stay 'none' (no new false alarm). */
+const W1_SPELLING_NEGATIVES: ReadonlyArray<string> = [
+  "mRNA vaccine kaise kaam karta hai",
+  "mRNA helps in protein synthesis",
+  "the mrna sequence is long",
+  "it is 50 k ms away",
+  "5 kms from the campus",
+  "my sister wants to dye her hair",
+  "I will die-cast the part tomorrow",
+  "papa mujhe station chhod rahe hain",
+  "mere saath pita ji aa rahe hain",
+  "mujhe market jana hai",
+  "ok ms in cs is a good plan",
+  "jina is my friend",
+  "jeena sikhna hai",
+  "i will kill the time at the library",
+  "maarna mat",
+  "I want 2 diet plans for the hostel",
+  "bhai mujhe bahut peet ke aaya cricket match mein",
+  "mrna h kya ek type ka RNA",
+  "mujhe roz padhai karni hai",
+  "papa mujhe roz airport chhod rahe hain",
+  "मुझे रोज़ मार्केट जाना है",
+  "मुझे बहुत मार्केट पसंद है",
+];
+
+for (const text of W1_SPELLING_NEGATIVES) {
+  test(`W1 ISS-185 spelling negative stays 'none': ${JSON.stringify(text)}`, () => {
+    assert.equal(crisisGuard(text).level, "none", text);
+  });
+}
+
+/** ISS-194: the distress tails that made "I don't see the point in continuing college, <tail>" return none. */
+const W1_POINT_TAILS: ReadonlyArray<string> = [
+  "I feel so lost",
+  "I am tired of everything",
+  "nothing is worth it",
+  "I am done with everything",
+  "I feel trapped",
+  "I'm a waste of space",
+  "everyone would be better off",
+  "i just want it all to stop",
+  "everything feels like a waste",
+  "im exhausted and broken",
+  "I cant breathe",
+];
+
+for (const tail of W1_POINT_TAILS) {
+  test(`W1 ISS-194: "I don't see the point in continuing college, ${tail}" -> crisis`, () => {
+    assert.equal(crisisGuard(`I don't see the point in continuing college, ${tail}`).level, "crisis", tail);
+    assert.equal(crisisGuard(`I don't see the point in continuing college. ${tail}.`).level, "crisis", tail);
+  });
+}
+
+test("W1 ISS-194: a study-only tail after 'see the point in continuing' stays suppressed", () => {
+  for (const text of [
+    "I don't see the point in continuing college because the fees are too high",
+    "I don't see the point in continuing college, I will switch to a different course",
+    "I don't see the point in continuing with this course, the placements are poor",
+    "I don't see the point in continuing coaching for the GRE now that I have a score",
+  ]) {
+    assert.equal(crisisGuard(text).level, "none", text);
+  }
+});

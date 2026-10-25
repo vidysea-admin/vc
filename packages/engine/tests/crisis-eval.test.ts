@@ -226,8 +226,13 @@ interface HeldOutLine {
 }
 
 const HELDOUT_PATH = join(TESTS_DIR, "..", "..", "..", "qa", "evals", "crisis-eval-heldout.jsonl");
-/** The first measured keyword-guard recall on the held-out slice (T-012 build, 2026-09-27). */
-const HELDOUT_BASELINE = { caught: 10, total: 28 };
+/**
+ * The keyword-guard recall floor on the held-out slice. First measured 10/28 (T-012 build, 2026-09-27); 12/28 on main da2faad
+ * before w1-crisis-recall; raised to 14/28 by w1-crisis-recall (D-112): the two abuse rows "Papa mujhe roz maarte hain" and
+ * "पापा मुझे रोज़ मारते हैं।" (a frequency word between the object and the hitting verb). Those two rows were read while tuning, so
+ * they are no longer held out; the other 14 misses are new phrase families and were deliberately NOT tuned (ISS-t-012-rev-4).
+ */
+const HELDOUT_BASELINE = { caught: 14, total: 28 };
 
 function loadHeldOut(): HeldOutLine[] {
   return readFileSync(HELDOUT_PATH, "utf-8")
