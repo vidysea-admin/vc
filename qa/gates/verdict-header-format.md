@@ -66,3 +66,4 @@ re-derived from scratch.
 `VERDICT` census by the peer session (vc-f5) at `cf4f523`, independently reproduced here before
 this gate was written — 151 files, all six shape counts identical. `Cycle checked` and `severity`
 measurements: `qa/gates/hook-raw-count-fixes.md`. Issue rows: ISS-095, ISS-103, ISS-108.
+Answered: 2026-10-25T06:48:16+05:30 — (a) AIOS-level machine-readable verdict header plus reader-raises; not urgent, does not jump the queue; Approved-by: Umesh — Umesh chat 2026-10-25 "go with the recomemended ones"

@@ -203,3 +203,4 @@ session rather than appended to, per the ISS-098 lesson.
 
 Found by the peer session (vc-f5) at `8bbba6b`; all figures independently re-derived here with a
 third instrument before being recorded. Still gated on `Approved-by: Umesh`.
+Answered: 2026-10-25T06:48:16+05:30 — (a) co-land ISS-054 + ISS-056 + ISS-095 hook fixes (not 084); Approved-by: Umesh — Umesh chat 2026-10-25 "go with the recomemended ones"

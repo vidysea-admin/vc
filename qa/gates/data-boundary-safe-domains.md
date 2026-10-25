@@ -93,3 +93,4 @@ Re-derivation and the monotonic-growth finding: peer session (vc-f5), `0d363b8` 
 Adapter-key absence, the safe-domain guard contract, `TEXT_SUFFIXES`, and the growth claim
 (all four `qa/sweeps/` files plus the ledger, queue and DECISIONS breach) re-verified here before
 this gate was written. Rows: ISS-104, ISS-109, ISS-016.
+Answered: 2026-10-25T06:48:16+05:30 — add vidysea.com, cloud.langfuse.com, eu.cloud.langfuse.com to qa/adapter.json data_boundary_safe_domains — Umesh chat 2026-10-25 "go with the recomemended ones"

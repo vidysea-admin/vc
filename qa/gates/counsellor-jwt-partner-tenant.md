@@ -4,3 +4,4 @@ Question: should the counsellor/admin JWT verifier (apps/api/src/index.ts:522) a
 Options: (a, recommended) wrap it too: same refuseTenantClaims guard, small L unit, dual check; (b) do not wrap: record that the counsellor IdP never mints partner-id tenants (a trust assumption on the IdP).
 Answer format: reply "counsellor guard: a" or "counsellor guard: b".
 Blocks: only ISS-pc-hardening-3-3; no other unit waits on it.
+Answered: 2026-10-25T06:48:16+05:30 — (a) wrap the counsellor/admin JWT verifier in refuseTenantClaims (small L unit, dual check) — Umesh chat 2026-10-25 "go with the recomemended ones"
