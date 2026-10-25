@@ -12,6 +12,11 @@
   },
   "data_class": "synthetic",
   "real_data_markers": [],
+  "data_boundary_safe_domains": [
+    "vidysea.com",
+    "cloud.langfuse.com",
+    "eu.cloud.langfuse.com"
+  ],
   "personas": [
     {
       "id": "sapna-expert",
