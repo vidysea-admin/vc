@@ -12,8 +12,21 @@ import {
   type H2hQuestion,
   type H2hRating,
   type ExpertAnswer,
+  B22_TARGET,
+  B22_PERSONAS,
+  gradeB22,
+  ruleGrader,
+  parseReferenceRubric,
+  loadReferenceRubric,
+  type ReferenceRubric,
+  type B22Walk,
+  type B22Grader,
 } from "./h2h.js";
-import { toH2hMarkdown, judgeSheetMarkdown } from "./report.js";
+import { toH2hMarkdown, judgeSheetMarkdown, toB22Markdown } from "./report.js";
+import { loadDataset } from "./dataset.js";
+import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 const questions: H2hQuestion[] = Array.from({ length: 10 }, (_, i) => ({ id: `q${i}`, question: `question ${i}` }));
 const vc = Object.fromEntries(questions.map((q) => [q.id, `VC answer ${q.id}`]));
@@ -217,4 +230,190 @@ test("fix6: --real needs an explicit seed or a random one; mock keeps a determin
   assert.deepEqual(keyFile.key, key);
   const publicText = JSON.stringify({ pairs, sheets }) + sheets.map((s) => judgeSheetMarkdown(s)).join("\n");
   assert.equal(publicText.includes(r1.seed), false, "the seed must not leak into pairs or sheets");
+});
+
+// ---------------------------------------------------------------------------
+// B22 harness (contract B22, wave-2 b22-harness): the golden-session novice-vs-expert eval. Everything
+// below is TEST-ONLY data: the rubric content here is placeholder tokens, never counselling judgement
+// (the real reference rubric is Sapna ma'am's to record; ISS-081 Goodhart).
+// ---------------------------------------------------------------------------
+
+const here = fileURLToPath(new URL(".", import.meta.url));
+const GOLDEN_SESSIONS_PATH = join(here, "..", "..", "..", "qa", "evals", "scribe", "sessions.jsonl");
+const caseIds = loadDataset(GOLDEN_SESSIONS_PATH).map((s) => s.id);
+
+function testRubric(weights: [number, number] = [1, 3], patch: Partial<ReferenceRubric> = {}): ReferenceRubric {
+  return {
+    source: "recorded",
+    author: "sapna-expert",
+    recordedAt: "2026-01-01T00:00:00.000Z",
+    cases: Object.fromEntries(
+      caseIds.map((id) => [
+        id,
+        [
+          { id: `${id}-i1`, criterion: "TEST-ONLY criterion one", weight: weights[0], anyOf: ["tok-one"] },
+          { id: `${id}-i2`, criterion: "TEST-ONLY criterion two", weight: weights[1], anyOf: ["tok-two", "tok-2b"] },
+        ],
+      ]),
+    ),
+    ...patch,
+  };
+}
+const FULL = "tok-one and tok-two";
+function walksFor(textFor: (persona: (typeof B22_PERSONAS)[number], caseId: string) => string): B22Walk[] {
+  return B22_PERSONAS.flatMap((persona) => caseIds.map((caseId) => ({ persona, caseId, text: textFor(persona, caseId) })));
+}
+
+test("B22: the case set is the T-009 golden sessions, and the personas are the two non-expert walkers", () => {
+  assert.ok(caseIds.length >= 20, `expected >= 20 golden sessions, got ${caseIds.length}`);
+  assert.equal(new Set(caseIds).size, caseIds.length);
+  assert.deepEqual([...B22_PERSONAS], ["gaurav-pm", "gaurav-bhaiya"]);
+  assert.equal(B22_TARGET, 0.9);
+  const r = gradeB22({ caseIds, walks: walksFor(() => FULL), rubric: testRubric() });
+  assert.equal(r.cases, caseIds.length);
+  assert.equal(r.perCase.length, caseIds.length * 2);
+});
+
+test("B22: with no reference rubric the verdict is NOT-YET-MEASURABLE, never a score, never a pass, and it does not block", () => {
+  for (const rubric of [null, undefined]) {
+    const r = gradeB22({ caseIds, walks: walksFor(() => FULL), rubric });
+    assert.equal(r.verdict, "NOT-YET-MEASURABLE");
+    assert.equal(r.score, null);
+    assert.deepEqual(r.perCase, []);
+    assert.equal(r.blocksRelease, false);
+    assert.match(r.reasons.join(" "), /reference rubric/i);
+    const md = toB22Markdown(r);
+    assert.match(md, /NOT-YET-MEASURABLE/);
+    assert.doesNotMatch(md, /\*\*(PASS|FAIL)\*\*/);
+    assert.doesNotMatch(md, /gaurav-pm \|/, "no per-persona score row may be rendered without a reference rubric");
+  }
+});
+
+test("B22: a rubric that is not the recorded sapna-expert one cannot measure: synthetic, wrong author, empty, or partial all stay NOT-YET-MEASURABLE", () => {
+  const first = caseIds[0]!;
+  const partial = testRubric();
+  delete partial.cases[first];
+  const cases: Array<[string, ReferenceRubric, RegExp]> = [
+    ["synthetic", testRubric([1, 3], { source: "synthetic" }), /synthetic|recorded/i],
+    ["wrong author", testRubric([1, 3], { author: "someone-else" }), /sapna-expert/],
+    ["empty", testRubric([1, 3], { cases: {} }), new RegExp(`${caseIds.length} of ${caseIds.length}`)],
+    ["partial", partial, new RegExp(`1 of ${caseIds.length}`)],
+  ];
+  for (const [label, rubric, why] of cases) {
+    const r = gradeB22({ caseIds, walks: walksFor(() => FULL), rubric });
+    assert.equal(r.verdict, "NOT-YET-MEASURABLE", label);
+    assert.equal(r.score, null, label);
+    assert.match(r.reasons.join(" "), why, label);
+  }
+});
+
+test("B22: a missing or empty walk (either persona, any case) is NOT-YET-MEASURABLE, not a zero and not a skip", () => {
+  const full = walksFor(() => FULL);
+  const noBhaiya = full.filter((w) => w.persona !== "gaurav-bhaiya");
+  const oneMissing = full.slice(1);
+  const oneEmpty = full.map((w, i) => (i === 0 ? { ...w, text: "   " } : w));
+  for (const [label, walks] of [["persona absent", noBhaiya], ["one walk missing", oneMissing], ["one walk empty", oneEmpty]] as const) {
+    const r = gradeB22({ caseIds, walks, rubric: testRubric() });
+    assert.equal(r.verdict, "NOT-YET-MEASURABLE", label);
+    assert.equal(r.score, null, label);
+    assert.equal(r.blocksRelease, false, label);
+    assert.match(r.reasons.join(" "), /walk/i, label);
+  }
+});
+
+test("B22: once the rubric exists the 90% bar is exact per persona: 9/10 passes, 8/10 fails and blocks release", () => {
+  const rubric = testRubric([1, 9]);
+  const pass = gradeB22({ caseIds, walks: walksFor(() => "tok-two only"), rubric });
+  assert.equal(pass.verdict, "PASS");
+  assert.equal(pass.blocksRelease, false);
+  assert.equal(pass.score!.byPersona["gaurav-pm"], 0.9);
+  assert.equal(pass.score!.overall, 0.9);
+
+  const below = gradeB22({ caseIds, walks: walksFor(() => "tok-one only"), rubric: testRubric([8, 2]) });
+  assert.equal(below.verdict, "FAIL");
+  assert.equal(below.blocksRelease, true);
+  assert.equal(below.score!.overall, 0.8);
+
+  const none = gradeB22({ caseIds, walks: walksFor(() => "nothing relevant"), rubric });
+  assert.equal(none.verdict, "FAIL");
+  assert.equal(none.score!.overall, 0);
+});
+
+test("B22: both personas must clear the bar: one strong walker cannot carry the other", () => {
+  const r = gradeB22({
+    caseIds,
+    walks: walksFor((persona) => (persona === "gaurav-pm" ? FULL : "tok-two only")),
+    rubric: testRubric(),
+  });
+  assert.equal(r.verdict, "FAIL");
+  assert.equal(r.score!.byPersona["gaurav-pm"], 1);
+  assert.equal(r.score!.byPersona["gaurav-bhaiya"], 0.75);
+  assert.equal(r.score!.overall, 0.75);
+  assert.equal(r.blocksRelease, true);
+  const md = toB22Markdown(r);
+  assert.match(md, /\*\*FAIL\*\*/);
+  assert.match(md, /gaurav-bhaiya \| 75\.0%/);
+  assert.match(md, /gaurav-pm \| 100\.0%/);
+});
+
+test("B22: the grader is blind (sees a rubric item and answer text only) and order-independent", () => {
+  const calls: unknown[][] = [];
+  const spy: B22Grader = (...args) => {
+    calls.push(args);
+    return ruleGrader(...args);
+  };
+  const walks = walksFor((persona) => `${FULL} ${persona === "gaurav-pm" ? "" : "extra"}`);
+  const a = gradeB22({ caseIds, walks, rubric: testRubric(), grader: spy });
+  assert.equal(calls.length, caseIds.length * 2 * 2, "one call per walk per rubric item");
+  for (const args of calls) {
+    assert.equal(args.length, 2);
+    assert.doesNotMatch(JSON.stringify(args), /gaurav|sapna|persona/i, "the grader must never be told who walked");
+  }
+  const b = gradeB22({ caseIds: [...caseIds].reverse(), walks: [...walks].reverse(), rubric: testRubric() });
+  assert.equal(b.verdict, a.verdict);
+  assert.deepEqual(b.score, a.score);
+});
+
+test("B22: a padded answer cannot beat the expert: the score is capped at the rubric total", () => {
+  const stuffed = `${FULL} tok-2b `.repeat(50);
+  const r = gradeB22({ caseIds, walks: walksFor(() => stuffed), rubric: testRubric() });
+  assert.equal(r.score!.overall, 1);
+  for (const p of r.perCase) assert.ok(p.ratio <= 1);
+});
+
+test("B22: malformed input is a hard error, never a silent skip", () => {
+  const good = walksFor(() => FULL);
+  const rubric = testRubric();
+  assert.throws(() => gradeB22({ caseIds, walks: [...good, { persona: "sapna-expert" as never, caseId: caseIds[0]!, text: "x" }], rubric }), /persona/i);
+  assert.throws(() => gradeB22({ caseIds, walks: [...good, { persona: "gaurav-pm", caseId: "not-a-golden-case", text: "x" }], rubric }), /not-a-golden-case/);
+  assert.throws(() => gradeB22({ caseIds, walks: [...good, good[0]!], rubric }), /duplicate/i);
+  assert.throws(() => gradeB22({ caseIds, walks: [{ ...good[0]!, text: 5 as never }, ...good.slice(1)], rubric }), /text/i);
+  assert.throws(() => gradeB22({ caseIds: [caseIds[0]!, caseIds[0]!], walks: [], rubric }), /duplicate/i);
+  for (const weight of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const bad = testRubric();
+    bad.cases[caseIds[0]!]![0]!.weight = weight;
+    assert.throws(() => gradeB22({ caseIds, walks: good, rubric: bad }), /weight/i, `weight ${weight}`);
+  }
+});
+
+test("B22: ruleGrader is a deterministic, case- and whitespace-insensitive, any-of substring check (Devanagari included)", () => {
+  const item = { id: "i", criterion: "TEST-ONLY", weight: 1, anyOf: ["Tok-One", "बजट"] };
+  assert.equal(ruleGrader(item, "has  TOK-ONE here"), true);
+  assert.equal(ruleGrader(item, "बजट कितना है"), true);
+  assert.equal(ruleGrader(item, "nothing"), false);
+  assert.equal(ruleGrader({ ...item, anyOf: [] }, "anything"), false);
+});
+
+test("B22: the rubric file loader: absent file is null (NOT-YET-MEASURABLE), a BOM is stripped, a malformed file throws", () => {
+  const dir = join(tmpdir(), `b22-rubric-${process.pid}-${Date.now()}`);
+  assert.equal(loadReferenceRubric(join(dir, "missing.json")), null);
+  const ok = JSON.stringify(testRubric());
+  assert.equal(parseReferenceRubric(`﻿${ok}`, "t").source, "recorded");
+  assert.throws(() => parseReferenceRubric("{not json", "t"), /t: invalid JSON/);
+  assert.throws(() => parseReferenceRubric(JSON.stringify({ ...testRubric(), source: "Recorded" }), "t"), /recorded/);
+  const noAnyOf = testRubric();
+  (noAnyOf.cases[caseIds[0]!]![0] as { anyOf: string[] }).anyOf = [];
+  assert.throws(() => parseReferenceRubric(JSON.stringify(noAnyOf), "t"), /anyOf/);
+  const zeroWeight = testRubric([0, 3]);
+  assert.throws(() => parseReferenceRubric(JSON.stringify(zeroWeight), "t"), /weight/);
 });

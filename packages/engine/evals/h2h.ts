@@ -12,8 +12,13 @@
  *    so the sheet never says which side is VC. Ratings are validated at runtime (preference is
  *    A, B or tie; safety flags are booleans) and a malformed rating throws.
  *  - Mock ratings prove plumbing only; A14 needs two real counsellor judges under G-REAL.
+ *  - Further down (wave-2 b22-harness): the separate B22 golden-session novice-vs-expert grader
+ *    (`gradeB22`), which reports NOT-YET-MEASURABLE until Sapna ma'am's reference rubric is recorded.
  */
 import { randomBytes } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { z } from "zod";
+import { ProvenanceSchema, stripBom, type Provenance } from "./dataset.js";
 
 export const H2H_PASS_RATE = 0.6;
 export const H2H_MIN_JUDGES = 2;
@@ -239,4 +244,189 @@ export function tallyH2h(
     a3Met: options.a3Met,
     reasons,
   };
+}
+
+// ---------------------------------------------------------------------------
+// B22 (novice + VC vs the expert benchmark; north-star metric; contract B22, Umesh 2026-09-26).
+// This is NOT the B22-S student head-to-head above (A14): B22 is the counsellor-surface metric.
+//
+//  - Case set: the T-009 golden sessions (caller passes their ids; qa/evals/scribe/sessions.jsonl).
+//  - Walks: the `gaurav-pm` and `gaurav-bhaiya` personas each walk every case with VC; the harness
+//    receives only the resulting answer text.
+//  - Reference: Sapna ma'am's rubric, recorded once. The rubric is a TYPE here and a file the caller
+//    loads; no rubric content is authored in code (Goodhart, ISS-081). The expert benchmark per case is
+//    the rubric's total weight (the rubric IS her judgement of the full-marks outcome).
+//  - Grader: an independent function that sees one rubric item and the answer text, never who walked.
+//    `ruleGrader` is the deterministic default (no model call); a real LLM grader needs g-real.
+//  - Verdict: until a recorded sapna-expert rubric covers every case and every persona has walked every
+//    case, the verdict is NOT-YET-MEASURABLE with no score at all, never a pass, and it does not block.
+//    Once measurable, each persona's score (sum of rubric weight met / sum of rubric total) must be
+//    >= 0.9, and a FAIL blocks release.
+// ---------------------------------------------------------------------------
+
+export const B22_TARGET = 0.9;
+export const B22_PERSONAS = ["gaurav-pm", "gaurav-bhaiya"] as const;
+export type B22Persona = (typeof B22_PERSONAS)[number];
+export const B22_REFERENCE_AUTHOR = "sapna-expert";
+
+/** One thing the reference counsellor would explore, conclude or recommend; `anyOf` = what the rule grader looks for. */
+export interface RubricItem {
+  id: string;
+  criterion: string;
+  weight: number;
+  anyOf: string[];
+}
+export interface ReferenceRubric {
+  source: Provenance;
+  author: string;
+  recordedAt: string;
+  cases: Record<string, RubricItem[]>;
+}
+
+const RubricItemSchema = z.object({
+  id: z.string().min(1),
+  criterion: z.string().min(1),
+  weight: z.number().positive().finite(),
+  anyOf: z.array(z.string().min(1)).min(1),
+});
+const ReferenceRubricSchema = z.object({
+  source: ProvenanceSchema,
+  author: z.string().min(1),
+  recordedAt: z.string().min(1),
+  cases: z.record(z.string().min(1), z.array(RubricItemSchema).min(1)),
+});
+
+export function parseReferenceRubric(raw: string, sourceLabel: string): ReferenceRubric {
+  let json: unknown;
+  try {
+    json = JSON.parse(stripBom(raw));
+  } catch (err) {
+    throw new Error(`${sourceLabel}: invalid JSON (${(err as Error).message})`);
+  }
+  const parsed = ReferenceRubricSchema.safeParse(json);
+  if (!parsed.success) {
+    throw new Error(`${sourceLabel}: ${parsed.error.issues.map((iss) => `${iss.path.join(".")}: ${iss.message}`).join("; ")}`);
+  }
+  return parsed.data;
+}
+
+/** Absent file = no reference rubric yet (the harness reports NOT-YET-MEASURABLE). A present but malformed file throws. */
+export function loadReferenceRubric(path: string): ReferenceRubric | null {
+  if (!existsSync(path)) return null;
+  return parseReferenceRubric(readFileSync(path, "utf-8"), path);
+}
+
+export interface B22Walk {
+  persona: B22Persona;
+  caseId: string;
+  /** The answer/outcome the persona reached with VC, as text. The grader sees only this. */
+  text: string;
+}
+
+/** Sees one rubric item and the answer text; never the persona or the case id (blind, independent). */
+export type B22Grader = (item: RubricItem, answer: string) => boolean;
+
+function normaliseForMatch(s: string): string {
+  return s.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/** Deterministic default grader: the item is met when any `anyOf` term occurs in the answer (case/whitespace-insensitive). */
+export const ruleGrader: B22Grader = (item, answer) => {
+  const text = normaliseForMatch(answer);
+  return item.anyOf.some((term) => {
+    const t = normaliseForMatch(term);
+    return t.length > 0 && text.includes(t);
+  });
+};
+
+export interface B22CaseScore {
+  caseId: string;
+  persona: B22Persona;
+  novice: number;
+  expert: number;
+  ratio: number;
+}
+export interface B22Result {
+  verdict: "NOT-YET-MEASURABLE" | "PASS" | "FAIL";
+  target: number;
+  /** Only a measurable FAIL blocks release; NOT-YET-MEASURABLE never does (contract B22). */
+  blocksRelease: boolean;
+  cases: number;
+  /** null whenever the verdict is NOT-YET-MEASURABLE: no score is ever reported without the reference rubric. */
+  score: { overall: number; byPersona: Record<B22Persona, number> } | null;
+  perCase: B22CaseScore[];
+  reasons: string[];
+}
+
+export function gradeB22(input: {
+  caseIds: readonly string[];
+  walks: readonly B22Walk[];
+  rubric: ReferenceRubric | null | undefined;
+  grader?: B22Grader;
+}): B22Result {
+  const { caseIds, walks, rubric } = input;
+  const grader = input.grader ?? ruleGrader;
+  const caseSet = new Set<string>();
+  for (const id of caseIds) {
+    if (caseSet.has(id)) throw new Error(`b22: duplicate case id ${id}`);
+    caseSet.add(id);
+  }
+  const byWalk = new Map<string, string>();
+  for (const w of walks) {
+    if (!(B22_PERSONAS as readonly string[]).includes(w.persona)) throw new Error(`b22: walk persona must be one of ${B22_PERSONAS.join(", ")}, got ${JSON.stringify(w.persona)}`);
+    if (!caseSet.has(w.caseId)) throw new Error(`b22: walk for ${w.persona} names ${JSON.stringify(w.caseId)}, which is not a golden case`);
+    if (typeof w.text !== "string") throw new Error(`b22: walk text for ${w.persona}/${w.caseId} must be a string, got ${typeof w.text}`);
+    const k = `${w.persona}\u0000${w.caseId}`;
+    if (byWalk.has(k)) throw new Error(`b22: duplicate walk for ${w.persona}/${w.caseId}`);
+    byWalk.set(k, w.text);
+  }
+  if (rubric) {
+    for (const [caseId, items] of Object.entries(rubric.cases)) {
+      for (const item of items) {
+        if (typeof item.weight !== "number" || !Number.isFinite(item.weight) || item.weight <= 0) {
+          throw new Error(`b22: rubric weight for ${caseId}/${item.id} must be a positive finite number, got ${String(item.weight)}`);
+        }
+      }
+    }
+  }
+
+  const reasons: string[] = [];
+  if (!rubric) {
+    reasons.push("no reference rubric is recorded yet (Sapna ma'am's rubric is the benchmark)");
+  } else {
+    if (rubric.source !== "recorded") reasons.push(`the reference rubric source is "${rubric.source}", not "recorded": a synthetic rubric cannot measure B22`);
+    if (rubric.author !== B22_REFERENCE_AUTHOR) reasons.push(`the reference rubric author is ${JSON.stringify(rubric.author)}, not ${B22_REFERENCE_AUTHOR}`);
+    const uncovered = caseIds.filter((id) => (rubric.cases[id]?.length ?? 0) === 0).length;
+    if (uncovered > 0) reasons.push(`the reference rubric covers ${caseIds.length - uncovered} of ${caseIds.length} cases (${uncovered} of ${caseIds.length} uncovered)`);
+  }
+  if (caseIds.length === 0) reasons.push("no golden cases supplied");
+  const missingWalks = B22_PERSONAS.flatMap((p) => caseIds.filter((id) => (byWalk.get(`${p}\u0000${id}`) ?? "").trim().length === 0).map((id) => `${p}/${id}`));
+  if (missingWalks.length > 0) reasons.push(`${missingWalks.length} of ${caseIds.length * B22_PERSONAS.length} persona walk(s) missing or empty`);
+
+  if (reasons.length > 0 || !rubric) {
+    return { verdict: "NOT-YET-MEASURABLE", target: B22_TARGET, blocksRelease: false, cases: caseIds.length, score: null, perCase: [], reasons };
+  }
+
+  const perCase: B22CaseScore[] = [];
+  const totals = new Map<B22Persona, { novice: number; expert: number }>();
+  for (const persona of B22_PERSONAS) {
+    const t = { novice: 0, expert: 0 };
+    for (const caseId of caseIds) {
+      const items = rubric.cases[caseId]!;
+      const answer = byWalk.get(`${persona}\u0000${caseId}`)!;
+      const expert = items.reduce((s, it) => s + it.weight, 0);
+      const novice = items.reduce((s, it) => s + (grader(it, answer) ? it.weight : 0), 0);
+      perCase.push({ caseId, persona, novice, expert, ratio: novice / expert });
+      t.novice += novice;
+      t.expert += expert;
+    }
+    totals.set(persona, t);
+  }
+  const byPersona = Object.fromEntries(B22_PERSONAS.map((p) => [p, totals.get(p)!.novice / totals.get(p)!.expert])) as Record<B22Persona, number>;
+  const overall = Math.min(...B22_PERSONAS.map((p) => byPersona[p]));
+  for (const p of B22_PERSONAS) {
+    if (byPersona[p] < B22_TARGET) reasons.push(`${p} reaches ${(byPersona[p] * 100).toFixed(1)}% of the expert benchmark, below the ${B22_TARGET * 100}% bar`);
+  }
+  const verdict = reasons.length === 0 ? "PASS" : "FAIL";
+  return { verdict, target: B22_TARGET, blocksRelease: verdict === "FAIL", cases: caseIds.length, score: { overall, byPersona }, perCase, reasons };
 }
