@@ -1,0 +1,44 @@
+[testlock] running slot 0 (free RAM 6.62 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 --test-reporter=tap --test-name-pattern ^T046 private invocation metadata cannot authorize nested second graph sharing DB student and thread$ packages/engine/tests/scribe-per-fact.test.ts packages/engine/tests/scribe-persistence.test.ts
+TAP version 13
+# Subtest: T046 private invocation metadata cannot authorize nested second graph sharing DB student and thread
+not ok 1 - T046 private invocation metadata cannot authorize nested second graph sharing DB student and thread
+  ---
+  duration_ms: 135.5787
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fr\\packages\\engine\\tests\\scribe-per-fact.test.ts:706:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(error instanceof ProviderAuthorizationRefusedError)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    Object.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fr\packages\engine\tests\scribe-per-fact.test.ts:758:12)
+    expectedException (node:assert:578:17)
+    expectsError (node:assert:703:21)
+    strict.rejects (node:assert:769:3)
+    async TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fr\packages\engine\tests\scribe-per-fact.test.ts:757:3)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+1..0
+# Subtest: packages\\engine\\tests\\scribe-persistence.test.ts
+ok 2 - packages\\engine\\tests\\scribe-persistence.test.ts
+  ---
+  duration_ms: 1565.8576
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 1
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3302.3262

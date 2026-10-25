@@ -1,0 +1,89 @@
+[testlock] running slot 0 (free RAM 6.02 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 --test-reporter=tap --test-name-pattern ^D068 (?:writeApproved actual local aggregate receipt rejects .+|PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes)$ packages/engine/tests/scribe-per-fact.test.ts packages/engine/tests/scribe-persistence.test.ts
+TAP version 13
+# Subtest: D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array
+not ok 1 - D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array
+  ---
+  duration_ms: 216.753
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14'
+  failureType: 'testCodeFailure'
+  error: 'SETUP/REACHABILITY: no actual source-emitted all-positive native primary [W,E]; old source without the real constructor receipt is not vector-proof evidence'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-per-fact.test.ts:1586:44)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+# Subtest: D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities
+not ok 2 - D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities
+  ---
+  duration_ms: 82.2754
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14'
+  failureType: 'testCodeFailure'
+  error: |-
+    SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-per-fact.test.ts:1562:16)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# {"gate":"postcheck","phases":{"outcomeErrorPresent":true,"outcomeResultPresent":false,"candidateObserved":true,"driverFacadeObserved":true,"driverInnerObserved":false,"candidateGuardStage":0,"nativeGuardStage":12,"driverTerminal":false,"nodeInjection":false,"secondReadEntered":false,"secondReadTerminal":false,"postcheckTerminal":false,"originalCount":61,"ownedCount":2,"receiptCount":0},"nodes":[{"id":0,"kind":"PartialApplyError","links":[{"via":"cause","target":1}]},{"id":1,"kind":"AssertionError","links":[]}]}
+# Subtest: D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append
+not ok 3 - D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append
+  ---
+  duration_ms: 86.0487
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14'
+  failureType: 'testCodeFailure'
+  error: |-
+    SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-per-fact.test.ts:1562:16)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# {"gate":"postcheck","phases":{"outcomeErrorPresent":true,"outcomeResultPresent":false,"candidateObserved":true,"driverFacadeObserved":true,"driverInnerObserved":false,"candidateGuardStage":0,"nativeGuardStage":12,"driverTerminal":false,"nodeInjection":false,"secondReadEntered":false,"secondReadTerminal":false,"postcheckTerminal":false,"originalCount":61,"ownedCount":2,"receiptCount":0},"nodes":[{"id":0,"kind":"PartialApplyError","links":[{"via":"cause","target":1}]},{"id":1,"kind":"AssertionError","links":[]}]}
+# Subtest: D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes
+not ok 4 - D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes
+  ---
+  duration_ms: 627.3163
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:731:3'
+  failureType: 'testCodeFailure'
+  error: 'Scribe original settlement and owned cleanup failed.'
+  code: 'ERR_TEST_FAILURE'
+  name: 'AggregateError'
+  stack: |-
+    <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\src\scribe\graph.ts:2155:28)
+    runNextTicks (node:internal/process/task_queues:64:5)
+    process.processTimers (node:internal/timers:538:9)
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 0
+# fail 4
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4666.9086

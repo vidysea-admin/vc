@@ -1,0 +1,13 @@
+== base erasure.ts LF sha e1efe6f1bfe65a8d at 2026-10-25T12:00:52+05:30
+run 1 exit=1 # tests 128 # pass 108 # fail 20  sha=99c20ff6
+run 1 exit=1 # tests 12 # pass 4 # fail 6  sha=514d4ca6
+run 1 exit=0 # tests 1 # pass 1 # fail 0  sha=02057a5a
+== opt1a erasure.ts LF sha 94134d717330ddfd at 2026-10-25T12:02:49+05:30
+run 1 exit=1 # tests 128 # pass 109 # fail 19  sha=87013b0d
+run 1 exit=1 # tests 12 # pass 4 # fail 6  sha=dc85689f
+run 1 exit=1 # tests 1 # pass 0 # fail 1  sha=79b34f99
+== opt1b erasure.ts LF sha d3898e138ff47c59 at 2026-10-25T12:04:46+05:30
+run 1 exit=1 # tests 128 # pass 113 # fail 15  sha=12c708d8
+run 1 exit=1 # tests 12 # pass 4 # fail 6  sha=3c2a24ec
+run 1 exit=1 # tests 1 # pass 0 # fail 1  sha=7c66fca9
+restored e1efe6f1bfe65a8d

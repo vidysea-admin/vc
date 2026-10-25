@@ -1,0 +1,23 @@
+== base e1efe6f1bfe65a8d 2026-10-25T12:07:38+05:30
+run 1 exit=1 # tests 4 # pass 0 # fail 4  sha=f616719d
+run 2 exit=1 # tests 4 # pass 0 # fail 4  sha=0923ec38
+run 3 exit=1 # tests 4 # pass 0 # fail 4  sha=8317d3c8
+run 4 exit=1 # tests 4 # pass 0 # fail 4  sha=05e5b524
+run 5 exit=1 # tests 4 # pass 0 # fail 4  sha=2be7959d
+  run 1 not-ok: not ok 1 writeApproved actual local aggregate receipt rejects replacem;not ok 2 writeApproved actual local aggregate receipt rejects reordere;not ok 3 writeApproved actual local aggregate receipt rejects foreign ;not ok 4 PUBLIC nested summary settlement: actual late undo registers ;
+  run 2 not-ok: not ok 1 writeApproved actual local aggregate receipt rejects replacem;not ok 2 writeApproved actual local aggregate receipt rejects reordere;not ok 3 writeApproved actual local aggregate receipt rejects foreign ;not ok 4 PUBLIC nested summary settlement: actual late undo registers ;
+  run 3 not-ok: not ok 1 writeApproved actual local aggregate receipt rejects replacem;not ok 2 writeApproved actual local aggregate receipt rejects reordere;not ok 3 writeApproved actual local aggregate receipt rejects foreign ;not ok 4 PUBLIC nested summary settlement: actual late undo registers ;
+  run 4 not-ok: not ok 1 writeApproved actual local aggregate receipt rejects replacem;not ok 2 writeApproved actual local aggregate receipt rejects reordere;not ok 3 writeApproved actual local aggregate receipt rejects foreign ;not ok 4 PUBLIC nested summary settlement: actual late undo registers ;
+  run 5 not-ok: not ok 1 writeApproved actual local aggregate receipt rejects replacem;not ok 2 writeApproved actual local aggregate receipt rejects reordere;not ok 3 writeApproved actual local aggregate receipt rejects foreign ;not ok 4 PUBLIC nested summary settlement: actual late undo registers ;
+== opt1b d3898e138ff47c59 2026-10-25T12:08:10+05:30
+run 1 exit=1 # tests 4 # pass 2 # fail 2  sha=61ea3e77
+run 2 exit=1 # tests 4 # pass 2 # fail 2  sha=3986f98c
+run 3 exit=1 # tests 4 # pass 3 # fail 1  sha=9ae7ce5b
+run 4 exit=1 # tests 4 # pass 3 # fail 1  sha=02d1ad4c
+run 5 exit=1 # tests 4 # pass 2 # fail 2  sha=b1d8a59a
+  run 1 not-ok: not ok 1 writeApproved actual local aggregate receipt rejects replacem;not ok 4 PUBLIC nested summary settlement: actual late undo registers ;
+  run 2 not-ok: not ok 1 writeApproved actual local aggregate receipt rejects replacem;not ok 4 PUBLIC nested summary settlement: actual late undo registers ;
+  run 3 not-ok: not ok 4 PUBLIC nested summary settlement: actual late undo registers ;
+  run 4 not-ok: not ok 4 PUBLIC nested summary settlement: actual late undo registers ;
+  run 5 not-ok: not ok 1 writeApproved actual local aggregate receipt rejects replacem;not ok 4 PUBLIC nested summary settlement: actual late undo registers ;
+restored e1efe6f1bfe65a8d

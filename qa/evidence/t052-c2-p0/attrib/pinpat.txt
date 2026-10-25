@@ -1,0 +1,1 @@
+^(?:T046 private invocation metadata cannot authorize nested second graph sharing DB student and thread|T046 serialized configurable actor fields cannot grant edit authority|D055 ordinary original error: .+|D055 prompt original deadline: .+|D059 (?:recordRejectReasons|applyApprovedDiff) actual nested readonly child: .+)$

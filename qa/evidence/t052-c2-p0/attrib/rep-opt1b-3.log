@@ -1,0 +1,51 @@
+[testlock] running slot 0 (free RAM 6.06 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 --test-reporter=tap --test-name-pattern ^D068 (?:writeApproved actual local aggregate receipt rejects .+|PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes)$ packages/engine/tests/scribe-per-fact.test.ts packages/engine/tests/scribe-persistence.test.ts
+TAP version 13
+# Subtest: D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array
+ok 1 - D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array
+  ---
+  duration_ms: 355.6231
+  type: 'test'
+  ...
+# D068 row 15/unchanged: reached candidate=summary-write:7dd37aac-4399-4b81-b020-e55437dd59ec, original callbacks=61, owned=2, actual receipts=7.
+# D068 row 15/mutate: reached candidate=summary-write:95424dc7-0538-4031-aa5f-f20c9d7f86a3, original callbacks=61, owned=2, actual receipts=7.
+# Subtest: D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities
+ok 2 - D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities
+  ---
+  duration_ms: 220.3412
+  type: 'test'
+  ...
+# D068 row 16/unchanged: reached candidate=summary-write:0f6faf02-0156-43d4-b485-e48171b0a76f, original callbacks=61, owned=2, actual receipts=7.
+# D068 row 16/mutate: reached candidate=summary-write:e8d0cb03-d24b-4215-8ad1-32907731d9ae, original callbacks=61, owned=2, actual receipts=7.
+# Subtest: D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append
+ok 3 - D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append
+  ---
+  duration_ms: 329.5037
+  type: 'test'
+  ...
+# D068 row 17/unchanged: reached candidate=summary-write:266fadf9-9882-462b-90dd-2dab95e0c35e, original callbacks=61, owned=2, actual receipts=7.
+# D068 row 17/replace: reached candidate=summary-write:5ecfcde5-1047-4e8f-9bb3-7cf4a2b95609, original callbacks=61, owned=2, actual receipts=7.
+# D068 row 17/append: reached candidate=summary-write:7ba82610-a182-4c87-8a7c-799cd2476706, original callbacks=61, owned=2, actual receipts=7.
+# Subtest: D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes
+not ok 4 - D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes
+  ---
+  duration_ms: 618.1702
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:731:3'
+  failureType: 'testCodeFailure'
+  error: 'Scribe original settlement and owned cleanup failed.'
+  code: 'ERR_TEST_FAILURE'
+  name: 'AggregateError'
+  stack: |-
+    <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\src\scribe\graph.ts:2155:28)
+    runNextTicks (node:internal/process/task_queues:64:5)
+    process.processTimers (node:internal/timers:538:9)
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 3
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 4968.2109

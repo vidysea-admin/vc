@@ -1,0 +1,6 @@
+== repin at 2026-10-25T12:10:54+05:30; diff lines: per-fact 1777 persistence 2887
+run 1 exit=1 # tests 12 # pass 10 # fail 2  sha=c309e4e8
+run 2 exit=1 # tests 12 # pass 10 # fail 2  sha=ba9e11da
+restored per-fact 7694e67a persistence 89406be1
+  run 1 not-ok: not ok 5 - T046 private invocation metadata cannot authorize nested second graph sharing D;not ok 12 - D055 prompt original deadline: actual early rollback rejects observably after ;
+  run 2 not-ok: not ok 5 - T046 private invocation metadata cannot authorize nested second graph sharing D;not ok 12 - D055 prompt original deadline: actual early rollback rejects observably after ;

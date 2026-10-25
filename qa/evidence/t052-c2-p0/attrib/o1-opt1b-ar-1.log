@@ -1,0 +1,33 @@
+[testlock] running slot 0 (free RAM 6.83 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 --test-reporter=tap --test-name-pattern ^D-016 deadline: the post-check runs AT the abort.*$ packages/db/tests/erasure.test.ts
+TAP version 13
+# Subtest: D-016 deadline: the post-check runs AT the abort (in the finally), not only when the stuck op settles: a fact that landed before the stuck edge write is already gone when the writer returns
+not ok 1 - D-016 deadline: the post-check runs AT the abort (in the finally), not only when the stuck op settles: a fact that landed before the stuck edge write is already gone when the writer returns
+  ---
+  duration_ms: 99.9269
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\db\\tests\\erasure.test.ts:2204:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    AR-4: op-declared expiry aborts the signal
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\db\tests\erasure.test.ts:2256:14)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 573.9374

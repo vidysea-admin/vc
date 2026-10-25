@@ -1,0 +1,1274 @@
+[testlock] running slot 0 (free RAM 6.21 GB): timeout 900 node node_modules/tsx/dist/cli.mjs --test --test-concurrency=1 --test-timeout=120000 --test-reporter=tap --test-name-pattern ^(?:D068 .+|D058 (?:transcript|concern) rejected receipt: actual late (?:owned insertion leaves zero residue|matched recreated winner preserves full rows)|D059 applyApprovedDiff dynamic postcheck: (?:successful|failed) work then expired budget preserves exact read undo priority|D059 applyApprovedDiff actual partial wrapper: (?:clean-own-expiry|unexpected-raw) preserves provenance and immutable primary)$ packages/db/tests/facts.test.ts packages/db/tests/decisions.test.ts packages/engine/tests/scribe-persistence.test.ts packages/engine/tests/scribe-checkpointer.test.ts packages/engine/tests/scribe-per-fact.test.ts
+TAP version 13
+# Subtest: D068 recordRejectReasons actual held expiry: clean observer preserves original cause and observable settlement
+ok 1 - D068 recordRejectReasons actual held expiry: clean observer preserves original cause and observable settlement
+  ---
+  duration_ms: 50.9323
+  type: 'test'
+  ...
+# Subtest: D068 recordRejectReasons actual held expiry: timer observer S preserves original cause and observable settlement
+ok 2 - D068 recordRejectReasons actual held expiry: timer observer S preserves original cause and observable settlement
+  ---
+  duration_ms: 44.7689
+  type: 'test'
+  ...
+# Subtest: D068 recordRejectReasons actual held expiry: timer observer S plus cleanup U preserves original cause and observable settlement
+ok 3 - D068 recordRejectReasons actual held expiry: timer observer S plus cleanup U preserves original cause and observable settlement
+  ---
+  duration_ms: 47.0938
+  type: 'test'
+  ...
+# Subtest: D068 recordRejectReasons actual held expiry: received public FWD observer preserves original cause and observable settlement
+ok 4 - D068 recordRejectReasons actual held expiry: received public FWD observer preserves original cause and observable settlement
+  ---
+  duration_ms: 46.2406
+  type: 'test'
+  ...
+# Subtest: D068 recordRejectReasons actual direct-op receipt: precheck observer S preserves own primary aggregate and foreign bytes
+not ok 5 - D068 recordRejectReasons actual direct-op receipt: precheck observer S preserves own primary aggregate and foreign bytes
+  ---
+  duration_ms: 41.2614
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\db\\tests\\decisions.test.ts:702:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary instanceof AggregateError)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\db\tests\decisions.test.ts:740:45)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 recordRejectReasons actual direct-op receipt: insert observer S preserves own primary aggregate and foreign bytes
+not ok 6 - D068 recordRejectReasons actual direct-op receipt: insert observer S preserves own primary aggregate and foreign bytes
+  ---
+  duration_ms: 35.9698
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\db\\tests\\decisions.test.ts:702:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary instanceof AggregateError)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\db\tests\decisions.test.ts:740:45)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 recordRejectReasons actual direct-op receipt: duplicate-winner observer S preserves own primary aggregate and foreign bytes
+not ok 7 - D068 recordRejectReasons actual direct-op receipt: duplicate-winner observer S preserves own primary aggregate and foreign bytes
+  ---
+  duration_ms: 36.7517
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\db\\tests\\decisions.test.ts:702:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary instanceof AggregateError)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\db\tests\decisions.test.ts:740:45)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 summary original receipt: candidate-insert clean-own-expiry preserves exact failure and owned beforeimage
+ok 8 - D068 summary original receipt: candidate-insert clean-own-expiry preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 76.9027
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: candidate-insert raw-error preserves exact failure and owned beforeimage
+ok 9 - D068 summary original receipt: candidate-insert raw-error preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 59.1281
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: candidate-insert raw-abort-name preserves exact failure and owned beforeimage
+ok 10 - D068 summary original receipt: candidate-insert raw-abort-name preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 63.2281
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: candidate-insert foreign-clean preserves exact failure and owned beforeimage
+ok 11 - D068 summary original receipt: candidate-insert foreign-clean preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 142.047
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: candidate-insert foreign-rejecting preserves exact failure and owned beforeimage
+ok 12 - D068 summary original receipt: candidate-insert foreign-rejecting preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 143.0173
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: candidate-insert distinct-cleanup preserves exact failure and owned beforeimage
+ok 13 - D068 summary original receipt: candidate-insert distinct-cleanup preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 61.3365
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: candidate-insert shared-cleanup preserves exact failure and owned beforeimage
+ok 14 - D068 summary original receipt: candidate-insert shared-cleanup preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 47.7144
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: summary-cas clean-own-expiry preserves exact failure and owned beforeimage
+ok 15 - D068 summary original receipt: summary-cas clean-own-expiry preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 49.0909
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: summary-cas raw-error preserves exact failure and owned beforeimage
+ok 16 - D068 summary original receipt: summary-cas raw-error preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 61.2252
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: summary-cas raw-abort-name preserves exact failure and owned beforeimage
+ok 17 - D068 summary original receipt: summary-cas raw-abort-name preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 46.863
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: summary-cas foreign-clean preserves exact failure and owned beforeimage
+ok 18 - D068 summary original receipt: summary-cas foreign-clean preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 141.2984
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: summary-cas foreign-rejecting preserves exact failure and owned beforeimage
+ok 19 - D068 summary original receipt: summary-cas foreign-rejecting preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 141.9841
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: summary-cas distinct-cleanup preserves exact failure and owned beforeimage
+ok 20 - D068 summary original receipt: summary-cas distinct-cleanup preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 46.7439
+  type: 'test'
+  ...
+# Subtest: D068 summary original receipt: summary-cas shared-cleanup preserves exact failure and owned beforeimage
+ok 21 - D068 summary original receipt: summary-cas shared-cleanup preserves exact failure and owned beforeimage
+  ---
+  duration_ms: 62.4939
+  type: 'test'
+  ...
+# Subtest: D068 summary authorization original: clean stays observable before candidate creation
+ok 22 - D068 summary authorization original: clean stays observable before candidate creation
+  ---
+  duration_ms: 47.4437
+  type: 'test'
+  ...
+# Subtest: D068 summary authorization original: rejecting stays observable before candidate creation
+ok 23 - D068 summary authorization original: rejecting stays observable before candidate creation
+  ---
+  duration_ms: 47.3969
+  type: 'test'
+  ...
+# Subtest: D068 admission authorization original: ordinary clean drains real A independently of work expiry
+ok 24 - D068 admission authorization original: ordinary clean drains real A independently of work expiry
+  ---
+  duration_ms: 62.6914
+  type: 'test'
+  ...
+# Subtest: D068 admission authorization original: ordinary rejecting drains real A independently of work expiry
+ok 25 - D068 admission authorization original: ordinary rejecting drains real A independently of work expiry
+  ---
+  duration_ms: 61.5988
+  type: 'test'
+  ...
+# Subtest: D068 admission authorization original: readonly clean drains real A independently of work expiry
+ok 26 - D068 admission authorization original: readonly clean drains real A independently of work expiry
+  ---
+  duration_ms: 61.8518
+  type: 'test'
+  ...
+# Subtest: D068 admission authorization original: readonly rejecting drains real A independently of work expiry
+ok 27 - D068 admission authorization original: readonly rejecting drains real A independently of work expiry
+  ---
+  duration_ms: 60.6517
+  type: 'test'
+  ...
+# Subtest: D068 admission post-ownership authorization: clean preserves exact provisional cleanup and original failure
+ok 28 - D068 admission post-ownership authorization: clean preserves exact provisional cleanup and original failure
+  ---
+  duration_ms: 47.5545
+  type: 'test'
+  ...
+# Subtest: D068 admission post-ownership authorization: rejecting preserves exact provisional cleanup and original failure
+ok 29 - D068 admission post-ownership authorization: rejecting preserves exact provisional cleanup and original failure
+  ---
+  duration_ms: 46.9207
+  type: 'test'
+  ...
+# Subtest: D059 applyApprovedDiff dynamic postcheck: successful work then expired budget preserves exact read undo priority
+ok 30 - D059 applyApprovedDiff dynamic postcheck: successful work then expired budget preserves exact read undo priority
+  ---
+  duration_ms: 47.6338
+  type: 'test'
+  ...
+# Subtest: D059 applyApprovedDiff dynamic postcheck: failed work then expired budget preserves exact read undo priority
+ok 31 - D059 applyApprovedDiff dynamic postcheck: failed work then expired budget preserves exact read undo priority
+  ---
+  duration_ms: 46.08
+  type: 'test'
+  ...
+# Subtest: D059 applyApprovedDiff actual partial wrapper: clean-own-expiry preserves provenance and immutable primary
+ok 32 - D059 applyApprovedDiff actual partial wrapper: clean-own-expiry preserves provenance and immutable primary
+  ---
+  duration_ms: 46.723
+  type: 'test'
+  ...
+# Subtest: D059 applyApprovedDiff actual partial wrapper: unexpected-raw preserves provenance and immutable primary
+ok 33 - D059 applyApprovedDiff actual partial wrapper: unexpected-raw preserves provenance and immutable primary
+  ---
+  duration_ms: 31.5917
+  type: 'test'
+  ...
+# Subtest: D068 Mongo adapter original observation start checkpoint primary resolve
+not ok 34 - D068 Mongo adapter original observation start checkpoint primary resolve
+  ---
+  duration_ms: 141.837
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+# Subtest: D068 Mongo adapter original observation start checkpoint primary reject
+not ok 35 - D068 Mongo adapter original observation start checkpoint primary reject
+  ---
+  duration_ms: 58.8621
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation start checkpoint recheck resolve
+not ok 36 - D068 Mongo adapter original observation start checkpoint recheck resolve
+  ---
+  duration_ms: 57.628
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation start checkpoint recheck reject
+not ok 37 - D068 Mongo adapter original observation start checkpoint recheck reject
+  ---
+  duration_ms: 74.8989
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation start pending-write primary resolve
+not ok 38 - D068 Mongo adapter original observation start pending-write primary resolve
+  ---
+  duration_ms: 51.0903
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation start pending-write primary reject
+not ok 39 - D068 Mongo adapter original observation start pending-write primary reject
+  ---
+  duration_ms: 44.5845
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation start pending-write recheck resolve
+not ok 40 - D068 Mongo adapter original observation start pending-write recheck resolve
+  ---
+  duration_ms: 78.4892
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation start pending-write recheck reject
+not ok 41 - D068 Mongo adapter original observation start pending-write recheck reject
+  ---
+  duration_ms: 53.0576
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation resume checkpoint primary resolve
+not ok 42 - D068 Mongo adapter original observation resume checkpoint primary resolve
+  ---
+  duration_ms: 50.5662
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation resume checkpoint primary reject
+not ok 43 - D068 Mongo adapter original observation resume checkpoint primary reject
+  ---
+  duration_ms: 62.2919
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation resume checkpoint recheck resolve
+not ok 44 - D068 Mongo adapter original observation resume checkpoint recheck resolve
+  ---
+  duration_ms: 45.2944
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation resume checkpoint recheck reject
+not ok 45 - D068 Mongo adapter original observation resume checkpoint recheck reject
+  ---
+  duration_ms: 46.4779
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation resume pending-write primary resolve
+not ok 46 - D068 Mongo adapter original observation resume pending-write primary resolve
+  ---
+  duration_ms: 80.6361
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation resume pending-write primary reject
+not ok 47 - D068 Mongo adapter original observation resume pending-write primary reject
+  ---
+  duration_ms: 49.0332
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation resume pending-write recheck resolve
+not ok 48 - D068 Mongo adapter original observation resume pending-write recheck resolve
+  ---
+  duration_ms: 46.6459
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 Mongo adapter original observation resume pending-write recheck reject
+not ok 49 - D068 Mongo adapter original observation resume pending-write recheck reject
+  ---
+  duration_ms: 45.6398
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-checkpointer.test.ts:122:85'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(primary >= 0 && recheck > primary)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-checkpointer.test.ts:156:12)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 writeApproved candidate insert late ordinary original rejects settlement after successful owned undo
+ok 50 - D068 writeApproved candidate insert late ordinary original rejects settlement after successful owned undo
+  ---
+  duration_ms: 394.4736
+  type: 'test'
+  ...
+# D068 row 1/single: reached candidate=summary-write:f875f9bd-0b6f-4308-a4f0-0a8a945096c9, original callbacks=48, owned=1, actual receipts=4.
+# Subtest: D068 writeApproved candidate insert late independent AbortError rejects settlement after successful owned undo
+ok 51 - D068 writeApproved candidate insert late independent AbortError rejects settlement after successful owned undo
+  ---
+  duration_ms: 277.7791
+  type: 'test'
+  ...
+# D068 row 2/single: reached candidate=summary-write:e6fe280f-6109-4991-aac0-9565acf79a15, original callbacks=48, owned=1, actual receipts=4.
+# Subtest: D068 writeApproved candidate insert late foreign deadline original rejects settlement after clean nested drain
+ok 52 - D068 writeApproved candidate insert late foreign deadline original rejects settlement after clean nested drain
+  ---
+  duration_ms: 283.8072
+  type: 'test'
+  ...
+# D068 row 3/single: reached candidate=summary-write:1bdd4083-86ba-462b-9925-201cf2b91921, original callbacks=48, owned=1, actual receipts=4.
+# Subtest: D068 writeApproved candidate commit late ordinary original rejects settlement after successful all owned undo
+ok 53 - D068 writeApproved candidate commit late ordinary original rejects settlement after successful all owned undo
+  ---
+  duration_ms: 281.7791
+  type: 'test'
+  ...
+# D068 row 4/single: reached candidate=summary-write:565f6e81-c579-42ea-96d5-f78c1d52c1a6, original callbacks=63, owned=2, actual receipts=2.
+# Subtest: D068 writeApproved candidate commit late independent AbortError rejects settlement after successful all owned undo
+ok 54 - D068 writeApproved candidate commit late independent AbortError rejects settlement after successful all owned undo
+  ---
+  duration_ms: 274.0828
+  type: 'test'
+  ...
+# D068 row 5/single: reached candidate=summary-write:890127fe-7b42-42b3-a41a-9aabc535b35f, original callbacks=63, owned=2, actual receipts=2.
+# Subtest: D068 writeApproved candidate commit late foreign deadline original rejects settlement after clean nested drain
+ok 55 - D068 writeApproved candidate commit late foreign deadline original rejects settlement after clean nested drain
+  ---
+  duration_ms: 311.8893
+  type: 'test'
+  ...
+# D068 row 6/single: reached candidate=summary-write:9acb2224-83d4-4954-abac-0433b6e8cedf, original callbacks=63, owned=2, actual receipts=2.
+# Subtest: D068 writeApproved actual node authorize foreign deadline with ordinary cause defeats leaf collector masking
+ok 56 - D068 writeApproved actual node authorize foreign deadline with ordinary cause defeats leaf collector masking
+  ---
+  duration_ms: 114.0641
+  type: 'test'
+  ...
+# D068 row 7/single: reached candidate=summary-write:3cd55e46-9cce-4811-bb47-c447aa168ed2, original callbacks=61, owned=2, actual receipts=1.
+# Subtest: D068 writeApproved actual node authorize foreign deadline with independent AbortError cause preserves first primary
+ok 57 - D068 writeApproved actual node authorize foreign deadline with independent AbortError cause preserves first primary
+  ---
+  duration_ms: 122.1379
+  type: 'test'
+  ...
+# D068 row 8/single: reached candidate=summary-write:ffc4a6b6-8216-4003-8716-a72bd07bf6a0, original callbacks=61, owned=2, actual receipts=1.
+# Subtest: D068 writeApproved exact own node expiry with clean original and undo fulfills exposed settlement
+not ok 58 - D068 writeApproved exact own node expiry with clean original and undo fulfills exposed settlement
+  ---
+  duration_ms: 272.2961
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14'
+  failureType: 'testCodeFailure'
+  error: |-
+    clean genuinely witnessed expiry is expected-only
+    + actual - expected
+    
+    + 'rejected'
+    - 'fulfilled'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'fulfilled'
+  actual: 'rejected'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-per-fact.test.ts:1640:18)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 writeApproved positively receipted child expiry requires complete expected causal proof
+ok 59 - D068 writeApproved positively receipted child expiry requires complete expected causal proof
+  ---
+  duration_ms: 308.8448
+  type: 'test'
+  ...
+# D068 row 10/single: reached candidate=summary-write:d7d56cf9-6cf3-494c-8ab0-369d95a9f7a8, original callbacks=48, owned=1, actual receipts=4.
+# Subtest: D068 writeApproved clean direct success closes every actual original without rollback
+ok 60 - D068 writeApproved clean direct success closes every actual original without rollback
+  ---
+  duration_ms: 89.5151
+  type: 'test'
+  ...
+# D068 row 11/single: reached candidate=summary-write:3cb7ae69-5560-4f32-949f-070f941f47c4, original callbacks=54, owned=2, actual receipts=0.
+# Subtest: D068 writeApproved actual originals appended during nested settlement remain joined and observable
+ok 61 - D068 writeApproved actual originals appended during nested settlement remain joined and observable
+  ---
+  duration_ms: 231.0193
+  type: 'test'
+  ...
+# Appended original is awaited by the real nested summary undo; this is closure/registration evidence, not independent outer-drain mutant sensitivity.
+# D068 row 12/clean: reached candidate=summary-write:731ffb20-3a0c-4b4b-8d57-4e0f6efdb852, original callbacks=61, owned=2, actual receipts=1.
+# Appended original is awaited by the real nested summary undo; this is closure/registration evidence, not independent outer-drain mutant sensitivity.
+# D068 row 12/reject: reached candidate=summary-write:c46f8bf0-b5aa-4d61-acba-cf2495826e77, original callbacks=61, owned=2, actual receipts=1.
+# Subtest: D068 writeApproved actual reachable diamond retains distinct roots and deduplicates shared identities
+ok 62 - D068 writeApproved actual reachable diamond retains distinct roots and deduplicates shared identities
+  ---
+  duration_ms: 132.9124
+  type: 'test'
+  ...
+# D068 row 13/single: reached candidate=summary-write:ec9b2e04-f182-4a7a-9c17-068c7cb42528, original callbacks=61, owned=2, actual receipts=1.
+# Subtest: D068 writeApproved actual reachable causal cycle terminates and fails expected-only proof
+ok 63 - D068 writeApproved actual reachable causal cycle terminates and fails expected-only proof
+  ---
+  duration_ms: 99.8948
+  type: 'test'
+  ...
+# Actual cyclic error DATA terminates; no private promise-wait count is inferred.
+# D068 row 14/single: reached candidate=summary-write:69fc7b42-fc95-45a2-a8af-d3af2ba072eb, original callbacks=61, owned=2, actual receipts=1.
+# Subtest: D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array
+not ok 64 - D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array
+  ---
+  duration_ms: 163.7678
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14'
+  failureType: 'testCodeFailure'
+  error: 'SETUP/REACHABILITY: no actual source-emitted all-positive native primary [W,E]; old source without the real constructor receipt is not vector-proof evidence'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-per-fact.test.ts:1586:44)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities
+not ok 65 - D068 writeApproved actual local aggregate receipt rejects reordered native errors member identities
+  ---
+  duration_ms: 69.541
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14'
+  failureType: 'testCodeFailure'
+  error: |-
+    SETUP/REACHABILITY: actual O-before-timer W then semantic postcheck must be reached
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-per-fact.test.ts:1562:16)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# {"gate":"postcheck","phases":{"outcomeErrorPresent":true,"outcomeResultPresent":false,"candidateObserved":true,"driverFacadeObserved":true,"driverInnerObserved":false,"candidateGuardStage":0,"nativeGuardStage":12,"driverTerminal":false,"nodeInjection":false,"secondReadEntered":false,"secondReadTerminal":false,"postcheckTerminal":false,"originalCount":61,"ownedCount":2,"receiptCount":0},"nodes":[{"id":0,"kind":"PartialApplyError","links":[{"via":"cause","target":1}]},{"id":1,"kind":"AssertionError","links":[]}]}
+# Subtest: D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append
+not ok 66 - D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append
+  ---
+  duration_ms: 108.5077
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-per-fact.test.ts:1037:14'
+  failureType: 'testCodeFailure'
+  error: 'SETUP/REACHABILITY: no actual source-emitted all-positive native primary [W,E]; old source without the real constructor receipt is not vector-proof evidence'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-per-fact.test.ts:1586:44)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 writeApproved distinct same-message failures and later undo failures preserve all required attempts
+ok 67 - D068 writeApproved distinct same-message failures and later undo failures preserve all required attempts
+  ---
+  duration_ms: 99.466
+  type: 'test'
+  ...
+# Real cleanup faults retained; remaining own facts=0, candidate=invalid.
+# D068 row 18/single: reached candidate=summary-write:c4a1e964-845b-4889-b551-f14d055f6d96, original callbacks=53, owned=2, actual receipts=1.
+# Subtest: D058 transcript rejected receipt: actual late owned insertion leaves zero residue
+ok 68 - D058 transcript rejected receipt: actual late owned insertion leaves zero residue
+  ---
+  duration_ms: 670.3193
+  type: 'test'
+  ...
+# Subtest: D058 transcript rejected receipt: actual late matched recreated winner preserves full rows
+ok 69 - D058 transcript rejected receipt: actual late matched recreated winner preserves full rows
+  ---
+  duration_ms: 607.2657
+  type: 'test'
+  ...
+# Subtest: D058 concern rejected receipt: actual late owned insertion leaves zero residue
+ok 70 - D058 concern rejected receipt: actual late owned insertion leaves zero residue
+  ---
+  duration_ms: 635.7665
+  type: 'test'
+  ...
+# Subtest: D058 concern rejected receipt: actual late matched recreated winner preserves full rows
+ok 71 - D058 concern rejected receipt: actual late matched recreated winner preserves full rows
+  ---
+  duration_ms: 606.6162
+  type: 'test'
+  ...
+# Subtest: D068 insert ambiguity: before-mutation rejected receipt within original budget
+ok 72 - D068 insert ambiguity: before-mutation rejected receipt within original budget
+  ---
+  duration_ms: 93.1583
+  type: 'test'
+  ...
+# Subtest: D068 insert ambiguity: before-mutation rejected receipt after original deadline
+ok 73 - D068 insert ambiguity: before-mutation rejected receipt after original deadline
+  ---
+  duration_ms: 580.5075
+  type: 'test'
+  ...
+# Subtest: D068 insert ambiguity: actual applied rejected receipt within original budget
+ok 74 - D068 insert ambiguity: actual applied rejected receipt within original budget
+  ---
+  duration_ms: 61.8244
+  type: 'test'
+  ...
+# Subtest: D068 insert ambiguity: actual applied rejected receipt after original deadline
+ok 75 - D068 insert ambiguity: actual applied rejected receipt after original deadline
+  ---
+  duration_ms: 568.8098
+  type: 'test'
+  ...
+# Subtest: D068 acquire ambiguity: before-mutation rejected receipt within original budget
+ok 76 - D068 acquire ambiguity: before-mutation rejected receipt within original budget
+  ---
+  duration_ms: 82.6843
+  type: 'test'
+  ...
+# Subtest: D068 acquire ambiguity: before-mutation rejected receipt after original deadline
+ok 77 - D068 acquire ambiguity: before-mutation rejected receipt after original deadline
+  ---
+  duration_ms: 632.16
+  type: 'test'
+  ...
+# Subtest: D068 acquire ambiguity: actual applied rejected receipt within original budget
+ok 78 - D068 acquire ambiguity: actual applied rejected receipt within original budget
+  ---
+  duration_ms: 82.4541
+  type: 'test'
+  ...
+# Subtest: D068 acquire ambiguity: actual applied rejected receipt after original deadline
+ok 79 - D068 acquire ambiguity: actual applied rejected receipt after original deadline
+  ---
+  duration_ms: 626.6693
+  type: 'test'
+  ...
+# Subtest: D068 insert cleanup handoff: actual DELETE admits new claim incarnation preserves completed public winner
+ok 80 - D068 insert cleanup handoff: actual DELETE admits new claim incarnation preserves completed public winner
+  ---
+  duration_ms: 553.6153
+  type: 'test'
+  ...
+# Subtest: D068 acquire cleanup handoff: actual UNSET admits same durable claim ABA preserves completed public winner
+ok 81 - D068 acquire cleanup handoff: actual UNSET admits same durable claim ABA preserves completed public winner
+  ---
+  duration_ms: 575.5414
+  type: 'test'
+  ...
+# Subtest: D068 acquire-awaiting cleanup handoff: actual UNSET admits same durable claim ABA preserves awaiting public winner
+ok 82 - D068 acquire-awaiting cleanup handoff: actual UNSET admits same durable claim ABA preserves awaiting public winner
+  ---
+  duration_ms: 561.0947
+  type: 'test'
+  ...
+# Subtest: D068 erased admission insert-before: actual rejected old receipt preserves all recreated winner BSON
+ok 83 - D068 erased admission insert-before: actual rejected old receipt preserves all recreated winner BSON
+  ---
+  duration_ms: 572.6549
+  type: 'test'
+  ...
+# Subtest: D068 erased admission insert-after: actual rejected old receipt preserves all recreated winner BSON
+ok 84 - D068 erased admission insert-after: actual rejected old receipt preserves all recreated winner BSON
+  ---
+  duration_ms: 566.5048
+  type: 'test'
+  ...
+# Subtest: D068 erased admission acquire-after: actual rejected old receipt preserves all recreated winner BSON
+ok 85 - D068 erased admission acquire-after: actual rejected old receipt preserves all recreated winner BSON
+  ---
+  duration_ms: 573.8255
+  type: 'test'
+  ...
+# Subtest: D068 labelled raw competing ownership CAS: absent foreign lease marker protects complete claim from prospective delete
+ok 86 - D068 labelled raw competing ownership CAS: absent foreign lease marker protects complete claim from prospective delete
+  ---
+  duration_ms: 26.5582
+  type: 'test'
+  ...
+# Subtest: D068 labelled raw competing ownership CAS: live foreign lease marker protects complete claim from prospective delete
+ok 87 - D068 labelled raw competing ownership CAS: live foreign lease marker protects complete claim from prospective delete
+  ---
+  duration_ms: 30.4176
+  type: 'test'
+  ...
+# Subtest: D068 immutable admission insert-cleanup: changed decision with same hash/token preserves complete foreign BSON
+ok 88 - D068 immutable admission insert-cleanup: changed decision with same hash/token preserves complete foreign BSON
+  ---
+  duration_ms: 37.5195
+  type: 'test'
+  ...
+# Subtest: D068 immutable admission insert-cleanup: changed response with same hash/token preserves complete foreign BSON
+ok 89 - D068 immutable admission insert-cleanup: changed response with same hash/token preserves complete foreign BSON
+  ---
+  duration_ms: 25.643
+  type: 'test'
+  ...
+# Subtest: D068 immutable admission insert-cleanup: changed approvalMetadata with same hash/token preserves complete foreign BSON
+ok 90 - D068 immutable admission insert-cleanup: changed approvalMetadata with same hash/token preserves complete foreign BSON
+  ---
+  duration_ms: 57.7492
+  type: 'test'
+  ...
+# Subtest: D068 immutable admission acquire-preimage: changed decision with same hash/token preserves complete foreign BSON
+ok 91 - D068 immutable admission acquire-preimage: changed decision with same hash/token preserves complete foreign BSON
+  ---
+  duration_ms: 32.9781
+  type: 'test'
+  ...
+# Subtest: D068 immutable admission acquire-preimage: changed response with same hash/token preserves complete foreign BSON
+ok 92 - D068 immutable admission acquire-preimage: changed response with same hash/token preserves complete foreign BSON
+  ---
+  duration_ms: 34.5389
+  type: 'test'
+  ...
+# Subtest: D068 immutable admission acquire-preimage: changed approvalMetadata with same hash/token preserves complete foreign BSON
+ok 93 - D068 immutable admission acquire-preimage: changed approvalMetadata with same hash/token preserves complete foreign BSON
+  ---
+  duration_ms: 33.9964
+  type: 'test'
+  ...
+# Subtest: D068 immutable admission acquire-cleanup: changed decision with same hash/token preserves complete foreign BSON
+ok 94 - D068 immutable admission acquire-cleanup: changed decision with same hash/token preserves complete foreign BSON
+  ---
+  duration_ms: 25.8172
+  type: 'test'
+  ...
+# Subtest: D068 immutable admission acquire-cleanup: changed response with same hash/token preserves complete foreign BSON
+ok 95 - D068 immutable admission acquire-cleanup: changed response with same hash/token preserves complete foreign BSON
+  ---
+  duration_ms: 68.4107
+  type: 'test'
+  ...
+# Subtest: D068 immutable admission acquire-cleanup: changed approvalMetadata with same hash/token preserves complete foreign BSON
+ok 96 - D068 immutable admission acquire-cleanup: changed approvalMetadata with same hash/token preserves complete foreign BSON
+  ---
+  duration_ms: 37.1184
+  type: 'test'
+  ...
+# Subtest: D068 actual acquisition matched0: ordinary in_progress cannot borrow or release real B lease
+ok 97 - D068 actual acquisition matched0: ordinary in_progress cannot borrow or release real B lease
+  ---
+  duration_ms: 48.548
+  type: 'test'
+  ...
+# Subtest: D068 actual acquisition matched0: late rejected null receipt cannot borrow or release real B lease
+ok 98 - D068 actual acquisition matched0: late rejected null receipt cannot borrow or release real B lease
+  ---
+  duration_ms: 549.6135
+  type: 'test'
+  ...
+# Subtest: D068 actual indexed duplicate claim preserves acknowledged A winner and never grants B execution
+ok 99 - D068 actual indexed duplicate claim preserves acknowledged A winner and never grants B execution
+  ---
+  duration_ms: 32.4422
+  type: 'test'
+  ...
+# Subtest: D068 transcript multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts
+ok 100 - D068 transcript multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts
+  ---
+  duration_ms: 529.9544
+  type: 'test'
+  ...
+# Subtest: D068 concern multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts
+ok 101 - D068 concern multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts
+  ---
+  duration_ms: 538.5224
+  type: 'test'
+  ...
+# Subtest: D068 insert multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts
+ok 102 - D068 insert multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts
+  ---
+  duration_ms: 580.0223
+  type: 'test'
+  ...
+# Subtest: D068 acquire multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts
+ok 103 - D068 acquire multiple failures: actual rejected original and AbortError-shaped cleanup both survive all attempts
+  ---
+  duration_ms: 565.6576
+  type: 'test'
+  ...
+# Subtest: D068 preowner session original: late successful read drains without ACK or disclosure
+not ok 104 - D068 preowner session original: late successful read drains without ACK or disclosure
+  ---
+  duration_ms: 40.7679
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:645:5'
+  failureType: 'testCodeFailure'
+  error: 'exact initial session read not reached: {"value":{"kind":"done","result":{"status":"rejected"}}}'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-persistence.test.ts:662:126)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 preowner session original: late unexpected read rejects without ACK or disclosure
+not ok 105 - D068 preowner session original: late unexpected read rejects without ACK or disclosure
+  ---
+  duration_ms: 37.0388
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:645:5'
+  failureType: 'testCodeFailure'
+  error: 'exact initial session read not reached: {"value":{"kind":"done","result":{"status":"rejected"}}}'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-persistence.test.ts:662:126)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 preowner grant original: late successful read drains without ACK or disclosure
+not ok 106 - D068 preowner grant original: late successful read drains without ACK or disclosure
+  ---
+  duration_ms: 75.7377
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:645:5'
+  failureType: 'testCodeFailure'
+  error: 'exact initial grant read not reached: {"value":{"kind":"done","result":{"status":"rejected"}}}'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-persistence.test.ts:662:126)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 preowner grant original: late unexpected read rejects without ACK or disclosure
+not ok 107 - D068 preowner grant original: late unexpected read rejects without ACK or disclosure
+  ---
+  duration_ms: 56.6053
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:645:5'
+  failureType: 'testCodeFailure'
+  error: 'exact initial grant read not reached: {"value":{"kind":"done","result":{"status":"rejected"}}}'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-persistence.test.ts:662:126)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 preowner fence original: late successful read drains without ACK or disclosure
+not ok 108 - D068 preowner fence original: late successful read drains without ACK or disclosure
+  ---
+  duration_ms: 57.6908
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:645:5'
+  failureType: 'testCodeFailure'
+  error: 'exact initial fence read not reached: {"value":{"kind":"done","result":{"status":"rejected"}}}'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-persistence.test.ts:662:126)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 preowner fence original: late unexpected read rejects without ACK or disclosure
+not ok 109 - D068 preowner fence original: late unexpected read rejects without ACK or disclosure
+  ---
+  duration_ms: 69.443
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:645:5'
+  failureType: 'testCodeFailure'
+  error: 'exact initial fence read not reached: {"value":{"kind":"done","result":{"status":"rejected"}}}'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-persistence.test.ts:662:126)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 PUBLIC graph unexpected ROOT/DAG: actual raw plain survives work/raw dedup and successful cleanup
+ok 110 - D068 PUBLIC graph unexpected ROOT/DAG: actual raw plain survives work/raw dedup and successful cleanup
+  ---
+  duration_ms: 510.2151
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC graph unexpected ROOT/DAG: actual raw abort-name survives work/raw dedup and successful cleanup
+ok 111 - D068 PUBLIC graph unexpected ROOT/DAG: actual raw abort-name survives work/raw dedup and successful cleanup
+  ---
+  duration_ms: 503.5746
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC graph unexpected ROOT/DAG: actual raw provider-refusal survives work/raw dedup and successful cleanup
+ok 112 - D068 PUBLIC graph unexpected ROOT/DAG: actual raw provider-refusal survives work/raw dedup and successful cleanup
+  ---
+  duration_ms: 516.9739
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC graph unexpected ROOT/DAG: actual raw foreign-fwd survives work/raw dedup and successful cleanup
+ok 113 - D068 PUBLIC graph unexpected ROOT/DAG: actual raw foreign-fwd survives work/raw dedup and successful cleanup
+  ---
+  duration_ms: 504.054
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC graph unexpected ROOT/DAG: actual raw diamond survives work/raw dedup and successful cleanup
+ok 114 - D068 PUBLIC graph unexpected ROOT/DAG: actual raw diamond survives work/raw dedup and successful cleanup
+  ---
+  duration_ms: 517.4467
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC graph unexpected ROOT/DAG: actual raw cycle survives work/raw dedup and successful cleanup
+ok 115 - D068 PUBLIC graph unexpected ROOT/DAG: actual raw cycle survives work/raw dedup and successful cleanup
+  ---
+  duration_ms: 518.5947
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes
+not ok 116 - D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before graph closes
+  ---
+  duration_ms: 544.2001
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:731:3'
+  failureType: 'testCodeFailure'
+  error: 'Scribe original settlement and owned cleanup failed.'
+  code: 'ERR_TEST_FAILURE'
+  name: 'AggregateError'
+  stack: |-
+    <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\src\scribe\graph.ts:2155:28)
+    runNextTicks (node:internal/process/task_queues:64:5)
+    process.processTimers (node:internal/timers:538:9)
+  ...
+# Subtest: D068 PUBLIC nested summary settlement: actual late undo registers new raw rejected read before graph closes
+ok 117 - D068 PUBLIC nested summary settlement: actual late undo registers new raw rejected read before graph closes
+  ---
+  duration_ms: 551.5127
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC nested summary settlement: actual late undo registers new raw two-error read before graph closes
+ok 118 - D068 PUBLIC nested summary settlement: actual late undo registers new raw two-error read before graph closes
+  ---
+  duration_ms: 554.145
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC reject-audit producer forwarding: actual clean own expiry fulfills after source-issued deadline
+not ok 119 - D068 PUBLIC reject-audit producer forwarding: actual clean own expiry fulfills after source-issued deadline
+  ---
+  duration_ms: 540.3015
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:770:3'
+  failureType: 'testCodeFailure'
+  error: 'Scribe original settlement and owned cleanup failed.'
+  code: 'ERR_TEST_FAILURE'
+  name: 'AggregateError'
+  stack: |-
+    <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\src\scribe\graph.ts:2155:28)
+  ...
+# Subtest: D068 PUBLIC reject-audit producer forwarding: actual unexpected receipt rejects after source-issued deadline
+not ok 120 - D068 PUBLIC reject-audit producer forwarding: actual unexpected receipt rejects after source-issued deadline
+  ---
+  duration_ms: 535.1766
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:770:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'Scribe original settlement and owned cleanup failed.'
+    - 'Scribe original settlement and owned compensation failed.'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'Scribe original settlement and owned compensation failed.'
+  actual: 'Scribe original settlement and owned cleanup failed.'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\tests\scribe-persistence.test.ts:789:62)
+    async Test.run (node:internal/test_runner/test:1110:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:785:7)
+  ...
+# Subtest: D068 PUBLIC known fence disposition closed-plain: only actual live closed clean terminal may be safely handled
+ok 121 - D068 PUBLIC known fence disposition closed-plain: only actual live closed clean terminal may be safely handled
+  ---
+  duration_ms: 7.2906
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC known fence disposition late-plain: only actual live closed clean terminal may be safely handled
+ok 122 - D068 PUBLIC known fence disposition late-plain: only actual live closed clean terminal may be safely handled
+  ---
+  duration_ms: 509.2377
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC known fence disposition cause: only actual live closed clean terminal may be safely handled
+ok 123 - D068 PUBLIC known fence disposition cause: only actual live closed clean terminal may be safely handled
+  ---
+  duration_ms: 7.0774
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC known fence disposition cycle: only actual live closed clean terminal may be safely handled
+ok 124 - D068 PUBLIC known fence disposition cycle: only actual live closed clean terminal may be safely handled
+  ---
+  duration_ms: 6.9452
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC known fence disposition nested: only actual live closed clean terminal may be safely handled
+ok 125 - D068 PUBLIC known fence disposition nested: only actual live closed clean terminal may be safely handled
+  ---
+  duration_ms: 7.2416
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC known fence disposition cleanup: only actual live closed clean terminal may be safely handled
+ok 126 - D068 PUBLIC known fence disposition cleanup: only actual live closed clean terminal may be safely handled
+  ---
+  duration_ms: 7.3119
+  type: 'test'
+  ...
+# Subtest: D068 PUBLIC own helper FWD: clean original fact expiry fulfills after actual late cleanup
+not ok 127 - D068 PUBLIC own helper FWD: clean original fact expiry fulfills after actual late cleanup
+  ---
+  duration_ms: 547.5521
+  type: 'test'
+  location: 'C:\\Users\\Lenovo\\AppData\\Local\\Temp\\claude\\d--vc\\2b04f90e-6b56-4682-a76c-d8515b93405c\\scratchpad\\t052c2\\fz\\packages\\engine\\tests\\scribe-persistence.test.ts:836:1'
+  failureType: 'testCodeFailure'
+  error: 'Scribe original settlement and owned cleanup failed.'
+  code: 'ERR_TEST_FAILURE'
+  name: 'AggregateError'
+  stack: |-
+    <anonymous> (C:\Users\Lenovo\AppData\Local\Temp\claude\d--vc\2b04f90e-6b56-4682-a76c-d8515b93405c\scratchpad\t052c2\fz\packages\engine\src\scribe\graph.ts:2155:28)
+  ...
+# {"producer":{"setup":"installed","restored":{"op":true,"run":true},"events":[{"sequence":0,"method":"run","receiver":7,"error":0,"work":8,"returned":9,"caller":"unknown","origin":"unknown"},{"sequence":1,"method":"run","receiver":7,"error":0,"work":10,"returned":11,"caller":"unknown","origin":"unknown"},{"sequence":2,"method":"run","receiver":7,"error":0,"work":12,"returned":13,"caller":"unknown","origin":"unknown"},{"sequence":3,"method":"run","receiver":14,"error":2,"work":15,"returned":16,"caller":"unknown","origin":"unknown"},{"sequence":4,"method":"run","receiver":17,"error":3,"work":18,"returned":19,"caller":"unknown","origin":"unknown"},{"sequence":5,"method":"run","receiver":17,"error":3,"work":20,"returned":21,"caller":"unknown","origin":"unknown"},{"sequence":6,"method":"op","receiver":7,"error":4,"caller":"unknown","origin":"unknown"},{"sequence":7,"method":"run","receiver":17,"error":4,"work":22,"returned":23,"caller":"unknown","origin":"unknown"}]},"case":"clean-postcheck","roots":[{"phase":"actual-deadline-run-rejection","id":0},{"phase":"actual-deadline-run-rejection","id":0},{"phase":"actual-deadline-run-rejection","id":0},{"phase":"public-resume-rejection","id":1},{"phase":"compiled-invoke-rejection","id":0},{"phase":"actual-deadline-run-rejection","id":2},{"phase":"actual-deadline-run-rejection","id":3},{"phase":"actual-deadline-run-rejection","id":3},{"phase":"actual-deadline-op-rejection","id":4},{"phase":"actual-deadline-run-rejection","id":4},{"phase":"finally-public-settlement-rejection","id":5}],"sentinel":6,"drained":["fulfilled","rejected"],"nodes":[{"id":0,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":false,"causeKind":"absent","errorsKind":"absent","settled":24},{"id":1,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":true,"causeKind":"data","cause":25,"errorsKind":"absent","settled":26},{"id":2,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":false,"causeKind":"absent","errorsKind":"absent","settled":27},{"id":3,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":false,"causeKind":"absent","errorsKind":"absent","settled":28},{"id":4,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":false,"causeKind":"absent","errorsKind":"absent","settled":29},{"id":5,"class":"AggregateError","nativeKind":"AggregateError","causePresent":false,"causeKind":"absent","errorsKind":"data","errors":30,"members":[{"index":0,"kind":"data","id":25},{"index":1,"kind":"data","id":31},{"index":2,"kind":"data","id":32},{"index":3,"kind":"data","id":33},{"index":4,"kind":"data","id":34},{"index":5,"kind":"data","id":35}]},{"id":6,"class":"Error","nativeKind":"Error","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":7,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":8,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":9,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":10,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":11,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":12,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":13,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":14,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":15,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":16,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":17,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":18,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":19,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":20,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":21,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":22,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":23,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":24,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":25,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":true,"causeKind":"data","cause":0,"errorsKind":"absent","settled":36},{"id":26,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":27,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":28,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":29,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":30,"nativeKind":"Array","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":31,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":true,"causeKind":"data","cause":37,"errorsKind":"absent","settled":38},{"id":32,"class":"AggregateError","nativeKind":"AggregateError","causePresent":false,"causeKind":"absent","errorsKind":"data","errors":39,"members":[{"index":0,"kind":"data","id":37},{"index":1,"kind":"data","id":4},{"index":2,"kind":"data","id":33}]},{"id":33,"class":"AggregateError","nativeKind":"AggregateError","causePresent":false,"causeKind":"absent","errorsKind":"data","errors":40,"members":[{"index":0,"kind":"data","id":4}]},{"id":34,"class":"AggregateError","nativeKind":"AggregateError","causePresent":false,"causeKind":"absent","errorsKind":"data","errors":41,"members":[{"index":0,"kind":"data","id":35}]},{"id":35,"class":"AggregateError","nativeKind":"AggregateError","causePresent":false,"causeKind":"absent","errorsKind":"data","errors":42,"members":[{"index":0,"kind":"data","id":31},{"index":1,"kind":"data","id":32},{"index":2,"kind":"data","id":33}]},{"id":36,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":37,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":true,"causeKind":"data","cause":3,"errorsKind":"absent","settled":43},{"id":38,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":39,"nativeKind":"Array","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":40,"nativeKind":"Array","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":41,"nativeKind":"Array","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":42,"nativeKind":"Array","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":43,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"}]}
+# Subtest: D068 PUBLIC own helper FWD: unexpected postcheck descendant retains real produced ROOT and exact raw leaf
+ok 128 - D068 PUBLIC own helper FWD: unexpected postcheck descendant retains real produced ROOT and exact raw leaf
+  ---
+  duration_ms: 562.6258
+  type: 'test'
+  ...
+# {"producer":{"setup":"installed","restored":{"op":true,"run":true},"events":[{"sequence":0,"method":"run","receiver":7,"error":0,"work":8,"returned":9,"caller":"unknown","origin":"unknown"},{"sequence":1,"method":"run","receiver":7,"error":0,"work":10,"returned":11,"caller":"unknown","origin":"unknown"},{"sequence":2,"method":"run","receiver":7,"error":0,"work":12,"returned":13,"caller":"unknown","origin":"unknown"},{"sequence":3,"method":"run","receiver":14,"error":2,"work":15,"returned":16,"caller":"unknown","origin":"unknown"},{"sequence":4,"method":"run","receiver":17,"error":3,"work":18,"returned":19,"caller":"unknown","origin":"unknown"},{"sequence":5,"method":"run","receiver":17,"error":3,"work":20,"returned":21,"caller":"unknown","origin":"unknown"},{"sequence":6,"method":"op","receiver":7,"error":4,"caller":"unknown","origin":"unknown"},{"sequence":7,"method":"run","receiver":17,"error":4,"work":22,"returned":23,"caller":"unknown","origin":"unknown"}]},"case":"unexpected-postcheck","roots":[{"phase":"actual-deadline-run-rejection","id":0},{"phase":"actual-deadline-run-rejection","id":0},{"phase":"actual-deadline-run-rejection","id":0},{"phase":"public-resume-rejection","id":1},{"phase":"compiled-invoke-rejection","id":0},{"phase":"actual-deadline-run-rejection","id":2},{"phase":"actual-deadline-run-rejection","id":3},{"phase":"actual-deadline-run-rejection","id":3},{"phase":"actual-deadline-op-rejection","id":4},{"phase":"actual-deadline-run-rejection","id":4},{"phase":"public-settlement-rejection","id":5},{"phase":"finally-raw-rejection","id":6},{"phase":"finally-public-settlement-rejection","id":5}],"sentinel":6,"drained":["rejected","rejected"],"nodes":[{"id":0,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":false,"causeKind":"absent","errorsKind":"absent","settled":24},{"id":1,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":true,"causeKind":"data","cause":25,"errorsKind":"absent","settled":26},{"id":2,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":false,"causeKind":"absent","errorsKind":"absent","settled":27},{"id":3,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":false,"causeKind":"absent","errorsKind":"absent","settled":28},{"id":4,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":false,"causeKind":"absent","errorsKind":"absent","settled":29},{"id":5,"class":"AggregateError","nativeKind":"AggregateError","causePresent":false,"causeKind":"absent","errorsKind":"data","errors":30,"members":[{"index":0,"kind":"data","id":25},{"index":1,"kind":"data","id":31},{"index":2,"kind":"data","id":32},{"index":3,"kind":"data","id":33},{"index":4,"kind":"data","id":34},{"index":5,"kind":"data","id":35}]},{"id":6,"class":"Error","nativeKind":"Error","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":7,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":8,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":9,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":10,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":11,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":12,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":13,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":14,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":15,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":16,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":17,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":18,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":19,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":20,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":21,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":22,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":23,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":24,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":25,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":true,"causeKind":"data","cause":0,"errorsKind":"absent","settled":36},{"id":26,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":27,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":28,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":29,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":30,"nativeKind":"Array","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":31,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":true,"causeKind":"data","cause":37,"errorsKind":"absent","settled":38},{"id":32,"class":"AggregateError","nativeKind":"AggregateError","causePresent":false,"causeKind":"absent","errorsKind":"data","errors":39,"members":[{"index":0,"kind":"data","id":37},{"index":1,"kind":"data","id":4},{"index":2,"kind":"data","id":33}]},{"id":33,"class":"AggregateError","nativeKind":"AggregateError","causePresent":false,"causeKind":"absent","errorsKind":"data","errors":40,"members":[{"index":0,"kind":"data","id":6},{"index":1,"kind":"data","id":4}]},{"id":34,"class":"AggregateError","nativeKind":"AggregateError","causePresent":false,"causeKind":"absent","errorsKind":"data","errors":41,"members":[{"index":0,"kind":"data","id":35}]},{"id":35,"class":"AggregateError","nativeKind":"AggregateError","causePresent":false,"causeKind":"absent","errorsKind":"data","errors":42,"members":[{"index":0,"kind":"data","id":31},{"index":1,"kind":"data","id":32},{"index":2,"kind":"data","id":33}]},{"id":36,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":37,"class":"FencedWriterDeadlineError","nativeKind":"FencedWriterDeadlineError","name":"FencedWriterDeadlineError","causePresent":true,"causeKind":"data","cause":43,"errorsKind":"absent","settled":44},{"id":38,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":39,"nativeKind":"Array","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":40,"nativeKind":"Array","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":41,"nativeKind":"Array","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":42,"nativeKind":"Array","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":43,"class":"AggregateError","nativeKind":"AggregateError","causePresent":false,"causeKind":"absent","errorsKind":"data","errors":45,"members":[{"index":0,"kind":"data","id":3},{"index":1,"kind":"data","id":6}]},{"id":44,"nativeKind":"object","causePresent":false,"causeKind":"absent","errorsKind":"absent"},{"id":45,"nativeKind":"Array","causePresent":false,"causeKind":"absent","errorsKind":"absent"}]}
+1..128
+# tests 128
+# suites 0
+# pass 95
+# fail 33
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 32789.8524

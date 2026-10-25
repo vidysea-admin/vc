@@ -1,0 +1,9 @@
+replaced 8
+oracle replaced 1
+== g5o at 2026-10-25T12:14:46+05:30 graph 33202a74d3bd2e62 test 6bce355a7ae730c0
+run 1 exit=1 # tests 16 # pass 12 # fail 4  sha=b92ddaef
+restored graph d7196ec548d235f8 test 29121cf5c5c72228
+not ok 10 - D068 Mongo adapter original observation resume checkpoint primary reject
+not ok 12 - D068 Mongo adapter original observation resume checkpoint recheck reject
+not ok 14 - D068 Mongo adapter original observation resume pending-write primary reject
+not ok 16 - D068 Mongo adapter original observation resume pending-write recheck reject

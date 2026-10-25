@@ -1,0 +1,37 @@
+replaced 8
+== g5w graph.ts LF sha 33202a74d3bd2e62 at 2026-10-25T12:13:34+05:30
+run 1 exit=1 # tests 128 # pass 95 # fail 33  sha=e730e151
+restored d7196ec548d235f8
+not ok 5 - D068 recordRejectReasons actual direct-op receipt: precheck observer S preserves own primary aggreg
+not ok 6 - D068 recordRejectReasons actual direct-op receipt: insert observer S preserves own primary aggregat
+not ok 7 - D068 recordRejectReasons actual direct-op receipt: duplicate-winner observer S preserves own primar
+not ok 34 - D068 Mongo adapter original observation start checkpoint primary resolve
+not ok 35 - D068 Mongo adapter original observation start checkpoint primary reject
+not ok 36 - D068 Mongo adapter original observation start checkpoint recheck resolve
+not ok 37 - D068 Mongo adapter original observation start checkpoint recheck reject
+not ok 38 - D068 Mongo adapter original observation start pending-write primary resolve
+not ok 39 - D068 Mongo adapter original observation start pending-write primary reject
+not ok 40 - D068 Mongo adapter original observation start pending-write recheck resolve
+not ok 41 - D068 Mongo adapter original observation start pending-write recheck reject
+not ok 42 - D068 Mongo adapter original observation resume checkpoint primary resolve
+not ok 43 - D068 Mongo adapter original observation resume checkpoint primary reject
+not ok 44 - D068 Mongo adapter original observation resume checkpoint recheck resolve
+not ok 45 - D068 Mongo adapter original observation resume checkpoint recheck reject
+not ok 46 - D068 Mongo adapter original observation resume pending-write primary resolve
+not ok 47 - D068 Mongo adapter original observation resume pending-write primary reject
+not ok 48 - D068 Mongo adapter original observation resume pending-write recheck resolve
+not ok 49 - D068 Mongo adapter original observation resume pending-write recheck reject
+not ok 58 - D068 writeApproved exact own node expiry with clean original and undo fulfills exposed settlement
+not ok 64 - D068 writeApproved actual local aggregate receipt rejects replacement of its native errors array
+not ok 65 - D068 writeApproved actual local aggregate receipt rejects reordered native errors member identitie
+not ok 66 - D068 writeApproved actual local aggregate receipt rejects foreign member replacement or append
+not ok 104 - D068 preowner session original: late successful read drains without ACK or disclosure
+not ok 105 - D068 preowner session original: late unexpected read rejects without ACK or disclosure
+not ok 106 - D068 preowner grant original: late successful read drains without ACK or disclosure
+not ok 107 - D068 preowner grant original: late unexpected read rejects without ACK or disclosure
+not ok 108 - D068 preowner fence original: late successful read drains without ACK or disclosure
+not ok 109 - D068 preowner fence original: late unexpected read rejects without ACK or disclosure
+not ok 116 - D068 PUBLIC nested summary settlement: actual late undo registers new raw successful read before 
+not ok 119 - D068 PUBLIC reject-audit producer forwarding: actual clean own expiry fulfills after source-issue
+not ok 120 - D068 PUBLIC reject-audit producer forwarding: actual unexpected receipt rejects after source-issu
+not ok 127 - D068 PUBLIC own helper FWD: clean original fact expiry fulfills after actual late cleanup

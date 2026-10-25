@@ -1,0 +1,16 @@
+== fr = git archive 28bb3bc at 2026-10-25T12:09:58+05:30
+  packages/db/src/facts.ts LF sha 03f200613014a3ec
+  packages/db/src/decisions.ts LF sha 0a725c96a4feab95
+  packages/db/src/erasure.ts LF sha 33b6b5946443b1eb
+  packages/engine/src/scribe/graph.ts LF sha e6062e1cff38a9b0
+  packages/engine/src/scribe/nodes.ts LF sha 046acd07217abc2c
+run 1 exit=1 # tests 12 # pass 10 # fail 2  sha=eccd62c1
+run 1 exit=1 # tests 2 # pass 1 # fail 1  sha=993e0eda
+run 2 exit=1 # tests 2 # pass 1 # fail 1  sha=d917c04d
+run 3 exit=1 # tests 2 # pass 1 # fail 1  sha=b4130951
+run 1 exit=1 # tests 4 # pass 3 # fail 1  sha=c5f13785
+run 2 exit=1 # tests 4 # pass 3 # fail 1  sha=e8ac174f
+run 3 exit=1 # tests 4 # pass 3 # fail 1  sha=27e17146
+  fr-pins-1 not-ok: not ok 5 - T046 private invocation metadata cannot authorize nested second graph sharing D;not ok 12 - D055 prompt original deadline: actual early rollback rejects observably after ;
+  fr-t046p-1 not-ok: not ok 1 - T046 private invocation metadata cannot authorize nested second graph sharing D;
+  fr-d055rr-1 not-ok: not ok 4 - D055 prompt original deadline: actual early rollback rejects observably after e;
