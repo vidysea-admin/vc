@@ -4,7 +4,7 @@ Policy-Version: proportional-verification/2026-10-19.17
 **Goal task:** T-010 (slice a); T-050 (card-feedback writer) stays OPEN, nothing here is credited toward it.
 **Date:** 2026-10-25T09:34:13+05:30
 **Fix cycle:** 0
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 0, verdicts a4a0d7a A + 59d6339 B, merged f5f3ecf)
 **Executor:** claude-sonnet-subagent (maker role)
 **Base:** main 6b2f99a, branch wave/cards-api, worktree D:/vc/.worktrees/cards-api, code commits c569094 + 55c72b4 (final code sha 55c72b4). Source read only with `git show` from wave/t-010-live-cards fb5959c.
 **Dual check:** required
