@@ -10,6 +10,8 @@ import { GoLiveRefusedError } from "../src/go-live-gate.js";
 import { ChatConfigError } from "../src/chat.js";
 import { JwtConfigError } from "../src/auth.js";
 import { startApi } from "../src/index.js";
+import { API_ROUTES } from "../src/server.js";
+import { SignJWT, type JWTPayload } from "jose";
 import { addPartner, createMongoPartnerStore } from "../src/partners.js";
 import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { CRISIS_TEXT, GERMANY_QUESTION, adult, call, chatWorld, cleanupGates, gatesFixture, kbAnswerProvider, minor, newThread, profilePath, recordingKb, settle, studentToken, studentVerifier, threadsPath, turnsPath, SKILLS_DIR, SPEAKERS } from "./chat-fixtures.js";
@@ -1107,4 +1109,95 @@ test("K1 (pc-hardening-3) startApi: with partners on, a student JWT whose tenant
   const other = await run({}, "tenant-a");
   assert.equal(other.thread, 201, "an unrelated tenant is allowed");
   assert.equal(other.profile, 200);
+});
+
+// ---------------------------------------------------------------------------
+// w1-counsellor-tenant-guard T1/T2 (ISS-pc-hardening-3-3): the counsellor/admin/approver JWT verifier is wrapped like the student one.
+// ---------------------------------------------------------------------------
+
+async function counsellorToken(claims: Record<string, unknown>): Promise<string> {
+  return new SignJWT(claims as JWTPayload).setProtectedHeader({ alg: "RS256" }).setIssuedAt().setIssuer("https://issuer.synthetic.test").setExpirationTime(Math.floor(Date.now() / 1000) + 300).sign(counsellorKeys.privateKey);
+}
+
+/** A non-public route's path with synthetic ids filled in (a 24-hex request id, as REQUEST_ID_PATTERN wants). */
+const routePathFilled = (path: string): string => path.replace("{studentId}", "stu-1").replace("{sessionId}", "sess-1").replace("{requestId}", "0123456789abcdef01234567");
+
+test("w1-counsellor-tenant-guard T1 startApi: with partners on, a counsellor/admin/approver JWT whose tenant is (a case or width variant of) an existing partner id gets the uniform 401 on EVERY non-public route family; the partner's bound tenant and an unrelated tenant are not refused", async () => {
+  const PEPPER = "synthetic-pepper-".padEnd(40, "x");
+  const routes = API_ROUTES.filter((r) => r.roles !== "public");
+  assert.ok(routes.length >= 12, "the whole counsellor route table is covered");
+  const families = new Set(routes.map((r) => (r.roles as readonly string[]).join("|")));
+  assert.deepEqual([...families].sort(), ["admin", "approver", "counsellor|admin"], "all three role families are exercised");
+  const run = async (extraEnv: Record<string, string>, tenant: string) => {
+    const fake = createFakeMongoClient();
+    await addPartner(createMongoPartnerStore(fake.client.db(VC_DB_NAME)), { name: "Pathlynks" }, { pepper: PEPPER, now: () => new Date() });
+    const api = await startApi({ MONGODB_URL: "mongodb://fake-host/ignored", VC_PARTNER_KEY_PEPPER: PEPPER, ...extraEnv }, { clientFactory: () => fake.client, http: httpBase() });
+    try {
+      const out: { route: string; status: number; body: string }[] = [];
+      for (const r of routes) {
+        const role = (r.roles as readonly string[])[0]!;
+        const token = await counsellorToken({ tenant, counsellorId: "c-1", role });
+        const res = await fetch(`http://127.0.0.1:${api.port}${routePathFilled(r.path)}${r.path.endsWith("/profile") ? "?purpose=review" : ""}`, {
+          method: r.method,
+          headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+          ...(r.method === "POST" ? { body: "{}" } : {}),
+        });
+        out.push({ route: `${r.method} ${r.path}`, status: res.status, body: await res.text() });
+      }
+      return out;
+    } finally {
+      await api.stop();
+    }
+  };
+  // an equal tenant id, a case variant, and a width variant (the full-width form is refused by the tenant-id shape itself, still the same 401)
+  for (const tenant of ["pathlynks", "PathLynks", "PATHLYNKS", "ｐathlynks"]) {
+    for (const r of await run({}, tenant)) {
+      assert.equal(r.status, 401, `${tenant}: ${r.route} refuses`);
+      assert.deepEqual(JSON.parse(r.body), { error: "unauthorized" }, `${tenant}: ${r.route} gives the uniform body, no detail`);
+    }
+  }
+  // the partner's own bound tenant (exact id) is allowed: past the auth layer on every route (whatever the route then answers)
+  for (const r of await run({ VC_PARTNER_OWN_TENANTS: "pathlynks:pathlynks" }, "pathlynks")) assert.notEqual(r.status, 401, `bound pair: ${r.route} is not refused`);
+  // a case variant of the bound tenant is still refused (the binding is for the exact id)
+  for (const r of await run({ VC_PARTNER_OWN_TENANTS: "pathlynks:pathlynks" }, "PathLynks")) assert.equal(r.status, 401, `bound pair, case variant: ${r.route} refuses`);
+  // an unrelated tenant is allowed
+  for (const r of await run({}, "tenant-a")) assert.notEqual(r.status, 401, `unrelated tenant: ${r.route} is not refused`);
+});
+
+test("w1-counsellor-tenant-guard T1: a partner-store failure while checking the tenant claim fails closed (uniform 401), like the student path", async () => {
+  const PEPPER = "synthetic-pepper-".padEnd(40, "x");
+  const fake = createFakeMongoClient();
+  const real = createMongoPartnerStore(fake.client.db(VC_DB_NAME));
+  const store = { ...real, list: async () => { throw new Error("partner list unreadable"); } } as typeof real;
+  const api = await startApi({ MONGODB_URL: "mongodb://fake-host/ignored", VC_PARTNER_KEY_PEPPER: PEPPER }, { clientFactory: () => fake.client, http: httpBase({ partners: { store } }) });
+  try {
+    const token = await counsellorToken({ tenant: "tenant-a", counsellorId: "c-1", role: "counsellor" });
+    const res = await fetch(`http://127.0.0.1:${api.port}/v1/students/stu-1/profile?purpose=review`, { headers: { authorization: `Bearer ${token}` } });
+    assert.equal(res.status, 401, "store unreadable: refused, not waved through");
+    assert.deepEqual(await res.json(), { error: "unauthorized" });
+  } finally {
+    await api.stop();
+  }
+});
+
+test("w1-counsellor-tenant-guard T2 startApi: with the partner registry off (pepper unset) a counsellor JWT whose tenant looks like a partner id is NOT blocked, the one guard-off note names both guards, and no extra Mongo connection is opened", async () => {
+  const fake = createFakeMongoClient();
+  let connections = 0;
+  const notes: Record<string, unknown>[] = [];
+  const api = await startApi(
+    { MONGODB_URL: "mongodb://fake-host/ignored" },
+    { clientFactory: () => (connections++, fake.client), http: httpBase({ partners: { log: (l: Record<string, unknown>) => void notes.push(l) } }) },
+  );
+  try {
+    const token = await counsellorToken({ tenant: "pathlynks", counsellorId: "c-1", role: "counsellor" });
+    const res = await fetch(`http://127.0.0.1:${api.port}/v1/students/stu-1/profile?purpose=review`, { headers: { authorization: `Bearer ${token}` } });
+    assert.notEqual(res.status, 401, "no registry, no block");
+    assert.equal(connections, 1, "only the connection startApi always opens");
+    const off = notes.filter((l) => l.event === "partner_tenant_guard_off");
+    assert.equal(off.length, 1, "exactly one note");
+    assert.match(JSON.stringify(off[0]), /student/i);
+    assert.match(JSON.stringify(off[0]), /counsellor/i);
+  } finally {
+    await api.stop();
+  }
 });

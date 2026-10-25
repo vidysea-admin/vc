@@ -431,10 +431,11 @@ export function createStudentJwtVerifier(config: StudentJwtConfig, options: JwtV
  * so a signed student token whose `tenant` claim equals an existing partner id would read and write that partner's students. `refuse` is asked with the verified
  * tenant claim (production: the partner registry's `isPartnerTenantClaim`); when it answers true, or throws (the partner list could not be read: fail closed), the token
  * is refused with AuthError("claims"), which every student route (chat, profile, voice sessions) already maps to the uniform 401. The wrapped verifier is otherwise unchanged.
+ * w1-counsellor-tenant-guard (ISS-pc-hardening-3-3): generic over the context, so the same guard also wraps the counsellor/admin/approver verifier (JwtVerifier; server.ts auth step).
  */
-export function refuseTenantClaims(inner: StudentJwtVerifier, refuse: (tenantId: string) => boolean | Promise<boolean>): StudentJwtVerifier {
+export function refuseTenantClaims<C extends { tenantId: string }>(inner: { verify(token: string): Promise<C> }, refuse: (tenantId: string) => boolean | Promise<boolean>): { verify(token: string): Promise<C> } {
   return {
-    async verify(token: string): Promise<StudentAuthContext> {
+    async verify(token: string): Promise<C> {
       const ctx = await inner.verify(token);
       let refused: boolean;
       try {
