@@ -21,6 +21,8 @@ import {
   ERASURE_CONFIRM_TOKEN_TTL_MS,
   ERASURE_FENCE_GRACE_MS,
   ERASURE_PLAN,
+  ERASURE_PENDING_TTL_MS,
+  ErasureRequestAlreadyOpenError,
   ErasureConfigError,
   ErasureConfirmTokenError,
   ErasureExpiredError,
@@ -503,4 +505,50 @@ test("T029-A11: the outbox is a record only: erasure.ts imports no network / SMT
   }
   assert.ok(!/\bfetch\s*\(/.test(src), "no fetch call");
   assert.ok(!/require\(/.test(src), "no dynamic require");
+});
+
+// ---------------------------------------------------------------------------
+// w1-erasure-outbox E3 (ISS-t-029-rev-1): a never-confirmed pending request expires
+// ---------------------------------------------------------------------------
+
+test("W1-E3: a pending request nobody confirms expires after ERASURE_PENDING_TTL_MS, so a new request for the same student can open (the old row closes as expired, pseudonymised, clear id gone)", async () => {
+  const { a } = setup();
+  const first = await open(a);
+  const requestedAt = Date.parse((await row(a, first)).requestedAt);
+  const stale = new Date(requestedAt + ERASURE_PENDING_TTL_MS + 1);
+  // Still inside the TTL: the slot is held, exactly as before.
+  const inside = new Date(requestedAt + ERASURE_PENDING_TTL_MS - 60_000);
+  await assert.rejects(
+    requestErasure(a, { studentId: "stu-1", requestedBy: "counsellor-7", reason: "student_request" }, { now: inside, auditHmacKey: CONFIG.auditHmacKey }),
+    ErasureRequestAlreadyOpenError,
+  );
+  assert.equal((await row(a, first)).status, "pending");
+  // Past the TTL, but no audit key to pseudonymise the closed row: fail safe, the slot stays held.
+  await assert.rejects(
+    requestErasure(a, { studentId: "stu-1", requestedBy: "counsellor-7", reason: "student_request" }, { now: stale }),
+    ErasureRequestAlreadyOpenError,
+  );
+  assert.equal((await row(a, first)).status, "pending");
+  // Past the TTL with the key: the stale row expires and the new request opens.
+  const second = await requestErasure(a, { studentId: "stu-1", requestedBy: "counsellor-7", reason: "student_request" }, { now: stale, auditHmacKey: CONFIG.auditHmacKey });
+  assert.notEqual(second.requestId, first);
+  const expired = await row(a, first);
+  assert.equal(expired.status, "expired");
+  assert.equal(expired.studentId, undefined, "the clear id is gone from the closed row");
+  assert.equal(expired.studentKey, undefined, "the open-slot key is gone from the closed row");
+  assert.ok(expired.studentHash, "the HMAC pseudonym was written before the clear id was unset");
+  assert.equal((await row(a, second.requestId)).status, "pending");
+});
+
+test("W1-E3: a confirmed / awaiting_approval request is NOT touched by the pending TTL (their own staleness rules are unchanged), however old", async () => {
+  const { a } = setup();
+  const r1 = await open(a);
+  const c = await confirmErasure(a, { requestId: r1, confirmedBy: "counsellor-7" });
+  const old = new Date(Date.now() + 10 * ERASURE_PENDING_TTL_MS);
+  assert.ok(old.getTime() > Date.parse(c.confirmTokenExpiresAt), "sanity: even its token is long expired");
+  await assert.rejects(
+    requestErasure(a, { studentId: "stu-1", requestedBy: "counsellor-7", reason: "student_request" }, { now: old, auditHmacKey: CONFIG.auditHmacKey }),
+    ErasureRequestAlreadyOpenError,
+  );
+  assert.equal((await row(a, r1)).status, "confirmed", "request-time expiry only ever closes a pending row");
 });

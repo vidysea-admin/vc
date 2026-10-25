@@ -7,7 +7,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createFakeDb } from "@vc/db/testing";
 import { COLLECTION_NAMES, TenantScopeError, tenantScopedDb } from "@vc/db";
-import { InMemoryWebhookOutbox, MongoWebhookOutbox, WEBHOOK_OUTBOX_COLLECTION } from "../src/webhooks/outbox.js";
+import {
+  InMemoryWebhookOutbox,
+  MongoWebhookOutbox,
+  WEBHOOK_OUTBOX_COLLECTION,
+  WEBHOOK_OUTBOX_RETENTION_MS,
+  purgeSettledWebhookOutbox,
+} from "../src/webhooks/outbox.js";
 import type { OutboxRecordStatus } from "../src/webhooks/outbox.js";
 import { drainWebhookOutbox } from "../src/webhooks/delivery.js";
 import type { WebhookEvent } from "../src/webhooks/schemas.js";
@@ -190,4 +196,60 @@ test("T054 C2/C4: raw Mongo status and tenant predicate precede materialization;
   }
   assert.equal(JSON.stringify(await outbox.list()).includes("tenant-b"), false);
   assert.ok(publicBefore.includes('"status":"pending"'));
+});
+
+// ---------------------------------------------------------------------------
+// w1-erasure-outbox E2 (ISS-t-034-de-1): delivered / dead rows are purged after a retention window
+// ---------------------------------------------------------------------------
+
+test("w1-erasure-outbox E2: WEBHOOK_OUTBOX_RETENTION_MS is a named constant, default 30 days", () => {
+  assert.equal(WEBHOOK_OUTBOX_RETENTION_MS, 30 * 24 * 3600 * 1000);
+});
+
+test("w1-erasure-outbox E2 (Mongo): delivered/dead rows older than the window are purged; pending and failed rows are kept however old; recent delivered rows are kept; tenant B is untouched", async () => {
+  const { db } = createFakeDb();
+  const scopedA = tenantScopedDb(db, "tenant-a");
+  const outbox = new MongoWebhookOutbox(scopedA);
+  const other = new MongoWebhookOutbox(tenantScopedDb(db, "tenant-b"));
+  const now = new Date("2026-10-25T00:00:00.000Z");
+  const old = new Date(now.getTime() - WEBHOOK_OUTBOX_RETENTION_MS - 60_000).toISOString();
+  const recent = new Date(now.getTime() - WEBHOOK_OUTBOX_RETENTION_MS + 60_000).toISOString();
+  const rows: Array<[string, OutboxRecordStatus, string]> = [
+    ["old-delivered", "delivered", old],
+    ["old-dead", "dead", old],
+    ["old-pending", "pending", old],
+    ["old-failed", "failed", old],
+    ["recent-delivered", "delivered", recent],
+    ["recent-dead", "dead", recent],
+  ];
+  for (const [id, status, updatedAt] of rows) {
+    await outbox.enqueue({ id, event: makeEvent(id), destinationUrl: "http://x/hook" });
+    await outbox.update(id, { status });
+    await scopedA.collection(WEBHOOK_OUTBOX_COLLECTION).updateOne({ _id: id }, { $set: { updatedAt } });
+  }
+  await other.enqueue({ id: "old-delivered", event: makeEvent("old-delivered"), destinationUrl: "http://b/hook" });
+  await other.update("old-delivered", { status: "delivered" });
+  await tenantScopedDb(db, "tenant-b").collection(WEBHOOK_OUTBOX_COLLECTION).updateOne({ _id: "old-delivered" }, { $set: { updatedAt: old } });
+
+  const purged = await purgeSettledWebhookOutbox(outbox, { now });
+  assert.equal(purged, 2);
+  assert.deepEqual((await outbox.list()).map((r) => r.id).sort(), ["old-failed", "old-pending", "recent-dead", "recent-delivered"]);
+  assert.equal((await other.list()).length, 1, "another tenant's old delivered row is not touched by this tenant's purge");
+  // The drain scan no longer carries the purged history.
+  assert.deepEqual((await outbox.list(["pending", "failed"])).map((r) => r.id).sort(), ["old-failed", "old-pending"]);
+});
+
+test("w1-erasure-outbox E2 (memory): the same purge on the in-memory outbox keeps pending/failed, drops settled rows past the window; retentionMs is overridable", async () => {
+  const outbox = new InMemoryWebhookOutbox();
+  for (const status of ["pending", "failed", "delivered", "dead"] as const) {
+    await outbox.enqueue({ id: `evt-${status}`, event: makeEvent(`evt-${status}`), destinationUrl: "http://x/hook" });
+    await outbox.update(`evt-${status}`, { status });
+  }
+  // Inside the window nothing goes.
+  assert.equal(await purgeSettledWebhookOutbox(outbox, { now: new Date() }), 0);
+  assert.equal((await outbox.list()).length, 4);
+  // A shorter window, with a clock past it: only the settled rows go.
+  const later = new Date(Date.now() + 10_000);
+  assert.equal(await purgeSettledWebhookOutbox(outbox, { now: later, retentionMs: 1_000 }), 2);
+  assert.deepEqual((await outbox.list()).map((r) => r.id).sort(), ["evt-failed", "evt-pending"]);
 });

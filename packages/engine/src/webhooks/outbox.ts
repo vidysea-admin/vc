@@ -40,8 +40,34 @@ export interface WebhookOutbox {
   list(statuses?: readonly OutboxRecordStatus[]): Promise<OutboxRecord[]>;
 }
 
+/**
+ * w1-erasure-outbox E2 (ISS-t-034-de-1): how long a SETTLED (delivered / dead) outbox row is kept
+ * before purgeSettledWebhookOutbox removes it. Default 30 days. pending / failed rows are never
+ * purged by age: they are undelivered work (and B15 erasure holds on them).
+ */
+export const WEBHOOK_OUTBOX_RETENTION_MS = 30 * 24 * 3600 * 1000;
+
+/** An outbox that can drop settled rows last touched before an ISO cutoff; returns the count removed. */
+export interface SettledPurgingOutbox {
+  purgeSettled(beforeIso: string): Promise<number>;
+}
+
+/**
+ * Purges delivered / dead rows whose `updatedAt` is older than the retention window, so history
+ * stops growing with the all-time event count. One tenant per outbox (MongoWebhookOutbox is
+ * tenant-scoped), so a scheduler calls this once per tenant. Returns the number removed.
+ */
+export async function purgeSettledWebhookOutbox(
+  outbox: SettledPurgingOutbox,
+  options: { now?: Date; retentionMs?: number } = {},
+): Promise<number> {
+  const now = options.now ?? new Date();
+  const retentionMs = options.retentionMs ?? WEBHOOK_OUTBOX_RETENTION_MS;
+  return outbox.purgeSettled(new Date(now.getTime() - retentionMs).toISOString());
+}
+
 /** In-memory WebhookOutbox for tests (B8/B13 — no real network, no real DB). */
-export class InMemoryWebhookOutbox implements WebhookOutbox {
+export class InMemoryWebhookOutbox implements WebhookOutbox, SettledPurgingOutbox {
   private readonly records = new Map<string, OutboxRecord>();
 
   async enqueue(input: OutboxRecordInput): Promise<OutboxRecord> {
@@ -73,6 +99,17 @@ export class InMemoryWebhookOutbox implements WebhookOutbox {
 
   async list(statuses?: readonly OutboxRecordStatus[]): Promise<OutboxRecord[]> {
     return Array.from(this.records.values()).filter((record) => statuses === undefined || statuses.includes(record.status));
+  }
+
+  async purgeSettled(beforeIso: string): Promise<number> {
+    let removed = 0;
+    for (const [id, record] of this.records) {
+      if ((record.status === "delivered" || record.status === "dead") && record.updatedAt < beforeIso) {
+        this.records.delete(id);
+        removed += 1;
+      }
+    }
+    return removed;
   }
 }
 
@@ -109,7 +146,7 @@ function toRecord(doc: OutboxMongoDoc): OutboxRecord {
  * safety net. Throws TenantScopeError up front if `db` is not tenant-scoped at all, so a caller can
  * never accidentally hand this an unscoped (cross-tenant) Db.
  */
-export class MongoWebhookOutbox implements WebhookOutbox {
+export class MongoWebhookOutbox implements WebhookOutbox, SettledPurgingOutbox {
   private readonly db: Db;
 
   constructor(db: Db) {
@@ -172,5 +209,14 @@ export class MongoWebhookOutbox implements WebhookOutbox {
   async list(statuses?: readonly OutboxRecordStatus[]): Promise<OutboxRecord[]> {
     const docs = (await this.collection().find(statuses === undefined ? {} : { status: { $in: [...statuses] } }).toArray()) as OutboxMongoDoc[];
     return docs.map(toRecord);
+  }
+
+  /** Deletes this tenant's delivered / dead rows with `updatedAt` before `beforeIso` (ISO strings sort chronologically). */
+  async purgeSettled(beforeIso: string): Promise<number> {
+    const res = await this.collection().deleteMany({
+      status: { $in: ["delivered", "dead"] },
+      updatedAt: { $lt: beforeIso },
+    } as Filter<OutboxMongoDoc>);
+    return res.deletedCount ?? 0;
   }
 }

@@ -367,7 +367,9 @@ test("T-034/B15: a queued webhook_outbox event that names the student (event.dat
       data: { requestId: "req-a-1", studentId: a.studentId, reason: "student_request", requestedAt: now },
     },
     destinationUrl: "http://client.invalid/hook",
-    status: "pending",
+    // w1-erasure-outbox E1 (D-112 Q9): only a SETTLED (delivered / dead) event is purged; an undelivered
+    // one holds the erasure (tests below). A's erasure.requested event has been delivered here.
+    status: "delivered",
     attempts: 0,
     createdAt: now,
     updatedAt: now,
@@ -406,6 +408,72 @@ test("T-034/B15: a queued webhook_outbox event that names the student (event.dat
   // B's queued event, naming a different student, survives untouched.
   const remaining = coll(fakeDb, COLLECTION_NAMES.webhook_outbox).all().map((d) => d._id);
   assert.deepEqual(remaining, ["evt:fact.approved:b-1"]);
+});
+
+/** w1-erasure-outbox: seeds one webhook_outbox row naming `studentId`, in the persisted OutboxMongoDoc shape. */
+function seedOutboxEvent(fakeDb: FakeDb, id: string, studentId: string, status: string) {
+  const now = new Date().toISOString();
+  coll(fakeDb, COLLECTION_NAMES.webhook_outbox).seed({
+    _id: id,
+    event: { id, type: "erasure.requested", occurredAt: now, tenantId: "tenant-x", data: { requestId: `req-${id}`, studentId, reason: "student_request", requestedAt: now } },
+    destinationUrl: "http://client.invalid/hook",
+    status,
+    attempts: 0,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+const AUTO_ERASURE_CONFIG = { auditHmacKey: TEST_ERASURE_CONFIG.auditHmacKey, autoDelete: true };
+
+for (const autoDelete of [false, true]) {
+  for (const undelivered of ["pending", "failed"]) {
+    test(`w1-erasure-outbox E1 (autoDelete=${autoDelete}): a ${undelivered} webhook_outbox event for the student is NOT silently dropped -- the erasure is held (retryable, fence kept) while delivered/dead rows are purged; once the event is delivered a retry completes`, async () => {
+      const { db, fakeDb, a, b } = await seedTwo();
+      seedOutboxEvent(fakeDb, "evt:undelivered:a", a.studentId, undelivered);
+      seedOutboxEvent(fakeDb, "evt:delivered:a", a.studentId, "delivered");
+      seedOutboxEvent(fakeDb, "evt:dead:a", a.studentId, "dead");
+      seedOutboxEvent(fakeDb, "evt:pending:b", b.studentId, "pending");
+
+      const { requestId } = await requestErasure(db, { studentId: a.studentId, requestedBy: "counsellor-7", reason: "student_request" });
+      await confirmTwiceAndApprove(db, { requestId, confirmedBy: "admin-2", ...(autoDelete ? { config: AUTO_ERASURE_CONFIG } : {}) });
+      if (autoDelete) assert.equal((await getErasureRequest(db, requestId))?.approvedBy, "system:auto-delete", "sanity: the approver was skipped");
+
+      const err = await executeErasure(db, requestId).then(
+        () => undefined,
+        (e: unknown) => e,
+      );
+      assert.ok(err instanceof ErasureIncompleteError, "an undelivered event holds the erasure");
+      const line = err.receipt.collections.find((l) => l.collection === COLLECTION_NAMES.webhook_outbox);
+      assert.equal(line?.outcome, "failed");
+      assert.match(line?.error ?? "", /^held:/);
+      assert.equal(line?.deleted, 2, "the delivered and the dead rows were purged");
+      assert.equal(line?.remaining, 1, "exactly the undelivered row remains");
+      assert.deepEqual(coll(fakeDb, COLLECTION_NAMES.webhook_outbox).all().map((d) => d._id).sort(), ["evt:pending:b", "evt:undelivered:a"]);
+      assert.equal((await getErasureRequest(db, requestId))?.status, "failed", "held = failed, retryable");
+      assert.equal(await isStudentFenced(db, a.studentId), true, "the student stays fenced while the erasure is held");
+
+      // The drain delivers the event; the retry completes.
+      await coll(fakeDb, COLLECTION_NAMES.webhook_outbox).updateOne({ _id: "evt:undelivered:a" }, { $set: { status: "delivered" } });
+      const outcome = await executeErasure(db, requestId);
+      assert.equal(outcome.status, "completed");
+      assert.equal(outcome.receipt.verified, true);
+      assert.deepEqual(docsMentioning(fakeDb, identifiers(a)), []);
+      assert.deepEqual(coll(fakeDb, COLLECTION_NAMES.webhook_outbox).all().map((d) => d._id), ["evt:pending:b"], "the sibling student's event is untouched");
+    });
+  }
+}
+
+test("w1-erasure-outbox E1: a student with ONLY delivered/dead events completes in one run (settled rows are deleted as before)", async () => {
+  const { db, fakeDb, a } = await seedTwo();
+  seedOutboxEvent(fakeDb, "evt:delivered:a", a.studentId, "delivered");
+  seedOutboxEvent(fakeDb, "evt:dead:a", a.studentId, "dead");
+  const requestId = await confirmedRequest(db, a.studentId);
+  const outcome = await executeErasure(db, requestId);
+  assert.equal(outcome.status, "completed");
+  const line = outcome.receipt.collections.find((l) => l.collection === COLLECTION_NAMES.webhook_outbox);
+  assert.equal(line?.deleted, 2);
+  assert.equal(line?.outcome, "purged");
 });
 
 test("T-042/B15: a queued webhook_emit_gaps row naming the student (flat studentId) is purged by the full erasure -- a sibling student's row is untouched", async () => {

@@ -465,11 +465,19 @@ const ROUTES: RouteDef[] = [
         throw new BadRequest("actor_is_student");
       }
       const { reason } = ctx.body as z.infer<typeof ErasureBodySchema>;
-      const out = await requestErasure(ctx.store(), {
-        studentId: ctx.params.studentId!,
-        requestedBy: ctx.auth.counsellorId,
-        reason,
-      });
+      // w1-erasure-outbox E3: with the erasure workflow configured, a stale never-confirmed request
+      // for this student expires instead of holding the one-open-request slot forever.
+      let auditHmacKey: string | undefined;
+      try {
+        auditHmacKey = ctx.erasureConfig().auditHmacKey;
+      } catch {
+        auditHmacKey = undefined;
+      }
+      const out = await requestErasure(
+        ctx.store(),
+        { studentId: ctx.params.studentId!, requestedBy: ctx.auth.counsellorId, reason },
+        auditHmacKey === undefined ? {} : { auditHmacKey },
+      );
       return { status: 201, body: { requestId: out.requestId } };
     },
   },
