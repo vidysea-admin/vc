@@ -25,7 +25,7 @@ import {
   type MongoClientFactory,
   type ErasureFenceSweepOptions,
 } from "@vc/db";
-import { createModelLanguageDetector, createStudentFactExtractor, escalateTurns, initScribeCheckpointer, parseReplyLangs, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type SpeakersFile, type StudentGraphDeps, type StudentKbPort } from "@vc/engine";
+import { createModelLanguageDetector, createStudentFactExtractor, escalateTurns, initScribeCheckpointer, parseReplyLangs, loadConcernClassifierConfig, concernClassifierProviderConfig, CONCERN_CLASSIFIER_SKILL, loadSkill, type EscalationDeps, type KnowledgeAsker, type SpeakersFile, type StudentGraphDeps, type StudentKbPort } from "@vc/engine";
 import {
   createProvider,
   emitEngineeringAlert,
@@ -100,7 +100,7 @@ export * from "./chat.js";
 export * from "./voice.js";
 
 export function apiStatus(): string {
-  return "@vc/api: HTTP API over the scribe, profile and erasure (T-025); opt-in via startApi({ http })";
+  return "@vc/api: HTTP API over the scribe, live cards, profile and erasure (T-025, T-010); opt-in via startApi({ http })";
 }
 
 /** The repo's skills/ directory (apps/api/src -> repo root). */
@@ -303,6 +303,12 @@ export interface StartApiHttpOptions {
   /** Tests inject a MockProvider; default: createProvider(loadProviderConfig(env)). The scribe and the concern classifier use this; the student chat and anonymous surfaces use it only when VC_TEXT_CHAIN is unset (P1 LK1w). */
   provider?: LlmProvider;
   skillsDir?: string;
+  /**
+   * T-010: the KnowledgeBase `/ask` client for evidence cards (@vc/mcp-university-kb `KnowledgeBaseClient` fits as-is). Omitted:
+   * live cards still run, knowledge is "not_configured" and no `kb` source can resolve, so no evidence card is shown uncited (B2).
+   * NOTE (go-live gap): the launcher (main.ts) does not supply this yet; only a caller of startApi can.
+   */
+  kb?: KnowledgeAsker;
   /** Trusted dependency factory, never populated from HTTP request bodies. */
   escalationForTenant?: (tenantId: string) => EscalationDeps;
   log?: (line: ApiLogLine) => void;
@@ -798,6 +804,8 @@ export async function startApi(
         verifier: guardCounsellorVerifier(httpSetup.verifier),
         dbForTenant: wiring.dbForTenant,
         graphForTenant: wiring.graphForTenant,
+        // T-010: live cards are counsellor-facing, so they use the counsellor/scribe provider (httpSetup.provider), NOT the student chain.
+        cards: { provider: httpSetup.provider, skillsDir: httpSetup.skillsDir, ...(http?.kb ? { kb: http.kb } : {}) },
         ...(http?.log ? { log: http.log } : {}),
         ...(http?.writerDeadlineMs !== undefined ? { writerDeadlineMs: http.writerDeadlineMs } : {}),
         // T-029: read (and validated) per reconfirm call; a config error is a 503, never a fallback.
