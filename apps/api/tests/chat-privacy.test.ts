@@ -1041,6 +1041,42 @@ test("w1 C1 fix1: a flood of crisis turns still leaves the budget for a concern 
   }
 });
 
+// Fix cycle 2 (coordinator A): the budget key must carry the turn's crisis LEVEL as well as its write path. On the textless path (an unconsented minor,
+// an over-long turn) the flag row is the only crisis record, so concern-level turns there must never spend a crisis-level turn's budget.
+const OVERLONG_CONCERN = "I feel hopeless about my marks. " + "x ".repeat(3000);
+for (const [label, who, concernText] of [
+  ["an unconsented minor", () => minor(), CONCERN_TEXT],
+  ["an unconsented minor with over-long concern turns", () => minor(), OVERLONG_CONCERN],
+  ["a consenting minor", () => minor("stu-1", "tenant-a", { guardianConsent: true }), CONCERN_TEXT],
+  ["an adult with over-long concern turns", () => adult(), OVERLONG_CONCERN],
+] as const) {
+  test(`w1 C1 fix2: for ${label}, 12 concern turns on separate threads do not take the flag row of the next crisis turn`, async () => {
+    const w = chatWorld();
+    try {
+      const token = await studentToken(who());
+      for (let i = 0; i < 12; i++) assert.equal((await freshThreadTurn(w, token, concernText, `f2-cn-${i}`)).status, 200);
+      const flagsBefore = flagRows(w).length;
+      const res = await freshThreadTurn(w, token, CRISIS_TEXT, "f2-crisis");
+      assert.ok(helplineOk(res), "the crisis turn gets the unchanged helpline");
+      assert.equal(flagRows(w).length, flagsBefore + 1, "the crisis turn has its own flag row");
+    } finally {
+      w.cleanup();
+    }
+  });
+}
+
+test("w1 C1 fix2: an unconsented minor's crisis turns on the textless path stay capped at 10 flag rows and store no text", async () => {
+  const w = chatWorld();
+  try {
+    const token = await studentToken(minor());
+    for (let i = 0; i < 30; i++) assert.ok(helplineOk(await freshThreadTurn(w, token, CRISIS_TEXT, `f2-fl-${i}`)));
+    assert.ok(flagRows(w).length >= 1 && flagRows(w).length <= 10, `crisis flags capped, got ${flagRows(w).length}`);
+    assert.equal(w.fakeDb.collection(COLLECTION_NAMES.chat_turns).all().length, 0, "no text stored for an unconsented minor");
+  } finally {
+    w.cleanup();
+  }
+});
+
 // C2 / ISS-198: a lower-case one-letter initial before a surname.
 for (const [intro, leaked] of [
   ["my name is s. kumar", ["kumar"]],

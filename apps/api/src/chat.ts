@@ -722,9 +722,10 @@ export function createChatApi(deps: ChatApiDeps, route: ChatRouteConfig): ApiHan
     const holdsSlot = taken?.holds === true;
     // w1-chat-privacy (ISS-157): a turn that would write spends the student's window budget (tenant + student, across threads). Past it the turn is
     // quiet: answered with the helpline, nothing written, and a slot it took is given back below.
-    // Fix cycle 1: the budget is kept per KIND of turn (slotRank: 2 crisis that can escalate, 1 concern that can escalate, 0 textless), so a concern-level,
-    // over-long or unconsented turn can never spend what an escalation-capable crisis turn needs; the writes per kind, and so in all, stay capped.
-    const overBudget = slotKey !== undefined && (holdsSlot || loose) && !takeCrisisBudget(sha256(`budget\u0000${ctx.tenantId}\u0000${ctx.studentId}\u0000${slotRank}`));
+    // Fix cycles 1-2: the budget is kept per KIND of turn: its write path (full, or textless for an over-long turn or an unconsented minor, where the flag row
+    // is the only crisis record) AND its crisis level, so a concern-level turn can never spend what a crisis-level turn needs on any path; the writes per
+    // kind, and so in all, stay capped.
+    const overBudget = slotKey !== undefined && (holdsSlot || loose) && !takeCrisisBudget(sha256(`budget\u0000${ctx.tenantId}\u0000${ctx.studentId}\u0000${slotRank === 0 ? "textless" : "full"}\u0000${level}`));
     const quiet = (taken !== undefined && !taken.holds && !loose) || overBudget;
     let slotConfirmed = false;
     const runTurn = async (): Promise<ApiResponse> => {
