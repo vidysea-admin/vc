@@ -17,6 +17,7 @@ import { createJwtVerifier, jwtConfigFromEnv } from "../src/auth.js";
 import { API_ROUTES, createApiHandler, createApiServer, createTenantWiring, type ApiDeps, type ApiLogLine, type ApiRequest } from "../src/server.js";
 import { OPENAPI_DOCUMENT } from "../src/openapi.js";
 import { startApi } from "../src/index.js";
+import { CHAIN_ENV } from "./anonymous-fixtures.js";
 
 const SKILLS_DIR = fileURLToPath(new URL("../../../skills", import.meta.url));
 const ISSUER = "https://issuer.synthetic.test";
@@ -1404,7 +1405,8 @@ test("T-010 api: the new error mappings are scoped to the cards routes; other ro
 });
 
 test("T-010 api: startApi wires the cards routes to the counsellor provider and the injected KB (outcome over real HTTP); no kb means knowledge not_configured", async () => {
-  for (const withKb of [true, false]) {
+  // The third variant sets VC_TEXT_CHAIN: the student surfaces then run on a (synthetic Ollama) chain, and the cards must STILL use the injected counsellor provider.
+  for (const [withKb, chain] of [[true, false], [false, false], [true, true]] as const) {
     const fake = createFakeMongoClient();
     getVcDb(fake.client); // creates the virtual_counsellor fake db, as world() does
     const scoped = tenantScopedDb(fake.dbFor(VC_DB_NAME) as unknown as Parameters<typeof tenantScopedDb>[0], "tenant-a");
@@ -1431,7 +1433,7 @@ test("T-010 api: startApi wires the cards routes to the counsellor provider and 
     const provider = cardsProvider();
     const kb = new FakeKb(KB_OK);
     const api = await startApi(
-      { MONGODB_URL: "mongodb://fake-host/ignored" },
+      { MONGODB_URL: "mongodb://fake-host/ignored", ...(chain ? CHAIN_ENV : {}) },
       { clientFactory: () => fake.client, http: { port: 0, verifier, provider, skillsDir: SKILLS_DIR, ...(withKb ? { kb } : {}) } },
     );
     try {
@@ -1439,7 +1441,8 @@ test("T-010 api: startApi wires the cards routes to the counsellor provider and 
       const res = await fetch(`http://127.0.0.1:${api.port}${CARDS_URL}`, { method: "POST", headers, body: JSON.stringify({ turns: START_BODY.turns }) });
       assert.equal(res.status, 200);
       const json = (await res.json()) as AnyDoc;
-      assert.equal(plannerCalls(provider).length, 1, "the injected counsellor provider served the request");
+      assert.equal(json.status, "ok", `chain=${chain}`);
+      assert.equal(plannerCalls(provider).length, 1, `the injected counsellor provider served the request (chain=${chain})`);
       assert.equal(json.knowledge, withKb ? "ok" : "not_configured");
       assert.equal(kb.queries.length, withKb ? 1 : 0);
       if (withKb) assert.ok((json.cards as { sources: { type: string }[] }[]).some((c) => c.sources.some((s) => s.type === "kb")));
