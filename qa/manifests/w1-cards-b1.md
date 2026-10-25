@@ -4,7 +4,7 @@ Policy-Version: proportional-verification/2026-10-19.17
 **Goal task:** none
 **Date:** 2026-10-25
 **Fix cycle:** 0
-**Status:** ready-for-check
+**Status:** checked-PASS (cycle 0, verdict 82bc192, merged 0341837)
 **Executor:** claude-sonnet-subagent
 **Base:** main da2faad, branch wave/w1-cards-b1, worktree D:/vc/.worktrees/w1-cards-b1, code commit 27f5418.
 **Re-scope:** the original K1 (merge wave/t-010-live-cards) hit non-cards conflicts and was returned BLOCKED (apps/api/src/index.ts, apps/api/src/server.ts, apps/api/tests/server.test.ts, apps/web/demo/seed.ts, packages/engine/src/index.ts, packages/engine/tests/loader.test.ts, packages/schemas/src/guards.ts, packages/schemas/src/schemas.ts, skills/exploration-planner/SKILL.md). The orchestrator re-scoped to a read-only comparison (K1) and a B1 fix on main's T-049 code (K2). Nothing from wave/t-010-live-cards was merged or ported.
