@@ -1,6 +1,6 @@
 # T-052 — replay-safe session lifecycle prerequisite
 
-Status: in-progress
+Status: STALLED (HUMAN_GATE qa/gates/t052-stall.md; F-probes 19c9805)
 Fix cycle: 2
 Policy-Version: proportional-verification/2026-10-16.13
 Protocol hashes: maker=fd9b86c33cc7b64092fb738bf1300c2897c50c9556f6a9523b1d9cdd11d768b5 checker=ca05aa09e6f5287ec1b8d444fee9a4d2ba6816dc57017b138e1927a863294834
